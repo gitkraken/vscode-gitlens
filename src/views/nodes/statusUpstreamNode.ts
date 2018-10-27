@@ -7,6 +7,7 @@ import { RepositoriesView } from '../repositoriesView';
 import { CommitNode } from './commitNode';
 import { ShowMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
+import { RepositoryNode } from './repositoryNode';
 import { PageableViewNode, ResourceType, ViewNode } from './viewNode';
 
 export class StatusUpstreamNode extends ViewNode implements PageableViewNode {
@@ -16,7 +17,7 @@ export class StatusUpstreamNode extends ViewNode implements PageableViewNode {
     constructor(
         public readonly status: GitStatus,
         public readonly direction: 'ahead' | 'behind',
-        parent: ViewNode,
+        parent: RepositoryNode,
         public readonly view: RepositoriesView
     ) {
         super(GitUri.fromRepoPath(status.repoPath), parent);
@@ -76,7 +77,7 @@ export class StatusUpstreamNode extends ViewNode implements PageableViewNode {
 
         const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
         item.id = this.id;
-        item.contextValue = ResourceType.StatusUpstream;
+        item.contextValue = ahead ? ResourceType.StatusAheadOfUpstream : ResourceType.StatusBehindUpstream;
         item.tooltip = `${label}${ahead ? ' of ' : ''}${this.status.upstream}`;
 
         const iconSuffix = ahead ? 'upload' : 'download';

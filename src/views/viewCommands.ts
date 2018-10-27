@@ -113,13 +113,19 @@ export class ViewCommands implements Disposable {
         return node.fetch();
     }
 
-    private pull(node: RepositoryNode) {
+    private pull(node: RepositoryNode | StatusUpstreamNode) {
+        if (node instanceof StatusUpstreamNode) {
+            node = node.getParent() as RepositoryNode;
+        }
         if (!(node instanceof RepositoryNode)) return;
 
         return node.pull();
     }
 
-    private push(node: RepositoryNode) {
+    private push(node: RepositoryNode | StatusUpstreamNode) {
+        if (node instanceof StatusUpstreamNode) {
+            node = node.getParent() as RepositoryNode;
+        }
         if (!(node instanceof RepositoryNode)) return;
 
         return node.push();

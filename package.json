@@ -3495,11 +3495,31 @@
                 {
                     "command": "gitlens.views.pull",
                     "when": "viewItem == gitlens:repository && gitlens:hasRemotes",
-                    "group": "1_gitlens@2"
+                    "group": "1_gitlens@1"
                 },
                 {
                     "command": "gitlens.views.push",
                     "when": "viewItem == gitlens:repository && gitlens:hasRemotes",
+                    "group": "1_gitlens@1"
+                },
+                {
+                    "command": "gitlens.views.pull",
+                    "when": "viewItem == gitlens:status:upstream:behind && gitlens:hasRemotes",
+                    "group": "inline@1"
+                },
+                {
+                    "command": "gitlens.views.push",
+                    "when": "viewItem == gitlens:status:upstream:ahead && gitlens:hasRemotes",
+                    "group": "inline@1"
+                },
+                {
+                    "command": "gitlens.views.pull",
+                    "when": "viewItem == gitlens:status:upstream:behind && gitlens:hasRemotes",
+                    "group": "1_gitlens@2"
+                },
+                {
+                    "command": "gitlens.views.push",
+                    "when": "viewItem == gitlens:status:upstream:ahead && gitlens:hasRemotes",
                     "group": "1_gitlens@3"
                 },
                 {

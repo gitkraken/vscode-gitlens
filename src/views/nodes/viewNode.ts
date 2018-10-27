@@ -40,7 +40,8 @@ export enum ResourceType {
     Stashes = 'gitlens:stashes',
     StatusFileCommits = 'gitlens:status:file:commits',
     StatusFiles = 'gitlens:status:files',
-    StatusUpstream = 'gitlens:status:upstream',
+    StatusAheadOfUpstream = 'gitlens:status:upstream:ahead',
+    StatusBehindUpstream = 'gitlens:status:upstream:behind',
     Tag = 'gitlens:tag',
     Tags = 'gitlens:tags'
 }
