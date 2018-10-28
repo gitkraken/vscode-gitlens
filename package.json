@@ -1864,7 +1864,7 @@
                 "category": "GitLens"
             },
             {
-                "command": "gitlens.views.repositories.fetchAll",
+                "command": "gitlens.fetchRepositories",
                 "title": "Fetch Repositories",
                 "category": "GitLens",
                 "icon": {
@@ -1873,7 +1873,7 @@
                 }
             },
             {
-                "command": "gitlens.views.repositories.pullAll",
+                "command": "gitlens.pullRepositories",
                 "title": "Pull Repositories",
                 "category": "GitLens",
                 "icon": {
@@ -1902,6 +1902,15 @@
             {
                 "command": "gitlens.views.push",
                 "title": "Push Repository",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-upload.svg",
+                    "light": "images/light/icon-upload.svg"
+                }
+            },
+            {
+                "command": "gitlens.views.pushWithForce",
+                "title": "Push (force) Repository",
                 "category": "GitLens",
                 "icon": {
                     "dark": "images/dark/icon-upload.svg",
@@ -2530,12 +2539,12 @@
                     "when": "false"
                 },
                 {
-                    "command": "gitlens.views.repositories.fetchAll",
-                    "when": "false"
+                    "command": "gitlens.fetchRepositories",
+                    "when": "gitlens:hasRemotes"
                 },
                 {
-                    "command": "gitlens.views.repositories.pullAll",
-                    "when": "false"
+                    "command": "gitlens.pullRepositories",
+                    "when": "gitlens:hasRemotes"
                 },
                 {
                     "command": "gitlens.views.fetch",
@@ -2547,6 +2556,10 @@
                 },
                 {
                     "command": "gitlens.views.push",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.views.pushWithForce",
                     "when": "false"
                 },
                 {
@@ -3051,12 +3064,12 @@
                     "group": "navigation@1"
                 },
                 {
-                    "command": "gitlens.views.repositories.pullAll",
+                    "command": "gitlens.pullRepositories",
                     "when": "view =~ /^gitlens.views.repositories:/",
                     "group": "navigation@7"
                 },
                 {
-                    "command": "gitlens.views.repositories.fetchAll",
+                    "command": "gitlens.fetchRepositories",
                     "when": "view =~ /^gitlens.views.repositories:/",
                     "group": "navigation@8"
                 },
@@ -3475,7 +3488,8 @@
                 {
                     "command": "gitlens.views.push",
                     "when": "viewItem == gitlens:repository && gitlens:hasRemotes",
-                    "group": "inline@97"
+                    "group": "inline@97",
+                    "alt": "gitlens.views.pushWithForce"
                 },
                 {
                     "command": "gitlens.views.pull",
@@ -3503,24 +3517,35 @@
                     "group": "1_gitlens@1"
                 },
                 {
-                    "command": "gitlens.views.pull",
-                    "when": "viewItem == gitlens:status:upstream:behind && gitlens:hasRemotes",
-                    "group": "inline@1"
-                },
-                {
-                    "command": "gitlens.views.push",
-                    "when": "viewItem == gitlens:status:upstream:ahead && gitlens:hasRemotes",
-                    "group": "inline@1"
-                },
-                {
-                    "command": "gitlens.views.pull",
-                    "when": "viewItem == gitlens:status:upstream:behind && gitlens:hasRemotes",
+                    "command": "gitlens.views.pushWithForce",
+                    "when": "viewItem == gitlens:repository && gitlens:hasRemotes",
                     "group": "1_gitlens@2"
                 },
                 {
+                    "command": "gitlens.views.pull",
+                    "when": "viewItem == gitlens:status:upstream:behind && gitlens:hasRemotes",
+                    "group": "inline@1"
+                },
+                {
+                    "command": "gitlens.views.pull",
+                    "when": "viewItem == gitlens:status:upstream:behind && gitlens:hasRemotes",
+                    "group": "1_gitlens@1"
+                },
+                {
                     "command": "gitlens.views.push",
                     "when": "viewItem == gitlens:status:upstream:ahead && gitlens:hasRemotes",
-                    "group": "1_gitlens@3"
+                    "group": "inline@1",
+                    "alt": "gitlens.views.pushWithForce"
+                },
+                {
+                    "command": "gitlens.views.push",
+                    "when": "viewItem == gitlens:status:upstream:ahead && gitlens:hasRemotes",
+                    "group": "1_gitlens@1"
+                },
+                {
+                    "command": "gitlens.views.pushWithForce",
+                    "when": "viewItem == gitlens:status:upstream:ahead && gitlens:hasRemotes",
+                    "group": "1_gitlens@2"
                 },
                 {
                     "command": "gitlens.showCommitSearch",

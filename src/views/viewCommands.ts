@@ -52,6 +52,7 @@ export class ViewCommands implements Disposable {
         commands.registerCommand('gitlens.views.fetch', this.fetch, this);
         commands.registerCommand('gitlens.views.pull', this.pull, this);
         commands.registerCommand('gitlens.views.push', this.push, this);
+        commands.registerCommand('gitlens.views.pushWithForce', n => this.push(n, true), this);
         commands.registerCommand('gitlens.views.closeRepository', this.closeRepository, this);
 
         commands.registerCommand('gitlens.views.exploreRepoRevision', this.exploreRepoRevision, this);
@@ -122,13 +123,13 @@ export class ViewCommands implements Disposable {
         return node.pull();
     }
 
-    private push(node: RepositoryNode | StatusUpstreamNode) {
+    private push(node: RepositoryNode | StatusUpstreamNode, force?: boolean) {
         if (node instanceof StatusUpstreamNode) {
             node = node.getParent() as RepositoryNode;
         }
         if (!(node instanceof RepositoryNode)) return;
 
-        return node.push();
+        return node.push(force);
     }
 
     private async applyChanges(node: CommitFileNode | StashFileNode | ResultsFileNode) {

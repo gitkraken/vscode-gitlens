@@ -1,18 +1,22 @@
 'use strict';
-import * as _path from 'path';
+import * as fs from 'fs';
+import * as paths from 'path';
 import {
+    commands,
     ConfigurationChangeEvent,
     Disposable,
     Event,
     EventEmitter,
+    ProgressLocation,
     RelativePattern,
     Uri,
+    window,
     workspace,
     WorkspaceFolder
 } from 'vscode';
 import { configuration, RemotesConfig } from '../../configuration';
 import { Container } from '../../container';
-import { Functions } from '../../system';
+import { Functions, gate, log } from '../../system';
 import { GitBranch, GitDiffShortStat, GitRemote, GitStash, GitStatus, GitTag } from '../git';
 import { GitUri } from '../gitUri';
 import { RemoteProviderFactory, RemoteProviders } from '../remotes/factory';
@@ -55,10 +59,6 @@ export interface RepositoryFileSystemChangeEvent {
     readonly uris: Uri[];
 }
 
-export enum RepositoryStorage {
-    StatusNode = 'statusNode'
-}
-
 export class Repository implements Disposable {
     private _onDidChange = new EventEmitter<RepositoryChangeEvent>();
     get onDidChange(): Event<RepositoryChangeEvent> {
@@ -74,7 +74,6 @@ export class Repository implements Disposable {
     readonly index: number;
     readonly name: string;
     readonly normalizedPath: string;
-    // readonly storage: Map<string, any> = new Map();
 
     private _branch: Promise<GitBranch | undefined> | undefined;
     private readonly _disposable: Disposable;
@@ -99,7 +98,7 @@ export class Repository implements Disposable {
             this.formattedName = folder.name;
         }
         else {
-            const relativePath = _path.relative(folder.uri.fsPath, path);
+            const relativePath = paths.relative(folder.uri.fsPath, path);
             this.formattedName = relativePath ? `${folder.name} (${relativePath})` : folder.name;
         }
         this.index = folder.index;
@@ -224,6 +223,27 @@ export class Repository implements Disposable {
         return this.folder === workspace.getWorkspaceFolder(uri);
     }
 
+    @gate()
+    @log()
+    async fetch(progress: boolean = true) {
+        if (!progress) return this.fetchCore();
+
+        await window.withProgress(
+            {
+                location: ProgressLocation.Notification,
+                title: `Fetching ${this.formattedName}...`,
+                cancellable: false
+            },
+            () => this.fetchCore()
+        );
+    }
+
+    private async fetchCore() {
+        await commands.executeCommand('git.fetch', this.path);
+
+        this.fireChange(RepositoryChange.Repository);
+    }
+
     getBranch(): Promise<GitBranch | undefined> {
         if (this._branch === undefined) {
             this._branch = Container.git.getBranch(this.path);
@@ -237,6 +257,15 @@ export class Repository implements Disposable {
 
     getChangedFilesCount(sha?: string): Promise<GitDiffShortStat | undefined> {
         return Container.git.getChangedFilesCount(this.path, sha);
+    }
+
+    async getLastFetched(): Promise<number> {
+        const hasRemotes = await this.hasRemotes();
+        if (!hasRemotes) return 0;
+
+        return new Promise<number>((resolve, reject) =>
+            fs.stat(paths.join(this.path, '.git/FETCH_HEAD'), (err, stat) => resolve(err ? 0 : stat.mtime.getTime()))
+        );
     }
 
     getRemotes(): Promise<GitRemote[]> {
@@ -275,6 +304,48 @@ export class Repository implements Disposable {
     async hasTrackingBranch(): Promise<boolean> {
         const branch = await this.getBranch();
         return branch !== undefined && branch.tracking !== undefined;
+    }
+
+    @gate()
+    @log()
+    async pull(progress: boolean = true) {
+        if (!progress) return this.pullCore();
+
+        await window.withProgress(
+            {
+                location: ProgressLocation.Notification,
+                title: `Pulling ${this.formattedName}...`,
+                cancellable: false
+            },
+            () => this.pullCore()
+        );
+    }
+
+    private async pullCore() {
+        await commands.executeCommand('git.pull', this.path);
+
+        this.fireChange(RepositoryChange.Repository);
+    }
+
+    @gate()
+    @log()
+    async push(force: boolean = false, progress: boolean = true) {
+        if (!progress) return this.pushCore(force);
+
+        await window.withProgress(
+            {
+                location: ProgressLocation.Notification,
+                title: `Pushing ${this.formattedName}...`,
+                cancellable: false
+            },
+            () => this.pushCore(force)
+        );
+    }
+
+    private async pushCore(force: boolean = false) {
+        await commands.executeCommand(force ? 'git.pushForce' : 'git.push', this.path);
+
+        this.fireChange(RepositoryChange.Repository);
     }
 
     resume() {

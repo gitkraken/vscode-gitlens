@@ -8,6 +8,7 @@ import {
     EventEmitter,
     extensions,
     MessageItem,
+    ProgressLocation,
     Range,
     TextEditor,
     Uri,
@@ -23,7 +24,7 @@ import { CommandContext, DocumentSchemes, GlyphChars, setCommandContext } from '
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { Iterables, Objects, Strings, TernarySearchTree, Versions } from '../system';
+import { gate, Iterables, log, Objects, Strings, TernarySearchTree, Versions } from '../system';
 import { CachedBlame, CachedDiff, CachedLog, GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 import {
     CommitFormatting,
@@ -461,6 +462,62 @@ export class GitService implements Disposable {
         Logger.log(`checkoutFile('${uri.repoPath}', '${uri.fsPath}', '${ref}')`);
 
         return Git.checkout(uri.repoPath, uri.fsPath, ref);
+    }
+
+    @gate()
+    @log()
+    async fetchAll() {
+        const repositories = [...(await this.getRepositories())];
+        if (repositories.length === 0) return;
+
+        await window.withProgress(
+            {
+                location: ProgressLocation.Notification,
+                title: `Fetching repositories`,
+                cancellable: false
+            },
+            async progress => {
+                const total = repositories.length + 1;
+                let i = 0;
+                for (const repo of repositories) {
+                    i++;
+                    progress.report({
+                        message: `${repo.formattedName}...`,
+                        increment: (i / total) * 100
+                    });
+
+                    await repo.fetch(false);
+                }
+            }
+        );
+    }
+
+    @gate()
+    @log()
+    async pullAll() {
+        const repositories = [...(await this.getRepositories())];
+        if (repositories.length === 0) return;
+
+        await window.withProgress(
+            {
+                location: ProgressLocation.Notification,
+                title: `Pulling repositories`,
+                cancellable: false
+            },
+            async progress => {
+                const total = repositories.length + 1;
+                let i = 0;
+                for (const repo of repositories) {
+                    i++;
+                    progress.report({
+                        message: `${repo.formattedName}...`,
+                        increment: (i / total) * 100
+                    });
+
+                    await repo.pull(false);
+                }
+            }
+        );
     }
 
     private async fileExists(

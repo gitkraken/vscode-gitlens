@@ -25,9 +25,6 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
     protected registerCommands() {
         Container.viewCommands;
 
-        commands.registerCommand(this.getQualifiedCommand('fetchAll'), () => this.fetchAll(), this);
-        commands.registerCommand(this.getQualifiedCommand('pullAll'), () => this.pullAll(), this);
-
         commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(), this);
         commands.registerCommand(
             this.getQualifiedCommand('refreshNode'),
@@ -100,18 +97,6 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 
     get config(): ViewsConfig & RepositoriesViewConfig {
         return { ...Container.config.views, ...Container.config.views.repositories };
-    }
-
-    private fetchAll() {
-        if (this._root === undefined) return;
-
-        return this._root.fetchAll();
-    }
-
-    private pullAll() {
-        if (this._root === undefined) return;
-
-        return this._root.pullAll();
     }
 
     private async setAutoRefresh(enabled: boolean, workspaceEnabled?: boolean) {

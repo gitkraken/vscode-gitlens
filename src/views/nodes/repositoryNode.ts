@@ -1,7 +1,5 @@
 'use strict';
-import * as fs from 'fs';
-import * as path from 'path';
-import { commands, Disposable, ProgressLocation, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import {
@@ -93,7 +91,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
     async getTreeItem(): Promise<TreeItem> {
         let label = this.repo.formattedName || this.uri.repoPath || '';
 
-        this._lastFetched = await this.getLastFetched();
+        this._lastFetched = await this.repo.getLastFetched();
 
         const lastFetchedTooltip = this.formatLastFetched({
             prefix: `${Strings.pad(GlyphChars.Dash, 2, 2)}Last fetched on `,
@@ -168,69 +166,19 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
         return item;
     }
 
-    @gate()
     @log()
-    async fetch(progress: boolean = true) {
-        if (!progress) return this.fetchCore();
-
-        await window.withProgress(
-            {
-                location: ProgressLocation.Notification,
-                title: `Fetching ${this.repo.formattedName}...`,
-                cancellable: false
-            },
-            () => this.fetchCore()
-        );
+    fetch(progress: boolean = true) {
+        return this.repo.fetch(progress);
     }
 
-    private async fetchCore() {
-        await commands.executeCommand('git.fetch', this.repo.path);
-
-        await this.updateLastFetched();
-        this.view.triggerNodeChange(this);
-    }
-
-    @gate()
     @log()
-    async pull(progress: boolean = true) {
-        if (!progress) return this.pullCore();
-
-        await window.withProgress(
-            {
-                location: ProgressLocation.Notification,
-                title: `Pulling ${this.repo.formattedName}...`,
-                cancellable: false
-            },
-            () => this.pullCore()
-        );
+    pull(progress: boolean = true) {
+        return this.repo.pull(progress);
     }
 
-    private async pullCore() {
-        await commands.executeCommand('git.pull', this.repo.path);
-
-        await this.updateLastFetched();
-        this.view.triggerNodeChange(this);
-    }
-
-    @gate()
     @log()
-    async push(progress: boolean = true) {
-        if (!progress) return this.pushCore();
-
-        await window.withProgress(
-            {
-                location: ProgressLocation.Notification,
-                title: `Pushing ${this.repo.formattedName}...`,
-                cancellable: false
-            },
-            () => this.pushCore()
-        );
-    }
-
-    private async pushCore() {
-        await commands.executeCommand('git.push', this.repo.path);
-
-        this.view.triggerNodeChange(this);
+    push(force: boolean = false, progress: boolean = true) {
+        return this.repo.push(force, progress);
     }
 
     @gate()
@@ -303,21 +251,21 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
         if (e.changed(RepositoryChange.Stashes)) {
             const node = this._children.find(c => c instanceof StashesNode);
             if (node !== undefined) {
-                void this.triggerChange();
+                void this.view.triggerNodeChange(node);
             }
         }
 
         if (e.changed(RepositoryChange.Remotes)) {
             const node = this._children.find(c => c instanceof RemotesNode);
             if (node !== undefined) {
-                void this.triggerChange();
+                void this.view.triggerNodeChange(node);
             }
         }
 
         if (e.changed(RepositoryChange.Tags)) {
             const node = this._children.find(c => c instanceof TagsNode);
             if (node !== undefined) {
-                void this.triggerChange();
+                void this.view.triggerNodeChange(node);
             }
         }
     }
@@ -334,21 +282,10 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
         )}`;
     }
 
-    private async getLastFetched(): Promise<number> {
-        const hasRemotes = await this.repo.hasRemotes();
-        if (!hasRemotes) return 0;
-
-        return new Promise<number>((resolve, reject) =>
-            fs.stat(path.join(this.repo.path, '.git/FETCH_HEAD'), (err, stat) =>
-                resolve(err ? 0 : stat.mtime.getTime())
-            )
-        );
-    }
-
     @debug()
     private async updateLastFetched() {
         const prevLastFetched = this._lastFetched;
-        this._lastFetched = await this.getLastFetched();
+        this._lastFetched = await this.repo.getLastFetched();
 
         // If the fetched date hasn't changed and it was over a day ago, kick out
         if (this._lastFetched === prevLastFetched && Date.now() - this._lastFetched >= Dates.MillisecondsPerDay) return;

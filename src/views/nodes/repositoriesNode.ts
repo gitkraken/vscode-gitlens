@@ -1,9 +1,9 @@
 'use strict';
-import { Disposable, ProgressLocation, TextEditor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { Disposable, TextEditor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { Container } from '../../container';
 import { GitUri } from '../../git/gitService';
 import { Logger } from '../../logger';
-import { debug, Functions, gate, log } from '../../system';
+import { debug, Functions, gate } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { RefreshReason } from '../viewBase';
 import { MessageNode } from './common';
@@ -55,66 +55,6 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
         void this.ensureSubscription();
 
         return item;
-    }
-
-    @gate()
-    @log()
-    async fetchAll() {
-        if (this._children === undefined || this._children.length === 0) return;
-
-        const children = this._children;
-        await window.withProgress(
-            {
-                location: ProgressLocation.Notification,
-                title: `Fetching repositories`,
-                cancellable: false
-            },
-            async progress => {
-                const total = children.length + 1;
-                let i = 0;
-                for (const node of children) {
-                    if (node instanceof MessageNode) continue;
-
-                    i++;
-                    progress.report({
-                        message: `${node.repo.formattedName}...`,
-                        increment: (i / total) * 100
-                    });
-
-                    await node.fetch(false);
-                }
-            }
-        );
-    }
-
-    @gate()
-    @log()
-    async pullAll() {
-        if (this._children === undefined || this._children.length === 0) return;
-
-        const children = this._children;
-        await window.withProgress(
-            {
-                location: ProgressLocation.Notification,
-                title: `Pulling repositories`,
-                cancellable: false
-            },
-            async progress => {
-                const total = children.length + 1;
-                let i = 0;
-                for (const node of children) {
-                    if (node instanceof MessageNode) continue;
-
-                    i++;
-                    progress.report({
-                        message: `${node.repo.formattedName}...`,
-                        increment: (i / total) * 100
-                    });
-
-                    await node.pull(false);
-                }
-            }
-        );
     }
 
     @gate()
