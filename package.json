@@ -3599,12 +3599,12 @@
                 },
                 {
                     "command": "gitlens.stashSave",
-                    "when": "viewItem == gitlens:stashes",
+                    "when": "viewItem =~ /^gitlens:(stashes|status:files)$/",
                     "group": "inline@1"
                 },
                 {
                     "command": "gitlens.stashSave",
-                    "when": "viewItem == gitlens:stashes",
+                    "when": "viewItem =~ /^gitlens:(stashes|status:files)$/",
                     "group": "1_gitlens@1"
                 },
                 {
