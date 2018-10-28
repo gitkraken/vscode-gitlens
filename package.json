@@ -3598,9 +3598,14 @@
                     "group": "7_gitlens@1"
                 },
                 {
+                    "command": "gitlens.stashApply",
+                    "when": "viewItem == gitlens:stashes",
+                    "group": "inline@1"
+                },
+                {
                     "command": "gitlens.stashSave",
                     "when": "viewItem =~ /^gitlens:(stashes|status:files)$/",
-                    "group": "inline@1"
+                    "group": "inline@2"
                 },
                 {
                     "command": "gitlens.stashSave",
