@@ -16,6 +16,10 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode> {
         return new LineHistoryTrackerNode(this);
     }
 
+    protected get location(): string {
+        return this.config.location;
+    }
+
     protected registerCommands() {
         Container.viewCommands;
         commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(), this);

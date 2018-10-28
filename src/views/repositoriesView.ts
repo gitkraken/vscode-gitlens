@@ -22,6 +22,10 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
         return new RepositoriesNode(this);
     }
 
+    protected get location(): string {
+        return this.config.location;
+    }
+
     protected registerCommands() {
         Container.viewCommands;
 

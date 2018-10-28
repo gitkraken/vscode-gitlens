@@ -1,5 +1,6 @@
 'use strict';
 import {
+    commands,
     ConfigurationChangeEvent,
     Disposable,
     Event,
@@ -72,6 +73,8 @@ export abstract class ViewBase<TRoot extends ViewNode> implements TreeDataProvid
     getQualifiedCommand(command: string) {
         return `${this.id}.${command}`;
     }
+
+    protected abstract get location(): string;
 
     protected abstract getRoot(): TRoot;
     protected abstract registerCommands(): void;
@@ -178,7 +181,7 @@ export abstract class ViewBase<TRoot extends ViewNode> implements TreeDataProvid
             focus?: boolean | undefined;
         }
     ) {
-        if (this._tree === undefined || this._root === undefined) return;
+        if (this._tree === undefined) return;
 
         try {
             await this._tree.reveal(node, options);
@@ -189,12 +192,9 @@ export abstract class ViewBase<TRoot extends ViewNode> implements TreeDataProvid
     }
 
     @log()
-    async show() {
-        if (this._tree === undefined || this._root === undefined) return;
-
-        // This sucks -- have to get the first child to reveal the tree
-        const [child] = await this._root.getChildren();
-        return this.reveal(child, { select: false, focus: true });
+    show() {
+        const location = this.location;
+        return commands.executeCommand(`${this.id}${location ? `:${location}` : ''}.focus`);
     }
 
     @debug({

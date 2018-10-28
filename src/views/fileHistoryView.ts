@@ -16,6 +16,10 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode> {
         return new FileHistoryTrackerNode(this);
     }
 
+    protected get location(): string {
+        return this.config.location;
+    }
+
     protected registerCommands() {
         Container.viewCommands;
         commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(), this);

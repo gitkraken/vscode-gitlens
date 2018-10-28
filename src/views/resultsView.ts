@@ -28,6 +28,10 @@ export class ResultsView extends ViewBase<ResultsNode> {
         return new ResultsNode(this);
     }
 
+    protected get location(): string {
+        return this.config.location;
+    }
+
     protected registerCommands() {
         Container.viewCommands;
         commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(), this);
