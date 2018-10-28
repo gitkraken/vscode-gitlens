@@ -3060,17 +3060,17 @@
             "view/title": [
                 {
                     "command": "gitlens.showCommitSearch",
-                    "when": "view =~ /^gitlens.views.repositories:/",
+                    "when": "gitlens:enabled && view =~ /^gitlens.views.repositories:/",
                     "group": "navigation@1"
                 },
                 {
                     "command": "gitlens.pullRepositories",
-                    "when": "view =~ /^gitlens.views.repositories:/",
+                    "when": "gitlens:enabled && view =~ /^gitlens.views.repositories:/",
                     "group": "navigation@7"
                 },
                 {
                     "command": "gitlens.fetchRepositories",
-                    "when": "view =~ /^gitlens.views.repositories:/",
+                    "when": "gitlens:enabled && view =~ /^gitlens.views.repositories:/",
                     "group": "navigation@8"
                 },
                 {
@@ -3155,7 +3155,7 @@
                 },
                 {
                     "command": "gitlens.showCommitSearch",
-                    "when": "view =~ /^gitlens.views.results:/",
+                    "when": "gitlens:enabled && view =~ /^gitlens.views.results:/",
                     "group": "navigation@1"
                 },
                 {
@@ -3855,17 +3855,17 @@
                 {
                     "id": "gitlens.views.repositories:gitlens",
                     "name": "Repositories",
-                    "when": "gitlens:enabled && config.gitlens.views.repositories.enabled && config.gitlens.views.repositories.location == gitlens"
+                    "when": "config.gitlens.views.repositories.enabled && config.gitlens.views.repositories.location == gitlens"
                 },
                 {
                     "id": "gitlens.views.fileHistory:gitlens",
                     "name": "File History",
-                    "when": "gitlens:enabled && config.gitlens.views.fileHistory.enabled && config.gitlens.views.fileHistory.location == gitlens"
+                    "when": "config.gitlens.views.fileHistory.enabled && config.gitlens.views.fileHistory.location == gitlens"
                 },
                 {
                     "id": "gitlens.views.lineHistory:gitlens",
                     "name": "Line History",
-                    "when": "gitlens:enabled && config.gitlens.views.lineHistory.enabled && config.gitlens.views.lineHistory.location == gitlens"
+                    "when": "config.gitlens.views.lineHistory.enabled && config.gitlens.views.lineHistory.location == gitlens"
                 },
                 {
                     "id": "gitlens.views.results:gitlens",
