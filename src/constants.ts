@@ -33,13 +33,9 @@ export enum CommandContext {
     Enabled = 'gitlens:enabled',
     HasRemotes = 'gitlens:hasRemotes',
     Key = 'gitlens:key',
-    KeyMap = 'gitlens:keymap',
     ViewsCanCompare = 'gitlens:views:canCompare',
-    ViewsFileHistory = 'gitlens:views:fileHistory',
     ViewsFileHistoryEditorFollowing = 'gitlens:views:fileHistory:editorFollowing',
-    ViewsLineHistory = 'gitlens:views:lineHistory',
     ViewsLineHistoryEditorFollowing = 'gitlens:views:lineHistory:editorFollowing',
-    ViewsRepositories = 'gitlens:views:repositories',
     ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',
     ViewsResults = 'gitlens:views:results',
     ViewsResultsKeepResults = 'gitlens:views:results:keepResults'

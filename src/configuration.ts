@@ -60,11 +60,6 @@ export class Configuration {
             clearGravatarCache();
         }
 
-        const section = configuration.name('keymap').value;
-        if (configuration.changed(e, section)) {
-            setCommandContext(CommandContext.KeyMap, this.get<KeyMap>(section));
-        }
-
         if (
             configuration.changed(e, configuration.name('mode').value) ||
             configuration.changed(e, configuration.name('modes').value)

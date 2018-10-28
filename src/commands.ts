@@ -97,8 +97,6 @@ export * from './commands/toggleFileRecentChanges';
 export * from './commands/toggleLineBlame';
 
 export function configureCommands(): void {
-    setCommandContext(CommandContext.KeyMap, Container.config.keymap);
-
     Container.context.subscriptions.push(new ClearFileAnnotationsCommand());
     Container.context.subscriptions.push(new CloseUnchangedFilesCommand());
     Container.context.subscriptions.push(new CopyMessageToClipboardCommand());

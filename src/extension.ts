@@ -14,6 +14,9 @@ import { ModeConfig } from './ui/config';
 export async function activate(context: ExtensionContext) {
     const start = process.hrtime();
 
+    // Pretend we are enabled (until we know otherwise) and set the view contexts to reduce flashing on load
+    setCommandContext(CommandContext.Enabled, true);
+
     Logger.configure(context);
 
     const gitlens = extensions.getExtension(extensionQualifiedId)!;
@@ -32,23 +35,6 @@ export async function activate(context: ExtensionContext) {
     Configuration.configure(context);
 
     const cfg = configuration.get<Config>();
-
-    // Pretend we are enabled (until we know otherwise) and set the view contexts to reduce flashing on load
-    await Promise.all([
-        setCommandContext(CommandContext.Enabled, true),
-        setCommandContext(
-            CommandContext.ViewsRepositories,
-            cfg.views.repositories.enabled ? cfg.views.repositories.location : false
-        ),
-        setCommandContext(
-            CommandContext.ViewsFileHistory,
-            cfg.views.fileHistory.enabled ? cfg.views.fileHistory.location : false
-        ),
-        setCommandContext(
-            CommandContext.ViewsLineHistory,
-            cfg.views.lineHistory.enabled ? cfg.views.lineHistory.location : false
-        )
-    ]);
 
     const previousVersion = context.globalState.get<string>(GlobalState.GitLensVersion);
     await migrateSettings(context, previousVersion);

@@ -57,11 +57,7 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode> {
             return;
         }
 
-        if (
-            configuration.changed(e, configuration.name('views')('fileHistory')('enabled').value) ||
-            configuration.changed(e, configuration.name('views')('fileHistory')('location').value)
-        ) {
-            setCommandContext(CommandContext.ViewsFileHistory, this.config.enabled ? this.config.location : false);
+        if (configuration.changed(e, configuration.name('views')('fileHistory')('enabled').value)) {
             setCommandContext(CommandContext.ViewsFileHistoryEditorFollowing, true);
         }
 

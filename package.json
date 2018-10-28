@@ -2316,15 +2316,15 @@
             "commandPalette": [
                 {
                     "command": "gitlens.showRepositoriesView",
-                    "when": "gitlens:enabled && gitlens:views:repositories"
+                    "when": "gitlens:enabled && config.gitlens.views.repositories.enabled"
                 },
                 {
                     "command": "gitlens.showFileHistoryView",
-                    "when": "gitlens:enabled && gitlens:views:fileHistory"
+                    "when": "gitlens:enabled && config.gitlens.views.fileHistory.enabled"
                 },
                 {
                     "command": "gitlens.showLineHistoryView",
-                    "when": "gitlens:enabled && gitlens:views:lineHistory"
+                    "when": "gitlens:enabled && config.gitlens.views.lineHistory.enabled"
                 },
                 {
                     "command": "gitlens.showResultsView",
@@ -3683,162 +3683,162 @@
             {
                 "command": "gitlens.toggleFileBlame",
                 "key": "alt+b",
-                "when": "gitlens:keymap == alternate && editorTextFocus && gitlens:activeFileStatus =~ /blameable/"
+                "when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:activeFileStatus =~ /blameable/"
             },
             {
                 "command": "gitlens.toggleCodeLens",
                 "key": "shift+alt+b",
-                "when": "gitlens:keymap == alternate && editorTextFocus && gitlens:enabled && gitlens:canToggleCodeLens"
+                "when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:enabled && gitlens:canToggleCodeLens"
             },
             {
                 "command": "gitlens.showLastQuickPick",
                 "key": "alt+-",
-                "when": "gitlens:keymap == alternate && gitlens:enabled"
+                "when": "config.gitlens.keymap == alternate && gitlens:enabled"
             },
             {
                 "command": "gitlens.showCommitSearch",
                 "key": "alt+/",
-                "when": "gitlens:keymap == alternate && gitlens:enabled"
+                "when": "config.gitlens.keymap == alternate && gitlens:enabled"
             },
             {
                 "command": "gitlens.showQuickFileHistory",
                 "key": "alt+h",
-                "when": "gitlens:keymap == alternate && gitlens:enabled"
+                "when": "config.gitlens.keymap == alternate && gitlens:enabled"
             },
             {
                 "command": "gitlens.showQuickRepoHistory",
                 "key": "shift+alt+h",
-                "when": "gitlens:keymap == alternate && gitlens:enabled"
+                "when": "config.gitlens.keymap == alternate && gitlens:enabled"
             },
             {
                 "command": "gitlens.showQuickRepoStatus",
                 "key": "alt+s",
-                "when": "gitlens:keymap == alternate && gitlens:enabled"
+                "when": "config.gitlens.keymap == alternate && gitlens:enabled"
             },
             {
                 "command": "gitlens.showQuickCommitFileDetails",
                 "key": "alt+c",
-                "when": "gitlens:keymap == alternate && editorTextFocus && gitlens:enabled"
+                "when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:enabled"
             },
             {
                 "command": "gitlens.diffWithNext",
                 "key": "alt+.",
-                "when": "gitlens:keymap == alternate && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
+                "when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
             },
             {
                 "command": "gitlens.diffLineWithPrevious",
                 "key": "shift+alt+,",
-                "when": "gitlens:keymap == alternate && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
+                "when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
             },
             {
                 "command": "gitlens.diffWithPrevious",
                 "key": "alt+,",
-                "when": "gitlens:keymap == alternate && editorTextFocus && !isInDiffEditor && gitlens:activeFileStatus =~ /tracked/"
+                "when": "config.gitlens.keymap == alternate && editorTextFocus && !isInDiffEditor && gitlens:activeFileStatus =~ /tracked/"
             },
             {
                 "command": "gitlens.diffWithPreviousInDiff",
                 "key": "alt+,",
-                "when": "gitlens:keymap == alternate && isInDiffEditor && gitlens:activeFileStatus =~ /tracked/"
+                "when": "config.gitlens.keymap == alternate && isInDiffEditor && gitlens:activeFileStatus =~ /tracked/"
             },
             {
                 "command": "gitlens.diffLineWithWorking",
                 "key": "alt+w",
-                "when": "gitlens:keymap == alternate && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
+                "when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
             },
             {
                 "command": "gitlens.diffWithWorking",
                 "key": "shift+alt+w",
-                "when": "gitlens:keymap == alternate && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
+                "when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
             },
             {
                 "command": "gitlens.toggleFileBlame",
                 "key": "ctrl+shift+g b",
                 "mac": "cmd+alt+g b",
-                "when": "gitlens:keymap == chorded && editorTextFocus && gitlens:activeFileStatus =~ /blameable/"
+                "when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:activeFileStatus =~ /blameable/"
             },
             {
                 "command": "gitlens.toggleCodeLens",
                 "key": "ctrl+shift+g shift+b",
                 "mac": "cmd+alt+g shift+b",
-                "when": "gitlens:keymap == chorded && editorTextFocus && gitlens:enabled && gitlens:canToggleCodeLens"
+                "when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:enabled && gitlens:canToggleCodeLens"
             },
             {
                 "command": "gitlens.showLastQuickPick",
                 "key": "ctrl+shift+g -",
                 "mac": "cmd+alt+g -",
-                "when": "gitlens:keymap == chorded && gitlens:enabled"
+                "when": "config.gitlens.keymap == chorded && gitlens:enabled"
             },
             {
                 "command": "gitlens.showCommitSearch",
                 "key": "ctrl+shift+g /",
                 "mac": "cmd+alt+g /",
-                "when": "gitlens:keymap == chorded && gitlens:enabled"
+                "when": "config.gitlens.keymap == chorded && gitlens:enabled"
             },
             {
                 "command": "gitlens.showQuickFileHistory",
                 "key": "ctrl+shift+g h",
                 "mac": "cmd+alt+g h",
-                "when": "gitlens:keymap == chorded && gitlens:enabled"
+                "when": "config.gitlens.keymap == chorded && gitlens:enabled"
             },
             {
                 "command": "gitlens.showQuickRepoHistory",
                 "key": "ctrl+shift+g shift+h",
                 "mac": "cmd+alt+g shift+h",
-                "when": "gitlens:keymap == chorded && gitlens:enabled"
+                "when": "config.gitlens.keymap == chorded && gitlens:enabled"
             },
             {
                 "command": "gitlens.showQuickRepoStatus",
                 "key": "ctrl+shift+g s",
                 "mac": "cmd+alt+g s",
-                "when": "gitlens:keymap == chorded && gitlens:enabled"
+                "when": "config.gitlens.keymap == chorded && gitlens:enabled"
             },
             {
                 "command": "gitlens.showQuickCommitFileDetails",
                 "key": "ctrl+shift+g c",
                 "mac": "cmd+alt+g c",
-                "when": "gitlens:keymap == chorded && editorTextFocus && gitlens:enabled"
+                "when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:enabled"
             },
             {
                 "command": "gitlens.diffWithNext",
                 "key": "ctrl+shift+g .",
                 "mac": "cmd+alt+g .",
-                "when": "gitlens:keymap == chorded && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
+                "when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
             },
             {
                 "command": "gitlens.diffLineWithPrevious",
                 "key": "ctrl+shift+g shift+,",
                 "mac": "cmd+alt+g shift+,",
-                "when": "gitlens:keymap == chorded && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
+                "when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
             },
             {
                 "command": "gitlens.diffWithPrevious",
                 "key": "ctrl+shift+g ,",
                 "mac": "cmd+alt+g ,",
-                "when": "gitlens:keymap == chorded && editorTextFocus && !isInDiffEditor && gitlens:activeFileStatus =~ /tracked/"
+                "when": "config.gitlens.keymap == chorded && editorTextFocus && !isInDiffEditor && gitlens:activeFileStatus =~ /tracked/"
             },
             {
                 "command": "gitlens.diffWithPreviousInDiff",
                 "key": "ctrl+shift+g ,",
                 "mac": "cmd+alt+g ,",
-                "when": "gitlens:keymap == chorded && isInDiffEditor && gitlens:activeFileStatus =~ /tracked/"
+                "when": "config.gitlens.keymap == chorded && isInDiffEditor && gitlens:activeFileStatus =~ /tracked/"
             },
             {
                 "command": "gitlens.diffLineWithWorking",
                 "key": "ctrl+shift+g w",
                 "mac": "cmd+alt+g w",
-                "when": "gitlens:keymap == chorded && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
+                "when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
             },
             {
                 "command": "gitlens.diffWithWorking",
                 "key": "ctrl+shift+g shift+w",
                 "mac": "cmd+alt+g shift+w",
-                "when": "gitlens:keymap == chorded && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
+                "when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
             },
             {
                 "command": "workbench.view.scm",
                 "key": "ctrl+shift+g g",
                 "mac": "ctrl+shift+g",
-                "when": "gitlens:keymap == chorded && gitlens:enabled"
+                "when": "config.gitlens.keymap == chorded && gitlens:enabled"
             }
         ],
         "viewsContainers": {
@@ -3855,66 +3855,66 @@
                 {
                     "id": "gitlens.views.repositories:gitlens",
                     "name": "Repositories",
-                    "when": "gitlens:enabled && gitlens:views:repositories == gitlens"
+                    "when": "gitlens:enabled && config.gitlens.views.repositories.enabled && config.gitlens.views.repositories.location == gitlens"
                 },
                 {
                     "id": "gitlens.views.fileHistory:gitlens",
                     "name": "File History",
-                    "when": "gitlens:enabled && gitlens:views:fileHistory == gitlens"
+                    "when": "gitlens:enabled && config.gitlens.views.fileHistory.enabled && config.gitlens.views.fileHistory.location == gitlens"
                 },
                 {
                     "id": "gitlens.views.lineHistory:gitlens",
                     "name": "Line History",
-                    "when": "gitlens:enabled && gitlens:views:lineHistory == gitlens"
+                    "when": "gitlens:enabled && config.gitlens.views.lineHistory.enabled && config.gitlens.views.lineHistory.location == gitlens"
                 },
                 {
                     "id": "gitlens.views.results:gitlens",
                     "name": "Results",
-                    "when": "gitlens:enabled && gitlens:views:results == gitlens"
+                    "when": "gitlens:enabled && gitlens:views:results && config.gitlens.views.results.location == gitlens"
                 }
             ],
             "explorer": [
                 {
                     "id": "gitlens.views.repositories:explorer",
                     "name": "GitLens: Repositories",
-                    "when": "gitlens:enabled && gitlens:views:repositories == explorer"
+                    "when": "gitlens:enabled && config.gitlens.views.repositories.enabled && config.gitlens.views.repositories.location == explorer"
                 },
                 {
                     "id": "gitlens.views.fileHistory:explorer",
                     "name": "GitLens: File History",
-                    "when": "gitlens:enabled && gitlens:views:fileHistory == explorer"
+                    "when": "gitlens:enabled && config.gitlens.views.fileHistory.enabled && config.gitlens.views.fileHistory.location == explorer"
                 },
                 {
                     "id": "gitlens.views.lineHistory:explorer",
                     "name": "GitLens: Line History",
-                    "when": "gitlens:enabled && gitlens:views:lineHistory == explorer"
+                    "when": "gitlens:enabled && config.gitlens.views.lineHistory.enabled && config.gitlens.views.lineHistory.location == explorer"
                 },
                 {
                     "id": "gitlens.views.results:explorer",
                     "name": "GitLens: Results",
-                    "when": "gitlens:enabled && gitlens:views:results == explorer"
+                    "when": "gitlens:enabled && gitlens:views:results && config.gitlens.views.results.location == explorer"
                 }
             ],
             "scm": [
                 {
                     "id": "gitlens.views.repositories:scm",
                     "name": "GitLens: Repositories",
-                    "when": "gitlens:enabled && gitlens:views:repositories == scm"
+                    "when": "gitlens:enabled && config.gitlens.views.repositories.enabled && config.gitlens.views.repositories.location == scm"
                 },
                 {
                     "id": "gitlens.views.fileHistory:scm",
                     "name": "GitLens: File History",
-                    "when": "gitlens:enabled && gitlens:views:fileHistory == scm"
+                    "when": "gitlens:enabled && config.gitlens.views.fileHistory.enabled && config.gitlens.views.fileHistory.location == scm"
                 },
                 {
                     "id": "gitlens.views.lineHistory:scm",
                     "name": "GitLens: Line History",
-                    "when": "gitlens:enabled && gitlens:views:lineHistory == scm"
+                    "when": "gitlens:enabled && config.gitlens.views.lineHistory.enabled && config.gitlens.views.lineHistory.location == scm"
                 },
                 {
                     "id": "gitlens.views.results:scm",
                     "name": "GitLens: Results",
-                    "when": "gitlens:enabled && gitlens:views:results == scm"
+                    "when": "gitlens:enabled && gitlens:views:results && config.gitlens.views.results.location == scm"
                 }
             ]
         }

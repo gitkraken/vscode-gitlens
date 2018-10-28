@@ -77,10 +77,6 @@ export class ResultsView extends ViewBase<ResultsNode> {
         }
 
         if (configuration.changed(e, configuration.name('views')('results')('location').value)) {
-            setCommandContext(CommandContext.ViewsResults, this.enabled ? this.config.location : false);
-        }
-
-        if (configuration.changed(e, configuration.name('views')('results')('location').value)) {
             this.initialize(this.config.location);
         }
 
@@ -194,7 +190,7 @@ export class ResultsView extends ViewBase<ResultsNode> {
         this._root.addOrReplace(results, !this.keepResults);
 
         this._enabled = true;
-        await setCommandContext(CommandContext.ViewsResults, this.config.location);
+        await setCommandContext(CommandContext.ViewsResults, true);
 
         setTimeout(() => this._tree!.reveal(results, { select: true }), 250);
     }

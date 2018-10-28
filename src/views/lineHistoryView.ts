@@ -56,11 +56,7 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode> {
             return;
         }
 
-        if (
-            configuration.changed(e, configuration.name('views')('lineHistory')('enabled').value) ||
-            configuration.changed(e, configuration.name('views')('lineHistory')('location').value)
-        ) {
-            setCommandContext(CommandContext.ViewsLineHistory, this.config.enabled ? this.config.location : false);
+        if (configuration.changed(e, configuration.name('views')('lineHistory')('enabled').value)) {
             setCommandContext(CommandContext.ViewsLineHistoryEditorFollowing, true);
         }
 

@@ -68,13 +68,6 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
             return;
         }
 
-        if (
-            configuration.changed(e, configuration.name('views')('repositories')('enabled').value) ||
-            configuration.changed(e, configuration.name('views')('repositories')('location').value)
-        ) {
-            setCommandContext(CommandContext.ViewsRepositories, this.config.enabled ? this.config.location : false);
-        }
-
         if (configuration.changed(e, configuration.name('views')('repositories')('autoRefresh').value)) {
             void this.setAutoRefresh(Container.config.views.repositories.autoRefresh);
         }
