@@ -1,5 +1,5 @@
 'use strict';
-import * as path from 'path';
+import * as paths from 'path';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
 import { Container } from '../../container';
@@ -94,7 +94,7 @@ export class StatusFilesNode extends ViewNode {
             const hierarchy = Arrays.makeHierarchical(
                 children,
                 n => n.uri.getRelativePath().split('/'),
-                (...paths: string[]) => Strings.normalizePath(path.join(...paths)),
+                (...parts: string[]) => Strings.normalizePath(paths.join(...parts)),
                 this.view.config.files.compact
             );
 

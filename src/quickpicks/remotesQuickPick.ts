@@ -1,5 +1,5 @@
 'use strict';
-import * as path from 'path';
+import * as paths from 'path';
 import { QuickPickOptions, window } from 'vscode';
 import { Commands, OpenInRemoteCommandArgs } from '../commands';
 import { GlyphChars } from '../constants';
@@ -67,7 +67,7 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
                 break;
 
             case RemoteResourceType.File:
-                description = `$(file-text) ${path.basename(resource.fileName)}`;
+                description = `$(file-text) ${paths.basename(resource.fileName)}`;
                 break;
 
             case RemoteResourceType.Repo:
@@ -78,7 +78,7 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
                 if (resource.commit !== undefined && resource.commit instanceof GitLogCommit) {
                     if (resource.commit.status === 'D') {
                         resource.sha = resource.commit.previousSha;
-                        description = `$(file-text) ${path.basename(resource.fileName)} in ${
+                        description = `$(file-text) ${paths.basename(resource.fileName)} in ${
                             GlyphChars.Space
                         }$(git-commit) ${resource.commit.previousShortSha} (deleted in ${
                             GlyphChars.Space
@@ -86,14 +86,14 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
                     }
                     else {
                         resource.sha = resource.commit.sha;
-                        description = `$(file-text) ${path.basename(resource.fileName)} in ${
+                        description = `$(file-text) ${paths.basename(resource.fileName)} in ${
                             GlyphChars.Space
                         }$(git-commit) ${resource.commit.shortSha}`;
                     }
                 }
                 else {
                     const shortFileSha = resource.sha === undefined ? '' : GitService.shortenSha(resource.sha);
-                    description = `$(file-text) ${path.basename(resource.fileName)}${
+                    description = `$(file-text) ${paths.basename(resource.fileName)}${
                         shortFileSha ? ` in ${GlyphChars.Space}$(git-commit) ${shortFileSha}` : ''
                     }`;
                 }

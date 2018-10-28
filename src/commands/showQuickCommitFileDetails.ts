@@ -1,5 +1,5 @@
 'use strict';
-import * as path from 'path';
+import * as paths from 'path';
 import { TextEditor, Uri, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
@@ -84,7 +84,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
                 args.sha = blame.commit.sha;
 
                 args.commit = blame.commit;
-                workingFileName = path.relative(args.commit.repoPath, gitUri.fsPath);
+                workingFileName = paths.relative(args.commit.repoPath, gitUri.fsPath);
             }
             catch (ex) {
                 Logger.error(ex, 'ShowQuickCommitFileDetailsCommand', `getBlameForLine(${blameline})`);
@@ -156,7 +156,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
                     label: `go back ${GlyphChars.ArrowBack}`,
                     description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to details of ${
                         GlyphChars.Space
-                    }$(file-text) ${path.basename(args.commit.fileName)} in ${
+                    }$(file-text) ${paths.basename(args.commit.fileName)} in ${
                         GlyphChars.Space
                     }$(git-commit) ${shortSha}`
                 },

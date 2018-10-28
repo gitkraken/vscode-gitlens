@@ -1,5 +1,5 @@
 'use strict';
-import * as path from 'path';
+import * as paths from 'path';
 import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithCommandArgs } from '../../commands';
 import { Container } from '../../container';
@@ -30,8 +30,8 @@ export class ResultsFileNode extends ViewNode {
 
         const statusIcon = GitFile.getStatusIcon(this.file.status);
         item.iconPath = {
-            dark: Container.context.asAbsolutePath(path.join('images', 'dark', statusIcon)),
-            light: Container.context.asAbsolutePath(path.join('images', 'light', statusIcon))
+            dark: Container.context.asAbsolutePath(paths.join('images', 'dark', statusIcon)),
+            light: Container.context.asAbsolutePath(paths.join('images', 'light', statusIcon))
         };
 
         item.command = this.getCommand();
@@ -41,7 +41,7 @@ export class ResultsFileNode extends ViewNode {
     private _folderName: string | undefined;
     get folderName() {
         if (this._folderName === undefined) {
-            this._folderName = path.dirname(this.uri.getRelativePath());
+            this._folderName = paths.dirname(this.uri.getRelativePath());
         }
         return this._folderName;
     }

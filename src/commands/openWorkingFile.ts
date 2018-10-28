@@ -1,5 +1,5 @@
 'use strict';
-import * as path from 'path';
+import * as paths from 'path';
 import { Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
@@ -43,7 +43,7 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
                         );
                     }
 
-                    args.uri = new GitUri(Uri.file(path.resolve(repoPath || '', fileName)), repoPath);
+                    args.uri = new GitUri(Uri.file(paths.resolve(repoPath || '', fileName)), repoPath);
                 }
             }
 

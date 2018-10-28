@@ -1,5 +1,5 @@
 'use strict';
-import * as path from 'path';
+import * as paths from 'path';
 import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { Container } from '../../container';
@@ -77,7 +77,7 @@ export class StatusFileNode extends ViewNode {
             }
 
             // Use the file icon and decorations
-            item.resourceUri = Uri.file(path.resolve(this.repoPath, this.file.fileName));
+            item.resourceUri = Uri.file(paths.resolve(this.repoPath, this.file.fileName));
             item.iconPath = ThemeIcon.File;
 
             item.command = this.getCommand();
@@ -96,7 +96,7 @@ export class StatusFileNode extends ViewNode {
                 }
 
                 // Use the file icon and decorations
-                item.resourceUri = Uri.file(path.resolve(this.repoPath, this.file.fileName));
+                item.resourceUri = Uri.file(paths.resolve(this.repoPath, this.file.fileName));
                 item.iconPath = ThemeIcon.File;
             }
             else {
@@ -104,8 +104,8 @@ export class StatusFileNode extends ViewNode {
 
                 const icon = GitFile.getStatusIcon(this.file.status);
                 item.iconPath = {
-                    dark: Container.context.asAbsolutePath(path.join('images', 'dark', icon)),
-                    light: Container.context.asAbsolutePath(path.join('images', 'light', icon))
+                    dark: Container.context.asAbsolutePath(paths.join('images', 'dark', icon)),
+                    light: Container.context.asAbsolutePath(paths.join('images', 'light', icon))
                 };
             }
             item.tooltip = StatusFileFormatter.fromTemplate(
@@ -123,7 +123,7 @@ export class StatusFileNode extends ViewNode {
     private _folderName: string | undefined;
     get folderName() {
         if (this._folderName === undefined) {
-            this._folderName = path.dirname(this.uri.getRelativePath());
+            this._folderName = paths.dirname(this.uri.getRelativePath());
         }
         return this._folderName;
     }

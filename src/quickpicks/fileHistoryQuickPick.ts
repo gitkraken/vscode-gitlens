@@ -1,5 +1,5 @@
 'use strict';
-import * as path from 'path';
+import * as paths from 'path';
 import { CancellationTokenSource, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, ShowQuickCurrentBranchHistoryCommandArgs, ShowQuickFileHistoryCommandArgs } from '../commands';
 import { GlyphChars } from '../constants';
@@ -67,7 +67,7 @@ export class FileHistoryQuickPick {
             }
             else if (!options.pickerOnly) {
                 const [workingFileName] = await Container.git.findWorkingFileName(
-                    path.relative(log.repoPath, uri.fsPath),
+                    paths.relative(log.repoPath, uri.fsPath),
                     log.repoPath
                 );
                 if (workingFileName) {
@@ -78,20 +78,20 @@ export class FileHistoryQuickPick {
                         new CommandQuickPickItem(
                             {
                                 label: `$(history) Show File History`,
-                                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} of ${path.basename(
+                                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} of ${paths.basename(
                                     workingFileName
                                 )}`
                             },
                             Commands.ShowQuickFileHistory,
                             [
-                                Uri.file(path.resolve(log.repoPath, workingFileName)),
+                                Uri.file(paths.resolve(log.repoPath, workingFileName)),
                                 {
                                     goBackCommand: new CommandQuickPickItem(
                                         {
                                             label: `go back ${GlyphChars.ArrowBack}`,
                                             description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${
                                                 GlyphChars.Space
-                                            }$(file-text) ${path.basename(uri.fsPath)}${
+                                            }$(file-text) ${paths.basename(uri.fsPath)}${
                                                 uri.sha ? ` from ${GlyphChars.Space}$(git-commit) ${uri.shortSha}` : ''
                                             }`
                                         },
@@ -133,7 +133,7 @@ export class FileHistoryQuickPick {
                         label: `go back ${GlyphChars.ArrowBack}`,
                         description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${
                             GlyphChars.Space
-                        }$(file-text) ${path.basename(uri.fsPath)}${
+                        }$(file-text) ${paths.basename(uri.fsPath)}${
                             uri.sha ? ` from ${GlyphChars.Space}$(git-commit) ${uri.shortSha}` : ''
                         }`
                     },

@@ -1,5 +1,5 @@
 'use strict';
-import * as path from 'path';
+import * as paths from 'path';
 import { commands, Disposable, InputBoxOptions, Terminal, TextDocumentShowOptions, Uri, window } from 'vscode';
 import {
     Commands,
@@ -223,7 +223,7 @@ export class ViewCommands implements Disposable {
         const uri = toGitLensFSUri(node.ref, node.repoPath);
         const gitUri = GitUri.fromRevisionUri(uri);
 
-        openWorkspace(uri, `${path.basename(gitUri.repoPath!)} @ ${gitUri.shortSha}`, options);
+        openWorkspace(uri, `${paths.basename(gitUri.repoPath!)} @ ${gitUri.shortSha}`, options);
 
         void commands.executeCommand(BuiltInCommands.FocusFilesExplorer);
     }

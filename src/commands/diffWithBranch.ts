@@ -1,5 +1,5 @@
 'use strict';
-import * as path from 'path';
+import * as paths from 'path';
 import { commands, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
@@ -34,7 +34,7 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
         const gitUri = await GitUri.fromUri(uri);
         if (!gitUri.repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to open file compare`);
 
-        const placeHolder = `Compare ${path.basename(gitUri.fsPath)} with${GlyphChars.Ellipsis}`;
+        const placeHolder = `Compare ${paths.basename(gitUri.fsPath)} with${GlyphChars.Ellipsis}`;
         const progressCancellation = BranchesAndTagsQuickPick.showProgress(placeHolder);
 
         try {
@@ -62,11 +62,11 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
             // Check to see if this file has been renamed
             const files = await Container.git.getDiffStatus(gitUri.repoPath, 'HEAD', ref, { filter: 'R' });
             if (files !== undefined) {
-                const fileName = Strings.normalizePath(path.relative(gitUri.repoPath, gitUri.fsPath));
+                const fileName = Strings.normalizePath(paths.relative(gitUri.repoPath, gitUri.fsPath));
                 const rename = files.find(s => s.fileName === fileName);
                 if (rename !== undefined && rename.originalFileName !== undefined) {
-                    renamedUri = Uri.file(path.join(gitUri.repoPath, rename.originalFileName));
-                    renamedTitle = `${path.basename(rename.originalFileName)} (${ref})`;
+                    renamedUri = Uri.file(paths.join(gitUri.repoPath, rename.originalFileName));
+                    renamedTitle = `${paths.basename(rename.originalFileName)} (${ref})`;
                 }
             }
 
@@ -75,7 +75,7 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
                 lhs: {
                     sha: pick.remote ? `remotes/${ref}` : ref,
                     uri: renamedUri || (gitUri as Uri),
-                    title: renamedTitle || `${path.basename(gitUri.fsPath)} (${ref})`
+                    title: renamedTitle || `${paths.basename(gitUri.fsPath)} (${ref})`
                 },
                 rhs: {
                     sha: '',

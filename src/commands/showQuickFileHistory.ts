@@ -1,5 +1,5 @@
 'use strict';
-import * as path from 'path';
+import * as paths from 'path';
 import { commands, Range, TextEditor, Uri, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
@@ -122,7 +122,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
                     label: `go back ${GlyphChars.ArrowBack}`,
                     description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${
                         GlyphChars.Space
-                    }$(file-text) ${path.basename(gitUri.fsPath)}${
+                    }$(file-text) ${paths.basename(gitUri.fsPath)}${
                         args.branchOrTag
                             ? ` from ${GlyphChars.Space}${
                                   args.branchOrTag instanceof GitTag ? '$(tag)' : '$(git-branch)'

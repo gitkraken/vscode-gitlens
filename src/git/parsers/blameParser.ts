@@ -1,5 +1,5 @@
 'use strict';
-import * as path from 'path';
+import * as paths from 'path';
 import { Strings } from '../../system';
 import { Git, GitAuthor, GitBlame, GitBlameCommit, GitCommitLine } from './../git';
 
@@ -123,7 +123,7 @@ export class GitBlameParser {
                         repoPath = Strings.normalizePath(
                             fileName.replace(fileName.startsWith('/') ? `/${entry.fileName}` : entry.fileName!, '')
                         );
-                        relativeFileName = Strings.normalizePath(path.relative(repoPath, fileName));
+                        relativeFileName = Strings.normalizePath(paths.relative(repoPath, fileName));
                     }
                     first = false;
 

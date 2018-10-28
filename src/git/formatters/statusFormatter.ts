@@ -1,5 +1,5 @@
 'use strict';
-import * as path from 'path';
+import * as paths from 'path';
 import { GlyphChars } from '../../constants';
 import { Strings } from '../../system';
 import { GitFile, GitFileWithCommit } from '../models/file';
@@ -25,7 +25,7 @@ export class StatusFileFormatter extends Formatter<GitFile, IStatusFormatOptions
     }
 
     get file() {
-        const file = path.basename(this._item.fileName);
+        const file = paths.basename(this._item.fileName);
         return this._padOrTruncate(file, this._options.tokenOptions!.file);
     }
 

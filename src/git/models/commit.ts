@@ -1,5 +1,5 @@
 'use strict';
-import * as path from 'path';
+import * as paths from 'path';
 import { Uri } from 'vscode';
 import { configuration, DateStyle, GravatarDefaultStyle } from '../../configuration';
 import { Container } from '../../container';
@@ -144,16 +144,16 @@ export abstract class GitCommit {
 
     get previousUri(): Uri {
         return this.previousFileName
-            ? Uri.file(path.resolve(this.repoPath, (this.previousFileName || this.originalFileName)!))
+            ? Uri.file(paths.resolve(this.repoPath, (this.previousFileName || this.originalFileName)!))
             : this.uri;
     }
 
     get uri(): Uri {
-        return Uri.file(path.resolve(this.repoPath, this.fileName));
+        return Uri.file(paths.resolve(this.repoPath, this.fileName));
     }
 
     get workingUri(): Uri {
-        return this.workingFileName ? Uri.file(path.resolve(this.repoPath, this.workingFileName)) : this.uri;
+        return this.workingFileName ? Uri.file(paths.resolve(this.repoPath, this.workingFileName)) : this.uri;
     }
 
     private _dateFormatter?: Dates.IDateFormatter;

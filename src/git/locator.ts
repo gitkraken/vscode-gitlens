@@ -1,5 +1,5 @@
 'use strict';
-import * as path from 'path';
+import * as paths from 'path';
 import { findExecutable, run } from './shell';
 
 export interface GitLocation {
@@ -51,7 +51,7 @@ async function findGitDarwin(): Promise<GitLocation> {
 
 function findSystemGitWin32(basePath: string): Promise<GitLocation> {
     if (!basePath) return Promise.reject(new Error('Unable to find git'));
-    return findSpecificGit(path.join(basePath, 'Git', 'cmd', 'git.exe'));
+    return findSpecificGit(paths.join(basePath, 'Git', 'cmd', 'git.exe'));
 }
 
 function findGitWin32(): Promise<GitLocation> {

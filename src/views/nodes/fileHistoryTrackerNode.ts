@@ -1,5 +1,5 @@
 'use strict';
-import * as path from 'path';
+import * as paths from 'path';
 import { Disposable, TextEditor, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
 import { UriComparer } from '../../comparers';
 import { Container } from '../../container';
@@ -87,7 +87,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
             );
 
             if (fileName !== undefined) {
-                uri = Uri.file(repoPath !== undefined ? path.join(repoPath, fileName) : fileName);
+                uri = Uri.file(repoPath !== undefined ? paths.join(repoPath, fileName) : fileName);
             }
         }
 

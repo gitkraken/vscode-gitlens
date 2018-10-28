@@ -1,5 +1,5 @@
 'use strict';
-import * as path from 'path';
+import * as paths from 'path';
 import { Uri } from 'vscode';
 import { Strings } from '../../system';
 import { Git } from '../git';
@@ -51,7 +51,7 @@ export class GitLogCommit extends GitCommit {
     }
 
     get nextUri(): Uri {
-        return this.nextFileName ? Uri.file(path.resolve(this.repoPath, this.nextFileName)) : this.uri;
+        return this.nextFileName ? Uri.file(paths.resolve(this.repoPath, this.nextFileName)) : this.uri;
     }
 
     get previousFileSha(): string {
@@ -133,7 +133,7 @@ export class GitLogCommit extends GitCommit {
     toFileCommit(fileNameOrFile: string | GitFile): GitLogCommit | undefined {
         let file: GitFile | undefined;
         if (typeof fileNameOrFile === 'string') {
-            const fileName = Strings.normalizePath(path.relative(this.repoPath, fileNameOrFile));
+            const fileName = Strings.normalizePath(paths.relative(this.repoPath, fileNameOrFile));
             file = this.files.find(f => f.fileName === fileName);
             if (file === undefined) return undefined;
         }

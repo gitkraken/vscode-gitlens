@@ -2,7 +2,7 @@
 import { execFile } from 'child_process';
 import * as fs from 'fs';
 import * as iconv from 'iconv-lite';
-import * as path from 'path';
+import * as paths from 'path';
 import { Logger } from '../logger';
 
 const isWindows = process.platform === 'win32';
@@ -23,7 +23,7 @@ function runDownPath(exe: string): string {
     // Files with any directory path don't get this applied
     if (exe.match(/[\\\/]/)) return exe;
 
-    const target = path.join('.', exe);
+    const target = paths.join('.', exe);
     try {
         if (fs.statSync(target)) return target;
     }
@@ -31,7 +31,7 @@ function runDownPath(exe: string): string {
 
     const haystack = process.env.PATH!.split(isWindows ? ';' : ':');
     for (const p of haystack) {
-        const needle = path.join(p, exe);
+        const needle = paths.join(p, exe);
         try {
             if (fs.statSync(needle)) return needle;
         }
@@ -67,14 +67,14 @@ export function findExecutable(exe: string, args: string[]): { cmd: string; args
     }
 
     if (exe.match(/\.ps1$/i)) {
-        const cmd = path.join(process.env.SYSTEMROOT!, 'System32', 'WindowsPowerShell', 'v1.0', 'PowerShell.exe');
+        const cmd = paths.join(process.env.SYSTEMROOT!, 'System32', 'WindowsPowerShell', 'v1.0', 'PowerShell.exe');
         const psargs = ['-ExecutionPolicy', 'Unrestricted', '-NoLogo', '-NonInteractive', '-File', exe];
 
         return { cmd: cmd, args: psargs.concat(args) };
     }
 
     if (exe.match(/\.(bat|cmd)$/i)) {
-        const cmd = path.join(process.env.SYSTEMROOT!, 'System32', 'cmd.exe');
+        const cmd = paths.join(process.env.SYSTEMROOT!, 'System32', 'cmd.exe');
         const cmdArgs = ['/C', exe, ...args];
 
         return { cmd: cmd, args: cmdArgs };

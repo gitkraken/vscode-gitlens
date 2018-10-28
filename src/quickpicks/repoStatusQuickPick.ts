@@ -1,5 +1,5 @@
 'use strict';
-import * as path from 'path';
+import * as paths from 'path';
 import { commands, QuickPickOptions, TextDocumentShowOptions, window } from 'vscode';
 import {
     Commands,
@@ -44,7 +44,7 @@ export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPick
                     octicon,
                     2,
                     2
-                )} ${path.basename(status.fileName)}`,
+                )} ${paths.basename(status.fileName)}`,
                 description: description
             }
         );

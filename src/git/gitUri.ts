@@ -1,5 +1,5 @@
 'use strict';
-import * as path from 'path';
+import * as paths from 'path';
 import { Uri } from 'vscode';
 import { UriComparer } from '../comparers';
 import { DocumentSchemes, GlyphChars } from '../constants';
@@ -87,7 +87,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 
         const [authority, fsPath] = GitUri.ensureValidUNCPath(
             uri.authority,
-            path.resolve(commitOrRepoPath.repoPath, commitOrRepoPath.fileName || uri.fsPath)
+            paths.resolve(commitOrRepoPath.repoPath, commitOrRepoPath.fileName || uri.fsPath)
         );
         super({ scheme: uri.scheme, authority: authority, path: fsPath, query: uri.query, fragment: uri.fragment });
 
@@ -115,24 +115,27 @@ export class GitUri extends ((Uri as any) as UriEx) {
     }
 
     getDirectory(relativeTo?: string): string {
-        return GitUri.getDirectory(path.relative(this.repoPath || '', this.fsPath), relativeTo);
+        return GitUri.getDirectory(
+            this.repoPath ? paths.relative(this.repoPath, this.fsPath) : this.fsPath,
+            relativeTo
+        );
     }
 
     getFilename(relativeTo?: string): string {
-        return path.basename(path.relative(this.repoPath || '', this.fsPath), relativeTo);
+        return paths.basename(this.repoPath ? paths.relative(this.repoPath, this.fsPath) : this.fsPath, relativeTo);
     }
 
     getFormattedPath(options: { relativeTo?: string; separator?: string; suffix?: string } = {}): string {
         const { relativeTo = this.repoPath, separator = Strings.pad(GlyphChars.Dot, 2, 2), suffix = '' } = options;
 
         const directory = GitUri.getDirectory(this.fsPath, relativeTo);
-        return `${path.basename(this.fsPath)}${suffix}${directory ? `${separator}${directory}` : ''}`;
+        return `${paths.basename(this.fsPath)}${suffix}${directory ? `${separator}${directory}` : ''}`;
     }
 
     getRelativePath(relativeTo?: string): string {
-        let relativePath = path.relative(this.repoPath || '', this.fsPath);
+        let relativePath = this.repoPath ? paths.relative(this.repoPath, this.fsPath) : this.fsPath;
         if (relativeTo !== undefined) {
-            relativePath = path.relative(relativeTo, relativePath);
+            relativePath = paths.relative(relativeTo, relativePath);
         }
         return Strings.normalizePath(relativePath);
     }
@@ -168,7 +171,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
     }
 
     static fromFile(file: GitFile, repoPath: string, ref?: string, original: boolean = false): GitUri {
-        const uri = Uri.file(path.resolve(repoPath, (original && file.originalFileName) || file.fileName));
+        const uri = Uri.file(paths.resolve(repoPath, (original && file.originalFileName) || file.fileName));
         return ref === undefined ? new GitUri(uri, repoPath) : new GitUri(uri, { repoPath: repoPath, sha: ref });
     }
 
@@ -222,9 +225,9 @@ export class GitUri extends ((Uri as any) as UriEx) {
     }
 
     static getDirectory(fileName: string, relativeTo?: string): string {
-        let directory: string | undefined = path.dirname(fileName);
+        let directory: string | undefined = paths.dirname(fileName);
         if (relativeTo !== undefined) {
-            directory = path.relative(relativeTo, directory);
+            directory = paths.relative(relativeTo, directory);
         }
         directory = Strings.normalizePath(directory);
         return !directory || directory === '.' ? '' : directory;
@@ -248,8 +251,8 @@ export class GitUri extends ((Uri as any) as UriEx) {
 
         const directory = GitUri.getDirectory(fileName, relativeTo);
         return !directory
-            ? `${path.basename(fileName)}${suffix}`
-            : `${path.basename(fileName)}${suffix}${separator}${directory}`;
+            ? `${paths.basename(fileName)}${suffix}`
+            : `${paths.basename(fileName)}${suffix}${separator}${directory}`;
     }
 
     static getRelativePath(fileNameOrUri: string | Uri, relativeTo?: string, repoPath?: string): string {
@@ -263,9 +266,9 @@ export class GitUri extends ((Uri as any) as UriEx) {
             fileName = fileNameOrUri;
         }
 
-        let relativePath = path.relative(repoPath || '', fileName);
+        let relativePath = repoPath ? paths.relative(repoPath, fileName) : fileName;
         if (relativeTo !== undefined) {
-            relativePath = path.relative(relativeTo, relativePath);
+            relativePath = paths.relative(relativeTo, relativePath);
         }
         return Strings.normalizePath(relativePath);
     }
@@ -292,7 +295,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
                 fileName = fileNameOrFile;
             }
             else {
-                fileName = path.resolve(repoPath!, fileNameOrFile!.fileName);
+                fileName = paths.resolve(repoPath!, fileNameOrFile!.fileName);
             }
 
             ref = uriOrRef;
@@ -306,14 +309,14 @@ export class GitUri extends ((Uri as any) as UriEx) {
         }
 
         repoPath = Strings.normalizePath(repoPath!);
-        const repoName = path.basename(repoPath);
+        const repoName = paths.basename(repoPath);
         const data: IUriRevisionData = {
             path: Strings.normalizePath(fileName, { addLeadingSlash: true }),
             ref: ref,
             repoPath: repoPath
         };
 
-        let filePath = Strings.normalizePath(path.relative(repoPath, fileName), { addLeadingSlash: true });
+        let filePath = Strings.normalizePath(paths.relative(repoPath, fileName), { addLeadingSlash: true });
         if (filePath === '/') {
             filePath = '';
         }

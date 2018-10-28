@@ -1,5 +1,5 @@
 'use strict';
-import * as path from 'path';
+import * as paths from 'path';
 import { QuickPickItem, QuickPickOptions, Uri, window } from 'vscode';
 import {
     Commands,
@@ -33,9 +33,9 @@ export class ApplyCommitFileChangesCommandQuickPickItem extends CommandQuickPick
         super(
             item || {
                 label: `$(git-pull-request) Apply Changes`,
-                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(file-text) ${path.basename(commit.fileName)} in ${
-                    GlyphChars.Space
-                }$(git-commit) ${commit.shortSha}`
+                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(file-text) ${paths.basename(
+                    commit.fileName
+                )} in ${GlyphChars.Space}$(git-commit) ${commit.shortSha}`
             },
             undefined,
             undefined
@@ -54,12 +54,12 @@ export class ApplyCommitFileChangesCommandQuickPickItem extends CommandQuickPick
 
 export class OpenCommitFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {
     constructor(commit: GitLogCommit, item?: QuickPickItem) {
-        const uri = Uri.file(path.resolve(commit.repoPath, commit.fileName));
+        const uri = Uri.file(paths.resolve(commit.repoPath, commit.fileName));
         super(
             uri,
             item || {
                 label: `$(file-symlink-file) Open File`,
-                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${path.basename(commit.fileName)}`
+                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${paths.basename(commit.fileName)}`
             }
         );
     }
@@ -71,13 +71,13 @@ export class OpenCommitFileRevisionCommandQuickPickItem extends OpenFileCommandQ
         let uri: Uri;
         if (commit.status === 'D') {
             uri = GitUri.toRevisionUri(commit.previousFileSha, commit.previousUri.fsPath, commit.repoPath);
-            description = `${Strings.pad(GlyphChars.Dash, 2, 3)} ${path.basename(commit.fileName)} in ${
+            description = `${Strings.pad(GlyphChars.Dash, 2, 3)} ${paths.basename(commit.fileName)} in ${
                 GlyphChars.Space
             }$(git-commit) ${commit.previousShortSha} (deleted in ${GlyphChars.Space}$(git-commit) ${commit.shortSha})`;
         }
         else {
             uri = GitUri.toRevisionUri(commit.sha, commit.uri.fsPath, commit.repoPath);
-            description = `${Strings.pad(GlyphChars.Dash, 2, 3)} ${path.basename(commit.fileName)} in ${
+            description = `${Strings.pad(GlyphChars.Dash, 2, 3)} ${paths.basename(commit.fileName)} in ${
                 GlyphChars.Space
             }$(git-commit) ${commit.shortSha}`;
         }
@@ -104,7 +104,7 @@ export class CommitFileQuickPick {
         const stash = commit.isStash;
 
         const workingName =
-            (commit.workingFileName && path.basename(commit.workingFileName)) || path.basename(commit.fileName);
+            (commit.workingFileName && paths.basename(commit.workingFileName)) || paths.basename(commit.fileName);
 
         const isUncommitted = commit.isUncommitted;
         if (isUncommitted) {
@@ -152,7 +152,7 @@ export class CommitFileQuickPick {
                     },
                     Commands.DiffWithWorking,
                     [
-                        Uri.file(path.resolve(commit.repoPath, commit.workingFileName)),
+                        Uri.file(paths.resolve(commit.repoPath, commit.workingFileName)),
                         {
                             commit
                         } as DiffWithWorkingCommandArgs
@@ -242,11 +242,11 @@ export class CommitFileQuickPick {
                 new CommandQuickPickItem(
                     {
                         label: `$(history) Show File History`,
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} of ${path.basename(commit.fileName)}`
+                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} of ${paths.basename(commit.fileName)}`
                     },
                     Commands.ShowQuickFileHistory,
                     [
-                        Uri.file(path.resolve(commit.repoPath, commit.workingFileName)),
+                        Uri.file(paths.resolve(commit.repoPath, commit.workingFileName)),
                         {
                             fileLog,
                             goBackCommand: currentCommand
@@ -261,7 +261,7 @@ export class CommitFileQuickPick {
                 new CommandQuickPickItem(
                     {
                         label: `$(history) Show ${commit.workingFileName ? 'Previous ' : ''}File History`,
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} of ${path.basename(
+                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} of ${paths.basename(
                             commit.fileName
                         )} ${Strings.pad(GlyphChars.Dot, 1, 1)} from ${GlyphChars.Space}$(git-commit) ${
                             commit.shortSha

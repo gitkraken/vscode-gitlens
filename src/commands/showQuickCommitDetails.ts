@@ -1,6 +1,6 @@
 'use strict';
-import * as path from 'path';
-import { commands, TextEditor, Uri, window } from 'vscode';
+import * as paths from 'path';
+import { commands, TextEditor, Uri } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitCommit, GitLog, GitLogCommit, GitUri } from '../git/gitService';
@@ -73,7 +73,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
         const gitUri = await GitUri.fromUri(uri);
 
         let repoPath = gitUri.repoPath;
-        let workingFileName = path.relative(repoPath || '', gitUri.fsPath);
+        let workingFileName = repoPath ? paths.relative(repoPath, gitUri.fsPath) : gitUri.fsPath;
 
         args = { ...args };
         if (args.sha === undefined) {

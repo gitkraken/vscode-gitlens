@@ -1,5 +1,5 @@
 'use strict';
-import * as path from 'path';
+import * as paths from 'path';
 import { Command, Selection, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { GlyphChars } from '../../constants';
@@ -75,15 +75,15 @@ export class CommitFileNode extends ViewRefNode {
 
         if ((this._displayAs & CommitFileNodeDisplayAs.CommitIcon) === CommitFileNodeDisplayAs.CommitIcon) {
             item.iconPath = {
-                dark: Container.context.asAbsolutePath(path.join('images', 'dark', 'icon-commit.svg')),
-                light: Container.context.asAbsolutePath(path.join('images', 'light', 'icon-commit.svg'))
+                dark: Container.context.asAbsolutePath(paths.join('images', 'dark', 'icon-commit.svg')),
+                light: Container.context.asAbsolutePath(paths.join('images', 'light', 'icon-commit.svg'))
             };
         }
         else if ((this._displayAs & CommitFileNodeDisplayAs.StatusIcon) === CommitFileNodeDisplayAs.StatusIcon) {
             const icon = GitFile.getStatusIcon(this.file.status);
             item.iconPath = {
-                dark: Container.context.asAbsolutePath(path.join('images', 'dark', icon)),
-                light: Container.context.asAbsolutePath(path.join('images', 'light', icon))
+                dark: Container.context.asAbsolutePath(paths.join('images', 'dark', icon)),
+                light: Container.context.asAbsolutePath(paths.join('images', 'light', icon))
             };
         }
         else if ((this._displayAs & CommitFileNodeDisplayAs.Gravatar) === CommitFileNodeDisplayAs.Gravatar) {
@@ -102,7 +102,7 @@ export class CommitFileNode extends ViewRefNode {
     private _folderName: string | undefined;
     get folderName() {
         if (this._folderName === undefined) {
-            this._folderName = path.dirname(this.uri.getRelativePath());
+            this._folderName = paths.dirname(this.uri.getRelativePath());
         }
         return this._folderName;
     }

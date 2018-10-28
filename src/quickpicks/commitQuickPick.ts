@@ -1,5 +1,5 @@
 'use strict';
-import * as path from 'path';
+import * as paths from 'path';
 import { commands, QuickPickOptions, TextDocumentShowOptions, Uri, window } from 'vscode';
 import {
     Commands,
@@ -45,7 +45,7 @@ export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickI
         const description = GitFile.getFormattedDirectory(file, true);
 
         super(GitUri.toRevisionUri(commit.sha, file, commit.repoPath), {
-            label: `${Strings.pad(octicon, 4, 2)} ${path.basename(file.fileName)}`,
+            label: `${Strings.pad(octicon, 4, 2)} ${paths.basename(file.fileName)}`,
             description: description
         });
 

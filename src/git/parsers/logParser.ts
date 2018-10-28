@@ -1,5 +1,5 @@
 'use strict';
-import * as path from 'path';
+import * as paths from 'path';
 import { Range } from 'vscode';
 import { Arrays, Strings } from '../../system';
 import { Git, GitAuthor, GitCommitType, GitFile, GitFileStatus, GitLog, GitLogCommit } from './../git';
@@ -197,7 +197,7 @@ export class GitLogParser {
                         repoPath = Strings.normalizePath(
                             fileName.replace(fileName.startsWith('/') ? `/${entry.fileName}` : entry.fileName!, '')
                         );
-                        relativeFileName = Strings.normalizePath(path.relative(repoPath, fileName));
+                        relativeFileName = Strings.normalizePath(paths.relative(repoPath, fileName));
                     }
                     else {
                         relativeFileName = entry.fileName!;

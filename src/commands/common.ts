@@ -1,5 +1,5 @@
 'use strict';
-import * as path from 'path';
+import * as paths from 'path';
 import {
     commands,
     Disposable,
@@ -489,7 +489,7 @@ export async function openEditor(
             uri = uri.documentUri({ noSha: true });
         }
 
-        if (uri.scheme === DocumentSchemes.GitLens && ImageMimetypes[path.extname(uri.fsPath)]) {
+        if (uri.scheme === DocumentSchemes.GitLens && ImageMimetypes[paths.extname(uri.fsPath)]) {
             await commands.executeCommand(BuiltInCommands.Open, uri);
 
             return undefined;

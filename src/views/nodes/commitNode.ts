@@ -1,5 +1,5 @@
 'use strict';
-import * as path from 'path';
+import * as paths from 'path';
 import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { ViewFilesLayout } from '../../configuration';
@@ -40,7 +40,7 @@ export class CommitNode extends ViewRefNode {
             const hierarchy = Arrays.makeHierarchical(
                 children,
                 n => n.uri.getRelativePath().split('/'),
-                (...paths: string[]) => Strings.normalizePath(path.join(...paths)),
+                (...parts: string[]) => Strings.normalizePath(paths.join(...parts)),
                 this.view.config.files.compact
             );
 
