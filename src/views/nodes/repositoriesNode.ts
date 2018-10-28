@@ -33,7 +33,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
     async getChildren(): Promise<ViewNode[]> {
         if (this._children === undefined) {
             const repositories = [...(await Container.git.getRepositories())];
-            if (repositories.length === 0) return [new MessageNode(this, 'No repositories found')];
+            if (repositories.length === 0) return [new MessageNode(this, 'No repositories could be found.')];
 
             const children = [];
             for (const repo of repositories.sort((a, b) => a.index - b.index)) {
@@ -66,7 +66,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
         if (repositories.length === 0 && (this._children === undefined || this._children.length === 0)) return;
 
         if (repositories.length === 0) {
-            this._children = [new MessageNode(this, 'No repositories found')];
+            this._children = [new MessageNode(this, 'No repositories could be found.')];
             return;
         }
 

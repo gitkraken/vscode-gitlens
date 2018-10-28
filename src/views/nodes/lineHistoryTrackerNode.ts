@@ -35,7 +35,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
     async getChildren(): Promise<ViewNode[]> {
         if (this._child === undefined) {
             if (this.uri === unknownGitUri) {
-                return [new MessageNode(this, 'There are no editors open that can provide line history')];
+                return [new MessageNode(this, 'There are no editors open that can provide line history information.')];
             }
 
             this._child = new LineHistoryNode(this.uri, this._selection!, this, this.view);

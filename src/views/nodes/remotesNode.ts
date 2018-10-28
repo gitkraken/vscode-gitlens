@@ -24,7 +24,7 @@ export class RemotesNode extends ViewNode {
 
     async getChildren(): Promise<ViewNode[]> {
         const remotes = await this.repo.getRemotes();
-        if (remotes === undefined || remotes.length === 0) return [new MessageNode(this, 'No remotes configured')];
+        if (remotes === undefined || remotes.length === 0) return [new MessageNode(this, 'No remotes could be found')];
 
         remotes.sort((a, b) => a.name.localeCompare(b.name));
         return [...Iterables.map(remotes, r => new RemoteNode(r, this.uri, this.repo, this, this.view))];

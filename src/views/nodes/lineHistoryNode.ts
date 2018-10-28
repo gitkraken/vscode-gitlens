@@ -89,7 +89,7 @@ export class LineHistoryNode extends SubscribeableViewNode<LineHistoryView> {
             }
         }
 
-        if (children.length === 0) return [new MessageNode(this, 'No line history')];
+        if (children.length === 0) return [new MessageNode(this, 'No line history could be found.')];
         return children;
     }
 

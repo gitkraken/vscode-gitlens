@@ -81,7 +81,7 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> {
             );
         }
 
-        if (children.length === 0) return [new MessageNode(this, 'No file history')];
+        if (children.length === 0) return [new MessageNode(this, 'No file history could be found.')];
         return children;
     }
 

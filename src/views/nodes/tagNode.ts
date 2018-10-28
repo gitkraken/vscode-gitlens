@@ -40,7 +40,7 @@ export class TagNode extends ViewRefNode implements PageableViewNode {
             maxCount: this.maxCount || this.view.config.defaultItemLimit,
             ref: this.tag.name
         });
-        if (log === undefined) return [new MessageNode(this, 'No commits yet')];
+        if (log === undefined) return [new MessageNode(this, 'No commits could be found.')];
 
         const children = [
             ...insertDateMarkers(Iterables.map(log.commits.values(), c => new CommitNode(c, this, this.view)), this)

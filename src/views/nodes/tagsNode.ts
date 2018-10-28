@@ -26,7 +26,7 @@ export class TagsNode extends ViewNode {
 
     async getChildren(): Promise<ViewNode[]> {
         const tags = await this.repo.getTags();
-        if (tags.length === 0) return [new MessageNode(this, 'No tags yet')];
+        if (tags.length === 0) return [new MessageNode(this, 'No tags could be found.')];
 
         tags.sort((a, b) => a.name.localeCompare(b.name));
         const tagNodes = [...tags.map(t => new TagNode(t, this.uri, this, this.view))];

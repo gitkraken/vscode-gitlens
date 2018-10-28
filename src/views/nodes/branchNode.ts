@@ -54,7 +54,7 @@ export class BranchNode extends ViewRefNode implements PageableViewNode {
                 maxCount: this.maxCount || this.view.config.defaultItemLimit,
                 ref: this.ref
             });
-            if (log === undefined) return [new MessageNode(this, 'No commits yet')];
+            if (log === undefined) return [new MessageNode(this, 'No commits could be found.')];
 
             const branches = await Container.git.getBranches(this.uri.repoPath);
             // Get the sha length, since `git branch` can return variable length shas

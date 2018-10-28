@@ -24,7 +24,7 @@ export class StashesNode extends ViewNode {
 
     async getChildren(): Promise<ViewNode[]> {
         const stash = await this.repo.getStashList();
-        if (stash === undefined) return [new MessageNode(this, 'No stashed changes')];
+        if (stash === undefined) return [new MessageNode(this, 'No stashed changes.')];
 
         return [...Iterables.map(stash.commits.values(), c => new StashNode(c, this, this.view))];
     }

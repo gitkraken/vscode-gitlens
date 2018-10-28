@@ -34,7 +34,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
     async getChildren(): Promise<ViewNode[]> {
         if (this._child === undefined) {
             if (this.uri === unknownGitUri) {
-                return [new MessageNode(this, 'There are no editors open that can provide file history')];
+                return [new MessageNode(this, 'There are no editors open that can provide file history information.')];
             }
 
             this._child = new FileHistoryNode(this.uri, this, this.view);
