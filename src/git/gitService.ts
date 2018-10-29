@@ -466,6 +466,12 @@ export class GitService implements Disposable {
 
     @gate()
     @log()
+    async fetch(repoPath: string, remote?: string) {
+        return Git.fetch(repoPath, { remote: remote });
+    }
+
+    @gate()
+    @log()
     async fetchAll() {
         const repositories = [...(await this.getRepositories())];
         if (repositories.length === 0) return;
@@ -486,7 +492,7 @@ export class GitService implements Disposable {
                         increment: (i / total) * 100
                     });
 
-                    await repo.fetch(false);
+                    await this.fetch(repo.path);
                 }
             }
         );
@@ -514,7 +520,7 @@ export class GitService implements Disposable {
                         increment: (i / total) * 100
                     });
 
-                    await repo.pull(false);
+                    await repo.pull({ progress: false });
                 }
             }
         );

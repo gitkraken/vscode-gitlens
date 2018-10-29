@@ -3552,6 +3552,11 @@
                     "group": "8_gitlens@2"
                 },
                 {
+                    "command": "gitlens.views.fetch",
+                    "when": "viewItem == gitlens:remote",
+                    "group": "inline@97"
+                },
+                {
                     "command": "gitlens.openRepoInRemote",
                     "when": "viewItem == gitlens:remote",
                     "group": "inline@98"
@@ -3565,6 +3570,11 @@
                     "command": "gitlens.openBranchesInRemote",
                     "when": "viewItem == gitlens:remote",
                     "group": "1_gitlens@2"
+                },
+                {
+                    "command": "gitlens.views.fetch",
+                    "when": "viewItem == gitlens:remote",
+                    "group": "2_gitlens@1"
                 },
                 {
                     "command": "gitlens.views.terminalRemoveRemote",

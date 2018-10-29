@@ -225,22 +225,22 @@ export class Repository implements Disposable {
 
     @gate()
     @log()
-    async fetch(progress: boolean = true) {
-        if (!progress) return this.fetchCore();
+    async fetch(options: { progress?: boolean; remote?: string } = {}) {
+        const { progress, ...opts } = { progress: true, ...options };
+        if (!progress) return this.fetchCore(opts);
 
         await window.withProgress(
             {
                 location: ProgressLocation.Notification,
-                title: `Fetching ${this.formattedName}...`,
+                title: `Fetching ${opts.remote ? `${opts.remote} of ` : ''}${this.formattedName}...`,
                 cancellable: false
             },
-            () => this.fetchCore()
+            () => this.fetchCore(opts)
         );
     }
 
-    private async fetchCore() {
-        await commands.executeCommand('git.fetch', this.path);
-
+    private async fetchCore(options: { remote?: string } = {}) {
+        await Container.git.fetch(this.path, options.remote);
         this.fireChange(RepositoryChange.Repository);
     }
 
@@ -308,7 +308,8 @@ export class Repository implements Disposable {
 
     @gate()
     @log()
-    async pull(progress: boolean = true) {
+    async pull(options: { progress?: boolean } = {}) {
+        const { progress } = { progress: true, ...options };
         if (!progress) return this.pullCore();
 
         await window.withProgress(
@@ -329,7 +330,8 @@ export class Repository implements Disposable {
 
     @gate()
     @log()
-    async push(force: boolean = false, progress: boolean = true) {
+    async push(options: { force?: boolean; progress?: boolean } = {}) {
+        const { force, progress } = { progress: true, ...options };
         if (!progress) return this.pushCore(force);
 
         await window.withProgress(

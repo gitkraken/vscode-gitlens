@@ -108,10 +108,10 @@ export class ViewCommands implements Disposable {
         this._disposable && this._disposable.dispose();
     }
 
-    private fetch(node: RepositoryNode) {
-        if (!(node instanceof RepositoryNode)) return;
-
-        return node.fetch();
+    private fetch(node: RemoteNode | RepositoryNode) {
+        if (node instanceof RemoteNode) return node.fetch();
+        if (node instanceof RepositoryNode) return node.fetch();
+        return;
     }
 
     private pull(node: RepositoryNode | StatusUpstreamNode) {
@@ -129,7 +129,7 @@ export class ViewCommands implements Disposable {
         }
         if (!(node instanceof RepositoryNode)) return;
 
-        return node.push(force);
+        return node.push({ force: force });
     }
 
     private async applyChanges(node: CommitFileNode | StashFileNode | ResultsFileNode) {

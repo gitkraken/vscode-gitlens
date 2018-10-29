@@ -167,18 +167,18 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
     }
 
     @log()
-    fetch(progress: boolean = true) {
-        return this.repo.fetch(progress);
+    fetch(options: { progress?: boolean; remote?: string } = {}) {
+        return this.repo.fetch(options);
     }
 
     @log()
-    pull(progress: boolean = true) {
-        return this.repo.pull(progress);
+    pull(options: { progress?: boolean } = {}) {
+        return this.repo.pull(options);
     }
 
     @log()
-    push(force: boolean = false, progress: boolean = true) {
-        return this.repo.push(force, progress);
+    push(options: { force?: boolean; progress?: boolean } = {}) {
+        return this.repo.push(options);
     }
 
     @gate()

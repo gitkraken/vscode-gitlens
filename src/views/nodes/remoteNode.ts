@@ -4,7 +4,7 @@ import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitRemote, GitRemoteType, GitUri, Repository } from '../../git/gitService';
-import { Arrays, Iterables } from '../../system';
+import { Arrays, Iterables, log } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { BranchNode } from './branchNode';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
@@ -106,5 +106,10 @@ ${this.remote.path} (${this.remote.provider !== undefined ? this.remote.provider
         }
 
         return item;
+    }
+
+    @log()
+    fetch(options: { progress?: boolean } = {}) {
+        return this.repo.fetch({ ...options, remote: this.remote.name });
     }
 }

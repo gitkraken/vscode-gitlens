@@ -66,7 +66,9 @@ const GitWarnings = {
     noUpstream: /no upstream configured for branch \'(.*?)\'/i,
     unknownRevision: /ambiguous argument \'.*?\': unknown revision or path not in the working tree|not stored as a remote-tracking branch/i,
     mustRunInWorkTree: /this operation must be run in a work tree/i,
-    patchWithConflicts: /Applied patch to \'.*?\' with conflicts/i
+    patchWithConflicts: /Applied patch to \'.*?\' with conflicts/i,
+    noRemoteRepositorySpecified: /No remote repository specified\./i,
+    remoteConnectionError: /Could not read from remote repository/i
 };
 
 interface GitCommandOptions extends RunOptions {
@@ -460,6 +462,18 @@ export class Git {
             params.push(options.ref2);
         }
         params.push('--', fileName);
+
+        return git<string>({ cwd: repoPath }, ...params);
+    }
+
+    static fetch(repoPath: string, options: { all?: boolean; remote?: string } = {}) {
+        const params = ['fetch'];
+        if (options.remote) {
+            params.push(options.remote);
+        }
+        else if (options.all) {
+            params.push('--all');
+        }
 
         return git<string>({ cwd: repoPath }, ...params);
     }
