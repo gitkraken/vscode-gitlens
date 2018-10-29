@@ -1,6 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 22">
-    <path fill="#C5C5C5" d="M3.947 11.812h8.105L8 18.83l-4.053-7.018z"/>
-    <path fill="#C5C5C5" d="M8.974 7.82v7.79H7.026V7.82h1.948z"/>
-    <path fill="#C5C5C5" d="M14.438 3.17v3.22H1.562V3.17h12.876z"/>
+    <path fill="#C5C5C5" d="M14.4 6.42l.038-2.92H1.562L1.6 6.42h12.8zM6.332 14.5H3l5 5 5-5H9.668l.032-6H6.3l.032 6z"/>
 </svg>

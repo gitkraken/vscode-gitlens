@@ -1877,8 +1877,8 @@
                 "title": "Pull Repositories",
                 "category": "GitLens",
                 "icon": {
-                    "dark": "images/dark/icon-download.svg",
-                    "light": "images/light/icon-download.svg"
+                    "dark": "images/dark/icon-pull.svg",
+                    "light": "images/light/icon-pull.svg"
                 }
             },
             {
@@ -1895,8 +1895,8 @@
                 "title": "Pull Repository",
                 "category": "GitLens",
                 "icon": {
-                    "dark": "images/dark/icon-download.svg",
-                    "light": "images/light/icon-download.svg"
+                    "dark": "images/dark/icon-pull.svg",
+                    "light": "images/light/icon-pull.svg"
                 }
             },
             {
@@ -1904,8 +1904,8 @@
                 "title": "Push Repository",
                 "category": "GitLens",
                 "icon": {
-                    "dark": "images/dark/icon-upload.svg",
-                    "light": "images/light/icon-upload.svg"
+                    "dark": "images/dark/icon-push.svg",
+                    "light": "images/light/icon-push.svg"
                 }
             },
             {
@@ -1913,8 +1913,8 @@
                 "title": "Push (force) Repository",
                 "category": "GitLens",
                 "icon": {
-                    "dark": "images/dark/icon-upload.svg",
-                    "light": "images/light/icon-upload.svg"
+                    "dark": "images/dark/icon-push-force.svg",
+                    "light": "images/light/icon-push-force.svg"
                 }
             },
             {
