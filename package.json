@@ -2048,12 +2048,20 @@
             {
                 "command": "gitlens.views.compareWithHead",
                 "title": "Compare with HEAD",
-                "category": "GitLens"
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-compare-refs.svg",
+                    "light": "images/light/icon-compare-refs.svg"
+                }
             },
             {
                 "command": "gitlens.views.compareWithRemote",
                 "title": "Compare with Remote",
-                "category": "GitLens"
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-compare-ref-remote.svg",
+                    "light": "images/light/icon-compare-ref-remote.svg"
+                }
             },
             {
                 "command": "gitlens.views.compareWithSelected",
@@ -2063,7 +2071,11 @@
             {
                 "command": "gitlens.views.compareWithWorking",
                 "title": "Compare with Working Tree",
-                "category": "GitLens"
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-compare-ref-working.svg",
+                    "light": "images/light/icon-compare-ref-working.svg"
+                }
             },
             {
                 "command": "gitlens.views.selectForCompare",
@@ -3243,13 +3255,29 @@
                 },
                 {
                     "command": "gitlens.openBranchInRemote",
-                    "when": "viewItem =~ /gitlens:(branch\\b(.*?:tracking|:remote))/",
+                    "when": "viewItem =~ /gitlens:branch\\b(.*?:tracking|:remote)/",
                     "group": "inline@98"
                 },
                 {
                     "command": "gitlens.openBranchInRemote",
-                    "when": "viewItem =~ /gitlens:(branch\\b(.*?:tracking|:remote))/",
+                    "when": "viewItem =~ /gitlens:branch\\b(.*?:tracking|:remote)/",
                     "group": "1_gitlens@1"
+                },
+                {
+                    "command": "gitlens.views.compareWithRemote",
+                    "when": "viewItem =~ /gitlens:branch\\b.*?:tracking/",
+                    "group": "inline@96"
+                },
+                {
+                    "command": "gitlens.views.compareWithHead",
+                    "when": "viewItem =~ /gitlens:(branch(?!:current)|commit|stash|tag)\\b/",
+                    "group": "inline@97",
+                    "alt": "gitlens.views.compareWithWorking"
+                },
+                {
+                    "command": "gitlens.views.compareWithWorking",
+                    "when": "viewItem =~ /gitlens:branch:current\\b/",
+                    "group": "inline@97"
                 },
                 {
                     "command": "gitlens.views.compareWithRemote",
@@ -3263,7 +3291,7 @@
                 },
                 {
                     "command": "gitlens.views.compareWithWorking",
-                    "when": "viewItem =~ /gitlens:(branch(?!:current)|commit|stash|tag)\\b/",
+                    "when": "viewItem =~ /gitlens:(branch|commit|stash|tag)\\b/",
                     "group": "7_gitlens@3"
                 },
                 {
