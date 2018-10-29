@@ -111,7 +111,7 @@ export class LineHistoryNode extends SubscribeableViewNode<LineHistoryView> {
             })}`,
             TreeItemCollapsibleState.Expanded
         );
-        item.contextValue = ResourceType.FileHistory;
+        item.contextValue = ResourceType.LineHistory;
         item.tooltip = `History of ${this.uri.getFilename()}${lines}\n${this.uri.getDirectory()}/`;
 
         item.iconPath = {

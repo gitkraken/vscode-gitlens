@@ -5,8 +5,8 @@ import { debug, gate, logName } from '../../system';
 import { RefreshReason, TreeViewNodeStateChangeEvent, View } from '../viewBase';
 
 export enum ResourceType {
-    ActiveFileHistory = 'gitlens:active:history-file',
-    ActiveLineHistory = 'gitlens:active:history-line',
+    ActiveFileHistory = 'gitlens:history:active:file',
+    ActiveLineHistory = 'gitlens:history:active:line',
     Branch = 'gitlens:branch',
     BranchWithTracking = 'gitlens:branch:tracking',
     Branches = 'gitlens:branches',
@@ -19,11 +19,12 @@ export enum ResourceType {
     CommitFile = 'gitlens:file:commit',
     Commits = 'gitlens:commits',
     ComparisonResults = 'gitlens:results:comparison',
-    FileHistory = 'gitlens:history-file',
+    FileHistory = 'gitlens:history:file',
     FileStaged = 'gitlens:file:staged',
     FileStagedAndUnstaged = 'gitlens:file:staged:unstaged',
     FileUnstaged = 'gitlens:file:unstaged',
     Folder = 'gitlens:folder',
+    LineHistory = 'gitlens:history:line',
     Message = 'gitlens:message',
     Pager = 'gitlens:pager',
     Remote = 'gitlens:remote',

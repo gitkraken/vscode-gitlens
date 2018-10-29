@@ -1768,7 +1768,11 @@
             {
                 "command": "gitlens.copyRemoteFileUrlToClipboard",
                 "title": "Copy Remote File Url to Clipboard",
-                "category": "GitLens"
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-copy-remote.svg",
+                    "light": "images/light/icon-copy-remote.svg"
+                }
             },
             {
                 "command": "gitlens.copyShaToClipboard",
@@ -1792,22 +1796,38 @@
             {
                 "command": "gitlens.openBranchesInRemote",
                 "title": "Open Branches on Remote",
-                "category": "GitLens"
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-link.svg",
+                    "light": "images/light/icon-link.svg"
+                }
             },
             {
                 "command": "gitlens.openBranchInRemote",
                 "title": "Open Branch on Remote",
-                "category": "GitLens"
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-link.svg",
+                    "light": "images/light/icon-link.svg"
+                }
             },
             {
                 "command": "gitlens.openCommitInRemote",
                 "title": "Open Commit on Remote",
-                "category": "GitLens"
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-link.svg",
+                    "light": "images/light/icon-link.svg"
+                }
             },
             {
                 "command": "gitlens.openFileInRemote",
                 "title": "Open File on Remote",
-                "category": "GitLens"
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-link.svg",
+                    "light": "images/light/icon-link.svg"
+                }
             },
             {
                 "command": "gitlens.openFileRevision",
@@ -1817,7 +1837,11 @@
             {
                 "command": "gitlens.openRepoInRemote",
                 "title": "Open Repository on Remote",
-                "category": "GitLens"
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-link.svg",
+                    "light": "images/light/icon-link.svg"
+                }
             },
             {
                 "command": "gitlens.openWorkingFile",
@@ -1980,7 +2004,11 @@
             {
                 "command": "gitlens.views.openFileRevisionInRemote",
                 "title": "Open Revision on Remote",
-                "category": "GitLens"
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-link.svg",
+                    "light": "images/light/icon-link.svg"
+                }
             },
             {
                 "command": "gitlens.views.openChangedFiles",
@@ -3206,7 +3234,17 @@
                 {
                     "command": "gitlens.openBranchesInRemote",
                     "when": "viewItem == gitlens:branches:remotes",
+                    "group": "inline@98"
+                },
+                {
+                    "command": "gitlens.openBranchesInRemote",
+                    "when": "viewItem == gitlens:branches:remotes",
                     "group": "1_gitlens@1"
+                },
+                {
+                    "command": "gitlens.openBranchInRemote",
+                    "when": "viewItem =~ /gitlens:(branch\\b(.*?:tracking|:remote))/",
+                    "group": "inline@98"
                 },
                 {
                     "command": "gitlens.openBranchInRemote",
@@ -3291,6 +3329,11 @@
                 {
                     "command": "gitlens.openCommitInRemote",
                     "when": "viewItem =~ /gitlens:commit\\b/ && gitlens:hasRemotes",
+                    "group": "inline@98"
+                },
+                {
+                    "command": "gitlens.openCommitInRemote",
+                    "when": "viewItem =~ /gitlens:commit\\b/ && gitlens:hasRemotes",
                     "group": "1_gitlens@1"
                 },
                 {
@@ -3371,18 +3414,18 @@
                 },
                 {
                     "command": "gitlens.views.openFile",
-                    "when": "viewItem =~ /gitlens:(file|history-file|status:file)\\b/",
-                    "group": "inline"
+                    "when": "viewItem =~ /gitlens:(file|history:(file|line)|status:file)\\b/",
+                    "group": "inline@1"
                 },
                 {
                     "command": "gitlens.views.stageFile",
                     "when": "viewItem =~ /gitlens:file\\b.*:unstaged\\b/",
-                    "group": "inline"
+                    "group": "inline@1"
                 },
                 {
                     "command": "gitlens.views.unstageFile",
                     "when": "viewItem =~ /gitlens:file\\b.*:staged\\b/",
-                    "group": "inline"
+                    "group": "inline@1"
                 },
                 {
                     "command": "gitlens.views.stageFile",
@@ -3416,7 +3459,7 @@
                 },
                 {
                     "command": "gitlens.views.openFile",
-                    "when": "viewItem =~ /gitlens:(file|history-file|status:file)\\b/",
+                    "when": "viewItem =~ /gitlens:(file|history:(file|line)|status:file)\\b/",
                     "group": "3_gitlens@1"
                 },
                 {
@@ -3426,12 +3469,18 @@
                 },
                 {
                     "command": "gitlens.openFileInRemote",
+                    "when": "viewItem =~ /gitlens:(file(?!:(un)?staged)|history:(file|line))\\b/ && gitlens:hasRemotes",
+                    "group": "inline@99",
+                    "alt": "gitlens.copyRemoteFileUrlToClipboard"
+                },
+                {
+                    "command": "gitlens.openFileInRemote",
                     "when": "viewItem =~ /gitlens:file\\b/ && gitlens:hasRemotes",
                     "group": "4_gitlens@1"
                 },
                 {
                     "command": "gitlens.copyRemoteFileUrlToClipboard",
-                    "when": "viewItem =~ /gitlens:file\\b/ && gitlens:hasRemotes",
+                    "when": "viewItem =~ /gitlens:(file|history:(file|line)|status:file)\\b/ && gitlens:hasRemotes",
                     "group": "5_gitlens@3"
                 },
                 {
@@ -3441,13 +3490,8 @@
                 },
                 {
                     "command": "gitlens.openFileInRemote",
-                    "when": "viewItem =~ /gitlens:(history-file|status:file)\\b/ && gitlens:hasRemotes",
+                    "when": "viewItem =~ /gitlens:(history:(file|line)|status:file)\\b/ && gitlens:hasRemotes",
                     "group": "3_gitlens@2"
-                },
-                {
-                    "command": "gitlens.copyRemoteFileUrlToClipboard",
-                    "when": "viewItem =~ /gitlens:(history-file|status:file)\\b/ && gitlens:hasRemotes",
-                    "group": "5_gitlens@3"
                 },
                 {
                     "command": "gitlens.views.applyChanges",
@@ -3480,12 +3524,17 @@
                     "group": "8_gitlens@2"
                 },
                 {
-                    "command": "gitlens.openBranchesInRemote",
+                    "command": "gitlens.openRepoInRemote",
+                    "when": "viewItem == gitlens:remote",
+                    "group": "inline@98"
+                },
+                {
+                    "command": "gitlens.openRepoInRemote",
                     "when": "viewItem == gitlens:remote",
                     "group": "1_gitlens@1"
                 },
                 {
-                    "command": "gitlens.openRepoInRemote",
+                    "command": "gitlens.openBranchesInRemote",
                     "when": "viewItem == gitlens:remote",
                     "group": "1_gitlens@2"
                 },
