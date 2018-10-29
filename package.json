@@ -1759,7 +1759,11 @@
             {
                 "command": "gitlens.copyMessageToClipboard",
                 "title": "Copy Commit Message to Clipboard",
-                "category": "GitLens"
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-clipboard.svg",
+                    "light": "images/light/icon-clipboard.svg"
+                }
             },
             {
                 "command": "gitlens.copyRemoteFileUrlToClipboard",
@@ -1769,7 +1773,11 @@
             {
                 "command": "gitlens.copyShaToClipboard",
                 "title": "Copy Commit ID to Clipboard",
-                "category": "GitLens"
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-copy-commit.svg",
+                    "light": "images/light/icon-copy-commit.svg"
+                }
             },
             {
                 "command": "gitlens.closeUnchangedFiles",
@@ -3304,6 +3312,12 @@
                     "command": "gitlens.views.openChangedFileRevisions",
                     "when": "viewItem =~ /gitlens:(commit|stash)\\b/",
                     "group": "3_gitlens@2"
+                },
+                {
+                    "command": "gitlens.copyShaToClipboard",
+                    "when": "viewItem =~ /gitlens:(file:)?commit\\b/",
+                    "group": "inline@98",
+                    "alt": "gitlens.copyMessageToClipboard"
                 },
                 {
                     "command": "gitlens.copyShaToClipboard",
