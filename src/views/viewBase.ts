@@ -16,7 +16,7 @@ import {
 import { configuration } from '../configuration';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { debug, log } from '../system';
+import { debug, Functions, log } from '../system';
 import { FileHistoryView } from './fileHistoryView';
 import { LineHistoryView } from './lineHistoryView';
 import { ViewNode } from './nodes';
@@ -91,7 +91,7 @@ export abstract class ViewBase<TRoot extends ViewNode> implements TreeDataProvid
         });
         this._disposable = Disposable.from(
             this._tree,
-            this._tree.onDidChangeVisibility(this.onVisibilityChanged, this),
+            this._tree.onDidChangeVisibility(Functions.debounce(this.onVisibilityChanged, 250), this),
             this._tree.onDidCollapseElement(this.onElementCollapsed, this),
             this._tree.onDidExpandElement(this.onElementExpanded, this)
         );
@@ -177,8 +177,8 @@ export abstract class ViewBase<TRoot extends ViewNode> implements TreeDataProvid
     async reveal(
         node: ViewNode,
         options?: {
-            select?: boolean | undefined;
-            focus?: boolean | undefined;
+            select?: boolean;
+            focus?: boolean;
         }
     ) {
         if (this._tree === undefined) return;
