@@ -32,11 +32,11 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 
     async getChildren(): Promise<ViewNode[]> {
         if (this._children === undefined) {
-            const repositories = [...(await Container.git.getRepositories())];
+            const repositories = await Container.git.getOrderedRepositories();
             if (repositories.length === 0) return [new MessageNode(this, 'No repositories could be found.')];
 
             const children = [];
-            for (const repo of repositories.sort((a, b) => a.index - b.index)) {
+            for (const repo of repositories) {
                 if (repo.closed) continue;
 
                 children.push(new RepositoryNode(GitUri.fromRepoPath(repo.path), repo, this, this.view));
@@ -62,7 +62,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
     async refresh(reason?: RefreshReason) {
         if (this._children === undefined) return;
 
-        const repositories = [...(await Container.git.getRepositories())];
+        const repositories = await Container.git.getOrderedRepositories();
         if (repositories.length === 0 && (this._children === undefined || this._children.length === 0)) return;
 
         if (repositories.length === 0) {
@@ -71,7 +71,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
         }
 
         const children = [];
-        for (const repo of repositories.sort((a, b) => a.index - b.index)) {
+        for (const repo of repositories) {
             const normalizedPath = repo.normalizedPath;
             const child = (this._children as RepositoryNode[]).find(c => c.repo.normalizedPath === normalizedPath);
             if (child !== undefined) {

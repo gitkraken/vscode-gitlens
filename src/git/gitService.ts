@@ -473,7 +473,7 @@ export class GitService implements Disposable {
     @gate()
     @log()
     async fetchAll() {
-        const repositories = [...(await this.getRepositories())];
+        const repositories = await this.getOrderedRepositories();
         if (repositories.length === 0) return;
 
         await window.withProgress(
@@ -503,7 +503,7 @@ export class GitService implements Disposable {
     @gate()
     @log()
     async pullAll() {
-        const repositories = [...(await this.getRepositories())];
+        const repositories = await this.getOrderedRepositories();
         if (repositories.length === 0) return;
 
         await window.withProgress(
@@ -533,7 +533,7 @@ export class GitService implements Disposable {
     @gate()
     @log()
     async pushAll() {
-        const repositories = [...(await this.getRepositories())];
+        const repositories = await this.getOrderedRepositories();
         if (repositories.length === 0) return;
 
         await window.withProgress(
@@ -1701,6 +1701,13 @@ export class GitService implements Disposable {
 
         const values = repositoryTree.values();
         return predicate !== undefined ? Iterables.filter(values, predicate) : values;
+    }
+
+    async getOrderedRepositories(): Promise<Repository[]> {
+        const repositories = [...(await this.getRepositories())];
+        if (repositories.length === 0) return repositories;
+
+        return repositories.sort((a, b) => a.index - b.index);
     }
 
     private async getRepositoryTree(): Promise<TernarySearchTree<Repository>> {
