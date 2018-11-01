@@ -6,7 +6,7 @@ import { Container } from '../container';
 import { GitCommit, GitService, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { ActiveEditorCommand, Commands } from './common';
+import { ActiveEditorCommand, command, Commands } from './common';
 
 export interface DiffWithCommandArgsRevision {
     sha: string;
@@ -23,6 +23,7 @@ export interface DiffWithCommandArgs {
     showOptions?: TextDocumentShowOptions;
 }
 
+@command()
 export class DiffWithCommand extends ActiveEditorCommand {
     static getMarkdownCommandArgs(args: DiffWithCommandArgs): string;
     static getMarkdownCommandArgs(commit1: GitCommit, commit2: GitCommit): string;

@@ -6,10 +6,10 @@ import { GitRepoSearchBy, GitService, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, CommitsQuickPick, ShowCommitsSearchInResultsQuickPickItem } from '../quickpicks';
-import { Strings } from '../system';
-import { Iterables } from '../system/iterable';
+import { Iterables, Strings } from '../system';
 import {
     ActiveEditorCachedCommand,
+    command,
     CommandContext,
     Commands,
     getCommandUri,
@@ -44,6 +44,7 @@ export interface ShowCommitSearchCommandArgs {
     goBackCommand?: CommandQuickPickItem;
 }
 
+@command()
 export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
     constructor() {
         super(Commands.ShowCommitSearch);

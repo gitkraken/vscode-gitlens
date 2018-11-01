@@ -7,6 +7,7 @@ import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { Arrays } from '../system';
 import {
+    command,
     Command,
     CommandContext,
     Commands,
@@ -47,19 +48,18 @@ interface Resource extends SourceControlResourceState {
     readonly type: Status;
 }
 
-class ExternalDiffFile {
-    constructor(
-        public readonly uri: Uri,
-        public readonly staged: boolean,
-        public readonly ref1?: string,
-        public readonly ref2?: string
-    ) {}
+interface ExternalDiffFile {
+    uri: Uri;
+    staged: boolean;
+    ref1?: string;
+    ref2?: string;
 }
 
 export interface ExternalDiffCommandArgs {
     files?: ExternalDiffFile[];
 }
 
+@command()
 export class ExternalDiffCommand extends Command {
     constructor() {
         super([Commands.ExternalDiff, Commands.ExternalDiffAll]);
@@ -75,12 +75,12 @@ export class ExternalDiffCommand extends Command {
             const ref2 = context.node.commit.isUncommitted ? '' : context.node.commit.sha;
 
             args.files = [
-                new ExternalDiffFile(
-                    GitUri.fromFile(context.node.file, context.node.file.repoPath || context.node.repoPath),
-                    context.node.commit.isStagedUncommitted || context.node.file.indexStatus !== undefined,
-                    ref1,
-                    ref2
-                )
+                {
+                    uri: GitUri.fromFile(context.node.file, context.node.file.repoPath || context.node.repoPath),
+                    staged: context.node.commit.isStagedUncommitted || context.node.file.indexStatus !== undefined,
+                    ref1: ref1,
+                    ref2: ref2
+                }
             ];
 
             return this.execute(args);
@@ -90,12 +90,12 @@ export class ExternalDiffCommand extends Command {
             args = { ...args };
 
             args.files = [
-                new ExternalDiffFile(
-                    GitUri.fromFile(context.node.file, context.node.file.repoPath || context.node.repoPath),
-                    context.node.file.indexStatus !== undefined,
-                    context.node.ref1,
-                    context.node.ref2
-                )
+                {
+                    uri: GitUri.fromFile(context.node.file, context.node.file.repoPath || context.node.repoPath),
+                    staged: context.node.file.indexStatus !== undefined,
+                    ref1: context.node.ref1,
+                    ref2: context.node.ref2
+                }
             ];
 
             return this.execute(args);
@@ -104,13 +104,10 @@ export class ExternalDiffCommand extends Command {
         if (args.files === undefined) {
             if (context.type === 'scm-states') {
                 args = { ...args };
-                args.files = context.scmResourceStates.map(
-                    r =>
-                        new ExternalDiffFile(
-                            r.resourceUri,
-                            (r as Resource).resourceGroupType === ResourceGroupType.Index
-                        )
-                );
+                args.files = context.scmResourceStates.map(r => ({
+                    uri: r.resourceUri,
+                    staged: (r as Resource).resourceGroupType === ResourceGroupType.Index
+                }));
             }
             else if (context.type === 'scm-groups') {
                 args = { ...args };
@@ -118,10 +115,10 @@ export class ExternalDiffCommand extends Command {
                     context.scmResourceGroups[0].resourceStates,
                     r =>
                         this.isModified(r)
-                            ? new ExternalDiffFile(
-                                  r.resourceUri,
-                                  (r as Resource).resourceGroupType === ResourceGroupType.Index
-                              )
+                            ? {
+                                  uri: r.resourceUri,
+                                  staged: (r as Resource).resourceGroupType === ResourceGroupType.Index
+                              }
                             : undefined
                 );
             }
@@ -144,11 +141,11 @@ export class ExternalDiffCommand extends Command {
 
                 for (const file of status.files) {
                     if (file.indexStatus === 'M') {
-                        args.files.push(new ExternalDiffFile(file.uri, true));
+                        args.files.push({ uri: file.uri, staged: true });
                     }
 
                     if (file.workingTreeStatus === 'M') {
-                        args.files.push(new ExternalDiffFile(file.uri, false));
+                        args.files.push({ uri: file.uri, staged: false });
                     }
                 }
             }
@@ -180,11 +177,11 @@ export class ExternalDiffCommand extends Command {
 
                 args.files = [];
                 if (status.indexStatus === 'M') {
-                    args.files.push(new ExternalDiffFile(status.uri, true));
+                    args.files.push({ uri: status.uri, staged: true });
                 }
 
                 if (status.workingTreeStatus === 'M') {
-                    args.files.push(new ExternalDiffFile(status.uri, false));
+                    args.files.push({ uri: status.uri, staged: false });
                 }
             }
             else {

@@ -1914,6 +1914,15 @@
                 }
             },
             {
+                "command": "gitlens.pushRepositories",
+                "title": "Push Repositories",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-push.svg",
+                    "light": "images/light/icon-push.svg"
+                }
+            },
+            {
                 "command": "gitlens.views.fetch",
                 "title": "Fetch Repository",
                 "category": "GitLens",
@@ -2595,6 +2604,10 @@
                     "when": "gitlens:hasRemotes"
                 },
                 {
+                    "command": "gitlens.pushRepositories",
+                    "when": "gitlens:hasRemotes"
+                },
+                {
                     "command": "gitlens.views.fetch",
                     "when": "false"
                 },
@@ -3110,6 +3123,11 @@
                     "command": "gitlens.showCommitSearch",
                     "when": "gitlens:enabled && view =~ /^gitlens.views.repositories:/",
                     "group": "navigation@1"
+                },
+                {
+                    "command": "gitlens.pushRepositories",
+                    "when": "gitlens:enabled && view =~ /^gitlens.views.repositories:/",
+                    "group": "navigation@6"
                 },
                 {
                     "command": "gitlens.pullRepositories",

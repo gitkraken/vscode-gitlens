@@ -7,6 +7,7 @@ import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem } from '../quickpicks';
 import {
+    command,
     Command,
     CommandContext,
     Commands,
@@ -23,6 +24,7 @@ export interface StashSaveCommandArgs {
     goBackCommand?: CommandQuickPickItem;
 }
 
+@command()
 export class StashSaveCommand extends Command {
     constructor() {
         super(Commands.StashSave);

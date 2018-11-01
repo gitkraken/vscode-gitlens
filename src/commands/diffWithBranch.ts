@@ -7,7 +7,7 @@ import { GitUri } from '../git/gitService';
 import { Messages } from '../messages';
 import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickpicks';
 import { Strings } from '../system';
-import { ActiveEditorCommand, Commands, getCommandUri } from './common';
+import { ActiveEditorCommand, command, Commands, getCommandUri } from './common';
 import { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithBranchCommandArgs {
@@ -17,6 +17,7 @@ export interface DiffWithBranchCommandArgs {
     goBackCommand?: CommandQuickPickItem;
 }
 
+@command()
 export class DiffWithBranchCommand extends ActiveEditorCommand {
     constructor() {
         super(Commands.DiffWithBranch);

@@ -6,12 +6,20 @@ import { GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { Iterables } from '../system';
-import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithCommit } from './common';
+import {
+    ActiveEditorCommand,
+    command,
+    CommandContext,
+    Commands,
+    getCommandUri,
+    isCommandViewContextWithCommit
+} from './common';
 
 export interface CopyShaToClipboardCommandArgs {
     sha?: string;
 }
 
+@command()
 export class CopyShaToClipboardCommand extends ActiveEditorCommand {
     constructor() {
         super(Commands.CopyShaToClipboard);

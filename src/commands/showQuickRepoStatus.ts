@@ -5,12 +5,13 @@ import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, RepoStatusQuickPick } from '../quickpicks';
-import { ActiveEditorCachedCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
+import { ActiveEditorCachedCommand, command, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 
 export interface ShowQuickRepoStatusCommandArgs {
     goBackCommand?: CommandQuickPickItem;
 }
 
+@command()
 export class ShowQuickRepoStatusCommand extends ActiveEditorCachedCommand {
     constructor() {
         super(Commands.ShowQuickRepoStatus);

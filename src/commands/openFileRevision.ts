@@ -8,7 +8,7 @@ import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { ChooseFromBranchesAndTagsQuickPickItem, CommandQuickPickItem, FileHistoryQuickPick } from '../quickpicks';
 import { Iterables, Strings } from '../system';
-import { ActiveEditorCommand, Commands, getCommandUri, openEditor } from './common';
+import { ActiveEditorCommand, command, Commands, getCommandUri, openEditor } from './common';
 
 export interface OpenFileRevisionCommandArgs {
     branchOrTag?: GitBranch | GitTag;
@@ -21,6 +21,7 @@ export interface OpenFileRevisionCommandArgs {
     nextPageCommand?: CommandQuickPickItem;
 }
 
+@command()
 export class OpenFileRevisionCommand extends ActiveEditorCommand {
     static getMarkdownCommandArgs(args: OpenFileRevisionCommandArgs): string;
     static getMarkdownCommandArgs(uri: Uri, annotationType?: FileAnnotationType, line?: number): string;

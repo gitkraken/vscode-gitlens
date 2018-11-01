@@ -2,8 +2,9 @@
 import { commands } from 'vscode';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { Command, Commands, getLastCommand } from './common';
+import { command, Command, Commands, getLastCommand } from './common';
 
+@command()
 export class ShowLastQuickPickCommand extends Command {
     constructor() {
         super(Commands.ShowLastQuickPick);

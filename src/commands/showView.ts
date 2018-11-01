@@ -1,7 +1,8 @@
 'use strict';
 import { Container } from '../container';
-import { Command, CommandContext, Commands } from './common';
+import { command, Command, CommandContext, Commands } from './common';
 
+@command()
 export class ShowViewCommand extends Command {
     constructor() {
         super([

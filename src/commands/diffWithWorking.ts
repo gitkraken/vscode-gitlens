@@ -4,7 +4,7 @@ import { Container } from '../container';
 import { GitCommit, GitService, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { ActiveEditorCommand, Commands, getCommandUri } from './common';
+import { ActiveEditorCommand, command, Commands, getCommandUri } from './common';
 import { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithWorkingCommandArgs {
@@ -14,6 +14,7 @@ export interface DiffWithWorkingCommandArgs {
     showOptions?: TextDocumentShowOptions;
 }
 
+@command()
 export class DiffWithWorkingCommand extends ActiveEditorCommand {
     constructor() {
         super(Commands.DiffWithWorking);

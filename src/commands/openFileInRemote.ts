@@ -7,6 +7,7 @@ import { Logger } from '../logger';
 import { BranchesQuickPick, CommandQuickPickItem } from '../quickpicks';
 import {
     ActiveEditorCommand,
+    command,
     CommandContext,
     Commands,
     getCommandUri,
@@ -21,6 +22,7 @@ export interface OpenFileInRemoteCommandArgs {
     clipboard?: boolean;
 }
 
+@command()
 export class OpenFileInRemoteCommand extends ActiveEditorCommand {
     constructor() {
         super(Commands.OpenFileInRemote);

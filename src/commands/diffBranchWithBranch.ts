@@ -5,13 +5,21 @@ import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickpicks';
-import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
+import {
+    ActiveEditorCommand,
+    command,
+    CommandContext,
+    Commands,
+    getCommandUri,
+    getRepoPathOrActiveOrPrompt
+} from './common';
 
 export interface DiffBranchWithBranchCommandArgs {
     ref1?: string;
     ref2?: string;
 }
 
+@command()
 export class DiffBranchWithBranchCommand extends ActiveEditorCommand {
     constructor() {
         super([Commands.DiffHeadWithBranch, Commands.DiffWorkingWithBranch]);

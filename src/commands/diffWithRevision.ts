@@ -7,7 +7,7 @@ import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { ChooseFromBranchesAndTagsQuickPickItem, CommandQuickPickItem, FileHistoryQuickPick } from '../quickpicks';
 import { Iterables, Strings } from '../system';
-import { ActiveEditorCommand, Commands, getCommandUri } from './common';
+import { ActiveEditorCommand, command, Commands, getCommandUri } from './common';
 import { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithRevisionCommandArgs {
@@ -19,6 +19,7 @@ export interface DiffWithRevisionCommandArgs {
     nextPageCommand?: CommandQuickPickItem;
 }
 
+@command()
 export class DiffWithRevisionCommand extends ActiveEditorCommand {
     constructor() {
         super(Commands.DiffWithRevision);

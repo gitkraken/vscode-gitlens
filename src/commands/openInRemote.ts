@@ -6,7 +6,7 @@ import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, OpenRemoteCommandQuickPickItem, RemotesQuickPick } from '../quickpicks';
 import { Strings } from '../system';
-import { ActiveEditorCommand, Commands } from './common';
+import { ActiveEditorCommand, command, Commands } from './common';
 
 export interface OpenInRemoteCommandArgs {
     remote?: string;
@@ -17,6 +17,7 @@ export interface OpenInRemoteCommandArgs {
     goBackCommand?: CommandQuickPickItem;
 }
 
+@command()
 export class OpenInRemoteCommand extends ActiveEditorCommand {
     constructor() {
         super(Commands.OpenInRemote);

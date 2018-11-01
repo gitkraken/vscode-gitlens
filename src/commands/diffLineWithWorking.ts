@@ -1,10 +1,10 @@
 'use strict';
-import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
+import { commands, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { Container } from '../container';
 import { GitCommit, GitService, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { ActiveEditorCommand, Commands, getCommandUri } from './common';
+import { ActiveEditorCommand, command, Commands, getCommandUri } from './common';
 import { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffLineWithWorkingCommandArgs {
@@ -14,6 +14,7 @@ export interface DiffLineWithWorkingCommandArgs {
     showOptions?: TextDocumentShowOptions;
 }
 
+@command()
 export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
     constructor() {
         super(Commands.DiffLineWithWorking);

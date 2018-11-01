@@ -3,8 +3,9 @@ import { ConfigurationTarget } from 'vscode';
 import { configuration } from '../configuration';
 import { Container } from '../container';
 import { ModesQuickPick } from '../quickpicks';
-import { Command, Commands } from './common';
+import { command, Command, Commands } from './common';
 
+@command()
 export class SwitchModeCommand extends Command {
     constructor() {
         super(Commands.SwitchMode);
@@ -18,6 +19,7 @@ export class SwitchModeCommand extends Command {
     }
 }
 
+@command()
 export class ToggleReviewModeCommand extends Command {
     constructor() {
         super(Commands.ToggleReviewMode);
@@ -31,6 +33,7 @@ export class ToggleReviewModeCommand extends Command {
     }
 }
 
+@command()
 export class ToggleZenModeCommand extends Command {
     constructor() {
         super(Commands.ToggleZenMode);

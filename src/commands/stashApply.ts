@@ -8,6 +8,7 @@ import { Messages } from '../messages';
 import { CommandQuickPickItem, StashListQuickPick } from '../quickpicks';
 import { Strings } from '../system';
 import {
+    command,
     Command,
     CommandContext,
     Commands,
@@ -25,6 +26,7 @@ export interface StashApplyCommandArgs {
     goBackCommand?: CommandQuickPickItem;
 }
 
+@command()
 export class StashApplyCommand extends Command {
     constructor() {
         super(Commands.StashApply);

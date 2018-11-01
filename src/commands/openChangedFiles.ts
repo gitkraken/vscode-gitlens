@@ -5,12 +5,13 @@ import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { Arrays } from '../system';
-import { ActiveEditorCommand, Commands, getCommandUri, getRepoPathOrPrompt, openEditor } from './common';
+import { ActiveEditorCommand, command, Commands, getCommandUri, getRepoPathOrPrompt, openEditor } from './common';
 
 export interface OpenChangedFilesCommandArgs {
     uris?: Uri[];
 }
 
+@command()
 export class OpenChangedFilesCommand extends ActiveEditorCommand {
     constructor() {
         super(Commands.OpenChangedFiles);

@@ -6,7 +6,7 @@ import { Container } from '../container';
 import { GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { ActiveEditorCommand, Commands, getCommandUri, openEditor } from './common';
+import { ActiveEditorCommand, command, Commands, getCommandUri, openEditor } from './common';
 
 export interface OpenWorkingFileCommandArgs {
     uri?: Uri;
@@ -15,6 +15,7 @@ export interface OpenWorkingFileCommandArgs {
     annotationType?: FileAnnotationType;
 }
 
+@command()
 export class OpenWorkingFileCommand extends ActiveEditorCommand {
     constructor() {
         super(Commands.OpenWorkingFile);

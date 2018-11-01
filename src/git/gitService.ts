@@ -480,9 +480,9 @@ export class GitService implements Disposable {
             {
                 location: ProgressLocation.Notification,
                 title: `Fetching repositories`,
-                cancellable: false
+                cancellable: true
             },
-            async progress => {
+            async (progress, token) => {
                 const total = repositories.length + 1;
                 let i = 0;
                 for (const repo of repositories) {
@@ -491,6 +491,8 @@ export class GitService implements Disposable {
                         message: `${repo.formattedName}...`,
                         increment: (i / total) * 100
                     });
+
+                    if (token.isCancellationRequested) break;
 
                     await this.fetch(repo.path);
                 }
@@ -508,9 +510,9 @@ export class GitService implements Disposable {
             {
                 location: ProgressLocation.Notification,
                 title: `Pulling repositories`,
-                cancellable: false
+                cancellable: true
             },
-            async progress => {
+            async (progress, token) => {
                 const total = repositories.length + 1;
                 let i = 0;
                 for (const repo of repositories) {
@@ -520,7 +522,39 @@ export class GitService implements Disposable {
                         increment: (i / total) * 100
                     });
 
+                    if (token.isCancellationRequested) break;
+
                     await repo.pull({ progress: false });
+                }
+            }
+        );
+    }
+
+    @gate()
+    @log()
+    async pushAll() {
+        const repositories = [...(await this.getRepositories())];
+        if (repositories.length === 0) return;
+
+        await window.withProgress(
+            {
+                location: ProgressLocation.Notification,
+                title: `Pushing repositories`,
+                cancellable: true
+            },
+            async (progress, token) => {
+                const total = repositories.length + 1;
+                let i = 0;
+                for (const repo of repositories) {
+                    i++;
+                    progress.report({
+                        message: `${repo.formattedName}...`,
+                        increment: (i / total) * 100
+                    });
+
+                    if (token.isCancellationRequested) break;
+
+                    await repo.push({ progress: false });
                 }
             }
         );

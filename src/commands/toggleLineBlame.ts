@@ -2,8 +2,9 @@
 import { TextEditor, Uri, window } from 'vscode';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { ActiveEditorCommand, Commands } from './common';
+import { ActiveEditorCommand, command, Commands } from './common';
 
+@command()
 export class ToggleLineBlameCommand extends ActiveEditorCommand {
     constructor() {
         super(Commands.ToggleLineBlame);

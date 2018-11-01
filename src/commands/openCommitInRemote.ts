@@ -4,13 +4,21 @@ import { Container } from '../container';
 import { GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { ActiveEditorCommand, CommandContext, Commands, getCommandUri, isCommandViewContextWithCommit } from './common';
+import {
+    ActiveEditorCommand,
+    command,
+    CommandContext,
+    Commands,
+    getCommandUri,
+    isCommandViewContextWithCommit
+} from './common';
 import { OpenInRemoteCommandArgs } from './openInRemote';
 
 export interface OpenCommitInRemoteCommandArgs {
     sha?: string;
 }
 
+@command()
 export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
     static getMarkdownCommandArgs(sha: string): string;
     static getMarkdownCommandArgs(args: OpenCommitInRemoteCommandArgs): string;

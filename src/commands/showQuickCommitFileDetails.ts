@@ -10,6 +10,7 @@ import { CommandQuickPickItem, CommitFileQuickPick } from '../quickpicks';
 import { Strings } from '../system';
 import {
     ActiveEditorCachedCommand,
+    command,
     CommandContext,
     Commands,
     getCommandUri,
@@ -25,6 +26,7 @@ export interface ShowQuickCommitFileDetailsCommandArgs {
     goBackCommand?: CommandQuickPickItem;
 }
 
+@command()
 export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand {
     static getMarkdownCommandArgs(sha: string): string;
     static getMarkdownCommandArgs(args: ShowQuickCommitFileDetailsCommandArgs): string;

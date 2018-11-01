@@ -6,6 +6,7 @@ import { GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import {
     ActiveEditorCommand,
+    command,
     CommandContext,
     Commands,
     getCommandUri,
@@ -18,6 +19,7 @@ export interface OpenRepoInRemoteCommandArgs {
     remote?: string;
 }
 
+@command()
 export class OpenRepoInRemoteCommand extends ActiveEditorCommand {
     constructor() {
         super(Commands.OpenRepoInRemote);

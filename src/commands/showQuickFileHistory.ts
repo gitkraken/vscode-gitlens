@@ -13,7 +13,7 @@ import {
     ShowCommitsInResultsQuickPickItem
 } from '../quickpicks';
 import { Iterables, Strings } from '../system';
-import { ActiveEditorCachedCommand, CommandContext, Commands, getCommandUri } from './common';
+import { ActiveEditorCachedCommand, command, CommandContext, Commands, getCommandUri } from './common';
 import { ShowQuickCommitFileDetailsCommandArgs } from './showQuickCommitFileDetails';
 
 export interface ShowQuickFileHistoryCommandArgs {
@@ -27,6 +27,7 @@ export interface ShowQuickFileHistoryCommandArgs {
     nextPageCommand?: CommandQuickPickItem;
 }
 
+@command()
 export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
     constructor() {
         super([Commands.ShowFileHistoryInResults, Commands.ShowQuickFileHistory]);

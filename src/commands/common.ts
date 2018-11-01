@@ -3,6 +3,7 @@ import * as paths from 'path';
 import {
     commands,
     Disposable,
+    ExtensionContext,
     SourceControlResourceGroup,
     SourceControlResourceState,
     TextDocumentShowOptions,
@@ -53,6 +54,7 @@ export enum Commands {
     OpenRepoInRemote = 'gitlens.openRepoInRemote',
     OpenWorkingFile = 'gitlens.openWorkingFile',
     PullRepositories = 'gitlens.pullRepositories',
+    PushRepositories = 'gitlens.pushRepositories',
     ResetSuppressedWarnings = 'gitlens.resetSuppressedWarnings',
     ShowCommitInResults = 'gitlens.showCommitInResults',
     ShowCommitSearch = 'gitlens.showCommitSearch',
@@ -85,6 +87,24 @@ export enum Commands {
     ToggleZenMode = 'gitlens.toggleZenMode',
     ViewsOpenDirectoryDiff = 'gitlens.views.openDirectoryDiff',
     ViewsOpenDirectoryDiffWithWorking = 'gitlens.views.openDirectoryDiffWithWorking'
+}
+
+interface CommandConstructor {
+    new (): any;
+}
+
+const registrableCommands: CommandConstructor[] = [];
+
+export function command(): ClassDecorator {
+    return (target: any) => {
+        registrableCommands.push(target);
+    };
+}
+
+export function registerCommands(context: ExtensionContext): void {
+    for (const c of registrableCommands) {
+        context.subscriptions.push(new c());
+    }
 }
 
 export function getCommandUri(uri?: Uri, editor?: TextEditor): Uri | undefined {

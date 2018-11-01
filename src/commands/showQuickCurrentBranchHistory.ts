@@ -5,13 +5,14 @@ import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem } from '../quickpicks';
-import { ActiveEditorCachedCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
+import { ActiveEditorCachedCommand, command, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 import { ShowQuickBranchHistoryCommandArgs } from './showQuickBranchHistory';
 
 export interface ShowQuickCurrentBranchHistoryCommandArgs {
     goBackCommand?: CommandQuickPickItem;
 }
 
+@command()
 export class ShowQuickCurrentBranchHistoryCommand extends ActiveEditorCachedCommand {
     constructor() {
         super(Commands.ShowQuickCurrentBranchHistory);

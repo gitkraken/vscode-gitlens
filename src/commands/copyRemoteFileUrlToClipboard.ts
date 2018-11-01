@@ -2,6 +2,7 @@
 import { commands, TextEditor, Uri } from 'vscode';
 import {
     ActiveEditorCommand,
+    command,
     CommandContext,
     Commands,
     isCommandViewContextWithBranch,
@@ -13,6 +14,7 @@ export interface CopyRemoteFileUrlToClipboardCommandArgs {
     range?: boolean;
 }
 
+@command()
 export class CopyRemoteFileUrlToClipboardCommand extends ActiveEditorCommand {
     constructor() {
         super(Commands.CopyRemoteFileUrlToClipboard);

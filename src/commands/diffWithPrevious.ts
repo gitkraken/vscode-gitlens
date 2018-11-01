@@ -1,11 +1,11 @@
 'use strict';
-import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
+import { commands, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { Container } from '../container';
 import { GitCommit, GitService, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { Iterables } from '../system';
-import { ActiveEditorCommand, CommandContext, Commands, getCommandUri } from './common';
+import { ActiveEditorCommand, command, CommandContext, Commands, getCommandUri } from './common';
 import { DiffWithCommandArgs } from './diffWith';
 import { DiffWithWorkingCommandArgs } from './diffWithWorking';
 
@@ -17,6 +17,7 @@ export interface DiffWithPreviousCommandArgs {
     showOptions?: TextDocumentShowOptions;
 }
 
+@command()
 export class DiffWithPreviousCommand extends ActiveEditorCommand {
     constructor() {
         super([Commands.DiffWithPrevious, Commands.DiffWithPreviousInDiff]);
@@ -44,7 +45,9 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 
             try {
                 let sha = args.commit === undefined ? gitUri.sha : args.commit.sha;
-                if (sha === GitService.deletedOrMissingSha) return Messages.showCommitHasNoPreviousCommitWarningMessage();
+                if (sha === GitService.deletedOrMissingSha) {
+                    return Messages.showCommitHasNoPreviousCommitWarningMessage();
+                }
 
                 // If we are a fake "staged" sha, remove it
                 let isStagedUncommitted = false;

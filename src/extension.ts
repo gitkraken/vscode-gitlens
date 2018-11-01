@@ -1,6 +1,6 @@
 'use strict';
 import { commands, ExtensionContext, extensions, window, workspace } from 'vscode';
-import { Commands, configureCommands } from './commands';
+import { Commands, registerCommands } from './commands';
 import { Config, configuration, Configuration } from './configuration';
 import { CommandContext, extensionQualifiedId, GlobalState, GlyphChars, setCommandContext } from './constants';
 import { Container } from './container';
@@ -57,7 +57,7 @@ export async function activate(context: ExtensionContext) {
 
     Container.initialize(context, cfg);
 
-    configureCommands();
+    registerCommands(context);
 
     const gitVersion = GitService.getGitVersion();
 

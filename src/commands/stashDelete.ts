@@ -6,7 +6,7 @@ import { GitStashCommit } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem } from '../quickpicks';
-import { Command, CommandContext, Commands, isCommandViewContextWithCommit } from './common';
+import { command, Command, CommandContext, Commands, isCommandViewContextWithCommit } from './common';
 
 export interface StashDeleteCommandArgs {
     confirm?: boolean;
@@ -15,6 +15,7 @@ export interface StashDeleteCommandArgs {
     goBackCommand?: CommandQuickPickItem;
 }
 
+@command()
 export class StashDeleteCommand extends Command {
     constructor() {
         super(Commands.StashDelete);

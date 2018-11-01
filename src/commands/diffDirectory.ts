@@ -8,6 +8,7 @@ import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickpicks';
 import { ResultsComparisonNode } from '../views/nodes';
 import {
     ActiveEditorCommand,
+    command,
     CommandContext,
     Commands,
     getCommandUri,
@@ -20,6 +21,7 @@ export interface DiffDirectoryCommandArgs {
     ref2?: string;
 }
 
+@command()
 export class DiffDirectoryCommand extends ActiveEditorCommand {
     constructor() {
         super([Commands.DiffDirectory, Commands.ViewsOpenDirectoryDiff, Commands.ViewsOpenDirectoryDiffWithWorking]);

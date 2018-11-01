@@ -7,6 +7,7 @@ import { Logger } from '../logger';
 import { BranchesQuickPick, CommandQuickPickItem } from '../quickpicks';
 import {
     ActiveEditorCommand,
+    command,
     CommandContext,
     Commands,
     getCommandUri,
@@ -20,6 +21,7 @@ export interface OpenBranchInRemoteCommandArgs {
     remote?: string;
 }
 
+@command()
 export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
     constructor() {
         super(Commands.OpenBranchInRemote);

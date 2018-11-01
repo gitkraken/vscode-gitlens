@@ -6,12 +6,13 @@ import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { Functions } from '../system';
-import { ActiveEditorCommand, Commands, getCommandUri, getRepoPathOrPrompt } from './common';
+import { ActiveEditorCommand, command, Commands, getCommandUri, getRepoPathOrPrompt } from './common';
 
 export interface CloseUnchangedFilesCommandArgs {
     uris?: Uri[];
 }
 
+@command()
 export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
     private _onEditorChangedFn: ((editor: TextEditor | undefined) => void) | undefined;
 

@@ -7,7 +7,7 @@ import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { BranchesQuickPick, BranchHistoryQuickPick, CommandQuickPickItem } from '../quickpicks';
 import { Strings } from '../system';
-import { ActiveEditorCachedCommand, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
+import { ActiveEditorCachedCommand, command, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
 
 export interface ShowQuickBranchHistoryCommandArgs {
@@ -20,6 +20,7 @@ export interface ShowQuickBranchHistoryCommandArgs {
     nextPageCommand?: CommandQuickPickItem;
 }
 
+@command()
 export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
     constructor() {
         super(Commands.ShowQuickBranchHistory);
