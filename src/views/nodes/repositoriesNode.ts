@@ -113,7 +113,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
     }
 
     @debug({ args: false })
-    private async onActiveEditorChanged(editor: TextEditor | undefined) {
+    private onActiveEditorChanged(editor: TextEditor | undefined) {
         if (editor == null || this._children === undefined || this._children.length === 1) {
             return;
         }
@@ -133,10 +133,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
                 parent = parent.getParent();
             }
 
-            // HACK: Since we have no expand/collapse api, reveal the first child to force an expand
-            // See https://github.com/Microsoft/vscode/issues/55879
-            const children = await node.getChildren();
-            await this.view.reveal(children !== undefined && children.length !== 0 ? children[0] : node);
+            this.view.reveal(node);
         }
         catch (ex) {
             Logger.error(ex);
