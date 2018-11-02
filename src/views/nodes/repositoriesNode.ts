@@ -76,7 +76,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
             const child = (this._children as RepositoryNode[]).find(c => c.repo.normalizedPath === normalizedPath);
             if (child !== undefined) {
                 children.push(child);
-                child.refresh();
+                void child.refresh();
             }
             else {
                 children.push(new RepositoryNode(GitUri.fromRepoPath(repo.path), repo, this, this.view));
@@ -133,7 +133,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
                 parent = parent.getParent();
             }
 
-            this.view.reveal(node);
+            void this.view.reveal(node);
         }
         catch (ex) {
             Logger.error(ex);

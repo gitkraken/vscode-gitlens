@@ -369,16 +369,16 @@ export class ViewCommands implements Disposable {
         } as OpenFileInRemoteCommandArgs);
     }
 
-    stageFile(node: CommitFileNode | StatusFileNode) {
+    private async stageFile(node: CommitFileNode | StatusFileNode) {
         if (!(node instanceof CommitFileNode) && !(node instanceof StatusFileNode)) return;
 
-        Container.git.stageFile(node.repoPath, node.file.fileName);
+        void (await Container.git.stageFile(node.repoPath, node.file.fileName));
     }
 
-    unstageFile(node: CommitFileNode | StatusFileNode) {
+    private async unstageFile(node: CommitFileNode | StatusFileNode) {
         if (!(node instanceof CommitFileNode) && !(node instanceof StatusFileNode)) return;
 
-        Container.git.unStageFile(node.repoPath, node.file.fileName);
+        void (await Container.git.unStageFile(node.repoPath, node.file.fileName));
     }
 
     async terminalCheckoutBranch(node: ViewNode) {

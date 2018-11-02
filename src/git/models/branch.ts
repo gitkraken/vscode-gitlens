@@ -1,7 +1,6 @@
+'use strict';
 import { Git } from '../git';
 import { GitStatus } from './status';
-
-'use strict';
 
 export class GitBranch {
     readonly detached: boolean;

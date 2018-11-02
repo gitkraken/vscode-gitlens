@@ -451,7 +451,7 @@ export class GitService implements Disposable {
             }
 
             Logger.error(ex);
-            Messages.showGenericErrorMessage(`Unable to apply changes`);
+            void Messages.showGenericErrorMessage(`Unable to apply changes`);
         }
     }
 

@@ -143,7 +143,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
         }
 
         if (args.showInResults) {
-            Container.resultsView.addSearchResults(
+            void Container.resultsView.addSearchResults(
                 repoPath,
                 Container.git.getLogForSearch(repoPath, args.search!, args.searchBy!, {
                     maxCount: args.maxCount

@@ -170,7 +170,7 @@ export class DocumentTracker<T> implements Disposable {
     }
 
     private onTextDocumentSaved(document: TextDocument) {
-        let doc = this._documentMap.get(document);
+        const doc = this._documentMap.get(document);
         if (doc !== undefined) {
             void doc.update({ forceBlameChange: true });
 
@@ -179,7 +179,7 @@ export class DocumentTracker<T> implements Disposable {
 
         // If we are saving the active document make sure we are tracking it
         if (isActiveDocument(document)) {
-            doc = this.addCore(document);
+            void this.addCore(document);
         }
     }
 

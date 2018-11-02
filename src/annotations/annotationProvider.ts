@@ -50,8 +50,8 @@ export abstract class AnnotationProviderBase implements Disposable {
         );
     }
 
-    async dispose() {
-        await this.clear();
+    dispose() {
+        this.clear();
 
         this.disposable && this.disposable.dispose();
     }
@@ -129,7 +129,7 @@ export abstract class AnnotationProviderBase implements Disposable {
         highlightDecoration: TextEditorDecorationType | undefined;
     }) {
         if (changes !== undefined) {
-            await this.clear();
+            this.clear();
 
             this.decoration = changes.decoration;
             this.highlightDecoration = changes.highlightDecoration;

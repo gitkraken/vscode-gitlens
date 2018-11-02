@@ -21,7 +21,7 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode> {
     }
 
     protected registerCommands() {
-        Container.viewCommands;
+        void Container.viewCommands;
         commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(), this);
         commands.registerCommand(
             this.getQualifiedCommand('refreshNode'),

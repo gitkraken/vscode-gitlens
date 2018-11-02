@@ -658,7 +658,7 @@ export class Git {
         return data === '' ? undefined : data.trim();
     }
 
-    static async revparse_currentBranch(repoPath: string): Promise<[string, string?] | undefined> {
+    static async revparse_currentBranch(repoPath: string): Promise<[string, string | undefined] | undefined> {
         const params = ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@', '@{u}'];
 
         const opts = {

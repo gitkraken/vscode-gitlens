@@ -121,8 +121,7 @@ export class GitStashParser {
                         }
                     }
 
-                    let commit = commits.get(entry.ref!);
-                    commit = GitStashParser.parseEntry(entry, commit, repoPath, commits);
+                    GitStashParser.parseEntry(entry, repoPath, commits);
             }
         }
 
@@ -132,12 +131,8 @@ export class GitStashParser {
         } as GitStash;
     }
 
-    private static parseEntry(
-        entry: StashEntry,
-        commit: GitStashCommit | undefined,
-        repoPath: string,
-        commits: Map<string, GitStashCommit>
-    ): GitStashCommit | undefined {
+    private static parseEntry(entry: StashEntry, repoPath: string, commits: Map<string, GitStashCommit>) {
+        let commit = commits.get(entry.ref!);
         if (commit === undefined) {
             commit = new GitStashCommit(
                 GitCommitType.Stash,
@@ -153,6 +148,5 @@ export class GitStashParser {
         }
 
         commits.set(entry.ref!, commit);
-        return commit;
     }
 }

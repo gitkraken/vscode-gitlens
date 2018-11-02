@@ -85,14 +85,14 @@ export function log<T>(
             if (Logger.level === LogLevel.Debug || (Logger.level === LogLevel.Verbose && !options.debug)) {
                 let instanceName: string;
                 if (this != null) {
-                    instanceName = this.constructor.name;
+                    instanceName = this.constructor != null ? this.constructor.name : '';
                     // Strip webpack module name (since I never name classes with an _)
                     const index = instanceName.indexOf('_');
                     if (index !== -1) {
                         instanceName = instanceName.substr(index + 1);
                     }
 
-                    if (this.constructor && this.constructor[LogInstanceNameFn]) {
+                    if (this.constructor != null && this.constructor[LogInstanceNameFn]) {
                         instanceName = target.constructor[LogInstanceNameFn](this, instanceName);
                     }
                 }

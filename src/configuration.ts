@@ -10,11 +10,11 @@ import {
     Uri,
     workspace
 } from 'vscode';
-import { CommandContext, extensionId, setCommandContext } from './constants';
+import { extensionId } from './constants';
 import { Container } from './container';
 import { clearGravatarCache } from './git/gitService';
 import { Functions } from './system';
-import { Config, KeyMap } from './ui/config';
+import { Config } from './ui/config';
 
 const emptyConfig: any = new Proxy<any>({} as Config, {
     get(target, propKey, receiver) {

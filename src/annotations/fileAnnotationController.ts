@@ -442,7 +442,7 @@ export class FileAnnotationController implements Disposable {
         Logger.log(`${reason}:`, `Clear annotations for ${key}`);
 
         this._annotationProviders.delete(key);
-        await provider.dispose();
+        provider.dispose();
 
         if (this._annotationProviders.size === 0 || key === AnnotationProviderBase.getCorrelationKey(this._editor)) {
             await setCommandContext(CommandContext.AnnotationStatus, undefined);

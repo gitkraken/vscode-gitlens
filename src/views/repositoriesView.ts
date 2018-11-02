@@ -27,7 +27,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
     }
 
     protected registerCommands() {
-        Container.viewCommands;
+        void Container.viewCommands;
 
         commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(), this);
         commands.registerCommand(

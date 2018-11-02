@@ -1,6 +1,6 @@
+'use strict';
 import { Disposable } from 'vscode';
 
-'use strict';
 const _debounce = require('lodash.debounce');
 const _once = require('lodash.once');
 

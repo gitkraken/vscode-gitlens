@@ -33,7 +33,7 @@ export class ResultsView extends ViewBase<ResultsNode> {
     }
 
     protected registerCommands() {
-        Container.viewCommands;
+        void Container.viewCommands;
         commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(), this);
         commands.registerCommand(
             this.getQualifiedCommand('refreshNode'),

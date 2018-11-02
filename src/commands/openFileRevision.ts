@@ -137,17 +137,16 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
                     currentCommand: currentCommand,
                     nextPageCommand: args.nextPageCommand,
                     previousPageCommand: previousPageCommand,
-                    showAllCommand:
-                        log !== undefined && log.truncated
-                            ? new CommandQuickPickItem(
-                                  {
-                                      label: `$(sync) Show All Commits`,
-                                      description: `${Strings.pad(GlyphChars.Dash, 2, 3)} this may take a while`
-                                  },
-                                  Commands.OpenFileRevision,
-                                  [uri, { ...args, maxCount: 0 } as OpenFileRevisionCommandArgs]
-                              )
-                            : undefined
+                    showAllCommand: log.truncated
+                        ? new CommandQuickPickItem(
+                              {
+                                  label: `$(sync) Show All Commits`,
+                                  description: `${Strings.pad(GlyphChars.Dash, 2, 3)} this may take a while`
+                              },
+                              Commands.OpenFileRevision,
+                              [uri, { ...args, maxCount: 0 } as OpenFileRevisionCommandArgs]
+                          )
+                        : undefined
                 });
                 if (pick === undefined) return undefined;
 

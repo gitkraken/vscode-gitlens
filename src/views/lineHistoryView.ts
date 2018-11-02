@@ -21,7 +21,7 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode> {
     }
 
     protected registerCommands() {
-        Container.viewCommands;
+        void Container.viewCommands;
         commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(), this);
         commands.registerCommand(
             this.getQualifiedCommand('refreshNode'),

@@ -143,7 +143,7 @@ export abstract class SubscribeableViewNode<TView extends View> extends ViewNode
 
     @debug()
     dispose() {
-        this.unsubscribe();
+        void this.unsubscribe();
 
         if (this._disposable !== undefined) {
             this._disposable.dispose();

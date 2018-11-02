@@ -145,9 +145,7 @@ export class ChooseFromBranchesAndTagsQuickPickItem extends CommandQuickPickItem
         super(item, undefined, undefined);
     }
 
-    async execute(
-        options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
-    ): Promise<CommandQuickPickItem | BranchOrTagQuickPickItem | undefined> {
+    async execute(): Promise<CommandQuickPickItem | BranchOrTagQuickPickItem | undefined> {
         const progressCancellation = BranchesAndTagsQuickPick.showProgress(this.placeHolder);
 
         try {
@@ -244,9 +242,7 @@ export class ShowCommitInResultsQuickPickItem extends CommandQuickPickItem {
         super(item, undefined, undefined);
     }
 
-    async execute(
-        options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
-    ): Promise<{} | undefined> {
+    async execute(): Promise<{} | undefined> {
         await Container.resultsView.addCommit(this.commit);
         return undefined;
     }
@@ -264,9 +260,7 @@ export class ShowCommitsInResultsQuickPickItem extends CommandQuickPickItem {
         super(item, undefined, undefined);
     }
 
-    async execute(
-        options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
-    ): Promise<{} | undefined> {
+    async execute(): Promise<{} | undefined> {
         await Container.resultsView.addSearchResults(this.results.repoPath, this.results, this.resultsLabel);
         return undefined;
     }
