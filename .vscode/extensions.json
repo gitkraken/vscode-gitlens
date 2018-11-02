@@ -3,9 +3,9 @@
     // for the documentation about the extensions.json format
     "recommendations": [
         "eamodio.tsl-problem-matcher",
-        "eg2.tslint",
         "esbenp.prettier-vscode",
         "msjsdiag.debugger-for-chrome",
-        "ms-vscode.typescript-javascript-grammar"
+        "ms-vscode.typescript-javascript-grammar",
+        "ms-vscode.vscode-typescript-tslint-plugin"
     ]
 }
