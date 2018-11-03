@@ -4124,9 +4124,10 @@
         "tslint-loader": "3.5.4",
         "tslint-prettiest": "0.0.1",
         "ts-loader": "5.3.0",
-        "typescript": "3.1.5",
+        "typescript": "3.1.6",
+        "vsce": "1.53.0",
         "vscode": "1.1.21",
-        "webpack": "4.23.1",
+        "webpack": "4.24.0",
         "webpack-cli": "3.1.2",
         "webpack-deep-scope-plugin": "1.6.0"
     }
