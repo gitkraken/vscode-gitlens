@@ -44,8 +44,6 @@ export class DiffBranchWithBranchCommand extends ActiveEditorCommand {
 
         uri = getCommandUri(uri, editor);
 
-        let progressCancellation: CancellationTokenSource | undefined;
-
         try {
             const repoPath = await getRepoPathOrActiveOrPrompt(
                 uri,
@@ -68,18 +66,7 @@ export class DiffBranchWithBranchCommand extends ActiveEditorCommand {
                         break;
                 }
 
-                progressCancellation = BranchesAndTagsQuickPick.showProgress(placeHolder);
-
-                const [branches, tags] = await Promise.all([
-                    Container.git.getBranches(repoPath),
-                    Container.git.getTags(repoPath)
-                ]);
-
-                if (progressCancellation.token.isCancellationRequested) return undefined;
-
-                const pick = await BranchesAndTagsQuickPick.show(branches, tags, placeHolder, {
-                    progressCancellation: progressCancellation
-                });
+                const pick = await new BranchesAndTagsQuickPick(repoPath).show(placeHolder);
                 if (pick === undefined) return undefined;
 
                 if (pick instanceof CommandQuickPickItem) return pick.execute();
@@ -95,9 +82,6 @@ export class DiffBranchWithBranchCommand extends ActiveEditorCommand {
         catch (ex) {
             Logger.error(ex, 'DiffBranchWithBranchCommand');
             return Messages.showGenericErrorMessage('Unable to open branch compare');
-        }
-        finally {
-            progressCancellation && progressCancellation.cancel();
         }
     }
 }

@@ -2,7 +2,8 @@
 import { Disposable, Selection, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { UriComparer } from '../../comparers';
 import { Container } from '../../container';
-import { GitUri } from '../../git/gitService';
+import { GitCommitish, GitUri } from '../../git/gitService';
+import { BranchesAndTagsQuickPick, BranchOrTagQuickPickItem } from '../../quickpicks';
 import { debug, Functions, gate, log } from '../../system';
 import { LinesChangeEvent } from '../../trackers/gitLineTracker';
 import { LineHistoryView } from '../lineHistoryView';
@@ -11,6 +12,7 @@ import { LineHistoryNode } from './lineHistoryNode';
 import { ResourceType, SubscribeableViewNode, unknownGitUri, ViewNode } from './viewNode';
 
 export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryView> {
+    private _base: string | undefined;
     private _child: LineHistoryNode | undefined;
     private _selection: Selection | undefined;
 
@@ -38,7 +40,8 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
                 return [new MessageNode(this, 'There are no editors open that can provide line history information.')];
             }
 
-            this._child = new LineHistoryNode(this.uri, this._selection!, this, this.view);
+            const fileUri = new GitUri(this.uri, { ...this.uri, sha: this.uri.sha || this._base } as GitCommitish);
+            this._child = new LineHistoryNode(fileUri, this._selection!, this, this.view);
         }
 
         return [this._child];
@@ -51,6 +54,20 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
         void this.ensureSubscription();
 
         return item;
+    }
+
+    @gate()
+    @log()
+    async changeBase() {
+        const pick = await new BranchesAndTagsQuickPick(this.uri.repoPath!).show('Change the line history base to...', {
+            checked: this._base
+        });
+        if (pick === undefined || !(pick instanceof BranchOrTagQuickPickItem)) return;
+
+        this._base = pick.current ? undefined : pick.name;
+        if (this._child === undefined) return;
+
+        await this._child.changeBase(this._base);
     }
 
     @gate()

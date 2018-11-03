@@ -89,8 +89,34 @@ export class GitUri extends ((Uri as any) as UriEx) {
             uri.authority,
             paths.resolve(commitOrRepoPath.repoPath, commitOrRepoPath.fileName || uri.fsPath)
         );
-        super({ scheme: uri.scheme, authority: authority, path: fsPath, query: uri.query, fragment: uri.fragment });
 
+        let path;
+        switch (uri.scheme) {
+            case 'https':
+            case 'http':
+            case 'file':
+                if (!fsPath) {
+                    path = '/';
+                }
+                else if (fsPath[0] !== '/') {
+                    path = `/${fsPath}`;
+                }
+                else {
+                    path = fsPath;
+                }
+                break;
+            default:
+                path = fsPath;
+                break;
+        }
+
+        super({
+            scheme: uri.scheme,
+            authority: authority,
+            path: path,
+            query: uri.query,
+            fragment: uri.fragment
+        });
         this.repoPath = commitOrRepoPath.repoPath;
         this.versionedPath = commitOrRepoPath.versionedPath;
         if (GitService.isStagedUncommitted(commitOrRepoPath.sha) || !GitService.isUncommitted(commitOrRepoPath.sha)) {

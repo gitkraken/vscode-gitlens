@@ -1,5 +1,6 @@
 'use strict';
 import { Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import {
     GitCommitType,
@@ -11,7 +12,7 @@ import {
     RepositoryFileSystemChangeEvent
 } from '../../git/gitService';
 import { Logger } from '../../logger';
-import { debug, Iterables } from '../../system';
+import { debug, gate, Iterables, log } from '../../system';
 import { FileHistoryView } from '../fileHistoryView';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
 import { MessageNode } from './common';
@@ -30,45 +31,49 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> {
             CommitFileNodeDisplayAs.CommitLabel |
             (this.view.config.avatars ? CommitFileNodeDisplayAs.Gravatar : CommitFileNodeDisplayAs.StatusIcon);
 
-        const status = await Container.git.getStatusForFile(this.uri.repoPath!, this.uri.fsPath);
-        if (status !== undefined && (status.indexStatus !== undefined || status.workingTreeStatus !== undefined)) {
-            let sha;
-            let previousSha;
-            if (status.workingTreeStatus !== undefined) {
-                sha = GitService.uncommittedSha;
-                if (status.indexStatus !== undefined) {
-                    previousSha = GitService.stagedUncommittedSha;
+        if (this.uri.sha === undefined) {
+            const status = await Container.git.getStatusForFile(this.uri.repoPath!, this.uri.fsPath);
+            if (status !== undefined && (status.indexStatus !== undefined || status.workingTreeStatus !== undefined)) {
+                let sha;
+                let previousSha;
+                if (status.workingTreeStatus !== undefined) {
+                    sha = GitService.uncommittedSha;
+                    if (status.indexStatus !== undefined) {
+                        previousSha = GitService.stagedUncommittedSha;
+                    }
+                    else if (status.workingTreeStatus !== '?') {
+                        previousSha = 'HEAD';
+                    }
                 }
-                else if (status.workingTreeStatus !== '?') {
+                else {
+                    sha = GitService.stagedUncommittedSha;
                     previousSha = 'HEAD';
                 }
-            }
-            else {
-                sha = GitService.stagedUncommittedSha;
-                previousSha = 'HEAD';
-            }
 
-            const user = await Container.git.getCurrentUser(this.uri.repoPath!);
-            const commit = new GitLogCommit(
-                GitCommitType.File,
-                this.uri.repoPath!,
-                sha,
-                'You',
-                user !== undefined ? user.email : undefined,
-                new Date(),
-                new Date(),
-                '',
-                status.fileName,
-                [status],
-                status.status,
-                status.originalFileName,
-                previousSha,
-                status.originalFileName || status.fileName
-            );
-            children.push(new CommitFileNode(status, commit, this, this.view, displayAs));
+                const user = await Container.git.getCurrentUser(this.uri.repoPath!);
+                const commit = new GitLogCommit(
+                    GitCommitType.File,
+                    this.uri.repoPath!,
+                    sha,
+                    'You',
+                    user !== undefined ? user.email : undefined,
+                    new Date(),
+                    new Date(),
+                    '',
+                    status.fileName,
+                    [status],
+                    status.status,
+                    status.originalFileName,
+                    previousSha,
+                    status.originalFileName || status.fileName
+                );
+                children.push(new CommitFileNode(status, commit, this, this.view, displayAs));
+            }
         }
 
-        const log = await Container.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, { ref: this.uri.sha });
+        const log = await Container.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, {
+            ref: this.uri.sha
+        });
         if (log !== undefined) {
             children.push(
                 ...insertDateMarkers(
@@ -86,9 +91,24 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> {
     }
 
     getTreeItem(): TreeItem {
-        const item = new TreeItem(`${this.uri.getFormattedPath()}`, TreeItemCollapsibleState.Expanded);
+        const item = new TreeItem(
+            `${this.uri.getFormattedPath({
+                suffix: `${
+                    this.uri.sha
+                        ? ` ${
+                              this.uri.sha === GitService.deletedOrMissingSha
+                                  ? this.uri.shortSha
+                                  : `(${this.uri.shortSha})`
+                          }`
+                        : ''
+                }`
+            })}`,
+            TreeItemCollapsibleState.Expanded
+        );
         item.contextValue = ResourceType.FileHistory;
-        item.tooltip = `History of ${this.uri.getFilename()}\n${this.uri.getDirectory()}/`;
+        item.tooltip = `History of ${this.uri.getFilename()}\n${this.uri.getDirectory()}/${
+            this.uri.sha === undefined ? '' : `\n\n${this.uri.sha}`
+        }`;
 
         item.iconPath = {
             dark: Container.context.asAbsolutePath('images/dark/icon-history.svg'),
@@ -98,6 +118,13 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> {
         void this.ensureSubscription();
 
         return item;
+    }
+
+    @gate()
+    @log()
+    changeBase(ref: string | undefined) {
+        this.uri.sha = ref;
+        return this.triggerChange();
     }
 
     @debug()

@@ -1,5 +1,6 @@
 'use strict';
 import { Disposable, Selection, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitCommitType, GitFile, GitLogCommit } from '../../git/git';
 import {
@@ -10,7 +11,7 @@ import {
     RepositoryFileSystemChangeEvent
 } from '../../git/gitService';
 import { Logger } from '../../logger';
-import { debug, Iterables } from '../../system';
+import { debug, gate, Iterables, log } from '../../system';
 import { LineHistoryView } from '../lineHistoryView';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
 import { MessageNode } from './common';
@@ -112,7 +113,9 @@ export class LineHistoryNode extends SubscribeableViewNode<LineHistoryView> {
             TreeItemCollapsibleState.Expanded
         );
         item.contextValue = ResourceType.LineHistory;
-        item.tooltip = `History of ${this.uri.getFilename()}${lines}\n${this.uri.getDirectory()}/`;
+        item.tooltip = `History of ${this.uri.getFilename()}${lines}\n${this.uri.getDirectory()}/${
+            this.uri.sha === undefined ? '' : `\n\n${this.uri.sha}`
+        }`;
 
         item.iconPath = {
             dark: Container.context.asAbsolutePath('images/dark/icon-history.svg'),
@@ -122,6 +125,13 @@ export class LineHistoryNode extends SubscribeableViewNode<LineHistoryView> {
         void this.ensureSubscription();
 
         return item;
+    }
+
+    @gate()
+    @log()
+    changeBase(ref: string | undefined) {
+        this.uri.sha = ref;
+        return this.triggerChange();
     }
 
     @debug()

@@ -50,8 +50,6 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
     async execute(editor?: TextEditor, uri?: Uri, args: DiffDirectoryCommandArgs = {}): Promise<any> {
         uri = getCommandUri(uri, editor);
 
-        let progressCancellation: CancellationTokenSource | undefined;
-
         try {
             const repoPath = await getRepoPathOrActiveOrPrompt(
                 uri,
@@ -63,20 +61,9 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
             if (!args.ref1) {
                 args = { ...args };
 
-                const placeHolder = `Compare Working Tree to${GlyphChars.Ellipsis}`;
-
-                progressCancellation = BranchesAndTagsQuickPick.showProgress(placeHolder);
-
-                const [branches, tags] = await Promise.all([
-                    Container.git.getBranches(repoPath),
-                    Container.git.getTags(repoPath)
-                ]);
-
-                if (progressCancellation.token.isCancellationRequested) return undefined;
-
-                const pick = await BranchesAndTagsQuickPick.show(branches, tags, placeHolder, {
-                    progressCancellation: progressCancellation
-                });
+                const pick = await new BranchesAndTagsQuickPick(repoPath).show(
+                    `Compare Working Tree to${GlyphChars.Ellipsis}`
+                );
                 if (pick === undefined) return undefined;
 
                 if (pick instanceof CommandQuickPickItem) return pick.execute();
@@ -105,9 +92,6 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
 
             Logger.error(ex, 'DiffDirectoryCommand');
             return Messages.showGenericErrorMessage('Unable to open directory compare');
-        }
-        finally {
-            progressCancellation && progressCancellation.cancel();
         }
     }
 }

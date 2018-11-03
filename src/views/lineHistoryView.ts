@@ -28,6 +28,7 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode> {
             (node: ViewNode, args?: RefreshNodeCommandArgs) => this.refreshNode(node, args),
             this
         );
+        commands.registerCommand(this.getQualifiedCommand('changeBase'), () => this.changeBase(), this);
         commands.registerCommand(
             this.getQualifiedCommand('setEditorFollowingOn'),
             () => this.setEditorFollowing(true),
@@ -75,6 +76,12 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode> {
 
     get config(): ViewsConfig & LineHistoryViewConfig {
         return { ...Container.config.views, ...Container.config.views.lineHistory };
+    }
+
+    private changeBase() {
+        if (this._root !== undefined) {
+            void this._root.changeBase();
+        }
     }
 
     private setEditorFollowing(enabled: boolean) {

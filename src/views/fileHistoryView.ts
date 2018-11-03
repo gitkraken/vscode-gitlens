@@ -28,7 +28,7 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode> {
             (node: ViewNode, args?: RefreshNodeCommandArgs) => this.refreshNode(node, args),
             this
         );
-
+        commands.registerCommand(this.getQualifiedCommand('changeBase'), () => this.changeBase(), this);
         commands.registerCommand(
             this.getQualifiedCommand('setEditorFollowingOn'),
             () => this.setEditorFollowing(true),
@@ -76,6 +76,12 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode> {
 
     get config(): ViewsConfig & FileHistoryViewConfig {
         return { ...Container.config.views, ...Container.config.views.fileHistory };
+    }
+
+    private changeBase() {
+        if (this._root !== undefined) {
+            void this._root.changeBase();
+        }
     }
 
     private setEditorFollowing(enabled: boolean) {

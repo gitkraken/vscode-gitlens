@@ -136,7 +136,7 @@ export class ChooseFromBranchesAndTagsQuickPickItem extends CommandQuickPickItem
     constructor(
         private readonly repoPath: string,
         private readonly placeHolder: string,
-        private readonly goBackCommand?: CommandQuickPickItem,
+        private readonly _goBack?: CommandQuickPickItem,
         item: QuickPickItem = {
             label: 'Choose from Branch or Tag History...',
             description: `${Strings.pad(GlyphChars.Dash, 2, 2)} shows list of branches and tags`
@@ -145,25 +145,8 @@ export class ChooseFromBranchesAndTagsQuickPickItem extends CommandQuickPickItem
         super(item, undefined, undefined);
     }
 
-    async execute(): Promise<CommandQuickPickItem | BranchOrTagQuickPickItem | undefined> {
-        const progressCancellation = BranchesAndTagsQuickPick.showProgress(this.placeHolder);
-
-        try {
-            const [branches, tags] = await Promise.all([
-                Container.git.getBranches(this.repoPath),
-                Container.git.getTags(this.repoPath)
-            ]);
-
-            if (progressCancellation.token.isCancellationRequested) return undefined;
-
-            return BranchesAndTagsQuickPick.show(branches, tags, this.placeHolder, {
-                progressCancellation: progressCancellation,
-                goBackCommand: this.goBackCommand
-            });
-        }
-        finally {
-            progressCancellation.cancel();
-        }
+    execute(): Promise<CommandQuickPickItem | BranchOrTagQuickPickItem | undefined> {
+        return new BranchesAndTagsQuickPick(this.repoPath).show(this.placeHolder, { goBack: this._goBack });
     }
 }
 

@@ -1,5 +1,5 @@
 'use strict';
-import { Disposable } from 'vscode';
+import { CancellationToken, Disposable } from 'vscode';
 
 const _debounce = require('lodash.debounce');
 const _once = require('lodash.once');
@@ -16,6 +16,14 @@ interface IPropOfValue {
 }
 
 export namespace Functions {
+    export function cancellable<T>(promise: Promise<T>, token: CancellationToken): Promise<T | undefined> {
+        return new Promise<T | undefined>((resolve, reject) => {
+            token.onCancellationRequested(() => resolve(undefined));
+
+            promise.then(resolve, reject);
+        });
+    }
+
     export function debounce<T extends Function>(
         fn: T,
         wait?: number,

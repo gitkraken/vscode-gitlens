@@ -2225,6 +2225,15 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.views.fileHistory.changeBase",
+                "title": "Change Base...",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-history.svg",
+                    "light": "images/light/icon-history.svg"
+                }
+            },
+            {
                 "command": "gitlens.views.fileHistory.setEditorFollowingOn",
                 "title": "Resume File Tracking",
                 "category": "GitLens",
@@ -2265,6 +2274,15 @@
                 "command": "gitlens.views.lineHistory.refreshNode",
                 "title": "Refresh",
                 "category": "GitLens"
+            },
+            {
+                "command": "gitlens.views.lineHistory.changeBase",
+                "title": "Change Base...",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-history.svg",
+                    "light": "images/light/icon-history.svg"
+                }
             },
             {
                 "command": "gitlens.views.lineHistory.setEditorFollowingOn",
@@ -2808,6 +2826,10 @@
                     "when": "false"
                 },
                 {
+                    "command": "gitlens.views.fileHistory.changeBase",
+                    "when": "false"
+                },
+                {
                     "command": "gitlens.views.fileHistory.setEditorFollowingOn",
                     "when": "false"
                 },
@@ -2829,6 +2851,10 @@
                 },
                 {
                     "command": "gitlens.views.lineHistory.refreshNode",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.views.lineHistory.changeBase",
                     "when": "false"
                 },
                 {
@@ -3180,9 +3206,14 @@
                     "group": "navigation@1"
                 },
                 {
-                    "command": "gitlens.views.fileHistory.refresh",
+                    "command": "gitlens.views.fileHistory.changeBase",
                     "when": "view =~ /^gitlens.views.fileHistory:/",
                     "group": "navigation@2"
+                },
+                {
+                    "command": "gitlens.views.fileHistory.refresh",
+                    "when": "view =~ /^gitlens.views.fileHistory:/",
+                    "group": "navigation@99"
                 },
                 {
                     "command": "gitlens.views.fileHistory.setRenameFollowingOn",
@@ -3205,9 +3236,14 @@
                     "group": "navigation@1"
                 },
                 {
-                    "command": "gitlens.views.lineHistory.refresh",
+                    "command": "gitlens.views.lineHistory.changeBase",
                     "when": "view =~ /^gitlens.views.lineHistory:/",
                     "group": "navigation@2"
+                },
+                {
+                    "command": "gitlens.views.lineHistory.refresh",
+                    "when": "view =~ /^gitlens.views.lineHistory:/",
+                    "group": "navigation@99"
                 },
                 {
                     "command": "gitlens.views.lineHistory.setRenameFollowingOn",
