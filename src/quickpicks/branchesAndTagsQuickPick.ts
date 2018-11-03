@@ -17,7 +17,11 @@ export class BranchQuickPickItem implements QuickPickItem {
     ) {
         checked = checked || (checked === undefined && branch.current);
         this.label = `${checked ? `$(check)${GlyphChars.Space}` : GlyphChars.Space.repeat(4)} ${branch.name}`;
-        this.description = branch.remote ? `${GlyphChars.Space.repeat(2)} remote branch` : '';
+        this.description = branch.remote
+            ? `${GlyphChars.Space.repeat(2)} remote branch`
+            : branch.current
+                ? 'current branch'
+                : '';
     }
 
     get current() {
