@@ -16,7 +16,7 @@ import { Container } from '../container';
 import { GitLog, GitLogCommit, GitStashCommit } from '../git/gitService';
 import { KeyMapping, Keys } from '../keyboard';
 import { Strings } from '../system';
-import { BranchesAndTagsQuickPick, BranchOrTagQuickPickItem } from './branchesAndTagsQuickPick';
+import { BranchesAndTagsQuickPick, BranchQuickPickItem, TagQuickPickItem } from './branchesAndTagsQuickPick';
 
 export function getQuickPickIgnoreFocusOut() {
     return !configuration.get<boolean>(configuration.name('advanced')('quickPick')('closeOnFocusOut').value);
@@ -145,7 +145,7 @@ export class ChooseFromBranchesAndTagsQuickPickItem extends CommandQuickPickItem
         super(item, undefined, undefined);
     }
 
-    execute(): Promise<CommandQuickPickItem | BranchOrTagQuickPickItem | undefined> {
+    execute(): Promise<CommandQuickPickItem | BranchQuickPickItem | TagQuickPickItem | undefined> {
         return new BranchesAndTagsQuickPick(this.repoPath).show(this.placeHolder, { goBack: this._goBack });
     }
 }

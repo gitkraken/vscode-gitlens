@@ -29,7 +29,7 @@ export class TagsNode extends ViewNode {
         if (tags.length === 0) return [new MessageNode(this, 'No tags could be found.')];
 
         tags.sort((a, b) => a.name.localeCompare(b.name));
-        const tagNodes = [...tags.map(t => new TagNode(t, this.uri, this, this.view))];
+        const tagNodes = tags.map(t => new TagNode(t, this.uri, this, this.view));
         if (this.view.config.branches.layout === ViewBranchesLayout.List) return tagNodes;
 
         const hierarchy = Arrays.makeHierarchical(

@@ -1,10 +1,11 @@
 'use strict';
+import { __await } from 'tslib';
 import { commands, Range, TextEditor, Uri, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../git/gitService';
 import { Logger } from '../logger';
-import { BranchesQuickPick, CommandQuickPickItem } from '../quickpicks';
+import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickpicks';
 import {
     ActiveEditorCommand,
     command,
@@ -54,27 +55,21 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
         if (args.branch === undefined) {
             const branch = await Container.git.getBranch(gitUri.repoPath);
             if (branch === undefined || branch.tracking === undefined) {
-                const branches = (await Container.git.getBranches(gitUri.repoPath)).filter(
-                    b => b.tracking !== undefined
+                const pick = await new BranchesAndTagsQuickPick(gitUri.repoPath).show(
+                    args.clipboard
+                        ? `Copy url for ${gitUri.getRelativePath()} to clipboard for which branch${GlyphChars.Ellipsis}`
+                        : `Open ${gitUri.getRelativePath()} on remote for which branch${GlyphChars.Ellipsis}`,
+                    {
+                        autoPick: true,
+                        filters: {
+                            branches: b => b.tracking !== undefined
+                        },
+                        include: 'branches'
+                    }
                 );
-                if (branches.length > 1) {
-                    const pick = await BranchesQuickPick.show(
-                        branches,
-                        args.clipboard
-                            ? `Copy url for ${gitUri.getRelativePath()} to clipboard for which branch${
-                                  GlyphChars.Ellipsis
-                              }`
-                            : `Open ${gitUri.getRelativePath()} on remote for which branch${GlyphChars.Ellipsis}`
-                    );
-                    if (pick === undefined) return undefined;
+                if (pick === undefined || pick instanceof CommandQuickPickItem) return undefined;
 
-                    if (pick instanceof CommandQuickPickItem) return undefined;
-
-                    args.branch = pick.branch.name;
-                }
-                else if (branches.length === 1) {
-                    args.branch = branches[0].name;
-                }
+                args.branch = pick.item.name;
             }
             else {
                 args.branch = branch.name;

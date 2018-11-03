@@ -1,9 +1,10 @@
 'use strict';
 import { Disposable, Selection, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { UriComparer } from '../../comparers';
+import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitCommitish, GitUri } from '../../git/gitService';
-import { BranchesAndTagsQuickPick, BranchOrTagQuickPickItem } from '../../quickpicks';
+import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../../quickpicks';
 import { debug, Functions, gate, log } from '../../system';
 import { LinesChangeEvent } from '../../trackers/gitLineTracker';
 import { LineHistoryView } from '../lineHistoryView';
@@ -59,10 +60,13 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
     @gate()
     @log()
     async changeBase() {
-        const pick = await new BranchesAndTagsQuickPick(this.uri.repoPath!).show('Change the line history base to...', {
-            checked: this._base
-        });
-        if (pick === undefined || !(pick instanceof BranchOrTagQuickPickItem)) return;
+        const pick = await new BranchesAndTagsQuickPick(this.uri.repoPath!).show(
+            `Change the line history base to${GlyphChars.Ellipsis}`,
+            {
+                checked: this._base
+            }
+        );
+        if (pick === undefined || pick instanceof CommandQuickPickItem) return;
 
         this._base = pick.current ? undefined : pick.name;
         if (this._child === undefined) return;

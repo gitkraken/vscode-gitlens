@@ -5,7 +5,7 @@ import { Container } from '../container';
 import { GitLog, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { BranchesQuickPick, BranchHistoryQuickPick, CommandQuickPickItem } from '../quickpicks';
+import { BranchesAndTagsQuickPick, BranchHistoryQuickPick, CommandQuickPickItem } from '../quickpicks';
 import { Strings } from '../system';
 import { ActiveEditorCachedCommand, command, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
@@ -46,8 +46,6 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
             if (!repoPath) return undefined;
 
             if (args.branch === undefined) {
-                const branches = await Container.git.getBranches(repoPath);
-
                 let goBackCommand;
                 if (!(await Container.git.getRepoPathOrActive(uri, editor))) {
                     goBackCommand = new CommandQuickPickItem(
@@ -60,14 +58,17 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
                     );
                 }
 
-                const pick = await BranchesQuickPick.show(branches, `Show history for branch${GlyphChars.Ellipsis}`, {
-                    goBackCommand: goBackCommand
-                });
+                const pick = await new BranchesAndTagsQuickPick(repoPath).show(
+                    `Show history for branch${GlyphChars.Ellipsis}`,
+                    {
+                        goBack: goBackCommand,
+                        include: 'branches'
+                    }
+                );
                 if (pick === undefined) return undefined;
-
                 if (pick instanceof CommandQuickPickItem) return pick.execute();
 
-                args.branch = pick.branch.name;
+                args.branch = pick.item.name;
                 if (args.branch === undefined) return undefined;
 
                 progressCancellation = BranchHistoryQuickPick.showProgress(args.branch);

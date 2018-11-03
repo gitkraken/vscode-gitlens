@@ -172,7 +172,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
                 return commands.executeCommand(Commands.ShowQuickFileHistory, gitUri, {
                     ...args,
                     log: undefined,
-                    branchOrTag: branchOrTag.branchOrTag,
+                    branchOrTag: branchOrTag.item,
                     goBackCommand: currentCommand
                 } as ShowQuickFileHistoryCommandArgs);
             }

@@ -157,7 +157,7 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
 
                     return commands.executeCommand(Commands.OpenFileRevision, gitUri, {
                         ...args,
-                        branchOrTag: branchOrTag.branchOrTag,
+                        branchOrTag: branchOrTag.item,
                         goBackCommand: currentCommand
                     } as OpenFileRevisionCommandArgs);
                 }

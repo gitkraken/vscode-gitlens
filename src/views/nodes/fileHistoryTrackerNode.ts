@@ -2,9 +2,10 @@
 import * as paths from 'path';
 import { Disposable, TextEditor, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
 import { UriComparer } from '../../comparers';
+import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitCommitish, GitUri } from '../../git/gitService';
-import { BranchesAndTagsQuickPick, BranchOrTagQuickPickItem } from '../../quickpicks';
+import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../../quickpicks';
 import { debug, Functions, gate, log } from '../../system';
 import { FileHistoryView } from '../fileHistoryView';
 import { MessageNode } from './common';
@@ -58,10 +59,13 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
     @gate()
     @log()
     async changeBase() {
-        const pick = await new BranchesAndTagsQuickPick(this.uri.repoPath!).show('Change the file history base to...', {
-            checked: this._base
-        });
-        if (pick === undefined || !(pick instanceof BranchOrTagQuickPickItem)) return;
+        const pick = await new BranchesAndTagsQuickPick(this.uri.repoPath!).show(
+            `Change the file history base to${GlyphChars.Ellipsis}`,
+            {
+                checked: this._base
+            }
+        );
+        if (pick === undefined || pick instanceof CommandQuickPickItem) return;
 
         this._base = pick.current ? undefined : pick.name;
         if (this._child === undefined) return;

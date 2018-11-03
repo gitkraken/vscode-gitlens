@@ -51,7 +51,7 @@ export class StatusUpstreamNode extends ViewNode implements PageableViewNode {
                 }
             }
 
-            children = [...insertDateMarkers(commits.map(c => new CommitNode(c, this, this.view)), this, 1)];
+            children = [...insertDateMarkers(Iterables.map(commits, c => new CommitNode(c, this, this.view)), this, 1)];
         }
         else {
             children = [

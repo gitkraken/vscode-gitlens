@@ -129,7 +129,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 
                 return commands.executeCommand(Commands.DiffWithRevision, gitUri, {
                     ...args,
-                    branchOrTag: branchOrTag.branchOrTag,
+                    branchOrTag: branchOrTag.item,
                     goBackCommand: currentCommand
                 } as DiffWithRevisionCommandArgs);
             }
