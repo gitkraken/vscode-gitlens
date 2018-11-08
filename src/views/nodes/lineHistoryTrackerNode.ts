@@ -18,7 +18,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
     private _selection: Selection | undefined;
 
     constructor(view: LineHistoryView) {
-        super(unknownGitUri, undefined, view);
+        super(unknownGitUri, view);
     }
 
     dispose() {
@@ -38,11 +38,17 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
     async getChildren(): Promise<ViewNode[]> {
         if (this._child === undefined) {
             if (this.uri === unknownGitUri) {
-                return [new MessageNode(this, 'There are no editors open that can provide line history information.')];
+                return [
+                    new MessageNode(
+                        this.view,
+                        this,
+                        'There are no editors open that can provide line history information.'
+                    )
+                ];
             }
 
             const fileUri = new GitUri(this.uri, { ...this.uri, sha: this.uri.sha || this._base } as GitCommitish);
-            this._child = new LineHistoryNode(fileUri, this._selection!, this, this.view);
+            this._child = new LineHistoryNode(fileUri, this.view, this, this._selection!);
         }
 
         return [this._child];
@@ -71,7 +77,8 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
         this._base = pick.current ? undefined : pick.name;
         if (this._child === undefined) return;
 
-        await this._child.changeBase(this._base);
+        this._uri = unknownGitUri;
+        await this.triggerChange();
     }
 
     @gate()

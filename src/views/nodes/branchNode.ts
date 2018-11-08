@@ -11,20 +11,20 @@ import { MessageNode, ShowMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
 import { PageableViewNode, ResourceType, ViewNode, ViewRefNode } from './viewNode';
 
-export class BranchNode extends ViewRefNode implements PageableViewNode {
+export class BranchNode extends ViewRefNode<RepositoriesView> implements PageableViewNode {
     readonly supportsPaging: boolean = true;
     maxCount: number | undefined;
 
     private _children: ViewNode[] | undefined;
 
     constructor(
-        public readonly branch: GitBranch,
         uri: GitUri,
+        view: RepositoriesView,
         parent: ViewNode,
-        public readonly view: RepositoriesView,
+        public readonly branch: GitBranch,
         private readonly _markCurrent: boolean = true
     ) {
-        super(uri, parent);
+        super(uri, view, parent);
     }
 
     get id(): string {
@@ -54,7 +54,7 @@ export class BranchNode extends ViewRefNode implements PageableViewNode {
                 maxCount: this.maxCount || this.view.config.defaultItemLimit,
                 ref: this.ref
             });
-            if (log === undefined) return [new MessageNode(this, 'No commits could be found.')];
+            if (log === undefined) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
             const branches = await Container.git.getBranches(this.uri.repoPath);
             // Get the sha length, since `git branch` can return variable length shas
@@ -75,14 +75,14 @@ export class BranchNode extends ViewRefNode implements PageableViewNode {
                 ...insertDateMarkers(
                     Iterables.map(
                         log.commits.values(),
-                        c => new CommitNode(c, this, this.view, this.branch, getBranchTips)
+                        c => new CommitNode(this.view, this, c, this.branch, getBranchTips)
                     ),
                     this
                 )
             ];
 
             if (log.truncated) {
-                children.push(new ShowMoreNode('Commits', this, this.view));
+                children.push(new ShowMoreNode(this.view, this, 'Commits'));
             }
 
             this._children = children;

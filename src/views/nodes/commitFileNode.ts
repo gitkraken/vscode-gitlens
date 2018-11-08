@@ -29,14 +29,14 @@ export enum CommitFileNodeDisplayAs {
 
 export class CommitFileNode extends ViewRefNode {
     constructor(
+        view: View,
+        parent: ViewNode,
         public readonly file: GitFile,
         public commit: GitLogCommit,
-        parent: ViewNode,
-        public readonly view: View,
         private readonly _displayAs: CommitFileNodeDisplayAs,
         private readonly _selection?: Selection
     ) {
-        super(GitUri.fromFile(file, commit.repoPath, commit.sha), parent);
+        super(GitUri.fromFile(file, commit.repoPath, commit.sha), view, parent);
     }
 
     get priority(): number {

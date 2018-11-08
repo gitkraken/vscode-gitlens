@@ -9,11 +9,11 @@ import { ResourceType, ViewNode, ViewRefNode } from './viewNode';
 
 export class StashNode extends ViewRefNode {
     constructor(
-        public readonly commit: GitStashCommit,
+        view: View,
         parent: ViewNode,
-        public readonly view: View
+        public readonly commit: GitStashCommit
     ) {
-        super(commit.toGitUri(), parent);
+        super(commit.toGitUri(), view, parent);
     }
 
     get id(): string {
@@ -41,7 +41,7 @@ export class StashNode extends ViewRefNode {
             }
         }
 
-        const children = files.map(s => new StashFileNode(s, this.commit.toFileCommit(s), this, this.view));
+        const children = files.map(s => new StashFileNode(this.view, this, s, this.commit.toFileCommit(s)));
         children.sort((a, b) => a.label!.localeCompare(b.label!));
         return children;
     }

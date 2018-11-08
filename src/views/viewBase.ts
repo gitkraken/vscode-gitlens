@@ -16,7 +16,7 @@ import {
 import { configuration } from '../configuration';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { debug, Functions, log } from '../system';
+import { debug, Functions, gate, log } from '../system';
 import { FileHistoryView } from './fileHistoryView';
 import { LineHistoryView } from './lineHistoryView';
 import { ViewNode } from './nodes';
@@ -26,7 +26,6 @@ import { ResultsView } from './resultsView';
 import { RefreshNodeCommandArgs } from './viewCommands';
 
 export enum RefreshReason {
-    Command = 'Command',
     ConfigurationChanged = 'ConfigurationChanged',
     VisibilityChanged = 'VisibilityChanged'
 }
@@ -37,7 +36,7 @@ export interface TreeViewNodeStateChangeEvent<T> extends TreeViewExpansionEvent<
     state: TreeItemCollapsibleState;
 }
 
-export abstract class ViewBase<TRoot extends ViewNode> implements TreeDataProvider<ViewNode>, Disposable {
+export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeDataProvider<ViewNode>, Disposable {
     protected _onDidChangeTreeData = new EventEmitter<ViewNode>();
     public get onDidChangeTreeData(): Event<ViewNode> {
         return this._onDidChangeTreeData.event;
@@ -80,13 +79,14 @@ export abstract class ViewBase<TRoot extends ViewNode> implements TreeDataProvid
     protected abstract registerCommands(): void;
     protected abstract onConfigurationChanged(e: ConfigurationChangeEvent): void;
 
-    protected initialize(container?: string) {
+    protected initialize(container?: string, options: { showCollapseAll?: boolean } = {}) {
         if (this._disposable) {
             this._disposable.dispose();
             this._onDidChangeTreeData = new EventEmitter<ViewNode>();
         }
 
         this._tree = window.createTreeView(`${this.id}${container ? `:${container}` : ''}`, {
+            ...options,
             treeDataProvider: this
         });
         this._disposable = Disposable.from(
@@ -97,14 +97,19 @@ export abstract class ViewBase<TRoot extends ViewNode> implements TreeDataProvid
         );
     }
 
-    getChildren(node?: ViewNode): ViewNode[] | Promise<ViewNode[]> {
-        if (node !== undefined) return node.getChildren();
-
+    protected ensureRoot() {
         if (this._root === undefined) {
             this._root = this.getRoot();
         }
 
-        return this._root.getChildren();
+        return this._root;
+    }
+
+    getChildren(node?: ViewNode): ViewNode[] | Promise<ViewNode[]> {
+        if (node !== undefined) return node.getChildren();
+
+        const root = this.ensureRoot();
+        return root.getChildren();
     }
 
     getParent(node: ViewNode): ViewNode | undefined {
@@ -139,10 +144,6 @@ export abstract class ViewBase<TRoot extends ViewNode> implements TreeDataProvid
 
     @debug()
     async refresh(reason?: RefreshReason) {
-        if (reason === undefined) {
-            reason = RefreshReason.Command;
-        }
-
         if (this._root !== undefined) {
             await this._root.refresh(reason);
         }
@@ -179,6 +180,7 @@ export abstract class ViewBase<TRoot extends ViewNode> implements TreeDataProvid
         options?: {
             select?: boolean;
             focus?: boolean;
+            // expand?: boolean | number;
         }
     ) {
         if (this._tree === undefined) return;
@@ -192,9 +194,15 @@ export abstract class ViewBase<TRoot extends ViewNode> implements TreeDataProvid
     }
 
     @log()
-    show() {
-        const location = this.location;
-        return commands.executeCommand(`${this.id}${location ? `:${location}` : ''}.focus`);
+    async show() {
+        try {
+            const location = this.location;
+            return await commands.executeCommand(`${this.id}${location ? `:${location}` : ''}.focus`);
+        }
+        catch (ex) {
+            Logger.error(ex);
+            return;
+        }
     }
 
     @debug({

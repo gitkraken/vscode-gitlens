@@ -2,7 +2,7 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitLog, GitUri } from '../../git/gitService';
 import { Iterables } from '../../system';
-import { ResultsView } from '../resultsView';
+import { View } from '../viewBase';
 import { CommitNode } from './commitNode';
 import { ShowMoreNode } from './common';
 import { PageableViewNode, ResourceType, ViewNode } from './viewNode';
@@ -17,13 +17,13 @@ export class ResultsCommitsNode extends ViewNode implements PageableViewNode {
     maxCount: number | undefined;
 
     constructor(
+        view: View,
+        parent: ViewNode,
         public readonly repoPath: string,
         private readonly _commitsQuery: (maxCount: number | undefined) => Promise<CommitsQueryResults>,
-        parent: ViewNode | undefined,
-        public readonly view: ResultsView,
         private readonly _contextValue: ResourceType = ResourceType.ResultsCommits
     ) {
-        super(GitUri.fromRepoPath(repoPath), parent);
+        super(GitUri.fromRepoPath(repoPath), view, parent);
     }
 
     async getChildren(): Promise<ViewNode[]> {
@@ -31,11 +31,11 @@ export class ResultsCommitsNode extends ViewNode implements PageableViewNode {
         if (log === undefined) return [];
 
         const children: (CommitNode | ShowMoreNode)[] = [
-            ...Iterables.map(log.commits.values(), c => new CommitNode(c, this, this.view))
+            ...Iterables.map(log.commits.values(), c => new CommitNode(this.view, this, c))
         ];
 
         if (log.truncated) {
-            children.push(new ShowMoreNode('Results', this, this.view));
+            children.push(new ShowMoreNode(this.view, this, 'Results'));
         }
 
         return children;

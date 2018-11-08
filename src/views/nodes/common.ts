@@ -7,6 +7,7 @@ import { ResourceType, unknownGitUri, ViewNode } from './viewNode';
 
 export class MessageNode extends ViewNode {
     constructor(
+        view: View,
         parent: ViewNode,
         private readonly _message: string,
         private readonly _tooltip?: string,
@@ -19,7 +20,7 @@ export class MessageNode extends ViewNode {
               }
             | ThemeIcon
     ) {
-        super(unknownGitUri, parent);
+        super(unknownGitUri, view, parent);
     }
 
     getChildren(): ViewNode[] | Promise<ViewNode[]> {
@@ -37,6 +38,7 @@ export class MessageNode extends ViewNode {
 
 export class CommandMessageNode extends MessageNode {
     constructor(
+        view: View,
         parent: ViewNode,
         private readonly _command: Command,
         message: string,
@@ -50,7 +52,7 @@ export class CommandMessageNode extends MessageNode {
               }
             | ThemeIcon
     ) {
-        super(parent, message, tooltip, iconPath);
+        super(view, parent, message, tooltip, iconPath);
     }
 
     getTreeItem(): TreeItem | Promise<TreeItem> {
@@ -69,6 +71,7 @@ export class CommandMessageNode extends MessageNode {
 
 export class UpdateableMessageNode extends ViewNode {
     constructor(
+        view: View,
         parent: ViewNode,
         public readonly id: string,
         private _message: string,
@@ -82,7 +85,7 @@ export class UpdateableMessageNode extends ViewNode {
               }
             | ThemeIcon
     ) {
-        super(unknownGitUri, parent);
+        super(unknownGitUri, view, parent);
     }
 
     getChildren(): ViewNode[] | Promise<ViewNode[]> {
@@ -134,11 +137,11 @@ export abstract class PagerNode extends ViewNode {
     protected _args: RefreshNodeCommandArgs = {};
 
     constructor(
-        protected readonly message: string,
-        protected readonly parent: ViewNode,
-        protected readonly view: View
+        view: View,
+        parent: ViewNode,
+        protected readonly message: string
     ) {
-        super(unknownGitUri, parent);
+        super(unknownGitUri, view, parent);
     }
 
     getChildren(): ViewNode[] | Promise<ViewNode[]> {
@@ -160,19 +163,19 @@ export abstract class PagerNode extends ViewNode {
         return {
             title: 'Refresh',
             command: this.view.getQualifiedCommand('refreshNode'),
-            arguments: [this.parent, this._args]
+            arguments: [this._parent, this._args]
         } as Command;
     }
 }
 
 export class ShowMoreNode extends PagerNode {
-    constructor(type: string, parent: ViewNode, view: View, maxCount: number = Container.config.advanced.maxListItems) {
+    constructor(view: View, parent: ViewNode, type: string, maxCount: number = Container.config.advanced.maxListItems) {
         super(
+            view,
+            parent,
             maxCount === 0
                 ? `Show All ${type} ${GlyphChars.Space}${GlyphChars.Dash}${GlyphChars.Space} this may take a while`
-                : `Show More ${type}`,
-            parent,
-            view
+                : `Show More ${type}`
         );
         this._args.maxCount = maxCount;
     }

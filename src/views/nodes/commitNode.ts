@@ -14,13 +14,13 @@ import { ResourceType, ViewNode, ViewRefNode } from './viewNode';
 
 export class CommitNode extends ViewRefNode {
     constructor(
-        public readonly commit: GitLogCommit,
+        view: View,
         parent: ViewNode,
-        public readonly view: View,
+        public readonly commit: GitLogCommit,
         public readonly branch?: GitBranch,
         private readonly getBranchTips?: (sha: string) => string | undefined
     ) {
-        super(commit.toGitUri(), parent);
+        super(commit.toGitUri(), view, parent);
     }
 
     get ref(): string {
@@ -32,7 +32,7 @@ export class CommitNode extends ViewRefNode {
         let children: FileNode[] = [
             ...Iterables.map(
                 commit.files,
-                s => new CommitFileNode(s, commit.toFileCommit(s), this, this.view, CommitFileNodeDisplayAs.File)
+                s => new CommitFileNode(this.view, this, s, commit.toFileCommit(s), CommitFileNodeDisplayAs.File)
             )
         ];
 
@@ -44,7 +44,7 @@ export class CommitNode extends ViewRefNode {
                 this.view.config.files.compact
             );
 
-            const root = new FolderNode(this.repoPath, '', undefined, hierarchy, this, this.view);
+            const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
             children = (await root.getChildren()) as FileNode[];
         }
         else {

@@ -9,14 +9,14 @@ import { ResourceType, ViewNode } from './viewNode';
 
 export class ResultsFileNode extends ViewNode {
     constructor(
+        view: View,
+        parent: ViewNode,
         public readonly repoPath: string,
         public readonly file: GitFile,
         public readonly ref1: string,
-        public readonly ref2: string,
-        parent: ViewNode,
-        public readonly view: View
+        public readonly ref2: string
     ) {
-        super(GitUri.fromFile(file, repoPath, ref1 ? ref1 : ref2 ? ref2 : undefined), parent);
+        super(GitUri.fromFile(file, repoPath, ref1 ? ref1 : ref2 ? ref2 : undefined), view, parent);
     }
 
     getChildren(): ViewNode[] {

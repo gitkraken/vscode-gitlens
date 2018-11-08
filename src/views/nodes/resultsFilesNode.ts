@@ -17,13 +17,13 @@ export interface FilesQueryResults {
 
 export class ResultsFilesNode extends ViewNode {
     constructor(
+        view: View,
+        parent: ViewNode,
         public readonly repoPath: string,
         private readonly _ref1: string,
-        private readonly _ref2: string,
-        parent: ViewNode,
-        public readonly view: View
+        private readonly _ref2: string
     ) {
-        super(GitUri.fromRepoPath(repoPath), parent);
+        super(GitUri.fromRepoPath(repoPath), view, parent);
     }
 
     async getChildren(): Promise<ViewNode[]> {
@@ -31,7 +31,7 @@ export class ResultsFilesNode extends ViewNode {
         if (diff === undefined) return [];
 
         let children: FileNode[] = [
-            ...Iterables.map(diff, s => new ResultsFileNode(this.repoPath, s, this._ref1, this._ref2, this, this.view))
+            ...Iterables.map(diff, s => new ResultsFileNode(this.view, this, this.repoPath, s, this._ref1, this._ref2))
         ];
 
         if (this.view.config.files.layout !== ViewFilesLayout.List) {
@@ -42,7 +42,7 @@ export class ResultsFilesNode extends ViewNode {
                 this.view.config.files.compact
             );
 
-            const root = new FolderNode(this.repoPath, '', undefined, hierarchy, this, this.view);
+            const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
             children = (await root.getChildren()) as FileNode[];
         }
         else {

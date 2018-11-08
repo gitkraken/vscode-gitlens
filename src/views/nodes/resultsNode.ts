@@ -11,10 +11,8 @@ import { ResourceType, unknownGitUri, ViewNode } from './viewNode';
 export class ResultsNode extends ViewNode {
     private _children: (ViewNode | MessageNode)[] = [];
 
-    constructor(
-        public readonly view: ResultsView
-    ) {
-        super(unknownGitUri, undefined);
+    constructor(view: ResultsView) {
+        super(unknownGitUri, view);
     }
 
     async getChildren(): Promise<ViewNode[]> {
@@ -26,6 +24,7 @@ export class ResultsNode extends ViewNode {
 
             return [
                 new CommandMessageNode(
+                    this.view,
                     this,
                     {
                         ...command,
@@ -35,6 +34,7 @@ export class ResultsNode extends ViewNode {
                     'Click to search'
                 ),
                 new CommandMessageNode(
+                    this.view,
                     this,
                     {
                         ...command,
@@ -44,6 +44,7 @@ export class ResultsNode extends ViewNode {
                     'Click to search by message'
                 ),
                 new CommandMessageNode(
+                    this.view,
                     this,
                     {
                         ...command,
@@ -53,6 +54,7 @@ export class ResultsNode extends ViewNode {
                     'Click to search by author'
                 ),
                 new CommandMessageNode(
+                    this.view,
                     this,
                     {
                         ...command,
@@ -62,6 +64,7 @@ export class ResultsNode extends ViewNode {
                     'Click to search by commit id'
                 ),
                 new CommandMessageNode(
+                    this.view,
                     this,
                     {
                         ...command,
@@ -71,6 +74,7 @@ export class ResultsNode extends ViewNode {
                     'Click to search by files'
                 ),
                 new CommandMessageNode(
+                    this.view,
                     this,
                     {
                         ...command,
@@ -80,6 +84,7 @@ export class ResultsNode extends ViewNode {
                     'Click to search by changes'
                 ),
                 new CommandMessageNode(
+                    this.view,
                     this,
                     {
                         ...command,

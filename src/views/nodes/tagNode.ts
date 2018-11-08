@@ -10,17 +10,17 @@ import { MessageNode, ShowMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
 import { PageableViewNode, ResourceType, ViewNode, ViewRefNode } from './viewNode';
 
-export class TagNode extends ViewRefNode implements PageableViewNode {
+export class TagNode extends ViewRefNode<RepositoriesView> implements PageableViewNode {
     readonly supportsPaging: boolean = true;
     maxCount: number | undefined;
 
     constructor(
-        public readonly tag: GitTag,
         uri: GitUri,
+        view: RepositoriesView,
         parent: ViewNode,
-        public readonly view: RepositoriesView
+        public readonly tag: GitTag
     ) {
-        super(uri, parent);
+        super(uri, view, parent);
     }
 
     get id(): string {
@@ -40,14 +40,14 @@ export class TagNode extends ViewRefNode implements PageableViewNode {
             maxCount: this.maxCount || this.view.config.defaultItemLimit,
             ref: this.tag.name
         });
-        if (log === undefined) return [new MessageNode(this, 'No commits could be found.')];
+        if (log === undefined) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
         const children = [
-            ...insertDateMarkers(Iterables.map(log.commits.values(), c => new CommitNode(c, this, this.view)), this)
+            ...insertDateMarkers(Iterables.map(log.commits.values(), c => new CommitNode(this.view, this, c)), this)
         ];
 
         if (log.truncated) {
-            children.push(new ShowMoreNode('Commits', this, this.view));
+            children.push(new ShowMoreNode(this.view, this, 'Commits'));
         }
         return children;
     }

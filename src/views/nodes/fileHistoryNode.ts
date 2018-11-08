@@ -1,6 +1,5 @@
 'use strict';
 import { Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import {
     GitCommitType,
@@ -12,16 +11,16 @@ import {
     RepositoryFileSystemChangeEvent
 } from '../../git/gitService';
 import { Logger } from '../../logger';
-import { debug, gate, Iterables, log } from '../../system';
-import { FileHistoryView } from '../fileHistoryView';
+import { debug, Iterables } from '../../system';
+import { View } from '../viewBase';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
 import { MessageNode } from './common';
 import { insertDateMarkers } from './helpers';
 import { ResourceType, SubscribeableViewNode, ViewNode } from './viewNode';
 
-export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> {
-    constructor(uri: GitUri, parent: ViewNode, view: FileHistoryView) {
-        super(uri, parent, view);
+export class FileHistoryNode extends SubscribeableViewNode {
+    constructor(uri: GitUri, view: View, parent: ViewNode) {
+        super(uri, view, parent);
     }
 
     async getChildren(): Promise<ViewNode[]> {
@@ -67,7 +66,7 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> {
                     previousSha,
                     status.originalFileName || status.fileName
                 );
-                children.push(new CommitFileNode(status, commit, this, this.view, displayAs));
+                children.push(new CommitFileNode(this.view, this, status, commit, displayAs));
             }
         }
 
@@ -79,14 +78,14 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> {
                 ...insertDateMarkers(
                     Iterables.map(
                         log.commits.values(),
-                        c => new CommitFileNode(c.files[0], c, this, this.view, displayAs)
+                        c => new CommitFileNode(this.view, this, c.files[0], c, displayAs)
                     ),
                     this
                 )
             );
         }
 
-        if (children.length === 0) return [new MessageNode(this, 'No file history could be found.')];
+        if (children.length === 0) return [new MessageNode(this.view, this, 'No file history could be found.')];
         return children;
     }
 
@@ -118,13 +117,6 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> {
         void this.ensureSubscription();
 
         return item;
-    }
-
-    @gate()
-    @log()
-    changeBase(ref: string | undefined) {
-        this.uri.sha = ref;
-        return this.triggerChange();
     }
 
     @debug()

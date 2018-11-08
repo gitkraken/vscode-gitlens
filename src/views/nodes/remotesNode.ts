@@ -8,14 +8,14 @@ import { MessageNode } from './common';
 import { RemoteNode } from './remoteNode';
 import { ResourceType, ViewNode } from './viewNode';
 
-export class RemotesNode extends ViewNode {
+export class RemotesNode extends ViewNode<RepositoriesView> {
     constructor(
         uri: GitUri,
-        public readonly repo: Repository,
+        view: RepositoriesView,
         parent: ViewNode,
-        public readonly view: RepositoriesView
+        public readonly repo: Repository
     ) {
-        super(uri, parent);
+        super(uri, view, parent);
     }
 
     get id(): string {
@@ -24,10 +24,12 @@ export class RemotesNode extends ViewNode {
 
     async getChildren(): Promise<ViewNode[]> {
         const remotes = await this.repo.getRemotes();
-        if (remotes === undefined || remotes.length === 0) return [new MessageNode(this, 'No remotes could be found')];
+        if (remotes === undefined || remotes.length === 0) {
+            return [new MessageNode(this.view, this, 'No remotes could be found')];
+        }
 
         remotes.sort((a, b) => a.name.localeCompare(b.name));
-        return [...Iterables.map(remotes, r => new RemoteNode(r, this.uri, this.repo, this, this.view))];
+        return [...Iterables.map(remotes, r => new RemoteNode(this.uri, this.view, this, r, this.repo))];
     }
 
     getTreeItem(): TreeItem {

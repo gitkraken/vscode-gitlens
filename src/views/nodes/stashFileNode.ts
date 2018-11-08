@@ -5,8 +5,8 @@ import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
 import { ResourceType, ViewNode } from './viewNode';
 
 export class StashFileNode extends CommitFileNode {
-    constructor(file: GitFile, commit: GitLogCommit, parent: ViewNode, view: View) {
-        super(file, commit, parent, view, CommitFileNodeDisplayAs.File);
+    constructor(view: View, parent: ViewNode, file: GitFile, commit: GitLogCommit) {
+        super(view, parent, file, commit, CommitFileNodeDisplayAs.File);
     }
 
     protected get resourceType(): ResourceType {

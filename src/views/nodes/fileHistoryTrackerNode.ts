@@ -13,11 +13,11 @@ import { FileHistoryNode } from './fileHistoryNode';
 import { ResourceType, SubscribeableViewNode, unknownGitUri, ViewNode } from './viewNode';
 
 export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryView> {
-    private _base: string | undefined;
+    private _baseRef: string | undefined;
     private _child: FileHistoryNode | undefined;
 
     constructor(view: FileHistoryView) {
-        super(unknownGitUri, undefined, view);
+        super(unknownGitUri, view);
     }
 
     dispose() {
@@ -37,11 +37,18 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
     async getChildren(): Promise<ViewNode[]> {
         if (this._child === undefined) {
             if (this.uri === unknownGitUri) {
-                return [new MessageNode(this, 'There are no editors open that can provide file history information.')];
+                return [
+                    new MessageNode(
+                        this.view,
+                        this,
+                        'There are no editors open that can provide file history information.'
+                    )
+                ];
             }
 
-            const fileUri = new GitUri(this.uri, { ...this.uri, sha: this.uri.sha || this._base } as GitCommitish);
-            this._child = new FileHistoryNode(fileUri, this, this.view);
+            const uri = this.uri;
+            const fileUri = new GitUri(uri, { ...uri, sha: this._baseRef || uri.sha } as GitCommitish);
+            this._child = new FileHistoryNode(fileUri, this.view, this);
         }
 
         return [this._child];
@@ -62,15 +69,16 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
         const pick = await new BranchesAndTagsQuickPick(this.uri.repoPath!).show(
             `Change the file history base to${GlyphChars.Ellipsis}`,
             {
-                checked: this._base
+                checked: this._baseRef
             }
         );
         if (pick === undefined || pick instanceof CommandQuickPickItem) return;
 
-        this._base = pick.current ? undefined : pick.name;
+        this._baseRef = pick.current ? undefined : pick.name;
         if (this._child === undefined) return;
 
-        await this._child.changeBase(this._base);
+        this._uri = unknownGitUri;
+        await this.triggerChange();
     }
 
     @gate()

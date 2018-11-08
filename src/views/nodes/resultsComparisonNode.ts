@@ -4,19 +4,19 @@ import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitService, GitUri } from '../../git/gitService';
 import { Strings } from '../../system';
-import { ResultsView } from '../resultsView';
+import { View } from '../viewBase';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
 import { ResultsFilesNode } from './resultsFilesNode';
 import { NamedRef, ResourceType, ViewNode } from './viewNode';
 
 export class ResultsComparisonNode extends ViewNode {
     constructor(
+        view: View,
         public readonly repoPath: string,
         ref1: NamedRef,
-        ref2: NamedRef,
-        public readonly view: ResultsView
+        ref2: NamedRef
     ) {
-        super(GitUri.fromRepoPath(repoPath), undefined);
+        super(GitUri.fromRepoPath(repoPath), view);
 
         this._ref1 = ref1;
         this._ref2 = ref2;
@@ -34,8 +34,8 @@ export class ResultsComparisonNode extends ViewNode {
 
     async getChildren(): Promise<ViewNode[]> {
         return [
-            new ResultsCommitsNode(this.uri.repoPath!, this.getCommitsQuery.bind(this), this, this.view),
-            new ResultsFilesNode(this.uri.repoPath!, this._ref1.ref, this._ref2.ref, this, this.view)
+            new ResultsCommitsNode(this.view, this, this.uri.repoPath!, this.getCommitsQuery.bind(this)),
+            new ResultsFilesNode(this.view, this, this.uri.repoPath!, this._ref1.ref, this._ref2.ref)
         ];
     }
 

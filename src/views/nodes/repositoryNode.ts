@@ -30,11 +30,11 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 
     constructor(
         uri: GitUri,
-        public readonly repo: Repository,
+        view: RepositoriesView,
         parent: ViewNode,
-        view: RepositoriesView
+        public readonly repo: Repository
     ) {
-        super(uri, parent, view);
+        super(uri, view, parent);
 
         this._status = this.repo.getStatus();
     }
@@ -59,29 +59,29 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
                     status.state.behind,
                     status.detached
                 );
-                children.push(new BranchNode(branch, this.uri, this, this.view, false));
+                children.push(new BranchNode(this.uri, this.view, this, branch, false));
 
                 if (status.state.behind) {
-                    children.push(new StatusUpstreamNode(status, 'behind', this, this.view));
+                    children.push(new StatusUpstreamNode(this.view, this, status, 'behind'));
                 }
 
                 if (status.state.ahead) {
-                    children.push(new StatusUpstreamNode(status, 'ahead', this, this.view));
+                    children.push(new StatusUpstreamNode(this.view, this, status, 'ahead'));
                 }
 
                 if (status.state.ahead || (status.files.length !== 0 && this.includeWorkingTree)) {
                     const range = status.upstream ? `${status.upstream}..${branch.ref}` : undefined;
-                    children.push(new StatusFilesNode(status, range, this, this.view));
+                    children.push(new StatusFilesNode(this.view, this, status, range));
                 }
 
-                children.push(new MessageNode(this, GlyphChars.Dash.repeat(2), ''));
+                children.push(new MessageNode(this.view, this, GlyphChars.Dash.repeat(2), ''));
             }
 
             children.push(
-                new BranchesNode(this.uri, this.repo, this, this.view),
-                new RemotesNode(this.uri, this.repo, this, this.view),
-                new StashesNode(this.uri, this.repo, this, this.view),
-                new TagsNode(this.uri, this.repo, this, this.view)
+                new BranchesNode(this.uri, this.view, this, this.repo),
+                new RemotesNode(this.uri, this.view, this, this.repo),
+                new StashesNode(this.uri, this.view, this, this.repo),
+                new TagsNode(this.uri, this.view, this, this.repo)
             );
             this._children = children;
         }

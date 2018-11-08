@@ -10,15 +10,15 @@ import { BranchNode } from './branchNode';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { ResourceType, ViewNode } from './viewNode';
 
-export class RemoteNode extends ViewNode {
+export class RemoteNode extends ViewNode<RepositoriesView> {
     constructor(
-        public readonly remote: GitRemote,
         uri: GitUri,
-        public readonly repo: Repository,
+        view: RepositoriesView,
         parent: ViewNode,
-        public readonly view: RepositoriesView
+        public readonly remote: GitRemote,
+        public readonly repo: Repository
     ) {
-        super(uri, parent);
+        super(uri, view, parent);
     }
 
     get id(): string {
@@ -38,7 +38,7 @@ export class RemoteNode extends ViewNode {
                 b =>
                     !b.remote || !b.name.startsWith(this.remote.name)
                         ? undefined
-                        : new BranchNode(b, this.uri, this, this.view)
+                        : new BranchNode(this.uri, this.view, this, b)
             )
         ];
         if (this.view.config.branches.layout === ViewBranchesLayout.List) return branchNodes;
@@ -51,13 +51,13 @@ export class RemoteNode extends ViewNode {
         );
 
         const root = new BranchOrTagFolderNode(
+            this.view,
+            this,
             'remote-branch',
             this.repo.path,
             '',
             undefined,
-            hierarchy,
-            this,
-            this.view
+            hierarchy
         );
         const children = (await root.getChildren()) as (BranchOrTagFolderNode | BranchNode)[];
 

@@ -19,16 +19,16 @@ import { FileNode, FolderNode } from './folderNode';
 import { StatusFileNode } from './statusFileNode';
 import { ResourceType, ViewNode } from './viewNode';
 
-export class StatusFilesNode extends ViewNode {
+export class StatusFilesNode extends ViewNode<RepositoriesView> {
     readonly repoPath: string;
 
     constructor(
-        public readonly status: GitStatus,
-        public readonly range: string | undefined,
+        view: RepositoriesView,
         parent: ViewNode,
-        public readonly view: RepositoriesView
+        public readonly status: GitStatus,
+        public readonly range: string | undefined
     ) {
-        super(GitUri.fromRepoPath(status.repoPath), parent);
+        super(GitUri.fromRepoPath(status.repoPath), view, parent);
         this.repoPath = status.repoPath;
     }
 
@@ -86,7 +86,7 @@ export class StatusFilesNode extends ViewNode {
             ...Iterables.map(
                 Objects.values(groups),
                 files =>
-                    new StatusFileNode(repoPath, files[files.length - 1], files.map(s => s.commit), this, this.view)
+                    new StatusFileNode(this.view, this, repoPath, files[files.length - 1], files.map(s => s.commit))
             )
         ];
 
@@ -98,7 +98,7 @@ export class StatusFilesNode extends ViewNode {
                 this.view.config.files.compact
             );
 
-            const root = new FolderNode(repoPath, '', undefined, hierarchy, this, this.view);
+            const root = new FolderNode(this.view, this, repoPath, '', hierarchy);
             children = (await root.getChildren()) as FileNode[];
         }
         else {

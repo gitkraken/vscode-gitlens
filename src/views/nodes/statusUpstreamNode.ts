@@ -3,7 +3,7 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
 import { GitStatus, GitUri } from '../../git/gitService';
 import { Iterables, Strings } from '../../system';
-import { RepositoriesView } from '../repositoriesView';
+import { View } from '../viewBase';
 import { CommitNode } from './commitNode';
 import { ShowMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
@@ -15,12 +15,12 @@ export class StatusUpstreamNode extends ViewNode implements PageableViewNode {
     maxCount: number | undefined;
 
     constructor(
-        public readonly status: GitStatus,
-        public readonly direction: 'ahead' | 'behind',
+        view: View,
         parent: RepositoryNode,
-        public readonly view: RepositoriesView
+        public readonly status: GitStatus,
+        public readonly direction: 'ahead' | 'behind'
     ) {
-        super(GitUri.fromRepoPath(status.repoPath), parent);
+        super(GitUri.fromRepoPath(status.repoPath), view, parent);
     }
 
     get id(): string {
@@ -51,12 +51,12 @@ export class StatusUpstreamNode extends ViewNode implements PageableViewNode {
                 }
             }
 
-            children = [...insertDateMarkers(Iterables.map(commits, c => new CommitNode(c, this, this.view)), this, 1)];
+            children = [...insertDateMarkers(Iterables.map(commits, c => new CommitNode(this.view, this, c)), this, 1)];
         }
         else {
             children = [
                 ...insertDateMarkers(
-                    Iterables.map(log.commits.values(), c => new CommitNode(c, this, this.view)),
+                    Iterables.map(log.commits.values(), c => new CommitNode(this.view, this, c)),
                     this,
                     1
                 )
@@ -64,7 +64,7 @@ export class StatusUpstreamNode extends ViewNode implements PageableViewNode {
         }
 
         if (log.truncated) {
-            children.push(new ShowMoreNode('Commits', this, this.view));
+            children.push(new ShowMoreNode(this.view, this, 'Commits'));
         }
         return children;
     }

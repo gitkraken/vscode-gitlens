@@ -21,13 +21,13 @@ export class StatusFileNode extends ViewNode {
     private readonly _hasUnstagedChanges: boolean = false;
 
     constructor(
+        view: View,
+        parent: ViewNode,
         public readonly repoPath: string,
         public readonly file: GitFile,
-        public readonly commits: GitLogCommit[],
-        parent: ViewNode,
-        public readonly view: View
+        public readonly commits: GitLogCommit[]
     ) {
-        super(GitUri.fromFile(file, repoPath, 'HEAD'), parent);
+        super(GitUri.fromFile(file, repoPath, 'HEAD'), view, parent);
 
         for (const c of this.commits) {
             if (c.isStagedUncommitted) {
@@ -45,10 +45,10 @@ export class StatusFileNode extends ViewNode {
         return this.commits.map(
             c =>
                 new CommitFileNode(
+                    this.view,
+                    this,
                     this.file,
                     c,
-                    this,
-                    this.view,
                     CommitFileNodeDisplayAs.CommitLabel |
                         (this.view.config.avatars
                             ? CommitFileNodeDisplayAs.Gravatar

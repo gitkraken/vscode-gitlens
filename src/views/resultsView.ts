@@ -112,16 +112,16 @@ export class ResultsView extends ViewBase<ResultsNode> {
     }
 
     addCommit(commit: GitLogCommit) {
-        return this.addResults(new ResultsCommitNode(commit, this));
+        return this.addResults(new ResultsCommitNode(this, commit));
     }
 
     addComparison(repoPath: string, ref1: string | NamedRef, ref2: string | NamedRef) {
         return this.addResults(
             new ResultsComparisonNode(
+                this,
                 repoPath,
                 typeof ref1 === 'string' ? { ref: ref1 } : ref1,
-                typeof ref2 === 'string' ? { ref: ref2 } : ref2,
-                this
+                typeof ref2 === 'string' ? { ref: ref2 } : ref2
             )
         );
     }
@@ -182,7 +182,7 @@ export class ResultsView extends ViewBase<ResultsNode> {
         };
 
         return this.addResults(
-            new ResultsCommitsNode(repoPath, getCommitsQuery, undefined, this, ResourceType.SearchResults)
+            new ResultsCommitsNode(this, this._root!, repoPath, getCommitsQuery, ResourceType.SearchResults)
         );
     }
 

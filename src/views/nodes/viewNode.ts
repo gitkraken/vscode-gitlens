@@ -59,10 +59,11 @@ export interface ViewNode {
 }
 
 @logName<ViewNode>((c, name) => `${name}${c.id ? `(${c.id})` : ''}`)
-export abstract class ViewNode {
+export abstract class ViewNode<TView extends View = View> {
     constructor(
         uri: GitUri,
-        protected readonly _parent: ViewNode | undefined
+        public readonly view: TView,
+        protected readonly _parent?: ViewNode
     ) {
         this._uri = uri;
     }
@@ -93,7 +94,7 @@ export abstract class ViewNode {
     refresh(reason?: RefreshReason): void | boolean | Promise<void> | Promise<boolean> {}
 }
 
-export abstract class ViewRefNode extends ViewNode {
+export abstract class ViewRefNode<TView extends View = View> extends ViewNode<TView> {
     abstract get ref(): string;
 
     get repoPath(): string {
@@ -118,16 +119,12 @@ export function supportsAutoRefresh(
     return (view as any).onDidChangeAutoRefresh !== undefined;
 }
 
-export abstract class SubscribeableViewNode<TView extends View> extends ViewNode {
+export abstract class SubscribeableViewNode<TView extends View = View> extends ViewNode<TView> {
     protected _disposable: Disposable;
     protected _subscription: Promise<Disposable | undefined> | undefined;
 
-    constructor(
-        uri: GitUri,
-        parent: ViewNode | undefined,
-        public readonly view: TView
-    ) {
-        super(uri, parent);
+    constructor(uri: GitUri, view: TView, parent?: ViewNode) {
+        super(uri, view, parent);
 
         const disposables = [
             this.view.onDidChangeVisibility(this.onVisibilityChanged, this),
@@ -165,6 +162,7 @@ export abstract class SubscribeableViewNode<TView extends View> extends ViewNode
         }
     }
 
+    @gate()
     @debug()
     async triggerChange() {
         return this.view.refreshNode(this);

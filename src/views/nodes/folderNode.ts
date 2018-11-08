@@ -18,14 +18,14 @@ export class FolderNode extends ViewNode {
     readonly priority: number = 1;
 
     constructor(
+        view: View,
+        parent: ViewNode,
         public readonly repoPath: string,
         public readonly folderName: string,
-        public readonly relativePath: string | undefined,
         public readonly root: Arrays.IHierarchicalItem<FileNode>,
-        parent: ViewNode,
-        public readonly view: View
+        public readonly relativePath?: string
     ) {
-        super(GitUri.fromRepoPath(repoPath), parent);
+        super(GitUri.fromRepoPath(repoPath), view, parent);
     }
 
     async getChildren(): Promise<(FolderNode | FileNode)[]> {
@@ -43,7 +43,7 @@ export class FolderNode extends ViewNode {
             for (const folder of Objects.values(this.root.children)) {
                 if (folder.value === undefined) {
                     children.push(
-                        new FolderNode(this.repoPath, folder.name, folder.relativePath, folder, this, this.view)
+                        new FolderNode(this.view, this, this.repoPath, folder.name, folder, folder.relativePath)
                     );
                     continue;
                 }

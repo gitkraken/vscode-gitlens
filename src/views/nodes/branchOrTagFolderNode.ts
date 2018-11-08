@@ -9,16 +9,16 @@ import { ResourceType, ViewNode } from './viewNode';
 
 export class BranchOrTagFolderNode extends ViewNode {
     constructor(
+        view: View,
+        parent: ViewNode,
         public readonly type: 'branch' | 'remote-branch' | 'tag',
         public readonly repoPath: string,
         public readonly folderName: string,
         public readonly relativePath: string | undefined,
         public readonly root: Arrays.IHierarchicalItem<BranchNode | TagNode>,
-        parent: ViewNode,
-        public readonly view: View,
         private readonly _expanded: boolean = false
     ) {
-        super(GitUri.fromRepoPath(repoPath), parent);
+        super(GitUri.fromRepoPath(repoPath), view, parent);
     }
 
     get id(): string {
@@ -38,13 +38,13 @@ export class BranchOrTagFolderNode extends ViewNode {
                     folder.descendants.some(n => n instanceof BranchNode && n.current);
                 children.push(
                     new BranchOrTagFolderNode(
+                        this.view,
+                        this,
                         this.type,
                         this.repoPath,
                         folder.name,
                         folder.relativePath,
                         folder,
-                        this,
-                        this.view,
                         expanded
                     )
                 );

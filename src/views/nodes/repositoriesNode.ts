@@ -14,7 +14,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
     private _children: (RepositoryNode | MessageNode)[] | undefined;
 
     constructor(view: RepositoriesView) {
-        super(unknownGitUri, undefined, view);
+        super(unknownGitUri, view);
     }
 
     dispose() {
@@ -33,13 +33,13 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
     async getChildren(): Promise<ViewNode[]> {
         if (this._children === undefined) {
             const repositories = await Container.git.getOrderedRepositories();
-            if (repositories.length === 0) return [new MessageNode(this, 'No repositories could be found.')];
+            if (repositories.length === 0) return [new MessageNode(this.view, this, 'No repositories could be found.')];
 
             const children = [];
             for (const repo of repositories) {
                 if (repo.closed) continue;
 
-                children.push(new RepositoryNode(GitUri.fromRepoPath(repo.path), repo, this, this.view));
+                children.push(new RepositoryNode(GitUri.fromRepoPath(repo.path), this.view, this, repo));
             }
 
             this._children = children;
@@ -66,7 +66,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
         if (repositories.length === 0 && (this._children === undefined || this._children.length === 0)) return;
 
         if (repositories.length === 0) {
-            this._children = [new MessageNode(this, 'No repositories could be found.')];
+            this._children = [new MessageNode(this.view, this, 'No repositories could be found.')];
             return;
         }
 
@@ -79,7 +79,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
                 void child.refresh();
             }
             else {
-                children.push(new RepositoryNode(GitUri.fromRepoPath(repo.path), repo, this, this.view));
+                children.push(new RepositoryNode(GitUri.fromRepoPath(repo.path), this.view, this, repo));
             }
         }
 
@@ -133,7 +133,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
                 parent = parent.getParent();
             }
 
-            void this.view.reveal(node);
+            void this.view.reveal(node /*, { expand: true } */);
         }
         catch (ex) {
             Logger.error(ex);

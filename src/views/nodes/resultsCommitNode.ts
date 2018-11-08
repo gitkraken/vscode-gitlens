@@ -7,14 +7,14 @@ import { ResourceType, ViewNode } from './viewNode';
 
 export class ResultsCommitNode extends ViewNode {
     constructor(
-        public readonly commit: GitLogCommit,
-        public readonly view: ResultsView
+        view: ResultsView,
+        public readonly commit: GitLogCommit
     ) {
-        super(commit.toGitUri(), undefined);
+        super(commit.toGitUri(), view);
     }
 
     getChildren(): ViewNode[] {
-        return [new CommitNode(this.commit, this, this.view)];
+        return [new CommitNode(this.view, this, this.commit)];
     }
 
     getTreeItem(): TreeItem {

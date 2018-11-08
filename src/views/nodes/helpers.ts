@@ -45,7 +45,7 @@ export function* insertDateMarkers(
 
                 // Don't show the last marker as the first entry -- since it could be wildly far off
                 if (!first || index < markers.length - 1) {
-                    yield new MessageNode(parent, marker);
+                    yield new MessageNode(parent.view, parent, marker);
                 }
 
                 index++;

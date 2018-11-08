@@ -10,14 +10,14 @@ import { MessageNode } from './common';
 import { TagNode } from './tagNode';
 import { ResourceType, ViewNode } from './viewNode';
 
-export class TagsNode extends ViewNode {
+export class TagsNode extends ViewNode<RepositoriesView> {
     constructor(
         uri: GitUri,
-        public readonly repo: Repository,
+        view: RepositoriesView,
         parent: ViewNode,
-        public readonly view: RepositoriesView
+        public readonly repo: Repository
     ) {
-        super(uri, parent);
+        super(uri, view, parent);
     }
 
     get id(): string {
@@ -26,10 +26,10 @@ export class TagsNode extends ViewNode {
 
     async getChildren(): Promise<ViewNode[]> {
         const tags = await this.repo.getTags();
-        if (tags.length === 0) return [new MessageNode(this, 'No tags could be found.')];
+        if (tags.length === 0) return [new MessageNode(this.view, this, 'No tags could be found.')];
 
         tags.sort((a, b) => a.name.localeCompare(b.name));
-        const tagNodes = tags.map(t => new TagNode(t, this.uri, this, this.view));
+        const tagNodes = tags.map(t => new TagNode(this.uri, this.view, this, t));
         if (this.view.config.branches.layout === ViewBranchesLayout.List) return tagNodes;
 
         const hierarchy = Arrays.makeHierarchical(
@@ -39,7 +39,7 @@ export class TagsNode extends ViewNode {
             this.view.config.files.compact
         );
 
-        const root = new BranchOrTagFolderNode('tag', this.repo.path, '', undefined, hierarchy, this, this.view);
+        const root = new BranchOrTagFolderNode(this.view, this, 'tag', this.repo.path, '', undefined, hierarchy);
         const children = (await root.getChildren()) as (BranchOrTagFolderNode | TagNode)[];
         return children;
     }

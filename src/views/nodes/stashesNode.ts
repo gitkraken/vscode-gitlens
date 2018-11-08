@@ -11,11 +11,11 @@ import { ResourceType, ViewNode } from './viewNode';
 export class StashesNode extends ViewNode {
     constructor(
         uri: GitUri,
-        public readonly repo: Repository,
+        view: View,
         parent: ViewNode,
-        public readonly view: View
+        public readonly repo: Repository
     ) {
-        super(uri, parent);
+        super(uri, view, parent);
     }
 
     get id(): string {
@@ -24,9 +24,9 @@ export class StashesNode extends ViewNode {
 
     async getChildren(): Promise<ViewNode[]> {
         const stash = await this.repo.getStashList();
-        if (stash === undefined) return [new MessageNode(this, 'No stashed changes.')];
+        if (stash === undefined) return [new MessageNode(this.view, this, 'No stashed changes.')];
 
-        return [...Iterables.map(stash.commits.values(), c => new StashNode(c, this, this.view))];
+        return [...Iterables.map(stash.commits.values(), c => new StashNode(this.view, this, c))];
     }
 
     getTreeItem(): TreeItem {
