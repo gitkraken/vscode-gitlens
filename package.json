@@ -18,7 +18,7 @@
         "url": "https://github.com/eamodio/vscode-gitlens.git"
     },
     "engines": {
-        "vscode": "^1.27.0"
+        "vscode": "^1.29.0"
     },
     "main": "./dist/extension",
     "icon": "images/gitlens-icon.png",
@@ -4251,8 +4251,8 @@
         "html-webpack-plugin": "3.2.0",
         "imagemin-webpack-plugin": "2.3.0",
         "mini-css-extract-plugin": "0.4.4",
-        "node-sass": "4.9.4",
-        "prettier": "1.14.3",
+        "node-sass": "4.10.0",
+        "prettier": "1.15.1",
         "prettier-tslint": "0.4.0",
         "sass-loader": "7.1.0",
         "size-plugin": "1.0.1",
@@ -4264,7 +4264,7 @@
         "typescript": "3.1.6",
         "vsce": "1.53.0",
         "vscode": "1.1.21",
-        "webpack": "4.24.0",
+        "webpack": "4.25.1",
         "webpack-cli": "3.1.2",
         "webpack-deep-scope-plugin": "1.6.0"
     }
