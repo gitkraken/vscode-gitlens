@@ -3,7 +3,7 @@ import * as paths from 'path';
 import { commands, TextEditor, Uri } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitCommit, GitLog, GitLogCommit, GitUri } from '../git/gitService';
+import { GitCommit, GitLog, GitLogCommit, GitRepoSearchBy, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, CommitQuickPick, CommitWithFileStatusQuickPickItem } from '../quickpicks';
@@ -22,7 +22,7 @@ export interface ShowQuickCommitDetailsCommandArgs {
     sha?: string;
     commit?: GitCommit | GitLogCommit;
     repoLog?: GitLog;
-    showInResults?: boolean;
+    showInView?: boolean;
 
     goBackCommand?: CommandQuickPickItem;
 }
@@ -40,13 +40,13 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
     }
 
     constructor() {
-        super([Commands.ShowCommitInResults, Commands.ShowQuickCommitDetails, Commands.ShowQuickRevisionDetails]);
+        super([Commands.ShowCommitInView, Commands.ShowQuickCommitDetails, Commands.ShowQuickRevisionDetails]);
     }
 
     protected async preExecute(context: CommandContext, args: ShowQuickCommitDetailsCommandArgs = {}): Promise<any> {
-        if (context.command === Commands.ShowCommitInResults) {
+        if (context.command === Commands.ShowCommitInView) {
             args = { ...args };
-            args.showInResults = true;
+            args.showInView = true;
         }
 
         if (context.command === Commands.ShowQuickRevisionDetails && context.editor !== undefined) {
@@ -135,8 +135,10 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
                 args.commit.workingFileName = workingFileName;
             }
 
-            if (args.showInResults) {
-                void (await Container.resultsView.addCommit(args.commit as GitLogCommit));
+            if (args.showInView) {
+                void (await Container.searchView.search(repoPath!, args.commit.sha, GitRepoSearchBy.Sha, {
+                    label: { label: `commits with an id matching '${args.commit.shortSha}'` }
+                }));
 
                 return undefined;
             }

@@ -19,6 +19,7 @@ import { GitService, GitUri } from '../git/gitService';
 import { Arrays } from '../system';
 import {
     BranchNode,
+    canDismissNode,
     CommitFileNode,
     CommitNode,
     RemoteNode,
@@ -49,6 +50,17 @@ export class ViewCommands implements Disposable {
     private _terminalCwd: string | undefined;
 
     constructor() {
+        commands.registerCommand(
+            'gitlens.views.refreshNode',
+            (node: ViewNode, args?: RefreshNodeCommandArgs) => node.view.refreshNode(node, args),
+            this
+        );
+        commands.registerCommand(
+            'gitlens.views.dismissNode',
+            (node: ViewNode) => canDismissNode(node.view) && node.view.dismissNode(node),
+            this
+        );
+
         commands.registerCommand('gitlens.views.fetch', this.fetch, this);
         commands.registerCommand('gitlens.views.pull', this.pull, this);
         commands.registerCommand('gitlens.views.push', this.push, this);
@@ -149,19 +161,19 @@ export class ViewCommands implements Disposable {
     private compareWithHead(node: ViewNode) {
         if (!(node instanceof ViewRefNode)) return;
 
-        return Container.resultsView.addComparison(node.repoPath, node.ref, 'HEAD');
+        return Container.resultsView.compare(node.repoPath, node.ref, 'HEAD');
     }
 
     private compareWithRemote(node: BranchNode) {
         if (!node.branch.tracking) return;
 
-        return Container.resultsView.addComparison(node.repoPath, node.branch.tracking, node.ref);
+        return Container.resultsView.compare(node.repoPath, node.branch.tracking, node.ref);
     }
 
     private compareWithWorking(node: ViewNode) {
         if (!(node instanceof ViewRefNode)) return;
 
-        return Container.resultsView.addComparison(node.repoPath, node.ref, '');
+        return Container.resultsView.compare(node.repoPath, node.ref, '');
     }
 
     private async compareAncestryWithWorking(node: BranchNode) {
@@ -171,7 +183,7 @@ export class ViewCommands implements Disposable {
         const commonAncestor = await Container.git.getMergeBase(node.repoPath, branch.ref, node.ref);
         if (commonAncestor === undefined) return;
 
-        return Container.resultsView.addComparison(
+        return Container.resultsView.compare(
             node.repoPath,
             { ref: commonAncestor, label: `ancestry with ${node.ref} (${GitService.shortenSha(commonAncestor)})` },
             ''
@@ -201,7 +213,7 @@ export class ViewCommands implements Disposable {
             return;
         }
 
-        return Container.resultsView.addComparison(this._selection.repoPath, this._selection.ref, node.ref);
+        return Container.resultsView.compare(this._selection.repoPath, this._selection.ref, node.ref);
     }
 
     private _selection: ICompareSelected | undefined;
@@ -310,9 +322,8 @@ export class ViewCommands implements Disposable {
         options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
     ) {
         const repoPath = node.commit.repoPath;
-        const uris = Arrays.filterMap(
-            node.commit.files,
-            f => (f.status !== 'D' ? GitUri.fromFile(f, repoPath) : undefined)
+        const uris = Arrays.filterMap(node.commit.files, f =>
+            f.status !== 'D' ? GitUri.fromFile(f, repoPath) : undefined
         );
 
         for (const uri of uris) {

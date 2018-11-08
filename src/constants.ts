@@ -38,7 +38,8 @@ export enum CommandContext {
     ViewsLineHistoryEditorFollowing = 'gitlens:views:lineHistory:editorFollowing',
     ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',
     ViewsResults = 'gitlens:views:results',
-    ViewsResultsKeepResults = 'gitlens:views:results:keepResults'
+    ViewsResultsKeepResults = 'gitlens:views:results:keepResults',
+    ViewsSearchKeepResults = 'gitlens:views:search:keepResults'
 }
 
 export function setCommandContext(key: CommandContext | string, value: any) {
@@ -126,5 +127,6 @@ export const ImageMimetypes: { [key: string]: string } = {
 
 export enum WorkspaceState {
     ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',
-    ViewsResultsKeepResults = 'gitlens:views:results:keepResults'
+    ViewsResultsKeepResults = 'gitlens:views:results:keepResults',
+    ViewsSearchKeepResults = 'gitlens:views:search:keepResults'
 }

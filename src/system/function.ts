@@ -16,6 +16,19 @@ interface IPropOfValue {
 }
 
 export namespace Functions {
+    export function cachedOnce<T>(fn: (...args: any[]) => Promise<T>, seed: T): (...args: any[]) => Promise<T> {
+        let cached: T | undefined = seed;
+        return (...args: any[]) => {
+            if (cached !== undefined) {
+                const promise = Promise.resolve(cached);
+                cached = undefined;
+
+                return promise;
+            }
+            return fn(...args);
+        };
+    }
+
     export function cancellable<T>(promise: Promise<T>, token: CancellationToken): Promise<T | undefined> {
         return new Promise<T | undefined>((resolve, reject) => {
             token.onCancellationRequested(() => resolve(undefined));
@@ -65,7 +78,7 @@ export namespace Functions {
         return tracked;
     }
 
-    export function isPromise(o: any) {
+    export function isPromise(o: any): o is Promise<any> {
         return (typeof o === 'object' || typeof o === 'function') && typeof o.then === 'function';
     }
 
@@ -82,19 +95,6 @@ export namespace Functions {
             return Object.assign(fn, { value: value });
         };
         return propOfCore(o, key);
-    }
-
-    export function seeded<T>(fn: (...args: any[]) => Promise<T>, seed: T): (...args: any[]) => Promise<T> {
-        let cached: T | undefined = seed;
-        return (...args: any[]) => {
-            if (cached !== undefined) {
-                const promise = Promise.resolve(cached);
-                cached = undefined;
-
-                return promise;
-            }
-            return fn(...args);
-        };
     }
 
     export function interval(fn: (...args: any[]) => void, ms: number): Disposable {

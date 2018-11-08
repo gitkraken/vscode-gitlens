@@ -23,6 +23,7 @@ import { ViewNode } from './nodes';
 import { isPageable } from './nodes/viewNode';
 import { RepositoriesView } from './repositoriesView';
 import { ResultsView } from './resultsView';
+import { SearchView } from './searchView';
 import { RefreshNodeCommandArgs } from './viewCommands';
 
 export enum RefreshReason {
@@ -30,7 +31,7 @@ export enum RefreshReason {
     VisibilityChanged = 'VisibilityChanged'
 }
 
-export type View = RepositoriesView | FileHistoryView | LineHistoryView | ResultsView;
+export type View = RepositoriesView | FileHistoryView | LineHistoryView | ResultsView | SearchView;
 
 export interface TreeViewNodeStateChangeEvent<T> extends TreeViewExpansionEvent<T> {
     state: TreeItemCollapsibleState;

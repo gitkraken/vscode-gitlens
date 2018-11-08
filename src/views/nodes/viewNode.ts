@@ -36,6 +36,7 @@ export enum ResourceType {
     ResultsFile = 'gitlens:file:results',
     ResultsFiles = 'gitlens:results:files',
     SearchResults = 'gitlens:results:search',
+    Search = 'gitlens:search',
     Stash = 'gitlens:stash',
     StashFile = 'gitlens:file:stash',
     Stashes = 'gitlens:stashes',
@@ -92,6 +93,12 @@ export abstract class ViewNode<TView extends View = View> {
     @gate()
     @debug()
     refresh(reason?: RefreshReason): void | boolean | Promise<void> | Promise<boolean> {}
+
+    @gate()
+    @debug()
+    triggerChange(): Promise<void> {
+        return this.view.refreshNode(this);
+    }
 }
 
 export abstract class ViewRefNode<TView extends View = View> extends ViewNode<TView> {
@@ -162,12 +169,6 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
         }
     }
 
-    @gate()
-    @debug()
-    async triggerChange() {
-        return this.view.refreshNode(this);
-    }
-
     protected abstract async subscribe(): Promise<Disposable | undefined>;
 
     @debug()
@@ -226,4 +227,8 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
         this._subscription = this.subscribe();
         await this._subscription;
     }
+}
+
+export function canDismissNode(view: View): view is View & { dismissNode(node: ViewNode): void } {
+    return typeof (view as any).dismissNode === 'function';
 }

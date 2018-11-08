@@ -31,7 +31,7 @@ import {
     OpenFileCommandQuickPickItem,
     OpenFilesCommandQuickPickItem,
     QuickPickItem,
-    ShowCommitInResultsQuickPickItem
+    ShowCommitInViewQuickPickItem
 } from './commonQuickPicks';
 import { OpenRemotesCommandQuickPickItem } from './remotesQuickPick';
 
@@ -163,10 +163,10 @@ export class CommitQuickPick {
                 )
             );
 
-            items.splice(index++, 0, new ShowCommitInResultsQuickPickItem(commit));
+            items.splice(index++, 0, new ShowCommitInViewQuickPickItem(commit));
         }
         else {
-            items.splice(index++, 0, new ShowCommitInResultsQuickPickItem(commit));
+            items.splice(index++, 0, new ShowCommitInViewQuickPickItem(commit));
 
             const remotes = await Container.git.getRemotes(commit.repoPath);
             if (remotes.length) {

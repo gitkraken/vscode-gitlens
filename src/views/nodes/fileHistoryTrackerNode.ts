@@ -14,6 +14,7 @@ import { ResourceType, SubscribeableViewNode, unknownGitUri, ViewNode } from './
 
 export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryView> {
     private _baseRef: string | undefined;
+    private _fileUri: GitUri | undefined;
     private _child: FileHistoryNode | undefined;
 
     constructor(view: FileHistoryView) {
@@ -36,7 +37,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 
     async getChildren(): Promise<ViewNode[]> {
         if (this._child === undefined) {
-            if (this.uri === unknownGitUri) {
+            if (this._fileUri === undefined && this.uri === unknownGitUri) {
                 return [
                     new MessageNode(
                         this.view,
@@ -46,7 +47,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
                 ];
             }
 
-            const uri = this.uri;
+            const uri = this._fileUri || this.uri;
             const fileUri = new GitUri(uri, { ...uri, sha: this._baseRef || uri.sha } as GitCommitish);
             this._child = new FileHistoryNode(fileUri, this.view, this);
         }
@@ -136,7 +137,25 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 
     @log()
     setEditorFollowing(enabled: boolean) {
+        if (enabled && this._fileUri !== undefined) {
+            this._fileUri = undefined;
+            this._baseRef = undefined;
+
+            this._uri = unknownGitUri;
+            // Don't need to call triggerChange here, since canSubscribe will do it
+        }
+
         this.canSubscribe = enabled;
+    }
+
+    @gate()
+    @log()
+    async showHistoryForUri(uri: GitUri, baseRef?: string) {
+        this._fileUri = uri;
+        this._baseRef = baseRef;
+
+        this._uri = unknownGitUri;
+        await this.triggerChange();
     }
 
     @debug()

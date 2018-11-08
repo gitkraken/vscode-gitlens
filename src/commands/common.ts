@@ -56,10 +56,10 @@ export enum Commands {
     PullRepositories = 'gitlens.pullRepositories',
     PushRepositories = 'gitlens.pushRepositories',
     ResetSuppressedWarnings = 'gitlens.resetSuppressedWarnings',
-    ShowCommitInResults = 'gitlens.showCommitInResults',
+    ShowCommitInView = 'gitlens.showCommitInView',
     ShowCommitSearch = 'gitlens.showCommitSearch',
     ShowFileHistoryView = 'gitlens.showFileHistoryView',
-    ShowFileHistoryInResults = 'gitlens.showFileHistoryInResults',
+    ShowFileHistoryInView = 'gitlens.showFileHistoryInView',
     ShowLineHistoryView = 'gitlens.showLineHistoryView',
     ShowLastQuickPick = 'gitlens.showLastQuickPick',
     ShowQuickBranchHistory = 'gitlens.showQuickBranchHistory',
@@ -72,6 +72,7 @@ export enum Commands {
     ShowQuickStashList = 'gitlens.showQuickStashList',
     ShowRepositoriesView = 'gitlens.showRepositoriesView',
     ShowResultsView = 'gitlens.showResultsView',
+    ShowSearchView = 'gitlens.showSearchView',
     ShowSettingsPage = 'gitlens.showSettingsPage',
     ShowWelcomePage = 'gitlens.showWelcomePage',
     StashApply = 'gitlens.stashApply',
@@ -197,9 +198,9 @@ export interface CommandUriContext extends CommandBaseContext {
     type: 'uri';
 }
 
-export interface CommandViewContext extends CommandBaseContext {
-    type: 'view';
-}
+// export interface CommandViewContext extends CommandBaseContext {
+//     type: 'view';
+// }
 
 export interface CommandViewItemContext extends CommandBaseContext {
     type: 'viewItem';
@@ -287,7 +288,7 @@ export type CommandContext =
     | CommandScmStatesContext
     | CommandUnknownContext
     | CommandUriContext
-    | CommandViewContext
+    // | CommandViewContext
     | CommandViewItemContext;
 
 function isScmResourceGroup(group: any): group is SourceControlResourceGroup {
@@ -373,14 +374,10 @@ export abstract class Command implements Disposable {
             firstArg = args[0];
         }
 
-        let maybeView = false;
         if (options.uri && (firstArg == null || firstArg instanceof Uri)) {
             const [uri, ...rest] = args as [Uri, any];
             if (uri !== undefined) {
                 return [{ command: command, type: 'uri', editor: editor, uri: uri }, rest];
-            }
-            else {
-                maybeView = args.length === 0;
             }
         }
 
@@ -416,10 +413,6 @@ export abstract class Command implements Disposable {
             }
 
             return [{ command: command, type: 'scm-groups', scmResourceGroups: groups }, args.slice(count)];
-        }
-
-        if (maybeView) {
-            return [{ command: command, type: 'view', editor: editor }, args];
         }
 
         return [{ command: command, type: 'unknown', editor: editor }, args];

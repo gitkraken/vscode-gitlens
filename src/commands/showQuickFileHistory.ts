@@ -10,7 +10,7 @@ import {
     ChooseFromBranchesAndTagsQuickPickItem,
     CommandQuickPickItem,
     FileHistoryQuickPick,
-    ShowCommitsInResultsQuickPickItem
+    ShowFileHistoryInViewQuickPickItem
 } from '../quickpicks';
 import { Iterables, Strings } from '../system';
 import { ActiveEditorCachedCommand, command, CommandContext, Commands, getCommandUri } from './common';
@@ -21,7 +21,7 @@ export interface ShowQuickFileHistoryCommandArgs {
     log?: GitLog;
     maxCount?: number;
     range?: Range;
-    showInResults?: boolean;
+    showInView?: boolean;
 
     goBackCommand?: CommandQuickPickItem;
     nextPageCommand?: CommandQuickPickItem;
@@ -30,13 +30,13 @@ export interface ShowQuickFileHistoryCommandArgs {
 @command()
 export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
     constructor() {
-        super([Commands.ShowFileHistoryInResults, Commands.ShowQuickFileHistory]);
+        super([Commands.ShowFileHistoryInView, Commands.ShowQuickFileHistory]);
     }
 
     protected async preExecute(context: CommandContext, args: ShowQuickFileHistoryCommandArgs = {}): Promise<any> {
-        if (context.command === Commands.ShowFileHistoryInResults) {
+        if (context.command === Commands.ShowFileHistoryInView) {
             args = { ...args };
-            args.showInResults = true;
+            args.showInView = true;
         }
 
         return this.execute(context.editor, context.uri, args);
@@ -48,16 +48,19 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 
         const gitUri = await GitUri.fromUri(uri);
 
+        if (args.showInView) {
+            await Container.fileHistoryView.showHistoryForUri(gitUri);
+
+            return undefined;
+        }
+
         args = { ...args };
 
         const placeHolder = `${gitUri.getFormattedPath({
             suffix: args.branchOrTag ? ` (${args.branchOrTag.name})` : undefined
         })}${gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''}`;
 
-        let progressCancellation;
-        if (!args.showInResults) {
-            progressCancellation = FileHistoryQuickPick.showProgress(placeHolder);
-        }
+        const progressCancellation = FileHistoryQuickPick.showProgress(placeHolder);
 
         try {
             if (args.log === undefined) {
@@ -75,15 +78,6 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
             }
 
             if (progressCancellation !== undefined && progressCancellation.token.isCancellationRequested) {
-                return undefined;
-            }
-
-            if (args.showInResults) {
-                void (await Container.resultsView.addSearchResults(gitUri.repoPath!, args.log, {
-                    label: placeHolder,
-                    resultsType: { singular: 'commit', plural: 'commits' }
-                }));
-
                 return undefined;
             }
 
@@ -129,8 +123,8 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
                                   args.branchOrTag instanceof GitTag ? '$(tag)' : '$(git-branch)'
                               } ${args.branchOrTag.name}`
                             : gitUri.sha
-                                ? ` from ${GlyphChars.Space}$(git-commit) ${gitUri.shortSha}`
-                                : ''
+                            ? ` from ${GlyphChars.Space}$(git-commit) ${gitUri.shortSha}`
+                            : ''
                     }`
                 },
                 Commands.ShowQuickFileHistory,
@@ -154,12 +148,12 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
                               [uri, { ...args, log: undefined, maxCount: 0 }]
                           )
                         : undefined,
-                showInResultsCommand:
+                showInViewCommand:
                     args.log !== undefined
-                        ? new ShowCommitsInResultsQuickPickItem(args.log, {
-                              label: placeHolder,
-                              resultsType: { singular: 'commit', plural: 'commits' }
-                          })
+                        ? new ShowFileHistoryInViewQuickPickItem(
+                              gitUri,
+                              (args.branchOrTag && args.branchOrTag.ref) || gitUri.sha
+                          )
                         : undefined
             });
             if (pick === undefined) return undefined;

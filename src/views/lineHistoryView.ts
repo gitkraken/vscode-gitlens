@@ -23,11 +23,6 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode> {
     protected registerCommands() {
         void Container.viewCommands;
         commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(), this);
-        commands.registerCommand(
-            this.getQualifiedCommand('refreshNode'),
-            (node: ViewNode, args?: RefreshNodeCommandArgs) => this.refreshNode(node, args),
-            this
-        );
         commands.registerCommand(this.getQualifiedCommand('changeBase'), () => this.changeBase(), this);
         commands.registerCommand(
             this.getQualifiedCommand('setEditorFollowingOn'),

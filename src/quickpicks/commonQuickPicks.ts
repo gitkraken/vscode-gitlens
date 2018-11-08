@@ -13,9 +13,9 @@ import { Commands, openEditor } from '../commands';
 import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitLog, GitLogCommit, GitStashCommit } from '../git/gitService';
+import { GitLog, GitLogCommit, GitRepoSearchBy, GitStashCommit, GitUri } from '../git/gitService';
 import { KeyMapping, Keys } from '../keyboard';
-import { Strings } from '../system';
+import { Functions, Strings } from '../system';
 import { BranchesAndTagsQuickPick, BranchQuickPickItem, TagQuickPickItem } from './branchesAndTagsQuickPick';
 
 export function getQuickPickIgnoreFocusOut() {
@@ -214,50 +214,65 @@ export class OpenFilesCommandQuickPickItem extends CommandQuickPickItem {
     }
 }
 
-export class ShowCommitInResultsQuickPickItem extends CommandQuickPickItem {
+export class ShowCommitInViewQuickPickItem extends CommandQuickPickItem {
     constructor(
         public readonly commit: GitLogCommit,
         item: QuickPickItem = {
-            label: 'Show in Results',
-            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays commit in the GitLens Results view`
+            label: 'Show in View',
+            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays the commit in the GitLens Search Commits view`
         }
     ) {
         super(item, undefined, undefined);
     }
 
     async execute(): Promise<{} | undefined> {
-        await Container.resultsView.addCommit(this.commit);
+        await Container.searchView.search(this.commit.repoPath, this.commit.sha, GitRepoSearchBy.Sha, {
+            label: { label: `commits with an id matching '${this.commit.shortSha}'` }
+        });
         return undefined;
     }
 }
 
-export class ShowCommitsInResultsQuickPickItem extends CommandQuickPickItem {
+export class ShowCommitSearchResultsInViewQuickPickItem extends CommandQuickPickItem {
     constructor(
         public readonly results: GitLog,
         public readonly resultsLabel: string | { label: string; resultsType?: { singular: string; plural: string } },
         item: QuickPickItem = {
-            label: 'Show in Results',
-            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays commits in the GitLens Results view`
+            label: 'Show in View',
+            description: `${Strings.pad(
+                GlyphChars.Dash,
+                2,
+                2
+            )} displays the search results in the GitLens Search Commits view`
         }
     ) {
         super(item, undefined, undefined);
     }
 
     async execute(): Promise<{} | undefined> {
-        await Container.resultsView.addSearchResults(this.results.repoPath, this.results, this.resultsLabel);
+        await Container.searchView.showSearchResults(this.results.repoPath, this.results, { label: this.resultsLabel });
         return undefined;
     }
 }
 
-export class ShowCommitsSearchInResultsQuickPickItem extends ShowCommitsInResultsQuickPickItem {
+export class ShowFileHistoryInViewQuickPickItem extends CommandQuickPickItem {
     constructor(
-        public readonly results: GitLog,
-        public readonly search: string,
+        public readonly uri: GitUri,
+        public readonly baseRef: string | undefined,
         item: QuickPickItem = {
-            label: 'Show in Results',
-            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays results in the GitLens Results view`
+            label: 'Show in View',
+            description: `${Strings.pad(
+                GlyphChars.Dash,
+                2,
+                2
+            )} displays the file history in the GitLens File History view`
         }
     ) {
-        super(results, { label: search }, item);
+        super(item, undefined, undefined);
+    }
+
+    async execute(): Promise<{} | undefined> {
+        await Container.fileHistoryView.showHistoryForUri(this.uri, this.baseRef);
+        return undefined;
     }
 }

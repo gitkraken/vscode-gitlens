@@ -5,7 +5,7 @@ import { Container } from '../container';
 import { GitRepoSearchBy, GitService, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { CommandQuickPickItem, CommitsQuickPick, ShowCommitsSearchInResultsQuickPickItem } from '../quickpicks';
+import { CommandQuickPickItem, CommitsQuickPick, ShowCommitSearchResultsInViewQuickPickItem } from '../quickpicks';
 import { Iterables, Strings } from '../system';
 import {
     ActiveEditorCachedCommand,
@@ -39,7 +39,7 @@ export interface ShowCommitSearchCommandArgs {
     search?: string;
     searchBy?: GitRepoSearchBy;
     maxCount?: number;
-    showInResults?: boolean;
+    showInView?: boolean;
 
     goBackCommand?: CommandQuickPickItem;
 }
@@ -51,13 +51,16 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
     }
 
     protected async preExecute(context: CommandContext, args: ShowCommitSearchCommandArgs = {}) {
-        if (context.type === 'view' || context.type === 'viewItem') {
+        if (context.type === 'viewItem') {
             args = { ...args };
-            args.showInResults = true;
+            args.showInView = true;
 
             if (isCommandViewContextWithRepo(context)) {
                 return this.execute(context.editor, context.node.uri, args);
             }
+        }
+        else {
+            // TODO: Add a user setting (default to view?)
         }
 
         return this.execute(context.editor, context.uri, args);
@@ -86,10 +89,14 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
                 selection = [1, 1];
             }
 
+            if (args.showInView) {
+                await Container.searchView.show();
+            }
+
             args.search = await window.showInputBox({
                 value: args.search,
                 prompt: `Please enter a search string`,
-                placeHolder: `search by message, author (@<pattern>), files (:<pattern>), commit id (#<sha>), changes (=<pattern>), changed lines (~<pattern>)`,
+                placeHolder: `Search commits by message, author (@<pattern>), files (:<pattern>), commit id (#<sha>), changes (=<pattern>), changed lines (~<pattern>)`,
                 valueSelection: selection
             } as InputBoxOptions);
             if (args.search === undefined) {
@@ -142,14 +149,11 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
                 break;
         }
 
-        if (args.showInResults) {
-            void Container.resultsView.addSearchResults(
-                repoPath,
-                Container.git.getLogForSearch(repoPath, args.search!, args.searchBy!, {
-                    maxCount: args.maxCount
-                }),
-                { label: searchLabel! }
-            );
+        if (args.showInView) {
+            void Container.searchView.search(repoPath, args.search, args.searchBy, {
+                maxCount: args.maxCount,
+                label: { label: searchLabel! }
+            });
 
             return;
         }
@@ -189,7 +193,9 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
                               )
                             : undefined,
                     showInResultsCommand:
-                        log !== undefined ? new ShowCommitsSearchInResultsQuickPickItem(log, searchLabel!) : undefined
+                        log !== undefined
+                            ? new ShowCommitSearchResultsInViewQuickPickItem(log, { label: searchLabel! })
+                            : undefined
                 });
                 if (pick === undefined) return undefined;
 

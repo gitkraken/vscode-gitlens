@@ -9,7 +9,8 @@ export class ShowViewCommand extends Command {
             Commands.ShowRepositoriesView,
             Commands.ShowFileHistoryView,
             Commands.ShowLineHistoryView,
-            Commands.ShowResultsView
+            Commands.ShowResultsView,
+            Commands.ShowSearchView
         ]);
     }
 
@@ -27,6 +28,8 @@ export class ShowViewCommand extends Command {
                 return Container.lineHistoryView.show();
             case Commands.ShowResultsView:
                 return Container.resultsView.show();
+            case Commands.ShowSearchView:
+                return Container.searchView.show();
         }
 
         return undefined;

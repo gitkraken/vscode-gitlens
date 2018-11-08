@@ -37,7 +37,7 @@ export class FileHistoryQuickPick {
             pickerOnly?: boolean;
             progressCancellation?: CancellationTokenSource;
             showAllCommand?: CommandQuickPickItem;
-            showInResultsCommand?: CommandQuickPickItem;
+            showInViewCommand?: CommandQuickPickItem;
         } = {}
     ): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
         options = { pickerOnly: false, ...options };
@@ -55,9 +55,9 @@ export class FileHistoryQuickPick {
             new ChooseFromBranchesAndTagsQuickPickItem(log.repoPath, placeHolder, options.currentCommand)
         );
 
-        if (options.showInResultsCommand !== undefined) {
+        if (options.showInViewCommand !== undefined) {
             index++;
-            items.splice(0, 0, options.showInResultsCommand);
+            items.splice(0, 0, options.showInViewCommand);
         }
 
         if (log.truncated || log.sha) {

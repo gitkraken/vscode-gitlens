@@ -1,21 +1,10 @@
 'use strict';
 import { commands, ConfigurationChangeEvent } from 'vscode';
 import { configuration, ResultsViewConfig, ViewFilesLayout, ViewsConfig } from '../configuration';
-import { CommandContext, GlyphChars, setCommandContext, WorkspaceState } from '../constants';
+import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
-import { GitLog, GitLogCommit } from '../git/gitService';
-import { Functions, Strings } from '../system';
-import {
-    NamedRef,
-    ResourceType,
-    ResultsCommitNode,
-    ResultsCommitsNode,
-    ResultsComparisonNode,
-    ResultsNode,
-    ViewNode
-} from './nodes';
+import { NamedRef, ResultsComparisonNode, ResultsNode, ViewNode } from './nodes';
 import { RefreshReason, ViewBase } from './viewBase';
-import { RefreshNodeCommandArgs } from './viewCommands';
 
 export class ResultsView extends ViewBase<ResultsNode> {
     constructor() {
@@ -34,12 +23,9 @@ export class ResultsView extends ViewBase<ResultsNode> {
 
     protected registerCommands() {
         void Container.viewCommands;
+        // commands.registerCommand(this.getQualifiedCommand('clear'), () => this.clear(), this);
+        commands.registerCommand(this.getQualifiedCommand('close'), () => this.close(), this);
         commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(), this);
-        commands.registerCommand(
-            this.getQualifiedCommand('refreshNode'),
-            (node: ViewNode, args?: RefreshNodeCommandArgs) => this.refreshNode(node, args),
-            this
-        );
         commands.registerCommand(
             this.getQualifiedCommand('setFilesLayoutToAuto'),
             () => this.setFilesLayout(ViewFilesLayout.Auto),
@@ -55,13 +41,6 @@ export class ResultsView extends ViewBase<ResultsNode> {
             () => this.setFilesLayout(ViewFilesLayout.Tree),
             this
         );
-
-        commands.registerCommand(
-            this.getQualifiedCommand('dismissNode'),
-            (node: ViewNode) => this.dismissNode(node),
-            this
-        );
-        commands.registerCommand(this.getQualifiedCommand('close'), () => this.close(), this);
         commands.registerCommand(this.getQualifiedCommand('setKeepResultsToOn'), () => this.setKeepResults(true), this);
         commands.registerCommand(
             this.getQualifiedCommand('setKeepResultsToOff'),
@@ -102,6 +81,12 @@ export class ResultsView extends ViewBase<ResultsNode> {
         return Container.context.workspaceState.get<boolean>(WorkspaceState.ViewsResultsKeepResults, false);
     }
 
+    clear() {
+        if (this._root === undefined) return;
+
+        this._root.clear();
+    }
+
     close() {
         if (this._root === undefined) return;
 
@@ -111,11 +96,13 @@ export class ResultsView extends ViewBase<ResultsNode> {
         setCommandContext(CommandContext.ViewsResults, false);
     }
 
-    addCommit(commit: GitLogCommit) {
-        return this.addResults(new ResultsCommitNode(this, commit));
+    dismissNode(node: ViewNode) {
+        if (this._root === undefined) return;
+
+        this._root.dismiss(node);
     }
 
-    addComparison(repoPath: string, ref1: string | NamedRef, ref2: string | NamedRef) {
+    compare(repoPath: string, ref1: string | NamedRef, ref2: string | NamedRef) {
         return this.addResults(
             new ResultsComparisonNode(
                 this,
@@ -126,83 +113,14 @@ export class ResultsView extends ViewBase<ResultsNode> {
         );
     }
 
-    addSearchResults(
-        repoPath: string,
-        resultsOrPromise: GitLog | Promise<GitLog | undefined>,
-        resultsLabel:
-            | string
-            | {
-                  label: string;
-                  resultsType?: { singular: string; plural: string };
-              }
-    ) {
-        const getCommitsQuery = async (maxCount: number | undefined) => {
-            const results = await resultsOrPromise;
-
-            let log;
-            if (results !== undefined) {
-                log = await Functions.seeded(
-                    results.query === undefined
-                        ? (maxCount: number | undefined) => Promise.resolve(results)
-                        : results.query,
-                    results.maxCount === maxCount ? results : undefined
-                )(maxCount);
-            }
-
-            let label;
-            if (typeof resultsLabel === 'string') {
-                label = resultsLabel;
-            }
-            else {
-                const count = log !== undefined ? log.count : 0;
-                const truncated = log !== undefined ? log.truncated : false;
-
-                const resultsType =
-                    resultsLabel.resultsType === undefined
-                        ? { singular: 'result', plural: 'results' }
-                        : resultsLabel.resultsType;
-
-                let repository = '';
-                if ((await Container.git.getRepositoryCount()) > 1) {
-                    const repo = await Container.git.getRepository(repoPath);
-                    repository = ` ${Strings.pad(GlyphChars.Dash, 1, 1)} ${(repo && repo.formattedName) || repoPath}`;
-                }
-
-                label = `${Strings.pluralize(resultsType.singular, count, {
-                    number: truncated ? `${count}+` : undefined,
-                    plural: resultsType.plural,
-                    zero: 'No'
-                })} for ${resultsLabel.label}${repository}`;
-            }
-
-            return {
-                label: label,
-                log: log
-            };
-        };
-
-        return this.addResults(
-            new ResultsCommitsNode(this, this._root!, repoPath, getCommitsQuery, ResourceType.SearchResults)
-        );
-    }
-
     private async addResults(results: ViewNode) {
-        if (this._root === undefined) {
-            this._root = this.getRoot();
-        }
-
-        this._root.addOrReplace(results, !this.keepResults);
+        const root = this.ensureRoot();
+        root.addOrReplace(results, !this.keepResults);
 
         this._enabled = true;
         await setCommandContext(CommandContext.ViewsResults, true);
 
         setTimeout(() => this._tree!.reveal(results, { select: true }), 250);
-    }
-
-    private dismissNode(node: ViewNode) {
-        if (this._root === undefined) return;
-
-        this._root.dismiss(node);
     }
 
     private setFilesLayout(layout: ViewFilesLayout) {

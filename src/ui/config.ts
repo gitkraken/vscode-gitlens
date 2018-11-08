@@ -156,6 +156,7 @@ export interface ViewsConfig {
     lineHistory: LineHistoryViewConfig;
     repositories: RepositoriesViewConfig;
     results: ResultsViewConfig;
+    search: SearchViewConfig;
     stashFileFormat: string;
     stashFormat: string;
     statusFileFormat: string;
@@ -255,6 +256,12 @@ export interface RemotesUrlsConfig {
     fileInCommit: string;
     fileLine: string;
     fileRange: string;
+}
+
+export interface SearchViewConfig {
+    enabled: boolean;
+    files: ViewsFilesConfig;
+    location: 'explorer' | 'gitlens' | 'scm';
 }
 
 export interface Config {

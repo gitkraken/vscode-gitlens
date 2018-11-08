@@ -3,9 +3,9 @@ import { commands, ConfigurationChangeEvent } from 'vscode';
 import { configuration, FileHistoryViewConfig, ViewsConfig } from '../configuration';
 import { CommandContext, setCommandContext } from '../constants';
 import { Container } from '../container';
-import { FileHistoryTrackerNode, ViewNode } from './nodes';
+import { GitUri } from '../git/gitUri';
+import { FileHistoryTrackerNode } from './nodes';
 import { RefreshReason, ViewBase } from './viewBase';
-import { RefreshNodeCommandArgs } from './viewCommands';
 
 export class FileHistoryView extends ViewBase<FileHistoryTrackerNode> {
     constructor() {
@@ -23,11 +23,6 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode> {
     protected registerCommands() {
         void Container.viewCommands;
         commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(), this);
-        commands.registerCommand(
-            this.getQualifiedCommand('refreshNode'),
-            (node: ViewNode, args?: RefreshNodeCommandArgs) => this.refreshNode(node, args),
-            this
-        );
         commands.registerCommand(this.getQualifiedCommand('changeBase'), () => this.changeBase(), this);
         commands.registerCommand(
             this.getQualifiedCommand('setEditorFollowingOn'),
@@ -76,6 +71,14 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode> {
 
     get config(): ViewsConfig & FileHistoryViewConfig {
         return { ...Container.config.views, ...Container.config.views.fileHistory };
+    }
+
+    async showHistoryForUri(uri: GitUri, baseRef?: string) {
+        const root = this.ensureRoot();
+
+        this.setEditorFollowing(false);
+        await root.showHistoryForUri(uri, baseRef);
+        return this.show();
     }
 
     private changeBase() {

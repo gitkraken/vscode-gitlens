@@ -15,6 +15,7 @@ import { FileHistoryView } from './views/fileHistoryView';
 import { LineHistoryView } from './views/lineHistoryView';
 import { RepositoriesView } from './views/repositoriesView';
 import { ResultsView } from './views/resultsView';
+import { SearchView } from './views/searchView';
 import { ViewCommands } from './views/viewCommands';
 import { SettingsEditor } from './webviews/settingsEditor';
 import { WelcomeEditor } from './webviews/welcomeEditor';
@@ -75,6 +76,19 @@ export class Container {
                 if (configuration.changed(e, configuration.name('views')('lineHistory')('enabled').value)) {
                     disposable.dispose();
                     context.subscriptions.push((this._lineHistoryView = new LineHistoryView()));
+                }
+            });
+        }
+
+        if (config.views.search.enabled) {
+            context.subscriptions.push((this._searchView = new SearchView()));
+        }
+        else {
+            let disposable: Disposable;
+            disposable = configuration.onDidChange(e => {
+                if (configuration.changed(e, configuration.name('views')('search')('enabled').value)) {
+                    disposable.dispose();
+                    context.subscriptions.push((this._searchView = new SearchView()));
                 }
             });
         }
@@ -160,6 +174,15 @@ export class Container {
         }
 
         return this._resultsView;
+    }
+
+    private static _searchView: SearchView | undefined;
+    static get searchView() {
+        if (this._searchView === undefined) {
+            this._context.subscriptions.push((this._searchView = new SearchView()));
+        }
+
+        return this._searchView;
     }
 
     private static _settingsEditor: SettingsEditor;

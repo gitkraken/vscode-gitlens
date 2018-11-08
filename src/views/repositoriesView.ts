@@ -31,11 +31,6 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 
         commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(), this);
         commands.registerCommand(
-            this.getQualifiedCommand('refreshNode'),
-            (node: ViewNode, args?: RefreshNodeCommandArgs) => this.refreshNode(node, args),
-            this
-        );
-        commands.registerCommand(
             this.getQualifiedCommand('setFilesLayoutToAuto'),
             () => this.setFilesLayout(ViewFilesLayout.Auto),
             this
