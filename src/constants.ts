@@ -34,10 +34,10 @@ export enum CommandContext {
     HasRemotes = 'gitlens:hasRemotes',
     Key = 'gitlens:key',
     ViewsCanCompare = 'gitlens:views:canCompare',
+    ViewsCanCompareFile = 'gitlens:views:canCompare:file',
     ViewsFileHistoryEditorFollowing = 'gitlens:views:fileHistory:editorFollowing',
     ViewsLineHistoryEditorFollowing = 'gitlens:views:lineHistory:editorFollowing',
     ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',
-    ViewsResults = 'gitlens:views:results',
     ViewsResultsKeepResults = 'gitlens:views:results:keepResults',
     ViewsSearchKeepResults = 'gitlens:views:search:keepResults'
 }

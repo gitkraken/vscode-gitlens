@@ -1,6 +1,7 @@
 'use strict';
 import { Command, Disposable, Event, TreeItem, TreeItemCollapsibleState, TreeViewVisibilityChangeEvent } from 'vscode';
 import { GitUri } from '../../git/gitService';
+import { Logger } from '../../logger';
 import { debug, gate, logName } from '../../system';
 import { RefreshReason, TreeViewNodeStateChangeEvent, View } from '../viewBase';
 
@@ -18,6 +19,8 @@ export enum ResourceType {
     CommitOnCurrentBranch = 'gitlens:commit:current',
     CommitFile = 'gitlens:file:commit',
     Commits = 'gitlens:commits',
+    ComparePicker = 'gitlens:compare:picker',
+    ComparePickerWithRef = 'gitlens:compare:picker:ref',
     ComparisonResults = 'gitlens:results:comparison',
     FileHistory = 'gitlens:history:file',
     FileStaged = 'gitlens:file:staged',
@@ -64,13 +67,13 @@ export abstract class ViewNode<TView extends View = View> {
     constructor(
         uri: GitUri,
         public readonly view: TView,
-        protected readonly _parent?: ViewNode
+        protected readonly parent?: ViewNode
     ) {
         this._uri = uri;
     }
 
     toString() {
-        return `${this.constructor.name}${this.id != null ? `(${this.id})` : ''}`;
+        return `${Logger.toLoggableName(this)}${this.id != null ? `(${this.id})` : ''}`;
     }
 
     protected _uri: GitUri;
@@ -81,7 +84,7 @@ export abstract class ViewNode<TView extends View = View> {
     abstract getChildren(): ViewNode[] | Promise<ViewNode[]>;
 
     getParent(): ViewNode | undefined {
-        return this._parent;
+        return this.parent;
     }
 
     abstract getTreeItem(): TreeItem | Promise<TreeItem>;
@@ -198,7 +201,7 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
             this._state = e.state;
             this.onStateChanged(e.state);
         }
-        else if (e.element === this._parent) {
+        else if (e.element === this.parent) {
             this.onParentStateChanged(e.state);
         }
     }

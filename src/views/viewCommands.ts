@@ -91,8 +91,10 @@ export class ViewCommands implements Disposable {
         commands.registerCommand('gitlens.views.compareWithHead', this.compareWithHead, this);
         commands.registerCommand('gitlens.views.compareWithRemote', this.compareWithRemote, this);
         commands.registerCommand('gitlens.views.compareWithSelected', this.compareWithSelected, this);
-        commands.registerCommand('gitlens.views.compareWithWorking', this.compareWithWorking, this);
         commands.registerCommand('gitlens.views.selectForCompare', this.selectForCompare, this);
+        commands.registerCommand('gitlens.views.compareFileWithSelected', this.compareFileWithSelected, this);
+        commands.registerCommand('gitlens.views.selectFileForCompare', this.selectFileForCompare, this);
+        commands.registerCommand('gitlens.views.compareWithWorking', this.compareWithWorking, this);
 
         commands.registerCommand('gitlens.views.terminalCheckoutBranch', this.terminalCheckoutBranch, this);
         commands.registerCommand('gitlens.views.terminalCreateBranch', this.terminalCreateBranch, this);
@@ -191,42 +193,54 @@ export class ViewCommands implements Disposable {
     }
 
     private compareWithSelected(node: ViewNode) {
-        if (this._selection === undefined || !(node instanceof ViewRefNode)) return;
-        if (this._selection.repoPath !== node.repoPath) return;
+        if (!(node instanceof ViewRefNode)) return;
 
-        if (this._selection.uri !== undefined) {
-            if (!(node instanceof CommitFileNode)) return;
-
-            const diffArgs: DiffWithCommandArgs = {
-                repoPath: this._selection.repoPath,
-                lhs: {
-                    sha: this._selection.ref,
-                    uri: this._selection.uri!
-                },
-                rhs: {
-                    sha: node.ref,
-                    uri: node.uri
-                }
-            };
-            commands.executeCommand(Commands.DiffWith, diffArgs);
-
-            return;
-        }
-
-        return Container.resultsView.compare(this._selection.repoPath, this._selection.ref, node.ref);
+        Container.resultsView.compareWithSelected(node.repoPath, node.ref);
     }
-
-    private _selection: ICompareSelected | undefined;
 
     private selectForCompare(node: ViewNode) {
         if (!(node instanceof ViewRefNode)) return;
 
-        this._selection = {
+        Container.resultsView.selectForCompare(node.repoPath, node.ref);
+    }
+
+    private compareFileWithSelected(node: ViewNode) {
+        if (this._selectedFile === undefined || !(node instanceof CommitFileNode)) return;
+        if (this._selectedFile.repoPath !== node.repoPath) {
+            this.selectFileForCompare(node);
+            return;
+        }
+
+        const selected = this._selectedFile;
+
+        this._selectedFile = undefined;
+        setCommandContext(CommandContext.ViewsCanCompareFile, false);
+
+        const diffArgs: DiffWithCommandArgs = {
+            repoPath: selected.repoPath,
+            lhs: {
+                sha: selected.ref,
+                uri: selected.uri!
+            },
+            rhs: {
+                sha: node.ref,
+                uri: node.uri
+            }
+        };
+        return commands.executeCommand(Commands.DiffWith, diffArgs);
+    }
+
+    private _selectedFile: ICompareSelected | undefined;
+
+    private selectFileForCompare(node: ViewNode) {
+        if (!(node instanceof CommitFileNode)) return;
+
+        this._selectedFile = {
             ref: node.ref,
             repoPath: node.repoPath,
-            uri: node instanceof CommitFileNode ? node.uri : undefined
+            uri: node.uri
         };
-        setCommandContext(CommandContext.ViewsCanCompare, true);
+        setCommandContext(CommandContext.ViewsCanCompareFile, true);
     }
 
     private exploreRepoRevision(node: ViewRefNode, options: { openInNewWindow?: boolean } = {}) {

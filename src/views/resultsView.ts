@@ -23,8 +23,7 @@ export class ResultsView extends ViewBase<ResultsNode> {
 
     protected registerCommands() {
         void Container.viewCommands;
-        // commands.registerCommand(this.getQualifiedCommand('clear'), () => this.clear(), this);
-        commands.registerCommand(this.getQualifiedCommand('close'), () => this.close(), this);
+        commands.registerCommand(this.getQualifiedCommand('clear'), () => this.clear(), this);
         commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(), this);
         commands.registerCommand(
             this.getQualifiedCommand('setFilesLayoutToAuto'),
@@ -48,6 +47,9 @@ export class ResultsView extends ViewBase<ResultsNode> {
             this
         );
         commands.registerCommand(this.getQualifiedCommand('swapComparision'), this.swapComparision, this);
+
+        commands.registerCommand(this.getQualifiedCommand('selectForCompare'), this.selectForCompare, this);
+        commands.registerCommand(this.getQualifiedCommand('compareWithSelected'), this.compareWithSelected, this);
     }
 
     protected onConfigurationChanged(e: ConfigurationChangeEvent) {
@@ -60,7 +62,7 @@ export class ResultsView extends ViewBase<ResultsNode> {
         }
 
         if (configuration.changed(e, configuration.name('views')('results')('location').value)) {
-            this.initialize(this.config.location);
+            this.initialize(this.config.location /*, { showCollapseAll: true } */);
         }
 
         if (!configuration.initializing(e) && this._root !== undefined) {
@@ -72,11 +74,6 @@ export class ResultsView extends ViewBase<ResultsNode> {
         return { ...Container.config.views, ...Container.config.views.results };
     }
 
-    private _enabled: boolean = false;
-    get enabled(): boolean {
-        return this._enabled;
-    }
-
     get keepResults(): boolean {
         return Container.context.workspaceState.get<boolean>(WorkspaceState.ViewsResultsKeepResults, false);
     }
@@ -85,15 +82,6 @@ export class ResultsView extends ViewBase<ResultsNode> {
         if (this._root === undefined) return;
 
         this._root.clear();
-    }
-
-    close() {
-        if (this._root === undefined) return;
-
-        this._root.clear();
-
-        this._enabled = false;
-        setCommandContext(CommandContext.ViewsResults, false);
     }
 
     dismissNode(node: ViewNode) {
@@ -113,12 +101,19 @@ export class ResultsView extends ViewBase<ResultsNode> {
         );
     }
 
+    compareWithSelected(repoPath?: string, ref?: string | NamedRef) {
+        const root = this.ensureRoot();
+        void root.compareWithSelected(repoPath, ref);
+    }
+
+    selectForCompare(repoPath?: string, ref?: string | NamedRef) {
+        const root = this.ensureRoot();
+        void root.selectForCompare(repoPath, ref);
+    }
+
     private async addResults(results: ViewNode) {
         const root = this.ensureRoot();
         root.addOrReplace(results, !this.keepResults);
-
-        this._enabled = true;
-        await setCommandContext(CommandContext.ViewsResults, true);
 
         setTimeout(() => this._tree!.reveal(results, { select: true }), 250);
     }

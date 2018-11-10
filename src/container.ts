@@ -80,6 +80,19 @@ export class Container {
             });
         }
 
+        if (config.views.results.enabled) {
+            context.subscriptions.push((this._resultsView = new ResultsView()));
+        }
+        else {
+            let disposable: Disposable;
+            disposable = configuration.onDidChange(e => {
+                if (configuration.changed(e, configuration.name('views')('results')('enabled').value)) {
+                    disposable.dispose();
+                    context.subscriptions.push((this._resultsView = new ResultsView()));
+                }
+            });
+        }
+
         if (config.views.search.enabled) {
             context.subscriptions.push((this._searchView = new SearchView()));
         }

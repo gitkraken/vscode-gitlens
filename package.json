@@ -1281,6 +1281,12 @@
                     "description": "Specifies whether to show the tracking branch when displaying local branches in the `Repositories` view",
                     "scope": "window"
                 },
+                "gitlens.views.results.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether to show the `Results` view",
+                    "scope": "window"
+                },
                 "gitlens.views.results.files.compact": {
                     "type": "boolean",
                     "default": true,
@@ -2133,6 +2139,21 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.views.selectForCompare",
+                "title": "Select for Compare",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.views.compareFileWithSelected",
+                "title": "Compare with Selected",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.views.selectFileForCompare",
+                "title": "Select for Compare",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.views.compareWithWorking",
                 "title": "Compare with Working Tree",
                 "category": "GitLens",
@@ -2140,11 +2161,6 @@
                     "dark": "images/dark/icon-compare-ref-working.svg",
                     "light": "images/light/icon-compare-ref-working.svg"
                 }
-            },
-            {
-                "command": "gitlens.views.selectForCompare",
-                "title": "Select for Compare",
-                "category": "GitLens"
             },
             {
                 "command": "gitlens.views.terminalCheckoutBranch",
@@ -2353,12 +2369,12 @@
                 "category": "GitLens"
             },
             {
-                "command": "gitlens.views.results.close",
-                "title": "Close",
+                "command": "gitlens.views.results.clear",
+                "title": "Clear Results",
                 "category": "GitLens",
                 "icon": {
-                    "dark": "images/dark/icon-close.svg",
-                    "light": "images/light/icon-close.svg"
+                    "dark": "images/dark/icon-clear.svg",
+                    "light": "images/light/icon-clear.svg"
                 }
             },
             {
@@ -2482,19 +2498,19 @@
             "commandPalette": [
                 {
                     "command": "gitlens.showRepositoriesView",
-                    "when": "gitlens:enabled && config.gitlens.views.repositories.enabled"
+                    "when": "gitlens:enabled"
                 },
                 {
                     "command": "gitlens.showFileHistoryView",
-                    "when": "gitlens:enabled && config.gitlens.views.fileHistory.enabled"
+                    "when": "gitlens:enabled"
                 },
                 {
                     "command": "gitlens.showLineHistoryView",
-                    "when": "gitlens:enabled && config.gitlens.views.lineHistory.enabled"
+                    "when": "gitlens:enabled"
                 },
                 {
                     "command": "gitlens.showResultsView",
-                    "when": "gitlens:enabled && gitlens:views:results"
+                    "when": "gitlens:enabled"
                 },
                 {
                     "command": "gitlens.diffDirectory",
@@ -2809,11 +2825,19 @@
                     "when": "false"
                 },
                 {
-                    "command": "gitlens.views.compareWithWorking",
+                    "command": "gitlens.views.selectForCompare",
                     "when": "false"
                 },
                 {
-                    "command": "gitlens.views.selectForCompare",
+                    "command": "gitlens.views.compareFileWithSelected",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.views.selectFileForCompare",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.views.compareWithWorking",
                     "when": "false"
                 },
                 {
@@ -2953,7 +2977,7 @@
                     "when": "false"
                 },
                 {
-                    "command": "gitlens.views.results.close",
+                    "command": "gitlens.views.results.clear",
                     "when": "false"
                 },
                 {
@@ -3358,24 +3382,24 @@
                     "group": "1_gitlens"
                 },
                 {
+                    "command": "gitlens.views.results.clear",
+                    "when": "view =~ /^gitlens\\.views\\.results:/",
+                    "group": "navigation@2"
+                },
+                {
                     "command": "gitlens.views.results.setKeepResultsToOn",
                     "when": "view =~ /^gitlens\\.views\\.results:/ && !gitlens:views:results:keepResults",
-                    "group": "navigation@2"
+                    "group": "navigation@3"
                 },
                 {
                     "command": "gitlens.views.results.setKeepResultsToOff",
                     "when": "view =~ /^gitlens\\.views\\.results:/ && gitlens:views:results:keepResults",
-                    "group": "navigation@2"
+                    "group": "navigation@3"
                 },
                 {
                     "command": "gitlens.views.results.refresh",
                     "when": "view =~ /^gitlens\\.views\\.results:/",
-                    "group": "navigation@3"
-                },
-                {
-                    "command": "gitlens.views.results.close",
-                    "when": "view =~ /^gitlens\\.views\\.results:/",
-                    "group": "navigation@9"
+                    "group": "navigation@99"
                 },
                 {
                     "command": "gitlens.views.results.setFilesLayoutToAuto",
@@ -3487,12 +3511,22 @@
                 },
                 {
                     "command": "gitlens.views.compareWithSelected",
-                    "when": "viewItem =~ /gitlens:(branch|commit|stash|tag|file:)\\b/ && gitlens:views:canCompare",
+                    "when": "viewItem =~ /gitlens:(branch|commit|stash|tag)\\b/ && gitlens:views:canCompare",
                     "group": "7_gitlens_@1"
                 },
                 {
                     "command": "gitlens.views.selectForCompare",
-                    "when": "viewItem =~ /gitlens:(branch|commit|stash|tag|file:)\\b/",
+                    "when": "viewItem =~ /gitlens:(branch|commit|stash|tag)\\b/",
+                    "group": "7_gitlens_@2"
+                },
+                {
+                    "command": "gitlens.views.compareFileWithSelected",
+                    "when": "viewItem =~ /gitlens:file:\\b/ && gitlens:views:canCompare:file",
+                    "group": "7_gitlens_@1"
+                },
+                {
+                    "command": "gitlens.views.selectFileForCompare",
+                    "when": "viewItem =~ /gitlens:file:\\b/",
                     "group": "7_gitlens_@2"
                 },
                 {
@@ -3871,12 +3905,12 @@
                 },
                 {
                     "command": "gitlens.views.dismissNode",
-                    "when": "viewItem =~ /gitlens:(results|search)\\b(?!:(commits|files))/",
+                    "when": "viewItem =~ /gitlens:(compare:picker:ref|results|search)\\b(?!:(commits|files))/",
                     "group": "inline@2"
                 },
                 {
                     "command": "gitlens.views.dismissNode",
-                    "when": "viewItem =~ /gitlens:(results|search)\\b(?!:(commits|files))/",
+                    "when": "viewItem =~ /gitlens:(compare:picker:ref|results|search)\\b(?!:(commits|files))/",
                     "group": "1_gitlens@1"
                 },
                 {
@@ -4151,8 +4185,8 @@
                 },
                 {
                     "id": "gitlens.views.results:gitlens",
-                    "name": "Results",
-                    "when": "gitlens:enabled && gitlens:views:results && config.gitlens.views.results.location == gitlens"
+                    "name": "Compare",
+                    "when": "gitlens:enabled && config.gitlens.views.results.enabled && config.gitlens.views.results.location == gitlens"
                 },
                 {
                     "id": "gitlens.views.search:gitlens",
@@ -4178,8 +4212,8 @@
                 },
                 {
                     "id": "gitlens.views.results:explorer",
-                    "name": "GitLens: Results",
-                    "when": "gitlens:enabled && gitlens:views:results && config.gitlens.views.results.location == explorer"
+                    "name": "GitLens: Compare",
+                    "when": "gitlens:enabled && config.gitlens.views.results.enabled && config.gitlens.views.results.location == explorer"
                 },
                 {
                     "id": "gitlens.views.search:explorer",
@@ -4205,8 +4239,8 @@
                 },
                 {
                     "id": "gitlens.views.results:scm",
-                    "name": "GitLens: Results",
-                    "when": "gitlens:enabled && gitlens:views:results && config.gitlens.views.results.location == scm"
+                    "name": "GitLens: Compare",
+                    "when": "gitlens:enabled && config.gitlens.views.results.enabled && config.gitlens.views.results.location == scm"
                 },
                 {
                     "id": "gitlens.views.search:scm",

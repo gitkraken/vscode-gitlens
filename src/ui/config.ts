@@ -234,6 +234,7 @@ export interface RepositoriesViewConfig {
 }
 
 export interface ResultsViewConfig {
+    enabled: boolean;
     files: ViewsFilesConfig;
     location: 'explorer' | 'gitlens' | 'scm';
 }
