@@ -152,6 +152,40 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
                 configuration.name('views')('lineHistory')('location').value
             );
 
+            await configuration.migrate(
+                'resultsExplorer.files.compact',
+                configuration.name('views')('compare')('files')('compact').value
+            );
+            await configuration.migrate(
+                'resultsExplorer.files.layout',
+                configuration.name('views')('compare')('files')('layout').value
+            );
+            await configuration.migrate(
+                'resultsExplorer.files.threshold',
+                configuration.name('views')('compare')('files')('threshold').value
+            );
+            await configuration.migrate(
+                'resultsExplorer.location',
+                configuration.name('views')('compare')('location').value
+            );
+
+            await configuration.migrate(
+                'resultsExplorer.files.compact',
+                configuration.name('views')('search')('files')('compact').value
+            );
+            await configuration.migrate(
+                'resultsExplorer.files.layout',
+                configuration.name('views')('search')('files')('layout').value
+            );
+            await configuration.migrate(
+                'resultsExplorer.files.threshold',
+                configuration.name('views')('search')('files')('threshold').value
+            );
+            await configuration.migrate(
+                'resultsExplorer.location',
+                configuration.name('views')('search')('location').value
+            );
+
             await configuration.migrate('explorers.avatars', configuration.name('views')('avatars').value);
             await configuration.migrate(
                 'explorers.commitFileFormat',

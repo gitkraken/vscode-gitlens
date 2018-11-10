@@ -9,7 +9,7 @@ import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
 import { ResultsFilesNode } from './resultsFilesNode';
 import { NamedRef, ResourceType, ViewNode } from './viewNode';
 
-export class ResultsComparisonNode extends ViewNode {
+export class CompareResultsNode extends ViewNode {
     constructor(
         view: View,
         public readonly repoPath: string,
@@ -52,7 +52,7 @@ export class ResultsComparisonNode extends ViewNode {
                 GitService.shortenSha(this._ref2.ref, { working: 'Working Tree' })}${repository}`,
             TreeItemCollapsibleState.Expanded
         );
-        item.contextValue = ResourceType.ComparisonResults;
+        item.contextValue = ResourceType.CompareResults;
 
         return item;
     }

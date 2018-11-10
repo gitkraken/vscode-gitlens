@@ -192,7 +192,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
                                   [uri, { ...args, maxCount: 0, goBackCommand: goBackCommand }]
                               )
                             : undefined,
-                    showInResultsCommand:
+                    showInViewCommand:
                         log !== undefined
                             ? new ShowCommitSearchResultsInViewQuickPickItem(log, { label: searchLabel! })
                             : undefined

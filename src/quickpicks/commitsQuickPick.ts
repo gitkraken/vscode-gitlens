@@ -28,15 +28,15 @@ export class CommitsQuickPick {
         options: {
             goBackCommand?: CommandQuickPickItem;
             showAllCommand?: CommandQuickPickItem;
-            showInResultsCommand?: CommandQuickPickItem;
+            showInViewCommand?: CommandQuickPickItem;
         }
     ): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
         const items = ((log && [...Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c))]) || [
             new MessageQuickPickItem('No results found')
         ]) as (CommitQuickPickItem | CommandQuickPickItem)[];
 
-        if (options.showInResultsCommand !== undefined) {
-            items.splice(0, 0, options.showInResultsCommand);
+        if (options.showInViewCommand !== undefined) {
+            items.splice(0, 0, options.showInViewCommand);
         }
 
         if (options.showAllCommand !== undefined) {

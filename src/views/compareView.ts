@@ -1,20 +1,20 @@
 'use strict';
 import { commands, ConfigurationChangeEvent } from 'vscode';
-import { configuration, ResultsViewConfig, ViewFilesLayout, ViewsConfig } from '../configuration';
+import { CompareViewConfig, configuration, ViewFilesLayout, ViewsConfig } from '../configuration';
 import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
-import { NamedRef, ResultsComparisonNode, ResultsNode, ViewNode } from './nodes';
+import { CompareNode, CompareResultsNode, NamedRef, ViewNode } from './nodes';
 import { RefreshReason, ViewBase } from './viewBase';
 
-export class ResultsView extends ViewBase<ResultsNode> {
+export class CompareView extends ViewBase<CompareNode> {
     constructor() {
-        super('gitlens.views.results');
+        super('gitlens.views.compare');
 
-        setCommandContext(CommandContext.ViewsResultsKeepResults, this.keepResults);
+        setCommandContext(CommandContext.ViewsCompareKeepResults, this.keepResults);
     }
 
     getRoot() {
-        return new ResultsNode(this);
+        return new CompareNode(this);
     }
 
     protected get location(): string {
@@ -54,14 +54,14 @@ export class ResultsView extends ViewBase<ResultsNode> {
 
     protected onConfigurationChanged(e: ConfigurationChangeEvent) {
         if (
-            !configuration.changed(e, configuration.name('views')('results').value) &&
+            !configuration.changed(e, configuration.name('views')('compare').value) &&
             !configuration.changed(e, configuration.name('views').value) &&
             !configuration.changed(e, configuration.name('defaultGravatarsStyle').value)
         ) {
             return;
         }
 
-        if (configuration.changed(e, configuration.name('views')('results')('location').value)) {
+        if (configuration.changed(e, configuration.name('views')('compare')('location').value)) {
             this.initialize(this.config.location /*, { showCollapseAll: true } */);
         }
 
@@ -70,12 +70,12 @@ export class ResultsView extends ViewBase<ResultsNode> {
         }
     }
 
-    get config(): ViewsConfig & ResultsViewConfig {
-        return { ...Container.config.views, ...Container.config.views.results };
+    get config(): ViewsConfig & CompareViewConfig {
+        return { ...Container.config.views, ...Container.config.views.compare };
     }
 
     get keepResults(): boolean {
-        return Container.context.workspaceState.get<boolean>(WorkspaceState.ViewsResultsKeepResults, false);
+        return Container.context.workspaceState.get<boolean>(WorkspaceState.ViewsCompareKeepResults, false);
     }
 
     clear() {
@@ -92,7 +92,7 @@ export class ResultsView extends ViewBase<ResultsNode> {
 
     compare(repoPath: string, ref1: string | NamedRef, ref2: string | NamedRef) {
         return this.addResults(
-            new ResultsComparisonNode(
+            new CompareResultsNode(
                 this,
                 repoPath,
                 typeof ref1 === 'string' ? { ref: ref1 } : ref1,
@@ -119,16 +119,16 @@ export class ResultsView extends ViewBase<ResultsNode> {
     }
 
     private setFilesLayout(layout: ViewFilesLayout) {
-        return configuration.updateEffective(configuration.name('views')('results')('files')('layout').value, layout);
+        return configuration.updateEffective(configuration.name('views')('compare')('files')('layout').value, layout);
     }
 
     private setKeepResults(enabled: boolean) {
-        Container.context.workspaceState.update(WorkspaceState.ViewsResultsKeepResults, enabled);
-        setCommandContext(CommandContext.ViewsResultsKeepResults, enabled);
+        Container.context.workspaceState.update(WorkspaceState.ViewsCompareKeepResults, enabled);
+        setCommandContext(CommandContext.ViewsCompareKeepResults, enabled);
     }
 
     private swapComparision(node: ViewNode) {
-        if (!(node instanceof ResultsComparisonNode)) return;
+        if (!(node instanceof CompareResultsNode)) return;
 
         node.swap();
     }

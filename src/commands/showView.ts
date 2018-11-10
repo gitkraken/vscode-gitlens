@@ -6,10 +6,10 @@ import { command, Command, CommandContext, Commands } from './common';
 export class ShowViewCommand extends Command {
     constructor() {
         super([
-            Commands.ShowRepositoriesView,
+            Commands.ShowCompareView,
             Commands.ShowFileHistoryView,
             Commands.ShowLineHistoryView,
-            Commands.ShowResultsView,
+            Commands.ShowRepositoriesView,
             Commands.ShowSearchView
         ]);
     }
@@ -20,14 +20,14 @@ export class ShowViewCommand extends Command {
 
     execute(command: Commands) {
         switch (command) {
-            case Commands.ShowRepositoriesView:
-                return Container.repositoriesView.show();
+            case Commands.ShowCompareView:
+                return Container.compareView.show();
             case Commands.ShowFileHistoryView:
                 return Container.fileHistoryView.show();
             case Commands.ShowLineHistoryView:
                 return Container.lineHistoryView.show();
-            case Commands.ShowResultsView:
-                return Container.resultsView.show();
+            case Commands.ShowRepositoriesView:
+                return Container.repositoriesView.show();
             case Commands.ShowSearchView:
                 return Container.searchView.show();
         }

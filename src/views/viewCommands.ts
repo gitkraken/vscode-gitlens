@@ -163,19 +163,19 @@ export class ViewCommands implements Disposable {
     private compareWithHead(node: ViewNode) {
         if (!(node instanceof ViewRefNode)) return;
 
-        return Container.resultsView.compare(node.repoPath, node.ref, 'HEAD');
+        return Container.compareView.compare(node.repoPath, node.ref, 'HEAD');
     }
 
     private compareWithRemote(node: BranchNode) {
         if (!node.branch.tracking) return;
 
-        return Container.resultsView.compare(node.repoPath, node.branch.tracking, node.ref);
+        return Container.compareView.compare(node.repoPath, node.branch.tracking, node.ref);
     }
 
     private compareWithWorking(node: ViewNode) {
         if (!(node instanceof ViewRefNode)) return;
 
-        return Container.resultsView.compare(node.repoPath, node.ref, '');
+        return Container.compareView.compare(node.repoPath, node.ref, '');
     }
 
     private async compareAncestryWithWorking(node: BranchNode) {
@@ -185,7 +185,7 @@ export class ViewCommands implements Disposable {
         const commonAncestor = await Container.git.getMergeBase(node.repoPath, branch.ref, node.ref);
         if (commonAncestor === undefined) return;
 
-        return Container.resultsView.compare(
+        return Container.compareView.compare(
             node.repoPath,
             { ref: commonAncestor, label: `ancestry with ${node.ref} (${GitService.shortenSha(commonAncestor)})` },
             ''
@@ -195,13 +195,13 @@ export class ViewCommands implements Disposable {
     private compareWithSelected(node: ViewNode) {
         if (!(node instanceof ViewRefNode)) return;
 
-        Container.resultsView.compareWithSelected(node.repoPath, node.ref);
+        Container.compareView.compareWithSelected(node.repoPath, node.ref);
     }
 
     private selectForCompare(node: ViewNode) {
         if (!(node instanceof ViewRefNode)) return;
 
-        Container.resultsView.selectForCompare(node.repoPath, node.ref);
+        Container.compareView.selectForCompare(node.repoPath, node.ref);
     }
 
     private compareFileWithSelected(node: ViewNode) {

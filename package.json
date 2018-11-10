@@ -1116,19 +1116,69 @@
                 "gitlens.views.avatars": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Specifies whether to show avatar images instead of commit (or status) icons in the `Repositories` and `Results` views",
+                    "description": "Specifies whether to show avatar images instead of commit (or status) icons in the views",
                     "scope": "window"
                 },
                 "gitlens.views.commitFileFormat": {
                     "type": "string",
                     "default": "${filePath}",
-                    "description": "Specifies the format of a committed file in the `Repositories` and `Results` views\nAvailable tokens\n ${directory} - directory name\n ${file} - file name\n ${filePath} - formatted file name and path\n ${path} - full file path",
+                    "description": "Specifies the format of a committed file in the views\nAvailable tokens\n ${directory} - directory name\n ${file} - file name\n ${filePath} - formatted file name and path\n ${path} - full file path",
                     "scope": "window"
                 },
                 "gitlens.views.commitFormat": {
                     "type": "string",
                     "default": "${message}  •  ${authorAgoOrDate}${  •  changes}${  (id)}",
-                    "description": "Specifies the format of committed changes in the `Repositories` and `Results` views\nAvailable tokens\n ${id} - commit id\n ${author} - commit author\n ${message} - commit message\n ${ago} - relative commit date (e.g. 1 day ago)\n ${date} - formatted commit date (format specified by `gitlens.defaultDateFormat`)\\n ${agoOrDate} - commit date specified by `gitlens.defaultDateStyle`\n ${authorAgo} - commit author, relative commit date\n ${authorAgoOrDate} - commit author, commit date specified by `gitlens.defaultDateStyle`\nSee https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting",
+                    "description": "Specifies the format of committed changes in the views\nAvailable tokens\n ${id} - commit id\n ${author} - commit author\n ${message} - commit message\n ${ago} - relative commit date (e.g. 1 day ago)\n ${date} - formatted commit date (format specified by `gitlens.defaultDateFormat`)\\n ${agoOrDate} - commit date specified by `gitlens.defaultDateStyle`\n ${authorAgo} - commit author, relative commit date\n ${authorAgoOrDate} - commit author, commit date specified by `gitlens.defaultDateStyle`\nSee https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting",
+                    "scope": "window"
+                },
+                "gitlens.views.compare.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether to show the `Compare` view",
+                    "scope": "window"
+                },
+                "gitlens.views.compare.files.compact": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether to compact (flatten) unnecessary file nesting in the `Compare` view\nOnly applies when `#gitlens.views.compare.files.layout#` is set to `tree` or `auto`",
+                    "scope": "window"
+                },
+                "gitlens.views.compare.files.layout": {
+                    "type": "string",
+                    "default": "auto",
+                    "enum": [
+                        "auto",
+                        "list",
+                        "tree"
+                    ],
+                    "enumDescriptions": [
+                        "Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.compare.files.threshold#` value and the number of files at each nesting level",
+                        "Displays files as a list",
+                        "Displays files as a tree"
+                    ],
+                    "description": "Specifies how the `Compare` view will display files",
+                    "scope": "window"
+                },
+                "gitlens.views.compare.files.threshold": {
+                    "type": "number",
+                    "default": 5,
+                    "description": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the `Compare` view\nOnly applies when `#gitlens.views.compare.files.layout#` is set to `auto`",
+                    "scope": "window"
+                },
+                "gitlens.views.compare.location": {
+                    "type": "string",
+                    "default": "gitlens",
+                    "enum": [
+                        "gitlens",
+                        "explorer",
+                        "scm"
+                    ],
+                    "enumDescriptions": [
+                        "Adds to the GitLens side bar",
+                        "Adds to the Explorer side bar",
+                        "Adds to the Source Control side bar"
+                    ],
+                    "description": "Specifies where to show the `Compare` view",
                     "scope": "window"
                 },
                 "gitlens.views.defaultItemLimit": {
@@ -1158,9 +1208,9 @@
                         "scm"
                     ],
                     "enumDescriptions": [
-                        "Adds to the GitLens view",
-                        "Adds to the Explorer view",
-                        "Adds to the Source Control view"
+                        "Adds to the GitLens side bar",
+                        "Adds to the Explorer side bar",
+                        "Adds to the Source Control side bar"
                     ],
                     "description": "Specifies where to show the `File History` view",
                     "scope": "window"
@@ -1186,9 +1236,9 @@
                         "scm"
                     ],
                     "enumDescriptions": [
-                        "Adds to the GitLens view",
-                        "Adds to the Explorer view",
-                        "Adds to the Source Control view"
+                        "Adds to the GitLens side bar",
+                        "Adds to the Explorer side bar",
+                        "Adds to the Source Control side bar"
                     ],
                     "description": "Specifies where to show the `Line History` view",
                     "scope": "window"
@@ -1268,9 +1318,9 @@
                         "scm"
                     ],
                     "enumDescriptions": [
-                        "Adds to the GitLens view",
-                        "Adds to the Explorer view",
-                        "Adds to the Source Control view"
+                        "Adds to the GitLens side bar",
+                        "Adds to the Explorer side bar",
+                        "Adds to the Source Control side bar"
                     ],
                     "description": "Specifies where to show the `Repositories` view",
                     "scope": "window"
@@ -1279,56 +1329,6 @@
                     "type": "boolean",
                     "default": true,
                     "description": "Specifies whether to show the tracking branch when displaying local branches in the `Repositories` view",
-                    "scope": "window"
-                },
-                "gitlens.views.results.enabled": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Specifies whether to show the `Results` view",
-                    "scope": "window"
-                },
-                "gitlens.views.results.files.compact": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Specifies whether to compact (flatten) unnecessary file nesting in the `Results` view\nOnly applies when `#gitlens.views.results.files.layout#` is set to `tree` or `auto`",
-                    "scope": "window"
-                },
-                "gitlens.views.results.files.layout": {
-                    "type": "string",
-                    "default": "auto",
-                    "enum": [
-                        "auto",
-                        "list",
-                        "tree"
-                    ],
-                    "enumDescriptions": [
-                        "Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.results.files.threshold#` value and the number of files at each nesting level",
-                        "Displays files as a list",
-                        "Displays files as a tree"
-                    ],
-                    "description": "Specifies how the `Results` view will display files",
-                    "scope": "window"
-                },
-                "gitlens.views.results.files.threshold": {
-                    "type": "number",
-                    "default": 5,
-                    "description": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the `Results` view\nOnly applies when `#gitlens.views.results.files.layout#` is set to `auto`",
-                    "scope": "window"
-                },
-                "gitlens.views.results.location": {
-                    "type": "string",
-                    "default": "gitlens",
-                    "enum": [
-                        "gitlens",
-                        "explorer",
-                        "scm"
-                    ],
-                    "enumDescriptions": [
-                        "Adds to the GitLens view",
-                        "Adds to the Explorer view",
-                        "Adds to the Source Control view"
-                    ],
-                    "description": "Specifies where to show the `Results` view",
                     "scope": "window"
                 },
                 "gitlens.views.search.enabled": {
@@ -1356,7 +1356,7 @@
                         "Displays files as a list",
                         "Displays files as a tree"
                     ],
-                    "description": "Specifies how the `Results` view will display files",
+                    "description": "Specifies how the `Search Commits` view will display files",
                     "scope": "window"
                 },
                 "gitlens.views.search.files.threshold": {
@@ -1374,9 +1374,9 @@
                         "scm"
                     ],
                     "enumDescriptions": [
-                        "Adds to the GitLens view",
-                        "Adds to the Explorer view",
-                        "Adds to the Source Control view"
+                        "Adds to the GitLens side bar",
+                        "Adds to the Explorer side bar",
+                        "Adds to the Source Control side bar"
                     ],
                     "description": "Specifies where to show the `Search Commits` view",
                     "scope": "window"
@@ -1384,19 +1384,19 @@
                 "gitlens.views.stashFileFormat": {
                     "type": "string",
                     "default": "${filePath}",
-                    "description": "Specifies the format of a stashed file in the `Repositories` and `Results` views\nAvailable tokens\n ${directory} - directory name\n ${file} - file name\n ${filePath} - formatted file name and path\n ${path} - full file path",
+                    "description": "Specifies the format of a stashed file in the views\nAvailable tokens\n ${directory} - directory name\n ${file} - file name\n ${filePath} - formatted file name and path\n ${path} - full file path",
                     "scope": "window"
                 },
                 "gitlens.views.stashFormat": {
                     "type": "string",
                     "default": "${message}",
-                    "description": "Specifies the format of stashed changes in the `Repositories` and `Results` views\nAvailable tokens\n ${id} - commit id\n ${author} - commit author\n ${message} - commit message\n ${ago} - relative commit date (e.g. 1 day ago)\n ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)\n ${agoOrDate} - commit date specified by `gitlens.defaultDateStyle`\n ${authorAgo} - commit author, relative commit date\n ${authorAgoOrDate} - commit author, commit date specified by `gitlens.defaultDateStyle`\nSee https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting",
+                    "description": "Specifies the format of stashed changes in the views\nAvailable tokens\n ${id} - commit id\n ${author} - commit author\n ${message} - commit message\n ${ago} - relative commit date (e.g. 1 day ago)\n ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)\n ${agoOrDate} - commit date specified by `gitlens.defaultDateStyle`\n ${authorAgo} - commit author, relative commit date\n ${authorAgoOrDate} - commit author, commit date specified by `gitlens.defaultDateStyle`\nSee https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting",
                     "scope": "window"
                 },
                 "gitlens.views.statusFileFormat": {
                     "type": "string",
                     "default": "${working  }${filePath}",
-                    "description": "Specifies the format of the status of a working or committed file in the `Repositories` view\nAvailable tokens\n ${directory} - directory name\n ${file} - file name\n ${filePath} - formatted file name and path\n ${path} - full file path\n ${working} - optional indicator if the file is uncommitted",
+                    "description": "Specifies the format of the status of a working or committed file in the views\nAvailable tokens\n ${directory} - directory name\n ${file} - file name\n ${filePath} - formatted file name and path\n ${path} - full file path\n ${working} - optional indicator if the file is uncommitted",
                     "scope": "window"
                 },
                 "gitlens.advanced.blame.customArguments": {
@@ -1584,6 +1584,11 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.showCompareView",
+                "title": "Show Compare View",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.showFileHistoryView",
                 "title": "Show File History View",
                 "category": "GitLens"
@@ -1596,11 +1601,6 @@
             {
                 "command": "gitlens.showRepositoriesView",
                 "title": "Show Repositories View",
-                "category": "GitLens"
-            },
-            {
-                "command": "gitlens.showResultsView",
-                "title": "Show Results View",
                 "category": "GitLens"
             },
             {
@@ -2369,7 +2369,7 @@
                 "category": "GitLens"
             },
             {
-                "command": "gitlens.views.results.clear",
+                "command": "gitlens.views.compare.clear",
                 "title": "Clear Results",
                 "category": "GitLens",
                 "icon": {
@@ -2378,7 +2378,7 @@
                 }
             },
             {
-                "command": "gitlens.views.results.refresh",
+                "command": "gitlens.views.compare.refresh",
                 "title": "Refresh",
                 "category": "GitLens",
                 "icon": {
@@ -2387,22 +2387,22 @@
                 }
             },
             {
-                "command": "gitlens.views.results.setFilesLayoutToAuto",
+                "command": "gitlens.views.compare.setFilesLayoutToAuto",
                 "title": "Automatic Layout",
                 "category": "GitLens"
             },
             {
-                "command": "gitlens.views.results.setFilesLayoutToList",
+                "command": "gitlens.views.compare.setFilesLayoutToList",
                 "title": "List Layout",
                 "category": "GitLens"
             },
             {
-                "command": "gitlens.views.results.setFilesLayoutToTree",
+                "command": "gitlens.views.compare.setFilesLayoutToTree",
                 "title": "Tree Layout",
                 "category": "GitLens"
             },
             {
-                "command": "gitlens.views.results.setKeepResultsToOn",
+                "command": "gitlens.views.compare.setKeepResultsToOn",
                 "title": "Keep Results",
                 "category": "GitLens",
                 "icon": {
@@ -2411,7 +2411,7 @@
                 }
             },
             {
-                "command": "gitlens.views.results.setKeepResultsToOff",
+                "command": "gitlens.views.compare.setKeepResultsToOff",
                 "title": "Keep Results",
                 "category": "GitLens",
                 "icon": {
@@ -2420,7 +2420,7 @@
                 }
             },
             {
-                "command": "gitlens.views.results.swapComparision",
+                "command": "gitlens.views.compare.swapComparision",
                 "title": "Swap Comparision",
                 "category": "GitLens",
                 "icon": {
@@ -2497,7 +2497,7 @@
         "menus": {
             "commandPalette": [
                 {
-                    "command": "gitlens.showRepositoriesView",
+                    "command": "gitlens.showCompareView",
                     "when": "gitlens:enabled"
                 },
                 {
@@ -2509,7 +2509,11 @@
                     "when": "gitlens:enabled"
                 },
                 {
-                    "command": "gitlens.showResultsView",
+                    "command": "gitlens.showRepositoriesView",
+                    "when": "gitlens:enabled"
+                },
+                {
+                    "command": "gitlens.showSearchView",
                     "when": "gitlens:enabled"
                 },
                 {
@@ -2977,35 +2981,35 @@
                     "when": "false"
                 },
                 {
-                    "command": "gitlens.views.results.clear",
+                    "command": "gitlens.views.compare.clear",
                     "when": "false"
                 },
                 {
-                    "command": "gitlens.views.results.refresh",
+                    "command": "gitlens.views.compare.refresh",
                     "when": "false"
                 },
                 {
-                    "command": "gitlens.views.results.setFilesLayoutToAuto",
+                    "command": "gitlens.views.compare.setFilesLayoutToAuto",
                     "when": "false"
                 },
                 {
-                    "command": "gitlens.views.results.setFilesLayoutToList",
+                    "command": "gitlens.views.compare.setFilesLayoutToList",
                     "when": "false"
                 },
                 {
-                    "command": "gitlens.views.results.setFilesLayoutToTree",
+                    "command": "gitlens.views.compare.setFilesLayoutToTree",
                     "when": "false"
                 },
                 {
-                    "command": "gitlens.views.results.setKeepResultsToOn",
+                    "command": "gitlens.views.compare.setKeepResultsToOn",
                     "when": "false"
                 },
                 {
-                    "command": "gitlens.views.results.setKeepResultsToOff",
+                    "command": "gitlens.views.compare.setKeepResultsToOff",
                     "when": "false"
                 },
                 {
-                    "command": "gitlens.views.results.swapComparision",
+                    "command": "gitlens.views.compare.swapComparision",
                     "when": "false"
                 },
                 {
@@ -3382,38 +3386,38 @@
                     "group": "1_gitlens"
                 },
                 {
-                    "command": "gitlens.views.results.clear",
-                    "when": "view =~ /^gitlens\\.views\\.results:/",
+                    "command": "gitlens.views.compare.clear",
+                    "when": "view =~ /^gitlens\\.views\\.compare:/",
                     "group": "navigation@2"
                 },
                 {
-                    "command": "gitlens.views.results.setKeepResultsToOn",
-                    "when": "view =~ /^gitlens\\.views\\.results:/ && !gitlens:views:results:keepResults",
+                    "command": "gitlens.views.compare.setKeepResultsToOn",
+                    "when": "view =~ /^gitlens\\.views\\.compare:/ && !gitlens:views:compare:keepResults",
                     "group": "navigation@3"
                 },
                 {
-                    "command": "gitlens.views.results.setKeepResultsToOff",
-                    "when": "view =~ /^gitlens\\.views\\.results:/ && gitlens:views:results:keepResults",
+                    "command": "gitlens.views.compare.setKeepResultsToOff",
+                    "when": "view =~ /^gitlens\\.views\\.compare:/ && gitlens:views:compare:keepResults",
                     "group": "navigation@3"
                 },
                 {
-                    "command": "gitlens.views.results.refresh",
-                    "when": "view =~ /^gitlens\\.views\\.results:/",
+                    "command": "gitlens.views.compare.refresh",
+                    "when": "view =~ /^gitlens\\.views\\.compare:/",
                     "group": "navigation@99"
                 },
                 {
-                    "command": "gitlens.views.results.setFilesLayoutToAuto",
-                    "when": "view =~ /^gitlens\\.views\\.results:/",
+                    "command": "gitlens.views.compare.setFilesLayoutToAuto",
+                    "when": "view =~ /^gitlens\\.views\\.compare:/",
                     "group": "1_gitlens"
                 },
                 {
-                    "command": "gitlens.views.results.setFilesLayoutToList",
-                    "when": "view =~ /^gitlens\\.views\\.results:/",
+                    "command": "gitlens.views.compare.setFilesLayoutToList",
+                    "when": "view =~ /^gitlens\\.views\\.compare:/",
                     "group": "1_gitlens"
                 },
                 {
-                    "command": "gitlens.views.results.setFilesLayoutToTree",
-                    "when": "view =~ /^gitlens\\.views\\.results:/",
+                    "command": "gitlens.views.compare.setFilesLayoutToTree",
+                    "when": "view =~ /^gitlens\\.views\\.compare:/",
                     "group": "1_gitlens"
                 },
                 {
@@ -3899,28 +3903,28 @@
                     "group": "8_gitlens@1"
                 },
                 {
-                    "command": "gitlens.views.results.swapComparision",
-                    "when": "viewItem == gitlens:results:comparison",
+                    "command": "gitlens.views.compare.swapComparision",
+                    "when": "viewItem == gitlens:compare:results",
                     "group": "inline@1"
                 },
                 {
                     "command": "gitlens.views.dismissNode",
-                    "when": "viewItem =~ /gitlens:(compare:picker:ref|results|search)\\b(?!:(commits|files))/",
+                    "when": "viewItem =~ /gitlens:(compare:picker:ref|compare|search)\\b(?!:(commits|files))/",
                     "group": "inline@2"
                 },
                 {
                     "command": "gitlens.views.dismissNode",
-                    "when": "viewItem =~ /gitlens:(compare:picker:ref|results|search)\\b(?!:(commits|files))/",
+                    "when": "viewItem =~ /gitlens:(compare:picker:ref|compare|search)\\b(?!:(commits|files))/",
                     "group": "1_gitlens@1"
                 },
                 {
-                    "command": "gitlens.views.results.swapComparision",
-                    "when": "viewItem == gitlens:results:comparison",
+                    "command": "gitlens.views.compare.swapComparision",
+                    "when": "viewItem == gitlens:compare:results",
                     "group": "2_gitlens@1"
                 },
                 {
                     "command": "gitlens.views.openDirectoryDiff",
-                    "when": "viewItem == gitlens:results:comparison",
+                    "when": "viewItem == gitlens:compare:results",
                     "group": "7_gitlens@1"
                 },
                 {
@@ -4184,9 +4188,9 @@
                     "when": "config.gitlens.views.lineHistory.enabled && config.gitlens.views.lineHistory.location == gitlens"
                 },
                 {
-                    "id": "gitlens.views.results:gitlens",
+                    "id": "gitlens.views.compare:gitlens",
                     "name": "Compare",
-                    "when": "gitlens:enabled && config.gitlens.views.results.enabled && config.gitlens.views.results.location == gitlens"
+                    "when": "gitlens:enabled && config.gitlens.views.compare.enabled && config.gitlens.views.compare.location == gitlens"
                 },
                 {
                     "id": "gitlens.views.search:gitlens",
@@ -4211,9 +4215,9 @@
                     "when": "gitlens:enabled && config.gitlens.views.lineHistory.enabled && config.gitlens.views.lineHistory.location == explorer"
                 },
                 {
-                    "id": "gitlens.views.results:explorer",
+                    "id": "gitlens.views.compare:explorer",
                     "name": "GitLens: Compare",
-                    "when": "gitlens:enabled && config.gitlens.views.results.enabled && config.gitlens.views.results.location == explorer"
+                    "when": "gitlens:enabled && config.gitlens.views.compare.enabled && config.gitlens.views.compare.location == explorer"
                 },
                 {
                     "id": "gitlens.views.search:explorer",
@@ -4238,9 +4242,9 @@
                     "when": "gitlens:enabled && config.gitlens.views.lineHistory.enabled && config.gitlens.views.lineHistory.location == scm"
                 },
                 {
-                    "id": "gitlens.views.results:scm",
+                    "id": "gitlens.views.compare:scm",
                     "name": "GitLens: Compare",
-                    "when": "gitlens:enabled && config.gitlens.views.results.enabled && config.gitlens.views.results.location == scm"
+                    "when": "gitlens:enabled && config.gitlens.views.compare.enabled && config.gitlens.views.compare.location == scm"
                 },
                 {
                     "id": "gitlens.views.search:scm",

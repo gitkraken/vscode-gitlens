@@ -44,10 +44,11 @@ export class Configuration {
             `gitlens.${this.name('currentLine').value}`,
             `gitlens.${this.name('hovers').value}`,
             `gitlens.${this.name('statusBar').value}`,
+            `gitlens.${this.name('views')('compare').value}`,
             `gitlens.${this.name('views')('fileHistory').value}`,
             `gitlens.${this.name('views')('lineHistory').value}`,
             `gitlens.${this.name('views')('repositories').value}`,
-            `gitlens.${this.name('views')('results').value}`
+            `gitlens.${this.name('views')('search').value}`
         ];
     }
 

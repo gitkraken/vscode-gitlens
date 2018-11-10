@@ -91,7 +91,7 @@ export class SearchNode extends ViewNode {
 
     getTreeItem(): TreeItem {
         const item = new TreeItem(`Search`, TreeItemCollapsibleState.Expanded);
-        item.contextValue = ResourceType.Results;
+        item.contextValue = ResourceType.Search;
         return item;
     }
 

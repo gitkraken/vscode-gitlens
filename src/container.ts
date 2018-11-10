@@ -11,10 +11,10 @@ import { Keyboard } from './keyboard';
 import { StatusBarController } from './statusbar/statusBarController';
 import { GitDocumentTracker } from './trackers/gitDocumentTracker';
 import { GitLineTracker } from './trackers/gitLineTracker';
+import { CompareView } from './views/compareView';
 import { FileHistoryView } from './views/fileHistoryView';
 import { LineHistoryView } from './views/lineHistoryView';
 import { RepositoriesView } from './views/repositoriesView';
-import { ResultsView } from './views/resultsView';
 import { SearchView } from './views/searchView';
 import { ViewCommands } from './views/viewCommands';
 import { SettingsEditor } from './webviews/settingsEditor';
@@ -41,15 +41,15 @@ export class Container {
         context.subscriptions.push((this._settingsEditor = new SettingsEditor()));
         context.subscriptions.push((this._welcomeEditor = new WelcomeEditor()));
 
-        if (config.views.repositories.enabled) {
-            context.subscriptions.push((this._repositoriesView = new RepositoriesView()));
+        if (config.views.compare.enabled) {
+            context.subscriptions.push((this._compareView = new CompareView()));
         }
         else {
             let disposable: Disposable;
             disposable = configuration.onDidChange(e => {
-                if (configuration.changed(e, configuration.name('views')('repositories')('enabled').value)) {
+                if (configuration.changed(e, configuration.name('views')('compare')('enabled').value)) {
                     disposable.dispose();
-                    context.subscriptions.push((this._repositoriesView = new RepositoriesView()));
+                    context.subscriptions.push((this._compareView = new CompareView()));
                 }
             });
         }
@@ -80,15 +80,15 @@ export class Container {
             });
         }
 
-        if (config.views.results.enabled) {
-            context.subscriptions.push((this._resultsView = new ResultsView()));
+        if (config.views.repositories.enabled) {
+            context.subscriptions.push((this._repositoriesView = new RepositoriesView()));
         }
         else {
             let disposable: Disposable;
             disposable = configuration.onDidChange(e => {
-                if (configuration.changed(e, configuration.name('views')('results')('enabled').value)) {
+                if (configuration.changed(e, configuration.name('views')('repositories')('enabled').value)) {
                     disposable.dispose();
-                    context.subscriptions.push((this._resultsView = new ResultsView()));
+                    context.subscriptions.push((this._repositoriesView = new RepositoriesView()));
                 }
             });
         }
@@ -112,6 +112,15 @@ export class Container {
     private static _codeLensController: GitCodeLensController;
     static get codeLens() {
         return this._codeLensController;
+    }
+
+    private static _compareView: CompareView | undefined;
+    static get compareView() {
+        if (this._compareView === undefined) {
+            this._context.subscriptions.push((this._compareView = new CompareView()));
+        }
+
+        return this._compareView;
     }
 
     private static _config: Config | undefined;
@@ -146,11 +155,6 @@ export class Container {
         return this._git;
     }
 
-    private static _repositoriesView: RepositoriesView | undefined;
-    static get repositoriesView(): RepositoriesView {
-        return this._repositoriesView!;
-    }
-
     private static _keyboard: Keyboard;
     static get keyboard() {
         return this._keyboard;
@@ -180,13 +184,9 @@ export class Container {
         return this._lineTracker;
     }
 
-    private static _resultsView: ResultsView | undefined;
-    static get resultsView() {
-        if (this._resultsView === undefined) {
-            this._context.subscriptions.push((this._resultsView = new ResultsView()));
-        }
-
-        return this._resultsView;
+    private static _repositoriesView: RepositoriesView | undefined;
+    static get repositoriesView(): RepositoriesView {
+        return this._repositoriesView!;
     }
 
     private static _searchView: SearchView | undefined;
@@ -239,14 +239,21 @@ export class Container {
         if (mode.codeLens != null) {
             config.codeLens.enabled = mode.codeLens;
         }
+
         if (mode.currentLine != null) {
             config.currentLine.enabled = mode.currentLine;
         }
+
         if (mode.hovers != null) {
             config.hovers.enabled = mode.hovers;
         }
+
         if (mode.statusBar != null) {
             config.statusBar.enabled = mode.statusBar;
+        }
+
+        if (mode.views != null) {
+            config.views.compare.enabled = mode.views;
         }
         if (mode.views != null) {
             config.views.fileHistory.enabled = mode.views;
@@ -257,9 +264,9 @@ export class Container {
         if (mode.views != null) {
             config.views.repositories.enabled = mode.views;
         }
-        // if (mode.views != null) {
-        //     config.views.results.enabled = mode.views;
-        // }
+        if (mode.views != null) {
+            config.views.search.enabled = mode.views;
+        }
 
         return config;
     }

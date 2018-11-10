@@ -30,7 +30,8 @@ Here are just some of the features that GitLens provides,
 - a [_Repositories_ view](#repositories-view 'Jump to the Repositories view') to visualize, navigate, and explore Git repositories
 - a [_File History_ view](#file-history-view 'Jump to the File History view') to visualize, navigate, and explore the revision history of the current file
 - a [_Line History_ view](#line-history-view 'Jump to the Line History view') to visualize, navigate, and explore the revision history of the selected lines of current file
-- an on-demand [_Results_ view](#results-view 'Jump to the Results view') to navigate and explore commits, histories, and searches, or visualize comparisons between branches, tags, commits, and more
+- a [_Compare_ view](#compare-view 'Jump to the Compare view') to visualize comparisons between branches, tags, commits, and more
+- a [Search Commits view](#search-commits-view 'Jump to the Search Commits view') to search and explore commit histories by message, author, files, id, etc
 - [authorship code lens](#code-lens 'Jump to the Code Lens') showing the most recent commit and # of authors to the top of files and/or on code blocks
 - an unobtrusive [current line blame](#current-line-blame 'Jump to the Current Line Blame') annotation at the end of the line
 - on-demand [gutter blame](#gutter-blame 'Jump to the Gutter Blame') annotations, including a heatmap, for the whole file
@@ -71,15 +72,15 @@ If you'd like to join them in supporting GitLens, please consider the following 
 - [Star or Fork me on GitHub](https://github.com/eamodio/vscode-gitlens 'Star or fork me on GitHub')
 - [Follow me on Twitter](https://twitter.com/eamodio 'Follow me on Twitter')
 
-#### Gold Sponsors ($100+)
+#### Gold Sponsors (\$100+)
 
 None yet &mdash; could be you!
 
-#### Silver Sponsors ($50+)
+#### Silver Sponsors (\$50+)
 
 None yet &mdash; could be you!
 
-#### Bronze Sponsors ($25+)
+#### Bronze Sponsors (\$25+)
 
 None yet &mdash; could be you!
 
@@ -205,7 +206,7 @@ A [customizable](#line-history-view-settings 'Jump to the Line History view sett
 - A toolbar provides a _Refresh_ command
   - A context menu provides a _Follow Renames_ or _Don't Follow Renames_ command
 
-The line history explorer provides the following features,
+The line history view provides the following features,
 
 - Automatically updates to track the selection of the current editor
 - A context menu provides _Open File_, _Open File on Remote_ (if available), _Copy Remote File Url to Clipboard_ (if available), and _Refresh_ commands
@@ -215,35 +216,18 @@ The line history explorer provides the following features,
 
 ---
 
-### Results view
+### Compare view
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/results-explorer.png" alt="Results view" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/compare-view.png" alt="Compare view" />
 </p>
 
-An on-demand, [customizable](#results-view-settings 'Jump to the Results view settings') view to navigate and explore commits, histories, and searches, or visualize comparisons between branches, tags, commits, and more
+A [customizable](#compare-view-settings 'Jump to the Compare view settings') view to visualize comparisons between branches, tags, commits, and more
 
-- A toolbar provides _Search Commits_, _Keep Results_, and _Refresh_ commands
-  - A context menu provides _Automatic Layout_, _List Layout_, _Tree Layout_, and _Close_ commands
+- A toolbar provides _Clear Results_, _Keep Results_, and _Refresh_ commands
+  - A context menu provides _Automatic Layout_, _List Layout_, and _Tree Layout_ commands
 
-The results view provides the following features,
-
-#### Explore
-
-- Provides a semi-persistent results view for exploring histories, commits, and searches
-  - Accessible via the following commands
-    - _Show Commit Search_ command (`gitlens.showCommitSearch`)
-    - _Show File History_ command (`gitlens.showQuickFileHistory`)
-    - _Show Commit Details_ command (`gitlens.showQuickCommitDetails`)
-  - An inline toolbar provides a _Clear Results_ command
-  - A context menu provides _Clear Results_, and _Refresh_ commands
-  - Revisions (commits) expand show the set of files changed, complete with status indicators for adds, changes, renames, and deletes
-    - Context menus for each revision (commit) provide
-      - _Open Commit on Remote_ (if available), _Open All Changes_, _Open All Changes with Working Tree_, _Open Files_, _Open Revisions_, _Copy Commit ID to Clipboard_, _Copy Commit Message to Clipboard_, _Show Commit Details_, _Compare with HEAD_, _Compare with Working Tree_, _Compare with Selected_ (when available), _Select for Compare_, _Cherry Pick Commit (via Terminal)_ (when available), _Push to Commit (via Terminal)_ (when available), _Revert Commit (via Terminal)_ (when available), _Checkout Commit (via Terminal)_, _Rebase to Commit (via Terminal)_, _Reset to Commit (via Terminal)_, _Create Branch (via Terminal)..._, _Create Tag (via Terminal)..._, and _Refresh_ commands
-    - Context menus for each changed file provide
-      - _Open Changes_, _Open Changes with Working File_, _Open File_, _Open Revision_, _Open File on Remote_, _Open Revision on Remote_, _Copy Commit ID to Clipboard_, _Copy Commit Message to Clipboard_, _Copy Remote File Url to Clipboard_, _Apply Changes_, _Compare with Selected_ (when available), _Select for Compare_, and _Show Commit File Details_ commands
-
-#### Compare
+The compare view provides the following features,
 
 - Provides a semi-persistent results view for comparison operations
 
@@ -265,6 +249,34 @@ The results view provides the following features,
     - Expands to a file-based view of all changed files
       - Context menus for each changed file provide
         - _Open Changes_, _Open Changes with Working File_, _Open File_, _Open Revision_, _Open File on Remote_, _Open Revision on Remote_, _Copy Commit ID to Clipboard_, _Copy Commit Message to Clipboard_, _Copy Remote File Url to Clipboard_, _Apply Changes_, _Compare with Selected_ (when available), _Select for Compare_, and _Show Commit File Details_ commands
+
+---
+
+### Search Commits view
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/search-view.png" alt="Search Commits view" />
+</p>
+
+A [customizable](#search-commits-view-settings 'Jump to the Search Commits view settings') view to search and explore commit histories by message, author, files, id, etc
+
+- A toolbar provides _Clear Results_, _Keep Results_, and _Refresh_ commands
+  - A context menu provides _Automatic Layout_, _List Layout_, and _Tree Layout_ commands
+
+The search commits view provides the following features,
+
+- Provides a semi-persistent results view for searching and exploring commit histories
+  - Accessible via the following commands
+    - _Show Commit Search_ command (`gitlens.showCommitSearch`)
+    - _Show File History_ command (`gitlens.showQuickFileHistory`)
+    - _Show Commit Details_ command (`gitlens.showQuickCommitDetails`)
+  - An inline toolbar provides a _Clear Results_ command
+  - A context menu provides _Clear Results_, and _Refresh_ commands
+  - Revisions (commits) expand show the set of files changed, complete with status indicators for adds, changes, renames, and deletes
+    - Context menus for each revision (commit) provide
+      - _Open Commit on Remote_ (if available), _Open All Changes_, _Open All Changes with Working Tree_, _Open Files_, _Open Revisions_, _Copy Commit ID to Clipboard_, _Copy Commit Message to Clipboard_, _Show Commit Details_, _Compare with HEAD_, _Compare with Working Tree_, _Compare with Selected_ (when available), _Select for Compare_, _Cherry Pick Commit (via Terminal)_ (when available), _Push to Commit (via Terminal)_ (when available), _Revert Commit (via Terminal)_ (when available), _Checkout Commit (via Terminal)_, _Rebase to Commit (via Terminal)_, _Reset to Commit (via Terminal)_, _Create Branch (via Terminal)..._, _Create Tag (via Terminal)..._, and _Refresh_ commands
+    - Context menus for each changed file provide
+      - _Open Changes_, _Open Changes with Working File_, _Open File_, _Open Revision_, _Open File on Remote_, _Open Revision on Remote_, _Copy Commit ID to Clipboard_, _Copy Commit Message to Clipboard_, _Copy Remote File Url to Clipboard_, _Apply Changes_, _Compare with Selected_ (when available), _Select for Compare_, and _Show Commit File Details_ commands
 
 ---
 
@@ -454,7 +466,7 @@ The results view provides the following features,
   - Use `#<sha>` to search for a commit with id of `<sha>` &mdash; See [Git docs](https://git-scm.com/docs/git-log 'Open Git docs')
   - Use `~<pattern>` to search for commits with differences whose patch text contains added/removed lines that match `<pattern>` &mdash; See [Git docs](https://git-scm.com/docs/git-log#git-log--Gltregexgt 'Open Git docs')
   - Use `=<string>` to search for commits with differences that change the number of occurrences of the specified string (i.e. addition/deletion) in a file &mdash; See [Git docs](https://git-scm.com/docs/git-log#git-log--Sltstringgt 'Open Git docs')
-  - Provides a _Show in Results_ option to show the search results in the _Results_ view
+  - Provides a _Show in View_ option to show the search results in the _Search Commits_ view
 
 ---
 
@@ -492,7 +504,7 @@ The results view provides the following features,
 </p>
 
 - Adds a _Show File History_ command (`gitlens.showQuickFileHistory`) to show a paged **file history quick pick menu** of the current file for exploring its commit history
-  - Provides additional entries to _Show in Results_, _Show Branch History_, and _Open File on \<remote-service\>_ when available
+  - Provides additional entries to _Show in View_, _Show Branch History_, and _Open File on \<remote-service\>_ when available
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
   - Navigate pages via `alt+,` and `alt+.` to go backward and forward respectively
 
@@ -504,7 +516,7 @@ The results view provides the following features,
 
 - Adds a _Show Commit Details_ command (`gitlens.showQuickCommitDetails`) to show a **commit details quick pick menu** of the most recent commit of the current file
   - Quickly see the set of files changed in the commit, complete with status indicators for adds, changes, renames, and deletes
-  - Provides additional entries to _Show in Results_, _Open Commit on \<remote-service\>_ when available, _Open Files_, _Open Revisions_, _Open Directory Compare with Previous Revision_, _Open Directory Compare with Working Tree_, _Copy Commit ID to Clipboard_, _Copy Commit Message to Clipboard_
+  - Provides additional entries to _Show in View_, _Open Commit on \<remote-service\>_ when available, _Open Files_, _Open Revisions_, _Open Directory Compare with Previous Revision_, _Open Directory Compare with Working Tree_, _Copy Commit ID to Clipboard_, _Copy Commit Message to Clipboard_
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
   - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible &mdash; commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#advanced-settings 'Jump to Advanced settings') is set
   - Use the `alt+right arrow` shortcut on a file entry in the `Changed Files` section to preview the comparison of the current revision with the previous one
@@ -649,51 +661,64 @@ See also [View Settings](#view-settings 'Jump to the View settings')
 | `gitlens.views.repositories.files.layout`       | Specifies how the _Repositories_ view will display files<br />`auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.views.repositories.files.threshold` value and the number of files at each nesting level<br />`list` - displays files as a list<br />`tree` - displays files as a tree |
 | `gitlens.views.repositories.files.threshold`    | Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Repositories_ view<br />Only applies when `gitlens.views.repositories.files.layout` is set to `auto`                                                                                                     |
 | `gitlens.views.repositories.includeWorkingTree` | Specifies whether to include working tree files inside the `Repository Status` node of the _Repositories_ view                                                                                                                                                                                                                           |
-| `gitlens.views.repositories.location`           | Specifies where to show the _Repositories_ view<br />`gitlens` - adds to the GitLens view<br />`explorer` - adds to the Explorer view<br />`scm` - adds to the Source Control view                                                                                                                                                       |
+| `gitlens.views.repositories.location`           | Specifies where to show the _Repositories_ view<br />`gitlens` - adds to the GitLens side bar<br />`explorer` - adds to the Explorer side bar<br />`scm` - adds to the Source Control side bar                                                                                                                                           |
 | `gitlens.views.repositories.showTrackingBranch` | Specifies whether to show the tracking branch when displaying local branches in the _Repositories_ view                                                                                                                                                                                                                                  |
 
 ### File History View Settings
 
 See also [View Settings](#view-settings 'Jump to the View settings')
 
-| Name                                 | Description                                                                                                                                                                        |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `gitlens.views.fileHistory.avatars`  | Specifies whether to show avatar images instead of status icons in the _File History_ view                                                                                         |
-| `gitlens.views.fileHistory.enabled`  | Specifies whether to show the _File History_ view                                                                                                                                  |
-| `gitlens.views.fileHistory.location` | Specifies where to show the _File History_ view<br />`gitlens` - adds to the GitLens view<br />`explorer` - adds to the Explorer view<br />`scm` - adds to the Source Control view |
+| Name                                 | Description                                                                                                                                                                                    |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gitlens.views.fileHistory.avatars`  | Specifies whether to show avatar images instead of status icons in the _File History_ view                                                                                                     |
+| `gitlens.views.fileHistory.enabled`  | Specifies whether to show the _File History_ view                                                                                                                                              |
+| `gitlens.views.fileHistory.location` | Specifies where to show the _File History_ view<br />`gitlens` - adds to the GitLens side bar<br />`explorer` - adds to the Explorer side bar<br />`scm` - adds to the Source Control side bar |
 
 ### Line History View Settings
 
 See also [View Settings](#view-settings 'Jump to the View settings')
 
-| Name                                 | Description                                                                                                                                                                        |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `gitlens.views.lineHistory.avatars`  | Specifies whether to show avatar images instead of status icons in the _Line History_ view                                                                                         |
-| `gitlens.views.lineHistory.enabled`  | Specifies whether to show the _Line History_ view                                                                                                                                  |
-| `gitlens.views.lineHistory.location` | Specifies where to show the _Line History_ view<br />`gitlens` - adds to the GitLens view<br />`explorer` - adds to the Explorer view<br />`scm` - adds to the Source Control view |
+| Name                                 | Description                                                                                                                                                                                    |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gitlens.views.lineHistory.avatars`  | Specifies whether to show avatar images instead of status icons in the _Line History_ view                                                                                                     |
+| `gitlens.views.lineHistory.enabled`  | Specifies whether to show the _Line History_ view                                                                                                                                              |
+| `gitlens.views.lineHistory.location` | Specifies where to show the _Line History_ view<br />`gitlens` - adds to the GitLens side bar<br />`explorer` - adds to the Explorer side bar<br />`scm` - adds to the Source Control side bar |
 
-### Results View Settings
+### Compare View Settings
 
 See also [View Settings](#view-settings 'Jump to the View settings')
 
 | Name                                    | Description                                                                                                                                                                                                                                                                                                                    |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `gitlens.views.results.files.compact`   | Specifies whether to compact (flatten) unnecessary file nesting in the _Results_ view<br />Only applies when `gitlens.views.results.files.layout` is set to `tree` or `auto`                                                                                                                                                   |
-| `gitlens.views.results.files.layout`    | Specifies how the _Results_ view will display files<br />`auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.views.results.files.threshold` value and the number of files at each nesting level<br />`list` - displays files as a list<br />`tree` - displays files as a tree |
-| `gitlens.views.results.files.threshold` | Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Results_ view<br />Only applies when `gitlens.views.results.files.layout` is set to `auto`                                                                                                     |
-| `gitlens.views.results.location`        | Specifies where to show the _Results_ view<br />`gitlens` - adds to the GitLens view<br />`explorer` - adds to the Explorer view<br />`scm` - adds to the Source Control view                                                                                                                                                  |
+| `gitlens.views.compare.files.compact`   | Specifies whether to compact (flatten) unnecessary file nesting in the _Compare_ view<br />Only applies when `gitlens.views.compare.files.layout` is set to `tree` or `auto`                                                                                                                                                   |
+| `gitlens.views.compare.enabled`         | Specifies whether to show the _Compare_ view                                                                                                                                                                                                                                                                                   |
+| `gitlens.views.compare.files.layout`    | Specifies how the _Compare_ view will display files<br />`auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.views.compare.files.threshold` value and the number of files at each nesting level<br />`list` - displays files as a list<br />`tree` - displays files as a tree |
+| `gitlens.views.compare.files.threshold` | Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Compare_ view<br />Only applies when `gitlens.views.compare.files.layout` is set to `auto`                                                                                                     |
+| `gitlens.views.compare.location`        | Specifies where to show the _Compare_ view<br />`gitlens` - adds to the GitLens side bar<br />`explorer` - adds to the Explorer side bar<br />`scm` - adds to the Source Control side bar                                                                                                                                      |
+
+### Search View Settings
+
+See also [View Settings](#view-settings 'Jump to the View settings')
+
+| Name                                    | Description                                                                                                                                                                                                                                                                                                                           |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gitlens.views.search.files.compact`    | Specifies whether to compact (flatten) unnecessary file nesting in the _Search Commits_ view<br />Only applies when `gitlens.views.compare.files.layout` is set to `tree` or `auto`                                                                                                                                                   |
+| `gitlens.views.search.enabled`          | Specifies whether to show the _Search Commits_ view                                                                                                                                                                                                                                                                                   |
+| `gitlens.views.search.files.layout`     | Specifies how the _Search Commits_ view will display files<br />`auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.views.compare.files.threshold` value and the number of files at each nesting level<br />`list` - displays files as a list<br />`tree` - displays files as a tree |
+| `gitlens.views.compare.files.threshold` | Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Search Commits_ view<br />Only applies when `gitlens.views.compare.files.layout` is set to `auto`                                                                                                     |
+| `gitlens.views.search.location`         | Specifies where to show the _Search Commits_ view<br />`gitlens` - adds to the GitLens side bar<br />`explorer` - adds to the Explorer side bar<br />`scm` - adds to the Source Control side bar                                                                                                                                      |
 
 ### View Settings
 
-| Name                             | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `gitlens.views.avatars`          | Specifies whether to show avatar images instead of commit (or status) icons in the _Repositories_ and _Results_ views                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| `gitlens.views.commitFileFormat` | Specifies the format of a committed file in the _Repositories_ and _Results_ views<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `gitlens.views.commitFormat`     | Specifies the format of committed changes in the _Repositories_ and _Results_ views<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${agoOrDate} - commit date specified by `gitlens.defaultDateStyle`<br /> ${authorAgo} - commit author, relative commit date<br /> ${authorAgoOrDate} - commit author, commit date specified by `gitlens.defaultDateStyle`<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting |
-| `gitlens.views.defaultItemLimit` | Specifies the default number of items to show in a view list. Use 0 to specify no limit                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `gitlens.views.stashFileFormat`  | Specifies the format of a stashed file in the _Repositories_ and _Results_ views<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| `gitlens.views.stashFormat`      | Specifies the format of stashed changes in the _Repositories_ and _Results_ views<br />Available tokens<br /> ${id} - commit id<br /> ${author} - commit author<br /> ${message} - commit message<br /> ${ago} - relative commit date (e.g. 1 day ago)<br /> ${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> ${agoOrDate} - commit date specified by `gitlens.defaultDateStyle`<br /> ${authorAgo} - commit author, relative commit date<br /> ${authorAgoOrDate} - commit author, commit date specified by `gitlens.defaultDateStyle`<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting   |
-| `gitlens.views.statusFileFormat` | Specifies the format of the status of a working or committed file in the _Repositories_ view<br />Available tokens<br /> ${directory} - directory name<br /> ${file} - file name<br /> ${filePath} - formatted file name and path<br /> ${path} - full file path<br />${working} - optional indicator if the file is uncommitted                                                                                                                                                                                                                                                                                                                                                        |
+| Name                             | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gitlens.views.avatars`          | Specifies whether to show avatar images instead of commit (or status) icons in the views                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `gitlens.views.commitFileFormat` | Specifies the format of a committed file in the views<br />Available tokens<br /> ${directory} - directory name<br />${file} - file name<br /> ${filePath} - formatted file name and path<br />${path} - full file path                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `gitlens.views.commitFormat`     | Specifies the format of committed changes in the views<br />Available tokens<br /> ${id} - commit id<br />${author} - commit author<br /> ${message} - commit message<br />${ago} - relative commit date (e.g. 1 day ago)<br /> \${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> \${agoOrDate} - commit date specified by `gitlens.defaultDateStyle`<br /> ${authorAgo} - commit author, relative commit date<br />${authorAgoOrDate} - commit author, commit date specified by `gitlens.defaultDateStyle`<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting |
+| `gitlens.views.defaultItemLimit` | Specifies the default number of items to show in a view list. Use 0 to specify no limit                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `gitlens.views.stashFileFormat`  | Specifies the format of a stashed file in the views<br />Available tokens<br /> ${directory} - directory name<br />${file} - file name<br /> ${filePath} - formatted file name and path<br />${path} - full file path                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `gitlens.views.stashFormat`      | Specifies the format of stashed changes in the views<br />Available tokens<br /> ${id} - commit id<br />${author} - commit author<br /> ${message} - commit message<br />${ago} - relative commit date (e.g. 1 day ago)<br /> \${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> \${agoOrDate} - commit date specified by `gitlens.defaultDateStyle`<br /> ${authorAgo} - commit author, relative commit date<br />${authorAgoOrDate} - commit author, commit date specified by `gitlens.defaultDateStyle`<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting   |
+| `gitlens.views.statusFileFormat` | Specifies the format of the status of a working or committed file in the views<br />Available tokens<br /> ${directory} - directory name<br />${file} - file name<br /> ${filePath} - formatted file name and path<br />${path} - full file path<br />\${working} - optional indicator if the file is uncommitted                                                                                                                                                                                                                                                                                                                                         |
 
 ### Code Lens Settings
 

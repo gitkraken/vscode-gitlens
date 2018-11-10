@@ -3,14 +3,14 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { Strings } from '../../system';
-import { ResultsView } from '../resultsView';
-import { ResultsNode } from './resultsNode';
+import { CompareView } from '../compareView';
+import { CompareNode } from './compareNode';
 import { ResourceType, unknownGitUri, ViewNode } from './viewNode';
 
-export class ComparePickerNode extends ViewNode<ResultsView> {
+export class ComparePickerNode extends ViewNode<CompareView> {
     constructor(
-        view: ResultsView,
-        protected readonly parent: ResultsNode
+        view: CompareView,
+        protected readonly parent: CompareNode
     ) {
         super(unknownGitUri, view, parent);
     }
@@ -41,7 +41,7 @@ export class ComparePickerNode extends ViewNode<ResultsView> {
             item.tooltip = `Click to select branch or tag for compare${GlyphChars.Ellipsis}`;
             item.command = {
                 title: `Select branch or tag for compare${GlyphChars.Ellipsis}`,
-                command: 'gitlens.views.results.selectForCompare'
+                command: this.view.getQualifiedCommand('selectForCompare')
             };
         }
         else {
@@ -53,7 +53,7 @@ export class ComparePickerNode extends ViewNode<ResultsView> {
             item.tooltip = `Click to compare ${selectedRef.label} to${GlyphChars.Ellipsis}`;
             item.command = {
                 title: `Compare ${selectedRef.label} with${GlyphChars.Ellipsis}`,
-                command: 'gitlens.views.results.compareWithSelected'
+                command: this.view.getQualifiedCommand('compareWithSelected')
             };
         }
 

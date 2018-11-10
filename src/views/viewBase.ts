@@ -17,12 +17,12 @@ import { configuration } from '../configuration';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { debug, Functions, gate, log } from '../system';
+import { CompareView } from './compareView';
 import { FileHistoryView } from './fileHistoryView';
 import { LineHistoryView } from './lineHistoryView';
 import { ViewNode } from './nodes';
 import { isPageable } from './nodes/viewNode';
 import { RepositoriesView } from './repositoriesView';
-import { ResultsView } from './resultsView';
 import { SearchView } from './searchView';
 import { RefreshNodeCommandArgs } from './viewCommands';
 
@@ -31,7 +31,7 @@ export enum RefreshReason {
     VisibilityChanged = 'VisibilityChanged'
 }
 
-export type View = RepositoriesView | FileHistoryView | LineHistoryView | ResultsView | SearchView;
+export type View = RepositoriesView | FileHistoryView | LineHistoryView | CompareView | SearchView;
 
 export interface TreeViewNodeStateChangeEvent<T> extends TreeViewExpansionEvent<T> {
     state: TreeItemCollapsibleState;

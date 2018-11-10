@@ -151,11 +151,11 @@ export interface ViewsConfig {
     };
     commitFileFormat: string;
     commitFormat: string;
+    compare: CompareViewConfig;
     // dateFormat: string | null;
     defaultItemLimit: number;
     lineHistory: LineHistoryViewConfig;
     repositories: RepositoriesViewConfig;
-    results: ResultsViewConfig;
     search: SearchViewConfig;
     stashFileFormat: string;
     stashFormat: string;
@@ -233,7 +233,7 @@ export interface RepositoriesViewConfig {
     showTrackingBranch: boolean;
 }
 
-export interface ResultsViewConfig {
+export interface CompareViewConfig {
     enabled: boolean;
     files: ViewsFilesConfig;
     location: 'explorer' | 'gitlens' | 'scm';

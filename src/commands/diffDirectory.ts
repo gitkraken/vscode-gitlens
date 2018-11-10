@@ -1,11 +1,11 @@
 'use strict';
-import { CancellationTokenSource, commands, TextEditor, Uri, window } from 'vscode';
+import { commands, TextEditor, Uri, window } from 'vscode';
 import { BuiltInCommands, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickpicks';
-import { ResultsComparisonNode } from '../views/nodes';
+import { CompareResultsNode } from '../views/nodes';
 import {
     ActiveEditorCommand,
     command,
@@ -30,7 +30,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
     protected async preExecute(context: CommandContext, args: DiffDirectoryCommandArgs = {}): Promise<any> {
         switch (context.command) {
             case Commands.ViewsOpenDirectoryDiff:
-                if (context.type === 'viewItem' && context.node instanceof ResultsComparisonNode) {
+                if (context.type === 'viewItem' && context.node instanceof CompareResultsNode) {
                     args.ref1 = context.node.ref1.ref;
                     args.ref2 = context.node.ref2.ref;
                 }

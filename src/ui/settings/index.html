@@ -314,9 +314,9 @@
                                     <label for="views.repositories.location">Show in the</label>
                                     <select class="setting" id="views.repositories.location" name="views.repositories.location"
                                         disabled>
-                                        <option value="gitlens">GitLens view</option>
-                                        <option value="explorer">Explorer view</option>
-                                        <option value="scm">Source Control view</option>
+                                        <option value="gitlens">GitLens side bar</option>
+                                        <option value="explorer">Explorer side bar</option>
+                                        <option value="scm">Source Control side bar</option>
                                     </select>
                                 </div>
 
@@ -424,9 +424,9 @@
                                     <label for="views.fileHistory.location">Show in the</label>
                                     <select class="setting" id="views.fileHistory.location" name="views.fileHistory.location"
                                         disabled>
-                                        <option value="gitlens">GitLens view</option>
-                                        <option value="explorer">Explorer view</option>
-                                        <option value="scm">Source Control view</option>
+                                        <option value="gitlens">GitLens side bar</option>
+                                        <option value="explorer">Explorer side bar</option>
+                                        <option value="scm">Source Control side bar</option>
                                     </select>
                                 </div>
 
@@ -470,9 +470,9 @@
                                     <label for="views.lineHistory.location">Show in the</label>
                                     <select class="setting" id="views.lineHistory.location" name="views.lineHistory.location"
                                         disabled>
-                                        <option value="gitlens">GitLens view</option>
-                                        <option value="explorer">Explorer view</option>
-                                        <option value="scm">Source Control view</option>
+                                        <option value="gitlens">GitLens side bar</option>
+                                        <option value="explorer">Explorer side bar</option>
+                                        <option value="scm">Source Control side bar</option>
                                     </select>
                                 </div>
 
@@ -492,32 +492,31 @@
                         </div>
                     </section>
 
-                    <section id="results-view">
+                    <section id="compare-view">
                         <div class="section__header">
-                            <h2 class="section__title">Results view
-                                <a class="link__learn-more" title="Learn more" href="https://github.com/eamodio/vscode-gitlens/#results-view">
+                            <h2 class="section__title">Compare view
+                                <a class="link__learn-more" title="Learn more" href="https://github.com/eamodio/vscode-gitlens/#compare-view">
                                     <i class="icon icon__info"></i>
                                 </a>
                             </h2>
                             <p class="section__title-hint">
-                                Adds an on-demand Results view to navigate and explore commits, histories, and
-                                searches, or visualize comparisons between branches, tags, commits, and more
+                                Adds a Compare view to visualize comparisons between branches, tags, commits, and more
                             </p>
                         </div>
                         <div class="section__settings">
                             <div class="settings-group">
                                 <div class="settings-group__setting">
-                                    <label for="views.results.location">Show in the</label>
-                                    <select class="setting" id="views.results.location" name="views.results.location">
-                                        <option value="gitlens">GitLens view</option>
-                                        <option value="explorer">Explorer view</option>
-                                        <option value="scm">Source Control view</option>
+                                    <label for="views.compare.location">Show in the</label>
+                                    <select class="setting" id="views.compare.location" name="views.compare.location">
+                                        <option value="gitlens">GitLens side bar</option>
+                                        <option value="explorer">Explorer side bar</option>
+                                        <option value="scm">Source Control side bar</option>
                                     </select>
                                 </div>
 
                                 <div class="settings-group__setting hidden" data-visibility="settings.mode =advanced">
-                                    <label for="views.results.files.layout">Layout files</label>
-                                    <select class="setting" id="views.results.files.layout" name="views.results.files.layout">
+                                    <label for="views.compare.files.layout">Layout files</label>
+                                    <select class="setting" id="views.compare.files.layout" name="views.compare.files.layout">
                                         <option value="auto">automatically</option>
                                         <option value="list">as a list</option>
                                         <option value="tree">as a tree</option>
@@ -525,28 +524,28 @@
                                 </div>
 
                                 <div class="settings-group__setting nowrap hidden" data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="views.results.files.compact" name="views.results.files.compact"
+                                    <input class="setting" id="views.compare.files.compact" name="views.compare.files.compact"
                                         type="checkbox" />
-                                    <label for="views.results.files.compact">Use compact layout</label>
+                                    <label for="views.compare.files.compact">Use compact layout</label>
                                 </div>
                                 <p class="setting__hint hidden" data-visibility="settings.mode =advanced">
                                     Compacts (flattens) unnecessary nesting when using a tree layouts
                                 </p>
 
                                 <div class="settings-group__setting nowrap hidden" data-visibility="settings.mode =advanced">
-                                    <input class="setting" id="views.results.avatars" name="views.avatars" type="checkbox" />
-                                    <label for="views.results.avatars">Use author avatars icons</label>
+                                    <input class="setting" id="views.compare.avatars" name="views.avatars" type="checkbox" />
+                                    <label for="views.compare.avatars">Use author avatars icons</label>
                                 </div>
                             </div>
 
                             <div class="section__preview">
-                                <img class="image__preview hidden" src="{{root}}/images/settings/results-explorer.png"
-                                    data-visibility="views.results.files.layout !tree" />
-                                <img class="image__preview hidden" src="{{root}}/images/settings/results-explorer-tree-compact.png"
-                                    data-visibility="views.results.files.layout =tree &amp; views.results.files.compact" />
-                                <img class="image__preview hidden" src="{{root}}/images/settings/results-explorer-tree.png"
-                                    data-visibility="views.results.files.layout =tree &amp; views.results.files.compact =false" />
-                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/results-explorer-avatars.png"
+                                <img class="image__preview hidden" src="{{root}}/images/settings/compare-view.png"
+                                    data-visibility="views.compare.files.layout !tree" />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/compare-view-tree-compact.png"
+                                    data-visibility="views.compare.files.layout =tree &amp; views.compare.files.compact" />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/compare-view-tree.png"
+                                    data-visibility="views.compare.files.layout =tree &amp; views.compare.files.compact =false" />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/compare-view-avatars.png"
                                     data-visibility="views.avatars" />
                             </div>
                             <p class="settings-group__hint">
@@ -555,7 +554,74 @@
                                 <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">
                                     User Settings
                                 </a>
-                                and search for <b><i>gitlens.views.results</i></b> or <b><i>gitlens.views</i></b>
+                                and search for <b><i>gitlens.views.compare</i></b> or <b><i>gitlens.views</i></b>
+                            </p>
+                        </div>
+                    </section>
+
+                    <section id="search-commits-view">
+                        <div class="section__header">
+                            <h2 class="section__title">Search Commits view
+                                <a class="link__learn-more" title="Learn more" href="https://github.com/eamodio/vscode-gitlens/#search-commits-view">
+                                    <i class="icon icon__info"></i>
+                                </a>
+                            </h2>
+                            <p class="section__title-hint">
+                                Adds a Search Commits view to search and explore commit histories by message, author, files, id, etc
+                            </p>
+                        </div>
+                        <div class="section__settings">
+                            <div class="settings-group">
+                                <div class="settings-group__setting">
+                                    <label for="views.search.location">Show in the</label>
+                                    <select class="setting" id="views.search.location" name="views.search.location">
+                                        <option value="gitlens">GitLens side bar</option>
+                                        <option value="explorer">Explorer side bar</option>
+                                        <option value="scm">Source Control side bar</option>
+                                    </select>
+                                </div>
+
+                                <div class="settings-group__setting hidden" data-visibility="settings.mode =advanced">
+                                    <label for="views.search.files.layout">Layout files</label>
+                                    <select class="setting" id="views.search.files.layout" name="views.search.files.layout">
+                                        <option value="auto">automatically</option>
+                                        <option value="list">as a list</option>
+                                        <option value="tree">as a tree</option>
+                                    </select>
+                                </div>
+
+                                <div class="settings-group__setting nowrap hidden" data-visibility="settings.mode =advanced">
+                                    <input class="setting" id="views.search.files.compact" name="views.search.files.compact"
+                                        type="checkbox" />
+                                    <label for="views.search.files.compact">Use compact layout</label>
+                                </div>
+                                <p class="setting__hint hidden" data-visibility="settings.mode =advanced">
+                                    Compacts (flattens) unnecessary nesting when using a tree layouts
+                                </p>
+
+                                <div class="settings-group__setting nowrap hidden" data-visibility="settings.mode =advanced">
+                                    <input class="setting" id="views.search.avatars" name="views.avatars" type="checkbox" />
+                                    <label for="views.search.avatars">Use author avatars icons</label>
+                                </div>
+                            </div>
+
+                            <div class="section__preview">
+                                <img class="image__preview hidden" src="{{root}}/images/settings/search-view.png"
+                                    data-visibility="views.search.files.layout !tree" />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/search-view-tree-compact.png"
+                                    data-visibility="views.search.files.layout =tree &amp; views.search.files.compact" />
+                                <img class="image__preview hidden" src="{{root}}/images/settings/search-view-tree.png"
+                                    data-visibility="views.search.files.layout =tree &amp; views.search.files.compact =false" />
+                                <img class="image__preview--overlay hidden" src="{{root}}/images/settings/search-view-avatars.png"
+                                    data-visibility="views.avatars" />
+                            </div>
+                            <p class="settings-group__hint">
+                                <i class="icon icon--lg icon__info"></i>
+                                For more advanced customizations open
+                                <a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings">
+                                    User Settings
+                                </a>
+                                and search for <b><i>gitlens.views.search</i></b> or <b><i>gitlens.views</i></b>
                             </p>
                         </div>
                     </section>
@@ -1618,8 +1684,13 @@
                                 </a>
                             </li>
                             <li>
-                                <a class="jump-to" href="#results-view" title="Jump to Results view settings">
-                                    Results view
+                                <a class="jump-to" href="#compare-view" title="Jump to Compare view settings">
+                                    Compare view
+                                </a>
+                            </li>
+                            <li>
+                                <a class="jump-to" href="#search-commits-view" title="Jump to Search Commits view settings">
+                                    Search Commits view
                                 </a>
                             </li>
                             <li>

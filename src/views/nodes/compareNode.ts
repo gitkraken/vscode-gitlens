@@ -5,7 +5,7 @@ import { CommandContext, GlyphChars, setCommandContext } from '../../constants';
 import { GitService } from '../../git/gitService';
 import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../../quickpicks';
 import { debug, Functions, gate, log } from '../../system';
-import { ResultsView } from '../resultsView';
+import { CompareView } from '../compareView';
 import { MessageNode } from './common';
 import { ComparePickerNode } from './comparePickerNode';
 import { NamedRef, ResourceType, unknownGitUri, ViewNode } from './viewNode';
@@ -16,11 +16,11 @@ interface RepoRef {
     ref: string | NamedRef;
 }
 
-export class ResultsNode extends ViewNode<ResultsView> {
+export class CompareNode extends ViewNode<CompareView> {
     private _children: (ViewNode | MessageNode)[] = [];
     private _comparePickerNode: ComparePickerNode | undefined;
 
-    constructor(view: ResultsView) {
+    constructor(view: CompareView) {
         super(unknownGitUri, view);
     }
 
@@ -51,8 +51,8 @@ export class ResultsNode extends ViewNode<ResultsView> {
     }
 
     getTreeItem(): TreeItem {
-        const item = new TreeItem(`Results`, TreeItemCollapsibleState.Expanded);
-        item.contextValue = ResourceType.Results;
+        const item = new TreeItem(`Compare`, TreeItemCollapsibleState.Expanded);
+        item.contextValue = ResourceType.Compare;
         return item;
     }
 
@@ -159,6 +159,8 @@ export class ResultsNode extends ViewNode<ResultsView> {
 
         this._selectedRef = { label: this.getRefName(ref), repoPath: repoPath, ref: ref };
         setCommandContext(CommandContext.ViewsCanCompare, true);
+
+        await this.view.show();
 
         void (await this.triggerChange());
     }

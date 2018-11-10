@@ -35,10 +35,10 @@ export enum CommandContext {
     Key = 'gitlens:key',
     ViewsCanCompare = 'gitlens:views:canCompare',
     ViewsCanCompareFile = 'gitlens:views:canCompare:file',
+    ViewsCompareKeepResults = 'gitlens:views:compare:keepResults',
     ViewsFileHistoryEditorFollowing = 'gitlens:views:fileHistory:editorFollowing',
     ViewsLineHistoryEditorFollowing = 'gitlens:views:lineHistory:editorFollowing',
     ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',
-    ViewsResultsKeepResults = 'gitlens:views:results:keepResults',
     ViewsSearchKeepResults = 'gitlens:views:search:keepResults'
 }
 
@@ -126,7 +126,7 @@ export const ImageMimetypes: { [key: string]: string } = {
 };
 
 export enum WorkspaceState {
+    ViewsCompareKeepResults = 'gitlens:views:compare:keepResults',
     ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',
-    ViewsResultsKeepResults = 'gitlens:views:results:keepResults',
     ViewsSearchKeepResults = 'gitlens:views:search:keepResults'
 }
