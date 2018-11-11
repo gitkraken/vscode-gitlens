@@ -1,5 +1,6 @@
 'use strict';
 import { commands, workspace } from 'vscode';
+import { Commands } from '../commands';
 import { Config, configuration } from '../configuration';
 import { SettingsBootstrap } from '../ui/ipc';
 import { WebviewEditor } from './webviewEditor';
@@ -31,7 +32,7 @@ export class SettingsEditor extends WebviewEditor<SettingsBootstrap> {
     }
 
     registerCommands() {
-        return [commands.registerCommand('gitlens.showSettingsPage', this.show, this)];
+        return [commands.registerCommand(Commands.ShowSettingsPage, this.show, this)];
     }
 
     private getAvailableScopes(): ['user' | 'workspace', string][] {

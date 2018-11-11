@@ -3490,6 +3490,11 @@
                     "command": "gitlens.views.search.setFilesLayoutToTree",
                     "when": "view =~ /^gitlens\\.views\\.search:/",
                     "group": "1_gitlens"
+                },
+                {
+                    "command": "gitlens.showSettingsPage",
+                    "when": "view =~ /^gitlens\\.views\\..*:/",
+                    "group": "9_gitlens"
                 }
             ],
             "view/item/context": [

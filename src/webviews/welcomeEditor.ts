@@ -1,5 +1,6 @@
 'use strict';
 import { commands } from 'vscode';
+import { Commands } from '../commands';
 import { Container } from '../container';
 import { WelcomeBootstrap } from '../ui/ipc';
 import { WebviewEditor } from './webviewEditor';
@@ -28,6 +29,6 @@ export class WelcomeEditor extends WebviewEditor<WelcomeBootstrap> {
     }
 
     registerCommands() {
-        return [commands.registerCommand('gitlens.showWelcomePage', this.show, this)];
+        return [commands.registerCommand(Commands.ShowWelcomePage, this.show, this)];
     }
 }
