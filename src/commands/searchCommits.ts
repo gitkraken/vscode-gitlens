@@ -35,7 +35,7 @@ const searchByToSymbolMap = new Map<GitRepoSearchBy, string>([
     [GitRepoSearchBy.Sha, '#']
 ]);
 
-export interface ShowCommitSearchCommandArgs {
+export interface SearchCommitsCommandArgs {
     search?: string;
     searchBy?: GitRepoSearchBy;
     maxCount?: number;
@@ -45,12 +45,12 @@ export interface ShowCommitSearchCommandArgs {
 }
 
 @command()
-export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
+export class SearchCommitsCommand extends ActiveEditorCachedCommand {
     constructor() {
-        super(Commands.ShowCommitSearch);
+        super([Commands.SearchCommits, Commands.SearchCommitsInView]);
     }
 
-    protected async preExecute(context: CommandContext, args: ShowCommitSearchCommandArgs = {}) {
+    protected async preExecute(context: CommandContext, args: SearchCommitsCommandArgs = {}) {
         if (context.type === 'viewItem') {
             args = { ...args };
             args.showInView = true;
@@ -59,6 +59,10 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
                 return this.execute(context.editor, context.node.uri, args);
             }
         }
+        else if (context.command === Commands.SearchCommitsInView) {
+            args = { ...args };
+            args.showInView = true;
+        }
         else {
             // TODO: Add a user setting (default to view?)
         }
@@ -66,7 +70,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
         return this.execute(context.editor, context.uri, args);
     }
 
-    async execute(editor?: TextEditor, uri?: Uri, args: ShowCommitSearchCommandArgs = {}) {
+    async execute(editor?: TextEditor, uri?: Uri, args: SearchCommitsCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
 
         const gitUri = uri && (await GitUri.fromUri(uri));
@@ -173,7 +177,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
                         label: `go back ${GlyphChars.ArrowBack}`,
                         description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to commit search`
                     },
-                    Commands.ShowCommitSearch,
+                    Commands.SearchCommits,
                     [uri, originalArgs]
                 );
 
@@ -188,7 +192,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
                                       label: `$(sync) Show All Commits`,
                                       description: `${Strings.pad(GlyphChars.Dash, 2, 3)} this may take a while`
                                   },
-                                  Commands.ShowCommitSearch,
+                                  Commands.SearchCommits,
                                   [uri, { ...args, maxCount: 0, goBackCommand: goBackCommand }]
                               )
                             : undefined,
@@ -218,7 +222,7 @@ export class ShowCommitSearchCommand extends ActiveEditorCachedCommand {
                             label: `go back ${GlyphChars.ArrowBack}`,
                             description: `${Strings.pad(GlyphChars.Dash, 2, 2)} to search for ${searchLabel}`
                         },
-                        Commands.ShowCommitSearch,
+                        Commands.SearchCommits,
                         [uri, args]
                     )
             } as ShowQuickCommitDetailsCommandArgs);

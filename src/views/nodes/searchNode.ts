@@ -1,6 +1,6 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { ShowCommitSearchCommandArgs } from '../../commands';
+import { SearchCommitsCommandArgs } from '../../commands';
 import { GlyphChars } from '../../constants';
 import { GitRepoSearchBy } from '../../git/gitService';
 import { debug, Functions, gate, log } from '../../system';
@@ -28,7 +28,7 @@ export class SearchNode extends ViewNode {
                     this,
                     {
                         ...command,
-                        arguments: [this, { searchBy: GitRepoSearchBy.Message } as ShowCommitSearchCommandArgs]
+                        arguments: [this, { searchBy: GitRepoSearchBy.Message } as SearchCommitsCommandArgs]
                     },
                     `Search commits by message (use &lt;message-pattern&gt;)`,
                     'Click to search commits by message'
@@ -38,7 +38,7 @@ export class SearchNode extends ViewNode {
                     this,
                     {
                         ...command,
-                        arguments: [this, { searchBy: GitRepoSearchBy.Author } as ShowCommitSearchCommandArgs]
+                        arguments: [this, { searchBy: GitRepoSearchBy.Author } as SearchCommitsCommandArgs]
                     },
                     `${GlyphChars.Space.repeat(4)} or, by author (use @&lt;author-pattern&gt;)`,
                     'Click to search commits by author'
@@ -48,7 +48,7 @@ export class SearchNode extends ViewNode {
                     this,
                     {
                         ...command,
-                        arguments: [this, { searchBy: GitRepoSearchBy.Sha } as ShowCommitSearchCommandArgs]
+                        arguments: [this, { searchBy: GitRepoSearchBy.Sha } as SearchCommitsCommandArgs]
                     },
                     `${GlyphChars.Space.repeat(4)} or, by commit id (use #&lt;sha&gt;)`,
                     'Click to search commits by commit id'
@@ -58,7 +58,7 @@ export class SearchNode extends ViewNode {
                     this,
                     {
                         ...command,
-                        arguments: [this, { searchBy: GitRepoSearchBy.Files } as ShowCommitSearchCommandArgs]
+                        arguments: [this, { searchBy: GitRepoSearchBy.Files } as SearchCommitsCommandArgs]
                     },
                     `${GlyphChars.Space.repeat(4)} or, by files (use :&lt;file-pattern&gt;)`,
                     'Click to search commits by files'
@@ -68,7 +68,7 @@ export class SearchNode extends ViewNode {
                     this,
                     {
                         ...command,
-                        arguments: [this, { searchBy: GitRepoSearchBy.Changes } as ShowCommitSearchCommandArgs]
+                        arguments: [this, { searchBy: GitRepoSearchBy.Changes } as SearchCommitsCommandArgs]
                     },
                     `${GlyphChars.Space.repeat(4)} or, by changes (use =&lt;pattern&gt;)`,
                     'Click to search commits by changes'
@@ -78,7 +78,7 @@ export class SearchNode extends ViewNode {
                     this,
                     {
                         ...command,
-                        arguments: [this, { searchBy: GitRepoSearchBy.ChangedLines } as ShowCommitSearchCommandArgs]
+                        arguments: [this, { searchBy: GitRepoSearchBy.ChangedLines } as SearchCommitsCommandArgs]
                     },
                     `${GlyphChars.Space.repeat(4)} or, by changed lines (use ~&lt;pattern&gt;)`,
                     'Click to search commits by changed lines'

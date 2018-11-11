@@ -2429,6 +2429,15 @@
                 }
             },
             {
+                "command": "gitlens.views.search.searchCommits",
+                "title": "Search Commits",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-search.svg",
+                    "light": "images/light/icon-search.svg"
+                }
+            },
+            {
                 "command": "gitlens.views.search.clear",
                 "title": "Clear Results",
                 "category": "GitLens",
@@ -3013,6 +3022,10 @@
                     "when": "false"
                 },
                 {
+                    "command": "gitlens.views.search.searchCommits",
+                    "when": "false"
+                },
+                {
                     "command": "gitlens.views.search.clear",
                     "when": "false"
                 },
@@ -3419,6 +3432,11 @@
                     "command": "gitlens.views.compare.setFilesLayoutToTree",
                     "when": "view =~ /^gitlens\\.views\\.compare:/",
                     "group": "1_gitlens"
+                },
+                {
+                    "command": "gitlens.views.search.searchCommits",
+                    "when": "view =~ /^gitlens\\.views\\.search:/",
+                    "group": "navigation@1"
                 },
                 {
                     "command": "gitlens.views.search.clear",

@@ -28,7 +28,7 @@ export * from './commands/openRepoInRemote';
 export * from './commands/openWorkingFile';
 export * from './commands/repositories';
 export * from './commands/resetSuppressedWarnings';
-export * from './commands/showCommitSearch';
+export * from './commands/searchCommits';
 export * from './commands/showLastQuickPick';
 export * from './commands/showQuickBranchHistory';
 export * from './commands/showQuickCommitDetails';

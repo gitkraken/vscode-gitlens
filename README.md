@@ -267,7 +267,7 @@ The search commits view provides the following features,
 
 - Provides a semi-persistent results view for searching and exploring commit histories
   - Accessible via the following commands
-    - _Show Commit Search_ command (`gitlens.showCommitSearch`)
+    - _Search Commits_ command (`gitlens.showCommitSearch`)
     - _Show File History_ command (`gitlens.showQuickFileHistory`)
     - _Show Commit Details_ command (`gitlens.showQuickCommitDetails`)
   - An inline toolbar provides a _Clear Results_ command
