@@ -2369,6 +2369,15 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.views.compare.selectForCompare",
+                "title": "Compare Branch or Tag with...",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-compare-refs.svg",
+                    "light": "images/light/icon-compare-refs.svg"
+                }
+            },
+            {
                 "command": "gitlens.views.compare.clear",
                 "title": "Clear Results",
                 "category": "GitLens",
@@ -2990,6 +2999,10 @@
                     "when": "false"
                 },
                 {
+                    "command": "gitlens.views.compare.selectForCompare",
+                    "when": "gitlens:enabled && gitlens.views.compare.enabled"
+                },
+                {
                     "command": "gitlens.views.compare.clear",
                     "when": "false"
                 },
@@ -3397,6 +3410,11 @@
                     "command": "gitlens.views.lineHistory.setRenameFollowingOff",
                     "when": "view =~ /^gitlens\\.views\\.lineHistory:/ && config.gitlens.advanced.fileHistoryFollowsRenames",
                     "group": "1_gitlens"
+                },
+                {
+                    "command": "gitlens.views.compare.selectForCompare",
+                    "when": "view =~ /^gitlens\\.views\\.compare:/",
+                    "group": "navigation@1"
                 },
                 {
                     "command": "gitlens.views.compare.clear",
