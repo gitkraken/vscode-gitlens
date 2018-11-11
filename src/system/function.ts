@@ -1,8 +1,6 @@
 'use strict';
+import { debounce as _debounce, once as _once } from 'lodash-es';
 import { CancellationToken, Disposable } from 'vscode';
-
-const _debounce = require('lodash.debounce');
-const _once = require('lodash.once');
 
 export interface IDeferrable {
     cancel(): void;
@@ -37,7 +35,7 @@ export namespace Functions {
         });
     }
 
-    export function debounce<T extends Function>(
+    export function debounce<T extends (...args: any[]) => any>(
         fn: T,
         wait?: number,
         options?: { leading?: boolean; maxWait?: number; track?: boolean; trailing?: boolean }
@@ -82,7 +80,7 @@ export namespace Functions {
         return (typeof o === 'object' || typeof o === 'function') && typeof o.then === 'function';
     }
 
-    export function once<T extends Function>(fn: T): T {
+    export function once<T extends (...args: any[]) => any>(fn: T): T {
         return _once(fn);
     }
 
