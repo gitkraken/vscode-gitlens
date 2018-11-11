@@ -34,7 +34,7 @@ export class ComparePickerNode extends ViewNode<CompareView> {
         let item;
         if (selectedRef === undefined) {
             item = new TreeItem(
-                `Compare &lt;branch, tag, or ref&gt; to &lt;branch, tag, or ref&gt;${repository}`,
+                `Compare &lt;branch, tag, or ref&gt; with &lt;branch, tag, or ref&gt;${repository}`,
                 TreeItemCollapsibleState.None
             );
             item.contextValue = ResourceType.ComparePicker;
@@ -46,11 +46,11 @@ export class ComparePickerNode extends ViewNode<CompareView> {
         }
         else {
             item = new TreeItem(
-                `Compare ${selectedRef.label} to &lt;branch, tag, or ref&gt;${repository}`,
+                `Compare ${selectedRef.label} with &lt;branch, tag, or ref&gt;${repository}`,
                 TreeItemCollapsibleState.None
             );
             item.contextValue = ResourceType.ComparePickerWithRef;
-            item.tooltip = `Click to compare ${selectedRef.label} to${GlyphChars.Ellipsis}`;
+            item.tooltip = `Click to compare ${selectedRef.label} with${GlyphChars.Ellipsis}`;
             item.command = {
                 title: `Compare ${selectedRef.label} with${GlyphChars.Ellipsis}`,
                 command: this.view.getQualifiedCommand('compareWithSelected')

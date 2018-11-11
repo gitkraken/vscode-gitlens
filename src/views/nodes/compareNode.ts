@@ -124,7 +124,7 @@ export class CompareNode extends ViewNode<CompareView> {
 
         if (ref === undefined) {
             const pick = await new BranchesAndTagsQuickPick(repoPath).show(
-                `Compare ${this.getRefName(this._selectedRef.ref)} to${GlyphChars.Ellipsis}`
+                `Compare ${this.getRefName(this._selectedRef.ref)} with${GlyphChars.Ellipsis}`
             );
             if (pick === undefined || pick instanceof CommandQuickPickItem) return;
 
@@ -143,7 +143,7 @@ export class CompareNode extends ViewNode<CompareView> {
         if (repoPath === undefined) {
             repoPath = await getRepoPathOrPrompt(
                 undefined,
-                `Select branch or tag in which repository${GlyphChars.Ellipsis}`
+                `Select branch or tag for compare in which repository${GlyphChars.Ellipsis}`
             );
         }
         if (repoPath === undefined) return;

@@ -56,13 +56,13 @@ export class DiffBranchWithBranchCommand extends ActiveEditorCommand {
                 let placeHolder;
                 switch (args.ref2) {
                     case '':
-                        placeHolder = `Compare Working Tree to${GlyphChars.Ellipsis}`;
+                        placeHolder = `Compare Working Tree with${GlyphChars.Ellipsis}`;
                         break;
                     case 'HEAD':
-                        placeHolder = `Compare HEAD to${GlyphChars.Ellipsis}`;
+                        placeHolder = `Compare HEAD with${GlyphChars.Ellipsis}`;
                         break;
                     default:
-                        placeHolder = `Compare ${args.ref2} to${GlyphChars.Ellipsis}`;
+                        placeHolder = `Compare ${args.ref2} with${GlyphChars.Ellipsis}`;
                         break;
                 }
 

@@ -62,7 +62,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
                 args = { ...args };
 
                 const pick = await new BranchesAndTagsQuickPick(repoPath).show(
-                    `Compare Working Tree to${GlyphChars.Ellipsis}`
+                    `Compare Working Tree with${GlyphChars.Ellipsis}`
                 );
                 if (pick === undefined) return undefined;
 
