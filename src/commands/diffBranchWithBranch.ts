@@ -1,5 +1,5 @@
 'use strict';
-import { CancellationTokenSource, TextEditor, Uri } from 'vscode';
+import { TextEditor, Uri } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
@@ -66,12 +66,14 @@ export class DiffBranchWithBranchCommand extends ActiveEditorCommand {
                         break;
                 }
 
-                const pick = await new BranchesAndTagsQuickPick(repoPath).show(placeHolder);
+                const pick = await new BranchesAndTagsQuickPick(repoPath).show(placeHolder, {
+                    allowCommitId: true
+                });
                 if (pick === undefined) return undefined;
 
                 if (pick instanceof CommandQuickPickItem) return pick.execute();
 
-                args.ref1 = pick.name;
+                args.ref1 = pick.ref;
                 if (args.ref1 === undefined) return undefined;
             }
 

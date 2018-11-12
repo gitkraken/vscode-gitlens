@@ -118,17 +118,18 @@ export class CompareNode extends ViewNode<CompareView> {
         }
         else if (repoPath !== this._selectedRef.repoPath) {
             // If we don't have a matching repoPath, then start over
-            this.selectForCompare(repoPath, ref);
+            void this.selectForCompare(repoPath, ref);
             return;
         }
 
         if (ref === undefined) {
             const pick = await new BranchesAndTagsQuickPick(repoPath).show(
-                `Compare ${this.getRefName(this._selectedRef.ref)} with${GlyphChars.Ellipsis}`
+                `Compare ${this.getRefName(this._selectedRef.ref)} with${GlyphChars.Ellipsis}`,
+                { allowCommitId: true }
             );
             if (pick === undefined || pick instanceof CommandQuickPickItem) return;
 
-            ref = pick.name;
+            ref = pick.ref;
         }
 
         const ref1 = this._selectedRef;
@@ -151,11 +152,12 @@ export class CompareNode extends ViewNode<CompareView> {
         let autoCompare = false;
         if (ref === undefined) {
             const pick = await new BranchesAndTagsQuickPick(repoPath).show(
-                `Select branch or tag for compare${GlyphChars.Ellipsis}`
+                `Select branch or tag for compare${GlyphChars.Ellipsis}`,
+                { allowCommitId: true }
             );
             if (pick === undefined || pick instanceof CommandQuickPickItem) return;
 
-            ref = pick.name;
+            ref = pick.ref;
 
             autoCompare = true;
         }

@@ -549,6 +549,18 @@ export class Git {
         return data === '' ? undefined : data.trim();
     }
 
+    static async cat_validate(repoPath: string, ref: string) {
+        if (Git.isUncommitted(ref)) return true;
+
+        try {
+            await git<string>({ cwd: repoPath, exceptionHandler: throwExceptionHandler }, 'cat-file', '-t', ref);
+            return true;
+        }
+        catch (ex) {
+            return false;
+        }
+    }
+
     static async cat_file_validate(repoPath: string, fileName: string, ref: string) {
         if (Git.isUncommitted(ref)) return ref;
 

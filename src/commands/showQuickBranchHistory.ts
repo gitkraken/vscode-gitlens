@@ -68,7 +68,7 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
                 if (pick === undefined) return undefined;
                 if (pick instanceof CommandQuickPickItem) return pick.execute();
 
-                args.branch = pick.item.name;
+                args.branch = pick.ref;
                 if (args.branch === undefined) return undefined;
 
                 progressCancellation = BranchHistoryQuickPick.showProgress(args.branch);

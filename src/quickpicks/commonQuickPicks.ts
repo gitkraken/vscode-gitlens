@@ -16,7 +16,12 @@ import { Container } from '../container';
 import { GitLog, GitLogCommit, GitRepoSearchBy, GitStashCommit, GitUri } from '../git/gitService';
 import { KeyMapping, Keys } from '../keyboard';
 import { Functions, Strings } from '../system';
-import { BranchesAndTagsQuickPick, BranchQuickPickItem, TagQuickPickItem } from './branchesAndTagsQuickPick';
+import {
+    BranchesAndTagsQuickPick,
+    BranchQuickPickItem,
+    RefQuickPickItem,
+    TagQuickPickItem
+} from './branchesAndTagsQuickPick';
 
 export function getQuickPickIgnoreFocusOut() {
     return !configuration.get<boolean>(configuration.name('advanced')('quickPick')('closeOnFocusOut').value);
@@ -145,8 +150,11 @@ export class ChooseFromBranchesAndTagsQuickPickItem extends CommandQuickPickItem
         super(item, undefined, undefined);
     }
 
-    execute(): Promise<CommandQuickPickItem | BranchQuickPickItem | TagQuickPickItem | undefined> {
-        return new BranchesAndTagsQuickPick(this.repoPath).show(this.placeHolder, { goBack: this._goBack });
+    execute(): Promise<CommandQuickPickItem | BranchQuickPickItem | TagQuickPickItem | RefQuickPickItem | undefined> {
+        return new BranchesAndTagsQuickPick(this.repoPath).show(this.placeHolder, {
+            allowCommitId: true,
+            goBack: this._goBack
+        });
     }
 }
 

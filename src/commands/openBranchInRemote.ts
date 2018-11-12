@@ -65,7 +65,7 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
                 );
                 if (pick === undefined || pick instanceof CommandQuickPickItem) return undefined;
 
-                args.branch = pick.item.name;
+                args.branch = pick.ref;
             }
 
             const remotes = await Container.git.getRemotes(repoPath);

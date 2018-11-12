@@ -69,12 +69,13 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
         const pick = await new BranchesAndTagsQuickPick(this.uri.repoPath!).show(
             `Change the line history base to${GlyphChars.Ellipsis}`,
             {
+                allowCommitId: true,
                 checked: this._base
             }
         );
         if (pick === undefined || pick instanceof CommandQuickPickItem) return;
 
-        this._base = pick.current ? undefined : pick.name;
+        this._base = pick.current ? undefined : pick.ref;
         if (this._child === undefined) return;
 
         this._uri = unknownGitUri;

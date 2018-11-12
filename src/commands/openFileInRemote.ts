@@ -1,5 +1,4 @@
 'use strict';
-import { __await } from 'tslib';
 import { commands, Range, TextEditor, Uri, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
@@ -69,7 +68,7 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
                 );
                 if (pick === undefined || pick instanceof CommandQuickPickItem) return undefined;
 
-                args.branch = pick.item.name;
+                args.branch = pick.ref;
             }
             else {
                 args.branch = branch.name;

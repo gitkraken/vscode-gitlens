@@ -2015,6 +2015,12 @@ export class GitService implements Disposable {
         return ensuredRef;
     }
 
+    async validateReference(repoPath: string, ref: string) {
+        Logger.log(`validateReference('${repoPath}', '${ref}'`);
+
+        return await Git.cat_validate(repoPath, ref);
+    }
+
     stageFile(repoPath: string, fileName: string): Promise<string>;
     stageFile(repoPath: string, uri: Uri): Promise<string>;
     stageFile(repoPath: string, fileNameOrUri: string | Uri): Promise<string> {

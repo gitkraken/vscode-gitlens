@@ -70,12 +70,13 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
         const pick = await new BranchesAndTagsQuickPick(this.uri.repoPath!).show(
             `Change the file history base to${GlyphChars.Ellipsis}`,
             {
+                allowCommitId: true,
                 checked: this._baseRef
             }
         );
         if (pick === undefined || pick instanceof CommandQuickPickItem) return;
 
-        this._baseRef = pick.current ? undefined : pick.name;
+        this._baseRef = pick.current ? undefined : pick.ref;
         if (this._child === undefined) return;
 
         this._uri = unknownGitUri;

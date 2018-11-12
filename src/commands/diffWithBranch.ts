@@ -38,6 +38,7 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
         const pick = await new BranchesAndTagsQuickPick(gitUri.repoPath).show(
             `Compare ${paths.basename(gitUri.fsPath)} with${GlyphChars.Ellipsis}`,
             {
+                allowCommitId: true,
                 goBack: args.goBackCommand
             }
         );
@@ -45,7 +46,7 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
 
         if (pick instanceof CommandQuickPickItem) return pick.execute();
 
-        const ref = pick.name;
+        const ref = pick.ref;
         if (ref === undefined) return undefined;
 
         let renamedUri: Uri | undefined;
