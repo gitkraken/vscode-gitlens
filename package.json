@@ -4346,7 +4346,7 @@
         "@types/clipboardy": "1.1.0",
         "@types/lodash-es": "4.17.1",
         "@types/node": "8.10.37",
-        "clean-webpack-plugin": "0.1.19",
+        "clean-webpack-plugin": "1.0.0",
         "css-loader": "1.0.1",
         "filemanager-webpack-plugin": "2.0.5",
         "html-webpack-inline-source-plugin": "0.0.10",
