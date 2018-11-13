@@ -4,7 +4,7 @@ import { Commands, registerCommands } from './commands';
 import { Config, configuration, Configuration } from './configuration';
 import { CommandContext, extensionQualifiedId, GlobalState, GlyphChars, setCommandContext } from './constants';
 import { Container } from './container';
-import { GitService } from './git/gitService';
+import { GitCommit, GitService, GitUri } from './git/gitService';
 import { Logger } from './logger';
 import { Messages } from './messages';
 import { Strings, Versions } from './system';
@@ -17,7 +17,19 @@ export async function activate(context: ExtensionContext) {
     // Pretend we are enabled (until we know otherwise) and set the view contexts to reduce flashing on load
     setCommandContext(CommandContext.Enabled, true);
 
-    Logger.configure(context);
+    Logger.configure(context, o => {
+        if (o instanceof GitUri) {
+            return `GitUri(${o.toString(true)}${o.repoPath ? ` repoPath=${o.repoPath}` : ''}${
+                o.sha ? ` sha=${o.sha}` : ''
+            })`;
+        }
+
+        if (o instanceof GitCommit) {
+            return `GitCommit(${o.sha ? ` sha=${o.sha}` : ''}${o.repoPath ? ` repoPath=${o.repoPath}` : ''})`;
+        }
+
+        return undefined;
+    });
 
     const gitlens = extensions.getExtension(extensionQualifiedId)!;
     const gitlensVersion = gitlens.packageJSON.version;

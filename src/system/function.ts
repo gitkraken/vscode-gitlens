@@ -76,6 +76,29 @@ export namespace Functions {
         return tracked;
     }
 
+    export function getParameters(fn: Function): string[] {
+        if (typeof fn !== 'function') throw new Error('Not supported');
+
+        if (fn.length === 0) return [];
+
+        const stripCommentsRegex = /(\/\*([\s\S]*?)\*\/|([^:]|^)\/\/(.*)$)/gm;
+        let fnBody: string = Function.prototype.toString.call(fn);
+        fnBody = fnBody.replace(stripCommentsRegex, '') || fnBody;
+        fnBody = fnBody.slice(0, fnBody.indexOf('{'));
+
+        let open = fnBody.indexOf('(');
+        let close = fnBody.indexOf(')');
+
+        open = open >= 0 ? open + 1 : 0;
+        close = close > 0 ? close : fnBody.indexOf('=');
+
+        fnBody = fnBody.slice(open, close);
+        fnBody = `(${fnBody})`;
+
+        const match = fnBody.match(/\(([\s\S]*)\)/);
+        return match != null ? match[1].split(',').map(param => param.trim()) : [];
+    }
+
     export function isPromise(o: any): o is Promise<any> {
         return (typeof o === 'object' || typeof o === 'function') && typeof o.then === 'function';
     }

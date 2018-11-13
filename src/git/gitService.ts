@@ -22,7 +22,7 @@ import { GitExtension } from '../@types/git';
 import { configuration, RemotesConfig } from '../configuration';
 import { CommandContext, DocumentSchemes, GlyphChars, setCommandContext } from '../constants';
 import { Container } from '../container';
-import { Logger } from '../logger';
+import { LogCorrelationContext, Logger } from '../logger';
 import { Messages } from '../messages';
 import { gate, Iterables, log, Objects, Strings, TernarySearchTree, Versions } from '../system';
 import { CachedBlame, CachedDiff, CachedLog, GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
@@ -418,14 +418,13 @@ export class GitService implements Disposable {
         this._onDidChangeRepositories.fire();
     }
 
+    @log()
     async applyChangesToWorkingFile(uri: GitUri, ref?: string) {
         ref = ref || uri.sha;
         if (ref === undefined || uri.repoPath === undefined) return;
 
         let patch;
         try {
-            Logger.log(`applyChangesToWorkingFile('${uri.repoPath}', '${uri.fsPath}', '${ref}')`);
-
             patch = await Git.diff(uri.repoPath, uri.fsPath, `${ref}^`, ref);
             void (await Git.apply(uri.repoPath!, patch));
         }
@@ -455,11 +454,10 @@ export class GitService implements Disposable {
         }
     }
 
+    @log()
     checkoutFile(uri: GitUri, ref?: string) {
         ref = ref || uri.sha;
         if (ref === undefined || uri.repoPath === undefined) return;
-
-        Logger.log(`checkoutFile('${uri.repoPath}', '${uri.fsPath}', '${ref}')`);
 
         return Git.checkout(uri.repoPath, uri.fsPath, ref);
     }
@@ -595,6 +593,7 @@ export class GitService implements Disposable {
         return this.fileExistsWithCase(dir, repoPath, repoPathLength);
     }
 
+    @log()
     async findNextCommit(repoPath: string, fileName: string, ref?: string): Promise<GitLogCommit | undefined> {
         let log = await this.getLogForFile(repoPath, fileName, { maxCount: 1, ref: ref, renames: true, reverse: true });
         let commit = log && Iterables.first(log.commits.values());
@@ -614,6 +613,7 @@ export class GitService implements Disposable {
         return commit;
     }
 
+    @log()
     async findNextFileName(repoPath: string | undefined, fileName: string, ref?: string): Promise<string | undefined> {
         [fileName, repoPath] = Git.splitPath(fileName, repoPath);
 
@@ -646,6 +646,7 @@ export class GitService implements Disposable {
         repoPath?: string,
         ref?: string
     ): Promise<[string | undefined, string | undefined]>;
+    @log()
     async findWorkingFileName(
         commitOrFileName: GitCommit | string,
         repoPath?: string,
@@ -680,6 +681,12 @@ export class GitService implements Disposable {
         }
     }
 
+    @log({
+        args: {
+            0: (editor: TextEditor) =>
+                editor !== undefined ? `TextEditor(${Logger.toLoggable(editor.document.uri)})` : 'undefined'
+        }
+    })
     async getActiveRepoPath(editor?: TextEditor): Promise<string | undefined> {
         editor = editor || window.activeTextEditor;
 
@@ -696,6 +703,7 @@ export class GitService implements Disposable {
         return this.getHighlanderRepoPath();
     }
 
+    @log()
     getHighlanderRepoPath(): string | undefined {
         const entry = this._repositoryTree.highlander();
         if (entry === undefined) return undefined;
@@ -704,7 +712,10 @@ export class GitService implements Disposable {
         return repo.path;
     }
 
+    @log()
     async getBlameForFile(uri: GitUri): Promise<GitBlame | undefined> {
+        const cc = Logger.getCorrelationContext();
+
         let key = 'blame';
         if (uri.sha !== undefined) {
             key += `:${uri.sha}`;
@@ -715,25 +726,22 @@ export class GitService implements Disposable {
             if (doc.state !== undefined) {
                 const cachedBlame = doc.state.get<CachedBlame>(key);
                 if (cachedBlame !== undefined) {
-                    Logger.log(`getBlameForFile[Cached(${key})]('${uri.repoPath}', '${uri.fsPath}', '${uri.sha}')`);
+                    Logger.debug(cc, `Cache hit: '${key}'`);
                     return cachedBlame.item;
                 }
             }
 
-            Logger.log(`getBlameForFile[Not Cached(${key})]('${uri.repoPath}', '${uri.fsPath}', '${uri.sha}')`);
+            Logger.debug(cc, `Cache miss: '${key}'`);
 
             if (doc.state === undefined) {
                 doc.state = new GitDocumentState(doc.key);
             }
         }
-        else {
-            Logger.log(`getBlameForFile('${uri.repoPath}', '${uri.fsPath}', '${uri.sha}')`);
-        }
 
-        const promise = this.getBlameForFileCore(uri, doc, key);
+        const promise = this.getBlameForFileCore(uri, doc, key, cc);
 
         if (doc.state !== undefined) {
-            Logger.log(`Add blame cache for '${doc.state.key}:${key}'`);
+            Logger.debug(cc, `Cache add: '${key}'`);
 
             doc.state.set<CachedBlame>(key, {
                 item: promise
@@ -746,10 +754,11 @@ export class GitService implements Disposable {
     private async getBlameForFileCore(
         uri: GitUri,
         document: TrackedDocument<GitDocumentState>,
-        key: string
+        key: string,
+        cc: LogCorrelationContext | undefined
     ): Promise<GitBlame | undefined> {
         if (!(await this.isTracked(uri))) {
-            Logger.log(`Skipping blame; '${uri.fsPath}' is not tracked`);
+            Logger.log(cc, `Skipping blame; '${uri.fsPath}' is not tracked`);
             return GitService.emptyPromise as Promise<GitBlame>;
         }
 
@@ -767,7 +776,7 @@ export class GitService implements Disposable {
             // Trap and cache expected blame errors
             if (document.state !== undefined) {
                 const msg = ex && ex.toString();
-                Logger.log(`Replace blame cache with empty promise for '${document.state.key}:${key}'`);
+                Logger.debug(cc, `Cache replace (with empty promise): '${key}'`);
 
                 document.state.set<CachedBlame>(key, {
                     item: GitService.emptyPromise,
@@ -783,7 +792,14 @@ export class GitService implements Disposable {
         }
     }
 
+    @log({
+        args: {
+            1: contents => '<contents>'
+        }
+    })
     async getBlameForFileContents(uri: GitUri, contents: string): Promise<GitBlame | undefined> {
+        const cc = Logger.getCorrelationContext();
+
         const key = `blame:${Strings.sha1(contents)}`;
 
         const doc = await Container.tracker.getOrAdd(uri);
@@ -791,27 +807,22 @@ export class GitService implements Disposable {
             if (doc.state !== undefined) {
                 const cachedBlame = doc.state.get<CachedBlame>(key);
                 if (cachedBlame !== undefined) {
-                    Logger.log(
-                        `getBlameForFileContents[Cached(${key})]('${uri.repoPath}', '${uri.fsPath}', '${uri.sha}')`
-                    );
+                    Logger.debug(cc, `Cache hit: ${key}`);
                     return cachedBlame.item;
                 }
             }
 
-            Logger.log(`getBlameForFileContents[Not Cached(${key})]('${uri.repoPath}', '${uri.fsPath}', '${uri.sha}')`);
+            Logger.debug(cc, `Cache miss: ${key}`);
 
             if (doc.state === undefined) {
                 doc.state = new GitDocumentState(doc.key);
             }
         }
-        else {
-            Logger.log(`getBlameForFileContents('${uri.repoPath}', '${uri.fsPath}', '${uri.sha}')`);
-        }
 
-        const promise = this.getBlameForFileContentsCore(uri, contents, doc, key);
+        const promise = this.getBlameForFileContentsCore(uri, contents, doc, key, cc);
 
         if (doc.state !== undefined) {
-            Logger.log(`Add blame cache for '${doc.state.key}:${key}'`);
+            Logger.debug(cc, `Cache add: '${key}'`);
 
             doc.state.set<CachedBlame>(key, {
                 item: promise
@@ -825,10 +836,11 @@ export class GitService implements Disposable {
         uri: GitUri,
         contents: string,
         document: TrackedDocument<GitDocumentState>,
-        key: string
+        key: string,
+        cc: LogCorrelationContext | undefined
     ): Promise<GitBlame | undefined> {
         if (!(await this.isTracked(uri))) {
-            Logger.log(`Skipping blame; '${uri.fsPath}' is not tracked`);
+            Logger.log(cc, `Skipping blame; '${uri.fsPath}' is not tracked`);
             return GitService.emptyPromise as Promise<GitBlame>;
         }
 
@@ -847,7 +859,7 @@ export class GitService implements Disposable {
             // Trap and cache expected blame errors
             if (document.state !== undefined) {
                 const msg = ex && ex.toString();
-                Logger.log(`Replace blame cache with empty promise for '${document.state.key}:${key}'`);
+                Logger.debug(cc, `Cache replace (with empty promise): '${key}'`);
 
                 document.state.set<CachedBlame>(key, {
                     item: GitService.emptyPromise,
@@ -862,13 +874,12 @@ export class GitService implements Disposable {
         }
     }
 
+    @log()
     async getBlameForLine(
         uri: GitUri,
         line: number,
         options: { skipCache?: boolean } = {}
     ): Promise<GitBlameLine | undefined> {
-        Logger.log(`getBlameForLine('${uri.repoPath}', '${uri.fsPath}', '${uri.sha}', ${line})`);
-
         if (!options.skipCache && this.UseCaching) {
             const blame = await this.getBlameForFile(uri);
             if (blame === undefined) return undefined;
@@ -913,14 +924,17 @@ export class GitService implements Disposable {
         }
     }
 
+    @log({
+        args: {
+            2: contents => '<contents>'
+        }
+    })
     async getBlameForLineContents(
         uri: GitUri,
         line: number,
         contents: string,
         options: { skipCache?: boolean } = {}
     ): Promise<GitBlameLine | undefined> {
-        Logger.log(`getBlameForLineContents('${uri.repoPath}', '${uri.fsPath}', ${line})`);
-
         if (!options.skipCache && this.UseCaching) {
             const blame = await this.getBlameForFileContents(uri, contents);
             if (blame === undefined) return undefined;
@@ -966,26 +980,18 @@ export class GitService implements Disposable {
         }
     }
 
+    @log()
     async getBlameForRange(uri: GitUri, range: Range): Promise<GitBlameLines | undefined> {
-        Logger.log(
-            `getBlameForRange('${uri.repoPath}', '${uri.fsPath}', '${uri.sha}', [${range.start.line}, ${
-                range.end.line
-            }])`
-        );
-
         const blame = await this.getBlameForFile(uri);
         if (blame === undefined) return undefined;
 
         return this.getBlameForRangeSync(blame, uri, range);
     }
 
+    @log({
+        args: { 0: blame => '<blame>' }
+    })
     getBlameForRangeSync(blame: GitBlame, uri: GitUri, range: Range): GitBlameLines | undefined {
-        Logger.log(
-            `getBlameForRangeSync('${uri.repoPath}', '${uri.fsPath}', '${uri.sha}', [${range.start.line}, ${
-                range.end.line
-            }])`
-        );
-
         if (blame.lines.length === 0) return { allLines: blame.lines, ...blame };
 
         if (range.start.line === 0 && range.end.line === blame.lines.length - 1) {
@@ -1027,10 +1033,9 @@ export class GitService implements Disposable {
         } as GitBlameLines;
     }
 
+    @log()
     async getBranch(repoPath: string | undefined): Promise<GitBranch | undefined> {
         if (repoPath === undefined) return undefined;
-
-        Logger.log(`getBranch('${repoPath}')`);
 
         const data = await Git.revparse_currentBranch(repoPath);
         if (data === undefined) return undefined;
@@ -1039,10 +1044,9 @@ export class GitService implements Disposable {
         return new GitBranch(repoPath, branch[0], true, data[1], branch[1]);
     }
 
+    @log()
     async getBranches(repoPath: string | undefined): Promise<GitBranch[]> {
         if (repoPath === undefined) return [];
-
-        Logger.log(`getBranches('${repoPath}')`);
 
         const data = await Git.branch(repoPath, { all: true });
         // If we don't get any data, assume the repo doesn't have any commits yet so check if we have a current branch
@@ -1054,21 +1058,20 @@ export class GitService implements Disposable {
         return GitBranchParser.parse(data, repoPath) || [];
     }
 
+    @log()
     async getChangedFilesCount(repoPath: string, ref?: string): Promise<GitDiffShortStat | undefined> {
-        Logger.log(`getChangedFilesCount('${repoPath}', '${ref}')`);
-
         const data = await Git.diff_shortstat(repoPath, ref);
         return GitDiffParser.parseShortStat(data);
     }
 
+    @log()
     async getConfig(key: string, repoPath?: string): Promise<string | undefined> {
-        Logger.log(`getConfig('${key}', '${repoPath}')`);
-
         return await Git.config_get(key, repoPath);
     }
 
     private _userMapCache = new Map<string, { name?: string; email?: string } | null>();
 
+    @log()
     async getCurrentUser(repoPath: string) {
         let user = this._userMapCache.get(repoPath);
         if (user != null) return user;
@@ -1107,7 +1110,10 @@ export class GitService implements Disposable {
         return user;
     }
 
+    @log()
     async getDiffForFile(uri: GitUri, ref1?: string, ref2?: string): Promise<GitDiff | undefined> {
+        const cc = Logger.getCorrelationContext();
+
         if (ref1 !== undefined && ref2 === undefined && uri.sha !== undefined) {
             ref2 = uri.sha;
         }
@@ -1125,21 +1131,16 @@ export class GitService implements Disposable {
             if (doc.state !== undefined) {
                 const cachedDiff = doc.state.get<CachedDiff>(key);
                 if (cachedDiff !== undefined) {
-                    Logger.log(
-                        `getDiffForFile[Cached(${key})]('${uri.repoPath}', '${uri.fsPath}', '${ref1}', '${ref2}')`
-                    );
+                    Logger.debug(cc, `Cache hit: '${key}'`);
                     return cachedDiff.item;
                 }
             }
 
-            Logger.log(`getDiffForFile[Not Cached(${key})]('${uri.repoPath}', '${uri.fsPath}', '${ref1}', '${ref2}')`);
+            Logger.debug(cc, `Cache miss: '${key}'`);
 
             if (doc.state === undefined) {
                 doc.state = new GitDocumentState(doc.key);
             }
-        }
-        else {
-            Logger.log(`getDiffForFile('${uri.repoPath}', '${uri.fsPath}', '${ref1}', '${ref2}')`);
         }
 
         const promise = this.getDiffForFileCore(
@@ -1149,11 +1150,12 @@ export class GitService implements Disposable {
             ref2,
             { encoding: GitService.getEncoding(uri) },
             doc,
-            key
+            key,
+            cc
         );
 
         if (doc.state !== undefined) {
-            Logger.log(`Add log cache for '${doc.state.key}:${key}'`);
+            Logger.debug(cc, `Cache add: '${key}'`);
 
             doc.state.set<CachedDiff>(key, {
                 item: promise
@@ -1170,7 +1172,8 @@ export class GitService implements Disposable {
         ref2: string | undefined,
         options: { encoding?: string },
         document: TrackedDocument<GitDocumentState>,
-        key: string
+        key: string,
+        cc: LogCorrelationContext | undefined
     ): Promise<GitDiff | undefined> {
         const [file, root] = Git.splitPath(fileName, repoPath, false);
 
@@ -1183,7 +1186,7 @@ export class GitService implements Disposable {
             // Trap and cache expected diff errors
             if (document.state !== undefined) {
                 const msg = ex && ex.toString();
-                Logger.log(`Replace diff cache with empty promise for '${document.state.key}:${key}'`);
+                Logger.debug(cc, `Cache replace (with empty promise): '${key}'`);
 
                 document.state.set<CachedDiff>(key, {
                     item: GitService.emptyPromise,
@@ -1197,14 +1200,13 @@ export class GitService implements Disposable {
         }
     }
 
+    @log()
     async getDiffForLine(
         uri: GitUri,
         line: number,
         ref1?: string,
         ref2?: string
     ): Promise<GitDiffChunkLine | undefined> {
-        Logger.log(`getDiffForLine('${uri.repoPath}', '${uri.fsPath}', ${line}, '${ref1}', '${ref2}')`);
-
         try {
             const diff = await this.getDiffForFile(uri, ref1, ref2);
             if (diff === undefined) return undefined;
@@ -1219,14 +1221,13 @@ export class GitService implements Disposable {
         }
     }
 
+    @log()
     async getDiffStatus(
         repoPath: string,
         ref1?: string,
         ref2?: string,
         options: { filter?: string } = {}
     ): Promise<GitFile[] | undefined> {
-        Logger.log(`getDiffStatus('${repoPath}', '${ref1}', '${ref2}', ${options.filter})`);
-
         try {
             const data = await Git.diff_nameStatus(repoPath, ref1, ref2, options);
             const diff = GitDiffParser.parseNameStatus(data, repoPath);
@@ -1237,10 +1238,9 @@ export class GitService implements Disposable {
         }
     }
 
+    @log()
     async getFileStatusForCommit(repoPath: string, fileName: string, ref: string): Promise<GitFile | undefined> {
         if (ref === GitService.deletedOrMissingSha || GitService.isUncommitted(ref)) return undefined;
-
-        Logger.log(`getFileStatusForCommit('${repoPath}', '${fileName}', '${ref}')`);
 
         const data = await Git.show_status(repoPath, fileName, ref);
         if (!data) return undefined;
@@ -1251,34 +1251,30 @@ export class GitService implements Disposable {
         return files[0];
     }
 
+    @log()
     async getRecentLogCommitForFile(repoPath: string | undefined, fileName: string): Promise<GitLogCommit | undefined> {
         return this.getLogCommitForFile(repoPath, fileName, undefined);
     }
 
+    @log()
     async getRecentShaForFile(repoPath: string, fileName: string) {
         return await Git.log_recent(repoPath, fileName);
     }
 
+    @log()
     async getLogCommit(repoPath: string, ref: string): Promise<GitLogCommit | undefined> {
-        Logger.log(`getLogCommit('${repoPath}', '${ref}'`);
-
         const log = await this.getLog(repoPath, { maxCount: 2, ref: ref });
         if (log === undefined) return undefined;
 
         return log.commits.get(ref);
     }
 
+    @log()
     async getLogCommitForFile(
         repoPath: string | undefined,
         fileName: string,
         options: { ref?: string; firstIfNotFound?: boolean; reverse?: boolean } = {}
     ): Promise<GitLogCommit | undefined> {
-        Logger.log(
-            `getLogCommitForFile('${repoPath}', '${fileName}', '${options.ref}', ${options.firstIfNotFound}, ${
-                options.reverse
-            })`
-        );
-
         const log = await this.getLogForFile(repoPath, fileName, {
             maxCount: 2,
             ref: options.ref,
@@ -1295,14 +1291,11 @@ export class GitService implements Disposable {
         return commit || Iterables.first(log.commits.values());
     }
 
+    @log()
     async getLog(
         repoPath: string,
         options: { author?: string; maxCount?: number; ref?: string; reverse?: boolean } = {}
     ): Promise<GitLog | undefined> {
-        options = { reverse: false, ...options };
-
-        Logger.log(`getLog('${repoPath}', '${options.ref}', ${options.maxCount}, ${options.reverse})`);
-
         const maxCount = options.maxCount == null ? Container.config.advanced.maxListItems || 0 : options.maxCount;
 
         try {
@@ -1336,14 +1329,13 @@ export class GitService implements Disposable {
         }
     }
 
+    @log()
     async getLogForSearch(
         repoPath: string,
         search: string,
         searchBy: GitRepoSearchBy,
         options: { maxCount?: number } = {}
     ): Promise<GitLog | undefined> {
-        Logger.log(`getLogForSearch('${repoPath}', '${search}', '${searchBy}', ${options.maxCount})`);
-
         let maxCount = options.maxCount == null ? Container.config.advanced.maxListItems || 0 : options.maxCount;
 
         let searchArgs: string[] | undefined = undefined;
@@ -1399,6 +1391,7 @@ export class GitService implements Disposable {
         }
     }
 
+    @log()
     async getLogForFile(
         repoPath: string | undefined,
         fileName: string,
@@ -1407,6 +1400,8 @@ export class GitService implements Disposable {
         if (repoPath !== undefined && repoPath === Strings.normalizePath(fileName)) {
             throw new Error(`File name cannot match the repository path; fileName=${fileName}`);
         }
+
+        const cc = Logger.getCorrelationContext();
 
         options = { reverse: false, ...options };
 
@@ -1435,11 +1430,7 @@ export class GitService implements Disposable {
             if (doc.state !== undefined) {
                 const cachedLog = doc.state.get<CachedLog>(key);
                 if (cachedLog !== undefined) {
-                    Logger.log(
-                        `getLogForFile[Cached(${key})]('${repoPath}', '${fileName}', '${options.ref}', ${
-                            options.maxCount
-                        }, undefined, ${options.renames}, ${options.reverse})`
-                    );
+                    Logger.debug(cc, `Cache hit: '${key}'`);
                     return cachedLog.item;
                 }
 
@@ -1450,53 +1441,31 @@ export class GitService implements Disposable {
                     );
                     if (cachedLog !== undefined) {
                         if (options.ref === undefined) {
-                            Logger.log(
-                                `getLogForFile[Cached(~${key})]('${repoPath}', '${fileName}', '', ${
-                                    options.maxCount
-                                }, undefined, ${options.renames}, ${options.reverse})`
-                            );
+                            Logger.debug(cc, `Cache hit: ~'${key}'`);
                             return cachedLog.item;
                         }
 
-                        Logger.log(
-                            `getLogForFile[? Cache(${key})]('${repoPath}', '${fileName}', '${options.ref}', ${
-                                options.maxCount
-                            }, undefined, ${options.renames}, ${options.reverse})`
-                        );
+                        Logger.debug(cc, `Cache ?: '${key}'`);
                         const log = await cachedLog.item;
                         if (log !== undefined && log.commits.has(options.ref)) {
-                            Logger.log(
-                                `getLogForFile[Cached(${key})]('${repoPath}', '${fileName}', '${options.ref}', ${
-                                    options.maxCount
-                                }, undefined, ${options.renames}, ${options.reverse})`
-                            );
+                            Logger.debug(cc, `Cache hit: '${key}'`);
                             return cachedLog.item;
                         }
                     }
                 }
             }
 
-            Logger.log(
-                `getLogForFile[Not Cached(${key})]('${repoPath}', '${fileName}', ${options.ref}, ${
-                    options.maxCount
-                }, undefined, ${options.reverse})`
-            );
+            Logger.debug(cc, `Cache miss: '${key}'`);
 
             if (doc.state === undefined) {
                 doc.state = new GitDocumentState(doc.key);
             }
         }
-        else {
-            Logger.log(
-                `getLogForFile('${repoPath}', '${fileName}', ${options.ref}, ${options.maxCount}, ${options.range &&
-                    `[${options.range.start.line}, ${options.range.end.line}]`}, ${options.reverse})`
-            );
-        }
 
-        const promise = this.getLogForFileCore(repoPath, fileName, options, doc, key);
+        const promise = this.getLogForFileCore(repoPath, fileName, options, doc, key, cc);
 
         if (doc.state !== undefined && options.range === undefined) {
-            Logger.log(`Add log cache for '${doc.state.key}:${key}'`);
+            Logger.debug(cc, `Cache add: '${key}'`);
 
             doc.state.set<CachedLog>(key, {
                 item: promise
@@ -1511,10 +1480,11 @@ export class GitService implements Disposable {
         fileName: string,
         options: { maxCount?: number; range?: Range; ref?: string; renames?: boolean; reverse?: boolean },
         document: TrackedDocument<GitDocumentState>,
-        key: string
+        key: string,
+        cc: LogCorrelationContext | undefined
     ): Promise<GitLog | undefined> {
         if (!(await this.isTracked(fileName, repoPath, { ref: options.ref }))) {
-            Logger.log(`Skipping log; '${fileName}' is not tracked`);
+            Logger.log(cc, `Skipping log; '${fileName}' is not tracked`);
             return GitService.emptyPromise as Promise<GitLog>;
         }
 
@@ -1555,7 +1525,7 @@ export class GitService implements Disposable {
             // Trap and cache expected log errors
             if (document.state !== undefined && options.range === undefined && !options.reverse) {
                 const msg = ex && ex.toString();
-                Logger.log(`Replace log cache with empty promise for '${document.state.key}:${key}'`);
+                Logger.debug(cc, `Cache replace (with empty promise): '${key}'`);
 
                 document.state.set<CachedLog>(key, {
                     item: GitService.emptyPromise,
@@ -1569,6 +1539,7 @@ export class GitService implements Disposable {
         }
     }
 
+    @log()
     async hasRemotes(repoPath: string | undefined): Promise<boolean> {
         if (repoPath === undefined) return false;
 
@@ -1578,6 +1549,7 @@ export class GitService implements Disposable {
         return repository.hasRemotes();
     }
 
+    @log()
     async hasTrackingBranch(repoPath: string | undefined): Promise<boolean> {
         if (repoPath === undefined) return false;
 
@@ -1587,6 +1559,7 @@ export class GitService implements Disposable {
         return repository.hasTrackingBranch();
     }
 
+    @log()
     async getMergeBase(repoPath: string, ref1: string, ref2: string, options: { forkPoint?: boolean } = {}) {
         try {
             const data = await Git.merge_base(repoPath, ref1, ref2, options);
@@ -1595,15 +1568,14 @@ export class GitService implements Disposable {
             return data.split('\n')[0];
         }
         catch (ex) {
-            Logger.error(ex, 'GitService.getMergeBase');
+            Logger.error(ex);
             return undefined;
         }
     }
 
+    @log()
     async getRemotes(repoPath: string | undefined, options: { includeAll?: boolean } = {}): Promise<GitRemote[]> {
         if (repoPath === undefined) return [];
-
-        Logger.log(`getRemotes('${repoPath}')`);
 
         const repository = await this.getRepository(repoPath);
         const remotes = repository !== undefined ? repository.getRemotes() : this.getRemotesCore(repoPath);
@@ -1616,8 +1588,6 @@ export class GitService implements Disposable {
     async getRemotesCore(repoPath: string | undefined, providers?: RemoteProviders): Promise<GitRemote[]> {
         if (repoPath === undefined) return [];
 
-        Logger.log(`getRemotesCore('${repoPath}')`);
-
         providers =
             providers ||
             RemoteProviderFactory.loadProviders(
@@ -1629,19 +1599,22 @@ export class GitService implements Disposable {
             return GitRemoteParser.parse(data, repoPath, RemoteProviderFactory.factory(providers));
         }
         catch (ex) {
-            Logger.error(ex, 'GitService.getRemotesCore');
+            Logger.error(ex);
             return [];
         }
     }
 
     async getRepoPath(filePath: string, options?: { ref?: string }): Promise<string | undefined>;
     async getRepoPath(uri: Uri | undefined, options?: { ref?: string }): Promise<string | undefined>;
+    @log()
     async getRepoPath(
         filePathOrUri: string | Uri | undefined,
         options: { ref?: string } = {}
     ): Promise<string | undefined> {
         if (filePathOrUri == null) return this.getHighlanderRepoPath();
         if (filePathOrUri instanceof GitUri) return filePathOrUri.repoPath;
+
+        const cc = Logger.getCorrelationContext();
 
         // Don't save the tracking info to the cache, because we could be looking in the wrong place (e.g. looking in the root when the file is in a submodule)
         let repo = await this.getRepository(filePathOrUri, { ...options, skipCacheUpdate: true });
@@ -1665,7 +1638,7 @@ export class GitService implements Disposable {
             folder = { uri: Uri.file(rp), name: parts[parts.length - 1], index: this._repositoryTree.count() };
         }
 
-        Logger.log(`Repository found in '${rp}'`);
+        Logger.log(cc, `Repository found in '${rp}'`);
         repo = new Repository(folder, rp, false, this.onAnyRepositoryChanged.bind(this), this._suspended);
         this._repositoryTree.set(rp, repo);
 
@@ -1684,11 +1657,12 @@ export class GitService implements Disposable {
             return await Git.revparse_toplevel(isDirectory ? filePath : paths.dirname(filePath));
         }
         catch (ex) {
-            Logger.error(ex, 'GitService.getRepoPathCore');
+            Logger.error(ex);
             return undefined;
         }
     }
 
+    @log()
     async getRepoPathOrActive(uri: Uri | undefined, editor: TextEditor | undefined) {
         const repoPath = await this.getRepoPath(uri);
         if (repoPath) return repoPath;
@@ -1696,6 +1670,7 @@ export class GitService implements Disposable {
         return this.getActiveRepoPath(editor);
     }
 
+    @log()
     async getRepositories(predicate?: (repo: Repository) => boolean): Promise<Iterable<Repository>> {
         const repositoryTree = await this.getRepositoryTree();
 
@@ -1703,6 +1678,7 @@ export class GitService implements Disposable {
         return predicate !== undefined ? Iterables.filter(values, predicate) : values;
     }
 
+    @log()
     async getOrderedRepositories(): Promise<Repository[]> {
         const repositories = [...(await this.getRepositories())];
         if (repositories.length === 0) return repositories;
@@ -1731,6 +1707,7 @@ export class GitService implements Disposable {
         repoPathOrUri: string | Uri,
         options?: { ref?: string; skipCacheUpdate?: boolean }
     ): Promise<Repository | undefined>;
+    @log()
     async getRepository(
         repoPathOrUri: string | Uri,
         options: { ref?: string; skipCacheUpdate?: boolean } = {}
@@ -1771,19 +1748,17 @@ export class GitService implements Disposable {
         return repositoryTree.count();
     }
 
+    @log()
     async getStashList(repoPath: string | undefined): Promise<GitStash | undefined> {
         if (repoPath === undefined) return undefined;
-
-        Logger.log(`getStashList('${repoPath}')`);
 
         const data = await Git.stash_list(repoPath);
         const stash = GitStashParser.parse(data, repoPath);
         return stash;
     }
 
+    @log()
     async getStatusForFile(repoPath: string, fileName: string): Promise<GitStatusFile | undefined> {
-        Logger.log(`getStatusForFile('${repoPath}', '${fileName}')`);
-
         const porcelainVersion = Git.validateVersion(2, 11) ? 2 : 1;
 
         const data = await Git.status_file(repoPath, fileName, porcelainVersion);
@@ -1793,10 +1768,9 @@ export class GitService implements Disposable {
         return status.files[0];
     }
 
+    @log()
     async getStatusForRepo(repoPath: string | undefined): Promise<GitStatus | undefined> {
         if (repoPath === undefined) return undefined;
-
-        Logger.log(`getStatusForRepo('${repoPath}')`);
 
         const porcelainVersion = Git.validateVersion(2, 11) ? 2 : 1;
 
@@ -1805,48 +1779,43 @@ export class GitService implements Disposable {
         return status;
     }
 
+    @log()
     async getTags(repoPath: string | undefined): Promise<GitTag[]> {
         if (repoPath === undefined) return [];
-
-        Logger.log(`getTags('${repoPath}')`);
 
         const data = await Git.tag(repoPath);
         return GitTagParser.parse(data, repoPath) || [];
     }
 
+    @log()
     async getTreeFileForRevision(repoPath: string, fileName: string, ref: string): Promise<GitTree | undefined> {
         if (repoPath === undefined) return undefined;
-
-        Logger.log(`getTreeFileForRevision('${repoPath}', '${fileName}', '${ref}')`);
 
         const data = await Git.ls_tree(repoPath, ref, { fileName: fileName });
         const trees = GitTreeParser.parse(data);
         return trees === undefined || trees.length === 0 ? undefined : trees[0];
     }
 
+    @log()
     async getTreeForRevision(repoPath: string, ref: string): Promise<GitTree[]> {
         if (repoPath === undefined) return [];
-
-        Logger.log(`getTreeForRevision('${repoPath}', '${ref}')`);
 
         const data = await Git.ls_tree(repoPath, ref);
         return GitTreeParser.parse(data) || [];
     }
 
+    @log()
     getVersionedFileBuffer(repoPath: string, fileName: string, ref: string) {
-        Logger.log(`getVersionedFileBuffer('${repoPath}', '${fileName}', ${ref})`);
-
         return Git.show<Buffer>(repoPath, fileName, ref, { encoding: 'buffer' });
     }
 
+    @log()
     async getVersionedUri(
         repoPath: string | undefined,
         fileName: string,
         ref: string | undefined
     ): Promise<Uri | undefined> {
         if (ref === GitService.deletedOrMissingSha) return undefined;
-
-        Logger.log(`getVersionedFile('${repoPath}', '${fileName}', '${ref}')`);
 
         if (!ref || (Git.isUncommitted(ref) && !Git.isStagedUncommitted(ref))) {
             if (await this.fileExists(repoPath!, fileName)) return Uri.file(fileName);
@@ -1887,6 +1856,10 @@ export class GitService implements Disposable {
         options?: { ref?: string; skipCacheUpdate?: boolean }
     ): Promise<boolean>;
     async isTracked(uri: GitUri): Promise<boolean>;
+    @log({
+        exit: tracked => tracked.toString(),
+        singleLine: true
+    })
     async isTracked(
         fileNameOrUri: string | GitUri,
         repoPath?: string,
@@ -1915,29 +1888,24 @@ export class GitService implements Disposable {
         }
 
         let tracked = this._trackedCache.get(cacheKey);
-        try {
-            if (tracked !== undefined) {
-                tracked = await tracked;
-
-                return tracked;
-            }
-
-            tracked = this.isTrackedCore(fileName, repoPath === undefined ? '' : repoPath, ref);
-            if (options.skipCacheUpdate) {
-                tracked = await tracked;
-
-                return tracked;
-            }
-
-            this._trackedCache.set(cacheKey, tracked);
+        if (tracked !== undefined) {
             tracked = await tracked;
-            this._trackedCache.set(cacheKey, tracked);
 
             return tracked;
         }
-        finally {
-            Logger.log(`isTracked('${fileName}', '${repoPath}'${ref !== undefined ? `, '${ref}'` : ''}) = ${tracked}`);
+
+        tracked = this.isTrackedCore(fileName, repoPath === undefined ? '' : repoPath, ref);
+        if (options.skipCacheUpdate) {
+            tracked = await tracked;
+
+            return tracked;
         }
+
+        this._trackedCache.set(cacheKey, tracked);
+        tracked = await tracked;
+        this._trackedCache.set(cacheKey, tracked);
+
+        return tracked;
     }
 
     private async isTrackedCore(fileName: string, repoPath: string, ref?: string) {
@@ -1960,45 +1928,51 @@ export class GitService implements Disposable {
             return tracked;
         }
         catch (ex) {
-            Logger.error(ex, 'GitService.isTrackedCore');
+            Logger.error(ex);
             return false;
         }
     }
 
+    @log()
     async getDiffTool(repoPath?: string) {
         return (await Git.config_get('diff.guitool', repoPath)) || (await Git.config_get('diff.tool', repoPath));
     }
 
+    @log()
     async openDiffTool(
         repoPath: string,
         uri: Uri,
         options: { ref1?: string; ref2?: string; staged?: boolean; tool?: string } = {}
     ) {
         if (!options.tool) {
+            const cc = Logger.getCorrelationContext();
+
             options.tool = await this.getDiffTool(repoPath);
             if (options.tool === undefined) throw new Error('No diff tool found');
+
+            Logger.log(cc, `Using tool=${options.tool}`);
         }
 
         const { tool, ...opts } = options;
-        Logger.log(`openDiffTool('${repoPath}', '${uri.fsPath}', '${tool}', ${opts})`);
-
         return Git.difftool_fileDiff(repoPath, uri.fsPath, tool, opts);
     }
 
+    @log()
     async openDirectoryDiff(repoPath: string, ref1: string, ref2?: string, tool?: string) {
         if (!tool) {
+            const cc = Logger.getCorrelationContext();
+
             tool = await this.getDiffTool(repoPath);
             if (tool === undefined) throw new Error('No diff tool found');
-        }
 
-        Logger.log(`openDirectoryDiff('${repoPath}', '${ref1}', '${ref2}', '${tool}')`);
+            Logger.log(cc, `Using tool=${tool}`);
+        }
 
         return Git.difftool_dirDiff(repoPath, tool, ref1, ref2);
     }
 
+    @log()
     async resolveReference(repoPath: string, ref: string, uri?: Uri) {
-        Logger.log(`resolveReference('${repoPath}', '${ref}', '${uri && uri.toString(true)}')`);
-
         const resolved = Git.isSha(ref) || !Git.isShaLike(ref) || ref.endsWith('^3');
         if (uri == null) return resolved ? ref : (await Git.revparse(repoPath, ref)) || ref;
 
@@ -2015,17 +1989,15 @@ export class GitService implements Disposable {
         return ensuredRef;
     }
 
+    @log()
     async validateReference(repoPath: string, ref: string) {
-        Logger.log(`validateReference('${repoPath}', '${ref}'`);
-
         return await Git.cat_validate(repoPath, ref);
     }
 
     stageFile(repoPath: string, fileName: string): Promise<string>;
     stageFile(repoPath: string, uri: Uri): Promise<string>;
+    @log()
     stageFile(repoPath: string, fileNameOrUri: string | Uri): Promise<string> {
-        Logger.log(`stageFile('${repoPath}', '${fileNameOrUri}')`);
-
         return Git.add(
             repoPath,
             typeof fileNameOrUri === 'string' ? fileNameOrUri : Git.splitPath(fileNameOrUri.fsPath, repoPath)[0]
@@ -2034,30 +2006,26 @@ export class GitService implements Disposable {
 
     unStageFile(repoPath: string, fileName: string): Promise<string>;
     unStageFile(repoPath: string, uri: Uri): Promise<string>;
+    @log()
     unStageFile(repoPath: string, fileNameOrUri: string | Uri): Promise<string> {
-        Logger.log(`unStageFile('${repoPath}', '${fileNameOrUri}')`);
-
         return Git.reset(
             repoPath,
             typeof fileNameOrUri === 'string' ? fileNameOrUri : Git.splitPath(fileNameOrUri.fsPath, repoPath)[0]
         );
     }
 
+    @log()
     stashApply(repoPath: string, stashName: string, deleteAfter: boolean = false) {
-        Logger.log(`stashApply('${repoPath}', '${stashName}', ${deleteAfter})`);
-
         return Git.stash_apply(repoPath, stashName, deleteAfter);
     }
 
+    @log()
     stashDelete(repoPath: string, stashName: string) {
-        Logger.log(`stashDelete('${repoPath}', '${stashName}')`);
-
         return Git.stash_delete(repoPath, stashName);
     }
 
+    @log()
     stashSave(repoPath: string, message?: string, uris?: Uri[]) {
-        Logger.log(`stashSave('${repoPath}', '${message}', ${uris})`);
-
         if (uris === undefined) return Git.stash_save(repoPath, message);
 
         GitService.ensureGitVersion('2.13.2', 'Stashing individual files');
@@ -2073,6 +2041,7 @@ export class GitService implements Disposable {
         return Git.getEncoding(workspace.getConfiguration('files', uri).get<string>('encoding'));
     }
 
+    @log()
     static async initialize(): Promise<void> {
         // Try to use the same git as the built-in vscode git extension
         let gitPath;
