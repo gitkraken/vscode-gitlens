@@ -181,7 +181,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
         options?: {
             select?: boolean;
             focus?: boolean;
-            // expand?: boolean | number;
+            expand?: boolean | number;
         }
     ) {
         if (this._tree === undefined) return;

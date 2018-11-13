@@ -50,7 +50,7 @@ export class CompareResultsNode extends ViewNode {
             `Comparing ${this._ref1.label ||
                 GitService.shortenSha(this._ref1.ref, { working: 'Working Tree' })} to ${this._ref2.label ||
                 GitService.shortenSha(this._ref2.ref, { working: 'Working Tree' })}${repository}`,
-            TreeItemCollapsibleState.Expanded
+            TreeItemCollapsibleState.Collapsed
         );
         item.contextValue = ResourceType.CompareResults;
 

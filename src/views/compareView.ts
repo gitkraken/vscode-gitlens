@@ -115,7 +115,7 @@ export class CompareView extends ViewBase<CompareNode> {
         const root = this.ensureRoot();
         root.addOrReplace(results, !this.keepResults);
 
-        setTimeout(() => this._tree!.reveal(results, { select: true }), 250);
+        setImmediate(() => this.reveal(results, { select: true, expand: true }));
     }
 
     private setFilesLayout(layout: ViewFilesLayout) {

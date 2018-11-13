@@ -133,7 +133,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
                 parent = parent.getParent();
             }
 
-            void this.view.reveal(node /*, { expand: true } */);
+            void this.view.reveal(node, { expand: true });
         }
         catch (ex) {
             Logger.error(ex);

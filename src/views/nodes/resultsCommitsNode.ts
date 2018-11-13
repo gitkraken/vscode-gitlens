@@ -46,7 +46,7 @@ export class ResultsCommitsNode extends ViewNode implements PageableViewNode {
 
         const item = new TreeItem(
             label,
-            log && log.count > 0 ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.None
+            log && log.count > 0 ? TreeItemCollapsibleState.Collapsed : TreeItemCollapsibleState.None
         );
         item.contextValue = this._contextValue;
 
