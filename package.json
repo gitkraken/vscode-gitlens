@@ -3266,6 +3266,11 @@
             ],
             "scm/resourceGroup/context": [
                 {
+                    "command": "gitlens.stashSave",
+                    "when": "gitlens:enabled",
+                    "group": "inline@-1"
+                },
+                {
                     "command": "gitlens.openChangedFiles",
                     "when": "gitlens:enabled",
                     "group": "2_gitlens@1"
