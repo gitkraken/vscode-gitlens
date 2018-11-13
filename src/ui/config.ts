@@ -115,6 +115,7 @@ export interface AdvancedConfig {
         suppressLineUncommittedWarning: boolean;
         suppressNoRepositoryWarning: boolean;
         suppressShowKeyBindingsNotice: boolean;
+        suppressSupportGitLensNotification: boolean;
     };
     quickPick: {
         closeOnFocusOut: boolean;

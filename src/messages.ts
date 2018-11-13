@@ -1,6 +1,7 @@
 'use strict';
-import { ConfigurationTarget, MessageItem, window } from 'vscode';
+import { commands, ConfigurationTarget, MessageItem, Uri, window } from 'vscode';
 import { configuration, KeyMap } from './configuration';
+import { BuiltInCommands, CommandContext, setCommandContext } from './constants';
 import { Container } from './container';
 import { GitCommit } from './git/gitService';
 import { Logger } from './logger';
@@ -13,7 +14,8 @@ export enum SuppressedMessages {
     GitVersionWarning = 'suppressGitVersionWarning',
     LineUncommittedWarning = 'suppressLineUncommittedWarning',
     NoRepositoryWarning = 'suppressNoRepositoryWarning',
-    ShowKeyBindingsNotice = 'suppressShowKeyBindingsNotice'
+    ShowKeyBindingsNotice = 'suppressShowKeyBindingsNotice',
+    SupportGitLensNotification = 'suppressSupportGitLensNotification'
 }
 
 export class Messages {
@@ -132,6 +134,41 @@ export class Messages {
             `${message}. No repository could be found.`,
             SuppressedMessages.NoRepositoryWarning
         );
+    }
+
+    static async showSupportGitLensMessage() {
+        const actions: MessageItem[] = [
+            { title: 'Become a Sponsor' },
+            { title: 'Donate via PayPal' },
+            { title: 'Donate via Cash App' }
+        ];
+
+        const result = await Messages.showMessage(
+            'info',
+            `While GitLens is offered to everyone for free, if you find it useful please consider supporting it. Thank you! ❤`,
+            undefined,
+            null,
+            ...actions
+        );
+
+        if (result != null) {
+            let uri;
+            if (result === actions[0]) {
+                uri = Uri.parse('https://www.patreon.com/eamodio');
+            }
+            else if (result === actions[1]) {
+                uri = Uri.parse('https://www.paypal.me/eamodio');
+            }
+            else if (result === actions[2]) {
+                uri = Uri.parse('https://cash.me/$eamodio');
+            }
+
+            if (uri !== undefined) {
+                await setCommandContext(CommandContext.ViewsHideSupportGitLens, true);
+                await this.suppressedMessage(SuppressedMessages.SupportGitLensNotification!);
+                await commands.executeCommand(BuiltInCommands.Open, uri);
+            }
+        }
     }
 
     private static async showMessage<T extends MessageItem>(

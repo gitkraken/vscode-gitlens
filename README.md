@@ -61,13 +61,13 @@ While I enjoy giving my free time and attention to GitLens' development and grow
 
 ### Show Your Support &#x2764;
 
-To my incredible backers &mdash; thank you so much for your contributions. I am truly humbled by your generosity and support. Please know that your support plays a important role in helping me realize GitLens' potential in making developer's lives easier.
+To my incredible backers &mdash; thank you so much for your contributions. I am truly humbled by your generosity and support. Please know that your support plays an important role in helping me realize GitLens' potential in making developer's lives easier.
 
-If you'd like to join them in supporting GitLens, please consider the following &mdash; feel free to choose more than one. &#x1F609;
+If you'd like to join in supporting GitLens, please consider the following &mdash; feel free to choose more than one. &#x1F609;
 
 - [Become a Sponsor](https://www.patreon.com/eamodio 'Become a sponsor on Patreon') &mdash; join the growing group of generous [backers](https://github.com/eamodio/vscode-gitlens/blob/master/BACKERS.md)
-- [Donations via PayPal](https://www.paypal.me/eamodio 'One-time donations via PayPal')
-- [Donations via Cash App](https://cash.me/$eamodio 'One-time donations via Cash App')
+- [Donate via PayPal](https://www.paypal.me/eamodio 'Donate via PayPal')
+- [Donate via Cash App](https://cash.me/$eamodio 'Donate via Cash App')
 - [Write a Review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details 'Write a review')
 - [Star or Fork me on GitHub](https://github.com/eamodio/vscode-gitlens 'Star or fork me on GitHub')
 - [Follow me on Twitter](https://twitter.com/eamodio 'Follow me on Twitter')

@@ -1448,7 +1448,8 @@
                         "suppressGitVersionWarning": false,
                         "suppressLineUncommittedWarning": false,
                         "suppressNoRepositoryWarning": false,
-                        "suppressShowKeyBindingsNotice": false
+                        "suppressShowKeyBindingsNotice": false,
+                        "suppressSupportGitLensNotification": false
                     },
                     "properties": {
                         "suppressCommitHasNoPreviousCommitWarning": {
@@ -1480,6 +1481,10 @@
                             "default": false
                         },
                         "suppressShowKeyBindingsNotice": {
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "suppressSupportGitLensNotification": {
                             "type": "boolean",
                             "default": false
                         }
@@ -1574,9 +1579,22 @@
         ],
         "commands": [
             {
+                "command": "gitlens.supportGitLens",
+                "title": "Support GitLens ❤",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-heart.svg",
+                    "light": "images/light/icon-heart.svg"
+                }
+            },
+            {
                 "command": "gitlens.showSettingsPage",
                 "title": "Open Settings",
-                "category": "GitLens"
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-gear.svg",
+                    "light": "images/light/icon-gear.svg"
+                }
             },
             {
                 "command": "gitlens.showWelcomePage",
@@ -3309,22 +3327,22 @@
                 {
                     "command": "gitlens.pushRepositories",
                     "when": "gitlens:enabled && view =~ /^gitlens\\.views\\.repositories:/",
-                    "group": "navigation@6"
+                    "group": "navigation@10"
                 },
                 {
                     "command": "gitlens.pullRepositories",
                     "when": "gitlens:enabled && view =~ /^gitlens\\.views\\.repositories:/",
-                    "group": "navigation@7"
+                    "group": "navigation@11"
                 },
                 {
                     "command": "gitlens.fetchRepositories",
                     "when": "gitlens:enabled && view =~ /^gitlens\\.views\\.repositories:/",
-                    "group": "navigation@8"
+                    "group": "navigation@12"
                 },
                 {
                     "command": "gitlens.views.repositories.refresh",
                     "when": "view =~ /^gitlens\\.views\\.repositories:/",
-                    "group": "navigation@98"
+                    "group": "navigation@99"
                 },
                 {
                     "command": "gitlens.views.repositories.setFilesLayoutToAuto",
@@ -3354,17 +3372,17 @@
                 {
                     "command": "gitlens.views.fileHistory.setEditorFollowingOn",
                     "when": "view =~ /^gitlens\\.views\\.fileHistory:/ && !gitlens:views:fileHistory:editorFollowing",
-                    "group": "navigation@1"
+                    "group": "navigation@10"
                 },
                 {
                     "command": "gitlens.views.fileHistory.setEditorFollowingOff",
                     "when": "view =~ /^gitlens\\.views\\.fileHistory:/ && gitlens:views:fileHistory:editorFollowing",
-                    "group": "navigation@1"
+                    "group": "navigation@10"
                 },
                 {
                     "command": "gitlens.views.fileHistory.changeBase",
                     "when": "view =~ /^gitlens\\.views\\.fileHistory:/",
-                    "group": "navigation@2"
+                    "group": "navigation@11"
                 },
                 {
                     "command": "gitlens.views.fileHistory.refresh",
@@ -3384,17 +3402,17 @@
                 {
                     "command": "gitlens.views.lineHistory.setEditorFollowingOn",
                     "when": "view =~ /^gitlens\\.views\\.lineHistory:/ && !gitlens:views:lineHistory:editorFollowing",
-                    "group": "navigation@1"
+                    "group": "navigation@10"
                 },
                 {
                     "command": "gitlens.views.lineHistory.setEditorFollowingOff",
                     "when": "view =~ /^gitlens\\.views\\.lineHistory:/ && gitlens:views:lineHistory:editorFollowing",
-                    "group": "navigation@1"
+                    "group": "navigation@10"
                 },
                 {
                     "command": "gitlens.views.lineHistory.changeBase",
                     "when": "view =~ /^gitlens\\.views\\.lineHistory:/",
-                    "group": "navigation@2"
+                    "group": "navigation@11"
                 },
                 {
                     "command": "gitlens.views.lineHistory.refresh",
@@ -3414,22 +3432,22 @@
                 {
                     "command": "gitlens.views.compare.selectForCompare",
                     "when": "view =~ /^gitlens\\.views\\.compare:/",
-                    "group": "navigation@1"
-                },
-                {
-                    "command": "gitlens.views.compare.clear",
-                    "when": "view =~ /^gitlens\\.views\\.compare:/",
-                    "group": "navigation@2"
+                    "group": "navigation@10"
                 },
                 {
                     "command": "gitlens.views.compare.setKeepResultsToOn",
                     "when": "view =~ /^gitlens\\.views\\.compare:/ && !gitlens:views:compare:keepResults",
-                    "group": "navigation@3"
+                    "group": "navigation@11"
                 },
                 {
                     "command": "gitlens.views.compare.setKeepResultsToOff",
                     "when": "view =~ /^gitlens\\.views\\.compare:/ && gitlens:views:compare:keepResults",
-                    "group": "navigation@3"
+                    "group": "navigation@11"
+                },
+                {
+                    "command": "gitlens.views.compare.clear",
+                    "when": "view =~ /^gitlens\\.views\\.compare:/",
+                    "group": "navigation@98"
                 },
                 {
                     "command": "gitlens.views.compare.refresh",
@@ -3454,22 +3472,22 @@
                 {
                     "command": "gitlens.views.search.searchCommits",
                     "when": "view =~ /^gitlens\\.views\\.search:/",
-                    "group": "navigation@1"
-                },
-                {
-                    "command": "gitlens.views.search.clear",
-                    "when": "view =~ /^gitlens\\.views\\.search:/",
-                    "group": "navigation@2"
+                    "group": "navigation@10"
                 },
                 {
                     "command": "gitlens.views.search.setKeepResultsToOn",
                     "when": "view =~ /^gitlens\\.views\\.search:/ && !gitlens:views:search:keepResults",
-                    "group": "navigation@3"
+                    "group": "navigation@11"
                 },
                 {
                     "command": "gitlens.views.search.setKeepResultsToOff",
                     "when": "view =~ /^gitlens\\.views\\.search:/ && gitlens:views:search:keepResults",
-                    "group": "navigation@3"
+                    "group": "navigation@11"
+                },
+                {
+                    "command": "gitlens.views.search.clear",
+                    "when": "view =~ /^gitlens\\.views\\.search:/",
+                    "group": "navigation@98"
                 },
                 {
                     "command": "gitlens.views.search.refresh",
@@ -3490,6 +3508,11 @@
                     "command": "gitlens.views.search.setFilesLayoutToTree",
                     "when": "view =~ /^gitlens\\.views\\.search:/",
                     "group": "1_gitlens"
+                },
+                {
+                    "command": "gitlens.supportGitLens",
+                    "when": "view =~ /^gitlens\\.views\\..*:/ && config.gitlens.advanced.messages.suppressSupportGitLensNotification != true && gitlens:views:supportGitLens:hide != true",
+                    "group": "navigation@1"
                 },
                 {
                     "command": "gitlens.showSettingsPage",
