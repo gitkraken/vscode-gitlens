@@ -1943,7 +1943,11 @@
             {
                 "command": "gitlens.stashDelete",
                 "title": "Delete Stashed Changes",
-                "category": "GitLens"
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-delete.svg",
+                    "light": "images/light/icon-delete.svg"
+                }
             },
             {
                 "command": "gitlens.stashSave",
@@ -3999,12 +4003,12 @@
                 {
                     "command": "gitlens.stashApply",
                     "when": "viewItem == gitlens:stashes",
-                    "group": "inline@1"
+                    "group": "inline@98"
                 },
                 {
                     "command": "gitlens.stashSave",
                     "when": "viewItem =~ /^gitlens:(stashes|status:files)$/",
-                    "group": "inline@2"
+                    "group": "inline@99"
                 },
                 {
                     "command": "gitlens.stashSave",
@@ -4019,7 +4023,12 @@
                 {
                     "command": "gitlens.stashApply",
                     "when": "viewItem == gitlens:stash",
-                    "group": "inline@1"
+                    "group": "inline@98"
+                },
+                {
+                    "command": "gitlens.stashDelete",
+                    "when": "viewItem == gitlens:stash",
+                    "group": "inline@99"
                 },
                 {
                     "command": "gitlens.stashApply",
