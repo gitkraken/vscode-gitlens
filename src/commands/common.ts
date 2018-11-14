@@ -381,6 +381,9 @@ export abstract class Command implements Disposable {
             if (uri !== undefined) {
                 return [{ command: command, type: 'uri', editor: editor, uri: uri }, rest];
             }
+            else {
+                args = args.slice(1);
+            }
         }
 
         if (firstArg instanceof ViewNode) {
