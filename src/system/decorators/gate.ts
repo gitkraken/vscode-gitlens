@@ -3,10 +3,16 @@ import { Functions } from '../function';
 
 export function gate() {
     return (target: any, key: string, descriptor: PropertyDescriptor) => {
-        if (typeof descriptor.value !== 'function') throw new Error('Not supported');
+        let fn: Function | undefined;
+        if (typeof descriptor.value === 'function') {
+            fn = descriptor.value;
+        }
+        else if (typeof descriptor.get === 'function') {
+            fn = descriptor.get;
+        }
+        if (fn == null) throw new Error('Not supported');
 
         const gateKey = `$gate$${key}`;
-        const fn = descriptor.value;
 
         descriptor.value = function(this: any, ...args: any[]) {
             if (!this.hasOwnProperty(gateKey)) {
@@ -20,7 +26,7 @@ export function gate() {
 
             let promise = this[gateKey];
             if (promise === undefined) {
-                const result = fn.apply(this, args);
+                const result = fn!.apply(this, args);
                 if (result == null || !Functions.isPromise(result)) {
                     return result;
                 }

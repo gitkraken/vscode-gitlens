@@ -2,7 +2,7 @@
 import { ConfigurationChangeEvent, ExtensionContext, OutputChannel, Uri, window } from 'vscode';
 import { configuration, LogLevel } from './configuration';
 import { extensionOutputChannelName } from './constants';
-import { getCorrelationContext } from './system/decorators/log';
+import { getCorrelationContext } from './system';
 // import { Telemetry } from './telemetry';
 
 export { LogLevel } from './configuration';
@@ -196,21 +196,9 @@ export class Logger {
     }
 
     static showOutputChannel() {
-        if (this.output !== undefined) {
-            this.output.show();
-        }
-    }
+        if (this.output === undefined) return;
 
-    static toLoggableName(instance: { constructor: Function }) {
-        const name =
-            typeof instance === 'function'
-                ? instance.name
-                : instance.constructor != null
-                ? instance.constructor.name
-                : '';
-        // Strip webpack module name (since I never name classes with an _)
-        const index = name.indexOf('_');
-        return index === -1 ? name : name.substr(index + 1);
+        this.output.show();
     }
 
     static toLoggable(p: any, sanitize?: ((key: string, value: any) => any) | undefined) {
@@ -229,15 +217,15 @@ export class Logger {
         }
     }
 
-    private static getCallerContext(caller: Function): LogCorrelationContext | undefined {
-        let context = (caller as any).$log;
-        if (context == null && caller.prototype != null) {
-            context = caller.prototype.$log;
-            if (context == null && caller.prototype.constructor != null) {
-                context = caller.prototype.constructor.$log;
-            }
+    static toLoggableName(instance: Function | object) {
+        if (typeof instance === 'function') {
+            return instance.name;
         }
-        return context;
+
+        const name = instance.constructor != null ? instance.constructor.name : '';
+        // Strip webpack module name (since I never name classes with an _)
+        const index = name.indexOf('_');
+        return index === -1 ? name : name.substr(index + 1);
     }
 
     private static get timestamp(): string {
