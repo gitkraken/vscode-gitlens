@@ -83,6 +83,7 @@ export class ViewCommands implements Disposable {
         );
         commands.registerCommand('gitlens.views.openChangedFileRevisions', this.openChangedFileRevisions, this);
         commands.registerCommand('gitlens.views.applyChanges', this.applyChanges, this);
+        commands.registerCommand('gitlens.views.checkout', this.checkout, this);
 
         commands.registerCommand('gitlens.views.stageFile', this.stageFile, this);
         commands.registerCommand('gitlens.views.unstageFile', this.unstageFile, this);
@@ -147,11 +148,25 @@ export class ViewCommands implements Disposable {
     }
 
     private async applyChanges(node: CommitFileNode | StashFileNode | ResultsFileNode) {
+        if (
+            !(node instanceof CommitFileNode) &&
+            !(node instanceof StashFileNode) &&
+            !(node instanceof ResultsFileNode)
+        ) {
+            return;
+        }
+
         void (await this.openFile(node));
 
         if (node.uri.sha !== undefined && node.uri.sha !== 'HEAD') {
             void (await Container.git.applyChangesToWorkingFile(node.uri));
         }
+    }
+
+    private async checkout(node: ViewRefNode) {
+        if (!(node instanceof ViewRefNode)) return;
+
+        return Container.git.checkout(node.repoPath, node.ref);
     }
 
     private closeRepository(node: RepositoryNode) {
@@ -160,25 +175,28 @@ export class ViewCommands implements Disposable {
         node.repo.closed = true;
     }
 
-    private compareWithHead(node: ViewNode) {
+    private compareWithHead(node: ViewRefNode) {
         if (!(node instanceof ViewRefNode)) return;
 
         return Container.compareView.compare(node.repoPath, node.ref, 'HEAD');
     }
 
     private compareWithRemote(node: BranchNode) {
+        if (!(node instanceof BranchNode)) return;
         if (!node.branch.tracking) return;
 
         return Container.compareView.compare(node.repoPath, node.branch.tracking, node.ref);
     }
 
-    private compareWithWorking(node: ViewNode) {
+    private compareWithWorking(node: ViewRefNode) {
         if (!(node instanceof ViewRefNode)) return;
 
         return Container.compareView.compare(node.repoPath, node.ref, '');
     }
 
     private async compareAncestryWithWorking(node: BranchNode) {
+        if (!(node instanceof BranchNode)) return;
+
         const branch = await Container.git.getBranch(node.repoPath);
         if (branch === undefined) return;
 
@@ -192,20 +210,26 @@ export class ViewCommands implements Disposable {
         );
     }
 
-    private compareWithSelected(node: ViewNode) {
+    private compareWithSelected(node: ViewRefNode) {
         if (!(node instanceof ViewRefNode)) return;
 
         Container.compareView.compareWithSelected(node.repoPath, node.ref);
     }
 
-    private selectForCompare(node: ViewNode) {
+    private selectForCompare(node: ViewRefNode) {
         if (!(node instanceof ViewRefNode)) return;
 
         Container.compareView.selectForCompare(node.repoPath, node.ref);
     }
 
-    private compareFileWithSelected(node: ViewNode) {
-        if (this._selectedFile === undefined || !(node instanceof CommitFileNode)) return;
+    private compareFileWithSelected(node: CommitFileNode | StashFileNode | ResultsFileNode) {
+        if (
+            this._selectedFile === undefined ||
+            (!(node instanceof CommitFileNode) && !(node instanceof ResultsFileNode)) ||
+            node.ref === undefined
+        ) {
+            return;
+        }
         if (this._selectedFile.repoPath !== node.repoPath) {
             this.selectFileForCompare(node);
             return;
@@ -232,8 +256,8 @@ export class ViewCommands implements Disposable {
 
     private _selectedFile: ICompareSelected | undefined;
 
-    private selectFileForCompare(node: ViewNode) {
-        if (!(node instanceof CommitFileNode)) return;
+    private selectFileForCompare(node: CommitFileNode | StashFileNode | ResultsFileNode) {
+        if ((!(node instanceof CommitFileNode) && !(node instanceof ResultsFileNode)) || node.ref === undefined) return;
 
         this._selectedFile = {
             ref: node.ref,
@@ -255,6 +279,8 @@ export class ViewCommands implements Disposable {
     }
 
     private openChanges(node: CommitFileNode | StashFileNode | ResultsFileNode) {
+        if (!(node instanceof CommitFileNode) && !(node instanceof ResultsFileNode)) return;
+
         const command = node.getCommand();
         if (command === undefined || command.arguments === undefined) return;
 
@@ -264,6 +290,8 @@ export class ViewCommands implements Disposable {
     }
 
     private async openChangesWithWorking(node: CommitFileNode | StashFileNode | ResultsFileNode) {
+        if (!(node instanceof CommitFileNode) && !(node instanceof ResultsFileNode)) return;
+
         const args: DiffWithWorkingCommandArgs = {
             showOptions: {
                 preserveFocus: true,
@@ -283,6 +311,8 @@ export class ViewCommands implements Disposable {
     }
 
     private openFile(node: CommitFileNode | StashFileNode | ResultsFileNode) {
+        if (!(node instanceof CommitFileNode) && !(node instanceof ResultsFileNode)) return;
+
         return openEditor(node.uri, { preserveFocus: true, preview: false });
     }
 
@@ -290,6 +320,8 @@ export class ViewCommands implements Disposable {
         node: CommitFileNode | StashFileNode | ResultsFileNode,
         options: OpenFileRevisionCommandArgs = { showOptions: { preserveFocus: true, preview: false } }
     ) {
+        if (!(node instanceof CommitFileNode) && !(node instanceof ResultsFileNode)) return;
+
         let uri = options.uri;
         if (uri == null) {
             if (node instanceof ResultsFileNode) {
@@ -314,6 +346,8 @@ export class ViewCommands implements Disposable {
         node: CommitNode | StashNode,
         options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
     ) {
+        if (!(node instanceof CommitNode) && !(node instanceof StashNode)) return;
+
         const repoPath = node.commit.repoPath;
         const uris = node.commit.files.map(s => GitUri.fromFile(s, repoPath));
 
@@ -335,6 +369,8 @@ export class ViewCommands implements Disposable {
         node: CommitNode | StashNode,
         options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
     ) {
+        if (!(node instanceof CommitNode) && !(node instanceof StashNode)) return;
+
         const repoPath = node.commit.repoPath;
         const uris = Arrays.filterMap(node.commit.files, f =>
             f.status !== 'D' ? GitUri.fromFile(f, repoPath) : undefined
@@ -349,6 +385,8 @@ export class ViewCommands implements Disposable {
         node: CommitNode | StashNode,
         options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
     ) {
+        if (!(node instanceof CommitNode) && !(node instanceof StashNode)) return;
+
         const repoPath = node.commit.repoPath;
         const uris = Arrays.filterMap(node.commit.files, f => GitUri.fromFile(f, repoPath));
 
@@ -361,6 +399,8 @@ export class ViewCommands implements Disposable {
         node: CommitNode | StashNode,
         options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
     ) {
+        if (!(node instanceof CommitNode) && !(node instanceof StashNode)) return;
+
         const uris = Arrays.filterMap(node.commit.files, f =>
             GitUri.toRevisionUri(
                 f.status === 'D' ? node.commit.previousFileSha : node.commit.sha,
@@ -389,6 +429,8 @@ export class ViewCommands implements Disposable {
     }
 
     private async openFileRevisionInRemote(node: CommitFileNode | StashFileNode | StatusFileNode) {
+        if (!(node instanceof CommitFileNode) && !(node instanceof StatusFileNode)) return;
+
         return commands.executeCommand(Commands.OpenFileInRemote, node.commit.toGitUri(node.commit.status === 'D'), {
             range: false
         } as OpenFileInRemoteCommandArgs);
@@ -406,13 +448,13 @@ export class ViewCommands implements Disposable {
         void (await Container.git.unStageFile(node.repoPath, node.file.fileName));
     }
 
-    async terminalCheckoutBranch(node: ViewNode) {
+    async terminalCheckoutBranch(node: BranchNode) {
         if (!(node instanceof BranchNode)) return;
 
         this.sendTerminalCommand('checkout', `${node.ref}`, node.repoPath);
     }
 
-    async terminalCreateBranch(node: ViewNode) {
+    async terminalCreateBranch(node: ViewRefNode) {
         if (!(node instanceof ViewRefNode)) return;
 
         let remoteBranch = false;
@@ -432,7 +474,7 @@ export class ViewCommands implements Disposable {
         this.sendTerminalCommand('branch', `${remoteBranch ? '-t ' : ''}${name} ${node.ref}`, node.repoPath);
     }
 
-    terminalDeleteBranch(node: ViewNode) {
+    terminalDeleteBranch(node: BranchNode) {
         if (!(node instanceof BranchNode)) return;
 
         if (node.branch.remote) {
@@ -443,19 +485,19 @@ export class ViewCommands implements Disposable {
         }
     }
 
-    terminalMergeBranch(node: ViewNode) {
+    terminalMergeBranch(node: BranchNode) {
         if (!(node instanceof BranchNode)) return;
 
         this.sendTerminalCommand('merge', `${node.ref}`, node.repoPath);
     }
 
-    terminalRebaseBranch(node: ViewNode) {
+    terminalRebaseBranch(node: BranchNode) {
         if (!(node instanceof BranchNode)) return;
 
         this.sendTerminalCommand('rebase', `-i ${node.ref}`, node.repoPath);
     }
 
-    terminalRebaseBranchToRemote(node: ViewNode) {
+    terminalRebaseBranchToRemote(node: BranchNode | StatusUpstreamNode) {
         if (node instanceof BranchNode) {
             if (!node.branch.current || !node.branch.tracking) return;
 
@@ -466,25 +508,25 @@ export class ViewCommands implements Disposable {
         }
     }
 
-    terminalSquashBranchIntoCommit(node: ViewNode) {
+    terminalSquashBranchIntoCommit(node: BranchNode) {
         if (!(node instanceof BranchNode)) return;
 
         this.sendTerminalCommand('merge', `--squash ${node.ref}`, node.repoPath);
     }
 
-    terminalCheckoutCommit(node: ViewNode) {
+    terminalCheckoutCommit(node: CommitNode) {
         if (!(node instanceof CommitNode)) return;
 
         this.sendTerminalCommand('checkout', `${node.ref}`, node.repoPath);
     }
 
-    terminalCherryPickCommit(node: ViewNode) {
+    terminalCherryPickCommit(node: CommitNode) {
         if (!(node instanceof CommitNode)) return;
 
         this.sendTerminalCommand('cherry-pick', `-e ${node.ref}`, node.repoPath);
     }
 
-    async terminalPushCommit(node: ViewNode) {
+    async terminalPushCommit(node: CommitNode) {
         if (!(node instanceof CommitNode)) return;
 
         const branch = node.branch || (await Container.git.getBranch(node.repoPath));
@@ -493,31 +535,31 @@ export class ViewCommands implements Disposable {
         this.sendTerminalCommand('push', `${branch.getRemote()} ${node.ref}:${branch.getName()}`, node.repoPath);
     }
 
-    terminalRebaseCommit(node: ViewNode) {
+    terminalRebaseCommit(node: CommitNode) {
         if (!(node instanceof CommitNode)) return;
 
         this.sendTerminalCommand('rebase', `-i ${node.ref}^`, node.repoPath);
     }
 
-    terminalResetCommit(node: ViewNode) {
+    terminalResetCommit(node: CommitNode) {
         if (!(node instanceof CommitNode)) return;
 
         this.sendTerminalCommand('reset', `--soft ${node.ref}`, node.repoPath);
     }
 
-    terminalRevertCommit(node: ViewNode) {
+    terminalRevertCommit(node: CommitNode) {
         if (!(node instanceof CommitNode)) return;
 
         this.sendTerminalCommand('revert', `-e ${node.ref}`, node.repoPath);
     }
 
-    terminalRemoveRemote(node: ViewNode) {
+    terminalRemoveRemote(node: RemoteNode) {
         if (!(node instanceof RemoteNode)) return;
 
         this.sendTerminalCommand('remote', `remove ${node.remote.name}`, node.remote.repoPath);
     }
 
-    async terminalCreateTag(node: ViewNode) {
+    async terminalCreateTag(node: ViewRefNode) {
         if (!(node instanceof ViewRefNode)) return;
 
         const name = await window.showInputBox({
@@ -536,7 +578,7 @@ export class ViewCommands implements Disposable {
         this.sendTerminalCommand('tag', args, node.repoPath);
     }
 
-    terminalDeleteTag(node: ViewNode) {
+    terminalDeleteTag(node: TagNode) {
         if (!(node instanceof TagNode)) return;
 
         this.sendTerminalCommand('tag', `-d ${node.ref}`, node.repoPath);

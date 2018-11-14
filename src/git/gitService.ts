@@ -455,11 +455,8 @@ export class GitService implements Disposable {
     }
 
     @log()
-    checkoutFile(uri: GitUri, ref?: string) {
-        ref = ref || uri.sha;
-        if (ref === undefined || uri.repoPath === undefined) return;
-
-        return Git.checkout(uri.repoPath, uri.fsPath, ref);
+    checkout(repoPath: string, ref: string, fileName?: string) {
+        return Git.checkout(repoPath, ref, fileName);
     }
 
     @gate()

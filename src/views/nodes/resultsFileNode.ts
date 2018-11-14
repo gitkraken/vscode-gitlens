@@ -19,6 +19,10 @@ export class ResultsFileNode extends ViewNode {
         super(GitUri.fromFile(file, repoPath, ref1 ? ref1 : ref2 ? ref2 : undefined), view, parent);
     }
 
+    get ref() {
+        return this.ref1 ? this.ref1 : this.ref2 ? this.ref2 : undefined;
+    }
+
     getChildren(): ViewNode[] {
         return [];
     }

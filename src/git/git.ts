@@ -374,10 +374,15 @@ export class Git {
         return git<string>({ cwd: repoPath }, 'check-mailmap', author);
     }
 
-    static checkout(repoPath: string, fileName: string, ref: string) {
-        const [file, root] = Git.splitPath(fileName, repoPath);
+    static checkout(repoPath: string, ref: string, fileName?: string) {
+        const params = ['checkout', ref, '--'];
+        if (fileName) {
+            [fileName, repoPath] = Git.splitPath(fileName, repoPath);
 
-        return git<string>({ cwd: root }, 'checkout', ref, '--', file);
+            params.push(fileName);
+        }
+
+        return git<string>({ cwd: repoPath }, ...params);
     }
 
     static async config_get(key: string, repoPath?: string) {
