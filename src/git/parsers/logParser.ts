@@ -124,8 +124,8 @@ export class GitLogParser {
                         }
                     }
 
-                    if (entry.summary !== undefined) {
-                        // Remove the trailing newline
+                    // Remove the trailing newline
+                    if (entry.summary != null && entry.summary.charCodeAt(entry.summary.length - 1) === 10) {
                         entry.summary = entry.summary.slice(0, -1);
                     }
                     break;

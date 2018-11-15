@@ -79,8 +79,8 @@ export class GitStashParser {
                         }
                     }
 
-                    if (entry.summary !== undefined) {
-                        // Remove the trailing newline
+                    // Remove the trailing newline
+                    if (entry.summary != null && entry.summary.charCodeAt(entry.summary.length - 1) === 10) {
                         entry.summary = entry.summary.slice(0, -1);
                     }
                     break;
@@ -114,9 +114,8 @@ export class GitStashParser {
                         }
 
                         if (entry.files !== undefined) {
-                            entry.fileNames = Arrays.filterMap(
-                                entry.files,
-                                f => (f.fileName ? f.fileName : undefined)
+                            entry.fileNames = Arrays.filterMap(entry.files, f =>
+                                f.fileName ? f.fileName : undefined
                             ).join(', ');
                         }
                     }
