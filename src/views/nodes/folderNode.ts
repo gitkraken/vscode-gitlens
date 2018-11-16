@@ -61,7 +61,7 @@ export class FolderNode extends ViewNode {
             return (
                 (a instanceof FolderNode ? -1 : 1) - (b instanceof FolderNode ? -1 : 1) ||
                 a.priority - b.priority ||
-                a.label!.localeCompare(b.label!)
+                a.label!.localeCompare(b.label!, undefined, { numeric: true, sensitivity: 'base' })
             );
         });
 

@@ -46,7 +46,11 @@ export class ResultsFilesNode extends ViewNode {
             children = (await root.getChildren()) as FileNode[];
         }
         else {
-            children.sort((a, b) => a.priority - b.priority || a.label!.localeCompare(b.label!));
+            children.sort(
+                (a, b) =>
+                    a.priority - b.priority ||
+                    a.label!.localeCompare(b.label!, undefined, { numeric: true, sensitivity: 'base' })
+            );
         }
 
         return children;

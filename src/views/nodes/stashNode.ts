@@ -42,7 +42,7 @@ export class StashNode extends ViewRefNode {
         }
 
         const children = files.map(s => new StashFileNode(this.view, this, s, this.commit.toFileCommit(s)));
-        children.sort((a, b) => a.label!.localeCompare(b.label!));
+        children.sort((a, b) => a.label!.localeCompare(b.label!, undefined, { numeric: true, sensitivity: 'base' }));
         return children;
     }
 

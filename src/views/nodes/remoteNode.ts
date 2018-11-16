@@ -29,16 +29,14 @@ export class RemoteNode extends ViewNode<RepositoriesView> {
         const branches = await this.repo.getBranches();
         if (branches === undefined) return [];
 
-        branches.sort((a, b) => a.name.localeCompare(b.name));
+        branches.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
 
         // filter remote branches
         const branchNodes = [
-            ...Iterables.filterMap(
-                branches,
-                b =>
-                    !b.remote || !b.name.startsWith(this.remote.name)
-                        ? undefined
-                        : new BranchNode(this.uri, this.view, this, b)
+            ...Iterables.filterMap(branches, b =>
+                !b.remote || !b.name.startsWith(this.remote.name)
+                    ? undefined
+                    : new BranchNode(this.uri, this.view, this, b)
             )
         ];
         if (this.view.config.branches.layout === ViewBranchesLayout.List) return branchNodes;

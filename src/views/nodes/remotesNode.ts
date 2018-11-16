@@ -28,7 +28,7 @@ export class RemotesNode extends ViewNode<RepositoriesView> {
             return [new MessageNode(this.view, this, 'No remotes could be found')];
         }
 
-        remotes.sort((a, b) => a.name.localeCompare(b.name));
+        remotes.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
         return [...Iterables.map(remotes, r => new RemoteNode(this.uri, this.view, this, r, this.repo))];
     }
 

@@ -28,7 +28,7 @@ export class TagsNode extends ViewNode<RepositoriesView> {
         const tags = await this.repo.getTags();
         if (tags.length === 0) return [new MessageNode(this.view, this, 'No tags could be found.')];
 
-        tags.sort((a, b) => a.name.localeCompare(b.name));
+        tags.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
         const tagNodes = tags.map(t => new TagNode(this.uri, this.view, this, t));
         if (this.view.config.branches.layout === ViewBranchesLayout.List) return tagNodes;
 

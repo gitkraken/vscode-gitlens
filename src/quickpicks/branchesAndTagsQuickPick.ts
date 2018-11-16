@@ -265,7 +265,11 @@ export class BranchesAndTagsQuickPick {
             const filter =
                 filters !== undefined && typeof filters.branches === 'function' ? filters.branches : undefined;
 
-            branches.sort((a, b) => (b.remote ? -1 : 1) - (a.remote ? -1 : 1) || a.name.localeCompare(b.name));
+            branches.sort(
+                (a, b) =>
+                    (b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
+                    a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+            );
             for (const b of branches) {
                 if (filter !== undefined && !filter(b)) continue;
 
@@ -276,7 +280,7 @@ export class BranchesAndTagsQuickPick {
         if (tags !== undefined) {
             const filter = filters !== undefined && typeof filters.tags === 'function' ? filters.tags : undefined;
 
-            tags.sort((a, b) => a.name.localeCompare(b.name));
+            tags.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
             for (const t of tags) {
                 if (filter !== undefined && !filter(t)) continue;
 

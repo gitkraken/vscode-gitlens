@@ -224,7 +224,9 @@ export class RepoStatusQuickPick {
                 ((a as OpenStatusFileCommandQuickPickItem).status.staged ? -1 : 1) -
                     ((b as OpenStatusFileCommandQuickPickItem).status.staged ? -1 : 1) ||
                 (a as OpenStatusFileCommandQuickPickItem).status.fileName.localeCompare(
-                    (b as OpenStatusFileCommandQuickPickItem).status.fileName
+                    (b as OpenStatusFileCommandQuickPickItem).status.fileName,
+                    undefined,
+                    { numeric: true, sensitivity: 'base' }
                 )
         );
 
