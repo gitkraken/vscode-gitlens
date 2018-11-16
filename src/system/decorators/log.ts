@@ -15,6 +15,9 @@ export function getCorrelationId() {
 }
 
 function getNextCorrelationId() {
+    if (correlationCounter === Number.MAX_SAFE_INTEGER) {
+        correlationCounter = 0;
+    }
     return ++correlationCounter;
 }
 
@@ -27,11 +30,11 @@ function setCorrelationContext(correlationId: number, context: LogCorrelationCon
 }
 
 export interface LogContext<T> {
-    prefix: string;
-    name: string;
+    id: number;
     instance: T;
     instanceName: string;
-    id?: number;
+    name: string;
+    prefix: string;
 }
 
 export const LogInstanceNameFn = Symbol('logInstanceNameFn');
@@ -51,6 +54,7 @@ export function debug<T>(
         exit?(result: any): string;
         prefix?(context: LogContext<T>, ...args: any[]): string;
         sanitize?(key: string, value: any): any;
+        singleLine?: boolean;
         timed?: boolean;
     } = { timed: true }
 ) {
@@ -88,6 +92,8 @@ export function log<T>(
         const parameters = Functions.getParameters(fn);
 
         descriptor.value = function(this: any, ...args: any[]) {
+            const correlationId = getNextCorrelationId();
+
             if (
                 (Logger.level !== LogLevel.Debug && !(Logger.level === LogLevel.Verbose && !options.debug)) ||
                 (typeof options.condition === 'function' && !options.condition(...args))
@@ -106,31 +112,32 @@ export function log<T>(
                 instanceName = '';
             }
 
-            let correlationId: number | undefined;
-            let prefix: string;
-            if ((options.correlate || options.timed) && !options.singleLine) {
-                correlationId = getNextCorrelationId();
-                prefix = `[${correlationId.toString(16)}] ${instanceName ? `${instanceName}.` : ''}${key}`;
+            let { correlate } = options;
+            if (!correlate && options.timed) {
+                correlate = true;
             }
-            else {
-                prefix = `${instanceName ? `${instanceName}.` : ''}${key}`;
-            }
+
+            let prefix = `${correlate ? `[${correlationId.toString(16)}] ` : ''}${
+                instanceName ? `${instanceName}.` : ''
+            }${key}`;
 
             if (options.prefix != null) {
                 prefix = options.prefix(
                     {
-                        prefix: prefix,
+                        id: correlationId,
                         instance: this,
-                        name: key,
                         instanceName: instanceName,
-                        id: correlationId
+                        name: key,
+                        prefix: prefix
                     } as LogContext<T>,
                     ...args
                 );
             }
 
-            if (correlationId !== undefined) {
-                setCorrelationContext(correlationId, { correlationId: correlationId, prefix: prefix });
+            let correlationContext: LogCorrelationContext | undefined;
+            if (correlate) {
+                correlationContext = { correlationId: correlationId, prefix: prefix };
+                setCorrelationContext(correlationId, correlationContext);
             }
 
             const enter = options.enter != null ? options.enter(...args) : '';
@@ -180,9 +187,31 @@ export function log<T>(
 
                 const logError = (ex: Error) => {
                     const timing = start !== undefined ? ` \u2022 ${Strings.getDurationMilliseconds(start)} ms` : '';
-                    Logger.error(ex, prefix, `failed${timing}${options.singleLine ? `${enter}${loggableParams}` : ''}`);
+                    if (options.singleLine) {
+                        Logger.error(
+                            ex,
+                            `${prefix}${enter}`,
+                            `failed${
+                                correlationContext !== undefined && correlationContext.exitDetails
+                                    ? correlationContext.exitDetails
+                                    : ''
+                            }${timing}`,
+                            loggableParams
+                        );
+                    }
+                    else {
+                        Logger.error(
+                            ex,
+                            prefix,
+                            `failed${
+                                correlationContext !== undefined && correlationContext.exitDetails
+                                    ? correlationContext.exitDetails
+                                    : ''
+                            }${timing}`
+                        );
+                    }
 
-                    if (correlationId !== undefined) {
+                    if (correlate) {
                         clearCorrelationContext(correlationId);
                     }
                 };
@@ -213,17 +242,37 @@ export function log<T>(
 
                     if (options.singleLine) {
                         if (!options.debug) {
-                            Logger.logWithDebugParams(`${prefix} ${enter}${exit}${timing}`, loggableParams);
+                            Logger.logWithDebugParams(
+                                `${prefix}${enter} ${exit}${
+                                    correlationContext !== undefined && correlationContext.exitDetails
+                                        ? correlationContext.exitDetails
+                                        : ''
+                                }${timing}`,
+                                loggableParams
+                            );
                         }
                         else {
-                            logFn(prefix, `${enter}${exit}${timing}`, loggableParams);
+                            logFn(
+                                `${prefix}${enter} ${exit}${
+                                    correlationContext !== undefined && correlationContext.exitDetails
+                                        ? correlationContext.exitDetails
+                                        : ''
+                                }${timing}`,
+                                loggableParams
+                            );
                         }
                     }
                     else {
-                        logFn(prefix, `${exit}${timing}`);
+                        logFn(
+                            `${prefix} ${exit}${
+                                correlationContext !== undefined && correlationContext.exitDetails
+                                    ? correlationContext.exitDetails
+                                    : ''
+                            }${timing}`
+                        );
                     }
 
-                    if (correlationId !== undefined) {
+                    if (correlate) {
                         clearCorrelationContext(correlationId);
                     }
                 };
