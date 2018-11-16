@@ -252,6 +252,12 @@
                     "type": "array",
                     "default": [
                         {
+                            "language": "azure-pipelines",
+                            "scopes": [
+                                "document"
+                            ]
+                        },
+                        {
                             "language": "css",
                             "scopes": [
                                 "document"
