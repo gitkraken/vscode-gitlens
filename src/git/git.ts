@@ -466,9 +466,8 @@ export class Git {
         if (options.ref2) {
             params.push(options.ref2);
         }
-        params.push('--', fileName);
 
-        return git<string>({ cwd: repoPath }, ...params);
+        return git<string>({ cwd: repoPath }, ...params, '--', fileName);
     }
 
     static fetch(repoPath: string, options: { all?: boolean; remote?: string } = {}) {
@@ -632,6 +631,7 @@ export class Git {
         const data = await git<string>(
             { cwd: repoPath, exceptionHandler: ignoreExceptionsHandler },
             ...params,
+            '--',
             fileName
         );
         return data === '' ? undefined : data.trim();
