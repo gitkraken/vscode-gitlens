@@ -102,7 +102,7 @@ export class RunError extends Error {
 }
 
 export interface RunOptions {
-    readonly cwd?: string;
+    cwd?: string;
     readonly env?: Object;
     readonly encoding?: BufferEncoding | 'buffer';
     /**

@@ -52,7 +52,8 @@ export enum DocumentSchemes {
     File = 'file',
     Git = 'git',
     GitLens = 'gitlens',
-    Output = 'output'
+    Output = 'output',
+    Vsls = 'vsls'
 }
 
 export function getEditorIfActive(document: TextDocument): TextEditor | undefined {

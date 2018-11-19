@@ -2,6 +2,7 @@
 import * as iconv from 'iconv-lite';
 import * as paths from 'path';
 import { GlyphChars } from '../constants';
+import { Container } from '../container';
 import { Logger } from '../logger';
 import { Objects, Strings } from '../system';
 import { findGitPath, GitLocation } from './locator';
@@ -76,10 +77,12 @@ export enum GitErrorHandling {
     Throw = 'throw'
 }
 
-interface GitCommandOptions extends RunOptions {
+export interface GitCommandOptions extends RunOptions {
     configs?: string[];
     readonly correlationKey?: string;
     errors?: GitErrorHandling;
+    // Specifies that this command should always be executed locally if possible
+    local?: boolean;
 }
 
 // A map of running git commands -- avoids running duplicate overlaping commands
@@ -88,7 +91,20 @@ const pendingCommands: Map<string, Promise<string | Buffer>> = new Map();
 const emptyArray: any = [];
 const emptyObj = {};
 
-async function git<TOut extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<TOut> {
+export async function git<TOut extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<TOut> {
+    if (Container.vsls.isMaybeGuest) {
+        if (options.local !== true) {
+            const guest = await Container.vsls.guest();
+            if (guest !== undefined) {
+                return guest.git<TOut>(options, ...args);
+            }
+        }
+        else {
+            // Since we will have a live share path here, just blank it out
+            options.cwd = '';
+        }
+    }
+
     const start = process.hrtime();
 
     const { configs, correlationKey, errors: errorHandling, ...opts } = options;
@@ -426,7 +442,7 @@ export class Git {
     }
 
     static check_mailmap(repoPath: string, author: string) {
-        return git<string>({ cwd: repoPath }, 'check-mailmap', author);
+        return git<string>({ cwd: repoPath, local: true }, 'check-mailmap', author);
     }
 
     static checkout(repoPath: string, ref: string, fileName?: string) {
@@ -440,9 +456,9 @@ export class Git {
         return git<string>({ cwd: repoPath }, ...params);
     }
 
-    static async config_get(key: string, repoPath?: string) {
+    static async config_get(key: string, repoPath?: string, options: { local?: boolean } = {}) {
         const data = await git<string>(
-            { cwd: repoPath || '', errors: GitErrorHandling.Ignore },
+            { cwd: repoPath || '', errors: GitErrorHandling.Ignore, local: options.local },
             'config',
             '--get',
             key
@@ -450,9 +466,9 @@ export class Git {
         return data === '' ? undefined : data.trim();
     }
 
-    static async config_getRegex(pattern: string, repoPath?: string) {
+    static async config_getRegex(pattern: string, repoPath?: string, options: { local?: boolean } = {}) {
         const data = await git<string>(
-            { cwd: repoPath || '', errors: GitErrorHandling.Ignore },
+            { cwd: repoPath || '', errors: GitErrorHandling.Ignore, local: options.local },
             'config',
             '--get-regex',
             pattern

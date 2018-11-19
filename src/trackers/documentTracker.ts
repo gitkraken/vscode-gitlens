@@ -127,7 +127,8 @@ export class DocumentTracker<T> implements Disposable {
     }
 
     private onTextDocumentChanged(e: TextDocumentChangeEvent) {
-        if (e.document.uri.scheme !== DocumentSchemes.File) return;
+        const { scheme } = e.document.uri;
+        if (scheme !== DocumentSchemes.File && scheme !== DocumentSchemes.Vsls) return;
 
         let doc = this._documentMap.get(e.document);
         if (doc === undefined) {

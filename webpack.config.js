@@ -99,7 +99,10 @@ function getExtensionConfig(env) {
                     use: 'ts-loader',
                     exclude: /node_modules|\.d\.ts$/
                 }
-            ]
+            ],
+            // Removes `Critical dependency: the request of a dependency is an expression` from `./node_modules/vsls/vscode.js`
+            exprContextRegExp: /^$/,
+            exprContextCritical: false
         },
         resolve: {
             extensions: ['.ts', '.tsx', '.js', '.jsx']

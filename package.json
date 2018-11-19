@@ -573,6 +573,12 @@
                     "markdownDescription": "Specifies the keymap to use for GitLens shortcut keys",
                     "scope": "window"
                 },
+                "gitlens.liveshare.allowGuestAccess": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Specifies whether to allow guest access to GitLens features when using Visual Studio Live Share",
+                    "scope": "window"
+                },
                 "gitlens.menus": {
                     "anyOf": [
                         {
@@ -4382,7 +4388,7 @@
     "scripts": {
         "build": "webpack --env.development",
         "bundle": "webpack --env.production",
-        "clean": "git clean -Xdf -e !.cache-images",
+        "clean": "git clean -Xdf -e !.cache-images -e !node_modules -e !node_modules/**/*",
         "lint": "tslint --project tsconfig.json && tslint --project ui.tsconfig.json",
         "pack": "vsce package",
         "pretty": "prettier --config .prettierrc --loglevel warn --write \"./**/*.{ts,md,json}\" && tslint --project tsconfig.json --fix && tslint --project ui.tsconfig.json --fix",
@@ -4401,7 +4407,8 @@
         "date-fns": "1.29.0",
         "iconv-lite": "0.4.24",
         "lodash-es": "4.17.11",
-        "tslib": "1.9.3"
+        "tslib": "1.9.3",
+        "vsls": "0.3.967"
     },
     "devDependencies": {
         "@types/clipboardy": "1.1.0",

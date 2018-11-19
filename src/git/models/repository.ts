@@ -261,7 +261,7 @@ export class Repository implements Disposable {
 
     async getLastFetched(): Promise<number> {
         const hasRemotes = await this.hasRemotes();
-        if (!hasRemotes) return 0;
+        if (!hasRemotes || Container.vsls.isMaybeGuest) return 0;
 
         return new Promise<number>((resolve, reject) =>
             fs.stat(paths.join(this.path, '.git/FETCH_HEAD'), (err, stat) => resolve(err ? 0 : stat.mtime.getTime()))

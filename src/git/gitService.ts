@@ -26,6 +26,7 @@ import { LogCorrelationContext, Logger } from '../logger';
 import { Messages } from '../messages';
 import { gate, Iterables, log, Objects, Strings, TernarySearchTree, Versions } from '../system';
 import { CachedBlame, CachedDiff, CachedLog, GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
+import { vslsUriPrefixRegex } from '../vsls/vsls';
 import {
     CommitFormatting,
     Git,
@@ -178,19 +179,36 @@ export class GitService implements Disposable {
         }
 
         for (const f of e.added) {
-            if (f.uri.scheme !== DocumentSchemes.File) continue;
+            const { scheme } = f.uri;
+            if (scheme !== DocumentSchemes.File && scheme !== DocumentSchemes.Vsls) continue;
 
-            // Search for and add all repositories (nested and/or submodules)
-            const repositories = await this.repositorySearch(f);
-            for (const r of repositories) {
-                this._repositoryTree.set(r.path, r);
+            if (scheme === DocumentSchemes.Vsls) {
+                if (Container.vsls.isMaybeGuest) {
+                    const guest = await Container.vsls.guest();
+                    if (guest !== undefined) {
+                        const repositories = await guest.getRepositoriesInFolder(
+                            f,
+                            this.onAnyRepositoryChanged.bind(this)
+                        );
+                        for (const r of repositories) {
+                            this._repositoryTree.set(r.path, r);
+                        }
+                    }
+                }
+            }
+            else {
+                // Search for and add all repositories (nested and/or submodules)
+                const repositories = await this.repositorySearch(f);
+                for (const r of repositories) {
+                    this._repositoryTree.set(r.path, r);
+                }
             }
         }
 
         for (const f of e.removed) {
-            if (f.uri.scheme !== DocumentSchemes.File) continue;
+            const { fsPath, scheme } = f.uri;
+            if (scheme !== DocumentSchemes.File && scheme !== DocumentSchemes.Vsls) continue;
 
-            const fsPath = f.uri.fsPath;
             const repos = this._repositoryTree.findSuperstr(fsPath);
             const reposToDelete =
                 repos !== undefined
@@ -230,21 +248,17 @@ export class GitService implements Disposable {
     }
 
     private async repositorySearch(folder: WorkspaceFolder): Promise<Repository[]> {
-        const folderUri = folder.uri;
+        const { uri } = folder;
+        const depth = configuration.get<number>(configuration.name('advanced')('repositorySearchDepth').value, uri);
 
-        const depth = configuration.get<number>(
-            configuration.name('advanced')('repositorySearchDepth').value,
-            folderUri
-        );
-
-        Logger.log(`Searching for repositories (depth=${depth}) in '${folderUri.fsPath}' ...`);
+        Logger.log(`Searching for repositories (depth=${depth}) in '${uri.fsPath}' ...`);
 
         const start = process.hrtime();
 
         const repositories: Repository[] = [];
         const anyRepoChangedFn = this.onAnyRepositoryChanged.bind(this);
 
-        const rootPath = await this.getRepoPathCore(folderUri.fsPath, true);
+        const rootPath = await this.getRepoPathCore(uri.fsPath, true);
         if (rootPath !== undefined) {
             Logger.log(`Repository found in '${rootPath}'`);
             repositories.push(new Repository(folder, rootPath, true, anyRepoChangedFn, this._suspended));
@@ -252,7 +266,7 @@ export class GitService implements Disposable {
 
         if (depth <= 0) {
             Logger.log(
-                `Completed repository search (depth=${depth}) in '${folderUri.fsPath}' ${
+                `Completed repository search (depth=${depth}) in '${uri.fsPath}' ${
                     GlyphChars.Dot
                 } ${Strings.getDurationMilliseconds(start)} ms`
             );
@@ -262,8 +276,8 @@ export class GitService implements Disposable {
 
         // Get any specified excludes -- this is a total hack, but works for some simple cases and something is better than nothing :)
         let excludes = {
-            ...workspace.getConfiguration('files', folderUri).get<{ [key: string]: boolean }>('exclude', {}),
-            ...workspace.getConfiguration('search', folderUri).get<{ [key: string]: boolean }>('exclude', {})
+            ...workspace.getConfiguration('files', uri).get<{ [key: string]: boolean }>('exclude', {}),
+            ...workspace.getConfiguration('search', uri).get<{ [key: string]: boolean }>('exclude', {})
         };
 
         const excludedPaths = [
@@ -284,18 +298,16 @@ export class GitService implements Disposable {
 
         let repoPaths;
         try {
-            repoPaths = await this.repositorySearchCore(folderUri.fsPath, depth, excludes);
+            repoPaths = await this.repositorySearchCore(uri.fsPath, depth, excludes);
         }
         catch (ex) {
             if (RepoSearchWarnings.doesNotExist.test(ex.message || '')) {
                 Logger.log(
-                    `Repository search (depth=${depth}) in '${folderUri.fsPath}' FAILED${
-                        ex.message ? `(${ex.message})` : ''
-                    }`
+                    `Repository search (depth=${depth}) in '${uri.fsPath}' FAILED${ex.message ? `(${ex.message})` : ''}`
                 );
             }
             else {
-                Logger.error(ex, `Repository search (depth=${depth}) in '${folderUri.fsPath}' FAILED`);
+                Logger.error(ex, `Repository search (depth=${depth}) in '${uri.fsPath}' FAILED`);
             }
 
             return repositories;
@@ -314,7 +326,7 @@ export class GitService implements Disposable {
         }
 
         Logger.log(
-            `Completed repository search (depth=${depth}) in '${folderUri.fsPath}' ${
+            `Completed repository search (depth=${depth}) in '${uri.fsPath}' ${
                 GlyphChars.Dot
             } ${Strings.getDurationMilliseconds(start)} ms`
         );
@@ -555,11 +567,18 @@ export class GitService implements Disposable {
         );
     }
 
-    private async fileExists(
+    async fileExists(
         repoPath: string,
         fileName: string,
         options: { ensureCase: boolean } = { ensureCase: false }
     ): Promise<boolean> {
+        if (Container.vsls.isMaybeGuest) {
+            const guest = await Container.vsls.guest();
+            if (guest !== undefined) {
+                return guest.fileExists(repoPath, fileName, options);
+            }
+        }
+
         const path = paths.resolve(repoPath, fileName);
         const exists = await new Promise<boolean>((resolve, reject) => fs.exists(path, resolve));
         if (!options.ensureCase || !exists) return exists;
@@ -1075,7 +1094,7 @@ export class GitService implements Disposable {
         // If we found the repo, but no user data was found just return
         if (user === null) return undefined;
 
-        const data = await Git.config_getRegex('user.(name|email)', repoPath);
+        const data = await Git.config_getRegex('user.(name|email)', repoPath, { local: true });
         if (!data) {
             // If we found no user data, mark it so we won't bother trying again
             this._userMapCache.set(repoPath, null);
@@ -1615,7 +1634,7 @@ export class GitService implements Disposable {
         let repo = await this.getRepository(filePathOrUri, { ...options, skipCacheUpdate: true });
         if (repo !== undefined) return repo.path;
 
-        const rp = await this.getRepoPathCore(
+        let rp = await this.getRepoPathCore(
             typeof filePathOrUri === 'string' ? filePathOrUri : filePathOrUri.fsPath,
             false
         );
@@ -1625,12 +1644,19 @@ export class GitService implements Disposable {
         if (this._repositoryTree.get(rp) !== undefined) return rp;
 
         // If this new repo is inside one of our known roots and we we don't already know about, add it
-        const root = this._repositoryTree.findSubstr(rp);
-        let folder = root === undefined ? workspace.getWorkspaceFolder(GitUri.file(rp)) : root.folder;
+        const root = this.findRepositoryForPath(this._repositoryTree, rp);
 
-        if (folder === undefined) {
-            const parts = rp.split('/');
-            folder = { uri: GitUri.file(rp), name: parts[parts.length - 1], index: this._repositoryTree.count() };
+        let folder;
+        if (root !== undefined) {
+            rp = root.path;
+            folder = root.folder;
+        }
+        else {
+            folder = workspace.getWorkspaceFolder(GitUri.file(rp));
+            if (folder === undefined) {
+                const parts = rp.split('/');
+                folder = { uri: GitUri.file(rp), name: parts[parts.length - 1], index: this._repositoryTree.count() };
+            }
         }
 
         Logger.log(cc, `Repository found in '${rp}'`);
@@ -1730,11 +1756,23 @@ export class GitService implements Disposable {
             }
         }
 
-        const repo = repositoryTree.findSubstr(path);
+        const repo = this.findRepositoryForPath(repositoryTree, path);
         if (repo === undefined) return undefined;
 
         // Make sure the file is tracked in this repo before returning -- it could be from a submodule
         if (!(await this.isTracked(path, repo.path, options))) return undefined;
+        return repo;
+    }
+
+    private findRepositoryForPath(repositoryTree: TernarySearchTree<Repository>, path: string): Repository | undefined {
+        let repo = repositoryTree.findSubstr(path);
+        // If we can't find the repo and we are a guest, check if we are a "root" workspace
+        if (repo === undefined && Container.vsls.isMaybeGuest) {
+            if (!vslsUriPrefixRegex.test(path)) {
+                const vslsPath = Strings.normalizePath(`/~0${path}`);
+                repo = repositoryTree.findSubstr(vslsPath);
+            }
+        }
         return repo;
     }
 
@@ -1834,15 +1872,13 @@ export class GitService implements Disposable {
     isTrackable(scheme: string): boolean;
     isTrackable(uri: Uri): boolean;
     isTrackable(schemeOruri: string | Uri): boolean {
-        let scheme: string;
-        if (typeof schemeOruri === 'string') {
-            scheme = schemeOruri;
-        }
-        else {
-            scheme = schemeOruri.scheme;
-        }
-
-        return scheme === DocumentSchemes.File || scheme === DocumentSchemes.Git || scheme === DocumentSchemes.GitLens;
+        const scheme = typeof schemeOruri === 'string' ? schemeOruri : schemeOruri.scheme;
+        return (
+            scheme === DocumentSchemes.File ||
+            scheme === DocumentSchemes.Vsls ||
+            scheme === DocumentSchemes.Git ||
+            scheme === DocumentSchemes.GitLens
+        );
     }
 
     async isTracked(
@@ -1930,7 +1966,7 @@ export class GitService implements Disposable {
 
     @log()
     async getDiffTool(repoPath?: string) {
-        return (await Git.config_get('diff.guitool', repoPath)) || (await Git.config_get('diff.tool', repoPath));
+        return (await Git.config_get('diff.guitool', repoPath, { local: true })) || (await Git.config_get('diff.tool', repoPath, { local: true }));
     }
 
     @log()

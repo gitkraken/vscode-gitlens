@@ -17,6 +17,7 @@ import { LineHistoryView } from './views/lineHistoryView';
 import { RepositoriesView } from './views/repositoriesView';
 import { SearchView } from './views/searchView';
 import { ViewCommands } from './views/viewCommands';
+import { VslsController } from './vsls/vsls';
 import { SettingsEditor } from './webviews/settingsEditor';
 import { WelcomeEditor } from './webviews/welcomeEditor';
 
@@ -27,6 +28,8 @@ export class Container {
 
         context.subscriptions.push((this._lineTracker = new GitLineTracker()));
         context.subscriptions.push((this._tracker = new GitDocumentTracker()));
+        context.subscriptions.push((this._vsls = new VslsController()));
+
         context.subscriptions.push((this._git = new GitService()));
 
         // Since there is a bit of a chicken & egg problem with the DocumentTracker and the GitService, initialize the tracker once the GitService is loaded
@@ -219,6 +222,11 @@ export class Container {
             this._context.subscriptions.push((this._viewCommands = new ViewCommands()));
         }
         return this._viewCommands;
+    }
+
+    private static _vsls: VslsController;
+    static get vsls() {
+        return this._vsls;
     }
 
     private static _welcomeEditor: WelcomeEditor;

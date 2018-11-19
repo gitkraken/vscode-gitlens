@@ -54,6 +54,10 @@ export class GitUri extends ((Uri as any) as UriEx) {
             data.path = Strings.normalizePath(
                 `/${data.repoPath}/${uri.path.replace(stripRepoRevisionFromPathRegex, '$1')}`
             );
+            // Make sure we aren't starting with //
+            if (data.path[1] === '/') {
+                data.path = data.path.substr(1);
+            }
 
             super({
                 scheme: uri.scheme,
@@ -192,7 +196,12 @@ export class GitUri extends ((Uri as any) as UriEx) {
     }
 
     static file(path: string) {
-        return Uri.file(path);
+        const uri = Uri.file(path);
+        if (Container.vsls.isMaybeGuest) {
+            return uri.with({ scheme: DocumentSchemes.Vsls });
+        }
+
+        return uri;
     }
 
     static fromCommit(commit: GitCommit, previous: boolean = false) {

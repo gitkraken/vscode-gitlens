@@ -53,6 +53,9 @@ export interface Config {
     };
     insiders: boolean;
     keymap: KeyMap;
+    liveshare: {
+        allowGuestAccess: boolean;
+    };
     menus: boolean | MenuConfig;
     mode: {
         active: string;
