@@ -71,9 +71,14 @@ const GitWarnings = {
     remoteConnectionError: /Could not read from remote repository/i
 };
 
+export enum GitErrorHandling {
+    Ignore = 'ignore',
+    Throw = 'throw'
+}
+
 interface GitCommandOptions extends RunOptions {
     readonly correlationKey?: string;
-    exceptionHandler?(ex: Error): string | void;
+    errors?: GitErrorHandling;
 }
 
 // A map of running git commands -- avoids running duplicate overlaping commands
@@ -82,7 +87,7 @@ const pendingCommands: Map<string, Promise<string | Buffer>> = new Map();
 async function git<TOut extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<TOut> {
     const start = process.hrtime();
 
-    const { correlationKey, exceptionHandler, ...opts } = options;
+    const { correlationKey, errors: errorHandling, ...opts } = options;
 
     const encoding = options.encoding || 'utf8';
     const runOpts = {
@@ -119,15 +124,20 @@ async function git<TOut extends string | Buffer>(options: GitCommandOptions, ...
     }
     catch (ex) {
         exception = ex;
-        if (exceptionHandler !== undefined) {
-            const result = exceptionHandler(ex);
-            exception = undefined;
-            return result as TOut;
-        }
 
-        const result = defaultExceptionHandler(ex, options, ...args);
-        exception = undefined;
-        return result as TOut;
+        switch (errorHandling) {
+            case GitErrorHandling.Ignore:
+                exception = undefined;
+                return '' as TOut;
+
+            case GitErrorHandling.Throw:
+                throw ex;
+
+            default:
+                const result = defaultExceptionHandler(ex, options, ...args);
+                exception = undefined;
+                return result as TOut;
+        }
     }
     finally {
         pendingCommands.delete(command);
@@ -157,14 +167,6 @@ function defaultExceptionHandler(ex: Error, options: GitCommandOptions, ...args:
     }
 
     Logger.error(ex, 'git', ...args, `  cwd='${options.cwd}'\n\n  `);
-    throw ex;
-}
-
-function ignoreExceptionsHandler() {
-    return '';
-}
-
-function throwExceptionHandler(ex: Error) {
     throw ex;
 }
 
@@ -387,7 +389,7 @@ export class Git {
 
     static async config_get(key: string, repoPath?: string) {
         const data = await git<string>(
-            { cwd: repoPath || '', exceptionHandler: ignoreExceptionsHandler },
+            { cwd: repoPath || '', errors: GitErrorHandling.Ignore },
             'config',
             '--get',
             key
@@ -397,7 +399,7 @@ export class Git {
 
     static async config_getRegex(pattern: string, repoPath?: string) {
         const data = await git<string>(
-            { cwd: repoPath || '', exceptionHandler: ignoreExceptionsHandler },
+            { cwd: repoPath || '', errors: GitErrorHandling.Ignore },
             'config',
             '--get-regex',
             pattern
@@ -542,7 +544,7 @@ export class Git {
 
     static async log_recent(repoPath: string, fileName: string) {
         const data = await git<string>(
-            { cwd: repoPath, exceptionHandler: ignoreExceptionsHandler },
+            { cwd: repoPath, errors: GitErrorHandling.Ignore },
             'log',
             '-M',
             '-n1',
@@ -557,7 +559,7 @@ export class Git {
         if (Git.isUncommitted(ref)) return true;
 
         try {
-            await git<string>({ cwd: repoPath, exceptionHandler: throwExceptionHandler }, 'cat-file', '-t', ref);
+            await git<string>({ cwd: repoPath, errors: GitErrorHandling.Throw }, 'cat-file', '-t', ref);
             return true;
         }
         catch (ex) {
@@ -570,7 +572,7 @@ export class Git {
 
         try {
             await git<string>(
-                { cwd: repoPath, exceptionHandler: throwExceptionHandler },
+                { cwd: repoPath, errors: GitErrorHandling.Throw },
                 'cat-file',
                 '-e',
                 `${ref}:./${fileName}`
@@ -589,7 +591,7 @@ export class Git {
 
     static async log_resolve(repoPath: string, fileName: string, ref: string) {
         const data = await git<string>(
-            { cwd: repoPath, exceptionHandler: ignoreExceptionsHandler },
+            { cwd: repoPath, errors: GitErrorHandling.Ignore },
             'log',
             '-M',
             '-n1',
@@ -628,12 +630,7 @@ export class Git {
             params.push(`--with-tree=${options.ref}`);
         }
 
-        const data = await git<string>(
-            { cwd: repoPath, exceptionHandler: ignoreExceptionsHandler },
-            ...params,
-            '--',
-            fileName
-        );
+        const data = await git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...params, '--', fileName);
         return data === '' ? undefined : data.trim();
     }
 
@@ -645,7 +642,7 @@ export class Git {
         else {
             params.push('-lrt', ref, '--');
         }
-        const data = await git<string>({ cwd: repoPath, exceptionHandler: ignoreExceptionsHandler }, ...params);
+        const data = await git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...params);
         return data === '' ? undefined : data.trim();
     }
 
@@ -671,7 +668,7 @@ export class Git {
     }
 
     static async revparse(repoPath: string, ref: string): Promise<string | undefined> {
-        const data = await git<string>({ cwd: repoPath, exceptionHandler: ignoreExceptionsHandler }, 'rev-parse', ref);
+        const data = await git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, 'rev-parse', ref);
         return data === '' ? undefined : data.trim();
     }
 
@@ -680,7 +677,7 @@ export class Git {
 
         const opts = {
             cwd: repoPath,
-            exceptionHandler: throwExceptionHandler
+            errors: GitErrorHandling.Throw
         } as GitCommandOptions;
 
         try {
@@ -691,7 +688,7 @@ export class Git {
             const msg = ex && ex.toString();
             if (GitWarnings.headNotABranch.test(msg)) {
                 const data = await git<string>(
-                    { ...opts, exceptionHandler: ignoreExceptionsHandler },
+                    { ...opts, errors: GitErrorHandling.Ignore },
                     'log',
                     '-n1',
                     '--format=%H',
@@ -709,7 +706,7 @@ export class Git {
 
             if (GitWarnings.unknownRevision.test(msg)) {
                 const data = await git<string>(
-                    { ...opts, exceptionHandler: ignoreExceptionsHandler },
+                    { ...opts, errors: GitErrorHandling.Ignore },
                     'symbolic-ref',
                     '-q',
                     '--short',
@@ -724,11 +721,7 @@ export class Git {
     }
 
     static async revparse_toplevel(cwd: string): Promise<string | undefined> {
-        const data = await git<string>(
-            { cwd: cwd, exceptionHandler: ignoreExceptionsHandler },
-            'rev-parse',
-            '--show-toplevel'
-        );
+        const data = await git<string>({ cwd: cwd, errors: GitErrorHandling.Ignore }, 'rev-parse', '--show-toplevel');
         return data === '' ? undefined : data.trim();
     }
 
@@ -748,7 +741,7 @@ export class Git {
         const opts = {
             cwd: root,
             encoding: options.encoding || 'utf8',
-            exceptionHandler: throwExceptionHandler
+            errors: GitErrorHandling.Throw
         } as GitCommandOptions;
         const args = ref.endsWith(':') ? `${ref}./${file}` : `${ref}:./${file}`;
 
