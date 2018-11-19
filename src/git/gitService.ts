@@ -1420,9 +1420,7 @@ export class GitService implements Disposable {
             key += `:reverse`;
         }
 
-        const doc = await Container.tracker.getOrAdd(
-            new GitUri(Uri.file(fileName), { repoPath: repoPath!, sha: options.ref })
-        );
+        const doc = await Container.tracker.getOrAdd(GitUri.fromFile(fileName, repoPath!, options.ref));
         if (this.UseCaching && options.range === undefined) {
             if (doc.state !== undefined) {
                 const cachedLog = doc.state.get<CachedLog>(key);
@@ -1628,11 +1626,11 @@ export class GitService implements Disposable {
 
         // If this new repo is inside one of our known roots and we we don't already know about, add it
         const root = this._repositoryTree.findSubstr(rp);
-        let folder = root === undefined ? workspace.getWorkspaceFolder(Uri.file(rp)) : root.folder;
+        let folder = root === undefined ? workspace.getWorkspaceFolder(GitUri.file(rp)) : root.folder;
 
         if (folder === undefined) {
             const parts = rp.split('/');
-            folder = { uri: Uri.file(rp), name: parts[parts.length - 1], index: this._repositoryTree.count() };
+            folder = { uri: GitUri.file(rp), name: parts[parts.length - 1], index: this._repositoryTree.count() };
         }
 
         Logger.log(cc, `Repository found in '${rp}'`);
@@ -1815,13 +1813,13 @@ export class GitService implements Disposable {
         if (ref === GitService.deletedOrMissingSha) return undefined;
 
         if (!ref || (Git.isUncommitted(ref) && !Git.isStagedUncommitted(ref))) {
-            if (await this.fileExists(repoPath!, fileName)) return Uri.file(fileName);
+            if (await this.fileExists(repoPath!, fileName)) return GitUri.file(fileName);
 
             return undefined;
         }
 
         if (Git.isStagedUncommitted(ref)) {
-            const path = paths.resolve(repoPath || '', fileName);
+            const path = GitUri.resolve(fileName, repoPath);
             return Uri.parse(
                 `git:${path}?${JSON.stringify({
                     path: path,
@@ -2034,7 +2032,7 @@ export class GitService implements Disposable {
     static getEncoding(repoPath: string, fileName: string): string;
     static getEncoding(uri: Uri): string;
     static getEncoding(repoPathOrUri: string | Uri, fileName?: string): string {
-        const uri = typeof repoPathOrUri === 'string' ? Uri.file(paths.join(repoPathOrUri, fileName!)) : repoPathOrUri;
+        const uri = typeof repoPathOrUri === 'string' ? GitUri.resolveToUri(fileName!, repoPathOrUri) : repoPathOrUri;
         return Git.getEncoding(workspace.getConfiguration('files', uri).get<string>('encoding'));
     }
 

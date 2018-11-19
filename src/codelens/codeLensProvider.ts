@@ -580,7 +580,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
             title: title,
             command: Commands.DiffWithPrevious,
             arguments: [
-                Uri.file(lens.uri!.fsPath),
+                lens.uri!.toFileUri(),
                 {
                     commit: commit
                 } as DiffWithPreviousCommandArgs
@@ -599,7 +599,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
             title: title,
             command: commit !== undefined && commit.isUncommitted ? '' : CodeLensCommand.ShowQuickCommitDetails,
             arguments: [
-                Uri.file(lens.uri!.fsPath),
+                lens.uri!.toFileUri(),
                 {
                     commit,
                     sha: commit === undefined ? undefined : commit.sha
@@ -619,7 +619,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
             title: title,
             command: commit !== undefined && commit.isUncommitted ? '' : CodeLensCommand.ShowQuickCommitFileDetails,
             arguments: [
-                Uri.file(lens.uri!.fsPath),
+                lens.uri!.toFileUri(),
                 {
                     commit,
                     sha: commit === undefined ? undefined : commit.sha
@@ -638,7 +638,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
         lens.command = {
             title: title,
             command: CodeLensCommand.ShowQuickCurrentBranchHistory,
-            arguments: [Uri.file(lens.uri!.fsPath)]
+            arguments: [lens.uri!.toFileUri()]
         };
         return lens;
     }
@@ -653,7 +653,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
             title: title,
             command: CodeLensCommand.ShowQuickFileHistory,
             arguments: [
-                Uri.file(lens.uri!.fsPath),
+                lens.uri!.toFileUri(),
                 {
                     range: lens.isFullRange ? undefined : lens.blameRange
                 } as ShowQuickFileHistoryCommandArgs
@@ -670,7 +670,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
         lens.command = {
             title: title,
             command: Commands.ToggleFileBlame,
-            arguments: [Uri.file(lens.uri!.fsPath)]
+            arguments: [lens.uri!.toFileUri()]
         };
         return lens;
     }

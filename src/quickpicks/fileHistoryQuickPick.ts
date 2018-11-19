@@ -84,7 +84,7 @@ export class FileHistoryQuickPick {
                             },
                             Commands.ShowQuickFileHistory,
                             [
-                                Uri.file(paths.resolve(log.repoPath, workingFileName)),
+                                GitUri.resolveToUri(workingFileName, log.repoPath),
                                 {
                                     goBackCommand: new CommandQuickPickItem(
                                         {

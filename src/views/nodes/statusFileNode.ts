@@ -77,7 +77,7 @@ export class StatusFileNode extends ViewNode {
             }
 
             // Use the file icon and decorations
-            item.resourceUri = Uri.file(paths.resolve(this.repoPath, this.file.fileName));
+            item.resourceUri = GitUri.resolveToUri(this.file.fileName, this.repoPath);
             item.iconPath = ThemeIcon.File;
 
             item.command = this.getCommand();
@@ -96,7 +96,7 @@ export class StatusFileNode extends ViewNode {
                 }
 
                 // Use the file icon and decorations
-                item.resourceUri = Uri.file(paths.resolve(this.repoPath, this.file.fileName));
+                item.resourceUri = GitUri.resolveToUri(this.file.fileName, this.repoPath);
                 item.iconPath = ThemeIcon.File;
             }
             else {

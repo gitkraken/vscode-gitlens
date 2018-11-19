@@ -118,7 +118,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
             );
 
             if (fileName !== undefined) {
-                uri = Uri.file(repoPath !== undefined ? paths.join(repoPath, fileName) : fileName);
+                uri = GitUri.resolveToUri(fileName, repoPath);
             }
         }
 

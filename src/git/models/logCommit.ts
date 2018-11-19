@@ -3,6 +3,7 @@ import * as paths from 'path';
 import { Uri } from 'vscode';
 import { Strings } from '../../system';
 import { Git } from '../git';
+import { GitUri } from '../gitUri';
 import { GitCommit, GitCommitType } from './commit';
 import { GitFile, GitFileStatus } from './file';
 
@@ -51,7 +52,7 @@ export class GitLogCommit extends GitCommit {
     }
 
     get nextUri(): Uri {
-        return this.nextFileName ? Uri.file(paths.resolve(this.repoPath, this.nextFileName)) : this.uri;
+        return this.nextFileName ? GitUri.resolveToUri(this.nextFileName, this.repoPath) : this.uri;
     }
 
     get previousFileSha(): string {

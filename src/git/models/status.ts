@@ -1,8 +1,8 @@
 'use strict';
-import * as paths from 'path';
 import { Uri } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Strings } from '../../system';
+import { GitUri } from '../gitUri';
 import { GitBranch } from './branch';
 import { GitFile, GitFileStatus } from './file';
 
@@ -153,7 +153,7 @@ export class GitStatusFile implements GitFile {
     }
 
     get uri(): Uri {
-        return Uri.file(paths.resolve(this.repoPath, this.fileName));
+        return GitUri.resolveToUri(this.fileName, this.repoPath);
     }
 
     getFormattedDirectory(includeOriginal: boolean = false): string {

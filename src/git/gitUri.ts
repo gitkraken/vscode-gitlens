@@ -87,7 +87,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 
         const [authority, fsPath] = GitUri.ensureValidUNCPath(
             uri.authority,
-            paths.resolve(commitOrRepoPath.repoPath, commitOrRepoPath.fileName || uri.fsPath)
+            GitUri.resolve(commitOrRepoPath.fileName || uri.fsPath, commitOrRepoPath.repoPath)
         );
 
         let path;
@@ -129,9 +129,9 @@ export class GitUri extends ((Uri as any) as UriEx) {
     }
 
     documentUri(options: { noSha?: boolean; useVersionedPath?: boolean } = {}) {
-        if (options.useVersionedPath && this.versionedPath !== undefined) return Uri.file(this.versionedPath);
+        if (options.useVersionedPath && this.versionedPath !== undefined) return GitUri.file(this.versionedPath);
 
-        return this.scheme === 'file' ? Uri.file(!options.noSha && this.sha ? this.path : this.fsPath) : this;
+        return this.scheme === 'file' ? GitUri.file(!options.noSha && this.sha ? this.path : this.fsPath) : this;
     }
 
     equals(uri: Uri | undefined) {
@@ -166,6 +166,10 @@ export class GitUri extends ((Uri as any) as UriEx) {
         return Strings.normalizePath(relativePath);
     }
 
+    toFileUri() {
+        return GitUri.file(this.fsPath);
+    }
+
     private static ensureValidUNCPath(authority: string, fsPath: string): [string, string] {
         // Taken from https://github.com/Microsoft/vscode/blob/master/src/vs/base/common/uri.ts#L239-L251
         // check for authority as used in UNC shares or use the path as given
@@ -187,6 +191,10 @@ export class GitUri extends ((Uri as any) as UriEx) {
         return [authority, fsPath];
     }
 
+    static file(path: string) {
+        return Uri.file(path);
+    }
+
     static fromCommit(commit: GitCommit, previous: boolean = false) {
         if (!previous) return new GitUri(commit.uri, commit);
 
@@ -196,15 +204,22 @@ export class GitUri extends ((Uri as any) as UriEx) {
         });
     }
 
-    static fromFile(file: GitFile, repoPath: string, ref?: string, original: boolean = false): GitUri {
-        const uri = Uri.file(paths.resolve(repoPath, (original && file.originalFileName) || file.fileName));
+    static fromFile(fileName: string, repoPath: string, ref?: string): GitUri;
+    static fromFile(file: GitFile, repoPath: string, ref?: string, original?: boolean): GitUri;
+    static fromFile(fileOrName: GitFile | string, repoPath: string, ref?: string, original: boolean = false): GitUri {
+        const uri = GitUri.resolveToUri(
+            typeof fileOrName === 'string'
+                ? fileOrName
+                : (original && fileOrName.originalFileName) || fileOrName.fileName,
+            repoPath
+        );
         return ref === undefined ? new GitUri(uri, repoPath) : new GitUri(uri, { repoPath: repoPath, sha: ref });
     }
 
     static fromRepoPath(repoPath: string, ref?: string) {
         return ref === undefined
-            ? new GitUri(Uri.file(repoPath), repoPath)
-            : new GitUri(Uri.file(repoPath), { repoPath: repoPath, sha: ref });
+            ? new GitUri(GitUri.file(repoPath), repoPath)
+            : new GitUri(GitUri.file(repoPath), { repoPath: repoPath, sha: ref });
     }
 
     static fromRevisionUri(uri: Uri): GitUri {
@@ -299,13 +314,29 @@ export class GitUri extends ((Uri as any) as UriEx) {
         return Strings.normalizePath(relativePath);
     }
 
+    static resolve(fileName: string, repoPath?: string) {
+        const normalizedFileName = Strings.normalizePath(fileName);
+        if (repoPath === undefined) return normalizedFileName;
+
+        const normalizedRepoPath = Strings.normalizePath(repoPath);
+
+        if (normalizedFileName.startsWith(normalizedRepoPath)) return normalizedFileName;
+        return Strings.normalizePath(paths.join(normalizedRepoPath, normalizedFileName));
+    }
+
+    static resolveToUri(fileName: string, repoPath?: string) {
+        return GitUri.file(this.resolve(fileName, repoPath));
+    }
+
     static toKey(fileName: string): string;
     static toKey(uri: Uri): string;
     static toKey(fileNameOrUri: string | Uri): string;
     static toKey(fileNameOrUri: string | Uri): string {
-        return typeof fileNameOrUri === 'string'
-            ? Uri.file(fileNameOrUri).toString(true)
-            : fileNameOrUri.toString(true);
+        return Strings.normalizePath(typeof fileNameOrUri === 'string' ? fileNameOrUri : fileNameOrUri.fsPath);
+
+        // return typeof fileNameOrUri === 'string'
+        //     ? GitUri.file(fileNameOrUri).toString(true)
+        //     : fileNameOrUri.toString(true);
     }
 
     static toRevisionUri(uri: GitUri): Uri;
@@ -321,7 +352,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
                 fileName = fileNameOrFile;
             }
             else {
-                fileName = paths.resolve(repoPath!, fileNameOrFile!.fileName);
+                fileName = GitUri.resolve(fileNameOrFile!.fileName, repoPath);
             }
 
             ref = uriOrRef;

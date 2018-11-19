@@ -54,7 +54,7 @@ export class ApplyCommitFileChangesCommandQuickPickItem extends CommandQuickPick
 
 export class OpenCommitFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {
     constructor(commit: GitLogCommit, item?: QuickPickItem) {
-        const uri = Uri.file(paths.resolve(commit.repoPath, commit.fileName));
+        const uri = GitUri.resolveToUri(commit.fileName, commit.repoPath);
         super(
             uri,
             item || {
@@ -152,7 +152,7 @@ export class CommitFileQuickPick {
                     },
                     Commands.DiffWithWorking,
                     [
-                        Uri.file(paths.resolve(commit.repoPath, commit.workingFileName)),
+                        GitUri.resolveToUri(commit.workingFileName, commit.repoPath),
                         {
                             commit
                         } as DiffWithWorkingCommandArgs
@@ -246,7 +246,7 @@ export class CommitFileQuickPick {
                     },
                     Commands.ShowQuickFileHistory,
                     [
-                        Uri.file(paths.resolve(commit.repoPath, commit.workingFileName)),
+                        GitUri.resolveToUri(commit.workingFileName, commit.repoPath),
                         {
                             fileLog,
                             goBackCommand: currentCommand

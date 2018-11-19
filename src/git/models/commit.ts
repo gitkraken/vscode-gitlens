@@ -143,15 +143,15 @@ export abstract class GitCommit {
     }
 
     get previousUri(): Uri {
-        return this.previousFileName ? Uri.file(paths.resolve(this.repoPath, this.previousFileName)) : this.uri;
+        return this.previousFileName ? GitUri.resolveToUri(this.previousFileName, this.repoPath) : this.uri;
     }
 
     get uri(): Uri {
-        return Uri.file(paths.resolve(this.repoPath, this.fileName));
+        return GitUri.resolveToUri(this.fileName, this.repoPath);
     }
 
     get workingUri(): Uri {
-        return this.workingFileName ? Uri.file(paths.resolve(this.repoPath, this.workingFileName)) : this.uri;
+        return this.workingFileName ? GitUri.resolveToUri(this.workingFileName, this.repoPath) : this.uri;
     }
 
     private _dateFormatter?: Dates.IDateFormatter;

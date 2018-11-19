@@ -58,7 +58,7 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
             const fileName = Strings.normalizePath(paths.relative(gitUri.repoPath, gitUri.fsPath));
             const rename = files.find(s => s.fileName === fileName);
             if (rename !== undefined && rename.originalFileName !== undefined) {
-                renamedUri = Uri.file(paths.join(gitUri.repoPath, rename.originalFileName));
+                renamedUri = GitUri.resolveToUri(rename.originalFileName, gitUri.repoPath);
                 renamedTitle = `${paths.basename(rename.originalFileName)} (${ref})`;
             }
         }
