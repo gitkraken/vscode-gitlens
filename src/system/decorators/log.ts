@@ -77,7 +77,9 @@ export function log<T>(
 ) {
     options = { timed: true, ...options };
 
-    const logFn = options.debug ? Logger.debug.bind(Logger) : Logger.log.bind(Logger);
+    const logFn = (options.debug ? Logger.debug.bind(Logger) : Logger.log.bind(Logger)) as
+        | typeof Logger.debug
+        | typeof Logger.log;
 
     return (target: any, key: string, descriptor: PropertyDescriptor) => {
         let fn: Function | undefined;
