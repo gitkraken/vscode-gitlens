@@ -391,6 +391,40 @@ export class Git {
         return git<string>({ cwd: repoPath, configs: ['-c', 'color.branch=false'] }, ...params, ref);
     }
 
+    static async cat_validate(repoPath: string, ref: string) {
+        if (Git.isUncommitted(ref)) return true;
+
+        try {
+            await git<string>({ cwd: repoPath, errors: GitErrorHandling.Throw }, 'cat-file', '-t', ref);
+            return true;
+        }
+        catch (ex) {
+            return false;
+        }
+    }
+
+    static async cat_file_validate(repoPath: string, fileName: string, ref: string) {
+        if (Git.isUncommitted(ref)) return ref;
+
+        try {
+            await git<string>(
+                { cwd: repoPath, errors: GitErrorHandling.Throw },
+                'cat-file',
+                '-e',
+                `${ref}:./${fileName}`
+            );
+            return ref;
+        }
+        catch (ex) {
+            const msg = ex && ex.toString();
+            if (GitErrors.notAValidObjectName.test(msg)) {
+                return Git.deletedOrMissingSha;
+            }
+
+            return undefined;
+        }
+    }
+
     static check_mailmap(repoPath: string, author: string) {
         return git<string>({ cwd: repoPath }, 'check-mailmap', author);
     }
@@ -577,40 +611,6 @@ export class Git {
             fileName
         );
         return data === '' ? undefined : data.trim();
-    }
-
-    static async cat_validate(repoPath: string, ref: string) {
-        if (Git.isUncommitted(ref)) return true;
-
-        try {
-            await git<string>({ cwd: repoPath, errors: GitErrorHandling.Throw }, 'cat-file', '-t', ref);
-            return true;
-        }
-        catch (ex) {
-            return false;
-        }
-    }
-
-    static async cat_file_validate(repoPath: string, fileName: string, ref: string) {
-        if (Git.isUncommitted(ref)) return ref;
-
-        try {
-            await git<string>(
-                { cwd: repoPath, errors: GitErrorHandling.Throw },
-                'cat-file',
-                '-e',
-                `${ref}:./${fileName}`
-            );
-            return ref;
-        }
-        catch (ex) {
-            const msg = ex && ex.toString();
-            if (GitErrors.notAValidObjectName.test(msg)) {
-                return Git.deletedOrMissingSha;
-            }
-
-            return undefined;
-        }
     }
 
     static async log_resolve(repoPath: string, fileName: string, ref: string) {
