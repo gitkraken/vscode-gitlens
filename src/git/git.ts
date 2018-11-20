@@ -77,6 +77,7 @@ export enum GitErrorHandling {
 }
 
 interface GitCommandOptions extends RunOptions {
+    configs?: string[];
     readonly correlationKey?: string;
     errors?: GitErrorHandling;
 }
@@ -84,10 +85,13 @@ interface GitCommandOptions extends RunOptions {
 // A map of running git commands -- avoids running duplicate overlaping commands
 const pendingCommands: Map<string, Promise<string | Buffer>> = new Map();
 
+const emptyArray: any = [];
+const emptyObj = {};
+
 async function git<TOut extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<TOut> {
     const start = process.hrtime();
 
-    const { correlationKey, errors: errorHandling, ...opts } = options;
+    const { configs, correlationKey, errors: errorHandling, ...opts } = options;
 
     const encoding = options.encoding || 'utf8';
     const runOpts = {
@@ -95,7 +99,13 @@ async function git<TOut extends string | Buffer>(options: GitCommandOptions, ...
         encoding: encoding === 'utf8' ? 'utf8' : encoding === 'buffer' ? 'buffer' : 'binary',
         // Adds GCM environment variables to avoid any possible credential issues -- from https://github.com/Microsoft/vscode/issues/26573#issuecomment-338686581
         // Shouldn't *really* be needed but better safe than sorry
-        env: { ...(options.env || process.env), GCM_INTERACTIVE: 'NEVER', GCM_PRESERVE_CREDS: 'TRUE', LC_ALL: 'C' }
+        env: {
+            ...process.env,
+            ...(options.env || emptyObj),
+            GCM_INTERACTIVE: 'NEVER',
+            GCM_PRESERVE_CREDS: 'TRUE',
+            LC_ALL: 'C'
+        }
     } as RunOptions;
 
     const gitCommand = `[${runOpts.cwd}] git ${args.join(' ')}`;
@@ -106,9 +116,18 @@ async function git<TOut extends string | Buffer>(options: GitCommandOptions, ...
     let promise = pendingCommands.get(command);
     if (promise === undefined) {
         waiting = false;
+
         // Fixes https://github.com/eamodio/vscode-gitlens/issues/73 & https://github.com/eamodio/vscode-gitlens/issues/161
         // See https://stackoverflow.com/questions/4144417/how-to-handle-asian-characters-in-file-names-in-git-on-os-x
-        args.splice(0, 0, '-c', 'core.quotepath=false', '-c', 'color.ui=false');
+        args.splice(
+            0,
+            0,
+            '-c',
+            'core.quotepath=false',
+            '-c',
+            'color.ui=false',
+            ...(configs !== undefined ? configs : emptyArray)
+        );
 
         promise = run<TOut>(gitInfo.path, args, encoding, runOpts);
 
@@ -355,21 +374,21 @@ export class Git {
     }
 
     static branch(repoPath: string, options: { all: boolean } = { all: false }) {
-        const params = ['-c', 'color.branch=false', 'branch', '-vv'];
+        const params = ['branch', '-vv'];
         if (options.all) {
             params.push('-a');
         }
 
-        return git<string>({ cwd: repoPath }, ...params);
+        return git<string>({ cwd: repoPath, configs: ['-c', 'color.branch=false'] }, ...params);
     }
 
     static branch_contains(repoPath: string, ref: string, options: { remote: boolean } = { remote: false }) {
-        const params = ['-c', 'color.branch=false', 'branch', '--contains'];
+        const params = ['branch', '--contains'];
         if (options.remote) {
             params.push('-r');
         }
 
-        return git<string>({ cwd: repoPath }, ...params, ref);
+        return git<string>({ cwd: repoPath, configs: ['-c', 'color.branch=false'] }, ...params, ref);
     }
 
     static check_mailmap(repoPath: string, author: string) {
@@ -408,7 +427,7 @@ export class Git {
     }
 
     static diff(repoPath: string, fileName: string, ref1?: string, ref2?: string, options: { encoding?: string } = {}) {
-        const params = ['-c', 'color.diff=false', 'diff', '--diff-filter=M', '-M', '--no-ext-diff', '--minimal'];
+        const params = ['diff', '--diff-filter=M', '-M', '--no-ext-diff', '--minimal'];
         if (ref1) {
             params.push(Git.isStagedUncommitted(ref1) ? '--staged' : ref1);
         }
@@ -417,11 +436,16 @@ export class Git {
         }
 
         const encoding: BufferEncoding = options.encoding === 'utf8' ? 'utf8' : 'binary';
-        return git<string>({ cwd: repoPath, encoding: encoding }, ...params, '--', fileName);
+        return git<string>(
+            { cwd: repoPath, configs: ['-c', 'color.diff=false'], encoding: encoding },
+            ...params,
+            '--',
+            fileName
+        );
     }
 
     static diff_nameStatus(repoPath: string, ref1?: string, ref2?: string, options: { filter?: string } = {}) {
-        const params = ['-c', 'color.diff=false', 'diff', '--name-status', '-M', '--no-ext-diff'];
+        const params = ['diff', '--name-status', '-M', '--no-ext-diff'];
         if (options && options.filter) {
             params.push(`--diff-filter=${options.filter}`);
         }
@@ -432,15 +456,15 @@ export class Git {
             params.push(ref2);
         }
 
-        return git<string>({ cwd: repoPath }, ...params);
+        return git<string>({ cwd: repoPath, configs: ['-c', 'color.diff=false'] }, ...params);
     }
 
     static diff_shortstat(repoPath: string, ref?: string) {
-        const params = ['-c', 'color.diff=false', 'diff', '--shortstat', '--no-ext-diff'];
+        const params = ['diff', '--shortstat', '--no-ext-diff'];
         if (ref) {
             params.push(ref);
         }
-        return git<string>({ cwd: repoPath }, ...params);
+        return git<string>({ cwd: repoPath, configs: ['-c', 'color.diff=false'] }, ...params);
     }
 
     static difftool_dirDiff(repoPath: string, tool: string, ref1: string, ref2?: string) {
@@ -485,7 +509,7 @@ export class Git {
     }
 
     static log(repoPath: string, options: { author?: string; maxCount?: number; ref?: string; reverse?: boolean }) {
-        const params = ['-c', 'diff.renameLimit=0', ...defaultLogParams, '--full-history', '-M', '-m'];
+        const params = [...defaultLogParams, '--full-history', '-M', '-m'];
         if (options.author) {
             params.push(`--author=${options.author}`);
         }
@@ -500,7 +524,7 @@ export class Git {
                 params.push(options.ref);
             }
         }
-        return git<string>({ cwd: repoPath }, ...params, '--');
+        return git<string>({ cwd: repoPath, configs: ['-c', 'diff.renameLimit=0'] }, ...params, '--');
     }
 
     static log_file(
@@ -603,7 +627,7 @@ export class Git {
         return data === '' ? undefined : data.trim();
     }
 
-    static log_search(repoPath: string, search: string[] = [], options: { maxCount?: number } = {}) {
+    static log_search(repoPath: string, search: string[] = emptyArray, options: { maxCount?: number } = {}) {
         const params = [...defaultLogParams];
         if (options.maxCount) {
             params.push(`-n${options.maxCount}`);
@@ -804,9 +828,7 @@ export class Git {
     static status(repoPath: string, porcelainVersion: number = 1): Promise<string> {
         const porcelain = porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain';
         return git<string>(
-            { cwd: repoPath, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } },
-            '-c',
-            'color.status=false',
+            { cwd: repoPath, configs: ['-c', 'color.status=false'], env: { GIT_OPTIONAL_LOCKS: '0' } },
             'status',
             porcelain,
             '--branch',
@@ -819,9 +841,7 @@ export class Git {
 
         const porcelain = porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain';
         return git<string>(
-            { cwd: root, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } },
-            '-c',
-            'color.status=false',
+            { cwd: root, configs: ['-c', 'color.status=false'], env: { GIT_OPTIONAL_LOCKS: '0' } },
             'status',
             porcelain,
             '--',
