@@ -4392,7 +4392,7 @@
     "devDependencies": {
         "@types/clipboardy": "1.1.0",
         "@types/lodash-es": "4.17.1",
-        "@types/node": "8.10.37",
+        "@types/node": "8.10.38",
         "clean-webpack-plugin": "1.0.0",
         "css-loader": "1.0.1",
         "filemanager-webpack-plugin": "2.0.5",
@@ -4404,7 +4404,6 @@
         "prettier": "1.15.2",
         "prettier-tslint": "0.4.0",
         "sass-loader": "7.1.0",
-        "size-plugin": "1.0.1",
         "terser-webpack-plugin": "1.1.0",
         "tslint": "5.11.0",
         "tslint-loader": "3.5.4",
@@ -4413,8 +4412,7 @@
         "typescript": "3.1.6",
         "vsce": "1.53.0",
         "vscode": "1.1.21",
-        "webpack": "4.25.1",
-        "webpack-cli": "3.1.2",
-        "webpack-deep-scope-plugin": "1.6.0"
+        "webpack": "4.26.0",
+        "webpack-cli": "3.1.2"
     }
 }

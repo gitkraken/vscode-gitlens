@@ -9,9 +9,7 @@ const HtmlInlineSourcePlugin = require('html-webpack-inline-source-plugin');
 const HtmlPlugin = require('html-webpack-plugin');
 const ImageminPlugin = require('imagemin-webpack-plugin').default;
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
-// const SizePlugin = require('size-plugin');
 const TerserPlugin = require('terser-webpack-plugin');
-// const WebpackDeepScopeAnalysisPlugin = require('webpack-deep-scope-plugin').default;
 
 module.exports = function(env, argv) {
     env = env || {};
@@ -36,12 +34,7 @@ function getExtensionConfig(env) {
         clean.push('fallbacks');
     }
 
-    const plugins = [
-        // https://github.com/GoogleChromeLabs/size-plugin/issues/12
-        // new SizePlugin(),
-        new CleanPlugin(clean, { verbose: false }),
-        new webpack.IgnorePlugin(/^spawn-sync$/)
-    ];
+    const plugins = [new CleanPlugin(clean, { verbose: false }), new webpack.IgnorePlugin(/^spawn-sync$/)];
 
     if (env.copyClipboardyFallbacks) {
         plugins.push(
@@ -61,10 +54,6 @@ function getExtensionConfig(env) {
         );
     }
 
-    // if (env.production) {
-    // plugins.push(new WebpackDeepScopeAnalysisPlugin());
-    // }
-
     return {
         name: 'extension',
         entry: './src/extension.ts',
@@ -73,7 +62,7 @@ function getExtensionConfig(env) {
         node: {
             __dirname: false
         },
-        devtool: !env.production ? 'source-map' : undefined,
+        devtool: 'source-map', //!env.production ? 'source-map' : undefined,
         output: {
             libraryTarget: 'commonjs2',
             filename: 'extension.js',
@@ -84,7 +73,7 @@ function getExtensionConfig(env) {
                 new TerserPlugin({
                     cache: true,
                     parallel: true,
-                    sourceMap: env.production,
+                    sourceMap: true, // !env.production,
                     terserOptions: {
                         ecma: 8,
                         // Keep the class names otherwise @log won't provide a useful name
@@ -136,8 +125,6 @@ function getUIConfig(env) {
     }
 
     const plugins = [
-        // https://github.com/GoogleChromeLabs/size-plugin/issues/12
-        // new SizePlugin(),
         new CleanPlugin(clean, { verbose: false }),
         new MiniCssExtractPlugin({
             filename: '[name].css'
@@ -149,7 +136,6 @@ function getUIConfig(env) {
             filename: path.resolve(__dirname, 'settings.html'),
             inject: true,
             inlineSource: env.production ? '.(js|css)$' : undefined,
-            // inlineSource: '.(js|css)$',
             minify: env.production
                 ? {
                       removeComments: true,
@@ -158,7 +144,8 @@ function getUIConfig(env) {
                       useShortDoctype: true,
                       removeEmptyAttributes: true,
                       removeStyleLinkTypeAttributes: true,
-                      keepClosingSlash: true
+                      keepClosingSlash: true,
+                      minifyCSS: true
                   }
                 : false
         }),
@@ -169,7 +156,6 @@ function getUIConfig(env) {
             filename: path.resolve(__dirname, 'welcome.html'),
             inject: true,
             inlineSource: env.production ? '.(js|css)$' : undefined,
-            // inlineSource: '.(js|css)$',
             minify: env.production
                 ? {
                       removeComments: true,
@@ -178,7 +164,8 @@ function getUIConfig(env) {
                       useShortDoctype: true,
                       removeEmptyAttributes: true,
                       removeStyleLinkTypeAttributes: true,
-                      keepClosingSlash: true
+                      keepClosingSlash: true,
+                      minifyCSS: true
                   }
                 : false
         }),
@@ -202,10 +189,6 @@ function getUIConfig(env) {
         })
     ];
 
-    // if (env.production) {
-    // plugins.push(new WebpackDeepScopeAnalysisPlugin());
-    // }
-
     return {
         name: 'ui',
         context: path.resolve(__dirname, 'src/ui'),
@@ -223,13 +206,6 @@ function getUIConfig(env) {
             publicPath: '{{root}}/dist/ui/'
         },
         optimization: {
-            minimizer: [
-                new TerserPlugin({
-                    cache: true,
-                    parallel: true,
-                    sourceMap: env.production
-                })
-            ],
             splitChunks: {
                 cacheGroups: {
                     styles: {
@@ -275,7 +251,6 @@ function getUIConfig(env) {
                         {
                             loader: 'css-loader',
                             options: {
-                                minimize: env.production,
                                 sourceMap: !env.production,
                                 url: false
                             }
