@@ -56,6 +56,11 @@ export class ViewCommands implements Disposable {
             this
         );
         commands.registerCommand(
+            'gitlens.views.expandNode',
+            (node: ViewNode) => node.view.reveal(node, { select: false, focus: false, expand: 3 }),
+            this
+        );
+        commands.registerCommand(
             'gitlens.views.dismissNode',
             (node: ViewNode) => canDismissNode(node.view) && node.view.dismissNode(node),
             this

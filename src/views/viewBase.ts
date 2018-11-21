@@ -16,7 +16,7 @@ import {
 import { configuration } from '../configuration';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { debug, Functions, gate, log } from '../system';
+import { debug, Functions, log } from '../system';
 import { CompareView } from './compareView';
 import { FileHistoryView } from './fileHistoryView';
 import { LineHistoryView } from './lineHistoryView';

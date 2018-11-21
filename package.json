@@ -2538,6 +2538,11 @@
                 }
             },
             {
+                "command": "gitlens.views.expandNode",
+                "title": "Expand",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.views.refreshNode",
                 "title": "Refresh",
                 "category": "GitLens"
@@ -3103,6 +3108,10 @@
                 },
                 {
                     "command": "gitlens.views.dismissNode",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.views.expandNode",
                     "when": "false"
                 },
                 {
@@ -4077,6 +4086,11 @@
                     "command": "gitlens.views.terminalDeleteTag",
                     "when": "viewItem == gitlens:tag",
                     "group": "8_gitlens"
+                },
+                {
+                    "command": "gitlens.views.expandNode",
+                    "when": "view =~ /^gitlens\\.views\\./ && viewItem =~ /gitlens:(compare|folder|results|search|status:files)\\b/",
+                    "group": "8_gitlens@1"
                 },
                 {
                     "command": "gitlens.views.refreshNode",
