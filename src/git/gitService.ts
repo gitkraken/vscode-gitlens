@@ -1505,15 +1505,19 @@ export class GitService implements Disposable {
         const [file, root] = Git.splitPath(fileName, repoPath, false);
 
         try {
-            const { range, ...opts } = options;
+            // tslint:disable-next-line:prefer-const
+            let { range, ...opts } = options;
+            if (range !== undefined && range.start.line > range.end.line) {
+                range = new Range(range.end, range.start);
+            }
 
             const maxCount = options.maxCount == null ? Container.config.advanced.maxListItems || 0 : options.maxCount;
 
             const data = await Git.log_file(root, file, {
                 ...opts,
                 maxCount: maxCount,
-                startLine: range && range.start.line + 1,
-                endLine: range && range.end.line + 1
+                startLine: range === undefined ? undefined : range.start.line + 1,
+                endLine: range === undefined ? undefined : range.end.line + 1
             });
             const log = GitLogParser.parse(
                 data,
@@ -1966,7 +1970,10 @@ export class GitService implements Disposable {
 
     @log()
     async getDiffTool(repoPath?: string) {
-        return (await Git.config_get('diff.guitool', repoPath, { local: true })) || (await Git.config_get('diff.tool', repoPath, { local: true }));
+        return (
+            (await Git.config_get('diff.guitool', repoPath, { local: true })) ||
+            (await Git.config_get('diff.tool', repoPath, { local: true }))
+        );
     }
 
     @log()
