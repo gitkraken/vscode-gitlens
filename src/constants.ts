@@ -33,6 +33,7 @@ export enum CommandContext {
     Enabled = 'gitlens:enabled',
     HasRemotes = 'gitlens:hasRemotes',
     Key = 'gitlens:key',
+    Readonly = 'gitlens:readonly',
     ViewsCanCompare = 'gitlens:views:canCompare',
     ViewsCanCompareFile = 'gitlens:views:canCompare:file',
     ViewsCompareKeepResults = 'gitlens:views:compare:keepResults',

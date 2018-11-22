@@ -40,6 +40,7 @@ export class VslsController implements Disposable {
                 workspace.workspaceFolders !== undefined &&
                 workspace.workspaceFolders.some(f => f.uri.scheme === DocumentSchemes.Vsls)
             ) {
+                setCommandContext(CommandContext.Readonly, true);
                 this._waitForReady = new Promise(resolve => (this._onReady = resolve));
             }
 
@@ -92,15 +93,18 @@ export class VslsController implements Disposable {
 
         switch (e.session.role) {
             case Role.Host:
+                setCommandContext(CommandContext.Readonly, undefined);
                 if (Container.config.liveshare.allowGuestAccess) {
                     this._host = await VslsHostService.share(api);
                 }
                 break;
             case Role.Guest:
+                setCommandContext(CommandContext.Readonly, true);
                 this._guest = await VslsGuestService.connect(api);
                 break;
 
             default:
+                setCommandContext(CommandContext.Readonly, undefined);
                 break;
         }
 
