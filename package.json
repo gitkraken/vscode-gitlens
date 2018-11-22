@@ -4321,7 +4321,7 @@
                 {
                     "id": "gitlens.views.compare:gitlens",
                     "name": "Compare",
-                    "when": "gitlens:enabled && config.gitlens.views.compare.enabled && config.gitlens.views.compare.location == gitlens"
+                    "when": "config.gitlens.views.compare.enabled && config.gitlens.views.compare.location == gitlens"
                 },
                 {
                     "id": "gitlens.views.search:gitlens",
@@ -4353,7 +4353,7 @@
                 {
                     "id": "gitlens.views.search:explorer",
                     "name": "GitLens: Search Commits",
-                    "when": "config.gitlens.views.search.enabled && config.gitlens.views.search.location == explorer"
+                    "when": "gitlens:enabled && config.gitlens.views.search.enabled && config.gitlens.views.search.location == explorer"
                 }
             ],
             "scm": [
@@ -4380,7 +4380,7 @@
                 {
                     "id": "gitlens.views.search:scm",
                     "name": "GitLens: Search Commits",
-                    "when": "config.gitlens.views.search.enabled && config.gitlens.views.search.location == scm"
+                    "when": "gitlens:enabled && config.gitlens.views.search.enabled && config.gitlens.views.search.location == scm"
                 }
             ]
         }
