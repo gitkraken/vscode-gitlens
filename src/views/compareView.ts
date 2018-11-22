@@ -112,6 +112,10 @@ export class CompareView extends ViewBase<CompareNode> {
     }
 
     private async addResults(results: ViewNode) {
+        if (!this.visible) {
+            void (await this.show());
+        }
+
         const root = this.ensureRoot();
         root.addOrReplace(results, !this.keepResults);
 
