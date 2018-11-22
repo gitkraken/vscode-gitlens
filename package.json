@@ -3650,7 +3650,7 @@
                 },
                 {
                     "command": "gitlens.views.terminalRebaseBranchToRemote",
-                    "when": "viewItem =~ /gitlens:(branch:current:tracking|status:upstream)\\b/",
+                    "when": "viewItem =~ /gitlens:(branch:current:tracking)\\b/",
                     "group": "8_gitlens@1"
                 },
                 {
@@ -3670,7 +3670,7 @@
                 },
                 {
                     "command": "gitlens.views.terminalCreateBranch",
-                    "when": "viewItem =~ /gitlens:(branch|commit|status:upstream|tag)\\b/",
+                    "when": "viewItem =~ /gitlens:(branch|commit|tag)\\b/",
                     "group": "8_gitlens@5"
                 },
                 {
@@ -3680,7 +3680,7 @@
                 },
                 {
                     "command": "gitlens.views.terminalCreateTag",
-                    "when": "viewItem =~ /gitlens:(branch|commit|status:upstream)\\b/",
+                    "when": "viewItem =~ /gitlens:(branch|commit)\\b/",
                     "group": "8_gitlens@7"
                 },
                 {
