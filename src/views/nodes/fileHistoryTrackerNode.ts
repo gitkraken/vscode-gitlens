@@ -1,5 +1,4 @@
 'use strict';
-import * as paths from 'path';
 import { Disposable, TextEditor, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
 import { UriComparer } from '../../comparers';
 import { GlyphChars } from '../../constants';
