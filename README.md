@@ -14,7 +14,9 @@
 
 # What's new in GitLens 9
 
-## 9.0 &mdash; September 2018
+## 9.0 &mdash; November 2018
+
+- TODO
 
 See the [release notes](https://github.com/eamodio/vscode-gitlens/blob/master/CHANGELOG.md 'Open Release Notes') for the full set of changes
 
@@ -31,12 +33,12 @@ Here are just some of the features that GitLens provides,
 - a [_File History_ view](#file-history-view 'Jump to the File History view') to visualize, navigate, and explore the revision history of the current file
 - a [_Line History_ view](#line-history-view 'Jump to the Line History view') to visualize, navigate, and explore the revision history of the selected lines of current file
 - a [_Compare_ view](#compare-view 'Jump to the Compare view') to visualize comparisons between branches, tags, commits, and more
-- a [Search Commits view](#search-commits-view 'Jump to the Search Commits view') to search and explore commit histories by message, author, files, id, etc
+- a [_Search Commits_ view](#search-commits-view 'Jump to the Search Commits view') to search and explore commit histories by message, author, files, id, etc
 - [authorship code lens](#code-lens 'Jump to the Code Lens') showing the most recent commit and # of authors to the top of files and/or on code blocks
 - an unobtrusive [current line blame](#current-line-blame 'Jump to the Current Line Blame') annotation at the end of the line
 - on-demand [gutter blame](#gutter-blame 'Jump to the Gutter Blame') annotations, including a heatmap, for the whole file
 - on-demand [gutter heatmap](#gutter-heatmap 'Jump to the Gutter Heatmap') annotations to show how recently lines were changed, relative to all the other changes in the file and to now (hot vs. cold)
-- detailed blame information accessible via [hovers](#hovers 'Jump to Hovers)
+- detailed blame information accessible via [hovers](#hovers 'Jump to Hovers')
 - on-demand [recent changes](#recent-changes 'Jump to the Recent Changes') annotations to highlight lines changed by the most recent commit
 - a [status bar blame](#status-bar-blame 'Jump to the Status Bar Blame') annotation showing author and date for the current line
 - [commit search](#commit-search 'Jump to the Commit Search') &mdash; by message, author, filename, commit id, or code changes
@@ -66,23 +68,20 @@ To my incredible backers &mdash; thank you so much for your contributions. I am 
 If you'd like to join in supporting GitLens, please consider the following &mdash; feel free to choose more than one. &#x1F609;
 
 - [Become a Sponsor](https://www.patreon.com/eamodio 'Become a sponsor on Patreon') &mdash; join the growing group of generous [backers](https://github.com/eamodio/vscode-gitlens/blob/master/BACKERS.md)
-- [Donate via PayPal](https://www.paypal.me/eamodio 'Donate via PayPal')
-- [Donate via Cash App](https://cash.me/$eamodio 'Donate via Cash App')
-- [Write a Review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details 'Write a review')
-- [Star or Fork me on GitHub](https://github.com/eamodio/vscode-gitlens 'Star or fork me on GitHub')
-- [Follow me on Twitter](https://twitter.com/eamodio 'Follow me on Twitter')
+- [Donate via PayPal](https://www.paypal.me/eamodio 'Donate via PayPal') or [Donate via Cash App](https://cash.me/$eamodio 'Donate via Cash App')
+- [Write a Review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details 'Write a review'), [Star or Fork me on GitHub](https://github.com/eamodio/vscode-gitlens 'Star or fork me on GitHub'), and [Follow me on Twitter](https://twitter.com/eamodio 'Follow me on Twitter')
 
 #### Gold Sponsors (\$100+)
 
-None yet &mdash; could be you!
+None yet &mdash; could be you or your company here!
 
 #### Silver Sponsors (\$50+)
 
-None yet &mdash; could be you!
+None yet &mdash; could be you or your company here!
 
 #### Bronze Sponsors (\$25+)
 
-None yet &mdash; could be you!
+None yet &mdash; could be you or your company here!
 
 ## Configuration
 
@@ -96,191 +95,217 @@ For more advanced customizations, refer to the [settings documentation](#gitlens
 
 ## Features
 
-### Repositories view
+### Repositories view [#](#repositories-view 'Repositories view')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/repositories-explorer.png" alt="Repositories view" />
+  <img src="images/docs/view-repositories.png" alt="Repositories view" />
 </p>
 
-A [customizable](#repositories-view-settings 'Jump to the Repositories view settings') view to visualize, navigate, and explore Git repositories.
+A [customizable](#repositories-view-settings 'Jump to the Repositories view settings') view to visualize, navigate, and explore Git repositories
 
-- A toolbar provides _Search Commits_, and _Refresh_ commands
-  - A context menu provides _Automatic Layout_, _List Layout_, _Tree Layout_, and _Enable Automatic Refresh_ or _Disable Automatic Refresh_ commands
+- A toolbar provides quick access to the _Push Repositories_, _Pull Repositories_, _Fetch Repositories_, and _Refresh_ commands
+  - A context menu provides _Automatic Layout_, _List Layout_, _Tree Layout_, _Enable Automatic Refresh_ or _Disable Automatic Refresh_, _Open Settings_ commands
 
 The repositories view provides the following features,
 
-- **Repository Status**
+- **Repositories** &mdash; lists the opened repositories
 
-  - Provides the name of the current branch, [optionally](#repositories-view-settings 'Jump to the Repositories view settings') its working tree status, and its upstream tracking branch and status (if available)
-  - Provides indicator dots on the repository icon which denote the following:
-    - _None_ &mdash; up-to-date with the upstream
-    - _Green_ &mdash; ahead of the upstream
-    - _Red_ &mdash; behind the upstream
-    - _Yellow_ &mdash; both ahead of and behind the upstream
-  - Provides additional upstream status nodes, if the current branch is tracking a remote branch and,
-    - is behind the upstream &mdash; quickly see and explore the specific commits behind the upstream (i.e. commits that haven't been pulled)
-    - is ahead of the upstream &mdash; quickly see and explore the specific commits ahead of the upstream (i.e. commits that haven't been pushed)
-  - A context menu provides _Open Repository on Remote_, and _Refresh_ commands
-  - **Changed Files** &mdash; lists all the "working" changes
-    - Expands to a file-based view of all changed files in the working tree ([optionally](#repositories-view-settings 'Jump to the Repositories view settings')) and/or all files in all commits ahead of the upstream
-  - **History (current-branch)** &mdash; lists the revision (commit) history of the current branch
-    - See the _Branches expand_ section under **Branches** below for more details
-
-- **Branches** &mdash; lists the local branches
-
-  - Indicates which branch is the current branch and [optionally](#repositories-view-settings 'Jump to the Repositories view settings') shows the remote tracking branch
-  - A context menu provides _Open Branches on Remote_, and _Refresh_ commands
-  - Branches expand to show its revision (commit) history
-    - Provides indicator dots on each branch icon which denote the following:
+  - Provides the name of each repository, the name of its current branch, [optionally](#repositories-view-settings 'Jump to the Repositories view settings') its working tree status, and when it was last fetched
+    - Indicator dots on each repository icon denote the following:
       - _None_ &mdash; no upstream or up-to-date with the upstream
       - _Green_ &mdash; ahead of the upstream
       - _Red_ &mdash; behind the upstream
       - _Yellow_ &mdash; both ahead of and behind the upstream
-    - Context menus for each branch provide
-      - _Open Branch on Remote_ (if available), _Compare with Remote_ (if available), _Compare with HEAD_, _Compare with Working Tree_, _Compare with Selected_ (when available), _Compare Ancestry with Working Tree_ (when available), _Select for Compare_, _Open Directory Compare with Working Tree_, _Checkout Branch (via Terminal)_, _Merge Branch (via Terminal)_, _Rebase (Interactive) Branch (via Terminal)_, _Rebase (Interactive) Branch to Remote (via Terminal)_, _Squash Branch into Commit (via Terminal)_, _Create Branch (via Terminal)..._, _Delete Branch (via Terminal)_, _Create Tag (via Terminal)..._, and _Refresh_ commands
-    - Revisions (commits) expand to show the set of files changed, complete with status indicators for adds, changes, renames, and deletes
-      - Context menus for each revision (commit) provide
-        - _Open Commit on Remote_ (if available), _Open All Changes_, _Open All Changes with Working Tree_, _Open Files_, _Open Revisions_, _Copy Commit ID to Clipboard_, _Copy Commit Message to Clipboard_, _Show Commit Details_, _Compare with HEAD_, _Compare with Working Tree_, _Compare with Selected_ (when available), _Select for Compare_, _Cherry Pick Commit (via Terminal)_ (when available), _Push to Commit (via Terminal)_ (when available), _Revert Commit (via Terminal)_ (when available), _Checkout Commit (via Terminal)_, _Rebase to Commit (via Terminal)_, _Reset to Commit (via Terminal)_, _Create Branch (via Terminal)..._, _Create Tag (via Terminal)..._, and _Refresh_ commands
-      - Context menus for each changed file provide
-        - _Open Changes_, _Open Changes with Working File_, _Open File_, _Open Revision_, _Open File on Remote_, _Open Revision on Remote_, _Copy Commit ID to Clipboard_, _Copy Commit Message to Clipboard_, _Copy Remote File Url to Clipboard_, _Apply Changes_, _Compare with Selected_ (when available), _Select for Compare_, and _Show Commit File Details_ commands
-      - Inline toolbars for each changed file provide an _Open File_ command
+    - An inline toolbar provides quick access to the _Search Commits_, _Push Repository_ (`alt-click` for _Push (force) Repository_), _Pull Repository_, and _Fetch Repository_ commands
+    - A context menu provides access to more common repository commands
+    - **Current Branch** &mdash; lists the revision (commit) history of the current branch and [optionally](#repositories-view-settings 'Jump to the Repositories view settings') shows its remote tracking branch and status (if available)
+      - An inline toolbar provides quick access to the _Compare with Remote_ (if available), _Compare with Working Tree_, and _Open Branch on Remote_ (if available) commands
+      - A context menu provides access to more common branch commands
+    - **\* Commits Behind** &mdash; quickly see and explore the specific commits behind the upstream (i.e. commits that haven't been pulled)
+      - Only provided if the current branch is tracking a remote branch and is behind it
+      - An inline toolbar provides quick access to the _Pull Repository_ command
+    - **\* Commits Ahead** &mdash; quickly see and explore the specific commits ahead of the upstream (i.e. commits that haven't been pushed)
+      - Only provided if the current branch is tracking a remote branch and is ahead of it
+      - An inline toolbar provides quick access to the _Push Repository_ (`alt-click` for _Push (force) Repository_) command
+    - **\* Files Changed** &mdash; lists all the "working" changes
+      - Expands to a file-based view of all changed files in the working tree ([optionally](#repositories-view-settings 'Jump to the Repositories view settings')) and/or all files in all commits ahead of the upstream
+      - An inline toolbar provides quick access to the _Stash Changes_ command
 
-- **Remotes** &mdash; lists the remotes
+- **Branches** &mdash; lists the local branches in the repository
 
-  - Indicates the direction of the remote (fetch, push, both), remote service (if applicable), and repository path
-  - A context menu provides a _Refresh_ command
-  - Remotes expands show its list of branches
-    - Context menus for each remote provide
-      - _Open Branches on Remote_, _Open Repository on Remote_, _Remove Remote (via Terminal)_, and _Refresh_ commands
-    - Branches expand to show its revision (commit) history
-      - See the _Branches expand_ section under **Branches** above for more details
+  - An inline toolbar provides quick access to the _Open Branches on Remote_ (if available) command
+  - Provides the name of each branch, an indicator (check-mark) of the branch is the current one, and [optionally](#repositories-view-settings 'Jump to the Repositories view settings') shows its remote tracking branch and status (if available)
+    - Indicator dots on each branch icon denote the following:
+      - _None_ &mdash; no upstream or up-to-date with the upstream
+      - _Green_ &mdash; ahead of the upstream
+      - _Red_ &mdash; behind the upstream
+      - _Yellow_ &mdash; both ahead of and behind the upstream
+    - An inline toolbar provides quick access to the _Checkout_, _Compare with Remote_ (if available), _Compare with HEAD_ (`alt-click` for _Compare with Working Tree_), and _Open Branch on Remote_ (if available) commands
+    - A context menu provides access to more common branch commands
+    - Each branch expands to list its revision (commit) history
+      - An inline toolbar provides quick access to the _Compare with HEAD_ (`alt-click` for _Compare with Working Tree_), _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open Commit on Remote_ (if available) commands
+      - A context menu provides access to more common revision (commit) commands
+      - Each revision (commit) expands to list its set of changed files, complete with status indicators for adds, changes, renames, and deletes
+        - An inline toolbar provides quick access to the _Open File_, _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open File on Remote_ (if available) commands
+        - A context menu provides access to more common file revision commands
 
-- **Stashes** &mdash; lists the stashed changes
+- **Remotes** &mdash; lists the remotes in the repository
 
-  - A context menu provides _Stash Changes_, and _Refresh_ commands
-  - Stashes expand to show the set of files stashed, complete with status indicators for adds, changes, renames, and deletes
-    - Context menus for each stash provide
-      - _Apply Stashed Changes_ (confirmation required), _Delete Stashed Changes_ (confirmation required), _Open All Changes_, _Open All Changes with Working Tree_, _Open Files_, _Open Revisions_, _Copy Commit Message to Clipboard_, _Compare with HEAD_, _Compare with Working Tree_, _Compare with Selected_ (when available), _Select for Compare_, and _Refresh_ commands
-    - Context menus for each stashed file provide
-      - _Apply Changes_, _Open Changes_, _Open Changes with Working File_, _Open File_, _Open Revision_, _Open File on Remote_ (if available), _Compare with Selected_ (when available), _Select for Compare_, and _Show File History_ commands
+  - Provides the name of each remote, an indicator of the direction of the remote (fetch, push, both), remote service (if applicable), and repository path
+    - An inline toolbar provides quick access to the _Fetch Repository_, and _Open Repository on Remote_ (if available) commands
+    - A context menu provides access to more common repository and remote commands
+    - Each remote expands list its remote branches
+      - See the **Branches** above for additional details
 
-- **Tags** &mdash; lists the tags
-  - A context menu provides a _Refresh_ command
-  - Tags expand to show its revision (commit) history
-    - Context menus for each tag provide
-      - _Compare with HEAD_, _Compare with Working Tree_, _Compare with Selected_, _Select for Compare_, _Open Directory Compare with Working Tree_, _Delete Tag (via Terminal)_, _Create Branch (via Terminal)_, and _Refresh_ commands
-    - Revisions (commits) expand to show the set of files changed, complete with status indicators for adds, changes, renames, and deletes
-      - See the _Revisions (commits) expand_ section under **Branches** above for more details
+- **Stashes** &mdash; lists the stashed changes in the repository
+
+  - An inline toolbar provides quick access to the _Apply Stash Changes_, and _Stash Changes_ commands
+  - Provides the name of each stashed changes
+    - An inline toolbar provides quick access to the _Compare with HEAD_ (`alt-click` for _Compare with Working Tree_), _Apply Stashed Changes_, and _Delete Stashed Changes_ commands
+    - A context menu provides access to more common stashed changes commands
+    - Each stashed changes expands to list the set of stashed files, complete with status indicators for adds, changes, renames, and deletes
+      - An inline toolbar provides quick access to the _Open File_, and _Open File on Remote_ (if available) commands
+      - A context menu provides access to more common file revision commands
+
+- **Tags** &mdash; lists the tags in the repository
+
+  - Provides the name of each tag
+    - An inline toolbar provides quick access to the _Checkout, and \_Compare with HEAD_ (`alt-click` for _Compare with Working Tree_) commands
+    - A context menu provides access to more common tag commands
+    - Each tags expands to list its revision (commit) history
+      - An inline toolbar provides quick access to the _Compare with HEAD_ (`alt-click` for _Compare with Working Tree_), _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open Commit on Remote_ (if available) commands
+      - A context menu provides access to more common revision (commit) commands
+      - Each revision (commit) expands to list its set of changed files, complete with status indicators for adds, changes, renames, and deletes
+        - An inline toolbar provides quick access to the _Open File_, _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open File on Remote_ (if available) commands
+        - A context menu provides access to more common file revision commands
 
 ---
 
-### File History view
+### File History view [#](#file-history-view 'File History view')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/file-history-explorer.png" alt="File History view" />
+  <img src="images/docs/view-file-history.png" alt="File History view" />
 </p>
 
-A [customizable](#file-history-view-settings 'Jump to the File History view settings') view to visualize, navigate, and explore the revision history of the current file.
+A [customizable](#file-history-view-settings 'Jump to the File History view settings') view to visualize, navigate, and explore the revision history of the current file
 
-- A toolbar provides a _Refresh_ command
-  - A context menu provides a _Follow Renames_ or _Don't Follow Renames_ command
+- A toolbar provides quick access to the _Pause File Tracking_ or _Resume File Tracking_, _Change Base..._, and _Refresh_ commands
+- A context menu provides the _Follow Renames_ or _Don't Follow Renames_, and _Open Settings_ commands
 
 The file history view provides the following features,
 
-- Automatically updates to track the current editor
+- Automatically tracks the current editor and lists the revision (commit) history of the current file
+- An inline toolbar provides quick access to the _Open File_, and _Open File on Remote_ (if available) commands
 - A context menu provides _Open File_, _Open File on Remote_ (if available), _Copy Remote File Url to Clipboard_ (if available), and _Refresh_ commands
-- An inline toolbar provides an _Open File_ command
-- Context menus for each revision (commit) provides
-  - _Open Changes_, _Open Changes with Working File_, _Open File_, _Open Revision_, _Open File on Remote_ (if available), _Open Revision on Remote_ (if available), _Apply Changes_, _Compare with Selected_ (when available), _Select for Compare_, and _Show Commit File Details_ commands
+- Provides the message, author, and date of each revision (commit) &mdash; fully [customizable](#view-settings 'Jump to the View settings')
+  - An inline toolbar provides quick access to the _Compare with HEAD_ (`alt-click` for _Compare with Working Tree_), _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open Commit on Remote_ (if available) commands
+  - A context menu provides access to more common revision (commit) commands
+  - Each revision (commit) expands to list its set of changed files, complete with status indicators for adds, changes, renames, and deletes
+    - An inline toolbar provides quick access to the _Open File_, _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open File on Remote_ (if available) commands
+    - A context menu provides access to more common file revision commands
 
 ---
 
-### Line History view
+### Line History view [#](#line-history-view 'Line History view')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/line-history-explorer.png" alt="Line History view" />
+  <img src="images/docs/view-line-history.png" alt="Line History view" />
 </p>
 
-A [customizable](#line-history-view-settings 'Jump to the Line History view settings') view to visualize, navigate, and explore the revision history of the selected lines of current file.
+A [customizable](#line-history-view-settings 'Jump to the Line History view settings') view to visualize, navigate, and explore the revision history of the selected lines of current file
 
-- A toolbar provides a _Refresh_ command
-  - A context menu provides a _Follow Renames_ or _Don't Follow Renames_ command
+- A toolbar provides quick access to the _Pause File Tracking_ or _Resume File Tracking_, _Change Base..._, and _Refresh_ commands
+- A context menu provides the _Follow Renames_ or _Don't Follow Renames_, and _Open Settings_ commands
 
 The line history view provides the following features,
 
-- Automatically updates to track the selection of the current editor
+- Automatically tracks the current editor selection and lists the revision (commit) history of the selection in current file
+- An inline toolbar provides quick access to the _Open File_, and _Open File on Remote_ (if available) commands
 - A context menu provides _Open File_, _Open File on Remote_ (if available), _Copy Remote File Url to Clipboard_ (if available), and _Refresh_ commands
-- An inline toolbar provides an _Open File_ command
-- Context menus for each revision (commit) provides
-  - _Open Changes_, _Open Changes with Working File_, _Open File_, _Open Revision_, _Open File on Remote_ (if available), _Open Revision on Remote_ (if available), _Apply Changes_, _Compare with Selected_ (when available), _Select for Compare_, and _Show Commit File Details_ commands
+- Provides the message, author, and date of each revision (commit) &mdash; fully [customizable](#view-settings 'Jump to the View settings')
+  - An inline toolbar provides quick access to the _Compare with HEAD_ (`alt-click` for _Compare with Working Tree_), _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open Commit on Remote_ (if available) commands
+  - A context menu provides access to more common revision (commit) commands
+  - Each revision (commit) expands to list its set of changed files, complete with status indicators for adds, changes, renames, and deletes
+    - An inline toolbar provides quick access to the _Open File_, _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open File on Remote_ (if available) commands
+    - A context menu provides access to more common file revision commands
 
 ---
 
-### Compare view
+### Compare view [#](#compare-view 'Compare view')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/compare-view.png" alt="Compare view" />
+  <img src="images/docs/view-compare.png" alt="Compare view" />
 </p>
 
 A [customizable](#compare-view-settings 'Jump to the Compare view settings') view to visualize comparisons between branches, tags, commits, and more
 
-- A toolbar provides _Clear Results_, _Keep Results_, and _Refresh_ commands
-  - A context menu provides _Automatic Layout_, _List Layout_, and _Tree Layout_ commands
+- A toolbar provides quick access to the _Compare Branch or Tag with..._, _Keep Results_, _Clear Results_, and _Refresh_ commands
+- A context menu provides _Automatic Layout_, _List Layout_, _Tree Layout_, _Open Settings_ commands
 
 The compare view provides the following features,
 
 - Provides a semi-persistent results view for comparison operations
-
-  - Accessible via the following commands
+  - An inline toolbar provides quick access to the _Swap Comparision_, and _Dismiss_ commands
+  - A context menu provides access to common comparision commands
+  - **\* Commits** &mdash; lists the commits between the compared revisions (branches or commits)
+    - Expands to provide the message, author, date, and change indicator of each revision (commit) &mdash; fully [customizable](#view-settings 'Jump to the View settings')
+      - Each revision (commit) expands to list its set of changed files, complete with status indicators for adds, changes, renames, and deletes
+        - An inline toolbar provides quick access to the _Open File_, _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open File on Remote_ (if available) commands
+        - A context menu provides access to more common file revision commands
+  - **\* Files Changed** &mdash; lists all of the files changed between the compared revisions (branches or commits)
+    - Expands to a file-based view of all changed files in the working tree ([optionally](#repositories-view-settings 'Jump to the Repositories view settings')) and/or all files in all commits ahead of the upstream
+  - Results can be provided by the following commands
     - _Compare with Remote_ command (`gitlens.views.compareWithRemote`)
     - _Compare with HEAD_ command (`gitlens.views.compareWithHead`)
     - _Compare with Working Tree_ command (`gitlens.views.compareWithWorking`)
     - _Compare with Selected_ command (`gitlens.views.compareWithSelected`)
     - _Compare Ancestry with Working Tree_ command (`gitlens.views.compareAncestryWithWorking`)
-  - An inline toolbar provides _Swap Comparision_, and _Clear Results_ commands
-  - A context menu provides _Clear Results_, _Swap Comparision_, _Open Directory Compare_, and _Refresh_ commands
-
-  - **Commits** &mdash; lists the commits between the compared revisions (branches or commits)
-
-    - Revisions (commits) expand to show the set of files changed, complete with status indicators for adds, changes, renames, and deletes
-      - See the _Revisions (commits) expand_ section under **Explore** above for more details
-
-  - **Changed Files** &mdash; lists the files changed between the compared revisions (branches or commits)
-    - Expands to a file-based view of all changed files
-      - Context menus for each changed file provide
-        - _Open Changes_, _Open Changes with Working File_, _Open File_, _Open Revision_, _Open File on Remote_, _Open Revision on Remote_, _Copy Commit ID to Clipboard_, _Copy Commit Message to Clipboard_, _Copy Remote File Url to Clipboard_, _Apply Changes_, _Compare with Selected_ (when available), _Select for Compare_, and _Show Commit File Details_ commands
 
 ---
 
-### Search Commits view
+### Search Commits [#](#search-commits 'Search Commits')
+
+- Adds a _Search Commits_ command (`gitlens.showCommitSearch`) with a shortcut of `alt+/` to search for commits by message, author, file(s), commit id, or code changes
+  - Use `<message>` to search for commits with messages that match `<message>` &mdash; See [Git docs](https://git-scm.com/docs/git-log#git-log---grepltpatterngt 'Open Git docs')
+  - Use `@<pattern>` to search for commits with authors that match `<pattern>` &mdash; See [Git docs](https://git-scm.com/docs/git-log#git-log---authorltpatterngt 'Open Git docs')
+  - Use `:<pattern>` to search for commits with file names that match `<pattern>` &mdash; See [Git docs](https://git-scm.com/docs/git-log 'Open Git docs')
+  - Use `#<sha>` to search for a commit with id of `<sha>` &mdash; See [Git docs](https://git-scm.com/docs/git-log 'Open Git docs')
+  - Use `~<pattern>` to search for commits with differences whose patch text contains added/removed lines that match `<pattern>` &mdash; See [Git docs](https://git-scm.com/docs/git-log#git-log--Gltregexgt 'Open Git docs')
+  - Use `=<string>` to search for commits with differences that change the number of occurrences of the specified string (i.e. addition/deletion) in a file &mdash; See [Git docs](https://git-scm.com/docs/git-log#git-log--Sltstringgt 'Open Git docs')
+  - Provides a _Show in View_ option to show the search results in the _Search Commits_ view
+
+---
+
+### Search Commits view [#](#search-commits-view 'Search Commits view')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/search-view.png" alt="Search Commits view" />
+  <img src="images/docs/view-search.png" alt="Search Commits view" />
 </p>
 
 A [customizable](#search-commits-view-settings 'Jump to the Search Commits view settings') view to search and explore commit histories by message, author, files, id, etc
 
-- A toolbar provides _Clear Results_, _Keep Results_, and _Refresh_ commands
-  - A context menu provides _Automatic Layout_, _List Layout_, and _Tree Layout_ commands
+- A toolbar provides quick access to the _Search Commits_, _Keep Results_, _Clear Results_, and _Refresh_ commands
+- A context menu provides _Automatic Layout_, _List Layout_, _Tree Layout_, _Open Settings_ commands
 
 The search commits view provides the following features,
 
 - Provides a semi-persistent results view for searching and exploring commit histories
-  - Accessible via the following commands
+  - An inline toolbar provides quick access to the _Dismiss_ command
+  - A context menu provides access to common search commands
+  - Provides the message, author, date, and change indicator of each revision (commit) &mdash; fully [customizable](#view-settings 'Jump to the View settings')
+    - An inline toolbar provides quick access to the _Compare with HEAD_ (`alt-click` for _Compare with Working Tree_), _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open Commit on Remote_ (if available) commands
+    - A context menu provides access to more common revision (commit) commands
+    - Each revision (commit) expands to list its set of changed files, complete with status indicators for adds, changes, renames, and deletes
+      - An inline toolbar provides quick access to the _Open File_, _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open File on Remote_ (if available) commands
+      - A context menu provides access to more common file revision commands
+  - Results can be provided by the following commands
     - _Search Commits_ command (`gitlens.showCommitSearch`)
     - _Show File History_ command (`gitlens.showQuickFileHistory`)
     - _Show Commit Details_ command (`gitlens.showQuickCommitDetails`)
-  - An inline toolbar provides a _Clear Results_ command
-  - A context menu provides _Clear Results_, and _Refresh_ commands
-  - Revisions (commits) expand show the set of files changed, complete with status indicators for adds, changes, renames, and deletes
-    - Context menus for each revision (commit) provide
-      - _Open Commit on Remote_ (if available), _Open All Changes_, _Open All Changes with Working Tree_, _Open Files_, _Open Revisions_, _Copy Commit ID to Clipboard_, _Copy Commit Message to Clipboard_, _Show Commit Details_, _Compare with HEAD_, _Compare with Working Tree_, _Compare with Selected_ (when available), _Select for Compare_, _Cherry Pick Commit (via Terminal)_ (when available), _Push to Commit (via Terminal)_ (when available), _Revert Commit (via Terminal)_ (when available), _Checkout Commit (via Terminal)_, _Rebase to Commit (via Terminal)_, _Reset to Commit (via Terminal)_, _Create Branch (via Terminal)..._, _Create Tag (via Terminal)..._, and _Refresh_ commands
-    - Context menus for each changed file provide
-      - _Open Changes_, _Open Changes with Working File_, _Open File_, _Open Revision_, _Open File on Remote_, _Open Revision on Remote_, _Copy Commit ID to Clipboard_, _Copy Commit Message to Clipboard_, _Copy Remote File Url to Clipboard_, _Apply Changes_, _Compare with Selected_ (when available), _Select for Compare_, and _Show Commit File Details_ commands
 
 ---
 
-### Code Lens
+### Code Lens [#](#code-lens 'Code Lens')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/code-lens.png" alt="Code Lens" />
@@ -307,7 +332,7 @@ The search commits view provides the following features,
 
 ---
 
-### Current Line Blame
+### Current Line Blame [#](#current-line-blame 'Current Line Blame')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/current-line-blame.png" alt="Current Line Blame" />
@@ -319,7 +344,7 @@ The search commits view provides the following features,
 
 ---
 
-### Gutter Blame
+### Gutter Blame [#](#gutter-blame 'Gutter Blame')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/gutter-blame.png" alt="Gutter Blame">
@@ -334,7 +359,7 @@ The search commits view provides the following features,
 
 ---
 
-### Gutter Heatmap
+### Gutter Heatmap [#](#gutter-heatmap 'Gutter Heatmap')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/heatmap.png" alt="Gutter Heatmap" />
@@ -348,7 +373,7 @@ The search commits view provides the following features,
 
 ---
 
-### Hovers
+### Hovers [#](#hovers 'Hovers')
 
 #### Current Line Hovers
 
@@ -410,7 +435,7 @@ The search commits view provides the following features,
 
 ---
 
-### Modes
+### Modes [#](#modes 'Modes')
 
 - GitLens supports [user-defined](#modes-settings 'Jump to the Modes settings') modes for quickly toggling between sets of settings
   - Adds _Switch Mode_ command (`gitlens.switchMode`) to quickly switch the active mode
@@ -422,7 +447,7 @@ The search commits view provides the following features,
 
 ---
 
-### Recent Changes
+### Recent Changes [#](#recent-changes 'Recent Changes')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/recent-changes.png" alt="Recent Changes" />
@@ -434,7 +459,7 @@ The search commits view provides the following features,
 
 ---
 
-### Status Bar Blame
+### Status Bar Blame [#](#status-bar-blame 'Status Bar Blame')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/status-bar.png" alt="Status Bar Blame" />
@@ -454,19 +479,6 @@ The search commits view provides the following features,
     - Show a quick pick menu with file details and commands for the commit
     - Show a quick pick menu with the commit history of the file
     - Show a quick pick menu with the commit history of the current branch
-
----
-
-### Commit Search
-
-- Adds a _Search Commits_ command (`gitlens.showCommitSearch`) with a shortcut of `alt+/` to search for commits by message, author, file(s), commit id, or code changes
-  - Use `<message>` to search for commits with messages that match `<message>` &mdash; See [Git docs](https://git-scm.com/docs/git-log#git-log---grepltpatterngt 'Open Git docs')
-  - Use `@<pattern>` to search for commits with authors that match `<pattern>` &mdash; See [Git docs](https://git-scm.com/docs/git-log#git-log---authorltpatterngt 'Open Git docs')
-  - Use `:<pattern>` to search for commits with file names that match `<pattern>` &mdash; See [Git docs](https://git-scm.com/docs/git-log 'Open Git docs')
-  - Use `#<sha>` to search for a commit with id of `<sha>` &mdash; See [Git docs](https://git-scm.com/docs/git-log 'Open Git docs')
-  - Use `~<pattern>` to search for commits with differences whose patch text contains added/removed lines that match `<pattern>` &mdash; See [Git docs](https://git-scm.com/docs/git-log#git-log--Gltregexgt 'Open Git docs')
-  - Use `=<string>` to search for commits with differences that change the number of occurrences of the specified string (i.e. addition/deletion) in a file &mdash; See [Git docs](https://git-scm.com/docs/git-log#git-log--Sltstringgt 'Open Git docs')
-  - Provides a _Show in View_ option to show the search results in the _Search Commits_ view
 
 ---
 
@@ -633,7 +645,7 @@ The search commits view provides the following features,
 
 GitLens is highly customizable and provides many configuration settings to allow the personalization of almost all features.
 
-### General Settings
+### General Settings [#](#general-settings 'General Settings')
 
 | Name                                | Description                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -647,7 +659,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 | `gitlens.settings.mode`             | Specifies the display mode of the interactive settings editor<br />`simple` - only displays common settings<br />`advanced` - displays all settings                                                                                                                                                                                                                                                                                                 |
 | `gitlens.showWhatsNewAfterUpgrades` | Specifies whether to show What's New after upgrading to new feature releases                                                                                                                                                                                                                                                                                                                                                                        |
 
-### Repositories View Settings
+### Repositories View Settings [#](#repositories-view-settings 'Repositories View Settings')
 
 See also [View Settings](#view-settings 'Jump to the View settings')
 
@@ -664,7 +676,7 @@ See also [View Settings](#view-settings 'Jump to the View settings')
 | `gitlens.views.repositories.location`           | Specifies where to show the _Repositories_ view<br />`gitlens` - adds to the GitLens side bar<br />`explorer` - adds to the Explorer side bar<br />`scm` - adds to the Source Control side bar                                                                                                                                           |
 | `gitlens.views.repositories.showTrackingBranch` | Specifies whether to show the tracking branch when displaying local branches in the _Repositories_ view                                                                                                                                                                                                                                  |
 
-### File History View Settings
+### File History View Settings [#](#file-history-view-settings 'File History View Settings')
 
 See also [View Settings](#view-settings 'Jump to the View settings')
 
@@ -674,7 +686,7 @@ See also [View Settings](#view-settings 'Jump to the View settings')
 | `gitlens.views.fileHistory.enabled`  | Specifies whether to show the _File History_ view                                                                                                                                              |
 | `gitlens.views.fileHistory.location` | Specifies where to show the _File History_ view<br />`gitlens` - adds to the GitLens side bar<br />`explorer` - adds to the Explorer side bar<br />`scm` - adds to the Source Control side bar |
 
-### Line History View Settings
+### Line History View Settings [#](#line-history-view-settings 'Line History View Settings')
 
 See also [View Settings](#view-settings 'Jump to the View settings')
 
@@ -684,7 +696,7 @@ See also [View Settings](#view-settings 'Jump to the View settings')
 | `gitlens.views.lineHistory.enabled`  | Specifies whether to show the _Line History_ view                                                                                                                                              |
 | `gitlens.views.lineHistory.location` | Specifies where to show the _Line History_ view<br />`gitlens` - adds to the GitLens side bar<br />`explorer` - adds to the Explorer side bar<br />`scm` - adds to the Source Control side bar |
 
-### Compare View Settings
+### Compare View Settings [#](#compare-view-settings 'Compare View Settings')
 
 See also [View Settings](#view-settings 'Jump to the View settings')
 
@@ -696,7 +708,7 @@ See also [View Settings](#view-settings 'Jump to the View settings')
 | `gitlens.views.compare.files.threshold` | Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Compare_ view<br />Only applies when `gitlens.views.compare.files.layout` is set to `auto`                                                                                                     |
 | `gitlens.views.compare.location`        | Specifies where to show the _Compare_ view<br />`gitlens` - adds to the GitLens side bar<br />`explorer` - adds to the Explorer side bar<br />`scm` - adds to the Source Control side bar                                                                                                                                      |
 
-### Search View Settings
+### Search View Settings [#](#search-view-settings 'Search View Settings')
 
 See also [View Settings](#view-settings 'Jump to the View settings')
 
@@ -708,7 +720,7 @@ See also [View Settings](#view-settings 'Jump to the View settings')
 | `gitlens.views.compare.files.threshold` | Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Search Commits_ view<br />Only applies when `gitlens.views.compare.files.layout` is set to `auto`                                                                                                     |
 | `gitlens.views.search.location`         | Specifies where to show the _Search Commits_ view<br />`gitlens` - adds to the GitLens side bar<br />`explorer` - adds to the Explorer side bar<br />`scm` - adds to the Source Control side bar                                                                                                                                      |
 
-### View Settings
+### View Settings [#](#view-settings 'View Settings')
 
 | Name                             | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -720,7 +732,7 @@ See also [View Settings](#view-settings 'Jump to the View settings')
 | `gitlens.views.stashFormat`      | Specifies the format of stashed changes in the views<br />Available tokens<br /> ${id} - commit id<br />${author} - commit author<br /> ${message} - commit message<br />${ago} - relative commit date (e.g. 1 day ago)<br /> \${date} - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br /> \${agoOrDate} - commit date specified by `gitlens.defaultDateStyle`<br /> ${authorAgo} - commit author, relative commit date<br />${authorAgoOrDate} - commit author, commit date specified by `gitlens.defaultDateStyle`<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting   |
 | `gitlens.views.statusFileFormat` | Specifies the format of the status of a working or committed file in the views<br />Available tokens<br /> ${directory} - directory name<br />${file} - file name<br /> ${filePath} - formatted file name and path<br />${path} - full file path<br />\${working} - optional indicator if the file is uncommitted                                                                                                                                                                                                                                                                                                                                         |
 
-### Code Lens Settings
+### Code Lens Settings [#](#code-lens-settings 'Code Lens Settings')
 
 | Name                                        | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -734,7 +746,7 @@ See also [View Settings](#view-settings 'Jump to the View settings')
 | `gitlens.codeLens.scopesByLanguage`         | Specifies where Git code lens will be shown in the document for the specified languages                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `gitlens.codeLens.symbolScopes`             | Specifies a set of document symbols where Git code lens will or will not be shown in the document<br />Prefix with `!` to avoid providing a Git code lens for the symbol<br />Must be a member of [`SymbolKind`](https://code.visualstudio.com/docs/extensionAPI/vscode-api#_a-namesymbolkindaspan-classcodeitem-id660symbolkindspan)                                                                                                                                                                                                                        |
 
-#### Current Line Blame Settings
+#### Current Line Blame Settings [#](#current-line-blame-settings 'Current Line Blame Settings')
 
 | Name                             | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -743,7 +755,7 @@ See also [View Settings](#view-settings 'Jump to the View settings')
 | `gitlens.currentLine.format`     | Specifies the format of the current line blame annotation<br />Available tokens<br />`${id}` - commit id<br />`${author}` - commit author<br />`${message}` - commit message<br />`${ago}` - relative commit date (e.g. 1 day ago)<br />`${date}` - formatted commit date (format specified by `gitlens.currentLine.dateFormat`)<br />`${agoOrDate}` - commit date specified by `gitlens.defaultDateStyle`<br />`${authorAgo}` - commit author, relative commit date<br />`${authorAgoOrDate}` - commit author, commit date specified by `gitlens.defaultDateStyle`<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting |
 | `gitlens.currentLine.scrollable` | Specifies whether the current line blame annotation can be scrolled into view when it is outside the viewport                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
-### Gutter Blame Settings
+### Gutter Blame Settings [#](#gutter-blame-settings 'Gutter Blame Settings')
 
 | Name                                | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -759,7 +771,7 @@ See also [View Settings](#view-settings 'Jump to the View settings')
 | `gitlens.blame.separateLines`       | Specifies whether gutter blame annotations will have line separators                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `gitlens.blame.toggleMode`          | Specifies how the gutter blame annotations will be toggled<br />`file` - toggles each file individually<br />`window` - toggles the window, i.e. all files at once                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
-### Gutter Heatmap Settings
+### Gutter Heatmap Settings [#](#gutter-heatmap-settings 'Gutter Heatmap Settings')
 
 | Name                           | Description                                                                                                                                                                                                     |
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -768,7 +780,7 @@ See also [View Settings](#view-settings 'Jump to the View settings')
 | `gitlens.heatmap.hotColor`     | Specifies the base color of the gutter heatmap annotations when the most recent change is newer (hot) than the `gitlens.heatmap.ageThreshold` value                                                             |
 | `gitlens.heatmap.toggleMode`   | Specifies how the gutter heatmap annotations will be toggled<br />`file` - toggles each file individually<br />`window` - toggles the window, i.e. all files at once                                            |
 
-### Hover Settings
+### Hover Settings [#](#hover-settings 'Hover Settings')
 
 | Name                                 | Description                                                                                                                                                                                    |
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -783,7 +795,7 @@ See also [View Settings](#view-settings 'Jump to the View settings')
 | `gitlens.hovers.currentLine.over`    | Specifies when to trigger hovers for the current line<br />`annotation` - only shown when hovering over the line annotation<br />`line` - shown when hovering anywhere over the line           |
 | `gitlens.hovers.enabled`             | Specifies whether to provide any hovers                                                                                                                                                        |
 
-### Modes Settings
+### Modes Settings [#](#modes-settings 'Modes Settings')
 
 | Name                               | Description                                                                                                                       |
 | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
@@ -792,14 +804,14 @@ See also [View Settings](#view-settings 'Jump to the View settings')
 | `gitlens.mode.statusBar.alignment` | Specifies the active GitLens mode alignment in the status bar<br />`left` - aligns to the left<br />`right` - aligns to the right |
 | `gitlens.modes`                    | Specifies the user-defined GitLens modes                                                                                          |
 
-### Recent Changes Settings
+### Recent Changes Settings [#](#recent-changes-settings 'Recent Changes Settings')
 
 | Name                                        | Description                                                                                                                                                                                                                                     |
 | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `gitlens.recentChanges.highlight.locations` | Specifies where the highlights of the recently changed lines will be shown<br />`gutter` - adds a gutter glyph<br />`line` - adds a full-line highlight background color<br />`overview` - adds a decoration to the overview ruler (scroll bar) |
 | `gitlens.recentChanges.toggleMode`          | Specifies how the recently changed lines annotations will be toggled<br />`file` - toggles each file individually<br />`window` - toggles the window, i.e. all files at once                                                                    |
 
-### Status Bar Settings
+### Status Bar Settings [#](#status-bar-settings 'Status Bar Settings')
 
 | Name                              | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -810,7 +822,7 @@ See also [View Settings](#view-settings 'Jump to the View settings')
 | `gitlens.statusBar.format`        | Specifies the format of the blame information in the status bar<br />Available tokens<br />`${id}` - commit id<br />`${author}` - commit author<br />`${message}` - commit message<br />`${ago}` - relative commit date (e.g. 1 day ago)<br />`${date}` - formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br />`${agoOrDate}` - commit date specified by `gitlens.defaultDateStyle`<br />`${authorAgo}` - commit author, relative commit date<br />`${authorAgoOrDate}` - commit author, commit date specified by `gitlens.defaultDateStyle`<br />See https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting for advanced formatting                  |
 | `gitlens.statusBar.reduceFlicker` | Specifies whether to avoid clearing the previous blame information when changing lines to reduce status bar "flashing"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 
-### Advanced Settings
+### Advanced Settings [#](#advanced-settings 'Advanced Settings')
 
 | Name                                            | Description                                                                                                                           |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
