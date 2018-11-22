@@ -98,7 +98,7 @@ For more advanced customizations, refer to the [settings documentation](#gitlens
 ### Repositories view [#](#repositories-view 'Repositories view')
 
 <p align="center">
-  <img src="images/docs/view-repositories.png" alt="Repositories view" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/view-repositories.png" alt="Repositories view" />
 </p>
 
 A [customizable](#repositories-view-settings 'Jump to the Repositories view settings') view to visualize, navigate, and explore Git repositories
@@ -184,7 +184,7 @@ The repositories view provides the following features,
 ### File History view [#](#file-history-view 'File History view')
 
 <p align="center">
-  <img src="images/docs/view-file-history.png" alt="File History view" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/view-file-history.png" alt="File History view" />
 </p>
 
 A [customizable](#file-history-view-settings 'Jump to the File History view settings') view to visualize, navigate, and explore the revision history of the current file
@@ -209,7 +209,7 @@ The file history view provides the following features,
 ### Line History view [#](#line-history-view 'Line History view')
 
 <p align="center">
-  <img src="images/docs/view-line-history.png" alt="Line History view" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/view-line-history.png" alt="Line History view" />
 </p>
 
 A [customizable](#line-history-view-settings 'Jump to the Line History view settings') view to visualize, navigate, and explore the revision history of the selected lines of current file
@@ -234,7 +234,7 @@ The line history view provides the following features,
 ### Compare view [#](#compare-view 'Compare view')
 
 <p align="center">
-  <img src="images/docs/view-compare.png" alt="Compare view" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/view-compare.png" alt="Compare view" />
 </p>
 
 A [customizable](#compare-view-settings 'Jump to the Compare view settings') view to visualize comparisons between branches, tags, commits, and more
@@ -279,7 +279,7 @@ The compare view provides the following features,
 ### Search Commits view [#](#search-commits-view 'Search Commits view')
 
 <p align="center">
-  <img src="images/docs/view-search.png" alt="Search Commits view" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/view-search.png" alt="Search Commits view" />
 </p>
 
 A [customizable](#search-commits-view-settings 'Jump to the Search Commits view settings') view to search and explore commit histories by message, author, files, id, etc
