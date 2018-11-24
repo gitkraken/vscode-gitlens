@@ -93,6 +93,14 @@ h3 {
     white-space: nowrap;
 }
 
+h4 {
+    font-size: 1em;
+    font-weight: 200;
+    line-height: normal;
+    margin: 1em 0 0.3em 0;
+    white-space: nowrap;
+}
+
 header {
     align-items: center;
     display: flex;
@@ -566,12 +574,33 @@ ul {
 }
 
 .section-list {
-    font-weight: 200;
     list-style: disc;
     margin: 0 0 2em 2em;
 
     & li {
         margin-bottom: 0.5em;
+    }
+}
+
+.section-list--nested {
+    margin: 1em 0 0 2em;
+}
+
+.feature_preview {
+    display: flex;
+    justify-content: space-evenly;
+    margin: 1em 0;
+
+    .section-list--nested & {
+        margin-left: -2em;
+    }
+
+    a {
+        flex: 35% 0 1;
+    }
+
+    img {
+        width: 100%;
     }
 }
 
@@ -771,6 +800,7 @@ ul {
 
 .page-header__subtitle {
     color: var(--color--75);
+    font-size: 1.2em;
     margin: 0.25em 0 0 0;
 }
 
@@ -880,9 +910,10 @@ ul {
 }
 
 .section-group-section {
+    font-size: 1.1em;
+    font-weight: 200;
+
     p {
-        font-size: 1.1em;
-        font-weight: 200;
         margin: 1em 0.25em;
     }
 }
@@ -980,6 +1011,10 @@ ul {
 
 .sidebar-group {
     margin-top: 1em;
+}
+
+.sponsors {
+    font-size: 0.8em;
 }
 
 .bold {

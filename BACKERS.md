@@ -10,7 +10,7 @@ If you'd like to join in supporting GitLens, please consider:
 
 <h2 align="center">Gold Sponsors ($100+)</h2>
 
-None yet &mdash; could be you!
+None currently &mdash; could be you or your company here!
 
 <h2 align="center">Silver Sponsors ($50+)</h2>
 
@@ -18,7 +18,7 @@ None yet &mdash; could be you!
 
 <h2 align="center">Bronze Sponsors ($25+)</h2>
 
-None yet &mdash; could be you!
+None currently &mdash; could be you or your company here!
 
 <h2 align="center">Generous Backers ($10+)</h2>
 

@@ -502,859 +502,6 @@
                             </div>
                         </section>
 
-                        <section id="repositories-view">
-                            <div class="section__header">
-                                <h2 class="section__title">
-                                    Repositories view
-                                    <a
-                                        class="link__learn-more"
-                                        title="Learn more"
-                                        href="https://github.com/eamodio/vscode-gitlens/tree/develop/#repositories-view-"
-                                    >
-                                        <i class="icon icon__info"></i>
-                                    </a>
-                                </h2>
-                                <p class="section__title-hint">
-                                    Adds a Repositories view to visualize, navigate, and explore Git repositories
-                                </p>
-                            </div>
-                            <div class="section__settings">
-                                <div class="settings-group">
-                                    <div class="settings-group__setting nowrap">
-                                        <input
-                                            class="setting"
-                                            id="views.repositories.enabled"
-                                            name="views.repositories.enabled"
-                                            type="checkbox"
-                                        />
-                                        <label for="views.repositories.enabled">Show the Repositories view</label>
-                                    </div>
-
-                                    <div
-                                        class="settings-group__setting ml-2"
-                                        data-enablement="views.repositories.enabled"
-                                    >
-                                        <label for="views.repositories.location">Show in the</label>
-                                        <select
-                                            class="setting"
-                                            id="views.repositories.location"
-                                            name="views.repositories.location"
-                                            disabled
-                                        >
-                                            <option value="gitlens">GitLens side bar</option>
-                                            <option value="explorer">Explorer side bar</option>
-                                            <option value="scm">Source Control side bar</option>
-                                        </select>
-                                    </div>
-
-                                    <div
-                                        class="settings-group__setting ml-2 hidden"
-                                        data-enablement="views.repositories.enabled"
-                                        data-visibility="settings.mode =advanced"
-                                    >
-                                        <label for="views.repositories.branches.layout">Layout branches</label>
-                                        <select
-                                            class="setting"
-                                            id="views.repositories.branches.layout"
-                                            name="views.repositories.branches.layout"
-                                            disabled
-                                        >
-                                            <option value="list">as a list</option>
-                                            <option value="tree">as a tree</option>
-                                        </select>
-                                    </div>
-
-                                    <div
-                                        class="settings-group__setting ml-2 hidden"
-                                        data-enablement="views.repositories.enabled"
-                                        data-visibility="settings.mode =advanced"
-                                    >
-                                        <label for="views.repositories.files.layout">Layout files</label>
-                                        <select
-                                            class="setting"
-                                            id="views.repositories.files.layout"
-                                            name="views.repositories.files.layout"
-                                            disabled
-                                        >
-                                            <option value="auto">automatically</option>
-                                            <option value="list">as a list</option>
-                                            <option value="tree">as a tree</option>
-                                        </select>
-                                    </div>
-                                    <p
-                                        class="setting__hint ml-3 hidden"
-                                        data-visibility="views.repositories.files.layout =auto &amp; settings.mode =advanced"
-                                    >
-                                        Chooses the best layout based on the number of files at each nesting level
-                                    </p>
-
-                                    <div
-                                        class="settings-group__setting nowrap ml-2 hidden"
-                                        data-enablement="views.repositories.enabled"
-                                        data-visibility="settings.mode =advanced"
-                                    >
-                                        <input
-                                            class="setting"
-                                            id="views.repositories.files.compact"
-                                            name="views.repositories.files.compact"
-                                            type="checkbox"
-                                            disabled
-                                        />
-                                        <label for="views.repositories.files.compact">Use compact layout</label>
-                                    </div>
-                                    <p class="setting__hint ml-3 hidden" data-visibility="settings.mode =advanced">
-                                        Compacts (flattens) unnecessary nesting when using a tree layouts
-                                    </p>
-
-                                    <div
-                                        class="settings-group__setting nowrap ml-2 hidden"
-                                        data-enablement="views.repositories.enabled"
-                                        data-visibility="settings.mode =advanced"
-                                    >
-                                        <input
-                                            class="setting"
-                                            id="views.repositories.avatars"
-                                            name="views.avatars"
-                                            type="checkbox"
-                                            disabled
-                                        />
-                                        <label for="views.repositories.avatars">Use author avatars icons</label>
-                                    </div>
-
-                                    <div
-                                        class="settings-group__setting nowrap ml-2 hidden"
-                                        data-enablement="views.repositories.enabled"
-                                        data-visibility="settings.mode =advanced"
-                                    >
-                                        <input
-                                            class="setting"
-                                            id="views.repositories.autoRefresh"
-                                            name="views.repositories.autoRefresh"
-                                            type="checkbox"
-                                            disabled
-                                        />
-                                        <label for="views.repositories.autoRefresh">
-                                            Automatically refreshes when the file system or any repository changes
-                                        </label>
-                                    </div>
-
-                                    <div
-                                        class="settings-group__setting nowrap ml-2 hidden"
-                                        data-enablement="views.repositories.enabled"
-                                        data-visibility="settings.mode =advanced"
-                                    >
-                                        <input
-                                            class="setting"
-                                            id="views.repositories.autoReveal"
-                                            name="views.repositories.autoReveal"
-                                            type="checkbox"
-                                            disabled
-                                        />
-                                        <label for="views.repositories.autoReveal">
-                                            Automatically reveal repositories when opening files
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="section__preview">
-                                    <img
-                                        class="image__preview hidden"
-                                        src="{{root}}/images/settings/view-repositories.png"
-                                        data-visibility="views.repositories.enabled &amp; views.repositories.files.layout !tree"
-                                    />
-                                    <img
-                                        class="image__preview hidden"
-                                        src="{{root}}/images/settings/view-repositories-tree-compact.png"
-                                        data-visibility="views.repositories.enabled &amp; views.repositories.files.layout =tree &amp; views.repositories.files.compact"
-                                    />
-                                    <img
-                                        class="image__preview hidden"
-                                        src="{{root}}/images/settings/view-repositories-tree.png"
-                                        data-visibility="views.repositories.enabled &amp; views.repositories.files.layout =tree &amp; views.repositories.files.compact =false"
-                                    />
-                                    <img
-                                        class="image__preview--overlay hidden"
-                                        src="{{root}}/images/settings/view-repositories-avatars.png"
-                                        data-visibility="views.repositories.enabled &amp; views.avatars"
-                                    />
-                                </div>
-                                <p class="settings-group__hint">
-                                    <i class="icon icon--lg icon__info"></i> For more advanced customizations open
-                                    <a
-                                        class="command"
-                                        title="Open User Settings"
-                                        href="command:workbench.action.openGlobalSettings"
-                                        >User Settings</a
-                                    >
-                                    and search for <b><i>gitlens.views.repositories</i></b> or
-                                    <b><i>gitlens.views</i></b>
-                                </p>
-                            </div>
-                        </section>
-
-                        <section id="file-history-view">
-                            <div class="section__header">
-                                <h2 class="section__title">
-                                    File History view
-                                    <a
-                                        class="link__learn-more"
-                                        title="Learn more"
-                                        href="https://github.com/eamodio/vscode-gitlens/tree/develop/#file-history-view-"
-                                    >
-                                        <i class="icon icon__info"></i>
-                                    </a>
-                                </h2>
-                                <p class="section__title-hint">
-                                    Adds a File History view to visualize, navigate, and explore the revision history of
-                                    the current file
-                                </p>
-                            </div>
-                            <div class="section__settings">
-                                <div class="settings-group">
-                                    <div class="settings-group__setting nowrap">
-                                        <input
-                                            class="setting"
-                                            id="views.fileHistory.enabled"
-                                            name="views.fileHistory.enabled"
-                                            type="checkbox"
-                                        />
-                                        <label for="views.fileHistory.enabled">Show the File History view</label>
-                                    </div>
-
-                                    <div
-                                        class="settings-group__setting ml-2"
-                                        data-enablement="views.fileHistory.enabled"
-                                    >
-                                        <label for="views.fileHistory.location">Show in the</label>
-                                        <select
-                                            class="setting"
-                                            id="views.fileHistory.location"
-                                            name="views.fileHistory.location"
-                                            disabled
-                                        >
-                                            <option value="gitlens">GitLens side bar</option>
-                                            <option value="explorer">Explorer side bar</option>
-                                            <option value="scm">Source Control side bar</option>
-                                        </select>
-                                    </div>
-
-                                    <div
-                                        class="settings-group__setting nowrap ml-2 hidden"
-                                        data-enablement="views.fileHistory.enabled"
-                                        data-visibility="settings.mode =advanced"
-                                    >
-                                        <input
-                                            class="setting"
-                                            id="views.fileHistory.avatars"
-                                            name="views.fileHistory.avatars"
-                                            type="checkbox"
-                                            disabled
-                                        />
-                                        <label for="views.fileHistory.avatars">Use author avatars icons</label>
-                                    </div>
-                                </div>
-                                <div class="section__preview">
-                                    <img
-                                        class="image__preview hidden"
-                                        src="{{root}}/images/settings/view-file-history.png"
-                                        data-visibility="views.fileHistory.enabled"
-                                    />
-                                    <img
-                                        class="image__preview--overlay hidden"
-                                        src="{{root}}/images/settings/view-file-history-avatars.png"
-                                        data-visibility="views.fileHistory.enabled &amp; views.fileHistory.avatars"
-                                    />
-                                </div>
-                            </div>
-                        </section>
-
-                        <section id="line-history-view">
-                            <div class="section__header">
-                                <h2 class="section__title">
-                                    Line History view
-                                    <a
-                                        class="link__learn-more"
-                                        title="Learn more"
-                                        href="https://github.com/eamodio/vscode-gitlens/tree/develop/#line-history-view-"
-                                    >
-                                        <i class="icon icon__info"></i>
-                                    </a>
-                                </h2>
-                                <p class="section__title-hint">
-                                    Adds a Line History view to visualize, navigate, and explore the revision history of
-                                    the selected lines of current file
-                                </p>
-                            </div>
-                            <div class="section__settings">
-                                <div class="settings-group">
-                                    <div class="settings-group__setting nowrap">
-                                        <input
-                                            class="setting"
-                                            id="views.lineHistory.enabled"
-                                            name="views.lineHistory.enabled"
-                                            type="checkbox"
-                                        />
-                                        <label for="views.lineHistory.enabled">Show the Line History view</label>
-                                    </div>
-
-                                    <div
-                                        class="settings-group__setting ml-2"
-                                        data-enablement="views.lineHistory.enabled"
-                                    >
-                                        <label for="views.lineHistory.location">Show in the</label>
-                                        <select
-                                            class="setting"
-                                            id="views.lineHistory.location"
-                                            name="views.lineHistory.location"
-                                            disabled
-                                        >
-                                            <option value="gitlens">GitLens side bar</option>
-                                            <option value="explorer">Explorer side bar</option>
-                                            <option value="scm">Source Control side bar</option>
-                                        </select>
-                                    </div>
-
-                                    <div
-                                        class="settings-group__setting nowrap ml-2 hidden"
-                                        data-enablement="views.lineHistory.enabled"
-                                        data-visibility="settings.mode =advanced"
-                                    >
-                                        <input
-                                            class="setting"
-                                            id="views.lineHistory.avatars"
-                                            name="views.lineHistory.avatars"
-                                            type="checkbox"
-                                            disabled
-                                        />
-                                        <label for="views.lineHistory.avatars">Use author avatars icons</label>
-                                    </div>
-                                </div>
-                                <div class="section__preview">
-                                    <img
-                                        class="image__preview hidden"
-                                        src="{{root}}/images/settings/view-line-history.png"
-                                        data-visibility="views.lineHistory.enabled"
-                                    />
-                                    <img
-                                        class="image__preview--overlay hidden"
-                                        src="{{root}}/images/settings/view-line-history-avatars.png"
-                                        data-visibility="views.lineHistory.enabled &amp; views.lineHistory.avatars"
-                                    />
-                                </div>
-                            </div>
-                        </section>
-
-                        <section id="compare-view">
-                            <div class="section__header">
-                                <h2 class="section__title">
-                                    Compare view
-                                    <a
-                                        class="link__learn-more"
-                                        title="Learn more"
-                                        href="https://github.com/eamodio/vscode-gitlens/tree/develop/#compare-view-"
-                                    >
-                                        <i class="icon icon__info"></i>
-                                    </a>
-                                </h2>
-                                <p class="section__title-hint">
-                                    Adds a Compare view to visualize comparisons between branches, tags, commits, and
-                                    more
-                                </p>
-                            </div>
-                            <div class="section__settings">
-                                <div class="settings-group">
-                                    <div class="settings-group__setting nowrap">
-                                        <input
-                                            class="setting"
-                                            id="views.compare.enabled"
-                                            name="views.compare.enabled"
-                                            type="checkbox"
-                                        />
-                                        <label for="views.compare.enabled">Show the Compare view</label>
-                                    </div>
-
-                                    <div class="settings-group__setting ml-2" data-enablement="views.compare.enabled">
-                                        <label for="views.compare.location">Show in the</label>
-                                        <select
-                                            class="setting"
-                                            id="views.compare.location"
-                                            name="views.compare.location"
-                                            disabled
-                                        >
-                                            <option value="gitlens">GitLens side bar</option>
-                                            <option value="explorer">Explorer side bar</option>
-                                            <option value="scm">Source Control side bar</option>
-                                        </select>
-                                    </div>
-
-                                    <div
-                                        class="settings-group__setting ml-2 hidden"
-                                        data-enablement="views.compare.enabled"
-                                        data-visibility="settings.mode =advanced"
-                                    >
-                                        <label for="views.compare.files.layout">Layout files</label>
-                                        <select
-                                            class="setting"
-                                            id="views.compare.files.layout"
-                                            name="views.compare.files.layout"
-                                            disabled
-                                        >
-                                            <option value="auto">automatically</option>
-                                            <option value="list">as a list</option>
-                                            <option value="tree">as a tree</option>
-                                        </select>
-                                    </div>
-
-                                    <div
-                                        class="settings-group__setting nowrap ml-2 hidden"
-                                        data-enablement="views.compare.enabled"
-                                        data-visibility="settings.mode =advanced"
-                                    >
-                                        <input
-                                            class="setting"
-                                            id="views.compare.files.compact"
-                                            name="views.compare.files.compact"
-                                            type="checkbox"
-                                            disabled
-                                        />
-                                        <label for="views.compare.files.compact">Use compact layout</label>
-                                    </div>
-                                    <p class="setting__hint hidden" data-visibility="settings.mode =advanced">
-                                        Compacts (flattens) unnecessary nesting when using a tree layouts
-                                    </p>
-
-                                    <div
-                                        class="settings-group__setting nowrap ml-2 hidden"
-                                        data-enablement="views.compare.enabled"
-                                        data-visibility="settings.mode =advanced"
-                                    >
-                                        <input
-                                            class="setting"
-                                            id="views.compare.avatars"
-                                            name="views.avatars"
-                                            type="checkbox"
-                                            disabled
-                                        />
-                                        <label for="views.compare.avatars">Use author avatars icons</label>
-                                    </div>
-                                </div>
-
-                                <div class="section__preview">
-                                    <img
-                                        class="image__preview hidden"
-                                        src="{{root}}/images/settings/view-compare.png"
-                                        data-visibility="views.compare.enabled &amp; views.compare.files.layout !tree"
-                                    />
-                                    <img
-                                        class="image__preview hidden"
-                                        src="{{root}}/images/settings/view-compare-tree-compact.png"
-                                        data-visibility="views.compare.enabled &amp; views.compare.files.layout =tree &amp; views.compare.files.compact"
-                                    />
-                                    <img
-                                        class="image__preview hidden"
-                                        src="{{root}}/images/settings/view-compare-tree.png"
-                                        data-visibility="views.compare.enabled &amp; views.compare.files.layout =tree &amp; views.compare.files.compact =false"
-                                    />
-                                    <img
-                                        class="image__preview--overlay hidden"
-                                        src="{{root}}/images/settings/view-compare-avatars.png"
-                                        data-visibility="views.compare.enabled &amp; views.avatars"
-                                    />
-                                </div>
-                                <p class="settings-group__hint">
-                                    <i class="icon icon--lg icon__info"></i> For more advanced customizations open
-                                    <a
-                                        class="command"
-                                        title="Open User Settings"
-                                        href="command:workbench.action.openGlobalSettings"
-                                        >User Settings</a
-                                    >
-                                    and search for <b><i>gitlens.views.compare</i></b> or <b><i>gitlens.views</i></b>
-                                </p>
-                            </div>
-                        </section>
-
-                        <section id="search-commits-view">
-                            <div class="section__header">
-                                <h2 class="section__title">
-                                    Search Commits view
-                                    <a
-                                        class="link__learn-more"
-                                        title="Learn more"
-                                        href="https://github.com/eamodio/vscode-gitlens/tree/develop/#search-commits-view-"
-                                    >
-                                        <i class="icon icon__info"></i>
-                                    </a>
-                                </h2>
-                                <p class="section__title-hint">
-                                    Adds a Search Commits view to search and explore commit histories by message,
-                                    author, files, id, etc
-                                </p>
-                            </div>
-                            <div class="section__settings">
-                                <div class="settings-group">
-                                    <div class="settings-group__setting nowrap">
-                                        <input
-                                            class="setting"
-                                            id="views.search.enabled"
-                                            name="views.search.enabled"
-                                            type="checkbox"
-                                        />
-                                        <label for="views.search.enabled">Show the Search Commits view</label>
-                                    </div>
-
-                                    <div class="settings-group__setting ml-2" data-enablement="views.search.enabled">
-                                        <label for="views.search.location">Show in the</label>
-                                        <select
-                                            class="setting"
-                                            id="views.search.location"
-                                            name="views.search.location"
-                                            disabled
-                                        >
-                                            <option value="gitlens">GitLens side bar</option>
-                                            <option value="explorer">Explorer side bar</option>
-                                            <option value="scm">Source Control side bar</option>
-                                        </select>
-                                    </div>
-
-                                    <div
-                                        class="settings-group__setting ml-2 hidden"
-                                        data-enablement="views.search.enabled"
-                                        data-visibility="settings.mode =advanced"
-                                    >
-                                        <label for="views.search.files.layout">Layout files</label>
-                                        <select
-                                            class="setting"
-                                            id="views.search.files.layout"
-                                            name="views.search.files.layout"
-                                            disabled
-                                        >
-                                            <option value="auto">automatically</option>
-                                            <option value="list">as a list</option>
-                                            <option value="tree">as a tree</option>
-                                        </select>
-                                    </div>
-
-                                    <div
-                                        class="settings-group__setting nowrap ml-2 hidden"
-                                        data-enablement="views.search.enabled"
-                                        data-visibility="settings.mode =advanced"
-                                    >
-                                        <input
-                                            class="setting"
-                                            id="views.search.files.compact"
-                                            name="views.search.files.compact"
-                                            type="checkbox"
-                                            disabled
-                                        />
-                                        <label for="views.search.files.compact">Use compact layout</label>
-                                    </div>
-                                    <p class="setting__hint hidden" data-visibility="settings.mode =advanced">
-                                        Compacts (flattens) unnecessary nesting when using a tree layouts
-                                    </p>
-
-                                    <div
-                                        class="settings-group__setting nowrap ml-2 hidden"
-                                        data-enablement="views.search.enabled"
-                                        data-visibility="settings.mode =advanced"
-                                    >
-                                        <input
-                                            class="setting"
-                                            id="views.search.avatars"
-                                            name="views.avatars"
-                                            type="checkbox"
-                                            disabled
-                                        />
-                                        <label for="views.search.avatars">Use author avatars icons</label>
-                                    </div>
-                                </div>
-
-                                <div class="section__preview">
-                                    <img
-                                        class="image__preview hidden"
-                                        src="{{root}}/images/settings/view-search.png"
-                                        data-visibility="views.search.enabled &amp; views.search.files.layout !tree"
-                                    />
-                                    <img
-                                        class="image__preview hidden"
-                                        src="{{root}}/images/settings/view-search-tree-compact.png"
-                                        data-visibility="views.search.enabled &amp; views.search.files.layout =tree &amp; views.search.files.compact"
-                                    />
-                                    <img
-                                        class="image__preview hidden"
-                                        src="{{root}}/images/settings/view-search-tree.png"
-                                        data-visibility="views.search.enabled &amp; views.search.files.layout =tree &amp; views.search.files.compact =false"
-                                    />
-                                    <img
-                                        class="image__preview--overlay hidden"
-                                        src="{{root}}/images/settings/view-search-avatars.png"
-                                        data-visibility="views.search.enabled &amp; views.avatars"
-                                    />
-                                </div>
-                                <p class="settings-group__hint">
-                                    <i class="icon icon--lg icon__info"></i> For more advanced customizations open
-                                    <a
-                                        class="command"
-                                        title="Open User Settings"
-                                        href="command:workbench.action.openGlobalSettings"
-                                        >User Settings</a
-                                    >
-                                    and search for <b><i>gitlens.views.search</i></b> or <b><i>gitlens.views</i></b>
-                                </p>
-                            </div>
-                        </section>
-
-                        <section id="code-lens">
-                            <div class="section__header">
-                                <h2 class="section__title">
-                                    Code Lens
-                                    <a
-                                        class="link__learn-more"
-                                        title="Learn more"
-                                        href="https://github.com/eamodio/vscode-gitlens/tree/develop/#code-lens-"
-                                    >
-                                        <i class="icon icon__info"></i>
-                                    </a>
-                                </h2>
-                                <p class="section__title-hint">
-                                    Adds authorship code lens to the top of files and on code blocks
-                                </p>
-                            </div>
-                            <div class="section__settings">
-                                <div class="settings-group">
-                                    <div class="settings-group__setting nowrap">
-                                        <input
-                                            class="setting"
-                                            id="codeLens.enabled"
-                                            name="codeLens.enabled"
-                                            type="checkbox"
-                                        />
-                                        <label for="codeLens.enabled">Show the authorship code lenses</label>
-                                    </div>
-
-                                    <div class="settings-group__setting nowrap ml-2" data-enablement="codeLens.enabled">
-                                        <input
-                                            class="setting"
-                                            id="codeLens.recentChange.enabled"
-                                            name="codeLens.recentChange.enabled"
-                                            type="checkbox"
-                                            disabled
-                                        />
-                                        <label for="codeLens.recentChange.enabled">
-                                            Add the author and date of the most recent change for the file or code block
-                                        </label>
-                                    </div>
-                                    <div
-                                        class="settings-group__setting ml-4 hidden"
-                                        data-enablement="codeLens.enabled &amp; codeLens.recentChange.enabled"
-                                        data-visibility="settings.mode =advanced"
-                                    >
-                                        <label for="codeLens.recentChange.command">When clicked</label>
-                                        <select
-                                            class="setting"
-                                            id="codeLens.recentChange.command"
-                                            name="codeLens.recentChange.command"
-                                            disabled
-                                        >
-                                            <option value="gitlens.toggleFileBlame"
-                                                >toggles the file blame annotations</option
-                                            >
-                                            <option value="gitlens.diffWithPrevious"
-                                                >compares the commit with the previous</option
-                                            >
-                                            <option value="gitlens.showQuickCommitDetails"
-                                                >shows details of the commit</option
-                                            >
-                                            <option value="gitlens.showQuickCommitFileDetails">
-                                                shows file details of the commit
-                                            </option>
-                                            <option value="gitlens.showQuickFileHistory"
-                                                >shows the current file history</option
-                                            >
-                                            <option value="gitlens.showQuickRepoHistory"
-                                                >shows the current branch history</option
-                                            >
-                                        </select>
-                                    </div>
-
-                                    <div class="settings-group__setting nowrap ml-2" data-enablement="codeLens.enabled">
-                                        <input
-                                            class="setting"
-                                            id="codeLens.authors.enabled"
-                                            name="codeLens.authors.enabled"
-                                            type="checkbox"
-                                            disabled
-                                        />
-                                        <label for="codeLens.authors.enabled">
-                                            Add the number of authors and the most prominent author of the file or code
-                                            block
-                                        </label>
-                                    </div>
-                                    <div
-                                        class="settings-group__setting ml-4 hidden"
-                                        data-enablement="codeLens.enabled &amp; codeLens.authors.enabled"
-                                        data-visibility="settings.mode =advanced"
-                                    >
-                                        <label for="codeLens.authors.command">When clicked</label>
-                                        <select
-                                            class="setting"
-                                            id="codeLens.authors.command"
-                                            name="codeLens.authors.command"
-                                            disabled
-                                        >
-                                            <option value="gitlens.toggleFileBlame"
-                                                >toggles the file blame annotations</option
-                                            >
-                                            <option value="gitlens.diffWithPrevious"
-                                                >compares the commit with the previous</option
-                                            >
-                                            <option value="gitlens.showQuickCommitDetails"
-                                                >shows details of the commit</option
-                                            >
-                                            <option value="gitlens.showQuickCommitFileDetails">
-                                                show file details of the commit
-                                            </option>
-                                            <option value="gitlens.showQuickFileHistory"
-                                                >shows the current file history</option
-                                            >
-                                            <option value="gitlens.showQuickRepoHistory"
-                                                >shows the current branch history</option
-                                            >
-                                        </select>
-                                    </div>
-
-                                    <div
-                                        class="settings-group__setting nowrap ml-2 hidden"
-                                        data-enablement="codeLens.enabled"
-                                        data-visibility="settings.mode =advanced"
-                                    >
-                                        <label class="non-interactive">Add code lens to the following scopes</label>
-                                    </div>
-                                    <div
-                                        class="settings-group__setting nowrap ml-4 hidden"
-                                        data-enablement="codeLens.enabled"
-                                        data-visibility="settings.mode =advanced"
-                                    >
-                                        <input
-                                            class="setting"
-                                            id="codeLens.scopes"
-                                            name="codeLens.scopes"
-                                            type="checkbox"
-                                            value="document"
-                                            data-type="array"
-                                            disabled
-                                        />
-                                        <label for="codeLens.scopes"
-                                            >File scope &mdash; added at the top of the file</label
-                                        >
-                                    </div>
-                                    <div
-                                        class="settings-group__setting nowrap ml-4 hidden"
-                                        data-enablement="codeLens.enabled"
-                                        data-visibility="settings.mode =advanced"
-                                    >
-                                        <input
-                                            class="setting"
-                                            id="codeLens.scopes-1"
-                                            name="codeLens.scopes"
-                                            type="checkbox"
-                                            value="containers"
-                                            data-type="array"
-                                            disabled
-                                        />
-                                        <label for="codeLens.scopes-1">
-                                            Containers scope &mdash; added at the start of modules, classes, interfaces,
-                                            etc
-                                        </label>
-                                    </div>
-                                    <div
-                                        class="settings-group__setting nowrap ml-4 hidden"
-                                        data-enablement="codeLens.enabled"
-                                        data-visibility="settings.mode =advanced"
-                                    >
-                                        <input
-                                            class="setting"
-                                            id="codeLens.scopes-2"
-                                            name="codeLens.scopes"
-                                            type="checkbox"
-                                            value="blocks"
-                                            data-type="array"
-                                            disabled
-                                        />
-                                        <label for="codeLens.scopes-2">
-                                            Block scope &mdash; added at the start of functions, methods, etc
-                                        </label>
-                                    </div>
-                                </div>
-                                <div class="section__preview">
-                                    <img class="image__preview" src="{{root}}/images/settings/code-lens.png" />
-                                    <img
-                                        class="image__preview--overlay hidden"
-                                        src="{{root}}/images/settings/code-lens-file-recent+authors.png"
-                                        data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled &amp; codeLens.scopes +document"
-                                    />
-                                    <img
-                                        class="image__preview--overlay hidden"
-                                        src="{{root}}/images/settings/code-lens-file-recent.png"
-                                        data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled =false &amp; codeLens.scopes +document"
-                                    />
-                                    <img
-                                        class="image__preview--overlay hidden"
-                                        src="{{root}}/images/settings/code-lens-file-authors.png"
-                                        data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled =false &amp; codeLens.authors.enabled &amp; codeLens.scopes +document"
-                                    />
-
-                                    <img
-                                        class="image__preview--overlay hidden"
-                                        src="{{root}}/images/settings/code-lens-containers-recent+authors.png"
-                                        data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled &amp; codeLens.scopes +containers"
-                                    />
-                                    <img
-                                        class="image__preview--overlay hidden"
-                                        src="{{root}}/images/settings/code-lens-containers-recent.png"
-                                        data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled =false &amp; codeLens.scopes +containers"
-                                    />
-                                    <img
-                                        class="image__preview--overlay hidden"
-                                        src="{{root}}/images/settings/code-lens-containers-authors.png"
-                                        data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled =false &amp; codeLens.authors.enabled &amp; codeLens.scopes +containers"
-                                    />
-
-                                    <img
-                                        class="image__preview--overlay hidden"
-                                        src="{{root}}/images/settings/code-lens-blocks-recent+authors.png"
-                                        data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled &amp; codeLens.scopes +blocks"
-                                    />
-                                    <img
-                                        class="image__preview--overlay hidden"
-                                        src="{{root}}/images/settings/code-lens-blocks-recent.png"
-                                        data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled =false &amp; codeLens.scopes +blocks"
-                                    />
-                                    <img
-                                        class="image__preview--overlay hidden"
-                                        src="{{root}}/images/settings/code-lens-blocks-authors.png"
-                                        data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled =false &amp; codeLens.authors.enabled &amp; codeLens.scopes +blocks"
-                                    />
-                                </div>
-                                <p class="settings-group__hint">
-                                    <i class="icon icon--lg icon__info"></i> For more advanced customizations open
-                                    <a
-                                        class="command"
-                                        title="Open User Settings"
-                                        href="command:workbench.action.openGlobalSettings"
-                                        >User Settings</a
-                                    >
-                                    and search for <b><i>gitlens.codeLens</i></b>
-                                    <span class="settings-group__hint--more">
-                                        Use the
-                                        <a class="command" title="Run command" href="command:gitlens.toggleCodeLens"
-                                            >GitLens: Toggle Git Code Lens</a
-                                        >
-                                        command to override this setting for the current window
-                                    </span>
-                                </p>
-                            </div>
-                        </section>
-
                         <section id="current-line">
                             <div class="section__header">
                                 <h2 class="section__title">
@@ -1854,63 +1001,6 @@
                             </div>
                         </section>
 
-                        <section id="heatmap">
-                            <div class="section__header">
-                                <h2 class="section__title">
-                                    Gutter Heatmap
-                                    <a
-                                        class="link__learn-more"
-                                        title="Learn more"
-                                        href="https://github.com/eamodio/vscode-gitlens/tree/develop/#gutter-heatmap-"
-                                    >
-                                        <i class="icon icon__info"></i>
-                                    </a>
-                                </h2>
-                                <p class="section__title-hint">
-                                    Adds on-demand heatmap (age) indicator to the edge of the gutter to show how
-                                    recently lines were changed <br />
-                                    Indicator color reflects the age of the most recent change (hot or cold), while
-                                    indicator brightness ranges from bright (newer) to dim (older) based on the relative
-                                    age
-                                </p>
-                            </div>
-
-                            <div class="section__settings">
-                                <div class="settings-group">
-                                    <div class="settings-group__setting">
-                                        <label for="heatmap.toggleMode">Toggle annotations for </label>
-                                        <select class="setting" id="heatmap.toggleMode" name="heatmap.toggleMode">
-                                            <option value="file">each file, individually</option>
-                                            <option value="window">all files at once</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div class="section__preview">
-                                    <img class="image__preview" src="{{root}}/images/settings/heatmap.png" />
-                                </div>
-
-                                <p class="settings-group__hint">
-                                    <i class="icon icon--lg icon__info"></i> Use the
-                                    <span class="command hidden" data-visibility="heatmap.toggleMode =file">
-                                        GitLens: Toggle File Heatmap Annotations
-                                    </span>
-                                    <a
-                                        class="command hidden"
-                                        title="Run command"
-                                        href="command:gitlens.toggleFileHeatmap"
-                                        data-visibility="heatmap.toggleMode =window"
-                                    >
-                                        GitLens: Toggle File Heatmap Annotations
-                                    </a>
-                                    command to turn the annotations on or off
-                                    <span class="settings-group__hint--more">
-                                        Press <span class="shortcut-key">Esc</span> to turn off the annotations
-                                    </span>
-                                </p>
-                            </div>
-                        </section>
-
                         <section id="hovers">
                             <div class="section__header">
                                 <h2 class="section__title">
@@ -2260,95 +1350,310 @@
                             </div>
                         </section>
 
-                        <section id="modes">
+                        <section id="code-lens">
                             <div class="section__header">
                                 <h2 class="section__title">
-                                    Modes
+                                    Code Lens
                                     <a
                                         class="link__learn-more"
                                         title="Learn more"
-                                        href="https://github.com/eamodio/vscode-gitlens/tree/develop/#modes-"
+                                        href="https://github.com/eamodio/vscode-gitlens/tree/develop/#code-lens-"
                                     >
                                         <i class="icon icon__info"></i>
                                     </a>
                                 </h2>
                                 <p class="section__title-hint">
-                                    GitLens supports user-defined modes for quickly toggling between sets of settings
+                                    Adds authorship code lens to the top of files and on code blocks
                                 </p>
                             </div>
-
                             <div class="section__settings">
                                 <div class="settings-group">
                                     <div class="settings-group__setting nowrap">
                                         <input
                                             class="setting"
-                                            id="mode.statusBar.enabled"
-                                            name="mode.statusBar.enabled"
+                                            id="codeLens.enabled"
+                                            name="codeLens.enabled"
                                             type="checkbox"
                                         />
-                                        <label for="mode.statusBar.enabled"
-                                            >Show the active mode in the status bar</label
-                                        >
+                                        <label for="codeLens.enabled">Show the authorship code lenses</label>
                                     </div>
 
-                                    <div class="settings-group__setting ml-2" data-enablement="mode.statusBar.enabled">
-                                        <label for="mode.statusBar.alignment">Position the annotation on the</label>
+                                    <div class="settings-group__setting nowrap ml-2" data-enablement="codeLens.enabled">
+                                        <input
+                                            class="setting"
+                                            id="codeLens.recentChange.enabled"
+                                            name="codeLens.recentChange.enabled"
+                                            type="checkbox"
+                                            disabled
+                                        />
+                                        <label for="codeLens.recentChange.enabled">
+                                            Add the author and date of the most recent change for the file or code block
+                                        </label>
+                                    </div>
+                                    <div
+                                        class="settings-group__setting ml-4 hidden"
+                                        data-enablement="codeLens.enabled &amp; codeLens.recentChange.enabled"
+                                        data-visibility="settings.mode =advanced"
+                                    >
+                                        <label for="codeLens.recentChange.command">When clicked</label>
                                         <select
                                             class="setting"
-                                            id="mode.statusBar.alignment"
-                                            name="mode.statusBar.alignment"
+                                            id="codeLens.recentChange.command"
+                                            name="codeLens.recentChange.command"
                                             disabled
                                         >
-                                            <option value="left">left</option>
-                                            <option value="right">right</option>
+                                            <option value="gitlens.toggleFileBlame"
+                                                >toggles the file blame annotations</option
+                                            >
+                                            <option value="gitlens.diffWithPrevious"
+                                                >compares the commit with the previous</option
+                                            >
+                                            <option value="gitlens.showQuickCommitDetails"
+                                                >shows details of the commit</option
+                                            >
+                                            <option value="gitlens.showQuickCommitFileDetails">
+                                                shows file details of the commit
+                                            </option>
+                                            <option value="gitlens.showQuickFileHistory"
+                                                >shows the current file history</option
+                                            >
+                                            <option value="gitlens.showQuickRepoHistory"
+                                                >shows the current branch history</option
+                                            >
                                         </select>
                                     </div>
-                                </div>
 
+                                    <div class="settings-group__setting nowrap ml-2" data-enablement="codeLens.enabled">
+                                        <input
+                                            class="setting"
+                                            id="codeLens.authors.enabled"
+                                            name="codeLens.authors.enabled"
+                                            type="checkbox"
+                                            disabled
+                                        />
+                                        <label for="codeLens.authors.enabled">
+                                            Add the number of authors and the most prominent author of the file or code
+                                            block
+                                        </label>
+                                    </div>
+                                    <div
+                                        class="settings-group__setting ml-4 hidden"
+                                        data-enablement="codeLens.enabled &amp; codeLens.authors.enabled"
+                                        data-visibility="settings.mode =advanced"
+                                    >
+                                        <label for="codeLens.authors.command">When clicked</label>
+                                        <select
+                                            class="setting"
+                                            id="codeLens.authors.command"
+                                            name="codeLens.authors.command"
+                                            disabled
+                                        >
+                                            <option value="gitlens.toggleFileBlame"
+                                                >toggles the file blame annotations</option
+                                            >
+                                            <option value="gitlens.diffWithPrevious"
+                                                >compares the commit with the previous</option
+                                            >
+                                            <option value="gitlens.showQuickCommitDetails"
+                                                >shows details of the commit</option
+                                            >
+                                            <option value="gitlens.showQuickCommitFileDetails">
+                                                show file details of the commit
+                                            </option>
+                                            <option value="gitlens.showQuickFileHistory"
+                                                >shows the current file history</option
+                                            >
+                                            <option value="gitlens.showQuickRepoHistory"
+                                                >shows the current branch history</option
+                                            >
+                                        </select>
+                                    </div>
+
+                                    <div
+                                        class="settings-group__setting nowrap ml-2 hidden"
+                                        data-enablement="codeLens.enabled"
+                                        data-visibility="settings.mode =advanced"
+                                    >
+                                        <label class="non-interactive">Add code lens to the following scopes</label>
+                                    </div>
+                                    <div
+                                        class="settings-group__setting nowrap ml-4 hidden"
+                                        data-enablement="codeLens.enabled"
+                                        data-visibility="settings.mode =advanced"
+                                    >
+                                        <input
+                                            class="setting"
+                                            id="codeLens.scopes"
+                                            name="codeLens.scopes"
+                                            type="checkbox"
+                                            value="document"
+                                            data-type="array"
+                                            disabled
+                                        />
+                                        <label for="codeLens.scopes"
+                                            >File scope &mdash; added at the top of the file</label
+                                        >
+                                    </div>
+                                    <div
+                                        class="settings-group__setting nowrap ml-4 hidden"
+                                        data-enablement="codeLens.enabled"
+                                        data-visibility="settings.mode =advanced"
+                                    >
+                                        <input
+                                            class="setting"
+                                            id="codeLens.scopes-1"
+                                            name="codeLens.scopes"
+                                            type="checkbox"
+                                            value="containers"
+                                            data-type="array"
+                                            disabled
+                                        />
+                                        <label for="codeLens.scopes-1">
+                                            Containers scope &mdash; added at the start of modules, classes, interfaces,
+                                            etc
+                                        </label>
+                                    </div>
+                                    <div
+                                        class="settings-group__setting nowrap ml-4 hidden"
+                                        data-enablement="codeLens.enabled"
+                                        data-visibility="settings.mode =advanced"
+                                    >
+                                        <input
+                                            class="setting"
+                                            id="codeLens.scopes-2"
+                                            name="codeLens.scopes"
+                                            type="checkbox"
+                                            value="blocks"
+                                            data-type="array"
+                                            disabled
+                                        />
+                                        <label for="codeLens.scopes-2">
+                                            Block scope &mdash; added at the start of functions, methods, etc
+                                        </label>
+                                    </div>
+                                </div>
                                 <div class="section__preview">
-                                    <img class="image__preview" src="{{root}}/images/settings/status-bar.png" />
+                                    <img class="image__preview" src="{{root}}/images/settings/code-lens.png" />
                                     <img
                                         class="image__preview--overlay hidden"
-                                        src="{{root}}/images/settings/modes-status-bar-left.png"
-                                        data-visibility="mode.statusBar.enabled &amp; mode.statusBar.alignment =left"
+                                        src="{{root}}/images/settings/code-lens-file-recent+authors.png"
+                                        data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled &amp; codeLens.scopes +document"
                                     />
                                     <img
                                         class="image__preview--overlay hidden"
-                                        src="{{root}}/images/settings/modes-status-bar-right.png"
-                                        data-visibility="mode.statusBar.enabled &amp; mode.statusBar.alignment =right"
+                                        src="{{root}}/images/settings/code-lens-file-recent.png"
+                                        data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled =false &amp; codeLens.scopes +document"
+                                    />
+                                    <img
+                                        class="image__preview--overlay hidden"
+                                        src="{{root}}/images/settings/code-lens-file-authors.png"
+                                        data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled =false &amp; codeLens.authors.enabled &amp; codeLens.scopes +document"
+                                    />
+
+                                    <img
+                                        class="image__preview--overlay hidden"
+                                        src="{{root}}/images/settings/code-lens-containers-recent+authors.png"
+                                        data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled &amp; codeLens.scopes +containers"
+                                    />
+                                    <img
+                                        class="image__preview--overlay hidden"
+                                        src="{{root}}/images/settings/code-lens-containers-recent.png"
+                                        data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled =false &amp; codeLens.scopes +containers"
+                                    />
+                                    <img
+                                        class="image__preview--overlay hidden"
+                                        src="{{root}}/images/settings/code-lens-containers-authors.png"
+                                        data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled =false &amp; codeLens.authors.enabled &amp; codeLens.scopes +containers"
+                                    />
+
+                                    <img
+                                        class="image__preview--overlay hidden"
+                                        src="{{root}}/images/settings/code-lens-blocks-recent+authors.png"
+                                        data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled &amp; codeLens.scopes +blocks"
+                                    />
+                                    <img
+                                        class="image__preview--overlay hidden"
+                                        src="{{root}}/images/settings/code-lens-blocks-recent.png"
+                                        data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled =false &amp; codeLens.scopes +blocks"
+                                    />
+                                    <img
+                                        class="image__preview--overlay hidden"
+                                        src="{{root}}/images/settings/code-lens-blocks-authors.png"
+                                        data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled =false &amp; codeLens.authors.enabled &amp; codeLens.scopes +blocks"
                                     />
                                 </div>
-
                                 <p class="settings-group__hint">
-                                    <i class="icon icon--lg icon__info"></i> For more advanced customizations or to add
-                                    your own modes, open
+                                    <i class="icon icon--lg icon__info"></i> For more advanced customizations open
                                     <a
                                         class="command"
                                         title="Open User Settings"
                                         href="command:workbench.action.openGlobalSettings"
                                         >User Settings</a
                                     >
-                                    and search for <b><i>gitlens.modes</i></b>
+                                    and search for <b><i>gitlens.codeLens</i></b>
                                     <span class="settings-group__hint--more">
                                         Use the
-                                        <a class="command" title="Run command" href="command:gitlens.switchMode"
-                                            >GitLens: Switch Mode</a
+                                        <a class="command" title="Run command" href="command:gitlens.toggleCodeLens"
+                                            >GitLens: Toggle Git Code Lens</a
                                         >
-                                        command to quickly switch the active mode
+                                        command to override this setting for the current window
                                     </span>
-                                    <span class="settings-group__hint--more">
-                                        Use the
-                                        <a class="command" title="Run command" href="command:gitlens.toggleReviewMode"
-                                            >GitLens: Toggle Review Mode</a
-                                        >
-                                        command to toggle Review mode
+                                </p>
+                            </div>
+                        </section>
+
+                        <section id="heatmap">
+                            <div class="section__header">
+                                <h2 class="section__title">
+                                    Gutter Heatmap
+                                    <a
+                                        class="link__learn-more"
+                                        title="Learn more"
+                                        href="https://github.com/eamodio/vscode-gitlens/tree/develop/#gutter-heatmap-"
+                                    >
+                                        <i class="icon icon__info"></i>
+                                    </a>
+                                </h2>
+                                <p class="section__title-hint">
+                                    Adds on-demand heatmap (age) indicator to the edge of the gutter to show how
+                                    recently lines were changed <br />
+                                    Indicator color reflects the age of the most recent change (hot or cold), while
+                                    indicator brightness ranges from bright (newer) to dim (older) based on the relative
+                                    age
+                                </p>
+                            </div>
+
+                            <div class="section__settings">
+                                <div class="settings-group">
+                                    <div class="settings-group__setting">
+                                        <label for="heatmap.toggleMode">Toggle annotations for </label>
+                                        <select class="setting" id="heatmap.toggleMode" name="heatmap.toggleMode">
+                                            <option value="file">each file, individually</option>
+                                            <option value="window">all files at once</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="section__preview">
+                                    <img class="image__preview" src="{{root}}/images/settings/heatmap.png" />
+                                </div>
+
+                                <p class="settings-group__hint">
+                                    <i class="icon icon--lg icon__info"></i> Use the
+                                    <span class="command hidden" data-visibility="heatmap.toggleMode =file">
+                                        GitLens: Toggle File Heatmap Annotations
                                     </span>
+                                    <a
+                                        class="command hidden"
+                                        title="Run command"
+                                        href="command:gitlens.toggleFileHeatmap"
+                                        data-visibility="heatmap.toggleMode =window"
+                                    >
+                                        GitLens: Toggle File Heatmap Annotations
+                                    </a>
+                                    command to turn the annotations on or off
                                     <span class="settings-group__hint--more">
-                                        Use the
-                                        <a class="command" title="Run command" href="command:gitlens.toggleZenMode"
-                                            >GitLens: Toggle Zen Mode</a
-                                        >
-                                        command to toggle Zen mode
+                                        Press <span class="shortcut-key">Esc</span> to turn off the annotations
                                     </span>
                                 </p>
                             </div>
@@ -2702,6 +2007,701 @@
                                 </p>
                             </div>
                         </section>
+
+                        <section id="repositories-view">
+                            <div class="section__header">
+                                <h2 class="section__title">
+                                    Repositories view
+                                    <a
+                                        class="link__learn-more"
+                                        title="Learn more"
+                                        href="https://github.com/eamodio/vscode-gitlens/tree/develop/#repositories-view-"
+                                    >
+                                        <i class="icon icon__info"></i>
+                                    </a>
+                                </h2>
+                                <p class="section__title-hint">
+                                    Adds a Repositories view to visualize, navigate, and explore Git repositories
+                                </p>
+                            </div>
+                            <div class="section__settings">
+                                <div class="settings-group">
+                                    <div class="settings-group__setting nowrap">
+                                        <input
+                                            class="setting"
+                                            id="views.repositories.enabled"
+                                            name="views.repositories.enabled"
+                                            type="checkbox"
+                                        />
+                                        <label for="views.repositories.enabled">Show the Repositories view</label>
+                                    </div>
+
+                                    <div
+                                        class="settings-group__setting ml-2"
+                                        data-enablement="views.repositories.enabled"
+                                    >
+                                        <label for="views.repositories.location">Show in the</label>
+                                        <select
+                                            class="setting"
+                                            id="views.repositories.location"
+                                            name="views.repositories.location"
+                                            disabled
+                                        >
+                                            <option value="gitlens">GitLens side bar</option>
+                                            <option value="explorer">Explorer side bar</option>
+                                            <option value="scm">Source Control side bar</option>
+                                        </select>
+                                    </div>
+
+                                    <div
+                                        class="settings-group__setting ml-2 hidden"
+                                        data-enablement="views.repositories.enabled"
+                                        data-visibility="settings.mode =advanced"
+                                    >
+                                        <label for="views.repositories.branches.layout">Layout branches</label>
+                                        <select
+                                            class="setting"
+                                            id="views.repositories.branches.layout"
+                                            name="views.repositories.branches.layout"
+                                            disabled
+                                        >
+                                            <option value="list">as a list</option>
+                                            <option value="tree">as a tree</option>
+                                        </select>
+                                    </div>
+
+                                    <div
+                                        class="settings-group__setting ml-2 hidden"
+                                        data-enablement="views.repositories.enabled"
+                                        data-visibility="settings.mode =advanced"
+                                    >
+                                        <label for="views.repositories.files.layout">Layout files</label>
+                                        <select
+                                            class="setting"
+                                            id="views.repositories.files.layout"
+                                            name="views.repositories.files.layout"
+                                            disabled
+                                        >
+                                            <option value="auto">automatically</option>
+                                            <option value="list">as a list</option>
+                                            <option value="tree">as a tree</option>
+                                        </select>
+                                    </div>
+                                    <p
+                                        class="setting__hint ml-3 hidden"
+                                        data-visibility="views.repositories.files.layout =auto &amp; settings.mode =advanced"
+                                    >
+                                        Chooses the best layout based on the number of files at each nesting level
+                                    </p>
+
+                                    <div
+                                        class="settings-group__setting nowrap ml-2 hidden"
+                                        data-enablement="views.repositories.enabled"
+                                        data-visibility="settings.mode =advanced"
+                                    >
+                                        <input
+                                            class="setting"
+                                            id="views.repositories.files.compact"
+                                            name="views.repositories.files.compact"
+                                            type="checkbox"
+                                            disabled
+                                        />
+                                        <label for="views.repositories.files.compact">Use compact layout</label>
+                                    </div>
+                                    <p class="setting__hint ml-3 hidden" data-visibility="settings.mode =advanced">
+                                        Compacts (flattens) unnecessary nesting when using a tree layouts
+                                    </p>
+
+                                    <div
+                                        class="settings-group__setting nowrap ml-2 hidden"
+                                        data-enablement="views.repositories.enabled"
+                                        data-visibility="settings.mode =advanced"
+                                    >
+                                        <input
+                                            class="setting"
+                                            id="views.repositories.avatars"
+                                            name="views.avatars"
+                                            type="checkbox"
+                                            disabled
+                                        />
+                                        <label for="views.repositories.avatars">Use author avatars icons</label>
+                                    </div>
+
+                                    <div
+                                        class="settings-group__setting nowrap ml-2 hidden"
+                                        data-enablement="views.repositories.enabled"
+                                        data-visibility="settings.mode =advanced"
+                                    >
+                                        <input
+                                            class="setting"
+                                            id="views.repositories.autoRefresh"
+                                            name="views.repositories.autoRefresh"
+                                            type="checkbox"
+                                            disabled
+                                        />
+                                        <label for="views.repositories.autoRefresh">
+                                            Automatically refreshes when the file system or any repository changes
+                                        </label>
+                                    </div>
+
+                                    <div
+                                        class="settings-group__setting nowrap ml-2 hidden"
+                                        data-enablement="views.repositories.enabled"
+                                        data-visibility="settings.mode =advanced"
+                                    >
+                                        <input
+                                            class="setting"
+                                            id="views.repositories.autoReveal"
+                                            name="views.repositories.autoReveal"
+                                            type="checkbox"
+                                            disabled
+                                        />
+                                        <label for="views.repositories.autoReveal">
+                                            Automatically reveal repositories when opening files
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="section__preview">
+                                    <img
+                                        class="image__preview hidden"
+                                        src="{{root}}/images/settings/view-repositories.png"
+                                        data-visibility="views.repositories.enabled &amp; views.repositories.files.layout !tree"
+                                    />
+                                    <img
+                                        class="image__preview hidden"
+                                        src="{{root}}/images/settings/view-repositories-tree-compact.png"
+                                        data-visibility="views.repositories.enabled &amp; views.repositories.files.layout =tree &amp; views.repositories.files.compact"
+                                    />
+                                    <img
+                                        class="image__preview hidden"
+                                        src="{{root}}/images/settings/view-repositories-tree.png"
+                                        data-visibility="views.repositories.enabled &amp; views.repositories.files.layout =tree &amp; views.repositories.files.compact =false"
+                                    />
+                                    <img
+                                        class="image__preview--overlay hidden"
+                                        src="{{root}}/images/settings/view-repositories-avatars.png"
+                                        data-visibility="views.repositories.enabled &amp; views.avatars"
+                                    />
+                                </div>
+                                <p class="settings-group__hint">
+                                    <i class="icon icon--lg icon__info"></i> For more advanced customizations open
+                                    <a
+                                        class="command"
+                                        title="Open User Settings"
+                                        href="command:workbench.action.openGlobalSettings"
+                                        >User Settings</a
+                                    >
+                                    and search for <b><i>gitlens.views.repositories</i></b> or
+                                    <b><i>gitlens.views</i></b>
+                                </p>
+                            </div>
+                        </section>
+
+                        <section id="file-history-view">
+                            <div class="section__header">
+                                <h2 class="section__title">
+                                    File History view
+                                    <a
+                                        class="link__learn-more"
+                                        title="Learn more"
+                                        href="https://github.com/eamodio/vscode-gitlens/tree/develop/#file-history-view-"
+                                    >
+                                        <i class="icon icon__info"></i>
+                                    </a>
+                                </h2>
+                                <p class="section__title-hint">
+                                    Adds a File History view to visualize, navigate, and explore the revision history of
+                                    the current file
+                                </p>
+                            </div>
+                            <div class="section__settings">
+                                <div class="settings-group">
+                                    <div class="settings-group__setting nowrap">
+                                        <input
+                                            class="setting"
+                                            id="views.fileHistory.enabled"
+                                            name="views.fileHistory.enabled"
+                                            type="checkbox"
+                                        />
+                                        <label for="views.fileHistory.enabled">Show the File History view</label>
+                                    </div>
+
+                                    <div
+                                        class="settings-group__setting ml-2"
+                                        data-enablement="views.fileHistory.enabled"
+                                    >
+                                        <label for="views.fileHistory.location">Show in the</label>
+                                        <select
+                                            class="setting"
+                                            id="views.fileHistory.location"
+                                            name="views.fileHistory.location"
+                                            disabled
+                                        >
+                                            <option value="gitlens">GitLens side bar</option>
+                                            <option value="explorer">Explorer side bar</option>
+                                            <option value="scm">Source Control side bar</option>
+                                        </select>
+                                    </div>
+
+                                    <div
+                                        class="settings-group__setting nowrap ml-2 hidden"
+                                        data-enablement="views.fileHistory.enabled"
+                                        data-visibility="settings.mode =advanced"
+                                    >
+                                        <input
+                                            class="setting"
+                                            id="views.fileHistory.avatars"
+                                            name="views.fileHistory.avatars"
+                                            type="checkbox"
+                                            disabled
+                                        />
+                                        <label for="views.fileHistory.avatars">Use author avatars icons</label>
+                                    </div>
+                                </div>
+                                <div class="section__preview">
+                                    <img
+                                        class="image__preview hidden"
+                                        src="{{root}}/images/settings/view-file-history.png"
+                                        data-visibility="views.fileHistory.enabled"
+                                    />
+                                    <img
+                                        class="image__preview--overlay hidden"
+                                        src="{{root}}/images/settings/view-file-history-avatars.png"
+                                        data-visibility="views.fileHistory.enabled &amp; views.fileHistory.avatars"
+                                    />
+                                </div>
+                            </div>
+                        </section>
+
+                        <section id="line-history-view">
+                            <div class="section__header">
+                                <h2 class="section__title">
+                                    Line History view
+                                    <a
+                                        class="link__learn-more"
+                                        title="Learn more"
+                                        href="https://github.com/eamodio/vscode-gitlens/tree/develop/#line-history-view-"
+                                    >
+                                        <i class="icon icon__info"></i>
+                                    </a>
+                                </h2>
+                                <p class="section__title-hint">
+                                    Adds a Line History view to visualize, navigate, and explore the revision history of
+                                    the selected lines of current file
+                                </p>
+                            </div>
+                            <div class="section__settings">
+                                <div class="settings-group">
+                                    <div class="settings-group__setting nowrap">
+                                        <input
+                                            class="setting"
+                                            id="views.lineHistory.enabled"
+                                            name="views.lineHistory.enabled"
+                                            type="checkbox"
+                                        />
+                                        <label for="views.lineHistory.enabled">Show the Line History view</label>
+                                    </div>
+
+                                    <div
+                                        class="settings-group__setting ml-2"
+                                        data-enablement="views.lineHistory.enabled"
+                                    >
+                                        <label for="views.lineHistory.location">Show in the</label>
+                                        <select
+                                            class="setting"
+                                            id="views.lineHistory.location"
+                                            name="views.lineHistory.location"
+                                            disabled
+                                        >
+                                            <option value="gitlens">GitLens side bar</option>
+                                            <option value="explorer">Explorer side bar</option>
+                                            <option value="scm">Source Control side bar</option>
+                                        </select>
+                                    </div>
+
+                                    <div
+                                        class="settings-group__setting nowrap ml-2 hidden"
+                                        data-enablement="views.lineHistory.enabled"
+                                        data-visibility="settings.mode =advanced"
+                                    >
+                                        <input
+                                            class="setting"
+                                            id="views.lineHistory.avatars"
+                                            name="views.lineHistory.avatars"
+                                            type="checkbox"
+                                            disabled
+                                        />
+                                        <label for="views.lineHistory.avatars">Use author avatars icons</label>
+                                    </div>
+                                </div>
+                                <div class="section__preview">
+                                    <img
+                                        class="image__preview hidden"
+                                        src="{{root}}/images/settings/view-line-history.png"
+                                        data-visibility="views.lineHistory.enabled"
+                                    />
+                                    <img
+                                        class="image__preview--overlay hidden"
+                                        src="{{root}}/images/settings/view-line-history-avatars.png"
+                                        data-visibility="views.lineHistory.enabled &amp; views.lineHistory.avatars"
+                                    />
+                                </div>
+                            </div>
+                        </section>
+
+                        <section id="search-commits-view">
+                            <div class="section__header">
+                                <h2 class="section__title">
+                                    Search Commits view
+                                    <a
+                                        class="link__learn-more"
+                                        title="Learn more"
+                                        href="https://github.com/eamodio/vscode-gitlens/tree/develop/#search-commits-view-"
+                                    >
+                                        <i class="icon icon__info"></i>
+                                    </a>
+                                </h2>
+                                <p class="section__title-hint">
+                                    Adds a Search Commits view to search and explore commit histories by message,
+                                    author, files, id, etc
+                                </p>
+                            </div>
+                            <div class="section__settings">
+                                <div class="settings-group">
+                                    <div class="settings-group__setting nowrap">
+                                        <input
+                                            class="setting"
+                                            id="views.search.enabled"
+                                            name="views.search.enabled"
+                                            type="checkbox"
+                                        />
+                                        <label for="views.search.enabled">Show the Search Commits view</label>
+                                    </div>
+
+                                    <div class="settings-group__setting ml-2" data-enablement="views.search.enabled">
+                                        <label for="views.search.location">Show in the</label>
+                                        <select
+                                            class="setting"
+                                            id="views.search.location"
+                                            name="views.search.location"
+                                            disabled
+                                        >
+                                            <option value="gitlens">GitLens side bar</option>
+                                            <option value="explorer">Explorer side bar</option>
+                                            <option value="scm">Source Control side bar</option>
+                                        </select>
+                                    </div>
+
+                                    <div
+                                        class="settings-group__setting ml-2 hidden"
+                                        data-enablement="views.search.enabled"
+                                        data-visibility="settings.mode =advanced"
+                                    >
+                                        <label for="views.search.files.layout">Layout files</label>
+                                        <select
+                                            class="setting"
+                                            id="views.search.files.layout"
+                                            name="views.search.files.layout"
+                                            disabled
+                                        >
+                                            <option value="auto">automatically</option>
+                                            <option value="list">as a list</option>
+                                            <option value="tree">as a tree</option>
+                                        </select>
+                                    </div>
+
+                                    <div
+                                        class="settings-group__setting nowrap ml-2 hidden"
+                                        data-enablement="views.search.enabled"
+                                        data-visibility="settings.mode =advanced"
+                                    >
+                                        <input
+                                            class="setting"
+                                            id="views.search.files.compact"
+                                            name="views.search.files.compact"
+                                            type="checkbox"
+                                            disabled
+                                        />
+                                        <label for="views.search.files.compact">Use compact layout</label>
+                                    </div>
+                                    <p class="setting__hint hidden" data-visibility="settings.mode =advanced">
+                                        Compacts (flattens) unnecessary nesting when using a tree layouts
+                                    </p>
+
+                                    <div
+                                        class="settings-group__setting nowrap ml-2 hidden"
+                                        data-enablement="views.search.enabled"
+                                        data-visibility="settings.mode =advanced"
+                                    >
+                                        <input
+                                            class="setting"
+                                            id="views.search.avatars"
+                                            name="views.avatars"
+                                            type="checkbox"
+                                            disabled
+                                        />
+                                        <label for="views.search.avatars">Use author avatars icons</label>
+                                    </div>
+                                </div>
+
+                                <div class="section__preview">
+                                    <img
+                                        class="image__preview hidden"
+                                        src="{{root}}/images/settings/view-search.png"
+                                        data-visibility="views.search.enabled &amp; views.search.files.layout !tree"
+                                    />
+                                    <img
+                                        class="image__preview hidden"
+                                        src="{{root}}/images/settings/view-search-tree-compact.png"
+                                        data-visibility="views.search.enabled &amp; views.search.files.layout =tree &amp; views.search.files.compact"
+                                    />
+                                    <img
+                                        class="image__preview hidden"
+                                        src="{{root}}/images/settings/view-search-tree.png"
+                                        data-visibility="views.search.enabled &amp; views.search.files.layout =tree &amp; views.search.files.compact =false"
+                                    />
+                                    <img
+                                        class="image__preview--overlay hidden"
+                                        src="{{root}}/images/settings/view-search-avatars.png"
+                                        data-visibility="views.search.enabled &amp; views.avatars"
+                                    />
+                                </div>
+                                <p class="settings-group__hint">
+                                    <i class="icon icon--lg icon__info"></i> For more advanced customizations open
+                                    <a
+                                        class="command"
+                                        title="Open User Settings"
+                                        href="command:workbench.action.openGlobalSettings"
+                                        >User Settings</a
+                                    >
+                                    and search for <b><i>gitlens.views.search</i></b> or <b><i>gitlens.views</i></b>
+                                </p>
+                            </div>
+                        </section>
+
+                        <section id="compare-view">
+                            <div class="section__header">
+                                <h2 class="section__title">
+                                    Compare view
+                                    <a
+                                        class="link__learn-more"
+                                        title="Learn more"
+                                        href="https://github.com/eamodio/vscode-gitlens/tree/develop/#compare-view-"
+                                    >
+                                        <i class="icon icon__info"></i>
+                                    </a>
+                                </h2>
+                                <p class="section__title-hint">
+                                    Adds a Compare view to visualize comparisons between branches, tags, commits, and
+                                    more
+                                </p>
+                            </div>
+                            <div class="section__settings">
+                                <div class="settings-group">
+                                    <div class="settings-group__setting nowrap">
+                                        <input
+                                            class="setting"
+                                            id="views.compare.enabled"
+                                            name="views.compare.enabled"
+                                            type="checkbox"
+                                        />
+                                        <label for="views.compare.enabled">Show the Compare view</label>
+                                    </div>
+
+                                    <div class="settings-group__setting ml-2" data-enablement="views.compare.enabled">
+                                        <label for="views.compare.location">Show in the</label>
+                                        <select
+                                            class="setting"
+                                            id="views.compare.location"
+                                            name="views.compare.location"
+                                            disabled
+                                        >
+                                            <option value="gitlens">GitLens side bar</option>
+                                            <option value="explorer">Explorer side bar</option>
+                                            <option value="scm">Source Control side bar</option>
+                                        </select>
+                                    </div>
+
+                                    <div
+                                        class="settings-group__setting ml-2 hidden"
+                                        data-enablement="views.compare.enabled"
+                                        data-visibility="settings.mode =advanced"
+                                    >
+                                        <label for="views.compare.files.layout">Layout files</label>
+                                        <select
+                                            class="setting"
+                                            id="views.compare.files.layout"
+                                            name="views.compare.files.layout"
+                                            disabled
+                                        >
+                                            <option value="auto">automatically</option>
+                                            <option value="list">as a list</option>
+                                            <option value="tree">as a tree</option>
+                                        </select>
+                                    </div>
+
+                                    <div
+                                        class="settings-group__setting nowrap ml-2 hidden"
+                                        data-enablement="views.compare.enabled"
+                                        data-visibility="settings.mode =advanced"
+                                    >
+                                        <input
+                                            class="setting"
+                                            id="views.compare.files.compact"
+                                            name="views.compare.files.compact"
+                                            type="checkbox"
+                                            disabled
+                                        />
+                                        <label for="views.compare.files.compact">Use compact layout</label>
+                                    </div>
+                                    <p class="setting__hint hidden" data-visibility="settings.mode =advanced">
+                                        Compacts (flattens) unnecessary nesting when using a tree layouts
+                                    </p>
+
+                                    <div
+                                        class="settings-group__setting nowrap ml-2 hidden"
+                                        data-enablement="views.compare.enabled"
+                                        data-visibility="settings.mode =advanced"
+                                    >
+                                        <input
+                                            class="setting"
+                                            id="views.compare.avatars"
+                                            name="views.avatars"
+                                            type="checkbox"
+                                            disabled
+                                        />
+                                        <label for="views.compare.avatars">Use author avatars icons</label>
+                                    </div>
+                                </div>
+
+                                <div class="section__preview">
+                                    <img
+                                        class="image__preview hidden"
+                                        src="{{root}}/images/settings/view-compare.png"
+                                        data-visibility="views.compare.enabled &amp; views.compare.files.layout !tree"
+                                    />
+                                    <img
+                                        class="image__preview hidden"
+                                        src="{{root}}/images/settings/view-compare-tree-compact.png"
+                                        data-visibility="views.compare.enabled &amp; views.compare.files.layout =tree &amp; views.compare.files.compact"
+                                    />
+                                    <img
+                                        class="image__preview hidden"
+                                        src="{{root}}/images/settings/view-compare-tree.png"
+                                        data-visibility="views.compare.enabled &amp; views.compare.files.layout =tree &amp; views.compare.files.compact =false"
+                                    />
+                                    <img
+                                        class="image__preview--overlay hidden"
+                                        src="{{root}}/images/settings/view-compare-avatars.png"
+                                        data-visibility="views.compare.enabled &amp; views.avatars"
+                                    />
+                                </div>
+                                <p class="settings-group__hint">
+                                    <i class="icon icon--lg icon__info"></i> For more advanced customizations open
+                                    <a
+                                        class="command"
+                                        title="Open User Settings"
+                                        href="command:workbench.action.openGlobalSettings"
+                                        >User Settings</a
+                                    >
+                                    and search for <b><i>gitlens.views.compare</i></b> or <b><i>gitlens.views</i></b>
+                                </p>
+                            </div>
+                        </section>
+
+                        <section id="modes">
+                            <div class="section__header">
+                                <h2 class="section__title">
+                                    Modes
+                                    <a
+                                        class="link__learn-more"
+                                        title="Learn more"
+                                        href="https://github.com/eamodio/vscode-gitlens/tree/develop/#modes-"
+                                    >
+                                        <i class="icon icon__info"></i>
+                                    </a>
+                                </h2>
+                                <p class="section__title-hint">
+                                    Supports user-defined modes for quickly toggling between sets of settings
+                                </p>
+                            </div>
+
+                            <div class="section__settings">
+                                <div class="settings-group">
+                                    <div class="settings-group__setting nowrap">
+                                        <input
+                                            class="setting"
+                                            id="mode.statusBar.enabled"
+                                            name="mode.statusBar.enabled"
+                                            type="checkbox"
+                                        />
+                                        <label for="mode.statusBar.enabled"
+                                            >Show the active mode in the status bar</label
+                                        >
+                                    </div>
+
+                                    <div class="settings-group__setting ml-2" data-enablement="mode.statusBar.enabled">
+                                        <label for="mode.statusBar.alignment">Position the annotation on the</label>
+                                        <select
+                                            class="setting"
+                                            id="mode.statusBar.alignment"
+                                            name="mode.statusBar.alignment"
+                                            disabled
+                                        >
+                                            <option value="left">left</option>
+                                            <option value="right">right</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="section__preview">
+                                    <img class="image__preview" src="{{root}}/images/settings/status-bar.png" />
+                                    <img
+                                        class="image__preview--overlay hidden"
+                                        src="{{root}}/images/settings/modes-status-bar-left.png"
+                                        data-visibility="mode.statusBar.enabled &amp; mode.statusBar.alignment =left"
+                                    />
+                                    <img
+                                        class="image__preview--overlay hidden"
+                                        src="{{root}}/images/settings/modes-status-bar-right.png"
+                                        data-visibility="mode.statusBar.enabled &amp; mode.statusBar.alignment =right"
+                                    />
+                                </div>
+
+                                <p class="settings-group__hint">
+                                    <i class="icon icon--lg icon__info"></i> For more advanced customizations or to add
+                                    your own modes, open
+                                    <a
+                                        class="command"
+                                        title="Open User Settings"
+                                        href="command:workbench.action.openGlobalSettings"
+                                        >User Settings</a
+                                    >
+                                    and search for <b><i>gitlens.modes</i></b>
+                                    <span class="settings-group__hint--more">
+                                        Use the
+                                        <a class="command" title="Run command" href="command:gitlens.switchMode"
+                                            >GitLens: Switch Mode</a
+                                        >
+                                        command to quickly switch the active mode
+                                    </span>
+                                    <span class="settings-group__hint--more">
+                                        Use the
+                                        <a class="command" title="Run command" href="command:gitlens.toggleReviewMode"
+                                            >GitLens: Toggle Review Mode</a
+                                        >
+                                        command to toggle Review mode
+                                    </span>
+                                    <span class="settings-group__hint--more">
+                                        Use the
+                                        <a class="command" title="Run command" href="command:gitlens.toggleZenMode"
+                                            >GitLens: Toggle Zen Mode</a
+                                        >
+                                        command to toggle Zen mode
+                                    </span>
+                                </p>
+                            </div>
+                        </section>
                     </div>
 
                     <div class="section-group__sidebar section-group__sidebar--settings">
@@ -2709,6 +2709,37 @@
                             <h2>Jump to</h2>
                             <ul>
                                 <li><a class="jump-to" href="#general" title="Jump to General settings">General</a></li>
+                                <li>
+                                    <a class="jump-to" href="#current-line" title="Jump to Current Line Blame settings"
+                                        >Current Line Blame</a
+                                    >
+                                </li>
+                                <li>
+                                    <a class="jump-to" href="#blame" title="Jump to Gutter Blame settings"
+                                        >Gutter Blame</a
+                                    >
+                                </li>
+                                <li><a class="jump-to" href="#hovers" title="Jump to Hovers settings">Hovers</a></li>
+                                <li>
+                                    <a class="jump-to" href="#code-lens" title="Jump to Code Lens settings"
+                                        >Code Lens</a
+                                    >
+                                </li>
+                                <li>
+                                    <a class="jump-to" href="#heatmap" title="Jump to Gutter Heatmap settings"
+                                        >Gutter Heatmap</a
+                                    >
+                                </li>
+                                <li>
+                                    <a class="jump-to" href="#recent-changes" title="Jump to Recent Changes settings"
+                                        >Recent Changes</a
+                                    >
+                                </li>
+                                <li>
+                                    <a class="jump-to" href="#status-bar" title="Jump to Status Bar Blame settings"
+                                        >Status Bar Blame</a
+                                    >
+                                </li>
                                 <li>
                                     <a
                                         class="jump-to"
@@ -2734,11 +2765,6 @@
                                     >
                                 </li>
                                 <li>
-                                    <a class="jump-to" href="#compare-view" title="Jump to Compare view settings"
-                                        >Compare view</a
-                                    >
-                                </li>
-                                <li>
                                     <a
                                         class="jump-to"
                                         href="#search-commits-view"
@@ -2747,37 +2773,11 @@
                                     >
                                 </li>
                                 <li>
-                                    <a class="jump-to" href="#code-lens" title="Jump to Code Lens settings"
-                                        >Code Lens</a
+                                    <a class="jump-to" href="#compare-view" title="Jump to Compare view settings"
+                                        >Compare view</a
                                     >
                                 </li>
-                                <li>
-                                    <a class="jump-to" href="#current-line" title="Jump to Current Line Blame settings"
-                                        >Current Line Blame</a
-                                    >
-                                </li>
-                                <li>
-                                    <a class="jump-to" href="#blame" title="Jump to Gutter Blame settings"
-                                        >Gutter Blame</a
-                                    >
-                                </li>
-                                <li>
-                                    <a class="jump-to" href="#heatmap" title="Jump to Gutter Heatmap settings"
-                                        >Gutter Heatmap</a
-                                    >
-                                </li>
-                                <li><a class="jump-to" href="#hovers" title="Jump to Hovers settings">Hovers</a></li>
                                 <li><a class="jump-to" href="#modes" title="Jump to Modes settings">Modes</a></li>
-                                <li>
-                                    <a class="jump-to" href="#recent-changes" title="Jump to Recent Changes settings"
-                                        >Recent Changes</a
-                                    >
-                                </li>
-                                <li>
-                                    <a class="jump-to" href="#status-bar" title="Jump to Status Bar Blame settings"
-                                        >Status Bar Blame</a
-                                    >
-                                </li>
                             </ul>
                         </div>
                         <div class="sidebar-group">
