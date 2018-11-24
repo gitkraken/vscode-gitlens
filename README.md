@@ -57,7 +57,7 @@ GitLens is powerful, feature rich, and also [highly customizable](#gitlens-setti
 
 While GitLens is generously offered to everyone free of charge, if you find it useful please consider supporting it.
 
-I've been building GitLens in my spare time<sup><a title="nights and weekends, i.e. trading sleep for time">1</a></sup> for almost 2 years now.
+I've been building GitLens in my spare time<sup><a title="nights and weekends, i.e. trading sleep for time">1</a></sup> for over 2 years now.
 From its very humble beginnings, GitLens has grown wildly beyond my expectations &mdash; in both its reach as well as its demands on my time and attention.
 While I enjoy giving my free time and attention to GitLens' development and growth, I would like to do even more.
 
@@ -95,7 +95,7 @@ For more advanced customizations, refer to the [settings documentation](#gitlens
 
 ## Features
 
-### Repositories view [#](#repositories-view 'Repositories view')
+### Repositories view [#](#repositories-view- 'Repositories view')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/view-repositories.png" alt="Repositories view" />
@@ -181,7 +181,7 @@ The repositories view provides the following features,
 
 ---
 
-### File History view [#](#file-history-view 'File History view')
+### File History view [#](#file-history-view- 'File History view')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/view-file-history.png" alt="File History view" />
@@ -206,7 +206,7 @@ The file history view provides the following features,
 
 ---
 
-### Line History view [#](#line-history-view 'Line History view')
+### Line History view [#](#line-history-view- 'Line History view')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/view-line-history.png" alt="Line History view" />
@@ -231,7 +231,7 @@ The line history view provides the following features,
 
 ---
 
-### Compare view [#](#compare-view 'Compare view')
+### Compare view [#](#compare-view- 'Compare view')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/view-compare.png" alt="Compare view" />
@@ -263,7 +263,7 @@ The compare view provides the following features,
 
 ---
 
-### Search Commits [#](#search-commits 'Search Commits')
+### Search Commits [#](#search-commits- 'Search Commits')
 
 - Adds a _Search Commits_ command (`gitlens.showCommitSearch`) with a shortcut of `alt+/` to search for commits by message, author, file(s), commit id, or code changes
   - Use `<message>` to search for commits with messages that match `<message>` &mdash; See [Git docs](https://git-scm.com/docs/git-log#git-log---grepltpatterngt 'Open Git docs')
@@ -276,7 +276,7 @@ The compare view provides the following features,
 
 ---
 
-### Search Commits view [#](#search-commits-view 'Search Commits view')
+### Search Commits view [#](#search-commits-view- 'Search Commits view')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/view-search.png" alt="Search Commits view" />
@@ -305,7 +305,7 @@ The search commits view provides the following features,
 
 ---
 
-### Code Lens [#](#code-lens 'Code Lens')
+### Code Lens [#](#code-lens- 'Code Lens')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/code-lens.png" alt="Code Lens" />
@@ -332,7 +332,7 @@ The search commits view provides the following features,
 
 ---
 
-### Current Line Blame [#](#current-line-blame 'Current Line Blame')
+### Current Line Blame [#](#current-line-blame- 'Current Line Blame')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/current-line-blame.png" alt="Current Line Blame" />
@@ -344,7 +344,7 @@ The search commits view provides the following features,
 
 ---
 
-### Gutter Blame [#](#gutter-blame 'Gutter Blame')
+### Gutter Blame [#](#gutter-blame- 'Gutter Blame')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/gutter-blame.png" alt="Gutter Blame">
@@ -359,7 +359,7 @@ The search commits view provides the following features,
 
 ---
 
-### Gutter Heatmap [#](#gutter-heatmap 'Gutter Heatmap')
+### Gutter Heatmap [#](#gutter-heatmap- 'Gutter Heatmap')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/heatmap.png" alt="Gutter Heatmap" />
@@ -373,7 +373,7 @@ The search commits view provides the following features,
 
 ---
 
-### Hovers [#](#hovers 'Hovers')
+### Hovers [#](#hovers- 'Hovers')
 
 #### Current Line Hovers
 
@@ -435,7 +435,7 @@ The search commits view provides the following features,
 
 ---
 
-### Modes [#](#modes 'Modes')
+### Modes [#](#modes- 'Modes')
 
 - GitLens supports [user-defined](#modes-settings 'Jump to the Modes settings') modes for quickly toggling between sets of settings
   - Adds _Switch Mode_ command (`gitlens.switchMode`) to quickly switch the active mode
@@ -447,7 +447,7 @@ The search commits view provides the following features,
 
 ---
 
-### Recent Changes [#](#recent-changes 'Recent Changes')
+### Recent Changes [#](#recent-changes- 'Recent Changes')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/recent-changes.png" alt="Recent Changes" />
@@ -459,7 +459,7 @@ The search commits view provides the following features,
 
 ---
 
-### Status Bar Blame [#](#status-bar-blame 'Status Bar Blame')
+### Status Bar Blame [#](#status-bar-blame- 'Status Bar Blame')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/status-bar.png" alt="Status Bar Blame" />
@@ -641,11 +641,11 @@ The search commits view provides the following features,
 
 ---
 
-## GitLens Settings
+## GitLens Settings [#](#gitlens-settings- 'GitLens Settings')
 
 GitLens is highly customizable and provides many configuration settings to allow the personalization of almost all features.
 
-### General Settings [#](#general-settings 'General Settings')
+### General Settings [#](#general-settings- 'General Settings')
 
 | Name                                 | Description                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -660,7 +660,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 | `gitlens.settings.mode`              | Specifies the display mode of the interactive settings editor<br /><br />`simple` - only displays common settings<br />`advanced` - displays all settings                                                                                                                                                                                                                                                                                                 |
 | `gitlens.showWhatsNewAfterUpgrades`  | Specifies whether to show What's New after upgrading to new feature releases                                                                                                                                                                                                                                                                                                                                                                              |
 
-### Repositories View Settings [#](#repositories-view-settings 'Repositories View Settings')
+### Repositories View Settings [#](#repositories-view-settings- 'Repositories View Settings')
 
 See also [View Settings](#view-settings 'Jump to the View settings')
 
@@ -677,7 +677,7 @@ See also [View Settings](#view-settings 'Jump to the View settings')
 | `gitlens.views.repositories.location`           | Specifies where to show the _Repositories_ view<br /><br />`gitlens` - adds to the GitLens side bar<br />`explorer` - adds to the Explorer side bar<br />`scm` - adds to the Source Control side bar                                                                                                                                           |
 | `gitlens.views.repositories.showTrackingBranch` | Specifies whether to show the tracking branch when displaying local branches in the _Repositories_ view                                                                                                                                                                                                                                        |
 
-### File History View Settings [#](#file-history-view-settings 'File History View Settings')
+### File History View Settings [#](#file-history-view-settings- 'File History View Settings')
 
 See also [View Settings](#view-settings 'Jump to the View settings')
 
@@ -687,7 +687,7 @@ See also [View Settings](#view-settings 'Jump to the View settings')
 | `gitlens.views.fileHistory.enabled`  | Specifies whether to show the _File History_ view                                                                                                                                                    |
 | `gitlens.views.fileHistory.location` | Specifies where to show the _File History_ view<br /><br />`gitlens` - adds to the GitLens side bar<br />`explorer` - adds to the Explorer side bar<br />`scm` - adds to the Source Control side bar |
 
-### Line History View Settings [#](#line-history-view-settings 'Line History View Settings')
+### Line History View Settings [#](#line-history-view-settings= 'Line History View Settings')
 
 See also [View Settings](#view-settings 'Jump to the View settings')
 
@@ -697,7 +697,7 @@ See also [View Settings](#view-settings 'Jump to the View settings')
 | `gitlens.views.lineHistory.enabled`  | Specifies whether to show the _Line History_ view                                                                                                                                                    |
 | `gitlens.views.lineHistory.location` | Specifies where to show the _Line History_ view<br /><br />`gitlens` - adds to the GitLens side bar<br />`explorer` - adds to the Explorer side bar<br />`scm` - adds to the Source Control side bar |
 
-### Compare View Settings [#](#compare-view-settings 'Compare View Settings')
+### Compare View Settings [#](#compare-view-settings- 'Compare View Settings')
 
 See also [View Settings](#view-settings 'Jump to the View settings')
 
@@ -709,7 +709,7 @@ See also [View Settings](#view-settings 'Jump to the View settings')
 | `gitlens.views.compare.files.threshold` | Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Compare_ view. Only applies when `gitlens.views.compare.files.layout` is set to `auto`                                                                                                               |
 | `gitlens.views.compare.location`        | Specifies where to show the _Compare_ view<br /><br />`gitlens` - adds to the GitLens side bar<br />`explorer` - adds to the Explorer side bar<br />`scm` - adds to the Source Control side bar                                                                                                                                      |
 
-### Search View Settings [#](#search-view-settings 'Search View Settings')
+### Search View Settings [#](#search-view-settings- 'Search View Settings')
 
 See also [View Settings](#view-settings 'Jump to the View settings')
 
@@ -721,7 +721,7 @@ See also [View Settings](#view-settings 'Jump to the View settings')
 | `gitlens.views.compare.files.threshold` | Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Search Commits_ view<br />Only applies when `gitlens.views.compare.files.layout` is set to `auto`                                                                                                     |
 | `gitlens.views.search.location`         | Specifies where to show the _Search Commits_ view<br />`gitlens` - adds to the GitLens side bar<br />`explorer` - adds to the Explorer side bar<br />`scm` - adds to the Source Control side bar                                                                                                                                      |
 
-### View Settings [#](#view-settings 'View Settings')
+### View Settings [#](#view-settings- 'View Settings')
 
 | Name                             | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -733,7 +733,7 @@ See also [View Settings](#view-settings 'Jump to the View settings')
 | `gitlens.views.stashFormat`      | Specifies the format of stashed changes in the views. See the [GitLens docs](https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting) for advanced formatting<br /><br />Available tokens<br />`${id}` &mdash; commit id<br />`${author}` &mdash; commit author<br />`${message}` &mdash; commit message<br />`${ago}` &mdash; relative commit date (e.g. 1 day ago)<br />`${date}`&mdash; formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br />`${agoOrDate}` &mdash; commit date specified by `gitlens.defaultDateStyle`<br />`${authorAgo}` &mdash; commit author, relative commit date<br />`${authorAgoOrDate}` &mdash; commit author, commit date specified by `gitlens.defaultDateStyle` |
 | `gitlens.views.statusFileFormat` | Specifies the format of the status of a working or committed file in the views<br /><br />Available tokens<br />`${directory}` &mdash; directory name<br />`${file}` &mdash; file name<br />`${filePath}` &mdash; formatted file name and path<br />`${path}` &mdash; full file path<br />`${working}` &mdash; optional indicator if the file is uncommitted                                                                                                                                                                                                                                                                                                                                                                          |
 
-### Code Lens Settings [#](#code-lens-settings 'Code Lens Settings')
+### Code Lens Settings [#](#code-lens-settings- 'Code Lens Settings')
 
 | Name                                        | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -747,7 +747,7 @@ See also [View Settings](#view-settings 'Jump to the View settings')
 | `gitlens.codeLens.scopesByLanguage`         | Specifies where Git code lens will be shown in the document for the specified languages                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `gitlens.codeLens.symbolScopes`             | Specifies a set of document symbols where Git code lens will or will not be shown in the document. Prefix with `!` to avoid providing a Git code lens for the symbol. Must be a member of [`SymbolKind`](https://code.visualstudio.com/docs/extensionAPI/vscode-api#_a-namesymbolkindaspan-classcodeitem-id660symbolkindspan)                                                                                                                                                                                                                                    |
 
-#### Current Line Blame Settings [#](#current-line-blame-settings 'Current Line Blame Settings')
+#### Current Line Blame Settings [#](#current-line-blame-settings- 'Current Line Blame Settings')
 
 | Name                             | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -756,7 +756,7 @@ See also [View Settings](#view-settings 'Jump to the View settings')
 | `gitlens.currentLine.format`     | Specifies the format of the current line blame annotation. See the [GitLens docs](https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting) for advanced formatting<br /><br />Available tokens<br />`${id}` &mdash; commit id<br />`${author}` &mdash; commit author<br />`${message}` &mdash; commit message<br />`${ago}` &mdash; relative commit date (e.g. 1 day ago)<br />`${date}` &mdash; formatted commit date (format specified by `gitlens.currentLine.dateFormat`)<br />`${agoOrDate}` &mdash; commit date specified by `gitlens.defaultDateStyle`<br />`${authorAgo}` &mdash; commit author, relative commit date<br />`${authorAgoOrDate}` &mdash; commit author, commit date specified by `gitlens.defaultDateStyle` |
 | `gitlens.currentLine.scrollable` | Specifies whether the current line blame annotation can be scrolled into view when it is outside the viewport                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 
-### Gutter Blame Settings [#](#gutter-blame-settings 'Gutter Blame Settings')
+### Gutter Blame Settings [#](#gutter-blame-settings- 'Gutter Blame Settings')
 
 | Name                                | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -772,7 +772,7 @@ See also [View Settings](#view-settings 'Jump to the View settings')
 | `gitlens.blame.separateLines`       | Specifies whether gutter blame annotations will have line separators                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `gitlens.blame.toggleMode`          | Specifies how the gutter blame annotations will be toggled<br /><br />`file` - toggles each file individually<br />`window` - toggles the window, i.e. all files at once                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
-### Gutter Heatmap Settings [#](#gutter-heatmap-settings 'Gutter Heatmap Settings')
+### Gutter Heatmap Settings [#](#gutter-heatmap-settings- 'Gutter Heatmap Settings')
 
 | Name                           | Description                                                                                                                                                                                                     |
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -781,7 +781,7 @@ See also [View Settings](#view-settings 'Jump to the View settings')
 | `gitlens.heatmap.hotColor`     | Specifies the base color of the gutter heatmap annotations when the most recent change is newer (hot) than the `gitlens.heatmap.ageThreshold` value                                                             |
 | `gitlens.heatmap.toggleMode`   | Specifies how the gutter heatmap annotations will be toggled<br /><br />`file` - toggles each file individually<br />`window` - toggles the window, i.e. all files at once                                      |
 
-### Hover Settings [#](#hover-settings 'Hover Settings')
+### Hover Settings [#](#hover-settings- 'Hover Settings')
 
 | Name                                 | Description                                                                                                                                                                                          |
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -796,7 +796,7 @@ See also [View Settings](#view-settings 'Jump to the View settings')
 | `gitlens.hovers.currentLine.over`    | Specifies when to trigger hovers for the current line<br /><br />`annotation` - only shown when hovering over the line annotation<br />`line` - shown when hovering anywhere over the line           |
 | `gitlens.hovers.enabled`             | Specifies whether to provide any hovers                                                                                                                                                              |
 
-### Modes Settings [#](#modes-settings 'Modes Settings')
+### Modes Settings [#](#modes-settings- 'Modes Settings')
 
 | Name                               | Description                                                                                                                             |
 | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
@@ -805,14 +805,14 @@ See also [View Settings](#view-settings 'Jump to the View settings')
 | `gitlens.mode.statusBar.alignment` | Specifies the active GitLens mode alignment in the status bar<br /><br />`left` - aligns to the left<br />`right` - aligns to the right |
 | `gitlens.modes`                    | Specifies the user-defined GitLens modes                                                                                                |
 
-### Recent Changes Settings [#](#recent-changes-settings 'Recent Changes Settings')
+### Recent Changes Settings [#](#recent-changes-settings- 'Recent Changes Settings')
 
 | Name                                        | Description                                                                                                                                                                                                                                           |
 | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `gitlens.recentChanges.highlight.locations` | Specifies where the highlights of the recently changed lines will be shown<br /><br />`gutter` - adds a gutter glyph<br />`line` - adds a full-line highlight background color<br />`overview` - adds a decoration to the overview ruler (scroll bar) |
 | `gitlens.recentChanges.toggleMode`          | Specifies how the recently changed lines annotations will be toggled<br /><br />`file` - toggles each file individually<br />`window` - toggles the window, i.e. all files at once                                                                    |
 
-### Status Bar Settings [#](#status-bar-settings 'Status Bar Settings')
+### Status Bar Settings [#](#status-bar-settings- 'Status Bar Settings')
 
 | Name                              | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -823,7 +823,7 @@ See also [View Settings](#view-settings 'Jump to the View settings')
 | `gitlens.statusBar.format`        | Specifies the format of the blame information in the status bar. See the [GitLens docs](https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting) for advanced formatting<br /><br />Available tokens<br />`${id}` &mdash; commit id<br />`${author}` &mdash; commit author<br />`${message}` &mdash; commit message<br />`${ago}` &mdash; relative commit date (e.g. 1 day ago)<br />`${date}` &mdash; formatted commit date (format specified by `gitlens.statusBar.dateFormat`)<br />`${agoOrDate}` &mdash; commit date specified by `gitlens.defaultDateStyle`<br />`${authorAgo}` &mdash; commit author, relative commit date<br />`${authorAgoOrDate}` &mdash; commit author, commit date specified by `gitlens.defaultDateStyle` |
 | `gitlens.statusBar.reduceFlicker` | Specifies whether to avoid clearing the previous blame information when changing lines to reduce status bar "flashing"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
-### Advanced Settings [#](#advanced-settings 'Advanced Settings')
+### Advanced Settings [#](#advanced-settings- 'Advanced Settings')
 
 | Name                                            | Description                                                                                                                           |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
