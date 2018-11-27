@@ -56,6 +56,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Changes the sorting of branch, tags, and files in GitLens views to be a natural sort &mdash; closes [#547](https://github.com/eamodio/vscode-gitlens/issues/547)
 - Changes the _Apply Changes_ command to truly apply only the patch of the specified change &mdash; closes [#539](https://github.com/eamodio/vscode-gitlens/issues/539)
+- Changes Azure Pipelines documents to use document scope only by default &mdash; thanks to [PR #548](https://github.com/eamodio/vscode-gitlens/pull/548) by Matt Cooper ([@vtbassmatt](https://github.com/vtbassmatt))
 - Renames _Compare File with Branch or Tag..._ (`gitlens.diffWithBranch`) command to _Open Changes with Branch or Tag..._
 - Renames _Compare File with Next Revision_ (`gitlens.diffWithNext`) command to _Open Changes with Next Revision_
 - Renames _Compare File with Previous Revision_ (`gitlens.diffWithPrevious`) command to _Open Changes with Previous Revision_
