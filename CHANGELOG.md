@@ -150,7 +150,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Adds emoji support, e.g. :smile: in commit messages will now be 😃 &mdash; closes [#429](https://github.com/eamodio/vscode-gitlens/issues/429)
+- Adds emoji support, e.g. `:smile:` in commit messages will now be 😃 &mdash; closes [#429](https://github.com/eamodio/vscode-gitlens/issues/429)
 - Adds _Compare with Selected_ and _Select for Compare_ commands to file nodes in the _GitLens_, _GitLens File History_, and _GitLens Results_ explorers &mdash; closes [#446](https://github.com/eamodio/vscode-gitlens/issues/446)
 - Adds `gitlens.historyExplorer.avatars` setting to specify whether to show avatar images instead of status icons in the `GitLens File History` explorer &mdash; allows for an independent value from the other explorers
 
