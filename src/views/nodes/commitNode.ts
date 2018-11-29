@@ -18,7 +18,7 @@ export class CommitNode extends ViewRefNode {
         parent: ViewNode,
         public readonly commit: GitLogCommit,
         public readonly branch?: GitBranch,
-        private readonly getBranchTips?: (sha: string) => string | undefined
+        private readonly getBranchAndTagTips?: (sha: string) => string | undefined
     ) {
         super(commit.toGitUri(), view, parent);
     }
@@ -61,11 +61,11 @@ export class CommitNode extends ViewRefNode {
             dateFormat: Container.config.defaultDateFormat
         } as ICommitFormatOptions);
 
-        const branchTips = this.getBranchTips && this.getBranchTips(this.commit.sha);
-        if (branchTips !== undefined) {
-            label = `${GlyphChars.AngleBracketLeftHeavy}${GlyphChars.SpaceThin}${branchTips}${GlyphChars.SpaceThin}${
-                GlyphChars.AngleBracketRightHeavy
-            }${GlyphChars.ArrowHeadRight}${GlyphChars.Space} ${label}`;
+        const branchAndTagTips = this.getBranchAndTagTips && this.getBranchAndTagTips(this.commit.sha);
+        if (branchAndTagTips !== undefined) {
+            label = `${GlyphChars.AngleBracketLeftHeavy}${GlyphChars.SpaceThin}${branchAndTagTips}${
+                GlyphChars.SpaceThin
+            }${GlyphChars.AngleBracketRightHeavy}${GlyphChars.ArrowHeadRight}${GlyphChars.Space} ${label}`;
         }
 
         const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
@@ -87,7 +87,7 @@ export class CommitNode extends ViewRefNode {
             this.commit.isUncommitted
                 ? `\${author} ${GlyphChars.Dash} \${id}\n\${ago} (\${date})`
                 : `\${author} ${GlyphChars.Dash} \${id}${
-                      branchTips !== undefined ? ` (${branchTips})` : ''
+                      branchAndTagTips !== undefined ? ` (${branchAndTagTips})` : ''
                   }\n\${ago} (\${date})\n\n\${message}`,
             this.commit,
             {

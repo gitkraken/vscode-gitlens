@@ -4,6 +4,7 @@ export class GitTag {
     constructor(
         public readonly repoPath: string,
         public readonly name: string,
+        public readonly sha?: string,
         public readonly annotation?: string
     ) {}
 

@@ -390,7 +390,7 @@ export class Git {
     }
 
     static branch(repoPath: string, options: { all: boolean } = { all: false }) {
-        const params = ['branch', '-vv'];
+        const params = ['branch', '-vv', '--abbrev=40'];
         if (options.all) {
             params.push('-a');
         }
@@ -809,6 +809,10 @@ export class Git {
 
     static show_status(repoPath: string, fileName: string, ref: string) {
         return git<string>({ cwd: repoPath }, 'show', '--name-status', '--format=', ref, '--', fileName);
+    }
+
+    static showref_tag(repoPath: string) {
+        return git<string>({ cwd: repoPath }, 'show-ref', '--tags');
     }
 
     static stash_apply(repoPath: string, stashName: string, deleteAfter: boolean) {

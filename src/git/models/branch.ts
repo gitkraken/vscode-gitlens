@@ -14,7 +14,7 @@ export class GitBranch {
 
     constructor(
         public readonly repoPath: string,
-        branch: string,
+        name: string,
         public readonly current: boolean = false,
         public readonly sha?: string,
         tracking?: string,
@@ -22,20 +22,20 @@ export class GitBranch {
         behind: number = 0,
         detached: boolean = false
     ) {
-        if (branch.startsWith('remotes/')) {
-            branch = branch.substring(8);
+        if (name.startsWith('remotes/')) {
+            name = name.substring(8);
             this.remote = true;
         }
         else {
             this.remote = false;
         }
 
-        this.detached = detached || (this.current ? GitBranch.isDetached(branch) : false);
+        this.detached = detached || (this.current ? GitBranch.isDetached(name) : false);
         if (this.detached) {
             this.name = GitBranch.formatDetached(this.sha!);
         }
         else {
-            this.name = branch;
+            this.name = name;
         }
 
         this.tracking = tracking === '' || tracking == null ? undefined : tracking;

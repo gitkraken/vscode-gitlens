@@ -5,6 +5,7 @@ import { Iterables } from '../../system';
 import { View } from '../viewBase';
 import { CommitNode } from './commitNode';
 import { ShowMoreNode } from './common';
+import { getBranchesAndTagTipsFn, insertDateMarkers } from './helpers';
 import { PageableViewNode, ResourceType, ViewNode } from './viewNode';
 
 export interface CommitsQueryResults {
@@ -30,8 +31,15 @@ export class ResultsCommitsNode extends ViewNode implements PageableViewNode {
         const { log } = await this.getCommitsQueryResults();
         if (log === undefined) return [];
 
-        const children: (CommitNode | ShowMoreNode)[] = [
-            ...Iterables.map(log.commits.values(), c => new CommitNode(this.view, this, c))
+        const getBranchAndTagTips = await getBranchesAndTagTipsFn(this.uri.repoPath);
+        const children = [
+            ...insertDateMarkers(
+                Iterables.map(
+                    log.commits.values(),
+                    c => new CommitNode(this.view, this, c, undefined, getBranchAndTagTips)
+                ),
+                this
+            )
         ];
 
         if (log.truncated) {

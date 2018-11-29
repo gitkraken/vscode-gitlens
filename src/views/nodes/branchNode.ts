@@ -4,11 +4,11 @@ import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitBranch, GitUri } from '../../git/gitService';
-import { Arrays, Iterables } from '../../system';
+import { Iterables } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { CommitNode } from './commitNode';
 import { MessageNode, ShowMoreNode } from './common';
-import { insertDateMarkers } from './helpers';
+import { getBranchesAndTagTipsFn, insertDateMarkers } from './helpers';
 import { PageableViewNode, ResourceType, ViewNode, ViewRefNode } from './viewNode';
 
 export class BranchNode extends ViewRefNode<RepositoriesView> implements PageableViewNode {
@@ -56,26 +56,12 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
             });
             if (log === undefined) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
-            const branches = await Container.git.getBranches(this.uri.repoPath);
-            // Get the sha length, since `git branch` can return variable length shas
-            const shaLength = branches[0].sha!.length;
-            const branchesBySha = Arrays.groupByFilterMap(
-                branches,
-                b => b.sha!,
-                b => (b.name === this.branch.name ? undefined : b.name)
-            );
-
-            const getBranchTips = (sha: string) => {
-                const branches = branchesBySha.get(sha.substr(0, shaLength));
-                if (branches === undefined || branches.length === 0) return undefined;
-                return branches.join(', ');
-            };
-
+            const getBranchAndTagTips = await getBranchesAndTagTipsFn(this.uri.repoPath, this.branch.name);
             const children = [
                 ...insertDateMarkers(
                     Iterables.map(
                         log.commits.values(),
-                        c => new CommitNode(this.view, this, c, this.branch, getBranchTips)
+                        c => new CommitNode(this.view, this, c, this.branch, getBranchAndTagTips)
                     ),
                     this
                 )

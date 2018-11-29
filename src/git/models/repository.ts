@@ -292,8 +292,8 @@ export class Repository implements Disposable {
         return Container.git.getStatusForRepo(this.path);
     }
 
-    getTags(): Promise<GitTag[]> {
-        return Container.git.getTags(this.path);
+    getTags(options?: { includeRefs?: boolean }): Promise<GitTag[]> {
+        return Container.git.getTags(this.path, options);
     }
 
     async hasRemotes(): Promise<boolean> {

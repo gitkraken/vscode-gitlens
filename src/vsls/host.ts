@@ -35,6 +35,7 @@ const gitWhitelist = new Map<string, ((args: any[]) => boolean)>([
     ['remote', args => args[1] === '-v' || args[1] === 'get-url'],
     ['rev-parse', defaultWhitelistFn],
     ['show', defaultWhitelistFn],
+    ['show-ref', defaultWhitelistFn],
     ['stash', args => args[1] === 'list'],
     ['status', defaultWhitelistFn],
     ['symbolic-ref', defaultWhitelistFn],

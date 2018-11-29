@@ -32,6 +32,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Provides somewhat similar and powerful features to the former _Results_ view as well as it is now a persistent view, makes it easier to start a comparison, and [more](https://github.com/eamodio/vscode-gitlens/tree/develop/#compare-view- 'Jump to the Compare view docs')
 - Reduces the overhead of all GitLens views &mdash; GitLens now only tracks changes and updates the views if they are visible, collapsed or hidden views should have almost zero overhead
 - Adds relative date markers (_Less than a week ago_, _Over a week ago_, _Over a month ago_, etc) to revision (commit) histories in GitLens views
+- Adds branch and tag tip markers to revision (commit) histories in GitLens views &mdash; closes [#560](https://github.com/eamodio/vscode-gitlens/issues/560)
 - Adds a changes indicator (+x ~x -x) to commits in GitLens views (uses the new `${changes}` token in the `gitlens.views.commitFormat` setting) &mdash; closes [#493](https://github.com/eamodio/vscode-gitlens/issues/493)
 - Adds the _Show Commit in View_ command to commits in GitLens views to quickly open the commit in the _Search Commits_ view &mdash; closes [#502](https://github.com/eamodio/vscode-gitlens/issues/502)
 - Adds the _Open Changes (with difftool)_ command to files in GitLens views &mdash; closes [#389](https://github.com/eamodio/vscode-gitlens/issues/389)

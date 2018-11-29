@@ -1817,8 +1817,13 @@ export class GitService implements Disposable {
     }
 
     @log()
-    async getTags(repoPath: string | undefined): Promise<GitTag[]> {
+    async getTags(repoPath: string | undefined, options: { includeRefs?: boolean } = {}): Promise<GitTag[]> {
         if (repoPath === undefined) return [];
+
+        if (options.includeRefs) {
+            const data = await Git.showref_tag(repoPath);
+            return GitTagParser.parseWithRef(data, repoPath) || [];
+        }
 
         const data = await Git.tag(repoPath);
         return GitTagParser.parse(data, repoPath) || [];

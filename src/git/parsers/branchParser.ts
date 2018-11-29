@@ -10,22 +10,30 @@ export class GitBranchParser {
 
         const branches: GitBranch[] = [];
 
+        let ahead;
+        let behind;
+        let current;
+        let name;
+        let sha;
+        let state;
+        let tracking;
         let match: RegExpExecArray | null = null;
         do {
             match = branchWithTrackingRegex.exec(data);
             if (match == null) break;
 
-            const [ahead, behind] = this.parseState(match[5]);
+            [, current, name, sha, tracking, state] = match;
+            [ahead, behind] = this.parseState(state);
             branches.push(
                 new GitBranch(
                     repoPath,
                     // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-                    (' ' + match[2]).substr(1),
-                    match[1] === '*',
+                    (' ' + name).substr(1),
+                    current === '*',
                     // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-                    match[3] === undefined ? undefined : (' ' + match[3]).substr(1),
+                    sha === undefined ? undefined : (' ' + sha).substr(1),
                     // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-                    match[4] === undefined ? undefined : (' ' + match[4]).substr(1),
+                    tracking === undefined ? undefined : (' ' + tracking).substr(1),
                     ahead,
                     behind
                 )
