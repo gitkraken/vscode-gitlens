@@ -133,7 +133,6 @@ function getUIConfig(env) {
             filename: '[name].css'
         }),
         new HtmlPlugin({
-            excludeAssets: [/.*\.main\.js/],
             excludeChunks: ['welcome'],
             template: 'settings/index.html',
             filename: path.resolve(__dirname, 'settings.html'),
@@ -153,7 +152,6 @@ function getUIConfig(env) {
                 : false
         }),
         new HtmlPlugin({
-            excludeAssets: [/.*\.main\.js/],
             excludeChunks: ['settings'],
             template: 'welcome/index.html',
             filename: path.resolve(__dirname, 'welcome.html'),
@@ -207,18 +205,6 @@ function getUIConfig(env) {
             filename: '[name].js',
             path: path.resolve(__dirname, 'dist/ui'),
             publicPath: '{{root}}/dist/ui/'
-        },
-        optimization: {
-            splitChunks: {
-                cacheGroups: {
-                    styles: {
-                        name: 'styles',
-                        test: /\.css$/,
-                        chunks: 'all',
-                        enforce: true
-                    }
-                }
-            }
         },
         module: {
             rules: [
