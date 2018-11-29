@@ -102,11 +102,15 @@ export class GitService implements Disposable {
     private readonly _repositoryTree: TernarySearchTree<Repository>;
     private _repositoriesLoadingPromise: Promise<void> | undefined;
     private _suspended: boolean = false;
-    private readonly _trackedCache: Map<string, boolean | Promise<boolean>>;
+
+    private readonly _branchesCache = new Map<string, GitBranch[]>();
+    private readonly _tagsCache = new Map<string, GitTag[]>();
+    private readonly _tagsWithRefsCache = new Map<string, GitTag[]>();
+    private readonly _trackedCache = new Map<string, boolean | Promise<boolean>>();
+    private readonly _userMapCache = new Map<string, { name?: string; email?: string } | null>();
 
     constructor() {
         this._repositoryTree = TernarySearchTree.forPaths();
-        this._trackedCache = new Map();
 
         this._disposable = Disposable.from(
             window.onDidChangeWindowState(this.onWindowStateChanged, this),
@@ -120,7 +124,11 @@ export class GitService implements Disposable {
 
     dispose() {
         this._repositoryTree.forEach(r => r.dispose());
+        this._branchesCache.clear();
+        this._tagsCache.clear();
+        this._tagsWithRefsCache.clear();
         this._trackedCache.clear();
+        this._userMapCache.clear();
 
         this._disposable && this._disposable.dispose();
     }
@@ -131,6 +139,10 @@ export class GitService implements Disposable {
 
     private onAnyRepositoryChanged(repo: Repository, reason: RepositoryChange) {
         this._trackedCache.clear();
+
+        this._branchesCache.delete(repo.path);
+        this._tagsCache.delete(repo.path);
+        this._tagsWithRefsCache.clear();
 
         if (reason === RepositoryChange.Config) {
             this._userMapCache.delete(repo.path);
@@ -1064,14 +1076,21 @@ export class GitService implements Disposable {
     async getBranches(repoPath: string | undefined): Promise<GitBranch[]> {
         if (repoPath === undefined) return [];
 
+        let branches = this._branchesCache.get(repoPath);
+        if (branches !== undefined) return branches;
+
         const data = await Git.branch(repoPath, { all: true });
         // If we don't get any data, assume the repo doesn't have any commits yet so check if we have a current branch
         if (data === '') {
             const current = await this.getBranch(repoPath);
-            return current !== undefined ? [current] : [];
+            branches = current !== undefined ? [current] : [];
+        }
+        else {
+            branches = GitBranchParser.parse(data, repoPath) || [];
         }
 
-        return GitBranchParser.parse(data, repoPath) || [];
+        this._branchesCache.set(repoPath, branches);
+        return branches;
     }
 
     @log()
@@ -1084,8 +1103,6 @@ export class GitService implements Disposable {
     async getConfig(key: string, repoPath?: string): Promise<string | undefined> {
         return await Git.config_get(key, repoPath);
     }
-
-    private _userMapCache = new Map<string, { name?: string; email?: string } | null>();
 
     @log()
     async getCurrentUser(repoPath: string) {
@@ -1820,13 +1837,24 @@ export class GitService implements Disposable {
     async getTags(repoPath: string | undefined, options: { includeRefs?: boolean } = {}): Promise<GitTag[]> {
         if (repoPath === undefined) return [];
 
+        let tags;
         if (options.includeRefs) {
+            tags = this._tagsWithRefsCache.get(repoPath);
+            if (tags !== undefined) return tags;
+
             const data = await Git.showref_tag(repoPath);
-            return GitTagParser.parseWithRef(data, repoPath) || [];
+            tags = GitTagParser.parseWithRef(data, repoPath) || [];
+            this._tagsWithRefsCache.set(repoPath, tags);
+            return tags;
         }
 
+        tags = this._tagsCache.get(repoPath);
+        if (tags !== undefined) return tags;
+
         const data = await Git.tag(repoPath);
-        return GitTagParser.parse(data, repoPath) || [];
+        tags = GitTagParser.parse(data, repoPath) || [];
+        this._tagsCache.set(repoPath, tags);
+        return tags;
     }
 
     @log()
