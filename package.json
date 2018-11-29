@@ -4435,10 +4435,10 @@
         "tslint": "5.11.0",
         "tslint-loader": "3.5.4",
         "tslint-prettiest": "0.0.1",
-        "ts-loader": "5.3.0",
+        "ts-loader": "5.3.1",
         "typescript": "3.1.6",
-        "vsce": "1.53.0",
-        "vscode": "1.1.21",
+        "vsce": "1.53.2",
+        "vscode": "1.1.22",
         "webpack": "4.26.1",
         "webpack-cli": "3.1.2"
     }
