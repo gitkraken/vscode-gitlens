@@ -308,6 +308,7 @@ export abstract class App<TBootstrap extends Bootstrap> {
 
             const bodyStyle = body.style;
             let color = computedStyle.getPropertyValue('--color').trim();
+            bodyStyle.setProperty('--color--85', opacity(color, 85));
             bodyStyle.setProperty('--color--75', opacity(color, 75));
             bodyStyle.setProperty('--color--50', opacity(color, 50));
 

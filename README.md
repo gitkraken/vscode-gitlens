@@ -12,6 +12,15 @@
 
 <br />
 
+# Support GitLens
+
+While GitLens is generously offered to everyone free of charge, if you find it useful, please consider [**supporting**](https://gitlens.amod.io/#support-gitlens) it.
+
+- [**Become a Sponsor**](https://www.patreon.com/eamodio 'Become a sponsor on Patreon') &mdash; join the growing group of generous [backers](https://github.com/eamodio/vscode-gitlens/blob/master/BACKERS.md)
+- [**Donate via PayPal**](https://www.paypal.me/eamodio 'Donate via PayPal') or [**Donate via Cash App**](https://cash.me/$eamodio 'Donate via Cash App')
+
+Also please [write a review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details 'Write a review'), [star or fork me on GitHub](https://github.com/eamodio/vscode-gitlens 'Star or fork me on GitHub'), and [follow me on Twitter](https://twitter.com/eamodio 'Follow me on Twitter')
+
 # What's new in GitLens 9
 
 ## 9.0 &mdash; November 2018
@@ -55,29 +64,28 @@ See the [release notes](https://github.com/eamodio/vscode-gitlens/blob/master/CH
 # GitLens
 
 [GitLens](http://gitlens.amod.io 'Learn more about GitLens') is an [open-source](https://github.com/eamodio/vscode-gitlens 'Open GitLens on GitHub') extension for [Visual Studio Code](https://code.visualstudio.com) created by [Eric Amodio](http://www.amod.io 'Learn more about Eric').
-While GitLens is generously offered to everyone free of charge, if you find it useful please consider [supporting](#support-gitlens 'Support GitLens') it. &#x2764;
 
-GitLens simply helps you better understand code. Quickly glimpse into whom, why, and when a line or code block was changed. Jump back through history to gain further insights as to how and why the code evolved. Explore the history and evolution of a codebase.
+GitLens simply helps you **better understand code**. Quickly glimpse into whom, why, and when a line or code block was changed. Jump back through history to **gain further insights** as to how and why the code evolved. Explore the history and evolution of a codebase.
 
-Here are just some of the features that GitLens provides,
+While GitLens is **powerful and feature rich**, it is also [highly customizable](#gitlens-settings- 'Jump to the GitLens settings docs') to meet your specific needs &mdash; find code lens intrusive or the current line blame annotation distracting &mdash; no problem, it is quick and easy to turn them off or change how they behave via the built-in [_GitLens Settings_ editor](#configuration 'Jump to Configuration'), an **interactive editor** covering many of GitLens' powerful settings. While for more advanced customizations, refer to the [GitLens settings docs](#gitlens-settings- 'Jump to the GitLens settings docs') and edit your vscode [user settings](https://code.visualstudio.com/docs/getstarted/settings 'Open User settings').
 
-- an unobtrusive [current line blame](#current-line-blame- 'Jump to the Current Line Blame') annotation at the end of the line with detailed blame information accessible via [hovers](#hovers- 'Jump to Hovers')
-- on-demand [gutter blame](#gutter-blame- 'Jump to the Gutter Blame') annotations, including a heatmap, for the whole file
-- [authorship code lens](#code-lens- 'Jump to the Code Lens') showing the most recent commit and # of authors to the top of files and/or on code blocks
-- on-demand [gutter heatmap](#gutter-heatmap- 'Jump to the Gutter Heatmap') annotations to show how recently lines were changed, relative to all the other changes in the file and to now (hot vs. cold)
-- on-demand [recent changes](#recent-changes- 'Jump to the Recent Changes') annotations to highlight lines changed by the most recent commit
-- a [status bar blame](#status-bar-blame- 'Jump to the Status Bar Blame') annotation showing author and date for the current line
+Here are just some of the **features** that GitLens provides,
+
+- an unobtrusive [**current line blame**](#current-line-blame- 'Jump to the Current Line Blame') annotation at the end of the line with detailed blame information accessible via [**hovers**](#hovers- 'Jump to Hovers')
+- on-demand [**gutter blame**](#gutter-blame- 'Jump to the Gutter Blame') annotations, including a heatmap, for the whole file
+- [**authorship code lens**](#code-lens- 'Jump to the Code Lens') showing the most recent commit and # of authors to the top of files and/or on code blocks
+- on-demand [**gutter heatmap**](#gutter-heatmap- 'Jump to the Gutter Heatmap') annotations to show how recently lines were changed, relative to all the other changes in the file and to now (hot vs. cold)
+- on-demand [**recent changes**](#recent-changes- 'Jump to the Recent Changes') annotations to highlight lines changed by the most recent commit
+- a [**status bar blame**](#status-bar-blame- 'Jump to the Status Bar Blame') annotation showing author and date for the current line
 - many rich Side Bar views
-  - a [_Repositories_ view](#repositories-view- 'Jump to the Repositories view') to visualize, navigate, and explore Git repositories
-  - a [_File History_ view](#file-history-view- 'Jump to the File History view') to visualize, navigate, and explore the revision history of the current file
-  - a [_Line History_ view](#line-history-view- 'Jump to the Line History view') to visualize, navigate, and explore the revision history of the selected lines of current file
-  - a [_Search Commits_ view](#search-commits-view- 'Jump to the Search Commits view') to search and explore commit histories by message, author, files, id, etc
-  - a [_Compare_ view](#compare-view- 'Jump to the Compare view') to visualize comparisons between branches, tags, commits, and more
-- many [powerful commands](#navigate-and-explore- 'Jump to the Navigate and Explorer') for exploring commits and histories, comparing and navigating revisions, stash access, repository status, etc
-- user-defined [modes](#modes- 'Jump to the Modes') for quickly toggling between sets of settings
-- and so much [more](#and-more- 'Jump to More')
-
-GitLens is powerful, feature rich, and also [highly customizable](#gitlens-settings- 'Jump to the GitLens settings docs') to meet your specific needs &mdash; find code lens intrusive or the current line blame annotation distracting &mdash; no problem, it is quick and easy to turn them off or change how they behave via the built-in [_GitLens Settings_ editor](#configuration 'Jump to Configuration'), an interactive editor covering many of GitLens' powerful settings. While for more advanced customizations, refer to the [GitLens settings docs](#gitlens-settings- 'Jump to the GitLens settings docs') and edit your vscode [user settings](https://code.visualstudio.com/docs/getstarted/settings 'Open User settings').
+  - a [**_Repositories_ view**](#repositories-view- 'Jump to the Repositories view') to visualize, navigate, and explore Git repositories
+  - a [**_File History_ view**](#file-history-view- 'Jump to the File History view') to visualize, navigate, and explore the revision history of the current file
+  - a [**_Line History_ view**](#line-history-view- 'Jump to the Line History view') to visualize, navigate, and explore the revision history of the selected lines of current file
+  - a [**_Search Commits_ view**](#search-commits-view- 'Jump to the Search Commits view') to search and explore commit histories by message, author, files, id, etc
+  - a [**_Compare_ view**](#compare-view- 'Jump to the Compare view') to visualize comparisons between branches, tags, commits, and more
+- many [**powerful commands**](#navigate-and-explore- 'Jump to the Navigate and Explorer') for exploring commits and histories, comparing and navigating revisions, stash access, repository status, etc
+- user-defined [**modes**](#modes- 'Jump to the Modes') for quickly toggling between sets of settings
+- and so much [**more**](#and-more- 'Jump to More')
 
 <p align="center">
   <br />
@@ -85,30 +93,13 @@ GitLens is powerful, feature rich, and also [highly customizable](#gitlens-setti
   <br />
 </p>
 
-# Support GitLens
-
-While GitLens is generously offered to everyone free of charge, if you find it useful please consider supporting it.
-
-I've been building GitLens in my spare time<sup><a title="nights and weekends, i.e. trading sleep for time">1</a></sup> for over 2 years now.
-From its very humble beginnings, GitLens has grown wildly beyond my expectations &mdash; in both its reach as well as its demands on my time and attention.
-
-To my incredible backers &mdash; thank you so much for your contributions. I am truly humbled by your generosity and support.
-
-### Show Your Support &#x2764;
-
-Please join in supporting GitLens by considering the following:
-
-- [Become a Sponsor](https://www.patreon.com/eamodio 'Become a sponsor on Patreon') &mdash; join the growing group of generous [backers](https://github.com/eamodio/vscode-gitlens/blob/master/BACKERS.md)
-- [Donate via PayPal](https://www.paypal.me/eamodio 'Donate via PayPal') or [Donate via Cash App](https://cash.me/$eamodio 'Donate via Cash App')
-- [Write a review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details 'Write a review'), [Star or Fork me on GitHub](https://github.com/eamodio/vscode-gitlens 'Star or fork me on GitHub'), and [Follow me on Twitter](https://twitter.com/eamodio 'Follow me on Twitter')
-
 # Configuration
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/settings.png" alt="GitLens Interactive Settings" />
 </p>
 
-GitLens has a built-in interactive settings editor which provides an easy-to-use interface to configure many of GitLens' powerful features. It can be accessed via the _Open Settings_ (`gitlens.showSettingsPage`) command from the [_Command Palette_](https://code.visualstudio.com/docs/getstarted/userinterface#_command-palette).
+GitLens has a built-in **interactive settings editor** which provides an easy-to-use interface to configure many of GitLens' powerful features. It can be accessed via the _Open Settings_ (`gitlens.showSettingsPage`) command from the [_Command Palette_](https://code.visualstudio.com/docs/getstarted/userinterface#_command-palette).
 
 For more advanced customizations, refer to the [settings documentation](#gitlens-settings- 'Jump to the GitLens settings docs') below.
 
