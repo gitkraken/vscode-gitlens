@@ -173,7 +173,7 @@ export abstract class App<TBootstrap extends Bootstrap> {
 
         el.scrollIntoView({
             block: 'start',
-            behavior: 'instant'
+            behavior: 'auto'
         });
         window.scrollBy(0, -height);
 
@@ -223,42 +223,30 @@ export abstract class App<TBootstrap extends Bootstrap> {
     private bind() {
         this.onBind();
 
-        const onMessageReceived = this.onMessageReceived.bind(this);
-        window.addEventListener('message', onMessageReceived);
+        window.addEventListener('message', this.onMessageReceived.bind(this));
 
-        const onInputChecked = this.onInputChecked.bind(this);
+        const me = this;
+
         DOM.listenAll('input[type=checkbox].setting', 'change', function(this: HTMLInputElement) {
-            return onInputChecked(this, ...arguments);
+            return me.onInputChecked(this);
         });
-
-        const onInputBlurred = this.onInputBlurred.bind(this);
         DOM.listenAll('input[type=text].setting, input:not([type]).setting', 'blur', function(this: HTMLInputElement) {
-            return onInputBlurred(this, ...arguments);
+            return me.onInputBlurred(this);
         });
-
-        const onInputFocused = this.onInputFocused.bind(this);
         DOM.listenAll('input[type=text].setting, input:not([type]).setting', 'focus', function(this: HTMLInputElement) {
-            return onInputFocused(this, ...arguments);
+            return me.onInputFocused(this);
         });
-
-        const onInputSelected = this.onInputSelected.bind(this);
-        DOM.listenAll('select.setting', 'change', function(this: HTMLInputElement) {
-            return onInputSelected(this, ...arguments);
+        DOM.listenAll('select.setting', 'change', function(this: HTMLSelectElement) {
+            return me.onInputSelected(this);
         });
-
-        const onTokenMouseDown = this.onTokenMouseDown.bind(this);
-        DOM.listenAll('[data-token]', 'mousedown', function(this: HTMLElement) {
-            return onTokenMouseDown(this, ...arguments);
+        DOM.listenAll('[data-token]', 'mousedown', function(this: HTMLElement, e: Event) {
+            return me.onTokenMouseDown(this, e as MouseEvent);
         });
-
-        const onPopupMouseDown = this.onPopupMouseDown.bind(this);
-        DOM.listenAll('.popup', 'mousedown', function(this: HTMLElement) {
-            return onPopupMouseDown(this, ...arguments);
+        DOM.listenAll('.popup', 'mousedown', function(this: HTMLElement, e: Event) {
+            return me.onPopupMouseDown(this, e as MouseEvent);
         });
-
-        const onJumpToLinkClicked = this.onJumpToLinkClicked.bind(this);
-        DOM.listenAll('a.jump-to[href^="#"]', 'click', function(this: HTMLAnchorElement) {
-            return onJumpToLinkClicked(this, ...arguments);
+        DOM.listenAll('a.jump-to[href^="#"]', 'click', function(this: HTMLAnchorElement, e: Event) {
+            return me.onJumpToLinkClicked(this, e as MouseEvent);
         });
     }
 

@@ -1,16 +1,13 @@
 {
-    "version": "2.0.0",
-    "compileOnSave": false,
     "compilerOptions": {
         "forceConsistentCasingInFileNames": true,
-        "lib": ["es5", "dom", "dom.iterable", "es2015", "es2015.iterable", "es2016"],
+        "lib": ["dom", "dom.iterable", "es2015", "es2015.iterable", "es2016"],
         "module": "es2015",
         "moduleResolution": "node",
         "noFallthroughCasesInSwitch": true,
         "noImplicitReturns": true,
-        "noUnusedLocals": true,
+        "noUnusedLocals": false,
         "outDir": "dist/ui",
-        "removeComments": true,
         "rootDir": "./src/ui",
         "skipLibCheck": true,
         "sourceMap": true,

@@ -35,8 +35,8 @@ export namespace DOM {
     //     return element.querySelectorAll(selectors) as NodeList<T>;
     // }
 
-    export function listenAll(selector: string, name: string, listener: EventListenerOrEventListenerObject) {
-        const els = document.querySelectorAll(selector);
+    export function listenAll(selector: string, name: string, listener: EventListener) {
+        const els = (document.querySelectorAll(selector) as unknown) as Element[];
         for (const el of els) {
             el.addEventListener(name, listener, false);
         }

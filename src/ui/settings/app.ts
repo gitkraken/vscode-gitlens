@@ -32,14 +32,13 @@ export class SettingsApp extends App<SettingsBootstrap> {
     }
 
     protected onBind() {
-        const onSectionHeaderClicked = this.onSectionHeaderClicked.bind(this);
-        DOM.listenAll('.section__header', 'click', function(this: HTMLInputElement) {
-            return onSectionHeaderClicked(this, ...arguments);
-        });
+        const me = this;
 
-        const onActionLinkClicked = this.onActionLinkClicked.bind(this);
-        DOM.listenAll('[data-action]', 'click', function(this: HTMLAnchorElement) {
-            return onActionLinkClicked(this, ...arguments);
+        DOM.listenAll('.section__header', 'click', function(this: HTMLInputElement, e: Event) {
+            return me.onSectionHeaderClicked(this, e as MouseEvent);
+        });
+        DOM.listenAll('[data-action]', 'click', function(this: HTMLAnchorElement, e: Event) {
+            return me.onActionLinkClicked(this, e as MouseEvent);
         });
     }
 

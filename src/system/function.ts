@@ -50,27 +50,27 @@ export namespace Functions {
         let pending = false;
 
         const debounced = _debounce(
-            (function(this: any) {
+            (function(this: any, ...args: any[]) {
                 pending = false;
-                return fn.apply(this, arguments);
+                return fn.apply(this, args);
             } as any) as T,
             wait,
             options
         ) as T & IDeferrable;
 
-        const tracked = (function(this: any) {
+        const tracked = (function(this: any, ...args: any[]) {
             pending = true;
-            return debounced.apply(this, arguments);
+            return debounced.apply(this, args);
         } as any) as T & IDeferrable;
 
         tracked.pending = function() {
             return pending;
         };
         tracked.cancel = function() {
-            return debounced.cancel.apply(debounced, arguments);
+            return debounced.cancel.apply(debounced);
         };
         tracked.flush = function(...args: any[]) {
-            return debounced.flush.apply(debounced, arguments);
+            return debounced.flush.apply(debounced, args);
         };
 
         return tracked;
