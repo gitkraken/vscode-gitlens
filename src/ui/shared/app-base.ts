@@ -171,11 +171,11 @@ export abstract class App<TBootstrap extends Bootstrap> {
             height = header.clientHeight;
         }
 
-        el.scrollIntoView({
-            block: 'start',
-            behavior: 'auto'
+        const top = el.getBoundingClientRect().top - document.body.getBoundingClientRect().top - height;
+        window.scrollTo({
+            top: top,
+            behavior: 'smooth'
         });
-        window.scrollBy(0, -height);
 
         e.stopPropagation();
         e.preventDefault();
