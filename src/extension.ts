@@ -284,21 +284,22 @@ async function showWelcomePage(version: string, previousVersion: string | undefi
 
     if (previousVersion !== version) {
         Logger.log(`GitLens upgraded from v${previousVersion} to v${version}`);
-
-        if (Versions.compare(Versions.fromString(previousVersion), Versions.from(8, 0, 0)) === 0) {
-            await commands.executeCommand(Commands.ShowWelcomePage);
-
-            return;
-        }
     }
-
-    if (!Container.config.showWhatsNewAfterUpgrades) return;
 
     const [major, minor] = version.split('.');
     const [prevMajor, prevMinor] = previousVersion.split('.');
-    if (major === prevMajor && minor === prevMinor) return;
-    // Don't notify on downgrades
-    if (major < prevMajor || (major === prevMajor && minor < prevMinor)) return;
+    if (
+        (major === prevMajor && minor === prevMinor) ||
+        // Don't notify on downgrades
+        (major < prevMajor || (major === prevMajor && minor < prevMinor))
+    ) {
+        return;
+    }
 
-    await commands.executeCommand(Commands.ShowWelcomePage);
+    if (Container.config.showWhatsNewAfterUpgrades) {
+        await commands.executeCommand(Commands.ShowWelcomePage);
+    }
+    else {
+        await Messages.showWhatsNewMessage(version);
+    }
 }

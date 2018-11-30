@@ -1,5 +1,6 @@
 'use strict';
 import { commands, ConfigurationTarget, MessageItem, Uri, window } from 'vscode';
+import { Commands } from './commands';
 import { configuration, KeyMap } from './configuration';
 import { BuiltInCommands, CommandContext, setCommandContext } from './constants';
 import { Container } from './container';
@@ -145,7 +146,7 @@ export class Messages {
 
         const result = await Messages.showMessage(
             'info',
-            `While GitLens is offered to everyone for free, if you find it useful please consider supporting it. Thank you! ❤`,
+            `While GitLens is offered to everyone for free, if you find it useful, please consider [supporting](https://gitlens.amod.io/#support-gitlens) it. Thank you! ❤`,
             undefined,
             null,
             ...actions
@@ -167,6 +168,36 @@ export class Messages {
                 await setCommandContext(CommandContext.ViewsHideSupportGitLens, true);
                 await this.suppressedMessage(SuppressedMessages.SupportGitLensNotification!);
                 await commands.executeCommand(BuiltInCommands.Open, uri);
+            }
+        }
+    }
+
+    static async showWhatsNewMessage(version: string) {
+        const actions: MessageItem[] = [{ title: "What's New" }, { title: 'Release Notes' }, { title: '❤' }];
+
+        const result = await Messages.showMessage(
+            'info',
+            `GitLens has been updated to v${version} — check out what's new!`,
+            undefined,
+            null,
+            ...actions
+        );
+
+        if (result != null) {
+            if (result === actions[0]) {
+                await commands.executeCommand(Commands.ShowWelcomePage);
+            }
+            else if (result === actions[1]) {
+                await commands.executeCommand(
+                    BuiltInCommands.Open,
+                    Uri.parse('https://github.com/eamodio/vscode-gitlens/blob/master/CHANGELOG.md')
+                );
+            }
+            else if (result === actions[2]) {
+                await commands.executeCommand(
+                    BuiltInCommands.Open,
+                    Uri.parse('https://gitlens.amod.io/#support-gitlens')
+                );
             }
         }
     }
