@@ -85,7 +85,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#527](https://github.com/eamodio/vscode-gitlens/issues/527) - GitLens icon flashes on startup
 - Fixes [#533](https://github.com/eamodio/vscode-gitlens/issues/533) - Some descriptions not using markdown properly in Settings GUI
 - Fixes [#544](https://github.com/eamodio/vscode-gitlens/issues/544) - Some commit messages have one letter missing
-
+- Fixes CHANGELOG issue &mdash; thanks to [PR #558](https://github.com/eamodio/vscode-gitlens/pull/558) by Ash Clarke ([@ashclarke](https://github.com/ashclarke))
 
 ### Removed
 
