@@ -812,7 +812,7 @@ export class Git {
     }
 
     static showref_tag(repoPath: string) {
-        return git<string>({ cwd: repoPath }, 'show-ref', '--tags');
+        return git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, 'show-ref', '--tags');
     }
 
     static stash_apply(repoPath: string, stashName: string, deleteAfter: boolean) {
