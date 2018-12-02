@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [9.0.1] - 2018-12-02
+
+### Fixed
+
+- Fixes issues with errors when listing history in repos without any tags
+
 ## [9.0.0] - 2018-12-02
 
 ### Added
