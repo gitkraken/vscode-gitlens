@@ -10,11 +10,17 @@ If you'd like to join in supporting GitLens, please consider:
 
 <h2 align="center">Gold Sponsors ($100+)</h2>
 
-None currently &mdash; could be you or your company here!
+<p align="center" style="margin: 0 10%">
+  <a title="Try CodeStream" href="https://codestream.com/?utm_source=vscmarket&utm_medium=banner&utm_campaign=gitlens"><img src="images/docs/sponsors/codestream-light.png" alt="CodeStream Logo"/></a>
+  <br />
+  <small>
+    CodeStream enables continuous code review by putting team chat in VS Code. Save discussions about code with your code. Integrates w/Slack.
+  </small>
+</p>
 
 <h2 align="center">Silver Sponsors ($50+)</h2>
 
-- Michael Duffy (expired)
+None currently &mdash; could be you or your company here!
 
 <h2 align="center">Bronze Sponsors ($25+)</h2>
 
@@ -22,34 +28,36 @@ None currently &mdash; could be you or your company here!
 
 <h2 align="center">Generous Backers ($10+)</h2>
 
-- Ken Howard (expired)
+- Andreas Fertsch-Röver
+- Bill
 - Borek Bernard
+- Brandon Burroughs
+- Eugen Grue
+- Guido Kessels
+- Jordan Oroshiba
+- Ken Howard
+- Michael Duffy (former Silver Sponsor)
 - Michael Scott-Nelson
 - MrG0lden
+- Niklas Lochschmidt
+- Pavel Khlopin
+- Pelle Wessman
+- Raphael Schweikert
+- Stephen Kelley
+- Øyvind de Freitas Sørensen
 
 <h2 align="center">Backers</h2>
 
-- Guido Kessels
-- Pavel Khlopin
-- Eugen Grue
-- Andreas Fertsch-Röver (expired)
-- Nathaniel Blackburn
-- Raphael Schweikert
-- JehongAhn
-- Øyvind de Freitas Sørensen
-- Robert Leisser
-- Niklas Lochschmidt
-- Pelle Wessman
-- Jordan Oroshiba
-- Vance Dubberly
-- Bill
-- Stephen Kelley
-- Jon G
-- J Burnett
-- Raymond Brigleb
 - Adam Parkin
-- gnidk
+- Daniel Andersson
 - Diego La Manno
-- Brandon Burroughs
 - Gav Massignham
+- J Burnett
+- JehongAhn
+- Jon G
+- Maximilian Wendel
+- Nathaniel Blackburn
+- Raymond Brigleb
+- Robert Leisser
 - Sunny Gupta
+- Vance Dubberly
