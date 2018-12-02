@@ -31,7 +31,7 @@ Also please [write a review](https://marketplace.visualstudio.com/items?itemName
 
 # What's new in GitLens 9
 
-## 9.0 &mdash; November 2018
+## 9.0 &mdash; December 2018
 
 - Adds GitLens over Visual Studio Live Share
   - Live Share guests will now have read-only access to GitLens' features
