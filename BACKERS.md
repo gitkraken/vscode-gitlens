@@ -11,7 +11,7 @@ If you'd like to join in supporting GitLens, please consider:
 <h2 align="center">Gold Sponsors ($100+)</h2>
 
 <p align="center" style="margin: 0 10%">
-  <a title="Try CodeStream" href="https://codestream.com/?utm_source=vscmarket&utm_medium=banner&utm_campaign=gitlens"><img src="images/docs/sponsors/codestream-light.png" alt="CodeStream Logo"/></a>
+  <a title="Try CodeStream" href="https://codestream.com/?utm_source=vscmarket&utm_medium=banner&utm_campaign=gitlens"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/docs/sponsors/codestream-light.png" alt="CodeStream Logo"/></a>
   <br />
   <small>
     CodeStream enables continuous code review by putting team chat in VS Code. Save discussions about code with your code. Integrates w/Slack.

@@ -255,8 +255,6 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
                     return modes;
                 }
             });
-
-            // await configuration.migrate('modes', configuration.name('modes')('').value);
         }
     }
     catch (ex) {

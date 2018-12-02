@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [9.0.0-beta] - 2018-11-26
+## [9.0.0] - 2018-12-02
 
 ### Added
 
@@ -14,22 +14,22 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a new Git virtual file system provider for the `gitlens:` scheme &mdash; closes [#430](https://github.com/eamodio/vscode-gitlens/issues/430)
   - Replaces GitLens' internal handling of file revisions, which allows for better performance, as well as avoiding the use of temp files. It also provides a much better experience when dealing with file encodings, images, etc.
 - Adds an _Explore the Repository from Here_ (`gitlens.views.exploreRepoRevision`) command which opens a virtual workspace folder (uses the new Git virtual file system provider) for the repository at the specified point in time (commit, branch, tag, etc) &mdash; closes [#398](https://github.com/eamodio/vscode-gitlens/issues/398)
-- Adds a new [_Repositories_ view](https://github.com/eamodio/vscode-gitlens/tree/develop/#repositories-view- 'Jump to the Repositories view docs'), formerly the _GitLens_ view, to visualize, navigate, and explore Git repositories &mdash; closes [#456](https://github.com/eamodio/vscode-gitlens/issues/456), [#470](https://github.com/eamodio/vscode-gitlens/issues/470), [#494](https://github.com/eamodio/vscode-gitlens/issues/494)
-  <br/>[![Repositories view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/view-repositories.png)](https://github.com/eamodio/vscode-gitlens/tree/develop/#repositories-view- 'Jump to the Repositories view docs')
-  - Provides a cleaner information-rich view of your opened repositories, more git commands (fetch, push, pull, checkout, stage, unstage, etc), better visibility and accessibility of existing features, and [more](https://github.com/eamodio/vscode-gitlens/tree/develop/#repositories-view- 'Jump to the Repositories view docs')
+- Adds a new [_Repositories_ view](https://github.com/eamodio/vscode-gitlens/tree/master/#repositories-view- 'Jump to the Repositories view docs'), formerly the _GitLens_ view, to visualize, navigate, and explore Git repositories &mdash; closes [#456](https://github.com/eamodio/vscode-gitlens/issues/456), [#470](https://github.com/eamodio/vscode-gitlens/issues/470), [#494](https://github.com/eamodio/vscode-gitlens/issues/494)
+  <br/>[![Repositories view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/docs/view-repositories.png)](https://github.com/eamodio/vscode-gitlens/tree/master/#repositories-view- 'Jump to the Repositories view docs')
+  - Provides a cleaner information-rich view of your opened repositories, more git commands (fetch, push, pull, checkout, stage, unstage, etc), better visibility and accessibility of existing features, and [more](https://github.com/eamodio/vscode-gitlens/tree/master/#repositories-view- 'Jump to the Repositories view docs')
   - Adds a `gitlens.views.repositories.autoReveal` setting to specify whether to automatically reveal repositories in the _Repositories_ view when opening files
-- Adds a new [_File History_ view](https://github.com/eamodio/vscode-gitlens/tree/develop/#file-history-view- 'Jump to the File History view docs'), formerly the _History_ view, to visualize, navigate, and explore the revision history of the current file
-  <br/>[![File History view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/view-file-history.png)](https://github.com/eamodio/vscode-gitlens/tree/develop/#file-history-view- 'Jump to the File History view docs')
-  - Provides similar features to the former _History_ view as well as quickly toggling file tracking on and off, changing the base (branch, tag, commit, etc) of the file's history, and [more](https://github.com/eamodio/vscode-gitlens/tree/develop/#file-history-view- 'Jump to the File History view docs')
-- Adds an all-new [_Line History_ view](https://github.com/eamodio/vscode-gitlens/tree/develop/#line-history-view- 'Jump to the Line History view docs') to visualize, navigate, and explore the revision history of the selected lines of current file &mdash; closes [#354](https://github.com/eamodio/vscode-gitlens/issues/354)
-  <br/>[![Line History view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/view-line-history.png)](https://github.com/eamodio/vscode-gitlens/tree/develop/#line-history-view- 'Jump to the Line History view docs')
-  - Provides similar features to the _File History_ view including quickly toggling line tracking on and off, changing the base (branch, tag, commit, etc) of the selected lines' history, and [more](https://github.com/eamodio/vscode-gitlens/tree/develop/#line-history-view- 'Jump to the Line History view docs')
-- Adds an all-new [_Search Commits_ view](https://github.com/eamodio/vscode-gitlens/tree/develop/#search-commits-view- 'Jump to the Search Commits view docs') to search and explore commit histories by message, author, files, id, etc &mdash; closes [#455](https://github.com/eamodio/vscode-gitlens/issues/455)
-  <br/>[![Search Commits view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/view-search.png)](https://github.com/eamodio/vscode-gitlens/tree/develop/#search-commits-view- 'Jump to the Search Commits view docs')
-  - Provides somewhat similar features to the former _Results_ view as well as it is now a persistent view, makes it easier to start a commit search, and [more](https://github.com/eamodio/vscode-gitlens/tree/develop/#search-commits-view- 'Jump to the Search Commits view docs')
-- Adds an all-new [_Compare_ view](https://github.com/eamodio/vscode-gitlens/tree/develop/#compare-view- 'Jump to the Compare view docs') to visualize comparisons between branches, tags, commits, and more
-  <br/>[![Compare view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/view-compare.png)](https://github.com/eamodio/vscode-gitlens/tree/develop/#compare-view- 'Jump to the Compare view docs')
-  - Provides somewhat similar and powerful features to the former _Results_ view as well as it is now a persistent view, makes it easier to start a comparison, and [more](https://github.com/eamodio/vscode-gitlens/tree/develop/#compare-view- 'Jump to the Compare view docs')
+- Adds a new [_File History_ view](https://github.com/eamodio/vscode-gitlens/tree/master/#file-history-view- 'Jump to the File History view docs'), formerly the _History_ view, to visualize, navigate, and explore the revision history of the current file
+  <br/>[![File History view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/docs/view-file-history.png)](https://github.com/eamodio/vscode-gitlens/tree/master/#file-history-view- 'Jump to the File History view docs')
+  - Provides similar features to the former _History_ view as well as quickly toggling file tracking on and off, changing the base (branch, tag, commit, etc) of the file's history, and [more](https://github.com/eamodio/vscode-gitlens/tree/master/#file-history-view- 'Jump to the File History view docs')
+- Adds an all-new [_Line History_ view](https://github.com/eamodio/vscode-gitlens/tree/master/#line-history-view- 'Jump to the Line History view docs') to visualize, navigate, and explore the revision history of the selected lines of current file &mdash; closes [#354](https://github.com/eamodio/vscode-gitlens/issues/354)
+  <br/>[![Line History view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/docs/view-line-history.png)](https://github.com/eamodio/vscode-gitlens/tree/master/#line-history-view- 'Jump to the Line History view docs')
+  - Provides similar features to the _File History_ view including quickly toggling line tracking on and off, changing the base (branch, tag, commit, etc) of the selected lines' history, and [more](https://github.com/eamodio/vscode-gitlens/tree/master/#line-history-view- 'Jump to the Line History view docs')
+- Adds an all-new [_Search Commits_ view](https://github.com/eamodio/vscode-gitlens/tree/master/#search-commits-view- 'Jump to the Search Commits view docs') to search and explore commit histories by message, author, files, id, etc &mdash; closes [#455](https://github.com/eamodio/vscode-gitlens/issues/455)
+  <br/>[![Search Commits view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/docs/view-search.png)](https://github.com/eamodio/vscode-gitlens/tree/master/#search-commits-view- 'Jump to the Search Commits view docs')
+  - Provides somewhat similar features to the former _Results_ view as well as it is now a persistent view, makes it easier to start a commit search, and [more](https://github.com/eamodio/vscode-gitlens/tree/master/#search-commits-view- 'Jump to the Search Commits view docs')
+- Adds an all-new [_Compare_ view](https://github.com/eamodio/vscode-gitlens/tree/master/#compare-view- 'Jump to the Compare view docs') to visualize comparisons between branches, tags, commits, and more
+  <br/>[![Compare view](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/docs/view-compare.png)](https://github.com/eamodio/vscode-gitlens/tree/master/#compare-view- 'Jump to the Compare view docs')
+  - Provides somewhat similar and powerful features to the former _Results_ view as well as it is now a persistent view, makes it easier to start a comparison, and [more](https://github.com/eamodio/vscode-gitlens/tree/master/#compare-view- 'Jump to the Compare view docs')
 - Reduces the overhead of all GitLens views &mdash; GitLens now only tracks changes and updates the views if they are visible, collapsed or hidden views should have almost zero overhead
 - Adds relative date markers (_Less than a week ago_, _Over a week ago_, _Over a month ago_, etc) to revision (commit) histories in GitLens views
 - Adds branch and tag tip markers to revision (commit) histories in GitLens views &mdash; closes [#560](https://github.com/eamodio/vscode-gitlens/issues/560)
@@ -52,6 +52,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds better detection of on-prem BitBucket and GitLab remotes &mdash; closes [#214](https://github.com/eamodio/vscode-gitlens/issues/214)
 - Adds some missing gitmojis &mdash; thanks to [PR #510](https://github.com/eamodio/vscode-gitlens/pull/510) by Loris Bettazza ([@Pustur](https://github.com/Pustur))
 - Adds a `gitlens.codeLens.includeSingleLineSymbols` setting to specify whether to provide any Git code lens on symbols that span only a single line
+- Adds smooth scrolling to the interactive settings editor when using the _Jump To_ links
 
 ### Changed
 

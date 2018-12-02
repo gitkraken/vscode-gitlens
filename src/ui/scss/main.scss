@@ -450,7 +450,7 @@ ul {
     display: flex;
     font-size: 0.9em;
     justify-content: center;
-    padding-left: 8em;
+    padding: 0 0 0 7em;
     position: relative;
 
     &:before {
@@ -481,8 +481,12 @@ ul {
     margin: 1em;
 }
 
+.changelog__image-link {
+    text-align: center;
+}
+
 .changelog__image {
-    margin: 1em 0 0 0;
+    margin: 1em 0 0 -2em;
     max-width: 65%;
 }
 
@@ -631,6 +635,10 @@ ul {
 .header__logo {
     display: flex;
     flex-wrap: nowrap;
+}
+
+.header__logo--highlight {
+    color: #914db3;
 }
 
 .header__subtitle {
@@ -1038,8 +1046,20 @@ ul {
     text-align: center;
 }
 
-.sponsors {
+.sponsor__image {
+    opacity: 0.8;
+    transition: opacity 250ms;
+
+    &:hover {
+        opacity: 1;
+    }
+}
+
+.sponsor__tag {
     font-size: 0.8em;
+    margin: -1em 0.5em 0 0.5em;
+    opacity: 0.5;
+    text-align: center;
 }
 
 .bold {
@@ -1080,6 +1100,18 @@ ul {
 
 .nowrap {
     flex-wrap: nowrap !important;
+}
+
+.light {
+    .vscode-dark & {
+        display: none;
+    }
+}
+
+.dark {
+    .vscode-light & {
+        display: none;
+    }
 }
 
 @import 'popup';
