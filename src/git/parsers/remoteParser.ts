@@ -4,7 +4,7 @@ import { RemoteProvider } from '../remotes/factory';
 import { GitRemote } from './../git';
 
 const remoteRegex = /^(.*)\t(.*)\s\((.*)\)$/gm;
-const urlRegex = /^(?:(git:\/\/)(.*?)\/|(https?:\/\/)(?:.*?@)?(.*?)\/|git@(.*):|(ssh:\/\/)(?:.*@)?(.*?)(?::.*?)?\/|(?:.*?@)(.*?):)(.*)$/;
+const urlRegex = /^(?:(git:\/\/)(.*?)\/|(https?:\/\/)(?:.*?@)?(.*?)\/|git@(.*):|(ssh:\/\/)(?:.*@)?(.*?)(?::.*?)?(?:\/|(?=~))|(?:.*?@)(.*?):)(.*)$/;
 
 // Test git urls
 /*
@@ -26,6 +26,7 @@ git://host.xz/~user/path/to/repo.git/
 ssh://host.xz/project.git
 ssh://host.xz/path/to/repo.git
 ssh://host.xz/path/to/repo.git/
+ssh://host.xz:~project.git
 ssh://host.xz:port/path/to/repo.git/
 ssh://user@host.xz/project.git
 ssh://user@host.xz/path/to/repo.git
