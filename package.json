@@ -4452,8 +4452,8 @@
         "ts-loader": "5.3.1",
         "typescript": "3.2.1",
         "vsce": "1.53.2",
-        "vscode": "1.1.22",
-        "webpack": "4.26.1",
+        "vscode": "1.1.24",
+        "webpack": "4.27.0",
         "webpack-cli": "3.1.2"
     }
 }
