@@ -316,6 +316,12 @@
                             "scopes": [
                                 "document"
                             ]
+                        },
+                        {
+                            "language": "yaml",
+                            "scopes": [
+                                "document"
+                            ]
                         }
                     ],
                     "items": {
