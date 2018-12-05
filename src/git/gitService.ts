@@ -1669,7 +1669,8 @@ export class GitService implements Disposable {
 
         let folder;
         if (root !== undefined) {
-            rp = root.path;
+            // Not sure why I added this for vsls (I can't see a reason for it anymore), but if it is added it will break submodules
+            // rp = root.path;
             folder = root.folder;
         }
         else {
