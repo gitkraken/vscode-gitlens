@@ -24,11 +24,21 @@ export interface DiffDirectoryCommandArgs {
 @command()
 export class DiffDirectoryCommand extends ActiveEditorCommand {
     constructor() {
-        super([Commands.DiffDirectory, Commands.ViewsOpenDirectoryDiff, Commands.ViewsOpenDirectoryDiffWithWorking]);
+        super([
+            Commands.DiffDirectory,
+            Commands.DiffDirectoryWithHead,
+            Commands.ViewsOpenDirectoryDiff,
+            Commands.ViewsOpenDirectoryDiffWithWorking
+        ]);
     }
 
     protected async preExecute(context: CommandContext, args: DiffDirectoryCommandArgs = {}): Promise<any> {
         switch (context.command) {
+            case Commands.DiffDirectoryWithHead:
+                args.ref1 = 'HEAD';
+                args.ref2 = undefined;
+                break;
+
             case Commands.ViewsOpenDirectoryDiff:
                 if (context.type === 'viewItem' && context.node instanceof CompareResultsNode) {
                     args.ref1 = context.node.ref1.ref;

@@ -111,15 +111,13 @@ export class ExternalDiffCommand extends Command {
             }
             else if (context.type === 'scm-groups') {
                 args = { ...args };
-                args.files = Arrays.filterMap(
-                    context.scmResourceGroups[0].resourceStates,
-                    r =>
-                        this.isModified(r)
-                            ? {
-                                  uri: r.resourceUri,
-                                  staged: (r as Resource).resourceGroupType === ResourceGroupType.Index
-                              }
-                            : undefined
+                args.files = Arrays.filterMap(context.scmResourceGroups[0].resourceStates, r =>
+                    this.isModified(r)
+                        ? {
+                              uri: r.resourceUri,
+                              staged: (r as Resource).resourceGroupType === ResourceGroupType.Index
+                          }
+                        : undefined
                 );
             }
         }

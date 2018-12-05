@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Adds a _Directory Compare All Changes_ (`gitlens.diffDirectoryWithHead`) command to open the configured git difftool to compare the working directory with HEAD &mdash; closes [#569](https://github.com/eamodio/vscode-gitlens/issues/569)
+
+### Changed
+
+- Renames _Open Changes (with difftool)_ command to _Open All Changes (with difftool)_ when shown on the SCM group context menu
+
 ## [9.0.1] - 2018-12-02
 
 ### Fixed

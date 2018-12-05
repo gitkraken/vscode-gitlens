@@ -1644,6 +1644,11 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.diffDirectoryWithHead",
+                "title": "Directory Compare All Changes",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.diffHeadWithBranch",
                 "title": "Compare HEAD with Branch or Tag...",
                 "category": "GitLens"
@@ -2587,6 +2592,10 @@
                     "when": "gitlens:enabled"
                 },
                 {
+                    "command": "gitlens.diffDirectoryWithHead",
+                    "when": "gitlens:enabled"
+                },
+                {
                     "command": "gitlens.diffHeadWithBranch",
                     "when": "gitlens:enabled"
                 },
@@ -3319,14 +3328,19 @@
                     "group": "2_gitlens@2"
                 },
                 {
-                    "command": "gitlens.externalDiff",
+                    "command": "gitlens.externalDiffAll",
                     "when": "gitlens:enabled",
-                    "group": "2_gitlens@3"
+                    "group": "3_gitlens@3"
+                },
+                {
+                    "command": "gitlens.diffDirectoryWithHead",
+                    "when": "gitlens:enabled",
+                    "group": "3_gitlens@4"
                 },
                 {
                     "command": "gitlens.stashSave",
                     "when": "gitlens:enabled && !gitlens:readonly",
-                    "group": "3_gitlens@1"
+                    "group": "4_gitlens@1"
                 }
             ],
             "scm/resourceState/context": [
