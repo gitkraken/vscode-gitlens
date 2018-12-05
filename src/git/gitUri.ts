@@ -329,7 +329,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 
         const normalizedRepoPath = Strings.normalizePath(repoPath);
 
-        if (normalizedFileName.startsWith(normalizedRepoPath)) return normalizedFileName;
+        if (!normalizedFileName || normalizedFileName.startsWith(normalizedRepoPath)) return normalizedFileName;
         return Strings.normalizePath(paths.join(normalizedRepoPath, normalizedFileName));
     }
 
