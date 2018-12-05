@@ -600,7 +600,7 @@ The compare view provides the following features,
   - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible &mdash; commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#advanced-settings- 'Jump to Advanced settings') is set
   - Use the `alt+right arrow` shortcut on a file entry in the `Changed Files` section to preview the comparison of the current revision with the previous one
 
-- Adds a _Apply Stashed Changes_ command (`gitlens.stashApply`) to chose a stash entry to apply to the working tree from a quick pick menu
+- Adds an _Apply Stashed Changes_ command (`gitlens.stashApply`) to chose a stash entry to apply to the working tree from a quick pick menu
 
 ---
 
@@ -618,19 +618,19 @@ The compare view provides the following features,
 
 - Adds a _Compare Working Tree with Branch or Tag..._ command (`gitlens.diffWorkingWithBranch`) to compare the working tree with the selected branch or tag
 
-- Adds a _Open Changes with Branch or Tag..._ command (`gitlens.diffWithBranch`) to compare the current file with the same file on the selected branch or tag
+- Adds an _Open Changes with Branch or Tag..._ command (`gitlens.diffWithBranch`) to compare the current file with the same file on the selected branch or tag
 
-- Adds a _Open Changes with Next Revision_ command (`gitlens.diffWithNext`) with a shortcut of `alt+.` to compare the current file/diff with the next commit revision
+- Adds an _Open Changes with Next Revision_ command (`gitlens.diffWithNext`) with a shortcut of `alt+.` to compare the current file/diff with the next commit revision
 
-- Adds a _Open Changes with Previous Revision_ command (`gitlens.diffWithPrevious`) with a shortcut of `alt+,` to compare the current file/diff with the previous commit revision
+- Adds an _Open Changes with Previous Revision_ command (`gitlens.diffWithPrevious`) with a shortcut of `alt+,` to compare the current file/diff with the previous commit revision
 
-- Adds a _Open Line Changes with Previous Revision_ command (`gitlens.diffLineWithPrevious`) with a shortcut of `shift+alt+,` to compare the current file/diff with the previous line commit revision
+- Adds an _Open Line Changes with Previous Revision_ command (`gitlens.diffLineWithPrevious`) with a shortcut of `shift+alt+,` to compare the current file/diff with the previous line commit revision
 
-- Adds a _Open Changes with Revision..._ command (`gitlens.diffWithRevision`) to compare the current file with the selected revision of the same file
+- Adds an _Open Changes with Revision..._ command (`gitlens.diffWithRevision`) to compare the current file with the selected revision of the same file
 
-- Adds a _Open Changes with Working File_ command (`gitlens.diffWithWorking`) with a shortcut of `shift+alt+w` to compare the most recent commit revision of the current file/diff with the working tree
+- Adds an _Open Changes with Working File_ command (`gitlens.diffWithWorking`) with a shortcut of `shift+alt+w` to compare the most recent commit revision of the current file/diff with the working tree
 
-- Adds a _Open Line Changes with Working File_ command (`gitlens.diffLineWithWorking`) with a shortcut of `alt+w` to compare the commit revision of the current line with the working tree
+- Adds an _Open Line Changes with Working File_ command (`gitlens.diffLineWithWorking`) with a shortcut of `alt+w` to compare the commit revision of the current line with the working tree
 
 #### Other Commands (not a complete list)
 
@@ -640,15 +640,17 @@ The compare view provides the following features,
 
 - Adds a _Copy Remote File Url to Clipboard_ command (`gitlens.copyRemoteFileUrlToClipboard`) to copy the remote url of the current file and line to the clipboard
 
-- Adds a _Open Working File"_ command (`gitlens.openWorkingFile`) to open the working file for the current file revision
+- Adds an _Open Working File"_ command (`gitlens.openWorkingFile`) to open the working file for the current file revision
 
-- Adds a _Open Revision..._ command (`gitlens.openFileRevision`) to open the selected revision for the current file
+- Adds an _Open Revision..._ command (`gitlens.openFileRevision`) to open the selected revision for the current file
 
-- Adds a _Open Changes (with difftool)_ command (`gitlens.externalDiff`) to the source control group and source control resource context menus to open the changes of a file or set of files with the configured git difftool
+- Adds an _Open Changes (with difftool)_ command (`gitlens.externalDiff`) to the source control group and source control resource context menus to open the changes of a file or set of files with the configured git difftool
 
-- Adds a _Open All Changes (with difftool)_ command (`gitlens.externalDiffAll`) to open all working changes with the configured git difftool
+- Adds an _Open All Changes (with difftool)_ command (`gitlens.externalDiffAll`) to open all working changes with the configured git difftool
 
   - Also adds the command to the Source Control group context menu
+
+- Adds an _Directory Compare All Changes_ command (`gitlens.diffDirectoryWithHead`) to the source control groups to open the configured Git difftool to compare the working tree with HEAD
 
 - Adds a _Open Changed Files_ command (`gitlens.openChangedFiles`) to open any files with working tree changes
 
