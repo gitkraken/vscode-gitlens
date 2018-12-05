@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes [#528](https://github.com/eamodio/vscode-gitlens/issues/528) &mdash; Remotes not showing, being filtred on domain and file, but not complete path
+- Fixes an issue where _Close Repository_ command didn't work
 
 ## [9.0.1] - 2018-12-02
 

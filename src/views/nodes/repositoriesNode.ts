@@ -72,6 +72,8 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 
         const children = [];
         for (const repo of repositories) {
+            if (repo.closed) continue;
+
             const normalizedPath = repo.normalizedPath;
             const child = (this._children as RepositoryNode[]).find(c => c.repo.normalizedPath === normalizedPath);
             if (child !== undefined) {
