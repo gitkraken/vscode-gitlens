@@ -14,6 +14,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Renames _Open Changes (with difftool)_ command to _Open All Changes (with difftool)_ when shown on the SCM group context menu
 
+### Fixed
+
+- Fixes [#528](https://github.com/eamodio/vscode-gitlens/issues/528) &mdash; Remotes not showing, being filtred on domain and file, but not complete path
+
 ## [9.0.1] - 2018-12-02
 
 ### Fixed
