@@ -195,9 +195,9 @@ export class GitUri extends ((Uri as any) as UriEx) {
         return [authority, fsPath];
     }
 
-    static file(path: string) {
+    static file(path: string, useVslsScheme?: boolean) {
         const uri = Uri.file(path);
-        if (Container.vsls.isMaybeGuest) {
+        if (Container.vsls.isMaybeGuest && useVslsScheme !== false) {
             return uri.with({ scheme: DocumentSchemes.Vsls });
         }
 

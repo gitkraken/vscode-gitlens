@@ -7,8 +7,8 @@ import { Logger } from './../logger';
 import { VslsGuestService } from './guest';
 import { VslsHostService } from './host';
 
-export const vslsUriPrefixRegex = /^[\/|\\]~\d+?(?:[\/|\\]|$)/;
-export const vslsUriRootRegex = /^[\/|\\]~\d+?$/;
+export const vslsUriPrefixRegex = /^[\/|\\]~(?:\d+?|external)(?:[\/|\\]|$)/;
+export const vslsUriRootRegex = /^[\/|\\]~(?:\d+?|external)$/;
 
 export class VslsController implements Disposable {
     private _disposable: Disposable | undefined;

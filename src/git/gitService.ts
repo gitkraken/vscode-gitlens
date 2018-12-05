@@ -1655,7 +1655,7 @@ export class GitService implements Disposable {
         let repo = await this.getRepository(filePathOrUri, { ...options, skipCacheUpdate: true });
         if (repo !== undefined) return repo.path;
 
-        let rp = await this.getRepoPathCore(
+        const rp = await this.getRepoPathCore(
             typeof filePathOrUri === 'string' ? filePathOrUri : filePathOrUri.fsPath,
             false
         );
@@ -1664,8 +1664,11 @@ export class GitService implements Disposable {
         // Recheck this._repositoryTree.get(rp) to make sure we haven't already tried adding this due to awaits
         if (this._repositoryTree.get(rp) !== undefined) return rp;
 
+        const isVslsScheme =
+            typeof filePathOrUri === 'string' ? undefined : filePathOrUri.scheme === DocumentSchemes.Vsls;
+
         // If this new repo is inside one of our known roots and we we don't already know about, add it
-        const root = this.findRepositoryForPath(this._repositoryTree, rp);
+        const root = this.findRepositoryForPath(this._repositoryTree, rp, isVslsScheme);
 
         let folder;
         if (root !== undefined) {
@@ -1674,10 +1677,14 @@ export class GitService implements Disposable {
             folder = root.folder;
         }
         else {
-            folder = workspace.getWorkspaceFolder(GitUri.file(rp));
+            folder = workspace.getWorkspaceFolder(GitUri.file(rp, isVslsScheme));
             if (folder === undefined) {
                 const parts = rp.split('/');
-                folder = { uri: GitUri.file(rp), name: parts[parts.length - 1], index: this._repositoryTree.count() };
+                folder = {
+                    uri: GitUri.file(rp, isVslsScheme),
+                    name: parts[parts.length - 1],
+                    index: this._repositoryTree.count()
+                };
             }
         }
 
@@ -1757,12 +1764,15 @@ export class GitService implements Disposable {
     ): Promise<Repository | undefined> {
         const repositoryTree = await this.getRepositoryTree();
 
+        let isVslsScheme;
+
         let path: string;
         if (typeof repoPathOrUri === 'string') {
             const repo = repositoryTree.get(repoPathOrUri);
             if (repo !== undefined) return repo;
 
             path = repoPathOrUri;
+            isVslsScheme = undefined;
         }
         else {
             if (repoPathOrUri instanceof GitUri) {
@@ -1776,9 +1786,11 @@ export class GitService implements Disposable {
             else {
                 path = repoPathOrUri.fsPath;
             }
+
+            isVslsScheme = repoPathOrUri.scheme === DocumentSchemes.Vsls;
         }
 
-        const repo = this.findRepositoryForPath(repositoryTree, path);
+        const repo = this.findRepositoryForPath(repositoryTree, path, isVslsScheme);
         if (repo === undefined) return undefined;
 
         // Make sure the file is tracked in this repo before returning -- it could be from a submodule
@@ -1786,12 +1798,17 @@ export class GitService implements Disposable {
         return repo;
     }
 
-    private findRepositoryForPath(repositoryTree: TernarySearchTree<Repository>, path: string): Repository | undefined {
+    private findRepositoryForPath(
+        repositoryTree: TernarySearchTree<Repository>,
+        path: string,
+        isVslsScheme: boolean | undefined
+    ): Repository | undefined {
         let repo = repositoryTree.findSubstr(path);
         // If we can't find the repo and we are a guest, check if we are a "root" workspace
-        if (repo === undefined && Container.vsls.isMaybeGuest) {
+        if (repo === undefined && isVslsScheme !== false && Container.vsls.isMaybeGuest) {
             if (!vslsUriPrefixRegex.test(path)) {
-                const vslsPath = Strings.normalizePath(`/~0${path}`);
+                path = Strings.normalizePath(path);
+                const vslsPath = `/~0${path[0] === '/' ? path : `/${path}`}`;
                 repo = repositoryTree.findSubstr(vslsPath);
             }
         }

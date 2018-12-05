@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#565](https://github.com/eamodio/vscode-gitlens/issues/565) &mdash; Regression: Submodules don't work properly (missing repo in view, file and inline blame, etc)
 - Fixes [#528](https://github.com/eamodio/vscode-gitlens/issues/528) &mdash; Remotes not showing, being filtred on domain and file, but not complete path
 - Fixes an issue where _Close Repository_ command didn't work
+- Fixes issues with external files (files not in one of the workspace folders) showing up as a new repository when over a Live Share session
 
 ## [9.0.1] - 2018-12-02
 
