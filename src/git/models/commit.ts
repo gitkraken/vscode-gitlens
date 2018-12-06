@@ -1,5 +1,4 @@
 'use strict';
-import * as paths from 'path';
 import { Uri } from 'vscode';
 import { configuration, DateStyle, GravatarDefaultStyle } from '../../configuration';
 import { Container } from '../../container';
