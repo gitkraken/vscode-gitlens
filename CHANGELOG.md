@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- Fixes an issue where the _Copy Commit Message to Clipboard_ command fails (and probably others too) &mdash; a regression caused by the attempted fix for [#568](https://github.com/eamodio/vscode-gitlens/issues/565)
+
 ## [9.0.2] - 2018-12-05
 
 ### Added
