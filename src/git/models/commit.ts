@@ -186,7 +186,7 @@ export abstract class GitCommit {
 
         gravatar = Uri.parse(
             `https://www.gravatar.com/avatar/${
-                this.email ? Strings.md5(this.email, 'hex') : '00000000000000000000000000000000'
+                this.email ? Strings.md5(this.email.trim().toLowerCase(), 'hex') : '00000000000000000000000000000000'
             }.jpg?s=${size}&d=${fallback}`
         );
         gravatarCache.set(key, gravatar);
