@@ -1466,7 +1466,6 @@
                         "suppressGitVersionWarning": false,
                         "suppressLineUncommittedWarning": false,
                         "suppressNoRepositoryWarning": false,
-                        "suppressShowKeyBindingsNotice": false,
                         "suppressSupportGitLensNotification": false
                     },
                     "properties": {
@@ -1495,10 +1494,6 @@
                             "default": false
                         },
                         "suppressNoRepositoryWarning": {
-                            "type": "boolean",
-                            "default": false
-                        },
-                        "suppressShowKeyBindingsNotice": {
                             "type": "boolean",
                             "default": false
                         },

@@ -1,9 +1,8 @@
 'use strict';
 import { commands, ConfigurationTarget, MessageItem, Uri, window } from 'vscode';
 import { Commands } from './commands';
-import { configuration, KeyMap } from './configuration';
+import { configuration } from './configuration';
 import { BuiltInCommands, CommandContext, setCommandContext } from './constants';
-import { Container } from './container';
 import { GitCommit } from './git/gitService';
 import { Logger } from './logger';
 
@@ -15,7 +14,6 @@ export enum SuppressedMessages {
     GitVersionWarning = 'suppressGitVersionWarning',
     LineUncommittedWarning = 'suppressLineUncommittedWarning',
     NoRepositoryWarning = 'suppressNoRepositoryWarning',
-    ShowKeyBindingsNotice = 'suppressShowKeyBindingsNotice',
     SupportGitLensNotification = 'suppressSupportGitLensNotification'
 }
 
@@ -81,44 +79,6 @@ export class Messages {
             `GitLens requires a newer version of Git (>= 2.2.0) than is currently installed (${version}). Please install a more recent version of Git.`,
             SuppressedMessages.GitVersionWarning
         );
-    }
-
-    static async showKeyBindingsInfoMessage(): Promise<MessageItem | undefined> {
-        if (
-            Container.config.keymap !== KeyMap.Alternate ||
-            Container.config.advanced.messages.suppressShowKeyBindingsNotice
-        ) {
-            return undefined;
-        }
-
-        const actions: MessageItem[] = [
-            { title: 'Keep Shortcuts', isCloseAffordance: true },
-            { title: 'Switch Shortcuts' },
-            { title: 'No Shortcuts' }
-        ];
-        const result = await Messages.showMessage(
-            'info',
-            `GitLens is using keyboard shortcuts which can conflict with menu mnemonics and different keyboard layouts. To avoid such conflicts, it is recommended to switch to the new default keyboard shortcuts.`,
-            SuppressedMessages.ShowKeyBindingsNotice,
-            null,
-            ...actions
-        );
-
-        switch (result) {
-            case actions[1]:
-                await configuration.update(
-                    configuration.name('keymap').value,
-                    KeyMap.Chorded,
-                    ConfigurationTarget.Global
-                );
-                break;
-
-            case actions[2]:
-                await configuration.update(configuration.name('keymap').value, KeyMap.None, ConfigurationTarget.Global);
-                break;
-        }
-
-        return result;
     }
 
     static showLineUncommittedWarningMessage(message: string): Promise<MessageItem | undefined> {

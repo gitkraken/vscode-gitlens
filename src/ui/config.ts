@@ -203,7 +203,6 @@ export interface AdvancedConfig {
         suppressGitVersionWarning: boolean;
         suppressLineUncommittedWarning: boolean;
         suppressNoRepositoryWarning: boolean;
-        suppressShowKeyBindingsNotice: boolean;
         suppressSupportGitLensNotification: boolean;
     };
     quickPick: {

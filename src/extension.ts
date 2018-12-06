@@ -82,7 +82,6 @@ export async function activate(context: ExtensionContext) {
 
     notifyOnUnsupportedGitVersion(gitVersion);
     void showWelcomePage(gitlensVersion, previousVersion);
-    void Messages.showKeyBindingsInfoMessage();
 
     context.globalState.update(GlobalState.GitLensVersion, gitlensVersion);
 
