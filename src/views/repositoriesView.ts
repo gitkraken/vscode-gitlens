@@ -4,9 +4,7 @@ import { configuration, RepositoriesViewConfig, ViewFilesLayout, ViewsConfig } f
 import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
 import { RepositoriesNode } from './nodes';
-import { ViewNode } from './nodes/viewNode';
 import { RefreshReason, ViewBase } from './viewBase';
-import { RefreshNodeCommandArgs } from './viewCommands';
 
 export class RepositoriesView extends ViewBase<RepositoriesNode> {
     constructor() {

@@ -3,9 +3,8 @@ import { commands, ConfigurationChangeEvent } from 'vscode';
 import { configuration, LineHistoryViewConfig, ViewsConfig } from '../configuration';
 import { CommandContext, setCommandContext } from '../constants';
 import { Container } from '../container';
-import { LineHistoryTrackerNode, ViewNode } from './nodes';
+import { LineHistoryTrackerNode } from './nodes';
 import { RefreshReason, ViewBase } from './viewBase';
-import { RefreshNodeCommandArgs } from './viewCommands';
 
 export class LineHistoryView extends ViewBase<LineHistoryTrackerNode> {
     constructor() {
