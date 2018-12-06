@@ -4015,12 +4015,12 @@
                     "group": "2_gitlens@1"
                 },
                 {
-                    "command": "gitlens.stashSave",
+                    "command": "gitlens.stashApply",
                     "when": "!gitlens:readonly && viewItem == gitlens:repository",
                     "group": "3_gitlens@1"
                 },
                 {
-                    "command": "gitlens.stashApply",
+                    "command": "gitlens.stashSave",
                     "when": "!gitlens:readonly && viewItem == gitlens:repository",
                     "group": "3_gitlens@2"
                 },
@@ -4070,13 +4070,13 @@
                     "group": "inline@99"
                 },
                 {
-                    "command": "gitlens.stashSave",
-                    "when": "!gitlens:readonly && viewItem =~ /^gitlens:(stashes|status:files)$/",
+                    "command": "gitlens.stashApply",
+                    "when": "!gitlens:readonly && viewItem == gitlens:stashes",
                     "group": "1_gitlens@1"
                 },
                 {
-                    "command": "gitlens.stashApply",
-                    "when": "!gitlens:readonly && viewItem == gitlens:stashes",
+                    "command": "gitlens.stashSave",
+                    "when": "!gitlens:readonly && viewItem =~ /^gitlens:(stashes|status:files)$/",
                     "group": "1_gitlens@2"
                 },
                 {
