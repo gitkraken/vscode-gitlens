@@ -1,4 +1,4 @@
-const cssColorRegEx = /^(?:(#?)([0-9a-f]{3}|[0-9a-f]{6})|((?:rgb|hsl)a?)\((-?\d+%?)[,\s]+(-?\d+%?)[,\s]+(-?\d+%?)[,\s]*(-?[\d\.]+%?)?\))$/i;
+const cssColorRegex = /^(?:(#?)([0-9a-f]{3}|[0-9a-f]{6})|((?:rgb|hsl)a?)\((-?\d+%?)[,\s]+(-?\d+%?)[,\s]+(-?\d+%?)[,\s]*(-?[\d\.]+%?)?\))$/i;
 
 function adjustLight(color: number, amount: number) {
     const cc = color + amount;
@@ -31,7 +31,7 @@ export function opacity(color: string, percentage: number) {
 export function toRgba(color: string) {
     color = color.trim();
 
-    const result = cssColorRegEx.exec(color);
+    const result = cssColorRegex.exec(color);
     if (result == null) return null;
 
     if (result[1] === '#') {

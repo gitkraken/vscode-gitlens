@@ -49,7 +49,7 @@ interface IRenderOptions extends DecorationInstanceRenderOptions, ThemableDecora
 
 const defaultHeatmapHotColor = '#f66a0a';
 const defaultHeatmapColdColor = '#0a60f6';
-const escapeMarkdownRegEx = /[`\>\#\*\_\-\+\.]/g;
+const escapeMarkdownRegex = /[`\>\#\*\_\-\+\.]/g;
 // const sampleMarkdown = '## message `not code` *not important* _no underline_ \n> don\'t quote me \n- don\'t list me \n+ don\'t list me \n1. don\'t list me \nnot h1 \n=== \nnot h2 \n---\n***\n---\n___';
 const markdownHeaderReplacement = `${GlyphChars.ZeroWidthSpace}===`;
 
@@ -153,7 +153,7 @@ export class Annotations {
 
             message
                 // Escape markdown
-                .replace(escapeMarkdownRegEx, '\\$&')
+                .replace(escapeMarkdownRegex, '\\$&')
                 // Escape markdown header (since the above regex won't match it)
                 .replace(/^===/gm, markdownHeaderReplacement)
                 // Keep under the same block-quote
