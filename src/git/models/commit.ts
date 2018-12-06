@@ -8,6 +8,8 @@ import { Git } from '../git';
 import { GitUri } from '../gitUri';
 
 const gravatarCache: Map<string, Uri> = new Map();
+const missingGravatarHash = '00000000000000000000000000000000';
+
 export function clearGravatarCache() {
     gravatarCache.clear();
 }
@@ -178,16 +180,16 @@ export abstract class GitCommit {
     }
 
     getGravatarUri(fallback: GravatarDefaultStyle, size: number = 16): Uri {
-        const key = this.email ? `${this.email.trim().toLowerCase()}:${size}` : '';
+        const hash =
+            this.email != null && this.email.length !== 0
+                ? Strings.md5(this.email.trim().toLowerCase(), 'hex')
+                : missingGravatarHash;
 
+        const key = `${hash}:${size}`;
         let gravatar = gravatarCache.get(key);
         if (gravatar !== undefined) return gravatar;
 
-        gravatar = Uri.parse(
-            `https://www.gravatar.com/avatar/${
-                this.email ? Strings.md5(this.email.trim().toLowerCase(), 'hex') : '00000000000000000000000000000000'
-            }.jpg?s=${size}&d=${fallback}`
-        );
+        gravatar = Uri.parse(`https://www.gravatar.com/avatar/${hash}.jpg?s=${size}&d=${fallback}`);
         gravatarCache.set(key, gravatar);
 
         return gravatar;
