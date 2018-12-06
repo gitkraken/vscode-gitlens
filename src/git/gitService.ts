@@ -1132,7 +1132,7 @@ export class GitService implements Disposable {
         const author = `${user.name} <${user.email}>`;
         // Check if there is a mailmap for the current user
         const mappedAuthor = await Git.check_mailmap(repoPath, author);
-        if (author !== mappedAuthor) {
+        if (mappedAuthor != null && mappedAuthor.length !== 0 && author !== mappedAuthor) {
             match = mappedAuthorRegex.exec(mappedAuthor);
             if (match != null) {
                 [, user.name, user.email] = match;

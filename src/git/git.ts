@@ -69,7 +69,8 @@ const GitWarnings = {
     mustRunInWorkTree: /this operation must be run in a work tree/i,
     patchWithConflicts: /Applied patch to \'.*?\' with conflicts/i,
     noRemoteRepositorySpecified: /No remote repository specified\./i,
-    remoteConnectionError: /Could not read from remote repository/i
+    remoteConnectionError: /Could not read from remote repository/i,
+    notAGitCommand: /\'.+\' is not a git command/i
 };
 
 export enum GitErrorHandling {
