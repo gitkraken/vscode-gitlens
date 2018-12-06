@@ -1081,7 +1081,7 @@ export class GitService implements Disposable {
 
         const data = await Git.branch(repoPath, { all: true });
         // If we don't get any data, assume the repo doesn't have any commits yet so check if we have a current branch
-        if (data === '') {
+        if (data == null || data.length === 0) {
             const current = await this.getBranch(repoPath);
             branches = current !== undefined ? [current] : [];
         }
@@ -2176,7 +2176,7 @@ export class GitService implements Disposable {
 
         strings = { deletedOrMissing: '(deleted)', working: '', ...strings };
 
-        if (ref === '') return strings.working;
+        if (ref == null || ref.length === 0) return strings.working;
         if (ref === GitService.deletedOrMissingSha) return strings.deletedOrMissing;
 
         return Git.isShaLike(ref) || Git.isStagedUncommitted(ref) ? Git.shortenSha(ref, strings) : ref;

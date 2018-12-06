@@ -84,7 +84,7 @@ export namespace Strings {
         fileName: string,
         options: { addLeadingSlash?: boolean; stripTrailingSlash?: boolean } = { stripTrailingSlash: true }
     ) {
-        if (fileName == null || fileName === '') return fileName;
+        if (fileName == null || fileName.length === 0) return fileName;
 
         let normalized = fileName.replace(pathNormalizeRegex, '/');
 

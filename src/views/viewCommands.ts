@@ -474,7 +474,7 @@ export class ViewCommands implements Disposable {
             placeHolder: `Branch name`,
             value: value
         } as InputBoxOptions);
-        if (name === undefined || name === '') return;
+        if (name === undefined || name.length === 0) return;
 
         this.sendTerminalCommand('branch', `${remoteBranch ? '-t ' : ''}${name} ${node.ref}`, node.repoPath);
     }
@@ -571,7 +571,7 @@ export class ViewCommands implements Disposable {
             prompt: `Please provide a tag name (Press 'Enter' to confirm or 'Escape' to cancel)`,
             placeHolder: `Tag name`
         } as InputBoxOptions);
-        if (name === undefined || name === '') return;
+        if (name === undefined || name.length === 0) return;
 
         const message = await window.showInputBox({
             prompt: `Please provide an optional message to annotate the tag (Press 'Enter' to confirm or 'Escape' to cancel)`,
@@ -579,7 +579,7 @@ export class ViewCommands implements Disposable {
         } as InputBoxOptions);
         if (message === undefined) return;
 
-        const args = `${message !== '' ? `-a -m "${message}" ` : ''}${name} ${node.ref}`;
+        const args = `${message.length !== 0 ? `-a -m "${message}" ` : ''}${name} ${node.ref}`;
         this.sendTerminalCommand('tag', args, node.repoPath);
     }
 

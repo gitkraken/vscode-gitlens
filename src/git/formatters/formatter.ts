@@ -41,7 +41,7 @@ export abstract class Formatter<TItem = any, TOptions extends IFormatOptions = I
     private collapsableWhitespace: number = 0;
 
     protected _padOrTruncate(s: string, options: Strings.ITokenOptions | undefined) {
-        if (s === '') return s;
+        if (s == null || s.length === 0) return s;
 
         // NOTE: the collapsable whitespace logic relies on the javascript template evaluation to be left to right
         if (options === undefined) {

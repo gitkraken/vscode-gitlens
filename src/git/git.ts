@@ -262,7 +262,7 @@ export class Git {
     ) {
         strings = { stagedUncommitted: 'Index', uncommitted: 'Working Tree', working: '', ...strings };
 
-        if (ref === '') return strings.working;
+        if (ref == null || ref.length === 0) return strings.working;
         if (Git.isUncommitted(ref)) {
             if (Git.isStagedUncommitted(ref)) return strings.stagedUncommitted;
 
@@ -463,7 +463,7 @@ export class Git {
             '--get',
             key
         );
-        return data === '' ? undefined : data.trim();
+        return data.length === 0 ? undefined : data.trim();
     }
 
     static async config_getRegex(pattern: string, repoPath?: string, options: { local?: boolean } = {}) {
@@ -473,7 +473,7 @@ export class Git {
             '--get-regex',
             pattern
         );
-        return data === '' ? undefined : data.trim();
+        return data.length === 0 ? undefined : data.trim();
     }
 
     static diff(repoPath: string, fileName: string, ref1?: string, ref2?: string, options: { encoding?: string } = {}) {
@@ -626,7 +626,7 @@ export class Git {
             '--',
             fileName
         );
-        return data === '' ? undefined : data.trim();
+        return data.length === 0 ? undefined : data.trim();
     }
 
     static async log_resolve(repoPath: string, fileName: string, ref: string) {
@@ -640,7 +640,7 @@ export class Git {
             '--',
             fileName
         );
-        return data === '' ? undefined : data.trim();
+        return data.length === 0 ? undefined : data.trim();
     }
 
     static log_search(repoPath: string, search: string[] = emptyArray, options: { maxCount?: number } = {}) {
@@ -671,7 +671,7 @@ export class Git {
         }
 
         const data = await git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...params, '--', fileName);
-        return data === '' ? undefined : data.trim();
+        return data.length === 0 ? undefined : data.trim();
     }
 
     static async ls_tree(repoPath: string, ref: string, options: { fileName?: string } = {}) {
@@ -683,7 +683,7 @@ export class Git {
             params.push('-lrt', ref, '--');
         }
         const data = await git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...params);
-        return data === '' ? undefined : data.trim();
+        return data.length === 0 ? undefined : data.trim();
     }
 
     static merge_base(repoPath: string, ref1: string, ref2: string, options: { forkPoint?: boolean } = {}) {
@@ -709,7 +709,7 @@ export class Git {
 
     static async revparse(repoPath: string, ref: string): Promise<string | undefined> {
         const data = await git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, 'rev-parse', ref);
-        return data === '' ? undefined : data.trim();
+        return data.length === 0 ? undefined : data.trim();
     }
 
     static async revparse_currentBranch(repoPath: string): Promise<[string, string | undefined] | undefined> {
@@ -734,7 +734,7 @@ export class Git {
                     '--format=%H',
                     '--'
                 );
-                if (data === '') return undefined;
+                if (data.length === 0) return undefined;
 
                 // Matches output of `git branch -vv`
                 const sha = data.trim();
@@ -752,7 +752,7 @@ export class Git {
                     '--short',
                     'HEAD'
                 );
-                return data === '' ? undefined : [data.trim(), undefined];
+                return data.length === 0 ? undefined : [data.trim(), undefined];
             }
 
             defaultExceptionHandler(ex, opts, ...params);
@@ -762,7 +762,7 @@ export class Git {
 
     static async revparse_toplevel(cwd: string): Promise<string | undefined> {
         const data = await git<string>({ cwd: cwd, errors: GitErrorHandling.Ignore }, 'rev-parse', '--show-toplevel');
-        return data === '' ? undefined : data.trim();
+        return data.length === 0 ? undefined : data.trim();
     }
 
     static async show<TOut extends string | Buffer>(

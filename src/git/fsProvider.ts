@@ -71,7 +71,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 
         const items = [
             ...Iterables.map<GitTree, [string, FileType]>(tree, t => [
-                path !== '' ? Strings.normalizePath(paths.relative(path, t.path)) : t.path,
+                path != null && path.length !== 0 ? Strings.normalizePath(paths.relative(path, t.path)) : t.path,
                 typeToFileType(t.type)
             ])
         ];

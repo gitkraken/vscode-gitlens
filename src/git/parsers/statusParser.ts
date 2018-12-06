@@ -124,14 +124,14 @@ export class GitStatusParser {
         originalFileName?: string
     ): GitStatusFile {
         let indexStatus = rawStatus[0] !== '.' ? rawStatus[0].trim() : undefined;
-        if (indexStatus === '' || indexStatus === null) {
+        if (indexStatus == null || indexStatus.length === 0) {
             indexStatus = undefined;
         }
 
         let workTreeStatus = undefined;
         if (rawStatus.length > 1) {
             workTreeStatus = rawStatus[1] !== '.' ? rawStatus[1].trim() : undefined;
-            if (workTreeStatus === '' || workTreeStatus === null) {
+            if (workTreeStatus == null || workTreeStatus.length === 0) {
                 workTreeStatus = undefined;
             }
         }

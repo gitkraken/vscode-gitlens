@@ -87,10 +87,10 @@ export class GitStatus {
                 status += `${Strings.pluralize('file', added)} added`;
             }
             if (changed) {
-                status += `${status === '' ? '' : separator}${Strings.pluralize('file', changed)} changed`;
+                status += `${status.length === 0 ? '' : separator}${Strings.pluralize('file', changed)} changed`;
             }
             if (deleted) {
-                status += `${status === '' ? '' : separator}${Strings.pluralize('file', deleted)} deleted`;
+                status += `${status.length === 0 ? '' : separator}${Strings.pluralize('file', deleted)} deleted`;
             }
             return `${prefix}${status}${suffix}`;
         }
@@ -124,7 +124,7 @@ export class GitStatus {
                 status += `${Strings.pluralize('commit', state.behind)} behind`;
             }
             if (state.ahead) {
-                status += `${status === '' ? '' : separator}${Strings.pluralize('commit', state.ahead)} ahead`;
+                status += `${status.length === 0 ? '' : separator}${Strings.pluralize('commit', state.ahead)} ahead`;
             }
             return `${prefix}${status}${suffix}`;
         }

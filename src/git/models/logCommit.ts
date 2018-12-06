@@ -116,10 +116,10 @@ export class GitLogCommit extends GitCommit {
                 status += `${Strings.pluralize('file', added)} added`;
             }
             if (changed) {
-                status += `${status === '' ? '' : separator}${Strings.pluralize('file', changed)} changed`;
+                status += `${status.length === 0 ? '' : separator}${Strings.pluralize('file', changed)} changed`;
             }
             if (deleted) {
-                status += `${status === '' ? '' : separator}${Strings.pluralize('file', deleted)} deleted`;
+                status += `${status.length === 0 ? '' : separator}${Strings.pluralize('file', deleted)} deleted`;
             }
             return `${prefix}${status}${suffix}`;
         }

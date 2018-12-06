@@ -135,7 +135,7 @@ export class DiffWithCommand extends ActiveEditorCommand {
                 if (GitService.isUncommitted(args.rhs.sha)) {
                     rhsSuffix = 'deleted';
                 }
-                else if (rhsSuffix === '' && args.rhs.sha === GitService.deletedOrMissingSha) {
+                else if (rhsSuffix.length === 0 && args.rhs.sha === GitService.deletedOrMissingSha) {
                     rhsSuffix = 'not in Working Tree';
                 }
                 else {
@@ -147,7 +147,7 @@ export class DiffWithCommand extends ActiveEditorCommand {
             }
 
             let lhsSuffix = args.lhs.sha !== GitService.deletedOrMissingSha ? GitService.shortenSha(lhsSha) || '' : '';
-            if (lhs === undefined && args.rhs.sha === '') {
+            if (lhs === undefined && args.rhs.sha.length === 0) {
                 if (rhs !== undefined) {
                     lhsSuffix = `not in ${lhsSuffix}`;
                     rhsSuffix = '';
@@ -157,7 +157,7 @@ export class DiffWithCommand extends ActiveEditorCommand {
                 }
             }
 
-            if (args.lhs.title === undefined && (lhs !== undefined || lhsSuffix !== '')) {
+            if (args.lhs.title === undefined && (lhs !== undefined || lhsSuffix.length !== 0)) {
                 args.lhs.title = `${paths.basename(args.lhs.uri.fsPath)}${lhsSuffix ? ` (${lhsSuffix})` : ''}`;
             }
             if (args.rhs.title === undefined) {

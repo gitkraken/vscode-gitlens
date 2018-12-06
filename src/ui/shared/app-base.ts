@@ -64,7 +64,7 @@ export abstract class App<TBootstrap extends Bootstrap> {
         }
 
         let value: string | null | undefined = element.value;
-        if (value === '') {
+        if (value == null || value.length === 0) {
             value = element.dataset.defaultValue;
             if (value === undefined) {
                 value = null;
@@ -262,7 +262,7 @@ export abstract class App<TBootstrap extends Bootstrap> {
                     if (value === undefined) {
                         value = this.getSettingValue<string | boolean>(lhs) || false;
                     }
-                    state = rhs !== undefined ? rhs === '' + value : Boolean(value);
+                    state = rhs !== undefined ? rhs === String(value) : Boolean(value);
                     break;
                 }
                 case '!': {
@@ -271,7 +271,7 @@ export abstract class App<TBootstrap extends Bootstrap> {
                     if (value === undefined) {
                         value = this.getSettingValue<string | boolean>(lhs) || false;
                     }
-                    state = rhs !== undefined ? rhs !== '' + value : !value;
+                    state = rhs !== undefined ? rhs !== String(value) : !value;
                     break;
                 }
                 case '+': {
