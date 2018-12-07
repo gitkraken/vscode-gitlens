@@ -40,20 +40,13 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
     }
 
     constructor() {
-        super([Commands.ShowCommitInView, Commands.ShowQuickCommitDetails, Commands.ShowQuickRevisionDetails]);
+        super([Commands.ShowCommitInView, Commands.ShowQuickCommitDetails]);
     }
 
     protected async preExecute(context: CommandContext, args: ShowQuickCommitDetailsCommandArgs = {}): Promise<any> {
         if (context.command === Commands.ShowCommitInView) {
             args = { ...args };
             args.showInView = true;
-        }
-
-        if (context.command === Commands.ShowQuickRevisionDetails && context.editor !== undefined) {
-            args = { ...args };
-
-            const gitUri = await GitUri.fromUri(context.editor.document.uri);
-            args.sha = gitUri.sha;
         }
 
         if (context.type === 'viewItem') {

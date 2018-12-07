@@ -39,13 +39,20 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
     }
 
     constructor() {
-        super(Commands.ShowQuickCommitFileDetails);
+        super([Commands.ShowQuickCommitFileDetails, Commands.ShowQuickRevisionDetails]);
     }
 
     protected async preExecute(
         context: CommandContext,
         args: ShowQuickCommitFileDetailsCommandArgs = {}
     ): Promise<any> {
+        if (context.command === Commands.ShowQuickRevisionDetails && context.editor !== undefined) {
+            args = { ...args };
+
+            const gitUri = await GitUri.fromUri(context.editor.document.uri);
+            args.sha = gitUri.sha;
+        }
+
         if (context.type === 'viewItem') {
             args = { ...args };
             args.sha = context.node.uri.sha;
@@ -54,6 +61,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
                 args.commit = context.node.commit;
             }
         }
+
         return this.execute(context.editor, context.uri, args);
     }
 

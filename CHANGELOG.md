@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Changes the _Show Revision Details_ command (`gitlens.showQuickRevisionDetails`) to show file commit details
 - Changes the `alt`-command of the _Toggle File Blame Annotations_ command (`gitlens.toggleFileBlame`) to _Toggle File Heatmap Annotations_ command (`gitlens.toggleFileHeatmap`)
 - Reworks the layout of some contributed menu command
 
