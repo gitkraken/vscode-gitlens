@@ -4544,7 +4544,7 @@
         "tslint-loader": "3.5.4",
         "tslint-prettiest": "0.0.1",
         "ts-loader": "5.3.1",
-        "typescript": "3.2.1",
+        "typescript": "3.2.2",
         "vsce": "1.53.2",
         "vscode": "1.1.26",
         "webpack": "4.27.1",
