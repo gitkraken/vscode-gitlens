@@ -3311,7 +3311,7 @@
                 },
                 {
                     "command": "gitlens.toggleFileBlame",
-                    "alt": "gitlens.toggleFileRecentChanges",
+                    "alt": "gitlens.toggleFileHeatmap",
                     "when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame",
                     "group": "navigation@100"
                 },
