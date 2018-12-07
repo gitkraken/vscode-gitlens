@@ -13,6 +13,7 @@
                 <header>
                     <a class="header__link" title="Learn more about GitLens" href="https://gitlens.amod.io">
                         <div class="header__logo">
+                            <!-- prettier-ignore-attribute src -->
                             <img class="image__logo" src="{{root}}/images/gitlens-icon.png" />
                             <div>
                                 <h1>Git<span class="header__logo--highlight">Lens</span></h1>
@@ -220,7 +221,7 @@
                                             data-type="object"
                                             disabled
                                         />
-                                        <label for="menus.editor.remote">Add open in remote commands</label>
+                                        <label for="menus.editor.remote">Add open on remote commands</label>
                                     </div>
 
                                     <div
@@ -236,7 +237,7 @@
                                             data-type="object"
                                             disabled
                                         />
-                                        <label for="menus.editor.details">Add commit details command</label>
+                                        <label for="menus.editor.details">Add commit details commands</label>
                                     </div>
 
                                     <div
@@ -252,7 +253,7 @@
                                             data-type="object"
                                             disabled
                                         />
-                                        <label for="menus.editor.history">Add file history command</label>
+                                        <label for="menus.editor.history">Add file history commands</label>
                                     </div>
 
                                     <div
@@ -268,7 +269,7 @@
                                             data-type="object"
                                             disabled
                                         />
-                                        <label for="menus.editor.blame">Add blame command</label>
+                                        <label for="menus.editor.blame">Add blame commands</label>
                                     </div>
 
                                     <div
@@ -307,6 +308,22 @@
                                     >
                                         <input
                                             class="setting"
+                                            id="menus.editorTab.remote"
+                                            name="menus.editorTab.remote"
+                                            type="checkbox"
+                                            data-type="object"
+                                            disabled
+                                        />
+                                        <label for="menus.editorTab.remote">Add open on remote commands</label>
+                                    </div>
+
+                                    <div
+                                        class="settings-group__setting nowrap ml-4 hidden"
+                                        data-visibility="settings.mode =advanced"
+                                        data-enablement="menus.editorTab"
+                                    >
+                                        <input
+                                            class="setting"
                                             id="menus.editorTab.compare"
                                             name="menus.editorTab.compare"
                                             type="checkbox"
@@ -329,7 +346,7 @@
                                             data-type="object"
                                             disabled
                                         />
-                                        <label for="menus.editorTab.history">Add file history command</label>
+                                        <label for="menus.editorTab.history">Add file history commands</label>
                                     </div>
 
                                     <div
@@ -339,13 +356,13 @@
                                     >
                                         <input
                                             class="setting"
-                                            id="menus.editorTab.remote"
-                                            name="menus.editorTab.remote"
+                                            id="menus.editorTab.clipboard"
+                                            name="menus.editorTab.clipboard"
                                             type="checkbox"
                                             data-type="object"
                                             disabled
                                         />
-                                        <label for="menus.editorTab.remote">Add open in remote command</label>
+                                        <label for="menus.editorTab.clipboard">Add copy to clipboard commands</label>
                                     </div>
 
                                     <div class="settings-group__setting nowrap ml-2" data-enablement="menus">
@@ -358,9 +375,7 @@
                                             data-type="object"
                                             disabled
                                         />
-                                        <label for="menus.editorGroup"
-                                            >Add commands to the editor group menu &amp; toolbar</label
-                                        >
+                                        <label for="menus.editorGroup">Add commands to the editor group toolbar</label>
                                     </div>
 
                                     <div
@@ -376,7 +391,7 @@
                                             data-type="object"
                                             disabled
                                         />
-                                        <label for="menus.editorGroup.compare">Add comparison toolbar commands</label>
+                                        <label for="menus.editorGroup.compare">Add comparison commands</label>
                                     </div>
 
                                     <div
@@ -392,39 +407,7 @@
                                             data-type="object"
                                             disabled
                                         />
-                                        <label for="menus.editorGroup.blame">Add blame toolbar command</label>
-                                    </div>
-
-                                    <div
-                                        class="settings-group__setting nowrap ml-4 hidden"
-                                        data-visibility="settings.mode =advanced"
-                                        data-enablement="menus.editorGroup"
-                                    >
-                                        <input
-                                            class="setting"
-                                            id="menus.editorGroup.remote"
-                                            name="menus.editorGroup.remote"
-                                            type="checkbox"
-                                            data-type="object"
-                                            disabled
-                                        />
-                                        <label for="menus.editorGroup.remote">Add open in remote command</label>
-                                    </div>
-
-                                    <div
-                                        class="settings-group__setting nowrap ml-4 hidden"
-                                        data-visibility="settings.mode =advanced"
-                                        data-enablement="menus.editorGroup"
-                                    >
-                                        <input
-                                            class="setting"
-                                            id="menus.editorGroup.history"
-                                            name="menus.editorGroup.history"
-                                            type="checkbox"
-                                            data-type="object"
-                                            disabled
-                                        />
-                                        <label for="menus.editorGroup.history">Add file history command</label>
+                                        <label for="menus.editorGroup.blame">Add blame commands</label>
                                     </div>
 
                                     <div class="settings-group__setting nowrap ml-2" data-enablement="menus">
@@ -437,7 +420,9 @@
                                             data-type="object"
                                             disabled
                                         />
-                                        <label for="menus.explorer">Add commands to the explorer context menu</label>
+                                        <label for="menus.explorer"
+                                            >Add commands to the Explorer items context menu</label
+                                        >
                                     </div>
 
                                     <div
@@ -453,23 +438,7 @@
                                             data-type="object"
                                             disabled
                                         />
-                                        <label for="menus.explorer.remote">Add open in remote command</label>
-                                    </div>
-
-                                    <div
-                                        class="settings-group__setting nowrap ml-4 hidden"
-                                        data-visibility="settings.mode =advanced"
-                                        data-enablement="menus.explorer"
-                                    >
-                                        <input
-                                            class="setting"
-                                            id="menus.explorer.history"
-                                            name="menus.explorer.history"
-                                            type="checkbox"
-                                            data-type="object"
-                                            disabled
-                                        />
-                                        <label for="menus.explorer.history">Add file history command</label>
+                                        <label for="menus.explorer.remote">Add open on remote commands</label>
                                     </div>
 
                                     <div
@@ -486,6 +455,216 @@
                                             disabled
                                         />
                                         <label for="menus.explorer.compare">Add comparison commands</label>
+                                    </div>
+
+                                    <div
+                                        class="settings-group__setting nowrap ml-4 hidden"
+                                        data-visibility="settings.mode =advanced"
+                                        data-enablement="menus.explorer"
+                                    >
+                                        <input
+                                            class="setting"
+                                            id="menus.explorer.history"
+                                            name="menus.explorer.history"
+                                            type="checkbox"
+                                            data-type="object"
+                                            disabled
+                                        />
+                                        <label for="menus.explorer.history">Add file history commands</label>
+                                    </div>
+
+                                    <div
+                                        class="settings-group__setting nowrap ml-4 hidden"
+                                        data-visibility="settings.mode =advanced"
+                                        data-enablement="menus.explorer"
+                                    >
+                                        <input
+                                            class="setting"
+                                            id="menus.explorer.clipboard"
+                                            name="menus.explorer.clipboard"
+                                            type="checkbox"
+                                            data-type="object"
+                                            disabled
+                                        />
+                                        <label for="menus.explorer.clipboard">Add copy to clipboard commands</label>
+                                    </div>
+
+                                    <div class="settings-group__setting nowrap ml-2" data-enablement="menus">
+                                        <input
+                                            class="setting"
+                                            id="menus.scmGroup"
+                                            name="menus.scmGroup"
+                                            type="checkbox"
+                                            value="undefined"
+                                            data-type="object"
+                                            disabled
+                                        />
+                                        <label for="menus.scmGroup"
+                                            >Add commands to the Source Control groups context menu</label
+                                        >
+                                    </div>
+
+                                    <div
+                                        class="settings-group__setting nowrap ml-4 hidden"
+                                        data-visibility="settings.mode =advanced"
+                                        data-enablement="menus.scmGroup"
+                                    >
+                                        <input
+                                            class="setting"
+                                            id="menus.scmGroup.stashInline"
+                                            name="menus.scmGroup.stashInline"
+                                            type="checkbox"
+                                            data-type="object"
+                                            disabled
+                                        />
+                                        <label for="menus.scmGroup.stashInline"
+                                            >Add stash changes command to the inline toolbar</label
+                                        >
+                                    </div>
+
+                                    <div
+                                        class="settings-group__setting nowrap ml-4 hidden"
+                                        data-visibility="settings.mode =advanced"
+                                        data-enablement="menus.scmGroup"
+                                    >
+                                        <input
+                                            class="setting"
+                                            id="menus.scmGroup.openClose"
+                                            name="menus.scmGroup.openClose"
+                                            type="checkbox"
+                                            data-type="object"
+                                            disabled
+                                        />
+                                        <label for="menus.scmGroup.openClose"
+                                            >Add open & close changed files commands</label
+                                        >
+                                    </div>
+
+                                    <div
+                                        class="settings-group__setting nowrap ml-4 hidden"
+                                        data-visibility="settings.mode =advanced"
+                                        data-enablement="menus.scmGroup"
+                                    >
+                                        <input
+                                            class="setting"
+                                            id="menus.scmGroup.compare"
+                                            name="menus.scmGroup.compare"
+                                            type="checkbox"
+                                            data-type="object"
+                                            disabled
+                                        />
+                                        <label for="menus.scmGroup.compare">Add comparison commands</label>
+                                    </div>
+
+                                    <div
+                                        class="settings-group__setting nowrap ml-4 hidden"
+                                        data-visibility="settings.mode =advanced"
+                                        data-enablement="menus.scmGroup"
+                                    >
+                                        <input
+                                            class="setting"
+                                            id="menus.scmGroup.stash"
+                                            name="menus.scmGroup.stash"
+                                            type="checkbox"
+                                            data-type="object"
+                                            disabled
+                                        />
+                                        <label for="menus.scmGroup.stash">Add stash changes command</label>
+                                    </div>
+
+                                    <div class="settings-group__setting nowrap ml-2" data-enablement="menus">
+                                        <input
+                                            class="setting"
+                                            id="menus.scmItem"
+                                            name="menus.scmItem"
+                                            type="checkbox"
+                                            value="undefined"
+                                            data-type="object"
+                                            disabled
+                                        />
+                                        <label for="menus.scmItem"
+                                            >Add commands to the Source Control items context menu</label
+                                        >
+                                    </div>
+
+                                    <div
+                                        class="settings-group__setting nowrap ml-4 hidden"
+                                        data-visibility="settings.mode =advanced"
+                                        data-enablement="menus.scmItem"
+                                    >
+                                        <input
+                                            class="setting"
+                                            id="menus.scmItem.remote"
+                                            name="menus.scmItem.remote"
+                                            type="checkbox"
+                                            data-type="object"
+                                            disabled
+                                        />
+                                        <label for="menus.scmItem.remote">Add open on remote commands</label>
+                                    </div>
+
+                                    <div
+                                        class="settings-group__setting nowrap ml-4 hidden"
+                                        data-visibility="settings.mode =advanced"
+                                        data-enablement="menus.scmItem"
+                                    >
+                                        <input
+                                            class="setting"
+                                            id="menus.scmItem.compare"
+                                            name="menus.scmItem.compare"
+                                            type="checkbox"
+                                            data-type="object"
+                                            disabled
+                                        />
+                                        <label for="menus.scmItem.compare">Add comparison commands</label>
+                                    </div>
+
+                                    <div
+                                        class="settings-group__setting nowrap ml-4 hidden"
+                                        data-visibility="settings.mode =advanced"
+                                        data-enablement="menus.scmItem"
+                                    >
+                                        <input
+                                            class="setting"
+                                            id="menus.scmItem.history"
+                                            name="menus.scmItem.history"
+                                            type="checkbox"
+                                            data-type="object"
+                                            disabled
+                                        />
+                                        <label for="menus.scmItem.history">Add file history command</label>
+                                    </div>
+
+                                    <div
+                                        class="settings-group__setting nowrap ml-4 hidden"
+                                        data-visibility="settings.mode =advanced"
+                                        data-enablement="menus.scmItem"
+                                    >
+                                        <input
+                                            class="setting"
+                                            id="menus.scmItem.stash"
+                                            name="menus.scmItem.stash"
+                                            type="checkbox"
+                                            data-type="object"
+                                            disabled
+                                        />
+                                        <label for="menus.scmItem.stash">Add stash changes command</label>
+                                    </div>
+
+                                    <div
+                                        class="settings-group__setting nowrap ml-4 hidden"
+                                        data-visibility="settings.mode =advanced"
+                                        data-enablement="menus.scmItem"
+                                    >
+                                        <input
+                                            class="setting"
+                                            id="menus.scmItem.clipboard"
+                                            name="menus.scmItem.clipboard"
+                                            type="checkbox"
+                                            data-type="object"
+                                            disabled
+                                        />
+                                        <label for="menus.scmItem.clipboard">Add copy to clipboard commands</label>
                                     </div>
                                 </div>
 
@@ -648,12 +827,15 @@
                                 </div>
 
                                 <div class="section__preview">
+                                    <!-- prettier-ignore-attribute src -->
                                     <img class="image__preview" src="{{root}}/images/settings/current-line-blame.png" />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/current-line-blame-on.png"
                                         data-visibility="currentLine.enabled"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/current-line-blame-on-scrollable.png"
@@ -924,46 +1106,55 @@
                                 </div>
 
                                 <div class="section__preview">
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview hidden"
                                         src="{{root}}/images/settings/blame.png"
                                         data-visibility="blame.compact =false"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview hidden"
                                         src="{{root}}/images/settings/blame-compact.png"
                                         data-visibility="blame.compact"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/blame-avatars.png"
                                         data-visibility="blame.avatars &amp; blame.compact =false"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/blame-avatars-compact.png"
                                         data-visibility="blame.avatars &amp; blame.compact"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/blame-highlight-gutter.png"
                                         data-visibility="blame.highlight.enabled &amp; blame.highlight.locations +gutter"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/blame-highlight-line.png"
                                         data-visibility="blame.highlight.enabled &amp; blame.highlight.locations +line"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/blame-highlight-scrollbar.png"
                                         data-visibility="blame.highlight.enabled &amp; blame.highlight.locations +overview"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/blame-heatmap-left.png"
                                         data-visibility="blame.heatmap.enabled &amp; blame.heatmap.location =left"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/blame-heatmap-right.png"
@@ -1142,97 +1333,116 @@
                                 </div>
 
                                 <div class="section__preview mb-2">
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview hidden"
                                         src="{{root}}/images/settings/hovers-currentLine-line.png"
                                         data-visibility="hovers.currentLine.over =line"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview hidden"
                                         src="{{root}}/images/settings/hovers-currentLine-line.png"
                                         data-visibility="currentLine.enabled =false &amp; hovers.currentLine.over =annotation"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/hovers-currentLine-line-blame.png"
                                         data-visibility="currentLine.enabled &amp; hovers.currentLine.over =line"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/hovers-currentLine-line-details+changes-avatars.png"
                                         data-visibility="hovers.currentLine.over =line &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes &amp; hovers.avatars"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/hovers-currentLine-line-details+changes-avatars.png"
                                         data-visibility="currentLine.enabled =false &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes &amp; hovers.avatars"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/hovers-currentLine-line-details+changes.png"
                                         data-visibility="hovers.currentLine.over =line &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes &amp; hovers.avatars =false"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/hovers-currentLine-line-details+changes.png"
                                         data-visibility="currentLine.enabled =false &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes &amp; hovers.avatars =false"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/hovers-currentLine-line-details-avatars.png"
                                         data-visibility="hovers.currentLine.over =line &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false &amp; hovers.avatars"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/hovers-currentLine-line-details-avatars.png"
                                         data-visibility="currentLine.enabled =false &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false &amp; hovers.avatars"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/hovers-currentLine-line-details.png"
                                         data-visibility="hovers.currentLine.over =line &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false &amp; hovers.avatars =false"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/hovers-currentLine-line-details.png"
                                         data-visibility="currentLine.enabled =false &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false &amp; hovers.avatars =false"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/hovers-currentLine-line-changes.png"
                                         data-visibility="hovers.currentLine.over =line &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details =false &amp; hovers.currentLine.changes"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/hovers-currentLine-line-changes.png"
                                         data-visibility="currentLine.enabled =false &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details =false &amp; hovers.currentLine.changes"
                                     />
 
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview hidden"
                                         src="{{root}}/images/settings/hovers-currentLine-annotation.png"
                                         data-visibility="currentLine.enabled &amp; hovers.currentLine.over =annotation"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/hovers-currentLine-annotation-details+changes-avatars.png"
                                         data-visibility="currentLine.enabled &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes &amp; hovers.avatars"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/hovers-currentLine-annotation-details+changes.png"
                                         data-visibility="currentLine.enabled &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes &amp; hovers.avatars =false"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/hovers-currentLine-annotation-details-avatars.png"
                                         data-visibility="currentLine.enabled &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false &amp; hovers.avatars"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/hovers-currentLine-annotation-details.png"
                                         data-visibility="currentLine.enabled &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false &amp; hovers.avatars =false"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/hovers-currentLine-annotation-changes.png"
@@ -1306,41 +1516,49 @@
                                 </div>
 
                                 <div class="section__preview">
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview hidden"
                                         src="{{root}}/images/settings/hovers-annotations.png"
                                         data-visibility="blame.compact =false"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview hidden"
                                         src="{{root}}/images/settings/hovers-annotations-compact.png"
                                         data-visibility="blame.compact"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/hovers-annotations-details+changes-avatars.png"
                                         data-visibility="hovers.enabled &amp; hovers.annotations.enabled &amp; hovers.annotations.details &amp; hovers.annotations.changes &amp; hovers.avatars"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/hovers-annotations-details+changes.png"
                                         data-visibility="hovers.enabled &amp; hovers.annotations.enabled &amp; hovers.annotations.details &amp; hovers.annotations.changes &amp; hovers.avatars =false"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/hovers-annotations-details-avatars.png"
                                         data-visibility="hovers.enabled &amp; hovers.annotations.enabled &amp; hovers.annotations.details &amp; hovers.annotations.changes =false &amp; hovers.avatars"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/hovers-annotations-details.png"
                                         data-visibility="hovers.enabled &amp; hovers.annotations.enabled &amp; hovers.annotations.details &amp; hovers.annotations.changes =false &amp; hovers.avatars =false"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/hovers-annotations-changes.png"
                                         data-visibility="hovers.enabled &amp; hovers.annotations.enabled &amp; hovers.annotations.details =false &amp; hovers.annotations.changes"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/hovers-annotations-heatmap.png"
@@ -1533,49 +1751,59 @@
                                     </div>
                                 </div>
                                 <div class="section__preview">
+                                    <!-- prettier-ignore-attribute src -->
                                     <img class="image__preview" src="{{root}}/images/settings/code-lens.png" />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/code-lens-file-recent+authors.png"
                                         data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled &amp; codeLens.scopes +document"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/code-lens-file-recent.png"
                                         data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled =false &amp; codeLens.scopes +document"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/code-lens-file-authors.png"
                                         data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled =false &amp; codeLens.authors.enabled &amp; codeLens.scopes +document"
                                     />
 
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/code-lens-containers-recent+authors.png"
                                         data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled &amp; codeLens.scopes +containers"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/code-lens-containers-recent.png"
                                         data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled =false &amp; codeLens.scopes +containers"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/code-lens-containers-authors.png"
                                         data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled =false &amp; codeLens.authors.enabled &amp; codeLens.scopes +containers"
                                     />
 
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/code-lens-blocks-recent+authors.png"
                                         data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled &amp; codeLens.scopes +blocks"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/code-lens-blocks-recent.png"
                                         data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled =false &amp; codeLens.scopes +blocks"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/code-lens-blocks-authors.png"
@@ -1635,6 +1863,7 @@
                                 </div>
 
                                 <div class="section__preview">
+                                    <!-- prettier-ignore-attribute src -->
                                     <img class="image__preview" src="{{root}}/images/settings/heatmap.png" />
                                 </div>
 
@@ -1740,17 +1969,21 @@
                                 </div>
 
                                 <div class="section__preview">
+                                    <!-- prettier-ignore-attribute src -->
                                     <img class="image__preview" src="{{root}}/images/settings/recent-changes.png" />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/recent-changes-highlight-gutter.png"
                                         data-visibility="recentChanges.highlight.locations +gutter"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/recent-changes-highlight-line.png"
                                         data-visibility="recentChanges.highlight.locations +line"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/recent-changes-highlight-scrollbar.png"
@@ -1975,12 +2208,15 @@
                                 </div>
 
                                 <div class="section__preview">
+                                    <!-- prettier-ignore-attribute src -->
                                     <img class="image__preview" src="{{root}}/images/settings/status-bar.png" />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/status-bar-left.png"
                                         data-visibility="statusBar.enabled &amp; statusBar.alignment =left"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/status-bar-right.png"
@@ -2162,21 +2398,25 @@
                                     </div>
                                 </div>
                                 <div class="section__preview">
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview hidden"
                                         src="{{root}}/images/settings/view-repositories.png"
                                         data-visibility="views.repositories.enabled &amp; views.repositories.files.layout !tree"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview hidden"
                                         src="{{root}}/images/settings/view-repositories-tree-compact.png"
                                         data-visibility="views.repositories.enabled &amp; views.repositories.files.layout =tree &amp; views.repositories.files.compact"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview hidden"
                                         src="{{root}}/images/settings/view-repositories-tree.png"
                                         data-visibility="views.repositories.enabled &amp; views.repositories.files.layout =tree &amp; views.repositories.files.compact =false"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/view-repositories-avatars.png"
@@ -2259,11 +2499,13 @@
                                     </div>
                                 </div>
                                 <div class="section__preview">
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview hidden"
                                         src="{{root}}/images/settings/view-file-history.png"
                                         data-visibility="views.fileHistory.enabled"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/view-file-history-avatars.png"
@@ -2335,11 +2577,13 @@
                                     </div>
                                 </div>
                                 <div class="section__preview">
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview hidden"
                                         src="{{root}}/images/settings/view-line-history.png"
                                         data-visibility="views.lineHistory.enabled"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/view-line-history-avatars.png"
@@ -2445,21 +2689,25 @@
                                 </div>
 
                                 <div class="section__preview">
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview hidden"
                                         src="{{root}}/images/settings/view-search.png"
                                         data-visibility="views.search.enabled &amp; views.search.files.layout !tree"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview hidden"
                                         src="{{root}}/images/settings/view-search-tree-compact.png"
                                         data-visibility="views.search.enabled &amp; views.search.files.layout =tree &amp; views.search.files.compact"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview hidden"
                                         src="{{root}}/images/settings/view-search-tree.png"
                                         data-visibility="views.search.enabled &amp; views.search.files.layout =tree &amp; views.search.files.compact =false"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/view-search-avatars.png"
@@ -2575,21 +2823,25 @@
                                 </div>
 
                                 <div class="section__preview">
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview hidden"
                                         src="{{root}}/images/settings/view-compare.png"
                                         data-visibility="views.compare.enabled &amp; views.compare.files.layout !tree"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview hidden"
                                         src="{{root}}/images/settings/view-compare-tree-compact.png"
                                         data-visibility="views.compare.enabled &amp; views.compare.files.layout =tree &amp; views.compare.files.compact"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview hidden"
                                         src="{{root}}/images/settings/view-compare-tree.png"
                                         data-visibility="views.compare.enabled &amp; views.compare.files.layout =tree &amp; views.compare.files.compact =false"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/view-compare-avatars.png"
@@ -2655,12 +2907,15 @@
                                 </div>
 
                                 <div class="section__preview">
+                                    <!-- prettier-ignore-attribute src -->
                                     <img class="image__preview" src="{{root}}/images/settings/status-bar.png" />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/modes-status-bar-left.png"
                                         data-visibility="mode.statusBar.enabled &amp; mode.statusBar.alignment =left"
                                     />
+                                    <!-- prettier-ignore-attribute src -->
                                     <img
                                         class="image__preview--overlay hidden"
                                         src="{{root}}/images/settings/modes-status-bar-right.png"

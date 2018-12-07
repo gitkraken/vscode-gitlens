@@ -648,12 +648,6 @@
                                                 },
                                                 "compare": {
                                                     "type": "boolean"
-                                                },
-                                                "history": {
-                                                    "type": "boolean"
-                                                },
-                                                "remote": {
-                                                    "type": "boolean"
                                                 }
                                             }
                                         }
@@ -669,6 +663,9 @@
                                         {
                                             "type": "object",
                                             "properties": {
+                                                "clipboard": {
+                                                    "type": "boolean"
+                                                },
                                                 "compare": {
                                                     "type": "boolean"
                                                 },
@@ -692,6 +689,9 @@
                                         {
                                             "type": "object",
                                             "properties": {
+                                                "clipboard": {
+                                                    "type": "boolean"
+                                                },
                                                 "compare": {
                                                     "type": "boolean"
                                                 },
@@ -699,6 +699,61 @@
                                                     "type": "boolean"
                                                 },
                                                 "remote": {
+                                                    "type": "boolean"
+                                                }
+                                            }
+                                        }
+                                    ]
+                                },
+                                "scmGroup": {
+                                    "anyOf": [
+                                        {
+                                            "enum": [
+                                                false
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "compare": {
+                                                    "type": "boolean"
+                                                },
+                                                "openClose": {
+                                                    "type": "boolean"
+                                                },
+                                                "stash": {
+                                                    "type": "boolean"
+                                                },
+                                                "stashInline": {
+                                                    "type": "boolean"
+                                                }
+                                            }
+                                        }
+                                    ]
+                                },
+                                "scmItem": {
+                                    "anyOf": [
+                                        {
+                                            "enum": [
+                                                false
+                                            ]
+                                        },
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "clipboard": {
+                                                    "type": "boolean"
+                                                },
+                                                "compare": {
+                                                    "type": "boolean"
+                                                },
+                                                "history": {
+                                                    "type": "boolean"
+                                                },
+                                                "remote": {
+                                                    "type": "boolean"
+                                                },
+                                                "stash": {
                                                     "type": "boolean"
                                                 }
                                             }
@@ -713,25 +768,38 @@
                             "blame": false,
                             "clipboard": true,
                             "compare": true,
-                            "details": true,
-                            "history": false,
-                            "remote": true
-                        },
-                        "editorGroup": {
-                            "blame": true,
-                            "compare": true,
+                            "details": false,
                             "history": false,
                             "remote": false
                         },
-                        "editorTab": {
-                            "compare": false,
-                            "history": false,
-                            "remote": true
+                        "editorGroup": {
+                            "blame": true,
+                            "compare": true
                         },
-                        "explorer": {
+                        "editorTab": {
+                            "clipboard": true,
                             "compare": true,
                             "history": true,
                             "remote": true
+                        },
+                        "explorer": {
+                            "clipboard": true,
+                            "compare": true,
+                            "history": true,
+                            "remote": true
+                        },
+                        "scmGroup": {
+                            "compare": true,
+                            "openClose": true,
+                            "stash": true,
+                            "stashInline": true
+                        },
+                        "scmItem": {
+                            "clipboard": true,
+                            "compare": true,
+                            "history": true,
+                            "remote": true,
+                            "stash": true
                         }
                     },
                     "markdownDescription": "Specifies which commands will be added to which menus",
@@ -3173,24 +3241,29 @@
                     "group": "3_gitlens@1"
                 },
                 {
+                    "command": "gitlens.showFileHistoryInView",
+                    "when": "gitlens:activeFileStatus =~ /tracked/ && config.gitlens.menus.editor.history",
+                    "group": "3_gitlens@2"
+                },
+                {
                     "command": "gitlens.toggleFileBlame",
                     "when": "editorTextFocus && gitlens:activeFileStatus =~ /blameable/ && config.gitlens.menus.editor.blame",
-                    "group": "3_gitlens@2"
+                    "group": "3_gitlens@3"
                 },
                 {
                     "command": "gitlens.copyShaToClipboard",
                     "when": "editorTextFocus && gitlens:activeFileStatus =~ /blameable/ && config.gitlens.menus.editor.clipboard",
-                    "group": "9_gitlens@1"
+                    "group": "9_b_gitlens@1"
                 },
                 {
                     "command": "gitlens.copyMessageToClipboard",
                     "when": "editorTextFocus && gitlens:activeFileStatus =~ /blameable/ && config.gitlens.menus.editor.clipboard",
-                    "group": "9_gitlens@2"
+                    "group": "9_b_gitlens@2"
                 },
                 {
                     "command": "gitlens.copyRemoteFileUrlToClipboard",
                     "when": "editorTextFocus && gitlens:activeFileStatus =~ /remotes/ && config.gitlens.menus.editor.clipboard",
-                    "group": "9_gitlens@3"
+                    "group": "9_b_gitlens@3"
                 }
             ],
             "editor/title": [
@@ -3228,7 +3301,7 @@
                 },
                 {
                     "command": "gitlens.showQuickRevisionDetails",
-                    "when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme != git",
+                    "when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme != git && config.gitlens.menus.editorGroup.compare",
                     "group": "navigation@98"
                 },
                 {
@@ -3251,43 +3324,48 @@
                     "command": "gitlens.clearFileAnnotations",
                     "when": "gitlens:activeFileStatus =~ /blameable/ && gitlens:annotationStatus == computed && config.gitlens.menus.editorGroup.blame",
                     "group": "navigation@100"
-                },
-                {
-                    "command": "gitlens.openFileInRemote",
-                    "when": "gitlens:enabled && gitlens:activeFileStatus =~ /remotes/ && config.gitlens.menus.editorGroup.remote",
-                    "group": "4_gitlens"
-                },
-                {
-                    "command": "gitlens.showQuickFileHistory",
-                    "when": "editorFocus && gitlens:activeFileStatus =~ /tracked/ && config.gitlens.menus.editorGroup.history",
-                    "group": "4_gitlens"
                 }
             ],
             "editor/title/context": [
                 {
-                    "command": "gitlens.openFileInRemote",
-                    "when": "gitlens:enabled && gitlens:activeFileStatus =~ /remotes/ && config.gitlens.menus.editorTab.remote",
-                    "group": "2_files@100"
+                    "command": "gitlens.openWorkingFile",
+                    "when": "resourceScheme == gitlens",
+                    "group": "1_co_gitlens@1"
                 },
                 {
-                    "command": "gitlens.copyRemoteFileUrlToClipboard",
-                    "when": "gitlens:enabled && gitlens:activeFileStatus =~ /remotes/ && config.gitlens.menus.editorTab.remote",
-                    "group": "2_files@101"
+                    "command": "gitlens.openFileInRemote",
+                    "when": "gitlens:enabled && gitlens:hasRemotes && config.gitlens.menus.editorTab.remote",
+                    "group": "1_co_gitlens@2"
                 },
                 {
                     "command": "gitlens.diffWithPrevious",
                     "when": "gitlens:enabled && config.gitlens.menus.editorTab.compare",
-                    "group": "1_gitlens_1@1"
+                    "group": "1_co_gitlens_1@1"
+                },
+                {
+                    "command": "gitlens.diffWithRevision",
+                    "when": "gitlens:enabled && config.gitlens.menus.editorTab.compare",
+                    "group": "1_co_gitlens_1@2"
                 },
                 {
                     "command": "gitlens.diffWithWorking",
-                    "when": "gitlens:enabled && config.gitlens.menus.editorTab.compare",
-                    "group": "1_gitlens_1@2"
+                    "when": "resourceScheme == gitlens && config.gitlens.menus.editorTab.compare",
+                    "group": "1_co_gitlens_1@3"
                 },
                 {
                     "command": "gitlens.showQuickFileHistory",
                     "when": "gitlens:enabled && config.gitlens.menus.editorTab.history",
-                    "group": "1_gitlens_2@1"
+                    "group": "1_co_gitlens_2@1"
+                },
+                {
+                    "command": "gitlens.showFileHistoryInView",
+                    "when": "gitlens:enabled && config.gitlens.menus.editorTab.history",
+                    "group": "1_co_gitlens_2@2"
+                },
+                {
+                    "command": "gitlens.copyRemoteFileUrlToClipboard",
+                    "when": "gitlens:enabled && gitlens:hasRemotes && config.gitlens.menus.editorTab.clipboard",
+                    "group": "1_cutcopypaste@100"
                 }
             ],
             "explorer/context": [
@@ -3297,87 +3375,102 @@
                     "group": "navigation@100"
                 },
                 {
-                    "command": "gitlens.showQuickFileHistory",
-                    "when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && config.gitlens.menus.explorer.history",
-                    "group": "1_gitlens_1@1"
-                },
-                {
                     "command": "gitlens.diffWithPrevious",
                     "when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && config.gitlens.menus.explorer.compare",
                     "group": "3_compare@1"
                 },
                 {
+                    "command": "gitlens.diffWithRevision",
+                    "when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && config.gitlens.menus.explorer.compare",
+                    "group": "3_compare@2"
+                },
+                {
+                    "command": "gitlens.showQuickFileHistory",
+                    "when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && config.gitlens.menus.explorer.history",
+                    "group": "4_gitlens_1@1"
+                },
+                {
+                    "command": "gitlens.showFileHistoryInView",
+                    "when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && config.gitlens.menus.explorer.history",
+                    "group": "4_gitlens_1@2"
+                },
+                {
                     "command": "gitlens.copyRemoteFileUrlToClipboard",
-                    "when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && gitlens:hasRemotes && config.gitlens.menus.explorer.remote",
-                    "group": "9_gitlens@1"
+                    "when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && gitlens:hasRemotes && config.gitlens.menus.explorer.clipboard",
+                    "group": "5_cutcopypaste@100"
                 }
             ],
             "scm/resourceGroup/context": [
                 {
                     "command": "gitlens.stashSave",
-                    "when": "gitlens:enabled && !gitlens:readonly",
+                    "when": "gitlens:enabled && !gitlens:readonly && config.gitlens.menus.scmGroup.stashInline",
                     "group": "inline@-1"
                 },
                 {
+                    "command": "gitlens.stashSave",
+                    "when": "gitlens:enabled && !gitlens:readonly && config.gitlens.menus.scmGroup.stash",
+                    "group": "1_modification@100"
+                },
+                {
                     "command": "gitlens.openChangedFiles",
-                    "when": "gitlens:enabled",
+                    "when": "gitlens:enabled && config.gitlens.menus.scmGroup.openClose",
                     "group": "2_gitlens@1"
                 },
                 {
                     "command": "gitlens.closeUnchangedFiles",
-                    "when": "gitlens:enabled",
+                    "when": "gitlens:enabled && config.gitlens.menus.scmGroup.openClose",
                     "group": "2_gitlens@2"
                 },
                 {
                     "command": "gitlens.externalDiffAll",
-                    "when": "gitlens:enabled",
+                    "when": "gitlens:enabled && config.gitlens.menus.scmGroup.compare",
                     "group": "3_gitlens@3"
                 },
                 {
                     "command": "gitlens.diffDirectoryWithHead",
-                    "when": "gitlens:enabled",
+                    "when": "gitlens:enabled && config.gitlens.menus.scmGroup.compare",
                     "group": "3_gitlens@4"
-                },
-                {
-                    "command": "gitlens.stashSave",
-                    "when": "gitlens:enabled && !gitlens:readonly",
-                    "group": "4_gitlens@1"
                 }
             ],
             "scm/resourceState/context": [
                 {
                     "command": "gitlens.openFileInRemote",
-                    "when": "gitlens:enabled && gitlens:hasRemotes",
+                    "when": "gitlens:enabled && gitlens:hasRemotes && config.gitlens.menus.scmItem.remote",
                     "group": "navigation"
                 },
                 {
                     "command": "gitlens.externalDiff",
-                    "when": "gitlens:enabled",
+                    "when": "gitlens:enabled && config.gitlens.menus.scmItem.compare",
                     "group": "navigation"
                 },
                 {
                     "command": "gitlens.diffWithRevision",
-                    "when": "gitlens:enabled",
+                    "when": "gitlens:enabled && config.gitlens.menus.scmItem.compare",
                     "group": "1_gitlens@1"
                 },
                 {
                     "command": "gitlens.diffWithBranch",
-                    "when": "gitlens:enabled",
+                    "when": "gitlens:enabled && config.gitlens.menus.scmItem.compare",
                     "group": "1_gitlens@2"
                 },
                 {
                     "command": "gitlens.showQuickFileHistory",
-                    "when": "gitlens:enabled",
+                    "when": "gitlens:enabled && config.gitlens.menus.scmItem.history",
                     "group": "1_gitlens_1@1"
                 },
                 {
+                    "command": "gitlens.showFileHistoryInView",
+                    "when": "gitlens:enabled && config.gitlens.menus.scmItem.history",
+                    "group": "1_gitlens_1@2"
+                },
+                {
                     "command": "gitlens.stashSave",
-                    "when": "gitlens:enabled && !gitlens:readonly",
-                    "group": "2_gitlens@1"
+                    "when": "gitlens:enabled && !gitlens:readonly && config.gitlens.menus.scmItem.stash",
+                    "group": "1_modification@-1"
                 },
                 {
                     "command": "gitlens.copyRemoteFileUrlToClipboard",
-                    "when": "gitlens:enabled && gitlens:hasRemotes",
+                    "when": "gitlens:enabled && gitlens:hasRemotes && config.gitlens.menus.scmItem.clipboard",
                     "group": "9_gitlens@1"
                 }
             ],

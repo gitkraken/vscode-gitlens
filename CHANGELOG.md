@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds control over the contributed menu commands to the Source Control side bar to the GitLens interactive settings editor (via the `gitlens.menus` setting)
+
+### Changed
+
+- Reworks the layout of some contributed menu command
+
 ### Fixed
 
 - Fixes an issue where gravatar icons would sometimes not show up &mdash; thanks to [PR #579](https://github.com/eamodio/vscode-gitlens/pull/579) by sgtwilko ([@sgtwilko](https://github.com/sgtwilko))

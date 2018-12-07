@@ -270,6 +270,7 @@ export interface MenuConfig {
     editorTab:
         | false
         | {
+              clipboard: boolean;
               compare: boolean;
               history: boolean;
               remote: boolean;
@@ -277,9 +278,27 @@ export interface MenuConfig {
     explorer:
         | false
         | {
+              clipboard: boolean;
               compare: boolean;
               history: boolean;
               remote: boolean;
+          };
+    scmGroup:
+        | false
+        | {
+              compare: boolean;
+              openClose: boolean;
+              stash: boolean;
+              stashInline: boolean;
+          };
+    scmItem:
+        | false
+        | {
+              clipboard: boolean;
+              compare: boolean;
+              history: boolean;
+              remote: boolean;
+              stash: boolean;
           };
 }
 
