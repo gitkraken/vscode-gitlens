@@ -60,7 +60,7 @@ export class SearchNode extends ViewNode {
                         ...command,
                         arguments: [this, { searchBy: GitRepoSearchBy.Files } as SearchCommitsCommandArgs]
                     },
-                    `${GlyphChars.Space.repeat(4)} or, by files (use :&lt;file-pattern&gt;)`,
+                    `${GlyphChars.Space.repeat(4)} or, by files (use :&lt;file-path/glob&gt;)`,
                     'Click to search commits by files'
                 ),
                 new CommandMessageNode(

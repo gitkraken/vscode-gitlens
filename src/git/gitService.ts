@@ -1374,19 +1374,19 @@ export class GitService implements Disposable {
         let searchArgs: string[] | undefined = undefined;
         switch (searchBy) {
             case GitRepoSearchBy.Author:
-                searchArgs = ['-m', '-M', '--all', '--full-history', '-i', `--author=${search}`];
+                searchArgs = ['-m', '-M', '--all', '--full-history', '-E', '-i', `--author=${search}`];
                 break;
             case GitRepoSearchBy.ChangedLines:
-                searchArgs = ['-M', '--all', '--full-history', '-i', `-G${search}`];
+                searchArgs = ['-M', '--all', '--full-history', '-E', '-i', `-G${search}`];
                 break;
             case GitRepoSearchBy.Changes:
-                searchArgs = ['-M', '--all', '--full-history', '-i', '--pickaxe-regex', `-S${search}`];
+                searchArgs = ['-M', '--all', '--full-history', '-E', '-i', '--pickaxe-regex', `-S${search}`];
                 break;
             case GitRepoSearchBy.Files:
-                searchArgs = ['-M', '--all', '--full-history', '-i', `--`, `${search}`];
+                searchArgs = ['-M', '--all', '--full-history', '-E', '-i', `--`, `${search}`];
                 break;
             case GitRepoSearchBy.Message:
-                searchArgs = ['-m', '-M', '--all', '--full-history'];
+                searchArgs = ['-m', '-M', '--all', '--full-history', '-E', '-i'];
                 if (search) {
                     searchArgs.push(`--grep=${search}`);
                 }

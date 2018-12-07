@@ -430,8 +430,8 @@ A [customizable](#search-commits-view-settings- 'Jump to the Search Commits view
 - Use the _Search Commits_ command (`gitlens.showCommitSearch`) with a shortcut of `alt+/` to search for commits
   - by message &mdash; use `<message>` to search for commits with messages that match `<message>` &mdash; See [Git docs](https://git-scm.com/docs/git-log#git-log---grepltpatterngt 'Open Git docs')
   - or, by author &mdash; use `@<pattern>` to search for commits with authors that match `<pattern>` &mdash; See [Git docs](https://git-scm.com/docs/git-log#git-log---authorltpatterngt 'Open Git docs')
-  - or, by commit id &mdash; use `#<sha>` to search for a commit with id of `<sha>` &mdash; See [Git docs](https://git-scm.com/docs/git-log 'Open Git docs')
-  - or, by files &mdash; use `:<pattern>` to search for commits with file names that match `<pattern>` &mdash; See [Git docs](https://git-scm.com/docs/git-log 'Open Git docs')
+  - or, by commit id &mdash; use `#<sha>` to search for a commit with id of `<sha>` &mdash; See [Git docs](https://git-scm.com/docs/git-log#git-log-ltrevisionrangegt 'Open Git docs')
+  - or, by files &mdash; use `:<path/glob>` to search for commits with file names that match `<path/glob>` &mdash; See [Git docs](https://git-scm.com/docs/git-log---ltpathgt82308203 'Open Git docs')
   - or, by changes &mdash; use `~<pattern>` to search for commits with differences whose patch text contains added/removed lines that match `<pattern>` &mdash; See [Git docs](https://git-scm.com/docs/git-log#git-log--Gltregexgt 'Open Git docs')
   - or, by changed lines &mdash; use `=<string>` to search for commits with differences that change the number of occurrences of the specified string (i.e. addition/deletion) in a file &mdash; See [Git docs](https://git-scm.com/docs/git-log#git-log--Sltstringgt 'Open Git docs')
 

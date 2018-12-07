@@ -9,11 +9,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds control over the contributed menu commands to the Source Control side bar to the GitLens interactive settings editor (via the `gitlens.menus` setting)
+- Adds Git extended regex support to commit searches
 
 ### Changed
 
 - Changes the _Show Revision Details_ command (`gitlens.showQuickRevisionDetails`) to show file commit details
 - Changes the `alt`-command of the _Toggle File Blame Annotations_ command (`gitlens.toggleFileBlame`) to _Toggle File Heatmap Annotations_ command (`gitlens.toggleFileHeatmap`)
+- Changes searching for commits by message to be case-insensitive
 - Reworks the layout of some contributed menu command
 
 ### Fixed

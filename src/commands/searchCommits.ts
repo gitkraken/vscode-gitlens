@@ -100,7 +100,7 @@ export class SearchCommitsCommand extends ActiveEditorCachedCommand {
             args.search = await window.showInputBox({
                 value: args.search,
                 prompt: `Please enter a search string`,
-                placeHolder: `Search commits by message, author (@<pattern>), files (:<pattern>), commit id (#<sha>), changes (=<pattern>), changed lines (~<pattern>)`,
+                placeHolder: `Search commits by message, author (@<pattern>), files (:<path/glob>), commit id (#<sha>), changes (=<pattern>), changed lines (~<pattern>)`,
                 valueSelection: selection
             } as InputBoxOptions);
             if (args.search === undefined) {
