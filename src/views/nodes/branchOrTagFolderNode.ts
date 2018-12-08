@@ -7,6 +7,8 @@ import { BranchNode } from './branchNode';
 import { TagNode } from './tagNode';
 import { ResourceType, ViewNode } from './viewNode';
 
+const set = new Set();
+
 export class BranchOrTagFolderNode extends ViewNode {
     constructor(
         view: View,
@@ -22,7 +24,7 @@ export class BranchOrTagFolderNode extends ViewNode {
     }
 
     get id(): string {
-        return `gitlens:repository(${this.repoPath}):${this.type}-folder(${this.folderName})`;
+        return `gitlens:repository(${this.repoPath}):${this.type}-folder(${this.relativePath})`;
     }
 
     async getChildren(): Promise<ViewNode[]> {
