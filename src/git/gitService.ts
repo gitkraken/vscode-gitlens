@@ -502,13 +502,11 @@ export class GitService implements Disposable {
                 cancellable: true
             },
             async (progress, token) => {
-                const total = repositories.length + 1;
-                let i = 0;
+                const total = repositories.length;
                 for (const repo of repositories) {
-                    i++;
                     progress.report({
                         message: `${repo.formattedName}...`,
-                        increment: (i / total) * 100
+                        increment: 100 / total
                     });
 
                     if (token.isCancellationRequested) break;
@@ -532,13 +530,11 @@ export class GitService implements Disposable {
                 cancellable: true
             },
             async (progress, token) => {
-                const total = repositories.length + 1;
-                let i = 0;
+                const total = repositories.length;
                 for (const repo of repositories) {
-                    i++;
                     progress.report({
                         message: `${repo.formattedName}...`,
-                        increment: (i / total) * 100
+                        increment: 100 / total
                     });
 
                     if (token.isCancellationRequested) break;
@@ -562,13 +558,11 @@ export class GitService implements Disposable {
                 cancellable: true
             },
             async (progress, token) => {
-                const total = repositories.length + 1;
-                let i = 0;
+                const total = repositories.length;
                 for (const repo of repositories) {
-                    i++;
                     progress.report({
                         message: `${repo.formattedName}...`,
-                        increment: (i / total) * 100
+                        increment: 100 / total
                     });
 
                     if (token.isCancellationRequested) break;
