@@ -113,6 +113,18 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
             treeItem = (await searchTree).get(`/~/${path}`);
         }
         else {
+            if (path == null || path.length === 0) {
+                const tree = await this.getTree(path, ref, repoPath);
+                if (tree === undefined) throw FileSystemError.FileNotFound(uri);
+
+                return {
+                    type: FileType.Directory,
+                    size: 0,
+                    ctime: 0,
+                    mtime: 0
+                };
+            }
+
             treeItem = await Container.git.getTreeFileForRevision(repoPath, path, ref);
         }
 

@@ -505,7 +505,7 @@ export async function openEditor(
     const { rethrow, ...opts } = options;
     try {
         if (uri instanceof GitUri) {
-            uri = uri.documentUri({ noSha: true });
+            uri = uri.documentUri();
         }
 
         if (uri.scheme === DocumentSchemes.GitLens && ImageMimetypes[paths.extname(uri.fsPath)]) {

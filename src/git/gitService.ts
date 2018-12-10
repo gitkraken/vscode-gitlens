@@ -1871,7 +1871,7 @@ export class GitService implements Disposable {
 
     @log()
     async getTreeFileForRevision(repoPath: string, fileName: string, ref: string): Promise<GitTree | undefined> {
-        if (repoPath === undefined) return undefined;
+        if (repoPath === undefined || fileName == null || fileName.length === 0) return undefined;
 
         const data = await Git.ls_tree(repoPath, ref, { fileName: fileName });
         const trees = GitTreeParser.parse(data);
