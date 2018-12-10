@@ -592,7 +592,7 @@ export class Git {
     ) {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
-        const params = [...defaultLogParams];
+        const params = [...defaultLogParams, '-m'];
         if (options.maxCount && !options.reverse) {
             params.push(`-n${options.maxCount}`);
         }
@@ -624,20 +624,6 @@ export class Git {
             '-M',
             '-n1',
             '--format=%H',
-            '--',
-            fileName
-        );
-        return data.length === 0 ? undefined : data.trim();
-    }
-
-    static async log_resolve(repoPath: string, fileName: string, ref: string) {
-        const data = await git<string>(
-            { cwd: repoPath, errors: GitErrorHandling.Ignore },
-            'log',
-            '-M',
-            '-n1',
-            '--format=%H',
-            ref,
             '--',
             fileName
         );

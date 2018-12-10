@@ -57,8 +57,9 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
                 }
 
                 // If we are in a diff editor, assume we are on the right side, and need to move back 2 revisions
+                const originalSha = sha;
                 if (args.inDiffEditor && sha !== undefined) {
-                    sha = sha + '^';
+                    sha = `${sha}^`;
                 }
 
                 args.commit = undefined;
@@ -81,7 +82,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
                     // Check for renames
                     log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
                         maxCount: 3,
-                        ref: sha.substring(0, sha.length - 1),
+                        ref: originalSha,
                         renames: true
                     });
 
@@ -92,6 +93,10 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
                     args.commit =
                         Iterables.next(Iterables.skip(log.commits.values(), 1)) ||
                         Iterables.first(log.commits.values());
+
+                    if (args.commit.sha === originalSha) {
+                        return Messages.showCommitHasNoPreviousCommitWarningMessage();
+                    }
                 }
 
                 // If the sha is missing (i.e. working tree), check the file status

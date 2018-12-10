@@ -300,7 +300,7 @@ export class GitLogParser {
                 entry.files || [],
                 entry.status,
                 originalFileName,
-                undefined,
+                `${entry.ref!}^`,
                 undefined,
                 entry.parentShas!
             );
@@ -312,8 +312,6 @@ export class GitLogParser {
         // }
 
         if (recentCommit !== undefined) {
-            recentCommit.previousSha = commit.sha;
-
             // If the commit sha's match (merge commit), just forward it along
             commit.nextSha = commit.sha !== recentCommit.sha ? recentCommit.sha : recentCommit.nextSha;
 

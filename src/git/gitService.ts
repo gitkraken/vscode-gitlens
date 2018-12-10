@@ -1471,10 +1471,46 @@ export class GitService implements Disposable {
                         }
 
                         Logger.debug(cc, `Cache ?: '${key}'`);
-                        const log = await cachedLog.item;
-                        if (log !== undefined && log.commits.has(options.ref)) {
+                        let log = await cachedLog.item;
+                        if (log !== undefined && !log.truncated && log.commits.has(options.ref)) {
                             Logger.debug(cc, `Cache hit: '${key}'`);
-                            return cachedLog.item;
+
+                            // Create a copy of the log starting at the requested commit
+                            let skip = true;
+                            let i = 0;
+                            const authors = new Map<string, GitAuthor>();
+                            const commits = new Map(
+                                Iterables.filterMap<[string, GitLogCommit], [string, GitLogCommit]>(
+                                    log.commits.entries(),
+                                    ([ref, c]) => {
+                                        if (skip) {
+                                            if (ref !== options.ref) return undefined;
+                                            skip = false;
+                                        }
+
+                                        i++;
+                                        if (options.maxCount !== undefined && i > options.maxCount) {
+                                            return undefined;
+                                        }
+
+                                        authors.set(c.author, log.authors.get(c.author)!);
+                                        return [ref, c];
+                                    }
+                                )
+                            );
+
+                            const opts = { ...options };
+                            log = {
+                                ...log,
+                                maxCount: options.maxCount,
+                                count: commits.size,
+                                commits: commits,
+                                authors: authors,
+                                query: (maxCount: number | undefined) =>
+                                    this.getLogForFile(repoPath, fileName, { ...opts, maxCount: maxCount })
+                            };
+
+                            return log;
                         }
                     }
                 }
@@ -2053,14 +2089,11 @@ export class GitService implements Disposable {
         const resolved = Git.isSha(ref) || !Git.isShaLike(ref) || ref.endsWith('^3');
         if (uri == null) return resolved ? ref : (await Git.revparse(repoPath, ref)) || ref;
 
-        const fileName = Strings.normalizePath(paths.relative(repoPath, uri.fsPath));
-
-        let resolvedRef;
-        if (!resolved) {
-            resolvedRef = await Git.log_resolve(repoPath, fileName, ref);
-        }
-
-        const ensuredRef = await Git.cat_file_validate(repoPath, fileName, resolvedRef || ref);
+        const ensuredRef = await Git.cat_file_validate(
+            repoPath,
+            Strings.normalizePath(paths.relative(repoPath, uri.fsPath)),
+            ref
+        );
         if (ensuredRef === undefined) return ref;
 
         return ensuredRef;
