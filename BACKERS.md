@@ -44,6 +44,7 @@ None currently &mdash; could be you or your company here!
 - Pelle Wessman
 - Raphael Schweikert
 - Stephen Kelley
+- Xananax
 - Øyvind de Freitas Sørensen
 
 <h2 align="center">Backers</h2>
