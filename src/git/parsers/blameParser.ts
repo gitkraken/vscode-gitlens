@@ -125,6 +125,9 @@ export class GitBlameParser {
                         );
                         relativeFileName = Strings.normalizePath(paths.relative(repoPath, fileName));
                     }
+                    else {
+                        relativeFileName = entry.fileName!;
+                    }
                     first = false;
 
                     GitBlameParser.parseEntry(entry, repoPath, relativeFileName, commits, authors, lines, currentUser);
@@ -159,7 +162,7 @@ export class GitBlameParser {
     private static parseEntry(
         entry: BlameEntry,
         repoPath: string | undefined,
-        fileName: string | undefined,
+        relativeFileName: string,
         commits: Map<string, GitBlameCommit>,
         authors: Map<string, GitAuthor>,
         lines: GitCommitLine[],
@@ -197,8 +200,8 @@ export class GitBlameParser {
                 entry.authorEmail,
                 new Date((entry.authorDate as any) * 1000),
                 entry.summary!,
-                fileName!,
-                fileName !== entry.fileName ? entry.fileName : undefined,
+                relativeFileName,
+                relativeFileName !== entry.fileName ? entry.fileName : undefined,
                 entry.previousSha,
                 entry.previousSha && entry.previousFileName,
                 []

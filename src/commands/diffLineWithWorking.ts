@@ -76,7 +76,7 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
             },
             rhs: {
                 sha: '',
-                uri: args.commit.uri
+                uri: args.commit.workingUri
             },
             line: args.line,
             showOptions: args.showOptions
