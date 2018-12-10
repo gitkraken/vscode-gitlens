@@ -2061,7 +2061,7 @@
             },
             {
                 "command": "gitlens.views.exploreRepoRevision",
-                "title": "Explore the Repository from Here",
+                "title": "Explore Repository from Here",
                 "category": "GitLens"
             },
             {

@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Changes the _Show Revision Details_ command (`gitlens.showQuickRevisionDetails`) to show file commit details
 - Changes the `alt`-command of the _Toggle File Blame Annotations_ command (`gitlens.toggleFileBlame`) to _Toggle File Heatmap Annotations_ command (`gitlens.toggleFileHeatmap`)
 - Changes searching for commits by message to be case-insensitive
+- Renames the _Explore the Repository from Here_ command (`gitlens.views.exploreRepoRevision`) to _Explore Repository from Here_
 - Reworks the layout of some contributed menu command
 
 ### Fixed
