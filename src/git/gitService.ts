@@ -1906,13 +1906,7 @@ export class GitService implements Disposable {
         }
 
         if (Git.isStagedUncommitted(ref)) {
-            const path = GitUri.resolve(fileName, repoPath);
-            return Uri.parse(
-                `git:${path}?${JSON.stringify({
-                    path: path,
-                    ref: '~'
-                })}`
-            );
+            return GitUri.git(fileName, repoPath);
         }
 
         return GitUri.toRevisionUri(ref, fileName, repoPath!);

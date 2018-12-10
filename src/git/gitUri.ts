@@ -323,6 +323,17 @@ export class GitUri extends ((Uri as any) as UriEx) {
         return Strings.normalizePath(relativePath);
     }
 
+    static git(fileName: string, repoPath?: string) {
+        const path = GitUri.resolve(fileName, repoPath);
+        return Uri.parse(
+            `git:${path}?${JSON.stringify({
+                // Ensure we use the fsPath here, otherwise the url won't open properly
+                path: Uri.file(path).fsPath,
+                ref: '~'
+            })}`
+        );
+    }
+
     static resolve(fileName: string, repoPath?: string) {
         const normalizedFileName = Strings.normalizePath(fileName);
         if (repoPath === undefined) return normalizedFileName;

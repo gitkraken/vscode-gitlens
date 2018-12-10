@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes an issue where gravatar icons would sometimes not show up &mdash; thanks to [PR #579](https://github.com/eamodio/vscode-gitlens/pull/579) by sgtwilko ([@sgtwilko](https://github.com/sgtwilko))
 - Fixes [#501](https://github.com/eamodio/vscode-gitlens/issues/501) &mdash; Azure DevOps ssh remotes aren't handled properly
 - Fixes [#572](https://github.com/eamodio/vscode-gitlens/issues/572) &mdash; Explorer cant expand some branch folders
+- Fixes an issue where comparing a file with its staged revision doesn't show any content
 
 ## [9.0.3] - 2018-12-06
 
