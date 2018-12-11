@@ -33,6 +33,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#566](https://github.com/eamodio/vscode-gitlens/issues/566) &mdash; History error with UNC
 - Fixes [#572](https://github.com/eamodio/vscode-gitlens/issues/572) &mdash; Explorer cant expand some branch folders
 - Fixes [#584](https://github.com/eamodio/vscode-gitlens/issues/584) &mdash; Unexpected results when opening diff from file history
+- Fixes [#588](https://github.com/eamodio/vscode-gitlens/issues/588) &mdash; Output channel doesn't exist with `gitlens.outputLevel` default
 - Fixes an issue where comparing a file with its staged revision doesn't show any content
 - Fixes an issue where the workspace folder added by the _Explore Repository from Here_ command (`gitlens.views.exploreRepoRevision`) would fail to load in certain cases
 
