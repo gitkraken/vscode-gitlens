@@ -13,6 +13,9 @@ export * from './models/models';
 export * from './parsers/parsers';
 export * from './remotes/provider';
 
+// This is a root sha of all git repo's if using sha1
+const rootSha = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
+
 const defaultBlameParams = ['blame', '--root', '--incremental'];
 
 // Using %x00 codes because some shells seem to try to expand things if not
@@ -52,7 +55,7 @@ const stashFormat = [
 const defaultStashParams = ['stash', 'list', '--name-status', '-M', `--format=${stashFormat}`];
 
 const GitErrors = {
-    badRevision: /bad revision \'.*?\'/i,
+    badRevision: /bad revision \'(.*?)\'/i,
     notAValidObjectName: /Not a valid object name/i
 };
 
@@ -477,9 +480,23 @@ export class Git {
         return data.length === 0 ? undefined : data.trim();
     }
 
-    static diff(repoPath: string, fileName: string, ref1?: string, ref2?: string, options: { encoding?: string } = {}) {
-        const params = ['diff', '--diff-filter=M', '-M', '--no-ext-diff', '--minimal'];
+    static async diff(
+        repoPath: string,
+        fileName: string,
+        ref1?: string,
+        ref2?: string,
+        options: { encoding?: string; filter?: string } = {}
+    ): Promise<string> {
+        const params = ['diff', '-M', '--no-ext-diff', '--minimal'];
+        if (options.filter) {
+            params.push(`--diff-filter=${options.filter}`);
+        }
+
         if (ref1) {
+            // <sha>^3 signals an untracked file in a stash and if we are trying to find its parent, use the root sha
+            if (ref1.endsWith('^3^')) {
+                ref1 = rootSha;
+            }
             params.push(Git.isStagedUncommitted(ref1) ? '--staged' : ref1);
         }
         if (ref2) {
@@ -487,12 +504,28 @@ export class Git {
         }
 
         const encoding: BufferEncoding = options.encoding === 'utf8' ? 'utf8' : 'binary';
-        return git<string>(
-            { cwd: repoPath, configs: ['-c', 'color.diff=false'], encoding: encoding },
-            ...params,
-            '--',
-            fileName
-        );
+
+        try {
+            return await git<string>(
+                { cwd: repoPath, configs: ['-c', 'color.diff=false'], encoding: encoding },
+                ...params,
+                '--',
+                fileName
+            );
+        }
+        catch (ex) {
+            const match = GitErrors.badRevision.exec(ex.message);
+            if (match !== null) {
+                const [, ref] = match;
+
+                // If the bad ref is trying to find a parent ref, assume we hit to the last commit, so try again using the root sha
+                if (ref === ref1 && ref.endsWith('^')) {
+                    return Git.diff(repoPath, fileName, rootSha, ref2, options);
+                }
+            }
+
+            throw ex;
+        }
     }
 
     static diff_nameStatus(repoPath: string, ref1?: string, ref2?: string, options: { filter?: string } = {}) {

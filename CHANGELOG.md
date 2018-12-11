@@ -36,6 +36,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#588](https://github.com/eamodio/vscode-gitlens/issues/588) &mdash; Output channel doesn't exist with `gitlens.outputLevel` default
 - Fixes an issue where comparing a file with its staged revision doesn't show any content
 - Fixes an issue where the workspace folder added by the _Explore Repository from Here_ command (`gitlens.views.exploreRepoRevision`) would fail to load in certain cases
+- Fixes an issue where applying changes of an added file or an untracked file (in a stash) would fail
 
 ## [9.0.3] - 2018-12-06
 

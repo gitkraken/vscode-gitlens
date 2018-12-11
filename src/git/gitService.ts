@@ -1205,7 +1205,7 @@ export class GitService implements Disposable {
         const [file, root] = Git.splitPath(fileName, repoPath, false);
 
         try {
-            const data = await Git.diff(root, file, ref1, ref2, options);
+            const data = await Git.diff(root, file, ref1, ref2, { ...options, filter: 'M' });
             const diff = GitDiffParser.parse(data);
             return diff;
         }
