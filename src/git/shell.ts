@@ -148,7 +148,7 @@ export function run<TOut extends string | Buffer>(
                                 ? `Command output exceeded the allocated stdout buffer. Set 'options.maxBuffer' to a larger value than ${
                                       opts.maxBuffer
                                   } bytes`
-                                : stderr
+                                : stderr || stdout
                         )
                     );
 
