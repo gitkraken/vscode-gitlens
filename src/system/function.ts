@@ -76,27 +76,39 @@ export namespace Functions {
         return tracked;
     }
 
+    const comma = ',';
+    const empty = '';
+    const equals = '=';
+    const openBrace = '{';
+    const openParen = '(';
+    const closeParen = ')';
+
+    const fnBodyRegex = /\(([\s\S]*)\)/;
+    const fnBodyStripCommentsRegex = /(\/\*([\s\S]*?)\*\/|([^:]|^)\/\/(.*)$)/gm;
+    const fnBodyStripParamDefaultValueRegex = /\s?=.*$/;
+
     export function getParameters(fn: Function): string[] {
         if (typeof fn !== 'function') throw new Error('Not supported');
 
         if (fn.length === 0) return [];
 
-        const stripCommentsRegex = /(\/\*([\s\S]*?)\*\/|([^:]|^)\/\/(.*)$)/gm;
         let fnBody: string = Function.prototype.toString.call(fn);
-        fnBody = fnBody.replace(stripCommentsRegex, '') || fnBody;
-        fnBody = fnBody.slice(0, fnBody.indexOf('{'));
+        fnBody = fnBody.replace(fnBodyStripCommentsRegex, empty) || fnBody;
+        fnBody = fnBody.slice(0, fnBody.indexOf(openBrace));
 
-        let open = fnBody.indexOf('(');
-        let close = fnBody.indexOf(')');
+        let open = fnBody.indexOf(openParen);
+        let close = fnBody.indexOf(closeParen);
 
         open = open >= 0 ? open + 1 : 0;
-        close = close > 0 ? close : fnBody.indexOf('=');
+        close = close > 0 ? close : fnBody.indexOf(equals);
 
         fnBody = fnBody.slice(open, close);
         fnBody = `(${fnBody})`;
 
-        const match = fnBody.match(/\(([\s\S]*)\)/);
-        return match != null ? match[1].split(',').map(param => param.trim()) : [];
+        const match = fnBody.match(fnBodyRegex);
+        return match != null
+            ? match[1].split(comma).map(param => param.trim().replace(fnBodyStripParamDefaultValueRegex, empty))
+            : [];
     }
 
     export function isPromise(o: any): o is Promise<any> {
