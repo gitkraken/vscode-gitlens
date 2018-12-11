@@ -1,30 +1,40 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
-import { GitStatus, GitUri } from '../../git/gitService';
+import { GitTrackingState, GitUri } from '../../git/gitService';
 import { Iterables, Strings } from '../../system';
 import { View } from '../viewBase';
 import { CommitNode } from './commitNode';
 import { ShowMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
-import { RepositoryNode } from './repositoryNode';
 import { PageableViewNode, ResourceType, ViewNode } from './viewNode';
 
-export class StatusUpstreamNode extends ViewNode implements PageableViewNode {
+export interface BranchTrackingStatus {
+    ref: string;
+    repoPath: string;
+    state: GitTrackingState;
+    upstream?: string;
+}
+
+export class BranchTrackingStatusNode extends ViewNode implements PageableViewNode {
     readonly supportsPaging: boolean = true;
     maxCount: number | undefined;
 
     constructor(
         view: View,
-        parent: RepositoryNode,
-        public readonly status: GitStatus,
-        public readonly direction: 'ahead' | 'behind'
+        parent: ViewNode,
+        public readonly status: BranchTrackingStatus,
+        public readonly direction: 'ahead' | 'behind',
+        // Specifies that the node is shown as a root under the repository node
+        private readonly _root: boolean = false
     ) {
         super(GitUri.fromRepoPath(status.repoPath), view, parent);
     }
 
     get id(): string {
-        return `gitlens:repository(${this.status.repoPath}):status:upstream:${this.direction}`;
+        return `gitlens:repository(${this.status.repoPath}):${this._root ? 'root:' : ''}branch(${
+            this.status.ref
+        }):status:upstream:(${this.status.upstream}):${this.direction}`;
     }
 
     async getChildren(): Promise<ViewNode[]> {
@@ -77,7 +87,14 @@ export class StatusUpstreamNode extends ViewNode implements PageableViewNode {
 
         const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
         item.id = this.id;
-        item.contextValue = ahead ? ResourceType.StatusAheadOfUpstream : ResourceType.StatusBehindUpstream;
+        if (this._root) {
+            item.contextValue = ahead ? ResourceType.StatusAheadOfUpstream : ResourceType.StatusBehindUpstream;
+        }
+        else {
+            item.contextValue = ahead
+                ? ResourceType.BranchStatusAheadOfUpstream
+                : ResourceType.BranchStatusBehindUpstream;
+        }
         item.tooltip = `${label}${ahead ? ' of ' : ''}${this.status.upstream}`;
 
         const iconSuffix = ahead ? 'upload' : 'download';

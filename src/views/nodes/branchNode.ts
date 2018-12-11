@@ -6,6 +6,7 @@ import { Container } from '../../container';
 import { GitBranch, GitUri } from '../../git/gitService';
 import { Iterables } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
+import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
 import { CommitNode } from './commitNode';
 import { MessageNode, ShowMoreNode } from './common';
 import { getBranchesAndTagTipsFn, insertDateMarkers } from './helpers';
@@ -22,15 +23,16 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
         view: RepositoriesView,
         parent: ViewNode,
         public readonly branch: GitBranch,
-        private readonly _markCurrent: boolean = true
+        // Specifies that the node is shown as a root under the repository node
+        private readonly _root: boolean = false
     ) {
         super(uri, view, parent);
     }
 
     get id(): string {
-        return `gitlens:repository(${this.branch.repoPath}):branch(${this.branch.name})${
+        return `gitlens:repository(${this.branch.repoPath}):${this._root ? 'root:' : ''}branch(${this.branch.name})${
             this.branch.remote ? ':remote' : ''
-        }${this._markCurrent ? ':current' : ''}`;
+        }`;
     }
 
     get current(): boolean {
@@ -50,6 +52,24 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 
     async getChildren(): Promise<ViewNode[]> {
         if (this._children === undefined) {
+            const children = [];
+            if (!this._root && this.branch.tracking) {
+                const status = {
+                    ref: this.branch.ref,
+                    repoPath: this.branch.repoPath,
+                    state: this.branch.state,
+                    upstream: this.branch.tracking
+                };
+
+                if (this.branch.state.behind) {
+                    children.push(new BranchTrackingStatusNode(this.view, this, status, 'behind'));
+                }
+
+                if (this.branch.state.ahead) {
+                    children.push(new BranchTrackingStatusNode(this.view, this, status, 'ahead'));
+                }
+            }
+
             const log = await Container.git.getLog(this.uri.repoPath!, {
                 maxCount: this.maxCount || this.view.config.defaultItemLimit,
                 ref: this.ref
@@ -57,7 +77,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
             if (log === undefined) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
             const getBranchAndTagTips = await getBranchesAndTagTipsFn(this.uri.repoPath, this.branch.name);
-            const children = [
+            children.push(
                 ...insertDateMarkers(
                     Iterables.map(
                         log.commits.values(),
@@ -65,7 +85,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
                     ),
                     this
                 )
-            ];
+            );
 
             if (log.truncated) {
                 children.push(new ShowMoreNode(this.view, this, 'Commits'));
@@ -104,7 +124,8 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
         }
 
         const item = new TreeItem(
-            `${this._markCurrent && this.current ? `${GlyphChars.Check} ${GlyphChars.Space}` : ''}${name}`,
+            // Hide the current branch checkmark when the node is displayed as a root under the repository node
+            `${!this._root && this.current ? `${GlyphChars.Check} ${GlyphChars.Space}` : ''}${name}`,
             TreeItemCollapsibleState.Collapsed
         );
         item.id = this.id;

@@ -3,13 +3,8 @@ import { Uri } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Strings } from '../../system';
 import { GitUri } from '../gitUri';
-import { GitBranch } from './branch';
+import { GitBranch, GitTrackingState } from './branch';
 import { GitFile, GitFileStatus } from './file';
-
-export interface GitStatusUpstreamState {
-    ahead: number;
-    behind: number;
-}
 
 export class GitStatus {
     readonly detached: boolean;
@@ -19,7 +14,7 @@ export class GitStatus {
         public readonly branch: string,
         public readonly sha: string,
         public readonly files: GitStatusFile[],
-        public readonly state: GitStatusUpstreamState,
+        public readonly state: GitTrackingState,
         public readonly upstream?: string
     ) {
         this.detached = GitBranch.isDetached(branch);

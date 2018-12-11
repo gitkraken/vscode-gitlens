@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds more detailed branch tracking status (if available) to the **Branches** list in the _Repositories_ view
+  - **\* Commits Behind** &mdash; quickly see and explore the specific commits behind the upstream (i.e. commits that haven't been pulled)
+    - Only provided if the current branch is tracking a remote branch and is behind it
+  - **\* Commits Ahead** &mdash; quickly see and explore the specific commits ahead of the upstream (i.e. commits that haven't been pushed)
+    - Only provided if the current branch is tracking a remote branch and is ahead of it
 - Adds control over the contributed menu commands to the Source Control side bar to the GitLens interactive settings editor (via the `gitlens.menus` setting)
 - Adds Git extended regex support to commit searches
 

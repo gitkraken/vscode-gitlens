@@ -15,11 +15,11 @@ import { Dates, debug, Functions, gate, log, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { BranchesNode } from './branchesNode';
 import { BranchNode } from './branchNode';
+import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
 import { MessageNode } from './common';
 import { RemotesNode } from './remotesNode';
 import { StashesNode } from './stashesNode';
 import { StatusFilesNode } from './statusFilesNode';
-import { StatusUpstreamNode } from './statusUpstreamNode';
 import { TagsNode } from './tagsNode';
 import { ResourceType, SubscribeableViewNode, ViewNode } from './viewNode';
 
@@ -59,14 +59,14 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
                     status.state.behind,
                     status.detached
                 );
-                children.push(new BranchNode(this.uri, this.view, this, branch, false));
+                children.push(new BranchNode(this.uri, this.view, this, branch, true));
 
                 if (status.state.behind) {
-                    children.push(new StatusUpstreamNode(this.view, this, status, 'behind'));
+                    children.push(new BranchTrackingStatusNode(this.view, this, status, 'behind', true));
                 }
 
                 if (status.state.ahead) {
-                    children.push(new StatusUpstreamNode(this.view, this, status, 'ahead'));
+                    children.push(new BranchTrackingStatusNode(this.view, this, status, 'ahead', true));
                 }
 
                 if (status.state.ahead || (status.files.length !== 0 && this.includeWorkingTree)) {

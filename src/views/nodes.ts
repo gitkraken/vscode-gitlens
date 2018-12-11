@@ -3,6 +3,7 @@
 export * from './nodes/viewNode';
 export * from './nodes/branchesNode';
 export * from './nodes/branchNode';
+export * from './nodes/branchTrackingStatusNode';
 export * from './nodes/commitFileNode';
 export * from './nodes/commitNode';
 export * from './nodes/fileHistoryNode';
@@ -24,6 +25,5 @@ export * from './nodes/stashFileNode';
 export * from './nodes/stashNode';
 export * from './nodes/statusFileNode';
 export * from './nodes/statusFilesNode';
-export * from './nodes/statusUpstreamNode';
 export * from './nodes/tagsNode';
 export * from './nodes/tagNode';

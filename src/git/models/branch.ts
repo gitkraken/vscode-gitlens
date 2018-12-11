@@ -2,15 +2,17 @@
 import { Git } from '../git';
 import { GitStatus } from './status';
 
+export interface GitTrackingState {
+    ahead: number;
+    behind: number;
+}
+
 export class GitBranch {
     readonly detached: boolean;
     readonly name: string;
     readonly remote: boolean;
     readonly tracking?: string;
-    readonly state: {
-        ahead: number;
-        behind: number;
-    };
+    readonly state: GitTrackingState;
 
     constructor(
         public readonly repoPath: string,

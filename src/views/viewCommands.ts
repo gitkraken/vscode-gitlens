@@ -19,6 +19,7 @@ import { GitService, GitUri } from '../git/gitService';
 import { Arrays } from '../system';
 import {
     BranchNode,
+    BranchTrackingStatusNode,
     canDismissNode,
     CommitFileNode,
     CommitNode,
@@ -28,7 +29,6 @@ import {
     StashFileNode,
     StashNode,
     StatusFileNode,
-    StatusUpstreamNode,
     TagNode,
     ViewNode,
     ViewRefNode
@@ -134,8 +134,8 @@ export class ViewCommands implements Disposable {
         return;
     }
 
-    private pull(node: RepositoryNode | StatusUpstreamNode) {
-        if (node instanceof StatusUpstreamNode) {
+    private pull(node: RepositoryNode | BranchTrackingStatusNode) {
+        if (node instanceof BranchTrackingStatusNode) {
             node = node.getParent() as RepositoryNode;
         }
         if (!(node instanceof RepositoryNode)) return;
@@ -143,8 +143,8 @@ export class ViewCommands implements Disposable {
         return node.pull();
     }
 
-    private push(node: RepositoryNode | StatusUpstreamNode, force?: boolean) {
-        if (node instanceof StatusUpstreamNode) {
+    private push(node: RepositoryNode | BranchTrackingStatusNode, force?: boolean) {
+        if (node instanceof BranchTrackingStatusNode) {
             node = node.getParent() as RepositoryNode;
         }
         if (!(node instanceof RepositoryNode)) return;
@@ -502,13 +502,13 @@ export class ViewCommands implements Disposable {
         this.sendTerminalCommand('rebase', `-i ${node.ref}`, node.repoPath);
     }
 
-    terminalRebaseBranchToRemote(node: BranchNode | StatusUpstreamNode) {
+    terminalRebaseBranchToRemote(node: BranchNode | BranchTrackingStatusNode) {
         if (node instanceof BranchNode) {
             if (!node.branch.current || !node.branch.tracking) return;
 
             this.sendTerminalCommand('rebase', `-i ${node.branch.tracking}`, node.repoPath);
         }
-        else if (node instanceof StatusUpstreamNode) {
+        else if (node instanceof BranchTrackingStatusNode) {
             this.sendTerminalCommand('rebase', `-i ${node.status.upstream}`, node.status.repoPath);
         }
     }

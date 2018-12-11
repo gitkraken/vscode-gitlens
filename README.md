@@ -329,6 +329,10 @@ The repositories view provides the following features,
     - An inline toolbar provides quick access to the _Checkout_, _Compare with Remote_ (if available), _Compare with HEAD_ (`alt-click` for _Compare with Working Tree_), and _Open Branch on Remote_ (if available) commands
     - A context menu provides access to more common branch commands
     - Each branch expands to list its revision (commit) history
+      - **\* Commits Behind** &mdash; quickly see and explore the specific commits behind the upstream (i.e. commits that haven't been pulled)
+        - Only provided if the current branch is tracking a remote branch and is behind it
+      - **\* Commits Ahead** &mdash; quickly see and explore the specific commits ahead of the upstream (i.e. commits that haven't been pushed)
+        - Only provided if the current branch is tracking a remote branch and is ahead of it
       - An inline toolbar provides quick access to the _Compare with HEAD_ (`alt-click` for _Compare with Working Tree_), _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open Commit on Remote_ (if available) commands
       - A context menu provides access to more common revision (commit) commands
       - Each revision (commit) expands to list its set of changed files, complete with status indicators for adds, changes, renames, and deletes
