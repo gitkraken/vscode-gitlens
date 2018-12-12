@@ -151,14 +151,13 @@ export class Annotations {
                 break;
             }
 
-            message
+            message = `\n\n> ${message
                 // Escape markdown
                 .replace(escapeMarkdownRegex, '\\$&')
                 // Escape markdown header (since the above regex won't match it)
                 .replace(/^===/gm, markdownHeaderReplacement)
-                // Keep under the same block-quote
-                .replace(/\n/g, '  \n');
-            message = `\n\n> ${message}`;
+                // Keep under the same block-quote but with line breaks
+                .replace(/\n/g, '\t\n>  ')}`;
         }
         else {
             showCommitDetailsCommand = `\`${commit.shortSha === 'Working Tree' ? '00000000' : commit.shortSha}\``;
