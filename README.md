@@ -350,7 +350,7 @@ The repositories view provides the following features,
 - **Stashes** &mdash; lists the stashed changes in the repository
 
   - An inline toolbar provides quick access to the _Apply Stash Changes_, and _Stash Changes_ commands
-  - Provides the name of each stashed changes
+  - Provides the name of each stashed changes, the date, and an indicator (+x ~x -x) of the changes
     - An inline toolbar provides quick access to the _Compare with HEAD_ (`alt-click` for _Compare with Working Tree_), _Apply Stashed Changes_, and _Delete Stashed Changes_ commands
     - A context menu provides access to more common stashed changes commands
     - Each stashed changes expands to list the set of stashed files, complete with status indicators for adds, changes, renames, and deletes

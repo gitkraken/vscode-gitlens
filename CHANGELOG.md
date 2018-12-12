@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
     - Only provided if the current branch is tracking a remote branch and is ahead of it
 - Adds control over the contributed menu commands to the Source Control side bar to the GitLens interactive settings editor (via the `gitlens.menus` setting)
 - Adds Git extended regex support to commit searches
+- Adds the date and a changes indicator (+x ~x -x) to stashes in GitLens views (uses the new `${changes}` token in the `gitlens.views.stashFormat` setting)
 
 ### Changed
 

@@ -1475,7 +1475,7 @@
                 },
                 "gitlens.views.stashFormat": {
                     "type": "string",
-                    "default": "${message}",
+                    "default": "${message}  •  ${agoOrDate}${  •  changes}",
                     "markdownDescription": "Specifies the format of stashed changes in the views. See the [GitLens docs](https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting) for advanced formatting\n- Available tokens\n - `${id}` &mdash; commit id\n - `${author}` &mdash; commit author\n - `${message}` &mdash; commit message\n - `${ago}` &mdash; relative commit date (e.g. 1 day ago)\n - `${date}` &mdash; formatted commit date (format specified by `#gitlens.statusBar.dateFormat#`)\n - `${agoOrDate}` &mdash; commit date specified by `#gitlens.defaultDateStyle#`\n - `${authorAgo}` &mdash; commit author, relative commit date\n - `${authorAgoOrDate}` &mdash; commit author, commit date specified by `#gitlens.defaultDateStyle#`",
                     "scope": "window"
                 },
