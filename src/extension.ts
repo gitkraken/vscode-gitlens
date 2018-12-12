@@ -293,7 +293,7 @@ async function showWelcomePage(version: string, previousVersion: string | undefi
         return;
     }
 
-    if (Container.config.showWhatsNewAfterUpgrades) {
+    if (Container.config.showWhatsNewAfterUpgrades && major !== prevMajor) {
         await commands.executeCommand(Commands.ShowWelcomePage);
     }
     else {
