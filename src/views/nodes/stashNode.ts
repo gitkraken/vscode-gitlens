@@ -28,6 +28,7 @@ export class StashNode extends ViewRefNode {
         const files = (this.commit as GitStashCommit).files;
 
         // Check for any untracked files -- since git doesn't return them via `git stash list` :(
+        // See https://stackoverflow.com/questions/12681529/
         const log = await Container.git.getLog(this.commit.repoPath, {
             maxCount: 1,
             ref: `${(this.commit as GitStashCommit).stashName}^3`
