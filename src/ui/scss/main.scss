@@ -885,7 +885,7 @@ ul {
 
 .section-group__content {
     flex: auto 1 1;
-    min-width: 0;
+    min-width: 410px;
 }
 
 .section-group__content--full-scroll {
@@ -914,9 +914,9 @@ ul {
 
 .section-group__sidebar--welcome {
     flex: 196px 0 0;
-    margin: 1em 0 0 0.5em;
+    margin: 1em 1em 0 0.5em;
 
-    @media all and (max-width: 560px) {
+    @media all and (max-width: 616px) {
         display: none;
     }
 }
