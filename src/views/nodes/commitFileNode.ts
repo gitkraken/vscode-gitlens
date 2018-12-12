@@ -143,10 +143,11 @@ export class CommitFileNode extends ViewRefNode {
     get tooltip() {
         if (this._tooltip === undefined) {
             if (this._displayAs & CommitFileNodeDisplayAs.CommitLabel) {
+                const status = StatusFileFormatter.fromTemplate('${status}', this.file);
                 this._tooltip = CommitFormatter.fromTemplate(
                     this.commit.isUncommitted
-                        ? `\${author} ${GlyphChars.Dash} \${id}\n\${ago} (\${date})`
-                        : `\${author} ${GlyphChars.Dash} \${id}\n\${ago} (\${date})\n\n\${message}`,
+                        ? `\${author} ${GlyphChars.Dash} \${id}\n${status}\n\${ago} (\${date})`
+                        : `\${author} ${GlyphChars.Dash} \${id}\n${status}\n\${ago} (\${date})\n\n\${message}`,
                     this.commit,
                     {
                         dateFormat: Container.config.defaultDateFormat

@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds control over the contributed menu commands to the Source Control side bar to the GitLens interactive settings editor (via the `gitlens.menus` setting)
 - Adds Git extended regex support to commit searches
 - Adds the date and a changes indicator (+x ~x -x) to stashes in GitLens views (uses the new `${changes}` token in the `gitlens.views.stashFormat` setting)
+- Adds the changed file status (added, modified, renamed, deleted, etc) to the tooltip of each revision in the _File History_ and _Line History_ views
 
 ### Changed
 
