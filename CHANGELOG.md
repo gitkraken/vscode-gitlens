@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [9.1.0] - 2018-12-12
 
 ### Added
 
@@ -13,18 +13,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
     - Only provided if the current branch is tracking a remote branch and is behind it
   - **\* Commits Ahead** &mdash; quickly see and explore the specific commits ahead of the upstream (i.e. commits that haven't been pushed)
     - Only provided if the current branch is tracking a remote branch and is ahead of it
-- Adds control over the contributed menu commands to the Source Control side bar to the GitLens interactive settings editor (via the `gitlens.menus` setting)
-- Adds Git extended regex support to commit searches
-- Adds the date and a changes indicator (+x ~x -x) to stashes in GitLens views (uses the new `${changes}` token in the `gitlens.views.stashFormat` setting)
+- Adds the date and a changes indicator (+x ~x -x) to stashed changes in GitLens views (uses the new `${changes}` token in the `gitlens.views.stashFormat` setting)
 - Adds the changed file status (added, modified, renamed, deleted, etc) to the tooltip of each revision in the _File History_ and _Line History_ views
+- Adds Git extended regex support to commit searches
+- Adds control over the menu commands contributed to the Source Control side bar to the GitLens interactive settings editor (via the `gitlens.menus` setting)
 
 ### Changed
 
 - Changes the _Show Revision Details_ command (`gitlens.showQuickRevisionDetails`) to show file commit details
-- Changes the `alt`-command of the _Toggle File Blame Annotations_ command (`gitlens.toggleFileBlame`) to _Toggle File Heatmap Annotations_ command (`gitlens.toggleFileHeatmap`)
+- Changes the `alt`-command of the _Toggle File Blame Annotations_ command (`gitlens.toggleFileBlame`) to be the _Toggle File Heatmap Annotations_ command (`gitlens.toggleFileHeatmap`)
 - Changes searching for commits by message to be case-insensitive
 - Renames the _Explore the Repository from Here_ command (`gitlens.views.exploreRepoRevision`) to _Explore Repository from Here_
-- Reworks the layout of some contributed menu command
+- Reworks the layout of some contributed menu commands
 
 ### Fixed
 
@@ -34,7 +34,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#523](https://github.com/eamodio/vscode-gitlens/issues/523) &mdash; File History doesn't show all commits on file
 - Fixes [#552](https://github.com/eamodio/vscode-gitlens/issues/552) &mdash; "Open Line Changes with..." doesn't work for renamed files
 - Fixes [#566](https://github.com/eamodio/vscode-gitlens/issues/566) &mdash; History error with UNC
-- Fixes [#572](https://github.com/eamodio/vscode-gitlens/issues/572) &mdash; Explorer cant expand some branch folders
+- Fixes [#572](https://github.com/eamodio/vscode-gitlens/issues/572) &mdash; Explorer can't expand some branch folders
 - Fixes [#584](https://github.com/eamodio/vscode-gitlens/issues/584) &mdash; Unexpected results when opening diff from file history
 - Fixes [#588](https://github.com/eamodio/vscode-gitlens/issues/588) &mdash; Output channel doesn't exist with `gitlens.outputLevel` default
 - Fixes an issue where comparing a file with its staged revision doesn't show any content

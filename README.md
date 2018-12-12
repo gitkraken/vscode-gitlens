@@ -31,8 +31,6 @@ Also please [write a review](https://marketplace.visualstudio.com/items?itemName
 
 # What's new in GitLens 9
 
-## 9.0 &mdash; December 2018
-
 - Adds GitLens over Visual Studio Live Share
   - Live Share guests will now have read-only access to GitLens' features
 - Adds a new Git virtual file system provider for the `gitlens:` scheme &mdash; closes [#430](https://github.com/eamodio/vscode-gitlens/issues/430)
@@ -48,25 +46,7 @@ Also please [write a review](https://marketplace.visualstudio.com/items?itemName
   - Provides somewhat similar features to the former _Results_ view as well as it is now a persistent view, makes it easier to start a commit search, and [more](https://github.com/eamodio/vscode-gitlens/tree/master/#search-commits-view- 'Jump to the Search Commits view docs')
 - Adds an all-new [_Compare_ view](https://github.com/eamodio/vscode-gitlens/tree/master/#compare-view- 'Jump to the Compare view docs') to visualize comparisons between branches, tags, commits, and more
   - Provides somewhat similar and powerful features to the former _Results_ view as well as it is now a persistent view, makes it easier to start a comparison, and [more](https://github.com/eamodio/vscode-gitlens/tree/master/#compare-view- 'Jump to the Compare view docs')
-- Reduces the overhead of all GitLens views &mdash; GitLens now only tracks changes and updates the views if they are visible, collapsed or hidden views should have almost zero overhead
-- Adds relative date markers (_Less than a week ago_, _Over a week ago_, _Over a month ago_, etc) to revision (commit) histories in GitLens views
-- Adds branch and tag tip markers to revision (commit) histories in GitLens views &mdash; closes [#560](https://github.com/eamodio/vscode-gitlens/issues/560)
-- Adds a changes indicator (+x ~x -x) to commits in GitLens views (uses the new `${changes}` token in the `gitlens.views.commitFormat` setting) &mdash; closes [#493](https://github.com/eamodio/vscode-gitlens/issues/493)
-- Adds comparisions to commit ids, by prefixing with a `#`, in addition to branches and tags &mdash; closes [#535](https://github.com/eamodio/vscode-gitlens/issues/535)
-- Adds support for git mailmap &mdash; closes [#388](https://github.com/eamodio/vscode-gitlens/issues/388)
-- Adds support for Azure DevOps (formerly VSTS) remotes &mdash; closes [#501](https://github.com/eamodio/vscode-gitlens/issues/501)
-- Adds better detection of on-prem BitBucket and GitLab remotes &mdash; closes [#214](https://github.com/eamodio/vscode-gitlens/issues/214)
-- Adds some missing gitmojis &mdash; thanks to [PR #510](https://github.com/eamodio/vscode-gitlens/pull/510) by Loris Bettazza ([@Pustur](https://github.com/Pustur))
-- Changes the sorting of branch, tags, and files in GitLens views to be a natural sort &mdash; closes [#547](https://github.com/eamodio/vscode-gitlens/issues/547)
-- Changes the _Apply Changes_ command to truly apply only the patch of the specified change &mdash; closes [#539](https://github.com/eamodio/vscode-gitlens/issues/539)
-- Fixes [#405](https://github.com/eamodio/vscode-gitlens/issues/405) - Secondary, blank repository appears repeatedly in Repositories view
-- Fixes [#430](https://github.com/eamodio/vscode-gitlens/issues/430) - File revisions can end up being parsed by language servers (causing errors and warnings, etc)
-- Fixes [#496](https://github.com/eamodio/vscode-gitlens/issues/496) - Short hash length doesn't match git's default length
-- Fixes [#503](https://github.com/eamodio/vscode-gitlens/issues/503) - Open Changes (with difftool) opens one difftool window per changed file
-- Fixes [#507](https://github.com/eamodio/vscode-gitlens/issues/507) - Restrict commit message size
-- Fixes [#527](https://github.com/eamodio/vscode-gitlens/issues/527) - GitLens icon flashes on startup
-- Fixes [#533](https://github.com/eamodio/vscode-gitlens/issues/533) - Some descriptions not using markdown properly in Settings GUI
-- Fixes [#544](https://github.com/eamodio/vscode-gitlens/issues/544) - Some commit messages have one letter missing
+- And much more
 
 See the [release notes](https://github.com/eamodio/vscode-gitlens/blob/master/CHANGELOG.md 'Open Release Notes') for the full set of changes
 
@@ -74,7 +54,7 @@ See the [release notes](https://github.com/eamodio/vscode-gitlens/blob/master/CH
 
 [GitLens](https://gitlens.amod.io 'Learn more about GitLens') is an [open-source](https://github.com/eamodio/vscode-gitlens 'Open GitLens on GitHub') extension for [Visual Studio Code](https://code.visualstudio.com) created by [Eric Amodio](https://www.amod.io 'Learn more about Eric').
 
-GitLens simply helps you **better understand code**. Quickly glimpse into whom, why, and when a line or code block was changed. Jump back through history to **gain further insights** as to how and why the code evolved. Explore the history and evolution of a codebase.
+GitLens simply helps you **better understand code**. Quickly glimpse into whom, why, and when a line or code block was changed. Jump back through history to **gain further insights** as to how and why the code evolved. Effortlessly explore the history and evolution of a codebase.
 
 While GitLens is **powerful and feature rich**, it is also [highly customizable](#gitlens-settings- 'Jump to the GitLens settings docs') to meet your specific needs &mdash; find code lens intrusive or the current line blame annotation distracting &mdash; no problem, it is quick and easy to turn them off or change how they behave via the built-in [_GitLens Settings_ editor](#configuration 'Jump to Configuration'), an **interactive editor** covering many of GitLens' powerful settings. While for more advanced customizations, refer to the [GitLens settings docs](#gitlens-settings- 'Jump to the GitLens settings docs') and edit your vscode [user settings](https://code.visualstudio.com/docs/getstarted/settings 'Open User settings').
 
