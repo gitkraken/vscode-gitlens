@@ -205,6 +205,14 @@ function defaultExceptionHandler(ex: Error, options: GitCommandOptions, ...args:
         }
     }
 
+    const match = GitErrors.badRevision.exec(msg);
+    if (match != null && match) {
+        const [, ref] = match;
+
+        // Since looking up a ref with ^3 (e.g. looking for untracked files in a stash) can error on some versions of git just ignore it
+        if (ref != null && ref.endsWith('^3')) return '';
+    }
+
     Logger.error(ex, 'git', ...args, `  cwd='${options.cwd}'\n\n  `);
     throw ex;
 }
@@ -519,7 +527,7 @@ export class Git {
                 const [, ref] = match;
 
                 // If the bad ref is trying to find a parent ref, assume we hit to the last commit, so try again using the root sha
-                if (ref === ref1 && ref.endsWith('^')) {
+                if (ref === ref1 && ref != null && ref.endsWith('^')) {
                     return Git.diff(repoPath, fileName, rootSha, ref2, options);
                 }
             }
@@ -735,10 +743,10 @@ export class Git {
     static async revparse_currentBranch(repoPath: string): Promise<[string, string | undefined] | undefined> {
         const params = ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@', '@{u}'];
 
-        const opts = {
+        const opts: GitCommandOptions = {
             cwd: repoPath,
             errors: GitErrorHandling.Throw
-        } as GitCommandOptions;
+        };
 
         try {
             const data = await git<string>(opts, ...params);
@@ -789,7 +797,9 @@ export class Git {
         repoPath: string | undefined,
         fileName: string,
         ref: string,
-        options: { encoding?: string } = {}
+        options: {
+            encoding?: 'binary' | 'ascii' | 'utf8' | 'utf16le' | 'ucs2' | 'base64' | 'latin1' | 'hex' | 'buffer';
+        } = {}
     ): Promise<TOut | undefined> {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
@@ -798,11 +808,11 @@ export class Git {
         }
         if (Git.isUncommitted(ref)) throw new Error(`ref=${ref} is uncommitted`);
 
-        const opts = {
+        const opts: GitCommandOptions = {
             cwd: root,
             encoding: options.encoding || 'utf8',
             errors: GitErrorHandling.Throw
-        } as GitCommandOptions;
+        };
         const args = ref.endsWith(':') ? `${ref}./${file}` : `${ref}:./${file}`;
 
         try {
