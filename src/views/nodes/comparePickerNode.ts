@@ -34,7 +34,7 @@ export class ComparePickerNode extends ViewNode<CompareView> {
         let item;
         if (selectedRef === undefined) {
             item = new TreeItem(
-                `Compare &lt;branch, tag, or ref&gt; with &lt;branch, tag, or ref&gt;${repository}`,
+                `Compare <branch, tag, or ref> with <branch, tag, or ref>${repository}`,
                 TreeItemCollapsibleState.None
             );
             item.contextValue = ResourceType.ComparePicker;
@@ -46,7 +46,7 @@ export class ComparePickerNode extends ViewNode<CompareView> {
         }
         else {
             item = new TreeItem(
-                `Compare ${selectedRef.label} with &lt;branch, tag, or ref&gt;${repository}`,
+                `Compare ${selectedRef.label} with <branch, tag, or ref>${repository}`,
                 TreeItemCollapsibleState.None
             );
             item.contextValue = ResourceType.ComparePickerWithRef;

@@ -16,7 +16,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes [#574](https://github.com/eamodio/vscode-gitlens/issues/574) &mdash; Apply Changes not working because of whitespace conflicts
-- Fixes html encoding issues with the _Search Commits_ view empty state
+- Fixes html encoding issues with the empty state of the _Compare_ and _Search Commits_ views
 
 ## [9.1.0] - 2018-12-12
 
