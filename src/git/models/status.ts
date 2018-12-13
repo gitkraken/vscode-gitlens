@@ -90,9 +90,23 @@ export class GitStatus {
             return `${prefix}${status}${suffix}`;
         }
 
-        return `${prefix}${compact && added === 0 ? '' : `+${added}${separator}`}${
-            compact && changed === 0 ? '' : `~${changed}${separator}`
-        }${compact && deleted === 0 ? '' : `-${deleted}`}${suffix}`;
+        let status = '';
+        if (compact) {
+            if (added !== 0) {
+                status += `+${added}`;
+            }
+            if (changed !== 0) {
+                status += `${status.length === 0 ? '' : separator}~${changed}`;
+            }
+            if (deleted !== 0) {
+                status += `${status.length === 0 ? '' : separator}-${deleted}`;
+            }
+        }
+        else {
+            status += `+${added}${separator}~${changed}${separator}-${deleted}`;
+        }
+
+        return `${prefix}${status}${suffix}`;
     }
 
     getUpstreamStatus(options: {
