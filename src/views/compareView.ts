@@ -62,7 +62,7 @@ export class CompareView extends ViewBase<CompareNode> {
         }
 
         if (configuration.changed(e, configuration.name('views')('compare')('location').value)) {
-            this.initialize(this.config.location /*, { showCollapseAll: true } */);
+            this.initialize(this.config.location, { showCollapseAll: true });
         }
 
         if (!configuration.initializing(e) && this._root !== undefined) {

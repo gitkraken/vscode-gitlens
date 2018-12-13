@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Remembers and restores the last commit search string
   - Adds the _Search Commits_ command to the search results inline toolbar
   - Reopens the commit search when clicking on a search results without results
+- Adds a _Collapse_ command to the toolbars of the _Compare_ and _Search Commits_ views
 
 ### Fixed
 
