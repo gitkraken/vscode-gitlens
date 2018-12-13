@@ -592,10 +592,10 @@ export class Git {
         return git<string>({ cwd: repoPath }, ...params);
     }
 
-    static log(repoPath: string, options: { author?: string; maxCount?: number; ref?: string; reverse?: boolean }) {
+    static log(repoPath: string, options: { authors?: string[]; maxCount?: number; ref?: string; reverse?: boolean }) {
         const params = [...defaultLogParams, '--full-history', '-M', '-m'];
-        if (options.author) {
-            params.push(`--author=${options.author}`);
+        if (options.authors) {
+            params.push(...options.authors.map(a => `--author=${a}`));
         }
         if (options.maxCount && !options.reverse) {
             params.push(`-n${options.maxCount}`);

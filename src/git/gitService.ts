@@ -1321,13 +1321,13 @@ export class GitService implements Disposable {
     @log()
     async getLog(
         repoPath: string,
-        options: { author?: string; maxCount?: number; ref?: string; reverse?: boolean } = {}
+        options: { authors?: string[]; maxCount?: number; ref?: string; reverse?: boolean } = {}
     ): Promise<GitLog | undefined> {
         const maxCount = options.maxCount == null ? Container.config.advanced.maxListItems || 0 : options.maxCount;
 
         try {
             const data = await Git.log(repoPath, {
-                author: options.author,
+                authors: options.authors,
                 maxCount: maxCount,
                 ref: options.ref,
                 reverse: options.reverse
