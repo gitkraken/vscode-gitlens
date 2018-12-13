@@ -312,7 +312,7 @@ export class Git {
     }
 
     static apply(repoPath: string | undefined, patch: string, options: { allowConflicts?: boolean } = {}) {
-        const params = ['apply'];
+        const params = ['apply', '--whitespace=warn'];
         if (options.allowConflicts) {
             params.push(`-3`);
         }
