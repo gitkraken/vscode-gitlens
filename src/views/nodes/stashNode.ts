@@ -56,6 +56,10 @@ export class StashNode extends ViewRefNode {
             TreeItemCollapsibleState.Collapsed
         );
         item.id = this.id;
+        item.description = CommitFormatter.fromTemplate(this.view.config.stashDescriptionFormat, this.commit, {
+            truncateMessageAtNewLine: true,
+            dateFormat: Container.config.defaultDateFormat
+        } as ICommitFormatOptions);
         item.contextValue = ResourceType.Stash;
         item.tooltip = CommitFormatter.fromTemplate('${ago} (${date})\n\n${message}', this.commit, {
             dateFormat: Container.config.defaultDateFormat

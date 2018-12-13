@@ -74,7 +74,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
                     children.push(new StatusFilesNode(this.view, this, status, range));
                 }
 
-                children.push(new MessageNode(this.view, this, GlyphChars.Dash.repeat(2), ''));
+                children.push(new MessageNode(this.view, this, '', GlyphChars.Dash.repeat(2), ''));
             }
 
             children.push(
@@ -89,7 +89,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
     }
 
     async getTreeItem(): Promise<TreeItem> {
-        let label = this.repo.formattedName || this.uri.repoPath || '';
+        const label = this.repo.formattedName || this.uri.repoPath || '';
 
         this._lastFetched = await this.repo.getLastFetched();
 
@@ -98,6 +98,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
             format: 'dddd MMMM Do, YYYY h:mm a'
         });
 
+        let description;
         let tooltip = this.repo.formattedName
             ? `${this.repo.formattedName}${lastFetchedTooltip}\n${this.uri.repoPath}`
             : `${this.uri.repoPath}${lastFetchedTooltip}`;
@@ -119,7 +120,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
                 prefix: `${GlyphChars.Space} `
             });
 
-            label += `${Strings.pad(GlyphChars.Dash, 3, 3)}${status.branch}${upstreamStatus}${workingStatus}`;
+            description = `${status.branch}${upstreamStatus}${workingStatus}`;
 
             iconSuffix = workingStatus ? '-blue' : '';
             if (status.upstream !== undefined) {
@@ -147,14 +148,12 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
             }
         }
 
-        const item = new TreeItem(
-            `${label}${this.formatLastFetched({
-                prefix: `${Strings.pad(GlyphChars.Dash, 4, 4)}Last fetched `
-            })}`,
-            TreeItemCollapsibleState.Expanded
-        );
-        item.id = this.id;
+        const item = new TreeItem(label, TreeItemCollapsibleState.Expanded);
         item.contextValue = ResourceType.Repository;
+        item.description = `${description || ''}${this.formatLastFetched({
+            prefix: `${Strings.pad(GlyphChars.Dot, 2, 2)}Last fetched `
+        })}`;
+        item.id = this.id;
         item.tooltip = tooltip;
         item.iconPath = {
             dark: Container.context.asAbsolutePath(`images/dark/icon-repo${iconSuffix}.svg`),

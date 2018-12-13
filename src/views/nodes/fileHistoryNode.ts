@@ -91,20 +91,17 @@ export class FileHistoryNode extends SubscribeableViewNode {
 
     getTreeItem(): TreeItem {
         const item = new TreeItem(
-            `${this.uri.getFormattedPath({
-                suffix: `${
-                    this.uri.sha
-                        ? ` ${
-                              this.uri.sha === GitService.deletedOrMissingSha
-                                  ? this.uri.shortSha
-                                  : `(${this.uri.shortSha})`
-                          }`
-                        : ''
-                }`
-            })}`,
+            `${this.uri.getFilename()}${
+                this.uri.sha
+                    ? ` ${
+                          this.uri.sha === GitService.deletedOrMissingSha ? this.uri.shortSha : `(${this.uri.shortSha})`
+                      }`
+                    : ''
+            }`,
             TreeItemCollapsibleState.Expanded
         );
         item.contextValue = ResourceType.FileHistory;
+        item.description = this.uri.getDirectory();
         item.tooltip = `History of ${this.uri.getFilename()}\n${this.uri.getDirectory()}/${
             this.uri.sha === undefined ? '' : `\n\n${this.uri.sha}`
         }`;

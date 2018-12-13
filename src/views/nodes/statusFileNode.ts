@@ -59,6 +59,7 @@ export class StatusFileNode extends ViewNode {
 
     async getTreeItem(): Promise<TreeItem> {
         const item = new TreeItem(this.label, TreeItemCollapsibleState.None);
+        item.description = this.description;
 
         if ((this._hasStagedChanges || this._hasUnstagedChanges) && this.commits.length === 1) {
             if (this._hasStagedChanges) {
@@ -108,16 +109,35 @@ export class StatusFileNode extends ViewNode {
                     light: Container.context.asAbsolutePath(paths.join('images', 'light', icon))
                 };
             }
+
             item.tooltip = StatusFileFormatter.fromTemplate(
                 `\${file}\n\${directory}/\n\n\${status} in ${this.getChangedIn()}`,
                 this.file
             );
         }
 
-        // Only cache the label for a single refresh
+        // Only cache the label/description for a single refresh
         this._label = undefined;
+        this._description = undefined;
 
         return item;
+    }
+
+    private _description: string | undefined;
+    get description() {
+        if (this._description === undefined) {
+            this._description = StatusFileFormatter.fromTemplate(
+                this.view.config.statusFileDescriptionFormat,
+                {
+                    ...this.file,
+                    commit: this.commit
+                } as GitFileWithCommit,
+                {
+                    relativePath: this.relativePath
+                } as IStatusFormatOptions
+            );
+        }
+        return this._description;
     }
 
     private _folderName: string | undefined;
@@ -163,6 +183,7 @@ export class StatusFileNode extends ViewNode {
     set relativePath(value: string | undefined) {
         this._relativePath = value;
         this._label = undefined;
+        this._description = undefined;
     }
 
     private getChangedIn(): string {

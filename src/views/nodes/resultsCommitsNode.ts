@@ -1,5 +1,6 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Container } from '../../container';
 import { GitLog, GitUri } from '../../git/gitService';
 import { Iterables } from '../../system';
 import { View } from '../viewBase';
@@ -55,11 +56,18 @@ export class ResultsCommitsNode extends ViewNode implements PageableViewNode {
     async getTreeItem(): Promise<TreeItem> {
         const { label, log } = await this.getCommitsQueryResults();
 
+        let description;
+        if ((await Container.git.getRepositoryCount()) > 1) {
+            const repo = await Container.git.getRepository(this.repoPath);
+            description = (repo && repo.formattedName) || this.repoPath;
+        }
+
         const item = new TreeItem(
             label,
             log && log.count > 0 ? TreeItemCollapsibleState.Collapsed : TreeItemCollapsibleState.None
         );
         item.contextValue = this.type;
+        item.description = description;
 
         return item;
     }

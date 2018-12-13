@@ -1,7 +1,7 @@
 'use strict';
 import { commands, ConfigurationChangeEvent } from 'vscode';
 import { configuration, SearchViewConfig, ViewFilesLayout, ViewsConfig } from '../configuration';
-import { CommandContext, GlyphChars, setCommandContext, WorkspaceState } from '../constants';
+import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
 import { GitLog, GitRepoSearchBy } from '../git/gitService';
 import { Functions, Strings } from '../system';
@@ -110,7 +110,6 @@ export class SearchView extends ViewBase<SearchNode> {
         await this.show();
 
         const searchQueryFn = this.getSearchQueryFn(
-            repoPath,
             Container.git.getLogForSearch(repoPath, search, searchBy, {
                 maxCount: options.maxCount
             }),
@@ -122,7 +121,7 @@ export class SearchView extends ViewBase<SearchNode> {
         );
     }
 
-    async showSearchResults(
+    showSearchResults(
         repoPath: string,
         search: string,
         searchBy: GitRepoSearchBy,
@@ -136,8 +135,8 @@ export class SearchView extends ViewBase<SearchNode> {
                   };
         }
     ) {
-        const label = await this.getSearchLabel(repoPath, options.label, results);
-        const searchQueryFn = Functions.cachedOnce(this.getSearchQueryFn(repoPath, results, options), {
+        const label = this.getSearchLabel(options.label, results);
+        const searchQueryFn = Functions.cachedOnce(this.getSearchQueryFn(results, options), {
             label: label,
             log: results
         });
@@ -147,15 +146,14 @@ export class SearchView extends ViewBase<SearchNode> {
         );
     }
 
-    private async addResults(results: ViewNode) {
+    private addResults(results: ViewNode) {
         const root = this.ensureRoot();
         root.addOrReplace(results, !this.keepResults);
 
         setImmediate(() => this.reveal(results, { select: true, expand: true }));
     }
 
-    private async getSearchLabel(
-        repoPath: string,
+    private getSearchLabel(
         label:
             | string
             | {
@@ -172,21 +170,14 @@ export class SearchView extends ViewBase<SearchNode> {
         const resultsType =
             label.resultsType === undefined ? { singular: 'result', plural: 'results' } : label.resultsType;
 
-        let repository = '';
-        if ((await Container.git.getRepositoryCount()) > 1) {
-            const repo = await Container.git.getRepository(repoPath);
-            repository = ` ${Strings.pad(GlyphChars.Dash, 1, 1)} ${(repo && repo.formattedName) || repoPath}`;
-        }
-
         return `${Strings.pluralize(resultsType.singular, count, {
             number: truncated ? `${count}+` : undefined,
             plural: resultsType.plural,
             zero: 'No'
-        })} for ${label.label}${repository}`;
+        })} for ${label.label}`;
     }
 
     private getSearchQueryFn(
-        repoPath: string,
         results: Promise<GitLog | undefined> | GitLog | undefined,
         options: {
             label:
@@ -209,7 +200,7 @@ export class SearchView extends ViewBase<SearchNode> {
                     : results.query)(maxCount);
             }
 
-            const label = await this.getSearchLabel(repoPath, options.label, log);
+            const label = this.getSearchLabel(options.label, log);
             return {
                 label: label,
                 log: log

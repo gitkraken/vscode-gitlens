@@ -18,7 +18,7 @@
         "url": "https://github.com/eamodio/vscode-gitlens.git"
     },
     "engines": {
-        "vscode": "^1.29.0"
+        "vscode": "^1.30.0"
     },
     "main": "./dist/extension",
     "icon": "images/gitlens-icon.png",
@@ -1207,14 +1207,26 @@
                 },
                 "gitlens.views.commitFileFormat": {
                     "type": "string",
-                    "default": "${filePath}",
+                    "default": "${file}",
                     "markdownDescription": "Specifies the format of a committed file in the views\n- Available tokens\n - `${directory}` &mdash; directory name\n - `${file}` &mdash; file name\n - `${filePath}` &mdash; formatted file name and path\n - `${path}` &mdash; full file path",
+                    "scope": "window"
+                },
+                "gitlens.views.commitFileDescriptionFormat": {
+                    "type": "string",
+                    "default": "${directory}",
+                    "markdownDescription": "Specifies the description format of a committed file in the views\n- Available tokens\n - `${directory}` &mdash; directory name\n - `${file}` &mdash; file name\n - `${filePath}` &mdash; formatted file name and path\n - `${path}` &mdash; full file path",
                     "scope": "window"
                 },
                 "gitlens.views.commitFormat": {
                     "type": "string",
-                    "default": "${message}  •  ${authorAgoOrDate}${  •  changes}${  (id)}",
+                    "default": "${message}",
                     "markdownDescription": "Specifies the format of committed changes in the views. See the [GitLens docs](https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting) for advanced formatting\n- Available tokens\n - `${id}` &mdash; commit id\n - `${author}` &mdash; commit author\n - `${message}` &mdash; commit message\n - `${ago}` &mdash; relative commit date (e.g. 1 day ago)\n - `${date}` &mdash; formatted commit date (format specified by `#gitlens.defaultDateFormat#`)\n - `${agoOrDate}` &mdash; commit date specified by `#gitlens.defaultDateStyle#`\n - `${authorAgo}` &mdash; commit author, relative commit date\n - `${authorAgoOrDate}` &mdash; commit author, commit date specified by `#gitlens.defaultDateStyle#`",
+                    "scope": "window"
+                },
+                "gitlens.views.commitDescriptionFormat": {
+                    "type": "string",
+                    "default": "${changes  •  }${authorAgoOrDate}",
+                    "markdownDescription": "Specifies the description format of committed changes in the views. See the [GitLens docs](https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting) for advanced formatting\n- Available tokens\n - `${id}` &mdash; commit id\n - `${author}` &mdash; commit author\n - `${message}` &mdash; commit message\n - `${ago}` &mdash; relative commit date (e.g. 1 day ago)\n - `${date}` &mdash; formatted commit date (format specified by `#gitlens.defaultDateFormat#`)\n - `${agoOrDate}` &mdash; commit date specified by `#gitlens.defaultDateStyle#`\n - `${authorAgo}` &mdash; commit author, relative commit date\n - `${authorAgoOrDate}` &mdash; commit author, commit date specified by `#gitlens.defaultDateStyle#`",
                     "scope": "window"
                 },
                 "gitlens.views.compare.enabled": {
@@ -1469,20 +1481,38 @@
                 },
                 "gitlens.views.stashFileFormat": {
                     "type": "string",
-                    "default": "${filePath}",
+                    "default": "${file}",
                     "markdownDescription": "Specifies the format of a stashed file in the views\n- Available tokens\n - `${directory}` &mdash; directory name\n - `${file}` &mdash; file name\n - `${filePath}` &mdash; formatted file name and path\n - `${path}` &mdash; full file path",
+                    "scope": "window"
+                },
+                "gitlens.views.stashFileDescriptionFormat": {
+                    "type": "string",
+                    "default": "${directory}",
+                    "markdownDescription": "Specifies the description format of a stashed file in the views\n- Available tokens\n - `${directory}` &mdash; directory name\n - `${file}` &mdash; file name\n - `${filePath}` &mdash; formatted file name and path\n - `${path}` &mdash; full file path",
                     "scope": "window"
                 },
                 "gitlens.views.stashFormat": {
                     "type": "string",
-                    "default": "${message}  •  ${agoOrDate}${  •  changes}",
+                    "default": "${message}",
                     "markdownDescription": "Specifies the format of stashed changes in the views. See the [GitLens docs](https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting) for advanced formatting\n- Available tokens\n - `${id}` &mdash; commit id\n - `${author}` &mdash; commit author\n - `${message}` &mdash; commit message\n - `${ago}` &mdash; relative commit date (e.g. 1 day ago)\n - `${date}` &mdash; formatted commit date (format specified by `#gitlens.statusBar.dateFormat#`)\n - `${agoOrDate}` &mdash; commit date specified by `#gitlens.defaultDateStyle#`\n - `${authorAgo}` &mdash; commit author, relative commit date\n - `${authorAgoOrDate}` &mdash; commit author, commit date specified by `#gitlens.defaultDateStyle#`",
+                    "scope": "window"
+                },
+                "gitlens.views.stashDescriptionFormat": {
+                    "type": "string",
+                    "default": "${changes  •  }${agoOrDate}",
+                    "markdownDescription": "Specifies the description format of stashed changes in the views. See the [GitLens docs](https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting) for advanced formatting\n- Available tokens\n - `${id}` &mdash; commit id\n - `${author}` &mdash; commit author\n - `${message}` &mdash; commit message\n - `${ago}` &mdash; relative commit date (e.g. 1 day ago)\n - `${date}` &mdash; formatted commit date (format specified by `#gitlens.statusBar.dateFormat#`)\n - `${agoOrDate}` &mdash; commit date specified by `#gitlens.defaultDateStyle#`\n - `${authorAgo}` &mdash; commit author, relative commit date\n - `${authorAgoOrDate}` &mdash; commit author, commit date specified by `#gitlens.defaultDateStyle#`",
                     "scope": "window"
                 },
                 "gitlens.views.statusFileFormat": {
                     "type": "string",
-                    "default": "${working  }${filePath}",
+                    "default": "${working  }${file}",
                     "markdownDescription": "Specifies the format of the status of a working or committed file in the views\n- Available tokens\n - `${directory}` &mdash; directory name\n - `${file}` &mdash; file name\n - `${filePath}` &mdash; formatted file name and path\n - `${path}` &mdash; full file path\n - `${working}` &mdash; optional indicator if the file is uncommitted",
+                    "scope": "window"
+                },
+                "gitlens.views.statusFileDescriptionFormat": {
+                    "type": "string",
+                    "default": "${directory}",
+                    "markdownDescription": "Specifies the description format of the status of a working or committed file in the views\n- Available tokens\n - `${directory}` &mdash; directory name\n - `${file}` &mdash; file name\n - `${filePath}` &mdash; formatted file name and path\n - `${path}` &mdash; full file path\n - `${working}` &mdash; optional indicator if the file is uncommitted",
                     "scope": "window"
                 },
                 "gitlens.advanced.blame.customArguments": {

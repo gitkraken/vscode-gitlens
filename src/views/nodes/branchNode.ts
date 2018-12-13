@@ -97,13 +97,14 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
     }
 
     async getTreeItem(): Promise<TreeItem> {
-        let name = this.label;
+        const name = this.label;
         let tooltip = `${this.branch.getName()}${this.current ? ' (current)' : ''}`;
         let iconSuffix = '';
 
+        let description;
         if (!this.branch.remote && this.branch.tracking !== undefined) {
             if (this.view.config.showTrackingBranch) {
-                name += `${this.branch.getTrackingStatus({ prefix: `${GlyphChars.Space} ` })}${GlyphChars.Space} ${
+                description = `${this.branch.getTrackingStatus({ suffix: `${GlyphChars.Space} ` })}${
                     GlyphChars.ArrowLeftRightLong
                 }${GlyphChars.Space} ${this.branch.tracking}`;
             }
@@ -128,6 +129,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
             `${!this._root && this.current ? `${GlyphChars.Check} ${GlyphChars.Space}` : ''}${name}`,
             TreeItemCollapsibleState.Collapsed
         );
+        item.description = description;
         item.id = this.id;
         item.tooltip = tooltip;
 

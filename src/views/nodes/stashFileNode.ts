@@ -17,7 +17,15 @@ export class StashFileNode extends CommitFileNode {
         return this.view.config.stashFormat;
     }
 
+    protected getCommitDescriptionTemplate() {
+        return this.view.config.stashDescriptionFormat;
+    }
+
     protected getCommitFileTemplate() {
         return this.view.config.stashFileFormat;
+    }
+
+    protected getCommitFileDescriptionTemplate() {
+        return this.view.config.stashFileDescriptionFormat;
     }
 }

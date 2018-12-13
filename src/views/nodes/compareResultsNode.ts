@@ -1,6 +1,5 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitService, GitUri } from '../../git/gitService';
 import { Strings } from '../../system';
@@ -40,19 +39,20 @@ export class CompareResultsNode extends ViewNode {
     }
 
     async getTreeItem(): Promise<TreeItem> {
-        let repository = '';
+        let description;
         if ((await Container.git.getRepositoryCount()) > 1) {
             const repo = await Container.git.getRepository(this.uri.repoPath!);
-            repository = ` ${Strings.pad(GlyphChars.Dash, 1, 1)} ${(repo && repo.formattedName) || this.uri.repoPath}`;
+            description = (repo && repo.formattedName) || this.uri.repoPath;
         }
 
         const item = new TreeItem(
             `Comparing ${this._ref1.label ||
                 GitService.shortenSha(this._ref1.ref, { working: 'Working Tree' })} to ${this._ref2.label ||
-                GitService.shortenSha(this._ref2.ref, { working: 'Working Tree' })}${repository}`,
+                GitService.shortenSha(this._ref2.ref, { working: 'Working Tree' })}`,
             TreeItemCollapsibleState.Collapsed
         );
         item.contextValue = ResourceType.CompareResults;
+        item.description = description;
 
         return item;
     }

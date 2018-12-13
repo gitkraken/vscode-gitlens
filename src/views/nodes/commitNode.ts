@@ -69,9 +69,12 @@ export class CommitNode extends ViewRefNode {
         }
 
         const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
-
         item.contextValue =
             this.branch === undefined || this.branch.current ? ResourceType.CommitOnCurrentBranch : ResourceType.Commit;
+        item.description = CommitFormatter.fromTemplate(this.view.config.commitDescriptionFormat, this.commit, {
+            truncateMessageAtNewLine: true,
+            dateFormat: Container.config.defaultDateFormat
+        } as ICommitFormatOptions);
 
         if (this.view.config.avatars) {
             item.iconPath = this.commit.getGravatarUri(Container.config.defaultGravatarsStyle);

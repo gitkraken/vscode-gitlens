@@ -339,6 +339,7 @@ export interface RepositoriesViewConfig {
     branches: {
         layout: ViewBranchesLayout;
     };
+    compact: boolean;
     enabled: boolean;
     files: ViewsFilesConfig;
     includeWorkingTree: boolean;
@@ -360,7 +361,9 @@ export interface ViewsConfig {
         compact: boolean;
         threshold: number;
     };
+    commitFileDescriptionFormat: string;
     commitFileFormat: string;
+    commitDescriptionFormat: string;
     commitFormat: string;
     compare: CompareViewConfig;
     // dateFormat: string | null;
@@ -368,8 +371,11 @@ export interface ViewsConfig {
     lineHistory: LineHistoryViewConfig;
     repositories: RepositoriesViewConfig;
     search: SearchViewConfig;
+    stashFileDescriptionFormat: string;
     stashFileFormat: string;
+    stashDescriptionFormat: string;
     stashFormat: string;
+    statusFileDescriptionFormat: string;
     statusFileFormat: string;
 }
 

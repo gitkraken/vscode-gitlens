@@ -98,20 +98,17 @@ export class LineHistoryNode extends SubscribeableViewNode {
             ? ` #${this.selection.start.line + 1}`
             : ` #${this.selection.start.line + 1}-${this.selection.end.line + 1}`;
         const item = new TreeItem(
-            `${this.uri.getFormattedPath({
-                suffix: `${lines}${
-                    this.uri.sha
-                        ? ` ${
-                              this.uri.sha === GitService.deletedOrMissingSha
-                                  ? this.uri.shortSha
-                                  : `(${this.uri.shortSha})`
-                          }`
-                        : ''
-                }`
-            })}`,
+            `${this.uri.getFilename()}${lines}${
+                this.uri.sha
+                    ? ` ${
+                          this.uri.sha === GitService.deletedOrMissingSha ? this.uri.shortSha : `(${this.uri.shortSha})`
+                      }`
+                    : ''
+            }`,
             TreeItemCollapsibleState.Expanded
         );
         item.contextValue = ResourceType.LineHistory;
+        item.description = this.uri.getDirectory();
         item.tooltip = `History of ${this.uri.getFilename()}${lines}\n${this.uri.getDirectory()}/${
             this.uri.sha === undefined ? '' : `\n\n${this.uri.sha}`
         }`;

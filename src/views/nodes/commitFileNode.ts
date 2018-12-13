@@ -71,6 +71,7 @@ export class CommitFileNode extends ViewRefNode {
 
         const item = new TreeItem(this.label, TreeItemCollapsibleState.None);
         item.contextValue = this.resourceType;
+        item.description = this.description;
         item.tooltip = this.tooltip;
 
         if ((this._displayAs & CommitFileNodeDisplayAs.CommitIcon) === CommitFileNodeDisplayAs.CommitIcon) {
@@ -92,11 +93,28 @@ export class CommitFileNode extends ViewRefNode {
 
         item.command = this.getCommand();
 
-        // Only cache the label/tooltip for a single refresh
+        // Only cache the label/description/tooltip for a single refresh
         this._label = undefined;
+        this._description = undefined;
         this._tooltip = undefined;
 
         return item;
+    }
+
+    private _description: string | undefined;
+    get description() {
+        if (this._description === undefined) {
+            this._description =
+                this._displayAs & CommitFileNodeDisplayAs.CommitLabel
+                    ? CommitFormatter.fromTemplate(this.getCommitDescriptionTemplate(), this.commit, {
+                          truncateMessageAtNewLine: true,
+                          dateFormat: Container.config.defaultDateFormat
+                      } as ICommitFormatOptions)
+                    : StatusFileFormatter.fromTemplate(this.getCommitFileDescriptionTemplate(), this.file, {
+                          relativePath: this.relativePath
+                      } as IStatusFormatOptions);
+        }
+        return this._description;
     }
 
     private _folderName: string | undefined;
@@ -165,8 +183,16 @@ export class CommitFileNode extends ViewRefNode {
         return this.view.config.commitFormat;
     }
 
+    protected getCommitDescriptionTemplate() {
+        return this.view.config.commitDescriptionFormat;
+    }
+
     protected getCommitFileTemplate() {
         return this.view.config.commitFileFormat;
+    }
+
+    protected getCommitFileDescriptionTemplate() {
+        return this.view.config.commitFileDescriptionFormat;
     }
 
     getCommand(): Command | undefined {

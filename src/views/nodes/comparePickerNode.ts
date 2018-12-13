@@ -2,7 +2,6 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { Strings } from '../../system';
 import { CompareView } from '../compareView';
 import { CompareNode } from './compareNode';
 import { ResourceType, unknownGitUri, ViewNode } from './viewNode';
@@ -23,21 +22,22 @@ export class ComparePickerNode extends ViewNode<CompareView> {
         const selectedRef = this.parent.selectedRef;
         const repoPath = selectedRef !== undefined ? selectedRef.repoPath : undefined;
 
-        let repository = '';
+        let description;
         if (repoPath !== undefined) {
             if ((await Container.git.getRepositoryCount()) > 1) {
                 const repo = await Container.git.getRepository(repoPath);
-                repository = ` ${Strings.pad(GlyphChars.Dash, 1, 1)} ${(repo && repo.formattedName) || repoPath}`;
+                description = (repo && repo.formattedName) || repoPath;
             }
         }
 
         let item;
         if (selectedRef === undefined) {
             item = new TreeItem(
-                `Compare <branch, tag, or ref> with <branch, tag, or ref>${repository}`,
+                `Compare <branch, tag, or ref> with <branch, tag, or ref>`,
                 TreeItemCollapsibleState.None
             );
             item.contextValue = ResourceType.ComparePicker;
+            item.description = description;
             item.tooltip = `Click to select branch or tag for compare${GlyphChars.Ellipsis}`;
             item.command = {
                 title: `Select branch or tag for compare${GlyphChars.Ellipsis}`,
@@ -46,10 +46,11 @@ export class ComparePickerNode extends ViewNode<CompareView> {
         }
         else {
             item = new TreeItem(
-                `Compare ${selectedRef.label} with <branch, tag, or ref>${repository}`,
+                `Compare ${selectedRef.label} with <branch, tag, or ref>`,
                 TreeItemCollapsibleState.None
             );
             item.contextValue = ResourceType.ComparePickerWithRef;
+            item.description = description;
             item.tooltip = `Click to compare ${selectedRef.label} with${GlyphChars.Ellipsis}`;
             item.command = {
                 title: `Compare ${selectedRef.label} with${GlyphChars.Ellipsis}`,

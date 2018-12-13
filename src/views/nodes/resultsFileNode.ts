@@ -30,6 +30,7 @@ export class ResultsFileNode extends ViewNode {
     getTreeItem(): TreeItem {
         const item = new TreeItem(this.label, TreeItemCollapsibleState.None);
         item.contextValue = ResourceType.ResultsFile;
+        item.description = this.description;
         item.tooltip = StatusFileFormatter.fromTemplate('${file}\n${directory}/\n\n${status}', this.file);
 
         const statusIcon = GitFile.getStatusIcon(this.file.status);
@@ -40,6 +41,16 @@ export class ResultsFileNode extends ViewNode {
 
         item.command = this.getCommand();
         return item;
+    }
+
+    private _description: string | undefined;
+    get description() {
+        if (this._description === undefined) {
+            this._description = StatusFileFormatter.fromTemplate('${directory}', this.file, {
+                relativePath: this.relativePath
+            } as IStatusFormatOptions);
+        }
+        return this._description;
     }
 
     private _folderName: string | undefined;
@@ -53,7 +64,7 @@ export class ResultsFileNode extends ViewNode {
     private _label: string | undefined;
     get label() {
         if (this._label === undefined) {
-            this._label = StatusFileFormatter.fromTemplate('${filePath}', this.file, {
+            this._label = StatusFileFormatter.fromTemplate('${file}', this.file, {
                 relativePath: this.relativePath
             } as IStatusFormatOptions);
         }
@@ -67,6 +78,7 @@ export class ResultsFileNode extends ViewNode {
     set relativePath(value: string | undefined) {
         this._relativePath = value;
         this._label = undefined;
+        this._description = undefined;
     }
 
     get priority(): number {

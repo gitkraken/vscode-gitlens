@@ -13,6 +13,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds the _Search Commits_ command to the search results inline toolbar
   - Reopens the commit search when clicking on a search results without results
 - Adds a _Collapse_ command to the toolbars of the _Compare_ and _Search Commits_ views
+- Adds a `gitlens.views.commitFileDescriptionFormat` setting to specify the description format of a committed file in the views
+- Adds a `gitlens.views.commitDescriptionFormat` setting to specify the description format of committed changes in the views
+- Adds a `gitlens.views.stashFileDescriptionFormat` setting to specify the description format of a stashed file in the views
+- Adds a `gitlens.views.stashDescriptionFormat` setting to specify the description format of stashed changes in the views
+- Adds a `gitlens.views.statusFileDescriptionFormat` setting to specify the description format of the status of a working or committed file in the views
 
 ### Fixed
 

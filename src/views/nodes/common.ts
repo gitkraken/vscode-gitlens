@@ -10,6 +10,7 @@ export class MessageNode extends ViewNode {
         view: View,
         parent: ViewNode,
         private readonly _message: string,
+        private readonly _description?: string,
         private readonly _tooltip?: string,
         private readonly _iconPath?:
             | string
@@ -30,6 +31,7 @@ export class MessageNode extends ViewNode {
     getTreeItem(): TreeItem | Promise<TreeItem> {
         const item = new TreeItem(this._message, TreeItemCollapsibleState.None);
         item.contextValue = ResourceType.Message;
+        item.description = this._description;
         item.tooltip = this._tooltip;
         item.iconPath = this._iconPath;
         return item;
@@ -42,6 +44,7 @@ export class CommandMessageNode extends MessageNode {
         parent: ViewNode,
         private readonly _command: Command,
         message: string,
+        description?: string,
         tooltip?: string,
         iconPath?:
             | string
@@ -52,7 +55,7 @@ export class CommandMessageNode extends MessageNode {
               }
             | ThemeIcon
     ) {
-        super(view, parent, message, tooltip, iconPath);
+        super(view, parent, message, description, tooltip, iconPath);
     }
 
     getTreeItem(): TreeItem | Promise<TreeItem> {

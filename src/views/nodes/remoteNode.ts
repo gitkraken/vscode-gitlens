@@ -80,13 +80,12 @@ export class RemoteNode extends ViewNode<RepositoriesView> {
             separator = GlyphChars.Dash;
         }
 
-        const label = `${this.remote.name} ${GlyphChars.Space}${separator}${GlyphChars.Space} ${
+        const item = new TreeItem(this.remote.name, TreeItemCollapsibleState.Collapsed);
+        item.description = `${separator}${GlyphChars.Space} ${
             this.remote.provider !== undefined ? this.remote.provider.name : this.remote.domain
         } ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} ${this.remote.path}`;
-
-        const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
-        item.id = this.id;
         item.contextValue = ResourceType.Remote;
+        item.id = this.id;
         item.tooltip = `${this.remote.name}
 ${this.remote.path} (${this.remote.provider !== undefined ? this.remote.provider.name : this.remote.domain})`;
 
