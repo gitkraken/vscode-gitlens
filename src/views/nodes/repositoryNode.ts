@@ -74,7 +74,9 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
                     children.push(new StatusFilesNode(this.view, this, status, range));
                 }
 
-                children.push(new MessageNode(this.view, this, '', GlyphChars.Dash.repeat(2), ''));
+                if (!this.view.config.repositories.compact) {
+                    children.push(new MessageNode(this.view, this, '', GlyphChars.Dash.repeat(2), ''));
+                }
             }
 
             children.push(

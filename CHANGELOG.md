@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a `gitlens.views.stashFileDescriptionFormat` setting to specify the description format of a stashed file in the views
 - Adds a `gitlens.views.stashDescriptionFormat` setting to specify the description format of stashed changes in the views
 - Adds a `gitlens.views.statusFileDescriptionFormat` setting to specify the description format of the status of a working or committed file in the views
+- Adds a `gitlens.views.repositories.compact` setting to specify whether to show the _Repositories_ view in a compact display density &mdash; closes [#571](https://github.com/eamodio/vscode-gitlens/issues/571)
 
 ### Fixed
 

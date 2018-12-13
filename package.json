@@ -1367,6 +1367,12 @@
                     "markdownDescription": "Specifies how the _Repositories_ view will display branches",
                     "scope": "window"
                 },
+                "gitlens.views.repositories.compact": {
+                    "type": "boolean",
+                    "default": false,
+                    "markdownDescription": "Specifies whether to show the _Repositories_ view in a compact display density",
+                    "scope": "window"
+                },
                 "gitlens.views.repositories.enabled": {
                     "type": "boolean",
                     "default": true,
