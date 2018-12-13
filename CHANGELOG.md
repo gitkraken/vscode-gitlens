@@ -4,26 +4,28 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [9.2.0] - 2018-12-13
 
 ### Added
 
 - Improves the commit search experience
   - Remembers and restores the last commit search string
-  - Adds the _Search Commits_ command to the search results inline toolbar
+  - Adds a _Search Commits_ command to the search results inline toolbar
   - Reopens the commit search when clicking on a search results without results
-- Adds a _Collapse_ command to the toolbars of the _Compare_ and _Search Commits_ views
-- Adds a `gitlens.views.commitFileDescriptionFormat` setting to specify the description format of a committed file in the views
-- Adds a `gitlens.views.commitDescriptionFormat` setting to specify the description format of committed changes in the views
-- Adds a `gitlens.views.stashFileDescriptionFormat` setting to specify the description format of a stashed file in the views
-- Adds a `gitlens.views.stashDescriptionFormat` setting to specify the description format of stashed changes in the views
-- Adds a `gitlens.views.statusFileDescriptionFormat` setting to specify the description format of the status of a working or committed file in the views
+- Adds a _Collapse_ command to the toolbars of the _Compare_ and _Search Commits_ views &mdash; closes [#383](https://github.com/eamodio/vscode-gitlens/issues/383)
+- Adds support for the [new ability](https://code.visualstudio.com/updates/v1_30#_custom-views) to have descriptions on view nodes &mdash; provides a much cleaner layout
+  - Adds a `gitlens.views.commitFileDescriptionFormat` setting to specify the description format of a committed file in the views
+  - Adds a `gitlens.views.commitDescriptionFormat` setting to specify the description format of committed changes in the views
+  - Adds a `gitlens.views.stashFileDescriptionFormat` setting to specify the description format of a stashed file in the views
+  - Adds a `gitlens.views.stashDescriptionFormat` setting to specify the description format of stashed changes in the views
+  - Adds a `gitlens.views.statusFileDescriptionFormat` setting to specify the description format of the status of a working or committed file in the views
 - Adds a `gitlens.views.repositories.compact` setting to specify whether to show the _Repositories_ view in a compact display density &mdash; closes [#571](https://github.com/eamodio/vscode-gitlens/issues/571)
 
 ### Fixed
 
+- Fixes [#559](https://github.com/eamodio/vscode-gitlens/issues/559) &mdash; Html encoding issues with the empty state of the _Compare_ and _Search Commits_ views
 - Fixes [#574](https://github.com/eamodio/vscode-gitlens/issues/574) &mdash; Apply Changes not working because of whitespace conflicts
-- Fixes html encoding issues with the empty state of the _Compare_ and _Search Commits_ views
+- Fixes [#589](https://github.com/eamodio/vscode-gitlens/issues/589) &mdash; Bad revision for stash
 
 ## [9.1.0] - 2018-12-12
 
