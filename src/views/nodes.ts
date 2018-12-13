@@ -20,6 +20,7 @@ export * from './nodes/resultsCommitsNode';
 export * from './nodes/resultsFileNode';
 export * from './nodes/resultsFilesNode';
 export * from './nodes/searchNode';
+export * from './nodes/searchResultsCommitsNode';
 export * from './nodes/stashesNode';
 export * from './nodes/stashFileNode';
 export * from './nodes/stashNode';

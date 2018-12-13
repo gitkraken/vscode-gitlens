@@ -30,7 +30,7 @@ export class SearchNode extends ViewNode {
                         ...command,
                         arguments: [this, { searchBy: GitRepoSearchBy.Message } as SearchCommitsCommandArgs]
                     },
-                    `Search commits by message (use &lt;message-pattern&gt;)`,
+                    `Search commits by message (use <message-pattern>)`,
                     'Click to search commits by message'
                 ),
                 new CommandMessageNode(
@@ -40,7 +40,7 @@ export class SearchNode extends ViewNode {
                         ...command,
                         arguments: [this, { searchBy: GitRepoSearchBy.Author } as SearchCommitsCommandArgs]
                     },
-                    `${GlyphChars.Space.repeat(4)} or, by author (use @&lt;author-pattern&gt;)`,
+                    `${GlyphChars.Space.repeat(4)} or, by author (use @<author-pattern>)`,
                     'Click to search commits by author'
                 ),
                 new CommandMessageNode(
@@ -50,7 +50,7 @@ export class SearchNode extends ViewNode {
                         ...command,
                         arguments: [this, { searchBy: GitRepoSearchBy.Sha } as SearchCommitsCommandArgs]
                     },
-                    `${GlyphChars.Space.repeat(4)} or, by commit id (use #&lt;sha&gt;)`,
+                    `${GlyphChars.Space.repeat(4)} or, by commit id (use #<sha>)`,
                     'Click to search commits by commit id'
                 ),
                 new CommandMessageNode(
@@ -60,7 +60,7 @@ export class SearchNode extends ViewNode {
                         ...command,
                         arguments: [this, { searchBy: GitRepoSearchBy.Files } as SearchCommitsCommandArgs]
                     },
-                    `${GlyphChars.Space.repeat(4)} or, by files (use :&lt;file-path/glob&gt;)`,
+                    `${GlyphChars.Space.repeat(4)} or, by files (use :<file-path/glob>)`,
                     'Click to search commits by files'
                 ),
                 new CommandMessageNode(
@@ -70,7 +70,7 @@ export class SearchNode extends ViewNode {
                         ...command,
                         arguments: [this, { searchBy: GitRepoSearchBy.Changes } as SearchCommitsCommandArgs]
                     },
-                    `${GlyphChars.Space.repeat(4)} or, by changes (use =&lt;pattern&gt;)`,
+                    `${GlyphChars.Space.repeat(4)} or, by changes (use =<pattern>)`,
                     'Click to search commits by changes'
                 ),
                 new CommandMessageNode(
@@ -80,7 +80,7 @@ export class SearchNode extends ViewNode {
                         ...command,
                         arguments: [this, { searchBy: GitRepoSearchBy.ChangedLines } as SearchCommitsCommandArgs]
                     },
-                    `${GlyphChars.Space.repeat(4)} or, by changed lines (use ~&lt;pattern&gt;)`,
+                    `${GlyphChars.Space.repeat(4)} or, by changed lines (use ~<pattern>)`,
                     'Click to search commits by changed lines'
                 )
             ];

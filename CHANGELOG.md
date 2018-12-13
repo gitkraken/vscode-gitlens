@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Improves the commit search experience
+  - Remembers and restores the last commit search string
+  - Adds the _Search Commits_ command to the search results inline toolbar
+  - Reopens the commit search when clicking on a search results without results
+
+### Fixed
+
+- Fixes html encoding issues with the _Search Commits_ view empty state
+
 ## [9.1.0] - 2018-12-12
 
 ### Added

@@ -15,7 +15,7 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitLog, GitLogCommit, GitRepoSearchBy, GitStashCommit, GitUri } from '../git/gitService';
 import { KeyMapping, Keys } from '../keyboard';
-import { Functions, Strings } from '../system';
+import { Strings } from '../system';
 import {
     BranchesAndTagsQuickPick,
     BranchQuickPickItem,
@@ -243,6 +243,8 @@ export class ShowCommitInViewQuickPickItem extends CommandQuickPickItem {
 
 export class ShowCommitSearchResultsInViewQuickPickItem extends CommandQuickPickItem {
     constructor(
+        public readonly search: string,
+        public readonly searchBy: GitRepoSearchBy,
         public readonly results: GitLog,
         public readonly resultsLabel: string | { label: string; resultsType?: { singular: string; plural: string } },
         item: QuickPickItem = {
@@ -258,7 +260,9 @@ export class ShowCommitSearchResultsInViewQuickPickItem extends CommandQuickPick
     }
 
     async execute(): Promise<{} | undefined> {
-        await Container.searchView.showSearchResults(this.results.repoPath, this.results, { label: this.resultsLabel });
+        await Container.searchView.showSearchResults(this.results.repoPath, this.search, this.searchBy, this.results, {
+            label: this.resultsLabel
+        });
         return undefined;
     }
 }

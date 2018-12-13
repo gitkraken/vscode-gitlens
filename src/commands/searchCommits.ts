@@ -7,6 +7,7 @@ import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, CommitsQuickPick, ShowCommitSearchResultsInViewQuickPickItem } from '../quickpicks';
 import { Iterables, Strings } from '../system';
+import { SearchResultsCommitsNode } from '../views/nodes';
 import {
     ActiveEditorCachedCommand,
     command,
@@ -39,6 +40,7 @@ export interface SearchCommitsCommandArgs {
     search?: string;
     searchBy?: GitRepoSearchBy;
     maxCount?: number;
+    prefillOnly?: boolean;
     showInView?: boolean;
 
     goBackCommand?: CommandQuickPickItem;
@@ -46,6 +48,8 @@ export interface SearchCommitsCommandArgs {
 
 @command()
 export class SearchCommitsCommand extends ActiveEditorCachedCommand {
+    private _lastSearch: string | undefined;
+
     constructor() {
         super([Commands.SearchCommits, Commands.SearchCommitsInView]);
     }
@@ -54,6 +58,12 @@ export class SearchCommitsCommand extends ActiveEditorCachedCommand {
         if (context.type === 'viewItem') {
             args = { ...args };
             args.showInView = true;
+
+            if (context.node instanceof SearchResultsCommitsNode) {
+                args.search = context.node.search;
+                args.searchBy = context.node.searchBy;
+                args.prefillOnly = true;
+            }
 
             if (isCommandViewContextWithRepo(context)) {
                 return this.execute(context.editor, context.node.uri, args);
@@ -86,11 +96,21 @@ export class SearchCommitsCommand extends ActiveEditorCachedCommand {
         args = { ...args };
         const originalArgs = { ...args };
 
+        if (args.prefillOnly && args.search && args.searchBy) {
+            args.search = `${searchByToSymbolMap.get(args.searchBy) || ''}${args.search}`;
+            args.searchBy = undefined;
+        }
+
         if (!args.search || args.searchBy == null) {
             let selection;
-            if (!args.search && args.searchBy != null) {
-                args.search = searchByToSymbolMap.get(args.searchBy);
-                selection = [1, 1];
+            if (!args.search) {
+                if (args.searchBy != null) {
+                    args.search = searchByToSymbolMap.get(args.searchBy);
+                    selection = [1, 1];
+                }
+                else {
+                    args.search = this._lastSearch;
+                }
             }
 
             if (args.showInView) {
@@ -107,7 +127,7 @@ export class SearchCommitsCommand extends ActiveEditorCachedCommand {
                 return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
             }
 
-            originalArgs.search = args.search;
+            this._lastSearch = originalArgs.search = args.search;
 
             const match = searchByRegex.exec(args.search);
             if (match && match[1]) {
@@ -198,7 +218,9 @@ export class SearchCommitsCommand extends ActiveEditorCachedCommand {
                             : undefined,
                     showInViewCommand:
                         log !== undefined
-                            ? new ShowCommitSearchResultsInViewQuickPickItem(log, { label: searchLabel! })
+                            ? new ShowCommitSearchResultsInViewQuickPickItem(args.search, args.searchBy, log, {
+                                  label: searchLabel!
+                              })
                             : undefined
                 });
                 if (pick === undefined) return undefined;

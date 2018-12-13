@@ -21,10 +21,13 @@ export class ResultsCommitsNode extends ViewNode implements PageableViewNode {
         view: View,
         parent: ViewNode,
         public readonly repoPath: string,
-        private readonly _commitsQuery: (maxCount: number | undefined) => Promise<CommitsQueryResults>,
-        private readonly _contextValue: ResourceType = ResourceType.ResultsCommits
+        private readonly _commitsQuery: (maxCount: number | undefined) => Promise<CommitsQueryResults>
     ) {
         super(GitUri.fromRepoPath(repoPath), view, parent);
+    }
+
+    get type(): ResourceType {
+        return ResourceType.ResultsCommits;
     }
 
     async getChildren(): Promise<ViewNode[]> {
@@ -56,7 +59,7 @@ export class ResultsCommitsNode extends ViewNode implements PageableViewNode {
             label,
             log && log.count > 0 ? TreeItemCollapsibleState.Collapsed : TreeItemCollapsibleState.None
         );
-        item.contextValue = this._contextValue;
+        item.contextValue = this.type;
 
         return item;
     }
@@ -67,7 +70,7 @@ export class ResultsCommitsNode extends ViewNode implements PageableViewNode {
 
     private _commitsQueryResults: Promise<CommitsQueryResults> | undefined;
 
-    private getCommitsQueryResults() {
+    protected getCommitsQueryResults() {
         if (this._commitsQueryResults === undefined) {
             this._commitsQueryResults = this._commitsQuery(this.maxCount);
         }

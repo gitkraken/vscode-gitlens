@@ -5,7 +5,7 @@ import { CommandContext, GlyphChars, setCommandContext, WorkspaceState } from '.
 import { Container } from '../container';
 import { GitLog, GitRepoSearchBy } from '../git/gitService';
 import { Functions, Strings } from '../system';
-import { ResourceType, ResultsCommitsNode, SearchNode, ViewNode } from './nodes';
+import { SearchNode, SearchResultsCommitsNode, ViewNode } from './nodes';
 import { RefreshReason, ViewBase } from './viewBase';
 
 interface SearchQueryResult {
@@ -118,12 +118,14 @@ export class SearchView extends ViewBase<SearchNode> {
         );
 
         return this.addResults(
-            new ResultsCommitsNode(this, this._root!, repoPath, searchQueryFn, ResourceType.SearchResults)
+            new SearchResultsCommitsNode(this, this._root!, repoPath, search, searchBy, searchQueryFn)
         );
     }
 
     async showSearchResults(
         repoPath: string,
+        search: string,
+        searchBy: GitRepoSearchBy,
         results: GitLog,
         options: {
             label:
@@ -141,7 +143,7 @@ export class SearchView extends ViewBase<SearchNode> {
         });
 
         return this.addResults(
-            new ResultsCommitsNode(this, this._root!, repoPath, searchQueryFn, ResourceType.SearchResults)
+            new SearchResultsCommitsNode(this, this._root!, repoPath, search, searchBy, searchQueryFn)
         );
     }
 
