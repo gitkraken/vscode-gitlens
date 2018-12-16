@@ -131,7 +131,9 @@ export class StashApplyCommand extends Command {
                 return window.showInformationMessage(`Stash applied with conflicts`);
             }
             else {
-                return Messages.showGenericErrorMessage('Unable to apply stash');
+                return Messages.showGenericErrorMessage(
+                    `Unable to apply stash \u2014 ${ex.message.trim().replace(/\n+?/g, '; ')}`
+                );
             }
         }
     }
