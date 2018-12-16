@@ -34,6 +34,7 @@ None currently &mdash; could be you or your company here!
 - Brandon Burroughs
 - Eugen Grue
 - Guido Kessels
+- Jon G
 - Jordan Oroshiba
 - Ken Howard
 - Michael Duffy (former Silver Sponsor)
@@ -43,22 +44,19 @@ None currently &mdash; could be you or your company here!
 - Pavel Khlopin
 - Pelle Wessman
 - Raphael Schweikert
+- Sergey Cheperis
 - Stephen Kelley
 - Xananax
 - Øyvind de Freitas Sørensen
 
 <h2 align="center">Backers</h2>
 
-- Adam Parkin
-- Daniel Andersson
+- Brent Schmidt
 - Diego La Manno
 - Gav Massignham
 - J Burnett
 - JehongAhn
-- Jon G
-- Maximilian Wendel
 - Nathaniel Blackburn
 - Raymond Brigleb
-- Robert Leisser
 - Sunny Gupta
 - Vance Dubberly
