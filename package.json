@@ -1853,7 +1853,11 @@
             {
                 "command": "gitlens.toggleFileHeatmap",
                 "title": "Toggle File Heatmap Annotations",
-                "category": "GitLens"
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-git.svg",
+                    "light": "images/light/icon-git.svg"
+                }
             },
             {
                 "command": "gitlens.toggleFileRecentChanges",
