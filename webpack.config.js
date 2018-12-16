@@ -4,7 +4,6 @@ const glob = require('glob');
 const path = require('path');
 const webpack = require('webpack');
 const CleanPlugin = require('clean-webpack-plugin');
-const FileManagerPlugin = require('filemanager-webpack-plugin');
 const HtmlInlineSourcePlugin = require('html-webpack-inline-source-plugin');
 const HtmlPlugin = require('html-webpack-plugin');
 const ImageminPlugin = require('imagemin-webpack-plugin').default;
@@ -15,44 +14,16 @@ module.exports = function(env, argv) {
     env = env || {};
     env.production = Boolean(env.production);
     env.optimizeImages = env.production || Boolean(env.optimizeImages);
-    env.copyClipboardyFallbacks = env.production || Boolean(env.copyClipboardyFallbacks);
 
     if (!env.optimizeImages && !fs.existsSync(path.resolve(__dirname, 'images/settings'))) {
         env.optimizeImages = true;
-    }
-
-    if (!env.copyClipboardyFallbacks && !fs.existsSync(path.resolve(__dirname, 'fallbacks'))) {
-        env.copyClipboardyFallbacks = true;
     }
 
     return [getExtensionConfig(env), getUIConfig(env)];
 };
 
 function getExtensionConfig(env) {
-    const clean = ['dist'];
-    if (env.copyClipboardyFallbacks) {
-        clean.push('fallbacks');
-    }
-
-    const plugins = [new CleanPlugin(clean, { verbose: false }), new webpack.IgnorePlugin(/^spawn-sync$/)];
-
-    if (env.copyClipboardyFallbacks) {
-        plugins.push(
-            // @ts-ignore
-            new FileManagerPlugin({
-                onEnd: [
-                    {
-                        copy: [
-                            {
-                                source: path.resolve(__dirname, 'node_modules/clipboardy/fallbacks'),
-                                destination: 'fallbacks/'
-                            }
-                        ]
-                    }
-                ]
-            })
-        );
-    }
+    const plugins = [new CleanPlugin(['dist'], { verbose: false }), new webpack.IgnorePlugin(/^spawn-sync$/)];
 
     return {
         name: 'extension',

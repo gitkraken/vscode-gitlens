@@ -1,6 +1,5 @@
 'use strict';
-import * as clipboard from 'clipboardy';
-import { commands, Range, Uri, window } from 'vscode';
+import { commands, env, Range, Uri, window } from 'vscode';
 import { BuiltInCommands } from '../../constants';
 import { Logger } from '../../logger';
 import { Messages } from '../../messages';
@@ -120,7 +119,7 @@ export abstract class RemoteProvider {
         if (url === undefined) return undefined;
 
         try {
-            void (await clipboard.write(url));
+            void (await env.clipboard.writeText(url));
 
             return undefined;
         }

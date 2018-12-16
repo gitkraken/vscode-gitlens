@@ -1,6 +1,5 @@
 'use strict';
-import * as clipboard from 'clipboardy';
-import { TextEditor, Uri, window } from 'vscode';
+import { env, TextEditor, Uri, window } from 'vscode';
 import { Container } from '../container';
 import { GitUri } from '../git/gitService';
 import { Logger } from '../logger';
@@ -71,7 +70,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
                 }
             }
 
-            void (await clipboard.write(args.sha));
+            void (await env.clipboard.writeText(args.sha));
             return undefined;
         }
         catch (ex) {

@@ -1,6 +1,5 @@
 'use strict';
-import * as clipboard from 'clipboardy';
-import { TextEditor, Uri, window } from 'vscode';
+import { env, TextEditor, Uri, window } from 'vscode';
 import { Container } from '../container';
 import { GitUri } from '../git/gitService';
 import { Logger } from '../logger';
@@ -90,7 +89,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
                 args.message = commit.message;
             }
 
-            void (await clipboard.write(args.message));
+            void (await env.clipboard.writeText(args.message));
             return undefined;
         }
         catch (ex) {
