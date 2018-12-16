@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [9.2.1] - 2018-12-16
+
+### Changed
+
+- Switches to use the new built-in clipboard apis &mdash; closes [#593](https://github.com/eamodio/vscode-gitlens/issues/593)
+- Improves the error messaging when applying a stash, that won't apply cleanly, by including the git output in the message
+
+### Fixed
+
+- Fixes missing icon when using the `alt`-command of the _Toggle File Blame Annotations_ command
+
 ## [9.2.0] - 2018-12-13
 
 ### Added
