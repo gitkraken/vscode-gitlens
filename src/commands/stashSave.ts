@@ -13,7 +13,8 @@ import {
     Commands,
     getRepoPathOrPrompt,
     isCommandViewContextWithFile,
-    isCommandViewContextWithRepo
+    isCommandViewContextWithRepo,
+    isCommandViewContextWithRepoPath
 } from './common';
 
 export interface StashSaveCommandArgs {
@@ -27,7 +28,7 @@ export interface StashSaveCommandArgs {
 @command()
 export class StashSaveCommand extends Command {
     constructor() {
-        super(Commands.StashSave);
+        super([Commands.StashSave, Commands.StashSaveFiles]);
     }
 
     protected async preExecute(context: CommandContext, args: StashSaveCommandArgs = {}): Promise<any> {
@@ -38,6 +39,10 @@ export class StashSaveCommand extends Command {
         else if (isCommandViewContextWithRepo(context)) {
             args = { ...args };
             args.repoPath = context.node.repo.path;
+        }
+        else if (isCommandViewContextWithRepoPath(context)) {
+            args = { ...args };
+            args.repoPath = context.node.repoPath;
         }
         else if (context.type === 'scm-states') {
             args = { ...args };

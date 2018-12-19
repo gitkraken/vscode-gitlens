@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Renames the _Stash Changes_ command (`gitlens.stashSave`) to _Stash All Changes_ and adds a new _Stash Changes_ command (`gitlens.stashSaveFiles`)
+- Changes the icon of the _Stash All Changes_ command (`gitlens.stashSave`) &mdash; closes [Microsoft/vscode#64423](https://github.com/Microsoft/vscode/issues/64423)
+
 ### Fixed
 
 - Fixes [#598](https://github.com/eamodio/vscode-gitlens/issues/598) &mdash; Apply changes when comparing a file from two branches is not working

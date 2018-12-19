@@ -2077,6 +2077,15 @@
             },
             {
                 "command": "gitlens.stashSave",
+                "title": "Stash All Changes",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-stash-save.svg",
+                    "light": "images/light/icon-stash-save.svg"
+                }
+            },
+            {
+                "command": "gitlens.stashSaveFiles",
                 "title": "Stash Changes",
                 "category": "GitLens",
                 "icon": {
@@ -2901,6 +2910,10 @@
                     "when": "gitlens:enabled && !gitlens:readonly"
                 },
                 {
+                    "command": "gitlens.stashSaveFiles",
+                    "when": "false"
+                },
+                {
                     "command": "gitlens.resetSuppressedWarnings",
                     "when": "gitlens:enabled"
                 },
@@ -3504,7 +3517,7 @@
                     "group": "1_gitlens_1@2"
                 },
                 {
-                    "command": "gitlens.stashSave",
+                    "command": "gitlens.stashSaveFiles",
                     "when": "gitlens:enabled && !gitlens:readonly && config.gitlens.menus.scmItem.stash",
                     "group": "1_modification@-1"
                 },
@@ -3955,7 +3968,7 @@
                     "group": "1_gitlens@1"
                 },
                 {
-                    "command": "gitlens.stashSave",
+                    "command": "gitlens.stashSaveFiles",
                     "when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b.*:(un)?staged\\b/",
                     "group": "1_gitlens@2"
                 },
@@ -4203,23 +4216,23 @@
                     "group": "2_gitlens@1"
                 },
                 {
-                    "command": "gitlens.stashApply",
-                    "when": "!gitlens:readonly && viewItem == gitlens:stashes",
+                    "command": "gitlens.stashSave",
+                    "when": "!gitlens:readonly && viewItem =~ /^gitlens:(stashes|status:files)$/",
                     "group": "inline@98"
                 },
                 {
+                    "command": "gitlens.stashApply",
+                    "when": "!gitlens:readonly && viewItem == gitlens:stashes",
+                    "group": "inline@99"
+                },
+                {
                     "command": "gitlens.stashSave",
                     "when": "!gitlens:readonly && viewItem =~ /^gitlens:(stashes|status:files)$/",
-                    "group": "inline@99"
+                    "group": "1_gitlens@1"
                 },
                 {
                     "command": "gitlens.stashApply",
                     "when": "!gitlens:readonly && viewItem == gitlens:stashes",
-                    "group": "1_gitlens@1"
-                },
-                {
-                    "command": "gitlens.stashSave",
-                    "when": "!gitlens:readonly && viewItem =~ /^gitlens:(stashes|status:files)$/",
                     "group": "1_gitlens@2"
                 },
                 {

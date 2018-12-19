@@ -80,6 +80,7 @@ export enum Commands {
     StashApply = 'gitlens.stashApply',
     StashDelete = 'gitlens.stashDelete',
     StashSave = 'gitlens.stashSave',
+    StashSaveFiles = 'gitlens.stashSaveFiles',
     SupportGitLens = 'gitlens.supportGitLens',
     SwitchMode = 'gitlens.switchMode',
     ToggleCodeLens = 'gitlens.toggleCodeLens',
@@ -284,6 +285,14 @@ export function isCommandViewContextWithRepo(
     if (context.type !== 'viewItem') return false;
 
     return (context.node as ViewNode & { repo?: Repository }).repo instanceof Repository;
+}
+
+export function isCommandViewContextWithRepoPath(
+    context: CommandContext
+): context is CommandViewItemContext & { node: ViewNode & { repoPath: string } } {
+    if (context.type !== 'viewItem') return false;
+
+    return typeof (context.node as ViewNode & { repoPath?: string }).repoPath === 'string';
 }
 
 export type CommandContext =
