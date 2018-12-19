@@ -4587,7 +4587,7 @@
         "prettier-tslint": "0.4.1",
         "sass-loader": "7.1.0",
         "terser-webpack-plugin": "1.1.0",
-        "tslint": "5.11.0",
+        "tslint": "5.12.0",
         "tslint-loader": "3.5.4",
         "tslint-prettiest": "0.0.1",
         "ts-loader": "5.3.1",
