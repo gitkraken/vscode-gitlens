@@ -163,6 +163,12 @@ export class ViewCommands implements Disposable {
 
         void (await this.openFile(node));
 
+        if (node instanceof ResultsFileNode) {
+            void (await Container.git.applyChangesToWorkingFile(node.uri, node.ref1, node.ref2));
+
+            return;
+        }
+
         if (node.uri.sha !== undefined && node.uri.sha !== 'HEAD') {
             void (await Container.git.applyChangesToWorkingFile(node.uri));
         }

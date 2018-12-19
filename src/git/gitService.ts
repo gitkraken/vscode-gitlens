@@ -443,13 +443,18 @@ export class GitService implements Disposable {
     }
 
     @log()
-    async applyChangesToWorkingFile(uri: GitUri, ref?: string) {
-        ref = ref || uri.sha;
-        if (ref === undefined || uri.repoPath === undefined) return;
+    async applyChangesToWorkingFile(uri: GitUri, ref1?: string, ref2?: string) {
+        ref1 = ref1 || uri.sha;
+        if (ref1 === undefined || uri.repoPath === undefined) return;
+
+        if (ref2 === undefined) {
+            ref2 = ref1;
+            ref1 = `${ref1}^`;
+        }
 
         let patch;
         try {
-            patch = await Git.diff(uri.repoPath, uri.fsPath, `${ref}^`, ref);
+            patch = await Git.diff(uri.repoPath, uri.fsPath, ref1, ref2);
             void (await Git.apply(uri.repoPath!, patch));
         }
         catch (ex) {

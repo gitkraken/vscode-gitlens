@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- Fixes [#598](https://github.com/eamodio/vscode-gitlens/issues/598) &mdash; Apply changes when comparing a file from two branches is not working
+
 ## [9.2.1] - 2018-12-16
 
 ### Changed
