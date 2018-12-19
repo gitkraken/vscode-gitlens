@@ -44,13 +44,13 @@ export class VslsGuestService implements Disposable {
     dispose() {}
 
     @log()
-    private async onAvailabilityChanged(available: boolean) {
+    private onAvailabilityChanged(available: boolean) {
         if (available) {
-            setCommandContext(CommandContext.Enabled, true);
+            void setCommandContext(CommandContext.Enabled, true);
             return;
         }
 
-        setCommandContext(CommandContext.Enabled, false);
+        void setCommandContext(CommandContext.Enabled, false);
         void window.showWarningMessage(
             `GitLens features will be unavailable. Unable to connect to the host GitLens service. The host may have disabled GitLens guest access or may not have GitLens installed.`
         );
