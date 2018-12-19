@@ -454,7 +454,7 @@ export class Git {
     }
 
     static check_mailmap(repoPath: string, author: string) {
-        return git<string>({ cwd: repoPath, local: true }, 'check-mailmap', author);
+        return git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore, local: true }, 'check-mailmap', author);
     }
 
     static checkout(repoPath: string, ref: string, fileName?: string) {
