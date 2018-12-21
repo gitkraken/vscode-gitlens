@@ -1814,8 +1814,8 @@
                 "title": "Open Changes with Working File",
                 "category": "GitLens",
                 "icon": {
-                    "dark": "images/dark/icon-compare.svg",
-                    "light": "images/light/icon-compare.svg"
+                    "dark": "images/dark/icon-compare-ref-working.svg",
+                    "light": "images/light/icon-compare-ref-working.svg"
                 }
             },
             {
