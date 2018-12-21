@@ -10,6 +10,29 @@ body {
     line-height: 1.4;
 }
 
+canvas.snow {
+    max-width: calc(100% - 20px);
+    pointer-events: none;
+    position: fixed;
+    z-index: 2147483646;
+}
+
+.snow__trigger {
+    cursor: pointer;
+    position: fixed;
+    right: 10px;
+    top: 5px;
+    transform: rotate(-20deg);
+    width: 22px;
+    z-index: 2147483647;
+
+    & svg:hover {
+        & path:first-child {
+            fill: #f30000;
+        }
+    }
+}
+
 a {
     border: 0;
     color: var(--link-color);
