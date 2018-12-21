@@ -4580,7 +4580,7 @@
         "vscode:prepublish": "npm run reset && npm run bundle"
     },
     "dependencies": {
-        "date-fns": "1.29.0",
+        "date-fns": "1.30.1",
         "iconv-lite": "0.4.24",
         "lodash-es": "4.17.11",
         "tslib": "1.9.3",
@@ -4588,9 +4588,9 @@
     },
     "devDependencies": {
         "@types/lodash-es": "4.17.1",
-        "@types/node": "8.10.38",
+        "@types/node": "8.10.39",
         "clean-webpack-plugin": "1.0.0",
-        "css-loader": "2.0.0",
+        "css-loader": "2.0.1",
         "html-webpack-inline-source-plugin": "0.0.10",
         "html-webpack-plugin": "3.2.0",
         "imagemin-webpack-plugin": "2.3.0",
@@ -4605,9 +4605,9 @@
         "tslint-prettiest": "0.0.1",
         "ts-loader": "5.3.1",
         "typescript": "3.2.2",
-        "vsce": "1.53.2",
+        "vsce": "1.54.0",
         "vscode": "1.1.26",
-        "webpack": "4.27.1",
+        "webpack": "4.28.1",
         "webpack-cli": "3.1.2"
     }
 }
