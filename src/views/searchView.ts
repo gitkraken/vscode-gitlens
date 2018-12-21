@@ -6,7 +6,7 @@ import { Container } from '../container';
 import { GitLog, GitRepoSearchBy } from '../git/gitService';
 import { Functions, Strings } from '../system';
 import { SearchNode, SearchResultsCommitsNode, ViewNode } from './nodes';
-import { RefreshReason, ViewBase } from './viewBase';
+import { ViewBase } from './viewBase';
 
 interface SearchQueryResult {
     label: string;
@@ -31,7 +31,7 @@ export class SearchView extends ViewBase<SearchNode> {
     protected registerCommands() {
         void Container.viewCommands;
         commands.registerCommand(this.getQualifiedCommand('clear'), () => this.clear(), this);
-        commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(), this);
+        commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this);
         commands.registerCommand(
             this.getQualifiedCommand('setFilesLayoutToAuto'),
             () => this.setFilesLayout(ViewFilesLayout.Auto),
@@ -69,7 +69,7 @@ export class SearchView extends ViewBase<SearchNode> {
         }
 
         if (!configuration.initializing(e) && this._root !== undefined) {
-            void this.refresh(RefreshReason.ConfigurationChanged);
+            void this.refresh(true);
         }
     }
 

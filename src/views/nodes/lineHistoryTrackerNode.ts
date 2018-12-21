@@ -28,11 +28,11 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
     }
 
     @debug()
-    resetChild() {
-        if (this._child !== undefined) {
-            this._child.dispose();
-            this._child = undefined;
-        }
+    private resetChild() {
+        if (this._child === undefined) return;
+
+        this._child.dispose();
+        this._child = undefined;
     }
 
     async getChildren(): Promise<ViewNode[]> {
@@ -84,7 +84,13 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 
     @gate()
     @debug()
-    async refresh() {
+    async refresh(reset: boolean = false) {
+        if (reset) {
+            this._uri = unknownGitUri;
+            this._selection = undefined;
+            this.resetChild();
+        }
+
         const editor = window.activeTextEditor;
         if (editor == null || !Container.git.isTrackable(editor.document.uri)) {
             if (

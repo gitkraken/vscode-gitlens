@@ -4,7 +4,7 @@ import { configuration, LineHistoryViewConfig, ViewsConfig } from '../configurat
 import { CommandContext, setCommandContext } from '../constants';
 import { Container } from '../container';
 import { LineHistoryTrackerNode } from './nodes';
-import { RefreshReason, ViewBase } from './viewBase';
+import { ViewBase } from './viewBase';
 
 export class LineHistoryView extends ViewBase<LineHistoryTrackerNode> {
     constructor() {
@@ -21,7 +21,7 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode> {
 
     protected registerCommands() {
         void Container.viewCommands;
-        commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(), this);
+        commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this);
         commands.registerCommand(this.getQualifiedCommand('changeBase'), () => this.changeBase(), this);
         commands.registerCommand(
             this.getQualifiedCommand('setEditorFollowingOn'),
@@ -64,7 +64,7 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode> {
         }
 
         if (!configuration.initializing(e) && this._root !== undefined) {
-            void this.refresh(RefreshReason.ConfigurationChanged);
+            void this.refresh(true);
         }
     }
 

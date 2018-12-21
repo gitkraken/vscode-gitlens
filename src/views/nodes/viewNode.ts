@@ -3,7 +3,7 @@ import { Command, Disposable, Event, TreeItem, TreeItemCollapsibleState, TreeVie
 import { GitUri } from '../../git/gitService';
 import { Logger } from '../../logger';
 import { debug, gate, logName } from '../../system';
-import { RefreshReason, TreeViewNodeStateChangeEvent, View } from '../viewBase';
+import { TreeViewNodeStateChangeEvent, View } from '../viewBase';
 
 export enum ResourceType {
     ActiveFileHistory = 'gitlens:history:active:file',
@@ -97,7 +97,7 @@ export abstract class ViewNode<TView extends View = View> {
 
     @gate()
     @debug()
-    refresh(reason?: RefreshReason): void | boolean | Promise<void> | Promise<boolean> {}
+    refresh(reset: boolean = false): void | boolean | Promise<void> | Promise<boolean> {}
 
     @gate()
     @debug()

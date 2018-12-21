@@ -26,11 +26,6 @@ import { RepositoriesView } from './repositoriesView';
 import { SearchView } from './searchView';
 import { RefreshNodeCommandArgs } from './viewCommands';
 
-export enum RefreshReason {
-    ConfigurationChanged = 'ConfigurationChanged',
-    VisibilityChanged = 'VisibilityChanged'
-}
-
 export type View = RepositoriesView | FileHistoryView | LineHistoryView | CompareView | SearchView;
 
 export interface TreeViewNodeStateChangeEvent<T> extends TreeViewExpansionEvent<T> {
@@ -144,9 +139,9 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
     }
 
     @debug()
-    async refresh(reason?: RefreshReason) {
+    async refresh(reset: boolean = false) {
         if (this._root !== undefined) {
-            await this._root.refresh(reason);
+            await this._root.refresh(reset);
         }
 
         this.triggerNodeChange();
@@ -155,7 +150,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
     @debug({
         args: { 0: (n: ViewNode) => n.toString() }
     })
-    async refreshNode(node: ViewNode, args?: RefreshNodeCommandArgs) {
+    async refreshNode(node: ViewNode, reset: boolean = false, args?: RefreshNodeCommandArgs) {
         if (args !== undefined) {
             if (isPageable(node)) {
                 if (args.maxCount === undefined || args.maxCount === 0) {
@@ -167,7 +162,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
             }
         }
 
-        const cancel = await node.refresh();
+        const cancel = await node.refresh(reset);
         if (cancel === true) return;
 
         this.triggerNodeChange(node);

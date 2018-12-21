@@ -52,7 +52,7 @@ export class ViewCommands implements Disposable {
     constructor() {
         commands.registerCommand(
             'gitlens.views.refreshNode',
-            (node: ViewNode, args?: RefreshNodeCommandArgs) => node.view.refreshNode(node, args),
+            (node: ViewNode, args?: RefreshNodeCommandArgs) => node.view.refreshNode(node, true, args),
             this
         );
         commands.registerCommand(

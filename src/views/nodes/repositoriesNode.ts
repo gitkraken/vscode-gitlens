@@ -5,7 +5,6 @@ import { GitUri } from '../../git/gitService';
 import { Logger } from '../../logger';
 import { debug, Functions, gate } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
-import { RefreshReason } from '../viewBase';
 import { MessageNode } from './common';
 import { RepositoryNode } from './repositoryNode';
 import { ResourceType, SubscribeableViewNode, unknownGitUri, ViewNode } from './viewNode';
@@ -20,14 +19,19 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
     dispose() {
         super.dispose();
 
-        if (this._children !== undefined) {
-            for (const child of this._children) {
-                if (child instanceof RepositoryNode) {
-                    child.dispose();
-                }
+        this.resetChildren();
+    }
+
+    @debug()
+    private resetChildren() {
+        if (this._children === undefined) return;
+
+        for (const child of this._children) {
+            if (child instanceof RepositoryNode) {
+                child.dispose();
             }
-            this._children = undefined;
         }
+        this._children = undefined;
     }
 
     async getChildren(): Promise<ViewNode[]> {
@@ -59,8 +63,16 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 
     @gate()
     @debug()
-    async refresh(reason?: RefreshReason) {
+    async refresh(reset: boolean = false) {
         if (this._children === undefined) return;
+
+        if (reset) {
+            this.resetChildren();
+            await this.unsubscribe();
+            void this.ensureSubscription();
+
+            return;
+        }
 
         const repositories = await Container.git.getOrderedRepositories();
         if (repositories.length === 0 && (this._children === undefined || this._children.length === 0)) return;
@@ -92,11 +104,6 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
         }
 
         this._children = children;
-
-        // Reset our subscription if the configuration changed
-        if (reason === RefreshReason.ConfigurationChanged) {
-            await this.unsubscribe();
-        }
 
         void this.ensureSubscription();
     }

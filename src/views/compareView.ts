@@ -4,7 +4,7 @@ import { CompareViewConfig, configuration, ViewFilesLayout, ViewsConfig } from '
 import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
 import { CompareNode, CompareResultsNode, NamedRef, ViewNode } from './nodes';
-import { RefreshReason, ViewBase } from './viewBase';
+import { ViewBase } from './viewBase';
 
 export class CompareView extends ViewBase<CompareNode> {
     constructor() {
@@ -24,7 +24,7 @@ export class CompareView extends ViewBase<CompareNode> {
     protected registerCommands() {
         void Container.viewCommands;
         commands.registerCommand(this.getQualifiedCommand('clear'), () => this.clear(), this);
-        commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(), this);
+        commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this);
         commands.registerCommand(
             this.getQualifiedCommand('setFilesLayoutToAuto'),
             () => this.setFilesLayout(ViewFilesLayout.Auto),
@@ -66,7 +66,7 @@ export class CompareView extends ViewBase<CompareNode> {
         }
 
         if (!configuration.initializing(e) && this._root !== undefined) {
-            void this.refresh(RefreshReason.ConfigurationChanged);
+            void this.refresh(true);
         }
     }
 

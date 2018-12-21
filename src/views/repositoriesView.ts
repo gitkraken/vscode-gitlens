@@ -4,7 +4,7 @@ import { configuration, RepositoriesViewConfig, ViewFilesLayout, ViewsConfig } f
 import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
 import { RepositoriesNode } from './nodes';
-import { RefreshReason, ViewBase } from './viewBase';
+import { ViewBase } from './viewBase';
 
 export class RepositoriesView extends ViewBase<RepositoriesNode> {
     constructor() {
@@ -27,7 +27,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
     protected registerCommands() {
         void Container.viewCommands;
 
-        commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(), this);
+        commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this);
         commands.registerCommand(
             this.getQualifiedCommand('setFilesLayoutToAuto'),
             () => this.setFilesLayout(ViewFilesLayout.Auto),
@@ -74,7 +74,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
         }
 
         if (!configuration.initializing(e) && this._root !== undefined) {
-            void this.refresh(RefreshReason.ConfigurationChanged);
+            void this.refresh(true);
         }
     }
 

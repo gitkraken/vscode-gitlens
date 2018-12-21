@@ -166,7 +166,7 @@ export abstract class PagerNode extends ViewNode {
         return {
             title: 'Refresh',
             command: 'gitlens.views.refreshNode',
-            arguments: [this.parent, this._args]
+            arguments: [this.parent, false, this._args]
         } as Command;
     }
 }
