@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Adds a `gitlens.views.showRelativeDateMarkers` setting to specify whether to show relative date markers (_Less than a week ago_, _Over a week ago_, _Over a month ago_, etc) on revision (commit) histories in the views &mdash; closes [#571](https://github.com/eamodio/vscode-gitlens/issues/571)
+
+### Changed
+
+- Changes the icon of the _Open Changes with Working File_ command (`gitlens.diffWithWorking`) to align with VS Codes new _Open Changes_ icon
+- Splits the `gitlens.views.avatars` setting into `gitlens.views.compare.avatars`, `gitlens.views.repositories.avatars`, and `gitlens.views.search.avatars` settings for more granular control
+
 ## [9.2.2] - 2018-12-19
 
 ### Changed
