@@ -372,6 +372,7 @@ export interface ViewsConfig {
     lineHistory: LineHistoryViewConfig;
     repositories: RepositoriesViewConfig;
     search: SearchViewConfig;
+    showRelativeDateMarkers: boolean;
     stashFileDescriptionFormat: string;
     stashFileFormat: string;
     stashDescriptionFormat: string;

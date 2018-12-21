@@ -1497,6 +1497,12 @@
                     "markdownDescription": "Specifies where to show the _Search Commits_ view",
                     "scope": "window"
                 },
+                "gitlens.views.showRelativeDateMarkers": {
+                    "type": "boolean",
+                    "default": true,
+                    "markdownDescription": "Specifies whether to show relative date markers (_Less than a week ago_, _Over a week ago_, _Over a month ago_, etc) on revision (commit) histories in the views",
+                    "scope": "window"
+                },
                 "gitlens.views.stashFileFormat": {
                     "type": "string",
                     "default": "${file}",

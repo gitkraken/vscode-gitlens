@@ -36,6 +36,10 @@ export function* insertDateMarkers<T extends ViewNode & { commit: GitLogCommit }
     parent: ViewNode,
     skip?: number
 ): Iterable<ViewNode> {
+    if (!parent.view.config.showRelativeDateMarkers) {
+        return yield* iterable;
+    }
+
     let index = skip || 0;
     let time = undefined;
     const now = Date.now();
