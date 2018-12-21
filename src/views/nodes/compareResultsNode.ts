@@ -3,14 +3,14 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
 import { GitService, GitUri } from '../../git/gitService';
 import { Strings } from '../../system';
-import { View } from '../viewBase';
+import { ViewWithFiles } from '../viewBase';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
 import { ResultsFilesNode } from './resultsFilesNode';
 import { NamedRef, ResourceType, ViewNode } from './viewNode';
 
-export class CompareResultsNode extends ViewNode {
+export class CompareResultsNode extends ViewNode<ViewWithFiles> {
     constructor(
-        view: View,
+        view: ViewWithFiles,
         public readonly repoPath: string,
         ref1: NamedRef,
         ref2: NamedRef

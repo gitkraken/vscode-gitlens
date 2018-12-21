@@ -5,7 +5,7 @@ import { ViewFilesLayout } from '../../configuration';
 import { Container } from '../../container';
 import { GitFile, GitUri } from '../../git/gitService';
 import { Arrays, Iterables, Strings } from '../../system';
-import { View } from '../viewBase';
+import { ViewWithFiles } from '../viewBase';
 import { FileNode, FolderNode } from './folderNode';
 import { ResultsFileNode } from './resultsFileNode';
 import { ResourceType, ViewNode } from './viewNode';
@@ -15,9 +15,9 @@ export interface FilesQueryResults {
     diff: GitFile[] | undefined;
 }
 
-export class ResultsFilesNode extends ViewNode {
+export class ResultsFilesNode extends ViewNode<ViewWithFiles> {
     constructor(
-        view: View,
+        view: ViewWithFiles,
         parent: ViewNode,
         public readonly repoPath: string,
         private readonly _ref1: string,

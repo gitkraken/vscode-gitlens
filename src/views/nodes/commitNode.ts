@@ -7,14 +7,14 @@ import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { CommitFormatter, GitBranch, GitLogCommit, ICommitFormatOptions } from '../../git/gitService';
 import { Arrays, Iterables, Strings } from '../../system';
-import { View } from '../viewBase';
+import { ViewWithFiles } from '../viewBase';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
 import { FileNode, FolderNode } from './folderNode';
 import { ResourceType, ViewNode, ViewRefNode } from './viewNode';
 
-export class CommitNode extends ViewRefNode {
+export class CommitNode extends ViewRefNode<ViewWithFiles> {
     constructor(
-        view: View,
+        view: ViewWithFiles,
         parent: ViewNode,
         public readonly commit: GitLogCommit,
         public readonly branch?: GitBranch,

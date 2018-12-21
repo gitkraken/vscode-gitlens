@@ -3,7 +3,7 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
 import { GitTrackingState, GitUri } from '../../git/gitService';
 import { Iterables, Strings } from '../../system';
-import { View } from '../viewBase';
+import { ViewWithFiles } from '../viewBase';
 import { CommitNode } from './commitNode';
 import { ShowMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
@@ -16,12 +16,12 @@ export interface BranchTrackingStatus {
     upstream?: string;
 }
 
-export class BranchTrackingStatusNode extends ViewNode implements PageableViewNode {
+export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements PageableViewNode {
     readonly supportsPaging: boolean = true;
     maxCount: number | undefined;
 
     constructor(
-        view: View,
+        view: ViewWithFiles,
         parent: ViewNode,
         public readonly status: BranchTrackingStatus,
         public readonly direction: 'ahead' | 'behind',

@@ -3,7 +3,7 @@ import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout, ViewsFilesConfig } from '../../configuration';
 import { GitUri } from '../../git/gitService';
 import { Arrays, Objects } from '../../system';
-import { View } from '../viewBase';
+import { ViewWithFiles } from '../viewBase';
 import { ResourceType, ViewNode } from './viewNode';
 
 export interface FileNode extends ViewNode {
@@ -14,11 +14,11 @@ export interface FileNode extends ViewNode {
     root?: Arrays.IHierarchicalItem<FileNode>;
 }
 
-export class FolderNode extends ViewNode {
+export class FolderNode extends ViewNode<ViewWithFiles> {
     readonly priority: number = 1;
 
     constructor(
-        view: View,
+        view: ViewWithFiles,
         parent: ViewNode,
         public readonly repoPath: string,
         public readonly folderName: string,

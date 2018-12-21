@@ -27,6 +27,7 @@ import { SearchView } from './searchView';
 import { RefreshNodeCommandArgs } from './viewCommands';
 
 export type View = RepositoriesView | FileHistoryView | LineHistoryView | CompareView | SearchView;
+export type ViewWithFiles = RepositoriesView | CompareView | SearchView;
 
 export interface TreeViewNodeStateChangeEvent<T> extends TreeViewExpansionEvent<T> {
     state: TreeItemCollapsibleState;

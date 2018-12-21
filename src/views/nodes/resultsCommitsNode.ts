@@ -3,7 +3,7 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
 import { GitLog, GitUri } from '../../git/gitService';
 import { Iterables } from '../../system';
-import { View } from '../viewBase';
+import { ViewWithFiles } from '../viewBase';
 import { CommitNode } from './commitNode';
 import { ShowMoreNode } from './common';
 import { getBranchesAndTagTipsFn, insertDateMarkers } from './helpers';
@@ -14,12 +14,12 @@ export interface CommitsQueryResults {
     log: GitLog | undefined;
 }
 
-export class ResultsCommitsNode extends ViewNode implements PageableViewNode {
+export class ResultsCommitsNode extends ViewNode<ViewWithFiles> implements PageableViewNode {
     readonly supportsPaging: boolean = true;
     maxCount: number | undefined;
 
     constructor(
-        view: View,
+        view: ViewWithFiles,
         parent: ViewNode,
         public readonly repoPath: string,
         private readonly _commitsQuery: (maxCount: number | undefined) => Promise<CommitsQueryResults>

@@ -3,13 +3,13 @@ import { TreeItem } from 'vscode';
 import { SearchCommitsCommandArgs } from '../../commands';
 import { Commands } from '../../commands/common';
 import { GitRepoSearchBy } from '../../git/gitService';
-import { View } from '../viewBase';
+import { ViewWithFiles } from '../viewBase';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
 import { ResourceType, ViewNode } from './viewNode';
 
 export class SearchResultsCommitsNode extends ResultsCommitsNode {
     constructor(
-        view: View,
+        view: ViewWithFiles,
         parent: ViewNode,
         repoPath: string,
         public readonly search: string,

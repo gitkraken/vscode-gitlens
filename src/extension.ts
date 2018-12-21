@@ -99,7 +99,12 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
     const previous = Versions.fromString(previousVersion);
 
     try {
-        if (Versions.compare(previous, Versions.from(9, 0, 0)) !== 1) {
+        if (Versions.compare(previous, Versions.from(9, 2, 2)) !== 1) {
+            await configuration.migrate('views.avatars', configuration.name('views')('compare')('avatars').value);
+            await configuration.migrate('views.avatars', configuration.name('views')('repositories')('avatars').value);
+            await configuration.migrate('views.avatars', configuration.name('views')('search')('avatars').value);
+        }
+        else if (Versions.compare(previous, Versions.from(9, 0, 0)) !== 1) {
             await configuration.migrate(
                 'gitExplorer.autoRefresh',
                 configuration.name('views')('repositories')('autoRefresh').value
@@ -197,7 +202,12 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
                 configuration.name('views')('search')('location').value
             );
 
-            await configuration.migrate('explorers.avatars', configuration.name('views')('avatars').value);
+            await configuration.migrate('explorers.avatars', configuration.name('views')('compare')('avatars').value);
+            await configuration.migrate(
+                'explorers.avatars',
+                configuration.name('views')('repositories')('avatars').value
+            );
+            await configuration.migrate('explorers.avatars', configuration.name('views')('search')('avatars').value);
             await configuration.migrate(
                 'explorers.commitFileFormat',
                 configuration.name('views')('commitFileFormat').value
@@ -206,15 +216,6 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
             await configuration.migrate(
                 'explorers.defaultItemLimit',
                 configuration.name('views')('defaultItemLimit').value
-            );
-            await configuration.migrate(
-                'explorers.files.compact',
-                configuration.name('views')('files')('compact').value
-            );
-            await configuration.migrate('explorers.files.layout', configuration.name('views')('files')('layout').value);
-            await configuration.migrate(
-                'explorers.files.threshold',
-                configuration.name('views')('files')('threshold').value
             );
             await configuration.migrate(
                 'explorers.stashFileFormat',

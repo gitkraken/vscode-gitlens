@@ -237,6 +237,7 @@ export interface CodeLensLanguageScope {
 }
 
 export interface CompareViewConfig {
+    avatars: boolean;
     enabled: boolean;
     files: ViewsFilesConfig;
     location: 'explorer' | 'gitlens' | 'scm';
@@ -248,7 +249,11 @@ export interface FileHistoryViewConfig {
     location: 'explorer' | 'gitlens' | 'scm';
 }
 
-export interface LineHistoryViewConfig extends FileHistoryViewConfig {}
+export interface LineHistoryViewConfig {
+    avatars: boolean;
+    enabled: boolean;
+    location: 'explorer' | 'gitlens' | 'scm';
+}
 
 export interface MenuConfig {
     editor:
@@ -336,6 +341,7 @@ export interface RemotesUrlsConfig {
 export interface RepositoriesViewConfig {
     autoRefresh: boolean;
     autoReveal: boolean;
+    avatars: boolean;
     branches: {
         layout: ViewBranchesLayout;
     };
@@ -348,19 +354,14 @@ export interface RepositoriesViewConfig {
 }
 
 export interface SearchViewConfig {
+    avatars: boolean;
     enabled: boolean;
     files: ViewsFilesConfig;
     location: 'explorer' | 'gitlens' | 'scm';
 }
 
 export interface ViewsConfig {
-    avatars: boolean;
     fileHistory: FileHistoryViewConfig;
-    files: {
-        layout: ViewFilesLayout;
-        compact: boolean;
-        threshold: number;
-    };
     commitFileDescriptionFormat: string;
     commitFileFormat: string;
     commitDescriptionFormat: string;
