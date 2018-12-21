@@ -97,7 +97,9 @@ export function log<T>(
             const correlationId = getNextCorrelationId();
 
             if (
-                (Logger.level !== LogLevel.Debug && !(Logger.level === LogLevel.Verbose && !options.debug)) ||
+                (!Logger.isDebugging &&
+                    Logger.level !== LogLevel.Debug &&
+                    !(Logger.level === LogLevel.Verbose && !options.debug)) ||
                 (typeof options.condition === 'function' && !options.condition(...args))
             ) {
                 return fn!.apply(this, args);
