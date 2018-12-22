@@ -109,7 +109,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 
         const status = await this._status;
         if (status !== undefined) {
-            tooltip += `\n\n${status.branch}`;
+            tooltip += `\n\nCurrent branch is ${status.branch}`;
 
             if (status.files.length !== 0 && this.includeWorkingTree) {
                 workingStatus = status.getFormattedDiffStatus({
@@ -126,8 +126,8 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 
             iconSuffix = workingStatus ? '-blue' : '';
             if (status.upstream !== undefined) {
-                tooltip += ` is tracking ${status.upstream}\n${status.getUpstreamStatus({
-                    empty: 'up-to-date',
+                tooltip += ` and is tracking ${status.upstream}\n${status.getUpstreamStatus({
+                    empty: `No commits ahead or behind`,
                     expand: true,
                     separator: '\n',
                     suffix: '\n'
@@ -142,7 +142,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
             }
 
             if (workingStatus) {
-                tooltip += `\nWorking tree has uncommitted changes${status.getFormattedDiffStatus({
+                tooltip += `\n\nWorking tree has uncommitted changes${status.getFormattedDiffStatus({
                     expand: true,
                     prefix: `\n`,
                     separator: '\n'
