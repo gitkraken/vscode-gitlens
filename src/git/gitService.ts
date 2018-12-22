@@ -2132,6 +2132,16 @@ export class GitService implements Disposable {
         );
     }
 
+    stageDirectory(repoPath: string, directory: string): Promise<string>;
+    stageDirectory(repoPath: string, uri: Uri): Promise<string>;
+    @log()
+    stageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<string> {
+        return Git.add(
+            repoPath,
+            typeof directoryOrUri === 'string' ? directoryOrUri : Git.splitPath(directoryOrUri.fsPath, repoPath)[0]
+        );
+    }
+
     unStageFile(repoPath: string, fileName: string): Promise<string>;
     unStageFile(repoPath: string, uri: Uri): Promise<string>;
     @log()
@@ -2139,6 +2149,16 @@ export class GitService implements Disposable {
         return Git.reset(
             repoPath,
             typeof fileNameOrUri === 'string' ? fileNameOrUri : Git.splitPath(fileNameOrUri.fsPath, repoPath)[0]
+        );
+    }
+
+    unStageDirectory(repoPath: string, directory: string): Promise<string>;
+    unStageDirectory(repoPath: string, uri: Uri): Promise<string>;
+    @log()
+    unStageDirectory(repoPath: string, directoryOrUri: string | Uri): Promise<string> {
+        return Git.reset(
+            repoPath,
+            typeof directoryOrUri === 'string' ? directoryOrUri : Git.splitPath(directoryOrUri.fsPath, repoPath)[0]
         );
     }
 

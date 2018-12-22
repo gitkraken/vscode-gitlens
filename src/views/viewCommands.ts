@@ -467,13 +467,9 @@ export class ViewCommands implements Disposable {
     }
 
     private async stageDirectory(node: ViewNode) {
+        if (!node.uri.repoPath) return;
 
-        // TODO: get fileNodes from node
-        const fileNodes: (CommitFileNode | StatusFileNode)[] = [];
-
-        for (const fileNode of fileNodes) {
-            void (await this.stageFile(fileNode));
-        }
+        void (await Container.git.stageDirectory(node.uri.repoPath, node.uri));
     }
 
     private async stageFile(node: CommitFileNode | StatusFileNode) {
@@ -483,13 +479,9 @@ export class ViewCommands implements Disposable {
     }
 
     private async unstageDirectory(node: ViewNode) {
+        if (!node.uri.repoPath) return;
 
-        // TODO: get fileNodes from node
-        const fileNodes: (CommitFileNode | StatusFileNode)[] = [];
-
-        for (const fileNode of fileNodes) {
-            void (await this.unstageFile(fileNode));
-        }
+        void (await Container.git.unStageDirectory(node.uri.repoPath, node.uri));
     }
 
     private async unstageFile(node: CommitFileNode | StatusFileNode) {
