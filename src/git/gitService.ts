@@ -516,7 +516,7 @@ export class GitService implements Disposable {
 
                     if (token.isCancellationRequested) break;
 
-                    await this.fetch(repo.path);
+                    await repo.fetch({ progress: false });
                 }
             }
         );
