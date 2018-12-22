@@ -74,6 +74,7 @@ export class Repository implements Disposable {
     readonly index: number;
     readonly name: string;
     readonly normalizedPath: string;
+    readonly supportsChangeEvents: boolean = true;
 
     private _branch: Promise<GitBranch | undefined> | undefined;
     private readonly _disposable: Disposable;
@@ -94,22 +95,32 @@ export class Repository implements Disposable {
         suspended: boolean,
         closed: boolean = false
     ) {
+        const relativePath = paths.relative(folder.uri.fsPath, path);
         if (root) {
-            this.formattedName = folder.name;
+            // Check if the repository is not contained by a workspace folder
+            const repoFolder = workspace.getWorkspaceFolder(GitUri.fromRepoPath(path));
+            if (repoFolder === undefined) {
+                // If it isn't within a workspace folder we can't get change events, see: https://github.com/Microsoft/vscode/issues/3025
+                this.supportsChangeEvents = false;
+                this.formattedName = this.name = paths.basename(path);
+            }
+            else {
+                this.formattedName = this.name = folder.name;
+            }
         }
         else {
-            const relativePath = paths.relative(folder.uri.fsPath, path);
             this.formattedName = relativePath ? `${folder.name} (${relativePath})` : folder.name;
+            this.name = folder.name;
         }
         this.index = folder.index;
-        this.name = folder.name;
 
-        this.normalizedPath = (this.path.endsWith('/') ? this.path : `${this.path}/`).toLowerCase();
+        this.normalizedPath = (path.endsWith('/') ? path : `${path}/`).toLowerCase();
 
         this._suspended = suspended;
         this._closed = closed;
 
         // TODO: createFileSystemWatcher doesn't work unless the folder is part of the workspaceFolders
+        // https://github.com/Microsoft/vscode/issues/3025
         const watcher = workspace.createFileSystemWatcher(
             new RelativePattern(
                 folder,
@@ -241,11 +252,12 @@ export class Repository implements Disposable {
 
     private async fetchCore(options: { remote?: string } = {}) {
         await Container.git.fetch(this.path, options.remote);
+
         this.fireChange(RepositoryChange.Repository);
     }
 
     getBranch(): Promise<GitBranch | undefined> {
-        if (this._branch === undefined) {
+        if (this._branch === undefined || !this.supportsChangeEvents) {
             this._branch = Container.git.getBranch(this.path);
         }
         return this._branch;
@@ -269,7 +281,7 @@ export class Repository implements Disposable {
     }
 
     getRemotes(): Promise<GitRemote[]> {
-        if (this._remotes === undefined) {
+        if (this._remotes === undefined || !this.supportsChangeEvents) {
             if (this._providers === undefined) {
                 const remotesCfg = configuration.get<RemotesConfig[] | null | undefined>(
                     configuration.name('remotes').value,
@@ -371,6 +383,7 @@ export class Repository implements Disposable {
         if (this._fsWatcherDisposable !== undefined) return;
 
         // TODO: createFileSystemWatcher doesn't work unless the folder is part of the workspaceFolders
+        // https://github.com/Microsoft/vscode/issues/3025
         const watcher = workspace.createFileSystemWatcher(new RelativePattern(this.folder, `**`));
         this._fsWatcherDisposable = Disposable.from(
             watcher,

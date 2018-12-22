@@ -150,6 +150,11 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
             }
         }
 
+        if (!this.repo.supportsChangeEvents) {
+            description = `<!>${description ? ` ${GlyphChars.Space}${description}` : ''}`;
+            tooltip += `\n\n<!> Unable to automatically detect repository changes`;
+        }
+
         const item = new TreeItem(label, TreeItemCollapsibleState.Expanded);
         item.contextValue = ResourceType.Repository;
         item.description = `${description || ''}${this.formatLastFetched({

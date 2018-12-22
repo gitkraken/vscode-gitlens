@@ -1088,7 +1088,10 @@ export class GitService implements Disposable {
             branches = GitBranchParser.parse(data, repoPath) || [];
         }
 
-        this._branchesCache.set(repoPath, branches);
+        const repo = await this.getRepository(repoPath);
+        if (repo !== undefined && repo.supportsChangeEvents) {
+            this._branchesCache.set(repoPath, branches);
+        }
         return branches;
     }
 
@@ -1897,7 +1900,12 @@ export class GitService implements Disposable {
 
             const data = await Git.showref_tag(repoPath);
             tags = GitTagParser.parseWithRef(data, repoPath) || [];
-            this._tagsWithRefsCache.set(repoPath, tags);
+
+            const repo = await this.getRepository(repoPath);
+            if (repo !== undefined && repo.supportsChangeEvents) {
+                this._tagsWithRefsCache.set(repoPath, tags);
+            }
+
             return tags;
         }
 
@@ -1906,7 +1914,12 @@ export class GitService implements Disposable {
 
         const data = await Git.tag(repoPath);
         tags = GitTagParser.parse(data, repoPath) || [];
-        this._tagsCache.set(repoPath, tags);
+
+        const repo = await this.getRepository(repoPath);
+        if (repo !== undefined && repo.supportsChangeEvents) {
+            this._tagsCache.set(repoPath, tags);
+        }
+
         return tags;
     }
 
