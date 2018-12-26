@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- Fixes [#605](https://github.com/eamodio/vscode-gitlens/issues/605) &mdash; Show More Commits not working
+
 ## [9.2.3] - 2018-12-21
 
 ### Added
