@@ -4,15 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [9.2.4] - 2018-12-26
 
 ### Added
 
+- Adds a repository indicator in the _Repositories_ view when we are unable to detect repository changes &mdash; related to [#583](https://github.com/eamodio/vscode-gitlens/issues/583)
 - Adds `gitlens.defaultDateShortFormat` setting to specify how short absolute dates will be formatted by default
 
 ### Changed
 
 - Changes the fetch date in the _Repositories_ view to respect the date style setting (`gitlens.defaultDateStyle`) and uses the new `gitlens.defaultDateShortFormat` setting for formatting
+- Avoids caching when we are unable to detect repository changes &mdash; related to [#583](https://github.com/eamodio/vscode-gitlens/issues/583)
 
 ### Fixed
 
