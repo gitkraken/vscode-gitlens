@@ -419,6 +419,12 @@
                     "markdownDescription": "Specifies how absolute dates will be formatted by default. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats",
                     "scope": "window"
                 },
+                "gitlens.defaultDateShortFormat": {
+                    "type": "string",
+                    "default": null,
+                    "markdownDescription": "Specifies how short absolute dates will be formatted by default. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats",
+                    "scope": "window"
+                },
                 "gitlens.defaultDateStyle": {
                     "type": "string",
                     "default": "relative",

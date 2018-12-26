@@ -27,6 +27,7 @@ export interface Config {
     codeLens: CodeLensConfig;
     debug: boolean;
     defaultDateFormat: string | null;
+    defaultDateShortFormat: string | null;
     defaultDateStyle: DateStyle;
     defaultGravatarsStyle: GravatarDefaultStyle;
     heatmap: {
@@ -367,7 +368,6 @@ export interface ViewsConfig {
     commitDescriptionFormat: string;
     commitFormat: string;
     compare: CompareViewConfig;
-    // dateFormat: string | null;
     defaultItemLimit: number;
     lineHistory: LineHistoryViewConfig;
     repositories: RepositoriesViewConfig;

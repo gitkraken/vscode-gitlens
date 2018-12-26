@@ -12,6 +12,7 @@ import {
     RepositoryFileSystemChangeEvent
 } from '../../git/gitService';
 import { Dates, debug, Functions, gate, log, Strings } from '../../system';
+import { DateStyle } from '../../ui/config';
 import { RepositoriesView } from '../repositoriesView';
 import { BranchesNode } from './branchesNode';
 import { BranchNode } from './branchNode';
@@ -97,7 +98,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 
         const lastFetchedTooltip = this.formatLastFetched({
             prefix: `${Strings.pad(GlyphChars.Dash, 2, 2)}Last fetched on `,
-            format: 'dddd MMMM Do, YYYY h:mm a'
+            format: Container.config.defaultDateFormat || 'dddd MMMM Do, YYYY h:mm a'
         });
 
         let description;
@@ -200,14 +201,14 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
     protected async subscribe() {
         const disposables = [this.repo.onDidChange(this.onRepoChanged, this)];
 
+        if (Container.config.defaultDateStyle === DateStyle.Relative) {
+            disposables.push(Functions.interval(() => void this.updateLastFetched(), 60000));
+        }
+
         if (this.includeWorkingTree) {
-            disposables.push(
-                this.repo.onDidChangeFileSystem(this.onFileSystemChanged, this),
-                {
-                    dispose: () => this.repo.stopWatchingFileSystem()
-                },
-                Functions.interval(() => void this.updateLastFetched(), 60000)
-            );
+            disposables.push(this.repo.onDidChangeFileSystem(this.onFileSystemChanged, this), {
+                dispose: () => this.repo.stopWatchingFileSystem()
+            });
 
             this.repo.startWatchingFileSystem();
         }
@@ -279,12 +280,15 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
     private formatLastFetched(options: { prefix?: string; format?: string } = {}) {
         if (this._lastFetched === 0) return '';
 
-        if (options.format === undefined && Date.now() - this._lastFetched < Dates.MillisecondsPerDay) {
-            return `${options.prefix || ''}${Dates.toFormatter(new Date(this._lastFetched)).fromNow()}`;
+        if (options.format === undefined && Container.config.defaultDateStyle === DateStyle.Relative) {
+            // If less than a day has passed show a relative date
+            if (Date.now() - this._lastFetched < Dates.MillisecondsPerDay) {
+                return `${options.prefix || ''}${Dates.toFormatter(new Date(this._lastFetched)).fromNow()}`;
+            }
         }
 
         return `${options.prefix || ''}${Dates.toFormatter(new Date(this._lastFetched)).format(
-            options.format || 'MMM DD, YYYY'
+            options.format || Container.config.defaultDateShortFormat || 'MMM D, YYYY'
         )}`;
     }
 

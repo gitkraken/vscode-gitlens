@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds `gitlens.defaultDateShortFormat` setting to specify how short absolute dates will be formatted by default
+
+### Changed
+
+- Changes the fetch date in the _Repositories_ view to respect the date style setting (`gitlens.defaultDateStyle`) and uses the new `gitlens.defaultDateShortFormat` setting for formatting
+
 ### Fixed
 
 - Fixes [#605](https://github.com/eamodio/vscode-gitlens/issues/605) &mdash; Show More Commits not working
