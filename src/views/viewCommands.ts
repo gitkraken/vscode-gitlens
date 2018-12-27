@@ -23,6 +23,7 @@ import {
     canDismissNode,
     CommitFileNode,
     CommitNode,
+    FolderNode,
     RemoteNode,
     RepositoryNode,
     ResultsFileNode,
@@ -466,10 +467,10 @@ export class ViewCommands implements Disposable {
         return;
     }
 
-    private async stageDirectory(node: ViewNode) {
-        if (!node.uri.repoPath) return;
+    private async stageDirectory(node: FolderNode) {
+        if (!(node instanceof FolderNode) || !node.relativePath) return;
 
-        void (await Container.git.stageDirectory(node.uri.repoPath, node.uri));
+        void (await Container.git.stageDirectory(node.repoPath, node.relativePath));
     }
 
     private async stageFile(node: CommitFileNode | StatusFileNode) {
@@ -478,10 +479,10 @@ export class ViewCommands implements Disposable {
         void (await Container.git.stageFile(node.repoPath, node.file.fileName));
     }
 
-    private async unstageDirectory(node: ViewNode) {
-        if (!node.uri.repoPath) return;
+    private async unstageDirectory(node: FolderNode) {
+        if (!(node instanceof FolderNode) || !node.relativePath) return;
 
-        void (await Container.git.unStageDirectory(node.uri.repoPath, node.uri));
+        void (await Container.git.unStageDirectory(node.repoPath, node.relativePath));
     }
 
     private async unstageFile(node: CommitFileNode | StatusFileNode) {

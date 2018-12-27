@@ -8,6 +8,7 @@ export * from './nodes/commitFileNode';
 export * from './nodes/commitNode';
 export * from './nodes/fileHistoryNode';
 export * from './nodes/fileHistoryTrackerNode';
+export * from './nodes/folderNode';
 export * from './nodes/lineHistoryNode';
 export * from './nodes/lineHistoryTrackerNode';
 export * from './nodes/remoteNode';
