@@ -14,6 +14,7 @@ test/**
 .prettierignore
 .prettierrc
 CODE_OF_CONDUCT.md
+CONTRIBUTING.md
 package-lock.json
 tsconfig.json
 tslint.json
