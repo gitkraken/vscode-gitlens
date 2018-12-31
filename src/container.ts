@@ -1,9 +1,10 @@
 'use strict';
-import { Disposable, ExtensionContext } from 'vscode';
+import { commands, Disposable, ExtensionContext } from 'vscode';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { LineAnnotationController } from './annotations/lineAnnotationController';
 import { GitCodeLensController } from './codelens/codeLensController';
-import { Config, configuration } from './configuration';
+import { Commands, ToggleFileBlameCommandArgs } from './commands';
+import { AnnotationsToggleMode, Config, configuration } from './configuration';
 import { GitFileSystemProvider } from './git/fsProvider';
 import { GitService } from './git/gitService';
 import { LineHoverController } from './hovers/lineHoverController';
@@ -243,6 +244,35 @@ export class Container {
 
         const mode = config.modes[config.mode.active];
         if (mode == null) return config;
+
+        if (mode.annotations != null) {
+            let command: string | undefined;
+            switch (mode.annotations) {
+                case 'blame':
+                    config.blame.toggleMode = AnnotationsToggleMode.Window;
+                    command = Commands.ToggleFileBlame;
+                    break;
+                case 'heatmap':
+                    config.heatmap.toggleMode = AnnotationsToggleMode.Window;
+                    command = Commands.ToggleFileHeatmap;
+                    break;
+                case 'recentChanges':
+                    config.recentChanges.toggleMode = AnnotationsToggleMode.Window;
+                    command = Commands.ToggleFileRecentChanges;
+                    break;
+            }
+
+            if (command !== undefined) {
+                // Make sure to delay the execution by a bit so that the configuration changes get propegated first
+                setTimeout(
+                    () =>
+                        commands.executeCommand(command!, {
+                            on: true
+                        } as ToggleFileBlameCommandArgs),
+                    50
+                );
+            }
+        }
 
         if (mode.codeLens != null) {
             config.codeLens.enabled = mode.codeLens;

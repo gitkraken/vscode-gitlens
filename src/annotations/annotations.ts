@@ -344,10 +344,7 @@ export class Annotations {
     static heatmapRenderOptions(): IRenderOptions {
         return {
             borderStyle: 'solid',
-            borderWidth: '0 0 0 2px',
-            contentText: GlyphChars.ZeroWidthSpace,
-            height: '100%',
-            margin: '0 26px -1px 0'
+            borderWidth: '0 0 0 2px'
         } as IRenderOptions;
     }
 

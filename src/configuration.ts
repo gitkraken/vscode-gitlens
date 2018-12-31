@@ -40,9 +40,12 @@ export class Configuration {
         this._configAffectedByMode = [
             `gitlens.${this.name('mode').value}`,
             `gitlens.${this.name('modes').value}`,
+            `gitlens.${this.name('blame')('toggleMode').value}`,
             `gitlens.${this.name('codeLens').value}`,
             `gitlens.${this.name('currentLine').value}`,
+            `gitlens.${this.name('heatmap')('toggleMode').value}`,
             `gitlens.${this.name('hovers').value}`,
+            `gitlens.${this.name('recentChanges')('toggleMode').value}`,
             `gitlens.${this.name('statusBar').value}`,
             `gitlens.${this.name('views')('compare').value}`,
             `gitlens.${this.name('views')('fileHistory').value}`,

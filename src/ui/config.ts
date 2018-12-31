@@ -312,6 +312,7 @@ export interface ModeConfig {
     name: string;
     statusBarItemName?: string;
     description?: string;
+    annotations?: 'blame' | 'heatmap' | 'recentChanges';
     codeLens?: boolean;
     currentLine?: boolean;
     hovers?: boolean;

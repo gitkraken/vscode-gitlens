@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Adds the ability to turn on file annotations (blame, heatmap, and recent changes) via user-defined modes &mdash; closes [#542](https://github.com/eamodio/vscode-gitlens/issues/542)
+
 ## [9.2.4] - 2018-12-26
 
 ### Added

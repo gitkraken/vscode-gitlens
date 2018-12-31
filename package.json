@@ -841,65 +841,75 @@
                     "properties": {
                         "zen": {
                             "type": "object",
-                            "required": [
-                                "name"
-                            ],
                             "properties": {
                                 "name": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "Specifies the friendly name of this user-defined mode"
                                 },
                                 "statusBarItemName": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "Specifies the name shown in the status bar when this user-defined mode is active"
                                 },
                                 "description": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "Specifies the description of this user-defined mode"
                                 },
                                 "codeLens": {
-                                    "type": "boolean"
+                                    "type": "boolean",
+                                    "description": "Specifies whether to show any Git code lens when this user-defined mode is active"
                                 },
                                 "currentLine": {
-                                    "type": "boolean"
+                                    "type": "boolean",
+                                    "description": "Specifies whether to show a blame annotation for the current line when this user-defined mode is active"
                                 },
                                 "hovers": {
-                                    "type": "boolean"
+                                    "type": "boolean",
+                                    "description": "Specifies whether to show any hovers when this user-defined mode is active"
                                 },
                                 "statusBar": {
-                                    "type": "boolean"
+                                    "type": "boolean",
+                                    "description": "Specifies whether to show blame information in the status bar when this user-defined mode is active"
                                 },
                                 "views": {
-                                    "type": "boolean"
+                                    "type": "boolean",
+                                    "description": "Specifies whether to show any GitLens views when this user-defined mode is active"
                                 }
                             }
                         },
                         "review": {
                             "type": "object",
-                            "required": [
-                                "name"
-                            ],
                             "properties": {
                                 "name": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "Specifies the friendly name of this user-defined mode"
                                 },
                                 "statusBarItemName": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "Specifies the name shown in the status bar when this user-defined mode is active"
                                 },
                                 "description": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "description": "Specifies the description of this user-defined mode"
                                 },
                                 "codeLens": {
-                                    "type": "boolean"
+                                    "type": "boolean",
+                                    "description": "Specifies whether to show any Git code lens when this user-defined mode is active"
                                 },
                                 "currentLine": {
-                                    "type": "boolean"
+                                    "type": "boolean",
+                                    "description": "Specifies whether to show a blame annotation for the current line when this user-defined mode is active"
                                 },
                                 "hovers": {
-                                    "type": "boolean"
+                                    "type": "boolean",
+                                    "description": "Specifies whether to show any hovers when this user-defined mode is active"
                                 },
                                 "statusBar": {
-                                    "type": "boolean"
+                                    "type": "boolean",
+                                    "description": "Specifies whether to show blame information in the status bar when this user-defined mode is active"
                                 },
                                 "views": {
-                                    "type": "boolean"
+                                    "type": "boolean",
+                                    "description": "Specifies whether to show any GitLens views when this user-defined mode is active"
                                 }
                             }
                         }
@@ -911,28 +921,50 @@
                         ],
                         "properties": {
                             "name": {
-                                "type": "string"
+                                "type": "string",
+                                "description": "Specifies the friendly name of this user-defined mode"
                             },
                             "statusBarItemName": {
-                                "type": "string"
+                                "type": "string",
+                                "description": "Specifies the name shown in the status bar when this user-defined mode is active"
                             },
                             "description": {
-                                "type": "string"
+                                "type": "string",
+                                "description": "Specifies the description of this user-defined mode"
+                            },
+                            "annotations": {
+                                "type": "string",
+                                "enum": [
+                                    "blame",
+                                    "heatmap",
+                                    "recentChanges"
+                                ],
+                                "enumDescriptions": [
+                                    "Shows the gutter blame annotations",
+                                    "Shows the gutter heatmap annotations",
+                                    "Shows the recently changed lines annotations"
+                                ],
+                                "description": "Specifies which (if any) file annotations will be shown when this user-defined mode is active"
                             },
                             "codeLens": {
-                                "type": "boolean"
+                                "type": "boolean",
+                                "description": "Specifies whether to show any Git code lens when this user-defined mode is active"
                             },
                             "currentLine": {
-                                "type": "boolean"
+                                "type": "boolean",
+                                "description": "Specifies whether to show a blame annotation for the current line when this user-defined mode is active"
                             },
                             "hovers": {
-                                "type": "boolean"
+                                "type": "boolean",
+                                "description": "Specifies whether to show any hovers when this user-defined mode is active"
                             },
                             "statusBar": {
-                                "type": "boolean"
+                                "type": "boolean",
+                                "description": "Specifies whether to show blame information in the status bar when this user-defined mode is active"
                             },
                             "views": {
-                                "type": "boolean"
+                                "type": "boolean",
+                                "description": "Specifies whether to show any GitLens views when this user-defined mode is active"
                             }
                         }
                     },
@@ -966,6 +998,12 @@
                         "errors",
                         "verbose",
                         "debug"
+                    ],
+                    "enumDescriptions": [
+                        "Logs nothing",
+                        "Logs only errors",
+                        "Logs all errors, warnings, and messages",
+                        "Logs all errors, warnings, and messages with extra context useful for debugging"
                     ],
                     "markdownDescription": "Specifies how much (if any) output will be sent to the GitLens output channel",
                     "scope": "window"

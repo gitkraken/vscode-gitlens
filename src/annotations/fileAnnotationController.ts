@@ -19,7 +19,7 @@ import {
     workspace
 } from 'vscode';
 import { AnnotationsToggleMode, configuration, FileAnnotationType, HighlightLocations } from '../configuration';
-import { CommandContext, isTextEditor, setCommandContext } from '../constants';
+import { CommandContext, GlyphChars, isTextEditor, setCommandContext } from '../constants';
 import { Container } from '../container';
 import { KeyboardScope, KeyCommand, Keys } from '../keyboard';
 import { Logger } from '../logger';
@@ -49,7 +49,13 @@ export const Decorations = {
         textDecoration: 'none'
     } as DecorationRenderOptions),
     blameHighlight: undefined as TextEditorDecorationType | undefined,
-    heatmapAnnotation: window.createTextEditorDecorationType({} as DecorationRenderOptions),
+    heatmapAnnotation: window.createTextEditorDecorationType({
+        before: {
+            contentText: GlyphChars.ZeroWidthSpace,
+            height: '100%',
+            margin: '0 26px -1px 0'
+        }
+    } as DecorationRenderOptions),
     heatmapHighlight: undefined as TextEditorDecorationType | undefined,
     recentChangesAnnotation: undefined as TextEditorDecorationType | undefined,
     recentChangesHighlight: undefined as TextEditorDecorationType | undefined
@@ -389,7 +395,8 @@ export class FileAnnotationController implements Disposable {
     async toggle(
         editor: TextEditor | undefined,
         type: FileAnnotationType,
-        shaOrLine?: string | number
+        shaOrLine?: string | number,
+        on?: boolean
     ): Promise<boolean> {
         if (editor !== undefined) {
             const trackedDocument = await Container.tracker.getOrAdd(editor.document);
@@ -405,6 +412,7 @@ export class FileAnnotationController implements Disposable {
         if (provider === undefined) return this.show(editor!, type, shaOrLine);
 
         const reopen = provider.annotationType !== type;
+        if (on === true && !reopen) return true;
 
         if (this.isInWindowToggle()) {
             await this.clearAll();

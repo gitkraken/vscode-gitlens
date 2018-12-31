@@ -36,6 +36,7 @@ export class ClearFileAnnotationsCommand extends EditorCommand {
 }
 
 export interface ToggleFileBlameCommandArgs {
+    on?: boolean;
     sha?: string;
     type?: FileAnnotationType;
 }
@@ -65,7 +66,8 @@ export class ToggleFileBlameCommand extends ActiveEditorCommand {
             return Container.fileAnnotations.toggle(
                 editor,
                 args.type!,
-                args.sha !== undefined ? args.sha : editor && editor.selection.active.line
+                args.sha !== undefined ? args.sha : editor && editor.selection.active.line,
+                args.on
             );
         }
         catch (ex) {
@@ -83,8 +85,9 @@ export class ToggleFileHeatmapCommand extends ActiveEditorCommand {
         super(Commands.ToggleFileHeatmap);
     }
 
-    async execute(editor: TextEditor, uri?: Uri): Promise<any> {
+    async execute(editor: TextEditor, uri?: Uri, args: ToggleFileBlameCommandArgs = {}): Promise<any> {
         commands.executeCommand(Commands.ToggleFileBlame, uri, {
+            ...args,
             type: FileAnnotationType.Heatmap
         } as ToggleFileBlameCommandArgs);
     }
@@ -96,8 +99,9 @@ export class ToggleFileRecentChangesCommand extends ActiveEditorCommand {
         super(Commands.ToggleFileRecentChanges);
     }
 
-    async execute(editor: TextEditor, uri?: Uri): Promise<any> {
+    async execute(editor: TextEditor, uri?: Uri, args: ToggleFileBlameCommandArgs = {}): Promise<any> {
         commands.executeCommand(Commands.ToggleFileBlame, uri, {
+            ...args,
             type: FileAnnotationType.RecentChanges
         } as ToggleFileBlameCommandArgs);
     }

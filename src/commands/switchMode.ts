@@ -15,6 +15,20 @@ export class SwitchModeCommand extends Command {
         const pick = await ModesQuickPick.show();
         if (pick === undefined) return;
 
+        const active = Container.config.mode.active;
+        if (active === pick.key) return;
+
+        // Check if we have applied any annotations and clear them if we won't be applying them again
+        if (active != null && active.length !== 0) {
+            const activeAnnotations = Container.config.modes[active].annotations;
+            if (activeAnnotations != null) {
+                const newAnnotations = pick.key != null ? Container.config.modes[pick.key].annotations : undefined;
+                if (activeAnnotations !== newAnnotations) {
+                    await Container.fileAnnotations.clearAll();
+                }
+            }
+        }
+
         await configuration.update(configuration.name('mode')('active').value, pick.key, ConfigurationTarget.Global);
     }
 }
