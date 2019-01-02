@@ -23,6 +23,7 @@ import {
     canDismissNode,
     CommitFileNode,
     CommitNode,
+    FolderNode,
     RemoteNode,
     RepositoryNode,
     ResultsFileNode,
@@ -98,7 +99,9 @@ export class ViewCommands implements Disposable {
         commands.registerCommand('gitlens.views.checkout', this.checkout, this);
 
         commands.registerCommand('gitlens.views.stageFile', this.stageFile, this);
+        commands.registerCommand('gitlens.views.stageDirectory', this.stageDirectory, this);
         commands.registerCommand('gitlens.views.unstageFile', this.unstageFile, this);
+        commands.registerCommand('gitlens.views.unstageDirectory', this.unstageDirectory, this);
 
         commands.registerCommand('gitlens.views.compareAncestryWithWorking', this.compareAncestryWithWorking, this);
         commands.registerCommand('gitlens.views.compareWithHead', this.compareWithHead, this);
@@ -464,10 +467,22 @@ export class ViewCommands implements Disposable {
         return;
     }
 
+    private async stageDirectory(node: FolderNode) {
+        if (!(node instanceof FolderNode) || !node.relativePath) return;
+
+        void (await Container.git.stageDirectory(node.repoPath, node.relativePath));
+    }
+
     private async stageFile(node: CommitFileNode | StatusFileNode) {
         if (!(node instanceof CommitFileNode) && !(node instanceof StatusFileNode)) return;
 
         void (await Container.git.stageFile(node.repoPath, node.file.fileName));
+    }
+
+    private async unstageDirectory(node: FolderNode) {
+        if (!(node instanceof FolderNode) || !node.relativePath) return;
+
+        void (await Container.git.unStageDirectory(node.repoPath, node.relativePath));
     }
 
     private async unstageFile(node: CommitFileNode | StatusFileNode) {

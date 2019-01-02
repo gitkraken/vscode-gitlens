@@ -2258,12 +2258,30 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.views.stageDirectory",
+                "title": "Stage All Changes",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-add.svg",
+                    "light": "images/light/icon-add.svg"
+                }
+            },
+            {
                 "command": "gitlens.views.stageFile",
                 "title": "Stage Changes",
                 "category": "GitLens",
                 "icon": {
                     "dark": "images/dark/icon-add.svg",
                     "light": "images/light/icon-add.svg"
+                }
+            },
+            {
+                "command": "gitlens.views.unstageDirectory",
+                "title": "Unstage All Changes",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-minus.svg",
+                    "light": "images/light/icon-minus.svg"
                 }
             },
             {
@@ -3052,7 +3070,15 @@
                     "when": "false"
                 },
                 {
+                    "command": "gitlens.views.stageDirectory",
+                    "when": "false"
+                },
+                {
                     "command": "gitlens.views.stageFile",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.views.unstageDirectory",
                     "when": "false"
                 },
                 {
@@ -4430,6 +4456,16 @@
                     "command": "gitlens.views.expandNode",
                     "when": "view =~ /^gitlens\\.views\\./ && viewItem =~ /gitlens:(compare|folder|results|search|status:files)\\b/",
                     "group": "8_gitlens@1"
+                },
+                {
+                    "command": "gitlens.views.stageDirectory",
+                    "when": "view =~ /^gitlens\\.views\\./ && viewItem =~ /gitlens:folder\\b/",
+                    "group": "7_gitlens@1"
+                },
+                {
+                    "command": "gitlens.views.unstageDirectory",
+                    "when": "view =~ /^gitlens\\.views\\./ && viewItem =~ /gitlens:folder\\b/",
+                    "group": "7_gitlens@2"
                 },
                 {
                     "command": "gitlens.views.refreshNode",
