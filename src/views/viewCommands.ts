@@ -98,10 +98,10 @@ export class ViewCommands implements Disposable {
         commands.registerCommand('gitlens.views.applyChanges', this.applyChanges, this);
         commands.registerCommand('gitlens.views.checkout', this.checkout, this);
 
-        commands.registerCommand('gitlens.views.stageFile', this.stageFile, this);
         commands.registerCommand('gitlens.views.stageDirectory', this.stageDirectory, this);
-        commands.registerCommand('gitlens.views.unstageFile', this.unstageFile, this);
+        commands.registerCommand('gitlens.views.stageFile', this.stageFile, this);
         commands.registerCommand('gitlens.views.unstageDirectory', this.unstageDirectory, this);
+        commands.registerCommand('gitlens.views.unstageFile', this.unstageFile, this);
 
         commands.registerCommand('gitlens.views.compareAncestryWithWorking', this.compareAncestryWithWorking, this);
         commands.registerCommand('gitlens.views.compareWithHead', this.compareWithHead, this);
@@ -471,24 +471,28 @@ export class ViewCommands implements Disposable {
         if (!(node instanceof FolderNode) || !node.relativePath) return;
 
         void (await Container.git.stageDirectory(node.repoPath, node.relativePath));
+        void node.triggerChange();
     }
 
     private async stageFile(node: CommitFileNode | StatusFileNode) {
         if (!(node instanceof CommitFileNode) && !(node instanceof StatusFileNode)) return;
 
         void (await Container.git.stageFile(node.repoPath, node.file.fileName));
+        void node.triggerChange();
     }
 
     private async unstageDirectory(node: FolderNode) {
         if (!(node instanceof FolderNode) || !node.relativePath) return;
 
         void (await Container.git.unStageDirectory(node.repoPath, node.relativePath));
+        void node.triggerChange();
     }
 
     private async unstageFile(node: CommitFileNode | StatusFileNode) {
         if (!(node instanceof CommitFileNode) && !(node instanceof StatusFileNode)) return;
 
         void (await Container.git.unStageFile(node.repoPath, node.file.fileName));
+        void node.triggerChange();
     }
 
     private star(node: BranchNode | RepositoryNode) {

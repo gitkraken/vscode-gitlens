@@ -23,6 +23,7 @@ export class FolderNode extends ViewNode<ViewWithFiles> {
         public readonly repoPath: string,
         public readonly folderName: string,
         public readonly root: Arrays.IHierarchicalItem<FileNode>,
+        private readonly containsWorkingFiles?: boolean,
         public readonly relativePath?: string
     ) {
         super(GitUri.fromRepoPath(repoPath), view, parent);
@@ -43,7 +44,15 @@ export class FolderNode extends ViewNode<ViewWithFiles> {
             for (const folder of Objects.values(this.root.children)) {
                 if (folder.value === undefined) {
                     children.push(
-                        new FolderNode(this.view, this, this.repoPath, folder.name, folder, folder.relativePath)
+                        new FolderNode(
+                            this.view,
+                            this,
+                            this.repoPath,
+                            folder.name,
+                            folder,
+                            this.containsWorkingFiles,
+                            folder.relativePath
+                        )
                     );
                     continue;
                 }
@@ -72,6 +81,9 @@ export class FolderNode extends ViewNode<ViewWithFiles> {
         // TODO: Change this to expanded once https://github.com/Microsoft/vscode/issues/30918 is fixed
         const item = new TreeItem(this.label, TreeItemCollapsibleState.Collapsed);
         item.contextValue = ResourceType.Folder;
+        if (this.containsWorkingFiles) {
+            item.contextValue += `+working`;
+        }
         item.iconPath = ThemeIcon.Folder;
         item.tooltip = this.label;
         return item;

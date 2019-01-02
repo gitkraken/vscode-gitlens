@@ -315,8 +315,8 @@ export class Git {
 
     // Git commands
 
-    static add(repoPath: string | undefined, fileName: string) {
-        return git<string>({ cwd: repoPath }, 'add', '-A', '--', fileName);
+    static add(repoPath: string | undefined, pathspec: string) {
+        return git<string>({ cwd: repoPath }, 'add', '-A', '--', pathspec);
     }
 
     static apply(repoPath: string | undefined, patch: string, options: { allowConflicts?: boolean } = {}) {

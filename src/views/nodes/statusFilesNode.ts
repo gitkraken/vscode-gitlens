@@ -98,7 +98,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
                 this.view.config.files.compact
             );
 
-            const root = new FolderNode(this.view, this, repoPath, '', hierarchy);
+            const root = new FolderNode(this.view, this, repoPath, '', hierarchy, true);
             children = (await root.getChildren()) as FileNode[];
         }
         else {

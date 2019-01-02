@@ -4453,23 +4453,33 @@
                     "group": "8_gitlens"
                 },
                 {
-                    "command": "gitlens.views.expandNode",
-                    "when": "view =~ /^gitlens\\.views\\./ && viewItem =~ /gitlens:(compare|folder|results|search|status:files)\\b/",
-                    "group": "8_gitlens@1"
-                },
-                {
                     "command": "gitlens.views.stageDirectory",
-                    "when": "view =~ /^gitlens\\.views\\./ && viewItem =~ /gitlens:folder\\b/",
-                    "group": "7_gitlens@1"
+                    "when": "viewItem =~ /gitlens:folder\\b.*?\\+working\\b.*?/",
+                    "group": "inline@1"
                 },
                 {
                     "command": "gitlens.views.unstageDirectory",
-                    "when": "view =~ /^gitlens\\.views\\./ && viewItem =~ /gitlens:folder\\b/",
-                    "group": "7_gitlens@2"
+                    "when": "viewItem =~ /gitlens:folder\\b.*?\\+working\\b.*?/",
+                    "group": "inline@2"
+                },
+                {
+                    "command": "gitlens.views.stageDirectory",
+                    "when": "viewItem =~ /gitlens:folder\\b.*?\\+working\\b.*?/",
+                    "group": "1_gitlens@1"
+                },
+                {
+                    "command": "gitlens.views.unstageDirectory",
+                    "when": "viewItem =~ /gitlens:folder\\b.*?\\+working\\b.*?/",
+                    "group": "1_gitlens@2"
+                },
+                {
+                    "command": "gitlens.views.expandNode",
+                    "when": "viewItem =~ /gitlens:(compare|folder|results|search|status:files)\\b/",
+                    "group": "8_gitlens@1"
                 },
                 {
                     "command": "gitlens.views.refreshNode",
-                    "when": "view =~ /^gitlens\\.views\\./ && viewItem =~ /gitlens:(?!file\\b)/",
+                    "when": "viewItem =~ /gitlens:(?!file\\b)/",
                     "group": "9_gitlens@1"
                 }
             ]
