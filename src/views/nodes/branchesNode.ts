@@ -57,14 +57,15 @@ export class BranchesNode extends ViewNode<RepositoriesView> {
         const remotes = await this.repo.getRemotes();
 
         const item = new TreeItem(`Branches`, TreeItemCollapsibleState.Collapsed);
-        item.id = this.id;
-        item.contextValue =
-            remotes !== undefined && remotes.length > 0 ? ResourceType.BranchesWithRemotes : ResourceType.Branches;
-
+        item.contextValue = ResourceType.Branches;
+        if (remotes !== undefined && remotes.length > 0) {
+            item.contextValue += '+remotes';
+        }
         item.iconPath = {
             dark: Container.context.asAbsolutePath('images/dark/icon-branch.svg'),
             light: Container.context.asAbsolutePath('images/light/icon-branch.svg')
         };
+        item.id = this.id;
 
         return item;
     }

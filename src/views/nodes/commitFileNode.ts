@@ -151,10 +151,10 @@ export class CommitFileNode extends ViewRefNode {
         this._tooltip = undefined;
     }
 
-    protected get resourceType(): ResourceType {
+    protected get resourceType(): string {
         if (!this.commit.isUncommitted) return ResourceType.CommitFile;
 
-        return this.commit.isStagedUncommitted ? ResourceType.FileStaged : ResourceType.FileUnstaged;
+        return this.commit.isStagedUncommitted ? `${ResourceType.File}+staged` : `${ResourceType.File}+unstaged`;
     }
 
     private _tooltip: string | undefined;

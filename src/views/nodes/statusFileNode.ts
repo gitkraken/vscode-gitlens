@@ -62,15 +62,16 @@ export class StatusFileNode extends ViewNode {
         item.description = this.description;
 
         if ((this._hasStagedChanges || this._hasUnstagedChanges) && this.commits.length === 1) {
+            item.contextValue = ResourceType.File;
             if (this._hasStagedChanges) {
-                item.contextValue = ResourceType.FileStaged;
+                item.contextValue += '+staged';
                 item.tooltip = StatusFileFormatter.fromTemplate(
                     '${file}\n${directory}/\n\n${status} in Index (staged)',
                     this.file
                 );
             }
             else {
-                item.contextValue = ResourceType.FileUnstaged;
+                item.contextValue += '+unstaged';
                 item.tooltip = StatusFileFormatter.fromTemplate(
                     '${file}\n${directory}/\n\n${status} in Working Tree',
                     this.file
@@ -86,14 +87,15 @@ export class StatusFileNode extends ViewNode {
         else {
             item.collapsibleState = TreeItemCollapsibleState.Collapsed;
             if (this._hasStagedChanges || this._hasUnstagedChanges) {
+                item.contextValue = ResourceType.File;
                 if (this._hasStagedChanges && this._hasUnstagedChanges) {
-                    item.contextValue = ResourceType.FileStagedAndUnstaged;
+                    item.contextValue += '+staged+unstaged';
                 }
                 else if (this._hasStagedChanges) {
-                    item.contextValue = ResourceType.FileStaged;
+                    item.contextValue += '+staged';
                 }
                 else {
-                    item.contextValue = ResourceType.FileUnstaged;
+                    item.contextValue += '+unstaged';
                 }
 
                 // Use the file icon and decorations

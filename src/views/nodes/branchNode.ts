@@ -4,7 +4,7 @@ import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitBranch, GitUri } from '../../git/gitService';
-import { Iterables } from '../../system';
+import { debug, gate, Iterables } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
 import { CommitNode } from './commitNode';
@@ -129,30 +129,35 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
             `${!this._root && this.current ? `${GlyphChars.Check} ${GlyphChars.Space}` : ''}${name}`,
             TreeItemCollapsibleState.Collapsed
         );
-        item.description = description;
-        item.id = this.id;
-        item.tooltip = tooltip;
-
+        item.contextValue = ResourceType.Branch;
+        if (this.current) {
+            item.contextValue += '+current';
+        }
         if (this.branch.remote) {
-            item.contextValue = ResourceType.RemoteBranch;
+            item.contextValue += '+remote';
         }
         else if (this.current) {
             item.contextValue = this.branch.tracking
                 ? ResourceType.CurrentBranchWithTracking
                 : ResourceType.CurrentBranch;
         }
-        else {
-            item.contextValue = this.branch.tracking ? ResourceType.BranchWithTracking : ResourceType.Branch;
+        if (this.branch.tracking) {
+            item.contextValue += '+tracking';
         }
 
+        item.description = description;
         item.iconPath = {
             dark: Container.context.asAbsolutePath(`images/dark/icon-branch${iconSuffix}.svg`),
             light: Container.context.asAbsolutePath(`images/light/icon-branch${iconSuffix}.svg`)
         };
+        item.id = this.id;
+        item.tooltip = tooltip;
 
         return item;
     }
 
+    @gate()
+    @debug()
     refresh() {
         this._children = undefined;
     }

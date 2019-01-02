@@ -3789,58 +3789,58 @@
             "view/item/context": [
                 {
                     "command": "gitlens.openBranchesInRemote",
-                    "when": "viewItem == gitlens:branches:remotes",
+                    "when": "viewItem =~ /gitlens:branches\\b.*?\\+remotes\\b.*?/",
                     "group": "inline@98"
                 },
                 {
                     "command": "gitlens.openBranchesInRemote",
-                    "when": "viewItem == gitlens:branches:remotes",
+                    "when": "viewItem =~ /gitlens:branches\\b.*?\\+remotes\\b.*?/",
                     "group": "1_gitlens@1"
                 },
                 {
                     "command": "gitlens.views.checkout",
-                    "when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!:current)\\b/",
+                    "when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\+current\\b.*?)/",
                     "group": "inline@10"
                 },
                 {
                     "command": "gitlens.views.compareWithRemote",
-                    "when": "viewItem =~ /gitlens:branch\\b.*?:tracking/",
+                    "when": "viewItem =~ /gitlens:branch\\b.*?\\+tracking\\b.*?/",
                     "group": "inline@96"
                 },
                 {
                     "command": "gitlens.views.compareWithHead",
-                    "when": "viewItem =~ /gitlens:(branch(?!:current)|commit|stash|tag)\\b/",
+                    "when": "viewItem =~ /gitlens:(branch\\b(?!.*?\\+current\\b.*?)|commit\\b|stash\\b|tag\\b)/",
                     "group": "inline@97",
                     "alt": "gitlens.views.compareWithWorking"
                 },
                 {
                     "command": "gitlens.views.compareWithWorking",
-                    "when": "viewItem =~ /gitlens:branch:current\\b/",
+                    "when": "viewItem =~ /gitlens:branch\\b.*?\\+current\\b.*?/",
                     "group": "inline@97"
                 },
                 {
                     "command": "gitlens.openBranchInRemote",
-                    "when": "viewItem =~ /gitlens:branch\\b(.*?:tracking|:remote)/",
+                    "when": "viewItem =~ /gitlens:branch\\b.*?\\+(tracking|remote)\\b.*?/",
                     "group": "inline@98"
                 },
                 {
                     "command": "gitlens.views.checkout",
-                    "when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!:current)\\b/",
+                    "when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\+current\\b.*?)/",
                     "group": "1_gitlens@1"
                 },
                 {
                     "command": "gitlens.openBranchInRemote",
-                    "when": "viewItem =~ /gitlens:branch\\b(.*?:tracking|:remote)/",
+                    "when": "viewItem =~ /gitlens:branch\\b.*?\\+(tracking|remote)\\b.*?/",
                     "group": "2_gitlens@1"
                 },
                 {
                     "command": "gitlens.views.compareWithRemote",
-                    "when": "viewItem =~ /gitlens:(branch\\b.*?:tracking)/",
+                    "when": "viewItem =~ /gitlens:branch\\b.*?\\+tracking\\b.*?/",
                     "group": "7_gitlens@1"
                 },
                 {
                     "command": "gitlens.views.compareWithHead",
-                    "when": "viewItem =~ /gitlens:(branch(?!:current)|commit|stash|tag)\\b/",
+                    "when": "viewItem =~ /gitlens:(branch\\b(?!.*?\\+current\\b.*?)|commit\\b|stash\\b|tag\\b)/",
                     "group": "7_gitlens@2"
                 },
                 {
@@ -3850,7 +3850,7 @@
                 },
                 {
                     "command": "gitlens.views.compareAncestryWithWorking",
-                    "when": "viewItem =~ /gitlens:branch(?!:current)\\b/",
+                    "when": "viewItem =~ /gitlens:branch\\b(?!.*?\\+current\\b.*?)/",
                     "group": "7_gitlens@4"
                 },
                 {
@@ -3880,27 +3880,27 @@
                 },
                 {
                     "command": "gitlens.views.terminalCheckoutBranch",
-                    "when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!:current)/",
+                    "when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\+current\\b.*?)//",
                     "group": "8_gitlens@1"
                 },
                 {
                     "command": "gitlens.views.terminalRebaseBranchToRemote",
-                    "when": "!gitlens:readonly && viewItem =~ /gitlens:(branch:current:tracking)\\b/",
+                    "when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b.*?\\+current\\b.*?\\+tracking\\b.*?/",
                     "group": "8_gitlens@1"
                 },
                 {
                     "command": "gitlens.views.terminalMergeBranch",
-                    "when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!:current)/",
+                    "when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\+current\\b.*?)/",
                     "group": "8_gitlens@2"
                 },
                 {
                     "command": "gitlens.views.terminalRebaseBranch",
-                    "when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!:current)/",
+                    "when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\+current\\b.*?)/",
                     "group": "8_gitlens@3"
                 },
                 {
                     "command": "gitlens.views.terminalSquashBranchIntoCommit",
-                    "when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!:current)/",
+                    "when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\+current\\b.*?)/",
                     "group": "8_gitlens@4"
                 },
                 {
@@ -3910,7 +3910,7 @@
                 },
                 {
                     "command": "gitlens.views.terminalDeleteBranch",
-                    "when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!:current)/",
+                    "when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\+current\\b.*?)/",
                     "group": "8_gitlens@6"
                 },
                 {
@@ -3981,12 +3981,12 @@
                 },
                 {
                     "command": "gitlens.views.terminalPushCommit",
-                    "when": "!gitlens:readonly && viewItem == gitlens:commit:current",
+                    "when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b.*?\\+current\\b.*?/",
                     "group": "8_gitlens@2"
                 },
                 {
                     "command": "gitlens.views.terminalRevertCommit",
-                    "when": "!gitlens:readonly && viewItem == gitlens:commit:current",
+                    "when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b.*?\\+current\\b.*?/",
                     "group": "8_gitlens@3"
                 },
                 {
@@ -4011,27 +4011,27 @@
                 },
                 {
                     "command": "gitlens.views.stageFile",
-                    "when": "viewItem =~ /gitlens:file\\b.*:unstaged\\b/",
+                    "when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b.*?\\+unstaged\\b.*?/",
                     "group": "inline@1"
                 },
                 {
                     "command": "gitlens.views.unstageFile",
-                    "when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b.*:staged\\b/",
+                    "when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b.*?\\+staged\\b.*?/",
                     "group": "inline@1"
                 },
                 {
                     "command": "gitlens.views.stageFile",
-                    "when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b.*:unstaged\\b/",
+                    "when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b.*?\\+unstaged\\b.*?/",
                     "group": "1_gitlens@1"
                 },
                 {
                     "command": "gitlens.views.unstageFile",
-                    "when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b.*:staged\\b/",
+                    "when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b.*?\\+staged\\b.*?/",
                     "group": "1_gitlens@1"
                 },
                 {
                     "command": "gitlens.stashSaveFiles",
-                    "when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b.*:(un)?staged\\b/",
+                    "when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b.*?\\+(un)?staged\\b.*?/",
                     "group": "1_gitlens@2"
                 },
                 {
@@ -4061,7 +4061,7 @@
                 },
                 {
                     "command": "gitlens.openFileInRemote",
-                    "when": "viewItem =~ /gitlens:(file(?!:(un)?staged)|history:(file|line))\\b/ && gitlens:hasRemotes",
+                    "when": "viewItem =~ /gitlens:(file\\b(?!.*?\\+(un)?staged\\b.*?)|history:(file|line))\\b/ && gitlens:hasRemotes",
                     "group": "inline@99",
                     "alt": "gitlens.copyRemoteFileUrlToClipboard"
                 },
@@ -4152,43 +4152,43 @@
                 },
                 {
                     "command": "gitlens.showCommitSearch",
-                    "when": "viewItem == gitlens:repository",
+                    "when": "viewItem =~ /gitlens:repository\\b/",
                     "group": "inline@1"
                 },
                 {
                     "command": "gitlens.views.push",
-                    "when": "gitlens:hasRemotes && !gitlens:readonly && viewItem == gitlens:repository",
+                    "when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:repository\\b/",
                     "group": "inline@97",
                     "alt": "gitlens.views.pushWithForce"
                 },
                 {
                     "command": "gitlens.views.pull",
-                    "when": "gitlens:hasRemotes && !gitlens:readonly && viewItem == gitlens:repository",
+                    "when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:repository\\b/",
                     "group": "inline@98"
                 },
                 {
                     "command": "gitlens.views.fetch",
-                    "when": "gitlens:hasRemotes && !gitlens:readonly && viewItem == gitlens:repository",
+                    "when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:repository\\b/",
                     "group": "inline@99"
                 },
                 {
                     "command": "gitlens.views.fetch",
-                    "when": "gitlens:hasRemotes && !gitlens:readonly && viewItem == gitlens:repository",
+                    "when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:repository\\b/",
                     "group": "1_gitlens@1"
                 },
                 {
                     "command": "gitlens.views.pull",
-                    "when": "gitlens:hasRemotes && !gitlens:readonly && viewItem == gitlens:repository",
+                    "when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:repository\\b/",
                     "group": "1_gitlens@1"
                 },
                 {
                     "command": "gitlens.views.push",
-                    "when": "gitlens:hasRemotes && !gitlens:readonly && viewItem == gitlens:repository",
+                    "when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:repository\\b/",
                     "group": "1_gitlens@1"
                 },
                 {
                     "command": "gitlens.views.pushWithForce",
-                    "when": "gitlens:hasRemotes && !gitlens:readonly && viewItem == gitlens:repository",
+                    "when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:repository\\b/",
                     "group": "1_gitlens@2"
                 },
                 {
@@ -4219,27 +4219,27 @@
                 },
                 {
                     "command": "gitlens.showCommitSearch",
-                    "when": "viewItem == gitlens:repository",
+                    "when": "viewItem =~ /gitlens:repository\\b/",
                     "group": "2_gitlens@1"
                 },
                 {
                     "command": "gitlens.stashApply",
-                    "when": "!gitlens:readonly && viewItem == gitlens:repository",
+                    "when": "!gitlens:readonly && viewItem =~ /gitlens:repository\\b/",
                     "group": "3_gitlens@1"
                 },
                 {
                     "command": "gitlens.stashSave",
-                    "when": "!gitlens:readonly && viewItem == gitlens:repository",
+                    "when": "!gitlens:readonly && viewItem =~ /gitlens:repository\\b/",
                     "group": "3_gitlens@2"
                 },
                 {
                     "command": "gitlens.openRepoInRemote",
-                    "when": "viewItem == gitlens:repository && gitlens:hasRemotes",
+                    "when": "viewItem =~ /gitlens:repository\\b/ && gitlens:hasRemotes",
                     "group": "4_gitlens@1"
                 },
                 {
                     "command": "gitlens.views.closeRepository",
-                    "when": "viewItem == gitlens:repository",
+                    "when": "viewItem =~ /gitlens:repository\\b/",
                     "group": "8_gitlens@1"
                 },
                 {
