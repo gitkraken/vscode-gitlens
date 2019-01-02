@@ -4,7 +4,7 @@ import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitBranch, GitUri } from '../../git/gitService';
-import { debug, gate, Iterables } from '../../system';
+import { debug, gate, Iterables, log } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
 import { CommitNode } from './commitNode';
@@ -30,9 +30,9 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
     }
 
     get id(): string {
-        return `gitlens:repository(${this.branch.repoPath}):${this._root ? 'root:' : ''}branch(${this.branch.name})${
-            this.branch.remote ? ':remote' : ''
-        }`;
+        return `gitlens:repository(${this.branch.repoPath})${this._root ? ':root:' : ''}:branch(${this.branch.name})${
+            this.branch.current ? '+current:' : ''
+        }${this.branch.remote ? '+remote' : ''}${this.branch.starred ? '+starred:' : ''}`;
     }
 
     get current(): boolean {
@@ -43,11 +43,17 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
         const branchName = this.branch.getName();
         if (this.view.config.branches.layout === ViewBranchesLayout.List) return branchName;
 
-        return this.current || GitBranch.isDetached(branchName) ? branchName : this.branch.getBasename();
+        return (this._root && this.current) || this.branch.detached || this.branch.starred
+            ? branchName
+            : this.branch.getBasename();
     }
 
     get ref(): string {
         return this.branch.ref;
+    }
+
+    get treeHierarchy(): string[] {
+        return this.branch.detached || this.branch.starred ? [this.branch.name] : this.branch.getName().split('/');
     }
 
     async getChildren(): Promise<ViewNode[]> {
@@ -136,10 +142,8 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
         if (this.branch.remote) {
             item.contextValue += '+remote';
         }
-        else if (this.current) {
-            item.contextValue = this.branch.tracking
-                ? ResourceType.CurrentBranchWithTracking
-                : ResourceType.CurrentBranch;
+        if (this.branch.starred) {
+            item.contextValue += '+starred';
         }
         if (this.branch.tracking) {
             item.contextValue += '+tracking';
@@ -154,6 +158,18 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
         item.tooltip = tooltip;
 
         return item;
+    }
+
+    @log()
+    async star() {
+        await this.branch.star();
+        void this.parent!.triggerChange();
+    }
+
+    @log()
+    async unstar() {
+        await this.branch.unstar();
+        void this.parent!.triggerChange();
     }
 
     @gate()

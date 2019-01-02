@@ -41,7 +41,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
     }
 
     get id(): string {
-        return `gitlens:repository(${this.repo.path})`;
+        return `gitlens:repository(${this.repo.path})${this.repo.starred ? '+starred:' : ''}`;
     }
 
     async getChildren(): Promise<ViewNode[]> {
@@ -158,15 +158,18 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 
         const item = new TreeItem(label, TreeItemCollapsibleState.Expanded);
         item.contextValue = ResourceType.Repository;
+        if (this.repo.starred) {
+            item.contextValue += '+starred';
+        }
         item.description = `${description || ''}${this.formatLastFetched({
             prefix: `${Strings.pad(GlyphChars.Dot, 2, 2)}Last fetched `
         })}`;
-        item.id = this.id;
-        item.tooltip = tooltip;
         item.iconPath = {
             dark: Container.context.asAbsolutePath(`images/dark/icon-repo${iconSuffix}.svg`),
             light: Container.context.asAbsolutePath(`images/light/icon-repo${iconSuffix}.svg`)
         };
+        item.id = this.id;
+        item.tooltip = tooltip;
 
         void this.ensureSubscription();
 
@@ -181,6 +184,18 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
     @log()
     pull(options: { progress?: boolean } = {}) {
         return this.repo.pull(options);
+    }
+
+    @log()
+    async star() {
+        await this.repo.star();
+        void this.parent!.triggerChange();
+    }
+
+    @log()
+    async unstar() {
+        await this.repo.unstar();
+        void this.parent!.triggerChange();
     }
 
     @log()

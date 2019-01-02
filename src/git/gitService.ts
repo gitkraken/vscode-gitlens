@@ -1771,7 +1771,7 @@ export class GitService implements Disposable {
         const repositories = [...(await this.getRepositories())];
         if (repositories.length === 0) return repositories;
 
-        return repositories.sort((a, b) => a.index - b.index);
+        return repositories.sort((a, b) => (a.starred ? -1 : 1) - (b.starred ? -1 : 1) || a.index - b.index);
     }
 
     private async getRepositoryTree(): Promise<TernarySearchTree<Repository>> {

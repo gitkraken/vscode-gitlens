@@ -15,6 +15,7 @@ import {
     WorkspaceFolder
 } from 'vscode';
 import { configuration, RemotesConfig } from '../../configuration';
+import { StarredRepositories, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
 import { Functions, gate, log } from '../../system';
 import { GitBranch, GitDiffShortStat, GitRemote, GitStash, GitStatus, GitTag } from '../git';
@@ -71,6 +72,7 @@ export class Repository implements Disposable {
     }
 
     readonly formattedName: string;
+    readonly id: string;
     readonly index: number;
     readonly name: string;
     readonly normalizedPath: string;
@@ -115,6 +117,7 @@ export class Repository implements Disposable {
         this.index = folder.index;
 
         this.normalizedPath = (path.endsWith('/') ? path : `${path}/`).toLowerCase();
+        this.id = this.normalizedPath;
 
         this._suspended = suspended;
         this._closed = closed;
@@ -376,6 +379,35 @@ export class Repository implements Disposable {
         if (this._pendingChanges.fs !== undefined) {
             this._fireFileSystemChangeDebounced!(this._pendingChanges.fs);
         }
+    }
+
+    get starred() {
+        const starred = Container.context.workspaceState.get<StarredRepositories>(WorkspaceState.StarredRepositories);
+        return starred !== undefined && starred[this.id] === true;
+    }
+
+    star() {
+        return this.updateStarred(true);
+    }
+
+    unstar() {
+        return this.updateStarred(false);
+    }
+
+    private async updateStarred(star: boolean) {
+        let starred = Container.context.workspaceState.get<StarredRepositories>(WorkspaceState.StarredRepositories);
+        if (starred === undefined) {
+            starred = Object.create(null);
+        }
+
+        if (star) {
+            starred![this.id] = true;
+        }
+        else {
+            const { [this.id]: _, ...rest } = starred!;
+            starred = rest;
+        }
+        await Container.context.workspaceState.update(WorkspaceState.StarredRepositories, starred);
     }
 
     startWatchingFileSystem() {

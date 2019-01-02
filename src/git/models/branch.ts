@@ -1,4 +1,6 @@
 'use strict';
+import { StarredBranches, WorkspaceState } from '../../constants';
+import { Container } from '../../container';
 import { Git } from '../git';
 import { GitStatus } from './status';
 
@@ -9,6 +11,7 @@ export interface GitTrackingState {
 
 export class GitBranch {
     readonly detached: boolean;
+    readonly id: string;
     readonly name: string;
     readonly remote: boolean;
     readonly tracking?: string;
@@ -24,6 +27,8 @@ export class GitBranch {
         behind: number = 0,
         detached: boolean = false
     ) {
+        this.id = `${repoPath}|${name}`;
+
         if (name.startsWith('remotes/')) {
             name = name.substring(8);
             this.remote = true;
@@ -86,6 +91,35 @@ export class GitBranch {
         suffix?: string;
     }): string {
         return GitStatus.getUpstreamStatus(this.tracking, this.state, options);
+    }
+
+    get starred() {
+        const starred = Container.context.workspaceState.get<StarredBranches>(WorkspaceState.StarredBranches);
+        return starred !== undefined && starred[this.id] === true;
+    }
+
+    star() {
+        return this.updateStarred(true);
+    }
+
+    unstar() {
+        return this.updateStarred(false);
+    }
+
+    private async updateStarred(star: boolean) {
+        let starred = Container.context.workspaceState.get<StarredBranches>(WorkspaceState.StarredBranches);
+        if (starred === undefined) {
+            starred = Object.create(null);
+        }
+
+        if (star) {
+            starred![this.id] = true;
+        }
+        else {
+            const { [this.id]: _, ...rest } = starred!;
+            starred = rest;
+        }
+        await Container.context.workspaceState.update(WorkspaceState.StarredBranches, starred);
     }
 
     static getRemote(branch: string): string {

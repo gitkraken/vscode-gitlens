@@ -2266,6 +2266,24 @@
                 }
             },
             {
+                "command": "gitlens.views.star",
+                "title": "Add to Favorites",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-star.svg",
+                    "light": "images/light/icon-star.svg"
+                }
+            },
+            {
+                "command": "gitlens.views.unstar",
+                "title": "Remove from Favorites",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-star-filled.svg",
+                    "light": "images/light/icon-star-filled.svg"
+                }
+            },
+            {
                 "command": "gitlens.views.openDirectoryDiff",
                 "title": "Open Directory Compare",
                 "category": "GitLens"
@@ -3021,6 +3039,14 @@
                 },
                 {
                     "command": "gitlens.views.unstageFile",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.views.star",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.views.unstar",
                     "when": "false"
                 },
                 {
@@ -3798,6 +3824,16 @@
                     "group": "1_gitlens@1"
                 },
                 {
+                    "command": "gitlens.views.star",
+                    "when": "viewItem =~ /gitlens:branch\\b(?!.*?\\+starred\\b.*?)/",
+                    "group": "inline@1"
+                },
+                {
+                    "command": "gitlens.views.unstar",
+                    "when": "viewItem =~ /gitlens:branch\\b.*?\\+starred\\b.*?/",
+                    "group": "inline@2"
+                },
+                {
                     "command": "gitlens.views.checkout",
                     "when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\+current\\b.*?)/",
                     "group": "inline@10"
@@ -3832,6 +3868,16 @@
                     "command": "gitlens.openBranchInRemote",
                     "when": "viewItem =~ /gitlens:branch\\b.*?\\+(tracking|remote)\\b.*?/",
                     "group": "2_gitlens@1"
+                },
+                {
+                    "command": "gitlens.views.star",
+                    "when": "viewItem =~ /gitlens:branch\\b(?!.*?\\+starred\\b.*?)/",
+                    "group": "3_gitlens@1"
+                },
+                {
+                    "command": "gitlens.views.unstar",
+                    "when": "viewItem =~ /gitlens:branch\\b.*?\\+starred\\b.*?/",
+                    "group": "3_gitlens@1"
                 },
                 {
                     "command": "gitlens.views.compareWithRemote",
@@ -4153,7 +4199,17 @@
                 {
                     "command": "gitlens.showCommitSearch",
                     "when": "viewItem =~ /gitlens:repository\\b/",
+                    "group": "inline@10"
+                },
+                {
+                    "command": "gitlens.views.star",
+                    "when": "viewItem =~ /gitlens:repository\\b(?!.*?\\+starred\\b.*?)/",
                     "group": "inline@1"
+                },
+                {
+                    "command": "gitlens.views.unstar",
+                    "when": "viewItem =~ /gitlens:repository\\b.*?\\+starred\\b.*?/",
+                    "group": "inline@2"
                 },
                 {
                     "command": "gitlens.views.push",
@@ -4190,6 +4246,16 @@
                     "command": "gitlens.views.pushWithForce",
                     "when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:repository\\b/",
                     "group": "1_gitlens@2"
+                },
+                {
+                    "command": "gitlens.views.star",
+                    "when": "viewItem =~ /gitlens:repository\\b(?!.*?\\+starred\\b.*?)/",
+                    "group": "2_gitlens@1"
+                },
+                {
+                    "command": "gitlens.views.unstar",
+                    "when": "viewItem =~ /gitlens:repository\\b.*?\\+starred\\b.*?/",
+                    "group": "2_gitlens@1"
                 },
                 {
                     "command": "gitlens.views.pull",

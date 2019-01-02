@@ -30,7 +30,11 @@ export class BranchesNode extends ViewNode<RepositoriesView> {
             const branches = await this.repo.getBranches();
             if (branches === undefined) return [];
 
-            branches.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+            branches.sort(
+                (a, b) =>
+                    (a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
+                    a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+            );
 
             // filter local branches
             const branchNodes = [
@@ -42,7 +46,7 @@ export class BranchesNode extends ViewNode<RepositoriesView> {
 
             const hierarchy = Arrays.makeHierarchical(
                 branchNodes,
-                n => (n.branch.detached ? [n.branch.name] : n.branch.getName().split('/')),
+                n => n.treeHierarchy,
                 (...paths: string[]) => paths.join('/'),
                 this.view.config.files.compact
             );

@@ -128,7 +128,17 @@ export const ImageMimetypes: { [key: string]: string } = {
     '.bmp': 'image/bmp'
 };
 
+export interface StarredBranches {
+    [id: string]: boolean;
+}
+
+export interface StarredRepositories {
+    [id: string]: boolean;
+}
+
 export enum WorkspaceState {
+    StarredBranches = 'gitlens:starred:branches',
+    StarredRepositories = 'gitlens:starred:repositories',
     ViewsCompareKeepResults = 'gitlens:views:compare:keepResults',
     ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',
     ViewsSearchKeepResults = 'gitlens:views:search:keepResults'

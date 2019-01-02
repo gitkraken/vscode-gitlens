@@ -73,6 +73,9 @@ export class ViewCommands implements Disposable {
         commands.registerCommand('gitlens.views.pushWithForce', n => this.push(n, true), this);
         commands.registerCommand('gitlens.views.closeRepository', this.closeRepository, this);
 
+        commands.registerCommand('gitlens.views.star', this.star, this);
+        commands.registerCommand('gitlens.views.unstar', this.unstar, this);
+
         commands.registerCommand('gitlens.views.exploreRepoRevision', this.exploreRepoRevision, this);
 
         commands.registerCommand('gitlens.views.openChanges', this.openChanges, this);
@@ -458,6 +461,16 @@ export class ViewCommands implements Disposable {
         if (!(node instanceof CommitFileNode) && !(node instanceof StatusFileNode)) return;
 
         void (await Container.git.unStageFile(node.repoPath, node.file.fileName));
+    }
+
+    private star(node: BranchNode | RepositoryNode) {
+        if (node instanceof BranchNode || node instanceof RepositoryNode) return node.star();
+        return;
+    }
+
+    private unstar(node: BranchNode | RepositoryNode) {
+        if (node instanceof BranchNode || node instanceof RepositoryNode) return node.unstar();
+        return;
     }
 
     async terminalCheckoutBranch(node: BranchNode) {

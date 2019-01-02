@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds favoriting of repositories and branches in the _Repositories_ view to allow for better (user-customized) sorting
 - Adds the ability to turn on file annotations (blame, heatmap, and recent changes) via user-defined modes &mdash; closes [#542](https://github.com/eamodio/vscode-gitlens/issues/542)
 
 ## [9.2.4] - 2018-12-26
