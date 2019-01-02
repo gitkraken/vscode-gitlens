@@ -100,8 +100,15 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
                 break;
         }
 
-        const remote = remotes[0];
-        if (remotes.length === 1) {
+        let remote: GitRemote | undefined;
+        if (remotes.length > 1) {
+            remote = remotes.find(r => r.default);
+        }
+        else if (remotes.length === 1) {
+            remote = remotes[0];
+        }
+
+        if (remote != null) {
             super(
                 {
                     label: `$(link-external) Open ${name} on ${remote.provider!.name}`,
@@ -125,7 +132,9 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
             return;
         }
 
-        const provider = remotes.every(r => r.provider !== undefined && r.provider.name === remote.provider!.name)
+        remote = remotes[0];
+        // Use the real provider name if there is only 1 provider
+        const provider = remotes.every(r => r.provider !== undefined && r.provider.name === remote!.provider!.name)
             ? remote.provider!.name
             : 'Remote';
 

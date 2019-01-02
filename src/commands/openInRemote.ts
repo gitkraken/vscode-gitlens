@@ -36,9 +36,17 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
         }
 
         try {
-            if (args.remotes.length === 1) {
+            let remote: GitRemote | undefined;
+            if (args.remotes.length > 1) {
+                remote = args.remotes.find(r => r.default);
+            }
+            else if (args.remotes.length === 1) {
+                remote = args.remotes[0];
+            }
+
+            if (remote != null) {
                 this.ensureRemoteBranchName(args);
-                const command = new OpenRemoteCommandQuickPickItem(args.remotes[0], args.resource, args.clipboard);
+                const command = new OpenRemoteCommandQuickPickItem(remote, args.resource, args.clipboard);
                 return await command.execute();
             }
 

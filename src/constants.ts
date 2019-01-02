@@ -137,6 +137,7 @@ export interface StarredRepositories {
 }
 
 export enum WorkspaceState {
+    DefaultRemote = 'gitlens:remote:default',
     StarredBranches = 'gitlens:starred:branches',
     StarredRepositories = 'gitlens:starred:repositories',
     ViewsCompareKeepResults = 'gitlens:views:compare:keepResults',

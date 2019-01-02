@@ -2248,6 +2248,16 @@
                 }
             },
             {
+                "command": "gitlens.views.setAsDefault",
+                "title": "Set as Default",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.views.unsetAsDefault",
+                "title": "Unset as Default",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.views.stageFile",
                 "title": "Stage Changes",
                 "category": "GitLens",
@@ -3031,6 +3041,14 @@
                 },
                 {
                     "command": "gitlens.views.pushWithForce",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.views.setAsDefault",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.views.unsetAsDefault",
                     "when": "false"
                 },
                 {
@@ -4163,32 +4181,42 @@
                 },
                 {
                     "command": "gitlens.views.fetch",
-                    "when": "!gitlens:readonly && viewItem == gitlens:remote",
+                    "when": "!gitlens:readonly && viewItem =~ /gitlens:remote\\b/",
                     "group": "inline@97"
                 },
                 {
                     "command": "gitlens.openRepoInRemote",
-                    "when": "viewItem == gitlens:remote",
+                    "when": "viewItem =~ /gitlens:remote\\b/",
                     "group": "inline@98"
                 },
                 {
                     "command": "gitlens.openRepoInRemote",
-                    "when": "viewItem == gitlens:remote",
+                    "when": "viewItem =~ /gitlens:remote\\b/",
                     "group": "1_gitlens@1"
                 },
                 {
                     "command": "gitlens.openBranchesInRemote",
-                    "when": "viewItem == gitlens:remote",
+                    "when": "viewItem =~ /gitlens:remote\\b/",
                     "group": "1_gitlens@2"
                 },
                 {
                     "command": "gitlens.views.fetch",
-                    "when": "!gitlens:readonly && viewItem == gitlens:remote",
+                    "when": "!gitlens:readonly && viewItem =~ /gitlens:remote\\b/",
                     "group": "2_gitlens@1"
                 },
                 {
+                    "command": "gitlens.views.setAsDefault",
+                    "when": "viewItem =~ /gitlens:remote\\b(?!.*?\\+default\\b.*?)/",
+                    "group": "3_gitlens@1"
+                },
+                {
+                    "command": "gitlens.views.unsetAsDefault",
+                    "when": "viewItem =~ /gitlens:remote\\b.*?\\+default\\b.*?/",
+                    "group": "3_gitlens@1"
+                },
+                {
                     "command": "gitlens.views.terminalRemoveRemote",
-                    "when": "!gitlens:readonly && viewItem == gitlens:remote",
+                    "when": "!gitlens:readonly && viewItem =~ /gitlens:remote\\b/",
                     "group": "8_gitlens@1"
                 },
                 {

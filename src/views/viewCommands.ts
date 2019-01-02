@@ -73,6 +73,9 @@ export class ViewCommands implements Disposable {
         commands.registerCommand('gitlens.views.pushWithForce', n => this.push(n, true), this);
         commands.registerCommand('gitlens.views.closeRepository', this.closeRepository, this);
 
+        commands.registerCommand('gitlens.views.setAsDefault', this.setAsDefault, this);
+        commands.registerCommand('gitlens.views.unsetAsDefault', this.unsetAsDefault, this);
+
         commands.registerCommand('gitlens.views.star', this.star, this);
         commands.registerCommand('gitlens.views.unstar', this.unstar, this);
 
@@ -449,6 +452,16 @@ export class ViewCommands implements Disposable {
         return commands.executeCommand(Commands.OpenFileInRemote, node.commit.toGitUri(node.commit.status === 'D'), {
             range: false
         } as OpenFileInRemoteCommandArgs);
+    }
+
+    private setAsDefault(node: RemoteNode) {
+        if (node instanceof RemoteNode) return node.setAsDefault();
+        return;
+    }
+
+    private unsetAsDefault(node: RemoteNode) {
+        if (node instanceof RemoteNode) return node.setAsDefault(false);
+        return;
     }
 
     private async stageFile(node: CommitFileNode | StatusFileNode) {

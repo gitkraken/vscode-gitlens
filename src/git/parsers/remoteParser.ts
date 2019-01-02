@@ -70,6 +70,7 @@ export class GitRemoteParser {
             if (remote === undefined) {
                 remote = new GitRemote(
                     repoPath,
+                    uniqueness,
                     // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
                     (' ' + match[1]).substr(1),
                     scheme,

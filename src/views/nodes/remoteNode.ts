@@ -84,14 +84,17 @@ export class RemoteNode extends ViewNode<RepositoriesView> {
             separator = GlyphChars.Dash;
         }
 
-        const item = new TreeItem(this.remote.name, TreeItemCollapsibleState.Collapsed);
+        const item = new TreeItem(
+            `${this.remote.default ? `${GlyphChars.Check} ${GlyphChars.Space}` : ''}${this.remote.name}`,
+            TreeItemCollapsibleState.Collapsed
+        );
         item.description = `${separator}${GlyphChars.Space} ${
             this.remote.provider !== undefined ? this.remote.provider.name : this.remote.domain
         } ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} ${this.remote.path}`;
         item.contextValue = ResourceType.Remote;
-        item.id = this.id;
-        item.tooltip = `${this.remote.name}
-${this.remote.path} (${this.remote.provider !== undefined ? this.remote.provider.name : this.remote.domain})`;
+        if (this.remote.default) {
+            item.contextValue += '+default';
+        }
 
         if (this.remote.provider !== undefined) {
             item.iconPath = {
@@ -106,11 +109,22 @@ ${this.remote.path} (${this.remote.provider !== undefined ? this.remote.provider
             };
         }
 
+        item.id = this.id;
+        item.tooltip = `${this.remote.name}\n${this.remote.path} (${
+            this.remote.provider !== undefined ? this.remote.provider.name : this.remote.domain
+        })`;
+
         return item;
     }
 
     @log()
     fetch(options: { progress?: boolean } = {}) {
         return this.repo.fetch({ ...options, remote: this.remote.name });
+    }
+
+    @log()
+    async setAsDefault(state: boolean = true) {
+        void (await this.remote.setAsDefault(state));
+        void this.parent!.triggerChange();
     }
 }
