@@ -1,6 +1,6 @@
 'use strict';
 import { WelcomeApp } from './app';
-import { Snow } from './snow';
+// import { Snow } from './snow';
 
 new WelcomeApp();
-requestAnimationFrame(() => new Snow());
+// requestAnimationFrame(() => new Snow());

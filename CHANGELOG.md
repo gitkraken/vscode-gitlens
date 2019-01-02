@@ -4,12 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [9.3.0] - 2019-01-02
 
 ### Added
 
 - Adds favoriting of repositories and branches in the _Repositories_ view to allow for better (user-customized) sorting
-- Adds _Set as Default_ and _Unset as Default_ commands to remotes in the _Repositories_ view to specify the default remote selection when using the _Open \* in Remote_ commands &mdash; closes [#504](https://github.com/eamodio/vscode-gitlens/issues/504)
+- Adds the ability to specify a default remote selection when using the _Open \* in Remote_ commands &mdash; closes [#504](https://github.com/eamodio/vscode-gitlens/issues/504)
+  - Adds _Set as Default_ and _Unset as Default_ commands to remotes in the _Repositories_ view
 - Adds the ability to turn on file annotations (blame, heatmap, and recent changes) via user-defined modes &mdash; closes [#542](https://github.com/eamodio/vscode-gitlens/issues/542)
 - Adds the ability to stage and unstage files by folders in the _Repositories_ view &mdash; closes [#599](https://github.com/eamodio/vscode-gitlens/issues/599) thanks to [PR #600](https://github.com/eamodio/vscode-gitlens/pull/600) by Tony Brix ([@UziTech](https://github.com/UziTech))
   - Adds _Stage All Changes_ and _Unstage All Changes_ commands to folders in the _Repositories_ view

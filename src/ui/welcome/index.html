@@ -5,7 +5,7 @@
     </head>
 
     <body class="preload">
-        <canvas class="snow"></canvas>
+        <!-- <canvas class="snow"></canvas>
         <div class="snow__trigger">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 125">
                 <path
@@ -18,7 +18,7 @@
                     d="M64.66 84.31c-17.4 0-35.17-1.38-28.93-25.06.37 13.72 29 12.57 29 12.57s30.12.28 29.88-11.27C97.69 85.43 82.06 84.3 64.66 84.3z"
                 />
             </svg>
-        </div>
+        </div> -->
         <div class="container">
             <div class="content">
                 <header>
@@ -130,6 +130,67 @@
 
                             <ul class="changelog__list">
                                 <li>
+                                    <span class="changelog__badge changelog__badge--version">9.3</span>
+                                    <span class="changelog__date">JAN &nbsp;2019</span>
+                                    <div class="changelog__details"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--added">NEW</span>Adds favoriting of
+                                    repositories and branches in the <i>Repositories</i> view to allow for better
+                                    (user-customized) sorting
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--added">NEW</span>Adds the ability to
+                                    specify a default remote selection when using the <i>Open * in Remote</i> commands
+                                    &mdash; closes
+                                    <a
+                                        title="Open Issue #504"
+                                        href="https://github.com/eamodio/vscode-gitlens/issues/504"
+                                        >#504</a
+                                    >
+                                    <div class="changelog__details changelog__details--list">
+                                        <p>
+                                            Adds <i>Set as Default</i> and <i>Unset as Default</i> commands to remotes
+                                            in the <i>Repositories</i> view
+                                        </p>
+                                    </div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--added">NEW</span>Adds the ability to
+                                    turn on file annotations (blame, heatmap, and recent changes) via user-defined modes
+                                    &mdash; closes
+                                    <a
+                                        title="Open Issue #542"
+                                        href="https://github.com/eamodio/vscode-gitlens/issues/542"
+                                        >#542</a
+                                    >
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--added">NEW</span>Adds the ability to
+                                    stage and unstage files by folders in the <i>Repositories</i> view &mdash; closes
+                                    <a
+                                        title="Open Issue #599"
+                                        href="https://github.com/eamodio/vscode-gitlens/issues/599"
+                                        >#599</a
+                                    >
+                                    thanks to
+                                    <a
+                                        title="Open Issue #600"
+                                        href="https://github.com/eamodio/vscode-gitlens/issues/600"
+                                        >PR #600</a
+                                    >
+                                    by Tony Brix (<a title="@UziTech" href="https://github.com/UziTech">@UziTech</a>)
+                                    <div class="changelog__details changelog__details--list">
+                                        <p>
+                                            Adds <i>Stage All Changes</i> and <i>Unstage All Changes</i> commands to
+                                            folders in the <i>Repositories</i> view
+                                        </p>
+                                    </div>
+                                </li>
+
+                                <li class="changelog__list-item--version">
                                     <span class="changelog__badge changelog__badge--version">9.2</span>
                                     <span class="changelog__date">DEC &nbsp;2018</span>
                                     <div class="changelog__details"></div>
