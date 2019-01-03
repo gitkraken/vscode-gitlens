@@ -286,20 +286,20 @@ The repositories view provides the following features,
       - _Green_ &mdash; ahead of the upstream
       - _Red_ &mdash; behind the upstream
       - _Yellow_ &mdash; both ahead of and behind the upstream
-    - An inline toolbar provides quick access to the _Search Commits_, _Push Repository_ (`alt-click` for _Push (force) Repository_), _Pull Repository_, and _Fetch Repository_ commands
+    - An inline toolbar provides quick access to the _Add to Favorites_ (when applicable), _Remove from Favorites_ (when applicable), _Search Commits_, _Push_ (`alt-click` for _Push (force)_), _Pull_, and _Fetch_ commands
     - A context menu provides access to more common repository commands
     - **Current Branch** &mdash; lists the revision (commit) history of the current branch and [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') shows its remote tracking branch and status (if available)
       - An inline toolbar provides quick access to the _Compare with Remote_ (if available), _Compare with Working Tree_, and _Open Branch on Remote_ (if available) commands
       - A context menu provides access to more common branch commands
     - **\* Commits Behind** &mdash; quickly see and explore the specific commits behind the upstream (i.e. commits that haven't been pulled)
       - Only provided if the current branch is tracking a remote branch and is behind it
-      - An inline toolbar provides quick access to the _Pull Repository_ command
+      - An inline toolbar provides quick access to the _Pull_ command
     - **\* Commits Ahead** &mdash; quickly see and explore the specific commits ahead of the upstream (i.e. commits that haven't been pushed)
       - Only provided if the current branch is tracking a remote branch and is ahead of it
-      - An inline toolbar provides quick access to the _Push Repository_ (`alt-click` for _Push (force) Repository_) command
+      - An inline toolbar provides quick access to the _Push_ (`alt-click` for _Push (force)_) command
     - **\* Files Changed** &mdash; lists all the "working" changes
       - Expands to a file-based view of all changed files in the working tree ([optionally](#repositories-view-settings- 'Jump to the Repositories view settings')) and/or all files in all commits ahead of the upstream
-      - An inline toolbar provides quick access to the _Stash Changes_ command
+      - An inline toolbar provides quick access to the _Stash All Changes_ command
 
 - **Branches** &mdash; lists the local branches in the repository
 
@@ -310,7 +310,7 @@ The repositories view provides the following features,
       - _Green_ &mdash; ahead of the upstream
       - _Red_ &mdash; behind the upstream
       - _Yellow_ &mdash; both ahead of and behind the upstream
-    - An inline toolbar provides quick access to the _Checkout_, _Compare with Remote_ (if available), _Compare with HEAD_ (`alt-click` for _Compare with Working Tree_), and _Open Branch on Remote_ (if available) commands
+    - An inline toolbar provides quick access to the _Add to Favorites_ (when applicable), _Remove from Favorites_ (when applicable), _Checkout_, _Compare with Remote_ (if available), _Compare with HEAD_ (`alt-click` for _Compare with Working Tree_), and _Open Branch on Remote_ (if available) commands
     - A context menu provides access to more common branch commands
     - Each branch expands to list its revision (commit) history
       - **\* Commits Behind** &mdash; quickly see and explore the specific commits behind the upstream (i.e. commits that haven't been pulled)
@@ -326,14 +326,14 @@ The repositories view provides the following features,
 - **Remotes** &mdash; lists the remotes in the repository
 
   - Provides the name of each remote, an indicator of the direction of the remote (fetch, push, both), remote service (if applicable), and repository path
-    - An inline toolbar provides quick access to the _Fetch Repository_, and _Open Repository on Remote_ (if available) commands
+    - An inline toolbar provides quick access to the _Fetch_, and _Open Repository on Remote_ (if available) commands
     - A context menu provides access to more common repository and remote commands
     - Each remote expands list its remote branches
       - See the **Branches** above for additional details
 
 - **Stashes** &mdash; lists the stashed changes in the repository
 
-  - An inline toolbar provides quick access to the _Apply Stash Changes_, and _Stash Changes_ commands
+  - An inline toolbar provides quick access to the _Stash All Changes_, and _Apply Stash Changes_ commands
   - Provides the name of each stashed changes, the date, and an indicator (+x ~x -x) of the changes
     - An inline toolbar provides quick access to the _Compare with HEAD_ (`alt-click` for _Compare with Working Tree_), _Apply Stashed Changes_, and _Delete Stashed Changes_ commands
     - A context menu provides access to more common stashed changes commands
@@ -455,7 +455,7 @@ A [customizable](#compare-view-settings- 'Jump to the Compare view settings') vi
 The compare view provides the following features,
 
 - Provides a semi-persistent results view for comparison operations
-  - An inline toolbar provides quick access to the _Swap Comparison_, and _Dismiss_ commands
+  - An inline toolbar provides quick access to the _Swap Comparison_, _Pin Comparison_ (when applicable), _Unpin Comparison_ (when applicable), _Refresh_, and _Dismiss_ commands
   - A context menu provides access to common comparison commands
   - **\* Commits** &mdash; lists the commits between the compared revisions (branches or commits)
     - Expands to provide the message, author, date, and change indicator of each revision (commit) &mdash; fully [customizable](#view-settings- 'Jump to the View settings')
@@ -568,10 +568,10 @@ The compare view provides the following features,
 
 - Adds a _Show Stashed Changes_ command (`gitlens.showQuickStashList`) to show a **stashed changes quick pick menu** for exploring your repository stash history
 
-  - Provides additional entries to _Stash Changes_
+  - Provides additional entries to _Stash All Changes_
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
 
-- Adds a _Stash Changes_ command (`gitlens.stashSave`) to save any working tree changes to the stash &mdash; can optionally provide a stash message
+- Adds a _Stash All Changes_ command (`gitlens.stashSave`) to save any working tree changes to the stash &mdash; can optionally provide a stash message
   - Also adds the command to the Source Control items context menu to stash an individual or group of files, works with multi-select too!
 
 #### Stash Details

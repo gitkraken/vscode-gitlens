@@ -2213,7 +2213,7 @@
             },
             {
                 "command": "gitlens.views.fetch",
-                "title": "Fetch Repository",
+                "title": "Fetch",
                 "category": "GitLens",
                 "icon": {
                     "dark": "images/dark/icon-sync.svg",
@@ -2222,7 +2222,7 @@
             },
             {
                 "command": "gitlens.views.pull",
-                "title": "Pull Repository",
+                "title": "Pull",
                 "category": "GitLens",
                 "icon": {
                     "dark": "images/dark/icon-pull.svg",
@@ -2231,7 +2231,7 @@
             },
             {
                 "command": "gitlens.views.push",
-                "title": "Push Repository",
+                "title": "Push",
                 "category": "GitLens",
                 "icon": {
                     "dark": "images/dark/icon-push.svg",
@@ -2240,7 +2240,7 @@
             },
             {
                 "command": "gitlens.views.pushWithForce",
-                "title": "Push (force) Repository",
+                "title": "Push (force)",
                 "category": "GitLens",
                 "icon": {
                     "dark": "images/dark/icon-push-force.svg",
