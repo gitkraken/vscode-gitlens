@@ -202,7 +202,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a _Show Commit in View_ (`gitlens.showCommitInView`) command to quickly open the current line's commit in the _Search Commits_ view
 - Adds a _Show Revision Details_ (`gitlens.showQuickRevisionDetails`) command to quickly show the revision (commit) details of the current file revision
 - Adds the _Open Changes with Working File_ (`gitlens.diffWithWorking`) command to the editor toolbar when comparing revisions
-- Adds comparisions to commit ids, by prefixing with a `#`, in addition to branches and tags &mdash; closes [#535](https://github.com/eamodio/vscode-gitlens/issues/535)
+- Adds comparisons to commit ids, by prefixing with a `#`, in addition to branches and tags &mdash; closes [#535](https://github.com/eamodio/vscode-gitlens/issues/535)
 - Adds support for git mailmap &mdash; closes [#388](https://github.com/eamodio/vscode-gitlens/issues/388)
 - Adds support for Azure DevOps (formerly VSTS) remotes &mdash; closes [#501](https://github.com/eamodio/vscode-gitlens/issues/501)
 - Adds better detection of on-prem BitBucket and GitLab remotes &mdash; closes [#214](https://github.com/eamodio/vscode-gitlens/issues/214)
@@ -549,7 +549,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
-- Marks temporary files (used when showing comparisions with previous revisions) as read-only to help avoid accidental edits/saving
+- Marks temporary files (used when showing comparisons with previous revisions) as read-only to help avoid accidental edits/saving
 
 ### Fixed
 
@@ -673,7 +673,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds `gitlens.statusBar.reduceFlicker` setting to specify whether to reduce the status bar "flickering" when changing lines by not first clearing the previous blame information &mdash; closes [#272](https://github.com/eamodio/vscode-gitlens/issues/272)
 - Adds the _Open File_ (`gitlens.explorers.openFile`) command to the _GitLens_ explorer's inline toolbar for file nodes
 - Adds the _Clear Results_ (`gitlen.resultsExplorer.clearResultsNode`) command to the _GitLens Results_ explorer's inline toolbar for results nodes
-- Adds the _Swap Comparision_ (`gitlen.resultsExplorer.swapComparision`) command to the _GitLens Results_ explorer's inline toolbar and context menu for comparision results nodes
+- Adds the _Swap Comparison_ (`gitlen.resultsExplorer.swapComparison`) command to the _GitLens Results_ explorer's inline toolbar and context menu for comparison results nodes
 - Adds _Push to Commit (via Terminal)_ (`gitlens.explorers.terminalPushCommit`) command to commit nodes on the current branch in the _GitLens_ explorer
 
 ## Changed

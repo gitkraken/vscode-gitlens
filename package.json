@@ -2703,8 +2703,8 @@
                 }
             },
             {
-                "command": "gitlens.views.compare.pinComparision",
-                "title": "Pin Comparision",
+                "command": "gitlens.views.compare.pinComparison",
+                "title": "Pin Comparison",
                 "category": "GitLens",
                 "icon": {
                     "dark": "images/dark/icon-pin.svg",
@@ -2712,8 +2712,8 @@
                 }
             },
             {
-                "command": "gitlens.views.compare.unpinComparision",
-                "title": "Unpin Comparision",
+                "command": "gitlens.views.compare.unpinComparison",
+                "title": "Unpin Comparison",
                 "category": "GitLens",
                 "icon": {
                     "dark": "images/dark/icon-pinned.svg",
@@ -2721,8 +2721,8 @@
                 }
             },
             {
-                "command": "gitlens.views.compare.swapComparision",
-                "title": "Swap Comparision",
+                "command": "gitlens.views.compare.swapComparison",
+                "title": "Swap Comparison",
                 "category": "GitLens",
                 "icon": {
                     "dark": "images/dark/icon-swap.svg",
@@ -3368,15 +3368,15 @@
                     "when": "false"
                 },
                 {
-                    "command": "gitlens.views.compare.pinComparision",
+                    "command": "gitlens.views.compare.pinComparison",
                     "when": "false"
                 },
                 {
-                    "command": "gitlens.views.compare.unpinComparision",
+                    "command": "gitlens.views.compare.unpinComparison",
                     "when": "false"
                 },
                 {
-                    "command": "gitlens.views.compare.swapComparision",
+                    "command": "gitlens.views.compare.swapComparison",
                     "when": "false"
                 },
                 {
@@ -4403,17 +4403,17 @@
                     "group": "1_gitlens@1"
                 },
                 {
-                    "command": "gitlens.views.compare.swapComparision",
+                    "command": "gitlens.views.compare.swapComparison",
                     "when": "viewItem =~ /gitlens:compare:results\\b/",
                     "group": "inline@1"
                 },
                 {
-                    "command": "gitlens.views.compare.pinComparision",
+                    "command": "gitlens.views.compare.pinComparison",
                     "when": "viewItem =~ /gitlens:compare:results\\b(?!.*?\\+pinned\\b.*?)/",
                     "group": "inline@2"
                 },
                 {
-                    "command": "gitlens.views.compare.unpinComparision",
+                    "command": "gitlens.views.compare.unpinComparison",
                     "when": "viewItem =~ /gitlens:compare:results\\b.*?\\+pinned\\b.*?/",
                     "group": "inline@2"
                 },
@@ -4423,17 +4423,17 @@
                     "group": "inline@3"
                 },
                 {
-                    "command": "gitlens.views.compare.swapComparision",
+                    "command": "gitlens.views.compare.swapComparison",
                     "when": "viewItem =~ /gitlens:compare:results\\b/",
                     "group": "2_gitlens@1"
                 },
                 {
-                    "command": "gitlens.views.compare.pinComparision",
+                    "command": "gitlens.views.compare.pinComparison",
                     "when": "viewItem =~ /gitlens:compare:results\\b(?!.*?\\+pinned\\b.*?)/",
                     "group": "3_gitlens@1"
                 },
                 {
-                    "command": "gitlens.views.compare.unpinComparision",
+                    "command": "gitlens.views.compare.unpinComparison",
                     "when": "viewItem =~ /gitlens:compare:results\\b.*?\\+pinned\\b.*?/",
                     "group": "3_gitlens@1"
                 },

@@ -54,9 +54,9 @@ export class CompareView extends ViewBase<CompareNode> {
             this
         );
 
-        commands.registerCommand(this.getQualifiedCommand('pinComparision'), this.pinComparision, this);
-        commands.registerCommand(this.getQualifiedCommand('unpinComparision'), this.unpinComparision, this);
-        commands.registerCommand(this.getQualifiedCommand('swapComparision'), this.swapComparision, this);
+        commands.registerCommand(this.getQualifiedCommand('pinComparison'), this.pinComparison, this);
+        commands.registerCommand(this.getQualifiedCommand('unpinComparison'), this.unpinComparison, this);
+        commands.registerCommand(this.getQualifiedCommand('swapComparison'), this.swapComparison, this);
 
         commands.registerCommand(this.getQualifiedCommand('selectForCompare'), this.selectForCompare, this);
         commands.registerCommand(this.getQualifiedCommand('compareWithSelected'), this.compareWithSelected, this);
@@ -170,19 +170,19 @@ export class CompareView extends ViewBase<CompareNode> {
         setCommandContext(CommandContext.ViewsCompareKeepResults, enabled);
     }
 
-    private async pinComparision(node: ViewNode) {
+    private async pinComparison(node: ViewNode) {
         if (!(node instanceof CompareResultsNode)) return;
 
         return node.pin();
     }
 
-    private swapComparision(node: ViewNode) {
+    private swapComparison(node: ViewNode) {
         if (!(node instanceof CompareResultsNode)) return;
 
         return node.swap();
     }
 
-    private async unpinComparision(node: ViewNode) {
+    private async unpinComparison(node: ViewNode) {
         if (!(node instanceof CompareResultsNode)) return;
 
         return node.unpin();

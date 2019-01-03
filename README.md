@@ -455,8 +455,8 @@ A [customizable](#compare-view-settings- 'Jump to the Compare view settings') vi
 The compare view provides the following features,
 
 - Provides a semi-persistent results view for comparison operations
-  - An inline toolbar provides quick access to the _Swap Comparision_, and _Dismiss_ commands
-  - A context menu provides access to common comparision commands
+  - An inline toolbar provides quick access to the _Swap Comparison_, and _Dismiss_ commands
+  - A context menu provides access to common comparison commands
   - **\* Commits** &mdash; lists the commits between the compared revisions (branches or commits)
     - Expands to provide the message, author, date, and change indicator of each revision (commit) &mdash; fully [customizable](#view-settings- 'Jump to the View settings')
       - Each revision (commit) expands to list its set of changed files, complete with status indicators for adds, changes, renames, and deletes
