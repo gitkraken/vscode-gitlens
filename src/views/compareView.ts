@@ -1,9 +1,16 @@
 'use strict';
 import { commands, ConfigurationChangeEvent } from 'vscode';
 import { CompareViewConfig, configuration, ViewFilesLayout, ViewsConfig } from '../configuration';
-import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
+import {
+    CommandContext,
+    NamedRef,
+    PinnedComparison,
+    PinnedComparisons,
+    setCommandContext,
+    WorkspaceState
+} from '../constants';
 import { Container } from '../container';
-import { CompareNode, CompareResultsNode, NamedRef, ViewNode } from './nodes';
+import { CompareNode, CompareResultsNode, nodeSupportsConditionalDismissal, ViewNode } from './nodes';
 import { ViewBase } from './viewBase';
 
 export class CompareView extends ViewBase<CompareNode> {
@@ -46,6 +53,9 @@ export class CompareView extends ViewBase<CompareNode> {
             () => this.setKeepResults(false),
             this
         );
+
+        commands.registerCommand(this.getQualifiedCommand('pinComparision'), this.pinComparision, this);
+        commands.registerCommand(this.getQualifiedCommand('unpinComparision'), this.unpinComparision, this);
         commands.registerCommand(this.getQualifiedCommand('swapComparision'), this.swapComparision, this);
 
         commands.registerCommand(this.getQualifiedCommand('selectForCompare'), this.selectForCompare, this);
@@ -86,6 +96,7 @@ export class CompareView extends ViewBase<CompareNode> {
 
     dismissNode(node: ViewNode) {
         if (this._root === undefined) return;
+        if (nodeSupportsConditionalDismissal(node) && node.canDismiss() === false) return;
 
         this._root.dismiss(node);
     }
@@ -111,6 +122,34 @@ export class CompareView extends ViewBase<CompareNode> {
         void root.selectForCompare(repoPath, ref);
     }
 
+    getPinnedComparisons() {
+        const pinned = Container.context.workspaceState.get<PinnedComparisons>(WorkspaceState.PinnedComparisons);
+        if (pinned == null) return [];
+
+        return Object.values(pinned).map(p => new CompareResultsNode(this, p.path, p.ref1, p.ref2, true));
+    }
+
+    async updatePinnedComparison(id: string, pin?: PinnedComparison) {
+        let pinned = Container.context.workspaceState.get<PinnedComparisons>(WorkspaceState.PinnedComparisons);
+        if (pinned == null) {
+            pinned = Object.create(null);
+        }
+
+        if (pin !== undefined) {
+            pinned![id] = {
+                path: pin.path,
+                ref1: pin.ref1,
+                ref2: pin.ref2
+            };
+        }
+        else {
+            const { [id]: _, ...rest } = pinned!;
+            pinned = rest;
+        }
+
+        await Container.context.workspaceState.update(WorkspaceState.PinnedComparisons, pinned);
+    }
+
     private async addResults(results: ViewNode) {
         if (!this.visible) {
             void (await this.show());
@@ -131,9 +170,21 @@ export class CompareView extends ViewBase<CompareNode> {
         setCommandContext(CommandContext.ViewsCompareKeepResults, enabled);
     }
 
+    private async pinComparision(node: ViewNode) {
+        if (!(node instanceof CompareResultsNode)) return;
+
+        return node.pin();
+    }
+
     private swapComparision(node: ViewNode) {
         if (!(node instanceof CompareResultsNode)) return;
 
-        node.swap();
+        return node.swap();
+    }
+
+    private async unpinComparision(node: ViewNode) {
+        if (!(node instanceof CompareResultsNode)) return;
+
+        return node.unpin();
     }
 }

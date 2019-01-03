@@ -45,11 +45,6 @@ export enum ResourceType {
     Tags = 'gitlens:tags'
 }
 
-export interface NamedRef {
-    label?: string;
-    ref: string;
-}
-
 export const unknownGitUri = new GitUri();
 
 export interface ViewNode {
@@ -226,6 +221,10 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
     }
 }
 
-export function canDismissNode(view: View): view is View & { dismissNode(node: ViewNode): void } {
+export function nodeSupportsConditionalDismissal(node: ViewNode): node is ViewNode & { canDismiss(): boolean } {
+    return typeof (node as any).canDismiss === 'function';
+}
+
+export function viewSupportsNodeDismissal(view: View): view is View & { dismissNode(node: ViewNode): void } {
     return typeof (view as any).dismissNode === 'function';
 }

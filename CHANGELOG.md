@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Adds pinning of comparisons in the _Compare_ view &mdash; pinned comparisons will persist across reloads
+
 ## [9.3.0] - 2019-01-02
 
 ### Added

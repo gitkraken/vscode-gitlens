@@ -128,6 +128,21 @@ export const ImageMimetypes: { [key: string]: string } = {
     '.bmp': 'image/bmp'
 };
 
+export interface NamedRef {
+    label?: string;
+    ref: string;
+}
+
+export interface PinnedComparison {
+    path: string;
+    ref1: NamedRef;
+    ref2: NamedRef;
+}
+
+export interface PinnedComparisons {
+    [id: string]: PinnedComparison;
+}
+
 export interface StarredBranches {
     [id: string]: boolean;
 }
@@ -138,6 +153,7 @@ export interface StarredRepositories {
 
 export enum WorkspaceState {
     DefaultRemote = 'gitlens:remote:default',
+    PinnedComparisons = 'gitlens:pinned:comparisons',
     StarredBranches = 'gitlens:starred:branches',
     StarredRepositories = 'gitlens:starred:repositories',
     ViewsCompareKeepResults = 'gitlens:views:compare:keepResults',

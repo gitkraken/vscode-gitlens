@@ -5,7 +5,7 @@ import { CommandContext, setCommandContext, WorkspaceState } from '../constants'
 import { Container } from '../container';
 import { GitLog, GitRepoSearchBy } from '../git/gitService';
 import { Functions, Strings } from '../system';
-import { SearchNode, SearchResultsCommitsNode, ViewNode } from './nodes';
+import { nodeSupportsConditionalDismissal, SearchNode, SearchResultsCommitsNode, ViewNode } from './nodes';
 import { ViewBase } from './viewBase';
 
 interface SearchQueryResult {
@@ -89,6 +89,7 @@ export class SearchView extends ViewBase<SearchNode> {
 
     dismissNode(node: ViewNode) {
         if (this._root === undefined) return;
+        if (nodeSupportsConditionalDismissal(node) && node.canDismiss() === false) return;
 
         this._root.dismiss(node);
     }

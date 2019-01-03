@@ -20,7 +20,6 @@ import { Arrays } from '../system';
 import {
     BranchNode,
     BranchTrackingStatusNode,
-    canDismissNode,
     CommitFileNode,
     CommitNode,
     FolderNode,
@@ -32,7 +31,8 @@ import {
     StatusFileNode,
     TagNode,
     ViewNode,
-    ViewRefNode
+    ViewRefNode,
+    viewSupportsNodeDismissal
 } from './nodes';
 
 export interface RefreshNodeCommandArgs {
@@ -64,7 +64,7 @@ export class ViewCommands implements Disposable {
         );
         commands.registerCommand(
             'gitlens.views.dismissNode',
-            (node: ViewNode) => canDismissNode(node.view) && node.view.dismissNode(node),
+            (node: ViewNode) => viewSupportsNodeDismissal(node.view) && node.view.dismissNode(node),
             this
         );
 

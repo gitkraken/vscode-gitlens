@@ -1,14 +1,14 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { getRepoPathOrPrompt } from '../../commands';
-import { CommandContext, GlyphChars, setCommandContext } from '../../constants';
+import { CommandContext, GlyphChars, NamedRef, setCommandContext } from '../../constants';
 import { GitService } from '../../git/gitService';
 import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../../quickpicks';
 import { debug, Functions, gate, log } from '../../system';
 import { CompareView } from '../compareView';
 import { MessageNode } from './common';
 import { ComparePickerNode } from './comparePickerNode';
-import { NamedRef, ResourceType, unknownGitUri, ViewNode } from './viewNode';
+import { ResourceType, unknownGitUri, ViewNode } from './viewNode';
 
 interface RepoRef {
     label: string;
@@ -34,17 +34,21 @@ export class CompareNode extends ViewNode<CompareView> {
             // Not really sure why I can't reuse this node -- but if I do the Tree errors out with an id already exists error
             this._comparePickerNode = new ComparePickerNode(this.view, this);
             this._children = [this._comparePickerNode];
+
+            const pinned = this.view.getPinnedComparisons();
+            if (pinned.length !== 0) {
+                this._children.push(...pinned);
+            }
         }
-        else if (
-            this._selectedRef !== undefined &&
-            (this._comparePickerNode === undefined || !this._children.includes(this._comparePickerNode))
-        ) {
+        else if (this._comparePickerNode === undefined || !this._children.includes(this._comparePickerNode)) {
             // Not really sure why I can't reuse this node -- but if I do the Tree errors out with an id already exists error
             this._comparePickerNode = new ComparePickerNode(this.view, this);
             this._children.splice(0, 0, this._comparePickerNode);
 
-            const node = this._comparePickerNode;
-            setImmediate(() => this.view.reveal(node, { focus: false, select: true }));
+            if (this._selectedRef !== undefined) {
+                const node = this._comparePickerNode;
+                setImmediate(() => this.view.reveal(node, { focus: false, select: true }));
+            }
         }
 
         return this._children;
@@ -62,6 +66,12 @@ export class CompareNode extends ViewNode<CompareView> {
         if (this._children.length !== 0 && replace) {
             this._children.length = 0;
             this._children.push(results);
+
+            // Re-add the pinned comparisons
+            const pinned = this.view.getPinnedComparisons();
+            if (pinned.length !== 0) {
+                this._children.push(...pinned);
+            }
         }
         else {
             if (this._comparePickerNode !== undefined) {
