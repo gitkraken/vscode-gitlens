@@ -187,18 +187,6 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
     }
 
     @log()
-    async star() {
-        await this.repo.star();
-        void this.parent!.triggerChange();
-    }
-
-    @log()
-    async unstar() {
-        await this.repo.unstar();
-        void this.parent!.triggerChange();
-    }
-
-    @log()
     push(options: { force?: boolean; progress?: boolean } = {}) {
         return this.repo.push(options);
     }
@@ -210,6 +198,18 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 
         this._children = undefined;
         await this.ensureSubscription();
+    }
+
+    @log()
+    async star() {
+        await this.repo.star();
+        void this.parent!.triggerChange();
+    }
+
+    @log()
+    async unstar() {
+        await this.repo.unstar();
+        void this.parent!.triggerChange();
     }
 
     @debug()
