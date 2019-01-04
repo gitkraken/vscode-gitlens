@@ -2707,8 +2707,8 @@
                 "title": "Pin Comparison",
                 "category": "GitLens",
                 "icon": {
-                    "dark": "images/dark/icon-pin.svg",
-                    "light": "images/light/icon-pin.svg"
+                    "dark": "images/dark/icon-pin-tilted.svg",
+                    "light": "images/light/icon-pin-tilted.svg"
                 }
             },
             {
@@ -2716,8 +2716,8 @@
                 "title": "Unpin Comparison",
                 "category": "GitLens",
                 "icon": {
-                    "dark": "images/dark/icon-pinned.svg",
-                    "light": "images/light/icon-pinned.svg"
+                    "dark": "images/dark/icon-pin-filled.svg",
+                    "light": "images/light/icon-pin-filled.svg"
                 }
             },
             {

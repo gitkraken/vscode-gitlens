@@ -60,8 +60,8 @@ export class CompareResultsNode extends ViewNode<CompareView> {
         item.description = description;
         if (this._pinned) {
             item.iconPath = {
-                dark: Container.context.asAbsolutePath(`images/dark/icon-pinned.svg`),
-                light: Container.context.asAbsolutePath(`images/light/icon-pinned.svg`)
+                dark: Container.context.asAbsolutePath(`images/dark/icon-pin-small.svg`),
+                light: Container.context.asAbsolutePath(`images/light/icon-pin-small.svg`)
             };
         }
 
