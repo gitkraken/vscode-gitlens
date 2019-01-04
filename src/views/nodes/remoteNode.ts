@@ -22,7 +22,7 @@ export class RemoteNode extends ViewNode<RepositoriesView> {
     }
 
     get id(): string {
-        return `gitlens:repository(${this.remote.repoPath}):remote(${this.remote.name})`;
+        return `${this._instanceId}:gitlens:repository(${this.remote.repoPath}):remote(${this.remote.name})`;
     }
 
     async getChildren(): Promise<ViewNode[]> {

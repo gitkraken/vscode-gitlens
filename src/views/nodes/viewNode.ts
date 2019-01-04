@@ -51,13 +51,25 @@ export interface ViewNode {
     readonly id?: string;
 }
 
-@logName<ViewNode>((c, name) => `${name}${c.id ? `(${c.id})` : ''}`)
+let counter = 0;
+function getViewNodeInstanceId() {
+    if (counter === Number.MAX_SAFE_INTEGER) {
+        counter = 0;
+    }
+    counter++;
+    return counter;
+}
+
+@logName<ViewNode>((c, name) => `${name}(${c.id || c._instanceId})`)
 export abstract class ViewNode<TView extends View = View> {
+    protected readonly _instanceId: number;
+
     constructor(
         uri: GitUri,
         public readonly view: TView,
         protected readonly parent?: ViewNode
     ) {
+        this._instanceId = getViewNodeInstanceId();
         this._uri = uri;
     }
 

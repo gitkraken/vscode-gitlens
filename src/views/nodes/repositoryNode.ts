@@ -41,7 +41,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
     }
 
     get id(): string {
-        return `gitlens:repository(${this.repo.path})${this.repo.starred ? '+starred:' : ''}`;
+        return `${this._instanceId}:gitlens:repository(${this.repo.path})${this.repo.starred ? '+starred:' : ''}`;
     }
 
     async getChildren(): Promise<ViewNode[]> {
@@ -238,9 +238,10 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
     @debug({
         args: {
             0: (e: RepositoryFileSystemChangeEvent) =>
-                `{ repository: ${e.repository ? e.repository.name : ''}, uris: [${e.uris
+                `{ repository: ${e.repository ? e.repository.name : ''}, uris(${e.uris.length}): [${e.uris
+                    .slice(0, 1)
                     .map(u => u.fsPath)
-                    .join(', ')}] }`
+                    .join(', ')}${e.uris.length > 1 ? ', ...' : ''}] }`
         }
     })
     private onFileSystemChanged(e: RepositoryFileSystemChangeEvent) {

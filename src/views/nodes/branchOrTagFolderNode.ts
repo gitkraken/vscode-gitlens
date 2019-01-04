@@ -24,7 +24,7 @@ export class BranchOrTagFolderNode extends ViewNode {
     }
 
     get id(): string {
-        return `gitlens:repository(${this.repoPath}):${this.type}-folder(${this.relativePath})`;
+        return `${this._instanceId}:gitlens:repository(${this.repoPath}):${this.type}-folder(${this.relativePath})`;
     }
 
     async getChildren(): Promise<ViewNode[]> {

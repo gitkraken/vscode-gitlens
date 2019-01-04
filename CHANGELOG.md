@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#606](https://github.com/eamodio/vscode-gitlens/issues/606) - ID for xxx is already registered?!
 - Fixes [#607](https://github.com/eamodio/vscode-gitlens/issues/607) - Open file in Remote Doesn't URL encode
 
 ## [9.3.0] - 2019-01-02

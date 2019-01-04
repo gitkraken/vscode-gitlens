@@ -19,7 +19,7 @@ export class StashesNode extends ViewNode {
     }
 
     get id(): string {
-        return `gitlens:repository(${this.repo.path}):stashes`;
+        return `${this._instanceId}:gitlens:repository(${this.repo.path}):stashes`;
     }
 
     async getChildren(): Promise<ViewNode[]> {
