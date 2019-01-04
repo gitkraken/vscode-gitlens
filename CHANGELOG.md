@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds pinning of comparisons in the _Compare_ view &mdash; pinned comparisons will persist across reloads
 
+### Fixed
+
+- Fixes [#607](https://github.com/eamodio/vscode-gitlens/issues/607) - Open file in Remote Doesn't URL encode
+
 ## [9.3.0] - 2019-01-02
 
 ### Added

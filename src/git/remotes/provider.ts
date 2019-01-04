@@ -143,17 +143,27 @@ export abstract class RemoteProvider {
     url(resource: RemoteResource): string | undefined {
         switch (resource.type) {
             case RemoteResourceType.Branch:
-                return this.getUrlForBranch(resource.branch);
+                return this.getUrlForBranch(encodeURIComponent(resource.branch));
             case RemoteResourceType.Branches:
                 return this.getUrlForBranches();
             case RemoteResourceType.Commit:
-                return this.getUrlForCommit(resource.sha);
+                return this.getUrlForCommit(encodeURIComponent(resource.sha));
             case RemoteResourceType.File:
-                return this.getUrlForFile(resource.fileName, resource.branch, undefined, resource.range);
+                return this.getUrlForFile(
+                    resource.fileName,
+                    resource.branch !== undefined ? encodeURIComponent(resource.branch) : undefined,
+                    undefined,
+                    resource.range
+                );
             case RemoteResourceType.Repo:
                 return this.getUrlForRepository();
             case RemoteResourceType.Revision:
-                return this.getUrlForFile(resource.fileName, resource.branch, resource.sha, resource.range);
+                return this.getUrlForFile(
+                    resource.fileName,
+                    resource.branch !== undefined ? encodeURIComponent(resource.branch) : undefined,
+                    resource.sha !== undefined ? encodeURIComponent(resource.sha) : undefined,
+                    resource.range
+                );
         }
 
         return undefined;
