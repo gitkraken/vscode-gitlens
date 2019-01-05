@@ -18,6 +18,7 @@ export enum BuiltInCommands {
     FocusFilesExplorer = 'workbench.files.action.focusFilesExplorer',
     Open = 'vscode.open',
     OpenFolder = 'vscode.openFolder',
+    OpenInTerminal = 'openInTerminal',
     NextEditor = 'workbench.action.nextEditor',
     PreviewHtml = 'vscode.previewHtml',
     RevealLine = 'revealLine',

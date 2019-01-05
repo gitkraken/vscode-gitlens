@@ -77,6 +77,7 @@ export class ViewCommands implements Disposable {
         commands.registerCommand('gitlens.views.setAsDefault', this.setAsDefault, this);
         commands.registerCommand('gitlens.views.unsetAsDefault', this.unsetAsDefault, this);
 
+        commands.registerCommand('gitlens.views.openInTerminal', this.openInTerminal, this);
         commands.registerCommand('gitlens.views.star', this.star, this);
         commands.registerCommand('gitlens.views.unstar', this.unstar, this);
 
@@ -455,6 +456,12 @@ export class ViewCommands implements Disposable {
         return commands.executeCommand(Commands.OpenFileInRemote, node.commit.toGitUri(node.commit.status === 'D'), {
             range: false
         } as OpenFileInRemoteCommandArgs);
+    }
+
+    private openInTerminal(node: RepositoryNode) {
+        if (!(node instanceof RepositoryNode)) return;
+
+        return commands.executeCommand(BuiltInCommands.OpenInTerminal, Uri.file(node.repo.path));
     }
 
     private setAsDefault(node: RemoteNode) {

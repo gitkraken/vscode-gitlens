@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds pinning of comparisons in the _Compare_ view &mdash; pinned comparisons will persist across reloads
+- Adds an _Open in Terminal_ command to repositories in the _Repositories_ view
 
 ### Fixed
 

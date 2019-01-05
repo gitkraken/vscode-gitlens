@@ -2248,6 +2248,11 @@
                 }
             },
             {
+                "command": "gitlens.views.openInTerminal",
+                "title": "Open in Terminal",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.views.setAsDefault",
                 "title": "Set as Default",
                 "category": "GitLens"
@@ -3081,6 +3086,10 @@
                 },
                 {
                     "command": "gitlens.views.pushWithForce",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.views.openInTerminal",
                     "when": "false"
                 },
                 {
@@ -4332,6 +4341,10 @@
                     "group": "1_gitlens@2"
                 },
                 {
+                    "command": "gitlens.views.openInTerminal",
+                    "when": "viewItem =~ /gitlens:repository\\b/",
+                    "group": "2_gitlens@1"
+                },
                 {
                     "command": "gitlens.openRepoInRemote",
                     "when": "viewItem =~ /gitlens:repository\\b/ && gitlens:hasRemotes",
