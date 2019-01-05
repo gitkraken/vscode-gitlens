@@ -1350,6 +1350,15 @@ export class GitService implements Disposable {
 	}
 
 	@log()
+	async getDiff(repoPath: string, ref1: string, ref2?: string): Promise<string | undefined> {
+		if (ref2 !== undefined) {
+			return Git.diff(repoPath, undefined, ref1, ref2);
+		}
+
+		return Git.show<string>(repoPath, undefined, ref1, { patch: true });
+	}
+
+	@log()
 	async getDiffForFile(
 		uri: GitUri,
 		ref1: string | undefined,

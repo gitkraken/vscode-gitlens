@@ -7,6 +7,7 @@ import {
 	DiffWithWorkingCommandArgs,
 	findOrOpenEditor,
 	GitCommandsCommandArgs,
+	openEditor,
 	OpenFileInRemoteCommandArgs,
 	OpenFileRevisionCommandArgs,
 	OpenWorkingFileCommandArgs,
@@ -174,6 +175,12 @@ export class ViewCommands {
 		commands.registerCommand('gitlens.views.terminalPushCommit', this.terminalPushCommit, this);
 
 		commands.registerCommand('gitlens.views.terminalRemoveRemote', this.terminalRemoveRemote, this);
+
+		commands.registerCommand('gitlens.views.openDiffView', this.openDiffView, this);
+	}
+
+	private openDiffView(node: CommitNode) {
+		return openEditor(GitUri.toDiffUri(node.repoPath, node.ref));
 	}
 
 	@debug()

@@ -329,6 +329,13 @@ export class GitUri extends ((Uri as any) as UriEx) {
 		return new GitUri(uri, await Container.git.getRepoPath(uri));
 	}
 
+	static getDataFromDiffUri(uri: Uri) {
+		if (uri.scheme !== DocumentSchemes.GitLensDiff) return undefined;
+
+		const data = JSON.parse(uri.query) as UriDiffData;
+		return data;
+	}
+
 	static getDirectory(fileName: string, relativeTo?: string): string {
 		let directory: string | undefined = paths.dirname(fileName);
 		if (relativeTo !== undefined) {
@@ -409,6 +416,24 @@ export class GitUri extends ((Uri as any) as UriEx) {
 		//     : fileNameOrUri.toString(true);
 	}
 
+	static toDiffUri(repoPath: string, ref1: string, ref2?: string) {
+		repoPath = Strings.normalizePath(repoPath);
+		const repoName = paths.basename(repoPath);
+
+		const data: UriDiffData = {
+			ref1: ref1,
+			ref2: ref2,
+			repoPath: repoPath,
+		};
+
+		const uri = Uri.parse(
+			`${DocumentSchemes.GitLensDiff}:///${repoName}/${GitService.shortenSha(ref1)}${
+				ref2 ? `..${GitService.shortenSha(ref2)}` : ''
+			}.diff?${JSON.stringify(data)}`,
+		);
+		return uri;
+	}
+
 	static toRevisionUri(uri: GitUri): Uri;
 	static toRevisionUri(ref: string, fileName: string, repoPath: string): Uri;
 	static toRevisionUri(ref: string, file: GitFile, repoPath: string): Uri;
@@ -458,6 +483,12 @@ export class GitUri extends ((Uri as any) as UriEx) {
 		);
 		return uri;
 	}
+}
+
+interface UriDiffData {
+	ref1: string;
+	ref2?: string;
+	repoPath: string;
 }
 
 interface UriRevisionData {

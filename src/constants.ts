@@ -56,6 +56,7 @@ export enum DocumentSchemes {
 	File = 'file',
 	Git = 'git',
 	GitLens = 'gitlens',
+	GitLensDiff = 'gitlens-diff',
 	Output = 'output',
 	PRs = 'pr',
 	Vsls = 'vsls',

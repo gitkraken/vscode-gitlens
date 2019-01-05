@@ -3328,6 +3328,11 @@
 					"dark": "images/dark/icon-unfold.svg",
 					"light": "images/light/icon-unfold.svg"
 				}
+			},
+			{
+				"command": "gitlens.views.openDiffView",
+				"title": "Open Diff View",
+				"category": "GitLens"
 			}
 		],
 		"menus": {
@@ -4154,6 +4159,10 @@
 				},
 				{
 					"command": "gitlens.views.showAllChildren",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.openDiffView",
 					"when": "false"
 				}
 			],
@@ -5633,6 +5642,11 @@
 					"command": "gitlens.views.showAllChildren",
 					"when": "viewItem =~ /gitlens:pager\\b/",
 					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.views.openDiffView",
+					"when": "viewItem =~ /gitlens:commit\\b/",
+					"group": "9_gitlens@1"
 				}
 			]
 		},

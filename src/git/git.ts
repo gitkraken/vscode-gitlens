@@ -560,7 +560,7 @@ export namespace Git {
 
 	export async function diff(
 		repoPath: string,
-		fileName: string,
+		fileName: string | undefined,
 		ref1?: string,
 		ref2?: string,
 		options: { encoding?: string; filters?: GitDiffFilter[]; similarityThreshold?: number | null } = {},
@@ -577,15 +577,20 @@ export namespace Git {
 			params.push(`--diff-filter=${options.filters.join(emptyStr)}`);
 		}
 
-		if (ref1) {
+		if (ref1 != null) {
 			// <sha>^3 signals an untracked file in a stash and if we are trying to find its parent, use the root sha
 			if (ref1.endsWith('^3^')) {
 				ref1 = rootSha;
 			}
 			params.push(Git.isUncommittedStaged(ref1) ? '--staged' : ref1);
 		}
-		if (ref2) {
+		if (ref2 != null) {
 			params.push(Git.isUncommittedStaged(ref2) ? '--staged' : ref2);
+		}
+
+		params.push('--');
+		if (fileName != null) {
+			params.push(fileName);
 		}
 
 		try {
@@ -596,8 +601,6 @@ export namespace Git {
 					encoding: options.encoding === 'utf8' ? 'utf8' : 'binary',
 				},
 				...params,
-				'--',
-				fileName,
 			);
 		} catch (ex) {
 			const match = GitErrors.badRevision.exec(ex.message);
@@ -1078,18 +1081,35 @@ export namespace Git {
 
 	export async function show<TOut extends string | Buffer>(
 		repoPath: string | undefined,
-		fileName: string,
+		fileName: string | undefined,
 		ref: string,
 		options: {
 			encoding?: 'binary' | 'ascii' | 'utf8' | 'utf16le' | 'ucs2' | 'base64' | 'latin1' | 'hex' | 'buffer';
+			patch?: boolean;
 		} = {},
 	): Promise<TOut | undefined> {
-		const [file, root] = Git.splitPath(fileName, repoPath);
+		if (repoPath == null && fileName == null) return undefined;
 
 		if (Git.isUncommittedStaged(ref)) {
 			ref = ':';
 		}
 		if (Git.isUncommitted(ref)) throw new Error(`ref=${ref} is uncommitted`);
+
+		const params = [];
+		if (options.patch) {
+			params.push('-p');
+		}
+
+		let file;
+		let root;
+		if (fileName === undefined) {
+			root = repoPath;
+			params.push(ref);
+		} else {
+			[file, root] = Git.splitPath(fileName, repoPath);
+
+			params.push(ref.endsWith(':') ? `${ref}./${file}` : `${ref}:./${file}`);
+		}
 
 		const opts: GitCommandOptions = {
 			configs: ['-c', 'log.showSignature=false'],
@@ -1097,10 +1117,9 @@ export namespace Git {
 			encoding: options.encoding || 'utf8',
 			errors: GitErrorHandling.Throw,
 		};
-		const args = ref.endsWith(':') ? `${ref}./${file}` : `${ref}:./${file}`;
 
 		try {
-			const data = await git<TOut>(opts, 'show', args, '--');
+			const data = await git<TOut>(opts, 'show', ...params, '--');
 			return data;
 		} catch (ex) {
 			const msg = ex && ex.toString();
