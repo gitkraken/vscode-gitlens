@@ -1583,6 +1583,12 @@
                     "markdownDescription": "Specifies the description format of the status of a working or committed file in the views\n- Available tokens\n - `${directory}` &mdash; directory name\n - `${file}` &mdash; file name\n - `${filePath}` &mdash; formatted file name and path\n - `${path}` &mdash; full file path\n - `${working}` &mdash; optional indicator if the file is uncommitted",
                     "scope": "window"
                 },
+                "gitlens.advanced.abbreviatedShaLength": {
+                    "type": "number",
+                    "default": "7",
+                    "markdownDescription": "Specifies the length of the abbreviated commit SHA (a.k.a. commit ID). Default is 7.",
+                    "scope": "window"
+                },
                 "gitlens.advanced.blame.customArguments": {
                     "type": "array",
                     "default": null,
