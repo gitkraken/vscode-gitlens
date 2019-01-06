@@ -285,9 +285,9 @@ export class Git {
         if (index > 5) {
             // Only grab a max of 5 chars for the suffix
             const suffix = ref.substring(index).substring(0, 5);
-            return `${ref.substring(0, 7 - suffix.length)}${suffix}`;
+            return `${ref.substring(0, Container.config.advanced.abbreviatedShaLength - suffix.length)}${suffix}`;
         }
-        return ref.substring(0, 7);
+        return ref.substring(0, Container.config.advanced.abbreviatedShaLength);
     }
 
     static splitPath(fileName: string, repoPath: string | undefined, extract: boolean = true): [string, string] {

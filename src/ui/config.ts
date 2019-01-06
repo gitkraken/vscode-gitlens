@@ -186,6 +186,7 @@ export enum ViewFilesLayout {
 }
 
 export interface AdvancedConfig {
+    abbreviatedShaLength: number;
     blame: {
         customArguments: string[] | null;
         delayAfterEdit: number;
