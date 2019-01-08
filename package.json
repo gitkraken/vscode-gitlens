@@ -1586,7 +1586,7 @@
                 "gitlens.advanced.abbreviatedShaLength": {
                     "type": "number",
                     "default": "7",
-                    "markdownDescription": "Specifies the length of the abbreviated commit SHA (a.k.a. commit ID). Default is 7.",
+                    "markdownDescription": "Specifies the length of abbreviated commit ids (shas)",
                     "scope": "window"
                 },
                 "gitlens.advanced.blame.customArguments": {

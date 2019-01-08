@@ -223,6 +223,7 @@ export class Git {
     static deletedOrMissingSha = '0000000000000000000000000000000000000000-';
     static shaLikeRegex = /(^[0-9a-f]{40}([\^@~:]\S*)?$)|(^[0]{40}(:|-)$)/;
     static shaRegex = /(^[0-9a-f]{40}$)|(^[0]{40}(:|-)$)/;
+    static shaShortenRegex = /^(.*?)([\^@~:].*)?$/;
     static stagedUncommittedRegex = /^[0]{40}([\^@~]\S*)?:$/;
     static stagedUncommittedSha = '0000000000000000000000000000000000000000:';
     static uncommittedRegex = /^[0]{40}(?:[\^@~:]\S*)?:?$/;
@@ -281,13 +282,20 @@ export class Git {
             return strings.uncommitted;
         }
 
-        const index = ref.indexOf('^');
-        if (index > 5) {
-            // Only grab a max of 5 chars for the suffix
-            const suffix = ref.substring(index).substring(0, 5);
-            return `${ref.substring(0, Container.config.advanced.abbreviatedShaLength - suffix.length)}${suffix}`;
+        // Don't allow shas to be shortened to less than 5 characters
+        const len = Math.max(5, Container.config.advanced.abbreviatedShaLength);
+
+        // If we have a suffix, append it
+        const match = Git.shaShortenRegex.exec(ref);
+        if (match != null) {
+            const [, rev, suffix] = match;
+
+            if (suffix != null) {
+                return `${rev.substr(0, len)}${suffix}`;
+            }
         }
-        return ref.substring(0, Container.config.advanced.abbreviatedShaLength);
+
+        return ref.substr(0, len);
     }
 
     static splitPath(fileName: string, repoPath: string | undefined, extract: boolean = true): [string, string] {

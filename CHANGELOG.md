@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes [#606](https://github.com/eamodio/vscode-gitlens/issues/606) - ID for xxx is already registered?!
 - Fixes [#607](https://github.com/eamodio/vscode-gitlens/issues/607) - Open file in Remote Doesn't URL encode
+- Fixes [#608](https://github.com/eamodio/vscode-gitlens/issues/608) - Add an option to change the abbreviated commit SHA length &mdash; thanks to [PR #611](https://github.com/eamodio/vscode-gitlens/pull/611) by Skybbles // L5474 ([@Luxray5474](https://github.com/Luxray5474))
 - Fixes [#613](https://github.com/eamodio/vscode-gitlens/issues/613) - Change Copy Remote URL to Clipboard to always copy a permalink (e.g. revision link)
 
 ## [9.3.0] - 2019-01-02

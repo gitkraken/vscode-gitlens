@@ -841,8 +841,8 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 ### Advanced Settings [#](#advanced-settings- 'Advanced Settings')
 
 | Name                                            | Description                                                                                                                           |
-| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------|
-| `gitlens.advanced.abbreviatedShaLength`         | Specifies the length of the abbreviated commit SHA (a.k.a. commit ID). Default is 7.
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `gitlens.advanced.abbreviatedShaLength`         | Specifies the length of abbreviated commit ids (shas)                                                                                 |
 | `gitlens.advanced.blame.customArguments`        | Specifies additional arguments to pass to the `git blame` command                                                                     |
 | `gitlens.advanced.blame.delayAfterEdit`         | Specifies the time (in milliseconds) to wait before re-blaming an unsaved document after an edit. Use 0 to specify an infinite wait   |
 | `gitlens.advanced.blame.sizeThresholdAfterEdit` | Specifies the maximum document size (in lines) allowed to be re-blamed after an edit while still unsaved. Use 0 to specify no maximum |
@@ -919,6 +919,7 @@ A big thanks to the people that have contributed to this project:
 - Zack Schuster ([@zackschuster](https://github.com/zackschuster)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=zackschuster)
 - sgtwilko ([@sgtwilko](https://github.com/sgtwilko)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=sgtwilko)
 - SpaceEEC ([@SpaceEEC](https://github.com/SpaceEEC)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=SpaceEEC)
+- Skybbles // L5474 ([@Luxray5474](https://github.com/Luxray5474)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=Luxray5474)
 - Alexey Vasyukov ([@notmedia](https://github.com/notmedia)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=notmedia)
 - Zyck ([@qzyse2017](https://github.com/qzyse2017)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=qzyse2017)
 
