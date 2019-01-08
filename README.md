@@ -370,7 +370,7 @@ The file history view provides the following features,
 
 - Automatically tracks the current editor and lists the revision (commit) history of the current file
 - An inline toolbar provides quick access to the _Open File_, and _Open File on Remote_ (if available) commands
-- A context menu provides _Open File_, _Open File on Remote_ (if available), _Copy Remote File Url to Clipboard_ (if available), and _Refresh_ commands
+- A context menu provides _Open File_, _Open File on Remote_ (if available), _Copy Remote Url to Clipboard_ (if available), and _Refresh_ commands
 - Provides the message, author, and date of each revision (commit) &mdash; fully [customizable](#view-settings- 'Jump to the View settings')
   - An inline toolbar provides quick access to the _Compare with HEAD_ (`alt-click` for _Compare with Working Tree_), _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open Commit on Remote_ (if available) commands
   - A context menu provides access to more common revision (commit) commands
@@ -395,7 +395,7 @@ The line history view provides the following features,
 
 - Automatically tracks the current editor selection and lists the revision (commit) history of the selection in current file
 - An inline toolbar provides quick access to the _Open File_, and _Open File on Remote_ (if available) commands
-- A context menu provides _Open File_, _Open File on Remote_ (if available), _Copy Remote File Url to Clipboard_ (if available), and _Refresh_ commands
+- A context menu provides _Open File_, _Open File on Remote_ (if available), _Copy Remote Url to Clipboard_ (if available), and _Refresh_ commands
 - Provides the message, author, and date of each revision (commit) &mdash; fully [customizable](#view-settings- 'Jump to the View settings')
   - An inline toolbar provides quick access to the _Compare with HEAD_ (`alt-click` for _Compare with Working Tree_), _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open Commit on Remote_ (if available) commands
   - A context menu provides access to more common revision (commit) commands
@@ -626,7 +626,7 @@ The compare view provides the following features,
 
 - Adds a _Copy Commit Message to Clipboard_ command (`gitlens.copyMessageToClipboard`) to copy the commit message of the current line to the clipboard or from the most recent commit to the current branch, if there is no current editor
 
-- Adds a _Copy Remote File Url to Clipboard_ command (`gitlens.copyRemoteFileUrlToClipboard`) to copy the remote url of the current file and line to the clipboard
+- Adds a _Copy Remote Url to Clipboard_ command (`gitlens.copyRemoteFileUrlToClipboard`) to copy the remote url of the current file and line to the clipboard
 
 - Adds an _Open Working File"_ command (`gitlens.openWorkingFile`) to open the working file for the current file revision
 

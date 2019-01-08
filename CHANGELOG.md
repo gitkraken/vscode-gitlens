@@ -4,12 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [9.4.0] - 2019-01-08
 
 ### Added
 
 - Adds pinning of comparisons in the _Compare_ view &mdash; pinned comparisons will persist across reloads
 - Adds an _Open in Terminal_ command to repositories in the _Repositories_ view
+
+### Changed
+
+- Renames the _Copy Remote File URL to Clipboard_ command (`gitlens.copyRemoteFileUrlToClipboard`) to _Copy Remote URL to Clipboard_ for brevity
 
 ### Fixed
 
