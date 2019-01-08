@@ -51,12 +51,12 @@ export interface ViewNode {
     readonly id?: string;
 }
 
-let counter = 0;
+const counter = 0;
 function getViewNodeInstanceId() {
-    if (counter === Number.MAX_SAFE_INTEGER) {
-        counter = 0;
-    }
-    counter++;
+    // if (counter === Number.MAX_SAFE_INTEGER) {
+    //     counter = 0;
+    // }
+    // counter++;
     return counter;
 }
 
