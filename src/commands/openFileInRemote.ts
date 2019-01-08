@@ -2,7 +2,7 @@
 import { commands, Range, TextEditor, Uri, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitUri } from '../git/gitService';
+import { GitUri, RemoteResourceType } from '../git/gitService';
 import { Logger } from '../logger';
 import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickpicks';
 import {
@@ -18,8 +18,9 @@ import { OpenInRemoteCommandArgs } from './openInRemote';
 
 export interface OpenFileInRemoteCommandArgs {
     branch?: string;
-    range?: boolean;
     clipboard?: boolean;
+    range?: boolean;
+    sha?: string;
 }
 
 @command()
@@ -51,7 +52,7 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
         const gitUri = await GitUri.fromUri(uri);
         if (!gitUri.repoPath) return undefined;
 
-        if (args.branch === undefined) {
+        if (args.branch === undefined && args.sha === undefined) {
             const branch = await Container.git.getBranch(gitUri.repoPath);
             if (branch === undefined || branch.tracking === undefined) {
                 const pick = await new BranchesAndTagsQuickPick(gitUri.repoPath).show(
@@ -84,14 +85,15 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
                           editor.selection.end.with({ line: editor.selection.end.line + 1 })
                       )
                     : undefined;
+            const sha = args.sha || gitUri.sha;
 
             return commands.executeCommand(Commands.OpenInRemote, uri, {
                 resource: {
-                    type: gitUri.sha === undefined ? 'file' : 'revision',
+                    type: sha === undefined ? RemoteResourceType.File : RemoteResourceType.Revision,
                     branch: args.branch || 'HEAD',
                     fileName: gitUri.getRelativePath(),
                     range: range,
-                    sha: gitUri.sha
+                    sha: sha
                 },
                 remotes,
                 clipboard: args.clipboard

@@ -2034,7 +2034,7 @@
             },
             {
                 "command": "gitlens.copyRemoteFileUrlToClipboard",
-                "title": "Copy Remote File Url to Clipboard",
+                "title": "Copy Remote Url to Clipboard",
                 "category": "GitLens",
                 "icon": {
                     "dark": "images/dark/icon-copy-remote.svg",

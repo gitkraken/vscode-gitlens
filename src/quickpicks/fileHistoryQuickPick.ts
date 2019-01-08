@@ -4,7 +4,7 @@ import { CancellationTokenSource, QuickPickOptions, Uri, window } from 'vscode';
 import { Commands, ShowQuickCurrentBranchHistoryCommandArgs, ShowQuickFileHistoryCommandArgs } from '../commands';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitLog, GitUri, RemoteResource } from '../git/gitService';
+import { GitLog, GitUri, RemoteResource, RemoteResourceType } from '../git/gitService';
 import { KeyNoopCommand } from '../keyboard';
 import { Iterables, Strings } from '../system';
 import {
@@ -173,19 +173,19 @@ export class FileHistoryQuickPick {
 
                 const remotes = await Container.git.getRemotes(uri.repoPath!);
                 if (remotes.length) {
-                    const resource =
+                    const resource: RemoteResource =
                         uri.sha !== undefined
-                            ? ({
-                                  type: 'revision',
+                            ? {
+                                  type: RemoteResourceType.Revision,
                                   branch: branch.name,
                                   fileName: uri.getRelativePath(),
                                   sha: uri.sha
-                              } as RemoteResource)
-                            : ({
-                                  type: 'file',
+                              }
+                            : {
+                                  type: RemoteResourceType.File,
                                   branch: branch.name,
                                   fileName: uri.getRelativePath()
-                              } as RemoteResource);
+                              };
                     items.splice(index++, 0, new OpenRemotesCommandQuickPickItem(remotes, resource, currentCommand));
                 }
             }

@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes [#606](https://github.com/eamodio/vscode-gitlens/issues/606) - ID for xxx is already registered?!
 - Fixes [#607](https://github.com/eamodio/vscode-gitlens/issues/607) - Open file in Remote Doesn't URL encode
+- Fixes [#613](https://github.com/eamodio/vscode-gitlens/issues/613) - Change Copy Remote URL to Clipboard to always copy a permalink (e.g. revision link)
 
 ## [9.3.0] - 2019-01-02
 

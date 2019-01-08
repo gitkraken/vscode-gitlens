@@ -1,17 +1,19 @@
 'use strict';
 import { commands, TextEditor, Uri } from 'vscode';
+import { Container } from '../container';
+import { GitUri } from '../git/gitService';
 import {
     ActiveEditorCommand,
     command,
     CommandContext,
     Commands,
-    isCommandViewContextWithBranch,
+    getCommandUri,
     isCommandViewContextWithCommit
 } from './common';
 
 export interface CopyRemoteFileUrlToClipboardCommandArgs {
-    branch?: string;
     range?: boolean;
+    sha?: string;
 }
 
 @command()
@@ -27,9 +29,8 @@ export class CopyRemoteFileUrlToClipboardCommand extends ActiveEditorCommand {
         if (isCommandViewContextWithCommit(context)) {
             args = { ...args };
             args.range = false;
-            if (isCommandViewContextWithBranch(context)) {
-                args.branch = context.node.branch !== undefined ? context.node.branch.name : undefined;
-            }
+            args.sha = context.node.commit.sha;
+
             return this.execute(context.editor, context.node.commit.uri, args);
         }
 
@@ -37,6 +38,28 @@ export class CopyRemoteFileUrlToClipboardCommand extends ActiveEditorCommand {
     }
 
     async execute(editor?: TextEditor, uri?: Uri, args: CopyRemoteFileUrlToClipboardCommandArgs = { range: true }) {
+        if (args.sha === undefined) {
+            uri = getCommandUri(uri, editor);
+            if (uri == null) return undefined;
+
+            const gitUri = await GitUri.fromUri(uri);
+            if (!gitUri.repoPath) return undefined;
+
+            args = { ...args };
+            if (gitUri.sha === undefined) {
+                const commit = await Container.git.getLogCommitForFile(gitUri.repoPath, gitUri.fsPath, {
+                    firstIfNotFound: true
+                });
+
+                if (commit !== undefined) {
+                    args.sha = commit.sha;
+                }
+            }
+            else {
+                args.sha = gitUri.sha;
+            }
+        }
+
         return commands.executeCommand(Commands.OpenFileInRemote, uri, { ...args, clipboard: true });
     }
 }

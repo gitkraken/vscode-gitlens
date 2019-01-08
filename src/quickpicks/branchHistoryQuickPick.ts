@@ -3,7 +3,7 @@ import { CancellationTokenSource, QuickPickOptions, window } from 'vscode';
 import { Commands, ShowQuickBranchHistoryCommandArgs } from '../commands';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitLog, GitUri, RemoteResource } from '../git/gitService';
+import { GitLog, GitUri, RemoteResourceType } from '../git/gitService';
 import { KeyNoopCommand } from '../keyboard';
 import { Iterables, Strings } from '../system';
 import {
@@ -65,9 +65,9 @@ export class BranchHistoryQuickPick {
                 new OpenRemotesCommandQuickPickItem(
                     remotes,
                     {
-                        type: 'branch',
-                        branch
-                    } as RemoteResource,
+                        type: RemoteResourceType.Branch,
+                        branch: branch
+                    },
                     currentCommand
                 )
             );

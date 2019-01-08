@@ -20,7 +20,7 @@ import {
     GitLogCommit,
     GitStashCommit,
     GitUri,
-    RemoteResource
+    RemoteResourceType
 } from '../git/gitService';
 import { KeyCommand, KeyNoopCommand, Keys } from '../keyboard';
 import { Arrays, Iterables, Strings } from '../system';
@@ -176,9 +176,9 @@ export class CommitQuickPick {
                     new OpenRemotesCommandQuickPickItem(
                         remotes,
                         {
-                            type: 'commit',
+                            type: RemoteResourceType.Commit,
                             sha: commit.sha
-                        } as RemoteResource,
+                        },
                         currentCommand
                     )
                 );

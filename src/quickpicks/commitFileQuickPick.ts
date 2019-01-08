@@ -14,7 +14,7 @@ import {
 } from '../commands';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitLog, GitLogCommit, GitUri, RemoteResource } from '../git/gitService';
+import { GitLog, GitLogCommit, GitUri, RemoteResourceType } from '../git/gitService';
 import { KeyCommand, KeyNoopCommand } from '../keyboard';
 import { Iterables, Strings } from '../system';
 import {
@@ -175,10 +175,10 @@ export class CommitFileQuickPick {
                         new OpenRemotesCommandQuickPickItem(
                             remotes,
                             {
-                                type: 'file',
+                                type: RemoteResourceType.File,
                                 fileName: commit.workingFileName,
                                 branch: branch.name
-                            } as RemoteResource,
+                            },
                             currentCommand
                         )
                     );
@@ -190,10 +190,10 @@ export class CommitFileQuickPick {
                     new OpenRemotesCommandQuickPickItem(
                         remotes,
                         {
-                            type: 'revision',
+                            type: RemoteResourceType.Revision,
                             fileName: commit.fileName,
-                            commit
-                        } as RemoteResource,
+                            commit: commit
+                        },
                         currentCommand
                     )
                 );

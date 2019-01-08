@@ -1,7 +1,7 @@
 'use strict';
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { Container } from '../container';
-import { GitUri } from '../git/gitService';
+import { GitUri, RemoteResourceType } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import {
@@ -23,7 +23,7 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
     static getMarkdownCommandArgs(sha: string): string;
     static getMarkdownCommandArgs(args: OpenCommitInRemoteCommandArgs): string;
     static getMarkdownCommandArgs(argsOrSha: OpenCommitInRemoteCommandArgs | string): string {
-        const args = typeof argsOrSha === 'string' ? { sha: argsOrSha } : argsOrSha;
+        const args: OpenCommitInRemoteCommandArgs = typeof argsOrSha === 'string' ? { sha: argsOrSha } : argsOrSha;
         return super.getMarkdownCommandArgsCore<OpenCommitInRemoteCommandArgs>(Commands.OpenCommitInRemote, args);
     }
 
@@ -80,7 +80,7 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
 
             return commands.executeCommand(Commands.OpenInRemote, uri, {
                 resource: {
-                    type: 'commit',
+                    type: RemoteResourceType.Commit,
                     sha: args.sha
                 },
                 remotes
