@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [9.4.1] - 2019-01-08
+
+### Fixed
+
+- Reverts [#606](https://github.com/eamodio/vscode-gitlens/issues/606) as it causes views to lose their expansion state
+
 ## [9.4.0] - 2019-01-08
 
 ### Added
