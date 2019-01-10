@@ -11,9 +11,14 @@ const sshPathRegex = /^\/?v\d\//i;
 export class AzureDevOpsRemote extends RemoteProvider {
     constructor(domain: string, path: string, protocol?: string, name?: string) {
         domain = domain.replace(sshDomainRegex, '');
-        path = path.replace(sshPathRegex, '');
+        path = path.replace(sshPathRegex, '').replace(stripGitRegex, '/');
 
         super(domain, path, protocol, name);
+    }
+
+    get baseUrl() {
+        const [orgAndProject, repo] = this.splitPath();
+        return `https://${this.domain}/${orgAndProject}/_git/${repo}`;
     }
 
     get icon() {
@@ -58,4 +63,10 @@ export class AzureDevOpsRemote extends RemoteProvider {
         if (branch) return `${this.baseUrl}/?path=%2F${fileName}&version=GB${branch}&_a=contents${line}`;
         return `${this.baseUrl}?path=%2F${fileName}${line}`;
     }
+
+    protected splitPath(): [string, string] {
+        const index = this.path.lastIndexOf('/');
+        return [this.path.substring(0, index), this.path.substring(index + 1)];
+    }
+
 }
