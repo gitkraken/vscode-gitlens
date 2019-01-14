@@ -41,7 +41,7 @@ export class FolderNode extends ViewNode<ViewWithFiles> {
         );
         if (nesting !== ViewFilesLayout.List) {
             children = [];
-            for (const folder of Objects.values(this.root.children)) {
+            for (const folder of this.root.children.values()) {
                 if (folder.value === undefined) {
                     children.push(
                         new FolderNode(
