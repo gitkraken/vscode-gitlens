@@ -85,7 +85,7 @@ export namespace Arrays {
         value?: T;
 
         // parent?: IHierarchicalItem<T>;
-        children: { [key: string]: IHierarchicalItem<T> } | undefined;
+        children: Map<string, IHierarchicalItem<T>> | undefined;
         descendants: T[] | undefined;
     }
 
@@ -98,7 +98,7 @@ export namespace Arrays {
         const seed = {
             name: '',
             relativePath: '',
-            children: Object.create(null),
+            children: new Map(),
             descendants: []
         };
 
@@ -110,18 +110,19 @@ export namespace Arrays {
                 relativePath = joinPath(relativePath, folderName);
 
                 if (folder.children === undefined) {
-                    folder.children = Object.create(null);
+                    folder.children = new Map();
                 }
 
-                let f = folder.children![folderName];
+                let f = folder.children!.get(folderName);
                 if (f === undefined) {
-                    folder.children![folderName] = f = {
+                    f = {
                         name: folderName,
                         relativePath: relativePath,
                         // parent: folder,
                         children: undefined,
                         descendants: undefined
                     };
+                    folder.children.set(folderName, f);
                 }
 
                 if (folder.descendants === undefined) {
@@ -147,7 +148,7 @@ export namespace Arrays {
     ): IHierarchicalItem<T> {
         if (root.children === undefined) return root;
 
-        const children = [...Objects.values(root.children)];
+        const children = [...root.children.values()];
 
         // // Attempts less nesting but duplicate roots
         // if (!isRoot && children.every(c => c.value === undefined)) {
