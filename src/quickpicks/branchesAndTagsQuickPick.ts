@@ -267,7 +267,8 @@ export class BranchesAndTagsQuickPick {
 
             branches.sort(
                 (a, b) =>
-                    (b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
+                (a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
+                (b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
                     a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
             );
             for (const b of branches) {
