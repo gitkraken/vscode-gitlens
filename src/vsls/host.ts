@@ -75,7 +75,7 @@ export class VslsHostService implements Disposable {
         this.onRequest(RepositoriesInFolderRequestType, this.onRepositoriesInFolderRequest.bind(this));
         this.onRequest(WorkspaceFileExistsRequestType, this.onWorkspaceFileExistsRequest.bind(this));
 
-        this.onWorkspaceFoldersChanged();
+        void this.onWorkspaceFoldersChanged();
     }
 
     dispose() {
