@@ -5,7 +5,8 @@ import { UriComparer } from '../comparers';
 import { DocumentSchemes, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitCommit, GitFile, GitService } from '../git/gitService';
-import { Strings } from '../system';
+import { Logger } from '../logger';
+import { debug, Strings } from '../system';
 
 const empty = '';
 const slash = '/';
@@ -231,6 +232,9 @@ export class GitUri extends ((Uri as any) as UriEx) {
         return new GitUri(uri);
     }
 
+    @debug({
+        exit: uri => `returned ${Logger.toLoggable(uri)}`
+    })
     static async fromUri(uri: Uri) {
         if (uri instanceof GitUri) return uri;
 

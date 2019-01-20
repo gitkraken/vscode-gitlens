@@ -4,6 +4,7 @@ import { UriComparer } from '../../comparers';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitCommitish, GitUri } from '../../git/gitService';
+import { Logger } from '../../logger';
 import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../../quickpicks';
 import { debug, Functions, gate, log } from '../../system';
 import { LinesChangeEvent } from '../../trackers/gitLineTracker';
@@ -85,6 +86,8 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
     @gate()
     @debug()
     async refresh(reset: boolean = false) {
+        const cc = Logger.getCorrelationContext();
+
         if (reset) {
             this._uri = unknownGitUri;
             this._selection = undefined;
@@ -105,6 +108,9 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
             this._selection = undefined;
             this.resetChild();
 
+            if (cc !== undefined) {
+                cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
+            }
             return false;
         }
 
@@ -112,6 +118,9 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
             UriComparer.equals(editor!.document.uri, this.uri) &&
             (this._selection !== undefined && editor.selection.isEqual(this._selection))
         ) {
+            if (cc !== undefined) {
+                cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
+            }
             return true;
         }
 
@@ -129,6 +138,9 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
         this._selection = editor.selection;
         this.resetChild();
 
+        if (cc !== undefined) {
+            cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
+        }
         return false;
     }
 

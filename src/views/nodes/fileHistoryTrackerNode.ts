@@ -4,6 +4,7 @@ import { UriComparer } from '../../comparers';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitCommitish, GitUri } from '../../git/gitService';
+import { Logger } from '../../logger';
 import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../../quickpicks';
 import { debug, Functions, gate, log } from '../../system';
 import { FileHistoryView } from '../fileHistoryView';
@@ -83,8 +84,12 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
     }
 
     @gate()
-    @debug()
+    @debug({
+        exit: r => `returned ${r}`
+    })
     async refresh(reset: boolean = false) {
+        const cc = Logger.getCorrelationContext();
+
         if (reset) {
             this._uri = unknownGitUri;
             this.resetChild();
@@ -103,10 +108,16 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
             this._uri = unknownGitUri;
             this.resetChild();
 
+            if (cc !== undefined) {
+                cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
+            }
             return false;
         }
 
         if (UriComparer.equals(editor!.document.uri, this.uri)) {
+            if (cc !== undefined) {
+                cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
+            }
             return true;
         }
 
@@ -137,6 +148,9 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
         this._uri = gitUri;
         this.resetChild();
 
+        if (cc !== undefined) {
+            cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
+        }
         return false;
     }
 
