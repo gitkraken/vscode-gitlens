@@ -8,9 +8,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#591](https://github.com/eamodio/vscode-gitlens/issues/591) - GitLens Error: Unable to open
 - Fixes [#620](https://github.com/eamodio/vscode-gitlens/issues/620) - Branch names with only digits always appear first &mdash; thanks to [PR #621](https://github.com/eamodio/vscode-gitlens/pull/621) by Yan Zhang ([@Eskibear](https://github.com/Eskibear))
 - Fixes [#626](https://github.com/eamodio/vscode-gitlens/issues/626) - Branch names with only digits always appear first &mdash; thanks to [PR #627](https://github.com/eamodio/vscode-gitlens/pull/627) by Marc Lasson ([@mlasson](https://github.com/mlasson))
 - Fixes [#631](https://github.com/eamodio/vscode-gitlens/issues/631) - Remotes fail to show in gui
+- Fixes [#633](https://github.com/eamodio/vscode-gitlens/issues/633) - Compare File with Previous Revision doesn't work if path contains '#'
 
 ## [9.4.1] - 2019-01-08
 

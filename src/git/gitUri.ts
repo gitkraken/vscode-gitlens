@@ -326,11 +326,13 @@ export class GitUri extends ((Uri as any) as UriEx) {
     static git(fileName: string, repoPath?: string) {
         const path = GitUri.resolve(fileName, repoPath);
         return Uri.parse(
-            `git:${path}?${JSON.stringify({
-                // Ensure we use the fsPath here, otherwise the url won't open properly
-                path: Uri.file(path).fsPath,
-                ref: '~'
-            })}`
+            `git:${encodeURIComponent(path)}?${encodeURIComponent(
+                JSON.stringify({
+                    // Ensure we use the fsPath here, otherwise the url won't open properly
+                    path: Uri.file(path).fsPath,
+                    ref: '~'
+                })
+            )}`
         );
     }
 
@@ -398,9 +400,9 @@ export class GitUri extends ((Uri as any) as UriEx) {
         };
 
         const uri = Uri.parse(
-            `${DocumentSchemes.GitLens}:///${repoName}@${shortSha}${
-                filePath === slash ? empty : filePath
-            }?${JSON.stringify(data)}`
+            `${DocumentSchemes.GitLens}:///${encodeURIComponent(repoName)}@${shortSha}${
+                filePath === slash ? empty : encodeURIComponent(filePath)
+            }?${encodeURIComponent(JSON.stringify(data))}`
         );
         return uri;
     }
