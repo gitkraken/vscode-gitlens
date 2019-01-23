@@ -19,7 +19,10 @@ const defaultProviders: RemoteProviders = [
     [/\bdev\.azure\.com$/i, (domain: string, path: string) => new AzureDevOpsRemote(domain, path)],
     [/\bbitbucket\b/i, (domain: string, path: string) => new BitbucketServerRemote(domain, path)],
     [/\bgitlab\b/i, (domain: string, path: string) => new GitLabRemote(domain, path)],
-    [/\bvisualstudio\.com$/i, (domain: string, path: string) => new AzureDevOpsRemote(domain, path)]
+    [
+        /\bvisualstudio\.com$/i,
+        (domain: string, path: string) => new AzureDevOpsRemote(domain, path, undefined, undefined, true)
+    ]
 ];
 
 export class RemoteProviderFactory {

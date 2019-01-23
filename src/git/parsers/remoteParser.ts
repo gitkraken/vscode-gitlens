@@ -68,15 +68,17 @@ export class GitRemoteParser {
             const uniqueness = `${domain}/${path}`;
             let remote: GitRemote | undefined = groups[uniqueness];
             if (remote === undefined) {
+                const provider = providerFactory(domain, path);
+
                 remote = new GitRemote(
                     repoPath,
                     uniqueness,
                     // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
                     (' ' + match[1]).substr(1),
                     scheme,
-                    domain,
-                    path,
-                    providerFactory(domain, path),
+                    provider !== undefined ? provider.domain : domain,
+                    provider !== undefined ? provider.path : path,
+                    provider,
                     // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
                     [{ url: url, type: (' ' + match[3]).substr(1) as GitRemoteType }]
                 );
