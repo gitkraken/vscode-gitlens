@@ -105,12 +105,10 @@ export abstract class AnnotationProviderBase implements Disposable {
     }
 
     private _resetDebounced:
-        | ((
-              changes?: {
-                  decoration: TextEditorDecorationType;
-                  highlightDecoration: TextEditorDecorationType | undefined;
-              }
-          ) => void)
+        | ((changes?: {
+              decoration: TextEditorDecorationType;
+              highlightDecoration: TextEditorDecorationType | undefined;
+          }) => void)
         | undefined;
 
     reset(changes?: {

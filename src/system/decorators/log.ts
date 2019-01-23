@@ -63,7 +63,7 @@ export function debug<T>(
 
 export function log<T>(
     options: {
-        args?: false | { [arg: number]: ((arg: any) => string | false) };
+        args?: false | { [arg: number]: (arg: any) => string | false };
         condition?(...args: any[]): boolean;
         correlate?: boolean;
         debug?: boolean;

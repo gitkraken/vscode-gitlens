@@ -93,8 +93,8 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
                                   args.branchOrTag instanceof GitTag ? '$(tag)' : '$(git-branch)'
                               } ${args.branchOrTag.name}`
                             : gitUri.sha
-                                ? ` from ${GlyphChars.Space}$(git-commit) ${gitUri.shortSha}`
-                                : ''
+                            ? ` from ${GlyphChars.Space}$(git-commit) ${gitUri.shortSha}`
+                            : ''
                     }`
                 },
                 Commands.DiffWithRevision,
