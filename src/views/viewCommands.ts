@@ -164,11 +164,7 @@ export class ViewCommands implements Disposable {
     }
 
     private async applyChanges(node: CommitFileNode | StashFileNode | ResultsFileNode) {
-        if (
-            !(node instanceof CommitFileNode) &&
-            !(node instanceof StashFileNode) &&
-            !(node instanceof ResultsFileNode)
-        ) {
+        if (!(node instanceof CommitFileNode) && !(node instanceof ResultsFileNode)) {
             return;
         }
 
@@ -244,7 +240,7 @@ export class ViewCommands implements Disposable {
         Container.compareView.selectForCompare(node.repoPath, node.ref);
     }
 
-    private compareFileWithSelected(node: CommitFileNode | StashFileNode | ResultsFileNode) {
+    private compareFileWithSelected(node: CommitFileNode | ResultsFileNode | StashFileNode) {
         if (
             this._selectedFile === undefined ||
             (!(node instanceof CommitFileNode) && !(node instanceof ResultsFileNode)) ||
@@ -278,7 +274,7 @@ export class ViewCommands implements Disposable {
 
     private _selectedFile: ICompareSelected | undefined;
 
-    private selectFileForCompare(node: CommitFileNode | StashFileNode | ResultsFileNode) {
+    private selectFileForCompare(node: CommitFileNode | ResultsFileNode | StashFileNode) {
         if ((!(node instanceof CommitFileNode) && !(node instanceof ResultsFileNode)) || node.ref === undefined) return;
 
         this._selectedFile = {
@@ -300,7 +296,7 @@ export class ViewCommands implements Disposable {
         void commands.executeCommand(BuiltInCommands.FocusFilesExplorer);
     }
 
-    private openChanges(node: CommitFileNode | StashFileNode | ResultsFileNode) {
+    private openChanges(node: CommitFileNode | ResultsFileNode | StashFileNode) {
         if (!(node instanceof CommitFileNode) && !(node instanceof ResultsFileNode)) return;
 
         const command = node.getCommand();
@@ -311,7 +307,7 @@ export class ViewCommands implements Disposable {
         return commands.executeCommand(command.command, uri, args);
     }
 
-    private async openChangesWithWorking(node: CommitFileNode | StashFileNode | ResultsFileNode) {
+    private async openChangesWithWorking(node: CommitFileNode | ResultsFileNode | StashFileNode) {
         if (!(node instanceof CommitFileNode) && !(node instanceof ResultsFileNode)) return;
 
         const args: DiffWithWorkingCommandArgs = {
@@ -332,14 +328,20 @@ export class ViewCommands implements Disposable {
         return commands.executeCommand(Commands.DiffWithWorking, node.uri, args);
     }
 
-    private openFile(node: CommitFileNode | StashFileNode | ResultsFileNode) {
-        if (!(node instanceof CommitFileNode) && !(node instanceof ResultsFileNode)) return;
+    private openFile(node: CommitFileNode | ResultsFileNode | StashFileNode | StatusFileNode) {
+        if (
+            !(node instanceof CommitFileNode) &&
+            !(node instanceof ResultsFileNode) &&
+            !(node instanceof StatusFileNode)
+        ) {
+            return;
+        }
 
         return openEditor(node.uri, { preserveFocus: true, preview: false });
     }
 
     private openFileRevision(
-        node: CommitFileNode | StashFileNode | ResultsFileNode,
+        node: CommitFileNode | ResultsFileNode | StashFileNode,
         options: OpenFileRevisionCommandArgs = { showOptions: { preserveFocus: true, preview: false } }
     ) {
         if (!(node instanceof CommitFileNode) && !(node instanceof ResultsFileNode)) return;

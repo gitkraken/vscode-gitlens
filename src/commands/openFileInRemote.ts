@@ -39,7 +39,12 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
             if (isCommandViewContextWithBranch(context)) {
                 args.branch = context.node.branch !== undefined ? context.node.branch.name : undefined;
             }
-            return this.execute(context.editor, context.node.commit.uri, args);
+
+            return this.execute(
+                context.editor,
+                context.node.commit.isFile ? context.node.commit.uri : context.node.uri,
+                args
+            );
         }
 
         return this.execute(context.editor, context.uri, args);

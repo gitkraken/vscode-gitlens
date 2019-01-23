@@ -2,6 +2,7 @@
 import { commands, TextEditor, Uri } from 'vscode';
 import { Container } from '../container';
 import { GitUri } from '../git/gitService';
+import { StatusFileNode } from '../views/nodes';
 import {
     ActiveEditorCommand,
     command,
@@ -31,7 +32,16 @@ export class CopyRemoteFileUrlToClipboardCommand extends ActiveEditorCommand {
             args.range = false;
             args.sha = context.node.commit.sha;
 
-            return this.execute(context.editor, context.node.commit.uri, args);
+            // If it is a StatusFileNode then don't include the sha, since it hasn't been pushed yet
+            if (context.node instanceof StatusFileNode) {
+                args.sha = undefined;
+            }
+
+            return this.execute(
+                context.editor,
+                context.node.commit.isFile ? context.node.commit.uri : context.node.uri,
+                args
+            );
         }
 
         return this.execute(context.editor, context.uri, args);
