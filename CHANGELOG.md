@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#631](https://github.com/eamodio/vscode-gitlens/issues/631) - Remotes fail to show in gui
 - Fixes [#633](https://github.com/eamodio/vscode-gitlens/issues/633) - Compare File with Previous Revision doesn't work if path contains '#'
 - Fixes an issue where the _Open File_, _Open File on Remote_, and _Copy Remote Url to Clipboard_ commands didn't always work on changed files in the _Repositories_ view
+- Fixes an issue where the default remote wasn't used first to provide automatic issue linking
 
 ## [9.4.1] - 2019-01-08
 

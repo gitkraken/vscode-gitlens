@@ -144,6 +144,13 @@ export class Annotations {
             )} "Show Commit Details")`;
 
             message = CommitFormatter.fromTemplate('${message}', commit);
+
+            remotes.sort(
+                (a, b) =>
+                    (a.default ? -1 : 1) - (b.default ? -1 : 1) ||
+                    a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+            );
+
             for (const r of remotes) {
                 if (r.provider === undefined) continue;
 
