@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Changes the sorting of remotes in the _Repositories_ view to sort the default remote first
+
 ### Fixed
 
 - Fixes [#591](https://github.com/eamodio/vscode-gitlens/issues/591) - GitLens Error: Unable to open
