@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#620](https://github.com/eamodio/vscode-gitlens/issues/620) - Branch names with only digits always appear first &mdash; thanks to [PR #621](https://github.com/eamodio/vscode-gitlens/pull/621) by Yan Zhang ([@Eskibear](https://github.com/Eskibear))
 - Fixes [#626](https://github.com/eamodio/vscode-gitlens/issues/626) - Branch names with only digits always appear first &mdash; thanks to [PR #627](https://github.com/eamodio/vscode-gitlens/pull/627) by Marc Lasson ([@mlasson](https://github.com/mlasson))
 
 ## [9.4.1] - 2019-01-08
