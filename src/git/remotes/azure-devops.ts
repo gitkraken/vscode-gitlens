@@ -3,22 +3,36 @@ import { Range } from 'vscode';
 import { RemoteProvider } from './provider';
 
 const issueEnricherRegex = /(^|\s)(#([0-9]+))\b/gi;
-const stripGitRegex = /\/_git\/?/i;
 
-const sshDomainRegex = /^ssh\./i;
+const gitRegex = /\/_git\/?/i;
+const legacyDefaultCollectionRegex = /^DefaultCollection\//i;
+const orgAndProjectRegex = /^(.*?)\/(.*?)\/(.*)/;
+const sshDomainRegex = /^(ssh|vs-ssh)\./i;
 const sshPathRegex = /^\/?v\d\//i;
 
 export class AzureDevOpsRemote extends RemoteProvider {
-    constructor(domain: string, path: string, protocol?: string, name?: string) {
-        domain = domain.replace(sshDomainRegex, '');
-        path = path.replace(sshPathRegex, '').replace(stripGitRegex, '/');
+    constructor(domain: string, path: string, protocol?: string, name?: string, legacy: boolean = false) {
+        if (sshDomainRegex.test(domain)) {
+            path = path.replace(sshPathRegex, '');
+            domain = domain.replace(sshDomainRegex, '');
+
+            // Add in /_git/ into ssh urls
+            const match = orgAndProjectRegex.exec(path);
+            if (match != null) {
+                const [, org, project, rest] = match;
+
+                // Handle legacy vsts urls
+                if (legacy) {
+                    domain = `${org}.${domain}`;
+                    path = `${project}/_git/${rest}`;
+                }
+                else {
+                    path = `${org}/${project}/_git/${rest}`;
+                }
+            }
+        }
 
         super(domain, path, protocol, name);
-    }
-
-    get baseUrl() {
-        const [orgAndProject, repo] = this.splitPath();
-        return `https://${this.domain}/${orgAndProject}/_git/${repo}`;
     }
 
     get icon() {
@@ -29,9 +43,17 @@ export class AzureDevOpsRemote extends RemoteProvider {
         return 'Azure DevOps';
     }
 
+    private _displayPath: string | undefined;
+    get displayPath(): string {
+        if (this._displayPath === undefined) {
+            this._displayPath = this.path.replace(gitRegex, '/').replace(legacyDefaultCollectionRegex, '');
+        }
+        return this._displayPath;
+    }
+
     enrichMessage(message: string): string {
         // Strip off any `_git` part from the repo url
-        const baseUrl = this.baseUrl.replace(stripGitRegex, '/');
+        const baseUrl = this.baseUrl.replace(gitRegex, '/');
         // Matches #123
         return message.replace(issueEnricherRegex, `$1[$2](${baseUrl}/_workitems/edit/$3 "Open Work Item $2")`);
     }
@@ -63,10 +85,4 @@ export class AzureDevOpsRemote extends RemoteProvider {
         if (branch) return `${this.baseUrl}/?path=%2F${fileName}&version=GB${branch}&_a=contents${line}`;
         return `${this.baseUrl}?path=%2F${fileName}${line}`;
     }
-
-    protected splitPath(): [string, string] {
-        const index = this.path.lastIndexOf('/');
-        return [this.path.substring(0, index), this.path.substring(index + 1)];
-    }
-
 }

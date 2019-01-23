@@ -90,7 +90,9 @@ export class RemoteNode extends ViewNode<RepositoriesView> {
         );
         item.description = `${separator}${GlyphChars.Space} ${
             this.remote.provider !== undefined ? this.remote.provider.name : this.remote.domain
-        } ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} ${this.remote.path}`;
+        } ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} ${
+            this.remote.provider !== undefined ? this.remote.provider.displayPath : this.remote.path
+        }`;
         item.contextValue = ResourceType.Remote;
         if (this.remote.default) {
             item.contextValue += '+default';
@@ -110,9 +112,13 @@ export class RemoteNode extends ViewNode<RepositoriesView> {
         }
 
         item.id = this.id;
-        item.tooltip = `${this.remote.name}\n${this.remote.path} (${
+        item.tooltip = `${this.remote.name} (${
             this.remote.provider !== undefined ? this.remote.provider.name : this.remote.domain
-        })`;
+        })\n${this.remote.provider !== undefined ? this.remote.provider.displayPath : this.remote.path}\n`;
+
+        for (const type of this.remote.types) {
+            item.tooltip += `\n${type.url} (${type.type})`;
+        }
 
         return item;
     }

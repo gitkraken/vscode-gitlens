@@ -80,6 +80,10 @@ export abstract class RemoteProvider {
         return 'remote';
     }
 
+    get displayPath(): string {
+        return this.path;
+    }
+
     abstract get name(): string;
 
     protected get baseUrl() {
