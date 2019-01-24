@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 
 - Changes the sorting of remotes in the _Repositories_ view to sort the default remote first
+- Changes relative date formatting of the last fetched date of repositories in the _Repositories_ view to instead use an absolute format and will additionally add the time of day if less than a day has passed. This avoids having to periodically refresh the repository (which causes all of its children to re-render) in order to update the relative time
 
 ### Fixed
 
@@ -17,6 +18,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#626](https://github.com/eamodio/vscode-gitlens/issues/626) - Branch names with only digits always appear first &mdash; thanks to [PR #627](https://github.com/eamodio/vscode-gitlens/pull/627) by Marc Lasson ([@mlasson](https://github.com/mlasson))
 - Fixes [#631](https://github.com/eamodio/vscode-gitlens/issues/631) - Remotes fail to show in gui
 - Fixes [#633](https://github.com/eamodio/vscode-gitlens/issues/633) - Compare File with Previous Revision doesn't work if path contains '#'
+- Fixes [#635](https://github.com/eamodio/vscode-gitlens/issues/635) - Show more commit not working properly
 - Fixes an issue where the _Open File_, _Open File on Remote_, and _Copy Remote Url to Clipboard_ commands didn't always work on changed files in the _Repositories_ view
 - Fixes an issue where the default remote wasn't used first to provide automatic issue linking
 
