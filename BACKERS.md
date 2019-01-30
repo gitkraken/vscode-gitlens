@@ -28,35 +28,38 @@ None currently &mdash; could be you or your company here!
 
 <h2 align="center">Generous Backers ($10+)</h2>
 
-- Andreas Fertsch-Röver
-- Bill
 - Borek Bernard
-- Brandon Burroughs
-- Eugen Grue
-- Guido Kessels
-- Jon G
-- Jordan Oroshiba
+- Jack
 - Ken Howard
 - Michael Duffy (former Silver Sponsor)
 - Michael Scott-Nelson
 - MrG0lden
+- Sergey Cheperis
+- Xananax
+
+<h2 align="center">Backers</h2>
+
+- Andreas Fertsch-Röver
+- Bill
+- Brandon Burroughs
+- Brent Schmidt
+- Diego La Manno
+- Eugen Grue
+- Georg Hartmann
+- Guido Kessels
+- J Burnett
+- JehongAhn
+- Jon G
+- Jordan Oroshiba
+- Karl
+- Michael Melanson
 - Niklas Lochschmidt
 - Pavel Khlopin
 - Pelle Wessman
 - Raphael Schweikert
-- Sergey Cheperis
+- sombriks
 - Stephen Kelley
-- Xananax
-- Øyvind de Freitas Sørensen
-
-<h2 align="center">Backers</h2>
-
-- Brent Schmidt
-- Diego La Manno
-- Gav Massignham
-- J Burnett
-- JehongAhn
-- Nathaniel Blackburn
-- Raymond Brigleb
+- Steven Hepting
 - Sunny Gupta
 - Vance Dubberly
+- Øyvind de Freitas Sørensen
