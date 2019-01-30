@@ -3,7 +3,7 @@ import * as paths from 'path';
 import { commands, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitUri } from '../git/gitService';
+import { GitService, GitUri } from '../git/gitService';
 import { Messages } from '../messages';
 import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickpicks';
 import { Strings } from '../system';
@@ -59,7 +59,7 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
             const rename = files.find(s => s.fileName === fileName);
             if (rename !== undefined && rename.originalFileName !== undefined) {
                 renamedUri = GitUri.resolveToUri(rename.originalFileName, gitUri.repoPath);
-                renamedTitle = `${paths.basename(rename.originalFileName)} (${ref})`;
+                renamedTitle = `${paths.basename(rename.originalFileName)} (${GitService.shortenSha(ref)})`;
             }
         }
 
@@ -68,7 +68,7 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
             lhs: {
                 sha: pick.remote ? `remotes/${ref}` : ref,
                 uri: renamedUri || (gitUri as Uri),
-                title: renamedTitle || `${paths.basename(gitUri.fsPath)} (${ref})`
+                title: renamedTitle || `${paths.basename(gitUri.fsPath)} (${GitService.shortenSha(ref)})`
             },
             rhs: {
                 sha: '',
