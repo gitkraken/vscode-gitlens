@@ -28,7 +28,7 @@ export class RepositoriesQuickPick {
         goBackCommand?: CommandQuickPickItem
     ): Promise<RepositoryQuickPickItem | CommandQuickPickItem | undefined> {
         const items = [
-            ...Iterables.map(await Container.git.getRepositories(), r => new RepositoryQuickPickItem(r))
+            ...Iterables.map(await Container.git.getOrderedRepositories(), r => new RepositoryQuickPickItem(r))
         ] as (RepositoryQuickPickItem | CommandQuickPickItem)[];
 
         if (goBackCommand !== undefined) {
