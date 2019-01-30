@@ -10,21 +10,11 @@
 
 > GitLens **supercharges** the Git capabilities built into Visual Studio Code. It helps you to **visualize code authorship** at a glance via Git blame annotations and code lens, **seamlessly navigate and explore** Git repositories, **gain valuable insights** via powerful comparison commands, and so much more.
 
-# Sponsors
+## Support GitLens
 
-<p align="center" style="margin: 0 10%">
-  <a title="Try CodeStream" href="https://codestream.com/?utm_source=vscmarket&utm_medium=banner&utm_campaign=gitlens"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/docs/sponsors/codestream-light.png" alt="CodeStream Logo"/></a>
-  <br />
-  <small><small>
-    CodeStream enables continuous code review by putting team chat in VS Code. Save discussions about code with your code. Integrates w/Slack.
-  </small></small>
-</p>
-<br/>
-<p align="center" style="margin: 0 10%">
-  <a title="Visit Crésus" href="https://cresus.ch"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/docs/sponsors/cresus.png" alt="Crésus Logo"/></a>
-</p>
-
-# Support GitLens
+| Sponsored by                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |                                                                                                                                                                                                                           |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| <p align="center" style="font-size:10px;font-weight:400;margin:8px 0 8px 0;">[![](https://alt-images.codestream.com/codestream_logo_gitlens.png)](https://codestream.com/?utm_source=vscmarket&utm_medium=banner&utm_campaign=gitlens 'Try CodeStream')<br/>Discuss, review, and share code with your team in VS Code. Links discussions about code to your code. Integrates w/ Slack, Jira, Trello, and Live Share. **[Try it free](https://codestream.com/?utm_source=vscmarket&utm_medium=banner&utm_campaign=gitlens 'Try CodeStream')**</p> | <p align="center" style="font-size:10px;font-weight:400;margin:8px 0 8px 0;">[![](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/docs/sponsors/cresus.png)](https://cresus.ch 'Visit Crésus')</p> |
 
 While GitLens is generously offered to everyone free of charge, if you find it useful, please consider [**supporting**](https://gitlens.amod.io/#support-gitlens) it.
 
@@ -36,20 +26,11 @@ Also please [write a review](https://marketplace.visualstudio.com/items?itemName
 # What's new in GitLens 9
 
 - Adds GitLens over Visual Studio Live Share
-  - Live Share guests will now have read-only access to GitLens' features
-- Adds a new Git virtual file system provider for the `gitlens:` scheme &mdash; closes [#430](https://github.com/eamodio/vscode-gitlens/issues/430)
-  - Replaces GitLens' internal handling of file revisions, which allows for better performance, as well as avoiding the use of temp files. It also provides a much better experience when dealing with file encodings, images, etc.
-- Adds an _Explore the Repository from Here_ (`gitlens.views.exploreRepoRevision`) command which opens a virtual workspace folder (uses the Git virtual file system provider) for the repository at the specified point in time (commit, branch, tag, etc) &mdash; closes [#398](https://github.com/eamodio/vscode-gitlens/issues/398)
-- Adds a new [_Repositories_ view](https://github.com/eamodio/vscode-gitlens/tree/master/#repositories-view- 'Jump to the Repositories view docs'), formerly the _GitLens_ view, to visualize, navigate, and explore Git repositories &mdash; closes [#456](https://github.com/eamodio/vscode-gitlens/issues/456), [#470](https://github.com/eamodio/vscode-gitlens/issues/470), [#494](https://github.com/eamodio/vscode-gitlens/issues/494)
-  - Provides a cleaner information-rich view of your opened repositories, more git commands (fetch, push, pull, checkout, stage, unstage, etc), better visibility and accessibility of existing features, and [more](https://github.com/eamodio/vscode-gitlens/tree/master/#repositories-view- 'Jump to the Repositories view docs')
-- Adds a new [_File History_ view](https://github.com/eamodio/vscode-gitlens/tree/master/#file-history-view- 'Jump to the File History view docs'), formerly the _History_ view, to visualize, navigate, and explore the revision history of the current file
-  - Provides similar features to the former _History_ view as well as quickly toggling file tracking on and off, changing the base (branch, tag, commit, etc) of the file's history, and [more](https://github.com/eamodio/vscode-gitlens/tree/master/#file-history-view- 'Jump to the File History view docs')
-- Adds an all-new [_Line History_ view](https://github.com/eamodio/vscode-gitlens/tree/master/#line-history-view- 'Jump to the Line History view docs') to visualize, navigate, and explore the revision history of the selected lines of current file &mdash; closes [#354](https://github.com/eamodio/vscode-gitlens/issues/354)
-  - Provides similar features to the _File History_ view including quickly toggling line tracking on and off, changing the base (branch, tag, commit, etc) of the selected lines' history, and [more](https://github.com/eamodio/vscode-gitlens/tree/master/#line-history-view- 'Jump to the Line History view docs')
-- Adds an all-new [_Search Commits_ view](https://github.com/eamodio/vscode-gitlens/tree/master/#search-commits-view- 'Jump to the Search Commits view docs') to search and explore commit histories by message, author, files, id, etc &mdash; closes [#455](https://github.com/eamodio/vscode-gitlens/issues/455)
-  - Provides somewhat similar features to the former _Results_ view as well as it is now a persistent view, makes it easier to start a commit search, and [more](https://github.com/eamodio/vscode-gitlens/tree/master/#search-commits-view- 'Jump to the Search Commits view docs')
+- Adds a new [_Repositories_ view](https://github.com/eamodio/vscode-gitlens/tree/master/#repositories-view- 'Jump to the Repositories view docs') to visualize, navigate, and explore Git repositories
+- Adds a new [_File History_ view](https://github.com/eamodio/vscode-gitlens/tree/master/#file-history-view- 'Jump to the File History view docs') to visualize, navigate, and explore the revision history of the current file
+- Adds an all-new [_Line History_ view](https://github.com/eamodio/vscode-gitlens/tree/master/#line-history-view- 'Jump to the Line History view docs') to visualize, navigate, and explore the revision history of the selected lines of current file
+- Adds an all-new [_Search Commits_ view](https://github.com/eamodio/vscode-gitlens/tree/master/#search-commits-view- 'Jump to the Search Commits view docs') to search and explore commit histories by message, author, files, id, etc
 - Adds an all-new [_Compare_ view](https://github.com/eamodio/vscode-gitlens/tree/master/#compare-view- 'Jump to the Compare view docs') to visualize comparisons between branches, tags, commits, and more
-  - Provides somewhat similar and powerful features to the former _Results_ view as well as it is now a persistent view, makes it easier to start a comparison, and [more](https://github.com/eamodio/vscode-gitlens/tree/master/#compare-view- 'Jump to the Compare view docs')
 - And much more
 
 See the [release notes](https://github.com/eamodio/vscode-gitlens/blob/master/CHANGELOG.md 'Open Release Notes') for the full set of changes
