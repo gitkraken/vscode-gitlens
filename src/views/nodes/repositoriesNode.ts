@@ -39,14 +39,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
             const repositories = await Container.git.getOrderedRepositories();
             if (repositories.length === 0) return [new MessageNode(this.view, this, 'No repositories could be found.')];
 
-            const children = [];
-            for (const repo of repositories) {
-                if (repo.closed) continue;
-
-                children.push(new RepositoryNode(GitUri.fromRepoPath(repo.path), this.view, this, repo));
-            }
-
-            this._children = children;
+            this._children = repositories.map(r => new RepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r));
         }
 
         return this._children;
@@ -84,8 +77,6 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 
         const children = [];
         for (const repo of repositories) {
-            if (repo.closed) continue;
-
             const normalizedPath = repo.normalizedPath;
             const child = (this._children as RepositoryNode[]).find(c => c.repo.normalizedPath === normalizedPath);
             if (child !== undefined) {
