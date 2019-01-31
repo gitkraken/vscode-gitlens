@@ -4873,7 +4873,7 @@
         "imagemin-webpack-plugin": "2.4.0",
         "mini-css-extract-plugin": "0.5.0",
         "node-sass": "4.11.0",
-        "prettier": "1.16.1",
+        "prettier": "1.16.3",
         "prettier-tslint": "0.4.2",
         "sass-loader": "7.1.0",
         "terser-webpack-plugin": "1.2.1",
