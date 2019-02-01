@@ -30,7 +30,7 @@ import {
 } from './commonQuickPicks';
 
 export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {
-    public readonly status: GitStatusFile;
+    readonly status: GitStatusFile;
     private readonly commit: GitLogCommit;
 
     constructor(status: GitStatusFile, realIndexStatus?: GitFileStatus, item?: QuickPickItem) {

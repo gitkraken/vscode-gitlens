@@ -35,17 +35,17 @@ export interface TreeViewNodeStateChangeEvent<T> extends TreeViewExpansionEvent<
 
 export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeDataProvider<ViewNode>, Disposable {
     protected _onDidChangeTreeData = new EventEmitter<ViewNode>();
-    public get onDidChangeTreeData(): Event<ViewNode> {
+    get onDidChangeTreeData(): Event<ViewNode> {
         return this._onDidChangeTreeData.event;
     }
 
     private _onDidChangeVisibility = new EventEmitter<TreeViewVisibilityChangeEvent>();
-    public get onDidChangeVisibility(): Event<TreeViewVisibilityChangeEvent> {
+    get onDidChangeVisibility(): Event<TreeViewVisibilityChangeEvent> {
         return this._onDidChangeVisibility.event;
     }
 
     private _onDidChangeNodeState = new EventEmitter<TreeViewNodeStateChangeEvent<ViewNode>>();
-    public get onDidChangeNodeState(): Event<TreeViewNodeStateChangeEvent<ViewNode>> {
+    get onDidChangeNodeState(): Event<TreeViewNodeStateChangeEvent<ViewNode>> {
         return this._onDidChangeNodeState.event;
     }
 

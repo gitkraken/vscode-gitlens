@@ -12,7 +12,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
     }
 
     private _onDidChangeAutoRefresh = new EventEmitter<void>();
-    public get onDidChangeAutoRefresh(): Event<void> {
+    get onDidChangeAutoRefresh(): Event<void> {
         return this._onDidChangeAutoRefresh.event;
     }
 

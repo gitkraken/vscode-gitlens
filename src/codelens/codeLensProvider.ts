@@ -80,7 +80,7 @@ export class GitAuthorsCodeLens extends CodeLens {
 
 export class GitCodeLensProvider implements CodeLensProvider {
     private _onDidChangeCodeLenses = new EventEmitter<void>();
-    public get onDidChangeCodeLenses(): Event<void> {
+    get onDidChangeCodeLenses(): Event<void> {
         return this._onDidChangeCodeLenses.event;
     }
 
