@@ -28,24 +28,24 @@ module.exports = function(env, argv) {
     if (fs.existsSync(vslsPath)) {
         const vsls = require(vslsPath);
         if (vsls.main === undefined) {
+            console.log('Fixing vsls package; Adding missing main to package.json...');
+
             vsls.main = 'vscode.js';
             fs.writeFileSync(vslsPath, `${JSON.stringify(vsls, undefined, 4)}\n`, 'utf8');
         }
 
         vslsPath = path.resolve(__dirname, 'node_modules/vsls/vscode.js');
         if (fs.existsSync(vslsPath)) {
-            console.log(vslsPath);
-
             let code = fs.readFileSync(vslsPath, 'utf8');
             if (vslsPatchRegex.test(code)) {
-                console.log('found');
+                console.log('Fixing vsls package; Removing version lookup...');
+
                 code = code.replace(
                     vslsPatchRegex,
                     `const liveShareApiVersion = '${
                         vsls.version
                     }'; // require(path.join(__dirname, 'package.json')).version;`
                 );
-                console.log(code);
                 fs.writeFileSync(vslsPath, code, 'utf8');
             }
         }
@@ -65,7 +65,7 @@ function getExtensionConfig(env) {
         node: {
             __dirname: false
         },
-        devtool: 'source-map', //!env.production ? 'source-map' : undefined,
+        devtool: 'source-map',
         output: {
             libraryTarget: 'commonjs2',
             filename: 'extension.js',
@@ -76,7 +76,7 @@ function getExtensionConfig(env) {
                 new TerserPlugin({
                     cache: true,
                     parallel: true,
-                    sourceMap: true, // !env.production,
+                    sourceMap: true,
                     terserOptions: {
                         ecma: 8,
                         // Keep the class names otherwise @log won't provide a useful name
@@ -203,7 +203,7 @@ function getUIConfig(env) {
             // main: ['./scss/main.scss']
         },
         mode: env.production ? 'production' : 'development',
-        devtool: !env.production ? 'eval-source-map' : undefined,
+        devtool: env.production ? undefined : 'eval-source-map',
         output: {
             filename: '[name].js',
             path: path.resolve(__dirname, 'dist/ui'),
@@ -243,14 +243,14 @@ function getUIConfig(env) {
                         {
                             loader: 'css-loader',
                             options: {
-                                sourceMap: !env.production,
+                                sourceMap: true,
                                 url: false
                             }
                         },
                         {
                             loader: 'sass-loader',
                             options: {
-                                sourceMap: !env.production
+                                sourceMap: true
                             }
                         }
                     ],
