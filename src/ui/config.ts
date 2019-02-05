@@ -50,6 +50,7 @@ export interface Config {
             over: 'line' | 'annotation';
         };
         avatars: boolean;
+        detailsMarkdownFormat: string;
         enabled: boolean;
     };
     insiders: boolean;

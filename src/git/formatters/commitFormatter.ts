@@ -1,17 +1,33 @@
 'use strict';
-import { DateStyle } from '../../configuration';
+import {
+    DiffWithCommand,
+    OpenCommitInRemoteCommand,
+    OpenFileRevisionCommand,
+    ShowQuickCommitDetailsCommand,
+    ShowQuickCommitFileDetailsCommand
+} from '../../commands';
+import { DateStyle, FileAnnotationType } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { Strings } from '../../system';
+import { GitUri } from '../gitUri';
 import { GitCommit, GitCommitType } from '../models/commit';
-import { GitLogCommit } from '../models/models';
+import { GitLogCommit, GitRemote } from '../models/models';
 import { Formatter, IFormatOptions } from './formatter';
 
 const emojiMap: { [key: string]: string } = require('../../../emoji/emojis.json');
 const emojiRegex = /:([-+_a-z0-9]+):/g;
 
+const escapeMarkdownRegex = /[`\>\#\*\_\-\+\.]/g;
+// const sampleMarkdown = '## message `not code` *not important* _no underline_ \n> don\'t quote me \n- don\'t list me \n+ don\'t list me \n1. don\'t list me \nnot h1 \n=== \nnot h2 \n---\n***\n---\n___';
+const markdownHeaderReplacement = `${GlyphChars.ZeroWidthSpace}===`;
+
 export interface ICommitFormatOptions extends IFormatOptions {
+    annotationType?: FileAnnotationType;
     dateStyle?: DateStyle;
+    line?: number;
+    markdown?: boolean;
+    remotes?: GitRemote[];
     truncateMessageAtNewLine?: boolean;
 
     tokenOptions?: {
@@ -23,6 +39,7 @@ export interface ICommitFormatOptions extends IFormatOptions {
         changes?: Strings.ITokenOptions;
         changesShort?: Strings.ITokenOptions;
         date?: Strings.ITokenOptions;
+        email?: Strings.ITokenOptions;
         id?: Strings.ITokenOptions;
         message?: Strings.ITokenOptions;
     };
@@ -52,8 +69,7 @@ export class CommitFormatter extends Formatter<GitCommit, ICommitFormatOptions> 
     }
 
     get author() {
-        const author = this._item.author;
-        return this._padOrTruncate(author, this._options.tokenOptions!.author);
+        return this._padOrTruncate(this._item.author, this._options.tokenOptions!.author);
     }
 
     get authorAgo() {
@@ -64,6 +80,14 @@ export class CommitFormatter extends Formatter<GitCommit, ICommitFormatOptions> 
     get authorAgoOrDate() {
         const authorAgo = `${this._item.author}, ${this._agoOrDate}`;
         return this._padOrTruncate(authorAgo, this._options.tokenOptions!.authorAgoOrDate);
+    }
+
+    get avatar() {
+        if (!this._options.markdown || !Container.config.hovers.avatars) {
+            return '';
+        }
+
+        return `![](${this._item.getGravatarUri(Container.config.defaultGravatarsStyle).toString(true)})`;
     }
 
     get changes() {
@@ -85,8 +109,58 @@ export class CommitFormatter extends Formatter<GitCommit, ICommitFormatOptions> 
         );
     }
 
+    get commands() {
+        if (this._item.isUncommitted) {
+            return `\`${
+                this._item.shortSha === 'Working Tree'
+                    ? this._padOrTruncate('00000000', this._options.tokenOptions!.id)
+                    : this.id
+            }\``;
+        }
+
+        let commands = `[\`${this.id}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
+            this._item.sha
+        )} "Show Commit Details") [\`${GlyphChars.MuchGreaterThan}\`](${DiffWithCommand.getMarkdownCommandArgs(
+            this._item
+        )} "Open Changes") `;
+
+        if (this._item.previousSha !== undefined) {
+            let annotationType = this._options.annotationType;
+            if (annotationType === FileAnnotationType.RecentChanges) {
+                annotationType = FileAnnotationType.Blame;
+            }
+
+            const uri = GitUri.toRevisionUri(
+                this._item.previousSha,
+                this._item.previousUri.fsPath,
+                this._item.repoPath
+            );
+            commands += `[\`${GlyphChars.SquareWithTopShadow}\`](${OpenFileRevisionCommand.getMarkdownCommandArgs(
+                uri,
+                annotationType || FileAnnotationType.Blame,
+                this._options.line
+            )} "Blame Previous Revision") `;
+        }
+
+        if (this._options.remotes !== undefined && this._options.remotes.length !== 0) {
+            commands += `[\`${GlyphChars.ArrowUpRight}\`](${OpenCommitInRemoteCommand.getMarkdownCommandArgs(
+                this._item.sha
+            )} "Open in Remote") `;
+        }
+
+        commands += `[\`${GlyphChars.MiddleEllipsis}\`](${ShowQuickCommitFileDetailsCommand.getMarkdownCommandArgs(
+            this._item.sha
+        )} "Show More Actions")`;
+
+        return commands;
+    }
+
     get date() {
         return this._padOrTruncate(this._date, this._options.tokenOptions!.date);
+    }
+
+    get email() {
+        return this._padOrTruncate(this._item.email || '', this._options.tokenOptions!.email);
     }
 
     get id() {
@@ -116,7 +190,34 @@ export class CommitFormatter extends Formatter<GitCommit, ICommitFormatOptions> 
             message = message.replace(emojiRegex, (s, code) => emojiMap[code] || s);
         }
 
-        return this._padOrTruncate(message, this._options.tokenOptions!.message);
+        message = this._padOrTruncate(message, this._options.tokenOptions!.message);
+
+        if (!this._options.markdown) {
+            return message;
+        }
+
+        if (this._options.remotes !== undefined) {
+            this._options.remotes.sort(
+                (a, b) =>
+                    (a.default ? -1 : 1) - (b.default ? -1 : 1) ||
+                    a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+            );
+
+            for (const r of this._options.remotes) {
+                if (r.provider === undefined) continue;
+
+                message = r.provider.enrichMessage(message);
+                break;
+            }
+        }
+
+        return `\n\n> ${message
+            // Escape markdown
+            .replace(escapeMarkdownRegex, '\\$&')
+            // Escape markdown header (since the above regex won't match it)
+            .replace(/^===/gm, markdownHeaderReplacement)
+            // Keep under the same block-quote but with line breaks
+            .replace(/\n/g, '\t\n>  ')}`;
     }
 
     get sha() {

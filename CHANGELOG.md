@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds a `mailto:` link to the author on the _commit details_ hover &mdash; closes [#642](https://github.com/eamodio/vscode-gitlens/issues/642)
+- Adds support for customizing the layout of the _commit details_ hover
+ - Adds a `gitlens.hovers.detailsMarkdownFormat` setting to specify the format (in markdown) of the _commit details_ hover
+- Adds the author's e-mail to the tooltip of commits in the views &mdash; closes [#642](https://github.com/eamodio/vscode-gitlens/issues/642)
+- Adds an `${email}` token (author e-mail) to `gitlens.blame.format`, `gitlens.currentLine.format`, `gitlens.hovers.detailsMarkdownFormat`, `gitlens.views.commitFormat`, `gitlens.views.commitDescriptionFormat`, `gitlens.views.stashFormat`, `gitlens.views.stashDescriptionFormat`, and `gitlens.statusBar.format` settings &mdash; closes [#642](https://github.com/eamodio/vscode-gitlens/issues/642)
+
 ### Changed
 
 - Changes the sorting of remotes in the _Repositories_ view to sort the default remote first

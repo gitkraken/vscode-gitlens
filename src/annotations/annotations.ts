@@ -86,42 +86,6 @@ export class Annotations {
         return `rgba(${computedHeatmapColor.rgb}, ${(1 - age / 10).toFixed(2)})`;
     }
 
-    private static getHoverCommandBar(
-        commit: GitCommit,
-        hasRemote: boolean,
-        annotationType?: FileAnnotationType,
-        line: number = 0
-    ) {
-        let commandBar = `[\`${GlyphChars.MuchGreaterThan}\`](${DiffWithCommand.getMarkdownCommandArgs(
-            commit
-        )} "Open Changes") `;
-
-        if (commit.previousSha !== undefined) {
-            if (annotationType === FileAnnotationType.RecentChanges) {
-                annotationType = FileAnnotationType.Blame;
-            }
-
-            const uri = GitUri.toRevisionUri(commit.previousSha, commit.previousUri.fsPath, commit.repoPath);
-            commandBar += `[\`${GlyphChars.SquareWithTopShadow}\`](${OpenFileRevisionCommand.getMarkdownCommandArgs(
-                uri,
-                annotationType || FileAnnotationType.Blame,
-                line
-            )} "Blame Previous Revision") `;
-        }
-
-        if (hasRemote) {
-            commandBar += `[\`${GlyphChars.ArrowUpRight}\`](${OpenCommitInRemoteCommand.getMarkdownCommandArgs(
-                commit.sha
-            )} "Open in Remote") `;
-        }
-
-        commandBar += `[\`${GlyphChars.MiddleEllipsis}\`](${ShowQuickCommitFileDetailsCommand.getMarkdownCommandArgs(
-            commit.sha
-        )} "Show More Actions")`;
-
-        return commandBar;
-    }
-
     static getHoverMessage(
         commit: GitCommit,
         dateFormat: string | null,
@@ -133,51 +97,14 @@ export class Annotations {
             dateFormat = 'MMMM Do, YYYY h:mma';
         }
 
-        let message = '';
-        let commandBar = '';
-        let showCommitDetailsCommand = '';
-        let avatar = '';
-        if (!commit.isUncommitted) {
-            commandBar = `\n\n${this.getHoverCommandBar(commit, remotes.length !== 0, annotationType, line)}`;
-            showCommitDetailsCommand = `[\`${commit.shortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
-                commit.sha
-            )} "Show Commit Details")`;
-
-            message = CommitFormatter.fromTemplate('${message}', commit);
-
-            remotes.sort(
-                (a, b) =>
-                    (a.default ? -1 : 1) - (b.default ? -1 : 1) ||
-                    a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
-            );
-
-            for (const r of remotes) {
-                if (r.provider === undefined) continue;
-
-                message = r.provider.enrichMessage(message);
-                break;
-            }
-
-            message = `\n\n> ${message
-                // Escape markdown
-                .replace(escapeMarkdownRegex, '\\$&')
-                // Escape markdown header (since the above regex won't match it)
-                .replace(/^===/gm, markdownHeaderReplacement)
-                // Keep under the same block-quote but with line breaks
-                .replace(/\n/g, '\t\n>  ')}`;
-        }
-        else {
-            showCommitDetailsCommand = `\`${commit.shortSha === 'Working Tree' ? '00000000' : commit.shortSha}\``;
-        }
-
-        if (Container.config.hovers.avatars) {
-            avatar = ` &nbsp; ![](${commit.getGravatarUri(Container.config.defaultGravatarsStyle).toString(true)})`;
-        }
-
         const markdown = new MarkdownString(
-            `${showCommitDetailsCommand}${avatar} &nbsp;__${
-                commit.author
-            }__, ${commit.fromNow()} &nbsp; _(${commit.formatDate(dateFormat)})_ ${message}${commandBar}`
+            CommitFormatter.fromTemplate(Container.config.hovers.detailsMarkdownFormat, commit, {
+                annotationType: annotationType,
+                dateFormat: dateFormat,
+                line: line,
+                markdown: true,
+                remotes: remotes
+            })
         );
         markdown.isTrusted = true;
         return markdown;

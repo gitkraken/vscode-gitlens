@@ -91,7 +91,7 @@ export class CommitNode extends ViewRefNode<ViewWithFiles> {
         item.tooltip = CommitFormatter.fromTemplate(
             this.commit.isUncommitted
                 ? `\${author} ${GlyphChars.Dash} \${id}\n\${ago} (\${date})`
-                : `\${author} ${GlyphChars.Dash} \${id}${
+                : `\${author} \${(email) }${GlyphChars.Dash} \${id}${
                       branchAndTagTips !== undefined ? ` (${branchAndTagTips})` : ''
                   }\n\${ago} (\${date})\n\n\${message}`,
             this.commit,
