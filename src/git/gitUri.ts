@@ -326,7 +326,8 @@ export class GitUri extends ((Uri as any) as UriEx) {
     static git(fileName: string, repoPath?: string) {
         const path = GitUri.resolve(fileName, repoPath);
         return Uri.parse(
-            `git:${encodeURIComponent(path)}?${encodeURIComponent(
+            // Change encoded / back to / otherwise uri parsing won't work properly
+            `git:${encodeURIComponent(path).replace(/%2F/g, '/')}?${encodeURIComponent(
                 JSON.stringify({
                     // Ensure we use the fsPath here, otherwise the url won't open properly
                     path: Uri.file(path).fsPath,
@@ -389,19 +390,18 @@ export class GitUri extends ((Uri as any) as UriEx) {
             shortSha = uriOrRef.shortSha;
         }
 
-        repoPath = Strings.normalizePath(repoPath!);
-        const repoName = paths.basename(repoPath);
-
         const filePath = Strings.normalizePath(fileName, { addLeadingSlash: true });
         const data: IUriRevisionData = {
             path: filePath,
             ref: ref,
-            repoPath: repoPath
+            repoPath: Strings.normalizePath(repoPath!)
         };
 
         const uri = Uri.parse(
-            `${DocumentSchemes.GitLens}:///${encodeURIComponent(repoName)}@${shortSha}${
-                filePath === slash ? empty : encodeURIComponent(filePath)
+            // Replace / in the authority with a similar unicode characters otherwise parsing will be wrong
+            `${DocumentSchemes.GitLens}://${encodeURIComponent(shortSha!.replace(/\//g, '\u200A\u2215\u200A'))}${
+                // Change encoded / back to / otherwise uri parsing won't work properly
+                filePath === slash ? empty : encodeURIComponent(filePath).replace(/%2F/g, '/')
             }?${encodeURIComponent(JSON.stringify(data))}`
         );
         return uri;

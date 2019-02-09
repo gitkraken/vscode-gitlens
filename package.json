@@ -4752,6 +4752,16 @@
                 "when": "config.gitlens.keymap == chorded && gitlens:enabled"
             }
         ],
+        "resourceLabelFormatters": [
+            {
+                "scheme": "gitlens",
+                "authority": "*",
+                "formatting": {
+                    "label": "${path} (${authority})",
+                    "separator": "/"
+                }
+            }
+        ],
         "viewsContainers": {
             "activitybar": [
                 {
