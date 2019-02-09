@@ -67,7 +67,7 @@ export interface Config {
         };
     };
     modes: { [key: string]: ModeConfig };
-    outputLevel: LogLevel;
+    outputLevel: TraceLevel;
     recentChanges: {
         highlight: {
             locations: HighlightLocations[];
@@ -157,7 +157,7 @@ export enum KeyMap {
     None = 'none'
 }
 
-export enum LogLevel {
+export enum TraceLevel {
     Silent = 'silent',
     Errors = 'errors',
     Verbose = 'verbose',
