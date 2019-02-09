@@ -68,8 +68,7 @@ function getExtensionConfig(env) {
         devtool: 'source-map',
         output: {
             libraryTarget: 'commonjs2',
-            filename: 'extension.js',
-            devtoolModuleFilenameTemplate: 'file:///[absolute-resource-path]'
+            filename: 'extension.js'
         },
         optimization: {
             minimizer: [
