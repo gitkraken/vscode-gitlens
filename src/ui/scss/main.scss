@@ -3,8 +3,8 @@ html {
 }
 
 body {
-    background-color: var(--background-color);
-    color: var(--color);
+    background-color: var(--color-background);
+    color: var(--color-foreground);
     font-family: var(--font-family);
     height: 100%;
     line-height: 1.4;
@@ -35,7 +35,7 @@ canvas.snow {
 
 a {
     border: 0;
-    color: var(--link-color);
+    color: var(--color-link-foreground);
     font-weight: 400;
     outline: none;
     text-decoration: none;
@@ -47,7 +47,7 @@ a {
     }
 
     &:focus {
-        outline-color: var(--focus-border-color);
+        outline-color: var(--color-focus-border);
     }
 }
 
@@ -58,18 +58,18 @@ b {
 code,
 .shortcut-key {
     border-radius: 4px;
-    color: var(--color);
+    color: var(--color-foreground);
     padding: 2px 6px 0 6px;
     vertical-align: baseline;
 
     .vscode-dark & {
-        background-color: var(--background-color--lighten-15);
-        border-bottom: 2px solid var(--background-color--lighten-15);
+        background-color: var(--color-background--lighten-15);
+        border-bottom: 2px solid var(--color-background--lighten-15);
     }
 
     .vscode-light & {
-        background-color: var(--background-color--darken-15);
-        border-bottom: 2px solid var(--background-color--darken-15);
+        background-color: var(--color-background--darken-15);
+        border-bottom: 2px solid var(--color-background--darken-15);
     }
 }
 
@@ -81,13 +81,13 @@ code,
     vertical-align: text-top;
 
     .vscode-dark & {
-        background-color: var(--background-color--lighten-15);
-        border-bottom: 2px solid var(--background-color--lighten-15);
+        background-color: var(--color-background--lighten-15);
+        border-bottom: 2px solid var(--color-background--lighten-15);
     }
 
     .vscode-light & {
-        background-color: var(--background-color--darken-15);
-        border-bottom: 2px solid var(--background-color--darken-15);
+        background-color: var(--color-background--darken-15);
+        border-bottom: 2px solid var(--color-background--darken-15);
     }
 }
 
@@ -153,7 +153,7 @@ input[type='checkbox'] {
     }
 
     &[disabled] {
-        color: var(--color--75);
+        color: var(--color-foreground--75);
         cursor: default;
     }
 }
@@ -161,7 +161,7 @@ input[type='checkbox'] {
 input[type='text'],
 input:not([type]) {
     background: none;
-    color: var(--color);
+    color: var(--color-foreground);
     margin: 0 0.75em;
     max-width: 300px;
     padding: 4px;
@@ -176,7 +176,7 @@ input:not([type]) {
     }
 
     &:focus {
-        outline-color: var(--focus-border-color);
+        outline-color: var(--color-focus-border);
 
         .vscode-light & {
             background-color: rgba(255, 255, 255, 0.4);
@@ -188,7 +188,7 @@ input:not([type]) {
     }
 
     &[disabled] {
-        color: var(--color--75);
+        color: var(--color-foreground--75);
         cursor: default;
     }
 
@@ -208,17 +208,17 @@ section {
     padding: 1rem;
 
     .vscode-light & {
-        background-color: var(--background-color--darken-05);
+        background-color: var(--color-background--darken-05);
     }
 
     .vscode-dark & {
-        background-color: var(--background-color--lighten-05);
+        background-color: var(--color-background--lighten-05);
     }
 }
 
 select {
     background: none;
-    color: var(--color);
+    color: var(--color-foreground);
     cursor: pointer;
     margin: 0 0.75em;
     padding: 2px;
@@ -232,7 +232,7 @@ select {
     }
 
     &:focus {
-        outline-color: var(--focus-border-color);
+        outline-color: var(--color-focus-border);
         .vscode-light & {
             background-color: rgba(255, 255, 255, 0.4);
         }
@@ -243,22 +243,22 @@ select {
     }
 
     &[disabled] {
-        color: var(--color--75);
+        color: var(--color-foreground--75);
         cursor: default;
     }
 }
 
 select option {
     .vscode-light & {
-        background-color: var(--background-color--darken-05);
+        background-color: var(--color-background--darken-05);
     }
 
     .vscode-dark & {
-        background-color: var(--background-color--lighten-05);
+        background-color: var(--color-background--lighten-05);
     }
 
     &:focus {
-        outline-color: var(--focus-border-color);
+        outline-color: var(--color-focus-border);
         .vscode-light & {
             background-color: rgba(255, 255, 255, 0.4);
         }
@@ -313,8 +313,8 @@ ul {
 
     &:hover {
         .vscode-light & {
-            background-color: var(--button-background-color--darken-30);
-            border-color: var(--button-background-color--darken-30);
+            background-color: var(--color-button-background--darken-30);
+            border-color: var(--color-button-background--darken-30);
             color: white !important;
         }
         .vscode-dark & {
@@ -348,16 +348,16 @@ ul {
 }
 
 .button--flat-primary {
-    background-color: var(--button-background-color);
-    border: 1px solid var(--button-background-color);
-    color: var(--button-color) !important;
+    background-color: var(--color-button-background);
+    border: 1px solid var(--color-button-background);
+    color: var(--color-button-foreground) !important;
     font-weight: 600;
     transition: background-color 250ms, border-color 250ms, color 250ms;
 
     &:hover {
         .vscode-light & {
-            background-color: var(--button-background-color--darken-30);
-            border-color: var(--button-background-color--darken-30);
+            background-color: var(--color-button-background--darken-30);
+            border-color: var(--color-button-background--darken-30);
             color: white !important;
         }
         .vscode-dark & {
@@ -405,11 +405,11 @@ ul {
 
 .about {
     font-size: 1em;
-    color: var(--color--75);
+    color: var(--color-foreground--75);
     margin: 3em 1em;
 
     b {
-        color: var(--color--85);
+        color: var(--color-foreground--85);
     }
 }
 
@@ -418,12 +418,12 @@ ul {
     margin: 2em;
 
     .vscode-light & {
-        background-color: var(--background-color--darken-05);
+        background-color: var(--color-background--darken-05);
         box-shadow: inset 0 0 6px 0px rgba(0, 0, 0, 0.05);
     }
 
     .vscode-dark & {
-        background-color: var(--background-color--lighten-075);
+        background-color: var(--color-background--lighten-075);
         box-shadow: inset 0 0 6px 0px rgba(255, 255, 255, 0.075);
     }
 }
@@ -498,7 +498,7 @@ ul {
 }
 
 .changelog__hint {
-    color: var(--color--75);
+    color: var(--color-foreground--75);
     font-weight: 200;
     margin: 1em;
 }
@@ -533,11 +533,11 @@ ul {
     padding-top: 2em;
 
     .vscode-dark & {
-        border-top: 1px solid var(--background-color--lighten-30);
+        border-top: 1px solid var(--color-background--lighten-30);
     }
 
     .vscode-light & {
-        border-top: 1px solid var(--background-color--darken-30);
+        border-top: 1px solid var(--color-background--darken-30);
     }
 }
 
@@ -630,7 +630,7 @@ ul {
 }
 
 .header__blurb {
-    color: var(--color--75);
+    color: var(--color-foreground--75);
     flex: 55% 2 1;
     font-size: 1.2em;
     font-weight: 200;
@@ -643,13 +643,13 @@ ul {
 }
 
 .header__link {
-    color: var(--color);
+    color: var(--color-foreground);
     outline: none;
 
     &:hover,
     &:active,
     &:focus {
-        color: var(--color);
+        color: var(--color-foreground);
         outline: none;
     }
 }
@@ -664,7 +664,7 @@ ul {
 }
 
 .header__subtitle {
-    color: var(--color--50);
+    color: var(--color-foreground--50);
     display: block;
     font-size: 2em;
     font-weight: 100;
@@ -673,7 +673,7 @@ ul {
 }
 
 .icon {
-    background-color: var(--color);
+    background-color: var(--color-foreground);
     display: inline-block;
     height: 24px;
     margin-bottom: -9px;
@@ -711,7 +711,7 @@ ul {
 }
 
 .label__hint {
-    color: var(--color--75);
+    color: var(--color-foreground--75);
     display: block;
     font-weight: 200;
     margin: 1em 2em;
@@ -719,7 +719,7 @@ ul {
 
 .list-button {
     border: none;
-    color: var(--color);
+    color: var(--color-foreground);
     cursor: pointer;
     font-size: 1em;
     height: 5em;
@@ -730,21 +730,21 @@ ul {
     width: calc(100% - 2px);
 
     .vscode-light & {
-        background-color: var(--background-color--darken-05);
+        background-color: var(--color-background--darken-05);
     }
 
     .vscode-dark & {
-        background-color: var(--background-color--lighten-05);
+        background-color: var(--color-background--lighten-05);
     }
 
     &:hover,
     &:focus {
         .vscode-light & {
-            background-color: var(--background-color--darken-075);
+            background-color: var(--color-background--darken-075);
         }
 
         .vscode-dark & {
-            background-color: var(--background-color--lighten-075);
+            background-color: var(--color-background--lighten-075);
         }
     }
 
@@ -752,11 +752,11 @@ ul {
         outline: 0;
 
         .vscode-light & {
-            border: 1px solid var(--background-color--darken-15);
+            border: 1px solid var(--color-background--darken-15);
         }
 
         .vscode-dark & {
-            border: 1px solid var(--background-color--lighten-15);
+            border: 1px solid var(--color-background--lighten-15);
         }
     }
 }
@@ -771,7 +771,7 @@ ul {
 }
 
 .list-button__detail {
-    color: var(--color--75);
+    color: var(--color-foreground--75);
     display: inline-block;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -785,7 +785,7 @@ ul {
 }
 
 .page-header--sticky {
-    background: var(--background-color);
+    background: var(--color-background);
     margin: 1em 0 1em 0;
     padding-bottom: 1em;
     position: sticky;
@@ -823,12 +823,12 @@ ul {
 
     select,
     option {
-        background-color: var(--background-color) !important;
+        background-color: var(--color-background) !important;
     }
 }
 
 .page-header__subtitle {
-    color: var(--color--75);
+    color: var(--color-foreground--75);
     font-size: 1.2em;
     margin: 0.25em 0 0 0;
 }
@@ -865,7 +865,7 @@ ul {
     position: relative;
 
     &:after {
-        background-color: var(--color--75);
+        background-color: var(--color-foreground--75);
         content: '';
         height: 40px;
         -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 125"><path d="M50 62a3 3 0 0 1-2-1L26 44a3 3 0 0 1 3-5l21 16 21-16a3 3 0 1 1 3 5L52 61a3 3 0 0 1-2 1z"/></svg>');
@@ -900,7 +900,7 @@ ul {
 }
 
 .section__title-hint {
-    color: var(--color--75);
+    color: var(--color-foreground--75);
     font-weight: 200;
     margin: 0.25em 0;
 }
@@ -985,13 +985,13 @@ ul {
 }
 
 .settings-group__header-hint {
-    color: var(--color--75);
+    color: var(--color-foreground--75);
     font-weight: 200;
     margin-top: -1em;
 }
 
 .settings-group__hint {
-    color: var(--color--75);
+    color: var(--color-foreground--75);
     font-weight: 200;
     margin-left: 2.3em;
     text-indent: -2.75em;
@@ -1027,14 +1027,14 @@ ul {
 
     &[disabled] {
         label {
-            color: var(--color--75);
+            color: var(--color-foreground--75);
             cursor: default;
         }
     }
 }
 
 .settings-group__setting--small {
-    color: var(--color--75);
+    color: var(--color-foreground--75);
     font-size: 0.8em;
     margin-top: -0.75em;
 
@@ -1049,7 +1049,7 @@ ul {
 }
 
 .setting__hint {
-    color: var(--color--50);
+    color: var(--color-foreground--50);
     font-size: 0.9em;
     margin: -1em 0 1em 1em;
 }

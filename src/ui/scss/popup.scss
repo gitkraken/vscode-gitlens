@@ -10,7 +10,7 @@
     &:before {
         background: transparent;
         border: 12px solid transparent;
-        content: "";
+        content: '';
         left: 50%;
         position: absolute;
         pointer-events: none;
@@ -18,32 +18,32 @@
         z-index: 1001;
 
         .vscode-light & {
-            border-bottom-color: var(--background-color--darken-075);
+            border-bottom-color: var(--color-background--darken-075);
         }
 
         .vscode-dark & {
-            border-bottom-color: var(--background-color--lighten-075);
+            border-bottom-color: var(--color-background--lighten-075);
         }
     }
 
     .vscode-light & {
-        background: var(--background-color--darken-075);
+        background: var(--color-background--darken-075);
     }
 
     .vscode-dark & {
-        background: var(--background-color--lighten-075);
+        background: var(--color-background--lighten-075);
     }
 }
 
 .token-popup__hint {
-    color: var(--color--75);
+    color: var(--color-foreground--75);
     display: inline-block;
     font-weight: 200;
     margin: 1.25em 0.5em 0 0.25em;
 }
 
 .token-popup__title {
-    color: var(--color);
+    color: var(--color-foreground);
     font-weight: 400;
     margin: 0.25em 0 1em 0;
     text-align: center;
@@ -51,7 +51,7 @@
 
 .token-popup__table {
     border-collapse: collapse;
-    color: var(--color--75);
+    color: var(--color-foreground--75);
     table-layout: fixed;
 
     & tr:nth-child(even) {
@@ -82,8 +82,8 @@
 }
 
 .token {
-    background: var(--link-color--darken-20);
-    border-bottom: 2px solid var(--link-color--darken-20);
+    background: var(--color-link-foreground--darken-20);
+    border-bottom: 2px solid var(--color-link-foreground--darken-20);
     border-radius: 3px;
     color: white;
     cursor: pointer;
@@ -91,10 +91,10 @@
     padding: 1px 8px !important;
 
     &:before {
-        content: "${"
+        content: '${';
     }
 
     &:after {
-        content: "}"
+        content: '}';
     }
 }
