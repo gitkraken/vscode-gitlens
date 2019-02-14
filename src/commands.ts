@@ -23,6 +23,7 @@ export * from './commands/openChangedFiles';
 export * from './commands/openCommitInRemote';
 export * from './commands/openFileInRemote';
 export * from './commands/openFileRevision';
+export * from './commands/openFileRevisionFromBranch';
 export * from './commands/openInRemote';
 export * from './commands/openRepoInRemote';
 export * from './commands/openWorkingFile';

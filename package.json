@@ -2114,6 +2114,11 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.openFileRevisionFromBranch",
+                "title": "Open Revision from Branch or Tag...",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.openRepoInRemote",
                 "title": "Open Repository on Remote",
                 "category": "GitLens",
@@ -3034,6 +3039,10 @@
                 },
                 {
                     "command": "gitlens.openFileRevision",
+                    "when": "gitlens:activeFileStatus =~ /tracked/"
+                },
+                {
+                    "command": "gitlens.openFileRevisionFromBranch",
                     "when": "gitlens:activeFileStatus =~ /tracked/"
                 },
                 {
