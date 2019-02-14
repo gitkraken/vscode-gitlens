@@ -6,13 +6,7 @@ import {
     ThemeColor,
     workspace
 } from 'vscode';
-import {
-    DiffWithCommand,
-    OpenCommitInRemoteCommand,
-    OpenFileRevisionCommand,
-    ShowQuickCommitDetailsCommand,
-    ShowQuickCommitFileDetailsCommand
-} from '../commands';
+import { DiffWithCommand, ShowQuickCommitDetailsCommand } from '../commands';
 import { FileAnnotationType } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
@@ -49,9 +43,6 @@ interface IRenderOptions extends DecorationInstanceRenderOptions, ThemableDecora
 
 const defaultHeatmapHotColor = '#f66a0a';
 const defaultHeatmapColdColor = '#0a60f6';
-const escapeMarkdownRegex = /[`\>\#\*\_\-\+\.]/g;
-// const sampleMarkdown = '## message `not code` *not important* _no underline_ \n> don\'t quote me \n- don\'t list me \n+ don\'t list me \n1. don\'t list me \nnot h1 \n=== \nnot h2 \n---\n***\n---\n___';
-const markdownHeaderReplacement = `${GlyphChars.ZeroWidthSpace}===`;
 
 let computedHeatmapColor: {
     color: string;
