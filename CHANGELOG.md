@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [9.5.1] - 2019-02-13
+
+### Added
+
+- Adds better tooltips for file revisions (`gitlen://` uris) — includes the commit id
+- Adds an _Open Revision from Branch or Tag..._ (`gitlens.openFileRevisionFromBranch`) command to open the revision of the current file from the selected branch &mdash; closes [#646](https://github.com/eamodio/vscode-gitlens/issues/646)
+
+### Fixed
+
+- Fixes issues with the welcome page and the interactive settings in the latest vscode insiders build
+
 ## [9.5.0] - 2019-02-06
 
 ### Added

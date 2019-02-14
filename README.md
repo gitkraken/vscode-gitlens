@@ -613,6 +613,8 @@ The compare view provides the following features,
 
 - Adds an _Open Revision..._ command (`gitlens.openFileRevision`) to open the selected revision for the current file
 
+- Adds an _Open Revision from Branch or Tag..._ command (`gitlens.openFileRevisionFromBranch`) to open the revision of the current file from the selected branch
+
 - Adds an _Open Changes (with difftool)_ command (`gitlens.externalDiff`) to the source control group and source control resource context menus to open the changes of a file or set of files with the configured git difftool
 
 - Adds an _Open All Changes (with difftool)_ command (`gitlens.externalDiffAll`) to open all working changes with the configured git difftool
