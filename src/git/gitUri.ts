@@ -44,7 +44,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
     constructor(uri: Uri, repoPath: string | undefined);
     constructor(uri?: Uri, commitOrRepoPath?: GitCommitish | string) {
         if (uri == null) {
-            super();
+            super('unknown', '', '', '', '');
 
             return;
         }
