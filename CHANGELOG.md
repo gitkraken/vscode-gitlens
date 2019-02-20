@@ -1315,7 +1315,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes issue where changing `gitlens.blame.file.annotationType` wouldn't correctly update the blame annotations if they were currently active
 - Fixes issue where `isBlameable` context could be set incorrectly leading to blame icon showing up on invalid documents
 
-## [5.5.0] - 2017-10-09
+## 5.5.0 - 2017-10-09
 
 ### Added
 
@@ -1346,7 +1346,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes [#161](https://github.com/eamodio/vscode-gitlens/issues/161) - Remove colors from output of git command calls
 
-## [5.4.1] - 2017-10-03
+## 5.4.1 - 2017-10-03
 
 ### Changed
 
@@ -1433,7 +1433,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes an issue where stashes with only untracked files would not show in the **Stashes** node of the _GitLens_ explorer
 - Fixes an issue where stashes with untracked files would not show its untracked files in the _GitLens_ explorer
 
-## [5.0.0] - 2017-09-12
+## 5.0.0 - 2017-09-12
 
 ### Added
 
@@ -1543,25 +1543,25 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes an issue where sometimes diffs (via branch name) wouldn't open properly
 - Fixes an issue where remotes are queried more than once on startup
 
-## [4.4.3] - 2017-08-30
+## 4.4.3 - 2017-08-30
 
 ## Fixed
 
 - Fixes [#135](https://github.com/eamodio/vscode-gitlens/issues/135) - Full-width characters break gutter annotations (really this time)
 
-## [4.4.2] - 2017-08-29
+## 4.4.2 - 2017-08-29
 
 ## Fixed
 
 - Fixes [#135](https://github.com/eamodio/vscode-gitlens/issues/135) - Full-width characters break gutter annotations
 
-## [4.4.1] - 2017-08-23
+## 4.4.1 - 2017-08-23
 
 ## Fixed
 
 - Fixes [#114](https://github.com/eamodio/vscode-gitlens/issues/114) - Stylus files makes code lens freak out
 
-## [4.4.0] - 2017-08-18
+## 4.4.0 - 2017-08-18
 
 ## Added
 
@@ -1585,7 +1585,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes jumpiness when opening a diff to a certain line
 
-## [4.3.3] - 2017-07-28
+## 4.3.3 - 2017-07-28
 
 ## Added
 
@@ -1599,13 +1599,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes [#107](https://github.com/eamodio/vscode-gitlens/issues/107) - Double-byte characters break blame layout (still requires proper font support)
 
-## [4.3.2] - 2017-07-20
+## 4.3.2 - 2017-07-20
 
 ## Fixed
 
 - Fixes [#118](https://github.com/eamodio/vscode-gitlens/issues/118) - GitLens stopped working on latest insiders build &mdash; thanks to [PR #121](https://github.com/eamodio/vscode-gitlens/pull/121) by Johannes Rieken ([@jrieken](https://github.com/jrieken))
 
-## [4.3.1] - 2017-07-03
+## 4.3.1 - 2017-07-03
 
 ## Added
 
@@ -1620,7 +1620,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes [#108](https://github.com/eamodio/vscode-gitlens/issues/108) - Option to remove stash explorer from the main explorer?
 
-## [4.3.0] - 2017-07-03
+## 4.3.0 - 2017-07-03
 
 ## Added
 
@@ -1631,7 +1631,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Expand each stash to quickly see the set of files changed, complete with status indicators for adds, changes, renames, and deletes
     - Provides a context menu with _Open Changes_, _Open File_, _Open Stashed File_, _Open File in Remote_, and _Compare File with Working Tree_ commands
 
-## [4.2.0] - 2017-06-27
+## 4.2.0 - 2017-06-27
 
 ## Added
 
@@ -1655,7 +1655,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#103](https://github.com/eamodio/vscode-gitlens/issues/103) - Toggle file blame annotations disables line blame annotations if line blame annotations are off by default
 - Fixes another infinite loop in the _Close Unchanged Files_ command
 
-## [4.1.4] - 2017-06-25
+## 4.1.4 - 2017-06-25
 
 ## Changed
 
@@ -1666,19 +1666,19 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes **changes** (diff) hover not showing the correct previous line (for real this time)
 - Attempts to fix [#99](https://github.com/eamodio/vscode-gitlens/issues/99) - undo/redo spawns too many git processes
 
-## [4.1.3] - 2017-06-20
+## 4.1.3 - 2017-06-20
 
 ### Fixed
 
 - Fixes **changes** (diff) hover not showing the correct previous line when showing recent changes annotations of the whole-file
 
-## [4.1.2] - 2017-06-15
+## 4.1.2 - 2017-06-15
 
 ### Fixed
 
 - Fixes [#96](https://github.com/eamodio/vscode-gitlens/issues/96) - External diff command can be unintentionally triggered
 
-## [4.1.1] - 2017-06-13
+## 4.1.1 - 2017-06-13
 
 ### Added
 
@@ -1688,7 +1688,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes missing _Toggle File Blame Annotations_ command icon
 
-## [4.1.0] - 2017-06-13
+## 4.1.0 - 2017-06-13
 
 ### Added
 
@@ -1707,13 +1707,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes extra newline in multi-line commit messages
 - Fixes (again) [#33](https://github.com/eamodio/vscode-gitlens/issues/33) - Commit messages can causes markdown formatting in hovers
 
-## [4.0.1] - 2017-06-09
+## 4.0.1 - 2017-06-09
 
 ### Fixed
 
 - Fixes [#87](https://github.com/eamodio/vscode-gitlens/issues/87) - Can't open files in remote when using git@ urls (ssh)
 
-## [4.0.0] - 2017-06-09
+## 4.0.0 - 2017-06-09
 
 ### Added
 
@@ -1758,13 +1758,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes issues with the zone.js monkey patching done by application insights (telemetry) - disables all the monkey patching
 - Fixes issue with _Open Branch in Remote_ & _Open Repository in Remote_ not showing when there are no open editors
 
-## [3.6.1] - 2017-06-07
+## 3.6.1 - 2017-06-07
 
 ### Fixed
 
 - Fixes issues with the zone.js monkey patching done by application insights (telemetry) - disables all the monkey patching
 
-## [3.6.0] - 2017-06-02
+## 3.6.0 - 2017-06-02
 
 ### Added
 
@@ -1788,7 +1788,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes [#79](https://github.com/eamodio/vscode-gitlens/issues/79) - Application insights package breaks GitLens + eslint
 
-## [3.5.1] - 2017-05-25
+## 3.5.1 - 2017-05-25
 
 ### Changed
 
@@ -1800,7 +1800,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#71](https://github.com/eamodio/vscode-gitlens/issues/71) - Blame information is invalid when a file has changed outside of vscode
 - Fixes issue with showing the incorrect blame for versioned files (i.e. files on the left of a diff, etc)
 
-## [3.5.0] - 2017-05-24
+## 3.5.0 - 2017-05-24
 
 ### Added
 
@@ -1838,7 +1838,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes incorrect command execution when using `"gitlens.statusBar.command": "gitlens.showQuickRepoHistory"`
 - Fixes a bunch of issues that were revealed by enabling Typescript `strict` mode
 
-## [3.4.9] - 2017-05-03
+## 3.4.9 - 2017-05-03
 
 ### Added
 
@@ -1849,13 +1849,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Removes deleted files when choosing _Open Working Changed Files_ via in quick pick menus
 
-## [3.4.8] - 2017-05-02
+## 3.4.8 - 2017-05-02
 
 ### Changed
 
 - Changes display name in the marketplace to **Git Lens** because of the marketplace search ranking algorithm
 
-## [3.4.6] - 2017-05-01
+## 3.4.6 - 2017-05-01
 
 ### Added
 
@@ -1874,7 +1874,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes incorrect file selection when showing commit details quick pick menu
 - Fixes timing error on startup
 
-## [3.4.5] - 2017-04-13
+## 3.4.5 - 2017-04-13
 
 ### Added
 
@@ -1895,13 +1895,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes issue with _Open Commit in Remote_ not working
 - Fixes issue with many commands missing from the **Command Palette**
 
-## [3.3.3] - 2017-04-10
+## 3.3.3 - 2017-04-10
 
 ### Fixed
 
 - Fixes issue with newlines in commit messages in the file/branch/stash history quick pick menus (truncates and adds an ellipse icon)
 
-## [3.3.2] - 2017-04-10
+## 3.3.2 - 2017-04-10
 
 ### Removed
 
@@ -1911,7 +1911,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Closes [#63](https://github.com/eamodio/vscode-gitlens/issues/63) - Switch commit message and author in commit pick list. Also reduces clutter in the commit quick pick menus
 
-## [3.3.1] - 2017-04-09
+## 3.3.1 - 2017-04-09
 
 ### Changed
 
@@ -1922,7 +1922,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes issues with author searching
 
-## [3.3.0] - 2017-04-09
+## 3.3.0 - 2017-04-09
 
 ### Added
 
@@ -1940,13 +1940,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes [#59](https://github.com/eamodio/vscode-gitlens/issues/59) - Context menu shows gitlens commands even if folder/file is not under git
 
-## [3.2.1]
+## 3.2.1
 
 ### Fixed
 
 - Fixes [#57](https://github.com/eamodio/vscode-gitlens/issues/57) - No more blank message if `diff.tool` is missing
 
-## [3.2.0]
+## 3.2.0
 
 ### Added
 
@@ -1958,7 +1958,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#58](https://github.com/eamodio/vscode-gitlens/issues/58) - Work with git sub-modules
 - Fixes issue with _Open \* in Remote_ commands with nested repositories and non-git workspace root folder
 
-## [3.1.0]
+## 3.1.0
 
 ### Added
 
@@ -1972,7 +1972,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes incorrect counts in upstream status
 
-## [3.0.5]
+## 3.0.5
 
 ### Added
 
@@ -1984,7 +1984,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes [#56](https://github.com/eamodio/vscode-gitlens/issues/56) - Handle file names with spaces
 
-## [3.0.4]
+## 3.0.4
 
 ### Changed
 
@@ -1994,7 +1994,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes common telemetry error by switching to non-strict iso dates (since they are only available in later git versions)
 
-## [3.0.3]
+## 3.0.3
 
 ### Added
 
@@ -2005,19 +2005,19 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#55](https://github.com/eamodio/vscode-gitlens/issues/55) - reverts Git requirement back to `2.2.0`
 - Fixes issues with parsing merge commits
 
-## [3.0.2]
+## 3.0.2
 
 ### Changed
 
 - Changes required Git version to `2.11.0`
 
-## [3.0.1]
+## 3.0.1
 
 ### Added
 
 - Adds basic telemetry &mdash; honors the vscode telemetry configuration setting
 
-## [3.0.0]
+## 3.0.0
 
 ### Added
 
@@ -2054,13 +2054,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes issues with parsing commits history
 - Fixes various issues with merge commits
 
-## [2.12.2]
+## 2.12.2
 
 ### Fixed
 
 - Fixes [#50](https://github.com/eamodio/vscode-gitlens/issues/50) - excludes container-level code lens from `html` and `vue` language files
 
-## [2.12.1]
+## 2.12.1
 
 ### Added
 
@@ -2070,7 +2070,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes issue where `gitlens.showQuickRepoHistory` command fails to open when there is no active editor
 
-## [2.12.0]
+## 2.12.0
 
 ### Added
 
@@ -2087,7 +2087,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Changes `gitlens.copyShaToClipboard` to copy the full sha, rather than short sha
 - Changes internal tracking to use full sha (rather than short sha)
 
-## [2.11.2]
+## 2.11.2
 
 ### Added
 
@@ -2108,7 +2108,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes (#45)[https://github.com/eamodio/vscode-gitlens/issues/45] - Keyboard Shortcut collision with Project Manager
 
-## [2.11.1]
+## 2.11.1
 
 ### Added
 
@@ -2119,7 +2119,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes intermittent issues when toggling whitespace for blame annotations
 
-## [2.11.0]
+## 2.11.0
 
 ### Added
 
@@ -2151,7 +2151,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes intermittent errors when adding active line annotations
 - Fixes intermittent errors when opening multiple files via quick pick menus
 
-## [2.10.1]
+## 2.10.1
 
 ### Fixed
 
@@ -2159,7 +2159,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes issue with single quotes (') in annotations
 - Fixes output channel logging (also adds more debug information to code lens &mdash; when enabled)
 
-## [2.10.0]
+## 2.10.0
 
 ### Added
 
@@ -2174,7 +2174,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes issue with undo (to a saved state) not causing annotations to reappear properly
 - Attempts to fix [#42](https://github.com/eamodio/vscode-gitlens/issues/42) - Cursor on Uncommitted message
 
-## [2.9.0]
+## 2.9.0
 
 ### Changed
 
@@ -2188,7 +2188,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#38](https://github.com/eamodio/vscode-gitlens/issues/38) - Toggle Blame Annotation button shows even when it isn't valid
 - Fixes [#36](https://github.com/eamodio/vscode-gitlens/issues/36) - Blame information is invalid when a file has unsaved changes
 
-## [2.8.2]
+## 2.8.2
 
 ### Added
 
@@ -2200,13 +2200,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes [#39](https://github.com/eamodio/vscode-gitlens/issues/39) - Add date format options for status bar blame
 
-## [2.8.1]
+## 2.8.1
 
 ### Fixed
 
 - Fixes issue where _Compare with \*_ commands fail to open when there is no active editor
 
-## [2.8.0]
+## 2.8.0
 
 ### Added
 
@@ -2231,7 +2231,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes issue where active line annotations would show for opened versioned files
 - Fixes issue where code lens compare commands on opened versioned files would fail
 
-## [2.7.1]
+## 2.7.1
 
 ### Added
 
@@ -2241,7 +2241,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes [#33](https://github.com/eamodio/vscode-gitlens/issues/33) - Commit message styled as title in popup, when message starts with hash symbol
 
-## [2.7.0]
+## 2.7.0
 
 ### Added
 
@@ -2260,38 +2260,38 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes issue with `.` showing in the path of quick pick menus
 - Fixes logging to clean up on extension deactivate
 
-## [2.6.0]
+## 2.6.0
 
 ### Added
 
 - Adds `gitlens.showQuickRepoStatus` command to show a quick pick menu of files changed including status icons (added, modified, deleted, etc)
 - Adds `alt+s` shortcut for the `gitlens.showQuickRepoStatus` command
 
-## [2.5.6]
+## 2.5.6
 
 ### Fixed
 
 - Fixes [#32](https://github.com/eamodio/vscode-gitlens/issues/32) - 00000000 Uncommitted changes distracting
 
-## [2.5.5]
+## 2.5.5
 
 ### Fixed
 
 - Fixes [#25](https://github.com/eamodio/vscode-gitlens/issues/25) - Blame information isn't updated after git operations (commit, reset, etc)
 
-## [2.5.4]
+## 2.5.4
 
 ### Fixed
 
 - Fixes extra spacing in annotations
 
-## [2.5.3]
+## 2.5.3
 
 ### Fixed
 
 - Fixes [#27](https://github.com/eamodio/vscode-gitlens/issues/27) - Annotations are broken in vscode insider build
 
-## [2.5.2]
+## 2.5.2
 
 ### Added
 
@@ -2307,7 +2307,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes showing `gitlens.showQuickCommitDetails` quick pick menu for uncommitted changes &mdash; now shows the previous commit details
 
-## [2.5.1]
+## 2.5.1
 
 ### Added
 
@@ -2324,7 +2324,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes issue where shortcut keys weren't disabled if GitLens was disabled
 
-## [2.5.0]
+## 2.5.0
 
 ### Added
 
@@ -2360,13 +2360,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes issue where quick pick menus could fail if there was no active editor
 - Fixes code lens not updating in response to configuration changes
 
-## [2.1.1]
+## 2.1.1
 
 ### Fixed
 
 - Fixes overzealous active line annotation updating on document changes
 
-## [2.1.0]
+## 2.1.0
 
 ### Added
 
@@ -2388,7 +2388,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes issues with `gitlens.diffLineWithPrevious` and `gitlens.diffWithPrevious` not following renames properly
 - Fixes issues with `gitlens.diffLineWithPrevious` and `gitlens.diffWithPrevious` not always grabbing the correct commit
 
-## [2.0.2]
+## 2.0.2
 
 ### Added
 
@@ -2399,13 +2399,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes [#22](https://github.com/eamodio/vscode-gitlens/issues/22) - Cannot read property 'sha' of undefined
 
-## [2.0.1]
+## 2.0.1
 
 ### Fixed
 
 - Fixes [#26](https://github.com/eamodio/vscode-gitlens/issues/26) - Active line annotation doesn't disappear properly after delete
 
-## [2.0.0]
+## 2.0.0
 
 ### Added
 
@@ -2427,7 +2427,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes issue where the status bar blame would get stuck switching between editors
 - Fixes issue where code lens aren't updated properly after a file is saved
 
-## [1.4.3]
+## 1.4.3
 
 ### Added
 
@@ -2437,19 +2437,19 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes issue with the latest insiders build (1.9.0-insider f67f87c5498d9361c0b29781c341fd032815314b) where there is a collision of document schemes
 
-## [1.4.2]
+## 1.4.2
 
 ### Fixed
 
 - Fixes issue where file history wouldn't compare correctly to working tree if the filename had changed
 
-## [1.4.1]
+## 1.4.1
 
 ### Added
 
 - Adds `gitlens.advanced.gitignore.enabled` to enable/disable .gitignore parsing. Addresses [#20](https://github.com/eamodio/vscode-gitlens/issues/20) - Nested .gitignore files can cause blame to fail with a repo within another repo
 
-## [1.4.0]
+## 1.4.0
 
 ### Added
 
@@ -2466,7 +2466,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Removes context menu for `gitlens.diffLineWithWorking` &mdash; since it is now the `alt` of `gitlens.diffWithWorking`
 - Replaces `gitlens.menus.fileDiff.enabled` and `gitlens.menus.lineDiff.enabled` with `gitlens.menus.diff.enabled` &mdash; since the switch between file and line diff is now controlled by the `alt` key
 
-## [1.3.1]
+## 1.3.1
 
 ### Added
 
@@ -2479,13 +2479,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Removes _Git_ from the commands as it feels unnecessary
 - Reorders the context menu commands
 
-## [1.3.0]
+## 1.3.0
 
 ### Added
 
 - Adds support for blame and history (log) on files opened via compare commands &mdash; allows for deep navigation through git history
 
-## [1.2.0]
+## 1.2.0
 
 ### Added
 
@@ -2496,7 +2496,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes issue with repository history compare with commits with multiple files
 
-## [1.1.1]
+## 1.1.1
 
 ### Added
 
@@ -2506,7 +2506,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Changes `gitlens.showQuickRepoHistory` command to run without an open editor (falls back to the folder repository)
 
-## [1.1.0]
+## 1.1.0
 
 ### Added
 
@@ -2522,13 +2522,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Removes `git.viewFileHistory` option from the `gitlens.codeLens.recentChange.command`, `gitlens.codeLens.authors.command`, and `gitlens.statusBar.command` settings
 
-## [1.0.2]
+## 1.0.2
 
 ### Fixed
 
 - Fixes [#16](https://github.com/eamodio/vscode-gitlens/issues/16) - incorrect 'Unable to find Git' message
 
-## [1.0.0]
+## 1.0.0
 
 ### Added
 
@@ -2559,32 +2559,32 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes many (most?) issues with whitespace toggling (required because of https://github.com/Microsoft/vscode/issues/11485)
 - Fixes issue where blame annotations would not be cleared properly when switching between open files
 
-## [0.5.5]
+## 0.5.5
 
 ### Fixed
 
 - Fixes another off-by-one issue when diffing with caching
 
-## [0.5.4]
+## 0.5.4
 
 ### Fixed
 
 - Fixes off-by-one issues with blame annotations without caching and when diffing with a previous version
 
-## [0.5.3]
+## 0.5.3
 
 ### Added
 
 - Adds better uncommitted hover message in blame annotations
 - Adds more protection for dealing with uncommitted lines
 
-## [0.5.2]
+## 0.5.2
 
 ### Fixed
 
 - Fixes loading issue on Linux
 
-## [0.5.1]
+## 0.5.1
 
 ### Added
 
@@ -2604,26 +2604,26 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes Diff with Previous when the selection is uncommitted
 
-## [0.3.3]
+## 0.3.3
 
 ### Fixed
 
 - Fixes [#7](https://github.com/eamodio/vscode-gitlens/issues/7) - missing spawn-rx dependency (argh!)
 
-## [0.3.2]
+## 0.3.2
 
 ### Fixed
 
 - Fixes [#7](https://github.com/eamodio/vscode-gitlens/issues/7) - missing lodash dependency
 
-## [0.3.1]
+## 0.3.1
 
 ### Added
 
 - Adds new code lens visibility & location settings &mdash; see **Extension Settings** for details
 - Adds new command to toggle code lens on and off when `gitlens.codeLens.visibility` is set to `ondemand`
 
-## [0.2.0]
+## 0.2.0
 
 ### Changed
 
@@ -2636,7 +2636,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes issues with blame explorer code lens when dealing with previous commits
 - Fixes display issues with compact blame annotations (now skips blank lines)
 
-## [0.1.3]
+## 0.1.3
 
 ### Added
 
@@ -2644,7 +2644,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Add new blame annotation styles &mdash; compact and expanded (default)
 - Adds many new configuration settings; see **Extension Settings** for details
 
-## [0.0.7]
+## 0.0.7
 
 ### Added
 
@@ -2655,7 +2655,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#4](https://github.com/eamodio/vscode-gitlens/issues/4) - Absolute paths fail on Windows due to backslash (Really!)
 - Fixes [#5](https://github.com/eamodio/vscode-gitlens/issues/5) - Finding first non-white-space fails sometimes
 
-## [0.0.6]
+## 0.0.6
 
 ### Added
 
@@ -2666,7 +2666,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#2](https://github.com/eamodio/vscode-gitlens/issues/2) - [request] Provide some debug info when things fail
 - Fixes [#4](https://github.com/eamodio/vscode-gitlens/issues/4) - Absolute paths fail on Windows due to backslash
 
-## [0.0.5]
+## 0.0.5
 
 ### Changed
 
@@ -2678,14 +2678,157 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes issues where filename changes in history would cause diffs to fails
 - Fixes some issues with uncommitted blames
 
-## [0.0.4]
+## 0.0.4
 
 ### Added
 
 - Candidate for preview release on the vscode marketplace.
 
-## [0.0.1]
+## 0.0.1
 
 ### Added
 
 - Initial release but still heavily a work in progress.
+
+[9.5.1]: https://github.com/eamodio/vscode-gitlens/compare/v9.5.0...eamodio:v9.5.1
+[9.5.0]: https://github.com/eamodio/vscode-gitlens/compare/v9.4.1...eamodio:v9.5.0
+[9.4.1]: https://github.com/eamodio/vscode-gitlens/compare/v9.4.0...eamodio:v9.4.1
+[9.4.0]: https://github.com/eamodio/vscode-gitlens/compare/v9.3.0...eamodio:v9.4.0
+[9.3.0]: https://github.com/eamodio/vscode-gitlens/compare/v9.2.4...eamodio:v9.3.0
+[9.2.4]: https://github.com/eamodio/vscode-gitlens/compare/v9.2.3...eamodio:v9.2.4
+[9.2.3]: https://github.com/eamodio/vscode-gitlens/compare/v9.2.2...eamodio:v9.2.3
+[9.2.2]: https://github.com/eamodio/vscode-gitlens/compare/v9.2.1...eamodio:v9.2.2
+[9.2.1]: https://github.com/eamodio/vscode-gitlens/compare/v9.2.0...eamodio:v9.2.1
+[9.2.0]: https://github.com/eamodio/vscode-gitlens/compare/v9.1.0...eamodio:v9.2.0
+[9.1.0]: https://github.com/eamodio/vscode-gitlens/compare/v9.0.3...eamodio:v9.1.0
+[9.0.3]: https://github.com/eamodio/vscode-gitlens/compare/v9.0.2...eamodio:v9.0.3
+[9.0.2]: https://github.com/eamodio/vscode-gitlens/compare/v9.0.1...eamodio:v9.0.2
+[9.0.1]: https://github.com/eamodio/vscode-gitlens/compare/v9.0.0...eamodio:v9.0.1
+[9.0.0]: https://github.com/eamodio/vscode-gitlens/compare/v8.5.6...eamodio:v9.0.0
+[8.5.6]: https://github.com/eamodio/vscode-gitlens/compare/v8.5.5...eamodio:v8.5.6
+[8.5.5]: https://github.com/eamodio/vscode-gitlens/compare/v8.5.4...eamodio:v8.5.5
+[8.5.4]: https://github.com/eamodio/vscode-gitlens/compare/v8.5.3...eamodio:v8.5.4
+[8.5.3]: https://github.com/eamodio/vscode-gitlens/compare/v8.5.2...eamodio:v8.5.3
+[8.5.2]: https://github.com/eamodio/vscode-gitlens/compare/v8.5.1...eamodio:v8.5.2
+[8.5.1]: https://github.com/eamodio/vscode-gitlens/compare/v8.5.0...eamodio:v8.5.1
+[8.5.0]: https://github.com/eamodio/vscode-gitlens/compare/v8.4.1...eamodio:v8.5.0
+[8.4.1]: https://github.com/eamodio/vscode-gitlens/compare/v8.4.0...eamodio:v8.4.1
+[8.4.0]: https://github.com/eamodio/vscode-gitlens/compare/v8.3.5...eamodio:v8.4.0
+[8.3.5]: https://github.com/eamodio/vscode-gitlens/compare/v8.3.4...eamodio:v8.3.5
+[8.3.4]: https://github.com/eamodio/vscode-gitlens/compare/v8.3.3...eamodio:v8.3.4
+[8.3.3]: https://github.com/eamodio/vscode-gitlens/compare/v8.3.2...eamodio:v8.3.3
+[8.3.2]: https://github.com/eamodio/vscode-gitlens/compare/8.3.1...eamodio:v8.3.2
+[8.3.1]: https://github.com/eamodio/vscode-gitlens/compare/v8.3.0...eamodio:8.3.1
+[8.3.0]: https://github.com/eamodio/vscode-gitlens/compare/v8.2.4...eamodio:v8.3.0
+[8.2.4]: https://github.com/eamodio/vscode-gitlens/compare/v8.2.3...eamodio:v8.2.4
+[8.2.3]: https://github.com/eamodio/vscode-gitlens/compare/v8.2.2...eamodio:v8.2.3
+[8.2.2]: https://github.com/eamodio/vscode-gitlens/compare/v8.2.1...eamodio:v8.2.2
+[8.2.1]: https://github.com/eamodio/vscode-gitlens/compare/v8.2.0...eamodio:v8.2.1
+[8.2.0]: https://github.com/eamodio/vscode-gitlens/compare/v8.1.1...eamodio:v8.2.0
+[8.1.1]: https://github.com/eamodio/vscode-gitlens/compare/v8.1.0...eamodio:v8.1.1
+[8.1.0]: https://github.com/eamodio/vscode-gitlens/compare/v8.0.2...eamodio:v8.1.0
+[8.0.2]: https://github.com/eamodio/vscode-gitlens/compare/v8.0.1...eamodio:v8.0.2
+[8.0.1]: https://github.com/eamodio/vscode-gitlens/compare/v8.0.0...eamodio:v8.0.1
+[8.0.0]: https://github.com/eamodio/vscode-gitlens/compare/v7.5.10...eamodio:v8.0.0
+[7.5.10]: https://github.com/eamodio/vscode-gitlens/compare/v7.5.9...eamodio:v7.5.10
+[7.5.9]: https://github.com/eamodio/vscode-gitlens/compare/v7.5.8...eamodio:v7.5.9
+[7.5.8]: https://github.com/eamodio/vscode-gitlens/compare/v7.5.7...eamodio:v7.5.8
+[7.5.7]: https://github.com/eamodio/vscode-gitlens/compare/v7.5.6...eamodio:v7.5.7
+[7.5.6]: https://github.com/eamodio/vscode-gitlens/compare/v7.5.5...eamodio:v7.5.6
+[7.5.5]: https://github.com/eamodio/vscode-gitlens/compare/v7.5.4...eamodio:v7.5.5
+[7.5.4]: https://github.com/eamodio/vscode-gitlens/compare/v7.5.3...eamodio:v7.5.4
+[7.5.3]: https://github.com/eamodio/vscode-gitlens/compare/v7.5.2...eamodio:v7.5.3
+[7.5.2]: https://github.com/eamodio/vscode-gitlens/compare/v7.5.1...eamodio:v7.5.2
+[7.5.1]: https://github.com/eamodio/vscode-gitlens/compare/v7.2.0...eamodio:v7.5.1
+[7.2.0]: https://github.com/eamodio/vscode-gitlens/compare/v7.1.0...eamodio:v7.2.0
+[7.1.0]: https://github.com/eamodio/vscode-gitlens/compare/v7.0.0...eamodio:v7.1.0
+[7.0.0]: https://github.com/eamodio/vscode-gitlens/compare/v6.4.0...eamodio:v7.0.0
+[6.4.0]: https://github.com/eamodio/vscode-gitlens/compare/v6.3.0...eamodio:v6.4.0
+[6.3.0]: https://github.com/eamodio/vscode-gitlens/compare/v6.2.0...eamodio:v6.3.0
+[6.2.0]: https://github.com/eamodio/vscode-gitlens/compare/v6.1.2...eamodio:v6.2.0
+[6.1.2]: https://github.com/eamodio/vscode-gitlens/compare/v6.1.1...eamodio:v6.1.2
+[6.1.1]: https://github.com/eamodio/vscode-gitlens/compare/v6.1.0...eamodio:v6.1.1
+[6.1.0]: https://github.com/eamodio/vscode-gitlens/compare/v6.0.0...eamodio:v6.1.0
+[6.0.0]: https://github.com/eamodio/vscode-gitlens/compare/v5.7.1...eamodio:v6.0.0
+[5.7.1]: https://github.com/eamodio/vscode-gitlens/compare/v5.7.0...eamodio:v5.7.1
+[5.7.0]: https://github.com/eamodio/vscode-gitlens/compare/v5.6.5...eamodio:v5.7.0
+[5.6.5]: https://github.com/eamodio/vscode-gitlens/compare/v5.6.4...eamodio:v5.6.5
+[5.6.4]: https://github.com/eamodio/vscode-gitlens/compare/v5.6.3...eamodio:v5.6.4
+[5.6.3]: https://github.com/eamodio/vscode-gitlens/compare/v5.6.2...eamodio:v5.6.3
+[5.6.2]: https://github.com/eamodio/vscode-gitlens/compare/v5.6.1...eamodio:v5.6.2
+[5.6.1]: https://github.com/eamodio/vscode-gitlens/compare/v5.6.0...eamodio:v5.6.1
+[5.6.0]: https://github.com/eamodio/vscode-gitlens/compare/v5.5.0...eamodio:v5.6.0
+[5.4.0]: https://github.com/eamodio/vscode-gitlens/compare/v5.3.0...eamodio:v5.4.0
+[5.3.0]: https://github.com/eamodio/vscode-gitlens/compare/v5.2.0...eamodio:v5.3.0
+[5.2.0]: https://github.com/eamodio/vscode-gitlens/compare/v5.1.0...eamodio:v5.2.0
+[5.1.0]: https://github.com/eamodio/vscode-gitlens/compare/v5.0.0...eamodio:v5.1.0
+[9.5.1]: https://github.com/eamodio/vscode-gitlens/compare/v9.5.0...eamodio:v9.5.1
+[9.5.0]: https://github.com/eamodio/vscode-gitlens/compare/v9.4.1...eamodio:v9.5.0
+[9.4.1]: https://github.com/eamodio/vscode-gitlens/compare/v9.4.0...eamodio:v9.4.1
+[9.4.0]: https://github.com/eamodio/vscode-gitlens/compare/v9.3.0...eamodio:v9.4.0
+[9.3.0]: https://github.com/eamodio/vscode-gitlens/compare/v9.2.4...eamodio:v9.3.0
+[9.2.4]: https://github.com/eamodio/vscode-gitlens/compare/v9.2.3...eamodio:v9.2.4
+[9.2.3]: https://github.com/eamodio/vscode-gitlens/compare/v9.2.2...eamodio:v9.2.3
+[9.2.2]: https://github.com/eamodio/vscode-gitlens/compare/v9.2.1...eamodio:v9.2.2
+[9.2.1]: https://github.com/eamodio/vscode-gitlens/compare/v9.2.0...eamodio:v9.2.1
+[9.2.0]: https://github.com/eamodio/vscode-gitlens/compare/v9.1.0...eamodio:v9.2.0
+[9.1.0]: https://github.com/eamodio/vscode-gitlens/compare/v9.0.3...eamodio:v9.1.0
+[9.0.3]: https://github.com/eamodio/vscode-gitlens/compare/v9.0.2...eamodio:v9.0.3
+[9.0.2]: https://github.com/eamodio/vscode-gitlens/compare/v9.0.1...eamodio:v9.0.2
+[9.0.1]: https://github.com/eamodio/vscode-gitlens/compare/v9.0.0...eamodio:v9.0.1
+[9.0.0]: https://github.com/eamodio/vscode-gitlens/compare/v8.5.6...eamodio:v9.0.0
+[8.5.6]: https://github.com/eamodio/vscode-gitlens/compare/v8.5.5...eamodio:v8.5.6
+[8.5.5]: https://github.com/eamodio/vscode-gitlens/compare/v8.5.4...eamodio:v8.5.5
+[8.5.4]: https://github.com/eamodio/vscode-gitlens/compare/v8.5.3...eamodio:v8.5.4
+[8.5.3]: https://github.com/eamodio/vscode-gitlens/compare/v8.5.2...eamodio:v8.5.3
+[8.5.2]: https://github.com/eamodio/vscode-gitlens/compare/v8.5.1...eamodio:v8.5.2
+[8.5.1]: https://github.com/eamodio/vscode-gitlens/compare/v8.5.0...eamodio:v8.5.1
+[8.5.0]: https://github.com/eamodio/vscode-gitlens/compare/v8.4.1...eamodio:v8.5.0
+[8.4.1]: https://github.com/eamodio/vscode-gitlens/compare/v8.4.0...eamodio:v8.4.1
+[8.4.0]: https://github.com/eamodio/vscode-gitlens/compare/v8.3.5...eamodio:v8.4.0
+[8.3.5]: https://github.com/eamodio/vscode-gitlens/compare/v8.3.4...eamodio:v8.3.5
+[8.3.4]: https://github.com/eamodio/vscode-gitlens/compare/v8.3.3...eamodio:v8.3.4
+[8.3.3]: https://github.com/eamodio/vscode-gitlens/compare/v8.3.2...eamodio:v8.3.3
+[8.3.0]: https://github.com/eamodio/vscode-gitlens/compare/v8.2.4...eamodio:v8.3.0
+[8.2.4]: https://github.com/eamodio/vscode-gitlens/compare/v8.2.3...eamodio:v8.2.4
+[8.2.3]: https://github.com/eamodio/vscode-gitlens/compare/v8.2.2...eamodio:v8.2.3
+[8.2.2]: https://github.com/eamodio/vscode-gitlens/compare/v8.2.1...eamodio:v8.2.2
+[8.2.1]: https://github.com/eamodio/vscode-gitlens/compare/v8.2.0...eamodio:v8.2.1
+[8.2.0]: https://github.com/eamodio/vscode-gitlens/compare/v8.1.1...eamodio:v8.2.0
+[8.1.1]: https://github.com/eamodio/vscode-gitlens/compare/v8.1.0...eamodio:v8.1.1
+[8.1.0]: https://github.com/eamodio/vscode-gitlens/compare/v8.0.2...eamodio:v8.1.0
+[8.0.2]: https://github.com/eamodio/vscode-gitlens/compare/v8.0.1...eamodio:v8.0.2
+[8.0.1]: https://github.com/eamodio/vscode-gitlens/compare/v8.0.0...eamodio:v8.0.1
+[8.0.0]: https://github.com/eamodio/vscode-gitlens/compare/v7.5.10...eamodio:v8.0.0
+[7.5.10]: https://github.com/eamodio/vscode-gitlens/compare/v7.5.9...eamodio:v7.5.10
+[7.5.9]: https://github.com/eamodio/vscode-gitlens/compare/v7.5.8...eamodio:v7.5.9
+[7.5.8]: https://github.com/eamodio/vscode-gitlens/compare/v7.5.7...eamodio:v7.5.8
+[7.5.7]: https://github.com/eamodio/vscode-gitlens/compare/v7.5.6...eamodio:v7.5.7
+[7.5.6]: https://github.com/eamodio/vscode-gitlens/compare/v7.5.5...eamodio:v7.5.6
+[7.5.5]: https://github.com/eamodio/vscode-gitlens/compare/v7.5.4...eamodio:v7.5.5
+[7.5.4]: https://github.com/eamodio/vscode-gitlens/compare/v7.5.3...eamodio:v7.5.4
+[7.5.3]: https://github.com/eamodio/vscode-gitlens/compare/v7.5.2...eamodio:v7.5.3
+[7.5.2]: https://github.com/eamodio/vscode-gitlens/compare/v7.5.1...eamodio:v7.5.2
+[7.5.1]: https://github.com/eamodio/vscode-gitlens/compare/v7.2.0...eamodio:v7.5.1
+[7.2.0]: https://github.com/eamodio/vscode-gitlens/compare/v7.1.0...eamodio:v7.2.0
+[7.1.0]: https://github.com/eamodio/vscode-gitlens/compare/v7.0.0...eamodio:v7.1.0
+[7.0.0]: https://github.com/eamodio/vscode-gitlens/compare/v6.4.0...eamodio:v7.0.0
+[6.4.0]: https://github.com/eamodio/vscode-gitlens/compare/v6.3.0...eamodio:v6.4.0
+[6.3.0]: https://github.com/eamodio/vscode-gitlens/compare/v6.2.0...eamodio:v6.3.0
+[6.2.0]: https://github.com/eamodio/vscode-gitlens/compare/v6.1.2...eamodio:v6.2.0
+[6.1.2]: https://github.com/eamodio/vscode-gitlens/compare/v6.1.1...eamodio:v6.1.2
+[6.1.1]: https://github.com/eamodio/vscode-gitlens/compare/v6.1.0...eamodio:v6.1.1
+[6.1.0]: https://github.com/eamodio/vscode-gitlens/compare/v6.0.0...eamodio:v6.1.0
+[6.0.0]: https://github.com/eamodio/vscode-gitlens/compare/v5.7.1...eamodio:v6.0.0
+[5.7.1]: https://github.com/eamodio/vscode-gitlens/compare/v5.7.0...eamodio:v5.7.1
+[5.7.0]: https://github.com/eamodio/vscode-gitlens/compare/v5.6.5...eamodio:v5.7.0
+[5.6.5]: https://github.com/eamodio/vscode-gitlens/compare/v5.6.4...eamodio:v5.6.5
+[5.6.4]: https://github.com/eamodio/vscode-gitlens/compare/v5.6.3...eamodio:v5.6.4
+[5.6.3]: https://github.com/eamodio/vscode-gitlens/compare/v5.6.2...eamodio:v5.6.3
+[5.6.2]: https://github.com/eamodio/vscode-gitlens/compare/v5.6.1...eamodio:v5.6.2
+[5.6.1]: https://github.com/eamodio/vscode-gitlens/compare/v5.6.0...eamodio:v5.6.1
+[5.6.0]: https://github.com/eamodio/vscode-gitlens/compare/v5.5.0...eamodio:v5.6.0
+[5.4.0]: https://github.com/eamodio/vscode-gitlens/compare/v5.3.0...eamodio:v5.4.0
+[5.3.0]: https://github.com/eamodio/vscode-gitlens/compare/v5.2.0...eamodio:v5.3.0
+[5.2.0]: https://github.com/eamodio/vscode-gitlens/compare/v5.1.0...eamodio:v5.2.0
+[5.1.0]: https://github.com/eamodio/vscode-gitlens/compare/v5.0.0...eamodio:v5.1.0
