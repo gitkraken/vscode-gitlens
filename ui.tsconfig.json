@@ -1,19 +1,20 @@
 {
     "compilerOptions": {
+        "experimentalDecorators": true,
         "forceConsistentCasingInFileNames": true,
-        "lib": ["dom", "dom.iterable", "es2015", "es2015.iterable", "es2016"],
-        "module": "es2015",
+        "lib": ["dom", "dom.iterable", "es2018"],
+        "module": "esnext",
         "moduleResolution": "node",
         "noFallthroughCasesInSwitch": true,
         "noImplicitReturns": true,
         "noUnusedLocals": false,
         "outDir": "dist/ui",
-        "rootDir": "./src/ui",
+        "rootDir": "src",
         "skipLibCheck": true,
         "sourceMap": true,
         "strict": true,
-        "target": "es2016"
+        "target": "es2018"
     },
-    "include": ["src/ui/**/*"],
+    "include": ["src/config.ts", "src/ui/**/*"],
     "exclude": ["node_modules"]
 }

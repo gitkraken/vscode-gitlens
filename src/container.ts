@@ -1,14 +1,16 @@
 'use strict';
-import { commands, Disposable, ExtensionContext } from 'vscode';
+import { commands, ConfigurationChangeEvent, Disposable, ExtensionContext, Uri } from 'vscode';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { LineAnnotationController } from './annotations/lineAnnotationController';
 import { GitCodeLensController } from './codelens/codeLensController';
 import { Commands, ToggleFileBlameCommandArgs } from './commands';
-import { AnnotationsToggleMode, Config, configuration } from './configuration';
+import { AnnotationsToggleMode, Config, configuration, ConfigurationWillChangeEvent } from './configuration';
 import { GitFileSystemProvider } from './git/fsProvider';
 import { GitService } from './git/gitService';
+import { clearGravatarCache } from './git/gitService';
 import { LineHoverController } from './hovers/lineHoverController';
 import { Keyboard } from './keyboard';
+import { Logger, TraceLevel } from './logger';
 import { StatusBarController } from './statusbar/statusBarController';
 import { GitDocumentTracker } from './trackers/gitDocumentTracker';
 import { GitLineTracker } from './trackers/gitLineTracker';
@@ -23,6 +25,11 @@ import { SettingsEditor } from './webviews/settingsEditor';
 import { WelcomeEditor } from './webviews/welcomeEditor';
 
 export class Container {
+    private static _configsAffectedByMode: string[] | undefined;
+    private static _applyModeConfigurationTransformBound:
+        | ((e: ConfigurationChangeEvent) => ConfigurationChangeEvent)
+        | undefined;
+
     static initialize(context: ExtensionContext, config: Config) {
         this._context = context;
         this._config = Container.applyMode(config);
@@ -111,6 +118,30 @@ export class Container {
         }
 
         context.subscriptions.push(new GitFileSystemProvider());
+
+        context.subscriptions.push(configuration.onWillChange(this.onConfigurationChanging, this));
+    }
+
+    private static onConfigurationChanging(e: ConfigurationWillChangeEvent) {
+        this._config = undefined;
+
+        if (configuration.changed(e.change, configuration.name('outputLevel').value)) {
+            Logger.level = configuration.get<TraceLevel>(configuration.name('outputLevel').value);
+        }
+
+        if (configuration.changed(e.change, configuration.name('defaultGravatarsStyle').value)) {
+            clearGravatarCache();
+        }
+
+        if (
+            configuration.changed(e.change, configuration.name('mode').value) ||
+            configuration.changed(e.change, configuration.name('modes').value)
+        ) {
+            if (this._applyModeConfigurationTransformBound === undefined) {
+                this._applyModeConfigurationTransformBound = this.applyModeConfigurationTransform.bind(this);
+            }
+            e.transform = this._applyModeConfigurationTransformBound;
+        }
     }
 
     private static _codeLensController: GitCodeLensController;
@@ -235,10 +266,6 @@ export class Container {
         return this._welcomeEditor;
     }
 
-    static resetConfig() {
-        this._config = undefined;
-    }
-
     private static applyMode(config: Config) {
         if (!config.mode.active) return config;
 
@@ -307,5 +334,38 @@ export class Container {
         }
 
         return config;
+    }
+
+    private static applyModeConfigurationTransform(e: ConfigurationChangeEvent): ConfigurationChangeEvent {
+        if (this._configsAffectedByMode === undefined) {
+            this._configsAffectedByMode = [
+                `gitlens.${configuration.name('mode').value}`,
+                `gitlens.${configuration.name('modes').value}`,
+                `gitlens.${configuration.name('blame')('toggleMode').value}`,
+                `gitlens.${configuration.name('codeLens').value}`,
+                `gitlens.${configuration.name('currentLine').value}`,
+                `gitlens.${configuration.name('heatmap')('toggleMode').value}`,
+                `gitlens.${configuration.name('hovers').value}`,
+                `gitlens.${configuration.name('recentChanges')('toggleMode').value}`,
+                `gitlens.${configuration.name('statusBar').value}`,
+                `gitlens.${configuration.name('views')('compare').value}`,
+                `gitlens.${configuration.name('views')('fileHistory').value}`,
+                `gitlens.${configuration.name('views')('lineHistory').value}`,
+                `gitlens.${configuration.name('views')('repositories').value}`,
+                `gitlens.${configuration.name('views')('search').value}`
+            ];
+        }
+
+        const original = e.affectsConfiguration;
+        return {
+            ...e,
+            affectsConfiguration: (section: string, resource?: Uri) => {
+                if (this._configsAffectedByMode && this._configsAffectedByMode.some(n => section.startsWith(n))) {
+                    return true;
+                }
+
+                return original(section, resource);
+            }
+        };
     }
 }

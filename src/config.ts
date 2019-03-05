@@ -1,4 +1,5 @@
 'use strict';
+import { TraceLevel } from './logger';
 
 export interface Config {
     blame: {
@@ -155,13 +156,6 @@ export enum KeyMap {
     Alternate = 'alternate',
     Chorded = 'chorded',
     None = 'none'
-}
-
-export enum TraceLevel {
-    Silent = 'silent',
-    Errors = 'errors',
-    Verbose = 'verbose',
-    Debug = 'debug'
 }
 
 export enum StatusBarCommand {

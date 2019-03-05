@@ -3,17 +3,17 @@
         "experimentalDecorators": true,
         "forceConsistentCasingInFileNames": true,
         "importHelpers": true,
-        "lib": ["es2015", "es2016", "es2017"],
+        "lib": ["es2018"],
         "module": "esnext",
         "moduleResolution": "node",
         "noFallthroughCasesInSwitch": true,
         "noImplicitReturns": true,
         "noUnusedLocals": false,
         "outDir": "dist",
-        "rootDir": "./src",
+        "rootDir": "src",
         "sourceMap": true,
         "strict": true,
-        "target": "es2017"
+        "target": "es2018"
     },
     "exclude": ["node_modules", "test", "src/ui"]
 }

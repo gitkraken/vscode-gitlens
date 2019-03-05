@@ -1,5 +1,5 @@
 'use strict';
-export * from './ui/config';
+export * from './config';
 
 import {
     ConfigurationChangeEvent,
@@ -10,17 +10,20 @@ import {
     Uri,
     workspace
 } from 'vscode';
+import { Config } from './config';
 import { extensionId } from './constants';
-import { Container } from './container';
-import { clearGravatarCache } from './git/gitService';
 import { Functions } from './system';
-import { Config } from './ui/config';
 
 const emptyConfig: any = new Proxy<any>({} as Config, {
     get(target, propKey, receiver) {
         return emptyConfig;
     }
 });
+
+export interface ConfigurationWillChangeEvent {
+    change: ConfigurationChangeEvent;
+    transform?(e: ConfigurationChangeEvent): ConfigurationChangeEvent;
+}
 
 export class Configuration {
     static configure(context: ExtensionContext) {
@@ -34,51 +37,21 @@ export class Configuration {
         return this._onDidChange.event;
     }
 
-    private readonly _configAffectedByMode: string[];
-
-    constructor() {
-        this._configAffectedByMode = [
-            `gitlens.${this.name('mode').value}`,
-            `gitlens.${this.name('modes').value}`,
-            `gitlens.${this.name('blame')('toggleMode').value}`,
-            `gitlens.${this.name('codeLens').value}`,
-            `gitlens.${this.name('currentLine').value}`,
-            `gitlens.${this.name('heatmap')('toggleMode').value}`,
-            `gitlens.${this.name('hovers').value}`,
-            `gitlens.${this.name('recentChanges')('toggleMode').value}`,
-            `gitlens.${this.name('statusBar').value}`,
-            `gitlens.${this.name('views')('compare').value}`,
-            `gitlens.${this.name('views')('fileHistory').value}`,
-            `gitlens.${this.name('views')('lineHistory').value}`,
-            `gitlens.${this.name('views')('repositories').value}`,
-            `gitlens.${this.name('views')('search').value}`
-        ];
+    private _onWillChange = new EventEmitter<ConfigurationWillChangeEvent>();
+    get onWillChange(): Event<ConfigurationWillChangeEvent> {
+        return this._onWillChange.event;
     }
 
     private onConfigurationChanged(e: ConfigurationChangeEvent) {
         if (!e.affectsConfiguration(extensionId, null!)) return;
 
-        Container.resetConfig();
+        const evt: ConfigurationWillChangeEvent = {
+            change: e
+        };
+        this._onWillChange.fire(evt);
 
-        if (configuration.changed(e, configuration.name('defaultGravatarsStyle').value)) {
-            clearGravatarCache();
-        }
-
-        if (
-            configuration.changed(e, configuration.name('mode').value) ||
-            configuration.changed(e, configuration.name('modes').value)
-        ) {
-            const original = e.affectsConfiguration;
-            e = {
-                ...e,
-                affectsConfiguration: (section: string, resource?: Uri) => {
-                    if (this._configAffectedByMode.some(n => section.startsWith(n))) {
-                        return true;
-                    }
-
-                    return original(section, resource);
-                }
-            } as ConfigurationChangeEvent;
+        if (evt.transform !== undefined) {
+            e = evt.transform(e);
         }
 
         this._onDidChange.fire(e);

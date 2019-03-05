@@ -1,14 +1,14 @@
 'use strict';
 import { commands, ExtensionContext, extensions, window, workspace } from 'vscode';
 import { Commands, registerCommands } from './commands';
+import { ModeConfig } from './config';
 import { Config, configuration, Configuration } from './configuration';
 import { CommandContext, extensionQualifiedId, GlobalState, GlyphChars, setCommandContext } from './constants';
 import { Container } from './container';
 import { GitCommit, GitService, GitUri } from './git/gitService';
-import { Logger } from './logger';
+import { Logger, TraceLevel } from './logger';
 import { Messages } from './messages';
 import { Strings, Versions } from './system';
-import { ModeConfig } from './ui/config';
 // import { Telemetry } from './telemetry';
 
 export async function activate(context: ExtensionContext) {
@@ -17,7 +17,7 @@ export async function activate(context: ExtensionContext) {
     // Pretend we are enabled (until we know otherwise) and set the view contexts to reduce flashing on load
     setCommandContext(CommandContext.Enabled, true);
 
-    Logger.configure(context, o => {
+    Logger.configure(context, configuration.get<TraceLevel>(configuration.name('outputLevel').value), o => {
         if (o instanceof GitUri) {
             return `GitUri(${o.toString(true)}${o.repoPath ? ` repoPath=${o.repoPath}` : ''}${
                 o.sha ? ` sha=${o.sha}` : ''

@@ -1,11 +1,15 @@
 'use strict';
-import { ConfigurationChangeEvent, ExtensionContext, OutputChannel, Uri, window } from 'vscode';
-import { configuration, TraceLevel } from './configuration';
+import { ExtensionContext, OutputChannel, Uri, window } from 'vscode';
 import { extensionOutputChannelName } from './constants';
 import { getCorrelationContext } from './system';
 // import { Telemetry } from './telemetry';
 
-export { TraceLevel } from './configuration';
+export enum TraceLevel {
+    Silent = 'silent',
+    Errors = 'errors',
+    Verbose = 'verbose',
+    Debug = 'debug'
+}
 
 const ConsolePrefix = `[${extensionOutputChannelName}]`;
 
@@ -18,31 +22,29 @@ export interface LogCorrelationContext {
 }
 
 export class Logger {
-    static level: TraceLevel = TraceLevel.Silent;
     static output: OutputChannel | undefined;
     static customLoggableFn: ((o: object) => string | undefined) | undefined;
 
-    static configure(context: ExtensionContext, loggableFn?: (o: any) => string | undefined) {
+    static configure(context: ExtensionContext, level: TraceLevel, loggableFn?: (o: any) => string | undefined) {
         this.customLoggableFn = loggableFn;
 
-        context.subscriptions.push(configuration.onDidChange(this.onConfigurationChanged, this));
-        this.onConfigurationChanged(configuration.initializingChangeEvent);
+        this.level = level;
     }
 
-    private static onConfigurationChanged(e: ConfigurationChangeEvent) {
-        const section = configuration.name('outputLevel').value;
-        if (configuration.changed(e, section)) {
-            this.level = configuration.get<TraceLevel>(section);
-
-            if (this.level === TraceLevel.Silent) {
-                if (this.output !== undefined) {
-                    this.output.dispose();
-                    this.output = undefined;
-                }
+    private static _level: TraceLevel = TraceLevel.Silent;
+    static get level() {
+        return this._level;
+    }
+    static set level(value: TraceLevel) {
+        this._level = value;
+        if (value === TraceLevel.Silent) {
+            if (this.output !== undefined) {
+                this.output.dispose();
+                this.output = undefined;
             }
-            else {
-                this.output = this.output || window.createOutputChannel(extensionOutputChannelName);
-            }
+        }
+        else {
+            this.output = this.output || window.createOutputChannel(extensionOutputChannelName);
         }
     }
 

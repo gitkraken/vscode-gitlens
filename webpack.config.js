@@ -3,7 +3,9 @@ const fs = require('fs');
 const glob = require('glob');
 const path = require('path');
 const webpack = require('webpack');
+const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 const CleanPlugin = require('clean-webpack-plugin');
+const CircularDependencyPlugin = require('circular-dependency-plugin');
 const HtmlInlineSourcePlugin = require('html-webpack-inline-source-plugin');
 const HtmlPlugin = require('html-webpack-plugin');
 const ImageminPlugin = require('imagemin-webpack-plugin').default;
@@ -12,7 +14,9 @@ const TerserPlugin = require('terser-webpack-plugin');
 
 module.exports = function(env, argv) {
     env = env || {};
-    env.production = Boolean(env.production);
+    env.analyzeBundle = Boolean(env.analyzeBundle);
+    env.analyzeDeps = Boolean(env.analyzeDeps);
+    env.production = env.analyzeBundle || Boolean(env.production);
     env.optimizeImages = env.production || Boolean(env.optimizeImages);
 
     if (!env.optimizeImages && !fs.existsSync(path.resolve(__dirname, 'images/settings'))) {
@@ -56,6 +60,25 @@ module.exports = function(env, argv) {
 
 function getExtensionConfig(env) {
     const plugins = [new CleanPlugin(['dist'], { verbose: false }), new webpack.IgnorePlugin(/^spawn-sync$/)];
+
+    if (env.analyzeDeps) {
+        plugins.push(
+            new CircularDependencyPlugin({
+                cwd: __dirname,
+                exclude: /node_modules/,
+                failOnError: false,
+                onDetected({ module: webpackModuleRecord, paths, compilation }) {
+                    if (paths.some(p => /container\.ts/.test(p))) return;
+
+                    compilation.warnings.push(new Error(paths.join(' -> ')));
+                }
+            })
+        );
+    }
+
+    if (env.analyzeBundle) {
+        plugins.push(new BundleAnalyzerPlugin());
+    }
 
     return {
         name: 'extension',
@@ -107,7 +130,7 @@ function getExtensionConfig(env) {
             exprContextCritical: false
         },
         resolve: {
-            extensions: ['.ts', '.tsx', '.js', '.jsx']
+            extensions: ['.ts', '.tsx', '.js', '.jsx', '.json']
         },
         plugins: plugins,
         stats: {
@@ -258,7 +281,7 @@ function getUIConfig(env) {
             ]
         },
         resolve: {
-            extensions: ['.ts', '.tsx', '.js', '.jsx'],
+            extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
             modules: [path.resolve(__dirname, 'src/ui'), 'node_modules']
         },
         plugins: plugins,
