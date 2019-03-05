@@ -1571,7 +1571,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## Changed
 
-- Changes chat links from Gitter to [Slack](https://join.slack.com/t/vscode-gitlens/shared_invite/MjIxOTgxNDE3NzM0LTE1MDE2Nzk1MTgtMjkwMmZjMzcxNQ)
+- Changes chat links from Gitter to [Slack](https://vscode-slack.amod.io)
 - Changes the look of the line separators on the gutter blame annotations
 - Changes the `gitlens.advanced.toggleWhitespace.enabled` configuration setting to default to `false` &mdash; thanks to the awesome work in vscode by Alexandru Dima ([@alexandrudima](https://github.com/alexandrudima)) this is no longer required!
 

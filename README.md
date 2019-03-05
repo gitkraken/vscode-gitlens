@@ -1,7 +1,7 @@
 [![](https://vsmarketplacebadge.apphb.com/version-short/eamodio.gitlens.svg)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
 [![](https://vsmarketplacebadge.apphb.com/downloads-short/eamodio.gitlens.svg)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
 [![](https://vsmarketplacebadge.apphb.com/rating-short/eamodio.gitlens.svg)](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens)
-[![](https://img.shields.io/badge/vscode--dev--community-gitlens-blue.svg?logo=slack)](https://join.slack.com/t/vscode-dev-community/shared_invite/enQtMjIxOTgxNDE3NzM0LWU5M2ZiZDU1YjBlMzdlZjA2YjBjYzRhYTM5NTgzMTAxMjdiNWU0ZmQzYWI3MWU5N2Q1YjBiYmQ4MzY0NDE1MzY)
+[![](https://img.shields.io/badge/vscode--dev--community-gitlens-blue.svg?logo=slack)](https://vscode-slack.amod.io)
 
 <p align="center">
   <br />
@@ -21,7 +21,7 @@ While GitLens is generously offered to everyone free of charge, if you find it u
 - [**Become a Sponsor**](https://www.patreon.com/eamodio 'Become a sponsor on Patreon') &mdash; join the growing group of generous [backers](https://github.com/eamodio/vscode-gitlens/blob/master/BACKERS.md)
 - [**Donate via PayPal**](https://www.paypal.me/eamodio 'Donate via PayPal') or [**Donate via Cash App**](https://cash.me/$eamodio 'Donate via Cash App')
 
-Also please [write a review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details 'Write a review'), [star or fork me on GitHub](https://github.com/eamodio/vscode-gitlens 'Star or fork me on GitHub'), and [follow me on Twitter](https://twitter.com/eamodio 'Follow me on Twitter')
+Also please [write a review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details 'Write a review'), [star me on GitHub](https://github.com/eamodio/vscode-gitlens 'Star me on GitHub'), and [follow me on Twitter](https://twitter.com/eamodio 'Follow me on Twitter')
 
 # What's new in GitLens 9
 
