@@ -17,49 +17,17 @@ module.exports = function(env, argv) {
     env.analyzeBundle = Boolean(env.analyzeBundle);
     env.analyzeDeps = Boolean(env.analyzeDeps);
     env.production = env.analyzeBundle || Boolean(env.production);
-    env.optimizeImages = env.production || Boolean(env.optimizeImages);
+    env.optimizeImages = Boolean(env.optimizeImages) || (env.production && !env.analyzeBundle);
 
     if (!env.optimizeImages && !fs.existsSync(path.resolve(__dirname, 'images/settings'))) {
         env.optimizeImages = true;
-    }
-
-    // TODO: Total and complete HACK until the following vsls issues are resolved
-    // https://github.com/MicrosoftDocs/live-share/issues/1334 & https://github.com/MicrosoftDocs/live-share/issues/1335
-
-    const vslsPatchRegex = /const liveShareApiVersion = require\(path\.join\(__dirname, 'package\.json'\)\)\.version;/;
-
-    let vslsPath = path.resolve(__dirname, 'node_modules/vsls/package.json');
-    if (fs.existsSync(vslsPath)) {
-        const vsls = require(vslsPath);
-        if (vsls.main === undefined) {
-            console.log('Fixing vsls package; Adding missing main to package.json...');
-
-            vsls.main = 'vscode.js';
-            fs.writeFileSync(vslsPath, `${JSON.stringify(vsls, undefined, 4)}\n`, 'utf8');
-        }
-
-        vslsPath = path.resolve(__dirname, 'node_modules/vsls/vscode.js');
-        if (fs.existsSync(vslsPath)) {
-            let code = fs.readFileSync(vslsPath, 'utf8');
-            if (vslsPatchRegex.test(code)) {
-                console.log('Fixing vsls package; Removing version lookup...');
-
-                code = code.replace(
-                    vslsPatchRegex,
-                    `const liveShareApiVersion = '${
-                        vsls.version
-                    }'; // require(path.join(__dirname, 'package.json')).version;`
-                );
-                fs.writeFileSync(vslsPath, code, 'utf8');
-            }
-        }
     }
 
     return [getExtensionConfig(env), getUIConfig(env)];
 };
 
 function getExtensionConfig(env) {
-    const plugins = [new CleanPlugin(['dist'], { verbose: false }), new webpack.IgnorePlugin(/^spawn-sync$/)];
+    const plugins = [new CleanPlugin(), new webpack.IgnorePlugin(/^spawn-sync$/)];
 
     if (env.analyzeDeps) {
         plugins.push(
@@ -153,7 +121,7 @@ function getUIConfig(env) {
     }
 
     const plugins = [
-        new CleanPlugin(clean, { verbose: false }),
+        new CleanPlugin({ cleanOnceBeforeBuildPatterns: clean }),
         new MiniCssExtractPlugin({
             filename: '[name].css'
         }),

@@ -4887,15 +4887,14 @@
         "date-fns": "1.30.1",
         "iconv-lite": "0.4.24",
         "lodash-es": "4.17.11",
-        "tslib": "1.9.3",
-        "vsls": "0.3.967"
+        "vsls": "0.3.1291"
     },
     "devDependencies": {
-        "@types/lodash-es": "4.17.2",
+        "@types/lodash-es": "4.17.3",
         "@types/node": "10.1.4",
-        "clean-webpack-plugin": "1.0.1",
+        "clean-webpack-plugin": "2.0.0",
         "circular-dependency-plugin": "5.0.2",
-        "css-loader": "2.1.0",
+        "css-loader": "2.1.1",
         "html-webpack-inline-source-plugin": "0.0.10",
         "html-webpack-plugin": "3.2.0",
         "imagemin-webpack-plugin": "2.4.2",
@@ -4905,15 +4904,15 @@
         "prettier-tslint": "0.4.2",
         "sass-loader": "7.1.0",
         "terser-webpack-plugin": "1.2.3",
-        "tslint": "5.13.0",
+        "tslint": "5.13.1",
         "tslint-loader": "3.5.4",
         "tslint-prettiest": "0.0.1",
         "ts-loader": "5.3.3",
         "typescript": "3.2.4",
         "vsce": "1.57.1",
         "vscode": "1.1.30",
-        "webpack": "4.29.5",
+        "webpack": "4.29.6",
         "webpack-cli": "3.2.3",
-        "webpack-bundle-analyzer": "3.0.4"
+        "webpack-bundle-analyzer": "3.1.0"
     }
 }
