@@ -1,9 +1,9 @@
 'use strict';
-import { DecorationOptions, DecorationRenderOptions, Range, TextEditorDecorationType, window } from 'vscode';
+import { DecorationOptions, Range, TextEditorDecorationType, window } from 'vscode';
 import { FileAnnotationType, GravatarDefaultStyle } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitBlameCommit, ICommitFormatOptions } from '../git/gitService';
+import { CommitFormatOptions, GitBlameCommit } from '../git/gitService';
 import { Logger } from '../logger';
 import { Objects, Strings } from '../system';
 import { Annotations } from './annotations';
@@ -21,15 +21,14 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
         const cfg = Container.config.blame;
 
         // Precalculate the formatting options so we don't need to do it on each iteration
-        const tokenOptions = Strings.getTokensFromTemplate(cfg.format).reduce(
-            (map, token) => {
-                map[token.key] = token.options as ICommitFormatOptions;
-                return map;
-            },
-            {} as { [token: string]: ICommitFormatOptions }
-        );
+        const tokenOptions = Strings.getTokensFromTemplate(cfg.format).reduce<{
+            [token: string]: Strings.TokenOptions | undefined;
+        }>((map, token) => {
+            map[token.key] = token.options;
+            return map;
+        }, Object.create(null));
 
-        const options: ICommitFormatOptions = {
+        const options: CommitFormatOptions = {
             dateFormat: cfg.dateFormat === null ? Container.config.defaultDateFormat : cfg.dateFormat,
             tokenOptions: tokenOptions
         };
@@ -59,8 +58,10 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
             const line = l.line;
 
             if (previousSha === l.sha) {
+                if (gutter === undefined) continue;
+
                 // Use a shallow copy of the previous decoration options
-                gutter = { ...gutter } as DecorationOptions;
+                gutter = { ...gutter };
 
                 if (cfg.compact && !compacted) {
                     // Since we are wiping out the contextText make sure to copy the objects
@@ -102,7 +103,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
                 gutter = {
                     ...gutter,
                     range: new Range(line, 0, line, 0)
-                } as DecorationOptions;
+                };
 
                 this.decorations.push(gutter);
 
@@ -113,7 +114,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
                 continue;
             }
 
-            gutter = Annotations.gutter(commit, cfg.format, options, renderOptions);
+            gutter = Annotations.gutter(commit, cfg.format, options, renderOptions) as DecorationOptions;
 
             if (computedHeatmap !== undefined) {
                 Annotations.applyHeatmap(gutter, commit.date, computedHeatmap);
@@ -166,7 +167,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
             decoration: window.createTextEditorDecorationType({
                 gutterIconPath: commit.getGravatarUri(gravatarDefault),
                 gutterIconSize: '16px 16px'
-            } as DecorationRenderOptions),
+            }),
             ranges: [range]
         };
     }

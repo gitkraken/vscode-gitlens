@@ -1,5 +1,5 @@
 'use strict';
-import { GitTag } from './../git';
+import { GitTag } from '../git';
 
 const tagWithRefRegex = /([0-9,a-f]+)\srefs\/tags\/(.*)/gm;
 const tagWithAnnotationRegex = /^(.+?)(?:$|(?:\s+)(.*)$)/gm;
@@ -22,10 +22,10 @@ export class GitTagParser {
                 new GitTag(
                     repoPath,
                     // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-                    (' ' + name).substr(1),
+                    ` ${name}`.substr(1),
                     undefined,
                     // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-                    annotation === undefined ? undefined : (' ' + annotation).substr(1)
+                    annotation === undefined ? undefined : ` ${annotation}`.substr(1)
                 )
             );
         } while (match != null);
@@ -52,9 +52,9 @@ export class GitTagParser {
                 new GitTag(
                     repoPath,
                     // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-                    (' ' + name).substr(1),
+                    ` ${name}`.substr(1),
                     // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-                    (' ' + sha).substr(1)
+                    ` ${sha}`.substr(1)
                 )
             );
         } while (match != null);

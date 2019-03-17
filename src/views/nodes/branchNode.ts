@@ -104,7 +104,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
         return this._children;
     }
 
-    async getTreeItem(): Promise<TreeItem> {
+    getTreeItem(): TreeItem {
         const name = this.label;
         let tooltip = `${this.branch.getName()}${this.current ? ' (current)' : ''}`;
         let iconSuffix = '';

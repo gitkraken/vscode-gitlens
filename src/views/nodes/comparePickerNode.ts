@@ -7,10 +7,7 @@ import { CompareNode } from './compareNode';
 import { ResourceType, unknownGitUri, ViewNode } from './viewNode';
 
 export class ComparePickerNode extends ViewNode<CompareView> {
-    constructor(
-        view: CompareView,
-        protected readonly parent: CompareNode
-    ) {
+    constructor(view: CompareView, protected readonly parent: CompareNode) {
         super(unknownGitUri, view, parent);
     }
 
@@ -33,7 +30,7 @@ export class ComparePickerNode extends ViewNode<CompareView> {
         let item;
         if (selectedRef === undefined) {
             item = new TreeItem(
-                `Compare <branch, tag, or ref> with <branch, tag, or ref>`,
+                'Compare <branch, tag, or ref> with <branch, tag, or ref>',
                 TreeItemCollapsibleState.None
             );
             item.contextValue = ResourceType.ComparePicker;

@@ -47,7 +47,10 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
             if (log !== undefined) {
                 files = [
                     ...Iterables.flatMap(log.commits.values(), c =>
-                        c.files.map(s => ({ ...s, commit: c } as GitFileWithCommit))
+                        c.files.map(s => {
+                            const file: GitFileWithCommit = { ...s, commit: c };
+                            return file;
+                        })
                     )
                 ];
             }
@@ -71,9 +74,8 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
                     else if (s.indexStatus !== undefined) {
                         return [this.toStatusFile(s, GitService.stagedUncommittedSha, 'HEAD')];
                     }
-                    else {
-                        return [this.toStatusFile(s, GitService.uncommittedSha, 'HEAD')];
-                    }
+
+                    return [this.toStatusFile(s, GitService.uncommittedSha, 'HEAD')];
                 })
             );
         }
@@ -143,8 +145,8 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
         item.id = this.id;
         item.contextValue = ResourceType.StatusFiles;
         item.iconPath = {
-            dark: Container.context.asAbsolutePath(`images/dark/icon-diff.svg`),
-            light: Container.context.asAbsolutePath(`images/light/icon-diff.svg`)
+            dark: Container.context.asAbsolutePath('images/dark/icon-diff.svg'),
+            light: Container.context.asAbsolutePath('images/light/icon-diff.svg')
         };
 
         return item;

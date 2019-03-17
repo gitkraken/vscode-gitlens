@@ -4,6 +4,9 @@ import { Strings } from './string';
 
 // Code stolen from https://github.com/Microsoft/vscode/blob/b3e6d5bb039a4a9362b52a2c8726267ca68cf64e/src/vs/base/common/map.ts#L352
 
+const FIN = { done: true, value: undefined };
+
+// eslint-disable-next-line @typescript-eslint/interface-name-prefix
 export interface IKeyIterator {
     reset(key: string): this;
     next(): this;
@@ -90,6 +93,7 @@ export class PathIterator implements IKeyIterator {
             if (cmp !== 0) {
                 return cmp;
             }
+
             aPos += 1;
             thisPos += 1;
         }
@@ -97,12 +101,12 @@ export class PathIterator implements IKeyIterator {
         if (aLen === this._to - this._from) {
             return 0;
         }
-        else if (aPos < aLen) {
+
+        if (aPos < aLen) {
             return -1;
         }
-        else {
-            return 1;
-        }
+
+        return 1;
     }
 
     value(): string {
@@ -314,25 +318,22 @@ export class TernarySearchTree<E> {
                 if (!node.mid) {
                     return undefined;
                 }
-                else {
-                    node = node.mid;
-                    return {
-                        [Symbol.iterator]: () => this._nodeIterator(node!, limit)
-                    };
-                }
+
+                node = node.mid;
+                return {
+                    // eslint-disable-next-line no-loop-func
+                    [Symbol.iterator]: () => this._nodeIterator(node!, limit)
+                };
             }
         }
         return undefined;
     }
 
     private _nodeIterator(node: TernarySearchTreeNode<E>, limit: boolean = false): Iterator<E> {
-        const res = {
-            done: false,
-            value: undefined! as E
-        };
+        let res: { done: false; value: E };
         let idx: number;
         let data: E[];
-        const next = () => {
+        const next = (): IteratorResult<E> => {
             if (!data) {
                 // lazy till first invocation
                 data = [];
@@ -340,31 +341,33 @@ export class TernarySearchTree<E> {
                 this._forEach(node, value => data.push(value), limit);
             }
             if (idx >= data.length) {
-                res.done = true;
-                res.value = undefined!;
+                return (FIN as unknown) as IteratorResult<E>;
+            }
+
+            if (!res) {
+                res = { done: false, value: data[idx++] };
             }
             else {
-                res.done = false;
                 res.value = data[idx++];
             }
             return res;
         };
-        return { next };
+        return { next: next };
     }
 
     forEach(callback: (value: E, index: string) => any) {
-        this._forEach(this._root!, callback);
+        this._forEach(this._root, callback);
     }
 
     private _forEach(
-        node: TernarySearchTreeNode<E>,
+        node: TernarySearchTreeNode<E> | undefined,
         callback: (value: E, index: string) => any,
         limit: boolean = false
     ) {
         if (node === undefined) return;
 
         // left
-        this._forEach(node.left!, callback, limit);
+        this._forEach(node.left, callback, limit);
 
         // node
         if (node.value) {
@@ -373,11 +376,11 @@ export class TernarySearchTree<E> {
 
         if (!limit) {
             // mid
-            this._forEach(node.mid!, callback, limit);
+            this._forEach(node.mid, callback, limit);
         }
 
         // right
-        this._forEach(node.right!, callback, limit);
+        this._forEach(node.right, callback, limit);
     }
 
     any(): boolean {
@@ -391,7 +394,7 @@ export class TernarySearchTree<E> {
     }
 
     entries(): Iterable<[E, string]> {
-        return this._iterator(this._root!);
+        return this._iterator(this._root);
     }
 
     values(): Iterable<E> {
@@ -429,7 +432,7 @@ export class TernarySearchTree<E> {
     private *_iterator(node: TernarySearchTreeNode<E> | undefined): IterableIterator<[E, string]> {
         if (node !== undefined) {
             // left
-            yield* this._iterator(node.left!);
+            yield* this._iterator(node.left);
 
             // node
             if (node.value) {
@@ -437,10 +440,10 @@ export class TernarySearchTree<E> {
             }
 
             // mid
-            yield* this._iterator(node.mid!);
+            yield* this._iterator(node.mid);
 
             // right
-            yield* this._iterator(node.right!);
+            yield* this._iterator(node.right);
         }
     }
 }

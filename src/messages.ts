@@ -22,7 +22,7 @@ export class Messages {
         if (commit === undefined) {
             return Messages.showMessage(
                 'info',
-                `Commit has no previous commit.`,
+                'Commit has no previous commit.',
                 SuppressedMessages.CommitHasNoPreviousCommitWarning
             );
         }
@@ -68,7 +68,7 @@ export class Messages {
     static showGitDisabledErrorMessage() {
         return Messages.showMessage(
             'error',
-            `GitLens requires Git to be enabled. Please re-enable Git \u2014 set \`git.enabled\` to true and reload`,
+            'GitLens requires Git to be enabled. Please re-enable Git \u2014 set `git.enabled` to true and reload',
             SuppressedMessages.GitDisabledWarning
         );
     }
@@ -106,7 +106,7 @@ export class Messages {
 
         const result = await Messages.showMessage(
             'info',
-            `While GitLens is offered to everyone for free, if you find it useful, please consider [supporting](https://gitlens.amod.io/#support-gitlens) it. Thank you! ❤`,
+            'While GitLens is offered to everyone for free, if you find it useful, please consider [supporting](https://gitlens.amod.io/#support-gitlens) it. Thank you! ❤',
             undefined,
             null,
             ...actions
@@ -162,13 +162,13 @@ export class Messages {
         }
     }
 
-    private static async showMessage<T extends MessageItem>(
+    private static async showMessage(
         type: 'info' | 'warn' | 'error',
         message: string,
         suppressionKey?: SuppressedMessages,
-        dontShowAgain: T | null = { title: "Don't Show Again" } as T,
-        ...actions: T[]
-    ): Promise<T | undefined> {
+        dontShowAgain: MessageItem | null = { title: "Don't Show Again" },
+        ...actions: MessageItem[]
+    ): Promise<MessageItem | undefined> {
         Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain})`);
 
         if (
@@ -183,7 +183,7 @@ export class Messages {
             actions.push(dontShowAgain);
         }
 
-        let result: T | undefined = undefined;
+        let result: MessageItem | undefined = undefined;
         switch (type) {
             case 'info':
                 result = await window.showInformationMessage(message, ...actions);

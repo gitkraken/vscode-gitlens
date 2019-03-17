@@ -18,12 +18,7 @@ import { insertDateMarkers } from './helpers';
 import { ResourceType, SubscribeableViewNode, ViewNode } from './viewNode';
 
 export class LineHistoryNode extends SubscribeableViewNode {
-    constructor(
-        uri: GitUri,
-        view: View,
-        parent: ViewNode,
-        public readonly selection: Selection
-    ) {
+    constructor(uri: GitUri, view: View, parent: ViewNode, public readonly selection: Selection) {
         super(uri, view, parent);
     }
 

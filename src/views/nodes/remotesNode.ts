@@ -9,12 +9,7 @@ import { RemoteNode } from './remoteNode';
 import { ResourceType, ViewNode } from './viewNode';
 
 export class RemotesNode extends ViewNode<RepositoriesView> {
-    constructor(
-        uri: GitUri,
-        view: RepositoriesView,
-        parent: ViewNode,
-        public readonly repo: Repository
-    ) {
+    constructor(uri: GitUri, view: RepositoriesView, parent: ViewNode, public readonly repo: Repository) {
         super(uri, view, parent);
     }
 
@@ -37,7 +32,7 @@ export class RemotesNode extends ViewNode<RepositoriesView> {
     }
 
     getTreeItem(): TreeItem {
-        const item = new TreeItem(`Remotes`, TreeItemCollapsibleState.Collapsed);
+        const item = new TreeItem('Remotes', TreeItemCollapsibleState.Collapsed);
         item.id = this.id;
         item.contextValue = ResourceType.Remotes;
 

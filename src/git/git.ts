@@ -1,6 +1,7 @@
 'use strict';
-import * as iconv from 'iconv-lite';
+/* eslint-disable @typescript-eslint/camelcase */
 import * as paths from 'path';
+import * as iconv from 'iconv-lite';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
@@ -12,6 +13,11 @@ export { GitLocation } from './locator';
 export * from './models/models';
 export * from './parsers/parsers';
 export * from './remotes/provider';
+
+const emptyArray = (Object.freeze([]) as any) as any[];
+const emptyObj = Object.freeze({});
+const emptyStr = '';
+const slash = '/';
 
 // This is a root sha of all git repo's if using sha1
 const rootSha = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
@@ -33,7 +39,7 @@ const logFormat = [
     `${lb}c${rb}${sp}%ct`, // committed date
     `${lb}p${rb}${sp}%P`, // parents
     `${lb}s${rb}`,
-    `%B`, // summary
+    '%B', // summary
     `${lb}${sl}s${rb}`,
     `${lb}f${rb}`
 ].join('%n');
@@ -47,7 +53,7 @@ const stashFormat = [
     `${lb}c${rb}${sp}%ct`, // committed date
     `${lb}l${rb}${sp}%gd`, // reflog-selector
     `${lb}s${rb}`,
-    `%B`, // summary
+    '%B', // summary
     `${lb}${sl}s${rb}`,
     `${lb}f${rb}`
 ].join('%n');
@@ -55,7 +61,7 @@ const stashFormat = [
 const defaultStashParams = ['stash', 'list', '--name-status', '-M', `--format=${stashFormat}`];
 
 const GitErrors = {
-    badRevision: /bad revision \'(.*?)\'/i,
+    badRevision: /bad revision '(.*?)'/i,
     notAValidObjectName: /Not a valid object name/i
 };
 
@@ -64,16 +70,16 @@ const GitWarnings = {
     outsideRepository: /is outside repository/i,
     noPath: /no such path/i,
     noCommits: /does not have any commits/i,
-    notFound: /Path \'.*?\' does not exist in/i,
-    foundButNotInRevision: /Path \'.*?\' exists on disk, but not in/i,
+    notFound: /Path '.*?' does not exist in/i,
+    foundButNotInRevision: /Path '.*?' exists on disk, but not in/i,
     headNotABranch: /HEAD does not point to a branch/i,
-    noUpstream: /no upstream configured for branch \'(.*?)\'/i,
-    unknownRevision: /ambiguous argument \'.*?\': unknown revision or path not in the working tree|not stored as a remote-tracking branch/i,
+    noUpstream: /no upstream configured for branch '(.*?)'/i,
+    unknownRevision: /ambiguous argument '.*?': unknown revision or path not in the working tree|not stored as a remote-tracking branch/i,
     mustRunInWorkTree: /this operation must be run in a work tree/i,
-    patchWithConflicts: /Applied patch to \'.*?\' with conflicts/i,
+    patchWithConflicts: /Applied patch to '.*?' with conflicts/i,
     noRemoteRepositorySpecified: /No remote repository specified\./i,
     remoteConnectionError: /Could not read from remote repository/i,
-    notAGitCommand: /\'.+\' is not a git command/i
+    notAGitCommand: /'.+' is not a git command/i
 };
 
 export enum GitErrorHandling {
@@ -92,9 +98,6 @@ export interface GitCommandOptions extends RunOptions {
 // A map of running git commands -- avoids running duplicate overlaping commands
 const pendingCommands: Map<string, Promise<string | Buffer>> = new Map();
 
-const emptyArray: any = [];
-const emptyObj = {};
-
 export async function git<TOut extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<TOut> {
     if (Container.vsls.isMaybeGuest) {
         if (options.local !== true) {
@@ -105,7 +108,7 @@ export async function git<TOut extends string | Buffer>(options: GitCommandOptio
         }
         else {
             // Since we will have a live share path here, just blank it out
-            options.cwd = '';
+            options.cwd = emptyStr;
         }
     }
 
@@ -114,7 +117,7 @@ export async function git<TOut extends string | Buffer>(options: GitCommandOptio
     const { configs, correlationKey, errors: errorHandling, ...opts } = options;
 
     const encoding = options.encoding || 'utf8';
-    const runOpts = {
+    const runOpts: RunOptions = {
         ...opts,
         encoding: encoding === 'utf8' ? 'utf8' : encoding === 'buffer' ? 'buffer' : 'binary',
         // Adds GCM environment variables to avoid any possible credential issues -- from https://github.com/Microsoft/vscode/issues/26573#issuecomment-338686581
@@ -126,11 +129,11 @@ export async function git<TOut extends string | Buffer>(options: GitCommandOptio
             GCM_PRESERVE_CREDS: 'TRUE',
             LC_ALL: 'C'
         }
-    } as RunOptions;
+    };
 
     const gitCommand = `[${runOpts.cwd}] git ${args.join(' ')}`;
 
-    const command = `${correlationKey !== undefined ? `${correlationKey}:` : ''}${gitCommand}`;
+    const command = `${correlationKey !== undefined ? `${correlationKey}:` : emptyStr}${gitCommand}`;
 
     let waiting;
     let promise = pendingCommands.get(command);
@@ -167,28 +170,31 @@ export async function git<TOut extends string | Buffer>(options: GitCommandOptio
         switch (errorHandling) {
             case GitErrorHandling.Ignore:
                 exception = undefined;
-                return '' as TOut;
+                return emptyStr as TOut;
 
             case GitErrorHandling.Throw:
                 throw ex;
 
-            default:
+            default: {
                 const result = defaultExceptionHandler(ex, options, ...args);
                 exception = undefined;
                 return result as TOut;
+            }
         }
     }
     finally {
         pendingCommands.delete(command);
 
-        const duration = `${Strings.getDurationMilliseconds(start)} ms ${waiting ? '(await) ' : ''}`;
+        const duration = `${Strings.getDurationMilliseconds(start)} ms ${waiting ? '(await) ' : emptyStr}`;
         Logger.log(
             `${gitCommand} ${GlyphChars.Dot} ${
-                exception !== undefined ? `FAILED(${(exception.message || '').trim().split('\n', 1)[0]}) ` : ''
+                exception !== undefined
+                    ? `FAILED(${(exception.message || emptyStr).trim().split('\n', 1)[0]}) `
+                    : emptyStr
             }${duration}`
         );
         Logger.logGitCommand(
-            `${gitCommand} ${GlyphChars.Dot} ${exception !== undefined ? 'FAILED ' : ''}${duration}`,
+            `${gitCommand} ${GlyphChars.Dot} ${exception !== undefined ? 'FAILED ' : emptyStr}${duration}`,
             exception
         );
     }
@@ -200,7 +206,7 @@ function defaultExceptionHandler(ex: Error, options: GitCommandOptions, ...args:
         for (const warning of Objects.values(GitWarnings)) {
             if (warning.test(msg)) {
                 Logger.warn('git', ...args, `  cwd='${options.cwd}'\n\n  `, msg.replace(/\r?\n|\r/g, ' '));
-                return '';
+                return emptyStr;
             }
         }
     }
@@ -210,7 +216,7 @@ function defaultExceptionHandler(ex: Error, options: GitCommandOptions, ...args:
         const [, ref] = match;
 
         // Since looking up a ref with ^3 (e.g. looking for untracked files in a stash) can error on some versions of git just ignore it
-        if (ref != null && ref.endsWith('^3')) return '';
+        if (ref != null && ref.endsWith('^3')) return emptyStr;
     }
 
     Logger.error(ex, 'git', ...args, `  cwd='${options.cwd}'\n\n  `);
@@ -273,7 +279,7 @@ export class Git {
         ref: string,
         strings: { stagedUncommitted?: string; uncommitted?: string; working?: string } = {}
     ) {
-        strings = { stagedUncommitted: 'Index', uncommitted: 'Working Tree', working: '', ...strings };
+        strings = { stagedUncommitted: 'Index', uncommitted: 'Working Tree', working: emptyStr, ...strings };
 
         if (ref == null || ref.length === 0) return strings.working;
         if (Git.isUncommitted(ref)) {
@@ -303,7 +309,7 @@ export class Git {
             fileName = Strings.normalizePath(fileName);
             repoPath = Strings.normalizePath(repoPath);
 
-            const normalizedRepoPath = (repoPath.endsWith('/') ? repoPath : `${repoPath}/`).toLowerCase();
+            const normalizedRepoPath = (repoPath.endsWith(slash) ? repoPath : `${repoPath}/`).toLowerCase();
             if (fileName.toLowerCase().startsWith(normalizedRepoPath)) {
                 fileName = fileName.substring(normalizedRepoPath.length);
             }
@@ -330,7 +336,7 @@ export class Git {
     static apply(repoPath: string | undefined, patch: string, options: { allowConflicts?: boolean } = {}) {
         const params = ['apply', '--whitespace=warn'];
         if (options.allowConflicts) {
-            params.push(`-3`);
+            params.push('-3');
         }
         return git<string>({ cwd: repoPath, stdin: patch }, ...params);
     }
@@ -372,7 +378,7 @@ export class Git {
         return git<string>({ cwd: root, stdin: stdin }, ...params, '--', file);
     }
 
-    static async blame_contents(
+    static blame_contents(
         repoPath: string | undefined,
         fileName: string,
         contents: string,
@@ -478,7 +484,7 @@ export class Git {
 
     static async config_get(key: string, repoPath?: string, options: { local?: boolean } = {}) {
         const data = await git<string>(
-            { cwd: repoPath || '', errors: GitErrorHandling.Ignore, local: options.local },
+            { cwd: repoPath || emptyStr, errors: GitErrorHandling.Ignore, local: options.local },
             'config',
             '--get',
             key
@@ -488,7 +494,7 @@ export class Git {
 
     static async config_getRegex(pattern: string, repoPath?: string, options: { local?: boolean } = {}) {
         const data = await git<string>(
-            { cwd: repoPath || '', errors: GitErrorHandling.Ignore, local: options.local },
+            { cwd: repoPath || emptyStr, errors: GitErrorHandling.Ignore, local: options.local },
             'config',
             '--get-regex',
             pattern

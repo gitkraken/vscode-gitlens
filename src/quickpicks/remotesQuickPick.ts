@@ -1,6 +1,6 @@
 'use strict';
 import * as paths from 'path';
-import { QuickPickOptions, window } from 'vscode';
+import { window } from 'vscode';
 import { Commands, OpenInRemoteCommandArgs } from '../commands';
 import { GlyphChars } from '../constants';
 import {
@@ -18,11 +18,7 @@ export class OpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
     private remote: GitRemote;
     private resource: RemoteResource;
 
-    constructor(
-        remote: GitRemote,
-        resource: RemoteResource,
-        public readonly clipboard?: boolean
-    ) {
+    constructor(remote: GitRemote, resource: RemoteResource, public readonly clipboard?: boolean) {
         super(
             {
                 label: clipboard
@@ -40,7 +36,7 @@ export class OpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
         this.resource = resource;
     }
 
-    async execute(): Promise<{} | undefined> {
+    execute(): Thenable<{} | undefined> {
         if (this.clipboard) return this.remote.provider!.copy(this.resource);
 
         return this.remote.provider!.open(this.resource);
@@ -51,19 +47,18 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
     constructor(remotes: GitRemote[], resource: RemoteResource, goBackCommand?: CommandQuickPickItem) {
         const name = getNameFromRemoteResource(resource);
 
-        let description = '';
+        let description;
         switch (resource.type) {
             case RemoteResourceType.Branch:
                 description = `$(git-branch) ${resource.branch}`;
                 break;
 
             case RemoteResourceType.Branches:
-                description = `$(git-branch) Branches`;
+                description = '$(git-branch) Branches';
                 break;
 
             case RemoteResourceType.Commit:
-                const shortSha = GitService.shortenSha(resource.sha);
-                description = `$(git-commit) ${shortSha}`;
+                description = `$(git-commit) ${GitService.shortenSha(resource.sha)}`;
                 break;
 
             case RemoteResourceType.File:
@@ -71,7 +66,7 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
                 break;
 
             case RemoteResourceType.Repo:
-                description = `$(repo) Repository`;
+                description = '$(repo) Repository';
                 break;
 
             case RemoteResourceType.Revision:
@@ -92,11 +87,15 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
                     }
                 }
                 else {
-                    const shortFileSha = resource.sha === undefined ? '' : GitService.shortenSha(resource.sha);
+                    const shortFileSha = resource.sha === undefined ? '=' : GitService.shortenSha(resource.sha);
                     description = `$(file-text) ${paths.basename(resource.fileName)}${
                         shortFileSha ? ` in ${GlyphChars.Space}$(git-commit) ${shortFileSha}` : ''
                     }`;
                 }
+                break;
+
+            default:
+                description = '';
                 break;
         }
 
@@ -109,6 +108,11 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
         }
 
         if (remote != null) {
+            const commandArgs: OpenInRemoteCommandArgs = {
+                remotes: remotes,
+                resource: resource,
+                goBackCommand: goBackCommand
+            };
             super(
                 {
                     label: `$(link-external) Open ${name} on ${remote.provider!.name}`,
@@ -119,14 +123,7 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
                     )} ${description}`
                 },
                 Commands.OpenInRemote,
-                [
-                    undefined,
-                    {
-                        remotes,
-                        resource,
-                        goBackCommand
-                    } as OpenInRemoteCommandArgs
-                ]
+                [undefined, commandArgs]
             );
 
             return;
@@ -138,20 +135,18 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
             ? remote.provider!.name
             : 'Remote';
 
+        const commandArgs: OpenInRemoteCommandArgs = {
+            remotes: remotes,
+            resource: resource,
+            goBackCommand: goBackCommand
+        };
         super(
             {
                 label: `$(link-external) Open ${name} on ${provider}${GlyphChars.Ellipsis}`,
                 description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${description}`
             },
             Commands.OpenInRemote,
-            [
-                undefined,
-                {
-                    remotes,
-                    resource,
-                    goBackCommand
-                } as OpenInRemoteCommandArgs
-            ]
+            [undefined, commandArgs]
         );
     }
 }
@@ -177,7 +172,7 @@ export class RemotesQuickPick {
         const pick = await window.showQuickPick(items, {
             placeHolder: placeHolder,
             ignoreFocusOut: getQuickPickIgnoreFocusOut()
-        } as QuickPickOptions);
+        });
         if (pick === undefined) return undefined;
 
         // await scope.dispose();

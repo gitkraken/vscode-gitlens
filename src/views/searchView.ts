@@ -190,15 +190,13 @@ export class SearchView extends ViewBase<SearchNode> {
         }
     ): (maxCount: number | undefined) => Promise<SearchQueryResult> {
         return async (maxCount: number | undefined) => {
-            if (Functions.isPromise(results)) {
-                results = await results;
-            }
+            const res = await results;
 
             let log;
-            if (results !== undefined) {
-                log = await (results.query === undefined
-                    ? (maxCount: number | undefined) => Promise.resolve(results)
-                    : results.query)(maxCount);
+            if (res !== undefined) {
+                log = await (res.query === undefined
+                    ? (maxCount: number | undefined) => Promise.resolve(res)
+                    : res.query)(maxCount);
             }
 
             const label = this.getSearchLabel(options.label, log);

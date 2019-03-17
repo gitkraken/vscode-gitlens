@@ -5,7 +5,7 @@ import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { ViewFilesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { CommitFormatter, GitBranch, GitLogCommit, ICommitFormatOptions } from '../../git/gitService';
+import { CommitFormatter, GitBranch, GitLogCommit } from '../../git/gitService';
 import { Arrays, Iterables, Strings } from '../../system';
 import { ViewWithFiles } from '../viewBase';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
@@ -59,7 +59,7 @@ export class CommitNode extends ViewRefNode<ViewWithFiles> {
         let label = CommitFormatter.fromTemplate(this.view.config.commitFormat, this.commit, {
             truncateMessageAtNewLine: true,
             dateFormat: Container.config.defaultDateFormat
-        } as ICommitFormatOptions);
+        });
 
         const branchAndTagTips = this.getBranchAndTagTips && this.getBranchAndTagTips(this.commit.sha);
         if (branchAndTagTips !== undefined) {
@@ -76,7 +76,7 @@ export class CommitNode extends ViewRefNode<ViewWithFiles> {
         item.description = CommitFormatter.fromTemplate(this.view.config.commitDescriptionFormat, this.commit, {
             truncateMessageAtNewLine: true,
             dateFormat: Container.config.defaultDateFormat
-        } as ICommitFormatOptions);
+        });
 
         if (this.view.config.avatars) {
             item.iconPath = this.commit.getGravatarUri(Container.config.defaultGravatarsStyle);
@@ -97,7 +97,7 @@ export class CommitNode extends ViewRefNode<ViewWithFiles> {
             this.commit,
             {
                 dateFormat: Container.config.defaultDateFormat
-            } as ICommitFormatOptions
+            }
         );
 
         if (!this.commit.isUncommitted) {
@@ -112,20 +112,18 @@ export class CommitNode extends ViewRefNode<ViewWithFiles> {
     }
 
     getCommand(): Command | undefined {
+        const commandArgs: DiffWithPreviousCommandArgs = {
+            commit: this.commit,
+            line: 0,
+            showOptions: {
+                preserveFocus: true,
+                preview: true
+            }
+        };
         return {
             title: 'Compare File with Previous Revision',
             command: Commands.DiffWithPrevious,
-            arguments: [
-                this.uri,
-                {
-                    commit: this.commit,
-                    line: 0,
-                    showOptions: {
-                        preserveFocus: true,
-                        preview: true
-                    }
-                } as DiffWithPreviousCommandArgs
-            ]
+            arguments: [this.uri, commandArgs]
         };
     }
 }

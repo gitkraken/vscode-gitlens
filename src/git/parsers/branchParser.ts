@@ -1,7 +1,7 @@
 'use strict';
-import { GitBranch } from './../git';
+import { GitBranch } from '../git';
 
-const branchWithTrackingRegex = /^(\*?)\s+(.+?)\s+([0-9,a-f]+)\s+(?:\[(.*?\/.*?)(?:\:\s(.*)\]|\]))?/gm;
+const branchWithTrackingRegex = /^(\*?)\s+(.+?)\s+([0-9,a-f]+)\s+(?:\[(.*?\/.*?)(?::\s(.*)\]|\]))?/gm;
 const branchWithTrackingStateRegex = /^(?:ahead\s([0-9]+))?[,\s]*(?:behind\s([0-9]+))?/;
 
 export class GitBranchParser {
@@ -10,6 +10,7 @@ export class GitBranchParser {
 
         const branches: GitBranch[] = [];
 
+        let match: RegExpExecArray | null;
         let ahead;
         let behind;
         let current;
@@ -17,7 +18,6 @@ export class GitBranchParser {
         let sha;
         let state;
         let tracking;
-        let match: RegExpExecArray | null = null;
         do {
             match = branchWithTrackingRegex.exec(data);
             if (match == null) break;
@@ -28,12 +28,12 @@ export class GitBranchParser {
                 new GitBranch(
                     repoPath,
                     // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-                    (' ' + name).substr(1),
+                    ` ${name}`.substr(1),
                     current === '*',
                     // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-                    sha === undefined ? undefined : (' ' + sha).substr(1),
+                    sha === undefined ? undefined : ` ${sha}`.substr(1),
                     // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-                    tracking === undefined ? undefined : (' ' + tracking).substr(1),
+                    tracking === undefined ? undefined : ` ${tracking}`.substr(1),
                     ahead,
                     behind
                 )

@@ -1,7 +1,9 @@
 'use strict';
 import { Arrays, Strings } from '../../system';
-import { GitCommitType, GitFile, GitFileStatus, GitLogParser, GitStash, GitStashCommit } from './../git';
+import { GitCommitType, GitFile, GitFileStatus, GitLogParser, GitStash, GitStashCommit } from '../git';
 // import { Logger } from './logger';
+
+const emptyStr = '';
 
 interface StashEntry {
     ref?: string;
@@ -19,7 +21,7 @@ export class GitStashParser {
     static parse(data: string, repoPath: string): GitStash | undefined {
         if (!data) return undefined;
 
-        const lines = Strings.lines(data + '</f>');
+        const lines = Strings.lines(`${data}</f>`);
         // Skip the first line since it will always be </f>
         let next = lines.next();
         if (next.done) return undefined;
@@ -124,10 +126,11 @@ export class GitStashParser {
             }
         }
 
-        return {
+        const stash: GitStash = {
             repoPath: repoPath,
             commits: commits
-        } as GitStash;
+        };
+        return stash;
     }
 
     private static parseEntry(entry: StashEntry, repoPath: string, commits: Map<string, GitStashCommit>) {
@@ -140,7 +143,7 @@ export class GitStashParser {
                 entry.ref!,
                 new Date((entry.date! as any) * 1000),
                 new Date((entry.committedDate! as any) * 1000),
-                entry.summary === undefined ? '' : entry.summary,
+                entry.summary === undefined ? emptyStr : entry.summary,
                 entry.fileNames!,
                 entry.files || []
             );

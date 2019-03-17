@@ -59,29 +59,33 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 
             let previousPageCommand: CommandQuickPickItem | undefined = undefined;
 
+            let commandArgs: DiffWithRevisionCommandArgs;
             if (log.truncated) {
+                commandArgs = { ...args };
                 const npc = new CommandQuickPickItem(
                     {
-                        label: `$(arrow-right) Show Next Commits`,
+                        label: '$(arrow-right) Show Next Commits',
                         description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${log.maxCount} newer commits`
                     },
                     Commands.DiffWithRevision,
-                    [uri, { ...args } as DiffWithRevisionCommandArgs]
+                    [uri, commandArgs]
                 );
 
                 const last = Iterables.last(log.commits.values());
                 if (last != null) {
+                    commandArgs = { ...args, nextPageCommand: npc };
                     previousPageCommand = new CommandQuickPickItem(
                         {
-                            label: `$(arrow-left) Show Previous Commits`,
+                            label: '$(arrow-left) Show Previous Commits',
                             description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${log.maxCount} older commits`
                         },
                         Commands.DiffWithRevision,
-                        [new GitUri(uri, last), { ...args, nextPageCommand: npc } as DiffWithRevisionCommandArgs]
+                        [new GitUri(uri, last), commandArgs]
                     );
                 }
             }
 
+            commandArgs = { ...args };
             const currentCommand = new CommandQuickPickItem(
                 {
                     label: `go back ${GlyphChars.ArrowBack}`,
@@ -98,9 +102,10 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
                     }`
                 },
                 Commands.DiffWithRevision,
-                [uri, { ...args }]
+                [uri, commandArgs]
             );
 
+            commandArgs = { ...args, maxCount: 0 };
             const pick = await FileHistoryQuickPick.show(log, gitUri, placeHolder, {
                 pickerOnly: true,
                 progressCancellation: progressCancellation,
@@ -110,34 +115,31 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
                 showAllCommand: log.truncated
                     ? new CommandQuickPickItem(
                           {
-                              label: `$(sync) Show All Commits`,
+                              label: '$(sync) Show All Commits',
                               description: `${Strings.pad(GlyphChars.Dash, 2, 3)} this may take a while`
                           },
                           Commands.DiffWithRevision,
-                          [uri, { ...args, maxCount: 0 } as DiffWithRevisionCommandArgs]
+                          [uri, commandArgs]
                       )
                     : undefined
             });
             if (pick === undefined) return undefined;
-
-            let ref: string;
 
             if (pick instanceof ChooseFromBranchesAndTagsQuickPickItem) {
                 const branchOrTag = await pick.execute();
                 if (branchOrTag === undefined) return undefined;
                 if (branchOrTag instanceof CommandQuickPickItem) return branchOrTag.execute();
 
-                return commands.executeCommand(Commands.DiffWithRevision, gitUri, {
+                commandArgs = {
                     ...args,
-                    branchOrTag: branchOrTag.item,
-                    goBackCommand: currentCommand
-                } as DiffWithRevisionCommandArgs);
+                    branchOrTag: branchOrTag.item
+                };
+                return commands.executeCommand(Commands.DiffWithRevision, gitUri, commandArgs);
             }
-            else {
-                if (pick instanceof CommandQuickPickItem) return pick.execute();
 
-                ref = pick.commit.sha;
-            }
+            if (pick instanceof CommandQuickPickItem) return pick.execute();
+
+            const ref = pick.commit.sha;
 
             const diffArgs: DiffWithCommandArgs = {
                 repoPath: gitUri.repoPath,

@@ -19,7 +19,7 @@ export interface SaveSettingsMessage {
     };
     removes: string[];
     scope: 'user' | 'workspace';
-    uri: string;
+    uri?: string;
 }
 
 export interface SettingsChangedMessage {

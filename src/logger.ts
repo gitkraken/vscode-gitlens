@@ -4,6 +4,8 @@ import { extensionOutputChannelName } from './constants';
 import { getCorrelationContext } from './system';
 // import { Telemetry } from './telemetry';
 
+const emptyStr = '';
+
 export enum TraceLevel {
     Silent = 'silent',
     Errors = 'errors',
@@ -61,16 +63,16 @@ export class Logger {
             message = params.shift();
 
             if (contextOrMessage !== undefined) {
-                message = `${contextOrMessage.prefix} ${message || ''}`;
+                message = `${contextOrMessage.prefix} ${message || emptyStr}`;
             }
         }
 
         if (Logger.isDebugging) {
-            console.log(this.timestamp, ConsolePrefix, message || '', ...params);
+            console.log(this.timestamp, ConsolePrefix, message || emptyStr, ...params);
         }
 
         if (this.output !== undefined && this.level === TraceLevel.Debug) {
-            this.output.appendLine(`${this.timestamp} ${message || ''}${this.toLoggableParams(true, params)}`);
+            this.output.appendLine(`${this.timestamp} ${message || emptyStr}${this.toLoggableParams(true, params)}`);
         }
     }
 
@@ -87,7 +89,7 @@ export class Logger {
             message = params.shift();
 
             if (contextOrMessage !== undefined) {
-                message = `${contextOrMessage.prefix} ${message || ''}`;
+                message = `${contextOrMessage.prefix} ${message || emptyStr}`;
             }
         }
 
@@ -102,11 +104,13 @@ export class Logger {
         }
 
         if (Logger.isDebugging) {
-            console.error(this.timestamp, ConsolePrefix, message || '', ...params, ex);
+            console.error(this.timestamp, ConsolePrefix, message || emptyStr, ...params, ex);
         }
 
         if (this.output !== undefined && this.level !== TraceLevel.Silent) {
-            this.output.appendLine(`${this.timestamp} ${message || ''}${this.toLoggableParams(false, params)}\n${ex}`);
+            this.output.appendLine(
+                `${this.timestamp} ${message || emptyStr}${this.toLoggableParams(false, params)}\n${ex}`
+            );
         }
 
         // Telemetry.trackException(ex);
@@ -131,16 +135,16 @@ export class Logger {
             message = params.shift();
 
             if (contextOrMessage !== undefined) {
-                message = `${contextOrMessage.prefix} ${message || ''}`;
+                message = `${contextOrMessage.prefix} ${message || emptyStr}`;
             }
         }
 
         if (Logger.isDebugging) {
-            console.log(this.timestamp, ConsolePrefix, message || '', ...params);
+            console.log(this.timestamp, ConsolePrefix, message || emptyStr, ...params);
         }
 
         if (this.output !== undefined && (this.level === TraceLevel.Verbose || this.level === TraceLevel.Debug)) {
-            this.output.appendLine(`${this.timestamp} ${message || ''}${this.toLoggableParams(false, params)}`);
+            this.output.appendLine(`${this.timestamp} ${message || emptyStr}${this.toLoggableParams(false, params)}`);
         }
     }
 
@@ -159,16 +163,16 @@ export class Logger {
             message = params.shift();
 
             if (contextOrMessage !== undefined) {
-                message = `${contextOrMessage.prefix} ${message || ''}`;
+                message = `${contextOrMessage.prefix} ${message || emptyStr}`;
             }
         }
 
         if (Logger.isDebugging) {
-            console.log(this.timestamp, ConsolePrefix, message || '', ...params);
+            console.log(this.timestamp, ConsolePrefix, message || emptyStr, ...params);
         }
 
         if (this.output !== undefined && (this.level === TraceLevel.Verbose || this.level === TraceLevel.Debug)) {
-            this.output.appendLine(`${this.timestamp} ${message || ''}${this.toLoggableParams(true, params)}`);
+            this.output.appendLine(`${this.timestamp} ${message || emptyStr}${this.toLoggableParams(true, params)}`);
         }
     }
 
@@ -185,16 +189,16 @@ export class Logger {
             message = params.shift();
 
             if (contextOrMessage !== undefined) {
-                message = `${contextOrMessage.prefix} ${message || ''}`;
+                message = `${contextOrMessage.prefix} ${message || emptyStr}`;
             }
         }
 
         if (Logger.isDebugging) {
-            console.warn(this.timestamp, ConsolePrefix, message || '', ...params);
+            console.warn(this.timestamp, ConsolePrefix, message || emptyStr, ...params);
         }
 
         if (this.output !== undefined && this.level !== TraceLevel.Silent) {
-            this.output.appendLine(`${this.timestamp} ${message || ''}${this.toLoggableParams(false, params)}`);
+            this.output.appendLine(`${this.timestamp} ${message || emptyStr}${this.toLoggableParams(false, params)}`);
         }
     }
 
@@ -216,7 +220,7 @@ export class Logger {
             return JSON.stringify(p, sanitize);
         }
         catch {
-            return `<error>`;
+            return '<error>';
         }
     }
 
@@ -230,7 +234,7 @@ export class Logger {
             name = instance.prototype.constructor.name;
         }
         else {
-            name = instance.constructor != null ? instance.constructor.name : '';
+            name = instance.constructor != null ? instance.constructor.name : emptyStr;
         }
 
         // Strip webpack module name (since I never name classes with an _)
@@ -243,16 +247,16 @@ export class Logger {
         return `[${now
             .toISOString()
             .replace(/T/, ' ')
-            .replace(/\..+/, '')}:${('00' + now.getUTCMilliseconds()).slice(-3)}]`;
+            .replace(/\..+/, emptyStr)}:${`00${now.getUTCMilliseconds()}`.slice(-3)}]`;
     }
 
     private static toLoggableParams(debugOnly: boolean, params: any[]) {
         if (params.length === 0 || (debugOnly && this.level !== TraceLevel.Debug && !Logger.isDebugging)) {
-            return '';
+            return emptyStr;
         }
 
         const loggableParams = params.map(p => this.toLoggable(p)).join(', ');
-        return ` \u2014 ${loggableParams}` || '';
+        return ` \u2014 ${loggableParams}` || emptyStr;
     }
 
     private static _isDebugging: boolean | undefined;
@@ -274,6 +278,6 @@ export class Logger {
         if (this.gitOutput === undefined) {
             this.gitOutput = window.createOutputChannel(`${extensionOutputChannelName} (Git)`);
         }
-        this.gitOutput.appendLine(`${this.timestamp} ${command}${ex != null ? `\n\n${ex.toString()}` : ''}`);
+        this.gitOutput.appendLine(`${this.timestamp} ${command}${ex != null ? `\n\n${ex.toString()}` : emptyStr}`);
     }
 }

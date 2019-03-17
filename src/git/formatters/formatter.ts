@@ -1,18 +1,22 @@
 'use strict';
 import { Strings } from '../../system';
 
-export interface IFormatOptions {
+const emptyStr = '';
+
+export interface FormatOptions {
     dateFormat?: string | null;
-    tokenOptions?: { [id: string]: Strings.ITokenOptions | undefined };
+    tokenOptions?: { [id: string]: Strings.TokenOptions | undefined };
 }
 
 type Constructor<T = {}> = new (...args: any[]) => T;
 
 const spaceReplacementRegex = / /g;
 
-export abstract class Formatter<TItem = any, TOptions extends IFormatOptions = IFormatOptions> {
+declare type RequiredTokenOptions<TOptions extends FormatOptions> = TOptions & Required<Pick<TOptions, 'tokenOptions'>>;
+
+export abstract class Formatter<TItem = any, TOptions extends FormatOptions = FormatOptions> {
     protected _item!: TItem;
-    protected _options!: TOptions;
+    protected _options!: RequiredTokenOptions<TOptions>;
 
     constructor(item: TItem, options?: TOptions) {
         this.reset(item, options);
@@ -24,6 +28,7 @@ export abstract class Formatter<TItem = any, TOptions extends IFormatOptions = I
         if (options === undefined && this._options !== undefined) return;
 
         if (options === undefined) {
+            // eslint-disable-next-line @typescript-eslint/no-object-literal-type-assertion
             options = {} as TOptions;
         }
 
@@ -35,12 +40,12 @@ export abstract class Formatter<TItem = any, TOptions extends IFormatOptions = I
             options.tokenOptions = {};
         }
 
-        this._options = options;
+        this._options = options as RequiredTokenOptions<TOptions>;
     }
 
     private collapsableWhitespace: number = 0;
 
-    protected _padOrTruncate(s: string, options: Strings.ITokenOptions | undefined) {
+    protected _padOrTruncate(s: string, options: Strings.TokenOptions | undefined) {
         if (s == null || s.length === 0) return s;
 
         // NOTE: the collapsable whitespace logic relies on the javascript template evaluation to be left to right
@@ -85,7 +90,7 @@ export abstract class Formatter<TItem = any, TOptions extends IFormatOptions = I
         }
 
         if (options.prefix || options.suffix) {
-            s = `${options.prefix || ''}${s}${options.suffix || ''}`;
+            s = `${options.prefix || emptyStr}${s}${options.suffix || emptyStr}`;
         }
 
         return s;
@@ -96,7 +101,7 @@ export abstract class Formatter<TItem = any, TOptions extends IFormatOptions = I
     protected static fromTemplateCore<
         TFormatter extends Formatter<TItem, TOptions>,
         TItem,
-        TOptions extends IFormatOptions
+        TOptions extends FormatOptions
     >(
         formatter: TFormatter | Constructor<TFormatter>,
         template: string,
@@ -109,6 +114,7 @@ export abstract class Formatter<TItem = any, TOptions extends IFormatOptions = I
 
         let options: TOptions | undefined = undefined;
         if (dateFormatOrOptions == null || typeof dateFormatOrOptions === 'string') {
+            // eslint-disable-next-line @typescript-eslint/no-object-literal-type-assertion
             options = {
                 dateFormat: dateFormatOrOptions
             } as TOptions;
@@ -118,13 +124,12 @@ export abstract class Formatter<TItem = any, TOptions extends IFormatOptions = I
         }
 
         if (options.tokenOptions == null) {
-            const tokenOptions = Strings.getTokensFromTemplate(template).reduce(
-                (map, token) => {
-                    map[token.key] = token.options;
-                    return map;
-                },
-                {} as { [token: string]: Strings.ITokenOptions | undefined }
-            );
+            const tokenOptions = Strings.getTokensFromTemplate(template).reduce<{
+                [token: string]: Strings.TokenOptions | undefined;
+            }>((map, token) => {
+                map[token.key] = token.options;
+                return map;
+            }, Object.create(null));
 
             options.tokenOptions = tokenOptions;
         }

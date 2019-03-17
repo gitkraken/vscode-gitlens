@@ -1,6 +1,6 @@
 'use strict';
 import * as paths from 'path';
-import { CancellationTokenSource, QuickPickOptions, Uri, window } from 'vscode';
+import { CancellationTokenSource, window } from 'vscode';
 import { Commands, ShowQuickCurrentBranchHistoryCommandArgs, ShowQuickFileHistoryCommandArgs } from '../commands';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
@@ -71,43 +71,41 @@ export class FileHistoryQuickPick {
                     log.repoPath
                 );
                 if (workingFileName) {
+                    const goBackCommandArgs: ShowQuickFileHistoryCommandArgs = {
+                        log: log,
+                        maxCount: log.maxCount,
+                        range: log.range,
+                        goBackCommand: options.goBackCommand
+                    };
+
+                    const commandArgs: ShowQuickFileHistoryCommandArgs = {
+                        goBackCommand: new CommandQuickPickItem(
+                            {
+                                label: `go back ${GlyphChars.ArrowBack}`,
+                                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${
+                                    GlyphChars.Space
+                                }$(file-text) ${paths.basename(uri.fsPath)}${
+                                    uri.sha ? ` from ${GlyphChars.Space}$(git-commit) ${uri.shortSha}` : ''
+                                }`
+                            },
+                            Commands.ShowQuickFileHistory,
+                            [uri, goBackCommandArgs]
+                        )
+                    };
+
                     index++;
                     items.splice(
                         0,
                         0,
                         new CommandQuickPickItem(
                             {
-                                label: `$(history) Show File History`,
+                                label: '$(history) Show File History',
                                 description: `${Strings.pad(GlyphChars.Dash, 2, 3)} of ${paths.basename(
                                     workingFileName
                                 )}`
                             },
                             Commands.ShowQuickFileHistory,
-                            [
-                                GitUri.resolveToUri(workingFileName, log.repoPath),
-                                {
-                                    goBackCommand: new CommandQuickPickItem(
-                                        {
-                                            label: `go back ${GlyphChars.ArrowBack}`,
-                                            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${
-                                                GlyphChars.Space
-                                            }$(file-text) ${paths.basename(uri.fsPath)}${
-                                                uri.sha ? ` from ${GlyphChars.Space}$(git-commit) ${uri.shortSha}` : ''
-                                            }`
-                                        },
-                                        Commands.ShowQuickFileHistory,
-                                        [
-                                            uri,
-                                            {
-                                                log: log,
-                                                maxCount: log.maxCount,
-                                                range: log.range,
-                                                goBackCommand: options.goBackCommand
-                                            } as ShowQuickFileHistoryCommandArgs
-                                        ]
-                                    )
-                                } as ShowQuickFileHistoryCommandArgs
-                            ]
+                            [GitUri.resolveToUri(workingFileName, log.repoPath), commandArgs]
                         )
                     );
                 }
@@ -128,6 +126,12 @@ export class FileHistoryQuickPick {
             const branch = await Container.git.getBranch(uri.repoPath!);
 
             if (branch !== undefined) {
+                const commandArgs: ShowQuickFileHistoryCommandArgs = {
+                    log: log,
+                    maxCount: log.maxCount,
+                    range: log.range
+                };
+
                 const currentCommand = new CommandQuickPickItem(
                     {
                         label: `go back ${GlyphChars.ArrowBack}`,
@@ -138,35 +142,26 @@ export class FileHistoryQuickPick {
                         }`
                     },
                     Commands.ShowQuickFileHistory,
-                    [
-                        uri,
-                        {
-                            log,
-                            maxCount: log.maxCount,
-                            range: log.range
-                        } as ShowQuickFileHistoryCommandArgs
-                    ]
+                    [uri, commandArgs]
                 );
 
                 // Only show the full repo option if we are the root
                 if (options.goBackCommand === undefined) {
+                    const commandArgs: ShowQuickCurrentBranchHistoryCommandArgs = {
+                        goBackCommand: currentCommand
+                    };
                     items.splice(
                         index++,
                         0,
                         new CommandQuickPickItem(
                             {
-                                label: `$(history) Show Branch History`,
+                                label: '$(history) Show Branch History',
                                 description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows  ${
                                     GlyphChars.Space
                                 }$(git-branch) ${branch.name} history`
                             },
                             Commands.ShowQuickCurrentBranchHistory,
-                            [
-                                undefined,
-                                {
-                                    goBackCommand: currentCommand
-                                } as ShowQuickCurrentBranchHistoryCommandArgs
-                            ]
+                            [undefined, commandArgs]
                         )
                     );
                 }
@@ -215,7 +210,7 @@ export class FileHistoryQuickPick {
             // onDidSelectItem: (item: QuickPickItem) => {
             //     scope.setKeyCommand('right', item);
             // }
-        } as QuickPickOptions);
+        });
 
         await scope.dispose();
 

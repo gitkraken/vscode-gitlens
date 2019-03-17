@@ -46,7 +46,7 @@ export class BitbucketServerRemote extends RemoteProvider {
     }
 
     protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
-        let line = '';
+        let line;
         if (range) {
             if (range.start.line === range.end.line) {
                 line = `#${range.start.line}`;
@@ -55,7 +55,9 @@ export class BitbucketServerRemote extends RemoteProvider {
                 line = `#${range.start.line}-${range.end.line}`;
             }
         }
-
+        else {
+            line = '';
+        }
         if (sha) return `${this.baseUrl}/browse/${fileName}?at=${sha}${line}`;
         if (branch) return `${this.baseUrl}/browse/${fileName}?at=${branch}${line}`;
         return `${this.baseUrl}/browse/${fileName}${line}`;

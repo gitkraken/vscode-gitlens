@@ -14,8 +14,9 @@ import { Config } from './config';
 import { extensionId } from './constants';
 import { Functions } from './system';
 
-const emptyConfig: any = new Proxy<any>({} as Config, {
-    get(target, propKey, receiver) {
+// eslint-disable-next-line @typescript-eslint/no-object-literal-type-assertion
+const emptyConfig: Config = new Proxy<Config>({} as Config, {
+    get: function() {
         return emptyConfig;
     }
 });
@@ -230,22 +231,22 @@ export class Configuration {
     async updateEffective(section: string, value: any, resource: Uri | null = null) {
         const inspect = await configuration.inspect(section, resource)!;
         if (inspect.workspaceFolderValue !== undefined) {
-            if (value === inspect.workspaceFolderValue) return;
+            if (value === inspect.workspaceFolderValue) return undefined;
 
-            return await configuration.update(section, value, ConfigurationTarget.WorkspaceFolder, resource);
+            return void configuration.update(section, value, ConfigurationTarget.WorkspaceFolder, resource);
         }
 
         if (inspect.workspaceValue !== undefined) {
-            if (value === inspect.workspaceValue) return;
+            if (value === inspect.workspaceValue) return undefined;
 
-            return await configuration.update(section, value, ConfigurationTarget.Workspace);
+            return void configuration.update(section, value, ConfigurationTarget.Workspace);
         }
 
         if (inspect.globalValue === value || (inspect.globalValue === undefined && value === inspect.defaultValue)) {
-            return;
+            return undefined;
         }
 
-        return await configuration.update(
+        return void configuration.update(
             section,
             value === inspect.defaultValue ? undefined : value,
             ConfigurationTarget.Global

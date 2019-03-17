@@ -64,11 +64,7 @@ function getViewNodeInstanceId() {
 export abstract class ViewNode<TView extends View = View> {
     protected readonly _instanceId: number;
 
-    constructor(
-        uri: GitUri,
-        public readonly view: TView,
-        protected readonly parent?: ViewNode
-    ) {
+    constructor(uri: GitUri, public readonly view: TView, protected readonly parent?: ViewNode) {
         this._instanceId = getViewNodeInstanceId();
         this._uri = uri;
     }
@@ -96,7 +92,9 @@ export abstract class ViewNode<TView extends View = View> {
 
     @gate()
     @debug()
-    refresh(reset: boolean = false): void | boolean | Promise<void> | Promise<boolean> {}
+    refresh(reset: boolean = false): void | boolean | Promise<void> | Promise<boolean> {
+        // virtual
+    }
 
     @gate()
     @debug()
@@ -121,13 +119,13 @@ export interface PageableViewNode {
 export function isPageable(
     node: ViewNode
 ): node is ViewNode & { supportsPaging: boolean; maxCount: number | undefined } {
-    return Boolean((node as any).supportsPaging);
+    return Boolean((node as ViewNode & { supportsPaging: boolean }).supportsPaging);
 }
 
 export function supportsAutoRefresh(
     view: View
 ): view is View & { autoRefresh: boolean; onDidChangeAutoRefresh: Event<void> } {
-    return (view as any).onDidChangeAutoRefresh !== undefined;
+    return (view as View & { onDidChangeAutoRefresh: Event<void> }).onDidChangeAutoRefresh !== undefined;
 }
 
 export abstract class SubscribeableViewNode<TView extends View = View> extends ViewNode<TView> {
@@ -173,7 +171,7 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
         }
     }
 
-    protected abstract async subscribe(): Promise<Disposable | undefined>;
+    protected abstract subscribe(): Disposable | undefined | Promise<Disposable | undefined>;
 
     @debug()
     protected async unsubscribe(): Promise<void> {
@@ -193,8 +191,12 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
         this.onVisibilityChanged({ visible: this.view.visible });
     }
 
-    protected onParentStateChanged(state: TreeItemCollapsibleState) {}
-    protected onStateChanged(state: TreeItemCollapsibleState) {}
+    protected onParentStateChanged(state: TreeItemCollapsibleState) {
+        // virtual
+    }
+    protected onStateChanged(state: TreeItemCollapsibleState) {
+        // virtual
+    }
 
     protected _state: TreeItemCollapsibleState | undefined;
     protected onNodeStateChanged(e: TreeViewNodeStateChangeEvent<ViewNode>) {
@@ -228,15 +230,15 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
         // If we already have a subscription, just kick out
         if (this._subscription !== undefined) return;
 
-        this._subscription = this.subscribe();
+        this._subscription = Promise.resolve(this.subscribe());
         await this._subscription;
     }
 }
 
 export function nodeSupportsConditionalDismissal(node: ViewNode): node is ViewNode & { canDismiss(): boolean } {
-    return typeof (node as any).canDismiss === 'function';
+    return typeof (node as ViewNode & { canDismiss(): boolean }).canDismiss === 'function';
 }
 
 export function viewSupportsNodeDismissal(view: View): view is View & { dismissNode(node: ViewNode): void } {
-    return typeof (view as any).dismissNode === 'function';
+    return typeof (view as View & { dismissNode(node: ViewNode): void }).dismissNode === 'function';
 }

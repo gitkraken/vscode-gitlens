@@ -1,7 +1,8 @@
 'use strict';
+/*global window*/
 import { WelcomeBootstrap } from '../ipc';
 import { App } from '../shared/app-base';
-import { DOM } from './../shared/dom';
+import { DOM } from '../shared/dom';
 
 const bootstrap: WelcomeBootstrap = (window as any).bootstrap;
 

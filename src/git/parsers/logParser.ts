@@ -2,7 +2,10 @@
 import * as paths from 'path';
 import { Range } from 'vscode';
 import { Arrays, Strings } from '../../system';
-import { Git, GitAuthor, GitCommitType, GitFile, GitFileStatus, GitLog, GitLogCommit } from './../git';
+import { Git, GitAuthor, GitCommitType, GitFile, GitFileStatus, GitLog, GitLogCommit } from '../git';
+
+const emptyStr = '';
+const slash = '/';
 
 interface LogEntry {
     ref?: string;
@@ -50,7 +53,7 @@ export class GitLogParser {
         let i = 0;
         let first = true;
 
-        const lines = Strings.lines(data + '</f>');
+        const lines = Strings.lines(`${data}</f>`);
         // Skip the first line since it will always be </f>
         let next = lines.next();
         if (next.done) return undefined;
@@ -130,7 +133,8 @@ export class GitLogParser {
                     }
                     break;
 
-                case 102: // 'f': // files
+                case 102: {
+                    // 'f': // files
                     // Skip the blank line git adds before the files
                     next = lines.next();
                     if (next.done || next.value === '</f>') break;
@@ -162,8 +166,8 @@ export class GitLogParser {
                         else if (line.startsWith('diff')) {
                             const matches = diffRegex.exec(line);
                             if (matches != null) {
-                                entry.fileName = matches[1];
-                                const originalFileName = matches[2];
+                                let originalFileName;
+                                [, entry.fileName, originalFileName] = matches;
                                 if (entry.fileName !== originalFileName) {
                                     entry.originalFileName = originalFileName;
                                     entry.status = 'R';
@@ -195,7 +199,10 @@ export class GitLogParser {
                     if (first && repoPath === undefined && type === GitCommitType.File && fileName !== undefined) {
                         // Try to get the repoPath from the most recent commit
                         repoPath = Strings.normalizePath(
-                            fileName.replace(fileName.startsWith('/') ? `/${entry.fileName}` : entry.fileName!, '')
+                            fileName.replace(
+                                fileName.startsWith(slash) ? `/${entry.fileName}` : entry.fileName!,
+                                emptyStr
+                            )
                         );
                         relativeFileName = Strings.normalizePath(paths.relative(repoPath, fileName));
                     }
@@ -226,11 +233,12 @@ export class GitLogParser {
                     );
 
                     break;
+                }
             }
         }
 
-        return {
-            repoPath: repoPath,
+        const log: GitLog = {
+            repoPath: repoPath!,
             authors: authors,
             commits: commits,
             sha: sha,
@@ -238,7 +246,8 @@ export class GitLogParser {
             maxCount: maxCount,
             range: range,
             truncated: Boolean(truncationCount && i >= truncationCount && truncationCount !== 1)
-        } as GitLog;
+        };
+        return log;
     }
 
     private static parseEntry(
@@ -295,7 +304,7 @@ export class GitLogParser {
                 entry.email,
                 new Date((entry.date! as any) * 1000),
                 new Date((entry.committedDate! as any) * 1000),
-                entry.summary === undefined ? '' : entry.summary,
+                entry.summary === undefined ? emptyStr : entry.summary,
                 relativeFileName,
                 entry.files || [],
                 entry.status,

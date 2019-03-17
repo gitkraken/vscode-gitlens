@@ -32,7 +32,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
         ]);
     }
 
-    protected async preExecute(context: CommandContext, args: DiffDirectoryCommandArgs = {}): Promise<any> {
+    protected preExecute(context: CommandContext, args: DiffDirectoryCommandArgs = {}) {
         switch (context.command) {
             case Commands.DiffDirectoryWithHead:
                 args.ref1 = 'HEAD';
@@ -57,7 +57,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
         return this.execute(context.editor, context.uri, args);
     }
 
-    async execute(editor?: TextEditor, uri?: Uri, args: DiffDirectoryCommandArgs = {}): Promise<any> {
+    async execute(editor?: TextEditor, uri?: Uri, args: DiffDirectoryCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
 
         try {
@@ -90,7 +90,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
             const msg = ex && ex.toString();
             if (msg === 'No diff tool found') {
                 const result = await window.showWarningMessage(
-                    `Unable to open directory compare because there is no Git diff tool configured`,
+                    'Unable to open directory compare because there is no Git diff tool configured',
                     'View Git Docs'
                 );
                 if (!result) return undefined;

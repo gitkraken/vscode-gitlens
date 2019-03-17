@@ -2,8 +2,8 @@
 import {
     ConfigurationChangeEvent,
     debug,
+    DecorationOptions,
     DecorationRangeBehavior,
-    DecorationRenderOptions,
     Disposable,
     Range,
     TextEditor,
@@ -22,7 +22,7 @@ const annotationDecoration: TextEditorDecorationType = window.createTextEditorDe
         textDecoration: 'none'
     },
     rangeBehavior: DecorationRangeBehavior.ClosedOpen
-} as DecorationRenderOptions);
+});
 
 export class LineAnnotationController implements Disposable {
     private _disposable: Disposable;
@@ -153,10 +153,8 @@ export class LineAnnotationController implements Disposable {
                 await this.refresh(editor);
             }
         }
-        else {
-            if (this.suspend('user')) {
-                await this.refresh(editor);
-            }
+        else if (this.suspend('user')) {
+            await this.refresh(editor);
         }
     }
 
@@ -170,7 +168,10 @@ export class LineAnnotationController implements Disposable {
         if (editor === undefined && this._editor === undefined) return;
 
         const lines = Container.lineTracker.lines;
-        if (editor === undefined || lines === undefined || !isTextEditor(editor)) return this.clear(this._editor);
+        if (editor === undefined || lines === undefined || !isTextEditor(editor)) {
+            this.clear(this._editor);
+            return;
+        }
 
         if (this._editor !== editor) {
             // Clear any annotations on the previously active editor
@@ -180,10 +181,16 @@ export class LineAnnotationController implements Disposable {
         }
 
         const cfg = Container.config.currentLine;
-        if (this.suspended) return this.clear(editor);
+        if (this.suspended) {
+            this.clear(editor);
+            return;
+        }
 
         const trackedDocument = await Container.tracker.getOrAdd(editor.document);
-        if (!trackedDocument.isBlameable && this.suspended) return this.clear(editor);
+        if (!trackedDocument.isBlameable && this.suspended) {
+            this.clear(editor);
+            return;
+        }
 
         // Make sure the editor hasn't died since the await above and that we are still on the same line(s)
         if (editor.document === undefined || !Container.lineTracker.includesAll(lines)) return;
@@ -200,7 +207,7 @@ export class LineAnnotationController implements Disposable {
                 cfg.format,
                 cfg.dateFormat === null ? Container.config.defaultDateFormat : cfg.dateFormat,
                 scrollable
-            );
+            ) as DecorationOptions;
             decoration.range = editor.document.validateRange(
                 new Range(l, Number.MAX_SAFE_INTEGER, l, Number.MAX_SAFE_INTEGER)
             );

@@ -3,7 +3,6 @@ import {
     CancellationToken,
     Disposable,
     Hover,
-    HoverProvider,
     languages,
     Position,
     Range,
@@ -46,7 +45,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         super.clear();
     }
 
-    async onReset(changes?: {
+    onReset(changes?: {
         decoration: TextEditorDecorationType;
         highlightDecoration: TextEditorDecorationType | undefined;
     }) {
@@ -181,16 +180,22 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         const subscriptions: Disposable[] = [];
         if (providers.changes) {
             subscriptions.push(
-                languages.registerHoverProvider({ pattern: this.document.uri.fsPath }, {
-                    provideHover: this.provideChangesHover.bind(this)
-                } as HoverProvider)
+                languages.registerHoverProvider(
+                    { pattern: this.document.uri.fsPath },
+                    {
+                        provideHover: this.provideChangesHover.bind(this)
+                    }
+                )
             );
         }
         if (providers.details) {
             subscriptions.push(
-                languages.registerHoverProvider({ pattern: this.document.uri.fsPath }, {
-                    provideHover: this.provideDetailsHover.bind(this)
-                } as HoverProvider)
+                languages.registerHoverProvider(
+                    { pattern: this.document.uri.fsPath },
+                    {
+                        provideHover: this.provideDetailsHover.bind(this)
+                    }
+                )
             );
         }
 

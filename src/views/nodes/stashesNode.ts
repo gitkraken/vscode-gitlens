@@ -9,12 +9,7 @@ import { StashNode } from './stashNode';
 import { ResourceType, ViewNode } from './viewNode';
 
 export class StashesNode extends ViewNode {
-    constructor(
-        uri: GitUri,
-        view: View,
-        parent: ViewNode,
-        public readonly repo: Repository
-    ) {
+    constructor(uri: GitUri, view: View, parent: ViewNode, public readonly repo: Repository) {
         super(uri, view, parent);
     }
 
@@ -30,7 +25,7 @@ export class StashesNode extends ViewNode {
     }
 
     getTreeItem(): TreeItem {
-        const item = new TreeItem(`Stashes`, TreeItemCollapsibleState.Collapsed);
+        const item = new TreeItem('Stashes', TreeItemCollapsibleState.Collapsed);
         item.id = this.id;
         item.contextValue = ResourceType.Stashes;
 

@@ -1,6 +1,8 @@
 'use strict';
 import { createHash, HexBase64Latin1Encoding } from 'crypto';
 
+const emptyStr = '';
+
 export namespace Strings {
     export const enum CharCode {
         /**
@@ -20,10 +22,10 @@ export namespace Strings {
 
     const pathNormalizeRegex = /\\/g;
     const pathStripTrailingSlashRegex = /\/$/g;
-    const tokenRegex = /\$\{(\W*)?([^|]*?)(?:\|(\d+)(\-|\?)?)?(\W*)?\}/g;
+    const tokenRegex = /\$\{(\W*)?([^|]*?)(?:\|(\d+)(-|\?)?)?(\W*)?\}/g;
     const tokenSanitizeRegex = /\$\{(?:\W*)?(\w*?)(?:[\W\d]*)\}/g;
 
-    export interface ITokenOptions {
+    export interface TokenOptions {
         collapseWhitespace: boolean;
         padDirection: 'left' | 'right';
         prefix: string | undefined;
@@ -32,7 +34,7 @@ export namespace Strings {
     }
 
     export function getTokensFromTemplate(template: string) {
-        const tokens: { key: string; options: ITokenOptions }[] = [];
+        const tokens: { key: string; options: TokenOptions }[] = [];
 
         let match = tokenRegex.exec(template);
         while (match != null) {
@@ -55,8 +57,9 @@ export namespace Strings {
 
     export function interpolate(template: string, context: object | undefined): string {
         if (!template) return template;
-        if (context === undefined) return template.replace(tokenSanitizeRegex, '');
+        if (context === undefined) return template.replace(tokenSanitizeRegex, emptyStr);
 
+        // eslint-disable-next-line no-template-curly-in-string
         template = template.replace(tokenSanitizeRegex, '$${this.$1}');
         return new Function(`return \`${template}\`;`).call(context);
     }
@@ -91,7 +94,7 @@ export namespace Strings {
         const { addLeadingSlash, stripTrailingSlash } = { stripTrailingSlash: true, ...options };
 
         if (stripTrailingSlash) {
-            normalized = normalized.replace(pathStripTrailingSlashRegex, '');
+            normalized = normalized.replace(pathStripTrailingSlashRegex, emptyStr);
         }
 
         if (addLeadingSlash && normalized.charCodeAt(0) !== CharCode.Slash) {
@@ -101,10 +104,12 @@ export namespace Strings {
         return normalized;
     }
 
-    export function pad(s: string, before: number = 0, after: number = 0, padding: string = `\u00a0`) {
+    export function pad(s: string, before: number = 0, after: number = 0, padding: string = '\u00a0') {
         if (before === 0 && after === 0) return s;
 
-        return `${before === 0 ? '' : padding.repeat(before)}${s}${after === 0 ? '' : padding.repeat(after)}`;
+        return `${before === 0 ? emptyStr : padding.repeat(before)}${s}${
+            after === 0 ? emptyStr : padding.repeat(after)
+        }`;
     }
 
     export function padLeft(s: string, padTo: number, padding: string = '\u00a0', width?: number) {
@@ -146,7 +151,7 @@ export namespace Strings {
         count: number,
         options?: { number?: string; plural?: string; suffix?: string; zero?: string }
     ) {
-        if (options === undefined) return `${count} ${s}${count === 1 ? '' : 's'}`;
+        if (options === undefined) return `${count} ${s}${count === 1 ? emptyStr : 's'}`;
 
         return `${count === 0 ? options.zero || count : options.number || count} ${
             count === 1 ? s : options.plural || `${s}${options.suffix || 's'}`
@@ -154,6 +159,7 @@ export namespace Strings {
     }
 
     // Removes \ / : * ? " < > | and C0 and C1 control codes
+    // eslint-disable-next-line no-control-regex
     const illegalCharsForFSRegex = /[\\/:*?"<>|\x00-\x1f\x80-\x9f]/g;
 
     export function sanitizeForFileSystem(s: string, replacement: string = '_') {
@@ -197,7 +203,7 @@ export namespace Strings {
         // Shortcut to avoid needless string `RegExp`s, replacements, and allocations
         if (!containsNonAsciiRegex.test(s)) return s.length;
 
-        s = s.replace(ansiRegex, '');
+        s = s.replace(ansiRegex, emptyStr);
 
         let count = 0;
         let emoji = 0;
@@ -263,30 +269,30 @@ export namespace Strings {
             cp === 0x2329 || // LEFT-POINTING ANGLE BRACKET
             cp === 0x232a || // RIGHT-POINTING ANGLE BRACKET
                 // CJK Radicals Supplement .. Enclosed CJK Letters and Months
-                (0x2e80 <= cp && cp <= 0x3247 && cp !== 0x303f) ||
+                (cp >= 0x2e80 && cp <= 0x3247 && cp !== 0x303f) ||
                 // Enclosed CJK Letters and Months .. CJK Unified Ideographs Extension A
-                (0x3250 <= cp && cp <= 0x4dbf) ||
+                (cp >= 0x3250 && cp <= 0x4dbf) ||
                 // CJK Unified Ideographs .. Yi Radicals
-                (0x4e00 <= cp && cp <= 0xa4c6) ||
+                (cp >= 0x4e00 && cp <= 0xa4c6) ||
                 // Hangul Jamo Extended-A
-                (0xa960 <= cp && cp <= 0xa97c) ||
+                (cp >= 0xa960 && cp <= 0xa97c) ||
                 // Hangul Syllables
-                (0xac00 <= cp && cp <= 0xd7a3) ||
+                (cp >= 0xac00 && cp <= 0xd7a3) ||
                 // CJK Compatibility Ideographs
-                (0xf900 <= cp && cp <= 0xfaff) ||
+                (cp >= 0xf900 && cp <= 0xfaff) ||
                 // Vertical Forms
-                (0xfe10 <= cp && cp <= 0xfe19) ||
+                (cp >= 0xfe10 && cp <= 0xfe19) ||
                 // CJK Compatibility Forms .. Small Form Variants
-                (0xfe30 <= cp && cp <= 0xfe6b) ||
+                (cp >= 0xfe30 && cp <= 0xfe6b) ||
                 // Halfwidth and Fullwidth Forms
-                (0xff01 <= cp && cp <= 0xff60) ||
-                (0xffe0 <= cp && cp <= 0xffe6) ||
+                (cp >= 0xff01 && cp <= 0xff60) ||
+                (cp >= 0xffe0 && cp <= 0xffe6) ||
                 // Kana Supplement
-                (0x1b000 <= cp && cp <= 0x1b001) ||
+                (cp >= 0x1b000 && cp <= 0x1b001) ||
                 // Enclosed Ideographic Supplement
-                (0x1f200 <= cp && cp <= 0x1f251) ||
+                (cp >= 0x1f200 && cp <= 0x1f251) ||
                 // CJK Unified Ideographs Extension B .. Tertiary Ideographic Plane
-                (0x20000 <= cp && cp <= 0x3fffd))
+                (cp >= 0x20000 && cp <= 0x3fffd))
         ) {
             return true;
         }

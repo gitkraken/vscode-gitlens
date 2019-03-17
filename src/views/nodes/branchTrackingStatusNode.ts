@@ -79,7 +79,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements
         return children;
     }
 
-    async getTreeItem(): Promise<TreeItem> {
+    getTreeItem(): TreeItem {
         const ahead = this.direction === 'ahead';
         const label = ahead
             ? `${Strings.pluralize('commit', this.status.state.ahead)} ahead`

@@ -1,4 +1,5 @@
 'use strict';
+/*global document*/
 
 export namespace DOM {
     export function getElementById<T extends HTMLElement>(id: string): T {

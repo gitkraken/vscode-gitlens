@@ -155,7 +155,7 @@ export abstract class GitCommit {
         return this.workingFileName ? GitUri.resolveToUri(this.workingFileName, this.repoPath) : this.uri;
     }
 
-    private _dateFormatter?: Dates.IDateFormatter;
+    private _dateFormatter?: Dates.DateFormatter;
 
     formatDate(format?: string | null) {
         if (format == null) {

@@ -43,7 +43,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
         super([Commands.ShowCommitInView, Commands.ShowQuickCommitDetails]);
     }
 
-    protected async preExecute(context: CommandContext, args: ShowQuickCommitDetailsCommandArgs = {}): Promise<any> {
+    protected preExecute(context: CommandContext, args: ShowQuickCommitDetailsCommandArgs = {}) {
         if (context.command === Commands.ShowCommitInView) {
             args = { ...args };
             args.showInView = true;
@@ -113,7 +113,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
                 if (args.repoLog === undefined) {
                     const log = await Container.git.getLog(repoPath!, { maxCount: 2, ref: args.sha });
                     if (log === undefined) {
-                        return Messages.showCommitNotFoundWarningMessage(`Unable to show commit details`);
+                        return Messages.showCommitNotFoundWarningMessage('Unable to show commit details');
                     }
 
                     args.commit = log.commits.get(args.sha!);
@@ -121,7 +121,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
             }
 
             if (args.commit === undefined) {
-                return Messages.showCommitNotFoundWarningMessage(`Unable to show commit details`);
+                return Messages.showCommitNotFoundWarningMessage('Unable to show commit details');
             }
 
             if (args.commit.workingFileName === undefined) {
@@ -174,11 +174,12 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
 
             if (!(pick instanceof CommitWithFileStatusQuickPickItem)) return pick.execute();
 
-            return commands.executeCommand(Commands.ShowQuickCommitFileDetails, pick.commit.toGitUri(), {
+            const commandArgs: ShowQuickCommitFileDetailsCommandArgs = {
                 commit: pick.commit,
                 sha: pick.sha,
                 goBackCommand: currentCommand
-            } as ShowQuickCommitFileDetailsCommandArgs);
+            };
+            return commands.executeCommand(Commands.ShowQuickCommitFileDetails, pick.commit.toGitUri(), commandArgs);
         }
         catch (ex) {
             Logger.error(ex, 'ShowQuickCommitDetailsCommand');

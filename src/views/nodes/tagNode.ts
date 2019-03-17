@@ -14,12 +14,7 @@ export class TagNode extends ViewRefNode<RepositoriesView> implements PageableVi
     readonly supportsPaging: boolean = true;
     maxCount: number | undefined;
 
-    constructor(
-        uri: GitUri,
-        view: RepositoriesView,
-        parent: ViewNode,
-        public readonly tag: GitTag
-    ) {
+    constructor(uri: GitUri, view: RepositoriesView, parent: ViewNode, public readonly tag: GitTag) {
         super(uri, view, parent);
     }
 
@@ -59,7 +54,7 @@ export class TagNode extends ViewRefNode<RepositoriesView> implements PageableVi
         return children;
     }
 
-    async getTreeItem(): Promise<TreeItem> {
+    getTreeItem(): TreeItem {
         const item = new TreeItem(this.label, TreeItemCollapsibleState.Collapsed);
         item.id = this.id;
         item.contextValue = ResourceType.Tag;

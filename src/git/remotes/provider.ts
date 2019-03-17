@@ -112,8 +112,8 @@ export abstract class RemoteProvider {
     protected abstract getUrlForCommit(sha: string): string;
     protected abstract getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string;
 
-    private async openUrl(url?: string): Promise<{} | undefined> {
-        if (url === undefined) return undefined;
+    private openUrl(url?: string): Thenable<{} | undefined> {
+        if (url === undefined) return Promise.resolve(undefined);
 
         return commands.executeCommand(BuiltInCommands.Open, Uri.parse(url));
     }
@@ -130,9 +130,9 @@ export abstract class RemoteProvider {
         catch (ex) {
             if (ex.message.includes("Couldn't find the required `xsel` binary")) {
                 window.showErrorMessage(
-                    `Unable to copy remote url, xsel is not installed. Please install it via your package manager, e.g. \`sudo apt install xsel\``
+                    'Unable to copy remote url, xsel is not installed. Please install it via your package manager, e.g. `sudo apt install xsel`'
                 );
-                return;
+                return undefined;
             }
 
             Logger.error(ex, 'CopyRemoteUrlToClipboardCommand');
@@ -140,7 +140,7 @@ export abstract class RemoteProvider {
         }
     }
 
-    open(resource: RemoteResource): Promise<{} | undefined> {
+    open(resource: RemoteResource): Thenable<{} | undefined> {
         return this.openUrl(this.url(resource));
     }
 

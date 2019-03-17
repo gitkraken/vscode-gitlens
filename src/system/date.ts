@@ -1,5 +1,5 @@
 'use strict';
-import { distanceInWordsToNow as _fromNow, format as _format } from 'date-fns';
+import { format as _format, distanceInWordsToNow as _fromNow } from 'date-fns';
 import * as en from 'date-fns/locale/en';
 
 // Taken from https://github.com/date-fns/date-fns/blob/601bc8e5708cbaebee5389bdaf51c2b4b33b73c4/src/locale/en/build_distance_in_words_locale/index.js
@@ -87,20 +87,18 @@ function buildDistanceInWordsLocale() {
         if (typeof result === 'string') {
             value = result;
         }
+        else if (count === 1) {
+            value = result.one;
+        }
         else {
-            if (count === 1) {
-                value = result.one;
-            }
-            else {
-                value = result.other.replace('{{count}}', count.toString());
-            }
+            value = result.other.replace('{{count}}', count.toString());
         }
 
         if (!options.addSuffix) return value;
 
-        if (options.comparison > 0) return 'in ' + value;
+        if (options.comparison > 0) return `in ${value}`;
 
-        return value + ' ago';
+        return `${value} ago`;
     }
 
     return {
@@ -119,7 +117,7 @@ export namespace Dates {
     export const MillisecondsPerHour = 3600000; // 60 * 60 * 1000
     export const MillisecondsPerDay = 86400000; // 24 * 60 * 60 * 1000
 
-    export interface IDateFormatter {
+    export interface DateFormatter {
         fromNow(): string;
         format(format: string): string;
     }
@@ -140,7 +138,7 @@ export namespace Dates {
         return newDate;
     }
 
-    export function toFormatter(date: Date): IDateFormatter {
+    export function toFormatter(date: Date): DateFormatter {
         return {
             fromNow: () => {
                 return _fromNow(date, formatterOptions);

@@ -4,7 +4,7 @@ import { CommandContext, extensionId, setCommandContext } from './constants';
 import { Logger } from './logger';
 
 export declare interface KeyCommand {
-    onDidPressKey?(key: Keys): Promise<{} | undefined>;
+    onDidPressKey?(key: Keys): Thenable<{} | undefined>;
 }
 
 const keyNoopCommand = Object.create(null) as KeyCommand;
@@ -14,15 +14,13 @@ export declare type Keys = 'left' | 'right' | ',' | '.' | 'escape';
 export const keys: Keys[] = ['left', 'right', ',', '.', 'escape'];
 
 export declare interface KeyMapping {
-    [id: string]: KeyCommand | (() => Promise<KeyCommand>) | undefined;
+    [id: string]: KeyCommand | (() => Thenable<KeyCommand>) | undefined;
 }
 
 const mappings: KeyMapping[] = [];
 
 export class KeyboardScope implements Disposable {
-    constructor(
-        private readonly mapping: KeyMapping
-    ) {
+    constructor(private readonly mapping: KeyMapping) {
         for (const key in mapping) {
             mapping[key] = mapping[key] || keyNoopCommand;
         }
@@ -93,11 +91,9 @@ export class Keyboard implements Disposable {
         this._disposable && this._disposable.dispose();
     }
 
-    async beginScope(mapping?: KeyMapping): Promise<KeyboardScope> {
+    beginScope(mapping?: KeyMapping): Promise<KeyboardScope> {
         Logger.log('Keyboard.beginScope', mappings.length);
-        return await new KeyboardScope(
-            mapping ? Object.assign(Object.create(null), mapping) : Object.create(null)
-        ).begin();
+        return new KeyboardScope(mapping ? Object.assign(Object.create(null), mapping) : Object.create(null)).begin();
     }
 
     async execute(key: Keys): Promise<{} | undefined> {

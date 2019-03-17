@@ -65,7 +65,7 @@ export class ExternalDiffCommand extends Command {
         super([Commands.ExternalDiff, Commands.ExternalDiffAll]);
     }
 
-    protected async preExecute(context: CommandContext, args: ExternalDiffCommandArgs = {}): Promise<any> {
+    protected async preExecute(context: CommandContext, args: ExternalDiffCommandArgs = {}) {
         if (isCommandViewContextWithFileCommit(context)) {
             args = { ...args };
 
@@ -190,7 +190,7 @@ export class ExternalDiffCommand extends Command {
             const tool = await Container.git.getDiffTool(repoPath);
             if (tool === undefined) {
                 const result = await window.showWarningMessage(
-                    `Unable to open changes in diff tool. No Git diff tool is configured`,
+                    'Unable to open changes in diff tool. No Git diff tool is configured',
                     'View Git Docs'
                 );
                 if (!result) return undefined;

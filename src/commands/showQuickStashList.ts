@@ -33,23 +33,21 @@ export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
             if (!repoPath) return undefined;
 
             const stash = await Container.git.getStashList(repoPath);
-            if (stash === undefined) return window.showWarningMessage(`Unable to show stashed changes`);
+            if (stash === undefined) return window.showWarningMessage('Unable to show stashed changes');
 
             if (progressCancellation.token.isCancellationRequested) return undefined;
 
             // Create a command to get back to here
+            const currentCommandArgs: ShowQuickStashListCommandArgs = {
+                goBackCommand: args.goBackCommand
+            };
             const currentCommand = new CommandQuickPickItem(
                 {
                     label: `go back ${GlyphChars.ArrowBack}`,
                     description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to stashed changes`
                 },
                 Commands.ShowQuickStashList,
-                [
-                    uri,
-                    {
-                        goBackCommand: args.goBackCommand
-                    } as ShowQuickStashListCommandArgs
-                ]
+                [uri, currentCommandArgs]
             );
 
             const pick = await StashListQuickPick.show(
@@ -63,11 +61,12 @@ export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
 
             if (pick instanceof CommandQuickPickItem) return pick.execute();
 
-            return commands.executeCommand(Commands.ShowQuickCommitDetails, pick.commit.toGitUri(), {
+            const commandArgs: ShowQuickCommitDetailsCommandArgs = {
                 commit: pick.commit,
                 sha: pick.commit.sha,
                 goBackCommand: currentCommand
-            } as ShowQuickCommitDetailsCommandArgs);
+            };
+            return commands.executeCommand(Commands.ShowQuickCommitDetails, pick.commit.toGitUri(), commandArgs);
         }
         catch (ex) {
             Logger.error(ex, 'ShowQuickStashListCommand');

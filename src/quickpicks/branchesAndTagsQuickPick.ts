@@ -1,5 +1,5 @@
 'use strict';
-import { CancellationToken, CancellationTokenSource, QuickPickItem, QuickPickOptions, window } from 'vscode';
+import { CancellationToken, CancellationTokenSource, QuickPickItem, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitBranch, GitService, GitTag } from '../git/gitService';
@@ -11,10 +11,7 @@ export class RefQuickPickItem implements QuickPickItem {
     description: string;
     detail: string | undefined;
 
-    constructor(
-        public readonly ref: string,
-        checked?: boolean
-    ) {
+    constructor(public readonly ref: string, checked?: boolean) {
         this.label = `${checked ? `$(check)${GlyphChars.Space}` : GlyphChars.Space.repeat(4)} ${GitService.shortenSha(
             ref
         )}`;
@@ -39,10 +36,7 @@ export class BranchQuickPickItem implements QuickPickItem {
     description: string;
     detail: string | undefined;
 
-    constructor(
-        public readonly branch: GitBranch,
-        checked?: boolean
-    ) {
+    constructor(public readonly branch: GitBranch, checked?: boolean) {
         checked = checked || (checked === undefined && branch.current);
         this.label = `${checked ? `$(check)${GlyphChars.Space}` : GlyphChars.Space.repeat(4)} ${branch.name}`;
         this.description = branch.remote
@@ -74,10 +68,7 @@ export class TagQuickPickItem implements QuickPickItem {
     description: string;
     detail: string | undefined;
 
-    constructor(
-        public readonly tag: GitBranch | GitTag,
-        checked?: boolean
-    ) {
+    constructor(public readonly tag: GitBranch | GitTag, checked?: boolean) {
         this.label = `${checked ? `$(check)${GlyphChars.Space}` : GlyphChars.Space.repeat(4)} ${tag.name}`;
         this.description = `${GlyphChars.Space.repeat(2)} tag`;
     }
@@ -114,9 +105,7 @@ export interface BranchesAndTagsQuickPickOptions {
 }
 
 export class BranchesAndTagsQuickPick {
-    constructor(
-        public readonly repoPath: string | undefined
-    ) {}
+    constructor(public readonly repoPath: string | undefined) {}
 
     async show(
         placeHolder: string,
@@ -164,7 +153,7 @@ export class BranchesAndTagsQuickPick {
                     quickpick.onDidChangeValue(value => {
                         quickpick.title =
                             value && value.startsWith('#')
-                                ? `Please enter a commit id (Press 'Enter' to confirm or 'Escape' to cancel)`
+                                ? "Please enter a commit id (Press 'Enter' to confirm or 'Escape' to cancel)"
                                 : undefined;
                     });
                     quickpick.onDidAccept(async () => {
@@ -206,7 +195,7 @@ export class BranchesAndTagsQuickPick {
                     {
                         placeHolder: placeHolder,
                         ignoreFocusOut: getQuickPickIgnoreFocusOut()
-                    } as QuickPickOptions,
+                    },
                     cancellation.token
                 );
             }

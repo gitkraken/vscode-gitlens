@@ -143,6 +143,7 @@ export class CompareView extends ViewBase<CompareNode> {
             };
         }
         else {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { [id]: _, ...rest } = pinned!;
             pinned = rest;
         }
@@ -170,20 +171,20 @@ export class CompareView extends ViewBase<CompareNode> {
         setCommandContext(CommandContext.ViewsCompareKeepResults, enabled);
     }
 
-    private async pinComparison(node: ViewNode) {
-        if (!(node instanceof CompareResultsNode)) return;
+    private pinComparison(node: ViewNode) {
+        if (!(node instanceof CompareResultsNode)) return undefined;
 
         return node.pin();
     }
 
     private swapComparison(node: ViewNode) {
-        if (!(node instanceof CompareResultsNode)) return;
+        if (!(node instanceof CompareResultsNode)) return undefined;
 
         return node.swap();
     }
 
-    private async unpinComparison(node: ViewNode) {
-        if (!(node instanceof CompareResultsNode)) return;
+    private unpinComparison(node: ViewNode) {
+        if (!(node instanceof CompareResultsNode)) return undefined;
 
         return node.unpin();
     }

@@ -31,6 +31,7 @@ const markers: [number, string][] = [
     [90, 'Over 3 months ago']
 ];
 
+// eslint-disable-next-line consistent-return
 export function* insertDateMarkers<T extends ViewNode & { commit: GitLogCommit }>(
     iterable: Iterable<T>,
     parent: ViewNode,

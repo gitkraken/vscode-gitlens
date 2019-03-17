@@ -33,7 +33,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
         super([Commands.ShowFileHistoryInView, Commands.ShowQuickFileHistory]);
     }
 
-    protected async preExecute(context: CommandContext, args: ShowQuickFileHistoryCommandArgs = {}): Promise<any> {
+    protected preExecute(context: CommandContext, args: ShowQuickFileHistoryCommandArgs = {}) {
         if (context.command === Commands.ShowFileHistoryInView) {
             args = { ...args };
             args.showInView = true;
@@ -84,29 +84,29 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
             let previousPageCommand: CommandQuickPickItem | undefined = undefined;
 
             if (args.log.truncated) {
+                let commandArgs: ShowQuickFileHistoryCommandArgs;
+                commandArgs = { ...args, log: undefined };
                 const npc = new CommandQuickPickItem(
                     {
-                        label: `$(arrow-right) Show Next Commits`,
+                        label: '$(arrow-right) Show Next Commits',
                         description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${args.log.maxCount} newer commits`
                     },
                     Commands.ShowQuickFileHistory,
-                    [gitUri, { ...args, log: undefined } as ShowQuickFileHistoryCommandArgs]
+                    [gitUri, commandArgs]
                 );
 
                 const last = Iterables.last(args.log.commits.values());
                 if (last != null) {
+                    commandArgs = { ...args, log: undefined, nextPageCommand: npc };
                     previousPageCommand = new CommandQuickPickItem(
                         {
-                            label: `$(arrow-left) Show Previous Commits`,
+                            label: '$(arrow-left) Show Previous Commits',
                             description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${
                                 args.log.maxCount
                             } older commits`
                         },
                         Commands.ShowQuickFileHistory,
-                        [
-                            new GitUri(uri, last),
-                            { ...args, log: undefined, nextPageCommand: npc } as ShowQuickFileHistoryCommandArgs
-                        ]
+                        [new GitUri(uri, last), commandArgs]
                     );
                 }
             }
@@ -141,7 +141,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
                     args.log !== undefined && args.log.truncated
                         ? new CommandQuickPickItem(
                               {
-                                  label: `$(sync) Show All Commits`,
+                                  label: '$(sync) Show All Commits',
                                   description: `${Strings.pad(GlyphChars.Dash, 2, 3)} this may take a while`
                               },
                               Commands.ShowQuickFileHistory,
@@ -163,23 +163,25 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
                 if (branchOrTag === undefined) return undefined;
                 if (branchOrTag instanceof CommandQuickPickItem) return branchOrTag.execute();
 
-                return commands.executeCommand(Commands.ShowQuickFileHistory, gitUri, {
+                const commandArgs: ShowQuickFileHistoryCommandArgs = {
                     ...args,
                     log: undefined,
                     branchOrTag: branchOrTag.item,
                     goBackCommand: currentCommand
-                } as ShowQuickFileHistoryCommandArgs);
-            }
-            else {
-                if (pick instanceof CommandQuickPickItem) return pick.execute();
+                };
+                return commands.executeCommand(Commands.ShowQuickFileHistory, gitUri, commandArgs);
             }
 
-            return commands.executeCommand(Commands.ShowQuickCommitFileDetails, pick.commit.toGitUri(), {
+            if (pick instanceof CommandQuickPickItem) return pick.execute();
+
+            const commandArgs: ShowQuickCommitFileDetailsCommandArgs = {
                 commit: pick.commit,
                 fileLog: args.log,
                 sha: pick.commit.sha,
                 goBackCommand: currentCommand
-            } as ShowQuickCommitFileDetailsCommandArgs);
+            };
+
+            return commands.executeCommand(Commands.ShowQuickCommitFileDetails, pick.commit.toGitUri(), commandArgs);
         }
         catch (ex) {
             Logger.error(ex, 'ShowQuickFileHistoryCommand');

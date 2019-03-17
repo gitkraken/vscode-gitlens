@@ -44,7 +44,7 @@ export class GitHubRemote extends RemoteProvider {
     }
 
     protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
-        let line = '';
+        let line;
         if (range) {
             if (range.start.line === range.end.line) {
                 line = `#L${range.start.line}`;
@@ -52,6 +52,9 @@ export class GitHubRemote extends RemoteProvider {
             else {
                 line = `#L${range.start.line}-L${range.end.line}`;
             }
+        }
+        else {
+            line = '';
         }
 
         if (sha) return `${this.baseUrl}/blob/${sha}/${fileName}${line}`;

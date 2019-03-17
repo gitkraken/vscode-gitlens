@@ -30,12 +30,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
     private _lastFetched: number = 0;
     private _status: Promise<GitStatus | undefined>;
 
-    constructor(
-        uri: GitUri,
-        view: RepositoriesView,
-        parent: ViewNode,
-        public readonly repo: Repository
-    ) {
+    constructor(uri: GitUri, view: RepositoriesView, parent: ViewNode, public readonly repo: Repository) {
         super(uri, view, parent);
 
         this._status = this.repo.getStatus();
@@ -130,7 +125,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
             iconSuffix = workingStatus ? '-blue' : '';
             if (status.upstream !== undefined) {
                 tooltip += ` and is tracking ${status.upstream}\n${status.getUpstreamStatus({
-                    empty: `No commits ahead or behind`,
+                    empty: 'No commits ahead or behind',
                     expand: true,
                     separator: '\n',
                     suffix: '\n'
@@ -147,7 +142,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
             if (workingStatus) {
                 tooltip += `\n\nWorking tree has uncommitted changes${status.getFormattedDiffStatus({
                     expand: true,
-                    prefix: `\n`,
+                    prefix: '\n',
                     separator: '\n'
                 })}`;
             }
@@ -155,7 +150,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 
         if (!this.repo.supportsChangeEvents) {
             description = `<!>${description ? ` ${GlyphChars.Space}${description}` : ''}`;
-            tooltip += `\n\n<!> Unable to automatically detect repository changes`;
+            tooltip += '\n\n<!> Unable to automatically detect repository changes';
         }
 
         const item = new TreeItem(label, TreeItemCollapsibleState.Expanded);
@@ -215,7 +210,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
     }
 
     @debug()
-    protected async subscribe() {
+    protected subscribe() {
         const disposables = [this.repo.onDidChange(this.onRepoChanged, this)];
 
         // if (Container.config.defaultDateStyle === DateStyle.Relative) {

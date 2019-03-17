@@ -1,8 +1,8 @@
 'use strict';
 import { execFile } from 'child_process';
 import * as fs from 'fs';
-import * as iconv from 'iconv-lite';
 import * as paths from 'path';
+import * as iconv from 'iconv-lite';
 import { Logger } from '../logger';
 
 const isWindows = process.platform === 'win32';
@@ -21,7 +21,7 @@ function runDownPath(exe: string): string {
     // Posix does
 
     // Files with any directory path don't get this applied
-    if (exe.match(/[\\\/]/)) return exe;
+    if (exe.match(/[\\/]/)) return exe;
 
     const target = paths.join('.', exe);
     try {
@@ -29,13 +29,16 @@ function runDownPath(exe: string): string {
     }
     catch {}
 
-    const haystack = process.env.PATH!.split(isWindows ? ';' : ':');
-    for (const p of haystack) {
-        const needle = paths.join(p, exe);
-        try {
-            if (fs.statSync(needle)) return needle;
+    const path = process.env.PATH;
+    if (path != null && path.length !== 0) {
+        const haystack = path.split(isWindows ? ';' : ':');
+        for (const p of haystack) {
+            const needle = paths.join(p, exe);
+            try {
+                if (fs.statSync(needle)) return needle;
+            }
+            catch {}
         }
-        catch {}
     }
 
     return exe;
@@ -67,14 +70,20 @@ export function findExecutable(exe: string, args: string[]): { cmd: string; args
     }
 
     if (exe.match(/\.ps1$/i)) {
-        const cmd = paths.join(process.env.SYSTEMROOT!, 'System32', 'WindowsPowerShell', 'v1.0', 'PowerShell.exe');
+        const cmd = paths.join(
+            process.env.SYSTEMROOT || 'C:\\WINDOWS',
+            'System32',
+            'WindowsPowerShell',
+            'v1.0',
+            'PowerShell.exe'
+        );
         const psargs = ['-ExecutionPolicy', 'Unrestricted', '-NoLogo', '-NonInteractive', '-File', exe];
 
         return { cmd: cmd, args: psargs.concat(args) };
     }
 
     if (exe.match(/\.(bat|cmd)$/i)) {
-        const cmd = paths.join(process.env.SYSTEMROOT!, 'System32', 'cmd.exe');
+        const cmd = paths.join(process.env.SYSTEMROOT || 'C:\\WINDOWS', 'System32', 'cmd.exe');
         const cmdArgs = ['/C', exe, ...args];
 
         return { cmd: cmd, args: cmdArgs };
@@ -91,10 +100,7 @@ export function findExecutable(exe: string, args: string[]): { cmd: string; args
 }
 
 export class RunError extends Error {
-    constructor(
-        public readonly exitCode: number,
-        ...args: any[]
-    ) {
+    constructor(public readonly exitCode: number, ...args: any[]) {
         super(...args);
 
         Error.captureStackTrace(this, RunError);
@@ -103,7 +109,7 @@ export class RunError extends Error {
 
 export interface RunOptions {
     cwd?: string;
-    readonly env?: Object;
+    readonly env?: Record<string, any>;
     readonly encoding?: BufferEncoding | 'buffer';
     /**
      * The size the output buffer to allocate to the spawned process. Set this
@@ -132,7 +138,7 @@ export function run<TOut extends string | Buffer>(
     encoding: BufferEncoding | 'buffer',
     options: RunOptions = {}
 ): Promise<TOut> {
-    const { stdin, stdinEncoding, ...opts } = { maxBuffer: 100 * 1024 * 1024, ...options } as RunOptions;
+    const { stdin, stdinEncoding, ...opts }: RunOptions = { maxBuffer: 100 * 1024 * 1024, ...options };
 
     return new Promise<TOut>((resolve, reject) => {
         const proc = execFile(

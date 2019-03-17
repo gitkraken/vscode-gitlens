@@ -177,7 +177,7 @@ export class GitStatusFile implements GitFile {
         return GitFile.getStatusOcticon(this.status);
     }
 
-    getStatusText(file: GitFile): string {
+    getStatusText(): string {
         return GitFile.getStatusText(this.status);
     }
 

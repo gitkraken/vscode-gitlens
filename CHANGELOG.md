@@ -21,7 +21,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds a `mailto:` link to the author on the _commit details_ hover &mdash; closes [#642](https://github.com/eamodio/vscode-gitlens/issues/642)
 - Adds support for customizing the layout of the _commit details_ hover
-- Adds a `gitlens.hovers.detailsMarkdownFormat` setting to specify the format (in markdown) of the _commit details_ hover
+  - Adds a `gitlens.hovers.detailsMarkdownFormat` setting to specify the format (in markdown) of the _commit details_ hover
 - Adds the author's e-mail to the tooltip of commits in the views &mdash; closes [#642](https://github.com/eamodio/vscode-gitlens/issues/642)
 - Adds a new author e-mail format token (`${email}`) &mdash; closes [#642](https://github.com/eamodio/vscode-gitlens/issues/642)
   - Supported in the following settings: `gitlens.blame.format`, `gitlens.currentLine.format`, `gitlens.hovers.detailsMarkdownFormat`, `gitlens.views.commitFormat`, `gitlens.views.commitDescriptionFormat`, `gitlens.views.stashFormat`, `gitlens.views.stashDescriptionFormat`, and `gitlens.statusBar.format`

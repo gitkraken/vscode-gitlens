@@ -1,6 +1,6 @@
 'use strict';
 import * as paths from 'path';
-import { commands, Disposable, InputBoxOptions, Terminal, TextDocumentShowOptions, Uri, window } from 'vscode';
+import { commands, Disposable, Terminal, TextDocumentShowOptions, Uri, window } from 'vscode';
 import {
     Commands,
     DiffWithCommandArgs,
@@ -39,7 +39,7 @@ export interface RefreshNodeCommandArgs {
     maxCount?: number;
 }
 
-interface ICompareSelected {
+interface CompareSelectedInfo {
     ref: string;
     repoPath: string | undefined;
     uri?: Uri;
@@ -142,14 +142,15 @@ export class ViewCommands implements Disposable {
     private fetch(node: RemoteNode | RepositoryNode) {
         if (node instanceof RemoteNode) return node.fetch();
         if (node instanceof RepositoryNode) return node.fetch();
-        return;
+
+        return undefined;
     }
 
     private pull(node: RepositoryNode | BranchTrackingStatusNode) {
         if (node instanceof BranchTrackingStatusNode) {
             node = node.getParent() as RepositoryNode;
         }
-        if (!(node instanceof RepositoryNode)) return;
+        if (!(node instanceof RepositoryNode)) return undefined;
 
         return node.pull();
     }
@@ -158,7 +159,7 @@ export class ViewCommands implements Disposable {
         if (node instanceof BranchTrackingStatusNode) {
             node = node.getParent() as RepositoryNode;
         }
-        if (!(node instanceof RepositoryNode)) return;
+        if (!(node instanceof RepositoryNode)) return undefined;
 
         return node.push({ force: force });
     }
@@ -181,8 +182,8 @@ export class ViewCommands implements Disposable {
         }
     }
 
-    private async checkout(node: ViewRefNode) {
-        if (!(node instanceof ViewRefNode)) return;
+    private checkout(node: ViewRefNode) {
+        if (!(node instanceof ViewRefNode)) return undefined;
 
         return Container.git.checkout(node.repoPath, node.ref);
     }
@@ -194,32 +195,32 @@ export class ViewCommands implements Disposable {
     }
 
     private compareWithHead(node: ViewRefNode) {
-        if (!(node instanceof ViewRefNode)) return;
+        if (!(node instanceof ViewRefNode)) return undefined;
 
         return Container.compareView.compare(node.repoPath, node.ref, 'HEAD');
     }
 
     private compareWithRemote(node: BranchNode) {
-        if (!(node instanceof BranchNode)) return;
-        if (!node.branch.tracking) return;
+        if (!(node instanceof BranchNode)) return undefined;
+        if (!node.branch.tracking) return undefined;
 
         return Container.compareView.compare(node.repoPath, node.branch.tracking, node.ref);
     }
 
     private compareWithWorking(node: ViewRefNode) {
-        if (!(node instanceof ViewRefNode)) return;
+        if (!(node instanceof ViewRefNode)) return undefined;
 
         return Container.compareView.compare(node.repoPath, node.ref, '');
     }
 
     private async compareAncestryWithWorking(node: BranchNode) {
-        if (!(node instanceof BranchNode)) return;
+        if (!(node instanceof BranchNode)) return undefined;
 
         const branch = await Container.git.getBranch(node.repoPath);
-        if (branch === undefined) return;
+        if (branch === undefined) return undefined;
 
         const commonAncestor = await Container.git.getMergeBase(node.repoPath, branch.ref, node.ref);
-        if (commonAncestor === undefined) return;
+        if (commonAncestor === undefined) return undefined;
 
         return Container.compareView.compare(
             node.repoPath,
@@ -246,11 +247,11 @@ export class ViewCommands implements Disposable {
             (!(node instanceof CommitFileNode) && !(node instanceof ResultsFileNode)) ||
             node.ref === undefined
         ) {
-            return;
+            return undefined;
         }
         if (this._selectedFile.repoPath !== node.repoPath) {
             this.selectFileForCompare(node);
-            return;
+            return undefined;
         }
 
         const selected = this._selectedFile;
@@ -272,7 +273,7 @@ export class ViewCommands implements Disposable {
         return commands.executeCommand(Commands.DiffWith, diffArgs);
     }
 
-    private _selectedFile: ICompareSelected | undefined;
+    private _selectedFile: CompareSelectedInfo | undefined;
 
     private selectFileForCompare(node: CommitFileNode | ResultsFileNode | StashFileNode) {
         if ((!(node instanceof CommitFileNode) && !(node instanceof ResultsFileNode)) || node.ref === undefined) return;
@@ -297,10 +298,10 @@ export class ViewCommands implements Disposable {
     }
 
     private openChanges(node: CommitFileNode | ResultsFileNode | StashFileNode) {
-        if (!(node instanceof CommitFileNode) && !(node instanceof ResultsFileNode)) return;
+        if (!(node instanceof CommitFileNode) && !(node instanceof ResultsFileNode)) return undefined;
 
         const command = node.getCommand();
-        if (command === undefined || command.arguments === undefined) return;
+        if (command === undefined || command.arguments === undefined) return undefined;
 
         const [uri, args] = command.arguments as [Uri, DiffWithPreviousCommandArgs];
         args.showOptions!.preview = false;
@@ -308,7 +309,7 @@ export class ViewCommands implements Disposable {
     }
 
     private async openChangesWithWorking(node: CommitFileNode | ResultsFileNode | StashFileNode) {
-        if (!(node instanceof CommitFileNode) && !(node instanceof ResultsFileNode)) return;
+        if (!(node instanceof CommitFileNode) && !(node instanceof ResultsFileNode)) return undefined;
 
         const args: DiffWithWorkingCommandArgs = {
             showOptions: {
@@ -334,7 +335,7 @@ export class ViewCommands implements Disposable {
             !(node instanceof ResultsFileNode) &&
             !(node instanceof StatusFileNode)
         ) {
-            return;
+            return undefined;
         }
 
         return openEditor(node.uri, { preserveFocus: true, preview: false });
@@ -344,7 +345,7 @@ export class ViewCommands implements Disposable {
         node: CommitFileNode | ResultsFileNode | StashFileNode,
         options: OpenFileRevisionCommandArgs = { showOptions: { preserveFocus: true, preview: false } }
     ) {
-        if (!(node instanceof CommitFileNode) && !(node instanceof ResultsFileNode)) return;
+        if (!(node instanceof CommitFileNode) && !(node instanceof ResultsFileNode)) return undefined;
 
         let uri = options.uri;
         if (uri == null) {
@@ -437,7 +438,7 @@ export class ViewCommands implements Disposable {
         }
     }
 
-    private async openDiffWith(
+    private openDiffWith(
         repoPath: string,
         lhs: DiffWithCommandArgsRevision,
         rhs: DiffWithCommandArgsRevision,
@@ -452,28 +453,33 @@ export class ViewCommands implements Disposable {
         return commands.executeCommand(Commands.DiffWith, diffArgs);
     }
 
-    private async openFileRevisionInRemote(node: CommitFileNode | StashFileNode | StatusFileNode) {
-        if (!(node instanceof CommitFileNode) && !(node instanceof StatusFileNode)) return;
+    private openFileRevisionInRemote(node: CommitFileNode | StashFileNode | StatusFileNode) {
+        if (!(node instanceof CommitFileNode) && !(node instanceof StatusFileNode)) return undefined;
 
-        return commands.executeCommand(Commands.OpenFileInRemote, node.commit.toGitUri(node.commit.status === 'D'), {
+        const args: OpenFileInRemoteCommandArgs = {
             range: false
-        } as OpenFileInRemoteCommandArgs);
+        };
+        return commands.executeCommand(
+            Commands.OpenFileInRemote,
+            node.commit.toGitUri(node.commit.status === 'D'),
+            args
+        );
     }
 
     private openInTerminal(node: RepositoryNode) {
-        if (!(node instanceof RepositoryNode)) return;
+        if (!(node instanceof RepositoryNode)) return undefined;
 
         return commands.executeCommand(BuiltInCommands.OpenInTerminal, Uri.file(node.repo.path));
     }
 
     private setAsDefault(node: RemoteNode) {
         if (node instanceof RemoteNode) return node.setAsDefault();
-        return;
+        return undefined;
     }
 
     private unsetAsDefault(node: RemoteNode) {
         if (node instanceof RemoteNode) return node.setAsDefault(false);
-        return;
+        return undefined;
     }
 
     private async stageDirectory(node: FolderNode) {
@@ -506,15 +512,15 @@ export class ViewCommands implements Disposable {
 
     private star(node: BranchNode | RepositoryNode) {
         if (node instanceof BranchNode || node instanceof RepositoryNode) return node.star();
-        return;
+        return undefined;
     }
 
     private unstar(node: BranchNode | RepositoryNode) {
         if (node instanceof BranchNode || node instanceof RepositoryNode) return node.unstar();
-        return;
+        return undefined;
     }
 
-    async terminalCheckoutBranch(node: BranchNode) {
+    terminalCheckoutBranch(node: BranchNode) {
         if (!(node instanceof BranchNode)) return;
 
         this.sendTerminalCommand('checkout', `${node.ref}`, node.repoPath);
@@ -531,10 +537,10 @@ export class ViewCommands implements Disposable {
         }
 
         const name = await window.showInputBox({
-            prompt: `Please provide a branch name (Press 'Enter' to confirm or 'Escape' to cancel)`,
-            placeHolder: `Branch name`,
+            prompt: "Please provide a branch name (Press 'Enter' to confirm or 'Escape' to cancel)",
+            placeHolder: 'Branch name',
             value: value
-        } as InputBoxOptions);
+        });
         if (name === undefined || name.length === 0) return;
 
         this.sendTerminalCommand('branch', `${remoteBranch ? '-t ' : ''}${name} ${node.ref}`, node.repoPath);
@@ -629,15 +635,16 @@ export class ViewCommands implements Disposable {
         if (!(node instanceof ViewRefNode)) return;
 
         const name = await window.showInputBox({
-            prompt: `Please provide a tag name (Press 'Enter' to confirm or 'Escape' to cancel)`,
-            placeHolder: `Tag name`
-        } as InputBoxOptions);
+            prompt: "Please provide a tag name (Press 'Enter' to confirm or 'Escape' to cancel)",
+            placeHolder: 'Tag name'
+        });
         if (name === undefined || name.length === 0) return;
 
         const message = await window.showInputBox({
-            prompt: `Please provide an optional message to annotate the tag (Press 'Enter' to confirm or 'Escape' to cancel)`,
-            placeHolder: `Tag message`
-        } as InputBoxOptions);
+            prompt:
+                "Please provide an optional message to annotate the tag (Press 'Enter' to confirm or 'Escape' to cancel)",
+            placeHolder: 'Tag message'
+        });
         if (message === undefined) return;
 
         const args = `${message.length !== 0 ? `-a -m "${message}" ` : ''}${name} ${node.ref}`;

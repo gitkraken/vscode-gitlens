@@ -50,7 +50,7 @@ async function generate() {
         return m;
     }, Object.create(null));
 
-    fs.writeFileSync(path.join(process.cwd(), 'emojis.json'), JSON.stringify(map), 'utf8');
+    fs.writeFileSync(path.join(process.cwd(), 'src/emojis.json'), JSON.stringify(map), 'utf8');
 }
 
 function download(url, destination) {

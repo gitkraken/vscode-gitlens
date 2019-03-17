@@ -1,6 +1,6 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { NamedRef, PinnedComparisons, WorkspaceState } from '../../constants';
+import { NamedRef } from '../../constants';
 import { Container } from '../../container';
 import { GitService, GitUri } from '../../git/gitService';
 import { log, Strings } from '../../system';
@@ -38,7 +38,7 @@ export class CompareResultsNode extends ViewNode<CompareView> {
         return this._ref2;
     }
 
-    async getChildren(): Promise<ViewNode[]> {
+    getChildren(): ViewNode[] {
         return [
             new ResultsCommitsNode(this.view, this, this.uri.repoPath!, this.getCommitsQuery.bind(this)),
             new ResultsFilesNode(this.view, this, this.uri.repoPath!, this._ref1.ref, this._ref2.ref)
@@ -60,8 +60,8 @@ export class CompareResultsNode extends ViewNode<CompareView> {
         item.description = description;
         if (this._pinned) {
             item.iconPath = {
-                dark: Container.context.asAbsolutePath(`images/dark/icon-pin-small.svg`),
-                light: Container.context.asAbsolutePath(`images/light/icon-pin-small.svg`)
+                dark: Container.context.asAbsolutePath('images/dark/icon-pin-small.svg'),
+                light: Container.context.asAbsolutePath('images/light/icon-pin-small.svg')
             };
         }
 

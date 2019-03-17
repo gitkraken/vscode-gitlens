@@ -35,9 +35,7 @@ export enum RepositoryChange {
 export class RepositoryChangeEvent {
     readonly changes: RepositoryChange[] = [];
 
-    constructor(
-        public readonly repository?: Repository
-    ) {}
+    constructor(public readonly repository?: Repository) {}
 
     changed(change: RepositoryChange, solely: boolean = false) {
         if (solely) return this.changes.length === 1 && this.changes[0] === change;
@@ -243,18 +241,18 @@ export class Repository implements Disposable {
         const { progress, ...opts } = { progress: true, ...options };
         if (!progress) return this.fetchCore(opts);
 
-        await window.withProgress(
+        return void (await window.withProgress(
             {
                 location: ProgressLocation.Notification,
                 title: `Fetching ${opts.remote ? `${opts.remote} of ` : ''}${this.formattedName}...`,
                 cancellable: false
             },
             () => this.fetchCore(opts)
-        );
+        ));
     }
 
     private async fetchCore(options: { remote?: string } = {}) {
-        await Container.git.fetch(this.path, options.remote);
+        void (await Container.git.fetch(this.path, options.remote));
 
         this.fireChange(RepositoryChange.Repository);
     }
@@ -327,18 +325,18 @@ export class Repository implements Disposable {
         const { progress } = { progress: true, ...options };
         if (!progress) return this.pullCore();
 
-        await window.withProgress(
+        return void (await window.withProgress(
             {
                 location: ProgressLocation.Notification,
                 title: `Pulling ${this.formattedName}...`,
                 cancellable: false
             },
             () => this.pullCore()
-        );
+        ));
     }
 
     private async pullCore() {
-        await commands.executeCommand('git.pull', this.path);
+        void (await commands.executeCommand('git.pull', this.path));
 
         this.fireChange(RepositoryChange.Repository);
     }
@@ -349,18 +347,18 @@ export class Repository implements Disposable {
         const { force, progress } = { progress: true, ...options };
         if (!progress) return this.pushCore(force);
 
-        await window.withProgress(
+        return void (await window.withProgress(
             {
                 location: ProgressLocation.Notification,
                 title: `Pushing ${this.formattedName}...`,
                 cancellable: false
             },
             () => this.pushCore(force)
-        );
+        ));
     }
 
     private async pushCore(force: boolean = false) {
-        await commands.executeCommand(force ? 'git.pushForce' : 'git.push', this.path);
+        void (await commands.executeCommand(force ? 'git.pushForce' : 'git.push', this.path));
 
         this.fireChange(RepositoryChange.Repository);
     }
@@ -404,6 +402,7 @@ export class Repository implements Disposable {
             starred![this.id] = true;
         }
         else {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { [this.id]: _, ...rest } = starred!;
             starred = rest;
         }
@@ -416,7 +415,7 @@ export class Repository implements Disposable {
 
         // TODO: createFileSystemWatcher doesn't work unless the folder is part of the workspaceFolders
         // https://github.com/Microsoft/vscode/issues/3025
-        const watcher = workspace.createFileSystemWatcher(new RelativePattern(this.folder, `**`));
+        const watcher = workspace.createFileSystemWatcher(new RelativePattern(this.folder, '**'));
         this._fsWatcherDisposable = Disposable.from(
             watcher,
             watcher.onDidChange(this.onFileSystemChanged, this),

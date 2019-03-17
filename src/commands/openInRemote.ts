@@ -60,8 +60,7 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
                     break;
 
                 case RemoteResourceType.Commit:
-                    const shortSha = GitService.shortenSha(args.resource.sha);
-                    placeHolder = `${verb} commit ${shortSha} ${suffix}`;
+                    placeHolder = `${verb} commit ${GitService.shortenSha(args.resource.sha)} ${suffix}`;
                     break;
 
                 case RemoteResourceType.File:

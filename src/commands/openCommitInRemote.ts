@@ -31,7 +31,7 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
         super(Commands.OpenCommitInRemote);
     }
 
-    protected async preExecute(context: CommandContext, args: OpenCommitInRemoteCommandArgs = {}): Promise<any> {
+    protected preExecute(context: CommandContext, args: OpenCommitInRemoteCommandArgs = {}) {
         if (isCommandViewContextWithCommit(context)) {
             args = { ...args };
             args.sha = context.node.commit.sha;
@@ -78,18 +78,19 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
 
             const remotes = await Container.git.getRemotes(gitUri.repoPath);
 
-            return commands.executeCommand(Commands.OpenInRemote, uri, {
+            const commandArgs: OpenInRemoteCommandArgs = {
                 resource: {
                     type: RemoteResourceType.Commit,
                     sha: args.sha
                 },
-                remotes
-            } as OpenInRemoteCommandArgs);
+                remotes: remotes
+            };
+            return commands.executeCommand(Commands.OpenInRemote, uri, commandArgs);
         }
         catch (ex) {
             Logger.error(ex, 'OpenCommitInRemoteCommand');
             return window.showErrorMessage(
-                `Unable to open commit on remote provider. See output channel for more details`
+                'Unable to open commit on remote provider. See output channel for more details'
             );
         }
     }

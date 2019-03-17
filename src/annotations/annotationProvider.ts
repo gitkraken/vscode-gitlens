@@ -56,10 +56,10 @@ export abstract class AnnotationProviderBase implements Disposable {
         this.disposable && this.disposable.dispose();
     }
 
-    private async onTextEditorSelectionChanged(e: TextEditorSelectionChangeEvent) {
+    private onTextEditorSelectionChanged(e: TextEditorSelectionChangeEvent) {
         if (!TextDocumentComparer.equals(this.document, e.textEditor && e.textEditor.document)) return;
 
-        return this.selection(e.selections[0].active.line);
+        this.selection(e.selections[0].active.line);
     }
 
     get editorId(): string {
@@ -178,7 +178,7 @@ export abstract class AnnotationProviderBase implements Disposable {
         return false;
     }
 
-    abstract async onProvideAnnotation(shaOrLine?: string | number): Promise<boolean>;
-    abstract async selection(shaOrLine?: string | number): Promise<void>;
-    abstract async validate(): Promise<boolean>;
+    abstract onProvideAnnotation(shaOrLine?: string | number): Promise<boolean>;
+    abstract selection(shaOrLine?: string | number): Promise<void>;
+    abstract validate(): Promise<boolean>;
 }

@@ -1,7 +1,8 @@
 'use strict';
+/*global window document*/
 import { SettingsBootstrap } from '../ipc';
 import { App } from '../shared/app-base';
-import { DOM } from './../shared/dom';
+import { DOM } from '../shared/dom';
 
 const bootstrap: SettingsBootstrap = (window as any).bootstrap;
 
@@ -76,7 +77,7 @@ export class SettingsApp extends App<SettingsBootstrap> {
     protected onInputSelected(element: HTMLSelectElement) {
         if (element === this._scopes) return;
 
-        return super.onInputSelected(element);
+        super.onInputSelected(element);
     }
 
     private onSectionHeaderClicked(element: HTMLElement, e: MouseEvent) {

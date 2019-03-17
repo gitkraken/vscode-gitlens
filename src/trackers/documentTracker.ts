@@ -18,7 +18,7 @@ import {
 import { configuration } from '../configuration';
 import { CommandContext, DocumentSchemes, isActiveDocument, isTextEditor, setCommandContext } from '../constants';
 import { GitUri } from '../git/gitService';
-import { Functions, IDeferrable } from '../system';
+import { Deferrable, Functions } from '../system';
 import { DocumentBlameStateChangeEvent, TrackedDocument } from './trackedDocument';
 
 export * from './trackedDocument';
@@ -296,8 +296,8 @@ export class DocumentTracker<T> implements Disposable {
         return doc;
     }
 
-    private _dirtyIdleTriggeredDebounced: (((e: DocumentDirtyIdleTriggerEvent<T>) => void) & IDeferrable) | undefined;
-    private _dirtyStateChangedDebounced: (((e: DocumentDirtyStateChangeEvent<T>) => void) & IDeferrable) | undefined;
+    private _dirtyIdleTriggeredDebounced: (((e: DocumentDirtyIdleTriggerEvent<T>) => void) & Deferrable) | undefined;
+    private _dirtyStateChangedDebounced: (((e: DocumentDirtyStateChangeEvent<T>) => void) & Deferrable) | undefined;
     private fireDocumentDirtyStateChanged(e: DocumentDirtyStateChangeEvent<T>) {
         if (e.dirty) {
             setImmediate(async () => {
@@ -362,9 +362,7 @@ class EmptyTextDocument implements TextDocument {
     readonly uri: Uri;
     readonly version: number;
 
-    constructor(
-        public readonly gitUri: GitUri
-    ) {
+    constructor(public readonly gitUri: GitUri) {
         this.uri = gitUri.documentUri({ useVersionedPath: true });
 
         this.eol = EndOfLine.LF;

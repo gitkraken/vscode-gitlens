@@ -360,7 +360,7 @@ export abstract class Command implements Disposable {
         this._disposable && this._disposable.dispose();
     }
 
-    protected async preExecute(context: CommandContext, ...args: any[]): Promise<any> {
+    protected preExecute(context: CommandContext, ...args: any[]): Promise<any> {
         return this.execute(...args);
     }
 
@@ -392,9 +392,8 @@ export abstract class Command implements Disposable {
             if (uri !== undefined) {
                 return [{ command: command, type: 'uri', editor: editor, uri: uri }, rest];
             }
-            else {
-                args = args.slice(1);
-            }
+
+            args = args.slice(1);
         }
 
         if (firstArg instanceof ViewNode) {
@@ -442,7 +441,7 @@ export abstract class ActiveEditorCommand extends Command {
         super(command);
     }
 
-    protected async preExecute(context: CommandContext, ...args: any[]): Promise<any> {
+    protected preExecute(context: CommandContext, ...args: any[]): Promise<any> {
         return this.execute(context.editor, context.uri, ...args);
     }
 
@@ -557,6 +556,6 @@ export function openWorkspace(uri: Uri, name: string, options: { openInNewWindow
     return workspace.updateWorkspaceFolders(
         workspace.workspaceFolders !== undefined ? workspace.workspaceFolders.length : 0,
         null,
-        { uri, name }
+        { uri: uri, name: name }
     );
 }

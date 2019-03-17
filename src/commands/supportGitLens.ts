@@ -8,7 +8,7 @@ export class SupportGitLensCommand extends Command {
         super(Commands.SupportGitLens);
     }
 
-    async execute() {
+    execute() {
         return Messages.showSupportGitLensMessage();
     }
 }

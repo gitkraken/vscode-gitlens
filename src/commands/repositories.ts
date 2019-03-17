@@ -8,7 +8,7 @@ export class FetchRepositoriesCommand extends Command {
         super(Commands.FetchRepositories);
     }
 
-    async execute() {
+    execute() {
         return Container.git.fetchAll();
     }
 }
@@ -19,7 +19,7 @@ export class PullRepositoriesCommand extends Command {
         super(Commands.PullRepositories);
     }
 
-    async execute() {
+    execute() {
         return Container.git.pullAll();
     }
 }
@@ -30,7 +30,7 @@ export class PushRepositoriesCommand extends Command {
         super(Commands.PushRepositories);
     }
 
-    async execute() {
+    execute() {
         return Container.git.pushAll();
     }
 }

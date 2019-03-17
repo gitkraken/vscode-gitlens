@@ -60,6 +60,8 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
         let progressCancellation: CancellationTokenSource | undefined;
 
         try {
+            let commandArgs: OpenFileRevisionCommandArgs;
+
             if (args.uri == null) {
                 uri = getCommandUri(uri, editor);
                 if (uri == null) return undefined;
@@ -90,28 +92,31 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
                 let previousPageCommand: CommandQuickPickItem | undefined = undefined;
 
                 if (log.truncated) {
+                    commandArgs = { ...args };
                     const npc = new CommandQuickPickItem(
                         {
-                            label: `$(arrow-right) Show Next Commits`,
+                            label: '$(arrow-right) Show Next Commits',
                             description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${log.maxCount} newer commits`
                         },
                         Commands.OpenFileRevision,
-                        [uri, { ...args } as OpenFileRevisionCommandArgs]
+                        [uri, commandArgs]
                     );
 
                     const last = Iterables.last(log.commits.values());
                     if (last != null) {
+                        commandArgs = { ...args, nextPageCommand: npc };
                         previousPageCommand = new CommandQuickPickItem(
                             {
-                                label: `$(arrow-left) Show Previous Commits`,
+                                label: '$(arrow-left) Show Previous Commits',
                                 description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${log.maxCount} older commits`
                             },
                             Commands.OpenFileRevision,
-                            [new GitUri(uri, last), { ...args, nextPageCommand: npc } as OpenFileRevisionCommandArgs]
+                            [new GitUri(uri, last), commandArgs]
                         );
                     }
                 }
 
+                commandArgs = { ...args };
                 const currentCommand = new CommandQuickPickItem(
                     {
                         label: `go back ${GlyphChars.ArrowBack}`,
@@ -128,9 +133,10 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
                         }`
                     },
                     Commands.OpenFileRevision,
-                    [uri, { ...args }]
+                    [uri, commandArgs]
                 );
 
+                commandArgs = { ...args, maxCount: 0 };
                 const pick = await FileHistoryQuickPick.show(log, gitUri, placeHolder, {
                     pickerOnly: true,
                     progressCancellation: progressCancellation,
@@ -140,11 +146,11 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
                     showAllCommand: log.truncated
                         ? new CommandQuickPickItem(
                               {
-                                  label: `$(sync) Show All Commits`,
+                                  label: '$(sync) Show All Commits',
                                   description: `${Strings.pad(GlyphChars.Dash, 2, 3)} this may take a while`
                               },
                               Commands.OpenFileRevision,
-                              [uri, { ...args, maxCount: 0 } as OpenFileRevisionCommandArgs]
+                              [uri, commandArgs]
                           )
                         : undefined
                 });
@@ -155,17 +161,16 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
                     if (branchOrTag === undefined) return undefined;
                     if (branchOrTag instanceof CommandQuickPickItem) return branchOrTag.execute();
 
-                    return commands.executeCommand(Commands.OpenFileRevision, gitUri, {
+                    commandArgs = {
                         ...args,
-                        branchOrTag: branchOrTag.item,
-                        goBackCommand: currentCommand
-                    } as OpenFileRevisionCommandArgs);
+                        branchOrTag: branchOrTag.item
+                    };
+                    return commands.executeCommand(Commands.OpenFileRevision, gitUri, commandArgs);
                 }
-                else {
-                    if (pick instanceof CommandQuickPickItem) return pick.execute();
 
-                    args.uri = GitUri.toRevisionUri(pick.commit.sha, pick.commit.uri.fsPath, pick.commit.repoPath);
-                }
+                if (pick instanceof CommandQuickPickItem) return pick.execute();
+
+                args.uri = GitUri.toRevisionUri(pick.commit.sha, pick.commit.uri.fsPath, pick.commit.repoPath);
             }
 
             if (args.line !== undefined && args.line !== 0) {

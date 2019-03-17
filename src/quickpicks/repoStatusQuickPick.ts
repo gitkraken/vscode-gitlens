@@ -1,6 +1,6 @@
 'use strict';
 import * as paths from 'path';
-import { commands, QuickPickOptions, TextDocumentShowOptions, window } from 'vscode';
+import { commands, window } from 'vscode';
 import {
     Commands,
     DiffWithPreviousCommandArgs,
@@ -89,34 +89,37 @@ export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPick
     }
 
     onDidPressKey(key: Keys): Promise<{} | undefined> {
-        return commands.executeCommand(Commands.DiffWithPrevious, GitUri.fromFile(this.status, this.status.repoPath), {
+        const commandArgs: DiffWithPreviousCommandArgs = {
             commit: this.commit,
             line: 0,
             showOptions: {
                 preserveFocus: true,
                 preview: false
-            } as TextDocumentShowOptions
-        } as DiffWithPreviousCommandArgs) as Promise<{} | undefined>;
+            }
+        };
+        return commands.executeCommand(
+            Commands.DiffWithPrevious,
+            GitUri.fromFile(this.status, this.status.repoPath),
+            commandArgs
+        ) as Promise<{} | undefined>;
     }
 }
 
 export class OpenStatusFilesCommandQuickPickItem extends CommandQuickPickItem {
     constructor(files: GitStatusFile[], item?: QuickPickItem) {
         const uris = files.map(f => f.uri);
+        const commandArgs: OpenChangedFilesCommandArgs = {
+            uris: uris
+        };
 
         super(
             item || {
-                label: `$(file-symlink-file) Open Changed Files`,
+                label: '$(file-symlink-file) Open Changed Files',
                 description: ''
                 // detail: `Opens all of the changed files in the repository`
             },
             Commands.OpenChangedFiles,
-            [
-                undefined,
-                {
-                    uris
-                } as OpenChangedFilesCommandArgs
-            ]
+            [undefined, commandArgs]
         );
     }
 }
@@ -212,9 +215,8 @@ export class RepoStatusQuickPick {
                         new OpenStatusFileCommandQuickPickItem(s.with({ workTreeStatus: null }))
                     ];
                 }
-                else {
-                    return [new OpenStatusFileCommandQuickPickItem(s)];
-                }
+
+                return [new OpenStatusFileCommandQuickPickItem(s)];
             })
         ] as (OpenStatusFileCommandQuickPickItem | OpenStatusFilesCommandQuickPickItem | CommandQuickPickItem)[];
 
@@ -230,6 +232,9 @@ export class RepoStatusQuickPick {
                 )
         );
 
+        const repoStatusCommandArgs: ShowQuickRepoStatusCommandArgs = {
+            goBackCommand: goBackCommand
+        };
         const currentCommand = new CommandQuickPickItem(
             {
                 label: `go back ${GlyphChars.ArrowBack}`,
@@ -238,12 +243,7 @@ export class RepoStatusQuickPick {
                 } status`
             },
             Commands.ShowQuickRepoStatus,
-            [
-                undefined,
-                {
-                    goBackCommand
-                } as ShowQuickRepoStatusCommandArgs
-            ]
+            [undefined, repoStatusCommandArgs]
         );
 
         const computed = this.computeStatus(status.files);
@@ -256,16 +256,11 @@ export class RepoStatusQuickPick {
                     0,
                     new CommandQuickPickItem(
                         {
-                            label: `Unstaged Files`,
+                            label: 'Unstaged Files',
                             description: computed.unstagedStatus
                         },
                         Commands.ShowQuickRepoStatus,
-                        [
-                            undefined,
-                            {
-                                goBackCommand
-                            } as ShowQuickRepoStatusCommandArgs
-                        ]
+                        [undefined, repoStatusCommandArgs]
                     )
                 );
 
@@ -291,16 +286,11 @@ export class RepoStatusQuickPick {
                 0,
                 new CommandQuickPickItem(
                     {
-                        label: `Staged Files`,
+                        label: 'Staged Files',
                         description: computed.stagedStatus
                     },
                     Commands.ShowQuickRepoStatus,
-                    [
-                        undefined,
-                        {
-                            goBackCommand
-                        } as ShowQuickRepoStatusCommandArgs
-                    ]
+                    [undefined, repoStatusCommandArgs]
                 )
             );
         }
@@ -310,16 +300,11 @@ export class RepoStatusQuickPick {
                 0,
                 new CommandQuickPickItem(
                     {
-                        label: `Unstaged Files`,
+                        label: 'Unstaged Files',
                         description: computed.unstagedStatus
                     },
                     Commands.ShowQuickRepoStatus,
-                    [
-                        undefined,
-                        {
-                            goBackCommand
-                        } as ShowQuickRepoStatusCommandArgs
-                    ]
+                    [undefined, repoStatusCommandArgs]
                 )
             );
         }
@@ -344,39 +329,37 @@ export class RepoStatusQuickPick {
             items.push(
                 new CommandQuickPickItem(
                     {
-                        label: `No changes in the working tree`,
+                        label: 'No changes in the working tree',
                         description: ''
                     },
                     Commands.ShowQuickRepoStatus,
-                    [
-                        undefined,
-                        {
-                            goBackCommand
-                        } as ShowQuickRepoStatusCommandArgs
-                    ]
+                    [undefined, repoStatusCommandArgs]
                 )
             );
         }
 
+        const stashListCommandArgs: ShowQuickStashListCommandArgs = {
+            goBackCommand: currentCommand
+        };
         items.splice(
             0,
             0,
             new CommandQuickPickItem(
                 {
-                    label: `$(inbox) Show Stashed Changes`,
+                    label: '$(inbox) Show Stashed Changes',
                     description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows stashed changes in the repository`
                 },
                 Commands.ShowQuickStashList,
-                [
-                    GitUri.fromRepoPath(status.repoPath),
-                    {
-                        goBackCommand: currentCommand
-                    } as ShowQuickStashListCommandArgs
-                ]
+                [GitUri.fromRepoPath(status.repoPath), stashListCommandArgs]
             )
         );
 
         if (status.upstream && status.state.ahead) {
+            const branchHistoryCommandArgs: ShowQuickBranchHistoryCommandArgs = {
+                branch: status.ref,
+                maxCount: 0,
+                goBackCommand: currentCommand
+            };
             items.splice(
                 0,
                 0,
@@ -392,17 +375,18 @@ export class RepoStatusQuickPick {
                     Commands.ShowQuickBranchHistory,
                     [
                         GitUri.fromRepoPath(status.repoPath, `${status.upstream}..${status.ref}`),
-                        {
-                            branch: status.ref,
-                            maxCount: 0,
-                            goBackCommand: currentCommand
-                        } as ShowQuickBranchHistoryCommandArgs
+                        branchHistoryCommandArgs
                     ]
                 )
             );
         }
 
         if (status.upstream && status.state.behind) {
+            const branchHistoryCommandArgs: ShowQuickBranchHistoryCommandArgs = {
+                branch: status.ref,
+                maxCount: 0,
+                goBackCommand: currentCommand
+            };
             items.splice(
                 0,
                 0,
@@ -422,11 +406,7 @@ export class RepoStatusQuickPick {
                     Commands.ShowQuickBranchHistory,
                     [
                         GitUri.fromRepoPath(status.repoPath, `${status.ref}..${status.upstream}`),
-                        {
-                            branch: status.upstream,
-                            maxCount: 0,
-                            goBackCommand: currentCommand
-                        } as ShowQuickBranchHistoryCommandArgs
+                        branchHistoryCommandArgs
                     ]
                 )
             );
@@ -444,12 +424,7 @@ export class RepoStatusQuickPick {
                         description: ''
                     },
                     Commands.ShowQuickRepoStatus,
-                    [
-                        undefined,
-                        {
-                            goBackCommand
-                        } as ShowQuickRepoStatusCommandArgs
-                    ]
+                    [undefined, repoStatusCommandArgs]
                 )
             );
         }
@@ -469,7 +444,7 @@ export class RepoStatusQuickPick {
             onDidSelectItem: (item: QuickPickItem) => {
                 void scope.setKeyCommand('right', item);
             }
-        } as QuickPickOptions);
+        });
 
         await scope.dispose();
 

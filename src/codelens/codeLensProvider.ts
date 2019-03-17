@@ -15,8 +15,7 @@ import {
     Range,
     SymbolInformation,
     SymbolKind,
-    TextDocument,
-    Uri
+    TextDocument
 } from 'vscode';
 import {
     Commands,
@@ -129,7 +128,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
         if (languageScope == null) {
             languageScope = {
                 language: undefined
-            } as CodeLensLanguageScope;
+            };
         }
         if (languageScope.scopes == null) {
             languageScope.scopes = cfg.scopes;
@@ -170,13 +169,11 @@ export class GitCodeLensProvider implements CodeLensProvider {
 
             if (blame === undefined || blame.lines.length === 0) return lenses;
         }
-        else {
-            if (languageScope.scopes.length !== 1 || !languageScope.scopes.includes(CodeLensScopes.Document)) {
-                symbols = (await commands.executeCommand(
-                    BuiltInCommands.ExecuteDocumentSymbolProvider,
-                    document.uri
-                )) as SymbolInformation[];
-            }
+        else if (languageScope.scopes.length !== 1 || !languageScope.scopes.includes(CodeLensScopes.Document)) {
+            symbols = (await commands.executeCommand(
+                BuiltInCommands.ExecuteDocumentSymbolProvider,
+                document.uri
+            )) as SymbolInformation[];
         }
 
         if (token.isCancellationRequested) return lenses;
@@ -184,7 +181,9 @@ export class GitCodeLensProvider implements CodeLensProvider {
         const documentRangeFn = Functions.once(() => document.validateRange(new Range(0, 1000000, 1000000, 1000000)));
 
         // Since blame information isn't valid when there are unsaved changes -- update the lenses appropriately
-        const dirtyCommand = dirty ? ({ title: this.getDirtyTitle(cfg) } as Command) : undefined;
+        const dirtyCommand: Command | undefined = dirty
+            ? { command: undefined!, title: this.getDirtyTitle(cfg) }
+            : undefined;
 
         if (symbols !== undefined) {
             Logger.log('GitCodeLensProvider.provideCodeLenses:', `${symbols.length} symbol(s) found`);
@@ -216,7 +215,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
                 if (dirty || cfg.recentChange.enabled) {
                     if (!dirty) {
                         blameForRangeFn = Functions.once(() =>
-                            this._git.getBlameForRangeSync(blame!, gitUri!, blameRange)
+                            this._git.getBlameForRangeSync(blame!, gitUri, blameRange)
                         );
                     }
 
@@ -243,7 +242,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
                 if (!dirty && cfg.authors.enabled) {
                     if (blameForRangeFn === undefined) {
                         blameForRangeFn = Functions.once(() =>
-                            this._git.getBlameForRangeSync(blame!, gitUri!, blameRange)
+                            this._git.getBlameForRangeSync(blame!, gitUri, blameRange)
                         );
                     }
 
@@ -286,9 +285,9 @@ export class GitCodeLensProvider implements CodeLensProvider {
             case SymbolKind.File:
                 if (
                     languageScope.scopes.includes(CodeLensScopes.Containers) ||
-                    languageScope.symbolScopes!.includes(symbolName)
+                    languageScope.symbolScopes.includes(symbolName)
                 ) {
-                    valid = !languageScope.symbolScopes!.includes(`!${symbolName}`);
+                    valid = !languageScope.symbolScopes.includes(`!${symbolName}`);
                 }
 
                 if (valid) {
@@ -300,9 +299,9 @@ export class GitCodeLensProvider implements CodeLensProvider {
             case SymbolKind.Package:
                 if (
                     languageScope.scopes.includes(CodeLensScopes.Containers) ||
-                    languageScope.symbolScopes!.includes(symbolName)
+                    languageScope.symbolScopes.includes(symbolName)
                 ) {
-                    valid = !languageScope.symbolScopes!.includes(`!${symbolName}`);
+                    valid = !languageScope.symbolScopes.includes(`!${symbolName}`);
                 }
 
                 if (valid) {
@@ -321,11 +320,11 @@ export class GitCodeLensProvider implements CodeLensProvider {
             case SymbolKind.Struct:
                 if (
                     languageScope.scopes.includes(CodeLensScopes.Containers) ||
-                    languageScope.symbolScopes!.includes(symbolName)
+                    languageScope.symbolScopes.includes(symbolName)
                 ) {
                     range = getRangeFromSymbol(symbol);
                     valid =
-                        !languageScope.symbolScopes!.includes(`!${symbolName}`) &&
+                        !languageScope.symbolScopes.includes(`!${symbolName}`) &&
                         (includeSingleLineSymbols || !range.isSingleLine);
                 }
                 break;
@@ -337,20 +336,20 @@ export class GitCodeLensProvider implements CodeLensProvider {
             case SymbolKind.Property:
                 if (
                     languageScope.scopes.includes(CodeLensScopes.Blocks) ||
-                    languageScope.symbolScopes!.includes(symbolName)
+                    languageScope.symbolScopes.includes(symbolName)
                 ) {
                     range = getRangeFromSymbol(symbol);
                     valid =
-                        !languageScope.symbolScopes!.includes(`!${symbolName}`) &&
+                        !languageScope.symbolScopes.includes(`!${symbolName}`) &&
                         (includeSingleLineSymbols || !range.isSingleLine);
                 }
                 break;
 
             default:
-                if (languageScope.symbolScopes!.includes(symbolName)) {
+                if (languageScope.symbolScopes.includes(symbolName)) {
                     range = getRangeFromSymbol(symbol);
                     valid =
-                        !languageScope.symbolScopes!.includes(`!${symbolName}`) &&
+                        !languageScope.symbolScopes.includes(`!${symbolName}`) &&
                         (includeSingleLineSymbols || !range.isSingleLine);
                 }
                 break;
@@ -577,15 +576,13 @@ export class GitCodeLensProvider implements CodeLensProvider {
             commit = blame.commits.get(blameLine.sha);
         }
 
+        const commandArgs: DiffWithPreviousCommandArgs = {
+            commit: commit
+        };
         lens.command = {
             title: title,
             command: Commands.DiffWithPrevious,
-            arguments: [
-                lens.uri!.toFileUri(),
-                {
-                    commit: commit
-                } as DiffWithPreviousCommandArgs
-            ]
+            arguments: [lens.uri!.toFileUri(), commandArgs]
         };
         return lens;
     }
@@ -596,16 +593,14 @@ export class GitCodeLensProvider implements CodeLensProvider {
         blame: GitBlameLines,
         commit?: GitBlameCommit
     ): T {
+        const commandArgs: ShowQuickCommitDetailsCommandArgs = {
+            commit: commit,
+            sha: commit === undefined ? undefined : commit.sha
+        };
         lens.command = {
             title: title,
             command: commit !== undefined && commit.isUncommitted ? '' : CodeLensCommand.ShowQuickCommitDetails,
-            arguments: [
-                lens.uri!.toFileUri(),
-                {
-                    commit,
-                    sha: commit === undefined ? undefined : commit.sha
-                } as ShowQuickCommitDetailsCommandArgs
-            ]
+            arguments: [lens.uri!.toFileUri(), commandArgs]
         };
         return lens;
     }
@@ -616,16 +611,14 @@ export class GitCodeLensProvider implements CodeLensProvider {
         blame: GitBlameLines,
         commit?: GitBlameCommit
     ): T {
+        const commandArgs: ShowQuickCommitFileDetailsCommandArgs = {
+            commit: commit,
+            sha: commit === undefined ? undefined : commit.sha
+        };
         lens.command = {
             title: title,
             command: commit !== undefined && commit.isUncommitted ? '' : CodeLensCommand.ShowQuickCommitFileDetails,
-            arguments: [
-                lens.uri!.toFileUri(),
-                {
-                    commit,
-                    sha: commit === undefined ? undefined : commit.sha
-                } as ShowQuickCommitFileDetailsCommandArgs
-            ]
+            arguments: [lens.uri!.toFileUri(), commandArgs]
         };
         return lens;
     }
@@ -650,15 +643,13 @@ export class GitCodeLensProvider implements CodeLensProvider {
         blame: GitBlameLines,
         commit?: GitBlameCommit
     ): T {
+        const commandArgs: ShowQuickFileHistoryCommandArgs = {
+            range: lens.isFullRange ? undefined : lens.blameRange
+        };
         lens.command = {
             title: title,
             command: CodeLensCommand.ShowQuickFileHistory,
-            arguments: [
-                lens.uri!.toFileUri(),
-                {
-                    range: lens.isFullRange ? undefined : lens.blameRange
-                } as ShowQuickFileHistoryCommandArgs
-            ]
+            arguments: [lens.uri!.toFileUri(), commandArgs]
         };
         return lens;
     }

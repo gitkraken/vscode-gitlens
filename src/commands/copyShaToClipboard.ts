@@ -24,7 +24,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
         super(Commands.CopyShaToClipboard);
     }
 
-    protected async preExecute(context: CommandContext, args: CopyShaToClipboardCommandArgs = {}): Promise<any> {
+    protected preExecute(context: CommandContext, args: CopyShaToClipboardCommandArgs = {}) {
         if (isCommandViewContextWithCommit(context)) {
             args = { ...args };
             args.sha = context.node.commit.sha;
@@ -34,7 +34,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
         return this.execute(context.editor, context.uri, args);
     }
 
-    async execute(editor?: TextEditor, uri?: Uri, args: CopyShaToClipboardCommandArgs = {}): Promise<any> {
+    async execute(editor?: TextEditor, uri?: Uri, args: CopyShaToClipboardCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
 
         try {
@@ -76,9 +76,9 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
         catch (ex) {
             if (ex.message.includes("Couldn't find the required `xsel` binary")) {
                 window.showErrorMessage(
-                    `Unable to copy commit id, xsel is not installed. Please install it via your package manager, e.g. \`sudo apt install xsel\``
+                    'Unable to copy commit id, xsel is not installed. Please install it via your package manager, e.g. `sudo apt install xsel`'
                 );
-                return;
+                return undefined;
             }
 
             Logger.error(ex, 'CopyShaToClipboardCommand');

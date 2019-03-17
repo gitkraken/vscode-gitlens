@@ -1,5 +1,5 @@
 'use strict';
-import { MessageItem, window } from 'vscode';
+import { window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitStashCommit } from '../git/gitService';
@@ -32,10 +32,7 @@ export class StashApplyCommand extends Command {
         super(Commands.StashApply);
     }
 
-    protected async preExecute(
-        context: CommandContext,
-        args: StashApplyCommandArgs = { confirm: true, deleteAfter: false }
-    ) {
+    protected preExecute(context: CommandContext, args: StashApplyCommandArgs = { confirm: true, deleteAfter: false }) {
         if (isCommandViewContextWithCommit<GitStashCommit>(context)) {
             args = { ...args };
             args.stashItem = context.node.commit;
@@ -66,7 +63,7 @@ export class StashApplyCommand extends Command {
 
             try {
                 const stash = await Container.git.getStashList(args.repoPath);
-                if (stash === undefined) return window.showInformationMessage(`There are no stashed changes`);
+                if (stash === undefined) return window.showInformationMessage('There are no stashed changes');
 
                 if (progressCancellation.token.isCancellationRequested) return undefined;
 
@@ -92,7 +89,7 @@ export class StashApplyCommand extends Command {
                 }
 
                 args.goBackCommand = currentCommand;
-                args.stashItem = pick.commit as GitStashCommit;
+                args.stashItem = pick.commit;
             }
             finally {
                 progressCancellation.cancel();
@@ -107,9 +104,9 @@ export class StashApplyCommand extends Command {
                         : args.stashItem.message;
                 const result = await window.showWarningMessage(
                     `Apply stashed changes '${message}' to your working tree?`,
-                    { title: 'Yes, delete after applying' } as MessageItem,
-                    { title: 'Yes' } as MessageItem,
-                    { title: 'No', isCloseAffordance: true } as MessageItem
+                    { title: 'Yes, delete after applying' },
+                    { title: 'Yes' },
+                    { title: 'No', isCloseAffordance: true }
                 );
                 if (result === undefined || result.title === 'No') {
                     return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
@@ -124,17 +121,16 @@ export class StashApplyCommand extends Command {
             Logger.error(ex, 'StashApplyCommand');
             if (ex.message.includes('Your local changes to the following files would be overwritten by merge')) {
                 return window.showWarningMessage(
-                    `Unable to apply stash. Your working tree changes would be overwritten.`
+                    'Unable to apply stash. Your working tree changes would be overwritten.'
                 );
             }
             else if (ex.message.includes('Auto-merging') && ex.message.includes('CONFLICT')) {
-                return window.showInformationMessage(`Stash applied with conflicts`);
+                return window.showInformationMessage('Stash applied with conflicts');
             }
-            else {
-                return Messages.showGenericErrorMessage(
-                    `Unable to apply stash \u2014 ${ex.message.trim().replace(/\n+?/g, '; ')}`
-                );
-            }
+
+            return Messages.showGenericErrorMessage(
+                `Unable to apply stash \u2014 ${ex.message.trim().replace(/\n+?/g, '; ')}`
+            );
         }
     }
 }

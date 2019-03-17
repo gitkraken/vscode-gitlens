@@ -3,7 +3,6 @@ import {
     CancellationTokenSource,
     commands,
     QuickPickItem,
-    QuickPickOptions,
     TextDocumentShowOptions,
     TextEditor,
     Uri,
@@ -42,7 +41,7 @@ async function _showQuickPickProgress(message: string, cancellation: Cancellatio
             {
                 placeHolder: message,
                 ignoreFocusOut: getQuickPickIgnoreFocusOut()
-            } as QuickPickOptions,
+            },
             cancellation.token
         );
     }
@@ -94,30 +93,28 @@ export class CommandQuickPickItem implements QuickPickItem {
         Object.assign(this, item);
     }
 
-    execute(): Promise<{} | undefined> {
+    execute(): Thenable<{} | undefined> {
         if (this.command === undefined) return Promise.resolve(undefined);
 
-        return commands.executeCommand(this.command, ...(this.args || [])) as Promise<{} | undefined>;
+        return commands.executeCommand(this.command, ...(this.args || []));
     }
 
-    onDidPressKey(key: Keys): Promise<{} | undefined> {
+    onDidPressKey(key: Keys): Thenable<{} | undefined> {
         return this.execute();
     }
 }
 
-export class CommitQuickPickItem implements QuickPickItem {
+export class CommitQuickPickItem<T extends GitLogCommit = GitLogCommit> implements QuickPickItem {
     label: string;
     description: string;
     detail: string;
 
-    constructor(
-        public readonly commit: GitLogCommit
-    ) {
+    constructor(public readonly commit: T) {
         const message = commit.getShortMessage();
-        if (commit.isStash) {
+        if (GitStashCommit.is(commit)) {
             this.label = message;
             this.description = '';
-            this.detail = `${GlyphChars.Space} ${(commit as GitStashCommit).stashName || commit.shortSha} ${Strings.pad(
+            this.detail = `${GlyphChars.Space} ${commit.stashName || commit.shortSha} ${Strings.pad(
                 GlyphChars.Dot,
                 1,
                 1
@@ -160,25 +157,22 @@ export class ChooseFromBranchesAndTagsQuickPickItem extends CommandQuickPickItem
 
 export class KeyCommandQuickPickItem extends CommandQuickPickItem {
     constructor(command: Commands, args?: any[]) {
-        super({ label: '', description: '' } as QuickPickItem, command, args);
+        super({ label: '', description: '' }, command, args);
     }
 }
 
 export class MessageQuickPickItem extends CommandQuickPickItem {
     constructor(message: string) {
-        super({ label: message, description: '' } as QuickPickItem);
+        super({ label: message, description: '' });
     }
 }
 
 export class OpenFileCommandQuickPickItem extends CommandQuickPickItem {
-    constructor(
-        public readonly uri: Uri,
-        item: QuickPickItem
-    ) {
+    constructor(public readonly uri: Uri, item: QuickPickItem) {
         super(item, undefined, undefined);
     }
 
-    async execute(options?: TextDocumentShowOptions): Promise<TextEditor | undefined> {
+    execute(options?: TextDocumentShowOptions): Thenable<TextEditor | undefined> {
         return openEditor(this.uri, options);
     }
 
@@ -189,7 +183,7 @@ export class OpenFileCommandQuickPickItem extends CommandQuickPickItem {
     //     });
     // }
 
-    onDidPressKey(key: Keys): Promise<{} | undefined> {
+    onDidPressKey(key: Keys): Thenable<{} | undefined> {
         return this.execute({
             preserveFocus: true,
             preview: false
@@ -198,10 +192,7 @@ export class OpenFileCommandQuickPickItem extends CommandQuickPickItem {
 }
 
 export class OpenFilesCommandQuickPickItem extends CommandQuickPickItem {
-    constructor(
-        public readonly uris: Uri[],
-        item: QuickPickItem
-    ) {
+    constructor(public readonly uris: Uri[], item: QuickPickItem) {
         super(item, undefined, undefined);
     }
 
@@ -214,7 +205,7 @@ export class OpenFilesCommandQuickPickItem extends CommandQuickPickItem {
         return undefined;
     }
 
-    async onDidPressKey(key: Keys): Promise<{} | undefined> {
+    onDidPressKey(key: Keys): Thenable<{} | undefined> {
         return this.execute({
             preserveFocus: true,
             preview: false
@@ -234,10 +225,9 @@ export class ShowCommitInViewQuickPickItem extends CommandQuickPickItem {
     }
 
     async execute(): Promise<{} | undefined> {
-        await Container.searchView.search(this.commit.repoPath, this.commit.sha, GitRepoSearchBy.Sha, {
+        return void (await Container.searchView.search(this.commit.repoPath, this.commit.sha, GitRepoSearchBy.Sha, {
             label: { label: `commits with an id matching '${this.commit.shortSha}'` }
-        });
-        return undefined;
+        }));
     }
 }
 
@@ -260,10 +250,15 @@ export class ShowCommitSearchResultsInViewQuickPickItem extends CommandQuickPick
     }
 
     async execute(): Promise<{} | undefined> {
-        await Container.searchView.showSearchResults(this.results.repoPath, this.search, this.searchBy, this.results, {
-            label: this.resultsLabel
-        });
-        return undefined;
+        return void (await Container.searchView.showSearchResults(
+            this.results.repoPath,
+            this.search,
+            this.searchBy,
+            this.results,
+            {
+                label: this.resultsLabel
+            }
+        ));
     }
 }
 
@@ -284,7 +279,6 @@ export class ShowFileHistoryInViewQuickPickItem extends CommandQuickPickItem {
     }
 
     async execute(): Promise<{} | undefined> {
-        await Container.fileHistoryView.showHistoryForUri(this.uri, this.baseRef);
-        return undefined;
+        return void (await Container.fileHistoryView.showHistoryForUri(this.uri, this.baseRef));
     }
 }

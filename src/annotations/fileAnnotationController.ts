@@ -3,7 +3,6 @@ import * as paths from 'path';
 import {
     ConfigurationChangeEvent,
     DecorationRangeBehavior,
-    DecorationRenderOptions,
     Disposable,
     Event,
     EventEmitter,
@@ -21,7 +20,7 @@ import {
 import { AnnotationsToggleMode, configuration, FileAnnotationType, HighlightLocations } from '../configuration';
 import { CommandContext, GlyphChars, isTextEditor, setCommandContext } from '../constants';
 import { Container } from '../container';
-import { KeyboardScope, KeyCommand, Keys } from '../keyboard';
+import { KeyboardScope } from '../keyboard';
 import { Logger } from '../logger';
 import { Functions, Iterables } from '../system';
 import {
@@ -47,7 +46,7 @@ export const Decorations = {
     blameAnnotation: window.createTextEditorDecorationType({
         rangeBehavior: DecorationRangeBehavior.ClosedOpen,
         textDecoration: 'none'
-    } as DecorationRenderOptions),
+    }),
     blameHighlight: undefined as TextEditorDecorationType | undefined,
     heatmapAnnotation: window.createTextEditorDecorationType({
         before: {
@@ -55,7 +54,7 @@ export const Decorations = {
             height: '100%',
             margin: '0 26px -1px 0'
         }
-    } as DecorationRenderOptions),
+    }),
     heatmapHighlight: undefined as TextEditorDecorationType | undefined,
     recentChangesAnnotation: undefined as TextEditorDecorationType | undefined,
     recentChangesHighlight: undefined as TextEditorDecorationType | undefined
@@ -431,14 +430,14 @@ export class FileAnnotationController implements Disposable {
         if (this._keyboardScope === undefined) {
             this._keyboardScope = await Container.keyboard.beginScope({
                 escape: {
-                    onDidPressKey: async (key: Keys) => {
+                    onDidPressKey: async () => {
                         const e = this._editor;
                         if (e === undefined) return undefined;
 
                         await this.clear(e, AnnotationClearReason.User);
                         return undefined;
                     }
-                } as KeyCommand
+                }
             });
         }
     }
@@ -458,7 +457,7 @@ export class FileAnnotationController implements Disposable {
         }
 
         if (this._annotationProviders.size === 0) {
-            Logger.log(`Remove all listener registrations for annotations`);
+            Logger.log('Remove all listener registrations for annotations');
 
             this._annotationsDisposable && this._annotationsDisposable.dispose();
             this._annotationsDisposable = undefined;
@@ -543,7 +542,7 @@ export class FileAnnotationController implements Disposable {
         }
 
         if (!this._annotationsDisposable && this._annotationProviders.size === 0) {
-            Logger.log(`Add listener registrations for annotations`);
+            Logger.log('Add listener registrations for annotations');
 
             this._annotationsDisposable = Disposable.from(
                 window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveTextEditorChanged, 50), this),

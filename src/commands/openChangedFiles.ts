@@ -1,5 +1,5 @@
 'use strict';
-import { TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
+import { TextEditor, Uri, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
@@ -31,13 +31,13 @@ export class OpenChangedFilesCommand extends ActiveEditorCommand {
                 if (!repoPath) return undefined;
 
                 const status = await Container.git.getStatusForRepo(repoPath);
-                if (status === undefined) return window.showWarningMessage(`Unable to open changed files`);
+                if (status === undefined) return window.showWarningMessage('Unable to open changed files');
 
                 args.uris = Arrays.filterMap(status.files, f => (f.status !== 'D' ? f.uri : undefined));
             }
 
             for (const uri of args.uris) {
-                await openEditor(uri, { preserveFocus: true, preview: false } as TextDocumentShowOptions);
+                await openEditor(uri, { preserveFocus: true, preview: false });
             }
 
             return undefined;

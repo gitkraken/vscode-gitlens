@@ -13,10 +13,7 @@ import { LinesChangeEvent, LineTracker } from './lineTracker';
 export * from './lineTracker';
 
 export class GitLineState {
-    constructor(
-        public readonly commit: GitBlameCommit | undefined,
-        public logCommit?: GitLogCommit
-    ) {}
+    constructor(public readonly commit: GitBlameCommit | undefined, public logCommit?: GitLogCommit) {}
 }
 
 export class GitLineTracker extends LineTracker<GitLineState> {
@@ -45,7 +42,7 @@ export class GitLineTracker extends LineTracker<GitLineState> {
         this.resume();
     }
 
-    private async onDirtyStateChanged(e: DocumentDirtyStateChangeEvent<GitDocumentState>) {
+    private onDirtyStateChanged(e: DocumentDirtyStateChangeEvent<GitDocumentState>) {
         if (e.dirty) {
             this.suspend();
         }

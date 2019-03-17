@@ -1,7 +1,10 @@
 'use strict';
 import * as paths from 'path';
 import { Strings } from '../../system';
-import { Git, GitAuthor, GitBlame, GitBlameCommit, GitCommitLine } from './../git';
+import { Git, GitAuthor, GitBlame, GitBlameCommit, GitCommitLine } from '../git';
+
+const emptyStr = '';
+const slash = '/';
 
 interface BlameEntry {
     sha: string;
@@ -50,11 +53,12 @@ export class GitBlameParser {
 
             if (entry === undefined) {
                 entry = {
+                    author: undefined!,
                     sha: lineParts[0],
                     originalLine: parseInt(lineParts[1], 10) - 1,
                     line: parseInt(lineParts[2], 10) - 1,
                     lineCount: parseInt(lineParts[3], 10)
-                } as BlameEntry;
+                };
 
                 continue;
             }
@@ -72,7 +76,7 @@ export class GitBlameParser {
                     }
                     break;
 
-                case 'author-mail':
+                case 'author-mail': {
                     if (Git.isUncommitted(entry.sha)) {
                         entry.authorEmail = currentUser !== undefined ? currentUser.email : undefined;
                         continue;
@@ -94,7 +98,7 @@ export class GitBlameParser {
                     }
 
                     break;
-
+                }
                 case 'author-time':
                     entry.authorDate = lineParts[1];
                     break;
@@ -121,7 +125,10 @@ export class GitBlameParser {
                     if (first && repoPath === undefined) {
                         // Try to get the repoPath from the most recent commit
                         repoPath = Strings.normalizePath(
-                            fileName.replace(fileName.startsWith('/') ? `/${entry.fileName}` : entry.fileName!, '')
+                            fileName.replace(
+                                fileName.startsWith(slash) ? `/${entry.fileName}` : entry.fileName!,
+                                emptyStr
+                            )
                         );
                         relativeFileName = Strings.normalizePath(paths.relative(repoPath, fileName));
                     }
@@ -141,22 +148,23 @@ export class GitBlameParser {
         }
 
         for (const [, c] of commits) {
-            if (c.author === undefined) return;
+            if (c.author === undefined) return undefined;
 
             const author = authors.get(c.author);
-            if (author === undefined) return;
+            if (author === undefined) return undefined;
 
             author.lineCount += c.lines.length;
         }
 
         const sortedAuthors = new Map([...authors.entries()].sort((a, b) => b[1].lineCount - a[1].lineCount));
 
-        return {
-            repoPath: repoPath,
+        const blame: GitBlame = {
+            repoPath: repoPath!,
             authors: sortedAuthors,
             commits: commits,
             lines: lines
-        } as GitBlame;
+        };
+        return blame;
     }
 
     private static parseEntry(

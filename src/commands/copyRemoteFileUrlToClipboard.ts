@@ -23,10 +23,7 @@ export class CopyRemoteFileUrlToClipboardCommand extends ActiveEditorCommand {
         super(Commands.CopyRemoteFileUrlToClipboard);
     }
 
-    protected async preExecute(
-        context: CommandContext,
-        args: CopyRemoteFileUrlToClipboardCommandArgs = { range: true }
-    ): Promise<any> {
+    protected preExecute(context: CommandContext, args: CopyRemoteFileUrlToClipboardCommandArgs = { range: true }) {
         if (isCommandViewContextWithCommit(context)) {
             args = { ...args };
             args.range = false;

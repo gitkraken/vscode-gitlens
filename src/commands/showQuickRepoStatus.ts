@@ -29,7 +29,7 @@ export class ShowQuickRepoStatusCommand extends ActiveEditorCachedCommand {
             if (!repoPath) return undefined;
 
             const status = await Container.git.getStatusForRepo(repoPath);
-            if (status === undefined) return window.showWarningMessage(`Unable to show repository status`);
+            if (status === undefined) return window.showWarningMessage('Unable to show repository status');
 
             const pick = await RepoStatusQuickPick.show(status, args.goBackCommand);
             if (pick === undefined) return undefined;

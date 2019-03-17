@@ -36,7 +36,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
         this._child = undefined;
     }
 
-    async getChildren(): Promise<ViewNode[]> {
+    getChildren(): ViewNode[] {
         if (this._child === undefined) {
             if (this.uri === unknownGitUri) {
                 return [
@@ -48,7 +48,12 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
                 ];
             }
 
-            const fileUri = new GitUri(this.uri, { ...this.uri, sha: this.uri.sha || this._base } as GitCommitish);
+            const commitish: GitCommitish = {
+                ...this.uri,
+                repoPath: this.uri.repoPath!,
+                sha: this.uri.sha || this._base
+            };
+            const fileUri = new GitUri(this.uri, commitish);
             this._child = new LineHistoryNode(fileUri, this.view, this, this._selection!);
         }
 
@@ -150,7 +155,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
     }
 
     @debug()
-    protected async subscribe() {
+    protected subscribe() {
         if (Container.lineTracker.isSubscribed(this)) return undefined;
 
         const onActiveLinesChanged = Functions.debounce(this.onActiveLinesChanged.bind(this), 250);

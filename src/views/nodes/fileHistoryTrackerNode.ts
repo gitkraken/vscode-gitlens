@@ -1,5 +1,5 @@
 'use strict';
-import { Disposable, TextEditor, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
+import { Disposable, TextEditor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { UriComparer } from '../../comparers';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
@@ -35,7 +35,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
         this._child = undefined;
     }
 
-    async getChildren(): Promise<ViewNode[]> {
+    getChildren(): ViewNode[] {
         if (this._child === undefined) {
             if (this._fileUri === undefined && this.uri === unknownGitUri) {
                 return [
@@ -48,7 +48,8 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
             }
 
             const uri = this._fileUri || this.uri;
-            const fileUri = new GitUri(uri, { ...uri, sha: this._baseRef || uri.sha } as GitCommitish);
+            const commitish: GitCommitish = { ...uri, repoPath: uri.repoPath!, sha: this._baseRef || uri.sha };
+            const fileUri = new GitUri(uri, commitish);
             this._child = new FileHistoryNode(fileUri, this.view, this);
         }
 
@@ -178,7 +179,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
     }
 
     @debug()
-    protected async subscribe() {
+    protected subscribe() {
         return Disposable.from(
             window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveEditorChanged, 500), this)
         );

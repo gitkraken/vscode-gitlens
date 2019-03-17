@@ -5,7 +5,6 @@ import {
     debug,
     Disposable,
     Hover,
-    HoverProvider,
     languages,
     Position,
     Range,
@@ -191,16 +190,22 @@ export class LineHoverController implements Disposable {
         const subscriptions = [];
         if (cfg.currentLine.changes) {
             subscriptions.push(
-                languages.registerHoverProvider({ pattern: editor.document.uri.fsPath }, {
-                    provideHover: this.provideChangesHover.bind(this)
-                } as HoverProvider)
+                languages.registerHoverProvider(
+                    { pattern: editor.document.uri.fsPath },
+                    {
+                        provideHover: this.provideChangesHover.bind(this)
+                    }
+                )
             );
         }
         if (cfg.currentLine.details) {
             subscriptions.push(
-                languages.registerHoverProvider({ pattern: editor.document.uri.fsPath }, {
-                    provideHover: this.provideDetailsHover.bind(this)
-                } as HoverProvider)
+                languages.registerHoverProvider(
+                    { pattern: editor.document.uri.fsPath },
+                    {
+                        provideHover: this.provideDetailsHover.bind(this)
+                    }
+                )
             );
         }
 

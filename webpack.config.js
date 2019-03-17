@@ -1,7 +1,7 @@
 'use strict';
 const fs = require('fs');
-const glob = require('glob');
 const path = require('path');
+const glob = require('glob');
 const webpack = require('webpack');
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 const CleanPlugin = require('clean-webpack-plugin');
@@ -35,7 +35,7 @@ function getExtensionConfig(env) {
                 cwd: __dirname,
                 exclude: /node_modules/,
                 failOnError: false,
-                onDetected({ module: webpackModuleRecord, paths, compilation }) {
+                onDetected: function({ module: webpackModuleRecord, paths, compilation }) {
                     if (paths.some(p => /container\.ts/.test(p))) return;
 
                     compilation.warnings.push(new Error(paths.join(' -> ')));
@@ -84,7 +84,15 @@ function getExtensionConfig(env) {
                 {
                     test: /\.ts$/,
                     enforce: 'pre',
-                    use: 'tslint-loader',
+                    use: [
+                        {
+                            loader: 'eslint-loader',
+                            options: {
+                                cache: true,
+                                failOnError: true
+                            }
+                        }
+                    ],
                     exclude: /node_modules/
                 },
                 {
@@ -206,9 +214,10 @@ function getUIConfig(env) {
                     enforce: 'pre',
                     use: [
                         {
-                            loader: 'tslint-loader',
+                            loader: 'eslint-loader',
                             options: {
-                                tsConfigFile: 'ui.tsconfig.json'
+                                cache: true,
+                                failOnError: true
                             }
                         }
                     ],

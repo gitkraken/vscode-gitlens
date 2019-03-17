@@ -67,7 +67,7 @@ export abstract class WebviewEditor<TBootstrap> implements Disposable {
         Logger.log(`WebviewEditor.onMessageReceived: type=${e.type}, data=${JSON.stringify(e)}`);
 
         switch (e.type) {
-            case 'saveSettings':
+            case 'saveSettings': {
                 const target = e.scope === 'workspace' ? ConfigurationTarget.Workspace : ConfigurationTarget.Global;
 
                 for (const key in e.changes) {
@@ -80,7 +80,9 @@ export abstract class WebviewEditor<TBootstrap> implements Disposable {
                 for (const key of e.removes) {
                     await configuration.update(key, undefined, target);
                 }
+
                 break;
+            }
         }
     }
 
@@ -173,9 +175,10 @@ export abstract class WebviewEditor<TBootstrap> implements Disposable {
 
     private postUpdatedConfiguration() {
         // Make sure to get the raw config, not from the container which has the modes mixed in
-        return this.postMessage({
+        const msg: SettingsChangedMessage = {
             type: 'settingsChanged',
             config: configuration.get<Config>()
-        } as SettingsChangedMessage);
+        };
+        return this.postMessage(msg);
     }
 }

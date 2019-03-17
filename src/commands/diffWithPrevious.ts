@@ -23,7 +23,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
         super([Commands.DiffWithPrevious, Commands.DiffWithPreviousInDiff]);
     }
 
-    protected async preExecute(context: CommandContext, args: DiffWithPreviousCommandArgs = {}): Promise<any> {
+    protected preExecute(context: CommandContext, args: DiffWithPreviousCommandArgs = {}) {
         if (context.command === Commands.DiffWithPreviousInDiff) {
             args.inDiffEditor = true;
         }
@@ -31,7 +31,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
         return this.execute(context.editor, context.uri, args);
     }
 
-    async execute(editor?: TextEditor, uri?: Uri, args: DiffWithPreviousCommandArgs = {}): Promise<any> {
+    async execute(editor?: TextEditor, uri?: Uri, args: DiffWithPreviousCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
         if (uri == null) return undefined;
 
@@ -143,10 +143,11 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
                         }
 
                         if (!args.inDiffEditor) {
-                            return commands.executeCommand(Commands.DiffWithWorking, uri, {
+                            const commandArgs: DiffWithWorkingCommandArgs = {
                                 commit: args.commit,
                                 showOptions: args.showOptions
-                            } as DiffWithWorkingCommandArgs);
+                            };
+                            return commands.executeCommand(Commands.DiffWithWorking, uri, commandArgs);
                         }
                     }
                 }

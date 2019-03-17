@@ -35,7 +35,7 @@ export class HeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase 
                 heatmap = {
                     ...heatmap,
                     range: new Range(line, 0, line, 0)
-                } as DecorationOptions;
+                };
 
                 this.decorations.push(heatmap);
 
@@ -45,7 +45,7 @@ export class HeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase 
             commit = blame.commits.get(l.sha);
             if (commit === undefined) continue;
 
-            heatmap = Annotations.heatmap(commit, computedHeatmap, renderOptions);
+            heatmap = Annotations.heatmap(commit, computedHeatmap, renderOptions) as DecorationOptions;
             heatmap.range = new Range(line, 0, line, 0);
 
             this.decorations.push(heatmap);

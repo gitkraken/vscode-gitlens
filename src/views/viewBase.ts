@@ -53,9 +53,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
     protected _root: TRoot | undefined;
     protected _tree: TreeView<ViewNode> | undefined;
 
-    constructor(
-        public readonly id: string
-    ) {
+    constructor(public readonly id: string) {
         this.registerCommands();
 
         Container.context.subscriptions.push(configuration.onDidChange(this.onConfigurationChanged, this));
@@ -198,7 +196,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
         }
         catch (ex) {
             Logger.error(ex);
-            return;
+            return undefined;
         }
     }
 

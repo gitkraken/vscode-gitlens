@@ -1,5 +1,5 @@
 'use strict';
-import { CancellationTokenSource, QuickPickOptions, window } from 'vscode';
+import { CancellationTokenSource, window } from 'vscode';
 import { Container } from '../container';
 import { GitLog } from '../git/gitService';
 import { KeyNoopCommand } from '../keyboard';
@@ -60,7 +60,7 @@ export class CommitsQuickPick {
             // onDidSelectItem: (item: QuickPickItem) => {
             //     scope.setKeyCommand('right', item);
             // }
-        } as QuickPickOptions);
+        });
 
         await scope.dispose();
 

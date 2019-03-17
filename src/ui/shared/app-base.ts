@@ -1,7 +1,8 @@
 'use strict';
+/*global window document MutationObserver*/
 import { darken, lighten, opacity } from '../shared/colors';
-import { Bootstrap, Message, SaveSettingsMessage } from './../ipc';
-import { DOM } from './../shared/dom';
+import { Bootstrap, Message, SaveSettingsMessage } from '../ipc';
+import { DOM } from '../shared/dom';
 
 interface VsCodeApi {
     postMessage(msg: {}): void;
@@ -16,10 +17,7 @@ export abstract class App<TBootstrap extends Bootstrap> {
     private _changes: { [key: string]: any } = Object.create(null);
     private _updating: boolean = false;
 
-    constructor(
-        protected readonly appName: string,
-        protected readonly bootstrap: TBootstrap
-    ) {
+    constructor(protected readonly appName: string, protected readonly bootstrap: TBootstrap) {
         this.log(`${this.appName}.ctor`);
 
         this._api = acquireVsCodeApi();
@@ -34,12 +32,13 @@ export abstract class App<TBootstrap extends Bootstrap> {
     }
 
     protected applyChanges() {
-        this.postMessage({
+        const msg: SaveSettingsMessage = {
             type: 'saveSettings',
             changes: { ...this._changes },
             removes: Object.keys(this._changes).filter(k => this._changes[k] === undefined),
             scope: this.getSettingsScope()
-        } as SaveSettingsMessage);
+        };
+        this.postMessage(msg);
 
         this._changes = Object.create(null);
     }
@@ -52,8 +51,12 @@ export abstract class App<TBootstrap extends Bootstrap> {
         console.log(message);
     }
 
-    protected onBind() {}
-    protected onInitialize() {}
+    protected onBind() {
+        // virtual
+    }
+    protected onInitialize() {
+        // virtual
+    }
 
     protected onInputBlurred(element: HTMLInputElement) {
         this.log(`${this.appName}.onInputBlurred: name=${element.name}, value=${element.value}`);
@@ -304,7 +307,7 @@ export abstract class App<TBootstrap extends Bootstrap> {
     private initializeColorPalette() {
         const onColorThemeChanged = () => {
             const body = document.body;
-            const computedStyle = getComputedStyle(body);
+            const computedStyle = window.getComputedStyle(body);
 
             const bodyStyle = body.style;
 
@@ -476,7 +479,7 @@ function parseAdditionalSettingsExpression(expression: string): [string, string 
 }
 
 function parseStateExpression(expression: string): [string, string, string | boolean | undefined] {
-    const [lhs, op, rhs] = expression.trim().split(/([=\+\!])/);
+    const [lhs, op, rhs] = expression.trim().split(/([=+!])/);
     return [lhs.trim(), op !== undefined ? op.trim() : '=', rhs !== undefined ? rhs.trim() : rhs];
 }
 

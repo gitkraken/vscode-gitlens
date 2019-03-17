@@ -4,15 +4,7 @@ import { Command, Selection, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import {
-    CommitFormatter,
-    GitFile,
-    GitLogCommit,
-    GitUri,
-    ICommitFormatOptions,
-    IStatusFormatOptions,
-    StatusFileFormatter
-} from '../../git/gitService';
+import { CommitFormatter, GitFile, GitLogCommit, GitUri, StatusFileFormatter } from '../../git/gitService';
 import { View } from '../viewBase';
 import { ResourceType, ViewNode, ViewRefNode } from './viewNode';
 
@@ -47,7 +39,7 @@ export class CommitFileNode extends ViewRefNode {
         return this.commit.sha;
     }
 
-    async getChildren(): Promise<ViewNode[]> {
+    getChildren(): ViewNode[] {
         return [];
     }
 
@@ -109,10 +101,10 @@ export class CommitFileNode extends ViewRefNode {
                     ? CommitFormatter.fromTemplate(this.getCommitDescriptionTemplate(), this.commit, {
                           truncateMessageAtNewLine: true,
                           dateFormat: Container.config.defaultDateFormat
-                      } as ICommitFormatOptions)
+                      })
                     : StatusFileFormatter.fromTemplate(this.getCommitFileDescriptionTemplate(), this.file, {
                           relativePath: this.relativePath
-                      } as IStatusFormatOptions);
+                      });
         }
         return this._description;
     }
@@ -133,10 +125,10 @@ export class CommitFileNode extends ViewRefNode {
                     ? CommitFormatter.fromTemplate(this.getCommitTemplate(), this.commit, {
                           truncateMessageAtNewLine: true,
                           dateFormat: Container.config.defaultDateFormat
-                      } as ICommitFormatOptions)
+                      })
                     : StatusFileFormatter.fromTemplate(this.getCommitFileTemplate(), this.file, {
                           relativePath: this.relativePath
-                      } as IStatusFormatOptions);
+                      });
         }
         return this._label;
     }
@@ -161,6 +153,7 @@ export class CommitFileNode extends ViewRefNode {
     get tooltip() {
         if (this._tooltip === undefined) {
             if (this._displayAs & CommitFileNodeDisplayAs.CommitLabel) {
+                // eslint-disable-next-line no-template-curly-in-string
                 const status = StatusFileFormatter.fromTemplate('${status}', this.file);
                 this._tooltip = CommitFormatter.fromTemplate(
                     this.commit.isUncommitted
@@ -169,10 +162,11 @@ export class CommitFileNode extends ViewRefNode {
                     this.commit,
                     {
                         dateFormat: Container.config.defaultDateFormat
-                    } as ICommitFormatOptions
+                    }
                 );
             }
             else {
+                // eslint-disable-next-line no-template-curly-in-string
                 this._tooltip = StatusFileFormatter.fromTemplate('${file}\n${directory}/\n\n${status}', this.file);
             }
         }
@@ -196,20 +190,18 @@ export class CommitFileNode extends ViewRefNode {
     }
 
     getCommand(): Command | undefined {
+        const commandArgs: DiffWithPreviousCommandArgs = {
+            commit: this.commit,
+            line: this._selection !== undefined ? this._selection.active.line : 0,
+            showOptions: {
+                preserveFocus: true,
+                preview: true
+            }
+        };
         return {
             title: 'Compare File with Previous Revision',
             command: Commands.DiffWithPrevious,
-            arguments: [
-                GitUri.fromFile(this.file, this.commit.repoPath),
-                {
-                    commit: this.commit,
-                    line: this._selection !== undefined ? this._selection.active.line : 0,
-                    showOptions: {
-                        preserveFocus: true,
-                        preview: true
-                    }
-                } as DiffWithPreviousCommandArgs
-            ]
+            arguments: [GitUri.fromFile(this.file, this.commit.repoPath), commandArgs]
         };
     }
 }

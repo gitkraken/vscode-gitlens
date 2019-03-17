@@ -1,5 +1,5 @@
 'use strict';
-import { QuickPickItem, QuickPickOptions, window } from 'vscode';
+import { QuickPickItem, window } from 'vscode';
 import { Container } from '../container';
 import { Repository } from '../git/gitService';
 import { Iterables } from '../system';
@@ -10,9 +10,7 @@ export class RepositoryQuickPickItem implements QuickPickItem {
     description: string;
     detail: string | undefined;
 
-    constructor(
-        public readonly repository: Repository
-    ) {
+    constructor(public readonly repository: Repository) {
         this.label = repository.name;
         this.description = repository.path;
     }
@@ -40,7 +38,7 @@ export class RepositoriesQuickPick {
         const pick = await window.showQuickPick(items, {
             placeHolder: placeHolder,
             ignoreFocusOut: getQuickPickIgnoreFocusOut()
-        } as QuickPickOptions);
+        });
 
         // await scope.dispose();
 

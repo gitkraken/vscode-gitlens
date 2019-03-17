@@ -7,7 +7,6 @@ import {
     Event,
     EventEmitter,
     extensions,
-    MessageItem,
     ProgressLocation,
     Range,
     TextEditor,
@@ -18,6 +17,7 @@ import {
     WorkspaceFolder,
     WorkspaceFoldersChangeEvent
 } from 'vscode';
+// eslint-disable-next-line import/no-unresolved
 import { GitExtension } from '../@types/git';
 import { configuration, RemotesConfig } from '../configuration';
 import { CommandContext, DocumentSchemes, GlyphChars, setCommandContext } from '../constants';
@@ -70,6 +70,9 @@ export * from './models/models';
 export * from './formatters/formatters';
 export { getNameFromRemoteResource, RemoteProvider, RemoteResource, RemoteResourceType } from './remotes/provider';
 export { RemoteProviderFactory } from './remotes/factory';
+
+const emptyStr = '';
+const slash = '/';
 
 const RepoSearchWarnings = {
     doesNotExist: /no such file or directory/i
@@ -185,7 +188,7 @@ export class GitService implements Disposable {
             e = {
                 added: workspace.workspaceFolders || [],
                 removed: []
-            } as WorkspaceFoldersChangeEvent;
+            };
 
             Logger.log(`Starting repository search in ${e.added.length} folders`);
         }
@@ -300,22 +303,21 @@ export class GitService implements Disposable {
             })
         ];
 
-        excludes = excludedPaths.reduce(
-            (accumulator, current) => {
-                accumulator[current] = true;
-                return accumulator;
-            },
-            Object.create(null) as any
-        );
+        excludes = excludedPaths.reduce((accumulator, current) => {
+            accumulator[current] = true;
+            return accumulator;
+        }, Object.create(null));
 
         let repoPaths;
         try {
             repoPaths = await this.repositorySearchCore(uri.fsPath, depth, excludes);
         }
         catch (ex) {
-            if (RepoSearchWarnings.doesNotExist.test(ex.message || '')) {
+            if (RepoSearchWarnings.doesNotExist.test(ex.message || emptyStr)) {
                 Logger.log(
-                    `Repository search (depth=${depth}) in '${uri.fsPath}' FAILED${ex.message ? `(${ex.message})` : ''}`
+                    `Repository search (depth=${depth}) in '${uri.fsPath}' FAILED${
+                        ex.message ? `(${ex.message})` : emptyStr
+                    }`
                 );
             }
             else {
@@ -346,7 +348,7 @@ export class GitService implements Disposable {
         return repositories;
     }
 
-    private async repositorySearchCore(
+    private repositorySearchCore(
         root: string,
         depth: number,
         excludes: { [key: string]: boolean },
@@ -369,7 +371,7 @@ export class GitService implements Disposable {
                 const promises = files.map(file => {
                     const path = paths.resolve(root, file);
 
-                    return new Promise<void>((res, rej) => {
+                    return new Promise<void>((resolve2, reject2) => {
                         fs.stat(path, (err, stat) => {
                             if (file === '.git') {
                                 repositories.push(path);
@@ -378,7 +380,7 @@ export class GitService implements Disposable {
                                 folders.push(path);
                             }
 
-                            res();
+                            resolve2();
                         });
                     });
                 });
@@ -460,9 +462,9 @@ export class GitService implements Disposable {
         catch (ex) {
             if (patch && /patch does not apply/i.test(ex.message)) {
                 const result = await window.showWarningMessage(
-                    `Unable to apply changes cleanly. Retry and allow conflicts?`,
-                    { title: 'Yes' } as MessageItem,
-                    { title: 'No', isCloseAffordance: true } as MessageItem
+                    'Unable to apply changes cleanly. Retry and allow conflicts?',
+                    { title: 'Yes' },
+                    { title: 'No', isCloseAffordance: true }
                 );
 
                 if (result === undefined || result.title !== 'Yes') return;
@@ -473,13 +475,14 @@ export class GitService implements Disposable {
                         return;
                     }
                     catch (e) {
+                        // eslint-disable-next-line no-ex-assign
                         ex = e;
                     }
                 }
             }
 
             Logger.error(ex);
-            void Messages.showGenericErrorMessage(`Unable to apply changes`);
+            void Messages.showGenericErrorMessage('Unable to apply changes');
         }
     }
 
@@ -490,7 +493,7 @@ export class GitService implements Disposable {
 
     @gate()
     @log()
-    async fetch(repoPath: string, remote?: string) {
+    fetch(repoPath: string, remote?: string) {
         return Git.fetch(repoPath, { remote: remote });
     }
 
@@ -503,7 +506,7 @@ export class GitService implements Disposable {
         await window.withProgress(
             {
                 location: ProgressLocation.Notification,
-                title: `Fetching repositories`,
+                title: 'Fetching repositories',
                 cancellable: true
             },
             async (progress, token) => {
@@ -531,7 +534,7 @@ export class GitService implements Disposable {
         await window.withProgress(
             {
                 location: ProgressLocation.Notification,
-                title: `Pulling repositories`,
+                title: 'Pulling repositories',
                 cancellable: true
             },
             async (progress, token) => {
@@ -559,7 +562,7 @@ export class GitService implements Disposable {
         await window.withProgress(
             {
                 location: ProgressLocation.Notification,
-                title: `Pushing repositories`,
+                title: 'Pushing repositories',
                 cancellable: true
             },
             async (progress, token) => {
@@ -646,7 +649,7 @@ export class GitService implements Disposable {
 
         return (await this.fileExists(repoPath, fileName, { ensureCase: true }))
             ? fileName
-            : await this.findNextFileNameCore(repoPath, fileName, ref);
+            : this.findNextFileNameCore(repoPath, fileName, ref);
     }
 
     private async findNextFileNameCore(repoPath: string, fileName: string, ref?: string): Promise<string | undefined> {
@@ -770,9 +773,10 @@ export class GitService implements Disposable {
         if (doc.state !== undefined) {
             Logger.debug(cc, `Cache add: '${key}'`);
 
-            doc.state.set<CachedBlame>(key, {
-                item: promise
-            } as CachedBlame);
+            const value: CachedBlame = {
+                item: promise as Promise<GitBlame>
+            };
+            doc.state.set<CachedBlame>(key, value);
         }
 
         return promise;
@@ -805,10 +809,11 @@ export class GitService implements Disposable {
                 const msg = ex && ex.toString();
                 Logger.debug(cc, `Cache replace (with empty promise): '${key}'`);
 
-                document.state.set<CachedBlame>(key, {
-                    item: GitService.emptyPromise,
+                const value: CachedBlame = {
+                    item: GitService.emptyPromise as Promise<GitBlame>,
                     errorMessage: msg
-                } as CachedBlame);
+                };
+                document.state.set<CachedBlame>(key, value);
 
                 document.setBlameFailure();
 
@@ -851,9 +856,10 @@ export class GitService implements Disposable {
         if (doc.state !== undefined) {
             Logger.debug(cc, `Cache add: '${key}'`);
 
-            doc.state.set<CachedBlame>(key, {
-                item: promise
-            } as CachedBlame);
+            const value: CachedBlame = {
+                item: promise as Promise<GitBlame>
+            };
+            doc.state.set<CachedBlame>(key, value);
         }
 
         return promise;
@@ -888,10 +894,11 @@ export class GitService implements Disposable {
                 const msg = ex && ex.toString();
                 Logger.debug(cc, `Cache replace (with empty promise): '${key}'`);
 
-                document.state.set<CachedBlame>(key, {
-                    item: GitService.emptyPromise,
+                const value: CachedBlame = {
+                    item: GitService.emptyPromise as Promise<GitBlame>,
                     errorMessage: msg
-                } as CachedBlame);
+                };
+                document.state.set<CachedBlame>(key, value);
 
                 document.setBlameFailure();
                 return GitService.emptyPromise as Promise<GitBlame>;
@@ -920,11 +927,12 @@ export class GitService implements Disposable {
             const commit = blame.commits.get(blameLine.sha);
             if (commit === undefined) return undefined;
 
+            const author = blame.authors.get(commit.author)!;
             return {
-                author: { ...blame.authors.get(commit.author), lineCount: commit.lines.length },
+                author: { ...author, lineCount: commit.lines.length },
                 commit: commit,
                 line: blameLine
-            } as GitBlameLine;
+            };
         }
 
         const lineToBlame = line + 1;
@@ -944,7 +952,7 @@ export class GitService implements Disposable {
                 author: Iterables.first(blame.authors.values()),
                 commit: Iterables.first(blame.commits.values()),
                 line: blame.lines[line]
-            } as GitBlameLine;
+            };
         }
         catch {
             return undefined;
@@ -975,11 +983,12 @@ export class GitService implements Disposable {
             const commit = blame.commits.get(blameLine.sha);
             if (commit === undefined) return undefined;
 
+            const author = blame.authors.get(commit.author)!;
             return {
-                author: { ...blame.authors.get(commit.author), lineCount: commit.lines.length },
+                author: { ...author, lineCount: commit.lines.length },
                 commit: commit,
                 line: blameLine
-            } as GitBlameLine;
+            };
         }
 
         const lineToBlame = line + 1;
@@ -1000,7 +1009,7 @@ export class GitService implements Disposable {
                 author: Iterables.first(blame.authors.values()),
                 commit: Iterables.first(blame.commits.values()),
                 line: blame.lines[line]
-            } as GitBlameLine;
+            };
         }
         catch {
             return undefined;
@@ -1053,11 +1062,12 @@ export class GitService implements Disposable {
         const sortedAuthors = new Map([...authors.entries()].sort((a, b) => b[1].lineCount - a[1].lineCount));
 
         return {
+            repoPath: uri.repoPath!,
             authors: sortedAuthors,
             commits: commits,
             lines: lines,
             allLines: blame.lines
-        } as GitBlameLines;
+        };
     }
 
     @log()
@@ -1102,8 +1112,8 @@ export class GitService implements Disposable {
     }
 
     @log()
-    async getConfig(key: string, repoPath?: string): Promise<string | undefined> {
-        return await Git.config_get(key, repoPath);
+    getConfig(key: string, repoPath?: string): Promise<string | undefined> {
+        return Git.config_get(key, repoPath);
     }
 
     @log()
@@ -1122,13 +1132,16 @@ export class GitService implements Disposable {
 
         user = { name: undefined, email: undefined };
 
+        let key: string;
+        let value: string;
         let match: RegExpExecArray | null = null;
         do {
             match = userConfigRegex.exec(data);
             if (match == null) break;
 
+            [, key, value] = match;
             // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-            user[match[1] as 'name' | 'email'] = (' ' + match[2]).substr(1);
+            user[key as 'name' | 'email'] = ` ${value}`.substr(1);
         } while (match != null);
 
         const author = `${user.name} <${user.email}>`;
@@ -1192,9 +1205,10 @@ export class GitService implements Disposable {
         if (doc.state !== undefined) {
             Logger.debug(cc, `Cache add: '${key}'`);
 
-            doc.state.set<CachedDiff>(key, {
-                item: promise
-            } as CachedDiff);
+            const value: CachedDiff = {
+                item: promise as Promise<GitDiff>
+            };
+            doc.state.set<CachedDiff>(key, value);
         }
 
         return promise;
@@ -1223,10 +1237,11 @@ export class GitService implements Disposable {
                 const msg = ex && ex.toString();
                 Logger.debug(cc, `Cache replace (with empty promise): '${key}'`);
 
-                document.state.set<CachedDiff>(key, {
-                    item: GitService.emptyPromise,
+                const value: CachedDiff = {
+                    item: GitService.emptyPromise as Promise<GitDiff>,
                     errorMessage: msg
-                } as CachedDiff);
+                };
+                document.state.set<CachedDiff>(key, value);
 
                 return GitService.emptyPromise as Promise<GitDiff>;
             }
@@ -1287,13 +1302,13 @@ export class GitService implements Disposable {
     }
 
     @log()
-    async getRecentLogCommitForFile(repoPath: string | undefined, fileName: string): Promise<GitLogCommit | undefined> {
+    getRecentLogCommitForFile(repoPath: string | undefined, fileName: string): Promise<GitLogCommit | undefined> {
         return this.getLogCommitForFile(repoPath, fileName, undefined);
     }
 
     @log()
-    async getRecentShaForFile(repoPath: string, fileName: string) {
-        return await Git.log_recent(repoPath, fileName);
+    getRecentShaForFile(repoPath: string, fileName: string) {
+        return Git.log_recent(repoPath, fileName);
     }
 
     @log()
@@ -1385,7 +1400,7 @@ export class GitService implements Disposable {
                 searchArgs = ['-M', '--all', '--full-history', '-E', '-i', '--pickaxe-regex', `-S${search}`];
                 break;
             case GitRepoSearchBy.Files:
-                searchArgs = ['-M', '--all', '--full-history', '-E', '-i', `--`, `${search}`];
+                searchArgs = ['-M', '--all', '--full-history', '-E', '-i', '--', `${search}`];
                 break;
             case GitRepoSearchBy.Message:
                 searchArgs = ['-m', '-M', '--all', '--full-history', '-E', '-i'];
@@ -1394,7 +1409,7 @@ export class GitService implements Disposable {
                 }
                 break;
             case GitRepoSearchBy.Sha:
-                searchArgs = [`-m`, '-M', search];
+                searchArgs = ['-m', '-M', search];
                 maxCount = 1;
                 break;
         }
@@ -1452,10 +1467,10 @@ export class GitService implements Disposable {
             key += `:n${options.maxCount}`;
         }
         if (options.renames) {
-            key += `:follow`;
+            key += ':follow';
         }
         if (options.reverse) {
-            key += `:reverse`;
+            key += ':reverse';
         }
 
         const doc = await Container.tracker.getOrAdd(GitUri.fromFile(fileName, repoPath!, options.ref));
@@ -1470,7 +1485,7 @@ export class GitService implements Disposable {
                 if (options.ref !== undefined || options.maxCount !== undefined) {
                     // Since we are looking for partial log, see if we have the log of the whole file
                     const cachedLog = doc.state.get<CachedLog>(
-                        `log${options.renames ? ':follow' : ''}${options.reverse ? ':reverse' : ''}`
+                        `log${options.renames ? ':follow' : emptyStr}${options.reverse ? ':reverse' : emptyStr}`
                     );
                     if (cachedLog !== undefined) {
                         if (options.ref === undefined) {
@@ -1536,9 +1551,10 @@ export class GitService implements Disposable {
         if (doc.state !== undefined && options.range === undefined) {
             Logger.debug(cc, `Cache add: '${key}'`);
 
-            doc.state.set<CachedLog>(key, {
-                item: promise
-            } as CachedLog);
+            const value: CachedLog = {
+                item: promise as Promise<GitLog>
+            };
+            doc.state.set<CachedLog>(key, value);
         }
 
         return promise;
@@ -1560,7 +1576,7 @@ export class GitService implements Disposable {
         const [file, root] = Git.splitPath(fileName, repoPath, false);
 
         try {
-            // tslint:disable-next-line:prefer-const
+            // eslint-disable-next-line prefer-const
             let { range, ...opts } = options;
             if (range !== undefined && range.start.line > range.end.line) {
                 range = new Range(range.end, range.start);
@@ -1600,10 +1616,11 @@ export class GitService implements Disposable {
                 const msg = ex && ex.toString();
                 Logger.debug(cc, `Cache replace (with empty promise): '${key}'`);
 
-                document.state.set<CachedLog>(key, {
-                    item: GitService.emptyPromise,
+                const value: CachedLog = {
+                    item: GitService.emptyPromise as Promise<GitLog>,
                     errorMessage: msg
-                } as CachedLog);
+                };
+                document.state.set<CachedLog>(key, value);
 
                 return GitService.emptyPromise as Promise<GitLog>;
             }
@@ -1719,7 +1736,7 @@ export class GitService implements Disposable {
         else {
             folder = workspace.getWorkspaceFolder(GitUri.file(rp, isVslsScheme));
             if (folder === undefined) {
-                const parts = rp.split('/');
+                const parts = rp.split(slash);
                 folder = {
                     uri: GitUri.file(rp, isVslsScheme),
                     name: parts[parts.length - 1],
@@ -1852,7 +1869,7 @@ export class GitService implements Disposable {
         if (repo === undefined && isVslsScheme !== false && Container.vsls.isMaybeGuest) {
             if (!vslsUriPrefixRegex.test(path)) {
                 path = Strings.normalizePath(path);
-                const vslsPath = `/~0${path[0] === '/' ? path : `/${path}`}`;
+                const vslsPath = `/~0${path[0] === slash ? path : `/${path}`}`;
                 repo = repositoryTree.findSubstr(vslsPath);
             }
         }
@@ -2028,7 +2045,7 @@ export class GitService implements Disposable {
             return tracked;
         }
 
-        tracked = this.isTrackedCore(fileName, repoPath === undefined ? '' : repoPath, ref);
+        tracked = this.isTrackedCore(fileName, repoPath === undefined ? emptyStr : repoPath, ref);
         if (options.skipCacheUpdate) {
             tracked = await tracked;
 
@@ -2047,13 +2064,15 @@ export class GitService implements Disposable {
 
         try {
             // Even if we have a ref, check first to see if the file exists (that way the cache will be better reused)
-            let tracked = Boolean(await Git.ls_files(repoPath === undefined ? '' : repoPath, fileName));
+            let tracked = Boolean(await Git.ls_files(repoPath === undefined ? emptyStr : repoPath, fileName));
             if (!tracked && ref !== undefined) {
-                tracked = Boolean(await Git.ls_files(repoPath === undefined ? '' : repoPath, fileName, { ref: ref }));
+                tracked = Boolean(
+                    await Git.ls_files(repoPath === undefined ? emptyStr : repoPath, fileName, { ref: ref })
+                );
                 // If we still haven't found this file, make sure it wasn't deleted in that ref (i.e. check the previous)
                 if (!tracked) {
                     tracked = Boolean(
-                        await Git.ls_files(repoPath === undefined ? '' : repoPath, fileName, {
+                        await Git.ls_files(repoPath === undefined ? emptyStr : repoPath, fileName, {
                             ref: `${ref}^`
                         })
                     );
@@ -2071,7 +2090,7 @@ export class GitService implements Disposable {
     async getDiffTool(repoPath?: string) {
         return (
             (await Git.config_get('diff.guitool', repoPath, { local: true })) ||
-            (await Git.config_get('diff.tool', repoPath, { local: true }))
+            Git.config_get('diff.tool', repoPath, { local: true })
         );
     }
 
@@ -2124,8 +2143,8 @@ export class GitService implements Disposable {
     }
 
     @log()
-    async validateReference(repoPath: string, ref: string) {
-        return await Git.cat_validate(repoPath, ref);
+    validateReference(repoPath: string, ref: string) {
+        return Git.cat_validate(repoPath, ref);
     }
 
     stageFile(repoPath: string, fileName: string): Promise<string>;
@@ -2239,7 +2258,7 @@ export class GitService implements Disposable {
     ) {
         if (ref === undefined) return undefined;
 
-        strings = { deletedOrMissing: '(deleted)', working: '', ...strings };
+        strings = { deletedOrMissing: '(deleted)', working: emptyStr, ...strings };
 
         if (ref == null || ref.length === 0) return strings.working;
         if (ref === GitService.deletedOrMissingSha) return strings.deletedOrMissing;
@@ -2247,7 +2266,7 @@ export class GitService implements Disposable {
         return Git.isShaLike(ref) || Git.isStagedUncommitted(ref) ? Git.shortenSha(ref, strings) : ref;
     }
 
-    static compareGitVersion(version: string, throwIfLessThan?: Error) {
+    static compareGitVersion(version: string) {
         return Versions.compare(Versions.fromString(this.getGitVersion()), Versions.fromString(version));
     }
 

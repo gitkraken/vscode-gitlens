@@ -1,6 +1,8 @@
 'use strict';
 import { Strings } from '../../system';
-import { GitFileStatus, GitStatus, GitStatusFile } from './../git';
+import { GitFileStatus, GitStatus, GitStatusFile } from '../git';
+
+const emptyStr = '';
 
 const aheadStatusV1Regex = /(?:ahead ([0-9]+))/;
 const behindStatusV1Regex = /(?:behind ([0-9]+))/;
@@ -37,17 +39,17 @@ export class GitStatusParser {
                     const upstreamStatus = lineParts.slice(2).join(' ');
 
                     const aheadStatus = aheadStatusV1Regex.exec(upstreamStatus);
-                    state.ahead = aheadStatus == null ? 0 : +aheadStatus[1] || 0;
+                    state.ahead = aheadStatus == null ? 0 : Number(aheadStatus[1]) || 0;
 
                     const behindStatus = behindStatusV1Regex.exec(upstreamStatus);
-                    state.behind = behindStatus == null ? 0 : +behindStatus[1] || 0;
+                    state.behind = behindStatus == null ? 0 : Number(behindStatus[1]) || 0;
                 }
             }
             else {
                 const rawStatus = line.substring(0, 2);
                 const fileName = line.substring(3);
                 if (rawStatus[0] === 'R') {
-                    const [file1, file2] = fileName.replace(/\"/g, '').split('->');
+                    const [file1, file2] = fileName.replace(/"/g, emptyStr).split('->');
                     files.push(this.parseStatusFile(repoPath, rawStatus, file2.trim(), file1.trim()));
                 }
                 else {
@@ -56,7 +58,7 @@ export class GitStatusParser {
             }
         }
 
-        return new GitStatus(Strings.normalizePath(repoPath), branch || '', '', files, state, upstream);
+        return new GitStatus(Strings.normalizePath(repoPath), branch || emptyStr, emptyStr, files, state, upstream);
     }
 
     private static parseV2(lines: string[], repoPath: string): GitStatus {
@@ -86,8 +88,8 @@ export class GitStatusParser {
                         upstream = lineParts[2];
                         break;
                     case 'branch.ab':
-                        state.ahead = +lineParts[2].substring(1);
-                        state.behind = +lineParts[3].substring(1);
+                        state.ahead = Number(lineParts[2].substring(1));
+                        state.behind = Number(lineParts[3].substring(1));
                         break;
                 }
             }
@@ -97,13 +99,15 @@ export class GitStatusParser {
                     case '1': // normal
                         files.push(this.parseStatusFile(repoPath, lineParts[1], lineParts.slice(8).join(' ')));
                         break;
-                    case '2': // rename
+                    case '2': {
+                        // rename
                         const file = lineParts
                             .slice(9)
                             .join(' ')
                             .split('\t');
                         files.push(this.parseStatusFile(repoPath, lineParts[1], file[0], file[1]));
                         break;
+                    }
                     case 'u': // unmerged
                         files.push(this.parseStatusFile(repoPath, lineParts[1], lineParts.slice(10).join(' ')));
                         break;
@@ -114,7 +118,14 @@ export class GitStatusParser {
             }
         }
 
-        return new GitStatus(Strings.normalizePath(repoPath), branch || '', sha || '', files, state, upstream);
+        return new GitStatus(
+            Strings.normalizePath(repoPath),
+            branch || emptyStr,
+            sha || emptyStr,
+            files,
+            state,
+            upstream
+        );
     }
 
     static parseStatusFile(

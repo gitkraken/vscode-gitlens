@@ -6,8 +6,7 @@ import { GitCodeLensController } from './codelens/codeLensController';
 import { Commands, ToggleFileBlameCommandArgs } from './commands';
 import { AnnotationsToggleMode, Config, configuration, ConfigurationWillChangeEvent } from './configuration';
 import { GitFileSystemProvider } from './git/fsProvider';
-import { GitService } from './git/gitService';
-import { clearGravatarCache } from './git/gitService';
+import { clearGravatarCache, GitService } from './git/gitService';
 import { LineHoverController } from './hovers/lineHoverController';
 import { Keyboard } from './keyboard';
 import { Logger, TraceLevel } from './logger';
@@ -57,6 +56,7 @@ export class Container {
         }
         else {
             let disposable: Disposable;
+            // eslint-disable-next-line prefer-const
             disposable = configuration.onDidChange(e => {
                 if (configuration.changed(e, configuration.name('views')('compare')('enabled').value)) {
                     disposable.dispose();
@@ -70,6 +70,7 @@ export class Container {
         }
         else {
             let disposable: Disposable;
+            // eslint-disable-next-line prefer-const
             disposable = configuration.onDidChange(e => {
                 if (configuration.changed(e, configuration.name('views')('fileHistory')('enabled').value)) {
                     disposable.dispose();
@@ -83,6 +84,7 @@ export class Container {
         }
         else {
             let disposable: Disposable;
+            // eslint-disable-next-line prefer-const
             disposable = configuration.onDidChange(e => {
                 if (configuration.changed(e, configuration.name('views')('lineHistory')('enabled').value)) {
                     disposable.dispose();
@@ -96,6 +98,7 @@ export class Container {
         }
         else {
             let disposable: Disposable;
+            // eslint-disable-next-line prefer-const
             disposable = configuration.onDidChange(e => {
                 if (configuration.changed(e, configuration.name('views')('repositories')('enabled').value)) {
                     disposable.dispose();
@@ -109,6 +112,7 @@ export class Container {
         }
         else {
             let disposable: Disposable;
+            // eslint-disable-next-line prefer-const
             disposable = configuration.onDidChange(e => {
                 if (configuration.changed(e, configuration.name('views')('search')('enabled').value)) {
                     disposable.dispose();
@@ -290,14 +294,11 @@ export class Container {
             }
 
             if (command !== undefined) {
+                const commandArgs: ToggleFileBlameCommandArgs = {
+                    on: true
+                };
                 // Make sure to delay the execution by a bit so that the configuration changes get propegated first
-                setTimeout(
-                    () =>
-                        commands.executeCommand(command!, {
-                            on: true
-                        } as ToggleFileBlameCommandArgs),
-                    50
-                );
+                setTimeout(() => commands.executeCommand(command!, commandArgs), 50);
             }
         }
 

@@ -1,7 +1,9 @@
 'use strict';
 import { LogCorrelationContext, Logger, TraceLevel } from '../../logger';
-import { Functions } from './../function';
-import { Strings } from './../string';
+import { Functions } from '../function';
+import { Strings } from '../string';
+
+const emptyStr = '';
 
 const correlationContext = new Map<number, LogCorrelationContext>();
 let correlationCounter = 0;
@@ -113,7 +115,7 @@ export function log<T>(
                 }
             }
             else {
-                instanceName = '';
+                instanceName = emptyStr;
             }
 
             let { correlate } = options;
@@ -121,8 +123,8 @@ export function log<T>(
                 correlate = true;
             }
 
-            let prefix = `${correlate ? `[${correlationId.toString(16)}] ` : ''}${
-                instanceName ? `${instanceName}.` : ''
+            let prefix = `${correlate ? `[${correlationId.toString(16)}] ` : emptyStr}${
+                instanceName ? `${instanceName}.` : emptyStr
             }${key}`;
 
             if (options.prefix != null) {
@@ -133,7 +135,7 @@ export function log<T>(
                         instanceName: instanceName,
                         name: key,
                         prefix: prefix
-                    } as LogContext<T>,
+                    },
                     ...args
                 );
             }
@@ -144,11 +146,11 @@ export function log<T>(
                 setCorrelationContext(correlationId, correlationContext);
             }
 
-            const enter = options.enter != null ? options.enter(...args) : '';
+            const enter = options.enter != null ? options.enter(...args) : emptyStr;
 
             let loggableParams: string;
             if (options.args === false || args.length === 0) {
-                loggableParams = '';
+                loggableParams = emptyStr;
 
                 if (!options.singleLine) {
                     logFn(`${prefix}${enter}`);
@@ -190,7 +192,8 @@ export function log<T>(
                 const start = options.timed ? process.hrtime() : undefined;
 
                 const logError = (ex: Error) => {
-                    const timing = start !== undefined ? ` \u2022 ${Strings.getDurationMilliseconds(start)} ms` : '';
+                    const timing =
+                        start !== undefined ? ` \u2022 ${Strings.getDurationMilliseconds(start)} ms` : emptyStr;
                     if (options.singleLine) {
                         Logger.error(
                             ex,
@@ -198,7 +201,7 @@ export function log<T>(
                             `failed${
                                 correlationContext !== undefined && correlationContext.exitDetails
                                     ? correlationContext.exitDetails
-                                    : ''
+                                    : emptyStr
                             }${timing}`,
                             loggableParams
                         );
@@ -210,7 +213,7 @@ export function log<T>(
                             `failed${
                                 correlationContext !== undefined && correlationContext.exitDetails
                                     ? correlationContext.exitDetails
-                                    : ''
+                                    : emptyStr
                             }${timing}`
                         );
                     }
@@ -230,7 +233,8 @@ export function log<T>(
                 }
 
                 const logResult = (r: any) => {
-                    const timing = start !== undefined ? ` \u2022 ${Strings.getDurationMilliseconds(start)} ms` : '';
+                    const timing =
+                        start !== undefined ? ` \u2022 ${Strings.getDurationMilliseconds(start)} ms` : emptyStr;
                     let exit;
                     if (options.exit != null) {
                         try {
@@ -250,7 +254,7 @@ export function log<T>(
                                 `${prefix}${enter} ${exit}${
                                     correlationContext !== undefined && correlationContext.exitDetails
                                         ? correlationContext.exitDetails
-                                        : ''
+                                        : emptyStr
                                 }${timing}`,
                                 loggableParams
                             );
@@ -260,7 +264,7 @@ export function log<T>(
                                 `${prefix}${enter} ${exit}${
                                     correlationContext !== undefined && correlationContext.exitDetails
                                         ? correlationContext.exitDetails
-                                        : ''
+                                        : emptyStr
                                 }${timing}`,
                                 loggableParams
                             );
@@ -271,7 +275,7 @@ export function log<T>(
                             `${prefix} ${exit}${
                                 correlationContext !== undefined && correlationContext.exitDetails
                                     ? correlationContext.exitDetails
-                                    : ''
+                                    : emptyStr
                             }${timing}`
                         );
                     }

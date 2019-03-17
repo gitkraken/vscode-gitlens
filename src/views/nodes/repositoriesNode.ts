@@ -46,7 +46,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
     }
 
     getTreeItem(): TreeItem {
-        const item = new TreeItem(`Repositories`, TreeItemCollapsibleState.Expanded);
+        const item = new TreeItem('Repositories', TreeItemCollapsibleState.Expanded);
         item.contextValue = ResourceType.Repositories;
 
         void this.ensureSubscription();
@@ -100,7 +100,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
     }
 
     @debug()
-    protected async subscribe() {
+    protected subscribe() {
         const subscriptions = [Container.git.onDidChangeRepositories(this.onRepositoriesChanged, this)];
 
         if (this.view.config.autoReveal) {

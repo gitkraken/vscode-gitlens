@@ -1,14 +1,6 @@
 'use strict';
 import { Iterables, Strings } from '../../system';
-import {
-    GitDiff,
-    GitDiffChunk,
-    GitDiffChunkLine,
-    GitDiffLine,
-    GitDiffShortStat,
-    GitFile,
-    GitFileStatus
-} from './../git';
+import { GitDiff, GitDiffChunk, GitDiffChunkLine, GitDiffLine, GitDiffShortStat, GitFile, GitFileStatus } from '../git';
 
 const nameStatusDiffRegex = /^(.*?)\t(.*?)(?:\t(.*?))?$/gm;
 const shortStatDiffRegex = /^\s*(\d+)\sfiles? changed(?:,\s+(\d+)\s+insertions?\(\+\))?(?:,\s+(\d+)\s+deletions?\(-\))?/;
@@ -20,18 +12,17 @@ export class GitDiffParser {
 
         const chunks: GitDiffChunk[] = [];
 
-        let match: RegExpExecArray | null = null;
-
-        let chunk: string;
-        let currentStart: number;
-        let previousStart: number;
+        let match: RegExpExecArray | null;
+        let chunk;
+        let currentStart;
+        let previousStart;
 
         do {
             match = unifiedDiffRegex.exec(`${data}\n@@`);
             if (match == null) break;
 
             // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-            chunk = (' ' + match[5]).substr(1);
+            chunk = ` ${match[5]}`.substr(1);
             currentStart = parseInt(match[3], 10);
             previousStart = parseInt(match[1], 10);
 
@@ -52,10 +43,10 @@ export class GitDiffParser {
 
         if (!chunks.length) return undefined;
 
-        const diff = {
+        const diff: GitDiff = {
             diff: debug ? data : undefined,
             chunks: chunks
-        } as GitDiff;
+        };
         return diff;
     }
 
@@ -142,22 +133,27 @@ export class GitDiffParser {
 
         const files: GitFile[] = [];
 
+        let rawStatus: string;
+        let fileName: string;
+        let originalFileName: string;
         let match: RegExpExecArray | null = null;
         do {
             match = nameStatusDiffRegex.exec(data);
             if (match == null) break;
 
+            [, rawStatus, fileName, originalFileName] = match;
+
             // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-            const status = (' ' + match[1]).substr(1);
+            const status = ` ${rawStatus}`.substr(1);
             files.push({
-                repoPath,
+                repoPath: repoPath,
                 status: (status[0] !== '.' ? status[0].trim() : '?') as GitFileStatus,
                 indexStatus: undefined,
                 workingTreeStatus: undefined,
                 // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-                fileName: (' ' + match[2]).substr(1),
+                fileName: ` ${fileName}`.substr(1),
                 // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-                originalFileName: match[3] === undefined ? undefined : (' ' + match[3]).substr(1)
+                originalFileName: originalFileName === undefined ? undefined : ` ${originalFileName}`.substr(1)
             });
         } while (match != null);
 
@@ -172,13 +168,13 @@ export class GitDiffParser {
         const match = shortStatDiffRegex.exec(data);
         if (match == null) return undefined;
 
-        const files = match[1];
-        const insertions = match[2];
-        const deletions = match[3];
-        return {
+        const [, files, insertions, deletions] = match;
+
+        const diffShortStat: GitDiffShortStat = {
             files: files == null ? 0 : parseInt(files, 10),
             insertions: insertions == null ? 0 : parseInt(insertions, 10),
             deletions: deletions == null ? 0 : parseInt(deletions, 10)
-        } as GitDiffShortStat;
+        };
+        return diffShortStat;
     }
 }

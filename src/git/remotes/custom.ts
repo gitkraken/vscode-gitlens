@@ -33,7 +33,7 @@ export class CustomRemote extends RemoteProvider {
     }
 
     protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
-        let line = '';
+        let line;
         if (range) {
             if (range.start.line === range.end.line) {
                 line = Strings.interpolate(this.urls.fileLine, { line: range.start.line });
@@ -41,6 +41,9 @@ export class CustomRemote extends RemoteProvider {
             else {
                 line = Strings.interpolate(this.urls.fileRange, { start: range.start.line, end: range.end.line });
             }
+        }
+        else {
+            line = '';
         }
 
         if (sha) {

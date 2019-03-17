@@ -2,7 +2,7 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout, ViewsFilesConfig } from '../../configuration';
 import { GitUri } from '../../git/gitService';
-import { Arrays, Objects } from '../../system';
+import { Arrays } from '../../system';
 import { ViewWithFiles } from '../viewBase';
 import { ResourceType, ViewNode } from './viewNode';
 
@@ -11,7 +11,7 @@ export interface FileNode extends ViewNode {
     label?: string;
     priority: number;
     relativePath?: string;
-    root?: Arrays.IHierarchicalItem<FileNode>;
+    root?: Arrays.HierarchicalItem<FileNode>;
 }
 
 export class FolderNode extends ViewNode<ViewWithFiles> {
@@ -22,14 +22,14 @@ export class FolderNode extends ViewNode<ViewWithFiles> {
         parent: ViewNode,
         public readonly repoPath: string,
         public readonly folderName: string,
-        public readonly root: Arrays.IHierarchicalItem<FileNode>,
+        public readonly root: Arrays.HierarchicalItem<FileNode>,
         private readonly containsWorkingFiles?: boolean,
         public readonly relativePath?: string
     ) {
         super(GitUri.fromRepoPath(repoPath), view, parent);
     }
 
-    async getChildren(): Promise<(FolderNode | FileNode)[]> {
+    getChildren(): (FolderNode | FileNode)[] {
         if (this.root.descendants === undefined || this.root.children === undefined) return [];
 
         let children: (FolderNode | FileNode)[];
@@ -77,12 +77,12 @@ export class FolderNode extends ViewNode<ViewWithFiles> {
         return children;
     }
 
-    async getTreeItem(): Promise<TreeItem> {
+    getTreeItem(): TreeItem {
         // TODO: Change this to expanded once https://github.com/Microsoft/vscode/issues/30918 is fixed
         const item = new TreeItem(this.label, TreeItemCollapsibleState.Collapsed);
         item.contextValue = ResourceType.Folder;
         if (this.containsWorkingFiles) {
-            item.contextValue += `+working`;
+            item.contextValue += '+working';
         }
         item.iconPath = ThemeIcon.Folder;
         item.tooltip = this.label;

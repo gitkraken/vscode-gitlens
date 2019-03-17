@@ -1,5 +1,5 @@
 'use strict';
-import { MessageItem, window } from 'vscode';
+import { window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitStashCommit } from '../git/gitService';
@@ -21,7 +21,7 @@ export class StashDeleteCommand extends Command {
         super(Commands.StashDelete);
     }
 
-    protected async preExecute(context: CommandContext, args: StashDeleteCommandArgs = { confirm: true }) {
+    protected preExecute(context: CommandContext, args: StashDeleteCommandArgs = { confirm: true }) {
         if (isCommandViewContextWithCommit<GitStashCommit>(context)) {
             args = { ...args };
             args.stashItem = context.node.commit;
@@ -53,8 +53,8 @@ export class StashDeleteCommand extends Command {
                         : args.stashItem.message;
                 const result = await window.showWarningMessage(
                     `Delete stashed changes '${message}'?`,
-                    { title: 'Yes' } as MessageItem,
-                    { title: 'No', isCloseAffordance: true } as MessageItem
+                    { title: 'Yes' },
+                    { title: 'No', isCloseAffordance: true }
                 );
                 if (result === undefined || result.title !== 'Yes') {
                     return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();

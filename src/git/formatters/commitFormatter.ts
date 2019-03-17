@@ -13,16 +13,18 @@ import { Strings } from '../../system';
 import { GitUri } from '../gitUri';
 import { GitCommit, GitCommitType } from '../models/commit';
 import { GitLogCommit, GitRemote } from '../models/models';
-import { Formatter, IFormatOptions } from './formatter';
+import { FormatOptions, Formatter } from './formatter';
+import * as emojis from '../../emojis.json';
 
-const emojiMap: { [key: string]: string } = require('../../../emoji/emojis.json');
+const emptyStr = '';
+const emojiMap: { [key: string]: string } = emojis;
 const emojiRegex = /:([-+_a-z0-9]+):/g;
 
-const escapeMarkdownRegex = /[`\>\#\*\_\-\+\.]/g;
+const escapeMarkdownRegex = /[`>#*_\-+.]/g;
 // const sampleMarkdown = '## message `not code` *not important* _no underline_ \n> don\'t quote me \n- don\'t list me \n+ don\'t list me \n1. don\'t list me \nnot h1 \n=== \nnot h2 \n---\n***\n---\n___';
 const markdownHeaderReplacement = `${GlyphChars.ZeroWidthSpace}===`;
 
-export interface ICommitFormatOptions extends IFormatOptions {
+export interface CommitFormatOptions extends FormatOptions {
     annotationType?: FileAnnotationType;
     dateStyle?: DateStyle;
     line?: number;
@@ -31,27 +33,27 @@ export interface ICommitFormatOptions extends IFormatOptions {
     truncateMessageAtNewLine?: boolean;
 
     tokenOptions?: {
-        ago?: Strings.ITokenOptions;
-        agoOrDate?: Strings.ITokenOptions;
-        author?: Strings.ITokenOptions;
-        authorAgo?: Strings.ITokenOptions;
-        authorAgoOrDate?: Strings.ITokenOptions;
-        changes?: Strings.ITokenOptions;
-        changesShort?: Strings.ITokenOptions;
-        date?: Strings.ITokenOptions;
-        email?: Strings.ITokenOptions;
-        id?: Strings.ITokenOptions;
-        message?: Strings.ITokenOptions;
+        ago?: Strings.TokenOptions;
+        agoOrDate?: Strings.TokenOptions;
+        author?: Strings.TokenOptions;
+        authorAgo?: Strings.TokenOptions;
+        authorAgoOrDate?: Strings.TokenOptions;
+        changes?: Strings.TokenOptions;
+        changesShort?: Strings.TokenOptions;
+        date?: Strings.TokenOptions;
+        email?: Strings.TokenOptions;
+        id?: Strings.TokenOptions;
+        message?: Strings.TokenOptions;
     };
 }
 
-export class CommitFormatter extends Formatter<GitCommit, ICommitFormatOptions> {
+export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
     private get _ago() {
         return this._item.fromNow();
     }
 
     private get _date() {
-        return this._item.formatDate(this._options.dateFormat!);
+        return this._item.formatDate(this._options.dateFormat);
     }
 
     private get _agoOrDate() {
@@ -61,30 +63,30 @@ export class CommitFormatter extends Formatter<GitCommit, ICommitFormatOptions> 
     }
 
     get ago() {
-        return this._padOrTruncate(this._ago, this._options.tokenOptions!.ago);
+        return this._padOrTruncate(this._ago, this._options.tokenOptions.ago);
     }
 
     get agoOrDate() {
-        return this._padOrTruncate(this._agoOrDate, this._options.tokenOptions!.agoOrDate);
+        return this._padOrTruncate(this._agoOrDate, this._options.tokenOptions.agoOrDate);
     }
 
     get author() {
-        return this._padOrTruncate(this._item.author, this._options.tokenOptions!.author);
+        return this._padOrTruncate(this._item.author, this._options.tokenOptions.author);
     }
 
     get authorAgo() {
         const authorAgo = `${this._item.author}, ${this._ago}`;
-        return this._padOrTruncate(authorAgo, this._options.tokenOptions!.authorAgo);
+        return this._padOrTruncate(authorAgo, this._options.tokenOptions.authorAgo);
     }
 
     get authorAgoOrDate() {
         const authorAgo = `${this._item.author}, ${this._agoOrDate}`;
-        return this._padOrTruncate(authorAgo, this._options.tokenOptions!.authorAgoOrDate);
+        return this._padOrTruncate(authorAgo, this._options.tokenOptions.authorAgoOrDate);
     }
 
     get avatar() {
         if (!this._options.markdown || !Container.config.hovers.avatars) {
-            return '';
+            return emptyStr;
         }
 
         return `![](${this._item.getGravatarUri(Container.config.defaultGravatarsStyle).toString(true)})`;
@@ -92,20 +94,20 @@ export class CommitFormatter extends Formatter<GitCommit, ICommitFormatOptions> 
 
     get changes() {
         if (!(this._item instanceof GitLogCommit) || this._item.type === GitCommitType.File) {
-            return this._padOrTruncate('', this._options.tokenOptions!.changes);
+            return this._padOrTruncate(emptyStr, this._options.tokenOptions.changes);
         }
 
-        return this._padOrTruncate(this._item.getFormattedDiffStatus(), this._options.tokenOptions!.changes);
+        return this._padOrTruncate(this._item.getFormattedDiffStatus(), this._options.tokenOptions.changes);
     }
 
     get changesShort() {
         if (!(this._item instanceof GitLogCommit) || this._item.type === GitCommitType.File) {
-            return this._padOrTruncate('', this._options.tokenOptions!.changesShort);
+            return this._padOrTruncate(emptyStr, this._options.tokenOptions.changesShort);
         }
 
         return this._padOrTruncate(
-            this._item.getFormattedDiffStatus({ compact: true, separator: '' }),
-            this._options.tokenOptions!.changesShort
+            this._item.getFormattedDiffStatus({ compact: true, separator: emptyStr }),
+            this._options.tokenOptions.changesShort
         );
     }
 
@@ -113,7 +115,7 @@ export class CommitFormatter extends Formatter<GitCommit, ICommitFormatOptions> 
         if (this._item.isUncommitted) {
             return `\`${
                 this._item.shortSha === 'Working Tree'
-                    ? this._padOrTruncate('00000000', this._options.tokenOptions!.id)
+                    ? this._padOrTruncate('00000000', this._options.tokenOptions.id)
                     : this.id
             }\``;
         }
@@ -156,15 +158,15 @@ export class CommitFormatter extends Formatter<GitCommit, ICommitFormatOptions> 
     }
 
     get date() {
-        return this._padOrTruncate(this._date, this._options.tokenOptions!.date);
+        return this._padOrTruncate(this._date, this._options.tokenOptions.date);
     }
 
     get email() {
-        return this._padOrTruncate(this._item.email || '', this._options.tokenOptions!.email);
+        return this._padOrTruncate(this._item.email || emptyStr, this._options.tokenOptions.email);
     }
 
     get id() {
-        return this._padOrTruncate(this._item.shortSha || '', this._options.tokenOptions!.id);
+        return this._padOrTruncate(this._item.shortSha || emptyStr, this._options.tokenOptions.id);
     }
 
     get message() {
@@ -190,7 +192,7 @@ export class CommitFormatter extends Formatter<GitCommit, ICommitFormatOptions> 
             message = message.replace(emojiRegex, (s, code) => emojiMap[code] || s);
         }
 
-        message = this._padOrTruncate(message, this._options.tokenOptions!.message);
+        message = this._padOrTruncate(message, this._options.tokenOptions.message);
 
         if (!this._options.markdown) {
             return message;
@@ -225,16 +227,16 @@ export class CommitFormatter extends Formatter<GitCommit, ICommitFormatOptions> 
     }
 
     static fromTemplate(template: string, commit: GitCommit, dateFormat: string | null): string;
-    static fromTemplate(template: string, commit: GitCommit, options?: ICommitFormatOptions): string;
+    static fromTemplate(template: string, commit: GitCommit, options?: CommitFormatOptions): string;
     static fromTemplate(
         template: string,
         commit: GitCommit,
-        dateFormatOrOptions?: string | null | ICommitFormatOptions
+        dateFormatOrOptions?: string | null | CommitFormatOptions
     ): string;
     static fromTemplate(
         template: string,
         commit: GitCommit,
-        dateFormatOrOptions?: string | null | ICommitFormatOptions
+        dateFormatOrOptions?: string | null | CommitFormatOptions
     ): string {
         return super.fromTemplateCore(this, template, commit, dateFormatOrOptions);
     }

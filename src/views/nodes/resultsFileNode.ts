@@ -3,7 +3,7 @@ import * as paths from 'path';
 import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithCommandArgs } from '../../commands';
 import { Container } from '../../container';
-import { GitFile, GitUri, IStatusFormatOptions, StatusFileFormatter } from '../../git/gitService';
+import { GitFile, GitUri, StatusFileFormatter } from '../../git/gitService';
 import { View } from '../viewBase';
 import { ResourceType, ViewNode } from './viewNode';
 
@@ -31,6 +31,7 @@ export class ResultsFileNode extends ViewNode {
         const item = new TreeItem(this.label, TreeItemCollapsibleState.None);
         item.contextValue = ResourceType.ResultsFile;
         item.description = this.description;
+        // eslint-disable-next-line no-template-curly-in-string
         item.tooltip = StatusFileFormatter.fromTemplate('${file}\n${directory}/\n\n${status}', this.file);
 
         const statusIcon = GitFile.getStatusIcon(this.file.status);
@@ -46,9 +47,10 @@ export class ResultsFileNode extends ViewNode {
     private _description: string | undefined;
     get description() {
         if (this._description === undefined) {
+            // eslint-disable-next-line no-template-curly-in-string
             this._description = StatusFileFormatter.fromTemplate('${directory}', this.file, {
                 relativePath: this.relativePath
-            } as IStatusFormatOptions);
+            });
         }
         return this._description;
     }
@@ -64,9 +66,10 @@ export class ResultsFileNode extends ViewNode {
     private _label: string | undefined;
     get label() {
         if (this._label === undefined) {
+            // eslint-disable-next-line no-template-curly-in-string
             this._label = StatusFileFormatter.fromTemplate('${file}', this.file, {
                 relativePath: this.relativePath
-            } as IStatusFormatOptions);
+            });
         }
         return this._label;
     }
@@ -86,32 +89,30 @@ export class ResultsFileNode extends ViewNode {
     }
 
     getCommand(): Command | undefined {
+        const commandArgs: DiffWithCommandArgs = {
+            lhs: {
+                sha: this.ref1,
+                uri: this.uri
+            },
+            rhs: {
+                sha: this.ref2,
+                uri:
+                    this.file.status === 'R'
+                        ? GitUri.fromFile(this.file, this.uri.repoPath!, this.ref2, true)
+                        : this.uri
+            },
+            repoPath: this.uri.repoPath!,
+
+            line: 0,
+            showOptions: {
+                preserveFocus: true,
+                preview: true
+            }
+        };
         return {
             title: 'Open Changes',
             command: Commands.DiffWith,
-            arguments: [
-                this.uri,
-                {
-                    lhs: {
-                        sha: this.ref1,
-                        uri: this.uri
-                    },
-                    rhs: {
-                        sha: this.ref2,
-                        uri:
-                            this.file.status === 'R'
-                                ? GitUri.fromFile(this.file, this.uri.repoPath!, this.ref2, true)
-                                : this.uri
-                    },
-                    repoPath: this.uri.repoPath!,
-
-                    line: 0,
-                    showOptions: {
-                        preserveFocus: true,
-                        preview: true
-                    }
-                } as DiffWithCommandArgs
-            ]
+            arguments: [this.uri, commandArgs]
         };
     }
 }

@@ -14,7 +14,7 @@ export class ClearFileAnnotationsCommand extends EditorCommand {
         super([Commands.ClearFileAnnotations, Commands.ComputingFileAnnotations]);
     }
 
-    async execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri): Promise<any> {
+    execute(editor: TextEditor, edit: TextEditorEdit, uri?: Uri): Promise<any> {
         // Handle the case where we are focused on a non-editor editor (output, debug console)
         if (editor != null && !isTextEditor(editor)) {
             if (uri != null && !UriComparer.equals(uri, editor.document.uri)) {
@@ -47,7 +47,7 @@ export class ToggleFileBlameCommand extends ActiveEditorCommand {
         super(Commands.ToggleFileBlame);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, args: ToggleFileBlameCommandArgs = {}): Promise<any> {
+    execute(editor: TextEditor, uri?: Uri, args: ToggleFileBlameCommandArgs = {}): Thenable<any> {
         // Handle the case where we are focused on a non-editor editor (output, debug console)
         if (editor != null && !isTextEditor(editor)) {
             if (uri != null && !UriComparer.equals(uri, editor.document.uri)) {
@@ -85,11 +85,12 @@ export class ToggleFileHeatmapCommand extends ActiveEditorCommand {
         super(Commands.ToggleFileHeatmap);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, args: ToggleFileBlameCommandArgs = {}): Promise<any> {
-        commands.executeCommand(Commands.ToggleFileBlame, uri, {
+    execute(editor: TextEditor, uri?: Uri, args: ToggleFileBlameCommandArgs = {}): Thenable<any> {
+        const copyArgs: ToggleFileBlameCommandArgs = {
             ...args,
             type: FileAnnotationType.Heatmap
-        } as ToggleFileBlameCommandArgs);
+        };
+        return commands.executeCommand(Commands.ToggleFileBlame, uri, copyArgs);
     }
 }
 
@@ -99,11 +100,12 @@ export class ToggleFileRecentChangesCommand extends ActiveEditorCommand {
         super(Commands.ToggleFileRecentChanges);
     }
 
-    async execute(editor: TextEditor, uri?: Uri, args: ToggleFileBlameCommandArgs = {}): Promise<any> {
-        commands.executeCommand(Commands.ToggleFileBlame, uri, {
+    execute(editor: TextEditor, uri?: Uri, args: ToggleFileBlameCommandArgs = {}): Thenable<any> {
+        const copyArgs: ToggleFileBlameCommandArgs = {
             ...args,
             type: FileAnnotationType.RecentChanges
-        } as ToggleFileBlameCommandArgs);
+        };
+        return commands.executeCommand(Commands.ToggleFileBlame, uri, copyArgs);
     }
 }
 
@@ -113,14 +115,14 @@ export class ToggleLineBlameCommand extends ActiveEditorCommand {
         super(Commands.ToggleLineBlame);
     }
 
-    async execute(editor: TextEditor, uri?: Uri): Promise<any> {
+    execute(editor: TextEditor, uri?: Uri): Thenable<any> {
         try {
             return Container.lineAnnotations.toggle(editor);
         }
         catch (ex) {
             Logger.error(ex, 'ToggleLineBlameCommand');
             return window.showErrorMessage(
-                `Unable to toggle line blame annotations. See output channel for more details`
+                'Unable to toggle line blame annotations. See output channel for more details'
             );
         }
     }

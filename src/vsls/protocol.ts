@@ -2,9 +2,7 @@
 import { GitCommandOptions } from '../git/git';
 
 export class RequestType<TRequest, TResponse> {
-    constructor(
-        public readonly name: string
-    ) {}
+    constructor(public readonly name: string) {}
 }
 
 export interface GitCommandRequest {

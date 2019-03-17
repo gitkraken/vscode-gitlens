@@ -1,5 +1,5 @@
 'use strict';
-import { InputBoxOptions, Uri, window } from 'vscode';
+import { Uri, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -31,7 +31,7 @@ export class StashSaveCommand extends Command {
         super([Commands.StashSave, Commands.StashSaveFiles]);
     }
 
-    protected async preExecute(context: CommandContext, args: StashSaveCommandArgs = {}): Promise<any> {
+    protected preExecute(context: CommandContext, args: StashSaveCommandArgs = {}) {
         if (isCommandViewContextWithFile(context)) {
             args = { ...args };
             args.uris = [GitUri.fromFile(context.node.file, context.node.file.repoPath || context.node.repoPath)];
@@ -75,9 +75,9 @@ export class StashSaveCommand extends Command {
         try {
             if (args.message == null) {
                 args.message = await window.showInputBox({
-                    prompt: `Please provide a stash message`,
-                    placeHolder: `Stash message`
-                } as InputBoxOptions);
+                    prompt: 'Please provide a stash message',
+                    placeHolder: 'Stash message'
+                });
                 if (args.message === undefined) {
                     return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
                 }

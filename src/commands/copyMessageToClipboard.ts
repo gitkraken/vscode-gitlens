@@ -25,7 +25,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
         super(Commands.CopyMessageToClipboard);
     }
 
-    protected async preExecute(context: CommandContext, args: CopyMessageToClipboardCommandArgs = {}): Promise<any> {
+    protected preExecute(context: CommandContext, args: CopyMessageToClipboardCommandArgs = {}) {
         if (isCommandViewContextWithCommit(context)) {
             args = { ...args };
             args.sha = context.node.commit.sha;
@@ -35,7 +35,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
         return this.execute(context.editor, context.uri, args);
     }
 
-    async execute(editor?: TextEditor, uri?: Uri, args: CopyMessageToClipboardCommandArgs = {}): Promise<any> {
+    async execute(editor?: TextEditor, uri?: Uri, args: CopyMessageToClipboardCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
 
         try {
@@ -95,9 +95,9 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
         catch (ex) {
             if (ex.message.includes("Couldn't find the required `xsel` binary")) {
                 window.showErrorMessage(
-                    `Unable to copy message, xsel is not installed. Please install it via your package manager, e.g. \`sudo apt install xsel\``
+                    'Unable to copy message, xsel is not installed. Please install it via your package manager, e.g. `sudo apt install xsel`'
                 );
-                return;
+                return undefined;
             }
 
             Logger.error(ex, 'CopyMessageToClipboardCommand');

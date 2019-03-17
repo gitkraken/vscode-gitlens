@@ -22,7 +22,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
         super(Commands.DiffWithNext);
     }
 
-    async execute(editor?: TextEditor, uri?: Uri, args: DiffWithNextCommandArgs = {}): Promise<any> {
+    async execute(editor?: TextEditor, uri?: Uri, args: DiffWithNextCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
         if (uri == null) return undefined;
 
@@ -36,13 +36,13 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 
         if (args.commit === undefined || !(args.commit instanceof GitLogCommit) || args.range !== undefined) {
             try {
-                const sha = args.commit === undefined ? gitUri.sha : args.commit.sha;
+                const sha = args.commit === undefined ? gitUri.sha! : args.commit.sha;
 
-                if (GitService.isStagedUncommitted(sha!)) {
+                if (GitService.isStagedUncommitted(sha)) {
                     const diffArgs: DiffWithCommandArgs = {
                         repoPath: gitUri.repoPath!,
                         lhs: {
-                            sha: sha!,
+                            sha: sha,
                             uri: gitUri
                         },
                         rhs: {

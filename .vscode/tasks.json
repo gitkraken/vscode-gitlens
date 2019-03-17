@@ -26,7 +26,7 @@
             "type": "npm",
             "script": "lint",
             "group": "build",
-            "problemMatcher": ["$tslint5"]
+            "problemMatcher": ["$eslint-stylish"]
         },
         {
             "type": "npm",

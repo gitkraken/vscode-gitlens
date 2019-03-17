@@ -81,7 +81,7 @@ export class GitCodeLensController implements Disposable {
     toggleCodeLens() {
         if (!this._canToggle) return;
 
-        Logger.log(`toggleCodeLens()`);
+        Logger.log('toggleCodeLens()');
         if (this._provider !== undefined) {
             if (this._providerDisposable !== undefined) {
                 this._providerDisposable.dispose();

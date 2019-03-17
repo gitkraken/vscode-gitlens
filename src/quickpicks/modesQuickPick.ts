@@ -1,5 +1,5 @@
 'use strict';
-import { QuickPickItem, QuickPickOptions, window } from 'vscode';
+import { QuickPickItem, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 
@@ -16,25 +16,26 @@ export class ModesQuickPick {
 
         const items = modes.map(key => {
             const modeCfg = Container.config.modes[key];
-            return {
+            const item: ModesQuickPickItem = {
                 label: `${mode === key ? '$(check)\u00a0\u00a0' : '\u00a0\u00a0\u00a0\u00a0\u00a0'}${
                     modeCfg.name
                 } mode`,
                 description: modeCfg.description ? `\u00a0${GlyphChars.Dash}\u00a0 ${modeCfg.description}` : '',
                 key: key
-            } as ModesQuickPickItem;
+            };
+            return item;
         });
 
         if (mode) {
             items.splice(0, 0, {
                 label: `Exit ${Container.config.modes[mode].name} mode`,
                 key: undefined
-            } as ModesQuickPickItem);
+            });
         }
 
         const pick = await window.showQuickPick(items, {
             placeHolder: 'select a GitLens mode to enter'
-        } as QuickPickOptions);
+        });
 
         return pick;
     }

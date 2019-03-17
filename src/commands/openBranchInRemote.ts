@@ -2,7 +2,7 @@
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitUri } from '../git/gitService';
+import { GitUri, RemoteResourceType } from '../git/gitService';
 import { Logger } from '../logger';
 import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickpicks';
 import {
@@ -27,7 +27,7 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
         super(Commands.OpenBranchInRemote);
     }
 
-    protected async preExecute(context: CommandContext, args: OpenBranchInRemoteCommandArgs = {}): Promise<any> {
+    protected preExecute(context: CommandContext, args: OpenBranchInRemoteCommandArgs = {}) {
         if (isCommandViewContextWithBranch(context)) {
             args = { ...args };
             args.branch = context.node.branch.name;
@@ -70,19 +70,20 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
 
             const remotes = await Container.git.getRemotes(repoPath);
 
-            return commands.executeCommand(Commands.OpenInRemote, uri, {
+            const commandArgs: OpenInRemoteCommandArgs = {
                 resource: {
-                    type: 'branch',
+                    type: RemoteResourceType.Branch,
                     branch: args.branch || 'HEAD'
                 },
                 remote: args.remote,
-                remotes
-            } as OpenInRemoteCommandArgs);
+                remotes: remotes
+            };
+            return commands.executeCommand(Commands.OpenInRemote, uri, commandArgs);
         }
         catch (ex) {
             Logger.error(ex, 'OpenBranchInRemoteCommandArgs');
             return window.showErrorMessage(
-                `Unable to open branch on remote provider. See output channel for more details`
+                'Unable to open branch on remote provider. See output channel for more details'
             );
         }
     }

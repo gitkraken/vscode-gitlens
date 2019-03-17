@@ -42,7 +42,7 @@ const gitWhitelist = new Map<string, (args: any[]) => boolean>([
     ['tag', args => args[1] === '-l']
 ]);
 
-const leadingSlashRegex = /^[\/|\\]/;
+const leadingSlashRegex = /^[/|\\]/;
 
 export class VslsHostService implements Disposable {
     static ServiceId = 'proxy';
@@ -63,10 +63,7 @@ export class VslsHostService implements Disposable {
     private _sharedPathsRegex: RegExp | undefined;
     private _sharedToLocalPaths = new Map<string, string>();
 
-    constructor(
-        private readonly _api: LiveShare,
-        private readonly _service: SharedService
-    ) {
+    constructor(private readonly _api: LiveShare, private readonly _service: SharedService) {
         _service.onDidChangeIsServiceAvailable(this.onAvailabilityChanged.bind(this));
 
         this._disposable = Disposable.from(workspace.onDidChangeWorkspaceFolders(this.onWorkspaceFoldersChanged, this));
@@ -98,7 +95,7 @@ export class VslsHostService implements Disposable {
     }
 
     @debug()
-    private async onWorkspaceFoldersChanged(e?: WorkspaceFoldersChangeEvent) {
+    private onWorkspaceFoldersChanged(e?: WorkspaceFoldersChangeEvent) {
         if (workspace.workspaceFolders === undefined || workspace.workspaceFolders.length === 0) return;
 
         const cc = Logger.getCorrelationContext();

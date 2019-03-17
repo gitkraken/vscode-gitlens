@@ -17,6 +17,8 @@ import { Container } from '../container';
 import { GitService, GitTree, GitUri } from '../git/gitService';
 import { Iterables, Strings, TernarySearchTree } from '../system';
 
+const emptyArray = new Uint8Array(0);
+
 export function fromGitLensFSUri(uri: Uri): { path: string; ref: string; repoPath: string } {
     const gitUri = uri instanceof GitUri ? uri : GitUri.fromRevisionUri(uri);
     return { path: gitUri.getRelativePath(), ref: gitUri.sha!, repoPath: gitUri.repoPath! };
@@ -25,8 +27,6 @@ export function fromGitLensFSUri(uri: Uri): { path: string; ref: string; repoPat
 export function toGitLensFSUri(ref: string, repoPath: string): Uri {
     return GitUri.toRevisionUri(ref, repoPath, repoPath);
 }
-
-const emptyArray = new Uint8Array(0);
 
 export class GitFileSystemProvider implements FileSystemProvider, Disposable {
     private readonly _disposable: Disposable;
@@ -64,10 +64,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
         const { path, ref, repoPath } = fromGitLensFSUri(uri);
 
         const tree = await this.getTree(path, ref, repoPath);
-        if (tree === undefined) {
-            debugger;
-            throw FileSystemError.FileNotFound(uri);
-        }
+        if (tree === undefined) throw FileSystemError.FileNotFound(uri);
 
         const items = [
             ...Iterables.map<GitTree, [string, FileType]>(tree, t => [
@@ -141,7 +138,11 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
     }
 
     watch(): Disposable {
-        return { dispose: () => {} };
+        return {
+            dispose: () => {
+                // nothing to dispose
+            }
+        };
     }
 
     writeFile(): void | Thenable<void> {
@@ -153,7 +154,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
         const trees = await Container.git.getTreeForRevision(repoPath, ref);
 
         // Add a fake root folder so that searches will work
-        searchTree.set(`~`, { commitSha: '', path: '~', size: 0, type: 'tree' });
+        searchTree.set('~', { commitSha: '', path: '~', size: 0, type: 'tree' });
         for (const item of trees) {
             searchTree.set(`~/${item.path}`, item);
         }
@@ -161,7 +162,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
         return searchTree;
     }
 
-    private async getOrCreateSearchTree(ref: string, repoPath: string) {
+    private getOrCreateSearchTree(ref: string, repoPath: string) {
         let searchTree = this._searchTreeMap.get(ref);
         if (searchTree === undefined) {
             searchTree = this.createSearchTree(ref, repoPath);

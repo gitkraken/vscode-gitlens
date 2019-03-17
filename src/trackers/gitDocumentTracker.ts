@@ -16,9 +16,7 @@ export type CachedLog = CachedItem<GitLog>;
 export class GitDocumentState {
     private cache: Map<string, CachedBlame | CachedDiff | CachedLog> = new Map();
 
-    constructor(
-        public readonly key: string
-    ) {}
+    constructor(public readonly key: string) {}
 
     get<T extends CachedBlame | CachedDiff | CachedLog>(key: string): T | undefined {
         return this.cache.get(key) as T;

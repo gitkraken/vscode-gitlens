@@ -42,10 +42,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
         super([Commands.ShowQuickCommitFileDetails, Commands.ShowQuickRevisionDetails]);
     }
 
-    protected async preExecute(
-        context: CommandContext,
-        args: ShowQuickCommitFileDetailsCommandArgs = {}
-    ): Promise<any> {
+    protected async preExecute(context: CommandContext, args: ShowQuickCommitFileDetailsCommandArgs = {}) {
         if (context.command === Commands.ShowQuickRevisionDetails && context.editor !== undefined) {
             args = { ...args };
 
@@ -99,7 +96,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
             catch (ex) {
                 Logger.error(ex, 'ShowQuickCommitFileDetailsCommand', `getBlameForLine(${blameline})`);
                 return window.showErrorMessage(
-                    `Unable to show commit file details. See output channel for more details`
+                    'Unable to show commit file details. See output channel for more details'
                 );
             }
         }
@@ -119,19 +116,16 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
                 }
 
                 if (args.fileLog === undefined) {
-                    args.commit = await Container.git.getLogCommitForFile(
-                        args.commit === undefined ? gitUri.repoPath : args.commit.repoPath,
-                        gitUri.fsPath,
-                        { ref: args.sha }
-                    );
+                    const repoPath = args.commit === undefined ? gitUri.repoPath : args.commit.repoPath;
+                    args.commit = await Container.git.getLogCommitForFile(repoPath, gitUri.fsPath, { ref: args.sha });
                     if (args.commit === undefined) {
-                        return Messages.showCommitNotFoundWarningMessage(`Unable to show commit file details`);
+                        return Messages.showCommitNotFoundWarningMessage('Unable to show commit file details');
                     }
                 }
             }
 
             if (args.commit === undefined) {
-                return Messages.showCommitNotFoundWarningMessage(`Unable to show commit file details`);
+                return Messages.showCommitNotFoundWarningMessage('Unable to show commit file details');
             }
 
             // Attempt to the most recent commit -- so that we can find the real working filename if there was a rename
@@ -141,6 +135,11 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
             const shortSha = GitService.shortenSha(args.sha!);
 
             if (args.goBackCommand === undefined) {
+                const commandArgs: ShowQuickCommitDetailsCommandArgs = {
+                    commit: args.commit,
+                    sha: args.sha
+                };
+
                 // Create a command to get back to the commit details
                 args.goBackCommand = new CommandQuickPickItem(
                     {
@@ -150,13 +149,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
                         }$(git-commit) ${shortSha}`
                     },
                     Commands.ShowQuickCommitDetails,
-                    [
-                        args.commit.toGitUri(),
-                        {
-                            commit: args.commit,
-                            sha: args.sha
-                        } as ShowQuickCommitDetailsCommandArgs
-                    ]
+                    [args.commit.toGitUri(), commandArgs]
                 );
             }
 

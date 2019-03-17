@@ -23,7 +23,7 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
         super(Commands.DiffWithBranch);
     }
 
-    async execute(editor?: TextEditor, uri?: Uri, args: DiffWithBranchCommandArgs = {}): Promise<any> {
+    async execute(editor?: TextEditor, uri?: Uri, args: DiffWithBranchCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
         if (uri == null) return undefined;
 
@@ -33,7 +33,7 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
         }
 
         const gitUri = await GitUri.fromUri(uri);
-        if (!gitUri.repoPath) return Messages.showNoRepositoryWarningMessage(`Unable to open file compare`);
+        if (!gitUri.repoPath) return Messages.showNoRepositoryWarningMessage('Unable to open file compare');
 
         const pick = await new BranchesAndTagsQuickPick(gitUri.repoPath).show(
             `Compare ${paths.basename(gitUri.fsPath)} with${GlyphChars.Ellipsis}`,

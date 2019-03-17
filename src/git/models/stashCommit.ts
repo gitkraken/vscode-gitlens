@@ -4,6 +4,10 @@ import { GitFile, GitFileStatus } from './file';
 import { GitLogCommit } from './logCommit';
 
 export class GitStashCommit extends GitLogCommit {
+    static is(commit: GitLogCommit): commit is GitStashCommit {
+        return commit.isStash;
+    }
+
     constructor(
         type: GitCommitType,
         public readonly stashName: string,

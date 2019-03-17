@@ -1,18 +1,14 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
-import { CommitFormatter, GitStashCommit, ICommitFormatOptions } from '../../git/gitService';
+import { CommitFormatter, GitStashCommit } from '../../git/gitService';
 import { Iterables } from '../../system';
 import { View } from '../viewBase';
 import { StashFileNode } from './stashFileNode';
 import { ResourceType, ViewNode, ViewRefNode } from './viewNode';
 
 export class StashNode extends ViewRefNode {
-    constructor(
-        view: View,
-        parent: ViewNode,
-        public readonly commit: GitStashCommit
-    ) {
+    constructor(view: View, parent: ViewNode, public readonly commit: GitStashCommit) {
         super(commit.toGitUri(), view, parent);
     }
 
@@ -52,18 +48,19 @@ export class StashNode extends ViewRefNode {
             CommitFormatter.fromTemplate(this.view.config.stashFormat, this.commit, {
                 truncateMessageAtNewLine: true,
                 dateFormat: Container.config.defaultDateFormat
-            } as ICommitFormatOptions),
+            }),
             TreeItemCollapsibleState.Collapsed
         );
         item.id = this.id;
         item.description = CommitFormatter.fromTemplate(this.view.config.stashDescriptionFormat, this.commit, {
             truncateMessageAtNewLine: true,
             dateFormat: Container.config.defaultDateFormat
-        } as ICommitFormatOptions);
+        });
         item.contextValue = ResourceType.Stash;
+        // eslint-disable-next-line no-template-curly-in-string
         item.tooltip = CommitFormatter.fromTemplate('${ago} (${date})\n\n${message}', this.commit, {
             dateFormat: Container.config.defaultDateFormat
-        } as ICommitFormatOptions);
+        });
 
         return item;
     }

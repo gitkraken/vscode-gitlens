@@ -1,4 +1,5 @@
 'use strict';
+/* eslint-disable constructor-super */
 import * as paths from 'path';
 import { Uri } from 'vscode';
 import { UriComparer } from '../comparers';
@@ -8,7 +9,7 @@ import { GitCommit, GitFile, GitService } from '../git/gitService';
 import { Logger } from '../logger';
 import { debug, Strings } from '../system';
 
-const empty = '';
+const emptyStr = '';
 const slash = '/';
 
 export interface GitCommitish {
@@ -44,13 +45,13 @@ export class GitUri extends ((Uri as any) as UriEx) {
     constructor(uri: Uri, repoPath: string | undefined);
     constructor(uri?: Uri, commitOrRepoPath?: GitCommitish | string) {
         if (uri == null) {
-            super('unknown', '', '', '', '');
+            super('unknown', emptyStr, emptyStr, emptyStr, emptyStr);
 
             return;
         }
 
         if (uri.scheme === DocumentSchemes.GitLens) {
-            const data = JSON.parse(uri.query) as IUriRevisionData;
+            const data = JSON.parse(uri.query) as UriRevisionData;
 
             // When Uri's come from the FileSystemProvider, the uri.query only contains the root repo info (not the actual file path), so fix that here
             const index = uri.path.indexOf(data.path);
@@ -156,10 +157,14 @@ export class GitUri extends ((Uri as any) as UriEx) {
     }
 
     getFormattedPath(options: { relativeTo?: string; separator?: string; suffix?: string } = {}): string {
-        const { relativeTo = this.repoPath, separator = Strings.pad(GlyphChars.Dot, 2, 2), suffix = empty } = options;
+        const {
+            relativeTo = this.repoPath,
+            separator = Strings.pad(GlyphChars.Dot, 2, 2),
+            suffix = emptyStr
+        } = options;
 
         const directory = GitUri.getDirectory(this.fsPath, relativeTo);
-        return `${paths.basename(this.fsPath)}${suffix}${directory ? `${separator}${directory}` : empty}`;
+        return `${paths.basename(this.fsPath)}${suffix}${directory ? `${separator}${directory}` : emptyStr}`;
     }
 
     getRelativePath(relativeTo?: string): string {
@@ -250,7 +255,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 
             let ref;
             switch (data.ref) {
-                case empty:
+                case emptyStr:
                 case '~':
                     ref = GitService.stagedUncommittedSha;
                     break;
@@ -264,11 +269,12 @@ export class GitUri extends ((Uri as any) as UriEx) {
                     break;
             }
 
-            return new GitUri(uri, {
+            const commitish: GitCommitish = {
                 fileName: data.path,
-                repoPath: repoPath,
+                repoPath: repoPath!,
                 sha: ref
-            } as GitCommitish);
+            };
+            return new GitUri(uri, commitish);
         }
 
         return new GitUri(uri, await Container.git.getRepoPath(uri));
@@ -280,14 +286,14 @@ export class GitUri extends ((Uri as any) as UriEx) {
             directory = paths.relative(relativeTo, directory);
         }
         directory = Strings.normalizePath(directory);
-        return !directory || directory === '.' ? empty : directory;
+        return !directory || directory === '.' ? emptyStr : directory;
     }
 
     static getFormattedPath(
         fileNameOrUri: string | Uri,
         options: { relativeTo?: string; separator?: string; suffix?: string } = {}
     ): string {
-        const { relativeTo, separator = Strings.pad(GlyphChars.Dot, 2, 2), suffix = empty } = options;
+        const { relativeTo, separator = Strings.pad(GlyphChars.Dot, 2, 2), suffix = emptyStr } = options;
 
         let fileName: string;
         if (fileNameOrUri instanceof Uri) {
@@ -327,7 +333,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
         const path = GitUri.resolve(fileName, repoPath);
         return Uri.parse(
             // Change encoded / back to / otherwise uri parsing won't work properly
-            `git:${encodeURIComponent(path).replace(/%2F/g, '/')}?${encodeURIComponent(
+            `git:${encodeURIComponent(path).replace(/%2F/g, slash)}?${encodeURIComponent(
                 JSON.stringify({
                     // Ensure we use the fsPath here, otherwise the url won't open properly
                     path: Uri.file(path).fsPath,
@@ -391,7 +397,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
         }
 
         const filePath = Strings.normalizePath(fileName, { addLeadingSlash: true });
-        const data: IUriRevisionData = {
+        const data: UriRevisionData = {
             path: filePath,
             ref: ref,
             repoPath: Strings.normalizePath(repoPath!)
@@ -401,14 +407,14 @@ export class GitUri extends ((Uri as any) as UriEx) {
             // Replace / in the authority with a similar unicode characters otherwise parsing will be wrong
             `${DocumentSchemes.GitLens}://${encodeURIComponent(shortSha!.replace(/\//g, '\u200A\u2215\u200A'))}${
                 // Change encoded / back to / otherwise uri parsing won't work properly
-                filePath === slash ? empty : encodeURIComponent(filePath).replace(/%2F/g, '/')
+                filePath === slash ? emptyStr : encodeURIComponent(filePath).replace(/%2F/g, slash)
             }?${encodeURIComponent(JSON.stringify(data))}`
         );
         return uri;
     }
 }
 
-interface IUriRevisionData {
+interface UriRevisionData {
     path: string;
     ref?: string;
     repoPath: string;

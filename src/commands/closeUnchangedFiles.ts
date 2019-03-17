@@ -34,7 +34,7 @@ export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
                 if (!repoPath) return undefined;
 
                 const status = await Container.git.getStatusForRepo(repoPath);
-                if (status === undefined) return window.showWarningMessage(`Unable to close unchanged files`);
+                if (status === undefined) return window.showWarningMessage('Unable to close unchanged files');
 
                 args.uris = status.files.map(f => f.uri);
             }
@@ -70,10 +70,8 @@ export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
                     count++;
                     editors.push(editor);
                 }
-                else {
-                    if (count !== 0) {
-                        count++;
-                    }
+                else if (count !== 0) {
+                    count++;
                 }
 
                 editor = await this.nextEditor();
@@ -91,6 +89,7 @@ export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
                         editor == null ||
                         (editor.document !== undefined &&
                             (editor.document.isDirty ||
+                                // eslint-disable-next-line no-loop-func
                                 args.uris.some(uri =>
                                     UriComparer.equals(uri, editor!.document && editor!.document.uri)
                                 )))

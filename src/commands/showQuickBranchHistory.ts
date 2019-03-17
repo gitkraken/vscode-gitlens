@@ -79,7 +79,7 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
                     maxCount: args.maxCount,
                     ref: (gitUri && gitUri.sha) || args.branch
                 });
-                if (args.log === undefined) return window.showWarningMessage(`Unable to show branch history`);
+                if (args.log === undefined) return window.showWarningMessage('Unable to show branch history');
             }
 
             if (progressCancellation !== undefined && progressCancellation.token.isCancellationRequested) {
@@ -110,12 +110,13 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
                 [uri, { ...args }]
             );
 
-            return commands.executeCommand(Commands.ShowQuickCommitDetails, pick.commit.toGitUri(), {
+            const commandArgs: ShowQuickCommitDetailsCommandArgs = {
                 sha: pick.commit.sha,
                 commit: pick.commit,
                 repoLog: args.log,
                 goBackCommand: currentCommand
-            } as ShowQuickCommitDetailsCommandArgs);
+            };
+            return commands.executeCommand(Commands.ShowQuickCommitDetails, pick.commit.toGitUri(), commandArgs);
         }
         catch (ex) {
             Logger.error(ex, 'ShowQuickBranchHistoryCommand');

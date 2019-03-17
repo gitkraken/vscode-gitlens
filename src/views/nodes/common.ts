@@ -139,11 +139,7 @@ export class UpdateableMessageNode extends ViewNode {
 export abstract class PagerNode extends ViewNode {
     protected _args: RefreshNodeCommandArgs = {};
 
-    constructor(
-        view: View,
-        parent: ViewNode,
-        protected readonly message: string
-    ) {
+    constructor(view: View, parent: ViewNode, protected readonly message: string) {
         super(unknownGitUri, view, parent);
     }
 
@@ -167,7 +163,7 @@ export abstract class PagerNode extends ViewNode {
             title: 'Refresh',
             command: 'gitlens.views.refreshNode',
             arguments: [this.parent, false, this._args]
-        } as Command;
+        };
     }
 }
 

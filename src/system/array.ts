@@ -1,5 +1,4 @@
 'use strict';
-import { Objects } from './object';
 
 export namespace Arrays {
     export function countUniques<T>(source: T[], accessor: (item: T) => string): { [key: string]: number } {
@@ -27,7 +26,7 @@ export namespace Arrays {
         );
     }
 
-    export async function filterMapAsync<T, TMapped>(
+    export function filterMapAsync<T, TMapped>(
         source: T[],
         predicateMapper: (item: T) => Promise<TMapped | null | undefined>
     ): Promise<TMapped[]> {
@@ -79,13 +78,13 @@ export namespace Arrays {
         }, new Map<TKey, TMapped[]>());
     }
 
-    export interface IHierarchicalItem<T> {
+    export interface HierarchicalItem<T> {
         name: string;
         relativePath: string;
         value?: T;
 
-        // parent?: IHierarchicalItem<T>;
-        children: Map<string, IHierarchicalItem<T>> | undefined;
+        // parent?: HierarchicalItem<T>;
+        children: Map<string, HierarchicalItem<T>> | undefined;
         descendants: T[] | undefined;
     }
 
@@ -94,7 +93,7 @@ export namespace Arrays {
         splitPath: (i: T) => string[],
         joinPath: (...paths: string[]) => string,
         compact: boolean = false
-    ): IHierarchicalItem<T> {
+    ): HierarchicalItem<T> {
         const seed = {
             name: '',
             relativePath: '',
@@ -102,7 +101,7 @@ export namespace Arrays {
             descendants: []
         };
 
-        const hierarchy = values.reduce((root: IHierarchicalItem<T>, value) => {
+        const hierarchy = values.reduce((root: HierarchicalItem<T>, value) => {
             let folder = root;
 
             let relativePath = '';
@@ -142,10 +141,10 @@ export namespace Arrays {
     }
 
     export function compactHierarchy<T>(
-        root: IHierarchicalItem<T>,
+        root: HierarchicalItem<T>,
         joinPath: (...paths: string[]) => string,
         isRoot: boolean = true
-    ): IHierarchicalItem<T> {
+    ): HierarchicalItem<T> {
         if (root.children === undefined) return root;
 
         const children = [...root.children.values()];

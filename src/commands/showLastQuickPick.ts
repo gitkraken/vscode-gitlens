@@ -10,9 +10,9 @@ export class ShowLastQuickPickCommand extends Command {
         super(Commands.ShowLastQuickPick);
     }
 
-    async execute() {
+    execute() {
         const command = getLastCommand();
-        if (command === undefined) return undefined;
+        if (command === undefined) return Promise.resolve(undefined);
 
         try {
             return commands.executeCommand(command.command, ...command.args);

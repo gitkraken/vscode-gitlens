@@ -2,7 +2,7 @@
 import { commands, TextEditor, Uri, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitUri } from '../git/gitService';
+import { GitUri, RemoteResourceType } from '../git/gitService';
 import { Logger } from '../logger';
 import {
     ActiveEditorCommand,
@@ -25,7 +25,7 @@ export class OpenRepoInRemoteCommand extends ActiveEditorCommand {
         super(Commands.OpenRepoInRemote);
     }
 
-    protected async preExecute(context: CommandContext, args: OpenRepoInRemoteCommandArgs = {}): Promise<any> {
+    protected preExecute(context: CommandContext, args: OpenRepoInRemoteCommandArgs = {}) {
         if (isCommandViewContextWithRemote(context)) {
             args = { ...args };
             args.remote = context.node.remote.name;
@@ -49,18 +49,19 @@ export class OpenRepoInRemoteCommand extends ActiveEditorCommand {
         try {
             const remotes = await Container.git.getRemotes(repoPath);
 
-            return commands.executeCommand(Commands.OpenInRemote, uri, {
+            const commandArgs: OpenInRemoteCommandArgs = {
                 resource: {
-                    type: 'repo'
+                    type: RemoteResourceType.Repo
                 },
                 remote: args.remote,
-                remotes
-            } as OpenInRemoteCommandArgs);
+                remotes: remotes
+            };
+            return commands.executeCommand(Commands.OpenInRemote, uri, commandArgs);
         }
         catch (ex) {
             Logger.error(ex, 'OpenRepoInRemoteCommand');
             return window.showErrorMessage(
-                `Unable to open repository on remote provider. See output channel for more details`
+                'Unable to open repository on remote provider. See output channel for more details'
             );
         }
     }

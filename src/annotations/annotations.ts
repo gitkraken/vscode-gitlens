@@ -2,6 +2,7 @@ import {
     DecorationInstanceRenderOptions,
     DecorationOptions,
     MarkdownString,
+    ThemableDecorationAttachmentRenderOptions,
     ThemableDecorationRenderOptions,
     ThemeColor,
     workspace
@@ -11,13 +12,13 @@ import { FileAnnotationType } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import {
+    CommitFormatOptions,
     CommitFormatter,
     GitCommit,
     GitDiffChunkLine,
     GitRemote,
     GitService,
-    GitUri,
-    ICommitFormatOptions
+    GitUri
 } from '../git/gitService';
 import { Objects, Strings } from '../system';
 import { toRgba } from '../ui/shared/colors';
@@ -31,12 +32,15 @@ export interface ComputedHeatmap {
     computeAge(date: Date): number;
 }
 
-interface IHeatmapConfig {
+interface HeatmapConfig {
     enabled: boolean;
     location?: 'left' | 'right';
 }
 
-interface IRenderOptions extends DecorationInstanceRenderOptions, ThemableDecorationRenderOptions {
+interface RenderOptions
+    extends DecorationInstanceRenderOptions,
+        ThemableDecorationRenderOptions,
+        ThemableDecorationAttachmentRenderOptions {
     height?: string;
     uncommittedColor?: string | ThemeColor;
 }
@@ -50,9 +54,9 @@ let computedHeatmapColor: {
 };
 
 export class Annotations {
-    static applyHeatmap(decoration: DecorationOptions, date: Date, heatmap: ComputedHeatmap) {
+    static applyHeatmap(decoration: Partial<DecorationOptions>, date: Date, heatmap: ComputedHeatmap) {
         const color = this.getHeatmapColor(date, heatmap);
-        (decoration.renderOptions!.before! as any).borderColor = color;
+        decoration.renderOptions!.before!.borderColor = color;
     }
 
     private static getHeatmapColor(date: Date, heatmap: ComputedHeatmap) {
@@ -150,7 +154,7 @@ export class Annotations {
 \`\`\``;
     }
 
-    static async changesHover(commit: GitCommit, line: number, uri: GitUri): Promise<DecorationOptions> {
+    static async changesHover(commit: GitCommit, line: number, uri: GitUri): Promise<Partial<DecorationOptions>> {
         const sha =
             !commit.isUncommitted || (uri.sha !== undefined && GitService.isStagedUncommitted(uri.sha))
                 ? commit.previousSha
@@ -160,7 +164,7 @@ export class Annotations {
 
         return {
             hoverMessage: message
-        } as DecorationOptions;
+        };
     }
 
     // static detailsHover(commit: GitCommit, dateFormat: string | null, hasRemote: boolean, annotationType?: FileAnnotationType, line: number = 0): DecorationOptions {
@@ -173,14 +177,14 @@ export class Annotations {
     static gutter(
         commit: GitCommit,
         format: string,
-        dateFormatOrFormatOptions: string | null | ICommitFormatOptions,
-        renderOptions: IRenderOptions
-    ): DecorationOptions {
-        const decoration = {
+        dateFormatOrFormatOptions: string | null | CommitFormatOptions,
+        renderOptions: RenderOptions
+    ): Partial<DecorationOptions> {
+        const decoration: Partial<DecorationOptions> = {
             renderOptions: {
                 before: { ...renderOptions }
-            } as DecorationInstanceRenderOptions
-        } as DecorationOptions;
+            }
+        };
 
         if (commit.isUncommitted) {
             decoration.renderOptions!.before!.color = renderOptions.uncommittedColor;
@@ -194,10 +198,10 @@ export class Annotations {
 
     static gutterRenderOptions(
         separateLines: boolean,
-        heatmap: IHeatmapConfig,
+        heatmap: HeatmapConfig,
         format: string,
-        options: ICommitFormatOptions
-    ): IRenderOptions {
+        options: CommitFormatOptions
+    ): RenderOptions {
         // Get the character count of all the tokens, assuming there there is a cap (bail if not)
         let chars = 0;
         for (const token of Objects.values(options.tokenOptions!)) {
@@ -247,30 +251,34 @@ export class Annotations {
             fontWeight: 'normal',
             fontStyle: 'normal',
             height: '100%',
-            margin: `0 26px -1px 0`,
+            margin: '0 26px -1px 0',
             textDecoration: separateLines ? 'overline solid rgba(0, 0, 0, .2)' : 'none',
             width: width,
             uncommittedColor: new ThemeColor('gitlens.gutterUncommittedForegroundColor')
-        } as IRenderOptions;
+        };
     }
 
-    static heatmap(commit: GitCommit, heatmap: ComputedHeatmap, renderOptions: IRenderOptions): DecorationOptions {
-        const decoration = {
+    static heatmap(
+        commit: GitCommit,
+        heatmap: ComputedHeatmap,
+        renderOptions: RenderOptions
+    ): Partial<DecorationOptions> {
+        const decoration: Partial<DecorationOptions> = {
             renderOptions: {
                 before: { ...renderOptions }
-            } as DecorationInstanceRenderOptions
-        } as DecorationOptions;
+            }
+        };
 
         Annotations.applyHeatmap(decoration, commit.date, heatmap);
 
         return decoration;
     }
 
-    static heatmapRenderOptions(): IRenderOptions {
+    static heatmapRenderOptions(): RenderOptions {
         return {
             borderStyle: 'solid',
             borderWidth: '0 0 0 2px'
-        } as IRenderOptions;
+        };
     }
 
     // static hover(commit: GitCommit, renderOptions: IRenderOptions, now: number): DecorationOptions {
@@ -283,7 +291,7 @@ export class Annotations {
     //     return decoration;
     // }
 
-    // static hoverRenderOptions(heatmap: IHeatmapConfig): IRenderOptions {
+    // static hoverRenderOptions(heatmap: HeatmapConfig): IRenderOptions {
     //     if (!heatmap.enabled) return { before: undefined };
 
     //     return {
@@ -301,11 +309,11 @@ export class Annotations {
         format: string,
         dateFormat: string | null,
         scrollable: boolean = true
-    ): DecorationOptions {
+    ): Partial<DecorationOptions> {
         const message = CommitFormatter.fromTemplate(format, commit, {
             truncateMessageAtNewLine: true,
             dateFormat: dateFormat
-        } as ICommitFormatOptions);
+        });
 
         return {
             renderOptions: {
@@ -318,8 +326,8 @@ export class Annotations {
                     // Pull the decoration out of the document flow if we want to be scrollable
                     textDecoration: `none;${scrollable ? '' : ' position: absolute;'}`
                 }
-            } as DecorationInstanceRenderOptions
-        } as DecorationOptions;
+            }
+        };
     }
 
     // static withRange(decoration: DecorationOptions, start?: number, end?: number): DecorationOptions {

@@ -1,5 +1,8 @@
 {
     "editor.insertSpaces": true,
+    "files.associations": {
+        ".eslintrc.json": "jsonc"
+    },
     "files.trimTrailingWhitespace": true,
     "postcssSorting.config": {
         "order": ["custom-properties", "dollar-variables", "declarations", "at-rules", "rules"],
@@ -7,7 +10,7 @@
         "unspecified-properties-position": "bottom"
     },
     "prettier.requireConfig": true,
-    "prettier.tslintIntegration": true,
+    "prettier.eslintIntegration": true,
     "search.exclude": {
         "**/dist": true
     }

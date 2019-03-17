@@ -4,7 +4,7 @@ import { Commands } from '../commands';
 import { configuration, StatusBarCommand } from '../configuration';
 import { isTextEditor } from '../constants';
 import { Container } from '../container';
-import { CommitFormatter, GitCommit, ICommitFormatOptions } from '../git/gitService';
+import { CommitFormatter, GitCommit } from '../git/gitService';
 import { LinesChangeEvent } from '../trackers/gitLineTracker';
 
 export class StatusBarController implements Disposable {
@@ -51,14 +51,12 @@ export class StatusBarController implements Disposable {
                     window.createStatusBarItem(alignment, alignment === StatusBarAlignment.Right ? 999 : 1);
                 this._modeStatusBarItem.command = Commands.SwitchMode;
                 this._modeStatusBarItem.text = mode.statusBarItemName;
-                this._modeStatusBarItem.tooltip = `Switch GitLens Mode`;
+                this._modeStatusBarItem.tooltip = 'Switch GitLens Mode';
                 this._modeStatusBarItem.show();
             }
-            else {
-                if (this._modeStatusBarItem !== undefined) {
-                    this._modeStatusBarItem.dispose();
-                    this._modeStatusBarItem = undefined;
-                }
+            else if (this._modeStatusBarItem !== undefined) {
+                this._modeStatusBarItem.dispose();
+                this._modeStatusBarItem = undefined;
             }
         }
 
@@ -87,14 +85,12 @@ export class StatusBarController implements Disposable {
                 );
             }
         }
-        else {
-            if (configuration.changed(e, configuration.name('statusBar')('enabled').value)) {
-                Container.lineTracker.stop(this);
+        else if (configuration.changed(e, configuration.name('statusBar')('enabled').value)) {
+            Container.lineTracker.stop(this);
 
-                if (this._blameStatusBarItem !== undefined) {
-                    this._blameStatusBarItem.dispose();
-                    this._blameStatusBarItem = undefined;
-                }
+            if (this._blameStatusBarItem !== undefined) {
+                this._blameStatusBarItem.dispose();
+                this._blameStatusBarItem = undefined;
             }
         }
     }
@@ -135,7 +131,7 @@ export class StatusBarController implements Disposable {
         this._blameStatusBarItem.text = `$(git-commit) ${CommitFormatter.fromTemplate(cfg.format, commit, {
             truncateMessageAtNewLine: true,
             dateFormat: cfg.dateFormat === null ? Container.config.defaultDateFormat : cfg.dateFormat
-        } as ICommitFormatOptions)}`;
+        })}`;
 
         switch (cfg.command) {
             case StatusBarCommand.ToggleFileBlame:

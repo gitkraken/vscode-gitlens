@@ -4,7 +4,7 @@ import { getRepoPathOrPrompt } from '../../commands';
 import { CommandContext, GlyphChars, NamedRef, setCommandContext } from '../../constants';
 import { GitService } from '../../git/gitService';
 import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../../quickpicks';
-import { debug, Functions, gate, log } from '../../system';
+import { debug, Functions, gate, Iterables, log } from '../../system';
 import { CompareView } from '../compareView';
 import { MessageNode } from './common';
 import { ComparePickerNode } from './comparePickerNode';
@@ -29,7 +29,7 @@ export class CompareNode extends ViewNode<CompareView> {
         return this._selectedRef;
     }
 
-    async getChildren(): Promise<ViewNode[]> {
+    getChildren(): ViewNode[] {
         if (this._children.length === 0) {
             // Not really sure why I can't reuse this node -- but if I do the Tree errors out with an id already exists error
             this._comparePickerNode = new ComparePickerNode(this.view, this);
@@ -55,7 +55,7 @@ export class CompareNode extends ViewNode<CompareView> {
     }
 
     getTreeItem(): TreeItem {
-        const item = new TreeItem(`Compare`, TreeItemCollapsibleState.Expanded);
+        const item = new TreeItem('Compare', TreeItemCollapsibleState.Expanded);
         item.contextValue = ResourceType.Compare;
         return item;
     }
@@ -117,7 +117,13 @@ export class CompareNode extends ViewNode<CompareView> {
     async refresh() {
         if (this._children.length === 0) return;
 
-        await Promise.all(this._children.map(c => c.refresh()).filter(Functions.isPromise) as Promise<any>[]);
+        const promises: Promise<any>[] = [
+            ...Iterables.filterMap(this._children, c => {
+                const result = c.refresh();
+                return Functions.isPromise<boolean | void>(result) ? result : undefined;
+            })
+        ];
+        await Promise.all(promises);
     }
 
     async compareWithSelected(repoPath?: string, ref?: string | NamedRef) {

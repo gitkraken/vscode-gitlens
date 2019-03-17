@@ -22,13 +22,13 @@ export class SettingsEditor extends WebviewEditor<SettingsBootstrap> {
         return 'GitLens Settings';
     }
 
-    getBootstrap() {
+    getBootstrap(): SettingsBootstrap {
         return {
             // Make sure to get the raw config, not from the container which has the modes mixed in
             config: configuration.get<Config>(),
             scope: 'user',
             scopes: this.getAvailableScopes()
-        } as SettingsBootstrap;
+        };
     }
 
     registerCommands() {

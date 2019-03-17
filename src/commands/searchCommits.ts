@@ -54,7 +54,7 @@ export class SearchCommitsCommand extends ActiveEditorCachedCommand {
         super([Commands.SearchCommits, Commands.SearchCommitsInView]);
     }
 
-    protected async preExecute(context: CommandContext, args: SearchCommitsCommandArgs = {}) {
+    protected preExecute(context: CommandContext, args: SearchCommitsCommandArgs = {}) {
         if (context.type === 'viewItem') {
             args = { ...args };
             args.showInView = true;
@@ -102,7 +102,7 @@ export class SearchCommitsCommand extends ActiveEditorCachedCommand {
         }
 
         if (!args.search || args.searchBy == null) {
-            let selection;
+            let selection: [number, number] | undefined;
             if (!args.search) {
                 if (args.searchBy != null) {
                     args.search = searchByToSymbolMap.get(args.searchBy);
@@ -117,12 +117,14 @@ export class SearchCommitsCommand extends ActiveEditorCachedCommand {
                 await Container.searchView.show();
             }
 
-            args.search = await window.showInputBox({
+            const opts: InputBoxOptions = {
                 value: args.search,
-                prompt: `Please enter a search string`,
-                placeHolder: `Search commits by message, author (@<pattern>), files (:<path/glob>), commit id (#<sha>), changes (=<pattern>), changed lines (~<pattern>)`,
+                prompt: 'Please enter a search string',
+                placeHolder:
+                    'Search commits by message, author (@<pattern>), files (:<path/glob>), commit id (#<sha>), changes (=<pattern>), changed lines (~<pattern>)',
                 valueSelection: selection
-            } as InputBoxOptions);
+            };
+            args.search = await window.showInputBox(opts);
             if (args.search === undefined) {
                 return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
             }
@@ -179,7 +181,7 @@ export class SearchCommitsCommand extends ActiveEditorCachedCommand {
                 label: { label: searchLabel! }
             });
 
-            return;
+            return undefined;
         }
 
         const progressCancellation = CommitsQuickPick.showProgress(searchLabel!);
@@ -209,7 +211,7 @@ export class SearchCommitsCommand extends ActiveEditorCachedCommand {
                         log !== undefined && log.truncated
                             ? new CommandQuickPickItem(
                                   {
-                                      label: `$(sync) Show All Commits`,
+                                      label: '$(sync) Show All Commits',
                                       description: `${Strings.pad(GlyphChars.Dash, 2, 3)} this may take a while`
                                   },
                                   Commands.SearchCommits,
@@ -234,7 +236,7 @@ export class SearchCommitsCommand extends ActiveEditorCachedCommand {
                 commit = Iterables.first(log.commits.values());
             }
 
-            return commands.executeCommand(Commands.ShowQuickCommitDetails, commit.toGitUri(), {
+            const commandArgs: ShowQuickCommitDetailsCommandArgs = {
                 sha: commit.sha,
                 commit: commit,
                 goBackCommand:
@@ -247,7 +249,8 @@ export class SearchCommitsCommand extends ActiveEditorCachedCommand {
                         Commands.SearchCommits,
                         [uri, args]
                     )
-            } as ShowQuickCommitDetailsCommandArgs);
+            };
+            return commands.executeCommand(Commands.ShowQuickCommitDetails, commit.toGitUri(), commandArgs);
         }
         catch (ex) {
             Logger.error(ex, 'ShowCommitSearchCommand');

@@ -1,13 +1,11 @@
 'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitUri } from '../../git/gitService';
-import { Arrays, Objects } from '../../system';
+import { Arrays } from '../../system';
 import { View } from '../viewBase';
 import { BranchNode } from './branchNode';
 import { TagNode } from './tagNode';
 import { ResourceType, ViewNode } from './viewNode';
-
-const set = new Set();
 
 export class BranchOrTagFolderNode extends ViewNode {
     constructor(
@@ -17,7 +15,7 @@ export class BranchOrTagFolderNode extends ViewNode {
         public readonly repoPath: string,
         public readonly folderName: string,
         public readonly relativePath: string | undefined,
-        public readonly root: Arrays.IHierarchicalItem<BranchNode | TagNode>,
+        public readonly root: Arrays.HierarchicalItem<BranchNode | TagNode>,
         private readonly _expanded: boolean = false
     ) {
         super(GitUri.fromRepoPath(repoPath), view, parent);
@@ -27,7 +25,7 @@ export class BranchOrTagFolderNode extends ViewNode {
         return `${this._instanceId}:gitlens:repository(${this.repoPath}):${this.type}-folder(${this.relativePath})`;
     }
 
-    async getChildren(): Promise<ViewNode[]> {
+    getChildren(): ViewNode[] {
         if (this.root.descendants === undefined || this.root.children === undefined) return [];
 
         const children: (BranchOrTagFolderNode | BranchNode | TagNode)[] = [];
@@ -59,7 +57,7 @@ export class BranchOrTagFolderNode extends ViewNode {
         return children;
     }
 
-    async getTreeItem(): Promise<TreeItem> {
+    getTreeItem(): TreeItem {
         const item = new TreeItem(
             this.label,
             this._expanded ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed

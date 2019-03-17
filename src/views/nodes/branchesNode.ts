@@ -12,12 +12,7 @@ import { ResourceType, ViewNode } from './viewNode';
 export class BranchesNode extends ViewNode<RepositoriesView> {
     private _children: ViewNode[] | undefined;
 
-    constructor(
-        uri: GitUri,
-        view: RepositoriesView,
-        parent: ViewNode,
-        public readonly repo: Repository
-    ) {
+    constructor(uri: GitUri, view: RepositoriesView, parent: ViewNode, public readonly repo: Repository) {
         super(uri, view, parent);
     }
 
@@ -60,7 +55,7 @@ export class BranchesNode extends ViewNode<RepositoriesView> {
     async getTreeItem(): Promise<TreeItem> {
         const remotes = await this.repo.getRemotes();
 
-        const item = new TreeItem(`Branches`, TreeItemCollapsibleState.Collapsed);
+        const item = new TreeItem('Branches', TreeItemCollapsibleState.Collapsed);
         item.contextValue = ResourceType.Branches;
         if (remotes !== undefined && remotes.length > 0) {
             item.contextValue += '+remotes';

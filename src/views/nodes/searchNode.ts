@@ -1,9 +1,9 @@
-'strict';
+'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { SearchCommitsCommandArgs } from '../../commands';
 import { GlyphChars } from '../../constants';
 import { GitRepoSearchBy } from '../../git/gitService';
-import { debug, Functions, gate, log } from '../../system';
+import { debug, Functions, gate, Iterables, log } from '../../system';
 import { View } from '../viewBase';
 import { CommandMessageNode, MessageNode } from './common';
 import { ResourceType, unknownGitUri, ViewNode } from './viewNode';
@@ -15,11 +15,17 @@ export class SearchNode extends ViewNode {
         super(unknownGitUri, view);
     }
 
-    async getChildren(): Promise<ViewNode[]> {
+    getChildren(): ViewNode[] {
         if (this._children.length === 0) {
             const command = {
                 title: ' ',
                 command: 'gitlens.showCommitSearch'
+            };
+
+            const getCommandArgs = (searchBy: GitRepoSearchBy): SearchCommitsCommandArgs => {
+                return {
+                    searchBy: searchBy
+                };
             };
 
             return [
@@ -28,9 +34,9 @@ export class SearchNode extends ViewNode {
                     this,
                     {
                         ...command,
-                        arguments: [this, { searchBy: GitRepoSearchBy.Message } as SearchCommitsCommandArgs]
+                        arguments: [this, getCommandArgs(GitRepoSearchBy.Message)]
                     },
-                    `Search commits by message`,
+                    'Search commits by message',
                     'message-pattern',
                     'Click to search commits by message'
                 ),
@@ -39,7 +45,7 @@ export class SearchNode extends ViewNode {
                     this,
                     {
                         ...command,
-                        arguments: [this, { searchBy: GitRepoSearchBy.Author } as SearchCommitsCommandArgs]
+                        arguments: [this, getCommandArgs(GitRepoSearchBy.Author)]
                     },
                     `${GlyphChars.Space.repeat(4)} or, by author`,
                     '@ author-pattern',
@@ -50,7 +56,7 @@ export class SearchNode extends ViewNode {
                     this,
                     {
                         ...command,
-                        arguments: [this, { searchBy: GitRepoSearchBy.Sha } as SearchCommitsCommandArgs]
+                        arguments: [this, getCommandArgs(GitRepoSearchBy.Sha)]
                     },
                     `${GlyphChars.Space.repeat(4)} or, by commit id`,
                     '# sha',
@@ -61,7 +67,7 @@ export class SearchNode extends ViewNode {
                     this,
                     {
                         ...command,
-                        arguments: [this, { searchBy: GitRepoSearchBy.Files } as SearchCommitsCommandArgs]
+                        arguments: [this, getCommandArgs(GitRepoSearchBy.Files)]
                     },
                     `${GlyphChars.Space.repeat(4)} or, by files`,
                     ': file-path/glob',
@@ -72,7 +78,7 @@ export class SearchNode extends ViewNode {
                     this,
                     {
                         ...command,
-                        arguments: [this, { searchBy: GitRepoSearchBy.Changes } as SearchCommitsCommandArgs]
+                        arguments: [this, getCommandArgs(GitRepoSearchBy.Changes)]
                     },
                     `${GlyphChars.Space.repeat(4)} or, by changes`,
                     '= pattern',
@@ -83,7 +89,7 @@ export class SearchNode extends ViewNode {
                     this,
                     {
                         ...command,
-                        arguments: [this, { searchBy: GitRepoSearchBy.ChangedLines } as SearchCommitsCommandArgs]
+                        arguments: [this, getCommandArgs(GitRepoSearchBy.ChangedLines)]
                     },
                     `${GlyphChars.Space.repeat(4)} or, by changed lines`,
                     '~ pattern',
@@ -96,7 +102,7 @@ export class SearchNode extends ViewNode {
     }
 
     getTreeItem(): TreeItem {
-        const item = new TreeItem(`Search`, TreeItemCollapsibleState.Expanded);
+        const item = new TreeItem('Search', TreeItemCollapsibleState.Expanded);
         item.contextValue = ResourceType.Search;
         return item;
     }
@@ -141,6 +147,12 @@ export class SearchNode extends ViewNode {
     async refresh() {
         if (this._children.length === 0) return;
 
-        await Promise.all(this._children.map(c => c.refresh()).filter(Functions.isPromise) as Promise<any>[]);
+        const promises: Promise<any>[] = [
+            ...Iterables.filterMap(this._children, c => {
+                const result = c.refresh();
+                return Functions.isPromise<boolean | void>(result) ? result : undefined;
+            })
+        ];
+        await Promise.all(promises);
     }
 }

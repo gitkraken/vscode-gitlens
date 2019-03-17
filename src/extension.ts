@@ -60,7 +60,7 @@ export async function activate(context: ExtensionContext) {
 
         if (ex.message.includes('Unable to find git')) {
             await window.showErrorMessage(
-                `GitLens was unable to find Git. Please make sure Git is installed. Also ensure that Git is either in the PATH, or that 'git.path' is pointed to its installed location.`
+                "GitLens was unable to find Git. Please make sure Git is installed. Also ensure that Git is either in the PATH, or that 'git.path' is pointed to its installed location."
             );
         }
 
@@ -91,7 +91,9 @@ export async function activate(context: ExtensionContext) {
     Logger.log(`GitLens(v${gitlensVersion}) activated ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
 }
 
-export function deactivate() {}
+export function deactivate() {
+    // nothing to do
+}
 
 async function migrateSettings(context: ExtensionContext, previousVersion: string | undefined) {
     if (previousVersion === undefined) return;
@@ -271,7 +273,7 @@ function notifyOnUnsupportedGitVersion(version: string) {
 
 async function showWelcomePage(version: string, previousVersion: string | undefined) {
     if (previousVersion === undefined) {
-        Logger.log(`GitLens first-time install`);
+        Logger.log('GitLens first-time install');
 
         if (Container.config.showWhatsNewAfterUpgrades) {
             await commands.executeCommand(Commands.ShowWelcomePage);

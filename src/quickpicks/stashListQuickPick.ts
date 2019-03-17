@@ -1,9 +1,9 @@
 'use strict';
-import { CancellationTokenSource, QuickPickOptions, window } from 'vscode';
+import { CancellationTokenSource, window } from 'vscode';
 import { Commands, StashSaveCommandArgs } from '../commands';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitStash } from '../git/gitService';
+import { GitStash, GitStashCommit } from '../git/gitService';
 import { KeyNoopCommand } from '../keyboard';
 import { Iterables, Strings } from '../system';
 import {
@@ -32,25 +32,25 @@ export class StashListQuickPick {
         progressCancellation: CancellationTokenSource,
         goBackCommand?: CommandQuickPickItem,
         currentCommand?: CommandQuickPickItem
-    ): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
-        const items = ((stash && Array.from(Iterables.map(stash.commits.values(), c => new CommitQuickPickItem(c)))) ||
-            []) as (CommitQuickPickItem | CommandQuickPickItem)[];
+    ): Promise<CommitQuickPickItem<GitStashCommit> | CommandQuickPickItem | undefined> {
+        const items = ((stash &&
+            Array.from(Iterables.map(stash.commits.values(), c => new CommitQuickPickItem<GitStashCommit>(c)))) ||
+            []) as (CommitQuickPickItem<GitStashCommit> | CommandQuickPickItem)[];
 
         if (mode === 'list') {
+            const commandArgs: StashSaveCommandArgs = {
+                goBackCommand: currentCommand
+            };
             items.splice(
                 0,
                 0,
                 new CommandQuickPickItem(
                     {
-                        label: `$(plus) Stash Changes`,
+                        label: '$(plus) Stash Changes',
                         description: `${Strings.pad(GlyphChars.Dash, 2, 3)} stashes all changes`
                     },
                     Commands.StashSave,
-                    [
-                        {
-                            goBackCommand: currentCommand
-                        } as StashSaveCommandArgs
-                    ]
+                    [commandArgs]
                 )
             );
         }
@@ -75,7 +75,7 @@ export class StashListQuickPick {
             // onDidSelectItem: (item: QuickPickItem) => {
             //     scope.setKeyCommand('right', item);
             // }
-        } as QuickPickOptions);
+        });
 
         await scope.dispose();
 

@@ -3,14 +3,7 @@ import * as paths from 'path';
 import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { Container } from '../../container';
-import {
-    GitFile,
-    GitFileWithCommit,
-    GitLogCommit,
-    GitUri,
-    IStatusFormatOptions,
-    StatusFileFormatter
-} from '../../git/gitService';
+import { GitFile, GitLogCommit, GitUri, StatusFileFormatter } from '../../git/gitService';
 import { Strings } from '../../system';
 import { View } from '../viewBase';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
@@ -41,7 +34,7 @@ export class StatusFileNode extends ViewNode {
         }
     }
 
-    async getChildren(): Promise<ViewNode[]> {
+    getChildren(): ViewNode[] {
         return this.commits.map(
             c =>
                 new CommitFileNode(
@@ -57,7 +50,7 @@ export class StatusFileNode extends ViewNode {
         );
     }
 
-    async getTreeItem(): Promise<TreeItem> {
+    getTreeItem(): TreeItem {
         const item = new TreeItem(this.label, TreeItemCollapsibleState.None);
         item.description = this.description;
 
@@ -66,6 +59,7 @@ export class StatusFileNode extends ViewNode {
             if (this._hasStagedChanges) {
                 item.contextValue += '+staged';
                 item.tooltip = StatusFileFormatter.fromTemplate(
+                    // eslint-disable-next-line no-template-curly-in-string
                     '${file}\n${directory}/\n\n${status} in Index (staged)',
                     this.file
                 );
@@ -73,6 +67,7 @@ export class StatusFileNode extends ViewNode {
             else {
                 item.contextValue += '+unstaged';
                 item.tooltip = StatusFileFormatter.fromTemplate(
+                    // eslint-disable-next-line no-template-curly-in-string
                     '${file}\n${directory}/\n\n${status} in Working Tree',
                     this.file
                 );
@@ -133,10 +128,10 @@ export class StatusFileNode extends ViewNode {
                 {
                     ...this.file,
                     commit: this.commit
-                } as GitFileWithCommit,
+                },
                 {
                     relativePath: this.relativePath
-                } as IStatusFormatOptions
+                }
             );
         }
         return this._description;
@@ -158,10 +153,10 @@ export class StatusFileNode extends ViewNode {
                 {
                     ...this.file,
                     commit: this.commit
-                } as GitFileWithCommit,
+                },
                 {
                     relativePath: this.relativePath
-                } as IStatusFormatOptions
+                }
             );
         }
         return this._label;
@@ -218,20 +213,18 @@ export class StatusFileNode extends ViewNode {
     }
 
     getCommand(): Command | undefined {
+        const commandArgs: DiffWithPreviousCommandArgs = {
+            commit: this.commit,
+            line: 0,
+            showOptions: {
+                preserveFocus: true,
+                preview: true
+            }
+        };
         return {
             title: 'Compare File with Previous Revision',
             command: Commands.DiffWithPrevious,
-            arguments: [
-                GitUri.fromFile(this.file, this.repoPath),
-                {
-                    commit: this.commit,
-                    line: 0,
-                    showOptions: {
-                        preserveFocus: true,
-                        preview: true
-                    }
-                } as DiffWithPreviousCommandArgs
-            ]
+            arguments: [GitUri.fromFile(this.file, this.repoPath), commandArgs]
         };
     }
 }

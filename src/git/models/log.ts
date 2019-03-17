@@ -11,8 +11,8 @@ export interface GitLog {
     readonly sha: string | undefined;
     readonly count: number;
     readonly maxCount: number | undefined;
-    readonly range: Range;
+    readonly range: Range | undefined;
     readonly truncated: boolean;
 
-    query(maxCount: number | undefined): Promise<GitLog | undefined>;
+    query?(maxCount: number | undefined): Promise<GitLog | undefined>;
 }

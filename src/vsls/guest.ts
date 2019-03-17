@@ -33,15 +33,14 @@ export class VslsGuestService implements Disposable {
         }
     }
 
-    constructor(
-        private readonly _api: LiveShare,
-        private readonly _service: SharedServiceProxy
-    ) {
+    constructor(private readonly _api: LiveShare, private readonly _service: SharedServiceProxy) {
         _service.onDidChangeIsServiceAvailable(this.onAvailabilityChanged.bind(this));
         this.onAvailabilityChanged(_service.isServiceAvailable);
     }
 
-    dispose() {}
+    dispose() {
+        // nothing to dispose
+    }
 
     @log()
     private onAvailabilityChanged(available: boolean) {
@@ -52,7 +51,7 @@ export class VslsGuestService implements Disposable {
 
         void setCommandContext(CommandContext.Enabled, false);
         void window.showWarningMessage(
-            `GitLens features will be unavailable. Unable to connect to the host GitLens service. The host may have disabled GitLens guest access or may not have GitLens installed.`
+            'GitLens features will be unavailable. Unable to connect to the host GitLens service. The host may have disabled GitLens guest access or may not have GitLens installed.'
         );
     }
 

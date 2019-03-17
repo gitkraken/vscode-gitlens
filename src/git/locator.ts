@@ -19,7 +19,7 @@ async function findSpecificGit(path: string): Promise<GitLocation> {
     }
 
     return {
-        path,
+        path: path,
         version: parseVersion(version.trim())
     };
 }
@@ -49,15 +49,15 @@ async function findGitDarwin(): Promise<GitLocation> {
     }
 }
 
-function findSystemGitWin32(basePath: string): Promise<GitLocation> {
-    if (!basePath) return Promise.reject(new Error('Unable to find git'));
+function findSystemGitWin32(basePath: string | null | undefined): Promise<GitLocation> {
+    if (basePath == null || basePath.length === 0) return Promise.reject(new Error('Unable to find git'));
     return findSpecificGit(paths.join(basePath, 'Git', 'cmd', 'git.exe'));
 }
 
 function findGitWin32(): Promise<GitLocation> {
-    return findSystemGitWin32(process.env['ProgramW6432']!)
-        .then(null, () => findSystemGitWin32(process.env['ProgramFiles(x86)']!))
-        .then(null, () => findSystemGitWin32(process.env['ProgramFiles']!))
+    return findSystemGitWin32(process.env['ProgramW6432'])
+        .then(null, () => findSystemGitWin32(process.env['ProgramFiles(x86)']))
+        .then(null, () => findSystemGitWin32(process.env['ProgramFiles']))
         .then(null, () => findSpecificGit('git'));
 }
 

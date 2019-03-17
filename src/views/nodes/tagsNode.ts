@@ -11,12 +11,7 @@ import { TagNode } from './tagNode';
 import { ResourceType, ViewNode } from './viewNode';
 
 export class TagsNode extends ViewNode<RepositoriesView> {
-    constructor(
-        uri: GitUri,
-        view: RepositoriesView,
-        parent: ViewNode,
-        public readonly repo: Repository
-    ) {
+    constructor(uri: GitUri, view: RepositoriesView, parent: ViewNode, public readonly repo: Repository) {
         super(uri, view, parent);
     }
 
@@ -44,8 +39,8 @@ export class TagsNode extends ViewNode<RepositoriesView> {
         return children;
     }
 
-    async getTreeItem(): Promise<TreeItem> {
-        const item = new TreeItem(`Tags`, TreeItemCollapsibleState.Collapsed);
+    getTreeItem(): TreeItem {
+        const item = new TreeItem('Tags', TreeItemCollapsibleState.Collapsed);
         item.id = this.id;
         item.contextValue = ResourceType.Tags;
 

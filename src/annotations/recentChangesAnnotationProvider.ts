@@ -1,5 +1,5 @@
 'use strict';
-import { DecorationOptions, MarkdownString, Position, Range, TextEditor, TextEditorDecorationType } from 'vscode';
+import { MarkdownString, Position, Range, TextEditor, TextEditorDecorationType } from 'vscode';
 import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
 import { GitUri } from '../git/gitService';
@@ -65,7 +65,7 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
                                 this.editor.selection.active.line
                             ),
                             range: range
-                        } as DecorationOptions);
+                        });
                     }
 
                     if (cfg.hovers.annotations.changes) {
@@ -77,7 +77,7 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
                 this.decorations.push({
                     hoverMessage: message,
                     range: range
-                } as DecorationOptions);
+                });
             }
         }
 
@@ -88,9 +88,11 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
         return true;
     }
 
-    async selection(shaOrLine?: string | number): Promise<void> {}
+    selection(shaOrLine?: string | number): Promise<void> {
+        return Promise.resolve(undefined);
+    }
 
-    async validate(): Promise<boolean> {
-        return true;
+    validate(): Promise<boolean> {
+        return Promise.resolve(true);
     }
 }

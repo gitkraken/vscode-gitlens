@@ -29,10 +29,7 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
         super(Commands.OpenFileInRemote);
     }
 
-    protected async preExecute(
-        context: CommandContext,
-        args: OpenFileInRemoteCommandArgs = { range: true }
-    ): Promise<any> {
+    protected preExecute(context: CommandContext, args: OpenFileInRemoteCommandArgs = { range: true }) {
         if (isCommandViewContextWithCommit(context)) {
             args = { ...args };
             args.range = false;
@@ -92,22 +89,31 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
                     : undefined;
             const sha = args.sha || gitUri.sha;
 
-            return commands.executeCommand(Commands.OpenInRemote, uri, {
-                resource: {
-                    type: sha === undefined ? RemoteResourceType.File : RemoteResourceType.Revision,
-                    branch: args.branch || 'HEAD',
-                    fileName: gitUri.getRelativePath(),
-                    range: range,
-                    sha: sha
-                },
-                remotes,
+            const commandArgs: OpenInRemoteCommandArgs = {
+                resource:
+                    sha === undefined
+                        ? {
+                              type: RemoteResourceType.File,
+                              branch: args.branch || 'HEAD',
+                              fileName: gitUri.getRelativePath(),
+                              range: range
+                          }
+                        : {
+                              type: RemoteResourceType.Revision,
+                              branch: args.branch || 'HEAD',
+                              fileName: gitUri.getRelativePath(),
+                              range: range,
+                              sha: sha
+                          },
+                remotes: remotes,
                 clipboard: args.clipboard
-            } as OpenInRemoteCommandArgs);
+            };
+            return commands.executeCommand(Commands.OpenInRemote, uri, commandArgs);
         }
         catch (ex) {
             Logger.error(ex, 'OpenFileInRemoteCommand');
             return window.showErrorMessage(
-                `Unable to open file on remote provider. See output channel for more details`
+                'Unable to open file on remote provider. See output channel for more details'
             );
         }
     }

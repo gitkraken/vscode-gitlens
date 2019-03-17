@@ -14,7 +14,7 @@ export class ShowViewCommand extends Command {
         ]);
     }
 
-    protected async preExecute(context: CommandContext): Promise<any> {
+    protected preExecute(context: CommandContext) {
         return this.execute(context.command as Commands);
     }
 
@@ -32,6 +32,6 @@ export class ShowViewCommand extends Command {
                 return Container.searchView.show();
         }
 
-        return undefined;
+        return Promise.resolve(undefined);
     }
 }
