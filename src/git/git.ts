@@ -630,7 +630,11 @@ export class Git {
                 params.push(options.ref);
             }
         }
-        return git<string>({ cwd: repoPath, configs: ['-c', 'diff.renameLimit=0'] }, ...params, '--');
+        return git<string>(
+            { cwd: repoPath, configs: ['-c', 'diff.renameLimit=0', '-c', 'log.showSignature=false'] },
+            ...params,
+            '--'
+        );
     }
 
     static log_file(
@@ -823,6 +827,7 @@ export class Git {
         if (Git.isUncommitted(ref)) throw new Error(`ref=${ref} is uncommitted`);
 
         const opts: GitCommandOptions = {
+            configs: ['-c', 'log.showSignature=false'],
             cwd: root,
             encoding: options.encoding || 'utf8',
             errors: GitErrorHandling.Throw
