@@ -21,7 +21,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds a `mailto:` link to the author on the _commit details_ hover &mdash; closes [#642](https://github.com/eamodio/vscode-gitlens/issues/642)
 - Adds support for customizing the layout of the _commit details_ hover
- - Adds a `gitlens.hovers.detailsMarkdownFormat` setting to specify the format (in markdown) of the _commit details_ hover
+- Adds a `gitlens.hovers.detailsMarkdownFormat` setting to specify the format (in markdown) of the _commit details_ hover
 - Adds the author's e-mail to the tooltip of commits in the views &mdash; closes [#642](https://github.com/eamodio/vscode-gitlens/issues/642)
 - Adds a new author e-mail format token (`${email}`) &mdash; closes [#642](https://github.com/eamodio/vscode-gitlens/issues/642)
   - Supported in the following settings: `gitlens.blame.format`, `gitlens.currentLine.format`, `gitlens.hovers.detailsMarkdownFormat`, `gitlens.views.commitFormat`, `gitlens.views.commitDescriptionFormat`, `gitlens.views.stashFormat`, `gitlens.views.stashDescriptionFormat`, and `gitlens.statusBar.format`
@@ -2719,76 +2719,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 [8.3.3]: https://github.com/eamodio/vscode-gitlens/compare/v8.3.2...eamodio:v8.3.3
 [8.3.2]: https://github.com/eamodio/vscode-gitlens/compare/8.3.1...eamodio:v8.3.2
 [8.3.1]: https://github.com/eamodio/vscode-gitlens/compare/v8.3.0...eamodio:8.3.1
-[8.3.0]: https://github.com/eamodio/vscode-gitlens/compare/v8.2.4...eamodio:v8.3.0
-[8.2.4]: https://github.com/eamodio/vscode-gitlens/compare/v8.2.3...eamodio:v8.2.4
-[8.2.3]: https://github.com/eamodio/vscode-gitlens/compare/v8.2.2...eamodio:v8.2.3
-[8.2.2]: https://github.com/eamodio/vscode-gitlens/compare/v8.2.1...eamodio:v8.2.2
-[8.2.1]: https://github.com/eamodio/vscode-gitlens/compare/v8.2.0...eamodio:v8.2.1
-[8.2.0]: https://github.com/eamodio/vscode-gitlens/compare/v8.1.1...eamodio:v8.2.0
-[8.1.1]: https://github.com/eamodio/vscode-gitlens/compare/v8.1.0...eamodio:v8.1.1
-[8.1.0]: https://github.com/eamodio/vscode-gitlens/compare/v8.0.2...eamodio:v8.1.0
-[8.0.2]: https://github.com/eamodio/vscode-gitlens/compare/v8.0.1...eamodio:v8.0.2
-[8.0.1]: https://github.com/eamodio/vscode-gitlens/compare/v8.0.0...eamodio:v8.0.1
-[8.0.0]: https://github.com/eamodio/vscode-gitlens/compare/v7.5.10...eamodio:v8.0.0
-[7.5.10]: https://github.com/eamodio/vscode-gitlens/compare/v7.5.9...eamodio:v7.5.10
-[7.5.9]: https://github.com/eamodio/vscode-gitlens/compare/v7.5.8...eamodio:v7.5.9
-[7.5.8]: https://github.com/eamodio/vscode-gitlens/compare/v7.5.7...eamodio:v7.5.8
-[7.5.7]: https://github.com/eamodio/vscode-gitlens/compare/v7.5.6...eamodio:v7.5.7
-[7.5.6]: https://github.com/eamodio/vscode-gitlens/compare/v7.5.5...eamodio:v7.5.6
-[7.5.5]: https://github.com/eamodio/vscode-gitlens/compare/v7.5.4...eamodio:v7.5.5
-[7.5.4]: https://github.com/eamodio/vscode-gitlens/compare/v7.5.3...eamodio:v7.5.4
-[7.5.3]: https://github.com/eamodio/vscode-gitlens/compare/v7.5.2...eamodio:v7.5.3
-[7.5.2]: https://github.com/eamodio/vscode-gitlens/compare/v7.5.1...eamodio:v7.5.2
-[7.5.1]: https://github.com/eamodio/vscode-gitlens/compare/v7.2.0...eamodio:v7.5.1
-[7.2.0]: https://github.com/eamodio/vscode-gitlens/compare/v7.1.0...eamodio:v7.2.0
-[7.1.0]: https://github.com/eamodio/vscode-gitlens/compare/v7.0.0...eamodio:v7.1.0
-[7.0.0]: https://github.com/eamodio/vscode-gitlens/compare/v6.4.0...eamodio:v7.0.0
-[6.4.0]: https://github.com/eamodio/vscode-gitlens/compare/v6.3.0...eamodio:v6.4.0
-[6.3.0]: https://github.com/eamodio/vscode-gitlens/compare/v6.2.0...eamodio:v6.3.0
-[6.2.0]: https://github.com/eamodio/vscode-gitlens/compare/v6.1.2...eamodio:v6.2.0
-[6.1.2]: https://github.com/eamodio/vscode-gitlens/compare/v6.1.1...eamodio:v6.1.2
-[6.1.1]: https://github.com/eamodio/vscode-gitlens/compare/v6.1.0...eamodio:v6.1.1
-[6.1.0]: https://github.com/eamodio/vscode-gitlens/compare/v6.0.0...eamodio:v6.1.0
-[6.0.0]: https://github.com/eamodio/vscode-gitlens/compare/v5.7.1...eamodio:v6.0.0
-[5.7.1]: https://github.com/eamodio/vscode-gitlens/compare/v5.7.0...eamodio:v5.7.1
-[5.7.0]: https://github.com/eamodio/vscode-gitlens/compare/v5.6.5...eamodio:v5.7.0
-[5.6.5]: https://github.com/eamodio/vscode-gitlens/compare/v5.6.4...eamodio:v5.6.5
-[5.6.4]: https://github.com/eamodio/vscode-gitlens/compare/v5.6.3...eamodio:v5.6.4
-[5.6.3]: https://github.com/eamodio/vscode-gitlens/compare/v5.6.2...eamodio:v5.6.3
-[5.6.2]: https://github.com/eamodio/vscode-gitlens/compare/v5.6.1...eamodio:v5.6.2
-[5.6.1]: https://github.com/eamodio/vscode-gitlens/compare/v5.6.0...eamodio:v5.6.1
-[5.6.0]: https://github.com/eamodio/vscode-gitlens/compare/v5.5.0...eamodio:v5.6.0
-[5.4.0]: https://github.com/eamodio/vscode-gitlens/compare/v5.3.0...eamodio:v5.4.0
-[5.3.0]: https://github.com/eamodio/vscode-gitlens/compare/v5.2.0...eamodio:v5.3.0
-[5.2.0]: https://github.com/eamodio/vscode-gitlens/compare/v5.1.0...eamodio:v5.2.0
-[5.1.0]: https://github.com/eamodio/vscode-gitlens/compare/v5.0.0...eamodio:v5.1.0
-[9.5.1]: https://github.com/eamodio/vscode-gitlens/compare/v9.5.0...eamodio:v9.5.1
-[9.5.0]: https://github.com/eamodio/vscode-gitlens/compare/v9.4.1...eamodio:v9.5.0
-[9.4.1]: https://github.com/eamodio/vscode-gitlens/compare/v9.4.0...eamodio:v9.4.1
-[9.4.0]: https://github.com/eamodio/vscode-gitlens/compare/v9.3.0...eamodio:v9.4.0
-[9.3.0]: https://github.com/eamodio/vscode-gitlens/compare/v9.2.4...eamodio:v9.3.0
-[9.2.4]: https://github.com/eamodio/vscode-gitlens/compare/v9.2.3...eamodio:v9.2.4
-[9.2.3]: https://github.com/eamodio/vscode-gitlens/compare/v9.2.2...eamodio:v9.2.3
-[9.2.2]: https://github.com/eamodio/vscode-gitlens/compare/v9.2.1...eamodio:v9.2.2
-[9.2.1]: https://github.com/eamodio/vscode-gitlens/compare/v9.2.0...eamodio:v9.2.1
-[9.2.0]: https://github.com/eamodio/vscode-gitlens/compare/v9.1.0...eamodio:v9.2.0
-[9.1.0]: https://github.com/eamodio/vscode-gitlens/compare/v9.0.3...eamodio:v9.1.0
-[9.0.3]: https://github.com/eamodio/vscode-gitlens/compare/v9.0.2...eamodio:v9.0.3
-[9.0.2]: https://github.com/eamodio/vscode-gitlens/compare/v9.0.1...eamodio:v9.0.2
-[9.0.1]: https://github.com/eamodio/vscode-gitlens/compare/v9.0.0...eamodio:v9.0.1
-[9.0.0]: https://github.com/eamodio/vscode-gitlens/compare/v8.5.6...eamodio:v9.0.0
-[8.5.6]: https://github.com/eamodio/vscode-gitlens/compare/v8.5.5...eamodio:v8.5.6
-[8.5.5]: https://github.com/eamodio/vscode-gitlens/compare/v8.5.4...eamodio:v8.5.5
-[8.5.4]: https://github.com/eamodio/vscode-gitlens/compare/v8.5.3...eamodio:v8.5.4
-[8.5.3]: https://github.com/eamodio/vscode-gitlens/compare/v8.5.2...eamodio:v8.5.3
-[8.5.2]: https://github.com/eamodio/vscode-gitlens/compare/v8.5.1...eamodio:v8.5.2
-[8.5.1]: https://github.com/eamodio/vscode-gitlens/compare/v8.5.0...eamodio:v8.5.1
-[8.5.0]: https://github.com/eamodio/vscode-gitlens/compare/v8.4.1...eamodio:v8.5.0
-[8.4.1]: https://github.com/eamodio/vscode-gitlens/compare/v8.4.0...eamodio:v8.4.1
-[8.4.0]: https://github.com/eamodio/vscode-gitlens/compare/v8.3.5...eamodio:v8.4.0
-[8.3.5]: https://github.com/eamodio/vscode-gitlens/compare/v8.3.4...eamodio:v8.3.5
-[8.3.4]: https://github.com/eamodio/vscode-gitlens/compare/v8.3.3...eamodio:v8.3.4
-[8.3.3]: https://github.com/eamodio/vscode-gitlens/compare/v8.3.2...eamodio:v8.3.3
 [8.3.0]: https://github.com/eamodio/vscode-gitlens/compare/v8.2.4...eamodio:v8.3.0
 [8.2.4]: https://github.com/eamodio/vscode-gitlens/compare/v8.2.3...eamodio:v8.2.4
 [8.2.3]: https://github.com/eamodio/vscode-gitlens/compare/v8.2.2...eamodio:v8.2.3
