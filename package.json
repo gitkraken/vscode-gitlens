@@ -1852,6 +1852,15 @@
                 }
             },
             {
+                "command": "gitlens.diffWithNextInDiff",
+                "title": "Open Changes with Next Revision",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-next-commit.svg",
+                    "light": "images/light/icon-next-commit.svg"
+                }
+            },
+            {
                 "command": "gitlens.diffWithPrevious",
                 "title": "Open Changes with Previous Revision",
                 "category": "GitLens",
@@ -1885,6 +1894,15 @@
             },
             {
                 "command": "gitlens.diffWithWorking",
+                "title": "Open Changes with Working File",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-compare-ref-working.svg",
+                    "light": "images/light/icon-compare-ref-working.svg"
+                }
+            },
+            {
+                "command": "gitlens.diffWithWorkingInDiff",
                 "title": "Open Changes with Working File",
                 "category": "GitLens",
                 "icon": {
@@ -2879,7 +2897,11 @@
                 },
                 {
                     "command": "gitlens.diffWithNext",
-                    "when": "gitlens:activeFileStatus =~ /tracked/ && gitlens:activeFileStatus =~ /revision/"
+                    "when": "!isInDiffEditor && gitlens:activeFileStatus =~ /revision/"
+                },
+                {
+                    "command": "gitlens.diffWithNextInDiff",
+                    "when": "isInDiffEditor && gitlens:activeFileStatus =~ /revision/"
                 },
                 {
                     "command": "gitlens.diffWithPrevious",
@@ -2899,7 +2921,11 @@
                 },
                 {
                     "command": "gitlens.diffWithWorking",
-                    "when": "gitlens:activeFileStatus =~ /tracked/"
+                    "when": "!isInDiffEditor && gitlens:activeFileStatus =~ /revision/"
+                },
+                {
+                    "command": "gitlens.diffWithWorkingInDiff",
+                    "when": "isInDiffEditor && gitlens:activeFileStatus =~ /revision/"
                 },
                 {
                     "command": "gitlens.diffLineWithWorking",
@@ -3514,7 +3540,12 @@
             "editor/title": [
                 {
                     "command": "gitlens.diffWithWorking",
-                    "when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme != file && resourceScheme != git",
+                    "when": "!isInDiffEditor && gitlens:activeFileStatus =~ /revision/ && resourceScheme != file && resourceScheme != git",
+                    "group": "navigation@0"
+                },
+                {
+                    "command": "gitlens.diffWithWorkingInDiff",
+                    "when": "isInDiffEditor && gitlens:activeFileStatus =~ /revision/ && resourceScheme != file && resourceScheme != git",
                     "group": "navigation@0"
                 },
                 {
@@ -3551,7 +3582,12 @@
                 },
                 {
                     "command": "gitlens.diffWithNext",
-                    "when": "gitlens:activeFileStatus =~ /tracked/ && gitlens:activeFileStatus =~ /tracked/ && gitlens:activeFileStatus =~ /revision/ && config.gitlens.menus.editorGroup.compare",
+                    "when": "!isInDiffEditor && gitlens:activeFileStatus =~ /revision/ && config.gitlens.menus.editorGroup.compare",
+                    "group": "navigation@99"
+                },
+                {
+                    "command": "gitlens.diffWithNextInDiff",
+                    "when": "isInDiffEditor && gitlens:activeFileStatus =~ /revision/ && config.gitlens.menus.editorGroup.compare",
                     "group": "navigation@99"
                 },
                 {
@@ -4643,12 +4679,12 @@
             {
                 "command": "gitlens.diffWithNext",
                 "key": "alt+.",
-                "when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
+                "when": "config.gitlens.keymap == alternate && editorTextFocus && !isInDiffEditor && gitlens:activeFileStatus =~ /revision/"
             },
             {
-                "command": "gitlens.diffLineWithPrevious",
-                "key": "shift+alt+,",
-                "when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
+                "command": "gitlens.diffWithNextInDiff",
+                "key": "alt+.",
+                "when": "config.gitlens.keymap == alternate && isInDiffEditor && gitlens:activeFileStatus =~ /revision/"
             },
             {
                 "command": "gitlens.diffWithPrevious",
@@ -4661,13 +4697,23 @@
                 "when": "config.gitlens.keymap == alternate && isInDiffEditor && gitlens:activeFileStatus =~ /tracked/"
             },
             {
-                "command": "gitlens.diffLineWithWorking",
-                "key": "alt+w",
+                "command": "gitlens.diffLineWithPrevious",
+                "key": "shift+alt+,",
                 "when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
             },
             {
                 "command": "gitlens.diffWithWorking",
-                "key": "shift+alt+w",
+                "key": "shift+alt+.",
+                "when": "config.gitlens.keymap == alternate && editorTextFocus && !isInDiffEditor && gitlens:activeFileStatus =~ /revision/"
+            },
+            {
+                "command": "gitlens.diffWithWorkingInDiff",
+                "key": "shift+alt+.",
+                "when": "config.gitlens.keymap == alternate && isInDiffEditor && gitlens:activeFileStatus =~ /revision/"
+            },
+            {
+                "command": "gitlens.diffLineWithWorking",
+                "key": "alt+w",
                 "when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
             },
             {
@@ -4722,13 +4768,13 @@
                 "command": "gitlens.diffWithNext",
                 "key": "ctrl+shift+g .",
                 "mac": "cmd+alt+g .",
-                "when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
+                "when": "config.gitlens.keymap == chorded && editorTextFocus && !isInDiffEditor && gitlens:activeFileStatus =~ /revision/"
             },
             {
-                "command": "gitlens.diffLineWithPrevious",
-                "key": "ctrl+shift+g shift+,",
-                "mac": "cmd+alt+g shift+,",
-                "when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
+                "command": "gitlens.diffWithNextInDiff",
+                "key": "ctrl+shift+g .",
+                "mac": "cmd+alt+g .",
+                "when": "config.gitlens.keymap == chorded && isInDiffEditor && gitlens:activeFileStatus =~ /revision/"
             },
             {
                 "command": "gitlens.diffWithPrevious",
@@ -4743,15 +4789,27 @@
                 "when": "config.gitlens.keymap == chorded && isInDiffEditor && gitlens:activeFileStatus =~ /tracked/"
             },
             {
-                "command": "gitlens.diffLineWithWorking",
-                "key": "ctrl+shift+g w",
-                "mac": "cmd+alt+g w",
+                "command": "gitlens.diffLineWithPrevious",
+                "key": "ctrl+shift+g shift+,",
+                "mac": "cmd+alt+g shift+,",
                 "when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
             },
             {
                 "command": "gitlens.diffWithWorking",
-                "key": "ctrl+shift+g shift+w",
-                "mac": "cmd+alt+g shift+w",
+                "key": "ctrl+shift+g shift+.",
+                "mac": "cmd+alt+g shift+.",
+                "when": "config.gitlens.keymap == chorded && editorTextFocus && !isInDiffEditor && gitlens:activeFileStatus =~ /revision/"
+            },
+            {
+                "command": "gitlens.diffWithWorkingInDiff",
+                "key": "ctrl+shift+g shift+.",
+                "mac": "cmd+alt+g shift+.",
+                "when": "config.gitlens.keymap == chorded && isInDiffEditor && gitlens:activeFileStatus =~ /revision/"
+            },
+            {
+                "command": "gitlens.diffLineWithWorking",
+                "key": "ctrl+shift+g w",
+                "mac": "cmd+alt+g w",
                 "when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:activeFileStatus =~ /tracked/"
             },
             {

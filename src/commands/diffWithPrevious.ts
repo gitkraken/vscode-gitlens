@@ -8,6 +8,7 @@ import { Iterables } from '../system';
 import { ActiveEditorCommand, command, CommandContext, Commands, getCommandUri } from './common';
 import { DiffWithCommandArgs } from './diffWith';
 import { DiffWithWorkingCommandArgs } from './diffWithWorking';
+import { UriComparer } from '../comparers';
 
 export interface DiffWithPreviousCommandArgs {
     commit?: GitCommit;
@@ -24,7 +25,18 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
     }
 
     protected preExecute(context: CommandContext, args: DiffWithPreviousCommandArgs = {}) {
-        if (context.command === Commands.DiffWithPreviousInDiff) {
+        if (
+            context.command === Commands.DiffWithPreviousInDiff
+            // || (context.editor !== undefined && context.editor.viewColumn === undefined)
+        ) {
+            // HACK: If in a diff, try to determine if we are on the right or left side
+            // If there is a context uri and it doesn't match the editor uri, assume we are on the left
+            // If on the left, use the editor uri and pretend we aren't in a diff
+            if (context.uri !== undefined && context.editor !== undefined && context.editor.document !== undefined) {
+                if (!UriComparer.equals(context.uri, context.editor.document.uri, { exact: true })) {
+                    return this.execute(context.editor, context.editor.document.uri, args);
+                }
+            }
             args.inDiffEditor = true;
         }
 

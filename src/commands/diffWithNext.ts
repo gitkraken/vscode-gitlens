@@ -5,13 +5,15 @@ import { GitLogCommit, GitService, GitStatusFile, GitUri } from '../git/gitServi
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { Iterables } from '../system';
-import { ActiveEditorCommand, command, Commands, getCommandUri } from './common';
+import { ActiveEditorCommand, command, CommandContext, Commands, getCommandUri } from './common';
 import { DiffWithCommandArgs } from './diffWith';
+import { UriComparer } from '../comparers';
 
 export interface DiffWithNextCommandArgs {
     commit?: GitLogCommit;
     range?: Range;
 
+    inDiffEditor?: boolean;
     line?: number;
     showOptions?: TextDocumentShowOptions;
 }
@@ -19,7 +21,26 @@ export interface DiffWithNextCommandArgs {
 @command()
 export class DiffWithNextCommand extends ActiveEditorCommand {
     constructor() {
-        super(Commands.DiffWithNext);
+        super([Commands.DiffWithNext, Commands.DiffWithNextInDiff]);
+    }
+
+    protected preExecute(context: CommandContext, args: DiffWithNextCommandArgs = {}) {
+        if (
+            context.command === Commands.DiffWithNextInDiff
+            // || (context.editor !== undefined && context.editor.viewColumn === undefined)
+        ) {
+            // HACK: If in a diff, try to determine if we are on the right or left side
+            // If there is a context uri and it doesn't match the editor uri, assume we are on the left
+            // If on the left, use the editor uri and pretend we aren't in a diff
+            if (context.uri !== undefined && context.editor !== undefined && context.editor.document !== undefined) {
+                if (!UriComparer.equals(context.uri, context.editor.document.uri, { exact: true })) {
+                    return this.execute(context.editor, context.editor.document.uri, args);
+                }
+            }
+            args.inDiffEditor = true;
+        }
+
+        return this.execute(context.editor, context.uri, args);
     }
 
     async execute(editor?: TextEditor, uri?: Uri, args: DiffWithNextCommandArgs = {}) {

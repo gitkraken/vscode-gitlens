@@ -4,12 +4,14 @@ import { Container } from '../container';
 import { GitCommit, GitService, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { ActiveEditorCommand, command, Commands, getCommandUri } from './common';
+import { ActiveEditorCommand, command, CommandContext, Commands, getCommandUri } from './common';
 import { DiffWithCommandArgs } from './diffWith';
+import { UriComparer } from '../comparers';
 
 export interface DiffWithWorkingCommandArgs {
     commit?: GitCommit;
 
+    inDiffEditor?: boolean;
     line?: number;
     showOptions?: TextDocumentShowOptions;
 }
@@ -17,7 +19,27 @@ export interface DiffWithWorkingCommandArgs {
 @command()
 export class DiffWithWorkingCommand extends ActiveEditorCommand {
     constructor() {
-        super(Commands.DiffWithWorking);
+        super([Commands.DiffWithWorking, Commands.DiffWithWorkingInDiff]);
+    }
+
+    protected preExecute(context: CommandContext, args: DiffWithWorkingCommandArgs = {}) {
+        if (
+            context.command === Commands.DiffWithWorkingInDiff ||
+            (context.editor !== undefined && context.editor.viewColumn === undefined)
+        ) {
+            // HACK: If in a diff, try to determine if we are on the right or left side
+            // If there is a context uri and it doesn't match the editor uri, assume we are on the left
+            // If on the left, use the editor uri and pretend we aren't in a diff
+            if (context.uri !== undefined && context.editor !== undefined && context.editor.document !== undefined) {
+                if (!UriComparer.equals(context.uri, context.editor.document.uri, { exact: true })) {
+                    return this.execute(context.editor, context.editor.document.uri, args);
+                }
+            }
+
+            args.inDiffEditor = true;
+        }
+
+        return this.execute(context.editor, context.uri, args);
     }
 
     async execute(editor?: TextEditor, uri?: Uri, args: DiffWithWorkingCommandArgs = {}): Promise<any> {
@@ -44,10 +66,18 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
                 const status = await Container.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath);
                 if (status !== undefined && status.indexStatus !== undefined) {
+                    let sha = GitService.stagedUncommittedSha;
+                    if (args.inDiffEditor) {
+                        const commit = await Container.git.getRecentLogCommitForFile(gitUri.repoPath!, gitUri.fsPath);
+                        if (commit === undefined) return Messages.showCommitHasNoPreviousCommitWarningMessage();
+
+                        sha = commit.sha;
+                    }
+
                     const diffArgs: DiffWithCommandArgs = {
                         repoPath: gitUri.repoPath,
                         lhs: {
-                            sha: GitService.stagedUncommittedSha,
+                            sha: sha,
                             uri: gitUri.documentUri()
                         },
                         rhs: {
@@ -62,9 +92,15 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
                 }
             }
 
+            // If we are in a diff editor, assume we are on the right side, and need to move back 2 revisions
+            let sha = gitUri.sha;
+            if (args.inDiffEditor && sha !== undefined) {
+                sha = `${sha}^`;
+            }
+
             try {
                 args.commit = await Container.git.getLogCommitForFile(gitUri.repoPath, gitUri.fsPath, {
-                    ref: gitUri.sha,
+                    ref: sha,
                     firstIfNotFound: true
                 });
                 if (args.commit === undefined) {

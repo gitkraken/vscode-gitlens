@@ -6,10 +6,13 @@ abstract class Comparer<T> {
 }
 
 class UriComparer extends Comparer<Uri> {
-    equals(lhs: Uri | undefined, rhs: Uri | undefined) {
+    equals(lhs: Uri | undefined, rhs: Uri | undefined, options: { exact?: boolean } = { exact: false }) {
         if (lhs === rhs) return true;
         if (lhs === undefined || rhs === undefined) return false;
 
+        if (options.exact) {
+            return lhs.toString(true) === rhs.toString(true);
+        }
         return lhs.scheme === rhs.scheme && lhs.fsPath === rhs.fsPath;
     }
 }
