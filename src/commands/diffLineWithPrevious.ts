@@ -1,11 +1,12 @@
 'use strict';
-import { commands, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import { commands, Range, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { Container } from '../container';
 import { GitCommit, GitService, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { ActiveEditorCommand, command, Commands, getCommandUri } from './common';
 import { DiffWithCommandArgs } from './diffWith';
+import { Iterables } from '../system';
 
 export interface DiffLineWithPreviousCommandArgs {
     commit?: GitCommit;
@@ -32,32 +33,48 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
         }
 
         if (args.commit === undefined || GitService.isUncommitted(args.commit.sha)) {
-            const blameline = args.line;
-            if (blameline < 0) return undefined;
+            if (args.line < 0) return undefined;
 
             try {
-                const blame =
-                    editor && editor.document && editor.document.isDirty
-                        ? await Container.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
-                        : await Container.git.getBlameForLine(gitUri, blameline);
-                if (blame === undefined) {
-                    return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
+                if (!GitService.isStagedUncommitted(gitUri.sha)) {
+                    const blame =
+                        editor && editor.document && editor.document.isDirty
+                            ? await Container.git.getBlameForLineContents(gitUri, args.line, editor.document.getText())
+                            : await Container.git.getBlameForLine(gitUri, args.line);
+                    if (blame === undefined) {
+                        return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
+                    }
+
+                    // If the line is uncommitted, change the previous commit
+                    if (blame.commit.isUncommitted) {
+                        const status = await Container.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath);
+                        if (status !== undefined && status.indexStatus !== undefined) {
+                            args.commit = blame.commit.with({
+                                sha: GitService.stagedUncommittedSha
+                            });
+                        }
+                    }
                 }
 
-                args.commit = blame.commit;
-
-                // If the line is uncommitted, change the previous commit
-                if (args.commit.isUncommitted) {
-                    const status = await Container.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath);
-                    if (status !== undefined && status.indexStatus !== undefined) {
-                        args.commit = args.commit.with({
-                            sha: GitService.stagedUncommittedSha
-                        });
+                if (args.commit === undefined) {
+                    const log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
+                        maxCount: 2,
+                        range: new Range(args.line, 0, args.line, 0),
+                        ref:
+                            gitUri.sha === undefined || GitService.isStagedUncommitted(gitUri.sha)
+                                ? undefined
+                                : `${gitUri.sha}^`,
+                        renames: true
+                    });
+                    if (log === undefined) {
+                        return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
                     }
+
+                    args.commit = (gitUri.sha && log.commits.get(gitUri.sha)) || Iterables.first(log.commits.values());
                 }
             }
             catch (ex) {
-                Logger.error(ex, 'DiffLineWithPreviousCommand', `getBlameForLine(${blameline})`);
+                Logger.error(ex, 'DiffLineWithPreviousCommand', `getLogForFile(${args.line})`);
                 return Messages.showGenericErrorMessage('Unable to open compare');
             }
         }
@@ -65,12 +82,12 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
         const diffArgs: DiffWithCommandArgs = {
             repoPath: args.commit.repoPath,
             lhs: {
-                sha: args.commit.previousSha !== undefined ? args.commit.previousSha : GitService.deletedOrMissingSha,
-                uri: args.commit.previousUri
-            },
-            rhs: {
                 sha: args.commit.sha,
                 uri: args.commit.uri
+            },
+            rhs: {
+                sha: gitUri.sha || '',
+                uri: gitUri
             },
             line: args.line,
             showOptions: args.showOptions
