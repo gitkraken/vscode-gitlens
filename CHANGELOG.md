@@ -4,6 +4,36 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Adds a new _Contributors_ node to each repository in the _Repositories_ view
+  - **Contributors** &mdash; lists the contributors in the repository, sorted by contributed commits
+    - Provides the avatar (if enabled), name, and email address of each contributor
+      - An inline toolbar provides quick access to the _Copy to Clipboard_ command
+      - A context menu provides access to the _Copy to Clipboard_, _Add as Co-author_, and _Refresh_ commands
+      - Each contributor expands to list the repository's revision (commit) history filtered by the contributor
+        - An inline toolbar provides quick access to the _Compare with HEAD_ (`alt-click` for _Compare with Working Tree_), _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open Commit on Remote_ (if available) commands
+        - A context menu provides access to more common revision (commit) commands
+        - Each revision (commit) expands to list its set of changed files, complete with status indicators for adds, changes, renames, and deletes
+          - An inline toolbar provides quick access to the _Open File_, _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open File on Remote_ (if available) commands
+          - A context menu provides access to more common file revision commands
+- Adds a _Collapse All_ command to the _Repositories_ view &mdash; closes [#688](https://github.com/eamodio/vscode-gitlens/issues/688)
+- Adds version links to CHANGELOG &mdash; closes [#617](https://github.com/eamodio/vscode-gitlens/issues/617) thanks to [PR #600](https://github.com/eamodio/vscode-gitlens/pull/660) by John Gee ([@shadowspawn](https://github.com/shadowspawn))
+
+### Changed
+
+- Updates the invite link to the [VS Code Development Community Slack](https://vscode-slack.amod.io)
+- Improves the behavior of the _Open Changes with Next Revision_ (`gitlens.diffWithNext`) command when in the diff editor
+- Improves the behavior of the _Open Changes with Previous Revision_ (`gitlens.diffWithPrevious`) command when in the diff editor
+- Improves the behavior of the _Open Changes with Working File_ (`gitlens.diffWithWorking`) command when in the diff editor
+
+### Fixed
+
+- Fixes [#683](https://github.com/eamodio/vscode-gitlens/issues/683) - log.showSignature leads to stray files being displayed
+- Fixes the behavior of the _Open Line Changes with Previous Revision_ (`gitlens.diffLineWithPrevious`) command to follow the line history much better
+
 ## [9.5.1] - 2019-02-13
 
 ### Added

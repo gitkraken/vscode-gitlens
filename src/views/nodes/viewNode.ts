@@ -19,6 +19,8 @@ export enum ResourceType {
     ComparePicker = 'gitlens:compare:picker',
     ComparePickerWithRef = 'gitlens:compare:picker:ref',
     CompareResults = 'gitlens:compare:results',
+    Contributor = 'gitlens:contributor',
+    Contributors = 'gitlens:contributors',
     File = 'gitlens:file',
     FileHistory = 'gitlens:history:file',
     Folder = 'gitlens:folder',

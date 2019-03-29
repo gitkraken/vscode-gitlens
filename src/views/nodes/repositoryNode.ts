@@ -22,6 +22,7 @@ import { StashesNode } from './stashesNode';
 import { StatusFilesNode } from './statusFilesNode';
 import { TagsNode } from './tagsNode';
 import { ResourceType, SubscribeableViewNode, ViewNode } from './viewNode';
+import { ContributorsNode } from './contributorsNode';
 
 const hasTimeRegex = /[hHm]/;
 
@@ -78,6 +79,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 
             children.push(
                 new BranchesNode(this.uri, this.view, this, this.repo),
+                new ContributorsNode(this.uri, this.view, this, this.repo),
                 new RemotesNode(this.uri, this.view, this, this.repo),
                 new StashesNode(this.uri, this.view, this, this.repo),
                 new TagsNode(this.uri, this.view, this, this.repo)

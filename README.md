@@ -304,12 +304,24 @@ The repositories view provides the following features,
         - An inline toolbar provides quick access to the _Open File_, _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open File on Remote_ (if available) commands
         - A context menu provides access to more common file revision commands
 
+- **Contributors** &mdash; lists the contributors in the repository, sorted by contributed commits
+
+  - Provides the avatar (if enabled), name, and email address of each contributor
+    - An inline toolbar provides quick access to the _Copy to Clipboard_ command
+    - A context menu provides access to the _Copy to Clipboard_, _Add as Co-author_, and _Refresh_ commands
+    - Each contributor expands to list the repository's revision (commit) history filtered by the contributor
+      - An inline toolbar provides quick access to the _Compare with HEAD_ (`alt-click` for _Compare with Working Tree_), _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open Commit on Remote_ (if available) commands
+      - A context menu provides access to more common revision (commit) commands
+      - Each revision (commit) expands to list its set of changed files, complete with status indicators for adds, changes, renames, and deletes
+        - An inline toolbar provides quick access to the _Open File_, _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open File on Remote_ (if available) commands
+        - A context menu provides access to more common file revision commands
+
 - **Remotes** &mdash; lists the remotes in the repository
 
   - Provides the name of each remote, an indicator of the direction of the remote (fetch, push, both), remote service (if applicable), and repository path
     - An inline toolbar provides quick access to the _Fetch_, and _Open Repository on Remote_ (if available) commands
     - A context menu provides access to more common repository and remote commands
-    - Each remote expands list its remote branches
+    - Each remote expands to list its remote branches
       - See the **Branches** above for additional details
 
 - **Stashes** &mdash; lists the stashed changes in the repository
@@ -888,6 +900,7 @@ A big thanks to the people that have contributed to this project:
 - Matt Cooper ([@vtbassmatt](https://github.com/vtbassmatt)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=vtbassmatt)
 - Segev Finer ([@segevfiner](https://github.com/segevfiner)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=segevfiner)
 - Cory Forsyth ([@bantic](https://github.com/bantic)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=bantic)
+- John Gee ([@shadowspawn](https://github.com/shadowspawn)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=shadowspawn)
 - Geoffrey ([@g3offrey](https://github.com/g3offrey)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=g3offrey)
 - Yukai Huang ([@Yukaii](https://github.com/Yukaii)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=Yukaii)
 - Roy Ivy III ([@rivy](https://github.com/rivy)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=rivy)

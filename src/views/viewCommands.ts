@@ -1,6 +1,6 @@
 'use strict';
 import * as paths from 'path';
-import { commands, Disposable, Terminal, TextDocumentShowOptions, Uri, window } from 'vscode';
+import { commands, Disposable, env, Terminal, TextDocumentShowOptions, Uri, window } from 'vscode';
 import {
     Commands,
     DiffWithCommandArgs,
@@ -34,6 +34,8 @@ import {
     ViewRefNode,
     viewSupportsNodeDismissal
 } from './nodes';
+import { ContributorNode } from './nodes/contributorNode';
+import { Strings } from '../system/string';
 
 export interface RefreshNodeCommandArgs {
     maxCount?: number;
@@ -82,6 +84,9 @@ export class ViewCommands implements Disposable {
         commands.registerCommand('gitlens.views.unstar', this.unstar, this);
 
         commands.registerCommand('gitlens.views.exploreRepoRevision', this.exploreRepoRevision, this);
+
+        commands.registerCommand('gitlens.views.contributor.addCoauthoredBy', this.contributorAddCoauthoredBy, this);
+        commands.registerCommand('gitlens.views.contributor.copyToClipboard', this.contributorCopyToClipboard, this);
 
         commands.registerCommand('gitlens.views.openChanges', this.openChanges, this);
         commands.registerCommand('gitlens.views.openChangesWithWorking', this.openChangesWithWorking, this);
@@ -137,6 +142,44 @@ export class ViewCommands implements Disposable {
 
     dispose() {
         this._disposable && this._disposable.dispose();
+    }
+
+    private async contributorAddCoauthoredBy(node: ContributorNode) {
+        if (!(node instanceof ContributorNode)) return;
+
+        const gitApi = await GitService.getBuiltInGitApi();
+        if (gitApi === undefined) return;
+
+        const repo = gitApi.repositories.find(
+            r => Strings.normalizePath(r.rootUri.fsPath) === node.contributor.repoPath
+        );
+        if (repo === undefined) return;
+
+        const coauthor = `${node.contributor.name}${node.contributor.email ? ` <${node.contributor.email}>` : ''}`;
+
+        const message = repo.inputBox.value;
+        if (message.includes(coauthor)) return;
+
+        let newlines;
+        if (message.includes('Co-authored-by: ')) {
+            newlines = '\n';
+        }
+        else if (message.length !== 0 && message[message.length - 1] === '\n') {
+            newlines = '\n\n';
+        }
+        else {
+            newlines = '\n\n\n';
+        }
+
+        repo.inputBox.value = `${message}${newlines}Co-authored-by: ${coauthor}`;
+    }
+
+    private async contributorCopyToClipboard(node: ContributorNode) {
+        if (!(node instanceof ContributorNode)) return;
+
+        await env.clipboard.writeText(
+            `${node.contributor.name}${node.contributor.email ? ` <${node.contributor.email}>` : ''}`
+        );
     }
 
     private fetch(node: RemoteNode | RepositoryNode) {

@@ -6,6 +6,7 @@ import {
     Disposable,
     Event,
     EventEmitter,
+    Extension,
     extensions,
     ProgressLocation,
     Range,
@@ -18,7 +19,7 @@ import {
     WorkspaceFoldersChangeEvent
 } from 'vscode';
 // eslint-disable-next-line import/no-unresolved
-import { GitExtension } from '../@types/git';
+import { API as BuiltInGitApi, GitExtension } from '../@types/git';
 import { configuration, RemotesConfig } from '../configuration';
 import { CommandContext, DocumentSchemes, GlyphChars, setCommandContext } from '../constants';
 import { Container } from '../container';
@@ -40,6 +41,7 @@ import {
     GitBranchParser,
     GitCommit,
     GitCommitType,
+    GitContributor,
     GitDiff,
     GitDiffChunkLine,
     GitDiffParser,
@@ -64,6 +66,7 @@ import {
 } from './git';
 import { GitUri } from './gitUri';
 import { RemoteProviderFactory, RemoteProviders } from './remotes/factory';
+import { GitShortLogParser } from './parsers/parsers';
 
 export * from './gitUri';
 export * from './models/models';
@@ -1114,6 +1117,15 @@ export class GitService implements Disposable {
     @log()
     getConfig(key: string, repoPath?: string): Promise<string | undefined> {
         return Git.config_get(key, repoPath);
+    }
+
+    @log()
+    async getContributors(repoPath: string): Promise<GitContributor[]> {
+        if (repoPath === undefined) return [];
+
+        const data = await Git.shortlog(repoPath);
+        const shortlog = GitShortLogParser.parse(data, repoPath);
+        return shortlog === undefined ? [] : shortlog.contributors;
     }
 
     @log()
@@ -2218,18 +2230,27 @@ export class GitService implements Disposable {
     static async initialize(): Promise<void> {
         // Try to use the same git as the built-in vscode git extension
         let gitPath;
+        const gitApi = await GitService.getBuiltInGitApi();
+        if (gitApi !== undefined) {
+            gitPath = gitApi.git.path;
+        }
+
+        await Git.setOrFindGitPath(gitPath || workspace.getConfiguration('git').get<string>('path'));
+    }
+
+    @log()
+    static async getBuiltInGitApi(): Promise<BuiltInGitApi | undefined> {
         try {
-            const gitExtension = extensions.getExtension('vscode.git');
-            if (gitExtension !== undefined) {
-                const gitApi = ((gitExtension.isActive
-                    ? gitExtension.exports
-                    : await gitExtension.activate()) as GitExtension).getAPI(1);
-                gitPath = gitApi.git.path;
+            const extension = extensions.getExtension('vscode.git') as Extension<GitExtension>;
+            if (extension !== undefined) {
+                const gitExtension = extension.isActive ? extension.exports : await extension.activate();
+
+                return gitExtension.getAPI(1);
             }
         }
         catch {}
 
-        await Git.setOrFindGitPath(gitPath || workspace.getConfiguration('git').get<string>('path'));
+        return undefined;
     }
 
     static getGitPath(): string {

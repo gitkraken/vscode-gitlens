@@ -811,6 +811,10 @@ export class Git {
         return data.length === 0 ? undefined : data.trim();
     }
 
+    static shortlog(repoPath: string) {
+        return git<string>({ cwd: repoPath }, 'shortlog', '-sne', '--all', '--no-merges');
+    }
+
     static async show<TOut extends string | Buffer>(
         repoPath: string | undefined,
         fileName: string,

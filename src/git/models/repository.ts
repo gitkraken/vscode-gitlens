@@ -18,7 +18,7 @@ import { configuration, RemotesConfig } from '../../configuration';
 import { StarredRepositories, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
 import { Functions, gate, log } from '../../system';
-import { GitBranch, GitDiffShortStat, GitRemote, GitStash, GitStatus, GitTag } from '../git';
+import { GitBranch, GitContributor, GitDiffShortStat, GitRemote, GitStash, GitStatus, GitTag } from '../git';
 import { GitUri } from '../gitUri';
 import { RemoteProviderFactory, RemoteProviders } from '../remotes/factory';
 
@@ -270,6 +270,10 @@ export class Repository implements Disposable {
 
     getChangedFilesCount(sha?: string): Promise<GitDiffShortStat | undefined> {
         return Container.git.getChangedFilesCount(this.path, sha);
+    }
+
+    getContributors(): Promise<GitContributor[]> {
+        return Container.git.getContributors(this.path);
     }
 
     async getLastFetched(): Promise<number> {

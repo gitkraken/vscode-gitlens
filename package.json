@@ -2477,6 +2477,20 @@
                 }
             },
             {
+                "command": "gitlens.views.contributor.addCoauthoredBy",
+                "title": "Add as Co-author",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.views.contributor.copyToClipboard",
+                "title": "Copy to Clipboard",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-clipboard.svg",
+                    "light": "images/light/icon-clipboard.svg"
+                }
+            },
+            {
                 "command": "gitlens.views.terminalCheckoutBranch",
                 "title": "Checkout Branch (via Terminal)",
                 "category": "GitLens"
@@ -3253,6 +3267,14 @@
                 },
                 {
                     "command": "gitlens.views.compareWithWorking",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.views.contributor.addCoauthoredBy",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.views.contributor.copyToClipboard",
                     "when": "false"
                 },
                 {
@@ -4103,6 +4125,21 @@
                     "command": "gitlens.views.unstar",
                     "when": "viewItem =~ /gitlens:branch\\b.*?\\+starred\\b.*?/",
                     "group": "8_gitlens_@1"
+                },
+                {
+                    "command": "gitlens.views.contributor.copyToClipboard",
+                    "when": "viewItem =~ /gitlens:contributor\\b/",
+                    "group": "inline@98"
+                },
+                {
+                    "command": "gitlens.views.contributor.copyToClipboard",
+                    "when": "viewItem =~ /gitlens:contributor\\b/",
+                    "group": "1_gitlens@1"
+                },
+                {
+                    "command": "gitlens.views.contributor.addCoauthoredBy",
+                    "when": "viewItem =~ /gitlens:contributor\\b/",
+                    "group": "2_gitlens@1"
                 },
                 {
                     "command": "gitlens.openCommitInRemote",
