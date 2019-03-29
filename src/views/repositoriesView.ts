@@ -70,7 +70,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
         }
 
         if (configuration.changed(e, configuration.name('views')('repositories')('location').value)) {
-            this.initialize(this.config.location);
+            this.initialize(this.config.location, { showCollapseAll: true });
         }
 
         if (!configuration.initializing(e) && this._root !== undefined) {
