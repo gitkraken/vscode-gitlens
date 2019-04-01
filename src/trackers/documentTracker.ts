@@ -235,18 +235,19 @@ export class DocumentTracker<T> implements Disposable {
     }
 
     private async _add(documentOrId: TextDocument | Uri): Promise<TrackedDocument<T>> {
+        let document;
         if (documentOrId instanceof GitUri) {
             try {
-                documentOrId = await workspace.openTextDocument(documentOrId.documentUri({ useVersionedPath: true }));
+                document = await workspace.openTextDocument(documentOrId.documentUri({ useVersionedPath: true }));
             }
             catch (ex) {
                 const msg = ex.toString();
                 if (msg.includes('File seems to be binary and cannot be opened as text')) {
-                    documentOrId = new BinaryTextDocument(documentOrId);
+                    document = new BinaryTextDocument(documentOrId);
                 }
                 else if (msg.includes('File not found')) {
                     // If we can't find the file, assume it is because the file has been renamed or deleted at some point
-                    documentOrId = new MissingRevisionTextDocument(documentOrId);
+                    document = new MissingRevisionTextDocument(documentOrId);
 
                     // const [fileName, repoPath] = await Container.git.findWorkingFileName(documentOrId, undefined, ref);
                     // if (fileName === undefined) throw new Error(`Failed to add tracking for document: ${documentOrId}`);
@@ -259,10 +260,13 @@ export class DocumentTracker<T> implements Disposable {
             }
         }
         else if (documentOrId instanceof Uri) {
-            documentOrId = await workspace.openTextDocument(documentOrId);
+            document = await workspace.openTextDocument(documentOrId);
+        }
+        else {
+            document = documentOrId;
         }
 
-        const doc = await this.addCore(documentOrId);
+        const doc = await this.addCore(document);
         await doc.ensureInitialized();
 
         return doc;
