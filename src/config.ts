@@ -367,6 +367,7 @@ export interface ViewsConfig {
     compare: CompareViewConfig;
     defaultItemLimit: number;
     lineHistory: LineHistoryViewConfig;
+    pageItemLimit: number;
     repositories: RepositoriesViewConfig;
     search: SearchViewConfig;
     showRelativeDateMarkers: boolean;

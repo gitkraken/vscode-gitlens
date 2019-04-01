@@ -21,13 +21,15 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
           - A context menu provides access to more common file revision commands
 - Adds a _Collapse All_ command to the _Repositories_ view &mdash; closes [#688](https://github.com/eamodio/vscode-gitlens/issues/688)
 - Adds version links to CHANGELOG &mdash; closes [#617](https://github.com/eamodio/vscode-gitlens/issues/617) thanks to [PR #600](https://github.com/eamodio/vscode-gitlens/pull/660) by John Gee ([@shadowspawn](https://github.com/shadowspawn))
+- Adds a `gitlens.views.pageItemLimit` setting to specify the number of items to show in a each page when paginating a view list. Use 0 to specify no limit
 
 ### Changed
 
-- Updates the invite link to the [VS Code Development Community Slack](https://vscode-slack.amod.io)
+- Improves the behavior of the _Show More Commits_ & _Show More Results_ commands - no longer loses the context of the last selected item before showing more
 - Improves the behavior of the _Open Changes with Next Revision_ (`gitlens.diffWithNext`) command when in the diff editor
 - Improves the behavior of the _Open Changes with Previous Revision_ (`gitlens.diffWithPrevious`) command when in the diff editor
 - Improves the behavior of the _Open Changes with Working File_ (`gitlens.diffWithWorking`) command when in the diff editor
+- Updates the invite link to the [VS Code Development Community Slack](https://vscode-slack.amod.io)
 
 ### Fixed
 

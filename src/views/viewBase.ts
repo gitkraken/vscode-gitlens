@@ -158,6 +158,10 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
                 else {
                     node.maxCount = (node.maxCount || args.maxCount) + args.maxCount;
                 }
+
+                if (args.previousNode !== undefined) {
+                    void (await this.reveal(args.previousNode, { select: true }));
+                }
             }
         }
 

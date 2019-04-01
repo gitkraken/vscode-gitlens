@@ -139,8 +139,17 @@ export class UpdateableMessageNode extends ViewNode {
 export abstract class PagerNode extends ViewNode {
     protected _args: RefreshNodeCommandArgs = {};
 
-    constructor(view: View, parent: ViewNode, protected readonly message: string) {
+    constructor(
+        view: View,
+        parent: ViewNode,
+        protected readonly message: string,
+        previousNode?: ViewNode,
+        maxCount: number = Container.config.views.pageItemLimit
+    ) {
         super(unknownGitUri, view, parent);
+
+        this._args.maxCount = maxCount;
+        this._args.previousNode = previousNode;
     }
 
     getChildren(): ViewNode[] | Promise<ViewNode[]> {
@@ -168,14 +177,15 @@ export abstract class PagerNode extends ViewNode {
 }
 
 export class ShowMoreNode extends PagerNode {
-    constructor(view: View, parent: ViewNode, type: string, maxCount: number = Container.config.advanced.maxListItems) {
+    constructor(view: View, parent: ViewNode, itemType: string, previousNode: ViewNode, maxCount?: number) {
         super(
             view,
             parent,
             maxCount === 0
-                ? `Show All ${type} ${GlyphChars.Space}${GlyphChars.Dash}${GlyphChars.Space} this may take a while`
-                : `Show More ${type}`
+                ? `Show All ${itemType} ${GlyphChars.Space}${GlyphChars.Dash}${GlyphChars.Space} this may take a while`
+                : `Show More ${itemType}`,
+            previousNode,
+            maxCount
         );
-        this._args.maxCount = maxCount;
     }
 }

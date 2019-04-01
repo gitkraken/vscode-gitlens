@@ -39,6 +39,7 @@ import { Strings } from '../system/string';
 
 export interface RefreshNodeCommandArgs {
     maxCount?: number;
+    previousNode?: ViewNode;
 }
 
 interface CompareSelectedInfo {

@@ -49,7 +49,7 @@ export class TagNode extends ViewRefNode<RepositoriesView> implements PageableVi
         ];
 
         if (log.truncated) {
-            children.push(new ShowMoreNode(this.view, this, 'Commits'));
+            children.push(new ShowMoreNode(this.view, this, 'Commits', children[children.length - 1]));
         }
         return children;
     }
