@@ -7,9 +7,9 @@ import { log, Strings } from '../../system';
 import { CompareView } from '../compareView';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
 import { ResultsFilesNode } from './resultsFilesNode';
-import { ResourceType, ViewNode } from './viewNode';
+import { ResourceType, SubscribeableViewNode, ViewNode } from './viewNode';
 
-export class CompareResultsNode extends ViewNode<CompareView> {
+export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
     constructor(
         view: CompareView,
         public readonly repoPath: string,
@@ -52,7 +52,7 @@ export class CompareResultsNode extends ViewNode<CompareView> {
             description = (repo && repo.formattedName) || this.uri.repoPath;
         }
 
-        const item = new TreeItem(this.label, TreeItemCollapsibleState.Collapsed);
+        const item = new TreeItem(this.label, this._state || TreeItemCollapsibleState.Collapsed);
         item.contextValue = ResourceType.CompareResults;
         if (this._pinned) {
             item.contextValue += '+pinned';
@@ -116,6 +116,10 @@ export class CompareResultsNode extends ViewNode<CompareView> {
         }
 
         this.view.triggerNodeChange(this);
+    }
+
+    protected subscribe() {
+        return undefined;
     }
 
     private async getCommitsQuery(maxCount: number | undefined): Promise<CommitsQueryResults> {
