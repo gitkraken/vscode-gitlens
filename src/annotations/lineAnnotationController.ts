@@ -15,6 +15,7 @@ import { isTextEditor } from '../constants';
 import { Container } from '../container';
 import { LinesChangeEvent } from '../trackers/gitLineTracker';
 import { Annotations } from './annotations';
+import { log } from '../system';
 
 const annotationDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
     after: {
@@ -70,6 +71,7 @@ export class LineAnnotationController implements Disposable {
         return !this._enabled || this._suspended !== undefined;
     }
 
+    @log()
     resume(reason: 'debugging' | 'user' = 'user') {
         this.setLineTracker(true);
 
@@ -92,6 +94,7 @@ export class LineAnnotationController implements Disposable {
         return false;
     }
 
+    @log()
     suspend(reason: 'debugging' | 'user' = 'user') {
         this.setLineTracker(false);
 
