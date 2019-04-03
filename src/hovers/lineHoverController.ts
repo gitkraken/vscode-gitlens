@@ -2,7 +2,6 @@
 import {
     CancellationToken,
     ConfigurationChangeEvent,
-    debug,
     Disposable,
     Hover,
     languages,
@@ -18,22 +17,16 @@ import { Container } from '../container';
 import { LinesChangeEvent } from '../trackers/gitLineTracker';
 
 export class LineHoverController implements Disposable {
-    private _debugSessionEndDisposable: Disposable | undefined;
     private _disposable: Disposable;
     private _hoverProviderDisposable: Disposable | undefined;
 
     constructor() {
-        this._disposable = Disposable.from(
-            configuration.onDidChange(this.onConfigurationChanged, this),
-            debug.onDidStartDebugSession(this.onDebugSessionStarted, this)
-        );
+        this._disposable = Disposable.from(configuration.onDidChange(this.onConfigurationChanged, this));
         this.onConfigurationChanged(configuration.initializingChangeEvent);
     }
 
     dispose() {
         this.unregister();
-
-        this._debugSessionEndDisposable && this._debugSessionEndDisposable.dispose();
 
         Container.lineTracker.stop(this);
         this._disposable && this._disposable.dispose();
@@ -61,10 +54,6 @@ export class LineHoverController implements Disposable {
         }
     }
 
-    private get debugging() {
-        return this._debugSessionEndDisposable !== undefined;
-    }
-
     private onActiveLinesChanged(e: LinesChangeEvent) {
         if (e.pending || e.reason !== 'editor') return;
 
@@ -75,19 +64,6 @@ export class LineHoverController implements Disposable {
         }
 
         this.register(e.editor);
-    }
-
-    private onDebugSessionStarted() {
-        if (this._debugSessionEndDisposable === undefined) {
-            this._debugSessionEndDisposable = debug.onDidTerminateDebugSession(this.onDebugSessionEnded, this);
-        }
-    }
-
-    private onDebugSessionEnded() {
-        if (this._debugSessionEndDisposable !== undefined) {
-            this._debugSessionEndDisposable.dispose();
-            this._debugSessionEndDisposable = undefined;
-        }
     }
 
     async provideDetailsHover(
@@ -105,7 +81,7 @@ export class LineHoverController implements Disposable {
         const fileAnnotations = await Container.fileAnnotations.getAnnotationType(window.activeTextEditor);
         if (fileAnnotations !== undefined && Container.config.hovers.annotations.details) return undefined;
 
-        const wholeLine = this.debugging ? false : Container.config.hovers.currentLine.over === 'line';
+        const wholeLine = Container.config.hovers.currentLine.over === 'line';
         // If we aren't showing the hover over the whole line, make sure the annotation is on
         if (!wholeLine && Container.lineAnnotations.suspended) return undefined;
 
@@ -161,7 +137,7 @@ export class LineHoverController implements Disposable {
             if (fileAnnotations !== undefined) return undefined;
         }
 
-        const wholeLine = this.debugging ? false : Container.config.hovers.currentLine.over === 'line';
+        const wholeLine = Container.config.hovers.currentLine.over === 'line';
         // If we aren't showing the hover over the whole line, make sure the annotation is on
         if (!wholeLine && Container.lineAnnotations.suspended) return undefined;
 
@@ -182,7 +158,7 @@ export class LineHoverController implements Disposable {
     private register(editor: TextEditor | undefined) {
         this.unregister();
 
-        if (editor === undefined /* || this.suspended */) return;
+        if (editor === undefined) return;
 
         const cfg = Container.config.hovers;
         if (!cfg.enabled || !cfg.currentLine.enabled || (!cfg.currentLine.details && !cfg.currentLine.changes)) return;

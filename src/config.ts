@@ -20,10 +20,10 @@ export interface Config {
         toggleMode: AnnotationsToggleMode;
     };
     currentLine: {
-        scrollable: boolean;
         dateFormat: string | null;
         enabled: boolean;
         format: string;
+        scrollable: boolean;
     };
     codeLens: CodeLensConfig;
     debug: boolean;

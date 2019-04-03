@@ -1,7 +1,6 @@
 'use strict';
 import {
     ConfigurationChangeEvent,
-    debug,
     DecorationOptions,
     DecorationRangeBehavior,
     Disposable,
@@ -27,23 +26,19 @@ const annotationDecoration: TextEditorDecorationType = window.createTextEditorDe
 
 export class LineAnnotationController implements Disposable {
     private _disposable: Disposable;
-    private _debugSessionEndDisposable: Disposable | undefined;
     private _editor: TextEditor | undefined;
     private _enabled: boolean = false;
 
     constructor() {
         this._disposable = Disposable.from(
             configuration.onDidChange(this.onConfigurationChanged, this),
-            Container.fileAnnotations.onDidToggleAnnotations(this.onFileAnnotationsToggled, this),
-            debug.onDidStartDebugSession(this.onDebugSessionStarted, this)
+            Container.fileAnnotations.onDidToggleAnnotations(this.onFileAnnotationsToggled, this)
         );
         this.onConfigurationChanged(configuration.initializingChangeEvent);
     }
 
     dispose() {
         this.clearAnnotations(this._editor);
-
-        this._debugSessionEndDisposable && this._debugSessionEndDisposable.dispose();
 
         Container.lineTracker.stop(this);
         this._disposable && this._disposable.dispose();
@@ -66,40 +61,29 @@ export class LineAnnotationController implements Disposable {
         void this.refresh(window.activeTextEditor);
     }
 
-    private _suspended?: 'debugging' | 'user';
+    private _suspended: boolean = false;
     get suspended() {
-        return !this._enabled || this._suspended !== undefined;
+        return !this._enabled || this._suspended;
     }
 
     @log()
-    resume(reason: 'debugging' | 'user' = 'user') {
+    resume() {
         this.setLineTracker(true);
 
-        switch (reason) {
-            case 'debugging':
-                if (this._suspended !== 'user') {
-                    this._suspended = undefined;
-                    return true;
-                }
-                break;
-
-            case 'user':
-                if (this._suspended !== undefined) {
-                    this._suspended = undefined;
-                    return true;
-                }
-                break;
+        if (this._suspended) {
+            this._suspended = false;
+            return true;
         }
 
         return false;
     }
 
     @log()
-    suspend(reason: 'debugging' | 'user' = 'user') {
+    suspend() {
         this.setLineTracker(false);
 
-        if (this._suspended !== 'user') {
-            this._suspended = reason;
+        if (!this._suspended) {
+            this._suspended = true;
             return true;
         }
 
@@ -114,27 +98,6 @@ export class LineAnnotationController implements Disposable {
         }
 
         this.clear(e.editor);
-    }
-
-    private onDebugSessionStarted() {
-        if (this._debugSessionEndDisposable === undefined) {
-            this._debugSessionEndDisposable = debug.onDidTerminateDebugSession(this.onDebugSessionEnded, this);
-        }
-
-        if (this.suspend('debugging')) {
-            void this.refresh(window.activeTextEditor);
-        }
-    }
-
-    private onDebugSessionEnded() {
-        if (this._debugSessionEndDisposable !== undefined) {
-            this._debugSessionEndDisposable.dispose();
-            this._debugSessionEndDisposable = undefined;
-        }
-
-        if (this.resume('debugging')) {
-            void this.refresh(window.activeTextEditor);
-        }
     }
 
     private onFileAnnotationsToggled() {
@@ -152,11 +115,11 @@ export class LineAnnotationController implements Disposable {
         this._enabled = !(this._enabled && !this.suspended);
 
         if (this._enabled) {
-            if (this.resume('user')) {
+            if (this.resume()) {
                 await this.refresh(editor);
             }
         }
-        else if (this.suspend('user')) {
+        else if (this.suspend()) {
             await this.refresh(editor);
         }
     }

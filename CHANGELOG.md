@@ -31,6 +31,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Improves the behavior of the _Open Changes with Working File_ (`gitlens.diffWithWorking`) command when in the diff editor
 - Updates the invite link to the [VS Code Development Community Slack](https://vscode-slack.amod.io)
 
+### Removed
+
+- Removes the automatic suspension of the current line blame annotations while debugging &mdash; closes [#382](https://github.com/eamodio/vscode-gitlens/issues/382)
+
 ### Fixed
 
 - Fixes [#683](https://github.com/eamodio/vscode-gitlens/issues/683) - log.showSignature leads to stray files being displayed
