@@ -681,5 +681,5 @@ function getRangeFromSymbol(symbol: DocumentSymbol | SymbolInformation) {
 }
 
 function isDocumentSymbol(symbol: DocumentSymbol | SymbolInformation): symbol is DocumentSymbol {
-    return (symbol as DocumentSymbol).children !== undefined;
+    return Functions.is<DocumentSymbol>(symbol, 'children');
 }

@@ -119,6 +119,20 @@ export namespace Functions {
             : [];
     }
 
+    export function is<T extends object>(o: object, prop: keyof T, value?: any): o is T;
+    export function is<T extends object>(o: object, matcher: (o: object) => boolean): o is T;
+    export function is<T extends object>(
+        o: object,
+        propOrMatcher: keyof T | ((o: any) => boolean),
+        value?: any
+    ): o is T {
+        if (typeof propOrMatcher === 'function') {
+            return propOrMatcher(o);
+        }
+
+        return value === undefined ? (o as any)[propOrMatcher] !== undefined : (o as any)[propOrMatcher] === value;
+    }
+
     export function isPromise<T>(obj: T | Promise<T>): obj is Promise<T> {
         return obj && typeof (obj as Promise<T>).then === 'function';
     }

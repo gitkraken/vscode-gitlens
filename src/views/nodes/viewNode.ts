@@ -2,7 +2,7 @@
 import { Command, Disposable, Event, TreeItem, TreeItemCollapsibleState, TreeViewVisibilityChangeEvent } from 'vscode';
 import { GitUri } from '../../git/gitService';
 import { Logger } from '../../logger';
-import { debug, gate, logName } from '../../system';
+import { debug, Functions, gate, logName } from '../../system';
 import { TreeViewNodeStateChangeEvent, View } from '../viewBase';
 
 export enum ResourceType {
@@ -118,16 +118,16 @@ export interface PageableViewNode {
     maxCount: number | undefined;
 }
 
-export function isPageable(
-    node: ViewNode
-): node is ViewNode & { supportsPaging: boolean; maxCount: number | undefined } {
-    return Boolean((node as ViewNode & { supportsPaging: boolean }).supportsPaging);
+export function isPageable(node: ViewNode): node is ViewNode & PageableViewNode {
+    return Functions.is<ViewNode & PageableViewNode>(node, 'supportsPaging', true);
 }
 
-export function supportsAutoRefresh(
-    view: View
-): view is View & { autoRefresh: boolean; onDidChangeAutoRefresh: Event<void> } {
-    return (view as View & { onDidChangeAutoRefresh: Event<void> }).onDidChangeAutoRefresh !== undefined;
+interface AutoRefreshableView {
+    autoRefresh: boolean;
+    onDidChangeAutoRefresh: Event<void>;
+}
+export function supportsAutoRefresh(view: View): view is View & AutoRefreshableView {
+    return Functions.is<View & AutoRefreshableView>(view, 'onDidChangeAutoRefresh');
 }
 
 export abstract class SubscribeableViewNode<TView extends View = View> extends ViewNode<TView> {
