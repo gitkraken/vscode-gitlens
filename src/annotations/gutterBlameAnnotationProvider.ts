@@ -5,18 +5,21 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { CommitFormatOptions, GitBlameCommit } from '../git/gitService';
 import { Logger } from '../logger';
-import { Objects, Strings } from '../system';
+import { log, Objects, Strings } from '../system';
 import { Annotations } from './annotations';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 
 export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
+    @log()
     async onProvideAnnotation(shaOrLine?: string | number, type?: FileAnnotationType): Promise<boolean> {
+        const cc = Logger.getCorrelationContext();
+
         this.annotationType = FileAnnotationType.Blame;
 
         const blame = await this.getBlame();
         if (blame === undefined) return false;
 
-        const start = process.hrtime();
+        let start = process.hrtime();
 
         const cfg = Container.config.blame;
 
@@ -131,7 +134,11 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
             decorationsMap[l.sha] = gutter;
         }
 
+        Logger.log(cc, `${Strings.getDurationMilliseconds(start)} ms to compute gutter blame annotations`);
+
         if (this.decorations.length) {
+            start = process.hrtime();
+
             this.editor.setDecorations(this.decoration!, this.decorations);
 
             if (avatars) {
@@ -141,12 +148,11 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
                     this.editor.setDecorations(d.decoration, d.ranges);
                 }
             }
+
+            Logger.log(cc, `${Strings.getDurationMilliseconds(start)} ms to apply all gutter blame annotations`);
         }
 
-        Logger.log(`${Strings.getDurationMilliseconds(start)} ms to compute gutter blame annotations`);
-
         this.registerHoverProviders(Container.config.hovers.annotations);
-        void this.selection(shaOrLine, blame);
         return true;
     }
 

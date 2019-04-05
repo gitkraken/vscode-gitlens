@@ -4,7 +4,7 @@ import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
 import { GitUri } from '../git/gitService';
 import { Logger } from '../logger';
-import { Strings } from '../system';
+import { log, Strings } from '../system';
 import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 import { AnnotationProviderBase } from './annotationProvider';
 import { Annotations } from './annotations';
@@ -23,7 +23,10 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
         this._uri = trackedDocument.uri;
     }
 
+    @log()
     async onProvideAnnotation(shaOrLine?: string | number): Promise<boolean> {
+        const cc = Logger.getCorrelationContext();
+
         this.annotationType = FileAnnotationType.RecentChanges;
 
         const commit = await Container.git.getRecentLogCommitForFile(this._uri.repoPath, this._uri.fsPath);
@@ -32,7 +35,7 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
         const diff = await Container.git.getDiffForFile(this._uri, commit.previousSha);
         if (diff === undefined) return false;
 
-        const start = process.hrtime();
+        let start = process.hrtime();
 
         const cfg = Container.config;
         const dateFormat = cfg.defaultDateFormat;
@@ -81,9 +84,15 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
             }
         }
 
-        this.editor.setDecorations(this.decoration, this.decorations);
+        Logger.log(cc, `${Strings.getDurationMilliseconds(start)} ms to compute recent changes annotations`);
 
-        Logger.log(`${Strings.getDurationMilliseconds(start)} ms to compute recent changes annotations`);
+        if (this.decorations.length) {
+            start = process.hrtime();
+
+            this.editor.setDecorations(this.decoration, this.decorations);
+
+            Logger.log(cc, `${Strings.getDurationMilliseconds(start)} ms to apply recent changes annotations`);
+        }
 
         return true;
     }

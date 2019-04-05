@@ -4,18 +4,21 @@ import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
 import { GitBlameCommit } from '../git/gitService';
 import { Logger } from '../logger';
-import { Strings } from '../system';
+import { log, Strings } from '../system';
 import { Annotations } from './annotations';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 
 export class HeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase {
+    @log()
     async onProvideAnnotation(shaOrLine?: string | number, type?: FileAnnotationType): Promise<boolean> {
+        const cc = Logger.getCorrelationContext();
+
         this.annotationType = FileAnnotationType.Heatmap;
 
         const blame = await this.getBlame();
         if (blame === undefined) return false;
 
-        const start = process.hrtime();
+        let start = process.hrtime();
 
         const renderOptions = Annotations.heatmapRenderOptions();
 
@@ -52,14 +55,17 @@ export class HeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase 
             decorationsMap[l.sha] = heatmap;
         }
 
+        Logger.log(cc, `${Strings.getDurationMilliseconds(start)} ms to compute heatmap annotations`);
+
         if (this.decorations.length) {
+            start = process.hrtime();
+
             this.editor.setDecorations(this.decoration!, this.decorations);
+
+            Logger.log(cc, `${Strings.getDurationMilliseconds(start)} ms to apply recent changes annotations`);
         }
 
-        Logger.log(`${Strings.getDurationMilliseconds(start)} ms to compute heatmap annotations`);
-
         this.registerHoverProviders(Container.config.hovers.annotations);
-        void this.selection(shaOrLine, blame);
         return true;
     }
 }

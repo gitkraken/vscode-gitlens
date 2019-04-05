@@ -12,7 +12,7 @@ import {
 } from 'vscode';
 import { Container } from '../container';
 import { GitBlame, GitCommit, GitUri } from '../git/gitService';
-import { Arrays, Iterables } from '../system';
+import { Arrays, Iterables, log } from '../system';
 import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 import { AnnotationProviderBase } from './annotationProvider';
 import { Annotations, ComputedHeatmap } from './annotations';
@@ -58,6 +58,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         return super.onReset(changes);
     }
 
+    @log({ args: false })
     async selection(shaOrLine?: string | number, blame?: GitBlame) {
         if (!this.highlightDecoration) return;
 
@@ -106,6 +107,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         return blame;
     }
 
+    @log({ args: false })
     protected getComputedHeatmap(blame: GitBlame): ComputedHeatmap {
         const dates = [];
 

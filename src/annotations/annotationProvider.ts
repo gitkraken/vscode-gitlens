@@ -163,7 +163,6 @@ export abstract class AnnotationProviderBase implements Disposable {
         this.status = AnnotationStatus.Computed;
         if (editor === window.activeTextEditor) {
             await setCommandContext(CommandContext.AnnotationStatus, this.status);
-            await this.selection(editor.selection.active.line);
         }
     }
 
