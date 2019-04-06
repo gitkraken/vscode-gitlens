@@ -5014,7 +5014,7 @@
         "sass-loader": "7.1.0",
         "terser-webpack-plugin": "1.2.3",
         "ts-loader": "5.3.3",
-        "typescript": "3.4.1",
+        "typescript": "3.4.2",
         "vsce": "1.59.0",
         "vscode": "1.1.33",
         "webpack": "4.29.6",
