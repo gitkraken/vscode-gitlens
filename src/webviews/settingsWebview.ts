@@ -2,10 +2,10 @@
 import { commands, workspace } from 'vscode';
 import { Commands } from '../commands';
 import { Config, configuration } from '../configuration';
-import { SettingsBootstrap } from '../ui/ipc';
-import { WebviewEditor } from './webviewEditor';
+import { SettingsBootstrap } from './protocol';
+import { WebviewBase } from './webviewBase';
 
-export class SettingsEditor extends WebviewEditor<SettingsBootstrap> {
+export class SettingsWebview extends WebviewBase<SettingsBootstrap> {
     constructor() {
         super();
     }

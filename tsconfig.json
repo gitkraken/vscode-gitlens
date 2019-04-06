@@ -15,5 +15,5 @@
         "strict": true,
         "target": "es2018"
     },
-    "exclude": ["node_modules", "test", "src/ui"]
+    "exclude": ["node_modules", "test", "src/webviews/apps"]
 }

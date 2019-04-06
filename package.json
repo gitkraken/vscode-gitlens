@@ -4978,8 +4978,8 @@
         "rebuild": "npm run reset && npm run build",
         "reset": "npm run clean && npm install --no-save",
         "watch": "webpack --watch --env.development --info-verbosity verbose",
-        "ui:optimize": "webpack --config-name ui --env.optimizeImages",
-        "ui:watch": "webpack --watch --config-name ui --env.development --info-verbosity verbose",
+        "webviews:optimize": "webpack --config-name webviews --env.optimizeImages",
+        "webviews:watch": "webpack --watch --config-name webviews --env.development --info-verbosity verbose",
         "update:emoji": "pushd emoji && node ./shortcodeToEmoji.js && popd",
         "postinstall": "node ./node_modules/vscode/bin/install",
         "vscode:prepublish": "npm run reset && npm run bundle"
@@ -5004,6 +5004,7 @@
         "eslint-loader": "2.1.2",
         "eslint-plugin-import": "2.16.0",
         "eslint-plugin-prettiest": "0.0.1",
+        "html-webpack-exclude-assets-plugin": "0.0.7",
         "html-webpack-inline-source-plugin": "0.0.10",
         "html-webpack-plugin": "3.2.0",
         "imagemin-webpack-plugin": "2.4.2",

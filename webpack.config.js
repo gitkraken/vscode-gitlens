@@ -6,6 +6,7 @@ const webpack = require('webpack');
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 const CleanPlugin = require('clean-webpack-plugin');
 const CircularDependencyPlugin = require('circular-dependency-plugin');
+const HtmlExcludeAssetsPlugin = require('html-webpack-exclude-assets-plugin');
 const HtmlInlineSourcePlugin = require('html-webpack-inline-source-plugin');
 const HtmlPlugin = require('html-webpack-plugin');
 const ImageminPlugin = require('imagemin-webpack-plugin').default;
@@ -122,9 +123,9 @@ function getExtensionConfig(env) {
 }
 
 function getUIConfig(env) {
-    const clean = ['settings.html', 'welcome.html'];
+    const clean = [];
     if (env.optimizeImages) {
-        console.log('Optimizing images (src/ui/images/settings/*.png)...');
+        console.log('Optimizing images (src/webviews/apps/images/settings/*.png)...');
         clean.push('images/settings');
     }
 
@@ -134,11 +135,12 @@ function getUIConfig(env) {
             filename: '[name].css'
         }),
         new HtmlPlugin({
+            excludeAssets: [/main\.js/],
             excludeChunks: ['welcome'],
             template: 'settings/index.html',
-            filename: path.resolve(__dirname, 'settings.html'),
+            filename: path.resolve(__dirname, 'dist/webviews/settings.html'),
             inject: true,
-            inlineSource: env.production ? '.(js|css)$' : undefined,
+            // inlineSource: env.production ? '.(js|css)$' : undefined,
             minify: env.production
                 ? {
                       removeComments: true,
@@ -153,11 +155,12 @@ function getUIConfig(env) {
                 : false
         }),
         new HtmlPlugin({
+            excludeAssets: [/main\.js/],
             excludeChunks: ['settings'],
             template: 'welcome/index.html',
-            filename: path.resolve(__dirname, 'welcome.html'),
+            filename: path.resolve(__dirname, 'dist/webviews/welcome.html'),
             inject: true,
-            inlineSource: env.production ? '.(js|css)$' : undefined,
+            // inlineSource: env.production ? '.(js|css)$' : undefined,
             minify: env.production
                 ? {
                       removeComments: true,
@@ -171,12 +174,13 @@ function getUIConfig(env) {
                   }
                 : false
         }),
+        new HtmlExcludeAssetsPlugin(),
         new HtmlInlineSourcePlugin(),
         new ImageminPlugin({
             disable: !env.optimizeImages,
             externalImages: {
-                context: path.resolve(__dirname, 'src/ui/images'),
-                sources: glob.sync('src/ui/images/settings/*.png'),
+                context: path.resolve(__dirname, 'src/webviews/apps/images'),
+                sources: glob.sync('src/webviews/apps/images/settings/*.png'),
                 destination: path.resolve(__dirname, 'images')
             },
             cacheFolder: path.resolve(__dirname, '.cache-images'),
@@ -192,20 +196,19 @@ function getUIConfig(env) {
     ];
 
     return {
-        name: 'ui',
-        context: path.resolve(__dirname, 'src/ui'),
-        // This is ugly having main.scss on both bundles, but if it is added separately it will generate a js bundle :(
+        name: 'webviews',
+        context: path.resolve(__dirname, 'src/webviews/apps'),
         entry: {
-            settings: ['./settings/index.ts', './scss/main.scss'],
-            welcome: ['./welcome/index.ts', './scss/main.scss']
-            // main: ['./scss/main.scss']
+            main: ['./scss/main.scss'],
+            settings: ['./settings/index.ts'],
+            welcome: ['./welcome/index.ts']
         },
         mode: env.production ? 'production' : 'development',
         devtool: env.production ? undefined : 'eval-source-map',
         output: {
             filename: '[name].js',
-            path: path.resolve(__dirname, 'dist/ui'),
-            publicPath: '{{root}}/dist/ui/'
+            path: path.resolve(__dirname, 'dist/webviews'),
+            publicPath: '{{root}}/dist/webviews/'
         },
         module: {
             rules: [
@@ -228,7 +231,7 @@ function getUIConfig(env) {
                     use: {
                         loader: 'ts-loader',
                         options: {
-                            configFile: 'ui.tsconfig.json'
+                            configFile: 'webviews.tsconfig.json'
                         }
                     },
                     exclude: /node_modules|\.d\.ts$/
@@ -259,7 +262,7 @@ function getUIConfig(env) {
         },
         resolve: {
             extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
-            modules: [path.resolve(__dirname, 'src/ui'), 'node_modules']
+            modules: [path.resolve(__dirname, 'src/webviews/apps'), 'node_modules']
         },
         plugins: plugins,
         stats: {

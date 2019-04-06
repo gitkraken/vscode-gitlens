@@ -21,7 +21,7 @@ import {
     GitUri
 } from '../git/gitService';
 import { Objects, Strings } from '../system';
-import { toRgba } from '../ui/shared/colors';
+import { toRgba } from '../webviews/apps/shared/colors';
 
 export interface ComputedHeatmap {
     cold: boolean;

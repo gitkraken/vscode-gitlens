@@ -2,10 +2,10 @@
 import { commands } from 'vscode';
 import { Commands } from '../commands';
 import { Container } from '../container';
-import { WelcomeBootstrap } from '../ui/ipc';
-import { WebviewEditor } from './webviewEditor';
+import { WelcomeBootstrap } from './protocol';
+import { WebviewBase } from './webviewBase';
 
-export class WelcomeEditor extends WebviewEditor<WelcomeBootstrap> {
+export class WelcomeWebview extends WebviewBase<WelcomeBootstrap> {
     constructor() {
         super();
     }

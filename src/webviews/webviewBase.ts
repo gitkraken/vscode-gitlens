@@ -1,4 +1,5 @@
 'use strict';
+import * as paths from 'path';
 import * as fs from 'fs';
 import {
     ConfigurationChangeEvent,
@@ -14,9 +15,18 @@ import {
 import { Config, configuration } from '../configuration';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { Message, SettingsChangedMessage } from '../ui/ipc';
+import {
+    DidChangeConfigurationNotificationType,
+    IpcMessage,
+    IpcNotificationParamsOf,
+    IpcNotificationType,
+    onIpcCommand,
+    UpdateConfigurationCommandType
+} from './protocol';
 
-export abstract class WebviewEditor<TBootstrap> implements Disposable {
+let ipcSequence = 0;
+
+export abstract class WebviewBase<TBootstrap> implements Disposable {
     private _disposable: Disposable | undefined;
     private _disposablePanel: Disposable | undefined;
     private _panel: WebviewPanel | undefined;
@@ -41,7 +51,7 @@ export abstract class WebviewEditor<TBootstrap> implements Disposable {
     }
 
     private onConfigurationChanged(e: ConfigurationChangeEvent) {
-        this.postUpdatedConfiguration();
+        this.notifyDidChangeConfiguration();
     }
 
     private onPanelDisposed() {
@@ -51,38 +61,48 @@ export abstract class WebviewEditor<TBootstrap> implements Disposable {
 
     private onViewStateChanged(e: WebviewPanelOnDidChangeViewStateEvent) {
         Logger.log(
-            'WebviewEditor.onViewStateChanged',
+            `Webview(${this.id}).onViewStateChanged`,
             `active=${e.webviewPanel.active}, visible=${e.webviewPanel.visible}`
         );
 
         // Anytime the webview becomes active, make sure it has the most up-to-date config
         if (e.webviewPanel.active) {
-            this.postUpdatedConfiguration();
+            this.notifyDidChangeConfiguration();
         }
     }
 
-    protected async onMessageReceived(e: Message) {
+    protected onMessageReceived(e: IpcMessage) {
+        // virtual
+    }
+
+    private onMessageReceivedCore(e: IpcMessage) {
         if (e == null) return;
 
-        Logger.log(`WebviewEditor.onMessageReceived: type=${e.type}, data=${JSON.stringify(e)}`);
+        Logger.log(`Webview(${this.id}).onMessageReceived: method=${e.method}, data=${JSON.stringify(e)}`);
 
-        switch (e.type) {
-            case 'saveSettings': {
-                const target = e.scope === 'workspace' ? ConfigurationTarget.Workspace : ConfigurationTarget.Global;
+        switch (e.method) {
+            case UpdateConfigurationCommandType.method:
+                onIpcCommand(UpdateConfigurationCommandType, e, async params => {
+                    const target =
+                        params.scope === 'workspace' ? ConfigurationTarget.Workspace : ConfigurationTarget.Global;
 
-                for (const key in e.changes) {
-                    const inspect = await configuration.inspect(key)!;
+                    for (const key in params.changes) {
+                        const inspect = await configuration.inspect(key)!;
 
-                    const value = e.changes[key];
-                    await configuration.update(key, value === inspect.defaultValue ? undefined : value, target);
-                }
+                        const value = params.changes[key];
+                        await configuration.update(key, value === inspect.defaultValue ? undefined : value, target);
+                    }
 
-                for (const key of e.removes) {
-                    await configuration.update(key, undefined, target);
-                }
+                    for (const key of params.removes) {
+                        await configuration.update(key, undefined, target);
+                    }
+                });
 
                 break;
-            }
+            default:
+                this.onMessageReceived(e);
+
+                break;
         }
     }
 
@@ -117,7 +137,7 @@ export abstract class WebviewEditor<TBootstrap> implements Disposable {
                 this._panel,
                 this._panel.onDidDispose(this.onPanelDisposed, this),
                 this._panel.onDidChangeViewState(this.onViewStateChanged, this),
-                this._panel.webview.onDidReceiveMessage(this.onMessageReceived, this)
+                this._panel.webview.onDidReceiveMessage(this.onMessageReceivedCore, this)
             );
 
             this._panel.webview.html = html;
@@ -132,11 +152,13 @@ export abstract class WebviewEditor<TBootstrap> implements Disposable {
 
     private _html: string | undefined;
     private async getHtml(): Promise<string> {
+        const filename = Container.context.asAbsolutePath(paths.join('dist/webviews/', this.filename));
+
         let content;
         // When we are debugging avoid any caching so that we can change the html and have it update without reloading
         if (Logger.isDebugging) {
             content = await new Promise<string>((resolve, reject) => {
-                fs.readFile(Container.context.asAbsolutePath(this.filename), 'utf8', (err, data) => {
+                fs.readFile(filename, 'utf8', (err, data) => {
                     if (err) {
                         reject(err);
                     }
@@ -149,7 +171,7 @@ export abstract class WebviewEditor<TBootstrap> implements Disposable {
         else {
             if (this._html !== undefined) return this._html;
 
-            const doc = await workspace.openTextDocument(Container.context.asAbsolutePath(this.filename));
+            const doc = await workspace.openTextDocument(filename);
             content = doc.getText();
         }
 
@@ -167,18 +189,29 @@ export abstract class WebviewEditor<TBootstrap> implements Disposable {
         return this._html;
     }
 
-    private postMessage(message: Message) {
-        if (this._panel === undefined) return false;
-
-        return this._panel!.webview.postMessage(message);
+    protected notify<NT extends IpcNotificationType>(type: NT, params: IpcNotificationParamsOf<NT>): Thenable<boolean> {
+        return this.postMessage({ id: this.nextIpcId(), method: type.method, params: params });
     }
 
-    private postUpdatedConfiguration() {
+    private nextIpcId() {
+        if (ipcSequence === Number.MAX_SAFE_INTEGER) {
+            ipcSequence = 1;
+        }
+        else {
+            ipcSequence++;
+        }
+
+        return `host:${ipcSequence}`;
+    }
+
+    private notifyDidChangeConfiguration() {
         // Make sure to get the raw config, not from the container which has the modes mixed in
-        const msg: SettingsChangedMessage = {
-            type: 'settingsChanged',
-            config: configuration.get<Config>()
-        };
-        return this.postMessage(msg);
+        return this.notify(DidChangeConfigurationNotificationType, { config: configuration.get<Config>() });
+    }
+
+    private postMessage(message: IpcMessage) {
+        if (this._panel === undefined) return Promise.resolve(false);
+
+        return this._panel.webview.postMessage(message);
     }
 }

@@ -1,61 +1,78 @@
 'use strict';
-/*global window document MutationObserver*/
-import { darken, lighten, opacity } from '../shared/colors';
-import { Bootstrap, Message, SaveSettingsMessage } from '../ipc';
-import { DOM } from '../shared/dom';
+/*global window document*/
+import {
+    AppWithConfigBootstrap,
+    DidChangeConfigurationNotificationType,
+    IpcMessage,
+    onIpcNotification,
+    UpdateConfigurationCommandType
+} from '../../protocol';
+import { DOM } from './dom';
+import { App } from './appBase';
 
-interface VsCodeApi {
-    postMessage(msg: {}): void;
-    setState(state: {}): void;
-    getState(): {};
-}
-
-declare function acquireVsCodeApi(): VsCodeApi;
-
-export abstract class App<TBootstrap extends Bootstrap> {
-    private readonly _api: VsCodeApi;
+export abstract class AppWithConfig<TBootstrap extends AppWithConfigBootstrap> extends App<TBootstrap> {
     private _changes: { [key: string]: any } = Object.create(null);
+
     private _updating: boolean = false;
 
-    constructor(protected readonly appName: string, protected readonly bootstrap: TBootstrap) {
-        this.log(`${this.appName}.ctor`);
+    constructor(appName: string, bootstrap: TBootstrap) {
+        super(appName, bootstrap);
+    }
 
-        this._api = acquireVsCodeApi();
+    protected onInitialized() {
+        this.setState();
+    }
 
-        this.initializeColorPalette();
-        this.initialize();
-        this.bind();
+    protected onBind(me: this) {
+        DOM.listenAll('input[type=checkbox].setting', 'change', function(this: HTMLInputElement) {
+            return me.onInputChecked(this);
+        });
+        DOM.listenAll('input[type=text].setting, input:not([type]).setting', 'blur', function(this: HTMLInputElement) {
+            return me.onInputBlurred(this);
+        });
+        DOM.listenAll('input[type=text].setting, input:not([type]).setting', 'focus', function(this: HTMLInputElement) {
+            return me.onInputFocused(this);
+        });
+        DOM.listenAll('select.setting', 'change', function(this: HTMLSelectElement) {
+            return me.onInputSelected(this);
+        });
+        DOM.listenAll('[data-token]', 'mousedown', function(this: HTMLElement, e: Event) {
+            return me.onTokenMouseDown(this, e as MouseEvent);
+        });
+        DOM.listenAll('.popup', 'mousedown', function(this: HTMLElement, e: Event) {
+            return me.onPopupMouseDown(this, e as MouseEvent);
+        });
+        DOM.listenAll('a.jump-to[href^="#"]', 'click', function(this: HTMLAnchorElement, e: Event) {
+            return me.onJumpToLinkClicked(this, e as MouseEvent);
+        });
+    }
 
-        setTimeout(() => {
-            document.body.classList.remove('preload');
-        }, 500);
+    protected onMessageReceived(e: MessageEvent) {
+        const msg = e.data as IpcMessage;
+
+        switch (msg.method) {
+            case DidChangeConfigurationNotificationType.method:
+                onIpcNotification(DidChangeConfigurationNotificationType, msg, params => {
+                    this.bootstrap.config = params.config;
+
+                    this.setState();
+                });
+                break;
+        }
     }
 
     protected applyChanges() {
-        const msg: SaveSettingsMessage = {
-            type: 'saveSettings',
+        this.sendCommand(UpdateConfigurationCommandType, {
             changes: { ...this._changes },
             removes: Object.keys(this._changes).filter(k => this._changes[k] === undefined),
             scope: this.getSettingsScope()
-        };
-        this.postMessage(msg);
+        });
 
         this._changes = Object.create(null);
     }
 
     protected getSettingsScope(): 'user' | 'workspace' {
         return 'user';
-    }
-
-    protected log(message: string) {
-        console.log(message);
-    }
-
-    protected onBind() {
-        // virtual
-    }
-    protected onInitialize() {
-        // virtual
     }
 
     protected onInputBlurred(element: HTMLInputElement) {
@@ -184,17 +201,6 @@ export abstract class App<TBootstrap extends Bootstrap> {
         e.preventDefault();
     }
 
-    protected onMessageReceived(e: MessageEvent) {
-        const msg = e.data as Message;
-        switch (msg.type) {
-            case 'settingsChanged':
-                this.bootstrap.config = msg.config;
-
-                this.setState();
-                break;
-        }
-    }
-
     protected onPopupMouseDown(element: HTMLElement, e: MouseEvent) {
         // e.stopPropagation();
         // e.stopImmediatePropagation();
@@ -217,40 +223,6 @@ export abstract class App<TBootstrap extends Bootstrap> {
         e.stopPropagation();
         e.stopImmediatePropagation();
         e.preventDefault();
-    }
-
-    protected postMessage(e: Message) {
-        this._api.postMessage(e);
-    }
-
-    private bind() {
-        this.onBind();
-
-        window.addEventListener('message', this.onMessageReceived.bind(this));
-
-        const me = this;
-
-        DOM.listenAll('input[type=checkbox].setting', 'change', function(this: HTMLInputElement) {
-            return me.onInputChecked(this);
-        });
-        DOM.listenAll('input[type=text].setting, input:not([type]).setting', 'blur', function(this: HTMLInputElement) {
-            return me.onInputBlurred(this);
-        });
-        DOM.listenAll('input[type=text].setting, input:not([type]).setting', 'focus', function(this: HTMLInputElement) {
-            return me.onInputFocused(this);
-        });
-        DOM.listenAll('select.setting', 'change', function(this: HTMLSelectElement) {
-            return me.onInputSelected(this);
-        });
-        DOM.listenAll('[data-token]', 'mousedown', function(this: HTMLElement, e: Event) {
-            return me.onTokenMouseDown(this, e as MouseEvent);
-        });
-        DOM.listenAll('.popup', 'mousedown', function(this: HTMLElement, e: Event) {
-            return me.onPopupMouseDown(this, e as MouseEvent);
-        });
-        DOM.listenAll('a.jump-to[href^="#"]', 'click', function(this: HTMLAnchorElement, e: Event) {
-            return me.onJumpToLinkClicked(this, e as MouseEvent);
-        });
     }
 
     private evaluateStateExpression(expression: string, changes: { [key: string]: string | boolean }): boolean {
@@ -294,84 +266,6 @@ export abstract class App<TBootstrap extends Bootstrap> {
 
     private getSettingValue<T>(path: string): T | undefined {
         return get<T>(this.bootstrap.config, path);
-    }
-
-    private initialize() {
-        this.log(`${this.appName}.initialize`);
-
-        this.onInitialize();
-
-        this.setState();
-    }
-
-    private initializeColorPalette() {
-        const onColorThemeChanged = () => {
-            const body = document.body;
-            const computedStyle = window.getComputedStyle(body);
-
-            const bodyStyle = body.style;
-
-            const font = computedStyle.getPropertyValue('--vscode-font-family').trim();
-            if (font) {
-                bodyStyle.setProperty('--font-family', font);
-                bodyStyle.setProperty('--font-size', computedStyle.getPropertyValue('--vscode-font-size').trim());
-                bodyStyle.setProperty('--font-weight', computedStyle.getPropertyValue('--vscode-font-weight').trim());
-            }
-            else {
-                bodyStyle.setProperty(
-                    '--font-family',
-                    computedStyle.getPropertyValue('--vscode-editor-font-family').trim()
-                );
-                bodyStyle.setProperty(
-                    '--font-size',
-                    computedStyle.getPropertyValue('--vscode-editor-font-size').trim()
-                );
-                bodyStyle.setProperty(
-                    '--font-weight',
-                    computedStyle.getPropertyValue('--vscode-editor-font-weight').trim()
-                );
-            }
-
-            let color = computedStyle.getPropertyValue('--vscode-editor-background').trim();
-            bodyStyle.setProperty('--color-background', color);
-            bodyStyle.setProperty('--color-background--lighten-05', lighten(color, 5));
-            bodyStyle.setProperty('--color-background--darken-05', darken(color, 5));
-            bodyStyle.setProperty('--color-background--lighten-075', lighten(color, 7.5));
-            bodyStyle.setProperty('--color-background--darken-075', darken(color, 7.5));
-            bodyStyle.setProperty('--color-background--lighten-15', lighten(color, 15));
-            bodyStyle.setProperty('--color-background--darken-15', darken(color, 15));
-            bodyStyle.setProperty('--color-background--lighten-30', lighten(color, 30));
-            bodyStyle.setProperty('--color-background--darken-30', darken(color, 30));
-
-            color = computedStyle.getPropertyValue('--vscode-button-background').trim();
-            bodyStyle.setProperty('--color-button-background', color);
-            bodyStyle.setProperty('--color-button-background--darken-30', darken(color, 30));
-
-            color = computedStyle.getPropertyValue('--vscode-button-foreground').trim();
-            bodyStyle.setProperty('--color-button-foreground', color);
-
-            color = computedStyle.getPropertyValue('--vscode-editor-foreground').trim();
-            if (!color) {
-                color = computedStyle.getPropertyValue('--vscode-foreground').trim();
-            }
-            bodyStyle.setProperty('--color-foreground', color);
-            bodyStyle.setProperty('--color-foreground--85', opacity(color, 85));
-            bodyStyle.setProperty('--color-foreground--75', opacity(color, 75));
-            bodyStyle.setProperty('--color-foreground--50', opacity(color, 50));
-
-            color = computedStyle.getPropertyValue('--vscode-focusBorder').trim();
-            bodyStyle.setProperty('--color-focus-border', color);
-
-            color = computedStyle.getPropertyValue('--vscode-textLink-foreground').trim();
-            bodyStyle.setProperty('--color-link-foreground', color);
-            bodyStyle.setProperty('--color-link-foreground--darken-20', darken(color, 20));
-        };
-
-        const observer = new MutationObserver(onColorThemeChanged);
-        observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-
-        onColorThemeChanged();
-        return observer;
     }
 
     private setState() {

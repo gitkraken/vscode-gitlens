@@ -1,12 +1,12 @@
 'use strict';
 /*global window document*/
-import { SettingsBootstrap } from '../ipc';
-import { App } from '../shared/app-base';
+import { SettingsBootstrap } from '../../protocol';
+import { AppWithConfig } from '../shared/appWithConfigBase';
 import { DOM } from '../shared/dom';
 
 const bootstrap: SettingsBootstrap = (window as any).bootstrap;
 
-export class SettingsApp extends App<SettingsBootstrap> {
+export class SettingsApp extends AppWithConfig<SettingsBootstrap> {
     private _scopes: HTMLSelectElement | null = null;
 
     constructor() {
@@ -32,8 +32,8 @@ export class SettingsApp extends App<SettingsBootstrap> {
         }
     }
 
-    protected onBind() {
-        const me = this;
+    protected onBind(me: this) {
+        super.onBind(me);
 
         DOM.listenAll('.section__header', 'click', function(this: HTMLInputElement, e: Event) {
             return me.onSectionHeaderClicked(this, e as MouseEvent);
@@ -91,3 +91,5 @@ export class SettingsApp extends App<SettingsBootstrap> {
         element.classList.toggle('collapsed');
     }
 }
+
+new SettingsApp();

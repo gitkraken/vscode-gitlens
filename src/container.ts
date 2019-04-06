@@ -21,8 +21,8 @@ import { RepositoriesView } from './views/repositoriesView';
 import { SearchView } from './views/searchView';
 import { ViewCommands } from './views/viewCommands';
 import { VslsController } from './vsls/vsls';
-import { SettingsEditor } from './webviews/settingsEditor';
-import { WelcomeEditor } from './webviews/welcomeEditor';
+import { SettingsWebview } from './webviews/settingsWebview';
+import { WelcomeWebview } from './webviews/welcomeWebview';
 
 export class Container {
     private static _configsAffectedByMode: string[] | undefined;
@@ -49,8 +49,8 @@ export class Container {
         context.subscriptions.push((this._statusBarController = new StatusBarController()));
         context.subscriptions.push((this._codeLensController = new GitCodeLensController()));
         context.subscriptions.push((this._keyboard = new Keyboard()));
-        context.subscriptions.push((this._settingsEditor = new SettingsEditor()));
-        context.subscriptions.push((this._welcomeEditor = new WelcomeEditor()));
+        context.subscriptions.push((this._settingsWebview = new SettingsWebview()));
+        context.subscriptions.push((this._welcomeWebview = new WelcomeWebview()));
 
         if (config.views.compare.enabled) {
             context.subscriptions.push((this._compareView = new CompareView()));
@@ -238,9 +238,9 @@ export class Container {
         return this._searchView;
     }
 
-    private static _settingsEditor: SettingsEditor;
-    static get settingsEditor() {
-        return this._settingsEditor;
+    private static _settingsWebview: SettingsWebview;
+    static get settingsWebview() {
+        return this._settingsWebview;
     }
 
     private static _statusBarController: StatusBarController;
@@ -266,9 +266,9 @@ export class Container {
         return this._vsls;
     }
 
-    private static _welcomeEditor: WelcomeEditor;
-    static get welcomeEditor() {
-        return this._welcomeEditor;
+    private static _welcomeWebview: WelcomeWebview;
+    static get welcomeWebview() {
+        return this._welcomeWebview;
     }
 
     private static applyMode(config: Config) {

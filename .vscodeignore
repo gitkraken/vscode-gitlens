@@ -2,7 +2,7 @@
 .cache-loader/**
 .github/**
 .vscode/**
-dist/ui/**
+dist/webviews/main.js
 emoji/**
 images/docs/**
 images/**/*.pdn
@@ -10,13 +10,15 @@ node_modules/**
 src/**
 test/**
 *.map
+.eslintrc.json
 .gitignore
+.mailmap
 .prettierignore
 .prettierrc
 CODE_OF_CONDUCT.md
 CONTRIBUTING.md
+generateEmojiShortcodeMap.js
 package-lock.json
 tsconfig.json
-tslint.json
-ui.tsconfig.json
 webpack.config.js
+webviews.tsconfig.json
