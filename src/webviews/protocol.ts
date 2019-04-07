@@ -85,6 +85,35 @@ export const SettingsDidRequestJumpToNotificationType = new IpcNotificationType<
 	'settings/jumpTo',
 );
 
+export interface TimelineDatum {
+	author: string;
+	changes: number;
+	added: number;
+	deleted: number;
+	commit: string;
+	date: Date;
+	message: string;
+}
+
+export interface TimelineData {
+	fileName: string;
+	dataset: TimelineDatum[];
+}
+
+export interface TimelineDidChangeDataNotificationParams {
+	data?: TimelineData;
+}
+export const TimelineDidChangeDataNotificationType = new IpcNotificationType<TimelineDidChangeDataNotificationParams>(
+	'timeline/data/didChange'
+);
+
+export interface TimelineClickCommandParams {
+	data?: {
+		id: string;
+	};
+}
+export const TimelineClickCommandType = new IpcCommandType<TimelineClickCommandParams>('timeline/click');
+
 export interface AppStateWithConfig {
 	config: Config;
 	customSettings?: Record<string, boolean>;

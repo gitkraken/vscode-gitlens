@@ -1,0 +1,351 @@
+* {
+	box-sizing: border-box;
+}
+
+html {
+	height: 100%;
+}
+
+body {
+	height: 100%;
+	overflow: hidden;
+}
+
+.container {
+	padding-bottom: 20px;
+}
+
+.container,
+#chart {
+	height: 100%;
+	width: 100%;
+}
+
+/*-- Default color pattern --*/
+.bb-color-pattern {
+	background-image: url('#00c73c;#fa7171;#2ad0ff;#7294ce;#e3e448;#cc7e6e;#fb6ccf;#c98dff;#4aea99;#bbbbbb;');
+}
+
+/*-- Chart --*/
+.bb {
+	svg {
+		font-size: 12px;
+		line-height: 1;
+
+		path,
+		line {
+			fill: none;
+		}
+
+		path.domain {
+			.vscode-dark & {
+				stroke: var(--color-background--lighten-15);
+			}
+
+			.vscode-light & {
+				stroke: var(--color-background--darken-15);
+			}
+		}
+
+		text {
+			user-select: none;
+			fill: var(--color-foreground--75);
+			font-size: 11px;
+		}
+	}
+}
+
+.bb-legend-item-title,
+.bb-xgrid-focus,
+.bb-ygrid,
+.bb-event-rect,
+.bb-bars path {
+	shape-rendering: crispEdges;
+}
+
+/*-- Axis --*/
+.bb-axis {
+	shape-rendering: crispEdges;
+}
+
+.bb-axis-y,
+.bb-axis-y2 {
+	text {
+		fill: var(--color-foreground--75);
+	}
+}
+
+.bb-event-rects {
+	fill-opacity: 1 !important;
+
+	.bb-event-rect {
+		fill: transparent;
+
+		&._active_ {
+			fill: rgba(39, 201, 3, 0.05);
+		}
+	}
+}
+
+.tick._active_ text {
+	fill: #00c83c !important;
+}
+
+/*-- Grid --*/
+.bb-grid {
+	line {
+		.vscode-dark & {
+			stroke: var(--color-background--lighten-05);
+		}
+
+		.vscode-light & {
+			stroke: var(--color-background--darken-05);
+		}
+	}
+}
+
+// .bb-xgrid-focus {
+//     line {
+//         opacity: 0.5 !important;
+
+//         .vscode-dark & {
+//             stroke: var(--color-background--lighten-30);
+//         }
+//         .vscode-light & {
+//             stroke: var(--color-background--darken-30);
+//         }
+//     }
+// }
+
+/*-- Text on Chart --*/
+.bb-text.bb-empty {
+	fill: #767676;
+}
+
+/*-- Bar --*/
+.bb-bar {
+	stroke-width: 0;
+	opacity: 0.6 !important;
+	fill-opacity: 0.6;
+
+	&._expanded_ {
+		opacity: 1 !important;
+
+		fill-opacity: 1;
+		stroke-width: 3px;
+		stroke-opacity: 0.6;
+	}
+}
+
+/*-- Point --*/
+.bb-circle {
+	opacity: 0.8 !important;
+	stroke-width: 0;
+	fill-opacity: 0.6;
+
+	&._expanded_ {
+		opacity: 1 !important;
+
+		fill-opacity: 1;
+		stroke-width: 3px;
+		stroke-opacity: 0.6;
+	}
+}
+
+rect.bb-circle,
+use.bb-circle {
+	&._expanded_ {
+		stroke-width: 3px;
+	}
+}
+
+.bb-selected-circle {
+	stroke-width: 2px;
+
+	.vscode-dark & {
+		fill: rgba(255, 255, 255, 0.2);
+	}
+
+	.vscode-light & {
+		fill: rgba(0, 0, 0, 0.1);
+	}
+}
+
+/*-- Line --*/
+.bb-line {
+	stroke-width: 1px;
+}
+
+/*-- Focus --*/
+.bb-target {
+	&.bb-focused {
+		opacity: 1;
+
+		path.bb-line,
+		path.bb-step {
+			stroke-width: 2px;
+		}
+	}
+
+	&.bb-defocused {
+		opacity: 0.3 !important;
+	}
+}
+
+/*-- Region --*/
+.bb-region {
+	fill: steelblue;
+	fill-opacity: 0.1;
+
+	&.selected rect {
+		fill: #27c903;
+	}
+}
+
+/*-- Zoom region --*/
+.bb-zoom-brush {
+	.vscode-dark & {
+		fill: white;
+		fill-opacity: 0.2;
+	}
+
+	.vscode-light & {
+		fill: black;
+		fill-opacity: 0.1;
+	}
+}
+
+/*-- Brush --*/
+.bb-brush {
+	.extent {
+		fill-opacity: 0.1;
+	}
+}
+
+/*-- Legend --*/
+.bb-legend-item-hidden {
+	opacity: 0.15;
+}
+
+.bb-legend-background {
+	opacity: 0.75;
+	fill: white;
+	stroke: lightgray;
+	stroke-width: 1;
+}
+
+/*-- Title --*/
+.bb-title {
+	font-size: 14px;
+}
+
+/*-- Tooltip --*/
+.bb-tooltip-container {
+	z-index: 10;
+	position: absolute;
+}
+
+.bb-tooltip {
+	border-collapse: separate;
+	border-spacing: 0;
+	empty-cells: show;
+	border: 1px solid var(--vscode-editorHoverWidget-border);
+	background-color: var(--vscode-editorHoverWidget-background);
+	text-align: left;
+	font-size: 11px;
+
+	th {
+		white-space: pre;
+		font-size: 12px;
+		padding: 4px 8px;
+		text-align: left;
+		border-bottom: solid 1px var(--vscode-editorHoverWidget-border);
+	}
+
+	td {
+		padding: 4px 6px;
+		background-color: var(--vscode-editorHoverWidget-background);
+	}
+
+	td:first-child {
+		padding-left: 8px;
+	}
+
+	td:last-child {
+		padding-right: 8px;
+	}
+
+	td > span,
+	td > svg {
+		display: inline-block;
+		width: 10px;
+		height: 10px;
+		margin-right: 6px;
+		border-radius: 5px;
+		vertical-align: middle;
+	}
+
+	td.name {
+		vertical-align: top;
+		white-space: nowrap;
+	}
+
+	td.value {
+		white-space: pre-line;
+		word-wrap: break-word;
+		overflow-wrap: break-word;
+		max-width: 350px;
+	}
+
+	td.value {
+		border-left: 1px solid transparent;
+	}
+
+	.bb-tooltip-title {
+		white-space: pre;
+		display: inline-block;
+		line-height: 20px;
+	}
+
+	.bb-tooltip-detail {
+		table {
+			border-collapse: collapse;
+			border-spacing: 0;
+		}
+
+		.bb-tooltip-name,
+		.bb-tooltip-value {
+			font-size: 11px;
+			line-height: 13px;
+			padding: 4px 0 3px;
+			color: var(--color-foreground);
+			text-align: left;
+			font-weight: normal;
+		}
+
+		.bb-tooltip-value {
+			padding-left: 5px;
+			font-weight: 800;
+			font-size: 12px;
+		}
+	}
+}
+
+/*-- Button --*/
+.bb-button {
+	user-select: none;
+	fill: var(--color-foreground--75);
+	font-size: 11px;
+	position: absolute;
+	top: 10px;
+	right: 10px;
+
+	.bb-zoom-reset {
+		border: solid 1px var(--color-button-background);
+		background-color: var(--color-button-background);
+		color: var(--color-button-foreground);
+		padding: 5px;
+		border-radius: 5px;
+		cursor: pointer;
+	}
+}

@@ -298,6 +298,34 @@ function getWebviewsConfig(mode, _env) {
 					: false,
 		}),
 		new HtmlPlugin({
+			template: 'timeline/index.html',
+			chunks: ['timeline'],
+			filename: path.resolve(__dirname, 'dist/webviews/timeline.html'),
+			inject: true,
+			inlineSource: mode === 'production' ? '.css$' : undefined,
+			cspPlugin: {
+				enabled: true,
+				policy: cspPolicy,
+				nonceEnabled: {
+					'script-src': true,
+					'style-src': true,
+				},
+			},
+			minify:
+				mode === 'production'
+					? {
+							removeComments: true,
+							collapseWhitespace: true,
+							removeRedundantAttributes: true,
+							useShortDoctype: true,
+							removeEmptyAttributes: true,
+							removeStyleLinkTypeAttributes: true,
+							keepClosingSlash: true,
+							minifyCSS: true,
+					  }
+					: false,
+		}),
+		new HtmlPlugin({
 			template: 'welcome/welcome.html',
 			chunks: ['welcome'],
 			filename: path.join(__dirname, 'dist', 'webviews', 'welcome.html'),
@@ -374,6 +402,7 @@ function getWebviewsConfig(mode, _env) {
 		entry: {
 			rebase: './rebase/rebase.ts',
 			settings: './settings/settings.ts',
+			timeline: './timeline/index.ts',
 			welcome: './welcome/welcome.ts',
 		},
 		mode: mode,
