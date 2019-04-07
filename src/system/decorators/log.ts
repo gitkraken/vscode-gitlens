@@ -47,14 +47,14 @@ export function logName<T>(fn: (c: T, name: string) => string) {
     };
 }
 
-export function debug<T>(
+export function debug<T extends (...arg: any) => any>(
     options: {
         args?: false | { [arg: string]: (arg: any) => string | false };
-        condition?(...args: any[]): boolean;
+        condition?(...args: Parameters<T>): boolean;
         correlate?: boolean;
-        enter?(...args: any[]): string;
-        exit?(result: any): string;
-        prefix?(context: LogContext<T>, ...args: any[]): string;
+        enter?(...args: Parameters<T>): string;
+        exit?(result: PromiseType<ReturnType<T>>): string;
+        prefix?(context: LogContext<T>, ...args: Parameters<T>): string;
         sanitize?(key: string, value: any): any;
         singleLine?: boolean;
         timed?: boolean;
@@ -63,15 +63,17 @@ export function debug<T>(
     return log<T>({ debug: true, ...options });
 }
 
-export function log<T>(
+type PromiseType<T> = T extends Promise<infer U> ? U : T;
+
+export function log<T extends (...arg: any) => any>(
     options: {
         args?: false | { [arg: number]: (arg: any) => string | false };
-        condition?(...args: any[]): boolean;
+        condition?(...args: Parameters<T>): boolean;
         correlate?: boolean;
         debug?: boolean;
-        enter?(...args: any[]): string;
-        exit?(result: any): string;
-        prefix?(context: LogContext<T>, ...args: any[]): string;
+        enter?(...args: Parameters<T>): string;
+        exit?(result: PromiseType<ReturnType<T>>): string;
+        prefix?(context: LogContext<T>, ...args: Parameters<T>): string;
         sanitize?(key: string, value: any): any;
         singleLine?: boolean;
         timed?: boolean;
@@ -95,7 +97,7 @@ export function log<T>(
 
         const parameters = Functions.getParameters(fn);
 
-        descriptor.value = function(this: any, ...args: any[]) {
+        descriptor.value = function(this: any, ...args: Parameters<T>) {
             const correlationId = getNextCorrelationId();
 
             if (

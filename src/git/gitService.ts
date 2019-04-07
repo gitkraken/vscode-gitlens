@@ -21,7 +21,7 @@ import {
 // eslint-disable-next-line import/no-unresolved
 import { API as BuiltInGitApi, GitExtension } from '../@types/git';
 import { configuration, RemotesConfig } from '../configuration';
-import { CommandContext, DocumentSchemes, GlyphChars, setCommandContext } from '../constants';
+import { CommandContext, DocumentSchemes, setCommandContext } from '../constants';
 import { Container } from '../container';
 import { LogCorrelationContext, Logger } from '../logger';
 import { Messages } from '../messages';
@@ -265,32 +265,32 @@ export class GitService implements Disposable {
         }
     }
 
+    @log<GitService['repositorySearch']>({
+        args: false,
+        singleLine: true,
+        prefix: (context, folder) => `${context.prefix}(${folder.uri.fsPath})`,
+        exit: result =>
+            `returned ${result.length} repositories${
+                result.length !== 0 ? ` (${result.map(r => r.path).join(', ')})` : emptyStr
+            }`
+    })
     private async repositorySearch(folder: WorkspaceFolder): Promise<Repository[]> {
+        const cc = Logger.getCorrelationContext();
         const { uri } = folder;
         const depth = configuration.get<number>(configuration.name('advanced')('repositorySearchDepth').value, uri);
 
-        Logger.log(`Searching for repositories (depth=${depth}) in '${uri.fsPath}' ...`);
-
-        const start = process.hrtime();
+        Logger.log(cc, `searching (depth=${depth})...`);
 
         const repositories: Repository[] = [];
         const anyRepoChangedFn = this.onAnyRepositoryChanged.bind(this);
 
         const rootPath = await this.getRepoPathCore(uri.fsPath, true);
         if (rootPath !== undefined) {
-            Logger.log(`Repository found in '${rootPath}'`);
+            Logger.log(cc, `found root repository in '${rootPath}'`);
             repositories.push(new Repository(folder, rootPath, true, anyRepoChangedFn, this._suspended));
         }
 
-        if (depth <= 0) {
-            Logger.log(
-                `Completed repository search (depth=${depth}) in '${uri.fsPath}' ${
-                    GlyphChars.Dot
-                } ${Strings.getDurationMilliseconds(start)} ms`
-            );
-
-            return repositories;
-        }
+        if (depth <= 0) return repositories;
 
         // Get any specified excludes -- this is a total hack, but works for some simple cases and something is better than nothing :)
         let excludes = {
@@ -317,14 +317,10 @@ export class GitService implements Disposable {
         }
         catch (ex) {
             if (RepoSearchWarnings.doesNotExist.test(ex.message || emptyStr)) {
-                Logger.log(
-                    `Repository search (depth=${depth}) in '${uri.fsPath}' FAILED${
-                        ex.message ? `(${ex.message})` : emptyStr
-                    }`
-                );
+                Logger.log(cc, `FAILED${ex.message ? ` Error: ${ex.message}` : emptyStr}`);
             }
             else {
-                Logger.error(ex, `Repository search (depth=${depth}) in '${uri.fsPath}' FAILED`);
+                Logger.error(ex, cc, 'FAILED');
             }
 
             return repositories;
@@ -335,18 +331,14 @@ export class GitService implements Disposable {
             // If we are the same as the root, skip it
             if (Strings.normalizePath(p) === rootPath) continue;
 
+            Logger.log(cc, `searching in '${p}'...`);
+
             const rp = await this.getRepoPathCore(p, true);
             if (rp === undefined) continue;
 
-            Logger.log(`Repository found in '${rp}'`);
+            Logger.log(cc, `found repository in '${rp}'`);
             repositories.push(new Repository(folder, rp, false, anyRepoChangedFn, this._suspended));
         }
-
-        Logger.log(
-            `Completed repository search (depth=${depth}) in '${uri.fsPath}' ${
-                GlyphChars.Dot
-            } ${Strings.getDurationMilliseconds(start)} ms`
-        );
 
         return repositories;
     }
@@ -449,6 +441,8 @@ export class GitService implements Disposable {
 
     @log()
     async applyChangesToWorkingFile(uri: GitUri, ref1?: string, ref2?: string) {
+        const cc = Logger.getCorrelationContext();
+
         ref1 = ref1 || uri.sha;
         if (ref1 === undefined || uri.repoPath === undefined) return;
 
@@ -484,7 +478,7 @@ export class GitService implements Disposable {
                 }
             }
 
-            Logger.error(ex);
+            Logger.error(ex, cc);
             void Messages.showGenericErrorMessage('Unable to apply changes');
         }
     }
@@ -1663,6 +1657,8 @@ export class GitService implements Disposable {
 
     @log()
     async getMergeBase(repoPath: string, ref1: string, ref2: string, options: { forkPoint?: boolean } = {}) {
+        const cc = Logger.getCorrelationContext();
+
         try {
             const data = await Git.merge_base(repoPath, ref1, ref2, options);
             if (data === undefined) return undefined;
@@ -1670,7 +1666,7 @@ export class GitService implements Disposable {
             return data.split('\n')[0];
         }
         catch (ex) {
-            Logger.error(ex);
+            Logger.error(ex, cc);
             return undefined;
         }
     }
@@ -1708,7 +1704,7 @@ export class GitService implements Disposable {
 
     async getRepoPath(filePath: string, options?: { ref?: string }): Promise<string | undefined>;
     async getRepoPath(uri: Uri | undefined, options?: { ref?: string }): Promise<string | undefined>;
-    @log({
+    @log<GitService['getRepoPath']>({
         exit: path => `returned ${path}`
     })
     async getRepoPath(
@@ -1828,7 +1824,7 @@ export class GitService implements Disposable {
         repoPathOrUri: string | Uri,
         options?: { ref?: string; skipCacheUpdate?: boolean }
     ): Promise<Repository | undefined>;
-    @log({
+    @log<GitService['getRepository']>({
         exit: repo => `returned ${repo !== undefined ? `${repo.path}` : 'undefined'}`
     })
     async getRepository(
@@ -2019,8 +2015,8 @@ export class GitService implements Disposable {
         options?: { ref?: string; skipCacheUpdate?: boolean }
     ): Promise<boolean>;
     async isTracked(uri: GitUri): Promise<boolean>;
-    @log({
-        exit: tracked => `returned ${tracked.toString()}`,
+    @log<GitService['isTracked']>({
+        exit: tracked => `returned ${tracked}`,
         singleLine: true
     })
     async isTracked(
