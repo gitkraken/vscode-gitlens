@@ -15,6 +15,8 @@ import {
     isCommandViewContextWithCommit
 } from './common';
 import { OpenInRemoteCommandArgs } from './openInRemote';
+import { Git } from '../git/git';
+import { Strings } from '../system';
 
 export interface OpenFileInRemoteCommandArgs {
     branch?: string;
@@ -54,30 +56,6 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
         const gitUri = await GitUri.fromUri(uri);
         if (!gitUri.repoPath) return undefined;
 
-        if (args.branch === undefined && args.sha === undefined) {
-            const branch = await Container.git.getBranch(gitUri.repoPath);
-            if (branch === undefined || branch.tracking === undefined) {
-                const pick = await new BranchesAndTagsQuickPick(gitUri.repoPath).show(
-                    args.clipboard
-                        ? `Copy url for ${gitUri.getRelativePath()} to clipboard for which branch${GlyphChars.Ellipsis}`
-                        : `Open ${gitUri.getRelativePath()} on remote for which branch${GlyphChars.Ellipsis}`,
-                    {
-                        autoPick: true,
-                        filters: {
-                            branches: b => b.tracking !== undefined
-                        },
-                        include: 'branches'
-                    }
-                );
-                if (pick === undefined || pick instanceof CommandQuickPickItem) return undefined;
-
-                args.branch = pick.ref;
-            }
-            else {
-                args.branch = branch.name;
-            }
-        }
-
         try {
             const remotes = await Container.git.getRemotes(gitUri.repoPath);
             const range =
@@ -87,7 +65,43 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
                           editor.selection.end.with({ line: editor.selection.end.line + 1 })
                       )
                     : undefined;
-            const sha = args.sha || gitUri.sha;
+            let sha = args.sha || gitUri.sha;
+
+            if (args.branch === undefined && sha !== undefined && !Git.isSha(sha) && remotes.length !== 0) {
+                const [remotePart, branchPart] = Strings.splitSingle(sha, '/');
+                if (branchPart !== undefined) {
+                    if (remotes.some(r => r.name === remotePart)) {
+                        args.branch = branchPart;
+                        sha = undefined;
+                    }
+                }
+            }
+
+            if (args.branch === undefined && args.sha === undefined) {
+                const branch = await Container.git.getBranch(gitUri.repoPath);
+                if (branch === undefined || branch.tracking === undefined) {
+                    const pick = await new BranchesAndTagsQuickPick(gitUri.repoPath).show(
+                        args.clipboard
+                            ? `Copy url for ${gitUri.getRelativePath()} to clipboard for which branch${
+                                  GlyphChars.Ellipsis
+                              }`
+                            : `Open ${gitUri.getRelativePath()} on remote for which branch${GlyphChars.Ellipsis}`,
+                        {
+                            autoPick: true,
+                            filters: {
+                                branches: b => b.tracking !== undefined
+                            },
+                            include: 'branches'
+                        }
+                    );
+                    if (pick === undefined || pick instanceof CommandQuickPickItem) return undefined;
+
+                    args.branch = pick.ref;
+                }
+                else {
+                    args.branch = branch.name;
+                }
+            }
 
             const commandArgs: OpenInRemoteCommandArgs = {
                 resource:

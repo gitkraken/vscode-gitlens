@@ -37,6 +37,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#695](https://github.com/eamodio/vscode-gitlens/issues/695) - Invalid URL in Open File in Remote when selecting origin/.. as comparison branch
 - Fixes [#683](https://github.com/eamodio/vscode-gitlens/issues/683) - log.showSignature leads to stray files being displayed
 - Fixes [#691](https://github.com/eamodio/vscode-gitlens/issues/691) - Auto-expand tree view on Swap Comparison
 - Fixes the behavior of the _Open Line Changes with Previous Revision_ (`gitlens.diffLineWithPrevious`) command to follow the line history much better

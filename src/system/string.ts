@@ -173,6 +173,12 @@ export namespace Strings {
             .digest(encoding);
     }
 
+    export function splitSingle(s: string, splitter: string) {
+        const parts = s.split(splitter, 1);
+        const first = parts[0];
+        return first.length === s.length ? parts : [first, s.substr(first.length + 1)];
+    }
+
     export function truncate(s: string, truncateTo: number, ellipsis: string = '\u2026', width?: number) {
         if (!s) return s;
 

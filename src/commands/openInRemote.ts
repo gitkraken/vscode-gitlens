@@ -113,14 +113,13 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
         if (args.remotes === undefined || args.resource === undefined || args.resource.type !== 'branch') return;
 
         // Check to see if the remote is in the branch
-        const index = args.resource.branch.indexOf('/');
-        if (index >= 0) {
-            const remoteName = args.resource.branch.substring(0, index);
-            const remote = args.remotes.find(r => r.name === remoteName);
-            if (remote !== undefined) {
-                args.resource.branch = args.resource.branch.substring(index + 1);
-                args.remotes = [remote];
-            }
-        }
+        const [remotePart, branchPart] = Strings.splitSingle(args.resource.branch, '/');
+        if (branchPart === undefined) return;
+
+        const remote = args.remotes.find(r => r.name === remotePart);
+        if (remote === undefined) return;
+
+        args.resource.branch = branchPart;
+        args.remotes = [remote];
     }
 }
