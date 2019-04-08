@@ -1834,18 +1834,18 @@
                 "category": "GitLens"
             },
             {
-                "command": "gitlens.diffHeadWithBranch",
-                "title": "Compare HEAD with Branch or Tag...",
+                "command": "gitlens.diffHeadWith",
+                "title": "Compare HEAD with...",
                 "category": "GitLens"
             },
             {
-                "command": "gitlens.diffWorkingWithBranch",
-                "title": "Compare Working Tree with Branch or Tag...",
+                "command": "gitlens.diffWorkingWith",
+                "title": "Compare Working Tree with...",
                 "category": "GitLens"
             },
             {
-                "command": "gitlens.diffWithBranch",
-                "title": "Open Changes with Branch or Tag...",
+                "command": "gitlens.diffWithRef",
+                "title": "Open Changes with...",
                 "category": "GitLens"
             },
             {
@@ -2138,8 +2138,8 @@
                 "category": "GitLens"
             },
             {
-                "command": "gitlens.openFileRevisionFromBranch",
-                "title": "Open Revision from Branch or Tag...",
+                "command": "gitlens.openFileRevisionFrom",
+                "title": "Open Revision from...",
                 "category": "GitLens"
             },
             {
@@ -2704,7 +2704,7 @@
             },
             {
                 "command": "gitlens.views.compare.selectForCompare",
-                "title": "Compare Branch or Tag with...",
+                "title": "Compare References...",
                 "category": "GitLens",
                 "icon": {
                     "dark": "images/dark/icon-compare-refs.svg",
@@ -2904,15 +2904,15 @@
                     "when": "gitlens:enabled"
                 },
                 {
-                    "command": "gitlens.diffHeadWithBranch",
+                    "command": "gitlens.diffHeadWith",
                     "when": "gitlens:enabled"
                 },
                 {
-                    "command": "gitlens.diffWorkingWithBranch",
+                    "command": "gitlens.diffWorkingWith",
                     "when": "gitlens:enabled"
                 },
                 {
-                    "command": "gitlens.diffWithBranch",
+                    "command": "gitlens.diffWithRef",
                     "when": "gitlens:activeFileStatus =~ /tracked/"
                 },
                 {
@@ -3088,7 +3088,7 @@
                     "when": "gitlens:activeFileStatus =~ /tracked/"
                 },
                 {
-                    "command": "gitlens.openFileRevisionFromBranch",
+                    "command": "gitlens.openFileRevisionFrom",
                     "when": "gitlens:activeFileStatus =~ /tracked/"
                 },
                 {
@@ -3421,7 +3421,7 @@
                 },
                 {
                     "command": "gitlens.views.compare.selectForCompare",
-                    "when": "gitlens:enabled && gitlens.views.compare.enabled"
+                    "when": "gitlens:enabled && config.gitlens.views.compare.enabled"
                 },
                 {
                     "command": "gitlens.views.compare.clear",
@@ -3758,7 +3758,7 @@
                     "group": "1_gitlens@1"
                 },
                 {
-                    "command": "gitlens.diffWithBranch",
+                    "command": "gitlens.diffWithRef",
                     "when": "gitlens:enabled && config.gitlens.menus.scmItem.compare",
                     "group": "1_gitlens@2"
                 },

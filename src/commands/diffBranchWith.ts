@@ -4,7 +4,7 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickpicks';
+import { CommandQuickPickItem, ReferencesQuickPick } from '../quickpicks';
 import {
     ActiveEditorCommand,
     command,
@@ -14,23 +14,30 @@ import {
     getRepoPathOrActiveOrPrompt
 } from './common';
 
-export interface DiffBranchWithBranchCommandArgs {
+export interface DiffBranchWithCommandArgs {
     ref1?: string;
     ref2?: string;
 }
 
 @command()
-export class DiffBranchWithBranchCommand extends ActiveEditorCommand {
+export class DiffBranchWithCommand extends ActiveEditorCommand {
     constructor() {
-        super([Commands.DiffHeadWithBranch, Commands.DiffWorkingWithBranch]);
+        super([
+            Commands.DiffHeadWith,
+            Commands.DiffWorkingWith,
+            Commands.DiffHeadWithBranch,
+            Commands.DiffWorkingWithBranch
+        ]);
     }
 
-    protected preExecute(context: CommandContext, args: DiffBranchWithBranchCommandArgs = {}) {
+    protected preExecute(context: CommandContext, args: DiffBranchWithCommandArgs = {}) {
         switch (context.command) {
+            case Commands.DiffHeadWith:
             case Commands.DiffHeadWithBranch:
                 args.ref2 = 'HEAD';
                 break;
 
+            case Commands.DiffWorkingWith:
             case Commands.DiffWorkingWithBranch:
                 args.ref2 = '';
                 break;
@@ -39,7 +46,7 @@ export class DiffBranchWithBranchCommand extends ActiveEditorCommand {
         return this.execute(context.editor, context.uri, args);
     }
 
-    async execute(editor?: TextEditor, uri?: Uri, args: DiffBranchWithBranchCommandArgs = {}) {
+    async execute(editor?: TextEditor, uri?: Uri, args: DiffBranchWithCommandArgs = {}) {
         if (args.ref2 === undefined) return undefined;
 
         uri = getCommandUri(uri, editor);
@@ -48,7 +55,7 @@ export class DiffBranchWithBranchCommand extends ActiveEditorCommand {
             const repoPath = await getRepoPathOrActiveOrPrompt(
                 uri,
                 editor,
-                `Compare with branch or tag in which repository${GlyphChars.Ellipsis}`
+                `Compare in which repository${GlyphChars.Ellipsis}`
             );
             if (!repoPath) return undefined;
 
@@ -66,8 +73,8 @@ export class DiffBranchWithBranchCommand extends ActiveEditorCommand {
                         break;
                 }
 
-                const pick = await new BranchesAndTagsQuickPick(repoPath).show(placeHolder, {
-                    allowCommitId: true
+                const pick = await new ReferencesQuickPick(repoPath).show(placeHolder, {
+                    allowEnteringRefs: true
                 });
                 if (pick === undefined) return undefined;
 

@@ -5,7 +5,7 @@ import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitCommitish, GitUri } from '../../git/gitService';
 import { Logger } from '../../logger';
-import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../../quickpicks';
+import { CommandQuickPickItem, ReferencesQuickPick } from '../../quickpicks';
 import { debug, Functions, gate, log } from '../../system';
 import { LinesChangeEvent } from '../../trackers/gitLineTracker';
 import { LineHistoryView } from '../lineHistoryView';
@@ -72,10 +72,10 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
     @gate()
     @log()
     async changeBase() {
-        const pick = await new BranchesAndTagsQuickPick(this.uri.repoPath!).show(
+        const pick = await new ReferencesQuickPick(this.uri.repoPath!).show(
             `Change the line history base to${GlyphChars.Ellipsis}`,
             {
-                allowCommitId: true,
+                allowEnteringRefs: true,
                 checked: this._base
             }
         );

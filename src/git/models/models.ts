@@ -1,5 +1,10 @@
 'use strict';
 
+export interface GitReference {
+    name: string;
+    ref: string;
+}
+
 export * from './blame';
 export * from './blameCommit';
 export * from './branch';

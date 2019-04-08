@@ -35,9 +35,9 @@ export class ComparePickerNode extends ViewNode<CompareView> {
             );
             item.contextValue = ResourceType.ComparePicker;
             item.description = description;
-            item.tooltip = `Click to select branch or tag for compare${GlyphChars.Ellipsis}`;
+            item.tooltip = `Click to select or enter a reference for compare${GlyphChars.Ellipsis}`;
             item.command = {
-                title: `Select branch or tag for compare${GlyphChars.Ellipsis}`,
+                title: `Compare${GlyphChars.Ellipsis}`,
                 command: this.view.getQualifiedCommand('selectForCompare')
             };
         }

@@ -4,7 +4,7 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitUri, RemoteResourceType } from '../git/gitService';
 import { Logger } from '../logger';
-import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickpicks';
+import { CommandQuickPickItem, ReferencesQuickPick } from '../quickpicks';
 import {
     ActiveEditorCommand,
     command,
@@ -80,7 +80,7 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
             if (args.branch === undefined && args.sha === undefined) {
                 const branch = await Container.git.getBranch(gitUri.repoPath);
                 if (branch === undefined || branch.tracking === undefined) {
-                    const pick = await new BranchesAndTagsQuickPick(gitUri.repoPath).show(
+                    const pick = await new ReferencesQuickPick(gitUri.repoPath).show(
                         args.clipboard
                             ? `Copy url for ${gitUri.getRelativePath()} to clipboard for which branch${
                                   GlyphChars.Ellipsis

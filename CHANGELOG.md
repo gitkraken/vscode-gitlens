@@ -25,14 +25,22 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Changes _Open Revision from..._ (`gitlens.openFileRevisionFrom`) command to allow entering references
 - Improves the behavior of the _Show More Commits_ & _Show More Results_ commands - no longer loses the context of the last selected item before showing more
 - Improves the behavior of the _Open Changes with Next Revision_ (`gitlens.diffWithNext`) command when in the diff editor
 - Improves the behavior of the _Open Changes with Previous Revision_ (`gitlens.diffWithPrevious`) command when in the diff editor
 - Improves the behavior of the _Open Changes with Working File_ (`gitlens.diffWithWorking`) command when in the diff editor
+- Renames _Compare HEAD with Branch or Tag..._ (`gitlens.diffHeadWithBranch`) command to _Compare HEAD with..._ (`gitlens.diffHeadWith`)
+- Renames _Compare Working Tree with Branch or Tag..._ (`gitlens.diffWorkingWithBranch`) command to _Compare Working Tree with..._ (`gitlens.diffWorkingWith`)
+- Renames _Open Changes with Branch or Tag..._ (`gitlens.diffWithBranch`) command to _Open Changes with..._ (`gitlens.diffWithRef`)
+- Renames _Open Revision from Branch or Tag..._ (`gitlens.openFileRevisionFromBranch`) command to _Open Revision from..._ (`gitlens.openFileRevisionFrom`)
+- Renames _Compare Branch or Tag with..._ (`gitlens.views.compare.selectForCompare`) command to _Compare References..._ (`gitlens.views.compare.selectForCompare`)
+- Renames _Choose from Branch or Tag History..._ quick pick item to _Show File History from..._ for better clarity and to reflect that references are now allowed
 - Updates the invite link to the [VS Code Development Community Slack](https://vscode-slack.amod.io)
 
 ### Removed
 
+- Removes the requirement of prefixing reference comparisons with `#` &mdash; closes [#690](https://github.com/eamodio/vscode-gitlens/issues/690)
 - Removes the automatic suspension of the current line blame annotations while debugging &mdash; closes [#382](https://github.com/eamodio/vscode-gitlens/issues/382)
 
 ### Fixed
@@ -41,6 +49,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#683](https://github.com/eamodio/vscode-gitlens/issues/683) - log.showSignature leads to stray files being displayed
 - Fixes [#691](https://github.com/eamodio/vscode-gitlens/issues/691) - Auto-expand tree view on Swap Comparison
 - Fixes the behavior of the _Open Line Changes with Previous Revision_ (`gitlens.diffLineWithPrevious`) command to follow the line history much better
+- Fixes missing _Compare References..._ (`gitlens.views.compare.selectForCompare`) from the command palette
 
 ## [9.5.1] - 2019-02-13
 

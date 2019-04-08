@@ -2,7 +2,7 @@
 import { CancellationToken, CancellationTokenSource, QuickPickItem, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitBranch, GitService, GitTag } from '../git/gitService';
+import { GitBranch, GitReference, GitService, GitTag } from '../git/gitService';
 import { Functions } from '../system';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from './commonQuickPicks';
 
@@ -23,7 +23,8 @@ export class RefQuickPickItem implements QuickPickItem {
     }
 
     get item() {
-        return undefined;
+        const ref: GitReference = { name: this.ref, ref: this.ref };
+        return ref;
     }
 
     get remote() {
@@ -68,7 +69,7 @@ export class TagQuickPickItem implements QuickPickItem {
     description: string;
     detail: string | undefined;
 
-    constructor(public readonly tag: GitBranch | GitTag, checked?: boolean) {
+    constructor(public readonly tag: GitTag, checked?: boolean) {
         this.label = `${checked ? `$(check)${GlyphChars.Space}` : GlyphChars.Space.repeat(4)} ${tag.name}`;
         this.description = `${GlyphChars.Space.repeat(2)} tag`;
     }
@@ -90,10 +91,10 @@ export class TagQuickPickItem implements QuickPickItem {
     }
 }
 
-export type BranchAndTagQuickPickResult = BranchQuickPickItem | TagQuickPickItem | RefQuickPickItem;
+export type ReferencesQuickPickItem = BranchQuickPickItem | TagQuickPickItem | RefQuickPickItem;
 
-export interface BranchesAndTagsQuickPickOptions {
-    allowCommitId?: boolean;
+export interface ReferencesQuickPickOptions {
+    allowEnteringRefs?: boolean;
     autoPick?: boolean;
     checked?: string;
     filters?: {
@@ -104,13 +105,13 @@ export interface BranchesAndTagsQuickPickOptions {
     include?: 'branches' | 'tags' | 'all';
 }
 
-export class BranchesAndTagsQuickPick {
+export class ReferencesQuickPick {
     constructor(public readonly repoPath: string | undefined) {}
 
     async show(
         placeHolder: string,
-        options: BranchesAndTagsQuickPickOptions = {}
-    ): Promise<BranchAndTagQuickPickResult | CommandQuickPickItem | undefined> {
+        options: ReferencesQuickPickOptions = {}
+    ): Promise<ReferencesQuickPickItem | CommandQuickPickItem | undefined> {
         const cancellation = new CancellationTokenSource();
 
         let scope;
@@ -132,10 +133,10 @@ export class BranchesAndTagsQuickPick {
             }
 
             let pick;
-            if (options.allowCommitId) {
-                placeHolder += `${GlyphChars.Space.repeat(3)}(use # to enter a commit id)`;
+            if (options.allowEnteringRefs) {
+                placeHolder += `${GlyphChars.Space.repeat(3)}(select or enter a reference)`;
 
-                const quickpick = window.createQuickPick<BranchAndTagQuickPickResult | CommandQuickPickItem>();
+                const quickpick = window.createQuickPick<ReferencesQuickPickItem | CommandQuickPickItem>();
                 quickpick.busy = true;
                 quickpick.enabled = false;
                 quickpick.placeholder = placeHolder;
@@ -146,26 +147,16 @@ export class BranchesAndTagsQuickPick {
                 quickpick.busy = false;
                 quickpick.enabled = true;
 
-                pick = await new Promise<BranchAndTagQuickPickResult | CommandQuickPickItem | undefined>(resolve => {
+                pick = await new Promise<ReferencesQuickPickItem | CommandQuickPickItem | undefined>(resolve => {
                     cancellation.token.onCancellationRequested(() => quickpick.hide());
 
                     quickpick.onDidHide(() => resolve(undefined));
-                    quickpick.onDidChangeValue(value => {
-                        quickpick.title =
-                            value && value.startsWith('#')
-                                ? "Please enter a commit id (Press 'Enter' to confirm or 'Escape' to cancel)"
-                                : undefined;
-                    });
                     quickpick.onDidAccept(async () => {
                         if (quickpick.selectedItems.length === 0) {
-                            let ref = quickpick.value;
-                            if (!ref || !ref.startsWith('#')) return;
-
-                            ref = ref.substr(1);
-
                             quickpick.busy = true;
                             quickpick.enabled = false;
 
+                            const ref = quickpick.value;
                             if (
                                 this.repoPath === undefined ||
                                 (await Container.git.validateReference(this.repoPath, ref))
@@ -173,7 +164,7 @@ export class BranchesAndTagsQuickPick {
                                 resolve(new RefQuickPickItem(ref));
                             }
                             else {
-                                quickpick.title = 'You must enter a valid commit id';
+                                quickpick.title = 'You must enter a valid reference';
                                 quickpick.busy = false;
                                 quickpick.enabled = true;
                                 return;
@@ -219,7 +210,7 @@ export class BranchesAndTagsQuickPick {
         }
     }
 
-    private async getItems(options: BranchesAndTagsQuickPickOptions, token: CancellationToken) {
+    private async getItems(options: ReferencesQuickPickOptions, token: CancellationToken) {
         const { checked, filters, goBack, include } = { include: 'all', ...options };
 
         let branches;

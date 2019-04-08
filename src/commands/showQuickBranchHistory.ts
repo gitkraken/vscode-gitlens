@@ -5,7 +5,7 @@ import { Container } from '../container';
 import { GitLog, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { BranchesAndTagsQuickPick, BranchHistoryQuickPick, CommandQuickPickItem } from '../quickpicks';
+import { BranchHistoryQuickPick, CommandQuickPickItem, ReferencesQuickPick } from '../quickpicks';
 import { Strings } from '../system';
 import { ActiveEditorCachedCommand, command, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
@@ -58,7 +58,7 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
                     );
                 }
 
-                const pick = await new BranchesAndTagsQuickPick(repoPath).show(
+                const pick = await new ReferencesQuickPick(repoPath).show(
                     `Show history for branch${GlyphChars.Ellipsis}`,
                     {
                         goBack: goBackCommand,

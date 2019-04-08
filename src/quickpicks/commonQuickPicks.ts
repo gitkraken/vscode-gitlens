@@ -15,12 +15,7 @@ import { Container } from '../container';
 import { GitLog, GitLogCommit, GitRepoSearchBy, GitStashCommit, GitUri } from '../git/gitService';
 import { KeyMapping, Keys } from '../keyboard';
 import { Strings } from '../system';
-import {
-    BranchesAndTagsQuickPick,
-    BranchQuickPickItem,
-    RefQuickPickItem,
-    TagQuickPickItem
-} from './branchesAndTagsQuickPick';
+import { ReferencesQuickPick, ReferencesQuickPickItem } from './referencesQuickPick';
 
 export function getQuickPickIgnoreFocusOut() {
     return !configuration.get<boolean>(configuration.name('advanced')('quickPick')('closeOnFocusOut').value);
@@ -134,27 +129,6 @@ export class CommitQuickPickItem<T extends GitLogCommit = GitLogCommit> implemen
     }
 }
 
-export class ChooseFromBranchesAndTagsQuickPickItem extends CommandQuickPickItem {
-    constructor(
-        private readonly repoPath: string,
-        private readonly placeHolder: string,
-        private readonly _goBack?: CommandQuickPickItem,
-        item: QuickPickItem = {
-            label: 'Choose from Branch or Tag History...',
-            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} shows list of branches and tags`
-        }
-    ) {
-        super(item, undefined, undefined);
-    }
-
-    execute(): Promise<CommandQuickPickItem | BranchQuickPickItem | TagQuickPickItem | RefQuickPickItem | undefined> {
-        return new BranchesAndTagsQuickPick(this.repoPath).show(this.placeHolder, {
-            allowCommitId: true,
-            goBack: this._goBack
-        });
-    }
-}
-
 export class KeyCommandQuickPickItem extends CommandQuickPickItem {
     constructor(command: Commands, args?: any[]) {
         super({ label: '', description: '' }, command, args);
@@ -259,6 +233,27 @@ export class ShowCommitSearchResultsInViewQuickPickItem extends CommandQuickPick
                 label: this.resultsLabel
             }
         ));
+    }
+}
+
+export class ShowFileHistoryFromQuickPickItem extends CommandQuickPickItem {
+    constructor(
+        private readonly repoPath: string,
+        private readonly placeHolder: string,
+        private readonly _goBack?: CommandQuickPickItem,
+        item: QuickPickItem = {
+            label: 'Show File History from...',
+            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} shows an alternate file history`
+        }
+    ) {
+        super(item, undefined, undefined);
+    }
+
+    execute(): Promise<CommandQuickPickItem | ReferencesQuickPickItem | undefined> {
+        return new ReferencesQuickPick(this.repoPath).show(this.placeHolder, {
+            allowEnteringRefs: true,
+            goBack: this._goBack
+        });
     }
 }
 

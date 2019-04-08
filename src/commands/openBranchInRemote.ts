@@ -4,7 +4,7 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitUri, RemoteResourceType } from '../git/gitService';
 import { Logger } from '../logger';
-import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickpicks';
+import { CommandQuickPickItem, ReferencesQuickPick } from '../quickpicks';
 import {
     ActiveEditorCommand,
     command,
@@ -53,7 +53,7 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
             if (args.branch === undefined) {
                 args = { ...args };
 
-                const pick = await new BranchesAndTagsQuickPick(repoPath).show(
+                const pick = await new ReferencesQuickPick(repoPath).show(
                     `Open which branch on remote${GlyphChars.Ellipsis}`,
                     {
                         autoPick: true,

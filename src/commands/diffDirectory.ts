@@ -4,7 +4,7 @@ import { BuiltInCommands, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickpicks';
+import { CommandQuickPickItem, ReferencesQuickPick } from '../quickpicks';
 import { CompareResultsNode } from '../views/nodes';
 import {
     ActiveEditorCommand,
@@ -71,9 +71,9 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
             if (!args.ref1) {
                 args = { ...args };
 
-                const pick = await new BranchesAndTagsQuickPick(repoPath).show(
+                const pick = await new ReferencesQuickPick(repoPath).show(
                     `Compare Working Tree with${GlyphChars.Ellipsis}`,
-                    { allowCommitId: true }
+                    { allowEnteringRefs: true }
                 );
                 if (pick === undefined) return undefined;
 

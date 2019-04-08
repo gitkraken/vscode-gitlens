@@ -31,11 +31,17 @@ export enum Commands {
     CopyShaToClipboard = 'gitlens.copyShaToClipboard',
     DiffDirectory = 'gitlens.diffDirectory',
     DiffDirectoryWithHead = 'gitlens.diffDirectoryWithHead',
+    DiffHeadWith = 'gitlens.diffHeadWith',
+    // DEPRECATED
     DiffHeadWithBranch = 'gitlens.diffHeadWithBranch',
+    DiffWorkingWith = 'gitlens.diffWorkingWith',
+    // DEPRECATED
     DiffWorkingWithBranch = 'gitlens.diffWorkingWithBranch',
     ExternalDiffAll = 'gitlens.externalDiffAll',
     DiffWith = 'gitlens.diffWith',
+    // DEPRECATED
     DiffWithBranch = 'gitlens.diffWithBranch',
+    DiffWithRef = 'gitlens.diffWithRef',
     DiffWithNext = 'gitlens.diffWithNext',
     DiffWithNextInDiff = 'gitlens.diffWithNextInDiff',
     DiffWithPrevious = 'gitlens.diffWithPrevious',
@@ -53,6 +59,8 @@ export enum Commands {
     OpenCommitInRemote = 'gitlens.openCommitInRemote',
     OpenFileInRemote = 'gitlens.openFileInRemote',
     OpenFileRevision = 'gitlens.openFileRevision',
+    OpenFileRevisionFrom = 'gitlens.openFileRevisionFrom',
+    // DEPRECATED
     OpenFileRevisionFromBranch = 'gitlens.openFileRevisionFromBranch',
     OpenInRemote = 'gitlens.openInRemote',
     OpenRepoInRemote = 'gitlens.openRepoInRemote',

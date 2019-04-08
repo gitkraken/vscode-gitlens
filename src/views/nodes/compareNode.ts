@@ -3,7 +3,7 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { getRepoPathOrPrompt } from '../../commands';
 import { CommandContext, GlyphChars, NamedRef, setCommandContext } from '../../constants';
 import { GitService } from '../../git/gitService';
-import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../../quickpicks';
+import { CommandQuickPickItem, ReferencesQuickPick } from '../../quickpicks';
 import { debug, Functions, gate, Iterables, log } from '../../system';
 import { CompareView } from '../compareView';
 import { MessageNode } from './common';
@@ -139,9 +139,9 @@ export class CompareNode extends ViewNode<CompareView> {
         }
 
         if (ref === undefined) {
-            const pick = await new BranchesAndTagsQuickPick(repoPath).show(
+            const pick = await new ReferencesQuickPick(repoPath).show(
                 `Compare ${this.getRefName(this._selectedRef.ref)} with${GlyphChars.Ellipsis}`,
-                { allowCommitId: true }
+                { allowEnteringRefs: true }
             );
             if (pick === undefined || pick instanceof CommandQuickPickItem) return;
 
@@ -158,19 +158,15 @@ export class CompareNode extends ViewNode<CompareView> {
 
     async selectForCompare(repoPath?: string, ref?: string | NamedRef) {
         if (repoPath === undefined) {
-            repoPath = await getRepoPathOrPrompt(
-                undefined,
-                `Select branch or tag for compare in which repository${GlyphChars.Ellipsis}`
-            );
+            repoPath = await getRepoPathOrPrompt(undefined, `Compare in which repository${GlyphChars.Ellipsis}`);
         }
         if (repoPath === undefined) return;
 
         let autoCompare = false;
         if (ref === undefined) {
-            const pick = await new BranchesAndTagsQuickPick(repoPath).show(
-                `Select branch or tag for compare${GlyphChars.Ellipsis}`,
-                { allowCommitId: true }
-            );
+            const pick = await new ReferencesQuickPick(repoPath).show(`Compare${GlyphChars.Ellipsis}`, {
+                allowEnteringRefs: true
+            });
             if (pick === undefined || pick instanceof CommandQuickPickItem) return;
 
             ref = pick.ref;

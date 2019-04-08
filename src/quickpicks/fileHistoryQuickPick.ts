@@ -8,10 +8,10 @@ import { GitLog, GitUri, RemoteResource, RemoteResourceType } from '../git/gitSe
 import { KeyNoopCommand } from '../keyboard';
 import { Iterables, Strings } from '../system';
 import {
-    ChooseFromBranchesAndTagsQuickPickItem,
     CommandQuickPickItem,
     CommitQuickPickItem,
     getQuickPickIgnoreFocusOut,
+    ShowFileHistoryFromQuickPickItem,
     showQuickPickProgress
 } from './commonQuickPicks';
 import { OpenRemotesCommandQuickPickItem } from './remotesQuickPick';
@@ -49,11 +49,7 @@ export class FileHistoryQuickPick {
         let index = 0;
 
         index++;
-        items.splice(
-            0,
-            0,
-            new ChooseFromBranchesAndTagsQuickPickItem(log.repoPath, placeHolder, options.currentCommand)
-        );
+        items.splice(0, 0, new ShowFileHistoryFromQuickPickItem(log.repoPath, placeHolder, options.currentCommand));
 
         if (options.showInViewCommand !== undefined) {
             index++;

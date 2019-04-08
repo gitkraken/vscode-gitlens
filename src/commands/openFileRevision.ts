@@ -3,15 +3,15 @@ import { CancellationTokenSource, commands, Range, TextDocumentShowOptions, Text
 import { FileAnnotationType } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitBranch, GitTag, GitUri } from '../git/gitService';
+import { GitBranch, GitReference, GitTag, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { ChooseFromBranchesAndTagsQuickPickItem, CommandQuickPickItem, FileHistoryQuickPick } from '../quickpicks';
+import { CommandQuickPickItem, FileHistoryQuickPick, ShowFileHistoryFromQuickPickItem } from '../quickpicks';
 import { Iterables, Strings } from '../system';
 import { ActiveEditorCommand, command, Commands, getCommandUri, openEditor } from './common';
 
 export interface OpenFileRevisionCommandArgs {
-    branchOrTag?: GitBranch | GitTag;
+    reference?: GitBranch | GitTag | GitReference;
     uri?: Uri;
     maxCount?: number;
 
@@ -69,7 +69,7 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
                 const gitUri = await GitUri.fromUri(uri);
 
                 const placeHolder = `Open revision of ${gitUri.getFormattedPath({
-                    suffix: args.branchOrTag ? ` (${args.branchOrTag.name})` : undefined
+                    suffix: args.reference ? ` (${args.reference.name})` : undefined
                 })}${gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''}${
                     GlyphChars.Ellipsis
                 }`;
@@ -78,11 +78,11 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
 
                 const log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
                     maxCount: args.maxCount,
-                    ref: (args.branchOrTag && args.branchOrTag.ref) || gitUri.sha
+                    ref: (args.reference && args.reference.ref) || gitUri.sha
                 });
                 if (log === undefined) {
-                    if (args.branchOrTag) {
-                        return window.showWarningMessage(`The file could not be found in ${args.branchOrTag.name}`);
+                    if (args.reference) {
+                        return window.showWarningMessage(`The file could not be found in ${args.reference.name}`);
                     }
                     return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open history compare');
                 }
@@ -117,16 +117,20 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
                 }
 
                 commandArgs = { ...args };
+                const icon =
+                    args.reference instanceof GitTag
+                        ? '$(tag) '
+                        : args.reference instanceof GitBranch
+                        ? '$(git-branch) '
+                        : '';
                 const currentCommand = new CommandQuickPickItem(
                     {
                         label: `go back ${GlyphChars.ArrowBack}`,
                         description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${
                             GlyphChars.Space
                         }$(file-text) ${gitUri.getFormattedPath()}${
-                            args.branchOrTag
-                                ? ` from ${GlyphChars.Space}${
-                                      args.branchOrTag instanceof GitTag ? '$(tag)' : '$(git-branch)'
-                                  } ${args.branchOrTag.name}`
+                            args.reference
+                                ? ` from ${GlyphChars.Space}${icon}${args.reference.name}`
                                 : gitUri.sha
                                 ? ` from ${GlyphChars.Space}$(git-commit) ${gitUri.shortSha}`
                                 : ''
@@ -156,14 +160,14 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
                 });
                 if (pick === undefined) return undefined;
 
-                if (pick instanceof ChooseFromBranchesAndTagsQuickPickItem) {
-                    const branchOrTag = await pick.execute();
-                    if (branchOrTag === undefined) return undefined;
-                    if (branchOrTag instanceof CommandQuickPickItem) return branchOrTag.execute();
+                if (pick instanceof ShowFileHistoryFromQuickPickItem) {
+                    const reference = await pick.execute();
+                    if (reference === undefined) return undefined;
+                    if (reference instanceof CommandQuickPickItem) return reference.execute();
 
                     commandArgs = {
                         ...args,
-                        branchOrTag: branchOrTag.item
+                        reference: reference.item
                     };
                     return commands.executeCommand(Commands.OpenFileRevision, gitUri, commandArgs);
                 }

@@ -5,7 +5,7 @@ import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitCommitish, GitUri } from '../../git/gitService';
 import { Logger } from '../../logger';
-import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../../quickpicks';
+import { CommandQuickPickItem, ReferencesQuickPick } from '../../quickpicks';
 import { debug, Functions, gate, log } from '../../system';
 import { FileHistoryView } from '../fileHistoryView';
 import { MessageNode } from './common';
@@ -68,10 +68,10 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
     @gate()
     @log()
     async changeBase() {
-        const pick = await new BranchesAndTagsQuickPick(this.uri.repoPath!).show(
+        const pick = await new ReferencesQuickPick(this.uri.repoPath!).show(
             `Change the file history base to${GlyphChars.Ellipsis}`,
             {
-                allowCommitId: true,
+                allowEnteringRefs: true,
                 checked: this._baseRef
             }
         );

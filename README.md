@@ -442,7 +442,7 @@ The search commits view provides the following features,
 
 A [customizable](#compare-view-settings- 'Jump to the Compare view settings') view to visualize comparisons between branches, tags, commits, and more
 
-- A toolbar provides quick access to the _Compare Branch or Tag with..._, _Keep Results_, _Clear Results_, and _Refresh_ commands
+- A toolbar provides quick access to the _Compare with..._, _Keep Results_, _Clear Results_, and _Refresh_ commands
 - A context menu provides _Automatic Layout_, _List Layout_, _Tree Layout_, _Open Settings_ commands
 
 The compare view provides the following features,
@@ -593,13 +593,13 @@ The compare view provides the following features,
 
 - Provides easy access to the following comparison commands via the `Command Palette` as well as in context via the many provided quick pick menus
 
-- Adds a _Directory Compare Working Tree with..._ command (`gitlens.diffDirectory`) to open the configured Git difftool to compare the working tree with the selected branch or tag
+- Adds a _Directory Compare Working Tree with..._ command (`gitlens.diffDirectory`) to open the configured Git difftool to compare the working tree with the selected reference
 
-- Adds a _Compare HEAD with Branch or Tag..._ command (`gitlens.diffHeadWithBranch`) to compare the index (HEAD) with the selected branch or tag
+- Adds a _Compare HEAD with..._ command (`gitlens.diffHeadWith`) to compare the index (HEAD) with the selected reference
 
-- Adds a _Compare Working Tree with Branch or Tag..._ command (`gitlens.diffWorkingWithBranch`) to compare the working tree with the selected branch or tag
+- Adds a _Compare Working Tree with..._ command (`gitlens.diffWorkingWith`) to compare the working tree with the selected reference
 
-- Adds an _Open Changes with Branch or Tag..._ command (`gitlens.diffWithBranch`) to compare the current file with the same file on the selected branch or tag
+- Adds an _Open Changes with..._ command (`gitlens.diffWithRef`) to compare the current file with the same file on the selected reference
 
 - Adds an _Open Changes with Next Revision_ command (`gitlens.diffWithNext`) with a shortcut of `alt+.` to compare the current file/diff with the next commit revision
 
@@ -625,7 +625,7 @@ The compare view provides the following features,
 
 - Adds an _Open Revision..._ command (`gitlens.openFileRevision`) to open the selected revision for the current file
 
-- Adds an _Open Revision from Branch or Tag..._ command (`gitlens.openFileRevisionFromBranch`) to open the revision of the current file from the selected branch
+- Adds an _Open Revision from..._ command (`gitlens.openFileRevisionFrom`) to open the revision of the current file from the selected reference
 
 - Adds an _Open Changes (with difftool)_ command (`gitlens.externalDiff`) to the source control group and source control resource context menus to open the changes of a file or set of files with the configured git difftool
 

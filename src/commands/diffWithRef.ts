@@ -5,12 +5,12 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitService, GitUri } from '../git/gitService';
 import { Messages } from '../messages';
-import { BranchesAndTagsQuickPick, CommandQuickPickItem } from '../quickpicks';
+import { CommandQuickPickItem, ReferencesQuickPick } from '../quickpicks';
 import { Strings } from '../system';
 import { ActiveEditorCommand, command, Commands, getCommandUri } from './common';
 import { DiffWithCommandArgs } from './diffWith';
 
-export interface DiffWithBranchCommandArgs {
+export interface DiffWithRefCommandArgs {
     line?: number;
     showOptions?: TextDocumentShowOptions;
 
@@ -18,12 +18,12 @@ export interface DiffWithBranchCommandArgs {
 }
 
 @command()
-export class DiffWithBranchCommand extends ActiveEditorCommand {
+export class DiffWithRefCommand extends ActiveEditorCommand {
     constructor() {
-        super(Commands.DiffWithBranch);
+        super([Commands.DiffWithRef, Commands.DiffWithBranch]);
     }
 
-    async execute(editor?: TextEditor, uri?: Uri, args: DiffWithBranchCommandArgs = {}) {
+    async execute(editor?: TextEditor, uri?: Uri, args: DiffWithRefCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
         if (uri == null) return undefined;
 
@@ -35,10 +35,10 @@ export class DiffWithBranchCommand extends ActiveEditorCommand {
         const gitUri = await GitUri.fromUri(uri);
         if (!gitUri.repoPath) return Messages.showNoRepositoryWarningMessage('Unable to open file compare');
 
-        const pick = await new BranchesAndTagsQuickPick(gitUri.repoPath).show(
+        const pick = await new ReferencesQuickPick(gitUri.repoPath).show(
             `Compare ${paths.basename(gitUri.fsPath)} with${GlyphChars.Ellipsis}`,
             {
-                allowCommitId: true,
+                allowEnteringRefs: true,
                 goBack: args.goBackCommand
             }
         );
