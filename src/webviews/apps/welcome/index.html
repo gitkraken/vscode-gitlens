@@ -130,6 +130,227 @@
 
                             <ul class="changelog__list">
                                 <li>
+                                    <span class="changelog__badge changelog__badge--version">9.6</span>
+                                    <span class="changelog__date">APR &nbsp;2019</span>
+                                    <div class="changelog__details"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--added">NEW</span>Adds a new
+                                    <b>Contributors</b> node to each repository in the <i>Repositories</i> view
+                                    <div class="changelog__details changelog__details--list">
+                                        <p>
+                                            Lists the contributors in the repository, sorted by contributed commits.
+                                            Provides the avatar (if enabled), name, and email address of each
+                                            contributor
+                                        </p>
+                                    </div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--added">NEW</span>Adds a
+                                    <i>Collapse All</i> command to the <i>Repositories</i> view &mdash; closes
+                                    <a
+                                        title="Open Issue #688"
+                                        href="https://github.com/eamodio/vscode-gitlens/issues/688"
+                                        >#688</a
+                                    >
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--added">NEW</span>Adds version links
+                                    to the CHANGELOG &mdash; closes
+                                    <a
+                                        title="Open Issue #617"
+                                        href="https://github.com/eamodio/vscode-gitlens/issues/617"
+                                        >#617</a
+                                    >
+                                    thanks to
+                                    <a
+                                        title="Open Pull Request #660"
+                                        href="https://github.com/eamodio/vscode-gitlens/pull/660"
+                                        >PR #660</a
+                                    >
+                                    by John Gee (<a title="@shadowspawn" href="https://github.com/shadowspawn"
+                                        >@shadowspawn</a
+                                    >)
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--added">NEW</span>Adds a
+                                    <code>gitlens.views.pageItemLimit</code> setting to specify the number of items to
+                                    show in a each page when paginating a view list. Use 0 to specify no limit
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--changed">IMPROVED</span>Removes the
+                                    automatic suspension of the current line blame annotations while debugging &mdash;
+                                    closes
+                                    <a
+                                        title="Open Issue #382"
+                                        href="https://github.com/eamodio/vscode-gitlens/issues/382"
+                                        >#382</a
+                                    >
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--changed">IMPROVED</span>Removes the
+                                    requirement of prefixing reference comparisons with <code>#</code> &mdash; closes
+                                    <a
+                                        title="Open Issue #690"
+                                        href="https://github.com/eamodio/vscode-gitlens/issues/690"
+                                        >#690</a
+                                    >
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--changed">IMPROVED</span>Changes
+                                    related commit highlighting to only appear on cursor movement after file blame
+                                    annotations are shown
+                                    <div class="changelog__details changelog__details--list">
+                                        <p>
+                                            This is to improve performance and reduce initial visual overload
+                                        </p>
+                                    </div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--changed">IMPROVED</span>Changes
+                                    <i>Open Revision from...</i> (<code>gitlens.openFileRevisionFrom</code>) command to
+                                    allow entering references
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--changed">IMPROVED</span>Improves the
+                                    behavior of the <i>Show More Commits</i> & <i>Show More Results</i> commands &mdash;
+                                    no longer loses the context of the last selected item before showing more
+                                    <div class="changelog__details"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--changed">IMPROVED</span>Improves the
+                                    behavior of the
+                                    <i>Open Changes with Next Revision</i> (<code>gitlens.diffWithNext</code>) command
+                                    when in the diff editor
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--changed">IMPROVED</span>Improves the
+                                    behavior of the
+                                    <i>Open Changes with Previous Revision</i> (<code>gitlens.diffWithPrevious</code>)
+                                    command when in the diff editor
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--changed">IMPROVED</span>Improves the
+                                    behavior of the
+                                    <i>Open Changes with Working File</i> (<code>gitlens.diffWithWorking</code>) command
+                                    when in the diff editor
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--changed">IMPROVED</span>Renames
+                                    <i>Compare HEAD with Branch or Tag...</i> (<code>gitlens.diffHeadWithBranch</code>)
+                                    command to <i>Compare HEAD with...</i> (<code>gitlens.diffHeadWith</code>)
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--changed">IMPROVED</span>Renames
+                                    <i>Compare Working Tree with Branch or Tag...</i>
+                                    (<code>gitlens.diffWorkingWithBranch</code>) command to
+                                    <i>Compare Working Tree with...</i> (<code>gitlens.diffWorkingWith</code>)
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--changed">IMPROVED</span>Renames
+                                    <i>Open Changes with Branch or Tag...</i> (<code>gitlens.diffWithBranch</code>)
+                                    command to <i>Open Changes with...</i> (<code>gitlens.diffWithRef</code>)
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--changed">IMPROVED</span>Renames
+                                    <i>Open Revision from Branch or Tag...</i>
+                                    (<code>gitlens.openFileRevisionFromBranch</code>) command to
+                                    <i>Open Revision from...</i> (<code>gitlens.openFileRevisionFrom</code>)
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--changed">IMPROVED</span>Renames
+                                    <i>Compare Branch or Tag with...</i>
+                                    (<code>gitlens.views.compare.selectForCompare</code>) command to
+                                    <i>Compare References...</i>
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--changed">IMPROVED</span>Renames
+                                    <i>Choose from Branch or Tag History...</i> quick pick item to
+                                    <i>Show File History from...</i> for better clarity and to reflect that references
+                                    are now allowed
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--changed">IMPROVED</span>Changes to
+                                    use <a href="https://github.com/iamkun/dayjs">Day.js</a> instead of
+                                    <a href="https://github.com/date-fns/date-fns">date-fns</a> for a reduced bundle
+                                    size
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes
+                                    <a
+                                        title="Open Issue #683"
+                                        href="https://github.com/eamodio/vscode-gitlens/issues/683"
+                                        >#683</a
+                                    >
+                                    &mdash; log.showSignature leads to stray files being displayed
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes
+                                    <a
+                                        title="Open Issue #691"
+                                        href="https://github.com/eamodio/vscode-gitlens/issues/691"
+                                        >#691</a
+                                    >
+                                    &mdash; Auto-expand tree view on Swap Comparison
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes
+                                    <a
+                                        title="Open Issue #695"
+                                        href="https://github.com/eamodio/vscode-gitlens/issues/695"
+                                        >#695</a
+                                    >
+                                    &mdash; Invalid URL in Open File in Remote when selecting origin/.. as comparison
+                                    branch
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes the
+                                    behavior of the <i>Open Line Changes with Previous Revision</i>
+                                    (<code>gitlens.diffLineWithPrevious</code>) command to follow the line history much
+                                    better
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes missing
+                                    <i>Compare References...</i> (<code>gitlens.views.compare.selectForCompare</code>)
+                                    from the command palette
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes font issues
+                                    in the <i>Welcome to GitLens</i> and <i>GitLens Settings</i> pages due to changes to
+                                    the webview CSS font variables provided by VS Code
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes the invite
+                                    link to the
+                                    <a title="Join us on Slack" href="https://vscode-slack.amod.io"
+                                        >VS Code Development Community Slack</a
+                                    >
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+
+                                <li class="changelog__list-item--version">
                                     <span class="changelog__badge changelog__badge--version">9.5</span>
                                     <span class="changelog__date">FEB &nbsp;2019</span>
                                     <div class="changelog__details"></div>

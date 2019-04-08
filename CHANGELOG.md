@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [9.6.0] - 2019-04-08
 
 ### Added
 
@@ -19,17 +19,15 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
         - Each revision (commit) expands to list its set of changed files, complete with status indicators for adds, changes, renames, and deletes
           - An inline toolbar provides quick access to the _Open File_, _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open File on Remote_ (if available) commands
           - A context menu provides access to more common file revision commands
-- Adds support for current line blame annotations while debugging &mdash; closes [#382](https://github.com/eamodio/vscode-gitlens/issues/382)
 - Adds a _Collapse All_ command to the _Repositories_ view &mdash; closes [#688](https://github.com/eamodio/vscode-gitlens/issues/688)
-- Adds version links to CHANGELOG &mdash; closes [#617](https://github.com/eamodio/vscode-gitlens/issues/617) thanks to [PR #600](https://github.com/eamodio/vscode-gitlens/pull/660) by John Gee ([@shadowspawn](https://github.com/shadowspawn))
+- Adds version links to the CHANGELOG &mdash; closes [#617](https://github.com/eamodio/vscode-gitlens/issues/617) thanks to [PR #660](https://github.com/eamodio/vscode-gitlens/pull/660) by John Gee ([@shadowspawn](https://github.com/shadowspawn))
 - Adds a `gitlens.views.pageItemLimit` setting to specify the number of items to show in a each page when paginating a view list. Use 0 to specify no limit
 
 ### Changed
 
-- Changes to use [Day.js](https://github.com/iamkun/dayjs) instead of [date-fns](https://github.com/date-fns/date-fns) for a reduced bundle size
 - Changes related commit highlighting to only appear on cursor movement after file blame annotations are shown &mdash; to improve performance and reduce initial visual overload
 - Changes _Open Revision from..._ (`gitlens.openFileRevisionFrom`) command to allow entering references
-- Improves the behavior of the _Show More Commits_ & _Show More Results_ commands - no longer loses the context of the last selected item before showing more
+- Improves the behavior of the _Show More Commits_ & _Show More Results_ commands &mdash; no longer loses the context of the last selected item before showing more
 - Improves the behavior of the _Open Changes with Next Revision_ (`gitlens.diffWithNext`) command when in the diff editor
 - Improves the behavior of the _Open Changes with Previous Revision_ (`gitlens.diffWithPrevious`) command when in the diff editor
 - Improves the behavior of the _Open Changes with Working File_ (`gitlens.diffWithWorking`) command when in the diff editor
@@ -37,14 +35,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Renames _Compare Working Tree with Branch or Tag..._ (`gitlens.diffWorkingWithBranch`) command to _Compare Working Tree with..._ (`gitlens.diffWorkingWith`)
 - Renames _Open Changes with Branch or Tag..._ (`gitlens.diffWithBranch`) command to _Open Changes with..._ (`gitlens.diffWithRef`)
 - Renames _Open Revision from Branch or Tag..._ (`gitlens.openFileRevisionFromBranch`) command to _Open Revision from..._ (`gitlens.openFileRevisionFrom`)
-- Renames _Compare Branch or Tag with..._ (`gitlens.views.compare.selectForCompare`) command to _Compare References..._ (`gitlens.views.compare.selectForCompare`)
+- Renames _Compare Branch or Tag with..._ (`gitlens.views.compare.selectForCompare`) command to _Compare References..._
 - Renames _Choose from Branch or Tag History..._ quick pick item to _Show File History from..._ for better clarity and to reflect that references are now allowed
-- Updates the invite link to the [VS Code Development Community Slack](https://vscode-slack.amod.io)
+- Changes to use [Day.js](https://github.com/iamkun/dayjs) instead of [date-fns](https://github.com/date-fns/date-fns) for a reduced bundle size
 
 ### Removed
 
-- Removes the requirement of prefixing reference comparisons with `#` &mdash; closes [#690](https://github.com/eamodio/vscode-gitlens/issues/690)
 - Removes the automatic suspension of the current line blame annotations while debugging &mdash; closes [#382](https://github.com/eamodio/vscode-gitlens/issues/382)
+- Removes the requirement of prefixing reference comparisons with `#` &mdash; closes [#690](https://github.com/eamodio/vscode-gitlens/issues/690)
 
 ### Fixed
 
@@ -53,7 +51,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#695](https://github.com/eamodio/vscode-gitlens/issues/695) - Invalid URL in Open File in Remote when selecting origin/.. as comparison branch
 - Fixes the behavior of the _Open Line Changes with Previous Revision_ (`gitlens.diffLineWithPrevious`) command to follow the line history much better
 - Fixes missing _Compare References..._ (`gitlens.views.compare.selectForCompare`) from the command palette
-- Fixes font issues in the _Welcome to GitLens_ and _GitLens Settings_ pages do to changes to CSS font variable provided by VS Code
+- Fixes font issues in the _Welcome to GitLens_ and _GitLens Settings_ pages due to changes to the webview CSS font variables provided by VS Code
+- Fixes the invite link to the [VS Code Development Community Slack](https://vscode-slack.amod.io)
 
 ## [9.5.1] - 2019-02-13
 
@@ -2741,6 +2740,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
+[9.6.0]: https://github.com/eamodio/vscode-gitlens/compare/v9.5.1...eamodio:v9.6.0
 [9.5.1]: https://github.com/eamodio/vscode-gitlens/compare/v9.5.0...eamodio:v9.5.1
 [9.5.0]: https://github.com/eamodio/vscode-gitlens/compare/v9.4.1...eamodio:v9.5.0
 [9.4.1]: https://github.com/eamodio/vscode-gitlens/compare/v9.4.0...eamodio:v9.4.1
