@@ -19,12 +19,15 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
         - Each revision (commit) expands to list its set of changed files, complete with status indicators for adds, changes, renames, and deletes
           - An inline toolbar provides quick access to the _Open File_, _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open File on Remote_ (if available) commands
           - A context menu provides access to more common file revision commands
+- Adds support for current line blame annotations while debugging &mdash; closes [#382](https://github.com/eamodio/vscode-gitlens/issues/382)
 - Adds a _Collapse All_ command to the _Repositories_ view &mdash; closes [#688](https://github.com/eamodio/vscode-gitlens/issues/688)
 - Adds version links to CHANGELOG &mdash; closes [#617](https://github.com/eamodio/vscode-gitlens/issues/617) thanks to [PR #600](https://github.com/eamodio/vscode-gitlens/pull/660) by John Gee ([@shadowspawn](https://github.com/shadowspawn))
 - Adds a `gitlens.views.pageItemLimit` setting to specify the number of items to show in a each page when paginating a view list. Use 0 to specify no limit
 
 ### Changed
 
+- Changes to use [Day.js](https://github.com/iamkun/dayjs) instead of [date-fns](https://github.com/date-fns/date-fns) for a reduced bundle size
+- Changes related commit highlighting to only appear on cursor movement after file blame annotations are shown &mdash; to improve performance and reduce initial visual overload
 - Changes _Open Revision from..._ (`gitlens.openFileRevisionFrom`) command to allow entering references
 - Improves the behavior of the _Show More Commits_ & _Show More Results_ commands - no longer loses the context of the last selected item before showing more
 - Improves the behavior of the _Open Changes with Next Revision_ (`gitlens.diffWithNext`) command when in the diff editor
@@ -45,11 +48,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
-- Fixes [#695](https://github.com/eamodio/vscode-gitlens/issues/695) - Invalid URL in Open File in Remote when selecting origin/.. as comparison branch
 - Fixes [#683](https://github.com/eamodio/vscode-gitlens/issues/683) - log.showSignature leads to stray files being displayed
 - Fixes [#691](https://github.com/eamodio/vscode-gitlens/issues/691) - Auto-expand tree view on Swap Comparison
+- Fixes [#695](https://github.com/eamodio/vscode-gitlens/issues/695) - Invalid URL in Open File in Remote when selecting origin/.. as comparison branch
 - Fixes the behavior of the _Open Line Changes with Previous Revision_ (`gitlens.diffLineWithPrevious`) command to follow the line history much better
 - Fixes missing _Compare References..._ (`gitlens.views.compare.selectForCompare`) from the command palette
+- Fixes font issues in the _Welcome to GitLens_ and _GitLens Settings_ pages do to changes to CSS font variable provided by VS Code
 
 ## [9.5.1] - 2019-02-13
 
