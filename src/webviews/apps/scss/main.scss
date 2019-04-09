@@ -489,6 +489,7 @@ ul {
     flex-direction: column;
 
     & p {
+        align-self: flex-start;
         margin-bottom: 0;
     }
 
