@@ -651,14 +651,11 @@ export class Git {
     ) {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
-        const params = [...defaultLogParams, '-m'];
+        const params = [...defaultLogParams];
         if (options.maxCount && !options.reverse) {
             params.push(`-n${options.maxCount}`);
         }
-
-        if (options.renames) {
-            params.push('--follow');
-        }
+        params.push(options.renames ? '--follow' : '-m');
 
         if (options.ref && !Git.isStagedUncommitted(options.ref)) {
             if (options.reverse) {
