@@ -7,6 +7,7 @@ import { CommitFormatter } from '../formatters/formatters';
 import { Git } from '../git';
 import { GitUri } from '../gitUri';
 import { getGravatarUri } from '../../gravatar';
+import { DateType } from '../../config';
 
 export interface GitAuthor {
     name: string;
@@ -32,10 +33,12 @@ export enum GitCommitType {
 export const CommitFormatting = {
     dateFormat: undefined! as string | null,
     dateStyle: undefined! as DateStyle,
+    dateType: undefined! as DateType,
 
     reset: () => {
         CommitFormatting.dateStyle = configuration.get<DateStyle>(configuration.name('defaultDateStyle').value);
         CommitFormatting.dateFormat = configuration.get<string | null>(configuration.name('defaultDateFormat').value);
+        CommitFormatting.dateType = configuration.get<DateType>(configuration.name('defaultDateType').value);
     }
 };
 
@@ -52,13 +55,17 @@ export abstract class GitCommit {
     private _isUncommitted: boolean | undefined;
     private _shortSha: string | undefined;
 
+    private _authorDateFormatter: Dates.DateFormatter | undefined;
+    private _committerDateFormatter: Dates.DateFormatter | undefined;
+
     constructor(
         type: GitCommitType,
         public readonly repoPath: string,
         public readonly sha: string,
         public readonly author: string,
         public readonly email: string | undefined,
-        public readonly date: Date,
+        public readonly authorDate: Date,
+        public readonly committerDate: Date,
         public readonly message: string,
         fileName: string,
         originalFileName?: string,
@@ -75,6 +82,30 @@ export abstract class GitCommit {
     get fileName() {
         // If we aren't a single-file commit, return an empty file name (makes it default to the repoPath)
         return this.isFile ? this._fileName : '';
+    }
+
+    get date(): Date {
+        return CommitFormatting.dateType === DateType.Committer
+            ? this.committerDate : this.authorDate;
+    }
+
+    get authorDateFormatter(): Dates.DateFormatter {
+        if (this._authorDateFormatter === undefined) {
+            this._authorDateFormatter = Dates.toFormatter(this.authorDate);
+        }
+        return this._authorDateFormatter;
+    }
+
+    get committerDateFormatter(): Dates.DateFormatter {
+        if (this._committerDateFormatter === undefined) {
+            this._committerDateFormatter = Dates.toFormatter(this.committerDate);
+        }
+        return this._committerDateFormatter;
+    }
+
+    get dateFormatter(): Dates.DateFormatter {
+        return CommitFormatting.dateType === DateType.Committer
+            ? this.committerDateFormatter : this.authorDateFormatter;
     }
 
     get formattedDate(): string {
@@ -149,24 +180,16 @@ export abstract class GitCommit {
         return this.workingFileName ? GitUri.resolveToUri(this.workingFileName, this.repoPath) : this.uri;
     }
 
-    private _dateFormatter?: Dates.DateFormatter;
-
     formatDate(format?: string | null) {
         if (format == null) {
             format = 'MMMM Do, YYYY h:mma';
         }
 
-        if (this._dateFormatter === undefined) {
-            this._dateFormatter = Dates.toFormatter(this.date);
-        }
-        return this._dateFormatter.format(format);
+        return this.dateFormatter.format(format);
     }
 
     fromNow() {
-        if (this._dateFormatter === undefined) {
-            this._dateFormatter = Dates.toFormatter(this.date);
-        }
-        return this._dateFormatter.fromNow();
+        return this.dateFormatter.fromNow();
     }
 
     getFormattedPath(options: { relativeTo?: string; separator?: string; suffix?: string } = {}): string {

@@ -35,6 +35,7 @@ export class GitLogCommit extends GitCommit {
             author,
             email,
             date,
+            committedDate,
             message,
             fileName,
             originalFileName,

@@ -167,7 +167,8 @@ export class GitService implements Disposable {
     private onConfigurationChanged(e: ConfigurationChangeEvent) {
         if (
             configuration.changed(e, configuration.name('defaultDateStyle').value) ||
-            configuration.changed(e, configuration.name('defaultDateFormat').value)
+            configuration.changed(e, configuration.name('defaultDateFormat').value) ||
+            configuration.changed(e, configuration.name('defaultDateType').value)
         ) {
             CommitFormatting.reset();
         }
