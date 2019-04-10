@@ -439,6 +439,20 @@
                     "markdownDescription": "Specifies how dates will be displayed by default",
                     "scope": "window"
                 },
+                "gitlens.defaultDateType": {
+                    "type": "string",
+                    "default": "author",
+                    "enum": [
+                        "author",
+                        "committer"
+                    ],
+                    "enumDescriptions": [
+                        "The date that the commit was originally written",
+                        "The date that the commit was applied to the branch"
+                    ],
+                    "markdownDescription": "Specifies if dates should use author date or committer date",
+                    "scope": "window"
+                },
                 "gitlens.defaultGravatarsStyle": {
                     "type": "string",
                     "default": "robohash",

@@ -18,6 +18,9 @@ interface BlameEntry {
     authorTimeZone?: string;
     authorEmail?: string;
 
+    committerDate?: string;
+    committerTimeZone?: string;
+
     previousSha?: string;
     previousFileName?: string;
 
@@ -105,6 +108,14 @@ export class GitBlameParser {
 
                 case 'author-tz':
                     entry.authorTimeZone = lineParts[1];
+                    break;
+
+                case 'committer-time':
+                    entry.committerDate = lineParts[1];
+                    break;
+
+                case 'committer-tz':
+                    entry.committerTimeZone = lineParts[1];
                     break;
 
                 case 'summary':
@@ -207,6 +218,7 @@ export class GitBlameParser {
                 entry.author,
                 entry.authorEmail,
                 new Date((entry.authorDate as any) * 1000),
+                new Date((entry.committerDate as any) * 1000),
                 entry.summary!,
                 relativeFileName,
                 entry.previousFileName !== undefined && entry.previousFileName !== entry.fileName

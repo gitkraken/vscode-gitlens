@@ -30,6 +30,7 @@ export interface Config {
     defaultDateFormat: string | null;
     defaultDateShortFormat: string | null;
     defaultDateStyle: DateStyle;
+    defaultDateType: DateType;
     defaultGravatarsStyle: GravatarDefaultStyle;
     heatmap: {
         ageThreshold: number;
@@ -125,6 +126,11 @@ export enum CustomRemoteType {
     Custom = 'Custom',
     GitHub = 'GitHub',
     GitLab = 'GitLab'
+}
+
+export enum DateType {
+    Author = 'author',
+    Committer = 'committer'
 }
 
 export enum DateStyle {
