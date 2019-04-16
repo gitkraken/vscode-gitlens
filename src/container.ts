@@ -226,7 +226,11 @@ export class Container {
 
     private static _repositoriesView: RepositoriesView | undefined;
     static get repositoriesView(): RepositoriesView {
-        return this._repositoriesView!;
+        if (this._repositoriesView === undefined) {
+            this._context.subscriptions.push((this._repositoriesView = new RepositoriesView()));
+        }
+
+        return this._repositoriesView;
     }
 
     private static _searchView: SearchView | undefined;

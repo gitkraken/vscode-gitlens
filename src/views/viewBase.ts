@@ -2,9 +2,11 @@
 import {
     commands,
     ConfigurationChangeEvent,
+    ConfigurationTarget,
     Disposable,
     Event,
     EventEmitter,
+    MessageItem,
     TreeDataProvider,
     TreeItem,
     TreeItemCollapsibleState,
@@ -16,7 +18,7 @@ import {
 import { configuration } from '../configuration';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { debug, Functions, log } from '../system';
+import { debug, Functions, log, Strings } from '../system';
 import { CompareView } from './compareView';
 import { FileHistoryView } from './fileHistoryView';
 import { LineHistoryView } from './lineHistoryView';
@@ -53,7 +55,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
     protected _root: TRoot | undefined;
     protected _tree: TreeView<ViewNode> | undefined;
 
-    constructor(public readonly id: string) {
+    constructor(public readonly id: string, public readonly name: string) {
         this.registerCommands();
 
         Container.context.subscriptions.push(configuration.onDidChange(this.onConfigurationChanged, this));
@@ -194,12 +196,30 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 
     @log()
     async show() {
+        const location = this.location;
+
         try {
-            const location = this.location;
             return await commands.executeCommand(`${this.id}${location ? `:${location}` : ''}.focus`);
         }
         catch (ex) {
             Logger.error(ex);
+
+            const setting = `${Strings.splitSingle(this.id, '.')[1]}.enabled`;
+            if (!configuration.get(setting)) {
+                const actions: MessageItem[] = [{ title: 'Enable' }, { title: 'Cancel', isCloseAffordance: true }];
+
+                const result = await window.showErrorMessage(
+                    `Unable to show the ${this.name} view since it's currently disabled. Would you like to enable it?`,
+                    ...actions
+                );
+
+                if (result === actions[0]) {
+                    await configuration.update(setting, true, ConfigurationTarget.Global);
+
+                    return commands.executeCommand(`${this.id}${location ? `:${location}` : ''}.focus`);
+                }
+            }
+
             return undefined;
         }
     }

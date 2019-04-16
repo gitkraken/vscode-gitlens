@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds a prompt to enable the view to the _Show \* View_ commands when the specified view is disabled &mdash; closes [#710](https://github.com/eamodio/vscode-gitlens/issues/710) & [#711](https://github.com/eamodio/vscode-gitlens/issues/711)
+
 ### Removed
 
 - Removes `-m` flag from `git log` when following renames (using `--follow`), because it ends up returning all merge commits (regardless if the file in question was changed or not)

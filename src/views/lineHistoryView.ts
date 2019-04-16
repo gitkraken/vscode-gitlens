@@ -8,7 +8,7 @@ import { ViewBase } from './viewBase';
 
 export class LineHistoryView extends ViewBase<LineHistoryTrackerNode> {
     constructor() {
-        super('gitlens.views.lineHistory');
+        super('gitlens.views.lineHistory', 'Line History');
     }
 
     getRoot() {

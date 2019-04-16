@@ -107,7 +107,7 @@ export enum Commands {
 }
 
 interface CommandConstructor {
-    new (): any;
+    new (): Command;
 }
 
 const registrableCommands: CommandConstructor[] = [];

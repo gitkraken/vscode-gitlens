@@ -9,7 +9,7 @@ import { ViewBase } from './viewBase';
 
 export class FileHistoryView extends ViewBase<FileHistoryTrackerNode> {
     constructor() {
-        super('gitlens.views.fileHistory');
+        super('gitlens.views.fileHistory', 'File History');
     }
 
     getRoot() {

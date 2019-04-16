@@ -8,7 +8,7 @@ import { ViewBase } from './viewBase';
 
 export class RepositoriesView extends ViewBase<RepositoriesNode> {
     constructor() {
-        super('gitlens.views.repositories');
+        super('gitlens.views.repositories', 'Repositories');
     }
 
     private _onDidChangeAutoRefresh = new EventEmitter<void>();

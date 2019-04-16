@@ -15,7 +15,7 @@ interface SearchQueryResult {
 
 export class SearchView extends ViewBase<SearchNode> {
     constructor() {
-        super('gitlens.views.search');
+        super('gitlens.views.search', 'Search Commits');
 
         setCommandContext(CommandContext.ViewsSearchKeepResults, this.keepResults);
     }

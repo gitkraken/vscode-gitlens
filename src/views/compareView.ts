@@ -15,7 +15,7 @@ import { ViewBase } from './viewBase';
 
 export class CompareView extends ViewBase<CompareNode> {
     constructor() {
-        super('gitlens.views.compare');
+        super('gitlens.views.compare', 'Compare');
 
         setCommandContext(CommandContext.ViewsCompareKeepResults, this.keepResults);
     }
