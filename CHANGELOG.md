@@ -14,6 +14,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Removes `-m` flag from `git log` when following renames (using `--follow`), because it ends up returning all merge commits (regardless if the file in question was changed or not)
 
+### Fixed
+
+- Fixes the broken _Open File_ command on the root node of the _File History_ and _Line History_ views
+
 ## [9.6.0] - 2019-04-08
 
 ### Added

@@ -36,6 +36,8 @@ import {
 } from './nodes';
 import { ContributorNode } from './nodes/contributorNode';
 import { Strings } from '../system/string';
+import { FileHistoryNode } from './nodes/fileHistoryNode';
+import { LineHistoryNode } from './nodes/lineHistoryNode';
 
 export interface RefreshNodeCommandArgs {
     maxCount?: number;
@@ -373,9 +375,13 @@ export class ViewCommands implements Disposable {
         return commands.executeCommand(Commands.DiffWithWorking, node.uri, args);
     }
 
-    private openFile(node: CommitFileNode | ResultsFileNode | StashFileNode | StatusFileNode) {
+    private openFile(
+        node: CommitFileNode | FileHistoryNode | LineHistoryNode | ResultsFileNode | StashFileNode | StatusFileNode
+    ) {
         if (
             !(node instanceof CommitFileNode) &&
+            !(node instanceof FileHistoryNode) &&
+            !(node instanceof LineHistoryNode) &&
             !(node instanceof ResultsFileNode) &&
             !(node instanceof StatusFileNode)
         ) {
