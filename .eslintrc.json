@@ -97,7 +97,7 @@
         "import/named": "off",
         "import/namespace": "off",
         "import/newline-after-import": "warn",
-        "import/no-cycle": "error",
+        "import/no-cycle": "off",
         "import/no-dynamic-require": "error",
         "import/no-default-export": "error",
         "import/no-duplicates": "error",
