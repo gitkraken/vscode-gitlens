@@ -17,7 +17,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes issues with the _Line History_ view sometimes showing a duplicate and out of order commit
-- Fixes the broken _Open File_ command on the root node of the _File History_ and _Line History_ views
+- Fixes broken _Open File_ command on the root node of the _File History_ and _Line History_ views
+- Fixes broken _Open Revision_ command on status files of the _Repositories_ view
 
 ## [9.6.0] - 2019-04-08
 

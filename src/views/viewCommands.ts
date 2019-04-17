@@ -22,7 +22,10 @@ import {
     BranchTrackingStatusNode,
     CommitFileNode,
     CommitNode,
+    ContributorNode,
+    FileHistoryNode,
     FolderNode,
+    LineHistoryNode,
     RemoteNode,
     RepositoryNode,
     ResultsFileNode,
@@ -34,10 +37,7 @@ import {
     ViewRefNode,
     viewSupportsNodeDismissal
 } from './nodes';
-import { ContributorNode } from './nodes/contributorNode';
 import { Strings } from '../system/string';
-import { FileHistoryNode } from './nodes/fileHistoryNode';
-import { LineHistoryNode } from './nodes/lineHistoryNode';
 
 export interface RefreshNodeCommandArgs {
     maxCount?: number;
@@ -392,10 +392,17 @@ export class ViewCommands implements Disposable {
     }
 
     private openFileRevision(
-        node: CommitFileNode | ResultsFileNode | StashFileNode,
+        node: CommitFileNode | ResultsFileNode | StashFileNode | StatusFileNode,
         options: OpenFileRevisionCommandArgs = { showOptions: { preserveFocus: true, preview: false } }
     ) {
-        if (!(node instanceof CommitFileNode) && !(node instanceof ResultsFileNode)) return undefined;
+        if (
+            !(node instanceof CommitFileNode) &&
+            !(node instanceof StashFileNode) &&
+            !(node instanceof ResultsFileNode) &&
+            !(node instanceof StatusFileNode)
+        ) {
+            return undefined;
+        }
 
         let uri = options.uri;
         if (uri == null) {
@@ -415,6 +422,19 @@ export class ViewCommands implements Disposable {
         }
 
         return openEditor(uri, options.showOptions || { preserveFocus: true, preview: false });
+    }
+
+    private openFileRevisionInRemote(node: CommitFileNode) {
+        if (!(node instanceof CommitFileNode) || node instanceof StashFileNode) return undefined;
+
+        const args: OpenFileInRemoteCommandArgs = {
+            range: false
+        };
+        return commands.executeCommand(
+            Commands.OpenFileInRemote,
+            node.commit.toGitUri(node.commit.status === 'D'),
+            args
+        );
     }
 
     private async openChangedFileChanges(
@@ -501,19 +521,6 @@ export class ViewCommands implements Disposable {
             showOptions: options
         };
         return commands.executeCommand(Commands.DiffWith, diffArgs);
-    }
-
-    private openFileRevisionInRemote(node: CommitFileNode | StashFileNode | StatusFileNode) {
-        if (!(node instanceof CommitFileNode) && !(node instanceof StatusFileNode)) return undefined;
-
-        const args: OpenFileInRemoteCommandArgs = {
-            range: false
-        };
-        return commands.executeCommand(
-            Commands.OpenFileInRemote,
-            node.commit.toGitUri(node.commit.status === 'D'),
-            args
-        );
     }
 
     private openInTerminal(node: RepositoryNode) {
