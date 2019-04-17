@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [9.6.1] - 2019-04-017
 
 ### Added
 
@@ -13,7 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Removed
 
-- Removes `-m` flag from `git log` when following renames (using `--follow`), because it ends up returning all merge commits (regardless if the file in question was changed or not)
+- Removes `-m` flag from `git log` when following renames (`--follow`), because it returns **all** merge commits, whether the file was changed or not
 
 ### Fixed
 
@@ -2758,6 +2758,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
+[9.6.1]: https://github.com/eamodio/vscode-gitlens/compare/v9.6.0...eamodio:v9.6.1
 [9.6.0]: https://github.com/eamodio/vscode-gitlens/compare/v9.5.1...eamodio:v9.6.0
 [9.5.1]: https://github.com/eamodio/vscode-gitlens/compare/v9.5.0...eamodio:v9.5.1
 [9.5.0]: https://github.com/eamodio/vscode-gitlens/compare/v9.4.1...eamodio:v9.5.0

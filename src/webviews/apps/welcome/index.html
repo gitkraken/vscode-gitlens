@@ -181,6 +181,33 @@
                                     <div class="changelog__details changelog__details--list"></div>
                                 </li>
                                 <li>
+                                    <span class="changelog__badge changelog__badge--added">NEW</span>Adds a
+                                    <i>Checkout</i> command to file nodes in the views to replace the local file with
+                                    the specified revision &mdash; closes
+                                    <a
+                                        title="Open Issue #684"
+                                        href="https://github.com/eamodio/vscode-gitlens/issues/684"
+                                        >#684</a
+                                    >
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--added">NEW</span>Adds a prompt to
+                                    enable the view to the <i>Show * View</i> commands when the specified view is
+                                    disabled &mdash; &mdash; closes
+                                    <a
+                                        title="Open Issue #710"
+                                        href="https://github.com/eamodio/vscode-gitlens/issues/710"
+                                        >#710</a
+                                    >,
+                                    <a
+                                        title="Open Issue #711"
+                                        href="https://github.com/eamodio/vscode-gitlens/issues/711"
+                                        >#711</a
+                                    >
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
                                     <span class="changelog__badge changelog__badge--changed">IMPROVED</span>Removes the
                                     automatic suspension of the current line blame annotations while debugging &mdash;
                                     closes
@@ -292,6 +319,13 @@
                                     <div class="changelog__details changelog__details--list"></div>
                                 </li>
                                 <li>
+                                    <span class="changelog__badge changelog__badge--changed">IMPROVED</span>Removes
+                                    <code>-m</code> flag from <code>git log</code> when following renames
+                                    (<code>--follow</code>), because it returns <b>all</b> merge commits, whether the
+                                    file was changed or not
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
                                     <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes
                                     <a
                                         title="Open Issue #683"
@@ -323,6 +357,16 @@
                                     <div class="changelog__details changelog__details--list"></div>
                                 </li>
                                 <li>
+                                    <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes
+                                    <a
+                                        title="Open Issue #701"
+                                        href="https://github.com/eamodio/vscode-gitlens/issues/701"
+                                        >#701</a
+                                    >
+                                    &mdash; Contributors shows no commits for mailmapped committer name
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
                                     <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes the
                                     behavior of the <i>Open Line Changes with Previous Revision</i>
                                     (<code>gitlens.diffLineWithPrevious</code>) command to follow the line history much
@@ -339,6 +383,22 @@
                                     <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes font issues
                                     in the <i>Welcome to GitLens</i> and <i>GitLens Settings</i> pages due to changes to
                                     the webview CSS font variables provided by VS Code
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes issues with
+                                    the <i>Line History</i> view sometimes showing a duplicate and out of order commit
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes broken
+                                    <i>Open File</i> command on the root node of the <i>File History</i> and
+                                    <i>Line History</i> views
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes broken
+                                    <i>Open Revision</i> command on status files of the <i>Repositories</i> view
                                     <div class="changelog__details changelog__details--list"></div>
                                 </li>
                                 <li>
