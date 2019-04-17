@@ -5,9 +5,9 @@ import { Commands, DiffWithCommandArgs } from '../../commands';
 import { Container } from '../../container';
 import { GitFile, GitUri, StatusFileFormatter } from '../../git/gitService';
 import { View } from '../viewBase';
-import { ResourceType, ViewNode } from './viewNode';
+import { ResourceType, ViewNode, ViewRefFileNode } from './viewNode';
 
-export class ResultsFileNode extends ViewNode {
+export class ResultsFileNode extends ViewRefFileNode {
     constructor(
         view: View,
         parent: ViewNode,
@@ -16,11 +16,15 @@ export class ResultsFileNode extends ViewNode {
         public readonly ref1: string,
         public readonly ref2: string
     ) {
-        super(GitUri.fromFile(file, repoPath, ref1 ? ref1 : ref2 ? ref2 : undefined), view, parent);
+        super(GitUri.fromFile(file, repoPath, ref1 || ref2), view, parent);
+    }
+
+    get fileName(): string {
+        return this.file.fileName;
     }
 
     get ref() {
-        return this.ref1 ? this.ref1 : this.ref2 ? this.ref2 : undefined;
+        return this.ref1 || this.ref2;
     }
 
     getChildren(): ViewNode[] {

@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds a _Checkout_ command to file nodes in the views to replace the local file with the specified revision &mdash; closes [#684](https://github.com/eamodio/vscode-gitlens/issues/684)
 - Adds a prompt to enable the view to the _Show \* View_ commands when the specified view is disabled &mdash; closes [#710](https://github.com/eamodio/vscode-gitlens/issues/710) & [#711](https://github.com/eamodio/vscode-gitlens/issues/711)
 
 ### Removed

@@ -34,6 +34,7 @@ import {
     StatusFileNode,
     TagNode,
     ViewNode,
+    ViewRefFileNode,
     ViewRefNode,
     viewSupportsNodeDismissal
 } from './nodes';
@@ -210,10 +211,8 @@ export class ViewCommands implements Disposable {
         return node.push({ force: force });
     }
 
-    private async applyChanges(node: CommitFileNode | StashFileNode | ResultsFileNode) {
-        if (!(node instanceof CommitFileNode) && !(node instanceof ResultsFileNode)) {
-            return;
-        }
+    private async applyChanges(node: ViewRefFileNode) {
+        if (!(node instanceof ViewRefFileNode)) return;
 
         void (await this.openFile(node));
 
@@ -228,8 +227,12 @@ export class ViewCommands implements Disposable {
         }
     }
 
-    private checkout(node: ViewRefNode) {
+    private checkout(node: ViewRefNode | ViewRefFileNode) {
         if (!(node instanceof ViewRefNode)) return undefined;
+
+        if (node instanceof ViewRefFileNode) {
+            return Container.git.checkout(node.repoPath, node.ref, node.fileName);
+        }
 
         return Container.git.checkout(node.repoPath, node.ref);
     }
@@ -287,14 +290,11 @@ export class ViewCommands implements Disposable {
         Container.compareView.selectForCompare(node.repoPath, node.ref);
     }
 
-    private compareFileWithSelected(node: CommitFileNode | ResultsFileNode | StashFileNode) {
-        if (
-            this._selectedFile === undefined ||
-            (!(node instanceof CommitFileNode) && !(node instanceof ResultsFileNode)) ||
-            node.ref === undefined
-        ) {
+    private compareFileWithSelected(node: ViewRefFileNode) {
+        if (this._selectedFile === undefined || !(node instanceof ViewRefFileNode) || node.ref === undefined) {
             return undefined;
         }
+
         if (this._selectedFile.repoPath !== node.repoPath) {
             this.selectFileForCompare(node);
             return undefined;
@@ -321,8 +321,8 @@ export class ViewCommands implements Disposable {
 
     private _selectedFile: CompareSelectedInfo | undefined;
 
-    private selectFileForCompare(node: CommitFileNode | ResultsFileNode | StashFileNode) {
-        if ((!(node instanceof CommitFileNode) && !(node instanceof ResultsFileNode)) || node.ref === undefined) return;
+    private selectFileForCompare(node: ViewRefFileNode) {
+        if (!(node instanceof ViewRefFileNode) || node.ref === undefined) return;
 
         this._selectedFile = {
             ref: node.ref,
@@ -343,8 +343,8 @@ export class ViewCommands implements Disposable {
         void commands.executeCommand(BuiltInCommands.FocusFilesExplorer);
     }
 
-    private openChanges(node: CommitFileNode | ResultsFileNode | StashFileNode) {
-        if (!(node instanceof CommitFileNode) && !(node instanceof ResultsFileNode)) return undefined;
+    private openChanges(node: ViewRefFileNode) {
+        if (!(node instanceof ViewRefFileNode)) return undefined;
 
         const command = node.getCommand();
         if (command === undefined || command.arguments === undefined) return undefined;
@@ -354,8 +354,8 @@ export class ViewCommands implements Disposable {
         return commands.executeCommand(command.command, uri, args);
     }
 
-    private async openChangesWithWorking(node: CommitFileNode | ResultsFileNode | StashFileNode) {
-        if (!(node instanceof CommitFileNode) && !(node instanceof ResultsFileNode)) return undefined;
+    private async openChangesWithWorking(node: ViewRefFileNode) {
+        if (!(node instanceof ViewRefFileNode)) return undefined;
 
         const args: DiffWithWorkingCommandArgs = {
             showOptions: {
@@ -375,15 +375,12 @@ export class ViewCommands implements Disposable {
         return commands.executeCommand(Commands.DiffWithWorking, node.uri, args);
     }
 
-    private openFile(
-        node: CommitFileNode | FileHistoryNode | LineHistoryNode | ResultsFileNode | StashFileNode | StatusFileNode
-    ) {
+    private openFile(node: ViewRefFileNode | StatusFileNode | FileHistoryNode | LineHistoryNode) {
         if (
-            !(node instanceof CommitFileNode) &&
+            !(node instanceof ViewRefFileNode) &&
+            !(node instanceof StatusFileNode) &&
             !(node instanceof FileHistoryNode) &&
-            !(node instanceof LineHistoryNode) &&
-            !(node instanceof ResultsFileNode) &&
-            !(node instanceof StatusFileNode)
+            !(node instanceof LineHistoryNode)
         ) {
             return undefined;
         }

@@ -4320,19 +4320,29 @@
                     "group": "5_gitlens_1@1"
                 },
                 {
+                    "command": "gitlens.views.checkout",
+                    "when": "viewItem =~ /gitlens:file:(commit|results)\\b/",
+                    "group": "5_gitlens_1@2"
+                },
+                {
                     "command": "gitlens.views.applyChanges",
                     "when": "!gitlens:readonly && viewItem == gitlens:file:stash",
                     "group": "1_gitlens@1"
                 },
                 {
+                    "command": "gitlens.views.checkout",
+                    "when": "!gitlens:readonly && viewItem == gitlens:file:stash",
+                    "group": "1_gitlens@2"
+                },
+                {
                     "command": "gitlens.showQuickCommitDetails",
                     "when": "viewItem =~ /gitlens:file\\b(?!(:stash|:status))/",
-                    "group": "5_gitlens_2@2"
+                    "group": "5_gitlens_2@1"
                 },
                 {
                     "command": "gitlens.showCommitInView",
                     "when": "viewItem =~ /gitlens:file\\b(?!(:stash|:status))/",
-                    "group": "5_gitlens_2@3"
+                    "group": "5_gitlens_2@2"
                 },
                 {
                     "command": "gitlens.showQuickFileHistory",

@@ -113,6 +113,10 @@ export abstract class ViewRefNode<TView extends View = View> extends ViewNode<TV
     }
 }
 
+export abstract class ViewRefFileNode<TView extends View = View> extends ViewRefNode<TView> {
+    abstract get fileName(): string;
+}
+
 export interface PageableViewNode {
     readonly supportsPaging: boolean;
     maxCount: number | undefined;

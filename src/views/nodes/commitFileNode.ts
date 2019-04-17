@@ -6,7 +6,7 @@ import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { CommitFormatter, GitFile, GitLogCommit, GitUri, StatusFileFormatter } from '../../git/gitService';
 import { View } from '../viewBase';
-import { ResourceType, ViewNode, ViewRefNode } from './viewNode';
+import { ResourceType, ViewNode, ViewRefFileNode } from './viewNode';
 
 export enum CommitFileNodeDisplayAs {
     CommitLabel = 1 << 0,
@@ -19,7 +19,7 @@ export enum CommitFileNodeDisplayAs {
     File = FileLabel | StatusIcon
 }
 
-export class CommitFileNode extends ViewRefNode {
+export class CommitFileNode extends ViewRefFileNode {
     constructor(
         view: View,
         parent: ViewNode,
@@ -29,6 +29,10 @@ export class CommitFileNode extends ViewRefNode {
         private readonly _selection?: Selection
     ) {
         super(GitUri.fromFile(file, commit.repoPath, commit.sha), view, parent);
+    }
+
+    get fileName(): string {
+        return this.file.fileName;
     }
 
     get priority(): number {
