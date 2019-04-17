@@ -617,7 +617,7 @@ export class Git {
     static log(repoPath: string, options: { authors?: string[]; maxCount?: number; ref?: string; reverse?: boolean }) {
         const params = [...defaultLogParams, '--full-history', '-M', '-m'];
         if (options.authors) {
-            params.push(...options.authors.map(a => `--author=${a}`));
+            params.push('--use-mailmap', ...options.authors.map(a => `--author=${a}`));
         }
         if (options.maxCount && !options.reverse) {
             params.push(`-n${options.maxCount}`);

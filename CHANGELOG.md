@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#701](https://github.com/eamodio/vscode-gitlens/issues/701) - Contributors shows no commits for mailmapped committer name
 - Fixes issues with the _Line History_ view sometimes showing a duplicate and out of order commit
 - Fixes broken _Open File_ command on the root node of the _File History_ and _Line History_ views
 - Fixes broken _Open Revision_ command on status files of the _Repositories_ view
