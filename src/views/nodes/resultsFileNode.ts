@@ -11,7 +11,7 @@ export class ResultsFileNode extends ViewRefFileNode {
     constructor(
         view: View,
         parent: ViewNode,
-        public readonly repoPath: string,
+        repoPath: string,
         public readonly file: GitFile,
         public readonly ref1: string,
         public readonly ref2: string
