@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [9.6.2] - 2019-04-017
 
 ### Fixed
 
@@ -2764,6 +2764,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
+[9.6.2]: https://github.com/eamodio/vscode-gitlens/compare/v9.6.1...eamodio:v9.6.2
 [9.6.1]: https://github.com/eamodio/vscode-gitlens/compare/v9.6.0...eamodio:v9.6.1
 [9.6.0]: https://github.com/eamodio/vscode-gitlens/compare/v9.5.1...eamodio:v9.6.0
 [9.5.1]: https://github.com/eamodio/vscode-gitlens/compare/v9.5.0...eamodio:v9.5.1
