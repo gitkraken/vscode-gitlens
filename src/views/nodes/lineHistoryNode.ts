@@ -29,6 +29,51 @@ export class LineHistoryNode extends SubscribeableViewNode {
             CommitFileNodeDisplayAs.CommitLabel |
             (this.view.config.avatars ? CommitFileNodeDisplayAs.Gravatar : CommitFileNodeDisplayAs.StatusIcon);
 
+        if (this.uri.sha === undefined) {
+            // Check for any uncommitted changes in the range
+            const blame = await Container.git.getBlameForRange(this.uri, this.selection);
+            if (blame !== undefined) {
+                for (const commit of blame.commits.values()) {
+                    if (!commit.isUncommitted) continue;
+
+                    const file: GitFile = {
+                        fileName: commit.fileName,
+                        indexStatus: '?',
+                        originalFileName: commit.originalFileName,
+                        repoPath: this.uri.repoPath!,
+                        status: 'M',
+                        workingTreeStatus: '?'
+                    };
+
+                    const uncommitted = new GitLogCommit(
+                        GitCommitType.File,
+                        this.uri.repoPath!,
+                        commit.sha,
+                        'You',
+                        commit.email,
+                        commit.date,
+                        // TODO: Add committed date to blame?
+                        commit.date,
+                        commit.message,
+                        commit.fileName,
+                        [file],
+                        'M',
+                        commit.originalFileName,
+                        commit.previousSha,
+                        commit.originalFileName || commit.fileName
+                    );
+
+                    children.splice(
+                        0,
+                        0,
+                        new CommitFileNode(this.view, this, file, uncommitted, displayAs, this.selection)
+                    );
+
+                    break;
+                }
+            }
+        }
+
         const log = await Container.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, {
             ref: this.uri.sha,
             range: this.selection
@@ -43,45 +88,6 @@ export class LineHistoryNode extends SubscribeableViewNode {
                     this
                 )
             );
-        }
-
-        const blame = await Container.git.getBlameForLine(this.uri, this.selection.active.line);
-        if (blame !== undefined) {
-            let first = children[0] as CommitFileNode | undefined;
-            if (first !== undefined && !(first instanceof CommitFileNode)) {
-                first = children[1] as CommitFileNode | undefined;
-            }
-
-            if (first === undefined || first.commit.sha !== blame.commit.sha) {
-                const file: GitFile = {
-                    fileName: blame.commit.fileName,
-                    indexStatus: '?',
-                    originalFileName: blame.commit.originalFileName,
-                    repoPath: this.uri.repoPath!,
-                    status: 'M',
-                    workingTreeStatus: '?'
-                };
-
-                const commit = new GitLogCommit(
-                    GitCommitType.File,
-                    this.uri.repoPath!,
-                    blame.commit.sha,
-                    'You',
-                    blame.commit.email,
-                    blame.commit.date,
-                    // TODO: Add committed date to blame?
-                    blame.commit.date,
-                    blame.commit.message,
-                    blame.commit.fileName,
-                    [file],
-                    'M',
-                    blame.commit.originalFileName,
-                    blame.commit.previousSha,
-                    blame.commit.originalFileName || blame.commit.fileName
-                );
-
-                children.splice(0, 0, new CommitFileNode(this.view, this, file, commit, displayAs, this.selection));
-            }
         }
 
         if (children.length === 0) return [new MessageNode(this.view, this, 'No line history could be found.')];
