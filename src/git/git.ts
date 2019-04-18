@@ -525,8 +525,14 @@ export class Git {
         }
     }
 
-    static diff_nameStatus(repoPath: string, ref1?: string, ref2?: string, options: { filter?: string } = {}) {
-        const params = ['diff', '--name-status', '-M', '--no-ext-diff'];
+    static diff_nameStatus(
+        repoPath: string,
+        ref1?: string,
+        ref2?: string,
+        options: { filter?: string; findRenames?: number } = {}
+    ) {
+        const renameParameter = options.findRenames == null ? '-M' : `-M${options.findRenames}%`;
+        const params = ['diff', '--name-status', renameParameter, '--no-ext-diff'];
         if (options && options.filter) {
             params.push(`--diff-filter=${options.filter}`);
         }
