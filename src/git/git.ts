@@ -176,7 +176,7 @@ export async function git<TOut extends string | Buffer>(options: GitCommandOptio
                 throw ex;
 
             default: {
-                const result = defaultExceptionHandler(ex, options, ...args);
+                const result = defaultExceptionHandler(ex, options.cwd, start);
                 exception = undefined;
                 return result as TOut;
             }
@@ -186,13 +186,17 @@ export async function git<TOut extends string | Buffer>(options: GitCommandOptio
         pendingCommands.delete(command);
 
         const duration = `${Strings.getDurationMilliseconds(start)} ms ${waiting ? '(await) ' : emptyStr}`;
-        Logger.log(
-            `${gitCommand} ${GlyphChars.Dot} ${
-                exception !== undefined
-                    ? `FAILED(${(exception.message || emptyStr).trim().split('\n', 1)[0]}) `
-                    : emptyStr
-            }${duration}`
-        );
+        if (exception !== undefined) {
+            Logger.warn(
+                `[${runOpts.cwd}] Git ${(exception.message || exception.toString() || emptyStr)
+                    .trim()
+                    .replace(/fatal: /g, '')
+                    .replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)} ${GlyphChars.Dot} ${duration}`
+            );
+        }
+        else {
+            Logger.log(`${gitCommand} ${GlyphChars.Dot} ${duration}`);
+        }
         Logger.logGitCommand(
             `${gitCommand} ${GlyphChars.Dot} ${exception !== undefined ? 'FAILED ' : emptyStr}${duration}`,
             exception
@@ -200,26 +204,31 @@ export async function git<TOut extends string | Buffer>(options: GitCommandOptio
     }
 }
 
-function defaultExceptionHandler(ex: Error, options: GitCommandOptions, ...args: any[]): string {
-    const msg = ex && ex.toString();
-    if (msg) {
+function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [number, number]): string {
+    const msg = ex.message || ex.toString();
+    if (msg != null && msg.length !== 0) {
         for (const warning of Objects.values(GitWarnings)) {
             if (warning.test(msg)) {
-                Logger.warn('git', ...args, `  cwd='${options.cwd}'\n\n  `, msg.replace(/\r?\n|\r/g, ' '));
+                const duration = start !== undefined ? `${Strings.getDurationMilliseconds(start)} ms` : emptyStr;
+                Logger.warn(
+                    `[${cwd}] Git ${msg
+                        .trim()
+                        .replace(/fatal: /g, '')
+                        .replace(/\r?\n|\r/g, ` ${GlyphChars.Dot} `)} ${GlyphChars.Dot} ${duration}`
+                );
                 return emptyStr;
             }
         }
+
+        const match = GitErrors.badRevision.exec(msg);
+        if (match != null && match) {
+            const [, ref] = match;
+
+            // Since looking up a ref with ^3 (e.g. looking for untracked files in a stash) can error on some versions of git just ignore it
+            if (ref != null && ref.endsWith('^3')) return emptyStr;
+        }
     }
 
-    const match = GitErrors.badRevision.exec(msg);
-    if (match != null && match) {
-        const [, ref] = match;
-
-        // Since looking up a ref with ^3 (e.g. looking for untracked files in a stash) can error on some versions of git just ignore it
-        if (ref != null && ref.endsWith('^3')) return emptyStr;
-    }
-
-    Logger.error(ex, 'git', ...args, `  cwd='${options.cwd}'\n\n  `);
     throw ex;
 }
 
@@ -798,7 +807,7 @@ export class Git {
                 return data.length === 0 ? undefined : [data.trim(), undefined];
             }
 
-            defaultExceptionHandler(ex, opts, ...params);
+            defaultExceptionHandler(ex, opts.cwd);
             return undefined;
         }
     }
@@ -853,7 +862,7 @@ export class Git {
                 return undefined;
             }
 
-            return defaultExceptionHandler(ex, opts, args) as TOut;
+            return defaultExceptionHandler(ex, opts.cwd) as TOut;
         }
     }
 

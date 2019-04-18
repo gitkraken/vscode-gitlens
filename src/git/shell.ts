@@ -99,14 +99,6 @@ export function findExecutable(exe: string, args: string[]): { cmd: string; args
     return { cmd: exe, args: args };
 }
 
-export class RunError extends Error {
-    constructor(public readonly exitCode: number, ...args: any[]) {
-        super(...args);
-
-        Error.captureStackTrace(this, RunError);
-    }
-}
-
 export interface RunOptions {
     cwd?: string;
     readonly env?: Record<string, any>;
@@ -132,6 +124,8 @@ export interface RunOptions {
     readonly stdinEncoding?: string;
 }
 
+const bufferExceededRegex = /stdout maxBuffer( length)? exceeded/;
+
 export function run<TOut extends string | Buffer>(
     command: string,
     args: any[],
@@ -145,18 +139,15 @@ export function run<TOut extends string | Buffer>(
             command,
             args,
             opts,
-            (err: (Error & { code?: string | number }) | null, stdout, stderr) => {
-                if (err != null) {
-                    reject(
-                        new RunError(
-                            err.code ? Number(err.code) : 0,
-                            err.message === 'stdout maxBuffer exceeded'
-                                ? `Command output exceeded the allocated stdout buffer. Set 'options.maxBuffer' to a larger value than ${
-                                      opts.maxBuffer
-                                  } bytes`
-                                : stderr || stdout
-                        )
-                    );
+            (error: (Error & { code?: string | number }) | null, stdout, stderr) => {
+                if (error != null) {
+                    if (bufferExceededRegex.test(error.message)) {
+                        error.message = `Command output exceeded the allocated stdout buffer. Set 'options.maxBuffer' to a larger value than ${
+                            opts.maxBuffer
+                        } bytes`;
+                    }
+
+                    reject(error);
 
                     return;
                 }
