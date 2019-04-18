@@ -244,6 +244,7 @@ export interface CompareViewConfig {
     avatars: boolean;
     enabled: boolean;
     files: ViewsFilesConfig;
+    findRenames: number;
     location: ViewLocation;
 }
 

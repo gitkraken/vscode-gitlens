@@ -1309,7 +1309,7 @@ export class GitService implements Disposable {
         repoPath: string,
         ref1?: string,
         ref2?: string,
-        options: { filter?: string } = {}
+        options: { filter?: string; findRenames?: number } = {}
     ): Promise<GitFile[] | undefined> {
         try {
             const data = await Git.diff_nameStatus(repoPath, ref1, ref2, options);

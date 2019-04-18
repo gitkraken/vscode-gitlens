@@ -1293,6 +1293,12 @@
                     "markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Compare_ view",
                     "scope": "window"
                 },
+                "gitlens.views.compare.findRenames": {
+                    "type": "number",
+                    "default": 50,
+                    "markdownDescription": "Specifies the threshold for the rename similarity index.",
+                    "scope": "window"
+                },
                 "gitlens.views.compare.enabled": {
                     "type": "boolean",
                     "default": true,
