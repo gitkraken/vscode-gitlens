@@ -213,7 +213,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
             }
         }
 
-        return `\n\n> ${message
+        return `\n> ${message
             // Escape markdown
             .replace(escapeMarkdownRegex, '\\$&')
             // Escape markdown header (since the above regex won't match it)
