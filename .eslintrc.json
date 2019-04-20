@@ -32,6 +32,7 @@
         "no-console": "off",
         "no-constant-condition": ["warn", { "checkLoops": false }],
         "no-caller": "error",
+        "no-debugger": "warn",
         "no-dupe-class-members": "off",
         "no-duplicate-imports": "error",
         "no-else-return": "warn",
