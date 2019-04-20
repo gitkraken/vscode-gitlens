@@ -32,7 +32,7 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
         const commit = await Container.git.getRecentLogCommitForFile(this._uri.repoPath, this._uri.fsPath);
         if (commit === undefined) return false;
 
-        const diff = await Container.git.getDiffForFile(this._uri, commit.previousSha);
+        const diff = await Container.git.getDiffForFile(this._uri, commit.sha);
         if (diff === undefined) return false;
 
         let start = process.hrtime();
@@ -42,14 +42,15 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 
         this.decorations = [];
 
-        for (const chunk of diff.chunks) {
-            let count = chunk.currentPosition.start - 2;
-            for (const line of chunk.lines) {
-                if (line.line === undefined) continue;
+        for (const hunk of diff.hunks) {
+            // Subtract 2 because editor lines are 0-based and we will be adding 1 in the first iteration of the loop
+            let count = hunk.currentPosition.start - 2;
+            for (const line of hunk.lines) {
+                if (line.current === undefined) continue;
 
                 count++;
 
-                if (line.state === 'unchanged') continue;
+                if (line.current.state === 'unchanged') continue;
 
                 const range = this.editor.document.validateRange(
                     new Range(new Position(count, 0), new Position(count, Number.MAX_SAFE_INTEGER))

@@ -14,8 +14,9 @@ import { Container } from '../container';
 import {
     CommitFormatOptions,
     CommitFormatter,
+    GitBlameCommit,
     GitCommit,
-    GitDiffChunkLine,
+    GitDiffHunkLine,
     GitRemote,
     GitService,
     GitUri
@@ -108,11 +109,11 @@ export class Annotations {
     static getHoverDiffMessage(
         commit: GitCommit,
         uri: GitUri,
-        chunkLine: GitDiffChunkLine | undefined
+        hunkLine: GitDiffHunkLine | undefined
     ): MarkdownString | undefined {
-        if (chunkLine === undefined || commit.previousSha === undefined) return undefined;
+        if (hunkLine === undefined || commit.previousSha === undefined) return undefined;
 
-        const codeDiff = this.getCodeDiff(chunkLine);
+        const diff = this.getDiffFromHunkLine(hunkLine);
 
         let message: string;
         if (commit.isUncommitted) {
@@ -121,12 +122,12 @@ export class Annotations {
                     GlyphChars.Dash
                 } &nbsp; [\`${commit.previousShortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
                     commit.previousSha!
-                )} "Show Commit Details") ${GlyphChars.ArrowLeftRightLong} _${uri.shortSha}_\n${codeDiff}`;
+                )} "Show Commit Details") ${GlyphChars.ArrowLeftRightLong} _${uri.shortSha}_\n${diff}`;
             }
             else {
                 message = `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(commit)} "Open Changes") &nbsp; ${
                     GlyphChars.Dash
-                } &nbsp; _uncommitted changes_\n${codeDiff}`;
+                } &nbsp; _uncommitted changes_\n${diff}`;
             }
         }
         else {
@@ -136,9 +137,7 @@ export class Annotations {
                 commit.previousSha!
             )} "Show Commit Details") ${GlyphChars.ArrowLeftRightLong} [\`${
                 commit.shortSha
-            }\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
-                commit.sha
-            )} "Show Commit Details")\n${codeDiff}`;
+            }\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.sha)} "Show Commit Details")\n${diff}`;
         }
 
         const markdown = new MarkdownString(message);
@@ -146,21 +145,36 @@ export class Annotations {
         return markdown;
     }
 
-    private static getCodeDiff(chunkLine: GitDiffChunkLine): string {
-        const previous = chunkLine.previous === undefined ? undefined : chunkLine.previous[0];
-        return `\`\`\`
--  ${previous === undefined || previous.line === undefined ? '' : previous.line.trim()}
-+  ${chunkLine.line === undefined ? '' : chunkLine.line.trim()}
-\`\`\``;
+    private static getDiffFromHunkLine(hunkLine: GitDiffHunkLine): string {
+        if (Container.config.hovers.changesDiff === 'hunk') {
+            return `\`\`\`diff\n${hunkLine.hunk.diff}\n\`\`\``;
+        }
+
+        return `\`\`\`diff${hunkLine.previous === undefined ? '' : `\n-${hunkLine.previous.line}`}${
+            hunkLine.current === undefined ? '' : `\n+${hunkLine.current.line}`
+        }\n\`\`\``;
     }
 
-    static async changesHover(commit: GitCommit, line: number, uri: GitUri): Promise<Partial<DecorationOptions>> {
-        const sha =
-            !commit.isUncommitted || (uri.sha !== undefined && GitService.isStagedUncommitted(uri.sha))
-                ? commit.previousSha
-                : undefined;
-        const chunkLine = await Container.git.getDiffForLine(uri, line, sha);
-        const message = this.getHoverDiffMessage(commit, uri, chunkLine);
+    static async changesHover(
+        commit: GitBlameCommit,
+        editorLine: number,
+        uri: GitUri
+    ): Promise<Partial<DecorationOptions>> {
+        let ref;
+        if (commit.isUncommitted) {
+            if (uri.sha !== undefined && GitService.isStagedUncommitted(uri.sha)) {
+                ref = uri.sha;
+            }
+        }
+        else {
+            ref = commit.sha;
+        }
+
+        const line = editorLine + 1;
+        const commitLine = commit.lines.find(l => l.line === line) || commit.lines[0];
+
+        const hunkLine = await Container.git.getDiffForLine(uri, commitLine.originalLine - 1, ref);
+        const message = this.getHoverDiffMessage(commit, uri, hunkLine);
 
         return {
             hoverMessage: message

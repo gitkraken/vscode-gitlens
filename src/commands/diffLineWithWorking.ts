@@ -59,7 +59,8 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
                         previousSha: null,
                         previousFileName: null
                     });
-                    args.line = blame.line.line + 1;
+                    // editor lines are 0-based
+                    args.line = blame.line.line - 1;
                 }
             }
             catch (ex) {

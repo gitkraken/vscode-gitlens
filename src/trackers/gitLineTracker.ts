@@ -123,7 +123,7 @@ export class GitLineTracker extends LineTracker<GitLineState> {
                 : await Container.git.getBlameForLine(trackedDocument.uri, lines[0]);
             if (blameLine === undefined) return false;
 
-            this.setState(blameLine.line.line, new GitLineState(blameLine.commit));
+            this.setState(blameLine.line.line - 1, new GitLineState(blameLine.commit));
         }
         else {
             const blame = editor.document.isDirty

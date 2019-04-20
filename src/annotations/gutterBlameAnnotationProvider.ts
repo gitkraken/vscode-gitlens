@@ -58,7 +58,8 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
         }
 
         for (const l of blame.lines) {
-            const line = l.line;
+            // editor lines are 0-based
+            const editorLine = l.line - 1;
 
             if (previousSha === l.sha) {
                 if (gutter === undefined) continue;
@@ -84,7 +85,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
                     compacted = true;
                 }
 
-                gutter.range = new Range(line, 0, line, 0);
+                gutter.range = new Range(editorLine, 0, editorLine, 0);
 
                 this.decorations.push(gutter);
 
@@ -105,7 +106,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
             if (gutter !== undefined) {
                 gutter = {
                     ...gutter,
-                    range: new Range(line, 0, line, 0)
+                    range: new Range(editorLine, 0, editorLine, 0)
                 };
 
                 this.decorations.push(gutter);
@@ -123,7 +124,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
                 Annotations.applyHeatmap(gutter, commit.date, computedHeatmap);
             }
 
-            gutter.range = new Range(line, 0, line, 0);
+            gutter.range = new Range(editorLine, 0, editorLine, 0);
 
             this.decorations.push(gutter);
 

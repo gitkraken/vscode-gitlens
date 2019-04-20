@@ -518,7 +518,7 @@ export class Git {
         ref2?: string,
         options: { encoding?: string; filter?: string } = {}
     ): Promise<string> {
-        const params = ['diff', '-M', '--no-ext-diff', '--minimal'];
+        const params = ['diff', '-M', '--no-ext-diff', '-U0', '--minimal'];
         if (options.filter) {
             params.push(`--diff-filter=${options.filter}`);
         }
@@ -864,6 +864,10 @@ export class Git {
 
             return defaultExceptionHandler(ex, opts.cwd) as TOut;
         }
+    }
+
+    static show_diff(repoPath: string, fileName: string, ref: string) {
+        return git<string>({ cwd: repoPath }, 'show', '--format=', '--minimal', '-U0', ref, '--', fileName);
     }
 
     static show_status(repoPath: string, fileName: string, ref: string) {

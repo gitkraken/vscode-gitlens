@@ -563,6 +563,20 @@
                     "markdownDescription": "Specifies whether to show avatar images in hovers",
                     "scope": "window"
                 },
+                "gitlens.hovers.changesDiff": {
+                    "type": "string",
+                    "default": "line",
+                    "enum": [
+                        "line",
+                        "hunk"
+                    ],
+                    "enumDescriptions": [
+                        "Shows only the changes to the line",
+                        "Shows the full set of related changes"
+                    ],
+                    "markdownDescription": "Specifies whether to show just the changes to the line or the full set of related changes in the _changes (diff)_ hover",
+                    "scope": "window"
+                },
                 "gitlens.hovers.detailsMarkdownFormat": {
                     "type": "string",
                     "default": "[${avatar} &nbsp;__${author}__](mailto:${email}), ${ago} &nbsp; _(${date})_ \n\n${message}\n\n${commands}",

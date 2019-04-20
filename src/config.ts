@@ -51,6 +51,7 @@ export interface Config {
             over: 'line' | 'annotation';
         };
         avatars: boolean;
+        changesDiff: 'line' | 'hunk';
         detailsMarkdownFormat: string;
         enabled: boolean;
     };

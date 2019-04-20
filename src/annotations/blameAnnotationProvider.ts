@@ -11,7 +11,7 @@ import {
     TextEditorDecorationType
 } from 'vscode';
 import { Container } from '../container';
-import { GitBlame, GitCommit, GitUri } from '../git/gitService';
+import { GitBlame, GitBlameCommit, GitCommit, GitUri } from '../git/gitService';
 import { Arrays, Iterables, log } from '../system';
 import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 import { AnnotationProviderBase } from './annotationProvider';
@@ -88,7 +88,8 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 
         const highlightDecorationRanges = Arrays.filterMap(blame.lines, l =>
             l.sha === sha
-                ? this.editor.document.validateRange(new Range(l.line, 0, l.line, Number.MAX_SAFE_INTEGER))
+                ? // editor lines are 0-based
+                  this.editor.document.validateRange(new Range(l.line - 1, 0, l.line - 1, Number.MAX_SAFE_INTEGER))
                 : undefined
         );
 
@@ -255,7 +256,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         );
     }
 
-    private async getCommitForHover(position: Position): Promise<GitCommit | undefined> {
+    private async getCommitForHover(position: Position): Promise<GitBlameCommit | undefined> {
         if (Container.config.hovers.annotations.over !== 'line' && position.character !== 0) return undefined;
 
         const blame = await this.getBlame();

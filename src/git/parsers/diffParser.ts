@@ -1,63 +1,70 @@
 'use strict';
-import { Iterables, Strings } from '../../system';
-import { GitDiff, GitDiffChunk, GitDiffChunkLine, GitDiffLine, GitDiffShortStat, GitFile, GitFileStatus } from '../git';
+import { Strings } from '../../system';
+import { GitDiff, GitDiffHunk, GitDiffHunkLine, GitDiffLine, GitDiffShortStat, GitFile, GitFileStatus } from '../git';
 
 const nameStatusDiffRegex = /^(.*?)\t(.*?)(?:\t(.*?))?$/gm;
 const shortStatDiffRegex = /^\s*(\d+)\sfiles? changed(?:,\s+(\d+)\s+insertions?\(\+\))?(?:,\s+(\d+)\s+deletions?\(-\))?/;
-const unifiedDiffRegex = /^@@ -([\d]+),([\d]+) [+]([\d]+),([\d]+) @@([\s\S]*?)(?=^@@)/gm;
+const unifiedDiffRegex = /^@@ -([\d]+)(?:,([\d]+))? \+([\d]+)(?:,([\d]+))? @@(?:.*?)\n([\s\S]*?)(?=^@@)/gm;
 
 export class GitDiffParser {
     static parse(data: string, debug: boolean = false): GitDiff | undefined {
         if (!data) return undefined;
 
-        const chunks: GitDiffChunk[] = [];
+        const hunks: GitDiffHunk[] = [];
 
         let match: RegExpExecArray | null;
-        let chunk;
+        let hunk;
+        let currentStartStr;
         let currentStart;
+        let currentCountStr;
+        let currentCount;
+        let previousStartStr;
         let previousStart;
-
+        let previousCountStr;
+        let previousCount;
         do {
             match = unifiedDiffRegex.exec(`${data}\n@@`);
             if (match == null) break;
 
             // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-            chunk = ` ${match[5]}`.substr(1);
-            currentStart = parseInt(match[3], 10);
-            previousStart = parseInt(match[1], 10);
+            hunk = ` ${match[5]}`.substr(1);
 
-            chunks.push(
-                new GitDiffChunk(
-                    chunk,
+            [, previousStartStr, previousCountStr, currentStartStr, currentCountStr] = match;
+            previousStart = parseInt(previousStartStr, 10);
+            previousCount = previousCountStr ? parseInt(previousCountStr, 10) : 0;
+            currentStart = parseInt(currentStartStr, 10);
+            currentCount = currentCountStr ? parseInt(currentCountStr, 10) : 0;
+
+            hunks.push(
+                new GitDiffHunk(
+                    hunk,
                     {
                         start: currentStart,
-                        end: currentStart + parseInt(match[4], 10)
+                        end: currentStart + currentCount
                     },
                     {
                         start: previousStart,
-                        end: previousStart + parseInt(match[2], 10)
+                        end: previousStart + previousCount
                     }
                 )
             );
         } while (match != null);
 
-        if (!chunks.length) return undefined;
+        if (!hunks.length) return undefined;
 
         const diff: GitDiff = {
             diff: debug ? data : undefined,
-            chunks: chunks
+            hunks: hunks
         };
         return diff;
     }
 
-    static parseChunk(chunk: string): GitDiffChunkLine[] {
-        const lines = Iterables.skip(Strings.lines(chunk), 1);
-
+    static parseHunk(hunk: GitDiffHunk): GitDiffHunkLine[] {
         const currentLines: (GitDiffLine | undefined)[] = [];
         const previousLines: (GitDiffLine | undefined)[] = [];
 
         let removed = 0;
-        for (const l of lines) {
+        for (const l of Strings.lines(hunk.diff)) {
             switch (l[0]) {
                 case '+':
                     currentLines.push({
@@ -97,35 +104,22 @@ export class GitDiffParser {
             }
         }
 
-        const chunkLines: GitDiffChunkLine[] = [];
-
-        let chunkLine: GitDiffChunkLine | undefined = undefined;
-        let current: GitDiffLine | undefined = undefined;
-
-        for (let i = 0; i < currentLines.length; i++) {
-            current = currentLines[i];
-            if (current === undefined) {
-                // Don't think we need to worry about this case because the diff will always have "padding" (i.e. unchanged lines) around each chunk
-                if (chunkLine === undefined) continue;
-
-                if (chunkLine.previous === undefined) {
-                    chunkLine.previous = [previousLines[i]];
-                    continue;
-                }
-
-                chunkLine.previous.push(previousLines[i]);
-                continue;
-            }
-
-            chunkLine = {
-                line: current.line,
-                state: current.state,
-                previous: [previousLines[i]]
-            };
-            chunkLines.push(chunkLine);
+        while (removed > 0) {
+            removed--;
+            currentLines.push(undefined);
         }
 
-        return chunkLines;
+        const hunkLines: GitDiffHunkLine[] = [];
+
+        for (let i = 0; i < currentLines.length; i++) {
+            hunkLines.push({
+                hunk: hunk,
+                current: currentLines[i],
+                previous: previousLines[i]
+            });
+        }
+
+        return hunkLines;
     }
 
     static parseNameStatus(data: string, repoPath: string): GitFile[] | undefined {

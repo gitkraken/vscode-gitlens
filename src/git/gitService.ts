@@ -43,7 +43,7 @@ import {
     GitCommitType,
     GitContributor,
     GitDiff,
-    GitDiffChunkLine,
+    GitDiffHunkLine,
     GitDiffParser,
     GitDiffShortStat,
     GitFile,
@@ -139,7 +139,7 @@ export class GitService implements Disposable {
         this._disposable && this._disposable.dispose();
     }
 
-    get UseCaching() {
+    get useCaching() {
         return Container.config.advanced.caching.enabled;
     }
 
@@ -749,7 +749,7 @@ export class GitService implements Disposable {
         }
 
         const doc = await Container.tracker.getOrAdd(uri);
-        if (this.UseCaching) {
+        if (this.useCaching) {
             if (doc.state !== undefined) {
                 const cachedBlame = doc.state.get<CachedBlame>(key);
                 if (cachedBlame !== undefined) {
@@ -832,7 +832,7 @@ export class GitService implements Disposable {
         const key = `blame:${Strings.sha1(contents)}`;
 
         const doc = await Container.tracker.getOrAdd(uri);
-        if (this.UseCaching) {
+        if (this.useCaching) {
             if (doc.state !== undefined) {
                 const cachedBlame = doc.state.get<CachedBlame>(key);
                 if (cachedBlame !== undefined) {
@@ -908,17 +908,17 @@ export class GitService implements Disposable {
     @log()
     async getBlameForLine(
         uri: GitUri,
-        line: number,
+        editorLine: number, // editor lines are 0-based
         options: { skipCache?: boolean } = {}
     ): Promise<GitBlameLine | undefined> {
-        if (!options.skipCache && this.UseCaching) {
+        if (!options.skipCache && this.useCaching) {
             const blame = await this.getBlameForFile(uri);
             if (blame === undefined) return undefined;
 
-            let blameLine = blame.lines[line];
+            let blameLine = blame.lines[editorLine];
             if (blameLine === undefined) {
-                if (blame.lines.length !== line) return undefined;
-                blameLine = blame.lines[line - 1];
+                if (blame.lines.length !== editorLine) return undefined;
+                blameLine = blame.lines[editorLine - 1];
             }
 
             const commit = blame.commits.get(blameLine.sha);
@@ -932,7 +932,7 @@ export class GitService implements Disposable {
             };
         }
 
-        const lineToBlame = line + 1;
+        const lineToBlame = editorLine + 1;
         const fileName = uri.fsPath;
 
         try {
@@ -948,7 +948,7 @@ export class GitService implements Disposable {
             return {
                 author: Iterables.first(blame.authors.values()),
                 commit: Iterables.first(blame.commits.values()),
-                line: blame.lines[line]
+                line: blame.lines[editorLine]
             };
         }
         catch {
@@ -963,18 +963,18 @@ export class GitService implements Disposable {
     })
     async getBlameForLineContents(
         uri: GitUri,
-        line: number,
+        editorLine: number, // editor lines are 0-based
         contents: string,
         options: { skipCache?: boolean } = {}
     ): Promise<GitBlameLine | undefined> {
-        if (!options.skipCache && this.UseCaching) {
+        if (!options.skipCache && this.useCaching) {
             const blame = await this.getBlameForFileContents(uri, contents);
             if (blame === undefined) return undefined;
 
-            let blameLine = blame.lines[line];
+            let blameLine = blame.lines[editorLine];
             if (blameLine === undefined) {
-                if (blame.lines.length !== line) return undefined;
-                blameLine = blame.lines[line - 1];
+                if (blame.lines.length !== editorLine) return undefined;
+                blameLine = blame.lines[editorLine - 1];
             }
 
             const commit = blame.commits.get(blameLine.sha);
@@ -988,7 +988,7 @@ export class GitService implements Disposable {
             };
         }
 
-        const lineToBlame = line + 1;
+        const lineToBlame = editorLine + 1;
         const fileName = uri.fsPath;
 
         try {
@@ -1005,7 +1005,7 @@ export class GitService implements Disposable {
             return {
                 author: Iterables.first(blame.authors.values()),
                 commit: Iterables.first(blame.commits.values()),
-                line: blame.lines[line]
+                line: blame.lines[editorLine]
             };
         }
         catch {
@@ -1034,13 +1034,17 @@ export class GitService implements Disposable {
         const lines = blame.lines.slice(range.start.line, range.end.line + 1);
         const shas = new Set(lines.map(l => l.sha));
 
+        // ranges are 0-based
+        const startLine = range.start.line + 1;
+        const endLine = range.end.line + 1;
+
         const authors: Map<string, GitAuthor> = new Map();
         const commits: Map<string, GitBlameCommit> = new Map();
         for (const c of blame.commits.values()) {
             if (!shas.has(c.sha)) continue;
 
             const commit = c.with({
-                lines: c.lines.filter(l => l.line >= range.start.line && l.line <= range.end.line)
+                lines: c.lines.filter(l => l.line >= startLine && l.line <= endLine)
             });
             commits.set(c.sha, commit);
 
@@ -1165,12 +1169,8 @@ export class GitService implements Disposable {
     }
 
     @log()
-    async getDiffForFile(uri: GitUri, ref1?: string, ref2?: string): Promise<GitDiff | undefined> {
+    async getDiffForFile(uri: GitUri, ref1: string | undefined, ref2?: string): Promise<GitDiff | undefined> {
         const cc = Logger.getCorrelationContext();
-
-        if (ref1 !== undefined && ref2 === undefined && uri.sha !== undefined) {
-            ref2 = uri.sha;
-        }
 
         let key = 'diff';
         if (ref1 !== undefined) {
@@ -1181,7 +1181,7 @@ export class GitService implements Disposable {
         }
 
         const doc = await Container.tracker.getOrAdd(uri);
-        if (this.UseCaching) {
+        if (this.useCaching) {
             if (doc.state !== undefined) {
                 const cachedDiff = doc.state.get<CachedDiff>(key);
                 if (cachedDiff !== undefined) {
@@ -1233,7 +1233,14 @@ export class GitService implements Disposable {
         const [file, root] = Git.splitPath(fileName, repoPath, false);
 
         try {
-            const data = await Git.diff(root, file, ref1, ref2, { ...options, filter: 'M' });
+            let data;
+            if (ref1 !== undefined && ref2 === undefined && !GitService.isStagedUncommitted(ref1)) {
+                data = await Git.show_diff(root, file, ref1);
+            }
+            else {
+                data = await Git.diff(root, file, ref1, ref2, { ...options, filter: 'M' });
+            }
+
             const diff = GitDiffParser.parse(data);
             return diff;
         }
@@ -1259,18 +1266,24 @@ export class GitService implements Disposable {
     @log()
     async getDiffForLine(
         uri: GitUri,
-        line: number,
-        ref1?: string,
+        editorLine: number, // editor lines are 0-based
+        ref1: string | undefined,
         ref2?: string
-    ): Promise<GitDiffChunkLine | undefined> {
+    ): Promise<GitDiffHunkLine | undefined> {
         try {
-            const diff = await this.getDiffForFile(uri, ref1, ref2);
+            let diff = await this.getDiffForFile(uri, ref1, ref2);
+            // If we didn't find a diff & ref1 is undefined (meaning uncommitted), check for a staged diff
+            if (diff === undefined && ref1 === undefined) {
+                diff = await this.getDiffForFile(uri, Git.stagedUncommittedSha, ref2);
+            }
+
             if (diff === undefined) return undefined;
 
-            const chunk = diff.chunks.find(c => c.currentPosition.start <= line && c.currentPosition.end >= line);
-            if (chunk === undefined) return undefined;
+            const line = editorLine + 1;
+            const hunk = diff.hunks.find(c => c.currentPosition.start <= line && c.currentPosition.end >= line);
+            if (hunk === undefined) return undefined;
 
-            return chunk.lines[line - chunk.currentPosition.start + 1];
+            return hunk.lines[line - hunk.currentPosition.start];
         }
         catch (ex) {
             return undefined;
@@ -1480,7 +1493,7 @@ export class GitService implements Disposable {
         }
 
         const doc = await Container.tracker.getOrAdd(GitUri.fromFile(fileName, repoPath!, options.ref));
-        if (this.UseCaching && options.range === undefined) {
+        if (this.useCaching && options.range === undefined) {
             if (doc.state !== undefined) {
                 const cachedLog = doc.state.get<CachedLog>(key);
                 if (cachedLog !== undefined) {

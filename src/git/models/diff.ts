@@ -6,26 +6,24 @@ export interface GitDiffLine {
     state: 'added' | 'removed' | 'unchanged';
 }
 
-export interface GitDiffChunkLine extends GitDiffLine {
-    previous?: (GitDiffLine | undefined)[];
+export interface GitDiffHunkLine {
+    hunk: GitDiffHunk;
+    current: GitDiffLine | undefined;
+    previous: GitDiffLine | undefined;
 }
 
-export class GitDiffChunk {
-    private _chunk: string | undefined;
-    private _lines: GitDiffChunkLine[] | undefined;
+export class GitDiffHunk {
+    private _lines: GitDiffHunkLine[] | undefined;
 
     constructor(
-        chunk: string,
+        public readonly diff: string,
         public currentPosition: { start: number; end: number },
         public previousPosition: { start: number; end: number }
-    ) {
-        this._chunk = chunk;
-    }
+    ) {}
 
-    get lines(): GitDiffChunkLine[] {
+    get lines(): GitDiffHunkLine[] {
         if (this._lines === undefined) {
-            this._lines = GitDiffParser.parseChunk(this._chunk!);
-            this._chunk = undefined;
+            this._lines = GitDiffParser.parseHunk(this);
         }
 
         return this._lines;
@@ -33,7 +31,7 @@ export class GitDiffChunk {
 }
 
 export interface GitDiff {
-    readonly chunks: GitDiffChunk[];
+    readonly hunks: GitDiffHunk[];
 
     readonly diff?: string;
 }

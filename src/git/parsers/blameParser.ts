@@ -55,8 +55,8 @@ export class GitBlameParser {
                 entry = {
                     author: undefined!,
                     sha: lineParts[0],
-                    originalLine: parseInt(lineParts[1], 10) - 1,
-                    line: parseInt(lineParts[2], 10) - 1,
+                    originalLine: parseInt(lineParts[1], 10),
+                    line: parseInt(lineParts[2], 10),
                     lineCount: parseInt(lineParts[3], 10)
                 };
 
@@ -230,7 +230,7 @@ export class GitBlameParser {
             }
 
             commit.lines.push(line);
-            lines[line.line] = line;
+            lines[line.line - 1] = line;
         }
     }
 }

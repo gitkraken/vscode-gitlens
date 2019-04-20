@@ -31,13 +31,14 @@ export class HeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase 
         const computedHeatmap = this.getComputedHeatmap(blame);
 
         for (const l of blame.lines) {
-            const line = l.line;
+            // editor lines are 0-based
+            const editorLine = l.line - 1;
 
             heatmap = decorationsMap[l.sha];
             if (heatmap !== undefined) {
                 heatmap = {
                     ...heatmap,
-                    range: new Range(line, 0, line, 0)
+                    range: new Range(editorLine, 0, editorLine, 0)
                 };
 
                 this.decorations.push(heatmap);
@@ -49,7 +50,7 @@ export class HeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase 
             if (commit === undefined) continue;
 
             heatmap = Annotations.heatmap(commit, computedHeatmap, renderOptions) as DecorationOptions;
-            heatmap.range = new Range(line, 0, line, 0);
+            heatmap.range = new Range(editorLine, 0, editorLine, 0);
 
             this.decorations.push(heatmap);
             decorationsMap[l.sha] = heatmap;
