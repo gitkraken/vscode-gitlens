@@ -4,13 +4,29 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [9.6.2] - 2019-04-017
+## [9.6.3] - 2019-04-22
+
+## Added
+
+- Adds a `gitlens.hovers.changesDiff` setting to specify whether to show just the changes to the line or the set of related changes in the _changes (diff)_ hover
+
+## Changes
+
+- Improves the maintaining of the line context when opening changes from the hovers
+- Improves the accuracy of the _changes (diff)_ hover
+- Improves the rendering of the diff in the _changes (diff)_ hover
+
+## Fixed
+
+- Fixes [#697](https://github.com/eamodio/vscode-gitlens/issues/697) - fixes git error handling for some linux OS'
+
+## [9.6.2] - 2019-04-17
 
 ### Fixed
 
 - Fixes [#718](https://github.com/eamodio/vscode-gitlens/issues/718) - Can't see changed files when comparing branches
 
-## [9.6.1] - 2019-04-017
+## [9.6.1] - 2019-04-17
 
 ### Added
 
@@ -2764,6 +2780,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
+[9.6.3]: https://github.com/eamodio/vscode-gitlens/compare/v9.6.2...eamodio:v9.6.3
 [9.6.2]: https://github.com/eamodio/vscode-gitlens/compare/v9.6.1...eamodio:v9.6.2
 [9.6.1]: https://github.com/eamodio/vscode-gitlens/compare/v9.6.0...eamodio:v9.6.1
 [9.6.0]: https://github.com/eamodio/vscode-gitlens/compare/v9.5.1...eamodio:v9.6.0
