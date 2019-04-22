@@ -19,7 +19,7 @@ git clone https://github.com/eamodio/vscode-gitlens.git
 Prerequisites
 
 - [Git](https://git-scm.com/)
-- [NodeJS](https://nodejs.org/en/), `>= 8.9.1, < 9.0.0`
+- [NodeJS](https://nodejs.org/en/), `>= 8.9.1, <= 10.2.0`
 - [npm](https://npmjs.com/), `>= 6.2.0`
 
 ### Dependencies
