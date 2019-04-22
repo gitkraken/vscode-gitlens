@@ -123,7 +123,8 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
         let commands = `[\`${this.id}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
             this._item.sha
         )} "Show Commit Details") [\`${GlyphChars.MuchGreaterThan}\`](${DiffWithCommand.getMarkdownCommandArgs(
-            this._item
+            this._item,
+            this._options.line
         )} "Open Changes") `;
 
         if (this._item.previousSha !== undefined) {

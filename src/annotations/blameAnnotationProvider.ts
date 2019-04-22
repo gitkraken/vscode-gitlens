@@ -226,12 +226,17 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
             }
         }
 
+        let editorLine = this.editor.selection.active.line;
+        const line = editorLine + 1;
+        const commitLine = commit.lines.find(l => l.line === line) || commit.lines[0];
+        editorLine = commitLine.originalLine - 1;
+
         const message = Annotations.getHoverMessage(
             logCommit || commit,
             Container.config.defaultDateFormat,
             await Container.git.getRemotes(commit.repoPath),
             this.annotationType,
-            this.editor.selection.active.line
+            editorLine
         );
         return new Hover(
             message,

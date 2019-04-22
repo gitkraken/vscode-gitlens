@@ -15,9 +15,9 @@ export interface DiffWithCommandArgsRevision {
 }
 
 export interface DiffWithCommandArgs {
-    lhs?: DiffWithCommandArgsRevision;
-    rhs?: DiffWithCommandArgsRevision;
-    repoPath?: string;
+    lhs: DiffWithCommandArgsRevision;
+    rhs: DiffWithCommandArgsRevision;
+    repoPath: string | undefined;
 
     line?: number;
     showOptions?: TextDocumentShowOptions;
@@ -26,59 +26,43 @@ export interface DiffWithCommandArgs {
 @command()
 export class DiffWithCommand extends ActiveEditorCommand {
     static getMarkdownCommandArgs(args: DiffWithCommandArgs): string;
-    static getMarkdownCommandArgs(commit1: GitCommit, commit2: GitCommit): string;
-    static getMarkdownCommandArgs(argsOrCommit1: DiffWithCommandArgs | GitCommit, commit2?: GitCommit): string {
+    static getMarkdownCommandArgs(commit: GitCommit, line?: number): string;
+    static getMarkdownCommandArgs(argsOrCommit: DiffWithCommandArgs | GitCommit, line?: number): string {
         let args: DiffWithCommandArgs | GitCommit;
-        if (argsOrCommit1 instanceof GitCommit) {
-            const commit1 = argsOrCommit1;
+        if (argsOrCommit instanceof GitCommit) {
+            const commit = argsOrCommit;
 
-            if (commit2 === undefined) {
-                if (commit1.isUncommitted) {
-                    args = {
-                        repoPath: commit1.repoPath,
-                        lhs: {
-                            sha: 'HEAD',
-                            uri: commit1.uri
-                        },
-                        rhs: {
-                            sha: '',
-                            uri: commit1.uri
-                        }
-                    };
-                }
-                else {
-                    args = {
-                        repoPath: commit1.repoPath,
-                        lhs: {
-                            sha:
-                                commit1.previousSha !== undefined
-                                    ? commit1.previousSha
-                                    : GitService.deletedOrMissingSha,
-                            uri: commit1.previousUri!
-                        },
-                        rhs: {
-                            sha: commit1.sha,
-                            uri: commit1.uri
-                        }
-                    };
-                }
+            if (commit.isUncommitted) {
+                args = {
+                    repoPath: commit.repoPath,
+                    lhs: {
+                        sha: 'HEAD',
+                        uri: commit.uri
+                    },
+                    rhs: {
+                        sha: '',
+                        uri: commit.uri
+                    },
+                    line: line
+                };
             }
             else {
                 args = {
-                    repoPath: commit1.repoPath,
+                    repoPath: commit.repoPath,
                     lhs: {
-                        sha: commit1.sha,
-                        uri: commit1.uri
+                        sha: commit.previousSha !== undefined ? commit.previousSha : GitService.deletedOrMissingSha,
+                        uri: commit.previousUri!
                     },
                     rhs: {
-                        sha: commit2.sha,
-                        uri: commit2.uri
-                    }
+                        sha: commit.sha,
+                        uri: commit.uri
+                    },
+                    line: line
                 };
             }
         }
         else {
-            args = argsOrCommit1;
+            args = argsOrCommit;
         }
 
         return super.getMarkdownCommandArgsCore<DiffWithCommandArgs>(Commands.DiffWith, args);
@@ -88,14 +72,17 @@ export class DiffWithCommand extends ActiveEditorCommand {
         super(Commands.DiffWith);
     }
 
-    async execute(editor?: TextEditor, uri?: Uri, args: DiffWithCommandArgs = {}): Promise<any> {
+    async execute(editor?: TextEditor, uri?: Uri, args?: DiffWithCommandArgs): Promise<any> {
+        if (args === undefined || args.lhs === undefined || args.rhs === undefined) return undefined;
+
         args = {
             ...args,
             lhs: { ...(args.lhs as DiffWithCommandArgsRevision) },
             rhs: { ...(args.rhs as DiffWithCommandArgsRevision) },
-            showOptions: { ...args.showOptions }
+            showOptions: args.showOptions === undefined ? undefined : { ...args.showOptions }
         };
-        if (args.repoPath === undefined || args.lhs === undefined || args.rhs === undefined) return undefined;
+
+        if (args.repoPath === undefined) return undefined;
 
         try {
             let lhsSha = args.lhs.sha;

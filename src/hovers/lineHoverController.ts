@@ -107,6 +107,11 @@ export class LineHoverController implements Disposable {
             }
         }
 
+        let editorLine = position.line;
+        const line = editorLine + 1;
+        const commitLine = commit.lines.find(l => l.line === line) || commit.lines[0];
+        editorLine = commitLine.originalLine - 1;
+
         const trackedDocument = await Container.tracker.get(document);
         if (trackedDocument === undefined) return undefined;
 
@@ -115,7 +120,7 @@ export class LineHoverController implements Disposable {
             Container.config.defaultDateFormat,
             await Container.git.getRemotes(commit.repoPath),
             fileAnnotations,
-            position.line
+            editorLine
         );
         return new Hover(message, range);
     }

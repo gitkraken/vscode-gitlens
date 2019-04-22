@@ -45,12 +45,12 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
         for (const hunk of diff.hunks) {
             // Subtract 2 because editor lines are 0-based and we will be adding 1 in the first iteration of the loop
             let count = hunk.currentPosition.start - 2;
-            for (const line of hunk.lines) {
-                if (line.current === undefined) continue;
+            for (const hunkLine of hunk.lines) {
+                if (hunkLine.current === undefined) continue;
 
                 count++;
 
-                if (line.current.state === 'unchanged') continue;
+                if (hunkLine.current.state === 'unchanged') continue;
 
                 const range = this.editor.document.validateRange(
                     new Range(new Position(count, 0), new Position(count, Number.MAX_SAFE_INTEGER))
@@ -66,14 +66,14 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
                                 dateFormat,
                                 await Container.git.getRemotes(commit.repoPath),
                                 this.annotationType,
-                                this.editor.selection.active.line
+                                count
                             ),
                             range: range
                         });
                     }
 
                     if (cfg.hovers.annotations.changes) {
-                        message = Annotations.getHoverDiffMessage(commit, this._uri, line);
+                        message = Annotations.getHoverDiffMessage(commit, this._uri, hunkLine, count);
                         if (message === undefined) continue;
                     }
                 }

@@ -109,7 +109,8 @@ export class Annotations {
     static getHoverDiffMessage(
         commit: GitCommit,
         uri: GitUri,
-        hunkLine: GitDiffHunkLine | undefined
+        hunkLine: GitDiffHunkLine | undefined,
+        editorLine?: number
     ): MarkdownString | undefined {
         if (hunkLine === undefined || commit.previousSha === undefined) return undefined;
 
@@ -118,26 +119,33 @@ export class Annotations {
         let message: string;
         if (commit.isUncommitted) {
             if (uri.sha !== undefined && GitService.isStagedUncommitted(uri.sha)) {
-                message = `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(commit)} "Open Changes") &nbsp; ${
-                    GlyphChars.Dash
-                } &nbsp; [\`${commit.previousShortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
+                message = `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(
+                    commit,
+                    editorLine
+                )} "Open Changes") &nbsp; ${GlyphChars.Dash} &nbsp; [\`${
+                    commit.previousShortSha
+                }\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
                     commit.previousSha!
                 )} "Show Commit Details") ${GlyphChars.ArrowLeftRightLong} _${uri.shortSha}_\n${diff}`;
             }
             else {
-                message = `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(commit)} "Open Changes") &nbsp; ${
-                    GlyphChars.Dash
-                } &nbsp; _uncommitted changes_\n${diff}`;
+                message = `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(
+                    commit,
+                    editorLine
+                )} "Open Changes") &nbsp; ${GlyphChars.Dash} &nbsp; _uncommitted changes_\n${diff}`;
             }
         }
         else {
-            message = `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(commit)} "Open Changes") &nbsp; ${
-                GlyphChars.Dash
-            } &nbsp; [\`${commit.previousShortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
-                commit.previousSha!
-            )} "Show Commit Details") ${GlyphChars.ArrowLeftRightLong} [\`${
-                commit.shortSha
-            }\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.sha)} "Show Commit Details")\n${diff}`;
+            message = `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(
+                commit,
+                editorLine
+            )} "Open Changes") &nbsp; ${GlyphChars.Dash} &nbsp; [\`${
+                commit.previousShortSha
+            }\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.previousSha!)} "Show Commit Details") ${
+                GlyphChars.ArrowLeftRightLong
+            } [\`${commit.shortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
+                commit.sha
+            )} "Show Commit Details")\n${diff}`;
         }
 
         const markdown = new MarkdownString(message);
@@ -173,8 +181,9 @@ export class Annotations {
         const line = editorLine + 1;
         const commitLine = commit.lines.find(l => l.line === line) || commit.lines[0];
 
-        const hunkLine = await Container.git.getDiffForLine(uri, commitLine.originalLine - 1, ref);
-        const message = this.getHoverDiffMessage(commit, uri, hunkLine);
+        const commitEditorLine = commitLine.originalLine - 1;
+        const hunkLine = await Container.git.getDiffForLine(uri, commitEditorLine, ref);
+        const message = this.getHoverDiffMessage(commit, uri, hunkLine, commitEditorLine);
 
         return {
             hoverMessage: message
