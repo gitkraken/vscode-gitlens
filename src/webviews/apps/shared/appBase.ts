@@ -22,20 +22,22 @@ export abstract class App<TBootstrap extends AppBootstrap> {
         this._api = acquireVsCodeApi();
         initializeAndWatchThemeColors();
 
-        this.log(`${this.appName}.initializing`);
-
-        this.onInitialize();
-        this.onBind(this);
-
-        window.addEventListener('message', this.onMessageReceived.bind(this));
-
-        this.sendCommand(ReadyCommandType, {});
-
-        this.onInitialized();
-
         setTimeout(() => {
-            document.body.classList.remove('preload');
-        }, 500);
+            this.log(`${this.appName}.initializing`);
+
+            this.onInitialize();
+            this.onBind(this);
+
+            window.addEventListener('message', this.onMessageReceived.bind(this));
+
+            this.sendCommand(ReadyCommandType, {});
+
+            this.onInitialized();
+
+            setTimeout(() => {
+                document.body.classList.remove('preload');
+            }, 500);
+        }, 0);
     }
 
     protected onInitialize() {

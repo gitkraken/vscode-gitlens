@@ -60,6 +60,7 @@ export function initializeAndWatchThemeColors() {
         color = computedStyle.getPropertyValue('--vscode-textLink-foreground').trim();
         bodyStyle.setProperty('--color-link-foreground', color);
         bodyStyle.setProperty('--color-link-foreground--darken-20', darken(color, 20));
+        bodyStyle.setProperty('--color-link-foreground--lighten-20', lighten(color, 20));
     };
 
     const observer = new MutationObserver(onColorThemeChanged);

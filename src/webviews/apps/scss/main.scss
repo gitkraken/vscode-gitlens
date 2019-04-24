@@ -1082,6 +1082,25 @@ ul {
     text-align: center;
 }
 
+.sidebar__jump-link {
+    &.active {
+        font-weight: 700;
+
+        &:before {
+            content: ' ';
+            border-left: 4px solid var(--color-link-foreground--darken-20);
+            position: absolute;
+            left: -1em;
+            height: 1em;
+            padding-bottom: 4px;
+
+            .vscode-light & {
+                border-left-color: var(--color-link-foreground--lighten-20);
+            }
+        }
+    }
+}
+
 .sponsor__image {
     opacity: 0.8;
     transition: opacity 250ms;

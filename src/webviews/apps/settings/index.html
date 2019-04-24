@@ -118,7 +118,8 @@
                                             <option value="scm">Source Control side bar</option>
                                         </select>
                                         <a
-                                            class="link__learn-more jump-to"
+                                            class="link__learn-more"
+                                            data-action="jump"
                                             title="Jump to Repositories view settings"
                                             href="#repositories-view"
                                         >
@@ -138,7 +139,8 @@
                                             <option value="scm">Source Control side bar</option>
                                         </select>
                                         <a
-                                            class="link__learn-more jump-to"
+                                            class="link__learn-more"
+                                            data-action="jump"
                                             title="Jump to File History view settings"
                                             href="#file-history-view"
                                         >
@@ -158,7 +160,8 @@
                                             <option value="scm">Source Control side bar</option>
                                         </select>
                                         <a
-                                            class="link__learn-more jump-to"
+                                            class="link__learn-more"
+                                            data-action="jump"
                                             title="Jump to Line History view settings"
                                             href="#line-history-view"
                                         >
@@ -178,7 +181,8 @@
                                             <option value="scm">Source Control side bar</option>
                                         </select>
                                         <a
-                                            class="link__learn-more jump-to"
+                                            class="link__learn-more"
+                                            data-action="jump"
                                             title="Jump to Search Commits view settings"
                                             href="#search-commits-view"
                                         >
@@ -198,7 +202,8 @@
                                             <option value="scm">Source Control side bar</option>
                                         </select>
                                         <a
-                                            class="link__learn-more jump-to"
+                                            class="link__learn-more"
+                                            data-action="jump"
                                             title="Jump to Compare view settings"
                                             href="#compare-view"
                                         >
@@ -3109,41 +3114,82 @@
                         <div class="sidebar-group">
                             <h2>Jump to</h2>
                             <ul>
-                                <li><a class="jump-to" href="#general" title="Jump to General settings">General</a></li>
                                 <li>
-                                    <a class="jump-to" href="#current-line" title="Jump to Current Line Blame settings"
+                                    <a
+                                        class="sidebar__jump-link active"
+                                        data-action="jump"
+                                        href="#general"
+                                        title="Jump to General settings"
+                                        >General</a
+                                    >
+                                </li>
+                                <li>
+                                    <a
+                                        class="sidebar__jump-link"
+                                        data-action="jump"
+                                        href="#current-line"
+                                        title="Jump to Current Line Blame settings"
                                         >Current Line Blame</a
                                     >
                                 </li>
                                 <li>
-                                    <a class="jump-to" href="#blame" title="Jump to Gutter Blame settings"
+                                    <a
+                                        class="sidebar__jump-link"
+                                        data-action="jump"
+                                        href="#blame"
+                                        title="Jump to Gutter Blame settings"
                                         >Gutter Blame</a
                                     >
                                 </li>
-                                <li><a class="jump-to" href="#hovers" title="Jump to Hovers settings">Hovers</a></li>
                                 <li>
-                                    <a class="jump-to" href="#code-lens" title="Jump to Code Lens settings"
+                                    <a
+                                        class="sidebar__jump-link"
+                                        data-action="jump"
+                                        href="#hovers"
+                                        title="Jump to Hovers settings"
+                                        >Hovers</a
+                                    >
+                                </li>
+                                <li>
+                                    <a
+                                        class="sidebar__jump-link"
+                                        data-action="jump"
+                                        href="#code-lens"
+                                        title="Jump to Code Lens settings"
                                         >Code Lens</a
                                     >
                                 </li>
                                 <li>
-                                    <a class="jump-to" href="#heatmap" title="Jump to Gutter Heatmap settings"
+                                    <a
+                                        class="sidebar__jump-link"
+                                        data-action="jump"
+                                        href="#heatmap"
+                                        title="Jump to Gutter Heatmap settings"
                                         >Gutter Heatmap</a
                                     >
                                 </li>
                                 <li>
-                                    <a class="jump-to" href="#recent-changes" title="Jump to Recent Changes settings"
+                                    <a
+                                        class="sidebar__jump-link"
+                                        data-action="jump"
+                                        href="#recent-changes"
+                                        title="Jump to Recent Changes settings"
                                         >Recent Changes</a
                                     >
                                 </li>
                                 <li>
-                                    <a class="jump-to" href="#status-bar" title="Jump to Status Bar Blame settings"
+                                    <a
+                                        class="sidebar__jump-link"
+                                        data-action="jump"
+                                        href="#status-bar"
+                                        title="Jump to Status Bar Blame settings"
                                         >Status Bar Blame</a
                                     >
                                 </li>
                                 <li>
                                     <a
-                                        class="jump-to"
+                                        class="sidebar__jump-link"
+                                        data-action="jump"
                                         href="#repositories-view"
                                         title="Jump to Repositories view settings"
                                         >Repositories view</a
@@ -3151,7 +3197,8 @@
                                 </li>
                                 <li>
                                     <a
-                                        class="jump-to"
+                                        class="sidebar__jump-link"
+                                        data-action="jump"
                                         href="#file-history-view"
                                         title="Jump to File History view settings"
                                         >File History view</a
@@ -3159,7 +3206,8 @@
                                 </li>
                                 <li>
                                     <a
-                                        class="jump-to"
+                                        class="sidebar__jump-link"
+                                        data-action="jump"
                                         href="#line-history-view"
                                         title="Jump to Line History view settings"
                                         >Line History view</a
@@ -3167,18 +3215,31 @@
                                 </li>
                                 <li>
                                     <a
-                                        class="jump-to"
+                                        class="sidebar__jump-link"
+                                        data-action="jump"
                                         href="#search-commits-view"
                                         title="Jump to Search Commits view settings"
                                         >Search Commits view</a
                                     >
                                 </li>
                                 <li>
-                                    <a class="jump-to" href="#compare-view" title="Jump to Compare view settings"
+                                    <a
+                                        class="sidebar__jump-link"
+                                        data-action="jump"
+                                        href="#compare-view"
+                                        title="Jump to Compare view settings"
                                         >Compare view</a
                                     >
                                 </li>
-                                <li><a class="jump-to" href="#modes" title="Jump to Modes settings">Modes</a></li>
+                                <li>
+                                    <a
+                                        class="sidebar__jump-link"
+                                        data-action="jump"
+                                        href="#modes"
+                                        title="Jump to Modes settings"
+                                        >Modes</a
+                                    >
+                                </li>
                             </ul>
                         </div>
                         <div class="sidebar-group">

@@ -1,5 +1,5 @@
 'use strict';
-/*global window document*/
+/*global window document IntersectionObserver*/
 import { SettingsBootstrap } from '../../protocol';
 import { AppWithConfig } from '../shared/appWithConfigBase';
 import { DOM } from '../shared/dom';
@@ -8,6 +8,10 @@ const bootstrap: SettingsBootstrap = (window as any).bootstrap;
 
 export class SettingsApp extends AppWithConfig<SettingsBootstrap> {
     private _scopes: HTMLSelectElement | null = null;
+    private _observer: IntersectionObserver | undefined;
+
+    private _activeSection: string | undefined = 'general';
+    private _sections = new Map<string, boolean>();
 
     constructor() {
         super('SettingsApp', bootstrap);
@@ -30,6 +34,52 @@ export class SettingsApp extends AppWithConfig<SettingsBootstrap> {
             scopes.parentElement!.classList.remove('hidden');
             this._scopes = scopes;
         }
+
+        let top = 83;
+        const header = document.querySelector('.page-header--sticky');
+        if (header != null) {
+            top = header.clientHeight;
+        }
+
+        this._observer = new IntersectionObserver(this.onObserver.bind(this), {
+            rootMargin: `-${top}px 0px 0px 0px`
+        });
+
+        for (const el of document.querySelectorAll('section[id]>.section__header')) {
+            this._sections.set(el.parentElement!.id, false);
+
+            this._observer.observe(el);
+        }
+    }
+
+    private onObserver(entries: IntersectionObserverEntry[], observer: IntersectionObserver) {
+        for (const entry of entries) {
+            this._sections.set(entry.target.parentElement!.id, entry.isIntersecting);
+
+            let nextActive: string | undefined;
+            for (const [id, visible] of this._sections.entries()) {
+                if (nextActive === undefined) {
+                    nextActive = this._activeSection === 'modes' ? 'modes' : id;
+                }
+
+                if (!visible) continue;
+
+                nextActive = id;
+                break;
+            }
+
+            if (this._activeSection === nextActive) return;
+
+            if (this._activeSection !== undefined) {
+                this.toggleJumpLink(this._activeSection, false);
+            }
+
+            this._activeSection = nextActive;
+
+            if (this._activeSection !== undefined) {
+                this.toggleJumpLink(this._activeSection, true);
+            }
+        }
     }
 
     protected onBind(me: this) {
@@ -37,6 +87,9 @@ export class SettingsApp extends AppWithConfig<SettingsBootstrap> {
 
         DOM.listenAll('.section__header', 'click', function(this: HTMLInputElement, e: Event) {
             return me.onSectionHeaderClicked(this, e as MouseEvent);
+        });
+        DOM.listenAll('a[data-action="jump"]', 'click', function(this: HTMLAnchorElement, e: Event) {
+            return me.onJumpToLinkClicked(this, e as MouseEvent);
         });
         DOM.listenAll('[data-action]', 'click', function(this: HTMLAnchorElement, e: Event) {
             return me.onActionLinkClicked(this, e as MouseEvent);
@@ -80,6 +133,17 @@ export class SettingsApp extends AppWithConfig<SettingsBootstrap> {
         super.onInputSelected(element);
     }
 
+    protected onJumpToLinkClicked(element: HTMLAnchorElement, e: MouseEvent) {
+        const href = element.getAttribute('href');
+        if (href == null) return;
+
+        const anchor = href.substr(1);
+        this.scrollToAnchor(anchor);
+
+        e.stopPropagation();
+        e.preventDefault();
+    }
+
     private onSectionHeaderClicked(element: HTMLElement, e: MouseEvent) {
         if (
             (e.target as HTMLElement).matches('i.icon__info') ||
@@ -89,6 +153,13 @@ export class SettingsApp extends AppWithConfig<SettingsBootstrap> {
         }
 
         element.classList.toggle('collapsed');
+    }
+
+    private toggleJumpLink(anchor: string, active: boolean) {
+        const el = document.querySelector(`a.sidebar__jump-link[href="#${anchor}"]`);
+        if (el) {
+            el.classList.toggle('active', active);
+        }
     }
 }
 

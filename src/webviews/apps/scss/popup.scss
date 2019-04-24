@@ -97,4 +97,9 @@
     &:after {
         content: '}';
     }
+
+    .vscode-light & {
+        background: var(--color-link-foreground--lighten-20);
+        border-bottom-color: var(--color-link-foreground--lighten-20);
+    }
 }

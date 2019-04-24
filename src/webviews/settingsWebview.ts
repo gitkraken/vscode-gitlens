@@ -29,25 +29,28 @@ export class SettingsWebview extends WebviewBase<SettingsBootstrap> {
     }
 
     getBootstrap(): SettingsBootstrap {
+        const scopes: ['user' | 'workspace', string][] = [['user', 'User']];
+        if (workspace.workspaceFolders !== undefined && workspace.workspaceFolders.length) {
+            scopes.push(['workspace', 'Workspace']);
+        }
+
         return {
             // Make sure to get the raw config, not from the container which has the modes mixed in
             config: configuration.get<Config>(),
             scope: 'user',
-            scopes: this.getAvailableScopes()
+            scopes: scopes
         };
     }
 
     registerCommands() {
-        return [
-            commands.registerCommand(`${this.id}.applyViewLayoutPreset`, args => this.applyViewLayoutPreset(args), this)
-        ];
+        return [commands.registerCommand(`${this.id}.applyViewLayoutPreset`, this.applyViewLayoutPreset, this)];
     }
 
-    private applyViewLayoutPreset(args: any) {
+    private applyViewLayoutPreset(preset: 'contextual' | 'default' | 'scm') {
         let repositories;
         let histories;
         let compareAndSearch;
-        switch (args) {
+        switch (preset) {
             case 'contextual':
                 repositories = ViewLocation.SourceControl;
                 histories = ViewLocation.Explorer;
@@ -92,13 +95,5 @@ export class SettingsWebview extends WebviewBase<SettingsBootstrap> {
             compareAndSearch,
             ConfigurationTarget.Global
         );
-    }
-
-    private getAvailableScopes(): ['user' | 'workspace', string][] {
-        const scopes: ['user' | 'workspace', string][] = [['user', 'User']];
-        if (workspace.workspaceFolders !== undefined && workspace.workspaceFolders.length) {
-            scopes.push(['workspace', 'Workspace']);
-        }
-        return scopes;
     }
 }

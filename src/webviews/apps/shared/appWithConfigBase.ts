@@ -43,9 +43,6 @@ export abstract class AppWithConfig<TBootstrap extends AppWithConfigBootstrap> e
         DOM.listenAll('.popup', 'mousedown', function(this: HTMLElement, e: Event) {
             return me.onPopupMouseDown(this, e as MouseEvent);
         });
-        DOM.listenAll('a.jump-to[href^="#"]', 'click', function(this: HTMLAnchorElement, e: Event) {
-            return me.onJumpToLinkClicked(this, e as MouseEvent);
-        });
     }
 
     protected onMessageReceived(e: MessageEvent) {
@@ -184,16 +181,6 @@ export abstract class AppWithConfig<TBootstrap extends AppWithConfigBootstrap> e
         this.applyChanges();
     }
 
-    protected onJumpToLinkClicked(element: HTMLAnchorElement, e: MouseEvent) {
-        const href = element.getAttribute('href');
-        if (href == null) return;
-
-        this.scrollToAnchor(href.substr(1));
-
-        e.stopPropagation();
-        e.preventDefault();
-    }
-
     protected onPopupMouseDown(element: HTMLElement, e: MouseEvent) {
         // e.stopPropagation();
         // e.stopImmediatePropagation();
@@ -216,6 +203,24 @@ export abstract class AppWithConfig<TBootstrap extends AppWithConfigBootstrap> e
         e.stopPropagation();
         e.stopImmediatePropagation();
         e.preventDefault();
+    }
+
+    protected scrollToAnchor(anchor: string) {
+        const el = document.getElementById(anchor);
+        if (el == null) return;
+
+        let height = 83;
+
+        const header = document.querySelector('.page-header--sticky');
+        if (header != null) {
+            height = header.clientHeight;
+        }
+
+        const top = el.getBoundingClientRect().top - document.body.getBoundingClientRect().top - height;
+        window.scrollTo({
+            top: top,
+            behavior: 'smooth'
+        });
     }
 
     private evaluateStateExpression(expression: string, changes: { [key: string]: string | boolean }): boolean {
@@ -259,24 +264,6 @@ export abstract class AppWithConfig<TBootstrap extends AppWithConfigBootstrap> e
 
     private getSettingValue<T>(path: string): T | undefined {
         return get<T>(this.bootstrap.config, path);
-    }
-
-    private scrollToAnchor(anchor: string) {
-        const el = document.getElementById(anchor);
-        if (el == null) return;
-
-        let height = 83;
-
-        const header = document.querySelector('.page-header--sticky');
-        if (header != null) {
-            height = header.clientHeight;
-        }
-
-        const top = el.getBoundingClientRect().top - document.body.getBoundingClientRect().top - height;
-        window.scrollTo({
-            top: top,
-            behavior: 'smooth'
-        });
     }
 
     private setState() {
