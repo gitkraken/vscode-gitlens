@@ -24,7 +24,7 @@ module.exports = function(env, argv) {
         env.optimizeImages = true;
     }
 
-    return [getExtensionConfig(env), getUIConfig(env)];
+    return [getExtensionConfig(env), getWebviewsConfig(env)];
 };
 
 function getExtensionConfig(env) {
@@ -122,7 +122,7 @@ function getExtensionConfig(env) {
     };
 }
 
-function getUIConfig(env) {
+function getWebviewsConfig(env) {
     const clean = [];
     if (env.optimizeImages) {
         console.log('Optimizing images (src/webviews/apps/images/settings/*.png)...');
