@@ -183,7 +183,7 @@ function getWebviewsConfig(env) {
                 sources: glob.sync('src/webviews/apps/images/settings/*.png'),
                 destination: path.resolve(__dirname, 'images')
             },
-            cacheFolder: path.resolve(__dirname, '.cache-images'),
+            cacheFolder: path.resolve(__dirname, 'node_modules', '.cache', 'imagemin-webpack-plugin'),
             gifsicle: null,
             jpegtran: null,
             optipng: null,

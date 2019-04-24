@@ -1,5 +1,3 @@
-.cache-images/**
-.cache-loader/**
 .github/**
 .vscode/**
 dist/webviews/main.js

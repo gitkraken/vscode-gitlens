@@ -1,5 +1,3 @@
-.cache-images
-.cache-loader
 dist
 node_modules
 images/settings

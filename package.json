@@ -5083,7 +5083,7 @@
         "analyze:deps": "webpack --env.analyzeDeps",
         "build": "webpack --env.development",
         "bundle": "webpack --env.production",
-        "clean": "git clean -Xdf -e !.cache-images -e !node_modules -e !node_modules/**/*",
+        "clean": "git clean -Xdf -e !node_modules -e !node_modules/**/*",
         "lint": "eslint src/**/*.ts --fix",
         "pack": "vsce package",
         "pretty": "prettier --config .prettierrc --loglevel warn --write \"./**/*.{ts,md,json}\" && npm run lint",
