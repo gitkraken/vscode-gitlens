@@ -1,13 +1,19 @@
 'use strict';
-import { commands, workspace } from 'vscode';
+import { commands, ConfigurationTarget, workspace } from 'vscode';
 import { Commands } from '../commands';
-import { Config, configuration } from '../configuration';
+import { Config, configuration, ViewLocation } from '../configuration';
 import { SettingsBootstrap } from './protocol';
 import { WebviewBase } from './webviewBase';
 
 export class SettingsWebview extends WebviewBase<SettingsBootstrap> {
     constructor() {
-        super();
+        super(Commands.ShowSettingsPage, [
+            Commands.ShowSettingsPageAndJumpToCompareView,
+            Commands.ShowSettingsPageAndJumpToFileHistoryView,
+            Commands.ShowSettingsPageAndJumpToLineHistoryView,
+            Commands.ShowSettingsPageAndJumpToRepositoriesView,
+            Commands.ShowSettingsPageAndJumpToSearchCommitsView
+        ]);
     }
 
     get filename(): string {
@@ -32,7 +38,60 @@ export class SettingsWebview extends WebviewBase<SettingsBootstrap> {
     }
 
     registerCommands() {
-        return [commands.registerCommand(Commands.ShowSettingsPage, this.show, this)];
+        return [
+            commands.registerCommand(`${this.id}.applyViewLayoutPreset`, args => this.applyViewLayoutPreset(args), this)
+        ];
+    }
+
+    private applyViewLayoutPreset(args: any) {
+        let repositories;
+        let histories;
+        let compareAndSearch;
+        switch (args) {
+            case 'contextual':
+                repositories = ViewLocation.SourceControl;
+                histories = ViewLocation.Explorer;
+                compareAndSearch = ViewLocation.GitLens;
+                break;
+            case 'default':
+                repositories = ViewLocation.GitLens;
+                histories = ViewLocation.GitLens;
+                compareAndSearch = ViewLocation.GitLens;
+                break;
+            case 'scm':
+                repositories = ViewLocation.SourceControl;
+                histories = ViewLocation.SourceControl;
+                compareAndSearch = ViewLocation.SourceControl;
+                break;
+            default:
+                return;
+        }
+
+        configuration.update(
+            configuration.name('views')('repositories')('location').value,
+            repositories,
+            ConfigurationTarget.Global
+        );
+        configuration.update(
+            configuration.name('views')('fileHistory')('location').value,
+            histories,
+            ConfigurationTarget.Global
+        );
+        configuration.update(
+            configuration.name('views')('lineHistory')('location').value,
+            histories,
+            ConfigurationTarget.Global
+        );
+        configuration.update(
+            configuration.name('views')('compare')('location').value,
+            compareAndSearch,
+            ConfigurationTarget.Global
+        );
+        configuration.update(
+            configuration.name('views')('search')('location').value,
+            compareAndSearch,
+            ConfigurationTarget.Global
+        );
     }
 
     private getAvailableScopes(): ['user' | 'workspace', string][] {

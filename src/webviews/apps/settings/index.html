@@ -80,6 +80,133 @@
                                 <p class="section__title-hint">General GitLens settings &mdash; defaults and globals</p>
                             </div>
                             <div class="section__settings section__settings--multi">
+                                <h3 id="views-layout" class="settings-group__header">Views Side Bar Layout</h3>
+                                <div class="settings-group">
+                                    <div class="presets">
+                                        <span>Presets</span>
+                                        <span class="presets__buttons">
+                                            <a
+                                                class="button button--flat"
+                                                title="Shows all the views together on the GitLens side bar"
+                                                href="command:gitlens.settings.applyViewLayoutPreset?%5B%22default%22%5D"
+                                                >Default Layout</a
+                                            >
+                                            <a
+                                                class="button button--flat"
+                                                title="Shows all the views together on the Source Control side bar"
+                                                href="command:gitlens.settings.applyViewLayoutPreset?%5B%22scm%22%5D"
+                                                >Source Control Layout</a
+                                            >
+                                            <a
+                                                class="button button--flat"
+                                                title="Shows Repositories on the Source Control side bar, File and Line History on the Explorer side bar, and others on the GitLens side bar"
+                                                href="command:gitlens.settings.applyViewLayoutPreset?%5B%22contextual%22%5D"
+                                                >Contextual Layout</a
+                                            >
+                                        </span>
+                                    </div>
+                                    <div class="settings-group__setting" data-enablement="views.repositories.enabled">
+                                        <label for="views.repositories.location">Show Repositories in the </label>
+                                        <select
+                                            class="setting"
+                                            id="views.repositories.location"
+                                            name="views.repositories.location"
+                                            disabled
+                                        >
+                                            <option value="gitlens">GitLens side bar</option>
+                                            <option value="explorer">Explorer side bar</option>
+                                            <option value="scm">Source Control side bar</option>
+                                        </select>
+                                        <a
+                                            class="link__learn-more jump-to"
+                                            title="Jump to Repositories view settings"
+                                            href="#repositories-view"
+                                        >
+                                            <i class="icon icon__info"></i>
+                                        </a>
+                                    </div>
+                                    <div class="settings-group__setting" data-enablement="views.fileHistory.enabled">
+                                        <label for="views.fileHistory.location">Show File History in the </label>
+                                        <select
+                                            class="setting"
+                                            id="views.fileHistory.location"
+                                            name="views.fileHistory.location"
+                                            disabled
+                                        >
+                                            <option value="gitlens">GitLens side bar</option>
+                                            <option value="explorer">Explorer side bar</option>
+                                            <option value="scm">Source Control side bar</option>
+                                        </select>
+                                        <a
+                                            class="link__learn-more jump-to"
+                                            title="Jump to File History view settings"
+                                            href="#file-history-view"
+                                        >
+                                            <i class="icon icon__info"></i>
+                                        </a>
+                                    </div>
+                                    <div class="settings-group__setting" data-enablement="views.lineHistory.enabled">
+                                        <label for="views.lineHistory.location">Show Line History in the </label>
+                                        <select
+                                            class="setting"
+                                            id="views.lineHistory.location"
+                                            name="views.lineHistory.location"
+                                            disabled
+                                        >
+                                            <option value="gitlens">GitLens side bar</option>
+                                            <option value="explorer">Explorer side bar</option>
+                                            <option value="scm">Source Control side bar</option>
+                                        </select>
+                                        <a
+                                            class="link__learn-more jump-to"
+                                            title="Jump to Line History view settings"
+                                            href="#line-history-view"
+                                        >
+                                            <i class="icon icon__info"></i>
+                                        </a>
+                                    </div>
+                                    <div class="settings-group__setting" data-enablement="views.search.enabled">
+                                        <label for="views.search.location">Show Search Commits in the </label>
+                                        <select
+                                            class="setting"
+                                            id="views.search.location"
+                                            name="views.search.location"
+                                            disabled
+                                        >
+                                            <option value="gitlens">GitLens side bar</option>
+                                            <option value="explorer">Explorer side bar</option>
+                                            <option value="scm">Source Control side bar</option>
+                                        </select>
+                                        <a
+                                            class="link__learn-more jump-to"
+                                            title="Jump to Search Commits view settings"
+                                            href="#search-commits-view"
+                                        >
+                                            <i class="icon icon__info"></i>
+                                        </a>
+                                    </div>
+                                    <div class="settings-group__setting" data-enablement="views.compare.enabled">
+                                        <label for="views.compare.location">Show Compare in the </label>
+                                        <select
+                                            class="setting"
+                                            id="views.compare.location"
+                                            name="views.compare.location"
+                                            disabled
+                                        >
+                                            <option value="gitlens">GitLens side bar</option>
+                                            <option value="explorer">Explorer side bar</option>
+                                            <option value="scm">Source Control side bar</option>
+                                        </select>
+                                        <a
+                                            class="link__learn-more jump-to"
+                                            title="Jump to Compare view settings"
+                                            href="#compare-view"
+                                        >
+                                            <i class="icon icon__info"></i>
+                                        </a>
+                                    </div>
+                                </div>
+
                                 <h3 class="settings-group__header">Default Date/Time Display</h3>
                                 <div class="settings-group">
                                     <div class="settings-group__setting nowrap">
@@ -108,7 +235,9 @@
                                         </a>
                                     </div>
                                     <div class="settings-group__setting nowrap">
-                                        <label for="defaultDateShortFormat">Absolute&nbsp;short&nbsp;date&nbsp;format</label>
+                                        <label for="defaultDateShortFormat"
+                                            >Absolute&nbsp;short&nbsp;date&nbsp;format</label
+                                        >
                                         <input
                                             class="setting"
                                             id="defaultDateShortFormat"

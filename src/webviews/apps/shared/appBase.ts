@@ -1,6 +1,6 @@
 'use strict';
 /*global window document*/
-import { AppBootstrap, IpcCommandParamsOf, IpcCommandType, IpcMessage } from '../../protocol';
+import { AppBootstrap, IpcCommandParamsOf, IpcCommandType, IpcMessage, ReadyCommandType } from '../../protocol';
 import { initializeAndWatchThemeColors } from './theme';
 
 interface VsCodeApi {
@@ -28,6 +28,8 @@ export abstract class App<TBootstrap extends AppBootstrap> {
         this.onBind(this);
 
         window.addEventListener('message', this.onMessageReceived.bind(this));
+
+        this.sendCommand(ReadyCommandType, {});
 
         this.onInitialized();
 

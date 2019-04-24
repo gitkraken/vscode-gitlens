@@ -181,6 +181,12 @@ export enum ViewFilesLayout {
     Tree = 'tree'
 }
 
+export enum ViewLocation {
+    Explorer = 'explorer',
+    GitLens = 'gitlens',
+    SourceControl = 'scm'
+}
+
 export interface AdvancedConfig {
     abbreviatedShaLength: number;
     blame: {
@@ -238,19 +244,19 @@ export interface CompareViewConfig {
     avatars: boolean;
     enabled: boolean;
     files: ViewsFilesConfig;
-    location: 'explorer' | 'gitlens' | 'scm';
+    location: ViewLocation;
 }
 
 export interface FileHistoryViewConfig {
     avatars: boolean;
     enabled: boolean;
-    location: 'explorer' | 'gitlens' | 'scm';
+    location: ViewLocation;
 }
 
 export interface LineHistoryViewConfig {
     avatars: boolean;
     enabled: boolean;
-    location: 'explorer' | 'gitlens' | 'scm';
+    location: ViewLocation;
 }
 
 export interface MenuConfig {
@@ -348,7 +354,7 @@ export interface RepositoriesViewConfig {
     enabled: boolean;
     files: ViewsFilesConfig;
     includeWorkingTree: boolean;
-    location: 'explorer' | 'gitlens' | 'scm';
+    location: ViewLocation;
     showTrackingBranch: boolean;
 }
 
@@ -356,7 +362,7 @@ export interface SearchViewConfig {
     avatars: boolean;
     enabled: boolean;
     files: ViewsFilesConfig;
-    location: 'explorer' | 'gitlens' | 'scm';
+    location: ViewLocation;
 }
 
 export interface ViewsConfig {

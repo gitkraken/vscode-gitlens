@@ -2,6 +2,7 @@
 import * as paths from 'path';
 import * as fs from 'fs';
 import {
+    commands,
     ConfigurationChangeEvent,
     ConfigurationTarget,
     Disposable,
@@ -17,25 +18,56 @@ import { Container } from '../container';
 import { Logger } from '../logger';
 import {
     DidChangeConfigurationNotificationType,
+    DidRequestJumpToNotificationType,
     IpcMessage,
     IpcNotificationParamsOf,
     IpcNotificationType,
     onIpcCommand,
+    ReadyCommandType,
     UpdateConfigurationCommandType
 } from './protocol';
+import { Commands } from '../commands';
 
 let ipcSequence = 0;
+
+const emptyCommands: Disposable[] = [
+    {
+        dispose: function() {
+            /* noop */
+        }
+    }
+];
+
+const anchorRegex = /.*?#(.*)/;
 
 export abstract class WebviewBase<TBootstrap> implements Disposable {
     private _disposable: Disposable | undefined;
     private _disposablePanel: Disposable | undefined;
     private _panel: WebviewPanel | undefined;
 
-    constructor() {
+    private _pendingJumpToAnchor: string | undefined;
+
+    constructor(showCommand: Commands, showAndJumpCommands?: Commands[]) {
         this._disposable = Disposable.from(
             configuration.onDidChange(this.onConfigurationChanged, this),
-            ...this.registerCommands()
+            commands.registerCommand(showCommand, this.show, this)
         );
+
+        if (showAndJumpCommands !== undefined) {
+            this._disposable = Disposable.from(
+                this._disposable,
+                ...showAndJumpCommands.map(c => {
+                    // The show and jump commands are structured to have a # separating the base command from the anchor
+                    let anchor: string | undefined;
+                    const match = anchorRegex.exec(c);
+                    if (match != null) {
+                        [, anchor] = match;
+                    }
+
+                    return commands.registerCommand(c, () => this.show(anchor), this);
+                })
+            );
+        }
     }
 
     abstract get filename(): string;
@@ -43,7 +75,9 @@ export abstract class WebviewBase<TBootstrap> implements Disposable {
     abstract get title(): string;
 
     abstract getBootstrap(): TBootstrap;
-    abstract registerCommands(): Disposable[];
+    registerCommands(): Disposable[] {
+        return emptyCommands;
+    }
 
     dispose() {
         this._disposable && this._disposable.dispose();
@@ -81,6 +115,16 @@ export abstract class WebviewBase<TBootstrap> implements Disposable {
         Logger.log(`Webview(${this.id}).onMessageReceived: method=${e.method}, data=${JSON.stringify(e)}`);
 
         switch (e.method) {
+            case ReadyCommandType.method:
+                onIpcCommand(ReadyCommandType, e, params => {
+                    if (this._pendingJumpToAnchor !== undefined) {
+                        this.notify(DidRequestJumpToNotificationType, { anchor: this._pendingJumpToAnchor });
+                        this._pendingJumpToAnchor = undefined;
+                    }
+                });
+
+                break;
+
             case UpdateConfigurationCommandType.method:
                 onIpcCommand(UpdateConfigurationCommandType, e, async params => {
                     const target =
@@ -116,7 +160,7 @@ export abstract class WebviewBase<TBootstrap> implements Disposable {
         this._panel.dispose();
     }
 
-    async show(): Promise<void> {
+    async show(jumpToAnchor?: string): Promise<void> {
         const html = await this.getHtml();
 
         if (this._panel === undefined) {
@@ -137,7 +181,8 @@ export abstract class WebviewBase<TBootstrap> implements Disposable {
                 this._panel,
                 this._panel.onDidDispose(this.onPanelDisposed, this),
                 this._panel.onDidChangeViewState(this.onViewStateChanged, this),
-                this._panel.webview.onDidReceiveMessage(this.onMessageReceivedCore, this)
+                this._panel.webview.onDidReceiveMessage(this.onMessageReceivedCore, this),
+                ...this.registerCommands()
             );
 
             this._panel.webview.html = html;
@@ -148,6 +193,8 @@ export abstract class WebviewBase<TBootstrap> implements Disposable {
             this._panel.webview.html = html;
             this._panel.reveal(ViewColumn.Active, false);
         }
+
+        this._pendingJumpToAnchor = jumpToAnchor;
     }
 
     private _html: string | undefined;

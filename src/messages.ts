@@ -1,10 +1,12 @@
 'use strict';
 import { commands, ConfigurationTarget, MessageItem, Uri, window } from 'vscode';
 import { Commands } from './commands';
-import { configuration } from './configuration';
+import { configuration, ViewLocation } from './configuration';
 import { BuiltInCommands, CommandContext, setCommandContext } from './constants';
 import { GitCommit } from './git/gitService';
 import { Logger } from './logger';
+import { Versions } from './system';
+import { Container } from './container';
 
 export enum SuppressedMessages {
     CommitHasNoPreviousCommitWarning = 'suppressCommitHasNoPreviousCommitWarning',
@@ -129,6 +131,38 @@ export class Messages {
                 await this.suppressedMessage(SuppressedMessages.SupportGitLensNotification!);
                 await commands.executeCommand(BuiltInCommands.Open, uri);
             }
+        }
+    }
+
+    static async showSetupViewLayoutMessage(previousVersion: string | undefined) {
+        if (
+            Container.config.views.repositories.location !== ViewLocation.GitLens ||
+            Container.config.views.fileHistory.location !== ViewLocation.GitLens ||
+            Container.config.views.lineHistory.location !== ViewLocation.GitLens ||
+            Container.config.views.search.location !== ViewLocation.GitLens ||
+            Container.config.views.compare.location !== ViewLocation.GitLens
+        ) {
+            return;
+        }
+
+        if (
+            previousVersion !== undefined &&
+            Versions.compare(Versions.fromString(previousVersion), Versions.from(9, 6, 3)) === 1
+        ) {
+            return;
+        }
+
+        const actions: MessageItem[] = [{ title: 'Customize...' }, { title: 'Use Defaults' }];
+        const result = await Messages.showMessage(
+            'info',
+            'GitLens views can be configured to be shown in different side bar layouts to best match your workflow. You can easily change the default layout (where all views are shown together on the GitLens side bar) below.',
+            undefined,
+            null,
+            ...actions
+        );
+
+        if (result != null && result === actions[0]) {
+            await commands.executeCommand(Commands.ShowSettingsPage, 'views-layout');
         }
     }
 

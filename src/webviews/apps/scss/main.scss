@@ -834,6 +834,18 @@ ul {
     margin: 0.25em 0 0 0;
 }
 
+.presets {
+    align-items: baseline;
+    display: flex;
+    margin-bottom: 1em;
+    margin-top: -1em;
+}
+
+.presets__buttons {
+    font-size: 0.8em;
+    margin-left: 1em;
+}
+
 .section__preview {
     flex: 30% 1 1;
     margin-left: 2em;
@@ -978,10 +990,11 @@ ul {
 
 .settings-group__header {
     font-size: 1.2em;
-    margin: 1em 0 1.5em 0;
+    margin: 0 0 1.5em 0;
+    padding-top: 1em;
 
     &:first-child {
-        margin-top: 0;
+        margin-top: -1em;
     }
 }
 

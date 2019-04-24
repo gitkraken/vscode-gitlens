@@ -1808,6 +1808,51 @@
                 }
             },
             {
+                "command": "gitlens.showSettingsPage#repositories-view",
+                "title": "Open Settings",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-gear.svg",
+                    "light": "images/light/icon-gear.svg"
+                }
+            },
+            {
+                "command": "gitlens.showSettingsPage#file-history-view",
+                "title": "Open Settings",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-gear.svg",
+                    "light": "images/light/icon-gear.svg"
+                }
+            },
+            {
+                "command": "gitlens.showSettingsPage#line-history-view",
+                "title": "Open Settings",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-gear.svg",
+                    "light": "images/light/icon-gear.svg"
+                }
+            },
+            {
+                "command": "gitlens.showSettingsPage#search-commits-view",
+                "title": "Open Settings",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-gear.svg",
+                    "light": "images/light/icon-gear.svg"
+                }
+            },
+            {
+                "command": "gitlens.showSettingsPage#compare-view",
+                "title": "Open Settings",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-gear.svg",
+                    "light": "images/light/icon-gear.svg"
+                }
+            },
+            {
                 "command": "gitlens.showWelcomePage",
                 "title": "Welcome",
                 "category": "GitLens"
@@ -2889,6 +2934,26 @@
         ],
         "menus": {
             "commandPalette": [
+                {
+                    "command": "gitlens.showSettingsPage#repositories-view",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.showSettingsPage#file-history-view",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.showSettingsPage#line-history-view",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.showSettingsPage#search-commits-view",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.showSettingsPage#compare-view",
+                    "when": "false"
+                },
                 {
                     "command": "gitlens.showCompareView",
                     "when": "gitlens:enabled"
@@ -3989,8 +4054,32 @@
                     "group": "navigation@1"
                 },
                 {
-                    "command": "gitlens.showSettingsPage",
-                    "when": "view =~ /^gitlens\\.views\\..*:/",
+                    "command": "gitlens.showSettingsPage#repositories-view",
+                    "when": "view =~ /^gitlens\\.views\\.repositories:/",
+                    "group": "9_gitlens"
+                },
+                {
+                    "command": "gitlens.showSettingsPage#file-history-view",
+                    "when": "view =~ /^gitlens\\.views\\.fileHistory:/",
+                    "args": "general",
+                    "group": "9_gitlens"
+                },
+                {
+                    "command": "gitlens.showSettingsPage#line-history-view",
+                    "when": "view =~ /^gitlens\\.views\\.lineHistory:/",
+                    "args": "general",
+                    "group": "9_gitlens"
+                },
+                {
+                    "command": "gitlens.showSettingsPage#search-commits-view",
+                    "when": "view =~ /^gitlens\\.views\\.search:/",
+                    "args": "general",
+                    "group": "9_gitlens"
+                },
+                {
+                    "command": "gitlens.showSettingsPage#compare-view",
+                    "when": "view =~ /^gitlens\\.views\\.compare:/",
+                    "args": "general",
                     "group": "9_gitlens"
                 }
             ],

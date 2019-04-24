@@ -40,6 +40,15 @@ export const DidChangeConfigurationNotificationType = new IpcNotificationType<Di
     'configuration/didChange'
 );
 
+export interface DidRequestJumpToNotificationParams {
+    anchor: string;
+}
+export const DidRequestJumpToNotificationType = new IpcNotificationType<DidRequestJumpToNotificationParams>(
+    'webview/jumpTo'
+);
+
+export const ReadyCommandType = new IpcCommandType<{}>('webview/ready');
+
 export interface UpdateConfigurationCommandParams {
     changes: {
         [key: string]: any;

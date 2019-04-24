@@ -272,34 +272,39 @@ function notifyOnUnsupportedGitVersion(version: string) {
 }
 
 async function showWelcomePage(version: string, previousVersion: string | undefined) {
-    if (previousVersion === undefined) {
-        Logger.log('GitLens first-time install');
+    try {
+        if (previousVersion === undefined) {
+            Logger.log('GitLens first-time install');
 
-        if (Container.config.showWhatsNewAfterUpgrades) {
-            await commands.executeCommand(Commands.ShowWelcomePage);
+            if (Container.config.showWhatsNewAfterUpgrades) {
+                await commands.executeCommand(Commands.ShowWelcomePage);
+            }
+
+            return;
         }
 
-        return;
-    }
+        if (previousVersion !== version) {
+            Logger.log(`GitLens upgraded from v${previousVersion} to v${version}`);
+        }
 
-    if (previousVersion !== version) {
-        Logger.log(`GitLens upgraded from v${previousVersion} to v${version}`);
-    }
+        const [major, minor] = version.split('.');
+        const [prevMajor, prevMinor] = previousVersion.split('.');
+        if (
+            (major === prevMajor && minor === prevMinor) ||
+            // Don't notify on downgrades
+            (major < prevMajor || (major === prevMajor && minor < prevMinor))
+        ) {
+            return;
+        }
 
-    const [major, minor] = version.split('.');
-    const [prevMajor, prevMinor] = previousVersion.split('.');
-    if (
-        (major === prevMajor && minor === prevMinor) ||
-        // Don't notify on downgrades
-        (major < prevMajor || (major === prevMajor && minor < prevMinor))
-    ) {
-        return;
+        if (Container.config.showWhatsNewAfterUpgrades && major !== prevMajor) {
+            await commands.executeCommand(Commands.ShowWelcomePage);
+        }
+        else {
+            await Messages.showWhatsNewMessage(version);
+        }
     }
-
-    if (Container.config.showWhatsNewAfterUpgrades && major !== prevMajor) {
-        await commands.executeCommand(Commands.ShowWelcomePage);
-    }
-    else {
-        await Messages.showWhatsNewMessage(version);
+    finally {
+        void (await Messages.showSetupViewLayoutMessage(previousVersion));
     }
 }

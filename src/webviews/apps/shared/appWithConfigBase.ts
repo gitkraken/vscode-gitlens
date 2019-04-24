@@ -3,6 +3,7 @@
 import {
     AppWithConfigBootstrap,
     DidChangeConfigurationNotificationType,
+    DidRequestJumpToNotificationType,
     IpcMessage,
     onIpcNotification,
     UpdateConfigurationCommandType
@@ -51,6 +52,12 @@ export abstract class AppWithConfig<TBootstrap extends AppWithConfigBootstrap> e
         const msg = e.data as IpcMessage;
 
         switch (msg.method) {
+            case DidRequestJumpToNotificationType.method:
+                onIpcNotification(DidRequestJumpToNotificationType, msg, params => {
+                    this.scrollToAnchor(params.anchor);
+                });
+                break;
+
             case DidChangeConfigurationNotificationType.method:
                 onIpcNotification(DidChangeConfigurationNotificationType, msg, params => {
                     this.bootstrap.config = params.config;
@@ -181,21 +188,7 @@ export abstract class AppWithConfig<TBootstrap extends AppWithConfigBootstrap> e
         const href = element.getAttribute('href');
         if (href == null) return;
 
-        const el = document.getElementById(href.substr(1));
-        if (el == null) return;
-
-        let height = 83;
-
-        const header = document.querySelector('.page-header--sticky');
-        if (header != null) {
-            height = header.clientHeight;
-        }
-
-        const top = el.getBoundingClientRect().top - document.body.getBoundingClientRect().top - height;
-        window.scrollTo({
-            top: top,
-            behavior: 'smooth'
-        });
+        this.scrollToAnchor(href.substr(1));
 
         e.stopPropagation();
         e.preventDefault();
@@ -266,6 +259,24 @@ export abstract class AppWithConfig<TBootstrap extends AppWithConfigBootstrap> e
 
     private getSettingValue<T>(path: string): T | undefined {
         return get<T>(this.bootstrap.config, path);
+    }
+
+    private scrollToAnchor(anchor: string) {
+        const el = document.getElementById(anchor);
+        if (el == null) return;
+
+        let height = 83;
+
+        const header = document.querySelector('.page-header--sticky');
+        if (header != null) {
+            height = header.clientHeight;
+        }
+
+        const top = el.getBoundingClientRect().top - document.body.getBoundingClientRect().top - height;
+        window.scrollTo({
+            top: top,
+            behavior: 'smooth'
+        });
     }
 
     private setState() {

@@ -1,5 +1,4 @@
 'use strict';
-import { commands } from 'vscode';
 import { Commands } from '../commands';
 import { Container } from '../container';
 import { WelcomeBootstrap } from './protocol';
@@ -7,7 +6,7 @@ import { WebviewBase } from './webviewBase';
 
 export class WelcomeWebview extends WebviewBase<WelcomeBootstrap> {
     constructor() {
-        super();
+        super(Commands.ShowWelcomePage);
     }
 
     get filename(): string {
@@ -26,9 +25,5 @@ export class WelcomeWebview extends WebviewBase<WelcomeBootstrap> {
         return {
             config: Container.config
         };
-    }
-
-    registerCommands() {
-        return [commands.registerCommand(Commands.ShowWelcomePage, this.show, this)];
     }
 }
