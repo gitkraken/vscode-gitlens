@@ -15,6 +15,21 @@ export namespace Strings {
         Backslash = 92
     }
 
+    export function getCommonBase(s1: string, s2: string, delimiter: string) {
+        let char;
+        let index = 0;
+        for (let i = 0; i < s1.length; i++) {
+            char = s1[i];
+            if (char !== s2[i]) break;
+
+            if (char === delimiter) {
+                index = i;
+            }
+        }
+
+        return index > 0 ? s1.substring(0, index + 1) : undefined;
+    }
+
     export function getDurationMilliseconds(start: [number, number]) {
         const [secs, nanosecs] = process.hrtime(start);
         return secs * 1000 + Math.floor(nanosecs / 1000000);

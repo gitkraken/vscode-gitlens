@@ -158,7 +158,7 @@ export class CommitFileNode extends ViewRefFileNode {
         if (this._tooltip === undefined) {
             if (this._displayAs & CommitFileNodeDisplayAs.CommitLabel) {
                 // eslint-disable-next-line no-template-curly-in-string
-                const status = StatusFileFormatter.fromTemplate('${status}', this.file);
+                const status = StatusFileFormatter.fromTemplate('${status}${ (originalPath)}', this.file);
                 this._tooltip = CommitFormatter.fromTemplate(
                     this.commit.isUncommitted
                         ? `\${author} ${GlyphChars.Dash} \${id}\n${status}\n\${ago} (\${date})`
@@ -170,8 +170,11 @@ export class CommitFileNode extends ViewRefFileNode {
                 );
             }
             else {
-                // eslint-disable-next-line no-template-curly-in-string
-                this._tooltip = StatusFileFormatter.fromTemplate('${file}\n${directory}/\n\n${status}', this.file);
+                this._tooltip = StatusFileFormatter.fromTemplate(
+                    // eslint-disable-next-line no-template-curly-in-string
+                    '${file}\n${directory}/\n\n${status}${ (originalPath)}',
+                    this.file
+                );
             }
         }
         return this._tooltip;

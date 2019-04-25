@@ -12,6 +12,7 @@ export interface StatusFormatOptions extends FormatOptions {
         directory?: Strings.TokenOptions;
         file?: Strings.TokenOptions;
         filePath?: Strings.TokenOptions;
+        originalPath?: Strings.TokenOptions;
         path?: Strings.TokenOptions;
         status?: Strings.TokenOptions;
         working?: Strings.TokenOptions;
@@ -32,6 +33,19 @@ export class StatusFileFormatter extends Formatter<GitFile, StatusFormatOptions>
     get filePath() {
         const filePath = GitFile.getFormattedPath(this._item, { relativeTo: this._options.relativePath });
         return this._padOrTruncate(filePath, this._options.tokenOptions.filePath);
+    }
+
+    get originalPath() {
+        // if (
+        //     // this._item.status !== 'R' ||
+        //     this._item.originalFileName == null ||
+        //     this._item.originalFileName.length === 0
+        // ) {
+        //     return '';
+        // }
+
+        const originalPath = GitFile.getOriginalRelativePath(this._item, this._options.relativePath);
+        return this._padOrTruncate(originalPath, this._options.tokenOptions.originalPath);
     }
 
     get path() {

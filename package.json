@@ -1266,13 +1266,13 @@
                 "gitlens.views.commitFileFormat": {
                     "type": "string",
                     "default": "${file}",
-                    "markdownDescription": "Specifies the format of a committed file in the views\n- Available tokens\n - `${directory}` &mdash; directory name\n - `${file}` &mdash; file name\n - `${filePath}` &mdash; formatted file name and path\n - `${path}` &mdash; full file path",
+                    "markdownDescription": "Specifies the format of a committed file in the views\n- Available tokens\n - `${directory}` &mdash; directory name\n - `${file}` &mdash; file name\n - `${filePath}` &mdash; formatted file name and path\n - `${originalPath}` &mdash; full file path of the original file if renamed\n - `${path}` &mdash; full file path",
                     "scope": "window"
                 },
                 "gitlens.views.commitFileDescriptionFormat": {
                     "type": "string",
-                    "default": "${directory}",
-                    "markdownDescription": "Specifies the description format of a committed file in the views\n- Available tokens\n - `${directory}` &mdash; directory name\n - `${file}` &mdash; file name\n - `${filePath}` &mdash; formatted file name and path\n - `${path}` &mdash; full file path",
+                    "default": "${directory}${  ←  originalPath}",
+                    "markdownDescription": "Specifies the description format of a committed file in the views\n- Available tokens\n - `${directory}` &mdash; directory name\n - `${file}` &mdash; file name\n - `${filePath}` &mdash; formatted file name and path\n - `${originalPath}` &mdash; full file path of the original file if renamed\n - `${path}` &mdash; full file path",
                     "scope": "window"
                 },
                 "gitlens.views.commitFormat": {
@@ -1576,13 +1576,13 @@
                 "gitlens.views.stashFileFormat": {
                     "type": "string",
                     "default": "${file}",
-                    "markdownDescription": "Specifies the format of a stashed file in the views\n- Available tokens\n - `${directory}` &mdash; directory name\n - `${file}` &mdash; file name\n - `${filePath}` &mdash; formatted file name and path\n - `${path}` &mdash; full file path",
+                    "markdownDescription": "Specifies the format of a stashed file in the views\n- Available tokens\n - `${directory}` &mdash; directory name\n - `${file}` &mdash; file name\n - `${filePath}` &mdash; formatted file name and path\n - `${originalPath}` &mdash; full file path of the original file if renamed\n - `${path}` &mdash; full file path",
                     "scope": "window"
                 },
                 "gitlens.views.stashFileDescriptionFormat": {
                     "type": "string",
-                    "default": "${directory}",
-                    "markdownDescription": "Specifies the description format of a stashed file in the views\n- Available tokens\n - `${directory}` &mdash; directory name\n - `${file}` &mdash; file name\n - `${filePath}` &mdash; formatted file name and path\n - `${path}` &mdash; full file path",
+                    "default": "${directory}${  ←  originalPath}",
+                    "markdownDescription": "Specifies the description format of a stashed file in the views\n- Available tokens\n - `${directory}` &mdash; directory name\n - `${file}` &mdash; file name\n - `${filePath}` &mdash; formatted file name and path\n - `${originalPath}` &mdash; full file path of the original file if renamed\n - `${path}` &mdash; full file path",
                     "scope": "window"
                 },
                 "gitlens.views.stashFormat": {
@@ -1600,13 +1600,13 @@
                 "gitlens.views.statusFileFormat": {
                     "type": "string",
                     "default": "${working  }${file}",
-                    "markdownDescription": "Specifies the format of the status of a working or committed file in the views\n- Available tokens\n - `${directory}` &mdash; directory name\n - `${file}` &mdash; file name\n - `${filePath}` &mdash; formatted file name and path\n - `${path}` &mdash; full file path\n - `${working}` &mdash; optional indicator if the file is uncommitted",
+                    "markdownDescription": "Specifies the format of the status of a working or committed file in the views\n- Available tokens\n - `${directory}` &mdash; directory name\n - `${file}` &mdash; file name\n - `${filePath}` &mdash; formatted file name and path\n - `${originalPath}` &mdash; full file path of the original file if renamed\n - `${path}` &mdash; full file path\n - `${working}` &mdash; optional indicator if the file is uncommitted",
                     "scope": "window"
                 },
                 "gitlens.views.statusFileDescriptionFormat": {
                     "type": "string",
-                    "default": "${directory}",
-                    "markdownDescription": "Specifies the description format of the status of a working or committed file in the views\n- Available tokens\n - `${directory}` &mdash; directory name\n - `${file}` &mdash; file name\n - `${filePath}` &mdash; formatted file name and path\n - `${path}` &mdash; full file path\n - `${working}` &mdash; optional indicator if the file is uncommitted",
+                    "default": "${directory}${  ←  originalPath}",
+                    "markdownDescription": "Specifies the description format of the status of a working or committed file in the views\n- Available tokens\n - `${directory}` &mdash; directory name\n - `${file}` &mdash; file name\n - `${filePath}` &mdash; formatted file name and path\n - `${originalPath}` &mdash; full file path of the original file if renamed\n - `${path}` &mdash; full file path\n - `${working}` &mdash; optional indicator if the file is uncommitted",
                     "scope": "window"
                 },
                 "gitlens.advanced.abbreviatedShaLength": {

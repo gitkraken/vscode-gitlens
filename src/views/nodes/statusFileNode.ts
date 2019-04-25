@@ -60,7 +60,7 @@ export class StatusFileNode extends ViewNode {
                 item.contextValue += '+staged';
                 item.tooltip = StatusFileFormatter.fromTemplate(
                     // eslint-disable-next-line no-template-curly-in-string
-                    '${file}\n${directory}/\n\n${status} in Index (staged)',
+                    '${file}\n${directory}/\n\n${status}${ (originalPath)} in Index (staged)',
                     this.file
                 );
             }
@@ -68,7 +68,7 @@ export class StatusFileNode extends ViewNode {
                 item.contextValue += '+unstaged';
                 item.tooltip = StatusFileFormatter.fromTemplate(
                     // eslint-disable-next-line no-template-curly-in-string
-                    '${file}\n${directory}/\n\n${status} in Working Tree',
+                    '${file}\n${directory}/\n\n${status}${ (originalPath)} in Working Tree',
                     this.file
                 );
             }
@@ -108,7 +108,7 @@ export class StatusFileNode extends ViewNode {
             }
 
             item.tooltip = StatusFileFormatter.fromTemplate(
-                `\${file}\n\${directory}/\n\n\${status} in ${this.getChangedIn()}`,
+                `\${file}\n\${directory}/\n\n\${status}\${ (originalPath)} in ${this.getChangedIn()}`,
                 this.file
             );
         }

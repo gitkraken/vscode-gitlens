@@ -35,8 +35,11 @@ export class ResultsFileNode extends ViewRefFileNode {
         const item = new TreeItem(this.label, TreeItemCollapsibleState.None);
         item.contextValue = ResourceType.ResultsFile;
         item.description = this.description;
-        // eslint-disable-next-line no-template-curly-in-string
-        item.tooltip = StatusFileFormatter.fromTemplate('${file}\n${directory}/\n\n${status}', this.file);
+        item.tooltip = StatusFileFormatter.fromTemplate(
+            // eslint-disable-next-line no-template-curly-in-string
+            '${file}\n${directory}/\n\n${status}${ (originalPath)}',
+            this.file
+        );
 
         const statusIcon = GitFile.getStatusIcon(this.file.status);
         item.iconPath = {
@@ -51,10 +54,13 @@ export class ResultsFileNode extends ViewRefFileNode {
     private _description: string | undefined;
     get description() {
         if (this._description === undefined) {
-            // eslint-disable-next-line no-template-curly-in-string
-            this._description = StatusFileFormatter.fromTemplate('${directory}', this.file, {
-                relativePath: this.relativePath
-            });
+            this._description = StatusFileFormatter.fromTemplate(
+                this.view.config.commitFileDescriptionFormat,
+                this.file,
+                {
+                    relativePath: this.relativePath
+                }
+            );
         }
         return this._description;
     }
