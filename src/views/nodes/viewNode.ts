@@ -69,6 +69,16 @@ export abstract class ViewNode<TView extends View = View> {
     constructor(uri: GitUri, public readonly view: TView, protected readonly parent?: ViewNode) {
         this._instanceId = getViewNodeInstanceId();
         this._uri = uri;
+
+        if (Logger.isDebugging) {
+            const fn = this.getTreeItem;
+            this.getTreeItem = async function(this: ViewNode<TView>) {
+                const item = await fn.apply(this);
+
+                item.tooltip = `${item.tooltip || item.label}\n\nDBG: ${this.toString()}`;
+                return item;
+            };
+        }
     }
 
     toString() {
@@ -111,10 +121,18 @@ export abstract class ViewRefNode<TView extends View = View> extends ViewNode<TV
     get repoPath(): string {
         return this.uri.repoPath!;
     }
+
+    toString() {
+        return `${super.toString()}: ${this.ref}`;
+    }
 }
 
 export abstract class ViewRefFileNode<TView extends View = View> extends ViewRefNode<TView> {
     abstract get fileName(): string;
+
+    toString() {
+        return `${super.toString()}:${this.fileName}`;
+    }
 }
 
 export interface PageableViewNode {
