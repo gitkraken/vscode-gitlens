@@ -27,6 +27,7 @@ interface LogEntry {
 }
 
 const diffRegex = /diff --git a\/(.*) b\/(.*)/;
+const fileStatusRegex = /(\S)\S*\t([^\t\n]+)(?:\t(.+))?/;
 const logFileSimpleRegex = /^<r> (.*)\s*(?:(?:diff --git a\/(.*) b\/(.*))|(?:\S+\t([^\t\n]+)(?:\t(.+))?))/gm;
 
 const emptyEntry: LogEntry = {};
@@ -67,6 +68,9 @@ export class GitLogParser {
         const authors: Map<string, GitAuthor> = new Map();
         const commits: Map<string, GitLogCommit> = new Map();
         let truncationCount = maxCount;
+
+        let match;
+        let renamedFileName;
 
         while (true) {
             next = lines.next();
@@ -151,44 +155,60 @@ export class GitLogParser {
                         if (line.startsWith('warning:')) continue;
 
                         if (type === GitCommitType.Branch) {
-                            const status = {
-                                status: line[0] as GitFileStatus,
-                                fileName: line.substring(1),
-                                originalFileName: undefined
-                            };
-                            this.parseFileName(status);
-
-                            if (status.fileName) {
+                            match = fileStatusRegex.exec(line);
+                            if (match != null) {
                                 if (entry.files === undefined) {
                                     entry.files = [];
                                 }
-                                entry.files.push(status);
-                            }
-                        }
-                        else if (line.startsWith('diff')) {
-                            const matches = diffRegex.exec(line);
-                            if (matches != null) {
-                                let originalFileName;
-                                [, entry.fileName, originalFileName] = matches;
-                                if (entry.fileName !== originalFileName) {
-                                    entry.originalFileName = originalFileName;
-                                    entry.status = 'R';
+
+                                renamedFileName = match[3];
+                                if (renamedFileName !== undefined) {
+                                    entry.files.push({
+                                        status: match[1] as GitFileStatus,
+                                        fileName: renamedFileName,
+                                        originalFileName: match[2]
+                                    });
                                 }
                                 else {
-                                    entry.status = 'M';
+                                    entry.files.push({
+                                        status: match[1] as GitFileStatus,
+                                        fileName: match[2]
+                                    });
                                 }
                             }
-
-                            while (true) {
-                                next = lines.next();
-                                if (next.done || next.value === '</f>') break;
-                            }
-                            break;
                         }
                         else {
-                            entry.status = line[0] as GitFileStatus;
-                            entry.fileName = line.substring(1);
-                            this.parseFileName(entry);
+                            match = diffRegex.exec(line);
+                            if (match != null) {
+                                [, entry.originalFileName, entry.fileName] = match;
+                                if (entry.fileName === entry.originalFileName) {
+                                    entry.originalFileName = undefined;
+                                    entry.status = 'M';
+                                }
+                                else {
+                                    entry.status = 'R';
+                                }
+
+                                while (true) {
+                                    next = lines.next();
+                                    if (next.done || next.value === '</f>') break;
+                                }
+                                break;
+                            }
+                            else {
+                                match = fileStatusRegex.exec(line);
+                                if (match != null) {
+                                    entry.status = match[1] as GitFileStatus;
+                                    renamedFileName = match[3];
+                                    if (renamedFileName !== undefined) {
+                                        entry.fileName = renamedFileName;
+                                        entry.originalFileName = match[2];
+                                    }
+                                    else {
+                                        entry.fileName = match[2];
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -287,7 +307,8 @@ export class GitLogParser {
                 }
             }
 
-            const originalFileName = relativeFileName !== entry.fileName ? entry.fileName : undefined;
+            const originalFileName =
+                entry.originalFileName || (relativeFileName !== entry.fileName ? entry.fileName : undefined);
             if (type === GitCommitType.File) {
                 entry.files = [
                     {
