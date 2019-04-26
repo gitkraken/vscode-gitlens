@@ -1021,6 +1021,14 @@ export class GitService implements Disposable {
         return this.getBlameForRangeSync(blame, uri, range);
     }
 
+    @log()
+    async getBlameForRangeContents(uri: GitUri, range: Range, contents: string): Promise<GitBlameLines | undefined> {
+        const blame = await this.getBlameForFileContents(uri, contents);
+        if (blame === undefined) return undefined;
+
+        return this.getBlameForRangeSync(blame, uri, range);
+    }
+
     @log({
         args: { 0: blame => '<blame>' }
     })

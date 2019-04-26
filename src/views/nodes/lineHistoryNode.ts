@@ -18,7 +18,13 @@ import { insertDateMarkers } from './helpers';
 import { ResourceType, SubscribeableViewNode, ViewNode } from './viewNode';
 
 export class LineHistoryNode extends SubscribeableViewNode {
-    constructor(uri: GitUri, view: View, parent: ViewNode, public readonly selection: Selection) {
+    constructor(
+        uri: GitUri,
+        view: View,
+        parent: ViewNode,
+        public readonly selection: Selection,
+        private readonly _editorContents: string | undefined
+    ) {
         super(uri, view, parent);
     }
 
@@ -29,10 +35,26 @@ export class LineHistoryNode extends SubscribeableViewNode {
             CommitFileNodeDisplayAs.CommitLabel |
             (this.view.config.avatars ? CommitFileNodeDisplayAs.Gravatar : CommitFileNodeDisplayAs.StatusIcon);
 
+        let selection = this.selection;
+
         if (this.uri.sha === undefined) {
             // Check for any uncommitted changes in the range
-            const blame = await Container.git.getBlameForRange(this.uri, this.selection);
+            const blame = this._editorContents
+                ? await Container.git.getBlameForRangeContents(this.uri, selection, this._editorContents)
+                : await Container.git.getBlameForRange(this.uri, selection);
             if (blame !== undefined) {
+                const firstLine = blame.lines[0];
+                const lastLine = blame.lines[blame.lines.length - 1];
+
+                // Since there could be a change in the line numbers, update the selection
+                const firstActive = selection.active.line === firstLine.line - 1;
+                selection = new Selection(
+                    (firstActive ? lastLine : firstLine).originalLine - 1,
+                    selection.anchor.character,
+                    (firstActive ? firstLine : lastLine).originalLine - 1,
+                    selection.active.character
+                );
+
                 for (const commit of blame.commits.values()) {
                     if (!commit.isUncommitted) continue;
 
@@ -63,11 +85,7 @@ export class LineHistoryNode extends SubscribeableViewNode {
                         commit.originalFileName || commit.fileName
                     );
 
-                    children.splice(
-                        0,
-                        0,
-                        new CommitFileNode(this.view, this, file, uncommitted, displayAs, this.selection)
-                    );
+                    children.splice(0, 0, new CommitFileNode(this.view, this, file, uncommitted, displayAs, selection));
 
                     break;
                 }
@@ -76,14 +94,14 @@ export class LineHistoryNode extends SubscribeableViewNode {
 
         const log = await Container.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, {
             ref: this.uri.sha,
-            range: this.selection
+            range: selection
         });
         if (log !== undefined) {
             children.push(
                 ...insertDateMarkers(
                     Iterables.filterMap(
                         log.commits.values(),
-                        c => new CommitFileNode(this.view, this, c.files[0], c, displayAs, this.selection)
+                        c => new CommitFileNode(this.view, this, c.files[0], c, displayAs, selection)
                     ),
                     this
                 )

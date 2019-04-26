@@ -16,6 +16,7 @@ import { ResourceType, SubscribeableViewNode, unknownGitUri, ViewNode } from './
 export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryView> {
     private _base: string | undefined;
     private _child: LineHistoryNode | undefined;
+    private _editorContents: string | undefined;
     private _selection: Selection | undefined;
 
     constructor(view: LineHistoryView) {
@@ -54,7 +55,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
                 sha: this.uri.sha || this._base
             };
             const fileUri = new GitUri(this.uri, commitish);
-            this._child = new LineHistoryNode(fileUri, this.view, this, this._selection!);
+            this._child = new LineHistoryNode(fileUri, this.view, this, this._selection!, this._editorContents);
         }
 
         return [this._child];
@@ -95,6 +96,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 
         if (reset) {
             this._uri = unknownGitUri;
+            this._editorContents = undefined;
             this._selection = undefined;
             this.resetChild();
         }
@@ -110,6 +112,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
             }
 
             this._uri = unknownGitUri;
+            this._editorContents = undefined;
             this._selection = undefined;
             this.resetChild();
 
@@ -140,6 +143,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
         }
 
         this._uri = gitUri;
+        this._editorContents = editor.document.isDirty ? editor.document.getText() : undefined;
         this._selection = editor.selection;
         this.resetChild();
 
