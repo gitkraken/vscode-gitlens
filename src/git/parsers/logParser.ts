@@ -27,6 +27,8 @@ interface LogEntry {
 }
 
 const diffRegex = /diff --git a\/(.*) b\/(.*)/;
+const logFileSimpleRegex = /^<r> (.*)\s*(?:(?:diff --git a\/(.*) b\/(.*))|(?:\S+\t([^\t\n]+)(?:\t(.+))?))/gm;
+
 const emptyEntry: LogEntry = {};
 
 export class GitLogParser {
@@ -347,5 +349,25 @@ export class GitLogParser {
                 entry.fileName = entry.fileName.substring(index);
             }
         }
+    }
+
+    static parseSimple(data: string, skip: number): [string | undefined, string | undefined] {
+        let match;
+        let ref;
+        let file;
+        do {
+            match = logFileSimpleRegex.exec(data);
+            if (match == null) break;
+
+            if (skip-- > 0) continue;
+
+            ref = ` ${match[1]}`.substr(1);
+            file = ` ${match[3] || match[2] || match[5] || match[4]}`.substr(1);
+        } while (skip >= 0);
+
+        // Ensure the regex state is reset
+        logFileSimpleRegex.lastIndex = 0;
+
+        return [ref, file];
     }
 }

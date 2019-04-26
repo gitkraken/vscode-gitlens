@@ -2149,6 +2149,91 @@ export class GitService implements Disposable {
     }
 
     @log()
+    async getDiffWithPreviousForFile(
+        repoPath: string,
+        uri: Uri,
+        ref?: string,
+        skip: number = 0,
+        editorLine?: number
+    ): Promise<{ current: GitUri; previous: GitUri | undefined } | undefined> {
+        if (ref === GitService.deletedOrMissingSha) return undefined;
+
+        const fileName = GitUri.getRelativePath(uri, repoPath);
+
+        // If the ref is missing (i.e. working tree), check the file status to see if there is anything staged
+        if (ref === undefined && editorLine === undefined) {
+            const status = await Container.git.getStatusForFile(repoPath, fileName);
+            if (status !== undefined) {
+                // If the file is staged, diff with the staged version
+                if (status.indexStatus !== undefined) {
+                    if (skip === 0) {
+                        return {
+                            current: GitUri.fromFile(fileName, repoPath, ref),
+                            previous: GitUri.fromFile(fileName, repoPath, GitService.stagedUncommittedSha)
+                        };
+                    }
+
+                    return {
+                        current: GitUri.fromFile(fileName, repoPath, GitService.stagedUncommittedSha),
+                        previous: await this.getPreviousRevisionUri(repoPath, uri, ref, skip - 1, editorLine)
+                    };
+                }
+            }
+        }
+        else if (GitService.isStagedUncommitted(ref)) {
+            const current =
+                skip === 0
+                    ? GitUri.fromFile(fileName, repoPath, ref)
+                    : (await this.getPreviousRevisionUri(repoPath, uri, undefined, skip - 1, editorLine))!;
+            if (current.sha === GitService.deletedOrMissingSha) return undefined;
+
+            return {
+                current: current,
+                previous: await this.getPreviousRevisionUri(repoPath, uri, undefined, skip, editorLine)
+            };
+        }
+
+        const current =
+            skip === 0
+                ? GitUri.fromFile(fileName, repoPath, ref)
+                : (await this.getPreviousRevisionUri(repoPath, uri, ref, skip - 1, editorLine))!;
+        if (current.sha === GitService.deletedOrMissingSha) return undefined;
+
+        return {
+            current: current,
+            previous: await this.getPreviousRevisionUri(repoPath, uri, ref, skip, editorLine)
+        };
+    }
+
+    @log()
+    async getPreviousRevisionUri(
+        repoPath: string,
+        uri: Uri,
+        ref?: string,
+        skip: number = 0,
+        editorLine?: number
+    ): Promise<GitUri | undefined> {
+        if (ref === GitService.deletedOrMissingSha) return undefined;
+
+        if (ref !== undefined) {
+            skip++;
+        }
+
+        const fileName = GitUri.getRelativePath(uri, repoPath);
+        const data = await Git.log_file_simple(
+            repoPath,
+            fileName,
+            ref,
+            skip + 1,
+            editorLine !== undefined ? editorLine + 1 : undefined
+        );
+        if (data == null || data.length === 0) throw new Error('File has no history');
+
+        const [previousRef, file] = GitLogParser.parseSimple(data, skip);
+        return GitUri.fromFile(file || fileName, repoPath, previousRef || GitService.deletedOrMissingSha);
+    }
+
+    @log()
     async resolveReference(repoPath: string, ref: string, uri?: Uri) {
         const resolved = Git.isSha(ref) || !Git.isShaLike(ref) || ref.endsWith('^3');
         if (uri == null) return resolved ? ref : (await Git.revparse(repoPath, ref)) || ref;

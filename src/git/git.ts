@@ -44,6 +44,8 @@ const logFormat = [
     `${lb}f${rb}`
 ].join('%n');
 
+const logSimpleFormat = `${lb}r${rb}${sp}%H`;
+
 const defaultLogParams = ['log', '--name-status', `--format=${logFormat}`];
 
 const stashFormat = [
@@ -677,6 +679,25 @@ export class Git {
 
         if (options.startLine != null && options.endLine != null) {
             params.push(`-L ${options.startLine},${options.endLine}:${file}`);
+        }
+
+        return git<string>({ cwd: root }, ...params, '--', file);
+    }
+
+    static log_file_simple(repoPath: string, fileName: string, ref?: string, count: number = 2, line?: number) {
+        const [file, root] = Git.splitPath(fileName, repoPath);
+
+        const params = ['log', `--format=${logSimpleFormat}`, `-n${count}`, '--follow'];
+        if (ref && !Git.isStagedUncommitted(ref)) {
+            params.push(ref);
+        }
+
+        if (line != null) {
+            // Don't include --name-status or -s because Git won't honor it
+            params.push(/*'-s',*/ `-L ${line},${line}:${file}`);
+        }
+        else {
+            params.push('--name-status');
         }
 
         return git<string>({ cwd: root }, ...params, '--', file);

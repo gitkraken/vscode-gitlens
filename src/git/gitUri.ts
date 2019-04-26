@@ -311,7 +311,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
             : `${paths.basename(fileName)}${suffix}${separator}${directory}`;
     }
 
-    static getRelativePath(fileNameOrUri: string | Uri, relativeTo?: string, repoPath?: string): string {
+    static getRelativePath(fileNameOrUri: string | Uri, repoPath?: string, relativeTo?: string): string {
         let fileName: string;
         if (fileNameOrUri instanceof Uri) {
             if (fileNameOrUri instanceof GitUri) return fileNameOrUri.getRelativePath(relativeTo);
@@ -322,7 +322,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
             fileName = fileNameOrUri;
         }
 
-        let relativePath = repoPath ? paths.relative(repoPath, fileName) : fileName;
+        let relativePath = repoPath && paths.isAbsolute(fileName) ? paths.relative(repoPath, fileName) : fileName;
         if (relativeTo !== undefined) {
             relativePath = paths.relative(relativeTo, relativePath);
         }
