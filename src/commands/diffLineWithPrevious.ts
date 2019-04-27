@@ -46,7 +46,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
             // If the line is uncommitted, change the previous commit
             if (blame.commit.isUncommitted) {
                 try {
-                    const previous = await Container.git.getPreviousRevisionUri(
+                    const previous = await Container.git.getPreviousUri(
                         gitUri.repoPath!,
                         gitUri,
                         gitUri.sha,
@@ -77,7 +77,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
                     Logger.error(
                         ex,
                         'DiffLineWithPreviousCommand',
-                        `getPreviousRevisionUri(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`
+                        `getPreviousUri(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`
                     );
                     return Messages.showGenericErrorMessage('Unable to open compare');
                 }
@@ -85,7 +85,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
         }
 
         try {
-            const diffWith = await Container.git.getDiffWithPreviousForFile(
+            const diffUris = await Container.git.getPreviousDiffUris(
                 gitUri.repoPath!,
                 gitUri,
                 gitUri.sha,
@@ -93,19 +93,19 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
                 args.line
             );
 
-            if (diffWith === undefined || diffWith.previous === undefined) {
+            if (diffUris === undefined || diffUris.previous === undefined) {
                 return Messages.showCommitHasNoPreviousCommitWarningMessage();
             }
 
             const diffArgs: DiffWithCommandArgs = {
-                repoPath: diffWith.current.repoPath,
+                repoPath: diffUris.current.repoPath,
                 lhs: {
-                    sha: diffWith.previous.sha || '',
-                    uri: diffWith.previous.documentUri()
+                    sha: diffUris.previous.sha || '',
+                    uri: diffUris.previous.documentUri()
                 },
                 rhs: {
-                    sha: diffWith.current.sha || '',
-                    uri: diffWith.current.documentUri()
+                    sha: diffUris.current.sha || '',
+                    uri: diffUris.current.documentUri()
                 },
                 line: args.line,
                 showOptions: args.showOptions
@@ -116,7 +116,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
             Logger.error(
                 ex,
                 'DiffLineWithPreviousCommand',
-                `getDiffWithPreviousForFile(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`
+                `getPreviousDiffUris(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`
             );
             return Messages.showGenericErrorMessage('Unable to open compare');
         }

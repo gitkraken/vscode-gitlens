@@ -52,7 +52,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 
         const gitUri = args.commit !== undefined ? GitUri.fromCommit(args.commit) : await GitUri.fromUri(uri);
         try {
-            const diffWith = await Container.git.getDiffWithPreviousForFile(
+            const diffUris = await Container.git.getPreviousDiffUris(
                 gitUri.repoPath!,
                 gitUri,
                 gitUri.sha,
@@ -60,19 +60,19 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
                 args.inDiffEditor ? 1 : 0
             );
 
-            if (diffWith === undefined || diffWith.previous === undefined) {
+            if (diffUris === undefined || diffUris.previous === undefined) {
                 return Messages.showCommitHasNoPreviousCommitWarningMessage();
             }
 
             const diffArgs: DiffWithCommandArgs = {
-                repoPath: diffWith.current.repoPath,
+                repoPath: diffUris.current.repoPath,
                 lhs: {
-                    sha: diffWith.previous.sha || '',
-                    uri: diffWith.previous.documentUri()
+                    sha: diffUris.previous.sha || '',
+                    uri: diffUris.previous.documentUri()
                 },
                 rhs: {
-                    sha: diffWith.current.sha || '',
-                    uri: diffWith.current.documentUri()
+                    sha: diffUris.current.sha || '',
+                    uri: diffUris.current.documentUri()
                 },
                 line: args.line,
                 showOptions: args.showOptions
@@ -83,7 +83,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
             Logger.error(
                 ex,
                 'DiffWithPreviousCommand',
-                `getDiffWithPreviousForFile(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`
+                `getPreviousDiffUris(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`
             );
             return Messages.showGenericErrorMessage('Unable to open compare');
         }

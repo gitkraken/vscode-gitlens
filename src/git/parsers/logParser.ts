@@ -4,8 +4,19 @@ import { Range } from 'vscode';
 import { Arrays, Strings } from '../../system';
 import { Git, GitAuthor, GitCommitType, GitFile, GitFileStatus, GitLog, GitLogCommit } from '../git';
 
+const emptyEntry: LogEntry = {};
 const emptyStr = '';
 const slash = '/';
+
+const diffRegex = /diff --git a\/(.*) b\/(.*)/;
+const fileStatusRegex = /(\S)\S*\t([^\t\n]+)(?:\t(.+))?/;
+const logFileSimpleRegex = /^<r> (.*)\s*(?:(?:diff --git a\/(.*) b\/(.*))|(?:(\S)\S*\t([^\t\n]+)(?:\t(.+))?))/gm;
+
+// Using %x00 codes because some shells seem to try to expand things if not
+const lb = '%x3c'; // `%x${'<'.charCodeAt(0).toString(16)}`;
+const rb = '%x3e'; // `%x${'>'.charCodeAt(0).toString(16)}`;
+const sl = '%x2f'; // `%x${'/'.charCodeAt(0).toString(16)}`;
+const sp = '%x20'; // `%x${' '.charCodeAt(0).toString(16)}`;
 
 interface LogEntry {
     ref?: string;
@@ -26,13 +37,23 @@ interface LogEntry {
     summary?: string;
 }
 
-const diffRegex = /diff --git a\/(.*) b\/(.*)/;
-const fileStatusRegex = /(\S)\S*\t([^\t\n]+)(?:\t(.+))?/;
-const logFileSimpleRegex = /^<r> (.*)\s*(?:(?:diff --git a\/(.*) b\/(.*))|(?:\S+\t([^\t\n]+)(?:\t(.+))?))/gm;
-
-const emptyEntry: LogEntry = {};
-
 export class GitLogParser {
+    static defaultFormat = [
+        `${lb}${sl}f${rb}`,
+        `${lb}r${rb}${sp}%H`, // ref
+        `${lb}a${rb}${sp}%aN`, // author
+        `${lb}e${rb}${sp}%aE`, // email
+        `${lb}d${rb}${sp}%at`, // date
+        `${lb}c${rb}${sp}%ct`, // committed date
+        `${lb}p${rb}${sp}%P`, // parents
+        `${lb}s${rb}`,
+        '%B', // summary
+        `${lb}${sl}s${rb}`,
+        `${lb}f${rb}`
+    ].join('%n');
+
+    static simpleFormat = `${lb}r${rb}${sp}%H`;
+
     static parse(
         data: string,
         type: GitCommitType,
@@ -372,10 +393,14 @@ export class GitLogParser {
         }
     }
 
-    static parseSimple(data: string, skip: number): [string | undefined, string | undefined] {
+    static parseSimple(
+        data: string,
+        skip: number
+    ): [string | undefined, string | undefined, GitFileStatus | undefined] {
         let match;
         let ref;
         let file;
+        let status: GitFileStatus | undefined;
         do {
             match = logFileSimpleRegex.exec(data);
             if (match == null) break;
@@ -383,12 +408,38 @@ export class GitLogParser {
             if (skip-- > 0) continue;
 
             ref = ` ${match[1]}`.substr(1);
-            file = ` ${match[3] || match[2] || match[5] || match[4]}`.substr(1);
+            file = ` ${match[3] || match[2] || match[6] || match[5]}`.substr(1);
+            status = match[4] ? (` ${match[4]}`.substr(1) as GitFileStatus) : undefined;
         } while (skip >= 0);
 
         // Ensure the regex state is reset
         logFileSimpleRegex.lastIndex = 0;
 
-        return [ref, file];
+        return [ref, file, status];
+    }
+
+    static parseSimpleRenamed(
+        data: string,
+        originalFileName: string
+    ): [string | undefined, string | undefined, GitFileStatus | undefined] {
+        let match;
+        let ref;
+        let file;
+        let status: GitFileStatus | undefined;
+        do {
+            match = logFileSimpleRegex.exec(data);
+            if (match == null) break;
+
+            if (originalFileName !== (match[2] || match[5])) continue;
+
+            ref = ` ${match[1]}`.substr(1);
+            file = ` ${match[3] || match[2] || match[6] || match[5]}`.substr(1);
+            status = match[4] ? (` ${match[4]}`.substr(1) as GitFileStatus) : undefined;
+        } while (match != null);
+
+        // Ensure the regex state is reset
+        logFileSimpleRegex.lastIndex = 0;
+
+        return [ref, file, status];
     }
 }

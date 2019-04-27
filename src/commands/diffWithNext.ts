@@ -1,10 +1,9 @@
 'use strict';
 import { commands, Range, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { Container } from '../container';
-import { GitLogCommit, GitService, GitStatusFile, GitUri } from '../git/gitService';
+import { GitLogCommit, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { Iterables } from '../system';
 import { ActiveEditorCommand, command, CommandContext, Commands, getCommandUri } from './common';
 import { DiffWithCommandArgs } from './diffWith';
 import { UriComparer } from '../comparers';
@@ -52,101 +51,34 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
             args.line = editor == null ? 0 : editor.selection.active.line;
         }
 
-        const gitUri = await GitUri.fromUri(uri);
-        let status: GitStatusFile | undefined;
+        const gitUri = args.commit !== undefined ? GitUri.fromCommit(args.commit) : await GitUri.fromUri(uri);
+        try {
+            const diffUris = await Container.git.getNextDiffUris(gitUri.repoPath!, gitUri, gitUri.sha);
 
-        if (args.commit === undefined || !(args.commit instanceof GitLogCommit) || args.range !== undefined) {
-            try {
-                const sha = args.commit === undefined ? gitUri.sha! : args.commit.sha;
+            if (diffUris === undefined || diffUris.next === undefined) return undefined;
 
-                if (GitService.isStagedUncommitted(sha)) {
-                    const diffArgs: DiffWithCommandArgs = {
-                        repoPath: gitUri.repoPath!,
-                        lhs: {
-                            sha: sha,
-                            uri: gitUri
-                        },
-                        rhs: {
-                            sha: '',
-                            uri: gitUri
-                        },
-                        line: args.line,
-                        showOptions: args.showOptions
-                    };
-                    return commands.executeCommand(Commands.DiffWith, diffArgs);
-                }
-
-                let log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
-                    maxCount: sha !== undefined ? undefined : 2,
-                    range: args.range!,
-                    renames: true
-                });
-                if (log === undefined) {
-                    const fileName = await Container.git.findNextFileName(gitUri.repoPath!, gitUri.fsPath);
-                    if (fileName !== undefined) {
-                        log = await Container.git.getLogForFile(gitUri.repoPath, fileName, {
-                            maxCount: sha !== undefined ? undefined : 2,
-                            range: args.range!,
-                            renames: true
-                        });
-                    }
-
-                    if (log === undefined) {
-                        return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
-                    }
-                }
-
-                args.commit = (sha && log.commits.get(sha)) || Iterables.first(log.commits.values());
-
-                // If the sha is missing or the file is uncommitted, treat it as a DiffWithWorking
-                if (gitUri.sha === undefined) {
-                    status = await Container.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath);
-                    if (status !== undefined) return commands.executeCommand(Commands.DiffWithWorking, uri);
-                }
-            }
-            catch (ex) {
-                Logger.error(ex, 'DiffWithNextCommand', `getLogForFile(${gitUri.repoPath}, ${gitUri.fsPath})`);
-                return Messages.showGenericErrorMessage('Unable to open compare');
-            }
+            const diffArgs: DiffWithCommandArgs = {
+                repoPath: diffUris.current.repoPath,
+                lhs: {
+                    sha: diffUris.current.sha || '',
+                    uri: diffUris.current.documentUri()
+                },
+                rhs: {
+                    sha: diffUris.next.sha || '',
+                    uri: diffUris.next.documentUri()
+                },
+                line: args.line,
+                showOptions: args.showOptions
+            };
+            return commands.executeCommand(Commands.DiffWith, diffArgs);
         }
-
-        if (args.commit.nextSha === undefined) {
-            // Check if the file is staged
-            status = status || (await Container.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath));
-            if (status !== undefined && status.indexStatus === 'M') {
-                const diffArgs: DiffWithCommandArgs = {
-                    repoPath: args.commit.repoPath,
-                    lhs: {
-                        sha: args.commit.sha,
-                        uri: args.commit.uri
-                    },
-                    rhs: {
-                        sha: GitService.stagedUncommittedSha,
-                        uri: args.commit.uri
-                    },
-                    line: args.line,
-                    showOptions: args.showOptions
-                };
-
-                return commands.executeCommand(Commands.DiffWith, diffArgs);
-            }
-
-            return commands.executeCommand(Commands.DiffWithWorking, uri);
+        catch (ex) {
+            Logger.error(
+                ex,
+                'DiffWithNextCommand',
+                `getNextDiffUris(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`
+            );
+            return Messages.showGenericErrorMessage('Unable to open compare');
         }
-
-        const diffArgs: DiffWithCommandArgs = {
-            repoPath: args.commit.repoPath,
-            lhs: {
-                sha: args.commit.sha,
-                uri: args.commit.uri
-            },
-            rhs: {
-                sha: args.commit.nextSha,
-                uri: args.commit.nextUri
-            },
-            line: args.line,
-            showOptions: args.showOptions
-        };
-        return commands.executeCommand(Commands.DiffWith, diffArgs);
     }
 }

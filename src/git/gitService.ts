@@ -49,6 +49,7 @@ import {
     GitFile,
     GitLog,
     GitLogCommit,
+    GitLogDiffFilter,
     GitLogParser,
     GitRemote,
     GitRemoteParser,
@@ -1371,15 +1372,14 @@ export class GitService implements Disposable {
     @log()
     async getLog(
         repoPath: string,
-        options: { authors?: string[]; maxCount?: number; ref?: string; reverse?: boolean } = {}
+        { ref, ...options }: { authors?: string[]; maxCount?: number; ref?: string; reverse?: boolean } = {}
     ): Promise<GitLog | undefined> {
         const maxCount = options.maxCount == null ? Container.config.advanced.maxListItems || 0 : options.maxCount;
 
         try {
-            const data = await Git.log(repoPath, {
+            const data = await Git.log(repoPath, ref, {
                 authors: options.authors,
                 maxCount: maxCount,
-                ref: options.ref,
                 reverse: options.reverse
             });
             const log = GitLogParser.parse(
@@ -1387,7 +1387,7 @@ export class GitService implements Disposable {
                 GitCommitType.Branch,
                 repoPath,
                 undefined,
-                options.ref,
+                ref,
                 await this.getCurrentUser(repoPath),
                 maxCount,
                 options.reverse!,
@@ -1395,7 +1395,7 @@ export class GitService implements Disposable {
             );
 
             if (log !== undefined) {
-                const opts = { ...options };
+                const opts = { ...options, ref: ref };
                 log.query = (maxCount: number | undefined) => this.getLog(repoPath, { ...opts, maxCount: maxCount });
             }
 
@@ -1590,12 +1590,16 @@ export class GitService implements Disposable {
     private async getLogForFileCore(
         repoPath: string | undefined,
         fileName: string,
-        options: { maxCount?: number; range?: Range; ref?: string; renames?: boolean; reverse?: boolean },
+        {
+            ref,
+            range,
+            ...options
+        }: { maxCount?: number; range?: Range; ref?: string; renames?: boolean; reverse?: boolean },
         document: TrackedDocument<GitDocumentState>,
         key: string,
         cc: LogCorrelationContext | undefined
     ): Promise<GitLog | undefined> {
-        if (!(await this.isTracked(fileName, repoPath, { ref: options.ref }))) {
+        if (!(await this.isTracked(fileName, repoPath, { ref: ref }))) {
             Logger.log(cc, `Skipping log; '${fileName}' is not tracked`);
             return GitService.emptyPromise as Promise<GitLog>;
         }
@@ -1603,16 +1607,14 @@ export class GitService implements Disposable {
         const [file, root] = Git.splitPath(fileName, repoPath, false);
 
         try {
-            // eslint-disable-next-line prefer-const
-            let { range, ...opts } = options;
             if (range !== undefined && range.start.line > range.end.line) {
                 range = new Range(range.end, range.start);
             }
 
             const maxCount = options.maxCount == null ? Container.config.advanced.maxListItems || 0 : options.maxCount;
 
-            const data = await Git.log_file(root, file, {
-                ...opts,
+            const data = await Git.log_file(root, file, ref, {
+                ...options,
                 maxCount: maxCount,
                 startLine: range === undefined ? undefined : range.start.line + 1,
                 endLine: range === undefined ? undefined : range.end.line + 1
@@ -1622,15 +1624,15 @@ export class GitService implements Disposable {
                 GitCommitType.File,
                 root,
                 file,
-                opts.ref,
+                ref,
                 await this.getCurrentUser(root),
                 maxCount,
-                opts.reverse!,
+                options.reverse!,
                 range
             );
 
             if (log !== undefined) {
-                const opts = { ...options };
+                const opts = { ...options, ref: ref, range: range };
                 log.query = (maxCount: number | undefined) =>
                     this.getLogForFile(repoPath, fileName, { ...opts, maxCount: maxCount });
             }
@@ -1639,7 +1641,7 @@ export class GitService implements Disposable {
         }
         catch (ex) {
             // Trap and cache expected log errors
-            if (document.state !== undefined && options.range === undefined && !options.reverse) {
+            if (document.state !== undefined && range === undefined && !options.reverse) {
                 const msg = ex && ex.toString();
                 Logger.debug(cc, `Cache replace (with empty promise): '${key}'`);
 
@@ -1690,6 +1692,184 @@ export class GitService implements Disposable {
             Logger.error(ex, cc);
             return undefined;
         }
+    }
+
+    @log()
+    async getNextDiffUris(
+        repoPath: string,
+        uri: Uri,
+        ref: string | undefined
+    ): Promise<{ current: GitUri; next: GitUri | undefined; deleted?: boolean } | undefined> {
+        // If we have no ref (or staged ref) there is no next commit
+        if (ref === undefined || ref.length === 0) return undefined;
+
+        const fileName = GitUri.getRelativePath(uri, repoPath);
+
+        if (Git.isStagedUncommitted(ref)) {
+            return {
+                current: GitUri.fromFile(fileName, repoPath, ref),
+                next: GitUri.fromFile(fileName, repoPath, undefined)
+            };
+        }
+
+        const next = await this.getNextUri(repoPath, uri, ref);
+        if (next === undefined) {
+            const status = await Container.git.getStatusForFile(repoPath, fileName);
+            if (status !== undefined) {
+                // If the file is staged, diff with the staged version
+                if (status.indexStatus !== undefined) {
+                    return {
+                        current: GitUri.fromFile(fileName, repoPath, ref),
+                        next: GitUri.fromFile(fileName, repoPath, GitService.stagedUncommittedSha)
+                    };
+                }
+            }
+
+            return {
+                current: GitUri.fromFile(fileName, repoPath, ref),
+                next: GitUri.fromFile(fileName, repoPath, undefined)
+            };
+        }
+
+        return {
+            current: GitUri.fromFile(fileName, repoPath, ref),
+            next: next
+        };
+    }
+
+    @log()
+    async getNextUri(
+        repoPath: string,
+        uri: Uri,
+        ref?: string,
+        skip: number = 0
+        // editorLine?: number
+    ): Promise<GitUri | undefined> {
+        // If we have no ref (or staged ref) there is no next commit
+        if (ref === undefined || ref.length === 0 || Git.isStagedUncommitted(ref)) return undefined;
+
+        let filters: GitLogDiffFilter[] | undefined;
+        if (ref === GitService.deletedOrMissingSha) {
+            // If we are trying to move next from a deleted or missing ref then get the first commit
+            ref = undefined;
+            filters = ['A'];
+        }
+
+        const fileName = GitUri.getRelativePath(uri, repoPath);
+        let data = await Git.log_file(repoPath, fileName, ref, {
+            filters: filters,
+            format: GitLogParser.simpleFormat,
+            maxCount: skip + 1,
+            // startLine: editorLine !== undefined ? editorLine + 1 : undefined,
+            reverse: true
+        });
+        if (data == null || data.length === 0) return undefined;
+
+        const [nextRef, file, status] = GitLogParser.parseSimple(data, skip);
+        // If the file was deleted, check for a possible rename
+        if (status === 'D') {
+            data = await Git.log_file(repoPath, '.', nextRef, {
+                filters: ['R'],
+                format: GitLogParser.simpleFormat,
+                maxCount: 1
+                // startLine: editorLine !== undefined ? editorLine + 1 : undefined
+            });
+            if (data == null || data.length === 0) {
+                return GitUri.fromFile(file || fileName, repoPath, nextRef);
+            }
+
+            const [nextRenamedRef, renamedFile] = GitLogParser.parseSimpleRenamed(data, file || fileName);
+            return GitUri.fromFile(
+                renamedFile || file || fileName,
+                repoPath,
+                nextRenamedRef || nextRef || GitService.deletedOrMissingSha
+            );
+        }
+
+        return GitUri.fromFile(file || fileName, repoPath, nextRef);
+    }
+
+    @log()
+    async getPreviousDiffUris(
+        repoPath: string,
+        uri: Uri,
+        ref: string | undefined,
+        skip: number = 0,
+        editorLine?: number
+    ): Promise<{ current: GitUri; previous: GitUri | undefined } | undefined> {
+        if (ref === GitService.deletedOrMissingSha) return undefined;
+
+        const fileName = GitUri.getRelativePath(uri, repoPath);
+
+        // If the ref is missing (i.e. working tree), check the file status to see if there is anything staged
+        if ((ref === undefined || ref.length === 0) && editorLine === undefined) {
+            const status = await Container.git.getStatusForFile(repoPath, fileName);
+            if (status !== undefined) {
+                // If the file is staged, diff with the staged version
+                if (status.indexStatus !== undefined) {
+                    if (skip === 0) {
+                        return {
+                            current: GitUri.fromFile(fileName, repoPath, ref),
+                            previous: GitUri.fromFile(fileName, repoPath, GitService.stagedUncommittedSha)
+                        };
+                    }
+
+                    return {
+                        current: GitUri.fromFile(fileName, repoPath, GitService.stagedUncommittedSha),
+                        previous: await this.getPreviousUri(repoPath, uri, ref, skip - 1, editorLine)
+                    };
+                }
+            }
+        }
+        else if (GitService.isStagedUncommitted(ref)) {
+            const current =
+                skip === 0
+                    ? GitUri.fromFile(fileName, repoPath, ref)
+                    : (await this.getPreviousUri(repoPath, uri, undefined, skip - 1, editorLine))!;
+            if (current.sha === GitService.deletedOrMissingSha) return undefined;
+
+            return {
+                current: current,
+                previous: await this.getPreviousUri(repoPath, uri, undefined, skip, editorLine)
+            };
+        }
+
+        const current =
+            skip === 0
+                ? GitUri.fromFile(fileName, repoPath, ref)
+                : (await this.getPreviousUri(repoPath, uri, ref, skip - 1, editorLine))!;
+        if (current.sha === GitService.deletedOrMissingSha) return undefined;
+
+        return {
+            current: current,
+            previous: await this.getPreviousUri(repoPath, uri, ref, skip, editorLine)
+        };
+    }
+
+    @log()
+    async getPreviousUri(
+        repoPath: string,
+        uri: Uri,
+        ref?: string,
+        skip: number = 0,
+        editorLine?: number
+    ): Promise<GitUri | undefined> {
+        if (ref === GitService.deletedOrMissingSha) return undefined;
+
+        if (ref !== undefined) {
+            skip++;
+        }
+
+        const fileName = GitUri.getRelativePath(uri, repoPath);
+        const data = await Git.log_file(repoPath, fileName, ref, {
+            format: GitLogParser.simpleFormat,
+            maxCount: skip + 1,
+            startLine: editorLine !== undefined ? editorLine + 1 : undefined
+        });
+        if (data == null || data.length === 0) throw new Error('File has no history');
+
+        const [previousRef, file] = GitLogParser.parseSimple(data, skip);
+        return GitUri.fromFile(file || fileName, repoPath, previousRef || GitService.deletedOrMissingSha);
     }
 
     @log()
@@ -2154,91 +2334,6 @@ export class GitService implements Disposable {
         }
 
         return Git.difftool_dirDiff(repoPath, tool, ref1, ref2);
-    }
-
-    @log()
-    async getDiffWithPreviousForFile(
-        repoPath: string,
-        uri: Uri,
-        ref?: string,
-        skip: number = 0,
-        editorLine?: number
-    ): Promise<{ current: GitUri; previous: GitUri | undefined } | undefined> {
-        if (ref === GitService.deletedOrMissingSha) return undefined;
-
-        const fileName = GitUri.getRelativePath(uri, repoPath);
-
-        // If the ref is missing (i.e. working tree), check the file status to see if there is anything staged
-        if (ref === undefined && editorLine === undefined) {
-            const status = await Container.git.getStatusForFile(repoPath, fileName);
-            if (status !== undefined) {
-                // If the file is staged, diff with the staged version
-                if (status.indexStatus !== undefined) {
-                    if (skip === 0) {
-                        return {
-                            current: GitUri.fromFile(fileName, repoPath, ref),
-                            previous: GitUri.fromFile(fileName, repoPath, GitService.stagedUncommittedSha)
-                        };
-                    }
-
-                    return {
-                        current: GitUri.fromFile(fileName, repoPath, GitService.stagedUncommittedSha),
-                        previous: await this.getPreviousRevisionUri(repoPath, uri, ref, skip - 1, editorLine)
-                    };
-                }
-            }
-        }
-        else if (GitService.isStagedUncommitted(ref)) {
-            const current =
-                skip === 0
-                    ? GitUri.fromFile(fileName, repoPath, ref)
-                    : (await this.getPreviousRevisionUri(repoPath, uri, undefined, skip - 1, editorLine))!;
-            if (current.sha === GitService.deletedOrMissingSha) return undefined;
-
-            return {
-                current: current,
-                previous: await this.getPreviousRevisionUri(repoPath, uri, undefined, skip, editorLine)
-            };
-        }
-
-        const current =
-            skip === 0
-                ? GitUri.fromFile(fileName, repoPath, ref)
-                : (await this.getPreviousRevisionUri(repoPath, uri, ref, skip - 1, editorLine))!;
-        if (current.sha === GitService.deletedOrMissingSha) return undefined;
-
-        return {
-            current: current,
-            previous: await this.getPreviousRevisionUri(repoPath, uri, ref, skip, editorLine)
-        };
-    }
-
-    @log()
-    async getPreviousRevisionUri(
-        repoPath: string,
-        uri: Uri,
-        ref?: string,
-        skip: number = 0,
-        editorLine?: number
-    ): Promise<GitUri | undefined> {
-        if (ref === GitService.deletedOrMissingSha) return undefined;
-
-        if (ref !== undefined) {
-            skip++;
-        }
-
-        const fileName = GitUri.getRelativePath(uri, repoPath);
-        const data = await Git.log_file_simple(
-            repoPath,
-            fileName,
-            ref,
-            skip + 1,
-            editorLine !== undefined ? editorLine + 1 : undefined
-        );
-        if (data == null || data.length === 0) throw new Error('File has no history');
-
-        const [previousRef, file] = GitLogParser.parseSimple(data, skip);
-        return GitUri.fromFile(file || fileName, repoPath, previousRef || GitService.deletedOrMissingSha);
     }
 
     @log()

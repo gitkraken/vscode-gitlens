@@ -8,11 +8,15 @@ import { Logger } from '../logger';
 import { Objects, Strings } from '../system';
 import { findGitPath, GitLocation } from './locator';
 import { run, RunOptions } from './shell';
+import { GitLogParser, GitStashParser } from './parsers/parsers';
+import { GitFileStatus } from './models/file';
 
 export { GitLocation } from './locator';
 export * from './models/models';
 export * from './parsers/parsers';
 export * from './remotes/provider';
+
+export type GitLogDiffFilter = Exclude<GitFileStatus, '!' | '?'>;
 
 const emptyArray = (Object.freeze([]) as any) as any[];
 const emptyObj = Object.freeze({});
@@ -21,46 +25,6 @@ const slash = '/';
 
 // This is a root sha of all git repo's if using sha1
 const rootSha = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
-
-const defaultBlameParams = ['blame', '--root', '--incremental'];
-
-// Using %x00 codes because some shells seem to try to expand things if not
-const lb = '%x3c'; // `%x${'<'.charCodeAt(0).toString(16)}`;
-const rb = '%x3e'; // `%x${'>'.charCodeAt(0).toString(16)}`;
-const sl = '%x2f'; // `%x${'/'.charCodeAt(0).toString(16)}`;
-const sp = '%x20'; // `%x${' '.charCodeAt(0).toString(16)}`;
-
-const logFormat = [
-    `${lb}${sl}f${rb}`,
-    `${lb}r${rb}${sp}%H`, // ref
-    `${lb}a${rb}${sp}%aN`, // author
-    `${lb}e${rb}${sp}%aE`, // email
-    `${lb}d${rb}${sp}%at`, // date
-    `${lb}c${rb}${sp}%ct`, // committed date
-    `${lb}p${rb}${sp}%P`, // parents
-    `${lb}s${rb}`,
-    '%B', // summary
-    `${lb}${sl}s${rb}`,
-    `${lb}f${rb}`
-].join('%n');
-
-const logSimpleFormat = `${lb}r${rb}${sp}%H`;
-
-const defaultLogParams = ['log', '--name-status', `--format=${logFormat}`];
-
-const stashFormat = [
-    `${lb}${sl}f${rb}`,
-    `${lb}r${rb}${sp}%H`, // ref
-    `${lb}d${rb}${sp}%at`, // date
-    `${lb}c${rb}${sp}%ct`, // committed date
-    `${lb}l${rb}${sp}%gd`, // reflog-selector
-    `${lb}s${rb}`,
-    '%B', // summary
-    `${lb}${sl}s${rb}`,
-    `${lb}f${rb}`
-].join('%n');
-
-const defaultStashParams = ['stash', 'list', '--name-status', '-M', `--format=${stashFormat}`];
 
 const GitErrors = {
     badRevision: /bad revision '(.*?)'/i,
@@ -360,7 +324,7 @@ export class Git {
     ) {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
-        const params = [...defaultBlameParams];
+        const params = ['blame', '--root', '--incremental'];
 
         if (options.ignoreWhitespace) {
             params.push('-w');
@@ -403,7 +367,7 @@ export class Git {
     ) {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
-        const params = [...defaultBlameParams];
+        const params = ['blame', '--root', '--incremental'];
 
         if (options.ignoreWhitespace) {
             params.push('-w');
@@ -625,22 +589,30 @@ export class Git {
         return git<string>({ cwd: repoPath }, ...params);
     }
 
-    static log(repoPath: string, options: { authors?: string[]; maxCount?: number; ref?: string; reverse?: boolean }) {
-        const params = [...defaultLogParams, '--full-history', '-M', '-m'];
-        if (options.authors) {
-            params.push('--use-mailmap', ...options.authors.map(a => `--author=${a}`));
+    static log(
+        repoPath: string,
+        ref: string | undefined,
+        { authors, maxCount, reverse }: { authors?: string[]; maxCount?: number; reverse?: boolean }
+    ) {
+        const params = ['log', '--name-status', `--format=${GitLogParser.defaultFormat}`, '--full-history', '-M', '-m'];
+        if (maxCount && !reverse) {
+            params.push(`-n${maxCount}`);
         }
-        if (options.maxCount && !options.reverse) {
-            params.push(`-n${options.maxCount}`);
+
+        if (authors) {
+            params.push('--use-mailmap', ...authors.map(a => `--author=${a}`));
         }
-        if (options.ref && !Git.isStagedUncommitted(options.ref)) {
-            if (options.reverse) {
-                params.push('--reverse', '--ancestry-path', `${options.ref}..HEAD`);
+
+        if (ref && !Git.isStagedUncommitted(ref)) {
+            // If we are reversing, we must add a range (with HEAD) because we are using --ancestry-path for better reverse walking
+            if (reverse) {
+                params.push('--reverse', '--ancestry-path', `${ref}..HEAD`);
             }
             else {
-                params.push(options.ref);
+                params.push(ref);
             }
         }
+
         return git<string>(
             { cwd: repoPath, configs: ['-c', 'diff.renameLimit=0', '-c', 'log.showSignature=false'] },
             ...params,
@@ -651,56 +623,57 @@ export class Git {
     static log_file(
         repoPath: string,
         fileName: string,
-        options: {
+        ref: string | undefined,
+        {
+            filters,
+            format = GitLogParser.defaultFormat,
+            maxCount,
+            renames = true,
+            reverse = false,
+            startLine,
+            endLine
+        }: {
+            filters?: GitLogDiffFilter[];
+            format?: string;
             maxCount?: number;
-            ref?: string;
             renames?: boolean;
             reverse?: boolean;
             startLine?: number;
             endLine?: number;
-        } = { renames: true, reverse: false }
+        } = {}
     ) {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
-        const params = [...defaultLogParams];
-        if (options.maxCount && !options.reverse) {
-            params.push(`-n${options.maxCount}`);
-        }
-        params.push(options.renames ? '--follow' : '-m');
+        const params = ['log', '--name-status', `--format=${format}`];
 
-        if (options.ref && !Git.isStagedUncommitted(options.ref)) {
-            if (options.reverse) {
-                params.push('--reverse', '--ancestry-path', `${options.ref}..HEAD`);
-            }
-            else {
-                params.push(options.ref);
-            }
+        if (maxCount && !reverse) {
+            params.push(`-n${maxCount}`);
+        }
+        params.push(renames ? '--follow' : '-m');
+
+        if (filters != null && filters.length !== 0) {
+            params.push(`--diff-filter=${filters.join(emptyStr)}`);
         }
 
-        if (options.startLine != null && options.endLine != null) {
-            params.push(`-L ${options.startLine},${options.endLine}:${file}`);
-        }
-
-        return git<string>({ cwd: root }, ...params, '--', file);
-    }
-
-    static log_file_simple(repoPath: string, fileName: string, ref?: string, count: number = 2, line?: number) {
-        const [file, root] = Git.splitPath(fileName, repoPath);
-
-        const params = ['log', `--format=${logSimpleFormat}`, `-n${count}`, '--follow'];
-        if (ref && !Git.isStagedUncommitted(ref)) {
-            params.push(ref);
-        }
-
-        if (line != null) {
-            // Don't include --name-status or -s because Git won't honor it
-            params.push(/*'-s',*/ `-L ${line},${line}:${file}`);
-        }
-        else {
+        if (startLine == null) {
             params.push('--name-status');
         }
+        else {
+            // Don't include --name-status or -s because Git won't honor it
+            params.push(`-L ${startLine},${endLine == null ? startLine : endLine}:${file}`);
+        }
 
-        return git<string>({ cwd: root }, ...params, '--', file);
+        if (ref && !Git.isStagedUncommitted(ref)) {
+            // If we are reversing, we must add a range (with HEAD) because we are using --ancestry-path for better reverse walking
+            if (reverse) {
+                params.push('--reverse', '--ancestry-path', `${ref}..HEAD`);
+            }
+            else {
+                params.push(ref);
+            }
+        }
+
+        return git<string>({ cwd: root, configs: ['-c', 'log.showSignature=false'] }, ...params, '--', file);
     }
 
     static async log_recent(repoPath: string, fileName: string) {
@@ -716,10 +689,10 @@ export class Git {
         return data.length === 0 ? undefined : data.trim();
     }
 
-    static log_search(repoPath: string, search: string[] = emptyArray, options: { maxCount?: number } = {}) {
-        const params = [...defaultLogParams];
-        if (options.maxCount) {
-            params.push(`-n${options.maxCount}`);
+    static log_search(repoPath: string, search: string[] = emptyArray, { maxCount }: { maxCount?: number } = {}) {
+        const params = ['log', '--name-status', `--format=${GitLogParser.defaultFormat}`];
+        if (maxCount) {
+            params.push(`-n${maxCount}`);
         }
 
         return git<string>({ cwd: repoPath }, ...params, ...search);
@@ -909,8 +882,8 @@ export class Git {
         return git<string>({ cwd: repoPath }, 'stash', 'drop', stashName);
     }
 
-    static stash_list(repoPath: string) {
-        return git<string>({ cwd: repoPath }, ...defaultStashParams);
+    static stash_list(repoPath: string, { format = GitStashParser.defaultFormat }: { format?: string } = {}) {
+        return git<string>({ cwd: repoPath }, 'stash', 'list', '--name-status', '-M', `--format=${format}`);
     }
 
     static stash_push(repoPath: string, pathspecs: string[], message?: string) {

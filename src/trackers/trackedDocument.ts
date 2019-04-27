@@ -2,7 +2,7 @@
 import { Disposable, Event, EventEmitter, TextDocument, TextEditor, Uri } from 'vscode';
 import { CommandContext, getEditorIfActive, isActiveDocument, setCommandContext } from '../constants';
 import { Container } from '../container';
-import { GitUri, Repository, RepositoryChange, RepositoryChangeEvent } from '../git/gitService';
+import { GitService, GitUri, Repository, RepositoryChange, RepositoryChangeEvent } from '../git/gitService';
 import { Logger } from '../logger';
 import { Functions } from '../system';
 
@@ -100,7 +100,9 @@ export class TrackedDocument<T> implements Disposable {
     }
 
     get isRevision() {
-        return this._uri !== undefined ? Boolean(this._uri.sha) : false;
+        return this._uri !== undefined
+            ? Boolean(this._uri.sha) && this._uri.sha !== GitService.deletedOrMissingSha
+            : false;
     }
 
     private _isTracked: boolean = false;

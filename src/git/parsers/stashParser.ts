@@ -3,7 +3,14 @@ import { Arrays, Strings } from '../../system';
 import { GitCommitType, GitFile, GitFileStatus, GitLogParser, GitStash, GitStashCommit } from '../git';
 // import { Logger } from './logger';
 
+// Using %x00 codes because some shells seem to try to expand things if not
+const lb = '%x3c'; // `%x${'<'.charCodeAt(0).toString(16)}`;
+const rb = '%x3e'; // `%x${'>'.charCodeAt(0).toString(16)}`;
+const sl = '%x2f'; // `%x${'/'.charCodeAt(0).toString(16)}`;
+const sp = '%x20'; // `%x${' '.charCodeAt(0).toString(16)}`;
+
 const emptyStr = '';
+const emptyEntry: StashEntry = {};
 
 interface StashEntry {
     ref?: string;
@@ -15,9 +22,19 @@ interface StashEntry {
     stashName?: string;
 }
 
-const emptyEntry: StashEntry = {};
-
 export class GitStashParser {
+    static defaultFormat = [
+        `${lb}${sl}f${rb}`,
+        `${lb}r${rb}${sp}%H`, // ref
+        `${lb}d${rb}${sp}%at`, // date
+        `${lb}c${rb}${sp}%ct`, // committed date
+        `${lb}l${rb}${sp}%gd`, // reflog-selector
+        `${lb}s${rb}`,
+        '%B', // summary
+        `${lb}${sl}s${rb}`,
+        `${lb}f${rb}`
+    ].join('%n');
+
     static parse(data: string, repoPath: string): GitStash | undefined {
         if (!data) return undefined;
 
