@@ -1088,15 +1088,18 @@ export class GitService implements Disposable {
         if (data === undefined) return undefined;
 
         const branch = data[0].split('\n');
-        return new GitBranch(repoPath, branch[0], true, data[1], branch[1]);
+        return new GitBranch(repoPath, branch[0], false, true, data[1], branch[1]);
     }
 
     @log()
     async getBranches(repoPath: string | undefined): Promise<GitBranch[]> {
         if (repoPath === undefined) return [];
 
-        let branches = this._branchesCache.get(repoPath);
-        if (branches !== undefined) return branches;
+        let branches;
+        if (this.useCaching) {
+            branches = this._branchesCache.get(repoPath);
+            if (branches !== undefined) return branches;
+        }
 
         const data = await Git.branch(repoPath, { all: true });
         // If we don't get any data, assume the repo doesn't have any commits yet so check if we have a current branch
@@ -1105,12 +1108,14 @@ export class GitService implements Disposable {
             branches = current !== undefined ? [current] : [];
         }
         else {
-            branches = GitBranchParser.parse(data, repoPath) || [];
+            branches = GitBranchParser.parse(data, repoPath);
         }
 
-        const repo = await this.getRepository(repoPath);
-        if (repo !== undefined && repo.supportsChangeEvents) {
-            this._branchesCache.set(repoPath, branches);
+        if (this.useCaching) {
+            const repo = await this.getRepository(repoPath);
+            if (repo !== undefined && repo.supportsChangeEvents) {
+                this._branchesCache.set(repoPath, branches);
+            }
         }
         return branches;
     }

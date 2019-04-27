@@ -50,6 +50,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
                 const branch = new GitBranch(
                     status.repoPath,
                     status.branch,
+                    false,
                     true,
                     status.sha,
                     status.upstream,

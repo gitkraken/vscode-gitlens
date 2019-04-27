@@ -12,37 +12,25 @@ export interface GitTrackingState {
 export class GitBranch {
     readonly detached: boolean;
     readonly id: string;
-    readonly name: string;
-    readonly remote: boolean;
     readonly tracking?: string;
     readonly state: GitTrackingState;
 
     constructor(
         public readonly repoPath: string,
-        name: string,
-        public readonly current: boolean = false,
+        public readonly name: string,
+        public readonly remote: boolean,
+        public readonly current: boolean,
         public readonly sha?: string,
         tracking?: string,
         ahead: number = 0,
         behind: number = 0,
         detached: boolean = false
     ) {
-        this.id = `${repoPath}|${name}`;
-
-        if (name.startsWith('remotes/')) {
-            name = name.substring(8);
-            this.remote = true;
-        }
-        else {
-            this.remote = false;
-        }
+        this.id = `${repoPath}|${remote ? 'remotes/' : 'heads/'}${name}`;
 
         this.detached = detached || (this.current ? GitBranch.isDetached(name) : false);
         if (this.detached) {
             this.name = GitBranch.formatDetached(this.sha!);
-        }
-        else {
-            this.name = name;
         }
 
         this.tracking = tracking == null || tracking.length === 0 ? undefined : tracking;

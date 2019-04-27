@@ -8,7 +8,7 @@ import { Logger } from '../logger';
 import { Objects, Strings } from '../system';
 import { findGitPath, GitLocation } from './locator';
 import { run, RunOptions } from './shell';
-import { GitLogParser, GitStashParser } from './parsers/parsers';
+import { GitBranchParser, GitLogParser, GitStashParser } from './parsers/parsers';
 import { GitFileStatus } from './models/file';
 
 export { GitLocation } from './locator';
@@ -391,12 +391,12 @@ export class Git {
     }
 
     static branch(repoPath: string, options: { all: boolean } = { all: false }) {
-        const params = ['branch', '-vv', '--abbrev=40'];
+        const params = ['for-each-ref', `--format=${GitBranchParser.defaultFormat}`, 'refs/heads'];
         if (options.all) {
-            params.push('-a');
+            params.push('refs/remotes');
         }
 
-        return git<string>({ cwd: repoPath, configs: ['-c', 'color.branch=false'] }, ...params);
+        return git<string>({ cwd: repoPath }, ...params);
     }
 
     static branch_contains(repoPath: string, ref: string, options: { remote: boolean } = { remote: false }) {

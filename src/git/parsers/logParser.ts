@@ -102,7 +102,7 @@ export class GitLogParser {
             // Since log --reverse doesn't properly honor a max count -- enforce it here
             if (reverse && maxCount && i >= maxCount) break;
 
-            // <<1-char token>> <data>
+            // <1-char token> data
             // e.g. <r> bd1452a2dc
             token = line.charCodeAt(1);
 
