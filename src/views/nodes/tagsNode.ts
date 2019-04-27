@@ -34,7 +34,16 @@ export class TagsNode extends ViewNode<RepositoriesView> {
             this.view.config.files.compact
         );
 
-        const root = new BranchOrTagFolderNode(this.view, this, 'tag', this.repo.path, '', undefined, hierarchy);
+        const root = new BranchOrTagFolderNode(
+            this.view,
+            this,
+            'tag',
+            this.repo.path,
+            '',
+            undefined,
+            hierarchy,
+            'tags'
+        );
         const children = (await root.getChildren()) as (BranchOrTagFolderNode | TagNode)[];
         return children;
     }

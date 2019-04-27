@@ -16,13 +16,16 @@ export class BranchOrTagFolderNode extends ViewNode {
         public readonly folderName: string,
         public readonly relativePath: string | undefined,
         public readonly root: Arrays.HierarchicalItem<BranchNode | TagNode>,
+        private readonly _key?: string,
         private readonly _expanded: boolean = false
     ) {
         super(GitUri.fromRepoPath(repoPath), view, parent);
     }
 
     get id(): string {
-        return `${this._instanceId}:gitlens:repository(${this.repoPath}):${this.type}-folder(${this.relativePath})`;
+        return `${this._instanceId}:gitlens:repository(${this.repoPath})${
+            this._key === undefined ? '' : `:${this._key}`
+        }:${this.type}-folder(${this.relativePath})`;
     }
 
     getChildren(): ViewNode[] {
@@ -45,6 +48,7 @@ export class BranchOrTagFolderNode extends ViewNode {
                         folder.name,
                         folder.relativePath,
                         folder,
+                        this._key,
                         expanded
                     )
                 );

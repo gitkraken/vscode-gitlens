@@ -46,7 +46,16 @@ export class BranchesNode extends ViewNode<RepositoriesView> {
                 this.view.config.files.compact
             );
 
-            const root = new BranchOrTagFolderNode(this.view, this, 'branch', this.repo.path, '', undefined, hierarchy);
+            const root = new BranchOrTagFolderNode(
+                this.view,
+                this,
+                'branch',
+                this.repo.path,
+                '',
+                undefined,
+                hierarchy,
+                'branches'
+            );
             this._children = await root.getChildren();
         }
         return this._children;
