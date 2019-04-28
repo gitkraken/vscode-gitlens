@@ -213,6 +213,7 @@ export interface AdvancedConfig {
         closeOnFocusOut: boolean;
     };
     repositorySearchDepth: number;
+    similarityThreshold: number;
     telemetry: {
         enabled: boolean;
     };
@@ -244,7 +245,6 @@ export interface CompareViewConfig {
     avatars: boolean;
     enabled: boolean;
     files: ViewsFilesConfig;
-    findRenames: number;
     location: ViewLocation;
 }
 

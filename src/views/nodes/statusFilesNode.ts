@@ -119,9 +119,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 
         if (this.status.upstream !== undefined && this.status.state.ahead > 0) {
             if (files > 0) {
-                const aheadFiles = await Container.git.getDiffStatus(this.repoPath, `${this.status.upstream}...`, undefined, {
-                    findRenames: Container.config.views.compare.findRenames
-                });
+                const aheadFiles = await Container.git.getDiffStatus(this.repoPath, `${this.status.upstream}...`);
 
                 if (aheadFiles !== undefined) {
                     const uniques = new Set();

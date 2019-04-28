@@ -454,7 +454,9 @@ export class GitService implements Disposable {
 
         let patch;
         try {
-            patch = await Git.diff(uri.repoPath, uri.fsPath, ref1, ref2);
+            patch = await Git.diff(uri.repoPath, uri.fsPath, ref1, ref2, {
+                similarityThreshold: Container.config.advanced.similarityThreshold
+            });
             void (await Git.apply(uri.repoPath!, patch));
         }
         catch (ex) {
@@ -1249,10 +1251,16 @@ export class GitService implements Disposable {
         try {
             let data;
             if (ref1 !== undefined && ref2 === undefined && !GitService.isStagedUncommitted(ref1)) {
-                data = await Git.show_diff(root, file, ref1);
+                data = await Git.show_diff(root, file, ref1, {
+                    similarityThreshold: Container.config.advanced.similarityThreshold
+                });
             }
             else {
-                data = await Git.diff(root, file, ref1, ref2, { ...options, filter: 'M' });
+                data = await Git.diff(root, file, ref1, ref2, {
+                    ...options,
+                    filter: 'M',
+                    similarityThreshold: Container.config.advanced.similarityThreshold
+                });
             }
 
             const diff = GitDiffParser.parse(data);
@@ -1309,10 +1317,13 @@ export class GitService implements Disposable {
         repoPath: string,
         ref1?: string,
         ref2?: string,
-        options: { filter?: string; findRenames?: number } = {}
+        options: { filter?: string; similarityThreshold?: number } = {}
     ): Promise<GitFile[] | undefined> {
         try {
-            const data = await Git.diff_nameStatus(repoPath, ref1, ref2, options);
+            const data = await Git.diff_nameStatus(repoPath, ref1, ref2, {
+                similarityThreshold: Container.config.advanced.similarityThreshold,
+                ...options
+            });
             const diff = GitDiffParser.parseNameStatus(data, repoPath);
             return diff;
         }
@@ -1341,7 +1352,9 @@ export class GitService implements Disposable {
 
     @log()
     getRecentShaForFile(repoPath: string, fileName: string) {
-        return Git.log_recent(repoPath, fileName);
+        return Git.log_recent(repoPath, fileName, {
+            similarityThreshold: Container.config.advanced.similarityThreshold
+        });
     }
 
     @log()
@@ -1385,7 +1398,8 @@ export class GitService implements Disposable {
             const data = await Git.log(repoPath, ref, {
                 authors: options.authors,
                 maxCount: maxCount,
-                reverse: options.reverse
+                reverse: options.reverse,
+                similarityThreshold: Container.config.advanced.similarityThreshold
             });
             const log = GitLogParser.parse(
                 data,
@@ -1419,29 +1433,68 @@ export class GitService implements Disposable {
         options: { maxCount?: number } = {}
     ): Promise<GitLog | undefined> {
         let maxCount = options.maxCount == null ? Container.config.advanced.maxListItems || 0 : options.maxCount;
+        const similarityThreshold = Container.config.advanced.similarityThreshold;
 
         let searchArgs: string[] | undefined = undefined;
         switch (searchBy) {
             case GitRepoSearchBy.Author:
-                searchArgs = ['-m', '-M', '--all', '--full-history', '-E', '-i', `--author=${search}`];
+                searchArgs = [
+                    '-m',
+                    `-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
+                    '--all',
+                    '--full-history',
+                    '-E',
+                    '-i',
+                    `--author=${search}`
+                ];
                 break;
             case GitRepoSearchBy.ChangedLines:
-                searchArgs = ['-M', '--all', '--full-history', '-E', '-i', `-G${search}`];
+                searchArgs = [
+                    `-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
+                    '--all',
+                    '--full-history',
+                    '-E',
+                    '-i',
+                    `-G${search}`
+                ];
                 break;
             case GitRepoSearchBy.Changes:
-                searchArgs = ['-M', '--all', '--full-history', '-E', '-i', '--pickaxe-regex', `-S${search}`];
+                searchArgs = [
+                    `-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
+                    '--all',
+                    '--full-history',
+                    '-E',
+                    '-i',
+                    '--pickaxe-regex',
+                    `-S${search}`
+                ];
                 break;
             case GitRepoSearchBy.Files:
-                searchArgs = ['-M', '--all', '--full-history', '-E', '-i', '--', `${search}`];
+                searchArgs = [
+                    `-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
+                    '--all',
+                    '--full-history',
+                    '-E',
+                    '-i',
+                    '--',
+                    `${search}`
+                ];
                 break;
             case GitRepoSearchBy.Message:
-                searchArgs = ['-m', '-M', '--all', '--full-history', '-E', '-i'];
+                searchArgs = [
+                    '-m',
+                    `-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
+                    '--all',
+                    '--full-history',
+                    '-E',
+                    '-i'
+                ];
                 if (search) {
                     searchArgs.push(`--grep=${search}`);
                 }
                 break;
             case GitRepoSearchBy.Sha:
-                searchArgs = ['-m', '-M', search];
+                searchArgs = ['-m', `-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`, search];
                 maxCount = 1;
                 break;
         }
@@ -2099,7 +2152,9 @@ export class GitService implements Disposable {
     async getStashList(repoPath: string | undefined): Promise<GitStash | undefined> {
         if (repoPath === undefined) return undefined;
 
-        const data = await Git.stash_list(repoPath);
+        const data = await Git.stash_list(repoPath, {
+            similarityThreshold: Container.config.advanced.similarityThreshold
+        });
         const stash = GitStashParser.parse(data, repoPath);
         return stash;
     }

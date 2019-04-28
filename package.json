@@ -1293,12 +1293,6 @@
                     "markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Compare_ view",
                     "scope": "window"
                 },
-                "gitlens.views.compare.findRenames": {
-                    "type": "number",
-                    "default": 50,
-                    "markdownDescription": "Specifies the threshold for the rename similarity index.",
-                    "scope": "window"
-                },
                 "gitlens.views.compare.enabled": {
                     "type": "boolean",
                     "default": true,
@@ -1720,6 +1714,12 @@
                     "default": 1,
                     "markdownDescription": "Specifies how many folders deep to search for repositories",
                     "scope": "resource"
+                },
+                "gitlens.advanced.similarityThreshold": {
+                    "type": "number",
+                    "default": null,
+                    "markdownDescription": "Specifies the amount (percent) of similarity a deleted and added file pair must have to be considered a rename",
+                    "scope": "window"
                 },
                 "gitlens.advanced.telemetry.enabled": {
                     "type": "boolean",

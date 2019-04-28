@@ -82,9 +82,7 @@ export class ResultsFilesNode extends ViewNode<ViewWithFiles> {
     }
 
     private async getFilesQueryResultsCore(): Promise<FilesQueryResults> {
-        const diff = await Container.git.getDiffStatus(this.uri.repoPath!, this._ref1, this._ref2, {
-            findRenames: Container.config.views.compare.findRenames
-        });
+        const diff = await Container.git.getDiffStatus(this.uri.repoPath!, this._ref1, this._ref2);
 
         return {
             label: `${Strings.pluralize('file', diff !== undefined ? diff.length : 0, { zero: 'No' })} changed`,

@@ -850,6 +850,7 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 | `gitlens.advanced.messages`                     | Specifies which messages should be suppressed                                                                                         |
 | `gitlens.advanced.quickPick.closeOnFocusOut`    | Specifies whether to close QuickPick menus when focus is lost                                                                         |
 | `gitlens.advanced.repositorySearchDepth`        | Specifies how many folders deep to search for repositories                                                                            |
+| `gitlens.advanced.similarityThreshold`          | Specifies the amount (percent) of similarity a deleted and added file pair must have to be considered a rename                        |
 | `gitlens.advanced.telemetry.enabled`            | Specifies whether to enable GitLens telemetry (even if enabled still abides by the overall `telemetry.enableTelemetry` setting        |
 
 #### Custom Remotes Settings

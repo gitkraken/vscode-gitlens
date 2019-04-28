@@ -482,9 +482,15 @@ export class Git {
         fileName: string,
         ref1?: string,
         ref2?: string,
-        options: { encoding?: string; filter?: string } = {}
+        options: { encoding?: string; filter?: string; similarityThreshold?: number } = {}
     ): Promise<string> {
-        const params = ['diff', '-M', '--no-ext-diff', '-U0', '--minimal'];
+        const params = [
+            'diff',
+            `-M${options.similarityThreshold == null ? '' : `${options.similarityThreshold}%`}`,
+            '--no-ext-diff',
+            '-U0',
+            '--minimal'
+        ];
         if (options.filter) {
             params.push(`--diff-filter=${options.filter}`);
         }
@@ -529,12 +535,16 @@ export class Git {
         repoPath: string,
         ref1?: string,
         ref2?: string,
-        options: { filter?: string; findRenames?: number } = {}
+        { filter, similarityThreshold }: { filter?: string; similarityThreshold?: number } = {}
     ) {
-        const renameParameter = options.findRenames == null ? '-M' : `-M${options.findRenames}%`;
-        const params = ['diff', '--name-status', renameParameter, '--no-ext-diff'];
-        if (options && options.filter) {
-            params.push(`--diff-filter=${options.filter}`);
+        const params = [
+            'diff',
+            '--name-status',
+            `-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
+            '--no-ext-diff'
+        ];
+        if (filter) {
+            params.push(`--diff-filter=${filter}`);
         }
         if (ref1) {
             params.push(ref1);
@@ -551,6 +561,7 @@ export class Git {
         if (ref) {
             params.push(ref);
         }
+
         return git<string>({ cwd: repoPath, configs: ['-c', 'color.diff=false'] }, ...params);
     }
 
@@ -598,9 +609,21 @@ export class Git {
     static log(
         repoPath: string,
         ref: string | undefined,
-        { authors, maxCount, reverse }: { authors?: string[]; maxCount?: number; reverse?: boolean }
+        {
+            authors,
+            maxCount,
+            reverse,
+            similarityThreshold
+        }: { authors?: string[]; maxCount?: number; reverse?: boolean; similarityThreshold?: number }
     ) {
-        const params = ['log', '--name-status', `--format=${GitLogParser.defaultFormat}`, '--full-history', '-M', '-m'];
+        const params = [
+            'log',
+            '--name-status',
+            `--format=${GitLogParser.defaultFormat}`,
+            '--full-history',
+            `-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
+            '-m'
+        ];
         if (maxCount && !reverse) {
             params.push(`-n${maxCount}`);
         }
@@ -682,11 +705,15 @@ export class Git {
         return git<string>({ cwd: root, configs: ['-c', 'log.showSignature=false'] }, ...params, '--', file);
     }
 
-    static async log_recent(repoPath: string, fileName: string) {
+    static async log_recent(
+        repoPath: string,
+        fileName: string,
+        { similarityThreshold }: { similarityThreshold?: number } = {}
+    ) {
         const data = await git<string>(
             { cwd: repoPath, errors: GitErrorHandling.Ignore },
             'log',
-            '-M',
+            `-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
             '-n1',
             '--format=%H',
             '--',
@@ -866,8 +893,23 @@ export class Git {
         }
     }
 
-    static show_diff(repoPath: string, fileName: string, ref: string) {
-        return git<string>({ cwd: repoPath }, 'show', '--format=', '--minimal', '-U0', ref, '--', fileName);
+    static show_diff(
+        repoPath: string,
+        fileName: string,
+        ref: string,
+        { similarityThreshold }: { similarityThreshold?: number } = {}
+    ) {
+        return git<string>(
+            { cwd: repoPath },
+            'show',
+            `-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
+            '--format=',
+            '--minimal',
+            '-U0',
+            ref,
+            '--',
+            fileName
+        );
     }
 
     static show_status(repoPath: string, fileName: string, ref: string) {
@@ -888,8 +930,21 @@ export class Git {
         return git<string>({ cwd: repoPath }, 'stash', 'drop', stashName);
     }
 
-    static stash_list(repoPath: string, { format = GitStashParser.defaultFormat }: { format?: string } = {}) {
-        return git<string>({ cwd: repoPath }, 'stash', 'list', '--name-status', '-M', `--format=${format}`);
+    static stash_list(
+        repoPath: string,
+        {
+            format = GitStashParser.defaultFormat,
+            similarityThreshold
+        }: { format?: string; similarityThreshold?: number } = {}
+    ) {
+        return git<string>(
+            { cwd: repoPath },
+            'stash',
+            'list',
+            '--name-status',
+            `-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
+            `--format=${format}`
+        );
     }
 
     static stash_push(repoPath: string, pathspecs: string[], message?: string) {
