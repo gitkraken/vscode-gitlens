@@ -209,7 +209,9 @@ export class GitBlameParser {
                 new Date((entry.authorDate as any) * 1000),
                 entry.summary!,
                 relativeFileName,
-                relativeFileName !== entry.fileName ? entry.fileName : undefined,
+                entry.previousFileName !== undefined && entry.previousFileName !== entry.fileName
+                    ? entry.previousFileName
+                    : undefined,
                 entry.previousSha,
                 entry.previousSha && entry.previousFileName,
                 []

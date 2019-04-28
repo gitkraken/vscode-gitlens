@@ -897,10 +897,10 @@ export class Git {
         repoPath: string,
         fileName: string,
         ref: string,
+        originalFileName?: string,
         { similarityThreshold }: { similarityThreshold?: number } = {}
     ) {
-        return git<string>(
-            { cwd: repoPath },
+        const params = [
             'show',
             `-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
             '--format=',
@@ -909,7 +909,12 @@ export class Git {
             ref,
             '--',
             fileName
-        );
+        ];
+        if (originalFileName != null && originalFileName.length !== 0) {
+            params.push(originalFileName);
+        }
+
+        return git<string>({ cwd: repoPath }, ...params);
     }
 
     static show_status(repoPath: string, fileName: string, ref: string) {

@@ -1185,7 +1185,12 @@ export class GitService implements Disposable {
     }
 
     @log()
-    async getDiffForFile(uri: GitUri, ref1: string | undefined, ref2?: string): Promise<GitDiff | undefined> {
+    async getDiffForFile(
+        uri: GitUri,
+        ref1: string | undefined,
+        ref2?: string,
+        originalFileName?: string
+    ): Promise<GitDiff | undefined> {
         const cc = Logger.getCorrelationContext();
 
         let key = 'diff';
@@ -1218,6 +1223,7 @@ export class GitService implements Disposable {
             uri.fsPath,
             ref1,
             ref2,
+            originalFileName,
             { encoding: GitService.getEncoding(uri) },
             doc,
             key,
@@ -1241,6 +1247,7 @@ export class GitService implements Disposable {
         fileName: string,
         ref1: string | undefined,
         ref2: string | undefined,
+        originalFileName: string | undefined,
         options: { encoding?: string },
         document: TrackedDocument<GitDocumentState>,
         key: string,
@@ -1251,7 +1258,7 @@ export class GitService implements Disposable {
         try {
             let data;
             if (ref1 !== undefined && ref2 === undefined && !GitService.isStagedUncommitted(ref1)) {
-                data = await Git.show_diff(root, file, ref1, {
+                data = await Git.show_diff(root, file, ref1, originalFileName, {
                     similarityThreshold: Container.config.advanced.similarityThreshold
                 });
             }
@@ -1290,13 +1297,14 @@ export class GitService implements Disposable {
         uri: GitUri,
         editorLine: number, // editor lines are 0-based
         ref1: string | undefined,
-        ref2?: string
+        ref2?: string,
+        originalFileName?: string
     ): Promise<GitDiffHunkLine | undefined> {
         try {
-            let diff = await this.getDiffForFile(uri, ref1, ref2);
+            let diff = await this.getDiffForFile(uri, ref1, ref2, originalFileName);
             // If we didn't find a diff & ref1 is undefined (meaning uncommitted), check for a staged diff
             if (diff === undefined && ref1 === undefined) {
-                diff = await this.getDiffForFile(uri, Git.stagedUncommittedSha, ref2);
+                diff = await this.getDiffForFile(uri, Git.stagedUncommittedSha, ref2, originalFileName);
             }
 
             if (diff === undefined) return undefined;

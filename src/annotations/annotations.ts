@@ -182,7 +182,13 @@ export class Annotations {
         const commitLine = commit.lines.find(l => l.line === line) || commit.lines[0];
 
         const commitEditorLine = commitLine.originalLine - 1;
-        const hunkLine = await Container.git.getDiffForLine(uri, commitEditorLine, ref);
+        const hunkLine = await Container.git.getDiffForLine(
+            uri,
+            commitEditorLine,
+            ref,
+            undefined,
+            commit.originalFileName
+        );
         const message = this.getHoverDiffMessage(commit, uri, hunkLine, commitEditorLine);
 
         return {
