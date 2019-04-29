@@ -10,11 +10,12 @@ import {
     window
 } from 'vscode';
 import { configuration } from '../configuration';
-import { isTextEditor } from '../constants';
+import { GlyphChars, isTextEditor } from '../constants';
 import { Container } from '../container';
 import { LinesChangeEvent } from '../trackers/gitLineTracker';
 import { Annotations } from './annotations';
-import { log } from '../system';
+import { debug, log } from '../system';
+import { Logger } from '../logger';
 
 const annotationDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
     after: {
@@ -104,6 +105,7 @@ export class LineAnnotationController implements Disposable {
         void this.refresh(window.activeTextEditor);
     }
 
+    @debug({ args: false })
     clear(editor: TextEditor | undefined) {
         if (this._editor !== editor && this._editor !== undefined) {
             this.clearAnnotations(this._editor);
@@ -111,6 +113,7 @@ export class LineAnnotationController implements Disposable {
         this.clearAnnotations(editor);
     }
 
+    @log({ args: false })
     async toggle(editor: TextEditor | undefined) {
         this._enabled = !(this._enabled && !this.suspended);
 
@@ -130,8 +133,11 @@ export class LineAnnotationController implements Disposable {
         editor.setDecorations(annotationDecoration, []);
     }
 
+    @debug({ args: false })
     private async refresh(editor: TextEditor | undefined) {
         if (editor === undefined && this._editor === undefined) return;
+
+        const cc = Logger.getCorrelationContext();
 
         const lines = Container.lineTracker.lines;
         if (editor === undefined || lines === undefined || !isTextEditor(editor)) {
@@ -159,7 +165,18 @@ export class LineAnnotationController implements Disposable {
         }
 
         // Make sure the editor hasn't died since the await above and that we are still on the same line(s)
-        if (editor.document === undefined || !Container.lineTracker.includesAll(lines)) return;
+        if (editor.document === undefined || !Container.lineTracker.includesAll(lines)) {
+            if (cc) {
+                cc.exitDetails = ` ${GlyphChars.Dot} Skipped because ${
+                    editor.document === undefined ? 'editor is gone' : `line(s)=${lines.join()} are no longer current`
+                }`;
+            }
+            return;
+        }
+
+        if (cc) {
+            cc.exitDetails = ` ${GlyphChars.Dot} line(s)=${lines.join()}`;
+        }
 
         const scrollable = Container.config.currentLine.scrollable;
 
