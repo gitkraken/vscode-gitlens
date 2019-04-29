@@ -1,5 +1,5 @@
 'use strict';
-import { Strings } from '../../system';
+import { debug, Strings } from '../../system';
 import { GitFileStatus, GitStatus, GitStatusFile } from '../git';
 
 const emptyStr = '';
@@ -8,6 +8,7 @@ const aheadStatusV1Regex = /(?:ahead ([0-9]+))/;
 const behindStatusV1Regex = /(?:behind ([0-9]+))/;
 
 export class GitStatusParser {
+    @debug({ args: false, singleLine: true })
     static parse(data: string, repoPath: string, porcelainVersion: number): GitStatus | undefined {
         if (!data) return undefined;
 
@@ -19,6 +20,7 @@ export class GitStatusParser {
         return this.parseV2(lines, repoPath);
     }
 
+    @debug({ args: false, singleLine: true })
     private static parseV1(lines: string[], repoPath: string): GitStatus {
         let branch: string | undefined;
         const files = [];
@@ -61,6 +63,7 @@ export class GitStatusParser {
         return new GitStatus(Strings.normalizePath(repoPath), branch || emptyStr, emptyStr, files, state, upstream);
     }
 
+    @debug({ args: false, singleLine: true })
     private static parseV2(lines: string[], repoPath: string): GitStatus {
         let branch: string | undefined;
         const files = [];

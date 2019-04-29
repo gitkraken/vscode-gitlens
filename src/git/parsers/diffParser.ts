@@ -1,12 +1,13 @@
 'use strict';
-import { Strings } from '../../system';
 import { GitDiff, GitDiffHunk, GitDiffHunkLine, GitDiffLine, GitDiffShortStat, GitFile, GitFileStatus } from '../git';
+import { debug, Strings } from '../../system';
 
 const nameStatusDiffRegex = /^(.*?)\t(.*?)(?:\t(.*?))?$/gm;
 const shortStatDiffRegex = /^\s*(\d+)\sfiles? changed(?:,\s+(\d+)\s+insertions?\(\+\))?(?:,\s+(\d+)\s+deletions?\(-\))?/;
 const unifiedDiffRegex = /^@@ -([\d]+)(?:,([\d]+))? \+([\d]+)(?:,([\d]+))? @@(?:.*?)\n([\s\S]*?)(?=^@@)/gm;
 
 export class GitDiffParser {
+    @debug({ args: false, singleLine: true })
     static parse(data: string, debug: boolean = false): GitDiff | undefined {
         if (!data) return undefined;
 
@@ -59,6 +60,7 @@ export class GitDiffParser {
         return diff;
     }
 
+    @debug({ args: false, singleLine: true })
     static parseHunk(hunk: GitDiffHunk): GitDiffHunkLine[] {
         const currentLines: (GitDiffLine | undefined)[] = [];
         const previousLines: (GitDiffLine | undefined)[] = [];
@@ -122,6 +124,7 @@ export class GitDiffParser {
         return hunkLines;
     }
 
+    @debug({ args: false, singleLine: true })
     static parseNameStatus(data: string, repoPath: string): GitFile[] | undefined {
         if (!data) return undefined;
 
@@ -156,6 +159,7 @@ export class GitDiffParser {
         return files;
     }
 
+    @debug({ args: false, singleLine: true })
     static parseShortStat(data: string): GitDiffShortStat | undefined {
         if (!data) return undefined;
 

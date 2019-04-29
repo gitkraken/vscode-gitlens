@@ -1,10 +1,12 @@
 'use strict';
 import { GitTag } from '../git';
+import { debug } from '../../system';
 
 const tagWithRefRegex = /([0-9,a-f]+)\srefs\/tags\/(.*)/gm;
 const tagWithAnnotationRegex = /^(.+?)(?:$|(?:\s+)(.*)$)/gm;
 
 export class GitTagParser {
+    @debug({ args: false, singleLine: true })
     static parse(data: string, repoPath: string): GitTag[] | undefined {
         if (!data) return undefined;
 

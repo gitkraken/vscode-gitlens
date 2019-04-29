@@ -2,6 +2,7 @@
 import { GitRemoteType } from '../models/remote';
 import { RemoteProvider } from '../remotes/factory';
 import { GitRemote } from '../git';
+import { debug } from '../../system';
 
 const emptyStr = '';
 
@@ -47,6 +48,7 @@ user:password@host.xz:/path/to/repo.git/
 */
 
 export class GitRemoteParser {
+    @debug({ args: false, singleLine: true })
     static parse(
         data: string,
         repoPath: string,

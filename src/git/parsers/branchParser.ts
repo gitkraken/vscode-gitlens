@@ -17,7 +17,7 @@ export class GitBranchParser {
         `${lb}r${rb}%(objectname)` // ref
     ].join('');
 
-    @debug({ args: false })
+    @debug({ args: false, singleLine: true })
     static parse(data: string, repoPath: string): GitBranch[] {
         const branches: GitBranch[] = [];
 

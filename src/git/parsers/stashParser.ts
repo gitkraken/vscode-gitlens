@@ -1,6 +1,6 @@
 'use strict';
-import { Arrays, Strings } from '../../system';
 import { GitCommitType, GitFile, GitFileStatus, GitLogParser, GitStash, GitStashCommit } from '../git';
+import { Arrays, debug, Strings } from '../../system';
 // import { Logger } from './logger';
 
 // Using %x00 codes because some shells seem to try to expand things if not
@@ -35,6 +35,7 @@ export class GitStashParser {
         `${lb}f${rb}`
     ].join('%n');
 
+    @debug({ args: false, singleLine: true })
     static parse(data: string, repoPath: string): GitStash | undefined {
         if (!data) return undefined;
 

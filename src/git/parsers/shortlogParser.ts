@@ -1,9 +1,11 @@
 'use strict';
 import { GitContributor, GitShortLog } from '../git';
+import { debug } from '../../system';
 
 const shortlogRegex = /^(.*?)\t(.*?) <(.*?)>$/gm;
 
 export class GitShortLogParser {
+    @debug({ args: false, singleLine: true })
     static parse(data: string, repoPath: string): GitShortLog | undefined {
         if (!data) return undefined;
 

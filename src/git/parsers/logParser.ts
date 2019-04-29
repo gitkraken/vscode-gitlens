@@ -1,8 +1,8 @@
 'use strict';
 import * as paths from 'path';
 import { Range } from 'vscode';
-import { Arrays, Strings } from '../../system';
 import { Git, GitAuthor, GitCommitType, GitFile, GitFileStatus, GitLog, GitLogCommit } from '../git';
+import { Arrays, debug, Strings } from '../../system';
 
 const emptyEntry: LogEntry = {};
 const emptyStr = '';
@@ -54,6 +54,7 @@ export class GitLogParser {
 
     static simpleFormat = `${lb}r${rb}${sp}%H`;
 
+    @debug({ args: false })
     static parse(
         data: string,
         type: GitCommitType,
@@ -393,6 +394,7 @@ export class GitLogParser {
         }
     }
 
+    @debug({ args: false })
     static parseSimple(
         data: string,
         skip: number
@@ -418,6 +420,7 @@ export class GitLogParser {
         return [ref, file, status];
     }
 
+    @debug({ args: false })
     static parseSimpleRenamed(
         data: string,
         originalFileName: string

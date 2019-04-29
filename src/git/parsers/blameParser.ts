@@ -1,7 +1,7 @@
 'use strict';
 import * as paths from 'path';
-import { Strings } from '../../system';
 import { Git, GitAuthor, GitBlame, GitBlameCommit, GitCommitLine } from '../git';
+import { debug, Strings } from '../../system';
 
 const emptyStr = '';
 const slash = '/';
@@ -30,6 +30,7 @@ interface BlameEntry {
 }
 
 export class GitBlameParser {
+    @debug({ args: false, singleLine: true })
     static parse(
         data: string,
         repoPath: string | undefined,

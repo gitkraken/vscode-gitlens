@@ -1,10 +1,12 @@
 'use strict';
 import { GitTree } from '../git';
+import { debug } from '../../system';
 
 const emptyStr = '';
 const treeRegex = /(?:.+?)\s+(.+?)\s+(.+?)\s+(.+?)\s+(.+)/gm;
 
 export class GitTreeParser {
+    @debug({ args: false, singleLine: true })
     static parse(data: string | undefined): GitTree[] | undefined {
         if (!data) return undefined;
 
