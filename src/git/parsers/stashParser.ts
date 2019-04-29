@@ -1,5 +1,5 @@
 'use strict';
-import { GitCommitType, GitFile, GitFileStatus, GitLogParser, GitStash, GitStashCommit } from '../git';
+import { fileStatusRegex, GitCommitType, GitFile, GitFileStatus, GitStash, GitStashCommit } from '../git';
 import { Arrays, debug, Strings } from '../../system';
 // import { Logger } from './logger';
 
@@ -53,6 +53,9 @@ export class GitStashParser {
         let entry: StashEntry = emptyEntry;
         let line: string | undefined = undefined;
         let token: number;
+
+        let match;
+        let renamedFileName;
 
         while (true) {
             next = lines.next();
@@ -118,18 +121,26 @@ export class GitStashParser {
 
                             if (line.startsWith('warning:')) continue;
 
-                            const status = {
-                                status: line[0] as GitFileStatus,
-                                fileName: line.substring(1),
-                                originalFileName: undefined
-                            };
-                            GitLogParser.parseFileName(status);
-
-                            if (status.fileName) {
+                            match = fileStatusRegex.exec(line);
+                            if (match != null) {
                                 if (entry.files === undefined) {
                                     entry.files = [];
                                 }
-                                entry.files.push(status);
+
+                                renamedFileName = match[3];
+                                if (renamedFileName !== undefined) {
+                                    entry.files.push({
+                                        status: match[1] as GitFileStatus,
+                                        fileName: renamedFileName,
+                                        originalFileName: match[2]
+                                    });
+                                }
+                                else {
+                                    entry.files.push({
+                                        status: match[1] as GitFileStatus,
+                                        fileName: match[2]
+                                    });
+                                }
                             }
                         }
 

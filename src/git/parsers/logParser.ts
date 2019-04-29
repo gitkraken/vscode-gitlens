@@ -9,7 +9,7 @@ const emptyStr = '';
 const slash = '/';
 
 const diffRegex = /diff --git a\/(.*) b\/(.*)/;
-const fileStatusRegex = /(\S)\S*\t([^\t\n]+)(?:\t(.+))?/;
+export const fileStatusRegex = /(\S)\S*\t([^\t\n]+)(?:\t(.+))?/;
 const logFileSimpleRegex = /^<r> (.*)\s*(?:(?:diff --git a\/(.*) b\/(.*))|(?:(\S)\S*\t([^\t\n]+)(?:\t(.+))?))/gm;
 
 // Using %x00 codes because some shells seem to try to expand things if not
@@ -376,22 +376,6 @@ export class GitLogParser {
             }
         }
         return commit;
-    }
-
-    static parseFileName(entry: { fileName?: string; originalFileName?: string }) {
-        if (entry.fileName === undefined) return;
-
-        const index = entry.fileName.indexOf('\t') + 1;
-        if (index > 0) {
-            const next = entry.fileName.indexOf('\t', index) + 1;
-            if (next > 0) {
-                entry.originalFileName = entry.fileName.substring(index, next - 1);
-                entry.fileName = entry.fileName.substring(next);
-            }
-            else {
-                entry.fileName = entry.fileName.substring(index);
-            }
-        }
     }
 
     @debug({ args: false })
