@@ -17,8 +17,8 @@ export class GitLogCommit extends GitCommit {
         sha: string,
         author: string,
         email: string | undefined,
-        date: Date,
-        public readonly committedDate: Date,
+        authorDate: Date,
+        committerDate: Date,
         message: string,
         fileName: string,
         public readonly files: GitFile[],
@@ -34,8 +34,8 @@ export class GitLogCommit extends GitCommit {
             sha,
             author,
             email,
-            date,
-            committedDate,
+            authorDate,
+            committerDate,
             message,
             fileName,
             originalFileName,
@@ -97,20 +97,24 @@ export class GitLogCommit extends GitCommit {
         return this._diff;
     }
 
-    getFormattedDiffStatus(
-        options: {
-            compact?: boolean;
-            empty?: string;
-            expand?: boolean;
-            prefix?: string;
-            separator?: string;
-            suffix?: string;
-        } = {}
-    ): string {
+    getFormattedDiffStatus({
+        compact,
+        empty,
+        expand,
+        prefix = '',
+        separator = ' ',
+        suffix = ''
+    }: {
+        compact?: boolean;
+        empty?: string;
+        expand?: boolean;
+        prefix?: string;
+        separator?: string;
+        suffix?: string;
+    } = {}): string {
         const { added, changed, deleted } = this.getDiffStatus();
-        if (added === 0 && changed === 0 && deleted === 0) return options.empty || '';
+        if (added === 0 && changed === 0 && deleted === 0) return empty || '';
 
-        const { compact, expand, prefix = '', separator = ' ', suffix = '' } = options;
         if (expand) {
             let status = '';
             if (added) {
@@ -170,7 +174,7 @@ export class GitLogCommit extends GitCommit {
         fileName?: string;
         author?: string;
         email?: string;
-        date?: Date;
+        authorDate?: Date;
         committedDate?: Date;
         message?: string;
         originalFileName?: string | null;
@@ -185,8 +189,8 @@ export class GitLogCommit extends GitCommit {
             this.getChangedValue(changes.sha, this.sha)!,
             changes.author || this.author,
             changes.email || this.email,
-            changes.date || this.date,
-            changes.committedDate || this.committedDate,
+            changes.authorDate || this.authorDate,
+            changes.committedDate || this.committerDate,
             changes.message || this.message,
             changes.fileName || this.fileName,
             this.getChangedValue(changes.files, this.files) || [],

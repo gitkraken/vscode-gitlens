@@ -55,7 +55,7 @@ export function* insertDateMarkers<T extends ViewNode & { commit: GitLogCommit }
                 time = date.setDate(date.getDate() - daysAgo);
             }
 
-            const date = new Date(node.commit.committedDate.setUTCHours(0, 0, 0, 0)).getTime();
+            const date = new Date(node.commit.committerDate.setUTCHours(0, 0, 0, 0)).getTime();
             if (date <= time) {
                 while (index < markers.length - 1) {
                     [daysAgo] = markers[index + 1];

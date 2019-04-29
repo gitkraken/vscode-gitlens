@@ -1,13 +1,12 @@
 'use strict';
 import { Uri } from 'vscode';
-import { configuration, DateStyle, GravatarDefaultStyle } from '../../configuration';
+import { configuration, DateSource, DateStyle, GravatarDefaultStyle } from '../../configuration';
 import { Container } from '../../container';
 import { Dates } from '../../system';
 import { CommitFormatter } from '../formatters/formatters';
 import { Git } from '../git';
 import { GitUri } from '../gitUri';
 import { getGravatarUri } from '../../gravatar';
-import { DateType } from '../../config';
 
 export interface GitAuthor {
     name: string;
@@ -32,13 +31,13 @@ export enum GitCommitType {
 
 export const CommitFormatting = {
     dateFormat: undefined! as string | null,
+    dateSource: undefined! as DateSource,
     dateStyle: undefined! as DateStyle,
-    dateType: undefined! as DateType,
 
     reset: () => {
-        CommitFormatting.dateStyle = configuration.get<DateStyle>(configuration.name('defaultDateStyle').value);
         CommitFormatting.dateFormat = configuration.get<string | null>(configuration.name('defaultDateFormat').value);
-        CommitFormatting.dateType = configuration.get<DateType>(configuration.name('defaultDateType').value);
+        CommitFormatting.dateSource = configuration.get<DateSource>(configuration.name('defaultDateSource').value);
+        CommitFormatting.dateStyle = configuration.get<DateStyle>(configuration.name('defaultDateStyle').value);
     }
 };
 
@@ -51,12 +50,11 @@ export abstract class GitCommit {
     protected readonly _fileName: string;
     protected _previousSha: string | undefined;
 
+    private _authorDateFormatter: Dates.DateFormatter | undefined;
+    private _committerDateFormatter: Dates.DateFormatter | undefined;
     private _isStagedUncommitted: boolean | undefined;
     private _isUncommitted: boolean | undefined;
     private _shortSha: string | undefined;
-
-    private _authorDateFormatter: Dates.DateFormatter | undefined;
-    private _committerDateFormatter: Dates.DateFormatter | undefined;
 
     constructor(
         type: GitCommitType,
@@ -85,33 +83,13 @@ export abstract class GitCommit {
     }
 
     get date(): Date {
-        return CommitFormatting.dateType === DateType.Committer
-            ? this.committerDate : this.authorDate;
-    }
-
-    get authorDateFormatter(): Dates.DateFormatter {
-        if (this._authorDateFormatter === undefined) {
-            this._authorDateFormatter = Dates.toFormatter(this.authorDate);
-        }
-        return this._authorDateFormatter;
-    }
-
-    get committerDateFormatter(): Dates.DateFormatter {
-        if (this._committerDateFormatter === undefined) {
-            this._committerDateFormatter = Dates.toFormatter(this.committerDate);
-        }
-        return this._committerDateFormatter;
-    }
-
-    get dateFormatter(): Dates.DateFormatter {
-        return CommitFormatting.dateType === DateType.Committer
-            ? this.committerDateFormatter : this.authorDateFormatter;
+        return CommitFormatting.dateSource === DateSource.Committed ? this.committerDate : this.authorDate;
     }
 
     get formattedDate(): string {
         return CommitFormatting.dateStyle === DateStyle.Absolute
             ? this.formatDate(CommitFormatting.dateFormat)
-            : this.fromNow();
+            : this.formatDateFromNow();
     }
 
     get shortSha() {
@@ -180,6 +158,50 @@ export abstract class GitCommit {
         return this.workingFileName ? GitUri.resolveToUri(this.workingFileName, this.repoPath) : this.uri;
     }
 
+    private get authorDateFormatter(): Dates.DateFormatter {
+        if (this._authorDateFormatter === undefined) {
+            this._authorDateFormatter = Dates.toFormatter(this.authorDate);
+        }
+        return this._authorDateFormatter;
+    }
+
+    private get committerDateFormatter(): Dates.DateFormatter {
+        if (this._committerDateFormatter === undefined) {
+            this._committerDateFormatter = Dates.toFormatter(this.committerDate);
+        }
+        return this._committerDateFormatter;
+    }
+
+    private get dateFormatter(): Dates.DateFormatter {
+        return CommitFormatting.dateSource === DateSource.Committed
+            ? this.committerDateFormatter
+            : this.authorDateFormatter;
+    }
+
+    formatAuthorDate(format?: string | null) {
+        if (format == null) {
+            format = 'MMMM Do, YYYY h:mma';
+        }
+
+        return this.authorDateFormatter.format(format);
+    }
+
+    formatAuthorDateFromNow() {
+        return this.authorDateFormatter.fromNow();
+    }
+
+    formatCommitterDate(format?: string | null) {
+        if (format == null) {
+            format = 'MMMM Do, YYYY h:mma';
+        }
+
+        return this.committerDateFormatter.format(format);
+    }
+
+    formatCommitterDateFromNow() {
+        return this.committerDateFormatter.fromNow();
+    }
+
     formatDate(format?: string | null) {
         if (format == null) {
             format = 'MMMM Do, YYYY h:mma';
@@ -188,7 +210,7 @@ export abstract class GitCommit {
         return this.dateFormatter.format(format);
     }
 
-    fromNow() {
+    formatDateFromNow() {
         return this.dateFormatter.fromNow();
     }
 

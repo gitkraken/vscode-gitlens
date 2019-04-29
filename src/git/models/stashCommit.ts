@@ -13,7 +13,7 @@ export class GitStashCommit extends GitLogCommit {
         public readonly stashName: string,
         repoPath: string,
         sha: string,
-        date: Date,
+        authorDate: Date,
         committedDate: Date,
         message: string,
         fileName: string,
@@ -29,7 +29,7 @@ export class GitStashCommit extends GitLogCommit {
             sha,
             'You',
             undefined,
-            date,
+            authorDate,
             committedDate,
             message,
             fileName,
@@ -49,7 +49,7 @@ export class GitStashCommit extends GitLogCommit {
         type?: GitCommitType;
         sha?: string | null;
         fileName?: string;
-        date?: Date;
+        authorDate?: Date;
         committedDate?: Date;
         message?: string;
         originalFileName?: string | null;
@@ -63,8 +63,8 @@ export class GitStashCommit extends GitLogCommit {
             this.stashName,
             this.repoPath,
             this.getChangedValue(changes.sha, this.sha)!,
-            changes.date || this.date,
-            changes.committedDate || this.committedDate,
+            changes.authorDate || this.authorDate,
+            changes.committedDate || this.committerDate,
             changes.message || this.message,
             changes.fileName || this.fileName,
             this.getChangedValue(changes.files, this.files) || [],

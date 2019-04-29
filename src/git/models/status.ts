@@ -62,20 +62,24 @@ export class GitStatus {
         return this._diff;
     }
 
-    getFormattedDiffStatus(
-        options: {
-            compact?: boolean;
-            empty?: string;
-            expand?: boolean;
-            prefix?: string;
-            separator?: string;
-            suffix?: string;
-        } = {}
-    ): string {
+    getFormattedDiffStatus({
+        compact,
+        empty,
+        expand,
+        prefix = '',
+        separator = ' ',
+        suffix = ''
+    }: {
+        compact?: boolean;
+        empty?: string;
+        expand?: boolean;
+        prefix?: string;
+        separator?: string;
+        suffix?: string;
+    } = {}): string {
         const { added, changed, deleted } = this.getDiffStatus();
-        if (added === 0 && changed === 0 && deleted === 0) return options.empty || '';
+        if (added === 0 && changed === 0 && deleted === 0) return empty || '';
 
-        const { compact, expand, prefix = '', separator = ' ', suffix = '' } = options;
         if (expand) {
             let status = '';
             if (added) {

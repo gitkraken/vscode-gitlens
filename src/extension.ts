@@ -101,7 +101,37 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
     const previous = Versions.fromString(previousVersion);
 
     try {
-        if (Versions.compare(previous, Versions.from(9, 2, 2)) !== 1) {
+        if (Versions.compare(previous, Versions.from(9, 6, 3)) !== 1) {
+            const formatMigrationFn = (v: string) => {
+                if (v == null || v.length === 0) return v;
+
+                return (
+                    v
+                        // eslint-disable-next-line no-template-curly-in-string
+                        .replace(/\$\{authorAgo\}/g, '${author}, ${ago}')
+                        // eslint-disable-next-line no-template-curly-in-string
+                        .replace(/\$\{authorAgoOrDate\}/g, '${author}, ${agoOrDate}')
+                );
+            };
+
+            await Promise.all(
+                [
+                    configuration.name('blame')('format').value,
+                    configuration.name('currentLine')('format').value,
+                    configuration.name('hovers')('detailsMarkdownFormat').value,
+                    configuration.name('statusBar')('format').value,
+                    configuration.name('views')('commitFormat').value,
+                    configuration.name('views')('commitDescriptionFormat').value,
+                    configuration.name('views')('stashFormat').value,
+                    configuration.name('views')('stashDescriptionFormat').value
+                ].map(s =>
+                    configuration.migrate<string, string>(s, s, {
+                        migrationFn: formatMigrationFn
+                    })
+                )
+            );
+        }
+        else if (Versions.compare(previous, Versions.from(9, 2, 2)) !== 1) {
             await configuration.migrate('views.avatars', configuration.name('views')('compare')('avatars').value);
             await configuration.migrate('views.avatars', configuration.name('views')('repositories')('avatars').value);
             await configuration.migrate('views.avatars', configuration.name('views')('search')('avatars').value);

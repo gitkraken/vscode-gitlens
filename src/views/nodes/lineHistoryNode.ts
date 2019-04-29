@@ -73,9 +73,8 @@ export class LineHistoryNode extends SubscribeableViewNode {
                         commit.sha,
                         'You',
                         commit.email,
-                        commit.date,
-                        // TODO: Add committed date to blame?
-                        commit.date,
+                        commit.authorDate,
+                        commit.committerDate,
                         commit.message,
                         commit.fileName,
                         [file],

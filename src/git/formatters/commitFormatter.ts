@@ -48,26 +48,54 @@ export interface CommitFormatOptions extends FormatOptions {
 }
 
 export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
-    private get _ago() {
-        return this._item.fromNow();
+    private get _authorDate() {
+        return this._item.formatAuthorDate(this._options.dateFormat);
+    }
+
+    private get _authorDateAgo() {
+        return this._item.formatAuthorDateFromNow();
+    }
+
+    private get _authorDateOrAgo() {
+        const dateStyle =
+            this._options.dateStyle !== undefined ? this._options.dateStyle : Container.config.defaultDateStyle;
+        return dateStyle === DateStyle.Absolute ? this._authorDate : this._authorDateAgo;
+    }
+
+    private get _committerDate() {
+        return this._item.formatCommitterDate(this._options.dateFormat);
+    }
+
+    private get _committerDateAgo() {
+        return this._item.formatCommitterDateFromNow();
+    }
+
+    private get _committerDateOrAgo() {
+        const dateStyle =
+            this._options.dateStyle !== undefined ? this._options.dateStyle : Container.config.defaultDateStyle;
+        return dateStyle === DateStyle.Absolute ? this._committerDate : this._committerDateAgo;
     }
 
     private get _date() {
         return this._item.formatDate(this._options.dateFormat);
     }
 
-    private get _agoOrDate() {
+    private get _dateAgo() {
+        return this._item.formatDateFromNow();
+    }
+
+    private get _dateOrAgo() {
         const dateStyle =
             this._options.dateStyle !== undefined ? this._options.dateStyle : Container.config.defaultDateStyle;
-        return dateStyle === DateStyle.Absolute ? this._date : this._ago;
+        return dateStyle === DateStyle.Absolute ? this._date : this._dateAgo;
     }
 
     get ago() {
-        return this._padOrTruncate(this._ago, this._options.tokenOptions.ago);
+        return this._padOrTruncate(this._dateAgo, this._options.tokenOptions.ago);
     }
 
     get agoOrDate() {
-        return this._padOrTruncate(this._agoOrDate, this._options.tokenOptions.agoOrDate);
+        return this._padOrTruncate(this._dateOrAgo, this._options.tokenOptions.agoOrDate);
     }
 
     get author() {
@@ -75,13 +103,15 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
     }
 
     get authorAgo() {
-        const authorAgo = `${this._item.author}, ${this._ago}`;
-        return this._padOrTruncate(authorAgo, this._options.tokenOptions.authorAgo);
+        return this._padOrTruncate(this._authorDateAgo, this._options.tokenOptions.authorAgo);
     }
 
     get authorAgoOrDate() {
-        const authorAgo = `${this._item.author}, ${this._agoOrDate}`;
-        return this._padOrTruncate(authorAgo, this._options.tokenOptions.authorAgoOrDate);
+        return this._padOrTruncate(this._authorDateOrAgo, this._options.tokenOptions.authorAgoOrDate);
+    }
+
+    get authorDate() {
+        return this._padOrTruncate(this._authorDate, this._options.tokenOptions.date);
     }
 
     get avatar() {
@@ -156,6 +186,18 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
         )} "Show More Actions")`;
 
         return commands;
+    }
+
+    get committerAgo() {
+        return this._padOrTruncate(this._committerDateAgo, this._options.tokenOptions.ago);
+    }
+
+    get committerAgoOrDate() {
+        return this._padOrTruncate(this._committerDateOrAgo, this._options.tokenOptions.agoOrDate);
+    }
+
+    get committerDate() {
+        return this._padOrTruncate(this._committerDate, this._options.tokenOptions.date);
     }
 
     get date() {

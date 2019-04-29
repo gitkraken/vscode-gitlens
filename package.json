@@ -68,13 +68,13 @@
                 "gitlens.blame.dateFormat": {
                     "type": "string",
                     "default": null,
-                    "markdownDescription": "Specifies how to format absolute dates (using the `${date}` token) in gutter blame annotations. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats",
+                    "markdownDescription": "Specifies how to format absolute dates (e.g. using the `${date}` token) in gutter blame annotations. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats",
                     "scope": "window"
                 },
                 "gitlens.blame.format": {
                     "type": "string",
                     "default": "${message|40?} ${agoOrDate|14-}",
-                    "markdownDescription": "Specifies the format of the gutter blame annotations. See the [GitLens docs](https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting) for advanced formatting\n- Available tokens\n - `${id}` &mdash; commit id\n - `${author}` &mdash; commit author\n - `${email}` &mdash; commit author e-mail\n - `${message}` &mdash; commit message\n - `${ago}` &mdash; relative commit date (e.g. 1 day ago)\n - `${date}` &mdash; formatted commit date (format specified by `#gitlens.blame.dateFormat#`)\n - `${agoOrDate}` &mdash; commit date specified by `#gitlens.defaultDateStyle#`\n - `${authorAgo}` &mdash; commit author, relative commit date\n - `${authorAgoOrDate}` &mdash; commit author, commit date specified by `#gitlens.defaultDateStyle#`",
+                    "markdownDescription": "Specifies the format of the gutter blame annotations. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.blame.dateFormat#` setting",
                     "scope": "window"
                 },
                 "gitlens.blame.heatmap.enabled": {
@@ -386,7 +386,7 @@
                 "gitlens.currentLine.dateFormat": {
                     "type": "string",
                     "default": null,
-                    "markdownDescription": "Specifies how to format absolute dates (using the `${date}` token) for the current line blame annotation. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats",
+                    "markdownDescription": "Specifies how to format absolute dates (e.g. using the `${date}` token) for the current line blame annotation. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats",
                     "scope": "window"
                 },
                 "gitlens.currentLine.enabled": {
@@ -397,8 +397,8 @@
                 },
                 "gitlens.currentLine.format": {
                     "type": "string",
-                    "default": "${authorAgoOrDate} • ${message}",
-                    "markdownDescription": "Specifies the format of the current line blame annotation. See the [GitLens docs](https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting) for advanced formatting\n- Available tokens\n - `${id}` &mdash; commit id\n - `${author}` &mdash; commit author\n - `${email}` &mdash; commit author e-mail\n - `${message}` &mdash; commit message\n - `${ago}` &mdash; relative commit date (e.g. 1 day ago)\n - `${date}` &mdash; formatted commit date (format specified by `#gitlens.currentLine.dateFormat#`)\n - `${agoOrDate}` &mdash; commit date specified by `#gitlens.defaultDateStyle#`\n - `${authorAgo}` &mdash; commit author, relative commit date\n - `${authorAgoOrDate}` &mdash; commit author, commit date specified by `#gitlens.defaultDateStyle#`",
+                    "default": "${author}, ${agoOrDate} • ${message}",
+                    "markdownDescription": "Specifies the format of the current line blame annotation. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.currentLine.dateFormat#` setting",
                     "scope": "window"
                 },
                 "gitlens.currentLine.scrollable": {
@@ -425,6 +425,20 @@
                     "markdownDescription": "Specifies how short absolute dates will be formatted by default. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats",
                     "scope": "window"
                 },
+                "gitlens.defaultDateSource": {
+                    "type": "string",
+                    "default": "authored",
+                    "enum": [
+                        "authored",
+                        "committed"
+                    ],
+                    "enumDescriptions": [
+                        "Uses the date when the changes were authored (i.e. originally written)",
+                        "Uses the date when the changes were committed"
+                    ],
+                    "markdownDescription": "Specifies whether commit dates should use the authored or committed date",
+                    "scope": "window"
+                },
                 "gitlens.defaultDateStyle": {
                     "type": "string",
                     "default": "relative",
@@ -437,20 +451,6 @@
                         "e.g. July 25th, 2018 7:18pm"
                     ],
                     "markdownDescription": "Specifies how dates will be displayed by default",
-                    "scope": "window"
-                },
-                "gitlens.defaultDateType": {
-                    "type": "string",
-                    "default": "author",
-                    "enum": [
-                        "author",
-                        "committer"
-                    ],
-                    "enumDescriptions": [
-                        "The date that the commit was originally written",
-                        "The date that the commit was applied to the branch"
-                    ],
-                    "markdownDescription": "Specifies if dates should use author date or committer date",
                     "scope": "window"
                 },
                 "gitlens.defaultGravatarsStyle": {
@@ -594,7 +594,7 @@
                 "gitlens.hovers.detailsMarkdownFormat": {
                     "type": "string",
                     "default": "[${avatar} &nbsp;__${author}__](mailto:${email}), ${ago} &nbsp; _(${date})_ \n\n${message}\n\n${commands}",
-                    "markdownDescription": "Specifies the format (in markdown) of the _commit details_ hover. See the [GitLens docs](https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting) for advanced formatting\n- Available tokens\n - `${id}` &mdash; commit id\n - `${author}` &mdash; commit author\n - `${email}` &mdash; commit author e-mail\n - `${message}` &mdash; commit message\n - `${ago}` &mdash; relative commit date (e.g. 1 day ago)\n - `${date}` &mdash; formatted commit date (format specified by `#gitlens.defaultDateFormat#`)\n - `${agoOrDate}` &mdash; commit date specified by `#gitlens.defaultDateStyle#`\n - `${authorAgo}` &mdash; commit author, relative commit date\n - `${authorAgoOrDate}` &mdash; commit author, commit date specified by `#gitlens.defaultDateStyle#`\n - `${avatar}` &mdash; commit author avatar\n - `${commands}` &mdash; a set of commit commands",
+                    "markdownDescription": "Specifies the format (in markdown) of the _commit details_ hover. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
                     "scope": "window"
                 },
                 "gitlens.hovers.enabled": {
@@ -1238,7 +1238,7 @@
                 "gitlens.statusBar.dateFormat": {
                     "type": "string",
                     "default": null,
-                    "markdownDescription": "Specifies the date format of absolute dates shown in the blame information in the status bar. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats",
+                    "markdownDescription": "Specifies how to format absolute dates (e.g. using the `${date}` token) in the blame information in the status bar. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats",
                     "scope": "window"
                 },
                 "gitlens.statusBar.enabled": {
@@ -1249,8 +1249,8 @@
                 },
                 "gitlens.statusBar.format": {
                     "type": "string",
-                    "default": "${authorAgoOrDate}",
-                    "markdownDescription": "Specifies the format of the gutter blame annotations. See the [GitLens docs](https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting) for advanced formatting\n- Available tokens\n - `${id}` &mdash; commit id\n - `${author}` &mdash; commit author\n - `${email}` &mdash; commit author e-mail\n - `${message}` &mdash; commit message\n - `${ago}` &mdash; relative commit date (e.g. 1 day ago)\n - `${date}` &mdash; formatted commit date (format specified by `#gitlens.statusBar.dateFormat#`)\n - `${agoOrDate}` &mdash; commit date specified by `#gitlens.defaultDateStyle#`\n - `${authorAgo}` &mdash; commit author, relative commit date\n - `${authorAgoOrDate}` &mdash; commit author, commit date specified by `#gitlens.defaultDateStyle#`",
+                    "default": "${author}, ${agoOrDate}",
+                    "markdownDescription": "Specifies the format of the blame information in the status bar. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.statusBar.dateFormat#` setting",
                     "scope": "window"
                 },
                 "gitlens.statusBar.reduceFlicker": {
@@ -1280,25 +1280,25 @@
                 "gitlens.views.commitFileFormat": {
                     "type": "string",
                     "default": "${file}",
-                    "markdownDescription": "Specifies the format of a committed file in the views\n- Available tokens\n - `${directory}` &mdash; directory name\n - `${file}` &mdash; file name\n - `${filePath}` &mdash; formatted file name and path\n - `${originalPath}` &mdash; full file path of the original file if renamed\n - `${path}` &mdash; full file path",
+                    "markdownDescription": "Specifies the format of a committed file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
                     "scope": "window"
                 },
                 "gitlens.views.commitFileDescriptionFormat": {
                     "type": "string",
                     "default": "${directory}${  ←  originalPath}",
-                    "markdownDescription": "Specifies the description format of a committed file in the views\n- Available tokens\n - `${directory}` &mdash; directory name\n - `${file}` &mdash; file name\n - `${filePath}` &mdash; formatted file name and path\n - `${originalPath}` &mdash; full file path of the original file if renamed\n - `${path}` &mdash; full file path",
+                    "markdownDescription": "Specifies the description format of a committed file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
                     "scope": "window"
                 },
                 "gitlens.views.commitFormat": {
                     "type": "string",
                     "default": "${message}",
-                    "markdownDescription": "Specifies the format of committed changes in the views. See the [GitLens docs](https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting) for advanced formatting\n- Available tokens\n - `${id}` &mdash; commit id\n - `${author}` &mdash; commit author\n - `${email}` &mdash; commit author e-mail\n - `${message}` &mdash; commit message\n - `${ago}` &mdash; relative commit date (e.g. 1 day ago)\n - `${date}` &mdash; formatted commit date (format specified by `#gitlens.defaultDateFormat#`)\n - `${agoOrDate}` &mdash; commit date specified by `#gitlens.defaultDateStyle#`\n - `${authorAgo}` &mdash; commit author, relative commit date\n - `${authorAgoOrDate}` &mdash; commit author, commit date specified by `#gitlens.defaultDateStyle#`",
+                    "markdownDescription": "Specifies the format of committed changes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
                     "scope": "window"
                 },
                 "gitlens.views.commitDescriptionFormat": {
                     "type": "string",
-                    "default": "${changes  •  }${authorAgoOrDate}",
-                    "markdownDescription": "Specifies the description format of committed changes in the views. See the [GitLens docs](https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting) for advanced formatting\n- Available tokens\n - `${id}` &mdash; commit id\n - `${author}` &mdash; commit author\n - `${email}` &mdash; commit author e-mail\n - `${message}` &mdash; commit message\n - `${ago}` &mdash; relative commit date (e.g. 1 day ago)\n - `${date}` &mdash; formatted commit date (format specified by `#gitlens.defaultDateFormat#`)\n - `${agoOrDate}` &mdash; commit date specified by `#gitlens.defaultDateStyle#`\n - `${authorAgo}` &mdash; commit author, relative commit date\n - `${authorAgoOrDate}` &mdash; commit author, commit date specified by `#gitlens.defaultDateStyle#`",
+                    "default": "${changes  •  }${author}, ${agoOrDate}",
+                    "markdownDescription": "Specifies the description format of committed changes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
                     "scope": "window"
                 },
                 "gitlens.views.compare.avatars": {
@@ -1590,37 +1590,37 @@
                 "gitlens.views.stashFileFormat": {
                     "type": "string",
                     "default": "${file}",
-                    "markdownDescription": "Specifies the format of a stashed file in the views\n- Available tokens\n - `${directory}` &mdash; directory name\n - `${file}` &mdash; file name\n - `${filePath}` &mdash; formatted file name and path\n - `${originalPath}` &mdash; full file path of the original file if renamed\n - `${path}` &mdash; full file path",
+                    "markdownDescription": "Specifies the format of a stashed file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
                     "scope": "window"
                 },
                 "gitlens.views.stashFileDescriptionFormat": {
                     "type": "string",
                     "default": "${directory}${  ←  originalPath}",
-                    "markdownDescription": "Specifies the description format of a stashed file in the views\n- Available tokens\n - `${directory}` &mdash; directory name\n - `${file}` &mdash; file name\n - `${filePath}` &mdash; formatted file name and path\n - `${originalPath}` &mdash; full file path of the original file if renamed\n - `${path}` &mdash; full file path",
+                    "markdownDescription": "Specifies the description format of a stashed file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
                     "scope": "window"
                 },
                 "gitlens.views.stashFormat": {
                     "type": "string",
                     "default": "${message}",
-                    "markdownDescription": "Specifies the format of stashed changes in the views. See the [GitLens docs](https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting) for advanced formatting\n- Available tokens\n - `${id}` &mdash; commit id\n - `${author}` &mdash; commit author\n - `${email}` &mdash; commit author e-mail\n - `${message}` &mdash; commit message\n - `${ago}` &mdash; relative commit date (e.g. 1 day ago)\n - `${date}` &mdash; formatted commit date (format specified by `#gitlens.defaultDateFormat#`)\n - `${agoOrDate}` &mdash; commit date specified by `#gitlens.defaultDateStyle#`\n - `${authorAgo}` &mdash; commit author, relative commit date\n - `${authorAgoOrDate}` &mdash; commit author, commit date specified by `#gitlens.defaultDateStyle#`",
+                    "markdownDescription": "Specifies the format of stashed changes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
                     "scope": "window"
                 },
                 "gitlens.views.stashDescriptionFormat": {
                     "type": "string",
                     "default": "${changes  •  }${agoOrDate}",
-                    "markdownDescription": "Specifies the description format of stashed changes in the views. See the [GitLens docs](https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting) for advanced formatting\n- Available tokens\n - `${id}` &mdash; commit id\n - `${author}` &mdash; commit author\n - `${email}` &mdash; commit author e-mail\n - `${message}` &mdash; commit message\n - `${ago}` &mdash; relative commit date (e.g. 1 day ago)\n - `${date}` &mdash; formatted commit date (format specified by `#gitlens.defaultDateFormat#`)\n - `${agoOrDate}` &mdash; commit date specified by `#gitlens.defaultDateStyle#`\n - `${authorAgo}` &mdash; commit author, relative commit date\n - `${authorAgoOrDate}` &mdash; commit author, commit date specified by `#gitlens.defaultDateStyle#`",
+                    "markdownDescription": "Specifies the description format of stashed changes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
                     "scope": "window"
                 },
                 "gitlens.views.statusFileFormat": {
                     "type": "string",
                     "default": "${working  }${file}",
-                    "markdownDescription": "Specifies the format of the status of a working or committed file in the views\n- Available tokens\n - `${directory}` &mdash; directory name\n - `${file}` &mdash; file name\n - `${filePath}` &mdash; formatted file name and path\n - `${originalPath}` &mdash; full file path of the original file if renamed\n - `${path}` &mdash; full file path\n - `${working}` &mdash; optional indicator if the file is uncommitted",
+                    "markdownDescription": "Specifies the format of the status of a working or committed file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
                     "scope": "window"
                 },
                 "gitlens.views.statusFileDescriptionFormat": {
                     "type": "string",
                     "default": "${directory}${  ←  originalPath}",
-                    "markdownDescription": "Specifies the description format of the status of a working or committed file in the views\n- Available tokens\n - `${directory}` &mdash; directory name\n - `${file}` &mdash; file name\n - `${filePath}` &mdash; formatted file name and path\n - `${originalPath}` &mdash; full file path of the original file if renamed\n - `${path}` &mdash; full file path\n - `${working}` &mdash; optional indicator if the file is uncommitted",
+                    "markdownDescription": "Specifies the description format of the status of a working or committed file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
                     "scope": "window"
                 },
                 "gitlens.advanced.abbreviatedShaLength": {
