@@ -1668,6 +1668,12 @@
                     "markdownDescription": "Specifies the maximum number of items to show in a list. Use 0 to specify no maximum",
                     "scope": "window"
                 },
+                "gitlens.advanced.maxSearchItems": {
+                    "type": "number",
+                    "default": 200,
+                    "markdownDescription": "Specifies the maximum number of items to show in a search. Use 0 to specify no maximum",
+                    "scope": "window"
+                },
                 "gitlens.advanced.messages": {
                     "type": "object",
                     "default": {

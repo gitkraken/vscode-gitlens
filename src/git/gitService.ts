@@ -1441,7 +1441,7 @@ export class GitService implements Disposable {
         searchBy: GitRepoSearchBy,
         options: { maxCount?: number } = {}
     ): Promise<GitLog | undefined> {
-        let maxCount = options.maxCount == null ? Container.config.advanced.maxListItems || 0 : options.maxCount;
+        let maxCount = options.maxCount == null ? Container.config.advanced.maxSearchItems || 0 : options.maxCount;
         const similarityThreshold = Container.config.advanced.similarityThreshold;
 
         let searchArgs: string[] | undefined = undefined;

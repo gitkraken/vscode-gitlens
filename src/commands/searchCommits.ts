@@ -39,7 +39,6 @@ const searchByToSymbolMap = new Map<GitRepoSearchBy, string>([
 export interface SearchCommitsCommandArgs {
     search?: string;
     searchBy?: GitRepoSearchBy;
-    maxCount?: number;
     prefillOnly?: boolean;
     showInView?: boolean;
 
@@ -177,7 +176,6 @@ export class SearchCommitsCommand extends ActiveEditorCachedCommand {
 
         if (args.showInView) {
             void Container.searchView.search(repoPath, args.search, args.searchBy, {
-                maxCount: args.maxCount,
                 label: { label: searchLabel! }
             });
 
@@ -186,9 +184,7 @@ export class SearchCommitsCommand extends ActiveEditorCachedCommand {
 
         const progressCancellation = CommitsQuickPick.showProgress(searchLabel!);
         try {
-            const log = await Container.git.getLogForSearch(repoPath, args.search, args.searchBy, {
-                maxCount: args.maxCount
-            });
+            const log = await Container.git.getLogForSearch(repoPath, args.search, args.searchBy);
 
             if (progressCancellation.token.isCancellationRequested) return undefined;
 

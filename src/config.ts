@@ -205,6 +205,7 @@ export interface AdvancedConfig {
     };
     fileHistoryFollowsRenames: boolean;
     maxListItems: number;
+    maxSearchItems: number;
     messages: {
         suppressCommitHasNoPreviousCommitWarning: boolean;
         suppressCommitNotFoundWarning: boolean;

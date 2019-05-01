@@ -848,6 +848,7 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 | `gitlens.advanced.caching.enabled`              | Specifies whether git output will be cached &mdash; changing the default is not recommended                                           |
 | `gitlens.advanced.fileHistoryFollowsRenames`    | Specifies whether file histories will follow renames -- will affect how merge commits are shown in histories                          |
 | `gitlens.advanced.maxListItems`                 | Specifies the maximum number of items to show in a list. Use 0 to specify no maximum                                                  |
+| `gitlens.advanced.maxSearchItems`               | Specifies the maximum number of items to show in a search. Use 0 to specify no maximum                                                |
 | `gitlens.advanced.messages`                     | Specifies which messages should be suppressed                                                                                         |
 | `gitlens.advanced.quickPick.closeOnFocusOut`    | Specifies whether to close QuickPick menus when focus is lost                                                                         |
 | `gitlens.advanced.repositorySearchDepth`        | Specifies how many folders deep to search for repositories                                                                            |
