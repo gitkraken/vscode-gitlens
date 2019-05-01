@@ -55,7 +55,7 @@ export class LineHoverController implements Disposable {
     }
 
     private onActiveLinesChanged(e: LinesChangeEvent) {
-        if (e.pending || e.reason !== 'editor') return;
+        if (e.pending) return;
 
         if (e.editor === undefined || e.lines === undefined) {
             this.unregister();
@@ -63,7 +63,13 @@ export class LineHoverController implements Disposable {
             return;
         }
 
+        if (e.reason !== 'editor' && this.registered) return;
+
         this.register(e.editor);
+    }
+
+    get registered() {
+        return this._hoverProviderDisposable !== undefined;
     }
 
     async provideDetailsHover(
