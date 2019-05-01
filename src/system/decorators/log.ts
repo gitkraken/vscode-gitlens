@@ -190,7 +190,7 @@ export function log<T extends (...arg: any) => any>(
                 }
             }
 
-            if (options.timed || options.exit != null) {
+            if (options.singleLine || options.timed || options.exit != null) {
                 const start = options.timed ? process.hrtime() : undefined;
 
                 const logError = (ex: Error) => {

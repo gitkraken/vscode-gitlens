@@ -4,6 +4,8 @@ import { configuration } from '../configuration';
 import { Container } from '../container';
 import { ModesQuickPick } from '../quickpicks';
 import { command, Command, Commands } from './common';
+import { log } from '../system/decorators/log';
+import { Logger } from '../logger';
 
 @command()
 export class SwitchModeCommand extends Command {
@@ -11,9 +13,16 @@ export class SwitchModeCommand extends Command {
         super(Commands.SwitchMode);
     }
 
+    @log({ args: false, correlate: true, singleLine: true, timed: false })
     async execute() {
+        const cc = Logger.getCorrelationContext();
+
         const pick = await ModesQuickPick.show();
         if (pick === undefined) return;
+
+        if (cc) {
+            cc.exitDetails = ` \u2014 mode=${pick.key || ''}`;
+        }
 
         const active = Container.config.mode.active;
         if (active === pick.key) return;
@@ -39,6 +48,7 @@ export class ToggleReviewModeCommand extends Command {
         super(Commands.ToggleReviewMode);
     }
 
+    @log({ args: false, singleLine: true, timed: false })
     async execute() {
         if (!Object.keys(Container.config.modes).includes('review')) return;
 
@@ -53,6 +63,7 @@ export class ToggleZenModeCommand extends Command {
         super(Commands.ToggleZenMode);
     }
 
+    @log({ args: false, singleLine: true, timed: false })
     async execute() {
         if (!Object.keys(Container.config.modes).includes('zen')) return;
 

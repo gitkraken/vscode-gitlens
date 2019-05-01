@@ -256,7 +256,7 @@ export class Logger {
         }
 
         const loggableParams = params.map(p => this.toLoggable(p)).join(', ');
-        return ` \u2014 ${loggableParams}` || emptyStr;
+        return loggableParams.length !== 0 ? ` \u2014 ${loggableParams}` : emptyStr;
     }
 
     private static _isDebugging: boolean | undefined;

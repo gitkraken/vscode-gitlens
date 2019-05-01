@@ -36,7 +36,7 @@ export async function activate(context: ExtensionContext) {
 
     const enabled = workspace.getConfiguration('git', null!).get<boolean>('enabled', true);
     if (!enabled) {
-        Logger.log(`GitLens(v${gitlensVersion}) was NOT activated -- "git.enabled": false`);
+        Logger.log(`GitLens (v${gitlensVersion}) was NOT activated -- "git.enabled": false`);
         setCommandContext(CommandContext.Enabled, false);
 
         void Messages.showGitDisabledErrorMessage();
@@ -55,7 +55,7 @@ export async function activate(context: ExtensionContext) {
         await GitService.initialize();
     }
     catch (ex) {
-        Logger.error(ex, `GitLens(v${gitlensVersion}).activate`);
+        Logger.error(ex, `GitLens (v${gitlensVersion}) activate`);
         setCommandContext(CommandContext.Enabled, false);
 
         if (ex.message.includes('Unable to find git')) {
@@ -88,7 +88,11 @@ export async function activate(context: ExtensionContext) {
     // Constantly over my data cap so stop collecting initialized event
     // Telemetry.trackEvent('initialized', Objects.flatten(cfg, 'config', true));
 
-    Logger.log(`GitLens(v${gitlensVersion}) activated ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
+    Logger.log(
+        `GitLens (v${gitlensVersion}${cfg.mode.active ? `, mode: ${cfg.mode.active}` : ''}) activated ${
+            GlyphChars.Dot
+        } ${Strings.getDurationMilliseconds(start)} ms`
+    );
 }
 
 export function deactivate() {
