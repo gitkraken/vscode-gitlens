@@ -64,6 +64,7 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
                             hoverMessage: Annotations.getHoverMessage(
                                 commit,
                                 dateFormat,
+                                await Container.vsls.getContactPresence(commit.email),
                                 await Container.git.getRemotes(commit.repoPath),
                                 this.annotationType,
                                 count

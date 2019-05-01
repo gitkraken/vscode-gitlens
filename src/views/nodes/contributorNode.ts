@@ -8,6 +8,7 @@ import { Container } from '../../container';
 import { MessageNode, ShowMoreNode } from './common';
 import { getBranchesAndTagTipsFn, insertDateMarkers } from './helpers';
 import { CommitNode } from './commitNode';
+import { GlyphChars } from '../../constants';
 
 export class ContributorNode extends ViewNode<RepositoriesView> implements PageableViewNode {
     readonly supportsPaging: boolean = true;
@@ -47,15 +48,20 @@ export class ContributorNode extends ViewNode<RepositoriesView> implements Pagea
         return children;
     }
 
-    getTreeItem(): TreeItem {
+    async getTreeItem(): Promise<TreeItem> {
+        const presence = await Container.vsls.getContactPresence(this.contributor.email);
+
         const item = new TreeItem(this.contributor.name, TreeItemCollapsibleState.Collapsed);
         item.id = this.id;
         item.contextValue = ResourceType.Contributor;
-        item.description = this.contributor.email;
-        item.tooltip = `${this.contributor.name} <${this.contributor.email}>\n${Strings.pluralize(
-            'commit',
-            this.contributor.count
-        )}`;
+        item.description = `${
+            presence != null && presence.status !== 'offline'
+                ? `${presence.statusText} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} `
+                : ''
+        }${this.contributor.email}`;
+        item.tooltip = `${this.contributor.name}${presence != null ? ` (${presence.statusText})` : ''}\n${
+            this.contributor.email
+        }\n${Strings.pluralize('commit', this.contributor.count)}`;
 
         if (this.view.config.avatars) {
             item.iconPath = this.contributor.getGravatarUri(Container.config.defaultGravatarsStyle);

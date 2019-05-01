@@ -16,7 +16,7 @@ import {
 } from 'vscode';
 import { BuiltInCommands, DocumentSchemes, ImageMimetypes } from '../constants';
 import { Container } from '../container';
-import { GitBranch, GitCommit, GitFile, GitRemote, GitUri, Repository } from '../git/gitService';
+import { GitBranch, GitCommit, GitContributor, GitFile, GitRemote, GitUri, Repository } from '../git/gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, RepositoriesQuickPick } from '../quickpicks';
 // import { Telemetry } from '../telemetry';
@@ -53,6 +53,7 @@ export enum Commands {
     DiffLineWithWorking = 'gitlens.diffLineWithWorking',
     ExternalDiff = 'gitlens.externalDiff',
     FetchRepositories = 'gitlens.fetchRepositories',
+    InviteToLiveShare = 'gitlens.inviteToLiveShare',
     OpenChangedFiles = 'gitlens.openChangedFiles',
     OpenBranchesInRemote = 'gitlens.openBranchesInRemote',
     OpenBranchInRemote = 'gitlens.openBranchInRemote',
@@ -242,6 +243,14 @@ export function isCommandViewContextWithCommit<T extends GitCommit>(
     if (context.type !== 'viewItem') return false;
 
     return (context.node as ViewNode & { commit: GitCommit }).commit instanceof GitCommit;
+}
+
+export function isCommandViewContextWithContributor(
+    context: CommandContext
+): context is CommandViewItemContext & { node: ViewNode & { contributor: GitContributor } } {
+    if (context.type !== 'viewItem') return false;
+
+    return (context.node as ViewNode & { contributor: GitContributor }).contributor instanceof GitContributor;
 }
 
 export function isCommandViewContextWithFile(

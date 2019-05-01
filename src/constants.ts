@@ -42,7 +42,8 @@ export enum CommandContext {
     ViewsFileHistoryEditorFollowing = 'gitlens:views:fileHistory:editorFollowing',
     ViewsLineHistoryEditorFollowing = 'gitlens:views:lineHistory:editorFollowing',
     ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',
-    ViewsSearchKeepResults = 'gitlens:views:search:keepResults'
+    ViewsSearchKeepResults = 'gitlens:views:search:keepResults',
+    Vsls = 'gitlens:vsls'
 }
 
 export function setCommandContext(key: CommandContext | string, value: any) {
@@ -101,9 +102,13 @@ export enum GlyphChars {
     Dot = '\u2022',
     Ellipsis = '\u2026',
     EnDash = '\u2013',
+    Envelope = '\u2709',
+    EqualsTriple = '\u2261',
+    Flag = '\u2691',
+    FlagHollow = '\u2690',
     MiddleEllipsis = '\u22EF',
-    MuchGreaterThan = '\u226A',
-    MuchLessThan = '\u22D8',
+    MuchLessThan = '\u226A',
+    MuchGreaterThan = '\u226B',
     Pencil = '\u270E',
     Space = '\u00a0',
     SpaceThin = '\u2009',

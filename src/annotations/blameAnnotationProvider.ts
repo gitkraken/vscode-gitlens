@@ -41,7 +41,10 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
     }
 
     clear() {
-        this._hoverProviderDisposable && this._hoverProviderDisposable.dispose();
+        if (this._hoverProviderDisposable !== undefined) {
+            this._hoverProviderDisposable.dispose();
+            this._hoverProviderDisposable = undefined;
+        }
         super.clear();
     }
 
@@ -234,6 +237,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         const message = Annotations.getHoverMessage(
             logCommit || commit,
             Container.config.defaultDateFormat,
+            await Container.vsls.getContactPresence(commit.email),
             await Container.git.getRemotes(commit.repoPath),
             this.annotationType,
             editorLine

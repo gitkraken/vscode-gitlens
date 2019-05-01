@@ -23,6 +23,7 @@ import {
 } from '../git/gitService';
 import { Objects, Strings } from '../system';
 import { toRgba } from '../webviews/apps/shared/colors';
+import { ContactPresence } from '../vsls/vsls';
 
 export interface ComputedHeatmap {
     cold: boolean;
@@ -85,6 +86,7 @@ export class Annotations {
     static getHoverMessage(
         commit: GitCommit,
         dateFormat: string | null,
+        presence: ContactPresence | undefined,
         remotes: GitRemote[],
         annotationType?: FileAnnotationType,
         line: number = 0
@@ -99,6 +101,7 @@ export class Annotations {
                 dateFormat: dateFormat,
                 line: line,
                 markdown: true,
+                presence: presence,
                 remotes: remotes
             })
         );

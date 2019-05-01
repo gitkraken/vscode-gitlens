@@ -10,6 +10,12 @@ import { VslsHostService } from './host';
 export const vslsUriPrefixRegex = /^[/|\\]~(?:\d+?|external)(?:[/|\\]|$)/;
 export const vslsUriRootRegex = /^[/|\\]~(?:\d+?|external)$/;
 
+export interface ContactPresence {
+    status: ContactPresenceStatus;
+    statusText: string;
+}
+export type ContactPresenceStatus = 'online' | 'away' | 'busy' | 'dnd' | 'offline';
+
 export class VslsController implements Disposable {
     private _disposable: Disposable | undefined;
     private _guest: VslsGuestService | undefined;
@@ -17,6 +23,8 @@ export class VslsController implements Disposable {
 
     private _onReady: (() => void) | undefined;
     private _waitForReady: Promise<void> | undefined;
+
+    private _api: Promise<LiveShare | null> | undefined;
 
     constructor() {
         void this.initialize();
@@ -44,15 +52,20 @@ export class VslsController implements Disposable {
                 this._waitForReady = new Promise(resolve => (this._onReady = resolve));
             }
 
-            const api = await getApi();
+            this._api = getApi();
+            const api = await this._api;
             if (api == null) {
+                setCommandContext(CommandContext.Vsls, false);
                 // Tear it down if we can't talk to live share
                 if (this._onReady !== undefined) {
                     this._onReady();
                     this._waitForReady = undefined;
                 }
+
                 return;
             }
+
+            setCommandContext(CommandContext.Vsls, true);
 
             this._disposable = Disposable.from(
                 api.onDidChangeSession(e => this.onLiveShareSessionChanged(api, e), this)
@@ -65,6 +78,50 @@ export class VslsController implements Disposable {
 
     get isMaybeGuest() {
         return this._guest !== undefined || this._waitForReady !== undefined;
+    }
+
+    async getContact(email: string | undefined) {
+        if (email === undefined) return undefined;
+
+        const api = await this._api;
+        if (api == null) return undefined;
+
+        const contacts = await api.getContacts([email]);
+        return contacts.contacts[email];
+    }
+
+    async getContactPresence(email: string | undefined): Promise<ContactPresence | undefined> {
+        const contact = await this.getContact(email);
+        if (contact == null) return undefined;
+
+        switch (contact.status) {
+            case 'available':
+                return { status: 'online', statusText: 'Available' };
+            case 'away':
+                return { status: 'away', statusText: 'Away' };
+            case 'busy':
+                return { status: 'busy', statusText: 'Busy' };
+            case 'doNotDisturb':
+                return { status: 'dnd', statusText: 'DND' };
+            default:
+                return { status: 'offline', statusText: 'Offline' };
+        }
+    }
+
+    async invite(email: string | undefined) {
+        if (email == null) return undefined;
+
+        const contact = await this.getContact(email);
+        if (contact == null) return undefined;
+
+        return contact.invite();
+    }
+
+    async startSession() {
+        const api = await this._api;
+        if (api == null) return undefined;
+
+        return api.share();
     }
 
     async guest() {
@@ -92,17 +149,20 @@ export class VslsController implements Disposable {
         switch (e.session.role) {
             case Role.Host:
                 setCommandContext(CommandContext.Readonly, undefined);
+                setCommandContext(CommandContext.Vsls, 'host');
                 if (Container.config.liveshare.allowGuestAccess) {
                     this._host = await VslsHostService.share(api);
                 }
                 break;
             case Role.Guest:
                 setCommandContext(CommandContext.Readonly, true);
+                setCommandContext(CommandContext.Vsls, 'guest');
                 this._guest = await VslsGuestService.connect(api);
                 break;
 
             default:
                 setCommandContext(CommandContext.Readonly, undefined);
+                setCommandContext(CommandContext.Vsls, true);
                 break;
         }
 

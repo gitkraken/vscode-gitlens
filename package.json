@@ -593,7 +593,7 @@
                 },
                 "gitlens.hovers.detailsMarkdownFormat": {
                     "type": "string",
-                    "default": "[${avatar} &nbsp;__${author}__](mailto:${email}), ${ago} &nbsp; _(${date})_ \n\n${message}\n\n${commands}",
+                    "default": "${avatar} &nbsp;__${author}__, ${ago} &nbsp; _(${date})_ \n\n${message}\n\n${commands}",
                     "markdownDescription": "Specifies the format (in markdown) of the _commit details_ hover. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
                     "scope": "window"
                 },
@@ -2291,6 +2291,15 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.inviteToLiveShare",
+                "title": "Invite to Live Share",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-vsls.svg",
+                    "light": "images/light/icon-vsls.svg"
+                }
+            },
+            {
                 "command": "gitlens.views.exploreRepoRevision",
                 "title": "Explore Repository from Here",
                 "category": "GitLens"
@@ -3217,6 +3226,10 @@
                 {
                     "command": "gitlens.resetSuppressedWarnings",
                     "when": "gitlens:enabled"
+                },
+                {
+                    "command": "gitlens.inviteToLiveShare",
+                    "when": "false"
                 },
                 {
                     "command": "gitlens.views.exploreRepoRevision",
@@ -4256,14 +4269,24 @@
                     "group": "8_gitlens_@1"
                 },
                 {
+                    "command": "gitlens.inviteToLiveShare",
+                    "when": "gitlens:vsls && gitlens:vsls != guest && viewItem =~ /gitlens:contributor\\b/",
+                    "group": "inline@97"
+                },
+                {
                     "command": "gitlens.views.contributor.copyToClipboard",
                     "when": "viewItem =~ /gitlens:contributor\\b/",
                     "group": "inline@98"
                 },
                 {
+                    "command": "gitlens.inviteToLiveShare",
+                    "when": "gitlens:vsls && gitlens:vsls != guest && viewItem =~ /gitlens:contributor\\b/",
+                    "group": "1_gitlens@1"
+                },
+                {
                     "command": "gitlens.views.contributor.copyToClipboard",
                     "when": "viewItem =~ /gitlens:contributor\\b/",
-                    "group": "1_gitlens@1"
+                    "group": "1_gitlens_1@1"
                 },
                 {
                     "command": "gitlens.views.contributor.addCoauthoredBy",

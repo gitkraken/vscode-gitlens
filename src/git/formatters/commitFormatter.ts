@@ -1,6 +1,7 @@
 'use strict';
 import {
     DiffWithCommand,
+    InviteToLiveShareCommand,
     OpenCommitInRemoteCommand,
     OpenFileRevisionCommand,
     ShowQuickCommitDetailsCommand,
@@ -15,6 +16,7 @@ import { GitCommit, GitCommitType } from '../models/commit';
 import { GitLogCommit, GitRemote } from '../models/models';
 import { FormatOptions, Formatter } from './formatter';
 import * as emojis from '../../emojis.json';
+import { ContactPresence } from '../../vsls/vsls';
 
 const emptyStr = '';
 const emojiMap: { [key: string]: string } = emojis;
@@ -29,6 +31,7 @@ export interface CommitFormatOptions extends FormatOptions {
     dateStyle?: DateStyle;
     line?: number;
     markdown?: boolean;
+    presence?: ContactPresence;
     remotes?: GitRemote[];
     truncateMessageAtNewLine?: boolean;
 
@@ -99,7 +102,12 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
     }
 
     get author() {
-        return this._padOrTruncate(this._item.author, this._options.tokenOptions.author);
+        const author = this._padOrTruncate(this._item.author, this._options.tokenOptions.author);
+        if (!this._options.markdown) {
+            return author;
+        }
+
+        return `[${author}](mailto:${this._item.email} "Email ${this._item.author} (${this._item.email})")`;
     }
 
     get authorAgo() {
@@ -119,7 +127,21 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
             return emptyStr;
         }
 
-        return `![](${this._item.getGravatarUri(Container.config.defaultGravatarsStyle).toString(true)})`;
+        let avatar = `![](${this._item.getGravatarUri(Container.config.defaultGravatarsStyle).toString(true)})`;
+
+        const presence = this._options.presence;
+        if (presence != null) {
+            const title = `${this._item.author} ${this._item.author === 'You' ? 'are' : 'is'} ${
+                presence.status === 'dnd' ? 'in ' : ''
+            }${presence.statusText.toLocaleLowerCase()}`;
+
+            avatar += `![${title}](${encodeURI(
+                `file:///${Container.context.asAbsolutePath(`images/dark/icon-presence-${presence.status}.svg`)}`
+            )})`;
+            avatar = `[${avatar}](# "${title}")`;
+        }
+
+        return avatar;
     }
 
     get changes() {
@@ -152,10 +174,12 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
         let commands = `[\`${this.id}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
             this._item.sha
-        )} "Show Commit Details") [\`${GlyphChars.MuchGreaterThan}\`](${DiffWithCommand.getMarkdownCommandArgs(
+        )} "Show Commit Details") `;
+
+        commands += `**[\`${GlyphChars.MuchLessThan}\`](${DiffWithCommand.getMarkdownCommandArgs(
             this._item,
             this._options.line
-        )} "Open Changes") `;
+        )} "Open Changes")** `;
 
         if (this._item.previousSha !== undefined) {
             let annotationType = this._options.annotationType;
@@ -168,17 +192,26 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
                 this._item.previousUri.fsPath,
                 this._item.repoPath
             );
-            commands += `[\`${GlyphChars.SquareWithTopShadow}\`](${OpenFileRevisionCommand.getMarkdownCommandArgs(
+            commands += `**[\` ${GlyphChars.EqualsTriple} \`](${OpenFileRevisionCommand.getMarkdownCommandArgs(
                 uri,
                 annotationType || FileAnnotationType.Blame,
                 this._options.line
-            )} "Blame Previous Revision") `;
+            )} "Blame Previous Revision")** `;
         }
 
         if (this._options.remotes !== undefined && this._options.remotes.length !== 0) {
-            commands += `[\`${GlyphChars.ArrowUpRight}\`](${OpenCommitInRemoteCommand.getMarkdownCommandArgs(
+            commands += `**[\` ${GlyphChars.ArrowUpRight} \`](${OpenCommitInRemoteCommand.getMarkdownCommandArgs(
                 this._item.sha
-            )} "Open in Remote") `;
+            )} "Open in Remote")** `;
+        }
+
+        if (this._item.author !== 'You') {
+            const presence = this._options.presence;
+            if (presence != null) {
+                commands += `[\` ${GlyphChars.Envelope}+ \`](${InviteToLiveShareCommand.getMarkdownCommandArgs(
+                    this._item.email
+                )} "Invite ${this._item.author} (${presence.statusText}) to a Live Share Session") `;
+            }
         }
 
         commands += `[\`${GlyphChars.MiddleEllipsis}\`](${ShowQuickCommitFileDetailsCommand.getMarkdownCommandArgs(

@@ -118,6 +118,7 @@ export class LineHoverController implements Disposable {
         const message = Annotations.getHoverMessage(
             logCommit || commit,
             Container.config.defaultDateFormat,
+            await Container.vsls.getContactPresence(commit.email),
             await Container.git.getRemotes(commit.repoPath),
             fileAnnotations,
             editorLine
