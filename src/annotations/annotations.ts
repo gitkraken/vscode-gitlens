@@ -184,14 +184,15 @@ export class Annotations {
         const line = editorLine + 1;
         const commitLine = commit.lines.find(l => l.line === line) || commit.lines[0];
 
+        let originalFileName = commit.originalFileName;
+        if (originalFileName === undefined) {
+            if (uri.fsPath !== commit.uri.fsPath) {
+                originalFileName = commit.fileName;
+            }
+        }
+
         const commitEditorLine = commitLine.originalLine - 1;
-        const hunkLine = await Container.git.getDiffForLine(
-            uri,
-            commitEditorLine,
-            ref,
-            undefined,
-            commit.originalFileName
-        );
+        const hunkLine = await Container.git.getDiffForLine(uri, commitEditorLine, ref, undefined, originalFileName);
         const message = this.getHoverDiffMessage(commit, uri, hunkLine, commitEditorLine);
 
         return {
