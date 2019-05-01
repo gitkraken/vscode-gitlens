@@ -70,7 +70,7 @@ export class ResultsFilesNode extends ViewNode<ViewWithFiles> {
         if (this._querying) {
             // Need to use Collapsed before we have results or the item won't show up in the view until the children are awaited
             state = TreeItemCollapsibleState.Collapsed;
-            label = '? files changed';
+            label = 'files changed';
 
             this.getFilesQueryResults().then(_ => {
                 this._querying = false;

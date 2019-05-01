@@ -124,7 +124,7 @@ export class SearchView extends ViewBase<SearchNode> {
                 repoPath,
                 search,
                 searchBy,
-                `Searching for ${typeof options.label === 'string' ? options.label : options.label.label}`,
+                `results for ${typeof options.label === 'string' ? options.label : options.label.label}`,
                 searchQueryFn,
                 true
             )

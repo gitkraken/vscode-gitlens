@@ -47,7 +47,7 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
                     this.view,
                     this,
                     this.uri.repoPath!,
-                    '? commits',
+                    'commits',
                     this.getCommitsQuery.bind(this),
                     true,
                     false
