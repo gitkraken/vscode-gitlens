@@ -4,11 +4,11 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
 import { Container } from '../../container';
 import { GitFile, GitUri } from '../../git/gitService';
-import { Arrays, Iterables, Strings } from '../../system';
+import { Arrays, debug, gate, Iterables, Strings } from '../../system';
 import { ViewWithFiles } from '../viewBase';
 import { FileNode, FolderNode } from './folderNode';
 import { ResultsFileNode } from './resultsFileNode';
-import { ResourceType, ViewNode } from './viewNode';
+import { getNextId, ResourceType, ViewNode } from './viewNode';
 
 export interface FilesQueryResults {
     label: string;
@@ -16,6 +16,9 @@ export interface FilesQueryResults {
 }
 
 export class ResultsFilesNode extends ViewNode<ViewWithFiles> {
+    // Generate a unique id so the node order is preserved, since we update the label when the query completes
+    private readonly _uniqueId: number = getNextId('ResultsFilesNode');
+
     constructor(
         view: ViewWithFiles,
         parent: ViewNode,
@@ -24,6 +27,10 @@ export class ResultsFilesNode extends ViewNode<ViewWithFiles> {
         private readonly _ref2: string
     ) {
         super(GitUri.fromRepoPath(repoPath), view, parent);
+    }
+
+    get id(): string {
+        return `${this._uniqueId}|${this._instanceId}:gitlens:results:files(${this.repoPath})`;
     }
 
     async getChildren(): Promise<ViewNode[]> {
@@ -57,21 +64,45 @@ export class ResultsFilesNode extends ViewNode<ViewWithFiles> {
     }
 
     async getTreeItem(): Promise<TreeItem> {
-        const { diff, label } = await this.getFilesQueryResults();
+        let state;
+        let label;
+        let diff;
+        if (this._querying) {
+            // Need to use Collapsed before we have results or the item won't show up in the view until the children are awaited
+            state = TreeItemCollapsibleState.Collapsed;
+            label = '? files changed';
 
-        const item = new TreeItem(
-            label,
-            diff && diff.length > 0 ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.None
-        );
+            this.getFilesQueryResults().then(_ => {
+                this._querying = false;
+                this.triggerChange(false);
+            });
+        }
+        else {
+            ({ label, diff } = await this.getFilesQueryResults());
+
+            state = TreeItemCollapsibleState.Expanded;
+            if (diff == null || diff.length === 0) {
+                state = TreeItemCollapsibleState.None;
+            }
+        }
+
+        const item = new TreeItem(label, state);
         item.contextValue = ResourceType.ResultsFiles;
+        item.id = this.id;
+
         return item;
     }
 
-    refresh() {
+    @gate()
+    @debug()
+    refresh(reset: boolean = false) {
+        if (!reset) return;
+
         this._filesQueryResults = this.getFilesQueryResultsCore();
     }
 
     private _filesQueryResults: Promise<FilesQueryResults> | undefined;
+    private _querying = true;
 
     private getFilesQueryResults() {
         if (this._filesQueryResults === undefined) {

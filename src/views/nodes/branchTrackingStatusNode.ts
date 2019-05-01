@@ -44,7 +44,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements
             : `${this.status.ref}..${this.status.upstream}`;
 
         const log = await Container.git.getLog(this.uri.repoPath!, {
-            maxCount: this.maxCount || this.view.config.defaultItemLimit,
+            maxCount: this.maxCount !== undefined ? this.maxCount : this.view.config.defaultItemLimit,
             ref: range
         });
         if (log === undefined) return [];

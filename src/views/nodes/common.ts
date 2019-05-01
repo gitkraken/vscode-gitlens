@@ -152,6 +152,10 @@ export abstract class PagerNode extends ViewNode {
         this._args.previousNode = previousNode;
     }
 
+    showAll() {
+        this.view.refreshNode(this.parent!, true, { ...this._args, maxCount: 0 });
+    }
+
     getChildren(): ViewNode[] | Promise<ViewNode[]> {
         return [];
     }
@@ -161,8 +165,8 @@ export abstract class PagerNode extends ViewNode {
         item.contextValue = ResourceType.Pager;
         item.command = this.getCommand();
         item.iconPath = {
-            dark: Container.context.asAbsolutePath('images/dark/icon-unfold.svg'),
-            light: Container.context.asAbsolutePath('images/light/icon-unfold.svg')
+            dark: Container.context.asAbsolutePath('images/dark/icon-ellipsis.svg'),
+            light: Container.context.asAbsolutePath('images/light/icon-ellipsis.svg')
         };
         return item;
     }
@@ -171,7 +175,7 @@ export abstract class PagerNode extends ViewNode {
         return {
             title: 'Refresh',
             command: 'gitlens.views.refreshNode',
-            arguments: [this.parent, false, this._args]
+            arguments: [this.parent, true, this._args]
         };
     }
 }

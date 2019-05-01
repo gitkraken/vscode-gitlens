@@ -90,7 +90,9 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
     }
 
     @gate()
-    @debug()
+    @debug({
+        exit: r => `returned ${r}`
+    })
     async refresh(reset: boolean = false) {
         const cc = Logger.getCorrelationContext();
 

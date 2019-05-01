@@ -3,7 +3,7 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
 import { Container } from '../../container';
 import { GitUri, Repository } from '../../git/gitService';
-import { Arrays, Iterables } from '../../system';
+import { Arrays, debug, gate, Iterables } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { BranchNode } from './branchNode';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
@@ -78,6 +78,8 @@ export class BranchesNode extends ViewNode<RepositoriesView> {
         return item;
     }
 
+    @gate()
+    @debug()
     refresh() {
         this._children = undefined;
     }

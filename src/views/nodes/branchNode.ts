@@ -79,7 +79,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
             }
 
             const log = await Container.git.getLog(this.uri.repoPath!, {
-                maxCount: this.maxCount || this.view.config.defaultItemLimit,
+                maxCount: this.maxCount !== undefined ? this.maxCount : this.view.config.defaultItemLimit,
                 ref: this.ref
             });
             if (log === undefined) return [new MessageNode(this.view, this, 'No commits could be found.')];

@@ -2959,6 +2959,15 @@
                     "dark": "images/dark/icon-refresh.svg",
                     "light": "images/light/icon-refresh.svg"
                 }
+            },
+            {
+                "command": "gitlens.views.showAllChildren",
+                "title": "Show All",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-unfold.svg",
+                    "light": "images/light/icon-unfold.svg"
+                }
             }
         ],
         "menus": {
@@ -3617,6 +3626,10 @@
                 },
                 {
                     "command": "gitlens.views.refreshNode",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.views.showAllChildren",
                     "when": "false"
                 }
             ],
@@ -4806,6 +4819,16 @@
                     "command": "gitlens.views.refreshNode",
                     "when": "viewItem =~ /gitlens:(?!file\\b)/",
                     "group": "9_gitlens@1"
+                },
+                {
+                    "command": "gitlens.views.showAllChildren",
+                    "when": "viewItem =~ /gitlens:pager\\b/",
+                    "group": "inline@1"
+                },
+                {
+                    "command": "gitlens.views.showAllChildren",
+                    "when": "viewItem =~ /gitlens:pager\\b/",
+                    "group": "1_gitlens@1"
                 }
             ]
         },

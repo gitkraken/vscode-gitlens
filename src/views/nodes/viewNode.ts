@@ -53,12 +53,21 @@ export interface ViewNode {
     readonly id?: string;
 }
 
-const counter = 0;
-function getViewNodeInstanceId() {
-    // if (counter === Number.MAX_SAFE_INTEGER) {
-    //     counter = 0;
-    // }
-    // counter++;
+const counters: { [key: string]: number } = {
+    instanceId: 0
+};
+export function getNextId(key?: string) {
+    if (key === undefined) {
+        key = 'instanceId';
+    }
+
+    let counter = counters[key] || 0;
+    if (counter === Number.MAX_SAFE_INTEGER) {
+        counter = 0;
+    }
+    counter++;
+
+    counters[key] = counter;
     return counter;
 }
 
@@ -67,7 +76,7 @@ export abstract class ViewNode<TView extends View = View> {
     protected readonly _instanceId: number;
 
     constructor(uri: GitUri, public readonly view: TView, protected readonly parent?: ViewNode) {
-        this._instanceId = getViewNodeInstanceId();
+        this._instanceId = 0; //getNextId();
         this._uri = uri;
 
         if (Logger.isDebugging) {
@@ -110,8 +119,8 @@ export abstract class ViewNode<TView extends View = View> {
 
     @gate()
     @debug()
-    triggerChange(): Promise<void> {
-        return this.view.refreshNode(this);
+    triggerChange(reset: boolean = false): Promise<void> {
+        return this.view.refreshNode(this, reset);
     }
 }
 

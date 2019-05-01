@@ -32,7 +32,7 @@ export class TagNode extends ViewRefNode<RepositoriesView> implements PageableVi
 
     async getChildren(): Promise<ViewNode[]> {
         const log = await Container.git.getLog(this.uri.repoPath!, {
-            maxCount: this.maxCount || this.view.config.defaultItemLimit,
+            maxCount: this.maxCount !== undefined ? this.maxCount : this.view.config.defaultItemLimit,
             ref: this.tag.name
         });
         if (log === undefined) return [new MessageNode(this.view, this, 'No commits could be found.')];

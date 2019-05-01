@@ -39,6 +39,7 @@ import {
     viewSupportsNodeDismissal
 } from './nodes';
 import { Strings } from '../system/string';
+import { PagerNode } from './nodes/common';
 
 export interface RefreshNodeCommandArgs {
     maxCount?: number;
@@ -73,6 +74,7 @@ export class ViewCommands implements Disposable {
             (node: ViewNode) => viewSupportsNodeDismissal(node.view) && node.view.dismissNode(node),
             this
         );
+        commands.registerCommand('gitlens.views.showAllChildren', (node: PagerNode) => node.showAll(), this);
 
         commands.registerCommand('gitlens.views.fetch', this.fetch, this);
         commands.registerCommand('gitlens.views.pull', this.pull, this);

@@ -1,5 +1,5 @@
 'use strict';
-import { TreeItem } from 'vscode';
+import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { SearchCommitsCommandArgs } from '../../commands';
 import { Commands } from '../../commands/common';
 import { GitRepoSearchBy } from '../../git/gitService';
@@ -14,9 +14,11 @@ export class SearchResultsCommitsNode extends ResultsCommitsNode {
         repoPath: string,
         public readonly search: string,
         public readonly searchBy: GitRepoSearchBy,
-        commitsQuery: (maxCount: number | undefined) => Promise<CommitsQueryResults>
+        label: string,
+        commitsQuery: (maxCount: number | undefined) => Promise<CommitsQueryResults>,
+        _querying = true
     ) {
-        super(view, parent, repoPath, commitsQuery);
+        super(view, parent, repoPath, label, commitsQuery, _querying, true);
     }
 
     get type(): ResourceType {
@@ -24,11 +26,9 @@ export class SearchResultsCommitsNode extends ResultsCommitsNode {
     }
 
     async getTreeItem(): Promise<TreeItem> {
-        const { log } = await super.getCommitsQueryResults();
-
         const item = await super.getTreeItem();
 
-        if (log == null || log.count === 0) {
+        if (item.collapsibleState === TreeItemCollapsibleState.None) {
             const args: SearchCommitsCommandArgs = {
                 search: this.search,
                 searchBy: this.searchBy,
@@ -40,6 +40,7 @@ export class SearchResultsCommitsNode extends ResultsCommitsNode {
                 arguments: [args]
             };
         }
+        item.id = undefined;
 
         return item;
     }

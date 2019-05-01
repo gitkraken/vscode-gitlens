@@ -3,13 +3,15 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { NamedRef } from '../../constants';
 import { Container } from '../../container';
 import { GitService, GitUri } from '../../git/gitService';
-import { log, Strings } from '../../system';
+import { debug, gate, log, Strings } from '../../system';
 import { CompareView } from '../compareView';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
 import { ResultsFilesNode } from './resultsFilesNode';
 import { ResourceType, SubscribeableViewNode, ViewNode } from './viewNode';
 
 export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
+    private _children: ViewNode[] | undefined;
+
     constructor(
         view: CompareView,
         public readonly repoPath: string,
@@ -39,10 +41,21 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
     }
 
     getChildren(): ViewNode[] {
-        return [
-            new ResultsCommitsNode(this.view, this, this.uri.repoPath!, this.getCommitsQuery.bind(this)),
-            new ResultsFilesNode(this.view, this, this.uri.repoPath!, this._ref1.ref, this._ref2.ref)
-        ];
+        if (this._children === undefined) {
+            this._children = [
+                new ResultsCommitsNode(
+                    this.view,
+                    this,
+                    this.uri.repoPath!,
+                    '? commits',
+                    this.getCommitsQuery.bind(this),
+                    true,
+                    false
+                ),
+                new ResultsFilesNode(this.view, this, this.uri.repoPath!, this._ref1.ref, this._ref2.ref)
+            ];
+        }
+        return this._children;
     }
 
     async getTreeItem(): Promise<TreeItem> {
@@ -86,14 +99,12 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
         void this.triggerChange();
     }
 
-    @log()
-    async unpin() {
-        if (!this._pinned) return;
+    @gate()
+    @debug()
+    refresh(reset: boolean = false) {
+        if (!reset) return;
 
-        await this.view.updatePinnedComparison(this.getPinnableId());
-
-        this._pinned = false;
-        void this.triggerChange();
+        this._children = undefined;
     }
 
     @log()
@@ -116,6 +127,16 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
         }
 
         this.view.triggerNodeChange(this);
+    }
+
+    @log()
+    async unpin() {
+        if (!this._pinned) return;
+
+        await this.view.updatePinnedComparison(this.getPinnableId());
+
+        this._pinned = false;
+        void this.triggerChange();
     }
 
     protected subscribe() {

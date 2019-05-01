@@ -118,7 +118,16 @@ export class SearchView extends ViewBase<SearchNode> {
         );
 
         return this.addResults(
-            new SearchResultsCommitsNode(this, this._root!, repoPath, search, searchBy, searchQueryFn)
+            new SearchResultsCommitsNode(
+                this,
+                this._root!,
+                repoPath,
+                search,
+                searchBy,
+                `Searching for ${typeof options.label === 'string' ? options.label : options.label.label}`,
+                searchQueryFn,
+                true
+            )
         );
     }
 
@@ -143,7 +152,7 @@ export class SearchView extends ViewBase<SearchNode> {
         });
 
         return this.addResults(
-            new SearchResultsCommitsNode(this, this._root!, repoPath, search, searchBy, searchQueryFn)
+            new SearchResultsCommitsNode(this, this._root!, repoPath, search, searchBy, label, searchQueryFn, false)
         );
     }
 
