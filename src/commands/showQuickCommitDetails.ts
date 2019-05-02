@@ -156,13 +156,11 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
                 [args.commit.toGitUri(), args]
             );
 
-            const pick = await CommitQuickPick.show(
-                args.commit as GitLogCommit,
-                uri,
-                args.goBackCommand,
-                currentCommand,
-                args.repoLog
-            );
+            const pick = await new CommitQuickPick(repoPath).show(args.commit as GitLogCommit, uri, {
+                currentCommand: currentCommand,
+                goBackCommand: args.goBackCommand,
+                repoLog: args.repoLog
+            });
             if (pick === undefined) return undefined;
 
             if (!(pick instanceof CommitWithFileStatusQuickPickItem)) return pick.execute();

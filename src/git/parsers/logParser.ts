@@ -354,7 +354,7 @@ export class GitLogParser {
                 entry.files || [],
                 entry.status,
                 originalFileName,
-                `${entry.ref!}^`,
+                type === GitCommitType.Branch ? entry.parentShas![0] : undefined,
                 undefined,
                 entry.parentShas!
             );

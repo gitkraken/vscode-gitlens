@@ -2,7 +2,6 @@
 import * as paths from 'path';
 import { Uri } from 'vscode';
 import { Strings } from '../../system';
-import { Git } from '../git';
 import { GitUri } from '../gitUri';
 import { GitCommit, GitCommitType } from './commit';
 import { GitFile, GitFileStatus } from './file';
@@ -22,10 +21,10 @@ export class GitLogCommit extends GitCommit {
         message: string,
         fileName: string,
         public readonly files: GitFile[],
-        public readonly status: GitFileStatus | undefined,
-        originalFileName: string | undefined,
-        previousSha: string | undefined,
-        previousFileName: string | undefined,
+        public readonly status?: GitFileStatus | undefined,
+        originalFileName?: string | undefined,
+        previousSha?: string | undefined,
+        previousFileName?: string | undefined,
         public readonly parentShas?: string[]
     ) {
         super(
@@ -39,7 +38,7 @@ export class GitLogCommit extends GitCommit {
             message,
             fileName,
             originalFileName,
-            previousSha,
+            previousSha || `${sha}^`,
             previousFileName
         );
     }
@@ -48,18 +47,12 @@ export class GitLogCommit extends GitCommit {
         return this.parentShas && this.parentShas.length > 1;
     }
 
-    get nextShortSha() {
-        return this.nextSha && Git.shortenSha(this.nextSha);
-    }
-
     get nextUri(): Uri {
         return this.nextFileName ? GitUri.resolveToUri(this.nextFileName, this.repoPath) : this.uri;
     }
 
     get previousFileSha(): string {
-        if (this._resolvedPreviousFileSha !== undefined) return this._resolvedPreviousFileSha;
-
-        return this.isFile && this.previousSha ? this.previousSha : `${this.sha}^`;
+        return this.isFile ? this.previousSha! : `${this.sha}^`;
     }
 
     private _diff?: {

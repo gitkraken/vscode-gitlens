@@ -42,21 +42,8 @@ export const CommitFormatting = {
 };
 
 export abstract class GitCommit {
-    readonly type: GitCommitType;
-    readonly originalFileName: string | undefined;
-    previousFileName: string | undefined;
-
-    protected readonly _fileName: string;
-    protected _previousSha: string | undefined;
-
-    private _authorDateFormatter: Dates.DateFormatter | undefined;
-    private _committerDateFormatter: Dates.DateFormatter | undefined;
-    private _isStagedUncommitted: boolean | undefined;
-    private _isUncommitted: boolean | undefined;
-    private _shortSha: string | undefined;
-
     constructor(
-        type: GitCommitType,
+        public readonly type: GitCommitType,
         public readonly repoPath: string,
         public readonly sha: string,
         public readonly author: string,
@@ -65,17 +52,14 @@ export abstract class GitCommit {
         public readonly committerDate: Date,
         public readonly message: string,
         fileName: string,
-        originalFileName?: string,
-        previousSha?: string,
-        previousFileName?: string
+        public readonly originalFileName: string | undefined,
+        public previousSha: string | undefined,
+        public previousFileName: string | undefined
     ) {
-        this.type = type;
         this._fileName = fileName || '';
-        this.originalFileName = originalFileName;
-        this._previousSha = previousSha;
-        this.previousFileName = previousFileName;
     }
 
+    private readonly _fileName: string;
     get fileName() {
         // If we aren't a single-file commit, return an empty file name (makes it default to the repoPath)
         return this.isFile ? this._fileName : '';
@@ -91,6 +75,7 @@ export abstract class GitCommit {
             : this.formatDateFromNow();
     }
 
+    private _shortSha: string | undefined;
     get shortSha() {
         if (this._shortSha === undefined) {
             this._shortSha = Git.shortenSha(this.sha);
@@ -110,6 +95,7 @@ export abstract class GitCommit {
         return this.type === GitCommitType.Stash || this.type === GitCommitType.StashFile;
     }
 
+    private _isStagedUncommitted: boolean | undefined;
     get isStagedUncommitted(): boolean {
         if (this._isStagedUncommitted === undefined) {
             this._isStagedUncommitted = Git.isStagedUncommitted(this.sha);
@@ -117,6 +103,7 @@ export abstract class GitCommit {
         return this._isStagedUncommitted;
     }
 
+    private _isUncommitted: boolean | undefined;
     get isUncommitted(): boolean {
         if (this._isUncommitted === undefined) {
             this._isUncommitted = Git.isUncommitted(this.sha);
@@ -124,21 +111,8 @@ export abstract class GitCommit {
         return this._isUncommitted;
     }
 
-    abstract get previousFileSha(): string;
-    protected _resolvedPreviousFileSha: string | undefined;
-
-    get previousFileShortSha(): string {
-        return Git.shortenSha(this.previousFileSha)!;
-    }
-
-    get previousSha(): string | undefined {
-        return this._previousSha;
-    }
-    set previousSha(value: string | undefined) {
-        if (value === this._previousSha) return;
-
-        this._previousSha = value;
-        this._resolvedPreviousFileSha = undefined;
+    get previousFileSha(): string {
+        return `${this.sha}^`;
     }
 
     get previousShortSha() {
@@ -162,6 +136,7 @@ export abstract class GitCommit {
         return this._workingUriPromise;
     }
 
+    private _authorDateFormatter: Dates.DateFormatter | undefined;
     private get authorDateFormatter(): Dates.DateFormatter {
         if (this._authorDateFormatter === undefined) {
             this._authorDateFormatter = Dates.toFormatter(this.authorDate);
@@ -169,6 +144,7 @@ export abstract class GitCommit {
         return this._authorDateFormatter;
     }
 
+    private _committerDateFormatter: Dates.DateFormatter | undefined;
     private get committerDateFormatter(): Dates.DateFormatter {
         if (this._committerDateFormatter === undefined) {
             this._committerDateFormatter = Dates.toFormatter(this.committerDate);

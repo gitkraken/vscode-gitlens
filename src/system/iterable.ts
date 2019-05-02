@@ -112,8 +112,8 @@ export namespace Iterables {
         return value;
     }
 
-    export function last<T>(source: Iterable<T>): T | null {
-        let item: T | null = null;
+    export function last<T>(source: Iterable<T>): T | undefined {
+        let item: T | undefined;
         for (item of source) {
             /* noop */
         }

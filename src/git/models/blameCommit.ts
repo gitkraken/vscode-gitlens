@@ -32,12 +32,6 @@ export class GitBlameCommit extends GitCommit {
         );
     }
 
-    get previousFileSha(): string {
-        if (this._resolvedPreviousFileSha !== undefined) return this._resolvedPreviousFileSha;
-
-        return `${this.sha}^`;
-    }
-
     with(changes: {
         sha?: string;
         fileName?: string;

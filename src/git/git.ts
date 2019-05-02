@@ -204,6 +204,7 @@ export class Git {
     static deletedOrMissingSha = '0000000000000000000000000000000000000000-';
     static shaLikeRegex = /(^[0-9a-f]{40}([\^@~:]\S*)?$)|(^[0]{40}(:|-)$)/;
     static shaRegex = /(^[0-9a-f]{40}$)|(^[0]{40}(:|-)$)/;
+    static shaParentRegex = /^[0-9a-f]{40}\^[0-3]?$/;
     static shaShortenRegex = /^(.*?)([\^@~:].*)?$/;
     static stagedUncommittedRegex = /^[0]{40}([\^@~]\S*)?:$/;
     static stagedUncommittedSha = '0000000000000000000000000000000000000000:';
@@ -240,6 +241,10 @@ export class Git {
 
     static isShaLike(ref: string) {
         return Git.shaLikeRegex.test(ref);
+    }
+
+    static isShaParent(ref: string) {
+        return Git.shaParentRegex.test(ref);
     }
 
     static isStagedUncommitted(ref: string | undefined): boolean {

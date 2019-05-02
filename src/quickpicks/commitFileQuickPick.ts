@@ -14,7 +14,7 @@ import {
 } from '../commands';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitLog, GitLogCommit, GitUri, RemoteResourceType } from '../git/gitService';
+import { GitLog, GitLogCommit, GitService, GitUri, RemoteResourceType } from '../git/gitService';
 import { KeyCommand, KeyNoopCommand } from '../keyboard';
 import { Strings } from '../system';
 import {
@@ -115,7 +115,7 @@ export class CommitFileQuickPick {
             items.push(new ApplyCommitFileChangesCommandQuickPickItem(commit));
         }
 
-        if (commit.previousFileShortSha) {
+        if (commit.previousFileSha) {
             const commandArgs: DiffWithPreviousCommandArgs = {
                 commit: commit
             };
@@ -123,9 +123,9 @@ export class CommitFileQuickPick {
                 new CommandQuickPickItem(
                     {
                         label: '$(git-compare) Open Changes',
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${
-                            commit.previousFileShortSha
-                        } ${GlyphChars.Space} $(git-compare) ${GlyphChars.Space} $(git-commit) ${commit.shortSha}`
+                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${GitService.shortenSha(
+                            commit.previousFileSha
+                        )} ${GlyphChars.Space} $(git-compare) ${GlyphChars.Space} $(git-commit) ${commit.shortSha}`
                     },
                     Commands.DiffWithPrevious,
                     [commit.uri, commandArgs]

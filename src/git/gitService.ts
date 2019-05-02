@@ -139,6 +139,18 @@ export class GitService implements Disposable {
         this._disposable && this._disposable.dispose();
     }
 
+    @log()
+    static async initialize(): Promise<void> {
+        // Try to use the same git as the built-in vscode git extension
+        let gitPath;
+        const gitApi = await GitService.getBuiltInGitApi();
+        if (gitApi !== undefined) {
+            gitPath = gitApi.git.path;
+        }
+
+        await Git.setOrFindGitPath(gitPath || workspace.getConfiguration('git').get<string>('path'));
+    }
+
     get useCaching() {
         return Container.config.advanced.caching.enabled;
     }
@@ -2386,23 +2398,17 @@ export class GitService implements Disposable {
         return Git.stash_push(repoPath, pathspecs, message);
     }
 
-    static getEncoding(repoPath: string, fileName: string): string;
-    static getEncoding(uri: Uri): string;
-    static getEncoding(repoPathOrUri: string | Uri, fileName?: string): string {
-        const uri = typeof repoPathOrUri === 'string' ? GitUri.resolveToUri(fileName!, repoPathOrUri) : repoPathOrUri;
-        return Git.getEncoding(workspace.getConfiguration('files', uri).get<string>('encoding'));
+    static compareGitVersion(version: string) {
+        return Versions.compare(Versions.fromString(this.getGitVersion()), Versions.fromString(version));
     }
 
-    @log()
-    static async initialize(): Promise<void> {
-        // Try to use the same git as the built-in vscode git extension
-        let gitPath;
-        const gitApi = await GitService.getBuiltInGitApi();
-        if (gitApi !== undefined) {
-            gitPath = gitApi.git.path;
+    static ensureGitVersion(version: string, feature: string): void {
+        const gitVersion = this.getGitVersion();
+        if (Versions.compare(Versions.fromString(gitVersion), Versions.fromString(version)) === -1) {
+            throw new Error(
+                `${feature} requires a newer version of Git (>= ${version}) than is currently installed (${gitVersion}). Please install a more recent version of Git to use this GitLens feature.`
+            );
         }
-
-        await Git.setOrFindGitPath(gitPath || workspace.getConfiguration('git').get<string>('path'));
     }
 
     @log()
@@ -2420,25 +2426,19 @@ export class GitService implements Disposable {
         return undefined;
     }
 
-    static getGitPath(): string {
-        return Git.getGitPath();
+    static getEncoding(repoPath: string, fileName: string): string;
+    static getEncoding(uri: Uri): string;
+    static getEncoding(repoPathOrUri: string | Uri, fileName?: string): string {
+        const uri = typeof repoPathOrUri === 'string' ? GitUri.resolveToUri(fileName!, repoPathOrUri) : repoPathOrUri;
+        return Git.getEncoding(workspace.getConfiguration('files', uri).get<string>('encoding'));
     }
 
-    static getGitVersion(): string {
-        return Git.getGitVersion();
-    }
-
-    static isShaLike(ref: string): boolean {
-        return Git.isShaLike(ref);
-    }
-
-    static isStagedUncommitted(ref: string | undefined): boolean {
-        return Git.isStagedUncommitted(ref);
-    }
-
-    static isUncommitted(ref: string | undefined): boolean {
-        return Git.isUncommitted(ref);
-    }
+    static getGitPath = Git.getGitPath;
+    static getGitVersion = Git.getGitVersion;
+    static isShaLike = Git.isShaLike;
+    static isShaParent = Git.isShaParent;
+    static isStagedUncommitted = Git.isStagedUncommitted;
+    static isUncommitted = Git.isUncommitted;
 
     static shortenSha(
         ref: string | undefined,
@@ -2452,18 +2452,5 @@ export class GitService implements Disposable {
         if (ref === GitService.deletedOrMissingSha) return strings.deletedOrMissing;
 
         return Git.isShaLike(ref) || Git.isStagedUncommitted(ref) ? Git.shortenSha(ref, strings) : ref;
-    }
-
-    static compareGitVersion(version: string) {
-        return Versions.compare(Versions.fromString(this.getGitVersion()), Versions.fromString(version));
-    }
-
-    static ensureGitVersion(version: string, feature: string): void {
-        const gitVersion = this.getGitVersion();
-        if (Versions.compare(Versions.fromString(gitVersion), Versions.fromString(version)) === -1) {
-            throw new Error(
-                `${feature} requires a newer version of Git (>= ${version}) than is currently installed (${gitVersion}). Please install a more recent version of Git to use this GitLens feature.`
-            );
-        }
     }
 }
