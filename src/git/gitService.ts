@@ -39,7 +39,6 @@ import {
     GitBlameParser,
     GitBranch,
     GitBranchParser,
-    GitCommit,
     GitCommitType,
     GitContributor,
     GitDiff,
@@ -580,136 +579,6 @@ export class GitService implements Disposable {
                 }
             }
         );
-    }
-
-    async fileExists(
-        repoPath: string,
-        fileName: string,
-        options: { ensureCase: boolean } = { ensureCase: false }
-    ): Promise<boolean> {
-        if (Container.vsls.isMaybeGuest) {
-            const guest = await Container.vsls.guest();
-            if (guest !== undefined) {
-                return guest.fileExists(repoPath, fileName, options);
-            }
-        }
-
-        const path = paths.resolve(repoPath, fileName);
-        const exists = await new Promise<boolean>((resolve, reject) => fs.exists(path, resolve));
-        if (!options.ensureCase || !exists) return exists;
-
-        // Deal with renames in case only on case-insensative file systems
-        const normalizedRepoPath = paths.normalize(repoPath);
-        return this.fileExistsWithCase(path, normalizedRepoPath, normalizedRepoPath.length);
-    }
-
-    private async fileExistsWithCase(path: string, repoPath: string, repoPathLength: number): Promise<boolean> {
-        const dir = paths.dirname(path);
-        if (dir.length < repoPathLength) return false;
-        if (dir === repoPath) return true;
-
-        const filenames = await new Promise<string[]>((resolve, reject) =>
-            fs.readdir(dir, (err: NodeJS.ErrnoException, files: string[]) => {
-                if (err) {
-                    reject(err);
-                }
-                else {
-                    resolve(files);
-                }
-            })
-        );
-        if (filenames.indexOf(paths.basename(path)) === -1) {
-            return false;
-        }
-        return this.fileExistsWithCase(dir, repoPath, repoPathLength);
-    }
-
-    @log()
-    async findNextCommit(repoPath: string, fileName: string, ref?: string): Promise<GitLogCommit | undefined> {
-        let log = await this.getLogForFile(repoPath, fileName, { maxCount: 1, ref: ref, renames: true, reverse: true });
-        let commit = log && Iterables.first(log.commits.values());
-        if (commit) return commit;
-
-        const nextFileName = await this.findNextFileName(repoPath, fileName, ref);
-        if (nextFileName) {
-            log = await this.getLogForFile(repoPath, nextFileName, {
-                maxCount: 1,
-                ref: ref,
-                renames: true,
-                reverse: true
-            });
-            commit = log && Iterables.first(log.commits.values());
-        }
-
-        return commit;
-    }
-
-    @log()
-    async findNextFileName(repoPath: string | undefined, fileName: string, ref?: string): Promise<string | undefined> {
-        [fileName, repoPath] = Git.splitPath(fileName, repoPath);
-
-        return (await this.fileExists(repoPath, fileName, { ensureCase: true }))
-            ? fileName
-            : this.findNextFileNameCore(repoPath, fileName, ref);
-    }
-
-    private async findNextFileNameCore(repoPath: string, fileName: string, ref?: string): Promise<string | undefined> {
-        if (ref === undefined) {
-            // Get the most recent commit for this file name
-            ref = await this.getRecentShaForFile(repoPath, fileName);
-            if (ref === undefined) return undefined;
-        }
-
-        // Get the full commit (so we can see if there are any matching renames in the files)
-        const log = await this.getLog(repoPath, { maxCount: 1, ref: ref });
-        if (log === undefined) return undefined;
-
-        const c = Iterables.first(log.commits.values());
-        const file = c.files.find(f => f.originalFileName === fileName);
-        if (file === undefined) return undefined;
-
-        return file.fileName;
-    }
-
-    async findWorkingFileName(commit: GitCommit): Promise<[string | undefined, string | undefined]>;
-    async findWorkingFileName(
-        fileName: string,
-        repoPath?: string,
-        ref?: string
-    ): Promise<[string | undefined, string | undefined]>;
-    @log()
-    async findWorkingFileName(
-        commitOrFileName: GitCommit | string,
-        repoPath?: string,
-        ref?: string
-    ): Promise<[string | undefined, string | undefined]> {
-        let fileName;
-        if (typeof commitOrFileName === 'string') {
-            fileName = commitOrFileName;
-            if (repoPath === undefined) {
-                repoPath = await this.getRepoPath(fileName, { ref: ref });
-                [fileName, repoPath] = Git.splitPath(fileName, repoPath);
-            }
-            else {
-                fileName = Strings.normalizePath(paths.relative(repoPath, fileName));
-            }
-        }
-        else {
-            const c = commitOrFileName;
-            repoPath = c.repoPath;
-            if (c.workingFileName && (await this.fileExists(repoPath, c.workingFileName, { ensureCase: true }))) {
-                return [c.workingFileName, repoPath];
-            }
-            fileName = c.fileName;
-        }
-
-        // Keep walking up to the most recent commit for a given filename, until it exists on disk
-        while (true) {
-            if (await this.fileExists(repoPath, fileName, { ensureCase: true })) return [fileName, repoPath];
-
-            fileName = await this.findNextFileNameCore(repoPath, fileName);
-            if (fileName === undefined) return [undefined, undefined];
-        }
     }
 
     @log({
@@ -1357,13 +1226,6 @@ export class GitService implements Disposable {
     @log()
     getRecentLogCommitForFile(repoPath: string | undefined, fileName: string): Promise<GitLogCommit | undefined> {
         return this.getLogCommitForFile(repoPath, fileName, undefined);
-    }
-
-    @log()
-    getRecentShaForFile(repoPath: string, fileName: string) {
-        return Git.log_recent(repoPath, fileName, {
-            similarityThreshold: Container.config.advanced.similarityThreshold
-        });
     }
 
     @log()
@@ -2255,7 +2117,8 @@ export class GitService implements Disposable {
         if (ref === GitService.deletedOrMissingSha) return undefined;
 
         if (!ref || (Git.isUncommitted(ref) && !Git.isStagedUncommitted(ref))) {
-            if (await this.fileExists(repoPath!, fileName)) return GitUri.file(fileName);
+            const data = await Git.ls_files(repoPath!, fileName);
+            if (data !== undefined) return GitUri.file(fileName);
 
             return undefined;
         }
@@ -2265,6 +2128,44 @@ export class GitService implements Disposable {
         }
 
         return GitUri.toRevisionUri(ref, fileName, repoPath!);
+    }
+
+    @log()
+    async getWorkingUri(repoPath: string, uri: Uri) {
+        let fileName = GitUri.getRelativePath(uri, repoPath);
+
+        let data;
+        let ref;
+        do {
+            data = await Git.ls_files(repoPath, fileName);
+            if (data !== undefined) {
+                return GitUri.resolveToUri(data, repoPath);
+            }
+
+            // Get the most recent commit for this file name
+            ref = await Git.log_recent(repoPath, fileName, {
+                similarityThreshold: Container.config.advanced.similarityThreshold
+            });
+            if (ref === undefined) return undefined;
+
+            // Now check if that commit had any renames
+            data = await Git.log_file(repoPath, '.', ref, {
+                filters: ['R'],
+                format: GitLogParser.simpleFormat,
+                maxCount: 1
+            });
+            if (data == null || data.length === 0) {
+                return GitUri.resolveToUri(fileName, repoPath);
+            }
+
+            const [renamedRef, renamedFile] = GitLogParser.parseSimpleRenamed(data, fileName);
+            if (renamedRef === undefined || renamedFile === undefined) {
+                return GitUri.resolveToUri(fileName, repoPath);
+            }
+
+            ref = renamedRef;
+            fileName = renamedFile;
+        } while (true);
     }
 
     isTrackable(scheme: string): boolean;

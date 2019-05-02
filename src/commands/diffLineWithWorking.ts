@@ -1,5 +1,5 @@
 'use strict';
-import { commands, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { Container } from '../container';
 import { GitCommit, GitService, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
@@ -69,6 +69,11 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
             }
         }
 
+        const workingUri = await args.commit.getWorkingUri();
+        if (workingUri === undefined) {
+            return window.showWarningMessage('Unable to open compare. File has been deleted from the working tree');
+        }
+
         const diffArgs: DiffWithCommandArgs = {
             repoPath: args.commit.repoPath,
             lhs: {
@@ -77,7 +82,7 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
             },
             rhs: {
                 sha: '',
-                uri: args.commit.workingUri
+                uri: workingUri
             },
             line: args.line,
             showOptions: args.showOptions

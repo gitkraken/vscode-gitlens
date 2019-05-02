@@ -114,8 +114,6 @@ export class CommitQuickPick {
         currentCommand?: CommandQuickPickItem,
         repoLog?: GitLog
     ): Promise<CommitWithFileStatusQuickPickItem | CommandQuickPickItem | undefined> {
-        await commit.resolvePreviousFileSha();
-
         const items: (CommitWithFileStatusQuickPickItem | CommandQuickPickItem)[] = commit.files.map(
             fs => new CommitWithFileStatusQuickPickItem(commit, fs)
         );

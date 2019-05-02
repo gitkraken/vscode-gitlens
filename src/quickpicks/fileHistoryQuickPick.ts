@@ -62,11 +62,8 @@ export class FileHistoryQuickPick {
                 items.splice(0, 0, options.showAllCommand);
             }
             else if (!options.pickerOnly) {
-                const [workingFileName] = await Container.git.findWorkingFileName(
-                    paths.relative(log.repoPath, uri.fsPath),
-                    log.repoPath
-                );
-                if (workingFileName) {
+                const workingUri = await Container.git.getWorkingUri(log.repoPath, uri);
+                if (workingUri) {
                     const goBackCommandArgs: ShowQuickFileHistoryCommandArgs = {
                         log: log,
                         maxCount: log.maxCount,
@@ -97,11 +94,11 @@ export class FileHistoryQuickPick {
                             {
                                 label: '$(history) Show File History',
                                 description: `${Strings.pad(GlyphChars.Dash, 2, 3)} of ${paths.basename(
-                                    workingFileName
+                                    workingUri.fsPath
                                 )}`
                             },
                             Commands.ShowQuickFileHistory,
-                            [GitUri.resolveToUri(workingFileName, log.repoPath), commandArgs]
+                            [workingUri, commandArgs]
                         )
                     );
                 }

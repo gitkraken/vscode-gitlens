@@ -66,8 +66,6 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
         uri = getCommandUri(uri, editor);
         if (uri == null) return undefined;
 
-        let workingFileName = args.commit && args.commit.workingFileName;
-
         const gitUri = await GitUri.fromUri(uri);
 
         args = { ...args };
@@ -91,7 +89,6 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
                 args.sha = blame.commit.sha;
 
                 args.commit = blame.commit;
-                workingFileName = paths.relative(args.commit.repoPath, gitUri.fsPath);
             }
             catch (ex) {
                 Logger.error(ex, 'ShowQuickCommitFileDetailsCommand', `getBlameForLine(${blameline})`);
@@ -103,10 +100,6 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
 
         try {
             if (args.commit === undefined || !args.commit.isFile) {
-                if (args.commit !== undefined) {
-                    workingFileName = undefined;
-                }
-
                 if (args.fileLog !== undefined) {
                     args.commit = args.fileLog.commits.get(args.sha!);
                     // If we can't find the commit, kill the fileLog
@@ -127,10 +120,6 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
             if (args.commit === undefined) {
                 return Messages.showCommitNotFoundWarningMessage('Unable to show commit file details');
             }
-
-            // Attempt to the most recent commit -- so that we can find the real working filename if there was a rename
-            args.commit.workingFileName = workingFileName;
-            [args.commit.workingFileName] = await Container.git.findWorkingFileName(args.commit);
 
             const shortSha = GitService.shortenSha(args.sha!);
 

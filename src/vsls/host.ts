@@ -13,10 +13,7 @@ import {
     RepositoriesInFolderRequest,
     RepositoriesInFolderRequestType,
     RepositoriesInFolderResponse,
-    RequestType,
-    WorkspaceFileExistsRequest,
-    WorkspaceFileExistsRequestType,
-    WorkspaceFileExistsResponse
+    RequestType
 } from './protocol';
 import { vslsUriRootRegex } from './vsls';
 
@@ -71,7 +68,6 @@ export class VslsHostService implements Disposable {
 
         this.onRequest(GitCommandRequestType, this.onGitCommandRequest.bind(this));
         this.onRequest(RepositoriesInFolderRequestType, this.onRepositoriesInFolderRequest.bind(this));
-        this.onRequest(WorkspaceFileExistsRequestType, this.onWorkspaceFileExistsRequest.bind(this));
 
         void this.onWorkspaceFoldersChanged();
     }
@@ -227,24 +223,6 @@ export class VslsHostService implements Disposable {
         return {
             repositories: repos
         };
-    }
-
-    @log()
-    private async onWorkspaceFileExistsRequest(
-        request: WorkspaceFileExistsRequest,
-        cancellation: CancellationToken
-    ): Promise<WorkspaceFileExistsResponse> {
-        let { repoPath } = request;
-        if (this._sharedPathsRegex !== undefined && this._sharedPathsRegex.test(repoPath)) {
-            repoPath = Strings.normalizePath(repoPath).replace(this._sharedPathsRegex, (match, shared) => {
-                const local = this._sharedToLocalPaths!.get(shared);
-                return local != null ? local : shared;
-            });
-        }
-
-        // TODO: Lock this to be only in the contained workspaces
-
-        return { exists: await Container.git.fileExists(repoPath, request.fileName, request.options) };
     }
 
     @debug({

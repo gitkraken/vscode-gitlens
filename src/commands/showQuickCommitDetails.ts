@@ -1,5 +1,4 @@
 'use strict';
-import * as paths from 'path';
 import { commands, TextEditor, Uri } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
@@ -68,7 +67,6 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
         const gitUri = await GitUri.fromUri(uri);
 
         let repoPath = gitUri.repoPath;
-        let workingFileName = repoPath ? paths.relative(repoPath, gitUri.fsPath) : gitUri.fsPath;
 
         args = { ...args };
         if (args.sha === undefined) {
@@ -90,7 +88,6 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
 
                 args.sha = blame.commit.sha;
                 repoPath = blame.commit.repoPath;
-                workingFileName = blame.commit.fileName;
 
                 args.commit = blame.commit;
             }
@@ -122,10 +119,6 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
 
             if (args.commit === undefined) {
                 return Messages.showCommitNotFoundWarningMessage('Unable to show commit details');
-            }
-
-            if (args.commit.workingFileName === undefined) {
-                args.commit.workingFileName = workingFileName;
             }
 
             if (args.showInView) {

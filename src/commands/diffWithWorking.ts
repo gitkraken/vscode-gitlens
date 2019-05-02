@@ -117,12 +117,10 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
             }
         }
 
-        const [workingFileName] = await Container.git.findWorkingFileName(gitUri.fsPath, gitUri.repoPath);
-        if (workingFileName === undefined) {
+        const workingUri = await args.commit.getWorkingUri();
+        if (workingUri === undefined) {
             return window.showWarningMessage('Unable to open compare. File has been deleted from the working tree');
         }
-
-        args.commit.workingFileName = workingFileName;
 
         const diffArgs: DiffWithCommandArgs = {
             repoPath: args.commit.repoPath,
@@ -132,7 +130,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
             },
             rhs: {
                 sha: '',
-                uri: args.commit.workingUri
+                uri: workingUri
             },
             line: args.line,
             showOptions: args.showOptions

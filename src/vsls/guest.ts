@@ -6,13 +6,7 @@ import { GitCommandOptions, Repository, RepositoryChange } from '../git/git';
 import { Logger } from '../logger';
 import { debug, log } from '../system';
 import { VslsHostService } from './host';
-import {
-    GitCommandRequestType,
-    RepositoriesInFolderRequestType,
-    RepositoryProxy,
-    RequestType,
-    WorkspaceFileExistsRequestType
-} from './protocol';
+import { GitCommandRequestType, RepositoriesInFolderRequestType, RepositoryProxy, RequestType } from './protocol';
 
 export class VslsGuestService implements Disposable {
     @log()
@@ -77,21 +71,6 @@ export class VslsGuestService implements Disposable {
         return response.repositories.map(
             (r: RepositoryProxy) => new Repository(folder, r.path, r.root, onAnyRepositoryChanged, false, r.closed)
         );
-    }
-
-    @log()
-    async fileExists(
-        repoPath: string,
-        fileName: string,
-        options: { ensureCase: boolean } = { ensureCase: false }
-    ): Promise<boolean> {
-        const response = await this.sendRequest(WorkspaceFileExistsRequestType, {
-            fileName: fileName,
-            repoPath: repoPath,
-            options: options
-        });
-
-        return response.exists;
     }
 
     @debug()

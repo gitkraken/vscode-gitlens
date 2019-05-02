@@ -36,17 +36,3 @@ export const RepositoriesInFolderRequestType = new RequestType<
     RepositoriesInFolderRequest,
     RepositoriesInFolderResponse
 >('repositories/inFolder');
-
-export interface WorkspaceFileExistsRequest {
-    fileName: string;
-    repoPath: string;
-    options: { ensureCase: boolean };
-}
-
-export interface WorkspaceFileExistsResponse {
-    exists: boolean;
-}
-
-export const WorkspaceFileExistsRequestType = new RequestType<WorkspaceFileExistsRequest, WorkspaceFileExistsResponse>(
-    'workspace/fileExists'
-);

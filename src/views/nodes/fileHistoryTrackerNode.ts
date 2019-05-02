@@ -127,14 +127,9 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
         let uri;
         if (gitUri.sha !== undefined) {
             // If we have a sha, normalize the history to the working file (so we get a full history all the time)
-            const [fileName, repoPath] = await Container.git.findWorkingFileName(
-                gitUri.fsPath,
-                gitUri.repoPath,
-                gitUri.sha
-            );
-
-            if (fileName !== undefined) {
-                uri = GitUri.resolveToUri(fileName, repoPath);
+            const workingUri = await Container.git.getWorkingUri(gitUri.repoPath!, gitUri);
+            if (workingUri !== undefined) {
+                uri = workingUri;
             }
         }
 

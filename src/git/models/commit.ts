@@ -45,7 +45,6 @@ export abstract class GitCommit {
     readonly type: GitCommitType;
     readonly originalFileName: string | undefined;
     previousFileName: string | undefined;
-    workingFileName?: string;
 
     protected readonly _fileName: string;
     protected _previousSha: string | undefined;
@@ -154,8 +153,13 @@ export abstract class GitCommit {
         return GitUri.resolveToUri(this.fileName, this.repoPath);
     }
 
-    get workingUri(): Uri {
-        return this.workingFileName ? GitUri.resolveToUri(this.workingFileName, this.repoPath) : this.uri;
+    private _workingUriPromise: Promise<Uri | undefined> | undefined;
+    getWorkingUri(): Promise<Uri | undefined> | undefined {
+        if (this._workingUriPromise === undefined) {
+            this._workingUriPromise = Container.git.getWorkingUri(this.repoPath, this.uri);
+        }
+
+        return this._workingUriPromise;
     }
 
     private get authorDateFormatter(): Dates.DateFormatter {
@@ -225,16 +229,6 @@ export abstract class GitCommit {
     getShortMessage() {
         // eslint-disable-next-line no-template-curly-in-string
         return CommitFormatter.fromTemplate('${message}', this, { truncateMessageAtNewLine: true });
-    }
-
-    async resolvePreviousFileSha(): Promise<void> {
-        if (this._resolvedPreviousFileSha !== undefined) return;
-
-        this._resolvedPreviousFileSha = await Container.git.resolveReference(
-            this.repoPath,
-            this.previousFileSha,
-            this.fileName ? this.previousUri : undefined
-        );
     }
 
     toGitUri(previous: boolean = false): GitUri {
