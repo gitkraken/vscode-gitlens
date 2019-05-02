@@ -14,11 +14,14 @@ import { Logger } from '../../logger';
 import { debug, Iterables } from '../../system';
 import { View } from '../viewBase';
 import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
-import { MessageNode } from './common';
+import { MessageNode, ShowMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
-import { ResourceType, SubscribeableViewNode, ViewNode } from './viewNode';
+import { PageableViewNode, ResourceType, SubscribeableViewNode, ViewNode } from './viewNode';
 
-export class FileHistoryNode extends SubscribeableViewNode {
+export class FileHistoryNode extends SubscribeableViewNode implements PageableViewNode {
+    readonly supportsPaging: boolean = true;
+    maxCount: number | undefined;
+
     constructor(uri: GitUri, view: View, parent: ViewNode) {
         super(uri, view, parent);
     }
@@ -71,6 +74,7 @@ export class FileHistoryNode extends SubscribeableViewNode {
         }
 
         const log = await Container.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, {
+            maxCount: this.maxCount !== undefined ? this.maxCount : undefined,
             ref: this.uri.sha
         });
         if (log !== undefined) {
@@ -83,6 +87,10 @@ export class FileHistoryNode extends SubscribeableViewNode {
                     this
                 )
             );
+
+            if (log.truncated) {
+                children.push(new ShowMoreNode(this.view, this, 'Commits', children[children.length - 1]));
+            }
         }
 
         if (children.length === 0) return [new MessageNode(this.view, this, 'No file history could be found.')];
