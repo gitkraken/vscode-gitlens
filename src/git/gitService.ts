@@ -1011,6 +1011,36 @@ export class GitService implements Disposable {
     }
 
     @log()
+    async getCommit(repoPath: string, ref: string): Promise<GitLogCommit | undefined> {
+        const log = await this.getLog(repoPath, { maxCount: 2, ref: ref });
+        if (log === undefined) return undefined;
+
+        return log.commits.get(ref);
+    }
+
+    @log()
+    async getCommitForFile(
+        repoPath: string | undefined,
+        fileName: string,
+        options: { ref?: string; firstIfNotFound?: boolean; reverse?: boolean } = {}
+    ): Promise<GitLogCommit | undefined> {
+        const log = await this.getLogForFile(repoPath, fileName, {
+            maxCount: 2,
+            ref: options.ref,
+            reverse: options.reverse
+        });
+        if (log === undefined) return undefined;
+
+        const commit = options.ref && log.commits.get(options.ref);
+        if (commit === undefined && !options.firstIfNotFound && options.ref) {
+            // If the ref isn't a valid sha we will never find it, so let it fall through so we return the first
+            if (!Git.isSha(options.ref) || Git.isUncommitted(options.ref)) return undefined;
+        }
+
+        return commit || Iterables.first(log.commits.values());
+    }
+
+    @log()
     getConfig(key: string, repoPath?: string): Promise<string | undefined> {
         return Git.config_get(key, repoPath);
     }
@@ -1236,41 +1266,6 @@ export class GitService implements Disposable {
     }
 
     @log()
-    getRecentLogCommitForFile(repoPath: string | undefined, fileName: string): Promise<GitLogCommit | undefined> {
-        return this.getLogCommitForFile(repoPath, fileName, undefined);
-    }
-
-    @log()
-    async getLogCommit(repoPath: string, ref: string): Promise<GitLogCommit | undefined> {
-        const log = await this.getLog(repoPath, { maxCount: 2, ref: ref });
-        if (log === undefined) return undefined;
-
-        return log.commits.get(ref);
-    }
-
-    @log()
-    async getLogCommitForFile(
-        repoPath: string | undefined,
-        fileName: string,
-        options: { ref?: string; firstIfNotFound?: boolean; reverse?: boolean } = {}
-    ): Promise<GitLogCommit | undefined> {
-        const log = await this.getLogForFile(repoPath, fileName, {
-            maxCount: 2,
-            ref: options.ref,
-            reverse: options.reverse
-        });
-        if (log === undefined) return undefined;
-
-        const commit = options.ref && log.commits.get(options.ref);
-        if (commit === undefined && !options.firstIfNotFound && options.ref) {
-            // If the ref isn't a valid sha we will never find it, so let it fall through so we return the first
-            if (!Git.isSha(options.ref) || Git.isUncommitted(options.ref)) return undefined;
-        }
-
-        return commit || Iterables.first(log.commits.values());
-    }
-
-    @log()
     async getLog(
         repoPath: string,
         { ref, ...options }: { authors?: string[]; maxCount?: number; ref?: string; reverse?: boolean } = {}
@@ -1286,7 +1281,7 @@ export class GitService implements Disposable {
             });
             const log = GitLogParser.parse(
                 data,
-                GitCommitType.Branch,
+                GitCommitType.Log,
                 repoPath,
                 undefined,
                 ref,
@@ -1386,7 +1381,7 @@ export class GitService implements Disposable {
             const data = await Git.log_search(repoPath, searchArgs, { maxCount: maxCount });
             const log = GitLogParser.parse(
                 data,
-                GitCommitType.Branch,
+                GitCommitType.Log,
                 repoPath,
                 undefined,
                 undefined,
@@ -1562,7 +1557,7 @@ export class GitService implements Disposable {
             });
             const log = GitLogParser.parse(
                 data,
-                GitCommitType.File,
+                GitCommitType.LogFile,
                 root,
                 file,
                 ref,

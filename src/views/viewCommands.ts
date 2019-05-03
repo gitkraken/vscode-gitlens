@@ -367,7 +367,7 @@ export class ViewCommands implements Disposable {
         };
 
         if (node instanceof ResultsFileNode) {
-            args.commit = await Container.git.getLogCommitForFile(node.repoPath, node.uri.fsPath, {
+            args.commit = await Container.git.getCommitForFile(node.repoPath, node.uri.fsPath, {
                 ref: node.uri.sha,
                 firstIfNotFound: true,
                 reverse: true

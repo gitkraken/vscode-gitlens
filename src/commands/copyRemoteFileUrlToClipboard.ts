@@ -54,7 +54,7 @@ export class CopyRemoteFileUrlToClipboardCommand extends ActiveEditorCommand {
 
             args = { ...args };
             if (gitUri.sha === undefined) {
-                const commit = await Container.git.getLogCommitForFile(gitUri.repoPath, gitUri.fsPath, {
+                const commit = await Container.git.getCommitForFile(gitUri.repoPath, gitUri.fsPath, {
                     firstIfNotFound: true
                 });
 

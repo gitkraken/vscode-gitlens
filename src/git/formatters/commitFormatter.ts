@@ -145,7 +145,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
     }
 
     get changes() {
-        if (!(this._item instanceof GitLogCommit) || this._item.type === GitCommitType.File) {
+        if (!(this._item instanceof GitLogCommit) || this._item.type === GitCommitType.LogFile) {
             return this._padOrTruncate(emptyStr, this._options.tokenOptions.changes);
         }
 
@@ -153,7 +153,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
     }
 
     get changesShort() {
-        if (!(this._item instanceof GitLogCommit) || this._item.type === GitCommitType.File) {
+        if (!(this._item instanceof GitLogCommit) || this._item.type === GitCommitType.LogFile) {
             return this._padOrTruncate(emptyStr, this._options.tokenOptions.changesShort);
         }
 

@@ -52,7 +52,7 @@ export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPick
         this.status = status;
         if (status.indexStatus !== undefined) {
             this.commit = new GitLogCommit(
-                GitCommitType.File,
+                GitCommitType.LogFile,
                 status.repoPath,
                 GitService.stagedUncommittedSha,
                 'You',
@@ -70,7 +70,7 @@ export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPick
         }
         else {
             this.commit = new GitLogCommit(
-                GitCommitType.File,
+                GitCommitType.LogFile,
                 status.repoPath,
                 GitService.uncommittedSha,
                 'You',

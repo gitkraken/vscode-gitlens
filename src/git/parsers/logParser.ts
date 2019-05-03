@@ -180,7 +180,7 @@ export class GitLogParser {
 
                         if (line.startsWith('warning:')) continue;
 
-                        if (type === GitCommitType.Branch) {
+                        if (type === GitCommitType.Log) {
                             match = fileStatusRegex.exec(line);
                             if (match != null) {
                                 if (entry.files === undefined) {
@@ -262,7 +262,7 @@ export class GitLogParser {
                         );
                     }
 
-                    if (first && repoPath === undefined && type === GitCommitType.File && fileName !== undefined) {
+                    if (first && repoPath === undefined && type === GitCommitType.LogFile && fileName !== undefined) {
                         // Try to get the repoPath from the most recent commit
                         repoPath = Strings.normalizePath(
                             fileName.replace(
@@ -353,7 +353,7 @@ export class GitLogParser {
 
             const originalFileName =
                 entry.originalFileName || (relativeFileName !== entry.fileName ? entry.fileName : undefined);
-            if (type === GitCommitType.File) {
+            if (type === GitCommitType.LogFile) {
                 entry.files = [
                     {
                         status: entry.status!,
@@ -376,7 +376,7 @@ export class GitLogParser {
                 entry.files || [],
                 entry.status,
                 originalFileName,
-                type === GitCommitType.Branch ? entry.parentShas![0] : undefined,
+                type === GitCommitType.Log ? entry.parentShas![0] : undefined,
                 undefined,
                 entry.parentShas!,
                 entry.line
@@ -393,7 +393,7 @@ export class GitLogParser {
             commit.nextSha = commit.sha !== recentCommit.sha ? recentCommit.sha : recentCommit.nextSha;
 
             // Only add a filename if this is a file log
-            if (type === GitCommitType.File) {
+            if (type === GitCommitType.LogFile) {
                 recentCommit.previousFileName = commit.originalFileName || commit.fileName;
                 commit.nextFileName = recentCommit.originalFileName || recentCommit.fileName;
             }

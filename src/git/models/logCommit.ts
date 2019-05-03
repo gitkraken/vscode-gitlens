@@ -162,7 +162,7 @@ export class GitLogCommit extends GitCommit {
         const previousSha = this.isFile ? this.previousSha : `${this.sha}^`;
 
         return this.with({
-            type: this.isStash ? GitCommitType.StashFile : GitCommitType.File,
+            type: this.isStash ? GitCommitType.StashFile : GitCommitType.LogFile,
             sha: sha,
             fileName: file.fileName,
             originalFileName: file.originalFileName,

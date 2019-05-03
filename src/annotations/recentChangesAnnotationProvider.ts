@@ -29,7 +29,7 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 
         this.annotationType = FileAnnotationType.RecentChanges;
 
-        const commit = await Container.git.getRecentLogCommitForFile(this._uri.repoPath, this._uri.fsPath);
+        const commit = await Container.git.getCommitForFile(this._uri.repoPath, this._uri.fsPath);
         if (commit === undefined) return false;
 
         const diff = await Container.git.getDiffForFile(this._uri, commit.sha);

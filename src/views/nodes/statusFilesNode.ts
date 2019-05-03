@@ -166,7 +166,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
             fileName: file.fileName,
             originalFileName: file.originalFileName,
             commit: new GitLogCommit(
-                GitCommitType.File,
+                GitCommitType.LogFile,
                 file.repoPath,
                 ref,
                 'You',

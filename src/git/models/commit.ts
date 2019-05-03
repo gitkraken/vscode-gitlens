@@ -23,10 +23,10 @@ export interface GitCommitLine {
 
 export enum GitCommitType {
     Blame = 'blame',
-    Branch = 'branch',
-    File = 'file',
+    Log = 'log',
+    LogFile = 'logFile',
     Stash = 'stash',
-    StashFile = 'stash-file'
+    StashFile = 'stashFile'
 }
 
 export const CommitFormatting = {
@@ -86,7 +86,7 @@ export abstract class GitCommit {
     get isFile() {
         return (
             this.type === GitCommitType.Blame ||
-            this.type === GitCommitType.File ||
+            this.type === GitCommitType.LogFile ||
             this.type === GitCommitType.StashFile
         );
     }

@@ -110,7 +110,12 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
     }
 
     private ensureRemoteBranchName(args: OpenInRemoteCommandArgs) {
-        if (args.remotes === undefined || args.resource === undefined || args.resource.type !== 'branch') return;
+        if (
+            args.remotes === undefined ||
+            args.resource === undefined ||
+            args.resource.type !== RemoteResourceType.Branch
+        )
+            return;
 
         // Check to see if the remote is in the branch
         const [remotePart, branchPart] = Strings.splitSingle(args.resource.branch, '/');

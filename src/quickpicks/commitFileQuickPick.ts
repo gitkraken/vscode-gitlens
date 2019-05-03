@@ -103,7 +103,7 @@ export class CommitFileQuickPick {
         const isUncommitted = commit.isUncommitted;
         if (isUncommitted) {
             // Since we can't trust the previous sha on an uncommitted commit, find the last commit for this file
-            const c = await Container.git.getRecentLogCommitForFile(undefined, commit.uri.fsPath);
+            const c = await Container.git.getCommitForFile(undefined, commit.uri.fsPath);
             if (c === undefined) return undefined;
 
             commit = c;

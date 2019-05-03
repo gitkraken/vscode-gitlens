@@ -59,7 +59,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
                     };
 
                     const uncommitted = new GitLogCommit(
-                        GitCommitType.File,
+                        GitCommitType.LogFile,
                         this.uri.repoPath!,
                         commit.sha,
                         'You',

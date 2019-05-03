@@ -54,7 +54,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 
                 const user = await Container.git.getCurrentUser(this.uri.repoPath!);
                 const commit = new GitLogCommit(
-                    GitCommitType.File,
+                    GitCommitType.LogFile,
                     this.uri.repoPath!,
                     sha,
                     'You',

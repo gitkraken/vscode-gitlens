@@ -68,7 +68,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
                 if (status !== undefined && status.indexStatus !== undefined) {
                     let sha = GitService.stagedUncommittedSha;
                     if (args.inDiffEditor) {
-                        const commit = await Container.git.getRecentLogCommitForFile(gitUri.repoPath!, gitUri.fsPath);
+                        const commit = await Container.git.getCommitForFile(gitUri.repoPath!, gitUri.fsPath);
                         if (commit === undefined) return Messages.showCommitHasNoPreviousCommitWarningMessage();
 
                         sha = commit.sha;
@@ -99,7 +99,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
             }
 
             try {
-                args.commit = await Container.git.getLogCommitForFile(gitUri.repoPath, gitUri.fsPath, {
+                args.commit = await Container.git.getCommitForFile(gitUri.repoPath, gitUri.fsPath, {
                     ref: sha,
                     firstIfNotFound: true
                 });
