@@ -20,11 +20,13 @@ import { vslsUriRootRegex } from './vsls';
 const defaultWhitelistFn = () => true;
 const gitWhitelist = new Map<string, (args: any[]) => boolean>([
     ['blame', defaultWhitelistFn],
-    ['branch', args => args[1] === '-vv' || args[1] === '--contains'],
+    ['branch', args => args[1] === '--contains'],
     ['cat-file', defaultWhitelistFn],
+    ['check-mailmap', defaultWhitelistFn],
     ['config', args => args[1] === '--get' || args[1] === '--get-regex'],
     ['diff', defaultWhitelistFn],
     ['difftool', defaultWhitelistFn],
+    ['for-each-ref', defaultWhitelistFn],
     ['log', defaultWhitelistFn],
     ['ls-files', defaultWhitelistFn],
     ['ls-tree', defaultWhitelistFn],

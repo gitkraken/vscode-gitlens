@@ -762,7 +762,7 @@ export class GitService implements Disposable {
         const [file, root] = Git.splitPath(uri.fsPath, uri.repoPath, false);
 
         try {
-            const data = await Git.blame_contents(root, file, contents, {
+            const data = await Git.blame__contents(root, file, contents, {
                 args: Container.config.advanced.blame.customArguments,
                 correlationKey: `:${key}`,
                 ignoreWhitespace: Container.config.blame.ignoreWhitespace
@@ -877,7 +877,7 @@ export class GitService implements Disposable {
         const fileName = uri.fsPath;
 
         try {
-            const data = await Git.blame_contents(uri.repoPath, fileName, contents, {
+            const data = await Git.blame__contents(uri.repoPath, fileName, contents, {
                 args: Container.config.advanced.blame.customArguments,
                 ignoreWhitespace: Container.config.blame.ignoreWhitespace,
                 startLine: lineToBlame,
@@ -968,7 +968,7 @@ export class GitService implements Disposable {
     async getBranch(repoPath: string | undefined): Promise<GitBranch | undefined> {
         if (repoPath === undefined) return undefined;
 
-        const data = await Git.revparse_currentBranch(repoPath);
+        const data = await Git.rev_parse__currentBranch(repoPath);
         if (data === undefined) return undefined;
 
         const branch = data[0].split('\n');
@@ -985,7 +985,7 @@ export class GitService implements Disposable {
             if (branches !== undefined) return branches;
         }
 
-        const data = await Git.branch(repoPath, { all: true });
+        const data = await Git.for_each_ref__branch(repoPath, { all: true });
         // If we don't get any data, assume the repo doesn't have any commits yet so check if we have a current branch
         if (data == null || data.length === 0) {
             const current = await this.getBranch(repoPath);
@@ -1006,7 +1006,7 @@ export class GitService implements Disposable {
 
     @log()
     async getChangedFilesCount(repoPath: string, ref?: string): Promise<GitDiffShortStat | undefined> {
-        const data = await Git.diff_shortstat(repoPath, ref);
+        const data = await Git.diff__shortstat(repoPath, ref);
         return GitDiffParser.parseShortStat(data);
     }
 
@@ -1042,7 +1042,7 @@ export class GitService implements Disposable {
 
     @log()
     getConfig(key: string, repoPath?: string): Promise<string | undefined> {
-        return Git.config_get(key, repoPath);
+        return Git.config__get(key, repoPath);
     }
 
     @log()
@@ -1061,7 +1061,7 @@ export class GitService implements Disposable {
         // If we found the repo, but no user data was found just return
         if (user === null) return undefined;
 
-        const data = await Git.config_getRegex('user.(name|email)', repoPath, { local: true });
+        const data = await Git.config__get_regex('user.(name|email)', repoPath, { local: true });
         if (!data) {
             // If we found no user data, mark it so we won't bother trying again
             this._userMapCache.set(repoPath, null);
@@ -1170,7 +1170,7 @@ export class GitService implements Disposable {
         try {
             let data;
             if (ref1 !== undefined && ref2 === undefined && !GitService.isStagedUncommitted(ref1)) {
-                data = await Git.show_diff(root, file, ref1, originalFileName, {
+                data = await Git.show__diff(root, file, ref1, originalFileName, {
                     similarityThreshold: Container.config.advanced.similarityThreshold
                 });
             }
@@ -1240,7 +1240,7 @@ export class GitService implements Disposable {
         options: { filter?: string; similarityThreshold?: number } = {}
     ): Promise<GitFile[] | undefined> {
         try {
-            const data = await Git.diff_nameStatus(repoPath, ref1, ref2, {
+            const data = await Git.diff__name_status(repoPath, ref1, ref2, {
                 similarityThreshold: Container.config.advanced.similarityThreshold,
                 ...options
             });
@@ -1256,7 +1256,7 @@ export class GitService implements Disposable {
     async getFileStatusForCommit(repoPath: string, fileName: string, ref: string): Promise<GitFile | undefined> {
         if (ref === GitService.deletedOrMissingSha || GitService.isUncommitted(ref)) return undefined;
 
-        const data = await Git.show_status(repoPath, fileName, ref);
+        const data = await Git.show__name_status(repoPath, fileName, ref);
         if (!data) return undefined;
 
         const files = GitDiffParser.parseNameStatus(data, repoPath);
@@ -1378,7 +1378,7 @@ export class GitService implements Disposable {
         }
 
         try {
-            const data = await Git.log_search(repoPath, searchArgs, { maxCount: maxCount });
+            const data = await Git.log__search(repoPath, searchArgs, { maxCount: maxCount });
             const log = GitLogParser.parse(
                 data,
                 GitCommitType.Log,
@@ -1549,7 +1549,7 @@ export class GitService implements Disposable {
 
             const maxCount = options.maxCount == null ? Container.config.advanced.maxListItems || 0 : options.maxCount;
 
-            const data = await Git.log_file(root, file, ref, {
+            const data = await Git.log__file(root, file, ref, {
                 ...options,
                 maxCount: maxCount,
                 startLine: range === undefined ? undefined : range.start.line + 1,
@@ -1692,7 +1692,7 @@ export class GitService implements Disposable {
         }
 
         const fileName = GitUri.getRelativePath(uri, repoPath);
-        let data = await Git.log_file(repoPath, fileName, ref, {
+        let data = await Git.log__file(repoPath, fileName, ref, {
             filters: filters,
             format: GitLogParser.simpleFormat,
             maxCount: skip + 1,
@@ -1704,7 +1704,7 @@ export class GitService implements Disposable {
         const [nextRef, file, status] = GitLogParser.parseSimple(data, skip);
         // If the file was deleted, check for a possible rename
         if (status === 'D') {
-            data = await Git.log_file(repoPath, '.', nextRef, {
+            data = await Git.log__file(repoPath, '.', nextRef, {
                 filters: ['R'],
                 format: GitLogParser.simpleFormat,
                 maxCount: 1
@@ -1797,7 +1797,7 @@ export class GitService implements Disposable {
         }
 
         const fileName = GitUri.getRelativePath(uri, repoPath);
-        const data = await Git.log_file(repoPath, fileName, ref, {
+        const data = await Git.log__file(repoPath, fileName, ref, {
             format: GitLogParser.simpleFormat,
             maxCount: skip + 1,
             startLine: editorLine !== undefined ? editorLine + 1 : undefined
@@ -1909,7 +1909,7 @@ export class GitService implements Disposable {
 
     private async getRepoPathCore(filePath: string, isDirectory: boolean): Promise<string | undefined> {
         try {
-            return await Git.revparse_toplevel(isDirectory ? filePath : paths.dirname(filePath));
+            return await Git.rev_parse__show_toplevel(isDirectory ? filePath : paths.dirname(filePath));
         }
         catch (ex) {
             Logger.error(ex);
@@ -2033,7 +2033,7 @@ export class GitService implements Disposable {
     async getStashList(repoPath: string | undefined): Promise<GitStash | undefined> {
         if (repoPath === undefined) return undefined;
 
-        const data = await Git.stash_list(repoPath, {
+        const data = await Git.stash__list(repoPath, {
             similarityThreshold: Container.config.advanced.similarityThreshold
         });
         const stash = GitStashParser.parse(data, repoPath);
@@ -2044,7 +2044,7 @@ export class GitService implements Disposable {
     async getStatusForFile(repoPath: string, fileName: string): Promise<GitStatusFile | undefined> {
         const porcelainVersion = Git.validateVersion(2, 11) ? 2 : 1;
 
-        const data = await Git.status_file(repoPath, fileName, porcelainVersion);
+        const data = await Git.status__file(repoPath, fileName, porcelainVersion);
         const status = GitStatusParser.parse(data, repoPath, porcelainVersion);
         if (status === undefined || !status.files.length) return undefined;
 
@@ -2071,7 +2071,7 @@ export class GitService implements Disposable {
             tags = this._tagsWithRefsCache.get(repoPath);
             if (tags !== undefined) return tags;
 
-            const data = await Git.showref_tag(repoPath);
+            const data = await Git.show_ref__tags(repoPath);
             tags = GitTagParser.parseWithRef(data, repoPath) || [];
 
             const repo = await this.getRepository(repoPath);
@@ -2153,13 +2153,13 @@ export class GitService implements Disposable {
             }
 
             // Get the most recent commit for this file name
-            ref = await Git.log_recent(repoPath, fileName, {
+            ref = await Git.log__file_recent(repoPath, fileName, {
                 similarityThreshold: Container.config.advanced.similarityThreshold
             });
             if (ref === undefined) return undefined;
 
             // Now check if that commit had any renames
-            data = await Git.log_file(repoPath, '.', ref, {
+            data = await Git.log__file(repoPath, '.', ref, {
                 filters: ['R'],
                 format: GitLogParser.simpleFormat,
                 maxCount: 1
@@ -2278,8 +2278,8 @@ export class GitService implements Disposable {
     @log()
     async getDiffTool(repoPath?: string) {
         return (
-            (await Git.config_get('diff.guitool', repoPath, { local: true })) ||
-            Git.config_get('diff.tool', repoPath, { local: true })
+            (await Git.config__get('diff.guitool', repoPath, { local: true })) ||
+            Git.config__get('diff.tool', repoPath, { local: true })
         );
     }
 
@@ -2299,7 +2299,7 @@ export class GitService implements Disposable {
         }
 
         const { tool, ...opts } = options;
-        return Git.difftool_fileDiff(repoPath, uri.fsPath, tool, opts);
+        return Git.difftool(repoPath, uri.fsPath, tool, opts);
     }
 
     @log()
@@ -2313,15 +2313,15 @@ export class GitService implements Disposable {
             Logger.log(cc, `Using tool=${tool}`);
         }
 
-        return Git.difftool_dirDiff(repoPath, tool, ref1, ref2);
+        return Git.difftool__dir_diff(repoPath, tool, ref1, ref2);
     }
 
     @log()
     async resolveReference(repoPath: string, ref: string, uri?: Uri) {
         const resolved = Git.isSha(ref) || !Git.isShaLike(ref) || ref.endsWith('^3');
-        if (uri == null) return resolved ? ref : (await Git.revparse(repoPath, ref)) || ref;
+        if (uri == null) return resolved ? ref : (await Git.rev_parse(repoPath, ref)) || ref;
 
-        const ensuredRef = await Git.cat_file_validate(
+        const ensuredRef = await Git.cat_file__resolve(
             repoPath,
             Strings.normalizePath(paths.relative(repoPath, uri.fsPath)),
             ref
@@ -2333,7 +2333,7 @@ export class GitService implements Disposable {
 
     @log()
     validateReference(repoPath: string, ref: string) {
-        return Git.cat_validate(repoPath, ref);
+        return Git.cat_file__validate(repoPath, ref);
     }
 
     stageFile(repoPath: string, fileName: string): Promise<string>;
@@ -2378,22 +2378,22 @@ export class GitService implements Disposable {
 
     @log()
     stashApply(repoPath: string, stashName: string, deleteAfter: boolean = false) {
-        return Git.stash_apply(repoPath, stashName, deleteAfter);
+        return Git.stash__apply(repoPath, stashName, deleteAfter);
     }
 
     @log()
     stashDelete(repoPath: string, stashName: string) {
-        return Git.stash_delete(repoPath, stashName);
+        return Git.stash__delete(repoPath, stashName);
     }
 
     @log()
     stashSave(repoPath: string, message?: string, uris?: Uri[]) {
-        if (uris === undefined) return Git.stash_save(repoPath, message);
+        if (uris === undefined) return Git.stash__save(repoPath, message);
 
         GitService.ensureGitVersion('2.13.2', 'Stashing individual files');
 
         const pathspecs = uris.map(u => Git.splitPath(u.fsPath, repoPath)[0]);
-        return Git.stash_push(repoPath, pathspecs, message);
+        return Git.stash__push(repoPath, pathspecs, message);
     }
 
     static compareGitVersion(version: string) {

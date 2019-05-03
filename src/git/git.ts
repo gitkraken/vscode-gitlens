@@ -358,7 +358,7 @@ export class Git {
         return git<string>({ cwd: root, stdin: stdin }, ...params, '--', file);
     }
 
-    static blame_contents(
+    static blame__contents(
         repoPath: string | undefined,
         fileName: string,
         contents: string,
@@ -395,16 +395,7 @@ export class Git {
         );
     }
 
-    static branch(repoPath: string, options: { all: boolean } = { all: false }) {
-        const params = ['for-each-ref', `--format=${GitBranchParser.defaultFormat}`, 'refs/heads'];
-        if (options.all) {
-            params.push('refs/remotes');
-        }
-
-        return git<string>({ cwd: repoPath }, ...params);
-    }
-
-    static branch_contains(repoPath: string, ref: string, options: { remote: boolean } = { remote: false }) {
+    static branch__contains(repoPath: string, ref: string, options: { remote: boolean } = { remote: false }) {
         const params = ['branch', '--contains'];
         if (options.remote) {
             params.push('-r');
@@ -413,19 +404,7 @@ export class Git {
         return git<string>({ cwd: repoPath, configs: ['-c', 'color.branch=false'] }, ...params, ref);
     }
 
-    static async cat_validate(repoPath: string, ref: string) {
-        if (Git.isUncommitted(ref)) return true;
-
-        try {
-            await git<string>({ cwd: repoPath, errors: GitErrorHandling.Throw }, 'cat-file', '-t', ref);
-            return true;
-        }
-        catch (ex) {
-            return false;
-        }
-    }
-
-    static async cat_file_validate(repoPath: string, fileName: string, ref: string) {
+    static async cat_file__resolve(repoPath: string, fileName: string, ref: string) {
         if (Git.isUncommitted(ref)) return ref;
 
         try {
@@ -447,6 +426,18 @@ export class Git {
         }
     }
 
+    static async cat_file__validate(repoPath: string, ref: string) {
+        if (Git.isUncommitted(ref)) return true;
+
+        try {
+            await git<string>({ cwd: repoPath, errors: GitErrorHandling.Throw }, 'cat-file', '-t', ref);
+            return true;
+        }
+        catch (ex) {
+            return false;
+        }
+    }
+
     static check_mailmap(repoPath: string, author: string) {
         return git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore, local: true }, 'check-mailmap', author);
     }
@@ -462,7 +453,7 @@ export class Git {
         return git<string>({ cwd: repoPath }, ...params);
     }
 
-    static async config_get(key: string, repoPath?: string, options: { local?: boolean } = {}) {
+    static async config__get(key: string, repoPath?: string, options: { local?: boolean } = {}) {
         const data = await git<string>(
             { cwd: repoPath || emptyStr, errors: GitErrorHandling.Ignore, local: options.local },
             'config',
@@ -472,7 +463,7 @@ export class Git {
         return data.length === 0 ? undefined : data.trim();
     }
 
-    static async config_getRegex(pattern: string, repoPath?: string, options: { local?: boolean } = {}) {
+    static async config__get_regex(pattern: string, repoPath?: string, options: { local?: boolean } = {}) {
         const data = await git<string>(
             { cwd: repoPath || emptyStr, errors: GitErrorHandling.Ignore, local: options.local },
             'config',
@@ -536,7 +527,7 @@ export class Git {
         }
     }
 
-    static diff_nameStatus(
+    static diff__name_status(
         repoPath: string,
         ref1?: string,
         ref2?: string,
@@ -561,7 +552,7 @@ export class Git {
         return git<string>({ cwd: repoPath, configs: ['-c', 'color.diff=false'] }, ...params);
     }
 
-    static diff_shortstat(repoPath: string, ref?: string) {
+    static diff__shortstat(repoPath: string, ref?: string) {
         const params = ['diff', '--shortstat', '--no-ext-diff'];
         if (ref) {
             params.push(ref);
@@ -570,16 +561,7 @@ export class Git {
         return git<string>({ cwd: repoPath, configs: ['-c', 'color.diff=false'] }, ...params);
     }
 
-    static difftool_dirDiff(repoPath: string, tool: string, ref1: string, ref2?: string) {
-        const params = ['difftool', '--dir-diff', `--tool=${tool}`, ref1];
-        if (ref2) {
-            params.push(ref2);
-        }
-
-        return git<string>({ cwd: repoPath }, ...params);
-    }
-
-    static difftool_fileDiff(
+    static difftool(
         repoPath: string,
         fileName: string,
         tool: string,
@@ -599,6 +581,15 @@ export class Git {
         return git<string>({ cwd: repoPath }, ...params, '--', fileName);
     }
 
+    static difftool__dir_diff(repoPath: string, tool: string, ref1: string, ref2?: string) {
+        const params = ['difftool', '--dir-diff', `--tool=${tool}`, ref1];
+        if (ref2) {
+            params.push(ref2);
+        }
+
+        return git<string>({ cwd: repoPath }, ...params);
+    }
+
     static fetch(repoPath: string, options: { all?: boolean; remote?: string } = {}) {
         const params = ['fetch'];
         if (options.remote) {
@@ -606,6 +597,15 @@ export class Git {
         }
         else if (options.all) {
             params.push('--all');
+        }
+
+        return git<string>({ cwd: repoPath }, ...params);
+    }
+
+    static for_each_ref__branch(repoPath: string, options: { all: boolean } = { all: false }) {
+        const params = ['for-each-ref', `--format=${GitBranchParser.defaultFormat}`, 'refs/heads'];
+        if (options.all) {
+            params.push('refs/remotes');
         }
 
         return git<string>({ cwd: repoPath }, ...params);
@@ -654,7 +654,7 @@ export class Git {
         );
     }
 
-    static log_file(
+    static log__file(
         repoPath: string,
         fileName: string,
         ref: string | undefined,
@@ -715,7 +715,7 @@ export class Git {
         return git<string>({ cwd: root, configs: ['-c', 'log.showSignature=false'] }, ...params);
     }
 
-    static async log_recent(
+    static async log__file_recent(
         repoPath: string,
         fileName: string,
         { similarityThreshold }: { similarityThreshold?: number } = {}
@@ -732,7 +732,7 @@ export class Git {
         return data.length === 0 ? undefined : data.trim();
     }
 
-    static log_search(repoPath: string, search: string[] = emptyArray, { maxCount }: { maxCount?: number } = {}) {
+    static log__search(repoPath: string, search: string[] = emptyArray, { maxCount }: { maxCount?: number } = {}) {
         const params = ['log', '--name-status', `--format=${GitLogParser.defaultFormat}`];
         if (maxCount) {
             params.push(`-n${maxCount}`);
@@ -741,13 +741,13 @@ export class Git {
         return git<string>({ cwd: repoPath }, ...params, ...search);
     }
 
-    static log_shortstat(repoPath: string, options: { ref?: string }) {
-        const params = ['log', '--shortstat', '--oneline'];
-        if (options.ref && !Git.isStagedUncommitted(options.ref)) {
-            params.push(options.ref);
-        }
-        return git<string>({ cwd: repoPath }, ...params, '--');
-    }
+    // static log__shortstat(repoPath: string, options: { ref?: string }) {
+    //     const params = ['log', '--shortstat', '--oneline'];
+    //     if (options.ref && !Git.isStagedUncommitted(options.ref)) {
+    //         params.push(options.ref);
+    //     }
+    //     return git<string>({ cwd: repoPath }, ...params, '--');
+    // }
 
     static async ls_files(
         repoPath: string,
@@ -788,7 +788,7 @@ export class Git {
         return git<string>({ cwd: repoPath }, 'remote', '-v');
     }
 
-    static remote_url(repoPath: string, remote: string): Promise<string> {
+    static remote__get_url(repoPath: string, remote: string): Promise<string> {
         return git<string>({ cwd: repoPath }, 'remote', 'get-url', remote);
     }
 
@@ -796,12 +796,12 @@ export class Git {
         return git<string>({ cwd: repoPath }, 'reset', '-q', '--', fileName);
     }
 
-    static async revparse(repoPath: string, ref: string): Promise<string | undefined> {
+    static async rev_parse(repoPath: string, ref: string): Promise<string | undefined> {
         const data = await git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, 'rev-parse', ref);
         return data.length === 0 ? undefined : data.trim();
     }
 
-    static async revparse_currentBranch(repoPath: string): Promise<[string, string | undefined] | undefined> {
+    static async rev_parse__currentBranch(repoPath: string): Promise<[string, string | undefined] | undefined> {
         const params = ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@', '@{u}'];
 
         const opts: GitCommandOptions = {
@@ -849,7 +849,7 @@ export class Git {
         }
     }
 
-    static async revparse_toplevel(cwd: string): Promise<string | undefined> {
+    static async rev_parse__show_toplevel(cwd: string): Promise<string | undefined> {
         const data = await git<string>({ cwd: cwd, errors: GitErrorHandling.Ignore }, 'rev-parse', '--show-toplevel');
         return data.length === 0 ? undefined : data.trim();
     }
@@ -903,7 +903,7 @@ export class Git {
         }
     }
 
-    static show_diff(
+    static show__diff(
         repoPath: string,
         fileName: string,
         ref: string,
@@ -927,25 +927,25 @@ export class Git {
         return git<string>({ cwd: repoPath }, ...params);
     }
 
-    static show_status(repoPath: string, fileName: string, ref: string) {
+    static show__name_status(repoPath: string, fileName: string, ref: string) {
         return git<string>({ cwd: repoPath }, 'show', '--name-status', '--format=', ref, '--', fileName);
     }
 
-    static showref_tag(repoPath: string) {
+    static show_ref__tags(repoPath: string) {
         return git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, 'show-ref', '--tags');
     }
 
-    static stash_apply(repoPath: string, stashName: string, deleteAfter: boolean) {
+    static stash__apply(repoPath: string, stashName: string, deleteAfter: boolean) {
         if (!stashName) return undefined;
         return git<string>({ cwd: repoPath }, 'stash', deleteAfter ? 'pop' : 'apply', stashName);
     }
 
-    static stash_delete(repoPath: string, stashName: string) {
+    static stash__delete(repoPath: string, stashName: string) {
         if (!stashName) return undefined;
         return git<string>({ cwd: repoPath }, 'stash', 'drop', stashName);
     }
 
-    static stash_list(
+    static stash__list(
         repoPath: string,
         {
             format = GitStashParser.defaultFormat,
@@ -962,7 +962,7 @@ export class Git {
         );
     }
 
-    static stash_push(repoPath: string, pathspecs: string[], message?: string) {
+    static stash__push(repoPath: string, pathspecs: string[], message?: string) {
         const params = ['stash', 'push', '-u'];
         if (message) {
             params.push('-m', message);
@@ -970,7 +970,7 @@ export class Git {
         return git<string>({ cwd: repoPath }, ...params, '--', ...pathspecs);
     }
 
-    static stash_save(repoPath: string, message?: string) {
+    static stash__save(repoPath: string, message?: string) {
         const params = ['stash', 'save', '-u'];
         if (message) {
             params.push(message);
@@ -989,7 +989,7 @@ export class Git {
         );
     }
 
-    static status_file(repoPath: string, fileName: string, porcelainVersion: number = 1): Promise<string> {
+    static status__file(repoPath: string, fileName: string, porcelainVersion: number = 1): Promise<string> {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
         const porcelain = porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain';
