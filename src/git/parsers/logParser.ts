@@ -1,7 +1,7 @@
 'use strict';
 import * as paths from 'path';
 import { Range } from 'vscode';
-import { Git, GitAuthor, GitCommitType, GitFile, GitFileStatus, GitLog, GitLogCommit } from '../git';
+import { Git, GitAuthor, GitCommitType, GitFile, GitFileStatus, GitLog, GitLogCommit, GitLogCommitLine } from '../git';
 import { Arrays, debug, Strings } from '../../system';
 
 const emptyEntry: LogEntry = {};
@@ -9,6 +9,8 @@ const emptyStr = '';
 const slash = '/';
 
 const diffRegex = /diff --git a\/(.*) b\/(.*)/;
+const diffRangeRegex = /^@@ -(\d+?),(\d+?) \+(\d+?),(\d+?) @@/;
+
 export const fileStatusRegex = /(\S)\S*\t([^\t\n]+)(?:\t(.+))?/;
 const logFileSimpleRegex = /^<r> (.*)\s*(?:(?:diff --git a\/(.*) b\/(.*))|(?:(\S)\S*\t([^\t\n]+)(?:\t(.+))?))/gm;
 
@@ -35,6 +37,8 @@ interface LogEntry {
     status?: GitFileStatus;
 
     summary?: string;
+
+    line?: GitLogCommitLine;
 }
 
 export class GitLogParser {
@@ -211,6 +215,24 @@ export class GitLogParser {
                                     entry.status = 'R';
                                 }
 
+                                next = lines.next();
+                                next = lines.next();
+                                next = lines.next();
+
+                                match = diffRangeRegex.exec(next.value);
+                                if (match !== null) {
+                                    entry.line = {
+                                        from: {
+                                            line: parseInt(match[1], 10),
+                                            count: parseInt(match[2], 10)
+                                        },
+                                        to: {
+                                            line: parseInt(match[3], 10),
+                                            count: parseInt(match[4], 10)
+                                        }
+                                    };
+                                }
+
                                 while (true) {
                                     next = lines.next();
                                     if (next.done || next.value === '</f>') break;
@@ -356,7 +378,8 @@ export class GitLogParser {
                 originalFileName,
                 type === GitCommitType.Branch ? entry.parentShas![0] : undefined,
                 undefined,
-                entry.parentShas!
+                entry.parentShas!,
+                entry.line
             );
 
             commits.set(entry.ref!, commit);
@@ -381,8 +404,14 @@ export class GitLogParser {
     @debug({ args: false })
     static parseSimple(
         data: string,
-        skip: number
+        skip: number,
+        lineRef?: string
     ): [string | undefined, string | undefined, GitFileStatus | undefined] {
+        // Don't skip 1 extra for line-based previous, as we will be skipping the line ref as needed
+        if (lineRef !== undefined) {
+            skip--;
+        }
+
         let match;
         let ref;
         let file;
@@ -394,6 +423,12 @@ export class GitLogParser {
             if (skip-- > 0) continue;
 
             ref = ` ${match[1]}`.substr(1);
+            if (lineRef === ref) {
+                skip++;
+
+                continue;
+            }
+
             file = ` ${match[3] || match[2] || match[6] || match[5]}`.substr(1);
             status = match[4] ? (` ${match[4]}`.substr(1) as GitFileStatus) : undefined;
         } while (skip >= 0);

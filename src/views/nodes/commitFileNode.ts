@@ -197,9 +197,17 @@ export class CommitFileNode extends ViewRefFileNode {
     }
 
     getCommand(): Command | undefined {
+        let line;
+        if (this.commit.line !== undefined) {
+            line = this.commit.line.to.line - 1;
+        }
+        else {
+            line = this._selection !== undefined ? this._selection.active.line : 0;
+        }
+
         const commandArgs: DiffWithPreviousCommandArgs = {
             commit: this.commit,
-            line: this._selection !== undefined ? this._selection.active.line : 0,
+            line: line,
             showOptions: {
                 preserveFocus: true,
                 preview: true

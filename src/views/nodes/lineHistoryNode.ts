@@ -46,18 +46,6 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
                 ? await Container.git.getBlameForRangeContents(this.uri, selection, this._editorContents)
                 : await Container.git.getBlameForRange(this.uri, selection);
             if (blame !== undefined) {
-                const firstLine = blame.lines[0];
-                const lastLine = blame.lines[blame.lines.length - 1];
-
-                // Since there could be a change in the line numbers, update the selection
-                const firstActive = selection.active.line === firstLine.line - 1;
-                selection = new Selection(
-                    (firstActive ? lastLine : firstLine).originalLine - 1,
-                    selection.anchor.character,
-                    (firstActive ? firstLine : lastLine).originalLine - 1,
-                    selection.active.character
-                );
-
                 for (const commit of blame.commits.values()) {
                     if (!commit.isUncommitted) continue;
 
@@ -85,6 +73,18 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
                         commit.originalFileName,
                         commit.previousSha,
                         commit.originalFileName || commit.fileName
+                    );
+
+                    const firstLine = blame.lines[0];
+                    const lastLine = blame.lines[blame.lines.length - 1];
+
+                    // Since there could be a change in the line numbers, update the selection
+                    const firstActive = selection.active.line === firstLine.line - 1;
+                    selection = new Selection(
+                        (firstActive ? lastLine : firstLine).originalLine - 1,
+                        selection.anchor.character,
+                        (firstActive ? firstLine : lastLine).originalLine - 1,
+                        selection.active.character
                     );
 
                     children.splice(0, 0, new CommitFileNode(this.view, this, file, uncommitted, displayAs, selection));

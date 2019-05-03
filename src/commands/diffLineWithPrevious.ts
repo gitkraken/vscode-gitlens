@@ -40,11 +40,11 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
                 return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
             }
 
-            // Since there could be a change in the line number, update it
-            args.line = blame.line.originalLine - 1;
-
             // If the line is uncommitted, change the previous commit
             if (blame.commit.isUncommitted) {
+                // Since there could be a change in the line number, update it
+                args.line = blame.line.originalLine - 1;
+
                 try {
                     const previous = await Container.git.getPreviousUri(
                         gitUri.repoPath!,

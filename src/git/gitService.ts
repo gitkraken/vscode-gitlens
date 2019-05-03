@@ -1809,7 +1809,10 @@ export class GitService implements Disposable {
         });
         if (data == null || data.length === 0) throw new Error('File has no history');
 
-        const [previousRef, file] = GitLogParser.parseSimple(data, skip);
+        const [previousRef, file] = GitLogParser.parseSimple(data, skip, editorLine !== undefined ? ref : undefined);
+        // If the previous ref matches the ref we asked for assume we are at the end of the history
+        if (ref !== undefined && ref === previousRef) return undefined;
+
         return GitUri.fromFile(file || fileName, repoPath, previousRef || GitService.deletedOrMissingSha);
     }
 

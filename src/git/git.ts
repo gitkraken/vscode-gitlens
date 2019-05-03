@@ -707,7 +707,12 @@ export class Git {
             }
         }
 
-        return git<string>({ cwd: root, configs: ['-c', 'log.showSignature=false'] }, ...params, '--', file);
+        if (startLine == null || renames) {
+            // Don't specify a file spec when using a line number (so say the git docs), unless it is a follow
+            params.push('--', file);
+        }
+
+        return git<string>({ cwd: root, configs: ['-c', 'log.showSignature=false'] }, ...params);
     }
 
     static async log_recent(

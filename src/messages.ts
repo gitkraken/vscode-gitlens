@@ -24,7 +24,7 @@ export class Messages {
         if (commit === undefined) {
             return Messages.showMessage(
                 'info',
-                'Commit has no previous commit.',
+                'There is no previous commit.',
                 SuppressedMessages.CommitHasNoPreviousCommitWarning
             );
         }

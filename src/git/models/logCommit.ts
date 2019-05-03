@@ -6,6 +6,17 @@ import { GitUri } from '../gitUri';
 import { GitCommit, GitCommitType } from './commit';
 import { GitFile, GitFileStatus } from './file';
 
+export interface GitLogCommitLine {
+    from: {
+        line: number;
+        count: number;
+    };
+    to: {
+        line: number;
+        count: number;
+    };
+}
+
 export class GitLogCommit extends GitCommit {
     nextSha?: string;
     nextFileName?: string;
@@ -25,7 +36,8 @@ export class GitLogCommit extends GitCommit {
         originalFileName?: string | undefined,
         previousSha?: string | undefined,
         previousFileName?: string | undefined,
-        public readonly parentShas?: string[]
+        public readonly parentShas?: string[],
+        public readonly line?: GitLogCommitLine
     ) {
         super(
             type,
