@@ -17,13 +17,11 @@ import {
     GitBlameCommit,
     GitCommit,
     GitDiffHunkLine,
-    GitRemote,
     GitService,
     GitUri
 } from '../git/gitService';
 import { Objects, Strings } from '../system';
 import { toRgba } from '../webviews/apps/shared/colors';
-import { ContactPresence } from '../vsls/vsls';
 
 export interface ComputedHeatmap {
     cold: boolean;
@@ -61,55 +59,37 @@ export class Annotations {
         decoration.renderOptions!.before!.borderColor = color;
     }
 
-    private static getHeatmapColor(date: Date, heatmap: ComputedHeatmap) {
-        const baseColor = heatmap.cold ? heatmap.colors.cold : heatmap.colors.hot;
-
-        const age = heatmap.computeAge(date);
-        if (age === 0) return baseColor;
-
-        if (computedHeatmapColor === undefined || computedHeatmapColor.color !== baseColor) {
-            let rgba = toRgba(baseColor);
-            if (rgba == null) {
-                rgba = toRgba(heatmap.cold ? defaultHeatmapColdColor : defaultHeatmapHotColor)!;
+    static async changesHoverMessage(
+        commit: GitBlameCommit,
+        uri: GitUri,
+        editorLine: number
+    ): Promise<MarkdownString | undefined> {
+        let ref;
+        if (commit.isUncommitted) {
+            if (uri.sha !== undefined && GitService.isUncommittedStaged(uri.sha)) {
+                ref = uri.sha;
             }
-
-            const [r, g, b] = rgba;
-            computedHeatmapColor = {
-                color: baseColor,
-                rgb: `${r}, ${g}, ${b}`
-            };
+        }
+        else {
+            ref = commit.sha;
         }
 
-        return `rgba(${computedHeatmapColor.rgb}, ${(1 - age / 10).toFixed(2)})`;
-    }
+        const line = editorLine + 1;
+        const commitLine = commit.lines.find(l => l.line === line) || commit.lines[0];
 
-    static getHoverMessage(
-        commit: GitCommit,
-        dateFormat: string | null,
-        presence: ContactPresence | undefined,
-        remotes: GitRemote[],
-        annotationType?: FileAnnotationType,
-        line: number = 0
-    ): MarkdownString {
-        if (dateFormat === null) {
-            dateFormat = 'MMMM Do, YYYY h:mma';
+        let originalFileName = commit.originalFileName;
+        if (originalFileName === undefined) {
+            if (uri.fsPath !== commit.uri.fsPath) {
+                originalFileName = commit.fileName;
+            }
         }
 
-        const markdown = new MarkdownString(
-            CommitFormatter.fromTemplate(Container.config.hovers.detailsMarkdownFormat, commit, {
-                annotationType: annotationType,
-                dateFormat: dateFormat,
-                line: line,
-                markdown: true,
-                presence: presence,
-                remotes: remotes
-            })
-        );
-        markdown.isTrusted = true;
-        return markdown;
+        const commitEditorLine = commitLine.originalLine - 1;
+        const hunkLine = await Container.git.getDiffForLine(uri, commitEditorLine, ref, undefined, originalFileName);
+        return this.changesHoverDiffMessage(commit, uri, hunkLine, commitEditorLine);
     }
 
-    static getHoverDiffMessage(
+    static changesHoverDiffMessage(
         commit: GitCommit,
         uri: GitUri,
         hunkLine: GitDiffHunkLine | undefined,
@@ -156,56 +136,35 @@ export class Annotations {
         return markdown;
     }
 
-    private static getDiffFromHunkLine(hunkLine: GitDiffHunkLine): string {
-        if (Container.config.hovers.changesDiff === 'hunk') {
-            return `\`\`\`diff\n${hunkLine.hunk.diff}\n\`\`\``;
-        }
-
-        return `\`\`\`diff${hunkLine.previous === undefined ? '' : `\n-${hunkLine.previous.line}`}${
-            hunkLine.current === undefined ? '' : `\n+${hunkLine.current.line}`
-        }\n\`\`\``;
-    }
-
-    static async changesHover(
-        commit: GitBlameCommit,
+    static async detailsHoverMessage(
+        commit: GitCommit,
+        uri: GitUri,
         editorLine: number,
-        uri: GitUri
-    ): Promise<Partial<DecorationOptions>> {
-        let ref;
-        if (commit.isUncommitted) {
-            if (uri.sha !== undefined && GitService.isUncommittedStaged(uri.sha)) {
-                ref = uri.sha;
-            }
-        }
-        else {
-            ref = commit.sha;
+        dateFormat: string | null,
+        annotationType?: FileAnnotationType
+    ): Promise<MarkdownString> {
+        if (dateFormat === null) {
+            dateFormat = 'MMMM Do, YYYY h:mma';
         }
 
-        const line = editorLine + 1;
-        const commitLine = commit.lines.find(l => l.line === line) || commit.lines[0];
+        const [presence, remotes] = await Promise.all([
+            Container.vsls.getContactPresence(commit.email),
+            Container.git.getRemotes(commit.repoPath)
+        ]);
 
-        let originalFileName = commit.originalFileName;
-        if (originalFileName === undefined) {
-            if (uri.fsPath !== commit.uri.fsPath) {
-                originalFileName = commit.fileName;
-            }
-        }
-
-        const commitEditorLine = commitLine.originalLine - 1;
-        const hunkLine = await Container.git.getDiffForLine(uri, commitEditorLine, ref, undefined, originalFileName);
-        const message = this.getHoverDiffMessage(commit, uri, hunkLine, commitEditorLine);
-
-        return {
-            hoverMessage: message
-        };
+        const markdown = new MarkdownString(
+            CommitFormatter.fromTemplate(Container.config.hovers.detailsMarkdownFormat, commit, {
+                annotationType: annotationType,
+                dateFormat: dateFormat,
+                line: editorLine,
+                markdown: true,
+                presence: presence,
+                remotes: remotes
+            })
+        );
+        markdown.isTrusted = true;
+        return markdown;
     }
-
-    // static detailsHover(commit: GitCommit, dateFormat: string | null, hasRemote: boolean, annotationType?: FileAnnotationType, line: number = 0): DecorationOptions {
-    //     const message = this.getHoverMessage(commit, dateFormat, hasRemote, annotationType);
-    //     return {
-    //         hoverMessage: message
-    //     } as DecorationOptions;
-    // }
 
     static gutter(
         commit: GitCommit,
@@ -314,29 +273,6 @@ export class Annotations {
         };
     }
 
-    // static hover(commit: GitCommit, renderOptions: IRenderOptions, now: number): DecorationOptions {
-    //     const decoration = {
-    //         renderOptions: { before: { ...renderOptions } }
-    //     } as DecorationOptions;
-
-    //     this.applyHeatmap(decoration, commit.date, now);
-
-    //     return decoration;
-    // }
-
-    // static hoverRenderOptions(heatmap: HeatmapConfig): IRenderOptions {
-    //     if (!heatmap.enabled) return { before: undefined };
-
-    //     return {
-    //         borderStyle: 'solid',
-    //         borderWidth: '0 0 0 2px',
-    //         contentText: GlyphChars.ZeroWidthSpace,
-    //         height: '100%',
-    //         margin: '0 26px 0 0',
-    //         textDecoration: 'none'
-    //     } as IRenderOptions;
-    // }
-
     static trailing(
         commit: GitCommit,
         format: string,
@@ -363,20 +299,35 @@ export class Annotations {
         };
     }
 
-    // static withRange(decoration: DecorationOptions, start?: number, end?: number): DecorationOptions {
-    //     let range = decoration.range;
-    //     if (start !== undefined) {
-    //         range = range.with({
-    //             start: range.start.with({ character: start })
-    //         });
-    //     }
+    private static getDiffFromHunkLine(hunkLine: GitDiffHunkLine): string {
+        if (Container.config.hovers.changesDiff === 'hunk') {
+            return `\`\`\`diff\n${hunkLine.hunk.diff}\n\`\`\``;
+        }
 
-    //     if (end !== undefined) {
-    //         range = range.with({
-    //             end: range.end.with({ character: end })
-    //         });
-    //     }
+        return `\`\`\`diff${hunkLine.previous === undefined ? '' : `\n-${hunkLine.previous.line}`}${
+            hunkLine.current === undefined ? '' : `\n+${hunkLine.current.line}`
+        }\n\`\`\``;
+    }
 
-    //     return { ...decoration, range: range };
-    // }
+    private static getHeatmapColor(date: Date, heatmap: ComputedHeatmap) {
+        const baseColor = heatmap.cold ? heatmap.colors.cold : heatmap.colors.hot;
+
+        const age = heatmap.computeAge(date);
+        if (age === 0) return baseColor;
+
+        if (computedHeatmapColor === undefined || computedHeatmapColor.color !== baseColor) {
+            let rgba = toRgba(baseColor);
+            if (rgba == null) {
+                rgba = toRgba(heatmap.cold ? defaultHeatmapColdColor : defaultHeatmapHotColor)!;
+            }
+
+            const [r, g, b] = rgba;
+            computedHeatmapColor = {
+                color: baseColor,
+                rgb: `${r}, ${g}, ${b}`
+            };
+        }
+
+        return `rgba(${computedHeatmapColor.rgb}, ${(1 - age / 10).toFixed(2)})`;
+    }
 }

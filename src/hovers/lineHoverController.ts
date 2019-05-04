@@ -121,13 +121,12 @@ export class LineHoverController implements Disposable {
         const trackedDocument = await Container.tracker.get(document);
         if (trackedDocument === undefined) return undefined;
 
-        const message = Annotations.getHoverMessage(
+        const message = await Annotations.detailsHoverMessage(
             logCommit || commit,
+            trackedDocument.uri,
+            editorLine,
             Container.config.defaultDateFormat,
-            await Container.vsls.getContactPresence(commit.email),
-            await Container.git.getRemotes(commit.repoPath),
-            fileAnnotations,
-            editorLine
+            fileAnnotations
         );
         return new Hover(message, range);
     }
@@ -161,10 +160,10 @@ export class LineHoverController implements Disposable {
         const trackedDocument = await Container.tracker.get(document);
         if (trackedDocument === undefined) return undefined;
 
-        const hover = await Annotations.changesHover(commit, position.line, trackedDocument.uri);
-        if (hover.hoverMessage === undefined) return undefined;
+        const message = await Annotations.changesHoverMessage(commit, trackedDocument.uri, position.line);
+        if (message === undefined) return undefined;
 
-        return new Hover(hover.hoverMessage, range);
+        return new Hover(message, range);
     }
 
     private register(editor: TextEditor | undefined) {

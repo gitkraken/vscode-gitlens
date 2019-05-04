@@ -234,13 +234,12 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         const commitLine = commit.lines.find(l => l.line === line) || commit.lines[0];
         editorLine = commitLine.originalLine - 1;
 
-        const message = Annotations.getHoverMessage(
+        const message = await Annotations.detailsHoverMessage(
             logCommit || commit,
+            await GitUri.fromUri(document.uri),
+            editorLine,
             Container.config.defaultDateFormat,
-            await Container.vsls.getContactPresence(commit.email),
-            await Container.git.getRemotes(commit.repoPath),
-            this.annotationType,
-            editorLine
+            this.annotationType
         );
         return new Hover(
             message,
@@ -256,11 +255,15 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
         const commit = await this.getCommitForHover(position);
         if (commit === undefined) return undefined;
 
-        const hover = await Annotations.changesHover(commit, position.line, await GitUri.fromUri(document.uri));
-        if (hover.hoverMessage === undefined) return undefined;
+        const message = await Annotations.changesHoverMessage(
+            commit,
+            await GitUri.fromUri(document.uri),
+            position.line
+        );
+        if (message === undefined) return undefined;
 
         return new Hover(
-            hover.hoverMessage,
+            message,
             document.validateRange(new Range(position.line, 0, position.line, Number.MAX_SAFE_INTEGER))
         );
     }

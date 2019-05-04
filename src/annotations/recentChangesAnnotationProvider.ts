@@ -61,20 +61,19 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
                 if (cfg.hovers.enabled && cfg.hovers.annotations.enabled) {
                     if (cfg.hovers.annotations.details) {
                         this.decorations.push({
-                            hoverMessage: Annotations.getHoverMessage(
+                            hoverMessage: await Annotations.detailsHoverMessage(
                                 commit,
+                                await GitUri.fromUri(this.editor.document.uri),
+                                count,
                                 dateFormat,
-                                await Container.vsls.getContactPresence(commit.email),
-                                await Container.git.getRemotes(commit.repoPath),
-                                this.annotationType,
-                                count
+                                this.annotationType
                             ),
                             range: range
                         });
                     }
 
                     if (cfg.hovers.annotations.changes) {
-                        message = Annotations.getHoverDiffMessage(commit, this._uri, hunkLine, count);
+                        message = Annotations.changesHoverDiffMessage(commit, this._uri, hunkLine, count);
                         if (message === undefined) continue;
                     }
                 }
