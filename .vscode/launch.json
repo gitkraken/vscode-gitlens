@@ -18,6 +18,21 @@
             "sourceMaps": true
         },
         {
+            "name": "Launch GitLens (Sandbox)",
+            "type": "extensionHost",
+            "request": "launch",
+            "runtimeExecutable": "${execPath}",
+            "args": ["--disable-extensions", "--extensionDevelopmentPath=${workspaceFolder}"],
+            "env": {
+                "VSCODE_DEBUGGING_EXTENSION": "gitlens"
+            },
+            "cwd": "${workspaceFolder}",
+            "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+            "skipFiles": ["<node_internals>/**", "**/resources/app/out/vs/**"],
+            "smartStep": true,
+            "sourceMaps": true
+        },
+        {
             "name": "Watch & Launch GitLens",
             "type": "extensionHost",
             "request": "launch",
