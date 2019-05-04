@@ -2044,7 +2044,9 @@ export class GitService implements Disposable {
     async getStatusForFile(repoPath: string, fileName: string): Promise<GitStatusFile | undefined> {
         const porcelainVersion = Git.validateVersion(2, 11) ? 2 : 1;
 
-        const data = await Git.status__file(repoPath, fileName, porcelainVersion);
+        const data = await Git.status__file(repoPath, fileName, porcelainVersion, {
+            similarityThreshold: Container.config.advanced.similarityThreshold
+        });
         const status = GitStatusParser.parse(data, repoPath, porcelainVersion);
         if (status === undefined || !status.files.length) return undefined;
 
@@ -2057,7 +2059,9 @@ export class GitService implements Disposable {
 
         const porcelainVersion = Git.validateVersion(2, 11) ? 2 : 1;
 
-        const data = await Git.status(repoPath, porcelainVersion);
+        const data = await Git.status(repoPath, porcelainVersion, {
+            similarityThreshold: Container.config.advanced.similarityThreshold
+        });
         const status = GitStatusParser.parse(data, repoPath, porcelainVersion);
         return status;
     }

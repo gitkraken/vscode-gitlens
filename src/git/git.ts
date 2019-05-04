@@ -978,18 +978,29 @@ export class Git {
         return git<string>({ cwd: repoPath }, ...params);
     }
 
-    static status(repoPath: string, porcelainVersion: number = 1): Promise<string> {
+    static status(
+        repoPath: string,
+        porcelainVersion: number = 1,
+        { similarityThreshold }: { similarityThreshold?: number } = {}
+    ): Promise<string> {
         const porcelain = porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain';
         return git<string>(
             { cwd: repoPath, configs: ['-c', 'color.status=false'], env: { GIT_OPTIONAL_LOCKS: '0' } },
             'status',
             porcelain,
             '--branch',
-            '-u'
+            '-u',
+            `-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
+            '--'
         );
     }
 
-    static status__file(repoPath: string, fileName: string, porcelainVersion: number = 1): Promise<string> {
+    static status__file(
+        repoPath: string,
+        fileName: string,
+        porcelainVersion: number = 1,
+        { similarityThreshold }: { similarityThreshold?: number } = {}
+    ): Promise<string> {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
         const porcelain = porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain';
@@ -997,6 +1008,7 @@ export class Git {
             { cwd: root, configs: ['-c', 'color.status=false'], env: { GIT_OPTIONAL_LOCKS: '0' } },
             'status',
             porcelain,
+            `-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
             '--',
             file
         );
