@@ -178,8 +178,6 @@ export class LineAnnotationController implements Disposable {
             cc.exitDetails = ` ${GlyphChars.Dot} line(s)=${lines.join()}`;
         }
 
-        const scrollable = Container.config.currentLine.scrollable;
-
         const decorations = [];
         for (const l of lines) {
             const state = Container.lineTracker.getState(l);
@@ -189,7 +187,7 @@ export class LineAnnotationController implements Disposable {
                 state.commit,
                 cfg.format,
                 cfg.dateFormat === null ? Container.config.defaultDateFormat : cfg.dateFormat,
-                scrollable
+                cfg.scrollable
             ) as DecorationOptions;
             decoration.range = editor.document.validateRange(
                 new Range(l, Number.MAX_SAFE_INTEGER, l, Number.MAX_SAFE_INTEGER)
