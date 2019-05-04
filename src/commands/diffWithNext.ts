@@ -12,7 +12,6 @@ export interface DiffWithNextCommandArgs {
     commit?: GitLogCommit;
     range?: Range;
 
-    inDiffEditor?: boolean;
     line?: number;
     showOptions?: TextDocumentShowOptions;
 }
@@ -36,7 +35,6 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
                     return this.execute(context.editor, context.editor.document.uri, args);
                 }
             }
-            args.inDiffEditor = true;
         }
 
         return this.execute(context.editor, context.uri, args);

@@ -11,7 +11,6 @@ import { UriComparer } from '../comparers';
 export interface DiffWithWorkingCommandArgs {
     commit?: GitCommit;
 
-    inDiffEditor?: boolean;
     line?: number;
     showOptions?: TextDocumentShowOptions;
 }
@@ -24,8 +23,8 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
     protected preExecute(context: CommandContext, args: DiffWithWorkingCommandArgs = {}) {
         if (
-            context.command === Commands.DiffWithWorkingInDiff ||
-            (context.editor !== undefined && context.editor.viewColumn === undefined)
+            context.command === Commands.DiffWithWorkingInDiff
+            // || (context.editor !== undefined && context.editor.viewColumn === undefined)
         ) {
             // HACK: If in a diff, try to determine if we are on the right or left side
             // If there is a context uri and it doesn't match the editor uri, assume we are on the left
@@ -35,8 +34,6 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
                     return this.execute(context.editor, context.editor.document.uri, args);
                 }
             }
-
-            args.inDiffEditor = true;
         }
 
         return this.execute(context.editor, context.uri, args);
@@ -66,18 +63,10 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
                 const status = await Container.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath);
                 if (status !== undefined && status.indexStatus !== undefined) {
-                    let sha = GitService.uncommittedStagedSha;
-                    if (args.inDiffEditor) {
-                        const commit = await Container.git.getCommitForFile(gitUri.repoPath!, gitUri.fsPath);
-                        if (commit === undefined) return Messages.showCommitHasNoPreviousCommitWarningMessage();
-
-                        sha = commit.sha;
-                    }
-
                     const diffArgs: DiffWithCommandArgs = {
                         repoPath: gitUri.repoPath,
                         lhs: {
-                            sha: sha,
+                            sha: GitService.uncommittedStagedSha,
                             uri: gitUri.documentUri()
                         },
                         rhs: {
@@ -92,15 +81,9 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
                 }
             }
 
-            // If we are in a diff editor, assume we are on the right side, and need to move back 2 revisions
-            let sha = gitUri.sha;
-            if (args.inDiffEditor && sha !== undefined) {
-                sha = `${sha}^`;
-            }
-
             try {
                 args.commit = await Container.git.getCommitForFile(gitUri.repoPath, gitUri.fsPath, {
-                    ref: sha,
+                    ref: gitUri.sha,
                     firstIfNotFound: true
                 });
                 if (args.commit === undefined) {
