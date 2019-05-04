@@ -41,14 +41,14 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
                 if (status.workingTreeStatus !== undefined) {
                     sha = GitService.uncommittedSha;
                     if (status.indexStatus !== undefined) {
-                        previousSha = GitService.stagedUncommittedSha;
+                        previousSha = GitService.uncommittedStagedSha;
                     }
                     else if (status.workingTreeStatus !== '?') {
                         previousSha = 'HEAD';
                     }
                 }
                 else {
-                    sha = GitService.stagedUncommittedSha;
+                    sha = GitService.uncommittedStagedSha;
                     previousSha = 'HEAD';
                 }
 

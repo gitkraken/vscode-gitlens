@@ -98,7 +98,7 @@ export abstract class GitCommit {
     private _isStagedUncommitted: boolean | undefined;
     get isStagedUncommitted(): boolean {
         if (this._isStagedUncommitted === undefined) {
-            this._isStagedUncommitted = Git.isStagedUncommitted(this.sha);
+            this._isStagedUncommitted = Git.isUncommittedStaged(this.sha);
         }
         return this._isStagedUncommitted;
     }

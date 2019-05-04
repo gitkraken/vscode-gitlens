@@ -206,10 +206,10 @@ export class Git {
     static shaRegex = /(^[0-9a-f]{40}$)|(^[0]{40}(:|-)$)/;
     static shaParentRegex = /^[0-9a-f]{40}\^[0-3]?$/;
     static shaShortenRegex = /^(.*?)([\^@~:].*)?$/;
-    static stagedUncommittedRegex = /^[0]{40}([\^@~]\S*)?:$/;
-    static stagedUncommittedSha = '0000000000000000000000000000000000000000:';
     static uncommittedRegex = /^[0]{40}(?:[\^@~:]\S*)?:?$/;
     static uncommittedSha = '0000000000000000000000000000000000000000';
+    static uncommittedStagedRegex = /^[0]{40}([\^@~]\S*)?:$/;
+    static uncommittedStagedSha = '0000000000000000000000000000000000000000:';
 
     static getEncoding(encoding: string | undefined) {
         return encoding !== undefined && iconv.encodingExists(encoding) ? encoding : 'utf8';
@@ -247,26 +247,28 @@ export class Git {
         return Git.shaParentRegex.test(ref);
     }
 
-    static isStagedUncommitted(ref: string | undefined): boolean {
-        return ref ? Git.stagedUncommittedRegex.test(ref) : false;
-    }
-
     static isUncommitted(ref: string | undefined) {
         return ref ? Git.uncommittedRegex.test(ref) : false;
     }
 
+    static isUncommittedStaged(ref: string | undefined): boolean {
+        return ref ? Git.uncommittedStagedRegex.test(ref) : false;
+    }
+
     static shortenSha(
-        ref: string,
-        strings: { stagedUncommitted?: string; uncommitted?: string; working?: string } = {}
+        ref: string | undefined,
+        {
+            stagedUncommitted = 'Index',
+            uncommitted = 'Working Tree',
+            working = emptyStr
+        }: { stagedUncommitted?: string; uncommitted?: string; working?: string } = {}
     ) {
-        strings = { stagedUncommitted: 'Index', uncommitted: 'Working Tree', working: emptyStr, ...strings };
-
-        if (ref == null || ref.length === 0) return strings.working;
+        if (ref == null || ref.length === 0) return working;
         if (Git.isUncommitted(ref)) {
-            if (Git.isStagedUncommitted(ref)) return strings.stagedUncommitted;
-
-            return strings.uncommitted;
+            return Git.isUncommittedStaged(ref) ? stagedUncommitted : uncommitted;
         }
+
+        if (!Git.isShaLike(ref)) return ref;
 
         // Don't allow shas to be shortened to less than 5 characters
         const len = Math.max(5, Container.config.advanced.abbreviatedShaLength);
@@ -343,7 +345,7 @@ export class Git {
 
         let stdin;
         if (ref) {
-            if (Git.isStagedUncommitted(ref)) {
+            if (Git.isUncommittedStaged(ref)) {
                 // Pipe the blame contents to stdin
                 params.push('--contents', '-');
 
@@ -496,10 +498,10 @@ export class Git {
             if (ref1.endsWith('^3^')) {
                 ref1 = rootSha;
             }
-            params.push(Git.isStagedUncommitted(ref1) ? '--staged' : ref1);
+            params.push(Git.isUncommittedStaged(ref1) ? '--staged' : ref1);
         }
         if (ref2) {
-            params.push(Git.isStagedUncommitted(ref2) ? '--staged' : ref2);
+            params.push(Git.isUncommittedStaged(ref2) ? '--staged' : ref2);
         }
 
         const encoding: BufferEncoding = options.encoding === 'utf8' ? 'utf8' : 'binary';
@@ -637,7 +639,7 @@ export class Git {
             params.push('--use-mailmap', ...authors.map(a => `--author=${a}`));
         }
 
-        if (ref && !Git.isStagedUncommitted(ref)) {
+        if (ref && !Git.isUncommittedStaged(ref)) {
             // If we are reversing, we must add a range (with HEAD) because we are using --ancestry-path for better reverse walking
             if (reverse) {
                 params.push('--reverse', '--ancestry-path', `${ref}..HEAD`);
@@ -697,7 +699,7 @@ export class Git {
             params.push(`-L ${startLine},${endLine == null ? startLine : endLine}:${file}`);
         }
 
-        if (ref && !Git.isStagedUncommitted(ref)) {
+        if (ref && !Git.isUncommittedStaged(ref)) {
             // If we are reversing, we must add a range (with HEAD) because we are using --ancestry-path for better reverse walking
             if (reverse) {
                 params.push('--reverse', '--ancestry-path', `${ref}..HEAD`);
@@ -868,7 +870,7 @@ export class Git {
     ): Promise<TOut | undefined> {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
-        if (Git.isStagedUncommitted(ref)) {
+        if (Git.isUncommittedStaged(ref)) {
             ref = ':';
         }
         if (Git.isUncommitted(ref)) throw new Error(`ref=${ref} is uncommitted`);

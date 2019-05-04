@@ -52,7 +52,7 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
                     args.commit = args.commit.with({
                         sha:
                             status !== undefined && status.indexStatus !== undefined
-                                ? GitService.stagedUncommittedSha
+                                ? GitService.uncommittedStagedSha
                                 : args.commit.previousSha!,
                         fileName: args.commit.previousFileName!,
                         originalFileName: null,

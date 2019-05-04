@@ -93,12 +93,9 @@ export enum GitRepoSearchBy {
     Sha = 'sha'
 }
 
-export class GitService implements Disposable {
-    static emptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
-    static deletedOrMissingSha = Git.deletedOrMissingSha;
-    static stagedUncommittedSha = Git.stagedUncommittedSha;
-    static uncommittedSha = Git.uncommittedSha;
+const emptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
 
+export class GitService implements Disposable {
     private _onDidChangeRepositories = new EventEmitter<void>();
     get onDidChangeRepositories(): Event<void> {
         return this._onDidChangeRepositories.event;
@@ -672,7 +669,7 @@ export class GitService implements Disposable {
     ): Promise<GitBlame | undefined> {
         if (!(await this.isTracked(uri))) {
             Logger.log(cc, `Skipping blame; '${uri.fsPath}' is not tracked`);
-            return GitService.emptyPromise as Promise<GitBlame>;
+            return emptyPromise as Promise<GitBlame>;
         }
 
         const [file, root] = Git.splitPath(uri.fsPath, uri.repoPath, false);
@@ -692,14 +689,14 @@ export class GitService implements Disposable {
                 Logger.debug(cc, `Cache replace (with empty promise): '${key}'`);
 
                 const value: CachedBlame = {
-                    item: GitService.emptyPromise as Promise<GitBlame>,
+                    item: emptyPromise as Promise<GitBlame>,
                     errorMessage: msg
                 };
                 document.state.set<CachedBlame>(key, value);
 
                 document.setBlameFailure();
 
-                return GitService.emptyPromise as Promise<GitBlame>;
+                return emptyPromise as Promise<GitBlame>;
             }
 
             return undefined;
@@ -756,7 +753,7 @@ export class GitService implements Disposable {
     ): Promise<GitBlame | undefined> {
         if (!(await this.isTracked(uri))) {
             Logger.log(cc, `Skipping blame; '${uri.fsPath}' is not tracked`);
-            return GitService.emptyPromise as Promise<GitBlame>;
+            return emptyPromise as Promise<GitBlame>;
         }
 
         const [file, root] = Git.splitPath(uri.fsPath, uri.repoPath, false);
@@ -777,13 +774,13 @@ export class GitService implements Disposable {
                 Logger.debug(cc, `Cache replace (with empty promise): '${key}'`);
 
                 const value: CachedBlame = {
-                    item: GitService.emptyPromise as Promise<GitBlame>,
+                    item: emptyPromise as Promise<GitBlame>,
                     errorMessage: msg
                 };
                 document.state.set<CachedBlame>(key, value);
 
                 document.setBlameFailure();
-                return GitService.emptyPromise as Promise<GitBlame>;
+                return emptyPromise as Promise<GitBlame>;
             }
 
             return undefined;
@@ -1169,7 +1166,7 @@ export class GitService implements Disposable {
 
         try {
             let data;
-            if (ref1 !== undefined && ref2 === undefined && !GitService.isStagedUncommitted(ref1)) {
+            if (ref1 !== undefined && ref2 === undefined && !GitService.isUncommittedStaged(ref1)) {
                 data = await Git.show__diff(root, file, ref1, originalFileName, {
                     similarityThreshold: Container.config.advanced.similarityThreshold
                 });
@@ -1192,12 +1189,12 @@ export class GitService implements Disposable {
                 Logger.debug(cc, `Cache replace (with empty promise): '${key}'`);
 
                 const value: CachedDiff = {
-                    item: GitService.emptyPromise as Promise<GitDiff>,
+                    item: emptyPromise as Promise<GitDiff>,
                     errorMessage: msg
                 };
                 document.state.set<CachedDiff>(key, value);
 
-                return GitService.emptyPromise as Promise<GitDiff>;
+                return emptyPromise as Promise<GitDiff>;
             }
 
             return undefined;
@@ -1216,7 +1213,7 @@ export class GitService implements Disposable {
             let diff = await this.getDiffForFile(uri, ref1, ref2, originalFileName);
             // If we didn't find a diff & ref1 is undefined (meaning uncommitted), check for a staged diff
             if (diff === undefined && ref1 === undefined) {
-                diff = await this.getDiffForFile(uri, Git.stagedUncommittedSha, ref2, originalFileName);
+                diff = await this.getDiffForFile(uri, Git.uncommittedStagedSha, ref2, originalFileName);
             }
 
             if (diff === undefined) return undefined;
@@ -1537,7 +1534,7 @@ export class GitService implements Disposable {
     ): Promise<GitLog | undefined> {
         if (!(await this.isTracked(fileName, repoPath, { ref: ref }))) {
             Logger.log(cc, `Skipping log; '${fileName}' is not tracked`);
-            return GitService.emptyPromise as Promise<GitLog>;
+            return emptyPromise as Promise<GitLog>;
         }
 
         const [file, root] = Git.splitPath(fileName, repoPath, false);
@@ -1582,12 +1579,12 @@ export class GitService implements Disposable {
                 Logger.debug(cc, `Cache replace (with empty promise): '${key}'`);
 
                 const value: CachedLog = {
-                    item: GitService.emptyPromise as Promise<GitLog>,
+                    item: emptyPromise as Promise<GitLog>,
                     errorMessage: msg
                 };
                 document.state.set<CachedLog>(key, value);
 
-                return GitService.emptyPromise as Promise<GitLog>;
+                return emptyPromise as Promise<GitLog>;
             }
 
             return undefined;
@@ -1641,7 +1638,7 @@ export class GitService implements Disposable {
 
         const fileName = GitUri.getRelativePath(uri, repoPath);
 
-        if (Git.isStagedUncommitted(ref)) {
+        if (Git.isUncommittedStaged(ref)) {
             return {
                 current: GitUri.fromFile(fileName, repoPath, ref),
                 next: GitUri.fromFile(fileName, repoPath, undefined)
@@ -1656,7 +1653,7 @@ export class GitService implements Disposable {
                 if (status.indexStatus !== undefined) {
                     return {
                         current: GitUri.fromFile(fileName, repoPath, ref),
-                        next: GitUri.fromFile(fileName, repoPath, GitService.stagedUncommittedSha)
+                        next: GitUri.fromFile(fileName, repoPath, GitService.uncommittedStagedSha)
                     };
                 }
             }
@@ -1682,7 +1679,7 @@ export class GitService implements Disposable {
         // editorLine?: number
     ): Promise<GitUri | undefined> {
         // If we have no ref (or staged ref) there is no next commit
-        if (ref === undefined || ref.length === 0 || Git.isStagedUncommitted(ref)) return undefined;
+        if (ref === undefined || ref.length === 0 || Git.isUncommittedStaged(ref)) return undefined;
 
         let filters: GitLogDiffFilter[] | undefined;
         if (ref === GitService.deletedOrMissingSha) {
@@ -1746,18 +1743,18 @@ export class GitService implements Disposable {
                     if (skip === 0) {
                         return {
                             current: GitUri.fromFile(fileName, repoPath, ref),
-                            previous: GitUri.fromFile(fileName, repoPath, GitService.stagedUncommittedSha)
+                            previous: GitUri.fromFile(fileName, repoPath, GitService.uncommittedStagedSha)
                         };
                     }
 
                     return {
-                        current: GitUri.fromFile(fileName, repoPath, GitService.stagedUncommittedSha),
+                        current: GitUri.fromFile(fileName, repoPath, GitService.uncommittedStagedSha),
                         previous: await this.getPreviousUri(repoPath, uri, ref, skip - 1, editorLine)
                     };
                 }
             }
         }
-        else if (GitService.isStagedUncommitted(ref)) {
+        else if (GitService.isUncommittedStaged(ref)) {
             const current =
                 skip === 0
                     ? GitUri.fromFile(fileName, repoPath, ref)
@@ -1791,6 +1788,9 @@ export class GitService implements Disposable {
         editorLine?: number
     ): Promise<GitUri | undefined> {
         if (ref === GitService.deletedOrMissingSha) return undefined;
+        if (ref === GitService.uncommittedSha) {
+            ref = undefined;
+        }
 
         if (ref !== undefined) {
             skip++;
@@ -2130,14 +2130,14 @@ export class GitService implements Disposable {
     ): Promise<Uri | undefined> {
         if (ref === GitService.deletedOrMissingSha) return undefined;
 
-        if (!ref || (Git.isUncommitted(ref) && !Git.isStagedUncommitted(ref))) {
+        if (!ref || (Git.isUncommitted(ref) && !Git.isUncommittedStaged(ref))) {
             const data = await Git.ls_files(repoPath!, fileName);
             if (data !== undefined) return GitUri.file(fileName);
 
             return undefined;
         }
 
-        if (Git.isStagedUncommitted(ref)) {
+        if (Git.isUncommittedStaged(ref)) {
             return GitUri.git(fileName, repoPath);
         }
 
@@ -2435,24 +2435,25 @@ export class GitService implements Disposable {
         return Git.getEncoding(workspace.getConfiguration('files', uri).get<string>('encoding'));
     }
 
+    static deletedOrMissingSha = Git.deletedOrMissingSha;
     static getGitPath = Git.getGitPath;
     static getGitVersion = Git.getGitVersion;
     static isShaLike = Git.isShaLike;
     static isShaParent = Git.isShaParent;
-    static isStagedUncommitted = Git.isStagedUncommitted;
     static isUncommitted = Git.isUncommitted;
+    static isUncommittedStaged = Git.isUncommittedStaged;
+    static uncommittedSha = Git.uncommittedSha;
+    static uncommittedStagedSha = Git.uncommittedStagedSha;
 
     static shortenSha(
         ref: string | undefined,
-        strings: { deletedOrMissing?: string; stagedUncommitted?: string; uncommitted?: string; working?: string } = {}
+        {
+            deletedOrMissing = '(deleted)',
+            ...strings
+        }: { deletedOrMissing?: string; stagedUncommitted?: string; uncommitted?: string; working?: string } = {}
     ) {
-        if (ref === undefined) return undefined;
+        if (ref === GitService.deletedOrMissingSha) return deletedOrMissing;
 
-        strings = { deletedOrMissing: '(deleted)', working: emptyStr, ...strings };
-
-        if (ref == null || ref.length === 0) return strings.working;
-        if (ref === GitService.deletedOrMissingSha) return strings.deletedOrMissing;
-
-        return Git.isShaLike(ref) || Git.isStagedUncommitted(ref) ? Git.shortenSha(ref, strings) : ref;
+        return Git.shortenSha(ref, strings);
     }
 }

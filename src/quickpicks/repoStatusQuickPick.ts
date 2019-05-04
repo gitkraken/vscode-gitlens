@@ -54,7 +54,7 @@ export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPick
             this.commit = new GitLogCommit(
                 GitCommitType.LogFile,
                 status.repoPath,
-                GitService.stagedUncommittedSha,
+                GitService.uncommittedStagedSha,
                 'You',
                 undefined,
                 new Date(),
@@ -82,7 +82,7 @@ export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPick
                 [status],
                 status.status,
                 status.originalFileName,
-                realIndexStatus !== undefined ? GitService.stagedUncommittedSha : 'HEAD',
+                realIndexStatus !== undefined ? GitService.uncommittedStagedSha : 'HEAD',
                 status.fileName
             );
         }

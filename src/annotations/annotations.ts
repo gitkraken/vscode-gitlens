@@ -121,7 +121,7 @@ export class Annotations {
 
         let message: string;
         if (commit.isUncommitted) {
-            if (uri.sha !== undefined && GitService.isStagedUncommitted(uri.sha)) {
+            if (uri.sha !== undefined && GitService.isUncommittedStaged(uri.sha)) {
                 message = `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(
                     commit,
                     editorLine
@@ -173,7 +173,7 @@ export class Annotations {
     ): Promise<Partial<DecorationOptions>> {
         let ref;
         if (commit.isUncommitted) {
-            if (uri.sha !== undefined && GitService.isStagedUncommitted(uri.sha)) {
+            if (uri.sha !== undefined && GitService.isUncommittedStaged(uri.sha)) {
                 ref = uri.sha;
             }
         }

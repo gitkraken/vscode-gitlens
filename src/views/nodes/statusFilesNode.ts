@@ -67,12 +67,12 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
                         older.setMilliseconds(older.getMilliseconds() - 1);
 
                         return [
-                            this.toStatusFile(s, GitService.uncommittedSha, GitService.stagedUncommittedSha),
-                            this.toStatusFile(s, GitService.stagedUncommittedSha, 'HEAD', older)
+                            this.toStatusFile(s, GitService.uncommittedSha, GitService.uncommittedStagedSha),
+                            this.toStatusFile(s, GitService.uncommittedStagedSha, 'HEAD', older)
                         ];
                     }
                     else if (s.indexStatus !== undefined) {
-                        return [this.toStatusFile(s, GitService.stagedUncommittedSha, 'HEAD')];
+                        return [this.toStatusFile(s, GitService.uncommittedStagedSha, 'HEAD')];
                     }
 
                     return [this.toStatusFile(s, GitService.uncommittedSha, 'HEAD')];

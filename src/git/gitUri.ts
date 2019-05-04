@@ -68,7 +68,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
             });
 
             this.repoPath = data.repoPath;
-            if (GitService.isStagedUncommitted(data.ref) || !GitService.isUncommitted(data.ref)) {
+            if (GitService.isUncommittedStaged(data.ref) || !GitService.isUncommitted(data.ref)) {
                 this.sha = data.ref;
             }
 
@@ -123,7 +123,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
         });
         this.repoPath = commitOrRepoPath.repoPath;
         this.versionedPath = commitOrRepoPath.versionedPath;
-        if (GitService.isStagedUncommitted(commitOrRepoPath.sha) || !GitService.isUncommitted(commitOrRepoPath.sha)) {
+        if (GitService.isUncommittedStaged(commitOrRepoPath.sha) || !GitService.isUncommitted(commitOrRepoPath.sha)) {
             this.sha = commitOrRepoPath.sha;
         }
     }
@@ -257,7 +257,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
             switch (data.ref) {
                 case emptyStr:
                 case '~':
-                    ref = GitService.stagedUncommittedSha;
+                    ref = GitService.uncommittedStagedSha;
                     break;
 
                 case null:
@@ -397,7 +397,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
         }
 
         if (ref === undefined || GitService.isUncommitted(ref)) {
-            if (GitService.isStagedUncommitted(ref)) {
+            if (GitService.isUncommittedStaged(ref)) {
                 return GitUri.git(fileName, repoPath);
             }
 

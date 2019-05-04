@@ -61,12 +61,12 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
             }
 
             // If we are a fake "staged" sha, check the status
-            if (GitService.isStagedUncommitted(gitUri.sha!)) {
+            if (GitService.isUncommittedStaged(gitUri.sha!)) {
                 gitUri.sha = undefined;
 
                 const status = await Container.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath);
                 if (status !== undefined && status.indexStatus !== undefined) {
-                    let sha = GitService.stagedUncommittedSha;
+                    let sha = GitService.uncommittedStagedSha;
                     if (args.inDiffEditor) {
                         const commit = await Container.git.getCommitForFile(gitUri.repoPath!, gitUri.fsPath);
                         if (commit === undefined) return Messages.showCommitHasNoPreviousCommitWarningMessage();
