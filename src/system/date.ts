@@ -16,11 +16,7 @@ export namespace Dates {
         format(format: string): string;
     }
 
-    export function toFormatter(date: Date): DateFormatter {
-        const wrappedDate = dayjs(date);
-        return {
-            fromNow: () => wrappedDate.fromNow(),
-            format: (format: string) => wrappedDate.format(format)
-        };
+    export function getFormatter(date: Date): DateFormatter {
+        return dayjs(date);
     }
 }

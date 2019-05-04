@@ -173,12 +173,12 @@ export abstract class GitCommit {
 
     @memoize()
     private get authorDateFormatter(): Dates.DateFormatter {
-        return Dates.toFormatter(this.authorDate);
+        return Dates.getFormatter(this.authorDate);
     }
 
     @memoize()
     private get committerDateFormatter(): Dates.DateFormatter {
-        return Dates.toFormatter(this.committerDate);
+        return Dates.getFormatter(this.committerDate);
     }
 
     private get dateFormatter(): Dates.DateFormatter {

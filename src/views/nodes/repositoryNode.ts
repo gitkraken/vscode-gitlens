@@ -314,7 +314,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
             format = `h:mma, ${format}`;
         }
 
-        return `${options.prefix || ''}${Dates.toFormatter(new Date(this._lastFetched)).format(format)}`;
+        return `${options.prefix || ''}${Dates.getFormatter(new Date(this._lastFetched)).format(format)}`;
     }
 
     // @debug()
