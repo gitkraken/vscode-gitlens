@@ -3,6 +3,7 @@ import { StarredBranches, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
 import { Git } from '../git';
 import { GitStatus } from './status';
+import { memoize } from '../../system';
 
 export interface GitTrackingState {
     ahead: number;
@@ -44,26 +45,19 @@ export class GitBranch {
         return this.detached ? this.sha! : this.name;
     }
 
-    private _basename: string | undefined;
+    @memoize()
     getBasename(): string {
-        if (this._basename === undefined) {
-            const name = this.getName();
-            const index = name.lastIndexOf('/');
-            this._basename = index !== -1 ? name.substring(index + 1) : name;
-        }
-
-        return this._basename;
+        const name = this.getName();
+        const index = name.lastIndexOf('/');
+        return index !== -1 ? name.substring(index + 1) : name;
     }
 
-    private _name: string | undefined;
+    @memoize()
     getName(): string {
-        if (this._name === undefined) {
-            this._name = this.remote ? this.name.substring(this.name.indexOf('/') + 1) : this.name;
-        }
-
-        return this._name;
+        return this.remote ? this.name.substring(this.name.indexOf('/') + 1) : this.name;
     }
 
+    @memoize()
     getRemote(): string | undefined {
         if (this.remote) return GitBranch.getRemote(this.name);
         if (this.tracking !== undefined) return GitBranch.getRemote(this.tracking);
@@ -111,12 +105,12 @@ export class GitBranch {
         await Container.context.workspaceState.update(WorkspaceState.StarredBranches, starred);
     }
 
-    static getRemote(branch: string): string {
-        return branch.substring(0, branch.indexOf('/'));
-    }
-
     static formatDetached(sha: string): string {
         return `(${Git.shortenSha(sha)}...)`;
+    }
+
+    static getRemote(branch: string): string {
+        return branch.substring(0, branch.indexOf('/'));
     }
 
     static isDetached(name: string): boolean {

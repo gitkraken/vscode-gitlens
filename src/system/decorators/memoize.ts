@@ -1,39 +1,67 @@
 'use strict';
 
-export function memoize(target: any, key: string, descriptor: any) {
-    let fn: Function | undefined;
-    let fnKey: string | undefined;
+import { Logger } from '../../logger';
 
-    if (typeof descriptor.value === 'function') {
-        fn = descriptor.value;
-        fnKey = 'value';
+const emptyStr = '';
 
-        if (fn!.length !== 0) {
-            console.warn('Memoize should only be used in functions with no parameters');
+function defaultResolver(...args: any[]): string {
+    if (args.length === 1) {
+        const arg0 = args[0];
+        if (arg0 == null) return emptyStr;
+        if (typeof arg0 === 'string') return arg0;
+        if (typeof arg0 === 'number' || typeof arg0 === 'boolean') {
+            return String(arg0);
         }
-    }
-    else if (typeof descriptor.get === 'function') {
-        fn = descriptor.get;
-        fnKey = 'get';
-    }
-    else {
-        throw new Error('Not supported');
+
+        return JSON.stringify(arg0);
     }
 
-    if (!fn || !fnKey) throw new Error('Not supported');
+    return JSON.stringify(args);
+}
 
-    const memoizeKey = `$memoize$${key}`;
+export function memoize(resolver?: (...args: any[]) => string) {
+    return (target: any, key: string, descriptor: PropertyDescriptor & { [key: string]: any }) => {
+        let fn: Function | undefined;
+        let fnKey: string | undefined;
 
-    descriptor[fnKey] = function(...args: any[]) {
-        if (!this.hasOwnProperty(memoizeKey)) {
-            Object.defineProperty(this, memoizeKey, {
+        if (typeof descriptor.value === 'function') {
+            fn = descriptor.value;
+            fnKey = 'value';
+        }
+        else if (typeof descriptor.get === 'function') {
+            fn = descriptor.get;
+            fnKey = 'get';
+        }
+        else {
+            throw new Error('Not supported');
+        }
+
+        if (!fn || !fnKey) throw new Error('Not supported');
+
+        const memoizeKey = `$memoize$${key}`;
+
+        let result;
+        descriptor[fnKey] = function(...args: any[]) {
+            const prop =
+                fnKey === 'get' || args.length === 0
+                    ? memoizeKey
+                    : `${memoizeKey}$${(resolver || defaultResolver)(...args)}`;
+
+            if (this.hasOwnProperty(prop)) {
+                result = this[prop];
+
+                return result;
+            }
+
+            result = fn!.apply(this, args);
+            Object.defineProperty(this, prop, {
                 configurable: false,
                 enumerable: false,
                 writable: false,
-                value: fn!.apply(this, args)
+                value: result
             });
-        }
 
-        return this[memoizeKey];
+            return result;
+        };
     };
 }

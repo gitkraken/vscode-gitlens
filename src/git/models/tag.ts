@@ -1,4 +1,5 @@
 'use strict';
+import { memoize } from '../../system';
 
 export class GitTag {
     constructor(
@@ -12,13 +13,9 @@ export class GitTag {
         return this.name;
     }
 
-    private _basename: string | undefined;
+    @memoize()
     getBasename(): string {
-        if (this._basename === undefined) {
-            const index = this.name.lastIndexOf('/');
-            this._basename = index !== -1 ? this.name.substring(index + 1) : this.name;
-        }
-
-        return this._basename;
+        const index = this.name.lastIndexOf('/');
+        return index !== -1 ? this.name.substring(index + 1) : this.name;
     }
 }

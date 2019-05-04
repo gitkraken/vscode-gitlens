@@ -1,7 +1,7 @@
 'use strict';
 import { Uri } from 'vscode';
 import { GlyphChars } from '../../constants';
-import { Strings } from '../../system';
+import { memoize, Strings } from '../../system';
 import { GitUri } from '../gitUri';
 import { GitBranch, GitTrackingState } from './branch';
 import { GitFile, GitFileStatus } from './file';
@@ -27,39 +27,32 @@ export class GitStatus {
         return this.detached ? this.sha : this.branch;
     }
 
-    private _diff?: {
-        added: number;
-        deleted: number;
-        changed: number;
-    };
-
+    @memoize()
     getDiffStatus() {
-        if (this._diff === undefined) {
-            this._diff = {
-                added: 0,
-                deleted: 0,
-                changed: 0
-            };
+        const diff = {
+            added: 0,
+            deleted: 0,
+            changed: 0
+        };
 
-            if (this.files.length !== 0) {
-                for (const f of this.files) {
-                    switch (f.status) {
-                        case 'A':
-                        case '?':
-                            this._diff.added++;
-                            break;
-                        case 'D':
-                            this._diff.deleted++;
-                            break;
-                        default:
-                            this._diff.changed++;
-                            break;
-                    }
-                }
+        if (this.files.length === 0) return diff;
+
+        for (const f of this.files) {
+            switch (f.status) {
+                case 'A':
+                case '?':
+                    diff.added++;
+                    break;
+                case 'D':
+                    diff.deleted++;
+                    break;
+                default:
+                    diff.changed++;
+                    break;
             }
         }
 
-        return this._diff;
+        return diff;
     }
 
     getFormattedDiffStatus({
@@ -165,6 +158,7 @@ export class GitStatusFile implements GitFile {
         return this.indexStatus !== undefined;
     }
 
+    @memoize()
     get uri(): Uri {
         return GitUri.resolveToUri(this.fileName, this.repoPath);
     }

@@ -1,7 +1,7 @@
 'use strict';
 import * as paths from 'path';
 import { Uri } from 'vscode';
-import { Strings } from '../../system';
+import { memoize, Strings } from '../../system';
 import { GitUri } from '../gitUri';
 import { GitCommit, GitCommitType } from './commit';
 import { GitFile, GitFileStatus } from './file';
@@ -67,39 +67,31 @@ export class GitLogCommit extends GitCommit {
         return this.isFile ? this.previousSha! : `${this.sha}^`;
     }
 
-    private _diff?: {
-        added: number;
-        deleted: number;
-        changed: number;
-    };
-
+    @memoize()
     getDiffStatus() {
-        if (this._diff === undefined) {
-            this._diff = {
-                added: 0,
-                deleted: 0,
-                changed: 0
-            };
+        const diff = {
+            added: 0,
+            deleted: 0,
+            changed: 0
+        };
+        if (this.files.length === 0) return diff;
 
-            if (this.files.length !== 0) {
-                for (const f of this.files) {
-                    switch (f.status) {
-                        case 'A':
-                        case '?':
-                            this._diff.added++;
-                            break;
-                        case 'D':
-                            this._diff.deleted++;
-                            break;
-                        default:
-                            this._diff.changed++;
-                            break;
-                    }
-                }
+        for (const f of this.files) {
+            switch (f.status) {
+                case 'A':
+                case '?':
+                    diff.added++;
+                    break;
+                case 'D':
+                    diff.deleted++;
+                    break;
+                default:
+                    diff.changed++;
+                    break;
             }
         }
 
-        return this._diff;
+        return diff;
     }
 
     getFormattedDiffStatus({

@@ -1,5 +1,6 @@
 'use strict';
 import { GitDiffParser } from '../parsers/diffParser';
+import { memoize } from '../../system';
 
 export interface GitDiffLine {
     line: string;
@@ -13,20 +14,15 @@ export interface GitDiffHunkLine {
 }
 
 export class GitDiffHunk {
-    private _lines: GitDiffHunkLine[] | undefined;
-
     constructor(
         public readonly diff: string,
         public currentPosition: { start: number; end: number },
         public previousPosition: { start: number; end: number }
     ) {}
 
+    @memoize()
     get lines(): GitDiffHunkLine[] {
-        if (this._lines === undefined) {
-            this._lines = GitDiffParser.parseHunk(this);
-        }
-
-        return this._lines;
+        return GitDiffParser.parseHunk(this);
     }
 }
 

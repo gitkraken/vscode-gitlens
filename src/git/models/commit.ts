@@ -2,7 +2,7 @@
 import { Uri } from 'vscode';
 import { configuration, DateSource, DateStyle, GravatarDefaultStyle } from '../../configuration';
 import { Container } from '../../container';
-import { Dates } from '../../system';
+import { Dates, memoize } from '../../system';
 import { CommitFormatter } from '../formatters/formatters';
 import { Git } from '../git';
 import { GitUri } from '../gitUri';
@@ -75,12 +75,9 @@ export abstract class GitCommit {
             : this.formatDateFromNow();
     }
 
-    private _shortSha: string | undefined;
+    @memoize()
     get shortSha() {
-        if (this._shortSha === undefined) {
-            this._shortSha = Git.shortenSha(this.sha);
-        }
-        return this._shortSha;
+        return Git.shortenSha(this.sha);
     }
 
     get isFile() {
@@ -95,20 +92,14 @@ export abstract class GitCommit {
         return this.type === GitCommitType.Stash || this.type === GitCommitType.StashFile;
     }
 
-    private _isStagedUncommitted: boolean | undefined;
+    @memoize()
     get isStagedUncommitted(): boolean {
-        if (this._isStagedUncommitted === undefined) {
-            this._isStagedUncommitted = Git.isUncommittedStaged(this.sha);
-        }
-        return this._isStagedUncommitted;
+        return Git.isUncommittedStaged(this.sha);
     }
 
-    private _isUncommitted: boolean | undefined;
+    @memoize()
     get isUncommitted(): boolean {
-        if (this._isUncommitted === undefined) {
-            this._isUncommitted = Git.isUncommitted(this.sha);
-        }
-        return this._isUncommitted;
+        return Git.isUncommitted(this.sha);
     }
 
     get previousFileSha(): string {
@@ -123,33 +114,71 @@ export abstract class GitCommit {
         return this.previousFileName ? GitUri.resolveToUri(this.previousFileName, this.repoPath) : this.uri;
     }
 
+    @memoize()
     get uri(): Uri {
         return GitUri.resolveToUri(this.fileName, this.repoPath);
     }
 
-    private _workingUriPromise: Promise<Uri | undefined> | undefined;
-    getWorkingUri(): Promise<Uri | undefined> | undefined {
-        if (this._workingUriPromise === undefined) {
-            this._workingUriPromise = Container.git.getWorkingUri(this.repoPath, this.uri);
-        }
+    // @memoize()
+    // getFileStatus() {
+    //     if (!this.isFile) return Promise.resolve(undefined);
 
-        return this._workingUriPromise;
+    //     return Container.git.getStatusForFile(this.repoPath, this.fileName);
+    // }
+
+    // @memoize(
+    //     (uri: Uri, ref: string | undefined, editorLine?: number) =>
+    //         `${uri.toString(true)}|${ref || ''}|${editorLine || ''}`
+    // )
+    getPreviousDiffUris(uri: Uri, ref: string | undefined, editorLine?: number) {
+        if (!this.isFile) return Promise.resolve(undefined);
+
+        return Container.git.getPreviousDiffUris(this.repoPath, uri, ref, 0, editorLine);
     }
 
-    private _authorDateFormatter: Dates.DateFormatter | undefined;
+    // private _previousUriPromise: Promise<GitUri | undefined> | undefined;
+    // getPreviousUri(staged: boolean = false) {
+    //     if (!this.isFile) return Promise.resolve(undefined);
+    //     if (!this.isUncommitted && this.previousSha !== undefined && !GitService.isShaParent(this.previousSha)) {
+    //         return Promise.resolve(this.toGitUri(true));
+    //     }
+
+    //     if (this._previousUriPromise === undefined) {
+    //         this._previousUriPromise = this._getPreviousUriCore(staged);
+    //     }
+
+    //     return this._previousUriPromise;
+    // }
+
+    // private async _getPreviousUriCore(staged: boolean) {
+    //     if (!staged && !GitService.isStagedUncommitted(this.sha)) {
+    //         const status = await this.getFileStatus();
+    //         if (status !== undefined) {
+    //             // If the file is staged, diff with the staged version
+    //             if (status.indexStatus !== undefined) {
+    //                 return GitUri.fromFile(this.fileName, this.repoPath, GitService.stagedUncommittedSha);
+    //             }
+    //         }
+    //     }
+
+    //     return Container.git.getPreviousUri(this.repoPath, this.uri, this.sha);
+    // }
+
+    @memoize()
+    getWorkingUri(): Promise<Uri | undefined> {
+        if (!this.isFile) return Promise.resolve(undefined);
+
+        return Container.git.getWorkingUri(this.repoPath, this.uri);
+    }
+
+    @memoize()
     private get authorDateFormatter(): Dates.DateFormatter {
-        if (this._authorDateFormatter === undefined) {
-            this._authorDateFormatter = Dates.toFormatter(this.authorDate);
-        }
-        return this._authorDateFormatter;
+        return Dates.toFormatter(this.authorDate);
     }
 
-    private _committerDateFormatter: Dates.DateFormatter | undefined;
+    @memoize()
     private get committerDateFormatter(): Dates.DateFormatter {
-        if (this._committerDateFormatter === undefined) {
-            this._committerDateFormatter = Dates.toFormatter(this.committerDate);
-        }
-        return this._committerDateFormatter;
+        return Dates.toFormatter(this.committerDate);
     }
 
     private get dateFormatter(): Dates.DateFormatter {
@@ -158,6 +187,7 @@ export abstract class GitCommit {
             : this.authorDateFormatter;
     }
 
+    @memoize(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
     formatAuthorDate(format?: string | null) {
         if (format == null) {
             format = 'MMMM Do, YYYY h:mma';
@@ -170,6 +200,7 @@ export abstract class GitCommit {
         return this.authorDateFormatter.fromNow();
     }
 
+    @memoize(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
     formatCommitterDate(format?: string | null) {
         if (format == null) {
             format = 'MMMM Do, YYYY h:mma';
@@ -182,6 +213,7 @@ export abstract class GitCommit {
         return this.committerDateFormatter.fromNow();
     }
 
+    @memoize(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
     formatDate(format?: string | null) {
         if (format == null) {
             format = 'MMMM Do, YYYY h:mma';
@@ -202,11 +234,13 @@ export abstract class GitCommit {
         return getGravatarUri(this.email, fallback, size);
     }
 
+    @memoize()
     getShortMessage() {
         // eslint-disable-next-line no-template-curly-in-string
         return CommitFormatter.fromTemplate('${message}', this, { truncateMessageAtNewLine: true });
     }
 
+    @memoize()
     toGitUri(previous: boolean = false): GitUri {
         return GitUri.fromCommit(this, previous);
     }
