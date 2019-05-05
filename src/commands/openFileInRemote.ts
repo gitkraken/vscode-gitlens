@@ -2,7 +2,7 @@
 import { commands, Range, TextEditor, Uri, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitUri, RemoteResourceType } from '../git/gitService';
+import { GitService, GitUri, RemoteResourceType } from '../git/gitService';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, ReferencesQuickPick } from '../quickpicks';
 import {
@@ -15,7 +15,6 @@ import {
     isCommandViewContextWithCommit
 } from './common';
 import { OpenInRemoteCommandArgs } from './openInRemote';
-import { Git } from '../git/git';
 import { Strings } from '../system';
 
 export interface OpenFileInRemoteCommandArgs {
@@ -67,7 +66,7 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
                     : undefined;
             let sha = args.sha || gitUri.sha;
 
-            if (args.branch === undefined && sha !== undefined && !Git.isSha(sha) && remotes.length !== 0) {
+            if (args.branch === undefined && sha !== undefined && !GitService.isSha(sha) && remotes.length !== 0) {
                 const [remotePart, branchPart] = Strings.splitSingle(sha, '/');
                 if (branchPart !== undefined) {
                     if (remotes.some(r => r.name === remotePart)) {
@@ -82,10 +81,8 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
                 if (branch === undefined || branch.tracking === undefined) {
                     const pick = await new ReferencesQuickPick(gitUri.repoPath).show(
                         args.clipboard
-                            ? `Copy url for ${gitUri.getRelativePath()} to clipboard for which branch${
-                                  GlyphChars.Ellipsis
-                              }`
-                            : `Open ${gitUri.getRelativePath()} on remote for which branch${GlyphChars.Ellipsis}`,
+                            ? `Copy url for ${gitUri.relativePath} to clipboard for which branch${GlyphChars.Ellipsis}`
+                            : `Open ${gitUri.relativePath} on remote for which branch${GlyphChars.Ellipsis}`,
                         {
                             autoPick: true,
                             filters: {
@@ -109,13 +106,13 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
                         ? {
                               type: RemoteResourceType.File,
                               branch: args.branch || 'HEAD',
-                              fileName: gitUri.getRelativePath(),
+                              fileName: gitUri.relativePath,
                               range: range
                           }
                         : {
                               type: RemoteResourceType.Revision,
                               branch: args.branch || 'HEAD',
-                              fileName: gitUri.getRelativePath(),
+                              fileName: gitUri.relativePath,
                               range: range,
                               sha: sha
                           },

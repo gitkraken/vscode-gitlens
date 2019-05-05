@@ -124,7 +124,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
             ? ` #${this.selection.start.line + 1}`
             : ` #${this.selection.start.line + 1}-${this.selection.end.line + 1}`;
         const item = new TreeItem(
-            `${this.uri.getFilename()}${lines}${
+            `${this.uri.fileName}${lines}${
                 this.uri.sha
                     ? ` ${
                           this.uri.sha === GitService.deletedOrMissingSha ? this.uri.shortSha : `(${this.uri.shortSha})`
@@ -134,8 +134,8 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
             TreeItemCollapsibleState.Expanded
         );
         item.contextValue = ResourceType.LineHistory;
-        item.description = this.uri.getDirectory();
-        item.tooltip = `History of ${this.uri.getFilename()}${lines}\n${this.uri.getDirectory()}/${
+        item.description = this.uri.directory;
+        item.tooltip = `History of ${this.uri.fileName}${lines}\n${this.uri.directory}/${
             this.uri.sha === undefined ? '' : `\n\n${this.uri.sha}`
         }`;
 

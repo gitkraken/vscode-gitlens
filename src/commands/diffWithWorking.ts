@@ -50,7 +50,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
             args.line = editor == null ? 0 : editor.selection.active.line;
         }
 
-        if (args.commit === undefined || GitService.isUncommitted(args.commit.sha)) {
+        if (args.commit === undefined || args.commit.isUncommitted) {
             // If the sha is missing, just let the user know the file matches
             if (gitUri.sha === undefined) return window.showInformationMessage('File matches the working tree');
             if (gitUri.sha === GitService.deletedOrMissingSha) {
@@ -58,8 +58,9 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
             }
 
             // If we are a fake "staged" sha, check the status
-            if (GitService.isUncommittedStaged(gitUri.sha!)) {
-                gitUri.sha = undefined;
+            let ref: string | undefined = gitUri.sha;
+            if (gitUri.isUncommittedStaged) {
+                ref = undefined;
 
                 const status = await Container.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath);
                 if (status !== undefined && status.indexStatus !== undefined) {
@@ -83,7 +84,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
             try {
                 args.commit = await Container.git.getCommitForFile(gitUri.repoPath, gitUri.fsPath, {
-                    ref: gitUri.sha,
+                    ref: ref,
                     firstIfNotFound: true
                 });
                 if (args.commit === undefined) {
@@ -94,7 +95,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
                 Logger.error(
                     ex,
                     'DiffWithWorkingCommand',
-                    `getLogCommit(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`
+                    `getLogCommit(${gitUri.repoPath}, ${gitUri.fsPath}, ${ref})`
                 );
                 return Messages.showGenericErrorMessage('Unable to open compare');
             }

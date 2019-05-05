@@ -187,7 +187,7 @@ export abstract class GitCommit {
             : this.authorDateFormatter;
     }
 
-    @memoize(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
+    @memoize<GitCommit['formatAuthorDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
     formatAuthorDate(format?: string | null) {
         if (format == null) {
             format = 'MMMM Do, YYYY h:mma';
@@ -200,7 +200,7 @@ export abstract class GitCommit {
         return this.authorDateFormatter.fromNow();
     }
 
-    @memoize(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
+    @memoize<GitCommit['formatCommitterDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
     formatCommitterDate(format?: string | null) {
         if (format == null) {
             format = 'MMMM Do, YYYY h:mma';
@@ -213,7 +213,7 @@ export abstract class GitCommit {
         return this.committerDateFormatter.fromNow();
     }
 
-    @memoize(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
+    @memoize<GitCommit['formatDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
     formatDate(format?: string | null) {
         if (format == null) {
             format = 'MMMM Do, YYYY h:mma';

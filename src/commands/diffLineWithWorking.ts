@@ -31,7 +31,7 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
             args.line = editor == null ? 0 : editor.selection.active.line;
         }
 
-        if (args.commit === undefined || GitService.isUncommitted(args.commit.sha)) {
+        if (args.commit === undefined || args.commit.isUncommitted) {
             const blameline = args.line;
             if (blameline < 0) return undefined;
 

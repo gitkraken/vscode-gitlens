@@ -166,13 +166,13 @@ export class FileHistoryQuickPick {
                             ? {
                                   type: RemoteResourceType.Revision,
                                   branch: branch.name,
-                                  fileName: uri.getRelativePath(),
+                                  fileName: uri.relativePath,
                                   sha: uri.sha
                               }
                             : {
                                   type: RemoteResourceType.File,
                                   branch: branch.name,
-                                  fileName: uri.getRelativePath()
+                                  fileName: uri.relativePath
                               };
                     items.splice(index++, 0, new OpenRemotesCommandQuickPickItem(remotes, resource, currentCommand));
                 }

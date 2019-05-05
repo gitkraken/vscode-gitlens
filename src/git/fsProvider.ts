@@ -21,7 +21,7 @@ const emptyArray = new Uint8Array(0);
 
 export function fromGitLensFSUri(uri: Uri): { path: string; ref: string; repoPath: string } {
     const gitUri = uri instanceof GitUri ? uri : GitUri.fromRevisionUri(uri);
-    return { path: gitUri.getRelativePath(), ref: gitUri.sha!, repoPath: gitUri.repoPath! };
+    return { path: gitUri.relativePath, ref: gitUri.sha!, repoPath: gitUri.repoPath! };
 }
 
 export function toGitLensFSUri(ref: string, repoPath: string): Uri {

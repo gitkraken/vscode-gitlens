@@ -1166,7 +1166,7 @@ export class GitService implements Disposable {
 
         try {
             let data;
-            if (ref1 !== undefined && ref2 === undefined && !GitService.isUncommittedStaged(ref1)) {
+            if (ref1 !== undefined && ref2 === undefined && !Git.isUncommittedStaged(ref1)) {
                 data = await Git.show__diff(root, file, ref1, originalFileName, {
                     similarityThreshold: Container.config.advanced.similarityThreshold
                 });
@@ -1251,7 +1251,7 @@ export class GitService implements Disposable {
 
     @log()
     async getFileStatusForCommit(repoPath: string, fileName: string, ref: string): Promise<GitFile | undefined> {
-        if (ref === GitService.deletedOrMissingSha || GitService.isUncommitted(ref)) return undefined;
+        if (ref === GitService.deletedOrMissingSha || Git.isUncommitted(ref)) return undefined;
 
         const data = await Git.show__name_status(repoPath, fileName, ref);
         if (!data) return undefined;
@@ -1636,7 +1636,7 @@ export class GitService implements Disposable {
         // If we have no ref (or staged ref) there is no next commit
         if (ref === undefined || ref.length === 0) return undefined;
 
-        const fileName = GitUri.getRelativePath(uri, repoPath);
+        const fileName = GitUri.relativeTo(uri, repoPath);
 
         if (Git.isUncommittedStaged(ref)) {
             return {
@@ -1688,7 +1688,7 @@ export class GitService implements Disposable {
             filters = ['A'];
         }
 
-        const fileName = GitUri.getRelativePath(uri, repoPath);
+        const fileName = GitUri.relativeTo(uri, repoPath);
         let data = await Git.log__file(repoPath, fileName, ref, {
             filters: filters,
             format: GitLogParser.simpleFormat,
@@ -1732,7 +1732,7 @@ export class GitService implements Disposable {
     ): Promise<{ current: GitUri; previous: GitUri | undefined } | undefined> {
         if (ref === GitService.deletedOrMissingSha) return undefined;
 
-        const fileName = GitUri.getRelativePath(uri, repoPath);
+        const fileName = GitUri.relativeTo(uri, repoPath);
 
         // If the ref is missing (i.e. working tree), check the file status to see if there is anything staged
         if ((ref === undefined || ref.length === 0) && editorLine === undefined) {
@@ -1754,7 +1754,7 @@ export class GitService implements Disposable {
                 }
             }
         }
-        else if (GitService.isUncommittedStaged(ref)) {
+        else if (Git.isUncommittedStaged(ref)) {
             const current =
                 skip === 0
                     ? GitUri.fromFile(fileName, repoPath, ref)
@@ -1796,7 +1796,7 @@ export class GitService implements Disposable {
             skip++;
         }
 
-        const fileName = GitUri.getRelativePath(uri, repoPath);
+        const fileName = GitUri.relativeTo(uri, repoPath);
         const data = await Git.log__file(repoPath, fileName, ref, {
             format: GitLogParser.simpleFormat,
             maxCount: skip + 1,
@@ -2146,7 +2146,7 @@ export class GitService implements Disposable {
 
     @log()
     async getWorkingUri(repoPath: string, uri: Uri) {
-        let fileName = GitUri.getRelativePath(uri, repoPath);
+        let fileName = GitUri.relativeTo(uri, repoPath);
 
         let data;
         let ref;
@@ -2438,6 +2438,7 @@ export class GitService implements Disposable {
     static deletedOrMissingSha = Git.deletedOrMissingSha;
     static getGitPath = Git.getGitPath;
     static getGitVersion = Git.getGitVersion;
+    static isSha = Git.isSha;
     static isShaLike = Git.isShaLike;
     static isShaParent = Git.isShaParent;
     static isUncommitted = Git.isUncommitted;

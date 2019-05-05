@@ -41,9 +41,10 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
         try {
             args = { ...args };
 
+            let repoPath;
             // If we don't have an editor then get the message of the last commit to the branch
             if (uri == null) {
-                const repoPath = await Container.git.getActiveRepoPath(editor);
+                repoPath = await Container.git.getActiveRepoPath(editor);
                 if (!repoPath) return undefined;
 
                 const log = await Container.git.getLog(repoPath, { maxCount: 1 });
@@ -53,6 +54,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
             }
             else if (args.message === undefined) {
                 const gitUri = await GitUri.fromUri(uri);
+                repoPath = gitUri.repoPath;
 
                 if (args.sha === undefined) {
                     const blameline = (editor && editor.selection.active.line) || 0;
@@ -72,8 +74,8 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
                         if (blame.commit.isUncommitted) return undefined;
 
                         args.sha = blame.commit.sha;
-                        if (!gitUri.repoPath) {
-                            gitUri.repoPath = blame.commit.repoPath;
+                        if (!repoPath) {
+                            repoPath = blame.commit.repoPath;
                         }
                     }
                     catch (ex) {
@@ -83,7 +85,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
                 }
 
                 // Get the full commit message -- since blame only returns the summary
-                const commit = await Container.git.getCommit(gitUri.repoPath!, args.sha);
+                const commit = await Container.git.getCommit(repoPath!, args.sha);
                 if (commit === undefined) return undefined;
 
                 args.message = commit.message;

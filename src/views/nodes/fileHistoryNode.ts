@@ -99,7 +99,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 
     getTreeItem(): TreeItem {
         const item = new TreeItem(
-            `${this.uri.getFilename()}${
+            `${this.uri.fileName}${
                 this.uri.sha
                     ? ` ${
                           this.uri.sha === GitService.deletedOrMissingSha ? this.uri.shortSha : `(${this.uri.shortSha})`
@@ -109,8 +109,8 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
             TreeItemCollapsibleState.Expanded
         );
         item.contextValue = ResourceType.FileHistory;
-        item.description = this.uri.getDirectory();
-        item.tooltip = `History of ${this.uri.getFilename()}\n${this.uri.getDirectory()}/${
+        item.description = this.uri.directory;
+        item.tooltip = `History of ${this.uri.fileName}\n${this.uri.directory}/${
             this.uri.sha === undefined ? '' : `\n\n${this.uri.sha}`
         }`;
 

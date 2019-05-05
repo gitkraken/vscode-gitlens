@@ -140,7 +140,7 @@ export class StatusFileNode extends ViewNode {
     private _folderName: string | undefined;
     get folderName() {
         if (this._folderName === undefined) {
-            this._folderName = paths.dirname(this.uri.getRelativePath());
+            this._folderName = paths.dirname(this.uri.relativePath);
         }
         return this._folderName;
     }

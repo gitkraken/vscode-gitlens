@@ -1,7 +1,7 @@
 'use strict';
 import { commands, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { Container } from '../container';
-import { GitCommit, GitService, GitUri } from '../git/gitService';
+import { GitCommit, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { ActiveEditorCommand, command, Commands, getCommandUri } from './common';
@@ -31,7 +31,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
 
         const gitUri = args.commit !== undefined ? GitUri.fromCommit(args.commit) : await GitUri.fromUri(uri);
 
-        if (gitUri.sha === undefined || GitService.isUncommitted(gitUri.sha)) {
+        if (gitUri.sha === undefined || gitUri.isUncommitted) {
             const blame =
                 editor && editor.document.isDirty
                     ? await Container.git.getBlameForLineContents(gitUri, args.line, editor.document.getText())

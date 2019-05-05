@@ -7,7 +7,7 @@ import { DocumentSchemes, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitCommit, GitFile, GitService } from '../git/gitService';
 import { Logger } from '../logger';
-import { debug, Strings } from '../system';
+import { debug, memoize, Strings } from '../system';
 
 const emptyStr = '';
 const slash = '/';
@@ -36,9 +36,9 @@ interface UriEx {
 }
 
 export class GitUri extends ((Uri as any) as UriEx) {
-    repoPath?: string;
-    sha?: string;
-    versionedPath?: string;
+    readonly repoPath?: string;
+    readonly sha?: string;
+    readonly versionedPath?: string;
 
     constructor(uri?: Uri);
     constructor(uri: Uri, commit: GitCommitish);
@@ -128,12 +128,46 @@ export class GitUri extends ((Uri as any) as UriEx) {
         }
     }
 
-    get shortSha() {
-        return this.sha && GitService.shortenSha(this.sha);
+    @memoize()
+    get directory(): string {
+        return GitUri.getDirectory(this.relativeFsPath);
     }
 
-    documentUri(options: { useVersionedPath?: boolean } = {}) {
-        if (options.useVersionedPath && this.versionedPath !== undefined) return GitUri.file(this.versionedPath);
+    @memoize()
+    get fileName(): string {
+        return paths.basename(this.relativeFsPath);
+    }
+
+    @memoize()
+    get isUncommitted() {
+        return GitService.isUncommitted(this.sha);
+    }
+
+    @memoize()
+    get isUncommittedStaged() {
+        return GitService.isUncommittedStaged(this.sha);
+    }
+
+    @memoize()
+    private get relativeFsPath() {
+        return this.repoPath == null || this.repoPath.length === 0
+            ? this.fsPath
+            : paths.relative(this.repoPath, this.fsPath);
+    }
+
+    @memoize()
+    get relativePath() {
+        return Strings.normalizePath(this.relativeFsPath);
+    }
+
+    @memoize()
+    get shortSha() {
+        return GitService.shortenSha(this.sha);
+    }
+
+    @memoize<GitUri['documentUri']>(options => `${options!.useVersionedPath ? 'versioned' : ''}`)
+    documentUri({ useVersionedPath }: { useVersionedPath?: boolean } = {}) {
+        if (useVersionedPath && this.versionedPath !== undefined) return GitUri.file(this.versionedPath);
         if (this.scheme !== 'file') return this;
 
         return GitUri.file(this.fsPath);
@@ -143,17 +177,6 @@ export class GitUri extends ((Uri as any) as UriEx) {
         if (!UriComparer.equals(this, uri)) return false;
 
         return this.sha === (uri instanceof GitUri ? uri.sha : undefined);
-    }
-
-    getDirectory(relativeTo?: string): string {
-        return GitUri.getDirectory(
-            this.repoPath ? paths.relative(this.repoPath, this.fsPath) : this.fsPath,
-            relativeTo
-        );
-    }
-
-    getFilename(relativeTo?: string): string {
-        return paths.basename(this.repoPath ? paths.relative(this.repoPath, this.fsPath) : this.fsPath, relativeTo);
     }
 
     getFormattedPath(options: { relativeTo?: string; separator?: string; suffix?: string } = {}): string {
@@ -167,14 +190,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
         return `${paths.basename(this.fsPath)}${suffix}${directory ? `${separator}${directory}` : emptyStr}`;
     }
 
-    getRelativePath(relativeTo?: string): string {
-        let relativePath = this.repoPath ? paths.relative(this.repoPath, this.fsPath) : this.fsPath;
-        if (relativeTo !== undefined) {
-            relativePath = paths.relative(relativeTo, relativePath);
-        }
-        return Strings.normalizePath(relativePath);
-    }
-
+    @memoize()
     toFileUri() {
         return GitUri.file(this.fsPath);
     }
@@ -286,7 +302,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
             directory = paths.relative(relativeTo, directory);
         }
         directory = Strings.normalizePath(directory);
-        return !directory || directory === '.' ? emptyStr : directory;
+        return directory == null || directory.length === 0 || directory === '.' ? emptyStr : directory;
     }
 
     static getFormattedPath(
@@ -311,21 +327,12 @@ export class GitUri extends ((Uri as any) as UriEx) {
             : `${paths.basename(fileName)}${suffix}${separator}${directory}`;
     }
 
-    static getRelativePath(fileNameOrUri: string | Uri, repoPath?: string, relativeTo?: string): string {
-        let fileName: string;
-        if (fileNameOrUri instanceof Uri) {
-            if (fileNameOrUri instanceof GitUri) return fileNameOrUri.getRelativePath(relativeTo);
-
-            fileName = fileNameOrUri.fsPath;
-        }
-        else {
-            fileName = fileNameOrUri;
-        }
-
-        let relativePath = repoPath && paths.isAbsolute(fileName) ? paths.relative(repoPath, fileName) : fileName;
-        if (relativeTo !== undefined) {
-            relativePath = paths.relative(relativeTo, relativePath);
-        }
+    static relativeTo(fileNameOrUri: string | Uri, relativeTo: string | undefined): string {
+        const fileName = fileNameOrUri instanceof Uri ? fileNameOrUri.fsPath : fileNameOrUri;
+        const relativePath =
+            relativeTo == null || relativeTo.length === 0 || !paths.isAbsolute(fileName)
+                ? fileName
+                : paths.relative(relativeTo, fileName);
         return Strings.normalizePath(relativePath);
     }
 

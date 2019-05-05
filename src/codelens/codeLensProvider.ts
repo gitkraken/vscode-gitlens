@@ -220,7 +220,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
                     }
 
                     const fileSymbol = new SymbolInformation(
-                        gitUri.getFilename(),
+                        gitUri.fileName,
                         SymbolKind.File,
                         '',
                         new Location(gitUri.documentUri(), new Range(0, 0, 0, blameRange.start.character))
@@ -247,7 +247,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
                     }
 
                     const fileSymbol = new SymbolInformation(
-                        gitUri.getFilename(),
+                        gitUri.fileName,
                         SymbolKind.File,
                         '',
                         new Location(gitUri.documentUri(), new Range(0, 1, 0, blameRange.start.character))

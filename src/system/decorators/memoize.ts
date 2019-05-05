@@ -1,7 +1,5 @@
 'use strict';
 
-import { Logger } from '../../logger';
-
 const emptyStr = '';
 
 function defaultResolver(...args: any[]): string {
@@ -19,7 +17,7 @@ function defaultResolver(...args: any[]): string {
     return JSON.stringify(args);
 }
 
-export function memoize(resolver?: (...args: any[]) => string) {
+export function memoize<T extends (...arg: any) => any>(resolver?: (...args: Parameters<T>) => string) {
     return (target: any, key: string, descriptor: PropertyDescriptor & { [key: string]: any }) => {
         let fn: Function | undefined;
         let fnKey: string | undefined;
@@ -45,7 +43,7 @@ export function memoize(resolver?: (...args: any[]) => string) {
             const prop =
                 fnKey === 'get' || args.length === 0
                     ? memoizeKey
-                    : `${memoizeKey}$${(resolver || defaultResolver)(...args)}`;
+                    : `${memoizeKey}$${(resolver || defaultResolver)(...(args as Parameters<T>))}`;
 
             if (this.hasOwnProperty(prop)) {
                 result = this[prop];

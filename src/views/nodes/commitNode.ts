@@ -39,7 +39,7 @@ export class CommitNode extends ViewRefNode<ViewWithFiles> {
         if (this.view.config.files.layout !== ViewFilesLayout.List) {
             const hierarchy = Arrays.makeHierarchical(
                 children,
-                n => n.uri.getRelativePath().split('/'),
+                n => n.uri.relativePath.split('/'),
                 (...parts: string[]) => Strings.normalizePath(paths.join(...parts)),
                 this.view.config.files.compact
             );

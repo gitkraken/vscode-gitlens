@@ -143,7 +143,7 @@ export class CommitFileQuickPick {
                         label: '$(git-compare) Open Changes with Working File',
                         description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${commit.shortSha} ${
                             GlyphChars.Space
-                        } $(git-compare) ${GlyphChars.Space} $(file-text) ${GitUri.getRelativePath(
+                        } $(git-compare) ${GlyphChars.Space} $(file-text) ${GitUri.relativeTo(
                             workingUri,
                             commit.repoPath
                         )}`
@@ -251,7 +251,7 @@ export class CommitFileQuickPick {
                 new CommandQuickPickItem(
                     {
                         label: `$(history) Show ${
-                            GitUri.getRelativePath(workingUri || commit.uri, commit.repoPath) ? 'Previous ' : ''
+                            GitUri.relativeTo(workingUri || commit.uri, commit.repoPath) ? 'Previous ' : ''
                         }File History`,
                         description: `${Strings.pad(GlyphChars.Dash, 2, 3)} of ${paths.basename(
                             commit.fileName

@@ -236,23 +236,23 @@ export class Git {
     }
 
     static isSha(ref: string) {
-        return Git.shaRegex.test(ref);
+        return Git.isMatch(Git.shaRegex, ref);
     }
 
     static isShaLike(ref: string) {
-        return Git.shaLikeRegex.test(ref);
+        return Git.isMatch(Git.shaLikeRegex, ref);
     }
 
     static isShaParent(ref: string) {
-        return Git.shaParentRegex.test(ref);
+        return Git.isMatch(Git.shaParentRegex, ref);
     }
 
     static isUncommitted(ref: string | undefined) {
-        return ref ? Git.uncommittedRegex.test(ref) : false;
+        return Git.isMatch(Git.uncommittedRegex, ref);
     }
 
     static isUncommittedStaged(ref: string | undefined): boolean {
-        return ref ? Git.uncommittedStagedRegex.test(ref) : false;
+        return Git.isMatch(Git.uncommittedStagedRegex, ref);
     }
 
     static shortenSha(
@@ -307,6 +307,10 @@ export class Git {
     static validateVersion(major: number, minor: number): boolean {
         const [gitMajor, gitMinor] = gitInfo.version.split('.');
         return parseInt(gitMajor, 10) >= major && parseInt(gitMinor, 10) >= minor;
+    }
+
+    private static isMatch(regex: RegExp, ref: string | undefined) {
+        return ref == null || ref.length === 0 ? false : regex.test(ref);
     }
 
     // Git commands

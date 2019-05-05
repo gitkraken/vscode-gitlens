@@ -17,7 +17,6 @@ import {
     GitBlameCommit,
     GitCommit,
     GitDiffHunkLine,
-    GitService,
     GitUri
 } from '../git/gitService';
 import { Objects, Strings } from '../system';
@@ -66,7 +65,7 @@ export class Annotations {
     ): Promise<MarkdownString | undefined> {
         let ref;
         if (commit.isUncommitted) {
-            if (uri.sha !== undefined && GitService.isUncommittedStaged(uri.sha)) {
+            if (uri.isUncommittedStaged) {
                 ref = uri.sha;
             }
         }
@@ -101,7 +100,7 @@ export class Annotations {
 
         let message: string;
         if (commit.isUncommitted) {
-            if (uri.sha !== undefined && GitService.isUncommittedStaged(uri.sha)) {
+            if (uri.isUncommittedStaged) {
                 message = `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(
                     commit,
                     editorLine

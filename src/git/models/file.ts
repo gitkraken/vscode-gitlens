@@ -41,11 +41,11 @@ export namespace GitFile {
     export function getOriginalRelativePath(file: GitFile, relativeTo?: string): string {
         if (file.originalFileName == null || file.originalFileName.length === 0) return '';
 
-        return GitUri.getRelativePath(file.originalFileName, undefined, relativeTo);
+        return GitUri.relativeTo(file.originalFileName, relativeTo);
     }
 
     export function getRelativePath(file: GitFile, relativeTo?: string): string {
-        return GitUri.getRelativePath(file.fileName, undefined, relativeTo);
+        return GitUri.relativeTo(file.fileName, relativeTo);
     }
 
     const statusIconsMap = {
