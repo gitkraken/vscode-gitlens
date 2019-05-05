@@ -93,13 +93,13 @@ export abstract class GitCommit {
     }
 
     @memoize()
-    get isStagedUncommitted(): boolean {
-        return Git.isUncommittedStaged(this.sha);
+    get isUncommitted(): boolean {
+        return Git.isUncommitted(this.sha);
     }
 
     @memoize()
-    get isUncommitted(): boolean {
-        return Git.isUncommitted(this.sha);
+    get isUncommittedStaged(): boolean {
+        return Git.isUncommittedStaged(this.sha);
     }
 
     get previousFileSha(): string {
@@ -119,50 +119,14 @@ export abstract class GitCommit {
         return GitUri.resolveToUri(this.fileName, this.repoPath);
     }
 
-    // @memoize()
-    // getFileStatus() {
-    //     if (!this.isFile) return Promise.resolve(undefined);
-
-    //     return Container.git.getStatusForFile(this.repoPath, this.fileName);
-    // }
-
-    // @memoize(
-    //     (uri: Uri, ref: string | undefined, editorLine?: number) =>
-    //         `${uri.toString(true)}|${ref || ''}|${editorLine || ''}`
-    // )
-    getPreviousDiffUris(uri: Uri, ref: string | undefined, editorLine?: number) {
+    @memoize<GitCommit['getPreviousLineDiffUris']>(
+        (uri, editorLine, ref) => `${uri.toString(true)}|${editorLine || ''}|${ref || ''}`
+    )
+    getPreviousLineDiffUris(uri: Uri, editorLine: number, ref: string | undefined) {
         if (!this.isFile) return Promise.resolve(undefined);
 
-        return Container.git.getPreviousDiffUris(this.repoPath, uri, ref, 0, editorLine);
+        return Container.git.getPreviousLineDiffUris(this.repoPath, uri, editorLine, ref);
     }
-
-    // private _previousUriPromise: Promise<GitUri | undefined> | undefined;
-    // getPreviousUri(staged: boolean = false) {
-    //     if (!this.isFile) return Promise.resolve(undefined);
-    //     if (!this.isUncommitted && this.previousSha !== undefined && !GitService.isShaParent(this.previousSha)) {
-    //         return Promise.resolve(this.toGitUri(true));
-    //     }
-
-    //     if (this._previousUriPromise === undefined) {
-    //         this._previousUriPromise = this._getPreviousUriCore(staged);
-    //     }
-
-    //     return this._previousUriPromise;
-    // }
-
-    // private async _getPreviousUriCore(staged: boolean) {
-    //     if (!staged && !GitService.isStagedUncommitted(this.sha)) {
-    //         const status = await this.getFileStatus();
-    //         if (status !== undefined) {
-    //             // If the file is staged, diff with the staged version
-    //             if (status.indexStatus !== undefined) {
-    //                 return GitUri.fromFile(this.fileName, this.repoPath, GitService.stagedUncommittedSha);
-    //             }
-    //         }
-    //     }
-
-    //     return Container.git.getPreviousUri(this.repoPath, this.uri, this.sha);
-    // }
 
     @memoize()
     getWorkingUri(): Promise<Uri | undefined> {

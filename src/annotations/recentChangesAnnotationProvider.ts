@@ -73,7 +73,7 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
                     }
 
                     if (cfg.hovers.annotations.changes) {
-                        message = Annotations.changesHoverDiffMessage(commit, this._uri, hunkLine, count);
+                        message = await Annotations.changesHoverMessage(commit, this._uri, count, hunkLine);
                         if (message === undefined) continue;
                     }
                 }

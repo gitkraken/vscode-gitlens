@@ -77,7 +77,7 @@ export class ExternalDiffCommand extends Command {
             args.files = [
                 {
                     uri: GitUri.fromFile(context.node.file, context.node.file.repoPath || context.node.repoPath),
-                    staged: context.node.commit.isStagedUncommitted || context.node.file.indexStatus !== undefined,
+                    staged: context.node.commit.isUncommittedStaged || context.node.file.indexStatus !== undefined,
                     ref1: ref1,
                     ref2: ref2
                 }

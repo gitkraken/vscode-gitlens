@@ -26,9 +26,10 @@ const slash = '/';
 // This is a root sha of all git repo's if using sha1
 const rootSha = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 
-const GitErrors = {
+export const GitErrors = {
     badRevision: /bad revision '(.*?)'/i,
-    notAValidObjectName: /Not a valid object name/i
+    notAValidObjectName: /Not a valid object name/i,
+    invalidLineCount: /file .+? has only \d+ lines/i
 };
 
 const GitWarnings = {
@@ -258,14 +259,14 @@ export class Git {
     static shortenSha(
         ref: string | undefined,
         {
-            stagedUncommitted = 'Index',
             uncommitted = 'Working Tree',
+            uncommittedStaged: uncommittedStaged = 'Index',
             working = emptyStr
-        }: { stagedUncommitted?: string; uncommitted?: string; working?: string } = {}
+        }: { uncommittedStaged?: string; uncommitted?: string; working?: string } = {}
     ) {
         if (ref == null || ref.length === 0) return working;
         if (Git.isUncommitted(ref)) {
-            return Git.isUncommittedStaged(ref) ? stagedUncommitted : uncommitted;
+            return Git.isUncommittedStaged(ref) ? uncommittedStaged : uncommitted;
         }
 
         if (!Git.isShaLike(ref)) return ref;
@@ -749,7 +750,7 @@ export class Git {
 
     // static log__shortstat(repoPath: string, options: { ref?: string }) {
     //     const params = ['log', '--shortstat', '--oneline'];
-    //     if (options.ref && !Git.isStagedUncommitted(options.ref)) {
+    //     if (options.ref && !Git.isUncommittedStaged(options.ref)) {
     //         params.push(options.ref);
     //     }
     //     return git<string>({ cwd: repoPath }, ...params, '--');

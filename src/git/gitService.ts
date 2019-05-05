@@ -45,6 +45,7 @@ import {
     GitDiffHunkLine,
     GitDiffParser,
     GitDiffShortStat,
+    GitErrors,
     GitFile,
     GitLog,
     GitLogCommit,
@@ -1210,12 +1211,7 @@ export class GitService implements Disposable {
         originalFileName?: string
     ): Promise<GitDiffHunkLine | undefined> {
         try {
-            let diff = await this.getDiffForFile(uri, ref1, ref2, originalFileName);
-            // If we didn't find a diff & ref1 is undefined (meaning uncommitted), check for a staged diff
-            if (diff === undefined && ref1 === undefined) {
-                diff = await this.getDiffForFile(uri, Git.uncommittedStagedSha, ref2, originalFileName);
-            }
-
+            const diff = await this.getDiffForFile(uri, ref1, ref2, originalFileName);
             if (diff === undefined) return undefined;
 
             const line = editorLine + 1;
@@ -1727,34 +1723,155 @@ export class GitService implements Disposable {
         repoPath: string,
         uri: Uri,
         ref: string | undefined,
-        skip: number = 0,
-        editorLine?: number
+        skip: number = 0
     ): Promise<{ current: GitUri; previous: GitUri | undefined } | undefined> {
         if (ref === GitService.deletedOrMissingSha) return undefined;
 
         const fileName = GitUri.relativeTo(uri, repoPath);
 
-        // If the ref is missing (i.e. working tree), check the file status to see if there is anything staged
-        if ((ref === undefined || ref.length === 0) && editorLine === undefined) {
+        // If we are at the working tree (i.e. no ref), we need to dig deeper to figure out where to go
+        if (ref === undefined || ref.length === 0) {
+            // First, check the file status to see if there is anything staged
             const status = await Container.git.getStatusForFile(repoPath, fileName);
             if (status !== undefined) {
-                // If the file is staged, diff with the staged version
+                // If the file is staged with working changes, diff working with staged (index)
+                // If the file is staged without working changes, diff staged with HEAD
                 if (status.indexStatus !== undefined) {
+                    // Backs up to get to HEAD
+                    if (status.workingTreeStatus === undefined) {
+                        skip++;
+                    }
+
                     if (skip === 0) {
+                        // Diff working with staged
                         return {
-                            current: GitUri.fromFile(fileName, repoPath, ref),
+                            current: GitUri.fromFile(fileName, repoPath, undefined),
                             previous: GitUri.fromFile(fileName, repoPath, GitService.uncommittedStagedSha)
                         };
                     }
 
                     return {
+                        // Diff staged with HEAD (or prior if more skips)
                         current: GitUri.fromFile(fileName, repoPath, GitService.uncommittedStagedSha),
-                        previous: await this.getPreviousUri(repoPath, uri, ref, skip - 1, editorLine)
+                        previous: await this.getPreviousUri(repoPath, uri, ref, skip - 1)
                     };
                 }
             }
         }
-        else if (Git.isUncommittedStaged(ref)) {
+        // If we are at the index (staged), diff staged with HEAD
+        else if (GitService.isUncommittedStaged(ref)) {
+            const current =
+                skip === 0
+                    ? GitUri.fromFile(fileName, repoPath, ref)
+                    : (await this.getPreviousUri(repoPath, uri, undefined, skip - 1))!;
+            if (current.sha === GitService.deletedOrMissingSha) return undefined;
+
+            return {
+                current: current,
+                previous: await this.getPreviousUri(repoPath, uri, undefined, skip)
+            };
+        }
+
+        // If we are at a commit, diff commit with previous
+        const current =
+            skip === 0
+                ? GitUri.fromFile(fileName, repoPath, ref)
+                : (await this.getPreviousUri(repoPath, uri, ref, skip - 1))!;
+        if (current.sha === GitService.deletedOrMissingSha) return undefined;
+
+        return {
+            current: current,
+            previous: await this.getPreviousUri(repoPath, uri, ref, skip)
+        };
+    }
+
+    @log()
+    async getPreviousLineDiffUris(
+        repoPath: string,
+        uri: Uri,
+        editorLine: number,
+        ref: string | undefined,
+        skip: number = 0
+    ): Promise<{ current: GitUri; previous: GitUri | undefined } | undefined> {
+        if (ref === GitService.deletedOrMissingSha) return undefined;
+
+        let fileName = GitUri.relativeTo(uri, repoPath);
+
+        // If we are at the working tree (i.e. no ref), we need to dig deeper to figure out where to go
+        if (ref === undefined || ref.length === 0) {
+            // First, check the blame on the current line to see if there are any working/staged changes
+            const gitUri = new GitUri(uri, repoPath);
+
+            const document = await workspace.openTextDocument(uri);
+            const blameLine = document.isDirty
+                ? await this.getBlameForLineContents(gitUri, editorLine, document.getText())
+                : await this.getBlameForLine(gitUri, editorLine);
+            if (blameLine === undefined) return undefined;
+
+            // If line is uncommitted, we need to dig deeper to figure out where to go (because blame can't be trusted)
+            if (blameLine.commit.isUncommitted) {
+                // If the document is dirty (unsaved), use the status to determine where to go
+                if (document.isDirty) {
+                    // Check the file status to see if there is anything staged
+                    const status = await Container.git.getStatusForFile(repoPath, fileName);
+                    if (status !== undefined) {
+                        // If the file is staged, diff working with staged (index)
+                        // If the file is not staged, diff working with HEAD
+                        if (status.indexStatus !== undefined) {
+                            // Diff working with staged
+                            return {
+                                current: GitUri.fromFile(fileName, repoPath, undefined),
+                                previous: GitUri.fromFile(fileName, repoPath, GitService.uncommittedStagedSha)
+                            };
+                        }
+                    }
+
+                    // Diff working with HEAD (or prior if more skips)
+                    return {
+                        current: GitUri.fromFile(fileName, repoPath, undefined),
+                        previous: await this.getPreviousUri(repoPath, uri, undefined, skip, editorLine)
+                    };
+                }
+
+                // First, check if we have a diff in the working tree
+                let hunkLine = await this.getDiffForLine(gitUri!, editorLine, undefined);
+                if (hunkLine === undefined) {
+                    // Next, check if we have a diff in the index (staged)
+                    hunkLine = await this.getDiffForLine(
+                        gitUri!,
+                        editorLine,
+                        undefined,
+                        GitService.uncommittedStagedSha
+                    );
+
+                    if (hunkLine !== undefined) {
+                        ref = GitService.uncommittedStagedSha;
+                    }
+                    else {
+                        skip++;
+                    }
+                }
+            }
+            // If line is committed, diff with line ref with previous
+            else {
+                ref = blameLine.commit.sha;
+                fileName = blameLine.commit.fileName || blameLine.commit.originalFileName || fileName;
+                uri = GitUri.resolveToUri(fileName, repoPath);
+                editorLine = blameLine.line.originalLine - 1;
+            }
+
+            const current =
+                skip === 0
+                    ? GitUri.fromFile(fileName, repoPath, ref)
+                    : (await this.getPreviousUri(repoPath, uri, ref, skip - 1, editorLine))!;
+            if (current.sha === GitService.deletedOrMissingSha) return undefined;
+
+            return {
+                current: current,
+                previous: await this.getPreviousUri(repoPath, uri, ref, skip, editorLine)
+            };
+        }
+        else if (GitService.isUncommittedStaged(ref)) {
             const current =
                 skip === 0
                     ? GitUri.fromFile(fileName, repoPath, ref)
@@ -1788,6 +1905,9 @@ export class GitService implements Disposable {
         editorLine?: number
     ): Promise<GitUri | undefined> {
         if (ref === GitService.deletedOrMissingSha) return undefined;
+
+        const cc = Logger.getCorrelationContext();
+
         if (ref === GitService.uncommittedSha) {
             ref = undefined;
         }
@@ -1797,11 +1917,35 @@ export class GitService implements Disposable {
         }
 
         const fileName = GitUri.relativeTo(uri, repoPath);
-        const data = await Git.log__file(repoPath, fileName, ref, {
-            format: GitLogParser.simpleFormat,
-            maxCount: skip + 1,
-            startLine: editorLine !== undefined ? editorLine + 1 : undefined
-        });
+        // TODO: Add caching
+        let data;
+        try {
+            data = await Git.log__file(repoPath, fileName, ref, {
+                format: GitLogParser.simpleFormat,
+                maxCount: skip + 1,
+                startLine: editorLine !== undefined ? editorLine + 1 : undefined
+            });
+        }
+        catch (ex) {
+            // If the line count is invalid just fallback to the most recent commit
+            if (
+                (ref === undefined || GitService.isUncommittedStaged(ref)) &&
+                GitErrors.invalidLineCount.test(ex.message)
+            ) {
+                if (ref === undefined) {
+                    const status = await Container.git.getStatusForFile(repoPath, fileName);
+                    if (status !== undefined && status.indexStatus !== undefined) {
+                        return GitUri.fromFile(fileName, repoPath, GitService.uncommittedStagedSha);
+                    }
+                }
+
+                ref = await Git.log__file_recent(repoPath, fileName);
+                return GitUri.fromFile(fileName, repoPath, ref || GitService.deletedOrMissingSha);
+            }
+
+            Logger.error(ex, cc);
+            throw ex;
+        }
         if (data == null || data.length === 0) throw new Error('File has no history');
 
         const [previousRef, file] = GitLogParser.parseSimple(data, skip, editorLine !== undefined ? ref : undefined);
@@ -2156,6 +2300,7 @@ export class GitService implements Disposable {
                 return GitUri.resolveToUri(data, repoPath);
             }
 
+            // TODO: Add caching
             // Get the most recent commit for this file name
             ref = await Git.log__file_recent(repoPath, fileName, {
                 similarityThreshold: Container.config.advanced.similarityThreshold
@@ -2451,7 +2596,7 @@ export class GitService implements Disposable {
         {
             deletedOrMissing = '(deleted)',
             ...strings
-        }: { deletedOrMissing?: string; stagedUncommitted?: string; uncommitted?: string; working?: string } = {}
+        }: { deletedOrMissing?: string; uncommitted?: string; uncommittedStaged?: string; working?: string } = {}
     ) {
         if (ref === GitService.deletedOrMissingSha) return deletedOrMissing;
 

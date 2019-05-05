@@ -23,7 +23,7 @@ export class StatusFileNode extends ViewNode {
         super(GitUri.fromFile(file, repoPath, 'HEAD'), view, parent);
 
         for (const c of this.commits) {
-            if (c.isStagedUncommitted) {
+            if (c.isUncommittedStaged) {
                 this._hasStagedChanges = true;
             }
             else if (c.isUncommitted) {

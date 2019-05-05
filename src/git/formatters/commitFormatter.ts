@@ -10,10 +10,8 @@ import {
 import { DateStyle, FileAnnotationType } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
+import { GitCommit, GitCommitType, GitLogCommit, GitRemote, GitService, GitUri } from '../gitService';
 import { Strings } from '../../system';
-import { GitUri } from '../gitUri';
-import { GitCommit, GitCommitType } from '../models/commit';
-import { GitLogCommit, GitRemote } from '../models/models';
 import { FormatOptions, Formatter } from './formatter';
 import * as emojis from '../../emojis.json';
 import { ContactPresence } from '../../vsls/vsls';
@@ -32,6 +30,7 @@ export interface CommitFormatOptions extends FormatOptions {
     line?: number;
     markdown?: boolean;
     presence?: ContactPresence;
+    previousLineDiffUris?: { current: GitUri; previous: GitUri | undefined };
     remotes?: GitRemote[];
     truncateMessageAtNewLine?: boolean;
 
@@ -164,15 +163,47 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
     }
 
     get commands() {
+        if (!this._options.markdown) return emptyStr;
+
+        let commands;
         if (this._item.isUncommitted) {
-            return `\`${
-                this._item.shortSha === 'Working Tree'
-                    ? this._padOrTruncate('00000000', this._options.tokenOptions.id)
-                    : this.id
-            }\``;
+            const { previousLineDiffUris: diffUris } = this._options;
+            if (diffUris !== undefined && diffUris.previous !== undefined) {
+                commands = `\`${this._padOrTruncate(
+                    GitService.shortenSha(
+                        GitService.isUncommittedStaged(diffUris.current.sha)
+                            ? diffUris.current.sha
+                            : GitService.uncommittedSha
+                    )!,
+                    this._options.tokenOptions.id
+                )}\``;
+
+                commands += ` **[\`${GlyphChars.MuchLessThan}\`](${DiffWithCommand.getMarkdownCommandArgs({
+                    lhs: {
+                        sha: diffUris.previous.sha || '',
+                        uri: diffUris.previous.documentUri()
+                    },
+                    rhs: {
+                        sha: diffUris.current.sha || '',
+                        uri: diffUris.current.documentUri()
+                    },
+                    repoPath: this._item.repoPath,
+                    line: this._options.line
+                })} "Open Changes")** `;
+            }
+            else {
+                commands = `\`${this._padOrTruncate(
+                    GitService.shortenSha(
+                        this._item.isUncommittedStaged ? GitService.uncommittedStagedSha : GitService.uncommittedSha
+                    )!,
+                    this._options.tokenOptions.id
+                )}\``;
+            }
+
+            return commands;
         }
 
-        let commands = `[\`${this.id}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
+        commands = `[\`${this.id}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
             this._item.sha
         )} "Show Commit Details") `;
 
@@ -247,11 +278,17 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
     get message() {
         let message: string;
-        if (this._item.isStagedUncommitted) {
-            message = 'Staged changes';
-        }
-        else if (this._item.isUncommitted) {
-            message = 'Uncommitted changes';
+        if (this._item.isUncommitted) {
+            if (
+                this._item.isUncommittedStaged ||
+                (this._options.previousLineDiffUris !== undefined &&
+                    this._options.previousLineDiffUris.current.isUncommittedStaged)
+            ) {
+                message = 'Staged changes';
+            }
+            else {
+                message = 'Uncommitted changes';
+            }
         }
         else {
             if (this._options.truncateMessageAtNewLine) {

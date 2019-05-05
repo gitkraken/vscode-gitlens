@@ -185,6 +185,8 @@ export class LineAnnotationController implements Disposable {
 
             const decoration = Annotations.trailing(
                 state.commit,
+                // await GitUri.fromUri(editor.document.uri),
+                // l,
                 cfg.format,
                 cfg.dateFormat === null ? Container.config.defaultDateFormat : cfg.dateFormat,
                 cfg.scrollable
@@ -192,6 +194,7 @@ export class LineAnnotationController implements Disposable {
             decoration.range = editor.document.validateRange(
                 new Range(l, Number.MAX_SAFE_INTEGER, l, Number.MAX_SAFE_INTEGER)
             );
+
             decorations.push(decoration);
         }
 

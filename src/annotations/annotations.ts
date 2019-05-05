@@ -17,6 +17,8 @@ import {
     GitBlameCommit,
     GitCommit,
     GitDiffHunkLine,
+    GitLogCommit,
+    GitService,
     GitUri
 } from '../git/gitService';
 import { Objects, Strings } from '../system';
@@ -62,73 +64,120 @@ export class Annotations {
         commit: GitBlameCommit,
         uri: GitUri,
         editorLine: number
-    ): Promise<MarkdownString | undefined> {
-        let ref;
-        if (commit.isUncommitted) {
-            if (uri.isUncommittedStaged) {
-                ref = uri.sha;
-            }
-        }
-        else {
-            ref = commit.sha;
-        }
-
-        const line = editorLine + 1;
-        const commitLine = commit.lines.find(l => l.line === line) || commit.lines[0];
-
-        let originalFileName = commit.originalFileName;
-        if (originalFileName === undefined) {
-            if (uri.fsPath !== commit.uri.fsPath) {
-                originalFileName = commit.fileName;
-            }
-        }
-
-        const commitEditorLine = commitLine.originalLine - 1;
-        const hunkLine = await Container.git.getDiffForLine(uri, commitEditorLine, ref, undefined, originalFileName);
-        return this.changesHoverDiffMessage(commit, uri, hunkLine, commitEditorLine);
-    }
-
-    static changesHoverDiffMessage(
-        commit: GitCommit,
+    ): Promise<MarkdownString | undefined>;
+    static async changesHoverMessage(
+        commit: GitLogCommit,
         uri: GitUri,
-        hunkLine: GitDiffHunkLine | undefined,
-        editorLine?: number
-    ): MarkdownString | undefined {
+        editorLine: number,
+        hunkLine: GitDiffHunkLine
+    ): Promise<MarkdownString | undefined>;
+    static async changesHoverMessage(
+        commit: GitBlameCommit | GitLogCommit,
+        uri: GitUri,
+        editorLine: number,
+        hunkLine?: GitDiffHunkLine
+    ): Promise<MarkdownString | undefined> {
+        const documentRef = uri.sha;
+        if (commit instanceof GitBlameCommit) {
+            // TODO: Figure out how to optimize this
+            let ref;
+            if (commit.isUncommitted) {
+                if (GitService.isUncommittedStaged(documentRef)) {
+                    ref = documentRef;
+                }
+            }
+            else {
+                ref = commit.sha;
+            }
+
+            const line = editorLine + 1;
+            const commitLine = commit.lines.find(l => l.line === line) || commit.lines[0];
+
+            let originalFileName = commit.originalFileName;
+            if (originalFileName === undefined) {
+                if (uri.fsPath !== commit.uri.fsPath) {
+                    originalFileName = commit.fileName;
+                }
+            }
+
+            editorLine = commitLine.originalLine - 1;
+            hunkLine = await Container.git.getDiffForLine(uri, editorLine, ref, undefined, originalFileName);
+
+            // If we didn't find a diff & ref is undefined (meaning uncommitted), check for a staged diff
+            if (hunkLine === undefined && ref === undefined) {
+                hunkLine = await Container.git.getDiffForLine(
+                    uri,
+                    editorLine,
+                    undefined,
+                    GitService.uncommittedStagedSha,
+                    originalFileName
+                );
+            }
+        }
+
         if (hunkLine === undefined || commit.previousSha === undefined) return undefined;
 
         const diff = this.getDiffFromHunkLine(hunkLine);
 
-        let message: string;
+        let message;
+        let previous;
+        let current;
         if (commit.isUncommitted) {
-            if (uri.isUncommittedStaged) {
-                message = `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(
-                    commit,
-                    editorLine
-                )} "Open Changes") &nbsp; ${GlyphChars.Dash} &nbsp; [\`${
-                    commit.previousShortSha
-                }\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
-                    commit.previousSha!
-                )} "Show Commit Details") ${GlyphChars.ArrowLeftRightLong} _${uri.shortSha}_\n${diff}`;
+            const diffUris = await commit.getPreviousLineDiffUris(uri, editorLine, documentRef);
+            if (diffUris === undefined || diffUris.previous === undefined) {
+                return undefined;
             }
-            else {
-                message = `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(
-                    commit,
-                    editorLine
-                )} "Open Changes") &nbsp; ${GlyphChars.Dash} &nbsp; _uncommitted changes_\n${diff}`;
-            }
+
+            message = `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs({
+                lhs: {
+                    sha: diffUris.previous.sha || '',
+                    uri: diffUris.previous.documentUri()
+                },
+                rhs: {
+                    sha: diffUris.current.sha || '',
+                    uri: diffUris.current.documentUri()
+                },
+                repoPath: commit.repoPath,
+                line: editorLine
+            })} "Open Changes")`;
+
+            previous =
+                diffUris.previous.sha === undefined || diffUris.previous.isUncommitted
+                    ? `_${GitService.shortenSha(diffUris.previous.sha, {
+                          working: 'Working Tree'
+                      })}_`
+                    : `[\`${GitService.shortenSha(
+                          diffUris.previous.sha || ''
+                      )}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
+                          diffUris.previous.sha || ''
+                      )} "Show Commit Details")`;
+
+            current =
+                diffUris.current.sha === undefined || diffUris.current.isUncommitted
+                    ? `_${GitService.shortenSha(diffUris.current.sha, {
+                          working: 'Working Tree'
+                      })}_`
+                    : `[\`${GitService.shortenSha(
+                          diffUris.current.sha || ''
+                      )}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
+                          diffUris.current.sha || ''
+                      )} "Show Commit Details")`;
         }
         else {
-            message = `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(
-                commit,
-                editorLine
-            )} "Open Changes") &nbsp; ${GlyphChars.Dash} &nbsp; [\`${
-                commit.previousShortSha
-            }\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.previousSha!)} "Show Commit Details") ${
-                GlyphChars.ArrowLeftRightLong
-            } [\`${commit.shortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
+            message = `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(commit, editorLine)} "Open Changes")`;
+
+            previous = `[\`${commit.previousShortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
+                commit.previousSha!
+            )} "Show Commit Details")`;
+
+            current = `[\`${commit.shortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
                 commit.sha
-            )} "Show Commit Details")\n${diff}`;
+            )} "Show Commit Details")`;
         }
+
+        message += ` &nbsp; ${GlyphChars.Dash} &nbsp; ${previous} &nbsp;${
+            GlyphChars.ArrowLeftRightLong
+        }&nbsp; ${current}\n${diff}`;
 
         const markdown = new MarkdownString(message);
         markdown.isTrusted = true;
@@ -140,14 +189,15 @@ export class Annotations {
         uri: GitUri,
         editorLine: number,
         dateFormat: string | null,
-        annotationType?: FileAnnotationType
+        annotationType: FileAnnotationType | undefined
     ): Promise<MarkdownString> {
         if (dateFormat === null) {
             dateFormat = 'MMMM Do, YYYY h:mma';
         }
 
-        const [presence, remotes] = await Promise.all([
+        const [presence, previousLineDiffUris, remotes] = await Promise.all([
             Container.vsls.getContactPresence(commit.email),
+            commit.isUncommitted ? commit.getPreviousLineDiffUris(uri, editorLine, uri.sha) : undefined,
             Container.git.getRemotes(commit.repoPath)
         ]);
 
@@ -158,6 +208,7 @@ export class Annotations {
                 line: editorLine,
                 markdown: true,
                 presence: presence,
+                previousLineDiffUris: previousLineDiffUris,
                 remotes: remotes
             })
         );
@@ -274,13 +325,22 @@ export class Annotations {
 
     static trailing(
         commit: GitCommit,
+        // uri: GitUri,
+        // editorLine: number,
         format: string,
         dateFormat: string | null,
         scrollable: boolean = true
     ): Partial<DecorationOptions> {
+        // TODO: Enable this once there is better caching
+        // let diffUris;
+        // if (commit.isUncommitted) {
+        //     diffUris = await commit.getPreviousLineDiffUris(uri, editorLine, uri.sha);
+        // }
+
         const message = CommitFormatter.fromTemplate(format, commit, {
-            truncateMessageAtNewLine: true,
-            dateFormat: dateFormat
+            dateFormat: dateFormat,
+            // previousLineDiffUris: diffUris,
+            truncateMessageAtNewLine: true
         });
 
         return {
