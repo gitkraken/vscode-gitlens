@@ -19,19 +19,17 @@ import {
 } from './common';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
 
-const searchByRegex = /^([@~=:#])/;
+const searchByRegex = /^([@~:#])/;
 const symbolToSearchByMap = new Map<string, GitRepoSearchBy>([
     ['@', GitRepoSearchBy.Author],
-    ['~', GitRepoSearchBy.ChangedLines],
-    ['=', GitRepoSearchBy.Changes],
+    ['~', GitRepoSearchBy.Changes],
     [':', GitRepoSearchBy.Files],
     ['#', GitRepoSearchBy.Sha]
 ]);
 
 const searchByToSymbolMap = new Map<GitRepoSearchBy, string>([
     [GitRepoSearchBy.Author, '@'],
-    [GitRepoSearchBy.ChangedLines, '~'],
-    [GitRepoSearchBy.Changes, '='],
+    [GitRepoSearchBy.Changes, '~'],
     [GitRepoSearchBy.Files, ':'],
     [GitRepoSearchBy.Sha, '#']
 ]);
@@ -120,7 +118,7 @@ export class SearchCommitsCommand extends ActiveEditorCachedCommand {
                 value: args.search,
                 prompt: 'Please enter a search string',
                 placeHolder:
-                    'Search commits by message, author (@<pattern>), files (:<path/glob>), commit id (#<sha>), changes (=<pattern>), changed lines (~<pattern>)',
+                    'Search commits by message, author (@<pattern>), files (:<path/glob>), commit id (#<sha>), or changes (~<pattern>)',
                 valueSelection: selection
             };
             args.search = await window.showInputBox(opts);
@@ -151,10 +149,6 @@ export class SearchCommitsCommand extends ActiveEditorCachedCommand {
         switch (args.searchBy) {
             case GitRepoSearchBy.Author:
                 searchLabel = `commits with an author matching '${args.search}'`;
-                break;
-
-            case GitRepoSearchBy.ChangedLines:
-                searchLabel = `commits with changed lines matching '${args.search}'`;
                 break;
 
             case GitRepoSearchBy.Changes:

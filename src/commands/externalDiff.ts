@@ -197,7 +197,7 @@ export class ExternalDiffCommand extends Command {
 
                 return commands.executeCommand(
                     BuiltInCommands.Open,
-                    Uri.parse('https://git-scm.com/docs/git-config#git-config-difftool')
+                    Uri.parse('https://git-scm.com/docs/git-config#Documentation/git-config.txt-difftool')
                 );
             }
 

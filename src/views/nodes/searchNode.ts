@@ -81,19 +81,8 @@ export class SearchNode extends ViewNode {
                         arguments: [this, getCommandArgs(GitRepoSearchBy.Changes)]
                     },
                     `${GlyphChars.Space.repeat(4)} or, by changes`,
-                    '= pattern',
-                    'Click to search commits by changes'
-                ),
-                new CommandMessageNode(
-                    this.view,
-                    this,
-                    {
-                        ...command,
-                        arguments: [this, getCommandArgs(GitRepoSearchBy.ChangedLines)]
-                    },
-                    `${GlyphChars.Space.repeat(4)} or, by changed lines`,
                     '~ pattern',
-                    'Click to search commits by changed lines'
+                    'Click to search commits by changes'
                 )
             ];
         }

@@ -87,7 +87,6 @@ const mappedAuthorRegex = /(.+)\s<(.+)>/;
 
 export enum GitRepoSearchBy {
     Author = 'author',
-    ChangedLines = 'changed-lines',
     Changes = 'changes',
     Files = 'files',
     Message = 'message',
@@ -1319,16 +1318,6 @@ export class GitService implements Disposable {
                     `--author=${search}`
                 ];
                 break;
-            case GitRepoSearchBy.ChangedLines:
-                searchArgs = [
-                    `-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
-                    '--all',
-                    '--full-history',
-                    '-E',
-                    '-i',
-                    `-G${search}`
-                ];
-                break;
             case GitRepoSearchBy.Changes:
                 searchArgs = [
                     `-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
@@ -1336,8 +1325,7 @@ export class GitService implements Disposable {
                     '--full-history',
                     '-E',
                     '-i',
-                    '--pickaxe-regex',
-                    `-S${search}`
+                    `-G${search}`
                 ];
                 break;
             case GitRepoSearchBy.Files:
