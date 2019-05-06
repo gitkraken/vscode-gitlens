@@ -990,14 +990,19 @@ export class Git {
         porcelainVersion: number = 1,
         { similarityThreshold }: { similarityThreshold?: number } = {}
     ): Promise<string> {
-        const porcelain = porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain';
+        const params = [
+            'status',
+            porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain',
+            '--branch',
+            '-u'
+        ];
+        if (Git.validateVersion(2, 18)) {
+            params.push(`--find-renames=${similarityThreshold == null ? '' : `${similarityThreshold}%`}`);
+        }
+
         return git<string>(
             { cwd: repoPath, configs: ['-c', 'color.status=false'], env: { GIT_OPTIONAL_LOCKS: '0' } },
-            'status',
-            porcelain,
-            '--branch',
-            '-u',
-            `-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
+            ...params,
             '--'
         );
     }
@@ -1010,12 +1015,14 @@ export class Git {
     ): Promise<string> {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
-        const porcelain = porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain';
+        const params = ['status', porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain'];
+        if (Git.validateVersion(2, 18)) {
+            params.push(`--find-renames=${similarityThreshold == null ? '' : `${similarityThreshold}%`}`);
+        }
+
         return git<string>(
             { cwd: root, configs: ['-c', 'color.status=false'], env: { GIT_OPTIONAL_LOCKS: '0' } },
-            'status',
-            porcelain,
-            `-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
+            ...params,
             '--',
             file
         );
