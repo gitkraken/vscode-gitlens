@@ -4,6 +4,62 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [9.7.0] - 2019-05-05
+
+## Added
+
+- Adds support for Live Share presence
+  - Adds an avatar presence indicator and an invite button to start a Live Share session with the code author<br />![Live Share presence](https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/docs/hovers-details-vsls.png)
+  - Adds presence status and an _Invite to Live Share_ command to contributor nodes in the _Repositories_ view
+- Adds a new _Views Side Bar Layout_ section to the interactive settings editor (via the _GitLens: Open Settings_ command) with 3 layout presets
+  - _Default_ &mdash; shows all the views together on the GitLens side bar
+  - _Source Control_ &mdash; shows all the views together on the Source Control side bar
+  - _Contextual_ &mdash; shows _Repositories_ on the Source Control side bar, _File_ and _Line History_ on the Explorer side bar, and others on the GitLens side bar
+- Improves the accuracy and experience of the following:
+  - _Details_ hover
+  - _Changes (diff)_ hover
+  - _Open Changes with Previous Revision_ command
+  - _Open Line Changes with Previous Revision_ command &mdash; closes [#719](https://github.com/eamodio/vscode-gitlens/issues/719)
+  - _Open Changes with Working File_ command
+  - _Open Line Changes with Working File_ command
+  - _Open Changes with Next Revision_ command
+- Adds support to the _Details_ and _Changes (diff)_ hovers to differentiate between staged and unstaged changed
+- Adds a _Show All_ command to the _Show More_ nodes in the views
+- Adds _Show More_ support (i.e. paging) to the _File_ and _Line History_ views
+- Adds an improved experience when starting a new commit search or comparision
+- Adds the renamed path to the description and tooltip of file nodes in the views
+- Adds a `gitlens.advanced.maxSearchItems` setting to specify the maximum number of items to show in a search &mdash; closes [#728](https://github.com/eamodio/vscode-gitlens/issues/728)
+- Adds a `gitlens.defaultDateSource` setting to specify whether commit dates should use the authored or committed date &mdash; closes [#537](https://github.com/eamodio/vscode-gitlens/issues/537) thanks to [PR #707](https://github.com/eamodio/vscode-gitlens/pull/707) by Mathew King ([@MathewKing](https://github.com/MathewKing))
+- Adds a `gitlens.advanced.similarityThreshold` setting to specify the amount (percent) of similarity a deleted and added file pair must have to be considered a rename &mdash; closes [#670](https://github.com/eamodio/vscode-gitlens/issues/670) thanks to [PR #714](https://github.com/eamodio/vscode-gitlens/pull/714) by x13machine ([@x13machine](https://github.com/x13machine))
+- Adds visual tracking to the table of contents of the interactive settings editor to make it easier to navigate and keep context
+- Adds new documentation on how to use and customize GitLens' formatting settings: [View Docs](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting)
+- Adds an `${originalPath}` token for use with file formatting which provides the full file path of the original file, if renamed
+- Adds better logging to show current mode on startup and when changed &mdash; closes [#725](https://github.com/eamodio/vscode-gitlens/issues/725)
+
+## Changes
+
+- Changes path collapsing to also collapse root paths when using the compact file layout in the views
+- Ensures file rename detection when getting the status of a repo or file
+
+### Removed
+
+- Removes searching for commits by changed occurrences (`-S` flag) as it is too confusing and searching by changes (`-G` flag) better matches user expectations &mdash; closes [#730](https://github.com/eamodio/vscode-gitlens/issues/730)
+
+## Fixed
+
+- Fixes [#729](https://github.com/eamodio/vscode-gitlens/issues/729) - "Show more results" in search commit show less results
+- Fixes [#716](https://github.com/eamodio/vscode-gitlens/issues/716) - Browsing history of a renamed file fails in forward direction
+- Fixes [#724](https://github.com/eamodio/vscode-gitlens/issues/724) - GitService.getBranches very very very long
+- Fixes [#625](https://github.com/eamodio/vscode-gitlens/issues/625) - Branches in Repositories view shows some commit comment texts as branches
+- Fixes issues with keyboard navigation (`alt+,` and `alt+.`) in commit details of the file history quick pick menu
+- Fixes issues with keyboard navigation (`alt+,` and `alt+.`) in commit details of the branch history quick pick menu
+- Fixes issues when showing all results in various lists and views
+- Fixes issue with id collisions between branches, remotes, and tags in the _Repositories_ view
+- Fixes the _Line History_ view when there are uncommitted and/or unsaved changes
+- Fixes various issues when trying to find the working file from a commit
+- Fixes issues where the _Changes (diff)_ hover wouldn't work properly with renamed files
+- Fixes an intermittent issue where hovers fail to show
+
 ## [9.6.3] - 2019-04-22
 
 ## Added
@@ -524,7 +580,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes [#400](https://github.com/eamodio/vscode-gitlens/issues/412) - GitLens logging to debug console when debugging different extension
-- Fixes [#409](https://github.com/eamodio/vscode-gitlens/issues/409) - Literal \$(ellipsis) inserted into commit QuickPick menu entry placeholder text
+- Fixes [#409](https://github.com/eamodio/vscode-gitlens/issues/409) - Literal \$(ellipsis) inserted into commit quick pick menu entry placeholder text
 - Fixes [#415](https://github.com/eamodio/vscode-gitlens/issues/415) - Branch names get mangled by color escapes &mdash; thanks to [PR #416](https://github.com/eamodio/vscode-gitlens/pull/416) by Roy Ivy III ([@rivy](https://github.com/rivy))
 
 ## [8.3.5] - 2018-06-08
