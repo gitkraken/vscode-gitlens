@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [9.7.1] - 2019-05-06
+
+## Fixed
+
+- Fixes [#736](https://github.com/eamodio/vscode-gitlens/issues/736) - git command error on GitLens 9.7.0 (unknown '-M' option)
+
 ## [9.7.0] - 2019-05-05
 
 ## Added
