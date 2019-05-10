@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [9.7.2] - 2019-05-10
+
+## Fixed
+
+- Fixes [#737](https://github.com/eamodio/vscode-gitlens/issues/737) - failed to fetch commits and branches
+- Fixes [#743](https://github.com/eamodio/vscode-gitlens/issues/743) - Update activity bar icon size &mdash; thanks to [PR #744](https://github.com/eamodio/vscode-gitlens/pull/744) by Miguel Solorio ([@misolori](https://github.com/misolori))
+
 ## [9.7.1] - 2019-05-06
 
 ## Fixed
