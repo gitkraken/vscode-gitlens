@@ -11,7 +11,7 @@ const rb = '%3e'; // `%${'>'.charCodeAt(0).toString(16)}`;
 export class GitBranchParser {
     static defaultFormat = [
         `${lb}h${rb}%(HEAD)`, // HEAD indicator
-        `${lb}n${rb}%(refname:lstrip=1)`, // branch name
+        `${lb}n${rb}%(refname)`, // branch name
         `${lb}u${rb}%(upstream:short)`, // branch upstream
         `${lb}t${rb}%(upstream:track)`, // branch upstream tracking state
         `${lb}r${rb}%(objectname)` // ref
@@ -54,14 +54,14 @@ export class GitBranchParser {
                 behind = 0;
             }
 
-            if (name.startsWith('remotes/')) {
-                // Strip off remotes/
-                name = name.substr(8);
+            if (name.startsWith('refs/remotes/')) {
+                // Strip off refs/remotes/
+                name = name.substr(13);
                 remote = true;
             }
             else {
-                // Strip off heads/
-                name = name.substr(6);
+                // Strip off refs/heads/
+                name = name.substr(11);
                 remote = false;
             }
 
