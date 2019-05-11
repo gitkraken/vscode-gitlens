@@ -1,10 +1,10 @@
 'use strict';
 import { commands, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { Container } from '../container';
-import { GitCommit, GitUri } from '../git/gitService';
+import { GitCommit, GitService, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { ActiveEditorCommand, command, CommandContext, Commands, getCommandUri } from './common';
+import { ActiveEditorCommand, command, CommandContext, Commands, getCommandUri, openEditor } from './common';
 import { DiffWithCommandArgs } from './diffWith';
 import { UriComparer } from '../comparers';
 
@@ -61,7 +61,23 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
             );
 
             if (diffUris === undefined || diffUris.previous === undefined) {
-                return Messages.showCommitHasNoPreviousCommitWarningMessage();
+                if (diffUris === undefined) return Messages.showCommitHasNoPreviousCommitWarningMessage();
+
+                // If we have no previous and the current is the working file, just open the working file
+                if (diffUris.current.sha === undefined) {
+                    return openEditor(diffUris.current, args.showOptions);
+                }
+
+                if (!diffUris.current.isUncommittedStaged) {
+                    return Messages.showCommitHasNoPreviousCommitWarningMessage();
+                }
+
+                // If we have no previous and the current is staged, then diff staged with missing
+                diffUris.previous = GitUri.fromFile(
+                    diffUris.current.fileName,
+                    diffUris.current.repoPath!,
+                    GitService.deletedOrMissingSha
+                );
             }
 
             const diffArgs: DiffWithCommandArgs = {

@@ -127,7 +127,7 @@ export class CommitQuickPick {
             previousCommand = async () => {
                 const previousRef =
                     commit.previousSha === undefined || GitService.isShaParent(commit.previousSha)
-                        ? await Container.git.resolveReference(commit.repoPath, commit.previousSha || `${commit.sha}`)
+                        ? await Container.git.resolveReference(commit.repoPath, commit.previousSha || commit.sha)
                         : commit.previousSha;
                 if (previousRef === undefined) return KeyNoopCommand;
 

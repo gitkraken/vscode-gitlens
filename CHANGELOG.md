@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+## Fixed
+
+- Fixes [#740](https://github.com/eamodio/vscode-gitlens/issues/740) - Opening untracked files from "files changed" section fails
+- Fixes issue where the _Open Changes with Previous Revision_ command would compare the working file with HEAD even if there no working file changes (now it will compare HEAD with the previous commit)
+- Fixes issue where the _Open Changes_, _Open Changes with Working File_, and _Open Revision_ commands on files in the "files changed" section of the _Repositories_ view would either fail or do nothing
+
 ## [9.7.2] - 2019-05-10
 
 ## Fixed

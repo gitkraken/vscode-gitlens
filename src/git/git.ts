@@ -759,11 +759,15 @@ export class Git {
     static async ls_files(
         repoPath: string,
         fileName: string,
-        options: { ref?: string } = {}
+        { ref, untracked }: { ref?: string; untracked?: boolean } = {}
     ): Promise<string | undefined> {
         const params = ['ls-files'];
-        if (options.ref && !Git.isUncommitted(options.ref)) {
-            params.push(`--with-tree=${options.ref}`);
+        if (ref && !Git.isUncommitted(ref)) {
+            params.push(`--with-tree=${ref}`);
+        }
+
+        if (!ref && untracked) {
+            params.push('-o');
         }
 
         const data = await git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...params, '--', fileName);

@@ -345,8 +345,8 @@ export class ViewCommands implements Disposable {
         void commands.executeCommand(BuiltInCommands.FocusFilesExplorer);
     }
 
-    private openChanges(node: ViewRefFileNode) {
-        if (!(node instanceof ViewRefFileNode)) return undefined;
+    private openChanges(node: ViewRefFileNode | StatusFileNode) {
+        if (!(node instanceof ViewRefFileNode) && !(node instanceof StatusFileNode)) return undefined;
 
         const command = node.getCommand();
         if (command === undefined || command.arguments === undefined) return undefined;
@@ -356,8 +356,8 @@ export class ViewCommands implements Disposable {
         return commands.executeCommand(command.command, uri, args);
     }
 
-    private async openChangesWithWorking(node: ViewRefFileNode) {
-        if (!(node instanceof ViewRefFileNode)) return undefined;
+    private async openChangesWithWorking(node: ViewRefFileNode | StatusFileNode) {
+        if (!(node instanceof ViewRefFileNode) && !(node instanceof StatusFileNode)) return undefined;
 
         const args: DiffWithWorkingCommandArgs = {
             showOptions: {

@@ -10,28 +10,49 @@ import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
 import { ResourceType, ViewNode } from './viewNode';
 
 export class StatusFileNode extends ViewNode {
-    private readonly _hasStagedChanges: boolean = false;
-    private readonly _hasUnstagedChanges: boolean = false;
+    public readonly commits: GitLogCommit[];
+    public readonly file: GitFile;
+    public readonly repoPath: string;
 
-    constructor(
-        view: View,
-        parent: ViewNode,
-        public readonly repoPath: string,
-        public readonly file: GitFile,
-        public readonly commits: GitLogCommit[]
-    ) {
-        super(GitUri.fromFile(file, repoPath, 'HEAD'), view, parent);
+    private readonly _hasStagedChanges: boolean;
+    private readonly _hasUnstagedChanges: boolean;
 
-        for (const c of this.commits) {
-            if (c.isUncommittedStaged) {
-                this._hasStagedChanges = true;
+    constructor(view: View, parent: ViewNode, repoPath: string, file: GitFile, commits: GitLogCommit[]) {
+        let hasStagedChanges = false;
+        let hasUnstagedChanges = false;
+        let ref = undefined;
+        for (const c of commits) {
+            if (c.isUncommitted) {
+                if (c.isUncommittedStaged) {
+                    hasStagedChanges = true;
+                    if (!hasUnstagedChanges) {
+                        ref = c.sha;
+                    }
+
+                    break;
+                }
+                else {
+                    ref = undefined;
+                    hasUnstagedChanges = true;
+                }
             }
-            else if (c.isUncommitted) {
-                this._hasUnstagedChanges = true;
+            else if (hasUnstagedChanges || hasStagedChanges) {
+                break;
             }
-
-            if (this._hasStagedChanges && this._hasUnstagedChanges) break;
+            else {
+                ref = c.sha;
+                break;
+            }
         }
+
+        super(GitUri.fromFile(file, repoPath, ref), view, parent);
+
+        this.repoPath = repoPath;
+        this.file = file;
+        this.commits = commits;
+
+        this._hasStagedChanges = hasStagedChanges;
+        this._hasUnstagedChanges = hasUnstagedChanges;
     }
 
     getChildren(): ViewNode[] {

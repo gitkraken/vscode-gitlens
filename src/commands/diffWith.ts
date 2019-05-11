@@ -136,7 +136,7 @@ export class DiffWithCommand extends ActiveEditorCommand {
             let lhsSuffix = args.lhs.sha !== GitService.deletedOrMissingSha ? GitService.shortenSha(lhsSha) || '' : '';
             if (lhs === undefined && args.rhs.sha.length === 0) {
                 if (rhs !== undefined) {
-                    lhsSuffix = `not in ${lhsSuffix}`;
+                    lhsSuffix = lhsSuffix.length === 0 ? '' : `not in ${lhsSuffix}`;
                     rhsSuffix = '';
                 }
                 else {

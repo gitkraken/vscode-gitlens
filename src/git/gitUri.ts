@@ -240,11 +240,13 @@ export class GitUri extends ((Uri as any) as UriEx) {
                 : (original && fileOrName.originalFileName) || fileOrName.fileName,
             repoPath
         );
-        return ref === undefined ? new GitUri(uri, repoPath) : new GitUri(uri, { repoPath: repoPath, sha: ref });
+        return ref == null || ref.length === 0
+            ? new GitUri(uri, repoPath)
+            : new GitUri(uri, { repoPath: repoPath, sha: ref });
     }
 
     static fromRepoPath(repoPath: string, ref?: string) {
-        return ref === undefined
+        return ref == null || ref.length === 0
             ? new GitUri(GitUri.file(repoPath), repoPath)
             : new GitUri(GitUri.file(repoPath), { repoPath: repoPath, sha: ref });
     }
@@ -403,12 +405,12 @@ export class GitUri extends ((Uri as any) as UriEx) {
             shortSha = uriOrRef.shortSha;
         }
 
-        if (ref === undefined || GitService.isUncommitted(ref)) {
-            if (GitService.isUncommittedStaged(ref)) {
-                return GitUri.git(fileName, repoPath);
-            }
-
+        if (ref == null || ref.length === 0) {
             return Uri.file(fileName);
+        }
+
+        if (GitService.isUncommitted(ref)) {
+            return GitService.isUncommittedStaged(ref) ? GitUri.git(fileName, repoPath) : Uri.file(fileName);
         }
 
         const filePath = Strings.normalizePath(fileName, { addLeadingSlash: true });

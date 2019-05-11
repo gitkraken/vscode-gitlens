@@ -1744,6 +1744,15 @@ export class GitService implements Disposable {
                         previous: await this.getPreviousUri(repoPath, uri, ref, skip - 1)
                     };
                 }
+                else if (status.workingTreeStatus !== undefined) {
+                    return {
+                        current: GitUri.fromFile(fileName, repoPath, undefined),
+                        previous: await this.getPreviousUri(repoPath, uri, undefined, skip)
+                    };
+                }
+            }
+            else if (skip === 0) {
+                skip++;
             }
         }
         // If we are at the index (staged), diff staged with HEAD
@@ -1934,7 +1943,7 @@ export class GitService implements Disposable {
             Logger.error(ex, cc);
             throw ex;
         }
-        if (data == null || data.length === 0) throw new Error('File has no history');
+        if (data == null || data.length === 0) return undefined;
 
         const [previousRef, file] = GitLogParser.parseSimple(data, skip, editorLine !== undefined ? ref : undefined);
         // If the previous ref matches the ref we asked for assume we are at the end of the history
@@ -2262,8 +2271,13 @@ export class GitService implements Disposable {
     ): Promise<Uri | undefined> {
         if (ref === GitService.deletedOrMissingSha) return undefined;
 
-        if (!ref || (Git.isUncommitted(ref) && !Git.isUncommittedStaged(ref))) {
-            const data = await Git.ls_files(repoPath!, fileName);
+        if (ref == null || ref.length === 0 || (Git.isUncommitted(ref) && !Git.isUncommittedStaged(ref))) {
+            // Make sure the file exists in the repo
+            let data = await Git.ls_files(repoPath!, fileName);
+            if (data !== undefined) return GitUri.file(fileName);
+
+            // Check if the file exists untracked
+            data = await Git.ls_files(repoPath!, fileName, { untracked: true });
             if (data !== undefined) return GitUri.file(fileName);
 
             return undefined;
@@ -2455,8 +2469,13 @@ export class GitService implements Disposable {
 
     @log()
     async resolveReference(repoPath: string, ref: string, uri?: Uri) {
-        const resolved = Git.isSha(ref) || !Git.isShaLike(ref) || ref.endsWith('^3');
-        if (uri == null) return resolved ? ref : (await Git.rev_parse(repoPath, ref)) || ref;
+        if (ref == null || ref.length === 0 || ref === GitService.deletedOrMissingSha) return ref;
+
+        if (uri == null) {
+            if (Git.isSha(ref) || !Git.isShaLike(ref) || ref.endsWith('^3')) return ref;
+
+            return (await Git.rev_parse(repoPath, ref)) || ref;
+        }
 
         const ensuredRef = await Git.cat_file__resolve(
             repoPath,
