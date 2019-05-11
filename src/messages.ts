@@ -1,8 +1,8 @@
 'use strict';
-import { commands, ConfigurationTarget, MessageItem, Uri, window } from 'vscode';
+import { commands, ConfigurationTarget, env, MessageItem, Uri, window } from 'vscode';
 import { Commands } from './commands';
 import { configuration, ViewLocation } from './configuration';
-import { BuiltInCommands, CommandContext, setCommandContext } from './constants';
+import { CommandContext, setCommandContext } from './constants';
 import { GitCommit } from './git/gitService';
 import { Logger } from './logger';
 import { Versions } from './system';
@@ -129,7 +129,7 @@ export class Messages {
             if (uri !== undefined) {
                 await setCommandContext(CommandContext.ViewsHideSupportGitLens, true);
                 await this.suppressedMessage(SuppressedMessages.SupportGitLensNotification!);
-                await commands.executeCommand(BuiltInCommands.Open, uri);
+                await env.openExternal(uri);
             }
         }
     }
@@ -182,16 +182,10 @@ export class Messages {
                 await commands.executeCommand(Commands.ShowWelcomePage);
             }
             else if (result === actions[1]) {
-                await commands.executeCommand(
-                    BuiltInCommands.Open,
-                    Uri.parse('https://github.com/eamodio/vscode-gitlens/blob/master/CHANGELOG.md')
-                );
+                await env.openExternal(Uri.parse('https://github.com/eamodio/vscode-gitlens/blob/master/CHANGELOG.md'));
             }
             else if (result === actions[2]) {
-                await commands.executeCommand(
-                    BuiltInCommands.Open,
-                    Uri.parse('https://gitlens.amod.io/#support-gitlens')
-                );
+                await env.openExternal(Uri.parse('https://gitlens.amod.io/#support-gitlens'));
             }
         }
     }

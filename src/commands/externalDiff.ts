@@ -1,6 +1,6 @@
 'use strict';
-import { commands, SourceControlResourceState, Uri, window } from 'vscode';
-import { BuiltInCommands, GlyphChars } from '../constants';
+import { env, SourceControlResourceState, Uri, window } from 'vscode';
+import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitService, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
@@ -195,8 +195,7 @@ export class ExternalDiffCommand extends Command {
                 );
                 if (!result) return undefined;
 
-                return commands.executeCommand(
-                    BuiltInCommands.Open,
+                return env.openExternal(
                     Uri.parse('https://git-scm.com/docs/git-config#Documentation/git-config.txt-difftool')
                 );
             }

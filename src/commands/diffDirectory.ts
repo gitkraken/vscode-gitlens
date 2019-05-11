@@ -1,6 +1,6 @@
 'use strict';
-import { commands, TextEditor, Uri, window } from 'vscode';
-import { BuiltInCommands, GlyphChars } from '../constants';
+import { env, TextEditor, Uri, window } from 'vscode';
+import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
@@ -95,8 +95,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
                 );
                 if (!result) return undefined;
 
-                return commands.executeCommand(
-                    BuiltInCommands.Open,
+                return env.openExternal(
                     Uri.parse('https://git-scm.com/docs/git-config#Documentation/git-config.txt-difftool')
                 );
             }

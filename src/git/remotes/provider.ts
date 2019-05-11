@@ -1,6 +1,5 @@
 'use strict';
-import { commands, env, Range, Uri, window } from 'vscode';
-import { BuiltInCommands } from '../../constants';
+import { env, Range, Uri, window } from 'vscode';
 import { Logger } from '../../logger';
 import { Messages } from '../../messages';
 import { GitLogCommit } from '../models/logCommit';
@@ -115,7 +114,7 @@ export abstract class RemoteProvider {
     private openUrl(url?: string): Thenable<{} | undefined> {
         if (url === undefined) return Promise.resolve(undefined);
 
-        return commands.executeCommand(BuiltInCommands.Open, Uri.parse(url));
+        return env.openExternal(Uri.parse(url));
     }
 
     async copy(resource: RemoteResource): Promise<{} | undefined> {
