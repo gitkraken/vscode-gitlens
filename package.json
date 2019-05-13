@@ -5178,8 +5178,8 @@
     "devDependencies": {
         "@types/lodash-es": "4.17.3",
         "@types/node": "10.1.4",
-        "@typescript-eslint/eslint-plugin": "1.8.0",
-        "@typescript-eslint/parser": "1.8.0",
+        "@typescript-eslint/eslint-plugin": "1.9.0",
+        "@typescript-eslint/parser": "1.9.0",
         "clean-webpack-plugin": "2.0.2",
         "circular-dependency-plugin": "5.0.2",
         "css-loader": "2.1.1",
