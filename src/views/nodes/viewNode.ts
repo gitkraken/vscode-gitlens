@@ -27,6 +27,7 @@ export enum ResourceType {
     LineHistory = 'gitlens:history:line',
     Message = 'gitlens:message',
     Pager = 'gitlens:pager',
+    RecentIncomingChanges = 'gitlens:recent-incoming-changes',
     Remote = 'gitlens:remote',
     Remotes = 'gitlens:remotes',
     Repositories = 'gitlens:repositories',

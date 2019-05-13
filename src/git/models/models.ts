@@ -16,6 +16,7 @@ export * from './log';
 export * from './logCommit';
 export * from './remote';
 export * from './repository';
+export * from './reflog';
 export * from './shortlog';
 export * from './stash';
 export * from './stashCommit';

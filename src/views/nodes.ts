@@ -13,6 +13,7 @@ export * from './nodes/fileHistoryTrackerNode';
 export * from './nodes/folderNode';
 export * from './nodes/lineHistoryNode';
 export * from './nodes/lineHistoryTrackerNode';
+export * from './nodes/recentIncomingChangesNode';
 export * from './nodes/remoteNode';
 export * from './nodes/remotesNode';
 export * from './nodes/repositoriesNode';

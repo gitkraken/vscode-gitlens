@@ -51,6 +51,7 @@ import {
     GitLogCommit,
     GitLogDiffFilter,
     GitLogParser,
+    GitReflog,
     GitRemote,
     GitRemoteParser,
     GitStash,
@@ -67,7 +68,7 @@ import {
 } from './git';
 import { GitUri } from './gitUri';
 import { RemoteProviderFactory, RemoteProviders } from './remotes/factory';
-import { GitShortLogParser } from './parsers/parsers';
+import { GitReflogParser, GitShortLogParser } from './parsers/parsers';
 
 export * from './gitUri';
 export * from './models/models';
@@ -1950,6 +1951,25 @@ export class GitService implements Disposable {
         if (ref !== undefined && ref === previousRef) return undefined;
 
         return GitUri.fromFile(file || fileName, repoPath, previousRef || GitService.deletedOrMissingSha);
+    }
+
+    @log()
+    async getRecentIncomingChanges(
+        repoPath: string,
+        options: { branch?: string; since?: string } = {}
+    ): Promise<GitReflog | undefined> {
+        const cc = Logger.getCorrelationContext();
+
+        try {
+            const data = await Git.reflog(repoPath, options);
+            if (data === undefined) return undefined;
+
+            return GitReflogParser.parseRecentIncomingChanges(data, repoPath);
+        }
+        catch (ex) {
+            Logger.error(ex, cc);
+            return undefined;
+        }
     }
 
     @log()

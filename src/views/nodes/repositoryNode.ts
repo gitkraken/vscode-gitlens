@@ -17,12 +17,13 @@ import { BranchesNode } from './branchesNode';
 import { BranchNode } from './branchNode';
 import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
 import { MessageNode } from './common';
+import { ContributorsNode } from './contributorsNode';
+import { RecentIncomingChangesNode } from './recentIncomingChangesNode';
 import { RemotesNode } from './remotesNode';
 import { StashesNode } from './stashesNode';
 import { StatusFilesNode } from './statusFilesNode';
 import { TagsNode } from './tagsNode';
 import { ResourceType, SubscribeableViewNode, ViewNode } from './viewNode';
-import { ContributorsNode } from './contributorsNode';
 
 const hasTimeRegex = /[hHm]/;
 
@@ -46,6 +47,17 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
             const children = [];
 
             const status = await this._status;
+
+            if (Container.config.insiders) {
+                const reflog = await Container.git.getRecentIncomingChanges(this.uri.repoPath!, {
+                    // branch: status !== undefined ? status.branch : undefined,
+                    since: '1 month ago'
+                });
+                if (reflog !== undefined) {
+                    children.push(new RecentIncomingChangesNode(this.view, this, reflog));
+                }
+            }
+
             if (status !== undefined) {
                 const branch = new GitBranch(
                     status.repoPath,

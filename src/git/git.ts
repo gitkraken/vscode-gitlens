@@ -8,7 +8,7 @@ import { Logger } from '../logger';
 import { Objects, Strings } from '../system';
 import { findGitPath, GitLocation } from './locator';
 import { run, RunOptions } from './shell';
-import { GitBranchParser, GitLogParser, GitStashParser } from './parsers/parsers';
+import { GitBranchParser, GitLogParser, GitReflogParser, GitStashParser } from './parsers/parsers';
 import { GitFileStatus } from './models/file';
 
 export { GitLocation } from './locator';
@@ -774,10 +774,10 @@ export class Git {
         return data.length === 0 ? undefined : data.trim();
     }
 
-    static async ls_tree(repoPath: string, ref: string, options: { fileName?: string } = {}) {
+    static async ls_tree(repoPath: string, ref: string, { fileName }: { fileName?: string } = {}) {
         const params = ['ls-tree'];
-        if (options.fileName) {
-            params.push('-l', ref, '--', options.fileName);
+        if (fileName) {
+            params.push('-l', ref, '--', fileName);
         }
         else {
             params.push('-lrt', ref, '--');
@@ -786,13 +786,25 @@ export class Git {
         return data.length === 0 ? undefined : data.trim();
     }
 
-    static merge_base(repoPath: string, ref1: string, ref2: string, options: { forkPoint?: boolean } = {}) {
+    static merge_base(repoPath: string, ref1: string, ref2: string, { forkPoint }: { forkPoint?: boolean } = {}) {
         const params = ['merge-base'];
-        if (options.forkPoint) {
+        if (forkPoint) {
             params.push('--fork-point');
         }
 
         return git<string>({ cwd: repoPath }, ...params, ref1, ref2);
+    }
+
+    static reflog(repoPath: string, { branch, since }: { branch?: string; since?: string } = {}): Promise<string> {
+        const params = ['log', '-g', `--format=${GitReflogParser.defaultFormat}`, '--date=unix'];
+        if (branch) {
+            params.push(branch);
+        }
+        if (since) {
+            params.push(`--since=${since}`);
+        }
+
+        return git<string>({ cwd: repoPath }, ...params, '--');
     }
 
     static remote(repoPath: string): Promise<string> {
