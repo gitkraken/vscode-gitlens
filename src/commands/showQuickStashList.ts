@@ -22,16 +22,16 @@ export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
     async execute(editor?: TextEditor, uri?: Uri, args: ShowQuickStashListCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
 
+        const repoPath = await getRepoPathOrActiveOrPrompt(
+            uri,
+            editor,
+            `Show stashed changes for which repository${GlyphChars.Ellipsis}`
+        );
+        if (!repoPath) return undefined;
+
         const progressCancellation = StashListQuickPick.showProgress('list');
 
         try {
-            const repoPath = await getRepoPathOrActiveOrPrompt(
-                uri,
-                editor,
-                `Show stashed changes for which repository${GlyphChars.Ellipsis}`
-            );
-            if (!repoPath) return undefined;
-
             const stash = await Container.git.getStashList(repoPath);
             if (stash === undefined) return window.showWarningMessage('Unable to show stashed changes');
 
