@@ -245,9 +245,9 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
             }
         }
 
-        commands += `[\`${GlyphChars.MiddleEllipsis}\`](${ShowQuickCommitFileDetailsCommand.getMarkdownCommandArgs(
-            this._item.sha
-        )} "Show More Actions")`;
+        commands += `[\`${GlyphChars.MiddleEllipsis}\`](${ShowQuickCommitFileDetailsCommand.getMarkdownCommandArgs({
+            revisionUri: GitUri.toRevisionUri(this._item.toGitUri()).toString(true)
+        })} "Show More Actions")`;
 
         return commands;
     }

@@ -22,16 +22,14 @@ export interface ShowQuickCommitFileDetailsCommandArgs {
     sha?: string;
     commit?: GitCommit | GitLogCommit;
     fileLog?: GitLog;
+    revisionUri?: string;
 
     goBackCommand?: CommandQuickPickItem;
 }
 
 @command()
 export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand {
-    static getMarkdownCommandArgs(sha: string): string;
-    static getMarkdownCommandArgs(args: ShowQuickCommitFileDetailsCommandArgs): string;
-    static getMarkdownCommandArgs(argsOrSha: ShowQuickCommitFileDetailsCommandArgs | string): string {
-        const args = typeof argsOrSha === 'string' ? { sha: argsOrSha } : argsOrSha;
+    static getMarkdownCommandArgs(args: ShowQuickCommitFileDetailsCommandArgs): string {
         return super.getMarkdownCommandArgsCore<ShowQuickCommitFileDetailsCommandArgs>(
             Commands.ShowQuickCommitFileDetails,
             args
@@ -66,7 +64,14 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
         uri = getCommandUri(uri, editor);
         if (uri == null) return undefined;
 
-        const gitUri = await GitUri.fromUri(uri);
+        let gitUri;
+        if (args.revisionUri !== undefined) {
+            gitUri = GitUri.fromRevisionUri(Uri.parse(args.revisionUri));
+            args.sha = gitUri.sha;
+        }
+        else {
+            gitUri = await GitUri.fromUri(uri);
+        }
 
         args = { ...args };
         if (args.sha === undefined) {
