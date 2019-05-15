@@ -126,11 +126,11 @@ export class DiffWithCommand extends ActiveEditorCommand {
                     rhsSuffix = 'not in Working Tree';
                 }
                 else {
-                    rhsSuffix = `deleted in ${rhsSuffix}`;
+                    rhsSuffix = `deleted${rhsSuffix.length === 0 ? '' : ` in ${rhsSuffix}`}`;
                 }
             }
             else if (lhs === undefined) {
-                rhsSuffix = `added in ${rhsSuffix}`;
+                rhsSuffix = `added${rhsSuffix.length === 0 ? '' : ` in ${rhsSuffix}`}`;
             }
 
             let lhsSuffix = args.lhs.sha !== GitService.deletedOrMissingSha ? GitService.shortenSha(lhsSha) || '' : '';
@@ -140,7 +140,7 @@ export class DiffWithCommand extends ActiveEditorCommand {
                     rhsSuffix = '';
                 }
                 else {
-                    lhsSuffix = `deleted in ${lhsSuffix})`;
+                    lhsSuffix = `deleted${lhsSuffix.length === 0 ? '' : ` in ${lhsSuffix}`}`;
                 }
             }
 
