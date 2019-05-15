@@ -139,7 +139,7 @@ export function run<TOut extends string | Buffer>(
             command,
             args,
             opts,
-            (error: (Error & { code?: string | number }) | null, stdout, stderr) => {
+            (error: (Error & { stdout?: TOut | undefined }) | null, stdout, stderr) => {
                 if (error != null) {
                     if (bufferExceededRegex.test(error.message)) {
                         error.message = `Command output exceeded the allocated stdout buffer. Set 'options.maxBuffer' to a larger value than ${
@@ -147,6 +147,10 @@ export function run<TOut extends string | Buffer>(
                         } bytes`;
                     }
 
+                    error.stdout =
+                        encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer'
+                            ? (stdout as TOut)
+                            : (iconv.decode(Buffer.from(stdout, 'binary'), encoding) as TOut);
                     reject(error);
 
                     return;

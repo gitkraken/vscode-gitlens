@@ -739,6 +739,17 @@ export class Git {
         return data.length === 0 ? undefined : data.trim();
     }
 
+    static async log__recent(repoPath: string) {
+        const data = await git<string>(
+            { cwd: repoPath, errors: GitErrorHandling.Ignore },
+            'log',
+            '-n1',
+            '--format=%H',
+            '--'
+        );
+        return data.length === 0 ? undefined : data.trim();
+    }
+
     static log__search(repoPath: string, search: string[] = emptyArray, { maxCount }: { maxCount?: number } = {}) {
         const params = ['log', '--name-status', `--format=${GitLogParser.defaultFormat}`];
         if (maxCount) {
@@ -825,49 +836,32 @@ export class Git {
     }
 
     static async rev_parse__currentBranch(repoPath: string): Promise<[string, string | undefined] | undefined> {
-        const params = ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@', '@{u}'];
-
-        const opts: GitCommandOptions = {
-            cwd: repoPath,
-            errors: GitErrorHandling.Throw
-        };
-
         try {
-            const data = await git<string>(opts, ...params);
+            const data = await git<string>(
+                { cwd: repoPath, errors: GitErrorHandling.Throw },
+                'rev-parse',
+                '--abbrev-ref',
+                '--symbolic-full-name',
+                '@',
+                '@{u}',
+                '--'
+            );
             return [data, undefined];
         }
         catch (ex) {
             const msg = ex && ex.toString();
-            if (GitWarnings.headNotABranch.test(msg)) {
-                const data = await git<string>(
-                    { ...opts, errors: GitErrorHandling.Ignore },
-                    'log',
-                    '-n1',
-                    '--format=%H',
-                    '--'
-                );
-                if (data.length === 0) return undefined;
+            if (GitErrors.badRevision.test(msg) || GitWarnings.noUpstream.test(msg)) {
+                return [ex.stdout, undefined];
+            }
 
-                // Matches output of `git branch -vv`
-                const sha = data.trim();
+            if (GitWarnings.headNotABranch.test(msg)) {
+                const sha = await this.log__recent(repoPath);
+                if (sha === undefined) return undefined;
+
                 return [`(HEAD detached at ${this.shortenSha(sha)})`, sha];
             }
 
-            const result = GitWarnings.noUpstream.exec(msg);
-            if (result !== null) return [result[1], undefined];
-
-            if (GitWarnings.unknownRevision.test(msg)) {
-                const data = await git<string>(
-                    { ...opts, errors: GitErrorHandling.Ignore },
-                    'symbolic-ref',
-                    '-q',
-                    '--short',
-                    'HEAD'
-                );
-                return data.length === 0 ? undefined : [data.trim(), undefined];
-            }
-
-            defaultExceptionHandler(ex, opts.cwd);
+            defaultExceptionHandler(ex, repoPath);
             return undefined;
         }
     }
