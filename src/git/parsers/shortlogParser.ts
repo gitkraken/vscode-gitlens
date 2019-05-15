@@ -14,12 +14,14 @@ export class GitShortLogParser {
         let count;
         let name;
         let email;
-        let match: RegExpExecArray | null = null;
+
+        let match: RegExpExecArray | null;
         do {
             match = shortlogRegex.exec(data);
             if (match == null) break;
 
             [, count, name, email] = match;
+
             contributors.push(
                 new GitContributor(
                     repoPath,
@@ -27,12 +29,10 @@ export class GitShortLogParser {
                     ` ${name}`.substr(1),
                     // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
                     ` ${email}`.substr(1),
-                    parseInt(count, 10)
+                    Number(count) || 0
                 )
             );
         } while (match != null);
-
-        if (!contributors.length) return undefined;
 
         return { repoPath: repoPath, contributors: contributors };
     }

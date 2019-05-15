@@ -53,25 +53,32 @@ export class GitRemoteParser {
         data: string,
         repoPath: string,
         providerFactory: (domain: string, path: string) => RemoteProvider | undefined
-    ): GitRemote[] {
-        if (!data) return [];
+    ): GitRemote[] | undefined {
+        if (!data) return undefined;
 
         const remotes: GitRemote[] = [];
         const groups = Object.create(null);
 
-        let url: string;
-        let scheme: string;
-        let domain: string;
-        let path: string;
-        let uniqueness: string;
+        let name;
+        let url;
+        let type;
+
+        let scheme;
+        let domain;
+        let path;
+
+        let uniqueness;
         let remote: GitRemote | undefined;
-        let match: RegExpExecArray | null = null;
+
+        let match: RegExpExecArray | null;
         do {
             match = remoteRegex.exec(data);
             if (match == null) break;
 
+            [, name, url, type] = match;
+
             // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-            url = ` ${match[2]}`.substr(1);
+            url = ` ${url}`.substr(1);
 
             [scheme, domain, path] = this.parseGitUrl(url);
 
@@ -84,24 +91,22 @@ export class GitRemoteParser {
                     repoPath,
                     uniqueness,
                     // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-                    ` ${match[1]}`.substr(1),
+                    ` ${name}`.substr(1),
                     scheme,
                     provider !== undefined ? provider.domain : domain,
                     provider !== undefined ? provider.path : path,
                     provider,
                     // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-                    [{ url: url, type: ` ${match[3]}`.substr(1) as GitRemoteType }]
+                    [{ url: url, type: ` ${type}`.substr(1) as GitRemoteType }]
                 );
                 remotes.push(remote);
                 groups[uniqueness] = remote;
             }
             else {
                 // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-                remote.types.push({ url: url, type: ` ${match[3]}`.substr(1) as GitRemoteType });
+                remote.types.push({ url: url, type: ` ${type}`.substr(1) as GitRemoteType });
             }
         } while (match != null);
-
-        if (!remotes.length) return [];
 
         return remotes;
     }

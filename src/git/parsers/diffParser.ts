@@ -13,39 +13,33 @@ export class GitDiffParser {
 
         const hunks: GitDiffHunk[] = [];
 
-        let match: RegExpExecArray | null;
-        let hunk;
-        let currentStartStr;
-        let currentStart;
-        let currentCountStr;
-        let currentCount;
-        let previousStartStr;
         let previousStart;
-        let previousCountStr;
         let previousCount;
+        let currentStart;
+        let currentCount;
+        let hunk;
+
+        let match: RegExpExecArray | null;
         do {
             match = unifiedDiffRegex.exec(`${data}\n@@`);
             if (match == null) break;
 
-            // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-            hunk = ` ${match[5]}`.substr(1);
+            [, previousStart, previousCount, currentStart, currentCount, hunk] = match;
 
-            [, previousStartStr, previousCountStr, currentStartStr, currentCountStr] = match;
-            previousStart = parseInt(previousStartStr, 10);
-            previousCount = previousCountStr ? parseInt(previousCountStr, 10) : 0;
-            currentStart = parseInt(currentStartStr, 10);
-            currentCount = currentCountStr ? parseInt(currentCountStr, 10) : 0;
+            previousStart = Number(previousStart) || 0;
+            currentStart = Number(currentStart) || 0;
 
             hunks.push(
                 new GitDiffHunk(
-                    hunk,
+                    // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+                    ` ${hunk}`.substr(1),
                     {
                         start: currentStart,
-                        end: currentStart + currentCount
+                        end: currentStart + (Number(currentCount) || 0)
                     },
                     {
                         start: previousStart,
-                        end: previousStart + previousCount
+                        end: previousStart + (Number(previousCount) || 0)
                     }
                 )
             );
@@ -130,18 +124,17 @@ export class GitDiffParser {
 
         const files: GitFile[] = [];
 
-        let rawStatus: string;
+        let status: string;
         let fileName: string;
         let originalFileName: string;
-        let match: RegExpExecArray | null = null;
+
+        let match: RegExpExecArray | null;
         do {
             match = nameStatusDiffRegex.exec(data);
             if (match == null) break;
 
-            [, rawStatus, fileName, originalFileName] = match;
+            [, status, fileName, originalFileName] = match;
 
-            // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-            const status = ` ${rawStatus}`.substr(1);
             files.push({
                 repoPath: repoPath,
                 status: (status[0] !== '.' ? status[0].trim() : '?') as GitFileStatus,
@@ -150,11 +143,12 @@ export class GitDiffParser {
                 // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
                 fileName: ` ${fileName}`.substr(1),
                 // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-                originalFileName: originalFileName === undefined ? undefined : ` ${originalFileName}`.substr(1)
+                originalFileName:
+                    originalFileName == null || originalFileName.length === 0
+                        ? undefined
+                        : ` ${originalFileName}`.substr(1)
             });
         } while (match != null);
-
-        if (!files.length) return undefined;
 
         return files;
     }
@@ -173,6 +167,7 @@ export class GitDiffParser {
             insertions: insertions == null ? 0 : parseInt(insertions, 10),
             deletions: deletions == null ? 0 : parseInt(deletions, 10)
         };
+
         return diffShortStat;
     }
 }

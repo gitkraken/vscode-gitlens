@@ -23,36 +23,21 @@ export class GitBranchParser {
 
         if (!data) return branches;
 
-        let match: RegExpExecArray | null;
-        let ahead;
-        let aheadStr;
-        let behind;
-        let behindStr;
         let current;
         let name;
-        let ref;
-        let remote;
         let tracking;
+        let ahead;
+        let behind;
+        let ref;
+
+        let remote;
+
+        let match: RegExpExecArray | null;
         do {
             match = branchWithTrackingRegex.exec(data);
             if (match == null) break;
 
-            [, current, name, tracking, aheadStr, behindStr, ref] = match;
-            if (aheadStr !== undefined && aheadStr.length !== 0) {
-                ahead = parseInt(aheadStr, 10);
-                ahead = isNaN(ahead) ? 0 : ahead;
-            }
-            else {
-                ahead = 0;
-            }
-
-            if (behindStr !== undefined && behindStr.length !== 0) {
-                behind = parseInt(behindStr, 10);
-                behind = isNaN(behind) ? 0 : behind;
-            }
-            else {
-                behind = 0;
-            }
+            [, current, name, tracking, ahead, behind, ref] = match;
 
             if (name.startsWith('refs/remotes/')) {
                 // Strip off refs/remotes/
@@ -72,11 +57,11 @@ export class GitBranchParser {
                     remote,
                     current.charCodeAt(0) === 42, // '*',
                     // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-                    ref === undefined || ref.length === 0 ? undefined : ` ${ref}`.substr(1),
+                    ref == null || ref.length === 0 ? undefined : ` ${ref}`.substr(1),
                     // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-                    tracking === undefined || tracking.length === 0 ? undefined : ` ${tracking}`.substr(1),
-                    ahead,
-                    behind
+                    tracking == null || tracking.length === 0 ? undefined : ` ${tracking}`.substr(1),
+                    Number(ahead) || 0,
+                    Number(behind) || 0
                 )
             );
         } while (match != null);

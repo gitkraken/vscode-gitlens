@@ -1070,7 +1070,8 @@ export class GitService implements Disposable {
 
         let key: string;
         let value: string;
-        let match: RegExpExecArray | null = null;
+
+        let match: RegExpExecArray | null;
         do {
             match = userConfigRegex.exec(data);
             if (match == null) break;
@@ -1237,8 +1238,8 @@ export class GitService implements Disposable {
                 similarityThreshold: Container.config.advanced.similarityThreshold,
                 ...options
             });
-            const diff = GitDiffParser.parseNameStatus(data, repoPath);
-            return diff;
+            const files = GitDiffParser.parseNameStatus(data, repoPath);
+            return files === undefined || files.length === 0 ? undefined : files;
         }
         catch (ex) {
             return undefined;
@@ -1995,7 +1996,7 @@ export class GitService implements Disposable {
 
         try {
             const data = await Git.remote(repoPath);
-            return GitRemoteParser.parse(data, repoPath, RemoteProviderFactory.factory(providers));
+            return GitRemoteParser.parse(data, repoPath, RemoteProviderFactory.factory(providers)) || [];
         }
         catch (ex) {
             Logger.error(ex);
