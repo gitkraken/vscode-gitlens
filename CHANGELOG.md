@@ -10,7 +10,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds a new experimental _Incoming Activity_ node to each repository in the _Repositories_ view (enabled via `"gitlens.insiders": true`) &mdash; closes [#735](https://github.com/eamodio/vscode-gitlens/issues/735)
   - **Incoming Activity** &mdash; lists the recent incoming activity (merges and pulls) to your local repository
-    - Provides the activity command, branch (if available), and date
+    - Provides the command, branch (if available), and date of each activity
       - A context menu provides access to the _Refresh_ command
       - Each activity expands to list the commits added by the command
         - An inline toolbar provides quick access to the _Compare with HEAD_ (`alt-click` for _Compare with Working Tree_), _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open Commit on Remote_ (if available) commands
