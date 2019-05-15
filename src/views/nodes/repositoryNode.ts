@@ -18,7 +18,7 @@ import { BranchNode } from './branchNode';
 import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
 import { MessageNode } from './common';
 import { ContributorsNode } from './contributorsNode';
-import { RecentIncomingChangesNode } from './recentIncomingChangesNode';
+import { ReflogNode } from './reflogNode';
 import { RemotesNode } from './remotesNode';
 import { StashesNode } from './stashesNode';
 import { StatusFilesNode } from './statusFilesNode';
@@ -47,17 +47,6 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
             const children = [];
 
             const status = await this._status;
-
-            if (Container.config.insiders) {
-                const reflog = await Container.git.getRecentIncomingChanges(this.uri.repoPath!, {
-                    // branch: status !== undefined ? status.branch : undefined,
-                    since: '1 month ago'
-                });
-                if (reflog !== undefined) {
-                    children.push(new RecentIncomingChangesNode(this.view, this, reflog));
-                }
-            }
-
             if (status !== undefined) {
                 const branch = new GitBranch(
                     status.repoPath,
@@ -92,7 +81,14 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 
             children.push(
                 new BranchesNode(this.uri, this.view, this, this.repo),
-                new ContributorsNode(this.uri, this.view, this, this.repo),
+                new ContributorsNode(this.uri, this.view, this, this.repo)
+            );
+
+            if (Container.config.insiders) {
+                children.push(new ReflogNode(this.uri, this.view, this, this.repo));
+            }
+
+            children.push(
                 new RemotesNode(this.uri, this.view, this, this.repo),
                 new StashesNode(this.uri, this.view, this, this.repo),
                 new TagsNode(this.uri, this.view, this, this.repo)

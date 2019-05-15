@@ -316,6 +316,17 @@ The repositories view provides the following features,
         - An inline toolbar provides quick access to the _Open File_, _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open File on Remote_ (if available) commands
         - A context menu provides access to more common file revision commands
 
+- **Incoming Activity** &mdash; lists the recent incoming activity (merges and pulls) to your local repository (experimental, enabled via `"gitlens.insiders": true`)
+
+  - Provides the activity command, branch (if available), and date
+    - A context menu provides access to the _Refresh_ command
+    - Each activity expands to list the commits added by the command
+      - An inline toolbar provides quick access to the _Compare with HEAD_ (`alt-click` for _Compare with Working Tree_), _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open Commit on Remote_ (if available) commands
+      - A context menu provides access to more common revision (commit) commands
+      - Each revision (commit) expands to list its set of changed files, complete with status indicators for adds, changes, renames, and deletes
+        - An inline toolbar provides quick access to the _Open File_, _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open File on Remote_ (if available) commands
+        - A context menu provides access to more common file revision commands
+
 - **Remotes** &mdash; lists the remotes in the repository
 
   - Provides the name of each remote, an indicator of the direction of the remote (fetch, push, both), remote service (if applicable), and repository path

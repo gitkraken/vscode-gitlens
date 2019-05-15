@@ -95,6 +95,7 @@ export enum GitRepoSearchBy {
 }
 
 const emptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
+const reflogCommands = ['merge', 'pull'];
 
 export class GitService implements Disposable {
     private _onDidChangeRepositories = new EventEmitter<void>();
@@ -1955,9 +1956,9 @@ export class GitService implements Disposable {
     }
 
     @log()
-    async getRecentIncomingChanges(
+    async getIncomingActivity(
         repoPath: string,
-        options: { branch?: string; since?: string } = {}
+        { maxCount, ...options }: { all?: boolean; branch?: string; maxCount?: number; since?: string } = {}
     ): Promise<GitReflog | undefined> {
         const cc = Logger.getCorrelationContext();
 
@@ -1965,7 +1966,14 @@ export class GitService implements Disposable {
             const data = await Git.reflog(repoPath, options);
             if (data === undefined) return undefined;
 
-            return GitReflogParser.parseRecentIncomingChanges(data, repoPath);
+            const reflog = GitReflogParser.parse(
+                data,
+                repoPath,
+                reflogCommands,
+                maxCount == null ? Container.config.advanced.maxListItems || 0 : maxCount
+            );
+
+            return reflog;
         }
         catch (ex) {
             Logger.error(ex, cc);

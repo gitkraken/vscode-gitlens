@@ -806,8 +806,14 @@ export class Git {
         return git<string>({ cwd: repoPath }, ...params, ref1, ref2);
     }
 
-    static reflog(repoPath: string, { branch, since }: { branch?: string; since?: string } = {}): Promise<string> {
+    static reflog(
+        repoPath: string,
+        { all, branch, since }: { all?: boolean; branch?: string; since?: string } = {}
+    ): Promise<string> {
         const params = ['log', '-g', `--format=${GitReflogParser.defaultFormat}`, '--date=unix'];
+        if (all) {
+            params.push('--all');
+        }
         if (branch) {
             params.push(branch);
         }
