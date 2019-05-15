@@ -285,7 +285,7 @@ The repositories view provides the following features,
 - **Branches** &mdash; lists the local branches in the repository
 
   - An inline toolbar provides quick access to the _Open Branches on Remote_ (if available) command
-  - Provides the name of each branch, an indicator (check-mark) of the branch is the current one, and [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') shows its remote tracking branch and status (if available)
+  - Provides the name of each branch, an indicator (check-mark) if the branch is the current one, and [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') shows its remote tracking branch and status (if available)
     - Indicator dots on each branch icon denote the following:
       - _None_ &mdash; no upstream or up-to-date with the upstream
       - _Green_ &mdash; ahead of the upstream
@@ -318,7 +318,7 @@ The repositories view provides the following features,
 
 - **Incoming Activity** &mdash; lists the recent incoming activity (merges and pulls) to your local repository (experimental, enabled via `"gitlens.insiders": true`)
 
-  - Provides the activity command, branch (if available), and date
+  - Provides the command, branch (if available), and date of each activity
     - A context menu provides access to the _Refresh_ command
     - Each activity expands to list the commits added by the command
       - An inline toolbar provides quick access to the _Compare with HEAD_ (`alt-click` for _Compare with Working Tree_), _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open Commit on Remote_ (if available) commands
@@ -329,7 +329,7 @@ The repositories view provides the following features,
 
 - **Remotes** &mdash; lists the remotes in the repository
 
-  - Provides the name of each remote, an indicator of the direction of the remote (fetch, push, both), remote service (if applicable), and repository path
+  - Provides the name of each remote, an indicator of the remote's direction (fetch, push, both), remote service (if applicable), and repository path
     - An inline toolbar provides quick access to the _Fetch_, and _Open Repository on Remote_ (if available) commands
     - A context menu provides access to more common repository and remote commands
     - Each remote expands to list its remote branches
@@ -338,7 +338,7 @@ The repositories view provides the following features,
 - **Stashes** &mdash; lists the stashed changes in the repository
 
   - An inline toolbar provides quick access to the _Stash All Changes_, and _Apply Stash Changes_ commands
-  - Provides the name of each stashed changes, the date, and an indicator (+x ~x -x) of the changes
+  - Provides the name of each set of stashed changes, the date, and an indicator (+x ~x -x) of the changes
     - An inline toolbar provides quick access to the _Compare with HEAD_ (`alt-click` for _Compare with Working Tree_), _Apply Stashed Changes_, and _Delete Stashed Changes_ commands
     - A context menu provides access to more common stashed changes commands
     - Each stashed changes expands to list the set of stashed files, complete with status indicators for adds, changes, renames, and deletes

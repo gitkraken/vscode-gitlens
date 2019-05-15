@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [9.7.4] - 2019-05-15
 
 ## Added
 
@@ -23,7 +23,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Fixes issues with the _Show More Actions_ button on the _Details_ hover not working with renamed files
 - Fixes issues with the _Open File_, _Open Files_, _Open All Changes with Working Tree_, and _Apply Changes_ commands in the views not working with renamed files
-- Fixes issues with the _Open File_, _Open Files_, and _Apply Changes_ command in the quick pick menus not working with renamed files
+- Fixes issues with the _Open File_, _Open Files_, and _Apply Changes_ commands in the quick pick menus not working with renamed files
 - Fixes issues with the _Show Stashed Changes_ (`gitlens.showQuickStashList`) command and multiple repositories
 
 ## [9.7.3] - 2019-05-11
@@ -2879,6 +2879,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
+[9.7.4]: https://github.com/eamodio/vscode-gitlens/compare/v9.7.3...eamodio:v9.7.4
+[9.7.3]: https://github.com/eamodio/vscode-gitlens/compare/v9.7.2...eamodio:v9.7.3
+[9.7.2]: https://github.com/eamodio/vscode-gitlens/compare/v9.7.1...eamodio:v9.7.2
+[9.7.1]: https://github.com/eamodio/vscode-gitlens/compare/v9.7.0...eamodio:v9.7.1
+[9.7.0]: https://github.com/eamodio/vscode-gitlens/compare/v9.6.3...eamodio:v9.7.0
 [9.6.3]: https://github.com/eamodio/vscode-gitlens/compare/v9.6.2...eamodio:v9.6.3
 [9.6.2]: https://github.com/eamodio/vscode-gitlens/compare/v9.6.1...eamodio:v9.6.2
 [9.6.1]: https://github.com/eamodio/vscode-gitlens/compare/v9.6.0...eamodio:v9.6.1
