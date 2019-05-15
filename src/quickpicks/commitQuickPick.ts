@@ -1,12 +1,14 @@
 'use strict';
 import * as paths from 'path';
-import { commands, Uri, window } from 'vscode';
+import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import {
     Commands,
     CopyMessageToClipboardCommandArgs,
     CopyShaToClipboardCommandArgs,
     DiffDirectoryCommandArgs,
     DiffWithPreviousCommandArgs,
+    openEditor,
+    OpenWorkingFileCommandArgs,
     ShowQuickCommitDetailsCommandArgs,
     StashApplyCommandArgs,
     StashDeleteCommandArgs
@@ -15,7 +17,6 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import {
     GitFile,
-    GitFileStatus,
     GitLog,
     GitLogCommit,
     GitService,
@@ -29,33 +30,27 @@ import {
     CommandQuickPickItem,
     getQuickPickIgnoreFocusOut,
     KeyCommandQuickPickItem,
-    OpenFileCommandQuickPickItem,
-    OpenFilesCommandQuickPickItem,
     QuickPickItem,
     ShowCommitInViewQuickPickItem
 } from './commonQuickPicks';
 import { OpenRemotesCommandQuickPickItem } from './remotesQuickPick';
 
-export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickItem {
-    readonly status: GitFileStatus;
-
-    readonly commit: GitLogCommit;
-
-    constructor(commit: GitLogCommit, file: GitFile) {
-        const octicon = GitFile.getStatusOcticon(file.status);
-        const description = GitFile.getFormattedDirectory(file, true);
-
-        super(GitUri.toRevisionUri(commit.sha, file, commit.repoPath), {
-            label: `${Strings.pad(octicon, 4, 2)} ${paths.basename(file.fileName)}`,
-            description: description
+export class CommitWithFileStatusQuickPickItem extends CommandQuickPickItem {
+    constructor(public readonly commit: GitLogCommit, private readonly _file: GitFile) {
+        super({
+            label: `${Strings.pad(GitFile.getStatusOcticon(_file.status), 4, 2)} ${paths.basename(_file.fileName)}`,
+            description: GitFile.getFormattedDirectory(_file, true)
         });
 
-        this.commit = commit.toFileCommit(file);
-        this.status = file.status;
+        this.commit = commit.toFileCommit(_file);
     }
 
     get sha(): string {
         return this.commit.sha;
+    }
+
+    execute(options?: TextDocumentShowOptions): Thenable<TextEditor | undefined> {
+        return openEditor(GitUri.toRevisionUri(this.commit.sha, this._file, this.commit.repoPath), options);
     }
 
     onDidPressKey(key: Keys): Thenable<{} | undefined> {
@@ -72,13 +67,9 @@ export class CommitWithFileStatusQuickPickItem extends OpenFileCommandQuickPickI
     }
 }
 
-export class OpenCommitFilesCommandQuickPickItem extends OpenFilesCommandQuickPickItem {
-    constructor(commit: GitLogCommit, versioned: boolean = false, item?: QuickPickItem) {
-        const repoPath = commit.repoPath;
-        const uris = Arrays.filterMap(commit.files, f => GitUri.fromFile(f, repoPath));
-
+export class OpenCommitFilesCommandQuickPickItem extends CommandQuickPickItem {
+    constructor(private readonly _commit: GitLogCommit, item?: QuickPickItem) {
         super(
-            uris,
             item || {
                 label: '$(file-symlink-file) Open Files',
                 description: ''
@@ -86,24 +77,67 @@ export class OpenCommitFilesCommandQuickPickItem extends OpenFilesCommandQuickPi
             }
         );
     }
+
+    async execute(
+        options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
+    ): Promise<{} | undefined> {
+        const uris = Arrays.filterMap(this._commit.files, f =>
+            GitUri.fromFile(f, this._commit.repoPath, this._commit.sha)
+        );
+        for (const uri of uris) {
+            const args: OpenWorkingFileCommandArgs = {
+                uri: uri,
+                showOptions: options
+            };
+            await commands.executeCommand(Commands.OpenWorkingFile, undefined, args);
+        }
+
+        return undefined;
+    }
+
+    onDidPressKey(key: Keys): Thenable<{} | undefined> {
+        return this.execute({
+            preserveFocus: true,
+            preview: false
+        });
+    }
 }
 
-export class OpenCommitFileRevisionsCommandQuickPickItem extends OpenFilesCommandQuickPickItem {
-    constructor(commit: GitLogCommit, item?: QuickPickItem) {
-        const uris = Arrays.filterMap(commit.files, f =>
-            GitUri.toRevisionUri(f.status === 'D' ? commit.previousFileSha : commit.sha, f, commit.repoPath)
-        );
-
+export class OpenCommitFileRevisionsCommandQuickPickItem extends CommandQuickPickItem {
+    constructor(private readonly _commit: GitLogCommit, item?: QuickPickItem) {
         super(
-            uris,
             item || {
                 label: '$(file-symlink-file) Open Revisions',
                 description: `${Strings.pad(GlyphChars.Dash, 2, 3)} in ${GlyphChars.Space}$(git-commit) ${
-                    commit.shortSha
+                    _commit.shortSha
                 }`
                 // detail: `Opens all of the changed files in $(git-commit) ${commit.shortSha}`
             }
         );
+    }
+
+    async execute(
+        options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
+    ): Promise<{} | undefined> {
+        const uris = Arrays.filterMap(this._commit.files, f =>
+            GitUri.toRevisionUri(
+                f.status === 'D' ? this._commit.previousFileSha : this._commit.sha,
+                f,
+                this._commit.repoPath
+            )
+        );
+
+        for (const uri of uris) {
+            await openEditor(uri, options);
+        }
+        return undefined;
+    }
+
+    onDidPressKey(key: Keys): Thenable<{} | undefined> {
+        return this.execute({
+            preserveFocus: true,
+            preview: false
+        });
     }
 }
 

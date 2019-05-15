@@ -8,7 +8,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## Fixed
 
-- Fixes the _Show Stashed Changes_ (`gitlens.showQuickStashList`) command with multiple repositories
+- Fixes issues with the _Open File_, _Open Files_, _Open All Changes with Working Tree_, and _Apply Changes_ commands in the views not working with renamed files
+- Fixes issues with the _Open File_, _Open Files_, and _Apply Changes_ command in the quick pick menus not working with renamed files
+- Fixes issues with the _Show Stashed Changes_ (`gitlens.showQuickStashList`) command and multiple repositories
 
 ## [9.7.3] - 2019-05-11
 

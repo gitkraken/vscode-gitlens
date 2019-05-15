@@ -10,6 +10,7 @@ import {
     openEditor,
     OpenFileInRemoteCommandArgs,
     OpenFileRevisionCommandArgs,
+    OpenWorkingFileCommandArgs,
     openWorkspace
 } from '../commands';
 import { BuiltInCommands, CommandContext, extensionTerminalName, setCommandContext } from '../constants';
@@ -387,7 +388,14 @@ export class ViewCommands implements Disposable {
             return undefined;
         }
 
-        return openEditor(node.uri, { preserveFocus: true, preview: false });
+        const args: OpenWorkingFileCommandArgs = {
+            uri: node.uri,
+            showOptions: {
+                preserveFocus: true,
+                preview: false
+            }
+        };
+        return commands.executeCommand(Commands.OpenWorkingFile, undefined, args);
     }
 
     private openFileRevision(
@@ -471,7 +479,13 @@ export class ViewCommands implements Disposable {
         );
 
         for (const uri of uris) {
-            await this.openDiffWith(repoPath, { uri: uri, sha: node.commit.sha }, { uri: uri, sha: '' }, options);
+            const workingUri = await Container.git.getWorkingUri(repoPath, uri);
+            await this.openDiffWith(
+                repoPath,
+                { uri: uri, sha: node.commit.sha },
+                { uri: workingUri || uri, sha: '' },
+                options
+            );
         }
     }
 
@@ -482,10 +496,14 @@ export class ViewCommands implements Disposable {
         if (!(node instanceof CommitNode) && !(node instanceof StashNode)) return;
 
         const repoPath = node.commit.repoPath;
-        const uris = Arrays.filterMap(node.commit.files, f => GitUri.fromFile(f, repoPath));
+        const uris = Arrays.filterMap(node.commit.files, f => GitUri.fromFile(f, repoPath, node.commit.sha));
 
         for (const uri of uris) {
-            await openEditor(uri, options);
+            const args: OpenWorkingFileCommandArgs = {
+                uri: uri,
+                showOptions: options
+            };
+            await commands.executeCommand(Commands.OpenWorkingFile, undefined, args);
         }
     }
 

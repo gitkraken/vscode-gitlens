@@ -30,18 +30,21 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
             if (args.uri == null) {
                 uri = getCommandUri(uri, editor);
                 if (uri == null) return undefined;
+            }
+            else {
+                uri = args.uri;
+            }
 
-                args.uri = await GitUri.fromUri(uri);
-                if (args.uri instanceof GitUri && args.uri.sha) {
-                    const workingUri = await Container.git.getWorkingUri(args.uri.repoPath!, args.uri);
-                    if (workingUri === undefined) {
-                        return window.showWarningMessage(
-                            'Unable to open working file. File could not be found in the working tree'
-                        );
-                    }
-
-                    args.uri = new GitUri(workingUri, args.uri.repoPath);
+            args.uri = await GitUri.fromUri(uri);
+            if (args.uri instanceof GitUri && args.uri.sha) {
+                const workingUri = await Container.git.getWorkingUri(args.uri.repoPath!, args.uri);
+                if (workingUri === undefined) {
+                    return window.showWarningMessage(
+                        'Unable to open working file. File could not be found in the working tree'
+                    );
                 }
+
+                args.uri = new GitUri(workingUri, args.uri.repoPath);
             }
 
             if (args.line !== undefined && args.line !== 0) {

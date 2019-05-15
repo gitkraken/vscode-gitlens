@@ -1,10 +1,11 @@
 'use strict';
 import * as paths from 'path';
-import { commands, window } from 'vscode';
+import { commands, TextDocumentShowOptions, TextEditor, window } from 'vscode';
 import {
     Commands,
     DiffWithPreviousCommandArgs,
     OpenChangedFilesCommandArgs,
+    openEditor,
     ShowQuickBranchHistoryCommandArgs,
     ShowQuickRepoStatusCommandArgs,
     ShowQuickStashListCommandArgs
@@ -22,70 +23,65 @@ import {
 } from '../git/gitService';
 import { Keys } from '../keyboard';
 import { Iterables, Strings } from '../system';
-import {
-    CommandQuickPickItem,
-    getQuickPickIgnoreFocusOut,
-    OpenFileCommandQuickPickItem,
-    QuickPickItem
-} from './commonQuickPicks';
+import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, QuickPickItem } from './commonQuickPicks';
 
-export class OpenStatusFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {
+export class OpenStatusFileCommandQuickPickItem extends CommandQuickPickItem {
     readonly status: GitStatusFile;
     private readonly commit: GitLogCommit;
 
-    constructor(status: GitStatusFile, realIndexStatus?: GitFileStatus, item?: QuickPickItem) {
-        const octicon = status.getOcticon();
-        const description = status.getFormattedDirectory(true);
-
+    constructor(private readonly _status: GitStatusFile, realIndexStatus?: GitFileStatus, item?: QuickPickItem) {
         super(
-            status.uri,
             item || {
-                label: `${status.staged ? '$(check)' : GlyphChars.Space.repeat(3)}${Strings.pad(
-                    octicon,
+                label: `${_status.staged ? '$(check)' : GlyphChars.Space.repeat(3)}${Strings.pad(
+                    _status.getOcticon(),
                     2,
                     2
-                )} ${paths.basename(status.fileName)}`,
-                description: description
+                )} ${paths.basename(_status.fileName)}`,
+                description: _status.getFormattedDirectory(true)
             }
         );
 
-        this.status = status;
-        if (status.indexStatus !== undefined) {
+        this.status = _status;
+        if (_status.indexStatus !== undefined) {
             this.commit = new GitLogCommit(
                 GitCommitType.LogFile,
-                status.repoPath,
+                _status.repoPath,
                 GitService.uncommittedStagedSha,
                 'You',
                 undefined,
                 new Date(),
                 new Date(),
                 '',
-                status.fileName,
-                [status],
-                status.status,
-                status.originalFileName,
+                _status.fileName,
+                [_status],
+                _status.status,
+                _status.originalFileName,
                 'HEAD',
-                status.fileName
+                _status.fileName
             );
         }
         else {
             this.commit = new GitLogCommit(
                 GitCommitType.LogFile,
-                status.repoPath,
+                _status.repoPath,
                 GitService.uncommittedSha,
                 'You',
                 undefined,
                 new Date(),
                 new Date(),
                 '',
-                status.fileName,
-                [status],
-                status.status,
-                status.originalFileName,
+                _status.fileName,
+                [_status],
+                _status.status,
+                _status.originalFileName,
                 realIndexStatus !== undefined ? GitService.uncommittedStagedSha : 'HEAD',
-                status.fileName
+                _status.fileName
             );
         }
+    }
+
+    execute(options?: TextDocumentShowOptions): Thenable<TextEditor | undefined> {
+        return openEditor(this._status.uri, options);
     }
 
     onDidPressKey(key: Keys): Promise<{} | undefined> {

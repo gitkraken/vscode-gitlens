@@ -1,6 +1,6 @@
 'use strict';
 import * as paths from 'path';
-import { QuickPickItem, Uri, window } from 'vscode';
+import { commands, QuickPickItem, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import {
     Commands,
     CopyMessageToClipboardCommandArgs,
@@ -8,6 +8,7 @@ import {
     DiffWithPreviousCommandArgs,
     DiffWithWorkingCommandArgs,
     openEditor,
+    OpenWorkingFileCommandArgs,
     ShowQuickCommitDetailsCommandArgs,
     ShowQuickCommitFileDetailsCommandArgs,
     ShowQuickFileHistoryCommandArgs
@@ -15,14 +16,9 @@ import {
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitLog, GitLogCommit, GitService, GitUri, RemoteResourceType } from '../git/gitService';
-import { KeyCommand, KeyNoopCommand } from '../keyboard';
+import { KeyCommand, KeyNoopCommand, Keys } from '../keyboard';
 import { Strings } from '../system';
-import {
-    CommandQuickPickItem,
-    getQuickPickIgnoreFocusOut,
-    KeyCommandQuickPickItem,
-    OpenFileCommandQuickPickItem
-} from './commonQuickPicks';
+import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, KeyCommandQuickPickItem } from './commonQuickPicks';
 import { OpenRemotesCommandQuickPickItem } from './remotesQuickPick';
 
 export class ApplyCommitFileChangesCommandQuickPickItem extends CommandQuickPickItem {
@@ -41,7 +37,13 @@ export class ApplyCommitFileChangesCommandQuickPickItem extends CommandQuickPick
 
     async execute(): Promise<{} | undefined> {
         const uri = this.commit.toGitUri();
-        void (await openEditor(uri, { preserveFocus: true, preview: false }));
+
+        // Open the working file to ensure undo will work
+        const args: OpenWorkingFileCommandArgs = {
+            uri: uri,
+            showOptions: { preserveFocus: true, preview: false }
+        };
+        void (await commands.executeCommand(Commands.OpenWorkingFile, undefined, args));
 
         void (await Container.git.applyChangesToWorkingFile(uri));
 
@@ -49,20 +51,36 @@ export class ApplyCommitFileChangesCommandQuickPickItem extends CommandQuickPick
     }
 }
 
-export class OpenCommitFileCommandQuickPickItem extends OpenFileCommandQuickPickItem {
-    constructor(commit: GitLogCommit, item?: QuickPickItem) {
-        const uri = GitUri.resolveToUri(commit.fileName, commit.repoPath);
+export class OpenCommitFileCommandQuickPickItem extends CommandQuickPickItem {
+    constructor(private readonly _commit: GitLogCommit, item?: QuickPickItem) {
         super(
-            uri,
             item || {
                 label: '$(file-symlink-file) Open File',
-                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${paths.basename(commit.fileName)}`
+                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${paths.basename(_commit.fileName)}`
             }
         );
     }
+
+    execute(options?: TextDocumentShowOptions): Thenable<TextEditor | undefined> {
+        const uri = this._commit.toGitUri();
+        const args: OpenWorkingFileCommandArgs = {
+            uri: uri,
+            showOptions: options
+        };
+        return commands.executeCommand(Commands.OpenWorkingFile, undefined, args);
+    }
+
+    onDidPressKey(key: Keys): Thenable<{} | undefined> {
+        return this.execute({
+            preserveFocus: true,
+            preview: false
+        });
+    }
 }
 
-export class OpenCommitFileRevisionCommandQuickPickItem extends OpenFileCommandQuickPickItem {
+export class OpenCommitFileRevisionCommandQuickPickItem extends CommandQuickPickItem {
+    private readonly _uri: Uri;
+
     constructor(commit: GitLogCommit, item?: QuickPickItem) {
         let description: string;
         let uri: Uri;
@@ -78,13 +96,26 @@ export class OpenCommitFileRevisionCommandQuickPickItem extends OpenFileCommandQ
                 GlyphChars.Space
             }$(git-commit) ${commit.shortSha}`;
         }
+
         super(
-            uri,
             item || {
                 label: '$(file-symlink-file) Open Revision',
                 description: description
             }
         );
+
+        this._uri = uri;
+    }
+
+    execute(options?: TextDocumentShowOptions): Thenable<TextEditor | undefined> {
+        return openEditor(this._uri, options);
+    }
+
+    onDidPressKey(key: Keys): Thenable<{} | undefined> {
+        return this.execute({
+            preserveFocus: true,
+            preview: false
+        });
     }
 }
 

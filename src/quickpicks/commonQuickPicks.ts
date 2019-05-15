@@ -1,14 +1,6 @@
 'use strict';
-import {
-    CancellationTokenSource,
-    commands,
-    QuickPickItem,
-    TextDocumentShowOptions,
-    TextEditor,
-    Uri,
-    window
-} from 'vscode';
-import { Commands, openEditor } from '../commands';
+import { CancellationTokenSource, commands, QuickPickItem, window } from 'vscode';
+import { Commands } from '../commands';
 import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
@@ -138,52 +130,6 @@ export class KeyCommandQuickPickItem extends CommandQuickPickItem {
 export class MessageQuickPickItem extends CommandQuickPickItem {
     constructor(message: string) {
         super({ label: message, description: '' });
-    }
-}
-
-export class OpenFileCommandQuickPickItem extends CommandQuickPickItem {
-    constructor(public readonly uri: Uri, item: QuickPickItem) {
-        super(item, undefined, undefined);
-    }
-
-    execute(options?: TextDocumentShowOptions): Thenable<TextEditor | undefined> {
-        return openEditor(this.uri, options);
-    }
-
-    // onDidSelect(): Promise<{} | undefined> {
-    //     return this.execute({
-    //         preserveFocus: true,
-    //         preview: true
-    //     });
-    // }
-
-    onDidPressKey(key: Keys): Thenable<{} | undefined> {
-        return this.execute({
-            preserveFocus: true,
-            preview: false
-        });
-    }
-}
-
-export class OpenFilesCommandQuickPickItem extends CommandQuickPickItem {
-    constructor(public readonly uris: Uri[], item: QuickPickItem) {
-        super(item, undefined, undefined);
-    }
-
-    async execute(
-        options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
-    ): Promise<{} | undefined> {
-        for (const uri of this.uris) {
-            await openEditor(uri, options);
-        }
-        return undefined;
-    }
-
-    onDidPressKey(key: Keys): Thenable<{} | undefined> {
-        return this.execute({
-            preserveFocus: true,
-            preview: false
-        });
     }
 }
 

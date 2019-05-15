@@ -13,6 +13,8 @@ const diffRangeRegex = /^@@ -(\d+?),(\d+?) \+(\d+?),(\d+?) @@/;
 
 export const fileStatusRegex = /(\S)\S*\t([^\t\n]+)(?:\t(.+))?/;
 const logFileSimpleRegex = /^<r> (.*)\s*(?:(?:diff --git a\/(.*) b\/(.*))|(?:(\S)\S*\t([^\t\n]+)(?:\t(.+))?))/gm;
+const logFileSimpleRenamedRegex = /^<r> (\S+)\s*(.*)$/s;
+const logFileSimpleRenamedFilesRegex = /^(\S)\S*\t([^\t\n]+)(?:\t(.+)?)$/gm;
 
 // Using %x00 codes because some shells seem to try to expand things if not
 const lb = '%x3c'; // `%x${'<'.charCodeAt(0).toString(16)}`;
@@ -412,31 +414,39 @@ export class GitLogParser {
             skip--;
         }
 
-        let match;
         let ref;
+        let diffFile;
+        let diffRenamed;
+        let status;
         let file;
-        let status: GitFileStatus | undefined;
+        let renamed;
+
+        let match: RegExpExecArray | null;
         do {
             match = logFileSimpleRegex.exec(data);
             if (match == null) break;
 
             if (skip-- > 0) continue;
 
-            ref = ` ${match[1]}`.substr(1);
+            [, ref, diffFile, diffRenamed, status, file, renamed] = match;
+
             if (lineRef === ref) {
                 skip++;
 
                 continue;
             }
 
-            file = ` ${match[3] || match[2] || match[6] || match[5]}`.substr(1);
-            status = match[4] ? (` ${match[4]}`.substr(1) as GitFileStatus) : undefined;
+            // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+            file = ` ${diffRenamed || diffFile || renamed || file}`.substr(1);
+            // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+            status = status == null || status.length === 0 ? undefined : ` ${status}`.substr(1);
         } while (skip >= 0);
 
         // Ensure the regex state is reset
         logFileSimpleRegex.lastIndex = 0;
 
-        return [ref, file, status];
+        // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+        return [` ${ref}`.substr(1), file, status as GitFileStatus | undefined];
     }
 
     @debug({ args: false })
@@ -444,24 +454,35 @@ export class GitLogParser {
         data: string,
         originalFileName: string
     ): [string | undefined, string | undefined, GitFileStatus | undefined] {
-        let match;
-        let ref;
+        let match = logFileSimpleRenamedRegex.exec(data);
+        if (match == null) return [undefined, undefined, undefined];
+
+        const [, ref, files] = match;
+
+        let status;
         let file;
-        let status: GitFileStatus | undefined;
+        let renamed;
+
         do {
-            match = logFileSimpleRegex.exec(data);
+            match = logFileSimpleRenamedFilesRegex.exec(files);
             if (match == null) break;
 
-            if (originalFileName !== (match[2] || match[5])) continue;
+            [, status, file, renamed] = match;
 
-            ref = ` ${match[1]}`.substr(1);
-            file = ` ${match[3] || match[2] || match[6] || match[5]}`.substr(1);
-            status = match[4] ? (` ${match[4]}`.substr(1) as GitFileStatus) : undefined;
+            if (originalFileName !== file) continue;
+
+            // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+            file = ` ${renamed || file}`.substr(1);
+            // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+            status = status == null || status.length === 0 ? undefined : ` ${status}`.substr(1);
+
+            break;
         } while (match != null);
 
         // Ensure the regex state is reset
-        logFileSimpleRegex.lastIndex = 0;
+        logFileSimpleRenamedFilesRegex.lastIndex = 0;
 
-        return [ref, file, status];
+        // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+        return [` ${ref}`.substr(1), file, status as GitFileStatus | undefined];
     }
 }
