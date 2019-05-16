@@ -18,7 +18,11 @@ export class SearchResultsCommitsNode extends ResultsCommitsNode {
         commitsQuery: (maxCount: number | undefined) => Promise<CommitsQueryResults>,
         _querying = true
     ) {
-        super(view, parent, repoPath, label, commitsQuery, _querying, true);
+        super(view, parent, repoPath, label, commitsQuery, {
+            expand: true,
+            includeDescription: true,
+            querying: _querying
+        });
     }
 
     get type(): ResourceType {

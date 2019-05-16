@@ -13,6 +13,7 @@ import {
 } from '../../git/gitService';
 import { Dates, debug, gate, log, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
+import { CompareBranchNode } from './compareBranchNode';
 import { BranchesNode } from './branchesNode';
 import { BranchNode } from './branchNode';
 import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
@@ -72,6 +73,10 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
                 if (status.state.ahead || (status.files.length !== 0 && this.includeWorkingTree)) {
                     const range = status.upstream ? `${status.upstream}..${branch.ref}` : undefined;
                     children.push(new StatusFilesNode(this.view, this, status, range));
+                }
+
+                if (Container.config.insiders) {
+                    children.push(new CompareBranchNode(this.uri, this.view, this, branch));
                 }
 
                 if (!this.view.config.repositories.compact) {

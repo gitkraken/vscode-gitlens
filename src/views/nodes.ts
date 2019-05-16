@@ -6,6 +6,7 @@ export * from './nodes/branchNode';
 export * from './nodes/branchTrackingStatusNode';
 export * from './nodes/commitFileNode';
 export * from './nodes/commitNode';
+export * from './nodes/compareBranchNode';
 export * from './nodes/compareNode';
 export * from './nodes/compareResultsNode';
 export * from './nodes/contributorNode';

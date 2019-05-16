@@ -134,6 +134,10 @@ export const ImageMimetypes: { [key: string]: string } = {
     '.bmp': 'image/bmp'
 };
 
+export interface BranchComparisons {
+    [id: string]: string;
+}
+
 export interface NamedRef {
     label?: string;
     ref: string;
@@ -158,6 +162,7 @@ export interface StarredRepositories {
 }
 
 export enum WorkspaceState {
+    BranchComparisons = 'gitlens:branch:comparisons',
     DefaultRemote = 'gitlens:remote:default',
     PinnedComparisons = 'gitlens:pinned:comparisons',
     StarredBranches = 'gitlens:starred:branches',

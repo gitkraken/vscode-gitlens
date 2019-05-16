@@ -75,6 +75,7 @@ export class ViewCommands implements Disposable {
             (node: ViewNode) => viewSupportsNodeDismissal(node.view) && node.view.dismissNode(node),
             this
         );
+        commands.registerCommand('gitlens.views.executeNodeCallback', (fn: <R>() => Promise<R>) => fn(), this);
         commands.registerCommand('gitlens.views.showAllChildren', (node: PagerNode) => node.showAll(), this);
 
         commands.registerCommand('gitlens.views.fetch', this.fetch, this);

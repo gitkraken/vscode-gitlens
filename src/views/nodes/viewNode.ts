@@ -16,6 +16,7 @@ export enum ResourceType {
     CommitFile = 'gitlens:file:commit',
     Commits = 'gitlens:commits',
     Compare = 'gitlens:compare',
+    CompareBranch = 'gitlens:compare:branch',
     ComparePicker = 'gitlens:compare:picker',
     ComparePickerWithRef = 'gitlens:compare:picker:ref',
     CompareResults = 'gitlens:compare:results',

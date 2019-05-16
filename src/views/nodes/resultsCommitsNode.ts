@@ -27,10 +27,11 @@ export class ResultsCommitsNode extends ViewNode<ViewWithFiles> implements Pagea
         public readonly repoPath: string,
         private _label: string,
         private readonly _commitsQuery: (maxCount: number | undefined) => Promise<CommitsQueryResults>,
-        private _querying = true,
-        private readonly _expand = true
+        private readonly _options: { expand?: boolean; includeDescription?: boolean; querying?: boolean } = {}
     ) {
         super(GitUri.fromRepoPath(repoPath), view, parent);
+
+        this._options = { expand: true, includeDescription: true, querying: true, ..._options };
     }
 
     get id(): string {
@@ -67,13 +68,13 @@ export class ResultsCommitsNode extends ViewNode<ViewWithFiles> implements Pagea
         let state;
         let label;
         let log;
-        if (this._querying) {
+        if (this._options.querying) {
             // Need to use Collapsed before we have results or the item won't show up in the view until the children are awaited
             state = TreeItemCollapsibleState.Collapsed;
             label = this._label;
 
             this.getCommitsQueryResults().then(({ log }) => {
-                this._querying = false;
+                this._options.querying = false;
                 if (log != null) {
                     this.maxCount = log.maxCount;
                 }
@@ -87,14 +88,14 @@ export class ResultsCommitsNode extends ViewNode<ViewWithFiles> implements Pagea
                 this.maxCount = log.maxCount;
             }
 
-            state = this._expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed;
+            state = this._options.expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed;
             if (log == null || log.count === 0) {
                 state = TreeItemCollapsibleState.None;
             }
         }
 
         let description;
-        if ((await Container.git.getRepositoryCount()) > 1) {
+        if (this._options.includeDescription && (await Container.git.getRepositoryCount()) > 1) {
             const repo = await Container.git.getRepository(this.repoPath);
             description = (repo && repo.formattedName) || this.repoPath;
         }

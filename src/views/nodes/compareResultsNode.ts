@@ -49,8 +49,11 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
                     this.uri.repoPath!,
                     'commits',
                     this.getCommitsQuery.bind(this),
-                    true,
-                    false
+                    {
+                        expand: false,
+                        includeDescription: true,
+                        querying: true
+                    }
                 ),
                 new ResultsFilesNode(this.view, this, this.uri.repoPath!, this._ref1.ref, this._ref2.ref)
             ];
