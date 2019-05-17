@@ -25,23 +25,35 @@ function runDownPath(exe: string): string {
 
     const target = paths.join('.', exe);
     try {
-        if (fs.statSync(target)) return target;
+        const stats = fs.statSync(target);
+        if (stats && stats.isFile() && isExecutable(stats)) return target;
     }
     catch {}
 
     const path = process.env.PATH;
     if (path != null && path.length !== 0) {
         const haystack = path.split(isWindows ? ';' : ':');
+        let stats;
         for (const p of haystack) {
             const needle = paths.join(p, exe);
             try {
-                if (fs.statSync(needle)) return needle;
+                stats = fs.statSync(needle);
+                if (stats && stats.isFile() && isExecutable(stats)) return needle;
             }
             catch {}
         }
     }
 
     return exe;
+}
+
+function isExecutable(stats: fs.Stats) {
+    if (isWindows) return true;
+
+    const isGroup = stats.gid ? process.getgid && stats.gid === process.getgid() : true;
+    const isUser = stats.uid ? process.getuid && stats.uid === process.getuid() : true;
+
+    return Boolean(stats.mode & 0o0001 || (stats.mode & 0o0010 && isGroup) || (stats.mode & 0o0100 && isUser));
 }
 
 /**

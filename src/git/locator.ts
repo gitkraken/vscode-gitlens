@@ -12,10 +12,14 @@ function parseVersion(raw: string): string {
 }
 
 async function findSpecificGit(path: string): Promise<GitLocation> {
-    const version = await run<string>(path, ['--version'], 'utf8');
+    let version = await run<string>(path, ['--version'], 'utf8');
     // If needed, let's update our path to avoid the search on every command
     if (!path || path === 'git') {
-        path = findExecutable(path, ['--version']).cmd;
+        const foundPath = findExecutable(path, ['--version']).cmd;
+
+        // Ensure that the path we found works
+        version = await run<string>(foundPath, ['--version'], 'utf8');
+        path = foundPath;
     }
 
     return {
