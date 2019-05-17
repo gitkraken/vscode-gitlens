@@ -56,13 +56,13 @@ export class GitUri extends ((Uri as any) as UriEx) {
             // When Uri's come from the FileSystemProvider, the uri.query only contains the root repo info (not the actual file path), so fix that here
             const index = uri.path.indexOf(data.path);
             if (index + data.path.length < uri.path.length) {
-                data.path = uri.path.substr(index);
+                data.path = index === 0 ? uri.path : uri.path.substr(index);
             }
 
             super({
                 scheme: uri.scheme,
                 authority: uri.authority,
-                path: data.path,
+                path: uri.path,
                 query: JSON.stringify(data),
                 fragment: uri.fragment
             });
@@ -399,10 +399,11 @@ export class GitUri extends ((Uri as any) as UriEx) {
             shortSha = GitService.shortenSha(ref);
         }
         else {
-            fileName = uriOrRef.fsPath!;
-            repoPath = uriOrRef.repoPath!;
+            fileName = uriOrRef.fsPath;
+
             ref = uriOrRef.sha;
             shortSha = uriOrRef.shortSha;
+            repoPath = uriOrRef.repoPath!;
         }
 
         if (ref == null || ref.length === 0) {
