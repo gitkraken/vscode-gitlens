@@ -24,10 +24,11 @@ export class CopyRemoteFileUrlToClipboardCommand extends ActiveEditorCommand {
     }
 
     protected preExecute(context: CommandContext, args: CopyRemoteFileUrlToClipboardCommandArgs = { range: true }) {
-        if (isCommandViewContextWithCommit(context)) {
-            args = { ...args };
-            args.range = false;
-            args.sha = context.node.commit.sha;
+        if (context.type === 'uri' || context.type === 'scm-states') {
+            args = { ...args, range: false };
+        }
+        else if (isCommandViewContextWithCommit(context)) {
+            args = { ...args, range: false, sha: context.node.commit.sha };
 
             // If it is a StatusFileNode then don't include the sha, since it hasn't been pushed yet
             if (context.node instanceof StatusFileNode) {

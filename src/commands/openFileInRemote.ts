@@ -16,6 +16,7 @@ import {
 } from './common';
 import { OpenInRemoteCommandArgs } from './openInRemote';
 import { Strings } from '../system';
+import { UriComparer } from '../comparers';
 
 export interface OpenFileInRemoteCommandArgs {
     branch?: string;
@@ -58,7 +59,7 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
         try {
             const remotes = await Container.git.getRemotes(gitUri.repoPath);
             const range =
-                args.range && editor != null
+                args.range && editor != null && UriComparer.equals(editor.document.uri, uri)
                     ? new Range(
                           editor.selection.start.with({ line: editor.selection.start.line + 1 }),
                           editor.selection.end.with({ line: editor.selection.end.line + 1 })
