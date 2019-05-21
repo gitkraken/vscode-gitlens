@@ -200,7 +200,7 @@ export class CommitFileQuickPick {
                             remotes,
                             {
                                 type: RemoteResourceType.File,
-                                fileName: paths.basename(workingUri.fsPath),
+                                fileName: GitUri.relativeTo(workingUri, commit.repoPath),
                                 branch: branch.name
                             },
                             currentCommand
