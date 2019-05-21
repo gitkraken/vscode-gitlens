@@ -1,7 +1,7 @@
 'use strict';
 import { TextEditor, Uri } from 'vscode';
 import { GlyphChars } from '../constants';
-import { GitLogCommit, GitRemote, GitService, RemoteResource, RemoteResourceType } from '../git/gitService';
+import { GitRemote, GitService, RemoteResource, RemoteResourceType } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, OpenRemoteCommandQuickPickItem, RemotesQuickPick } from '../quickpicks';
@@ -68,7 +68,7 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
                     break;
 
                 case RemoteResourceType.Revision:
-                    if (args.resource.commit !== undefined && args.resource.commit instanceof GitLogCommit) {
+                    if (args.resource.commit !== undefined && args.resource.commit.isFile) {
                         if (args.resource.commit.status === 'D') {
                             args.resource.sha = args.resource.commit.previousSha;
                             placeHolder = `${verb} ${args.resource.fileName} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${

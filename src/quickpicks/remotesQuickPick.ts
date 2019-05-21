@@ -5,7 +5,6 @@ import { Commands, OpenInRemoteCommandArgs } from '../commands';
 import { GlyphChars } from '../constants';
 import {
     getNameFromRemoteResource,
-    GitLogCommit,
     GitRemote,
     GitService,
     RemoteResource,
@@ -70,7 +69,7 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
                 break;
 
             case RemoteResourceType.Revision:
-                if (resource.commit !== undefined && resource.commit instanceof GitLogCommit) {
+                if (resource.commit !== undefined && resource.commit.isFile) {
                     if (resource.commit.status === 'D') {
                         resource.sha = resource.commit.previousSha;
                         description = `$(file-text) ${paths.basename(resource.fileName)} in ${
@@ -87,7 +86,7 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
                     }
                 }
                 else {
-                    const shortFileSha = resource.sha === undefined ? '=' : GitService.shortenSha(resource.sha);
+                    const shortFileSha = resource.sha === undefined ? '' : GitService.shortenSha(resource.sha);
                     description = `$(file-text) ${paths.basename(resource.fileName)}${
                         shortFileSha ? ` in ${GlyphChars.Space}$(git-commit) ${shortFileSha}` : ''
                     }`;
