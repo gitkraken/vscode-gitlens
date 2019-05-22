@@ -53,12 +53,16 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
     getTreeItem(): TreeItem {
         let state: TreeItemCollapsibleState;
         let label;
+        let description;
         if (this._compareWith === undefined) {
             label = `Compare ${this.branch.name} with <branch, tag, or ref>`;
             state = TreeItemCollapsibleState.None;
         }
         else {
-            label = `Comparing ${this.branch.name} to ${GitService.shortenSha(this._compareWith, {
+            label = `${this.branch.name}`;
+            description = `${GlyphChars.ArrowLeftRightLong}${
+                GlyphChars.Space
+            } ${GitService.shortenSha(this._compareWith, {
                 working: 'Working Tree'
             })}`;
             state = TreeItemCollapsibleState.Collapsed;
@@ -71,6 +75,7 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
             arguments: [() => this.compareWith()]
         };
         item.contextValue = ResourceType.CompareBranch;
+        item.description = description;
         item.iconPath = {
             dark: Container.context.asAbsolutePath('images/dark/icon-compare-refs.svg'),
             light: Container.context.asAbsolutePath('images/light/icon-compare-refs.svg')

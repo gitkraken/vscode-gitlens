@@ -1,7 +1,7 @@
 'use strict';
 import { StarredBranches, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
-import { Git } from '../git';
+import { Git, GitRemote } from '../git';
 import { GitStatus } from './status';
 import { memoize } from '../../system';
 
@@ -58,7 +58,18 @@ export class GitBranch {
     }
 
     @memoize()
-    getRemote(): string | undefined {
+    async getRemote(): Promise<GitRemote | undefined> {
+        const remoteName = this.getRemoteName();
+        if (remoteName === undefined) return undefined;
+
+        const remotes = await Container.git.getRemotes(this.repoPath);
+        if (remotes.length === 0) return undefined;
+
+        return remotes.find(r => r.name === remoteName);
+    }
+
+    @memoize()
+    getRemoteName(): string | undefined {
         if (this.remote) return GitBranch.getRemote(this.name);
         if (this.tracking !== undefined) return GitBranch.getRemote(this.tracking);
 

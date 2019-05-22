@@ -31,7 +31,7 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
         if (isCommandViewContextWithBranch(context)) {
             args = { ...args };
             args.branch = context.node.branch.name;
-            args.remote = context.node.branch.getRemote();
+            args.remote = context.node.branch.getRemoteName();
         }
 
         return this.execute(context.editor, context.uri, args);

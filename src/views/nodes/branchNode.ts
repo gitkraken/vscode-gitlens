@@ -3,7 +3,7 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { GitBranch, GitUri } from '../../git/gitService';
+import { GitBranch, GitRemoteType, GitUri } from '../../git/gitService';
 import { debug, gate, Iterables, log } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
@@ -104,7 +104,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
         return this._children;
     }
 
-    getTreeItem(): TreeItem {
+    async getTreeItem(): Promise<TreeItem> {
         const name = this.label;
         let tooltip = `${this.branch.getName()}${this.current ? ' (current)' : ''}`;
         let iconSuffix = '';
@@ -112,9 +112,39 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
         let description;
         if (!this.branch.remote && this.branch.tracking !== undefined) {
             if (this.view.config.showTrackingBranch) {
-                description = `${this.branch.getTrackingStatus({ suffix: `${GlyphChars.Space} ` })}${
-                    GlyphChars.ArrowLeftRightLong
-                }${GlyphChars.Space} ${this.branch.tracking}`;
+                let arrows = GlyphChars.Dash;
+
+                const remote = await this.branch.getRemote();
+                if (remote !== undefined) {
+                    let left;
+                    let right;
+                    for (const { type } of remote.types) {
+                        if (type === GitRemoteType.Fetch) {
+                            left = true;
+
+                            if (right) break;
+                        }
+                        else if (type === GitRemoteType.Push) {
+                            right = true;
+
+                            if (left) break;
+                        }
+                    }
+
+                    if (left && right) {
+                        arrows = GlyphChars.ArrowsRightLeft;
+                    }
+                    else if (right) {
+                        arrows = GlyphChars.ArrowRight;
+                    }
+                    else if (left) {
+                        arrows = GlyphChars.ArrowLeft;
+                    }
+                }
+
+                description = `${this.branch.getTrackingStatus({ suffix: `${GlyphChars.Space} ` })}${arrows}${
+                    GlyphChars.Space
+                } ${this.branch.tracking}`;
             }
             tooltip += ` is tracking ${this.branch.tracking}\n${this.branch.getTrackingStatus({
                 empty: 'up-to-date',

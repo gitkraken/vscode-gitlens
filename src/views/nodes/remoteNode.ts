@@ -70,28 +70,40 @@ export class RemoteNode extends ViewNode<RepositoriesView> {
     }
 
     getTreeItem(): TreeItem {
-        const fetch = this.remote.types.find(rt => rt.type === GitRemoteType.Fetch);
-        const push = this.remote.types.find(rt => rt.type === GitRemoteType.Push);
+        let arrows;
+        let left;
+        let right;
+        for (const { type } of this.remote.types) {
+            if (type === GitRemoteType.Fetch) {
+                left = true;
 
-        let separator;
-        if (fetch && push) {
-            separator = GlyphChars.ArrowLeftRightLong;
+                if (right) break;
+            }
+            else if (type === GitRemoteType.Push) {
+                right = true;
+
+                if (left) break;
+            }
         }
-        else if (fetch) {
-            separator = GlyphChars.ArrowLeft;
+
+        if (left && right) {
+            arrows = GlyphChars.ArrowsRightLeft;
         }
-        else if (push) {
-            separator = GlyphChars.ArrowRight;
+        else if (right) {
+            arrows = GlyphChars.ArrowRight;
+        }
+        else if (left) {
+            arrows = GlyphChars.ArrowLeft;
         }
         else {
-            separator = GlyphChars.Dash;
+            arrows = GlyphChars.Dash;
         }
 
         const item = new TreeItem(
             `${this.remote.default ? `${GlyphChars.Check} ${GlyphChars.Space}` : ''}${this.remote.name}`,
             TreeItemCollapsibleState.Collapsed
         );
-        item.description = `${separator}${GlyphChars.Space} ${
+        item.description = `${arrows}${GlyphChars.Space} ${
             this.remote.provider !== undefined ? this.remote.provider.name : this.remote.domain
         } ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} ${
             this.remote.provider !== undefined ? this.remote.provider.displayPath : this.remote.path

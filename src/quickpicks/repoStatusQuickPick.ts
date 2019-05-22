@@ -434,7 +434,7 @@ export class RepoStatusQuickPick {
         const pick = await window.showQuickPick(items, {
             matchOnDescription: true,
             placeHolder: `status of ${status.branch}${
-                status.upstream ? ` ${Strings.pad(GlyphChars.ArrowLeftRightLong, 1, 1)} ${status.upstream}` : ''
+                status.upstream ? ` ${Strings.pad(GlyphChars.ArrowsRightLeft, 1, 1)} ${status.upstream}` : ''
             }`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut(),
             onDidSelectItem: (item: QuickPickItem) => {

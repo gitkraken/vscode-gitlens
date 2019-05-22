@@ -625,7 +625,7 @@ export class ViewCommands implements Disposable {
         if (!(node instanceof BranchNode)) return;
 
         if (node.branch.remote) {
-            this.sendTerminalCommand('push', `${node.branch.getRemote()} :${node.branch.getName()}`, node.repoPath);
+            this.sendTerminalCommand('push', `${node.branch.getRemoteName()} :${node.branch.getName()}`, node.repoPath);
         }
         else {
             this.sendTerminalCommand('branch', `-d ${node.ref}`, node.repoPath);
@@ -679,7 +679,7 @@ export class ViewCommands implements Disposable {
         const branch = node.branch || (await Container.git.getBranch(node.repoPath));
         if (branch === undefined) return;
 
-        this.sendTerminalCommand('push', `${branch.getRemote()} ${node.ref}:${branch.getName()}`, node.repoPath);
+        this.sendTerminalCommand('push', `${branch.getRemoteName()} ${node.ref}:${branch.getName()}`, node.repoPath);
     }
 
     terminalRebaseCommit(node: CommitNode) {
