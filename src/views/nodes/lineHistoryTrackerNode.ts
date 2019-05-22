@@ -77,7 +77,8 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
             `Change the line history base to${GlyphChars.Ellipsis}`,
             {
                 allowEnteringRefs: true,
-                checked: this._base
+                checked: this._base,
+                checkmarks: true
             }
         );
         if (pick === undefined || pick instanceof CommandQuickPickItem) return;

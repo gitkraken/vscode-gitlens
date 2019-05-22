@@ -57,6 +57,7 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
                     `Open which branch on remote${GlyphChars.Ellipsis}`,
                     {
                         autoPick: true,
+                        checkmarks: false,
                         filters: {
                             branches: b => b.tracking !== undefined
                         },

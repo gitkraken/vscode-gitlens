@@ -198,6 +198,7 @@ export class ShowFileHistoryFromQuickPickItem extends CommandQuickPickItem {
     execute(): Promise<CommandQuickPickItem | ReferencesQuickPickItem | undefined> {
         return new ReferencesQuickPick(this.repoPath).show(this.placeHolder, {
             allowEnteringRefs: true,
+            checkmarks: false,
             goBack: this._goBack
         });
     }

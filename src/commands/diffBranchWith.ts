@@ -60,21 +60,27 @@ export class DiffBranchWithCommand extends ActiveEditorCommand {
             if (!repoPath) return undefined;
 
             if (!args.ref1) {
+                let checkmarks;
                 let placeHolder;
                 switch (args.ref2) {
                     case '':
+                        checkmarks = false;
                         placeHolder = `Compare Working Tree with${GlyphChars.Ellipsis}`;
                         break;
                     case 'HEAD':
+                        checkmarks = false;
                         placeHolder = `Compare HEAD with${GlyphChars.Ellipsis}`;
                         break;
                     default:
+                        checkmarks = true;
                         placeHolder = `Compare ${args.ref2} with${GlyphChars.Ellipsis}`;
                         break;
                 }
 
                 const pick = await new ReferencesQuickPick(repoPath).show(placeHolder, {
-                    allowEnteringRefs: true
+                    allowEnteringRefs: true,
+                    checked: args.ref2,
+                    checkmarks: checkmarks
                 });
                 if (pick === undefined) return undefined;
 

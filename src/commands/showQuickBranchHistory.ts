@@ -61,6 +61,7 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
                 const pick = await new ReferencesQuickPick(repoPath).show(
                     `Show history for branch${GlyphChars.Ellipsis}`,
                     {
+                        checkmarks: false,
                         goBack: goBackCommand,
                         include: 'branches'
                     }

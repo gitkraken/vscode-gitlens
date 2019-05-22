@@ -86,6 +86,7 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
                             : `Open ${gitUri.relativePath} on remote for which branch${GlyphChars.Ellipsis}`,
                         {
                             autoPick: true,
+                            checkmarks: false,
                             filters: {
                                 branches: b => b.tracking !== undefined
                             },

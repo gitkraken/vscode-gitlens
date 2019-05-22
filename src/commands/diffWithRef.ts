@@ -39,6 +39,7 @@ export class DiffWithRefCommand extends ActiveEditorCommand {
             `Compare ${paths.basename(gitUri.fsPath)} with${GlyphChars.Ellipsis}`,
             {
                 allowEnteringRefs: true,
+                checkmarks: false,
                 goBack: args.goBackCommand
             }
         );

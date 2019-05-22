@@ -32,7 +32,8 @@ export class OpenFileRevisionFromCommand extends ActiveEditorCommand {
             } from${GlyphChars.Ellipsis}`;
 
             const pick = await new ReferencesQuickPick(gitUri.repoPath).show(placeHolder, {
-                allowEnteringRefs: true
+                allowEnteringRefs: true,
+                checkmarks: false
             });
             if (pick === undefined) return undefined;
             if (pick instanceof CommandQuickPickItem) return pick.execute();

@@ -37,9 +37,11 @@ export class BranchQuickPickItem implements QuickPickItem {
     description: string;
     detail: string | undefined;
 
-    constructor(public readonly branch: GitBranch, checked?: boolean) {
-        checked = checked || (checked === undefined && branch.current);
-        this.label = `${checked ? `$(check)${GlyphChars.Space}` : GlyphChars.Space.repeat(4)} ${branch.name}`;
+    constructor(public readonly branch: GitBranch, showCheckmarks: boolean, checked: boolean | undefined) {
+        checked = showCheckmarks && (checked || (checked === undefined && branch.current));
+        this.label = `${
+            checked ? `$(check)${GlyphChars.Space.repeat(2)}` : showCheckmarks ? GlyphChars.Space.repeat(6) : ''
+        }${branch.name}`;
         this.description = branch.remote
             ? `${GlyphChars.Space.repeat(2)} remote branch`
             : branch.current
@@ -69,8 +71,11 @@ export class TagQuickPickItem implements QuickPickItem {
     description: string;
     detail: string | undefined;
 
-    constructor(public readonly tag: GitTag, checked?: boolean) {
-        this.label = `${checked ? `$(check)${GlyphChars.Space}` : GlyphChars.Space.repeat(4)} ${tag.name}`;
+    constructor(public readonly tag: GitTag, showCheckmarks: boolean, checked: boolean) {
+        checked = showCheckmarks && checked;
+        this.label = `${
+            checked ? `$(check)${GlyphChars.Space.repeat(2)}` : showCheckmarks ? GlyphChars.Space.repeat(6) : ''
+        }${tag.name}`;
         this.description = `${GlyphChars.Space.repeat(2)} tag`;
     }
 
@@ -97,6 +102,7 @@ export interface ReferencesQuickPickOptions {
     allowEnteringRefs?: boolean;
     autoPick?: boolean;
     checked?: string;
+    checkmarks: boolean;
     filters?: {
         branches?(branch: GitBranch): boolean;
         tags?(tag: GitTag): boolean;
@@ -110,7 +116,7 @@ export class ReferencesQuickPick {
 
     async show(
         placeHolder: string,
-        options: ReferencesQuickPickOptions = {}
+        options: ReferencesQuickPickOptions = { checkmarks: true }
     ): Promise<ReferencesQuickPickItem | CommandQuickPickItem | undefined> {
         const cancellation = new CancellationTokenSource();
 
@@ -211,7 +217,7 @@ export class ReferencesQuickPick {
     }
 
     private async getItems(options: ReferencesQuickPickOptions, token: CancellationToken) {
-        const { checked, filters, goBack, include } = { include: 'all', ...options };
+        const { checked, checkmarks, filters, goBack, include } = { include: 'all', ...options };
 
         let branches;
         let tags;
@@ -257,7 +263,12 @@ export class ReferencesQuickPick {
             for (const b of branches) {
                 if (filter !== undefined && !filter(b)) continue;
 
-                items.push(new BranchQuickPickItem(b, checked !== undefined ? b.name === checked : undefined));
+                if (checkmarks && checked !== undefined && b.name === checked) {
+                    items.splice(0, 0, new BranchQuickPickItem(b, checkmarks, true));
+                }
+                else {
+                    items.push(new BranchQuickPickItem(b, checkmarks, checked === undefined ? undefined : false));
+                }
             }
         }
 
@@ -268,7 +279,12 @@ export class ReferencesQuickPick {
             for (const t of tags) {
                 if (filter !== undefined && !filter(t)) continue;
 
-                items.push(new TagQuickPickItem(t, checked !== undefined ? t.name === checked : undefined));
+                if (checkmarks && checked !== undefined && t.name === checked) {
+                    items.splice(0, 0, new TagQuickPickItem(t, checkmarks, true));
+                }
+                else {
+                    items.push(new TagQuickPickItem(t, checkmarks, false));
+                }
             }
         }
 

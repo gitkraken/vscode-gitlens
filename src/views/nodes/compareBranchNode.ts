@@ -60,11 +60,12 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
         }
         else {
             label = `${this.branch.name}`;
-            description = `${GlyphChars.ArrowLeftRightLong}${
-                GlyphChars.Space
-            } ${GitService.shortenSha(this._compareWith, {
-                working: 'Working Tree'
-            })}`;
+            description = `${GlyphChars.ArrowLeftRightLong}${GlyphChars.Space} ${GitService.shortenSha(
+                this._compareWith,
+                {
+                    working: 'Working Tree'
+                }
+            )}`;
             state = TreeItemCollapsibleState.Collapsed;
         }
 
@@ -89,7 +90,7 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
     async compareWith() {
         const pick = await new ReferencesQuickPick(this.branch.repoPath).show(
             `Compare ${this.branch.name} with${GlyphChars.Ellipsis}`,
-            { allowEnteringRefs: true }
+            { allowEnteringRefs: true, checked: this.branch.ref, checkmarks: true }
         );
         if (pick === undefined || pick instanceof CommandQuickPickItem) return;
 

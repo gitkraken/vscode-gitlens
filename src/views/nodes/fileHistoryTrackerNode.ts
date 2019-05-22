@@ -72,7 +72,8 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
             `Change the file history base to${GlyphChars.Ellipsis}`,
             {
                 allowEnteringRefs: true,
-                checked: this._baseRef
+                checked: this._baseRef,
+                checkmarks: true
             }
         );
         if (pick === undefined || pick instanceof CommandQuickPickItem) return;

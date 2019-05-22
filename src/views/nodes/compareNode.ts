@@ -141,7 +141,12 @@ export class CompareNode extends ViewNode<CompareView> {
         if (ref === undefined) {
             const pick = await new ReferencesQuickPick(repoPath).show(
                 `Compare ${this.getRefName(this._selectedRef.ref)} with${GlyphChars.Ellipsis}`,
-                { allowEnteringRefs: true }
+                {
+                    allowEnteringRefs: true,
+                    checked:
+                        typeof this._selectedRef.ref === 'string' ? this._selectedRef.ref : this._selectedRef.ref.ref,
+                    checkmarks: true
+                }
             );
             if (pick === undefined || pick instanceof CommandQuickPickItem) return;
 
@@ -165,7 +170,8 @@ export class CompareNode extends ViewNode<CompareView> {
         let autoCompare = false;
         if (ref === undefined) {
             const pick = await new ReferencesQuickPick(repoPath).show(`Compare${GlyphChars.Ellipsis}`, {
-                allowEnteringRefs: true
+                allowEnteringRefs: true,
+                checkmarks: false
             });
             if (pick === undefined || pick instanceof CommandQuickPickItem) return;
 
