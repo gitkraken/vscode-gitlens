@@ -4,6 +4,7 @@ import { commands, QuickPickItem, TextDocumentShowOptions, TextEditor, Uri, wind
 import {
     Commands,
     CopyMessageToClipboardCommandArgs,
+    CopyRemoteFileUrlToClipboardCommandArgs,
     CopyShaToClipboardCommandArgs,
     DiffWithPreviousCommandArgs,
     DiffWithWorkingCommandArgs,
@@ -255,6 +256,21 @@ export class CommitFileQuickPick {
                     [uri, copyMessageCommandArgs]
                 )
             );
+
+            if (remotes.length) {
+                const copyRemoteUrlCommandArgs: CopyRemoteFileUrlToClipboardCommandArgs = {
+                    sha: commit.sha
+                };
+                items.push(
+                    new CommandQuickPickItem(
+                        {
+                            label: '$(clippy) Copy Remote Url to Clipboard'
+                        },
+                        Commands.CopyRemoteFileUrlToClipboard,
+                        [uri, copyRemoteUrlCommandArgs]
+                    )
+                );
+            }
         }
 
         if (workingUri) {

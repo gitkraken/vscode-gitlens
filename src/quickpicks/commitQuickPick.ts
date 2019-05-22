@@ -4,6 +4,7 @@ import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vsco
 import {
     Commands,
     CopyMessageToClipboardCommandArgs,
+    CopyRemoteFileUrlToClipboardCommandArgs,
     CopyShaToClipboardCommandArgs,
     DiffDirectoryCommandArgs,
     DiffWithPreviousCommandArgs,
@@ -248,6 +249,7 @@ export class CommitQuickPick {
 
         let index = 0;
 
+        let remotes;
         if (stash) {
             const stashApplyCommmandArgs: StashApplyCommandArgs = {
                 confirm: true,
@@ -291,7 +293,7 @@ export class CommitQuickPick {
         else {
             items.splice(index++, 0, new ShowCommitInViewQuickPickItem(commit));
 
-            const remotes = await Container.git.getRemotes(commit.repoPath);
+            remotes = await Container.git.getRemotes(commit.repoPath);
             if (remotes.length) {
                 items.splice(
                     index++,
@@ -382,6 +384,25 @@ export class CommitQuickPick {
                 [uri, copyMessageCommandArgs]
             )
         );
+
+        if (!stash) {
+            if (remotes !== undefined && remotes.length) {
+                const copyRemoteUrlCommandArgs: CopyRemoteFileUrlToClipboardCommandArgs = {
+                    sha: commit.sha
+                };
+                items.splice(
+                    index++,
+                    0,
+                    new CommandQuickPickItem(
+                        {
+                            label: '$(clippy) Copy Remote Url to Clipboard'
+                        },
+                        Commands.CopyRemoteFileUrlToClipboard,
+                        [uri, copyRemoteUrlCommandArgs]
+                    )
+                );
+            }
+        }
 
         const commitDetailsCommandArgs: ShowQuickCommitDetailsCommandArgs = {
             commit: commit,
