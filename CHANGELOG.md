@@ -8,8 +8,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## Added
 
-- Adds a new _Compare Current Branch with..._ node to each repository in the _Repositories_ view &mdash; closes [#293](https://github.com/eamodio/vscode-gitlens/issues/293)
-  - **Compare Current Branch with...** &mdash; optionally shows a comparison of the current branch to a user-selected reference
+- Adds a new _Compare Current Branch with <branch, tag, or ref>_ node to each repository in the _Repositories_ view &mdash; closes [#293](https://github.com/eamodio/vscode-gitlens/issues/293)
+  - **Compare Current Branch with <branch, tag, or ref>** &mdash; optionally shows a comparison of the current branch to a user-selected reference
     - **\* Commits** &mdash; lists the commits between the compared revisions
       - Expands to provide the message, author, date, and change indicator of each revision (commit)
         - Each revision (commit) expands to list its set of changed files, complete with status indicators for adds, changes, renames, and deletes

@@ -282,7 +282,7 @@ The repositories view provides the following features,
     - **\* Files Changed** &mdash; lists all the "working" changes
       - Expands to a file-based view of all changed files in the working tree ([optionally](#repositories-view-settings- 'Jump to the Repositories view settings')) and/or all files in all commits ahead of the upstream
       - An inline toolbar provides quick access to the _Stash All Changes_ command
-    - **Compare Current Branch with...** &mdash; [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') shows a comparison of the current branch to a user-selected reference
+    - **Compare Current Branch with <branch, tag, or ref>** &mdash; [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') shows a comparison of the current branch to a user-selected reference
       - **\* Commits** &mdash; lists the commits between the compared revisions
         - Expands to provide the message, author, date, and change indicator of each revision (commit) &mdash; fully [customizable](#view-settings- 'Jump to the View settings')
           - Each revision (commit) expands to list its set of changed files, complete with status indicators for adds, changes, renames, and deletes
