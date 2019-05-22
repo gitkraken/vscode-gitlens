@@ -340,7 +340,13 @@ export class Repository implements Disposable {
     }
 
     private async pullCore() {
-        void (await commands.executeCommand('git.pull', this.path));
+        const tracking = await this.hasTrackingBranch();
+        if (tracking) {
+            void (await commands.executeCommand('git.pull', this.path));
+        }
+        else if (configuration.getAny<boolean>('git.fetchOnPull', Uri.file(this.path))) {
+            void (await Container.git.fetch(this.path));
+        }
 
         this.fireChange(RepositoryChange.Repository);
     }
