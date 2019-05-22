@@ -148,9 +148,11 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
     }
 
     private async getCommitsQuery(maxCount: number | undefined): Promise<CommitsQueryResults> {
+        const notation = Container.config.advanced.useSymmetricDifferenceNotation ? '...' : '..';
+
         const log = await Container.git.getLog(this.uri.repoPath!, {
             maxCount: maxCount,
-            ref: `${this._ref1.ref}...${this._ref2.ref || 'HEAD'}`
+            ref: `${this._ref1.ref}${notation}${this._ref2.ref || 'HEAD'}`
         });
 
         const count = log !== undefined ? log.count : 0;

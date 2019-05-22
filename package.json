@@ -1752,6 +1752,12 @@
                     "default": true,
                     "markdownDescription": "Specifies whether to enable GitLens telemetry (even if enabled still abides by the overall `#telemetry.enableTelemetry#` setting",
                     "scope": "window"
+                },
+                "gitlens.advanced.useSymmetricDifferenceNotation": {
+                    "type": "boolean",
+                    "default": true,
+                    "markdownDescription": "Specifies whether to use the symmetric difference (three-dot) notation or the range (two-dot) notation for comparisions. See the [Git docs](https://git-scm.com/docs/gitrevisions#_dotted_range_notations)",
+                    "scope": "window"
                 }
             }
         },

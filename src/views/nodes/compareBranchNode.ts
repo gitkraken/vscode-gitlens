@@ -44,7 +44,7 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
                         querying: true
                     }
                 ),
-                new ResultsFilesNode(this.view, this, this.uri.repoPath!, this.branch.ref, this._compareWith)
+                new ResultsFilesNode(this.view, this, this.uri.repoPath!, this._compareWith, this.branch.ref)
             ];
         }
         return this._children;
@@ -102,9 +102,11 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
     }
 
     private async getCommitsQuery(maxCount: number | undefined): Promise<CommitsQueryResults> {
+        const notation = Container.config.advanced.useSymmetricDifferenceNotation ? '...' : '..';
+
         const log = await Container.git.getLog(this.uri.repoPath!, {
             maxCount: maxCount,
-            ref: `${this.branch.ref}...${this._compareWith || 'HEAD'}`
+            ref: `${this._compareWith || 'HEAD'}${notation}${this.branch.ref}`
         });
 
         const count = log !== undefined ? log.count : 0;

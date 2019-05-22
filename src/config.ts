@@ -224,6 +224,7 @@ export interface AdvancedConfig {
     telemetry: {
         enabled: boolean;
     };
+    useSymmetricDifferenceNotation: boolean;
 }
 
 export interface CodeLensConfig {

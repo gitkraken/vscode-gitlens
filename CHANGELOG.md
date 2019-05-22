@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
           - A context menu provides access to more common file revision commands
     - **\* Files Changed** &mdash; lists all of the files changed between the compared revisions
 - Adds a `gitlens.views.repositories.showBranchComparison` setting to specify whether to show a comparison of the current branch to a user-selected reference in the _Repositories_ view
+- Adds a `gitlens.advanced.useSymmetricDifferenceNotation` setting to specify whether to use the symmetric difference (three-dot) notation or the range (two-dot) notation for comparisions &mdash; closes [#330](https://github.com/eamodio/vscode-gitlens/issues/330)
 - Adds a _Copy Remote Url to Clipboard_ command to commit quick pick menus
 
 ## Changed
