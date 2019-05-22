@@ -17,6 +17,19 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
           - A context menu provides access to more common file revision commands
     - **\* Files Changed** &mdash; lists all of the files changed between the compared revisions
 - Adds a `gitlens.views.repositories.showBranchComparison` setting to specify whether to show a comparison of the current branch to a user-selected reference in the _Repositories_ view
+- Adds a _Copy Remote Url to Clipboard_ command to commit quick pick menus
+
+## Changed
+
+- Changes _Pull_ and _Pull Repositories_ commands to just fetch the repository if the current branch has no tracking branch
+
+## Fixed
+
+- Fixes [#734](https://github.com/eamodio/vscode-gitlens/issues/734) - Not working with VS Code Remote - SSH extension
+- Fixes [#739](https://github.com/eamodio/vscode-gitlens/issues/739) - Breadcrumbs don't work on file revisions
+- Fixes [#750](https://github.com/eamodio/vscode-gitlens/issues/750) - Open file on GitHub does not include directory path
+- Fixes issue with _Open Revision_ in quick pick menus not working properly
+
 ## [9.7.4] - 2019-05-15
 
 ## Added
