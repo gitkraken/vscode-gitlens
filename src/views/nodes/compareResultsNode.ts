@@ -129,6 +129,7 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
             });
         }
 
+        this._children = undefined;
         this.view.triggerNodeChange(this);
     }
 
