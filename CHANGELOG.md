@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+## Added
+
+- Adds a new _Compare Current Branch with..._ node to each repository in the _Repositories_ view &mdash; closes [#293](https://github.com/eamodio/vscode-gitlens/issues/293)
+  - **Compare Current Branch with...** &mdash; optionally shows a comparison of the current branch to a user-selected reference
+    - **\* Commits** &mdash; lists the commits between the compared revisions
+      - Expands to provide the message, author, date, and change indicator of each revision (commit)
+        - Each revision (commit) expands to list its set of changed files, complete with status indicators for adds, changes, renames, and deletes
+          - An inline toolbar provides quick access to the _Open File_, _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open File on Remote_ (if available) commands
+          - A context menu provides access to more common file revision commands
+    - **\* Files Changed** &mdash; lists all of the files changed between the compared revisions
+- Adds a `gitlens.views.repositories.showBranchComparison` setting to specify whether to show a comparison of the current branch to a user-selected reference in the _Repositories_ view
 ## [9.7.4] - 2019-05-15
 
 ## Added

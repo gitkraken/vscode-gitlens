@@ -1519,6 +1519,12 @@
                     "markdownDescription": "Specifies where to show the _Repositories_ view",
                     "scope": "window"
                 },
+                "gitlens.views.repositories.showBranchComparison": {
+                    "type": "boolean",
+                    "default": true,
+                    "markdownDescription": "Specifies whether to show a comparison of the current branch to a user-selected reference in the _Repositories_ view",
+                    "scope": "window"
+                },
                 "gitlens.views.repositories.showTrackingBranch": {
                     "type": "boolean",
                     "default": true,

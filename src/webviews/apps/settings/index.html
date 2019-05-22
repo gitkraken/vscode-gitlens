@@ -2445,6 +2445,23 @@
                                         data-enablement="views.repositories.enabled"
                                         data-visibility="settings.mode =advanced"
                                     >
+                                        <input
+                                            class="setting"
+                                            id="views.repositories.showBranchComparison"
+                                            name="views.repositories.showBranchComparison"
+                                            type="checkbox"
+                                            disabled
+                                        />
+                                        <label for="views.repositories.showBranchComparison"
+                                            >Show a comparison of the current branch to a user-selected reference</label
+                                        >
+                                    </div>
+
+                                    <div
+                                        class="settings-group__setting ml-2 hidden"
+                                        data-enablement="views.repositories.enabled"
+                                        data-visibility="settings.mode =advanced"
+                                    >
                                         <label for="views.repositories.branches.layout">Layout branches</label>
                                         <select
                                             class="setting"

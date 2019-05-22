@@ -363,6 +363,7 @@ export interface RepositoriesViewConfig {
     files: ViewsFilesConfig;
     includeWorkingTree: boolean;
     location: ViewLocation;
+    showBranchComparison: boolean;
     showTrackingBranch: boolean;
 }
 
