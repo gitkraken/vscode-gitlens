@@ -11,7 +11,7 @@
 
 //     static configure(key: string) {
 //         if (!configuration.get<boolean>(configuration.name('advanced')('telemetry')('enabled').value) ||
-//             !workspace.getConfiguration('telemetry').get<boolean>('enableTelemetry', true)) {
+//             !configuration.getAny<boolean>('telemetry.enableTelemetry', undefined, true)) {
 //             return;
 //         }
 

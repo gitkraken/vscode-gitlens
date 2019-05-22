@@ -4,11 +4,10 @@ import {
     MarkdownString,
     ThemableDecorationAttachmentRenderOptions,
     ThemableDecorationRenderOptions,
-    ThemeColor,
-    workspace
+    ThemeColor
 } from 'vscode';
 import { DiffWithCommand, ShowQuickCommitDetailsCommand } from '../commands';
-import { FileAnnotationType } from '../configuration';
+import { configuration, FileAnnotationType } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import {
@@ -276,7 +275,7 @@ export class Annotations {
 
         let width;
         if (chars >= 0) {
-            const spacing = workspace.getConfiguration('editor').get<number>('letterSpacing');
+            const spacing = configuration.getAny<number>('editor.letterSpacing');
             if (spacing != null && spacing !== 0) {
                 width = `calc(${chars}ch + ${Math.round(chars * spacing)}px)`;
             }

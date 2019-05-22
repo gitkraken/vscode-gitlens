@@ -147,7 +147,7 @@ export class GitService implements Disposable {
             gitPath = gitApi.git.path;
         }
 
-        await Git.setOrFindGitPath(gitPath || workspace.getConfiguration('git').get<string>('path'));
+        await Git.setOrFindGitPath(gitPath || configuration.getAny<string>('git.path'));
     }
 
     get useCaching() {
@@ -306,8 +306,8 @@ export class GitService implements Disposable {
 
         // Get any specified excludes -- this is a total hack, but works for some simple cases and something is better than nothing :)
         let excludes = {
-            ...workspace.getConfiguration('files', uri).get<{ [key: string]: boolean }>('exclude', {}),
-            ...workspace.getConfiguration('search', uri).get<{ [key: string]: boolean }>('exclude', {})
+            ...configuration.getAny<{ [key: string]: boolean }>('files.exclude', uri, {}),
+            ...configuration.getAny<{ [key: string]: boolean }>('search.exclude', uri, {})
         };
 
         const excludedPaths = [
@@ -2613,7 +2613,7 @@ export class GitService implements Disposable {
     static getEncoding(uri: Uri): string;
     static getEncoding(repoPathOrUri: string | Uri, fileName?: string): string {
         const uri = typeof repoPathOrUri === 'string' ? GitUri.resolveToUri(fileName!, repoPathOrUri) : repoPathOrUri;
-        return Git.getEncoding(workspace.getConfiguration('files', uri).get<string>('encoding'));
+        return Git.getEncoding(configuration.getAny<string>('files.encoding', uri));
     }
 
     static deletedOrMissingSha = Git.deletedOrMissingSha;

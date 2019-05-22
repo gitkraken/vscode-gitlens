@@ -38,13 +38,22 @@ export class Configuration {
         return this._onDidChange.event;
     }
 
+    private _onDidChangeAny = new EventEmitter<ConfigurationChangeEvent>();
+    get onDidChangeAny(): Event<ConfigurationChangeEvent> {
+        return this._onDidChange.event;
+    }
+
     private _onWillChange = new EventEmitter<ConfigurationWillChangeEvent>();
     get onWillChange(): Event<ConfigurationWillChangeEvent> {
         return this._onWillChange.event;
     }
 
     private onConfigurationChanged(e: ConfigurationChangeEvent) {
-        if (!e.affectsConfiguration(extensionId, null!)) return;
+        if (!e.affectsConfiguration(extensionId, null!)) {
+            this._onDidChangeAny.fire(e);
+
+            return;
+        }
 
         const evt: ConfigurationWillChangeEvent = {
             change: e
@@ -72,6 +81,12 @@ export class Configuration {
                   .get<T>(section === undefined ? extensionId : section, defaultValue)!;
     }
 
+    getAny<T>(section: string, resource?: Uri | null, defaultValue?: T) {
+        return defaultValue === undefined
+            ? workspace.getConfiguration(undefined, resource!).get<T>(section)!
+            : workspace.getConfiguration(undefined, resource!).get<T>(section, defaultValue)!;
+    }
+
     changed(e: ConfigurationChangeEvent, section: string, resource?: Uri | null) {
         return e.affectsConfiguration(`${extensionId}.${section}`, resource!);
     }
@@ -84,6 +99,10 @@ export class Configuration {
         return workspace
             .getConfiguration(section === undefined ? undefined : extensionId, resource!)
             .inspect(section === undefined ? extensionId : section);
+    }
+
+    inspectAny(section: string, resource?: Uri | null) {
+        return workspace.getConfiguration(undefined, resource!).inspect(section);
     }
 
     async migrate<TFrom, TTo>(
@@ -225,6 +244,12 @@ export class Configuration {
     update(section: string, value: any, target: ConfigurationTarget, resource?: Uri | null) {
         return workspace
             .getConfiguration(extensionId, target === ConfigurationTarget.Global ? undefined : resource!)
+            .update(section, value, target);
+    }
+
+    updateAny(section: string, value: any, target: ConfigurationTarget, resource?: Uri | null) {
+        return workspace
+            .getConfiguration(undefined, target === ConfigurationTarget.Global ? undefined : resource!)
             .update(section, value, target);
     }
 
