@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [9.8.1] - 2019-05-23
+
+## Fixed
+
+- Fixes a regression where the _Copy Remote Url to Clipboard_ command fails to include the selected line range
+
 ## [9.8.0] - 2019-05-22
 
 ## Added
@@ -2906,6 +2912,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
+[9.8.1]: https://github.com/eamodio/vscode-gitlens/compare/v9.8.0...eamodio:v9.8.1
 [9.8.0]: https://github.com/eamodio/vscode-gitlens/compare/v9.7.4...eamodio:v9.8.0
 [9.7.4]: https://github.com/eamodio/vscode-gitlens/compare/v9.7.3...eamodio:v9.7.4
 [9.7.3]: https://github.com/eamodio/vscode-gitlens/compare/v9.7.2...eamodio:v9.7.3
