@@ -220,6 +220,11 @@ export interface CommandUriContext extends CommandBaseContext {
     type: 'uri';
 }
 
+export interface CommandUrisContext extends CommandBaseContext {
+    type: 'uris';
+    uris: Uri[];
+}
+
 // export interface CommandViewContext extends CommandBaseContext {
 //     type: 'view';
 // }
@@ -326,6 +331,7 @@ export type CommandContext =
     | CommandScmStatesContext
     | CommandUnknownContext
     | CommandUriContext
+    | CommandUrisContext
     // | CommandViewContext
     | CommandViewItemContext;
 
@@ -415,6 +421,10 @@ export abstract class Command implements Disposable {
         if (options.uri && (firstArg == null || firstArg instanceof Uri)) {
             const [uri, ...rest] = args as [Uri, any];
             if (uri !== undefined) {
+                const uris = rest[0];
+                if (uris != null && Array.isArray(uris) && uris.length !== 0 && uris[0] instanceof Uri) {
+                    return [{ command: command, type: 'uris', editor: editor, uri: uri, uris: uris }, rest.slice(1)];
+                }
                 return [{ command: command, type: 'uri', editor: editor, uri: uri }, rest];
             }
 
