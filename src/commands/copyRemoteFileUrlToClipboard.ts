@@ -24,7 +24,7 @@ export class CopyRemoteFileUrlToClipboardCommand extends ActiveEditorCommand {
     }
 
     protected preExecute(context: CommandContext, args: CopyRemoteFileUrlToClipboardCommandArgs = { range: true }) {
-        if (context.type === 'uri' || context.type === 'scm-states') {
+        if (context.type === 'uris' || context.type === 'scm-states') {
             args = { ...args, range: false };
         }
         else if (isCommandViewContextWithCommit(context)) {
