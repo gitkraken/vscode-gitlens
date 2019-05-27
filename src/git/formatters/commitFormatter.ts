@@ -15,6 +15,7 @@ import { Strings } from '../../system';
 import { FormatOptions, Formatter } from './formatter';
 import * as emojis from '../../emojis.json';
 import { ContactPresence } from '../../vsls/vsls';
+import { getPresenceDataUri } from '../../avatars';
 
 const emptyStr = '';
 const emojiMap: { [key: string]: string } = emojis;
@@ -134,9 +135,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
                 presence.status === 'dnd' ? 'in ' : ''
             }${presence.statusText.toLocaleLowerCase()}`;
 
-            avatar += `![${title}](${encodeURI(
-                `file:///${Container.context.asAbsolutePath(`images/dark/icon-presence-${presence.status}.svg`)}`
-            )})`;
+            avatar += `![${title}](${getPresenceDataUri(presence.status)})`;
             avatar = `[${avatar}](# "${title}")`;
         }
 

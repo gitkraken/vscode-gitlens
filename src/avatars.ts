@@ -1,10 +1,15 @@
 'use strict';
+import * as fs from 'fs';
 import { Uri } from 'vscode';
 import { GravatarDefaultStyle } from './config';
 import { Strings } from './system';
+import { ContactPresenceStatus } from './vsls/vsls';
+import { Container } from './container';
 
-const gravatarCache: Map<string, Uri> = new Map();
+const gravatarCache = new Map<string, Uri>();
 const missingGravatarHash = '00000000000000000000000000000000';
+
+const presenceCache = new Map<ContactPresenceStatus, string>();
 
 export function clearGravatarCache() {
     gravatarCache.clear();
@@ -22,4 +27,18 @@ export function getGravatarUri(email: string | undefined, fallback: GravatarDefa
     gravatarCache.set(key, gravatar);
 
     return gravatar;
+}
+
+export function getPresenceDataUri(status: ContactPresenceStatus) {
+    let dataUri = presenceCache.get(status);
+    if (dataUri === undefined) {
+        const contents = fs
+            .readFileSync(Container.context.asAbsolutePath(`images/dark/icon-presence-${status}.svg`))
+            .toString('base64');
+
+        dataUri = encodeURI(`data:image/svg+xml;base64,${contents}`);
+        presenceCache.set(status, dataUri);
+    }
+
+    return dataUri;
 }

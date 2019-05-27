@@ -7,7 +7,7 @@ import { Commands, ToggleFileBlameCommandArgs } from './commands';
 import { AnnotationsToggleMode, Config, configuration, ConfigurationWillChangeEvent } from './configuration';
 import { GitFileSystemProvider } from './git/fsProvider';
 import { GitService } from './git/gitService';
-import { clearGravatarCache } from './gravatar';
+import { clearGravatarCache } from './avatars';
 import { LineHoverController } from './hovers/lineHoverController';
 import { Keyboard } from './keyboard';
 import { Logger, TraceLevel } from './logger';

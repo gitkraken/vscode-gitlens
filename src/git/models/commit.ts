@@ -6,7 +6,7 @@ import { Dates, memoize } from '../../system';
 import { CommitFormatter } from '../formatters/formatters';
 import { Git } from '../git';
 import { GitUri } from '../gitUri';
-import { getGravatarUri } from '../../gravatar';
+import { getGravatarUri } from '../../avatars';
 
 export interface GitAuthor {
     name: string;

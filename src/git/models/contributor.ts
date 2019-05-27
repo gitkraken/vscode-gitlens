@@ -1,7 +1,7 @@
 'use strict';
 import { Uri } from 'vscode';
 import { GravatarDefaultStyle } from '../../configuration';
-import { getGravatarUri } from '../../gravatar';
+import { getGravatarUri } from '../../avatars';
 
 export class GitContributor {
     constructor(
