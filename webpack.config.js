@@ -6,6 +6,7 @@ const webpack = require('webpack');
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 const CleanPlugin = require('clean-webpack-plugin');
 const CircularDependencyPlugin = require('circular-dependency-plugin');
+const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const HtmlExcludeAssetsPlugin = require('html-webpack-exclude-assets-plugin');
 const HtmlInlineSourcePlugin = require('html-webpack-inline-source-plugin');
 const HtmlPlugin = require('html-webpack-plugin');
@@ -28,7 +29,13 @@ module.exports = function(env, argv) {
 };
 
 function getExtensionConfig(env) {
-    const plugins = [new CleanPlugin(), new webpack.IgnorePlugin(/^spawn-sync$/)];
+    const plugins = [
+        new CleanPlugin(),
+        new ForkTsCheckerPlugin({
+            async: false,
+            useTypescriptIncrementalApi: true
+        })
+    ];
 
     if (env.analyzeDeps) {
         plugins.push(
@@ -83,28 +90,29 @@ function getExtensionConfig(env) {
         module: {
             rules: [
                 {
-                    test: /\.ts$/,
+                    test: /\.tsx?$/,
                     enforce: 'pre',
-                    use: [
-                        {
-                            loader: 'eslint-loader',
-                            options: {
-                                cache: true,
-                                failOnError: true
-                            }
+                    use: {
+                        loader: 'eslint-loader',
+                        options: {
+                            cache: true,
+                            failOnError: true
                         }
-                    ],
+                    },
                     exclude: /node_modules/
                 },
                 {
                     test: /\.tsx?$/,
-                    use: 'ts-loader',
-                    exclude: /node_modules|\.d\.ts$/
+                    use: {
+                        loader: 'ts-loader',
+                        options: {
+                            transpileOnly: true,
+                            experimentalWatchApi: true
+                        }
+                    },
+                    exclude: /node_modules/
                 }
-            ],
-            // Removes `Critical dependency: the request of a dependency is an expression` from `./node_modules/vsls/vscode.js`
-            exprContextRegExp: /^$/,
-            exprContextCritical: false
+            ]
         },
         resolve: {
             extensions: ['.ts', '.tsx', '.js', '.jsx', '.json']
@@ -131,6 +139,11 @@ function getWebviewsConfig(env) {
 
     const plugins = [
         new CleanPlugin({ cleanOnceBeforeBuildPatterns: clean }),
+        new ForkTsCheckerPlugin({
+            tsconfig: path.resolve(__dirname, 'webviews.tsconfig.json'),
+            async: false,
+            useTypescriptIncrementalApi: true
+        }),
         new MiniCssExtractPlugin({
             filename: '[name].css'
         }),
@@ -213,17 +226,15 @@ function getWebviewsConfig(env) {
         module: {
             rules: [
                 {
-                    test: /\.ts$/,
+                    test: /\.tsx?$/,
                     enforce: 'pre',
-                    use: [
-                        {
-                            loader: 'eslint-loader',
-                            options: {
-                                cache: true,
-                                failOnError: true
-                            }
+                    use: {
+                        loader: 'eslint-loader',
+                        options: {
+                            cache: true,
+                            failOnError: true
                         }
-                    ],
+                    },
                     exclude: /node_modules/
                 },
                 {
@@ -231,10 +242,12 @@ function getWebviewsConfig(env) {
                     use: {
                         loader: 'ts-loader',
                         options: {
-                            configFile: 'webviews.tsconfig.json'
+                            configFile: 'webviews.tsconfig.json',
+                            transpileOnly: true,
+                            experimentalWatchApi: true
                         }
                     },
-                    exclude: /node_modules|\.d\.ts$/
+                    exclude: /node_modules/
                 },
                 {
                     test: /\.scss$/,

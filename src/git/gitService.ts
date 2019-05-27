@@ -73,7 +73,7 @@ import { GitReflogParser, GitShortLogParser } from './parsers/parsers';
 export * from './gitUri';
 export * from './models/models';
 export * from './formatters/formatters';
-export { getNameFromRemoteResource, RemoteProvider, RemoteResource, RemoteResourceType } from './remotes/provider';
+export * from './remotes/provider';
 export { RemoteProviderFactory } from './remotes/factory';
 
 const emptyStr = '';
