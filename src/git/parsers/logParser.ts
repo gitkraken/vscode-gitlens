@@ -12,6 +12,10 @@ const diffRegex = /diff --git a\/(.*) b\/(.*)/;
 const diffRangeRegex = /^@@ -(\d+?),(\d+?) \+(\d+?),(\d+?) @@/;
 
 export const fileStatusRegex = /(\S)\S*\t([^\t\n]+)(?:\t(.+))?/;
+const fileStatusAndSummaryRegex = /^(\d+?|-)\s+?(\d+?|-)\s+?(.*)(?:\n\s(delete|rename|create))?/;
+const fileStatusAndSummaryRenamedFileRegex = /(.+)\s=>\s(.+)/;
+const fileStatusAndSummaryRenamedFilePathRegex = /(.*?){(.+?)\s=>\s(.+?)}(.*)/;
+
 const logFileSimpleRegex = /^<r> (.*)\s*(?:(?:diff --git a\/(.*) b\/(.*))|(?:(\S)\S*\t([^\t\n]+)(?:\t(.+))?))/gm;
 const logFileSimpleRenamedRegex = /^<r> (\S+)\s*(.*)$/s;
 const logFileSimpleRenamedFilesRegex = /^(\S)\S*\t([^\t\n]+)(?:\t(.+)?)$/gm;
@@ -37,6 +41,10 @@ interface LogEntry {
     files?: GitFile[];
 
     status?: GitFileStatus;
+    fileStats?: {
+        insertions: number;
+        deletions: number;
+    };
 
     summary?: string;
 
@@ -99,6 +107,7 @@ export class GitLogParser {
 
         let match;
         let renamedFileName;
+        let renamedMatch;
 
         while (true) {
             next = lines.next();
@@ -242,18 +251,64 @@ export class GitLogParser {
                                 break;
                             }
                             else {
-                                match = fileStatusRegex.exec(line);
+                                next = lines.next();
+                                match = fileStatusAndSummaryRegex.exec(`${line}\n${next.value}`);
                                 if (match != null) {
-                                    entry.status = match[1] as GitFileStatus;
-                                    renamedFileName = match[3];
-                                    if (renamedFileName !== undefined) {
-                                        entry.fileName = renamedFileName;
-                                        entry.originalFileName = match[2];
-                                    }
-                                    else {
-                                        entry.fileName = match[2];
+                                    entry.fileStats = {
+                                        insertions: Number(match[1]) || 0,
+                                        deletions: Number(match[2]) || 0
+                                    };
+
+                                    switch (match[4]) {
+                                        case undefined:
+                                            entry.status = 'M' as GitFileStatus;
+                                            entry.fileName = match[3];
+                                            break;
+                                        case 'rename':
+                                            entry.status = 'R' as GitFileStatus;
+
+                                            renamedFileName = match[3];
+                                            renamedMatch = fileStatusAndSummaryRenamedFilePathRegex.exec(
+                                                renamedFileName
+                                            );
+                                            if (renamedMatch != null) {
+                                                entry.fileName = `${renamedMatch[1]}${renamedMatch[3]}${
+                                                    renamedMatch[4]
+                                                }`;
+                                                entry.originalFileName = `${renamedMatch[1]}${renamedMatch[2]}${
+                                                    renamedMatch[4]
+                                                }`;
+                                            }
+                                            else {
+                                                renamedMatch = fileStatusAndSummaryRenamedFileRegex.exec(
+                                                    renamedFileName
+                                                );
+                                                if (renamedMatch != null) {
+                                                    entry.fileName = renamedMatch[2];
+                                                    entry.originalFileName = renamedMatch[1];
+                                                }
+                                                else {
+                                                    entry.fileName = renamedFileName;
+                                                }
+                                            }
+
+                                            break;
+                                        case 'create':
+                                            entry.status = 'A' as GitFileStatus;
+                                            entry.fileName = match[3];
+                                            break;
+                                        case 'delete':
+                                            entry.status = 'D' as GitFileStatus;
+                                            entry.fileName = match[3];
+                                            break;
+                                        default:
+                                            entry.status = 'M' as GitFileStatus;
+                                            entry.fileName = match[3];
+                                            break;
                                     }
                                 }
+
+                                if (next.done || next.value === '</f>') break;
                             }
                         }
                     }
@@ -355,6 +410,7 @@ export class GitLogParser {
 
             const originalFileName =
                 entry.originalFileName || (relativeFileName !== entry.fileName ? entry.fileName : undefined);
+
             if (type === GitCommitType.LogFile) {
                 entry.files = [
                     {
@@ -380,6 +436,7 @@ export class GitLogParser {
                 originalFileName,
                 type === GitCommitType.Log ? entry.parentShas![0] : undefined,
                 undefined,
+                entry.fileStats,
                 entry.parentShas!,
                 entry.line
             );

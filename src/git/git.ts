@@ -685,7 +685,7 @@ export class Git {
     ) {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
-        const params = ['log', '--name-status', `--format=${format}`];
+        const params = ['log', `--format=${format}`];
 
         if (maxCount && !reverse) {
             params.push(`-n${maxCount}`);
@@ -697,7 +697,7 @@ export class Git {
         }
 
         if (startLine == null) {
-            params.push('--name-status');
+            params.push('--numstat', '--summary');
         }
         else {
             // Don't include --name-status or -s because Git won't honor it

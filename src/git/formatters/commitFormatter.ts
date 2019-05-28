@@ -10,7 +10,7 @@ import {
 import { DateStyle, FileAnnotationType } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { GitCommit, GitCommitType, GitLogCommit, GitRemote, GitService, GitUri } from '../gitService';
+import { GitCommit, GitLogCommit, GitRemote, GitService, GitUri } from '../gitService';
 import { Strings } from '../../system';
 import { FormatOptions, Formatter } from './formatter';
 import * as emojis from '../../emojis.json';
@@ -143,20 +143,17 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
     }
 
     get changes() {
-        if (!(this._item instanceof GitLogCommit) || this._item.type === GitCommitType.LogFile) {
-            return this._padOrTruncate(emptyStr, this._options.tokenOptions.changes);
-        }
-
-        return this._padOrTruncate(this._item.getFormattedDiffStatus(), this._options.tokenOptions.changes);
+        return this._padOrTruncate(
+            this._item instanceof GitLogCommit ? this._item.getFormattedDiffStatus() : emptyStr,
+            this._options.tokenOptions.changes
+        );
     }
 
     get changesShort() {
-        if (!(this._item instanceof GitLogCommit) || this._item.type === GitCommitType.LogFile) {
-            return this._padOrTruncate(emptyStr, this._options.tokenOptions.changesShort);
-        }
-
         return this._padOrTruncate(
-            this._item.getFormattedDiffStatus({ compact: true, separator: emptyStr }),
+            this._item instanceof GitLogCommit
+                ? this._item.getFormattedDiffStatus({ compact: true, separator: emptyStr })
+                : emptyStr,
             this._options.tokenOptions.changesShort
         );
     }

@@ -6,6 +6,12 @@ import { GitUri } from '../gitUri';
 import { GitCommit, GitCommitType } from './commit';
 import { GitFile, GitFileStatus } from './file';
 
+const emptyStats = Object.freeze({
+    added: 0,
+    deleted: 0,
+    changed: 0
+});
+
 export interface GitLogCommitLine {
     from: {
         line: number;
@@ -36,6 +42,12 @@ export class GitLogCommit extends GitCommit {
         originalFileName?: string | undefined,
         previousSha?: string | undefined,
         previousFileName?: string | undefined,
+        private readonly _fileStats?:
+            | {
+                  insertions: number;
+                  deletions: number;
+              }
+            | undefined,
         public readonly parentShas?: string[],
         public readonly line?: GitLogCommitLine
     ) {
@@ -69,13 +81,21 @@ export class GitLogCommit extends GitCommit {
 
     @memoize()
     getDiffStatus() {
+        if (this._fileStats !== undefined) {
+            return {
+                added: this._fileStats.insertions,
+                deleted: this._fileStats.deletions,
+                changed: 0
+            };
+        }
+
+        if (this.isFile || this.files.length === 0) return emptyStats;
+
         const diff = {
             added: 0,
             deleted: 0,
             changed: 0
         };
-        if (this.files.length === 0) return diff;
-
         for (const f of this.files) {
             switch (f.status) {
                 case 'A':
@@ -113,21 +133,24 @@ export class GitLogCommit extends GitCommit {
         if (added === 0 && changed === 0 && deleted === 0) return empty || '';
 
         if (expand) {
+            const type = this.isFile ? 'line' : 'file';
+
             let status = '';
             if (added) {
-                status += `${Strings.pluralize('file', added)} added`;
+                status += `${Strings.pluralize(type, added)} added`;
             }
             if (changed) {
-                status += `${status.length === 0 ? '' : separator}${Strings.pluralize('file', changed)} changed`;
+                status += `${status.length === 0 ? '' : separator}${Strings.pluralize(type, changed)} changed`;
             }
             if (deleted) {
-                status += `${status.length === 0 ? '' : separator}${Strings.pluralize('file', deleted)} deleted`;
+                status += `${status.length === 0 ? '' : separator}${Strings.pluralize(type, deleted)} deleted`;
             }
             return `${prefix}${status}${suffix}`;
         }
 
+        // When `isFile` we are getting line changes -- and we can't get changed lines (only inserts and deletes)
         return `${prefix}${compact && added === 0 ? '' : `+${added}${separator}`}${
-            compact && changed === 0 ? '' : `~${changed}${separator}`
+            (compact || this.isFile) && changed === 0 ? '' : `~${changed}${separator}`
         }${compact && deleted === 0 ? '' : `-${deleted}`}${suffix}`;
     }
 
@@ -195,7 +218,9 @@ export class GitLogCommit extends GitCommit {
             this.getChangedValue(changes.originalFileName, this.originalFileName),
             this.getChangedValue(changes.previousSha, this.previousSha),
             this.getChangedValue(changes.previousFileName, this.previousFileName),
-            undefined
+            this._fileStats,
+            this.parentShas,
+            this.line
         );
     }
 }

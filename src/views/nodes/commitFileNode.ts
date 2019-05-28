@@ -162,7 +162,13 @@ export class CommitFileNode extends ViewRefFileNode {
                 this._tooltip = CommitFormatter.fromTemplate(
                     this.commit.isUncommitted
                         ? `\${author} ${GlyphChars.Dash} \${id}\n${status}\n\${ago} (\${date})`
-                        : `\${author} ${GlyphChars.Dash} \${id}\n${status}\n\${ago} (\${date})\n\n\${message}`,
+                        : `\${author} ${
+                              GlyphChars.Dash
+                          } \${id}\n${status}\n\${ago} (\${date})\n\n\${message}${this.commit.getFormattedDiffStatus({
+                              expand: true,
+                              prefix: '\n\n',
+                              separator: '\n'
+                          })}`,
                     this.commit,
                     {
                         dateFormat: Container.config.defaultDateFormat
