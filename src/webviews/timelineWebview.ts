@@ -13,7 +13,7 @@ import {
 	TimelineDidChangeDataNotificationType
 } from './protocol';
 import { debug, Functions } from '../system';
-import { isTextEditor } from '../constants';
+import { hasVisibleTextEditor, isTextEditor } from '../constants';
 
 export class TimelineWebview extends WebviewBase {
 	private _editor: TextEditor | undefined;
@@ -34,7 +34,7 @@ export class TimelineWebview extends WebviewBase {
 
 	@debug({ args: false })
 	private onActiveEditorChanged(editor: TextEditor | undefined) {
-		if (editor === undefined && window.visibleTextEditors.length !== 0) return;
+		if (editor === undefined && hasVisibleTextEditor()) return;
 		if (editor !== undefined && !isTextEditor(editor)) return;
 
 		this._editor = editor;
@@ -94,22 +94,38 @@ export class TimelineWebview extends WebviewBase {
 	}
 
 	private async getData(editor: TextEditor | undefined): Promise<TimelineData | undefined> {
+		let currentUser;
+		let log;
+
+		let title;
+		let repoPath;
+		let uri;
 		if (editor == undefined) {
-			this.setTitle('GitLens Timeline');
+			const repo = [...(await Container.git.getRepositories())][0]!;
+			repoPath = repo.path;
+			title = repo.name;
 
-			return undefined;
+			this.setTitle(`Timeline of ${repo.name}`);
+
+			[currentUser, log] = await Promise.all([
+				Container.git.getCurrentUser(repoPath),
+				Container.git.getLog(repoPath)
+			]);
+		} else {
+			const gitUri = await GitUri.fromUri(editor.document.uri);
+			uri = gitUri.toFileUri().toString(true);
+			repoPath = gitUri.repoPath!;
+			title = gitUri.relativePath;
+
+			this.setTitle(`Timeline of ${gitUri.fileName}`);
+
+			[currentUser, log] = await Promise.all([
+				Container.git.getCurrentUser(repoPath),
+				Container.git.getLogForFile(repoPath, gitUri.fsPath, {
+					ref: gitUri.sha
+				})
+			]);
 		}
-
-		const gitUri = await GitUri.fromUri(editor.document.uri);
-
-		this.setTitle(`Timeline of ${gitUri.fileName}`);
-
-		const [currentUser, log] = await Promise.all([
-			Container.git.getCurrentUser(gitUri.repoPath!),
-			Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
-				ref: gitUri.sha
-			})
-		]);
 
 		if (log === undefined) return undefined;
 
@@ -120,8 +136,8 @@ export class TimelineWebview extends WebviewBase {
 			const diff = commit.getDiffStatus();
 			dataset.push({
 				author: commit.author === 'You' ? name : commit.author,
-				changes: diff.added + diff.changed + diff.deleted,
 				added: diff.added,
+				changed: diff.changed,
 				deleted: diff.deleted,
 				commit: commit.sha,
 				date: commit.date,
@@ -131,7 +147,7 @@ export class TimelineWebview extends WebviewBase {
 
 		dataset.sort((a, b) => a.date.getTime() - b.date.getTime());
 
-		return { fileName: gitUri.relativePath, dataset: dataset };
+		return { dataset: dataset, repoPath: repoPath, title: title, uri: uri };
 	}
 
 	private async notifyDidChangeData(editor: TextEditor | undefined) {
