@@ -1748,10 +1748,12 @@ export class GitService implements Disposable {
                     };
                 }
                 else if (status.workingTreeStatus !== undefined) {
-                    return {
-                        current: GitUri.fromFile(fileName, repoPath, undefined),
-                        previous: await this.getPreviousUri(repoPath, uri, undefined, skip)
-                    };
+                    if (skip === 0) {
+                        return {
+                            current: GitUri.fromFile(fileName, repoPath, undefined),
+                            previous: await this.getPreviousUri(repoPath, uri, undefined, skip)
+                        };
+                    }
                 }
             }
             else if (skip === 0) {
