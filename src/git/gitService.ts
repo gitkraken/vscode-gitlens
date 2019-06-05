@@ -1764,7 +1764,7 @@ export class GitService implements Disposable {
                 skip === 0
                     ? GitUri.fromFile(fileName, repoPath, ref)
                     : (await this.getPreviousUri(repoPath, uri, undefined, skip - 1))!;
-            if (current.sha === GitService.deletedOrMissingSha) return undefined;
+            if (current === undefined || current.sha === GitService.deletedOrMissingSha) return undefined;
 
             return {
                 current: current,
@@ -1777,7 +1777,7 @@ export class GitService implements Disposable {
             skip === 0
                 ? GitUri.fromFile(fileName, repoPath, ref)
                 : (await this.getPreviousUri(repoPath, uri, ref, skip - 1))!;
-        if (current.sha === GitService.deletedOrMissingSha) return undefined;
+        if (current === undefined || current.sha === GitService.deletedOrMissingSha) return undefined;
 
         return {
             current: current,
