@@ -667,25 +667,27 @@ export class Git {
         ref: string | undefined,
         {
             filters,
-            format = GitLogParser.defaultFormat,
             maxCount,
+            firstParent = false,
             renames = true,
             reverse = false,
+            simple = false,
             startLine,
             endLine
         }: {
             filters?: GitLogDiffFilter[];
-            format?: string;
             maxCount?: number;
+            firstParent?: boolean;
             renames?: boolean;
             reverse?: boolean;
+            simple?: boolean;
             startLine?: number;
             endLine?: number;
         } = {}
     ) {
         const [file, root] = Git.splitPath(fileName, repoPath);
 
-        const params = ['log', `--format=${format}`];
+        const params = ['log', `--format=${simple ? GitLogParser.simpleFormat : GitLogParser.defaultFormat}`];
 
         if (maxCount && !reverse) {
             params.push(`-n${maxCount}`);
@@ -696,8 +698,17 @@ export class Git {
             params.push(`--diff-filter=${filters.join(emptyStr)}`);
         }
 
+        if (firstParent) {
+            params.push('--first-parent');
+        }
+
         if (startLine == null) {
-            params.push('--numstat', '--summary');
+            if (simple) {
+                params.push('--name-status');
+            }
+            else {
+                params.push('--numstat', '--summary');
+            }
         }
         else {
             // Don't include --name-status or -s because Git won't honor it

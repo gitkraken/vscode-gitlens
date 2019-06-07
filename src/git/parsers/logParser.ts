@@ -460,13 +460,8 @@ export class GitLogParser {
     static parseSimple(
         data: string,
         skip: number,
-        lineRef?: string
+        skipRef?: string
     ): [string | undefined, string | undefined, GitFileStatus | undefined] {
-        // Don't skip 1 extra for line-based previous, as we will be skipping the line ref as needed
-        if (lineRef !== undefined) {
-            skip--;
-        }
-
         let ref;
         let diffFile;
         let diffRenamed;
@@ -479,15 +474,10 @@ export class GitLogParser {
             match = logFileSimpleRegex.exec(data);
             if (match == null) break;
 
+            if (match[1] === skipRef) continue;
             if (skip-- > 0) continue;
 
             [, ref, diffFile, diffRenamed, status, file, renamed] = match;
-
-            if (lineRef === ref) {
-                skip++;
-
-                continue;
-            }
 
             // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
             file = ` ${diffRenamed || diffFile || renamed || file}`.substr(1);
@@ -499,7 +489,11 @@ export class GitLogParser {
         logFileSimpleRegex.lastIndex = 0;
 
         // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-        return [` ${ref}`.substr(1), file, status as GitFileStatus | undefined];
+        return [
+            ref == null || ref.length === 0 ? undefined : ` ${ref}`.substr(1),
+            file,
+            status as GitFileStatus | undefined
+        ];
     }
 
     @debug({ args: false })
@@ -536,6 +530,10 @@ export class GitLogParser {
         logFileSimpleRenamedFilesRegex.lastIndex = 0;
 
         // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-        return [` ${ref}`.substr(1), file, status as GitFileStatus | undefined];
+        return [
+            ref == null || ref.length === 0 ? undefined : ` ${ref}`.substr(1),
+            file,
+            status as GitFileStatus | undefined
+        ];
     }
 }

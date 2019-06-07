@@ -62,7 +62,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
             Logger.error(
                 ex,
                 'DiffLineWithPreviousCommand',
-                `getPreviousDiffUris(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`
+                `getPreviousLineDiffUris(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`
             );
             return Messages.showGenericErrorMessage('Unable to open compare');
         }

@@ -1,7 +1,7 @@
 'use strict';
 import { commands, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { Container } from '../container';
-import { GitCommit, GitService, GitUri } from '../git/gitService';
+import { GitCommit, GitLogCommit, GitService, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { ActiveEditorCommand, command, CommandContext, Commands, getCommandUri, openEditor } from './common';
@@ -57,7 +57,9 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
                 gitUri,
                 gitUri.sha,
                 // If we are in a diff editor, assume we are on the right side, and need to skip back 1 more revisions
-                args.inDiffEditor ? 1 : 0
+                args.inDiffEditor ? 1 : 0,
+                // If this is a merge commit, walk back using the first parent only
+                args.commit && (args.commit as GitLogCommit).isMerge
             );
 
             if (diffUris === undefined || diffUris.previous === undefined) {

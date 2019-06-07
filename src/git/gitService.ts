@@ -1678,10 +1678,10 @@ export class GitService implements Disposable {
         const fileName = GitUri.relativeTo(uri, repoPath);
         let data = await Git.log__file(repoPath, fileName, ref, {
             filters: filters,
-            format: GitLogParser.simpleFormat,
             maxCount: skip + 1,
             // startLine: editorLine !== undefined ? editorLine + 1 : undefined,
-            reverse: true
+            reverse: true,
+            simple: true
         });
         if (data == null || data.length === 0) return undefined;
 
@@ -1690,9 +1690,9 @@ export class GitService implements Disposable {
         if (status === 'D') {
             data = await Git.log__file(repoPath, '.', nextRef, {
                 filters: ['R'],
-                format: GitLogParser.simpleFormat,
-                maxCount: 1
+                maxCount: 1,
                 // startLine: editorLine !== undefined ? editorLine + 1 : undefined
+                simple: true
             });
             if (data == null || data.length === 0) {
                 return GitUri.fromFile(file || fileName, repoPath, nextRef);
@@ -1714,7 +1714,8 @@ export class GitService implements Disposable {
         repoPath: string,
         uri: Uri,
         ref: string | undefined,
-        skip: number = 0
+        skip: number = 0,
+        firstParent: boolean = false
     ): Promise<{ current: GitUri; previous: GitUri | undefined } | undefined> {
         if (ref === GitService.deletedOrMissingSha) return undefined;
 
@@ -1744,14 +1745,14 @@ export class GitService implements Disposable {
                     return {
                         // Diff staged with HEAD (or prior if more skips)
                         current: GitUri.fromFile(fileName, repoPath, GitService.uncommittedStagedSha),
-                        previous: await this.getPreviousUri(repoPath, uri, ref, skip - 1)
+                        previous: await this.getPreviousUri(repoPath, uri, ref, skip - 1, undefined, firstParent)
                     };
                 }
                 else if (status.workingTreeStatus !== undefined) {
                     if (skip === 0) {
                         return {
                             current: GitUri.fromFile(fileName, repoPath, undefined),
-                            previous: await this.getPreviousUri(repoPath, uri, undefined, skip)
+                            previous: await this.getPreviousUri(repoPath, uri, undefined, skip, undefined, firstParent)
                         };
                     }
                 }
@@ -1765,12 +1766,12 @@ export class GitService implements Disposable {
             const current =
                 skip === 0
                     ? GitUri.fromFile(fileName, repoPath, ref)
-                    : (await this.getPreviousUri(repoPath, uri, undefined, skip - 1))!;
+                    : (await this.getPreviousUri(repoPath, uri, undefined, skip - 1, undefined, firstParent))!;
             if (current === undefined || current.sha === GitService.deletedOrMissingSha) return undefined;
 
             return {
                 current: current,
-                previous: await this.getPreviousUri(repoPath, uri, undefined, skip)
+                previous: await this.getPreviousUri(repoPath, uri, undefined, skip, undefined, firstParent)
             };
         }
 
@@ -1778,12 +1779,12 @@ export class GitService implements Disposable {
         const current =
             skip === 0
                 ? GitUri.fromFile(fileName, repoPath, ref)
-                : (await this.getPreviousUri(repoPath, uri, ref, skip - 1))!;
+                : (await this.getPreviousUri(repoPath, uri, ref, skip - 1, undefined, firstParent))!;
         if (current === undefined || current.sha === GitService.deletedOrMissingSha) return undefined;
 
         return {
             current: current,
-            previous: await this.getPreviousUri(repoPath, uri, ref, skip)
+            previous: await this.getPreviousUri(repoPath, uri, ref, skip, undefined, firstParent)
         };
     }
 
@@ -1904,7 +1905,8 @@ export class GitService implements Disposable {
         uri: Uri,
         ref?: string,
         skip: number = 0,
-        editorLine?: number
+        editorLine?: number,
+        firstParent: boolean = false
     ): Promise<GitUri | undefined> {
         if (ref === GitService.deletedOrMissingSha) return undefined;
 
@@ -1914,17 +1916,14 @@ export class GitService implements Disposable {
             ref = undefined;
         }
 
-        if (ref !== undefined) {
-            skip++;
-        }
-
         const fileName = GitUri.relativeTo(uri, repoPath);
         // TODO: Add caching
         let data;
         try {
             data = await Git.log__file(repoPath, fileName, ref, {
-                format: GitLogParser.simpleFormat,
-                maxCount: skip + 1,
+                maxCount: skip + 2,
+                firstParent: firstParent,
+                simple: true,
                 startLine: editorLine !== undefined ? editorLine + 1 : undefined
             });
         }
@@ -1950,7 +1949,7 @@ export class GitService implements Disposable {
         }
         if (data == null || data.length === 0) return undefined;
 
-        const [previousRef, file] = GitLogParser.parseSimple(data, skip, editorLine !== undefined ? ref : undefined);
+        const [previousRef, file] = GitLogParser.parseSimple(data, skip, ref);
         // If the previous ref matches the ref we asked for assume we are at the end of the history
         if (ref !== undefined && ref === previousRef) return undefined;
 
@@ -2343,8 +2342,8 @@ export class GitService implements Disposable {
             // Now check if that commit had any renames
             data = await Git.log__file(repoPath, '.', ref, {
                 filters: ['R'],
-                format: GitLogParser.simpleFormat,
-                maxCount: 1
+                maxCount: 1,
+                simple: true
             });
             if (data == null || data.length === 0) {
                 return GitUri.resolveToUri(fileName, repoPath);
