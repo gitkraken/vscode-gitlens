@@ -25,7 +25,7 @@ export class ContributorNode extends ViewNode<RepositoriesView> implements Pagea
     async getChildren(): Promise<ViewNode[]> {
         const log = await Container.git.getLog(this.uri.repoPath!, {
             maxCount: this.maxCount !== undefined ? this.maxCount : this.view.config.defaultItemLimit,
-            authors: [this.contributor.name]
+            authors: [`^${this.contributor.name} <${this.contributor.email}>$`]
         });
         if (log === undefined) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
