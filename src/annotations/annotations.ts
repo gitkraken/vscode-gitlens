@@ -174,9 +174,7 @@ export class Annotations {
             )} "Show Commit Details")`;
         }
 
-        message += ` &nbsp; ${GlyphChars.Dash} &nbsp; ${previous} &nbsp;${
-            GlyphChars.ArrowLeftRightLong
-        }&nbsp; ${current}\n${diff}`;
+        message += ` &nbsp; ${GlyphChars.Dash} &nbsp; ${previous} &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; ${current}\n${diff}`;
 
         const markdown = new MarkdownString(message);
         markdown.isTrusted = true;

@@ -1,10 +1,11 @@
 'use strict';
+/* eslint-disable @typescript-eslint/no-var-requires */
 const fs = require('fs');
 const path = require('path');
 const glob = require('glob');
 const webpack = require('webpack');
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
-const CleanPlugin = require('clean-webpack-plugin');
+const { CleanWebpackPlugin: CleanPlugin } = require('clean-webpack-plugin');
 const CircularDependencyPlugin = require('circular-dependency-plugin');
 const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const HtmlExcludeAssetsPlugin = require('html-webpack-exclude-assets-plugin');
@@ -29,6 +30,9 @@ module.exports = function(env, argv) {
 };
 
 function getExtensionConfig(env) {
+    /**
+     * @type any[]
+     */
     const plugins = [
         new CleanPlugin(),
         new ForkTsCheckerPlugin({
@@ -78,6 +82,7 @@ function getExtensionConfig(env) {
                     terserOptions: {
                         ecma: 8,
                         // Keep the class names otherwise @log won't provide a useful name
+                        // eslint-disable-next-line @typescript-eslint/camelcase
                         keep_classnames: true,
                         module: true
                     }
@@ -90,18 +95,19 @@ function getExtensionConfig(env) {
         module: {
             rules: [
                 {
-                    test: /\.tsx?$/,
                     enforce: 'pre',
+                    exclude: /node_modules|\.d\.ts$/,
+                    test: /\.tsx?$/,
                     use: {
                         loader: 'eslint-loader',
                         options: {
                             cache: true,
                             failOnError: true
                         }
-                    },
-                    exclude: /node_modules/
+                    }
                 },
                 {
+                    exclude: /node_modules|\.d\.ts$/,
                     test: /\.tsx?$/,
                     use: {
                         loader: 'ts-loader',
@@ -109,8 +115,7 @@ function getExtensionConfig(env) {
                             transpileOnly: true,
                             experimentalWatchApi: true
                         }
-                    },
-                    exclude: /node_modules/
+                    }
                 }
             ]
         },
@@ -137,6 +142,9 @@ function getWebviewsConfig(env) {
         clean.push('images/settings');
     }
 
+    /**
+     * @type any[]
+     */
     const plugins = [
         new CleanPlugin({ cleanOnceBeforeBuildPatterns: clean }),
         new ForkTsCheckerPlugin({
@@ -148,7 +156,7 @@ function getWebviewsConfig(env) {
             filename: '[name].css'
         }),
         new HtmlPlugin({
-            excludeAssets: [/main\.js/],
+            excludeAssets: [/.+-styles\.js/],
             excludeChunks: ['welcome'],
             template: 'settings/index.html',
             filename: path.resolve(__dirname, 'dist/webviews/settings.html'),
@@ -168,7 +176,7 @@ function getWebviewsConfig(env) {
                 : false
         }),
         new HtmlPlugin({
-            excludeAssets: [/main\.js/],
+            excludeAssets: [/.+-styles\.js/],
             excludeChunks: ['settings'],
             template: 'welcome/index.html',
             filename: path.resolve(__dirname, 'dist/webviews/welcome.html'),
@@ -212,7 +220,7 @@ function getWebviewsConfig(env) {
         name: 'webviews',
         context: path.resolve(__dirname, 'src/webviews/apps'),
         entry: {
-            main: ['./scss/main.scss'],
+            'main-styles': ['./scss/main.scss'],
             settings: ['./settings/index.ts'],
             welcome: ['./welcome/index.ts']
         },
@@ -226,18 +234,19 @@ function getWebviewsConfig(env) {
         module: {
             rules: [
                 {
-                    test: /\.tsx?$/,
                     enforce: 'pre',
+                    exclude: /node_modules|\.d\.ts$/,
+                    test: /\.tsx?$/,
                     use: {
                         loader: 'eslint-loader',
                         options: {
                             cache: true,
                             failOnError: true
                         }
-                    },
-                    exclude: /node_modules/
+                    }
                 },
                 {
+                    exclude: /node_modules|\.d\.ts$/,
                     test: /\.tsx?$/,
                     use: {
                         loader: 'ts-loader',
@@ -246,8 +255,7 @@ function getWebviewsConfig(env) {
                             transpileOnly: true,
                             experimentalWatchApi: true
                         }
-                    },
-                    exclude: /node_modules/
+                    }
                 },
                 {
                     test: /\.scss$/,

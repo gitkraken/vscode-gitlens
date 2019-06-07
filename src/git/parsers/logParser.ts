@@ -272,12 +272,8 @@ export class GitLogParser {
                                                 renamedFileName
                                             );
                                             if (renamedMatch != null) {
-                                                entry.fileName = `${renamedMatch[1]}${renamedMatch[3]}${
-                                                    renamedMatch[4]
-                                                }`;
-                                                entry.originalFileName = `${renamedMatch[1]}${renamedMatch[2]}${
-                                                    renamedMatch[4]
-                                                }`;
+                                                entry.fileName = `${renamedMatch[1]}${renamedMatch[3]}${renamedMatch[4]}`;
+                                                entry.originalFileName = `${renamedMatch[1]}${renamedMatch[2]}${renamedMatch[4]}`;
                                             }
                                             else {
                                                 renamedMatch = fileStatusAndSummaryRenamedFileRegex.exec(

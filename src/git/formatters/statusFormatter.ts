@@ -67,9 +67,7 @@ export class StatusFileFormatter extends Formatter<GitFile, StatusFormatOptions>
             icon = `${GlyphChars.Pencil}${GlyphChars.Space}${GlyphChars.SpaceThinnest}${GlyphChars.Check}`;
         }
         else if (statusFile.workingTreeStatus !== undefined) {
-            icon = `${GlyphChars.Pencil}${GlyphChars.SpaceThin}${GlyphChars.SpaceThinnest}${GlyphChars.EnDash}${
-                GlyphChars.Space
-            }`;
+            icon = `${GlyphChars.Pencil}${GlyphChars.SpaceThin}${GlyphChars.SpaceThinnest}${GlyphChars.EnDash}${GlyphChars.Space}`;
         }
         else if (statusFile.indexStatus !== undefined) {
             icon = `${GlyphChars.Space}${GlyphChars.EnDash}${GlyphChars.Space.repeat(2)}${GlyphChars.Check}`;

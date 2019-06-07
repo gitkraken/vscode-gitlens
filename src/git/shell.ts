@@ -154,9 +154,7 @@ export function run<TOut extends string | Buffer>(
             (error: (Error & { stdout?: TOut | undefined }) | null, stdout, stderr) => {
                 if (error != null) {
                     if (bufferExceededRegex.test(error.message)) {
-                        error.message = `Command output exceeded the allocated stdout buffer. Set 'options.maxBuffer' to a larger value than ${
-                            opts.maxBuffer
-                        } bytes`;
+                        error.message = `Command output exceeded the allocated stdout buffer. Set 'options.maxBuffer' to a larger value than ${opts.maxBuffer} bytes`;
                     }
 
                     error.stdout =

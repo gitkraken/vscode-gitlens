@@ -22,9 +22,7 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
     }
 
     get id(): string {
-        return `${this._instanceId}:gitlens:repository(${this.branch.repoPath}):branch(${
-            this.branch.name
-        }):compareWith`;
+        return `${this._instanceId}:gitlens:repository(${this.branch.repoPath}):branch(${this.branch.name}):compareWith`;
     }
 
     getChildren(): ViewNode[] {

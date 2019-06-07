@@ -414,9 +414,7 @@ export class RepoStatusQuickPick {
                 0,
                 new CommandQuickPickItem(
                     {
-                        label: `$(git-branch) ${status.branch} is up-to-date with ${GlyphChars.Space}$(git-branch) ${
-                            status.upstream
-                        }`,
+                        label: `$(git-branch) ${status.branch} is up-to-date with ${GlyphChars.Space}$(git-branch) ${status.upstream}`,
                         description: ''
                     },
                     Commands.ShowQuickRepoStatus,

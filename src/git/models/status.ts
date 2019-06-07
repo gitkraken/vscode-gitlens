@@ -135,9 +135,7 @@ export class GitStatus {
             return `${prefix}${status}${suffix}`;
         }
 
-        return `${prefix}${state.behind}${GlyphChars.ArrowDown}${separator}${state.ahead}${
-            GlyphChars.ArrowUp
-        }${suffix}`;
+        return `${prefix}${state.behind}${GlyphChars.ArrowDown}${separator}${state.ahead}${GlyphChars.ArrowUp}${suffix}`;
     }
 }
 

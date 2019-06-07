@@ -63,9 +63,7 @@ export class CommitNode extends ViewRefNode<ViewWithFiles> {
 
         const branchAndTagTips = this.getBranchAndTagTips && this.getBranchAndTagTips(this.commit.sha);
         if (branchAndTagTips !== undefined) {
-            label = `${GlyphChars.AngleBracketLeftHeavy}${GlyphChars.SpaceThin}${branchAndTagTips}${
-                GlyphChars.SpaceThin
-            }${GlyphChars.AngleBracketRightHeavy}${GlyphChars.ArrowHeadRight}${GlyphChars.Space} ${label}`;
+            label = `${GlyphChars.AngleBracketLeftHeavy}${GlyphChars.SpaceThin}${branchAndTagTips}${GlyphChars.SpaceThin}${GlyphChars.AngleBracketRightHeavy}${GlyphChars.ArrowHeadRight}${GlyphChars.Space} ${label}`;
         }
 
         const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
