@@ -112,21 +112,18 @@ export abstract class ViewRefFileNode<TView extends View = View> extends ViewRef
     }
 }
 
+export function nodeSupportsConditionalDismissal(node: ViewNode): node is ViewNode & { canDismiss(): boolean } {
+    return typeof (node as ViewNode & { canDismiss(): boolean }).canDismiss === 'function';
+}
+
 export interface PageableViewNode {
+    readonly id?: string;
     readonly supportsPaging: boolean;
+    readonly rememberLastMaxCount?: boolean;
     maxCount: number | undefined;
 }
-
-export function isPageable(node: ViewNode): node is ViewNode & PageableViewNode {
+export function nodeSupportsPaging(node: ViewNode): node is ViewNode & PageableViewNode {
     return Functions.is<ViewNode & PageableViewNode>(node, 'supportsPaging', true);
-}
-
-interface AutoRefreshableView {
-    autoRefresh: boolean;
-    onDidChangeAutoRefresh: Event<void>;
-}
-export function supportsAutoRefresh(view: View): view is View & AutoRefreshableView {
-    return Functions.is<View & AutoRefreshableView>(view, 'onDidChangeAutoRefresh');
 }
 
 export abstract class SubscribeableViewNode<TView extends View = View> extends ViewNode<TView> {
@@ -141,7 +138,7 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
             this.view.onDidChangeNodeState(this.onNodeStateChanged, this)
         ];
 
-        if (supportsAutoRefresh(this.view)) {
+        if (viewSupportsAutoRefresh(this.view)) {
             disposables.push(this.view.onDidChangeAutoRefresh(this.onAutoRefreshChanged, this));
         }
 
@@ -200,14 +197,14 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
         if (e.element === this) {
             this._state = e.state;
             if (this.onStateChanged !== undefined) {
-            this.onStateChanged(e.state);
-        }
+                this.onStateChanged(e.state);
+            }
         }
         else if (e.element === this.parent) {
             if (this.onParentStateChanged !== undefined) {
-            this.onParentStateChanged(e.state);
+                this.onParentStateChanged(e.state);
+            }
         }
-    }
     }
 
     @debug()
@@ -222,7 +219,11 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
     @debug()
     async ensureSubscription() {
         // We only need to subscribe if we are visible and if auto-refresh enabled (when supported)
-        if (!this.canSubscribe || !this.view.visible || (supportsAutoRefresh(this.view) && !this.view.autoRefresh)) {
+        if (
+            !this.canSubscribe ||
+            !this.view.visible ||
+            (viewSupportsAutoRefresh(this.view) && !this.view.autoRefresh)
+        ) {
             await this.unsubscribe();
 
             return;
@@ -236,8 +237,12 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
     }
 }
 
-export function nodeSupportsConditionalDismissal(node: ViewNode): node is ViewNode & { canDismiss(): boolean } {
-    return typeof (node as ViewNode & { canDismiss(): boolean }).canDismiss === 'function';
+interface AutoRefreshableView {
+    autoRefresh: boolean;
+    onDidChangeAutoRefresh: Event<void>;
+}
+export function viewSupportsAutoRefresh(view: View): view is View & AutoRefreshableView {
+    return Functions.is<View & AutoRefreshableView>(view, 'onDidChangeAutoRefresh');
 }
 
 export function viewSupportsNodeDismissal(view: View): view is View & { dismissNode(node: ViewNode): void } {

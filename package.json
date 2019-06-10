@@ -2979,6 +2979,15 @@
                 }
             },
             {
+                "command": "gitlens.views.showMoreChildren",
+                "title": "Show More",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-unfold.svg",
+                    "light": "images/light/icon-unfold.svg"
+                }
+            },
+            {
                 "command": "gitlens.views.showAllChildren",
                 "title": "Show All",
                 "category": "GitLens",
@@ -3644,6 +3653,10 @@
                 },
                 {
                     "command": "gitlens.views.refreshNode",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.views.showMoreChildren",
                     "when": "false"
                 },
                 {

@@ -15,11 +15,9 @@ export interface CommitsQueryResults {
 }
 
 export class ResultsCommitsNode extends ViewNode<ViewWithFiles> implements PageableViewNode {
-    readonly supportsPaging: boolean = true;
-    maxCount: number | undefined;
-
-    // Generate a unique id so the node order is preserved, since we update the label when the query completes
-    private readonly _uniqueId: number = getNextId('ResultsCommitsNode');
+    readonly supportsPaging = true;
+    readonly rememberLastMaxCount = true;
+    maxCount: number | undefined = this.view.getNodeLastMaxCount(this);
 
     constructor(
         view: ViewWithFiles,
@@ -58,7 +56,9 @@ export class ResultsCommitsNode extends ViewNode<ViewWithFiles> implements Pagea
         ];
 
         if (log.truncated) {
-            children.push(new ShowMoreNode(this.view, this, 'Results', children[children.length - 1], this.maxCount));
+            children.push(
+                new ShowMoreNode(this.view, this, 'Results', log.maxCount, children[children.length - 1], this.maxCount)
+            );
         }
 
         return children;

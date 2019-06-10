@@ -23,10 +23,9 @@ import { CompareView } from './compareView';
 import { FileHistoryView } from './fileHistoryView';
 import { LineHistoryView } from './lineHistoryView';
 import { ViewNode } from './nodes';
-import { isPageable } from './nodes/viewNode';
+import { nodeSupportsPaging, PageableViewNode } from './nodes/viewNode';
 import { RepositoriesView } from './repositoriesView';
 import { SearchView } from './searchView';
-import { RefreshNodeCommandArgs } from './viewCommands';
 
 export type View = RepositoriesView | FileHistoryView | LineHistoryView | CompareView | SearchView;
 export type ViewWithFiles = RepositoriesView | CompareView | SearchView;
@@ -52,6 +51,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
     }
 
     protected _disposable: Disposable | undefined;
+    private readonly _lastMaxCounts = new Map<string, number | undefined>();
     protected _root: TRoot | undefined;
     protected _tree: TreeView<ViewNode> | undefined;
 
@@ -128,6 +128,11 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
     }
 
     protected onElementCollapsed(e: TreeViewExpansionEvent<ViewNode>) {
+        // Clear any last max count if the node was collapsed
+        if (nodeSupportsPaging(e.element)) {
+            this.resetNodeLastMaxCount(e.element);
+        }
+
         this._onDidChangeNodeState.fire({ ...e, state: TreeItemCollapsibleState.Collapsed });
     }
 
@@ -161,25 +166,10 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
     @debug({
         args: { 0: (n: ViewNode) => n.toString() }
     })
-    async refreshNode(node: ViewNode, reset: boolean = false, args?: RefreshNodeCommandArgs) {
-        if (args !== undefined) {
-            if (isPageable(node)) {
-                if (args.maxCount === undefined || args.maxCount === 0) {
-                    node.maxCount = args.maxCount;
-                }
-                else {
-                    node.maxCount = (node.maxCount || args.maxCount) + args.maxCount;
-                }
-
-                if (args.previousNode !== undefined) {
-                    void (await this.reveal(args.previousNode, { select: true }));
-                }
-            }
-        }
-
+    async refreshNode(node: ViewNode, reset: boolean = false) {
         if (node.refresh !== undefined) {
-        const cancel = await node.refresh(reset);
-        if (cancel === true) return;
+            const cancel = await node.refresh(reset);
+            if (cancel === true) return;
         }
 
         this.triggerNodeChange(node);
@@ -234,6 +224,51 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 
             return undefined;
         }
+    }
+
+    @debug({
+        args: { 0: (n: ViewNode) => n.toString() }
+    })
+    getNodeLastMaxCount(node: PageableViewNode) {
+        return node.id === undefined ? undefined : this._lastMaxCounts.get(node.id);
+    }
+
+    @debug({
+        args: { 0: (n: ViewNode) => n.toString() }
+    })
+    resetNodeLastMaxCount(node: PageableViewNode) {
+        if (node.id === undefined || !node.rememberLastMaxCount) return;
+
+        this._lastMaxCounts.delete(node.id);
+    }
+
+    @debug({
+        args: {
+            0: (n: ViewNode & PageableViewNode) => n.toString(),
+            3: (n?: ViewNode) => (n === undefined ? '' : n.toString())
+        }
+    })
+    async showMoreNodeChildren(
+        node: ViewNode & PageableViewNode,
+        maxCount: number | undefined,
+        previousNode?: ViewNode
+    ) {
+        if (maxCount === undefined || maxCount === 0) {
+            node.maxCount = maxCount;
+        }
+        else {
+            node.maxCount = (node.maxCount || maxCount) + maxCount;
+        }
+
+        if (node.rememberLastMaxCount) {
+            this._lastMaxCounts.set(node.id!, node.maxCount);
+        }
+
+        if (previousNode !== undefined) {
+            void (await this.reveal(previousNode, { select: true }));
+        }
+
+        return this.refreshNode(node);
     }
 
     @debug({

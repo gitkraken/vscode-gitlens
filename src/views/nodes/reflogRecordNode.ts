@@ -10,8 +10,9 @@ import { MessageNode, ShowMoreNode } from './common';
 import { PageableViewNode, ResourceType, ViewNode } from './viewNode';
 
 export class ReflogRecordNode extends ViewNode<ViewWithFiles> implements PageableViewNode {
-    readonly supportsPaging: boolean = true;
-    maxCount: number | undefined;
+    readonly supportsPaging = true;
+    readonly rememberLastMaxCount = true;
+    maxCount: number | undefined = this.view.getNodeLastMaxCount(this);
 
     constructor(view: ViewWithFiles, parent: ViewNode, public readonly record: GitReflogRecord) {
         super(GitUri.fromRepoPath(record.repoPath), view, parent);
@@ -37,7 +38,7 @@ export class ReflogRecordNode extends ViewNode<ViewWithFiles> implements Pageabl
         ];
 
         if (log.truncated) {
-            children.push(new ShowMoreNode(this.view, this, 'Commits', children[children.length - 1]));
+            children.push(new ShowMoreNode(this.view, this, 'Commits', log.maxCount, children[children.length - 1]));
         }
         return children;
     }

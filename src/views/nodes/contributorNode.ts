@@ -11,8 +11,9 @@ import { CommitNode } from './commitNode';
 import { GlyphChars } from '../../constants';
 
 export class ContributorNode extends ViewNode<RepositoriesView> implements PageableViewNode {
-    readonly supportsPaging: boolean = true;
-    maxCount: number | undefined;
+    readonly supportsPaging = true;
+    readonly rememberLastMaxCount = true;
+    maxCount: number | undefined = this.view.getNodeLastMaxCount(this);
 
     constructor(uri: GitUri, view: RepositoriesView, parent: ViewNode, public readonly contributor: GitContributor) {
         super(uri, view, parent);
@@ -41,7 +42,7 @@ export class ContributorNode extends ViewNode<RepositoriesView> implements Pagea
         ];
 
         if (log.truncated) {
-            children.push(new ShowMoreNode(this.view, this, 'Commits', children[children.length - 1]));
+            children.push(new ShowMoreNode(this.view, this, 'Commits', log.maxCount, children[children.length - 1]));
         }
         return children;
     }

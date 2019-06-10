@@ -2,8 +2,7 @@ import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vsc
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { View } from '../viewBase';
-import { RefreshNodeCommandArgs } from '../viewCommands';
-import { ResourceType, unknownGitUri, ViewNode } from './viewNode';
+import { PageableViewNode, ResourceType, unknownGitUri, ViewNode } from './viewNode';
 
 export class MessageNode extends ViewNode {
     constructor(
@@ -137,23 +136,29 @@ export class UpdateableMessageNode extends ViewNode {
 }
 
 export abstract class PagerNode extends ViewNode {
-    protected _args: RefreshNodeCommandArgs = {};
-
     constructor(
         view: View,
-        parent: ViewNode,
+        parent: ViewNode & PageableViewNode,
         protected readonly message: string,
-        previousNode?: ViewNode,
-        maxCount: number = Container.config.views.pageItemLimit
+        maxCount: number | undefined,
+        private readonly _previousNode?: ViewNode,
+        private readonly _pageSize: number = Container.config.views.pageItemLimit
     ) {
         super(unknownGitUri, view, parent);
 
-        this._args.maxCount = maxCount;
-        this._args.previousNode = previousNode;
+        parent.maxCount = maxCount;
+    }
+
+    showMore() {
+        return this.view.showMoreNodeChildren(
+            this.parent! as ViewNode & PageableViewNode,
+            this._pageSize,
+            this._previousNode
+        );
     }
 
     showAll() {
-        this.view.refreshNode(this.parent!, true, { ...this._args, maxCount: 0 });
+        return this.view.showMoreNodeChildren(this.parent! as ViewNode & PageableViewNode, 0, this._previousNode);
     }
 
     getChildren(): ViewNode[] | Promise<ViewNode[]> {
@@ -173,23 +178,31 @@ export abstract class PagerNode extends ViewNode {
 
     getCommand(): Command | undefined {
         return {
-            title: 'Refresh',
-            command: 'gitlens.views.refreshNode',
-            arguments: [this.parent, true, this._args]
+            title: 'Show More',
+            command: 'gitlens.views.showMoreChildren',
+            arguments: [this]
         };
     }
 }
 
 export class ShowMoreNode extends PagerNode {
-    constructor(view: View, parent: ViewNode, itemType: string, previousNode: ViewNode, maxCount?: number) {
+    constructor(
+        view: View,
+        parent: ViewNode & PageableViewNode,
+        itemType: string,
+        maxCount: number | undefined,
+        previousNode: ViewNode,
+        pageSize?: number
+    ) {
         super(
             view,
             parent,
-            maxCount === 0
+            pageSize === 0
                 ? `Show All ${itemType} ${GlyphChars.Space}${GlyphChars.Dash}${GlyphChars.Space} this may take a while`
                 : `Show More ${itemType}`,
+            maxCount,
             previousNode,
-            maxCount
+            pageSize
         );
     }
 }

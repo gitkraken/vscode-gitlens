@@ -27,6 +27,7 @@ import {
     FileHistoryNode,
     FolderNode,
     LineHistoryNode,
+    nodeSupportsPaging,
     RemoteNode,
     RepositoryNode,
     ResultsFileNode,
@@ -42,11 +43,6 @@ import {
 import { Strings } from '../system/string';
 import { PagerNode } from './nodes/common';
 
-export interface RefreshNodeCommandArgs {
-    maxCount?: number;
-    previousNode?: ViewNode;
-}
-
 interface CompareSelectedInfo {
     ref: string;
     repoPath: string | undefined;
@@ -61,8 +57,14 @@ export class ViewCommands implements Disposable {
     constructor() {
         commands.registerCommand(
             'gitlens.views.refreshNode',
-            (node: ViewNode, reset?: boolean, args?: RefreshNodeCommandArgs) =>
-                node.view.refreshNode(node, reset === undefined ? true : reset, args),
+            (node: ViewNode, reset?: boolean) => {
+                if (reset === undefined && nodeSupportsPaging(node)) {
+                    node.maxCount = undefined;
+                    node.view.resetNodeLastMaxCount(node);
+                }
+
+                return node.view.refreshNode(node, reset === undefined ? true : reset);
+            },
             this
         );
         commands.registerCommand(
@@ -76,6 +78,7 @@ export class ViewCommands implements Disposable {
             this
         );
         commands.registerCommand('gitlens.views.executeNodeCallback', (fn: <R>() => Promise<R>) => fn(), this);
+        commands.registerCommand('gitlens.views.showMoreChildren', (node: PagerNode) => node.showMore(), this);
         commands.registerCommand('gitlens.views.showAllChildren', (node: PagerNode) => node.showAll(), this);
 
         commands.registerCommand('gitlens.views.fetch', this.fetch, this);

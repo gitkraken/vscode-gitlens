@@ -9,8 +9,9 @@ import { debug, gate } from '../../system';
 import { MessageNode, ShowMoreNode } from './common';
 
 export class ReflogNode extends ViewNode<RepositoriesView> implements PageableViewNode {
-    readonly supportsPaging: boolean = true;
-    maxCount: number | undefined;
+    readonly supportsPaging = true;
+    readonly rememberLastMaxCount = true;
+    maxCount: number | undefined = this.view.getNodeLastMaxCount(this);
 
     private _children: ViewNode[] | undefined;
 
@@ -37,7 +38,9 @@ export class ReflogNode extends ViewNode<RepositoriesView> implements PageableVi
             children.push(...reflog.records.map(r => new ReflogRecordNode(this.view, this, r)));
 
             if (reflog.truncated) {
-                children.push(new ShowMoreNode(this.view, this, 'Activity', children[children.length - 1]));
+                children.push(
+                    new ShowMoreNode(this.view, this, 'Activity', reflog.maxCount, children[children.length - 1])
+                );
             }
 
             this._children = children;

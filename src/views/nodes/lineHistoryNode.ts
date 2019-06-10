@@ -18,7 +18,7 @@ import { insertDateMarkers } from './helpers';
 import { PageableViewNode, ResourceType, SubscribeableViewNode, ViewNode } from './viewNode';
 
 export class LineHistoryNode extends SubscribeableViewNode implements PageableViewNode {
-    readonly supportsPaging: boolean = true;
+    readonly supportsPaging = true;
     maxCount: number | undefined;
 
     constructor(
@@ -111,7 +111,9 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
             );
 
             if (log.truncated) {
-                children.push(new ShowMoreNode(this.view, this, 'Commits', children[children.length - 1]));
+                children.push(
+                    new ShowMoreNode(this.view, this, 'Commits', log.maxCount, children[children.length - 1])
+                );
             }
         }
 

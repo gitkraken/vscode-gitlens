@@ -13,8 +13,9 @@ import { getBranchesAndTagTipsFn, insertDateMarkers } from './helpers';
 import { PageableViewNode, ResourceType, ViewNode, ViewRefNode } from './viewNode';
 
 export class BranchNode extends ViewRefNode<RepositoriesView> implements PageableViewNode {
-    readonly supportsPaging: boolean = true;
-    maxCount: number | undefined;
+    readonly supportsPaging = true;
+    readonly rememberLastMaxCount = true;
+    maxCount: number | undefined = this.view.getNodeLastMaxCount(this);
 
     private _children: ViewNode[] | undefined;
 
@@ -94,7 +95,9 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
             );
 
             if (log.truncated) {
-                children.push(new ShowMoreNode(this.view, this, 'Commits', children[children.length - 1]));
+                children.push(
+                    new ShowMoreNode(this.view, this, 'Commits', log.maxCount, children[children.length - 1])
+                );
             }
 
             this._children = children;
@@ -204,7 +207,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 
     @gate()
     @debug()
-    refresh(reset: boolean = false) {
+    refresh() {
         this._children = undefined;
     }
 }
