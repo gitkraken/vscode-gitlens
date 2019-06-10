@@ -1410,12 +1410,16 @@ export class GitService implements Disposable {
         if (options.ref !== undefined) {
             key += `:${options.ref}`;
         }
-        if (options.maxCount !== undefined) {
+
+        options.maxCount = options.maxCount == null ? Container.config.advanced.maxListItems || 0 : options.maxCount;
+        if (options.maxCount) {
             key += `:n${options.maxCount}`;
         }
+
         if (options.renames) {
             key += ':follow';
         }
+
         if (options.reverse) {
             key += ':reverse';
         }
@@ -1531,11 +1535,8 @@ export class GitService implements Disposable {
                 range = new Range(range.end, range.start);
             }
 
-            const maxCount = options.maxCount == null ? Container.config.advanced.maxListItems || 0 : options.maxCount;
-
             const data = await Git.log__file(root, file, ref, {
                 ...options,
-                maxCount: maxCount,
                 startLine: range === undefined ? undefined : range.start.line + 1,
                 endLine: range === undefined ? undefined : range.end.line + 1
             });
@@ -1546,7 +1547,7 @@ export class GitService implements Disposable {
                 file,
                 ref,
                 await this.getCurrentUser(root),
-                maxCount,
+                options.maxCount,
                 options.reverse!,
                 range
             );
