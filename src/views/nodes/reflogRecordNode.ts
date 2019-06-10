@@ -18,9 +18,9 @@ export class ReflogRecordNode extends ViewNode<ViewWithFiles> implements Pageabl
     }
 
     get id(): string {
-        return `${this._instanceId}:gitlens:repository(${this.uri.repoPath}):reflog-record(${this.record.sha}|${
-            this.record.selector
-        }|${this.record.command}|${this.record.commandArgs || ''}|${this.record.date.getTime()})`;
+        return `gitlens:repository(${this.uri.repoPath}):reflog-record(${this.record.sha}|${this.record.selector}|${
+            this.record.command
+        }|${this.record.commandArgs || ''}|${this.record.date.getTime()})`;
     }
 
     async getChildren(): Promise<ViewNode[]> {

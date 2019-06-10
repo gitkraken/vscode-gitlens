@@ -56,6 +56,16 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
     protected _tree: TreeView<ViewNode> | undefined;
 
     constructor(public readonly id: string, public readonly name: string) {
+        if (Logger.isDebugging) {
+            const fn = this.getTreeItem;
+            this.getTreeItem = async function(this: ViewBase<TRoot>, node: ViewNode) {
+                const item = await fn.apply(this, [node]);
+
+                item.tooltip = `${item.tooltip || item.label}\n\nDBG: ${node.toString()}`;
+                return item;
+            };
+        }
+
         this.registerCommands();
 
         Container.context.subscriptions.push(configuration.onDidChange(this.onConfigurationChanged, this));
@@ -141,7 +151,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 
     @debug()
     async refresh(reset: boolean = false) {
-        if (this._root !== undefined) {
+        if (this._root !== undefined && this._root.refresh !== undefined) {
             await this._root.refresh(reset);
         }
 
@@ -167,8 +177,10 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
             }
         }
 
+        if (node.refresh !== undefined) {
         const cancel = await node.refresh(reset);
         if (cancel === true) return;
+        }
 
         this.triggerNodeChange(node);
     }

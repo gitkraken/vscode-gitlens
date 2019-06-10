@@ -13,7 +13,7 @@ export class ContributorsNode extends ViewNode<RepositoriesView> {
     }
 
     get id(): string {
-        return `${this._instanceId}:gitlens:repository(${this.repo.path}):contributors`;
+        return `gitlens:repository(${this.repo.path}):contributors`;
     }
 
     async getChildren(): Promise<ViewNode[]> {

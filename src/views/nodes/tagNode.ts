@@ -19,7 +19,7 @@ export class TagNode extends ViewRefNode<RepositoriesView> implements PageableVi
     }
 
     get id(): string {
-        return `${this._instanceId}:gitlens:repository(${this.tag.repoPath}):tag(${this.tag.name})`;
+        return `gitlens:repository(${this.tag.repoPath}):tag(${this.tag.name})`;
     }
 
     get label(): string {

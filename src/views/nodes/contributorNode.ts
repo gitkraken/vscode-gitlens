@@ -19,7 +19,7 @@ export class ContributorNode extends ViewNode<RepositoriesView> implements Pagea
     }
 
     get id(): string {
-        return `${this._instanceId}:gitlens:repository(${this.contributor.repoPath}):contributor(${this.contributor.name}|${this.contributor.email}}`;
+        return `gitlens:repository(${this.contributor.repoPath}):contributor(${this.contributor.name}|${this.contributor.email}}`;
     }
 
     async getChildren(): Promise<ViewNode[]> {

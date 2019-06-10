@@ -19,7 +19,7 @@ export class ReflogNode extends ViewNode<RepositoriesView> implements PageableVi
     }
 
     get id(): string {
-        return `${this._instanceId}:gitlens:repository(${this.repo.path}):reflog`;
+        return `gitlens:repository(${this.repo.path}):reflog`;
     }
 
     async getChildren(): Promise<ViewNode[]> {

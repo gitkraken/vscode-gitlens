@@ -8,7 +8,7 @@ import { Arrays, debug, gate, Iterables, Strings } from '../../system';
 import { ViewWithFiles } from '../viewBase';
 import { FileNode, FolderNode } from './folderNode';
 import { ResultsFileNode } from './resultsFileNode';
-import { getNextId, ResourceType, ViewNode } from './viewNode';
+import { ResourceType, ViewNode } from './viewNode';
 
 export interface FilesQueryResults {
     label: string;
@@ -16,9 +16,6 @@ export interface FilesQueryResults {
 }
 
 export class ResultsFilesNode extends ViewNode<ViewWithFiles> {
-    // Generate a unique id so the node order is preserved, since we update the label when the query completes
-    private readonly _uniqueId: number = getNextId('ResultsFilesNode');
-
     constructor(
         view: ViewWithFiles,
         parent: ViewNode,
@@ -30,7 +27,7 @@ export class ResultsFilesNode extends ViewNode<ViewWithFiles> {
     }
 
     get id(): string {
-        return `${this._uniqueId}|${this._instanceId}:gitlens:results:files(${this.repoPath})`;
+        return `${this.parent!.id}:results:files`;
     }
 
     async getChildren(): Promise<ViewNode[]> {

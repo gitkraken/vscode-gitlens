@@ -13,7 +13,7 @@ export class StashNode extends ViewRefNode {
     }
 
     get id(): string {
-        return `${this._instanceId}:gitlens:repository(${this.commit.repoPath}):stash(${this.commit.sha})`;
+        return `gitlens:repository(${this.commit.repoPath}):stash(${this.commit.sha})`;
     }
 
     get ref(): string {

@@ -33,7 +33,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
     }
 
     get id(): string {
-        return `${this._instanceId}:gitlens:repository(${this.status.repoPath}):status:files`;
+        return `gitlens:repository(${this.status.repoPath}):status:files`;
     }
 
     async getChildren(): Promise<ViewNode[]> {

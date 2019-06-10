@@ -16,7 +16,7 @@ export class TagsNode extends ViewNode<RepositoriesView> {
     }
 
     get id(): string {
-        return `${this._instanceId}:gitlens:repository(${this.repo.path}):tags`;
+        return `gitlens:repository(${this.repo.path}):tags`;
     }
 
     async getChildren(): Promise<ViewNode[]> {

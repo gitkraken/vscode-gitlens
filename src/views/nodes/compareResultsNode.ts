@@ -9,8 +9,11 @@ import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
 import { ResultsFilesNode } from './resultsFilesNode';
 import { ResourceType, SubscribeableViewNode, ViewNode } from './viewNode';
 
+let instanceId = 0;
+
 export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
     private _children: ViewNode[] | undefined;
+    private _instanceId: number;
 
     constructor(
         view: CompareView,
@@ -20,6 +23,11 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
         private _pinned: boolean = false
     ) {
         super(GitUri.fromRepoPath(repoPath), view);
+        this._instanceId = instanceId++;
+    }
+
+    get id(): string {
+        return `gitlens:repository(${this.repoPath}):compare(${this._ref1.ref}:${this._ref2.ref})|${this._instanceId}`;
     }
 
     get label() {

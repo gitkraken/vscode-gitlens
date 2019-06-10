@@ -23,7 +23,7 @@ export class BranchOrTagFolderNode extends ViewNode {
     }
 
     get id(): string {
-        return `${this._instanceId}:gitlens:repository(${this.repoPath})${
+        return `gitlens:repository(${this.repoPath})${
             this._key === undefined ? '' : `:${this._key}`
         }:${this.type}-folder(${this.relativePath})`;
     }

@@ -7,7 +7,7 @@ import { ViewWithFiles } from '../viewBase';
 import { CommitNode } from './commitNode';
 import { ShowMoreNode } from './common';
 import { getBranchesAndTagTipsFn, insertDateMarkers } from './helpers';
-import { getNextId, PageableViewNode, ResourceType, ViewNode } from './viewNode';
+import { PageableViewNode, ResourceType, ViewNode } from './viewNode';
 
 export interface CommitsQueryResults {
     label: string;
@@ -35,7 +35,7 @@ export class ResultsCommitsNode extends ViewNode<ViewWithFiles> implements Pagea
     }
 
     get id(): string {
-        return `${this._uniqueId}|${this._instanceId}:${this.type}(${this.repoPath})`;
+        return `${this.parent!.id}:results:commits`;
     }
 
     get type(): ResourceType {

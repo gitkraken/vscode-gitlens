@@ -30,11 +30,9 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
     }
 
     get id(): string {
-        return `${this._instanceId}:gitlens:repository(${this.branch.repoPath})${this._root ? ':root:' : ''}:branch(${
-            this.branch.name
-        })${this.branch.current ? '+current:' : ''}${this.branch.remote ? '+remote' : ''}${
-            this.branch.starred ? '+starred:' : ''
-        }`;
+        return `gitlens:repository(${this.branch.repoPath})${this._root ? ':root' : ''}:branch(${this.branch.name})${
+            this.branch.current ? '+current' : ''
+        }${this.branch.remote ? '+remote' : ''}${this.branch.starred ? '+starred' : ''}`;
     }
 
     get current(): boolean {
@@ -206,7 +204,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 
     @gate()
     @debug()
-    refresh() {
+    refresh(reset: boolean = false) {
         this._children = undefined;
     }
 }

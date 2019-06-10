@@ -40,7 +40,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
     }
 
     get id(): string {
-        return `${this._instanceId}:gitlens:repository(${this.repo.path})${this.repo.starred ? '+starred:' : ''}`;
+        return `gitlens:repository(${this.repo.path})${this.repo.starred ? '+starred' : ''}`;
     }
 
     async getChildren(): Promise<ViewNode[]> {

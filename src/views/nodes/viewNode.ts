@@ -56,41 +56,10 @@ export interface ViewNode {
     readonly id?: string;
 }
 
-const counters: { [key: string]: number } = {
-    instanceId: 0
-};
-export function getNextId(key?: string) {
-    if (key === undefined) {
-        key = 'instanceId';
-    }
-
-    let counter = counters[key] || 0;
-    if (counter === Number.MAX_SAFE_INTEGER) {
-        counter = 0;
-    }
-    counter++;
-
-    counters[key] = counter;
-    return counter;
-}
-
-@logName<ViewNode>((c, name) => `${name}(${c.id || c._instanceId})`)
+@logName<ViewNode>((c, name) => `${name}${c.id != null ? `(${c.id})` : ''}`)
 export abstract class ViewNode<TView extends View = View> {
-    protected readonly _instanceId: number;
-
     constructor(uri: GitUri, public readonly view: TView, protected readonly parent?: ViewNode) {
-        this._instanceId = 0; //getNextId();
         this._uri = uri;
-
-        if (Logger.isDebugging) {
-            const fn = this.getTreeItem;
-            this.getTreeItem = async function(this: ViewNode<TView>) {
-                const item = await fn.apply(this);
-
-                item.tooltip = `${item.tooltip || item.label}\n\nDBG: ${this.toString()}`;
-                return item;
-            };
-        }
     }
 
     toString() {
@@ -114,11 +83,7 @@ export abstract class ViewNode<TView extends View = View> {
         return undefined;
     }
 
-    @gate()
-    @debug()
-    refresh(reset: boolean = false): void | boolean | Promise<void> | Promise<boolean> {
-        // virtual
-    }
+    refresh?(reset?: boolean): void | boolean | Promise<void> | Promise<boolean>;
 
     @gate()
     @debug()
@@ -135,7 +100,7 @@ export abstract class ViewRefNode<TView extends View = View> extends ViewNode<TV
     }
 
     toString() {
-        return `${super.toString()}: ${this.ref}`;
+        return `${super.toString()}:${this.ref}`;
     }
 }
 
@@ -227,22 +192,22 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
         this.onVisibilityChanged({ visible: this.view.visible });
     }
 
-    protected onParentStateChanged(state: TreeItemCollapsibleState) {
-        // virtual
-    }
-    protected onStateChanged(state: TreeItemCollapsibleState) {
-        // virtual
-    }
+    protected onParentStateChanged?(state: TreeItemCollapsibleState): void;
+    protected onStateChanged?(state: TreeItemCollapsibleState): void;
 
     protected _state: TreeItemCollapsibleState | undefined;
     protected onNodeStateChanged(e: TreeViewNodeStateChangeEvent<ViewNode>) {
         if (e.element === this) {
             this._state = e.state;
+            if (this.onStateChanged !== undefined) {
             this.onStateChanged(e.state);
         }
+        }
         else if (e.element === this.parent) {
+            if (this.onParentStateChanged !== undefined) {
             this.onParentStateChanged(e.state);
         }
+    }
     }
 
     @debug()

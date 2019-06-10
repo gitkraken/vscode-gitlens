@@ -32,7 +32,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements
     }
 
     get id(): string {
-        return `${this._instanceId}:gitlens:repository(${this.status.repoPath}):${this._root ? 'root:' : ''}branch(${
+        return `gitlens:repository(${this.status.repoPath}):${this._root ? 'root:' : ''}branch(${
             this.status.ref
         }):status:upstream:(${this.status.upstream}):${this.direction}`;
     }

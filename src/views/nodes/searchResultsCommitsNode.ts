@@ -7,7 +7,11 @@ import { ViewWithFiles } from '../viewBase';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
 import { ResourceType, ViewNode } from './viewNode';
 
+let instanceId = 0;
+
 export class SearchResultsCommitsNode extends ResultsCommitsNode {
+    private _instanceId: number;
+
     constructor(
         view: ViewWithFiles,
         parent: ViewNode,
@@ -23,6 +27,12 @@ export class SearchResultsCommitsNode extends ResultsCommitsNode {
             includeDescription: true,
             querying: _querying
         });
+
+        this._instanceId = instanceId++;
+    }
+
+    get id(): string {
+        return `gitlens:repository(${this.repoPath}):search(${this.searchBy}:${this.search}):commits|${this._instanceId}`;
     }
 
     get type(): ResourceType {
@@ -44,7 +54,6 @@ export class SearchResultsCommitsNode extends ResultsCommitsNode {
                 arguments: [args]
             };
         }
-        item.id = undefined;
 
         return item;
     }

@@ -17,7 +17,7 @@ export class BranchesNode extends ViewNode<RepositoriesView> {
     }
 
     get id(): string {
-        return `${this._instanceId}:gitlens:repository(${this.repo.path}):branches`;
+        return `gitlens:repository(${this.repo.path}):branches`;
     }
 
     async getChildren(): Promise<ViewNode[]> {
