@@ -25,7 +25,7 @@
     "preview": false,
     "badges": [
         {
-            "url": "https://img.shields.io/badge/vscode--dev--community-gitlens-blue.svg?logo=slack",
+            "url": "https://img.shields.io/badge/vscode--dev--community-gitlens-blue.svg?logo=slack&labelColor=555555",
             "href": "https://vscode-slack.amod.io",
             "description": "Join us in the #gitlens channel"
         }
