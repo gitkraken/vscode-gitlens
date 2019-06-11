@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [9.8.2] - 2019-06-10
+
+## Added
+
+- Adds a changes indicator (+x -x) to the _File History_ view to quickly show the number of added and/or deleted lines
+
+## Changed
+
+- Preserve _Show More_ expansions during file system or repository changes &mdash; avoids losing view expansion and selection
+- Changes to match authors exactly in the Contributors view
+
+## Fixed
+
+- Fixes [#734](https://github.com/eamodio/vscode-gitlens/issues/734) - Not working with VS Code Remote - SSH extension (fixes the broken hover image)
+- Fixes [#751](https://github.com/eamodio/vscode-gitlens/issues/751) - Git Command failed
+- Fixes [#756](https://github.com/eamodio/vscode-gitlens/issues/756) - Merge commit shows only the changes from the last commit on those files
+- Fixes issue with the _Open Changes with Previous Revision_ command when run from the diff editor and the file has unstaged changes
+- Fixes an issue where view expansion and selection was getting lost with search and compare nodes
+- Fixes the _Show More_ command in the _File History_ and _Line History_ views
+- Fixes a caching issue with file histories
+
 ## [9.8.1] - 2019-05-23
 
 ## Fixed
