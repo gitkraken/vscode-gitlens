@@ -11,8 +11,8 @@ export class BitbucketServerRemote extends RemoteProvider {
     }
 
     protected get baseUrl() {
-        const [project, repo] = this.splitPath();
-        return `https://${this.domain}/projects/${project}/repos/${repo}`;
+        const [project, repo] = this.path.startsWith('scm/') ? this.path.replace('scm/', '').split('/') : this.splitPath();
+        return `${this.protocol}://${this.domain}/projects/${project}/repos/${repo}`;
     }
 
     get icon() {
