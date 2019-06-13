@@ -510,85 +510,70 @@ export class GitService implements Disposable {
 
     @gate()
     @log()
-    async fetchAll() {
-        const repositories = await this.getOrderedRepositories();
+    async fetchAll(repositories?: Repository[]) {
+        if (repositories === undefined) {
+            repositories = await this.getOrderedRepositories();
+        }
         if (repositories.length === 0) return;
+
+        if (repositories.length === 1) {
+            repositories[0].fetch();
+
+            return;
+        }
 
         await window.withProgress(
             {
                 location: ProgressLocation.Notification,
-                title: 'Fetching repositories',
-                cancellable: true
+                title: `Fetching ${repositories.length} repositories`
             },
-            async (progress, token) => {
-                const total = repositories.length;
-                for (const repo of repositories) {
-                    progress.report({
-                        message: `${repo.formattedName}...`,
-                        increment: 100 / total
-                    });
-
-                    if (token.isCancellationRequested) break;
-
-                    await repo.fetch({ progress: false });
-                }
-            }
+            () => Promise.all(repositories!.map(r => r.fetch({ progress: false })))
         );
     }
 
     @gate()
     @log()
-    async pullAll() {
-        const repositories = await this.getOrderedRepositories();
+    async pullAll(repositories?: Repository[]) {
+        if (repositories === undefined) {
+            repositories = await this.getOrderedRepositories();
+        }
         if (repositories.length === 0) return;
+
+        if (repositories.length === 1) {
+            repositories[0].pull();
+
+            return;
+        }
 
         await window.withProgress(
             {
                 location: ProgressLocation.Notification,
-                title: 'Pulling repositories',
-                cancellable: true
+                title: `Pulling ${repositories.length} repositories`
             },
-            async (progress, token) => {
-                const total = repositories.length;
-                for (const repo of repositories) {
-                    progress.report({
-                        message: `${repo.formattedName}...`,
-                        increment: 100 / total
-                    });
-
-                    if (token.isCancellationRequested) break;
-
-                    await repo.pull({ progress: false });
-                }
-            }
+            () => Promise.all(repositories!.map(r => r.pull({ progress: false })))
         );
     }
 
     @gate()
     @log()
-    async pushAll() {
-        const repositories = await this.getOrderedRepositories();
+    async pushAll(repositories?: Repository[]) {
+        if (repositories === undefined) {
+            repositories = await this.getOrderedRepositories();
+        }
         if (repositories.length === 0) return;
+
+        if (repositories.length === 1) {
+            repositories[0].push();
+
+            return;
+        }
 
         await window.withProgress(
             {
                 location: ProgressLocation.Notification,
-                title: 'Pushing repositories',
-                cancellable: true
+                title: `Pushing ${repositories.length} repositories`
             },
-            async (progress, token) => {
-                const total = repositories.length;
-                for (const repo of repositories) {
-                    progress.report({
-                        message: `${repo.formattedName}...`,
-                        increment: 100 / total
-                    });
-
-                    if (token.isCancellationRequested) break;
-
-                    await repo.push({ progress: false });
-                }
-            }
+            () => Promise.all(repositories!.map(r => r.push({ progress: false })))
         );
     }
 

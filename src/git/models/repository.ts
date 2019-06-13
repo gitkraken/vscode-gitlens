@@ -244,8 +244,7 @@ export class Repository implements Disposable {
         return void (await window.withProgress(
             {
                 location: ProgressLocation.Notification,
-                title: `Fetching ${opts.remote ? `${opts.remote} of ` : ''}${this.formattedName}...`,
-                cancellable: false
+                title: `Fetching ${opts.remote ? `${opts.remote} of ` : ''}${this.formattedName}...`
             },
             () => this.fetchCore(opts)
         ));
@@ -332,8 +331,7 @@ export class Repository implements Disposable {
         return void (await window.withProgress(
             {
                 location: ProgressLocation.Notification,
-                title: `Pulling ${this.formattedName}...`,
-                cancellable: false
+                title: `Pulling ${this.formattedName}...`
             },
             () => this.pullCore()
         ));
@@ -360,8 +358,7 @@ export class Repository implements Disposable {
         return void (await window.withProgress(
             {
                 location: ProgressLocation.Notification,
-                title: `Pushing ${this.formattedName}...`,
-                cancellable: false
+                title: `Pushing ${this.formattedName}...`
             },
             () => this.pushCore(force)
         ));
