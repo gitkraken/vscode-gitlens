@@ -33,13 +33,13 @@ export namespace Versions {
     export function from(
         major: string | number,
         minor: string | number,
-        patch: string | number,
+        patch?: string | number,
         pre?: string
     ): Version {
         return {
             major: typeof major === 'string' ? parseInt(major, 10) : major,
             minor: typeof minor === 'string' ? parseInt(minor, 10) : minor,
-            patch: typeof patch === 'string' ? parseInt(patch, 10) : patch,
+            patch: patch == null ? 0 : typeof patch === 'string' ? parseInt(patch, 10) : patch,
             pre: pre
         };
     }
