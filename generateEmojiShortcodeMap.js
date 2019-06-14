@@ -1,19 +1,31 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
 const fs = require('fs');
 const https = require('https');
 const path = require('path');
 
 async function generate() {
+    /**
+     * @type {{ [code: string]: string }}
+     */
     let map = Object.create(null);
 
     // Get emoji data from https://github.com/milesj/emojibase
     // https://github.com/milesj/emojibase/blob/master/packages/data/en/raw.json
     await download('https://raw.githubusercontent.com/milesj/emojibase/master/packages/data/en/raw.json', 'raw.json');
 
+    /**
+     * @type {({ emoji: string; shortcodes: string[] })[]}
+     */
+    // eslint-disable-next-line import/no-dynamic-require
     const emojis = require(path.join(process.cwd(), 'raw.json'));
     for (const emoji of emojis) {
         if (emoji.shortcodes == null || emoji.shortcodes.length === 0) continue;
 
-        for (const code of emoji.shortcodes) {
+        for (let code of emoji.shortcodes) {
+            if (code[0] === ':' && code[code.length - 1] === ':') {
+                code = code.substring(1, code.length - 2);
+            }
+
             if (map[code] !== undefined) {
                 console.warn(code);
             }
@@ -30,8 +42,16 @@ async function generate() {
         'gitmojis.json'
     );
 
+    /**
+     * @type {({ code: string; emoji: string })[]}
+     */
+    // eslint-disable-next-line import/no-dynamic-require
     const gitmojis = require(path.join(process.cwd(), 'gitmojis.json')).gitmojis;
     for (const emoji of gitmojis) {
+        if (emoji.code[0] === ':' && emoji.code[emoji.code.length - 1] === ':') {
+            emoji.code = emoji.code.substring(1, emoji.code.length - 2);
+        }
+
         if (map[emoji.code] !== undefined) {
             console.warn(emoji.code);
             continue;
@@ -42,6 +62,9 @@ async function generate() {
     fs.unlink('gitmojis.json', () => {});
 
     // Sort the emojis for easier diff checking
+    /**
+     * @type { [string, string][] }}
+     */
     const list = Object.entries(map);
     list.sort();
 

@@ -9,6 +9,7 @@ import { CommitNode } from './commitNode';
 import { MessageNode, ShowMoreNode } from './common';
 import { getBranchesAndTagTipsFn, insertDateMarkers } from './helpers';
 import { PageableViewNode, ResourceType, ViewNode, ViewRefNode } from './viewNode';
+import { emojify } from '../../emojis';
 
 export class TagNode extends ViewRefNode<RepositoriesView> implements PageableViewNode {
     readonly supportsPaging = true;
@@ -59,7 +60,9 @@ export class TagNode extends ViewRefNode<RepositoriesView> implements PageableVi
         const item = new TreeItem(this.label, TreeItemCollapsibleState.Collapsed);
         item.id = this.id;
         item.contextValue = ResourceType.Tag;
-        item.tooltip = `${this.tag.name}${this.tag.annotation === undefined ? '' : `\n${this.tag.annotation}`}`;
+        item.tooltip = `${this.tag.name}${
+            this.tag.annotation === undefined ? '' : `\n${emojify(this.tag.annotation)}`
+        }`;
 
         return item;
     }

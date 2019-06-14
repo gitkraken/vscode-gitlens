@@ -13,13 +13,11 @@ import { Container } from '../../container';
 import { GitCommit, GitLogCommit, GitRemote, GitService, GitUri } from '../gitService';
 import { Strings } from '../../system';
 import { FormatOptions, Formatter } from './formatter';
-import * as emojis from '../../emojis.json';
 import { ContactPresence } from '../../vsls/vsls';
 import { getPresenceDataUri } from '../../avatars';
+import { emojify } from '../../emojis';
 
 const emptyStr = '';
-const emojiMap: { [key: string]: string } = emojis;
-const emojiRegex = /:([-+_a-z0-9]+):/g;
 
 const escapeMarkdownRegex = /[`>#*_\-+.]/g;
 // const sampleMarkdown = '## message `not code` *not important* _no underline_ \n> don\'t quote me \n- don\'t list me \n+ don\'t list me \n1. don\'t list me \nnot h1 \n=== \nnot h2 \n---\n***\n---\n___';
@@ -298,7 +296,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
                 message = this._item.message;
             }
 
-            message = message.replace(emojiRegex, (s, code) => emojiMap[code] || s);
+            message = emojify(message);
         }
 
         message = this._padOrTruncate(message, this._options.tokenOptions.message);
