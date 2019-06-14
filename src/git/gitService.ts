@@ -509,7 +509,11 @@ export class GitService implements Disposable {
     }
 
     @gate()
-    @log()
+    @log({
+        args: {
+            0: (repos?: Repository[]) => (repos === undefined ? false : repos.map(r => r.name).join(', '))
+        }
+    })
     async fetchAll(repositories?: Repository[]) {
         if (repositories === undefined) {
             repositories = await this.getOrderedRepositories();
@@ -532,7 +536,11 @@ export class GitService implements Disposable {
     }
 
     @gate()
-    @log()
+    @log({
+        args: {
+            0: (repos?: Repository[]) => (repos === undefined ? false : repos.map(r => r.name).join(', '))
+        }
+    })
     async pullAll(repositories?: Repository[]) {
         if (repositories === undefined) {
             repositories = await this.getOrderedRepositories();
@@ -555,7 +563,11 @@ export class GitService implements Disposable {
     }
 
     @gate()
-    @log()
+    @log({
+        args: {
+            0: (repos?: Repository[]) => (repos === undefined ? false : repos.map(r => r.name).join(', '))
+        }
+    })
     async pushAll(repositories?: Repository[]) {
         if (repositories === undefined) {
             repositories = await this.getOrderedRepositories();
