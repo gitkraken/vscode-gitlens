@@ -28,7 +28,6 @@ export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
                 args = { ...args };
 
                 const repoPath = await getRepoPathOrPrompt(
-                    undefined,
                     `Close all files except those changed in which repository${GlyphChars.Ellipsis}`
                 );
                 if (!repoPath) return undefined;

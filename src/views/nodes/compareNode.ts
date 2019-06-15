@@ -163,7 +163,7 @@ export class CompareNode extends ViewNode<CompareView> {
 
     async selectForCompare(repoPath?: string, ref?: string | NamedRef) {
         if (repoPath === undefined) {
-            repoPath = await getRepoPathOrPrompt(undefined, `Compare in which repository${GlyphChars.Ellipsis}`);
+            repoPath = await getRepoPathOrPrompt(`Compare in which repository${GlyphChars.Ellipsis}`);
         }
         if (repoPath === undefined) return;
 

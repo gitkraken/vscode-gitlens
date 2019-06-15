@@ -65,9 +65,9 @@ export class StashSaveCommand extends Command {
         const uri = args.uris !== undefined && args.uris.length !== 0 ? args.uris[0] : undefined;
         if (args.repoPath === undefined) {
             args.repoPath = await getRepoPathOrPrompt(
-                uri,
                 `Stash changes for which repository${GlyphChars.Ellipsis}`,
-                args.goBackCommand
+                args.goBackCommand,
+                uri
             );
         }
         if (!args.repoPath) return undefined;

@@ -124,10 +124,7 @@ export class ExternalDiffCommand extends Command {
 
         if (context.command === Commands.ExternalDiffAll) {
             if (args.files === undefined) {
-                const repoPath = await getRepoPathOrPrompt(
-                    undefined,
-                    `Open changes from which repository${GlyphChars.Ellipsis}`
-                );
+                const repoPath = await getRepoPathOrPrompt(`Open changes from which repository${GlyphChars.Ellipsis}`);
                 if (!repoPath) return undefined;
 
                 const status = await Container.git.getStatusForRepo(repoPath);

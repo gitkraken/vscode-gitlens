@@ -2,7 +2,7 @@
 import { commands, InputBoxOptions, TextEditor, Uri, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitRepoSearchBy, GitService, GitUri } from '../git/gitService';
+import { GitRepoSearchBy, GitService } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, CommitsQuickPick, ShowCommitSearchResultsInViewQuickPickItem } from '../quickpicks';
@@ -14,7 +14,7 @@ import {
     CommandContext,
     Commands,
     getCommandUri,
-    getRepoPathOrActiveOrPrompt,
+    getRepoPathOrPrompt,
     isCommandViewContextWithRepo
 } from './common';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
@@ -80,11 +80,7 @@ export class SearchCommitsCommand extends ActiveEditorCachedCommand {
     async execute(editor?: TextEditor, uri?: Uri, args: SearchCommitsCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
 
-        const gitUri = uri && (await GitUri.fromUri(uri));
-
-        const repoPath = await getRepoPathOrActiveOrPrompt(
-            gitUri,
-            editor,
+        const repoPath = await getRepoPathOrPrompt(
             `Search for commits in which repository${GlyphChars.Ellipsis}`,
             args.goBackCommand
         );

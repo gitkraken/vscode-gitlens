@@ -166,11 +166,7 @@ export async function getRepoPathOrActiveOrPrompt(
     return repoPath;
 }
 
-export async function getRepoPathOrPrompt(
-    uri: Uri | undefined,
-    placeholder: string,
-    goBackCommand?: CommandQuickPickItem
-) {
+export async function getRepoPathOrPrompt(placeholder: string, goBackCommand?: CommandQuickPickItem, uri?: Uri) {
     let repoPath = await Container.git.getRepoPath(uri);
     if (!repoPath) {
         const pick = await RepositoriesQuickPick.show(placeholder, goBackCommand);

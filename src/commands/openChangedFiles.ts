@@ -25,7 +25,6 @@ export class OpenChangedFilesCommand extends ActiveEditorCommand {
                 args = { ...args };
 
                 const repoPath = await getRepoPathOrPrompt(
-                    undefined,
                     `Open all files changed in which repository${GlyphChars.Ellipsis}`
                 );
                 if (!repoPath) return undefined;

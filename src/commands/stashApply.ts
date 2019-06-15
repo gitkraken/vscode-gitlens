@@ -52,7 +52,6 @@ export class StashApplyCommand extends Command {
         if (args.stashItem === undefined || args.stashItem.stashName === undefined) {
             if (args.repoPath === undefined) {
                 args.repoPath = await getRepoPathOrPrompt(
-                    undefined,
                     `Apply stashed changes from which repository${GlyphChars.Ellipsis}`,
                     args.goBackCommand
                 );
