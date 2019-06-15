@@ -21,6 +21,8 @@ import { Functions, gate, log } from '../../system';
 import { GitBranch, GitContributor, GitDiffShortStat, GitRemote, GitStash, GitStatus, GitTag } from '../git';
 import { GitUri } from '../gitUri';
 import { RemoteProviderFactory, RemoteProviders } from '../remotes/factory';
+import { Messages } from '../../messages';
+import { Logger } from '../../logger';
 
 export enum RepositoryChange {
     Config = 'config',
@@ -251,9 +253,15 @@ export class Repository implements Disposable {
     }
 
     private async fetchCore(options: { remote?: string } = {}) {
-        void (await Container.git.fetch(this.path, options.remote));
+        try {
+            void (await Container.git.fetch(this.path, options.remote));
 
-        this.fireChange(RepositoryChange.Repository);
+            this.fireChange(RepositoryChange.Repository);
+        }
+        catch (ex) {
+            Logger.error(ex);
+            Messages.showGenericErrorMessage('Unable to fetch repository');
+        }
     }
 
     getBranch(): Promise<GitBranch | undefined> {
@@ -339,15 +347,21 @@ export class Repository implements Disposable {
     }
 
     private async pullCore() {
-        const tracking = await this.hasTrackingBranch();
-        if (tracking) {
-            void (await commands.executeCommand('git.pull', this.path));
-        }
-        else if (configuration.getAny<boolean>('git.fetchOnPull', Uri.file(this.path))) {
-            void (await Container.git.fetch(this.path));
-        }
+        try {
+            const tracking = await this.hasTrackingBranch();
+            if (tracking) {
+                void (await commands.executeCommand('git.pull', this.path));
+            }
+            else if (configuration.getAny<boolean>('git.fetchOnPull', Uri.file(this.path))) {
+                void (await Container.git.fetch(this.path));
+            }
 
-        this.fireChange(RepositoryChange.Repository);
+            this.fireChange(RepositoryChange.Repository);
+        }
+        catch (ex) {
+            Logger.error(ex);
+            Messages.showGenericErrorMessage('Unable to pull repository');
+        }
     }
 
     @gate()
@@ -366,9 +380,15 @@ export class Repository implements Disposable {
     }
 
     private async pushCore(force: boolean = false) {
-        void (await commands.executeCommand(force ? 'git.pushForce' : 'git.push', this.path));
+        try {
+            void (await commands.executeCommand(force ? 'git.pushForce' : 'git.push', this.path));
 
-        this.fireChange(RepositoryChange.Repository);
+            this.fireChange(RepositoryChange.Repository);
+        }
+        catch (ex) {
+            Logger.error(ex);
+            Messages.showGenericErrorMessage('Unable to push repository');
+        }
     }
 
     resume() {
