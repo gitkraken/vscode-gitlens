@@ -9,7 +9,7 @@ import { RepositoriesView } from '../repositoriesView';
 import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
 import { CommitNode } from './commitNode';
 import { MessageNode, ShowMoreNode } from './common';
-import { getBranchesAndTagTipsFn, insertDateMarkers } from './helpers';
+import { insertDateMarkers } from './helpers';
 import { PageableViewNode, ResourceType, ViewNode, ViewRefNode } from './viewNode';
 
 export class BranchNode extends ViewRefNode<RepositoriesView> implements PageableViewNode {
@@ -83,7 +83,10 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
             });
             if (log === undefined) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
-            const getBranchAndTagTips = await getBranchesAndTagTipsFn(this.uri.repoPath, this.branch.name);
+            const getBranchAndTagTips = await Container.git.getBranchesAndTagsTipsFn(
+                this.uri.repoPath,
+                this.branch.name
+            );
             children.push(
                 ...insertDateMarkers(
                     Iterables.map(

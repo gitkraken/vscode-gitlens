@@ -6,7 +6,7 @@ import { debug, gate, Iterables } from '../../system';
 import { ViewWithFiles } from '../viewBase';
 import { CommitNode } from './commitNode';
 import { ShowMoreNode } from './common';
-import { getBranchesAndTagTipsFn, insertDateMarkers } from './helpers';
+import { insertDateMarkers } from './helpers';
 import { PageableViewNode, ResourceType, ViewNode } from './viewNode';
 
 export interface CommitsQueryResults {
@@ -44,7 +44,7 @@ export class ResultsCommitsNode extends ViewNode<ViewWithFiles> implements Pagea
         const { log } = await this.getCommitsQueryResults();
         if (log === undefined) return [];
 
-        const getBranchAndTagTips = await getBranchesAndTagTipsFn(this.uri.repoPath);
+        const getBranchAndTagTips = await Container.git.getBranchesAndTagsTipsFn(this.uri.repoPath);
         const children = [
             ...insertDateMarkers(
                 Iterables.map(

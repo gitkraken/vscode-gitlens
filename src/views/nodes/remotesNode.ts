@@ -2,7 +2,6 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
 import { GitUri, Repository } from '../../git/gitService';
-import { Iterables } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { MessageNode } from './common';
 import { RemoteNode } from './remoteNode';
@@ -18,17 +17,12 @@ export class RemotesNode extends ViewNode<RepositoriesView> {
     }
 
     async getChildren(): Promise<ViewNode[]> {
-        const remotes = await this.repo.getRemotes();
+        const remotes = await this.repo.getRemotes({ sort: true });
         if (remotes === undefined || remotes.length === 0) {
             return [new MessageNode(this.view, this, 'No remotes could be found')];
         }
 
-        remotes.sort(
-            (a, b) =>
-                (a.default ? -1 : 1) - (b.default ? -1 : 1) ||
-                a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
-        );
-        return [...Iterables.map(remotes, r => new RemoteNode(this.uri, this.view, this, r, this.repo))];
+        return remotes.map(r => new RemoteNode(this.uri, this.view, this, r, this.repo));
     }
 
     getTreeItem(): TreeItem {

@@ -6,7 +6,7 @@ import { RepositoriesView } from '../repositoriesView';
 import { PageableViewNode, ResourceType, ViewNode } from './viewNode';
 import { Container } from '../../container';
 import { MessageNode, ShowMoreNode } from './common';
-import { getBranchesAndTagTipsFn, insertDateMarkers } from './helpers';
+import { insertDateMarkers } from './helpers';
 import { CommitNode } from './commitNode';
 import { GlyphChars } from '../../constants';
 
@@ -30,7 +30,7 @@ export class ContributorNode extends ViewNode<RepositoriesView> implements Pagea
         });
         if (log === undefined) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
-        const getBranchAndTagTips = await getBranchesAndTagTipsFn(this.uri.repoPath);
+        const getBranchAndTagTips = await Container.git.getBranchesAndTagsTipsFn(this.uri.repoPath);
         const children = [
             ...insertDateMarkers(
                 Iterables.map(

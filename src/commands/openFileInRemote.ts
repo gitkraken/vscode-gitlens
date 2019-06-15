@@ -87,9 +87,7 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
                         {
                             autoPick: true,
                             checkmarks: false,
-                            filters: {
-                                branches: b => b.tracking !== undefined
-                            },
+                            filterBranches: b => b.tracking !== undefined,
                             include: 'branches'
                         }
                     );

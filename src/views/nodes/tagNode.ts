@@ -7,7 +7,7 @@ import { Iterables } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { CommitNode } from './commitNode';
 import { MessageNode, ShowMoreNode } from './common';
-import { getBranchesAndTagTipsFn, insertDateMarkers } from './helpers';
+import { insertDateMarkers } from './helpers';
 import { PageableViewNode, ResourceType, ViewNode, ViewRefNode } from './viewNode';
 import { emojify } from '../../emojis';
 
@@ -39,7 +39,7 @@ export class TagNode extends ViewRefNode<RepositoriesView> implements PageableVi
         });
         if (log === undefined) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
-        const getBranchAndTagTips = await getBranchesAndTagTipsFn(this.uri.repoPath, this.tag.name);
+        const getBranchAndTagTips = await Container.git.getBranchesAndTagsTipsFn(this.uri.repoPath, this.tag.name);
         const children = [
             ...insertDateMarkers(
                 Iterables.map(

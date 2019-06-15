@@ -4,7 +4,7 @@ import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitRemote, GitRemoteType, GitUri, Repository } from '../../git/gitService';
-import { Arrays, Iterables, log } from '../../system';
+import { Arrays, log } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { BranchNode } from './branchNode';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
@@ -26,23 +26,14 @@ export class RemoteNode extends ViewNode<RepositoriesView> {
     }
 
     async getChildren(): Promise<ViewNode[]> {
-        const branches = await this.repo.getBranches();
+        const branches = await this.repo.getBranches({
+            // only show remote branchs for this remote
+            filter: b => b.remote && b.name.startsWith(this.remote.name),
+            sort: true
+        });
         if (branches === undefined) return [];
 
-        branches.sort(
-            (a, b) =>
-                (a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
-                a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
-        );
-
-        // filter remote branches
-        const branchNodes = [
-            ...Iterables.filterMap(branches, b =>
-                !b.remote || !b.name.startsWith(this.remote.name)
-                    ? undefined
-                    : new BranchNode(this.uri, this.view, this, b)
-            )
-        ];
+        const branchNodes = branches.map(b => new BranchNode(this.uri, this.view, this, b));
         if (this.view.config.branches.layout === ViewBranchesLayout.List) return branchNodes;
 
         const hierarchy = Arrays.makeHierarchical(

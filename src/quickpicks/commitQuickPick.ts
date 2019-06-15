@@ -293,7 +293,7 @@ export class CommitQuickPick {
         else {
             items.splice(index++, 0, new ShowCommitInViewQuickPickItem(commit));
 
-            remotes = await Container.git.getRemotes(commit.repoPath);
+            remotes = await Container.git.getRemotes(commit.repoPath, { sort: true });
             if (remotes.length) {
                 items.splice(
                     index++,

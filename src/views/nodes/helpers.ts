@@ -1,28 +1,7 @@
 'use strict';
-import { Container } from '../../container';
 import { GitLogCommit } from '../../git/gitService';
-import { Arrays } from '../../system';
 import { MessageNode } from './common';
 import { ViewNode } from './viewNode';
-
-export async function getBranchesAndTagTipsFn(repoPath: string | undefined, currentName?: string) {
-    const [branches, tags] = await Promise.all([
-        Container.git.getBranches(repoPath),
-        Container.git.getTags(repoPath, { includeRefs: true })
-    ]);
-
-    const branchesAndTagsBySha = Arrays.groupByFilterMap(
-        (branches as { name: string; sha: string }[]).concat(tags as { name: string; sha: string }[]),
-        bt => bt.sha!,
-        bt => (bt.name === currentName ? undefined : bt.name)
-    );
-
-    return (sha: string) => {
-        const branchesAndTags = branchesAndTagsBySha.get(sha);
-        if (branchesAndTags === undefined || branchesAndTags.length === 0) return undefined;
-        return branchesAndTags.join(', ');
-    };
-}
 
 const markers: [number, string][] = [
     [0, 'Less than a week ago'],

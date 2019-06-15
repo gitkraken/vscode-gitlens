@@ -25,7 +25,7 @@ import { CommandContext, DocumentSchemes, setCommandContext } from '../constants
 import { Container } from '../container';
 import { LogCorrelationContext, Logger } from '../logger';
 import { Messages } from '../messages';
-import { gate, Iterables, log, Objects, Strings, TernarySearchTree, Versions } from '../system';
+import { Arrays, gate, Iterables, log, Objects, Strings, TernarySearchTree, Versions } from '../system';
 import { CachedBlame, CachedDiff, CachedLog, GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 import { vslsUriPrefixRegex } from '../vsls/vsls';
 import {
@@ -972,32 +972,118 @@ export class GitService implements Disposable {
     }
 
     @log()
-    async getBranches(repoPath: string | undefined): Promise<GitBranch[]> {
+    async getBranches(
+        repoPath: string | undefined,
+        options: { filter?: (b: GitBranch) => boolean; sort?: boolean } = {}
+    ): Promise<GitBranch[]> {
         if (repoPath === undefined) return [];
 
-        let branches;
-        if (this.useCaching) {
-            branches = this._branchesCache.get(repoPath);
-            if (branches !== undefined) return branches;
-        }
+        let branches: GitBranch[] | undefined;
+        try {
+            if (this.useCaching) {
+                branches = this._branchesCache.get(repoPath);
+                if (branches !== undefined) return branches;
+            }
 
-        const data = await Git.for_each_ref__branch(repoPath, { all: true });
-        // If we don't get any data, assume the repo doesn't have any commits yet so check if we have a current branch
-        if (data == null || data.length === 0) {
-            const current = await this.getBranch(repoPath);
-            branches = current !== undefined ? [current] : [];
-        }
-        else {
-            branches = GitBranchParser.parse(data, repoPath);
-        }
+            const data = await Git.for_each_ref__branch(repoPath, { all: true });
+            // If we don't get any data, assume the repo doesn't have any commits yet so check if we have a current branch
+            if (data == null || data.length === 0) {
+                const current = await this.getBranch(repoPath);
+                branches = current !== undefined ? [current] : [];
+            }
+            else {
+                branches = GitBranchParser.parse(data, repoPath);
+            }
 
-        if (this.useCaching) {
-            const repo = await this.getRepository(repoPath);
-            if (repo !== undefined && repo.supportsChangeEvents) {
-                this._branchesCache.set(repoPath, branches);
+            if (this.useCaching) {
+                const repo = await this.getRepository(repoPath);
+                if (repo !== undefined && repo.supportsChangeEvents) {
+                    this._branchesCache.set(repoPath, branches);
+                }
+            }
+
+            return branches;
+        }
+        finally {
+            if (options.filter !== undefined) {
+                branches = branches!.filter(options.filter);
+            }
+
+            if (options.sort) {
+                branches!.sort(
+                    (a, b) =>
+                        (a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
+                        (b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
+                        a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+                );
+            }
+
+            if (options.filter !== undefined) {
+                // eslint-disable-next-line no-unsafe-finally
+                return branches!;
             }
         }
-        return branches;
+    }
+
+    @log()
+    async getBranchesAndOrTags(
+        repoPath: string | undefined,
+        {
+            filterBranches,
+            filterTags,
+            include,
+            ...options
+        }: {
+            filterBranches?: (b: GitBranch) => boolean;
+            filterTags?: (t: GitTag) => boolean;
+            include?: 'all' | 'branches' | 'tags';
+            sort?: boolean;
+        } = {}
+    ) {
+        const [branches, tags] = await Promise.all<GitBranch[] | undefined, GitTag[] | undefined>([
+            include === 'all' || include === 'branches'
+                ? Container.git.getBranches(repoPath, {
+                      ...options,
+                      filter: filterBranches && filterBranches
+                  })
+                : undefined,
+            include === 'all' || include === 'tags'
+                ? Container.git.getTags(repoPath, {
+                      ...options,
+                      filter: filterTags && filterTags
+                  })
+                : undefined
+        ]);
+
+        if (branches !== undefined && tags !== undefined) {
+            return [...branches.filter(b => !b.remote), ...tags, ...branches.filter(b => b.remote)];
+        }
+
+        if (branches !== undefined) {
+            return branches;
+        }
+
+        return tags;
+    }
+
+    @log()
+    async getBranchesAndTagsTipsFn(repoPath: string | undefined, currentName?: string) {
+        const [branches, tags] = await Promise.all([
+            Container.git.getBranches(repoPath),
+            Container.git.getTags(repoPath, { includeRefs: true })
+        ]);
+
+        const branchesAndTagsBySha = Arrays.groupByFilterMap(
+            (branches as { name: string; sha: string }[]).concat(tags as { name: string; sha: string }[]),
+            bt => bt.sha!,
+            bt => (bt.name === currentName ? undefined : bt.name)
+        );
+
+        return (sha: string) => {
+            const branchesAndTags = branchesAndTagsBySha.get(sha);
+            if (branchesAndTags === undefined || branchesAndTags.length === 0) return undefined;
+            return branchesAndTags.join(', ');
+        };
     }
 
     @log()
@@ -1981,18 +2067,27 @@ export class GitService implements Disposable {
     }
 
     @log()
-    async getRemotes(repoPath: string | undefined, options: { includeAll?: boolean } = {}): Promise<GitRemote[]> {
+    async getRemotes(
+        repoPath: string | undefined,
+        options: { includeAll?: boolean; sort?: boolean } = {}
+    ): Promise<GitRemote[]> {
         if (repoPath === undefined) return [];
 
         const repository = await this.getRepository(repoPath);
-        const remotes = repository !== undefined ? repository.getRemotes() : this.getRemotesCore(repoPath);
+        const remotes = await (repository !== undefined
+            ? repository.getRemotes({ sort: options.sort })
+            : this.getRemotesCore(repoPath, undefined, { sort: options.sort }));
 
         if (options.includeAll) return remotes;
 
-        return (await remotes).filter(r => r.provider !== undefined);
+        return remotes.filter(r => r.provider !== undefined);
     }
 
-    async getRemotesCore(repoPath: string | undefined, providers?: RemoteProviders): Promise<GitRemote[]> {
+    async getRemotesCore(
+        repoPath: string | undefined,
+        providers?: RemoteProviders,
+        options: { sort?: boolean } = {}
+    ): Promise<GitRemote[]> {
         if (repoPath === undefined) return [];
 
         providers =
@@ -2003,7 +2098,18 @@ export class GitService implements Disposable {
 
         try {
             const data = await Git.remote(repoPath);
-            return GitRemoteParser.parse(data, repoPath, RemoteProviderFactory.factory(providers)) || [];
+            const remotes = GitRemoteParser.parse(data, repoPath, RemoteProviderFactory.factory(providers));
+            if (remotes === undefined) return [];
+
+            if (options.sort) {
+                remotes.sort(
+                    (a, b) =>
+                        (a.default ? -1 : 1) - (b.default ? -1 : 1) ||
+                        a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+                );
+            }
+
+            return remotes;
         }
         catch (ex) {
             Logger.error(ex);
@@ -2236,37 +2342,56 @@ export class GitService implements Disposable {
     }
 
     @log()
-    async getTags(repoPath: string | undefined, options: { includeRefs?: boolean } = {}): Promise<GitTag[]> {
+    async getTags(
+        repoPath: string | undefined,
+        options: { filter?: (t: GitTag) => boolean; includeRefs?: boolean; sort?: boolean } = {}
+    ): Promise<GitTag[]> {
         if (repoPath === undefined) return [];
 
-        let tags;
-        if (options.includeRefs) {
-            tags = this._tagsWithRefsCache.get(repoPath);
+        let tags: GitTag[] | undefined;
+        try {
+            if (options.includeRefs) {
+                tags = this._tagsWithRefsCache.get(repoPath);
+                if (tags !== undefined) return tags;
+
+                const data = await Git.show_ref__tags(repoPath);
+                tags = GitTagParser.parseWithRef(data, repoPath) || [];
+
+                const repo = await this.getRepository(repoPath);
+                if (repo !== undefined && repo.supportsChangeEvents) {
+                    this._tagsWithRefsCache.set(repoPath, tags);
+                }
+
+                return tags;
+            }
+
+            tags = this._tagsCache.get(repoPath);
             if (tags !== undefined) return tags;
 
-            const data = await Git.show_ref__tags(repoPath);
-            tags = GitTagParser.parseWithRef(data, repoPath) || [];
+            const data = await Git.tag(repoPath);
+            tags = GitTagParser.parse(data, repoPath) || [];
 
             const repo = await this.getRepository(repoPath);
             if (repo !== undefined && repo.supportsChangeEvents) {
-                this._tagsWithRefsCache.set(repoPath, tags);
+                this._tagsCache.set(repoPath, tags);
             }
 
             return tags;
         }
+        finally {
+            if (options.filter !== undefined) {
+                tags = tags!.filter(options.filter);
+            }
 
-        tags = this._tagsCache.get(repoPath);
-        if (tags !== undefined) return tags;
+            if (options.sort) {
+                tags!.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+            }
 
-        const data = await Git.tag(repoPath);
-        tags = GitTagParser.parse(data, repoPath) || [];
-
-        const repo = await this.getRepository(repoPath);
-        if (repo !== undefined && repo.supportsChangeEvents) {
-            this._tagsCache.set(repoPath, tags);
+            if (options.filter !== undefined) {
+                // eslint-disable-next-line no-unsafe-finally
+                return tags!;
+            }
         }
-
-        return tags;
     }
 
     @log()

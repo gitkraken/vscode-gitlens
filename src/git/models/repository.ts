@@ -263,8 +263,8 @@ export class Repository implements Disposable {
         return this._branch;
     }
 
-    getBranches(): Promise<GitBranch[]> {
-        return Container.git.getBranches(this.path);
+    getBranches(options: { filter?: (b: GitBranch) => boolean; sort?: boolean } = {}): Promise<GitBranch[]> {
+        return Container.git.getBranches(this.path, options);
     }
 
     getChangedFilesCount(sha?: string): Promise<GitDiffShortStat | undefined> {
@@ -284,7 +284,7 @@ export class Repository implements Disposable {
         );
     }
 
-    getRemotes(): Promise<GitRemote[]> {
+    getRemotes(options: { sort?: boolean } = {}): Promise<GitRemote[]> {
         if (this._remotes === undefined || !this.supportsChangeEvents) {
             if (this._providers === undefined) {
                 const remotesCfg = configuration.get<RemotesConfig[] | null | undefined>(
@@ -294,7 +294,8 @@ export class Repository implements Disposable {
                 this._providers = RemoteProviderFactory.loadProviders(remotesCfg);
             }
 
-            this._remotes = Container.git.getRemotesCore(this.path, this._providers);
+            // Since we are caching the results, always sort
+            this._remotes = Container.git.getRemotesCore(this.path, this._providers, { sort: true });
         }
 
         return this._remotes;
@@ -308,7 +309,7 @@ export class Repository implements Disposable {
         return Container.git.getStatusForRepo(this.path);
     }
 
-    getTags(options?: { includeRefs?: boolean }): Promise<GitTag[]> {
+    getTags(options?: { filter?: (t: GitTag) => boolean; includeRefs?: boolean; sort?: boolean }): Promise<GitTag[]> {
         return Container.git.getTags(this.path, options);
     }
 

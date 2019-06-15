@@ -191,7 +191,7 @@ export class CommitFileQuickPick {
         }
         items.push(new OpenCommitFileRevisionCommandQuickPickItem(commit));
 
-        const remotes = await Container.git.getRemotes(commit.repoPath);
+        const remotes = await Container.git.getRemotes(commit.repoPath, { sort: true });
         if (remotes.length) {
             if (workingUri && commit.status !== 'D') {
                 const branch = await Container.git.getBranch(commit.repoPath);

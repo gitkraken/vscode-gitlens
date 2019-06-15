@@ -55,7 +55,7 @@ export class BranchHistoryQuickPick {
             [uri, currentCommandArgs]
         );
 
-        const remotes = await Container.git.getRemotes((uri && uri.repoPath) || log.repoPath);
+        const remotes = await Container.git.getRemotes((uri && uri.repoPath) || log.repoPath, { sort: true });
         if (remotes.length) {
             items.splice(
                 0,

@@ -3,7 +3,7 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
 import { Container } from '../../container';
 import { GitUri, Repository } from '../../git/gitService';
-import { Arrays, debug, gate, Iterables } from '../../system';
+import { Arrays, debug, gate } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { BranchNode } from './branchNode';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
@@ -22,21 +22,14 @@ export class BranchesNode extends ViewNode<RepositoriesView> {
 
     async getChildren(): Promise<ViewNode[]> {
         if (this._children === undefined) {
-            const branches = await this.repo.getBranches();
+            const branches = await this.repo.getBranches({
+                // only show local branches
+                filter: b => !b.remote,
+                sort: true
+            });
             if (branches === undefined) return [];
 
-            branches.sort(
-                (a, b) =>
-                    (a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
-                    a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
-            );
-
-            // filter local branches
-            const branchNodes = [
-                ...Iterables.filterMap(branches, b =>
-                    b.remote ? undefined : new BranchNode(this.uri, this.view, this, b)
-                )
-            ];
+            const branchNodes = branches.map(b => new BranchNode(this.uri, this.view, this, b));
             if (this.view.config.branches.layout === ViewBranchesLayout.List) return branchNodes;
 
             const hierarchy = Arrays.makeHierarchical(
@@ -62,11 +55,9 @@ export class BranchesNode extends ViewNode<RepositoriesView> {
     }
 
     async getTreeItem(): Promise<TreeItem> {
-        const remotes = await this.repo.getRemotes();
-
         const item = new TreeItem('Branches', TreeItemCollapsibleState.Collapsed);
         item.contextValue = ResourceType.Branches;
-        if (remotes !== undefined && remotes.length > 0) {
+        if (await this.repo.hasRemotes()) {
             item.contextValue += '+remotes';
         }
         item.iconPath = {

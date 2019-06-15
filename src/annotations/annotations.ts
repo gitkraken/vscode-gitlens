@@ -195,7 +195,7 @@ export class Annotations {
         const [presence, previousLineDiffUris, remotes] = await Promise.all([
             Container.vsls.getContactPresence(commit.email),
             commit.isUncommitted ? commit.getPreviousLineDiffUris(uri, editorLine, uri.sha) : undefined,
-            Container.git.getRemotes(commit.repoPath)
+            Container.git.getRemotes(commit.repoPath, { sort: true })
         ]);
 
         const markdown = new MarkdownString(

@@ -306,12 +306,6 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
         }
 
         if (this._options.remotes !== undefined) {
-            this._options.remotes.sort(
-                (a, b) =>
-                    (a.default ? -1 : 1) - (b.default ? -1 : 1) ||
-                    a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
-            );
-
             for (const r of this._options.remotes) {
                 if (r.provider === undefined) continue;
 

@@ -159,7 +159,7 @@ export class FileHistoryQuickPick {
                     );
                 }
 
-                const remotes = await Container.git.getRemotes(uri.repoPath!);
+                const remotes = await Container.git.getRemotes(uri.repoPath!, { sort: true });
                 if (remotes.length) {
                     const resource: RemoteResource =
                         uri.sha !== undefined
