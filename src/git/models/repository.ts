@@ -228,7 +228,7 @@ export class Repository implements Disposable {
     }
 
     containsUri(uri: Uri) {
-        if (uri instanceof GitUri) {
+        if (GitUri.is(uri)) {
             uri = uri.repoPath !== undefined ? GitUri.file(uri.repoPath) : uri.documentUri();
         }
 

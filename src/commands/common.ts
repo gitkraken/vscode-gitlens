@@ -239,7 +239,7 @@ export function isCommandViewContextWithBranch(
 ): context is CommandViewItemContext & { node: ViewNode & { branch: GitBranch } } {
     if (context.type !== 'viewItem') return false;
 
-    return (context.node as ViewNode & { branch: GitBranch }).branch instanceof GitBranch;
+    return GitBranch.is((context.node as ViewNode & { branch: GitBranch }).branch);
 }
 
 export function isCommandViewContextWithCommit<T extends GitCommit>(
@@ -247,7 +247,7 @@ export function isCommandViewContextWithCommit<T extends GitCommit>(
 ): context is CommandViewItemContext & { node: ViewNode & { commit: T } } {
     if (context.type !== 'viewItem') return false;
 
-    return (context.node as ViewNode & { commit: GitCommit }).commit instanceof GitCommit;
+    return GitCommit.is((context.node as ViewNode & { commit: GitCommit }).commit);
 }
 
 export function isCommandViewContextWithContributor(
@@ -255,7 +255,7 @@ export function isCommandViewContextWithContributor(
 ): context is CommandViewItemContext & { node: ViewNode & { contributor: GitContributor } } {
     if (context.type !== 'viewItem') return false;
 
-    return (context.node as ViewNode & { contributor: GitContributor }).contributor instanceof GitContributor;
+    return GitContributor.is((context.node as ViewNode & { contributor: GitContributor }).contributor);
 }
 
 export function isCommandViewContextWithFile(
@@ -275,7 +275,7 @@ export function isCommandViewContextWithFileCommit(
     const node = context.node as ViewNode & { commit: GitCommit; file: GitFile; repoPath: string };
     return (
         node.file !== undefined &&
-        node.commit instanceof GitCommit &&
+        GitCommit.is(node.commit) &&
         (node.file.repoPath !== undefined || node.repoPath !== undefined)
     );
 }
@@ -307,7 +307,7 @@ export function isCommandViewContextWithRemote(
 ): context is CommandViewItemContext & { node: ViewNode & { remote: GitRemote } } {
     if (context.type !== 'viewItem') return false;
 
-    return (context.node as ViewNode & { remote: GitRemote }).remote instanceof GitRemote;
+    return GitRemote.is((context.node as ViewNode & { remote: GitRemote }).remote);
 }
 
 export function isCommandViewContextWithRepo(
@@ -548,7 +548,7 @@ export async function openEditor(
 ): Promise<TextEditor | undefined> {
     const { rethrow, ...opts } = options;
     try {
-        if (uri instanceof GitUri) {
+        if (GitUri.is(uri)) {
             uri = uri.documentUri();
         }
 

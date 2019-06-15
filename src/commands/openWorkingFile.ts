@@ -36,7 +36,7 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
             }
 
             args.uri = await GitUri.fromUri(uri);
-            if (args.uri instanceof GitUri && args.uri.sha) {
+            if (GitUri.is(args.uri) && args.uri.sha) {
                 const workingUri = await Container.git.getWorkingUri(args.uri.repoPath!, args.uri);
                 if (workingUri === undefined) {
                     return window.showWarningMessage(

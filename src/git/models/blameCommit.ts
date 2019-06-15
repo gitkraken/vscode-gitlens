@@ -2,6 +2,13 @@
 import { GitCommit, GitCommitLine, GitCommitType } from './commit';
 
 export class GitBlameCommit extends GitCommit {
+    static is(commit: any): commit is GitBlameCommit {
+        return (
+            commit instanceof GitBlameCommit
+            //|| (commit.repoPath !== undefined && commit.sha !== undefined && commit.type === GitCommitType.Blame)
+        );
+    }
+
     constructor(
         repoPath: string,
         sha: string,

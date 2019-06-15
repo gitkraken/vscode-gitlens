@@ -20,7 +20,7 @@ import { Iterables, Strings, TernarySearchTree } from '../system';
 const emptyArray = new Uint8Array(0);
 
 export function fromGitLensFSUri(uri: Uri): { path: string; ref: string; repoPath: string } {
-    const gitUri = uri instanceof GitUri ? uri : GitUri.fromRevisionUri(uri);
+    const gitUri = GitUri.is(uri) ? uri : GitUri.fromRevisionUri(uri);
     return { path: gitUri.relativePath, ref: gitUri.sha!, repoPath: gitUri.repoPath! };
 }
 

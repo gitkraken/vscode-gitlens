@@ -18,13 +18,13 @@ export async function activate(context: ExtensionContext) {
     setCommandContext(CommandContext.Enabled, true);
 
     Logger.configure(context, configuration.get<TraceLevel>(configuration.name('outputLevel').value), o => {
-        if (o instanceof GitUri) {
+        if (GitUri.is(o)) {
             return `GitUri(${o.toString(true)}${o.repoPath ? ` repoPath=${o.repoPath}` : ''}${
                 o.sha ? ` sha=${o.sha}` : ''
             })`;
         }
 
-        if (o instanceof GitCommit) {
+        if (GitCommit.is(o)) {
             return `GitCommit(${o.sha ? ` sha=${o.sha}` : ''}${o.repoPath ? ` repoPath=${o.repoPath}` : ''})`;
         }
 

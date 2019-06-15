@@ -77,7 +77,7 @@ export class Annotations {
         hunkLine?: GitDiffHunkLine
     ): Promise<MarkdownString | undefined> {
         const documentRef = uri.sha;
-        if (commit instanceof GitBlameCommit) {
+        if (GitBlameCommit.is(commit)) {
             // TODO: Figure out how to optimize this
             let ref;
             if (commit.isUncommitted) {

@@ -36,6 +36,10 @@ interface UriEx {
 }
 
 export class GitUri extends ((Uri as any) as UriEx) {
+    static is(uri: any): uri is GitUri {
+        return uri instanceof GitUri;
+    }
+
     readonly repoPath?: string;
     readonly sha?: string;
     readonly versionedPath?: string;
@@ -176,7 +180,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
     equals(uri: Uri | undefined) {
         if (!UriComparer.equals(this, uri)) return false;
 
-        return this.sha === (uri instanceof GitUri ? uri.sha : undefined);
+        return this.sha === (GitUri.is(uri) ? uri.sha : undefined);
     }
 
     getFormattedPath(options: { relativeTo?: string; separator?: string; suffix?: string } = {}): string {
@@ -259,7 +263,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
         exit: uri => `returned ${Logger.toLoggable(uri)}`
     })
     static async fromUri(uri: Uri) {
-        if (uri instanceof GitUri) return uri;
+        if (GitUri.is(uri)) return uri;
 
         if (!Container.git.isTrackable(uri)) return new GitUri(uri);
 
@@ -315,7 +319,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 
         let fileName: string;
         if (fileNameOrUri instanceof Uri) {
-            if (fileNameOrUri instanceof GitUri) return fileNameOrUri.getFormattedPath(options);
+            if (GitUri.is(fileNameOrUri)) return fileNameOrUri.getFormattedPath(options);
 
             fileName = fileNameOrUri.fsPath;
         }

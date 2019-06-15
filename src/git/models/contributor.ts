@@ -4,6 +4,10 @@ import { GravatarDefaultStyle } from '../../configuration';
 import { getGravatarUri } from '../../avatars';
 
 export class GitContributor {
+    static is(contributor: any): contributor is GitContributor {
+        return contributor instanceof GitContributor;
+    }
+
     constructor(
         public readonly repoPath: string,
         public readonly name: string,

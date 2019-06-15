@@ -4,8 +4,13 @@ import { GitFile } from './file';
 import { GitLogCommit } from './logCommit';
 
 export class GitStashCommit extends GitLogCommit {
-    static is(commit: GitLogCommit): commit is GitStashCommit {
-        return commit.isStash;
+    static is(commit: any): commit is GitStashCommit {
+        return (
+            commit instanceof GitStashCommit
+            // || (commit.repoPath !== undefined &&
+            //     commit.sha !== undefined &&
+            //     (commit.type === GitCommitType.Stash || commit.type === GitCommitType.StashFile))
+        );
     }
 
     constructor(

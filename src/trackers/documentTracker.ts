@@ -236,7 +236,7 @@ export class DocumentTracker<T> implements Disposable {
 
     private async _add(documentOrId: TextDocument | Uri): Promise<TrackedDocument<T>> {
         let document;
-        if (documentOrId instanceof GitUri) {
+        if (GitUri.is(documentOrId)) {
             try {
                 document = await workspace.openTextDocument(documentOrId.documentUri({ useVersionedPath: true }));
             }
@@ -273,7 +273,7 @@ export class DocumentTracker<T> implements Disposable {
     }
 
     private async _get(documentOrId: string | TextDocument | Uri) {
-        if (documentOrId instanceof GitUri) {
+        if (GitUri.is(documentOrId)) {
             documentOrId = GitUri.toKey(documentOrId.documentUri({ useVersionedPath: true }));
         }
         else if (typeof documentOrId === 'string' || documentOrId instanceof Uri) {

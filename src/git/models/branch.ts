@@ -11,6 +11,10 @@ export interface GitTrackingState {
 }
 
 export class GitBranch {
+    static is(branch: any): branch is GitBranch {
+        return branch instanceof GitBranch;
+    }
+
     readonly detached: boolean;
     readonly id: string;
     readonly tracking?: string;

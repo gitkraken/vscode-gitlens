@@ -2021,7 +2021,7 @@ export class GitService implements Disposable {
         options: { ref?: string } = {}
     ): Promise<string | undefined> {
         if (filePathOrUri == null) return this.getHighlanderRepoPath();
-        if (filePathOrUri instanceof GitUri) return filePathOrUri.repoPath;
+        if (GitUri.is(filePathOrUri)) return filePathOrUri.repoPath;
 
         const cc = Logger.getCorrelationContext();
 
@@ -2153,7 +2153,7 @@ export class GitService implements Disposable {
             isVslsScheme = undefined;
         }
         else {
-            if (repoPathOrUri instanceof GitUri) {
+            if (GitUri.is(repoPathOrUri)) {
                 if (repoPathOrUri.repoPath) {
                     const repo = repositoryTree.get(repoPathOrUri.repoPath);
                     if (repo !== undefined) return repo;

@@ -142,14 +142,14 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
     get changes() {
         return this._padOrTruncate(
-            this._item instanceof GitLogCommit ? this._item.getFormattedDiffStatus() : emptyStr,
+            GitLogCommit.is(this._item) ? this._item.getFormattedDiffStatus() : emptyStr,
             this._options.tokenOptions.changes
         );
     }
 
     get changesShort() {
         return this._padOrTruncate(
-            this._item instanceof GitLogCommit
+            GitLogCommit.is(this._item)
                 ? this._item.getFormattedDiffStatus({ compact: true, separator: emptyStr })
                 : emptyStr,
             this._options.tokenOptions.changesShort

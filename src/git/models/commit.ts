@@ -42,6 +42,19 @@ export const CommitFormatting = {
 };
 
 export abstract class GitCommit {
+    static is(commit: any): commit is GitCommit {
+        return (
+            commit instanceof GitCommit
+            // || (commit.repoPath !== undefined &&
+            //     commit.sha !== undefined &&
+            //     (commit.type === GitCommitType.Blame ||
+            //         commit.type === GitCommitType.Log ||
+            //         commit.type === GitCommitType.LogFile ||
+            //         commit.type === GitCommitType.Stash ||
+            //         commit.type === GitCommitType.StashFile))
+        );
+    }
+
     constructor(
         public readonly type: GitCommitType,
         public readonly repoPath: string,

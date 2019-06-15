@@ -24,6 +24,15 @@ export interface GitLogCommitLine {
 }
 
 export class GitLogCommit extends GitCommit {
+    static is(commit: any): commit is GitLogCommit {
+        return (
+            commit instanceof GitLogCommit
+            // || (commit.repoPath !== undefined &&
+            //     commit.sha !== undefined &&
+            //     (commit.type === GitCommitType.Log || commit.type === GitCommitType.LogFile))
+        );
+    }
+
     nextSha?: string;
     nextFileName?: string;
 

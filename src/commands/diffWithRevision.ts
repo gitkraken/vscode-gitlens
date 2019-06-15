@@ -86,12 +86,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
             }
 
             commandArgs = { ...args };
-            const icon =
-                args.reference instanceof GitTag
-                    ? '$(tag) '
-                    : args.reference instanceof GitBranch
-                    ? '$(git-branch) '
-                    : '';
+            const icon = GitTag.is(args.reference) ? '$(tag) ' : GitBranch.is(args.reference) ? '$(git-branch) ' : '';
             const currentCommand = new CommandQuickPickItem(
                 {
                     label: `go back ${GlyphChars.ArrowBack}`,

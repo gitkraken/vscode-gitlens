@@ -29,7 +29,7 @@ export class DiffWithCommand extends ActiveEditorCommand {
     static getMarkdownCommandArgs(commit: GitCommit, line?: number): string;
     static getMarkdownCommandArgs(argsOrCommit: DiffWithCommandArgs | GitCommit, line?: number): string {
         let args: DiffWithCommandArgs | GitCommit;
-        if (argsOrCommit instanceof GitCommit) {
+        if (GitCommit.is(argsOrCommit)) {
             const commit = argsOrCommit;
 
             if (commit.isUncommitted) {

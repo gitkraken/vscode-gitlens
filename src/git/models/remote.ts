@@ -9,6 +9,10 @@ export enum GitRemoteType {
 }
 
 export class GitRemote {
+    static is(remote: any): remote is GitRemote {
+        return remote instanceof GitRemote;
+    }
+
     constructor(
         public readonly repoPath: string,
         public readonly id: string,
