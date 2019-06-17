@@ -34,7 +34,7 @@ function getExtensionConfig(env) {
      * @type any[]
      */
     const plugins = [
-        new CleanPlugin(),
+        new CleanPlugin({ cleanOnceBeforeBuildPatterns: ['**/*', '!**/webviews/**'] }),
         new ForkTsCheckerPlugin({
             async: false,
             useTypescriptIncrementalApi: true
@@ -136,10 +136,10 @@ function getExtensionConfig(env) {
 }
 
 function getWebviewsConfig(env) {
-    const clean = [];
+    const clean = ['**/*'];
     if (env.optimizeImages) {
         console.log('Optimizing images (src/webviews/apps/images/settings/*.png)...');
-        clean.push('images/settings');
+        clean.push(path.resolve(__dirname, 'images/settings/*'));
     }
 
     /**
