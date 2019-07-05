@@ -1,5 +1,6 @@
 'use strict';
 /* eslint-disable constructor-super */
+import * as url from 'url';
 import * as paths from 'path';
 import { Uri } from 'vscode';
 import { UriComparer } from '../comparers';
@@ -365,7 +366,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 
         if (normalizedFileName.startsWith(normalizedRepoPath)) return normalizedFileName;
 
-        return Strings.normalizePath(paths.join(normalizedRepoPath, normalizedFileName));
+        return Strings.normalizePath(url.resolve(repoPath, fileName));
     }
 
     static resolveToUri(fileName: string, repoPath?: string) {
