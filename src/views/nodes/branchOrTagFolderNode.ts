@@ -23,9 +23,9 @@ export class BranchOrTagFolderNode extends ViewNode {
     }
 
     get id(): string {
-        return `gitlens:repository(${this.repoPath})${
-            this._key === undefined ? '' : `:${this._key}`
-        }:${this.type}-folder(${this.relativePath})`;
+        return `gitlens:repository(${this.repoPath})${this._key === undefined ? '' : `:${this._key}`}:${
+            this.type
+        }-folder(${this.relativePath})`;
     }
 
     getChildren(): ViewNode[] {
