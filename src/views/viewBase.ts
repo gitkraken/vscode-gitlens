@@ -61,7 +61,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
             this.getTreeItem = async function(this: ViewBase<TRoot>, node: ViewNode) {
                 const item = await fn.apply(this, [node]);
 
-                item.tooltip = `${item.tooltip || item.label}\n\nDBG: ${node.toString()}`;
+                item.tooltip = `${item.tooltip || item.label}\n\nDBG: ${node.toString()}, ${item.contextValue}`;
                 return item;
             };
         }
