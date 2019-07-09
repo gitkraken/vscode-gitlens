@@ -45,7 +45,7 @@
         "no-floating-decimal": "error",
         "no-implicit-coercion": "error",
         "no-implied-eval": "error",
-        // Turn off until https://github.com/typescript-eslint/typescript-eslint/issues/239 is fixed
+        // Turn off until fix for: https://github.com/typescript-eslint/typescript-eslint/issues/239
         "no-inner-declarations": "off",
         "no-lone-blocks": "error",
         "no-lonely-if": "error",
@@ -79,7 +79,8 @@
         "prefer-spread": "error",
         "prefer-template": "error",
         "quotes": ["error", "single", { "avoidEscape": true }],
-        "require-atomic-updates": "error",
+        // Turn off until fix for: https://github.com/eslint/eslint/issues/11899
+        "require-atomic-updates": "off",
         "require-await": "error",
         "semi": ["error", "always"],
         "semi-style": ["error", "last"],

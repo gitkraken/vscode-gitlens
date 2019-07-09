@@ -15,7 +15,7 @@ export function gate() {
         const gateKey = `$gate$${key}`;
 
         descriptor.value = function(this: any, ...args: any[]) {
-            if (!this.hasOwnProperty(gateKey)) {
+            if (!Object.prototype.hasOwnProperty.call(this, gateKey)) {
                 Object.defineProperty(this, gateKey, {
                     configurable: false,
                     enumerable: false,

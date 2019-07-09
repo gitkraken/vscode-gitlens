@@ -45,7 +45,7 @@ export function memoize<T extends (...arg: any) => any>(resolver?: (...args: Par
                     ? memoizeKey
                     : `${memoizeKey}$${(resolver || defaultResolver)(...(args as Parameters<T>))}`;
 
-            if (this.hasOwnProperty(prop)) {
+            if (Object.prototype.hasOwnProperty.call(this, prop)) {
                 result = this[prop];
 
                 return result;
