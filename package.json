@@ -1175,20 +1175,6 @@
                     "markdownDescription": "Specifies user-defined remote (code-hosting) services or custom domains for built-in remote services",
                     "scope": "resource"
                 },
-                "gitlens.settings.mode": {
-                    "type": "string",
-                    "default": "simple",
-                    "enum": [
-                        "simple",
-                        "advanced"
-                    ],
-                    "enumDescriptions": [
-                        "Only displays common settings",
-                        "Displays all settings"
-                    ],
-                    "markdownDescription": "Specifies the display mode of the interactive settings editor",
-                    "scope": "window"
-                },
                 "gitlens.showWhatsNewAfterUpgrades": {
                     "type": "boolean",
                     "default": true,
