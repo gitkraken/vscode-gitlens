@@ -1520,9 +1520,26 @@
                     "scope": "window"
                 },
                 "gitlens.views.repositories.showBranchComparison": {
-                    "type": "boolean",
-                    "default": true,
-                    "markdownDescription": "Specifies whether to show a comparison of the current branch to a user-selected reference in the _Repositories_ view",
+                    "anyOf": [
+                        {
+                            "enum": [
+                                false
+                            ]
+                        },
+                        {
+                            "type": "string",
+                            "default": "working",
+                            "enum": [
+                                "branch",
+                                "working"
+                            ],
+                            "enumDescriptions": [
+                                "Compares the current branch to the user-selected reference",
+                                "Compares the working tree to the user-selected reference"
+                            ]
+                        }
+                    ],
+                    "markdownDescription": "Specifies whether to show a comparison of a user-selected reference (branch, tag. etc) to the current branch or the working tree in the _Repositories_ view",
                     "scope": "window"
                 },
                 "gitlens.views.repositories.showTrackingBranch": {
@@ -2689,6 +2706,24 @@
                 "icon": {
                     "dark": "images/dark/icon-refresh.svg",
                     "light": "images/light/icon-refresh.svg"
+                }
+            },
+            {
+                "command": "gitlens.views.repositories.setBranchComparisonToWorking",
+                "title": "Switch to Working Tree Comparison",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-compare-ref-working.svg",
+                    "light": "images/light/icon-compare-ref-working.svg"
+                }
+            },
+            {
+                "command": "gitlens.views.repositories.setBranchComparisonToBranch",
+                "title": "Switch to Branch Comparison",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-compare-refs.svg",
+                    "light": "images/light/icon-compare-refs.svg"
                 }
             },
             {
@@ -4712,6 +4747,26 @@
                     "group": "inline@99"
                 },
                 {
+                    "command": "gitlens.views.repositories.setBranchComparisonToWorking",
+                    "when": "config.gitlens.views.repositories.showBranchComparison == branch && viewItem =~ /gitlens:compare:branch\\b/",
+                    "group": "inline@1"
+                },
+                {
+                    "command": "gitlens.views.repositories.setBranchComparisonToBranch",
+                    "when": "config.gitlens.views.repositories.showBranchComparison == working && viewItem =~ /gitlens:compare:branch\\b/",
+                    "group": "inline@1"
+                },
+                {
+                    "command": "gitlens.views.repositories.setBranchComparisonToWorking",
+                    "when": "config.gitlens.views.repositories.showBranchComparison == branch && viewItem =~ /gitlens:compare:branch\\b/",
+                    "group": "1_gitlens@1"
+                },
+                {
+                    "command": "gitlens.views.repositories.setBranchComparisonToBranch",
+                    "when": "config.gitlens.views.repositories.showBranchComparison == working && viewItem =~ /gitlens:compare:branch\\b/",
+                    "group": "1_gitlens@1"
+                },
+                {
                     "command": "gitlens.views.compare.pinComparison",
                     "when": "viewItem =~ /gitlens:compare:results\\b(?!.*?\\+pinned\\b.*?)/",
                     "group": "inline@1"
@@ -4728,7 +4783,7 @@
                 },
                 {
                     "command": "gitlens.views.refreshNode",
-                    "when": "viewItem =~ /gitlens:compare:results\\b/",
+                    "when": "viewItem =~ /gitlens:compare:(branch|results)\\b/",
                     "group": "inline@3"
                 },
                 {

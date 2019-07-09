@@ -193,6 +193,11 @@ export enum ViewLocation {
     SourceControl = 'scm'
 }
 
+export enum ViewShowBranchComparison {
+    Branch = 'branch',
+    Working = 'working'
+}
+
 export interface AdvancedConfig {
     abbreviatedShaLength: number;
     blame: {
@@ -364,7 +369,7 @@ export interface RepositoriesViewConfig {
     files: ViewsFilesConfig;
     includeWorkingTree: boolean;
     location: ViewLocation;
-    showBranchComparison: boolean;
+    showBranchComparison: false | ViewShowBranchComparison;
     showTrackingBranch: boolean;
 }
 

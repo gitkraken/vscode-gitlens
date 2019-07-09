@@ -1,7 +1,7 @@
 'use strict';
 import { commands, ExtensionContext, extensions, window, workspace } from 'vscode';
 import { Commands, registerCommands } from './commands';
-import { ModeConfig } from './config';
+import { ModeConfig, ViewShowBranchComparison } from './config';
 import { Config, configuration, Configuration } from './configuration';
 import { CommandContext, extensionQualifiedId, GlobalState, GlyphChars, setCommandContext } from './constants';
 import { Container } from './container';
@@ -105,7 +105,13 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
     const previous = Versions.fromString(previousVersion);
 
     try {
-        if (Versions.compare(previous, Versions.from(9, 6, 3)) !== 1) {
+        if (Versions.compare(previous, Versions.from(9, 8, 2)) !== 1) {
+            const name = configuration.name('views')('repositories')('showBranchComparison').value;
+            await configuration.migrate(name, name, {
+                migrationFn: (v: boolean) => (v === false ? false : ViewShowBranchComparison.Working)
+            });
+        }
+        else if (Versions.compare(previous, Versions.from(9, 6, 3)) !== 1) {
             const formatMigrationFn = (v: string) => {
                 if (v == null || v.length === 0) return v;
 

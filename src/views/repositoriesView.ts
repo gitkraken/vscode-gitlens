@@ -5,6 +5,7 @@ import { CommandContext, setCommandContext, WorkspaceState } from '../constants'
 import { Container } from '../container';
 import { RepositoriesNode } from './nodes';
 import { ViewBase } from './viewBase';
+import { ViewShowBranchComparison } from '../config';
 
 export class RepositoriesView extends ViewBase<RepositoriesNode> {
     constructor() {
@@ -52,6 +53,17 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
         commands.registerCommand(
             this.getQualifiedCommand('setAutoRefreshToOff'),
             () => this.setAutoRefresh(Container.config.views.repositories.autoRefresh, false),
+            this
+        );
+
+        commands.registerCommand(
+            this.getQualifiedCommand('setBranchComparisonToWorking'),
+            () => this.setBranchComparison(ViewShowBranchComparison.Working),
+            this
+        );
+        commands.registerCommand(
+            this.getQualifiedCommand('setBranchComparisonToBranch'),
+            () => this.setBranchComparison(ViewShowBranchComparison.Branch),
             this
         );
     }
@@ -108,6 +120,13 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
         setCommandContext(CommandContext.ViewsRepositoriesAutoRefresh, enabled && workspaceEnabled);
 
         this._onDidChangeAutoRefresh.fire();
+    }
+
+    private setBranchComparison(comparison: ViewShowBranchComparison) {
+        return configuration.updateEffective(
+            configuration.name('views')('repositories')('showBranchComparison').value,
+            comparison
+        );
     }
 
     private setFilesLayout(layout: ViewFilesLayout) {

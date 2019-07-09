@@ -2441,7 +2441,7 @@
                                     </div>
 
                                     <div
-                                        class="settings-group__setting ml-2 hidden"
+                                        class="settings-group__setting nowrap ml-2 hidden"
                                         data-enablement="views.repositories.enabled"
                                         data-visibility="settings.mode =advanced"
                                     >
@@ -2450,11 +2450,22 @@
                                             id="views.repositories.showBranchComparison"
                                             name="views.repositories.showBranchComparison"
                                             type="checkbox"
+                                            value="working"
                                             disabled
                                         />
                                         <label for="views.repositories.showBranchComparison"
-                                            >Show a comparison of the current branch to a user-selected reference</label
-                                        >
+                                            >Show a comparison of a user-selected reference (branch, tag, etc) to the
+                                            <select
+                                                class="setting"
+                                                id="views.repositories.showBranchComparison"
+                                                name="views.repositories.showBranchComparison"
+                                                data-enablement="views.repositories.enabled &amp; views.repositories.showBranchComparison !false"
+                                                disabled
+                                            >
+                                                <option value="branch">current branch</option>
+                                                <option value="working">working tree</option>
+                                            </select>
+                                        </label>
                                     </div>
 
                                     <div

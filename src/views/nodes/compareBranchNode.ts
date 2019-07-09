@@ -9,6 +9,7 @@ import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
 import { Container } from '../../container';
 import { Strings } from '../../system';
 import { ResultsFilesNode } from './resultsFilesNode';
+import { ViewShowBranchComparison } from '../../config';
 
 export class CompareBranchNode extends ViewNode<RepositoriesView> {
     private _children: ViewNode[] | undefined;
@@ -42,7 +43,13 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
                         querying: true
                     }
                 ),
-                new ResultsFilesNode(this.view, this, this.uri.repoPath!, this._compareWith, this.branch.ref)
+                new ResultsFilesNode(
+                    this.view,
+                    this,
+                    this.uri.repoPath!,
+                    this._compareWith,
+                    this.compareWithWorkingTree ? '' : this.branch.ref
+                )
             ];
         }
         return this._children;
@@ -53,11 +60,13 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
         let label;
         let description;
         if (this._compareWith === undefined) {
-            label = `Compare ${this.branch.name} with <branch, tag, or ref>`;
+            label = `Compare ${this.branch.name}${
+                this.compareWithWorkingTree ? ' (working)' : ''
+            } with <branch, tag, or ref>`;
             state = TreeItemCollapsibleState.None;
         }
         else {
-            label = `${this.branch.name}`;
+            label = `${this.branch.name}${this.compareWithWorkingTree ? ' (working)' : ''}`;
             description = `${GlyphChars.ArrowLeftRightLong}${GlyphChars.Space} ${GitService.shortenSha(
                 this._compareWith,
                 {
@@ -69,25 +78,37 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
 
         const item = new TreeItem(label, state);
         item.command = {
-            title: `Compare ${this.branch.name} with${GlyphChars.Ellipsis}`,
+            title: `Compare ${this.branch.name}${this.compareWithWorkingTree ? ' (working)' : ''} with${
+                GlyphChars.Ellipsis
+            }`,
             command: 'gitlens.views.executeNodeCallback',
             arguments: [() => this.compareWith()]
         };
         item.contextValue = ResourceType.CompareBranch;
         item.description = description;
         item.iconPath = {
-            dark: Container.context.asAbsolutePath('images/dark/icon-compare-refs.svg'),
-            light: Container.context.asAbsolutePath('images/light/icon-compare-refs.svg')
+            dark: Container.context.asAbsolutePath(
+                `images/dark/icon-compare-${this.compareWithWorkingTree ? 'ref-working' : 'refs'}.svg`
+            ),
+            light: Container.context.asAbsolutePath(
+                `images/light/icon-compare-${this.compareWithWorkingTree ? 'ref-working' : 'refs'}.svg`
+            )
         };
         item.id = this.id;
-        item.tooltip = `Click to compare ${this.branch.name} with${GlyphChars.Ellipsis}`;
+        item.tooltip = `Click to compare ${this.branch.name}${this.compareWithWorkingTree ? ' (working)' : ''} with${
+            GlyphChars.Ellipsis
+        }`;
 
         return item;
     }
 
+    get compareWithWorkingTree() {
+        return this.view.config.showBranchComparison === ViewShowBranchComparison.Working;
+    }
+
     async compareWith() {
         const pick = await new ReferencesQuickPick(this.branch.repoPath).show(
-            `Compare ${this.branch.name} with${GlyphChars.Ellipsis}`,
+            `Compare ${this.branch.name}${this.compareWithWorkingTree ? ' (working)' : ''} with${GlyphChars.Ellipsis}`,
             { allowEnteringRefs: true, checked: this.branch.ref, checkmarks: true }
         );
         if (pick === undefined || pick instanceof CommandQuickPickItem) return;
@@ -104,7 +125,7 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
 
         const log = await Container.git.getLog(this.uri.repoPath!, {
             maxCount: maxCount,
-            ref: `${this._compareWith || 'HEAD'}${notation}${this.branch.ref}`
+            ref: `${this._compareWith || 'HEAD'}${notation}${this.compareWithWorkingTree ? '' : this.branch.ref}`
         });
 
         const count = log !== undefined ? log.count : 0;

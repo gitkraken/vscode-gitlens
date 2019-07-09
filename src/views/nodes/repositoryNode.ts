@@ -75,7 +75,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
                     children.push(new StatusFilesNode(this.view, this, status, range));
                 }
 
-                if (this.view.config.showBranchComparison) {
+                if (this.view.config.showBranchComparison !== false) {
                     children.push(new CompareBranchNode(this.uri, this.view, this, branch));
                 }
 
