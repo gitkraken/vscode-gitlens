@@ -12,7 +12,7 @@ import {
 import { Logger } from '../../logger';
 import { debug, Iterables } from '../../system';
 import { View } from '../viewBase';
-import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
+import { CommitFileNode } from './commitFileNode';
 import { MessageNode, ShowMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
 import { PageableViewNode, ResourceType, SubscribeableViewNode, ViewNode } from './viewNode';
@@ -33,10 +33,6 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 
     async getChildren(): Promise<ViewNode[]> {
         const children: ViewNode[] = [];
-
-        const displayAs =
-            CommitFileNodeDisplayAs.CommitLabel |
-            (this.view.config.avatars ? CommitFileNodeDisplayAs.Gravatar : CommitFileNodeDisplayAs.StatusIcon);
 
         let selection = this.selection;
 
@@ -87,7 +83,15 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
                         selection.active.character
                     );
 
-                    children.splice(0, 0, new CommitFileNode(this.view, this, file, uncommitted, displayAs, selection));
+                    children.splice(
+                        0,
+                        0,
+                        new CommitFileNode(this.view, this, file, uncommitted, {
+                            displayAsCommit: true,
+                            inFileHistory: true,
+                            selection: selection
+                        })
+                    );
 
                     break;
                 }
@@ -104,7 +108,12 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
                 ...insertDateMarkers(
                     Iterables.filterMap(
                         log.commits.values(),
-                        c => new CommitFileNode(this.view, this, c.files[0], c, displayAs, selection)
+                        c =>
+                            new CommitFileNode(this.view, this, c.files[0], c, {
+                                displayAsCommit: true,
+                                inFileHistory: true,
+                                selection: selection
+                            })
                     ),
                     this
                 )

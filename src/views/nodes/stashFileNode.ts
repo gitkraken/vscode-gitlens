@@ -1,12 +1,12 @@
 'use strict';
 import { GitFile, GitLogCommit } from '../../git/gitService';
 import { View } from '../viewBase';
-import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
+import { CommitFileNode } from './commitFileNode';
 import { ResourceType, ViewNode } from './viewNode';
 
 export class StashFileNode extends CommitFileNode {
     constructor(view: View, parent: ViewNode, file: GitFile, commit: GitLogCommit) {
-        super(view, parent, file, commit, CommitFileNodeDisplayAs.File);
+        super(view, parent, file, commit);
     }
 
     protected get resourceType(): ResourceType {

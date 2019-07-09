@@ -8,25 +8,13 @@ import { CommitFormatter, GitFile, GitLogCommit, GitUri, StatusFileFormatter } f
 import { View } from '../viewBase';
 import { ResourceType, ViewNode, ViewRefFileNode } from './viewNode';
 
-export enum CommitFileNodeDisplayAs {
-    CommitLabel = 1 << 0,
-    FileLabel = 1 << 1,
-
-    CommitIcon = 1 << 2,
-    StatusIcon = 1 << 3,
-    Gravatar = 1 << 4,
-
-    File = FileLabel | StatusIcon
-}
-
 export class CommitFileNode extends ViewRefFileNode {
     constructor(
         view: View,
         parent: ViewNode,
         public readonly file: GitFile,
         public commit: GitLogCommit,
-        private readonly _displayAs: CommitFileNodeDisplayAs,
-        private readonly _selection?: Selection
+        private readonly _options: { displayAsCommit?: boolean; inFileHistory?: boolean; selection?: Selection } = {}
     ) {
         super(GitUri.fromFile(file, commit.repoPath, commit.sha), view, parent);
     }
@@ -70,21 +58,15 @@ export class CommitFileNode extends ViewRefFileNode {
         item.description = this.description;
         item.tooltip = this.tooltip;
 
-        if ((this._displayAs & CommitFileNodeDisplayAs.CommitIcon) === CommitFileNodeDisplayAs.CommitIcon) {
-            item.iconPath = {
-                dark: Container.context.asAbsolutePath(paths.join('images', 'dark', 'icon-commit.svg')),
-                light: Container.context.asAbsolutePath(paths.join('images', 'light', 'icon-commit.svg'))
-            };
+        if (this._options.displayAsCommit && this.view.config.avatars) {
+            item.iconPath = this.commit.getGravatarUri(Container.config.defaultGravatarsStyle);
         }
-        else if ((this._displayAs & CommitFileNodeDisplayAs.StatusIcon) === CommitFileNodeDisplayAs.StatusIcon) {
+        else {
             const icon = GitFile.getStatusIcon(this.file.status);
             item.iconPath = {
                 dark: Container.context.asAbsolutePath(paths.join('images', 'dark', icon)),
                 light: Container.context.asAbsolutePath(paths.join('images', 'light', icon))
             };
-        }
-        else if ((this._displayAs & CommitFileNodeDisplayAs.Gravatar) === CommitFileNodeDisplayAs.Gravatar) {
-            item.iconPath = this.commit.getGravatarUri(Container.config.defaultGravatarsStyle);
         }
 
         item.command = this.getCommand();
@@ -100,15 +82,14 @@ export class CommitFileNode extends ViewRefFileNode {
     private _description: string | undefined;
     get description() {
         if (this._description === undefined) {
-            this._description =
-                this._displayAs & CommitFileNodeDisplayAs.CommitLabel
-                    ? CommitFormatter.fromTemplate(this.getCommitDescriptionTemplate(), this.commit, {
-                          truncateMessageAtNewLine: true,
-                          dateFormat: Container.config.defaultDateFormat
-                      })
-                    : StatusFileFormatter.fromTemplate(this.getCommitFileDescriptionTemplate(), this.file, {
-                          relativePath: this.relativePath
-                      });
+            this._description = this._options.displayAsCommit
+                ? CommitFormatter.fromTemplate(this.getCommitDescriptionTemplate(), this.commit, {
+                      truncateMessageAtNewLine: true,
+                      dateFormat: Container.config.defaultDateFormat
+                  })
+                : StatusFileFormatter.fromTemplate(this.getCommitFileDescriptionTemplate(), this.file, {
+                      relativePath: this.relativePath
+                  });
         }
         return this._description;
     }
@@ -124,15 +105,14 @@ export class CommitFileNode extends ViewRefFileNode {
     private _label: string | undefined;
     get label() {
         if (this._label === undefined) {
-            this._label =
-                this._displayAs & CommitFileNodeDisplayAs.CommitLabel
-                    ? CommitFormatter.fromTemplate(this.getCommitTemplate(), this.commit, {
-                          truncateMessageAtNewLine: true,
-                          dateFormat: Container.config.defaultDateFormat
-                      })
-                    : StatusFileFormatter.fromTemplate(this.getCommitFileTemplate(), this.file, {
-                          relativePath: this.relativePath
-                      });
+            this._label = this._options.displayAsCommit
+                ? CommitFormatter.fromTemplate(this.getCommitTemplate(), this.commit, {
+                      truncateMessageAtNewLine: true,
+                      dateFormat: Container.config.defaultDateFormat
+                  })
+                : StatusFileFormatter.fromTemplate(this.getCommitFileTemplate(), this.file, {
+                      relativePath: this.relativePath
+                  });
         }
         return this._label;
     }
@@ -148,7 +128,9 @@ export class CommitFileNode extends ViewRefFileNode {
     }
 
     protected get resourceType(): string {
-        if (!this.commit.isUncommitted) return ResourceType.CommitFile;
+        if (!this.commit.isUncommitted) {
+            return `${ResourceType.File}+committed${this._options.inFileHistory ? '+history' : ''}`;
+        }
 
         return this.commit.isUncommittedStaged ? `${ResourceType.File}+staged` : `${ResourceType.File}+unstaged`;
     }
@@ -156,7 +138,7 @@ export class CommitFileNode extends ViewRefFileNode {
     private _tooltip: string | undefined;
     get tooltip() {
         if (this._tooltip === undefined) {
-            if (this._displayAs & CommitFileNodeDisplayAs.CommitLabel) {
+            if (this._options.displayAsCommit) {
                 // eslint-disable-next-line no-template-curly-in-string
                 const status = StatusFileFormatter.fromTemplate('${status}${ (originalPath)}', this.file);
                 this._tooltip = CommitFormatter.fromTemplate(
@@ -208,7 +190,7 @@ export class CommitFileNode extends ViewRefFileNode {
             line = this.commit.line.to.line - 1;
         }
         else {
-            line = this._selection !== undefined ? this._selection.active.line : 0;
+            line = this._options.selection !== undefined ? this._options.selection.active.line : 0;
         }
 
         const commandArgs: DiffWithPreviousCommandArgs = {

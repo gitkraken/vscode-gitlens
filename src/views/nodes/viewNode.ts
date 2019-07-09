@@ -13,7 +13,6 @@ export enum ResourceType {
     BranchStatusAheadOfUpstream = 'gitlens:branch-status:upstream:ahead',
     BranchStatusBehindUpstream = 'gitlens:branch-status:upstream:behind',
     Commit = 'gitlens:commit',
-    CommitFile = 'gitlens:file:commit',
     Commits = 'gitlens:commits',
     Compare = 'gitlens:compare',
     CompareBranch = 'gitlens:compare:branch',

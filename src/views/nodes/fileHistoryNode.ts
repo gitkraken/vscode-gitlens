@@ -13,7 +13,7 @@ import {
 import { Logger } from '../../logger';
 import { debug, Iterables } from '../../system';
 import { View } from '../viewBase';
-import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
+import { CommitFileNode } from './commitFileNode';
 import { MessageNode, ShowMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
 import { PageableViewNode, ResourceType, SubscribeableViewNode, ViewNode } from './viewNode';
@@ -28,10 +28,6 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 
     async getChildren(): Promise<ViewNode[]> {
         const children: ViewNode[] = [];
-
-        const displayAs =
-            CommitFileNodeDisplayAs.CommitLabel |
-            (this.view.config.avatars ? CommitFileNodeDisplayAs.Gravatar : CommitFileNodeDisplayAs.StatusIcon);
 
         if (this.uri.sha === undefined) {
             const status = await Container.git.getStatusForFile(this.uri.repoPath!, this.uri.fsPath);
@@ -69,7 +65,9 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
                     previousSha,
                     status.originalFileName || status.fileName
                 );
-                children.push(new CommitFileNode(this.view, this, status, commit, displayAs));
+                children.push(
+                    new CommitFileNode(this.view, this, status, commit, { displayAsCommit: true, inFileHistory: true })
+                );
             }
         }
 
@@ -82,7 +80,11 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
                 ...insertDateMarkers(
                     Iterables.map(
                         log.commits.values(),
-                        c => new CommitFileNode(this.view, this, c.files[0], c, displayAs)
+                        c =>
+                            new CommitFileNode(this.view, this, c.files[0], c, {
+                                displayAsCommit: true,
+                                inFileHistory: true
+                            })
                     ),
                     this
                 )

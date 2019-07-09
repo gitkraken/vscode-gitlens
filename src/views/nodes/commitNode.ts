@@ -8,7 +8,7 @@ import { Container } from '../../container';
 import { CommitFormatter, GitBranch, GitLogCommit } from '../../git/gitService';
 import { Arrays, Iterables, Strings } from '../../system';
 import { ViewWithFiles } from '../viewBase';
-import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
+import { CommitFileNode } from './commitFileNode';
 import { FileNode, FolderNode } from './folderNode';
 import { ResourceType, ViewNode, ViewRefNode } from './viewNode';
 
@@ -30,10 +30,7 @@ export class CommitNode extends ViewRefNode<ViewWithFiles> {
     async getChildren(): Promise<ViewNode[]> {
         const commit = this.commit;
         let children: FileNode[] = [
-            ...Iterables.map(
-                commit.files,
-                s => new CommitFileNode(this.view, this, s, commit.toFileCommit(s), CommitFileNodeDisplayAs.File)
-            )
+            ...Iterables.map(commit.files, s => new CommitFileNode(this.view, this, s, commit.toFileCommit(s)))
         ];
 
         if (this.view.config.files.layout !== ViewFilesLayout.List) {

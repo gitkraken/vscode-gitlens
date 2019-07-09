@@ -2498,7 +2498,11 @@
             {
                 "command": "gitlens.views.openFileRevision",
                 "title": "Open Revision",
-                "category": "GitLens"
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-open-file.svg",
+                    "light": "images/light/icon-open-file.svg"
+                }
             },
             {
                 "command": "gitlens.views.openFileRevisionInRemote",
@@ -4401,7 +4405,7 @@
                 },
                 {
                     "command": "gitlens.copyMessageToClipboard",
-                    "when": "viewItem =~ /gitlens:(commit|stash|file:commit)\\b/",
+                    "when": "viewItem =~ /gitlens:(commit|stash|file\\b.*?\\+committed\\b.*?)\\b/",
                     "group": "5_gitlens@2"
                 },
                 {
@@ -4446,8 +4450,20 @@
                 },
                 {
                     "command": "gitlens.views.openFile",
-                    "when": "viewItem =~ /gitlens:(file|history:(file|line)|status:file)\\b/",
+                    "when": "viewItem =~ /gitlens:(history:(file|line)|status:file)\\b/",
                     "group": "inline@1"
+                },
+                {
+                    "command": "gitlens.views.openFile",
+                    "when": "viewItem =~ /gitlens:file\\b(?!.*?\\+history\\b.*?)/",
+                    "group": "inline@1",
+                    "alt": "gitlens.views.openFileRevision"
+                },
+                {
+                    "command": "gitlens.views.openFileRevision",
+                    "when": "viewItem =~ /gitlens:file\\b.*?\\+history\\b.*?/",
+                    "group": "inline@1",
+                    "alt": "gitlens.views.openFile"
                 },
                 {
                     "command": "gitlens.views.stageFile",
@@ -4496,7 +4512,7 @@
                 },
                 {
                     "command": "gitlens.views.openFileRevision",
-                    "when": "viewItem =~ /gitlens:file\\b/",
+                    "when": "viewItem =~ /gitlens:file\\b.*?\\+committed\\b.*?/",
                     "group": "3_gitlens@2"
                 },
                 {
@@ -4517,7 +4533,7 @@
                 },
                 {
                     "command": "gitlens.views.openFileRevisionInRemote",
-                    "when": "viewItem == gitlens:file:commit && gitlens:hasRemotes",
+                    "when": "viewItem =~ /gitlens:file\\b.*?\\+committed\\b.*?/ && gitlens:hasRemotes",
                     "group": "4_gitlens@2"
                 },
                 {

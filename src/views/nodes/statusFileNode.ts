@@ -6,7 +6,7 @@ import { Container } from '../../container';
 import { GitFile, GitLogCommit, GitUri, StatusFileFormatter } from '../../git/gitService';
 import { Strings } from '../../system';
 import { View } from '../viewBase';
-import { CommitFileNode, CommitFileNodeDisplayAs } from './commitFileNode';
+import { CommitFileNode } from './commitFileNode';
 import { ResourceType, ViewNode } from './viewNode';
 
 export class StatusFileNode extends ViewNode {
@@ -56,19 +56,7 @@ export class StatusFileNode extends ViewNode {
     }
 
     getChildren(): ViewNode[] {
-        return this.commits.map(
-            c =>
-                new CommitFileNode(
-                    this.view,
-                    this,
-                    this.file,
-                    c,
-                    CommitFileNodeDisplayAs.CommitLabel |
-                        (this.view.config.avatars
-                            ? CommitFileNodeDisplayAs.Gravatar
-                            : CommitFileNodeDisplayAs.CommitIcon)
-                )
-        );
+        return this.commits.map(c => new CommitFileNode(this.view, this, this.file, c, { displayAsCommit: true }));
     }
 
     getTreeItem(): TreeItem {
