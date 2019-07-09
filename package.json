@@ -2,7 +2,7 @@
     "name": "gitlens",
     "displayName": "GitLens — Git supercharged",
     "description": "Supercharge the Git capabilities built into Visual Studio Code — Visualize code authorship at a glance via Git blame annotations and code lens, seamlessly navigate and explore Git repositories, gain valuable insights via powerful comparison commands, and so much more",
-    "version": "9.8.2",
+    "version": "9.8.3",
     "author": {
         "name": "Eric Amodio",
         "email": "eamodio@gmail.com"
@@ -1759,7 +1759,7 @@
                 "gitlens.advanced.useSymmetricDifferenceNotation": {
                     "type": "boolean",
                     "default": true,
-                    "markdownDescription": "Specifies whether to use the symmetric difference (three-dot) notation or the range (two-dot) notation for comparisions. See the [Git docs](https://git-scm.com/docs/gitrevisions#_dotted_range_notations)",
+                    "markdownDescription": "Specifies whether to use the symmetric difference (three-dot) notation or the range (two-dot) notation for comparisons. See the [Git docs](https://git-scm.com/docs/gitrevisions#_dotted_range_notations)",
                     "scope": "window"
                 }
             }

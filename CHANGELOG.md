@@ -4,11 +4,31 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [9.8.3] - 2019-07-09
+
+### Added
+
+- Adds working tree comparison support to the _Compare Current Branch with &lt;branch, tag, or ref&gt;_ node within each repository in the _Repositories_ view
+  - Changes `gitlens.views.repositories.showBranchComparison` to also specify the type of comparison &mdash; either with the current branch or the working tree
+  - Adds a _Switch to Working Tree Comparison_ command or _Switch to Branch Comparison_ command to the _Compare Current Branch with &lt;branch, tag, or ref&gt;_ node
+- Adds the _Open Revision_ command as an `alt-click` of the _Open File_ command on files in the views
+- Adds the _Open File_ command as an `alt-click` of the _Open Revision_ command on files in the views
+
+### Changed
+
+- Changes fetch, pull, and push commands to be executed in parallel, rather than sequentially
+- Changes _Search Commits_ (`gitlens.showCommitSearch`) command to prompt for a repository, if there is more than one
+
+### Removed
+
+- Removes `gitlens.settings.mode` setting as the interactive settings editor (via the _GitLens: Open Settings_ command) will always show all settings now
 
 ### Fixed
 
+- Fixes [#776](https://github.com/eamodio/vscode-gitlens/issues/776) - File history sidebar having "Open file" instead of "Open revision"
 - Fixes [#692](https://github.com/eamodio/vscode-gitlens/issues/692) - Can't open remote on bitbucket &mdash; thanks to [PR #767](https://github.com/eamodio/vscode-gitlens/pull/767) by grozan ([@grozan](https://github.com/grozan))
+- Fixes a parsing issue with certain renamed files
+- Fixes some issues with emoji rendering
 
 ## [9.8.2] - 2019-06-10
 
@@ -50,7 +70,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
           - A context menu provides access to more common file revision commands
     - **\* Files Changed** &mdash; lists all of the files changed between the compared revisions
 - Adds a _Show a comparison of the current branch to a user-selected reference_ (`gitlens.views.repositories.showBranchComparison`) setting to specify whether to show a comparison of the current branch to a user-selected reference in the _Repositories_ view
-- Adds a `gitlens.advanced.useSymmetricDifferenceNotation` setting to specify whether to use the symmetric difference (three-dot) notation or the range (two-dot) notation for comparisions &mdash; closes [#330](https://github.com/eamodio/vscode-gitlens/issues/330)
+- Adds a `gitlens.advanced.useSymmetricDifferenceNotation` setting to specify whether to use the symmetric difference (three-dot) notation or the range (two-dot) notation for comparisons &mdash; closes [#330](https://github.com/eamodio/vscode-gitlens/issues/330)
 - Adds a _Copy Remote Url to Clipboard_ command to commit quick pick menus
 
 ### Changed
@@ -129,7 +149,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds support to the _Details_ and _Changes (diff)_ hovers to differentiate between staged and unstaged changed
 - Adds a _Show All_ command to the _Show More_ nodes in the views
 - Adds _Show More_ support (i.e. paging) to the _File_ and _Line History_ views
-- Adds an improved experience when starting a new commit search or comparision
+- Adds an improved experience when starting a new commit search or comparison
 - Adds the renamed path to the description and tooltip of file nodes in the views
 - Adds a `gitlens.advanced.maxSearchItems` setting to specify the maximum number of items to show in a search &mdash; closes [#728](https://github.com/eamodio/vscode-gitlens/issues/728)
 - Adds a `gitlens.defaultDateSource` setting to specify whether commit dates should use the authored or committed date &mdash; closes [#537](https://github.com/eamodio/vscode-gitlens/issues/537) thanks to [PR #707](https://github.com/eamodio/vscode-gitlens/pull/707) by Mathew King ([@MathewKing](https://github.com/MathewKing))

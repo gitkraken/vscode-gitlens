@@ -289,6 +289,7 @@ The repositories view provides the following features,
             - An inline toolbar provides quick access to the _Open File_, _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open File on Remote_ (if available) commands
             - A context menu provides access to more common file revision commands
       - **\* Files Changed** &mdash; lists all of the files changed between the compared revisions
+      - An inline toolbar provides quick access to the _Switch to Working Tree Comparison_ or _Switch to Branch Comparison_, and _Refresh_ commands
 
 - **Branches** &mdash; lists the local branches in the repository
 
@@ -872,7 +873,7 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 | `gitlens.advanced.repositorySearchDepth`          | Specifies how many folders deep to search for repositories                                                                                                                                                 |
 | `gitlens.advanced.similarityThreshold`            | Specifies the amount (percent) of similarity a deleted and added file pair must have to be considered a rename                                                                                             |
 | `gitlens.advanced.telemetry.enabled`              | Specifies whether to enable GitLens telemetry (even if enabled still abides by the overall `telemetry.enableTelemetry` setting                                                                             |
-| `gitlens.advanced.useSymmetricDifferenceNotation` | Specifies whether to use the symmetric difference (three-dot) notation or the range (two-dot) notation for comparisions. See the [Git docs](https://git-scm.com/docs/gitrevisions#_dotted_range_notations) |
+| `gitlens.advanced.useSymmetricDifferenceNotation` | Specifies whether to use the symmetric difference (three-dot) notation or the range (two-dot) notation for comparisons. See the [Git docs](https://git-scm.com/docs/gitrevisions#_dotted_range_notations) |
 
 #### Custom Remotes Settings
 
