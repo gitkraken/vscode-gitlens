@@ -2,7 +2,7 @@
     "name": "gitlens",
     "displayName": "GitLens — Git supercharged",
     "description": "Supercharge the Git capabilities built into Visual Studio Code — Visualize code authorship at a glance via Git blame annotations and code lens, seamlessly navigate and explore Git repositories, gain valuable insights via powerful comparison commands, and so much more",
-    "version": "9.8.3",
+    "version": "9.8.4",
     "author": {
         "name": "Eric Amodio",
         "email": "eamodio@gmail.com"
@@ -5323,7 +5323,7 @@
     "dependencies": {
         "dayjs": "1.8.15",
         "iconv-lite": "0.5.0",
-        "lodash-es": "4.17.11",
+        "lodash-es": "4.17.14",
         "vsls": "0.3.1291"
     },
     "devDependencies": {
