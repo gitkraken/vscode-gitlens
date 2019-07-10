@@ -289,7 +289,7 @@ The repositories view provides the following features,
             - An inline toolbar provides quick access to the _Open File_, _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open File on Remote_ (if available) commands
             - A context menu provides access to more common file revision commands
       - **\* Files Changed** &mdash; lists all of the files changed between the compared revisions
-      - An inline toolbar provides quick access to the _Switch to Working Tree Comparison_ or _Switch to Branch Comparison_, and _Refresh_ commands
+      - An inline toolbar provides quick access to the _Switch to Two-dot Comparison_ (when applicable), _Switch to Three-dot Comparison_ (when applicable), _Switch to Working Tree Comparison_ (when applicable), _Switch to Branch Comparison_ (when applicable), and _Refresh_ commands
 
 - **Branches** &mdash; lists the local branches in the repository
 
@@ -467,7 +467,7 @@ A [customizable](#compare-view-settings- 'Jump to the Compare view settings') vi
 The compare view provides the following features,
 
 - Provides a semi-persistent results view for comparison operations
-  - An inline toolbar provides quick access to the _Swap Comparison_, _Pin Comparison_ (when applicable), _Unpin Comparison_ (when applicable), _Refresh_, and _Dismiss_ commands
+  - An inline toolbar provides quick access to the _Pin Comparison_ (when applicable), _Unpin Comparison_ (when applicable), _Switch to Two-dot Comparison_ (when applicable), _Switch to Three-dot Comparison_ (when applicable), _Swap Comparison_, _Refresh_, and _Dismiss_ (when applicable) commands
   - A context menu provides access to common comparison commands
   - **\* Commits** &mdash; lists the commits between the compared revisions
     - Expands to provide the message, author, date, and change indicator of each revision (commit) &mdash; fully [customizable](#view-settings- 'Jump to the View settings')

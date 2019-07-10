@@ -20,7 +20,8 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
         public readonly repoPath: string,
         private _ref1: NamedRef,
         private _ref2: NamedRef,
-        private _pinned: boolean = false
+        private _pinned: boolean = false,
+        private _comparisonNotation?: '...' | '..'
     ) {
         super(GitUri.fromRepoPath(repoPath), view);
         this._instanceId = instanceId++;
@@ -77,10 +78,13 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
         }
 
         const item = new TreeItem(this.label, this._state || TreeItemCollapsibleState.Collapsed);
-        item.contextValue = ResourceType.CompareResults;
+        item.contextValue = `${ResourceType.CompareResults}+${
+            this.comparisonNotation === '..' ? 'twodot' : 'threedot'
+        }`;
         if (this._pinned) {
             item.contextValue += '+pinned';
         }
+
         item.description = description;
         if (this._pinned) {
             item.iconPath = {
@@ -103,7 +107,8 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
         await this.view.updatePinnedComparison(this.getPinnableId(), {
             path: this.repoPath,
             ref1: this.ref1,
-            ref2: this.ref2
+            ref2: this.ref2,
+            notation: this._comparisonNotation
         });
 
         this._pinned = true;
@@ -116,6 +121,23 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
         if (!reset) return;
 
         this._children = undefined;
+    }
+
+    @log()
+    async setComparisonNotation(comparisonNotation: '...' | '..') {
+        this._comparisonNotation = comparisonNotation;
+
+        if (this._pinned) {
+            await this.view.updatePinnedComparison(this.getPinnableId(), {
+                path: this.repoPath,
+                ref1: this.ref1,
+                ref2: this.ref2,
+                notation: this._comparisonNotation
+            });
+        }
+
+        this._children = undefined;
+        this.view.triggerNodeChange(this);
     }
 
     @log()
@@ -133,7 +155,8 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
             await this.view.updatePinnedComparison(this.getPinnableId(), {
                 path: this.repoPath,
                 ref1: this.ref1,
-                ref2: this.ref2
+                ref2: this.ref2,
+                notation: this._comparisonNotation
             });
         }
 
@@ -155,12 +178,14 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
         return undefined;
     }
 
-    private async getCommitsQuery(maxCount: number | undefined): Promise<CommitsQueryResults> {
-        const notation = Container.config.advanced.useSymmetricDifferenceNotation ? '...' : '..';
+    private get comparisonNotation() {
+        return this._comparisonNotation || (Container.config.advanced.useSymmetricDifferenceNotation ? '...' : '..');
+    }
 
+    private async getCommitsQuery(maxCount: number | undefined): Promise<CommitsQueryResults> {
         const log = await Container.git.getLog(this.uri.repoPath!, {
             maxCount: maxCount,
-            ref: `${this._ref1.ref}${notation}${this._ref2.ref || 'HEAD'}`
+            ref: `${this._ref1.ref}${this.comparisonNotation}${this._ref2.ref || 'HEAD'}`
         });
 
         const count = log !== undefined ? log.count : 0;

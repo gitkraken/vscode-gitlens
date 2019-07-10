@@ -23,6 +23,7 @@ import {
     BranchTrackingStatusNode,
     CommitFileNode,
     CommitNode,
+    CompareResultsNode,
     ContributorNode,
     FileHistoryNode,
     FolderNode,
@@ -42,6 +43,7 @@ import {
 } from './nodes';
 import { Strings } from '../system/string';
 import { PagerNode } from './nodes/common';
+import { CompareBranchNode } from './nodes/compareBranchNode';
 
 interface CompareSelectedInfo {
     ref: string;
@@ -128,6 +130,13 @@ export class ViewCommands implements Disposable {
         commands.registerCommand('gitlens.views.compareFileWithSelected', this.compareFileWithSelected, this);
         commands.registerCommand('gitlens.views.selectFileForCompare', this.selectFileForCompare, this);
         commands.registerCommand('gitlens.views.compareWithWorking', this.compareWithWorking, this);
+
+        commands.registerCommand('gitlens.views.setComparisonToTwoDot', n => this.setComparisonNotation(n, '..'), this);
+        commands.registerCommand(
+            'gitlens.views.setComparisonToThreeDot',
+            n => this.setComparisonNotation(n, '...'),
+            this
+        );
 
         commands.registerCommand('gitlens.views.terminalCheckoutBranch', this.terminalCheckoutBranch, this);
         commands.registerCommand('gitlens.views.terminalCreateBranch', this.terminalCreateBranch, this);
@@ -596,6 +605,12 @@ export class ViewCommands implements Disposable {
     private unstar(node: BranchNode | RepositoryNode) {
         if (node instanceof BranchNode || node instanceof RepositoryNode) return node.unstar();
         return undefined;
+    }
+
+    private setComparisonNotation(node: ViewNode, comparisonNotation: '...' | '..') {
+        if (!(node instanceof CompareResultsNode) && !(node instanceof CompareBranchNode)) return undefined;
+
+        return node.setComparisonNotation(comparisonNotation);
     }
 
     terminalCheckoutBranch(node: BranchNode) {

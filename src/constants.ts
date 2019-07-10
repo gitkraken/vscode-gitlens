@@ -1,5 +1,6 @@
 'use strict';
 import { commands, TextDocument, TextEditor, window } from 'vscode';
+import { ViewShowBranchComparison } from './config';
 
 export const applicationInsightsKey = 'a9c302f8-6483-4d01-b92c-c159c799c679';
 export const extensionId = 'gitlens';
@@ -134,8 +135,14 @@ export const ImageMimetypes: { [key: string]: string } = {
     '.bmp': 'image/bmp'
 };
 
+export interface BranchComparison {
+    ref: string;
+    notation: '...' | '..' | undefined;
+    type: Exclude<ViewShowBranchComparison, false> | undefined;
+}
+
 export interface BranchComparisons {
-    [id: string]: string;
+    [id: string]: string | BranchComparison;
 }
 
 export interface NamedRef {
@@ -147,6 +154,7 @@ export interface PinnedComparison {
     path: string;
     ref1: NamedRef;
     ref2: NamedRef;
+    notation: '...' | '..' | undefined;
 }
 
 export interface PinnedComparisons {

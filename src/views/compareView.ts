@@ -126,7 +126,7 @@ export class CompareView extends ViewBase<CompareNode> {
         const pinned = Container.context.workspaceState.get<PinnedComparisons>(WorkspaceState.PinnedComparisons);
         if (pinned == null) return [];
 
-        return Object.values(pinned).map(p => new CompareResultsNode(this, p.path, p.ref1, p.ref2, true));
+        return Object.values(pinned).map(p => new CompareResultsNode(this, p.path, p.ref1, p.ref2, true, p.notation));
     }
 
     async updatePinnedComparison(id: string, pin?: PinnedComparison) {
@@ -136,11 +136,7 @@ export class CompareView extends ViewBase<CompareNode> {
         }
 
         if (pin !== undefined) {
-            pinned![id] = {
-                path: pin.path,
-                ref1: pin.ref1,
-                ref2: pin.ref2
-            };
+            pinned![id] = { ...pin };
         }
         else {
             // eslint-disable-next-line @typescript-eslint/no-unused-vars

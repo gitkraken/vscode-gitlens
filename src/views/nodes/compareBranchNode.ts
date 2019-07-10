@@ -1,25 +1,35 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { BranchComparisons, GlyphChars, WorkspaceState } from '../../constants';
+import { BranchComparison, BranchComparisons, GlyphChars, WorkspaceState } from '../../constants';
 import { ResourceType, ViewNode } from './viewNode';
 import { RepositoriesView } from '../repositoriesView';
 import { GitBranch, GitService, GitUri } from '../../git/gitService';
 import { CommandQuickPickItem, ReferencesQuickPick } from '../../quickpicks';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
 import { Container } from '../../container';
-import { Strings } from '../../system';
+import { log, Strings } from '../../system';
 import { ResultsFilesNode } from './resultsFilesNode';
 import { ViewShowBranchComparison } from '../../config';
 
 export class CompareBranchNode extends ViewNode<RepositoriesView> {
     private _children: ViewNode[] | undefined;
-    private _compareWith: string | undefined;
+    private _compareWith: BranchComparison | undefined;
 
     constructor(uri: GitUri, view: RepositoriesView, parent: ViewNode, public readonly branch: GitBranch) {
         super(uri, view, parent);
 
         const comparisons = Container.context.workspaceState.get<BranchComparisons>(WorkspaceState.BranchComparisons);
-        this._compareWith = comparisons && comparisons[branch.id];
+        const compareWith = comparisons && comparisons[branch.id];
+        if (compareWith !== undefined && typeof compareWith === 'string') {
+            this._compareWith = {
+                ref: compareWith,
+                notation: Container.config.advanced.useSymmetricDifferenceNotation ? '...' : '..',
+                type: this.view.config.showBranchComparison || ViewShowBranchComparison.Working
+            };
+        }
+        else {
+            this._compareWith = compareWith;
+        }
     }
 
     get id(): string {
@@ -47,7 +57,7 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
                     this.view,
                     this,
                     this.uri.repoPath!,
-                    this._compareWith,
+                    this._compareWith.ref,
                     this.compareWithWorkingTree ? '' : this.branch.ref
                 )
             ];
@@ -68,7 +78,7 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
         else {
             label = `${this.branch.name}${this.compareWithWorkingTree ? ' (working)' : ''}`;
             description = `${GlyphChars.ArrowLeftRightLong}${GlyphChars.Space} ${GitService.shortenSha(
-                this._compareWith,
+                this._compareWith.ref,
                 {
                     working: 'Working Tree'
                 }
@@ -84,7 +94,9 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
             command: 'gitlens.views.executeNodeCallback',
             arguments: [() => this.compareWith()]
         };
-        item.contextValue = ResourceType.CompareBranch;
+        item.contextValue = `${ResourceType.CompareBranch}${this._compareWith === undefined ? '' : '+comparing'}+${
+            this.comparisonNotation === '..' ? 'twodot' : 'threedot'
+        }+${this.comparisonType}`;
         item.description = description;
         item.iconPath = {
             dark: Container.context.asAbsolutePath(
@@ -102,30 +114,68 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
         return item;
     }
 
-    get compareWithWorkingTree() {
-        return this.view.config.showBranchComparison === ViewShowBranchComparison.Working;
+    @log()
+    async setComparisonNotation(comparisonNotation: '...' | '..') {
+        if (this._compareWith !== undefined) {
+            await this.updateCompareWith({ ...this._compareWith, notation: comparisonNotation });
+        }
+
+        this._children = undefined;
+        this.view.triggerNodeChange(this);
     }
 
-    async compareWith() {
+    @log()
+    async setComparisonType(comparisonType: Exclude<ViewShowBranchComparison, false>) {
+        if (this._compareWith !== undefined) {
+            await this.updateCompareWith({ ...this._compareWith, type: comparisonType });
+        }
+
+        this._children = undefined;
+        this.view.triggerNodeChange(this);
+    }
+
+    private get comparisonNotation() {
+        return (
+            (this._compareWith && this._compareWith.notation) ||
+            (Container.config.advanced.useSymmetricDifferenceNotation ? '...' : '..')
+        );
+    }
+
+    private get comparisonType() {
+        return (
+            (this._compareWith && this._compareWith.type) ||
+            this.view.config.showBranchComparison ||
+            ViewShowBranchComparison.Working
+        );
+    }
+
+    private get compareWithWorkingTree() {
+        return this.comparisonType === ViewShowBranchComparison.Working;
+    }
+
+    private async compareWith() {
         const pick = await new ReferencesQuickPick(this.branch.repoPath).show(
             `Compare ${this.branch.name}${this.compareWithWorkingTree ? ' (working)' : ''} with${GlyphChars.Ellipsis}`,
             { allowEnteringRefs: true, checked: this.branch.ref, checkmarks: true }
         );
         if (pick === undefined || pick instanceof CommandQuickPickItem) return;
 
-        this._compareWith = pick.ref;
-        this.updateCompareWith(this._compareWith);
+        this.updateCompareWith({
+            ref: pick.ref,
+            notation: this.comparisonNotation,
+            type: this.comparisonType
+        });
 
         this._children = undefined;
         this.view.triggerNodeChange(this);
     }
 
     private async getCommitsQuery(maxCount: number | undefined): Promise<CommitsQueryResults> {
-        const notation = Container.config.advanced.useSymmetricDifferenceNotation ? '...' : '..';
-
         const log = await Container.git.getLog(this.uri.repoPath!, {
             maxCount: maxCount,
-            ref: `${this._compareWith || 'HEAD'}${notation}${this.compareWithWorkingTree ? '' : this.branch.ref}`
+            ref: `${(this._compareWith && this._compareWith.ref) || 'HEAD'}${this.comparisonNotation}${
+                this.compareWithWorkingTree ? '' : this.branch.ref
+            }`
         });
 
         const count = log !== undefined ? log.count : 0;
@@ -139,14 +189,16 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
         };
     }
 
-    private async updateCompareWith(compareWith: string | undefined) {
+    private async updateCompareWith(compareWith: BranchComparison | undefined) {
+        this._compareWith = compareWith;
+
         let comparisons = Container.context.workspaceState.get<BranchComparisons>(WorkspaceState.BranchComparisons);
         if (comparisons === undefined) {
             comparisons = Object.create(null);
         }
 
         if (compareWith) {
-            comparisons![this.branch.id] = compareWith;
+            comparisons![this.branch.id] = { ...compareWith };
         }
         else {
             // eslint-disable-next-line @typescript-eslint/no-unused-vars

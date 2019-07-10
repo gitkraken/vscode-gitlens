@@ -3,9 +3,10 @@ import { commands, ConfigurationChangeEvent, Event, EventEmitter } from 'vscode'
 import { configuration, RepositoriesViewConfig, ViewFilesLayout, ViewsConfig } from '../configuration';
 import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
-import { RepositoriesNode } from './nodes';
+import { RepositoriesNode, ViewNode } from './nodes';
 import { ViewBase } from './viewBase';
 import { ViewShowBranchComparison } from '../config';
+import { CompareBranchNode } from './nodes/compareBranchNode';
 
 export class RepositoriesView extends ViewBase<RepositoriesNode> {
     constructor() {
@@ -58,12 +59,12 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 
         commands.registerCommand(
             this.getQualifiedCommand('setBranchComparisonToWorking'),
-            () => this.setBranchComparison(ViewShowBranchComparison.Working),
+            n => this.setBranchComparison(n, ViewShowBranchComparison.Working),
             this
         );
         commands.registerCommand(
             this.getQualifiedCommand('setBranchComparisonToBranch'),
-            () => this.setBranchComparison(ViewShowBranchComparison.Branch),
+            n => this.setBranchComparison(n, ViewShowBranchComparison.Branch),
             this
         );
     }
@@ -122,11 +123,10 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
         this._onDidChangeAutoRefresh.fire();
     }
 
-    private setBranchComparison(comparison: ViewShowBranchComparison) {
-        return configuration.updateEffective(
-            configuration.name('views')('repositories')('showBranchComparison').value,
-            comparison
-        );
+    private setBranchComparison(node: ViewNode, comparisonType: Exclude<ViewShowBranchComparison, false>) {
+        if (!(node instanceof CompareBranchNode)) return undefined;
+
+        return node.setComparisonType(comparisonType);
     }
 
     private setFilesLayout(layout: ViewFilesLayout) {

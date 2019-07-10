@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Adds _Switch to Two-dot Comparison_ and _Switch to Three-dot Comparison_ commands to specify whether to use the symmetric difference (three-dot) notation or the range (two-dot) notation for the comparison &mdash; applies to all comparisons in the views
+
+### Changed
+
+- Changes the _Switch to Working Tree Comparison_ and _Switch to Branch Comparison_ commands to only affect the current comparison, rather than changing the `gitlens.views.repositories.showBranchComparison` setting
+
 ## [9.8.3] - 2019-07-09
 
 ### Added
