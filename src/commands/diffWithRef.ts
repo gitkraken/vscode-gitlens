@@ -36,7 +36,7 @@ export class DiffWithRefCommand extends ActiveEditorCommand {
         if (!gitUri.repoPath) return Messages.showNoRepositoryWarningMessage('Unable to open file compare');
 
         const pick = await new ReferencesQuickPick(gitUri.repoPath).show(
-            `Compare ${paths.basename(gitUri.fsPath)} with${GlyphChars.Ellipsis}`,
+            `Compare ${gitUri.getFormattedPath()} with${GlyphChars.Ellipsis}`,
             {
                 allowEnteringRefs: true,
                 checkmarks: false,

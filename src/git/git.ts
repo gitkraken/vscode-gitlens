@@ -205,7 +205,7 @@ export class Git {
     static deletedOrMissingSha = '0000000000000000000000000000000000000000-';
     static shaLikeRegex = /(^[0-9a-f]{40}([\^@~:]\S*)?$)|(^[0]{40}(:|-)$)/;
     static shaRegex = /(^[0-9a-f]{40}$)|(^[0]{40}(:|-)$)/;
-    static shaParentRegex = /^[0-9a-f]{40}\^[0-3]?$/;
+    static shaParentRegex = /(^[0-9a-f]{40})\^[0-3]?$/;
     static shaShortenRegex = /^(.*?)([\^@~:].*)?$/;
     static uncommittedRegex = /^[0]{40}(?:[\^@~:]\S*)?:?$/;
     static uncommittedSha = '0000000000000000000000000000000000000000';

@@ -65,7 +65,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
                 const npc = new CommandQuickPickItem(
                     {
                         label: '$(arrow-right) Show Next Commits',
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${log.maxCount} newer commits`
+                        description: `shows ${log.maxCount} newer commits`
                     },
                     Commands.DiffWithRevision,
                     [uri, commandArgs]
@@ -77,7 +77,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
                     previousPageCommand = new CommandQuickPickItem(
                         {
                             label: '$(arrow-left) Show Previous Commits',
-                            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${log.maxCount} older commits`
+                            description: `shows ${log.maxCount} older commits`
                         },
                         Commands.DiffWithRevision,
                         [new GitUri(uri, last), commandArgs]
@@ -90,9 +90,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
             const currentCommand = new CommandQuickPickItem(
                 {
                     label: `go back ${GlyphChars.ArrowBack}`,
-                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${
-                        GlyphChars.Space
-                    }$(file-text) ${gitUri.getFormattedPath()}${
+                    description: `to history of ${gitUri.getFormattedPath()}${
                         args.reference
                             ? ` from ${GlyphChars.Space}${icon}${args.reference.name}`
                             : gitUri.sha
@@ -115,7 +113,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
                     ? new CommandQuickPickItem(
                           {
                               label: '$(sync) Show All Commits',
-                              description: `${Strings.pad(GlyphChars.Dash, 2, 3)} this may take a while`
+                              description: 'this may take a while'
                           },
                           Commands.DiffWithRevision,
                           [uri, commandArgs]
@@ -138,7 +136,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 
             if (pick instanceof CommandQuickPickItem) return pick.execute();
 
-            const ref = pick.commit.sha;
+            const ref = pick.item.sha;
 
             const diffArgs: DiffWithCommandArgs = {
                 repoPath: gitUri.repoPath,

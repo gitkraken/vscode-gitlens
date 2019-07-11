@@ -109,9 +109,7 @@ export class OpenCommitFileRevisionsCommandQuickPickItem extends CommandQuickPic
         super(
             item || {
                 label: '$(file-symlink-file) Open Revisions',
-                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} in ${GlyphChars.Space}$(git-commit) ${
-                    _commit.shortSha
-                }`
+                description: `from ${GlyphChars.Space}$(git-commit) ${_commit.shortSha}`
                 // detail: `Opens all of the changed files in $(git-commit) ${commit.shortSha}`
             }
         );
@@ -263,7 +261,7 @@ export class CommitQuickPick {
                 new CommandQuickPickItem(
                     {
                         label: '$(git-pull-request) Apply Stashed Changes',
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${commit.getShortMessage()}`
+                        description: `${commit.getShortMessage()}`
                     },
                     Commands.StashApply,
                     [stashApplyCommmandArgs]
@@ -281,7 +279,7 @@ export class CommitQuickPick {
                 new CommandQuickPickItem(
                     {
                         label: '$(x) Delete Stashed Changes',
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${commit.getShortMessage()}`
+                        description: `${commit.getShortMessage()}`
                     },
                     Commands.StashDelete,
                     [stashDeleteCommmandArgs]
@@ -313,8 +311,10 @@ export class CommitQuickPick {
         items.splice(index++, 0, new OpenCommitFilesCommandQuickPickItem(commit));
         items.splice(index++, 0, new OpenCommitFileRevisionsCommandQuickPickItem(commit));
 
+        const previousSha = await Container.git.resolveReference(commit.repoPath, commit.previousFileSha);
+
         let diffDirectoryCommmandArgs: DiffDirectoryCommandArgs = {
-            ref1: commit.previousFileSha,
+            ref1: previousSha,
             ref2: commit.sha
         };
         items.splice(
@@ -323,9 +323,9 @@ export class CommitQuickPick {
             new CommandQuickPickItem(
                 {
                     label: '$(git-compare) Open Directory Compare with Previous Revision',
-                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${GitService.shortenSha(
-                        commit.previousFileSha
-                    )} ${GlyphChars.Space} $(git-compare) ${GlyphChars.Space} $(git-commit) ${commit.shortSha}`
+                    description: `$(git-commit) ${GitService.shortenSha(previousSha)} ${
+                        GlyphChars.Space
+                    } $(git-compare) ${GlyphChars.Space} $(git-commit) ${commit.shortSha}`
                 },
                 Commands.DiffDirectory,
                 [commit.uri, diffDirectoryCommmandArgs]
@@ -341,9 +341,7 @@ export class CommitQuickPick {
             new CommandQuickPickItem(
                 {
                     label: '$(git-compare) Open Directory Compare with Working Tree',
-                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${commit.shortSha} ${
-                        GlyphChars.Space
-                    } $(git-compare) ${GlyphChars.Space} $(file-directory) Working Tree`
+                    description: `$(git-commit) ${commit.shortSha} ${GlyphChars.Space} $(git-compare) ${GlyphChars.Space} Working Tree`
                 },
                 Commands.DiffDirectory,
                 [uri, diffDirectoryCommmandArgs]
@@ -360,7 +358,7 @@ export class CommitQuickPick {
                 new CommandQuickPickItem(
                     {
                         label: '$(clippy) Copy Commit ID to Clipboard',
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${commit.shortSha}`
+                        description: `${commit.shortSha}`
                     },
                     Commands.CopyShaToClipboard,
                     [uri, copyShaCommandArgs]
@@ -378,7 +376,7 @@ export class CommitQuickPick {
             new CommandQuickPickItem(
                 {
                     label: '$(clippy) Copy Commit Message to Clipboard',
-                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${commit.getShortMessage()}`
+                    description: `${commit.getShortMessage()}`
                 },
                 Commands.CopyMessageToClipboard,
                 [uri, copyMessageCommandArgs]

@@ -13,6 +13,14 @@ export class GitRemote {
         return remote instanceof GitRemote;
     }
 
+    static sort(remotes: GitRemote[]) {
+        return remotes.sort(
+            (a, b) =>
+                (a.default ? -1 : 1) - (b.default ? -1 : 1) ||
+                a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+        );
+    }
+
     constructor(
         public readonly repoPath: string,
         public readonly id: string,

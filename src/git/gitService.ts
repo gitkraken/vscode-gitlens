@@ -1010,12 +1010,7 @@ export class GitService implements Disposable {
             }
 
             if (options.sort) {
-                branches!.sort(
-                    (a, b) =>
-                        (a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
-                        (b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
-                        a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
-                );
+                GitBranch.sort(branches!);
             }
 
             if (options.filter !== undefined) {
@@ -2102,11 +2097,7 @@ export class GitService implements Disposable {
             if (remotes === undefined) return [];
 
             if (options.sort) {
-                remotes.sort(
-                    (a, b) =>
-                        (a.default ? -1 : 1) - (b.default ? -1 : 1) ||
-                        a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
-                );
+                GitRemote.sort(remotes);
             }
 
             return remotes;
@@ -2213,9 +2204,7 @@ export class GitService implements Disposable {
         const repositories = [...(await this.getRepositories())];
         if (repositories.length === 0) return repositories;
 
-        return repositories
-            .filter(r => !r.closed)
-            .sort((a, b) => (a.starred ? -1 : 1) - (b.starred ? -1 : 1) || a.index - b.index);
+        return Repository.sort(repositories.filter(r => !r.closed));
     }
 
     private async getRepositoryTree(): Promise<TernarySearchTree<Repository>> {
@@ -2384,7 +2373,7 @@ export class GitService implements Disposable {
             }
 
             if (options.sort) {
-                tags!.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+                GitTag.sort(tags!);
             }
 
             if (options.filter !== undefined) {
@@ -2628,6 +2617,14 @@ export class GitService implements Disposable {
             if (Git.isSha(ref) || !Git.isShaLike(ref) || ref.endsWith('^3')) return ref;
 
             return (await Git.rev_parse(repoPath, ref)) || ref;
+        }
+
+        const match = Git.shaParentRegex.exec(ref);
+        if (match != null) {
+            const previousUri = await Container.git.getPreviousUri(repoPath, uri, match[1]);
+            if (previousUri !== undefined && previousUri.sha !== undefined) {
+                return previousUri.sha;
+            }
         }
 
         const ensuredRef = await Git.cat_file__resolve(

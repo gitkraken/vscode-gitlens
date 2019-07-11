@@ -1,6 +1,6 @@
 'use strict';
 import * as paths from 'path';
-import { commands, Disposable, env, Terminal, TextDocumentShowOptions, Uri, window } from 'vscode';
+import { commands, env, TextDocumentShowOptions, Uri, window } from 'vscode';
 import {
     Commands,
     DiffWithCommandArgs,
@@ -13,7 +13,7 @@ import {
     OpenWorkingFileCommandArgs,
     openWorkspace
 } from '../commands';
-import { BuiltInCommands, CommandContext, extensionTerminalName, setCommandContext } from '../constants';
+import { BuiltInCommands, CommandContext, setCommandContext } from '../constants';
 import { Container } from '../container';
 import { toGitLensFSUri } from '../git/fsProvider';
 import { GitService, GitUri } from '../git/gitService';
@@ -23,12 +23,14 @@ import {
     BranchTrackingStatusNode,
     CommitFileNode,
     CommitNode,
+    CompareBranchNode,
     CompareResultsNode,
     ContributorNode,
     FileHistoryNode,
     FolderNode,
     LineHistoryNode,
     nodeSupportsPaging,
+    PagerNode,
     RemoteNode,
     RepositoryNode,
     ResultsFileNode,
@@ -42,8 +44,7 @@ import {
     viewSupportsNodeDismissal
 } from './nodes';
 import { Strings } from '../system/string';
-import { PagerNode } from './nodes/common';
-import { CompareBranchNode } from './nodes/compareBranchNode';
+import { runGitCommandInTerminal } from '../terminal';
 
 interface CompareSelectedInfo {
     ref: string;
@@ -51,11 +52,7 @@ interface CompareSelectedInfo {
     uri?: Uri;
 }
 
-export class ViewCommands implements Disposable {
-    private _disposable: Disposable | undefined;
-    private _terminal: Terminal | undefined;
-    private _terminalCwd: string | undefined;
-
+export class ViewCommands {
     constructor() {
         commands.registerCommand(
             'gitlens.views.refreshNode',
@@ -158,10 +155,6 @@ export class ViewCommands implements Disposable {
         commands.registerCommand('gitlens.views.terminalRemoveRemote', this.terminalRemoveRemote, this);
         commands.registerCommand('gitlens.views.terminalCreateTag', this.terminalCreateTag, this);
         commands.registerCommand('gitlens.views.terminalDeleteTag', this.terminalDeleteTag, this);
-    }
-
-    dispose() {
-        this._disposable && this._disposable.dispose();
     }
 
     private async contributorAddCoauthoredBy(node: ContributorNode) {
@@ -616,7 +609,7 @@ export class ViewCommands implements Disposable {
     terminalCheckoutBranch(node: BranchNode) {
         if (!(node instanceof BranchNode)) return;
 
-        this.sendTerminalCommand('checkout', `${node.ref}`, node.repoPath);
+        runGitCommandInTerminal('checkout', `${node.ref}`, node.repoPath);
     }
 
     async terminalCreateBranch(node: ViewRefNode) {
@@ -636,59 +629,59 @@ export class ViewCommands implements Disposable {
         });
         if (name === undefined || name.length === 0) return;
 
-        this.sendTerminalCommand('branch', `${remoteBranch ? '-t ' : ''}${name} ${node.ref}`, node.repoPath);
+        runGitCommandInTerminal('branch', `${remoteBranch ? '-t ' : ''}${name} ${node.ref}`, node.repoPath);
     }
 
     terminalDeleteBranch(node: BranchNode) {
         if (!(node instanceof BranchNode)) return;
 
         if (node.branch.remote) {
-            this.sendTerminalCommand('push', `${node.branch.getRemoteName()} :${node.branch.getName()}`, node.repoPath);
+            runGitCommandInTerminal('push', `${node.branch.getRemoteName()} :${node.branch.getName()}`, node.repoPath);
         }
         else {
-            this.sendTerminalCommand('branch', `-d ${node.ref}`, node.repoPath);
+            runGitCommandInTerminal('branch', `-d ${node.ref}`, node.repoPath);
         }
     }
 
     terminalMergeBranch(node: BranchNode) {
         if (!(node instanceof BranchNode)) return;
 
-        this.sendTerminalCommand('merge', `${node.ref}`, node.repoPath);
+        runGitCommandInTerminal('merge', `${node.ref}`, node.repoPath);
     }
 
     terminalRebaseBranch(node: BranchNode) {
         if (!(node instanceof BranchNode)) return;
 
-        this.sendTerminalCommand('rebase', `-i ${node.ref}`, node.repoPath);
+        runGitCommandInTerminal('rebase', `-i ${node.ref}`, node.repoPath);
     }
 
     terminalRebaseBranchToRemote(node: BranchNode | BranchTrackingStatusNode) {
         if (node instanceof BranchNode) {
             if (!node.branch.current || !node.branch.tracking) return;
 
-            this.sendTerminalCommand('rebase', `-i ${node.branch.tracking}`, node.repoPath);
+            runGitCommandInTerminal('rebase', `-i ${node.branch.tracking}`, node.repoPath);
         }
         else if (node instanceof BranchTrackingStatusNode) {
-            this.sendTerminalCommand('rebase', `-i ${node.status.upstream}`, node.status.repoPath);
+            runGitCommandInTerminal('rebase', `-i ${node.status.upstream}`, node.status.repoPath);
         }
     }
 
     terminalSquashBranchIntoCommit(node: BranchNode) {
         if (!(node instanceof BranchNode)) return;
 
-        this.sendTerminalCommand('merge', `--squash ${node.ref}`, node.repoPath);
+        runGitCommandInTerminal('merge', `--squash ${node.ref}`, node.repoPath);
     }
 
     terminalCheckoutCommit(node: CommitNode) {
         if (!(node instanceof CommitNode)) return;
 
-        this.sendTerminalCommand('checkout', `${node.ref}`, node.repoPath);
+        runGitCommandInTerminal('checkout', `${node.ref}`, node.repoPath);
     }
 
     terminalCherryPickCommit(node: CommitNode) {
         if (!(node instanceof CommitNode)) return;
 
-        this.sendTerminalCommand('cherry-pick', `-e ${node.ref}`, node.repoPath);
+        runGitCommandInTerminal('cherry-pick', `-e ${node.ref}`, node.repoPath);
     }
 
     async terminalPushCommit(node: CommitNode) {
@@ -697,31 +690,31 @@ export class ViewCommands implements Disposable {
         const branch = node.branch || (await Container.git.getBranch(node.repoPath));
         if (branch === undefined) return;
 
-        this.sendTerminalCommand('push', `${branch.getRemoteName()} ${node.ref}:${branch.getName()}`, node.repoPath);
+        runGitCommandInTerminal('push', `${branch.getRemoteName()} ${node.ref}:${branch.getName()}`, node.repoPath);
     }
 
     terminalRebaseCommit(node: CommitNode) {
         if (!(node instanceof CommitNode)) return;
 
-        this.sendTerminalCommand('rebase', `-i ${node.ref}^`, node.repoPath);
+        runGitCommandInTerminal('rebase', `-i ${node.ref}^`, node.repoPath);
     }
 
     terminalResetCommit(node: CommitNode) {
         if (!(node instanceof CommitNode)) return;
 
-        this.sendTerminalCommand('reset', `--soft ${node.ref}`, node.repoPath);
+        runGitCommandInTerminal('reset', `--soft ${node.ref}`, node.repoPath);
     }
 
     terminalRevertCommit(node: CommitNode) {
         if (!(node instanceof CommitNode)) return;
 
-        this.sendTerminalCommand('revert', `-e ${node.ref}`, node.repoPath);
+        runGitCommandInTerminal('revert', `-e ${node.ref}`, node.repoPath);
     }
 
     terminalRemoveRemote(node: RemoteNode) {
         if (!(node instanceof RemoteNode)) return;
 
-        this.sendTerminalCommand('remote', `remove ${node.remote.name}`, node.remote.repoPath);
+        runGitCommandInTerminal('remote', `remove ${node.remote.name}`, node.remote.repoPath);
     }
 
     async terminalCreateTag(node: ViewRefNode) {
@@ -741,46 +734,12 @@ export class ViewCommands implements Disposable {
         if (message === undefined) return;
 
         const args = `${message.length !== 0 ? `-a -m "${message}" ` : ''}${name} ${node.ref}`;
-        this.sendTerminalCommand('tag', args, node.repoPath);
+        runGitCommandInTerminal('tag', args, node.repoPath);
     }
 
     terminalDeleteTag(node: TagNode) {
         if (!(node instanceof TagNode)) return;
 
-        this.sendTerminalCommand('tag', `-d ${node.ref}`, node.repoPath);
-    }
-
-    private ensureTerminal(cwd: string): Terminal {
-        if (this._terminal === undefined) {
-            this._terminal = window.createTerminal(extensionTerminalName);
-            this._disposable = window.onDidCloseTerminal((e: Terminal) => {
-                if (e.name === extensionTerminalName) {
-                    this._terminal = undefined;
-                    this._disposable!.dispose();
-                    this._disposable = undefined;
-                }
-            }, this);
-
-            Container.context.subscriptions.push(this._disposable);
-            this._terminalCwd = undefined;
-        }
-
-        if (this._terminalCwd !== cwd) {
-            this._terminal.sendText(`cd "${cwd}"`, true);
-            this._terminalCwd = cwd;
-        }
-
-        return this._terminal;
-    }
-
-    private sendTerminalCommand(command: string, args: string, cwd: string) {
-        // let git = GitService.getGitPath();
-        // if (git.includes(' ')) {
-        //     git = `"${git}"`;
-        // }
-
-        const terminal = this.ensureTerminal(cwd);
-        terminal.show(false);
-        terminal.sendText(`git ${command} ${args}`, false);
+        runGitCommandInTerminal('tag', `-d ${node.ref}`, node.repoPath);
     }
 }

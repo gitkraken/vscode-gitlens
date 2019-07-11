@@ -1,20 +1,19 @@
 'use strict';
-import * as paths from 'path';
 import { CancellationTokenSource, window } from 'vscode';
 import { Commands, ShowQuickCurrentBranchHistoryCommandArgs, ShowQuickFileHistoryCommandArgs } from '../commands';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitLog, GitUri, RemoteResource, RemoteResourceType } from '../git/gitService';
 import { KeyNoopCommand } from '../keyboard';
-import { Iterables, Strings } from '../system';
+import { Iterables } from '../system';
 import {
     CommandQuickPickItem,
-    CommitQuickPickItem,
     getQuickPickIgnoreFocusOut,
     ShowFileHistoryFromQuickPickItem,
     showQuickPickProgress
 } from './commonQuickPicks';
 import { OpenRemotesCommandQuickPickItem } from './remotesQuickPick';
+import { CommitQuickPickItem } from './gitQuickPicks';
 
 export class FileHistoryQuickPick {
     static showProgress(placeHolder: string) {
@@ -42,7 +41,7 @@ export class FileHistoryQuickPick {
     ): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
         options = { pickerOnly: false, ...options };
 
-        const items = Array.from(Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c))) as (
+        const items = Array.from(Iterables.map(log.commits.values(), c => CommitQuickPickItem.create(c))) as (
             | CommitQuickPickItem
             | CommandQuickPickItem)[];
 
@@ -75,9 +74,7 @@ export class FileHistoryQuickPick {
                         goBackCommand: new CommandQuickPickItem(
                             {
                                 label: `go back ${GlyphChars.ArrowBack}`,
-                                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${
-                                    GlyphChars.Space
-                                }$(file-text) ${paths.basename(uri.fsPath)}${
+                                description: `to history of ${uri.getFormattedPath()}${
                                     uri.sha ? ` from ${GlyphChars.Space}$(git-commit) ${uri.shortSha}` : ''
                                 }`
                             },
@@ -93,9 +90,7 @@ export class FileHistoryQuickPick {
                         new CommandQuickPickItem(
                             {
                                 label: '$(history) Show File History',
-                                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} of ${paths.basename(
-                                    workingUri.fsPath
-                                )}`
+                                description: `of ${GitUri.getFormattedPath(workingUri, { relativeTo: log.repoPath })}`
                             },
                             Commands.ShowQuickFileHistory,
                             [workingUri, commandArgs]
@@ -128,9 +123,7 @@ export class FileHistoryQuickPick {
                 const currentCommand = new CommandQuickPickItem(
                     {
                         label: `go back ${GlyphChars.ArrowBack}`,
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${
-                            GlyphChars.Space
-                        }$(file-text) ${paths.basename(uri.fsPath)}${
+                        description: `to history of ${uri.getFormattedPath()}${
                             uri.sha ? ` from ${GlyphChars.Space}$(git-commit) ${uri.shortSha}` : ''
                         }`
                     },
@@ -148,10 +141,8 @@ export class FileHistoryQuickPick {
                         0,
                         new CommandQuickPickItem(
                             {
-                                label: '$(history) Show Branch History',
-                                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows  ${
-                                    GlyphChars.Space
-                                }$(git-branch) ${branch.name} history`
+                                label: `${GlyphChars.SpaceThin}$(git-branch) Show Branch History`,
+                                description: `shows history of ${GlyphChars.Space}$(git-branch) ${branch.name}`
                             },
                             Commands.ShowQuickCurrentBranchHistory,
                             [undefined, commandArgs]

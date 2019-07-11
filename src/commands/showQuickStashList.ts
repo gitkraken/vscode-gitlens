@@ -5,7 +5,6 @@ import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, StashListQuickPick } from '../quickpicks';
-import { Strings } from '../system';
 import { ActiveEditorCachedCommand, command, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
 
@@ -44,7 +43,7 @@ export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
             const currentCommand = new CommandQuickPickItem(
                 {
                     label: `go back ${GlyphChars.ArrowBack}`,
-                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to stashed changes`
+                    description: 'to stashed changes'
                 },
                 Commands.ShowQuickStashList,
                 [uri, currentCommandArgs]
@@ -62,11 +61,11 @@ export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
             if (pick instanceof CommandQuickPickItem) return pick.execute();
 
             const commandArgs: ShowQuickCommitDetailsCommandArgs = {
-                commit: pick.commit,
-                sha: pick.commit.sha,
+                commit: pick.item,
+                sha: pick.item.sha,
                 goBackCommand: currentCommand
             };
-            return commands.executeCommand(Commands.ShowQuickCommitDetails, pick.commit.toGitUri(), commandArgs);
+            return commands.executeCommand(Commands.ShowQuickCommitDetails, pick.item.toGitUri(), commandArgs);
         }
         catch (ex) {
             Logger.error(ex, 'ShowQuickStashListCommand');

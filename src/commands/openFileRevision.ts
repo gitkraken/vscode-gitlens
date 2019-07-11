@@ -96,7 +96,7 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
                     const npc = new CommandQuickPickItem(
                         {
                             label: '$(arrow-right) Show Next Commits',
-                            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${log.maxCount} newer commits`
+                            description: `shows ${log.maxCount} newer commits`
                         },
                         Commands.OpenFileRevision,
                         [uri, commandArgs]
@@ -108,7 +108,7 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
                         previousPageCommand = new CommandQuickPickItem(
                             {
                                 label: '$(arrow-left) Show Previous Commits',
-                                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${log.maxCount} older commits`
+                                description: `shows ${log.maxCount} older commits`
                             },
                             Commands.OpenFileRevision,
                             [new GitUri(uri, last), commandArgs]
@@ -125,9 +125,7 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
                 const currentCommand = new CommandQuickPickItem(
                     {
                         label: `go back ${GlyphChars.ArrowBack}`,
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${
-                            GlyphChars.Space
-                        }$(file-text) ${gitUri.getFormattedPath()}${
+                        description: `to history of ${gitUri.getFormattedPath()}${
                             args.reference
                                 ? ` from ${GlyphChars.Space}${icon}${args.reference.name}`
                                 : gitUri.sha
@@ -150,7 +148,7 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
                         ? new CommandQuickPickItem(
                               {
                                   label: '$(sync) Show All Commits',
-                                  description: `${Strings.pad(GlyphChars.Dash, 2, 3)} this may take a while`
+                                  description: 'this may take a while'
                               },
                               Commands.OpenFileRevision,
                               [uri, commandArgs]
@@ -173,7 +171,7 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
 
                 if (pick instanceof CommandQuickPickItem) return pick.execute();
 
-                args.uri = GitUri.toRevisionUri(pick.commit.sha, pick.commit.uri.fsPath, pick.commit.repoPath);
+                args.uri = GitUri.toRevisionUri(pick.item.sha, pick.item.uri.fsPath, pick.item.repoPath);
             }
 
             if (args.line !== undefined && args.line !== 0) {

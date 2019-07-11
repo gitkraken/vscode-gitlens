@@ -1,5 +1,7 @@
 'use strict';
 
+export * from './nodes/common';
+
 export * from './nodes/viewNode';
 export * from './nodes/branchesNode';
 export * from './nodes/branchNode';

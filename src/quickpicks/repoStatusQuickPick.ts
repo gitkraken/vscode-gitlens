@@ -234,9 +234,7 @@ export class RepoStatusQuickPick {
         const currentCommand = new CommandQuickPickItem(
             {
                 label: `go back ${GlyphChars.ArrowBack}`,
-                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to ${GlyphChars.Space}$(git-branch) ${
-                    status.branch
-                } status`
+                description: `to status of ${GlyphChars.Space}$(git-branch) ${status.branch}`
             },
             Commands.ShowQuickRepoStatus,
             [undefined, repoStatusCommandArgs]
@@ -343,7 +341,7 @@ export class RepoStatusQuickPick {
             new CommandQuickPickItem(
                 {
                     label: '$(inbox) Show Stashed Changes',
-                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows stashed changes in the repository`
+                    description: 'shows stashed changes in the repository'
                 },
                 Commands.ShowQuickStashList,
                 [GitUri.fromRepoPath(status.repoPath), stashListCommandArgs]
@@ -364,9 +362,7 @@ export class RepoStatusQuickPick {
                         label: `$(cloud-upload)${GlyphChars.Space} ${status.state.ahead} Commit${
                             status.state.ahead > 1 ? 's' : ''
                         } ahead of ${GlyphChars.Space}$(git-branch) ${status.upstream}`,
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows commits in ${
-                            GlyphChars.Space
-                        }$(git-branch) ${status.branch} but not ${GlyphChars.Space}$(git-branch) ${status.upstream}`
+                        description: `shows commits in ${GlyphChars.Space}$(git-branch) ${status.branch} but not ${GlyphChars.Space}$(git-branch) ${status.upstream}`
                     },
                     Commands.ShowQuickBranchHistory,
                     [
@@ -391,9 +387,9 @@ export class RepoStatusQuickPick {
                         label: `$(cloud-download)${GlyphChars.Space} ${status.state.behind} Commit${
                             status.state.behind > 1 ? 's' : ''
                         } behind ${GlyphChars.Space}$(git-branch) ${status.upstream}`,
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows commits in ${
+                        description: `shows commits in ${GlyphChars.Space}$(git-branch) ${status.upstream} but not ${
                             GlyphChars.Space
-                        }$(git-branch) ${status.upstream} but not ${GlyphChars.Space}$(git-branch) ${status.branch}${
+                        }$(git-branch) ${status.branch}${
                             status.sha
                                 ? ` (since ${GlyphChars.Space}$(git-commit) ${GitService.shortenSha(status.sha)})`
                                 : ''

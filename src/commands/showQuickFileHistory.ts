@@ -1,5 +1,4 @@
 'use strict';
-import * as paths from 'path';
 import { commands, Range, TextEditor, Uri, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
@@ -89,7 +88,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
                 const npc = new CommandQuickPickItem(
                     {
                         label: '$(arrow-right) Show Next Commits',
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${args.log.maxCount} newer commits`
+                        description: `shows ${args.log.maxCount} newer commits`
                     },
                     Commands.ShowQuickFileHistory,
                     [gitUri, commandArgs]
@@ -101,9 +100,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
                     previousPageCommand = new CommandQuickPickItem(
                         {
                             label: '$(arrow-left) Show Previous Commits',
-                            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${
-                                args.log.maxCount
-                            } older commits`
+                            description: `shows ${args.log.maxCount} older commits`
                         },
                         Commands.ShowQuickFileHistory,
                         [new GitUri(uri, last), commandArgs]
@@ -116,9 +113,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
             const currentCommand = new CommandQuickPickItem(
                 {
                     label: `go back ${GlyphChars.ArrowBack}`,
-                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to history of ${
-                        GlyphChars.Space
-                    }$(file-text) ${paths.basename(gitUri.fsPath)}${
+                    description: `to history of ${gitUri.getFormattedPath()}${
                         args.reference
                             ? ` from ${GlyphChars.Space}${icon}${args.reference.name}`
                             : gitUri.sha
@@ -141,7 +136,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
                         ? new CommandQuickPickItem(
                               {
                                   label: '$(sync) Show All Commits',
-                                  description: `${Strings.pad(GlyphChars.Dash, 2, 3)} this may take a while`
+                                  description: 'this may take a while'
                               },
                               Commands.ShowQuickFileHistory,
                               [uri, { ...args, log: undefined, maxCount: 0 }]
@@ -174,13 +169,13 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
             if (pick instanceof CommandQuickPickItem) return pick.execute();
 
             const commandArgs: ShowQuickCommitFileDetailsCommandArgs = {
-                commit: pick.commit,
+                commit: pick.item,
                 fileLog: args.log,
-                sha: pick.commit.sha,
+                sha: pick.item.sha,
                 goBackCommand: currentCommand
             };
 
-            return commands.executeCommand(Commands.ShowQuickCommitFileDetails, pick.commit.toGitUri(), commandArgs);
+            return commands.executeCommand(Commands.ShowQuickCommitFileDetails, pick.item.toGitUri(), commandArgs);
         }
         catch (ex) {
             Logger.error(ex, 'ShowQuickFileHistoryCommand');

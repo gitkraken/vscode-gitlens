@@ -2,11 +2,9 @@
 import { CancellationTokenSource, commands, QuickPickItem, window } from 'vscode';
 import { Commands } from '../commands';
 import { configuration } from '../configuration';
-import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitLog, GitLogCommit, GitRepoSearchBy, GitStashCommit, GitUri } from '../git/gitService';
+import { GitLog, GitLogCommit, GitRepoSearchBy, GitUri } from '../git/gitService';
 import { KeyMapping, Keys } from '../keyboard';
-import { Strings } from '../system';
 import { ReferencesQuickPick, ReferencesQuickPickItem } from './referencesQuickPick';
 
 export function getQuickPickIgnoreFocusOut() {
@@ -91,36 +89,6 @@ export class CommandQuickPickItem implements QuickPickItem {
     }
 }
 
-export class CommitQuickPickItem<T extends GitLogCommit = GitLogCommit> implements QuickPickItem {
-    label: string;
-    description: string;
-    detail: string;
-
-    constructor(public readonly commit: T) {
-        const message = commit.getShortMessage();
-        if (GitStashCommit.is(commit)) {
-            this.label = message;
-            this.description = '';
-            this.detail = `${GlyphChars.Space} ${commit.stashName || commit.shortSha} ${Strings.pad(
-                GlyphChars.Dot,
-                1,
-                1
-            )} ${commit.formattedDate} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getFormattedDiffStatus({
-                compact: true
-            })}`;
-        }
-        else {
-            this.label = message;
-            this.description = `${Strings.pad('$(git-commit)', 1, 1)} ${commit.shortSha}`;
-            this.detail = `${GlyphChars.Space} ${commit.author}, ${commit.formattedDate}${
-                commit.isFile
-                    ? ''
-                    : ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getFormattedDiffStatus({ compact: true })}`
-            }`;
-        }
-    }
-}
-
 export class KeyCommandQuickPickItem extends CommandQuickPickItem {
     constructor(command: Commands, args?: any[]) {
         super({ label: '', description: '' }, command, args);
@@ -137,8 +105,8 @@ export class ShowCommitInViewQuickPickItem extends CommandQuickPickItem {
     constructor(
         public readonly commit: GitLogCommit,
         item: QuickPickItem = {
-            label: 'Show in View',
-            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} displays the commit in the GitLens Search Commits view`
+            label: '$(eye) Show in View',
+            description: `shows the ${commit.isStash ? 'stashed changes' : 'commit'} in the Search Commits view`
         }
     ) {
         super(item, undefined, undefined);
@@ -158,12 +126,8 @@ export class ShowCommitSearchResultsInViewQuickPickItem extends CommandQuickPick
         public readonly results: GitLog,
         public readonly resultsLabel: string | { label: string; resultsType?: { singular: string; plural: string } },
         item: QuickPickItem = {
-            label: 'Show in View',
-            description: `${Strings.pad(
-                GlyphChars.Dash,
-                2,
-                2
-            )} displays the search results in the GitLens Search Commits view`
+            label: '$(eye) Show in View',
+            description: 'shows the search results in the Search Commits view'
         }
     ) {
         super(item, undefined, undefined);
@@ -188,8 +152,8 @@ export class ShowFileHistoryFromQuickPickItem extends CommandQuickPickItem {
         private readonly placeHolder: string,
         private readonly _goBack?: CommandQuickPickItem,
         item: QuickPickItem = {
-            label: 'Show File History from...',
-            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} shows an alternate file history`
+            label: '$(history) Show File History from...',
+            description: 'shows an alternate file history'
         }
     ) {
         super(item, undefined, undefined);
@@ -209,12 +173,8 @@ export class ShowFileHistoryInViewQuickPickItem extends CommandQuickPickItem {
         public readonly uri: GitUri,
         public readonly baseRef: string | undefined,
         item: QuickPickItem = {
-            label: 'Show in View',
-            description: `${Strings.pad(
-                GlyphChars.Dash,
-                2,
-                2
-            )} displays the file history in the GitLens File History view`
+            label: '$(eye) Show in View',
+            description: 'shows the file history in the File History view'
         }
     ) {
         super(item, undefined, undefined);

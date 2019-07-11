@@ -6,11 +6,11 @@ import { KeyNoopCommand } from '../keyboard';
 import { Iterables } from '../system';
 import {
     CommandQuickPickItem,
-    CommitQuickPickItem,
     getQuickPickIgnoreFocusOut,
     MessageQuickPickItem,
     showQuickPickProgress
 } from './commonQuickPicks';
+import { CommitQuickPickItem } from './gitQuickPicks';
 
 export class CommitsQuickPick {
     static showProgress(message: string) {
@@ -31,7 +31,7 @@ export class CommitsQuickPick {
             showInViewCommand?: CommandQuickPickItem;
         }
     ): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
-        const items = ((log && [...Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c))]) || [
+        const items = ((log && [...Iterables.map(log.commits.values(), c => CommitQuickPickItem.create(c))]) || [
             new MessageQuickPickItem('No results found')
         ]) as (CommitQuickPickItem | CommandQuickPickItem)[];
 

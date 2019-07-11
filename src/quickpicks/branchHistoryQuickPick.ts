@@ -5,14 +5,10 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitLog, GitUri, RemoteResourceType } from '../git/gitService';
 import { KeyNoopCommand } from '../keyboard';
-import { Iterables, Strings } from '../system';
-import {
-    CommandQuickPickItem,
-    CommitQuickPickItem,
-    getQuickPickIgnoreFocusOut,
-    showQuickPickProgress
-} from './commonQuickPicks';
+import { Iterables } from '../system';
+import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, showQuickPickProgress } from './commonQuickPicks';
 import { OpenRemotesCommandQuickPickItem } from './remotesQuickPick';
+import { CommitQuickPickItem } from './gitQuickPicks';
 
 export class BranchHistoryQuickPick {
     static showProgress(branch: string) {
@@ -34,7 +30,7 @@ export class BranchHistoryQuickPick {
         goBackCommand?: CommandQuickPickItem,
         nextPageCommand?: CommandQuickPickItem
     ): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
-        const items = Array.from(Iterables.map(log.commits.values(), c => new CommitQuickPickItem(c))) as (
+        const items = Array.from(Iterables.map(log.commits.values(), c => CommitQuickPickItem.create(c))) as (
             | CommitQuickPickItem
             | CommandQuickPickItem)[];
 
@@ -47,9 +43,7 @@ export class BranchHistoryQuickPick {
         const currentCommand = new CommandQuickPickItem(
             {
                 label: `go back ${GlyphChars.ArrowBack}`,
-                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to ${
-                    GlyphChars.Space
-                }$(git-branch) ${branch} history`
+                description: `to history of ${GlyphChars.Space}$(git-branch) ${branch}`
             },
             Commands.ShowQuickBranchHistory,
             [uri, currentCommandArgs]
@@ -86,7 +80,7 @@ export class BranchHistoryQuickPick {
                     new CommandQuickPickItem(
                         {
                             label: '$(sync) Show All Commits',
-                            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} this may take a while`
+                            description: 'this may take a while'
                         },
                         Commands.ShowQuickBranchHistory,
                         [GitUri.fromRepoPath(log.repoPath), commandArgs]
@@ -107,7 +101,7 @@ export class BranchHistoryQuickPick {
                 const npc = new CommandQuickPickItem(
                     {
                         label: '$(arrow-right) Show Next Commits',
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${log.maxCount} newer commits`
+                        description: `shows ${log.maxCount} newer commits`
                     },
                     Commands.ShowQuickBranchHistory,
                     [uri, commandArgs]
@@ -124,7 +118,7 @@ export class BranchHistoryQuickPick {
                     previousPageCommand = new CommandQuickPickItem(
                         {
                             label: '$(arrow-left) Show Previous Commits',
-                            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} shows ${log.maxCount} older commits`
+                            description: `shows ${log.maxCount} older commits`
                         },
                         Commands.ShowQuickBranchHistory,
                         [new GitUri(uri ? uri : last.uri, last), commandArgs]

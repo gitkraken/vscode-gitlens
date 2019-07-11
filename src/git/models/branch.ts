@@ -15,6 +15,16 @@ export class GitBranch {
         return branch instanceof GitBranch;
     }
 
+    static sort(branches: GitBranch[]) {
+        return branches.sort(
+            (a, b) =>
+                (a.current ? -1 : 1) - (b.current ? -1 : 1) ||
+                (a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
+                (b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
+                a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+        );
+    }
+
     readonly detached: boolean;
     readonly id: string;
     readonly tracking?: string;

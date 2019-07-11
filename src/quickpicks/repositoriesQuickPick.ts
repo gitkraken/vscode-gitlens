@@ -1,33 +1,20 @@
 'use strict';
-import { QuickPickItem, window } from 'vscode';
+import { window } from 'vscode';
 import { Container } from '../container';
-import { Repository } from '../git/gitService';
 import { Iterables } from '../system';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from './commonQuickPicks';
-
-export class RepositoryQuickPickItem implements QuickPickItem {
-    label: string;
-    description: string;
-    detail: string | undefined;
-
-    constructor(public readonly repository: Repository) {
-        this.label = repository.name;
-        this.description = repository.path;
-    }
-
-    get repoPath(): string {
-        return this.repository.path;
-    }
-}
+import { RepositoryQuickPickItem } from './gitQuickPicks';
 
 export class RepositoriesQuickPick {
     static async show(
         placeHolder: string,
         goBackCommand?: CommandQuickPickItem
     ): Promise<RepositoryQuickPickItem | CommandQuickPickItem | undefined> {
-        const items = [
-            ...Iterables.map(await Container.git.getOrderedRepositories(), r => new RepositoryQuickPickItem(r))
-        ] as (RepositoryQuickPickItem | CommandQuickPickItem)[];
+        const items: (RepositoryQuickPickItem | CommandQuickPickItem)[] = await Promise.all([
+            ...Iterables.map(await Container.git.getOrderedRepositories(), r =>
+                RepositoryQuickPickItem.create(r, undefined, { branch: true, status: true })
+            )
+        ]);
 
         if (goBackCommand !== undefined) {
             items.splice(0, 0, goBackCommand);

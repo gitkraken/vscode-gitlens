@@ -1,5 +1,4 @@
 'use strict';
-import * as paths from 'path';
 import { commands, QuickPickItem, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import {
     Commands,
@@ -27,9 +26,7 @@ export class ApplyCommitFileChangesCommandQuickPickItem extends CommandQuickPick
         super(
             item || {
                 label: '$(git-pull-request) Apply Changes',
-                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(file-text) ${paths.basename(
-                    commit.fileName
-                )} in ${GlyphChars.Space}$(git-commit) ${commit.shortSha}`
+                description: `${commit.getFormattedPath()} from ${GlyphChars.Space}$(git-commit) ${commit.shortSha}`
             },
             undefined,
             undefined
@@ -57,7 +54,7 @@ export class OpenCommitFileCommandQuickPickItem extends CommandQuickPickItem {
         super(
             item || {
                 label: '$(file-symlink-file) Open File',
-                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${paths.basename(_commit.fileName)}`
+                description: `${_commit.getFormattedPath()}`
             }
         );
     }
@@ -87,15 +84,13 @@ export class OpenCommitFileRevisionCommandQuickPickItem extends CommandQuickPick
         let uri: Uri;
         if (commit.status === 'D') {
             uri = GitUri.toRevisionUri(commit.previousFileSha, commit.previousUri.fsPath, commit.repoPath);
-            description = `${Strings.pad(GlyphChars.Dash, 2, 3)} ${paths.basename(commit.fileName)} in ${
-                GlyphChars.Space
-            }$(git-commit) ${commit.previousShortSha} (deleted in ${GlyphChars.Space}$(git-commit) ${commit.shortSha})`;
+            description = `${commit.getFormattedPath()} from ${GlyphChars.Space}$(git-commit) ${
+                commit.previousShortSha
+            } (deleted in ${GlyphChars.Space}$(git-commit) ${commit.shortSha})`;
         }
         else {
             uri = GitUri.toRevisionUri(commit.sha, commit.uri.fsPath, commit.repoPath);
-            description = `${Strings.pad(GlyphChars.Dash, 2, 3)} ${paths.basename(commit.fileName)} in ${
-                GlyphChars.Space
-            }$(git-commit) ${commit.shortSha}`;
+            description = `${commit.getFormattedPath()} from ${GlyphChars.Space}$(git-commit) ${commit.shortSha}`;
         }
 
         super(
@@ -151,13 +146,20 @@ export class CommitFileQuickPick {
             const commandArgs: DiffWithPreviousCommandArgs = {
                 commit: commit
             };
+
+            const previousSha = await Container.git.resolveReference(
+                commit.repoPath,
+                commit.previousFileSha,
+                commit.previousUri
+            );
+
             items.push(
                 new CommandQuickPickItem(
                     {
                         label: '$(git-compare) Open Changes',
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${GitService.shortenSha(
-                            commit.previousFileSha
-                        )} ${GlyphChars.Space} $(git-compare) ${GlyphChars.Space} $(git-commit) ${commit.shortSha}`
+                        description: `$(git-commit) ${GitService.shortenSha(previousSha)} ${
+                            GlyphChars.Space
+                        } $(git-compare) ${GlyphChars.Space} $(git-commit) ${commit.shortSha}`
                     },
                     Commands.DiffWithPrevious,
                     [commit.uri, commandArgs]
@@ -173,12 +175,9 @@ export class CommitFileQuickPick {
                 new CommandQuickPickItem(
                     {
                         label: '$(git-compare) Open Changes with Working File',
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${commit.shortSha} ${
+                        description: `$(git-commit) ${commit.shortSha} ${GlyphChars.Space} $(git-compare) ${
                             GlyphChars.Space
-                        } $(git-compare) ${GlyphChars.Space} $(file-text) ${GitUri.relativeTo(
-                            workingUri,
-                            commit.repoPath
-                        )}`
+                        } ${GitUri.getFormattedPath(workingUri, { relativeTo: commit.repoPath })}`
                     },
                     Commands.DiffWithWorking,
                     [workingUri, commandArgs]
@@ -235,7 +234,7 @@ export class CommitFileQuickPick {
                 new CommandQuickPickItem(
                     {
                         label: '$(clippy) Copy Commit ID to Clipboard',
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${commit.shortSha}`
+                        description: `${commit.shortSha}`
                     },
                     Commands.CopyShaToClipboard,
                     [uri, copyShaCommandArgs]
@@ -250,7 +249,7 @@ export class CommitFileQuickPick {
                 new CommandQuickPickItem(
                     {
                         label: '$(clippy) Copy Commit Message to Clipboard',
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${commit.getShortMessage()}`
+                        description: `${commit.getShortMessage()}`
                     },
                     Commands.CopyMessageToClipboard,
                     [uri, copyMessageCommandArgs]
@@ -282,7 +281,7 @@ export class CommitFileQuickPick {
                 new CommandQuickPickItem(
                     {
                         label: '$(history) Show File History',
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} of ${paths.basename(commit.fileName)}`
+                        description: `of ${commit.getFormattedPath()}`
                     },
                     Commands.ShowQuickFileHistory,
                     [workingUri, commandArgs]
@@ -300,9 +299,7 @@ export class CommitFileQuickPick {
                         label: `$(history) Show ${
                             GitUri.relativeTo(workingUri || commit.uri, commit.repoPath) ? 'Previous ' : ''
                         }File History`,
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} of ${paths.basename(
-                            commit.fileName
-                        )} ${Strings.pad(GlyphChars.Dot, 1, 1)} from ${GlyphChars.Space}$(git-commit) ${
+                        description: `of ${commit.getFormattedPath()} from ${GlyphChars.Space}$(git-commit) ${
                             commit.shortSha
                         }`
                     },
@@ -320,7 +317,7 @@ export class CommitFileQuickPick {
                 new CommandQuickPickItem(
                     {
                         label: '$(git-commit) Show Commit Details',
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(git-commit) ${commit.shortSha}`
+                        description: `$(git-commit) ${commit.shortSha}`
                     },
                     Commands.ShowQuickCommitDetails,
                     [commit.toGitUri(), commitDetailsCommandArgs]

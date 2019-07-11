@@ -61,6 +61,10 @@ export interface RepositoryFileSystemChangeEvent {
 }
 
 export class Repository implements Disposable {
+    static sort(repositories: Repository[]) {
+        return repositories.sort((a, b) => (a.starred ? -1 : 1) - (b.starred ? -1 : 1) || a.index - b.index);
+    }
+
     private _onDidChange = new EventEmitter<RepositoryChangeEvent>();
     get onDidChange(): Event<RepositoryChangeEvent> {
         return this._onDidChange.event;

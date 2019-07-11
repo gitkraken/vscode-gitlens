@@ -6,7 +6,6 @@ import { GitLog, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { BranchHistoryQuickPick, CommandQuickPickItem, ReferencesQuickPick } from '../quickpicks';
-import { Strings } from '../system';
 import { ActiveEditorCachedCommand, command, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
 
@@ -51,7 +50,7 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
                     goBackCommand = new CommandQuickPickItem(
                         {
                             label: `go back ${GlyphChars.ArrowBack}`,
-                            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to which repository`
+                            description: 'to which repository'
                         },
                         Commands.ShowQuickBranchHistory,
                         [uri, args]
@@ -103,21 +102,19 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
             const currentCommand = new CommandQuickPickItem(
                 {
                     label: `go back ${GlyphChars.ArrowBack}`,
-                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to ${GlyphChars.Space}$(git-branch) ${
-                        args.branch
-                    } history`
+                    description: `to history of ${GlyphChars.Space}$(git-branch) ${args.branch}`
                 },
                 Commands.ShowQuickBranchHistory,
                 [uri, { ...args }]
             );
 
             const commandArgs: ShowQuickCommitDetailsCommandArgs = {
-                sha: pick.commit.sha,
-                commit: pick.commit,
+                sha: pick.item.sha,
+                commit: pick.item,
                 repoLog: args.log,
                 goBackCommand: currentCommand
             };
-            return commands.executeCommand(Commands.ShowQuickCommitDetails, pick.commit.toGitUri(), commandArgs);
+            return commands.executeCommand(Commands.ShowQuickCommitDetails, pick.item.toGitUri(), commandArgs);
         }
         catch (ex) {
             Logger.error(ex, 'ShowQuickBranchHistoryCommand');

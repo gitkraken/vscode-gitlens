@@ -6,7 +6,6 @@ import { GitCommit, GitLog, GitLogCommit, GitRepoSearchBy, GitUri } from '../git
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, CommitQuickPick, CommitWithFileStatusQuickPickItem } from '../quickpicks';
-import { Strings } from '../system';
 import {
     ActiveEditorCachedCommand,
     command,
@@ -136,7 +135,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
                     args.goBackCommand = new CommandQuickPickItem(
                         {
                             label: `go back ${GlyphChars.ArrowBack}`,
-                            description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to ${branch.name} history`
+                            description: `to ${branch.name} history`
                         },
                         Commands.ShowQuickCurrentBranchHistory,
                         [args.commit.toGitUri()]
@@ -148,9 +147,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
             const currentCommand = new CommandQuickPickItem(
                 {
                     label: `go back ${GlyphChars.ArrowBack}`,
-                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to details of ${
-                        GlyphChars.Space
-                    }$(git-commit) ${args.commit.shortSha}`
+                    description: `to details of ${GlyphChars.Space}$(git-commit) ${args.commit.shortSha}`
                 },
                 Commands.ShowQuickCommitDetails,
                 [args.commit.toGitUri(), args]

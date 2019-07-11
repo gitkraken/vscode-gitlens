@@ -1,5 +1,4 @@
 'use strict';
-import * as paths from 'path';
 import { TextEditor, Uri, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
@@ -7,7 +6,6 @@ import { GitCommit, GitLog, GitLogCommit, GitService, GitUri } from '../git/gitS
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, CommitFileQuickPick } from '../quickpicks';
-import { Strings } from '../system';
 import {
     ActiveEditorCachedCommand,
     command,
@@ -138,9 +136,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
                 args.goBackCommand = new CommandQuickPickItem(
                     {
                         label: `go back ${GlyphChars.ArrowBack}`,
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to details of ${
-                            GlyphChars.Space
-                        }$(git-commit) ${shortSha}`
+                        description: `to details of ${GlyphChars.Space}$(git-commit) ${shortSha}`
                     },
                     Commands.ShowQuickCommitDetails,
                     [args.commit.toGitUri(), commandArgs]
@@ -151,9 +147,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
             const currentCommand = new CommandQuickPickItem(
                 {
                     label: `go back ${GlyphChars.ArrowBack}`,
-                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to details of ${
-                        GlyphChars.Space
-                    }$(file-text) ${paths.basename(args.commit.fileName)} in ${
+                    description: `to details of ${args.commit.getFormattedPath()} from ${
                         GlyphChars.Space
                     }$(git-commit) ${shortSha}`
                 },

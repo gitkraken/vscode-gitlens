@@ -260,7 +260,7 @@ export class Container {
     private static _viewCommands: ViewCommands | undefined;
     static get viewCommands() {
         if (this._viewCommands === undefined) {
-            this._context.subscriptions.push((this._viewCommands = new ViewCommands()));
+            this._viewCommands = new ViewCommands();
         }
         return this._viewCommands;
     }

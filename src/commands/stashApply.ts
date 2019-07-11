@@ -6,7 +6,6 @@ import { GitStashCommit } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, StashListQuickPick } from '../quickpicks';
-import { Strings } from '../system';
 import {
     command,
     Command,
@@ -69,7 +68,7 @@ export class StashApplyCommand extends Command {
                 const currentCommand = new CommandQuickPickItem(
                     {
                         label: `go back ${GlyphChars.ArrowBack}`,
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to apply stashed changes`
+                        description: 'to apply stashed changes'
                     },
                     Commands.StashApply,
                     [args]
@@ -88,7 +87,7 @@ export class StashApplyCommand extends Command {
                 }
 
                 args.goBackCommand = currentCommand;
-                args.stashItem = pick.commit;
+                args.stashItem = pick.item;
             }
             finally {
                 progressCancellation.cancel();

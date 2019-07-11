@@ -6,7 +6,7 @@ import { GitRepoSearchBy, GitService } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, CommitsQuickPick, ShowCommitSearchResultsInViewQuickPickItem } from '../quickpicks';
-import { Iterables, Strings } from '../system';
+import { Iterables } from '../system';
 import { SearchResultsCommitsNode } from '../views/nodes';
 import {
     ActiveEditorCachedCommand,
@@ -183,7 +183,7 @@ export class SearchCommitsCommand extends ActiveEditorCachedCommand {
                 new CommandQuickPickItem(
                     {
                         label: `go back ${GlyphChars.ArrowBack}`,
-                        description: `${Strings.pad(GlyphChars.Dash, 2, 3)} to commit search`
+                        description: 'to commit search'
                     },
                     Commands.SearchCommits,
                     [uri, originalArgs]
@@ -198,7 +198,7 @@ export class SearchCommitsCommand extends ActiveEditorCachedCommand {
                             ? new CommandQuickPickItem(
                                   {
                                       label: '$(sync) Show All Commits',
-                                      description: `${Strings.pad(GlyphChars.Dash, 2, 3)} this may take a while`
+                                      description: 'this may take a while'
                                   },
                                   Commands.SearchCommits,
                                   [uri, { ...args, maxCount: 0, goBackCommand: goBackCommand }]
@@ -215,7 +215,7 @@ export class SearchCommitsCommand extends ActiveEditorCachedCommand {
 
                 if (pick instanceof CommandQuickPickItem) return pick.execute();
 
-                commit = pick.commit;
+                commit = pick.item;
                 goBackCommand = undefined;
             }
             else {
@@ -230,7 +230,7 @@ export class SearchCommitsCommand extends ActiveEditorCachedCommand {
                     new CommandQuickPickItem(
                         {
                             label: `go back ${GlyphChars.ArrowBack}`,
-                            description: `${Strings.pad(GlyphChars.Dash, 2, 2)} to search for ${searchLabel}`
+                            description: `to search for ${searchLabel}`
                         },
                         Commands.SearchCommits,
                         [uri, args]

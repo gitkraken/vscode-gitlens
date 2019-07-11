@@ -2,99 +2,10 @@
 import { CancellationToken, CancellationTokenSource, QuickPickItem, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitBranch, GitReference, GitService, GitTag } from '../git/gitService';
+import { GitBranch, GitTag } from '../git/gitService';
 import { Functions } from '../system';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from './commonQuickPicks';
-
-export class RefQuickPickItem implements QuickPickItem {
-    label: string;
-    description: string;
-    detail: string | undefined;
-
-    constructor(public readonly ref: string, checked?: boolean) {
-        this.label = `${checked ? `$(check)${GlyphChars.Space}` : GlyphChars.Space.repeat(4)} ${GitService.shortenSha(
-            ref
-        )}`;
-        this.description = '';
-    }
-
-    get current() {
-        return false;
-    }
-
-    get item() {
-        const ref: GitReference = { name: this.ref, ref: this.ref };
-        return ref;
-    }
-
-    get remote() {
-        return false;
-    }
-}
-
-export class BranchQuickPickItem implements QuickPickItem {
-    label: string;
-    description: string;
-    detail: string | undefined;
-
-    constructor(public readonly branch: GitBranch, showCheckmarks: boolean, checked?: boolean) {
-        checked = showCheckmarks && (checked || (checked === undefined && branch.current));
-        this.label = `${
-            checked ? `$(check)${GlyphChars.Space.repeat(2)}` : showCheckmarks ? GlyphChars.Space.repeat(6) : ''
-        }${branch.name}`;
-        this.description = branch.remote
-            ? `${GlyphChars.Space.repeat(2)} remote branch`
-            : branch.current
-            ? 'current branch'
-            : '';
-    }
-
-    get current() {
-        return this.branch.current;
-    }
-
-    get item() {
-        return this.branch;
-    }
-
-    get ref() {
-        return this.branch.name;
-    }
-
-    get remote() {
-        return this.branch.remote;
-    }
-}
-
-export class TagQuickPickItem implements QuickPickItem {
-    label: string;
-    description: string;
-    detail: string | undefined;
-
-    constructor(public readonly tag: GitTag, showCheckmarks: boolean, checked?: boolean) {
-        checked = showCheckmarks && checked;
-        this.label = `${
-            checked ? `$(check)${GlyphChars.Space.repeat(2)}` : showCheckmarks ? GlyphChars.Space.repeat(6) : ''
-        }${tag.name}`;
-        this.description = `${GlyphChars.Space.repeat(2)} tag`;
-    }
-
-    get current() {
-        return false;
-    }
-
-    get item() {
-        return this.tag;
-    }
-
-    get ref() {
-        return this.tag.name;
-    }
-
-    get remote() {
-        return false;
-    }
-}
+import { BranchQuickPickItem, RefQuickPickItem, TagQuickPickItem } from './gitQuickPicks';
 
 export type ReferencesQuickPickItem = BranchQuickPickItem | TagQuickPickItem | RefQuickPickItem;
 
@@ -165,7 +76,7 @@ export class ReferencesQuickPick {
                                 this.repoPath === undefined ||
                                 (await Container.git.validateReference(this.repoPath, ref))
                             ) {
-                                resolve(new RefQuickPickItem(ref));
+                                resolve(RefQuickPickItem.create(ref));
                             }
                             else {
                                 quickpick.title = 'You must enter a valid reference';
@@ -215,43 +126,83 @@ export class ReferencesQuickPick {
     }
 
     private async getItems(
-        { checked, checkmarks, goBack, ...options }: ReferencesQuickPickOptions,
+        { checked, checkmarks, filterBranches, filterTags, goBack, include, ...options }: ReferencesQuickPickOptions,
         token: CancellationToken
-    ) {
-        const branchesAndOrTags = await Functions.cancellable(
-            Container.git.getBranchesAndOrTags(this.repoPath, {
-                include: options.include || 'all',
-                filterBranches: options.filterBranches,
-                filterTags: options.filterTags,
-                sort: true
-            }),
+    ): Promise<(BranchQuickPickItem | TagQuickPickItem | CommandQuickPickItem)[]> {
+        include = include || 'all';
+
+        const results = await Functions.cancellable(
+            Promise.all<GitBranch[] | undefined, GitTag[] | undefined>([
+                include === 'all' || include === 'branches'
+                    ? Container.git.getBranches(this.repoPath, {
+                          ...options,
+                          filter: filterBranches && filterBranches
+                      })
+                    : undefined,
+                include === 'all' || include === 'tags'
+                    ? Container.git.getTags(this.repoPath, {
+                          ...options,
+                          filter: filterTags && filterTags,
+                          includeRefs: true
+                      })
+                    : undefined
+            ]),
             token
         );
-        if (branchesAndOrTags === undefined || token.isCancellationRequested) return [];
+        if (results === undefined || token.isCancellationRequested) return [];
 
-        const items: (BranchQuickPickItem | TagQuickPickItem | CommandQuickPickItem)[] = [];
+        const [branches, tags] = results;
 
-        for (const bt of branchesAndOrTags) {
-            if (checkmarks && checked === bt.name) {
-                items.splice(
-                    0,
-                    0,
-                    new (GitBranch.is(bt) ? BranchQuickPickItem : TagQuickPickItem)(bt as any, checkmarks, true)
-                );
-            }
-            else {
-                items.push(
-                    new (GitBranch.is(bt) ? BranchQuickPickItem : TagQuickPickItem)(
-                        bt as any,
-                        checkmarks,
-                        checked === undefined ? undefined : false
+        let items: (BranchQuickPickItem | TagQuickPickItem)[];
+        if (branches !== undefined && tags !== undefined) {
+            items = await Promise.all<BranchQuickPickItem | TagQuickPickItem>([
+                ...branches
+                    .filter(b => !b.remote)
+                    .map(b =>
+                        BranchQuickPickItem.create(b, checkmarks, {
+                            current: true,
+                            checked: b.name === checked,
+                            ref: true,
+                            status: true
+                        })
+                    ),
+                ...tags.map(t =>
+                    TagQuickPickItem.create(t, checkmarks, { checked: t.name === checked, ref: true, type: true })
+                ),
+                ...branches
+                    .filter(b => b.remote)
+                    .map(b =>
+                        BranchQuickPickItem.create(b, checkmarks, { checked: b.name === checked, type: 'remote' })
                     )
-                );
+            ]);
+        }
+        else if (branches !== undefined) {
+            items = await Promise.all(
+                branches.map(b =>
+                    BranchQuickPickItem.create(b, checkmarks, {
+                        current: true,
+                        checked: b.name === checked,
+                        ref: true,
+                        status: true,
+                        type: 'remote'
+                    })
+                )
+            );
+        }
+        else {
+            items = tags!.map(t => TagQuickPickItem.create(t, checkmarks, { checked: t.name === checked, ref: true }));
+        }
+
+        // Move the checked item to the top
+        if (checked) {
+            const index = items.findIndex(i => i.ref === checked);
+            if (index !== -1) {
+                items.splice(0, 0, ...items.splice(index, 1));
             }
         }
 
         if (goBack !== undefined) {
-            items.splice(0, 0, goBack);
+            (items as QuickPickItem[]).splice(0, 0, goBack);
         }
 
         return items;

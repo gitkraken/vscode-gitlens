@@ -1,5 +1,4 @@
 'use strict';
-import * as paths from 'path';
 import { window } from 'vscode';
 import { Commands, OpenInRemoteCommandArgs } from '../commands';
 import { GlyphChars } from '../constants';
@@ -7,10 +6,10 @@ import {
     getNameFromRemoteResource,
     GitRemote,
     GitService,
+    GitUri,
     RemoteResource,
     RemoteResourceType
 } from '../git/gitService';
-import { Strings } from '../system';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from './commonQuickPicks';
 
 export class OpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
@@ -25,7 +24,7 @@ export class OpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
                           remote.provider!.name
                       }`
                     : `$(link-external) Open ${getNameFromRemoteResource(resource)} on ${remote.provider!.name}`,
-                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(repo) ${remote.provider!.path}`
+                description: `$(repo) ${remote.provider!.path}`
             },
             undefined,
             undefined
@@ -61,7 +60,7 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
                 break;
 
             case RemoteResourceType.File:
-                description = `$(file-text) ${paths.basename(resource.fileName)}`;
+                description = GitUri.getFormattedPath(resource.fileName);
                 break;
 
             case RemoteResourceType.Repo:
@@ -72,7 +71,7 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
                 if (resource.commit !== undefined && resource.commit.isFile) {
                     if (resource.commit.status === 'D') {
                         resource.sha = resource.commit.previousSha;
-                        description = `$(file-text) ${paths.basename(resource.fileName)} in ${
+                        description = `${GitUri.getFormattedPath(resource.fileName)} from ${
                             GlyphChars.Space
                         }$(git-commit) ${resource.commit.previousShortSha} (deleted in ${
                             GlyphChars.Space
@@ -80,15 +79,15 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
                     }
                     else {
                         resource.sha = resource.commit.sha;
-                        description = `$(file-text) ${paths.basename(resource.fileName)} in ${
+                        description = `${GitUri.getFormattedPath(resource.fileName)} from ${
                             GlyphChars.Space
                         }$(git-commit) ${resource.commit.shortSha}`;
                     }
                 }
                 else {
                     const shortFileSha = resource.sha === undefined ? '' : GitService.shortenSha(resource.sha);
-                    description = `$(file-text) ${paths.basename(resource.fileName)}${
-                        shortFileSha ? ` in ${GlyphChars.Space}$(git-commit) ${shortFileSha}` : ''
+                    description = `${GitUri.getFormattedPath(resource.fileName)}${
+                        shortFileSha ? ` from ${GlyphChars.Space}$(git-commit) ${shortFileSha}` : ''
                     }`;
                 }
                 break;
@@ -115,11 +114,7 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
             super(
                 {
                     label: `$(link-external) Open ${name} on ${remote.provider!.name}`,
-                    description: `${Strings.pad(GlyphChars.Dash, 2, 3)} $(repo) ${remote.provider!.path} ${Strings.pad(
-                        GlyphChars.Dot,
-                        1,
-                        1
-                    )} ${description}`
+                    description: `${description} in ${GlyphChars.Space}$(repo) ${remote.provider!.path}`
                 },
                 Commands.OpenInRemote,
                 [undefined, commandArgs]
@@ -142,7 +137,7 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
         super(
             {
                 label: `$(link-external) Open ${name} on ${provider}${GlyphChars.Ellipsis}`,
-                description: `${Strings.pad(GlyphChars.Dash, 2, 3)} ${description}`
+                description: `${description}`
             },
             Commands.OpenInRemote,
             [undefined, commandArgs]

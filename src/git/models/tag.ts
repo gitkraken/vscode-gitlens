@@ -6,6 +6,10 @@ export class GitTag {
         return tag instanceof GitTag;
     }
 
+    static sort(tags: GitTag[]) {
+        return tags.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+    }
+
     constructor(
         public readonly repoPath: string,
         public readonly name: string,
