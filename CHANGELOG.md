@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [9.8.5] - 2019-07-10
+
+### Changed
+
+- Cleans up the layout and formatting of many quick pick menus
+
+### Fixed
+
+- Fixes issue where _Search Commits_ from repositories in the _Repositories_ view would incorrectly show a repository picker
+
 ## [9.8.4] - 2019-07-10
 
 ### Added

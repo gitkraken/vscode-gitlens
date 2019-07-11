@@ -82,10 +82,12 @@ export class SearchCommitsCommand extends ActiveEditorCachedCommand {
     async execute(editor?: TextEditor, uri?: Uri, args: SearchCommitsCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
 
-        const repoPath = args.repoPath || await getRepoPathOrPrompt(
-            `Search for commits in which repository${GlyphChars.Ellipsis}`,
-            args.goBackCommand
-        );
+        const repoPath =
+            args.repoPath ||
+            (await getRepoPathOrPrompt(
+                `Search for commits in which repository${GlyphChars.Ellipsis}`,
+                args.goBackCommand
+            ));
         if (!repoPath) return undefined;
 
         args = { ...args };
@@ -117,7 +119,9 @@ export class SearchCommitsCommand extends ActiveEditorCachedCommand {
             const opts: InputBoxOptions = {
                 value: args.search,
                 prompt: 'Please enter a search string',
-                placeHolder: `Search${repo === undefined ? '' : ` ${repo.formattedName}`} for commits by message, author (@<pattern>), files (:<path/glob>), commit id (#<sha>), or changes (~<pattern>)`,
+                placeHolder: `Search${
+                    repo === undefined ? '' : ` ${repo.formattedName}`
+                } for commits by message, author (@<pattern>), files (:<path/glob>), commit id (#<sha>), or changes (~<pattern>)`,
                 valueSelection: selection
             };
             args.search = await window.showInputBox(opts);
