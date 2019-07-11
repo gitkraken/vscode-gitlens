@@ -38,6 +38,7 @@ export interface SearchCommitsCommandArgs {
     search?: string;
     searchBy?: GitRepoSearchBy;
     prefillOnly?: boolean;
+    repoPath?: string;
     showInView?: boolean;
 
     goBackCommand?: CommandQuickPickItem;
@@ -63,6 +64,7 @@ export class SearchCommitsCommand extends ActiveEditorCachedCommand {
             }
 
             if (isCommandViewContextWithRepo(context)) {
+                args.repoPath = context.node.repo.path;
                 return this.execute(context.editor, context.node.uri, args);
             }
         }
@@ -80,7 +82,7 @@ export class SearchCommitsCommand extends ActiveEditorCachedCommand {
     async execute(editor?: TextEditor, uri?: Uri, args: SearchCommitsCommandArgs = {}) {
         uri = getCommandUri(uri, editor);
 
-        const repoPath = await getRepoPathOrPrompt(
+        const repoPath = args.repoPath || await getRepoPathOrPrompt(
             `Search for commits in which repository${GlyphChars.Ellipsis}`,
             args.goBackCommand
         );
@@ -110,11 +112,12 @@ export class SearchCommitsCommand extends ActiveEditorCachedCommand {
                 await Container.searchView.show();
             }
 
+            const repo = await Container.git.getRepository(repoPath);
+
             const opts: InputBoxOptions = {
                 value: args.search,
                 prompt: 'Please enter a search string',
-                placeHolder:
-                    'Search commits by message, author (@<pattern>), files (:<path/glob>), commit id (#<sha>), or changes (~<pattern>)',
+                placeHolder: `Search${repo === undefined ? '' : ` ${repo.formattedName}`} for commits by message, author (@<pattern>), files (:<path/glob>), commit id (#<sha>), or changes (~<pattern>)`,
                 valueSelection: selection
             };
             args.search = await window.showInputBox(opts);
