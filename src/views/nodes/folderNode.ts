@@ -78,8 +78,7 @@ export class FolderNode extends ViewNode<ViewWithFiles> {
     }
 
     getTreeItem(): TreeItem {
-        // TODO: Change this to expanded once https://github.com/Microsoft/vscode/issues/30918 is fixed
-        const item = new TreeItem(this.label, TreeItemCollapsibleState.Collapsed);
+        const item = new TreeItem(this.label, TreeItemCollapsibleState.Expanded);
         item.contextValue = ResourceType.Folder;
         if (this.containsWorkingFiles) {
             item.contextValue += '+working';
