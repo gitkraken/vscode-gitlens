@@ -63,11 +63,11 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
                 children.push(new BranchNode(this.uri, this.view, this, branch, true));
 
                 if (status.state.behind) {
-                    children.push(new BranchTrackingStatusNode(this.view, this, status, 'behind', true));
+                    children.push(new BranchTrackingStatusNode(this.view, this, branch, status, 'behind', true));
                 }
 
                 if (status.state.ahead) {
-                    children.push(new BranchTrackingStatusNode(this.view, this, status, 'ahead', true));
+                    children.push(new BranchTrackingStatusNode(this.view, this, branch, status, 'ahead', true));
                 }
 
                 if (status.state.ahead || (status.files.length !== 0 && this.includeWorkingTree)) {

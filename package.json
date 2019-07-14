@@ -4965,7 +4965,7 @@
                 },
                 {
                     "command": "gitlens.views.expandNode",
-                    "when": "viewItem =~ /gitlens:(compare|folder|results|search|status:files)\\b/",
+                    "when": "viewItem =~ /gitlens:(compare|folder|results|search|status)\\b/",
                     "group": "8_gitlens@1"
                 },
                 {

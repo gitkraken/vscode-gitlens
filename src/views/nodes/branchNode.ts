@@ -69,11 +69,11 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
                 };
 
                 if (this.branch.state.behind) {
-                    children.push(new BranchTrackingStatusNode(this.view, this, status, 'behind'));
+                    children.push(new BranchTrackingStatusNode(this.view, this, this.branch, status, 'behind'));
                 }
 
                 if (this.branch.state.ahead) {
-                    children.push(new BranchTrackingStatusNode(this.view, this, status, 'ahead'));
+                    children.push(new BranchTrackingStatusNode(this.view, this, this.branch, status, 'ahead'));
                 }
             }
 

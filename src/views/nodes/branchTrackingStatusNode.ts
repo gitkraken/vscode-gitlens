@@ -1,7 +1,7 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
-import { GitTrackingState, GitUri } from '../../git/gitService';
+import { GitBranch, GitTrackingState, GitUri } from '../../git/gitService';
 import { Iterables, Strings } from '../../system';
 import { ViewWithFiles } from '../viewBase';
 import { CommitNode } from './commitNode';
@@ -24,6 +24,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements
     constructor(
         view: ViewWithFiles,
         parent: ViewNode,
+        public readonly branch: GitBranch,
         public readonly status: BranchTrackingStatus,
         public readonly direction: 'ahead' | 'behind',
         // Specifies that the node is shown as a root under the repository node
@@ -62,12 +63,12 @@ export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements
                 }
             }
 
-            children = [...insertDateMarkers(Iterables.map(commits, c => new CommitNode(this.view, this, c)), this, 1)];
+            children = [...insertDateMarkers(Iterables.map(commits, c => new CommitNode(this.view, this, c, this.branch)), this, 1)];
         }
         else {
             children = [
                 ...insertDateMarkers(
-                    Iterables.map(log.commits.values(), c => new CommitNode(this.view, this, c)),
+                    Iterables.map(log.commits.values(), c => new CommitNode(this.view, this, c, this.branch)),
                     this,
                     1
                 )
