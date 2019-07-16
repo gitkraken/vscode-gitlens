@@ -17,8 +17,7 @@
         "ecmaVersion": 2018,
         "sourceType": "module",
         "ecmaFeatures": {
-            "impliedStrict": true,
-            "jsx": true
+            "impliedStrict": true
         }
     },
     "plugins": ["import", "prettiest", "@typescript-eslint"],

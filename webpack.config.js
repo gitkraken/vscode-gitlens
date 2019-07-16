@@ -37,6 +37,7 @@ function getExtensionConfig(env) {
         new CleanPlugin({ cleanOnceBeforeBuildPatterns: ['**/*', '!**/webviews/**'] }),
         new ForkTsCheckerPlugin({
             async: false,
+            eslint: true,
             useTypescriptIncrementalApi: true
         })
     ];
@@ -95,18 +96,6 @@ function getExtensionConfig(env) {
         module: {
             rules: [
                 {
-                    enforce: 'pre',
-                    exclude: /node_modules|\.d\.ts$/,
-                    test: /\.tsx?$/,
-                    use: {
-                        loader: 'eslint-loader',
-                        options: {
-                            cache: true,
-                            failOnError: true
-                        }
-                    }
-                },
-                {
                     exclude: /node_modules|\.d\.ts$/,
                     test: /\.tsx?$/,
                     use: {
@@ -150,6 +139,7 @@ function getWebviewsConfig(env) {
         new ForkTsCheckerPlugin({
             tsconfig: path.resolve(__dirname, 'webviews.tsconfig.json'),
             async: false,
+            eslint: true,
             useTypescriptIncrementalApi: true
         }),
         new MiniCssExtractPlugin({
@@ -233,18 +223,6 @@ function getWebviewsConfig(env) {
         },
         module: {
             rules: [
-                {
-                    enforce: 'pre',
-                    exclude: /node_modules|\.d\.ts$/,
-                    test: /\.tsx?$/,
-                    use: {
-                        loader: 'eslint-loader',
-                        options: {
-                            cache: true,
-                            failOnError: true
-                        }
-                    }
-                },
                 {
                     exclude: /node_modules|\.d\.ts$/,
                     test: /\.tsx?$/,
