@@ -233,6 +233,34 @@ export class Repository implements Disposable {
         }
     }
 
+    @gate()
+    @log()
+    async checkout(ref: string, options: { progress?: boolean } = {}) {
+        const { progress } = { progress: true, ...options };
+        if (!progress) return this.checkoutCore(ref);
+
+        return void (await window.withProgress(
+            {
+                location: ProgressLocation.Notification,
+                title: `Checking out ${this.formattedName} to ${ref}...`,
+                cancellable: false
+            },
+            () => this.checkoutCore(ref)
+        ));
+    }
+
+    private async checkoutCore(ref: string, options: { remote?: string } = {}) {
+        try {
+            void (await Container.git.checkout(this.path, ref));
+
+            this.fireChange(RepositoryChange.Repository);
+        }
+        catch (ex) {
+            Logger.error(ex);
+            Messages.showGenericErrorMessage('Unable to checkout repository');
+        }
+    }
+
     containsUri(uri: Uri) {
         if (GitUri.is(uri)) {
             uri = uri.repoPath !== undefined ? GitUri.file(uri.repoPath) : uri.documentUri();
@@ -243,7 +271,7 @@ export class Repository implements Disposable {
 
     @gate()
     @log()
-    async fetch(options: { progress?: boolean; remote?: string } = {}) {
+    async fetch(options: { all?: boolean; progress?: boolean; prune?: boolean; remote?: string } = {}) {
         const { progress, ...opts } = { progress: true, ...options };
         if (!progress) return this.fetchCore(opts);
 
@@ -256,9 +284,9 @@ export class Repository implements Disposable {
         ));
     }
 
-    private async fetchCore(options: { remote?: string } = {}) {
+    private async fetchCore(options: { all?: boolean; prune?: boolean; remote?: string } = {}) {
         try {
-            void (await Container.git.fetch(this.path, options.remote));
+            void (await Container.git.fetch(this.path, options));
 
             this.fireChange(RepositoryChange.Repository);
         }
@@ -277,6 +305,17 @@ export class Repository implements Disposable {
 
     getBranches(options: { filter?: (b: GitBranch) => boolean; sort?: boolean } = {}): Promise<GitBranch[]> {
         return Container.git.getBranches(this.path, options);
+    }
+
+    getBranchesAndOrTags(
+        options: {
+            filterBranches?: (b: GitBranch) => boolean;
+            filterTags?: (t: GitTag) => boolean;
+            include?: 'all' | 'branches' | 'tags';
+            sort?: boolean;
+        } = {}
+    ) {
+        return Container.git.getBranchesAndOrTags(this.path, options);
     }
 
     getChangedFilesCount(sha?: string): Promise<GitDiffShortStat | undefined> {
@@ -337,8 +376,8 @@ export class Repository implements Disposable {
 
     @gate()
     @log()
-    async pull(options: { progress?: boolean } = {}) {
-        const { progress } = { progress: true, ...options };
+    async pull(options: { progress?: boolean; rebase?: boolean } = {}) {
+        const { progress, ...opts } = { progress: true, ...options };
         if (!progress) return this.pullCore();
 
         return void (await window.withProgress(
@@ -346,15 +385,15 @@ export class Repository implements Disposable {
                 location: ProgressLocation.Notification,
                 title: `Pulling ${this.formattedName}...`
             },
-            () => this.pullCore()
+            () => this.pullCore(opts)
         ));
     }
 
-    private async pullCore() {
+    private async pullCore(options: { rebase?: boolean } = {}) {
         try {
             const tracking = await this.hasTrackingBranch();
             if (tracking) {
-                void (await commands.executeCommand('git.pull', this.path));
+                void (await commands.executeCommand(options.rebase ? 'git.pullRebase' : 'git.pull', this.path));
             }
             else if (configuration.getAny<boolean>('git.fetchOnPull', Uri.file(this.path))) {
                 void (await Container.git.fetch(this.path));

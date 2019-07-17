@@ -28,6 +28,7 @@ export * from './commands/openFileRevisionFrom';
 export * from './commands/openInRemote';
 export * from './commands/openRepoInRemote';
 export * from './commands/openWorkingFile';
+export * from './commands/gitCommands';
 export * from './commands/repositories';
 export * from './commands/resetSuppressedWarnings';
 export * from './commands/searchCommits';

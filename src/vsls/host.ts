@@ -32,6 +32,7 @@ const gitWhitelist = new Map<string, (args: any[]) => boolean>([
     ['ls-tree', defaultWhitelistFn],
     ['merge-base', defaultWhitelistFn],
     ['remote', args => args[1] === '-v' || args[1] === 'get-url'],
+    ['rev-list', defaultWhitelistFn],
     ['rev-parse', defaultWhitelistFn],
     ['shortlog', defaultWhitelistFn],
     ['show', defaultWhitelistFn],

@@ -520,8 +520,8 @@ export class GitService implements Disposable {
 
     @gate()
     @log()
-    fetch(repoPath: string, remote?: string) {
-        return Git.fetch(repoPath, { remote: remote });
+    fetch(repoPath: string, options: { all?: boolean; prune?: boolean; remote?: string } = {}) {
+        return Git.fetch(repoPath, options);
     }
 
     @gate()
@@ -530,14 +530,14 @@ export class GitService implements Disposable {
             0: (repos?: Repository[]) => (repos === undefined ? false : repos.map(r => r.name).join(', '))
         }
     })
-    async fetchAll(repositories?: Repository[]) {
+    async fetchAll(repositories?: Repository[], options: { all?: boolean; prune?: boolean } = {}) {
         if (repositories === undefined) {
             repositories = await this.getOrderedRepositories();
         }
         if (repositories.length === 0) return;
 
         if (repositories.length === 1) {
-            repositories[0].fetch();
+            repositories[0].fetch(options);
 
             return;
         }
@@ -547,7 +547,7 @@ export class GitService implements Disposable {
                 location: ProgressLocation.Notification,
                 title: `Fetching ${repositories.length} repositories`
             },
-            () => Promise.all(repositories!.map(r => r.fetch({ progress: false })))
+            () => Promise.all(repositories!.map(r => r.fetch({ progress: false, ...options })))
         );
     }
 
@@ -557,14 +557,14 @@ export class GitService implements Disposable {
             0: (repos?: Repository[]) => (repos === undefined ? false : repos.map(r => r.name).join(', '))
         }
     })
-    async pullAll(repositories?: Repository[]) {
+    async pullAll(repositories?: Repository[], options: { rebase?: boolean } = {}) {
         if (repositories === undefined) {
             repositories = await this.getOrderedRepositories();
         }
         if (repositories.length === 0) return;
 
         if (repositories.length === 1) {
-            repositories[0].pull();
+            repositories[0].pull(options);
 
             return;
         }
@@ -574,7 +574,7 @@ export class GitService implements Disposable {
                 location: ProgressLocation.Notification,
                 title: `Pulling ${repositories.length} repositories`
             },
-            () => Promise.all(repositories!.map(r => r.pull({ progress: false })))
+            () => Promise.all(repositories!.map(r => r.pull({ progress: false, ...options })))
         );
     }
 
@@ -603,6 +603,19 @@ export class GitService implements Disposable {
             },
             () => Promise.all(repositories!.map(r => r.push({ progress: false })))
         );
+    }
+
+    @log({
+        args: {
+            0: (editor: TextEditor) =>
+                editor !== undefined ? `TextEditor(${Logger.toLoggable(editor.document.uri)})` : 'undefined'
+        }
+    })
+    async getActiveRepository(editor?: TextEditor): Promise<Repository | undefined> {
+        const repoPath = await this.getActiveRepoPath(editor);
+        if (repoPath === undefined) return undefined;
+
+        return this.getRepository(repoPath);
     }
 
     @log({
@@ -1112,6 +1125,11 @@ export class GitService implements Disposable {
     }
 
     @log()
+    getCommitCount(repoPath: string, refs: string[]) {
+        return Git.rev_list(repoPath, refs, { count: true });
+    }
+
+    @log()
     async getCommitForFile(
         repoPath: string | undefined,
         fileName: string,
@@ -1357,7 +1375,10 @@ export class GitService implements Disposable {
     @log()
     async getLog(
         repoPath: string,
-        { ref, ...options }: { authors?: string[]; maxCount?: number; ref?: string; reverse?: boolean } = {}
+        {
+            ref,
+            ...options
+        }: { authors?: string[]; maxCount?: number; merges?: boolean; ref?: string; reverse?: boolean } = {}
     ): Promise<GitLog | undefined> {
         const maxCount = options.maxCount == null ? Container.config.advanced.maxListItems || 0 : options.maxCount;
 
@@ -1365,6 +1386,7 @@ export class GitService implements Disposable {
             const data = await Git.log(repoPath, ref, {
                 authors: options.authors,
                 maxCount: maxCount,
+                merges: options.merges === undefined ? true : options.merges,
                 reverse: options.reverse,
                 similarityThreshold: Container.config.advanced.similarityThreshold
             });

@@ -68,6 +68,7 @@ export enum Commands {
     OpenWorkingFile = 'gitlens.openWorkingFile',
     PullRepositories = 'gitlens.pullRepositories',
     PushRepositories = 'gitlens.pushRepositories',
+    GitCommands = 'gitlens.gitCommands',
     ResetSuppressedWarnings = 'gitlens.resetSuppressedWarnings',
     ShowCommitInView = 'gitlens.showCommitInView',
     SearchCommits = 'gitlens.showCommitSearch',

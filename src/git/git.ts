@@ -608,8 +608,12 @@ export class Git {
         return git<string>({ cwd: repoPath }, ...params);
     }
 
-    static fetch(repoPath: string, options: { all?: boolean; remote?: string } = {}) {
+    static fetch(repoPath: string, options: { all?: boolean; prune?: boolean; remote?: string } = {}) {
         const params = ['fetch'];
+        if (options.prune) {
+            params.push('--prune');
+        }
+
         if (options.remote) {
             params.push(options.remote);
         }
@@ -635,20 +639,24 @@ export class Git {
         {
             authors,
             maxCount,
+            merges,
             reverse,
             similarityThreshold
-        }: { authors?: string[]; maxCount?: number; reverse?: boolean; similarityThreshold?: number }
+        }: { authors?: string[]; maxCount?: number; merges?: boolean; reverse?: boolean; similarityThreshold?: number }
     ) {
         const params = [
             'log',
             '--name-status',
             `--format=${GitLogParser.defaultFormat}`,
             '--full-history',
-            `-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
-            '-m'
+            `-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`
         ];
         if (maxCount && !reverse) {
             params.push(`-n${maxCount}`);
+        }
+
+        if (merges) {
+            params.push('-m');
         }
 
         if (authors) {
@@ -856,6 +864,21 @@ export class Git {
 
     static reset(repoPath: string | undefined, fileName: string) {
         return git<string>({ cwd: repoPath }, 'reset', '-q', '--', fileName);
+    }
+
+    static async rev_list(
+        repoPath: string,
+        refs: string[],
+        options: { count?: boolean } = {}
+    ): Promise<number | undefined> {
+        const params = [];
+        if (options.count) {
+            params.push('--count');
+        }
+        params.push(...refs);
+
+        const data = await git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, 'rev-list', ...params);
+        return data.length === 0 ? undefined : Number(data.trim()) || undefined;
     }
 
     static async rev_parse(repoPath: string, ref: string): Promise<string | undefined> {

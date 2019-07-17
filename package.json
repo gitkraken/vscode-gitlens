@@ -2084,6 +2084,11 @@
                 "category": "GitLens"
             },
             {
+                "command": "gitlens.gitCommands",
+                "title": "Git Commands",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.switchMode",
                 "title": "Switch Mode",
                 "category": "GitLens"
@@ -3180,6 +3185,10 @@
                 {
                     "command": "gitlens.toggleCodeLens",
                     "when": "gitlens:enabled && gitlens:canToggleCodeLens"
+                },
+                {
+                    "command": "gitlens.gitCommands",
+                    "when": "gitlens:enabled && !gitlens:readonly"
                 },
                 {
                     "command": "gitlens.switchMode",
