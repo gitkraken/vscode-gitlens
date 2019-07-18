@@ -53,15 +53,11 @@ export class CommitNode extends ViewRefNode<ViewWithFiles> {
     }
 
     getTreeItem(): TreeItem {
-        let label = CommitFormatter.fromTemplate(this.view.config.commitFormat, this.commit, {
-            truncateMessageAtNewLine: true,
-            dateFormat: Container.config.defaultDateFormat
+        const label = CommitFormatter.fromTemplate(this.view.config.commitFormat, this.commit, {
+            dateFormat: Container.config.defaultDateFormat,
+            getBranchAndTagTips: this.getBranchAndTagTips,
+            truncateMessageAtNewLine: true
         });
-
-        const branchAndTagTips = this.getBranchAndTagTips && this.getBranchAndTagTips(this.commit.sha);
-        if (branchAndTagTips !== undefined) {
-            label = `${GlyphChars.AngleBracketLeftHeavy}${GlyphChars.SpaceThin}${branchAndTagTips}${GlyphChars.SpaceThin}${GlyphChars.AngleBracketRightHeavy}${GlyphChars.ArrowHeadRight}${GlyphChars.Space} ${label}`;
-        }
 
         const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
         item.contextValue = ResourceType.Commit;
@@ -86,12 +82,11 @@ export class CommitNode extends ViewRefNode<ViewWithFiles> {
         item.tooltip = CommitFormatter.fromTemplate(
             this.commit.isUncommitted
                 ? `\${author} ${GlyphChars.Dash} \${id}\n\${ago} (\${date})`
-                : `\${author} \${(email) }${GlyphChars.Dash} \${id}${
-                      branchAndTagTips !== undefined ? ` (${branchAndTagTips})` : ''
-                  }\n\${ago} (\${date})\n\n\${message}`,
+                : `\${author} \${(email) }${GlyphChars.Dash} \${id}\${ (tips)}\n\${ago} (\${date})\n\n\${message}`,
             this.commit,
             {
-                dateFormat: Container.config.defaultDateFormat
+                dateFormat: Container.config.defaultDateFormat,
+                getBranchAndTagTips: this.getBranchAndTagTips
             }
         );
 

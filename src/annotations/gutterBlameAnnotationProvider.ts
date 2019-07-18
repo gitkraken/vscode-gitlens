@@ -3,7 +3,7 @@ import { DecorationOptions, Range, TextEditorDecorationType, window } from 'vsco
 import { FileAnnotationType, GravatarDefaultStyle } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { CommitFormatOptions, GitBlameCommit } from '../git/gitService';
+import { CommitFormatOptions, CommitFormatter, GitBlameCommit } from '../git/gitService';
 import { Logger } from '../logger';
 import { log, Objects, Strings } from '../system';
 import { Annotations } from './annotations';
@@ -31,8 +31,14 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
             return map;
         }, Object.create(null));
 
+        let getBranchAndTagTips;
+        if (CommitFormatter.has(cfg.format, 'tips')) {
+            getBranchAndTagTips = await Container.git.getBranchesAndTagsTipsFn(blame.repoPath);
+        }
+
         const options: CommitFormatOptions = {
             dateFormat: cfg.dateFormat === null ? Container.config.defaultDateFormat : cfg.dateFormat,
+            getBranchAndTagTips: getBranchAndTagTips,
             tokenOptions: tokenOptions
         };
 

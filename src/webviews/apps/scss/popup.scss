@@ -4,7 +4,9 @@
     padding: 1em;
     position: absolute;
     top: 46px;
-    width: 410px;
+    width: 80vw;
+    min-width: 373px;
+    max-width: 472px;
     z-index: 1;
 
     &:before {
@@ -33,6 +35,13 @@
     .vscode-dark & {
         background: var(--color-background--lighten-075);
     }
+}
+
+.token-popup__scroller {
+    margin-right: -0.4em;
+    max-height: 35vh;
+    overflow-y: scroll;
+    padding-right: 0.4em;
 }
 
 .token-popup__hint {
@@ -78,6 +87,7 @@
 
     & td:last-child {
         padding-right: 12px;
+        text-align: end;
     }
 }
 

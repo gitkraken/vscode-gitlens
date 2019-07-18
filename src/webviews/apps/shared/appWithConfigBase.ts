@@ -37,9 +37,6 @@ export abstract class AppWithConfig<TBootstrap extends AppWithConfigBootstrap> e
         DOM.listenAll('select.setting', 'change', function(this: HTMLSelectElement) {
             return me.onInputSelected(this);
         });
-        DOM.listenAll('[data-token]', 'mousedown', function(this: HTMLElement, e: Event) {
-            return me.onTokenMouseDown(this, e as MouseEvent);
-        });
         DOM.listenAll('.popup', 'mousedown', function(this: HTMLElement, e: Event) {
             return me.onPopupMouseDown(this, e as MouseEvent);
         });
@@ -165,6 +162,11 @@ export abstract class AppWithConfig<TBootstrap extends AppWithConfigBootstrap> e
 
         const popup = document.getElementById(`${element.name}.popup`);
         if (popup != null) {
+            if (popup.childElementCount === 0) {
+                const template = document.querySelector('#token-popup') as HTMLTemplateElement;
+                const instance = document.importNode(template.content, true);
+                popup.appendChild(instance);
+            }
             popup.classList.remove('hidden');
         }
     }
@@ -185,6 +187,11 @@ export abstract class AppWithConfig<TBootstrap extends AppWithConfigBootstrap> e
         // e.stopPropagation();
         // e.stopImmediatePropagation();
         e.preventDefault();
+
+        const el = e.target as HTMLElement;
+        if (el && el.matches('[data-token]')) {
+            this.onTokenMouseDown(el, e);
+        }
     }
 
     protected onTokenMouseDown(element: HTMLElement, e: MouseEvent) {

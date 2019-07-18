@@ -1277,7 +1277,7 @@
                 },
                 "gitlens.views.commitFormat": {
                     "type": "string",
-                    "default": "${message}",
+                    "default": "${❰ tips ❱➤  }${message}",
                     "markdownDescription": "Specifies the format of committed changes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
                     "scope": "window"
                 },

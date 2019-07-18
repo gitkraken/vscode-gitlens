@@ -22,10 +22,12 @@ const emptyStr = '';
 const escapeMarkdownRegex = /[`>#*_\-+.]/g;
 // const sampleMarkdown = '## message `not code` *not important* _no underline_ \n> don\'t quote me \n- don\'t list me \n+ don\'t list me \n1. don\'t list me \nnot h1 \n=== \nnot h2 \n---\n***\n---\n___';
 const markdownHeaderReplacement = `${GlyphChars.ZeroWidthSpace}===`;
+const hasTokenRegexMap = new Map<string, RegExp>();
 
 export interface CommitFormatOptions extends FormatOptions {
     annotationType?: FileAnnotationType;
     dateStyle?: DateStyle;
+    getBranchAndTagTips?: (sha: string) => string | undefined;
     line?: number;
     markdown?: boolean;
     presence?: ContactPresence;
@@ -39,12 +41,17 @@ export interface CommitFormatOptions extends FormatOptions {
         author?: Strings.TokenOptions;
         authorAgo?: Strings.TokenOptions;
         authorAgoOrDate?: Strings.TokenOptions;
+        authorDate?: Strings.TokenOptions;
         changes?: Strings.TokenOptions;
         changesShort?: Strings.TokenOptions;
+        committerAgo?: Strings.TokenOptions;
+        committerAgoOrDate?: Strings.TokenOptions;
+        committerDate?: Strings.TokenOptions;
         date?: Strings.TokenOptions;
         email?: Strings.TokenOptions;
         id?: Strings.TokenOptions;
         message?: Strings.TokenOptions;
+        tips?: Strings.TokenOptions;
     };
 }
 
@@ -117,7 +124,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
     }
 
     get authorDate() {
-        return this._padOrTruncate(this._authorDate, this._options.tokenOptions.date);
+        return this._padOrTruncate(this._authorDate, this._options.tokenOptions.authorDate);
     }
 
     get avatar() {
@@ -247,15 +254,15 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
     }
 
     get committerAgo() {
-        return this._padOrTruncate(this._committerDateAgo, this._options.tokenOptions.ago);
+        return this._padOrTruncate(this._committerDateAgo, this._options.tokenOptions.committerAgo);
     }
 
     get committerAgoOrDate() {
-        return this._padOrTruncate(this._committerDateOrAgo, this._options.tokenOptions.agoOrDate);
+        return this._padOrTruncate(this._committerDateOrAgo, this._options.tokenOptions.committerAgoOrDate);
     }
 
     get committerDate() {
-        return this._padOrTruncate(this._committerDate, this._options.tokenOptions.date);
+        return this._padOrTruncate(this._committerDate, this._options.tokenOptions.committerDate);
     }
 
     get date() {
@@ -327,6 +334,13 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
         return this.id;
     }
 
+    get tips() {
+        const branchAndTagTips = this._options.getBranchAndTagTips && this._options.getBranchAndTagTips(this._item.sha);
+        if (branchAndTagTips === undefined) return emptyStr;
+
+        return this._padOrTruncate(branchAndTagTips, this._options.tokenOptions.tips);
+    }
+
     static fromTemplate(template: string, commit: GitCommit, dateFormat: string | null): string;
     static fromTemplate(template: string, commit: GitCommit, options?: CommitFormatOptions): string;
     static fromTemplate(
@@ -340,5 +354,15 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
         dateFormatOrOptions?: string | null | CommitFormatOptions
     ): string {
         return super.fromTemplateCore(this, template, commit, dateFormatOrOptions);
+    }
+
+    static has(format: string, token: string) {
+        let regex = hasTokenRegexMap.get(token);
+        if (regex === undefined) {
+            regex = new RegExp(`\\b${token}\\b`);
+            hasTokenRegexMap.set(token, regex);
+        }
+
+        return regex.test(format);
     }
 }

@@ -71,7 +71,7 @@ export class Configuration {
         affectsConfiguration: (section: string, resource?: Uri) => true
     };
 
-    get<T>(section?: string, resource?: Uri | null, defaultValue?: T) {
+    get<T>(section?: string, resource?: Uri | null, defaultValue?: T): T {
         return defaultValue === undefined
             ? workspace
                   .getConfiguration(section === undefined ? undefined : extensionId, resource!)

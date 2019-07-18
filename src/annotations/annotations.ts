@@ -326,7 +326,8 @@ export class Annotations {
         // editorLine: number,
         format: string,
         dateFormat: string | null,
-        scrollable: boolean = true
+        scrollable: boolean = true,
+        getBranchAndTagTips?: (sha: string) => string | undefined
     ): Partial<DecorationOptions> {
         // TODO: Enable this once there is better caching
         // let diffUris;
@@ -336,6 +337,7 @@ export class Annotations {
 
         const message = CommitFormatter.fromTemplate(format, commit, {
             dateFormat: dateFormat,
+            getBranchAndTagTips: getBranchAndTagTips,
             // previousLineDiffUris: diffUris,
             truncateMessageAtNewLine: true
         });

@@ -7,6 +7,118 @@
         -->
     </head>
 
+    <template id="token-popup">
+        <h3 class="token-popup__title">Available Tokens</h3>
+        <div class="token-popup__scroller">
+            <table class="token-popup__table">
+                <tbody>
+                    <tr>
+                        <td>Commit Id</td>
+                        <td><span class="token" data-token="id">id</span></td>
+                    </tr>
+                    <tr>
+                        <td>Commit Author</td>
+                        <td><span class="token" data-token="author">author</span></td>
+                    </tr>
+                    <tr>
+                        <td>Commit Author E-mail</td>
+                        <td><span class="token" data-token="email">email</span></td>
+                    </tr>
+                    <tr>
+                        <td>Commit Message</td>
+                        <td><span class="token" data-token="message">message</span></td>
+                    </tr>
+                    <tr>
+                        <td>
+                            Commit or Authored Date<br /><i
+                                >Relative, e.g. 1 day ago<br />Committed vs Authored based on setting</i
+                            >
+                        </td>
+                        <td><span class="token" data-token="ago">ago</span></td>
+                    </tr>
+                    <tr>
+                        <td>
+                            Commit or Authored Date<br /><i
+                                >Absolute, e.g. August 8th, 2016 10:48am<br />Committed vs Authored based on setting</i
+                            >
+                        </td>
+                        <td><span class="token" data-token="date">date</span></td>
+                    </tr>
+                    <tr>
+                        <td>
+                            Commit or Authored Date<br /><i
+                                >Relative or absolute based on date setting<br />Committed vs Authored based on
+                                setting</i
+                            >
+                        </td>
+                        <td><span class="token" data-token="agoOrDate">agoOrDate</span></td>
+                    </tr>
+                    <tr>
+                        <td>Authored Date<br /><i>Relative date</i></td>
+                        <td><span class="token" data-token="authorAgo">authorAgo</span></td>
+                    </tr>
+                    <tr>
+                        <td>Authored Date<br /><i>Absolute, e.g. August 8th, 2016 10:48am</i></td>
+                        <td><span class="token" data-token="authorDate">authorDate</span></td>
+                    </tr>
+                    <tr>
+                        <td>Authored Date<br /><i>Relative or absolute date based on date setting</i></td>
+                        <td><span class="token" data-token="authorAgoOrDate">authorAgoOrDate</span></td>
+                    </tr>
+                    <tr>
+                        <td>Commit Date<br /><i>Relative date</i></td>
+                        <td><span class="token" data-token="committerAgo">committerAgo</span></td>
+                    </tr>
+                    <tr>
+                        <td>Commit Date<br /><i>Absolute, e.g. August 8th, 2016 10:48am</i></td>
+                        <td><span class="token" data-token="committerDate">committerDate</span></td>
+                    </tr>
+                    <tr>
+                        <td>Commit Date<br /><i>Relative or absolute date based on date setting</i></td>
+                        <td><span class="token" data-token="committerAgoOrDate">committerAgoOrDate</span></td>
+                    </tr>
+                    <tr>
+                        <td>Branch & Tag Tips<br /><i>Indicates if the commit is a tip of any branches or tags</i></td>
+                        <td><span class="token" data-token="tips">tips</span></td>
+                    </tr>
+                    <!-- <tr>
+                        <td>
+                            Changes Indicator<br /><i
+                                >Indicates adds, changes, renames, and deletes<br />e.g +1 ~3 -0</i
+                            >
+                        </td>
+                        <td><span class="token" data-token="changes">changes</span></td>
+                    </tr>
+                    <tr>
+                        <td>
+                            Changes Indicator (short)<br /><i
+                                >Indicates adds, changes, renames, and deletes<br />e.g +1~3</i
+                            >
+                        </td>
+                        <td><span class="token" data-token="changesShort">changesShort</span></td>
+                    </tr> -->
+                    <!-- <tr>
+                        <td>Author Avatar</td>
+                        <td><span class="token" data-token="avatar">avatar</span></td>
+                    </tr> -->
+                    <!-- <tr>
+                        <td>
+                            Commands<br /><i>Set of commit command buttons<br />only valid in hovers</i>
+                        </td>
+                        <td><span class="token" data-token="commands">commands</span></td>
+                    </tr> -->
+                </tbody>
+            </table>
+        </div>
+        <span class="token-popup__hint">
+            <i class="icon icon__info"></i>
+            <a href="https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting" title="Open formatting docs"
+                >Learn more</a
+            >
+            about formatting options
+        </span>
+    </template>
+
     <body class="preload">
         <div class="container">
             <div class="content">
@@ -337,10 +449,7 @@
                                         <label for="menus.editor">Add commands to the editor context menu</label>
                                     </div>
 
-                                    <div
-                                        class="settings-group__setting nowrap ml-4"
-                                        data-enablement="menus.editor"
-                                    >
+                                    <div class="settings-group__setting nowrap ml-4" data-enablement="menus.editor">
                                         <input
                                             class="setting"
                                             id="menus.editor.compare"
@@ -352,10 +461,7 @@
                                         <label for="menus.editor.compare">Add comparison commands</label>
                                     </div>
 
-                                    <div
-                                        class="settings-group__setting nowrap ml-4"
-                                        data-enablement="menus.editor"
-                                    >
+                                    <div class="settings-group__setting nowrap ml-4" data-enablement="menus.editor">
                                         <input
                                             class="setting"
                                             id="menus.editor.remote"
@@ -367,10 +473,7 @@
                                         <label for="menus.editor.remote">Add open on remote commands</label>
                                     </div>
 
-                                    <div
-                                        class="settings-group__setting nowrap ml-4"
-                                        data-enablement="menus.editor"
-                                    >
+                                    <div class="settings-group__setting nowrap ml-4" data-enablement="menus.editor">
                                         <input
                                             class="setting"
                                             id="menus.editor.details"
@@ -382,10 +485,7 @@
                                         <label for="menus.editor.details">Add commit details commands</label>
                                     </div>
 
-                                    <div
-                                        class="settings-group__setting nowrap ml-4"
-                                        data-enablement="menus.editor"
-                                    >
+                                    <div class="settings-group__setting nowrap ml-4" data-enablement="menus.editor">
                                         <input
                                             class="setting"
                                             id="menus.editor.history"
@@ -397,10 +497,7 @@
                                         <label for="menus.editor.history">Add file history commands</label>
                                     </div>
 
-                                    <div
-                                        class="settings-group__setting nowrap ml-4"
-                                        data-enablement="menus.editor"
-                                    >
+                                    <div class="settings-group__setting nowrap ml-4" data-enablement="menus.editor">
                                         <input
                                             class="setting"
                                             id="menus.editor.blame"
@@ -412,10 +509,7 @@
                                         <label for="menus.editor.blame">Add blame commands</label>
                                     </div>
 
-                                    <div
-                                        class="settings-group__setting nowrap ml-4"
-                                        data-enablement="menus.editor"
-                                    >
+                                    <div class="settings-group__setting nowrap ml-4" data-enablement="menus.editor">
                                         <input
                                             class="setting"
                                             id="menus.editor.clipboard"
@@ -440,10 +534,7 @@
                                         <label for="menus.editorTab">Add commands to the editor tab context menu</label>
                                     </div>
 
-                                    <div
-                                        class="settings-group__setting nowrap ml-4"
-                                        data-enablement="menus.editorTab"
-                                    >
+                                    <div class="settings-group__setting nowrap ml-4" data-enablement="menus.editorTab">
                                         <input
                                             class="setting"
                                             id="menus.editorTab.remote"
@@ -455,10 +546,7 @@
                                         <label for="menus.editorTab.remote">Add open on remote commands</label>
                                     </div>
 
-                                    <div
-                                        class="settings-group__setting nowrap ml-4"
-                                        data-enablement="menus.editorTab"
-                                    >
+                                    <div class="settings-group__setting nowrap ml-4" data-enablement="menus.editorTab">
                                         <input
                                             class="setting"
                                             id="menus.editorTab.compare"
@@ -470,10 +558,7 @@
                                         <label for="menus.editorTab.compare">Add comparison commands</label>
                                     </div>
 
-                                    <div
-                                        class="settings-group__setting nowrap ml-4"
-                                        data-enablement="menus.editorTab"
-                                    >
+                                    <div class="settings-group__setting nowrap ml-4" data-enablement="menus.editorTab">
                                         <input
                                             class="setting"
                                             id="menus.editorTab.history"
@@ -485,10 +570,7 @@
                                         <label for="menus.editorTab.history">Add file history commands</label>
                                     </div>
 
-                                    <div
-                                        class="settings-group__setting nowrap ml-4"
-                                        data-enablement="menus.editorTab"
-                                    >
+                                    <div class="settings-group__setting nowrap ml-4" data-enablement="menus.editorTab">
                                         <input
                                             class="setting"
                                             id="menus.editorTab.clipboard"
@@ -558,10 +640,7 @@
                                         >
                                     </div>
 
-                                    <div
-                                        class="settings-group__setting nowrap ml-4"
-                                        data-enablement="menus.explorer"
-                                    >
+                                    <div class="settings-group__setting nowrap ml-4" data-enablement="menus.explorer">
                                         <input
                                             class="setting"
                                             id="menus.explorer.remote"
@@ -573,10 +652,7 @@
                                         <label for="menus.explorer.remote">Add open on remote commands</label>
                                     </div>
 
-                                    <div
-                                        class="settings-group__setting nowrap ml-4"
-                                        data-enablement="menus.explorer"
-                                    >
+                                    <div class="settings-group__setting nowrap ml-4" data-enablement="menus.explorer">
                                         <input
                                             class="setting"
                                             id="menus.explorer.compare"
@@ -588,10 +664,7 @@
                                         <label for="menus.explorer.compare">Add comparison commands</label>
                                     </div>
 
-                                    <div
-                                        class="settings-group__setting nowrap ml-4"
-                                        data-enablement="menus.explorer"
-                                    >
+                                    <div class="settings-group__setting nowrap ml-4" data-enablement="menus.explorer">
                                         <input
                                             class="setting"
                                             id="menus.explorer.history"
@@ -603,10 +676,7 @@
                                         <label for="menus.explorer.history">Add file history commands</label>
                                     </div>
 
-                                    <div
-                                        class="settings-group__setting nowrap ml-4"
-                                        data-enablement="menus.explorer"
-                                    >
+                                    <div class="settings-group__setting nowrap ml-4" data-enablement="menus.explorer">
                                         <input
                                             class="setting"
                                             id="menus.explorer.clipboard"
@@ -633,10 +703,7 @@
                                         >
                                     </div>
 
-                                    <div
-                                        class="settings-group__setting nowrap ml-4"
-                                        data-enablement="menus.scmGroup"
-                                    >
+                                    <div class="settings-group__setting nowrap ml-4" data-enablement="menus.scmGroup">
                                         <input
                                             class="setting"
                                             id="menus.scmGroup.stashInline"
@@ -650,10 +717,7 @@
                                         >
                                     </div>
 
-                                    <div
-                                        class="settings-group__setting nowrap ml-4"
-                                        data-enablement="menus.scmGroup"
-                                    >
+                                    <div class="settings-group__setting nowrap ml-4" data-enablement="menus.scmGroup">
                                         <input
                                             class="setting"
                                             id="menus.scmGroup.openClose"
@@ -667,10 +731,7 @@
                                         >
                                     </div>
 
-                                    <div
-                                        class="settings-group__setting nowrap ml-4"
-                                        data-enablement="menus.scmGroup"
-                                    >
+                                    <div class="settings-group__setting nowrap ml-4" data-enablement="menus.scmGroup">
                                         <input
                                             class="setting"
                                             id="menus.scmGroup.compare"
@@ -682,10 +743,7 @@
                                         <label for="menus.scmGroup.compare">Add comparison commands</label>
                                     </div>
 
-                                    <div
-                                        class="settings-group__setting nowrap ml-4"
-                                        data-enablement="menus.scmGroup"
-                                    >
+                                    <div class="settings-group__setting nowrap ml-4" data-enablement="menus.scmGroup">
                                         <input
                                             class="setting"
                                             id="menus.scmGroup.stash"
@@ -712,10 +770,7 @@
                                         >
                                     </div>
 
-                                    <div
-                                        class="settings-group__setting nowrap ml-4"
-                                        data-enablement="menus.scmItem"
-                                    >
+                                    <div class="settings-group__setting nowrap ml-4" data-enablement="menus.scmItem">
                                         <input
                                             class="setting"
                                             id="menus.scmItem.remote"
@@ -727,10 +782,7 @@
                                         <label for="menus.scmItem.remote">Add open on remote commands</label>
                                     </div>
 
-                                    <div
-                                        class="settings-group__setting nowrap ml-4"
-                                        data-enablement="menus.scmItem"
-                                    >
+                                    <div class="settings-group__setting nowrap ml-4" data-enablement="menus.scmItem">
                                         <input
                                             class="setting"
                                             id="menus.scmItem.compare"
@@ -742,10 +794,7 @@
                                         <label for="menus.scmItem.compare">Add comparison commands</label>
                                     </div>
 
-                                    <div
-                                        class="settings-group__setting nowrap ml-4"
-                                        data-enablement="menus.scmItem"
-                                    >
+                                    <div class="settings-group__setting nowrap ml-4" data-enablement="menus.scmItem">
                                         <input
                                             class="setting"
                                             id="menus.scmItem.history"
@@ -757,10 +806,7 @@
                                         <label for="menus.scmItem.history">Add file history command</label>
                                     </div>
 
-                                    <div
-                                        class="settings-group__setting nowrap ml-4"
-                                        data-enablement="menus.scmItem"
-                                    >
+                                    <div class="settings-group__setting nowrap ml-4" data-enablement="menus.scmItem">
                                         <input
                                             class="setting"
                                             id="menus.scmItem.stash"
@@ -772,10 +818,7 @@
                                         <label for="menus.scmItem.stash">Add stash changes command</label>
                                     </div>
 
-                                    <div
-                                        class="settings-group__setting nowrap ml-4"
-                                        data-enablement="menus.scmItem"
-                                    >
+                                    <div class="settings-group__setting nowrap ml-4" data-enablement="menus.scmItem">
                                         <input
                                             class="setting"
                                             id="menus.scmItem.clipboard"
@@ -850,77 +893,7 @@
                                         <label for="currentLine.format" title="See available tokens">
                                             <i class="icon icon__info"></i>
                                         </label>
-                                        <div id="currentLine.format.popup" class="popup hidden">
-                                            <h3 class="token-popup__title">Available Tokens</h3>
-                                            <table class="token-popup__table">
-                                                <tbody>
-                                                    <tr>
-                                                        <td>Commit Id</td>
-                                                        <td><span class="token" data-token="id">id</span></td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>Commit Author</td>
-                                                        <td><span class="token" data-token="author">author</span></td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>Commit Message</td>
-                                                        <td><span class="token" data-token="message">message</span></td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>
-                                                            Commit Date <br />
-                                                            <i>Relative, e.g. 1 day ago</i>
-                                                        </td>
-                                                        <td><span class="token" data-token="ago">ago</span></td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>
-                                                            Commit Date <br />
-                                                            <i>Absolute, e.g. August 8th, 2016 10:48am</i>
-                                                        </td>
-                                                        <td><span class="token" data-token="date">date</span></td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>
-                                                            Commit Date <br />
-                                                            <i>Relative or absolute based on date setting</i>
-                                                        </td>
-                                                        <td>
-                                                            <span class="token" data-token="agoOrDate">agoOrDate</span>
-                                                        </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>
-                                                            Commit Author, Commit Date <br />
-                                                            <i>Relative date</i>
-                                                        </td>
-                                                        <td>
-                                                            <span class="token" data-token="authorAgo">authorAgo</span>
-                                                        </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>
-                                                            Commit Author, Commit Date <br />
-                                                            <i>Relative or absolute date</i>
-                                                        </td>
-                                                        <td>
-                                                            <span class="token" data-token="authorAgoOrDate"
-                                                                >authorAgoOrDate</span
-                                                            >
-                                                        </td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
-                                            <span class="token-popup__hint">
-                                                <i class="icon icon__info"></i>
-                                                <a
-                                                    href="https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting"
-                                                    title="Open advanced formatting docs"
-                                                    >Learn more</a
-                                                >
-                                                about advanced formatting options
-                                            </span>
-                                        </div>
+                                        <div id="currentLine.format.popup" class="popup hidden"></div>
                                     </div>
 
                                     <div
@@ -1021,77 +994,7 @@
                                         <label for="blame.format" title="See available tokens">
                                             <i class="icon icon__info"></i>
                                         </label>
-                                        <div id="blame.format.popup" class="popup hidden">
-                                            <h3 class="token-popup__title">Available Tokens</h3>
-                                            <table class="token-popup__table">
-                                                <tbody>
-                                                    <tr>
-                                                        <td>Commit Id</td>
-                                                        <td><span class="token" data-token="id">id</span></td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>Commit Author</td>
-                                                        <td><span class="token" data-token="author">author</span></td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>Commit Message</td>
-                                                        <td><span class="token" data-token="message">message</span></td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>
-                                                            Commit Date <br />
-                                                            <i>Relative, e.g. 1 day ago</i>
-                                                        </td>
-                                                        <td><span class="token" data-token="ago">ago</span></td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>
-                                                            Commit Date <br />
-                                                            <i>Absolute, e.g. August 8th, 2016 10:48am</i>
-                                                        </td>
-                                                        <td><span class="token" data-token="date">date</span></td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>
-                                                            Commit Date <br />
-                                                            <i>Relative or absolute based on date setting</i>
-                                                        </td>
-                                                        <td>
-                                                            <span class="token" data-token="agoOrDate">agoOrDate</span>
-                                                        </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>
-                                                            Commit Author, Commit Date <br />
-                                                            <i>Relative date</i>
-                                                        </td>
-                                                        <td>
-                                                            <span class="token" data-token="authorAgo">authorAgo</span>
-                                                        </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>
-                                                            Commit Author, Commit Date <br />
-                                                            <i>Relative or absolute date</i>
-                                                        </td>
-                                                        <td>
-                                                            <span class="token" data-token="authorAgoOrDate"
-                                                                >authorAgoOrDate</span
-                                                            >
-                                                        </td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
-                                            <span class="token-popup__hint">
-                                                <i class="icon icon__info"></i>
-                                                <a
-                                                    href="https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting"
-                                                    title="Open advanced formatting docs"
-                                                    >Learn more</a
-                                                >
-                                                about advanced formatting options
-                                            </span>
-                                        </div>
+                                        <div id="blame.format.popup" class="popup hidden"></div>
                                     </div>
 
                                     <div class="settings-group__setting nowrap">
@@ -1324,10 +1227,7 @@
                                         <label for="hovers.enabled">Show blame hovers</label>
                                     </div>
 
-                                    <div
-                                        class="settings-group__setting nowrap ml-2"
-                                        data-enablement="hovers.enabled"
-                                    >
+                                    <div class="settings-group__setting nowrap ml-2" data-enablement="hovers.enabled">
                                         <input
                                             class="setting"
                                             id="hovers.avatars"
@@ -1784,16 +1684,10 @@
                                         </select>
                                     </div>
 
-                                    <div
-                                        class="settings-group__setting nowrap ml-2"
-                                        data-enablement="codeLens.enabled"
-                                    >
+                                    <div class="settings-group__setting nowrap ml-2" data-enablement="codeLens.enabled">
                                         <label class="non-interactive">Add code lens to the following scopes</label>
                                     </div>
-                                    <div
-                                        class="settings-group__setting nowrap ml-4"
-                                        data-enablement="codeLens.enabled"
-                                    >
+                                    <div class="settings-group__setting nowrap ml-4" data-enablement="codeLens.enabled">
                                         <input
                                             class="setting"
                                             id="codeLens.scopes"
@@ -1807,10 +1701,7 @@
                                             >File scope &mdash; added at the top of the file</label
                                         >
                                     </div>
-                                    <div
-                                        class="settings-group__setting nowrap ml-4"
-                                        data-enablement="codeLens.enabled"
-                                    >
+                                    <div class="settings-group__setting nowrap ml-4" data-enablement="codeLens.enabled">
                                         <input
                                             class="setting"
                                             id="codeLens.scopes-1"
@@ -1825,10 +1716,7 @@
                                             etc
                                         </label>
                                     </div>
-                                    <div
-                                        class="settings-group__setting nowrap ml-4"
-                                        data-enablement="codeLens.enabled"
-                                    >
+                                    <div class="settings-group__setting nowrap ml-4" data-enablement="codeLens.enabled">
                                         <input
                                             class="setting"
                                             id="codeLens.scopes-2"
@@ -2145,77 +2033,7 @@
                                         <label for="statusBar.format" title="See available tokens">
                                             <i class="icon icon__info"></i>
                                         </label>
-                                        <div id="statusBar.format.popup" class="popup hidden">
-                                            <h3 class="token-popup__title">Available Tokens</h3>
-                                            <table class="token-popup__table">
-                                                <tbody>
-                                                    <tr>
-                                                        <td>Commit Id</td>
-                                                        <td><span class="token" data-token="id">id</span></td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>Commit Author</td>
-                                                        <td><span class="token" data-token="author">author</span></td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>Commit Message</td>
-                                                        <td><span class="token" data-token="message">message</span></td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>
-                                                            Commit Date <br />
-                                                            <i>Relative, e.g. 1 day ago</i>
-                                                        </td>
-                                                        <td><span class="token" data-token="ago">ago</span></td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>
-                                                            Commit Date <br />
-                                                            <i>Absolute, e.g. August 8th, 2016 10:48am</i>
-                                                        </td>
-                                                        <td><span class="token" data-token="date">date</span></td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>
-                                                            Commit Date <br />
-                                                            <i>Relative or absolute based on date setting</i>
-                                                        </td>
-                                                        <td>
-                                                            <span class="token" data-token="agoOrDate">agoOrDate</span>
-                                                        </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>
-                                                            Commit Author, Commit Date <br />
-                                                            <i>Relative date</i>
-                                                        </td>
-                                                        <td>
-                                                            <span class="token" data-token="authorAgo">authorAgo</span>
-                                                        </td>
-                                                    </tr>
-                                                    <tr>
-                                                        <td>
-                                                            Commit Author, Commit Date <br />
-                                                            <i>Relative or absolute date</i>
-                                                        </td>
-                                                        <td>
-                                                            <span class="token" data-token="authorAgoOrDate"
-                                                                >authorAgoOrDate</span
-                                                            >
-                                                        </td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
-                                            <span class="token-popup__hint">
-                                                <i class="icon icon__info"></i>
-                                                <a
-                                                    href="https://github.com/eamodio/vscode-gitlens/wiki/Advanced-Formatting"
-                                                    title="Open advanced formatting docs"
-                                                    >Learn more</a
-                                                >
-                                                about advanced formatting options
-                                            </span>
-                                        </div>
+                                        <div id="statusBar.format.popup" class="popup hidden"></div>
                                     </div>
 
                                     <div class="settings-group__setting ml-2" data-enablement="statusBar.enabled">
@@ -2231,10 +2049,7 @@
                                         </select>
                                     </div>
 
-                                    <div
-                                        class="settings-group__setting ml-2"
-                                        data-enablement="statusBar.enabled"
-                                    >
+                                    <div class="settings-group__setting ml-2" data-enablement="statusBar.enabled">
                                         <label for="statusBar.command">When clicked</label>
                                         <select
                                             class="setting"
@@ -2736,10 +2551,7 @@
                                         </select>
                                     </div>
 
-                                    <div
-                                        class="settings-group__setting ml-2"
-                                        data-enablement="views.search.enabled"
-                                    >
+                                    <div class="settings-group__setting ml-2" data-enablement="views.search.enabled">
                                         <label for="views.search.files.layout">Layout files</label>
                                         <select
                                             class="setting"
@@ -2867,10 +2679,7 @@
                                         </select>
                                     </div>
 
-                                    <div
-                                        class="settings-group__setting ml-2"
-                                        data-enablement="views.compare.enabled"
-                                    >
+                                    <div class="settings-group__setting ml-2" data-enablement="views.compare.enabled">
                                         <label for="views.compare.files.layout">Layout files</label>
                                         <select
                                             class="setting"

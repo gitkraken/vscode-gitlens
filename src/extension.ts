@@ -1,7 +1,7 @@
 'use strict';
 import { commands, ExtensionContext, extensions, window, workspace } from 'vscode';
 import { Commands, registerCommands } from './commands';
-import { ModeConfig, ViewShowBranchComparison } from './config';
+import { ViewShowBranchComparison } from './config';
 import { Config, configuration, Configuration } from './configuration';
 import { CommandContext, extensionQualifiedId, GlobalState, GlyphChars, setCommandContext } from './constants';
 import { Container } from './container';
@@ -105,7 +105,14 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
     const previous = Versions.fromString(previousVersion);
 
     try {
-        if (Versions.compare(previous, Versions.from(9, 8, 2)) !== 1) {
+        if (Versions.compare(previous, Versions.from(9, 8, 5)) !== 1) {
+            const name = configuration.name('views')('commitFormat').value;
+            const value = configuration.get<string>(name);
+            if (!/\btips\b/.test(value)) {
+                await configuration.updateEffective(name, `\${❰ tips ❱➤  }${value}`);
+            }
+        }
+        else if (Versions.compare(previous, Versions.from(9, 8, 2)) !== 1) {
             const name = configuration.name('views')('repositories')('showBranchComparison').value;
             await configuration.migrate(name, name, {
                 migrationFn: (v: boolean) => (v === false ? false : ViewShowBranchComparison.Working)
@@ -140,163 +147,6 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
                     })
                 )
             );
-        }
-        else if (Versions.compare(previous, Versions.from(9, 2, 2)) !== 1) {
-            await configuration.migrate('views.avatars', configuration.name('views')('compare')('avatars').value);
-            await configuration.migrate('views.avatars', configuration.name('views')('repositories')('avatars').value);
-            await configuration.migrate('views.avatars', configuration.name('views')('search')('avatars').value);
-        }
-        else if (Versions.compare(previous, Versions.from(9, 0, 0)) !== 1) {
-            await configuration.migrate(
-                'gitExplorer.autoRefresh',
-                configuration.name('views')('repositories')('autoRefresh').value
-            );
-            await configuration.migrate(
-                'gitExplorer.branches.layout',
-                configuration.name('views')('repositories')('branches')('layout').value
-            );
-            await configuration.migrate(
-                'gitExplorer.enabled',
-                configuration.name('views')('repositories')('enabled').value
-            );
-            await configuration.migrate(
-                'gitExplorer.files.compact',
-                configuration.name('views')('repositories')('files')('compact').value
-            );
-            await configuration.migrate(
-                'gitExplorer.files.layout',
-                configuration.name('views')('repositories')('files')('layout').value
-            );
-            await configuration.migrate(
-                'gitExplorer.files.threshold',
-                configuration.name('views')('repositories')('files')('threshold').value
-            );
-            await configuration.migrate(
-                'gitExplorer.includeWorkingTree',
-                configuration.name('views')('repositories')('includeWorkingTree').value
-            );
-            await configuration.migrate(
-                'gitExplorer.location',
-                configuration.name('views')('repositories')('location').value
-            );
-            await configuration.migrate(
-                'gitExplorer.showTrackingBranch',
-                configuration.name('views')('repositories')('showTrackingBranch').value
-            );
-
-            await configuration.migrate(
-                'historyExplorer.avatars',
-                configuration.name('views')('fileHistory')('avatars').value
-            );
-            await configuration.migrate(
-                'historyExplorer.enabled',
-                configuration.name('views')('fileHistory')('enabled').value
-            );
-            await configuration.migrate(
-                'historyExplorer.location',
-                configuration.name('views')('fileHistory')('location').value
-            );
-
-            await configuration.migrate(
-                'historyExplorer.avatars',
-                configuration.name('views')('lineHistory')('avatars').value
-            );
-            await configuration.migrate(
-                'historyExplorer.enabled',
-                configuration.name('views')('lineHistory')('enabled').value
-            );
-            await configuration.migrate(
-                'historyExplorer.location',
-                configuration.name('views')('lineHistory')('location').value
-            );
-
-            await configuration.migrate(
-                'resultsExplorer.files.compact',
-                configuration.name('views')('compare')('files')('compact').value
-            );
-            await configuration.migrate(
-                'resultsExplorer.files.layout',
-                configuration.name('views')('compare')('files')('layout').value
-            );
-            await configuration.migrate(
-                'resultsExplorer.files.threshold',
-                configuration.name('views')('compare')('files')('threshold').value
-            );
-            await configuration.migrate(
-                'resultsExplorer.location',
-                configuration.name('views')('compare')('location').value
-            );
-
-            await configuration.migrate(
-                'resultsExplorer.files.compact',
-                configuration.name('views')('search')('files')('compact').value
-            );
-            await configuration.migrate(
-                'resultsExplorer.files.layout',
-                configuration.name('views')('search')('files')('layout').value
-            );
-            await configuration.migrate(
-                'resultsExplorer.files.threshold',
-                configuration.name('views')('search')('files')('threshold').value
-            );
-            await configuration.migrate(
-                'resultsExplorer.location',
-                configuration.name('views')('search')('location').value
-            );
-
-            await configuration.migrate('explorers.avatars', configuration.name('views')('compare')('avatars').value);
-            await configuration.migrate(
-                'explorers.avatars',
-                configuration.name('views')('repositories')('avatars').value
-            );
-            await configuration.migrate('explorers.avatars', configuration.name('views')('search')('avatars').value);
-            await configuration.migrate(
-                'explorers.commitFileFormat',
-                configuration.name('views')('commitFileFormat').value
-            );
-            await configuration.migrate('explorers.commitFormat', configuration.name('views')('commitFormat').value);
-            await configuration.migrate(
-                'explorers.defaultItemLimit',
-                configuration.name('views')('defaultItemLimit').value
-            );
-            await configuration.migrate(
-                'explorers.stashFileFormat',
-                configuration.name('views')('stashFileFormat').value
-            );
-            await configuration.migrate('explorers.stashFormat', configuration.name('views')('stashFormat').value);
-            await configuration.migrate(
-                'explorers.statusFileFormat',
-                configuration.name('views')('statusFileFormat').value
-            );
-
-            await configuration.migrate<
-                {
-                    [key: string]: {
-                        name: string;
-                        statusBarItemName?: string;
-                        description?: string;
-                        codeLens?: boolean;
-                        currentLine?: boolean;
-                        explorers?: boolean;
-                        hovers?: boolean;
-                        statusBar?: boolean;
-                    };
-                },
-                {
-                    [key: string]: ModeConfig;
-                }
-            >('modes', configuration.name('modes').value, {
-                migrationFn: v => {
-                    const modes = Object.create(null);
-
-                    for (const k in v) {
-                        const { explorers, ...mode } = v[k];
-                        modes[k] = { ...mode, views: explorers };
-                    }
-
-                    return modes;
-                }
-            });
         }
     }
     catch (ex) {

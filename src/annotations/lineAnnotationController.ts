@@ -16,6 +16,7 @@ import { LinesChangeEvent } from '../trackers/gitLineTracker';
 import { Annotations } from './annotations';
 import { debug, log } from '../system';
 import { Logger } from '../logger';
+import { CommitFormatter } from '../git/gitService';
 
 const annotationDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
     after: {
@@ -178,6 +179,11 @@ export class LineAnnotationController implements Disposable {
             cc.exitDetails = ` ${GlyphChars.Dot} line(s)=${lines.join()}`;
         }
 
+        let getBranchAndTagTips;
+        if (CommitFormatter.has(cfg.format, 'tips')) {
+            getBranchAndTagTips = await Container.git.getBranchesAndTagsTipsFn(trackedDocument.uri.repoPath);
+        }
+
         const decorations = [];
         for (const l of lines) {
             const state = Container.lineTracker.getState(l);
@@ -189,7 +195,8 @@ export class LineAnnotationController implements Disposable {
                 // l,
                 cfg.format,
                 cfg.dateFormat === null ? Container.config.defaultDateFormat : cfg.dateFormat,
-                cfg.scrollable
+                cfg.scrollable,
+                getBranchAndTagTips
             ) as DecorationOptions;
             decoration.range = editor.document.validateRange(
                 new Range(l, Number.MAX_SAFE_INTEGER, l, Number.MAX_SAFE_INTEGER)
