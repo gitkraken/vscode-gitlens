@@ -1170,4 +1170,8 @@ ul {
     }
 }
 
+::-webkit-scrollbar-corner {
+    background-color: transparent !important;
+}
+
 @import 'popup';
