@@ -1745,7 +1745,14 @@
                     "scope": "resource"
                 },
                 "gitlens.advanced.similarityThreshold": {
-                    "type": "number",
+                    "anyOf": [
+                        {
+                            "type": "number"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
                     "default": null,
                     "markdownDescription": "Specifies the amount (percent) of similarity a deleted and added file pair must have to be considered a rename",
                     "scope": "window"
