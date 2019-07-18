@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- Fixes [#791](https://github.com/eamodio/vscode-gitlens/issues/791) - Notification of unstashed changes in working directory on failed checkout
+
 ## [9.8.5] - 2019-07-10
 
 ### Changed
@@ -2979,6 +2985,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
+[9.8.5]: https://github.com/eamodio/vscode-gitlens/compare/v9.8.4...eamodio:v9.8.5
+[9.8.4]: https://github.com/eamodio/vscode-gitlens/compare/v9.8.3...eamodio:v9.8.4
+[9.8.3]: https://github.com/eamodio/vscode-gitlens/compare/v9.8.2...eamodio:v9.8.3
+[9.8.2]: https://github.com/eamodio/vscode-gitlens/compare/v9.8.1...eamodio:v9.8.2
 [9.8.1]: https://github.com/eamodio/vscode-gitlens/compare/v9.8.0...eamodio:v9.8.1
 [9.8.0]: https://github.com/eamodio/vscode-gitlens/compare/v9.7.4...eamodio:v9.8.0
 [9.7.4]: https://github.com/eamodio/vscode-gitlens/compare/v9.7.3...eamodio:v9.7.4

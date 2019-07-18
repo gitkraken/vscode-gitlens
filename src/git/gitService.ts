@@ -498,8 +498,22 @@ export class GitService implements Disposable {
     }
 
     @log()
-    checkout(repoPath: string, ref: string, fileName?: string) {
-        return Git.checkout(repoPath, ref, fileName);
+    async checkout(repoPath: string, ref: string, fileName?: string) {
+        const cc = Logger.getCorrelationContext();
+
+        try {
+            return await Git.checkout(repoPath, ref, fileName);
+        }
+        catch (ex) {
+            if (/overwritten by checkout/i.test(ex.message)) {
+                void Messages.showGenericErrorMessage(`Unable to checkout '${ref}'. Please commit or stash your changes before switching branches`);
+                return undefined;
+            }
+
+            Logger.error(ex, cc);
+            void void Messages.showGenericErrorMessage(`Unable to checkout '${ref}'`);
+            return undefined;
+        }
     }
 
     @gate()
