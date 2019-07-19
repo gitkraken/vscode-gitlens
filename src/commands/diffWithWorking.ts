@@ -88,7 +88,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
                     firstIfNotFound: true
                 });
                 if (args.commit === undefined) {
-                    return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
+                    return window.showWarningMessage('Unable to open compare. File doesn\'t exist in the specified revision');
                 }
             }
             catch (ex) {

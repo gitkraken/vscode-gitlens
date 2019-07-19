@@ -4411,22 +4411,22 @@
                 },
                 {
                     "command": "gitlens.views.openChangedFileChanges",
-                    "when": "viewItem =~ /gitlens:(commit|stash)\\b/",
+                    "when": "viewItem =~ /gitlens:(commit|stash|results:files)\\b/",
                     "group": "2_gitlens@1"
                 },
                 {
                     "command": "gitlens.views.openChangedFileChangesWithWorking",
-                    "when": "viewItem =~ /gitlens:(commit|stash)\\b/",
+                    "when": "viewItem =~ /gitlens:(commit|stash|results:files)\\b/",
                     "group": "2_gitlens@2"
                 },
                 {
                     "command": "gitlens.views.openChangedFiles",
-                    "when": "viewItem =~ /gitlens:(commit|stash)\\b/",
+                    "when": "viewItem =~ /gitlens:(commit|stash|results:files)\\b/",
                     "group": "3_gitlens@1"
                 },
                 {
                     "command": "gitlens.views.openChangedFileRevisions",
-                    "when": "viewItem =~ /gitlens:(commit|stash)\\b/",
+                    "when": "viewItem =~ /gitlens:(commit|stash|results:files)\\b/",
                     "group": "3_gitlens@2"
                 },
                 {
@@ -4549,7 +4549,7 @@
                 },
                 {
                     "command": "gitlens.views.openFileRevision",
-                    "when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
+                    "when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results)/",
                     "group": "3_gitlens@2"
                 },
                 {
@@ -4580,12 +4580,12 @@
                 },
                 {
                     "command": "gitlens.views.applyChanges",
-                    "when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|results\\b)/",
+                    "when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results\\b)/",
                     "group": "5_gitlens_1@1"
                 },
                 {
                     "command": "gitlens.views.checkout",
-                    "when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|results\\b)/",
+                    "when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results\\b)/",
                     "group": "5_gitlens_1@2"
                 },
                 {
@@ -4660,7 +4660,7 @@
                 },
                 {
                     "command": "gitlens.views.exploreRepoRevision",
-                    "when": "viewItem =~ /gitlens:(branch|commit|file\\b((?=.*?\\b\\+committed\\b)|results)|stash|tag)\\b/",
+                    "when": "viewItem =~ /gitlens:(branch|commit|file\\b((?=.*?\\b\\+committed\\b)|:results)|stash|tag)\\b/",
                     "group": "7_gitlens_more@1"
                 },
                 {

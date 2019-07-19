@@ -20,8 +20,8 @@ export class ResultsFilesNode extends ViewNode<ViewWithFiles> {
         view: ViewWithFiles,
         parent: ViewNode,
         public readonly repoPath: string,
-        private readonly _ref1: string,
-        private readonly _ref2: string
+        public readonly ref1: string,
+        public readonly ref2: string
     ) {
         super(GitUri.fromRepoPath(repoPath), view, parent);
     }
@@ -35,7 +35,7 @@ export class ResultsFilesNode extends ViewNode<ViewWithFiles> {
         if (diff === undefined) return [];
 
         let children: FileNode[] = [
-            ...Iterables.map(diff, s => new ResultsFileNode(this.view, this, this.repoPath, s, this._ref1, this._ref2))
+            ...Iterables.map(diff, s => new ResultsFileNode(this.view, this, this.repoPath, s, this.ref1, this.ref2))
         ];
 
         if (this.view.config.files.layout !== ViewFilesLayout.List) {
@@ -97,7 +97,7 @@ export class ResultsFilesNode extends ViewNode<ViewWithFiles> {
 
     private _filesQueryResults: Promise<FilesQueryResults> | undefined;
 
-    private getFilesQueryResults() {
+    getFilesQueryResults() {
         if (this._filesQueryResults === undefined) {
             this._filesQueryResults = this.getFilesQueryResultsCore();
         }
@@ -106,7 +106,7 @@ export class ResultsFilesNode extends ViewNode<ViewWithFiles> {
     }
 
     private async getFilesQueryResultsCore(): Promise<FilesQueryResults> {
-        const diff = await Container.git.getDiffStatus(this.uri.repoPath!, this._ref1, this._ref2);
+        const diff = await Container.git.getDiffStatus(this.uri.repoPath!, this.ref1, this.ref2);
 
         return {
             label: `${Strings.pluralize('file', diff !== undefined ? diff.length : 0, { zero: 'No' })} changed`,

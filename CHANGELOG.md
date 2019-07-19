@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds _Open All Changes_, _Open All Changes with Working Tree_, _Open Files_, and _Open Revisions_ commands to files changed nodes in the views &mdash; closes [#760](https://github.com/eamodio/vscode-gitlens/issues/760)
+
 ### Fixed
 
 - Fixes [#709](https://github.com/eamodio/vscode-gitlens/issues/709) - Checkout a remote branch as new local branch

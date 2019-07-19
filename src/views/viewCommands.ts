@@ -17,7 +17,6 @@ import { BuiltInCommands, CommandContext, setCommandContext } from '../constants
 import { Container } from '../container';
 import { toGitLensFSUri } from '../git/fsProvider';
 import { GitService, GitUri } from '../git/gitService';
-import { Arrays } from '../system';
 import {
     BranchNode,
     BranchTrackingStatusNode,
@@ -34,6 +33,7 @@ import {
     RemoteNode,
     RepositoryNode,
     ResultsFileNode,
+    ResultsFilesNode,
     StashFileNode,
     StashNode,
     StatusFileNode,
@@ -384,7 +384,7 @@ export class ViewCommands {
         return commands.executeCommand(command.command, uri, args);
     }
 
-    private async openChangesWithWorking(node: ViewRefFileNode | StatusFileNode) {
+    private openChangesWithWorking(node: ViewRefFileNode | StatusFileNode) {
         if (!(node instanceof ViewRefFileNode) && !(node instanceof StatusFileNode)) return undefined;
 
         const args: DiffWithWorkingCommandArgs = {
@@ -393,15 +393,6 @@ export class ViewCommands {
                 preview: false
             }
         };
-
-        if (node instanceof ResultsFileNode) {
-            args.commit = await Container.git.getCommitForFile(node.repoPath, node.uri.fsPath, {
-                ref: node.uri.sha,
-                firstIfNotFound: true,
-                reverse: true
-            });
-        }
-
         return commands.executeCommand(Commands.DiffWithWorking, node.uri, args);
     }
 
@@ -472,60 +463,142 @@ export class ViewCommands {
     }
 
     private async openChangedFileChanges(
-        node: CommitNode | StashNode,
+        node: CommitNode | StashNode | ResultsFilesNode,
         options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
     ) {
-        if (!(node instanceof CommitNode) && !(node instanceof StashNode)) return;
+        if (!(node instanceof CommitNode) && !(node instanceof StashNode) && !(node instanceof ResultsFilesNode)) {
+            return;
+        }
 
-        const repoPath = node.commit.repoPath;
-        const uris = node.commit.files.map(s => GitUri.fromFile(s, repoPath));
+        let repoPath: string;
+        let files;
+        let ref1: string;
+        let ref2: string;
 
-        for (const uri of uris) {
-            await this.openDiffWith(
-                repoPath,
-                {
-                    uri: uri,
-                    sha:
-                        node.commit.previousSha !== undefined ? node.commit.previousSha : GitService.deletedOrMissingSha
-                },
-                { uri: uri, sha: node.commit.sha },
-                options
+        if (node instanceof ResultsFilesNode) {
+            const { diff } = await node.getFilesQueryResults();
+            if (diff == null || diff.length === 0) return;
+
+            repoPath = node.repoPath;
+            files = diff;
+            ref1 = node.ref1;
+            ref2 = node.ref2;
+        }
+        else {
+            repoPath = node.commit.repoPath;
+            files = node.commit.files;
+            ref1 = node.commit.previousSha !== undefined ? node.commit.previousSha : GitService.deletedOrMissingSha;
+            ref2 = node.commit.sha;
+        }
+
+        if (files.length > 20) {
+            const result = await window.showWarningMessage(
+                `Are your sure you want to open all ${files.length} files?`,
+                { title: 'Yes' },
+                { title: 'No', isCloseAffordance: true }
             );
+            if (result === undefined || result.title === 'No') return;
+        }
+
+        for (const file of files) {
+            if (file.status === 'A') continue;
+
+            const uri1 = GitUri.fromFile(file, repoPath);
+            const uri2 = file.status === 'R' ? GitUri.fromFile(file, repoPath, ref2, true) : uri1;
+
+            await this.openDiffWith(repoPath, { uri: uri1, sha: ref1 }, { uri: uri2, sha: ref2 }, options);
         }
     }
 
     private async openChangedFileChangesWithWorking(
-        node: CommitNode | StashNode,
+        node: CommitNode | StashNode | ResultsFilesNode,
         options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
     ) {
-        if (!(node instanceof CommitNode) && !(node instanceof StashNode)) return;
+        if (!(node instanceof CommitNode) && !(node instanceof StashNode) && !(node instanceof ResultsFilesNode)) {
+            return;
+        }
 
-        const repoPath = node.commit.repoPath;
-        const uris = Arrays.filterMap(node.commit.files, f =>
-            f.status !== 'D' ? GitUri.fromFile(f, repoPath) : undefined
-        );
+        let repoPath: string;
+        let files;
+        let ref: string;
 
-        for (const uri of uris) {
-            const workingUri = await Container.git.getWorkingUri(repoPath, uri);
-            await this.openDiffWith(
-                repoPath,
-                { uri: uri, sha: node.commit.sha },
-                { uri: workingUri || uri, sha: '' },
-                options
+        if (node instanceof ResultsFilesNode) {
+            const { diff } = await node.getFilesQueryResults();
+            if (diff == null || diff.length === 0) return;
+
+            repoPath = node.repoPath;
+            files = diff;
+            ref = node.ref1 || node.ref2;
+        }
+        else {
+            repoPath = node.commit.repoPath;
+            files = node.commit.files;
+            ref = node.commit.sha;
+        }
+
+        if (files.length > 20) {
+            const result = await window.showWarningMessage(
+                `Are your sure you want to open all ${files.length} files?`,
+                { title: 'Yes' },
+                { title: 'No', isCloseAffordance: true }
             );
+            if (result === undefined || result.title === 'No') return;
+        }
+
+        for (const file of files) {
+            if (file.status === 'A' || file.status === 'D') continue;
+
+            const args: DiffWithWorkingCommandArgs = {
+                showOptions: options
+            };
+
+            if (!(node instanceof ResultsFilesNode)) {
+                args.commit = node.commit.toFileCommit(file);
+            }
+
+            const uri = GitUri.fromFile(file, repoPath, ref);
+            await commands.executeCommand(Commands.DiffWithWorking, uri, args);
         }
     }
 
     private async openChangedFiles(
-        node: CommitNode | StashNode,
+        node: CommitNode | StashNode | ResultsFilesNode,
         options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
     ) {
-        if (!(node instanceof CommitNode) && !(node instanceof StashNode)) return;
+        if (!(node instanceof CommitNode) && !(node instanceof StashNode) && !(node instanceof ResultsFilesNode)) {
+            return;
+        }
 
-        const repoPath = node.commit.repoPath;
-        const uris = Arrays.filterMap(node.commit.files, f => GitUri.fromFile(f, repoPath, node.commit.sha));
+        let repoPath: string;
+        let files;
+        let ref: string;
 
-        for (const uri of uris) {
+        if (node instanceof ResultsFilesNode) {
+            const { diff } = await node.getFilesQueryResults();
+            if (diff == null || diff.length === 0) return;
+
+            repoPath = node.repoPath;
+            files = diff;
+            ref = node.ref1 || node.ref2;
+        }
+        else {
+            repoPath = node.commit.repoPath;
+            files = node.commit.files;
+            ref = node.commit.sha;
+        }
+
+        if (files.length > 20) {
+            const result = await window.showWarningMessage(
+                `Are your sure you want to open all ${files.length} files?`,
+                { title: 'Yes' },
+                { title: 'No', isCloseAffordance: true }
+            );
+            if (result === undefined || result.title === 'No') return;
+        }
+
+        for (const file of files) {
+            const uri = GitUri.fromFile(file, repoPath, ref);
+
             const args: OpenWorkingFileCommandArgs = {
                 uri: uri,
                 showOptions: options
@@ -535,19 +608,46 @@ export class ViewCommands {
     }
 
     private async openChangedFileRevisions(
-        node: CommitNode | StashNode,
+        node: CommitNode | StashNode | ResultsFilesNode,
         options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
     ) {
-        if (!(node instanceof CommitNode) && !(node instanceof StashNode)) return;
+        if (!(node instanceof CommitNode) && !(node instanceof StashNode) && !(node instanceof ResultsFilesNode)) {
+            return;
+        }
 
-        const uris = Arrays.filterMap(node.commit.files, f =>
-            GitUri.toRevisionUri(
-                f.status === 'D' ? node.commit.previousFileSha : node.commit.sha,
-                f,
-                node.commit.repoPath
-            )
-        );
-        for (const uri of uris) {
+        let repoPath: string;
+        let files;
+        let ref1: string;
+        let ref2: string;
+
+        if (node instanceof ResultsFilesNode) {
+            const { diff } = await node.getFilesQueryResults();
+            if (diff == null || diff.length === 0) return;
+
+            repoPath = node.repoPath;
+            files = diff;
+            ref1 = node.ref1;
+            ref2 = node.ref2;
+        }
+        else {
+            repoPath = node.commit.repoPath;
+            files = node.commit.files;
+            ref1 = node.commit.sha;
+            ref2 = node.commit.previousFileSha;
+        }
+
+        if (files.length > 20) {
+            const result = await window.showWarningMessage(
+                `Are your sure you want to open all ${files.length} files?`,
+                { title: 'Yes' },
+                { title: 'No', isCloseAffordance: true }
+            );
+            if (result === undefined || result.title === 'No') return;
+        }
+
+        for (const file of files) {
+            const uri = GitUri.toRevisionUri(file.status === 'D' ? ref2 : ref1, file, repoPath);
+
             await openEditor(uri, options);
         }
     }
