@@ -39,6 +39,8 @@ export namespace Strings {
     const pathStripTrailingSlashRegex = /\/$/g;
     const tokenRegex = /\$\{(\W*)?([^|]*?)(?:\|(\d+)(-|\?)?)?(\W*)?\}/g;
     const tokenSanitizeRegex = /\$\{(?:\W*)?(\w*?)(?:[\W\d]*)\}/g;
+    // eslint-disable-next-line no-template-curly-in-string
+    const tokenSanitizeReplacement = '$${this.$1}';
 
     export interface TokenOptions {
         collapseWhitespace: boolean;
@@ -72,13 +74,19 @@ export namespace Strings {
         return tokens;
     }
 
+    const interpolationMap = new Map<string, Function>();
+
     export function interpolate(template: string, context: object | undefined): string {
-        if (!template) return template;
+        if (template == null || template.length === 0) return template;
         if (context === undefined) return template.replace(tokenSanitizeRegex, emptyStr);
 
-        // eslint-disable-next-line no-template-curly-in-string
-        template = template.replace(tokenSanitizeRegex, '$${this.$1}');
-        return new Function(`return \`${template}\`;`).call(context);
+        let fn = interpolationMap.get(template);
+        if (fn === undefined) {
+            fn = new Function(`return \`${template.replace(tokenSanitizeRegex, tokenSanitizeReplacement)}\`;`);
+            interpolationMap.set(template, fn);
+        }
+
+        return fn.call(context);
     }
 
     export function* lines(s: string): IterableIterator<string> {
