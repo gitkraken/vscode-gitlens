@@ -1,5 +1,5 @@
 'use strict';
-import { Functions } from '../function';
+import { Promises } from '../promise';
 
 export function gate() {
     return (target: any, key: string, descriptor: PropertyDescriptor) => {
@@ -27,7 +27,7 @@ export function gate() {
             let promise = this[gateKey];
             if (promise === undefined) {
                 const result = fn!.apply(this, args);
-                if (result == null || !Functions.isPromise(result)) {
+                if (result == null || !Promises.isPromise(result)) {
                     return result;
                 }
 

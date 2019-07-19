@@ -3,7 +3,7 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { SearchCommitsCommandArgs } from '../../commands';
 import { GlyphChars } from '../../constants';
 import { GitRepoSearchBy } from '../../git/gitService';
-import { debug, Functions, gate, Iterables, log } from '../../system';
+import { debug, gate, Iterables, log, Promises } from '../../system';
 import { View } from '../viewBase';
 import { CommandMessageNode, MessageNode } from './common';
 import { ResourceType, unknownGitUri, ViewNode } from './viewNode';
@@ -139,7 +139,7 @@ export class SearchNode extends ViewNode {
         const promises: Promise<any>[] = [
             ...Iterables.filterMap(this._children, c => {
                 const result = c.refresh === undefined ? false : c.refresh();
-                return Functions.isPromise<boolean | void>(result) ? result : undefined;
+                return Promises.isPromise<boolean | void>(result) ? result : undefined;
             })
         ];
         await Promise.all(promises);

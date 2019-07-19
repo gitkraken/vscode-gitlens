@@ -8,6 +8,7 @@ export * from './system/decorators/memoize';
 export * from './system/function';
 export * from './system/iterable';
 export * from './system/object';
+export * from './system/promise';
 export * from './system/searchTree';
 export * from './system/string';
 export * from './system/version';

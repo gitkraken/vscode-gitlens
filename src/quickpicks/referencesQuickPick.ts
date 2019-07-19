@@ -3,7 +3,7 @@ import { CancellationToken, CancellationTokenSource, QuickPickItem, window } fro
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitBranch, GitTag } from '../git/gitService';
-import { Functions } from '../system';
+import { Promises } from '../system';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from './commonQuickPicks';
 import { BranchQuickPickItem, RefQuickPickItem, TagQuickPickItem } from './gitQuickPicks';
 
@@ -131,7 +131,7 @@ export class ReferencesQuickPick {
     ): Promise<(BranchQuickPickItem | TagQuickPickItem | CommandQuickPickItem)[]> {
         include = include || 'all';
 
-        const results = await Functions.cancellable(
+        const results = await Promises.cancellable(
             Promise.all<GitBranch[] | undefined, GitTag[] | undefined>([
                 include === 'all' || include === 'branches'
                     ? Container.git.getBranches(this.repoPath, {

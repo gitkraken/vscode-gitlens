@@ -1,6 +1,6 @@
 'use strict';
 import { debounce as _debounce, once as _once } from 'lodash-es';
-import { CancellationToken, Disposable } from 'vscode';
+import { Disposable } from 'vscode';
 
 export interface Deferrable {
     cancel(): void;
@@ -25,14 +25,6 @@ export namespace Functions {
             }
             return fn(...args);
         };
-    }
-
-    export function cancellable<T>(promise: Promise<T>, token: CancellationToken): Promise<T | undefined> {
-        return new Promise<T | undefined>((resolve, reject) => {
-            token.onCancellationRequested(() => resolve(undefined));
-
-            promise.then(resolve, reject);
-        });
     }
 
     export interface DebounceOptions {
@@ -131,10 +123,6 @@ export namespace Functions {
         }
 
         return value === undefined ? (o as any)[propOrMatcher] !== undefined : (o as any)[propOrMatcher] === value;
-    }
-
-    export function isPromise<T>(obj: T | Promise<T>): obj is Promise<T> {
-        return obj && typeof (obj as Promise<T>).then === 'function';
     }
 
     export function once<T extends (...args: any[]) => any>(fn: T): T {

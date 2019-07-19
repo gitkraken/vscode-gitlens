@@ -1,6 +1,7 @@
 'use strict';
 import { LogCorrelationContext, Logger, TraceLevel } from '../../logger';
 import { Functions } from '../function';
+import { Promises } from '../promise';
 import { Strings } from '../string';
 
 const emptyStr = '';
@@ -287,7 +288,7 @@ export function log<T extends (...arg: any) => any>(
                     }
                 };
 
-                if (result != null && Functions.isPromise(result)) {
+                if (result != null && Promises.isPromise(result)) {
                     const promise = result.then(logResult);
                     promise.catch(logError);
                 }

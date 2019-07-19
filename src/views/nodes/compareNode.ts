@@ -4,7 +4,7 @@ import { getRepoPathOrPrompt } from '../../commands';
 import { CommandContext, GlyphChars, NamedRef, setCommandContext } from '../../constants';
 import { GitService } from '../../git/gitService';
 import { CommandQuickPickItem, ReferencesQuickPick } from '../../quickpicks';
-import { debug, Functions, gate, Iterables, log } from '../../system';
+import { debug, gate, Iterables, log, Promises } from '../../system';
 import { CompareView } from '../compareView';
 import { MessageNode } from './common';
 import { ComparePickerNode } from './comparePickerNode';
@@ -120,7 +120,7 @@ export class CompareNode extends ViewNode<CompareView> {
         const promises: Promise<any>[] = [
             ...Iterables.filterMap(this._children, c => {
                 const result = c.refresh === undefined ? false : c.refresh();
-                return Functions.isPromise<boolean | void>(result) ? result : undefined;
+                return Promises.isPromise<boolean | void>(result) ? result : undefined;
             })
         ];
         await Promise.all(promises);
