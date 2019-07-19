@@ -10,9 +10,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds _Open All Changes_, _Open All Changes with Working Tree_, _Open Files_, and _Open Revisions_ commands to files changed nodes in the views &mdash; closes [#760](https://github.com/eamodio/vscode-gitlens/issues/760)
 
+### Changed
+
+- Improves performance and memory consumption
+- Changes the _Checkout_ command on remote branches to create and checkout a new local branch rather than checkout a detached HEAD &mdash; closes [#709](https://github.com/eamodio/vscode-gitlens/issues/709)
+
 ### Fixed
 
-- Fixes [#709](https://github.com/eamodio/vscode-gitlens/issues/709) - Checkout a remote branch as new local branch
 - Fixes [#791](https://github.com/eamodio/vscode-gitlens/issues/791) - Notification of unstashed changes in working directory on failed checkout
 - Fixes [#792](https://github.com/eamodio/vscode-gitlens/issues/792) - Show last commit message on repositories view instead of Git reference
 - Fixes [#795](https://github.com/eamodio/vscode-gitlens/issues/795) - Commit quick access icons replaced with open file actions in File History View
