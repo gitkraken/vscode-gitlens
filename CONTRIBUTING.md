@@ -19,15 +19,15 @@ git clone https://github.com/eamodio/vscode-gitlens.git
 Prerequisites
 
 - [Git](https://git-scm.com/)
-- [NodeJS](https://nodejs.org/en/), `>= 8.9.1, <= 10.2.0`
-- [npm](https://npmjs.com/), `>= 6.2.0`
+- [NodeJS](https://nodejs.org/), `>= 10.11.0`
+- [yarn](https://yarnpkg.com/), `>= 1.17.3`
 
 ### Dependencies
 
 From a terminal, where you have cloned the repository, execute the following command to install the required dependencies:
 
 ```
-npm install --no-save
+yarn --frozen-lockfile
 ```
 
 ### Build
@@ -35,7 +35,7 @@ npm install --no-save
 From a terminal, where you have cloned the repository, execute the following command to re-build the project from scratch:
 
 ```
-npm run rebuild
+yarn run rebuild
 ```
 
 👉 **NOTE!** This will run a complete rebuild of the project.
@@ -43,7 +43,7 @@ npm run rebuild
 Or to just run a quick build, use:
 
 ```
-npm run build
+yarn run build
 ```
 
 ### Watch
@@ -51,7 +51,7 @@ npm run build
 During development you can use a watcher to make builds on changes quick and easy. From a terminal, where you have cloned the repository, execute the following command:
 
 ```
-npm run watch
+yarn run watch
 ```
 
 Or use the provided `watch` task in VS Code, execute the following from the command palette (be sure there is no `>` at the start):
@@ -68,7 +68,7 @@ This will first do an initial full build and then watch for file changes, compil
 
 ### Formatting
 
-This project uses [prettier](https://prettier.io/) for code formatting. You can run prettier across the code by calling `npm run pretty` from a terminal.
+This project uses [prettier](https://prettier.io/) for code formatting. You can run prettier across the code by calling `yarn run pretty` from a terminal.
 
 To format the code as you make changes you can install the [Prettier - Code formatter](https://marketplace.visualstudio.com/items/esbenp.prettier-vscode) extension.
 
@@ -80,7 +80,7 @@ Add the following to your User Settings to run prettier:
 
 ### Linting
 
-This project uses [ESLint](https://eslint.org/) for code linting. You can run ESLint across the code by calling `npm run lint` from a terminal. Warnings from ESLint show up in the `Errors and Warnings` quick box and you can navigate to them from inside VS Code.
+This project uses [ESLint](https://eslint.org/) for code linting. You can run ESLint across the code by calling `yarn run lint` from a terminal. Warnings from ESLint show up in the `Errors and Warnings` quick box and you can navigate to them from inside VS Code.
 
 To lint the code as you make changes you can install the [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint) extension.
 
@@ -89,13 +89,13 @@ To lint the code as you make changes you can install the [ESLint](https://market
 To generate a production bundle (without packaging) run the following from a terminal:
 
 ```
-npm run bundle
+yarn run bundle
 ```
 
 To generate a VSIX (installation package) run the following from a terminal:
 
 ```
-npm run pack
+yarn run pack
 ```
 
 ### Debugging

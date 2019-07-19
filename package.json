@@ -5317,20 +5317,20 @@
         "clean": "git clean -Xdf -e !node_modules -e !node_modules/**/*",
         "lint": "eslint src/**/*.ts --fix",
         "pack": "vsce package",
-        "pretty": "prettier --config .prettierrc --loglevel warn --write \"./**/*.{ts,md,json}\" && npm run lint",
+        "pretty": "prettier --config .prettierrc --loglevel warn --write \"./**/*.{ts,md,json}\" && yarn run lint",
         "pub": "vsce publish",
-        "rebuild": "npm run reset && npm run build",
-        "reset": "npm run clean && npm install --no-save",
+        "rebuild": "yarn run reset && yarn run build",
+        "reset": "yarn run clean && yarn install --no-save",
         "watch": "webpack --watch --env.development --info-verbosity verbose",
         "webviews:optimize": "webpack --config-name webviews --env.optimizeImages",
         "webviews:watch": "webpack --watch --config-name webviews --env.development --info-verbosity verbose",
         "update:emoji": "pushd emoji && node ./shortcodeToEmoji.js && popd",
-        "vscode:prepublish": "npm run reset && npm run bundle"
+        "vscode:prepublish": "yarn run reset && yarn run bundle"
     },
     "dependencies": {
         "dayjs": "1.8.15",
         "iconv-lite": "0.5.0",
-        "lodash-es": "4.17.14",
+        "lodash-es": "4.17.15",
         "vsls": "0.3.1291"
     },
     "devDependencies": {
@@ -5339,9 +5339,9 @@
         "@types/vscode": "1.31.0",
         "@typescript-eslint/eslint-plugin": "1.12.0",
         "@typescript-eslint/parser": "1.12.0",
-        "clean-webpack-plugin": "3.0.0",
         "circular-dependency-plugin": "5.0.2",
-        "css-loader": "3.0.0",
+        "clean-webpack-plugin": "3.0.0",
+        "css-loader": "3.1.0",
         "eslint": "6.0.1",
         "eslint-cli": "1.1.1",
         "eslint-config-prettier": "6.0.0",
@@ -5361,8 +5361,8 @@
         "ts-loader": "6.0.4",
         "typescript": "3.5.3",
         "vsce": "1.65.0",
-        "webpack": "4.35.3",
-        "webpack-cli": "3.3.6",
-        "webpack-bundle-analyzer": "3.3.2"
+        "webpack": "4.36.1",
+        "webpack-bundle-analyzer": "3.3.2",
+        "webpack-cli": "3.3.6"
     }
 }
