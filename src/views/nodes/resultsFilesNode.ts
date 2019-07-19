@@ -4,7 +4,7 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
 import { Container } from '../../container';
 import { GitFile, GitUri } from '../../git/gitService';
-import { Arrays, debug, gate, Iterables, Strings } from '../../system';
+import { Arrays, debug, gate, Iterables, Promises, Strings } from '../../system';
 import { ViewWithFiles } from '../viewBase';
 import { FileNode, FolderNode } from './folderNode';
 import { ResultsFileNode } from './resultsFileNode';
@@ -61,29 +61,26 @@ export class ResultsFilesNode extends ViewNode<ViewWithFiles> {
     }
 
     async getTreeItem(): Promise<TreeItem> {
-        let state;
         let label;
         let diff;
-        if (this._querying) {
-            // Need to use Collapsed before we have results or the item won't show up in the view until the children are awaited
-            state = TreeItemCollapsibleState.Collapsed;
-            label = 'files changed';
+        let state;
 
-            this.getFilesQueryResults().then(_ => {
-                this._querying = false;
-                this.triggerChange(false);
-            });
+        try {
+            ({ label, diff } = await Promises.timeout(this.getFilesQueryResults(), 100));
+            state =
+                diff == null || diff.length === 0 ? TreeItemCollapsibleState.None : TreeItemCollapsibleState.Expanded;
         }
-        else {
-            ({ label, diff } = await this.getFilesQueryResults());
-
-            state = TreeItemCollapsibleState.Expanded;
-            if (diff == null || diff.length === 0) {
-                state = TreeItemCollapsibleState.None;
+        catch (ex) {
+            if (ex instanceof Promises.TimeoutError) {
+                ex.promise.then(() => this.triggerChange(false));
             }
+
+            // Need to use Collapsed before we have results or the item won't show up in the view until the children are awaited
+            // https://github.com/microsoft/vscode/issues/54806 & https://github.com/microsoft/vscode/issues/62214
+            state = TreeItemCollapsibleState.Collapsed;
         }
 
-        const item = new TreeItem(label, state);
+        const item = new TreeItem(label || 'files changed', state);
         item.contextValue = ResourceType.ResultsFiles;
         item.id = this.id;
 
@@ -99,7 +96,6 @@ export class ResultsFilesNode extends ViewNode<ViewWithFiles> {
     }
 
     private _filesQueryResults: Promise<FilesQueryResults> | undefined;
-    private _querying = true;
 
     private getFilesQueryResults() {
         if (this._filesQueryResults === undefined) {

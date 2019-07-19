@@ -125,8 +125,7 @@ export class SearchView extends ViewBase<SearchNode> {
                 search,
                 searchBy,
                 `results for ${typeof options.label === 'string' ? options.label : options.label.label}`,
-                searchQueryFn,
-                true
+                searchQueryFn
             )
         );
     }
@@ -152,7 +151,7 @@ export class SearchView extends ViewBase<SearchNode> {
         });
 
         return this.addResults(
-            new SearchResultsCommitsNode(this, this._root!, repoPath, search, searchBy, label, searchQueryFn, false)
+            new SearchResultsCommitsNode(this, this._root!, repoPath, search, searchBy, label, searchQueryFn)
         );
     }
 

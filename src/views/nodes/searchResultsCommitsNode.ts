@@ -19,13 +19,11 @@ export class SearchResultsCommitsNode extends ResultsCommitsNode {
         public readonly search: string,
         public readonly searchBy: GitRepoSearchBy,
         label: string,
-        commitsQuery: (maxCount: number | undefined) => Promise<CommitsQueryResults>,
-        _querying = true
+        commitsQuery: (maxCount: number | undefined) => Promise<CommitsQueryResults>
     ) {
         super(view, parent, repoPath, label, commitsQuery, {
             expand: true,
-            includeDescription: true,
-            querying: _querying
+            includeDescription: true
         });
 
         this._instanceId = instanceId++;

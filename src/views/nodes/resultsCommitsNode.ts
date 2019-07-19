@@ -2,7 +2,7 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
 import { GitLog, GitUri } from '../../git/gitService';
-import { debug, gate, Iterables } from '../../system';
+import { debug, gate, Iterables, Promises } from '../../system';
 import { ViewWithFiles } from '../viewBase';
 import { CommitNode } from './commitNode';
 import { ShowMoreNode } from './common';
@@ -25,11 +25,11 @@ export class ResultsCommitsNode extends ViewNode<ViewWithFiles> implements Pagea
         public readonly repoPath: string,
         private _label: string,
         private readonly _commitsQuery: (maxCount: number | undefined) => Promise<CommitsQueryResults>,
-        private readonly _options: { expand?: boolean; includeDescription?: boolean; querying?: boolean } = {}
+        private readonly _options: { expand?: boolean; includeDescription?: boolean } = {}
     ) {
         super(GitUri.fromRepoPath(repoPath), view, parent);
 
-        this._options = { expand: true, includeDescription: true, querying: true, ..._options };
+        this._options = { expand: true, includeDescription: true, ..._options };
     }
 
     get id(): string {
@@ -65,33 +65,37 @@ export class ResultsCommitsNode extends ViewNode<ViewWithFiles> implements Pagea
     }
 
     async getTreeItem(): Promise<TreeItem> {
-        let state;
         let label;
         let log;
-        if (this._options.querying) {
-            // Need to use Collapsed before we have results or the item won't show up in the view until the children are awaited
-            state = TreeItemCollapsibleState.Collapsed;
-            label = this._label;
+        let state;
 
-            this.getCommitsQueryResults().then(({ log }) => {
-                this._options.querying = false;
-                if (log != null) {
-                    this.maxCount = log.maxCount;
-                }
-
-                this.triggerChange(false);
-            });
-        }
-        else {
-            ({ label, log } = await this.getCommitsQueryResults());
+        try {
+            ({ label, log } = await Promises.timeout(this.getCommitsQueryResults(), 100));
             if (log != null) {
                 this.maxCount = log.maxCount;
             }
 
-            state = this._options.expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed;
-            if (log == null || log.count === 0) {
-                state = TreeItemCollapsibleState.None;
+            state =
+                log == null || log.count === 0
+                    ? TreeItemCollapsibleState.None
+                    : this._options.expand
+                    ? TreeItemCollapsibleState.Expanded
+                    : TreeItemCollapsibleState.Collapsed;
+        }
+        catch (ex) {
+            if (ex instanceof Promises.TimeoutError) {
+                ex.promise.then(({ log }: CommitsQueryResults) => {
+                    if (log != null) {
+                        this.maxCount = log.maxCount;
+                    }
+
+                    this.triggerChange(false);
+                });
             }
+
+            // Need to use Collapsed before we have results or the item won't show up in the view until the children are awaited
+            // https://github.com/microsoft/vscode/issues/54806 & https://github.com/microsoft/vscode/issues/62214
+            state = TreeItemCollapsibleState.Collapsed;
         }
 
         let description;
@@ -100,7 +104,7 @@ export class ResultsCommitsNode extends ViewNode<ViewWithFiles> implements Pagea
             description = (repo && repo.formattedName) || this.repoPath;
         }
 
-        const item = new TreeItem(label, state);
+        const item = new TreeItem(label || this._label, state);
         item.contextValue = this.type;
         item.description = description;
         item.id = this.id;

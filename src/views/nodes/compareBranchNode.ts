@@ -49,8 +49,7 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
                     this.getCommitsQuery.bind(this),
                     {
                         expand: false,
-                        includeDescription: false,
-                        querying: true
+                        includeDescription: false
                     }
                 ),
                 new ResultsFilesNode(
