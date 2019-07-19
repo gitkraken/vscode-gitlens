@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#709](https://github.com/eamodio/vscode-gitlens/issues/709) - Checkout a remote branch as new local branch
 - Fixes [#791](https://github.com/eamodio/vscode-gitlens/issues/791) - Notification of unstashed changes in working directory on failed checkout
 - Fixes [#792](https://github.com/eamodio/vscode-gitlens/issues/792) - Show last commit message on repositories view instead of Git reference
 - Fixes [#795](https://github.com/eamodio/vscode-gitlens/issues/795) - Commit quick access icons replaced with open file actions in File History View

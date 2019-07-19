@@ -498,15 +498,17 @@ export class GitService implements Disposable {
     }
 
     @log()
-    async checkout(repoPath: string, ref: string, fileName?: string) {
+    async checkout(repoPath: string, ref: string, options: { createBranch?: string } | { fileName?: string } = {}) {
         const cc = Logger.getCorrelationContext();
 
         try {
-            return await Git.checkout(repoPath, ref, fileName);
+            return await Git.checkout(repoPath, ref, options);
         }
         catch (ex) {
             if (/overwritten by checkout/i.test(ex.message)) {
-                void Messages.showGenericErrorMessage(`Unable to checkout '${ref}'. Please commit or stash your changes before switching branches`);
+                void Messages.showGenericErrorMessage(
+                    `Unable to checkout '${ref}'. Please commit or stash your changes before switching branches`
+                );
                 return undefined;
             }
 

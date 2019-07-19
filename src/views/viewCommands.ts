@@ -236,11 +236,32 @@ export class ViewCommands {
         }
     }
 
-    private checkout(node: ViewRefNode | ViewRefFileNode) {
+    private async checkout(node: ViewRefNode | ViewRefFileNode) {
         if (!(node instanceof ViewRefNode)) return undefined;
 
         if (node instanceof ViewRefFileNode) {
-            return Container.git.checkout(node.repoPath, node.ref, node.fileName);
+            return Container.git.checkout(node.repoPath, node.ref, { fileName: node.fileName });
+        }
+
+        if (node instanceof BranchNode && node.branch.remote) {
+            const branches = await Container.git.getBranches(node.repoPath, {
+                filter: b => {
+                    return b.tracking === node.branch.name;
+                }
+            });
+
+            if (branches.length !== 0) {
+                return Container.git.checkout(node.repoPath, branches[0].ref);
+            }
+
+            const name = await window.showInputBox({
+                prompt: "Please provide a name for the local branch (Press 'Enter' to confirm or 'Escape' to cancel)",
+                placeHolder: 'Local branch name',
+                value: node.branch.getName()
+            });
+            if (name === undefined || name.length === 0) return undefined;
+
+            return Container.git.checkout(node.repoPath, node.ref, { createBranch: name });
         }
 
         return Container.git.checkout(node.repoPath, node.ref);

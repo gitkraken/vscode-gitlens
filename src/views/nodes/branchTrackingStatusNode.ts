@@ -63,7 +63,13 @@ export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements
                 }
             }
 
-            children = [...insertDateMarkers(Iterables.map(commits, c => new CommitNode(this.view, this, c, this.branch)), this, 1)];
+            children = [
+                ...insertDateMarkers(
+                    Iterables.map(commits, c => new CommitNode(this.view, this, c, this.branch)),
+                    this,
+                    1
+                )
+            ];
         }
         else {
             children = [

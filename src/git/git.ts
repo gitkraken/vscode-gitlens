@@ -449,12 +449,23 @@ export class Git {
         return git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore, local: true }, 'check-mailmap', author);
     }
 
-    static checkout(repoPath: string, ref: string, fileName?: string) {
-        const params = ['checkout', ref, '--'];
-        if (fileName) {
-            [fileName, repoPath] = Git.splitPath(fileName, repoPath);
+    static checkout(
+        repoPath: string,
+        ref: string,
+        { createBranch, fileName }: { createBranch?: string; fileName?: string } = {}
+    ) {
+        const params = ['checkout'];
+        if (createBranch) {
+            params.push('-b', createBranch, '--track', ref, '--');
+        }
+        else {
+            params.push(ref, '--');
 
-            params.push(fileName);
+            if (fileName) {
+                [fileName, repoPath] = Git.splitPath(fileName, repoPath);
+
+                params.push(fileName);
+            }
         }
 
         return git<string>({ cwd: repoPath }, ...params);
