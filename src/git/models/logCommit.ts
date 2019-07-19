@@ -1,5 +1,4 @@
 'use strict';
-import * as paths from 'path';
 import { Uri } from 'vscode';
 import { memoize, Strings } from '../../system';
 import { GitUri } from '../gitUri';
@@ -166,15 +165,12 @@ export class GitLogCommit extends GitCommit {
     toFileCommit(fileName: string): GitLogCommit | undefined;
     toFileCommit(file: GitFile): GitLogCommit;
     toFileCommit(fileNameOrFile: string | GitFile): GitLogCommit | undefined {
-        let file: GitFile | undefined;
-        if (typeof fileNameOrFile === 'string') {
-            const fileName = Strings.normalizePath(paths.relative(this.repoPath, fileNameOrFile));
-            file = this.files.find(f => f.fileName === fileName);
-            if (file === undefined) return undefined;
-        }
-        else {
-            file = fileNameOrFile;
-        }
+        const fileName =
+            typeof fileNameOrFile === 'string'
+                ? GitUri.relativeTo(fileNameOrFile, this.repoPath)
+                : fileNameOrFile.fileName;
+        const file = this.files.find(f => f.fileName === fileName);
+        if (file === undefined) return undefined;
 
         let sha;
         // If this is a stash commit with an untracked file
