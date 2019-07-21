@@ -4,22 +4,26 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [9.9.0] - 2019-07-21
 
 ### Added
 
+- Adds guided (step-by-step) access to common Git commands (and their flags) via the all-new _Git Commands_ command (`gitlens.gitCommands`)
+  - Quickly navigate and execute Git commands through easy-to-use menus where each command requires an explicit confirm step before executing
 - Adds _Open All Changes_, _Open All Changes with Working Tree_, _Open Files_, and _Open Revisions_ commands to files changed nodes in the views &mdash; closes [#760](https://github.com/eamodio/vscode-gitlens/issues/760)
+- Adds a new `${tips}` format token to show an indicator if the commit is a tip of any branches or tags &mdash; closes [#792](https://github.com/eamodio/vscode-gitlens/issues/792)
 
 ### Changed
 
 - Improves performance and memory consumption
 - Changes the _Checkout_ command on remote branches to create and checkout a new local branch rather than checkout a detached HEAD &mdash; closes [#709](https://github.com/eamodio/vscode-gitlens/issues/709)
+- Changes folders in the views to expand by default when using _Tree Layout_
 
 ### Fixed
 
 - Fixes [#791](https://github.com/eamodio/vscode-gitlens/issues/791) - Notification of unstashed changes in working directory on failed checkout
-- Fixes [#792](https://github.com/eamodio/vscode-gitlens/issues/792) - Show last commit message on repositories view instead of Git reference
 - Fixes [#795](https://github.com/eamodio/vscode-gitlens/issues/795) - Commit quick access icons replaced with open file actions in File History View
+- Fixes issue with the JSON schema of a configuration setting
 
 ## [9.8.5] - 2019-07-10
 
@@ -54,7 +58,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 
 - Changes fetch, pull, and push commands to be executed in parallel, rather than sequentially
-- Changes _Search Commits_ (`gitlens.showCommitSearch`) command to prompt for a repository, if there is more than one
+- Changes _Search Commits_ command (`gitlens.showCommitSearch`) to prompt for a repository, if there is more than one
 
 ### Removed
 
@@ -141,7 +145,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes issues with the _Show More Actions_ button on the _Details_ hover not working with renamed files
 - Fixes issues with the _Open File_, _Open Files_, _Open All Changes with Working Tree_, and _Apply Changes_ commands in the views not working with renamed files
 - Fixes issues with the _Open File_, _Open Files_, and _Apply Changes_ commands in the quick pick menus not working with renamed files
-- Fixes issues with the _Show Stashed Changes_ (`gitlens.showQuickStashList`) command and multiple repositories
+- Fixes issues with the _Show Stashed Changes_ command (`gitlens.showQuickStashList`) and multiple repositories
 
 ## [9.7.3] - 2019-05-11
 
@@ -2996,6 +3000,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
+[9.9.0]: https://github.com/eamodio/vscode-gitlens/compare/v9.8.5...eamodio:v9.9.0
 [9.8.5]: https://github.com/eamodio/vscode-gitlens/compare/v9.8.4...eamodio:v9.8.5
 [9.8.4]: https://github.com/eamodio/vscode-gitlens/compare/v9.8.3...eamodio:v9.8.4
 [9.8.3]: https://github.com/eamodio/vscode-gitlens/compare/v9.8.2...eamodio:v9.8.3

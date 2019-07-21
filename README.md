@@ -634,6 +634,10 @@ The compare view provides the following features,
 
 #### Other Commands (not a complete list)
 
+- Adds a _Git Commands_ command (`gitlens.gitCommands`) to provide a guided (step-by-step) access to common Git commands (and their flags)
+
+  - Quickly navigate and execute Git commands through easy-to-use menus where each command requires an explicit confirm step before executing
+
 - Adds a _Copy Commit ID to Clipboard_ command (`gitlens.copyShaToClipboard`) to copy the commit id (sha) of the current line to the clipboard or from the most recent commit to the current branch, if there is no current editor
 
 - Adds a _Copy Commit Message to Clipboard_ command (`gitlens.copyMessageToClipboard`) to copy the commit message of the current line to the clipboard or from the most recent commit to the current branch, if there is no current editor

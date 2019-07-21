@@ -105,7 +105,7 @@
                     <div class="section-group__content">
                         <section id="whats-new" class="section-group-section changelog">
                             <h2 class="changelog__title">
-                                What's New in <span class="changelog__version">GitLens 9.8</span>
+                                What's New in <span class="changelog__version">GitLens 9.9</span>
                             </h2>
                             <p class="changelog__hint">
                                 See the
@@ -130,29 +130,50 @@
 
                             <ul class="changelog__list">
                                 <li>
-                                    <span class="changelog__badge changelog__badge--version">9.8.5</span>
+                                    <span class="changelog__badge changelog__badge--version">9.9.0</span>
                                     <span class="changelog__date">JULY &nbsp;2019</span>
                                     <div class="changelog__details"></div>
                                 </li>
 
                                 <li>
-                                    <span class="changelog__badge changelog__badge--changed">IMPROVED</span>Cleans up
-                                    the layout and formatting of many quick pick menus
+                                    <span class="changelog__badge changelog__badge--added">NEW</span>Adds guided
+                                    (step-by-step) access to common Git commands (and their flags) via the all-new
+                                    <i>Git Commands</i> command (<code>gitlens.gitCommands</code>)
+                                    <div class="changelog__details changelog__details--list">
+                                        Quickly navigate and execute Git commands through easy-to-use menus where each
+                                        command requires an explicit confirm step before executing
+                                    </div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--added">NEW</span>Adds
+                                    <i>Open All Changes</i>, <i>Open All Changes with Working Tree</i>,
+                                    <i>Open Files</i>, and <i>Open Revisions</i> commands to files changed nodes in the
+                                    views &mdash; closes
+                                    <a
+                                        title="Open Issue #760"
+                                        href="https://github.com/eamodio/vscode-gitlens/issues/760"
+                                        >#760</a
+                                    >
                                     <div class="changelog__details changelog__details--list"></div>
                                 </li>
                                 <li>
-                                    <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes issue where
-                                    <i>Search Commits</i> from repositories in the <i>Repositories</i> view would
-                                    incorrectly show a repository picker
-                                    <div class="changelog__details changelog__details--list"></div>
+                                    <span class="changelog__badge changelog__badge--added">NEW</span>Adds working tree
+                                    comparison support to the
+                                    <i>Compare Current Branch with &lt;branch, tag, or ref&gt;</i> node within each
+                                    repository in the <i>Repositories</i> view
+                                    <div class="changelog__details changelog__details--list">
+                                        <p>
+                                            Adds a <i>Switch to Working Tree Comparison</i> command or
+                                            <i>Switch to Branch Comparison</i> command to the
+                                            <i>Compare Current Branch with &lt;branch, tag, or ref&gt;</i> node
+                                        </p>
+                                        <p>
+                                            Changes <code>gitlens.views.repositories.showBranchComparison</code> to also
+                                            specify the default type of comparison &mdash; either with the current
+                                            branch or the working tree
+                                        </p>
+                                    </div>
                                 </li>
-
-                                <li class="changelog__list-item--version">
-                                    <span class="changelog__badge changelog__badge--version">9.8.4</span>
-                                    <span class="changelog__date">JULY &nbsp;2019</span>
-                                    <div class="changelog__details"></div>
-                                </li>
-
                                 <li>
                                     <span class="changelog__badge changelog__badge--added">NEW</span>Adds
                                     <i>Switch to Two-dot Comparison</i> and
@@ -162,296 +183,61 @@
                                     <div class="changelog__details changelog__details--list"></div>
                                 </li>
                                 <li>
+                                    <span class="changelog__badge changelog__badge--added">NEW</span>Adds a new
+                                    <code>&#36;{tips}</code> format token to show an indicator if the commit is a tip of
+                                    any branches or tags &mdash; closes
+                                    <a
+                                        title="Open Issue #792"
+                                        href="https://github.com/eamodio/vscode-gitlens/issues/792"
+                                        >#792</a
+                                    >
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
+                                    <span class="changelog__badge changelog__badge--changed">IMPROVED</span>Improves
+                                    performance and memory consumption
+                                    <div class="changelog__details changelog__details--list"></div>
+                                </li>
+                                <li>
                                     <span class="changelog__badge changelog__badge--changed">IMPROVED</span>Changes the
-                                    <i>Switch to Working Tree Comparison</i> and
-                                    <i>Switch to Branch Comparison</i> commands to only affect the current comparison,
-                                    rather than changing the
-                                    <code>gitlens.views.repositories.showBranchComparison</code> setting
-                                    <div class="changelog__details changelog__details--list"></div>
-                                </li>
-
-                                <li class="changelog__list-item--version">
-                                    <span class="changelog__badge changelog__badge--version">9.8.3</span>
-                                    <span class="changelog__date">JULY &nbsp;2019</span>
-                                    <div class="changelog__details"></div>
-                                </li>
-
-                                <li>
-                                    <span class="changelog__badge changelog__badge--added">NEW</span>Adds working tree
-                                    comparison support to the
-                                    <i>Compare Current Branch with &lt;branch, tag, or ref&gt;</i> node within each
-                                    repository in the <i>Repositories</i> view
-                                    <div class="changelog__details changelog__details--list">
-                                        <p>
-                                            Changes <code>gitlens.views.repositories.showBranchComparison</code> to also
-                                            specify the type of comparison &mdash; either with the current branch or the
-                                            working tree
-                                        </p>
-                                        <p>
-                                            Adds a <i>Switch to Working Tree Comparison</i> command or
-                                            <i>Switch to Branch Comparison</i> command to the
-                                            <i>Compare Current Branch with &lt;branch, tag, or ref&gt;</i> node
-                                        </p>
-                                    </div>
-                                </li>
-                                <li>
-                                    <span class="changelog__badge changelog__badge--added">NEW</span>Adds the
-                                    <i>Open Revision</i> command as an <code>alt-click</code> of the
-                                    <i>Open File</i> command on files in the views
-                                    <div class="changelog__details changelog__details--list"></div>
-                                </li>
-                                <li>
-                                    <span class="changelog__badge changelog__badge--added">NEW</span>Adds the
-                                    <i>Open File</i> command as an <code>alt-click</code> of the
-                                    <i>Open Revision</i> command on files in the views
+                                    <i>Checkout</i> command on remote branches to create and checkout a new local branch
+                                    rather than checkout a detached HEAD &mdash; closes
+                                    <a
+                                        title="Open Issue #709"
+                                        href="https://github.com/eamodio/vscode-gitlens/issues/709"
+                                        >#709</a
+                                    >
                                     <div class="changelog__details changelog__details--list"></div>
                                 </li>
                                 <li>
                                     <span class="changelog__badge changelog__badge--changed">IMPROVED</span>Changes
-                                    fetch, pull, and push commands to be executed in parallel, rather than sequentially
-                                    <div class="changelog__details changelog__details--list"></div>
-                                </li>
-                                <li>
-                                    <span class="changelog__badge changelog__badge--changed">IMPROVED</span>Changes
-                                    <i>Search Commits</i> (<code>gitlens.showCommitSearch</code>) command to prompt for
-                                    a repository, if there is more than one
-                                    <div class="changelog__details changelog__details--list"></div>
-                                </li>
-                                <li>
-                                    <span class="changelog__badge changelog__badge--changed">IMPROVED</span>Removes
-                                    <code>gitlens.settings.mode</code> setting as the interactive settings editor (via
-                                    the <i>GitLens: Open Settings</i> command) will always show all settings now
+                                    folders in the views to expand by default when using <i>Tree Layout</i>
                                     <div class="changelog__details changelog__details--list"></div>
                                 </li>
                                 <li>
                                     <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes
                                     <a
-                                        title="Open Issue #776"
-                                        href="https://github.com/eamodio/vscode-gitlens/issues/776"
-                                        >#776</a
+                                        title="Open Issue #791"
+                                        href="https://github.com/eamodio/vscode-gitlens/issues/791"
+                                        >#791</a
                                     >
-                                    &mdash; File history sidebar having "Open file" instead of "Open revision"
+                                    &mdash; Notification of unstashed changes in working directory on failed checkout
                                     <div class="changelog__details changelog__details--list"></div>
                                 </li>
                                 <li>
                                     <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes
                                     <a
-                                        title="Open Issue #692"
-                                        href="https://github.com/eamodio/vscode-gitlens/issues/692"
-                                        >#692</a
+                                        title="Open Issue #795"
+                                        href="https://github.com/eamodio/vscode-gitlens/issues/795"
+                                        >#795</a
                                     >
-                                    &mdash; Can't open remote on bitbucket &mdash; thanks to
-                                    <a
-                                        title="Open Pull Request #767"
-                                        href="https://github.com/eamodio/vscode-gitlens/pull/767"
-                                        >PR #767</a
-                                    >
-                                    by grozan (<a title="@grozan" href="https://github.com/grozan">@grozan</a>)
-                                    <div class="changelog__details changelog__details--list"></div>
-                                </li>
-                                <li>
-                                    <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes a parsing
-                                    issue with certain renamed files
-                                    <div class="changelog__details changelog__details--list"></div>
-                                </li>
-                                <li>
-                                    <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes some issues
-                                    with emoji rendering
-                                    <div class="changelog__details changelog__details--list"></div>
-                                </li>
-
-                                <li class="changelog__list-item--version">
-                                    <span class="changelog__badge changelog__badge--version">9.8.2</span>
-                                    <span class="changelog__date">JUNE &nbsp;2019</span>
-                                    <div class="changelog__details"></div>
-                                </li>
-
-                                <li>
-                                    <span class="changelog__badge changelog__badge--added">NEW</span>Adds a changes
-                                    indicator (+x -x) to the <i>File History</i> view to quickly show the number of
-                                    added and/or deleted lines
-                                    <div class="changelog__details changelog__details--list"></div>
-                                </li>
-                                <li>
-                                    <span class="changelog__badge changelog__badge--changed">IMPROVED</span>Preserve
-                                    <i>Show More</i> expansions during file system or repository changes &mdash; avoids
-                                    losing view expansion and selection
-                                    <div class="changelog__details changelog__details--list"></div>
-                                </li>
-                                <li>
-                                    <span class="changelog__badge changelog__badge--changed">IMPROVED</span>Changes to
-                                    match authors exactly in the Contributors view
-                                    <div class="changelog__details changelog__details--list"></div>
-                                </li>
-                                <li>
-                                    <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes
-                                    <a
-                                        title="Open Issue #734"
-                                        href="https://github.com/eamodio/vscode-gitlens/issues/734"
-                                        >#734</a
-                                    >
-                                    &mdash; Not working with VS Code Remote - SSH extension (fixes the broken hover
-                                    image)
-                                    <div class="changelog__details changelog__details--list"></div>
-                                </li>
-                                <li>
-                                    <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes
-                                    <a
-                                        title="Open Issue #751"
-                                        href="https://github.com/eamodio/vscode-gitlens/issues/751"
-                                        >#751</a
-                                    >
-                                    &mdash; Git Command failed
-                                    <div class="changelog__details changelog__details--list"></div>
-                                </li>
-                                <li>
-                                    <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes
-                                    <a
-                                        title="Open Issue #756"
-                                        href="https://github.com/eamodio/vscode-gitlens/issues/756"
-                                        >#756</a
-                                    >
-                                    &mdash; Merge commit shows only the changes from the last commit on those files
+                                    &mdash; Commit quick access icons replaced with open file actions in File History
+                                    View
                                     <div class="changelog__details changelog__details--list"></div>
                                 </li>
                                 <li>
                                     <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes issue with
-                                    the <i>Open Changes with Previous Revision</i> command when run from the diff editor
-                                    and the file has unstaged changes
-                                    <div class="changelog__details changelog__details--list"></div>
-                                </li>
-                                <li>
-                                    <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes an issue
-                                    where view expansion and selection was getting lost with search and compare nodes
-                                    <div class="changelog__details changelog__details--list"></div>
-                                </li>
-
-                                <li class="changelog__list-item--version">
-                                    <span class="changelog__badge changelog__badge--version">9.8.1</span>
-                                    <span class="changelog__date">MAY &nbsp;2019</span>
-                                    <div class="changelog__details"></div>
-                                </li>
-                                <li>
-                                    <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes the
-                                    <i>Show More</i> command in the <i>File History</i> and <i>Line History</i> views
-                                    <div class="changelog__details changelog__details--list"></div>
-                                </li>
-                                <li>
-                                    <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes a caching
-                                    issue with file histories
-                                    <div class="changelog__details changelog__details--list"></div>
-                                </li>
-                                <li>
-                                    <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes a
-                                    regression where the <i>Copy Remote Url to Clipboard</i> command fails to include
-                                    the selected line range
-                                    <div class="changelog__details changelog__details--list"></div>
-                                </li>
-
-                                <li class="changelog__list-item--version">
-                                    <span class="changelog__badge changelog__badge--version">9.8</span>
-                                    <span class="changelog__date">MAY &nbsp;2019</span>
-                                    <div class="changelog__details"></div>
-                                </li>
-
-                                <li>
-                                    <span class="changelog__badge changelog__badge--added">NEW</span>Adds a new
-                                    <i>Compare Current Branch with &lt;branch, tag, or ref&gt;</i> node to each
-                                    repository in the <i>Repositories</i> view &mdash; closes
-                                    <a
-                                        title="Open Issue #293"
-                                        href="https://github.com/eamodio/vscode-gitlens/issues/293"
-                                        >#293</a
-                                    >
-                                    <div class="changelog__details changelog__details--list">
-                                        <p>
-                                            Optionally shows a comparison of the current branch to a user-selected
-                                            reference
-                                        </p>
-                                    </div>
-                                </li>
-                                <li>
-                                    <span class="changelog__badge changelog__badge--added">NEW</span>Adds a new
-                                    experimental <i>Incoming Activity</i> node to each repository in the
-                                    <i>Repositories</i> view (enabled via <code>"gitlens.insiders": true</code>) &mdash;
-                                    closes
-                                    <a
-                                        title="Open Issue #735"
-                                        href="https://github.com/eamodio/vscode-gitlens/issues/735"
-                                        >#735</a
-                                    >
-                                    <div class="changelog__details changelog__details--list">
-                                        <p>
-                                            Lists the recent incoming activity (merges and pulls) to your local
-                                            repository. Provides the command, branch (if available), and date of each
-                                            activity
-                                        </p>
-                                    </div>
-                                </li>
-                                <li>
-                                    <span class="changelog__badge changelog__badge--added">NEW</span>Adds a
-                                    <i>Show a comparison of the current branch to a user-selected reference</i>
-                                    (<code>gitlens.views.repositories.showBranchComparison</code>) setting to specify
-                                    whether to show a comparison of the current branch to a user-selected reference in
-                                    the <i>Repositories</i> view
-                                    <div class="changelog__details changelog__details--list"></div>
-                                </li>
-                                <li>
-                                    <span class="changelog__badge changelog__badge--added">NEW</span>Adds a
-                                    <code>gitlens.advanced.useSymmetricDifferenceNotation</code> setting to specify
-                                    whether to use the symmetric difference (three-dot) notation or the range (two-dot)
-                                    notation for comparisons &mdash; closes
-                                    <a
-                                        title="Open Issue #330"
-                                        href="https://github.com/eamodio/vscode-gitlens/issues/330"
-                                        >#330</a
-                                    >
-                                    <div class="changelog__details changelog__details--list"></div>
-                                </li>
-                                <li>
-                                    <span class="changelog__badge changelog__badge--added">NEW</span>Adds a
-                                    <i>Copy Remote Url to Clipboard</i> command to commit quick pick menus
-                                    <div class="changelog__details changelog__details--list"></div>
-                                </li>
-                                <li>
-                                    <span class="changelog__badge changelog__badge--changed">IMPROVED</span>Changes
-                                    <i>Pull</i> and <i>Pull Repositories</i> commands to just fetch the repository if
-                                    the current branch has no tracking branch
-                                    <div class="changelog__details changelog__details--list"></div>
-                                </li>
-                                <li>
-                                    <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes
-                                    <a
-                                        title="Open Issue #734"
-                                        href="https://github.com/eamodio/vscode-gitlens/issues/734"
-                                        >#734</a
-                                    >
-                                    &mdash; Not working with VS Code Remote - SSH extension
-                                    <div class="changelog__details changelog__details--list"></div>
-                                </li>
-                                <li>
-                                    <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes
-                                    <a
-                                        title="Open Issue #739"
-                                        href="https://github.com/eamodio/vscode-gitlens/issues/739"
-                                        >#739</a
-                                    >
-                                    &mdash; Breadcrumbs don't work on file revisions
-                                    <div class="changelog__details changelog__details--list"></div>
-                                </li>
-                                <li>
-                                    <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes
-                                    <a
-                                        title="Open Issue #750"
-                                        href="https://github.com/eamodio/vscode-gitlens/issues/750"
-                                        >#750</a
-                                    >
-                                    &mdash; Open file on GitHub does not include directory path
-                                    <div class="changelog__details changelog__details--list"></div>
-                                </li>
-                                <li>
-                                    <span class="changelog__badge changelog__badge--fixed">FIXED</span>Fixes an issue
-                                    with the <i>Open Revision</i> command in the quick pick menus not working properly
+                                    the JSON schema of a configuration setting
                                     <div class="changelog__details changelog__details--list"></div>
                                 </li>
                             </ul>
