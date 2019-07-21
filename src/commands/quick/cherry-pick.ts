@@ -18,13 +18,13 @@ interface State {
 
 export class CherryPickQuickCommand extends GitCommandBase {
     constructor() {
-        super('cherry-pick', 'Cherry Pick');
+        super('cherry-pick', 'Cherry Pick', { description: 'via Terminal' });
     }
 
     execute(state: State) {
         // Ensure the commits are ordered with the oldest first
         state.commits.sort((a, b) => a.date.getTime() - b.date.getTime());
-        runGitCommandInTerminal('cherry-pick', state.commits.map(c => c.sha).join(' '), state.repo.path);
+        runGitCommandInTerminal('cherry-pick', state.commits.map(c => c.sha).join(' '), state.repo.path, true);
     }
 
     async *steps(): AsyncIterableIterator<QuickPickStep> {

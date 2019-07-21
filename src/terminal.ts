@@ -30,7 +30,7 @@ function ensureTerminal(cwd: string): Terminal {
     return _terminal;
 }
 
-export function runGitCommandInTerminal(command: string, args: string, cwd: string) {
+export function runGitCommandInTerminal(command: string, args: string, cwd: string, execute: boolean = false) {
     // let git = GitService.getGitPath();
     // if (git.includes(' ')) {
     //     git = `"${git}"`;
@@ -38,5 +38,5 @@ export function runGitCommandInTerminal(command: string, args: string, cwd: stri
 
     const terminal = ensureTerminal(cwd);
     terminal.show(false);
-    terminal.sendText(`git ${command} ${args}`, false);
+    terminal.sendText(`git ${command} ${args}`, execute);
 }

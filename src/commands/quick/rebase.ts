@@ -18,11 +18,11 @@ interface State {
 
 export class RebaseQuickCommand extends GitCommandBase {
     constructor() {
-        super('rebase', 'Rebase');
+        super('rebase', 'Rebase', { description: 'via Terminal' });
     }
 
     execute(state: State) {
-        runGitCommandInTerminal('rebase', [...state.flags, state.source.ref].join(' '), state.repo.path);
+        runGitCommandInTerminal('rebase', [...state.flags, state.source.ref].join(' '), state.repo.path, true);
     }
 
     async *steps(): AsyncIterableIterator<QuickPickStep> {

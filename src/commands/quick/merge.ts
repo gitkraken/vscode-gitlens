@@ -18,11 +18,11 @@ interface State {
 
 export class MergeQuickCommand extends GitCommandBase {
     constructor() {
-        super('merge', 'Merge');
+        super('merge', 'Merge', { description: 'via Terminal' });
     }
 
     execute(state: State) {
-        runGitCommandInTerminal('merge', [...state.flags, state.source.ref].join(' '), state.repo.path);
+        runGitCommandInTerminal('merge', [...state.flags, state.source.ref].join(' '), state.repo.path, true);
     }
 
     async *steps(): AsyncIterableIterator<QuickPickStep> {
