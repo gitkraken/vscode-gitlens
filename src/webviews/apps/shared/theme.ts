@@ -37,6 +37,8 @@ export function initializeAndWatchThemeColors() {
         bodyStyle.setProperty('--color-background--darken-15', darken(color, 15));
         bodyStyle.setProperty('--color-background--lighten-30', lighten(color, 30));
         bodyStyle.setProperty('--color-background--darken-30', darken(color, 30));
+        bodyStyle.setProperty('--color-background--lighten-50', lighten(color, 50));
+        bodyStyle.setProperty('--color-background--darken-50', darken(color, 50));
 
         color = computedStyle.getPropertyValue('--vscode-button-background').trim();
         bodyStyle.setProperty('--color-button-background', color);

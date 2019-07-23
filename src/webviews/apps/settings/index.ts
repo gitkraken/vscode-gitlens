@@ -1,12 +1,10 @@
 'use strict';
 /*global window document IntersectionObserver*/
-import { SettingsBootstrap } from '../../protocol';
+import { IpcMessage, onIpcNotification, SettingsDidRequestJumpToNotificationType, SettingsState } from '../../protocol';
 import { AppWithConfig } from '../shared/appWithConfigBase';
 import { DOM } from '../shared/dom';
 
-const bootstrap: SettingsBootstrap = (window as any).bootstrap;
-
-export class SettingsApp extends AppWithConfig<SettingsBootstrap> {
+export class SettingsApp extends AppWithConfig<SettingsState> {
     private _scopes: HTMLSelectElement | null = null;
     private _observer: IntersectionObserver | undefined;
 
@@ -14,18 +12,19 @@ export class SettingsApp extends AppWithConfig<SettingsBootstrap> {
     private _sections = new Map<string, boolean>();
 
     constructor() {
-        super('SettingsApp', bootstrap);
+        super('SettingsApp', (window as any).bootstrap);
+        (window as any).bootstrap = undefined;
     }
 
     protected onInitialize() {
         // Add scopes if available
         const scopes = DOM.getElementById<HTMLSelectElement>('scopes');
-        if (scopes && this.bootstrap.scopes.length > 1) {
-            for (const [scope, text] of this.bootstrap.scopes) {
+        if (scopes && this.state.scopes.length > 1) {
+            for (const [scope, text] of this.state.scopes) {
                 const option = document.createElement('option');
                 option.value = scope;
                 option.innerHTML = text;
-                if (this.bootstrap.scope === scope) {
+                if (this.state.scope === scope) {
                     option.selected = true;
                 }
                 scopes.appendChild(option);
@@ -49,6 +48,37 @@ export class SettingsApp extends AppWithConfig<SettingsBootstrap> {
             this._sections.set(el.parentElement!.id, false);
 
             this._observer.observe(el);
+        }
+    }
+
+    protected onBind(me: this) {
+        super.onBind(me);
+
+        DOM.listenAll('.section__header', 'click', function(this: HTMLInputElement, e: Event) {
+            return me.onSectionHeaderClicked(this, e as MouseEvent);
+        });
+        DOM.listenAll('a[data-action="jump"]', 'click', function(this: HTMLAnchorElement, e: Event) {
+            return me.onJumpToLinkClicked(this, e as MouseEvent);
+        });
+        DOM.listenAll('[data-action]', 'click', function(this: HTMLAnchorElement, e: Event) {
+            return me.onActionLinkClicked(this, e as MouseEvent);
+        });
+    }
+
+    protected onMessageReceived(e: MessageEvent) {
+        const msg = e.data as IpcMessage;
+
+        switch (msg.method) {
+            case SettingsDidRequestJumpToNotificationType.method:
+                onIpcNotification(SettingsDidRequestJumpToNotificationType, msg, params => {
+                    this.scrollToAnchor(params.anchor);
+                });
+                break;
+
+            default:
+                if (super.onMessageReceived !== undefined) {
+                    super.onMessageReceived(e);
+                }
         }
     }
 
@@ -80,20 +110,6 @@ export class SettingsApp extends AppWithConfig<SettingsBootstrap> {
                 this.toggleJumpLink(this._activeSection, true);
             }
         }
-    }
-
-    protected onBind(me: this) {
-        super.onBind(me);
-
-        DOM.listenAll('.section__header', 'click', function(this: HTMLInputElement, e: Event) {
-            return me.onSectionHeaderClicked(this, e as MouseEvent);
-        });
-        DOM.listenAll('a[data-action="jump"]', 'click', function(this: HTMLAnchorElement, e: Event) {
-            return me.onJumpToLinkClicked(this, e as MouseEvent);
-        });
-        DOM.listenAll('[data-action]', 'click', function(this: HTMLAnchorElement, e: Event) {
-            return me.onActionLinkClicked(this, e as MouseEvent);
-        });
     }
 
     protected getSettingsScope(): 'user' | 'workspace' {
@@ -153,6 +169,24 @@ export class SettingsApp extends AppWithConfig<SettingsBootstrap> {
         }
 
         element.classList.toggle('collapsed');
+    }
+
+    private scrollToAnchor(anchor: string) {
+        const el = document.getElementById(anchor);
+        if (el == null) return;
+
+        let height = 83;
+
+        const header = document.querySelector('.page-header--sticky');
+        if (header != null) {
+            height = header.clientHeight;
+        }
+
+        const top = el.getBoundingClientRect().top - document.body.getBoundingClientRect().top - height;
+        window.scrollTo({
+            top: top,
+            behavior: 'smooth'
+        });
     }
 
     private toggleJumpLink(anchor: string, active: boolean) {

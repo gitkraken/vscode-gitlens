@@ -75,6 +75,12 @@ export function isTextEditor(editor: TextEditor): boolean {
     return scheme !== DocumentSchemes.Output && scheme !== DocumentSchemes.DebugConsole;
 }
 
+export function hasVisibleTextEditor(): boolean {
+    if (window.visibleTextEditors.length === 0) return false;
+
+    return window.visibleTextEditors.some(e => isTextEditor(e));
+}
+
 export enum GlyphChars {
     AngleBracketLeftHeavy = '\u2770',
     AngleBracketRightHeavy = '\u2771',

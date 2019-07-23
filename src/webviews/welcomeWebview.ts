@@ -1,10 +1,10 @@
 'use strict';
 import { Commands } from '../commands';
 import { Container } from '../container';
-import { WelcomeBootstrap } from './protocol';
+import { WelcomeState } from './protocol';
 import { WebviewBase } from './webviewBase';
 
-export class WelcomeWebview extends WebviewBase<WelcomeBootstrap> {
+export class WelcomeWebview extends WebviewBase {
     constructor() {
         super(Commands.ShowWelcomePage);
     }
@@ -21,9 +21,12 @@ export class WelcomeWebview extends WebviewBase<WelcomeBootstrap> {
         return 'Welcome to GitLens';
     }
 
-    getBootstrap(): WelcomeBootstrap {
-        return {
+    renderEndOfBody() {
+        const bootstrap: WelcomeState = {
             config: Container.config
         };
+        return `    <script type="text/javascript">
+        window.bootstrap = ${JSON.stringify(bootstrap)};
+    </script>`;
     }
 }

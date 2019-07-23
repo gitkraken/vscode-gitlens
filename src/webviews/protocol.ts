@@ -40,13 +40,6 @@ export const DidChangeConfigurationNotificationType = new IpcNotificationType<Di
     'configuration/didChange'
 );
 
-export interface DidRequestJumpToNotificationParams {
-    anchor: string;
-}
-export const DidRequestJumpToNotificationType = new IpcNotificationType<DidRequestJumpToNotificationParams>(
-    'webview/jumpTo'
-);
-
 export const ReadyCommandType = new IpcCommandType<{}>('webview/ready');
 
 export interface UpdateConfigurationCommandParams {
@@ -61,17 +54,20 @@ export const UpdateConfigurationCommandType = new IpcCommandType<UpdateConfigura
     'configuration/update'
 );
 
-export interface AppBootstrap {}
+export interface SettingsDidRequestJumpToNotificationParams {
+    anchor: string;
+}
+export const SettingsDidRequestJumpToNotificationType = new IpcNotificationType<
+    SettingsDidRequestJumpToNotificationParams
+>('settings/jumpTo');
 
-export interface AppWithConfigBootstrap {
+export interface AppStateWithConfig {
     config: Config;
 }
 
-export interface SettingsBootstrap extends AppWithConfigBootstrap {
+export interface SettingsState extends AppStateWithConfig {
     scope: 'user' | 'workspace';
     scopes: ['user' | 'workspace', string][];
 }
 
-export interface WelcomeBootstrap extends AppWithConfigBootstrap {}
-
-export interface HistoryBootstrap {}
+export interface WelcomeState extends AppStateWithConfig {}

@@ -1,6 +1,6 @@
 'use strict';
 /*global window document*/
-import { AppBootstrap, IpcCommandParamsOf, IpcCommandType, IpcMessage, ReadyCommandType } from '../../protocol';
+import { IpcCommandParamsOf, IpcCommandType, IpcMessage, ReadyCommandType } from '../../protocol';
 import { initializeAndWatchThemeColors } from './theme';
 
 interface VsCodeApi {
@@ -13,26 +13,36 @@ declare function acquireVsCodeApi(): VsCodeApi;
 
 let ipcSequence = 0;
 
-export abstract class App<TBootstrap extends AppBootstrap> {
+export abstract class App<TState> {
     private readonly _api: VsCodeApi;
+    protected state: TState;
 
-    constructor(protected readonly appName: string, protected readonly bootstrap: TBootstrap) {
+    constructor(protected readonly appName: string, state: TState) {
         this.log(`${this.appName}.ctor`);
 
         this._api = acquireVsCodeApi();
         initializeAndWatchThemeColors();
 
+        this.state = state;
         setTimeout(() => {
             this.log(`${this.appName}.initializing`);
 
-            this.onInitialize();
-            this.onBind(this);
+            if (this.onInitialize !== undefined) {
+                this.onInitialize();
+            }
+            if (this.onBind !== undefined) {
+                this.onBind(this);
+            }
 
-            window.addEventListener('message', this.onMessageReceived.bind(this));
+            if (this.onMessageReceived !== undefined) {
+                window.addEventListener('message', this.onMessageReceived.bind(this));
+            }
 
             this.sendCommand(ReadyCommandType, {});
 
-            this.onInitialized();
+            if (this.onInitialized !== undefined) {
+                this.onInitialized();
+            }
 
             setTimeout(() => {
                 document.body.classList.remove('preload');
@@ -40,18 +50,10 @@ export abstract class App<TBootstrap extends AppBootstrap> {
         }, 0);
     }
 
-    protected onInitialize() {
-        // virtual
-    }
-    protected onInitialized() {
-        // virtual
-    }
-    protected onBind(me: this) {
-        // virtual
-    }
-    protected onMessageReceived(e: MessageEvent) {
-        // virtual
-    }
+    protected onInitialize?(): void;
+    protected onBind?(me: this): void;
+    protected onInitialized?(): void;
+    protected onMessageReceived?(e: MessageEvent): void;
 
     protected log(message: string) {
         console.log(message);

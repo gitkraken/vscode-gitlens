@@ -1,14 +1,13 @@
 'use strict';
 /*global window*/
-import { WelcomeBootstrap } from '../../protocol';
+import { WelcomeState } from '../../protocol';
 // import { Snow } from './snow';
 import { AppWithConfig } from '../shared/appWithConfigBase';
 
-const bootstrap: WelcomeBootstrap = (window as any).bootstrap;
-
-export class WelcomeApp extends AppWithConfig<WelcomeBootstrap> {
+export class WelcomeApp extends AppWithConfig<WelcomeState> {
     constructor() {
-        super('WelcomeApp', bootstrap);
+        super('WelcomeApp', (window as any).bootstrap);
+        (window as any).bootstrap = undefined;
     }
 }
 

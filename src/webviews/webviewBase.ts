@@ -18,12 +18,10 @@ import { Container } from '../container';
 import { Logger } from '../logger';
 import {
     DidChangeConfigurationNotificationType,
-    DidRequestJumpToNotificationType,
     IpcMessage,
     IpcNotificationParamsOf,
     IpcNotificationType,
     onIpcCommand,
-    ReadyCommandType,
     UpdateConfigurationCommandType
 } from './protocol';
 import { Commands } from '../commands';
@@ -38,46 +36,29 @@ const emptyCommands: Disposable[] = [
     }
 ];
 
-const anchorRegex = /.*?#(.*)/;
-
-export abstract class WebviewBase<TBootstrap> implements Disposable {
-    private _disposable: Disposable | undefined;
+export abstract class WebviewBase implements Disposable {
+    protected _disposable: Disposable;
     private _disposablePanel: Disposable | undefined;
     private _panel: WebviewPanel | undefined;
 
-    private _pendingJumpToAnchor: string | undefined;
-
-    constructor(showCommand: Commands, showAndJumpCommands?: Commands[]) {
+    constructor(showCommand: Commands, column?: ViewColumn) {
         this._disposable = Disposable.from(
             configuration.onDidChange(this.onConfigurationChanged, this),
-            commands.registerCommand(showCommand, this.show, this)
+            commands.registerCommand(showCommand, () => this.show(column), this)
         );
-
-        if (showAndJumpCommands !== undefined) {
-            this._disposable = Disposable.from(
-                this._disposable,
-                ...showAndJumpCommands.map(c => {
-                    // The show and jump commands are structured to have a # separating the base command from the anchor
-                    let anchor: string | undefined;
-                    const match = anchorRegex.exec(c);
-                    if (match != null) {
-                        [, anchor] = match;
-                    }
-
-                    return commands.registerCommand(c, () => this.show(anchor), this);
-                })
-            );
-        }
     }
 
     abstract get filename(): string;
     abstract get id(): string;
     abstract get title(): string;
 
-    abstract getBootstrap(): TBootstrap;
     registerCommands(): Disposable[] {
         return emptyCommands;
     }
+
+    renderHead?(): string | Promise<string>;
+    renderBody?(): string | Promise<string>;
+    renderEndOfBody?(): string | Promise<string>;
 
     dispose() {
         this._disposable && this._disposable.dispose();
@@ -106,25 +87,7 @@ export abstract class WebviewBase<TBootstrap> implements Disposable {
     }
 
     protected onMessageReceived(e: IpcMessage) {
-        // virtual
-    }
-
-    private onMessageReceivedCore(e: IpcMessage) {
-        if (e == null) return;
-
-        Logger.log(`Webview(${this.id}).onMessageReceived: method=${e.method}, data=${JSON.stringify(e)}`);
-
         switch (e.method) {
-            case ReadyCommandType.method:
-                onIpcCommand(ReadyCommandType, e, params => {
-                    if (this._pendingJumpToAnchor !== undefined) {
-                        this.notify(DidRequestJumpToNotificationType, { anchor: this._pendingJumpToAnchor });
-                        this._pendingJumpToAnchor = undefined;
-                    }
-                });
-
-                break;
-
             case UpdateConfigurationCommandType.method:
                 onIpcCommand(UpdateConfigurationCommandType, e, async params => {
                     const target =
@@ -144,10 +107,16 @@ export abstract class WebviewBase<TBootstrap> implements Disposable {
 
                 break;
             default:
-                this.onMessageReceived(e);
-
                 break;
         }
+    }
+
+    private onMessageReceivedCore(e: IpcMessage) {
+        if (e == null) return;
+
+        Logger.log(`Webview(${this.id}).onMessageReceived: method=${e.method}, data=${JSON.stringify(e)}`);
+
+        this.onMessageReceived(e);
     }
 
     get visible() {
@@ -160,14 +129,20 @@ export abstract class WebviewBase<TBootstrap> implements Disposable {
         this._panel.dispose();
     }
 
-    async show(jumpToAnchor?: string): Promise<void> {
+    setTitle(title: string) {
+        if (this._panel === undefined) return;
+
+        this._panel.title = title;
+    }
+
+    async show(column: ViewColumn = ViewColumn.Active): Promise<void> {
         const html = await this.getHtml();
 
         if (this._panel === undefined) {
             this._panel = window.createWebviewPanel(
                 this.id,
                 this.title,
-                { viewColumn: ViewColumn.Active, preserveFocus: false },
+                { viewColumn: column, preserveFocus: false },
                 {
                     retainContextWhenHidden: true,
                     enableFindWidget: true,
@@ -191,10 +166,8 @@ export abstract class WebviewBase<TBootstrap> implements Disposable {
             // Reset the html to get the webview to reload
             this._panel.webview.html = '';
             this._panel.webview.html = html;
-            this._panel.reveal(ViewColumn.Active, false);
+            this._panel.reveal(this._panel.viewColumn || ViewColumn.Active, false);
         }
-
-        this._pendingJumpToAnchor = jumpToAnchor;
     }
 
     private _html: string | undefined;
@@ -222,18 +195,27 @@ export abstract class WebviewBase<TBootstrap> implements Disposable {
             content = doc.getText();
         }
 
-        this._html = content.replace(
+        let html = content.replace(
             /{{root}}/g,
             Uri.file(Container.context.asAbsolutePath('.'))
                 .with({ scheme: 'vscode-resource' })
                 .toString()
         );
 
-        if (this._html.includes("'{{bootstrap}}'")) {
-            this._html = this._html.replace("'{{bootstrap}}'", JSON.stringify(this.getBootstrap()));
+        if (this.renderHead) {
+            html = html.replace(/{{\s*?head\s*?}}/i, await this.renderHead());
         }
 
-        return this._html;
+        if (this.renderBody) {
+            html = html.replace(/{{\s*?body\s*?}}/i, await this.renderBody());
+        }
+
+        if (this.renderEndOfBody) {
+            html = html.replace(/{{\s*?endOfBody\s*?}}/i, await this.renderEndOfBody());
+        }
+
+        this._html = html;
+        return html;
     }
 
     protected notify<NT extends IpcNotificationType>(type: NT, params: IpcNotificationParamsOf<NT>): Thenable<boolean> {

@@ -1,9 +1,8 @@
 'use strict';
-/*global window document*/
+/*global document*/
 import {
-    AppWithConfigBootstrap,
+    AppStateWithConfig,
     DidChangeConfigurationNotificationType,
-    DidRequestJumpToNotificationType,
     IpcMessage,
     onIpcNotification,
     UpdateConfigurationCommandType
@@ -11,13 +10,12 @@ import {
 import { DOM } from './dom';
 import { App } from './appBase';
 
-export abstract class AppWithConfig<TBootstrap extends AppWithConfigBootstrap> extends App<TBootstrap> {
+export abstract class AppWithConfig<TState extends AppStateWithConfig> extends App<TState> {
     private _changes: { [key: string]: any } = Object.create(null);
-
     private _updating: boolean = false;
 
-    constructor(appName: string, bootstrap: TBootstrap) {
-        super(appName, bootstrap);
+    constructor(appName: string, state: TState) {
+        super(appName, state);
     }
 
     protected onInitialized() {
@@ -46,19 +44,18 @@ export abstract class AppWithConfig<TBootstrap extends AppWithConfigBootstrap> e
         const msg = e.data as IpcMessage;
 
         switch (msg.method) {
-            case DidRequestJumpToNotificationType.method:
-                onIpcNotification(DidRequestJumpToNotificationType, msg, params => {
-                    this.scrollToAnchor(params.anchor);
-                });
-                break;
-
             case DidChangeConfigurationNotificationType.method:
                 onIpcNotification(DidChangeConfigurationNotificationType, msg, params => {
-                    this.bootstrap.config = params.config;
+                    this.state.config = params.config;
 
                     this.setState();
                 });
                 break;
+
+            default:
+                if (super.onMessageReceived !== undefined) {
+                    super.onMessageReceived(e);
+                }
         }
     }
 
@@ -212,24 +209,6 @@ export abstract class AppWithConfig<TBootstrap extends AppWithConfigBootstrap> e
         e.preventDefault();
     }
 
-    protected scrollToAnchor(anchor: string) {
-        const el = document.getElementById(anchor);
-        if (el == null) return;
-
-        let height = 83;
-
-        const header = document.querySelector('.page-header--sticky');
-        if (header != null) {
-            height = header.clientHeight;
-        }
-
-        const top = el.getBoundingClientRect().top - document.body.getBoundingClientRect().top - height;
-        window.scrollTo({
-            top: top,
-            behavior: 'smooth'
-        });
-    }
-
     private evaluateStateExpression(expression: string, changes: { [key: string]: string | boolean }): boolean {
         let state = false;
         for (const expr of expression.trim().split('&')) {
@@ -270,7 +249,7 @@ export abstract class AppWithConfig<TBootstrap extends AppWithConfigBootstrap> e
     }
 
     private getSettingValue<T>(path: string): T | undefined {
-        return get<T>(this.bootstrap.config, path);
+        return get<T>(this.state.config, path);
     }
 
     private setState() {
@@ -303,7 +282,7 @@ export abstract class AppWithConfig<TBootstrap extends AppWithConfigBootstrap> e
             this._updating = false;
         }
 
-        const state = flatten(this.bootstrap.config);
+        const state = flatten(this.state.config);
         this.setVisibility(state);
         this.setEnablement(state);
     }
