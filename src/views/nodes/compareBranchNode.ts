@@ -8,7 +8,7 @@ import { CommandQuickPickItem, ReferencesQuickPick } from '../../quickpicks';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
 import { Container } from '../../container';
 import { log, Strings } from '../../system';
-import { ResultsFilesNode } from './resultsFilesNode';
+import { FilesQueryResults, ResultsFilesNode } from './resultsFilesNode';
 import { ViewShowBranchComparison } from '../../config';
 
 export class CompareBranchNode extends ViewNode<RepositoriesView> {
@@ -56,8 +56,9 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
                     this.view,
                     this,
                     this.uri.repoPath!,
-                    this._compareWith.ref,
-                    this.compareWithWorkingTree ? '' : this.branch.ref
+                    (this._compareWith && this._compareWith.ref) || 'HEAD',
+                    this.compareWithWorkingTree ? '' : this.branch.ref,
+                    this.getFilesQuery.bind(this)
                 )
             ];
         }
@@ -140,6 +141,13 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
         );
     }
 
+    private get diffComparisonNotation() {
+        // In git diff the range syntax doesn't mean the same thing as with git log -- since git diff is about comparing endpoints not ranges
+        // see https://git-scm.com/docs/git-diff#Documentation/git-diff.txt-emgitdiffemltoptionsgtltcommitgtltcommitgt--ltpathgt82308203
+        // So inverting the range syntax should be about equivalent for the behavior we want
+        return this.comparisonNotation === '...' ? '..' : '...';
+    }
+
     private get comparisonType() {
         return (
             (this._compareWith && this._compareWith.type) ||
@@ -180,11 +188,23 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
         const count = log !== undefined ? log.count : 0;
         const truncated = log !== undefined ? log.truncated : false;
 
-        const label = Strings.pluralize('commit', count, { number: truncated ? `${count}+` : undefined, zero: 'No' });
+        return {
+            label: Strings.pluralize('commit', count, { number: truncated ? `${count}+` : undefined, zero: 'No' }),
+            log: log
+        };
+    }
+
+    private async getFilesQuery(): Promise<FilesQueryResults> {
+        const diff = await Container.git.getDiffStatus(
+            this.uri.repoPath!,
+            `${(this._compareWith && this._compareWith.ref) || 'HEAD'}${this.diffComparisonNotation}${
+                this.compareWithWorkingTree ? '' : this.branch.ref
+            }`
+        );
 
         return {
-            label: label,
-            log: log
+            label: `${Strings.pluralize('file', diff !== undefined ? diff.length : 0, { zero: 'No' })} changed`,
+            diff: diff
         };
     }
 

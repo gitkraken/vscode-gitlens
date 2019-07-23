@@ -2,7 +2,6 @@
 import * as paths from 'path';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
-import { Container } from '../../container';
 import { GitFile, GitUri } from '../../git/gitService';
 import { Arrays, debug, gate, Iterables, Promises, Strings } from '../../system';
 import { ViewWithFiles } from '../viewBase';
@@ -21,7 +20,8 @@ export class ResultsFilesNode extends ViewNode<ViewWithFiles> {
         parent: ViewNode,
         public readonly repoPath: string,
         public readonly ref1: string,
-        public readonly ref2: string
+        public readonly ref2: string,
+        private readonly _filesQuery: () => Promise<FilesQueryResults>
     ) {
         super(GitUri.fromRepoPath(repoPath), view, parent);
     }
@@ -92,25 +92,16 @@ export class ResultsFilesNode extends ViewNode<ViewWithFiles> {
     refresh(reset: boolean = false) {
         if (!reset) return;
 
-        this._filesQueryResults = this.getFilesQueryResultsCore();
+        this._filesQueryResults = this._filesQuery();
     }
 
     private _filesQueryResults: Promise<FilesQueryResults> | undefined;
 
     getFilesQueryResults() {
         if (this._filesQueryResults === undefined) {
-            this._filesQueryResults = this.getFilesQueryResultsCore();
+            this._filesQueryResults = this._filesQuery();
         }
 
         return this._filesQueryResults;
-    }
-
-    private async getFilesQueryResultsCore(): Promise<FilesQueryResults> {
-        const diff = await Container.git.getDiffStatus(this.uri.repoPath!, this.ref1, this.ref2);
-
-        return {
-            label: `${Strings.pluralize('file', diff !== undefined ? diff.length : 0, { zero: 'No' })} changed`,
-            diff: diff
-        };
     }
 }

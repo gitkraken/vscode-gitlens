@@ -6,7 +6,7 @@ import { GitService, GitUri } from '../../git/gitService';
 import { debug, gate, log, Strings } from '../../system';
 import { CompareView } from '../compareView';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
-import { ResultsFilesNode } from './resultsFilesNode';
+import { FilesQueryResults, ResultsFilesNode } from './resultsFilesNode';
 import { ResourceType, SubscribeableViewNode, ViewNode } from './viewNode';
 
 let instanceId = 0;
@@ -63,7 +63,14 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
                         includeDescription: true
                     }
                 ),
-                new ResultsFilesNode(this.view, this, this.uri.repoPath!, this._ref1.ref, this._ref2.ref)
+                new ResultsFilesNode(
+                    this.view,
+                    this,
+                    this.uri.repoPath!,
+                    this._ref1.ref,
+                    this._ref2.ref || 'HEAD',
+                    this.getFilesQuery.bind(this)
+                )
             ];
         }
         return this._children;
@@ -181,6 +188,13 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
         return this._comparisonNotation || (Container.config.advanced.useSymmetricDifferenceNotation ? '...' : '..');
     }
 
+    private get diffComparisonNotation() {
+        // In git diff the range syntax doesn't mean the same thing as with git log -- since git diff is about comparing endpoints not ranges
+        // see https://git-scm.com/docs/git-diff#Documentation/git-diff.txt-emgitdiffemltoptionsgtltcommitgtltcommitgt--ltpathgt82308203
+        // So inverting the range syntax should be about equivalent for the behavior we want
+        return this.comparisonNotation === '...' ? '..' : '...';
+    }
+
     private async getCommitsQuery(maxCount: number | undefined): Promise<CommitsQueryResults> {
         const log = await Container.git.getLog(this.uri.repoPath!, {
             maxCount: maxCount,
@@ -190,11 +204,21 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
         const count = log !== undefined ? log.count : 0;
         const truncated = log !== undefined ? log.truncated : false;
 
-        const label = Strings.pluralize('commit', count, { number: truncated ? `${count}+` : undefined, zero: 'No' });
+        return {
+            label: Strings.pluralize('commit', count, { number: truncated ? `${count}+` : undefined, zero: 'No' }),
+            log: log
+        };
+    }
+
+    private async getFilesQuery(): Promise<FilesQueryResults> {
+        const diff = await Container.git.getDiffStatus(
+            this.uri.repoPath!,
+            `${this._ref1.ref}${this.diffComparisonNotation}${this._ref2.ref || 'HEAD'}`
+        );
 
         return {
-            label: label,
-            log: log
+            label: `${Strings.pluralize('file', diff !== undefined ? diff.length : 0, { zero: 'No' })} changed`,
+            diff: diff
         };
     }
 
