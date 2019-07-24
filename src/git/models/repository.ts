@@ -23,6 +23,7 @@ import { GitUri } from '../gitUri';
 import { RemoteProviderFactory, RemoteProviders } from '../remotes/factory';
 import { Messages } from '../../messages';
 import { Logger } from '../../logger';
+import { logName } from '../../system/decorators/log';
 
 export enum RepositoryChange {
     Config = 'config',
@@ -60,6 +61,7 @@ export interface RepositoryFileSystemChangeEvent {
     readonly uris: Uri[];
 }
 
+@logName<Repository>((r, name) => `${name}(${r.id})`)
 export class Repository implements Disposable {
     static sort(repositories: Repository[]) {
         return repositories.sort((a, b) => (a.starred ? -1 : 1) - (b.starred ? -1 : 1) || a.index - b.index);
