@@ -362,7 +362,7 @@ export class GitService implements Disposable {
         repositories: string[] = []
     ): Promise<string[]> {
         return new Promise<string[]>((resolve, reject) => {
-            fs.readdir(root, async (err, files) => {
+            fs.readdir(root, { withFileTypes: true }, async (err, files) => {
                 if (err != null) {
                     reject(err);
                     return;
@@ -373,30 +373,17 @@ export class GitService implements Disposable {
                     return;
                 }
 
-                const folders: string[] = [];
+                depth--;
 
-                const promises = files.map(file => {
-                    const path = paths.resolve(root, file);
+                let f;
+                for (f of files) {
+                    if (!f.isDirectory()) continue;
 
-                    return new Promise<void>((resolve2, reject2) => {
-                        fs.stat(path, (err, stat) => {
-                            if (file === '.git') {
-                                repositories.push(path);
-                            }
-                            else if (err == null && excludes[file] !== true && stat != null && stat.isDirectory()) {
-                                folders.push(path);
-                            }
-
-                            resolve2();
-                        });
-                    });
-                });
-
-                await Promise.all(promises);
-
-                if (depth-- > 0) {
-                    for (const folder of folders) {
-                        await this.repositorySearchCore(folder, depth, excludes, repositories);
+                    if (f.name === '.git') {
+                        repositories.push(paths.resolve(root, f.name));
+                    }
+                    else if (depth >= 0 && excludes[f.name] !== true) {
+                        await this.repositorySearchCore(paths.resolve(root, f.name), depth, excludes, repositories);
                     }
                 }
 
