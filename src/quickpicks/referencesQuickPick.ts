@@ -25,6 +25,18 @@ export class ReferencesQuickPick {
 
     async show(
         placeHolder: string,
+        options?: Exclude<ReferencesQuickPickOptions, CommandQuickPickItem> & { include: 'branches' }
+    ): Promise<BranchQuickPickItem | undefined>;
+    async show(
+        placeHolder: string,
+        options?: Exclude<ReferencesQuickPickOptions, CommandQuickPickItem> & { include: 'tags' }
+    ): Promise<TagQuickPickItem | undefined>;
+    async show(
+        placeHolder: string,
+        options?: Exclude<ReferencesQuickPickOptions, CommandQuickPickItem>
+    ): Promise<ReferencesQuickPickItem | undefined>;
+    async show(
+        placeHolder: string,
         options: ReferencesQuickPickOptions = { checkmarks: true }
     ): Promise<ReferencesQuickPickItem | CommandQuickPickItem | undefined> {
         const cancellation = new CancellationTokenSource();

@@ -4254,7 +4254,7 @@
                 },
                 {
                     "command": "gitlens.views.checkout",
-                    "when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
+                    "when": "!gitlens:readonly && viewItem =~ /gitlens:branch/",
                     "group": "inline@10"
                 },
                 {
