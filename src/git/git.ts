@@ -471,6 +471,10 @@ export class Git {
         return git<string>({ cwd: repoPath }, ...params);
     }
 
+    static addRemote(repoPath: string, branchName: string, remoteUrl: string) {
+        return git<string>({ cwd: repoPath },'remote', 'add', branchName, remoteUrl);
+    }
+
     static async config__get(key: string, repoPath?: string, options: { local?: boolean } = {}) {
         const data = await git<string>(
             { cwd: repoPath || emptyStr, errors: GitErrorHandling.Ignore, local: options.local },

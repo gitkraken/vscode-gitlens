@@ -114,6 +114,7 @@ export class ViewCommands {
         commands.registerCommand('gitlens.views.openChangedFileRevisions', this.openChangedFileRevisions, this);
         commands.registerCommand('gitlens.views.applyChanges', this.applyChanges, this);
         commands.registerCommand('gitlens.views.checkout', this.checkout, this);
+        commands.registerCommand('gitlens.views.addRemote', this.addRemote, this);
 
         commands.registerCommand('gitlens.views.stageDirectory', this.stageDirectory, this);
         commands.registerCommand('gitlens.views.stageFile', this.stageFile, this);
@@ -283,6 +284,26 @@ export class ViewCommands {
         }
 
         return Container.git.checkout(node.repoPath, node.ref);
+    }
+
+    private async addRemote(node: RemoteNode) {
+        const branchName = await window.showInputBox({
+            prompt: "Please provide a name for the remote branch (Press 'Enter' to confirm or 'Escape' to cancel)",
+            placeHolder: 'Remote branch name',
+            value: undefined
+        });
+
+        if( branchName === undefined || branchName.length === 0) return undefined;
+
+        const remoteUrl = await window.showInputBox({
+            prompt: "Please provide a url for the remote branch (Press 'Enter' to confirm or 'Escape' to cancel)",
+            placeHolder: 'Remote branch url',
+            value: undefined
+        });
+
+        if (remoteUrl === undefined || remoteUrl.length === 0) return undefined;
+
+        return Container.git.addRemote(node.repo.path, branchName, remoteUrl);
     }
 
     private closeRepository(node: RepositoryNode) {

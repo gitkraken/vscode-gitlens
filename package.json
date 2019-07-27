@@ -2374,6 +2374,15 @@
                 }
             },
             {
+                "command": "gitlens.views.addRemote",
+                "title": "Add Remote",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-add.svg",
+                    "light": "images/light/icon-add.svg"
+                }
+            },
+            {
                 "command": "gitlens.views.fetch",
                 "title": "Fetch",
                 "category": "GitLens",
@@ -4255,6 +4264,11 @@
                 {
                     "command": "gitlens.views.checkout",
                     "when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b/",
+                    "group": "inline@10"
+                },
+                {
+                    "command": "gitlens.views.addRemote",
+                    "when": "viewItem =~ /gitlens:remotes\\b/",
                     "group": "inline@10"
                 },
                 {

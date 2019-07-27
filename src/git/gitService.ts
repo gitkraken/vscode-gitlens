@@ -522,6 +522,12 @@ export class GitService implements Disposable {
 
     @gate()
     @log()
+    addRemote(repoPath: string, branchName: string, remoteUrl: string) {
+        return Git.addRemote(repoPath, branchName, remoteUrl);
+    }
+
+    @gate()
+    @log()
     fetch(repoPath: string, options: { all?: boolean; prune?: boolean; remote?: string } = {}) {
         return Git.fetch(repoPath, options);
     }
