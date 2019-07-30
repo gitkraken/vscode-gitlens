@@ -247,7 +247,11 @@ export class ViewCommands {
         if (node instanceof BranchNode) {
             let branch = node.branch;
             if (branch.current) {
-                const pick = await new ReferencesQuickPick(node.repoPath).show('Choose a branch to check out to', { checkmarks: false, filterBranches: b => !b.current, include: 'branches' });
+                const pick = await new ReferencesQuickPick(node.repoPath).show('Choose a branch to check out to', {
+                    checkmarks: false,
+                    filterBranches: b => !b.current,
+                    include: 'branches'
+                });
                 if (pick === undefined) return undefined;
 
                 branch = pick.item;
@@ -265,7 +269,8 @@ export class ViewCommands {
                 }
 
                 const name = await window.showInputBox({
-                    prompt: "Please provide a name for the local branch (Press 'Enter' to confirm or 'Escape' to cancel)",
+                    prompt:
+                        "Please provide a name for the local branch (Press 'Enter' to confirm or 'Escape' to cancel)",
                     placeHolder: 'Local branch name',
                     value: branch.getName()
                 });
