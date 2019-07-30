@@ -82,7 +82,7 @@ export class GitRemoteParser {
 
             [scheme, domain, path] = this.parseGitUrl(url);
 
-            uniqueness = `${domain}/${path}`;
+            uniqueness = `${domain ? `${domain}/` : ''}${path}`;
             remote = groups[uniqueness];
             if (remote === undefined) {
                 const provider = providerFactory(domain, path);
@@ -113,7 +113,7 @@ export class GitRemoteParser {
 
     static parseGitUrl(url: string): [string, string, string] {
         const match = urlRegex.exec(url);
-        if (match == null) return [emptyStr, emptyStr, emptyStr];
+        if (match == null) return [emptyStr, emptyStr, url];
 
         return [
             match[1] || match[3] || match[6],

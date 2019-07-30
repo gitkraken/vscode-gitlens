@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#649](https://github.com/eamodio/vscode-gitlens/issues/649) - GitLens can't see the remote but git can
 - Fixes [#798](https://github.com/eamodio/vscode-gitlens/issues/798) - git pull/fetch all repositories
 - Fixes [#805](https://github.com/eamodio/vscode-gitlens/issues/805) - Version 9.9.1 breaks working tree comparison
 

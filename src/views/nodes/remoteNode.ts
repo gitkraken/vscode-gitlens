@@ -92,11 +92,15 @@ export class RemoteNode extends ViewNode<RepositoriesView> {
             `${this.remote.default ? `${GlyphChars.Check} ${GlyphChars.Space}` : ''}${this.remote.name}`,
             TreeItemCollapsibleState.Collapsed
         );
-        item.description = `${arrows}${GlyphChars.Space} ${
-            this.remote.provider !== undefined ? this.remote.provider.name : this.remote.domain
-        } ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} ${
-            this.remote.provider !== undefined ? this.remote.provider.displayPath : this.remote.path
-        }`;
+
+        item.description =
+            this.remote.provider !== undefined
+                ? `${arrows}${GlyphChars.Space} ${this.remote.provider.name} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} ${this.remote.provider.displayPath}`
+                : `${arrows}${GlyphChars.Space} ${
+                      this.remote.domain
+                          ? `${this.remote.domain} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} `
+                          : ''
+                  }${this.remote.path}`;
         item.contextValue = ResourceType.Remote;
         if (this.remote.default) {
             item.contextValue += '+default';
