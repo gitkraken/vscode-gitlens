@@ -25,7 +25,7 @@ import { CommandContext, DocumentSchemes, setCommandContext } from '../constants
 import { Container } from '../container';
 import { LogCorrelationContext, Logger } from '../logger';
 import { Messages } from '../messages';
-import { Arrays, gate, Iterables, log, Objects, Strings, TernarySearchTree, Versions } from '../system';
+import { Arrays, debug, gate, Iterables, log, Objects, Strings, TernarySearchTree, Versions } from '../system';
 import { CachedBlame, CachedDiff, CachedLog, GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 import { vslsUriPrefixRegex } from '../vsls/vsls';
 import {
@@ -355,6 +355,14 @@ export class GitService implements Disposable {
         return repositories;
     }
 
+    @debug({
+        args: {
+            0: (root: string) => root,
+            1: (depth: number) => `${depth}`,
+            2: () => false,
+            3: () => false
+        }
+    })
     private repositorySearchCore(
         root: string,
         depth: number,
