@@ -164,7 +164,6 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
         this.canSubscribe = enabled;
     }
 
-    @gate()
     @log()
     async showHistoryForUri(uri: GitUri, baseRef?: string) {
         this._fileUri = uri;

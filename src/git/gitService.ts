@@ -511,7 +511,9 @@ export class GitService implements Disposable {
         return Git.fetch(repoPath, options);
     }
 
-    @gate()
+    @gate<GitService['fetchAll']>(
+        (repos, opts) => `${repos === undefined ? '' : repos.map(r => r.id).join(',')}|${JSON.stringify(opts)}`
+    )
     @log({
         args: {
             0: (repos?: Repository[]) => (repos === undefined ? false : repos.map(r => r.name).join(', '))
@@ -538,7 +540,9 @@ export class GitService implements Disposable {
         );
     }
 
-    @gate()
+    @gate<GitService['pullAll']>(
+        (repos, opts) => `${repos === undefined ? '' : repos.map(r => r.id).join(',')}|${JSON.stringify(opts)}`
+    )
     @log({
         args: {
             0: (repos?: Repository[]) => (repos === undefined ? false : repos.map(r => r.name).join(', '))
@@ -565,7 +569,7 @@ export class GitService implements Disposable {
         );
     }
 
-    @gate()
+    @gate<GitService['pushAll']>(repos => `${repos === undefined ? '' : repos.map(r => r.id).join(',')}`)
     @log({
         args: {
             0: (repos?: Repository[]) => (repos === undefined ? false : repos.map(r => r.name).join(', '))
