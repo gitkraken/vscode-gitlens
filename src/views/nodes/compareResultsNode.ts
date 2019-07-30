@@ -68,7 +68,7 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
                     this,
                     this.uri.repoPath!,
                     this._ref1.ref,
-                    this._ref2.ref || 'HEAD',
+                    this._ref2.ref,
                     this.getFilesQuery.bind(this)
                 )
             ];

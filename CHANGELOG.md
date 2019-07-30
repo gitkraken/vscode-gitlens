@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- Fixes [#805](https://github.com/eamodio/vscode-gitlens/issues/805) - Version 9.9.1 breaks working tree comparison
+
 ## [9.9.1] - 2019-07-23
 
 ### Fixed
