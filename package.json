@@ -5370,8 +5370,8 @@
         "ts-loader": "6.0.4",
         "typescript": "3.5.3",
         "vsce": "1.66.0",
-        "webpack": "4.37.0",
-        "webpack-bundle-analyzer": "3.3.2",
+        "webpack": "4.38.0",
+        "webpack-bundle-analyzer": "3.4.1",
         "webpack-cli": "3.3.6"
     }
 }
