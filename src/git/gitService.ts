@@ -1072,13 +1072,13 @@ export class GitService implements Disposable {
     ) {
         const [branches, tags] = await Promise.all<GitBranch[] | undefined, GitTag[] | undefined>([
             include === 'all' || include === 'branches'
-                ? Container.git.getBranches(repoPath, {
+                ? this.getBranches(repoPath, {
                       ...options,
                       filter: filterBranches && filterBranches
                   })
                 : undefined,
             include === 'all' || include === 'tags'
-                ? Container.git.getTags(repoPath, {
+                ? this.getTags(repoPath, {
                       ...options,
                       filter: filterTags && filterTags
                   })
@@ -1099,8 +1099,8 @@ export class GitService implements Disposable {
     @log()
     async getBranchesAndTagsTipsFn(repoPath: string | undefined, currentName?: string) {
         const [branches, tags] = await Promise.all([
-            Container.git.getBranches(repoPath),
-            Container.git.getTags(repoPath, { includeRefs: true })
+            this.getBranches(repoPath),
+            this.getTags(repoPath, { includeRefs: true })
         ]);
 
         const branchesAndTagsBySha = Arrays.groupByFilterMap(
@@ -1757,7 +1757,7 @@ export class GitService implements Disposable {
 
         const next = await this.getNextUri(repoPath, uri, ref);
         if (next === undefined) {
-            const status = await Container.git.getStatusForFile(repoPath, fileName);
+            const status = await this.getStatusForFile(repoPath, fileName);
             if (status !== undefined) {
                 // If the file is staged, diff with the staged version
                 if (status.indexStatus !== undefined) {
@@ -1847,7 +1847,7 @@ export class GitService implements Disposable {
         // If we are at the working tree (i.e. no ref), we need to dig deeper to figure out where to go
         if (ref === undefined || ref.length === 0) {
             // First, check the file status to see if there is anything staged
-            const status = await Container.git.getStatusForFile(repoPath, fileName);
+            const status = await this.getStatusForFile(repoPath, fileName);
             if (status !== undefined) {
                 // If the file is staged with working changes, diff working with staged (index)
                 // If the file is staged without working changes, diff staged with HEAD
@@ -1939,7 +1939,7 @@ export class GitService implements Disposable {
                 // If the document is dirty (unsaved), use the status to determine where to go
                 if (document.isDirty) {
                     // Check the file status to see if there is anything staged
-                    const status = await Container.git.getStatusForFile(repoPath, fileName);
+                    const status = await this.getStatusForFile(repoPath, fileName);
                     if (status !== undefined) {
                         // If the file is staged, diff working with staged (index)
                         // If the file is not staged, diff working with HEAD
@@ -2057,7 +2057,7 @@ export class GitService implements Disposable {
                 GitErrors.invalidLineCount.test(ex.message)
             ) {
                 if (ref === undefined) {
-                    const status = await Container.git.getStatusForFile(repoPath, fileName);
+                    const status = await this.getStatusForFile(repoPath, fileName);
                     if (status !== undefined && status.indexStatus !== undefined) {
                         return GitUri.fromFile(fileName, repoPath, GitService.uncommittedStagedSha);
                     }
@@ -2663,19 +2663,15 @@ export class GitService implements Disposable {
             return (await Git.rev_parse(repoPath, ref)) || ref;
         }
 
+        const fileName = Strings.normalizePath(paths.relative(repoPath, uri.fsPath));
+
         const match = Git.shaParentRegex.exec(ref);
         if (match != null) {
-            const previousUri = await Container.git.getPreviousUri(repoPath, uri, match[1]);
-            if (previousUri !== undefined && previousUri.sha !== undefined) {
-                return previousUri.sha;
-            }
+            const parentRef = await Git.log__file_recent(repoPath, fileName, { ref: ref });
+            if (parentRef !== undefined) return parentRef;
         }
 
-        const ensuredRef = await Git.cat_file__resolve(
-            repoPath,
-            Strings.normalizePath(paths.relative(repoPath, uri.fsPath)),
-            ref
-        );
+        const ensuredRef = await Git.cat_file__resolve(repoPath, fileName, ref);
         if (ensuredRef === undefined) return ref;
 
         return ensuredRef;

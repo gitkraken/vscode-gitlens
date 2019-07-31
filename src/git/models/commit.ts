@@ -115,6 +115,11 @@ export abstract class GitCommit {
         return Git.isUncommittedStaged(this.sha);
     }
 
+    @memoize()
+    get originalUri(): Uri {
+        return this.originalFileName ? GitUri.resolveToUri(this.originalFileName, this.repoPath) : this.uri;
+    }
+
     get previousFileSha(): string {
         return `${this.sha}^`;
     }

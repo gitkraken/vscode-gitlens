@@ -1,7 +1,7 @@
 'use strict';
 import { commands, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { Container } from '../container';
-import { GitCommit, GitLogCommit, GitService, GitUri } from '../git/gitService';
+import { GitCommit, GitService, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { ActiveEditorCommand, command, CommandContext, Commands, getCommandUri, openEditor } from './common';
@@ -50,16 +50,31 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
             args.line = editor == null ? 0 : editor.selection.active.line;
         }
 
-        const gitUri = args.commit !== undefined ? GitUri.fromCommit(args.commit) : await GitUri.fromUri(uri);
+        if (args.commit !== undefined) {
+            const diffArgs: DiffWithCommandArgs = {
+                repoPath: args.commit.repoPath,
+                lhs: {
+                    sha: `${args.commit.sha}^`,
+                    uri: args.commit.originalUri
+                },
+                rhs: {
+                    sha: args.commit.sha || '',
+                    uri: args.commit.uri
+                },
+                line: args.line,
+                showOptions: args.showOptions
+            };
+            return commands.executeCommand(Commands.DiffWith, diffArgs);
+        }
+
+        const gitUri = await GitUri.fromUri(uri);
         try {
             const diffUris = await Container.git.getPreviousDiffUris(
                 gitUri.repoPath!,
                 gitUri,
                 gitUri.sha,
                 // If we are in a diff editor, assume we are on the right side, and need to skip back 1 more revisions
-                args.inDiffEditor ? 1 : 0,
-                // If this is a merge commit, walk back using the first parent only
-                args.commit && (args.commit as GitLogCommit).isMerge
+                args.inDiffEditor ? 1 : 0
             );
 
             if (diffUris === undefined || diffUris.previous === undefined) {

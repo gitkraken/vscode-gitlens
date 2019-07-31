@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#756](https://github.com/eamodio/vscode-gitlens/issues/756) - Merge commit shows only the changes from the last commit on those files
+- Fixes [#809](https://github.com/eamodio/vscode-gitlens/issues/809) - Wrong commit diff in file history
 - Fixes [#685](https://github.com/eamodio/vscode-gitlens/issues/685) - GitLens not loading for a single repository
 - Fixes [#789](https://github.com/eamodio/vscode-gitlens/issues/789) - Line blame annotations not working when vscode root is home dir and .gnupg dir is inaccessible
 - Fixes [#649](https://github.com/eamodio/vscode-gitlens/issues/649) - GitLens can't see the remote but git can

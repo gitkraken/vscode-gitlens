@@ -755,17 +755,20 @@ export class Git {
     static async log__file_recent(
         repoPath: string,
         fileName: string,
-        { similarityThreshold }: { similarityThreshold?: number } = {}
+        { ref, similarityThreshold }: { ref?: string; similarityThreshold?: number } = {}
     ) {
-        const data = await git<string>(
-            { cwd: repoPath, errors: GitErrorHandling.Ignore },
+        const params = [
             'log',
             `-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
             '-n1',
-            '--format=%H',
-            '--',
-            fileName
-        );
+            '--format=%H'
+        ];
+
+        if (ref) {
+            params.push(ref);
+        }
+
+        const data = await git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...params, '--', fileName);
         return data.length === 0 ? undefined : data.trim();
     }
 
