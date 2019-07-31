@@ -369,6 +369,8 @@ export class GitService implements Disposable {
         excludes: { [key: string]: boolean },
         repositories: string[] = []
     ): Promise<string[]> {
+        const cc = Logger.getCorrelationContext();
+
         return new Promise<string[]>((resolve, reject) => {
             fs.readdir(root, { withFileTypes: true }, async (err, files) => {
                 if (err != null) {
@@ -391,7 +393,12 @@ export class GitService implements Disposable {
                         repositories.push(paths.resolve(root, f.name));
                     }
                     else if (depth >= 0 && excludes[f.name] !== true) {
-                        await this.repositorySearchCore(paths.resolve(root, f.name), depth, excludes, repositories);
+                        try {
+                            await this.repositorySearchCore(paths.resolve(root, f.name), depth, excludes, repositories);
+                        }
+                        catch (ex) {
+                            Logger.error(ex, cc, 'FAILED');
+                        }
                     }
                 }
 
