@@ -36,10 +36,15 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
         return `gitlens:repository(${this.branch.repoPath}):compare:branch(${this.branch.name}):compareWith`;
     }
 
-    getChildren(): ViewNode[] {
+    async getChildren(): Promise<ViewNode[]> {
         if (this._compareWith === undefined) return [];
 
         if (this._children === undefined) {
+            let ref1 = (this._compareWith && this._compareWith.ref) || 'HEAD';
+            if (this.comparisonNotation === '..') {
+                ref1 = (await Container.git.getMergeBase(this.branch.repoPath, ref1, this.branch.ref)) || ref1;
+            }
+
             this._children = [
                 new ResultsCommitsNode(
                     this.view,
@@ -56,7 +61,7 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
                     this.view,
                     this,
                     this.uri.repoPath!,
-                    (this._compareWith && this._compareWith.ref) || 'HEAD',
+                    ref1,
                     this.compareWithWorkingTree ? '' : this.branch.ref,
                     this.getFilesQuery.bind(this)
                 )

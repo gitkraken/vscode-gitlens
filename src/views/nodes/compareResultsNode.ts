@@ -49,8 +49,13 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
         return this._ref2;
     }
 
-    getChildren(): ViewNode[] {
+    async getChildren(): Promise<ViewNode[]> {
         if (this._children === undefined) {
+            let ref1 = this._ref1.ref;
+            if (this.comparisonNotation === '..') {
+                ref1 = (await Container.git.getMergeBase(this.repoPath, ref1, this._ref2.ref)) || ref1;
+            }
+
             this._children = [
                 new ResultsCommitsNode(
                     this.view,
@@ -67,7 +72,7 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
                     this.view,
                     this,
                     this.uri.repoPath!,
-                    this._ref1.ref,
+                    ref1,
                     this._ref2.ref,
                     this.getFilesQuery.bind(this)
                 )

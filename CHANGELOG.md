@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#806](https://github.com/eamodio/vscode-gitlens/issues/806) - file diff in two-dot branch compare should only show the changes in one branch
 - Fixes [#756](https://github.com/eamodio/vscode-gitlens/issues/756) - Merge commit shows only the changes from the last commit on those files
 - Fixes [#809](https://github.com/eamodio/vscode-gitlens/issues/809) - Wrong commit diff in file history
 - Fixes [#685](https://github.com/eamodio/vscode-gitlens/issues/685) - GitLens not loading for a single repository
