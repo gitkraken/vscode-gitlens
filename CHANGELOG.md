@@ -4,7 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [9.9.2] - 2019-08-01
+
+### Added
+
+- Adds a _Checkout_ command to the current branch in the _Repositories_ view which opens a quick pick menu to choose a new branch to checkout to
 
 ### Fixed
 
@@ -16,6 +20,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#649](https://github.com/eamodio/vscode-gitlens/issues/649) - GitLens can't see the remote but git can
 - Fixes [#798](https://github.com/eamodio/vscode-gitlens/issues/798) - git pull/fetch all repositories
 - Fixes [#805](https://github.com/eamodio/vscode-gitlens/issues/805) - Version 9.9.1 breaks working tree comparison
+- Fixes an issue where the GitLens _Compare_ view was shown when using the _Select for Compare_ command in the _Repositories_ view
 
 ## [9.9.1] - 2019-07-23
 
