@@ -201,7 +201,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
         const location = this.location;
 
         try {
-            return await commands.executeCommand(`${this.id}${location ? `:${location}` : ''}.focus`);
+            void (await commands.executeCommand(`${this.id}${location ? `:${location}` : ''}.focus`));
         }
         catch (ex) {
             Logger.error(ex);
@@ -218,11 +218,9 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
                 if (result === actions[0]) {
                     await configuration.update(setting, true, ConfigurationTarget.Global);
 
-                    return commands.executeCommand(`${this.id}${location ? `:${location}` : ''}.focus`);
+                    void (await commands.executeCommand(`${this.id}${location ? `:${location}` : ''}.focus`));
                 }
             }
-
-            return undefined;
         }
     }
 

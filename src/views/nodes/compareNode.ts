@@ -3,7 +3,7 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { getRepoPathOrPrompt } from '../../commands';
 import { CommandContext, GlyphChars, NamedRef, setCommandContext } from '../../constants';
 import { GitService } from '../../git/gitService';
-import { CommandQuickPickItem, ReferencesQuickPick } from '../../quickpicks';
+import { ReferencesQuickPick } from '../../quickpicks';
 import { debug, gate, Iterables, log, Promises } from '../../system';
 import { CompareView } from '../compareView';
 import { MessageNode } from './common';
@@ -135,6 +135,7 @@ export class CompareNode extends ViewNode<CompareView> {
         else if (repoPath !== this._selectedRef.repoPath) {
             // If we don't have a matching repoPath, then start over
             void this.selectForCompare(repoPath, ref);
+
             return;
         }
 
@@ -148,7 +149,12 @@ export class CompareNode extends ViewNode<CompareView> {
                     checkmarks: true
                 }
             );
-            if (pick === undefined || pick instanceof CommandQuickPickItem) return;
+            if (pick === undefined) {
+                await this.view.show();
+                await this.view.reveal(this._comparePickerNode!, { focus: true, select: true });
+
+                return;
+            }
 
             ref = pick.ref;
         }
@@ -165,7 +171,12 @@ export class CompareNode extends ViewNode<CompareView> {
         if (repoPath === undefined) {
             repoPath = await getRepoPathOrPrompt(`Compare in which repository${GlyphChars.Ellipsis}`);
         }
-        if (repoPath === undefined) return;
+        if (repoPath === undefined) {
+            await this.view.show();
+            await this.view.reveal(this._comparePickerNode!, { focus: true, select: true });
+
+            return;
+        }
 
         let autoCompare = false;
         if (ref === undefined) {
@@ -173,7 +184,12 @@ export class CompareNode extends ViewNode<CompareView> {
                 allowEnteringRefs: true,
                 checkmarks: false
             });
-            if (pick === undefined || pick instanceof CommandQuickPickItem) return;
+            if (pick === undefined) {
+                await this.view.show();
+                await this.view.reveal(this._comparePickerNode!, { focus: true, select: true });
+
+                return;
+            }
 
             ref = pick.ref;
 
@@ -183,9 +199,8 @@ export class CompareNode extends ViewNode<CompareView> {
         this._selectedRef = { label: this.getRefName(ref), repoPath: repoPath, ref: ref };
         setCommandContext(CommandContext.ViewsCanCompare, true);
 
-        await this.view.show();
-
         void (await this.triggerChange());
+        await this.view.reveal(this._comparePickerNode!, { focus: true, select: true });
 
         if (autoCompare) {
             void (await this.compareWithSelected());

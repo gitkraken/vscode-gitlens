@@ -149,13 +149,13 @@ export class CompareView extends ViewBase<CompareNode> {
 
     private async addResults(results: ViewNode) {
         if (!this.visible) {
-            void (await this.show());
+            await this.show();
         }
 
         const root = this.ensureRoot();
         root.addOrReplace(results, !this.keepResults);
 
-        setImmediate(() => this.reveal(results, { select: true, expand: true }));
+        setImmediate(() => this.reveal(results, { expand: true, focus: true, select: true }));
     }
 
     private setFilesLayout(layout: ViewFilesLayout) {
