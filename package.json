@@ -258,6 +258,12 @@
                             ]
                         },
                         {
+                            "language": "ansible",
+                            "scopes": [
+                                "document"
+                            ]
+                        },
+                        {
                             "language": "css",
                             "scopes": [
                                 "document"
