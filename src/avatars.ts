@@ -15,6 +15,14 @@ export function clearGravatarCache() {
     gravatarCache.clear();
 }
 
+function getAvatarFromGithubNoreplyAddress(email: string | undefined, size: number = 16): Uri | undefined {
+    if (!email) return undefined;
+    const match = email.match(/^(?:(?<userId>\d+)\+)?(?<userName>[a-zA-Z\d-]{1,39})@users.noreply.github.com$/);
+    if (!match || !match.groups) return undefined;
+    const { userName, userId } = match.groups;
+    return Uri.parse(`https://avatars.githubusercontent.com/${userId ? `u/${userId}` : userName}?size=${size}`);
+}
+
 export function getGravatarUri(email: string | undefined, fallback: GravatarDefaultStyle, size: number = 16): Uri {
     const hash =
         email != null && email.length !== 0 ? Strings.md5(email.trim().toLowerCase(), 'hex') : missingGravatarHash;
@@ -23,7 +31,9 @@ export function getGravatarUri(email: string | undefined, fallback: GravatarDefa
     let gravatar = gravatarCache.get(key);
     if (gravatar !== undefined) return gravatar;
 
-    gravatar = Uri.parse(`https://www.gravatar.com/avatar/${hash}.jpg?s=${size}&d=${fallback}`);
+    gravatar =
+        getAvatarFromGithubNoreplyAddress(email, size) ||
+        Uri.parse(`https://www.gravatar.com/avatar/${hash}.jpg?s=${size}&d=${fallback}`);
     gravatarCache.set(key, gravatar);
 
     return gravatar;
