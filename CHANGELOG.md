@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- Fixes [#812](https://github.com/eamodio/vscode-gitlens/issues/812) - Regression in 9.9.2: Clicking changed file in Repository Browser opens diff view between WorkingTree <-> WorkingTree, not index
+
 ## [9.9.2] - 2019-08-01
 
 ### Added

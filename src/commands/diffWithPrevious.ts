@@ -50,24 +50,31 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
             args.line = editor == null ? 0 : editor.selection.active.line;
         }
 
+        let gitUri;
         if (args.commit !== undefined) {
-            const diffArgs: DiffWithCommandArgs = {
-                repoPath: args.commit.repoPath,
-                lhs: {
-                    sha: `${args.commit.sha}^`,
-                    uri: args.commit.originalUri
-                },
-                rhs: {
-                    sha: args.commit.sha || '',
-                    uri: args.commit.uri
-                },
-                line: args.line,
-                showOptions: args.showOptions
-            };
-            return commands.executeCommand(Commands.DiffWith, diffArgs);
+            if (!args.commit.isUncommitted) {
+                const diffArgs: DiffWithCommandArgs = {
+                    repoPath: args.commit.repoPath,
+                    lhs: {
+                        sha: `${args.commit.sha}^`,
+                        uri: args.commit.originalUri
+                    },
+                    rhs: {
+                        sha: args.commit.sha || '',
+                        uri: args.commit.uri
+                    },
+                    line: args.line,
+                    showOptions: args.showOptions
+                };
+                return commands.executeCommand(Commands.DiffWith, diffArgs);
+            }
+
+            gitUri = GitUri.fromCommit(args.commit);
+        }
+        else {
+            gitUri = await GitUri.fromUri(uri);
         }
 
-        const gitUri = await GitUri.fromUri(uri);
         try {
             const diffUris = await Container.git.getPreviousDiffUris(
                 gitUri.repoPath!,
