@@ -270,10 +270,10 @@ export class ViewCommands {
                 }
 
                 const name = await window.showInputBox({
-                    prompt:
-                        "Please provide a name for the local branch (Press 'Enter' to confirm or 'Escape' to cancel)",
+                    prompt: 'Please provide a name for the local branch',
                     placeHolder: 'Local branch name',
-                    value: branch.getName()
+                    value: branch.getName(),
+                    ignoreFocusOut: true
                 });
                 if (name === undefined || name.length === 0) return undefined;
 
@@ -287,23 +287,26 @@ export class ViewCommands {
     }
 
     private async addRemote(node: RemoteNode) {
-        const branchName = await window.showInputBox({
-            prompt: "Please provide a name for the remote branch (Press 'Enter' to confirm or 'Escape' to cancel)",
-            placeHolder: 'Remote branch name',
-            value: undefined
+        const name = await window.showInputBox({
+            prompt: 'Please provide a name for the remote',
+            placeHolder: 'Remote name',
+            value: undefined,
+            ignoreFocusOut: true
         });
+        if (name === undefined || name.length === 0) return undefined;
 
-        if( branchName === undefined || branchName.length === 0) return undefined;
-
-        const remoteUrl = await window.showInputBox({
-            prompt: "Please provide a url for the remote branch (Press 'Enter' to confirm or 'Escape' to cancel)",
-            placeHolder: 'Remote branch url',
-            value: undefined
+        const url = await window.showInputBox({
+            prompt: 'Please provide the repository url for the remote',
+            placeHolder: 'Remote repository url',
+            value: undefined,
+            ignoreFocusOut: true
         });
+        if (url === undefined || url.length === 0) return undefined;
 
-        if (remoteUrl === undefined || remoteUrl.length === 0) return undefined;
+        void (await Container.git.addRemote(node.repo.path, name, url));
+        void (await node.repo.fetch({ remote: name }));
 
-        return Container.git.addRemote(node.repo.path, branchName, remoteUrl);
+        return name;
     }
 
     private closeRepository(node: RepositoryNode) {
@@ -783,9 +786,10 @@ export class ViewCommands {
         }
 
         const name = await window.showInputBox({
-            prompt: "Please provide a branch name (Press 'Enter' to confirm or 'Escape' to cancel)",
+            prompt: 'Please provide a branch name',
             placeHolder: 'Branch name',
-            value: value
+            value: value,
+            ignoreFocusOut: true
         });
         if (name === undefined || name.length === 0) return;
 
@@ -881,15 +885,16 @@ export class ViewCommands {
         if (!(node instanceof ViewRefNode)) return;
 
         const name = await window.showInputBox({
-            prompt: "Please provide a tag name (Press 'Enter' to confirm or 'Escape' to cancel)",
-            placeHolder: 'Tag name'
+            prompt: 'Please provide a tag name',
+            placeHolder: 'Tag name',
+            ignoreFocusOut: true
         });
         if (name === undefined || name.length === 0) return;
 
         const message = await window.showInputBox({
-            prompt:
-                "Please provide an optional message to annotate the tag (Press 'Enter' to confirm or 'Escape' to cancel)",
-            placeHolder: 'Tag message'
+            prompt: 'Please provide an optional message to annotate the tag',
+            placeHolder: 'Tag message',
+            ignoreFocusOut: true
         });
         if (message === undefined) return;
 

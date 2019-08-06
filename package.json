@@ -2365,21 +2365,21 @@
                 }
             },
             {
-                "command": "gitlens.views.checkout",
-                "title": "Checkout",
-                "category": "GitLens",
-                "icon": {
-                    "dark": "images/dark/icon-checkout.svg",
-                    "light": "images/light/icon-checkout.svg"
-                }
-            },
-            {
                 "command": "gitlens.views.addRemote",
                 "title": "Add Remote",
                 "category": "GitLens",
                 "icon": {
                     "dark": "images/dark/icon-add.svg",
                     "light": "images/light/icon-add.svg"
+                }
+            },
+            {
+                "command": "gitlens.views.checkout",
+                "title": "Checkout",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-checkout.svg",
+                    "light": "images/light/icon-checkout.svg"
                 }
             },
             {
@@ -3352,6 +3352,10 @@
                     "when": "gitlens:hasRemotes && !gitlens:readonly"
                 },
                 {
+                    "command": "gitlens.views.addRemote",
+                    "when": "false"
+                },
+                {
                     "command": "gitlens.views.checkout",
                     "when": "false"
                 },
@@ -4267,11 +4271,6 @@
                     "group": "inline@10"
                 },
                 {
-                    "command": "gitlens.views.addRemote",
-                    "when": "viewItem =~ /gitlens:remotes\\b/",
-                    "group": "inline@10"
-                },
-                {
                     "command": "gitlens.views.compareWithRemote",
                     "when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+tracking\\b)/",
                     "group": "inline@96"
@@ -4640,6 +4639,16 @@
                     "command": "gitlens.showFileHistoryInView",
                     "when": "viewItem =~ /gitlens:file\\b/",
                     "group": "8_gitlens@2"
+                },
+                {
+                    "command": "gitlens.views.addRemote",
+                    "when": "!gitlens:readonly && viewItem =~ /gitlens:remotes\\b/",
+                    "group": "inline@1"
+                },
+                {
+                    "command": "gitlens.views.addRemote",
+                    "when": "!gitlens:readonly && viewItem =~ /gitlens:remotes\\b/",
+                    "group": "1_gitlens@1"
                 },
                 {
                     "command": "gitlens.views.fetch",

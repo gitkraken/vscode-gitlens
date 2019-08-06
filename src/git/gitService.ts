@@ -454,6 +454,11 @@ export class GitService implements Disposable {
     }
 
     @log()
+    addRemote(repoPath: string, name: string, url: string) {
+        return Git.remote__add(repoPath, name, url);
+    }
+
+    @log()
     async applyChangesToWorkingFile(uri: GitUri, ref1?: string, ref2?: string) {
         const cc = Logger.getCorrelationContext();
 
@@ -518,12 +523,6 @@ export class GitService implements Disposable {
             void void Messages.showGenericErrorMessage(`Unable to checkout '${ref}'`);
             return undefined;
         }
-    }
-
-    @gate()
-    @log()
-    addRemote(repoPath: string, branchName: string, remoteUrl: string) {
-        return Git.addRemote(repoPath, branchName, remoteUrl);
     }
 
     @gate()

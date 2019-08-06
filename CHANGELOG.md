@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds an _Add Remote_ command to the _Remotes_ node of the _Repositories_ view &mdash; closes [#694](https://github.com/eamodio/vscode-gitlens/issues/694) thanks to [PR #802](https://github.com/eamodio/vscode-gitlens/pull/802) by Zach Boyle ([@zaboyle](https://github.com/zaboyle))
+
 ### Changed
 
 - Reverses the order of comparisons in the _Compare_ view for consistent comparisons results
