@@ -18,8 +18,8 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
     constructor(
         view: CompareView,
         public readonly repoPath: string,
-        private _ref1: NamedRef,
-        private _ref2: NamedRef,
+        private _ref: NamedRef,
+        private _compareWith: NamedRef,
         private _pinned: boolean = false,
         private _comparisonNotation?: '...' | '..'
     ) {
@@ -28,33 +28,16 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
     }
 
     get id(): string {
-        return `gitlens:repository(${this.repoPath}):compare(${this._ref1.ref}:${this._ref2.ref})|${this._instanceId}`;
-    }
-
-    get label() {
-        return `Comparing ${this._ref1.label ||
-            GitService.shortenSha(this._ref1.ref, { working: 'Working Tree' })} to ${this._ref2.label ||
-            GitService.shortenSha(this._ref2.ref, { working: 'Working Tree' })}`;
+        return `gitlens:repository(${this.repoPath}):compare(${this._ref.ref}:${this._compareWith.ref})|${this._instanceId}`;
     }
 
     get pinned(): boolean {
         return this._pinned;
     }
 
-    get ref1(): NamedRef {
-        return this._ref1;
-    }
-
-    get ref2(): NamedRef {
-        return this._ref2;
-    }
-
     async getChildren(): Promise<ViewNode[]> {
         if (this._children === undefined) {
-            let ref1 = this._ref1.ref;
-            if (this.comparisonNotation === '..') {
-                ref1 = (await Container.git.getMergeBase(this.repoPath, ref1, this._ref2.ref)) || ref1;
-            }
+            const [ref1, ref2] = await this.getDiffRefs();
 
             this._children = [
                 new ResultsCommitsNode(
@@ -68,14 +51,7 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
                         includeDescription: true
                     }
                 ),
-                new ResultsFilesNode(
-                    this.view,
-                    this,
-                    this.uri.repoPath!,
-                    ref1,
-                    this._ref2.ref,
-                    this.getFilesQuery.bind(this)
-                )
+                new ResultsFilesNode(this.view, this, this.uri.repoPath!, ref1, ref2, this.getFilesQuery.bind(this))
             ];
         }
         return this._children;
@@ -88,7 +64,11 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
             description = (repo && repo.formattedName) || this.uri.repoPath;
         }
 
-        const item = new TreeItem(this.label, this._state || TreeItemCollapsibleState.Collapsed);
+        const item = new TreeItem(
+            `Comparing ${this._ref.label || GitService.shortenSha(this._ref.ref, { working: 'Working Tree' })} to ${this
+                ._compareWith.label || GitService.shortenSha(this._compareWith.ref, { working: 'Working Tree' })}`,
+            this._state || TreeItemCollapsibleState.Collapsed
+        );
         item.contextValue = `${ResourceType.CompareResults}+${
             this.comparisonNotation === '..' ? 'twodot' : 'threedot'
         }`;
@@ -111,14 +91,28 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
         return !this._pinned;
     }
 
+    @gate()
+    @debug()
+    async getDiffRefs(): Promise<[string, string]> {
+        if (this.comparisonNotation === '..') {
+            return [
+                (await Container.git.getMergeBase(this.repoPath, this._compareWith.ref, this._ref.ref)) ||
+                    this._compareWith.ref,
+                this._ref.ref
+            ];
+        }
+
+        return [this._compareWith.ref, this._ref.ref];
+    }
+
     @log()
     async pin() {
         if (this._pinned) return;
 
         await this.view.updatePinnedComparison(this.getPinnableId(), {
             path: this.repoPath,
-            ref1: this.ref1,
-            ref2: this.ref2,
+            ref1: this._ref,
+            ref2: this._compareWith,
             notation: this._comparisonNotation
         });
 
@@ -141,8 +135,8 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
         if (this._pinned) {
             await this.view.updatePinnedComparison(this.getPinnableId(), {
                 path: this.repoPath,
-                ref1: this.ref1,
-                ref2: this.ref2,
+                ref1: this._ref,
+                ref2: this._compareWith,
                 notation: this._comparisonNotation
             });
         }
@@ -156,17 +150,17 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
         // Save the current id so we can update it later
         const currentId = this.getPinnableId();
 
-        const ref1 = this._ref1;
-        this._ref1 = this._ref2;
-        this._ref2 = ref1;
+        const ref1 = this._ref;
+        this._ref = this._compareWith;
+        this._compareWith = ref1;
 
         // If we were pinned, remove the existing pin and save a new one
         if (this._pinned) {
             await this.view.updatePinnedComparison(currentId);
             await this.view.updatePinnedComparison(this.getPinnableId(), {
                 path: this.repoPath,
-                ref1: this.ref1,
-                ref2: this.ref2,
+                ref1: this._ref,
+                ref2: this._compareWith,
                 notation: this._comparisonNotation
             });
         }
@@ -203,7 +197,7 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
     private async getCommitsQuery(maxCount: number | undefined): Promise<CommitsQueryResults> {
         const log = await Container.git.getLog(this.uri.repoPath!, {
             maxCount: maxCount,
-            ref: `${this._ref1.ref}${this.comparisonNotation}${this._ref2.ref || 'HEAD'}`
+            ref: `${this._compareWith.ref || 'HEAD'}${this.comparisonNotation}${this._ref.ref}`
         });
 
         const count = log !== undefined ? log.count : 0;
@@ -218,7 +212,7 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
     private async getFilesQuery(): Promise<FilesQueryResults> {
         const diff = await Container.git.getDiffStatus(
             this.uri.repoPath!,
-            `${this._ref1.ref}${this.diffComparisonNotation}${this._ref2.ref || 'HEAD'}`
+            `${this._compareWith.ref || 'HEAD'}${this.diffComparisonNotation}${this._ref.ref || 'HEAD'}`
         );
 
         return {
@@ -228,6 +222,6 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
     }
 
     private getPinnableId() {
-        return Strings.sha1(`${this.repoPath}|${this.ref1.ref}|${this.ref2.ref}`);
+        return Strings.sha1(`${this.repoPath}|${this._ref.ref}|${this._compareWith.ref}`);
     }
 }

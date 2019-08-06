@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Reverses the order of comparisons in the _Compare_ view for consistent comparisons results
+
 ### Fixed
 
 - Fixes [#812](https://github.com/eamodio/vscode-gitlens/issues/812) - Regression in 9.9.2: Clicking changed file in Repository Browser opens diff view between WorkingTree <-> WorkingTree, not index

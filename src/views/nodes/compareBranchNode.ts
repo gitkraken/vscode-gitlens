@@ -40,7 +40,7 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
         if (this._compareWith === undefined) return [];
 
         if (this._children === undefined) {
-            let ref1 = (this._compareWith && this._compareWith.ref) || 'HEAD';
+            let ref1 = this._compareWith.ref || 'HEAD';
             if (this.comparisonNotation === '..') {
                 ref1 = (await Container.git.getMergeBase(this.branch.repoPath, ref1, this.branch.ref)) || ref1;
             }

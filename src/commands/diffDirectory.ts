@@ -32,7 +32,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
         ]);
     }
 
-    protected preExecute(context: CommandContext, args: DiffDirectoryCommandArgs = {}) {
+    protected async preExecute(context: CommandContext, args: DiffDirectoryCommandArgs = {}) {
         switch (context.command) {
             case Commands.DiffDirectoryWithHead:
                 args.ref1 = 'HEAD';
@@ -41,8 +41,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
 
             case Commands.ViewsOpenDirectoryDiff:
                 if (context.type === 'viewItem' && context.node instanceof CompareResultsNode) {
-                    args.ref1 = context.node.ref1.ref;
-                    args.ref2 = context.node.ref2.ref;
+                    [args.ref1, args.ref2] = await context.node.getDiffRefs();
                 }
                 break;
 
