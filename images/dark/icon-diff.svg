@@ -1,4 +1,13 @@
-<?xml version="1.0" encoding="utf-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 22">
-    <path fill="#C5C5C5" d="m7.5,10l2,0l0,1l-2,0l0,2l-1,0l0,-2l-2,0l0,-1l2,0l0,-2l1,0l0,2l0,0zm-3,6l5,0l0,-1l-5,0l0,1l0,0zm4.5,-11l3.5,3.5l0,9.5c0,0.55 -0.45,1 -1,1l-9,0c-0.55,0 -1,-0.45 -1,-1l0,-12c0,-0.55 0.45,-1 1,-1l6.5,0l0,0zm2.5,4l-3,-3l-6,0l0,12l9,0l0,-9l0,0zm-1.5,-6l-5.5,0l0,1l5,0l4,4l0,8l1,0l0,-8.5l-4.5,-4.5l0,0z"/>
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g clip-path="url(#clip0)">
+<path fill-rule="evenodd" clip-rule="evenodd" d="M10 10H6V8.97852H10V10Z" fill="#C5C5C5"/>
+<path d="M14.5 1H1.5L1 1.5V11.5L1.5 12H4V14.5L4.854 14.854L7.707 12H14.5L15 11.5V1.5L14.5 1ZM14 11H7.5L7.146 11.146L5 13.293V11.5L4.5 11H2V2H14V11Z" fill="#C5C5C5"/>
+<path d="M7.5 3H8.5V8H7.5V3Z" fill="#C5C5C5"/>
+<path d="M10.5 5V6H5.5V5H10.5Z" fill="#C5C5C5"/>
+</g>
+<defs>
+<clipPath id="clip0">
+<rect width="16" height="16" fill="white"/>
+</clipPath>
+</defs>
 </svg>
