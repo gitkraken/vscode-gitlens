@@ -475,6 +475,33 @@
                     "markdownDescription": "Specifies the style of the gravatar default (fallback) images",
                     "scope": "window"
                 },
+                "gitlens.gitCommands.skipConfirmations": {
+                    "type": "array",
+                    "default": [
+                        "checkout",
+                        "fetch"
+                    ],
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "checkout",
+                            "fetch",
+                            "pull",
+                            "push"
+                        ],
+                        "enumDescriptions": [
+                            "Skips checkout command confirmation",
+                            "Skips fetch command confirmation",
+                            "Skips pull command confirmation",
+                            "Skips push command confirmation"
+                        ]
+                    },
+                    "minItems": 0,
+                    "maxItems": 4,
+                    "uniqueItems": true,
+                    "markdownDescription": "Specifies which Git commands should have their confirmations skipped when executed from a GitLens view",
+                    "scope": "window"
+                },
                 "gitlens.heatmap.ageThreshold": {
                     "type": "string",
                     "default": "90",

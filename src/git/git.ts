@@ -449,6 +449,28 @@ export class Git {
         return git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore, local: true }, 'check-mailmap', author);
     }
 
+    static async check_ref_format(ref: string, repoPath?: string, options: { branch?: boolean } = { branch: true }) {
+        const params = ['check-ref-format'];
+        if (options.branch) {
+            params.push('--branch');
+        }
+        else {
+            params.push('--normalize');
+        }
+
+        try {
+            const data = await git<string>(
+                { cwd: repoPath || emptyStr, errors: GitErrorHandling.Throw, local: true },
+                ...params,
+                ref
+            );
+            return data.trim();
+        }
+        catch {
+            return false;
+        }
+    }
+
     static checkout(
         repoPath: string,
         ref: string,

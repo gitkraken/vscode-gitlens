@@ -32,6 +32,9 @@ export interface Config {
     defaultDateSource: DateSource;
     defaultDateStyle: DateStyle;
     defaultGravatarsStyle: GravatarDefaultStyle;
+    gitCommands: {
+        skipConfirmations: string[];
+    };
     heatmap: {
         ageThreshold: number;
         coldColor: string;

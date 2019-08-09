@@ -7,6 +7,7 @@ import {
     DiffWithCommandArgsRevision,
     DiffWithPreviousCommandArgs,
     DiffWithWorkingCommandArgs,
+    GitCommandsCommandArgs,
     openEditor,
     OpenFileInRemoteCommandArgs,
     OpenFileRevisionCommandArgs,
@@ -45,7 +46,6 @@ import {
 } from './nodes';
 import { Strings } from '../system/string';
 import { runGitCommandInTerminal } from '../terminal';
-import { ReferencesQuickPick } from '../quickpicks';
 
 interface CompareSelectedInfo {
     ref: string;
@@ -199,7 +199,9 @@ export class ViewCommands {
 
     private fetch(node: RemoteNode | RepositoryNode) {
         if (node instanceof RemoteNode) return node.fetch();
-        if (node instanceof RepositoryNode) return node.fetch();
+        if (node instanceof RepositoryNode) {
+            return commands.executeCommand(Commands.GitCommands, { command: 'fetch', state: { repos: [node.repo] } });
+        }
 
         return undefined;
     }
@@ -210,7 +212,7 @@ export class ViewCommands {
         }
         if (!(node instanceof RepositoryNode)) return undefined;
 
-        return node.pull();
+        return commands.executeCommand(Commands.GitCommands, { command: 'pull', state: { repos: [node.repo] } });
     }
 
     private push(node: RepositoryNode | BranchTrackingStatusNode, force?: boolean) {
@@ -219,7 +221,7 @@ export class ViewCommands {
         }
         if (!(node instanceof RepositoryNode)) return undefined;
 
-        return node.push({ force: force });
+        return commands.executeCommand(Commands.GitCommands, { command: 'push', state: { repos: [node.repo] } });
     }
 
     private async applyChanges(node: ViewRefFileNode) {
@@ -245,45 +247,26 @@ export class ViewCommands {
             return Container.git.checkout(node.repoPath, node.ref, { fileName: node.fileName });
         }
 
+        const repo = await Container.git.getRepository(node.repoPath);
+
+        let args: GitCommandsCommandArgs;
         if (node instanceof BranchNode) {
-            let branch = node.branch;
-            if (branch.current) {
-                const pick = await new ReferencesQuickPick(node.repoPath).show('Choose a branch to check out to', {
-                    checkmarks: false,
-                    filterBranches: b => !b.current,
-                    include: 'branches'
-                });
-                if (pick === undefined) return undefined;
-
-                branch = pick.item;
-            }
-
-            if (branch.remote) {
-                const branches = await Container.git.getBranches(node.repoPath, {
-                    filter: b => {
-                        return b.tracking === branch.name;
-                    }
-                });
-
-                if (branches.length !== 0) {
-                    return Container.git.checkout(node.repoPath, branches[0].ref);
-                }
-
-                const name = await window.showInputBox({
-                    prompt: 'Please provide a name for the local branch',
-                    placeHolder: 'Local branch name',
-                    value: branch.getName(),
-                    ignoreFocusOut: true
-                });
-                if (name === undefined || name.length === 0) return undefined;
-
-                return Container.git.checkout(node.repoPath, branch.ref, { createBranch: name });
-            }
-
-            return Container.git.checkout(branch.repoPath, branch.ref);
+            args = {
+                command: 'checkout',
+                state: { repos: [repo!], branchOrTagOrRef: node.branch.current ? undefined : node.branch }
+            };
+        }
+        else if (node instanceof TagNode) {
+            args = { command: 'checkout', state: { repos: [repo!], branchOrTagOrRef: node.tag } };
+        }
+        else {
+            args = {
+                command: 'checkout',
+                state: { repos: [repo!], branchOrTagOrRef: { name: node.ref, ref: node.ref } }
+            };
         }
 
-        return Container.git.checkout(node.repoPath, node.ref);
+        return commands.executeCommand(Commands.GitCommands, args);
     }
 
     private async addRemote(node: RemoteNode) {

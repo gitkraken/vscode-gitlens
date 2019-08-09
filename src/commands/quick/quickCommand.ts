@@ -1,5 +1,22 @@
 'use strict';
-import { QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
+import { InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
+import { Promises } from '../../system/promise';
+
+export * from './quickCommands.helpers';
+
+export interface QuickInputStep {
+    buttons?: QuickInputButton[];
+    placeholder?: string;
+    title?: string;
+    value?: string;
+
+    onDidClickButton?(input: InputBox, button: QuickInputButton): void;
+    validate?(value: string | undefined): [boolean, string | undefined] | Promise<[boolean, string | undefined]>;
+}
+
+export function isQuickInputStep(item: QuickPickStep | QuickInputStep): item is QuickInputStep {
+    return (item as QuickPickStep).items === undefined;
+}
 
 export interface QuickPickStep<T extends QuickPickItem = any> {
     buttons?: QuickInputButton[];
@@ -8,9 +25,15 @@ export interface QuickPickStep<T extends QuickPickItem = any> {
     multiselect?: boolean;
     placeholder?: string;
     title?: string;
+    value?: string;
 
+    onDidAccept?(quickpick: QuickPick<T>): Promise<boolean>;
     onDidClickButton?(quickpick: QuickPick<T>, button: QuickInputButton): void;
-    validate?(selection: T[]): boolean;
+    validate?(selection: T[]): boolean | Promise<boolean>;
+}
+
+export function isQuickPickStep(item: QuickPickStep | QuickInputStep): item is QuickPickStep {
+    return (item as QuickPickStep).items !== undefined;
 }
 
 export class CommandAbortError extends Error {
@@ -19,7 +42,9 @@ export class CommandAbortError extends Error {
     }
 }
 
-export abstract class QuickCommandBase implements QuickPickItem {
+export type StepState<T> = Partial<T> & { counter: number; skipConfirmation?: boolean };
+
+export abstract class QuickCommandBase<T = any> implements QuickPickItem {
     static is(item: QuickPickItem): item is QuickCommandBase {
         return item instanceof QuickCommandBase;
     }
@@ -27,8 +52,8 @@ export abstract class QuickCommandBase implements QuickPickItem {
     readonly description?: string;
     readonly detail?: string;
 
-    private _current: QuickPickStep | undefined;
-    private _stepsIterator: AsyncIterableIterator<QuickPickStep> | undefined;
+    private _current: QuickPickStep | QuickInputStep | undefined;
+    private _stepsIterator: AsyncIterableIterator<QuickPickStep | QuickInputStep> | undefined;
 
     constructor(
         public readonly label: string,
@@ -42,29 +67,40 @@ export abstract class QuickCommandBase implements QuickPickItem {
         this.detail = options.detail;
     }
 
-    abstract steps(): AsyncIterableIterator<QuickPickStep>;
+    private _picked: boolean = false;
+    get picked() {
+        return this._picked;
+    }
+    set picked(value: boolean) {
+        this._picked = value;
+    }
 
-    async previous(): Promise<QuickPickStep | undefined> {
+    protected _initialState?: StepState<T>;
+
+    protected abstract steps(): AsyncIterableIterator<QuickPickStep | QuickInputStep>;
+
+    async previous(): Promise<QuickPickStep | QuickInputStep | undefined> {
         // Simulate going back, by having no selection
         return (await this.next([])).value;
     }
 
-    async next(selection?: QuickPickItem[]): Promise<IteratorResult<QuickPickStep>> {
+    async next(value?: QuickPickItem[] | string): Promise<IteratorResult<QuickPickStep | QuickInputStep>> {
         if (this._stepsIterator === undefined) {
             this._stepsIterator = this.steps();
         }
 
-        const result = await this._stepsIterator.next(selection);
+        const result = await this._stepsIterator.next(value);
         this._current = result.value;
 
         if (result.done) {
+            this._initialState = undefined;
             this._stepsIterator = undefined;
         }
 
         return result;
     }
 
-    get value(): QuickPickStep | undefined {
+    get value(): QuickPickStep | QuickInputStep | undefined {
         return this._current;
     }
 
@@ -73,7 +109,7 @@ export abstract class QuickCommandBase implements QuickPickItem {
         confirmations: T[],
         cancellable: boolean = true
     ): QuickPickStep<T> {
-        return this.createStep<T>({
+        return this.createPickStep<T>({
             placeholder: `Confirm ${this.title}`,
             title: title,
             items: cancellable ? [...confirmations, { label: 'Cancel' }] : confirmations,
@@ -86,7 +122,11 @@ export abstract class QuickCommandBase implements QuickPickItem {
         });
     }
 
-    protected createStep<T extends QuickPickItem>(step: QuickPickStep<T>): QuickPickStep<T> {
+    protected createInputStep(step: QuickInputStep): QuickInputStep {
+        return step;
+    }
+
+    protected createPickStep<T extends QuickPickItem>(step: QuickPickStep<T>): QuickPickStep<T> {
         return step;
     }
 
@@ -94,8 +134,18 @@ export abstract class QuickCommandBase implements QuickPickItem {
         step: QuickPickStep<T>,
         state: { counter: number },
         selection: T[] | undefined
-    ): selection is T[] {
-        if (selection === undefined || selection.length === 0) {
+    ): selection is T[];
+    protected canMoveNext<T extends string>(
+        step: QuickInputStep,
+        state: { counter: number },
+        value: string | undefined
+    ): boolean | Promise<boolean>;
+    protected canMoveNext<T extends any>(
+        step: QuickPickStep | QuickInputStep,
+        state: { counter: number },
+        value: T[] | string | undefined
+    ) {
+        if (value === undefined || value.length === 0) {
             state.counter--;
             if (state.counter < 0) {
                 state.counter = 0;
@@ -103,9 +153,18 @@ export abstract class QuickCommandBase implements QuickPickItem {
             return false;
         }
 
-        if (step.validate === undefined || step.validate(selection)) {
+        if (step.validate === undefined || (isQuickPickStep(step) && step.validate!(value as T[]))) {
             state.counter++;
             return true;
+        }
+
+        if (isQuickInputStep(step)) {
+            const result = step.validate!(value as string);
+            if (!Promises.isPromise(result)) {
+                return result[0];
+            }
+
+            return result.then(([valid]) => valid);
         }
 
         return false;

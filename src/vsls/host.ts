@@ -23,6 +23,7 @@ const gitWhitelist = new Map<string, (args: any[]) => boolean>([
     ['branch', args => args[1] === '--contains'],
     ['cat-file', defaultWhitelistFn],
     ['check-mailmap', defaultWhitelistFn],
+    ['check-ref-format', defaultWhitelistFn],
     ['config', args => args[1] === '--get' || args[1] === '--get-regex'],
     ['diff', defaultWhitelistFn],
     ['difftool', defaultWhitelistFn],

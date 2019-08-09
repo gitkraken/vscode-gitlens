@@ -3,10 +3,16 @@ import { QuickPickItem } from 'vscode';
 import { Container } from '../../container';
 import { GitBranch, Repository } from '../../git/gitService';
 import { GlyphChars } from '../../constants';
-import { CommandAbortError, QuickPickStep } from './quickCommand';
+import {
+    CommandAbortError,
+    getBranchesAndOrTags,
+    QuickCommandBase,
+    QuickInputStep,
+    QuickPickStep,
+    StepState
+} from './quickCommand';
 import { BranchQuickPickItem, RepositoryQuickPickItem } from '../../quickpicks';
 import { Strings } from '../../system';
-import { GitCommandBase } from './gitCommand';
 import { runGitCommandInTerminal } from '../../terminal';
 
 interface State {
@@ -16,7 +22,7 @@ interface State {
     flags: string[];
 }
 
-export class RebaseQuickCommand extends GitCommandBase {
+export class RebaseQuickCommand extends QuickCommandBase<State> {
     constructor() {
         super('rebase', 'Rebase', { description: 'via Terminal' });
     }
@@ -25,8 +31,8 @@ export class RebaseQuickCommand extends GitCommandBase {
         runGitCommandInTerminal('rebase', [...state.flags, state.source.ref].join(' '), state.repo.path, true);
     }
 
-    async *steps(): AsyncIterableIterator<QuickPickStep> {
-        const state: Partial<State> & { counter: number } = { counter: 0 };
+    protected async *steps(): AsyncIterableIterator<QuickPickStep | QuickInputStep> {
+        const state: StepState<State> = this._initialState === undefined ? { counter: 0 } : this._initialState;
         let oneRepo = false;
 
         while (true) {
@@ -42,7 +48,7 @@ export class RebaseQuickCommand extends GitCommandBase {
                     else {
                         const active = state.repo ? state.repo : await Container.git.getActiveRepository();
 
-                        const step = this.createStep<RepositoryQuickPickItem>({
+                        const step = this.createPickStep<RepositoryQuickPickItem>({
                             title: this.title,
                             placeholder: 'Choose a repository',
                             items: await Promise.all(
@@ -71,12 +77,12 @@ export class RebaseQuickCommand extends GitCommandBase {
                 if (state.source === undefined || state.counter < 2) {
                     const destId = state.destination.id;
 
-                    const step = this.createStep<BranchQuickPickItem>({
+                    const step = this.createPickStep<BranchQuickPickItem>({
                         title: `${this.title} ${state.destination.name}${Strings.pad(GlyphChars.Dot, 2, 2)}${
                             state.repo.name
                         }`,
                         placeholder: `Choose a branch or tag to rebase ${state.destination.name} with`,
-                        items: await this.getBranchesAndOrTags(state.repo, true, {
+                        items: await getBranchesAndOrTags(state.repo, true, {
                             filterBranches: b => b.id !== destId,
                             picked: state.source && state.source.ref
                         })

@@ -2,21 +2,59 @@
 /* eslint-disable no-loop-func */
 import { ProgressLocation, QuickInputButtons, window } from 'vscode';
 import { Container } from '../../container';
-import { Repository } from '../../git/gitService';
+import { GitBranch, GitReference, GitService, GitTag, Repository } from '../../git/gitService';
 import { GlyphChars } from '../../constants';
-import { GitCommandBase } from './gitCommand';
-import { CommandAbortError, QuickPickStep } from './quickCommand';
+import {
+    CommandAbortError,
+    getBranchesAndOrTags,
+    QuickCommandBase,
+    QuickInputStep,
+    QuickPickStep,
+    StepState
+} from './quickCommand';
 import { ReferencesQuickPickItem, RepositoryQuickPickItem } from '../../quickpicks';
 import { Strings } from '../../system';
 
 interface State {
     repos: Repository[];
-    ref: string;
+    branchOrTagOrRef: GitBranch | GitTag | GitReference;
+    createBranch?: string;
 }
 
-export class CheckoutQuickCommand extends GitCommandBase {
-    constructor() {
+export interface CommandArgs {
+    readonly command: 'checkout';
+    state?: Partial<State>;
+
+    skipConfirmation?: boolean;
+}
+
+export class CheckoutQuickCommand extends QuickCommandBase<State> {
+    constructor(args?: CommandArgs) {
         super('checkout', 'Checkout');
+
+        if (args === undefined || args.state === undefined) return;
+
+        let counter = 0;
+        if (args.state.repos !== undefined && args.state.repos.length !== 0) {
+            counter++;
+        }
+
+        if (args.state.branchOrTagOrRef !== undefined) {
+            counter++;
+        }
+
+        if (
+            args.skipConfirmation === undefined &&
+            Container.config.gitCommands.skipConfirmations.includes(this.label)
+        ) {
+            args.skipConfirmation = true;
+        }
+
+        this._initialState = {
+            counter: counter,
+            skipConfirmation: counter > 1 && args.skipConfirmation,
+            ...args.state
+        };
     }
 
     async execute(state: State) {
@@ -25,14 +63,19 @@ export class CheckoutQuickCommand extends GitCommandBase {
                 location: ProgressLocation.Notification,
                 title: `Checking out ${
                     state.repos.length === 1 ? state.repos[0].formattedName : `${state.repos.length} repositories`
-                } to ${state.ref}`
+                } to ${state.branchOrTagOrRef.ref}`
             },
-            () => Promise.all(state.repos.map(r => r.checkout(state.ref, { progress: false })))
+            () =>
+                Promise.all(
+                    state.repos.map(r =>
+                        r.checkout(state.branchOrTagOrRef.ref, { createBranch: state.createBranch, progress: false })
+                    )
+                )
         ));
     }
 
-    async *steps(): AsyncIterableIterator<QuickPickStep> {
-        const state: Partial<State> & { counter: number } = { counter: 0 };
+    protected async *steps(): AsyncIterableIterator<QuickPickStep | QuickInputStep> {
+        const state: StepState<State> = this._initialState === undefined ? { counter: 0 } : this._initialState;
         let oneRepo = false;
         let showTags = false;
 
@@ -47,7 +90,7 @@ export class CheckoutQuickCommand extends GitCommandBase {
                         state.repos = [repos[0]];
                     }
                     else {
-                        const step = this.createStep<RepositoryQuickPickItem>({
+                        const step = this.createPickStep<RepositoryQuickPickItem>({
                             multiselect: true,
                             title: this.title,
                             placeholder: 'Choose repositories',
@@ -71,19 +114,27 @@ export class CheckoutQuickCommand extends GitCommandBase {
                     }
                 }
 
-                if (state.ref === undefined || state.counter < 2) {
+                if (state.branchOrTagOrRef === undefined || state.counter < 2) {
                     const includeTags = showTags || state.repos.length === 1;
 
-                    const items = await this.getBranchesAndOrTags(state.repos, includeTags);
-                    const step = this.createStep<ReferencesQuickPickItem>({
+                    const items = await getBranchesAndOrTags(
+                        state.repos,
+                        includeTags,
+                        state.repos.length === 1 ? undefined : { filterBranches: b => !b.remote }
+                    );
+                    const step = this.createPickStep<ReferencesQuickPickItem>({
                         title: `${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${
                             state.repos.length === 1
                                 ? state.repos[0].formattedName
                                 : `${state.repos.length} repositories`
                         }`,
-                        placeholder: `Choose a branch${includeTags ? ' or tag' : ''} to checkout to`,
+                        placeholder: `Choose a branch${
+                            includeTags ? ' or tag' : ''
+                        } to checkout to${GlyphChars.Space.repeat(3)}(select or enter a reference)`,
                         items: items,
-                        selectedItems: state.ref ? items.filter(ref => ref.label === state.ref) : undefined,
+                        selectedItems: state.branchOrTagOrRef
+                            ? items.filter(ref => ref.label === state.branchOrTagOrRef!.ref)
+                            : undefined,
                         buttons: includeTags
                             ? [QuickInputButtons.Back]
                             : [
@@ -104,13 +155,21 @@ export class CheckoutQuickCommand extends GitCommandBase {
                                 showTags = true;
                             }
 
-                            quickpick.placeholder = `Choose a branch${showTags ? ' or tag' : ''} to checkout to`;
+                            quickpick.placeholder = `Choose a branch${
+                                showTags ? ' or tag' : ''
+                            } to checkout to${GlyphChars.Space.repeat(3)}(select or enter a reference)`;
                             quickpick.buttons = [QuickInputButtons.Back];
 
-                            quickpick.items = await this.getBranchesAndOrTags(state.repos!, showTags);
+                            quickpick.items = await getBranchesAndOrTags(state.repos!, showTags);
 
                             quickpick.busy = false;
                             quickpick.enabled = true;
+                        },
+                        onDidAccept: (quickpick): Promise<boolean> => {
+                            const ref = quickpick.value.trim();
+                            if (ref.length === 0 || state.repos!.length !== 1) return Promise.resolve(false);
+
+                            return Container.git.validateReference(state.repos![0].path, ref);
                         }
                     });
                     const selection = yield step;
@@ -123,29 +182,81 @@ export class CheckoutQuickCommand extends GitCommandBase {
                         continue;
                     }
 
-                    state.ref = selection[0].item.ref;
+                    state.branchOrTagOrRef =
+                        typeof selection === 'string'
+                            ? { name: GitService.shortenSha(selection), ref: selection }
+                            : selection[0].item;
                 }
 
-                const step = this.createConfirmStep(
-                    `Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${
-                        state.repos.length === 1 ? state.repos[0].formattedName : `${state.repos.length} repositories`
-                    } to ${state.ref}`,
-                    [
-                        {
-                            label: this.title,
-                            description: `${state.ref}`,
-                            detail: `Will checkout ${
+                if (state.branchOrTagOrRef instanceof GitBranch && state.branchOrTagOrRef.remote) {
+                    const branches = await Container.git.getBranches(state.branchOrTagOrRef.repoPath, {
+                        filter: b => {
+                            return b.tracking === state.branchOrTagOrRef!.name;
+                        }
+                    });
+
+                    if (branches.length === 0) {
+                        const step = this.createInputStep({
+                            title: `${this.title} new branch to ${state.branchOrTagOrRef.ref}${Strings.pad(
+                                GlyphChars.Dot,
+                                2,
+                                2
+                            )}${
                                 state.repos.length === 1
                                     ? state.repos[0].formattedName
                                     : `${state.repos.length} repositories`
-                            } to ${state.ref}`
-                        }
-                    ]
-                );
-                const selection = yield step;
+                            }`,
+                            placeholder: 'Choose name for the local branch',
+                            value: state.branchOrTagOrRef.getName(),
+                            validate: async (value: string | undefined): Promise<[boolean, string | undefined]> => {
+                                if (value == null) return [false, undefined];
 
-                if (!this.canMoveNext(step, state, selection)) {
-                    continue;
+                                value = value.trim();
+                                if (value.length === 0) return [false, 'Please enter a valid branch name'];
+
+                                const valid = Boolean(await Container.git.validateBranchName(value!));
+                                return [valid, valid ? undefined : `'${value}' isn't a valid branch name`];
+                            }
+                        });
+
+                        const value = yield step;
+
+                        if (!(await this.canMoveNext(step, state, value))) {
+                            continue;
+                        }
+
+                        state.createBranch = value;
+                    }
+                }
+
+                if (!state.skipConfirmation) {
+                    const step = this.createConfirmStep(
+                        `Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${
+                            state.repos.length === 1
+                                ? state.repos[0].formattedName
+                                : `${state.repos.length} repositories`
+                        }`,
+                        [
+                            {
+                                label: this.title,
+                                description: `${state.createBranch ? `${state.createBranch} to ` : ''}${
+                                    state.branchOrTagOrRef.name
+                                }`,
+                                detail: `Will ${
+                                    state.createBranch ? `create ${state.createBranch} and` : ''
+                                } checkout to ${state.branchOrTagOrRef.name} in ${
+                                    state.repos.length === 1
+                                        ? state.repos[0].formattedName
+                                        : `${state.repos.length} repositories`
+                                }`
+                            }
+                        ]
+                    );
+                    const selection = yield step;
+
+                    if (!this.canMoveNext(step, state, selection)) {
+                        continue;
+                    }
                 }
 
                 this.execute(state as State);

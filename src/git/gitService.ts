@@ -595,14 +595,14 @@ export class GitService implements Disposable {
             0: (repos?: Repository[]) => (repos === undefined ? false : repos.map(r => r.name).join(', '))
         }
     })
-    async pushAll(repositories?: Repository[]) {
+    async pushAll(repositories?: Repository[], options: { force?: boolean } = {}) {
         if (repositories === undefined) {
             repositories = await this.getOrderedRepositories();
         }
         if (repositories.length === 0) return;
 
         if (repositories.length === 1) {
-            repositories[0].push();
+            repositories[0].push(options);
 
             return;
         }
@@ -612,7 +612,7 @@ export class GitService implements Disposable {
                 location: ProgressLocation.Notification,
                 title: `Pushing ${repositories.length} repositories`
             },
-            () => Promise.all(repositories!.map(r => r.push({ progress: false })))
+            () => Promise.all(repositories!.map(r => r.push({ progress: false, ...options })))
         );
     }
 
@@ -2680,6 +2680,11 @@ export class GitService implements Disposable {
         if (ensuredRef === undefined) return ref;
 
         return ensuredRef;
+    }
+
+    @log()
+    validateBranchName(ref: string, repoPath?: string) {
+        return Git.check_ref_format(ref, repoPath);
     }
 
     @log()

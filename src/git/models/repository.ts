@@ -237,9 +237,9 @@ export class Repository implements Disposable {
 
     @gate()
     @log()
-    async checkout(ref: string, options: { progress?: boolean } = {}) {
-        const { progress } = { progress: true, ...options };
-        if (!progress) return this.checkoutCore(ref);
+    async checkout(ref: string, options: { createBranch?: string | undefined; progress?: boolean } = {}) {
+        const { progress, ...opts } = { progress: true, ...options };
+        if (!progress) return this.checkoutCore(ref, opts);
 
         return void (await window.withProgress(
             {
@@ -247,13 +247,13 @@ export class Repository implements Disposable {
                 title: `Checking out ${this.formattedName} to ${ref}...`,
                 cancellable: false
             },
-            () => this.checkoutCore(ref)
+            () => this.checkoutCore(ref, opts)
         ));
     }
 
-    private async checkoutCore(ref: string, options: { remote?: string } = {}) {
+    private async checkoutCore(ref: string, options: { createBranch?: string } = {}) {
         try {
-            void (await Container.git.checkout(this.path, ref));
+            void (await Container.git.checkout(this.path, ref, options));
 
             this.fireChange(RepositoryChange.Repository);
         }

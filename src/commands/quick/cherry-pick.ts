@@ -4,8 +4,14 @@ import { Container } from '../../container';
 import { GitBranch, GitLogCommit, Repository } from '../../git/gitService';
 import { GlyphChars } from '../../constants';
 import { Iterables, Strings } from '../../system';
-import { GitCommandBase } from './gitCommand';
-import { CommandAbortError, QuickPickStep } from './quickCommand';
+import {
+    CommandAbortError,
+    getBranchesAndOrTags,
+    QuickCommandBase,
+    QuickInputStep,
+    QuickPickStep,
+    StepState
+} from './quickCommand';
 import { BranchQuickPickItem, CommitQuickPickItem, RepositoryQuickPickItem } from '../../quickpicks';
 import { runGitCommandInTerminal } from '../../terminal';
 
@@ -16,7 +22,7 @@ interface State {
     commits: GitLogCommit[];
 }
 
-export class CherryPickQuickCommand extends GitCommandBase {
+export class CherryPickQuickCommand extends QuickCommandBase<State> {
     constructor() {
         super('cherry-pick', 'Cherry Pick', { description: 'via Terminal' });
     }
@@ -27,8 +33,8 @@ export class CherryPickQuickCommand extends GitCommandBase {
         runGitCommandInTerminal('cherry-pick', state.commits.map(c => c.sha).join(' '), state.repo.path, true);
     }
 
-    async *steps(): AsyncIterableIterator<QuickPickStep> {
-        const state: Partial<State> & { counter: number } = { counter: 0 };
+    protected async *steps(): AsyncIterableIterator<QuickPickStep | QuickInputStep> {
+        const state: StepState<State> = this._initialState === undefined ? { counter: 0 } : this._initialState;
         let oneRepo = false;
 
         while (true) {
@@ -44,7 +50,7 @@ export class CherryPickQuickCommand extends GitCommandBase {
                     else {
                         const active = state.repo ? state.repo : await Container.git.getActiveRepository();
 
-                        const step = this.createStep<RepositoryQuickPickItem>({
+                        const step = this.createPickStep<RepositoryQuickPickItem>({
                             title: this.title,
                             placeholder: 'Choose a repository',
                             items: await Promise.all(
@@ -73,14 +79,20 @@ export class CherryPickQuickCommand extends GitCommandBase {
                 if (state.source === undefined || state.counter < 2) {
                     const destId = state.destination.id;
 
-                    const step = this.createStep<BranchQuickPickItem>({
+                    const step = this.createPickStep<BranchQuickPickItem>({
                         title: `${this.title} into ${state.destination.name}${Strings.pad(GlyphChars.Dot, 2, 2)}${
                             state.repo.name
                         }`,
                         placeholder: 'Choose a branch or tag to cherry-pick from',
-                        items: await this.getBranchesAndOrTags(state.repo, true, {
+                        items: await getBranchesAndOrTags(state.repo, true, {
                             filterBranches: b => b.id !== destId
                         })
+                        // onDidAccept: (quickpick): Promise<boolean> => {
+                        //     const ref = quickpick.value.trim();
+                        //     if (ref.length === 0) return Promise.resolve(false);
+
+                        //     return Container.git.validateReference(state.repo!.path, ref);
+                        // }
                     });
                     const selection = yield step;
 
@@ -92,16 +104,22 @@ export class CherryPickQuickCommand extends GitCommandBase {
                         continue;
                     }
 
+                    // TODO: Allow pasting in commit id
+                    // if (typeof selection === 'string') {
+
+                    // }
+                    // else {
                     state.source = selection[0].item;
+                    // }
                 }
 
                 if (state.commits === undefined || state.counter < 3) {
-                    const log = await Container.git.getLog(state.source.repoPath, {
+                    const log = await Container.git.getLog(state.repo.path, {
                         ref: `${state.destination.ref}..${state.source.ref}`,
                         merges: false
                     });
 
-                    const step = this.createStep<CommitQuickPickItem>({
+                    const step = this.createPickStep<CommitQuickPickItem>({
                         title: `${this.title} onto ${state.destination.name}${Strings.pad(GlyphChars.Dot, 2, 2)}${
                             state.repo.name
                         }`,
