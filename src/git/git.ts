@@ -259,17 +259,21 @@ export class Git {
     static shortenSha(
         ref: string | undefined,
         {
-            uncommitted = 'Working Tree',
-            uncommittedStaged: uncommittedStaged = 'Index',
-            working = emptyStr
-        }: { uncommittedStaged?: string; uncommitted?: string; working?: string } = {}
+            force,
+            strings = {}
+        }: {
+            force?: boolean;
+            strings?: { uncommitted?: string; uncommittedStaged?: string; working?: string };
+        } = {}
     ) {
-        if (ref == null || ref.length === 0) return working;
+        if (ref == null || ref.length === 0) return strings.working || emptyStr;
         if (Git.isUncommitted(ref)) {
-            return Git.isUncommittedStaged(ref) ? uncommittedStaged : uncommitted;
+            return Git.isUncommittedStaged(ref)
+                ? strings.uncommittedStaged || 'Index'
+                : strings.uncommitted || 'Working Tree';
         }
 
-        if (!Git.isShaLike(ref)) return ref;
+        if (!force && !Git.isShaLike(ref)) return ref;
 
         // Don't allow shas to be shortened to less than 5 characters
         const len = Math.max(5, Container.config.advanced.abbreviatedShaLength);
@@ -415,12 +419,12 @@ export class Git {
         if (Git.isUncommitted(ref)) return ref;
 
         try {
-            await git<string>(
+            void (await git<string>(
                 { cwd: repoPath, errors: GitErrorHandling.Throw },
                 'cat-file',
                 '-e',
                 `${ref}:./${fileName}`
-            );
+            ));
             return ref;
         }
         catch (ex) {
@@ -437,7 +441,7 @@ export class Git {
         if (Git.isUncommitted(ref)) return true;
 
         try {
-            await git<string>({ cwd: repoPath, errors: GitErrorHandling.Throw }, 'cat-file', '-t', ref);
+            void (await git<string>({ cwd: repoPath, errors: GitErrorHandling.Throw }, 'cat-file', '-t', ref));
             return true;
         }
         catch (ex) {

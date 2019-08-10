@@ -48,7 +48,7 @@ export class VslsController implements Disposable {
                 workspace.workspaceFolders !== undefined &&
                 workspace.workspaceFolders.some(f => f.uri.scheme === DocumentSchemes.Vsls)
             ) {
-                setCommandContext(CommandContext.Readonly, true);
+                this.setReadonly(true);
                 this._waitForReady = new Promise(resolve => (this._onReady = resolve));
             }
 
@@ -78,6 +78,15 @@ export class VslsController implements Disposable {
 
     get isMaybeGuest() {
         return this._guest !== undefined || this._waitForReady !== undefined;
+    }
+
+    private _readonly: boolean = false;
+    get readonly() {
+        return this._readonly;
+    }
+    private setReadonly(value: boolean) {
+        this._readonly = value;
+        setCommandContext(CommandContext.Readonly, value ? true : undefined);
     }
 
     async getContact(email: string | undefined) {
@@ -148,20 +157,20 @@ export class VslsController implements Disposable {
 
         switch (e.session.role) {
             case Role.Host:
-                setCommandContext(CommandContext.Readonly, undefined);
+                this.setReadonly(false);
                 setCommandContext(CommandContext.Vsls, 'host');
                 if (Container.config.liveshare.allowGuestAccess) {
                     this._host = await VslsHostService.share(api);
                 }
                 break;
             case Role.Guest:
-                setCommandContext(CommandContext.Readonly, true);
+                this.setReadonly(true);
                 setCommandContext(CommandContext.Vsls, 'guest');
                 this._guest = await VslsGuestService.connect(api);
                 break;
 
             default:
-                setCommandContext(CommandContext.Readonly, undefined);
+                this.setReadonly(false);
                 setCommandContext(CommandContext.Vsls, true);
                 break;
         }

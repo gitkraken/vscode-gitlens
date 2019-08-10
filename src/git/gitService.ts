@@ -150,6 +150,10 @@ export class GitService implements Disposable {
         await Git.setOrFindGitPath(gitPath || configuration.getAny<string>('git.path'));
     }
 
+    get readonly() {
+        return Container.vsls.readonly;
+    }
+
     get useCaching() {
         return Container.config.advanced.caching.enabled;
     }
@@ -2800,13 +2804,13 @@ export class GitService implements Disposable {
 
     static shortenSha(
         ref: string | undefined,
-        {
-            deletedOrMissing = '(deleted)',
-            ...strings
-        }: { deletedOrMissing?: string; uncommitted?: string; uncommittedStaged?: string; working?: string } = {}
+        options: {
+            force?: boolean;
+            strings?: { uncommitted?: string; uncommittedStaged?: string; working?: string };
+        } = {}
     ) {
-        if (ref === GitService.deletedOrMissingSha) return deletedOrMissing;
+        if (ref === GitService.deletedOrMissingSha) return '(deleted)';
 
-        return Git.shortenSha(ref, strings);
+        return Git.shortenSha(ref, options);
     }
 }

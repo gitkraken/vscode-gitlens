@@ -2,7 +2,7 @@
 /* eslint-disable no-loop-func */
 import { ProgressLocation, QuickInputButtons, window } from 'vscode';
 import { Container } from '../../container';
-import { GitBranch, GitReference, GitService, GitTag, Repository } from '../../git/gitService';
+import { GitBranch, GitReference, GitTag, Repository } from '../../git/gitService';
 import { GlyphChars } from '../../constants';
 import {
     CommandAbortError,
@@ -12,7 +12,7 @@ import {
     QuickPickStep,
     StepState
 } from './quickCommand';
-import { ReferencesQuickPickItem, RepositoryQuickPickItem } from '../../quickpicks';
+import { ReferencesQuickPickItem, RefQuickPickItem, RepositoryQuickPickItem } from '../../quickpicks';
 import { Strings } from '../../system';
 
 interface State {
@@ -131,6 +131,7 @@ export class CheckoutQuickCommand extends QuickCommandBase<State> {
                         placeholder: `Choose a branch${
                             includeTags ? ' or tag' : ''
                         } to checkout to${GlyphChars.Space.repeat(3)}(select or enter a reference)`,
+                        matchOnDescription: true,
                         items: items,
                         selectedItems: state.branchOrTagOrRef
                             ? items.filter(ref => ref.label === state.branchOrTagOrRef!.ref)
@@ -165,11 +166,18 @@ export class CheckoutQuickCommand extends QuickCommandBase<State> {
                             quickpick.busy = false;
                             quickpick.enabled = true;
                         },
-                        onDidAccept: (quickpick): Promise<boolean> => {
-                            const ref = quickpick.value.trim();
-                            if (ref.length === 0 || state.repos!.length !== 1) return Promise.resolve(false);
+                        // onDidAccept: (quickpick): Promise<boolean> => {
+                        //     const ref = quickpick.value.trim();
+                        //     if (ref.length === 0 || state.repos!.length !== 1) return Promise.resolve(false);
 
-                            return Container.git.validateReference(state.repos![0].path, ref);
+                        //     return Container.git.validateReference(state.repos![0].path, ref);
+                        // },
+                        onValidateValue: async (quickpick, value) => {
+                            if (state.repos!.length !== 1) return false;
+                            if (!(await Container.git.validateReference(state.repos![0].path, value))) return false;
+
+                            quickpick.items = [RefQuickPickItem.create(value, true, { ref: true })];
+                            return true;
                         }
                     });
                     const selection = yield step;
@@ -182,13 +190,10 @@ export class CheckoutQuickCommand extends QuickCommandBase<State> {
                         continue;
                     }
 
-                    state.branchOrTagOrRef =
-                        typeof selection === 'string'
-                            ? { name: GitService.shortenSha(selection), ref: selection }
-                            : selection[0].item;
+                    state.branchOrTagOrRef = selection[0].item;
                 }
 
-                if (state.branchOrTagOrRef instanceof GitBranch && state.branchOrTagOrRef.remote) {
+                if (GitBranch.is(state.branchOrTagOrRef) && state.branchOrTagOrRef.remote) {
                     const branches = await Container.git.getBranches(state.branchOrTagOrRef.repoPath, {
                         filter: b => {
                             return b.tracking === state.branchOrTagOrRef!.name;

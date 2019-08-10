@@ -65,8 +65,9 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
         }
 
         const item = new TreeItem(
-            `Comparing ${this._ref.label || GitService.shortenSha(this._ref.ref, { working: 'Working Tree' })} to ${this
-                ._compareWith.label || GitService.shortenSha(this._compareWith.ref, { working: 'Working Tree' })}`,
+            `Comparing ${this._ref.label ||
+                GitService.shortenSha(this._ref.ref, { strings: { working: 'Working Tree' } })} to ${this._compareWith
+                .label || GitService.shortenSha(this._compareWith.ref, { strings: { working: 'Working Tree' } })}`,
             this._state || TreeItemCollapsibleState.Collapsed
         );
         item.contextValue = `${ResourceType.CompareResults}+${

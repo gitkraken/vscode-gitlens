@@ -170,13 +170,12 @@ export namespace CommitQuickPickItem {
 }
 
 export namespace RefQuickPickItem {
-    export function create(ref: string, picked?: boolean, options: { checked?: boolean } = {}) {
+    export function create(ref: string, picked?: boolean, options: { ref?: boolean } = {}) {
         const item: RefQuickPickItem = {
-            label: `${
-                options.checked ? `$(check)${GlyphChars.Space}` : GlyphChars.Space.repeat(4)
-            } ${GitService.shortenSha(ref)}`,
+            label: `Commit ${GitService.shortenSha(ref, { force: true })}`,
+            description: options.ref ? `$(git-commit) ${ref}` : '',
             picked: picked,
-            item: { name: ref, ref: ref },
+            item: { name: GitService.shortenSha(ref, { force: true }), ref: ref },
             current: false,
             ref: ref,
             remote: false

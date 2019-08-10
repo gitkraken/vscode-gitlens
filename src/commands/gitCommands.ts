@@ -167,6 +167,8 @@ export class GitCommandsCommand extends Command {
 
         try {
             return await new Promise<QuickPickStep | QuickInputStep | undefined>(resolve => {
+                let overrideItems = false;
+
                 disposables.push(
                     quickpick.onDidHide(() => resolve()),
                     quickpick.onDidTriggerButton(async e => {
@@ -186,40 +188,67 @@ export class GitCommandsCommand extends Command {
                         step.onDidClickButton(quickpick, e);
                     }),
                     quickpick.onDidChangeValue(async e => {
-                        if (quickpick.canSelectMany && e === ' ') {
-                            quickpick.value = '';
-                            quickpick.selectedItems =
-                                quickpick.selectedItems.length === quickpick.items.length ? [] : quickpick.items;
+                        if (!overrideItems) {
+                            if (quickpick.canSelectMany && e === ' ') {
+                                quickpick.value = '';
+                                quickpick.selectedItems =
+                                    quickpick.selectedItems.length === quickpick.items.length ? [] : quickpick.items;
 
-                            return;
-                        }
-
-                        if (e.endsWith(' ')) {
-                            if (quickpick.canSelectMany && quickpick.selectedItems.length !== 0) {
                                 return;
                             }
 
-                            let items;
-                            if (commandsStep.command === undefined) {
-                                const command = commandsStep.find(quickpick.value.trim());
-                                if (command === undefined) return;
+                            if (e.endsWith(' ')) {
+                                if (quickpick.canSelectMany && quickpick.selectedItems.length !== 0) {
+                                    return;
+                                }
 
-                                commandsStep.command = command;
+                                let items;
+                                if (commandsStep.command === undefined) {
+                                    const command = commandsStep.find(quickpick.value.trim());
+                                    if (command === undefined) return;
+
+                                    commandsStep.command = command;
+                                }
+                                else {
+                                    const step = commandsStep.command.value;
+                                    if (step === undefined || !isQuickPickStep(step)) return;
+
+                                    const cmd = quickpick.value.trim().toLowerCase();
+                                    const item = step.items.find(
+                                        i => i.label.replace(sanitizeLabel, '').toLowerCase() === cmd
+                                    );
+                                    if (item === undefined) return;
+
+                                    items = [item];
+                                }
+
+                                resolve(await this.nextStep(quickpick, commandsStep.command, items));
+
+                                return;
                             }
-                            else {
-                                const step = commandsStep.command.value;
-                                if (step === undefined || !isQuickPickStep(step)) return;
+                        }
 
-                                const cmd = quickpick.value.trim().toLowerCase();
-                                const item = step.items.find(
-                                    i => i.label.replace(sanitizeLabel, '').toLowerCase() === cmd
-                                );
-                                if (item === undefined) return;
-
-                                items = [item];
+                        // Assume there is no matches (since there is no activeItems)
+                        if (
+                            !quickpick.canSelectMany &&
+                            commandsStep.command !== undefined &&
+                            e.trim().length !== 0 &&
+                            (overrideItems || quickpick.activeItems.length === 0)
+                        ) {
+                            const step = commandsStep.command.value;
+                            if (step === undefined || !isQuickPickStep(step) || step.onValidateValue === undefined) {
+                                return;
                             }
 
-                            resolve(await this.nextStep(quickpick, commandsStep.command, items));
+                            overrideItems = await step.onValidateValue(quickpick, e.trim(), step.items);
+                        }
+                        else {
+                            overrideItems = false;
+                        }
+
+                        // If we are no longer overriding the items, put them back (only if we need to)
+                        if (!overrideItems && quickpick.items.length !== step.items.length) {
+                            quickpick.items = step.items;
                         }
                     }),
                     quickpick.onDidAccept(async () => {
@@ -260,6 +289,8 @@ export class GitCommandsCommand extends Command {
                 quickpick.buttons = step.buttons || [QuickInputButtons.Back];
                 quickpick.title = step.title;
                 quickpick.placeholder = step.placeholder;
+                quickpick.matchOnDescription = Boolean(step.matchOnDescription);
+                quickpick.matchOnDetail = Boolean(step.matchOnDetail);
                 quickpick.canSelectMany = Boolean(step.multiselect);
 
                 quickpick.items = step.items;

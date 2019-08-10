@@ -143,7 +143,9 @@ export class Annotations {
             previous =
                 diffUris.previous.sha === undefined || diffUris.previous.isUncommitted
                     ? `_${GitService.shortenSha(diffUris.previous.sha, {
-                          working: 'Working Tree'
+                          strings: {
+                              working: 'Working Tree'
+                          }
                       })}_`
                     : `[\`${GitService.shortenSha(
                           diffUris.previous.sha || ''
@@ -154,7 +156,9 @@ export class Annotations {
             current =
                 diffUris.current.sha === undefined || diffUris.current.isUncommitted
                     ? `_${GitService.shortenSha(diffUris.current.sha, {
-                          working: 'Working Tree'
+                          strings: {
+                              working: 'Working Tree'
+                          }
                       })}_`
                     : `[\`${GitService.shortenSha(
                           diffUris.current.sha || ''

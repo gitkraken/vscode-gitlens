@@ -85,7 +85,9 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
             description = `${GlyphChars.ArrowLeftRightLong}${GlyphChars.Space} ${GitService.shortenSha(
                 this._compareWith.ref,
                 {
-                    working: 'Working Tree'
+                    strings: {
+                        working: 'Working Tree'
+                    }
                 }
             )}`;
             state = TreeItemCollapsibleState.Collapsed;

@@ -22,6 +22,8 @@ export interface QuickPickStep<T extends QuickPickItem = any> {
     buttons?: QuickInputButton[];
     selectedItems?: QuickPickItem[];
     items: QuickPickItem[];
+    matchOnDescription?: boolean;
+    matchOnDetail?: boolean;
     multiselect?: boolean;
     placeholder?: string;
     title?: string;
@@ -29,6 +31,7 @@ export interface QuickPickStep<T extends QuickPickItem = any> {
 
     onDidAccept?(quickpick: QuickPick<T>): Promise<boolean>;
     onDidClickButton?(quickpick: QuickPick<T>, button: QuickInputButton): void;
+    onValidateValue?(quickpick: QuickPick<T>, value: string, items: T[]): Promise<boolean>;
     validate?(selection: T[]): boolean | Promise<boolean>;
 }
 
