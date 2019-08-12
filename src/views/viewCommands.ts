@@ -115,6 +115,7 @@ export class ViewCommands {
         commands.registerCommand('gitlens.views.applyChanges', this.applyChanges, this);
         commands.registerCommand('gitlens.views.checkout', this.checkout, this);
         commands.registerCommand('gitlens.views.addRemote', this.addRemote, this);
+        commands.registerCommand('gitlens.views.pruneRemote', this.pruneRemote, this);
 
         commands.registerCommand('gitlens.views.stageDirectory', this.stageDirectory, this);
         commands.registerCommand('gitlens.views.stageFile', this.stageFile, this);
@@ -290,6 +291,13 @@ export class ViewCommands {
         void (await node.repo.fetch({ remote: name }));
 
         return name;
+    }
+
+    private async pruneRemote(node: RemoteNode) {
+        const remoteName = node.remote.name;
+        void (await Container.git.pruneRemote(node.repo.path, remoteName));
+
+        return remoteName;
     }
 
     private closeRepository(node: RepositoryNode) {
