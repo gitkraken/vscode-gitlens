@@ -2416,6 +2416,11 @@
                 }
             },
             {
+                "command": "gitlens.views.pruneRemote",
+                "title": "Prune",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.views.fetch",
                 "title": "Fetch",
                 "category": "GitLens",
@@ -3390,6 +3395,10 @@
                 },
                 {
                     "command": "gitlens.views.checkout",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.views.pruneRemote",
                     "when": "false"
                 },
                 {
@@ -4697,6 +4706,11 @@
                     "command": "gitlens.views.fetch",
                     "when": "!gitlens:readonly && viewItem =~ /gitlens:remote\\b/",
                     "group": "1_gitlens@1"
+                },
+                {
+                    "command": "gitlens.views.pruneRemote",
+                    "when": "!gitlens:readonly && viewItem =~ /gitlens:remote\\b/",
+                    "group": "1_gitlens@2"
                 },
                 {
                     "command": "gitlens.openRepoInRemote",

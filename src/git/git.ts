@@ -891,6 +891,10 @@ export class Git {
         return git<string>({ cwd: repoPath }, 'remote', 'add', name, url);
     }
 
+    static remote__prune(repoPath: string, remoteName: string) {
+        return git<string>({ cwd: repoPath }, 'remote', 'prune', remoteName);
+    }
+
     static remote__get_url(repoPath: string, remote: string): Promise<string> {
         return git<string>({ cwd: repoPath }, 'remote', 'get-url', remote);
     }

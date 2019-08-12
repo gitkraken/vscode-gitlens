@@ -463,6 +463,11 @@ export class GitService implements Disposable {
     }
 
     @log()
+    pruneRemote(repoPath: string, remoteName: string) {
+        return Git.remote__prune(repoPath, remoteName);
+    }
+
+    @log()
     async applyChangesToWorkingFile(uri: GitUri, ref1?: string, ref2?: string) {
         const cc = Logger.getCorrelationContext();
 
