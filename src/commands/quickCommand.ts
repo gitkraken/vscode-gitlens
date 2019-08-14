@@ -1,8 +1,13 @@
 'use strict';
 import { InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
-import { Promises } from '../../system/promise';
+import { Promises } from '../system';
+import { BackOrCancelQuickPickItem } from '../quickpicks';
 
-export * from './quickCommands.helpers';
+export * from './quickCommand.helpers';
+
+export enum Directive {
+    Back = 'back'
+}
 
 export interface QuickInputStep {
     buttons?: QuickInputButton[];
@@ -21,7 +26,7 @@ export function isQuickInputStep(item: QuickPickStep | QuickInputStep): item is 
 export interface QuickPickStep<T extends QuickPickItem = any> {
     buttons?: QuickInputButton[];
     selectedItems?: QuickPickItem[];
-    items: QuickPickItem[];
+    items: (BackOrCancelQuickPickItem | T)[] | BackOrCancelQuickPickItem[];
     matchOnDescription?: boolean;
     matchOnDetail?: boolean;
     multiselect?: boolean;
@@ -37,12 +42,6 @@ export interface QuickPickStep<T extends QuickPickItem = any> {
 
 export function isQuickPickStep(item: QuickPickStep | QuickInputStep): item is QuickPickStep {
     return (item as QuickPickStep).items !== undefined;
-}
-
-export class CommandAbortError extends Error {
-    constructor() {
-        super('Abort');
-    }
 }
 
 export type StepState<T> = Partial<T> & { counter: number; skipConfirmation?: boolean };
@@ -83,11 +82,10 @@ export abstract class QuickCommandBase<T = any> implements QuickPickItem {
     protected abstract steps(): AsyncIterableIterator<QuickPickStep | QuickInputStep>;
 
     async previous(): Promise<QuickPickStep | QuickInputStep | undefined> {
-        // Simulate going back, by having no selection
-        return (await this.next([])).value;
+        return (await this.next(Directive.Back)).value;
     }
 
-    async next(value?: QuickPickItem[] | string): Promise<IteratorResult<QuickPickStep | QuickInputStep>> {
+    async next(value?: QuickPickItem[] | string | Directive): Promise<IteratorResult<QuickPickStep | QuickInputStep>> {
         if (this._stepsIterator === undefined) {
             this._stepsIterator = this.steps();
         }
@@ -115,13 +113,8 @@ export abstract class QuickCommandBase<T = any> implements QuickPickItem {
         return this.createPickStep<T>({
             placeholder: `Confirm ${this.title}`,
             title: title,
-            items: cancellable ? [...confirmations, { label: 'Cancel' }] : confirmations,
-            selectedItems: [confirmations[0]],
-            // eslint-disable-next-line no-loop-func
-            validate: (selection: T[]) => {
-                if (selection[0].label === 'Cancel') throw new CommandAbortError();
-                return true;
-            }
+            items: cancellable ? [...confirmations, BackOrCancelQuickPickItem.create()] : confirmations,
+            selectedItems: [confirmations[0]]
         });
     }
 
@@ -136,19 +129,19 @@ export abstract class QuickCommandBase<T = any> implements QuickPickItem {
     protected canMoveNext<T extends QuickPickItem>(
         step: QuickPickStep<T>,
         state: { counter: number },
-        selection: T[] | undefined
+        selection: T[] | Directive | undefined
     ): selection is T[];
     protected canMoveNext<T extends string>(
         step: QuickInputStep,
         state: { counter: number },
-        value: string | undefined
+        value: string | Directive | undefined
     ): boolean | Promise<boolean>;
     protected canMoveNext<T extends any>(
         step: QuickPickStep | QuickInputStep,
         state: { counter: number },
-        value: T[] | string | undefined
+        value: T[] | string | Directive | undefined
     ) {
-        if (value === undefined || value.length === 0) {
+        if (value === Directive.Back) {
             state.counter--;
             if (state.counter < 0) {
                 state.counter = 0;
@@ -164,10 +157,19 @@ export abstract class QuickCommandBase<T = any> implements QuickPickItem {
         if (isQuickInputStep(step)) {
             const result = step.validate!(value as string);
             if (!Promises.isPromise(result)) {
-                return result[0];
+                const [valid] = result;
+                if (valid) {
+                    state.counter++;
+                }
+                return valid;
             }
 
-            return result.then(([valid]) => valid);
+            return result.then(([valid]) => {
+                if (valid) {
+                    state.counter++;
+                }
+                return valid;
+            });
         }
 
         return false;

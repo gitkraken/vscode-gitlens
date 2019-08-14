@@ -1,34 +1,28 @@
 'use strict';
 import { QuickPickItem } from 'vscode';
 import { Container } from '../../container';
-import { GitBranch, Repository } from '../../git/gitService';
+import { GitBranch, GitTag, Repository } from '../../git/gitService';
 import { GlyphChars } from '../../constants';
-import {
-    CommandAbortError,
-    getBranchesAndOrTags,
-    QuickCommandBase,
-    QuickInputStep,
-    QuickPickStep,
-    StepState
-} from './quickCommand';
-import { BranchQuickPickItem, RepositoryQuickPickItem } from '../../quickpicks';
+import { getBranchesAndOrTags, QuickCommandBase, QuickInputStep, QuickPickStep, StepState } from '../quickCommand';
+import { BranchQuickPickItem, RepositoryQuickPickItem, TagQuickPickItem } from '../../quickpicks';
 import { Strings } from '../../system';
 import { runGitCommandInTerminal } from '../../terminal';
+import { Logger } from '../../logger';
 
 interface State {
     repo: Repository;
     destination: GitBranch;
-    source: GitBranch;
+    source: GitBranch | GitTag;
     flags: string[];
 }
 
-export class RebaseQuickCommand extends QuickCommandBase<State> {
+export class MergeGitCommand extends QuickCommandBase<State> {
     constructor() {
-        super('rebase', 'Rebase', { description: 'via Terminal' });
+        super('merge', 'Merge', { description: 'via Terminal' });
     }
 
     execute(state: State) {
-        runGitCommandInTerminal('rebase', [...state.flags, state.source.ref].join(' '), state.repo.path, true);
+        runGitCommandInTerminal('merge', [...state.flags, state.source.ref].join(' '), state.repo.path, true);
     }
 
     protected async *steps(): AsyncIterableIterator<QuickPickStep | QuickInputStep> {
@@ -77,11 +71,11 @@ export class RebaseQuickCommand extends QuickCommandBase<State> {
                 if (state.source === undefined || state.counter < 2) {
                     const destId = state.destination.id;
 
-                    const step = this.createPickStep<BranchQuickPickItem>({
-                        title: `${this.title} ${state.destination.name}${Strings.pad(GlyphChars.Dot, 2, 2)}${
-                            state.repo.name
+                    const step = this.createPickStep<BranchQuickPickItem | TagQuickPickItem>({
+                        title: `${this.title} into ${state.destination.name}${Strings.pad(GlyphChars.Dot, 2, 2)}${
+                            state.repo.formattedName
                         }`,
-                        placeholder: `Choose a branch or tag to rebase ${state.destination.name} with`,
+                        placeholder: `Choose a branch or tag to merge into ${state.destination.name}`,
                         items: await getBranchesAndOrTags(state.repo, true, {
                             filterBranches: b => b.id !== destId,
                             picked: state.source && state.source.ref
@@ -105,7 +99,7 @@ export class RebaseQuickCommand extends QuickCommandBase<State> {
                     ])) || 0;
                 if (count === 0) {
                     const step = this.createConfirmStep(
-                        `Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${state.repo.name}`,
+                        `Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${state.repo.formattedName}`,
                         [
                             {
                                 label: `Cancel ${this.title}`,
@@ -121,24 +115,32 @@ export class RebaseQuickCommand extends QuickCommandBase<State> {
                 }
 
                 const step = this.createConfirmStep<QuickPickItem & { item: string[] }>(
-                    `Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${state.repo.name}`,
+                    `Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${state.repo.formattedName}`,
                     [
                         {
                             label: this.title,
-                            description: `${state.destination.name} with ${state.source.name}`,
-                            detail: `Will update ${state.destination.name} by applying ${Strings.pluralize(
-                                'commit',
-                                count
-                            )} on top of ${state.source.name}`,
+                            description: `${state.source.name} into ${state.destination.name}`,
+                            detail: `Will merge ${Strings.pluralize('commit', count)} from ${state.source.name} into ${
+                                state.destination.name
+                            }`,
                             item: []
                         },
                         {
-                            label: `Interactive ${this.title}`,
-                            description: `--interactive ${state.destination.name} with ${state.source.name}`,
-                            detail: `Will interactively update ${
-                                state.destination.name
-                            } by applying ${Strings.pluralize('commit', count)} on top of ${state.source.name}`,
-                            item: ['--interactive']
+                            label: `Fast-forward ${this.title}`,
+                            description: `--ff-only ${state.source.name} into ${state.destination.name}`,
+                            detail: `Will fast-forward merge ${Strings.pluralize('commit', count)} from ${
+                                state.source.name
+                            } into ${state.destination.name}`,
+                            item: ['--ff-only']
+                        },
+                        {
+                            label: `No Fast-forward ${this.title}`,
+                            description: `--no-ff ${state.source.name} into ${state.destination.name}`,
+                            detail: `Will create a merge commit when merging ${Strings.pluralize(
+                                'commit',
+                                count
+                            )} from ${state.source.name} into ${state.destination.name}`,
+                            item: ['--no-ff']
                         }
                     ]
                 );
@@ -154,7 +156,7 @@ export class RebaseQuickCommand extends QuickCommandBase<State> {
                 break;
             }
             catch (ex) {
-                if (ex instanceof CommandAbortError) break;
+                Logger.error(ex, this.title);
 
                 throw ex;
             }

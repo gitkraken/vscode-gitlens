@@ -201,7 +201,8 @@ export class ViewCommands {
     private fetch(node: RemoteNode | RepositoryNode) {
         if (node instanceof RemoteNode) return node.fetch();
         if (node instanceof RepositoryNode) {
-            return commands.executeCommand(Commands.GitCommands, { command: 'fetch', state: { repos: [node.repo] } });
+            const args: GitCommandsCommandArgs = { command: 'fetch', state: { repos: [node.repo] } };
+            return commands.executeCommand(Commands.GitCommands, args);
         }
 
         return undefined;
@@ -213,7 +214,8 @@ export class ViewCommands {
         }
         if (!(node instanceof RepositoryNode)) return undefined;
 
-        return commands.executeCommand(Commands.GitCommands, { command: 'pull', state: { repos: [node.repo] } });
+        const args: GitCommandsCommandArgs = { command: 'pull', state: { repos: [node.repo] } };
+        return commands.executeCommand(Commands.GitCommands, args);
     }
 
     private push(node: RepositoryNode | BranchTrackingStatusNode, force?: boolean) {
@@ -222,7 +224,8 @@ export class ViewCommands {
         }
         if (!(node instanceof RepositoryNode)) return undefined;
 
-        return commands.executeCommand(Commands.GitCommands, { command: 'push', state: { repos: [node.repo] } });
+        const args: GitCommandsCommandArgs = { command: 'push', state: { repos: [node.repo] } };
+        return commands.executeCommand(Commands.GitCommands, args);
     }
 
     private async applyChanges(node: ViewRefFileNode) {

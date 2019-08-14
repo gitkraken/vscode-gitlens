@@ -14,6 +14,26 @@ import {
 } from '../git/gitService';
 import { emojify } from '../emojis';
 
+export interface BackOrCancelQuickPickItem extends QuickPickItem {
+    cancelled: boolean;
+}
+
+export namespace BackOrCancelQuickPickItem {
+    export function create(cancelled: boolean = true, picked?: boolean, label?: string) {
+        const item: BackOrCancelQuickPickItem = {
+            label: label || (cancelled ? 'Cancel' : 'Back'),
+            picked: picked,
+            cancelled: cancelled
+        };
+
+        return item;
+    }
+
+    export function is(item: QuickPickItem): item is BackOrCancelQuickPickItem {
+        return item != null && 'cancelled' in item;
+    }
+}
+
 export interface BranchQuickPickItem extends QuickPickItem {
     readonly item: GitBranch;
     readonly current: boolean;
@@ -169,6 +189,13 @@ export namespace CommitQuickPickItem {
     }
 }
 
+export interface RefQuickPickItem extends QuickPickItem {
+    readonly item: GitReference;
+    readonly current: boolean;
+    readonly ref: string;
+    readonly remote: boolean;
+}
+
 export namespace RefQuickPickItem {
     export function create(ref: string, picked?: boolean, options: { ref?: boolean } = {}) {
         const item: RefQuickPickItem = {
@@ -183,13 +210,6 @@ export namespace RefQuickPickItem {
 
         return item;
     }
-}
-
-export interface RefQuickPickItem extends QuickPickItem {
-    readonly item: GitReference;
-    readonly current: boolean;
-    readonly ref: string;
-    readonly remote: boolean;
 }
 
 export interface RepositoryQuickPickItem extends QuickPickItem {

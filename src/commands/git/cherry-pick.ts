@@ -4,17 +4,16 @@ import { Container } from '../../container';
 import { GitBranch, GitLogCommit, GitReference, Repository } from '../../git/gitService';
 import { GlyphChars } from '../../constants';
 import { Iterables, Strings } from '../../system';
+import { getBranchesAndOrTags, QuickCommandBase, QuickInputStep, QuickPickStep, StepState } from '../quickCommand';
 import {
-    CommandAbortError,
-    getBranchesAndOrTags,
-    QuickCommandBase,
-    QuickInputStep,
-    QuickPickStep,
-    StepState
-} from './quickCommand';
-import { BranchQuickPickItem, CommitQuickPickItem, RepositoryQuickPickItem } from '../../quickpicks';
+    BackOrCancelQuickPickItem,
+    BranchQuickPickItem,
+    CommitQuickPickItem,
+    RefQuickPickItem,
+    RepositoryQuickPickItem
+} from '../../quickpicks';
 import { runGitCommandInTerminal } from '../../terminal';
-import { RefQuickPickItem } from '../../quickpicks/gitQuickPicks';
+import { Logger } from '../../logger';
 
 interface State {
     repo: Repository;
@@ -23,7 +22,7 @@ interface State {
     commits?: GitLogCommit[];
 }
 
-export class CherryPickQuickCommand extends QuickCommandBase<State> {
+export class CherryPickGitCommand extends QuickCommandBase<State> {
     constructor() {
         super('cherry-pick', 'Cherry Pick', { description: 'via Terminal' });
     }
@@ -86,7 +85,7 @@ export class CherryPickQuickCommand extends QuickCommandBase<State> {
 
                     const step = this.createPickStep<BranchQuickPickItem | RefQuickPickItem>({
                         title: `${this.title} into ${state.destination.name}${Strings.pad(GlyphChars.Dot, 2, 2)}${
-                            state.repo.name
+                            state.repo.formattedName
                         }`,
                         placeholder: `Choose a branch or tag to cherry-pick from${GlyphChars.Space.repeat(
                             3
@@ -129,7 +128,7 @@ export class CherryPickQuickCommand extends QuickCommandBase<State> {
 
                     const step = this.createPickStep<CommitQuickPickItem>({
                         title: `${this.title} onto ${state.destination.name}${Strings.pad(GlyphChars.Dot, 2, 2)}${
-                            state.repo.name
+                            state.repo.formattedName
                         }`,
                         multiselect: log !== undefined,
                         placeholder:
@@ -138,7 +137,7 @@ export class CherryPickQuickCommand extends QuickCommandBase<State> {
                                 : `Choose commits to cherry-pick onto ${state.destination.name}`,
                         items:
                             log === undefined
-                                ? []
+                                ? [BackOrCancelQuickPickItem.create(false, true), BackOrCancelQuickPickItem.create()]
                                 : [
                                       ...Iterables.map(log.commits.values(), commit =>
                                           CommitQuickPickItem.create(
@@ -159,7 +158,7 @@ export class CherryPickQuickCommand extends QuickCommandBase<State> {
                 }
 
                 const step = this.createConfirmStep(
-                    `Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${state.repo.name}`,
+                    `Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${state.repo.formattedName}`,
                     [
                         state.commits !== undefined
                             ? {
@@ -192,7 +191,7 @@ export class CherryPickQuickCommand extends QuickCommandBase<State> {
                 break;
             }
             catch (ex) {
-                if (ex instanceof CommandAbortError) break;
+                Logger.error(ex, this.title);
 
                 throw ex;
             }

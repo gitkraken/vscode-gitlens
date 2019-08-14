@@ -1,7 +1,7 @@
 'use strict';
 import { intersectionWith } from 'lodash-es';
-import { GitBranch, GitTag, Repository } from '../../git/git';
-import { BranchQuickPickItem, TagQuickPickItem } from '../../quickpicks';
+import { GitBranch, GitTag, Repository } from '../git/git';
+import { BranchQuickPickItem, TagQuickPickItem } from '../quickpicks';
 
 export async function getBranchesAndOrTags(
     repos: Repository | Repository[],

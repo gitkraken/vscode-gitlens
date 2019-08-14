@@ -2,10 +2,11 @@
 import { QuickPickItem } from 'vscode';
 import { Container } from '../../container';
 import { Repository } from '../../git/gitService';
-import { CommandAbortError, QuickCommandBase, QuickInputStep, QuickPickStep, StepState } from './quickCommand';
+import { QuickCommandBase, QuickInputStep, QuickPickStep, StepState } from '../quickCommand';
 import { RepositoryQuickPickItem } from '../../quickpicks';
 import { Strings } from '../../system';
 import { GlyphChars } from '../../constants';
+import { Logger } from '../../logger';
 
 interface State {
     repos: Repository[];
@@ -19,7 +20,7 @@ export interface CommandArgs {
     skipConfirmation?: boolean;
 }
 
-export class FetchQuickCommand extends QuickCommandBase<State> {
+export class FetchGitCommand extends QuickCommandBase<State> {
     constructor(args?: CommandArgs) {
         super('fetch', 'Fetch');
 
@@ -154,7 +155,7 @@ export class FetchQuickCommand extends QuickCommandBase<State> {
                 break;
             }
             catch (ex) {
-                if (ex instanceof CommandAbortError) break;
+                Logger.error(ex, this.title);
 
                 throw ex;
             }

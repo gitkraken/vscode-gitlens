@@ -1,11 +1,11 @@
 'use strict';
-import { QuickPickItem } from 'vscode';
 import { Container } from '../../container';
 import { Repository } from '../../git/gitService';
-import { CommandAbortError, QuickCommandBase, QuickInputStep, QuickPickStep, StepState } from './quickCommand';
+import { QuickCommandBase, QuickInputStep, QuickPickStep, StepState } from '../quickCommand';
 import { RepositoryQuickPickItem } from '../../quickpicks';
 import { Strings } from '../../system';
 import { GlyphChars } from '../../constants';
+import { Logger } from '../../logger';
 
 interface State {
     repos: Repository[];
@@ -13,15 +13,15 @@ interface State {
 }
 
 export interface CommandArgs {
-    readonly command: 'pull';
+    readonly command: 'push';
     state?: Partial<State>;
 
     skipConfirmation?: boolean;
 }
 
-export class PullQuickCommand extends QuickCommandBase<State> {
+export class PushGitCommand extends QuickCommandBase<State> {
     constructor(args?: CommandArgs) {
-        super('pull', 'Pull');
+        super('push', 'Push');
 
         if (args === undefined || args.state === undefined) return;
 
@@ -45,7 +45,7 @@ export class PullQuickCommand extends QuickCommandBase<State> {
     }
 
     execute(state: State) {
-        return Container.git.pullAll(state.repos, { rebase: state.flags.includes('--rebase') });
+        return Container.git.pushAll(state.repos, { force: state.flags.includes('--force') });
     }
 
     protected async *steps(): AsyncIterableIterator<QuickPickStep | QuickInputStep> {
@@ -91,50 +91,57 @@ export class PullQuickCommand extends QuickCommandBase<State> {
                     }
                 }
 
-                const step = this.createConfirmStep<QuickPickItem & { item: string[] }>(
-                    `Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${
-                        state.repos.length === 1 ? state.repos[0].formattedName : `${state.repos.length} repositories`
-                    }`,
-                    [
-                        {
-                            label: this.title,
-                            description: '',
-                            detail: `Will pull ${
-                                state.repos.length === 1
-                                    ? state.repos[0].formattedName
-                                    : `${state.repos.length} repositories`
-                            }`,
-                            item: []
-                        },
-                        {
-                            label: `${this.title} with Rebase`,
-                            description: '--rebase',
-                            detail: `Will pull with rebase ${
-                                state.repos.length === 1
-                                    ? state.repos[0].formattedName
-                                    : `${state.repos.length} repositories`
-                            }`,
-                            item: ['--rebase']
-                        }
-                    ]
-                );
-                const selection = yield step;
+                if (state.skipConfirmation) {
+                    state.flags = [];
+                }
+                else {
+                    const step = this.createConfirmStep(
+                        `Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${
+                            state.repos.length === 1
+                                ? state.repos[0].formattedName
+                                : `${state.repos.length} repositories`
+                        }`,
+                        [
+                            {
+                                label: this.title,
+                                description: '',
+                                detail: `Will push ${
+                                    state.repos.length === 1
+                                        ? state.repos[0].formattedName
+                                        : `${state.repos.length} repositories`
+                                }`,
+                                item: []
+                            },
+                            {
+                                label: `Force ${this.title}`,
+                                description: '',
+                                detail: `Will force push ${
+                                    state.repos.length === 1
+                                        ? state.repos[0].formattedName
+                                        : `${state.repos.length} repositories`
+                                }`,
+                                item: ['--force']
+                            }
+                        ]
+                    );
+                    const selection = yield step;
 
-                if (!this.canMoveNext(step, state, selection)) {
-                    if (oneRepo) {
-                        break;
+                    if (!this.canMoveNext(step, state, selection)) {
+                        if (oneRepo) {
+                            break;
+                        }
+
+                        continue;
                     }
 
-                    continue;
+                    state.flags = selection[0].item;
                 }
-
-                state.flags = selection[0].item;
 
                 this.execute(state as State);
                 break;
             }
             catch (ex) {
-                if (ex instanceof CommandAbortError) break;
+                Logger.error(ex, this.title);
 
                 throw ex;
             }

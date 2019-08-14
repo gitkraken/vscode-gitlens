@@ -4,16 +4,10 @@ import { ProgressLocation, QuickInputButtons, window } from 'vscode';
 import { Container } from '../../container';
 import { GitBranch, GitReference, GitTag, Repository } from '../../git/gitService';
 import { GlyphChars } from '../../constants';
-import {
-    CommandAbortError,
-    getBranchesAndOrTags,
-    QuickCommandBase,
-    QuickInputStep,
-    QuickPickStep,
-    StepState
-} from './quickCommand';
+import { getBranchesAndOrTags, QuickCommandBase, QuickInputStep, QuickPickStep, StepState } from '../quickCommand';
 import { ReferencesQuickPickItem, RefQuickPickItem, RepositoryQuickPickItem } from '../../quickpicks';
 import { Strings } from '../../system';
+import { Logger } from '../../logger';
 
 interface State {
     repos: Repository[];
@@ -28,7 +22,7 @@ export interface CommandArgs {
     skipConfirmation?: boolean;
 }
 
-export class CheckoutQuickCommand extends QuickCommandBase<State> {
+export class CheckoutGitCommand extends QuickCommandBase<State> {
     constructor(args?: CommandArgs) {
         super('checkout', 'Checkout');
 
@@ -211,7 +205,7 @@ export class CheckoutQuickCommand extends QuickCommandBase<State> {
                                     ? state.repos[0].formattedName
                                     : `${state.repos.length} repositories`
                             }`,
-                            placeholder: 'Choose name for the local branch',
+                            placeholder: 'Please provide a name for the local branch',
                             value: state.branchOrTagOrRef.getName(),
                             validate: async (value: string | undefined): Promise<[boolean, string | undefined]> => {
                                 if (value == null) return [false, undefined];
@@ -268,7 +262,7 @@ export class CheckoutQuickCommand extends QuickCommandBase<State> {
                 break;
             }
             catch (ex) {
-                if (ex instanceof CommandAbortError) break;
+                Logger.error(ex, this.title);
 
                 throw ex;
             }

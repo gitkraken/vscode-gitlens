@@ -2,20 +2,15 @@
 import { Disposable, InputBox, QuickInputButtons, QuickPick, QuickPickItem, window } from 'vscode';
 import { command, Command, Commands } from './common';
 import { log } from '../system';
-import {
-    isQuickInputStep,
-    isQuickPickStep,
-    QuickCommandBase,
-    QuickInputStep,
-    QuickPickStep
-} from './quick/quickCommand';
-import { CommandArgs as CheckoutCommandArgs, CheckoutQuickCommand } from './quick/checkout';
-import { CherryPickQuickCommand } from './quick/cherry-pick';
-import { CommandArgs as FetchCommandArgs, FetchQuickCommand } from './quick/fetch';
-import { MergeQuickCommand } from './quick/merge';
-import { CommandArgs as PullCommandArgs, PullQuickCommand } from './quick/pull';
-import { CommandArgs as PushCommandArgs, PushQuickCommand } from './quick/push';
-import { RebaseQuickCommand } from './quick/rebase';
+import { isQuickInputStep, isQuickPickStep, QuickCommandBase, QuickInputStep, QuickPickStep } from './quickCommand';
+import { BackOrCancelQuickPickItem } from '../quickpicks';
+import { CommandArgs as CheckoutCommandArgs, CheckoutGitCommand } from './git/checkout';
+import { CherryPickGitCommand } from './git/cherry-pick';
+import { CommandArgs as FetchCommandArgs, FetchGitCommand } from './git/fetch';
+import { MergeGitCommand } from './git/merge';
+import { CommandArgs as PullCommandArgs, PullGitCommand } from './git/pull';
+import { CommandArgs as PushCommandArgs, PushGitCommand } from './git/push';
+import { RebaseGitCommand } from './git/rebase';
 
 const sanitizeLabel = /\$\(.+?\)|\W/g;
 
@@ -24,18 +19,18 @@ export type GitCommandsCommandArgs = CheckoutCommandArgs | FetchCommandArgs | Pu
 class PickCommandStep implements QuickPickStep {
     readonly buttons = [];
     readonly items: QuickCommandBase[];
-    readonly placeholder = 'Select command...';
+    readonly placeholder = 'Choose a git command';
     readonly title = 'GitLens';
 
     constructor(args?: GitCommandsCommandArgs) {
         this.items = [
-            new CheckoutQuickCommand(args && args.command === 'checkout' ? args : undefined),
-            new CherryPickQuickCommand(),
-            new MergeQuickCommand(),
-            new FetchQuickCommand(args && args.command === 'fetch' ? args : undefined),
-            new PullQuickCommand(args && args.command === 'pull' ? args : undefined),
-            new PushQuickCommand(args && args.command === 'push' ? args : undefined),
-            new RebaseQuickCommand()
+            new CheckoutGitCommand(args && args.command === 'checkout' ? args : undefined),
+            new CherryPickGitCommand(),
+            new MergeGitCommand(),
+            new FetchGitCommand(args && args.command === 'fetch' ? args : undefined),
+            new PullGitCommand(args && args.command === 'pull' ? args : undefined),
+            new PushGitCommand(args && args.command === 'push' ? args : undefined),
+            new RebaseGitCommand()
         ];
     }
 
@@ -273,6 +268,25 @@ export class GitCommandsCommand extends Command {
                             }
 
                             items = quickpick.activeItems;
+                        }
+
+                        if (items.length === 1) {
+                            const item = items[0];
+                            if (BackOrCancelQuickPickItem.is(item)) {
+                                if (item.cancelled) {
+                                    resolve();
+
+                                    return;
+                                }
+
+                                quickpick.value = '';
+                                if (commandsStep.command !== undefined) {
+                                    quickpick.busy = true;
+                                    resolve((await commandsStep.command.previous()) || commandsStep);
+                                }
+
+                                return;
+                            }
                         }
 
                         if (commandsStep.command === undefined) {
