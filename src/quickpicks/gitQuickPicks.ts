@@ -19,9 +19,15 @@ export interface BackOrCancelQuickPickItem extends QuickPickItem {
 }
 
 export namespace BackOrCancelQuickPickItem {
-    export function create(cancelled: boolean = true, picked?: boolean, label?: string) {
+    export function create(
+        cancelled: boolean = true,
+        picked?: boolean,
+        options: { label?: string; description?: string; detail?: string } = {}
+    ) {
         const item: BackOrCancelQuickPickItem = {
-            label: label || (cancelled ? 'Cancel' : 'Back'),
+            label: options.label || (cancelled ? 'Cancel' : 'Back'),
+            description: options.description || '',
+            detail: options.detail,
             picked: picked,
             cancelled: cancelled
         };

@@ -1,21 +1,18 @@
 'use strict';
-import { Uri, window } from 'vscode';
-import { GlyphChars } from '../constants';
+import { commands, Uri } from 'vscode';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { Logger } from '../logger';
-import { Messages } from '../messages';
 import { CommandQuickPickItem } from '../quickpicks';
 import {
     command,
     Command,
     CommandContext,
     Commands,
-    getRepoPathOrPrompt,
     isCommandViewContextWithFile,
     isCommandViewContextWithRepo,
     isCommandViewContextWithRepoPath
 } from './common';
+import { GitCommandsCommandArgs } from '../commands';
 
 export interface StashSaveCommandArgs {
     message?: string;
@@ -34,7 +31,8 @@ export class StashSaveCommand extends Command {
     protected preExecute(context: CommandContext, args: StashSaveCommandArgs = {}) {
         if (isCommandViewContextWithFile(context)) {
             args = { ...args };
-            args.uris = [GitUri.fromFile(context.node.file, context.node.file.repoPath || context.node.repoPath)];
+            args.repoPath = context.node.file.repoPath || context.node.repoPath;
+            args.uris = [GitUri.fromFile(context.node.file, args.repoPath)];
         }
         else if (isCommandViewContextWithRepo(context)) {
             args = { ...args };
@@ -60,39 +58,20 @@ export class StashSaveCommand extends Command {
     }
 
     async execute(args: StashSaveCommandArgs = {}) {
-        args = { ...args };
-
-        const uri = args.uris !== undefined && args.uris.length !== 0 ? args.uris[0] : undefined;
-        if (args.repoPath === undefined) {
-            args.repoPath = await getRepoPathOrPrompt(
-                `Stash changes for which repository${GlyphChars.Ellipsis}`,
-                args.goBackCommand,
-                uri
-            );
+        let repo;
+        if (args.uris !== undefined || args.repoPath !== undefined) {
+            repo = await Container.git.getRepository((args.uris && args.uris[0]) || args.repoPath!);
         }
-        if (!args.repoPath) return undefined;
 
-        try {
-            if (args.message == null) {
-                args.message = await window.showInputBox({
-                    prompt: 'Please provide a stash message',
-                    placeHolder: 'Stash message'
-                });
-                if (args.message === undefined) {
-                    return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
-                }
+        const gitCommandArgs: GitCommandsCommandArgs = {
+            command: 'stash',
+            state: {
+                subcommand: 'push',
+                repo: repo,
+                message: args.message,
+                uris: args.uris
             }
-
-            return await Container.git.stashSave(args.repoPath, args.message, args.uris);
-        }
-        catch (ex) {
-            Logger.error(ex, 'StashSaveCommand');
-
-            const msg = ex && ex.message;
-            if (msg.includes('newer version of Git')) {
-                return window.showErrorMessage(`Unable to save stash. ${msg}`);
-            }
-            return Messages.showGenericErrorMessage('Unable to save stash');
-        }
+        };
+        return commands.executeCommand(Commands.GitCommands, gitCommandArgs);
     }
 }

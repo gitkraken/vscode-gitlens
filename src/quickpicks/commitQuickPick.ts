@@ -250,7 +250,6 @@ export class CommitQuickPick {
         let remotes;
         if (stash) {
             const stashApplyCommmandArgs: StashApplyCommandArgs = {
-                confirm: true,
                 deleteAfter: false,
                 stashItem: commit as GitStashCommit,
                 goBackCommand: options.currentCommand
@@ -269,7 +268,6 @@ export class CommitQuickPick {
             );
 
             const stashDeleteCommmandArgs: StashDeleteCommandArgs = {
-                confirm: true,
                 stashItem: commit as GitStashCommit,
                 goBackCommand: options.currentCommand
             };

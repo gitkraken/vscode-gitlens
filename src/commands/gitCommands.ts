@@ -11,10 +11,16 @@ import { MergeGitCommand } from './git/merge';
 import { CommandArgs as PullCommandArgs, PullGitCommand } from './git/pull';
 import { CommandArgs as PushCommandArgs, PushGitCommand } from './git/push';
 import { RebaseGitCommand } from './git/rebase';
+import { CommandArgs as StashCommandArgs, StashGitCommand } from './git/stash';
 
 const sanitizeLabel = /\$\(.+?\)|\W/g;
 
-export type GitCommandsCommandArgs = CheckoutCommandArgs | FetchCommandArgs | PullCommandArgs | PushCommandArgs;
+export type GitCommandsCommandArgs =
+    | CheckoutCommandArgs
+    | FetchCommandArgs
+    | PullCommandArgs
+    | PushCommandArgs
+    | StashCommandArgs;
 
 class PickCommandStep implements QuickPickStep {
     readonly buttons = [];
@@ -30,7 +36,8 @@ class PickCommandStep implements QuickPickStep {
             new FetchGitCommand(args && args.command === 'fetch' ? args : undefined),
             new PullGitCommand(args && args.command === 'pull' ? args : undefined),
             new PushGitCommand(args && args.command === 'push' ? args : undefined),
-            new RebaseGitCommand()
+            new RebaseGitCommand(),
+            new StashGitCommand(args && args.command === 'stash' ? args : undefined)
         ];
     }
 

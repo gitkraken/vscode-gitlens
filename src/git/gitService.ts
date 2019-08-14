@@ -2752,13 +2752,18 @@ export class GitService implements Disposable {
     }
 
     @log()
-    stashSave(repoPath: string, message?: string, uris?: Uri[]) {
-        if (uris === undefined) return Git.stash__save(repoPath, message);
+    stashSave(
+        repoPath: string,
+        message?: string,
+        uris?: Uri[],
+        options: { includeUntracked?: boolean; keepIndex?: boolean } = {}
+    ) {
+        if (uris === undefined) return Git.stash__push(repoPath, message, options);
 
         GitService.ensureGitVersion('2.13.2', 'Stashing individual files');
 
-        const pathspecs = uris.map(u => Git.splitPath(u.fsPath, repoPath)[0]);
-        return Git.stash__push(repoPath, pathspecs, message);
+        const pathspecs = uris.map(u => `./${Git.splitPath(u.fsPath, repoPath)[0]}`);
+        return Git.stash__push(repoPath, message, { ...options, pathspecs: pathspecs });
     }
 
     static compareGitVersion(version: string) {

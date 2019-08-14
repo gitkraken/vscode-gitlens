@@ -5,6 +5,12 @@ import { BackOrCancelQuickPickItem } from '../quickpicks';
 
 export * from './quickCommand.helpers';
 
+export class BreakQuickCommand extends Error {
+    constructor() {
+        super('break');
+    }
+}
+
 export enum Directive {
     Back = 'back'
 }
@@ -108,12 +114,18 @@ export abstract class QuickCommandBase<T = any> implements QuickPickItem {
     protected createConfirmStep<T extends QuickPickItem>(
         title: string,
         confirmations: T[],
-        cancellable: boolean = true
+        {
+            cancel,
+            placeholder
+        }: {
+            cancel?: BackOrCancelQuickPickItem;
+            placeholder?: string;
+        } = {}
     ): QuickPickStep<T> {
         return this.createPickStep<T>({
-            placeholder: `Confirm ${this.title}`,
+            placeholder: placeholder || `Confirm ${this.title}`,
             title: title,
-            items: cancellable ? [...confirmations, BackOrCancelQuickPickItem.create()] : confirmations,
+            items: [...confirmations, cancel || BackOrCancelQuickPickItem.create()],
             selectedItems: [confirmations[0]]
         });
     }

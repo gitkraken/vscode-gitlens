@@ -4,7 +4,12 @@ import { Container } from '../../container';
 import { GitBranch, GitTag, Repository } from '../../git/gitService';
 import { GlyphChars } from '../../constants';
 import { getBranchesAndOrTags, QuickCommandBase, QuickInputStep, QuickPickStep, StepState } from '../quickCommand';
-import { BranchQuickPickItem, RepositoryQuickPickItem, TagQuickPickItem } from '../../quickpicks';
+import {
+    BackOrCancelQuickPickItem,
+    BranchQuickPickItem,
+    RepositoryQuickPickItem,
+    TagQuickPickItem
+} from '../../quickpicks';
 import { Strings } from '../../system';
 import { runGitCommandInTerminal } from '../../terminal';
 import { Logger } from '../../logger';
@@ -100,14 +105,13 @@ export class MergeGitCommand extends QuickCommandBase<State> {
                 if (count === 0) {
                     const step = this.createConfirmStep(
                         `Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${state.repo.formattedName}`,
-                        [
-                            {
+                        [],
+                        {
+                            cancel: BackOrCancelQuickPickItem.create(true, true, {
                                 label: `Cancel ${this.title}`,
-                                description: '',
                                 detail: `${state.destination.name} is up to date with ${state.source.name}`
-                            }
-                        ],
-                        false
+                            })
+                        }
                     );
 
                     yield step;

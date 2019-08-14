@@ -1,15 +1,13 @@
 'use strict';
-import { window } from 'vscode';
-import { GlyphChars } from '../constants';
+import { commands } from 'vscode';
 import { Container } from '../container';
 import { GitStashCommit } from '../git/gitService';
-import { Logger } from '../logger';
-import { Messages } from '../messages';
 import { CommandQuickPickItem } from '../quickpicks';
 import { command, Command, CommandContext, Commands, isCommandViewContextWithCommit } from './common';
+import { GitCommandsCommandArgs } from '../commands';
 
 export interface StashDeleteCommandArgs {
-    confirm?: boolean;
+    repoPath?: string;
     stashItem?: { stashName: string; message: string; repoPath: string };
 
     goBackCommand?: CommandQuickPickItem;
@@ -21,51 +19,29 @@ export class StashDeleteCommand extends Command {
         super(Commands.StashDelete);
     }
 
-    protected preExecute(context: CommandContext, args: StashDeleteCommandArgs = { confirm: true }) {
+    protected preExecute(context: CommandContext, args: StashDeleteCommandArgs = {}) {
         if (isCommandViewContextWithCommit<GitStashCommit>(context)) {
             args = { ...args };
             args.stashItem = context.node.commit;
-            return this.execute(args);
         }
 
         return this.execute(args);
     }
 
-    async execute(args: StashDeleteCommandArgs = { confirm: true }) {
-        args = { ...args };
-        if (
-            args.stashItem === undefined ||
-            args.stashItem.stashName === undefined ||
-            args.stashItem.repoPath === undefined
-        ) {
-            return undefined;
+    async execute(args: StashDeleteCommandArgs = {}) {
+        let repo;
+        if (args.stashItem !== undefined || args.repoPath !== undefined) {
+            repo = await Container.git.getRepository((args.stashItem && args.stashItem.repoPath) || args.repoPath!);
         }
 
-        if (args.confirm === undefined) {
-            args.confirm = true;
-        }
-
-        try {
-            if (args.confirm) {
-                const message =
-                    args.stashItem.message.length > 80
-                        ? `${args.stashItem.message.substring(0, 80)}${GlyphChars.Ellipsis}`
-                        : args.stashItem.message;
-                const result = await window.showWarningMessage(
-                    `Delete stashed changes '${message}'?`,
-                    { title: 'Yes' },
-                    { title: 'No', isCloseAffordance: true }
-                );
-                if (result === undefined || result.title !== 'Yes') {
-                    return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
-                }
+        const gitCommandArgs: GitCommandsCommandArgs = {
+            command: 'stash',
+            state: {
+                subcommand: 'drop',
+                repo: repo,
+                stash: args.stashItem
             }
-
-            return await Container.git.stashDelete(args.stashItem.repoPath, args.stashItem.stashName);
-        }
-        catch (ex) {
-            Logger.error(ex, 'StashDeleteCommand');
-            return Messages.showGenericErrorMessage('Unable to delete stash');
-        }
+        };
+        return commands.executeCommand(Commands.GitCommands, gitCommandArgs);
     }
 }

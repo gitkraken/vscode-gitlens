@@ -485,7 +485,8 @@
                     "type": "array",
                     "default": [
                         "checkout",
-                        "fetch"
+                        "fetch",
+                        "stash-push"
                     ],
                     "items": {
                         "type": "string",
@@ -493,13 +494,19 @@
                             "checkout",
                             "fetch",
                             "pull",
-                            "push"
+                            "push",
+                            "stash-apply",
+                            "stash-pop",
+                            "stash-push"
                         ],
                         "enumDescriptions": [
                             "Skips checkout command confirmation",
                             "Skips fetch command confirmation",
                             "Skips pull command confirmation",
-                            "Skips push command confirmation"
+                            "Skips push command confirmation",
+                            "Skips stash apply command confirmation",
+                            "Skips stash pop command confirmation",
+                            "Skips stash push command confirmation"
                         ]
                     },
                     "minItems": 0,

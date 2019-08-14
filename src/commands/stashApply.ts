@@ -1,23 +1,19 @@
 'use strict';
-import { window } from 'vscode';
-import { GlyphChars } from '../constants';
+import { commands } from 'vscode';
 import { Container } from '../container';
 import { GitStashCommit } from '../git/gitService';
-import { Logger } from '../logger';
-import { Messages } from '../messages';
-import { CommandQuickPickItem, StashListQuickPick } from '../quickpicks';
+import { CommandQuickPickItem } from '../quickpicks';
 import {
     command,
     Command,
     CommandContext,
     Commands,
-    getRepoPathOrPrompt,
     isCommandViewContextWithCommit,
     isCommandViewContextWithRepo
 } from './common';
+import { GitCommandsCommandArgs } from '../commands';
 
 export interface StashApplyCommandArgs {
-    confirm?: boolean;
     deleteAfter?: boolean;
     repoPath?: string;
     stashItem?: { stashName: string; message: string; repoPath: string };
@@ -31,11 +27,10 @@ export class StashApplyCommand extends Command {
         super(Commands.StashApply);
     }
 
-    protected preExecute(context: CommandContext, args: StashApplyCommandArgs = { confirm: true, deleteAfter: false }) {
+    protected preExecute(context: CommandContext, args: StashApplyCommandArgs = { deleteAfter: false }) {
         if (isCommandViewContextWithCommit<GitStashCommit>(context)) {
             args = { ...args };
             args.stashItem = context.node.commit;
-            return this.execute(args);
         }
         else if (isCommandViewContextWithRepo(context)) {
             args = { ...args };
@@ -45,90 +40,20 @@ export class StashApplyCommand extends Command {
         return this.execute(args);
     }
 
-    async execute(args: StashApplyCommandArgs = { confirm: true, deleteAfter: false }) {
-        args = { ...args };
-
-        if (args.stashItem === undefined || args.stashItem.stashName === undefined) {
-            if (args.repoPath === undefined) {
-                args.repoPath = await getRepoPathOrPrompt(
-                    `Apply stashed changes from which repository${GlyphChars.Ellipsis}`,
-                    args.goBackCommand
-                );
-            }
-            if (!args.repoPath) return undefined;
-
-            const progressCancellation = StashListQuickPick.showProgress('apply');
-
-            try {
-                const stash = await Container.git.getStashList(args.repoPath);
-                if (stash === undefined) return window.showInformationMessage('There are no stashed changes');
-
-                if (progressCancellation.token.isCancellationRequested) return undefined;
-
-                const currentCommand = new CommandQuickPickItem(
-                    {
-                        label: `go back ${GlyphChars.ArrowBack}`,
-                        description: 'to apply stashed changes'
-                    },
-                    Commands.StashApply,
-                    [args]
-                );
-
-                const pick = await StashListQuickPick.show(
-                    stash,
-                    'apply',
-                    progressCancellation,
-                    args.goBackCommand,
-                    currentCommand
-                );
-                if (pick instanceof CommandQuickPickItem) return pick.execute();
-                if (pick === undefined) {
-                    return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
-                }
-
-                args.goBackCommand = currentCommand;
-                args.stashItem = pick.item;
-            }
-            finally {
-                progressCancellation.cancel();
-            }
+    async execute(args: StashApplyCommandArgs = { deleteAfter: false }) {
+        let repo;
+        if (args.stashItem !== undefined || args.repoPath !== undefined) {
+            repo = await Container.git.getRepository((args.stashItem && args.stashItem.repoPath) || args.repoPath!);
         }
 
-        try {
-            if (args.confirm) {
-                const message =
-                    args.stashItem.message.length > 80
-                        ? `${args.stashItem.message.substring(0, 80)}${GlyphChars.Ellipsis}`
-                        : args.stashItem.message;
-                const result = await window.showWarningMessage(
-                    `Apply stashed changes '${message}' to your working tree?`,
-                    { title: 'Yes, delete after applying' },
-                    { title: 'Yes' },
-                    { title: 'No', isCloseAffordance: true }
-                );
-                if (result === undefined || result.title === 'No') {
-                    return args.goBackCommand === undefined ? undefined : args.goBackCommand.execute();
-                }
-
-                args.deleteAfter = result.title !== 'Yes';
+        const gitCommandArgs: GitCommandsCommandArgs = {
+            command: 'stash',
+            state: {
+                subcommand: args.deleteAfter ? 'pop' : 'apply',
+                repo: repo,
+                stash: args.stashItem
             }
-
-            return await Container.git.stashApply(args.stashItem.repoPath, args.stashItem.stashName, args.deleteAfter);
-        }
-        catch (ex) {
-            Logger.error(ex, 'StashApplyCommand');
-            if (ex.message.includes('Your local changes to the following files would be overwritten by merge')) {
-                return window.showWarningMessage(
-                    'Unable to apply stash. Your working tree changes would be overwritten.'
-                );
-            }
-            else if (ex.message.includes('Auto-merging') && ex.message.includes('CONFLICT')) {
-                return window.showInformationMessage('Stash applied with conflicts');
-            }
-
-            return Messages.showGenericErrorMessage(
-                `Unable to apply stash \u2014 ${ex.message.trim().replace(/\n+?/g, '; ')}`
-            );
-        }
+        };
+        return commands.executeCommand(Commands.GitCommands, gitCommandArgs);
     }
 }

@@ -1067,19 +1067,34 @@ export class Git {
         );
     }
 
-    static stash__push(repoPath: string, pathspecs: string[], message?: string) {
-        const params = ['stash', 'push', '-u'];
+    static stash__push(
+        repoPath: string,
+        message?: string,
+        {
+            includeUntracked,
+            keepIndex,
+            pathspecs
+        }: { includeUntracked?: boolean; keepIndex?: boolean; pathspecs?: string[] } = {}
+    ) {
+        const params = ['stash', 'push'];
+
+        if (includeUntracked || (pathspecs !== undefined && pathspecs.length !== 0)) {
+            params.push('-u');
+        }
+
+        if (keepIndex) {
+            params.push('-k');
+        }
+
         if (message) {
             params.push('-m', message);
         }
-        return git<string>({ cwd: repoPath }, ...params, '--', ...pathspecs);
-    }
 
-    static stash__save(repoPath: string, message?: string) {
-        const params = ['stash', 'save', '-u'];
-        if (message) {
-            params.push(message);
+        params.push('--');
+        if (pathspecs !== undefined && pathspecs.length !== 0) {
+            params.push(...pathspecs);
         }
+
         return git<string>({ cwd: repoPath }, ...params);
     }
 
