@@ -1,7 +1,7 @@
 'use strict';
 import { InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { Promises } from '../system';
-import { BackOrCancelQuickPickItem } from '../quickpicks';
+import { Directive, DirectiveQuickPickItem } from '../quickpicks';
 
 export * from './quickCommand.helpers';
 
@@ -9,10 +9,6 @@ export class BreakQuickCommand extends Error {
     constructor() {
         super('break');
     }
-}
-
-export enum Directive {
-    Back = 'back'
 }
 
 export interface QuickInputStep {
@@ -32,7 +28,7 @@ export function isQuickInputStep(item: QuickPickStep | QuickInputStep): item is 
 export interface QuickPickStep<T extends QuickPickItem = any> {
     buttons?: QuickInputButton[];
     selectedItems?: QuickPickItem[];
-    items: (BackOrCancelQuickPickItem | T)[] | BackOrCancelQuickPickItem[];
+    items: (DirectiveQuickPickItem | T)[] | DirectiveQuickPickItem[];
     matchOnDescription?: boolean;
     matchOnDetail?: boolean;
     multiselect?: boolean;
@@ -118,14 +114,14 @@ export abstract class QuickCommandBase<T = any> implements QuickPickItem {
             cancel,
             placeholder
         }: {
-            cancel?: BackOrCancelQuickPickItem;
+            cancel?: DirectiveQuickPickItem;
             placeholder?: string;
         } = {}
     ): QuickPickStep<T> {
         return this.createPickStep<T>({
             placeholder: placeholder || `Confirm ${this.title}`,
             title: title,
-            items: [...confirmations, cancel || BackOrCancelQuickPickItem.create()],
+            items: [...confirmations, cancel || DirectiveQuickPickItem.create(Directive.Cancel)],
             selectedItems: [confirmations[0]]
         });
     }

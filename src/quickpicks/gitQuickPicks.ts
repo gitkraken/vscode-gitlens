@@ -14,28 +14,33 @@ import {
 } from '../git/gitService';
 import { emojify } from '../emojis';
 
-export interface BackOrCancelQuickPickItem extends QuickPickItem {
-    cancelled: boolean;
+export enum Directive {
+    Back = 'Back',
+    Cancel = 'Cancel'
 }
 
-export namespace BackOrCancelQuickPickItem {
+export interface DirectiveQuickPickItem extends QuickPickItem {
+    directive: Directive;
+}
+
+export namespace DirectiveQuickPickItem {
     export function create(
-        cancelled: boolean = true,
+        directive: Directive,
         picked?: boolean,
         options: { label?: string; description?: string; detail?: string } = {}
     ) {
-        const item: BackOrCancelQuickPickItem = {
-            label: options.label || (cancelled ? 'Cancel' : 'Back'),
+        const item: DirectiveQuickPickItem = {
+            label: options.label || directive,
             description: options.description || '',
             detail: options.detail,
             picked: picked,
-            cancelled: cancelled
+            directive: directive
         };
 
         return item;
     }
 
-    export function is(item: QuickPickItem): item is BackOrCancelQuickPickItem {
+    export function is(item: QuickPickItem): item is DirectiveQuickPickItem {
         return item != null && 'cancelled' in item;
     }
 }

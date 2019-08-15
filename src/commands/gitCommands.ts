@@ -3,7 +3,7 @@ import { Disposable, InputBox, QuickInputButtons, QuickPick, QuickPickItem, wind
 import { command, Command, Commands } from './common';
 import { log } from '../system';
 import { isQuickInputStep, isQuickPickStep, QuickCommandBase, QuickInputStep, QuickPickStep } from './quickCommand';
-import { BackOrCancelQuickPickItem } from '../quickpicks';
+import { Directive, DirectiveQuickPickItem } from '../quickpicks';
 import { CommandArgs as CheckoutCommandArgs, CheckoutGitCommand } from './git/checkout';
 import { CherryPickGitCommand } from './git/cherry-pick';
 import { CommandArgs as FetchCommandArgs, FetchGitCommand } from './git/fetch';
@@ -279,20 +279,20 @@ export class GitCommandsCommand extends Command {
 
                         if (items.length === 1) {
                             const item = items[0];
-                            if (BackOrCancelQuickPickItem.is(item)) {
-                                if (item.cancelled) {
-                                    resolve();
+                            if (DirectiveQuickPickItem.is(item)) {
+                                switch (item.directive) {
+                                    case Directive.Cancel:
+                                        resolve();
+                                        return;
 
-                                    return;
+                                    case Directive.Back:
+                                        quickpick.value = '';
+                                        if (commandsStep.command !== undefined) {
+                                            quickpick.busy = true;
+                                            resolve((await commandsStep.command.previous()) || commandsStep);
+                                        }
+                                        return;
                                 }
-
-                                quickpick.value = '';
-                                if (commandsStep.command !== undefined) {
-                                    quickpick.busy = true;
-                                    resolve((await commandsStep.command.previous()) || commandsStep);
-                                }
-
-                                return;
                             }
                         }
 

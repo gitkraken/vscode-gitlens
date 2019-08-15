@@ -5,8 +5,9 @@ import { GitBranch, GitTag, Repository } from '../../git/gitService';
 import { GlyphChars } from '../../constants';
 import { getBranchesAndOrTags, QuickCommandBase, QuickInputStep, QuickPickStep, StepState } from '../quickCommand';
 import {
-    BackOrCancelQuickPickItem,
     BranchQuickPickItem,
+    Directive,
+    DirectiveQuickPickItem,
     RepositoryQuickPickItem,
     TagQuickPickItem
 } from '../../quickpicks';
@@ -107,7 +108,7 @@ export class MergeGitCommand extends QuickCommandBase<State> {
                         `Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${state.repo.formattedName}`,
                         [],
                         {
-                            cancel: BackOrCancelQuickPickItem.create(true, true, {
+                            cancel: DirectiveQuickPickItem.create(Directive.Cancel, true, {
                                 label: `Cancel ${this.title}`,
                                 detail: `${state.destination.name} is up to date with ${state.source.name}`
                             })

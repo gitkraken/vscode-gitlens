@@ -3,7 +3,7 @@ import { QuickPickItem, Uri, window } from 'vscode';
 import { Container } from '../../container';
 import { GitStashCommit, GitUri, Repository } from '../../git/gitService';
 import { BreakQuickCommand, QuickCommandBase, QuickInputStep, QuickPickStep, StepState } from '../quickCommand';
-import { BackOrCancelQuickPickItem, CommitQuickPickItem, RepositoryQuickPickItem } from '../../quickpicks';
+import { CommitQuickPickItem, Directive, DirectiveQuickPickItem, RepositoryQuickPickItem } from '../../quickpicks';
 import { Iterables, Strings } from '../../system';
 import { GlyphChars } from '../../constants';
 import { Logger } from '../../logger';
@@ -262,7 +262,10 @@ export class StashGitCommand extends QuickCommandBase<State> {
                             : 'Choose a stash to apply to your working tree',
                     items:
                         stash === undefined
-                            ? [BackOrCancelQuickPickItem.create(false, true), BackOrCancelQuickPickItem.create()]
+                            ? [
+                                  DirectiveQuickPickItem.create(Directive.Back, true),
+                                  DirectiveQuickPickItem.create(Directive.Cancel)
+                              ]
                             : [
                                   ...Iterables.map(stash.commits.values(), c =>
                                       CommitQuickPickItem.create(
@@ -361,7 +364,10 @@ export class StashGitCommand extends QuickCommandBase<State> {
                             : 'Choose a stash to delete',
                     items:
                         stash === undefined
-                            ? [BackOrCancelQuickPickItem.create(false, true), BackOrCancelQuickPickItem.create()]
+                            ? [
+                                  DirectiveQuickPickItem.create(Directive.Back, true),
+                                  DirectiveQuickPickItem.create(Directive.Cancel)
+                              ]
                             : [
                                   ...Iterables.map(stash.commits.values(), c =>
                                       CommitQuickPickItem.create(

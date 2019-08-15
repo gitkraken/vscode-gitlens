@@ -6,9 +6,10 @@ import { GlyphChars } from '../../constants';
 import { Iterables, Strings } from '../../system';
 import { getBranchesAndOrTags, QuickCommandBase, QuickInputStep, QuickPickStep, StepState } from '../quickCommand';
 import {
-    BackOrCancelQuickPickItem,
     BranchQuickPickItem,
     CommitQuickPickItem,
+    Directive,
+    DirectiveQuickPickItem,
     RefQuickPickItem,
     RepositoryQuickPickItem
 } from '../../quickpicks';
@@ -137,7 +138,10 @@ export class CherryPickGitCommand extends QuickCommandBase<State> {
                                 : `Choose commits to cherry-pick onto ${state.destination.name}`,
                         items:
                             log === undefined
-                                ? [BackOrCancelQuickPickItem.create(false, true), BackOrCancelQuickPickItem.create()]
+                                ? [
+                                      DirectiveQuickPickItem.create(Directive.Back, true),
+                                      DirectiveQuickPickItem.create(Directive.Cancel)
+                                  ]
                                 : [
                                       ...Iterables.map(log.commits.values(), commit =>
                                           CommitQuickPickItem.create(
