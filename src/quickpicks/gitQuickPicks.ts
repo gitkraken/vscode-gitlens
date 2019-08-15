@@ -45,7 +45,7 @@ export namespace DirectiveQuickPickItem {
     }
 
     export function is(item: QuickPickItem): item is DirectiveQuickPickItem {
-        return item != null && 'cancelled' in item;
+        return item != null && 'directive' in item;
     }
 }
 
