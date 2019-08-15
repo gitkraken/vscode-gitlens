@@ -3,7 +3,13 @@ import { QuickPickItem, Uri, window } from 'vscode';
 import { Container } from '../../container';
 import { GitStashCommit, GitUri, Repository } from '../../git/gitService';
 import { BreakQuickCommand, QuickCommandBase, QuickInputStep, QuickPickStep, StepState } from '../quickCommand';
-import { CommitQuickPickItem, Directive, DirectiveQuickPickItem, RepositoryQuickPickItem } from '../../quickpicks';
+import {
+    CommitQuickPickItem,
+    Directive,
+    DirectiveQuickPickItem,
+    QuickPickItemPlus,
+    RepositoryQuickPickItem
+} from '../../quickpicks';
 import { Iterables, Strings } from '../../system';
 import { GlyphChars } from '../../constants';
 import { Logger } from '../../logger';
@@ -40,10 +46,6 @@ interface PushState {
 
 type State = ApplyState | DropState | PopState | PushState;
 type StashStepState<T> = Partial<T> & { counter: number; repo: Repository; skipConfirmation?: boolean };
-
-interface StashSubcommandQuickPickItem extends QuickPickItem {
-    item: State['subcommand'];
-}
 
 export interface CommandArgs {
     readonly command: 'stash';
@@ -105,7 +107,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
         while (true) {
             try {
                 if (state.subcommand === undefined || state.counter < 1) {
-                    const step = this.createPickStep<StashSubcommandQuickPickItem>({
+                    const step = this.createPickStep<QuickPickItemPlus<State['subcommand']>>({
                         title: this.title,
                         placeholder: `Choose a ${this.label} command`,
                         items: [
@@ -296,7 +298,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
                         ? `${state.stash.message.substring(0, 80)}${GlyphChars.Ellipsis}`
                         : state.stash.message;
 
-                const step = this.createConfirmStep<QuickPickItem & { command: 'apply' | 'pop'; item: string[] }>(
+                const step = this.createConfirmStep<QuickPickItemPlus<string[]> & { command: 'apply' | 'pop' }>(
                     `Confirm ${this.title} ${state.subcommand}${Strings.pad(GlyphChars.Dot, 2, 2)}${
                         state.repo.formattedName
                     }`,
@@ -450,7 +452,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
                 state.flags = [];
             }
             else {
-                const step = this.createConfirmStep<QuickPickItem & { item: string[] }>(
+                const step = this.createConfirmStep<QuickPickItemPlus<string[]>>(
                     `Confirm ${this.title} ${state.subcommand}${Strings.pad(GlyphChars.Dot, 2, 2)}${
                         state.repo.formattedName
                     }`,

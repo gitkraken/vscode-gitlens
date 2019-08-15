@@ -1,9 +1,8 @@
 'use strict';
-import { QuickPickItem } from 'vscode';
 import { Container } from '../../container';
 import { Repository } from '../../git/gitService';
 import { QuickCommandBase, QuickInputStep, QuickPickStep, StepState } from '../quickCommand';
-import { RepositoryQuickPickItem } from '../../quickpicks';
+import { QuickPickItemPlus, RepositoryQuickPickItem } from '../../quickpicks';
 import { Strings } from '../../system';
 import { GlyphChars } from '../../constants';
 import { Logger } from '../../logger';
@@ -92,7 +91,7 @@ export class PullGitCommand extends QuickCommandBase<State> {
                     }
                 }
 
-                const step = this.createConfirmStep<QuickPickItem & { item: string[] }>(
+                const step = this.createConfirmStep<QuickPickItemPlus<string[]>>(
                     `Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${
                         state.repos.length === 1 ? state.repos[0].formattedName : `${state.repos.length} repositories`
                     }`,

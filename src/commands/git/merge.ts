@@ -1,5 +1,4 @@
 'use strict';
-import { QuickPickItem } from 'vscode';
 import { Container } from '../../container';
 import { GitBranch, GitTag, Repository } from '../../git/gitService';
 import { GlyphChars } from '../../constants';
@@ -8,6 +7,7 @@ import {
     BranchQuickPickItem,
     Directive,
     DirectiveQuickPickItem,
+    QuickPickItemPlus,
     RepositoryQuickPickItem,
     TagQuickPickItem
 } from '../../quickpicks';
@@ -119,7 +119,7 @@ export class MergeGitCommand extends QuickCommandBase<State> {
                     break;
                 }
 
-                const step = this.createConfirmStep<QuickPickItem & { item: string[] }>(
+                const step = this.createConfirmStep<QuickPickItemPlus<string[]>>(
                     `Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${state.repo.formattedName}`,
                     [
                         {
