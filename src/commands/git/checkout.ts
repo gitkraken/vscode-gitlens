@@ -213,7 +213,7 @@ export class CheckoutGitCommand extends QuickCommandBase<State> {
                                 value = value.trim();
                                 if (value.length === 0) return [false, 'Please enter a valid branch name'];
 
-                                const valid = Boolean(await Container.git.validateBranchName(value!));
+                                const valid = Boolean(await Container.git.validateBranchName(value));
                                 return [valid, valid ? undefined : `'${value}' isn't a valid branch name`];
                             }
                         });

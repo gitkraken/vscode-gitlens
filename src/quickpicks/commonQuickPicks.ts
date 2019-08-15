@@ -133,16 +133,11 @@ export class ShowCommitSearchResultsInViewQuickPickItem extends CommandQuickPick
         super(item, undefined, undefined);
     }
 
-    async execute(): Promise<{} | undefined> {
-        return void (await Container.searchView.showSearchResults(
-            this.results.repoPath,
-            this.search,
-            this.searchBy,
-            this.results,
-            {
-                label: this.resultsLabel
-            }
-        ));
+    execute(): Promise<{} | undefined> {
+        Container.searchView.showSearchResults(this.results.repoPath, this.search, this.searchBy, this.results, {
+            label: this.resultsLabel
+        });
+        return Promise.resolve(undefined);
     }
 }
 

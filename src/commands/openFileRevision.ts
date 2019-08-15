@@ -181,10 +181,10 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
                 args.showOptions.selection = new Range(args.line, 0, args.line, 0);
             }
 
-            const e = await openEditor(args.uri!, { ...args.showOptions, rethrow: true });
+            const e = await openEditor(args.uri, { ...args.showOptions, rethrow: true });
             if (args.annotationType === undefined) return e;
 
-            return Container.fileAnnotations.show(e!, args.annotationType, args.line);
+            return Container.fileAnnotations.show(e, args.annotationType, args.line);
         }
         catch (ex) {
             Logger.error(ex, 'OpenFileRevisionCommand');

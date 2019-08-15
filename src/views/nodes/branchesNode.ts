@@ -49,7 +49,7 @@ export class BranchesNode extends ViewNode<RepositoriesView> {
                 hierarchy,
                 'branches'
             );
-            this._children = await root.getChildren();
+            this._children = root.getChildren();
         }
         return this._children;
     }

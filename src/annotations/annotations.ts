@@ -170,7 +170,7 @@ export class Annotations {
             message = `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(commit, editorLine)} "Open Changes")`;
 
             previous = `[\`${commit.previousShortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
-                commit.previousSha!
+                commit.previousSha
             )} "Show Commit Details")`;
 
             current = `[\`${commit.shortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(

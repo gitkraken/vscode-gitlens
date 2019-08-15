@@ -1,0 +1,8 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "lib": ["dom", "dom.iterable", "es2018"],
+        "skipLibCheck": true
+    },
+    "exclude": ["node_modules", "test"]
+}

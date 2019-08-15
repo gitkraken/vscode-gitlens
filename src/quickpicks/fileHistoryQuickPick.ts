@@ -111,7 +111,7 @@ export class FileHistoryQuickPick {
         }
 
         if (!options.pickerOnly) {
-            const branch = await Container.git.getBranch(uri.repoPath!);
+            const branch = await Container.git.getBranch(uri.repoPath);
 
             if (branch !== undefined) {
                 const commandArgs: ShowQuickFileHistoryCommandArgs = {
@@ -150,7 +150,7 @@ export class FileHistoryQuickPick {
                     );
                 }
 
-                const remotes = await Container.git.getRemotes(uri.repoPath!, { sort: true });
+                const remotes = await Container.git.getRemotes(uri.repoPath, { sort: true });
                 if (remotes.length) {
                     const resource: RemoteResource =
                         uri.sha !== undefined

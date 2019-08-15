@@ -18,6 +18,7 @@ CONTRIBUTING.md
 generateEmojiShortcodeMap.js
 package-lock.json
 tsconfig.json
+tsconfig.eslint.json
+tsconfig.webviews.json
 webpack.config.js
-webviews.tsconfig.json
 yarn.lock

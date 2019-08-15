@@ -104,7 +104,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
         try {
             if (args.commit === undefined || !args.commit.isFile) {
                 if (args.fileLog !== undefined) {
-                    args.commit = args.fileLog.commits.get(args.sha!);
+                    args.commit = args.fileLog.commits.get(args.sha);
                     // If we can't find the commit, kill the fileLog
                     if (args.commit === undefined) {
                         args.fileLog = undefined;
@@ -124,7 +124,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
                 return Messages.showCommitNotFoundWarningMessage('Unable to show commit file details');
             }
 
-            const shortSha = GitService.shortenSha(args.sha!);
+            const shortSha = GitService.shortenSha(args.sha);
 
             if (args.goBackCommand === undefined) {
                 const commandArgs: ShowQuickCommitDetailsCommandArgs = {

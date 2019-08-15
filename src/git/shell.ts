@@ -7,6 +7,11 @@ import { Logger } from '../logger';
 
 const isWindows = process.platform === 'win32';
 
+const slashesRegex = /[\\/]/;
+const ps1Regex = /\.ps1$/i;
+const batOrCmdRegex = /\.(bat|cmd)$/i;
+const jsRegex = /\.(js)$/i;
+
 /**
  * Search PATH to see if a file exists in any of the path folders.
  *
@@ -21,7 +26,7 @@ function runDownPath(exe: string): string {
     // Posix does
 
     // Files with any directory path don't get this applied
-    if (exe.match(/[\\/]/)) return exe;
+    if (slashesRegex.test(exe)) return exe;
 
     const target = paths.join('.', exe);
     try {
@@ -81,7 +86,7 @@ export function findExecutable(exe: string, args: string[]): { cmd: string; args
         }
     }
 
-    if (exe.match(/\.ps1$/i)) {
+    if (ps1Regex.test(exe)) {
         const cmd = paths.join(
             process.env.SYSTEMROOT || 'C:\\WINDOWS',
             'System32',
@@ -94,14 +99,14 @@ export function findExecutable(exe: string, args: string[]): { cmd: string; args
         return { cmd: cmd, args: psargs.concat(args) };
     }
 
-    if (exe.match(/\.(bat|cmd)$/i)) {
+    if (batOrCmdRegex.test(exe)) {
         const cmd = paths.join(process.env.SYSTEMROOT || 'C:\\WINDOWS', 'System32', 'cmd.exe');
         const cmdArgs = ['/C', exe, ...args];
 
         return { cmd: cmd, args: cmdArgs };
     }
 
-    if (exe.match(/\.(js)$/i)) {
+    if (jsRegex.test(exe)) {
         const cmd = process.execPath;
         const nodeArgs = [exe];
 

@@ -437,7 +437,7 @@ export class GitLogParser {
                 type === GitCommitType.Log ? entry.parentShas![0] : undefined,
                 undefined,
                 entry.fileStats,
-                entry.parentShas!,
+                entry.parentShas,
                 entry.line
             );
 

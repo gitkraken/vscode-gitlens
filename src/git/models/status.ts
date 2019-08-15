@@ -149,7 +149,7 @@ export class GitStatusFile implements GitFile {
     ) {}
 
     get status(): GitFileStatus {
-        return (this.indexStatus || this.workingTreeStatus || '?') as GitFileStatus;
+        return this.indexStatus || this.workingTreeStatus || '?';
     }
 
     get staged() {

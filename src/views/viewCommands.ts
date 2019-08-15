@@ -180,7 +180,7 @@ export class ViewCommands {
         if (message.includes('Co-authored-by: ')) {
             newlines = '\n';
         }
-        else if (message.length !== 0 && message[message.length - 1] === '\n') {
+        else if (message.length !== 0 && message.endsWith('\n')) {
             newlines = '\n\n';
         }
         else {

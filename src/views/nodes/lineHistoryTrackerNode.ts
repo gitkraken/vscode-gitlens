@@ -73,7 +73,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
     @gate()
     @log()
     async changeBase() {
-        const pick = await new ReferencesQuickPick(this.uri.repoPath!).show(
+        const pick = await new ReferencesQuickPick(this.uri.repoPath).show(
             `Change the line history base to${GlyphChars.Ellipsis}`,
             {
                 allowEnteringRefs: true,
@@ -126,7 +126,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
         }
 
         if (
-            UriComparer.equals(editor!.document.uri, this.uri) &&
+            UriComparer.equals(editor.document.uri, this.uri) &&
             (this._selection !== undefined && editor.selection.isEqual(this._selection))
         ) {
             if (cc !== undefined) {
@@ -135,7 +135,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
             return true;
         }
 
-        const gitUri = await GitUri.fromUri(editor!.document.uri);
+        const gitUri = await GitUri.fromUri(editor.document.uri);
 
         if (
             this.uri !== unknownGitUri &&

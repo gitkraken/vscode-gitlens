@@ -133,7 +133,7 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 
             for (const line of lines) {
                 const commitLine = blame.lines[line];
-                this.setState(line, new GitLineState(blame.commits.get(commitLine.sha)!));
+                this.setState(line, new GitLineState(blame.commits.get(commitLine.sha)));
             }
         }
 

@@ -5,6 +5,8 @@ import { Git, GitRemote } from '../git';
 import { GitStatus } from './status';
 import { memoize } from '../../system';
 
+const whitespaceRegex = /\s/;
+
 export interface GitTrackingState {
     ahead: number;
     behind: number;
@@ -141,6 +143,6 @@ export class GitBranch {
     static isDetached(name: string): boolean {
         // If there is whitespace in the name assume this is not a valid branch name
         // Deals with detached HEAD states
-        return name.match(/\s/) !== null || name.match(/\(detached\)/) !== null;
+        return whitespaceRegex.test(name) || name.includes('(detached)');
     }
 }

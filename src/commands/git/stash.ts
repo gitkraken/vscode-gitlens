@@ -408,7 +408,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
                         {
                             label: `${this.title} ${state.subcommand}`,
                             description: `${state.stash.stashName}${Strings.pad(GlyphChars.Dash, 2, 2)}${message}`,
-                            detail: `Will delete ${state.stash!.stashName}`
+                            detail: `Will delete ${state.stash.stashName}`
                         }
                     ],
                     { placeholder: `Confirm ${this.title} ${state.subcommand}` }
@@ -420,13 +420,13 @@ export class StashGitCommand extends QuickCommandBase<State> {
                 }
             }
 
-            void Container.git.stashDelete(state.repo.path, state.stash!.stashName);
+            void Container.git.stashDelete(state.repo.path, state.stash.stashName);
 
             throw new BreakQuickCommand();
         }
     }
 
-    // eslint-disable-next-line require-await
+    // eslint-disable-next-line @typescript-eslint/require-await
     private async *push(state: StashStepState<PushState>): AsyncIterableIterator<QuickPickStep | QuickInputStep> {
         while (true) {
             if (state.message === undefined || state.counter < 3) {

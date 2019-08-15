@@ -21,13 +21,13 @@ export class StashNode extends ViewRefNode {
     }
 
     async getChildren(): Promise<ViewNode[]> {
-        const files = (this.commit as GitStashCommit).files;
+        const files = this.commit.files;
 
         // Check for any untracked files -- since git doesn't return them via `git stash list` :(
         // See https://stackoverflow.com/questions/12681529/
         const log = await Container.git.getLog(this.commit.repoPath, {
             maxCount: 1,
-            ref: `${(this.commit as GitStashCommit).stashName}^3`
+            ref: `${this.commit.stashName}^3`
         });
         if (log !== undefined) {
             const commit = Iterables.first(log.commits.values());
@@ -39,7 +39,7 @@ export class StashNode extends ViewRefNode {
         }
 
         const children = files.map(s => new StashFileNode(this.view, this, s, this.commit.toFileCommit(s)));
-        children.sort((a, b) => a.label!.localeCompare(b.label!, undefined, { numeric: true, sensitivity: 'base' }));
+        children.sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }));
         return children;
     }
 

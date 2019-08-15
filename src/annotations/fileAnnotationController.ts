@@ -408,7 +408,7 @@ export class FileAnnotationController implements Disposable {
         }
 
         const provider = this.getProvider(editor);
-        if (provider === undefined) return this.show(editor!, type, shaOrLine);
+        if (provider === undefined) return this.show(editor, type, shaOrLine);
 
         const reopen = provider.annotationType !== type;
         if (on === true && !reopen) return true;
@@ -496,7 +496,7 @@ export class FileAnnotationController implements Disposable {
                     break;
             }
 
-            progress!.report({
+            progress.report({
                 message: `Computing ${annotationsLabel} for ${paths.basename(editor.document.fileName)}`
             });
         }

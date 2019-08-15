@@ -106,7 +106,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
                 if (!fsPath) {
                     path = slash;
                 }
-                else if (fsPath[0] !== slash) {
+                else if (!fsPath.startsWith(slash)) {
                     path = `/${fsPath}`;
                 }
                 else {
@@ -202,7 +202,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
     private static ensureValidUNCPath(authority: string, fsPath: string): [string, string] {
         // Taken from https://github.com/Microsoft/vscode/blob/e444eaa768a1e8bd8315f2cee265d725e96a8162/src/vs/base/common/uri.ts#L300-L325
         // check for authority as used in UNC shares or use the path as given
-        if (fsPath[0] === slash && fsPath[1] === slash) {
+        if (fsPath.startsWith(slash) && fsPath[1] === slash) {
             const index = fsPath.indexOf(slash, 2);
             if (index === -1) {
                 authority = fsPath.substring(2);
@@ -427,7 +427,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 
         const uri = Uri.parse(
             // Replace / in the authority with a similar unicode characters otherwise parsing will be wrong
-            `${DocumentSchemes.GitLens}://${encodeURIComponent(shortSha!.replace(/\//g, '\u200A\u2215\u200A'))}${
+            `${DocumentSchemes.GitLens}://${encodeURIComponent(shortSha.replace(/\//g, '\u200A\u2215\u200A'))}${
                 // Change encoded / back to / otherwise uri parsing won't work properly
                 filePath === slash ? emptyStr : encodeURIComponent(filePath).replace(/%2F/g, slash)
             }?${encodeURIComponent(JSON.stringify(data))}`

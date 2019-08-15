@@ -99,7 +99,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
         try {
             if (args.commit === undefined || args.commit.isFile) {
                 if (args.repoLog !== undefined) {
-                    args.commit = args.repoLog.commits.get(args.sha!);
+                    args.commit = args.repoLog.commits.get(args.sha);
                     // If we can't find the commit, kill the repoLog
                     if (args.commit === undefined) {
                         args.repoLog = undefined;
@@ -112,7 +112,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
                         return Messages.showCommitNotFoundWarningMessage('Unable to show commit details');
                     }
 
-                    args.commit = log.commits.get(args.sha!);
+                    args.commit = log.commits.get(args.sha);
                 }
             }
 

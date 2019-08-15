@@ -43,7 +43,7 @@ export class TagsNode extends ViewNode<RepositoriesView> {
             hierarchy,
             'tags'
         );
-        const children = (await root.getChildren()) as (BranchOrTagFolderNode | TagNode)[];
+        const children = root.getChildren() as (BranchOrTagFolderNode | TagNode)[];
         return children;
     }
 

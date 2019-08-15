@@ -27,7 +27,7 @@ export class CommitNode extends ViewRefNode<ViewWithFiles> {
         return this.commit.sha;
     }
 
-    async getChildren(): Promise<ViewNode[]> {
+    getChildren(): ViewNode[] {
         const commit = this.commit;
         let children: FileNode[] = [
             ...Iterables.map(commit.files, s => new CommitFileNode(this.view, this, s, commit.toFileCommit(s)))
@@ -42,7 +42,7 @@ export class CommitNode extends ViewRefNode<ViewWithFiles> {
             );
 
             const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
-            children = (await root.getChildren()) as FileNode[];
+            children = root.getChildren() as FileNode[];
         }
         else {
             children.sort((a, b) =>

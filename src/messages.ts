@@ -128,7 +128,7 @@ export class Messages {
 
             if (uri !== undefined) {
                 await setCommandContext(CommandContext.ViewsHideSupportGitLens, true);
-                await this.suppressedMessage(SuppressedMessages.SupportGitLensNotification!);
+                await this.suppressedMessage(SuppressedMessages.SupportGitLensNotification);
                 await env.openExternal(uri);
             }
         }

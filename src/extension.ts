@@ -34,7 +34,7 @@ export async function activate(context: ExtensionContext) {
     const gitlens = extensions.getExtension(extensionQualifiedId)!;
     const gitlensVersion = gitlens.packageJSON.version;
 
-    const enabled = workspace.getConfiguration('git', null!).get<boolean>('enabled', true);
+    const enabled = workspace.getConfiguration('git', null).get<boolean>('enabled', true);
     if (!enabled) {
         Logger.log(`GitLens (v${gitlensVersion}) was NOT activated -- "git.enabled": false`);
         setCommandContext(CommandContext.Enabled, false);

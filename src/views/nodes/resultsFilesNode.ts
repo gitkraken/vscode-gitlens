@@ -47,7 +47,7 @@ export class ResultsFilesNode extends ViewNode<ViewWithFiles> {
             );
 
             const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
-            children = (await root.getChildren()) as FileNode[];
+            children = root.getChildren() as FileNode[];
         }
         else {
             children.sort(

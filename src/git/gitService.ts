@@ -484,7 +484,7 @@ export class GitService implements Disposable {
             patch = await Git.diff(uri.repoPath, uri.fsPath, ref1, ref2, {
                 similarityThreshold: Container.config.advanced.similarityThreshold
             });
-            void (await Git.apply(uri.repoPath!, patch));
+            void (await Git.apply(uri.repoPath, patch));
         }
         catch (ex) {
             if (patch && /patch does not apply/i.test(ex.message)) {
@@ -498,7 +498,7 @@ export class GitService implements Disposable {
 
                 if (result.title === 'Yes') {
                     try {
-                        void (await Git.apply(uri.repoPath!, patch, { allowConflicts: true }));
+                        void (await Git.apply(uri.repoPath, patch, { allowConflicts: true }));
                         return;
                     }
                     catch (e) {
@@ -1119,7 +1119,7 @@ export class GitService implements Disposable {
 
         const branchesAndTagsBySha = Arrays.groupByFilterMap(
             (branches as { name: string; sha: string }[]).concat(tags as { name: string; sha: string }[]),
-            bt => bt.sha!,
+            bt => bt.sha,
             bt => (bt.name === currentName ? undefined : bt.name)
         );
 
@@ -1974,11 +1974,11 @@ export class GitService implements Disposable {
                 }
 
                 // First, check if we have a diff in the working tree
-                let hunkLine = await this.getDiffForLine(gitUri!, editorLine, undefined);
+                let hunkLine = await this.getDiffForLine(gitUri, editorLine, undefined);
                 if (hunkLine === undefined) {
                     // Next, check if we have a diff in the index (staged)
                     hunkLine = await this.getDiffForLine(
-                        gitUri!,
+                        gitUri,
                         editorLine,
                         undefined,
                         GitService.uncommittedStagedSha
@@ -2339,7 +2339,7 @@ export class GitService implements Disposable {
         if (repo === undefined && isVslsScheme !== false && Container.vsls.isMaybeGuest) {
             if (!vslsUriPrefixRegex.test(path)) {
                 path = Strings.normalizePath(path);
-                const vslsPath = `/~0${path[0] === slash ? path : `/${path}`}`;
+                const vslsPath = `/~0${path.startsWith(slash) ? path : `/${path}`}`;
                 repo = repositoryTree.findSubstr(vslsPath);
             }
         }

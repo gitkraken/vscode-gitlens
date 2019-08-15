@@ -116,7 +116,7 @@ export abstract class AnnotationProviderBase implements Disposable {
         highlightDecoration: TextEditorDecorationType | undefined;
     }) {
         if (this._resetDebounced === undefined) {
-            this._resetDebounced = Functions.debounce(this.onReset, 250);
+            this._resetDebounced = Functions.debounce(this.onReset.bind(this), 250);
         }
 
         this._resetDebounced(changes);

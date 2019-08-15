@@ -159,7 +159,7 @@ export class SearchView extends ViewBase<SearchNode> {
         const root = this.ensureRoot();
         root.addOrReplace(results, !this.keepResults);
 
-        setImmediate(() => this.reveal(results, { select: true, expand: true }));
+        setImmediate(() => void this.reveal(results, { select: true, expand: true }));
     }
 
     private getSearchLabel(

@@ -21,7 +21,7 @@ export interface EmitterOptions {
 }
 
 export class Emitter<T> {
-    // eslint-disable-next-line no-empty-function
+    // eslint-disable-next-line  @typescript-eslint/no-empty-function
     private static readonly _noop = function() {};
 
     private readonly _options?: EmitterOptions;
@@ -199,7 +199,7 @@ class LinkedList<E> {
         }
         else if (atTheEnd) {
             // push
-            const oldLast = this._last!;
+            const oldLast = this._last;
             this._last = newNode;
             newNode.prev = oldLast;
             oldLast.next = newNode;
@@ -254,12 +254,12 @@ class LinkedList<E> {
         }
         else if (node.next === Node.Undefined) {
             // last
-            this._last = this._last!.prev!;
+            this._last = this._last.prev;
             this._last.next = Node.Undefined;
         }
         else if (node.prev === Node.Undefined) {
             // first
-            this._first = this._first!.next!;
+            this._first = this._first.next;
             this._first.prev = Node.Undefined;
         }
 

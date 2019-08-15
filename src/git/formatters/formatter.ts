@@ -28,7 +28,7 @@ export abstract class Formatter<TItem = any, TOptions extends FormatOptions = Fo
         if (options === undefined && this._options !== undefined) return;
 
         if (options === undefined) {
-            // eslint-disable-next-line @typescript-eslint/no-object-literal-type-assertion
+            // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
             options = {} as TOptions;
         }
 
@@ -114,7 +114,7 @@ export abstract class Formatter<TItem = any, TOptions extends FormatOptions = Fo
 
         let options: TOptions | undefined = undefined;
         if (dateFormatOrOptions == null || typeof dateFormatOrOptions === 'string') {
-            // eslint-disable-next-line @typescript-eslint/no-object-literal-type-assertion
+            // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
             options = {
                 dateFormat: dateFormatOrOptions
             } as TOptions;

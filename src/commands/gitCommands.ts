@@ -261,8 +261,9 @@ export class GitCommandsCommand extends Command {
                                 if (value.length === 0) return;
 
                                 const step = commandsStep.command && commandsStep.command.value;
-                                if (step === undefined || !isQuickPickStep(step) || step.onDidAccept === undefined)
+                                if (step === undefined || !isQuickPickStep(step) || step.onDidAccept === undefined) {
                                     return;
+                                }
 
                                 quickpick.busy = true;
 

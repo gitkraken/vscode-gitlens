@@ -511,7 +511,7 @@ export class Repository implements Disposable {
 
     private fireChange(...reasons: RepositoryChange[]) {
         if (this._fireChangeDebounced === undefined) {
-            this._fireChangeDebounced = Functions.debounce(this.fireChangeCore, 250);
+            this._fireChangeDebounced = Functions.debounce(this.fireChangeCore.bind(this), 250);
         }
 
         if (this._pendingChanges.repo === undefined) {
@@ -539,7 +539,7 @@ export class Repository implements Disposable {
 
     private fireFileSystemChange(uri: Uri) {
         if (this._fireFileSystemChangeDebounced === undefined) {
-            this._fireFileSystemChangeDebounced = Functions.debounce(this.fireFileSystemChangeCore, 2500);
+            this._fireFileSystemChangeDebounced = Functions.debounce(this.fireFileSystemChangeCore.bind(this), 2500);
         }
 
         if (this._pendingChanges.fs === undefined) {

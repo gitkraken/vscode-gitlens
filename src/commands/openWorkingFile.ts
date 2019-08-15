@@ -57,7 +57,7 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
             const e = await openEditor(args.uri, { ...args.showOptions, rethrow: true });
             if (args.annotationType === undefined) return e;
 
-            return Container.fileAnnotations.show(e!, args.annotationType, args.line);
+            return Container.fileAnnotations.show(e, args.annotationType, args.line);
         }
         catch (ex) {
             Logger.error(ex, 'OpenWorkingFileCommand');

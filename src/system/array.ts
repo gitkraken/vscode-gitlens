@@ -112,7 +112,7 @@ export namespace Arrays {
                     folder.children = new Map();
                 }
 
-                let f = folder.children!.get(folderName);
+                let f = folder.children.get(folderName);
                 if (f === undefined) {
                     f = {
                         name: folderName,

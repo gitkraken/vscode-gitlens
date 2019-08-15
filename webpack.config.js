@@ -137,7 +137,7 @@ function getWebviewsConfig(env) {
     const plugins = [
         new CleanPlugin({ cleanOnceBeforeBuildPatterns: clean }),
         new ForkTsCheckerPlugin({
-            tsconfig: path.resolve(__dirname, 'webviews.tsconfig.json'),
+            tsconfig: path.resolve(__dirname, 'tsconfig.webviews.json'),
             async: false,
             eslint: true,
             useTypescriptIncrementalApi: true
@@ -229,7 +229,7 @@ function getWebviewsConfig(env) {
                     use: {
                         loader: 'ts-loader',
                         options: {
-                            configFile: 'webviews.tsconfig.json',
+                            configFile: 'tsconfig.webviews.json',
                             transpileOnly: true,
                             experimentalWatchApi: true
                         }

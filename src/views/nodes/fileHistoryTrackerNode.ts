@@ -68,7 +68,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
     @gate()
     @log()
     async changeBase() {
-        const pick = await new ReferencesQuickPick(this.uri.repoPath!).show(
+        const pick = await new ReferencesQuickPick(this.uri.repoPath).show(
             `Change the file history base to${GlyphChars.Ellipsis}`,
             {
                 allowEnteringRefs: true,
@@ -116,14 +116,14 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
             return false;
         }
 
-        if (UriComparer.equals(editor!.document.uri, this.uri)) {
+        if (UriComparer.equals(editor.document.uri, this.uri)) {
             if (cc !== undefined) {
                 cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
             }
             return true;
         }
 
-        let gitUri = await GitUri.fromUri(editor!.document.uri);
+        let gitUri = await GitUri.fromUri(editor.document.uri);
 
         let uri;
         if (gitUri.sha !== undefined) {

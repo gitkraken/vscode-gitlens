@@ -150,7 +150,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
     }
 
     private async createSearchTree(ref: string, repoPath: string) {
-        const searchTree = TernarySearchTree.forPaths() as TernarySearchTree<GitTree>;
+        const searchTree = TernarySearchTree.forPaths<GitTree>();
         const trees = await Container.git.getTreeForRevision(repoPath, ref);
 
         // Add a fake root folder so that searches will work
@@ -175,7 +175,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
     private async getTree(path: string, ref: string, repoPath: string) {
         const searchTree = await this.getOrCreateSearchTree(ref, repoPath);
         // Add the fake root folder to the path
-        return searchTree!.findSuperstr(`/~/${path}`, true);
+        return searchTree.findSuperstr(`/~/${path}`, true);
     }
 }
 

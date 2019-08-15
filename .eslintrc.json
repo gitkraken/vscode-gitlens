@@ -6,6 +6,8 @@
     "extends": [
         "eslint:recommended",
         "plugin:@typescript-eslint/recommended",
+        "plugin:@typescript-eslint/recommended-requiring-type-checking",
+        "plugin:@typescript-eslint/eslint-recommended",
         "plugin:import/errors",
         "plugin:import/warnings",
         "plugin:import/typescript",
@@ -18,13 +20,15 @@
         "sourceType": "module",
         "ecmaFeatures": {
             "impliedStrict": true
-        }
+        },
+        "project": "tsconfig.eslint.json"
     },
     "plugins": ["import", "prettiest", "@typescript-eslint"],
     "rules": {
         "arrow-parens": ["off"],
         "brace-style": ["off", "stroustrup"],
         "consistent-return": "error",
+        "curly": ["error", "multi-line", "consistent"],
         "eol-last": "error",
         "linebreak-style": ["error", "unix"],
         "new-parens": "error",
@@ -36,7 +40,6 @@
         "no-duplicate-imports": "error",
         "no-else-return": "warn",
         "no-empty": ["warn", { "allowEmptyCatch": true }],
-        "no-empty-function": ["warn", { "allow": ["constructors"] }],
         "no-eval": "error",
         "no-ex-assign": "warn",
         "no-extend-native": "error",
@@ -80,7 +83,6 @@
         "quotes": ["error", "single", { "avoidEscape": true }],
         // Turn off until fix for: https://github.com/eslint/eslint/issues/11899
         "require-atomic-updates": "off",
-        "require-await": "error",
         "semi": ["error", "always"],
         "semi-style": ["error", "last"],
         "sort-imports": [
@@ -112,14 +114,25 @@
             }
         ],
         "prettiest/no-block-after-closing": "error",
+        "@typescript-eslint/consistent-type-assertions": [
+            "error",
+            {
+                "assertionStyle": "as",
+                "objectLiteralTypeAssertions": "allow-as-parameter"
+            }
+        ],
         "@typescript-eslint/explicit-function-return-type": "off",
         "@typescript-eslint/explicit-member-accessibility": "off",
+        "@typescript-eslint/no-empty-function": ["warn", { "allow": ["constructors"] }],
         "@typescript-eslint/no-empty-interface": "off",
         "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/no-inferrable-types": ["warn", { "ignoreParameters": true, "ignoreProperties": true }],
+        "@typescript-eslint/no-misused-promises": ["error", { "checksVoidReturn": false }],
         "@typescript-eslint/no-namespace": "off",
         "@typescript-eslint/no-non-null-assertion": "off",
         "@typescript-eslint/no-parameter-properties": "off",
         "@typescript-eslint/no-unused-vars": ["warn", { "args": "none" }],
-        "@typescript-eslint/no-use-before-define": "off"
+        "@typescript-eslint/no-use-before-define": "off",
+        "@typescript-eslint/unbound-method": "off" // Too many bugs right now: https://github.com/typescript-eslint/typescript-eslint/issues?utf8=%E2%9C%93&q=is%3Aissue+is%3Aopen+unbound-method
     }
 }

@@ -61,7 +61,7 @@ export class HeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase 
         if (this.decorations.length) {
             start = process.hrtime();
 
-            this.editor.setDecorations(this.decoration!, this.decorations);
+            this.editor.setDecorations(this.decoration, this.decorations);
 
             Logger.log(cc, `${Strings.getDurationMilliseconds(start)} ms to apply recent changes annotations`);
         }

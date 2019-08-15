@@ -50,7 +50,7 @@ export class GitStatusParser {
             else {
                 const rawStatus = line.substring(0, 2);
                 const fileName = line.substring(3);
-                if (rawStatus[0] === 'R') {
+                if (rawStatus.startsWith('R')) {
                     const [file1, file2] = fileName.replace(/"/g, emptyStr).split('->');
                     files.push(this.parseStatusFile(repoPath, rawStatus, file2.trim(), file1.trim()));
                 }
@@ -137,7 +137,7 @@ export class GitStatusParser {
         fileName: string,
         originalFileName?: string
     ): GitStatusFile {
-        let indexStatus = rawStatus[0] !== '.' ? rawStatus[0].trim() : undefined;
+        let indexStatus = !rawStatus.startsWith('.') ? rawStatus[0].trim() : undefined;
         if (indexStatus == null || indexStatus.length === 0) {
             indexStatus = undefined;
         }

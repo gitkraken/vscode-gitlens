@@ -85,7 +85,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
                     };
 
                     if (separateLines) {
-                        gutter.renderOptions!.before!.textDecoration = 'none';
+                        gutter.renderOptions.before!.textDecoration = 'none';
                     }
 
                     compacted = true;
@@ -146,7 +146,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
         if (this.decorations.length) {
             start = process.hrtime();
 
-            this.editor.setDecorations(this.decoration!, this.decorations);
+            this.editor.setDecorations(this.decoration, this.decorations);
 
             if (avatars) {
                 this.additionalDecorations = [];

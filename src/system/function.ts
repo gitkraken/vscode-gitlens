@@ -105,7 +105,7 @@ export namespace Functions {
         fnBody = fnBody.slice(open, close);
         fnBody = `(${fnBody})`;
 
-        const match = fnBody.match(fnBodyRegex);
+        const match = fnBodyRegex.exec(fnBody);
         return match != null
             ? match[1].split(comma).map(param => param.trim().replace(fnBodyStripParamDefaultValueRegex, emptyStr))
             : [];

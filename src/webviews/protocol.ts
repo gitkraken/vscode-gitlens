@@ -20,7 +20,7 @@ export class IpcCommandType<P = any> {
 export function onIpcCommand<CT extends IpcCommandType>(
     type: CT,
     command: IpcMessage,
-    fn: (params: IpcCommandParamsOf<CT>) => void
+    fn: (params: IpcCommandParamsOf<CT>) => unknown
 ) {
     fn(command.params);
 }

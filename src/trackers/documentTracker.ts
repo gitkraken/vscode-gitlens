@@ -266,7 +266,7 @@ export class DocumentTracker<T> implements Disposable {
             document = documentOrId;
         }
 
-        const doc = await this.addCore(document);
+        const doc = this.addCore(document);
         await doc.ensureInitialized();
 
         return doc;
