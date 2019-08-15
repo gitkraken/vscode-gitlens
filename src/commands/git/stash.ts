@@ -1,5 +1,5 @@
 'use strict';
-import { QuickPickItem, Uri, window } from 'vscode';
+import { QuickInputButtons, QuickPickItem, Uri, window } from 'vscode';
 import { Container } from '../../container';
 import { GitStashCommit, GitUri, Repository } from '../../git/gitService';
 import { BreakQuickCommand, QuickCommandBase, QuickInputStep, QuickPickStep, StepState } from '../quickCommand';
@@ -45,18 +45,20 @@ interface PushState {
 }
 
 type State = ApplyState | DropState | PopState | PushState;
-type StashStepState<T> = Partial<T> & { counter: number; repo: Repository; skipConfirmation?: boolean };
+type StashStepState<T> = StepState<T> & { repo: Repository };
 
-export interface CommandArgs {
+export interface StashGitCommandArgs {
     readonly command: 'stash';
     state?: Partial<State>;
 
-    skipConfirmation?: boolean;
+    confirm?: boolean;
 }
 
 export class StashGitCommand extends QuickCommandBase<State> {
-    constructor(args?: CommandArgs) {
-        super('stash', 'Stash');
+    private _subcommand: string | undefined;
+
+    constructor(args?: StashGitCommandArgs) {
+        super('stash', 'stash', 'Stash');
 
         if (args === undefined || args.state === undefined) return;
 
@@ -86,18 +88,19 @@ export class StashGitCommand extends QuickCommandBase<State> {
                 break;
         }
 
-        if (
-            args.skipConfirmation === undefined &&
-            Container.config.gitCommands.skipConfirmations.includes(`${this.label}-${args.state.subcommand}`)
-        ) {
-            args.skipConfirmation = true;
-        }
-
         this._initialState = {
             counter: counter,
-            skipConfirmation: counter > 0 && args.skipConfirmation,
+            confirm: args.confirm,
             ...args.state
         };
+    }
+
+    get canSkipConfirm(): boolean {
+        return this._subcommand === 'drop' ? false : super.canSkipConfirm;
+    }
+
+    get confirmationKey() {
+        return this._subcommand === undefined ? undefined : `${super.confirmationKey}-${this._subcommand}`;
     }
 
     protected async *steps(): AsyncIterableIterator<QuickPickStep | QuickInputStep> {
@@ -107,6 +110,8 @@ export class StashGitCommand extends QuickCommandBase<State> {
         while (true) {
             try {
                 if (state.subcommand === undefined || state.counter < 1) {
+                    this._subcommand = undefined;
+
                     const step = this.createPickStep<QuickPickItemPlus<State['subcommand']>>({
                         title: this.title,
                         placeholder: `Choose a ${this.label} command`,
@@ -131,7 +136,8 @@ export class StashGitCommand extends QuickCommandBase<State> {
                                 picked: state.subcommand === 'push',
                                 item: 'push'
                             }
-                        ]
+                        ],
+                        buttons: [QuickInputButtons.Back]
                     });
                     const selection = yield step;
 
@@ -141,6 +147,8 @@ export class StashGitCommand extends QuickCommandBase<State> {
 
                     state.subcommand = selection[0].item;
                 }
+
+                this._subcommand = state.subcommand;
 
                 if (state.repo === undefined || state.counter < 2) {
                     const repos = [...(await Container.git.getOrderedRepositories())];
@@ -289,10 +297,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
                 state.stash = selection[0].item;
             }
 
-            if (state.skipConfirmation) {
-                state.flags = [];
-            }
-            else {
+            if (this.confirm(state.confirm)) {
                 const message =
                     state.stash.message.length > 80
                         ? `${state.stash.message.substring(0, 80)}${GlyphChars.Ellipsis}`
@@ -344,6 +349,9 @@ export class StashGitCommand extends QuickCommandBase<State> {
                 state.subcommand = selection[0].command;
                 state.flags = selection[0].item;
             }
+            else {
+                state.flags = [];
+            }
 
             void Container.git.stashApply(state.repo.path, state.stash!.stashName, state.subcommand === 'pop');
 
@@ -380,7 +388,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
                                           }
                                       )
                                   )
-                              ]
+                            ]
                 });
                 const selection = yield step;
 
@@ -391,10 +399,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
                 state.stash = selection[0].item;
             }
 
-            if (state.skipConfirmation) {
-                state.flags = [];
-            }
-            else {
+            // if (this.confirm(state.confirm)) {
                 const message =
                     state.stash.message.length > 80
                         ? `${state.stash.message.substring(0, 80)}${GlyphChars.Ellipsis}`
@@ -418,7 +423,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
                 if (!this.canMoveNext(step, state, selection)) {
                     break;
                 }
-            }
+            // }
 
             void Container.git.stashDelete(state.repo.path, state.stash.stashName);
 
@@ -448,10 +453,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
                 state.message = value;
             }
 
-            if (state.skipConfirmation) {
-                state.flags = [];
-            }
-            else {
+            if (this.confirm(state.confirm)) {
                 const step = this.createConfirmStep<QuickPickItemPlus<string[]>>(
                     `Confirm ${this.title} ${state.subcommand}${Strings.pad(GlyphChars.Dot, 2, 2)}${
                         state.repo.formattedName
@@ -498,6 +500,9 @@ export class StashGitCommand extends QuickCommandBase<State> {
                 }
 
                 state.flags = selection[0].item;
+            }
+            else {
+                state.flags = [];
             }
 
             void Container.git.stashSave(state.repo.path, state.message, state.uris, {

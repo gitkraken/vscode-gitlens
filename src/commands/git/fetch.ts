@@ -12,16 +12,16 @@ interface State {
     flags: string[];
 }
 
-export interface CommandArgs {
+export interface FetchGitCommandArgs {
     readonly command: 'fetch';
     state?: Partial<State>;
 
-    skipConfirmation?: boolean;
+    confirm?: boolean;
 }
 
 export class FetchGitCommand extends QuickCommandBase<State> {
-    constructor(args?: CommandArgs) {
-        super('fetch', 'Fetch');
+    constructor(args?: FetchGitCommandArgs) {
+        super('fetch', 'fetch', 'Fetch');
 
         if (args === undefined || args.state === undefined) return;
 
@@ -30,16 +30,9 @@ export class FetchGitCommand extends QuickCommandBase<State> {
             counter++;
         }
 
-        if (
-            args.skipConfirmation === undefined &&
-            Container.config.gitCommands.skipConfirmations.includes(this.label)
-        ) {
-            args.skipConfirmation = true;
-        }
-
         this._initialState = {
             counter: counter,
-            skipConfirmation: counter > 0 && args.skipConfirmation,
+            confirm: args.confirm,
             ...args.state
         };
     }
@@ -94,10 +87,7 @@ export class FetchGitCommand extends QuickCommandBase<State> {
                     }
                 }
 
-                if (state.skipConfirmation) {
-                    state.flags = [];
-                }
-                else {
+                if (this.confirm(state.confirm)) {
                     const step = this.createConfirmStep<QuickPickItemPlus<string[]>>(
                         `Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${
                             state.repos.length === 1
@@ -158,6 +148,9 @@ export class FetchGitCommand extends QuickCommandBase<State> {
                     }
 
                     state.flags = selection[0].item;
+                }
+                else {
+                    state.flags = [];
                 }
 
                 this.execute(state as State);

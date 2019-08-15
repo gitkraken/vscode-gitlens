@@ -12,16 +12,16 @@ interface State {
     flags: string[];
 }
 
-export interface CommandArgs {
+export interface PullGitCommandArgs {
     readonly command: 'pull';
     state?: Partial<State>;
 
-    skipConfirmation?: boolean;
+    confirm?: boolean;
 }
 
 export class PullGitCommand extends QuickCommandBase<State> {
-    constructor(args?: CommandArgs) {
-        super('pull', 'Pull');
+    constructor(args?: PullGitCommandArgs) {
+        super('pull', 'pull', 'Pull');
 
         if (args === undefined || args.state === undefined) return;
 
@@ -30,16 +30,9 @@ export class PullGitCommand extends QuickCommandBase<State> {
             counter++;
         }
 
-        if (
-            args.skipConfirmation === undefined &&
-            Container.config.gitCommands.skipConfirmations.includes(this.label)
-        ) {
-            args.skipConfirmation = true;
-        }
-
         this._initialState = {
             counter: counter,
-            skipConfirmation: counter > 0 && args.skipConfirmation,
+            confirm: args.confirm,
             ...args.state
         };
     }
@@ -91,44 +84,51 @@ export class PullGitCommand extends QuickCommandBase<State> {
                     }
                 }
 
-                const step = this.createConfirmStep<QuickPickItemPlus<string[]>>(
-                    `Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${
-                        state.repos.length === 1 ? state.repos[0].formattedName : `${state.repos.length} repositories`
-                    }`,
-                    [
-                        {
-                            label: this.title,
-                            description: '',
-                            detail: `Will pull ${
-                                state.repos.length === 1
-                                    ? state.repos[0].formattedName
-                                    : `${state.repos.length} repositories`
-                            }`,
-                            item: []
-                        },
-                        {
-                            label: `${this.title} with Rebase`,
-                            description: '--rebase',
-                            detail: `Will pull with rebase ${
-                                state.repos.length === 1
-                                    ? state.repos[0].formattedName
-                                    : `${state.repos.length} repositories`
-                            }`,
-                            item: ['--rebase']
-                        }
-                    ]
-                );
-                const selection = yield step;
+                if (this.confirm(state.confirm)) {
+                    const step = this.createConfirmStep<QuickPickItemPlus<string[]>>(
+                        `Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${
+                            state.repos.length === 1
+                                ? state.repos[0].formattedName
+                                : `${state.repos.length} repositories`
+                        }`,
+                        [
+                            {
+                                label: this.title,
+                                description: '',
+                                detail: `Will pull ${
+                                    state.repos.length === 1
+                                        ? state.repos[0].formattedName
+                                        : `${state.repos.length} repositories`
+                                }`,
+                                item: []
+                            },
+                            {
+                                label: `${this.title} with Rebase`,
+                                description: '--rebase',
+                                detail: `Will pull with rebase ${
+                                    state.repos.length === 1
+                                        ? state.repos[0].formattedName
+                                        : `${state.repos.length} repositories`
+                                }`,
+                                item: ['--rebase']
+                            }
+                        ]
+                    );
+                    const selection = yield step;
 
-                if (!this.canMoveNext(step, state, selection)) {
-                    if (oneRepo) {
-                        break;
+                    if (!this.canMoveNext(step, state, selection)) {
+                        if (oneRepo) {
+                            break;
+                        }
+
+                        continue;
                     }
 
-                    continue;
+                    state.flags = selection[0].item;
                 }
-
-                state.flags = selection[0].item;
+                else {
+                    state.flags = [];
+                }
 
                 this.execute(state as State);
                 break;

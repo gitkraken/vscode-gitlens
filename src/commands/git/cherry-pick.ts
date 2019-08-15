@@ -25,7 +25,7 @@ interface State {
 
 export class CherryPickGitCommand extends QuickCommandBase<State> {
     constructor() {
-        super('cherry-pick', 'Cherry Pick', { description: 'via Terminal' });
+        super('cherry-pick', 'cherry-pick', 'Cherry Pick', false, { description: 'via Terminal' });
     }
 
     execute(state: State) {

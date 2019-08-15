@@ -24,7 +24,7 @@ interface State {
 
 export class RebaseGitCommand extends QuickCommandBase<State> {
     constructor() {
-        super('rebase', 'Rebase', { description: 'via Terminal' });
+        super('rebase', 'rebase', 'Rebase', false, { description: 'via Terminal' });
     }
 
     execute(state: State) {

@@ -12,16 +12,16 @@ interface State {
     flags: string[];
 }
 
-export interface CommandArgs {
+export interface PushGitCommandArgs {
     readonly command: 'push';
     state?: Partial<State>;
 
-    skipConfirmation?: boolean;
+    confirm?: boolean;
 }
 
 export class PushGitCommand extends QuickCommandBase<State> {
-    constructor(args?: CommandArgs) {
-        super('push', 'Push');
+    constructor(args?: PushGitCommandArgs) {
+        super('push', 'push', 'Push');
 
         if (args === undefined || args.state === undefined) return;
 
@@ -30,16 +30,9 @@ export class PushGitCommand extends QuickCommandBase<State> {
             counter++;
         }
 
-        if (
-            args.skipConfirmation === undefined &&
-            Container.config.gitCommands.skipConfirmations.includes(this.label)
-        ) {
-            args.skipConfirmation = true;
-        }
-
         this._initialState = {
             counter: counter,
-            skipConfirmation: counter > 0 && args.skipConfirmation,
+            confirm: args.confirm,
             ...args.state
         };
     }
@@ -91,10 +84,7 @@ export class PushGitCommand extends QuickCommandBase<State> {
                     }
                 }
 
-                if (state.skipConfirmation) {
-                    state.flags = [];
-                }
-                else {
+                if (this.confirm(state.confirm)) {
                     const step = this.createConfirmStep(
                         `Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${
                             state.repos.length === 1
@@ -135,6 +125,9 @@ export class PushGitCommand extends QuickCommandBase<State> {
                     }
 
                     state.flags = selection[0].item;
+                }
+                else {
+                    state.flags = [];
                 }
 
                 this.execute(state as State);

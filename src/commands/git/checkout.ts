@@ -1,6 +1,6 @@
 'use strict';
 /* eslint-disable no-loop-func */
-import { ProgressLocation, QuickInputButtons, window } from 'vscode';
+import { ProgressLocation, QuickInputButton, window } from 'vscode';
 import { Container } from '../../container';
 import { GitBranch, GitReference, GitTag, Repository } from '../../git/gitService';
 import { GlyphChars } from '../../constants';
@@ -9,22 +9,24 @@ import { ReferencesQuickPickItem, RefQuickPickItem, RepositoryQuickPickItem } fr
 import { Strings } from '../../system';
 import { Logger } from '../../logger';
 
+type Mutable<T, K extends keyof T> = Omit<T, K> & { -readonly [P in K]: T[P] };
+
 interface State {
     repos: Repository[];
     branchOrTagOrRef: GitBranch | GitTag | GitReference;
     createBranch?: string;
 }
 
-export interface CommandArgs {
+export interface CheckoutGitCommandArgs {
     readonly command: 'checkout';
     state?: Partial<State>;
 
-    skipConfirmation?: boolean;
+    confirm?: boolean;
 }
 
 export class CheckoutGitCommand extends QuickCommandBase<State> {
-    constructor(args?: CommandArgs) {
-        super('checkout', 'Checkout');
+    constructor(args?: CheckoutGitCommandArgs) {
+        super('checkout', 'checkout', 'Checkout');
 
         if (args === undefined || args.state === undefined) return;
 
@@ -37,16 +39,9 @@ export class CheckoutGitCommand extends QuickCommandBase<State> {
             counter++;
         }
 
-        if (
-            args.skipConfirmation === undefined &&
-            Container.config.gitCommands.skipConfirmations.includes(this.label)
-        ) {
-            args.skipConfirmation = true;
-        }
-
         this._initialState = {
             counter: counter,
-            skipConfirmation: counter > 1 && args.skipConfirmation,
+            confirm: args.confirm,
             ...args.state
         };
     }
@@ -109,13 +104,22 @@ export class CheckoutGitCommand extends QuickCommandBase<State> {
                 }
 
                 if (state.branchOrTagOrRef === undefined || state.counter < 2) {
-                    const includeTags = showTags || state.repos.length === 1;
+                    showTags = state.repos.length === 1;
+
+                    const toggleTagsButton: Mutable<QuickInputButton, 'tooltip'> = {
+                        iconPath: {
+                            dark: Container.context.asAbsolutePath('images/dark/icon-tag.svg') as any,
+                            light: Container.context.asAbsolutePath('images/light/icon-tag.svg') as any
+                        },
+                        tooltip: showTags ? 'Hide Tags' : 'Show Tags'
+                    };
 
                     const items = await getBranchesAndOrTags(
                         state.repos,
-                        includeTags,
+                        showTags,
                         state.repos.length === 1 ? undefined : { filterBranches: b => !b.remote }
                     );
+
                     const step = this.createPickStep<ReferencesQuickPickItem>({
                         title: `${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${
                             state.repos.length === 1
@@ -123,39 +127,30 @@ export class CheckoutGitCommand extends QuickCommandBase<State> {
                                 : `${state.repos.length} repositories`
                         }`,
                         placeholder: `Choose a branch${
-                            includeTags ? ' or tag' : ''
+                            showTags ? ' or tag' : ''
                         } to checkout to${GlyphChars.Space.repeat(3)}(select or enter a reference)`,
                         matchOnDescription: true,
                         items: items,
                         selectedItems: state.branchOrTagOrRef
                             ? items.filter(ref => ref.label === state.branchOrTagOrRef!.ref)
                             : undefined,
-                        buttons: includeTags
-                            ? [QuickInputButtons.Back]
-                            : [
-                                  QuickInputButtons.Back,
-                                  {
-                                      iconPath: {
-                                          dark: Container.context.asAbsolutePath('images/dark/icon-tag.svg') as any,
-                                          light: Container.context.asAbsolutePath('images/light/icon-tag.svg') as any
-                                      },
-                                      tooltip: 'Show Tags'
-                                  }
-                              ],
+                        additionalButtons: [toggleTagsButton],
                         onDidClickButton: async (quickpick, button) => {
                             quickpick.busy = true;
                             quickpick.enabled = false;
 
-                            if (!showTags) {
-                                showTags = true;
-                            }
+                            showTags = !showTags;
+                            toggleTagsButton.tooltip = showTags ? 'Hide Tags' : 'Show Tags';
 
                             quickpick.placeholder = `Choose a branch${
                                 showTags ? ' or tag' : ''
                             } to checkout to${GlyphChars.Space.repeat(3)}(select or enter a reference)`;
-                            quickpick.buttons = [QuickInputButtons.Back];
 
-                            quickpick.items = await getBranchesAndOrTags(state.repos!, showTags);
+                            quickpick.items = await getBranchesAndOrTags(
+                                state.repos!,
+                                showTags,
+                                state.repos!.length === 1 ? undefined : { filterBranches: b => !b.remote }
+                            );
 
                             quickpick.busy = false;
                             quickpick.enabled = true;
@@ -228,7 +223,7 @@ export class CheckoutGitCommand extends QuickCommandBase<State> {
                     }
                 }
 
-                if (!state.skipConfirmation) {
+                if (this.confirm(state.confirm)) {
                     const step = this.createConfirmStep(
                         `Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${
                             state.repos.length === 1

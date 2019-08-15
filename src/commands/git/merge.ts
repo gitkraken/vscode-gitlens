@@ -24,7 +24,7 @@ interface State {
 
 export class MergeGitCommand extends QuickCommandBase<State> {
     constructor() {
-        super('merge', 'Merge', { description: 'via Terminal' });
+        super('merge', 'merge', 'Merge', false, { description: 'via Terminal' });
     }
 
     execute(state: State) {

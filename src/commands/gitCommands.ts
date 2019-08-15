@@ -1,26 +1,28 @@
 'use strict';
-import { Disposable, InputBox, QuickInputButtons, QuickPick, QuickPickItem, window } from 'vscode';
+import { Disposable, InputBox, QuickInputButton, QuickInputButtons, QuickPick, QuickPickItem, window } from 'vscode';
 import { command, Command, Commands } from './common';
 import { log } from '../system';
 import { isQuickInputStep, isQuickPickStep, QuickCommandBase, QuickInputStep, QuickPickStep } from './quickCommand';
 import { Directive, DirectiveQuickPickItem } from '../quickpicks';
-import { CommandArgs as CheckoutCommandArgs, CheckoutGitCommand } from './git/checkout';
+import { CheckoutGitCommand, CheckoutGitCommandArgs } from './git/checkout';
 import { CherryPickGitCommand } from './git/cherry-pick';
-import { CommandArgs as FetchCommandArgs, FetchGitCommand } from './git/fetch';
+import { FetchGitCommand, FetchGitCommandArgs } from './git/fetch';
 import { MergeGitCommand } from './git/merge';
-import { CommandArgs as PullCommandArgs, PullGitCommand } from './git/pull';
-import { CommandArgs as PushCommandArgs, PushGitCommand } from './git/push';
+import { PullGitCommand, PullGitCommandArgs } from './git/pull';
+import { PushGitCommand, PushGitCommandArgs } from './git/push';
 import { RebaseGitCommand } from './git/rebase';
-import { CommandArgs as StashCommandArgs, StashGitCommand } from './git/stash';
+import { StashGitCommand, StashGitCommandArgs } from './git/stash';
+import { Container } from '../container';
+import { configuration } from '../configuration';
 
 const sanitizeLabel = /\$\(.+?\)|\W/g;
 
 export type GitCommandsCommandArgs =
-    | CheckoutCommandArgs
-    | FetchCommandArgs
-    | PullCommandArgs
-    | PushCommandArgs
-    | StashCommandArgs;
+    | CheckoutGitCommandArgs
+    | FetchGitCommandArgs
+    | PullGitCommandArgs
+    | PushGitCommandArgs
+    | StashGitCommandArgs;
 
 class PickCommandStep implements QuickPickStep {
     readonly buttons = [];
@@ -65,6 +67,32 @@ class PickCommandStep implements QuickPickStep {
 
 @command()
 export class GitCommandsCommand extends Command {
+    private readonly GitQuickInputButtons = class {
+        static readonly WillConfirm: QuickInputButton = {
+            iconPath: {
+                dark: Container.context.asAbsolutePath('images/dark/icon-check.svg') as any,
+                light: Container.context.asAbsolutePath('images/light/icon-check.svg') as any
+            },
+            tooltip: 'Will ask for confirmation at the end (click to toggle)'
+        };
+
+        static readonly WillConfirmForced: QuickInputButton = {
+            iconPath: {
+                dark: Container.context.asAbsolutePath('images/dark/icon-check.svg') as any,
+                light: Container.context.asAbsolutePath('images/light/icon-check.svg') as any
+            },
+            tooltip: 'Will ask for confirmation at the end (cannot be changed)'
+        };
+
+        static readonly WillSkipConfirm: QuickInputButton = {
+            iconPath: {
+                dark: Container.context.asAbsolutePath('images/dark/icon-no-check.svg') as any,
+                light: Container.context.asAbsolutePath('images/light/icon-no-check.svg') as any
+            },
+            tooltip: 'Will NOT ask for confirmation at the end (click to toggle)'
+        };
+    };
+
     constructor() {
         super(Commands.GitCommands);
     }
@@ -123,11 +151,21 @@ export class GitCommandsCommand extends Command {
                             return;
                         }
 
-                        const step = commandsStep.command && commandsStep.command.value;
-                        if (step === undefined || !isQuickInputStep(step) || step.onDidClickButton === undefined)
-                            return;
+                        if (e === this.GitQuickInputButtons.WillConfirmForced) return;
+                        if (
+                            e === this.GitQuickInputButtons.WillConfirm ||
+                            e === this.GitQuickInputButtons.WillSkipConfirm
+                        ) {
+                            await this.toggleConfirmation(input, commandsStep.command);
 
-                        step.onDidClickButton(input, e);
+                            return;
+                        }
+
+                        const step = commandsStep.command && commandsStep.command.value;
+                        if (step !== undefined && isQuickInputStep(step) && step.onDidClickButton !== undefined) {
+                            step.onDidClickButton(input, e);
+                            input.buttons = this.getButtons(step, commandsStep.command);
+                        }
                     }),
                     input.onDidChangeValue(async e => {
                         if (step.validate === undefined) return;
@@ -140,7 +178,7 @@ export class GitCommandsCommand extends Command {
                     })
                 );
 
-                input.buttons = step.buttons || [QuickInputButtons.Back];
+                input.buttons = this.getButtons(step, commandsStep.command);
                 input.title = step.title;
                 input.placeholder = step.placeholder;
                 if (step.value !== undefined) {
@@ -184,10 +222,21 @@ export class GitCommandsCommand extends Command {
                             return;
                         }
 
-                        const step = commandsStep.command && commandsStep.command.value;
-                        if (step === undefined || !isQuickPickStep(step) || step.onDidClickButton === undefined) return;
+                        if (e === this.GitQuickInputButtons.WillConfirmForced) return;
+                        if (
+                            e === this.GitQuickInputButtons.WillConfirm ||
+                            e === this.GitQuickInputButtons.WillSkipConfirm
+                        ) {
+                            await this.toggleConfirmation(quickpick, commandsStep.command);
 
-                        step.onDidClickButton(quickpick, e);
+                            return;
+                        }
+
+                        const step = commandsStep.command && commandsStep.command.value;
+                        if (step !== undefined && isQuickPickStep(step) && step.onDidClickButton !== undefined) {
+                            step.onDidClickButton(quickpick, e);
+                            quickpick.buttons = this.getButtons(step, commandsStep.command);
+                        }
                     }),
                     quickpick.onDidChangeValue(async e => {
                         if (!overrideItems) {
@@ -308,7 +357,6 @@ export class GitCommandsCommand extends Command {
                     })
                 );
 
-                quickpick.buttons = step.buttons || [QuickInputButtons.Back];
                 quickpick.title = step.title;
                 quickpick.placeholder = step.placeholder;
                 quickpick.matchOnDescription = Boolean(step.matchOnDescription);
@@ -330,6 +378,9 @@ export class GitCommandsCommand extends Command {
                     commandsStep.command = undefined;
                 }
 
+                // Needs to be after we reset the command
+                quickpick.buttons = this.getButtons(step, commandsStep.command);
+
                 if (step.value !== undefined) {
                     quickpick.value = step.value;
                 }
@@ -341,6 +392,31 @@ export class GitCommandsCommand extends Command {
             quickpick.dispose();
             disposables.forEach(d => d.dispose());
         }
+    }
+
+    private getButtons(step: QuickInputStep | QuickPickStep, command?: QuickCommandBase) {
+        if (command === undefined) return [];
+
+        if (step.buttons !== undefined) return step.buttons;
+
+        const buttons = [QuickInputButtons.Back];
+
+        if (step.additionalButtons !== undefined) {
+            buttons.push(...step.additionalButtons);
+        }
+
+        if (command.canSkipConfirm) {
+            if (command.confirmationKey === undefined) return buttons;
+
+            buttons.push(
+                command.confirm() ? this.GitQuickInputButtons.WillConfirm : this.GitQuickInputButtons.WillSkipConfirm
+            );
+        }
+        else {
+            buttons.push(this.GitQuickInputButtons.WillConfirmForced);
+        }
+
+        return buttons;
     }
 
     private async nextStep(
@@ -356,5 +432,30 @@ export class GitCommandsCommand extends Command {
 
         quickInput.value = '';
         return next.value;
+    }
+
+    private async toggleConfirmation(
+        input: InputBox | QuickPick<QuickPickItem>,
+        command: QuickCommandBase | undefined
+    ) {
+        if (command === undefined || command.confirmationKey === undefined) return;
+
+        const section = configuration.name('gitCommands')('skipConfirmations').value;
+        const skipConfirmations = configuration.get<string[]>(section) || [];
+
+        const index = skipConfirmations.indexOf(command.confirmationKey);
+        if (index !== -1) {
+            skipConfirmations.splice(index, 1);
+        }
+        else {
+            skipConfirmations.push(command.confirmationKey);
+        }
+
+        void (await configuration.updateEffective(
+            configuration.name('gitCommands')('skipConfirmations').value,
+            skipConfirmations
+        ));
+
+        input.buttons = this.getButtons(command.value!, command);
     }
 }

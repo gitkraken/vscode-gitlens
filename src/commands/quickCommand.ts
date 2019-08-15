@@ -1,7 +1,8 @@
 'use strict';
-import { InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
+import { InputBox, QuickInputButton, QuickInputButtons, QuickPick, QuickPickItem } from 'vscode';
 import { Promises } from '../system';
 import { Directive, DirectiveQuickPickItem } from '../quickpicks';
+import { Container } from '../container';
 
 export * from './quickCommand.helpers';
 
@@ -12,6 +13,7 @@ export class BreakQuickCommand extends Error {
 }
 
 export interface QuickInputStep {
+    additionalButtons?: QuickInputButton[];
     buttons?: QuickInputButton[];
     placeholder?: string;
     title?: string;
@@ -26,6 +28,7 @@ export function isQuickInputStep(item: QuickPickStep | QuickInputStep): item is 
 }
 
 export interface QuickPickStep<T extends QuickPickItem = any> {
+    additionalButtons?: QuickInputButton[];
     buttons?: QuickInputButton[];
     selectedItems?: QuickPickItem[];
     items: (DirectiveQuickPickItem | T)[] | DirectiveQuickPickItem[];
@@ -46,7 +49,7 @@ export function isQuickPickStep(item: QuickPickStep | QuickInputStep): item is Q
     return (item as QuickPickStep).items !== undefined;
 }
 
-export type StepState<T> = Partial<T> & { counter: number; skipConfirmation?: boolean };
+export type StepState<T> = Partial<T> & { counter: number; confirm?: boolean };
 
 export abstract class QuickCommandBase<T = any> implements QuickPickItem {
     static is(item: QuickPickItem): item is QuickCommandBase {
@@ -56,12 +59,16 @@ export abstract class QuickCommandBase<T = any> implements QuickPickItem {
     readonly description?: string;
     readonly detail?: string;
 
+    protected _initialState?: StepState<T>;
+
     private _current: QuickPickStep | QuickInputStep | undefined;
     private _stepsIterator: AsyncIterableIterator<QuickPickStep | QuickInputStep> | undefined;
 
     constructor(
+        public readonly key: string,
         public readonly label: string,
         public readonly title: string,
+        private readonly _canSkipConfirm: boolean = true,
         options: {
             description?: string;
             detail?: string;
@@ -69,6 +76,14 @@ export abstract class QuickCommandBase<T = any> implements QuickPickItem {
     ) {
         this.description = options.description;
         this.detail = options.detail;
+    }
+
+    get canSkipConfirm(): boolean {
+        return this._canSkipConfirm;
+    }
+
+    get confirmationKey(): string | undefined {
+        return this.key;
     }
 
     private _picked: boolean = false;
@@ -79,7 +94,13 @@ export abstract class QuickCommandBase<T = any> implements QuickPickItem {
         this._picked = value;
     }
 
-    protected _initialState?: StepState<T>;
+    confirm(override?: boolean) {
+        if (!this.canSkipConfirm || this.confirmationKey === undefined) return true;
+
+        return override !== undefined
+            ? override
+            : !Container.config.gitCommands.skipConfirmations.includes(this.confirmationKey);
+    }
 
     protected abstract steps(): AsyncIterableIterator<QuickPickStep | QuickInputStep>;
 
@@ -122,7 +143,8 @@ export abstract class QuickCommandBase<T = any> implements QuickPickItem {
             placeholder: placeholder || `Confirm ${this.title}`,
             title: title,
             items: [...confirmations, cancel || DirectiveQuickPickItem.create(Directive.Cancel)],
-            selectedItems: [confirmations[0]]
+            selectedItems: [confirmations[0]],
+            buttons: [QuickInputButtons.Back]
         });
     }
 
