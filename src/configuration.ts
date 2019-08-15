@@ -12,7 +12,7 @@ import {
 } from 'vscode';
 import { Config } from './config';
 import { extensionId } from './constants';
-import { Functions } from './system';
+import { Functions, Objects } from './system';
 
 const emptyConfig: Config = new Proxy<Config>({} as Config, {
     get: function() {
@@ -273,7 +273,7 @@ export class Configuration {
 
         return configuration.update(
             section,
-            value === inspect.defaultValue ? undefined : value,
+            Objects.areEquivalent(value, inspect.defaultValue) ? undefined : value,
             ConfigurationTarget.Global
         );
     }

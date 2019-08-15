@@ -1,4 +1,5 @@
 'use strict';
+import { intersectionWith as _intersectionWith, isEqual as _isEqual, xor as _xor } from 'lodash-es';
 
 export namespace Arrays {
     export function countUniques<T>(source: T[], accessor: (item: T) => string): { [key: string]: number } {
@@ -76,6 +77,13 @@ export namespace Arrays {
             }
             return groupings;
         }, new Map<TKey, TMapped[]>());
+    }
+
+    export const intersection = _intersectionWith;
+    export const isEqual = _isEqual;
+
+    export function areEquivalent<T>(value: T[], other: T[]) {
+        return _xor(value, other).length === 0;
     }
 
     export interface HierarchicalItem<T> {

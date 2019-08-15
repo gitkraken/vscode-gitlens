@@ -1,5 +1,5 @@
 'use strict';
-import { intersectionWith } from 'lodash-es';
+import { Arrays } from '../system';
 import { GitBranch, GitTag, Repository } from '../git/git';
 import { BranchQuickPickItem, TagQuickPickItem } from '../quickpicks';
 
@@ -34,12 +34,12 @@ export async function getBranchesAndOrTags(
         ]);
 
         branches = GitBranch.sort(
-            intersectionWith(...branchesByRepo, ((b1: GitBranch, b2: GitBranch) => b1.name === b2.name) as any)
+            Arrays.intersection(...branchesByRepo, ((b1: GitBranch, b2: GitBranch) => b1.name === b2.name) as any)
         );
 
         if (includeTags) {
             tags = GitTag.sort(
-                intersectionWith(...tagsByRepo!, ((t1: GitTag, t2: GitTag) => t1.name === t2.name) as any)
+                Arrays.intersection(...tagsByRepo!, ((t1: GitTag, t2: GitTag) => t1.name === t2.name) as any)
             );
         }
     }

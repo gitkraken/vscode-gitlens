@@ -1,4 +1,6 @@
 'use strict';
+import { isEqual as _isEqual } from 'lodash-es';
+import { Arrays } from './array';
 
 export namespace Objects {
     export function entries<T>(o: { [key: string]: T }): IterableIterator<[string, T]>;
@@ -51,6 +53,17 @@ export namespace Objects {
                 flattened[key] = null;
             }
         }
+    }
+
+    export function isEqual(value: any, other: any) {
+        return _isEqual(value, other);
+    }
+
+    export function areEquivalent(value: any, other: any) {
+        if (Array.isArray(value) && Array.isArray(other)) {
+            return Arrays.areEquivalent(value, other);
+        }
+        return isEqual(value, other);
     }
 
     export function paths(o: { [key: string]: any }, path?: string): string[] {
