@@ -135,6 +135,16 @@ export class FetchGitCommand extends QuickCommandBase<State> {
                                         : `${state.repos.length} repositories`
                                 }`,
                                 item: ['--all']
+                            },
+                            {
+                                label: `${this.title} All & Prune`,
+                                description: '--all',
+                                detail: `Will fetch and prune all remotes of ${
+                                    state.repos.length === 1
+                                        ? state.repos[0].formattedName
+                                        : `${state.repos.length} repositories`
+                                }`,
+                                item: ['--all', '--prune']
                             }
                         ]
                     );
