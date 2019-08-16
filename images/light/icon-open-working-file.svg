@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 22">
-    <polygon fill="#424242" points="10,5.5 7.414000034332275,5.5 8.413999557495117,6.5 9,6.5 9,7.085999965667725 9,7.5 9,7.914000034332275 9,9.5 12,9.5 12,16.5 4,16.5 4,11.5 3,11.5 3,17.5 13,17.5 13,8.5 "/>
-    <polygon fill="#00539C" points="5,4.5 3,4.5 5,6.5 1,6.5 1,8.5 5,8.5 3,10.5 5,10.5 8,7.5 "/>
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
+    <path fill="#007ACC" fill-rule="evenodd" d="M5.914 6l2.147-2.146v-.708L5.914 1l-.707.707L6.5 3h-3a2.5 2.5 0 0 0 0 5H4V7h-.5a1.5 1.5 0 1 1 0-3h3L5.207 5.293 5.914 6z" clip-rule="evenodd"/>
+    <path fill="#424242" fill-rule="evenodd" d="M5.914 7.414L5 6.5v8l.5.5h9l.5-.5V6l-.1-.4-3.4-3.5-.3-.1H8.328l.733.732V3H10v4h4v7H6V7.328l-.086.086zM13.904 6L11 3v3h2.903zM6.5 3L6 2.5l.5.5z" clip-rule="evenodd"/>
 </svg>

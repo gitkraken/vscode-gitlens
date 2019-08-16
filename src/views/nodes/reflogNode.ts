@@ -54,8 +54,8 @@ export class ReflogNode extends ViewNode<RepositoriesView> implements PageableVi
         item.contextValue = ResourceType.Reflog;
         item.description = 'experimental';
         item.iconPath = {
-            dark: Container.context.asAbsolutePath('images/dark/icon-merge.svg'),
-            light: Container.context.asAbsolutePath('images/light/icon-merge.svg')
+            dark: Container.context.asAbsolutePath('images/dark/icon-activity.svg'),
+            light: Container.context.asAbsolutePath('images/light/icon-activity.svg')
         };
 
         return item;

@@ -1,9 +1,7 @@
-<?xml version="1.0" encoding="utf-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 22">
-    <path fill="#424242" d="M14.34 10a4 4 0 0 0-3.86-3 4 4 0 0 0-3.86 3H3.48v2h3.14a4 4 0 0 0 3.86 3 4 4 0 0 0 3.86-3h1.38v-2h-1.38zm-3.86 3.2a2.2 2.2 0 0 1-2.2-2.2c0-1.22.98-2.2 2.2-2.2 1.22 0 2.2.98 2.2 2.2a2.2 2.2 0 0 1-2.2 2.2zM5.98 10h-1.7l3-3h-3l-4 4 4 4h3l-3-3H6l-.02-2z"/>
-    <g fill="#424242">
-        <ellipse cx="3.438" cy="18.062" rx="1.344" ry="1.344"/>
-        <ellipse cx="8" cy="18.062" rx="1.344" ry="1.344"/>
-        <ellipse cx="12.562" cy="18.062" rx="1.344" ry="1.344"/>
-    </g>
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
+    <path fill="#424242" d="M6 14.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM10 14.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM14 14.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+    <circle r="4" stroke="#424242" stroke-linejoin="bevel" transform="matrix(-1 0 0 1 10.5 7.5)"/>
+    <path stroke="#424242" stroke-linejoin="bevel" d="M14 7.5h2"/>
+    <path fill="#424242" d="M1.5 7.5l4-5H4l-4 5 4 5h1.5l-4-5z"/>
+    <path stroke="#424242" stroke-linejoin="bevel" d="M6.5 7.5H1"/>
 </svg>

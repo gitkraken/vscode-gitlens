@@ -2216,8 +2216,8 @@
                 "title": "Copy Commit Message to Clipboard",
                 "category": "GitLens",
                 "icon": {
-                    "dark": "images/dark/icon-clipboard.svg",
-                    "light": "images/light/icon-clipboard.svg"
+                    "dark": "images/dark/icon-copy-message.svg",
+                    "light": "images/light/icon-copy-message.svg"
                 }
             },
             {
@@ -2225,8 +2225,8 @@
                 "title": "Copy Remote Url to Clipboard",
                 "category": "GitLens",
                 "icon": {
-                    "dark": "images/dark/icon-copy-remote.svg",
-                    "light": "images/light/icon-copy-remote.svg"
+                    "dark": "images/dark/icon-copy-link.svg",
+                    "light": "images/light/icon-copy-link.svg"
                 }
             },
             {
@@ -2234,8 +2234,8 @@
                 "title": "Copy Commit ID to Clipboard",
                 "category": "GitLens",
                 "icon": {
-                    "dark": "images/dark/icon-copy-commit.svg",
-                    "light": "images/light/icon-copy-commit.svg"
+                    "dark": "images/dark/icon-copy.svg",
+                    "light": "images/light/icon-copy.svg"
                 }
             },
             {
@@ -2377,8 +2377,8 @@
                 "title": "Invite to Live Share",
                 "category": "GitLens",
                 "icon": {
-                    "dark": "images/dark/icon-vsls.svg",
-                    "light": "images/light/icon-vsls.svg"
+                    "dark": "images/dark/icon-link-color.svg",
+                    "light": "images/light/icon-link-color.svg"
                 }
             },
             {
@@ -2728,8 +2728,8 @@
                 "title": "Copy to Clipboard",
                 "category": "GitLens",
                 "icon": {
-                    "dark": "images/dark/icon-clipboard.svg",
-                    "light": "images/light/icon-clipboard.svg"
+                    "dark": "images/dark/icon-copy.svg",
+                    "light": "images/light/icon-copy.svg"
                 }
             },
             {
@@ -3039,8 +3039,8 @@
                 "title": "Pin Comparison",
                 "category": "GitLens",
                 "icon": {
-                    "dark": "images/dark/icon-pin-tilted.svg",
-                    "light": "images/light/icon-pin-tilted.svg"
+                    "dark": "images/dark/icon-pin.svg",
+                    "light": "images/light/icon-pin.svg"
                 }
             },
             {
@@ -3048,8 +3048,8 @@
                 "title": "Unpin Comparison",
                 "category": "GitLens",
                 "icon": {
-                    "dark": "images/dark/icon-pin-filled.svg",
-                    "light": "images/light/icon-pin-filled.svg"
+                    "dark": "images/dark/icon-unpin.svg",
+                    "light": "images/light/icon-unpin.svg"
                 }
             },
             {
@@ -3126,8 +3126,8 @@
                 "title": "Dismiss",
                 "category": "GitLens",
                 "icon": {
-                    "dark": "images/dark/icon-close-small.svg",
-                    "light": "images/light/icon-close-small.svg"
+                    "dark": "images/dark/icon-close.svg",
+                    "light": "images/light/icon-close.svg"
                 }
             },
             {
@@ -5010,16 +5010,6 @@
                     "group": "1_gitlens@2"
                 },
                 {
-                    "command": "gitlens.views.compare.pinComparison",
-                    "when": "viewItem =~ /gitlens:compare:results\\b(?!.*?\\b\\+pinned\\b)/",
-                    "group": "inline@1"
-                },
-                {
-                    "command": "gitlens.views.compare.unpinComparison",
-                    "when": "viewItem =~ /gitlens:compare:results\\b(?=.*?\\b\\+pinned\\b)/",
-                    "group": "inline@1"
-                },
-                {
                     "command": "gitlens.views.setComparisonToTwoDot",
                     "when": "viewItem =~ /gitlens:compare:results\\b(?=.*?\\b\\+threedot\\b)/",
                     "group": "inline@2"
@@ -5038,6 +5028,16 @@
                     "command": "gitlens.views.refreshNode",
                     "when": "viewItem =~ /gitlens:compare:(branch(?=.*?\\b\\+comparing\\b)|results)\\b/",
                     "group": "inline@4"
+                },
+                {
+                    "command": "gitlens.views.compare.pinComparison",
+                    "when": "viewItem =~ /gitlens:compare:results\\b(?!.*?\\b\\+pinned\\b)/",
+                    "group": "inline@98"
+                },
+                {
+                    "command": "gitlens.views.compare.unpinComparison",
+                    "when": "viewItem =~ /gitlens:compare:results\\b(?=.*?\\b\\+pinned\\b)/",
+                    "group": "inline@98"
                 },
                 {
                     "command": "gitlens.views.openDirectoryDiff",

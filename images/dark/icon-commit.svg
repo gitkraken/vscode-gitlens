@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 22">
-    <path fill="#C5C5C5" d="m11.86,10c-0.45,-1.72 -2,-3 -3.86,-3c-1.86,0 -3.41,1.28 -3.86,3l-3.14,0l0,2l3.14,0c0.45,1.72 2,3 3.86,3c1.86,0 3.41,-1.28 3.86,-3l3.14,0l0,-2l-3.14,0zm-3.86,3.2c-1.22,0 -2.2,-0.98 -2.2,-2.2c0,-1.22 0.98,-2.2 2.2,-2.2c1.22,0 2.2,0.98 2.2,2.2c0,1.22 -0.98,2.2 -2.2,2.2z"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
+    <circle r="4" stroke="#C5C5C5" stroke-linejoin="bevel" transform="matrix(-1 0 0 1 8 7.5)"/>
+    <path stroke="#C5C5C5" stroke-linejoin="bevel" d="M12 7.5h4M0 7.5h4"/>
 </svg>

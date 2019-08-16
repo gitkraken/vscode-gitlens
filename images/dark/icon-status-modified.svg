@@ -1,7 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
-    <rect width="16" height="16" x="0" y="0" fill="#1B80B2" rx="6" ry="6"/>
-    <text x="8" y="12" fill="white" font-size="12" style="font-family:Menlo, Monaco, Consolas, &quot;Droid Sans Mono&quot;, &quot;Inconsolata&quot;, &quot;Courier New&quot;, monospace, &quot;Droid Sans Fallback&quot;" text-anchor="middle">
-        M
-    </text>
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
+    <circle cx="7.5" cy="7.5" r="7.5" fill="#1B80B2"/>
+    <path fill="#fff" fill-rule="evenodd" d="M11 7V6H8V3H7v3H4v1h3v2h1V7h3zm0 4v-1H4v1h7z" clip-rule="evenodd"/>
 </svg>
