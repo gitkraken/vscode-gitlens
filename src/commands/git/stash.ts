@@ -270,6 +270,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
                         stash === undefined
                             ? `${state.repo.formattedName} has no stashed changes`
                             : 'Choose a stash to apply to your working tree',
+                    matchOnDetail: true,
                     items:
                         stash === undefined
                             ? [
@@ -372,6 +373,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
                         stash === undefined
                             ? `${state.repo.formattedName} has no stashed changes`
                             : 'Choose a stash to delete',
+                    matchOnDetail: true,
                     items:
                         stash === undefined
                             ? [
@@ -388,7 +390,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
                                           }
                                       )
                                   )
-                            ]
+                              ]
                 });
                 const selection = yield step;
 
@@ -400,29 +402,29 @@ export class StashGitCommand extends QuickCommandBase<State> {
             }
 
             // if (this.confirm(state.confirm)) {
-                const message =
-                    state.stash.message.length > 80
-                        ? `${state.stash.message.substring(0, 80)}${GlyphChars.Ellipsis}`
-                        : state.stash.message;
+            const message =
+                state.stash.message.length > 80
+                    ? `${state.stash.message.substring(0, 80)}${GlyphChars.Ellipsis}`
+                    : state.stash.message;
 
-                const step = this.createConfirmStep<QuickPickItem>(
-                    `Confirm ${this.title} ${state.subcommand}${Strings.pad(GlyphChars.Dot, 2, 2)}${
-                        state.repo.formattedName
-                    }`,
-                    [
-                        {
-                            label: `${this.title} ${state.subcommand}`,
-                            description: `${state.stash.stashName}${Strings.pad(GlyphChars.Dash, 2, 2)}${message}`,
-                            detail: `Will delete ${state.stash.stashName}`
-                        }
-                    ],
-                    { placeholder: `Confirm ${this.title} ${state.subcommand}` }
-                );
-                const selection = yield step;
+            const step = this.createConfirmStep<QuickPickItem>(
+                `Confirm ${this.title} ${state.subcommand}${Strings.pad(GlyphChars.Dot, 2, 2)}${
+                    state.repo.formattedName
+                }`,
+                [
+                    {
+                        label: `${this.title} ${state.subcommand}`,
+                        description: `${state.stash.stashName}${Strings.pad(GlyphChars.Dash, 2, 2)}${message}`,
+                        detail: `Will delete ${state.stash.stashName}`
+                    }
+                ],
+                { placeholder: `Confirm ${this.title} ${state.subcommand}` }
+            );
+            const selection = yield step;
 
-                if (!this.canMoveNext(step, state, selection)) {
-                    break;
-                }
+            if (!this.canMoveNext(step, state, selection)) {
+                break;
+            }
             // }
 
             void Container.git.stashDelete(state.repo.path, state.stash.stashName);

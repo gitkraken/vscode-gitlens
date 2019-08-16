@@ -82,6 +82,7 @@ export class MergeGitCommand extends QuickCommandBase<State> {
                             state.repo.formattedName
                         }`,
                         placeholder: `Choose a branch or tag to merge into ${state.destination.name}`,
+                        matchOnDescription: true,
                         items: await getBranchesAndOrTags(state.repo, true, {
                             filterBranches: b => b.id !== destId,
                             picked: state.source && state.source.ref

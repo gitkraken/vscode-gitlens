@@ -82,6 +82,7 @@ export class RebaseGitCommand extends QuickCommandBase<State> {
                             state.repo.formattedName
                         }`,
                         placeholder: `Choose a branch or tag to rebase ${state.destination.name} with`,
+                        matchOnDescription: true,
                         items: await getBranchesAndOrTags(state.repo, true, {
                             filterBranches: b => b.id !== destId,
                             picked: state.source && state.source.ref

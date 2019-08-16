@@ -136,6 +136,7 @@ export class CherryPickGitCommand extends QuickCommandBase<State> {
                             log === undefined
                                 ? `${state.source.name} has no pickable commits`
                                 : `Choose commits to cherry-pick onto ${state.destination.name}`,
+                        matchOnDescription: true,
                         items:
                             log === undefined
                                 ? [
