@@ -22,6 +22,12 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode> {
 
     protected registerCommands() {
         void Container.viewCommands;
+
+        commands.registerCommand(
+            this.getQualifiedCommand('copy'),
+            () => commands.executeCommand('gitlens.views.copy', this.selection),
+            this
+        );
         commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this);
         commands.registerCommand(this.getQualifiedCommand('changeBase'), () => this.changeBase(), this);
         commands.registerCommand(

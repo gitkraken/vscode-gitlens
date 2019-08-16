@@ -19,6 +19,10 @@ export class ContributorNode extends ViewNode<RepositoriesView> implements Pagea
         super(uri, view, parent);
     }
 
+    toClipboard(): string {
+        return this.contributor.name;
+    }
+
     get id(): string {
         return `gitlens:repository(${this.contributor.repoPath}):contributor(${this.contributor.name}|${this.contributor.email}}`;
     }

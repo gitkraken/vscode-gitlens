@@ -22,6 +22,10 @@ export class BranchOrTagFolderNode extends ViewNode {
         super(GitUri.fromRepoPath(repoPath), view, parent);
     }
 
+    toClipboard(): string {
+        return this.folderName;
+    }
+
     get id(): string {
         return `gitlens:repository(${this.repoPath})${this._key === undefined ? '' : `:${this._key}`}:${
             this.type

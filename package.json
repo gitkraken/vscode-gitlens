@@ -18,7 +18,7 @@
         "url": "https://github.com/eamodio/vscode-gitlens.git"
     },
     "engines": {
-        "vscode": "^1.36.0"
+        "vscode": "^1.37.0"
     },
     "main": "./dist/extension",
     "icon": "images/gitlens-icon.png",
@@ -2423,6 +2423,36 @@
                 }
             },
             {
+                "command": "gitlens.views.copy",
+                "title": "Copy",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.views.repositories.copy",
+                "title": "Copy",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.views.fileHistory.copy",
+                "title": "Copy",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.views.lineHistory.copy",
+                "title": "Copy",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.views.compare.copy",
+                "title": "Copy",
+                "category": "GitLens"
+            },
+            {
+                "command": "gitlens.views.search.copy",
+                "title": "Copy",
+                "category": "GitLens"
+            },
+            {
                 "command": "gitlens.views.pruneRemote",
                 "title": "Prune",
                 "category": "GitLens"
@@ -3402,6 +3432,30 @@
                 },
                 {
                     "command": "gitlens.views.checkout",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.views.copy",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.views.repositories.copy",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.views.fileHistory.copy",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.views.lineHistory.copy",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.views.compare.copy",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.views.search.copy",
                     "when": "false"
                 },
                 {
@@ -5290,6 +5344,36 @@
                 "key": "ctrl+shift+g g",
                 "mac": "ctrl+shift+g",
                 "when": "config.gitlens.keymap == chorded && gitlens:enabled"
+            },
+            {
+                "command": "gitlens.views.repositories.copy",
+                "key": "ctrl+c",
+                "mac": "cmd+c",
+                "when": "gitlens:enabled && focusedView =~ /^gitlens\\.views\\.repositories/"
+            },
+            {
+                "command": "gitlens.views.fileHistory.copy",
+                "key": "ctrl+c",
+                "mac": "cmd+c",
+                "when": "gitlens:enabled && focusedView =~ /^gitlens\\.views\\.fileHistory/"
+            },
+            {
+                "command": "gitlens.views.lineHistory.copy",
+                "key": "ctrl+c",
+                "mac": "cmd+c",
+                "when": "gitlens:enabled && focusedView =~ /^gitlens\\.views\\.lineHistory/"
+            },
+            {
+                "command": "gitlens.views.compare.copy",
+                "key": "ctrl+c",
+                "mac": "cmd+c",
+                "when": "gitlens:enabled && focusedView =~ /^gitlens\\.views\\.compare/"
+            },
+            {
+                "command": "gitlens.views.search.copy",
+                "key": "ctrl+c",
+                "mac": "cmd+c",
+                "when": "gitlens:enabled && focusedView =~ /^gitlens\\.views\\.search/"
             }
         ],
         "resourceLabelFormatters": [
@@ -5422,7 +5506,7 @@
     "devDependencies": {
         "@types/lodash-es": "4.17.3",
         "@types/node": "10.11.7",
-        "@types/vscode": "1.36.0",
+        "@types/vscode": "1.37.0",
         "@typescript-eslint/eslint-plugin": "2.0.0",
         "@typescript-eslint/parser": "2.0.0",
         "circular-dependency-plugin": "5.2.0",

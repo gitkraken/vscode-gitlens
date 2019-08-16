@@ -19,6 +19,10 @@ export class ResultsFileNode extends ViewRefFileNode {
         super(GitUri.fromFile(file, repoPath, ref1 || ref2), view, parent);
     }
 
+    toClipboard(): string {
+        return this.fileName;
+    }
+
     get fileName(): string {
         return this.file.fileName;
     }

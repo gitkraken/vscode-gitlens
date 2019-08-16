@@ -31,6 +31,10 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
         super(uri, view, parent);
     }
 
+    toClipboard(): string {
+        return this.uri.fileName;
+    }
+
     async getChildren(): Promise<ViewNode[]> {
         const children: ViewNode[] = [];
 

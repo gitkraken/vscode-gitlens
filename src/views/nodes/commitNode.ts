@@ -23,6 +23,10 @@ export class CommitNode extends ViewRefNode<ViewWithFiles> {
         super(commit.toGitUri(), view, parent);
     }
 
+    toClipboard(): string {
+        return this.commit.sha;
+    }
+
     get ref(): string {
         return this.commit.sha;
     }

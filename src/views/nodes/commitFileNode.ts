@@ -19,6 +19,10 @@ export class CommitFileNode extends ViewRefFileNode {
         super(GitUri.fromFile(file, commit.repoPath, commit.sha), view, parent);
     }
 
+    toClipboard(): string {
+        return this._options.displayAsCommit ? this.commit.sha : this.fileName;
+    }
+
     get fileName(): string {
         return this.file.fileName;
     }

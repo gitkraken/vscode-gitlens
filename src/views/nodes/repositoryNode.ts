@@ -39,6 +39,10 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
         this._status = this.repo.getStatus();
     }
 
+    toClipboard(): string {
+        return this.repo.path;
+    }
+
     get id(): string {
         return `gitlens:repository(${this.repo.path})${this.repo.starred ? '+starred' : ''}`;
     }

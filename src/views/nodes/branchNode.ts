@@ -30,6 +30,10 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
         super(uri, view, parent);
     }
 
+    toClipboard(): string {
+        return this.branch.name;
+    }
+
     get id(): string {
         return `gitlens:repository(${this.branch.repoPath})${this._root ? ':root' : ''}:branch(${this.branch.name})${
             this.branch.current ? '+current' : ''

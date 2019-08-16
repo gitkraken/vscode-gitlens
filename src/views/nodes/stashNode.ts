@@ -12,6 +12,10 @@ export class StashNode extends ViewRefNode {
         super(commit.toGitUri(), view, parent);
     }
 
+    toClipboard(): string {
+        return this.commit.stashName;
+    }
+
     get id(): string {
         return `gitlens:repository(${this.commit.repoPath}):stash(${this.commit.sha})`;
     }

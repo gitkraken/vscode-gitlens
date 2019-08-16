@@ -56,6 +56,19 @@ interface CompareSelectedInfo {
 export class ViewCommands {
     constructor() {
         commands.registerCommand(
+            'gitlens.views.copy',
+            async (selection: ViewNode[]) => {
+                if (selection.length === 0) return;
+
+                const data = selection
+                    .filter(n => n.toClipboard !== undefined)
+                    .map(n => n.toClipboard!())
+                    .join(',');
+                await env.clipboard.writeText(data);
+            },
+            this
+        );
+        commands.registerCommand(
             'gitlens.views.refreshNode',
             (node: ViewNode, reset?: boolean) => {
                 if (reset === undefined && nodeSupportsPaging(node)) {

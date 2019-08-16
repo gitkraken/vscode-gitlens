@@ -29,6 +29,10 @@ export class FolderNode extends ViewNode<ViewWithFiles> {
         super(GitUri.fromRepoPath(repoPath), view, parent);
     }
 
+    toClipboard(): string {
+        return this.folderName;
+    }
+
     getChildren(): (FolderNode | FileNode)[] {
         if (this.root.descendants === undefined || this.root.children === undefined) return [];
 

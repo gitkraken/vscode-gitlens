@@ -55,6 +55,14 @@ export class StatusFileNode extends ViewNode {
         this._hasUnstagedChanges = hasUnstagedChanges;
     }
 
+    toClipboard(): string {
+        return this.fileName;
+    }
+
+    get fileName(): string {
+        return this.file.fileName;
+    }
+
     getChildren(): ViewNode[] {
         return this.commits.map(c => new CommitFileNode(this.view, this, this.file, c, { displayAsCommit: true }));
     }

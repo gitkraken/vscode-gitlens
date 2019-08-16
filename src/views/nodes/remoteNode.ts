@@ -21,6 +21,10 @@ export class RemoteNode extends ViewNode<RepositoriesView> {
         super(uri, view, parent);
     }
 
+    toClipboard(): string {
+        return this.remote.name;
+    }
+
     get id(): string {
         return `gitlens:repository(${this.remote.repoPath}):remote(${this.remote.name}:${this.remote.id})`;
     }

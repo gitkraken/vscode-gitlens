@@ -30,7 +30,13 @@ export class CompareView extends ViewBase<CompareNode> {
 
     protected registerCommands() {
         void Container.viewCommands;
+
         commands.registerCommand(this.getQualifiedCommand('clear'), () => this.clear(), this);
+        commands.registerCommand(
+            this.getQualifiedCommand('copy'),
+            () => commands.executeCommand('gitlens.views.copy', this.selection),
+            this
+        );
         commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this);
         commands.registerCommand(
             this.getQualifiedCommand('setFilesLayoutToAuto'),

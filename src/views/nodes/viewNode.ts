@@ -61,6 +61,8 @@ export abstract class ViewNode<TView extends View = View> {
         this._uri = uri;
     }
 
+    toClipboard?(): string;
+
     toString() {
         return `${Logger.toLoggableName(this)}${this.id != null ? `(${this.id})` : ''}`;
     }
