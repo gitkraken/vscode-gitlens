@@ -120,7 +120,7 @@ export class CompareNode extends ViewNode<CompareView> {
         const promises: Promise<any>[] = [
             ...Iterables.filterMap(this._children, c => {
                 const result = c.refresh === undefined ? false : c.refresh();
-                return Promises.isPromise<boolean | void>(result) ? result : undefined;
+                return Promises.is<boolean | void>(result) ? result : undefined;
             })
         ];
         await Promise.all(promises);

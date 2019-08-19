@@ -288,7 +288,7 @@ export function log<T extends (...arg: any) => any>(
                     }
                 };
 
-                if (result != null && Promises.isPromise(result)) {
+                if (result != null && Promises.is(result)) {
                     const promise = result.then(logResult);
                     promise.catch(logError);
                 }

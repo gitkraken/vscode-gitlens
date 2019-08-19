@@ -10,7 +10,7 @@ export namespace Promises {
         });
     }
 
-    export function isPromise<T>(obj: T | Promise<T>): obj is Promise<T> {
+    export function is<T>(obj: T | Promise<T>): obj is Promise<T> {
         return obj && typeof (obj as Promise<T>).then === 'function';
     }
 

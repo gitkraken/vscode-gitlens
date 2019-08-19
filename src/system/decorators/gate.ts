@@ -47,7 +47,7 @@ export function gate<T extends (...arg: any) => any>(resolver?: (...args: Parame
             let promise = this[prop];
             if (promise === undefined) {
                 const result = fn!.apply(this, args);
-                if (result == null || !Promises.isPromise(result)) {
+                if (result == null || !Promises.is(result)) {
                     return result;
                 }
 
