@@ -2,12 +2,13 @@
 import { QuickInputButtons, QuickPickItem, Uri, window } from 'vscode';
 import { Container } from '../../container';
 import { GitStashCommit, GitUri, Repository } from '../../git/gitService';
-import { BreakQuickCommand, QuickCommandBase, QuickInputStep, QuickPickStep, StepState } from '../quickCommand';
+import { BreakQuickCommand, QuickCommandBase, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
 import {
     CommitQuickPickItem,
     Directive,
     DirectiveQuickPickItem,
-    QuickPickItemPlus,
+    GitFlagsQuickPickItem,
+    QuickPickItemOfT,
     RepositoryQuickPickItem
 } from '../../quickpicks';
 import { Iterables, Strings } from '../../system';
@@ -103,7 +104,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
         return this._subcommand === undefined ? undefined : `${super.confirmationKey}-${this._subcommand}`;
     }
 
-    protected async *steps(): AsyncIterableIterator<QuickPickStep | QuickInputStep> {
+    protected async *steps(): StepAsyncGenerator {
         const state: StepState<State> = this._initialState === undefined ? { counter: 0 } : this._initialState;
         let oneRepo = false;
 
@@ -112,7 +113,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
                 if (state.subcommand === undefined || state.counter < 1) {
                     this._subcommand = undefined;
 
-                    const step = this.createPickStep<QuickPickItemPlus<State['subcommand']>>({
+                    const step = this.createPickStep<QuickPickItemOfT<State['subcommand']>>({
                         title: this.title,
                         placeholder: `Choose a ${this.label} command`,
                         items: [
@@ -139,9 +140,9 @@ export class StashGitCommand extends QuickCommandBase<State> {
                         ],
                         buttons: [QuickInputButtons.Back]
                     });
-                    const selection = yield step;
+                    const selection: StepSelection<typeof step> = yield step;
 
-                    if (!this.canMoveNext(step, state, selection)) {
+                    if (!this.canPickStepMoveNext(step, state, selection)) {
                         break;
                     }
 
@@ -172,9 +173,9 @@ export class StashGitCommand extends QuickCommandBase<State> {
                                 )
                             )
                         });
-                        const selection = yield step;
+                        const selection: StepSelection<typeof step> = yield step;
 
-                        if (!this.canMoveNext(step, state, selection)) {
+                        if (!this.canPickStepMoveNext(step, state, selection)) {
                             continue;
                         }
 
@@ -194,7 +195,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
                         yield* this.push(state as StashStepState<PushState>);
                         break;
                     default:
-                        return;
+                        return undefined;
                 }
 
                 if (oneRepo) {
@@ -203,7 +204,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
                 continue;
             }
             catch (ex) {
-                if (ex instanceof BreakQuickCommand) return;
+                if (ex instanceof BreakQuickCommand) break;
 
                 Logger.error(ex, `${this.title}.${state.subcommand}`);
 
@@ -219,45 +220,45 @@ export class StashGitCommand extends QuickCommandBase<State> {
                                 'Unable to apply stash. Your working tree changes would be overwritten'
                             );
 
-                            return;
+                            return undefined;
                         }
                         else if (ex.message.includes('Auto-merging') && ex.message.includes('CONFLICT')) {
                             void window.showInformationMessage('Stash applied with conflicts');
 
-                            return;
+                            return undefined;
                         }
 
                         void Messages.showGenericErrorMessage(
                             `Unable to apply stash \u2014 ${ex.message.trim().replace(/\n+?/g, '; ')}`
                         );
 
-                        return;
+                        return undefined;
 
                     case 'drop':
                         void Messages.showGenericErrorMessage('Unable to delete stash');
 
-                        return;
+                        return undefined;
 
                     case 'push':
                         if (ex.message.includes('newer version of Git')) {
                             void window.showErrorMessage(`Unable to stash changes. ${ex.message}`);
 
-                            return;
+                            return undefined;
                         }
 
                         void Messages.showGenericErrorMessage('Unable to stash changes');
 
-                        return;
+                        return undefined;
                 }
 
                 throw ex;
             }
         }
+
+        return undefined;
     }
 
-    private async *applyOrPop(
-        state: StashStepState<ApplyState> | StashStepState<PopState>
-    ): AsyncIterableIterator<QuickPickStep | QuickInputStep> {
+    private async *applyOrPop(state: StashStepState<ApplyState> | StashStepState<PopState>): StepAsyncGenerator {
         while (true) {
             if (state.stash === undefined || state.counter < 3) {
                 const stash = await Container.git.getStashList(state.repo.path);
@@ -289,9 +290,9 @@ export class StashGitCommand extends QuickCommandBase<State> {
                                   )
                               ]
                 });
-                const selection = yield step;
+                const selection: StepSelection<typeof step> = yield step;
 
-                if (!this.canMoveNext(step, state, selection)) {
+                if (!this.canPickStepMoveNext(step, state, selection)) {
                     break;
                 }
 
@@ -304,7 +305,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
                         ? `${state.stash.message.substring(0, 80)}${GlyphChars.Ellipsis}`
                         : state.stash.message;
 
-                const step = this.createConfirmStep<QuickPickItemPlus<string[]> & { command: 'apply' | 'pop' }>(
+                const step = this.createConfirmStep<GitFlagsQuickPickItem & { command: 'apply' | 'pop' }>(
                     `Confirm ${this.title} ${state.subcommand}${Strings.pad(GlyphChars.Dot, 2, 2)}${
                         state.repo.formattedName
                     }`,
@@ -341,9 +342,9 @@ export class StashGitCommand extends QuickCommandBase<State> {
                     ],
                     { placeholder: `Confirm ${this.title} ${state.subcommand}` }
                 );
-                const selection = yield step;
+                const selection: StepSelection<typeof step> = yield step;
 
-                if (!this.canMoveNext(step, state, selection)) {
+                if (!this.canPickStepMoveNext(step, state, selection)) {
                     break;
                 }
 
@@ -358,9 +359,11 @@ export class StashGitCommand extends QuickCommandBase<State> {
 
             throw new BreakQuickCommand();
         }
+
+        return undefined;
     }
 
-    private async *drop(state: StashStepState<DropState>): AsyncIterableIterator<QuickPickStep | QuickInputStep> {
+    private async *drop(state: StashStepState<DropState>): StepAsyncGenerator {
         while (true) {
             if (state.stash === undefined || state.counter < 3) {
                 const stash = await Container.git.getStashList(state.repo.path);
@@ -392,9 +395,9 @@ export class StashGitCommand extends QuickCommandBase<State> {
                                   )
                               ]
                 });
-                const selection = yield step;
+                const selection: StepSelection<typeof step> = yield step;
 
-                if (!this.canMoveNext(step, state, selection)) {
+                if (!this.canPickStepMoveNext(step, state, selection)) {
                     break;
                 }
 
@@ -420,21 +423,22 @@ export class StashGitCommand extends QuickCommandBase<State> {
                 ],
                 { placeholder: `Confirm ${this.title} ${state.subcommand}` }
             );
-            const selection = yield step;
+            const selection: StepSelection<typeof step> = yield step;
 
-            if (!this.canMoveNext(step, state, selection)) {
+            if (!this.canPickStepMoveNext(step, state, selection)) {
                 break;
             }
-            // }
 
             void Container.git.stashDelete(state.repo.path, state.stash.stashName);
 
             throw new BreakQuickCommand();
         }
+
+        return undefined;
     }
 
     // eslint-disable-next-line @typescript-eslint/require-await
-    private async *push(state: StashStepState<PushState>): AsyncIterableIterator<QuickPickStep | QuickInputStep> {
+    private async *push(state: StashStepState<PushState>): StepAsyncGenerator {
         while (true) {
             if (state.message === undefined || state.counter < 3) {
                 const step = this.createInputStep({
@@ -446,9 +450,9 @@ export class StashGitCommand extends QuickCommandBase<State> {
                     // validate: (value: string | undefined): [boolean, string | undefined] => [value != null, undefined]
                 });
 
-                const value = yield step;
+                const value: StepSelection<typeof step> = yield step;
 
-                if (!this.canMoveNext(step, state, value)) {
+                if (!(await this.canInputStepMoveNext(step, state, value))) {
                     break;
                 }
 
@@ -456,7 +460,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
             }
 
             if (this.confirm(state.confirm)) {
-                const step = this.createConfirmStep<QuickPickItemPlus<string[]>>(
+                const step = this.createConfirmStep<GitFlagsQuickPickItem>(
                     `Confirm ${this.title} ${state.subcommand}${Strings.pad(GlyphChars.Dot, 2, 2)}${
                         state.repo.formattedName
                     }`,
@@ -495,9 +499,9 @@ export class StashGitCommand extends QuickCommandBase<State> {
                           ],
                     { placeholder: `Confirm ${this.title} ${state.subcommand}` }
                 );
-                const selection = yield step;
+                const selection: StepSelection<typeof step> = yield step;
 
-                if (!this.canMoveNext(step, state, selection)) {
+                if (!this.canPickStepMoveNext(step, state, selection)) {
                     break;
                 }
 
@@ -514,5 +518,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 
             throw new BreakQuickCommand();
         }
+
+        return undefined;
     }
 }

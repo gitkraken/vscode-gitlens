@@ -5505,7 +5505,7 @@
     },
     "devDependencies": {
         "@types/lodash-es": "4.17.3",
-        "@types/node": "10.11.7",
+        "@types/node": "10.14.15",
         "@types/vscode": "1.37.0",
         "@typescript-eslint/eslint-plugin": "2.0.0",
         "@typescript-eslint/parser": "2.0.0",
@@ -5529,7 +5529,7 @@
         "sass-loader": "7.2.0",
         "terser-webpack-plugin": "1.4.1",
         "ts-loader": "6.0.4",
-        "typescript": "3.5.3",
+        "typescript": "3.6.1-rc",
         "vsce": "1.66.0",
         "webpack": "4.39.2",
         "webpack-bundle-analyzer": "3.4.1",

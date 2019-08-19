@@ -1,7 +1,7 @@
 'use strict';
 import { Container } from '../../container';
 import { Repository } from '../../git/gitService';
-import { QuickCommandBase, QuickInputStep, QuickPickStep, StepState } from '../quickCommand';
+import { QuickCommandBase, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
 import { RepositoryQuickPickItem } from '../../quickpicks';
 import { Strings } from '../../system';
 import { GlyphChars } from '../../constants';
@@ -41,7 +41,7 @@ export class PushGitCommand extends QuickCommandBase<State> {
         return Container.git.pushAll(state.repos, { force: state.flags.includes('--force') });
     }
 
-    protected async *steps(): AsyncIterableIterator<QuickPickStep | QuickInputStep> {
+    protected async *steps(): StepAsyncGenerator {
         const state: StepState<State> = this._initialState === undefined ? { counter: 0 } : this._initialState;
         let oneRepo = false;
 
@@ -74,9 +74,9 @@ export class PushGitCommand extends QuickCommandBase<State> {
                                 )
                             )
                         });
-                        const selection = yield step;
+                        const selection: StepSelection<typeof step> = yield step;
 
-                        if (!this.canMoveNext(step, state, selection)) {
+                        if (!this.canPickStepMoveNext(step, state, selection)) {
                             break;
                         }
 
@@ -114,9 +114,9 @@ export class PushGitCommand extends QuickCommandBase<State> {
                             }
                         ]
                     );
-                    const selection = yield step;
+                    const selection: StepSelection<typeof step> = yield step;
 
-                    if (!this.canMoveNext(step, state, selection)) {
+                    if (!this.canPickStepMoveNext(step, state, selection)) {
                         if (oneRepo) {
                             break;
                         }
@@ -139,5 +139,7 @@ export class PushGitCommand extends QuickCommandBase<State> {
                 throw ex;
             }
         }
+
+        return undefined;
     }
 }

@@ -1,6 +1,5 @@
 'use strict';
 import { InputBox, QuickInputButton, QuickInputButtons, QuickPick, QuickPickItem } from 'vscode';
-import { Promises } from '../system';
 import { Directive, DirectiveQuickPickItem } from '../quickpicks';
 import { Container } from '../container';
 
@@ -42,13 +41,20 @@ export interface QuickPickStep<T extends QuickPickItem = any> {
     onDidAccept?(quickpick: QuickPick<T>): Promise<boolean>;
     onDidClickButton?(quickpick: QuickPick<T>, button: QuickInputButton): void;
     onValidateValue?(quickpick: QuickPick<T>, value: string, items: T[]): Promise<boolean>;
-    validate?(selection: T[]): boolean | Promise<boolean>;
+    validate?(selection: T[]): boolean;
 }
 
 export function isQuickPickStep(item: QuickPickStep | QuickInputStep): item is QuickPickStep {
     return (item as QuickPickStep).items !== undefined;
 }
 
+export type StepAsyncGenerator = AsyncGenerator<QuickPickStep | QuickInputStep, undefined, any | undefined>;
+type StepItemType<T> = T extends QuickPickStep<infer U> ? U[] : T extends QuickInputStep ? string : never;
+export type StepSelection<T> = T extends QuickPickStep<infer U>
+    ? U[] | Directive
+    : T extends QuickInputStep
+    ? string | Directive
+    : never;
 export type StepState<T> = Partial<T> & { counter: number; confirm?: boolean };
 
 export abstract class QuickCommandBase<T = any> implements QuickPickItem {
@@ -62,7 +68,7 @@ export abstract class QuickCommandBase<T = any> implements QuickPickItem {
     protected _initialState?: StepState<T>;
 
     private _current: QuickPickStep | QuickInputStep | undefined;
-    private _stepsIterator: AsyncIterableIterator<QuickPickStep | QuickInputStep> | undefined;
+    private _stepsIterator: StepAsyncGenerator | undefined;
 
     constructor(
         public readonly key: string,
@@ -102,13 +108,13 @@ export abstract class QuickCommandBase<T = any> implements QuickPickItem {
             : !Container.config.gitCommands.skipConfirmations.includes(this.confirmationKey);
     }
 
-    protected abstract steps(): AsyncIterableIterator<QuickPickStep | QuickInputStep>;
+    protected abstract steps(): StepAsyncGenerator;
 
     async previous(): Promise<QuickPickStep | QuickInputStep | undefined> {
         return (await this.next(Directive.Back)).value;
     }
 
-    async next(value?: QuickPickItem[] | string | Directive): Promise<IteratorResult<QuickPickStep | QuickInputStep>> {
+    async next(value?: StepSelection<any>): Promise<IteratorResult<QuickPickStep | QuickInputStep>> {
         if (this._stepsIterator === undefined) {
             this._stepsIterator = this.steps();
         }
@@ -156,21 +162,13 @@ export abstract class QuickCommandBase<T = any> implements QuickPickItem {
         return step;
     }
 
-    protected canMoveNext<T extends QuickPickItem>(
-        step: QuickPickStep<T>,
+    protected async canInputStepMoveNext<T extends QuickInputStep>(
+        step: T,
         state: { counter: number },
-        selection: T[] | Directive | undefined
-    ): selection is T[];
-    protected canMoveNext<T extends string>(
-        step: QuickInputStep,
-        state: { counter: number },
-        value: string | Directive | undefined
-    ): boolean | Promise<boolean>;
-    protected canMoveNext<T extends any>(
-        step: QuickPickStep | QuickInputStep,
-        state: { counter: number },
-        value: T[] | string | Directive | undefined
+        value: Directive | string
     ) {
+        //: value is string
+        if (value === Directive.Cancel) throw new BreakQuickCommand();
         if (value === Directive.Back) {
             state.counter--;
             if (state.counter < 0) {
@@ -179,27 +177,35 @@ export abstract class QuickCommandBase<T = any> implements QuickPickItem {
             return false;
         }
 
-        if (step.validate === undefined || (isQuickPickStep(step) && step.validate!(value as T[]))) {
+        if (value === undefined) return false;
+
+        if (step.validate === undefined || (await step.validate(value))) {
             state.counter++;
             return true;
         }
 
-        if (isQuickInputStep(step)) {
-            const result = step.validate!(value as string);
-            if (!Promises.isPromise(result)) {
-                const [valid] = result;
-                if (valid) {
-                    state.counter++;
-                }
-                return valid;
-            }
+        return false;
+    }
 
-            return result.then(([valid]) => {
-                if (valid) {
-                    state.counter++;
-                }
-                return valid;
-            });
+    protected canPickStepMoveNext<T extends QuickPickStep>(
+        step: T,
+        state: { counter: number },
+        selection: StepItemType<T> | Directive
+    ): selection is StepItemType<T> {
+        if (selection === Directive.Cancel) throw new BreakQuickCommand();
+        if (selection === Directive.Back) {
+            state.counter--;
+            if (state.counter < 0) {
+                state.counter = 0;
+            }
+            return false;
+        }
+
+        if (selection === undefined) return false;
+
+        if (step.validate === undefined || step.validate(selection)) {
+            state.counter++;
+            return true;
         }
 
         return false;

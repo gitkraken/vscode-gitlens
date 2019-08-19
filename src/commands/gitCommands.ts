@@ -2,7 +2,14 @@
 import { Disposable, InputBox, QuickInputButton, QuickInputButtons, QuickPick, QuickPickItem, window } from 'vscode';
 import { command, Command, Commands } from './common';
 import { log } from '../system';
-import { isQuickInputStep, isQuickPickStep, QuickCommandBase, QuickInputStep, QuickPickStep } from './quickCommand';
+import {
+    isQuickInputStep,
+    isQuickPickStep,
+    QuickCommandBase,
+    QuickInputStep,
+    QuickPickStep,
+    StepSelection
+} from './quickCommand';
 import { Directive, DirectiveQuickPickItem } from '../quickpicks';
 import { CheckoutGitCommand, CheckoutGitCommandArgs } from './git/checkout';
 import { CherryPickGitCommand } from './git/cherry-pick';
@@ -420,9 +427,9 @@ export class GitCommandsCommand extends Command {
     }
 
     private async nextStep(
-        quickInput: QuickPick<QuickPickItem> | InputBox,
+        quickInput: InputBox | QuickPick<QuickPickItem>,
         command: QuickCommandBase,
-        value: QuickPickItem[] | string | undefined
+        value: StepSelection<any> | undefined
     ) {
         quickInput.busy = true;
         // quickInput.enabled = false;

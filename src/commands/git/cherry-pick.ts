@@ -4,7 +4,7 @@ import { Container } from '../../container';
 import { GitBranch, GitLogCommit, GitReference, Repository } from '../../git/gitService';
 import { GlyphChars } from '../../constants';
 import { Iterables, Strings } from '../../system';
-import { getBranchesAndOrTags, QuickCommandBase, QuickInputStep, QuickPickStep, StepState } from '../quickCommand';
+import { getBranchesAndOrTags, QuickCommandBase, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
 import {
     BranchQuickPickItem,
     CommitQuickPickItem,
@@ -38,7 +38,7 @@ export class CherryPickGitCommand extends QuickCommandBase<State> {
         runGitCommandInTerminal('cherry-pick', state.source.ref, state.repo.path, true);
     }
 
-    protected async *steps(): AsyncIterableIterator<QuickPickStep | QuickInputStep> {
+    protected async *steps(): StepAsyncGenerator {
         const state: StepState<State> = this._initialState === undefined ? { counter: 0 } : this._initialState;
         let oneRepo = false;
 
@@ -68,9 +68,9 @@ export class CherryPickGitCommand extends QuickCommandBase<State> {
                                 )
                             )
                         });
-                        const selection = yield step;
+                        const selection: StepSelection<typeof step> = yield step;
 
-                        if (!this.canMoveNext(step, state, selection)) {
+                        if (!this.canPickStepMoveNext(step, state, selection)) {
                             break;
                         }
 
@@ -102,9 +102,9 @@ export class CherryPickGitCommand extends QuickCommandBase<State> {
                             return true;
                         }
                     });
-                    const selection = yield step;
+                    const selection: StepSelection<typeof step> = yield step;
 
-                    if (!this.canMoveNext(step, state, selection)) {
+                    if (!this.canPickStepMoveNext(step, state, selection)) {
                         if (oneRepo) {
                             break;
                         }
@@ -153,9 +153,9 @@ export class CherryPickGitCommand extends QuickCommandBase<State> {
                                       )
                                   ]
                     });
-                    const selection = yield step;
+                    const selection: StepSelection<typeof step> = yield step;
 
-                    if (!this.canMoveNext(step, state, selection)) {
+                    if (!this.canPickStepMoveNext(step, state, selection)) {
                         continue;
                     }
 
@@ -186,9 +186,9 @@ export class CherryPickGitCommand extends QuickCommandBase<State> {
                               }
                     ]
                 );
-                const selection = yield step;
+                const selection: StepSelection<typeof step> = yield step;
 
-                if (!this.canMoveNext(step, state, selection)) {
+                if (!this.canPickStepMoveNext(step, state, selection)) {
                     continue;
                 }
 
@@ -201,5 +201,7 @@ export class CherryPickGitCommand extends QuickCommandBase<State> {
                 throw ex;
             }
         }
+
+        return undefined;
     }
 }

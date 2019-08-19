@@ -1,8 +1,8 @@
 'use strict';
 import { Container } from '../../container';
 import { Repository } from '../../git/gitService';
-import { QuickCommandBase, QuickInputStep, QuickPickStep, StepState } from '../quickCommand';
-import { QuickPickItemPlus, RepositoryQuickPickItem } from '../../quickpicks';
+import { QuickCommandBase, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
+import { GitFlagsQuickPickItem, RepositoryQuickPickItem } from '../../quickpicks';
 import { Strings } from '../../system';
 import { GlyphChars } from '../../constants';
 import { Logger } from '../../logger';
@@ -44,7 +44,7 @@ export class FetchGitCommand extends QuickCommandBase<State> {
         });
     }
 
-    protected async *steps(): AsyncIterableIterator<QuickPickStep | QuickInputStep> {
+    protected async *steps(): StepAsyncGenerator {
         const state: StepState<State> = this._initialState === undefined ? { counter: 0 } : this._initialState;
         let oneRepo = false;
 
@@ -77,9 +77,9 @@ export class FetchGitCommand extends QuickCommandBase<State> {
                                 )
                             )
                         });
-                        const selection = yield step;
+                        const selection: StepSelection<typeof step> = yield step;
 
-                        if (!this.canMoveNext(step, state, selection)) {
+                        if (!this.canPickStepMoveNext(step, state, selection)) {
                             break;
                         }
 
@@ -88,7 +88,7 @@ export class FetchGitCommand extends QuickCommandBase<State> {
                 }
 
                 if (this.confirm(state.confirm)) {
-                    const step = this.createConfirmStep<QuickPickItemPlus<string[]>>(
+                    const step = this.createConfirmStep<GitFlagsQuickPickItem>(
                         `Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${
                             state.repos.length === 1
                                 ? state.repos[0].formattedName
@@ -137,9 +137,9 @@ export class FetchGitCommand extends QuickCommandBase<State> {
                             }
                         ]
                     );
-                    const selection = yield step;
+                    const selection: StepSelection<typeof step> = yield step;
 
-                    if (!this.canMoveNext(step, state, selection)) {
+                    if (!this.canPickStepMoveNext(step, state, selection)) {
                         if (oneRepo) {
                             break;
                         }
@@ -162,5 +162,7 @@ export class FetchGitCommand extends QuickCommandBase<State> {
                 throw ex;
             }
         }
+
+        return undefined;
     }
 }

@@ -2,12 +2,12 @@
 import { Container } from '../../container';
 import { GitBranch, GitTag, Repository } from '../../git/gitService';
 import { GlyphChars } from '../../constants';
-import { getBranchesAndOrTags, QuickCommandBase, QuickInputStep, QuickPickStep, StepState } from '../quickCommand';
+import { getBranchesAndOrTags, QuickCommandBase, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
 import {
     BranchQuickPickItem,
     Directive,
     DirectiveQuickPickItem,
-    QuickPickItemPlus,
+    GitFlagsQuickPickItem,
     RepositoryQuickPickItem,
     TagQuickPickItem
 } from '../../quickpicks';
@@ -31,7 +31,7 @@ export class RebaseGitCommand extends QuickCommandBase<State> {
         runGitCommandInTerminal('rebase', [...state.flags, state.source.ref].join(' '), state.repo.path, true);
     }
 
-    protected async *steps(): AsyncIterableIterator<QuickPickStep | QuickInputStep> {
+    protected async *steps(): StepAsyncGenerator {
         const state: StepState<State> = this._initialState === undefined ? { counter: 0 } : this._initialState;
         let oneRepo = false;
 
@@ -61,9 +61,9 @@ export class RebaseGitCommand extends QuickCommandBase<State> {
                                 )
                             )
                         });
-                        const selection = yield step;
+                        const selection: StepSelection<typeof step> = yield step;
 
-                        if (!this.canMoveNext(step, state, selection)) {
+                        if (!this.canPickStepMoveNext(step, state, selection)) {
                             break;
                         }
 
@@ -88,9 +88,9 @@ export class RebaseGitCommand extends QuickCommandBase<State> {
                             picked: state.source && state.source.ref
                         })
                     });
-                    const selection = yield step;
+                    const selection: StepSelection<typeof step> = yield step;
 
-                    if (!this.canMoveNext(step, state, selection)) {
+                    if (!this.canPickStepMoveNext(step, state, selection)) {
                         if (oneRepo) {
                             break;
                         }
@@ -120,7 +120,7 @@ export class RebaseGitCommand extends QuickCommandBase<State> {
                     break;
                 }
 
-                const step = this.createConfirmStep<QuickPickItemPlus<string[]>>(
+                const step = this.createConfirmStep<GitFlagsQuickPickItem>(
                     `Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${state.repo.formattedName}`,
                     [
                         {
@@ -142,9 +142,9 @@ export class RebaseGitCommand extends QuickCommandBase<State> {
                         }
                     ]
                 );
-                const selection = yield step;
+                const selection: StepSelection<typeof step> = yield step;
 
-                if (!this.canMoveNext(step, state, selection)) {
+                if (!this.canPickStepMoveNext(step, state, selection)) {
                     continue;
                 }
 
@@ -159,5 +159,7 @@ export class RebaseGitCommand extends QuickCommandBase<State> {
                 throw ex;
             }
         }
+
+        return undefined;
     }
 }

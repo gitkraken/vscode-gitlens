@@ -14,9 +14,11 @@ import {
 } from '../git/gitService';
 import { emojify } from '../emojis';
 
-export interface QuickPickItemPlus<T> extends QuickPickItem {
+export interface QuickPickItemOfT<T = any> extends QuickPickItem {
     readonly item: T;
 }
+
+export interface GitFlagsQuickPickItem extends QuickPickItemOfT<string[]> {}
 
 export enum Directive {
     Back = 'Back',
@@ -49,7 +51,7 @@ export namespace DirectiveQuickPickItem {
     }
 }
 
-export interface BranchQuickPickItem extends QuickPickItemPlus<GitBranch> {
+export interface BranchQuickPickItem extends QuickPickItemOfT<GitBranch> {
     readonly current: boolean;
     readonly ref: string;
     readonly remote: boolean;
@@ -146,7 +148,7 @@ export namespace BranchQuickPickItem {
     }
 }
 
-export interface CommitQuickPickItem<T extends GitLogCommit = GitLogCommit> extends QuickPickItemPlus<T> {}
+export interface CommitQuickPickItem<T extends GitLogCommit = GitLogCommit> extends QuickPickItemOfT<T> {}
 
 export namespace CommitQuickPickItem {
     export function create<T extends GitLogCommit = GitLogCommit>(
@@ -201,7 +203,7 @@ export namespace CommitQuickPickItem {
     }
 }
 
-export interface RefQuickPickItem extends QuickPickItemPlus<GitReference> {
+export interface RefQuickPickItem extends QuickPickItemOfT<GitReference> {
     readonly current: boolean;
     readonly ref: string;
     readonly remote: boolean;
@@ -223,7 +225,7 @@ export namespace RefQuickPickItem {
     }
 }
 
-export interface RepositoryQuickPickItem extends QuickPickItemPlus<Repository> {
+export interface RepositoryQuickPickItem extends QuickPickItemOfT<Repository> {
     readonly repoPath: string;
 }
 
@@ -284,7 +286,7 @@ export namespace RepositoryQuickPickItem {
     }
 }
 
-export interface TagQuickPickItem extends QuickPickItemPlus<GitTag> {
+export interface TagQuickPickItem extends QuickPickItemOfT<GitTag> {
     readonly current: boolean;
     readonly ref: string;
     readonly remote: boolean;

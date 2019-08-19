@@ -4,7 +4,7 @@ import { ProgressLocation, QuickInputButton, window } from 'vscode';
 import { Container } from '../../container';
 import { GitBranch, GitReference, GitTag, Repository } from '../../git/gitService';
 import { GlyphChars } from '../../constants';
-import { getBranchesAndOrTags, QuickCommandBase, QuickInputStep, QuickPickStep, StepState } from '../quickCommand';
+import { getBranchesAndOrTags, QuickCommandBase, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
 import { ReferencesQuickPickItem, RefQuickPickItem, RepositoryQuickPickItem } from '../../quickpicks';
 import { Strings } from '../../system';
 import { Logger } from '../../logger';
@@ -63,7 +63,7 @@ export class CheckoutGitCommand extends QuickCommandBase<State> {
         ));
     }
 
-    protected async *steps(): AsyncIterableIterator<QuickPickStep | QuickInputStep> {
+    protected async *steps(): StepAsyncGenerator {
         const state: StepState<State> = this._initialState === undefined ? { counter: 0 } : this._initialState;
         let oneRepo = false;
         let showTags = false;
@@ -93,9 +93,9 @@ export class CheckoutGitCommand extends QuickCommandBase<State> {
                                 )
                             )
                         });
-                        const selection = yield step;
+                        const selection: StepSelection<typeof step> = yield step;
 
-                        if (!this.canMoveNext(step, state, selection)) {
+                        if (!this.canPickStepMoveNext(step, state, selection)) {
                             break;
                         }
 
@@ -169,9 +169,9 @@ export class CheckoutGitCommand extends QuickCommandBase<State> {
                             return true;
                         }
                     });
-                    const selection = yield step;
+                    const selection: StepSelection<typeof step> = yield step;
 
-                    if (!this.canMoveNext(step, state, selection)) {
+                    if (!this.canPickStepMoveNext(step, state, selection)) {
                         if (oneRepo) {
                             break;
                         }
@@ -213,9 +213,9 @@ export class CheckoutGitCommand extends QuickCommandBase<State> {
                             }
                         });
 
-                        const value = yield step;
+                        const value: StepSelection<typeof step> = yield step;
 
-                        if (!(await this.canMoveNext(step, state, value))) {
+                        if (!(await this.canInputStepMoveNext(step, state, value))) {
                             continue;
                         }
 
@@ -246,9 +246,9 @@ export class CheckoutGitCommand extends QuickCommandBase<State> {
                             }
                         ]
                     );
-                    const selection = yield step;
+                    const selection: StepSelection<typeof step> = yield step;
 
-                    if (!this.canMoveNext(step, state, selection)) {
+                    if (!this.canPickStepMoveNext(step, state, selection)) {
                         continue;
                     }
                 }
@@ -262,5 +262,7 @@ export class CheckoutGitCommand extends QuickCommandBase<State> {
                 throw ex;
             }
         }
+
+        return undefined;
     }
 }
