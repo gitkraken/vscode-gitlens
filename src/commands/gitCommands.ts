@@ -11,7 +11,6 @@ import {
     StepSelection
 } from './quickCommand';
 import { Directive, DirectiveQuickPickItem } from '../quickpicks';
-import { CheckoutGitCommand, CheckoutGitCommandArgs } from './git/checkout';
 import { CherryPickGitCommand } from './git/cherry-pick';
 import { FetchGitCommand, FetchGitCommandArgs } from './git/fetch';
 import { MergeGitCommand } from './git/merge';
@@ -19,17 +18,18 @@ import { PullGitCommand, PullGitCommandArgs } from './git/pull';
 import { PushGitCommand, PushGitCommandArgs } from './git/push';
 import { RebaseGitCommand } from './git/rebase';
 import { StashGitCommand, StashGitCommandArgs } from './git/stash';
+import { SwitchGitCommand, SwitchGitCommandArgs } from './git/switch';
 import { Container } from '../container';
 import { configuration } from '../configuration';
 
 const sanitizeLabel = /\$\(.+?\)|\W/g;
 
 export type GitCommandsCommandArgs =
-    | CheckoutGitCommandArgs
     | FetchGitCommandArgs
     | PullGitCommandArgs
     | PushGitCommandArgs
-    | StashGitCommandArgs;
+    | StashGitCommandArgs
+    | SwitchGitCommandArgs;
 
 class PickCommandStep implements QuickPickStep {
     readonly buttons = [];
@@ -39,14 +39,14 @@ class PickCommandStep implements QuickPickStep {
 
     constructor(args?: GitCommandsCommandArgs) {
         this.items = [
-            new CheckoutGitCommand(args && args.command === 'checkout' ? args : undefined),
             new CherryPickGitCommand(),
             new MergeGitCommand(),
             new FetchGitCommand(args && args.command === 'fetch' ? args : undefined),
             new PullGitCommand(args && args.command === 'pull' ? args : undefined),
             new PushGitCommand(args && args.command === 'push' ? args : undefined),
             new RebaseGitCommand(),
-            new StashGitCommand(args && args.command === 'stash' ? args : undefined)
+            new StashGitCommand(args && args.command === 'stash' ? args : undefined),
+            new SwitchGitCommand(args && args.command === 'switch' ? args : undefined)
         ];
     }
 

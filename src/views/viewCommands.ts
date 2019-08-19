@@ -126,7 +126,9 @@ export class ViewCommands {
         );
         commands.registerCommand('gitlens.views.openChangedFileRevisions', this.openChangedFileRevisions, this);
         commands.registerCommand('gitlens.views.applyChanges', this.applyChanges, this);
-        commands.registerCommand('gitlens.views.checkout', this.checkout, this);
+        commands.registerCommand('gitlens.views.restore', this.restore, this);
+        commands.registerCommand('gitlens.views.switchToBranch', this.switch, this);
+        commands.registerCommand('gitlens.views.switchToTag', this.switch, this);
         commands.registerCommand('gitlens.views.addRemote', this.addRemote, this);
         commands.registerCommand('gitlens.views.pruneRemote', this.pruneRemote, this);
 
@@ -257,28 +259,31 @@ export class ViewCommands {
         }
     }
 
-    private async checkout(node: ViewRefNode | ViewRefFileNode) {
-        if (!(node instanceof ViewRefNode)) return undefined;
+    private async restore(node: ViewRefFileNode) {
+        if (!(node instanceof ViewRefFileNode)) return undefined;
 
-        if (node instanceof ViewRefFileNode) {
-            return Container.git.checkout(node.repoPath, node.ref, { fileName: node.fileName });
-        }
+        return Container.git.checkout(node.repoPath, node.ref, { fileName: node.fileName });
+
+    }
+
+    private async switch(node: ViewRefNode) {
+        if (!(node instanceof ViewRefNode)) return undefined;
 
         const repo = await Container.git.getRepository(node.repoPath);
 
         let args: GitCommandsCommandArgs;
         if (node instanceof BranchNode) {
             args = {
-                command: 'checkout',
+                command: 'switch',
                 state: { repos: [repo!], branchOrTagOrRef: node.branch.current ? undefined : node.branch }
             };
         }
         else if (node instanceof TagNode) {
-            args = { command: 'checkout', state: { repos: [repo!], branchOrTagOrRef: node.tag } };
+            args = { command: 'switch', state: { repos: [repo!], branchOrTagOrRef: node.tag } };
         }
         else {
             args = {
-                command: 'checkout',
+                command: 'switch',
                 state: { repos: [repo!], branchOrTagOrRef: { name: node.ref, ref: node.ref } }
             };
         }

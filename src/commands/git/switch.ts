@@ -17,16 +17,16 @@ interface State {
     createBranch?: string;
 }
 
-export interface CheckoutGitCommandArgs {
-    readonly command: 'checkout';
+export interface SwitchGitCommandArgs {
+    readonly command: 'switch';
     state?: Partial<State>;
 
     confirm?: boolean;
 }
 
-export class CheckoutGitCommand extends QuickCommandBase<State> {
-    constructor(args?: CheckoutGitCommandArgs) {
-        super('checkout', 'checkout', 'Checkout');
+export class SwitchGitCommand extends QuickCommandBase<State> {
+    constructor(args?: SwitchGitCommandArgs) {
+        super('switch', 'switch', 'Switch');
 
         if (args === undefined || args.state === undefined) return;
 
@@ -50,7 +50,7 @@ export class CheckoutGitCommand extends QuickCommandBase<State> {
         return void (await window.withProgress(
             {
                 location: ProgressLocation.Notification,
-                title: `Checking out ${
+                title: `Switching ${
                     state.repos.length === 1 ? state.repos[0].formattedName : `${state.repos.length} repositories`
                 } to ${state.branchOrTagOrRef.ref}`
             },
@@ -128,7 +128,7 @@ export class CheckoutGitCommand extends QuickCommandBase<State> {
                         }`,
                         placeholder: `Choose a branch${
                             showTags ? ' or tag' : ''
-                        } to checkout to${GlyphChars.Space.repeat(3)}(select or enter a reference)`,
+                        } to switch to${GlyphChars.Space.repeat(3)}(select or enter a reference)`,
                         matchOnDescription: true,
                         items: items,
                         selectedItems: state.branchOrTagOrRef
@@ -144,7 +144,7 @@ export class CheckoutGitCommand extends QuickCommandBase<State> {
 
                             quickpick.placeholder = `Choose a branch${
                                 showTags ? ' or tag' : ''
-                            } to checkout to${GlyphChars.Space.repeat(3)}(select or enter a reference)`;
+                            } to switch to${GlyphChars.Space.repeat(3)}(select or enter a reference)`;
 
                             quickpick.items = await getBranchesAndOrTags(
                                 state.repos!,
@@ -233,12 +233,12 @@ export class CheckoutGitCommand extends QuickCommandBase<State> {
                         [
                             {
                                 label: this.title,
-                                description: `${state.createBranch ? `${state.createBranch} to ` : ''}${
-                                    state.branchOrTagOrRef.name
-                                }`,
+                                description: state.createBranch
+                                    ? `${state.createBranch} (from ${state.branchOrTagOrRef.name}) `
+                                    : state.branchOrTagOrRef.name,
                                 detail: `Will ${
-                                    state.createBranch ? `create ${state.createBranch} and` : ''
-                                } checkout to ${state.branchOrTagOrRef.name} in ${
+                                    state.createBranch ? `create and switch to ${state.createBranch} (from ${state.branchOrTagOrRef.name})` : `switch to ${state.branchOrTagOrRef.name}`
+                                } in ${
                                     state.repos.length === 1
                                         ? state.repos[0].formattedName
                                         : `${state.repos.length} repositories`

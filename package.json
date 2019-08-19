@@ -484,29 +484,29 @@
                 "gitlens.gitCommands.skipConfirmations": {
                     "type": "array",
                     "default": [
-                        "checkout",
                         "fetch",
-                        "stash-push"
+                        "stash-push",
+                        "switch"
                     ],
                     "items": {
                         "type": "string",
                         "enum": [
-                            "checkout",
                             "fetch",
                             "pull",
                             "push",
                             "stash-apply",
                             "stash-pop",
-                            "stash-push"
+                            "stash-push",
+                            "switch"
                         ],
                         "enumDescriptions": [
-                            "Skips checkout command confirmation",
                             "Skips fetch command confirmation",
                             "Skips pull command confirmation",
                             "Skips push command confirmation",
                             "Skips stash apply command confirmation",
                             "Skips stash pop command confirmation",
-                            "Skips stash push command confirmation"
+                            "Skips stash push command confirmation",
+                            "Skips switch command confirmation"
                         ]
                     },
                     "minItems": 0,
@@ -2414,8 +2414,26 @@
                 }
             },
             {
-                "command": "gitlens.views.checkout",
-                "title": "Checkout",
+                "command": "gitlens.views.restore",
+                "title": "Restore",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-checkout.svg",
+                    "light": "images/light/icon-checkout.svg"
+                }
+            },
+            {
+                "command": "gitlens.views.switchToBranch",
+                "title": "Switch to Branch",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-checkout.svg",
+                    "light": "images/light/icon-checkout.svg"
+                }
+            },
+            {
+                "command": "gitlens.views.switchToTag",
+                "title": "Switch to Tag",
                 "category": "GitLens",
                 "icon": {
                     "dark": "images/dark/icon-checkout.svg",
@@ -3431,7 +3449,15 @@
                     "when": "false"
                 },
                 {
-                    "command": "gitlens.views.checkout",
+                    "command": "gitlens.views.restore",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.views.switchToBranch",
+                    "when": "false"
+                },
+                {
+                    "command": "gitlens.views.switchToTag",
                     "when": "false"
                 },
                 {
@@ -4369,7 +4395,7 @@
                     "group": "inline@2"
                 },
                 {
-                    "command": "gitlens.views.checkout",
+                    "command": "gitlens.views.switchToBranch",
                     "when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b/",
                     "group": "inline@10"
                 },
@@ -4395,8 +4421,8 @@
                     "group": "inline@98"
                 },
                 {
-                    "command": "gitlens.views.checkout",
-                    "when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
+                    "command": "gitlens.views.switchToBranch",
+                    "when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b/",
                     "group": "1_gitlens@1"
                 },
                 {
@@ -4709,7 +4735,7 @@
                     "group": "5_gitlens_1@1"
                 },
                 {
-                    "command": "gitlens.views.checkout",
+                    "command": "gitlens.views.restore",
                     "when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results\\b)/",
                     "group": "5_gitlens_1@2"
                 },
@@ -4719,7 +4745,7 @@
                     "group": "1_gitlens@1"
                 },
                 {
-                    "command": "gitlens.views.checkout",
+                    "command": "gitlens.views.restore",
                     "when": "!gitlens:readonly && viewItem == gitlens:file:stash",
                     "group": "1_gitlens@2"
                 },
@@ -5076,12 +5102,12 @@
                     "group": "1_gitlens@2"
                 },
                 {
-                    "command": "gitlens.views.checkout",
+                    "command": "gitlens.views.switchToTag",
                     "when": "!gitlens:readonly && viewItem =~ /gitlens:tag\\b/",
                     "group": "inline@10"
                 },
                 {
-                    "command": "gitlens.views.checkout",
+                    "command": "gitlens.views.switchToTag",
                     "when": "!gitlens:readonly && viewItem =~ /gitlens:tag\\b/",
                     "group": "1_gitlens@1"
                 },
