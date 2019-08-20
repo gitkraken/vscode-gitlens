@@ -2304,6 +2304,15 @@
                 }
             },
             {
+                "command": "gitlens.openRevisionFile",
+                "title": "Open Revision",
+                "category": "GitLens",
+                "icon": {
+                    "dark": "images/dark/icon-open-revision.svg",
+                    "light": "images/light/icon-open-revision.svg"
+                }
+            },
+            {
                 "command": "gitlens.openWorkingFile",
                 "title": "Open Working File",
                 "category": "GitLens",
@@ -3401,6 +3410,10 @@
                     "when": "gitlens:hasRemotes"
                 },
                 {
+                    "command": "gitlens.openRevisionFile",
+                    "when": "gitlens:activeFileStatus =~ /revision/"
+                },
+                {
                     "command": "gitlens.openWorkingFile",
                     "when": "gitlens:activeFileStatus =~ /revision/"
                 },
@@ -3948,17 +3961,22 @@
                 {
                     "command": "gitlens.openWorkingFile",
                     "when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme != file && resourceScheme != git",
-                    "group": "navigation@0"
+                    "group": "navigation@1"
                 },
                 {
                     "command": "gitlens.openWorkingFile",
                     "when": "!gitlens:activeFileStatus =~ /revision/ && resourceScheme != file && resourceScheme != git && isInDiffEditor",
-                    "group": "navigation@0"
+                    "group": "navigation@1"
                 },
                 {
                     "command": "gitlens.openWorkingFile",
                     "when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme == git && !isInDiffEditor",
-                    "group": "navigation@0"
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "gitlens.openRevisionFile",
+                    "when": "gitlens:activeFileStatus =~ /revision/ && isInDiffEditor",
+                    "group": "navigation@2"
                 },
                 {
                     "command": "gitlens.diffWithPrevious",
@@ -4006,14 +4024,19 @@
             ],
             "editor/title/context": [
                 {
-                    "command": "gitlens.openWorkingFile",
+                    "command": "gitlens.openRevisionFile",
                     "when": "resourceScheme == gitlens",
                     "group": "1_co_gitlens@1"
                 },
                 {
+                    "command": "gitlens.openWorkingFile",
+                    "when": "resourceScheme == gitlens",
+                    "group": "1_co_gitlens@2"
+                },
+                {
                     "command": "gitlens.openFileInRemote",
                     "when": "gitlens:enabled && gitlens:hasRemotes && config.gitlens.menus.editorTab.remote",
-                    "group": "1_co_gitlens@2"
+                    "group": "1_co_gitlens@3"
                 },
                 {
                     "command": "gitlens.diffWithPrevious",
