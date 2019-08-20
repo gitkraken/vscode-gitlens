@@ -5540,7 +5540,7 @@
         "css-loader": "3.2.0",
         "eslint": "6.2.0",
         "eslint-cli": "1.1.1",
-        "eslint-config-prettier": "6.0.0",
+        "eslint-config-prettier": "6.1.0",
         "eslint-plugin-import": "2.18.2",
         "eslint-plugin-prettiest": "0.0.2",
         "fork-ts-checker-webpack-plugin": "1.5.0",
