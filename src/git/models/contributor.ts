@@ -1,7 +1,7 @@
 'use strict';
 import { Uri } from 'vscode';
 import { GravatarDefaultStyle } from '../../configuration';
-import { getGravatarUri } from '../../avatars';
+import { getAvatarUri } from '../../avatars';
 
 export class GitContributor {
     static is(contributor: any): contributor is GitContributor {
@@ -16,6 +16,6 @@ export class GitContributor {
     ) {}
 
     getGravatarUri(fallback: GravatarDefaultStyle, size: number = 16): Uri {
-        return getGravatarUri(this.email, fallback, size);
+        return getAvatarUri(this.email, fallback, size);
     }
 }

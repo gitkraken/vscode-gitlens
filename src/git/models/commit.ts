@@ -6,7 +6,7 @@ import { Dates, memoize } from '../../system';
 import { CommitFormatter } from '../formatters/formatters';
 import { Git } from '../git';
 import { GitUri } from '../gitUri';
-import { getGravatarUri } from '../../avatars';
+import { getAvatarUri } from '../../avatars';
 
 export interface GitAuthor {
     name: string;
@@ -213,7 +213,7 @@ export abstract class GitCommit {
     }
 
     getGravatarUri(fallback: GravatarDefaultStyle, size: number = 16): Uri {
-        return getGravatarUri(this.email, fallback, size);
+        return getAvatarUri(this.email, fallback, size);
     }
 
     @memoize()

@@ -6,37 +6,41 @@ import { Strings } from './system';
 import { ContactPresenceStatus } from './vsls/vsls';
 import { Container } from './container';
 
-const gravatarCache = new Map<string, Uri>();
+const avatarCache = new Map<string, Uri>();
 const missingGravatarHash = '00000000000000000000000000000000';
 
 const presenceCache = new Map<ContactPresenceStatus, string>();
 
-export function clearGravatarCache() {
-    gravatarCache.clear();
+const gitHubNoReplyAddressRegex = /^(?:(?<userId>\d+)\+)?(?<userName>[a-zA-Z\d-]{1,39})@users.noreply.github.com$/;
+
+export function clearAvatarCache() {
+    avatarCache.clear();
 }
 
-function getAvatarFromGithubNoreplyAddress(email: string | undefined, size: number = 16): Uri | undefined {
-    if (!email) return undefined;
-    const match = email.match(/^(?:(?<userId>\d+)\+)?(?<userName>[a-zA-Z\d-]{1,39})@users.noreply.github.com$/);
-    if (!match || !match.groups) return undefined;
-    const { userName, userId } = match.groups;
+function getAvatarUriFromGitHubNoReplyAddress(email: string | undefined, size: number = 16): Uri | undefined {
+    if (email == null || email.length === 0) return undefined;
+
+    const match = gitHubNoReplyAddressRegex.exec(email);
+    if (match == null) return undefined;
+
+    const [, userId, userName] = match;
     return Uri.parse(`https://avatars.githubusercontent.com/${userId ? `u/${userId}` : userName}?size=${size}`);
 }
 
-export function getGravatarUri(email: string | undefined, fallback: GravatarDefaultStyle, size: number = 16): Uri {
+export function getAvatarUri(email: string | undefined, fallback: GravatarDefaultStyle, size: number = 16): Uri {
     const hash =
         email != null && email.length !== 0 ? Strings.md5(email.trim().toLowerCase(), 'hex') : missingGravatarHash;
 
     const key = `${hash}:${size}`;
-    let gravatar = gravatarCache.get(key);
-    if (gravatar !== undefined) return gravatar;
+    let avatar = avatarCache.get(key);
+    if (avatar !== undefined) return avatar;
 
-    gravatar =
-        getAvatarFromGithubNoreplyAddress(email, size) ||
+    avatar =
+        getAvatarUriFromGitHubNoReplyAddress(email, size) ||
         Uri.parse(`https://www.gravatar.com/avatar/${hash}.jpg?s=${size}&d=${fallback}`);
-    gravatarCache.set(key, gravatar);
+    avatarCache.set(key, avatar);
 
-    return gravatar;
+    return avatar;
 }
 
 export function getPresenceDataUri(status: ContactPresenceStatus) {

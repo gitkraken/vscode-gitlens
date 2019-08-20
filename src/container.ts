@@ -7,7 +7,7 @@ import { Commands, ToggleFileBlameCommandArgs } from './commands';
 import { AnnotationsToggleMode, Config, configuration, ConfigurationWillChangeEvent } from './configuration';
 import { GitFileSystemProvider } from './git/fsProvider';
 import { GitService } from './git/gitService';
-import { clearGravatarCache } from './avatars';
+import { clearAvatarCache } from './avatars';
 import { LineHoverController } from './hovers/lineHoverController';
 import { Keyboard } from './keyboard';
 import { Logger, TraceLevel } from './logger';
@@ -135,7 +135,7 @@ export class Container {
         }
 
         if (configuration.changed(e.change, configuration.name('defaultGravatarsStyle').value)) {
-            clearGravatarCache();
+            clearAvatarCache();
         }
 
         if (
