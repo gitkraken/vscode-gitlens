@@ -80,7 +80,7 @@ export class GitCommandsCommand extends Command {
                 dark: Container.context.asAbsolutePath('images/dark/icon-check.svg') as any,
                 light: Container.context.asAbsolutePath('images/light/icon-check.svg') as any
             },
-            tooltip: 'Will ask for confirmation at the end (click to toggle)'
+            tooltip: 'Will confirm'
         };
 
         static readonly WillConfirmForced: QuickInputButton = {
@@ -88,7 +88,7 @@ export class GitCommandsCommand extends Command {
                 dark: Container.context.asAbsolutePath('images/dark/icon-check.svg') as any,
                 light: Container.context.asAbsolutePath('images/light/icon-check.svg') as any
             },
-            tooltip: 'Will ask for confirmation at the end (cannot be changed)'
+            tooltip: 'Will always confirm'
         };
 
         static readonly WillSkipConfirm: QuickInputButton = {
@@ -96,7 +96,7 @@ export class GitCommandsCommand extends Command {
                 dark: Container.context.asAbsolutePath('images/dark/icon-no-check.svg') as any,
                 light: Container.context.asAbsolutePath('images/light/icon-no-check.svg') as any
             },
-            tooltip: 'Will NOT ask for confirmation at the end (click to toggle)'
+            tooltip: 'Skips confirm'
         };
     };
 

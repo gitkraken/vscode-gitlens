@@ -1,5 +1,5 @@
 'use strict';
-import { InputBox, QuickInputButton, QuickInputButtons, QuickPick, QuickPickItem } from 'vscode';
+import { InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { Directive, DirectiveQuickPickItem } from '../quickpicks';
 import { Container } from '../container';
 
@@ -149,8 +149,7 @@ export abstract class QuickCommandBase<T = any> implements QuickPickItem {
             placeholder: placeholder || `Confirm ${this.title}`,
             title: title,
             items: [...confirmations, cancel || DirectiveQuickPickItem.create(Directive.Cancel)],
-            selectedItems: [confirmations[0]],
-            buttons: [QuickInputButtons.Back]
+            selectedItems: [confirmations[0]]
         });
     }
 
