@@ -897,7 +897,7 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 
 ## Themable Colors [#](#themable-colors- 'Themable Colors')
 
-GitLens defines a set of themable colors which can be provided by vscode themes or directly by the user using [`workbench.colorCustomization`](https://code.visualstudio.com/docs/getstarted/themes#_customize-a-color-theme).
+GitLens defines a set of themable colors which can be provided by vscode themes or directly by the user using [`workbench.colorCustomizations`](https://code.visualstudio.com/docs/getstarted/themes#_customize-a-color-theme).
 
 | Name                                       | Description                                                                               |
 | ------------------------------------------ | ----------------------------------------------------------------------------------------- |
