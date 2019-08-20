@@ -126,9 +126,9 @@ export class SwitchGitCommand extends QuickCommandBase<State> {
                                 ? state.repos[0].formattedName
                                 : `${state.repos.length} repositories`
                         }`,
-                        placeholder: `Choose a branch${
-                            showTags ? ' or tag' : ''
-                        } to switch to${GlyphChars.Space.repeat(3)}(select or enter a reference)`,
+                        placeholder: `Choose a branch${showTags ? ' or tag' : ''} to switch to${GlyphChars.Space.repeat(
+                            3
+                        )}(select or enter a reference)`,
                         matchOnDescription: true,
                         items: items,
                         selectedItems: state.branchOrTagOrRef
@@ -237,7 +237,9 @@ export class SwitchGitCommand extends QuickCommandBase<State> {
                                     ? `${state.createBranch} (from ${state.branchOrTagOrRef.name}) `
                                     : state.branchOrTagOrRef.name,
                                 detail: `Will ${
-                                    state.createBranch ? `create and switch to ${state.createBranch} (from ${state.branchOrTagOrRef.name})` : `switch to ${state.branchOrTagOrRef.name}`
+                                    state.createBranch
+                                        ? `create and switch to ${state.createBranch} (from ${state.branchOrTagOrRef.name})`
+                                        : `switch to ${state.branchOrTagOrRef.name}`
                                 } in ${
                                     state.repos.length === 1
                                         ? state.repos[0].formattedName

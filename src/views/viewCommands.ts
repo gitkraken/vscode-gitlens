@@ -263,7 +263,6 @@ export class ViewCommands {
         if (!(node instanceof ViewRefFileNode)) return undefined;
 
         return Container.git.checkout(node.repoPath, node.ref, { fileName: node.fileName });
-
     }
 
     private async switch(node: ViewRefNode) {
