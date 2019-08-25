@@ -259,7 +259,7 @@ export class CommitQuickPick {
                 0,
                 new CommandQuickPickItem(
                     {
-                        label: '$(git-pull-request) Apply Stashed Changes',
+                        label: '$(git-pull-request) Apply Stash',
                         description: `${commit.getShortMessage()}`
                     },
                     Commands.StashApply,
@@ -276,7 +276,7 @@ export class CommitQuickPick {
                 0,
                 new CommandQuickPickItem(
                     {
-                        label: '$(x) Delete Stashed Changes',
+                        label: '$(x) Delete Stash',
                         description: `${commit.getShortMessage()}`
                     },
                     Commands.StashDelete,

@@ -1651,13 +1651,13 @@
                 "gitlens.views.stashFormat": {
                     "type": "string",
                     "default": "${message}",
-                    "markdownDescription": "Specifies the format of stashed changes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+                    "markdownDescription": "Specifies the format of stashes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
                     "scope": "window"
                 },
                 "gitlens.views.stashDescriptionFormat": {
                     "type": "string",
                     "default": "${changes  •  }${agoOrDate}",
-                    "markdownDescription": "Specifies the description format of stashed changes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+                    "markdownDescription": "Specifies the description format of stashes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
                     "scope": "window"
                 },
                 "gitlens.views.statusFileFormat": {
@@ -2208,7 +2208,7 @@
             },
             {
                 "command": "gitlens.showQuickStashList",
-                "title": "Show Stashed Changes",
+                "title": "Show Stashes",
                 "category": "GitLens"
             },
             {
@@ -2323,7 +2323,7 @@
             },
             {
                 "command": "gitlens.stashApply",
-                "title": "Apply Stashed Changes",
+                "title": "Apply Stash",
                 "category": "GitLens",
                 "icon": {
                     "dark": "images/dark/icon-stash-pop.svg",
@@ -2332,7 +2332,7 @@
             },
             {
                 "command": "gitlens.stashDelete",
-                "title": "Delete Stashed Changes",
+                "title": "Delete Stash",
                 "category": "GitLens",
                 "icon": {
                     "dark": "images/dark/icon-delete.svg",

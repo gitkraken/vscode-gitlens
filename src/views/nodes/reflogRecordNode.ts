@@ -31,7 +31,7 @@ export class ReflogRecordNode extends ViewNode<ViewWithFiles> implements Pageabl
             maxCount: this.maxCount !== undefined ? this.maxCount : this.view.config.defaultItemLimit,
             ref: range
         });
-        if (log === undefined) return [new MessageNode(this.view, this, 'No commits')];
+        if (log === undefined) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
         const children: (CommitNode | ShowMoreNode)[] = [
             ...Iterables.map(log.commits.values(), c => new CommitNode(this.view, this, c))

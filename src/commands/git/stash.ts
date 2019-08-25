@@ -269,7 +269,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
                     }`,
                     placeholder:
                         stash === undefined
-                            ? `${state.repo.formattedName} has no stashed changes`
+                            ? `${state.repo.formattedName} has no stashes`
                             : 'Choose a stash to apply to your working tree',
                     matchOnDetail: true,
                     items:
@@ -374,7 +374,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
                     }`,
                     placeholder:
                         stash === undefined
-                            ? `${state.repo.formattedName} has no stashed changes`
+                            ? `${state.repo.formattedName} has no stashes`
                             : 'Choose a stash to delete',
                     matchOnDetail: true,
                     items:

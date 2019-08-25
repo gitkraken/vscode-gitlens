@@ -106,7 +106,7 @@ export class ShowCommitInViewQuickPickItem extends CommandQuickPickItem {
         public readonly commit: GitLogCommit,
         item: QuickPickItem = {
             label: '$(eye) Show in View',
-            description: `shows the ${commit.isStash ? 'stashed changes' : 'commit'} in the Search Commits view`
+            description: `shows the ${commit.isStash ? 'stash' : 'commit'} in the Search Commits view`
         }
     ) {
         super(item, undefined, undefined);

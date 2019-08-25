@@ -347,10 +347,10 @@ The repositories view provides the following features,
 - **Stashes** &mdash; lists the stashed changes in the repository
 
   - An inline toolbar provides quick access to the _Stash All Changes_, and _Apply Stash Changes_ commands
-  - Provides the name of each set of stashed changes, the date, and an indicator (+x ~x -x) of the changes
-    - An inline toolbar provides quick access to the _Compare with HEAD_ (`alt-click` for _Compare with Working Tree_), _Apply Stashed Changes_, and _Delete Stashed Changes_ commands
-    - A context menu provides access to more common stashed changes commands
-    - Each stashed changes expands to list the set of stashed files, complete with status indicators for adds, changes, renames, and deletes
+  - Provides the name of each stash, the date, and an indicator (+x ~x -x) of the changes
+    - An inline toolbar provides quick access to the _Compare with HEAD_ (`alt-click` for _Compare with Working Tree_), _Apply Stash_, and _Delete Stash_ commands
+    - A context menu provides access to more common stash commands
+    - Each stash expands to list the set of stashed files, complete with status indicators for adds, changes, renames, and deletes
       - An inline toolbar provides quick access to the _Open File_, and _Open File on Remote_ (if available) commands
       - A context menu provides access to more common file revision commands
 
@@ -568,17 +568,17 @@ The compare view provides the following features,
     - If you are ahead of the upstream, an entry will be shown with the number of commits ahead. Choosing it will show a limited **branch history quick pick menu** containing just the commits ahead of the upstream
     - If you are behind the upstream, an entry will be shown with the number of commits behind. Choosing it will show a limited **branch history quick pick menu** containing just the commits behind the upstream
   - Quickly see all working changes, both staged and unstaged, complete with status indicators for adds, changes, renames, and deletes
-  - Provides entries to _Show Stashed Changes_, _Open Changed Files_, and _Close Unchanged Files_
+  - Provides entries to _Show Stashes_, _Open Changed Files_, and _Close Unchanged Files_
   - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible &mdash; commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#advanced-settings- 'Jump to Advanced settings') is set
   - Use the `alt+right arrow` shortcut on a file entry in the `Staged Files` or `Unstaged Files` sections to preview the comparison of the working file with the previous revision
 
 #### Stashes
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/docs/menu-stash-list.png" alt="Stashed Changes Quick Pick Menu" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/docs/menu-stash-list.png" alt="Stashes Quick Pick Menu" />
 </p>
 
-- Adds a _Show Stashed Changes_ command (`gitlens.showQuickStashList`) to show a **stashed changes quick pick menu** for exploring your repository stash history
+- Adds a _Show Stashes_ command (`gitlens.showQuickStashList`) to show a **stashes quick pick menu** for exploring your repository stash history
 
   - Provides additional entries to _Stash All Changes_
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
@@ -592,15 +592,15 @@ The compare view provides the following features,
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/docs/menu-stash-details.png" alt="Stash Details Quick Pick Menu" />
 </p>
 
-- Stashed changes show a **stash details quick pick menu** which is very similar to the **commit details quick pick menu** above
+- Stashes show a **stash details quick pick menu** which is very similar to the **commit details quick pick menu** above
 
   - Quickly see the set of files changed in the stash, complete with status indicators for adds, changes, renames, and deletes
-  - Provides additional entries to _Apply Stashed Changes_ (requires confirmation), _Delete Stashed Changes_ (requires confirmation), _Open Files_, _Open Revisions_, _Open Directory Compare with Previous Revision_, _Open Directory Compare with Working Tree_, _Copy Commit Message to Clipboard_
+  - Provides additional entries to _Apply Stash_ (requires confirmation), _Delete Stash_ (requires confirmation), _Open Files_, _Open Revisions_, _Open Directory Compare with Previous Revision_, _Open Directory Compare with Working Tree_, _Copy Commit Message to Clipboard_
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
   - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible &mdash; commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#advanced-settings- 'Jump to Advanced settings') is set
   - Use the `alt+right arrow` shortcut on a file entry in the `Changed Files` section to preview the comparison of the current revision with the previous one
 
-- Adds an _Apply Stashed Changes_ command (`gitlens.stashApply`) to chose a stash entry to apply to the working tree from a quick pick menu
+- Adds an _Apply Stash_ command (`gitlens.stashApply`) to chose a stash entry to apply to the working tree from a quick pick menu
 
 ---
 
@@ -846,8 +846,8 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 | `gitlens.views.showRelativeDateMarkers`     | Specifies whether to show relative date markers (_Less than a week ago_, _Over a week ago_, _Over a month ago_, etc) on revision (commit) histories in the views                                                  |
 | `gitlens.views.stashFileFormat`             | Specifies the format of a stashed file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs                                        |
 | `gitlens.views.stashFileDescriptionFormat`  | Specifies the description format of a stashed file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs                            |
-| `gitlens.views.stashFormat`                 | Specifies the format of stashed changes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs                                   |
-| `gitlens.views.stashDescriptionFormat`      | Specifies the description format of stashed changes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs                       |
+| `gitlens.views.stashFormat`                 | Specifies the format of stashes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs                                           |
+| `gitlens.views.stashDescriptionFormat`      | Specifies the description format of stashes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs                               |
 | `gitlens.views.statusFileFormat`            | Specifies the format of the status of a working or committed file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs             |
 | `gitlens.views.statusFileDescriptionFormat` | Specifies the description format of the status of a working or committed file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs |
 

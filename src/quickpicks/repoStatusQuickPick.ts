@@ -340,7 +340,7 @@ export class RepoStatusQuickPick {
             0,
             new CommandQuickPickItem(
                 {
-                    label: '$(inbox) Show Stashed Changes',
+                    label: '$(inbox) Show Stashes',
                     description: 'shows stashed changes in the repository'
                 },
                 Commands.ShowQuickStashList,

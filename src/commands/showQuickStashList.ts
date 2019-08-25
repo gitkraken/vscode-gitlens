@@ -24,7 +24,7 @@ export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
         const repoPath = await getRepoPathOrActiveOrPrompt(
             uri,
             editor,
-            `Show stashed changes for which repository${GlyphChars.Ellipsis}`
+            `Show stashes for which repository${GlyphChars.Ellipsis}`
         );
         if (!repoPath) return undefined;
 
@@ -32,7 +32,7 @@ export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
 
         try {
             const stash = await Container.git.getStashList(repoPath);
-            if (stash === undefined) return window.showWarningMessage('Unable to show stashed changes');
+            if (stash === undefined) return window.showWarningMessage('Unable to show stashes');
 
             if (progressCancellation.token.isCancellationRequested) return undefined;
 
@@ -43,7 +43,7 @@ export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
             const currentCommand = new CommandQuickPickItem(
                 {
                     label: `go back ${GlyphChars.ArrowBack}`,
-                    description: 'to stashed changes'
+                    description: 'to stashes'
                 },
                 Commands.ShowQuickStashList,
                 [uri, currentCommandArgs]
@@ -69,7 +69,7 @@ export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
         }
         catch (ex) {
             Logger.error(ex, 'ShowQuickStashListCommand');
-            return Messages.showGenericErrorMessage('Unable to show stashed changes');
+            return Messages.showGenericErrorMessage('Unable to show stashes');
         }
         finally {
             progressCancellation.cancel();

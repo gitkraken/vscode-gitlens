@@ -13,8 +13,8 @@ export class StashListQuickPick {
     static showProgress(mode: 'list' | 'apply') {
         const message =
             mode === 'apply'
-                ? `Apply stashed changes to your working tree${GlyphChars.Ellipsis}`
-                : `stashed changes ${GlyphChars.Dash} search by message, filename, or commit id`;
+                ? `Apply stash to your working tree${GlyphChars.Ellipsis}`
+                : `stashes ${GlyphChars.Dash} search by message, filename, or commit id`;
         return showQuickPickProgress(message, {
             left: KeyNoopCommand,
             ',': KeyNoopCommand,
@@ -65,8 +65,8 @@ export class StashListQuickPick {
             matchOnDescription: true,
             placeHolder:
                 mode === 'apply'
-                    ? `Apply stashed changes to your working tree${GlyphChars.Ellipsis}`
-                    : `stashed changes ${GlyphChars.Dash} search by message, filename, or commit id`,
+                    ? `Apply stash to your working tree${GlyphChars.Ellipsis}`
+                    : `stashes ${GlyphChars.Dash} search by message, filename, or commit id`,
             ignoreFocusOut: getQuickPickIgnoreFocusOut()
             // onDidSelectItem: (item: QuickPickItem) => {
             //     scope.setKeyCommand('right', item);
