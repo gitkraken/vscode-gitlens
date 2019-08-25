@@ -200,22 +200,22 @@ export abstract class WebviewBase implements Disposable {
         }
 
         let html = content.replace(
-            /{{root}}/g,
+            /#{root}/g,
             Uri.file(Container.context.asAbsolutePath('.'))
                 .with({ scheme: 'vscode-resource' })
                 .toString()
         );
 
         if (this.renderHead) {
-            html = html.replace(/{{\s*?head\s*?}}/i, await this.renderHead());
+            html = html.replace(/#{head}/i, await this.renderHead());
         }
 
         if (this.renderBody) {
-            html = html.replace(/{{\s*?body\s*?}}/i, await this.renderBody());
+            html = html.replace(/#{body}/i, await this.renderBody());
         }
 
         if (this.renderEndOfBody) {
-            html = html.replace(/{{\s*?endOfBody\s*?}}/i, await this.renderEndOfBody());
+            html = html.replace(/#{endOfBody}/i, await this.renderEndOfBody());
         }
 
         this._html = html;

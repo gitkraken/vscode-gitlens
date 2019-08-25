@@ -219,7 +219,7 @@ function getWebviewsConfig(env) {
         output: {
             filename: '[name].js',
             path: path.resolve(__dirname, 'dist/webviews'),
-            publicPath: '{{root}}/dist/webviews/'
+            publicPath: '#{root}/dist/webviews/'
         },
         module: {
             rules: [
