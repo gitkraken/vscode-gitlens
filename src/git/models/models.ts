@@ -1,8 +1,8 @@
 'use strict';
 
 export interface GitReference {
-    name: string;
-    ref: string;
+	name: string;
+	ref: string;
 }
 
 export * from './blame';

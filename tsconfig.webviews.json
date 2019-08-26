@@ -1,10 +1,10 @@
 {
-    "extends": "./tsconfig.json",
-    "compilerOptions": {
-        "lib": ["dom", "dom.iterable", "es2018"],
-        "outDir": "dist/webviews",
-        "skipLibCheck": true
-    },
-    "include": ["src/config.ts", "src/webviews/protocol.ts", "src/webviews/apps/**/*"],
-    "exclude": ["node_modules", "test"]
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"lib": ["dom", "dom.iterable", "es2018"],
+		"outDir": "dist/webviews",
+		"skipLibCheck": true
+	},
+	"include": ["src/config.ts", "src/webviews/protocol.ts", "src/webviews/apps/**/*"],
+	"exclude": ["node_modules", "test"]
 }

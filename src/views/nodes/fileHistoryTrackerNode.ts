@@ -13,175 +13,175 @@ import { FileHistoryNode } from './fileHistoryNode';
 import { ResourceType, SubscribeableViewNode, unknownGitUri, ViewNode } from './viewNode';
 
 export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryView> {
-    private _baseRef: string | undefined;
-    private _fileUri: GitUri | undefined;
-    private _child: FileHistoryNode | undefined;
+	private _baseRef: string | undefined;
+	private _fileUri: GitUri | undefined;
+	private _child: FileHistoryNode | undefined;
 
-    constructor(view: FileHistoryView) {
-        super(unknownGitUri, view);
-    }
+	constructor(view: FileHistoryView) {
+		super(unknownGitUri, view);
+	}
 
-    dispose() {
-        super.dispose();
+	dispose() {
+		super.dispose();
 
-        this.resetChild();
-    }
+		this.resetChild();
+	}
 
-    @debug()
-    private resetChild() {
-        if (this._child === undefined) return;
+	@debug()
+	private resetChild() {
+		if (this._child === undefined) return;
 
-        this._child.dispose();
-        this._child = undefined;
-    }
+		this._child.dispose();
+		this._child = undefined;
+	}
 
-    getChildren(): ViewNode[] {
-        if (this._child === undefined) {
-            if (this._fileUri === undefined && this.uri === unknownGitUri) {
-                return [
-                    new MessageNode(
-                        this.view,
-                        this,
-                        'There are no editors open that can provide file history information.'
-                    )
-                ];
-            }
+	getChildren(): ViewNode[] {
+		if (this._child === undefined) {
+			if (this._fileUri === undefined && this.uri === unknownGitUri) {
+				return [
+					new MessageNode(
+						this.view,
+						this,
+						'There are no editors open that can provide file history information.'
+					)
+				];
+			}
 
-            const uri = this._fileUri || this.uri;
-            const commitish: GitCommitish = { ...uri, repoPath: uri.repoPath!, sha: this._baseRef || uri.sha };
-            const fileUri = new GitUri(uri, commitish);
-            this._child = new FileHistoryNode(fileUri, this.view, this);
-        }
+			const uri = this._fileUri || this.uri;
+			const commitish: GitCommitish = { ...uri, repoPath: uri.repoPath!, sha: this._baseRef || uri.sha };
+			const fileUri = new GitUri(uri, commitish);
+			this._child = new FileHistoryNode(fileUri, this.view, this);
+		}
 
-        return [this._child];
-    }
+		return [this._child];
+	}
 
-    getTreeItem(): TreeItem {
-        const item = new TreeItem('File History', TreeItemCollapsibleState.Expanded);
-        item.contextValue = ResourceType.ActiveFileHistory;
+	getTreeItem(): TreeItem {
+		const item = new TreeItem('File History', TreeItemCollapsibleState.Expanded);
+		item.contextValue = ResourceType.ActiveFileHistory;
 
-        void this.ensureSubscription();
+		void this.ensureSubscription();
 
-        return item;
-    }
+		return item;
+	}
 
-    @gate()
-    @log()
-    async changeBase() {
-        const pick = await new ReferencesQuickPick(this.uri.repoPath).show(
-            `Change the file history base to${GlyphChars.Ellipsis}`,
-            {
-                allowEnteringRefs: true,
-                checked: this._baseRef,
-                checkmarks: true
-            }
-        );
-        if (pick === undefined || pick instanceof CommandQuickPickItem) return;
+	@gate()
+	@log()
+	async changeBase() {
+		const pick = await new ReferencesQuickPick(this.uri.repoPath).show(
+			`Change the file history base to${GlyphChars.Ellipsis}`,
+			{
+				allowEnteringRefs: true,
+				checked: this._baseRef,
+				checkmarks: true
+			}
+		);
+		if (pick === undefined || pick instanceof CommandQuickPickItem) return;
 
-        this._baseRef = pick.current ? undefined : pick.ref;
-        if (this._child === undefined) return;
+		this._baseRef = pick.current ? undefined : pick.ref;
+		if (this._child === undefined) return;
 
-        this._uri = unknownGitUri;
-        await this.triggerChange();
-    }
+		this._uri = unknownGitUri;
+		await this.triggerChange();
+	}
 
-    @gate()
-    @debug({
-        exit: r => `returned ${r}`
-    })
-    async refresh(reset: boolean = false) {
-        const cc = Logger.getCorrelationContext();
+	@gate()
+	@debug({
+		exit: r => `returned ${r}`
+	})
+	async refresh(reset: boolean = false) {
+		const cc = Logger.getCorrelationContext();
 
-        if (reset) {
-            this._uri = unknownGitUri;
-            this.resetChild();
-        }
+		if (reset) {
+			this._uri = unknownGitUri;
+			this.resetChild();
+		}
 
-        const editor = window.activeTextEditor;
-        if (editor == null || !Container.git.isTrackable(editor.document.uri)) {
-            if (
-                this.uri === unknownGitUri ||
-                (Container.git.isTrackable(this.uri) &&
-                    window.visibleTextEditors.some(e => e.document && UriComparer.equals(e.document.uri, this.uri)))
-            ) {
-                return true;
-            }
+		const editor = window.activeTextEditor;
+		if (editor == null || !Container.git.isTrackable(editor.document.uri)) {
+			if (
+				this.uri === unknownGitUri ||
+				(Container.git.isTrackable(this.uri) &&
+					window.visibleTextEditors.some(e => e.document && UriComparer.equals(e.document.uri, this.uri)))
+			) {
+				return true;
+			}
 
-            this._uri = unknownGitUri;
-            this.resetChild();
+			this._uri = unknownGitUri;
+			this.resetChild();
 
-            if (cc !== undefined) {
-                cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
-            }
-            return false;
-        }
+			if (cc !== undefined) {
+				cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
+			}
+			return false;
+		}
 
-        if (UriComparer.equals(editor.document.uri, this.uri)) {
-            if (cc !== undefined) {
-                cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
-            }
-            return true;
-        }
+		if (UriComparer.equals(editor.document.uri, this.uri)) {
+			if (cc !== undefined) {
+				cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
+			}
+			return true;
+		}
 
-        let gitUri = await GitUri.fromUri(editor.document.uri);
+		let gitUri = await GitUri.fromUri(editor.document.uri);
 
-        let uri;
-        if (gitUri.sha !== undefined) {
-            // If we have a sha, normalize the history to the working file (so we get a full history all the time)
-            const workingUri = await Container.git.getWorkingUri(gitUri.repoPath!, gitUri);
-            if (workingUri !== undefined) {
-                uri = workingUri;
-            }
-        }
+		let uri;
+		if (gitUri.sha !== undefined) {
+			// If we have a sha, normalize the history to the working file (so we get a full history all the time)
+			const workingUri = await Container.git.getWorkingUri(gitUri.repoPath!, gitUri);
+			if (workingUri !== undefined) {
+				uri = workingUri;
+			}
+		}
 
-        if (this.uri !== unknownGitUri && UriComparer.equals(uri || gitUri, this.uri)) {
-            return true;
-        }
+		if (this.uri !== unknownGitUri && UriComparer.equals(uri || gitUri, this.uri)) {
+			return true;
+		}
 
-        if (uri !== undefined) {
-            gitUri = await GitUri.fromUri(uri);
-        }
+		if (uri !== undefined) {
+			gitUri = await GitUri.fromUri(uri);
+		}
 
-        this._uri = gitUri;
-        this.resetChild();
+		this._uri = gitUri;
+		this.resetChild();
 
-        if (cc !== undefined) {
-            cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
-        }
-        return false;
-    }
+		if (cc !== undefined) {
+			cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
+		}
+		return false;
+	}
 
-    @log()
-    setEditorFollowing(enabled: boolean) {
-        if (enabled && this._fileUri !== undefined) {
-            this._fileUri = undefined;
-            this._baseRef = undefined;
+	@log()
+	setEditorFollowing(enabled: boolean) {
+		if (enabled && this._fileUri !== undefined) {
+			this._fileUri = undefined;
+			this._baseRef = undefined;
 
-            this._uri = unknownGitUri;
-            // Don't need to call triggerChange here, since canSubscribe will do it
-        }
+			this._uri = unknownGitUri;
+			// Don't need to call triggerChange here, since canSubscribe will do it
+		}
 
-        this.canSubscribe = enabled;
-    }
+		this.canSubscribe = enabled;
+	}
 
-    @log()
-    async showHistoryForUri(uri: GitUri, baseRef?: string) {
-        this._fileUri = uri;
-        this._baseRef = baseRef;
+	@log()
+	async showHistoryForUri(uri: GitUri, baseRef?: string) {
+		this._fileUri = uri;
+		this._baseRef = baseRef;
 
-        this._uri = unknownGitUri;
-        await this.triggerChange();
-    }
+		this._uri = unknownGitUri;
+		await this.triggerChange();
+	}
 
-    @debug()
-    protected subscribe() {
-        return Disposable.from(
-            window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveEditorChanged, 500), this)
-        );
-    }
+	@debug()
+	protected subscribe() {
+		return Disposable.from(
+			window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveEditorChanged, 500), this)
+		);
+	}
 
-    @debug({ args: false })
-    private onActiveEditorChanged(editor: TextEditor | undefined) {
-        void this.triggerChange();
-    }
+	@debug({ args: false })
+	private onActiveEditorChanged(editor: TextEditor | undefined) {
+		void this.triggerChange();
+	}
 }

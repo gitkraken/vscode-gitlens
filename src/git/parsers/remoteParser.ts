@@ -48,77 +48,76 @@ user:password@host.xz:/path/to/repo.git/
 */
 
 export class GitRemoteParser {
-    @debug({ args: false, singleLine: true })
-    static parse(
-        data: string,
-        repoPath: string,
-        providerFactory: (domain: string, path: string) => RemoteProvider | undefined
-    ): GitRemote[] | undefined {
-        if (!data) return undefined;
+	@debug({ args: false, singleLine: true })
+	static parse(
+		data: string,
+		repoPath: string,
+		providerFactory: (domain: string, path: string) => RemoteProvider | undefined
+	): GitRemote[] | undefined {
+		if (!data) return undefined;
 
-        const remotes: GitRemote[] = [];
-        const groups = Object.create(null);
+		const remotes: GitRemote[] = [];
+		const groups = Object.create(null);
 
-        let name;
-        let url;
-        let type;
+		let name;
+		let url;
+		let type;
 
-        let scheme;
-        let domain;
-        let path;
+		let scheme;
+		let domain;
+		let path;
 
-        let uniqueness;
-        let remote: GitRemote | undefined;
+		let uniqueness;
+		let remote: GitRemote | undefined;
 
-        let match: RegExpExecArray | null;
-        do {
-            match = remoteRegex.exec(data);
-            if (match == null) break;
+		let match: RegExpExecArray | null;
+		do {
+			match = remoteRegex.exec(data);
+			if (match == null) break;
 
-            [, name, url, type] = match;
+			[, name, url, type] = match;
 
-            // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-            url = ` ${url}`.substr(1);
+			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+			url = ` ${url}`.substr(1);
 
-            [scheme, domain, path] = this.parseGitUrl(url);
+			[scheme, domain, path] = this.parseGitUrl(url);
 
-            uniqueness = `${domain ? `${domain}/` : ''}${path}`;
-            remote = groups[uniqueness];
-            if (remote === undefined) {
-                const provider = providerFactory(domain, path);
+			uniqueness = `${domain ? `${domain}/` : ''}${path}`;
+			remote = groups[uniqueness];
+			if (remote === undefined) {
+				const provider = providerFactory(domain, path);
 
-                remote = new GitRemote(
-                    repoPath,
-                    uniqueness,
-                    // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-                    ` ${name}`.substr(1),
-                    scheme,
-                    provider !== undefined ? provider.domain : domain,
-                    provider !== undefined ? provider.path : path,
-                    provider,
-                    // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-                    [{ url: url, type: ` ${type}`.substr(1) as GitRemoteType }]
-                );
-                remotes.push(remote);
-                groups[uniqueness] = remote;
-            }
-            else {
-                // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-                remote.types.push({ url: url, type: ` ${type}`.substr(1) as GitRemoteType });
-            }
-        } while (match != null);
+				remote = new GitRemote(
+					repoPath,
+					uniqueness,
+					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+					` ${name}`.substr(1),
+					scheme,
+					provider !== undefined ? provider.domain : domain,
+					provider !== undefined ? provider.path : path,
+					provider,
+					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+					[{ url: url, type: ` ${type}`.substr(1) as GitRemoteType }]
+				);
+				remotes.push(remote);
+				groups[uniqueness] = remote;
+			} else {
+				// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+				remote.types.push({ url: url, type: ` ${type}`.substr(1) as GitRemoteType });
+			}
+		} while (match != null);
 
-        return remotes;
-    }
+		return remotes;
+	}
 
-    static parseGitUrl(url: string): [string, string, string] {
-        const match = urlRegex.exec(url);
-        if (match == null) return [emptyStr, emptyStr, url];
+	static parseGitUrl(url: string): [string, string, string] {
+		const match = urlRegex.exec(url);
+		if (match == null) return [emptyStr, emptyStr, url];
 
-        return [
-            match[1] || match[3] || match[6],
-            match[2] || match[4] || match[5] || match[7] || match[8],
-            match[9].replace(/\.git\/?$/, emptyStr)
-        ];
-    }
+		return [
+			match[1] || match[3] || match[6],
+			match[2] || match[4] || match[5] || match[7] || match[8],
+			match[9].replace(/\.git\/?$/, emptyStr)
+		];
+	}
 }

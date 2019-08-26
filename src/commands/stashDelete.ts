@@ -7,41 +7,41 @@ import { command, Command, CommandContext, Commands, isCommandViewContextWithCom
 import { GitCommandsCommandArgs } from '../commands';
 
 export interface StashDeleteCommandArgs {
-    repoPath?: string;
-    stashItem?: { stashName: string; message: string; repoPath: string };
+	repoPath?: string;
+	stashItem?: { stashName: string; message: string; repoPath: string };
 
-    goBackCommand?: CommandQuickPickItem;
+	goBackCommand?: CommandQuickPickItem;
 }
 
 @command()
 export class StashDeleteCommand extends Command {
-    constructor() {
-        super(Commands.StashDelete);
-    }
+	constructor() {
+		super(Commands.StashDelete);
+	}
 
-    protected preExecute(context: CommandContext, args: StashDeleteCommandArgs = {}) {
-        if (isCommandViewContextWithCommit<GitStashCommit>(context)) {
-            args = { ...args };
-            args.stashItem = context.node.commit;
-        }
+	protected preExecute(context: CommandContext, args: StashDeleteCommandArgs = {}) {
+		if (isCommandViewContextWithCommit<GitStashCommit>(context)) {
+			args = { ...args };
+			args.stashItem = context.node.commit;
+		}
 
-        return this.execute(args);
-    }
+		return this.execute(args);
+	}
 
-    async execute(args: StashDeleteCommandArgs = {}) {
-        let repo;
-        if (args.stashItem !== undefined || args.repoPath !== undefined) {
-            repo = await Container.git.getRepository((args.stashItem && args.stashItem.repoPath) || args.repoPath!);
-        }
+	async execute(args: StashDeleteCommandArgs = {}) {
+		let repo;
+		if (args.stashItem !== undefined || args.repoPath !== undefined) {
+			repo = await Container.git.getRepository((args.stashItem && args.stashItem.repoPath) || args.repoPath!);
+		}
 
-        const gitCommandArgs: GitCommandsCommandArgs = {
-            command: 'stash',
-            state: {
-                subcommand: 'drop',
-                repo: repo,
-                stash: args.stashItem
-            }
-        };
-        return commands.executeCommand(Commands.GitCommands, gitCommandArgs);
-    }
+		const gitCommandArgs: GitCommandsCommandArgs = {
+			command: 'stash',
+			state: {
+				subcommand: 'drop',
+				repo: repo,
+				stash: args.stashItem
+			}
+		};
+		return commands.executeCommand(Commands.GitCommands, gitCommandArgs);
+	}
 }

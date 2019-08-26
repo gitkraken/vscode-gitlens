@@ -1,19 +1,18 @@
 {
-    "editor.insertSpaces": true,
-    "eslint.packageManager": "yarn",
-    "files.associations": {
-        ".eslintrc.json": "jsonc"
-    },
-    "files.trimTrailingWhitespace": true,
-    "npm.packageManager": "yarn",
-    "postcssSorting.config": {
-        "order": ["custom-properties", "dollar-variables", "declarations", "at-rules", "rules"],
-        "properties-order": "alphabetical",
-        "unspecified-properties-position": "bottom"
-    },
-    "prettier.requireConfig": true,
-    "prettier.eslintIntegration": true,
-    "search.exclude": {
-        "**/dist": true
-    }
+	"eslint.autoFixOnSave": true,
+	"eslint.packageManager": "yarn",
+	"files.associations": {
+		".eslintrc.json": "jsonc"
+	},
+	"files.trimTrailingWhitespace": true,
+	"npm.packageManager": "yarn",
+	"postcssSorting.config": {
+		"order": ["custom-properties", "dollar-variables", "declarations", "at-rules", "rules"],
+		"properties-order": "alphabetical",
+		"unspecified-properties-position": "bottom"
+	},
+	"prettier.requireConfig": true,
+	"search.exclude": {
+		"**/dist": true
+	}
 }

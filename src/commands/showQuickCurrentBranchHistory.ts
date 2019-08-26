@@ -9,39 +9,38 @@ import { ActiveEditorCachedCommand, command, Commands, getCommandUri, getRepoPat
 import { ShowQuickBranchHistoryCommandArgs } from './showQuickBranchHistory';
 
 export interface ShowQuickCurrentBranchHistoryCommandArgs {
-    goBackCommand?: CommandQuickPickItem;
+	goBackCommand?: CommandQuickPickItem;
 }
 
 @command()
 export class ShowQuickCurrentBranchHistoryCommand extends ActiveEditorCachedCommand {
-    constructor() {
-        super(Commands.ShowQuickCurrentBranchHistory);
-    }
+	constructor() {
+		super(Commands.ShowQuickCurrentBranchHistory);
+	}
 
-    async execute(editor?: TextEditor, uri?: Uri, args: ShowQuickCurrentBranchHistoryCommandArgs = {}) {
-        uri = getCommandUri(uri, editor);
+	async execute(editor?: TextEditor, uri?: Uri, args: ShowQuickCurrentBranchHistoryCommandArgs = {}) {
+		uri = getCommandUri(uri, editor);
 
-        try {
-            const repoPath = await getRepoPathOrActiveOrPrompt(
-                uri,
-                editor,
-                `Show current branch history for which repository${GlyphChars.Ellipsis}`
-            );
-            if (!repoPath) return undefined;
+		try {
+			const repoPath = await getRepoPathOrActiveOrPrompt(
+				uri,
+				editor,
+				`Show current branch history for which repository${GlyphChars.Ellipsis}`
+			);
+			if (!repoPath) return undefined;
 
-            const branch = await Container.git.getBranch(repoPath);
-            if (branch === undefined) return undefined;
+			const branch = await Container.git.getBranch(repoPath);
+			if (branch === undefined) return undefined;
 
-            const commandArgs: ShowQuickBranchHistoryCommandArgs = {
-                branch: branch.name,
-                repoPath: repoPath,
-                goBackCommand: args.goBackCommand
-            };
-            return commands.executeCommand(Commands.ShowQuickBranchHistory, uri, commandArgs);
-        }
-        catch (ex) {
-            Logger.error(ex, 'ShowQuickCurrentBranchHistoryCommand');
-            return Messages.showGenericErrorMessage('Unable to show branch history');
-        }
-    }
+			const commandArgs: ShowQuickBranchHistoryCommandArgs = {
+				branch: branch.name,
+				repoPath: repoPath,
+				goBackCommand: args.goBackCommand
+			};
+			return commands.executeCommand(Commands.ShowQuickBranchHistory, uri, commandArgs);
+		} catch (ex) {
+			Logger.error(ex, 'ShowQuickCurrentBranchHistoryCommand');
+			return Messages.showGenericErrorMessage('Unable to show branch history');
+		}
+	}
 }

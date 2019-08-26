@@ -8,35 +8,35 @@ let _terminalCwd: string | undefined;
 let _disposable: Disposable | undefined;
 
 function ensureTerminal(cwd: string): Terminal {
-    if (_terminal === undefined) {
-        _terminal = window.createTerminal(extensionTerminalName);
-        _disposable = window.onDidCloseTerminal((e: Terminal) => {
-            if (e.name === extensionTerminalName) {
-                _terminal = undefined;
-                _disposable!.dispose();
-                _disposable = undefined;
-            }
-        });
+	if (_terminal === undefined) {
+		_terminal = window.createTerminal(extensionTerminalName);
+		_disposable = window.onDidCloseTerminal((e: Terminal) => {
+			if (e.name === extensionTerminalName) {
+				_terminal = undefined;
+				_disposable!.dispose();
+				_disposable = undefined;
+			}
+		});
 
-        Container.context.subscriptions.push(_disposable);
-        _terminalCwd = undefined;
-    }
+		Container.context.subscriptions.push(_disposable);
+		_terminalCwd = undefined;
+	}
 
-    if (_terminalCwd !== cwd) {
-        _terminal.sendText(`cd "${cwd}"`, true);
-        _terminalCwd = cwd;
-    }
+	if (_terminalCwd !== cwd) {
+		_terminal.sendText(`cd "${cwd}"`, true);
+		_terminalCwd = cwd;
+	}
 
-    return _terminal;
+	return _terminal;
 }
 
 export function runGitCommandInTerminal(command: string, args: string, cwd: string, execute: boolean = false) {
-    // let git = GitService.getGitPath();
-    // if (git.includes(' ')) {
-    //     git = `"${git}"`;
-    // }
+	// let git = GitService.getGitPath();
+	// if (git.includes(' ')) {
+	//     git = `"${git}"`;
+	// }
 
-    const terminal = ensureTerminal(cwd);
-    terminal.show(false);
-    terminal.sendText(`git ${command} ${args}`, execute);
+	const terminal = ensureTerminal(cwd);
+	terminal.show(false);
+	terminal.sendText(`git ${command} ${args}`, execute);
 }

@@ -8,60 +8,58 @@ import { Messages } from '../messages';
 import { ActiveEditorCommand, command, Commands, getCommandUri, openEditor } from './common';
 
 export interface OpenWorkingFileCommandArgs {
-    uri?: Uri;
-    line?: number;
-    showOptions?: TextDocumentShowOptions;
-    annotationType?: FileAnnotationType;
+	uri?: Uri;
+	line?: number;
+	showOptions?: TextDocumentShowOptions;
+	annotationType?: FileAnnotationType;
 }
 
 @command()
 export class OpenWorkingFileCommand extends ActiveEditorCommand {
-    constructor() {
-        super(Commands.OpenWorkingFile);
-    }
+	constructor() {
+		super(Commands.OpenWorkingFile);
+	}
 
-    async execute(editor: TextEditor, uri?: Uri, args: OpenWorkingFileCommandArgs = {}) {
-        args = { ...args };
-        if (args.line === undefined) {
-            args.line = editor == null ? 0 : editor.selection.active.line;
-        }
+	async execute(editor: TextEditor, uri?: Uri, args: OpenWorkingFileCommandArgs = {}) {
+		args = { ...args };
+		if (args.line === undefined) {
+			args.line = editor == null ? 0 : editor.selection.active.line;
+		}
 
-        try {
-            if (args.uri == null) {
-                uri = getCommandUri(uri, editor);
-                if (uri == null) return undefined;
-            }
-            else {
-                uri = args.uri;
-            }
+		try {
+			if (args.uri == null) {
+				uri = getCommandUri(uri, editor);
+				if (uri == null) return undefined;
+			} else {
+				uri = args.uri;
+			}
 
-            args.uri = await GitUri.fromUri(uri);
-            if (GitUri.is(args.uri) && args.uri.sha) {
-                const workingUri = await Container.git.getWorkingUri(args.uri.repoPath!, args.uri);
-                if (workingUri === undefined) {
-                    return window.showWarningMessage(
-                        'Unable to open working file. File could not be found in the working tree'
-                    );
-                }
+			args.uri = await GitUri.fromUri(uri);
+			if (GitUri.is(args.uri) && args.uri.sha) {
+				const workingUri = await Container.git.getWorkingUri(args.uri.repoPath!, args.uri);
+				if (workingUri === undefined) {
+					return window.showWarningMessage(
+						'Unable to open working file. File could not be found in the working tree'
+					);
+				}
 
-                args.uri = new GitUri(workingUri, args.uri.repoPath);
-            }
+				args.uri = new GitUri(workingUri, args.uri.repoPath);
+			}
 
-            if (args.line !== undefined && args.line !== 0) {
-                if (args.showOptions === undefined) {
-                    args.showOptions = {};
-                }
-                args.showOptions.selection = new Range(args.line, 0, args.line, 0);
-            }
+			if (args.line !== undefined && args.line !== 0) {
+				if (args.showOptions === undefined) {
+					args.showOptions = {};
+				}
+				args.showOptions.selection = new Range(args.line, 0, args.line, 0);
+			}
 
-            const e = await openEditor(args.uri, { ...args.showOptions, rethrow: true });
-            if (args.annotationType === undefined) return e;
+			const e = await openEditor(args.uri, { ...args.showOptions, rethrow: true });
+			if (args.annotationType === undefined) return e;
 
-            return Container.fileAnnotations.show(e, args.annotationType, args.line);
-        }
-        catch (ex) {
-            Logger.error(ex, 'OpenWorkingFileCommand');
-            return Messages.showGenericErrorMessage('Unable to open working file');
-        }
-    }
+			return Container.fileAnnotations.show(e, args.annotationType, args.line);
+		} catch (ex) {
+			Logger.error(ex, 'OpenWorkingFileCommand');
+			return Messages.showGenericErrorMessage('Unable to open working file');
+		}
+	}
 }

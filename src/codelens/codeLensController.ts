@@ -5,104 +5,102 @@ import { CommandContext, setCommandContext } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import {
-    DocumentBlameStateChangeEvent,
-    DocumentDirtyIdleTriggerEvent,
-    GitDocumentState
+	DocumentBlameStateChangeEvent,
+	DocumentDirtyIdleTriggerEvent,
+	GitDocumentState
 } from '../trackers/gitDocumentTracker';
 import { GitCodeLensProvider } from './codeLensProvider';
 
 export class GitCodeLensController implements Disposable {
-    private _canToggle: boolean = false;
-    private _disposable: Disposable | undefined;
-    private _provider: GitCodeLensProvider | undefined;
-    private _providerDisposable: Disposable | undefined;
+	private _canToggle: boolean = false;
+	private _disposable: Disposable | undefined;
+	private _provider: GitCodeLensProvider | undefined;
+	private _providerDisposable: Disposable | undefined;
 
-    constructor() {
-        this._disposable = Disposable.from(configuration.onDidChange(this.onConfigurationChanged, this));
-        this.onConfigurationChanged(configuration.initializingChangeEvent);
-    }
+	constructor() {
+		this._disposable = Disposable.from(configuration.onDidChange(this.onConfigurationChanged, this));
+		this.onConfigurationChanged(configuration.initializingChangeEvent);
+	}
 
-    dispose() {
-        this._providerDisposable && this._providerDisposable.dispose();
-        this._disposable && this._disposable.dispose();
-    }
+	dispose() {
+		this._providerDisposable && this._providerDisposable.dispose();
+		this._disposable && this._disposable.dispose();
+	}
 
-    private onConfigurationChanged(e: ConfigurationChangeEvent) {
-        const section = configuration.name('codeLens').value;
-        if (
-            configuration.changed(e, section, null) ||
-            configuration.changed(e, configuration.name('defaultDateFormat').value) ||
-            configuration.changed(e, configuration.name('defaultDateSource').value) ||
-            configuration.changed(e, configuration.name('defaultDateStyle').value)
-        ) {
-            if (!configuration.initializing(e)) {
-                Logger.log('CodeLens config changed; resetting CodeLens provider');
-            }
+	private onConfigurationChanged(e: ConfigurationChangeEvent) {
+		const section = configuration.name('codeLens').value;
+		if (
+			configuration.changed(e, section, null) ||
+			configuration.changed(e, configuration.name('defaultDateFormat').value) ||
+			configuration.changed(e, configuration.name('defaultDateSource').value) ||
+			configuration.changed(e, configuration.name('defaultDateStyle').value)
+		) {
+			if (!configuration.initializing(e)) {
+				Logger.log('CodeLens config changed; resetting CodeLens provider');
+			}
 
-            const cfg = Container.config.codeLens;
-            if (cfg.enabled && (cfg.recentChange.enabled || cfg.authors.enabled)) {
-                if (this._provider !== undefined) {
-                    this._provider.reset();
-                }
-                else {
-                    this.createProvider();
-                }
-            }
-            else {
-                if (this._providerDisposable !== undefined) {
-                    this._providerDisposable.dispose();
-                    this._providerDisposable = undefined;
-                }
-                this._provider = undefined;
-            }
+			const cfg = Container.config.codeLens;
+			if (cfg.enabled && (cfg.recentChange.enabled || cfg.authors.enabled)) {
+				if (this._provider !== undefined) {
+					this._provider.reset();
+				} else {
+					this.createProvider();
+				}
+			} else {
+				if (this._providerDisposable !== undefined) {
+					this._providerDisposable.dispose();
+					this._providerDisposable = undefined;
+				}
+				this._provider = undefined;
+			}
 
-            this._canToggle = cfg.recentChange.enabled || cfg.authors.enabled;
-            setCommandContext(CommandContext.CanToggleCodeLens, this._canToggle);
-        }
-    }
+			this._canToggle = cfg.recentChange.enabled || cfg.authors.enabled;
+			setCommandContext(CommandContext.CanToggleCodeLens, this._canToggle);
+		}
+	}
 
-    private onBlameStateChanged(e: DocumentBlameStateChangeEvent<GitDocumentState>) {
-        // Only reset if we have saved, since the code lens won't naturally be re-rendered
-        if (this._provider === undefined || !e.blameable) return;
+	private onBlameStateChanged(e: DocumentBlameStateChangeEvent<GitDocumentState>) {
+		// Only reset if we have saved, since the code lens won't naturally be re-rendered
+		if (this._provider === undefined || !e.blameable) return;
 
-        Logger.log('Blame state changed; resetting CodeLens provider');
-        this._provider.reset('saved');
-    }
+		Logger.log('Blame state changed; resetting CodeLens provider');
+		this._provider.reset('saved');
+	}
 
-    private onDirtyIdleTriggered(e: DocumentDirtyIdleTriggerEvent<GitDocumentState>) {
-        if (this._provider === undefined || !e.document.isBlameable) return;
+	private onDirtyIdleTriggered(e: DocumentDirtyIdleTriggerEvent<GitDocumentState>) {
+		if (this._provider === undefined || !e.document.isBlameable) return;
 
-        const maxLines = Container.config.advanced.blame.sizeThresholdAfterEdit;
-        if (maxLines > 0 && e.document.lineCount > maxLines) return;
+		const maxLines = Container.config.advanced.blame.sizeThresholdAfterEdit;
+		if (maxLines > 0 && e.document.lineCount > maxLines) return;
 
-        Logger.log('Dirty idle triggered; resetting CodeLens provider');
-        this._provider.reset('idle');
-    }
+		Logger.log('Dirty idle triggered; resetting CodeLens provider');
+		this._provider.reset('idle');
+	}
 
-    toggleCodeLens() {
-        if (!this._canToggle) return;
+	toggleCodeLens() {
+		if (!this._canToggle) return;
 
-        Logger.log('toggleCodeLens()');
-        if (this._provider !== undefined) {
-            if (this._providerDisposable !== undefined) {
-                this._providerDisposable.dispose();
-                this._providerDisposable = undefined;
-            }
+		Logger.log('toggleCodeLens()');
+		if (this._provider !== undefined) {
+			if (this._providerDisposable !== undefined) {
+				this._providerDisposable.dispose();
+				this._providerDisposable = undefined;
+			}
 
-            this._provider = undefined;
+			this._provider = undefined;
 
-            return;
-        }
+			return;
+		}
 
-        this.createProvider();
-    }
+		this.createProvider();
+	}
 
-    private createProvider() {
-        this._provider = new GitCodeLensProvider(Container.context, Container.git, Container.tracker);
-        this._providerDisposable = Disposable.from(
-            languages.registerCodeLensProvider(GitCodeLensProvider.selector, this._provider),
-            Container.tracker.onDidChangeBlameState(this.onBlameStateChanged, this),
-            Container.tracker.onDidTriggerDirtyIdle(this.onDirtyIdleTriggered, this)
-        );
-    }
+	private createProvider() {
+		this._provider = new GitCodeLensProvider(Container.context, Container.git, Container.tracker);
+		this._providerDisposable = Disposable.from(
+			languages.registerCodeLensProvider(GitCodeLensProvider.selector, this._provider),
+			Container.tracker.onDidChangeBlameState(this.onBlameStateChanged, this),
+			Container.tracker.onDidTriggerDirtyIdle(this.onDirtyIdleTriggered, this)
+		);
+	}
 }

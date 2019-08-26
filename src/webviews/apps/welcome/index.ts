@@ -5,10 +5,10 @@ import { WelcomeState } from '../../protocol';
 import { AppWithConfig } from '../shared/appWithConfigBase';
 
 export class WelcomeApp extends AppWithConfig<WelcomeState> {
-    constructor() {
-        super('WelcomeApp', (window as any).bootstrap);
-        (window as any).bootstrap = undefined;
-    }
+	constructor() {
+		super('WelcomeApp', (window as any).bootstrap);
+		(window as any).bootstrap = undefined;
+	}
 }
 
 new WelcomeApp();

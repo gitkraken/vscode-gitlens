@@ -1,52 +1,52 @@
 // A launch configuration that compiles the extension and then opens it inside a new window
 {
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "Launch GitLens",
-            "type": "extensionHost",
-            "request": "launch",
-            "runtimeExecutable": "${execPath}",
-            "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
-            "env": {
-                "VSCODE_DEBUGGING_EXTENSION": "gitlens"
-            },
-            "cwd": "${workspaceFolder}",
-            "outFiles": ["${workspaceFolder}/dist/**/*.js"],
-            "skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
-            "smartStep": true,
-            "sourceMaps": true
-        },
-        {
-            "name": "Launch GitLens (Sandbox)",
-            "type": "extensionHost",
-            "request": "launch",
-            "runtimeExecutable": "${execPath}",
-            "args": ["--disable-extensions", "--extensionDevelopmentPath=${workspaceFolder}"],
-            "env": {
-                "VSCODE_DEBUGGING_EXTENSION": "gitlens"
-            },
-            "cwd": "${workspaceFolder}",
-            "outFiles": ["${workspaceFolder}/dist/**/*.js"],
-            "skipFiles": ["<node_internals>/**", "**/resources/app/out/vs/**"],
-            "smartStep": true,
-            "sourceMaps": true
-        },
-        {
-            "name": "Watch & Launch GitLens",
-            "type": "extensionHost",
-            "request": "launch",
-            "runtimeExecutable": "${execPath}",
-            "env": {
-                "VSCODE_DEBUGGING_EXTENSION": "gitlens"
-            },
-            "args": ["--extensionDevelopmentPath=${workspaceFolder}"],
-            "cwd": "${workspaceFolder}",
-            "outFiles": ["${workspaceFolder}/dist/**/*.js"],
-            "skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
-            "smartStep": true,
-            "sourceMaps": true,
-            "preLaunchTask": "npm: watch"
-        }
-    ]
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "Launch GitLens",
+			"type": "extensionHost",
+			"request": "launch",
+			"runtimeExecutable": "${execPath}",
+			"args": ["--extensionDevelopmentPath=${workspaceFolder}"],
+			"env": {
+				"VSCODE_DEBUGGING_EXTENSION": "gitlens"
+			},
+			"cwd": "${workspaceFolder}",
+			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
+			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
+			"smartStep": true,
+			"sourceMaps": true
+		},
+		{
+			"name": "Launch GitLens (Sandbox)",
+			"type": "extensionHost",
+			"request": "launch",
+			"runtimeExecutable": "${execPath}",
+			"args": ["--disable-extensions", "--extensionDevelopmentPath=${workspaceFolder}"],
+			"env": {
+				"VSCODE_DEBUGGING_EXTENSION": "gitlens"
+			},
+			"cwd": "${workspaceFolder}",
+			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
+			"skipFiles": ["<node_internals>/**", "**/resources/app/out/vs/**"],
+			"smartStep": true,
+			"sourceMaps": true
+		},
+		{
+			"name": "Watch & Launch GitLens",
+			"type": "extensionHost",
+			"request": "launch",
+			"runtimeExecutable": "${execPath}",
+			"env": {
+				"VSCODE_DEBUGGING_EXTENSION": "gitlens"
+			},
+			"args": ["--extensionDevelopmentPath=${workspaceFolder}"],
+			"cwd": "${workspaceFolder}",
+			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
+			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
+			"smartStep": true,
+			"sourceMaps": true,
+			"preLaunchTask": "npm: watch"
+		}
+	]
 }

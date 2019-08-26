@@ -1,19 +1,19 @@
 {
-    "compilerOptions": {
-        "experimentalDecorators": true,
-        "forceConsistentCasingInFileNames": true,
-        "lib": ["es2018"],
-        "module": "esnext",
-        "moduleResolution": "node",
-        "noFallthroughCasesInSwitch": true,
-        "noImplicitReturns": true,
-        "noUnusedLocals": false,
-        "outDir": "dist",
-        "resolveJsonModule": true,
-        "rootDir": "src",
-        "sourceMap": true,
-        "strict": true,
-        "target": "es2018"
-    },
-    "exclude": ["node_modules", "test", "src/webviews/apps"]
+	"compilerOptions": {
+		"experimentalDecorators": true,
+		"forceConsistentCasingInFileNames": true,
+		"lib": ["es2018"],
+		"module": "esnext",
+		"moduleResolution": "node",
+		"noFallthroughCasesInSwitch": true,
+		"noImplicitReturns": true,
+		"noUnusedLocals": false,
+		"outDir": "dist",
+		"resolveJsonModule": true,
+		"rootDir": "src",
+		"sourceMap": true,
+		"strict": true,
+		"target": "es2018"
+	},
+	"exclude": ["node_modules", "test", "src/webviews/apps"]
 }

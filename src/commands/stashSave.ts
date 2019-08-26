@@ -4,74 +4,70 @@ import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { CommandQuickPickItem } from '../quickpicks';
 import {
-    command,
-    Command,
-    CommandContext,
-    Commands,
-    isCommandViewContextWithFile,
-    isCommandViewContextWithRepo,
-    isCommandViewContextWithRepoPath
+	command,
+	Command,
+	CommandContext,
+	Commands,
+	isCommandViewContextWithFile,
+	isCommandViewContextWithRepo,
+	isCommandViewContextWithRepoPath
 } from './common';
 import { GitCommandsCommandArgs } from '../commands';
 
 export interface StashSaveCommandArgs {
-    message?: string;
-    repoPath?: string;
-    uris?: Uri[];
+	message?: string;
+	repoPath?: string;
+	uris?: Uri[];
 
-    goBackCommand?: CommandQuickPickItem;
+	goBackCommand?: CommandQuickPickItem;
 }
 
 @command()
 export class StashSaveCommand extends Command {
-    constructor() {
-        super([Commands.StashSave, Commands.StashSaveFiles]);
-    }
+	constructor() {
+		super([Commands.StashSave, Commands.StashSaveFiles]);
+	}
 
-    protected preExecute(context: CommandContext, args: StashSaveCommandArgs = {}) {
-        if (isCommandViewContextWithFile(context)) {
-            args = { ...args };
-            args.repoPath = context.node.file.repoPath || context.node.repoPath;
-            args.uris = [GitUri.fromFile(context.node.file, args.repoPath)];
-        }
-        else if (isCommandViewContextWithRepo(context)) {
-            args = { ...args };
-            args.repoPath = context.node.repo.path;
-        }
-        else if (isCommandViewContextWithRepoPath(context)) {
-            args = { ...args };
-            args.repoPath = context.node.repoPath;
-        }
-        else if (context.type === 'scm-states') {
-            args = { ...args };
-            args.uris = context.scmResourceStates.map(s => s.resourceUri);
-        }
-        else if (context.type === 'scm-groups') {
-            args = { ...args };
-            args.uris = context.scmResourceGroups.reduce<Uri[]>(
-                (a, b) => a.concat(b.resourceStates.map(s => s.resourceUri)),
-                []
-            );
-        }
+	protected preExecute(context: CommandContext, args: StashSaveCommandArgs = {}) {
+		if (isCommandViewContextWithFile(context)) {
+			args = { ...args };
+			args.repoPath = context.node.file.repoPath || context.node.repoPath;
+			args.uris = [GitUri.fromFile(context.node.file, args.repoPath)];
+		} else if (isCommandViewContextWithRepo(context)) {
+			args = { ...args };
+			args.repoPath = context.node.repo.path;
+		} else if (isCommandViewContextWithRepoPath(context)) {
+			args = { ...args };
+			args.repoPath = context.node.repoPath;
+		} else if (context.type === 'scm-states') {
+			args = { ...args };
+			args.uris = context.scmResourceStates.map(s => s.resourceUri);
+		} else if (context.type === 'scm-groups') {
+			args = { ...args };
+			args.uris = context.scmResourceGroups.reduce<Uri[]>(
+				(a, b) => a.concat(b.resourceStates.map(s => s.resourceUri)),
+				[]
+			);
+		}
 
-        return this.execute(args);
-    }
+		return this.execute(args);
+	}
 
-    async execute(args: StashSaveCommandArgs = {}) {
-        let repo;
-        if (args.uris !== undefined || args.repoPath !== undefined) {
-            repo = await Container.git.getRepository((args.uris && args.uris[0]) || args.repoPath!);
-        }
+	async execute(args: StashSaveCommandArgs = {}) {
+		let repo;
+		if (args.uris !== undefined || args.repoPath !== undefined) {
+			repo = await Container.git.getRepository((args.uris && args.uris[0]) || args.repoPath!);
+		}
 
-        const gitCommandArgs: GitCommandsCommandArgs = {
-            command: 'stash',
-            state: {
-                subcommand: 'push',
-                repo: repo,
-                message: args.message,
-                uris: args.uris
-            }
-        };
-        return commands.executeCommand(Commands.GitCommands, gitCommandArgs);
-    }
+		const gitCommandArgs: GitCommandsCommandArgs = {
+			command: 'stash',
+			state: {
+				subcommand: 'push',
+				repo: repo,
+				message: args.message,
+				uris: args.uris
+			}
+		};
+		return commands.executeCommand(Commands.GitCommands, gitCommandArgs);
+	}
 }

@@ -7,108 +7,107 @@ import { ViewWithFiles } from '../viewBase';
 import { ResourceType, ViewNode } from './viewNode';
 
 export interface FileNode extends ViewNode {
-    folderName: string;
-    label?: string;
-    priority: number;
-    relativePath?: string;
-    root?: Arrays.HierarchicalItem<FileNode>;
+	folderName: string;
+	label?: string;
+	priority: number;
+	relativePath?: string;
+	root?: Arrays.HierarchicalItem<FileNode>;
 }
 
 export class FolderNode extends ViewNode<ViewWithFiles> {
-    readonly priority: number = 1;
+	readonly priority: number = 1;
 
-    constructor(
-        view: ViewWithFiles,
-        parent: ViewNode,
-        public readonly repoPath: string,
-        public readonly folderName: string,
-        public readonly root: Arrays.HierarchicalItem<FileNode>,
-        private readonly containsWorkingFiles?: boolean,
-        public readonly relativePath?: string
-    ) {
-        super(GitUri.fromRepoPath(repoPath), view, parent);
-    }
+	constructor(
+		view: ViewWithFiles,
+		parent: ViewNode,
+		public readonly repoPath: string,
+		public readonly folderName: string,
+		public readonly root: Arrays.HierarchicalItem<FileNode>,
+		private readonly containsWorkingFiles?: boolean,
+		public readonly relativePath?: string
+	) {
+		super(GitUri.fromRepoPath(repoPath), view, parent);
+	}
 
-    toClipboard(): string {
-        return this.folderName;
-    }
+	toClipboard(): string {
+		return this.folderName;
+	}
 
-    getChildren(): (FolderNode | FileNode)[] {
-        if (this.root.descendants === undefined || this.root.children === undefined) return [];
+	getChildren(): (FolderNode | FileNode)[] {
+		if (this.root.descendants === undefined || this.root.children === undefined) return [];
 
-        let children: (FolderNode | FileNode)[];
+		let children: (FolderNode | FileNode)[];
 
-        const nesting = FolderNode.getFileNesting(
-            this.view.config.files,
-            this.root.descendants,
-            this.relativePath === undefined
-        );
-        if (nesting !== ViewFilesLayout.List) {
-            children = [];
-            for (const folder of this.root.children.values()) {
-                if (folder.value === undefined) {
-                    children.push(
-                        new FolderNode(
-                            this.view,
-                            this,
-                            this.repoPath,
-                            folder.name,
-                            folder,
-                            this.containsWorkingFiles,
-                            folder.relativePath
-                        )
-                    );
-                    continue;
-                }
+		const nesting = FolderNode.getFileNesting(
+			this.view.config.files,
+			this.root.descendants,
+			this.relativePath === undefined
+		);
+		if (nesting !== ViewFilesLayout.List) {
+			children = [];
+			for (const folder of this.root.children.values()) {
+				if (folder.value === undefined) {
+					children.push(
+						new FolderNode(
+							this.view,
+							this,
+							this.repoPath,
+							folder.name,
+							folder,
+							this.containsWorkingFiles,
+							folder.relativePath
+						)
+					);
+					continue;
+				}
 
-                folder.value.relativePath = this.root.relativePath;
-                children.push(folder.value);
-            }
-        }
-        else {
-            this.root.descendants.forEach(n => (n.relativePath = this.root.relativePath));
-            children = this.root.descendants;
-        }
+				folder.value.relativePath = this.root.relativePath;
+				children.push(folder.value);
+			}
+		} else {
+			this.root.descendants.forEach(n => (n.relativePath = this.root.relativePath));
+			children = this.root.descendants;
+		}
 
-        children.sort((a, b) => {
-            return (
-                (a instanceof FolderNode ? -1 : 1) - (b instanceof FolderNode ? -1 : 1) ||
-                a.priority - b.priority ||
-                a.label!.localeCompare(b.label!, undefined, { numeric: true, sensitivity: 'base' })
-            );
-        });
+		children.sort((a, b) => {
+			return (
+				(a instanceof FolderNode ? -1 : 1) - (b instanceof FolderNode ? -1 : 1) ||
+				a.priority - b.priority ||
+				a.label!.localeCompare(b.label!, undefined, { numeric: true, sensitivity: 'base' })
+			);
+		});
 
-        return children;
-    }
+		return children;
+	}
 
-    getTreeItem(): TreeItem {
-        const item = new TreeItem(this.label, TreeItemCollapsibleState.Expanded);
-        item.contextValue = ResourceType.Folder;
-        if (this.containsWorkingFiles) {
-            item.contextValue += '+working';
-        }
-        item.iconPath = ThemeIcon.Folder;
-        item.tooltip = this.label;
-        return item;
-    }
+	getTreeItem(): TreeItem {
+		const item = new TreeItem(this.label, TreeItemCollapsibleState.Expanded);
+		item.contextValue = ResourceType.Folder;
+		if (this.containsWorkingFiles) {
+			item.contextValue += '+working';
+		}
+		item.iconPath = ThemeIcon.Folder;
+		item.tooltip = this.label;
+		return item;
+	}
 
-    get label(): string {
-        return this.folderName;
-    }
+	get label(): string {
+		return this.folderName;
+	}
 
-    static getFileNesting<T extends FileNode>(
-        config: ViewsFilesConfig,
-        children: T[],
-        isRoot: boolean
-    ): ViewFilesLayout {
-        const nesting = config.layout || ViewFilesLayout.Auto;
-        if (nesting === ViewFilesLayout.Auto) {
-            if (isRoot || config.compact) {
-                const nestingThreshold = config.threshold || 5;
-                if (children.length <= nestingThreshold) return ViewFilesLayout.List;
-            }
-            return ViewFilesLayout.Tree;
-        }
-        return nesting;
-    }
+	static getFileNesting<T extends FileNode>(
+		config: ViewsFilesConfig,
+		children: T[],
+		isRoot: boolean
+	): ViewFilesLayout {
+		const nesting = config.layout || ViewFilesLayout.Auto;
+		if (nesting === ViewFilesLayout.Auto) {
+			if (isRoot || config.compact) {
+				const nestingThreshold = config.threshold || 5;
+				if (children.length <= nestingThreshold) return ViewFilesLayout.List;
+			}
+			return ViewFilesLayout.Tree;
+		}
+		return nesting;
+	}
 }

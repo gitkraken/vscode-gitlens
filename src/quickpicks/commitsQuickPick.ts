@@ -5,65 +5,65 @@ import { GitLog } from '../git/gitService';
 import { KeyNoopCommand } from '../keyboard';
 import { Iterables } from '../system';
 import {
-    CommandQuickPickItem,
-    getQuickPickIgnoreFocusOut,
-    MessageQuickPickItem,
-    showQuickPickProgress
+	CommandQuickPickItem,
+	getQuickPickIgnoreFocusOut,
+	MessageQuickPickItem,
+	showQuickPickProgress
 } from './commonQuickPicks';
 import { CommitQuickPickItem } from './gitQuickPicks';
 
 export class CommitsQuickPick {
-    static showProgress(message: string) {
-        return showQuickPickProgress(message, {
-            left: KeyNoopCommand,
-            ',': KeyNoopCommand,
-            '.': KeyNoopCommand
-        });
-    }
+	static showProgress(message: string) {
+		return showQuickPickProgress(message, {
+			left: KeyNoopCommand,
+			',': KeyNoopCommand,
+			'.': KeyNoopCommand
+		});
+	}
 
-    static async show(
-        log: GitLog | undefined,
-        placeHolder: string,
-        progressCancellation: CancellationTokenSource,
-        options: {
-            goBackCommand?: CommandQuickPickItem;
-            showAllCommand?: CommandQuickPickItem;
-            showInViewCommand?: CommandQuickPickItem;
-        }
-    ): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
-        const items = ((log && [...Iterables.map(log.commits.values(), c => CommitQuickPickItem.create(c))]) || [
-            new MessageQuickPickItem('No results found')
-        ]) as (CommitQuickPickItem | CommandQuickPickItem)[];
+	static async show(
+		log: GitLog | undefined,
+		placeHolder: string,
+		progressCancellation: CancellationTokenSource,
+		options: {
+			goBackCommand?: CommandQuickPickItem;
+			showAllCommand?: CommandQuickPickItem;
+			showInViewCommand?: CommandQuickPickItem;
+		}
+	): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
+		const items = ((log && [...Iterables.map(log.commits.values(), c => CommitQuickPickItem.create(c))]) || [
+			new MessageQuickPickItem('No results found')
+		]) as (CommitQuickPickItem | CommandQuickPickItem)[];
 
-        if (options.showInViewCommand !== undefined) {
-            items.splice(0, 0, options.showInViewCommand);
-        }
+		if (options.showInViewCommand !== undefined) {
+			items.splice(0, 0, options.showInViewCommand);
+		}
 
-        if (options.showAllCommand !== undefined) {
-            items.splice(0, 0, options.showAllCommand);
-        }
+		if (options.showAllCommand !== undefined) {
+			items.splice(0, 0, options.showAllCommand);
+		}
 
-        if (options.goBackCommand !== undefined) {
-            items.splice(0, 0, options.goBackCommand);
-        }
+		if (options.goBackCommand !== undefined) {
+			items.splice(0, 0, options.goBackCommand);
+		}
 
-        if (progressCancellation.token.isCancellationRequested) return undefined;
+		if (progressCancellation.token.isCancellationRequested) return undefined;
 
-        const scope = await Container.keyboard.beginScope({ left: options.goBackCommand });
+		const scope = await Container.keyboard.beginScope({ left: options.goBackCommand });
 
-        progressCancellation.cancel();
+		progressCancellation.cancel();
 
-        const pick = await window.showQuickPick(items, {
-            matchOnDescription: true,
-            placeHolder: placeHolder,
-            ignoreFocusOut: getQuickPickIgnoreFocusOut()
-            // onDidSelectItem: (item: QuickPickItem) => {
-            //     scope.setKeyCommand('right', item);
-            // }
-        });
+		const pick = await window.showQuickPick(items, {
+			matchOnDescription: true,
+			placeHolder: placeHolder,
+			ignoreFocusOut: getQuickPickIgnoreFocusOut()
+			// onDidSelectItem: (item: QuickPickItem) => {
+			//     scope.setKeyCommand('right', item);
+			// }
+		});
 
-        await scope.dispose();
+		await scope.dispose();
 
-        return pick;
-    }
+		return pick;
+	}
 }

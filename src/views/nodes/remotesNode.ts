@@ -8,33 +8,33 @@ import { RemoteNode } from './remoteNode';
 import { ResourceType, ViewNode } from './viewNode';
 
 export class RemotesNode extends ViewNode<RepositoriesView> {
-    constructor(uri: GitUri, view: RepositoriesView, parent: ViewNode, public readonly repo: Repository) {
-        super(uri, view, parent);
-    }
+	constructor(uri: GitUri, view: RepositoriesView, parent: ViewNode, public readonly repo: Repository) {
+		super(uri, view, parent);
+	}
 
-    get id(): string {
-        return `gitlens:repository(${this.repo.path}):remotes`;
-    }
+	get id(): string {
+		return `gitlens:repository(${this.repo.path}):remotes`;
+	}
 
-    async getChildren(): Promise<ViewNode[]> {
-        const remotes = await this.repo.getRemotes({ sort: true });
-        if (remotes === undefined || remotes.length === 0) {
-            return [new MessageNode(this.view, this, 'No remotes could be found')];
-        }
+	async getChildren(): Promise<ViewNode[]> {
+		const remotes = await this.repo.getRemotes({ sort: true });
+		if (remotes === undefined || remotes.length === 0) {
+			return [new MessageNode(this.view, this, 'No remotes could be found')];
+		}
 
-        return remotes.map(r => new RemoteNode(this.uri, this.view, this, r, this.repo));
-    }
+		return remotes.map(r => new RemoteNode(this.uri, this.view, this, r, this.repo));
+	}
 
-    getTreeItem(): TreeItem {
-        const item = new TreeItem('Remotes', TreeItemCollapsibleState.Collapsed);
-        item.id = this.id;
-        item.contextValue = ResourceType.Remotes;
+	getTreeItem(): TreeItem {
+		const item = new TreeItem('Remotes', TreeItemCollapsibleState.Collapsed);
+		item.id = this.id;
+		item.contextValue = ResourceType.Remotes;
 
-        item.iconPath = {
-            dark: Container.context.asAbsolutePath('images/dark/icon-remote.svg'),
-            light: Container.context.asAbsolutePath('images/light/icon-remote.svg')
-        };
+		item.iconPath = {
+			dark: Container.context.asAbsolutePath('images/dark/icon-remote.svg'),
+			light: Container.context.asAbsolutePath('images/light/icon-remote.svg')
+		};
 
-        return item;
-    }
+		return item;
+	}
 }

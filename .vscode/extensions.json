@@ -1,11 +1,11 @@
 {
-    // See http://go.microsoft.com/fwlink/?LinkId=827846
-    // for the documentation about the extensions.json format
-    "recommendations": [
-        "dbaeumer.vscode-eslint",
-        "eamodio.tsl-problem-matcher",
-        "esbenp.prettier-vscode",
-        "msjsdiag.debugger-for-chrome",
-        "ms-vscode.typescript-javascript-grammar"
-    ]
+	// See http://go.microsoft.com/fwlink/?LinkId=827846
+	// for the documentation about the extensions.json format
+	"recommendations": [
+		"dbaeumer.vscode-eslint",
+		"eamodio.tsl-problem-matcher",
+		"esbenp.prettier-vscode",
+		"msjsdiag.debugger-for-chrome",
+		"ms-vscode.typescript-javascript-grammar"
+	]
 }

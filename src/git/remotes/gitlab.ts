@@ -5,51 +5,49 @@ import { RemoteProvider } from './provider';
 const issueEnricherRegex = /(^|\s)(#([0-9]+))\b/gi;
 
 export class GitLabRemote extends RemoteProvider {
-    constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
-        super(domain, path, protocol, name, custom);
-    }
+	constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
+		super(domain, path, protocol, name, custom);
+	}
 
-    get icon() {
-        return 'gitlab';
-    }
+	get icon() {
+		return 'gitlab';
+	}
 
-    get name() {
-        return this.formatName('GitLab');
-    }
+	get name() {
+		return this.formatName('GitLab');
+	}
 
-    enrichMessage(message: string): string {
-        // Matches #123
-        return message.replace(issueEnricherRegex, `$1[$2](${this.baseUrl}/issues/$3 "Open Issue $2")`);
-    }
+	enrichMessage(message: string): string {
+		// Matches #123
+		return message.replace(issueEnricherRegex, `$1[$2](${this.baseUrl}/issues/$3 "Open Issue $2")`);
+	}
 
-    protected getUrlForBranches(): string {
-        return `${this.baseUrl}/branches`;
-    }
+	protected getUrlForBranches(): string {
+		return `${this.baseUrl}/branches`;
+	}
 
-    protected getUrlForBranch(branch: string): string {
-        return `${this.baseUrl}/commits/${branch}`;
-    }
+	protected getUrlForBranch(branch: string): string {
+		return `${this.baseUrl}/commits/${branch}`;
+	}
 
-    protected getUrlForCommit(sha: string): string {
-        return `${this.baseUrl}/commit/${sha}`;
-    }
+	protected getUrlForCommit(sha: string): string {
+		return `${this.baseUrl}/commit/${sha}`;
+	}
 
-    protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
-        let line;
-        if (range) {
-            if (range.start.line === range.end.line) {
-                line = `#L${range.start.line}`;
-            }
-            else {
-                line = `#L${range.start.line}-${range.end.line}`;
-            }
-        }
-        else {
-            line = '';
-        }
+	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
+		let line;
+		if (range) {
+			if (range.start.line === range.end.line) {
+				line = `#L${range.start.line}`;
+			} else {
+				line = `#L${range.start.line}-${range.end.line}`;
+			}
+		} else {
+			line = '';
+		}
 
-        if (sha) return `${this.baseUrl}/blob/${sha}/${fileName}${line}`;
-        if (branch) return `${this.baseUrl}/blob/${branch}/${fileName}${line}`;
-        return `${this.baseUrl}?path=${fileName}${line}`;
-    }
+		if (sha) return `${this.baseUrl}/blob/${sha}/${fileName}${line}`;
+		if (branch) return `${this.baseUrl}/blob/${branch}/${fileName}${line}`;
+		return `${this.baseUrl}?path=${fileName}${line}`;
+	}
 }

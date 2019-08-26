@@ -8,39 +8,38 @@ import { CommandQuickPickItem, RepoStatusQuickPick } from '../quickpicks';
 import { ActiveEditorCachedCommand, command, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 
 export interface ShowQuickRepoStatusCommandArgs {
-    goBackCommand?: CommandQuickPickItem;
+	goBackCommand?: CommandQuickPickItem;
 }
 
 @command()
 export class ShowQuickRepoStatusCommand extends ActiveEditorCachedCommand {
-    constructor() {
-        super(Commands.ShowQuickRepoStatus);
-    }
+	constructor() {
+		super(Commands.ShowQuickRepoStatus);
+	}
 
-    async execute(editor?: TextEditor, uri?: Uri, args: ShowQuickRepoStatusCommandArgs = {}) {
-        uri = getCommandUri(uri, editor);
+	async execute(editor?: TextEditor, uri?: Uri, args: ShowQuickRepoStatusCommandArgs = {}) {
+		uri = getCommandUri(uri, editor);
 
-        try {
-            const repoPath = await getRepoPathOrActiveOrPrompt(
-                uri,
-                editor,
-                `Show status for which repository${GlyphChars.Ellipsis}`
-            );
-            if (!repoPath) return undefined;
+		try {
+			const repoPath = await getRepoPathOrActiveOrPrompt(
+				uri,
+				editor,
+				`Show status for which repository${GlyphChars.Ellipsis}`
+			);
+			if (!repoPath) return undefined;
 
-            const status = await Container.git.getStatusForRepo(repoPath);
-            if (status === undefined) return window.showWarningMessage('Unable to show repository status');
+			const status = await Container.git.getStatusForRepo(repoPath);
+			if (status === undefined) return window.showWarningMessage('Unable to show repository status');
 
-            const pick = await RepoStatusQuickPick.show(status, args.goBackCommand);
-            if (pick === undefined) return undefined;
+			const pick = await RepoStatusQuickPick.show(status, args.goBackCommand);
+			if (pick === undefined) return undefined;
 
-            if (pick instanceof CommandQuickPickItem) return pick.execute();
+			if (pick instanceof CommandQuickPickItem) return pick.execute();
 
-            return undefined;
-        }
-        catch (ex) {
-            Logger.error(ex, 'ShowQuickRepoStatusCommand');
-            return Messages.showGenericErrorMessage('Unable to show repository status');
-        }
-    }
+			return undefined;
+		} catch (ex) {
+			Logger.error(ex, 'ShowQuickRepoStatusCommand');
+			return Messages.showGenericErrorMessage('Unable to show repository status');
+		}
+	}
 }

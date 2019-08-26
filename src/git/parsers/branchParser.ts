@@ -9,63 +9,62 @@ const lb = '%3c'; // `%${'<'.charCodeAt(0).toString(16)}`;
 const rb = '%3e'; // `%${'>'.charCodeAt(0).toString(16)}`;
 
 export class GitBranchParser {
-    static defaultFormat = [
-        `${lb}h${rb}%(HEAD)`, // HEAD indicator
-        `${lb}n${rb}%(refname)`, // branch name
-        `${lb}u${rb}%(upstream:short)`, // branch upstream
-        `${lb}t${rb}%(upstream:track)`, // branch upstream tracking state
-        `${lb}r${rb}%(objectname)` // ref
-    ].join('');
+	static defaultFormat = [
+		`${lb}h${rb}%(HEAD)`, // HEAD indicator
+		`${lb}n${rb}%(refname)`, // branch name
+		`${lb}u${rb}%(upstream:short)`, // branch upstream
+		`${lb}t${rb}%(upstream:track)`, // branch upstream tracking state
+		`${lb}r${rb}%(objectname)` // ref
+	].join('');
 
-    @debug({ args: false, singleLine: true })
-    static parse(data: string, repoPath: string): GitBranch[] {
-        const branches: GitBranch[] = [];
+	@debug({ args: false, singleLine: true })
+	static parse(data: string, repoPath: string): GitBranch[] {
+		const branches: GitBranch[] = [];
 
-        if (!data) return branches;
+		if (!data) return branches;
 
-        let current;
-        let name;
-        let tracking;
-        let ahead;
-        let behind;
-        let ref;
+		let current;
+		let name;
+		let tracking;
+		let ahead;
+		let behind;
+		let ref;
 
-        let remote;
+		let remote;
 
-        let match: RegExpExecArray | null;
-        do {
-            match = branchWithTrackingRegex.exec(data);
-            if (match == null) break;
+		let match: RegExpExecArray | null;
+		do {
+			match = branchWithTrackingRegex.exec(data);
+			if (match == null) break;
 
-            [, current, name, tracking, ahead, behind, ref] = match;
+			[, current, name, tracking, ahead, behind, ref] = match;
 
-            if (name.startsWith('refs/remotes/')) {
-                // Strip off refs/remotes/
-                name = name.substr(13);
-                remote = true;
-            }
-            else {
-                // Strip off refs/heads/
-                name = name.substr(11);
-                remote = false;
-            }
+			if (name.startsWith('refs/remotes/')) {
+				// Strip off refs/remotes/
+				name = name.substr(13);
+				remote = true;
+			} else {
+				// Strip off refs/heads/
+				name = name.substr(11);
+				remote = false;
+			}
 
-            branches.push(
-                new GitBranch(
-                    repoPath,
-                    name,
-                    remote,
-                    current.charCodeAt(0) === 42, // '*',
-                    // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-                    ref == null || ref.length === 0 ? undefined : ` ${ref}`.substr(1),
-                    // Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-                    tracking == null || tracking.length === 0 ? undefined : ` ${tracking}`.substr(1),
-                    Number(ahead) || 0,
-                    Number(behind) || 0
-                )
-            );
-        } while (match != null);
+			branches.push(
+				new GitBranch(
+					repoPath,
+					name,
+					remote,
+					current.charCodeAt(0) === 42, // '*',
+					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+					ref == null || ref.length === 0 ? undefined : ` ${ref}`.substr(1),
+					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+					tracking == null || tracking.length === 0 ? undefined : ` ${tracking}`.substr(1),
+					Number(ahead) || 0,
+					Number(behind) || 0
+				)
+			);
+		} while (match != null);
 
-        return branches;
-    }
+		return branches;
+	}
 }

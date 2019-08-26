@@ -9,70 +9,68 @@ import { ActiveEditorCachedCommand, command, Commands, getCommandUri, getRepoPat
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
 
 export interface ShowQuickStashListCommandArgs {
-    goBackCommand?: CommandQuickPickItem;
+	goBackCommand?: CommandQuickPickItem;
 }
 
 @command()
 export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
-    constructor() {
-        super(Commands.ShowQuickStashList);
-    }
+	constructor() {
+		super(Commands.ShowQuickStashList);
+	}
 
-    async execute(editor?: TextEditor, uri?: Uri, args: ShowQuickStashListCommandArgs = {}) {
-        uri = getCommandUri(uri, editor);
+	async execute(editor?: TextEditor, uri?: Uri, args: ShowQuickStashListCommandArgs = {}) {
+		uri = getCommandUri(uri, editor);
 
-        const repoPath = await getRepoPathOrActiveOrPrompt(
-            uri,
-            editor,
-            `Show stashes for which repository${GlyphChars.Ellipsis}`
-        );
-        if (!repoPath) return undefined;
+		const repoPath = await getRepoPathOrActiveOrPrompt(
+			uri,
+			editor,
+			`Show stashes for which repository${GlyphChars.Ellipsis}`
+		);
+		if (!repoPath) return undefined;
 
-        const progressCancellation = StashListQuickPick.showProgress('list');
+		const progressCancellation = StashListQuickPick.showProgress('list');
 
-        try {
-            const stash = await Container.git.getStashList(repoPath);
-            if (stash === undefined) return window.showWarningMessage('Unable to show stashes');
+		try {
+			const stash = await Container.git.getStashList(repoPath);
+			if (stash === undefined) return window.showWarningMessage('Unable to show stashes');
 
-            if (progressCancellation.token.isCancellationRequested) return undefined;
+			if (progressCancellation.token.isCancellationRequested) return undefined;
 
-            // Create a command to get back to here
-            const currentCommandArgs: ShowQuickStashListCommandArgs = {
-                goBackCommand: args.goBackCommand
-            };
-            const currentCommand = new CommandQuickPickItem(
-                {
-                    label: `go back ${GlyphChars.ArrowBack}`,
-                    description: 'to stashes'
-                },
-                Commands.ShowQuickStashList,
-                [uri, currentCommandArgs]
-            );
+			// Create a command to get back to here
+			const currentCommandArgs: ShowQuickStashListCommandArgs = {
+				goBackCommand: args.goBackCommand
+			};
+			const currentCommand = new CommandQuickPickItem(
+				{
+					label: `go back ${GlyphChars.ArrowBack}`,
+					description: 'to stashes'
+				},
+				Commands.ShowQuickStashList,
+				[uri, currentCommandArgs]
+			);
 
-            const pick = await StashListQuickPick.show(
-                stash,
-                'list',
-                progressCancellation,
-                args.goBackCommand,
-                currentCommand
-            );
-            if (pick === undefined) return undefined;
+			const pick = await StashListQuickPick.show(
+				stash,
+				'list',
+				progressCancellation,
+				args.goBackCommand,
+				currentCommand
+			);
+			if (pick === undefined) return undefined;
 
-            if (pick instanceof CommandQuickPickItem) return pick.execute();
+			if (pick instanceof CommandQuickPickItem) return pick.execute();
 
-            const commandArgs: ShowQuickCommitDetailsCommandArgs = {
-                commit: pick.item,
-                sha: pick.item.sha,
-                goBackCommand: currentCommand
-            };
-            return commands.executeCommand(Commands.ShowQuickCommitDetails, pick.item.toGitUri(), commandArgs);
-        }
-        catch (ex) {
-            Logger.error(ex, 'ShowQuickStashListCommand');
-            return Messages.showGenericErrorMessage('Unable to show stashes');
-        }
-        finally {
-            progressCancellation.cancel();
-        }
-    }
+			const commandArgs: ShowQuickCommitDetailsCommandArgs = {
+				commit: pick.item,
+				sha: pick.item.sha,
+				goBackCommand: currentCommand
+			};
+			return commands.executeCommand(Commands.ShowQuickCommitDetails, pick.item.toGitUri(), commandArgs);
+		} catch (ex) {
+			Logger.error(ex, 'ShowQuickStashListCommand');
+			return Messages.showGenericErrorMessage('Unable to show stashes');
+		} finally {
+			progressCancellation.cancel();
+		}
+	}
 }

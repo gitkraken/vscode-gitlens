@@ -10,71 +10,71 @@ import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, showQuickPickProgress
 import { CommitQuickPickItem } from './gitQuickPicks';
 
 export class StashListQuickPick {
-    static showProgress(mode: 'list' | 'apply') {
-        const message =
-            mode === 'apply'
-                ? `Apply stash to your working tree${GlyphChars.Ellipsis}`
-                : `stashes ${GlyphChars.Dash} search by message, filename, or commit id`;
-        return showQuickPickProgress(message, {
-            left: KeyNoopCommand,
-            ',': KeyNoopCommand,
-            '.': KeyNoopCommand
-        });
-    }
+	static showProgress(mode: 'list' | 'apply') {
+		const message =
+			mode === 'apply'
+				? `Apply stash to your working tree${GlyphChars.Ellipsis}`
+				: `stashes ${GlyphChars.Dash} search by message, filename, or commit id`;
+		return showQuickPickProgress(message, {
+			left: KeyNoopCommand,
+			',': KeyNoopCommand,
+			'.': KeyNoopCommand
+		});
+	}
 
-    static async show(
-        stash: GitStash,
-        mode: 'list' | 'apply',
-        progressCancellation: CancellationTokenSource,
-        goBackCommand?: CommandQuickPickItem,
-        currentCommand?: CommandQuickPickItem
-    ): Promise<CommitQuickPickItem<GitStashCommit> | CommandQuickPickItem | undefined> {
-        const items = ((stash &&
-            Array.from(Iterables.map(stash.commits.values(), c => CommitQuickPickItem.create<GitStashCommit>(c)))) ||
-            []) as (CommitQuickPickItem<GitStashCommit> | CommandQuickPickItem)[];
+	static async show(
+		stash: GitStash,
+		mode: 'list' | 'apply',
+		progressCancellation: CancellationTokenSource,
+		goBackCommand?: CommandQuickPickItem,
+		currentCommand?: CommandQuickPickItem
+	): Promise<CommitQuickPickItem<GitStashCommit> | CommandQuickPickItem | undefined> {
+		const items = ((stash &&
+			Array.from(Iterables.map(stash.commits.values(), c => CommitQuickPickItem.create<GitStashCommit>(c)))) ||
+			[]) as (CommitQuickPickItem<GitStashCommit> | CommandQuickPickItem)[];
 
-        if (mode === 'list') {
-            const commandArgs: StashSaveCommandArgs = {
-                goBackCommand: currentCommand
-            };
-            items.splice(
-                0,
-                0,
-                new CommandQuickPickItem(
-                    {
-                        label: '$(plus) Stash Changes',
-                        description: 'stashes all changes'
-                    },
-                    Commands.StashSave,
-                    [commandArgs]
-                )
-            );
-        }
+		if (mode === 'list') {
+			const commandArgs: StashSaveCommandArgs = {
+				goBackCommand: currentCommand
+			};
+			items.splice(
+				0,
+				0,
+				new CommandQuickPickItem(
+					{
+						label: '$(plus) Stash Changes',
+						description: 'stashes all changes'
+					},
+					Commands.StashSave,
+					[commandArgs]
+				)
+			);
+		}
 
-        if (goBackCommand) {
-            items.splice(0, 0, goBackCommand);
-        }
+		if (goBackCommand) {
+			items.splice(0, 0, goBackCommand);
+		}
 
-        if (progressCancellation.token.isCancellationRequested) return undefined;
+		if (progressCancellation.token.isCancellationRequested) return undefined;
 
-        const scope = await Container.keyboard.beginScope({ left: goBackCommand });
+		const scope = await Container.keyboard.beginScope({ left: goBackCommand });
 
-        progressCancellation.cancel();
+		progressCancellation.cancel();
 
-        const pick = await window.showQuickPick(items, {
-            matchOnDescription: true,
-            placeHolder:
-                mode === 'apply'
-                    ? `Apply stash to your working tree${GlyphChars.Ellipsis}`
-                    : `stashes ${GlyphChars.Dash} search by message, filename, or commit id`,
-            ignoreFocusOut: getQuickPickIgnoreFocusOut()
-            // onDidSelectItem: (item: QuickPickItem) => {
-            //     scope.setKeyCommand('right', item);
-            // }
-        });
+		const pick = await window.showQuickPick(items, {
+			matchOnDescription: true,
+			placeHolder:
+				mode === 'apply'
+					? `Apply stash to your working tree${GlyphChars.Ellipsis}`
+					: `stashes ${GlyphChars.Dash} search by message, filename, or commit id`,
+			ignoreFocusOut: getQuickPickIgnoreFocusOut()
+			// onDidSelectItem: (item: QuickPickItem) => {
+			//     scope.setKeyCommand('right', item);
+			// }
+		});
 
-        await scope.dispose();
+		await scope.dispose();
 
-        return pick;
-    }
+		return pick;
+	}
 }
