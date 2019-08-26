@@ -5,6 +5,7 @@
 		".eslintrc.json": "jsonc"
 	},
 	"files.trimTrailingWhitespace": true,
+	"gitlens.advanced.blame.customArguments": ["--ignore-revs-file", ".gitignore-revs"],
 	"npm.packageManager": "yarn",
 	"postcssSorting.config": {
 		"order": ["custom-properties", "dollar-variables", "declarations", "at-rules", "rules"],
