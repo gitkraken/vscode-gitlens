@@ -177,8 +177,8 @@ async function showWelcomePage(version: string, previousVersion: string | undefi
             Logger.log(`GitLens upgraded from v${previousVersion} to v${version}`);
         }
 
-        const [major, minor] = version.split('.').map(v => parseInt(v));
-        const [prevMajor, prevMinor] = previousVersion.split('.').map(v => parseInt(v));
+        const [major, minor] = version.split('.').map(v => parseInt(v, 10));
+        const [prevMajor, prevMinor] = previousVersion.split('.').map(v => parseInt(v, 10));
         if (
             (major === prevMajor && minor === prevMinor) ||
             // Don't notify on downgrades
