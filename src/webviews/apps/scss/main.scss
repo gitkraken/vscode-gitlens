@@ -10,6 +10,10 @@ body {
 	height: 100%;
 	line-height: 1.4;
 	font-size: 100% !important;
+
+	&.vscode-light {
+		background-color: var(--color-background--darken-075);
+	}
 }
 
 // canvas.snow {
@@ -154,12 +158,12 @@ input:not([type]) {
 	padding: 4px;
 	width: 100%;
 
-	.vscode-light & {
-		border: 1px solid rgba(0, 0, 0, 0.3);
-	}
-
 	.vscode-dark & {
 		border: 1px solid rgba(255, 255, 255, 0.3);
+	}
+
+	.vscode-light & {
+		border: 1px solid rgba(0, 0, 0, 0.3);
 	}
 
 	&:focus {
@@ -327,15 +331,16 @@ ul {
 	transition: background-color 250ms, border-color 250ms, color 250ms;
 
 	&:hover {
-		.vscode-light & {
-			background-color: var(--color-button-background--darken-30);
-			border-color: var(--color-button-background--darken-30);
-			color: white !important;
-		}
 		.vscode-dark & {
 			background-color: white;
 			border-color: white;
 			color: black !important;
+		}
+
+		.vscode-light & {
+			background-color: var(--color-button-background--darken-30);
+			border-color: var(--color-button-background--darken-30);
+			color: white !important;
 		}
 	}
 
@@ -352,6 +357,10 @@ ul {
 
 	b {
 		color: var(--color-foreground--85);
+	}
+
+	.vscode-light & {
+		color: var(--color-foreground--75);
 	}
 }
 
@@ -378,12 +387,12 @@ ul {
 	grid-area: content;
 	font-size: 1.4rem;
 
-	.vscode-light & {
-		background-color: var(--color-background--darken-05);
-	}
-
 	.vscode-dark & {
 		background-color: var(--color-background--lighten-05);
+	}
+
+	.vscode-light & {
+		background-color: var(--color-background);
 	}
 
 	@media all and (max-width: 768px) {
@@ -485,6 +494,10 @@ ul {
 	top: -1px;
 	z-index: 1;
 	grid-column: span 1;
+
+	.vscode-light & {
+		background: var(--color-background--darken-075);
+	}
 }
 
 .hero__row {
@@ -652,11 +665,15 @@ section {
 	}
 
 	.vscode-light & {
-		background: var(--color-background--darken-075);
+		background: var(--color-background--darken-05);
 	}
 }
 
 .section--collapsible {
+	.vscode-light & {
+		background: var(--color-background);
+	}
+
 	.section__header {
 		cursor: pointer;
 		flex: 1 0 100%;
@@ -818,10 +835,17 @@ section {
 }
 
 .section__title--break {
-	border-top: 1px solid var(--color-background--lighten-30);
 	margin: 0.3em 15% 0 15%;
 	padding-top: 1em;
 	justify-content: center;
+
+	.vscode-dark & {
+		border-top: 1px solid var(--color-background--lighten-30);
+	}
+
+	.vscode-light & {
+		border-top: 1px solid var(--color-background--darken-30);
+	}
 }
 
 .setting {
