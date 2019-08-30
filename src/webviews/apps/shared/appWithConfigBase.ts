@@ -9,6 +9,9 @@ import {
 } from '../../protocol';
 import { DOM } from './dom';
 import { App } from './appBase';
+import { Dates } from '../../../system/date';
+
+const dateFormatter = Dates.getFormatter(new Date('Wed Jul 25 2018 19:18:00 GMT-0400'));
 
 export abstract class AppWithConfig<TState extends AppStateWithConfig> extends App<TState> {
 	private _changes: { [key: string]: any } = Object.create(null);
@@ -23,16 +26,25 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 	}
 
 	protected onBind(me: this) {
-		DOM.listenAll('input[type=checkbox].setting', 'change', function(this: HTMLInputElement) {
+		DOM.listenAll('input[type=checkbox][data-setting]', 'change', function(this: HTMLInputElement) {
 			return me.onInputChecked(this);
 		});
-		DOM.listenAll('input[type=text].setting, input:not([type]).setting', 'blur', function(this: HTMLInputElement) {
+		DOM.listenAll('input[type=text][data-setting], input:not([type])[data-setting]', 'blur', function(
+			this: HTMLInputElement
+		) {
 			return me.onInputBlurred(this);
 		});
-		DOM.listenAll('input[type=text].setting, input:not([type]).setting', 'focus', function(this: HTMLInputElement) {
+		DOM.listenAll('input[type=text][data-setting], input:not([type])[data-setting]', 'focus', function(
+			this: HTMLInputElement
+		) {
 			return me.onInputFocused(this);
 		});
-		DOM.listenAll('select.setting', 'change', function(this: HTMLSelectElement) {
+		DOM.listenAll('input[type=text][data-setting][data-setting-preview]', 'input', function(
+			this: HTMLInputElement
+		) {
+			return me.onInputChanged(this);
+		});
+		DOM.listenAll('select[data-setting]', 'change', function(this: HTMLSelectElement) {
 			return me.onInputSelected(this);
 		});
 		DOM.listenAll('.popup', 'mousedown', function(this: HTMLElement, e: Event) {
@@ -95,6 +107,14 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 		this.applyChanges();
 	}
 
+	protected onInputChanged(element: HTMLInputElement) {
+		if (this._updating) return;
+
+		for (const el of document.querySelectorAll<HTMLSpanElement>(`span[data-setting-preview="${element.name}"]`)) {
+			this.updatePreview(el, element.value);
+		}
+	}
+
 	protected onInputChecked(element: HTMLInputElement) {
 		if (this._updating) return;
 
@@ -102,7 +122,7 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 			`${this.appName}.onInputChecked: name=${element.name}, checked=${element.checked}, value=${element.value}`
 		);
 
-		switch (element.dataset.type) {
+		switch (element.dataset.settingType) {
 			case 'object': {
 				const props = element.name.split('.');
 				const settingName = props.splice(0, 1)[0];
@@ -140,7 +160,7 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 				if (element.checked) {
 					this._changes[element.name] = fromCheckboxValue(element.value);
 				} else {
-					this._changes[element.name] = false;
+					this._changes[element.name] = element.dataset.valueOff == null ? false : element.dataset.valueOff;
 				}
 
 				break;
@@ -193,7 +213,7 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 
 		this.log(`${this.appName}.onTokenClicked: id=${element.id}`);
 
-		const setting = element.closest('.settings-group__setting');
+		const setting = element.closest('.setting');
 		if (setting == null) return;
 
 		const input = setting.querySelector<HTMLInputElement>('input[type=text], input:not([type])');
@@ -253,26 +273,33 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 		this._updating = true;
 
 		try {
-			for (const el of document.querySelectorAll<HTMLInputElement>('input[type=checkbox].setting')) {
-				const checked =
-					el.dataset.type === 'array'
-						? (this.getSettingValue<string[]>(el.name) || []).includes(el.value)
-						: this.getSettingValue<boolean>(el.name) || false;
-				el.checked = checked;
+			for (const el of document.querySelectorAll<HTMLInputElement>('input[type=checkbox][data-setting]')) {
+				if (el.dataset.settingType === 'array') {
+					el.checked = (this.getSettingValue<string[]>(el.name) || []).includes(el.value);
+				} else if (el.dataset.valueOff != null) {
+					const value = this.getSettingValue<string>(el.name);
+					el.checked = el.dataset.valueOff !== value;
+				} else {
+					el.checked = this.getSettingValue<boolean>(el.name) || false;
+				}
 			}
 
 			for (const el of document.querySelectorAll<HTMLInputElement>(
-				'input[type=text].setting, input:not([type]).setting'
+				'input[type=text][data-setting], input:not([type])[data-setting]'
 			)) {
 				el.value = this.getSettingValue<string>(el.name) || '';
 			}
 
-			for (const el of document.querySelectorAll<HTMLSelectElement>('select.setting')) {
+			for (const el of document.querySelectorAll<HTMLSelectElement>('select[data-setting]')) {
 				const value = this.getSettingValue<string>(el.name);
 				const option = el.querySelector<HTMLOptionElement>(`option[value='${value}']`);
 				if (option != null) {
 					option.selected = true;
 				}
+			}
+
+			for (const el of document.querySelectorAll<HTMLSpanElement>('span[data-setting-preview]')) {
+				this.updatePreview(el);
 			}
 		} finally {
 			this._updating = false;
@@ -315,6 +342,25 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 	private setVisibility(state: { [key: string]: string | boolean }) {
 		for (const el of document.querySelectorAll<HTMLElement>('[data-visibility]')) {
 			el.classList.toggle('hidden', !this.evaluateStateExpression(el.dataset.visibility!, state));
+		}
+	}
+
+	private updatePreview(el: HTMLSpanElement, value?: string) {
+		switch (el.dataset.settingPreviewType) {
+			case 'date':
+				if (value === undefined) {
+					value = this.getSettingValue<string>(el.dataset.settingPreview!);
+				}
+
+				if (value == null || value.length === 0) {
+					value = el.dataset.settingPreviewDefault;
+				}
+
+				el.innerText = value == null ? '' : dateFormatter.format(value);
+				break;
+
+			default:
+				break;
 		}
 	}
 }

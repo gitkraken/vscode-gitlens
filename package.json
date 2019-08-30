@@ -4374,25 +4374,21 @@
 				{
 					"command": "gitlens.showSettingsPage#file-history-view",
 					"when": "view =~ /^gitlens\\.views\\.fileHistory:/",
-					"args": "general",
 					"group": "9_gitlens"
 				},
 				{
 					"command": "gitlens.showSettingsPage#line-history-view",
 					"when": "view =~ /^gitlens\\.views\\.lineHistory:/",
-					"args": "general",
 					"group": "9_gitlens"
 				},
 				{
 					"command": "gitlens.showSettingsPage#search-commits-view",
 					"when": "view =~ /^gitlens\\.views\\.search:/",
-					"args": "general",
 					"group": "9_gitlens"
 				},
 				{
-					"command": "gitlens.showSettingsPage#compare-view",
+					"command": "gitlens.showSettingsPage",
 					"when": "view =~ /^gitlens\\.views\\.compare:/",
-					"args": "general",
 					"group": "9_gitlens"
 				}
 			],

@@ -1,7 +1,7 @@
 'use strict';
-import { commands, ConfigurationTarget, Disposable, workspace } from 'vscode';
+import { commands, Disposable, workspace } from 'vscode';
 import { Commands } from '../commands';
-import { Config, configuration, ViewLocation } from '../configuration';
+import { Config, configuration } from '../configuration';
 import {
 	IpcMessage,
 	onIpcCommand,
@@ -10,6 +10,7 @@ import {
 	SettingsState
 } from './protocol';
 import { WebviewBase } from './webviewBase';
+import { applyViewLayoutPreset } from './helpers';
 
 const anchorRegex = /.*?#(.*)/;
 
@@ -35,16 +36,16 @@ export class SettingsWebview extends WebviewBase {
 					[, anchor] = match;
 				}
 
-				return commands.registerCommand(
-					c,
-					() => {
-						this._pendingJumpToAnchor = anchor;
-						return this.show();
-					},
-					this
-				);
+				return commands.registerCommand(c, () => this.onShowCommand(anchor), this);
 			})
 		);
+	}
+
+	protected onShowCommand(anchor?: string) {
+		if (anchor) {
+			this._pendingJumpToAnchor = anchor;
+		}
+		super.onShowCommand();
 	}
 
 	protected onMessageReceived(e: IpcMessage) {
@@ -96,57 +97,6 @@ export class SettingsWebview extends WebviewBase {
 	}
 
 	registerCommands() {
-		return [commands.registerCommand(`${this.id}.applyViewLayoutPreset`, this.applyViewLayoutPreset, this)];
-	}
-
-	private applyViewLayoutPreset(preset: 'contextual' | 'default' | 'scm') {
-		let repositories;
-		let histories;
-		let compareAndSearch;
-		switch (preset) {
-			case 'contextual':
-				repositories = ViewLocation.SourceControl;
-				histories = ViewLocation.Explorer;
-				compareAndSearch = ViewLocation.GitLens;
-				break;
-			case 'default':
-				repositories = ViewLocation.GitLens;
-				histories = ViewLocation.GitLens;
-				compareAndSearch = ViewLocation.GitLens;
-				break;
-			case 'scm':
-				repositories = ViewLocation.SourceControl;
-				histories = ViewLocation.SourceControl;
-				compareAndSearch = ViewLocation.SourceControl;
-				break;
-			default:
-				return;
-		}
-
-		configuration.update(
-			configuration.name('views')('repositories')('location').value,
-			repositories,
-			ConfigurationTarget.Global
-		);
-		configuration.update(
-			configuration.name('views')('fileHistory')('location').value,
-			histories,
-			ConfigurationTarget.Global
-		);
-		configuration.update(
-			configuration.name('views')('lineHistory')('location').value,
-			histories,
-			ConfigurationTarget.Global
-		);
-		configuration.update(
-			configuration.name('views')('compare')('location').value,
-			compareAndSearch,
-			ConfigurationTarget.Global
-		);
-		configuration.update(
-			configuration.name('views')('search')('location').value,
-			compareAndSearch,
-			ConfigurationTarget.Global
-		);
+		return [commands.registerCommand(`${this.id}.applyViewLayoutPreset`, applyViewLayoutPreset, this)];
 	}
 }

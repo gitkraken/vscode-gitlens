@@ -35,7 +35,7 @@ export class SettingsApp extends AppWithConfig<SettingsState> {
 		}
 
 		let top = 83;
-		const header = document.querySelector('.page-header--sticky');
+		const header = document.querySelector('.hero__area--sticky');
 		if (header != null) {
 			top = header.clientHeight;
 		}
@@ -54,11 +54,22 @@ export class SettingsApp extends AppWithConfig<SettingsState> {
 	protected onBind(me: this) {
 		super.onBind(me);
 
-		DOM.listenAll('.section__header', 'click', function(this: HTMLInputElement, e: Event) {
+		DOM.listenAll('.section--collapsible>.section__header', 'click', function(this: HTMLInputElement, e: Event) {
 			return me.onSectionHeaderClicked(this, e as MouseEvent);
+		});
+		DOM.listenAll('.setting--expandable .setting__expander', 'click', function(this: HTMLInputElement, e: Event) {
+			return me.onSettingExpanderCicked(this, e as MouseEvent);
+		});
+		DOM.listenAll('a[data-action="jump"]', 'mousedown', (e: Event) => {
+			e.stopPropagation();
+			e.preventDefault();
 		});
 		DOM.listenAll('a[data-action="jump"]', 'click', function(this: HTMLAnchorElement, e: Event) {
 			return me.onJumpToLinkClicked(this, e as MouseEvent);
+		});
+		DOM.listenAll('[data-action]', 'mousedown', (e: Event) => {
+			e.stopPropagation();
+			e.preventDefault();
 		});
 		DOM.listenAll('[data-action]', 'click', function(this: HTMLAnchorElement, e: Event) {
 			return me.onActionLinkClicked(this, e as MouseEvent);
@@ -85,31 +96,41 @@ export class SettingsApp extends AppWithConfig<SettingsState> {
 	private onObserver(entries: IntersectionObserverEntry[], observer: IntersectionObserver) {
 		for (const entry of entries) {
 			this._sections.set(entry.target.parentElement!.id, entry.isIntersecting);
+		}
 
-			let nextActive: string | undefined;
-			for (const [id, visible] of this._sections.entries()) {
-				if (nextActive === undefined) {
-					nextActive = this._activeSection === 'modes' ? 'modes' : id;
-				}
-
-				if (!visible) continue;
-
+		let nextActive: string | undefined;
+		for (const [id, visible] of this._sections.entries()) {
+			if (visible) {
 				nextActive = id;
+
 				break;
 			}
+		}
 
-			if (this._activeSection === nextActive) return;
+		if (nextActive === undefined) {
+			if (entries.length !== 1) return;
 
-			if (this._activeSection !== undefined) {
-				this.toggleJumpLink(this._activeSection, false);
-			}
+			const entry = entries[0];
+			if (entry.boundingClientRect == null || entry.rootBounds == null) return;
 
-			this._activeSection = nextActive;
+			nextActive = entry.target.parentElement!.id;
+			if (entry.boundingClientRect.top >= entry.rootBounds.bottom) {
+				const keys = [...this._sections.keys()];
+				const index = keys.indexOf(nextActive);
+				if (index <= 0) return;
 
-			if (this._activeSection !== undefined) {
-				this.toggleJumpLink(this._activeSection, true);
+				nextActive = keys[index - 1];
 			}
 		}
+
+		if (this._activeSection === nextActive) return;
+
+		if (this._activeSection !== undefined) {
+			this.toggleJumpLink(this._activeSection, false);
+		}
+
+		this._activeSection = nextActive;
+		this.toggleJumpLink(this._activeSection, true);
 	}
 
 	protected getSettingsScope(): 'user' | 'workspace' {
@@ -121,7 +142,7 @@ export class SettingsApp extends AppWithConfig<SettingsState> {
 	private onActionLinkClicked(element: HTMLElement, e: MouseEvent) {
 		switch (element.dataset.action) {
 			case 'collapse':
-				for (const el of document.querySelectorAll('.section__header')) {
+				for (const el of document.querySelectorAll('.section--collapsible')) {
 					el.classList.add('collapsed');
 				}
 
@@ -130,7 +151,7 @@ export class SettingsApp extends AppWithConfig<SettingsState> {
 				break;
 
 			case 'expand':
-				for (const el of document.querySelectorAll('.section__header')) {
+				for (const el of document.querySelectorAll('.section--collapsible')) {
 					el.classList.remove('collapsed');
 				}
 
@@ -161,14 +182,15 @@ export class SettingsApp extends AppWithConfig<SettingsState> {
 	}
 
 	private onSectionHeaderClicked(element: HTMLElement, e: MouseEvent) {
-		if (
-			(e.target as HTMLElement).matches('i.icon__info') ||
-			(e.target as HTMLElement).matches('a.link__learn-more')
-		) {
+		if ((e.target as HTMLElement).matches('a, input, label, i.icon__info')) {
 			return;
 		}
 
-		element.classList.toggle('collapsed');
+		element.parentElement!.classList.toggle('collapsed');
+	}
+
+	private onSettingExpanderCicked(element: HTMLElement, e: MouseEvent) {
+		element.parentElement!.parentElement!.classList.toggle('expanded');
 	}
 
 	private scrollToAnchor(anchor: string) {
@@ -177,7 +199,7 @@ export class SettingsApp extends AppWithConfig<SettingsState> {
 
 		let height = 83;
 
-		const header = document.querySelector('.page-header--sticky');
+		const header = document.querySelector('.hero__area--sticky');
 		if (header != null) {
 			height = header.clientHeight;
 		}

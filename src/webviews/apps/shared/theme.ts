@@ -53,6 +53,7 @@ export function initializeAndWatchThemeColors() {
 		bodyStyle.setProperty('--color-foreground', color);
 		bodyStyle.setProperty('--color-foreground--85', opacity(color, 85));
 		bodyStyle.setProperty('--color-foreground--75', opacity(color, 75));
+		bodyStyle.setProperty('--color-foreground--65', opacity(color, 65));
 		bodyStyle.setProperty('--color-foreground--50', opacity(color, 50));
 
 		color = computedStyle.getPropertyValue('--vscode-focusBorder').trim();

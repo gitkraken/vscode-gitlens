@@ -41,10 +41,10 @@ export abstract class WebviewBase implements Disposable {
 	private _disposablePanel: Disposable | undefined;
 	private _panel: WebviewPanel | undefined;
 
-	constructor(showCommand: Commands, column?: ViewColumn) {
+	constructor(showCommand: Commands, private readonly _column?: ViewColumn) {
 		this._disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
-			commands.registerCommand(showCommand, () => this.show(column), this)
+			commands.registerCommand(showCommand, this.onShowCommand, this)
 		);
 	}
 
@@ -63,6 +63,10 @@ export abstract class WebviewBase implements Disposable {
 	dispose() {
 		this._disposable && this._disposable.dispose();
 		this._disposablePanel && this._disposablePanel.dispose();
+	}
+
+	protected onShowCommand() {
+		this.show(this._column);
 	}
 
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
