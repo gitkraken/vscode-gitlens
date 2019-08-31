@@ -11,12 +11,12 @@ import {
 	StepSelection
 } from './quickCommand';
 import { Directive, DirectiveQuickPickItem } from '../quickpicks';
-import { CherryPickGitCommand } from './git/cherry-pick';
+import { CherryPickGitCommand, CherryPickGitCommandArgs } from './git/cherry-pick';
 import { FetchGitCommand, FetchGitCommandArgs } from './git/fetch';
-import { MergeGitCommand } from './git/merge';
+import { MergeGitCommand, MergeGitCommandArgs } from './git/merge';
 import { PullGitCommand, PullGitCommandArgs } from './git/pull';
 import { PushGitCommand, PushGitCommandArgs } from './git/push';
-import { RebaseGitCommand } from './git/rebase';
+import { RebaseGitCommand, RebaseGitCommandArgs } from './git/rebase';
 import { StashGitCommand, StashGitCommandArgs } from './git/stash';
 import { SwitchGitCommand, SwitchGitCommandArgs } from './git/switch';
 import { Container } from '../container';
@@ -25,9 +25,12 @@ import { configuration } from '../configuration';
 const sanitizeLabel = /\$\(.+?\)|\W/g;
 
 export type GitCommandsCommandArgs =
+	| CherryPickGitCommandArgs
 	| FetchGitCommandArgs
+	| MergeGitCommandArgs
 	| PullGitCommandArgs
 	| PushGitCommandArgs
+	| RebaseGitCommandArgs
 	| StashGitCommandArgs
 	| SwitchGitCommandArgs;
 
@@ -39,12 +42,12 @@ class PickCommandStep implements QuickPickStep {
 
 	constructor(args?: GitCommandsCommandArgs) {
 		this.items = [
-			new CherryPickGitCommand(),
-			new MergeGitCommand(),
+			new CherryPickGitCommand(args && args.command === 'cherry-pick' ? args : undefined),
+			new MergeGitCommand(args && args.command === 'merge' ? args : undefined),
 			new FetchGitCommand(args && args.command === 'fetch' ? args : undefined),
 			new PullGitCommand(args && args.command === 'pull' ? args : undefined),
 			new PushGitCommand(args && args.command === 'push' ? args : undefined),
-			new RebaseGitCommand(),
+			new RebaseGitCommand(args && args.command === 'rebase' ? args : undefined),
 			new StashGitCommand(args && args.command === 'stash' ? args : undefined),
 			new SwitchGitCommand(args && args.command === 'switch' ? args : undefined)
 		];

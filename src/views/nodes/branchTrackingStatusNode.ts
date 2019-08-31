@@ -39,6 +39,10 @@ export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements
 		}):status:upstream:(${this.status.upstream}):${this.direction}`;
 	}
 
+	get repoPath(): string {
+		return this.uri.repoPath!;
+	}
+
 	async getChildren(): Promise<ViewNode[]> {
 		const ahead = this.direction === 'ahead';
 		const range = ahead

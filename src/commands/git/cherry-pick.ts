@@ -19,13 +19,45 @@ import { Logger } from '../../logger';
 interface State {
 	repo: Repository;
 	destination: GitBranch;
-	source: GitBranch | GitReference;
+	source?: GitBranch | GitReference;
 	commits?: GitLogCommit[];
 }
 
+export interface CherryPickGitCommandArgs {
+	readonly command: 'cherry-pick';
+	state?: Partial<State>;
+}
+
 export class CherryPickGitCommand extends QuickCommandBase<State> {
-	constructor() {
+	constructor(args?: CherryPickGitCommandArgs) {
 		super('cherry-pick', 'cherry-pick', 'Cherry Pick', false, { description: 'via Terminal' });
+
+		if (args === undefined || args.state === undefined) return;
+
+		let counter = 0;
+		if (args.state.repo !== undefined) {
+			counter++;
+		}
+
+		if (args.state.destination !== undefined) {
+			counter++;
+		}
+
+		if (args.state.source !== undefined) {
+			counter++;
+
+			if (!GitBranch.is(args.state.source)) {
+				counter++;
+			}
+		} else if (args.state.commits !== undefined) {
+			counter++;
+		}
+
+		this._initialState = {
+			counter: counter,
+			confirm: true,
+			...args.state
+		};
 	}
 
 	execute(state: State) {
@@ -35,7 +67,7 @@ export class CherryPickGitCommand extends QuickCommandBase<State> {
 			runGitCommandInTerminal('cherry-pick', state.commits.map(c => c.sha).join(' '), state.repo.path, true);
 		}
 
-		runGitCommandInTerminal('cherry-pick', state.source.ref, state.repo.path, true);
+		runGitCommandInTerminal('cherry-pick', state.source!.ref, state.repo.path, true);
 	}
 
 	protected async *steps(): StepAsyncGenerator {

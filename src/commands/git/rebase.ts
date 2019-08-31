@@ -22,9 +22,31 @@ interface State {
 	flags: string[];
 }
 
+export interface RebaseGitCommandArgs {
+	readonly command: 'rebase';
+	state?: Partial<State>;
+}
+
 export class RebaseGitCommand extends QuickCommandBase<State> {
-	constructor() {
+	constructor(args?: RebaseGitCommandArgs) {
 		super('rebase', 'rebase', 'Rebase', false, { description: 'via Terminal' });
+
+		if (args === undefined || args.state === undefined) return;
+
+		let counter = 0;
+		if (args.state.repo !== undefined) {
+			counter++;
+		}
+
+		if (args.state.source !== undefined) {
+			counter++;
+		}
+
+		this._initialState = {
+			counter: counter,
+			confirm: true,
+			...args.state
+		};
 	}
 
 	execute(state: State) {

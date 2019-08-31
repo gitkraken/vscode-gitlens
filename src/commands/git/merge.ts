@@ -22,9 +22,31 @@ interface State {
 	flags: string[];
 }
 
+export interface MergeGitCommandArgs {
+	readonly command: 'merge';
+	state?: Partial<State>;
+}
+
 export class MergeGitCommand extends QuickCommandBase<State> {
-	constructor() {
+	constructor(args?: MergeGitCommandArgs) {
 		super('merge', 'merge', 'Merge', false, { description: 'via Terminal' });
+
+		if (args === undefined || args.state === undefined) return;
+
+		let counter = 0;
+		if (args.state.repo !== undefined) {
+			counter++;
+		}
+
+		if (args.state.source !== undefined) {
+			counter++;
+		}
+
+		this._initialState = {
+			counter: counter,
+			confirm: true,
+			...args.state
+		};
 	}
 
 	execute(state: State) {
@@ -146,6 +168,15 @@ export class MergeGitCommand extends QuickCommandBase<State> {
 								count
 							)} from ${state.source.name} into ${state.destination.name}`,
 							item: ['--no-ff']
+						},
+						{
+							label: `Squash ${this.title}`,
+							description: `--squash ${state.source.name} into ${state.destination.name}`,
+							detail: `Will squash all commits into a single commit when merging ${Strings.pluralize(
+								'commit',
+								count
+							)} from ${state.source.name} into ${state.destination.name}`,
+							item: ['--squash']
 						}
 					]
 				);

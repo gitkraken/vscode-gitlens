@@ -153,17 +153,12 @@ export class ViewCommands {
 			this
 		);
 
-		commands.registerCommand('gitlens.views.terminalCheckoutBranch', this.terminalCheckoutBranch, this);
+		commands.registerCommand('gitlens.views.mergeBranchInto', this.merge, this);
+		commands.registerCommand('gitlens.views.rebaseOntoBranch', this.rebase, this);
+		commands.registerCommand('gitlens.views.rebaseOntoUpstream', this.rebaseToRemote, this);
+
 		commands.registerCommand('gitlens.views.terminalCreateBranch', this.terminalCreateBranch, this);
 		commands.registerCommand('gitlens.views.terminalDeleteBranch', this.terminalDeleteBranch, this);
-		commands.registerCommand('gitlens.views.terminalMergeBranch', this.terminalMergeBranch, this);
-		commands.registerCommand('gitlens.views.terminalRebaseBranch', this.terminalRebaseBranch, this);
-		commands.registerCommand('gitlens.views.terminalRebaseBranchToRemote', this.terminalRebaseBranchToRemote, this);
-		commands.registerCommand(
-			'gitlens.views.terminalSquashBranchIntoCommit',
-			this.terminalSquashBranchIntoCommit,
-			this
-		);
 		commands.registerCommand('gitlens.views.terminalCheckoutCommit', this.terminalCheckoutCommit, this);
 		commands.registerCommand('gitlens.views.terminalCherryPickCommit', this.terminalCherryPickCommit, this);
 		commands.registerCommand('gitlens.views.terminalPushCommit', this.terminalPushCommit, this);
@@ -255,6 +250,46 @@ export class ViewCommands {
 		if (node.uri.sha !== undefined && node.uri.sha !== 'HEAD') {
 			void (await Container.git.applyChangesToWorkingFile(node.uri));
 		}
+	}
+
+	private async merge(node: BranchNode | TagNode) {
+		if (!(node instanceof BranchNode) && !(node instanceof TagNode)) return undefined;
+
+		const repo = await Container.git.getRepository(node.repoPath);
+
+		const args: GitCommandsCommandArgs = {
+			command: 'merge',
+			state: { repo: repo!, source: node instanceof BranchNode ? node.branch : node.tag }
+		};
+		return commands.executeCommand(Commands.GitCommands, args);
+	}
+
+	private async rebase(node: BranchNode | TagNode) {
+		if (!(node instanceof BranchNode) && !(node instanceof TagNode)) return undefined;
+
+		const repo = await Container.git.getRepository(node.repoPath);
+
+		const args: GitCommandsCommandArgs = {
+			command: 'rebase',
+			state: { repo: repo!, source: node instanceof BranchNode ? node.branch : node.tag }
+		};
+		return commands.executeCommand(Commands.GitCommands, args);
+	}
+
+	private async rebaseToRemote(node: BranchNode | BranchTrackingStatusNode) {
+		if (!(node instanceof BranchNode) && !(node instanceof BranchTrackingStatusNode)) return undefined;
+
+		const upstream = node instanceof BranchNode ? node.branch.tracking : node.status.upstream;
+
+		const repo = await Container.git.getRepository(node.repoPath);
+		const branches = await repo!.getBranches({ filter: b => b.remote && b.name === upstream });
+		if (branches.length === 0) return undefined;
+
+		const args: GitCommandsCommandArgs = {
+			command: 'rebase',
+			state: { repo: repo!, source: branches[0] }
+		};
+		return commands.executeCommand(Commands.GitCommands, args);
 	}
 
 	private async restore(node: ViewRefFileNode) {
@@ -771,12 +806,6 @@ export class ViewCommands {
 		return node.setComparisonNotation(comparisonNotation);
 	}
 
-	terminalCheckoutBranch(node: BranchNode) {
-		if (!(node instanceof BranchNode)) return;
-
-		runGitCommandInTerminal('checkout', `${node.ref}`, node.repoPath);
-	}
-
 	async terminalCreateBranch(node: ViewRefNode) {
 		if (!(node instanceof ViewRefNode)) return;
 
@@ -806,34 +835,6 @@ export class ViewCommands {
 		} else {
 			runGitCommandInTerminal('branch', `-d ${node.ref}`, node.repoPath);
 		}
-	}
-
-	terminalMergeBranch(node: BranchNode) {
-		if (!(node instanceof BranchNode)) return;
-
-		runGitCommandInTerminal('merge', `${node.ref}`, node.repoPath);
-	}
-
-	terminalRebaseBranch(node: BranchNode) {
-		if (!(node instanceof BranchNode)) return;
-
-		runGitCommandInTerminal('rebase', `-i ${node.ref}`, node.repoPath);
-	}
-
-	terminalRebaseBranchToRemote(node: BranchNode | BranchTrackingStatusNode) {
-		if (node instanceof BranchNode) {
-			if (!node.branch.current || !node.branch.tracking) return;
-
-			runGitCommandInTerminal('rebase', `-i ${node.branch.tracking}`, node.repoPath);
-		} else if (node instanceof BranchTrackingStatusNode) {
-			runGitCommandInTerminal('rebase', `-i ${node.status.upstream}`, node.status.repoPath);
-		}
-	}
-
-	terminalSquashBranchIntoCommit(node: BranchNode) {
-		if (!(node instanceof BranchNode)) return;
-
-		runGitCommandInTerminal('merge', `--squash ${node.ref}`, node.repoPath);
 	}
 
 	terminalCheckoutCommit(node: CommitNode) {

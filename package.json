@@ -2751,11 +2751,6 @@
 				}
 			},
 			{
-				"command": "gitlens.views.terminalCheckoutBranch",
-				"title": "Checkout Branch (via Terminal)",
-				"category": "GitLens"
-			},
-			{
 				"command": "gitlens.views.terminalCreateBranch",
 				"title": "Create Branch (via Terminal)...",
 				"category": "GitLens"
@@ -2766,23 +2761,18 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.views.terminalMergeBranch",
-				"title": "Merge Branch (via Terminal)",
+				"command": "gitlens.views.mergeBranchInto",
+				"title": "Merge Branch into Current",
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.views.terminalRebaseBranch",
-				"title": "Rebase (Interactive) Branch (via Terminal)",
+				"command": "gitlens.views.rebaseOntoBranch",
+				"title": "Rebase Current onto Branch",
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.views.terminalRebaseBranchToRemote",
-				"title": "Rebase (Interactive) Branch to Remote (via Terminal)",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.views.terminalSquashBranchIntoCommit",
-				"title": "Squash Branch into Commit (via Terminal)",
+				"command": "gitlens.views.rebaseOntoUpstream",
+				"title": "Rebase Current onto Upstream",
 				"category": "GitLens"
 			},
 			{
@@ -3654,10 +3644,6 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.terminalCheckoutBranch",
-					"when": "false"
-				},
-				{
 					"command": "gitlens.views.terminalCreateBranch",
 					"when": "false"
 				},
@@ -3666,19 +3652,15 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.terminalMergeBranch",
+					"command": "gitlens.views.mergeBranchInto",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.terminalRebaseBranch",
+					"command": "gitlens.views.rebaseOntoBranch",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.terminalRebaseBranchToRemote",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.terminalSquashBranchIntoCommit",
+					"command": "gitlens.views.rebaseOntoUpstream",
 					"when": "false"
 				},
 				{
@@ -4440,6 +4422,21 @@
 					"group": "1_gitlens@1"
 				},
 				{
+					"command": "gitlens.views.rebaseOntoUpstream",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+tracking\\b)/",
+					"group": "1_gitlens_1@1"
+				},
+				{
+					"command": "gitlens.views.mergeBranchInto",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
+					"group": "1_gitlens_1@2"
+				},
+				{
+					"command": "gitlens.views.rebaseOntoBranch",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
+					"group": "1_gitlens_1@3"
+				},
+				{
 					"command": "gitlens.openBranchInRemote",
 					"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(tracking|remote)\\b)/",
 					"group": "2_gitlens@1"
@@ -4488,31 +4485,6 @@
 					"command": "gitlens.views.openDirectoryDiffWithWorking",
 					"when": "viewItem =~ /gitlens:(branch|tag)\\b/",
 					"group": "7_gitlens_more@2"
-				},
-				{
-					"command": "gitlens.views.terminalCheckoutBranch",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
-					"group": "8_gitlens@1"
-				},
-				{
-					"command": "gitlens.views.terminalRebaseBranchToRemote",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+tracking\\b)/",
-					"group": "8_gitlens@1"
-				},
-				{
-					"command": "gitlens.views.terminalMergeBranch",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
-					"group": "8_gitlens@2"
-				},
-				{
-					"command": "gitlens.views.terminalRebaseBranch",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
-					"group": "8_gitlens@3"
-				},
-				{
-					"command": "gitlens.views.terminalSquashBranchIntoCommit",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
-					"group": "8_gitlens@4"
 				},
 				{
 					"command": "gitlens.views.terminalCreateBranch",
