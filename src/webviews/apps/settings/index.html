@@ -2,9 +2,6 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
-		<!--
-			<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src *; style-src 'self'; script-src 'nonce-gitlens'"/>
-		-->
 	</head>
 
 	<template id="token-popup">
@@ -206,48 +203,66 @@
 					</div>
 
 					<div class="section__collapsible">
-						<div class="section__content">
-							<div class="settings ml-1">
-								<div class="setting" data-enablement="currentLine.enabled">
-									<div class="setting__input">
-										<label for="currentLine.format">Annotation&nbsp;format</label>
-										<input
-											id="currentLine.format"
-											name="currentLine.format"
-											type="text"
-											placeholder="&#36;&#123;authorAgoOrDate&#125; &bull; &#36;&#123;message&#125;"
-											data-setting
-											data-default-value="&#36;&#123;authorAgoOrDate&#125; &bull; &#36;&#123;message&#125;"
-											data-popup-trigger
-											disabled
-										/>
-										<label for="currentLine.format" title="See available tokens">
-											<i class="icon icon__chevron-down"></i>
-										</label>
+						<div class="section__group">
+							<div class="section__content">
+								<div class="settings settings--fixed ml-1">
+									<div class="setting" data-enablement="currentLine.enabled">
+										<div class="setting__input">
+											<label for="currentLine.format">Annotation&nbsp;format</label>
+											<input
+												id="currentLine.format"
+												name="currentLine.format"
+												type="text"
+												placeholder="&#36;&#123;authorAgoOrDate&#125; &bull; &#36;&#123;message&#125;"
+												data-setting
+												data-default-value="&#36;&#123;authorAgoOrDate&#125; &bull; &#36;&#123;message&#125;"
+												data-popup-trigger
+												disabled
+											/>
+											<label for="currentLine.format" title="See available tokens">
+												<i class="icon icon__chevron-down"></i>
+											</label>
+										</div>
+										<div id="currentLine.format.popup" class="popup hidden"></div>
 									</div>
-									<div id="currentLine.format.popup" class="popup hidden"></div>
-								</div>
 
-								<div class="setting" data-enablement="currentLine.enabled">
-									<div class="setting__input">
-										<input
-											id="currentLine.scrollable"
-											name="currentLine.scrollable"
-											type="checkbox"
-											data-setting
-											disabled
-										/>
-										<label for="currentLine.scrollable">
-											Include the annotation when scrolling the editor horizontally
-										</label>
+									<div class="setting" data-enablement="currentLine.enabled">
+										<div class="setting__input">
+											<input
+												id="currentLine.scrollable"
+												name="currentLine.scrollable"
+												type="checkbox"
+												data-setting
+												disabled
+											/>
+											<label for="currentLine.scrollable">
+												Include the annotation when scrolling the editor horizontally
+											</label>
+										</div>
+										<p class="setting__hint">
+											When enabled the annotation can be scrolled into view when it is outside the
+											viewport
+										</p>
 									</div>
-									<p class="setting__hint">
-										When enabled the annotation can be scrolled into view when it is outside the
-										viewport
-									</p>
 								</div>
 							</div>
 
+							<div class="section__preview">
+								<img class="image__preview" src="#{root}/images/settings/current-line-blame.png" />
+								<img
+									class="image__preview--overlay hidden"
+									src="#{root}/images/settings/current-line-blame-on.png"
+									data-visibility="currentLine.enabled"
+								/>
+								<img
+									class="image__preview--overlay hidden"
+									src="#{root}/images/settings/current-line-blame-on-scrollable.png"
+									data-visibility="currentLine.enabled &amp; currentLine.scrollable"
+								/>
+							</div>
+						</div>
+
+						<div class="section__group">
 							<p class="section__hint">
 								<i class="icon icon__info"></i> For more options, open
 								<a
@@ -258,19 +273,6 @@
 								>
 								and search for <b><i>gitlens.currentLine</i></b>
 							</p>
-						</div>
-						<div class="section__preview">
-							<img class="image__preview" src="#{root}/images/settings/current-line-blame.png" />
-							<img
-								class="image__preview--overlay hidden"
-								src="#{root}/images/settings/current-line-blame-on.png"
-								data-visibility="currentLine.enabled"
-							/>
-							<img
-								class="image__preview--overlay hidden"
-								src="#{root}/images/settings/current-line-blame-on-scrollable.png"
-								data-visibility="currentLine.enabled &amp; currentLine.scrollable"
-							/>
 						</div>
 					</div>
 				</section>
@@ -307,172 +309,232 @@
 					</div>
 
 					<div class="section__collapsible">
-						<div class="section__content">
-							<div class="settings settings--fixed ml-1">
-								<div class="setting" data-enablement="codeLens.enabled">
-									<div class="setting__input">
-										<input
-											id="codeLens.recentChange.enabled"
-											name="codeLens.recentChange.enabled"
-											type="checkbox"
-											data-setting
-											disabled
-										/>
-										<label for="codeLens.recentChange.enabled">
-											Add the author and date of the most recent change for the file or code block
-										</label>
-									</div>
-								</div>
-
-								<div class="settings settings--fixed ml-2">
-									<div
-										class="setting"
-										data-enablement="codeLens.enabled &amp; codeLens.recentChange.enabled"
-									>
-										<div class="setting__input">
-											<label class="nowrap" for="codeLens.recentChange.command"
-												>When clicked</label
-											>
-											<select
-												id="codeLens.recentChange.command"
-												name="codeLens.recentChange.command"
-												data-setting
-												disabled
-											>
-												<option value="gitlens.toggleFileBlame"
-													>toggles the file blame annotations</option
-												>
-												<option value="gitlens.diffWithPrevious"
-													>compares the commit with the previous</option
-												>
-												<option value="gitlens.showQuickCommitDetails"
-													>shows details of the commit</option
-												>
-												<option value="gitlens.showQuickCommitFileDetails">
-													shows file details of the commit
-												</option>
-												<option value="gitlens.showQuickFileHistory"
-													>shows the current file history</option
-												>
-												<option value="gitlens.showQuickRepoHistory"
-													>shows the current branch history</option
-												>
-											</select>
-										</div>
-									</div>
-								</div>
-
-								<div class="setting" data-enablement="codeLens.enabled">
-									<div class="setting__input">
-										<input
-											id="codeLens.authors.enabled"
-											name="codeLens.authors.enabled"
-											type="checkbox"
-											data-setting
-											disabled
-										/>
-										<label for="codeLens.authors.enabled">
-											Add the number of authors and the most prominent author of the file or code
-											block
-										</label>
-									</div>
-								</div>
-
-								<div class="settings settings--fixed ml-2">
-									<div
-										class="setting"
-										data-enablement="codeLens.enabled &amp; codeLens.authors.enabled"
-									>
-										<div class="setting__input">
-											<label class="nowrap" for="codeLens.authors.command">When clicked</label>
-											<select
-												id="codeLens.authors.command"
-												name="codeLens.authors.command"
-												data-setting
-												disabled
-											>
-												<option value="gitlens.toggleFileBlame"
-													>toggles the file blame annotations</option
-												>
-												<option value="gitlens.diffWithPrevious"
-													>compares the commit with the previous</option
-												>
-												<option value="gitlens.showQuickCommitDetails"
-													>shows details of the commit</option
-												>
-												<option value="gitlens.showQuickCommitFileDetails">
-													show file details of the commit
-												</option>
-												<option value="gitlens.showQuickFileHistory"
-													>shows the current file history</option
-												>
-												<option value="gitlens.showQuickRepoHistory"
-													>shows the current branch history</option
-												>
-											</select>
-										</div>
-									</div>
-								</div>
-
-								<div class="setting" data-enablement="codeLens.enabled">
-									<div class="setting__input">
-										<label class="non-interactive ">Add code lens to the following scopes</label>
-									</div>
-								</div>
-
-								<div class="settings ml-2">
+						<div class="section__group">
+							<div class="section__content">
+								<div class="settings settings--fixed ml-1">
 									<div class="setting" data-enablement="codeLens.enabled">
 										<div class="setting__input">
 											<input
-												id="codeLens.scopes"
-												name="codeLens.scopes"
+												id="codeLens.recentChange.enabled"
+												name="codeLens.recentChange.enabled"
 												type="checkbox"
-												value="document"
 												data-setting
-												data-setting-type="array"
 												disabled
 											/>
-											<label for="codeLens.scopes">File scope</label>
+											<label for="codeLens.recentChange.enabled">
+												Add the author and date of the most recent change for the file or code
+												block
+											</label>
 										</div>
-										<p class="setting__hint">At the top of the file</p>
+									</div>
+
+									<div class="settings settings--fixed ml-2">
+										<div
+											class="setting"
+											data-enablement="codeLens.enabled &amp; codeLens.recentChange.enabled"
+										>
+											<div class="setting__input">
+												<label class="nowrap" for="codeLens.recentChange.command"
+													>When clicked</label
+												>
+												<select
+													id="codeLens.recentChange.command"
+													name="codeLens.recentChange.command"
+													data-setting
+													disabled
+												>
+													<option value="gitlens.toggleFileBlame"
+														>toggles the file blame annotations</option
+													>
+													<option value="gitlens.diffWithPrevious"
+														>compares the commit with the previous</option
+													>
+													<option value="gitlens.showQuickCommitDetails"
+														>shows details of the commit</option
+													>
+													<option value="gitlens.showQuickCommitFileDetails">
+														shows file details of the commit
+													</option>
+													<option value="gitlens.showQuickFileHistory"
+														>shows the current file history</option
+													>
+													<option value="gitlens.showQuickRepoHistory"
+														>shows the current branch history</option
+													>
+												</select>
+											</div>
+										</div>
 									</div>
 
 									<div class="setting" data-enablement="codeLens.enabled">
 										<div class="setting__input">
 											<input
-												id="codeLens.scopes-1"
-												name="codeLens.scopes"
+												id="codeLens.authors.enabled"
+												name="codeLens.authors.enabled"
 												type="checkbox"
-												value="containers"
 												data-setting
-												data-setting-type="array"
 												disabled
 											/>
-											<label for="codeLens.scopes-1">Containers scope</label>
+											<label for="codeLens.authors.enabled">
+												Add the number of authors and the most prominent author of the file or
+												code block
+											</label>
 										</div>
-										<p class="setting__hint">
-											At the start of modules, classes, interfaces, etc
-										</p>
+									</div>
+
+									<div class="settings settings--fixed ml-2">
+										<div
+											class="setting"
+											data-enablement="codeLens.enabled &amp; codeLens.authors.enabled"
+										>
+											<div class="setting__input">
+												<label class="nowrap" for="codeLens.authors.command"
+													>When clicked</label
+												>
+												<select
+													id="codeLens.authors.command"
+													name="codeLens.authors.command"
+													data-setting
+													disabled
+												>
+													<option value="gitlens.toggleFileBlame"
+														>toggles the file blame annotations</option
+													>
+													<option value="gitlens.diffWithPrevious"
+														>compares the commit with the previous</option
+													>
+													<option value="gitlens.showQuickCommitDetails"
+														>shows details of the commit</option
+													>
+													<option value="gitlens.showQuickCommitFileDetails">
+														show file details of the commit
+													</option>
+													<option value="gitlens.showQuickFileHistory"
+														>shows the current file history</option
+													>
+													<option value="gitlens.showQuickRepoHistory"
+														>shows the current branch history</option
+													>
+												</select>
+											</div>
+										</div>
 									</div>
 
 									<div class="setting" data-enablement="codeLens.enabled">
 										<div class="setting__input">
-											<input
-												id="codeLens.scopes-2"
-												name="codeLens.scopes"
-												type="checkbox"
-												value="blocks"
-												data-setting
-												data-setting-type="array"
-												disabled
-											/>
-											<label for="codeLens.scopes-2">Block scope</label>
+											<label class="non-interactive "
+												>Add code lens to the following scopes</label
+											>
 										</div>
-										<p class="setting__hint">At the start of functions, methods, etc</p>
+									</div>
+
+									<div class="settings ml-2">
+										<div class="setting" data-enablement="codeLens.enabled">
+											<div class="setting__input">
+												<input
+													id="codeLens.scopes"
+													name="codeLens.scopes"
+													type="checkbox"
+													value="document"
+													data-setting
+													data-setting-type="array"
+													disabled
+												/>
+												<label for="codeLens.scopes">File scope</label>
+											</div>
+											<p class="setting__hint">At the top of the file</p>
+										</div>
+
+										<div class="setting" data-enablement="codeLens.enabled">
+											<div class="setting__input">
+												<input
+													id="codeLens.scopes-1"
+													name="codeLens.scopes"
+													type="checkbox"
+													value="containers"
+													data-setting
+													data-setting-type="array"
+													disabled
+												/>
+												<label for="codeLens.scopes-1">Containers scope</label>
+											</div>
+											<p class="setting__hint">
+												At the start of modules, classes, interfaces, etc
+											</p>
+										</div>
+
+										<div class="setting" data-enablement="codeLens.enabled">
+											<div class="setting__input">
+												<input
+													id="codeLens.scopes-2"
+													name="codeLens.scopes"
+													type="checkbox"
+													value="blocks"
+													data-setting
+													data-setting-type="array"
+													disabled
+												/>
+												<label for="codeLens.scopes-2">Block scope</label>
+											</div>
+											<p class="setting__hint">At the start of functions, methods, etc</p>
+										</div>
 									</div>
 								</div>
 							</div>
 
+							<div class="section__preview">
+								<img class="image__preview" src="#{root}/images/settings/code-lens.png" />
+								<img
+									class="image__preview--overlay hidden"
+									src="#{root}/images/settings/code-lens-file-recent+authors.png"
+									data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled &amp; codeLens.scopes +document"
+								/>
+								<img
+									class="image__preview--overlay hidden"
+									src="#{root}/images/settings/code-lens-file-recent.png"
+									data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled =false &amp; codeLens.scopes +document"
+								/>
+								<img
+									class="image__preview--overlay hidden"
+									src="#{root}/images/settings/code-lens-file-authors.png"
+									data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled =false &amp; codeLens.authors.enabled &amp; codeLens.scopes +document"
+								/>
+
+								<img
+									class="image__preview--overlay hidden"
+									src="#{root}/images/settings/code-lens-containers-recent+authors.png"
+									data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled &amp; codeLens.scopes +containers"
+								/>
+								<img
+									class="image__preview--overlay hidden"
+									src="#{root}/images/settings/code-lens-containers-recent.png"
+									data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled =false &amp; codeLens.scopes +containers"
+								/>
+								<img
+									class="image__preview--overlay hidden"
+									src="#{root}/images/settings/code-lens-containers-authors.png"
+									data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled =false &amp; codeLens.authors.enabled &amp; codeLens.scopes +containers"
+								/>
+
+								<img
+									class="image__preview--overlay hidden"
+									src="#{root}/images/settings/code-lens-blocks-recent+authors.png"
+									data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled &amp; codeLens.scopes +blocks"
+								/>
+								<img
+									class="image__preview--overlay hidden"
+									src="#{root}/images/settings/code-lens-blocks-recent.png"
+									data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled =false &amp; codeLens.scopes +blocks"
+								/>
+								<img
+									class="image__preview--overlay hidden"
+									src="#{root}/images/settings/code-lens-blocks-authors.png"
+									data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled =false &amp; codeLens.authors.enabled &amp; codeLens.scopes +blocks"
+								/>
+							</div>
+						</div>
+
+						<div class="section__group">
 							<p class="section__hint">
 								<i class="icon icon__info"></i> For more options, open
 								<a
@@ -483,57 +545,6 @@
 								>
 								and search for <b><i>gitlens.codeLens</i></b>
 							</p>
-						</div>
-
-						<div class="section__preview">
-							<img class="image__preview" src="#{root}/images/settings/code-lens.png" />
-							<img
-								class="image__preview--overlay hidden"
-								src="#{root}/images/settings/code-lens-file-recent+authors.png"
-								data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled &amp; codeLens.scopes +document"
-							/>
-							<img
-								class="image__preview--overlay hidden"
-								src="#{root}/images/settings/code-lens-file-recent.png"
-								data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled =false &amp; codeLens.scopes +document"
-							/>
-							<img
-								class="image__preview--overlay hidden"
-								src="#{root}/images/settings/code-lens-file-authors.png"
-								data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled =false &amp; codeLens.authors.enabled &amp; codeLens.scopes +document"
-							/>
-
-							<img
-								class="image__preview--overlay hidden"
-								src="#{root}/images/settings/code-lens-containers-recent+authors.png"
-								data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled &amp; codeLens.scopes +containers"
-							/>
-							<img
-								class="image__preview--overlay hidden"
-								src="#{root}/images/settings/code-lens-containers-recent.png"
-								data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled =false &amp; codeLens.scopes +containers"
-							/>
-							<img
-								class="image__preview--overlay hidden"
-								src="#{root}/images/settings/code-lens-containers-authors.png"
-								data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled =false &amp; codeLens.authors.enabled &amp; codeLens.scopes +containers"
-							/>
-
-							<img
-								class="image__preview--overlay hidden"
-								src="#{root}/images/settings/code-lens-blocks-recent+authors.png"
-								data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled &amp; codeLens.scopes +blocks"
-							/>
-							<img
-								class="image__preview--overlay hidden"
-								src="#{root}/images/settings/code-lens-blocks-recent.png"
-								data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled =false &amp; codeLens.scopes +blocks"
-							/>
-							<img
-								class="image__preview--overlay hidden"
-								src="#{root}/images/settings/code-lens-blocks-authors.png"
-								data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled =false &amp; codeLens.authors.enabled &amp; codeLens.scopes +blocks"
-							/>
 						</div>
 					</div>
 				</section>
@@ -558,93 +569,118 @@
 					</div>
 
 					<div class="section__collapsible">
-						<div class="section__content">
-							<div class="settings settings--fixed ml-1">
-								<div class="setting" data-enablement="statusBar.enabled">
-									<div class="setting__input">
-										<label for="statusBar.format">Annotation&nbsp;format</label>
-										<input
-											id="statusBar.format"
-											name="statusBar.format"
-											type="text"
-											placeholder="&#36;&#123;authorAgoOrDate&#125;"
-											data-setting
-											data-default-value="&#36;&#123;authorAgoOrDate&#125;"
-											data-popup-trigger
-											disabled
-										/>
-										<label for="statusBar.format" title="See available tokens">
-											<i class="icon icon__chevron-down"></i>
-										</label>
-										<div id="statusBar.format.popup" class="popup hidden"></div>
+						<div class="section__group">
+							<div class="section__content">
+								<div class="settings settings--fixed ml-1">
+									<div class="setting" data-enablement="statusBar.enabled">
+										<div class="setting__input">
+											<label for="statusBar.format">Annotation&nbsp;format</label>
+											<input
+												id="statusBar.format"
+												name="statusBar.format"
+												type="text"
+												placeholder="&#36;&#123;authorAgoOrDate&#125;"
+												data-setting
+												data-default-value="&#36;&#123;authorAgoOrDate&#125;"
+												data-popup-trigger
+												disabled
+											/>
+											<label for="statusBar.format" title="See available tokens">
+												<i class="icon icon__chevron-down"></i>
+											</label>
+											<div id="statusBar.format.popup" class="popup hidden"></div>
+										</div>
 									</div>
-								</div>
 
-								<div class="setting" data-enablement="statusBar.enabled">
-									<div class="setting__input">
-										<label for="statusBar.alignment">Position the annotation on the</label>
-										<select
-											id="statusBar.alignment"
-											name="statusBar.alignment"
-											data-setting
-											disabled
-										>
-											<option value="left">left</option>
-											<option value="right">right</option>
-										</select>
+									<div class="setting" data-enablement="statusBar.enabled">
+										<div class="setting__input">
+											<label for="statusBar.alignment">Position the annotation on the</label>
+											<select
+												id="statusBar.alignment"
+												name="statusBar.alignment"
+												data-setting
+												disabled
+											>
+												<option value="left">left</option>
+												<option value="right">right</option>
+											</select>
+										</div>
 									</div>
-								</div>
 
-								<div class="setting" data-enablement="statusBar.enabled">
-									<div class="setting__input">
-										<label class="nowrap" for="statusBar.command">When clicked</label>
-										<select id="statusBar.command" name="statusBar.command" data-setting disabled>
-											<option value="gitlens.toggleFileBlame"
-												>toggles the file blame annotations</option
+									<div class="setting" data-enablement="statusBar.enabled">
+										<div class="setting__input">
+											<label class="nowrap" for="statusBar.command">When clicked</label>
+											<select
+												id="statusBar.command"
+												name="statusBar.command"
+												data-setting
+												disabled
 											>
-											<option value="gitlens.diffWithPrevious"
-												>compares the line revision with the previous</option
-											>
-											<option value="gitlens.diffWithWorking"
-												>compares the line revision with the working file</option
-											>
-											<option value="gitlens.toggleCodeLens">toggles the Git code lens</option>
-											<option value="gitlens.showQuickCommitDetails"
-												>shows details of the commit</option
-											>
-											<option value="gitlens.showQuickCommitFileDetails"
-												>shows file details of the commit</option
-											>
-											<option value="gitlens.showQuickFileHistory"
-												>shows the current file history</option
-											>
-											<option value="gitlens.showQuickRepoHistory"
-												>shows the current branch history</option
-											>
-										</select>
+												<option value="gitlens.toggleFileBlame"
+													>toggles the file blame annotations</option
+												>
+												<option value="gitlens.diffWithPrevious"
+													>compares the line revision with the previous</option
+												>
+												<option value="gitlens.diffWithWorking"
+													>compares the line revision with the working file</option
+												>
+												<option value="gitlens.toggleCodeLens"
+													>toggles the Git code lens</option
+												>
+												<option value="gitlens.showQuickCommitDetails"
+													>shows details of the commit</option
+												>
+												<option value="gitlens.showQuickCommitFileDetails"
+													>shows file details of the commit</option
+												>
+												<option value="gitlens.showQuickFileHistory"
+													>shows the current file history</option
+												>
+												<option value="gitlens.showQuickRepoHistory"
+													>shows the current branch history</option
+												>
+											</select>
+										</div>
 									</div>
-								</div>
 
-								<div class="setting" data-enablement="statusBar.enabled">
-									<div class="setting__input">
-										<input
-											id="statusBar.reduceFlicker"
-											name="statusBar.reduceFlicker"
-											type="checkbox"
-											data-setting
-											disabled
-										/>
-										<label for="statusBar.reduceFlicker"
-											>Reduce flashing when updating the annotation</label
-										>
+									<div class="setting" data-enablement="statusBar.enabled">
+										<div class="setting__input">
+											<input
+												id="statusBar.reduceFlicker"
+												name="statusBar.reduceFlicker"
+												type="checkbox"
+												data-setting
+												disabled
+											/>
+											<label for="statusBar.reduceFlicker"
+												>Reduce flashing when updating the annotation</label
+											>
+										</div>
+										<p class="setting__hint">
+											Avoids clearing the previous blame information when changing lines to reduce
+											status bar "flashing"
+										</p>
 									</div>
-									<p class="setting__hint">
-										Avoids clearing the previous blame information when changing lines to reduce
-										status bar "flashing"
-									</p>
 								</div>
 							</div>
 
+							<div class="section__preview">
+								<img class="image__preview" src="#{root}/images/settings/status-bar.png" />
+								<img
+									class="image__preview--overlay hidden"
+									src="#{root}/images/settings/status-bar-left.png"
+									data-visibility="statusBar.enabled &amp; statusBar.alignment =left"
+								/>
+								<img
+									class="image__preview--overlay hidden"
+									src="#{root}/images/settings/status-bar-right.png"
+									data-visibility="statusBar.enabled &amp; statusBar.alignment =right"
+								/>
+							</div>
+						</div>
+
+						<div class="section__group">
 							<p class="section__hint">
 								<i class="icon icon__info"></i> For more options, open
 								<a
@@ -655,20 +691,6 @@
 								>
 								and search for <b><i>gitlens.statusBar</i></b>
 							</p>
-						</div>
-
-						<div class="section__preview">
-							<img class="image__preview" src="#{root}/images/settings/status-bar.png" />
-							<img
-								class="image__preview--overlay hidden"
-								src="#{root}/images/settings/status-bar-left.png"
-								data-visibility="statusBar.enabled &amp; statusBar.alignment =left"
-							/>
-							<img
-								class="image__preview--overlay hidden"
-								src="#{root}/images/settings/status-bar-right.png"
-								data-visibility="statusBar.enabled &amp; statusBar.alignment =right"
-							/>
 						</div>
 					</div>
 				</section>
@@ -690,8 +712,8 @@
 						<p class="section__header-hint">Adds detailed blame information accessible via hovers</p>
 					</div>
 
-					<div class="section__collapsible section__collapsible--wrap">
-						<div class="section__group mt-0">
+					<div class="section__collapsible">
+						<div class="section__group">
 							<div class="section__content">
 								<div class="settings settings--fixed ml-1">
 									<div class="setting" data-enablement="hovers.enabled">
@@ -1060,147 +1082,149 @@
 					</div>
 
 					<div class="section__collapsible">
-						<div class="section__content">
-							<p class="blurb mt-0">
-								GitLens views can be configured to be shown in different side bar layouts to best match
-								your workflow. You can easily change the default layout (where all views are shown
-								together on the GitLens side bar) below
-							</p>
-							<div class="presets mb-1">
-								<a
-									class="button button--flat"
-									title="Shows all the views together on the GitLens side bar"
-									href="command:gitlens.welcome.applyViewLayoutPreset?%22default%22"
-									>Default Layout</a
-								>
-								<a
-									class="button button--flat"
-									title="Shows all the views together on the Source Control side bar"
-									href="command:gitlens.welcome.applyViewLayoutPreset?%22scm%22"
-									>Source Control Layout</a
-								>
-								<a
-									class="button button--flat"
-									title="Shows Repositories on the Source Control side bar, File and Line History on the Explorer side bar, and others on the GitLens side bar"
-									href="command:gitlens.welcome.applyViewLayoutPreset?%22contextual%22"
-									>Contextual Layout</a
-								>
-							</div>
+						<div class="section__group">
+							<div class="section__content">
+								<p class="blurb mt-0">
+									GitLens views can be configured to be shown in different side bar layouts to best
+									match your workflow. You can easily change the default layout (where all views are
+									shown together on the GitLens side bar) below
+								</p>
+								<div class="presets mb-1">
+									<a
+										class="button button--flat"
+										title="Shows all the views together on the GitLens side bar"
+										href="command:gitlens.welcome.applyViewLayoutPreset?%22default%22"
+										>Default Layout</a
+									>
+									<a
+										class="button button--flat"
+										title="Shows all the views together on the Source Control side bar"
+										href="command:gitlens.welcome.applyViewLayoutPreset?%22scm%22"
+										>Source Control Layout</a
+									>
+									<a
+										class="button button--flat"
+										title="Shows Repositories on the Source Control side bar, File and Line History on the Explorer side bar, and others on the GitLens side bar"
+										href="command:gitlens.welcome.applyViewLayoutPreset?%22contextual%22"
+										>Contextual Layout</a
+									>
+								</div>
 
-							<div class="settings ml-2 mr-2">
-								<div class="setting" data-enablement="views.repositories.enabled">
-									<div class="setting__input nowrap">
-										<label for="views.repositories.location">Show Repositories in the </label>
-										<select
-											id="views.repositories.location"
-											name="views.repositories.location"
-											data-setting
-											disabled
-										>
-											<option value="gitlens">GitLens side bar</option>
-											<option value="explorer">Explorer side bar</option>
-											<option value="scm">Source Control side bar</option>
-										</select>
-										<a
-											class="link__configure"
-											data-action="jump"
-											title="Jump to Repositories view settings"
-											href="command:gitlens.showSettingsPage?%22repositories-view%22"
-										>
-											<i class="icon icon__gear"></i>
-										</a>
+								<div class="settings ml-2 mr-2">
+									<div class="setting" data-enablement="views.repositories.enabled">
+										<div class="setting__input nowrap">
+											<label for="views.repositories.location">Show Repositories in the </label>
+											<select
+												id="views.repositories.location"
+												name="views.repositories.location"
+												data-setting
+												disabled
+											>
+												<option value="gitlens">GitLens side bar</option>
+												<option value="explorer">Explorer side bar</option>
+												<option value="scm">Source Control side bar</option>
+											</select>
+											<a
+												class="link__configure"
+												data-action="jump"
+												title="Jump to Repositories view settings"
+												href="command:gitlens.showSettingsPage?%22repositories-view%22"
+											>
+												<i class="icon icon__gear"></i>
+											</a>
+										</div>
 									</div>
-								</div>
-								<div class="setting" data-enablement="views.fileHistory.enabled">
-									<div class="setting__input nowrap">
-										<label for="views.fileHistory.location">Show File History in the </label>
-										<select
-											id="views.fileHistory.location"
-											name="views.fileHistory.location"
-											data-setting
-											disabled
-										>
-											<option value="gitlens">GitLens side bar</option>
-											<option value="explorer">Explorer side bar</option>
-											<option value="scm">Source Control side bar</option>
-										</select>
-										<a
-											class="link__configure"
-											data-action="jump"
-											title="Jump to File History view settings"
-											href="command:gitlens.showSettingsPage?%22file-history-view%22"
-										>
-											<i class="icon icon__gear"></i>
-										</a>
+									<div class="setting" data-enablement="views.fileHistory.enabled">
+										<div class="setting__input nowrap">
+											<label for="views.fileHistory.location">Show File History in the </label>
+											<select
+												id="views.fileHistory.location"
+												name="views.fileHistory.location"
+												data-setting
+												disabled
+											>
+												<option value="gitlens">GitLens side bar</option>
+												<option value="explorer">Explorer side bar</option>
+												<option value="scm">Source Control side bar</option>
+											</select>
+											<a
+												class="link__configure"
+												data-action="jump"
+												title="Jump to File History view settings"
+												href="command:gitlens.showSettingsPage?%22file-history-view%22"
+											>
+												<i class="icon icon__gear"></i>
+											</a>
+										</div>
 									</div>
-								</div>
-								<div class="setting" data-enablement="views.lineHistory.enabled">
-									<div class="setting__input nowrap">
-										<label for="views.lineHistory.location">Show Line History in the </label>
-										<select
-											id="views.lineHistory.location"
-											name="views.lineHistory.location"
-											data-setting
-											disabled
-										>
-											<option value="gitlens">GitLens side bar</option>
-											<option value="explorer">Explorer side bar</option>
-											<option value="scm">Source Control side bar</option>
-										</select>
-										<a
-											class="link__configure"
-											data-action="jump"
-											title="Jump to Line History view settings"
-											href="command:gitlens.showSettingsPage?%22line-history-view%22"
-										>
-											<i class="icon icon__gear"></i>
-										</a>
+									<div class="setting" data-enablement="views.lineHistory.enabled">
+										<div class="setting__input nowrap">
+											<label for="views.lineHistory.location">Show Line History in the </label>
+											<select
+												id="views.lineHistory.location"
+												name="views.lineHistory.location"
+												data-setting
+												disabled
+											>
+												<option value="gitlens">GitLens side bar</option>
+												<option value="explorer">Explorer side bar</option>
+												<option value="scm">Source Control side bar</option>
+											</select>
+											<a
+												class="link__configure"
+												data-action="jump"
+												title="Jump to Line History view settings"
+												href="command:gitlens.showSettingsPage?%22line-history-view%22"
+											>
+												<i class="icon icon__gear"></i>
+											</a>
+										</div>
 									</div>
-								</div>
-								<div class="setting" data-enablement="views.search.enabled">
-									<div class="setting__input nowrap">
-										<label for="views.search.location">Show Search Commits in the </label>
-										<select
-											id="views.search.location"
-											name="views.search.location"
-											data-setting
-											disabled
-										>
-											<option value="gitlens">GitLens side bar</option>
-											<option value="explorer">Explorer side bar</option>
-											<option value="scm">Source Control side bar</option>
-										</select>
-										<a
-											class="link__configure"
-											data-action="jump"
-											title="Jump to Search Commits view settings"
-											href="command:gitlens.showSettingsPage?%22search-commits-view%22"
-										>
-											<i class="icon icon__gear"></i>
-										</a>
+									<div class="setting" data-enablement="views.search.enabled">
+										<div class="setting__input nowrap">
+											<label for="views.search.location">Show Search Commits in the </label>
+											<select
+												id="views.search.location"
+												name="views.search.location"
+												data-setting
+												disabled
+											>
+												<option value="gitlens">GitLens side bar</option>
+												<option value="explorer">Explorer side bar</option>
+												<option value="scm">Source Control side bar</option>
+											</select>
+											<a
+												class="link__configure"
+												data-action="jump"
+												title="Jump to Search Commits view settings"
+												href="command:gitlens.showSettingsPage?%22search-commits-view%22"
+											>
+												<i class="icon icon__gear"></i>
+											</a>
+										</div>
 									</div>
-								</div>
-								<div class="setting" data-enablement="views.compare.enabled">
-									<div class="setting__input nowrap">
-										<label for="views.compare.location">Show Compare in the </label>
-										<select
-											id="views.compare.location"
-											name="views.compare.location"
-											data-setting
-											disabled
-										>
-											<option value="gitlens">GitLens side bar</option>
-											<option value="explorer">Explorer side bar</option>
-											<option value="scm">Source Control side bar</option>
-										</select>
-										<a
-											class="link__configure"
-											data-action="jump"
-											title="Jump to Compare view settings"
-											href="command:gitlens.showSettingsPage?%22compare-view%22"
-										>
-											<i class="icon icon__gear"></i>
-										</a>
+									<div class="setting" data-enablement="views.compare.enabled">
+										<div class="setting__input nowrap">
+											<label for="views.compare.location">Show Compare in the </label>
+											<select
+												id="views.compare.location"
+												name="views.compare.location"
+												data-setting
+												disabled
+											>
+												<option value="gitlens">GitLens side bar</option>
+												<option value="explorer">Explorer side bar</option>
+												<option value="scm">Source Control side bar</option>
+											</select>
+											<a
+												class="link__configure"
+												data-action="jump"
+												title="Jump to Compare view settings"
+												href="command:gitlens.showSettingsPage?%22compare-view%22"
+											>
+												<i class="icon icon__gear"></i>
+											</a>
+										</div>
 									</div>
 								</div>
 							</div>
@@ -1233,178 +1257,188 @@
 					</div>
 
 					<div class="section__collapsible">
-						<div class="section__content">
-							<div class="settings settings--fixed ml-1">
-								<div class="setting" data-enablement="views.repositories.enabled">
-									<div class="setting__input">
-										<label for="views.repositories.location">Show in the</label>
-										<select
-											id="views.repositories.location"
-											name="views.repositories.location"
-											data-setting
-											disabled
-										>
-											<option value="gitlens">GitLens side bar</option>
-											<option value="explorer">Explorer side bar</option>
-											<option value="scm">Source Control side bar</option>
-										</select>
-									</div>
-								</div>
-
-								<div class="setting" data-enablement="views.repositories.enabled">
-									<div class="setting__input">
-										<input
-											id="views.repositories.showBranchComparison"
-											name="views.repositories.showBranchComparison"
-											type="checkbox"
-											value="working"
-											data-setting
-											disabled
-										/>
-										<label for="views.repositories.showBranchComparison"
-											>Show a comparison of a user-selected reference (branch, tag, etc) to the
+						<div class="section__group">
+							<div class="section__content">
+								<div class="settings settings--fixed ml-1">
+									<div class="setting" data-enablement="views.repositories.enabled">
+										<div class="setting__input">
+											<label for="views.repositories.location">Show in the</label>
 											<select
-												id="views.repositories.showBranchComparison"
-												name="views.repositories.showBranchComparison"
+												id="views.repositories.location"
+												name="views.repositories.location"
 												data-setting
-												data-enablement="views.repositories.enabled &amp; views.repositories.showBranchComparison !false"
 												disabled
 											>
-												<option value="branch">current branch</option>
-												<option value="working">working tree</option>
+												<option value="gitlens">GitLens side bar</option>
+												<option value="explorer">Explorer side bar</option>
+												<option value="scm">Source Control side bar</option>
 											</select>
-										</label>
+										</div>
 									</div>
-								</div>
 
-								<div class="setting" data-enablement="views.repositories.enabled">
-									<div class="setting__input">
-										<label for="views.repositories.branches.layout">Layout branches</label>
-										<select
-											id="views.repositories.branches.layout"
-											name="views.repositories.branches.layout"
-											data-setting
-											disabled
+									<div class="setting" data-enablement="views.repositories.enabled">
+										<div class="setting__input">
+											<input
+												id="views.repositories.showBranchComparison"
+												name="views.repositories.showBranchComparison"
+												type="checkbox"
+												value="working"
+												data-setting
+												disabled
+											/>
+											<label for="views.repositories.showBranchComparison"
+												>Show a comparison of a user-selected reference (branch, tag, etc) to
+												the
+												<select
+													id="views.repositories.showBranchComparison"
+													name="views.repositories.showBranchComparison"
+													data-setting
+													data-enablement="views.repositories.enabled &amp; views.repositories.showBranchComparison !false"
+													disabled
+												>
+													<option value="branch">current branch</option>
+													<option value="working">working tree</option>
+												</select>
+											</label>
+										</div>
+									</div>
+
+									<div class="setting" data-enablement="views.repositories.enabled">
+										<div class="setting__input">
+											<label for="views.repositories.branches.layout">Layout branches</label>
+											<select
+												id="views.repositories.branches.layout"
+												name="views.repositories.branches.layout"
+												data-setting
+												disabled
+											>
+												<option value="list">as a list</option>
+												<option value="tree">as a tree</option>
+											</select>
+										</div>
+									</div>
+
+									<div class="setting" data-enablement="views.repositories.enabled">
+										<div class="setting__input">
+											<label for="views.repositories.files.layout">Layout files</label>
+											<select
+												id="views.repositories.files.layout"
+												name="views.repositories.files.layout"
+												data-setting
+												disabled
+											>
+												<option value="auto">automatically</option>
+												<option value="list">as a list</option>
+												<option value="tree">as a tree</option>
+											</select>
+										</div>
+										<p
+											class="setting__hint"
+											data-visibility="views.repositories.files.layout =auto"
 										>
-											<option value="list">as a list</option>
-											<option value="tree">as a tree</option>
-										</select>
-									</div>
-								</div>
-
-								<div class="setting" data-enablement="views.repositories.enabled">
-									<div class="setting__input">
-										<label for="views.repositories.files.layout">Layout files</label>
-										<select
-											id="views.repositories.files.layout"
-											name="views.repositories.files.layout"
-											data-setting
-											disabled
-										>
-											<option value="auto">automatically</option>
-											<option value="list">as a list</option>
-											<option value="tree">as a tree</option>
-										</select>
-									</div>
-									<p class="setting__hint" data-visibility="views.repositories.files.layout =auto">
-										Chooses the best layout based on the number of files at each nesting level
-									</p>
-								</div>
-
-								<div class="setting" data-enablement="views.repositories.enabled">
-									<div class="setting__input">
-										<input
-											id="views.repositories.files.compact"
-											name="views.repositories.files.compact"
-											type="checkbox"
-											data-setting
-											disabled
-										/>
-										<label for="views.repositories.files.compact">Use compact file layout</label>
-									</div>
-									<p class="setting__hint">
-										Compacts (flattens) unnecessary nesting when using a tree layouts
-									</p>
-								</div>
-
-								<div class="setting" data-enablement="views.repositories.enabled">
-									<div class="setting__input">
-										<input
-											id="views.repositories.avatars"
-											name="views.repositories.avatars"
-											type="checkbox"
-											data-setting
-											disabled
-										/>
-										<label for="views.repositories.avatars">Use author avatars icons</label>
-									</div>
-								</div>
-
-								<div class="setting" data-enablement="views.repositories.enabled">
-									<div class="setting__input">
-										<input
-											id="views.repositories.autoRefresh"
-											name="views.repositories.autoRefresh"
-											type="checkbox"
-											data-setting
-											disabled
-										/>
-										<label for="views.repositories.autoRefresh">
-											Automatically refreshes when the file system or any repository changes
-										</label>
-									</div>
-								</div>
-
-								<div class="setting" data-enablement="views.repositories.enabled">
-									<div class="setting__input">
-										<input
-											id="views.repositories.autoReveal"
-											name="views.repositories.autoReveal"
-											type="checkbox"
-											data-setting
-											disabled
-										/>
-										<label for="views.repositories.autoReveal">
-											Automatically reveal repositories when opening files
-										</label>
+											Chooses the best layout based on the number of files at each nesting level
+										</p>
 									</div>
 
-									<p class="section__hint">
-										<i class="icon icon__info"></i> For more options, open
-										<a
-											class="command"
-											title="Open User Settings"
-											href="command:workbench.action.openGlobalSettings"
-											>User Settings</a
-										>
-										and search for <b><i>gitlens.views.repositories</i></b> or
-										<b><i>gitlens.views</i></b>
-									</p>
+									<div class="setting" data-enablement="views.repositories.enabled">
+										<div class="setting__input">
+											<input
+												id="views.repositories.files.compact"
+												name="views.repositories.files.compact"
+												type="checkbox"
+												data-setting
+												disabled
+											/>
+											<label for="views.repositories.files.compact"
+												>Use compact file layout</label
+											>
+										</div>
+										<p class="setting__hint">
+											Compacts (flattens) unnecessary nesting when using a tree layouts
+										</p>
+									</div>
+
+									<div class="setting" data-enablement="views.repositories.enabled">
+										<div class="setting__input">
+											<input
+												id="views.repositories.avatars"
+												name="views.repositories.avatars"
+												type="checkbox"
+												data-setting
+												disabled
+											/>
+											<label for="views.repositories.avatars">Use author avatars icons</label>
+										</div>
+									</div>
+
+									<div class="setting" data-enablement="views.repositories.enabled">
+										<div class="setting__input">
+											<input
+												id="views.repositories.autoRefresh"
+												name="views.repositories.autoRefresh"
+												type="checkbox"
+												data-setting
+												disabled
+											/>
+											<label for="views.repositories.autoRefresh">
+												Automatically refreshes when the file system or any repository changes
+											</label>
+										</div>
+									</div>
+
+									<div class="setting" data-enablement="views.repositories.enabled">
+										<div class="setting__input">
+											<input
+												id="views.repositories.autoReveal"
+												name="views.repositories.autoReveal"
+												type="checkbox"
+												data-setting
+												disabled
+											/>
+											<label for="views.repositories.autoReveal">
+												Automatically reveal repositories when opening files
+											</label>
+										</div>
+									</div>
 								</div>
+							</div>
+
+							<div class="section__preview" data-visibility="views.repositories.enabled">
+								<img
+									class="image__preview hidden"
+									src="#{root}/images/settings/view-repositories.png"
+									data-visibility="views.repositories.enabled &amp; views.repositories.files.layout !tree"
+								/>
+								<img
+									class="image__preview hidden"
+									src="#{root}/images/settings/view-repositories-tree-compact.png"
+									data-visibility="views.repositories.enabled &amp; views.repositories.files.layout =tree &amp; views.repositories.files.compact"
+								/>
+								<img
+									class="image__preview hidden"
+									src="#{root}/images/settings/view-repositories-tree.png"
+									data-visibility="views.repositories.enabled &amp; views.repositories.files.layout =tree &amp; views.repositories.files.compact =false"
+								/>
+								<img
+									class="image__preview--overlay hidden"
+									src="#{root}/images/settings/view-repositories-avatars.png"
+									data-visibility="views.repositories.enabled &amp; views.repositories.avatars"
+								/>
 							</div>
 						</div>
 
-						<div class="section__preview" data-visibility="views.repositories.enabled">
-							<img
-								class="image__preview hidden"
-								src="#{root}/images/settings/view-repositories.png"
-								data-visibility="views.repositories.enabled &amp; views.repositories.files.layout !tree"
-							/>
-							<img
-								class="image__preview hidden"
-								src="#{root}/images/settings/view-repositories-tree-compact.png"
-								data-visibility="views.repositories.enabled &amp; views.repositories.files.layout =tree &amp; views.repositories.files.compact"
-							/>
-							<img
-								class="image__preview hidden"
-								src="#{root}/images/settings/view-repositories-tree.png"
-								data-visibility="views.repositories.enabled &amp; views.repositories.files.layout =tree &amp; views.repositories.files.compact =false"
-							/>
-							<img
-								class="image__preview--overlay hidden"
-								src="#{root}/images/settings/view-repositories-avatars.png"
-								data-visibility="views.repositories.enabled &amp; views.repositories.avatars"
-							/>
+						<div class="section__group">
+							<p class="section__hint">
+								<i class="icon icon__info"></i> For more options, open
+								<a
+									class="command"
+									title="Open User Settings"
+									href="command:workbench.action.openGlobalSettings"
+									>User Settings</a
+								>
+								and search for <b><i>gitlens.views.repositories</i></b> or
+								<b><i>gitlens.views</i></b>
+							</p>
 						</div>
 					</div>
 				</section>
@@ -1435,50 +1469,52 @@
 					</div>
 
 					<div class="section__collapsible">
-						<div class="section__content">
-							<div class="settings settings--fixed ml-1">
-								<div class="setting" data-enablement="views.fileHistory.enabled">
-									<div class="setting__input">
-										<label for="views.fileHistory.location">Show in the</label>
-										<select
-											id="views.fileHistory.location"
-											name="views.fileHistory.location"
-											data-setting
-											disabled
-										>
-											<option value="gitlens">GitLens side bar</option>
-											<option value="explorer">Explorer side bar</option>
-											<option value="scm">Source Control side bar</option>
-										</select>
+						<div class="section__group">
+							<div class="section__content">
+								<div class="settings settings--fixed ml-1">
+									<div class="setting" data-enablement="views.fileHistory.enabled">
+										<div class="setting__input">
+											<label for="views.fileHistory.location">Show in the</label>
+											<select
+												id="views.fileHistory.location"
+												name="views.fileHistory.location"
+												data-setting
+												disabled
+											>
+												<option value="gitlens">GitLens side bar</option>
+												<option value="explorer">Explorer side bar</option>
+												<option value="scm">Source Control side bar</option>
+											</select>
+										</div>
 									</div>
-								</div>
 
-								<div class="setting" data-enablement="views.fileHistory.enabled">
-									<div class="setting__input">
-										<input
-											id="views.fileHistory.avatars"
-											name="views.fileHistory.avatars"
-											type="checkbox"
-											data-setting
-											disabled
-										/>
-										<label for="views.fileHistory.avatars">Use author avatars icons</label>
+									<div class="setting" data-enablement="views.fileHistory.enabled">
+										<div class="setting__input">
+											<input
+												id="views.fileHistory.avatars"
+												name="views.fileHistory.avatars"
+												type="checkbox"
+												data-setting
+												disabled
+											/>
+											<label for="views.fileHistory.avatars">Use author avatars icons</label>
+										</div>
 									</div>
 								</div>
 							</div>
-						</div>
 
-						<div class="section__preview" data-visibility="views.fileHistory.enabled">
-							<img
-								class="image__preview hidden"
-								src="#{root}/images/settings/view-file-history.png"
-								data-visibility="views.fileHistory.enabled"
-							/>
-							<img
-								class="image__preview--overlay hidden"
-								src="#{root}/images/settings/view-file-history-avatars.png"
-								data-visibility="views.fileHistory.enabled &amp; views.fileHistory.avatars"
-							/>
+							<div class="section__preview" data-visibility="views.fileHistory.enabled">
+								<img
+									class="image__preview hidden"
+									src="#{root}/images/settings/view-file-history.png"
+									data-visibility="views.fileHistory.enabled"
+								/>
+								<img
+									class="image__preview--overlay hidden"
+									src="#{root}/images/settings/view-file-history-avatars.png"
+									data-visibility="views.fileHistory.enabled &amp; views.fileHistory.avatars"
+								/>
+							</div>
 						</div>
 					</div>
 				</section>
@@ -1509,50 +1545,52 @@
 					</div>
 
 					<div class="section__collapsible">
-						<div class="section__content">
-							<div class="settings settings--fixed ml-1">
-								<div class="setting" data-enablement="views.lineHistory.enabled">
-									<div class="setting__input">
-										<label for="views.lineHistory.location">Show in the</label>
-										<select
-											id="views.lineHistory.location"
-											name="views.lineHistory.location"
-											data-setting
-											disabled
-										>
-											<option value="gitlens">GitLens side bar</option>
-											<option value="explorer">Explorer side bar</option>
-											<option value="scm">Source Control side bar</option>
-										</select>
+						<div class="section__group">
+							<div class="section__content">
+								<div class="settings settings--fixed ml-1">
+									<div class="setting" data-enablement="views.lineHistory.enabled">
+										<div class="setting__input">
+											<label for="views.lineHistory.location">Show in the</label>
+											<select
+												id="views.lineHistory.location"
+												name="views.lineHistory.location"
+												data-setting
+												disabled
+											>
+												<option value="gitlens">GitLens side bar</option>
+												<option value="explorer">Explorer side bar</option>
+												<option value="scm">Source Control side bar</option>
+											</select>
+										</div>
 									</div>
-								</div>
 
-								<div class="setting" data-enablement="views.lineHistory.enabled">
-									<div class="setting__input">
-										<input
-											id="views.lineHistory.avatars"
-											name="views.lineHistory.avatars"
-											type="checkbox"
-											data-setting
-											disabled
-										/>
-										<label for="views.lineHistory.avatars">Use author avatars icons</label>
+									<div class="setting" data-enablement="views.lineHistory.enabled">
+										<div class="setting__input">
+											<input
+												id="views.lineHistory.avatars"
+												name="views.lineHistory.avatars"
+												type="checkbox"
+												data-setting
+												disabled
+											/>
+											<label for="views.lineHistory.avatars">Use author avatars icons</label>
+										</div>
 									</div>
 								</div>
 							</div>
-						</div>
 
-						<div class="section__preview" data-visibility="views.lineHistory.enabled">
-							<img
-								class="image__preview hidden"
-								src="#{root}/images/settings/view-line-history.png"
-								data-visibility="views.lineHistory.enabled"
-							/>
-							<img
-								class="image__preview--overlay hidden"
-								src="#{root}/images/settings/view-line-history-avatars.png"
-								data-visibility="views.lineHistory.enabled &amp; views.lineHistory.avatars"
-							/>
+							<div class="section__preview" data-visibility="views.lineHistory.enabled">
+								<img
+									class="image__preview hidden"
+									src="#{root}/images/settings/view-line-history.png"
+									data-visibility="views.lineHistory.enabled"
+								/>
+								<img
+									class="image__preview--overlay hidden"
+									src="#{root}/images/settings/view-line-history-avatars.png"
+									data-visibility="views.lineHistory.enabled &amp; views.lineHistory.avatars"
+								/>
+							</div>
 						</div>
 					</div>
 				</section>
@@ -1578,70 +1616,97 @@
 					</div>
 
 					<div class="section__collapsible">
-						<div class="section__content">
-							<div class="settings settings--fixed ml-1">
-								<div class="setting" data-enablement="views.search.enabled">
-									<div class="setting__input">
-										<label for="views.search.location">Show in the</label>
-										<select
-											id="views.search.location"
-											name="views.search.location"
-											data-setting
-											disabled
-										>
-											<option value="gitlens">GitLens side bar</option>
-											<option value="explorer">Explorer side bar</option>
-											<option value="scm">Source Control side bar</option>
-										</select>
+						<div class="section__group">
+							<div class="section__content">
+								<div class="settings settings--fixed ml-1">
+									<div class="setting" data-enablement="views.search.enabled">
+										<div class="setting__input">
+											<label for="views.search.location">Show in the</label>
+											<select
+												id="views.search.location"
+												name="views.search.location"
+												data-setting
+												disabled
+											>
+												<option value="gitlens">GitLens side bar</option>
+												<option value="explorer">Explorer side bar</option>
+												<option value="scm">Source Control side bar</option>
+											</select>
+										</div>
 									</div>
-								</div>
 
-								<div class="setting" data-enablement="views.search.enabled">
-									<div class="setting__input">
-										<label for="views.search.files.layout">Layout files</label>
-										<select
-											id="views.search.files.layout"
-											name="views.search.files.layout"
-											data-setting
-											disabled
-										>
-											<option value="auto">automatically</option>
-											<option value="list">as a list</option>
-											<option value="tree">as a tree</option>
-										</select>
+									<div class="setting" data-enablement="views.search.enabled">
+										<div class="setting__input">
+											<label for="views.search.files.layout">Layout files</label>
+											<select
+												id="views.search.files.layout"
+												name="views.search.files.layout"
+												data-setting
+												disabled
+											>
+												<option value="auto">automatically</option>
+												<option value="list">as a list</option>
+												<option value="tree">as a tree</option>
+											</select>
+										</div>
 									</div>
-								</div>
 
-								<div class="setting" data-enablement="views.search.enabled">
-									<div class="setting__input">
-										<input
-											id="views.search.files.compact"
-											name="views.search.files.compact"
-											type="checkbox"
-											data-setting
-											disabled
-										/>
-										<label for="views.search.files.compact">Use compact file layout</label>
+									<div class="setting" data-enablement="views.search.enabled">
+										<div class="setting__input">
+											<input
+												id="views.search.files.compact"
+												name="views.search.files.compact"
+												type="checkbox"
+												data-setting
+												disabled
+											/>
+											<label for="views.search.files.compact">Use compact file layout</label>
+										</div>
+										<p class="setting__hint">
+											Compacts (flattens) unnecessary nesting when using a tree layouts
+										</p>
 									</div>
-									<p class="setting__hint">
-										Compacts (flattens) unnecessary nesting when using a tree layouts
-									</p>
-								</div>
 
-								<div class="setting" data-enablement="views.search.enabled">
-									<div class="setting__input">
-										<input
-											id="views.search.avatars"
-											name="views.search.avatars"
-											type="checkbox"
-											data-setting
-											disabled
-										/>
-										<label for="views.search.avatars">Use author avatars icons</label>
+									<div class="setting" data-enablement="views.search.enabled">
+										<div class="setting__input">
+											<input
+												id="views.search.avatars"
+												name="views.search.avatars"
+												type="checkbox"
+												data-setting
+												disabled
+											/>
+											<label for="views.search.avatars">Use author avatars icons</label>
+										</div>
 									</div>
 								</div>
 							</div>
 
+							<div class="section__preview" data-visibility="views.search.enabled">
+								<img
+									class="image__preview hidden"
+									src="#{root}/images/settings/view-search.png"
+									data-visibility="views.search.enabled &amp; views.search.files.layout !tree"
+								/>
+								<img
+									class="image__preview hidden"
+									src="#{root}/images/settings/view-search-tree-compact.png"
+									data-visibility="views.search.enabled &amp; views.search.files.layout =tree &amp; views.search.files.compact"
+								/>
+								<img
+									class="image__preview hidden"
+									src="#{root}/images/settings/view-search-tree.png"
+									data-visibility="views.search.enabled &amp; views.search.files.layout =tree &amp; views.search.files.compact =false"
+								/>
+								<img
+									class="image__preview--overlay hidden"
+									src="#{root}/images/settings/view-search-avatars.png"
+									data-visibility="views.search.enabled &amp; views.search.avatars"
+								/>
+							</div>
+						</div>
+
+						<div class="section__group">
 							<p class="section__hint">
 								<i class="icon icon__info"></i> For more options, open
 								<a
@@ -1652,29 +1717,6 @@
 								>
 								and search for <b><i>gitlens.views.search</i></b> or <b><i>gitlens.views</i></b>
 							</p>
-						</div>
-
-						<div class="section__preview" data-visibility="views.search.enabled">
-							<img
-								class="image__preview hidden"
-								src="#{root}/images/settings/view-search.png"
-								data-visibility="views.search.enabled &amp; views.search.files.layout !tree"
-							/>
-							<img
-								class="image__preview hidden"
-								src="#{root}/images/settings/view-search-tree-compact.png"
-								data-visibility="views.search.enabled &amp; views.search.files.layout =tree &amp; views.search.files.compact"
-							/>
-							<img
-								class="image__preview hidden"
-								src="#{root}/images/settings/view-search-tree.png"
-								data-visibility="views.search.enabled &amp; views.search.files.layout =tree &amp; views.search.files.compact =false"
-							/>
-							<img
-								class="image__preview--overlay hidden"
-								src="#{root}/images/settings/view-search-avatars.png"
-								data-visibility="views.search.enabled &amp; views.search.avatars"
-							/>
 						</div>
 					</div>
 				</section>
@@ -1704,70 +1746,97 @@
 					</div>
 
 					<div class="section__collapsible">
-						<div class="section__content">
-							<div class="settings settings--fixed ml-1">
-								<div class="setting" data-enablement="views.compare.enabled">
-									<div class="setting__input">
-										<label for="views.compare.location">Show in the</label>
-										<select
-											id="views.compare.location"
-											name="views.compare.location"
-											data-setting
-											disabled
-										>
-											<option value="gitlens">GitLens side bar</option>
-											<option value="explorer">Explorer side bar</option>
-											<option value="scm">Source Control side bar</option>
-										</select>
+						<div class="section__group">
+							<div class="section__content">
+								<div class="settings settings--fixed ml-1">
+									<div class="setting" data-enablement="views.compare.enabled">
+										<div class="setting__input">
+											<label for="views.compare.location">Show in the</label>
+											<select
+												id="views.compare.location"
+												name="views.compare.location"
+												data-setting
+												disabled
+											>
+												<option value="gitlens">GitLens side bar</option>
+												<option value="explorer">Explorer side bar</option>
+												<option value="scm">Source Control side bar</option>
+											</select>
+										</div>
 									</div>
-								</div>
 
-								<div class="setting" data-enablement="views.compare.enabled">
-									<div class="setting__input">
-										<label for="views.compare.files.layout">Layout files</label>
-										<select
-											id="views.compare.files.layout"
-											name="views.compare.files.layout"
-											data-setting
-											disabled
-										>
-											<option value="auto">automatically</option>
-											<option value="list">as a list</option>
-											<option value="tree">as a tree</option>
-										</select>
+									<div class="setting" data-enablement="views.compare.enabled">
+										<div class="setting__input">
+											<label for="views.compare.files.layout">Layout files</label>
+											<select
+												id="views.compare.files.layout"
+												name="views.compare.files.layout"
+												data-setting
+												disabled
+											>
+												<option value="auto">automatically</option>
+												<option value="list">as a list</option>
+												<option value="tree">as a tree</option>
+											</select>
+										</div>
 									</div>
-								</div>
 
-								<div class="setting" data-enablement="views.compare.enabled">
-									<div class="setting__input">
-										<input
-											id="views.compare.files.compact"
-											name="views.compare.files.compact"
-											type="checkbox"
-											data-setting
-											disabled
-										/>
-										<label for="views.compare.files.compact">Use compact file layout</label>
+									<div class="setting" data-enablement="views.compare.enabled">
+										<div class="setting__input">
+											<input
+												id="views.compare.files.compact"
+												name="views.compare.files.compact"
+												type="checkbox"
+												data-setting
+												disabled
+											/>
+											<label for="views.compare.files.compact">Use compact file layout</label>
+										</div>
+										<p class="setting__hint">
+											Compacts (flattens) unnecessary nesting when using a tree layouts
+										</p>
 									</div>
-									<p class="setting__hint">
-										Compacts (flattens) unnecessary nesting when using a tree layouts
-									</p>
-								</div>
 
-								<div class="setting" data-enablement="views.compare.enabled">
-									<div class="setting__input">
-										<input
-											id="views.compare.avatars"
-											name="views.compare.avatars"
-											type="checkbox"
-											data-setting
-											disabled
-										/>
-										<label for="views.compare.avatars">Use author avatars icons</label>
+									<div class="setting" data-enablement="views.compare.enabled">
+										<div class="setting__input">
+											<input
+												id="views.compare.avatars"
+												name="views.compare.avatars"
+												type="checkbox"
+												data-setting
+												disabled
+											/>
+											<label for="views.compare.avatars">Use author avatars icons</label>
+										</div>
 									</div>
 								</div>
 							</div>
 
+							<div class="section__preview" data-visibility="views.compare.enabled">
+								<img
+									class="image__preview hidden"
+									src="#{root}/images/settings/view-compare.png"
+									data-visibility="views.compare.enabled &amp; views.compare.files.layout !tree"
+								/>
+								<img
+									class="image__preview hidden"
+									src="#{root}/images/settings/view-compare-tree-compact.png"
+									data-visibility="views.compare.enabled &amp; views.compare.files.layout =tree &amp; views.compare.files.compact"
+								/>
+								<img
+									class="image__preview hidden"
+									src="#{root}/images/settings/view-compare-tree.png"
+									data-visibility="views.compare.enabled &amp; views.compare.files.layout =tree &amp; views.compare.files.compact =false"
+								/>
+								<img
+									class="image__preview--overlay hidden"
+									src="#{root}/images/settings/view-compare-avatars.png"
+									data-visibility="views.compare.enabled &amp; views.compare.avatars"
+								/>
+							</div>
+						</div>
+
+						<div class="section__group">
 							<p class="section__hint">
 								<i class="icon icon__info"></i> For more options, open
 								<a
@@ -1778,29 +1847,6 @@
 								>
 								and search for <b><i>gitlens.views.compare</i></b> or <b><i>gitlens.views</i></b>
 							</p>
-						</div>
-
-						<div class="section__preview" data-visibility="views.compare.enabled">
-							<img
-								class="image__preview hidden"
-								src="#{root}/images/settings/view-compare.png"
-								data-visibility="views.compare.enabled &amp; views.compare.files.layout !tree"
-							/>
-							<img
-								class="image__preview hidden"
-								src="#{root}/images/settings/view-compare-tree-compact.png"
-								data-visibility="views.compare.enabled &amp; views.compare.files.layout =tree &amp; views.compare.files.compact"
-							/>
-							<img
-								class="image__preview hidden"
-								src="#{root}/images/settings/view-compare-tree.png"
-								data-visibility="views.compare.enabled &amp; views.compare.files.layout =tree &amp; views.compare.files.compact =false"
-							/>
-							<img
-								class="image__preview--overlay hidden"
-								src="#{root}/images/settings/view-compare-avatars.png"
-								data-visibility="views.compare.enabled &amp; views.compare.avatars"
-							/>
 						</div>
 					</div>
 				</section>
@@ -1844,150 +1890,202 @@
 					</div>
 
 					<div class="section__collapsible">
-						<div class="section__content">
-							<div class="setting">
-								<div class="setting__input">
-									<label for="blame.toggleMode">Toggle annotations </label>
-									<select id="blame.toggleMode" name="blame.toggleMode" data-setting>
-										<option value="file">individually for each file</option>
-										<option value="window">for all files</option>
-									</select>
-								</div>
-							</div>
-
-							<div class="setting">
-								<div class="setting__input">
-									<label for="blame.format">Annotation&nbsp;format</label>
-									<input
-										id="blame.format"
-										name="blame.format"
-										type="text"
-										placeholder="&#36;&#123;message|40?&#125; &#36;&#123;agoOrDate|14-&#125;"
-										data-setting
-										data-default-value="&#36;&#123;message|40?&#125; &#36;&#123;agoOrDate|14-&#125;"
-										data-popup-trigger
-									/>
-									<label for="blame.format" title="See available tokens">
-										<i class="icon icon__chevron-down"></i>
-									</label>
-									<div id="blame.format.popup" class="popup hidden"></div>
-								</div>
-							</div>
-
-							<div class="setting">
-								<div class="setting__input">
-									<input
-										id="blame.heatmap.enabled"
-										name="blame.heatmap.enabled"
-										type="checkbox"
-										data-setting
-									/>
-									<label for="blame.heatmap.enabled">
-										Add a heatmap (age) indicator to show how recently lines were changed
-									</label>
-								</div>
-								<p class="setting__hint">
-									Indicator color reflects the age of the most recent change (hot or cold), while
-									indicator brightness ranges from bright (newer) to dim (older) based on the relative
-									age
-								</p>
-							</div>
-
-							<div class="settings settings--fixed ml-2">
-								<div class="setting" data-enablement="blame.heatmap.enabled" disabled>
+						<div class="section__group">
+							<div class="section__content">
+								<div class="setting">
 									<div class="setting__input">
-										<label for="blame.heatmap.location">Position the heatmap on the</label>
-										<select
-											id="blame.heatmap.location"
-											name="blame.heatmap.location"
-											data-setting
-											disabled
-										>
-											<option value="left">left</option>
-											<option value="right">right</option>
+										<label for="blame.toggleMode">Toggle annotations </label>
+										<select id="blame.toggleMode" name="blame.toggleMode" data-setting>
+											<option value="file">individually for each file</option>
+											<option value="window">for all files</option>
 										</select>
 									</div>
 								</div>
-							</div>
 
-							<div class="setting">
-								<div class="setting__input">
-									<input id="blame.avatars" name="blame.avatars" type="checkbox" data-setting />
-									<label for="blame.avatars">Add author avatars in the gutter</label>
-								</div>
-							</div>
-
-							<div class="setting">
-								<div class="setting__input">
-									<input id="blame.compact" name="blame.compact" type="checkbox" data-setting />
-									<label for="blame.compact">Use compact view</label>
-								</div>
-								<p class="setting__hint">
-									Compacts (deduplicates) matching adjacent blame annotations
-								</p>
-							</div>
-
-							<div class="setting">
-								<div class="setting__input">
-									<input
-										id="blame.highlight.enabled"
-										name="blame.highlight.enabled"
-										type="checkbox"
-										data-setting
-									/>
-									<label for="blame.highlight.enabled">
-										Highlight other lines changed by the same commit as the current line
-									</label>
-								</div>
-							</div>
-
-							<div class="settings ml-2">
-								<div class="setting" data-enablement="blame.highlight.enabled">
+								<div class="setting">
 									<div class="setting__input">
+										<label for="blame.format">Annotation&nbsp;format</label>
 										<input
-											id="blame.highlight.locations"
-											name="blame.highlight.locations"
-											type="checkbox"
-											value="gutter"
+											id="blame.format"
+											name="blame.format"
+											type="text"
+											placeholder="&#36;&#123;message|40?&#125; &#36;&#123;agoOrDate|14-&#125;"
 											data-setting
-											data-setting-type="array"
-											disabled
+											data-default-value="&#36;&#123;message|40?&#125; &#36;&#123;agoOrDate|14-&#125;"
+											data-popup-trigger
 										/>
-										<label for="blame.highlight.locations">Add gutter highlight</label>
+										<label for="blame.format" title="See available tokens">
+											<i class="icon icon__chevron-down"></i>
+										</label>
+										<div id="blame.format.popup" class="popup hidden"></div>
 									</div>
 								</div>
 
-								<div class="setting" data-enablement="blame.highlight.enabled">
+								<div class="setting">
 									<div class="setting__input">
 										<input
-											id="blame.highlight.locations-1"
-											name="blame.highlight.locations"
+											id="blame.heatmap.enabled"
+											name="blame.heatmap.enabled"
 											type="checkbox"
-											value="line"
 											data-setting
-											data-setting-type="array"
-											disabled
 										/>
-										<label for="blame.highlight.locations-1">Add line highlight</label>
+										<label for="blame.heatmap.enabled">
+											Add a heatmap (age) indicator to show how recently lines were changed
+										</label>
+									</div>
+									<p class="setting__hint">
+										Indicator color reflects the age of the most recent change (hot or cold), while
+										indicator brightness ranges from bright (newer) to dim (older) based on the
+										relative age
+									</p>
+								</div>
+
+								<div class="settings settings--fixed ml-2">
+									<div class="setting" data-enablement="blame.heatmap.enabled" disabled>
+										<div class="setting__input">
+											<label for="blame.heatmap.location">Position the heatmap on the</label>
+											<select
+												id="blame.heatmap.location"
+												name="blame.heatmap.location"
+												data-setting
+												disabled
+											>
+												<option value="left">left</option>
+												<option value="right">right</option>
+											</select>
+										</div>
 									</div>
 								</div>
 
-								<div class="setting" data-enablement="blame.highlight.enabled">
+								<div class="setting">
+									<div class="setting__input">
+										<input id="blame.avatars" name="blame.avatars" type="checkbox" data-setting />
+										<label for="blame.avatars">Add author avatars in the gutter</label>
+									</div>
+								</div>
+
+								<div class="setting">
+									<div class="setting__input">
+										<input id="blame.compact" name="blame.compact" type="checkbox" data-setting />
+										<label for="blame.compact">Use compact view</label>
+									</div>
+									<p class="setting__hint">
+										Compacts (deduplicates) matching adjacent blame annotations
+									</p>
+								</div>
+
+								<div class="setting">
 									<div class="setting__input">
 										<input
-											id="blame.highlight.locations-2"
-											name="blame.highlight.locations"
+											id="blame.highlight.enabled"
+											name="blame.highlight.enabled"
 											type="checkbox"
-											value="overview"
 											data-setting
-											data-setting-type="array"
-											disabled
 										/>
-										<label for="blame.highlight.locations-2">Add scroll bar highlight</label>
+										<label for="blame.highlight.enabled">
+											Highlight other lines changed by the same commit as the current line
+										</label>
+									</div>
+								</div>
+
+								<div class="settings ml-2">
+									<div class="setting" data-enablement="blame.highlight.enabled">
+										<div class="setting__input">
+											<input
+												id="blame.highlight.locations"
+												name="blame.highlight.locations"
+												type="checkbox"
+												value="gutter"
+												data-setting
+												data-setting-type="array"
+												disabled
+											/>
+											<label for="blame.highlight.locations">Add gutter highlight</label>
+										</div>
+									</div>
+
+									<div class="setting" data-enablement="blame.highlight.enabled">
+										<div class="setting__input">
+											<input
+												id="blame.highlight.locations-1"
+												name="blame.highlight.locations"
+												type="checkbox"
+												value="line"
+												data-setting
+												data-setting-type="array"
+												disabled
+											/>
+											<label for="blame.highlight.locations-1">Add line highlight</label>
+										</div>
+									</div>
+
+									<div class="setting" data-enablement="blame.highlight.enabled">
+										<div class="setting__input">
+											<input
+												id="blame.highlight.locations-2"
+												name="blame.highlight.locations"
+												type="checkbox"
+												value="overview"
+												data-setting
+												data-setting-type="array"
+												disabled
+											/>
+											<label for="blame.highlight.locations-2">Add scroll bar highlight</label>
+										</div>
 									</div>
 								</div>
 							</div>
 
+							<div class="section__preview">
+								<img
+									class="image__preview hidden"
+									src="#{root}/images/settings/blame.png"
+									data-visibility="blame.compact =false"
+								/>
+								<img
+									class="image__preview hidden"
+									src="#{root}/images/settings/blame-compact.png"
+									data-visibility="blame.compact"
+								/>
+								<img
+									class="image__preview--overlay hidden"
+									src="#{root}/images/settings/blame-avatars.png"
+									data-visibility="blame.avatars &amp; blame.compact =false"
+								/>
+								<img
+									class="image__preview--overlay hidden"
+									src="#{root}/images/settings/blame-avatars-compact.png"
+									data-visibility="blame.avatars &amp; blame.compact"
+								/>
+								<img
+									class="image__preview--overlay hidden"
+									src="#{root}/images/settings/blame-highlight-gutter.png"
+									data-visibility="blame.highlight.enabled &amp; blame.highlight.locations +gutter"
+								/>
+								<img
+									class="image__preview--overlay hidden"
+									src="#{root}/images/settings/blame-highlight-line.png"
+									data-visibility="blame.highlight.enabled &amp; blame.highlight.locations +line"
+								/>
+								<img
+									class="image__preview--overlay hidden"
+									src="#{root}/images/settings/blame-highlight-scrollbar.png"
+									data-visibility="blame.highlight.enabled &amp; blame.highlight.locations +overview"
+								/>
+								<img
+									class="image__preview--overlay hidden"
+									src="#{root}/images/settings/blame-heatmap-left.png"
+									data-visibility="blame.heatmap.enabled &amp; blame.heatmap.location =left"
+								/>
+								<img
+									class="image__preview--overlay hidden"
+									src="#{root}/images/settings/blame-heatmap-right.png"
+									data-visibility="blame.heatmap.enabled &amp; blame.heatmap.location =right"
+								/>
+							</div>
+						</div>
+
+						<div class="section__group">
 							<p class="section__hint">
 								<i class="icon icon__info"></i> For more options, open
 								<a
@@ -1998,54 +2096,6 @@
 								>
 								and search for <b><i>gitlens.blame</i></b>
 							</p>
-						</div>
-
-						<div class="section__preview">
-							<img
-								class="image__preview hidden"
-								src="#{root}/images/settings/blame.png"
-								data-visibility="blame.compact =false"
-							/>
-							<img
-								class="image__preview hidden"
-								src="#{root}/images/settings/blame-compact.png"
-								data-visibility="blame.compact"
-							/>
-							<img
-								class="image__preview--overlay hidden"
-								src="#{root}/images/settings/blame-avatars.png"
-								data-visibility="blame.avatars &amp; blame.compact =false"
-							/>
-							<img
-								class="image__preview--overlay hidden"
-								src="#{root}/images/settings/blame-avatars-compact.png"
-								data-visibility="blame.avatars &amp; blame.compact"
-							/>
-							<img
-								class="image__preview--overlay hidden"
-								src="#{root}/images/settings/blame-highlight-gutter.png"
-								data-visibility="blame.highlight.enabled &amp; blame.highlight.locations +gutter"
-							/>
-							<img
-								class="image__preview--overlay hidden"
-								src="#{root}/images/settings/blame-highlight-line.png"
-								data-visibility="blame.highlight.enabled &amp; blame.highlight.locations +line"
-							/>
-							<img
-								class="image__preview--overlay hidden"
-								src="#{root}/images/settings/blame-highlight-scrollbar.png"
-								data-visibility="blame.highlight.enabled &amp; blame.highlight.locations +overview"
-							/>
-							<img
-								class="image__preview--overlay hidden"
-								src="#{root}/images/settings/blame-heatmap-left.png"
-								data-visibility="blame.heatmap.enabled &amp; blame.heatmap.location =left"
-							/>
-							<img
-								class="image__preview--overlay hidden"
-								src="#{root}/images/settings/blame-heatmap-right.png"
-								data-visibility="blame.heatmap.enabled &amp; blame.heatmap.location =right"
-							/>
 						</div>
 					</div>
 				</section>
@@ -2091,26 +2141,28 @@
 					</div>
 
 					<div class="section__collapsible">
-						<div class="section__content">
-							<p class="setting__hint">
-								<i class="icon icon__info"></i> Indicator color reflects the age of the most recent
-								change (hot or cold), while indicator brightness ranges from bright (newer) to dim
-								(older) based on the relative age
-							</p>
+						<div class="section__group">
+							<div class="section__content">
+								<p class="setting__hint">
+									<i class="icon icon__info"></i> Indicator color reflects the age of the most recent
+									change (hot or cold), while indicator brightness ranges from bright (newer) to dim
+									(older) based on the relative age
+								</p>
 
-							<div class="setting">
-								<div class="setting__input">
-									<label for="heatmap.toggleMode">Toggle annotations </label>
-									<select id="heatmap.toggleMode" name="heatmap.toggleMode" data-setting>
-										<option value="file">individually for each file</option>
-										<option value="window">for all files</option>
-									</select>
+								<div class="setting">
+									<div class="setting__input">
+										<label for="heatmap.toggleMode">Toggle annotations </label>
+										<select id="heatmap.toggleMode" name="heatmap.toggleMode" data-setting>
+											<option value="file">individually for each file</option>
+											<option value="window">for all files</option>
+										</select>
+									</div>
 								</div>
 							</div>
-						</div>
 
-						<div class="section__preview">
-							<img class="image__preview" src="#{root}/images/settings/heatmap.png" />
+							<div class="section__preview">
+								<img class="image__preview" src="#{root}/images/settings/heatmap.png" />
+							</div>
 						</div>
 					</div>
 				</section>
@@ -2156,81 +2208,87 @@
 					</div>
 
 					<div class="section__collapsible">
-						<div class="section__content">
-							<div class="setting">
-								<div class="setting__input">
-									<label for="recentChanges.toggleMode">Toggle annotations </label>
-									<select id="recentChanges.toggleMode" name="recentChanges.toggleMode" data-setting>
-										<option value="file">individually for each file</option>
-										<option value="window">for all files</option>
-									</select>
-								</div>
-							</div>
-
-							<div class="settings">
+						<div class="section__group">
+							<div class="section__content">
 								<div class="setting">
 									<div class="setting__input">
-										<input
-											id="recentChanges.highlight.locations"
-											name="recentChanges.highlight.locations"
-											type="checkbox"
-											value="gutter"
+										<label for="recentChanges.toggleMode">Toggle annotations </label>
+										<select
+											id="recentChanges.toggleMode"
+											name="recentChanges.toggleMode"
 											data-setting
-											data-setting-type="array"
-										/>
-										<label for="recentChanges.highlight.locations">Add gutter highlight</label>
-									</div>
-								</div>
-
-								<div class="setting">
-									<div class="setting__input">
-										<input
-											id="recentChanges.highlight.locations-1"
-											name="recentChanges.highlight.locations"
-											type="checkbox"
-											value="line"
-											data-setting
-											data-setting-type="array"
-										/>
-										<label for="recentChanges.highlight.locations-1">Add line highlight</label>
-									</div>
-								</div>
-
-								<div class="setting">
-									<div class="setting__input">
-										<input
-											id="recentChanges.highlight.locations-2"
-											name="recentChanges.highlight.locations"
-											type="checkbox"
-											value="overview"
-											data-setting
-											data-setting-type="array"
-										/>
-										<label for="recentChanges.highlight.locations-2"
-											>Add scroll bar highlight</label
 										>
+											<option value="file">individually for each file</option>
+											<option value="window">for all files</option>
+										</select>
+									</div>
+								</div>
+
+								<div class="settings">
+									<div class="setting">
+										<div class="setting__input">
+											<input
+												id="recentChanges.highlight.locations"
+												name="recentChanges.highlight.locations"
+												type="checkbox"
+												value="gutter"
+												data-setting
+												data-setting-type="array"
+											/>
+											<label for="recentChanges.highlight.locations">Add gutter highlight</label>
+										</div>
+									</div>
+
+									<div class="setting">
+										<div class="setting__input">
+											<input
+												id="recentChanges.highlight.locations-1"
+												name="recentChanges.highlight.locations"
+												type="checkbox"
+												value="line"
+												data-setting
+												data-setting-type="array"
+											/>
+											<label for="recentChanges.highlight.locations-1">Add line highlight</label>
+										</div>
+									</div>
+
+									<div class="setting">
+										<div class="setting__input">
+											<input
+												id="recentChanges.highlight.locations-2"
+												name="recentChanges.highlight.locations"
+												type="checkbox"
+												value="overview"
+												data-setting
+												data-setting-type="array"
+											/>
+											<label for="recentChanges.highlight.locations-2"
+												>Add scroll bar highlight</label
+											>
+										</div>
 									</div>
 								</div>
 							</div>
-						</div>
 
-						<div class="section__preview">
-							<img class="image__preview" src="#{root}/images/settings/recent-changes.png" />
-							<img
-								class="image__preview--overlay hidden"
-								src="#{root}/images/settings/recent-changes-highlight-gutter.png"
-								data-visibility="recentChanges.highlight.locations +gutter"
-							/>
-							<img
-								class="image__preview--overlay hidden"
-								src="#{root}/images/settings/recent-changes-highlight-line.png"
-								data-visibility="recentChanges.highlight.locations +line"
-							/>
-							<img
-								class="image__preview--overlay hidden"
-								src="#{root}/images/settings/recent-changes-highlight-scrollbar.png"
-								data-visibility="recentChanges.highlight.locations +overview"
-							/>
+							<div class="section__preview">
+								<img class="image__preview" src="#{root}/images/settings/recent-changes.png" />
+								<img
+									class="image__preview--overlay hidden"
+									src="#{root}/images/settings/recent-changes-highlight-gutter.png"
+									data-visibility="recentChanges.highlight.locations +gutter"
+								/>
+								<img
+									class="image__preview--overlay hidden"
+									src="#{root}/images/settings/recent-changes-highlight-line.png"
+									data-visibility="recentChanges.highlight.locations +line"
+								/>
+								<img
+									class="image__preview--overlay hidden"
+									src="#{root}/images/settings/recent-changes-highlight-scrollbar.png"
+									data-visibility="recentChanges.highlight.locations +overview"
+								/>
+							</div>
 						</div>
 					</div>
 				</section>
@@ -2241,54 +2299,25 @@
 					</div>
 
 					<div class="section__collapsible">
-						<div class="section__content">
-							<div class="setting">
-								<div class="setting__input">
-									<input
-										id="defaultDateStyle"
-										name="defaultDateStyle"
-										type="checkbox"
-										value="relative"
-										data-value-off="absolute"
-										data-setting
-									/>
-									<label for="defaultDateStyle">Allow relative date formatting</label>
-								</div>
-								<span class="setting__hint hidden" data-visibility="defaultDateStyle =relative"
-									>Shows some dates relatively, e.g. 1 day ago</span
-								>
-								<span class="setting__hint hidden" data-visibility="defaultDateStyle =absolute"
-									>Shows dates absolutely, e.g.
-									<span
-										data-setting-preview="defaultDateFormat"
-										data-setting-preview-type="date"
-										data-setting-preview-default="MMMM Do, YYYY h:mma"
-									></span>
-								</span>
-							</div>
-
-							<div class="settings">
+						<div class="section__group">
+							<div class="section__content">
 								<div class="setting">
 									<div class="setting__input">
-										<label for="defaultDateFormat">Date&nbsp;format</label>
 										<input
-											id="defaultDateFormat"
-											name="defaultDateFormat"
-											type="text"
-											placeholder="defaults to MMMM Do, YYYY h:mma"
+											id="defaultDateStyle"
+											name="defaultDateStyle"
+											type="checkbox"
+											value="relative"
+											data-value-off="absolute"
 											data-setting
-											data-setting-preview
 										/>
-										<a
-											class="link__learn-more"
-											title="See Moment.js docs for valid date formats"
-											href="https://momentjs.com/docs/#/displaying/format/"
-										>
-											<i class="icon icon__info"></i>
-										</a>
+										<label for="defaultDateStyle">Allow relative date formatting</label>
 									</div>
-									<span class="setting__hint"
-										>Example date:
+									<span class="setting__hint hidden" data-visibility="defaultDateStyle =relative"
+										>Shows some dates relatively, e.g. 1 day ago</span
+									>
+									<span class="setting__hint hidden" data-visibility="defaultDateStyle =absolute"
+										>Shows dates absolutely, e.g.
 										<span
 											data-setting-preview="defaultDateFormat"
 											data-setting-preview-type="date"
@@ -2297,33 +2326,64 @@
 									</span>
 								</div>
 
-								<div class="setting">
-									<div class="setting__input">
-										<label for="defaultDateShortFormat">Short&nbsp;date&nbsp;format</label>
-										<input
-											id="defaultDateShortFormat"
-											name="defaultDateShortFormat"
-											type="text"
-											placeholder="defaults to MMM D, YYYY"
-											data-setting
-											data-setting-preview
-										/>
-										<a
-											class="link__learn-more"
-											title="See Moment.js docs for valid date formats"
-											href="https://momentjs.com/docs/#/displaying/format/"
-										>
-											<i class="icon icon__info"></i>
-										</a>
+								<div class="settings">
+									<div class="setting">
+										<div class="setting__input">
+											<label for="defaultDateFormat">Date&nbsp;format</label>
+											<input
+												id="defaultDateFormat"
+												name="defaultDateFormat"
+												type="text"
+												placeholder="defaults to MMMM Do, YYYY h:mma"
+												data-setting
+												data-setting-preview
+											/>
+											<a
+												class="link__learn-more"
+												title="See Moment.js docs for valid date formats"
+												href="https://momentjs.com/docs/#/displaying/format/"
+											>
+												<i class="icon icon__info"></i>
+											</a>
+										</div>
+										<span class="setting__hint"
+											>Example date:
+											<span
+												data-setting-preview="defaultDateFormat"
+												data-setting-preview-type="date"
+												data-setting-preview-default="MMMM Do, YYYY h:mma"
+											></span>
+										</span>
 									</div>
-									<span class="setting__hint"
-										>Example short date:
-										<span
-											data-setting-preview="defaultDateShortFormat"
-											data-setting-preview-type="date"
-											data-setting-preview-default="MMM D, YYYY"
-										></span>
-									</span>
+
+									<div class="setting">
+										<div class="setting__input">
+											<label for="defaultDateShortFormat">Short&nbsp;date&nbsp;format</label>
+											<input
+												id="defaultDateShortFormat"
+												name="defaultDateShortFormat"
+												type="text"
+												placeholder="defaults to MMM D, YYYY"
+												data-setting
+												data-setting-preview
+											/>
+											<a
+												class="link__learn-more"
+												title="See Moment.js docs for valid date formats"
+												href="https://momentjs.com/docs/#/displaying/format/"
+											>
+												<i class="icon icon__info"></i>
+											</a>
+										</div>
+										<span class="setting__hint"
+											>Example short date:
+											<span
+												data-setting-preview="defaultDateShortFormat"
+												data-setting-preview-type="date"
+												data-setting-preview-default="MMM D, YYYY"
+											></span>
+										</span>
+									</div>
 								</div>
 							</div>
 						</div>
@@ -2359,469 +2419,475 @@
 					</div>
 
 					<div class="section__collapsible">
-						<div class="section__content">
-							<div class="setting setting--expandable" data-enablement="menus">
-								<div class="setting__input">
-									<div class="setting__expander"></div>
-									<input
-										id="menus.editor"
-										name="menus.editor"
-										type="checkbox"
-										value="undefined"
-										data-setting
-										data-setting-type="object"
-										disabled
-									/>
-									<label for="menus.editor">Add commands to the editor context menu</label>
-								</div>
-							</div>
-
-							<div class="settings ml-4">
-								<div class="setting" data-enablement="menus.editor">
+						<div class="section__group">
+							<div class="section__content">
+								<div class="setting setting--expandable" data-enablement="menus">
 									<div class="setting__input">
+										<div class="setting__expander"></div>
 										<input
-											id="menus.editor.compare"
-											name="menus.editor.compare"
+											id="menus.editor"
+											name="menus.editor"
 											type="checkbox"
+											value="undefined"
 											data-setting
 											data-setting-type="object"
 											disabled
 										/>
-										<label for="menus.editor.compare">Add comparison commands</label>
+										<label for="menus.editor">Add commands to the editor context menu</label>
 									</div>
 								</div>
 
-								<div class="setting" data-enablement="menus.editor">
-									<div class="setting__input">
-										<input
-											id="menus.editor.remote"
-											name="menus.editor.remote"
-											type="checkbox"
-											data-setting
-											data-setting-type="object"
-											disabled
-										/>
-										<label for="menus.editor.remote">Add open on remote commands</label>
+								<div class="settings ml-4">
+									<div class="setting" data-enablement="menus.editor">
+										<div class="setting__input">
+											<input
+												id="menus.editor.compare"
+												name="menus.editor.compare"
+												type="checkbox"
+												data-setting
+												data-setting-type="object"
+												disabled
+											/>
+											<label for="menus.editor.compare">Add comparison commands</label>
+										</div>
+									</div>
+
+									<div class="setting" data-enablement="menus.editor">
+										<div class="setting__input">
+											<input
+												id="menus.editor.remote"
+												name="menus.editor.remote"
+												type="checkbox"
+												data-setting
+												data-setting-type="object"
+												disabled
+											/>
+											<label for="menus.editor.remote">Add open on remote commands</label>
+										</div>
+									</div>
+
+									<div class="setting" data-enablement="menus.editor">
+										<div class="setting__input">
+											<input
+												id="menus.editor.details"
+												name="menus.editor.details"
+												type="checkbox"
+												data-setting
+												data-setting-type="object"
+												disabled
+											/>
+											<label for="menus.editor.details">Add commit details commands</label>
+										</div>
+									</div>
+
+									<div class="setting" data-enablement="menus.editor">
+										<div class="setting__input">
+											<input
+												id="menus.editor.history"
+												name="menus.editor.history"
+												type="checkbox"
+												data-setting
+												data-setting-type="object"
+												disabled
+											/>
+											<label for="menus.editor.history">Add file history commands</label>
+										</div>
+									</div>
+
+									<div class="setting" data-enablement="menus.editor">
+										<div class="setting__input">
+											<input
+												id="menus.editor.blame"
+												name="menus.editor.blame"
+												type="checkbox"
+												data-setting
+												data-setting-type="object"
+												disabled
+											/>
+											<label for="menus.editor.blame">Add blame commands</label>
+										</div>
+									</div>
+
+									<div class="setting" data-enablement="menus.editor">
+										<div class="setting__input">
+											<input
+												id="menus.editor.clipboard"
+												name="menus.editor.clipboard"
+												type="checkbox"
+												data-setting
+												data-setting-type="object"
+												disabled
+											/>
+											<label for="menus.editor.clipboard">Add copy to clipboard commands</label>
+										</div>
 									</div>
 								</div>
 
-								<div class="setting" data-enablement="menus.editor">
+								<div class="setting setting--expandable" data-enablement="menus">
 									<div class="setting__input">
+										<div class="setting__expander"></div>
 										<input
-											id="menus.editor.details"
-											name="menus.editor.details"
+											id="menus.editorTab"
+											name="menus.editorTab"
 											type="checkbox"
+											value="undefined"
 											data-setting
 											data-setting-type="object"
 											disabled
 										/>
-										<label for="menus.editor.details">Add commit details commands</label>
+										<label for="menus.editorTab">Add commands to the editor tab context menu</label>
 									</div>
 								</div>
 
-								<div class="setting" data-enablement="menus.editor">
-									<div class="setting__input">
-										<input
-											id="menus.editor.history"
-											name="menus.editor.history"
-											type="checkbox"
-											data-setting
-											data-setting-type="object"
-											disabled
-										/>
-										<label for="menus.editor.history">Add file history commands</label>
+								<div class="settings ml-4">
+									<div class="setting" data-enablement="menus.editorTab">
+										<div class="setting__input">
+											<input
+												id="menus.editorTab.remote"
+												name="menus.editorTab.remote"
+												type="checkbox"
+												data-setting
+												data-setting-type="object"
+												disabled
+											/>
+											<label for="menus.editorTab.remote">Add open on remote commands</label>
+										</div>
+									</div>
+
+									<div class="setting" data-enablement="menus.editorTab">
+										<div class="setting__input">
+											<input
+												id="menus.editorTab.compare"
+												name="menus.editorTab.compare"
+												type="checkbox"
+												data-setting
+												data-setting-type="object"
+												disabled
+											/>
+											<label for="menus.editorTab.compare">Add comparison commands</label>
+										</div>
+									</div>
+
+									<div class="setting" data-enablement="menus.editorTab">
+										<div class="setting__input">
+											<input
+												id="menus.editorTab.history"
+												name="menus.editorTab.history"
+												type="checkbox"
+												data-setting
+												data-setting-type="object"
+												disabled
+											/>
+											<label for="menus.editorTab.history">Add file history commands</label>
+										</div>
+									</div>
+
+									<div class="setting" data-enablement="menus.editorTab">
+										<div class="setting__input">
+											<input
+												id="menus.editorTab.clipboard"
+												name="menus.editorTab.clipboard"
+												type="checkbox"
+												data-setting
+												data-setting-type="object"
+												disabled
+											/>
+											<label for="menus.editorTab.clipboard"
+												>Add copy to clipboard commands</label
+											>
+										</div>
 									</div>
 								</div>
 
-								<div class="setting" data-enablement="menus.editor">
+								<div class="setting setting--expandable" data-enablement="menus">
 									<div class="setting__input">
+										<div class="setting__expander"></div>
 										<input
-											id="menus.editor.blame"
-											name="menus.editor.blame"
+											id="menus.editorGroup"
+											name="menus.editorGroup"
 											type="checkbox"
+											value="undefined"
 											data-setting
 											data-setting-type="object"
 											disabled
 										/>
-										<label for="menus.editor.blame">Add blame commands</label>
+										<label for="menus.editorGroup">Add commands to the editor group toolbar</label>
 									</div>
 								</div>
 
-								<div class="setting" data-enablement="menus.editor">
-									<div class="setting__input">
-										<input
-											id="menus.editor.clipboard"
-											name="menus.editor.clipboard"
-											type="checkbox"
-											data-setting
-											data-setting-type="object"
-											disabled
-										/>
-										<label for="menus.editor.clipboard">Add copy to clipboard commands</label>
+								<div class="settings ml-4">
+									<div class="setting" data-enablement="menus.editorGroup">
+										<div class="setting__input">
+											<input
+												id="menus.editorGroup.compare"
+												name="menus.editorGroup.compare"
+												type="checkbox"
+												data-setting
+												data-setting-type="object"
+												disabled
+											/>
+											<label for="menus.editorGroup.compare">Add comparison commands</label>
+										</div>
 									</div>
-								</div>
-							</div>
 
-							<div class="setting setting--expandable" data-enablement="menus">
-								<div class="setting__input">
-									<div class="setting__expander"></div>
-									<input
-										id="menus.editorTab"
-										name="menus.editorTab"
-										type="checkbox"
-										value="undefined"
-										data-setting
-										data-setting-type="object"
-										disabled
-									/>
-									<label for="menus.editorTab">Add commands to the editor tab context menu</label>
-								</div>
-							</div>
-
-							<div class="settings ml-4">
-								<div class="setting" data-enablement="menus.editorTab">
-									<div class="setting__input">
-										<input
-											id="menus.editorTab.remote"
-											name="menus.editorTab.remote"
-											type="checkbox"
-											data-setting
-											data-setting-type="object"
-											disabled
-										/>
-										<label for="menus.editorTab.remote">Add open on remote commands</label>
+									<div class="setting" data-enablement="menus.editorGroup">
+										<div class="setting__input">
+											<input
+												id="menus.editorGroup.blame"
+												name="menus.editorGroup.blame"
+												type="checkbox"
+												data-setting
+												data-setting-type="object"
+												disabled
+											/>
+											<label for="menus.editorGroup.blame">Add blame commands</label>
+										</div>
 									</div>
 								</div>
 
-								<div class="setting" data-enablement="menus.editorTab">
+								<div class="setting setting--expandable" data-enablement="menus">
 									<div class="setting__input">
+										<div class="setting__expander"></div>
 										<input
-											id="menus.editorTab.compare"
-											name="menus.editorTab.compare"
+											id="menus.explorer"
+											name="menus.explorer"
 											type="checkbox"
+											value="undefined"
 											data-setting
 											data-setting-type="object"
 											disabled
 										/>
-										<label for="menus.editorTab.compare">Add comparison commands</label>
-									</div>
-								</div>
-
-								<div class="setting" data-enablement="menus.editorTab">
-									<div class="setting__input">
-										<input
-											id="menus.editorTab.history"
-											name="menus.editorTab.history"
-											type="checkbox"
-											data-setting
-											data-setting-type="object"
-											disabled
-										/>
-										<label for="menus.editorTab.history">Add file history commands</label>
-									</div>
-								</div>
-
-								<div class="setting" data-enablement="menus.editorTab">
-									<div class="setting__input">
-										<input
-											id="menus.editorTab.clipboard"
-											name="menus.editorTab.clipboard"
-											type="checkbox"
-											data-setting
-											data-setting-type="object"
-											disabled
-										/>
-										<label for="menus.editorTab.clipboard">Add copy to clipboard commands</label>
-									</div>
-								</div>
-							</div>
-
-							<div class="setting setting--expandable" data-enablement="menus">
-								<div class="setting__input">
-									<div class="setting__expander"></div>
-									<input
-										id="menus.editorGroup"
-										name="menus.editorGroup"
-										type="checkbox"
-										value="undefined"
-										data-setting
-										data-setting-type="object"
-										disabled
-									/>
-									<label for="menus.editorGroup">Add commands to the editor group toolbar</label>
-								</div>
-							</div>
-
-							<div class="settings ml-4">
-								<div class="setting" data-enablement="menus.editorGroup">
-									<div class="setting__input">
-										<input
-											id="menus.editorGroup.compare"
-											name="menus.editorGroup.compare"
-											type="checkbox"
-											data-setting
-											data-setting-type="object"
-											disabled
-										/>
-										<label for="menus.editorGroup.compare">Add comparison commands</label>
-									</div>
-								</div>
-
-								<div class="setting" data-enablement="menus.editorGroup">
-									<div class="setting__input">
-										<input
-											id="menus.editorGroup.blame"
-											name="menus.editorGroup.blame"
-											type="checkbox"
-											data-setting
-											data-setting-type="object"
-											disabled
-										/>
-										<label for="menus.editorGroup.blame">Add blame commands</label>
-									</div>
-								</div>
-							</div>
-
-							<div class="setting setting--expandable" data-enablement="menus">
-								<div class="setting__input">
-									<div class="setting__expander"></div>
-									<input
-										id="menus.explorer"
-										name="menus.explorer"
-										type="checkbox"
-										value="undefined"
-										data-setting
-										data-setting-type="object"
-										disabled
-									/>
-									<label for="menus.explorer">Add commands to the Explorer items context menu</label>
-								</div>
-							</div>
-
-							<div class="settings ml-4">
-								<div class="setting" data-enablement="menus.explorer">
-									<div class="setting__input">
-										<input
-											id="menus.explorer.remote"
-											name="menus.explorer.remote"
-											type="checkbox"
-											data-setting
-											data-setting-type="object"
-											disabled
-										/>
-										<label for="menus.explorer.remote">Add open on remote commands</label>
-									</div>
-								</div>
-
-								<div class="setting" data-enablement="menus.explorer">
-									<div class="setting__input">
-										<input
-											id="menus.explorer.compare"
-											name="menus.explorer.compare"
-											type="checkbox"
-											data-setting
-											data-setting-type="object"
-											disabled
-										/>
-										<label for="menus.explorer.compare">Add comparison commands</label>
-									</div>
-								</div>
-
-								<div class="setting" data-enablement="menus.explorer">
-									<div class="setting__input">
-										<input
-											id="menus.explorer.history"
-											name="menus.explorer.history"
-											type="checkbox"
-											data-setting
-											data-setting-type="object"
-											disabled
-										/>
-										<label for="menus.explorer.history">Add file history commands</label>
-									</div>
-								</div>
-
-								<div class="setting" data-enablement="menus.explorer">
-									<div class="setting__input">
-										<input
-											id="menus.explorer.clipboard"
-											name="menus.explorer.clipboard"
-											type="checkbox"
-											data-setting
-											data-setting-type="object"
-											disabled
-										/>
-										<label for="menus.explorer.clipboard">Add copy to clipboard commands</label>
-									</div>
-								</div>
-							</div>
-
-							<div class="setting setting--expandable" data-enablement="menus">
-								<div class="setting__input">
-									<div class="setting__expander"></div>
-									<input
-										id="menus.scmGroup"
-										name="menus.scmGroup"
-										type="checkbox"
-										value="undefined"
-										data-setting
-										data-setting-type="object"
-										disabled
-									/>
-									<label for="menus.scmGroup"
-										>Add commands to the Source Control groups context menu</label
-									>
-								</div>
-							</div>
-
-							<div class="settings ml-4">
-								<div class="setting" data-enablement="menus.scmGroup">
-									<div class="setting__input">
-										<input
-											id="menus.scmGroup.stashInline"
-											name="menus.scmGroup.stashInline"
-											type="checkbox"
-											data-setting
-											data-setting-type="object"
-											disabled
-										/>
-										<label for="menus.scmGroup.stashInline"
-											>Add stash changes command to the inline toolbar</label
+										<label for="menus.explorer"
+											>Add commands to the Explorer items context menu</label
 										>
 									</div>
 								</div>
 
-								<div class="setting" data-enablement="menus.scmGroup">
+								<div class="settings ml-4">
+									<div class="setting" data-enablement="menus.explorer">
+										<div class="setting__input">
+											<input
+												id="menus.explorer.remote"
+												name="menus.explorer.remote"
+												type="checkbox"
+												data-setting
+												data-setting-type="object"
+												disabled
+											/>
+											<label for="menus.explorer.remote">Add open on remote commands</label>
+										</div>
+									</div>
+
+									<div class="setting" data-enablement="menus.explorer">
+										<div class="setting__input">
+											<input
+												id="menus.explorer.compare"
+												name="menus.explorer.compare"
+												type="checkbox"
+												data-setting
+												data-setting-type="object"
+												disabled
+											/>
+											<label for="menus.explorer.compare">Add comparison commands</label>
+										</div>
+									</div>
+
+									<div class="setting" data-enablement="menus.explorer">
+										<div class="setting__input">
+											<input
+												id="menus.explorer.history"
+												name="menus.explorer.history"
+												type="checkbox"
+												data-setting
+												data-setting-type="object"
+												disabled
+											/>
+											<label for="menus.explorer.history">Add file history commands</label>
+										</div>
+									</div>
+
+									<div class="setting" data-enablement="menus.explorer">
+										<div class="setting__input">
+											<input
+												id="menus.explorer.clipboard"
+												name="menus.explorer.clipboard"
+												type="checkbox"
+												data-setting
+												data-setting-type="object"
+												disabled
+											/>
+											<label for="menus.explorer.clipboard">Add copy to clipboard commands</label>
+										</div>
+									</div>
+								</div>
+
+								<div class="setting setting--expandable" data-enablement="menus">
 									<div class="setting__input">
+										<div class="setting__expander"></div>
 										<input
-											id="menus.scmGroup.openClose"
-											name="menus.scmGroup.openClose"
+											id="menus.scmGroup"
+											name="menus.scmGroup"
 											type="checkbox"
+											value="undefined"
 											data-setting
 											data-setting-type="object"
 											disabled
 										/>
-										<label for="menus.scmGroup.openClose"
-											>Add open & close changed files commands</label
+										<label for="menus.scmGroup"
+											>Add commands to the Source Control groups context menu</label
 										>
 									</div>
 								</div>
 
-								<div class="setting" data-enablement="menus.scmGroup">
-									<div class="setting__input">
-										<input
-											id="menus.scmGroup.compare"
-											name="menus.scmGroup.compare"
-											type="checkbox"
-											data-setting
-											data-setting-type="object"
-											disabled
-										/>
-										<label for="menus.scmGroup.compare">Add comparison commands</label>
+								<div class="settings ml-4">
+									<div class="setting" data-enablement="menus.scmGroup">
+										<div class="setting__input">
+											<input
+												id="menus.scmGroup.stashInline"
+												name="menus.scmGroup.stashInline"
+												type="checkbox"
+												data-setting
+												data-setting-type="object"
+												disabled
+											/>
+											<label for="menus.scmGroup.stashInline"
+												>Add stash changes command to the inline toolbar</label
+											>
+										</div>
+									</div>
+
+									<div class="setting" data-enablement="menus.scmGroup">
+										<div class="setting__input">
+											<input
+												id="menus.scmGroup.openClose"
+												name="menus.scmGroup.openClose"
+												type="checkbox"
+												data-setting
+												data-setting-type="object"
+												disabled
+											/>
+											<label for="menus.scmGroup.openClose"
+												>Add open & close changed files commands</label
+											>
+										</div>
+									</div>
+
+									<div class="setting" data-enablement="menus.scmGroup">
+										<div class="setting__input">
+											<input
+												id="menus.scmGroup.compare"
+												name="menus.scmGroup.compare"
+												type="checkbox"
+												data-setting
+												data-setting-type="object"
+												disabled
+											/>
+											<label for="menus.scmGroup.compare">Add comparison commands</label>
+										</div>
+									</div>
+
+									<div class="setting" data-enablement="menus.scmGroup">
+										<div class="setting__input">
+											<input
+												id="menus.scmGroup.stash"
+												name="menus.scmGroup.stash"
+												type="checkbox"
+												data-setting
+												data-setting-type="object"
+												disabled
+											/>
+											<label for="menus.scmGroup.stash">Add stash changes command</label>
+										</div>
 									</div>
 								</div>
 
-								<div class="setting" data-enablement="menus.scmGroup">
+								<div class="setting setting--expandable" data-enablement="menus">
 									<div class="setting__input">
+										<div class="setting__expander"></div>
 										<input
-											id="menus.scmGroup.stash"
-											name="menus.scmGroup.stash"
+											id="menus.scmItem"
+											name="menus.scmItem"
 											type="checkbox"
+											value="undefined"
 											data-setting
 											data-setting-type="object"
 											disabled
 										/>
-										<label for="menus.scmGroup.stash">Add stash changes command</label>
-									</div>
-								</div>
-							</div>
-
-							<div class="setting setting--expandable" data-enablement="menus">
-								<div class="setting__input">
-									<div class="setting__expander"></div>
-									<input
-										id="menus.scmItem"
-										name="menus.scmItem"
-										type="checkbox"
-										value="undefined"
-										data-setting
-										data-setting-type="object"
-										disabled
-									/>
-									<label for="menus.scmItem"
-										>Add commands to the Source Control items context menu</label
-									>
-								</div>
-							</div>
-
-							<div class="settings ml-4">
-								<div class="setting" data-enablement="menus.scmItem">
-									<div class="setting__input">
-										<input
-											id="menus.scmItem.remote"
-											name="menus.scmItem.remote"
-											type="checkbox"
-											data-setting
-											data-setting-type="object"
-											disabled
-										/>
-										<label for="menus.scmItem.remote">Add open on remote commands</label>
+										<label for="menus.scmItem"
+											>Add commands to the Source Control items context menu</label
+										>
 									</div>
 								</div>
 
-								<div class="setting" data-enablement="menus.scmItem">
-									<div class="setting__input">
-										<input
-											id="menus.scmItem.compare"
-											name="menus.scmItem.compare"
-											type="checkbox"
-											data-setting
-											data-setting-type="object"
-											disabled
-										/>
-										<label for="menus.scmItem.compare">Add comparison commands</label>
+								<div class="settings ml-4">
+									<div class="setting" data-enablement="menus.scmItem">
+										<div class="setting__input">
+											<input
+												id="menus.scmItem.remote"
+												name="menus.scmItem.remote"
+												type="checkbox"
+												data-setting
+												data-setting-type="object"
+												disabled
+											/>
+											<label for="menus.scmItem.remote">Add open on remote commands</label>
+										</div>
 									</div>
-								</div>
 
-								<div class="setting" data-enablement="menus.scmItem">
-									<div class="setting__input">
-										<input
-											id="menus.scmItem.history"
-											name="menus.scmItem.history"
-											type="checkbox"
-											data-setting
-											data-setting-type="object"
-											disabled
-										/>
-										<label for="menus.scmItem.history">Add file history command</label>
+									<div class="setting" data-enablement="menus.scmItem">
+										<div class="setting__input">
+											<input
+												id="menus.scmItem.compare"
+												name="menus.scmItem.compare"
+												type="checkbox"
+												data-setting
+												data-setting-type="object"
+												disabled
+											/>
+											<label for="menus.scmItem.compare">Add comparison commands</label>
+										</div>
 									</div>
-								</div>
 
-								<div class="setting" data-enablement="menus.scmItem">
-									<div class="setting__input">
-										<input
-											id="menus.scmItem.stash"
-											name="menus.scmItem.stash"
-											type="checkbox"
-											data-setting
-											data-setting-type="object"
-											disabled
-										/>
-										<label for="menus.scmItem.stash">Add stash changes command</label>
+									<div class="setting" data-enablement="menus.scmItem">
+										<div class="setting__input">
+											<input
+												id="menus.scmItem.history"
+												name="menus.scmItem.history"
+												type="checkbox"
+												data-setting
+												data-setting-type="object"
+												disabled
+											/>
+											<label for="menus.scmItem.history">Add file history command</label>
+										</div>
 									</div>
-								</div>
 
-								<div class="setting" data-enablement="menus.scmItem">
-									<div class="setting__input">
-										<input
-											id="menus.scmItem.clipboard"
-											name="menus.scmItem.clipboard"
-											type="checkbox"
-											data-setting
-											data-setting-type="object"
-											disabled
-										/>
-										<label for="menus.scmItem.clipboard">Add copy to clipboard commands</label>
+									<div class="setting" data-enablement="menus.scmItem">
+										<div class="setting__input">
+											<input
+												id="menus.scmItem.stash"
+												name="menus.scmItem.stash"
+												type="checkbox"
+												data-setting
+												data-setting-type="object"
+												disabled
+											/>
+											<label for="menus.scmItem.stash">Add stash changes command</label>
+										</div>
+									</div>
+
+									<div class="setting" data-enablement="menus.scmItem">
+										<div class="setting__input">
+											<input
+												id="menus.scmItem.clipboard"
+												name="menus.scmItem.clipboard"
+												type="checkbox"
+												data-setting
+												data-setting-type="object"
+												disabled
+											/>
+											<label for="menus.scmItem.clipboard">Add copy to clipboard commands</label>
+										</div>
 									</div>
 								</div>
 							</div>
@@ -2874,36 +2940,56 @@
 					</div>
 
 					<div class="section__collapsible">
-						<div class="section__content">
-							<div class="setting">
-								<div class="setting__input">
-									<input
-										id="mode.statusBar.enabled"
-										name="mode.statusBar.enabled"
-										type="checkbox"
-										data-setting
-									/>
-									<label for="mode.statusBar.enabled">Show the active mode in the status bar</label>
-								</div>
-							</div>
-
-							<div class="settings ml-2">
-								<div class="setting" data-enablement="mode.statusBar.enabled">
+						<div class="section__group">
+							<div class="section__content">
+								<div class="setting">
 									<div class="setting__input">
-										<label for="mode.statusBar.alignment">Position the annotation on the</label>
-										<select
-											id="mode.statusBar.alignment"
-											name="mode.statusBar.alignment"
+										<input
+											id="mode.statusBar.enabled"
+											name="mode.statusBar.enabled"
+											type="checkbox"
 											data-setting
-											disabled
+										/>
+										<label for="mode.statusBar.enabled"
+											>Show the active mode in the status bar</label
 										>
-											<option value="left">left</option>
-											<option value="right">right</option>
-										</select>
+									</div>
+								</div>
+
+								<div class="settings ml-2">
+									<div class="setting" data-enablement="mode.statusBar.enabled">
+										<div class="setting__input">
+											<label for="mode.statusBar.alignment">Position the annotation on the</label>
+											<select
+												id="mode.statusBar.alignment"
+												name="mode.statusBar.alignment"
+												data-setting
+												disabled
+											>
+												<option value="left">left</option>
+												<option value="right">right</option>
+											</select>
+										</div>
 									</div>
 								</div>
 							</div>
 
+							<div class="section__preview">
+								<img class="image__preview" src="#{root}/images/settings/status-bar.png" />
+								<img
+									class="image__preview--overlay hidden"
+									src="#{root}/images/settings/modes-status-bar-left.png"
+									data-visibility="mode.statusBar.enabled &amp; mode.statusBar.alignment =left"
+								/>
+								<img
+									class="image__preview--overlay hidden"
+									src="#{root}/images/settings/modes-status-bar-right.png"
+									data-visibility="mode.statusBar.enabled &amp; mode.statusBar.alignment =right"
+								/>
+							</div>
+						</div>
+
+						<div class="section__group">
 							<p class="section__hint">
 								<i class="icon icon__info"></i> For more options or to add your own custom modes, open
 								<a
@@ -2915,20 +3001,6 @@
 								and search for <b><i>gitlens.modes</i></b>
 							</p>
 						</div>
-
-						<div class="section__preview">
-							<img class="image__preview" src="#{root}/images/settings/status-bar.png" />
-							<img
-								class="image__preview--overlay hidden"
-								src="#{root}/images/settings/modes-status-bar-left.png"
-								data-visibility="mode.statusBar.enabled &amp; mode.statusBar.alignment =left"
-							/>
-							<img
-								class="image__preview--overlay hidden"
-								src="#{root}/images/settings/modes-status-bar-right.png"
-								data-visibility="mode.statusBar.enabled &amp; mode.statusBar.alignment =right"
-							/>
-						</div>
 					</div>
 				</section>
 
@@ -2938,41 +3010,46 @@
 					</div>
 
 					<div class="section__collapsible">
-						<div class="section__content">
-							<div class="setting">
-								<div class="setting__input">
-									<label for="keymap">Use</label>
-									<select id="keymap" name="keymap" data-setting>
-										<option value="alternate">alt-based</option>
-										<option value="chorded">chorded (default)</option>
-										<option value="none">user-defined</option>
-									</select>
-									<label for="keymap"> keyboard shortcuts</label>
+						<div class="section__group">
+							<div class="section__content">
+								<div class="setting">
+									<div class="setting__input">
+										<label for="keymap">Use</label>
+										<select id="keymap" name="keymap" data-setting>
+											<option value="alternate">alt-based</option>
+											<option value="chorded">chorded (default)</option>
+											<option value="none">user-defined</option>
+										</select>
+										<label for="keymap"> keyboard shortcuts</label>
+									</div>
+									<span class="setting__hint hidden" data-visibility="keymap =alternate">
+										<span class="shortcut-key">Alt</span> based (<span class="shortcut-key"
+											>&#x2325;</span
+										>
+										on macOS) shortcuts. Not great for non-English keyboard layouts
+									</span>
+									<span class="setting__hint hidden" data-visibility="keymap =chorded">
+										Chorded shortcuts that start with
+										<span class="shortcut-key">Ctrl+Shift+G</span> (<span class="shortcut-key"
+											>&#x2325;&#x2318;G</span
+										>
+										on macOS). Better for non-English keyboard layouts
+									</span>
+									<span class="setting__hint hidden" data-visibility="keymap =none">
+										GitLens won't bind any keyboard shortcuts. Configure your own via the
+										<a
+											class="command"
+											title="Open Keyboard Shortcuts"
+											href="command:workbench.action.openGlobalKeybindings"
+											>Keyboard Shortcuts</a
+										>
+										editor
+									</span>
 								</div>
-								<span class="setting__hint hidden" data-visibility="keymap =alternate">
-									<span class="shortcut-key">Alt</span> based (<span class="shortcut-key"
-										>&#x2325;</span
-									>
-									on macOS) shortcuts. Not great for non-English keyboard layouts
-								</span>
-								<span class="setting__hint hidden" data-visibility="keymap =chorded">
-									Chorded shortcuts that start with
-									<span class="shortcut-key">Ctrl+Shift+G</span> (<span class="shortcut-key"
-										>&#x2325;&#x2318;G</span
-									>
-									on macOS). Better for non-English keyboard layouts
-								</span>
-								<span class="setting__hint hidden" data-visibility="keymap =none">
-									GitLens won't bind any keyboard shortcuts. Configure your own via the
-									<a
-										class="command"
-										title="Open Keyboard Shortcuts"
-										href="command:workbench.action.openGlobalKeybindings"
-										>Keyboard Shortcuts</a
-									>
-									editor
-								</span>
 							</div>
+						</div>
+
+						<div class="section__group">
 							<p class="section__hint">
 								<i class="icon icon__info"></i> Search for <b><i>gitlens</i></b> in the
 								<a

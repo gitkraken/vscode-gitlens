@@ -1,6 +1,7 @@
 html {
 	height: 100%;
 	font-size: 62.5%;
+	box-sizing: border-box;
 }
 
 body {
@@ -718,11 +719,7 @@ section {
 
 .section__collapsible {
 	display: flex;
-	flex-flow: wrap-reverse;
-}
-
-.section__collapsible--wrap {
-	flex-flow: wrap;
+	flex-wrap: wrap;
 }
 
 .section__content {
@@ -737,7 +734,10 @@ section {
 
 	display: flex;
 	flex-flow: wrap-reverse;
-	margin-top: 1em;
+
+	& + .section__group {
+		margin-top: 1em;
+	}
 }
 
 .section__header {
@@ -797,7 +797,7 @@ section {
 
 	color: var(--color-foreground--75);
 	font-weight: 200;
-	margin: 1em 0 0 0;
+	margin: 0;
 }
 
 .section__preview {
