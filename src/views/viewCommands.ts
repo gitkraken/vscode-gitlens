@@ -128,6 +128,7 @@ export class ViewCommands {
 		commands.registerCommand('gitlens.views.applyChanges', this.applyChanges, this);
 		commands.registerCommand('gitlens.views.restore', this.restore, this);
 		commands.registerCommand('gitlens.views.switchToBranch', this.switch, this);
+		commands.registerCommand('gitlens.views.switchToCommit', this.switch, this);
 		commands.registerCommand('gitlens.views.switchToTag', this.switch, this);
 		commands.registerCommand('gitlens.views.addRemote', this.addRemote, this);
 		commands.registerCommand('gitlens.views.pruneRemote', this.pruneRemote, this);
@@ -159,7 +160,6 @@ export class ViewCommands {
 
 		commands.registerCommand('gitlens.views.terminalCreateBranch', this.terminalCreateBranch, this);
 		commands.registerCommand('gitlens.views.terminalDeleteBranch', this.terminalDeleteBranch, this);
-		commands.registerCommand('gitlens.views.terminalCheckoutCommit', this.terminalCheckoutCommit, this);
 		commands.registerCommand('gitlens.views.terminalCherryPickCommit', this.terminalCherryPickCommit, this);
 		commands.registerCommand('gitlens.views.terminalPushCommit', this.terminalPushCommit, this);
 		commands.registerCommand('gitlens.views.terminalRebaseCommit', this.terminalRebaseCommit, this);
@@ -314,7 +314,7 @@ export class ViewCommands {
 		} else {
 			args = {
 				command: 'switch',
-				state: { repos: [repo!], branchOrTagOrRef: { name: node.ref, ref: node.ref } }
+				state: { repos: [repo!], branchOrTagOrRef: { name: GitService.shortenSha(node.ref), ref: node.ref } }
 			};
 		}
 

@@ -2441,6 +2441,15 @@
 				}
 			},
 			{
+				"command": "gitlens.views.switchToCommit",
+				"title": "Switch to Commit",
+				"category": "GitLens",
+				"icon": {
+					"dark": "images/dark/icon-checkout.svg",
+					"light": "images/light/icon-checkout.svg"
+				}
+			},
+			{
 				"command": "gitlens.views.switchToTag",
 				"title": "Switch to Tag",
 				"category": "GitLens",
@@ -2773,11 +2782,6 @@
 			{
 				"command": "gitlens.views.rebaseOntoUpstream",
 				"title": "Rebase Current onto Upstream",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.views.terminalCheckoutCommit",
-				"title": "Checkout Commit (via Terminal)",
 				"category": "GitLens"
 			},
 			{
@@ -3460,6 +3464,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.switchToCommit",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.switchToTag",
 					"when": "false"
 				},
@@ -3661,10 +3669,6 @@
 				},
 				{
 					"command": "gitlens.views.rebaseOntoUpstream",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.terminalCheckoutCommit",
 					"when": "false"
 				},
 				{
@@ -4542,9 +4546,14 @@
 					"group": "inline@98"
 				},
 				{
+					"command": "gitlens.views.switchToCommit",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b/",
+					"group": "1_gitlens@1"
+				},
+				{
 					"command": "gitlens.openCommitInRemote",
 					"when": "viewItem =~ /gitlens:commit\\b/ && gitlens:hasRemotes",
-					"group": "1_gitlens@1"
+					"group": "1_gitlens_1@1"
 				},
 				{
 					"command": "gitlens.views.openChangedFileChanges",
@@ -4606,11 +4615,6 @@
 					"command": "gitlens.views.terminalRevertCommit",
 					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)/",
 					"group": "8_gitlens@3"
-				},
-				{
-					"command": "gitlens.views.terminalCheckoutCommit",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b/",
-					"group": "8_gitlens@4"
 				},
 				{
 					"command": "gitlens.views.terminalRebaseCommit",

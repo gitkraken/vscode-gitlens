@@ -33,7 +33,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Changes all fetch commands to use the _fetch_ Git command
 - Changes all pull commands to use the _pull_ Git command
 - Changes all push commands to use the _push_ Git command
-- Changes the _Checkout_ command on branches & tags to use the _switch_ Git command
+- Changes the _Checkout_ command on branches, commits, and tags to use the _switch_ Git command
 - Changes all the stash commands to use the new _stash_ Git command
 - Changes Ansible files to use document scope for code lens &mdash; thanks to [PR #813](https://github.com/eamodio/vscode-gitlens/pull/813) by Ahmadali Shafiee ([@ahmadalli](https://github.com/ahmadalli))
 - Renames _Checkout_ command to _Switch_ for branches and tags for better clarity and to align with the new Git 2.23 commands
