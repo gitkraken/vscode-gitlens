@@ -31,8 +31,8 @@ export class WelcomeWebview extends WebviewBase {
 		const bootstrap: WelcomeState = {
 			config: Container.config
 		};
-		return `    <script type="text/javascript">
-        window.bootstrap = ${JSON.stringify(bootstrap)};
-    </script>`;
+		return `<script type="text/javascript" nonce="Z2l0bGVucy1ib290c3RyYXA=">window.bootstrap = ${JSON.stringify(
+			bootstrap
+		)};</script>`;
 	}
 }

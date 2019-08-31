@@ -7,9 +7,9 @@ const webpack = require('webpack');
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 const { CleanWebpackPlugin: CleanPlugin } = require('clean-webpack-plugin');
 const CircularDependencyPlugin = require('circular-dependency-plugin');
+const CspHtmlPlugin = require('csp-html-webpack-plugin');
 const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const HtmlExcludeAssetsPlugin = require('html-webpack-exclude-assets-plugin');
-const HtmlInlineSourcePlugin = require('html-webpack-inline-source-plugin');
 const HtmlPlugin = require('html-webpack-plugin');
 const ImageminPlugin = require('imagemin-webpack-plugin').default;
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
@@ -131,6 +131,17 @@ function getWebviewsConfig(env) {
 		clean.push(path.resolve(__dirname, 'images/settings/*'));
 	}
 
+	const cspPolicy = {
+		'default-src': "'none'",
+		'img-src': ['vscode-resource:', 'https:', 'data:'],
+		'script-src': ['vscode-resource:', "'nonce-Z2l0bGVucy1ib290c3RyYXA='"],
+		'style-src': ['vscode-resource:']
+	};
+
+	if (!env.production) {
+		cspPolicy['script-src'].push("'unsafe-eval'");
+	}
+
 	/**
 	 * @type any[]
 	 */
@@ -152,6 +163,14 @@ function getWebviewsConfig(env) {
 			filename: path.resolve(__dirname, 'dist/webviews/settings.html'),
 			inject: true,
 			// inlineSource: env.production ? '.(js|css)$' : undefined,
+			cspPlugin: {
+				enabled: true,
+				policy: cspPolicy,
+				nonceEnabled: {
+					'script-src': true,
+					'style-src': true
+				}
+			},
 			minify: env.production
 				? {
 						removeComments: true,
@@ -172,6 +191,14 @@ function getWebviewsConfig(env) {
 			filename: path.resolve(__dirname, 'dist/webviews/welcome.html'),
 			inject: true,
 			// inlineSource: env.production ? '.(js|css)$' : undefined,
+			cspPlugin: {
+				enabled: true,
+				policy: cspPolicy,
+				nonceEnabled: {
+					'script-src': true,
+					'style-src': true
+				}
+			},
 			minify: env.production
 				? {
 						removeComments: true,
@@ -186,7 +213,7 @@ function getWebviewsConfig(env) {
 				: false
 		}),
 		new HtmlExcludeAssetsPlugin(),
-		new HtmlInlineSourcePlugin(),
+		new CspHtmlPlugin(),
 		new ImageminPlugin({
 			disable: !env.optimizeImages,
 			externalImages: {
