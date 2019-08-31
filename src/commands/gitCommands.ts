@@ -236,7 +236,15 @@ export class GitCommandsCommand extends Command {
 							e === this.GitQuickInputButtons.WillConfirm ||
 							e === this.GitQuickInputButtons.WillSkipConfirm
 						) {
-							await this.toggleConfirmation(quickpick, commandsStep.command);
+							let command = commandsStep.command;
+							if (command === undefined && quickpick.activeItems.length !== 0) {
+								const active = quickpick.activeItems[0];
+								if (!QuickCommandBase.is(active)) return;
+
+								command = active;
+							}
+
+							await this.toggleConfirmation(quickpick, command);
 
 							return;
 						}
@@ -308,6 +316,27 @@ export class GitCommandsCommand extends Command {
 						if (!overrideItems && quickpick.items.length !== step.items.length) {
 							quickpick.items = step.items;
 						}
+					}),
+					quickpick.onDidChangeActive(() => {
+						if (commandsStep.command !== undefined || quickpick.activeItems.length === 0) return;
+
+						const command = quickpick.activeItems[0];
+						if (!QuickCommandBase.is(command)) return;
+
+						const buttons: QuickInputButton[] = [];
+						if (command.canSkipConfirm) {
+							if (command.confirmationKey !== undefined) {
+								buttons.push(
+									command.confirm()
+										? this.GitQuickInputButtons.WillConfirm
+										: this.GitQuickInputButtons.WillSkipConfirm
+								);
+							}
+						} else {
+							buttons.push(this.GitQuickInputButtons.WillConfirmForced);
+						}
+
+						quickpick.buttons = buttons;
 					}),
 					quickpick.onDidAccept(async () => {
 						let items = quickpick.selectedItems;
@@ -399,15 +428,19 @@ export class GitCommandsCommand extends Command {
 		}
 	}
 
-	private getButtons(step: QuickInputStep | QuickPickStep, command?: QuickCommandBase) {
+	private getButtons(step: QuickInputStep | QuickPickStep | undefined, command?: QuickCommandBase) {
 		if (command === undefined) return [];
 
-		if (step.buttons !== undefined) return step.buttons;
+		const buttons: QuickInputButton[] = [];
 
-		const buttons = [QuickInputButtons.Back];
+		if (step !== undefined) {
+			if (step.buttons !== undefined) return step.buttons;
 
-		if (step.additionalButtons !== undefined) {
-			buttons.push(...step.additionalButtons);
+			buttons.push(QuickInputButtons.Back);
+
+			if (step.additionalButtons !== undefined) {
+				buttons.push(...step.additionalButtons);
+			}
 		}
 
 		if (command.canSkipConfirm) {
@@ -459,6 +492,6 @@ export class GitCommandsCommand extends Command {
 			skipConfirmations
 		));
 
-		input.buttons = this.getButtons(command.value!, command);
+		input.buttons = this.getButtons(command.value, command);
 	}
 }
