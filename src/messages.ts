@@ -1,12 +1,9 @@
 'use strict';
-import { commands, ConfigurationTarget, env, MessageItem, Uri, window } from 'vscode';
-import { Commands } from './commands';
-import { configuration, ViewLocation } from './configuration';
+import { ConfigurationTarget, env, MessageItem, Uri, window } from 'vscode';
+import { configuration } from './configuration';
 import { CommandContext, setCommandContext } from './constants';
 import { GitCommit } from './git/gitService';
 import { Logger } from './logger';
-import { Versions } from './system';
-import { Container } from './container';
 
 export enum SuppressedMessages {
 	CommitHasNoPreviousCommitWarning = 'suppressCommitHasNoPreviousCommitWarning',
@@ -132,38 +129,6 @@ export class Messages {
 		}
 	}
 
-	static async showSetupViewLayoutMessage(previousVersion: string | undefined) {
-		if (
-			Container.config.views.repositories.location !== ViewLocation.GitLens ||
-			Container.config.views.fileHistory.location !== ViewLocation.GitLens ||
-			Container.config.views.lineHistory.location !== ViewLocation.GitLens ||
-			Container.config.views.search.location !== ViewLocation.GitLens ||
-			Container.config.views.compare.location !== ViewLocation.GitLens
-		) {
-			return;
-		}
-
-		if (
-			previousVersion !== undefined &&
-			Versions.compare(Versions.fromString(previousVersion), Versions.from(9, 6, 3)) === 1
-		) {
-			return;
-		}
-
-		const actions: MessageItem[] = [{ title: 'Customize...' }, { title: 'Use Defaults' }];
-		const result = await Messages.showMessage(
-			'info',
-			'GitLens views can be configured to be shown in different side bar layouts to best match your workflow. You can easily change the default layout (where all views are shown together on the GitLens side bar) below.',
-			undefined,
-			null,
-			...actions
-		);
-
-		if (result != null && result === actions[0]) {
-			await commands.executeCommand(Commands.ShowSettingsPage, 'views-layout');
-		}
-	}
-
 	static async showWhatsNewMessage(version: string) {
 		const actions: MessageItem[] = [{ title: "What's New" }, { title: 'Release Notes' }, { title: '❤' }];
 
@@ -177,7 +142,7 @@ export class Messages {
 
 		if (result != null) {
 			if (result === actions[0]) {
-				await commands.executeCommand(Commands.ShowWelcomePage);
+				await env.openExternal(Uri.parse('https://gitlens.amod.io/#whats-new'));
 			} else if (result === actions[1]) {
 				await env.openExternal(Uri.parse('https://github.com/eamodio/vscode-gitlens/blob/master/CHANGELOG.md'));
 			} else if (result === actions[2]) {

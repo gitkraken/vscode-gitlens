@@ -80,7 +80,7 @@ export async function activate(context: ExtensionContext) {
 	// Telemetry.setContext(telemetryContext);
 
 	notifyOnUnsupportedGitVersion(gitVersion);
-	void showWelcomePage(gitlensVersion, previousVersion);
+	void showWelcomeOrWhatsNew(gitlensVersion, previousVersion);
 
 	context.globalState.update(GlobalState.GitLensVersion, gitlensVersion);
 
@@ -157,38 +157,34 @@ function notifyOnUnsupportedGitVersion(version: string) {
 	void Messages.showGitVersionUnsupportedErrorMessage(version);
 }
 
-async function showWelcomePage(version: string, previousVersion: string | undefined) {
-	try {
-		if (previousVersion === undefined) {
-			Logger.log('GitLens first-time install');
+async function showWelcomeOrWhatsNew(version: string, previousVersion: string | undefined) {
+	if (previousVersion === undefined) {
+		Logger.log('GitLens first-time install');
+		await commands.executeCommand(Commands.ShowWelcomePage);
 
-			if (Container.config.showWhatsNewAfterUpgrades) {
-				await commands.executeCommand(Commands.ShowWelcomePage);
-			}
+		return;
+	}
 
-			return;
-		}
+	if (previousVersion !== version) {
+		Logger.log(`GitLens upgraded from v${previousVersion} to v${version}`);
+	}
 
-		if (previousVersion !== version) {
-			Logger.log(`GitLens upgraded from v${previousVersion} to v${version}`);
-		}
+	const [major, minor] = version.split('.').map(v => parseInt(v, 10));
+	const [prevMajor, prevMinor] = previousVersion.split('.').map(v => parseInt(v, 10));
+	if (
+		(major === prevMajor && minor === prevMinor) ||
+		// Don't notify on downgrades
+		(major < prevMajor || (major === prevMajor && minor < prevMinor))
+	) {
+		return;
+	}
 
-		const [major, minor] = version.split('.').map(v => parseInt(v, 10));
-		const [prevMajor, prevMinor] = previousVersion.split('.').map(v => parseInt(v, 10));
-		if (
-			(major === prevMajor && minor === prevMinor) ||
-			// Don't notify on downgrades
-			(major < prevMajor || (major === prevMajor && minor < prevMinor))
-		) {
-			return;
-		}
+	// Show the Welcome for v10 since its all new
+	if (major !== prevMajor && major === 10) {
+		await commands.executeCommand(Commands.ShowWelcomePage);
+	}
 
-		if (Container.config.showWhatsNewAfterUpgrades && major !== prevMajor) {
-			await commands.executeCommand(Commands.ShowWelcomePage);
-		} else {
-			await Messages.showWhatsNewMessage(version);
-		}
-	} finally {
-		void (await Messages.showSetupViewLayoutMessage(previousVersion));
+	if (Container.config.showWhatsNewAfterUpgrades && major !== prevMajor) {
+		await Messages.showWhatsNewMessage(version);
 	}
 }
