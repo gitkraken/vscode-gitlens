@@ -4,6 +4,48 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Adds all-new iconography to better match VS Code's new visual style &mdash; thanks to John Letey ([@johnletey](https://github.com/johnletey)) and Jon Beaumont-Pike ([@jonbp](https://github.com/jonbp)) for their help!
+- Adds an all-new Welcome experience with a simple quick setup of common GitLens features &mdash; can be accessed via the _Welcome_ (`gitlens.showWelcomePage`) command
+- Adds a new and improved interactive Settings editor experience &mdash; can be accessed via the _Open Settings_ (`gitlens.showSettingsPage`) command
+- Adds ability to copy the selected item's details to the clipboard using the standard copy shortcut key when focused on a GitLens view
+- Adds an _Open Revision_ command to the editor toolbar and tabs menu when in the diff editor
+- Adds a _Prune_ command to remotes in the _Repositories_ view to prune remote references &mdash; closes [#556](https://github.com/eamodio/vscode-gitlens/issues/556) thanks to [PR #815](https://github.com/eamodio/vscode-gitlens/pull/815) by Zach Boyle ([@zaboyle](https://github.com/zaboyle))
+- Adds support to use the GitHub avatar (if available) for authors with `@users.noreply.github.com` email addresses &mdash; partially addresses [#281](https://github.com/eamodio/vscode-gitlens/issues/281) thanks to [PR #814](https://github.com/eamodio/vscode-gitlens/pull/814) by bolte-17 ([@bolte-17](https://github.com/bolte-17))
+
+### Changed
+
+- Improves the _Git Commands_ (`gitlens.gitCommands`) experience
+  - Adds a confirmation toggle (look for the checkmark icon in the upper right) to some of the Git commands
+    - Saves to the new `gitCommands.skipConfirmation` setting
+  - Adds a new _stash_ Git command with sub-commands for _apply_, _drop_, _pop_, and _push_
+  - Adds a new _Fetch All & Prune_ option to the _fetch_ Git command
+  - Adds a new _Squash Merge_ option to the _merge_ Git command
+  - Adds a new _Force Push_ option to the _push_ Git command
+  - Adds ability to create a local branch from a remote branch when using the _switch_ Git command
+  - Adds ability to choose an arbitrary reference when using the _switch_ Git command
+  - Adds ability to choose an arbitrary reference when using the _cherry-pick_ Git command
+  - Adds a better experience when choosing an arbitrary reference
+  - Renames the _checkout_ Git command to _switch_ for better clarity and to align with the new Git 2.23 commands
+- Changes all fetch commands to use the _fetch_ Git command
+- Changes all pull commands to use the _pull_ Git command
+- Changes all push commands to use the _push_ Git command
+- Changes the _Checkout_ command on branches & tags to use the _switch_ Git command
+- Changes all the stash commands to use the new _stash_ Git command
+- Changes Ansible files to use document scope for code lens &mdash; thanks to [PR #813](https://github.com/eamodio/vscode-gitlens/pull/813) by Ahmadali Shafiee ([@ahmadalli](https://github.com/ahmadalli))
+- Renames _Checkout_ command to _Switch_ for branches and tags for better clarity and to align with the new Git 2.23 commands
+- Renames _Checkout_ command to _Restore_ for commit/stash files for better clarity and to align with the new Git 2.23 commands
+- Renames Stashed Changes to Stashes or Stash depending on the context
+
+### Fixed
+
+- Fixes [#828](https://github.com/eamodio/vscode-gitlens/issues/828) - Version comparison to show welcome message is not future proof &mdash; thanks to [PR #829](https://github.com/eamodio/vscode-gitlens/pull/829) by Arunprasad Rajkumar ([@arajkumar](https://github.com/arajkumar))
+- Fixes typo of "workbench.colorCustomization" in README &mdash; thanks to [PR #823](https://github.com/eamodio/vscode-gitlens/pull/823) by Kwok ([@mankwok](https://github.com/mankwok))
+- Fixes [#738](https://github.com/eamodio/vscode-gitlens/issues/738) - Disable showWhatsNewAfterUpgrades notification
+
 ## [9.9.3] - 2019-08-06
 
 ### Added
