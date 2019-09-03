@@ -264,15 +264,31 @@ export class ViewCommands {
 		return commands.executeCommand(Commands.GitCommands, args);
 	}
 
-	private async rebase(node: BranchNode | TagNode) {
-		if (!(node instanceof BranchNode) && !(node instanceof TagNode)) return undefined;
+	private async rebase(node: BranchNode | CommitNode | TagNode) {
+		if (!(node instanceof BranchNode) && !(node instanceof CommitNode) && !(node instanceof TagNode)) {
+			return undefined;
+		}
 
 		const repo = await Container.git.getRepository(node.repoPath);
 
-		const args: GitCommandsCommandArgs = {
+		let args: GitCommandsCommandArgs;
+		if (node instanceof CommitNode) {
+			args = {
 			command: 'rebase',
-			state: { repo: repo!, source: node instanceof BranchNode ? node.branch : node.tag }
+				state: {
+					repo: repo!,
+					reference: GitReference.create(node.ref)
+				}
 		};
+		} else {
+			args = {
+				command: 'rebase',
+				state: {
+					repo: repo!,
+					reference: node instanceof BranchNode ? node.branch : node.tag
+				}
+			};
+		}
 		return commands.executeCommand(Commands.GitCommands, args);
 	}
 
@@ -280,14 +296,13 @@ export class ViewCommands {
 		if (!(node instanceof BranchNode) && !(node instanceof BranchTrackingStatusNode)) return undefined;
 
 		const upstream = node instanceof BranchNode ? node.branch.tracking : node.status.upstream;
+		if (upstream === undefined) return undefined;
 
 		const repo = await Container.git.getRepository(node.repoPath);
-		const branches = await repo!.getBranches({ filter: b => b.remote && b.name === upstream });
-		if (branches.length === 0) return undefined;
 
 		const args: GitCommandsCommandArgs = {
 			command: 'rebase',
-			state: { repo: repo!, source: branches[0] }
+			state: { repo: repo!, reference: GitReference.create(upstream, { name: upstream, refType: 'branch' }) }
 		};
 		return commands.executeCommand(Commands.GitCommands, args);
 	}
