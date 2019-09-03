@@ -976,6 +976,14 @@ section {
 	}
 }
 
+.setting__input--format {
+	display: flex;
+
+	input[type='text'] {
+		max-width: unset;
+	}
+}
+
 .setting__hint {
 	color: var(--color-foreground--75);
 	display: block;
