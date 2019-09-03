@@ -1,7 +1,9 @@
 'use strict';
+import { QuickPick } from 'vscode';
 import { Arrays } from '../system';
 import { GitBranch, GitTag, Repository } from '../git/git';
-import { BranchQuickPickItem, TagQuickPickItem } from '../quickpicks';
+import { BranchQuickPickItem, CommitQuickPickItem, TagQuickPickItem } from '../quickpicks';
+import { Container } from '../container';
 
 export async function getBranchesAndOrTags(
 	repos: Repository | Repository[],
@@ -81,4 +83,20 @@ export async function getBranchesAndOrTags(
 				})
 			)
 	]);
+}
+
+export function getValidateGitReferenceFn(repo: Repository | Repository[]) {
+	return async (quickpick: QuickPick<any>, value: string) => {
+		if (Array.isArray(repo)) {
+			if (Repository.length !== 1) return false;
+
+			repo = repo[0];
+		}
+
+		if (!(await Container.git.validateReference(repo.path, value))) return false;
+
+		const commit = await Container.git.getCommit(repo.path, value);
+		quickpick.items = [CommitQuickPickItem.create(commit!, true, { compact: true, icon: true, match: value })];
+		return true;
+	};
 }
