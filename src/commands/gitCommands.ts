@@ -69,9 +69,13 @@ class PickCommandStep implements QuickPickStep {
 		}
 	}
 
-	find(commandName: string) {
+	find(commandName: string, fuzzy: boolean = false) {
+		if (fuzzy) {
 		const cmd = commandName.toLowerCase();
-		return this.items.find(c => c.label.replace(sanitizeLabel, '').toLowerCase() === cmd);
+			return this.items.find(c => c.isMatch(cmd));
+		}
+
+		return this.items.find(c => c.key === commandName);
 	}
 }
 
@@ -272,7 +276,7 @@ export class GitCommandsCommand extends Command {
 
 								let items;
 								if (commandsStep.command === undefined) {
-									const command = commandsStep.find(quickpick.value.trim());
+									const command = commandsStep.find(quickpick.value.trim(), true);
 									if (command === undefined) return;
 
 									commandsStep.command = command;

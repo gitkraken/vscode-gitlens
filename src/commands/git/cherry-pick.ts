@@ -66,8 +66,10 @@ export class CherryPickGitCommand extends QuickCommandBase<State> {
 			state.commits.sort((a, b) => a.date.getTime() - b.date.getTime());
 			runGitCommandInTerminal('cherry-pick', state.commits.map(c => c.sha).join(' '), state.repo.path, true);
 		}
+	}
 
-		runGitCommandInTerminal('cherry-pick', state.source!.ref, state.repo.path, true);
+	isMatch(name: string) {
+		return super.isMatch(name) || name === 'cherry';
 	}
 
 	protected async *steps(): StepAsyncGenerator {

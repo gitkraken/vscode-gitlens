@@ -108,6 +108,10 @@ export abstract class QuickCommandBase<T = any> implements QuickPickItem {
 			: !Container.config.gitCommands.skipConfirmations.includes(this.confirmationKey);
 	}
 
+	isMatch(name: string) {
+		return this.label === name;
+	}
+
 	protected abstract steps(): StepAsyncGenerator;
 
 	async previous(): Promise<QuickPickStep | QuickInputStep | undefined> {

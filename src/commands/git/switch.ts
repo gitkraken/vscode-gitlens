@@ -63,6 +63,10 @@ export class SwitchGitCommand extends QuickCommandBase<State> {
 		));
 	}
 
+	isMatch(name: string) {
+		return super.isMatch(name) || name === 'checkout';
+	}
+
 	protected async *steps(): StepAsyncGenerator {
 		const state: StepState<State> = this._initialState === undefined ? { counter: 0 } : this._initialState;
 		let oneRepo = false;
