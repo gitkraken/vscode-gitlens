@@ -21,20 +21,27 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Improves the _Git Commands_ (`gitlens.gitCommands`) experience
   - Adds a confirmation toggle (look for the checkmark icon in the upper right) to some of the Git commands
     - Saves to the new `gitCommands.skipConfirmation` setting
+  - Adds a new _reset_ Git command to reset current HEAD to a specified commit
+  - Adds a new _revert_ Git command to revert specific commits
   - Adds a new _stash_ Git command with sub-commands for _apply_, _drop_, _pop_, and _push_
   - Adds a new _Fetch All & Prune_ option to the _fetch_ Git command
   - Adds a new _Squash Merge_ option to the _merge_ Git command
   - Adds a new _Force Push_ option to the _push_ Git command
   - Adds ability to create a local branch from a remote branch when using the _switch_ Git command
-  - Adds ability to choose an arbitrary reference when using the _switch_ Git command
-  - Adds ability to choose an arbitrary reference when using the _cherry-pick_ Git command
+  - Adds ability to pick a commit when using the _rebase_ Git command
+  - Adds ability to choose an arbitrary reference when using the _cherry-pick_, _merge_, _rebase_, and _switch_ Git commands
   - Adds a better experience when choosing an arbitrary reference
   - Renames the _checkout_ Git command to _switch_ for better clarity and to align with the new Git 2.23 commands
+- Changes the _Cherry Pick Commit (via Terminal)_ command to use the _cherry-pick_ Git command
 - Changes all fetch commands to use the _fetch_ Git command
+- Changes the _Merge Branch (via Terminal)_, and _Squash Branch into Commit (via Terminal)_ commands to use the _merge_ Git command
 - Changes all pull commands to use the _pull_ Git command
 - Changes all push commands to use the _push_ Git command
-- Changes the _Checkout_ command on branches, commits, and tags to use the _switch_ Git command
+- Changes the _Rebase (Interactive) Branch (via Terminal)_, _Rebase (Interactive) Branch to Remote (via Terminal)_, and _Rebase to Commit (via Terminal)_ commands to use the _rebase_ Git command
+- Changes the _Reset to Commit (via Terminal)_ command to use the _reset_ Git command
+- Changes the _Revert Commit (via Terminal)_ command to use the _revert_ Git command
 - Changes all the stash commands to use the new _stash_ Git command
+- Changes the _Checkout_ command on branches, commits, and tags to use the _switch_ Git command
 - Changes Ansible files to use document scope for code lens &mdash; thanks to [PR #813](https://github.com/eamodio/vscode-gitlens/pull/813) by Ahmadali Shafiee ([@ahmadalli](https://github.com/ahmadalli))
 - Renames _Checkout_ command to _Switch_ for branches and tags for better clarity and to align with the new Git 2.23 commands
 - Renames _Checkout_ command to _Restore_ for commit/stash files for better clarity and to align with the new Git 2.23 commands
