@@ -1,5 +1,8 @@
 'use strict';
 
+export type Mutable<T> = { -readonly [P in keyof T]-?: T[P] };
+export type PickMutable<T, K extends keyof T> = Omit<T, K> & { -readonly [P in K]: T[P] };
+
 export * from './system/array';
 export * from './system/date';
 export * from './system/decorators/gate';

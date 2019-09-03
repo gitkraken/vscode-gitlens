@@ -307,14 +307,14 @@ export class ViewCommands {
 		if (node instanceof BranchNode) {
 			args = {
 				command: 'switch',
-				state: { repos: [repo!], branchOrTagOrRef: node.branch.current ? undefined : node.branch }
+				state: { repos: [repo!], reference: node.branch.current ? undefined : node.branch }
 			};
 		} else if (node instanceof TagNode) {
-			args = { command: 'switch', state: { repos: [repo!], branchOrTagOrRef: node.tag } };
+			args = { command: 'switch', state: { repos: [repo!], reference: node.tag } };
 		} else {
 			args = {
 				command: 'switch',
-				state: { repos: [repo!], branchOrTagOrRef: { name: GitService.shortenSha(node.ref), ref: node.ref } }
+				state: { repos: [repo!], reference: GitReference.create(node.ref) }
 			};
 		}
 

@@ -2,18 +2,23 @@
 /* eslint-disable no-loop-func */
 import { ProgressLocation, QuickInputButton, window } from 'vscode';
 import { Container } from '../../container';
-import { GitBranch, GitReference, GitTag, Repository } from '../../git/gitService';
+import { GitBranch, GitReference, Repository } from '../../git/gitService';
 import { GlyphChars } from '../../constants';
-import { getBranchesAndOrTags, QuickCommandBase, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
-import { ReferencesQuickPickItem, RefQuickPickItem, RepositoryQuickPickItem } from '../../quickpicks';
-import { Strings } from '../../system';
+import {
+	getBranchesAndOrTags,
+	getValidateGitReferenceFn,
+	QuickCommandBase,
+	StepAsyncGenerator,
+	StepSelection,
+	StepState
+} from '../quickCommand';
+import { ReferencesQuickPickItem, RepositoryQuickPickItem } from '../../quickpicks';
+import { PickMutable, Strings } from '../../system';
 import { Logger } from '../../logger';
-
-type Mutable<T, K extends keyof T> = Omit<T, K> & { -readonly [P in K]: T[P] };
 
 interface State {
 	repos: Repository[];
-	branchOrTagOrRef: GitBranch | GitTag | GitReference;
+	reference: GitBranch | GitReference;
 	createBranch?: string;
 }
 
@@ -35,7 +40,7 @@ export class SwitchGitCommand extends QuickCommandBase<State> {
 			counter++;
 		}
 
-		if (args.state.branchOrTagOrRef !== undefined) {
+		if (args.state.reference !== undefined) {
 			counter++;
 		}
 
@@ -52,12 +57,12 @@ export class SwitchGitCommand extends QuickCommandBase<State> {
 				location: ProgressLocation.Notification,
 				title: `Switching ${
 					state.repos.length === 1 ? state.repos[0].formattedName : `${state.repos.length} repositories`
-				} to ${state.branchOrTagOrRef.ref}`
+				} to ${state.reference.ref}`
 			},
 			() =>
 				Promise.all(
 					state.repos.map(r =>
-						r.checkout(state.branchOrTagOrRef.ref, { createBranch: state.createBranch, progress: false })
+						r.checkout(state.reference.ref, { createBranch: state.createBranch, progress: false })
 					)
 				)
 		));
@@ -106,10 +111,10 @@ export class SwitchGitCommand extends QuickCommandBase<State> {
 					}
 				}
 
-				if (state.branchOrTagOrRef === undefined || state.counter < 2) {
+				if (state.reference === undefined || state.counter < 2) {
 					showTags = state.repos.length === 1;
 
-					const toggleTagsButton: Mutable<QuickInputButton, 'tooltip'> = {
+					const toggleTagsButton: PickMutable<QuickInputButton, 'tooltip'> = {
 						iconPath: {
 							dark: Container.context.asAbsolutePath('images/dark/icon-tag.svg') as any,
 							light: Container.context.asAbsolutePath('images/light/icon-tag.svg') as any
@@ -133,9 +138,10 @@ export class SwitchGitCommand extends QuickCommandBase<State> {
 							3
 						)}(select or enter a reference)`,
 						matchOnDescription: true,
+						matchOnDetail: true,
 						items: items,
-						selectedItems: state.branchOrTagOrRef
-							? items.filter(ref => ref.label === state.branchOrTagOrRef!.ref)
+						selectedItems: state.reference
+							? items.filter(ref => ref.label === state.reference!.ref)
 							: undefined,
 						additionalButtons: [toggleTagsButton],
 						onDidClickButton: async (quickpick, button) => {
@@ -164,13 +170,7 @@ export class SwitchGitCommand extends QuickCommandBase<State> {
 
 						//     return Container.git.validateReference(state.repos![0].path, ref);
 						// },
-						onValidateValue: async (quickpick, value) => {
-							if (state.repos!.length !== 1) return false;
-							if (!(await Container.git.validateReference(state.repos![0].path, value))) return false;
-
-							quickpick.items = [RefQuickPickItem.create(value, true, { ref: true })];
-							return true;
-						}
+						onValidateValue: getValidateGitReferenceFn(state.repos)
 					});
 					const selection: StepSelection<typeof step> = yield step;
 
@@ -182,19 +182,19 @@ export class SwitchGitCommand extends QuickCommandBase<State> {
 						continue;
 					}
 
-					state.branchOrTagOrRef = selection[0].item;
+					state.reference = selection[0].item;
 				}
 
-				if (GitBranch.is(state.branchOrTagOrRef) && state.branchOrTagOrRef.remote) {
-					const branches = await Container.git.getBranches(state.branchOrTagOrRef.repoPath, {
+				if (GitBranch.is(state.reference) && state.reference.remote) {
+					const branches = await Container.git.getBranches(state.reference.repoPath, {
 						filter: b => {
-							return b.tracking === state.branchOrTagOrRef!.name;
+							return b.tracking === state.reference!.name;
 						}
 					});
 
 					if (branches.length === 0) {
 						const step = this.createInputStep({
-							title: `${this.title} new branch to ${state.branchOrTagOrRef.ref}${Strings.pad(
+							title: `${this.title} new branch to ${state.reference.ref}${Strings.pad(
 								GlyphChars.Dot,
 								2,
 								2
@@ -204,7 +204,7 @@ export class SwitchGitCommand extends QuickCommandBase<State> {
 									: `${state.repos.length} repositories`
 							}`,
 							placeholder: 'Please provide a name for the local branch',
-							value: state.branchOrTagOrRef.getName(),
+							value: state.reference.getName(),
 							validate: async (value: string | undefined): Promise<[boolean, string | undefined]> => {
 								if (value == null) return [false, undefined];
 
@@ -237,12 +237,12 @@ export class SwitchGitCommand extends QuickCommandBase<State> {
 							{
 								label: this.title,
 								description: state.createBranch
-									? `${state.createBranch} (from ${state.branchOrTagOrRef.name}) `
-									: state.branchOrTagOrRef.name,
+									? `${state.createBranch} (from ${state.reference.name}) `
+									: state.reference.name,
 								detail: `Will ${
 									state.createBranch
-										? `create and switch to ${state.createBranch} (from ${state.branchOrTagOrRef.name})`
-										: `switch to ${state.branchOrTagOrRef.name}`
+										? `create and switch to ${state.createBranch} (from ${state.reference.name})`
+										: `switch to ${state.reference.name}`
 								} in ${
 									state.repos.length === 1
 										? state.repos[0].formattedName
