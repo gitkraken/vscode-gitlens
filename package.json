@@ -5521,10 +5521,10 @@
 	},
 	"devDependencies": {
 		"@types/lodash-es": "4.17.3",
-		"@types/node": "10.14.16",
+		"@types/node": "10.14.17",
 		"@types/vscode": "1.37.0",
-		"@typescript-eslint/eslint-plugin": "2.0.0",
-		"@typescript-eslint/parser": "2.0.0",
+		"@typescript-eslint/eslint-plugin": "2.1.0",
+		"@typescript-eslint/parser": "2.1.0",
 		"circular-dependency-plugin": "5.2.0",
 		"clean-webpack-plugin": "3.0.0",
 		"csp-html-webpack-plugin": "3.0.3",
