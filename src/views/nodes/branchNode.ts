@@ -58,7 +58,9 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 	}
 
 	get treeHierarchy(): string[] {
-		return this.branch.detached || this.branch.starred ? [this.branch.name] : this.branch.getName().split('/');
+		return this.branch.current || this.branch.detached || this.branch.starred
+			? [this.branch.name]
+			: this.branch.getName().split('/');
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
