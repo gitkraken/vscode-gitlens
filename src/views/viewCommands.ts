@@ -17,7 +17,7 @@ import {
 import { BuiltInCommands, CommandContext, setCommandContext } from '../constants';
 import { Container } from '../container';
 import { toGitLensFSUri } from '../git/fsProvider';
-import { GitService, GitUri } from '../git/gitService';
+import { GitReference, GitService, GitUri } from '../git/gitService';
 import {
 	BranchNode,
 	BranchTrackingStatusNode,
@@ -154,17 +154,21 @@ export class ViewCommands {
 			this
 		);
 
+		commands.registerCommand('gitlens.views.cherryPick', this.cherryPick, this);
+
 		commands.registerCommand('gitlens.views.mergeBranchInto', this.merge, this);
+
 		commands.registerCommand('gitlens.views.rebaseOntoBranch', this.rebase, this);
 		commands.registerCommand('gitlens.views.rebaseOntoUpstream', this.rebaseToRemote, this);
+		commands.registerCommand('gitlens.views.rebaseOntoCommit', this.rebase, this);
+
+		commands.registerCommand('gitlens.views.reset', this.reset, this);
+		commands.registerCommand('gitlens.views.revert', this.revert, this);
+
+		commands.registerCommand('gitlens.views.terminalPushCommit', this.terminalPushCommit, this);
 
 		commands.registerCommand('gitlens.views.terminalCreateBranch', this.terminalCreateBranch, this);
 		commands.registerCommand('gitlens.views.terminalDeleteBranch', this.terminalDeleteBranch, this);
-		commands.registerCommand('gitlens.views.terminalCherryPickCommit', this.terminalCherryPickCommit, this);
-		commands.registerCommand('gitlens.views.terminalPushCommit', this.terminalPushCommit, this);
-		commands.registerCommand('gitlens.views.terminalRebaseCommit', this.terminalRebaseCommit, this);
-		commands.registerCommand('gitlens.views.terminalResetCommit', this.terminalResetCommit, this);
-		commands.registerCommand('gitlens.views.terminalRevertCommit', this.terminalRevertCommit, this);
 		commands.registerCommand('gitlens.views.terminalRemoveRemote', this.terminalRemoveRemote, this);
 		commands.registerCommand('gitlens.views.terminalCreateTag', this.terminalCreateTag, this);
 		commands.registerCommand('gitlens.views.terminalDeleteTag', this.terminalDeleteTag, this);
@@ -252,6 +256,18 @@ export class ViewCommands {
 		}
 	}
 
+	private async cherryPick(node: CommitNode) {
+		if (!(node instanceof CommitNode)) return undefined;
+
+		const repo = await Container.git.getRepository(node.repoPath);
+
+		const args: GitCommandsCommandArgs = {
+			command: 'cherry-pick',
+			state: { repo: repo!, references: [GitReference.create(node.ref)] }
+		};
+		return commands.executeCommand(Commands.GitCommands, args);
+	}
+
 	private async merge(node: BranchNode | TagNode) {
 		if (!(node instanceof BranchNode) && !(node instanceof TagNode)) return undefined;
 
@@ -274,12 +290,12 @@ export class ViewCommands {
 		let args: GitCommandsCommandArgs;
 		if (node instanceof CommitNode) {
 			args = {
-			command: 'rebase',
+				command: 'rebase',
 				state: {
 					repo: repo!,
 					reference: GitReference.create(node.ref)
 				}
-		};
+			};
 		} else {
 			args = {
 				command: 'rebase',
@@ -307,10 +323,34 @@ export class ViewCommands {
 		return commands.executeCommand(Commands.GitCommands, args);
 	}
 
+	private async reset(node: CommitNode) {
+		if (!(node instanceof CommitNode)) return undefined;
+
+		const repo = await Container.git.getRepository(node.repoPath);
+
+		const args: GitCommandsCommandArgs = {
+			command: 'reset',
+			state: { repo: repo!, reference: GitReference.create(node.ref) }
+		};
+		return commands.executeCommand(Commands.GitCommands, args);
+	}
+
 	private async restore(node: ViewRefFileNode) {
 		if (!(node instanceof ViewRefFileNode)) return undefined;
 
 		return Container.git.checkout(node.repoPath, node.ref, { fileName: node.fileName });
+	}
+
+	private async revert(node: CommitNode) {
+		if (!(node instanceof CommitNode)) return undefined;
+
+		const repo = await Container.git.getRepository(node.repoPath);
+
+		const args: GitCommandsCommandArgs = {
+			command: 'revert',
+			state: { repo: repo!, references: [GitReference.create(node.ref)] }
+		};
+		return commands.executeCommand(Commands.GitCommands, args);
 	}
 
 	private async switch(node: ViewRefNode) {
@@ -858,12 +898,6 @@ export class ViewCommands {
 		runGitCommandInTerminal('checkout', `${node.ref}`, node.repoPath);
 	}
 
-	terminalCherryPickCommit(node: CommitNode) {
-		if (!(node instanceof CommitNode)) return;
-
-		runGitCommandInTerminal('cherry-pick', `-e ${node.ref}`, node.repoPath);
-	}
-
 	async terminalPushCommit(node: CommitNode) {
 		if (!(node instanceof CommitNode)) return;
 
@@ -871,24 +905,6 @@ export class ViewCommands {
 		if (branch === undefined) return;
 
 		runGitCommandInTerminal('push', `${branch.getRemoteName()} ${node.ref}:${branch.getName()}`, node.repoPath);
-	}
-
-	terminalRebaseCommit(node: CommitNode) {
-		if (!(node instanceof CommitNode)) return;
-
-		runGitCommandInTerminal('rebase', `-i ${node.ref}^`, node.repoPath);
-	}
-
-	terminalResetCommit(node: CommitNode) {
-		if (!(node instanceof CommitNode)) return;
-
-		runGitCommandInTerminal('reset', `--soft ${node.ref}`, node.repoPath);
-	}
-
-	terminalRevertCommit(node: CommitNode) {
-		if (!(node instanceof CommitNode)) return;
-
-		runGitCommandInTerminal('revert', `-e ${node.ref}`, node.repoPath);
 	}
 
 	terminalRemoveRemote(node: RemoteNode) {

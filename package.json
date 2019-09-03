@@ -2770,43 +2770,43 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.views.cherryPick",
+				"title": "Cherry Pick Commit",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.mergeBranchInto",
-				"title": "Merge Branch into Current",
+				"title": "Merge Branch into Current...",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.rebaseOntoBranch",
-				"title": "Rebase Current onto Branch",
+				"title": "Rebase Current onto Branch...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.rebaseOntoCommit",
+				"title": "Rebase Current onto Commit...",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.rebaseOntoUpstream",
-				"title": "Rebase Current onto Upstream",
+				"title": "Rebase Current onto Upstream...",
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.views.terminalCherryPickCommit",
-				"title": "Cherry Pick Commit (via Terminal)",
+				"command": "gitlens.views.reset",
+				"title": "Reset to Commit",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.revert",
+				"title": "Revert Commit",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.terminalPushCommit",
 				"title": "Push to Commit (via Terminal)",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.views.terminalRebaseCommit",
-				"title": "Rebase to Commit (via Terminal)",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.views.terminalResetCommit",
-				"title": "Reset to Commit (via Terminal)",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.views.terminalRevertCommit",
-				"title": "Revert Commit (via Terminal)",
 				"category": "GitLens"
 			},
 			{
@@ -3660,6 +3660,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.cherryPick",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.mergeBranchInto",
 					"when": "false"
 				},
@@ -3668,27 +3672,23 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.rebaseOntoCommit",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.rebaseOntoUpstream",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.terminalCherryPickCommit",
+					"command": "gitlens.views.reset",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.revert",
 					"when": "false"
 				},
 				{
 					"command": "gitlens.views.terminalPushCommit",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.terminalRebaseCommit",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.terminalResetCommit",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.terminalRevertCommit",
 					"when": "false"
 				},
 				{
@@ -4546,9 +4546,29 @@
 					"group": "inline@98"
 				},
 				{
+					"command": "gitlens.views.revert",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)/",
+					"group": "1_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.reset",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)/",
+					"group": "1_gitlens@2"
+				},
+				{
+					"command": "gitlens.views.cherryPick",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+current\\b)/",
+					"group": "1_gitlens@1"
+				},
+				{
 					"command": "gitlens.views.switchToCommit",
 					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b/",
-					"group": "1_gitlens@1"
+					"group": "1_gitlens@3"
+				},
+				{
+					"command": "gitlens.views.rebaseOntoCommit",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b/",
+					"group": "1_gitlens@4"
 				},
 				{
 					"command": "gitlens.openCommitInRemote",
@@ -4602,29 +4622,9 @@
 					"group": "5_gitlens_1@2"
 				},
 				{
-					"command": "gitlens.views.terminalCherryPickCommit",
-					"when": "!gitlens:readonly && viewItem == gitlens:commit",
-					"group": "8_gitlens@1"
-				},
-				{
 					"command": "gitlens.views.terminalPushCommit",
 					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)/",
 					"group": "8_gitlens@2"
-				},
-				{
-					"command": "gitlens.views.terminalRevertCommit",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)/",
-					"group": "8_gitlens@3"
-				},
-				{
-					"command": "gitlens.views.terminalRebaseCommit",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b/",
-					"group": "8_gitlens@5"
-				},
-				{
-					"command": "gitlens.views.terminalResetCommit",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b/",
-					"group": "8_gitlens@6"
 				},
 				{
 					"command": "gitlens.views.openFile",
