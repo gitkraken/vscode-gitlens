@@ -22,7 +22,7 @@ import { SwitchGitCommand, SwitchGitCommandArgs } from './git/switch';
 import { Container } from '../container';
 import { configuration } from '../configuration';
 
-const sanitizeLabel = /\$\(.+?\)|\W/g;
+const sanitizeLabel = /\$\(.+?\)|\s/g;
 
 export type GitCommandsCommandArgs =
 	| CherryPickGitCommandArgs
