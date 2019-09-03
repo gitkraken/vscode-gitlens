@@ -17,6 +17,7 @@ import { MergeGitCommand, MergeGitCommandArgs } from './git/merge';
 import { PullGitCommand, PullGitCommandArgs } from './git/pull';
 import { PushGitCommand, PushGitCommandArgs } from './git/push';
 import { RebaseGitCommand, RebaseGitCommandArgs } from './git/rebase';
+import { ResetGitCommand, ResetGitCommandArgs } from './git/reset';
 import { StashGitCommand, StashGitCommandArgs } from './git/stash';
 import { SwitchGitCommand, SwitchGitCommandArgs } from './git/switch';
 import { Container } from '../container';
@@ -31,6 +32,7 @@ export type GitCommandsCommandArgs =
 	| PullGitCommandArgs
 	| PushGitCommandArgs
 	| RebaseGitCommandArgs
+	| ResetGitCommandArgs
 	| StashGitCommandArgs
 	| SwitchGitCommandArgs;
 
@@ -48,6 +50,7 @@ class PickCommandStep implements QuickPickStep {
 			new PullGitCommand(args && args.command === 'pull' ? args : undefined),
 			new PushGitCommand(args && args.command === 'push' ? args : undefined),
 			new RebaseGitCommand(args && args.command === 'rebase' ? args : undefined),
+			new ResetGitCommand(args && args.command === 'reset' ? args : undefined),
 			new StashGitCommand(args && args.command === 'stash' ? args : undefined),
 			new SwitchGitCommand(args && args.command === 'switch' ? args : undefined)
 		];
