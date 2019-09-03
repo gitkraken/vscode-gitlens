@@ -49,6 +49,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#821](https://github.com/eamodio/vscode-gitlens/issues/821) - Wrong comparison order in the Compare view when using Compare [HEAD|Working Tree] With comands
 - Fixes [#828](https://github.com/eamodio/vscode-gitlens/issues/828) - Version comparison to show welcome message is not future proof &mdash; thanks to [PR #829](https://github.com/eamodio/vscode-gitlens/pull/829) by Arunprasad Rajkumar ([@arajkumar](https://github.com/arajkumar))
 - Fixes typo of "workbench.colorCustomization" in README &mdash; thanks to [PR #823](https://github.com/eamodio/vscode-gitlens/pull/823) by Kwok ([@mankwok](https://github.com/mankwok))
 - Fixes [#738](https://github.com/eamodio/vscode-gitlens/issues/738) - Disable showWhatsNewAfterUpgrades notification

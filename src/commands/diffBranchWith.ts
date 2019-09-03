@@ -34,12 +34,12 @@ export class DiffBranchWithCommand extends ActiveEditorCommand {
 		switch (context.command) {
 			case Commands.DiffHeadWith:
 			case Commands.DiffHeadWithBranch:
-				args.ref2 = 'HEAD';
+				args.ref1 = 'HEAD';
 				break;
 
 			case Commands.DiffWorkingWith:
 			case Commands.DiffWorkingWithBranch:
-				args.ref2 = '';
+				args.ref1 = '';
 				break;
 		}
 
@@ -47,7 +47,7 @@ export class DiffBranchWithCommand extends ActiveEditorCommand {
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args: DiffBranchWithCommandArgs = {}) {
-		if (args.ref2 === undefined) return undefined;
+		if (args.ref1 === undefined) return undefined;
 
 		uri = getCommandUri(uri, editor);
 
@@ -59,10 +59,10 @@ export class DiffBranchWithCommand extends ActiveEditorCommand {
 			);
 			if (!repoPath) return undefined;
 
-			if (!args.ref1) {
+			if (!args.ref2) {
 				let checkmarks;
 				let placeHolder;
-				switch (args.ref2) {
+				switch (args.ref1) {
 					case '':
 						checkmarks = false;
 						placeHolder = `Compare Working Tree with${GlyphChars.Ellipsis}`;
@@ -73,21 +73,21 @@ export class DiffBranchWithCommand extends ActiveEditorCommand {
 						break;
 					default:
 						checkmarks = true;
-						placeHolder = `Compare ${args.ref2} with${GlyphChars.Ellipsis}`;
+						placeHolder = `Compare ${args.ref1} with${GlyphChars.Ellipsis}`;
 						break;
 				}
 
 				const pick = await new ReferencesQuickPick(repoPath).show(placeHolder, {
 					allowEnteringRefs: true,
-					checked: args.ref2,
+					checked: args.ref1,
 					checkmarks: checkmarks
 				});
 				if (pick === undefined) return undefined;
 
 				if (pick instanceof CommandQuickPickItem) return pick.execute();
 
-				args.ref1 = pick.ref;
-				if (args.ref1 === undefined) return undefined;
+				args.ref2 = pick.ref;
+				if (args.ref2 === undefined) return undefined;
 			}
 
 			await Container.compareView.compare(repoPath, args.ref1, args.ref2);
