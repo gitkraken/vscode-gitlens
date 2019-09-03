@@ -148,7 +148,7 @@ export namespace CommitQuickPickItem {
 	export function create<T extends GitLogCommit = GitLogCommit>(
 		commit: T,
 		picked?: boolean,
-		options: { compact?: boolean } = {}
+		options: { compact?: boolean; icon?: boolean; match?: string } = {}
 	) {
 		if (GitStashCommit.is(commit)) {
 			const item: CommitQuickPickItem<T> = {
@@ -170,10 +170,11 @@ export namespace CommitQuickPickItem {
 
 		if (options.compact) {
 			const item: CommitQuickPickItem<T> = {
-				label: commit.getShortMessage(),
+				label: `${options.icon ? Strings.pad('$(git-commit)', 0, 2) : ''}${commit.getShortMessage()}`,
 				description: `${commit.author}, ${commit.formattedDate}${Strings.pad('$(git-commit)', 2, 2)}${
 					commit.shortSha
 				}${Strings.pad(GlyphChars.Dot, 2, 2)}${commit.getFormattedDiffStatus({ compact: true })}`,
+				detail: options.match,
 				picked: picked,
 				item: commit
 			};
@@ -181,8 +182,8 @@ export namespace CommitQuickPickItem {
 		}
 
 		const item: CommitQuickPickItem<T> = {
-			label: commit.getShortMessage(),
-			description: '',
+			label: `${options.icon ? Strings.pad('$(git-commit)', 0, 2) : ''}${commit.getShortMessage()}`,
+			description: options.match || '',
 			detail: `${GlyphChars.Space.repeat(2)}${commit.author}, ${commit.formattedDate}${Strings.pad(
 				'$(git-commit)',
 				2,
@@ -205,11 +206,13 @@ export interface RefQuickPickItem extends QuickPickItemOfT<GitReference> {
 
 export namespace RefQuickPickItem {
 	export function create(ref: string, picked?: boolean, options: { ref?: boolean } = {}) {
+		const gitRef = GitReference.create(ref);
+
 		const item: RefQuickPickItem = {
-			label: `Commit ${GitService.shortenSha(ref, { force: true })}`,
+			label: `Commit ${gitRef.name}`,
 			description: options.ref ? `$(git-commit) ${ref}` : '',
 			picked: picked,
-			item: { name: GitService.shortenSha(ref, { force: true }), ref: ref },
+			item: gitRef,
 			current: false,
 			ref: ref,
 			remote: false
