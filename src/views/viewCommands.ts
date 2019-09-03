@@ -259,7 +259,7 @@ export class ViewCommands {
 
 		const args: GitCommandsCommandArgs = {
 			command: 'merge',
-			state: { repo: repo!, source: node instanceof BranchNode ? node.branch : node.tag }
+			state: { repo: repo!, reference: node instanceof BranchNode ? node.branch : node.tag }
 		};
 		return commands.executeCommand(Commands.GitCommands, args);
 	}

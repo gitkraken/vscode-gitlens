@@ -1,15 +1,21 @@
 'use strict';
 import { Container } from '../../container';
-import { GitBranch, GitTag, Repository } from '../../git/gitService';
+import { GitReference, Repository } from '../../git/gitService';
 import { GlyphChars } from '../../constants';
-import { getBranchesAndOrTags, QuickCommandBase, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
 import {
-	BranchQuickPickItem,
+	getBranchesAndOrTags,
+	getValidateGitReferenceFn,
+	QuickCommandBase,
+	StepAsyncGenerator,
+	StepSelection,
+	StepState
+} from '../quickCommand';
+import {
 	Directive,
 	DirectiveQuickPickItem,
 	GitFlagsQuickPickItem,
-	RepositoryQuickPickItem,
-	TagQuickPickItem
+	ReferencesQuickPickItem,
+	RepositoryQuickPickItem
 } from '../../quickpicks';
 import { Strings } from '../../system';
 import { runGitCommandInTerminal } from '../../terminal';
@@ -17,8 +23,7 @@ import { Logger } from '../../logger';
 
 interface State {
 	repo: Repository;
-	destination: GitBranch;
-	source: GitBranch | GitTag;
+	reference: GitReference;
 	flags: string[];
 }
 
@@ -38,7 +43,7 @@ export class MergeGitCommand extends QuickCommandBase<State> {
 			counter++;
 		}
 
-		if (args.state.source !== undefined) {
+		if (args.state.reference !== undefined) {
 			counter++;
 		}
 
@@ -50,7 +55,7 @@ export class MergeGitCommand extends QuickCommandBase<State> {
 	}
 
 	execute(state: State) {
-		runGitCommandInTerminal('merge', [...state.flags, state.source.ref].join(' '), state.repo.path, true);
+		runGitCommandInTerminal('merge', [...state.flags, state.reference.ref].join(' '), state.repo.path, true);
 	}
 
 	protected async *steps(): StepAsyncGenerator {
@@ -92,22 +97,26 @@ export class MergeGitCommand extends QuickCommandBase<State> {
 					}
 				}
 
-				state.destination = await state.repo.getBranch();
-				if (state.destination === undefined) break;
+				const destination = await state.repo.getBranch();
+				if (destination === undefined) break;
 
-				if (state.source === undefined || state.counter < 2) {
-					const destId = state.destination.id;
+				if (state.reference === undefined || state.counter < 2) {
+					const destId = destination.id;
 
-					const step = this.createPickStep<BranchQuickPickItem | TagQuickPickItem>({
-						title: `${this.title} into ${state.destination.name}${Strings.pad(GlyphChars.Dot, 2, 2)}${
+					const step = this.createPickStep<ReferencesQuickPickItem>({
+						title: `${this.title} into ${destination.name}${Strings.pad(GlyphChars.Dot, 2, 2)}${
 							state.repo.formattedName
 						}`,
-						placeholder: `Choose a branch or tag to merge into ${state.destination.name}`,
+						placeholder: `Choose a branch or tag to merge into ${destination.name}${GlyphChars.Space.repeat(
+							3
+						)}(select or enter a reference)`,
 						matchOnDescription: true,
+						matchOnDetail: true,
 						items: await getBranchesAndOrTags(state.repo, true, {
 							filterBranches: b => b.id !== destId,
-							picked: state.source && state.source.ref
-						})
+							picked: state.reference && state.reference.ref
+						}),
+						onValidateValue: getValidateGitReferenceFn(state.repo)
 					});
 					const selection: StepSelection<typeof step> = yield step;
 
@@ -118,12 +127,12 @@ export class MergeGitCommand extends QuickCommandBase<State> {
 						continue;
 					}
 
-					state.source = selection[0].item;
+					state.reference = selection[0].item;
 				}
 
 				const count =
 					(await Container.git.getCommitCount(state.repo.path, [
-						`${state.destination.name}..${state.source.name}`
+						`${destination.name}..${state.reference.name}`
 					])) || 0;
 				if (count === 0) {
 					const step = this.createConfirmStep(
@@ -132,7 +141,7 @@ export class MergeGitCommand extends QuickCommandBase<State> {
 						{
 							cancel: DirectiveQuickPickItem.create(Directive.Cancel, true, {
 								label: `Cancel ${this.title}`,
-								detail: `${state.destination.name} is up to date with ${state.source.name}`
+								detail: `${destination.name} is up to date with ${state.reference.name}`
 							})
 						}
 					);
@@ -146,36 +155,35 @@ export class MergeGitCommand extends QuickCommandBase<State> {
 					[
 						{
 							label: this.title,
-							description: `${state.source.name} into ${state.destination.name}`,
-							detail: `Will merge ${Strings.pluralize('commit', count)} from ${state.source.name} into ${
-								state.destination.name
-							}`,
+							description: `${state.reference.name} into ${destination.name}`,
+							detail: `Will merge ${Strings.pluralize('commit', count)} from ${
+								state.reference.name
+							} into ${destination.name}`,
 							item: []
 						},
 						{
 							label: `Fast-forward ${this.title}`,
-							description: `--ff-only ${state.source.name} into ${state.destination.name}`,
+							description: `--ff-only ${state.reference.name} into ${destination.name}`,
 							detail: `Will fast-forward merge ${Strings.pluralize('commit', count)} from ${
-								state.source.name
-							} into ${state.destination.name}`,
+								state.reference.name
+							} into ${destination.name}`,
 							item: ['--ff-only']
 						},
 						{
 							label: `No Fast-forward ${this.title}`,
-							description: `--no-ff ${state.source.name} into ${state.destination.name}`,
+							description: `--no-ff ${state.reference.name} into ${destination.name}`,
 							detail: `Will create a merge commit when merging ${Strings.pluralize(
 								'commit',
 								count
-							)} from ${state.source.name} into ${state.destination.name}`,
+							)} from ${state.reference.name} into ${destination.name}`,
 							item: ['--no-ff']
 						},
 						{
 							label: `Squash ${this.title}`,
-							description: `--squash ${state.source.name} into ${state.destination.name}`,
-							detail: `Will squash all commits into a single commit when merging ${Strings.pluralize(
-								'commit',
-								count
-							)} from ${state.source.name} into ${state.destination.name}`,
+							description: `--squash ${state.reference.name} into ${destination.name}`,
+							detail: `Will squash ${Strings.pluralize('commit', count)} from ${
+								state.reference.name
+							} into one when merging into ${destination.name}`,
 							item: ['--squash']
 						}
 					]
