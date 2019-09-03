@@ -1126,7 +1126,7 @@ export class GitService implements Disposable {
 		const log = await this.getLog(repoPath, { maxCount: 2, ref: ref });
 		if (log === undefined) return undefined;
 
-		return log.commits.get(ref);
+		return log.commits.get(ref) || Iterables.first(log.commits.values());
 	}
 
 	@log()
