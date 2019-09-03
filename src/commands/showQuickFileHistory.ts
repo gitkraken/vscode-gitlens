@@ -108,7 +108,11 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 				}
 			}
 
-			const icon = GitTag.is(args.reference) ? '$(tag) ' : GitBranch.is(args.reference) ? '$(git-branch) ' : '';
+			const icon = GitTag.isOfRefType(args.reference)
+				? '$(tag) '
+				: GitBranch.isOfRefType(args.reference)
+				? '$(git-branch) '
+				: '';
 			// Create a command to get back to where we are right now
 			const currentCommand = new CommandQuickPickItem(
 				{

@@ -1,8 +1,24 @@
 'use strict';
 
+import { Git } from '../git';
+
 export interface GitReference {
+	readonly refType: 'branch' | 'tag' | 'revision';
 	name: string;
 	ref: string;
+}
+
+export namespace GitReference {
+	export function create(
+		ref: string,
+		{ name, refType }: { name?: string; refType?: 'branch' | 'tag' } = {}
+	): GitReference {
+		return { name: name || Git.shortenSha(ref, { force: true }), ref: ref, refType: refType || 'revision' };
+	}
+
+	export function isOfRefType(ref: GitReference | undefined, refType: 'branch' | 'tag' | 'revision' = 'revision') {
+		return ref !== undefined && ref.refType === refType;
+	}
 }
 
 export * from './blame';

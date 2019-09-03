@@ -116,9 +116,9 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
 				}
 
 				commandArgs = { ...args };
-				const icon = GitTag.is(args.reference)
+				const icon = GitTag.isOfRefType(args.reference)
 					? '$(tag) '
-					: GitBranch.is(args.reference)
+					: GitBranch.isOfRefType(args.reference)
 					? '$(git-branch) '
 					: '';
 				const currentCommand = new CommandQuickPickItem(

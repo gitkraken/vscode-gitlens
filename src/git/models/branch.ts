@@ -4,6 +4,7 @@ import { Container } from '../../container';
 import { Git, GitRemote } from '../git';
 import { GitStatus } from './status';
 import { memoize } from '../../system';
+import { GitReference } from './models';
 
 const whitespaceRegex = /\s/;
 
@@ -12,9 +13,13 @@ export interface GitTrackingState {
 	behind: number;
 }
 
-export class GitBranch {
+export class GitBranch implements GitReference {
 	static is(branch: any): branch is GitBranch {
 		return branch instanceof GitBranch;
+	}
+
+	static isOfRefType(branch: GitReference | undefined) {
+		return branch !== undefined && branch.refType === 'branch';
 	}
 
 	static sort(branches: GitBranch[]) {
@@ -27,6 +32,7 @@ export class GitBranch {
 		);
 	}
 
+	readonly refType = 'branch';
 	readonly detached: boolean;
 	readonly id: string;
 	readonly tracking?: string;

@@ -7,6 +7,7 @@ import { CommitFormatter } from '../formatters/formatters';
 import { Git } from '../git';
 import { GitUri } from '../gitUri';
 import { getAvatarUri } from '../../avatars';
+import { GitReference } from './models';
 
 export interface GitAuthor {
 	name: string;
@@ -41,19 +42,16 @@ export const CommitFormatting = {
 	}
 };
 
-export abstract class GitCommit {
+export abstract class GitCommit implements GitReference {
 	static is(commit: any): commit is GitCommit {
-		return (
-			commit instanceof GitCommit
-			// || (commit.repoPath !== undefined &&
-			//     commit.sha !== undefined &&
-			//     (commit.type === GitCommitType.Blame ||
-			//         commit.type === GitCommitType.Log ||
-			//         commit.type === GitCommitType.LogFile ||
-			//         commit.type === GitCommitType.Stash ||
-			//         commit.type === GitCommitType.StashFile))
-		);
+		return commit instanceof GitCommit;
 	}
+
+	static isOfRefType(branch: GitReference | undefined) {
+		return branch !== undefined && branch.refType === 'revision';
+	}
+
+	readonly refType = 'revision';
 
 	constructor(
 		public readonly type: GitCommitType,
@@ -70,6 +68,14 @@ export abstract class GitCommit {
 		public previousFileName: string | undefined
 	) {
 		this._fileName = fileName || '';
+	}
+
+	get ref() {
+		return this.sha;
+	}
+
+	get name() {
+		return this.shortSha;
 	}
 
 	private readonly _fileName: string;
