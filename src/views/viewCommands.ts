@@ -504,6 +504,10 @@ export class ViewCommands {
 	private exploreRepoRevision(node: ViewRefNode, options: { openInNewWindow?: boolean } = {}) {
 		if (!(node instanceof ViewRefNode)) return;
 
+		if (options == null) {
+			options = {};
+		}
+
 		const uri = toGitLensFSUri(node.ref, node.repoPath);
 		const gitUri = GitUri.fromRevisionUri(uri);
 
