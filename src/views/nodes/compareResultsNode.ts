@@ -198,7 +198,7 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
 	private async getCommitsQuery(maxCount: number | undefined): Promise<CommitsQueryResults> {
 		const log = await Container.git.getLog(this.uri.repoPath!, {
 			maxCount: maxCount,
-			ref: `${this._compareWith.ref || 'HEAD'}${this.comparisonNotation}${this._ref.ref}`
+			ref: `${this._compareWith.ref || 'HEAD'}${this.comparisonNotation}${this._ref.ref || 'HEAD'}`
 		});
 
 		const count = log !== undefined ? log.count : 0;
@@ -211,10 +211,16 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
 	}
 
 	private async getFilesQuery(): Promise<FilesQueryResults> {
-		const diff = await Container.git.getDiffStatus(
-			this.uri.repoPath!,
-			`${this._compareWith.ref || 'HEAD'}${this.diffComparisonNotation}${this._ref.ref || 'HEAD'}`
-		);
+		let comparison;
+		if (this._compareWith.ref === '') {
+			comparison = this._ref.ref;
+		} else if (this._ref.ref === '') {
+			comparison = this._compareWith.ref;
+		} else {
+			comparison = `${this._compareWith.ref}${this.diffComparisonNotation}${this._ref.ref}`;
+		}
+
+		const diff = await Container.git.getDiffStatus(this.uri.repoPath!, comparison);
 
 		return {
 			label: `${Strings.pluralize('file', diff !== undefined ? diff.length : 0, { zero: 'No' })} changed`,
