@@ -109,7 +109,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 			if (
 				this.uri === unknownGitUri ||
 				(Container.git.isTrackable(this.uri) &&
-					window.visibleTextEditors.some(e => e.document && UriComparer.equals(e.document.uri, this.uri)))
+					window.visibleTextEditors.some(e => e.document && e.document.uri.path === this.uri.path))
 			) {
 				return true;
 			}
@@ -126,7 +126,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 		}
 
 		if (
-			UriComparer.equals(editor.document.uri, this.uri) &&
+			editor.document.uri.path === this.uri.path &&
 			(this._selection !== undefined && editor.selection.isEqual(this._selection))
 		) {
 			if (cc !== undefined) {

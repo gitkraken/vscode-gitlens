@@ -102,7 +102,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 			if (
 				this.uri === unknownGitUri ||
 				(Container.git.isTrackable(this.uri) &&
-					window.visibleTextEditors.some(e => e.document && UriComparer.equals(e.document.uri, this.uri)))
+					window.visibleTextEditors.some(e => e.document && e.document.uri.path === this.uri.path))
 			) {
 				return true;
 			}
@@ -116,7 +116,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 			return false;
 		}
 
-		if (UriComparer.equals(editor.document.uri, this.uri)) {
+		if (editor.document.uri.path === this.uri.path) {
 			if (cc !== undefined) {
 				cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
 			}
