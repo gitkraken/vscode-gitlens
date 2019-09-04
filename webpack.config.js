@@ -49,7 +49,7 @@ function getExtensionConfig(env) {
 				exclude: /node_modules/,
 				failOnError: false,
 				onDetected: function({ module: webpackModuleRecord, paths, compilation }) {
-					if (paths.some(p => /container\.ts/.test(p))) return;
+					if (paths.some(p => p.includes('container.ts'))) return;
 
 					compilation.warnings.push(new Error(paths.join(' -> ')));
 				}
@@ -175,7 +175,7 @@ function getWebviewsConfig(env) {
 				? {
 						removeComments: true,
 						collapseWhitespace: true,
-						removeRedundantAttributes: true,
+						removeRedundantAttributes: false,
 						useShortDoctype: true,
 						removeEmptyAttributes: true,
 						removeStyleLinkTypeAttributes: true,
@@ -203,7 +203,7 @@ function getWebviewsConfig(env) {
 				? {
 						removeComments: true,
 						collapseWhitespace: true,
-						removeRedundantAttributes: true,
+						removeRedundantAttributes: false,
 						useShortDoctype: true,
 						removeEmptyAttributes: true,
 						removeStyleLinkTypeAttributes: true,

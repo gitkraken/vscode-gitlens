@@ -920,7 +920,8 @@ section {
 		}
 	}
 
-	input[type='text'] {
+	input[type='text'],
+	input:not([type]) {
 		min-width: 245px;
 	}
 
@@ -979,7 +980,8 @@ section {
 .setting__input--format {
 	display: flex;
 
-	input[type='text'] {
+	input[type='text'],
+	input:not([type]) {
 		max-width: unset;
 	}
 }
