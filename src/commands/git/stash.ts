@@ -358,7 +358,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 				state.subcommand = selection[0].command;
 				state.flags = selection[0].item;
 			} else {
-				state.flags = [];
+				state.flags = state.flags || [];
 			}
 
 			void Container.git.stashApply(state.repo.path, state.stash!.stashName, state.subcommand === 'pop');
@@ -521,7 +521,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 
 				state.flags = selection[0].item;
 			} else {
-				state.flags = [];
+				state.flags = state.flags || [];
 			}
 
 			void Container.git.stashSave(state.repo.path, state.message, state.uris, {

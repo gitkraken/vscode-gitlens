@@ -148,7 +148,7 @@ export class FetchGitCommand extends QuickCommandBase<State> {
 
 					state.flags = selection[0].item;
 				} else {
-					state.flags = [];
+					state.flags = state.flags || [];
 				}
 
 				this.execute(state as State);
