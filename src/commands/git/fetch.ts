@@ -126,7 +126,7 @@ export class FetchGitCommand extends QuickCommandBase<State> {
 							},
 							{
 								label: `${this.title} All & Prune`,
-								description: '--all',
+								description: '--all --prune',
 								detail: `Will fetch and prune all remotes of ${
 									state.repos.length === 1
 										? state.repos[0].formattedName

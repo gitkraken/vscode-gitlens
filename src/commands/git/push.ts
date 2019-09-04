@@ -103,7 +103,7 @@ export class PushGitCommand extends QuickCommandBase<State> {
 							},
 							{
 								label: `Force ${this.title}`,
-								description: '',
+								description: '--force',
 								detail: `Will force push ${
 									state.repos.length === 1
 										? state.repos[0].formattedName

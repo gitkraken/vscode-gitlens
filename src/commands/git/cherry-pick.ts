@@ -214,7 +214,7 @@ export class CherryPickGitCommand extends QuickCommandBase<State> {
 						},
 						{
 							label: `${this.title} & Edit`,
-							description: `-e ${
+							description: `--edit ${
 								state.references!.length === 1
 									? state.references![0].name
 									: `${state.references!.length} commits`
@@ -224,7 +224,7 @@ export class CherryPickGitCommand extends QuickCommandBase<State> {
 									? `commit ${state.references![0].name}`
 									: `${state.references!.length} commits`
 							} onto ${destination.name}`,
-							item: ['-e']
+							item: ['--edit']
 						}
 					]
 				);
