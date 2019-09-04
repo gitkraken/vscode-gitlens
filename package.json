@@ -484,33 +484,47 @@
 				"gitlens.gitCommands.skipConfirmations": {
 					"type": "array",
 					"default": [
-						"fetch",
-						"stash-push",
-						"switch"
+						"fetch:command",
+						"stash-push:command",
+						"switch:command"
 					],
 					"items": {
 						"type": "string",
 						"enum": [
-							"fetch",
-							"pull",
-							"push",
-							"stash-apply",
-							"stash-pop",
-							"stash-push",
-							"switch"
+							"fetch:command",
+							"fetch:menu",
+							"pull:command",
+							"pull:menu",
+							"push:command",
+							"push:menu",
+							"stash-apply:command",
+							"stash-apply:menu",
+							"stash-pop:command",
+							"stash-pop:menu",
+							"stash-push:command",
+							"stash-push:menu",
+							"switch:command",
+							"switch:menu"
 						],
 						"enumDescriptions": [
-							"Skips fetch command confirmation",
-							"Skips pull command confirmation",
-							"Skips push command confirmation",
-							"Skips stash apply command confirmation",
-							"Skips stash pop command confirmation",
-							"Skips stash push command confirmation",
-							"Skips switch command confirmation"
+							"Skips fetch confirmations when run from a command, e.g. a view action",
+							"Skips fetch confirmations when run from the `Git Commands` menu",
+							"Skips pull confirmations when run from a command, e.g. a view action",
+							"Skips pull confirmations when run from the `Git Commands` menu",
+							"Skips push confirmations when run from a command, e.g. a view action",
+							"Skips push confirmations when run from the `Git Commands` menu",
+							"Skips stash apply confirmations when run from a command, e.g. a view action",
+							"Skips stash apply confirmations when run from the `Git Commands` menu",
+							"Skips stash pop confirmations when run from a command, e.g. a view action",
+							"Skips stash pop confirmations when run from the `Git Commands` menu",
+							"Skips stash push confirmations when run from a command, e.g. a view action",
+							"Skips stash push confirmations when run from the `Git Commands` menu",
+							"Skips switch confirmations when run from a command, e.g. a view action",
+							"Skips switch confirmations when run from the `Git Commands` menu"
 						]
 					},
 					"minItems": 0,
-					"maxItems": 4,
+					"maxItems": 14,
 					"uniqueItems": true,
 					"markdownDescription": "Specifies which Git commands should have their confirmations skipped when executed from a GitLens view",
 					"scope": "window"

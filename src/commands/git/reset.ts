@@ -28,9 +28,9 @@ export interface ResetGitCommandArgs {
 
 export class ResetGitCommand extends QuickCommandBase<State> {
 	constructor(args?: ResetGitCommandArgs) {
-		super('reset', 'reset', 'Reset', false, { description: 'via Terminal' });
+		super('reset', 'reset', 'Reset', { description: 'via Terminal' });
 
-		if (args === undefined || args.state === undefined) return;
+		if (args == null || args.state === undefined) return;
 
 		let counter = 0;
 		if (args.state.repo !== undefined) {
@@ -46,6 +46,10 @@ export class ResetGitCommand extends QuickCommandBase<State> {
 			confirm: true,
 			...args.state
 		};
+	}
+
+	get canSkipConfirm(): boolean {
+		return false;
 	}
 
 	execute(state: State) {

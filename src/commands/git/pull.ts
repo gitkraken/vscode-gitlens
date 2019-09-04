@@ -23,7 +23,7 @@ export class PullGitCommand extends QuickCommandBase<State> {
 	constructor(args?: PullGitCommandArgs) {
 		super('pull', 'pull', 'Pull');
 
-		if (args === undefined || args.state === undefined) return;
+		if (args == null || args.state === undefined) return;
 
 		let counter = 0;
 		if (args.state.repos !== undefined && args.state.repos.length !== 0) {

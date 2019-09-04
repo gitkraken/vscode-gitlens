@@ -61,7 +61,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 	constructor(args?: StashGitCommandArgs) {
 		super('stash', 'stash', 'Stash');
 
-		if (args === undefined || args.state === undefined) return;
+		if (args == null || args.state === undefined) return;
 
 		let counter = 0;
 		if (args.state.subcommand !== undefined) {
@@ -100,8 +100,8 @@ export class StashGitCommand extends QuickCommandBase<State> {
 		return this._subcommand === 'drop' ? false : super.canSkipConfirm;
 	}
 
-	get confirmationKey() {
-		return this._subcommand === undefined ? undefined : `${super.confirmationKey}-${this._subcommand}`;
+	get skipConfirmKey() {
+		return this._subcommand === undefined ? undefined : `${this.key}-${this._subcommand}:${this.pickedVia}`;
 	}
 
 	protected async *steps(): StepAsyncGenerator {

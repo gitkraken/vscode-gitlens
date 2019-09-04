@@ -28,9 +28,9 @@ export interface RevertGitCommandArgs {
 
 export class RevertGitCommand extends QuickCommandBase<State> {
 	constructor(args?: RevertGitCommandArgs) {
-		super('revert', 'revert', 'Revert', false, { description: 'via Terminal' });
+		super('revert', 'revert', 'Revert', { description: 'via Terminal' });
 
-		if (args === undefined || args.state === undefined) return;
+		if (args == null || args.state === undefined) return;
 
 		let counter = 0;
 		if (args.state.repo !== undefined) {
@@ -46,6 +46,10 @@ export class RevertGitCommand extends QuickCommandBase<State> {
 			confirm: true,
 			...args.state
 		};
+	}
+
+	get canSkipConfirm(): boolean {
+		return false;
 	}
 
 	execute(state: State) {

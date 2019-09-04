@@ -37,9 +37,9 @@ export interface RebaseGitCommandArgs {
 
 export class RebaseGitCommand extends QuickCommandBase<State> {
 	constructor(args?: RebaseGitCommandArgs) {
-		super('rebase', 'rebase', 'Rebase', false, { description: 'via Terminal' });
+		super('rebase', 'rebase', 'Rebase', { description: 'via Terminal' });
 
-		if (args === undefined || args.state === undefined) return;
+		if (args == null || args.state === undefined) return;
 
 		let counter = 0;
 		if (args.state.repo !== undefined) {
@@ -55,6 +55,10 @@ export class RebaseGitCommand extends QuickCommandBase<State> {
 			confirm: true,
 			...args.state
 		};
+	}
+
+	get canSkipConfirm(): boolean {
+		return false;
 	}
 
 	execute(state: State) {

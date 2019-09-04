@@ -57,7 +57,7 @@ export type StepSelection<T> = T extends QuickPickStep<infer U>
 	: never;
 export type StepState<T> = Partial<T> & { counter: number; confirm?: boolean };
 
-export abstract class QuickCommandBase<T = any> implements QuickPickItem {
+export abstract class QuickCommandBase<TState = any> implements QuickPickItem {
 	static is(item: QuickPickItem): item is QuickCommandBase {
 		return item instanceof QuickCommandBase;
 	}
@@ -65,7 +65,7 @@ export abstract class QuickCommandBase<T = any> implements QuickPickItem {
 	readonly description?: string;
 	readonly detail?: string;
 
-	protected _initialState?: StepState<T>;
+	protected _initialState?: StepState<TState>;
 
 	private _current: QuickPickStep | QuickInputStep | undefined;
 	private _stepsIterator: StepAsyncGenerator | undefined;
@@ -74,7 +74,6 @@ export abstract class QuickCommandBase<T = any> implements QuickPickItem {
 		public readonly key: string,
 		public readonly label: string,
 		public readonly title: string,
-		private readonly _canSkipConfirm: boolean = true,
 		options: {
 			description?: string;
 			detail?: string;
@@ -85,11 +84,7 @@ export abstract class QuickCommandBase<T = any> implements QuickPickItem {
 	}
 
 	get canSkipConfirm(): boolean {
-		return this._canSkipConfirm;
-	}
-
-	get confirmationKey(): string | undefined {
-		return this.key;
+		return true;
 	}
 
 	private _picked: boolean = false;
@@ -98,14 +93,29 @@ export abstract class QuickCommandBase<T = any> implements QuickPickItem {
 	}
 	set picked(value: boolean) {
 		this._picked = value;
+		if (!value) {
+			this._pickedVia = 'menu';
+		}
+	}
+
+	private _pickedVia: 'menu' | 'command' = 'menu';
+	get pickedVia() {
+		return this._pickedVia;
+	}
+	set pickedVia(value: 'menu' | 'command') {
+		this._pickedVia = value;
+	}
+
+	get skipConfirmKey(): string | undefined {
+		return `${this.key}:${this.pickedVia}`;
 	}
 
 	confirm(override?: boolean) {
-		if (!this.canSkipConfirm || this.confirmationKey === undefined) return true;
+		if (!this.canSkipConfirm || this.skipConfirmKey === undefined) return true;
 
 		return override !== undefined
 			? override
-			: !Container.config.gitCommands.skipConfirmations.includes(this.confirmationKey);
+			: !Container.config.gitCommands.skipConfirmations.includes(this.skipConfirmKey);
 	}
 
 	isMatch(name: string) {

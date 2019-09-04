@@ -36,9 +36,9 @@ export interface CherryPickGitCommandArgs {
 
 export class CherryPickGitCommand extends QuickCommandBase<State> {
 	constructor(args?: CherryPickGitCommandArgs) {
-		super('cherry-pick', 'cherry-pick', 'Cherry Pick', false, { description: 'via Terminal' });
+		super('cherry-pick', 'cherry-pick', 'Cherry Pick', { description: 'via Terminal' });
 
-		if (args === undefined || args.state === undefined) return;
+		if (args == null || args.state === undefined) return;
 
 		let counter = 0;
 		if (args.state.repo !== undefined) {
@@ -54,6 +54,10 @@ export class CherryPickGitCommand extends QuickCommandBase<State> {
 			confirm: true,
 			...args.state
 		};
+	}
+
+	get canSkipConfirm(): boolean {
+		return false;
 	}
 
 	execute(state: State) {

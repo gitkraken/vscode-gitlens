@@ -63,17 +63,6 @@ class PickCommandStep implements QuickPickStep {
 	get command(): QuickCommandBase | undefined {
 		return this._active;
 	}
-	set command(value: QuickCommandBase | undefined) {
-		if (this._active !== undefined) {
-			this._active.picked = false;
-		}
-
-		this._active = value;
-
-		if (this._active !== undefined) {
-			this._active.picked = true;
-		}
-	}
 
 	find(commandName: string, fuzzy: boolean = false) {
 		if (fuzzy) {
@@ -82,6 +71,19 @@ class PickCommandStep implements QuickPickStep {
 		}
 
 		return this.items.find(c => c.key === commandName);
+	}
+
+	setCommand(value: QuickCommandBase | undefined, reason: 'menu' | 'command'): void {
+		if (this._active !== undefined) {
+			this._active.picked = false;
+		}
+
+		this._active = value;
+
+		if (this._active !== undefined) {
+			this._active.picked = true;
+			this._active.pickedVia = reason;
+		}
 	}
 }
 
@@ -113,6 +115,8 @@ export class GitCommandsCommand extends Command {
 		};
 	};
 
+	private _pickedVia: 'menu' | 'command' = 'menu';
+
 	constructor() {
 		super(Commands.GitCommands);
 	}
@@ -126,7 +130,8 @@ export class GitCommandsCommand extends Command {
 		if (args) {
 			const command = commandsStep.find(args.command);
 			if (command !== undefined) {
-				commandsStep.command = command;
+				this._pickedVia = 'command';
+				commandsStep.setCommand(command, this._pickedVia);
 
 				const next = await command.next();
 				if (next.done) return;
@@ -207,7 +212,8 @@ export class GitCommandsCommand extends Command {
 
 				// If we are starting over clear the previously active command
 				if (commandsStep.command !== undefined && step === commandsStep) {
-					commandsStep.command = undefined;
+					this._pickedVia = 'menu';
+					commandsStep.setCommand(undefined, this._pickedVia);
 				}
 
 				input.show();
@@ -285,7 +291,7 @@ export class GitCommandsCommand extends Command {
 									const command = commandsStep.find(quickpick.value.trim(), true);
 									if (command === undefined) return;
 
-									commandsStep.command = command;
+									commandsStep.setCommand(command, this._pickedVia);
 								} else {
 									const step = commandsStep.command.value;
 									if (step === undefined || !isQuickPickStep(step)) return;
@@ -299,7 +305,7 @@ export class GitCommandsCommand extends Command {
 									items = [item];
 								}
 
-								resolve(await this.nextStep(quickpick, commandsStep.command, items));
+								resolve(await this.nextStep(quickpick, commandsStep.command!, items));
 
 								return;
 							}
@@ -335,7 +341,7 @@ export class GitCommandsCommand extends Command {
 
 						const buttons: QuickInputButton[] = [];
 						if (command.canSkipConfirm) {
-							if (command.confirmationKey !== undefined) {
+							if (command.skipConfirmKey !== undefined) {
 								buttons.push(
 									command.confirm()
 										? this.GitQuickInputButtons.WillConfirm
@@ -396,10 +402,10 @@ export class GitCommandsCommand extends Command {
 							const command = items[0];
 							if (!QuickCommandBase.is(command)) return;
 
-							commandsStep.command = command;
+							commandsStep.setCommand(command, this._pickedVia);
 						}
 
-						resolve(await this.nextStep(quickpick, commandsStep.command, items as QuickPickItem[]));
+						resolve(await this.nextStep(quickpick, commandsStep.command!, items as QuickPickItem[]));
 					})
 				);
 
@@ -420,7 +426,8 @@ export class GitCommandsCommand extends Command {
 
 				// If we are starting over clear the previously active command
 				if (commandsStep.command !== undefined && step === commandsStep) {
-					commandsStep.command = undefined;
+					this._pickedVia = 'menu';
+					commandsStep.setCommand(undefined, this._pickedVia);
 				}
 
 				// Needs to be after we reset the command
@@ -454,7 +461,7 @@ export class GitCommandsCommand extends Command {
 		}
 
 		if (command.canSkipConfirm) {
-			if (command.confirmationKey === undefined) return buttons;
+			if (command.skipConfirmKey === undefined) return buttons;
 
 			buttons.push(
 				command.confirm() ? this.GitQuickInputButtons.WillConfirm : this.GitQuickInputButtons.WillSkipConfirm
@@ -485,16 +492,16 @@ export class GitCommandsCommand extends Command {
 		input: InputBox | QuickPick<QuickPickItem>,
 		command: QuickCommandBase | undefined
 	) {
-		if (command === undefined || command.confirmationKey === undefined) return;
+		if (command === undefined || command.skipConfirmKey === undefined) return;
 
 		const section = configuration.name('gitCommands')('skipConfirmations').value;
 		const skipConfirmations = configuration.get<string[]>(section) || [];
 
-		const index = skipConfirmations.indexOf(command.confirmationKey);
+		const index = skipConfirmations.indexOf(command.skipConfirmKey);
 		if (index !== -1) {
 			skipConfirmations.splice(index, 1);
 		} else {
-			skipConfirmations.push(command.confirmationKey);
+			skipConfirmations.push(command.skipConfirmKey);
 		}
 
 		void (await configuration.updateEffective(

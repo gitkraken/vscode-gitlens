@@ -23,7 +23,7 @@ export class FetchGitCommand extends QuickCommandBase<State> {
 	constructor(args?: FetchGitCommandArgs) {
 		super('fetch', 'fetch', 'Fetch');
 
-		if (args === undefined || args.state === undefined) return;
+		if (args == null || args.state === undefined) return;
 
 		let counter = 0;
 		if (args.state.repos !== undefined && args.state.repos.length !== 0) {
