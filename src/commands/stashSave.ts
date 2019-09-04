@@ -18,6 +18,7 @@ export interface StashSaveCommandArgs {
 	message?: string;
 	repoPath?: string;
 	uris?: Uri[];
+	keepStaged?: boolean;
 
 	goBackCommand?: CommandQuickPickItem;
 }
@@ -44,6 +45,11 @@ export class StashSaveCommand extends Command {
 			args.uris = context.scmResourceStates.map(s => s.resourceUri);
 		} else if (context.type === 'scm-groups') {
 			args = { ...args };
+
+			if (!context.scmResourceGroups.some(g => g.id === 'index')) {
+				args.keepStaged = true;
+			}
+
 			args.uris = context.scmResourceGroups.reduce<Uri[]>(
 				(a, b) => a.concat(b.resourceStates.map(s => s.resourceUri)),
 				[]
@@ -65,7 +71,8 @@ export class StashSaveCommand extends Command {
 				subcommand: 'push',
 				repo: repo,
 				message: args.message,
-				uris: args.uris
+				uris: args.uris,
+				flags: args.keepStaged ? ['--keep-index'] : undefined
 			}
 		};
 		return commands.executeCommand(Commands.GitCommands, gitCommandArgs);
