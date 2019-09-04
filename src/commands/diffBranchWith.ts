@@ -4,7 +4,7 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { CommandQuickPickItem, ReferencesQuickPick } from '../quickpicks';
+import { CommandQuickPickItem, ReferencesQuickPick, ReferencesQuickPickIncludes } from '../quickpicks';
 import {
 	ActiveEditorCommand,
 	command,
@@ -80,7 +80,8 @@ export class DiffBranchWithCommand extends ActiveEditorCommand {
 				const pick = await new ReferencesQuickPick(repoPath).show(placeHolder, {
 					allowEnteringRefs: true,
 					checked: args.ref1,
-					checkmarks: checkmarks
+					checkmarks: checkmarks,
+					include: ReferencesQuickPickIncludes.BranchesAndTags | ReferencesQuickPickIncludes.WorkingTree
 				});
 				if (pick === undefined) return undefined;
 

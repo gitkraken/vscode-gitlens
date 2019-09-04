@@ -205,7 +205,31 @@ export interface RefQuickPickItem extends QuickPickItemOfT<GitReference> {
 }
 
 export namespace RefQuickPickItem {
-	export function create(ref: string, picked?: boolean, options: { ref?: boolean } = {}) {
+	export function create(ref: string, picked?: boolean, options: { ref?: boolean } = {}): RefQuickPickItem {
+		if (ref === '') {
+			return {
+				label: `${Strings.pad('$(file-directory)', 0, 2)}Working Tree`,
+				description: '',
+				picked: picked,
+				item: GitReference.create(ref, { name: 'Working Tree' }),
+				current: false,
+				ref: ref,
+				remote: false
+			};
+		}
+
+		if (ref === 'HEAD') {
+			return {
+				label: 'HEAD',
+				description: '',
+				picked: picked,
+				item: GitReference.create(ref, { name: 'HEAD' }),
+				current: false,
+				ref: ref,
+				remote: false
+			};
+		}
+
 		const gitRef = GitReference.create(ref);
 
 		const item: RefQuickPickItem = {

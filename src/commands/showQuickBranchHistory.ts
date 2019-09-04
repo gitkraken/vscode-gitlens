@@ -5,7 +5,12 @@ import { Container } from '../container';
 import { GitLog, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { BranchHistoryQuickPick, CommandQuickPickItem, ReferencesQuickPick } from '../quickpicks';
+import {
+	BranchHistoryQuickPick,
+	CommandQuickPickItem,
+	ReferencesQuickPick,
+	ReferencesQuickPickIncludes
+} from '../quickpicks';
 import { ActiveEditorCachedCommand, command, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
 
@@ -62,7 +67,7 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
 					{
 						checkmarks: false,
 						goBack: goBackCommand,
-						include: 'branches'
+						include: ReferencesQuickPickIncludes.Branches
 					}
 				);
 				if (pick === undefined) return undefined;

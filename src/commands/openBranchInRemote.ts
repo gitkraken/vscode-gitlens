@@ -4,7 +4,7 @@ import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitUri, RemoteResourceType } from '../git/gitService';
 import { Logger } from '../logger';
-import { CommandQuickPickItem, ReferencesQuickPick } from '../quickpicks';
+import { CommandQuickPickItem, ReferencesQuickPick, ReferencesQuickPickIncludes } from '../quickpicks';
 import {
 	ActiveEditorCommand,
 	command,
@@ -59,7 +59,7 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
 						autoPick: true,
 						checkmarks: false,
 						filterBranches: b => b.tracking !== undefined,
-						include: 'branches'
+						include: ReferencesQuickPickIncludes.Branches
 					}
 				);
 				if (pick === undefined || pick instanceof CommandQuickPickItem) return undefined;

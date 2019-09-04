@@ -3,7 +3,7 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { getRepoPathOrPrompt } from '../../commands';
 import { CommandContext, GlyphChars, NamedRef, setCommandContext } from '../../constants';
 import { GitService } from '../../git/gitService';
-import { ReferencesQuickPick } from '../../quickpicks';
+import { ReferencesQuickPick, ReferencesQuickPickIncludes } from '../../quickpicks';
 import { debug, gate, Iterables, log, Promises } from '../../system';
 import { CompareView } from '../compareView';
 import { MessageNode } from './common';
@@ -143,7 +143,8 @@ export class CompareNode extends ViewNode<CompareView> {
 					allowEnteringRefs: true,
 					checked:
 						typeof this._selectedRef.ref === 'string' ? this._selectedRef.ref : this._selectedRef.ref.ref,
-					checkmarks: true
+					checkmarks: true,
+					include: ReferencesQuickPickIncludes.BranchesAndTags | ReferencesQuickPickIncludes.WorkingTree
 				}
 			);
 			if (pick === undefined) {
@@ -179,7 +180,8 @@ export class CompareNode extends ViewNode<CompareView> {
 		if (ref === undefined) {
 			const pick = await new ReferencesQuickPick(repoPath).show(`Compare${GlyphChars.Ellipsis}`, {
 				allowEnteringRefs: true,
-				checkmarks: false
+				checkmarks: false,
+				include: ReferencesQuickPickIncludes.BranchesAndTags | ReferencesQuickPickIncludes.WorkingTree
 			});
 			if (pick === undefined) {
 				await this.view.show();

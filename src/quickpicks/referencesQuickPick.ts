@@ -9,6 +9,14 @@ import { BranchQuickPickItem, RefQuickPickItem, TagQuickPickItem } from './gitQu
 
 export type ReferencesQuickPickItem = BranchQuickPickItem | TagQuickPickItem | RefQuickPickItem;
 
+export enum ReferencesQuickPickIncludes {
+	Branches = 1,
+	Tags = 2,
+	WorkingTree = 4,
+
+	BranchesAndTags = 3
+}
+
 export interface ReferencesQuickPickOptions {
 	allowEnteringRefs?: boolean;
 	autoPick?: boolean;
@@ -17,7 +25,7 @@ export interface ReferencesQuickPickOptions {
 	filterBranches?(branch: GitBranch): boolean;
 	filterTags?(tag: GitTag): boolean;
 	goBack?: CommandQuickPickItem;
-	include?: 'branches' | 'tags' | 'all';
+	include?: ReferencesQuickPickIncludes;
 }
 
 export class ReferencesQuickPick {
@@ -25,11 +33,15 @@ export class ReferencesQuickPick {
 
 	async show(
 		placeHolder: string,
-		options?: Exclude<ReferencesQuickPickOptions, CommandQuickPickItem> & { include: 'branches' }
+		options?: Exclude<ReferencesQuickPickOptions, CommandQuickPickItem> & {
+			include: ReferencesQuickPickIncludes.Branches;
+		}
 	): Promise<BranchQuickPickItem | undefined>;
 	async show(
 		placeHolder: string,
-		options?: Exclude<ReferencesQuickPickOptions, CommandQuickPickItem> & { include: 'tags' }
+		options?: Exclude<ReferencesQuickPickOptions, CommandQuickPickItem> & {
+			include: ReferencesQuickPickIncludes.Tags;
+		}
 	): Promise<TagQuickPickItem | undefined>;
 	async show(
 		placeHolder: string,
@@ -137,17 +149,17 @@ export class ReferencesQuickPick {
 		{ checked, checkmarks, filterBranches, filterTags, goBack, include, ...options }: ReferencesQuickPickOptions,
 		token: CancellationToken
 	): Promise<(BranchQuickPickItem | TagQuickPickItem | CommandQuickPickItem)[]> {
-		include = include || 'all';
+		include = include || ReferencesQuickPickIncludes.BranchesAndTags;
 
 		const results = await Promises.cancellable(
 			Promise.all<GitBranch[] | undefined, GitTag[] | undefined>([
-				include === 'all' || include === 'branches'
+				include & ReferencesQuickPickIncludes.Branches
 					? Container.git.getBranches(this.repoPath, {
 							...options,
 							filter: filterBranches && filterBranches
 					  })
 					: undefined,
-				include === 'all' || include === 'tags'
+				include & ReferencesQuickPickIncludes.Tags
 					? Container.git.getTags(this.repoPath, {
 							...options,
 							filter: filterTags && filterTags,
@@ -205,6 +217,10 @@ export class ReferencesQuickPick {
 			if (index !== -1) {
 				items.splice(0, 0, ...items.splice(index, 1));
 			}
+		}
+
+		if (include & ReferencesQuickPickIncludes.WorkingTree) {
+			(items as QuickPickItem[]).splice(0, 0, RefQuickPickItem.create('', undefined));
 		}
 
 		if (goBack !== undefined) {
