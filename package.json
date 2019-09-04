@@ -2,7 +2,7 @@
 	"name": "gitlens",
 	"displayName": "GitLens — Git supercharged",
 	"description": "Supercharge the Git capabilities built into Visual Studio Code — Visualize code authorship at a glance via Git blame annotations and code lens, seamlessly navigate and explore Git repositories, gain valuable insights via powerful comparison commands, and so much more",
-	"version": "9.9.3",
+	"version": "10.0.0-alpha",
 	"author": {
 		"name": "Eric Amodio",
 		"email": "eamodio@gmail.com"
@@ -2168,6 +2168,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.showFolderHistory",
+				"title": "Show Folder History",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.showQuickCommitDetails",
 				"title": "Show Commit Details",
 				"category": "GitLens"
@@ -3324,6 +3329,10 @@
 					"when": "gitlens:activeFileStatus =~ /tracked/"
 				},
 				{
+					"command": "gitlens.showFolderHistory",
+					"when": "gitlens:enabled"
+				},
+				{
 					"command": "gitlens.showQuickCommitDetails",
 					"when": "gitlens:activeFileStatus =~ /blameable/"
 				},
@@ -4074,6 +4083,11 @@
 				{
 					"command": "gitlens.showQuickFileHistory",
 					"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && config.gitlens.menus.explorer.history",
+					"group": "4_gitlens_1@1"
+				},
+				{
+					"command": "gitlens.showFolderHistory",
+					"when": "explorerResourceIsFolder && gitlens:enabled && config.gitlens.menus.explorer.history",
 					"group": "4_gitlens_1@1"
 				},
 				{
@@ -5511,7 +5525,7 @@
 		"webviews:optimize": "webpack --config-name webviews --env.optimizeImages",
 		"webviews:watch": "webpack --watch --config-name webviews --env.development --info-verbosity verbose",
 		"update:emoji": "pushd emoji && node ./shortcodeToEmoji.js && popd",
-		"vscode:prepublish": "yarn run reset && yarn run bundle"
+		"vscode:prepublish": "yarn run bundle"
 	},
 	"dependencies": {
 		"dayjs": "1.8.16",
@@ -5531,7 +5545,7 @@
 		"css-loader": "3.2.0",
 		"eslint": "6.3.0",
 		"eslint-cli": "1.1.1",
-		"eslint-config-prettier": "6.1.0",
+		"eslint-config-prettier": "6.2.0",
 		"eslint-plugin-import": "2.18.2",
 		"fork-ts-checker-webpack-plugin": "1.5.0",
 		"html-webpack-exclude-assets-plugin": "0.0.7",
