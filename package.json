@@ -51,7 +51,7 @@
 	"contributes": {
 		"configuration": {
 			"type": "object",
-			"title": "GitLens",
+			"title": "GitLens — Use 'GitLens: Open Settings' for a richer, interactive experience",
 			"properties": {
 				"gitlens.blame.avatars": {
 					"type": "boolean",
