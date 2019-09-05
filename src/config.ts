@@ -83,6 +83,8 @@ export interface Config {
 	};
 	remotes: RemotesConfig[];
 	showWhatsNewAfterUpgrades: boolean;
+	sortBranchesBy: BranchSorting;
+	sortTagsBy: TagSorting;
 	statusBar: {
 		alignment: 'left' | 'right';
 		command: StatusBarCommand;
@@ -107,6 +109,13 @@ export interface Config {
 export enum AnnotationsToggleMode {
 	File = 'file',
 	Window = 'window'
+}
+
+export enum BranchSorting {
+	NameDesc = 'name:desc',
+	NameAsc = 'name:asc',
+	DateDesc = 'date:desc',
+	DateAsc = 'date:asc'
 }
 
 export enum CodeLensCommand {
@@ -178,6 +187,11 @@ export enum StatusBarCommand {
 	ShowQuickFileHistory = 'gitlens.showQuickFileHistory',
 	ToggleCodeLens = 'gitlens.toggleCodeLens',
 	ToggleFileBlame = 'gitlens.toggleFileBlame'
+}
+
+export enum TagSorting {
+	NameDesc = 'name:desc',
+	NameAsc = 'name:asc'
 }
 
 export enum ViewBranchesLayout {

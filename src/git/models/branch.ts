@@ -3,10 +3,21 @@ import { StarredBranches, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
 import { Git, GitRemote } from '../git';
 import { GitStatus } from './status';
-import { memoize } from '../../system';
+import { Dates, memoize } from '../../system';
 import { GitReference } from './models';
+import { BranchSorting, configuration, DateStyle } from '../../configuration';
 
 const whitespaceRegex = /\s/;
+
+export const BranchDateFormatting = {
+	dateFormat: undefined! as string | null,
+	dateStyle: undefined! as DateStyle,
+
+	reset: () => {
+		BranchDateFormatting.dateFormat = configuration.get('defaultDateFormat');
+		BranchDateFormatting.dateStyle = configuration.get('defaultDateStyle');
+	}
+};
 
 export interface GitTrackingState {
 	ahead: number;
@@ -23,13 +34,42 @@ export class GitBranch implements GitReference {
 	}
 
 	static sort(branches: GitBranch[]) {
-		return branches.sort(
-			(a, b) =>
-				(a.current ? -1 : 1) - (b.current ? -1 : 1) ||
-				(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
-				(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
-				a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
-		);
+		const order = configuration.get('sortBranchesBy');
+
+		switch (order) {
+			case BranchSorting.DateAsc:
+				return branches.sort(
+					(a, b) =>
+						(a.current ? -1 : 1) - (b.current ? -1 : 1) ||
+						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
+						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
+						(a.date === undefined ? -1 : a.date.getTime()) - (b.date === undefined ? -1 : b.date.getTime())
+				);
+			case BranchSorting.DateDesc:
+				return branches.sort(
+					(a, b) =>
+						(a.current ? -1 : 1) - (b.current ? -1 : 1) ||
+						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
+						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
+						(b.date === undefined ? -1 : b.date.getTime()) - (a.date === undefined ? -1 : a.date.getTime())
+				);
+			case BranchSorting.NameAsc:
+				return branches.sort(
+					(a, b) =>
+						(a.current ? -1 : 1) - (b.current ? -1 : 1) ||
+						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
+						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
+						b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' })
+				);
+			default:
+				return branches.sort(
+					(a, b) =>
+						(a.current ? -1 : 1) - (b.current ? -1 : 1) ||
+						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
+						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
+						a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+				);
+		}
 	}
 
 	readonly refType = 'branch';
@@ -43,6 +83,7 @@ export class GitBranch implements GitReference {
 		public readonly name: string,
 		public readonly remote: boolean,
 		public readonly current: boolean,
+		public readonly date: Date | undefined,
 		public readonly sha?: string,
 		tracking?: string,
 		ahead: number = 0,
@@ -63,8 +104,32 @@ export class GitBranch implements GitReference {
 		};
 	}
 
+	get formattedDate(): string {
+		return BranchDateFormatting.dateStyle === DateStyle.Absolute
+			? this.formatDate(BranchDateFormatting.dateFormat)
+			: this.formatDateFromNow();
+	}
+
 	get ref() {
 		return this.detached ? this.sha! : this.name;
+	}
+
+	@memoize()
+	private get dateFormatter(): Dates.DateFormatter | undefined {
+		return this.date === undefined ? undefined : Dates.getFormatter(this.date);
+	}
+
+	@memoize<GitBranch['formatDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
+	formatDate(format?: string | null) {
+		if (format == null) {
+			format = 'MMMM Do, YYYY h:mma';
+		}
+
+		return this.dateFormatter === undefined ? '' : this.dateFormatter.format(format);
+	}
+
+	formatDateFromNow() {
+		return this.dateFormatter === undefined ? '' : this.dateFormatter.fromNow();
 	}
 
 	@memoize()

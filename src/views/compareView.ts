@@ -72,6 +72,9 @@ export class CompareView extends ViewBase<CompareNode> {
 		if (
 			!configuration.changed(e, 'views', 'compare') &&
 			!configuration.changed(e, 'views') &&
+			!configuration.changed(e, 'defaultDateFormat') &&
+			!configuration.changed(e, 'defaultDateSource') &&
+			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle')
 		) {
 			return;

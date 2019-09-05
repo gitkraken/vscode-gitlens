@@ -65,6 +65,9 @@ export class SearchView extends ViewBase<SearchNode> {
 		if (
 			!configuration.changed(e, 'views', 'search') &&
 			!configuration.changed(e, 'views') &&
+			!configuration.changed(e, 'defaultDateFormat') &&
+			!configuration.changed(e, 'defaultDateSource') &&
+			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle')
 		) {
 			return;

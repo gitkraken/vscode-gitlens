@@ -791,6 +791,17 @@ export class Git {
 		return data.length === 0 ? undefined : data.trim();
 	}
 
+	static async log__recent_committerdate(repoPath: string) {
+		const data = await git<string>(
+			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
+			'log',
+			'-n1',
+			'--format=%ct',
+			'--'
+		);
+		return data.length === 0 ? undefined : data.trim();
+	}
+
 	static log__search(repoPath: string, search: string[] = emptyArray, { maxCount }: { maxCount?: number } = {}) {
 		const params = ['log', '--name-status', `--format=${GitLogParser.defaultFormat}`];
 		if (maxCount) {

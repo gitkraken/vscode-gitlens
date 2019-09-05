@@ -56,6 +56,9 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode> {
 		if (
 			!configuration.changed(e, 'views', 'fileHistory') &&
 			!configuration.changed(e, 'views') &&
+			!configuration.changed(e, 'defaultDateFormat') &&
+			!configuration.changed(e, 'defaultDateSource') &&
+			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
 			!configuration.changed(e, 'advanced', 'fileHistoryFollowsRenames')
 		) {

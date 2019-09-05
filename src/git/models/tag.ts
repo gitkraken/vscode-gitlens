@@ -1,6 +1,7 @@
 'use strict';
 import { memoize } from '../../system';
 import { GitReference } from './models';
+import { configuration, TagSorting } from '../../configuration';
 
 export class GitTag implements GitReference {
 	static is(tag: any): tag is GitTag {
@@ -12,7 +13,18 @@ export class GitTag implements GitReference {
 	}
 
 	static sort(tags: GitTag[]) {
-		return tags.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+		const order = configuration.get('sortTagsBy');
+
+		switch (order) {
+			case TagSorting.NameAsc:
+				return tags.sort((a, b) =>
+					b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' })
+				);
+			default:
+				return tags.sort((a, b) =>
+					a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+				);
+		}
 	}
 
 	readonly refType = 'tag';

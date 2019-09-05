@@ -1,6 +1,6 @@
 'use strict';
 import { Dates, memoize } from '../../system';
-import { CommitFormatting, Git } from '../git';
+import { CommitDateFormatting, Git } from '../git';
 import { DateStyle } from '../../config';
 
 export interface GitReflog {
@@ -39,8 +39,8 @@ export class GitReflogRecord {
 	}
 
 	get formattedDate(): string {
-		return CommitFormatting.dateStyle === DateStyle.Absolute
-			? this.formatDate(CommitFormatting.dateFormat)
+		return CommitDateFormatting.dateStyle === DateStyle.Absolute
+			? this.formatDate(CommitDateFormatting.dateFormat)
 			: this.formatDateFromNow();
 	}
 

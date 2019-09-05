@@ -30,15 +30,15 @@ export enum GitCommitType {
 	StashFile = 'stashFile'
 }
 
-export const CommitFormatting = {
+export const CommitDateFormatting = {
 	dateFormat: undefined! as string | null,
 	dateSource: undefined! as DateSource,
 	dateStyle: undefined! as DateStyle,
 
 	reset: () => {
-		CommitFormatting.dateFormat = configuration.get('defaultDateFormat');
-		CommitFormatting.dateSource = configuration.get('defaultDateSource');
-		CommitFormatting.dateStyle = configuration.get('defaultDateStyle');
+		CommitDateFormatting.dateFormat = configuration.get('defaultDateFormat');
+		CommitDateFormatting.dateSource = configuration.get('defaultDateSource');
+		CommitDateFormatting.dateStyle = configuration.get('defaultDateStyle');
 	}
 };
 
@@ -85,12 +85,12 @@ export abstract class GitCommit implements GitReference {
 	}
 
 	get date(): Date {
-		return CommitFormatting.dateSource === DateSource.Committed ? this.committerDate : this.authorDate;
+		return CommitDateFormatting.dateSource === DateSource.Committed ? this.committerDate : this.authorDate;
 	}
 
 	get formattedDate(): string {
-		return CommitFormatting.dateStyle === DateStyle.Absolute
-			? this.formatDate(CommitFormatting.dateFormat)
+		return CommitDateFormatting.dateStyle === DateStyle.Absolute
+			? this.formatDate(CommitDateFormatting.dateFormat)
 			: this.formatDateFromNow();
 	}
 
@@ -170,7 +170,7 @@ export abstract class GitCommit implements GitReference {
 	}
 
 	private get dateFormatter(): Dates.DateFormatter {
-		return CommitFormatting.dateSource === DateSource.Committed
+		return CommitDateFormatting.dateSource === DateSource.Committed
 			? this.committerDateFormatter
 			: this.authorDateFormatter;
 	}

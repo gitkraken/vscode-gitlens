@@ -118,10 +118,18 @@ export namespace BranchQuickPickItem {
 			description = `${description ? `${description}${GlyphChars.Space.repeat(2)}${status}` : status}`;
 		}
 
-		if (options.ref && branch.sha) {
-			description = description
-				? `${description}${Strings.pad('$(git-commit)', 2, 2)}${GitService.shortenSha(branch.sha)}`
-				: `${Strings.pad('$(git-commit)', 0, 2)}${GitService.shortenSha(branch.sha)}`;
+		if (options.ref) {
+			if (branch.sha) {
+				description = description
+					? `${description}${Strings.pad('$(git-commit)', 2, 2)}${GitService.shortenSha(branch.sha)}`
+					: `${Strings.pad('$(git-commit)', 0, 2)}${GitService.shortenSha(branch.sha)}`;
+			}
+
+			if (branch.date !== undefined) {
+				description = description
+					? `${description}${Strings.pad(GlyphChars.Dot, 2, 2)}${branch.formattedDate}`
+					: branch.formattedDate;
+			}
 		}
 
 		const checked =

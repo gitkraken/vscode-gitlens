@@ -58,6 +58,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 					status.branch,
 					false,
 					true,
+					undefined,
 					status.sha,
 					status.upstream,
 					status.state.ahead,

@@ -29,7 +29,8 @@ import { Arrays, debug, gate, Iterables, log, Objects, Strings, TernarySearchTre
 import { CachedBlame, CachedDiff, CachedLog, GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 import { vslsUriPrefixRegex } from '../vsls/vsls';
 import {
-	CommitFormatting,
+	BranchDateFormatting,
+	CommitDateFormatting,
 	Git,
 	GitAuthor,
 	GitBlame,
@@ -185,7 +186,8 @@ export class GitService implements Disposable {
 			configuration.changed(e, 'defaultDateSource') ||
 			configuration.changed(e, 'defaultDateStyle')
 		) {
-			CommitFormatting.reset();
+			BranchDateFormatting.reset();
+			CommitDateFormatting.reset();
 		}
 	}
 
@@ -1003,8 +1005,18 @@ export class GitService implements Disposable {
 		const data = await Git.rev_parse__currentBranch(repoPath);
 		if (data === undefined) return undefined;
 
+		const committerDate = await Git.log__recent_committerdate(repoPath);
+
 		const branch = data[0].split('\n');
-		return new GitBranch(repoPath, branch[0], false, true, data[1], branch[1]);
+		return new GitBranch(
+			repoPath,
+			branch[0],
+			false,
+			true,
+			committerDate === undefined ? undefined : new Date(Number(committerDate) * 1000),
+			data[1],
+			branch[1]
+		);
 	}
 
 	@log()

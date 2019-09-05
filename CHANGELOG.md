@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds all-new iconography to better match VS Code's new visual style &mdash; thanks to John Letey ([@johnletey](https://github.com/johnletey)) and Jon Beaumont-Pike ([@jonbp](https://github.com/jonbp)) for their help!
 - Adds an all-new Welcome experience with a simple quick setup of common GitLens features &mdash; can be accessed via the _Welcome_ (`gitlens.showWelcomePage`) command
 - Adds a new and improved interactive Settings editor experience &mdash; can be accessed via the _Open Settings_ (`gitlens.showSettingsPage`) command
+- Adds ability to sort branches and tags in quick pick menus and views &mdash; closes [#745](https://github.com/eamodio/vscode-gitlens/issues/745)
+  - Adds a `gitlens.sortBranchesBy` setting to specify how branches are sorted in quick pick menus and views
+  - Adds a `gitlens.sortTagsBy` setting to specify how tags are sorted in quick pick menus and views
+- Adds last commit date to branches in quick pick menus and views
 - Adds ability to copy the selected item's details to the clipboard using the standard copy shortcut key when focused on a GitLens view
 - Adds an _Open Revision_ command to the editor toolbar and tabs menu when in the diff editor
 - Adds a _Prune_ command to remotes in the _Repositories_ view to prune remote references &mdash; closes [#556](https://github.com/eamodio/vscode-gitlens/issues/556) thanks to [PR #815](https://github.com/eamodio/vscode-gitlens/pull/815) by Zach Boyle ([@zaboyle](https://github.com/zaboyle))
@@ -20,7 +24,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Improves the _Git Commands_ (`gitlens.gitCommands`) experience
   - Adds a confirmation toggle (look for the checkmark icon in the upper right) to some of the Git commands
-    - Saves to the new `gitCommands.skipConfirmation` setting
+    - Saves to the new `gitCommands.skipConfirmations` setting to specify which (and when) Git commands will skip the confirmation step
   - Adds a new _reset_ Git command to reset current HEAD to a specified commit
   - Adds a new _revert_ Git command to revert specific commits
   - Adds a new _stash_ Git command with sub-commands for _apply_, _drop_, _pop_, and _push_

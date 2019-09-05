@@ -3,8 +3,8 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { GitBranch, GitRemoteType, GitUri } from '../../git/gitService';
-import { debug, gate, Iterables, log } from '../../system';
+import { BranchDateFormatting, GitBranch, GitRemoteType, GitUri } from '../../git/gitService';
+import { debug, gate, Iterables, log, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
 import { CommitNode } from './commitNode';
@@ -167,6 +167,16 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 					iconSuffix = this.branch.state.behind ? '-yellow' : '-green';
 				}
 			}
+		}
+
+		if (this.branch.date !== undefined) {
+			description = `${description ? `${description}${Strings.pad(GlyphChars.Dot, 2, 2)}` : ''}${
+				this.branch.formattedDate
+			}`;
+
+			tooltip += `\nLast commit ${this.branch.formatDateFromNow()} (${this.branch.formatDate(
+				BranchDateFormatting.dateFormat
+			)})`;
 		}
 
 		const item = new TreeItem(

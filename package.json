@@ -1241,6 +1241,38 @@
 					"markdownDescription": "Specifies whether to show What's New after upgrading to new feature releases",
 					"scope": "window"
 				},
+				"gitlens.sortBranchesBy": {
+					"type": "string",
+					"default": "name:desc",
+					"enum": [
+						"name:desc",
+						"name:asc",
+						"date:desc",
+						"date:asc"
+					],
+					"enumDescriptions": [
+						"Sorts branches by name in descending order",
+						"Sorts branches by name in ascending order",
+						"Sorts branches by the most recent commit date in descending order",
+						"Sorts branches by the most recent commit date in ascending order"
+					],
+					"markdownDescription": "Specifies how branches are sorted in quick pick menus and views",
+					"scope": "window"
+				},
+				"gitlens.sortTagsBy": {
+					"type": "string",
+					"default": "name:desc",
+					"enum": [
+						"name:desc",
+						"name:asc"
+					],
+					"enumDescriptions": [
+						"Sorts tags by name in descending order",
+						"Sorts tags by name in ascending order"
+					],
+					"markdownDescription": "Specifies how tags are sorted in quick pick menus and views",
+					"scope": "window"
+				},
 				"gitlens.statusBar.alignment": {
 					"type": "string",
 					"default": "right",

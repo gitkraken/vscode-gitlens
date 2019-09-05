@@ -55,6 +55,9 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode> {
 		if (
 			!configuration.changed(e, 'views', 'lineHistory') &&
 			!configuration.changed(e, 'views') &&
+			!configuration.changed(e, 'defaultDateFormat') &&
+			!configuration.changed(e, 'defaultDateSource') &&
+			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
 			!configuration.changed(e, 'advanced', 'fileHistoryFollowsRenames')
 		) {
