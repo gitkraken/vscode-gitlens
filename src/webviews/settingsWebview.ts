@@ -1,7 +1,7 @@
 'use strict';
 import { commands, Disposable, workspace } from 'vscode';
 import { Commands } from '../commands';
-import { Config, configuration } from '../configuration';
+import { configuration } from '../configuration';
 import {
 	IpcMessage,
 	onIpcCommand,
@@ -87,7 +87,7 @@ export class SettingsWebview extends WebviewBase {
 
 		const bootstrap: SettingsState = {
 			// Make sure to get the raw config, not from the container which has the modes mixed in
-			config: configuration.get<Config>(),
+			config: configuration.get(),
 			scope: 'user',
 			scopes: scopes
 		};

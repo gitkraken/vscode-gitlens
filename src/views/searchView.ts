@@ -63,14 +63,14 @@ export class SearchView extends ViewBase<SearchNode> {
 
 	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (
-			!configuration.changed(e, configuration.name('views')('search').value) &&
-			!configuration.changed(e, configuration.name('views').value) &&
-			!configuration.changed(e, configuration.name('defaultGravatarsStyle').value)
+			!configuration.changed(e, 'views', 'search') &&
+			!configuration.changed(e, 'views') &&
+			!configuration.changed(e, 'defaultGravatarsStyle')
 		) {
 			return;
 		}
 
-		if (configuration.changed(e, configuration.name('views')('search')('location').value)) {
+		if (configuration.changed(e, 'views', 'search', 'location')) {
 			this.initialize(this.config.location, { showCollapseAll: true });
 		}
 
@@ -222,7 +222,7 @@ export class SearchView extends ViewBase<SearchNode> {
 	}
 
 	private setFilesLayout(layout: ViewFilesLayout) {
-		return configuration.updateEffective(configuration.name('views')('search')('files')('layout').value, layout);
+		return configuration.updateEffective('views', 'search', 'files', 'layout', layout);
 	}
 
 	private setKeepResults(enabled: boolean) {

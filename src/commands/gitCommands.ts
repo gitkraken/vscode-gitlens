@@ -157,7 +157,7 @@ export class GitCommandsCommand extends Command {
 
 	private async showInputStep(step: QuickInputStep, commandsStep: PickCommandStep) {
 		const input = window.createInputBox();
-		input.ignoreFocusOut = !configuration.get<boolean>(configuration.name('gitCommands')('closeOnFocusOut').value);
+		input.ignoreFocusOut = !configuration.get('gitCommands', 'closeOnFocusOut');
 
 		const disposables: Disposable[] = [];
 
@@ -226,9 +226,7 @@ export class GitCommandsCommand extends Command {
 
 	private async showPickStep(step: QuickPickStep, commandsStep: PickCommandStep) {
 		const quickpick = window.createQuickPick();
-		quickpick.ignoreFocusOut = !configuration.get<boolean>(
-			configuration.name('gitCommands')('closeOnFocusOut').value
-		);
+		quickpick.ignoreFocusOut = !configuration.get('gitCommands', 'closeOnFocusOut');
 
 		const disposables: Disposable[] = [];
 
@@ -496,8 +494,7 @@ export class GitCommandsCommand extends Command {
 	) {
 		if (command === undefined || command.skipConfirmKey === undefined) return;
 
-		const section = configuration.name('gitCommands')('skipConfirmations').value;
-		const skipConfirmations = configuration.get<string[]>(section) || [];
+		const skipConfirmations = configuration.get('gitCommands', 'skipConfirmations') || [];
 
 		const index = skipConfirmations.indexOf(command.skipConfirmKey);
 		if (index !== -1) {
@@ -506,10 +503,7 @@ export class GitCommandsCommand extends Command {
 			skipConfirmations.push(command.skipConfirmKey);
 		}
 
-		void (await configuration.updateEffective(
-			configuration.name('gitCommands')('skipConfirmations').value,
-			skipConfirmations
-		));
+		void (await configuration.updateEffective('gitCommands', 'skipConfirmations', skipConfirmations));
 
 		input.buttons = this.getButtons(command.value, command);
 	}

@@ -36,9 +36,9 @@ export const CommitFormatting = {
 	dateStyle: undefined! as DateStyle,
 
 	reset: () => {
-		CommitFormatting.dateFormat = configuration.get<string | null>(configuration.name('defaultDateFormat').value);
-		CommitFormatting.dateSource = configuration.get<DateSource>(configuration.name('defaultDateSource').value);
-		CommitFormatting.dateStyle = configuration.get<DateStyle>(configuration.name('defaultDateStyle').value);
+		CommitFormatting.dateFormat = configuration.get('defaultDateFormat');
+		CommitFormatting.dateSource = configuration.get('defaultDateSource');
+		CommitFormatting.dateStyle = configuration.get('defaultDateStyle');
 	}
 };
 

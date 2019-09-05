@@ -81,17 +81,16 @@ export class DocumentTracker<T> implements Disposable {
 		// Only rest the cached state if we aren't initializing
 		if (
 			!configuration.initializing(e) &&
-			(configuration.changed(e, configuration.name('blame')('ignoreWhitespace').value, null) ||
-				configuration.changed(e, configuration.name('advanced')('caching')('enabled').value))
+			(configuration.changed(e, 'blame', 'ignoreWhitespace', null) ||
+				configuration.changed(e, 'advanced', 'caching', 'enabled'))
 		) {
 			for (const d of this._documentMap.values()) {
 				d.reset('config');
 			}
 		}
 
-		const section = configuration.name('advanced')('blame')('delayAfterEdit').value;
-		if (configuration.changed(e, section)) {
-			this._dirtyIdleTriggerDelay = configuration.get<number>(section);
+		if (configuration.changed(e, 'advanced', 'blame', 'delayAfterEdit')) {
+			this._dirtyIdleTriggerDelay = configuration.get('advanced', 'blame', 'delayAfterEdit');
 			this._dirtyIdleTriggeredDebounced = undefined;
 		}
 	}

@@ -14,7 +14,7 @@ import {
 	workspace,
 	WorkspaceFolder
 } from 'vscode';
-import { configuration, RemotesConfig } from '../../configuration';
+import { configuration } from '../../configuration';
 import { StarredRepositories, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
 import { Functions, gate, log } from '../../system';
@@ -167,11 +167,8 @@ export class Repository implements Disposable {
 	}
 
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
-		const section = configuration.name('remotes').value;
-		if (configuration.changed(e, section, this.folder.uri)) {
-			this._providers = RemoteProviderFactory.loadProviders(
-				configuration.get<RemotesConfig[] | null | undefined>(section, this.folder.uri)
-			);
+		if (configuration.changed(e, 'remotes', this.folder.uri)) {
+			this._providers = RemoteProviderFactory.loadProviders(configuration.get('remotes', this.folder.uri));
 
 			if (!configuration.initializing(e)) {
 				this._remotes = undefined;
@@ -336,10 +333,7 @@ export class Repository implements Disposable {
 	getRemotes(options: { sort?: boolean } = {}): Promise<GitRemote[]> {
 		if (this._remotes === undefined || !this.supportsChangeEvents) {
 			if (this._providers === undefined) {
-				const remotesCfg = configuration.get<RemotesConfig[] | null | undefined>(
-					configuration.name('remotes').value,
-					this.folder.uri
-				);
+				const remotesCfg = configuration.get('remotes', this.folder.uri);
 				this._providers = RemoteProviderFactory.loadProviders(remotesCfg);
 			}
 

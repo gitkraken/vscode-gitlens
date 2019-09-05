@@ -26,29 +26,9 @@ export function applyViewLayoutPreset(preset: 'contextual' | 'default' | 'scm') 
 			return;
 	}
 
-	configuration.update(
-		configuration.name('views')('repositories')('location').value,
-		repositories,
-		ConfigurationTarget.Global
-	);
-	configuration.update(
-		configuration.name('views')('fileHistory')('location').value,
-		histories,
-		ConfigurationTarget.Global
-	);
-	configuration.update(
-		configuration.name('views')('lineHistory')('location').value,
-		histories,
-		ConfigurationTarget.Global
-	);
-	configuration.update(
-		configuration.name('views')('compare')('location').value,
-		compareAndSearch,
-		ConfigurationTarget.Global
-	);
-	configuration.update(
-		configuration.name('views')('search')('location').value,
-		compareAndSearch,
-		ConfigurationTarget.Global
-	);
+	configuration.update('views', 'repositories', 'location', repositories, ConfigurationTarget.Global);
+	configuration.update('views', 'fileHistory', 'location', histories, ConfigurationTarget.Global);
+	configuration.update('views', 'lineHistory', 'location', histories, ConfigurationTarget.Global);
+	configuration.update('views', 'compare', 'location', compareAndSearch, ConfigurationTarget.Global);
+	configuration.update('views', 'search', 'location', compareAndSearch, ConfigurationTarget.Global);
 }

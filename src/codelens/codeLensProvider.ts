@@ -117,7 +117,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 			}
 		}
 
-		const cfg = configuration.get<CodeLensConfig>(configuration.name('codeLens').value, document.uri);
+		const cfg = configuration.get('codeLens', document.uri);
 
 		let languageScope =
 			cfg.scopesByLanguage &&

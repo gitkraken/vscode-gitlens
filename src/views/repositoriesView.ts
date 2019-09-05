@@ -76,18 +76,18 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 
 	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (
-			!configuration.changed(e, configuration.name('views')('repositories').value) &&
-			!configuration.changed(e, configuration.name('views').value) &&
-			!configuration.changed(e, configuration.name('defaultGravatarsStyle').value)
+			!configuration.changed(e, 'views', 'repositories') &&
+			!configuration.changed(e, 'views') &&
+			!configuration.changed(e, 'defaultGravatarsStyle')
 		) {
 			return;
 		}
 
-		if (configuration.changed(e, configuration.name('views')('repositories')('autoRefresh').value)) {
+		if (configuration.changed(e, 'views', 'repositories', 'autoRefresh')) {
 			void this.setAutoRefresh(Container.config.views.repositories.autoRefresh);
 		}
 
-		if (configuration.changed(e, configuration.name('views')('repositories')('location').value)) {
+		if (configuration.changed(e, 'views', 'repositories', 'location')) {
 			this.initialize(this.config.location, { showCollapseAll: true });
 		}
 
@@ -134,9 +134,6 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 	}
 
 	private setFilesLayout(layout: ViewFilesLayout) {
-		return configuration.updateEffective(
-			configuration.name('views')('repositories')('files')('layout').value,
-			layout
-		);
+		return configuration.updateEffective('views', 'repositories', 'files', 'layout', layout);
 	}
 }

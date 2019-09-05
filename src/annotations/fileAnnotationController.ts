@@ -94,7 +94,7 @@ export class FileAnnotationController implements Disposable {
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
 		const cfg = Container.config;
 
-		if (configuration.changed(e, configuration.name('blame')('highlight').value)) {
+		if (configuration.changed(e, 'blame', 'highlight')) {
 			Decorations.blameHighlight && Decorations.blameHighlight.dispose();
 
 			const cfgHighlight = cfg.blame.highlight;
@@ -126,7 +126,7 @@ export class FileAnnotationController implements Disposable {
 			}
 		}
 
-		if (configuration.changed(e, configuration.name('recentChanges')('highlight').value)) {
+		if (configuration.changed(e, 'recentChanges', 'highlight')) {
 			Decorations.recentChangesAnnotation && Decorations.recentChangesAnnotation.dispose();
 
 			const cfgHighlight = cfg.recentChanges.highlight;
@@ -156,21 +156,21 @@ export class FileAnnotationController implements Disposable {
 
 		const initializing = configuration.initializing(e);
 
-		if (configuration.changed(e, configuration.name('blame')('toggleMode').value)) {
+		if (configuration.changed(e, 'blame', 'toggleMode')) {
 			this._toggleModes.set(FileAnnotationType.Blame, cfg.blame.toggleMode);
 			if (!initializing && cfg.blame.toggleMode === AnnotationsToggleMode.File) {
 				void this.clearAll();
 			}
 		}
 
-		if (configuration.changed(e, configuration.name('heatmap')('toggleMode').value)) {
+		if (configuration.changed(e, 'heatmap', 'toggleMode')) {
 			this._toggleModes.set(FileAnnotationType.Heatmap, cfg.heatmap.toggleMode);
 			if (!initializing && cfg.heatmap.toggleMode === AnnotationsToggleMode.File) {
 				void this.clearAll();
 			}
 		}
 
-		if (configuration.changed(e, configuration.name('recentChanges')('toggleMode').value)) {
+		if (configuration.changed(e, 'recentChanges', 'toggleMode')) {
 			this._toggleModes.set(FileAnnotationType.RecentChanges, cfg.recentChanges.toggleMode);
 			if (!initializing && cfg.recentChanges.toggleMode === AnnotationsToggleMode.File) {
 				void this.clearAll();
@@ -180,10 +180,10 @@ export class FileAnnotationController implements Disposable {
 		if (initializing) return;
 
 		if (
-			configuration.changed(e, configuration.name('blame').value) ||
-			configuration.changed(e, configuration.name('recentChanges').value) ||
-			configuration.changed(e, configuration.name('heatmap').value) ||
-			configuration.changed(e, configuration.name('hovers').value)
+			configuration.changed(e, 'blame') ||
+			configuration.changed(e, 'recentChanges') ||
+			configuration.changed(e, 'heatmap') ||
+			configuration.changed(e, 'hovers')
 		) {
 			// Since the configuration has changed -- reset any visible annotations
 			for (const provider of this._annotationProviders.values()) {

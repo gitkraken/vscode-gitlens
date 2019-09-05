@@ -28,12 +28,11 @@ export class GitCodeLensController implements Disposable {
 	}
 
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
-		const section = configuration.name('codeLens').value;
 		if (
-			configuration.changed(e, section, null) ||
-			configuration.changed(e, configuration.name('defaultDateFormat').value) ||
-			configuration.changed(e, configuration.name('defaultDateSource').value) ||
-			configuration.changed(e, configuration.name('defaultDateStyle').value)
+			configuration.changed(e, 'codeLens', null) ||
+			configuration.changed(e, 'defaultDateFormat') ||
+			configuration.changed(e, 'defaultDateSource') ||
+			configuration.changed(e, 'defaultDateStyle')
 		) {
 			if (!configuration.initializing(e)) {
 				Logger.log('CodeLens config changed; resetting CodeLens provider');

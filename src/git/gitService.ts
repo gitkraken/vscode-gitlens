@@ -20,7 +20,7 @@ import {
 } from 'vscode';
 // eslint-disable-next-line import/no-unresolved
 import { API as BuiltInGitApi, GitExtension } from '../@types/git';
-import { configuration, RemotesConfig } from '../configuration';
+import { configuration } from '../configuration';
 import { CommandContext, DocumentSchemes, setCommandContext } from '../constants';
 import { Container } from '../container';
 import { LogCorrelationContext, Logger } from '../logger';
@@ -181,9 +181,9 @@ export class GitService implements Disposable {
 
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (
-			configuration.changed(e, configuration.name('defaultDateFormat').value) ||
-			configuration.changed(e, configuration.name('defaultDateSource').value) ||
-			configuration.changed(e, configuration.name('defaultDateStyle').value)
+			configuration.changed(e, 'defaultDateFormat') ||
+			configuration.changed(e, 'defaultDateSource') ||
+			configuration.changed(e, 'defaultDateStyle')
 		) {
 			CommitFormatting.reset();
 		}
@@ -291,7 +291,7 @@ export class GitService implements Disposable {
 	private async repositorySearch(folder: WorkspaceFolder): Promise<Repository[]> {
 		const cc = Logger.getCorrelationContext();
 		const { uri } = folder;
-		const depth = configuration.get<number>(configuration.name('advanced')('repositorySearchDepth').value, uri);
+		const depth = configuration.get('advanced', 'repositorySearchDepth', uri);
 
 		Logger.log(cc, `searching (depth=${depth})...`);
 
@@ -2114,11 +2114,7 @@ export class GitService implements Disposable {
 	): Promise<GitRemote[]> {
 		if (repoPath === undefined) return [];
 
-		providers =
-			providers ||
-			RemoteProviderFactory.loadProviders(
-				configuration.get<RemotesConfig[] | null | undefined>(configuration.name('remotes').value, null)
-			);
+		providers = providers || RemoteProviderFactory.loadProviders(configuration.get('remotes', null));
 
 		try {
 			const data = await Git.remote(repoPath);

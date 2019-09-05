@@ -38,7 +38,7 @@ export class SwitchModeCommand extends Command {
 			}
 		}
 
-		await configuration.update(configuration.name('mode')('active').value, pick.key, ConfigurationTarget.Global);
+		await configuration.update('mode', 'active', pick.key, ConfigurationTarget.Global);
 	}
 }
 
@@ -53,7 +53,7 @@ export class ToggleReviewModeCommand extends Command {
 		if (!Object.keys(Container.config.modes).includes('review')) return;
 
 		const mode = Container.config.mode.active === 'review' ? undefined : 'review';
-		await configuration.update(configuration.name('mode')('active').value, mode, ConfigurationTarget.Global);
+		await configuration.update('mode', 'active', mode, ConfigurationTarget.Global);
 	}
 }
 
@@ -68,6 +68,6 @@ export class ToggleZenModeCommand extends Command {
 		if (!Object.keys(Container.config.modes).includes('zen')) return;
 
 		const mode = Container.config.mode.active === 'zen' ? undefined : 'zen';
-		await configuration.update(configuration.name('mode')('active').value, mode, ConfigurationTarget.Global);
+		await configuration.update('mode', 'active', mode, ConfigurationTarget.Global);
 	}
 }

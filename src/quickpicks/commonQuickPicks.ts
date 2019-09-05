@@ -8,7 +8,7 @@ import { KeyMapping, Keys } from '../keyboard';
 import { ReferencesQuickPick, ReferencesQuickPickItem } from './referencesQuickPick';
 
 export function getQuickPickIgnoreFocusOut() {
-	return !configuration.get<boolean>(configuration.name('advanced')('quickPick')('closeOnFocusOut').value);
+	return !configuration.get('advanced', 'quickPick', 'closeOnFocusOut');
 }
 
 export function showQuickPickProgress(message: string, mapping?: KeyMapping): CancellationTokenSource {

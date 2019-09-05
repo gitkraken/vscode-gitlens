@@ -28,7 +28,7 @@ export class StatusBarController implements Disposable {
 	}
 
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
-		if (configuration.changed(e, configuration.name('mode').value)) {
+		if (configuration.changed(e, 'mode')) {
 			const mode =
 				Container.config.mode.active && Container.config.mode.statusBar.enabled
 					? Container.config.modes[Container.config.mode.active]
@@ -39,7 +39,7 @@ export class StatusBarController implements Disposable {
 						? StatusBarAlignment.Right
 						: StatusBarAlignment.Left;
 
-				if (configuration.changed(e, configuration.name('mode')('statusBar')('alignment').value)) {
+				if (configuration.changed(e, 'mode', 'statusBar', 'alignment')) {
 					if (this._modeStatusBarItem !== undefined && this._modeStatusBarItem.alignment !== alignment) {
 						this._modeStatusBarItem.dispose();
 						this._modeStatusBarItem = undefined;
@@ -59,13 +59,13 @@ export class StatusBarController implements Disposable {
 			}
 		}
 
-		if (!configuration.changed(e, configuration.name('statusBar').value)) return;
+		if (!configuration.changed(e, 'statusBar')) return;
 
 		if (Container.config.statusBar.enabled) {
 			const alignment =
 				Container.config.statusBar.alignment !== 'left' ? StatusBarAlignment.Right : StatusBarAlignment.Left;
 
-			if (configuration.changed(e, configuration.name('statusBar')('alignment').value)) {
+			if (configuration.changed(e, 'statusBar', 'alignment')) {
 				if (this._blameStatusBarItem !== undefined && this._blameStatusBarItem.alignment !== alignment) {
 					this._blameStatusBarItem.dispose();
 					this._blameStatusBarItem = undefined;
@@ -77,13 +77,13 @@ export class StatusBarController implements Disposable {
 				window.createStatusBarItem(alignment, alignment === StatusBarAlignment.Right ? 1000 : 0);
 			this._blameStatusBarItem.command = Container.config.statusBar.command;
 
-			if (configuration.changed(e, configuration.name('statusBar')('enabled').value)) {
+			if (configuration.changed(e, 'statusBar', 'enabled')) {
 				Container.lineTracker.start(
 					this,
 					Disposable.from(Container.lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this))
 				);
 			}
-		} else if (configuration.changed(e, configuration.name('statusBar')('enabled').value)) {
+		} else if (configuration.changed(e, 'statusBar', 'enabled')) {
 			Container.lineTracker.stop(this);
 
 			if (this._blameStatusBarItem !== undefined) {

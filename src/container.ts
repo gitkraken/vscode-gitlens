@@ -10,7 +10,7 @@ import { GitService } from './git/gitService';
 import { clearAvatarCache } from './avatars';
 import { LineHoverController } from './hovers/lineHoverController';
 import { Keyboard } from './keyboard';
-import { Logger, TraceLevel } from './logger';
+import { Logger } from './logger';
 import { StatusBarController } from './statusbar/statusBarController';
 import { GitDocumentTracker } from './trackers/gitDocumentTracker';
 import { GitLineTracker } from './trackers/gitLineTracker';
@@ -58,7 +58,7 @@ export class Container {
 			let disposable: Disposable;
 			// eslint-disable-next-line prefer-const
 			disposable = configuration.onDidChange(e => {
-				if (configuration.changed(e, configuration.name('views')('compare')('enabled').value)) {
+				if (configuration.changed(e, 'views', 'compare', 'enabled')) {
 					disposable.dispose();
 					context.subscriptions.push((this._compareView = new CompareView()));
 				}
@@ -71,7 +71,7 @@ export class Container {
 			let disposable: Disposable;
 			// eslint-disable-next-line prefer-const
 			disposable = configuration.onDidChange(e => {
-				if (configuration.changed(e, configuration.name('views')('fileHistory')('enabled').value)) {
+				if (configuration.changed(e, 'views', 'fileHistory', 'enabled')) {
 					disposable.dispose();
 					context.subscriptions.push((this._fileHistoryView = new FileHistoryView()));
 				}
@@ -84,7 +84,7 @@ export class Container {
 			let disposable: Disposable;
 			// eslint-disable-next-line prefer-const
 			disposable = configuration.onDidChange(e => {
-				if (configuration.changed(e, configuration.name('views')('lineHistory')('enabled').value)) {
+				if (configuration.changed(e, 'views', 'lineHistory', 'enabled')) {
 					disposable.dispose();
 					context.subscriptions.push((this._lineHistoryView = new LineHistoryView()));
 				}
@@ -97,7 +97,7 @@ export class Container {
 			let disposable: Disposable;
 			// eslint-disable-next-line prefer-const
 			disposable = configuration.onDidChange(e => {
-				if (configuration.changed(e, configuration.name('views')('repositories')('enabled').value)) {
+				if (configuration.changed(e, 'views', 'repositories', 'enabled')) {
 					disposable.dispose();
 					context.subscriptions.push((this._repositoriesView = new RepositoriesView()));
 				}
@@ -110,7 +110,7 @@ export class Container {
 			let disposable: Disposable;
 			// eslint-disable-next-line prefer-const
 			disposable = configuration.onDidChange(e => {
-				if (configuration.changed(e, configuration.name('views')('search')('enabled').value)) {
+				if (configuration.changed(e, 'views', 'search', 'enabled')) {
 					disposable.dispose();
 					context.subscriptions.push((this._searchView = new SearchView()));
 				}
@@ -125,18 +125,15 @@ export class Container {
 	private static onConfigurationChanging(e: ConfigurationWillChangeEvent) {
 		this._config = undefined;
 
-		if (configuration.changed(e.change, configuration.name('outputLevel').value)) {
-			Logger.level = configuration.get<TraceLevel>(configuration.name('outputLevel').value);
+		if (configuration.changed(e.change, 'outputLevel')) {
+			Logger.level = configuration.get('outputLevel');
 		}
 
-		if (configuration.changed(e.change, configuration.name('defaultGravatarsStyle').value)) {
+		if (configuration.changed(e.change, 'defaultGravatarsStyle')) {
 			clearAvatarCache();
 		}
 
-		if (
-			configuration.changed(e.change, configuration.name('mode').value) ||
-			configuration.changed(e.change, configuration.name('modes').value)
-		) {
+		if (configuration.changed(e.change, 'mode') || configuration.changed(e.change, 'modes')) {
 			if (this._applyModeConfigurationTransformBound === undefined) {
 				this._applyModeConfigurationTransformBound = this.applyModeConfigurationTransform.bind(this);
 			}
@@ -161,7 +158,7 @@ export class Container {
 	private static _config: Config | undefined;
 	static get config() {
 		if (this._config === undefined) {
-			this._config = Container.applyMode(configuration.get<Config>());
+			this._config = Container.applyMode(configuration.get());
 		}
 		return this._config;
 	}
@@ -340,20 +337,20 @@ export class Container {
 	private static applyModeConfigurationTransform(e: ConfigurationChangeEvent): ConfigurationChangeEvent {
 		if (this._configsAffectedByMode === undefined) {
 			this._configsAffectedByMode = [
-				`gitlens.${configuration.name('mode').value}`,
-				`gitlens.${configuration.name('modes').value}`,
-				`gitlens.${configuration.name('blame')('toggleMode').value}`,
-				`gitlens.${configuration.name('codeLens').value}`,
-				`gitlens.${configuration.name('currentLine').value}`,
-				`gitlens.${configuration.name('heatmap')('toggleMode').value}`,
-				`gitlens.${configuration.name('hovers').value}`,
-				`gitlens.${configuration.name('recentChanges')('toggleMode').value}`,
-				`gitlens.${configuration.name('statusBar').value}`,
-				`gitlens.${configuration.name('views')('compare').value}`,
-				`gitlens.${configuration.name('views')('fileHistory').value}`,
-				`gitlens.${configuration.name('views')('lineHistory').value}`,
-				`gitlens.${configuration.name('views')('repositories').value}`,
-				`gitlens.${configuration.name('views')('search').value}`
+				`gitlens.${configuration.name('mode')}`,
+				`gitlens.${configuration.name('modes')}`,
+				`gitlens.${configuration.name('blame', 'toggleMode')}`,
+				`gitlens.${configuration.name('codeLens')}`,
+				`gitlens.${configuration.name('currentLine')}`,
+				`gitlens.${configuration.name('heatmap', 'toggleMode')}`,
+				`gitlens.${configuration.name('hovers')}`,
+				`gitlens.${configuration.name('recentChanges', 'toggleMode')}`,
+				`gitlens.${configuration.name('statusBar')}`,
+				`gitlens.${configuration.name('views', 'compare')}`,
+				`gitlens.${configuration.name('views', 'fileHistory')}`,
+				`gitlens.${configuration.name('views', 'lineHistory')}`,
+				`gitlens.${configuration.name('views', 'repositories')}`,
+				`gitlens.${configuration.name('views', 'search')}`
 			];
 		}
 

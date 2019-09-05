@@ -2,11 +2,11 @@
 import { commands, ExtensionContext, extensions, window, workspace } from 'vscode';
 import { Commands, registerCommands } from './commands';
 import { ViewShowBranchComparison } from './config';
-import { Config, configuration, Configuration } from './configuration';
+import { configuration, Configuration } from './configuration';
 import { CommandContext, extensionQualifiedId, GlobalState, GlyphChars, setCommandContext } from './constants';
 import { Container } from './container';
 import { GitCommit, GitService, GitUri } from './git/gitService';
-import { Logger, TraceLevel } from './logger';
+import { Logger } from './logger';
 import { Messages } from './messages';
 import { Strings, Versions } from './system';
 // import { Telemetry } from './telemetry';
@@ -17,7 +17,7 @@ export async function activate(context: ExtensionContext) {
 	// Pretend we are enabled (until we know otherwise) and set the view contexts to reduce flashing on load
 	setCommandContext(CommandContext.Enabled, true);
 
-	Logger.configure(context, configuration.get<TraceLevel>(configuration.name('outputLevel').value), o => {
+	Logger.configure(context, configuration.get('outputLevel'), o => {
 		if (GitUri.is(o)) {
 			return `GitUri(${o.toString(true)}${o.repoPath ? ` repoPath=${o.repoPath}` : ''}${
 				o.sha ? ` sha=${o.sha}` : ''
@@ -46,7 +46,7 @@ export async function activate(context: ExtensionContext) {
 
 	Configuration.configure(context);
 
-	const cfg = configuration.get<Config>();
+	const cfg = configuration.get();
 
 	const previousVersion = context.globalState.get<string>(GlobalState.GitLensVersion);
 	await migrateSettings(context, previousVersion);
@@ -105,14 +105,13 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
 
 	try {
 		if (Versions.compare(previous, Versions.from(9, 8, 5)) !== 1) {
-			const name = configuration.name('views')('commitFormat').value;
-			const value = configuration.get<string>(name);
+			const value = configuration.get('views', 'commitFormat');
 			if (!/\btips\b/.test(value)) {
-				await configuration.updateEffective(name, `\${❰ tips ❱➤  }${value}`);
+				await configuration.updateEffective('views', 'commitFormat', `\${❰ tips ❱➤  }${value}`);
 			}
 		} else if (Versions.compare(previous, Versions.from(9, 8, 2)) !== 1) {
-			const name = configuration.name('views')('repositories')('showBranchComparison').value;
-			await configuration.migrate(name, name, {
+			const name = configuration.name('views', 'repositories', 'showBranchComparison');
+			await configuration.migrate(name, 'views', 'repositories', 'showBranchComparison', {
 				migrationFn: (v: boolean) => (v === false ? false : ViewShowBranchComparison.Working)
 			});
 		} else if (Versions.compare(previous, Versions.from(9, 6, 3)) !== 1) {
@@ -130,16 +129,16 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
 
 			await Promise.all(
 				[
-					configuration.name('blame')('format').value,
-					configuration.name('currentLine')('format').value,
-					configuration.name('hovers')('detailsMarkdownFormat').value,
-					configuration.name('statusBar')('format').value,
-					configuration.name('views')('commitFormat').value,
-					configuration.name('views')('commitDescriptionFormat').value,
-					configuration.name('views')('stashFormat').value,
-					configuration.name('views')('stashDescriptionFormat').value
+					configuration.name('blame', 'format'),
+					configuration.name('currentLine', 'format'),
+					configuration.name('hovers', 'detailsMarkdownFormat'),
+					configuration.name('statusBar', 'format'),
+					configuration.name('views', 'commitFormat'),
+					configuration.name('views', 'commitDescriptionFormat'),
+					configuration.name('views', 'stashFormat'),
+					configuration.name('views', 'stashDescriptionFormat')
 				].map(s =>
-					configuration.migrate<string, string>(s, s, {
+					configuration.migrate(s, s as any, {
 						migrationFn: formatMigrationFn
 					})
 				)

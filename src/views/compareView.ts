@@ -70,14 +70,14 @@ export class CompareView extends ViewBase<CompareNode> {
 
 	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (
-			!configuration.changed(e, configuration.name('views')('compare').value) &&
-			!configuration.changed(e, configuration.name('views').value) &&
-			!configuration.changed(e, configuration.name('defaultGravatarsStyle').value)
+			!configuration.changed(e, 'views', 'compare') &&
+			!configuration.changed(e, 'views') &&
+			!configuration.changed(e, 'defaultGravatarsStyle')
 		) {
 			return;
 		}
 
-		if (configuration.changed(e, configuration.name('views')('compare')('location').value)) {
+		if (configuration.changed(e, 'views', 'compare', 'location')) {
 			this.initialize(this.config.location, { showCollapseAll: true });
 		}
 
@@ -164,7 +164,7 @@ export class CompareView extends ViewBase<CompareNode> {
 	}
 
 	private setFilesLayout(layout: ViewFilesLayout) {
-		return configuration.updateEffective(configuration.name('views')('compare')('files')('layout').value, layout);
+		return configuration.updateEffective('views', 'compare', 'files', 'layout', layout);
 	}
 
 	private setKeepResults(enabled: boolean) {

@@ -204,8 +204,8 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 		} catch (ex) {
 			Logger.error(ex);
 
-			const setting = `${Strings.splitSingle(this.id, '.')[1]}.enabled`;
-			if (!configuration.get(setting)) {
+			const section = Strings.splitSingle(this.id, '.')[1];
+			if (!configuration.get(section as any, 'enabled')) {
 				const actions: MessageItem[] = [{ title: 'Enable' }, { title: 'Cancel', isCloseAffordance: true }];
 
 				const result = await window.showErrorMessage(
@@ -214,7 +214,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 				);
 
 				if (result === actions[0]) {
-					await configuration.update(setting, true, ConfigurationTarget.Global);
+					await configuration.update(section as any, 'enabled', true, ConfigurationTarget.Global);
 
 					void (await commands.executeCommand(`${this.id}${location ? `:${location}` : ''}.focus`));
 				}

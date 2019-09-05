@@ -53,19 +53,19 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode> {
 
 	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (
-			!configuration.changed(e, configuration.name('views')('lineHistory').value) &&
-			!configuration.changed(e, configuration.name('views').value) &&
-			!configuration.changed(e, configuration.name('defaultGravatarsStyle').value) &&
-			!configuration.changed(e, configuration.name('advanced')('fileHistoryFollowsRenames').value)
+			!configuration.changed(e, 'views', 'lineHistory') &&
+			!configuration.changed(e, 'views') &&
+			!configuration.changed(e, 'defaultGravatarsStyle') &&
+			!configuration.changed(e, 'advanced', 'fileHistoryFollowsRenames')
 		) {
 			return;
 		}
 
-		if (configuration.changed(e, configuration.name('views')('lineHistory')('enabled').value)) {
+		if (configuration.changed(e, 'views', 'lineHistory', 'enabled')) {
 			setCommandContext(CommandContext.ViewsLineHistoryEditorFollowing, true);
 		}
 
-		if (configuration.changed(e, configuration.name('views')('lineHistory')('location').value)) {
+		if (configuration.changed(e, 'views', 'lineHistory', 'location')) {
 			this.initialize(this.config.location);
 		}
 
@@ -92,9 +92,6 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode> {
 	}
 
 	private setRenameFollowing(enabled: boolean) {
-		return configuration.updateEffective(
-			configuration.name('advanced')('fileHistoryFollowsRenames').value,
-			enabled
-		);
+		return configuration.updateEffective('advanced', 'fileHistoryFollowsRenames', enabled);
 	}
 }

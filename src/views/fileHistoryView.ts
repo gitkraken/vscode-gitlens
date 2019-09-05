@@ -54,19 +54,19 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode> {
 
 	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (
-			!configuration.changed(e, configuration.name('views')('fileHistory').value) &&
-			!configuration.changed(e, configuration.name('views').value) &&
-			!configuration.changed(e, configuration.name('defaultGravatarsStyle').value) &&
-			!configuration.changed(e, configuration.name('advanced')('fileHistoryFollowsRenames').value)
+			!configuration.changed(e, 'views', 'fileHistory') &&
+			!configuration.changed(e, 'views') &&
+			!configuration.changed(e, 'defaultGravatarsStyle') &&
+			!configuration.changed(e, 'advanced', 'fileHistoryFollowsRenames')
 		) {
 			return;
 		}
 
-		if (configuration.changed(e, configuration.name('views')('fileHistory')('enabled').value)) {
+		if (configuration.changed(e, 'views', 'fileHistory', 'enabled')) {
 			setCommandContext(CommandContext.ViewsFileHistoryEditorFollowing, true);
 		}
 
-		if (configuration.changed(e, configuration.name('views')('fileHistory')('location').value)) {
+		if (configuration.changed(e, 'views', 'fileHistory', 'location')) {
 			this.initialize(this.config.location);
 		}
 
@@ -101,9 +101,6 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode> {
 	}
 
 	private setRenameFollowing(enabled: boolean) {
-		return configuration.updateEffective(
-			configuration.name('advanced')('fileHistoryFollowsRenames').value,
-			enabled
-		);
+		return configuration.updateEffective('advanced', 'fileHistoryFollowsRenames', enabled);
 	}
 }

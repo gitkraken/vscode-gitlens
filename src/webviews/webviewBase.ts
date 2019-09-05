@@ -13,7 +13,7 @@ import {
 	window,
 	workspace
 } from 'vscode';
-import { Config, configuration } from '../configuration';
+import { configuration } from '../configuration';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import {
@@ -98,18 +98,18 @@ export abstract class WebviewBase implements Disposable {
 						params.scope === 'workspace' ? ConfigurationTarget.Workspace : ConfigurationTarget.Global;
 
 					for (const key in params.changes) {
-						const inspect = configuration.inspect(key)!;
+						const inspect = configuration.inspect(key as any)!;
 
 						const value = params.changes[key];
 						void (await configuration.update(
-							key,
+							key as any,
 							value === inspect.defaultValue ? undefined : value,
 							target
 						));
 					}
 
 					for (const key of params.removes) {
-						void (await configuration.update(key, undefined, target));
+						void (await configuration.update(key as any, undefined, target));
 					}
 				});
 
@@ -239,7 +239,7 @@ export abstract class WebviewBase implements Disposable {
 
 	private notifyDidChangeConfiguration() {
 		// Make sure to get the raw config, not from the container which has the modes mixed in
-		return this.notify(DidChangeConfigurationNotificationType, { config: configuration.get<Config>() });
+		return this.notify(DidChangeConfigurationNotificationType, { config: configuration.get() });
 	}
 
 	private postMessage(message: IpcMessage) {

@@ -160,10 +160,7 @@ export class Messages {
 	): Promise<MessageItem | undefined> {
 		Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain})`);
 
-		if (
-			suppressionKey !== undefined &&
-			configuration.get<boolean>(configuration.name('advanced')('messages')(suppressionKey).value)
-		) {
+		if (suppressionKey !== undefined && configuration.get('advanced', 'messages', suppressionKey)) {
 			Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain}) skipped`);
 			return undefined;
 		}
@@ -205,8 +202,7 @@ export class Messages {
 	}
 
 	private static suppressedMessage(suppressionKey: SuppressedMessages) {
-		const section = configuration.name('advanced')('messages').value;
-		const messages: { [key: string]: boolean | undefined } = configuration.get<{}>(section);
+		const messages: { [key: string]: boolean | undefined } = configuration.get('advanced', 'messages');
 
 		messages[suppressionKey] = true;
 
@@ -216,6 +212,6 @@ export class Messages {
 			}
 		}
 
-		return configuration.update(section, messages, ConfigurationTarget.Global);
+		return configuration.update('advanced', 'messages', messages as any, ConfigurationTarget.Global);
 	}
 }
