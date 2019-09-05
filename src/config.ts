@@ -33,6 +33,7 @@ export interface Config {
 	defaultDateStyle: DateStyle;
 	defaultGravatarsStyle: GravatarDefaultStyle;
 	gitCommands: {
+		closeOnFocusOut: boolean;
 		skipConfirmations: string[];
 	};
 	heatmap: {

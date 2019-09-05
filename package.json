@@ -481,6 +481,12 @@
 					"markdownDescription": "Specifies the style of the gravatar default (fallback) images",
 					"scope": "window"
 				},
+				"gitlens.gitCommands.closeOnFocusOut": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "Specifies whether to dismiss the Git Commands menu when focus is lost (if not, press `ESC` to dismiss)",
+					"scope": "window"
+				},
 				"gitlens.gitCommands.skipConfirmations": {
 					"type": "array",
 					"default": [
@@ -526,7 +532,7 @@
 					"minItems": 0,
 					"maxItems": 14,
 					"uniqueItems": true,
-					"markdownDescription": "Specifies which Git commands should have their confirmations skipped when executed from a GitLens view",
+					"markdownDescription": "Specifies which (and when) Git commands will skip the confirmation step, using the format: `git-command-name:(menu|command)`",
 					"scope": "window"
 				},
 				"gitlens.heatmap.ageThreshold": {
@@ -1789,7 +1795,7 @@
 				"gitlens.advanced.quickPick.closeOnFocusOut": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to close QuickPick menus when focus is lost",
+					"markdownDescription": "Specifies whether to dismiss quick pick menus when focus is lost (if not, press `ESC` to dismiss)",
 					"scope": "window"
 				},
 				"gitlens.advanced.repositorySearchDepth": {

@@ -157,7 +157,7 @@ export class GitCommandsCommand extends Command {
 
 	private async showInputStep(step: QuickInputStep, commandsStep: PickCommandStep) {
 		const input = window.createInputBox();
-		input.ignoreFocusOut = true;
+		input.ignoreFocusOut = !configuration.get<boolean>(configuration.name('gitCommands')('closeOnFocusOut').value);
 
 		const disposables: Disposable[] = [];
 
@@ -226,7 +226,9 @@ export class GitCommandsCommand extends Command {
 
 	private async showPickStep(step: QuickPickStep, commandsStep: PickCommandStep) {
 		const quickpick = window.createQuickPick();
-		quickpick.ignoreFocusOut = true;
+		quickpick.ignoreFocusOut = !configuration.get<boolean>(
+			configuration.name('gitCommands')('closeOnFocusOut').value
+		);
 
 		const disposables: Disposable[] = [];
 
