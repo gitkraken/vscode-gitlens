@@ -16,6 +16,7 @@ export * from './commands/diffWithPrevious';
 export * from './commands/diffWithRef';
 export * from './commands/diffWithRevision';
 export * from './commands/diffWithWorking';
+export * from './commands/exploreRepoAtRevision';
 export * from './commands/externalDiff';
 export * from './commands/inviteToLiveShare';
 export * from './commands/openBranchesInRemote';

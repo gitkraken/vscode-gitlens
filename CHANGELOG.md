@@ -16,7 +16,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds a `gitlens.sortTagsBy` setting to specify how tags are sorted in quick pick menus and views
 - Adds last commit date to branches in quick pick menus and views
 - Adds ability to copy the selected item's details to the clipboard using the standard copy shortcut key when focused on a GitLens view
-- Adds an _Open Revision_ command to the editor toolbar and tabs menu when in the diff editor
+- Adds an _Open Revision_ command to the editor toolbar and tabs context menu when a revision file is active in the diff editor
+- Adds an _Explore Repository from Here_ command to the editor toolbar and tabs context menu when a revision file is active
 - Adds a _Prune_ command to remotes in the _Repositories_ view to prune remote references &mdash; closes [#556](https://github.com/eamodio/vscode-gitlens/issues/556) thanks to [PR #815](https://github.com/eamodio/vscode-gitlens/pull/815) by Zach Boyle ([@zaboyle](https://github.com/zaboyle))
 - Adds support to use the GitHub avatar (if available) for authors with `@users.noreply.github.com` email addresses &mdash; partially addresses [#281](https://github.com/eamodio/vscode-gitlens/issues/281) thanks to [PR #814](https://github.com/eamodio/vscode-gitlens/pull/814) by bolte-17 ([@bolte-17](https://github.com/bolte-17))
 

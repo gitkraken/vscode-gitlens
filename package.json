@@ -2439,9 +2439,22 @@
 				}
 			},
 			{
-				"command": "gitlens.views.exploreRepoRevision",
+				"command": "gitlens.exploreRepoAtRevision",
 				"title": "Explore Repository from Here",
-				"category": "GitLens"
+				"category": "GitLens",
+				"icon": {
+					"dark": "images/dark/icon-open-folder.svg",
+					"light": "images/light/icon-open-folder.svg"
+				}
+			},
+			{
+				"command": "gitlens.views.exploreRepoAtRevision",
+				"title": "Explore Repository from Here",
+				"category": "GitLens",
+				"icon": {
+					"dark": "images/dark/icon-open-folder.svg",
+					"light": "images/light/icon-open-folder.svg"
+				}
 			},
 			{
 				"command": "gitlens.fetchRepositories",
@@ -3497,7 +3510,11 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.exploreRepoRevision",
+					"command": "gitlens.exploreRepoAtRevision",
+					"when": "gitlens:activeFileStatus =~ /revision/"
+				},
+				{
+					"command": "gitlens.views.exploreRepoAtRevision",
 					"when": "false"
 				},
 				{
@@ -4026,6 +4043,11 @@
 					"group": "navigation@2"
 				},
 				{
+					"command": "gitlens.exploreRepoAtRevision",
+					"when": "gitlens:activeFileStatus =~ /revision/",
+					"group": "navigation@3"
+				},
+				{
 					"command": "gitlens.diffWithPrevious",
 					"alt": "gitlens.diffWithRevision",
 					"when": "!isInDiffEditor && gitlens:activeFileStatus =~ /tracked/ && config.gitlens.menus.editorGroup.compare",
@@ -4109,6 +4131,11 @@
 					"command": "gitlens.showFileHistoryInView",
 					"when": "gitlens:enabled && config.gitlens.menus.editorTab.history",
 					"group": "1_co_gitlens_2@2"
+				},
+				{
+					"command": "gitlens.exploreRepoAtRevision",
+					"when": "resourceScheme == gitlens",
+					"group": "1_co_gitlens_3@1"
 				},
 				{
 					"command": "gitlens.copyRemoteFileUrlToClipboard",
@@ -4881,7 +4908,7 @@
 					"group": "8_gitlens_@1"
 				},
 				{
-					"command": "gitlens.views.exploreRepoRevision",
+					"command": "gitlens.views.exploreRepoAtRevision",
 					"when": "viewItem =~ /gitlens:(branch|commit|file\\b((?=.*?\\b\\+committed\\b)|:results)|stash|tag)\\b/",
 					"group": "7_gitlens_more@1"
 				},

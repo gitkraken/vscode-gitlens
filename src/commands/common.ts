@@ -51,6 +51,7 @@ export enum Commands {
 	DiffWithWorking = 'gitlens.diffWithWorking',
 	DiffWithWorkingInDiff = 'gitlens.diffWithWorkingInDiff',
 	DiffLineWithWorking = 'gitlens.diffLineWithWorking',
+	ExploreRepoAtRevision = 'gitlens.exploreRepoAtRevision',
 	ExternalDiff = 'gitlens.externalDiff',
 	FetchRepositories = 'gitlens.fetchRepositories',
 	InviteToLiveShare = 'gitlens.inviteToLiveShare',

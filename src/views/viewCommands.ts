@@ -1,5 +1,4 @@
 'use strict';
-import * as paths from 'path';
 import { commands, env, TextDocumentShowOptions, Uri, window } from 'vscode';
 import {
 	Commands,
@@ -11,12 +10,10 @@ import {
 	openEditor,
 	OpenFileInRemoteCommandArgs,
 	OpenFileRevisionCommandArgs,
-	OpenWorkingFileCommandArgs,
-	openWorkspace
+	OpenWorkingFileCommandArgs
 } from '../commands';
 import { BuiltInCommands, CommandContext, setCommandContext } from '../constants';
 import { Container } from '../container';
-import { toGitLensFSUri } from '../git/fsProvider';
 import { GitReference, GitService, GitUri } from '../git/gitService';
 import {
 	BranchNode,
@@ -107,7 +104,7 @@ export class ViewCommands {
 		commands.registerCommand('gitlens.views.star', this.star, this);
 		commands.registerCommand('gitlens.views.unstar', this.unstar, this);
 
-		commands.registerCommand('gitlens.views.exploreRepoRevision', this.exploreRepoRevision, this);
+		commands.registerCommand('gitlens.views.exploreRepoAtRevision', this.exploreRepoAtRevision, this);
 
 		commands.registerCommand('gitlens.views.contributor.addCoauthoredBy', this.contributorAddCoAuthoredBy, this);
 		commands.registerCommand('gitlens.views.contributor.copyToClipboard', this.contributorCopyToClipboard, this);
@@ -274,19 +271,10 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private exploreRepoRevision(node: ViewRefNode, options: { openInNewWindow?: boolean } = {}) {
-		if (!(node instanceof ViewRefNode)) return;
+	private exploreRepoAtRevision(node: ViewRefNode) {
+		if (!(node instanceof ViewRefNode)) return undefined;
 
-		if (options == null) {
-			options = {};
-		}
-
-		const uri = toGitLensFSUri(node.ref, node.repoPath);
-		const gitUri = GitUri.fromRevisionUri(uri);
-
-		openWorkspace(uri, `${paths.basename(gitUri.repoPath!)} @ ${gitUri.shortSha}`, options);
-
-		void commands.executeCommand(BuiltInCommands.FocusFilesExplorer);
+		return commands.executeCommand(Commands.ExploreRepoAtRevision, { uri: node.uri });
 	}
 
 	@debug()
