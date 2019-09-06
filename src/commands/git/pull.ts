@@ -1,9 +1,10 @@
 'use strict';
+import { QuickInputButton } from 'vscode';
 import { Container } from '../../container';
 import { Repository } from '../../git/gitService';
 import { QuickCommandBase, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
 import { GitFlagsQuickPickItem, RepositoryQuickPickItem } from '../../quickpicks';
-import { Strings } from '../../system';
+import { Dates, Strings } from '../../system';
 import { GlyphChars } from '../../constants';
 import { Logger } from '../../logger';
 
@@ -84,35 +85,31 @@ export class PullGitCommand extends QuickCommandBase<State> {
 				}
 
 				if (this.confirm(state.confirm)) {
-					const step = this.createConfirmStep<GitFlagsQuickPickItem>(
-						`Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${
-							state.repos.length === 1
-								? state.repos[0].formattedName
-								: `${state.repos.length} repositories`
-						}`,
-						[
-							{
-								label: this.title,
-								description: '',
-								detail: `Will pull ${
-									state.repos.length === 1
-										? state.repos[0].formattedName
-										: `${state.repos.length} repositories`
-								}`,
-								item: []
-							},
-							{
-								label: `${this.title} with Rebase`,
-								description: '--rebase',
-								detail: `Will pull with rebase ${
-									state.repos.length === 1
-										? state.repos[0].formattedName
-										: `${state.repos.length} repositories`
-								}`,
-								item: ['--rebase']
-							}
-						]
-					);
+					let step;
+					if (state.repos.length > 1) {
+						step = this.createConfirmStep<GitFlagsQuickPickItem>(
+							`Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${
+								state.repos.length
+							} repositories`,
+							[
+								{
+									label: this.title,
+									description: '',
+									detail: `Will pull ${state.repos.length} repositories`,
+									item: []
+								},
+								{
+									label: `${this.title} with Rebase`,
+									description: '--rebase',
+									detail: `Will pull with rebase ${state.repos.length} repositories`,
+									item: ['--rebase']
+								}
+							]
+						);
+					} else {
+						step = await this.getSingleRepoConfirmStep(state);
+					}
+
 					const selection: StepSelection<typeof step> = yield step;
 
 					if (!this.canPickStepMoveNext(step, state, selection)) {
@@ -138,5 +135,67 @@ export class PullGitCommand extends QuickCommandBase<State> {
 		}
 
 		return undefined;
+	}
+
+	private async getSingleRepoConfirmStep(state: StepState<State>) {
+		const repo = state.repos![0];
+		const [status, lastFetched] = await Promise.all([repo.getStatus(), repo.getLastFetched()]);
+
+		const title = `Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${repo.formattedName}`;
+
+		let detail = repo.formattedName;
+		let fetchedOn = '';
+		if (lastFetched !== 0 && status !== undefined) {
+			detail = Strings.pluralize('commit', status.state.behind);
+
+			fetchedOn = `${Strings.pad(GlyphChars.Dot, 2, 2)}Last fetched ${Dates.getFormatter(
+				new Date(lastFetched)
+			).fromNow()}`;
+		}
+
+		const step = this.createConfirmStep<GitFlagsQuickPickItem>(`${title}${fetchedOn}`, [
+			{
+				label: this.title,
+				description: '',
+				detail: `Will pull ${detail}`,
+				item: []
+			},
+			{
+				label: `${this.title} with Rebase`,
+				description: '--rebase',
+				detail: `Will pull ${detail} with rebase`,
+				item: ['--rebase']
+			}
+		]);
+
+		const fetchButton: QuickInputButton = {
+			iconPath: {
+				dark: Container.context.asAbsolutePath('images/dark/icon-sync.svg') as any,
+				light: Container.context.asAbsolutePath('images/light/icon-sync.svg') as any
+			},
+			tooltip: 'Fetch'
+		};
+
+		step.additionalButtons = [fetchButton];
+		step.onDidClickButton = async (quickpick, button) => {
+			if (button !== fetchButton) return;
+
+			quickpick.title = `${title}${Strings.pad(GlyphChars.Dot, 2, 2)}Fetching${GlyphChars.Ellipsis}`;
+			quickpick.busy = true;
+			quickpick.enabled = false;
+
+			try {
+				await repo.fetch({ progress: true });
+
+				const step = await this.getSingleRepoConfirmStep(state);
+				quickpick.title = step.title;
+				quickpick.items = step.items as any;
+			} finally {
+				quickpick.busy = false;
+				quickpick.enabled = true;
+			}
+		};
+
+		return step;
 	}
 }

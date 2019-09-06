@@ -29,6 +29,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds a new _revert_ Git command to revert specific commits
   - Adds a new _stash_ Git command with sub-commands for _apply_, _drop_, _pop_, and _push_
   - Adds a new _Fetch All & Prune_ option to the _fetch_ Git command
+  - Adds the last fetched on date to the confirmation step of the _fetch_ Git command (when a single repo is selected)
+  - Adds the last fetched on date to the confirmation step of the _pull_ Git command (when a single repo is selected)
+  - Adds a fetch button to the confirmation step of the _pull_ Git command (when a single repo is selected)
+  - Adds the number of commits to pull to the confirmation step of the _pull_ Git command (when a single repo is selected)
+  - Adds the number of commits to push to the confirmation step of the _push_ Git command (when a single repo is selected)
   - Adds a new _Squash Merge_ option to the _merge_ Git command
   - Adds a new _Force Push_ option to the _push_ Git command
   - Adds ability to create a local branch from a remote branch when using the _switch_ Git command

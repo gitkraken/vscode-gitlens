@@ -2,7 +2,7 @@
 import { Container } from '../../container';
 import { Repository } from '../../git/gitService';
 import { QuickCommandBase, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
-import { RepositoryQuickPickItem } from '../../quickpicks';
+import { Directive, DirectiveQuickPickItem, RepositoryQuickPickItem } from '../../quickpicks';
 import { Strings } from '../../system';
 import { GlyphChars } from '../../constants';
 import { Logger } from '../../logger';
@@ -84,35 +84,31 @@ export class PushGitCommand extends QuickCommandBase<State> {
 				}
 
 				if (this.confirm(state.confirm)) {
-					const step = this.createConfirmStep(
-						`Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${
-							state.repos.length === 1
-								? state.repos[0].formattedName
-								: `${state.repos.length} repositories`
-						}`,
-						[
-							{
-								label: this.title,
-								description: '',
-								detail: `Will push ${
-									state.repos.length === 1
-										? state.repos[0].formattedName
-										: `${state.repos.length} repositories`
-								}`,
-								item: []
-							},
-							{
-								label: `Force ${this.title}`,
-								description: '--force',
-								detail: `Will force push ${
-									state.repos.length === 1
-										? state.repos[0].formattedName
-										: `${state.repos.length} repositories`
-								}`,
-								item: ['--force']
-							}
-						]
-					);
+					let step;
+					if (state.repos.length > 1) {
+						step = this.createConfirmStep(
+							`Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${
+								state.repos.length
+							} repositories`,
+							[
+								{
+									label: this.title,
+									description: '',
+									detail: `Will push ${state.repos.length} repositories`,
+									item: []
+								},
+								{
+									label: `Force ${this.title}`,
+									description: '--force',
+									detail: `Will force push ${state.repos.length} repositories`,
+									item: ['--force']
+								}
+							]
+						);
+					} else {
+						step = await this.getSingleRepoConfirmStep(state);
+					}
+
 					const selection: StepSelection<typeof step> = yield step;
 
 					if (!this.canPickStepMoveNext(step, state, selection)) {
@@ -138,5 +134,46 @@ export class PushGitCommand extends QuickCommandBase<State> {
 		}
 
 		return undefined;
+	}
+
+	private async getSingleRepoConfirmStep(state: StepState<State>) {
+		const repo = state.repos![0];
+		const status = await repo.getStatus();
+
+		let detail = repo.formattedName;
+		if (status !== undefined) {
+			if (status.state.ahead === 0) {
+				return this.createConfirmStep(
+					`Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${repo.formattedName}`,
+					[],
+					{
+						cancel: DirectiveQuickPickItem.create(Directive.Cancel, true, {
+							label: `Cancel ${this.title}`,
+							detail: 'No commits to push'
+						})
+					}
+				);
+			}
+
+			detail = Strings.pluralize('commit', status.state.ahead);
+		}
+
+		return this.createConfirmStep(
+			`Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${repo.formattedName}`,
+			[
+				{
+					label: this.title,
+					description: '',
+					detail: `Will push ${detail}`,
+					item: []
+				},
+				{
+					label: `Force ${this.title}`,
+					description: '--force',
+					detail: `Will force push ${detail}`,
+					item: ['--force']
+				}
+			]
+		);
 	}
 }

@@ -3,7 +3,7 @@ import { Container } from '../../container';
 import { Repository } from '../../git/gitService';
 import { QuickCommandBase, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
 import { GitFlagsQuickPickItem, RepositoryQuickPickItem } from '../../quickpicks';
-import { Strings } from '../../system';
+import { Dates, Strings } from '../../system';
 import { GlyphChars } from '../../constants';
 import { Logger } from '../../logger';
 
@@ -87,10 +87,20 @@ export class FetchGitCommand extends QuickCommandBase<State> {
 				}
 
 				if (this.confirm(state.confirm)) {
+					let fetchedOn = '';
+					if (state.repos.length === 1) {
+						const lastFetched = await state.repos[0].getLastFetched();
+						if (lastFetched !== 0) {
+							fetchedOn = `${Strings.pad(GlyphChars.Dot, 2, 2)}Last fetched ${Dates.getFormatter(
+								new Date(lastFetched)
+							).fromNow()}`;
+						}
+					}
+
 					const step = this.createConfirmStep<GitFlagsQuickPickItem>(
 						`Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${
 							state.repos.length === 1
-								? state.repos[0].formattedName
+								? `${state.repos[0].formattedName}${fetchedOn}`
 								: `${state.repos.length} repositories`
 						}`,
 						[
