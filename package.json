@@ -5634,12 +5634,12 @@
 		"node-sass": "4.12.0",
 		"prettier": "1.18.2",
 		"sass-loader": "8.0.0",
-		"terser-webpack-plugin": "1.4.1",
+		"terser-webpack-plugin": "2.0.0",
 		"ts-loader": "6.0.4",
 		"typescript": "3.6.2",
 		"vsce": "1.66.0",
 		"webpack": "4.39.3",
 		"webpack-bundle-analyzer": "3.4.1",
-		"webpack-cli": "3.3.7"
+		"webpack-cli": "3.3.8"
 	}
 }
