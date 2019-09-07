@@ -100,12 +100,20 @@ export abstract class WebviewBase implements Disposable {
 					for (const key in params.changes) {
 						const inspect = configuration.inspect(key as any)!;
 
-						const value = params.changes[key];
-						void (await configuration.update(
-							key as any,
-							value === inspect.defaultValue ? undefined : value,
-							target
-						));
+						let value = params.changes[key];
+						if (value !== undefined) {
+							if (params.scope === 'workspace') {
+								if (value === inspect.workspaceValue) continue;
+							} else {
+								if (value === inspect.globalValue && value !== inspect.defaultValue) continue;
+
+								if (value === inspect.defaultValue) {
+									value = undefined;
+								}
+							}
+						}
+
+						void (await configuration.update(key as any, value, target));
 					}
 
 					for (const key of params.removes) {
