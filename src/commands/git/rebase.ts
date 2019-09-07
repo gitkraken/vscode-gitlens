@@ -37,7 +37,10 @@ export interface RebaseGitCommandArgs {
 
 export class RebaseGitCommand extends QuickCommandBase<State> {
 	constructor(args?: RebaseGitCommandArgs) {
-		super('rebase', 'rebase', 'Rebase', { description: 'via Terminal' });
+		super('rebase', 'rebase', 'Rebase', {
+			description:
+				'integrates changes from a specified branch into the current branch, by changing the base of the branch and reapplying the commits on top'
+		});
 
 		if (args == null || args.state === undefined) return;
 

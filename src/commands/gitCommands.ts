@@ -41,6 +41,7 @@ export type GitCommandsCommandArgs =
 class PickCommandStep implements QuickPickStep {
 	readonly buttons = [];
 	readonly items: QuickCommandBase[];
+	readonly matchOnDescription = true;
 	readonly placeholder = 'Choose a git command';
 	readonly title = 'GitLens';
 

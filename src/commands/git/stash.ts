@@ -69,7 +69,9 @@ export class StashGitCommand extends QuickCommandBase<State> {
 	private _subcommand: string | undefined;
 
 	constructor(args?: StashGitCommandArgs) {
-		super('stash', 'stash', 'Stash');
+		super('stash', 'stash', 'Stash', {
+			description: 'shelves (stashes) changes from the working tree to be reapplied later'
+		});
 
 		if (args == null || args.state === undefined) return;
 

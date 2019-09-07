@@ -22,7 +22,9 @@ export interface PullGitCommandArgs {
 
 export class PullGitCommand extends QuickCommandBase<State> {
 	constructor(args?: PullGitCommandArgs) {
-		super('pull', 'pull', 'Pull');
+		super('pull', 'pull', 'Pull', {
+			description: 'fetches and integrates changes from a remote into the current branch'
+		});
 
 		if (args == null || args.state === undefined) return;
 

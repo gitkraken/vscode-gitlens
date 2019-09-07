@@ -34,7 +34,9 @@ export interface MergeGitCommandArgs {
 
 export class MergeGitCommand extends QuickCommandBase<State> {
 	constructor(args?: MergeGitCommandArgs) {
-		super('merge', 'merge', 'Merge', { description: 'via Terminal' });
+		super('merge', 'merge', 'Merge', {
+			description: 'integrates changes from a specified branch into the current branch'
+		});
 
 		if (args == null || args.state === undefined) return;
 

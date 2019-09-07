@@ -21,7 +21,7 @@ export interface FetchGitCommandArgs {
 
 export class FetchGitCommand extends QuickCommandBase<State> {
 	constructor(args?: FetchGitCommandArgs) {
-		super('fetch', 'fetch', 'Fetch');
+		super('fetch', 'fetch', 'Fetch', { description: 'fetches changes from one or more remotes' });
 
 		if (args == null || args.state === undefined) return;
 

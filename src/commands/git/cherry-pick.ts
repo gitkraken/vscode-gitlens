@@ -36,7 +36,9 @@ export interface CherryPickGitCommandArgs {
 
 export class CherryPickGitCommand extends QuickCommandBase<State> {
 	constructor(args?: CherryPickGitCommandArgs) {
-		super('cherry-pick', 'cherry-pick', 'Cherry Pick', { description: 'via Terminal' });
+		super('cherry-pick', 'cherry-pick', 'Cherry Pick', {
+			description: 'integrates changes from specified commits into the current branch'
+		});
 
 		if (args == null || args.state === undefined) return;
 

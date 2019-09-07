@@ -28,7 +28,7 @@ export interface ResetGitCommandArgs {
 
 export class ResetGitCommand extends QuickCommandBase<State> {
 	constructor(args?: ResetGitCommandArgs) {
-		super('reset', 'reset', 'Reset', { description: 'via Terminal' });
+		super('reset', 'reset', 'Reset', { description: 'resets the current branch to a specified commit' });
 
 		if (args == null || args.state === undefined) return;
 

@@ -28,7 +28,9 @@ export interface RevertGitCommandArgs {
 
 export class RevertGitCommand extends QuickCommandBase<State> {
 	constructor(args?: RevertGitCommandArgs) {
-		super('revert', 'revert', 'Revert', { description: 'via Terminal' });
+		super('revert', 'revert', 'Revert', {
+			description: 'undoes the changes of specified commits, by creating new commits with inverted changes'
+		});
 
 		if (args == null || args.state === undefined) return;
 

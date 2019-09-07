@@ -31,7 +31,9 @@ export interface SwitchGitCommandArgs {
 
 export class SwitchGitCommand extends QuickCommandBase<State> {
 	constructor(args?: SwitchGitCommandArgs) {
-		super('switch', 'switch', 'Switch');
+		super('switch', 'switch', 'Switch', {
+			description: 'aka checkout, switches the current branch to a specified branch'
+		});
 
 		if (args == null || args.state === undefined) return;
 

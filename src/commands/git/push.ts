@@ -21,7 +21,9 @@ export interface PushGitCommandArgs {
 
 export class PushGitCommand extends QuickCommandBase<State> {
 	constructor(args?: PushGitCommandArgs) {
-		super('push', 'push', 'Push');
+		super('push', 'push', 'Push', {
+			description: 'pushes changes from the current branch to a remote'
+		});
 
 		if (args == null || args.state === undefined) return;
 
