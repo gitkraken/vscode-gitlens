@@ -6,12 +6,11 @@ import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { ActiveEditorCommand, command, CommandContext, Commands, getCommandUri, openEditor } from './common';
 import { DiffWithCommandArgs } from './diffWith';
-import { UriComparer } from '../comparers';
 
 export interface DiffWithPreviousCommandArgs {
 	commit?: GitCommit;
 
-	inDiffEditor?: boolean;
+	inDiffRightEditor?: boolean;
 	line?: number;
 	showOptions?: TextDocumentShowOptions;
 }
@@ -19,23 +18,12 @@ export interface DiffWithPreviousCommandArgs {
 @command()
 export class DiffWithPreviousCommand extends ActiveEditorCommand {
 	constructor() {
-		super([Commands.DiffWithPrevious, Commands.DiffWithPreviousInDiff]);
+		super([Commands.DiffWithPrevious, Commands.DiffWithPreviousInDiffRight]);
 	}
 
 	protected preExecute(context: CommandContext, args: DiffWithPreviousCommandArgs = {}) {
-		if (
-			context.command === Commands.DiffWithPreviousInDiff
-			// || (context.editor !== undefined && context.editor.viewColumn === undefined)
-		) {
-			// HACK: If in a diff, try to determine if we are on the right or left side
-			// If there is a context uri and it doesn't match the editor uri, assume we are on the left
-			// If on the left, use the editor uri and pretend we aren't in a diff
-			if (context.uri !== undefined && context.editor !== undefined && context.editor.document !== undefined) {
-				if (!UriComparer.equals(context.uri, context.editor.document.uri, { exact: true })) {
-					return this.execute(context.editor, context.editor.document.uri, args);
-				}
-			}
-			args.inDiffEditor = true;
+		if (context.command === Commands.DiffWithPreviousInDiffRight) {
+			args.inDiffRightEditor = true;
 		}
 
 		return this.execute(context.editor, context.uri, args);
@@ -79,8 +67,8 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 				gitUri.repoPath!,
 				gitUri,
 				gitUri.sha,
-				// If we are in a diff editor, assume we are on the right side, and need to skip back 1 more revisions
-				args.inDiffEditor ? 1 : 0
+				// If we are in the right-side of the diff editor, we need to skip back 1 more revision
+				args.inDiffRightEditor ? 1 : 0
 			);
 
 			if (diffUris === undefined || diffUris.previous === undefined) {

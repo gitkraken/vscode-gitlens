@@ -2054,16 +2054,18 @@
 				"icon": {
 					"dark": "images/dark/icon-next-commit.svg",
 					"light": "images/light/icon-next-commit.svg"
-				}
+				},
+				"enablement": "gitlens:activeFileStatus =~ /revision/"
 			},
 			{
-				"command": "gitlens.diffWithNextInDiff",
+				"command": "gitlens.diffWithNextInDiffLeft",
 				"title": "Open Changes with Next Revision",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-next-commit.svg",
 					"light": "images/light/icon-next-commit.svg"
-				}
+				},
+				"enablement": "gitlens:activeFileStatus =~ /revision/"
 			},
 			{
 				"command": "gitlens.diffWithPrevious",
@@ -2075,7 +2077,7 @@
 				}
 			},
 			{
-				"command": "gitlens.diffWithPreviousInDiff",
+				"command": "gitlens.diffWithPreviousInDiffRight",
 				"title": "Open Changes with Previous Revision",
 				"category": "GitLens",
 				"icon": {
@@ -2099,15 +2101,6 @@
 			},
 			{
 				"command": "gitlens.diffWithWorking",
-				"title": "Open Changes with Working File",
-				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-compare-ref-working.svg",
-					"light": "images/light/icon-compare-ref-working.svg"
-				}
-			},
-			{
-				"command": "gitlens.diffWithWorkingInDiff",
 				"title": "Open Changes with Working File",
 				"category": "GitLens",
 				"icon": {
@@ -2241,7 +2234,8 @@
 				"icon": {
 					"dark": "images/dark/icon-commit.svg",
 					"light": "images/light/icon-commit.svg"
-				}
+				},
+				"enablement": "gitlens:activeFileStatus =~ /revision/ && resourceScheme != git"
 			},
 			{
 				"command": "gitlens.showQuickFileHistory",
@@ -2367,11 +2361,12 @@
 				"icon": {
 					"dark": "images/dark/icon-open-revision.svg",
 					"light": "images/light/icon-open-revision.svg"
-				}
+				},
+				"enablement": "gitlens:activeFileStatus =~ /revision/ && resourceScheme != git"
 			},
 			{
 				"command": "gitlens.openWorkingFile",
-				"title": "Open Working File",
+				"title": "Open File",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-open-working-file.svg",
@@ -2445,7 +2440,8 @@
 				"icon": {
 					"dark": "images/dark/icon-open-folder.svg",
 					"light": "images/light/icon-open-folder.svg"
-				}
+				},
+				"enablement": "gitlens:activeFileStatus =~ /revision/ && resourceScheme != git"
 			},
 			{
 				"command": "gitlens.views.exploreRepoAtRevision",
@@ -3291,19 +3287,27 @@
 				},
 				{
 					"command": "gitlens.diffWithNext",
-					"when": "!isInDiffEditor && gitlens:activeFileStatus =~ /revision/"
+					"when": "gitlens:activeFileStatus =~ /revision/ && !isInDiffEditor"
 				},
 				{
-					"command": "gitlens.diffWithNextInDiff",
-					"when": "isInDiffEditor && gitlens:activeFileStatus =~ /revision/"
+					"command": "gitlens.diffWithNext",
+					"when": "gitlens:activeFileStatus =~ /revision/ && isInDiffRightEditor"
+				},
+				{
+					"command": "gitlens.diffWithNextInDiffLeft",
+					"when": "gitlens:activeFileStatus =~ /revision/ && isInDiffLeftEditor"
 				},
 				{
 					"command": "gitlens.diffWithPrevious",
-					"when": "!isInDiffEditor && gitlens:activeFileStatus =~ /tracked/"
+					"when": "gitlens:activeFileStatus =~ /tracked/ && !isInDiffEditor"
 				},
 				{
-					"command": "gitlens.diffWithPreviousInDiff",
-					"when": "isInDiffEditor && gitlens:activeFileStatus =~ /tracked/"
+					"command": "gitlens.diffWithPrevious",
+					"when": "gitlens:activeFileStatus =~ /tracked/ && isInDiffLeftEditor"
+				},
+				{
+					"command": "gitlens.diffWithPreviousInDiffRight",
+					"when": "gitlens:activeFileStatus =~ /tracked/ && isInDiffRightEditor"
 				},
 				{
 					"command": "gitlens.diffLineWithPrevious",
@@ -3315,11 +3319,7 @@
 				},
 				{
 					"command": "gitlens.diffWithWorking",
-					"when": "!isInDiffEditor && gitlens:activeFileStatus =~ /revision/"
-				},
-				{
-					"command": "gitlens.diffWithWorkingInDiff",
-					"when": "isInDiffEditor && gitlens:activeFileStatus =~ /revision/"
+					"when": "gitlens:activeFileStatus =~ /revision/"
 				},
 				{
 					"command": "gitlens.diffLineWithWorking",
@@ -4013,65 +4013,66 @@
 			],
 			"editor/title": [
 				{
+					"command": "gitlens.exploreRepoAtRevision",
+					"when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme =~ /^(?!(file|git)$).*$/",
+					"group": "navigation@-100"
+				},
+				{
 					"command": "gitlens.diffWithWorking",
-					"when": "!isInDiffEditor && gitlens:activeFileStatus =~ /revision/ && resourceScheme != file && resourceScheme != git",
-					"group": "navigation@0"
+					"when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme =~ /^(?!(file|git)$).*$/",
+					"group": "navigation@-99"
 				},
 				{
-					"command": "gitlens.diffWithWorkingInDiff",
-					"when": "isInDiffEditor && gitlens:activeFileStatus =~ /revision/ && resourceScheme != file && resourceScheme != git",
-					"group": "navigation@0"
-				},
-				{
-					"command": "gitlens.openWorkingFile",
-					"when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme != file && resourceScheme != git",
-					"group": "navigation@1"
+					"command": "gitlens.openRevisionFile",
+					"when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme =~ /^(?!(file|git)$).*$/ && isInDiffEditor",
+					"group": "navigation@-98"
 				},
 				{
 					"command": "gitlens.openWorkingFile",
-					"when": "!gitlens:activeFileStatus =~ /revision/ && resourceScheme != file && resourceScheme != git && isInDiffEditor",
-					"group": "navigation@1"
+					"when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme =~ /^(?!(file|git)$).*$/",
+					"group": "navigation@-97"
 				},
 				{
 					"command": "gitlens.openWorkingFile",
 					"when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme == git && !isInDiffEditor",
-					"group": "navigation@1"
-				},
-				{
-					"command": "gitlens.openRevisionFile",
-					"when": "gitlens:activeFileStatus =~ /revision/ && isInDiffEditor",
-					"group": "navigation@2"
-				},
-				{
-					"command": "gitlens.exploreRepoAtRevision",
-					"when": "gitlens:activeFileStatus =~ /revision/",
-					"group": "navigation@3"
+					"group": "navigation@-97"
 				},
 				{
 					"command": "gitlens.diffWithPrevious",
 					"alt": "gitlens.diffWithRevision",
-					"when": "!isInDiffEditor && gitlens:activeFileStatus =~ /tracked/ && config.gitlens.menus.editorGroup.compare",
+					"when": "gitlens:activeFileStatus =~ /tracked/ && config.gitlens.menus.editorGroup.compare && !isInDiffEditor",
 					"group": "navigation@97"
 				},
 				{
-					"command": "gitlens.diffWithPreviousInDiff",
+					"command": "gitlens.diffWithPrevious",
 					"alt": "gitlens.diffWithRevision",
-					"when": "isInDiffEditor && gitlens:activeFileStatus =~ /tracked/ && config.gitlens.menus.editorGroup.compare",
+					"when": "gitlens:activeFileStatus =~ /tracked/ && config.gitlens.menus.editorGroup.compare && isInDiffLeftEditor",
+					"group": "navigation@97"
+				},
+				{
+					"command": "gitlens.diffWithPreviousInDiffRight",
+					"alt": "gitlens.diffWithRevision",
+					"when": "gitlens:activeFileStatus =~ /tracked/ && config.gitlens.menus.editorGroup.compare && isInDiffRightEditor",
 					"group": "navigation@97"
 				},
 				{
 					"command": "gitlens.showQuickRevisionDetails",
-					"when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme != git && config.gitlens.menus.editorGroup.compare",
+					"when": "gitlens:activeFileStatus =~ /tracked/ && config.gitlens.menus.editorGroup.compare",
 					"group": "navigation@98"
 				},
 				{
 					"command": "gitlens.diffWithNext",
-					"when": "!isInDiffEditor && gitlens:activeFileStatus =~ /revision/ && config.gitlens.menus.editorGroup.compare",
+					"when": "gitlens:activeFileStatus =~ /tracked/ && config.gitlens.menus.editorGroup.compare && !isInDiffEditor",
 					"group": "navigation@99"
 				},
 				{
-					"command": "gitlens.diffWithNextInDiff",
-					"when": "isInDiffEditor && gitlens:activeFileStatus =~ /revision/ && config.gitlens.menus.editorGroup.compare",
+					"command": "gitlens.diffWithNext",
+					"when": "gitlens:activeFileStatus =~ /tracked/ && config.gitlens.menus.editorGroup.compare && isInDiffRightEditor",
+					"group": "navigation@99"
+				},
+				{
+					"command": "gitlens.diffWithNextInDiffLeft",
+					"when": "gitlens:activeFileStatus =~ /tracked/ && config.gitlens.menus.editorGroup.compare && isInDiffLeftEditor",
 					"group": "navigation@99"
 				},
 				{
@@ -5315,22 +5316,32 @@
 			{
 				"command": "gitlens.diffWithNext",
 				"key": "alt+.",
-				"when": "config.gitlens.keymap == alternate && editorTextFocus && !isInDiffEditor && gitlens:activeFileStatus =~ /revision/"
+				"when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:activeFileStatus =~ /revision/ && !isInDiffEditor"
 			},
 			{
-				"command": "gitlens.diffWithNextInDiff",
+				"command": "gitlens.diffWithNext",
 				"key": "alt+.",
-				"when": "config.gitlens.keymap == alternate && isInDiffEditor && gitlens:activeFileStatus =~ /revision/"
+				"when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:activeFileStatus =~ /revision/ && isInDiffRightEditor"
+			},
+			{
+				"command": "gitlens.diffWithNextInDiffLeft",
+				"key": "alt+.",
+				"when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:activeFileStatus =~ /revision/ && isInDiffLeftEditor"
 			},
 			{
 				"command": "gitlens.diffWithPrevious",
 				"key": "alt+,",
-				"when": "config.gitlens.keymap == alternate && editorTextFocus && !isInDiffEditor && gitlens:activeFileStatus =~ /tracked/"
+				"when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:activeFileStatus =~ /tracked/ && !isInDiffEditor"
 			},
 			{
-				"command": "gitlens.diffWithPreviousInDiff",
+				"command": "gitlens.diffWithPrevious",
 				"key": "alt+,",
-				"when": "config.gitlens.keymap == alternate && isInDiffEditor && gitlens:activeFileStatus =~ /tracked/"
+				"when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:activeFileStatus =~ /tracked/ && isInDiffLeftEditor"
+			},
+			{
+				"command": "gitlens.diffWithPreviousInDiffRight",
+				"key": "alt+,",
+				"when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:activeFileStatus =~ /tracked/ && isInDiffRightEditor"
 			},
 			{
 				"command": "gitlens.diffLineWithPrevious",
@@ -5340,12 +5351,7 @@
 			{
 				"command": "gitlens.diffWithWorking",
 				"key": "shift+alt+.",
-				"when": "config.gitlens.keymap == alternate && editorTextFocus && !isInDiffEditor && gitlens:activeFileStatus =~ /revision/"
-			},
-			{
-				"command": "gitlens.diffWithWorkingInDiff",
-				"key": "shift+alt+.",
-				"when": "config.gitlens.keymap == alternate && isInDiffEditor && gitlens:activeFileStatus =~ /revision/"
+				"when": "config.gitlens.keymap == alternate && editorTextFocus && gitlens:activeFileStatus =~ /revision/"
 			},
 			{
 				"command": "gitlens.diffLineWithWorking",
@@ -5404,25 +5410,37 @@
 				"command": "gitlens.diffWithNext",
 				"key": "ctrl+shift+g .",
 				"mac": "cmd+alt+g .",
-				"when": "config.gitlens.keymap == chorded && editorTextFocus && !isInDiffEditor && gitlens:activeFileStatus =~ /revision/"
+				"when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:activeFileStatus =~ /revision/ && !isInDiffEditor"
 			},
 			{
-				"command": "gitlens.diffWithNextInDiff",
+				"command": "gitlens.diffWithNext",
 				"key": "ctrl+shift+g .",
 				"mac": "cmd+alt+g .",
-				"when": "config.gitlens.keymap == chorded && isInDiffEditor && gitlens:activeFileStatus =~ /revision/"
+				"when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:activeFileStatus =~ /revision/ && isInDiffRightEditor"
+			},
+			{
+				"command": "gitlens.diffWithNextInDiffLeft",
+				"key": "ctrl+shift+g .",
+				"mac": "cmd+alt+g .",
+				"when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:activeFileStatus =~ /revision/ && isInDiffLeftEditor"
 			},
 			{
 				"command": "gitlens.diffWithPrevious",
 				"key": "ctrl+shift+g ,",
 				"mac": "cmd+alt+g ,",
-				"when": "config.gitlens.keymap == chorded && editorTextFocus && !isInDiffEditor && gitlens:activeFileStatus =~ /tracked/"
+				"when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:activeFileStatus =~ /tracked/ && !isInDiffEditor"
 			},
 			{
-				"command": "gitlens.diffWithPreviousInDiff",
+				"command": "gitlens.diffWithPrevious",
 				"key": "ctrl+shift+g ,",
 				"mac": "cmd+alt+g ,",
-				"when": "config.gitlens.keymap == chorded && isInDiffEditor && gitlens:activeFileStatus =~ /tracked/"
+				"when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:activeFileStatus =~ /tracked/ && isInDiffLeftEditor"
+			},
+			{
+				"command": "gitlens.diffWithPreviousInDiffRight",
+				"key": "ctrl+shift+g ,",
+				"mac": "cmd+alt+g ,",
+				"when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:activeFileStatus =~ /tracked/ && isInDiffRightEditor"
 			},
 			{
 				"command": "gitlens.diffLineWithPrevious",
@@ -5434,13 +5452,7 @@
 				"command": "gitlens.diffWithWorking",
 				"key": "ctrl+shift+g shift+.",
 				"mac": "cmd+alt+g shift+.",
-				"when": "config.gitlens.keymap == chorded && editorTextFocus && !isInDiffEditor && gitlens:activeFileStatus =~ /revision/"
-			},
-			{
-				"command": "gitlens.diffWithWorkingInDiff",
-				"key": "ctrl+shift+g shift+.",
-				"mac": "cmd+alt+g shift+.",
-				"when": "config.gitlens.keymap == chorded && isInDiffEditor && gitlens:activeFileStatus =~ /revision/"
+				"when": "config.gitlens.keymap == chorded && editorTextFocus && gitlens:activeFileStatus =~ /revision/"
 			},
 			{
 				"command": "gitlens.diffLineWithWorking",

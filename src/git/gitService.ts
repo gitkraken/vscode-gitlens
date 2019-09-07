@@ -1744,7 +1744,8 @@ export class GitService implements Disposable {
 	async getNextDiffUris(
 		repoPath: string,
 		uri: Uri,
-		ref: string | undefined
+		ref: string | undefined,
+		skip: number = 0
 	): Promise<{ current: GitUri; next: GitUri | undefined; deleted?: boolean } | undefined> {
 		// If we have no ref (or staged ref) there is no next commit
 		if (ref === undefined || ref.length === 0) return undefined;
@@ -1758,7 +1759,7 @@ export class GitService implements Disposable {
 			};
 		}
 
-		const next = await this.getNextUri(repoPath, uri, ref);
+		const next = await this.getNextUri(repoPath, uri, ref, skip);
 		if (next === undefined) {
 			const status = await this.getStatusForFile(repoPath, fileName);
 			if (status !== undefined) {
@@ -1778,7 +1779,10 @@ export class GitService implements Disposable {
 		}
 
 		return {
-			current: GitUri.fromFile(fileName, repoPath, ref),
+			current:
+				skip === 0
+					? GitUri.fromFile(fileName, repoPath, ref)
+					: (await this.getNextUri(repoPath, uri, ref, skip - 1))!,
 			next: next
 		};
 	}
@@ -1924,6 +1928,8 @@ export class GitService implements Disposable {
 
 		let fileName = GitUri.relativeTo(uri, repoPath);
 
+		let previous;
+
 		// If we are at the working tree (i.e. no ref), we need to dig deeper to figure out where to go
 		if (ref === undefined || ref.length === 0) {
 			// First, check the blame on the current line to see if there are any working/staged changes
@@ -1984,29 +1990,38 @@ export class GitService implements Disposable {
 				fileName = blameLine.commit.fileName || blameLine.commit.originalFileName || fileName;
 				uri = GitUri.resolveToUri(fileName, repoPath);
 				editorLine = blameLine.line.originalLine - 1;
+
+				if (skip === 0 && blameLine.commit.previousSha) {
+					previous = GitUri.fromFile(fileName, repoPath, blameLine.commit.previousSha);
+				}
+			}
+		} else {
+			if (GitService.isUncommittedStaged(ref)) {
+				const current =
+					skip === 0
+						? GitUri.fromFile(fileName, repoPath, ref)
+						: (await this.getPreviousUri(repoPath, uri, undefined, skip - 1, editorLine))!;
+				if (current.sha === GitService.deletedOrMissingSha) return undefined;
+
+				return {
+					current: current,
+					previous: await this.getPreviousUri(repoPath, uri, undefined, skip, editorLine)
+				};
 			}
 
-			const current =
-				skip === 0
-					? GitUri.fromFile(fileName, repoPath, ref)
-					: (await this.getPreviousUri(repoPath, uri, ref, skip - 1, editorLine))!;
-			if (current.sha === GitService.deletedOrMissingSha) return undefined;
+			const gitUri = new GitUri(uri, { repoPath: repoPath, sha: ref });
+			const blameLine = await this.getBlameForLine(gitUri, editorLine);
+			if (blameLine === undefined) return undefined;
 
-			return {
-				current: current,
-				previous: await this.getPreviousUri(repoPath, uri, ref, skip, editorLine)
-			};
-		} else if (GitService.isUncommittedStaged(ref)) {
-			const current =
-				skip === 0
-					? GitUri.fromFile(fileName, repoPath, ref)
-					: (await this.getPreviousUri(repoPath, uri, undefined, skip - 1, editorLine))!;
-			if (current.sha === GitService.deletedOrMissingSha) return undefined;
+			// Diff with line ref with previous
+			ref = blameLine.commit.sha;
+			fileName = blameLine.commit.fileName || blameLine.commit.originalFileName || fileName;
+			uri = GitUri.resolveToUri(fileName, repoPath);
+			editorLine = blameLine.line.originalLine - 1;
 
-			return {
-				current: current,
-				previous: await this.getPreviousUri(repoPath, uri, undefined, skip, editorLine)
-			};
+			if (skip === 0 && blameLine.commit.previousSha) {
+				previous = GitUri.fromFile(fileName, repoPath, blameLine.commit.previousSha);
+			}
 		}
 
 		const current =
@@ -2017,7 +2032,7 @@ export class GitService implements Disposable {
 
 		return {
 			current: current,
-			previous: await this.getPreviousUri(repoPath, uri, ref, skip, editorLine)
+			previous: previous || (await this.getPreviousUri(repoPath, uri, ref, skip, editorLine))
 		};
 	}
 

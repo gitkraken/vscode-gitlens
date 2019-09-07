@@ -6,12 +6,12 @@ import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { ActiveEditorCommand, command, CommandContext, Commands, getCommandUri } from './common';
 import { DiffWithCommandArgs } from './diffWith';
-import { UriComparer } from '../comparers';
 
 export interface DiffWithNextCommandArgs {
 	commit?: GitLogCommit;
 	range?: Range;
 
+	inDiffLeftEditor?: boolean;
 	line?: number;
 	showOptions?: TextDocumentShowOptions;
 }
@@ -19,22 +19,12 @@ export interface DiffWithNextCommandArgs {
 @command()
 export class DiffWithNextCommand extends ActiveEditorCommand {
 	constructor() {
-		super([Commands.DiffWithNext, Commands.DiffWithNextInDiff]);
+		super([Commands.DiffWithNext, Commands.DiffWithNextInDiffLeft]);
 	}
 
 	protected preExecute(context: CommandContext, args: DiffWithNextCommandArgs = {}) {
-		if (
-			context.command === Commands.DiffWithNextInDiff
-			// || (context.editor !== undefined && context.editor.viewColumn === undefined)
-		) {
-			// HACK: If in a diff, try to determine if we are on the right or left side
-			// If there is a context uri and it doesn't match the editor uri, assume we are on the left
-			// If on the left, use the editor uri and pretend we aren't in a diff
-			if (context.uri !== undefined && context.editor !== undefined && context.editor.document !== undefined) {
-				if (!UriComparer.equals(context.uri, context.editor.document.uri, { exact: true })) {
-					return this.execute(context.editor, context.editor.document.uri, args);
-				}
-			}
+		if (context.command === Commands.DiffWithNextInDiffLeft) {
+			args.inDiffLeftEditor = true;
 		}
 
 		return this.execute(context.editor, context.uri, args);
@@ -51,7 +41,13 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 
 		const gitUri = args.commit !== undefined ? GitUri.fromCommit(args.commit) : await GitUri.fromUri(uri);
 		try {
-			const diffUris = await Container.git.getNextDiffUris(gitUri.repoPath!, gitUri, gitUri.sha);
+			const diffUris = await Container.git.getNextDiffUris(
+				gitUri.repoPath!,
+				gitUri,
+				gitUri.sha,
+				// If we are in the left-side of the diff editor, we need to skip forward 1 more revision
+				args.inDiffLeftEditor ? 1 : 0
+			);
 
 			if (diffUris === undefined || diffUris.next === undefined) return undefined;
 
