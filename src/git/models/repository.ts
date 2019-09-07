@@ -1,5 +1,4 @@
 'use strict';
-import * as fs from 'fs';
 import * as paths from 'path';
 import {
 	commands,
@@ -325,9 +324,12 @@ export class Repository implements Disposable {
 		const hasRemotes = await this.hasRemotes();
 		if (!hasRemotes || Container.vsls.isMaybeGuest) return 0;
 
-		return new Promise<number>((resolve, reject) =>
-			fs.stat(paths.join(this.path, '.git/FETCH_HEAD'), (err, stat) => resolve(err ? 0 : stat.mtime.getTime()))
-		);
+		try {
+			const stat = await workspace.fs.stat(Uri.file(paths.join(this.path, '.git/FETCH_HEAD')));
+			return stat.mtime;
+		} catch {
+			return 0;
+		}
 	}
 
 	getRemotes(options: { sort?: boolean } = {}): Promise<GitRemote[]> {
