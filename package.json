@@ -2440,7 +2440,7 @@
 			},
 			{
 				"command": "gitlens.exploreRepoAtRevision",
-				"title": "Explore Repository from Here",
+				"title": "Explore Repository from Revision",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-open-folder.svg",
@@ -2449,7 +2449,7 @@
 			},
 			{
 				"command": "gitlens.views.exploreRepoAtRevision",
-				"title": "Explore Repository from Here",
+				"title": "Explore Repository from Revision",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-open-folder.svg",
