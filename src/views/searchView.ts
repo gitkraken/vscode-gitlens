@@ -3,7 +3,7 @@ import { commands, ConfigurationChangeEvent } from 'vscode';
 import { configuration, SearchViewConfig, ViewFilesLayout, ViewsConfig } from '../configuration';
 import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
-import { GitLog, GitRepoSearchBy } from '../git/gitService';
+import { GitLog } from '../git/gitService';
 import { Functions, Strings } from '../system';
 import { nodeSupportsConditionalDismissal, SearchNode, SearchResultsCommitsNode, ViewNode } from './nodes';
 import { ViewBase } from './viewBase';
@@ -105,25 +105,31 @@ export class SearchView extends ViewBase<SearchNode> {
 
 	async search(
 		repoPath: string,
-		search: string,
-		searchBy: GitRepoSearchBy,
-		options: {
-			maxCount?: number;
+		search: {
+			pattern: string;
+			matchAll?: boolean;
+			matchCase?: boolean;
+			matchRegex?: boolean;
+		},
+		{
+			label,
+			...options
+		}: {
 			label:
 				| string
 				| {
 						label: string;
 						resultsType?: { singular: string; plural: string };
 				  };
-		}
+			maxCount?: number;
+		},
+		results?: Promise<GitLog | undefined> | GitLog
 	) {
 		await this.show();
 
 		const searchQueryFn = this.getSearchQueryFn(
-			Container.git.getLogForSearch(repoPath, search, searchBy, {
-				maxCount: options.maxCount
-			}),
-			options
+			results || Container.git.getLogForSearch(repoPath, search, options),
+			{ label: label }
 		);
 
 		return this.addResults(
@@ -132,8 +138,7 @@ export class SearchView extends ViewBase<SearchNode> {
 				this._root!,
 				repoPath,
 				search,
-				searchBy,
-				`results for ${typeof options.label === 'string' ? options.label : options.label.label}`,
+				`${typeof label === 'string' ? label : label.label}`,
 				searchQueryFn
 			)
 		);
@@ -141,27 +146,33 @@ export class SearchView extends ViewBase<SearchNode> {
 
 	showSearchResults(
 		repoPath: string,
-		search: string,
-		searchBy: GitRepoSearchBy,
+		search: {
+			pattern: string;
+			matchAll?: boolean;
+			matchCase?: boolean;
+			matchRegex?: boolean;
+		},
 		results: GitLog,
-		options: {
+		{
+			label,
+			...options
+		}: {
 			label:
 				| string
 				| {
 						label: string;
 						resultsType?: { singular: string; plural: string };
 				  };
+			maxCount?: number;
 		}
 	) {
-		const label = this.getSearchLabel(options.label, results);
-		const searchQueryFn = Functions.cachedOnce(this.getSearchQueryFn(results, options), {
+		label = this.getSearchLabel(label, results);
+		const searchQueryFn = Functions.cachedOnce(this.getSearchQueryFn(results, { label: label, ...options }), {
 			label: label,
 			log: results
 		});
 
-		return this.addResults(
-			new SearchResultsCommitsNode(this, this._root!, repoPath, search, searchBy, label, searchQueryFn)
-		);
+		return this.addResults(new SearchResultsCommitsNode(this, this._root!, repoPath, search, label, searchQueryFn));
 	}
 
 	private addResults(results: ViewNode) {

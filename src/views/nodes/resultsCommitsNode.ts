@@ -44,14 +44,18 @@ export class ResultsCommitsNode extends ViewNode<ViewWithFiles> implements Pagea
 		const { log } = await this.getCommitsQueryResults();
 		if (log === undefined) return [];
 
+		const options = { expand: this._options.expand && log.count === 1 };
+
 		const getBranchAndTagTips = await Container.git.getBranchesAndTagsTipsFn(this.uri.repoPath);
 		const children = [
 			...insertDateMarkers(
 				Iterables.map(
 					log.commits.values(),
-					c => new CommitNode(this.view, this, c, undefined, getBranchAndTagTips)
+					c => new CommitNode(this.view, this, c, undefined, getBranchAndTagTips, options)
 				),
-				this
+				this,
+				undefined,
+				{ show: log.count > 1 }
 			)
 		];
 
@@ -78,7 +82,7 @@ export class ResultsCommitsNode extends ViewNode<ViewWithFiles> implements Pagea
 			state =
 				log == null || log.count === 0
 					? TreeItemCollapsibleState.None
-					: this._options.expand
+					: this._options.expand || log.count === 1
 					? TreeItemCollapsibleState.Expanded
 					: TreeItemCollapsibleState.Collapsed;
 		} catch (ex) {

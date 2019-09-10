@@ -2,7 +2,6 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { SearchCommitsCommandArgs } from '../../commands';
 import { GlyphChars } from '../../constants';
-import { GitRepoSearchBy } from '../../git/gitService';
 import { debug, gate, Iterables, log, Promises } from '../../system';
 import { View } from '../viewBase';
 import { CommandMessageNode, MessageNode } from './common';
@@ -22,9 +21,12 @@ export class SearchNode extends ViewNode {
 				command: 'gitlens.showCommitSearch'
 			};
 
-			const getCommandArgs = (searchBy: GitRepoSearchBy): SearchCommitsCommandArgs => {
+			const getCommandArgs = (
+				search: '' | 'author:' | 'change:' | 'commit:' | 'file:'
+			): SearchCommitsCommandArgs => {
 				return {
-					searchBy: searchBy
+					search: { pattern: search },
+					prefillOnly: true
 				};
 			};
 
@@ -34,55 +36,55 @@ export class SearchNode extends ViewNode {
 					this,
 					{
 						...command,
-						arguments: [this, getCommandArgs(GitRepoSearchBy.Message)]
+						arguments: [this, getCommandArgs('')]
 					},
-					'Search commits by message',
-					'message-pattern',
-					'Click to search commits by message'
+					'Search for commits with messages',
+					'pattern',
+					`Click to search for commits with matching messages ${GlyphChars.Dash} use quotes to search for phrases`
 				),
 				new CommandMessageNode(
 					this.view,
 					this,
 					{
 						...command,
-						arguments: [this, getCommandArgs(GitRepoSearchBy.Author)]
+						arguments: [this, getCommandArgs('author:')]
 					},
-					`${GlyphChars.Space.repeat(4)} or, by author`,
-					'@ author-pattern',
-					'Click to search commits by author'
+					`${GlyphChars.Space.repeat(4)} or, authors or committers`,
+					'author: pattern',
+					'Click to search for commits with matching authors or committers'
 				),
 				new CommandMessageNode(
 					this.view,
 					this,
 					{
 						...command,
-						arguments: [this, getCommandArgs(GitRepoSearchBy.Sha)]
+						arguments: [this, getCommandArgs('commit:')]
 					},
-					`${GlyphChars.Space.repeat(4)} or, by commit id`,
-					'# sha',
-					'Click to search commits by commit id'
+					`${GlyphChars.Space.repeat(4)} or, commit id`,
+					'commit: sha',
+					'Click to search for commits with matching commit id'
 				),
 				new CommandMessageNode(
 					this.view,
 					this,
 					{
 						...command,
-						arguments: [this, getCommandArgs(GitRepoSearchBy.Files)]
+						arguments: [this, getCommandArgs('file:')]
 					},
-					`${GlyphChars.Space.repeat(4)} or, by files`,
-					': file-path/glob',
-					'Click to search commits by files'
+					`${GlyphChars.Space.repeat(4)} or, files`,
+					'file: glob',
+					'Click to search for commits with matching files'
 				),
 				new CommandMessageNode(
 					this.view,
 					this,
 					{
 						...command,
-						arguments: [this, getCommandArgs(GitRepoSearchBy.Changes)]
+						arguments: [this, getCommandArgs('change:')]
 					},
-					`${GlyphChars.Space.repeat(4)} or, by changes`,
-					'~ pattern',
-					'Click to search commits by changes'
+					`${GlyphChars.Space.repeat(4)} or, changes`,
+					'change: pattern',
+					'Click to search for commits with matching changes'
 				)
 			];
 		}

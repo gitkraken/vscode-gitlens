@@ -11,6 +11,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds all-new iconography to better match VS Code's new visual style &mdash; thanks to John Letey ([@johnletey](https://github.com/johnletey)) and Jon Beaumont-Pike ([@jonbp](https://github.com/jonbp)) for their help!
 - Adds an all-new Welcome experience with a simple quick setup of common GitLens features &mdash; can be accessed via the _Welcome_ (`gitlens.showWelcomePage`) command
 - Adds a new and improved interactive Settings editor experience &mdash; can be accessed via the _Open Settings_ (`gitlens.showSettingsPage`) command
+- Adds an all-new commit search experience, via _Git Commands_ (`gitlens.gitCommands`) or _Search Commits_ (`gitlens.showCommitSearch`)
+  - Adds ability to match on more than one search pattern &mdash; closes [#410](https://github.com/eamodio/vscode-gitlens/issues/410)
+  - Adds case-\[in\]sensitive matching support &mdash; defaults to the new `gitlens.gitCommands.search.matchCase` setting
+  - Adds support for regular expression matching &mdash; defaults to the new `gitlens.gitCommands.search.matchRegex` setting
+  - Adds ability to match on all or any patterns when searching commit messages &mdash; defaults to the new `gitlens.gitCommands.search.matchAll` setting
 - Adds ability to sort branches and tags in quick pick menus and views &mdash; closes [#745](https://github.com/eamodio/vscode-gitlens/issues/745)
   - Adds a `gitlens.sortBranchesBy` setting to specify how branches are sorted in quick pick menus and views
   - Adds a `gitlens.sortTagsBy` setting to specify how tags are sorted in quick pick menus and views
@@ -23,11 +28,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
-- Improves the _Git Commands_ (`gitlens.gitCommands`) experience
+- Dramatically improves the _Git Commands_ (`gitlens.gitCommands`) experience
   - Adds a confirmation toggle (look for the checkmark icon in the upper right) to some of the Git commands
     - Saves to the new `gitCommands.skipConfirmations` setting to specify which (and when) Git commands will skip the confirmation step
   - Adds a new _reset_ Git command to reset current HEAD to a specified commit
   - Adds a new _revert_ Git command to revert specific commits
+  - Adds a new _search_ Git command to search for specific commits
   - Adds a new _stash_ Git command with sub-commands for _apply_, _drop_, _pop_, and _push_
   - Adds a new _Fetch All & Prune_ option to the _fetch_ Git command
   - Adds the last fetched on date to the confirmation step of the _fetch_ Git command (when a single repo is selected)

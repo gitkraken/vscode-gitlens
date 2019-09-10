@@ -14,9 +14,10 @@ const markers: [number, string][] = [
 export function* insertDateMarkers<T extends ViewNode & { commit: GitLogCommit }>(
 	iterable: Iterable<T>,
 	parent: ViewNode,
-	skip?: number
+	skip?: number,
+	{ show }: { show: boolean } = { show: true }
 ): Iterable<ViewNode> {
-	if (!parent.view.config.showRelativeDateMarkers) {
+	if (!parent.view.config.showRelativeDateMarkers || !show) {
 		return yield* iterable;
 	}
 

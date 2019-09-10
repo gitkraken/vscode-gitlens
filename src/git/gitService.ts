@@ -86,14 +86,9 @@ const RepoSearchWarnings = {
 
 const userConfigRegex = /^user\.(name|email) (.*)$/gm;
 const mappedAuthorRegex = /(.+)\s<(.+)>/;
-
-export enum GitRepoSearchBy {
-	Author = 'author',
-	Changes = 'changes',
-	Files = 'files',
-	Message = 'message',
-	Sha = 'sha'
-}
+const searchMessageOperationRegex = /(?=(.*?)\s?(?:(?:author:|commit:|file:|change:)|$))/;
+const searchMessageValuesRegex = /(?:^|\b)\s?(?:\s?"([^"]*)(?:"|$)|([^"\s]*))/g;
+const searchOperationRegex = /((?:author|commit|file|change):)\s?(?=(.*?)\s?(?:(?:author:|commit:|file:|change:)|$))/g;
 
 const emptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
 const reflogCommands = ['merge', 'pull'];
@@ -1429,68 +1424,86 @@ export class GitService implements Disposable {
 	@log()
 	async getLogForSearch(
 		repoPath: string,
-		search: string,
-		searchBy: GitRepoSearchBy,
+		search: {
+			pattern: string;
+			matchAll?: boolean;
+			matchCase?: boolean;
+			matchRegex?: boolean;
+		},
 		options: { maxCount?: number } = {}
 	): Promise<GitLog | undefined> {
-		let maxCount = options.maxCount == null ? Container.config.advanced.maxSearchItems || 0 : options.maxCount;
-		const similarityThreshold = Container.config.advanced.similarityThreshold;
-
-		let searchArgs: string[] | undefined = undefined;
-		switch (searchBy) {
-			case GitRepoSearchBy.Author:
-				searchArgs = [
-					'-m',
-					`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
-					'--all',
-					'--full-history',
-					'-E',
-					'-i',
-					`--author=${search}`
-				];
-				break;
-			case GitRepoSearchBy.Changes:
-				searchArgs = [
-					`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
-					'--all',
-					'--full-history',
-					'-E',
-					'-i',
-					`-G${search}`
-				];
-				break;
-			case GitRepoSearchBy.Files:
-				searchArgs = [
-					`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
-					'--all',
-					'--full-history',
-					'-E',
-					'-i',
-					'--',
-					`${search}`
-				];
-				break;
-			case GitRepoSearchBy.Message:
-				searchArgs = [
-					'-m',
-					`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
-					'--all',
-					'--full-history',
-					'-E',
-					'-i'
-				];
-				if (search) {
-					searchArgs.push(`--grep=${search}`);
-				}
-				break;
-			case GitRepoSearchBy.Sha:
-				searchArgs = ['-m', `-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`, search];
-				maxCount = 1;
-				break;
-		}
+		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
 
 		try {
-			const data = await Git.log__search(repoPath, searchArgs, { maxCount: maxCount });
+			let maxCount = options.maxCount == null ? Container.config.advanced.maxSearchItems || 0 : options.maxCount;
+			const similarityThreshold = Container.config.advanced.similarityThreshold;
+
+			const operations = GitService.parseSearchOperations(search.pattern);
+
+			const searchArgs = new Set<string>();
+			const files: string[] = [];
+
+			let op;
+			let values = operations.get('commit:');
+			if (values !== undefined) {
+				searchArgs.add('-m');
+				searchArgs.add(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`);
+				searchArgs.add(values[0]);
+				maxCount = 1;
+			} else {
+				searchArgs.add(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`);
+				searchArgs.add('--all');
+				searchArgs.add('--full-history');
+				searchArgs.add(search.matchRegex ? '--extended-regexp' : '--fixed-strings');
+				if (!search.matchCase) {
+					searchArgs.add('--regexp-ignore-case');
+				}
+
+				for ([op, values] of operations.entries()) {
+					switch (op) {
+						case 'author:':
+							searchArgs.add('-m');
+							for (const value of values) {
+								searchArgs.add(`--author=${value}`);
+								searchArgs.add(`--committer=${value}`);
+							}
+
+							break;
+
+						case 'change:':
+							for (const value of values) {
+								searchArgs.add(`-G=${value}`);
+							}
+
+							break;
+
+						case 'file:':
+							for (const value of values) {
+								files.push(value);
+							}
+
+							break;
+
+						case '':
+							searchArgs.add('-m');
+							if (search.matchAll) {
+								searchArgs.add('--all-match');
+							}
+							for (const value of values) {
+								searchArgs.add(`--grep=${value}`);
+							}
+
+							break;
+					}
+				}
+			}
+
+			const args = [...searchArgs.values(), '--'];
+			if (files.length !== 0) {
+				args.push(...files);
+			}
+
+			const data = await Git.log__search(repoPath, args, { maxCount: maxCount });
 			const log = GitLogParser.parse(
 				data,
 				GitCommitType.Log,
@@ -1504,9 +1517,8 @@ export class GitService implements Disposable {
 			);
 
 			if (log !== undefined) {
-				const opts = { ...options };
 				log.query = (maxCount: number | undefined) =>
-					this.getLogForSearch(repoPath, search, searchBy, { ...opts, maxCount: maxCount });
+					this.getLogForSearch(repoPath, search, { maxCount: maxCount });
 			}
 
 			return log;
@@ -2807,5 +2819,57 @@ export class GitService implements Disposable {
 		if (ref === GitService.deletedOrMissingSha) return '(deleted)';
 
 		return Git.shortenSha(ref, options);
+	}
+
+	static parseSearchOperations(search: string): Map<string, string[]> {
+		const operations = new Map<string, string[]>();
+
+		let op;
+		let value;
+
+		let match = searchMessageOperationRegex.exec(search);
+		if (match != null && match[1] !== '') {
+			const messageSearch = match[1];
+
+			let quoted;
+			let unquoted;
+			do {
+				match = searchMessageValuesRegex.exec(messageSearch);
+				if (match == null) break;
+
+				[, quoted, unquoted] = match;
+				if (!quoted && !unquoted) {
+					searchMessageValuesRegex.lastIndex = 0;
+					break;
+				}
+
+				let values = operations.get('');
+				if (values === undefined) {
+					values = [quoted || unquoted];
+					operations.set('', values);
+				} else {
+					values.push(quoted || unquoted);
+				}
+			} while (match != null);
+		}
+
+		do {
+			match = searchOperationRegex.exec(search);
+			if (match == null) break;
+
+			[, op, value] = match;
+
+			if (op !== undefined) {
+				let values = operations.get(op);
+				if (values === undefined) {
+					values = [value];
+					operations.set(op, values);
+				} else {
+					values.push(value);
+				}
+			}
+		} while (match != null);
+
+		return operations;
 	}
 }

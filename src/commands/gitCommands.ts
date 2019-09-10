@@ -19,6 +19,7 @@ import { PushGitCommand, PushGitCommandArgs } from './git/push';
 import { RebaseGitCommand, RebaseGitCommandArgs } from './git/rebase';
 import { ResetGitCommand, ResetGitCommandArgs } from './git/reset';
 import { RevertGitCommand, RevertGitCommandArgs } from './git/revert';
+import { SearchGitCommand, SearchGitCommandArgs } from './git/search';
 import { StashGitCommand, StashGitCommandArgs } from './git/stash';
 import { SwitchGitCommand, SwitchGitCommandArgs } from './git/switch';
 import { Container } from '../container';
@@ -35,58 +36,9 @@ export type GitCommandsCommandArgs =
 	| RebaseGitCommandArgs
 	| ResetGitCommandArgs
 	| RevertGitCommandArgs
+	| SearchGitCommandArgs
 	| StashGitCommandArgs
 	| SwitchGitCommandArgs;
-
-class PickCommandStep implements QuickPickStep {
-	readonly buttons = [];
-	readonly items: QuickCommandBase[];
-	readonly matchOnDescription = true;
-	readonly placeholder = 'Choose a git command';
-	readonly title = 'GitLens';
-
-	constructor(args?: GitCommandsCommandArgs) {
-		this.items = [
-			new CherryPickGitCommand(args && args.command === 'cherry-pick' ? args : undefined),
-			new MergeGitCommand(args && args.command === 'merge' ? args : undefined),
-			new FetchGitCommand(args && args.command === 'fetch' ? args : undefined),
-			new PullGitCommand(args && args.command === 'pull' ? args : undefined),
-			new PushGitCommand(args && args.command === 'push' ? args : undefined),
-			new RebaseGitCommand(args && args.command === 'rebase' ? args : undefined),
-			new ResetGitCommand(args && args.command === 'reset' ? args : undefined),
-			new RevertGitCommand(args && args.command === 'revert' ? args : undefined),
-			new StashGitCommand(args && args.command === 'stash' ? args : undefined),
-			new SwitchGitCommand(args && args.command === 'switch' ? args : undefined)
-		];
-	}
-
-	private _active: QuickCommandBase | undefined;
-	get command(): QuickCommandBase | undefined {
-		return this._active;
-	}
-
-	find(commandName: string, fuzzy: boolean = false) {
-		if (fuzzy) {
-			const cmd = commandName.toLowerCase();
-			return this.items.find(c => c.isMatch(cmd));
-		}
-
-		return this.items.find(c => c.key === commandName);
-	}
-
-	setCommand(value: QuickCommandBase | undefined, reason: 'menu' | 'command'): void {
-		if (this._active !== undefined) {
-			this._active.picked = false;
-		}
-
-		this._active = value;
-
-		if (this._active !== undefined) {
-			this._active.picked = true;
-			this._active.pickedVia = reason;
-		}
-	}
-}
 
 @command()
 export class GitCommandsCommand extends Command {
@@ -187,8 +139,7 @@ export class GitCommandsCommand extends Command {
 							return;
 						}
 
-						const step = commandsStep.command && commandsStep.command.value;
-						if (step !== undefined && isQuickInputStep(step) && step.onDidClickButton !== undefined) {
+						if (step.onDidClickButton !== undefined) {
 							step.onDidClickButton(input, e);
 							input.buttons = this.getButtons(step, commandsStep.command);
 						}
@@ -266,13 +217,17 @@ export class GitCommandsCommand extends Command {
 							return;
 						}
 
-						const step = commandsStep.command && commandsStep.command.value;
-						if (step !== undefined && isQuickPickStep(step) && step.onDidClickButton !== undefined) {
+						if (step.onDidClickButton !== undefined) {
 							step.onDidClickButton(quickpick, e);
 							quickpick.buttons = this.getButtons(step, commandsStep.command);
 						}
 					}),
 					quickpick.onDidChangeValue(async e => {
+						if (step.onDidChangeValue !== undefined) {
+							const cancel = await step.onDidChangeValue(quickpick);
+							if (cancel) return;
+						}
+
 						if (!overrideItems) {
 							if (quickpick.canSelectMany && e === ' ') {
 								quickpick.value = '';
@@ -294,9 +249,6 @@ export class GitCommandsCommand extends Command {
 
 									commandsStep.setCommand(command, this._pickedVia);
 								} else {
-									const step = commandsStep.command.value;
-									if (step === undefined || !isQuickPickStep(step)) return;
-
 									const cmd = quickpick.value.trim().toLowerCase();
 									const item = step.items.find(
 										i => i.label.replace(sanitizeLabel, '').toLowerCase() === cmd
@@ -319,10 +271,7 @@ export class GitCommandsCommand extends Command {
 							e.trim().length !== 0 &&
 							(overrideItems || quickpick.activeItems.length === 0)
 						) {
-							const step = commandsStep.command.value;
-							if (step === undefined || !isQuickPickStep(step) || step.onValidateValue === undefined) {
-								return;
-							}
+							if (step.onValidateValue === undefined) return;
 
 							overrideItems = await step.onValidateValue(quickpick, e.trim(), step.items);
 						} else {
@@ -362,10 +311,7 @@ export class GitCommandsCommand extends Command {
 								const value = quickpick.value.trim();
 								if (value.length === 0) return;
 
-								const step = commandsStep.command && commandsStep.command.value;
-								if (step === undefined || !isQuickPickStep(step) || step.onDidAccept === undefined) {
-									return;
-								}
+								if (step.onDidAccept === undefined) return;
 
 								quickpick.busy = true;
 
@@ -406,6 +352,20 @@ export class GitCommandsCommand extends Command {
 							commandsStep.setCommand(command, this._pickedVia);
 						}
 
+						if (!quickpick.canSelectMany) {
+							if (step.onDidAccept !== undefined) {
+								quickpick.busy = true;
+
+								const next = await step.onDidAccept(quickpick);
+
+								quickpick.busy = false;
+
+								if (!next) {
+									return;
+								}
+							}
+						}
+
 						resolve(await this.nextStep(quickpick, commandsStep.command!, items as QuickPickItem[]));
 					})
 				);
@@ -439,6 +399,11 @@ export class GitCommandsCommand extends Command {
 				}
 
 				quickpick.show();
+
+				// Call the step's change directly, because the quickpick doesn't seem to properly
+				if (step.value !== undefined && step.onDidChangeValue !== undefined) {
+					step.onDidChangeValue(quickpick);
+				}
 			});
 		} finally {
 			quickpick.dispose();
@@ -506,5 +471,56 @@ export class GitCommandsCommand extends Command {
 		void (await configuration.updateEffective('gitCommands', 'skipConfirmations', skipConfirmations));
 
 		input.buttons = this.getButtons(command.value, command);
+	}
+}
+
+class PickCommandStep implements QuickPickStep {
+	readonly buttons = [];
+	readonly items: QuickCommandBase[];
+	readonly matchOnDescription = true;
+	readonly placeholder = 'Choose a git command';
+	readonly title = 'GitLens';
+
+	constructor(args?: GitCommandsCommandArgs) {
+		this.items = [
+			new CherryPickGitCommand(args && args.command === 'cherry-pick' ? args : undefined),
+			new MergeGitCommand(args && args.command === 'merge' ? args : undefined),
+			new FetchGitCommand(args && args.command === 'fetch' ? args : undefined),
+			new PullGitCommand(args && args.command === 'pull' ? args : undefined),
+			new PushGitCommand(args && args.command === 'push' ? args : undefined),
+			new RebaseGitCommand(args && args.command === 'rebase' ? args : undefined),
+			new ResetGitCommand(args && args.command === 'reset' ? args : undefined),
+			new RevertGitCommand(args && args.command === 'revert' ? args : undefined),
+			new SearchGitCommand(args && args.command === 'search' ? args : undefined),
+			new StashGitCommand(args && args.command === 'stash' ? args : undefined),
+			new SwitchGitCommand(args && args.command === 'switch' ? args : undefined)
+		];
+	}
+
+	private _active: QuickCommandBase | undefined;
+	get command(): QuickCommandBase | undefined {
+		return this._active;
+	}
+
+	find(commandName: string, fuzzy: boolean = false) {
+		if (fuzzy) {
+			const cmd = commandName.toLowerCase();
+			return this.items.find(c => c.isMatch(cmd));
+		}
+
+		return this.items.find(c => c.key === commandName);
+	}
+
+	setCommand(value: QuickCommandBase | undefined, reason: 'menu' | 'command'): void {
+		if (this._active !== undefined) {
+			this._active.picked = false;
+		}
+
+		this._active = value;
+
+		if (this._active !== undefined) {
+			this._active.picked = true;
+			this._active.pickedVia = reason;
+		}
 	}
 }

@@ -487,6 +487,30 @@
 					"markdownDescription": "Specifies whether to dismiss the Git Commands menu when focus is lost (if not, press `ESC` to dismiss)",
 					"scope": "window"
 				},
+				"gitlens.gitCommands.search.matchAll": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "Specifies whether to match all or any commit message search patterns",
+					"scope": "window"
+				},
+				"gitlens.gitCommands.search.matchCase": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "Specifies whether to match commit search patterns with or without regard to casing",
+					"scope": "window"
+				},
+				"gitlens.gitCommands.search.matchRegex": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to match commit search patterns using regular expressions",
+					"scope": "window"
+				},
+				"gitlens.gitCommands.search.showInView": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to show the results of a commit search in the _Search Commits_ view or directly within the quick pick menu",
+					"scope": "window"
+				},
 				"gitlens.gitCommands.skipConfirmations": {
 					"type": "array",
 					"default": [

@@ -2,7 +2,7 @@
 import { commands, TextEditor, Uri } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitCommit, GitLog, GitLogCommit, GitRepoSearchBy, GitUri } from '../git/gitService';
+import { GitCommit, GitLog, GitLogCommit, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, CommitQuickPick, CommitWithFileStatusQuickPickItem } from '../quickpicks';
@@ -120,9 +120,13 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
 			}
 
 			if (args.showInView) {
-				void (await Container.searchView.search(repoPath!, args.commit.sha, GitRepoSearchBy.Sha, {
-					label: { label: `commits with an id matching '${args.commit.shortSha}'` }
-				}));
+				void (await Container.searchView.search(
+					repoPath!,
+					{ pattern: `commit: ${args.commit.sha}` },
+					{
+						label: { label: `commits matching: commit:${args.commit.shortSha}` }
+					}
+				));
 
 				return undefined;
 			}

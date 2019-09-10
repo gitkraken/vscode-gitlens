@@ -18,7 +18,8 @@ export class CommitNode extends ViewRefNode<ViewWithFiles> {
 		parent: ViewNode,
 		public readonly commit: GitLogCommit,
 		public readonly branch?: GitBranch,
-		private readonly getBranchAndTagTips?: (sha: string) => string | undefined
+		private readonly getBranchAndTagTips?: (sha: string) => string | undefined,
+		private readonly _options: { expand?: boolean } = {}
 	) {
 		super(commit.toGitUri(), view, parent);
 	}
@@ -62,7 +63,10 @@ export class CommitNode extends ViewRefNode<ViewWithFiles> {
 			truncateMessageAtNewLine: true
 		});
 
-		const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
+		const item = new TreeItem(
+			label,
+			this._options.expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed
+		);
 		item.contextValue = ResourceType.Commit;
 		if (this.branch !== undefined && this.branch.current) {
 			item.contextValue += '+current';

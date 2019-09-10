@@ -2,7 +2,6 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { SearchCommitsCommandArgs } from '../../commands';
 import { Commands } from '../../commands/common';
-import { GitRepoSearchBy } from '../../git/gitService';
 import { ViewWithFiles } from '../viewBase';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
 import { ResourceType, ViewNode } from './viewNode';
@@ -16,8 +15,12 @@ export class SearchResultsCommitsNode extends ResultsCommitsNode {
 		view: ViewWithFiles,
 		parent: ViewNode,
 		repoPath: string,
-		public readonly search: string,
-		public readonly searchBy: GitRepoSearchBy,
+		public readonly search: {
+			pattern: string;
+			matchAll?: boolean;
+			matchCase?: boolean;
+			matchRegex?: boolean;
+		},
 		label: string,
 		commitsQuery: (maxCount: number | undefined) => Promise<CommitsQueryResults>
 	) {
@@ -30,7 +33,11 @@ export class SearchResultsCommitsNode extends ResultsCommitsNode {
 	}
 
 	get id(): string {
-		return `gitlens:repository(${this.repoPath}):search(${this.searchBy}:${this.search}):commits|${this._instanceId}`;
+		return `gitlens:repository(${this.repoPath}):search(${this.search && this.search.pattern}|${
+			this.search && this.search.matchAll ? 'A' : ''
+		}${this.search && this.search.matchCase ? 'C' : ''}${
+			this.search && this.search.matchRegex ? 'R' : ''
+		}):commits|${this._instanceId}`;
 	}
 
 	get type(): ResourceType {
@@ -43,8 +50,8 @@ export class SearchResultsCommitsNode extends ResultsCommitsNode {
 		if (item.collapsibleState === TreeItemCollapsibleState.None) {
 			const args: SearchCommitsCommandArgs = {
 				search: this.search,
-				searchBy: this.searchBy,
-				prefillOnly: true
+				prefillOnly: true,
+				showInView: true
 			};
 			item.command = {
 				title: 'Search Commits',

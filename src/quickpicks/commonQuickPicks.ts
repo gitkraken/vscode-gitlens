@@ -3,7 +3,7 @@ import { CancellationTokenSource, commands, QuickPickItem, window } from 'vscode
 import { Commands } from '../commands';
 import { configuration } from '../configuration';
 import { Container } from '../container';
-import { GitLog, GitLogCommit, GitRepoSearchBy, GitUri } from '../git/gitService';
+import { GitLog, GitLogCommit, GitUri } from '../git/gitService';
 import { KeyMapping, Keys } from '../keyboard';
 import { ReferencesQuickPick, ReferencesQuickPickItem } from './referencesQuickPick';
 
@@ -109,16 +109,19 @@ export class ShowCommitInViewQuickPickItem extends CommandQuickPickItem {
 	}
 
 	async execute(): Promise<{} | undefined> {
-		return void (await Container.searchView.search(this.commit.repoPath, this.commit.sha, GitRepoSearchBy.Sha, {
-			label: { label: `commits with an id matching '${this.commit.shortSha}'` }
-		}));
+		return void (await Container.searchView.search(
+			this.commit.repoPath,
+			{ pattern: `commit:${this.commit.sha}` },
+			{
+				label: { label: `commits matching: commit:${this.commit.shortSha}` }
+			}
+		));
 	}
 }
 
 export class ShowCommitSearchResultsInViewQuickPickItem extends CommandQuickPickItem {
 	constructor(
-		public readonly search: string,
-		public readonly searchBy: GitRepoSearchBy,
+		public readonly search: { pattern: string; matchAll?: boolean; matchCase?: boolean; matchRegex?: boolean },
 		public readonly results: GitLog,
 		public readonly resultsLabel: string | { label: string; resultsType?: { singular: string; plural: string } },
 		item: QuickPickItem = {
@@ -130,7 +133,7 @@ export class ShowCommitSearchResultsInViewQuickPickItem extends CommandQuickPick
 	}
 
 	execute(): Promise<{} | undefined> {
-		Container.searchView.showSearchResults(this.results.repoPath, this.search, this.searchBy, this.results, {
+		Container.searchView.showSearchResults(this.results.repoPath, this.search, this.results, {
 			label: this.resultsLabel
 		});
 		return Promise.resolve(undefined);

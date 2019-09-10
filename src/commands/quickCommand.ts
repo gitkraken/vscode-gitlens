@@ -38,9 +38,10 @@ export interface QuickPickStep<T extends QuickPickItem = any> {
 	title?: string;
 	value?: string;
 
-	onDidAccept?(quickpick: QuickPick<T>): Promise<boolean>;
+	onDidAccept?(quickpick: QuickPick<T>): boolean | Promise<boolean>;
+	onDidChangeValue?(quickpick: QuickPick<T>): boolean | Promise<boolean>;
 	onDidClickButton?(quickpick: QuickPick<T>, button: QuickInputButton): void;
-	onValidateValue?(quickpick: QuickPick<T>, value: string, items: T[]): Promise<boolean>;
+	onValidateValue?(quickpick: QuickPick<T>, value: string, items: T[]): boolean | Promise<boolean>;
 	validate?(selection: T[]): boolean;
 }
 

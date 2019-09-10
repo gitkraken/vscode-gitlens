@@ -34,6 +34,12 @@ export interface Config {
 	defaultGravatarsStyle: GravatarDefaultStyle;
 	gitCommands: {
 		closeOnFocusOut: boolean;
+		search: {
+			matchAll: boolean;
+			matchCase: boolean;
+			matchRegex: boolean;
+			showInView: boolean;
+		};
 		skipConfirmations: string[];
 	};
 	heatmap: {
