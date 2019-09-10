@@ -83,6 +83,10 @@ export abstract class QuickCommandBase<TState = any> implements QuickPickItem {
 		this.detail = options.detail;
 	}
 
+	get canConfirm(): boolean {
+		return true;
+	}
+
 	get canSkipConfirm(): boolean {
 		return true;
 	}
@@ -106,12 +110,12 @@ export abstract class QuickCommandBase<TState = any> implements QuickPickItem {
 		this._pickedVia = value;
 	}
 
-	get skipConfirmKey(): string | undefined {
+	get skipConfirmKey(): string {
 		return `${this.key}:${this.pickedVia}`;
 	}
 
 	confirm(override?: boolean) {
-		if (!this.canSkipConfirm || this.skipConfirmKey === undefined) return true;
+		if (!this.canConfirm || !this.canSkipConfirm) return true;
 
 		return override !== undefined
 			? override

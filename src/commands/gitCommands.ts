@@ -461,9 +461,8 @@ export class GitCommandsCommand extends Command {
 			}
 		}
 
+		if (!command.canConfirm) return buttons;
 		if (command.canSkipConfirm) {
-			if (command.skipConfirmKey === undefined) return buttons;
-
 			buttons.push(
 				command.confirm() ? this.GitQuickInputButtons.WillConfirm : this.GitQuickInputButtons.WillSkipConfirm
 			);

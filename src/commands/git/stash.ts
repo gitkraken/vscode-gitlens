@@ -108,12 +108,16 @@ export class StashGitCommand extends QuickCommandBase<State> {
 		};
 	}
 
+	get canConfirm(): boolean {
+		return this._subcommand !== undefined;
+	}
+
 	get canSkipConfirm(): boolean {
 		return this._subcommand === 'drop' ? false : super.canSkipConfirm;
 	}
 
 	get skipConfirmKey() {
-		return this._subcommand === undefined ? undefined : `${this.key}-${this._subcommand}:${this.pickedVia}`;
+		return `${this.key}${this._subcommand === undefined ? '' : `-${this._subcommand}`}:${this.pickedVia}`;
 	}
 
 	protected async *steps(): StepAsyncGenerator {
