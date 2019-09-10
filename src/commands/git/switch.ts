@@ -166,12 +166,6 @@ export class SwitchGitCommand extends QuickCommandBase<State> {
 							quickpick.busy = false;
 							quickpick.enabled = true;
 						},
-						// onDidAccept: (quickpick): Promise<boolean> => {
-						//     const ref = quickpick.value.trim();
-						//     if (ref.length === 0 || state.repos!.length !== 1) return Promise.resolve(false);
-
-						//     return Container.git.validateReference(state.repos![0].path, ref);
-						// },
 						onValidateValue: getValidateGitReferenceFn(state.repos)
 					});
 					const selection: StepSelection<typeof step> = yield step;
