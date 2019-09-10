@@ -68,12 +68,12 @@ export class ViewCommands {
 		commands.registerCommand(
 			'gitlens.views.refreshNode',
 			(node: ViewNode, reset?: boolean) => {
-				if (reset === undefined && nodeSupportsPaging(node)) {
+				if (reset == null && nodeSupportsPaging(node)) {
 					node.maxCount = undefined;
 					node.view.resetNodeLastMaxCount(node);
 				}
 
-				return node.view.refreshNode(node, reset === undefined ? true : reset);
+				return node.view.refreshNode(node, reset == null ? true : reset);
 			},
 			this
 		);

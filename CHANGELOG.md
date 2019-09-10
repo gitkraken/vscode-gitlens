@@ -60,6 +60,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#847](https://github.com/eamodio/vscode-gitlens/issues/847) - Refresh button on Compare With Branch view is not working
 - Fixes [#842](https://github.com/eamodio/vscode-gitlens/issues/842) - List of changed files in comparison to working tree only shows changed files in comparison to HEAD
 - Fixes [#828](https://github.com/eamodio/vscode-gitlens/issues/828) - Version comparison to show welcome message is not future proof &mdash; thanks to [PR #829](https://github.com/eamodio/vscode-gitlens/pull/829) by Arunprasad Rajkumar ([@arajkumar](https://github.com/arajkumar))
 - Fixes [#821](https://github.com/eamodio/vscode-gitlens/issues/821) - Wrong comparison order in the Compare view when using Compare [HEAD|Working Tree] With comands
