@@ -6,6 +6,7 @@ import { debug, gate, Iterables, log, Promises } from '../../system';
 import { View } from '../viewBase';
 import { CommandMessageNode, MessageNode } from './common';
 import { ResourceType, unknownGitUri, ViewNode } from './viewNode';
+import { SearchOperators } from '../../git/gitService';
 
 export class SearchNode extends ViewNode {
 	private _children: (ViewNode | MessageNode)[] = [];
@@ -21,9 +22,7 @@ export class SearchNode extends ViewNode {
 				command: 'gitlens.showCommitSearch'
 			};
 
-			const getCommandArgs = (
-				search: '' | 'author:' | 'change:' | 'commit:' | 'file:'
-			): SearchCommitsCommandArgs => {
+			const getCommandArgs = (search: SearchOperators): SearchCommitsCommandArgs => {
 				return {
 					search: { pattern: search },
 					prefillOnly: true
@@ -36,10 +35,10 @@ export class SearchNode extends ViewNode {
 					this,
 					{
 						...command,
-						arguments: [this, getCommandArgs('')]
+						arguments: [this, getCommandArgs('message:')]
 					},
 					'Search by Message',
-					`pattern ${GlyphChars.Dash} use quotes to search for phrases`,
+					`pattern or message: pattern or =: pattern ${GlyphChars.Dash} use quotes to search for phrases`,
 					`Click to search for commits with matching messages ${GlyphChars.Dash} use quotes to search for phrases`
 				),
 				new CommandMessageNode(
@@ -49,9 +48,9 @@ export class SearchNode extends ViewNode {
 						...command,
 						arguments: [this, getCommandArgs('author:')]
 					},
-					`${GlyphChars.Space.repeat(4)} or, Author or Committer`,
-					'author: pattern',
-					'Click to search for commits with matching authors or committers'
+					`${GlyphChars.Space.repeat(4)} or, Author`,
+					'author: pattern or @: pattern',
+					'Click to search for commits with matching authors'
 				),
 				new CommandMessageNode(
 					this.view,
@@ -61,7 +60,7 @@ export class SearchNode extends ViewNode {
 						arguments: [this, getCommandArgs('commit:')]
 					},
 					`${GlyphChars.Space.repeat(4)} or, Commit ID`,
-					'commit: sha',
+					'commit: sha or #: sha',
 					'Click to search for commits with matching commit ids'
 				),
 				new CommandMessageNode(
@@ -72,7 +71,7 @@ export class SearchNode extends ViewNode {
 						arguments: [this, getCommandArgs('file:')]
 					},
 					`${GlyphChars.Space.repeat(4)} or, Files`,
-					'file: glob',
+					'file: glob or ?: glob',
 					'Click to search for commits with matching files'
 				),
 				new CommandMessageNode(
@@ -83,7 +82,7 @@ export class SearchNode extends ViewNode {
 						arguments: [this, getCommandArgs('change:')]
 					},
 					`${GlyphChars.Space.repeat(4)} or, Changes`,
-					'change: pattern',
+					'change: pattern or ~: pattern',
 					'Click to search for commits with matching changes'
 				)
 			];

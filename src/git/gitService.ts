@@ -84,14 +84,54 @@ const RepoSearchWarnings = {
 	doesNotExist: /no such file or directory/i
 };
 
+const doubleQuoteRegex = /"/g;
 const userConfigRegex = /^user\.(name|email) (.*)$/gm;
 const mappedAuthorRegex = /(.+)\s<(.+)>/;
-const searchMessageOperationRegex = /(?=(.*?)\s?(?:(?:author:|commit:|file:|change:)|$))/;
-const searchMessageValuesRegex = /(?:^|\b)\s?(?:\s?"([^"]*)(?:"|$)|([^"\s]*))/g;
-const searchOperationRegex = /((?:author|commit|file|change):)\s?(?=(.*?)\s?(?:(?:author:|commit:|file:|change:)|$))/g;
+const searchMessageOperationRegex = /(?=(.*?)\s?(?:(?:=:|message:|@:|author:|#:|commit:|\?:|file:|~:|change:)|$))/;
+const searchMessageValuesRegex = /(".+"|[^\b\s]+)/g;
+const searchOperationRegex = /((?:=|message|@|author|#|commit|\?|file|~|change):)\s?(?=(.*?)\s?(?:(?:=:|message:|@:|author:|#:|commit:|\?:|file:|~:|change:)|$))/g;
 
 const emptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
 const reflogCommands = ['merge', 'pull'];
+
+export type SearchOperators =
+	| ''
+	| '=:'
+	| 'message:'
+	| '@:'
+	| 'author:'
+	| '#:'
+	| 'commit:'
+	| '?:'
+	| 'file:'
+	| '~:'
+	| 'change:';
+export const searchOperators = new Set<string>([
+	'',
+	'=:',
+	'message:',
+	'@:',
+	'author:',
+	'#:',
+	'commit:',
+	'?:',
+	'file:',
+	'~:',
+	'change:'
+]);
+const normalizeSearchOperatorsMap = new Map<SearchOperators, SearchOperators>([
+	['', 'message:'],
+	['=:', 'message:'],
+	['message:', 'message:'],
+	['@:', 'author:'],
+	['author:', 'author:'],
+	['#:', 'commit:'],
+	['commit:', 'commit:'],
+	['?:', 'file:'],
+	['file:', 'file:'],
+	['~:', 'change:'],
+	['change:', 'change:']
+]);
 
 export class GitService implements Disposable {
 	private _onDidChangeRepositories = new EventEmitter<void>();
@@ -1454,24 +1494,34 @@ export class GitService implements Disposable {
 				searchArgs.add('-m');
 				searchArgs.add(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`);
 				for (const value of values) {
-					searchArgs.add(value);
+					searchArgs.add(value.replace(doubleQuoteRegex, ''));
 				}
 			} else {
 				searchArgs.add(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`);
 				searchArgs.add('--all');
 				searchArgs.add('--full-history');
 				searchArgs.add(search.matchRegex ? '--extended-regexp' : '--fixed-strings');
-				if (!search.matchCase) {
+				if (search.matchRegex && !search.matchCase) {
 					searchArgs.add('--regexp-ignore-case');
 				}
 
 				for ([op, values] of operations.entries()) {
 					switch (op) {
+						case 'message:':
+							searchArgs.add('-m');
+							if (search.matchAll) {
+								searchArgs.add('--all-match');
+							}
+							for (const value of values) {
+								searchArgs.add(`--grep=${value.replace(doubleQuoteRegex, '\\b')}`);
+							}
+
+							break;
+
 						case 'author:':
 							searchArgs.add('-m');
 							for (const value of values) {
-								searchArgs.add(`--author=${value}`);
-								searchArgs.add(`--committer=${value}`);
+								searchArgs.add(`--author=${value.replace(doubleQuoteRegex, '\\b')}`);
 							}
 
 							break;
@@ -1485,18 +1535,7 @@ export class GitService implements Disposable {
 
 						case 'file:':
 							for (const value of values) {
-								files.push(value);
-							}
-
-							break;
-
-						case '':
-							searchArgs.add('-m');
-							if (search.matchAll) {
-								searchArgs.add('--all-match');
-							}
-							for (const value of values) {
-								searchArgs.add(`--grep=${value}`);
+								files.push(value.replace(doubleQuoteRegex, ''));
 							}
 
 							break;
@@ -2835,28 +2874,7 @@ export class GitService implements Disposable {
 
 		let match = searchMessageOperationRegex.exec(search);
 		if (match != null && match[1] !== '') {
-			const messageSearch = match[1];
-
-			let quoted;
-			let unquoted;
-			do {
-				match = searchMessageValuesRegex.exec(messageSearch);
-				if (match == null) break;
-
-				[, quoted, unquoted] = match;
-				if (!quoted && !unquoted) {
-					searchMessageValuesRegex.lastIndex = 0;
-					break;
-				}
-
-				let values = operations.get('');
-				if (values === undefined) {
-					values = [quoted || unquoted];
-					operations.set('', values);
-				} else {
-					values.push(quoted || unquoted);
-				}
-			} while (match != null);
+			this.parseSearchMessageOperations(match[1], operations);
 		}
 
 		do {
@@ -2866,16 +2884,53 @@ export class GitService implements Disposable {
 			[, op, value] = match;
 
 			if (op !== undefined) {
-				let values = operations.get(op);
-				if (values === undefined) {
-					values = [value];
-					operations.set(op, values);
+				op = normalizeSearchOperatorsMap.get(op as SearchOperators)!;
+
+				if (op === 'message:') {
+					this.parseSearchMessageOperations(value, operations);
 				} else {
-					values.push(value);
+					let values = operations.get(op);
+					if (values === undefined) {
+						values = [value];
+						operations.set(op, values);
+					} else {
+						values.push(value);
+					}
 				}
 			}
 		} while (match != null);
 
 		return operations;
+	}
+
+	private static parseSearchMessageOperations(message: string, operations: Map<string, string[]>) {
+		let values = operations.get('message:');
+
+		if (message === emptyStr) {
+			if (values === undefined) {
+				values = [''];
+				operations.set('message:', values);
+			} else {
+				values.push('');
+			}
+
+			return;
+		}
+
+		let match;
+		let value;
+		do {
+			match = searchMessageValuesRegex.exec(message);
+			if (match == null) break;
+
+			[, value] = match;
+
+			if (values === undefined) {
+				values = [value];
+				operations.set('message:', values);
+			} else {
+				values.push(value);
+			}
+		} while (match != null);
 	}
 }

@@ -807,7 +807,12 @@ export class Git {
 		search: string[] = emptyArray,
 		{ maxCount, useShow }: { maxCount?: number; useShow?: boolean } = {}
 	) {
-		const params = [useShow ? 'show' : 'log', '--name-status', `--format=${GitLogParser.defaultFormat}`];
+		const params = [
+			useShow ? 'show' : 'log',
+			'--name-status',
+			`--format=${GitLogParser.defaultFormat}`,
+			'--use-mailmap'
+		];
 		if (maxCount && !useShow) {
 			params.push(`-n${maxCount}`);
 		}

@@ -2,7 +2,7 @@
 /* eslint-disable no-loop-func */
 import { QuickInputButton } from 'vscode';
 import { Container } from '../../container';
-import { GitLog, GitLogCommit, GitService, Repository } from '../../git/gitService';
+import { GitLog, GitLogCommit, GitService, Repository, searchOperators, SearchOperators } from '../../git/gitService';
 import { GlyphChars } from '../../constants';
 import { QuickCommandBase, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
 import { RepositoryQuickPickItem } from '../../quickpicks';
@@ -32,13 +32,18 @@ export interface SearchGitCommandArgs {
 	prefillOnly?: boolean;
 }
 
-const searchOperators = new Set<string>(['', 'author:', 'change:', 'commit:', 'file:']);
-const searchOperatorToTitleMap = new Map<string, string>([
+const searchOperatorToTitleMap = new Map<SearchOperators, string>([
 	['', 'Search by Message'],
-	['author:', 'Search by Author or Committer'],
-	['change:', 'Search by Changes'],
+	['=:', 'Search by Message'],
+	['message:', 'Search by Message'],
+	['@:', 'Search by Author'],
+	['author:', 'Search by Author'],
+	['#:', 'Search by Commit ID'],
 	['commit:', 'Search by Commit ID'],
-	['file:', 'Search by File']
+	['?:', 'Search by File'],
+	['file:', 'Search by File'],
+	['~:', 'Search by Changes'],
+	['change:', 'Search by Changes']
 ]);
 
 export class SearchGitCommand extends QuickCommandBase<State> {
@@ -132,30 +137,30 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 				}
 
 				if (state.search === undefined || state.counter < 2) {
-					const items: QuickPickItemOfT<string>[] = [
+					const items: QuickPickItemOfT<SearchOperators>[] = [
 						{
 							label: searchOperatorToTitleMap.get('')!,
-							description: `pattern ${GlyphChars.Dash} use quotes to search for phrases`,
-							item: ''
+							description: `pattern or message: pattern or =: pattern ${GlyphChars.Dash} use quotes to search for phrases`,
+							item: 'message:'
 						},
 						{
 							label: searchOperatorToTitleMap.get('author:')!,
-							description: 'author: pattern',
+							description: 'author: pattern or @: pattern',
 							item: 'author:'
 						},
 						{
 							label: searchOperatorToTitleMap.get('commit:')!,
-							description: 'commit: sha',
+							description: 'commit: sha or #: sha',
 							item: 'commit:'
 						},
 						{
 							label: searchOperatorToTitleMap.get('file:')!,
-							description: 'file: glob',
+							description: 'file: glob or ?: glob',
 							item: 'file:'
 						},
 						{
 							label: searchOperatorToTitleMap.get('change:')!,
-							description: 'change: pattern',
+							description: 'change: pattern or ~: pattern',
 							item: 'change:'
 						}
 					];
