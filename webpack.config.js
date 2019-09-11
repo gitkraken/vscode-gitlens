@@ -37,8 +37,7 @@ function getExtensionConfig(env) {
 		new CleanPlugin({ cleanOnceBeforeBuildPatterns: ['**/*', '!**/webviews/**'] }),
 		new ForkTsCheckerPlugin({
 			async: false,
-			eslint: true,
-			useTypescriptIncrementalApi: true
+			eslint: true
 		})
 	];
 
@@ -101,8 +100,7 @@ function getExtensionConfig(env) {
 					use: {
 						loader: 'ts-loader',
 						options: {
-							transpileOnly: true,
-							experimentalWatchApi: true
+							transpileOnly: true
 						}
 					}
 				}
@@ -150,8 +148,7 @@ function getWebviewsConfig(env) {
 		new ForkTsCheckerPlugin({
 			tsconfig: path.resolve(__dirname, 'tsconfig.webviews.json'),
 			async: false,
-			eslint: true,
-			useTypescriptIncrementalApi: true
+			eslint: true
 		}),
 		new MiniCssExtractPlugin({
 			filename: '[name].css'
@@ -257,8 +254,7 @@ function getWebviewsConfig(env) {
 						loader: 'ts-loader',
 						options: {
 							configFile: 'tsconfig.webviews.json',
-							transpileOnly: true,
-							experimentalWatchApi: true
+							transpileOnly: true
 						}
 					}
 				},
