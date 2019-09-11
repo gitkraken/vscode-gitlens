@@ -1435,7 +1435,8 @@ export class GitService implements Disposable {
 		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };
 
 		try {
-			let maxCount = options.maxCount == null ? Container.config.advanced.maxSearchItems || 0 : options.maxCount;
+			const maxCount =
+				options.maxCount == null ? Container.config.advanced.maxSearchItems || 0 : options.maxCount;
 			const similarityThreshold = Container.config.advanced.similarityThreshold;
 
 			const operations = GitService.parseSearchOperations(search.pattern);
@@ -1443,13 +1444,18 @@ export class GitService implements Disposable {
 			const searchArgs = new Set<string>();
 			const files: string[] = [];
 
+			let useShow = false;
+
 			let op;
 			let values = operations.get('commit:');
 			if (values !== undefined) {
+				useShow = true;
+
 				searchArgs.add('-m');
 				searchArgs.add(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`);
-				searchArgs.add(values[0]);
-				maxCount = 1;
+				for (const value of values) {
+					searchArgs.add(value);
+				}
 			} else {
 				searchArgs.add(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`);
 				searchArgs.add('--all');
@@ -1503,7 +1509,7 @@ export class GitService implements Disposable {
 				args.push(...files);
 			}
 
-			const data = await Git.log__search(repoPath, args, { maxCount: maxCount });
+			const data = await Git.log__search(repoPath, args, { maxCount: maxCount, useShow: useShow });
 			const log = GitLogParser.parse(
 				data,
 				GitCommitType.Log,

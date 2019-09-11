@@ -802,9 +802,13 @@ export class Git {
 		return data.length === 0 ? undefined : data.trim();
 	}
 
-	static log__search(repoPath: string, search: string[] = emptyArray, { maxCount }: { maxCount?: number } = {}) {
-		const params = ['log', '--name-status', `--format=${GitLogParser.defaultFormat}`];
-		if (maxCount) {
+	static log__search(
+		repoPath: string,
+		search: string[] = emptyArray,
+		{ maxCount, useShow }: { maxCount?: number; useShow?: boolean } = {}
+	) {
+		const params = [useShow ? 'show' : 'log', '--name-status', `--format=${GitLogParser.defaultFormat}`];
+		if (maxCount && !useShow) {
 			params.push(`-n${maxCount}`);
 		}
 
