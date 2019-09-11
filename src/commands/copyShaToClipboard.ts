@@ -24,7 +24,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 		super(Commands.CopyShaToClipboard);
 	}
 
-	protected preExecute(context: CommandContext, args: CopyShaToClipboardCommandArgs = {}) {
+	protected preExecute(context: CommandContext, args?: CopyShaToClipboardCommandArgs) {
 		if (isCommandViewContextWithCommit(context)) {
 			args = { ...args };
 			args.sha = context.node.commit.sha;
@@ -34,12 +34,11 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args: CopyShaToClipboardCommandArgs = {}) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: CopyShaToClipboardCommandArgs) {
 		uri = getCommandUri(uri, editor);
+		args = { ...args };
 
 		try {
-			args = { ...args };
-
 			// If we don't have an editor then get the sha of the last commit to the branch
 			if (uri == null) {
 				const repoPath = await Container.git.getActiveRepoPath(editor);

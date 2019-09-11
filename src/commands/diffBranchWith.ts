@@ -30,15 +30,17 @@ export class DiffBranchWithCommand extends ActiveEditorCommand {
 		]);
 	}
 
-	protected preExecute(context: CommandContext, args: DiffBranchWithCommandArgs = {}) {
+	protected preExecute(context: CommandContext, args?: DiffBranchWithCommandArgs) {
 		switch (context.command) {
 			case Commands.DiffHeadWith:
 			case Commands.DiffHeadWithBranch:
+				args = { ...args };
 				args.ref1 = 'HEAD';
 				break;
 
 			case Commands.DiffWorkingWith:
 			case Commands.DiffWorkingWithBranch:
+				args = { ...args };
 				args.ref1 = '';
 				break;
 		}
@@ -46,10 +48,11 @@ export class DiffBranchWithCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args: DiffBranchWithCommandArgs = {}) {
-		if (args.ref1 === undefined) return undefined;
-
+	async execute(editor?: TextEditor, uri?: Uri, args?: DiffBranchWithCommandArgs) {
 		uri = getCommandUri(uri, editor);
+		args = { ...args };
+
+		if (args.ref1 === undefined) return undefined;
 
 		try {
 			const repoPath = await getRepoPathOrActiveOrPrompt(

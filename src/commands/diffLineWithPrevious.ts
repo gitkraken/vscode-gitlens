@@ -20,7 +20,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
 		super(Commands.DiffLineWithPrevious);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args: DiffLineWithPreviousCommandArgs = {}): Promise<any> {
+	async execute(editor?: TextEditor, uri?: Uri, args?: DiffLineWithPreviousCommandArgs): Promise<any> {
 		uri = getCommandUri(uri, editor);
 		if (uri == null) return undefined;
 

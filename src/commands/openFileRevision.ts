@@ -50,7 +50,7 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
 		super(Commands.OpenFileRevision);
 	}
 
-	async execute(editor: TextEditor | undefined, uri?: Uri, args: OpenFileRevisionCommandArgs = {}) {
+	async execute(editor: TextEditor | undefined, uri?: Uri, args?: OpenFileRevisionCommandArgs) {
 		args = { ...args };
 		if (args.line === undefined) {
 			args.line = editor == null ? 0 : editor.selection.active.line;

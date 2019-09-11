@@ -31,7 +31,7 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
 		super(Commands.OpenCommitInRemote);
 	}
 
-	protected preExecute(context: CommandContext, args: OpenCommitInRemoteCommandArgs = {}) {
+	protected preExecute(context: CommandContext, args?: OpenCommitInRemoteCommandArgs) {
 		if (isCommandViewContextWithCommit(context)) {
 			args = { ...args };
 			args.sha = context.node.commit.sha;
@@ -41,11 +41,14 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args: OpenCommitInRemoteCommandArgs = {}) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: OpenCommitInRemoteCommandArgs) {
 		uri = getCommandUri(uri, editor);
 		if (uri == null) return undefined;
+
 		const gitUri = await GitUri.fromUri(uri);
 		if (!gitUri.repoPath) return undefined;
+
+		args = { ...args };
 
 		try {
 			if (args.sha === undefined) {

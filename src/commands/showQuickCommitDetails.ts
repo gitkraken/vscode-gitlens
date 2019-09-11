@@ -41,7 +41,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
 		super([Commands.ShowCommitInView, Commands.ShowQuickCommitDetails]);
 	}
 
-	protected preExecute(context: CommandContext, args: ShowQuickCommitDetailsCommandArgs = {}) {
+	protected preExecute(context: CommandContext, args?: ShowQuickCommitDetailsCommandArgs) {
 		if (context.command === Commands.ShowCommitInView) {
 			args = { ...args };
 			args.showInView = true;
@@ -59,7 +59,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args: ShowQuickCommitDetailsCommandArgs = {}) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: ShowQuickCommitDetailsCommandArgs) {
 		uri = getCommandUri(uri, editor);
 		if (uri == null) return undefined;
 

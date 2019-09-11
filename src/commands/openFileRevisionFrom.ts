@@ -19,12 +19,14 @@ export class OpenFileRevisionFromCommand extends ActiveEditorCommand {
 		super([Commands.OpenFileRevisionFrom, Commands.OpenFileRevisionFromBranch]);
 	}
 
-	async execute(editor: TextEditor | undefined, uri?: Uri, args: OpenFileRevisionFromCommandArgs = {}) {
+	async execute(editor: TextEditor | undefined, uri?: Uri, args?: OpenFileRevisionFromCommandArgs) {
 		uri = getCommandUri(uri, editor);
 		if (uri == null) return undefined;
 
 		const gitUri = await GitUri.fromUri(uri);
 		if (!gitUri.repoPath) return undefined;
+
+		args = { ...args };
 
 		if (args.reference === undefined) {
 			const placeHolder = `Open revision of ${gitUri.getFormattedPath()}${

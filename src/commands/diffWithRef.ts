@@ -23,7 +23,7 @@ export class DiffWithRefCommand extends ActiveEditorCommand {
 		super([Commands.DiffWithRef, Commands.DiffWithBranch]);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args: DiffWithRefCommandArgs = {}) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: DiffWithRefCommandArgs) {
 		uri = getCommandUri(uri, editor);
 		if (uri == null) return undefined;
 

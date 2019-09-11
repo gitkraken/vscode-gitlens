@@ -18,7 +18,7 @@ export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
 		super(Commands.ShowQuickStashList);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args: ShowQuickStashListCommandArgs = {}) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: ShowQuickStashListCommandArgs) {
 		uri = getCommandUri(uri, editor);
 
 		const repoPath = await getRepoPathOrActiveOrPrompt(
@@ -38,7 +38,7 @@ export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
 
 			// Create a command to get back to here
 			const currentCommandArgs: ShowQuickStashListCommandArgs = {
-				goBackCommand: args.goBackCommand
+				goBackCommand: args && args.goBackCommand
 			};
 			const currentCommand = new CommandQuickPickItem(
 				{
@@ -53,7 +53,7 @@ export class ShowQuickStashListCommand extends ActiveEditorCachedCommand {
 				stash,
 				'list',
 				progressCancellation,
-				args.goBackCommand,
+				args && args.goBackCommand,
 				currentCommand
 			);
 			if (pick === undefined) return undefined;

@@ -22,15 +22,16 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 		super([Commands.DiffWithNext, Commands.DiffWithNextInDiffLeft]);
 	}
 
-	protected preExecute(context: CommandContext, args: DiffWithNextCommandArgs = {}) {
+	protected preExecute(context: CommandContext, args?: DiffWithNextCommandArgs) {
 		if (context.command === Commands.DiffWithNextInDiffLeft) {
+			args = { ...args };
 			args.inDiffLeftEditor = true;
 		}
 
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args: DiffWithNextCommandArgs = {}) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: DiffWithNextCommandArgs) {
 		uri = getCommandUri(uri, editor);
 		if (uri == null) return undefined;
 

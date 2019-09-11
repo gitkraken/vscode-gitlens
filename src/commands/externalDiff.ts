@@ -65,10 +65,10 @@ export class ExternalDiffCommand extends Command {
 		super([Commands.ExternalDiff, Commands.ExternalDiffAll]);
 	}
 
-	protected async preExecute(context: CommandContext, args: ExternalDiffCommandArgs = {}) {
-		if (isCommandViewContextWithFileCommit(context)) {
-			args = { ...args };
+	protected async preExecute(context: CommandContext, args?: ExternalDiffCommandArgs) {
+		args = { ...args };
 
+		if (isCommandViewContextWithFileCommit(context)) {
 			const ref1 = GitService.isUncommitted(context.node.commit.previousFileSha)
 				? ''
 				: context.node.commit.previousFileSha;
@@ -87,8 +87,6 @@ export class ExternalDiffCommand extends Command {
 		}
 
 		if (isCommandViewContextWithFileRefs(context)) {
-			args = { ...args };
-
 			args.files = [
 				{
 					uri: GitUri.fromFile(context.node.file, context.node.file.repoPath || context.node.repoPath),
@@ -103,13 +101,11 @@ export class ExternalDiffCommand extends Command {
 
 		if (args.files === undefined) {
 			if (context.type === 'scm-states') {
-				args = { ...args };
 				args.files = context.scmResourceStates.map(r => ({
 					uri: r.resourceUri,
 					staged: (r as Resource).resourceGroupType === ResourceGroupType.Index
 				}));
 			} else if (context.type === 'scm-groups') {
-				args = { ...args };
 				args.files = Arrays.filterMap(context.scmResourceGroups[0].resourceStates, r =>
 					this.isModified(r)
 						? {
@@ -153,7 +149,9 @@ export class ExternalDiffCommand extends Command {
 		return status === Status.BOTH_MODIFIED || status === Status.INDEX_MODIFIED || status === Status.MODIFIED;
 	}
 
-	async execute(args: ExternalDiffCommandArgs = {}) {
+	async execute(args?: ExternalDiffCommandArgs) {
+		args = { ...args };
+
 		try {
 			let repoPath;
 			if (args.files === undefined) {

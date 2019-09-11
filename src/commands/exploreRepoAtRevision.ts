@@ -18,7 +18,7 @@ export class ExploreRepoAtRevisionCommand extends ActiveEditorCommand {
 		super(Commands.ExploreRepoAtRevision);
 	}
 
-	async execute(editor: TextEditor, uri?: Uri, args: ExploreRepoAtRevisionCommandArgs = {}) {
+	async execute(editor: TextEditor, uri?: Uri, args?: ExploreRepoAtRevisionCommandArgs) {
 		args = { ...args };
 
 		try {

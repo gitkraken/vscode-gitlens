@@ -20,7 +20,7 @@ export class OpenRevisionFileCommand extends ActiveEditorCommand {
 		super(Commands.OpenRevisionFile);
 	}
 
-	async execute(editor: TextEditor, uri?: Uri, args: OpenRevisionFileCommandArgs = {}) {
+	async execute(editor: TextEditor, uri?: Uri, args?: OpenRevisionFileCommandArgs) {
 		args = { ...args };
 		if (args.line === undefined) {
 			args.line = editor == null ? 0 : editor.selection.active.line;

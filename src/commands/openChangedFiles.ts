@@ -17,13 +17,12 @@ export class OpenChangedFilesCommand extends ActiveEditorCommand {
 		super(Commands.OpenChangedFiles);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args: OpenChangedFilesCommandArgs = {}) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: OpenChangedFilesCommandArgs) {
 		uri = getCommandUri(uri, editor);
+		args = { ...args };
 
 		try {
 			if (args.uris === undefined) {
-				args = { ...args };
-
 				const repoPath = await getRepoPathOrPrompt(
 					`Open all files changed in which repository${GlyphChars.Ellipsis}`
 				);

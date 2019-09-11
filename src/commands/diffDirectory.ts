@@ -32,21 +32,24 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
 		]);
 	}
 
-	protected async preExecute(context: CommandContext, args: DiffDirectoryCommandArgs = {}) {
+	protected async preExecute(context: CommandContext, args?: DiffDirectoryCommandArgs) {
 		switch (context.command) {
 			case Commands.DiffDirectoryWithHead:
+				args = { ...args };
 				args.ref1 = 'HEAD';
 				args.ref2 = undefined;
 				break;
 
 			case Commands.ViewsOpenDirectoryDiff:
 				if (context.type === 'viewItem' && context.node instanceof CompareResultsNode) {
+					args = { ...args };
 					[args.ref1, args.ref2] = await context.node.getDiffRefs();
 				}
 				break;
 
 			case Commands.ViewsOpenDirectoryDiffWithWorking:
 				if (isCommandViewContextWithRef(context)) {
+					args = { ...args };
 					args.ref1 = context.node.ref;
 					args.ref2 = undefined;
 				}
@@ -56,8 +59,9 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args: DiffDirectoryCommandArgs = {}) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: DiffDirectoryCommandArgs) {
 		uri = getCommandUri(uri, editor);
+		args = { ...args };
 
 		try {
 			const repoPath = await getRepoPathOrActiveOrPrompt(
@@ -68,8 +72,6 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
 			if (!repoPath) return undefined;
 
 			if (!args.ref1) {
-				args = { ...args };
-
 				const pick = await new ReferencesQuickPick(repoPath).show(
 					`Compare Working Tree with${GlyphChars.Ellipsis}`,
 					{ allowEnteringRefs: true, checkmarks: false }

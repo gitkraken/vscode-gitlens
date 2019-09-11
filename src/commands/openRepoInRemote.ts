@@ -25,7 +25,7 @@ export class OpenRepoInRemoteCommand extends ActiveEditorCommand {
 		super(Commands.OpenRepoInRemote);
 	}
 
-	protected preExecute(context: CommandContext, args: OpenRepoInRemoteCommandArgs = {}) {
+	protected preExecute(context: CommandContext, args?: OpenRepoInRemoteCommandArgs) {
 		if (isCommandViewContextWithRemote(context)) {
 			args = { ...args };
 			args.remote = context.node.remote.name;
@@ -34,7 +34,7 @@ export class OpenRepoInRemoteCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args: OpenRepoInRemoteCommandArgs = {}) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: OpenRepoInRemoteCommandArgs) {
 		uri = getCommandUri(uri, editor);
 
 		const gitUri = uri && (await GitUri.fromUri(uri));
@@ -53,7 +53,7 @@ export class OpenRepoInRemoteCommand extends ActiveEditorCommand {
 				resource: {
 					type: RemoteResourceType.Repo
 				},
-				remote: args.remote,
+				remote: args && args.remote,
 				remotes: remotes
 			};
 			return commands.executeCommand(Commands.OpenInRemote, uri, commandArgs);

@@ -32,7 +32,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 		super([Commands.ShowFileHistoryInView, Commands.ShowQuickFileHistory]);
 	}
 
-	protected preExecute(context: CommandContext, args: ShowQuickFileHistoryCommandArgs = {}) {
+	protected preExecute(context: CommandContext, args?: ShowQuickFileHistoryCommandArgs) {
 		if (context.command === Commands.ShowFileHistoryInView) {
 			args = { ...args };
 			args.showInView = true;
@@ -41,19 +41,19 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args: ShowQuickFileHistoryCommandArgs = {}) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: ShowQuickFileHistoryCommandArgs) {
 		uri = getCommandUri(uri, editor);
 		if (uri == null) return commands.executeCommand(Commands.ShowQuickCurrentBranchHistory);
 
 		const gitUri = await GitUri.fromUri(uri);
+
+		args = { ...args };
 
 		if (args.showInView) {
 			await Container.fileHistoryView.showHistoryForUri(gitUri);
 
 			return undefined;
 		}
-
-		args = { ...args };
 
 		const placeHolder = `${gitUri.getFormattedPath({
 			suffix: args.reference ? ` (${args.reference.name})` : undefined

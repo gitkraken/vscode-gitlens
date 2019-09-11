@@ -29,7 +29,7 @@ export class StashSaveCommand extends Command {
 		super([Commands.StashSave, Commands.StashSaveFiles]);
 	}
 
-	protected preExecute(context: CommandContext, args: StashSaveCommandArgs = {}) {
+	protected preExecute(context: CommandContext, args?: StashSaveCommandArgs) {
 		if (isCommandViewContextWithFile(context)) {
 			args = { ...args };
 			args.repoPath = context.node.file.repoPath || context.node.repoPath;
@@ -59,7 +59,9 @@ export class StashSaveCommand extends Command {
 		return this.execute(args);
 	}
 
-	async execute(args: StashSaveCommandArgs = {}) {
+	async execute(args?: StashSaveCommandArgs) {
+		args = { ...args };
+
 		let repo;
 		if (args.uris !== undefined || args.repoPath !== undefined) {
 			repo = await Container.git.getRepository((args.uris && args.uris[0]) || args.repoPath!);

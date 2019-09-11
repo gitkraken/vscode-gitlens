@@ -23,12 +23,12 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
 		super(Commands.OpenInRemote);
 	}
 
-	async execute(editor: TextEditor, uri?: Uri, args: OpenInRemoteCommandArgs = {}) {
+	async execute(editor: TextEditor, uri?: Uri, args?: OpenInRemoteCommandArgs) {
 		args = { ...args };
 		if (args.remotes === undefined || args.resource === undefined) return undefined;
 
 		if (args.remote !== undefined) {
-			const remotes = args.remotes.filter(r => r.name === args.remote);
+			const remotes = args.remotes.filter(r => r.name === args!.remote);
 			// Only filter if we get some results
 			if (remotes.length > 0) {
 				args.remotes = remotes;

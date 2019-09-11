@@ -17,7 +17,7 @@ export class ShowQuickRepoStatusCommand extends ActiveEditorCachedCommand {
 		super(Commands.ShowQuickRepoStatus);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args: ShowQuickRepoStatusCommandArgs = {}) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: ShowQuickRepoStatusCommandArgs) {
 		uri = getCommandUri(uri, editor);
 
 		try {
@@ -31,7 +31,7 @@ export class ShowQuickRepoStatusCommand extends ActiveEditorCachedCommand {
 			const status = await Container.git.getStatusForRepo(repoPath);
 			if (status === undefined) return window.showWarningMessage('Unable to show repository status');
 
-			const pick = await RepoStatusQuickPick.show(status, args.goBackCommand);
+			const pick = await RepoStatusQuickPick.show(status, args && args.goBackCommand);
 			if (pick === undefined) return undefined;
 
 			if (pick instanceof CommandQuickPickItem) return pick.execute();

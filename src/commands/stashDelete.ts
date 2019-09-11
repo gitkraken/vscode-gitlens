@@ -19,7 +19,7 @@ export class StashDeleteCommand extends Command {
 		super(Commands.StashDelete);
 	}
 
-	protected preExecute(context: CommandContext, args: StashDeleteCommandArgs = {}) {
+	protected preExecute(context: CommandContext, args?: StashDeleteCommandArgs) {
 		if (isCommandViewContextWithCommit<GitStashCommit>(context)) {
 			args = { ...args };
 			args.stashItem = context.node.commit;
@@ -28,7 +28,9 @@ export class StashDeleteCommand extends Command {
 		return this.execute(args);
 	}
 
-	async execute(args: StashDeleteCommandArgs = {}) {
+	async execute(args?: StashDeleteCommandArgs) {
+		args = { ...args };
+
 		let repo;
 		if (args.stashItem !== undefined || args.repoPath !== undefined) {
 			repo = await Container.git.getRepository((args.stashItem && args.stashItem.repoPath) || args.repoPath!);

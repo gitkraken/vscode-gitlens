@@ -25,7 +25,7 @@ export class OpenBranchesInRemoteCommand extends ActiveEditorCommand {
 		super(Commands.OpenBranchesInRemote);
 	}
 
-	protected preExecute(context: CommandContext, args: OpenBranchesInRemoteCommandArgs = {}) {
+	protected preExecute(context: CommandContext, args?: OpenBranchesInRemoteCommandArgs) {
 		if (isCommandViewContextWithRemote(context)) {
 			args = { ...args };
 			args.remote = context.node.remote.name;
@@ -34,7 +34,7 @@ export class OpenBranchesInRemoteCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args: OpenBranchesInRemoteCommandArgs = {}) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: OpenBranchesInRemoteCommandArgs) {
 		uri = getCommandUri(uri, editor);
 
 		const gitUri = uri && (await GitUri.fromUri(uri));
@@ -53,7 +53,7 @@ export class OpenBranchesInRemoteCommand extends ActiveEditorCommand {
 				resource: {
 					type: RemoteResourceType.Branches
 				},
-				remote: args.remote,
+				remote: args && args.remote,
 				remotes: remotes
 			};
 			return commands.executeCommand(Commands.OpenInRemote, uri, commandArgs);

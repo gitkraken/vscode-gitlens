@@ -46,7 +46,9 @@ export class ToggleFileBlameCommand extends ActiveEditorCommand {
 		super(Commands.ToggleFileBlame);
 	}
 
-	execute(editor: TextEditor, uri?: Uri, args: ToggleFileBlameCommandArgs = {}): Thenable<any> {
+	execute(editor: TextEditor, uri?: Uri, args?: ToggleFileBlameCommandArgs): Thenable<any> {
+		args = { ...args };
+
 		// Handle the case where we are focused on a non-editor editor (output, debug console)
 		if (editor != null && !isTextEditor(editor)) {
 			if (uri != null && !UriComparer.equals(uri, editor.document.uri)) {
@@ -83,7 +85,7 @@ export class ToggleFileHeatmapCommand extends ActiveEditorCommand {
 		super(Commands.ToggleFileHeatmap);
 	}
 
-	execute(editor: TextEditor, uri?: Uri, args: ToggleFileBlameCommandArgs = {}): Thenable<any> {
+	execute(editor: TextEditor, uri?: Uri, args?: ToggleFileBlameCommandArgs): Thenable<any> {
 		const copyArgs: ToggleFileBlameCommandArgs = {
 			...args,
 			type: FileAnnotationType.Heatmap
@@ -98,7 +100,7 @@ export class ToggleFileRecentChangesCommand extends ActiveEditorCommand {
 		super(Commands.ToggleFileRecentChanges);
 	}
 
-	execute(editor: TextEditor, uri?: Uri, args: ToggleFileBlameCommandArgs = {}): Thenable<any> {
+	execute(editor: TextEditor, uri?: Uri, args?: ToggleFileBlameCommandArgs): Thenable<any> {
 		const copyArgs: ToggleFileBlameCommandArgs = {
 			...args,
 			type: FileAnnotationType.RecentChanges

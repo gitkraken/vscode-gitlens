@@ -38,7 +38,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
 		super([Commands.ShowQuickCommitFileDetails, Commands.ShowQuickRevisionDetails]);
 	}
 
-	protected async preExecute(context: CommandContext, args: ShowQuickCommitFileDetailsCommandArgs = {}) {
+	protected async preExecute(context: CommandContext, args?: ShowQuickCommitFileDetailsCommandArgs) {
 		if (context.command === Commands.ShowQuickRevisionDetails && context.editor !== undefined) {
 			args = { ...args };
 
@@ -58,9 +58,11 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args: ShowQuickCommitFileDetailsCommandArgs = {}) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: ShowQuickCommitFileDetailsCommandArgs) {
 		uri = getCommandUri(uri, editor);
 		if (uri == null) return undefined;
+
+		args = { ...args };
 
 		let gitUri;
 		if (args.revisionUri !== undefined) {
@@ -70,7 +72,6 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
 			gitUri = await GitUri.fromUri(uri);
 		}
 
-		args = { ...args };
 		if (args.sha === undefined) {
 			if (editor == null) return undefined;
 

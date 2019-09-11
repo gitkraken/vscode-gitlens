@@ -18,7 +18,7 @@ export class ShowQuickCurrentBranchHistoryCommand extends ActiveEditorCachedComm
 		super(Commands.ShowQuickCurrentBranchHistory);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args: ShowQuickCurrentBranchHistoryCommandArgs = {}) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: ShowQuickCurrentBranchHistoryCommandArgs) {
 		uri = getCommandUri(uri, editor);
 
 		try {
@@ -35,7 +35,7 @@ export class ShowQuickCurrentBranchHistoryCommand extends ActiveEditorCachedComm
 			const commandArgs: ShowQuickBranchHistoryCommandArgs = {
 				branch: branch.name,
 				repoPath: repoPath,
-				goBackCommand: args.goBackCommand
+				goBackCommand: args && args.goBackCommand
 			};
 			return commands.executeCommand(Commands.ShowQuickBranchHistory, uri, commandArgs);
 		} catch (ex) {

@@ -25,7 +25,7 @@ export class SearchCommitsCommand extends Command {
 		super([Commands.SearchCommits, Commands.SearchCommitsInView]);
 	}
 
-	protected preExecute(context: CommandContext, args: SearchCommitsCommandArgs = {}) {
+	protected preExecute(context: CommandContext, args?: SearchCommitsCommandArgs) {
 		if (context.type === 'viewItem') {
 			args = { ...args };
 			args.showInView = true;
@@ -47,7 +47,9 @@ export class SearchCommitsCommand extends Command {
 		return this.execute(args);
 	}
 
-	async execute(args: SearchCommitsCommandArgs = {}) {
+	async execute(args?: SearchCommitsCommandArgs) {
+		args = { ...args };
+
 		let repo;
 		if (args.repoPath !== undefined) {
 			repo = await Container.git.getRepository(args.repoPath);

@@ -20,7 +20,7 @@ export class InviteToLiveShareCommand extends Command {
 		super(Commands.InviteToLiveShare);
 	}
 
-	protected preExecute(context: CommandContext, args: InviteToLiveShareCommandArgs = {}) {
+	protected preExecute(context: CommandContext, args?: InviteToLiveShareCommandArgs) {
 		if (isCommandViewContextWithContributor(context)) {
 			args = { ...args };
 			args.email = context.node.contributor.email;
@@ -30,8 +30,8 @@ export class InviteToLiveShareCommand extends Command {
 		return this.execute(args);
 	}
 
-	async execute(args: InviteToLiveShareCommandArgs = {}) {
-		if (args.email) {
+	async execute(args?: InviteToLiveShareCommandArgs) {
+		if (args != null && args.email) {
 			const contact = await Container.vsls.getContact(args.email);
 			if (contact != null) {
 				return contact.invite();

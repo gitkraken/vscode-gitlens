@@ -25,7 +25,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 		super(Commands.CopyMessageToClipboard);
 	}
 
-	protected preExecute(context: CommandContext, args: CopyMessageToClipboardCommandArgs = {}) {
+	protected preExecute(context: CommandContext, args?: CopyMessageToClipboardCommandArgs) {
 		if (isCommandViewContextWithCommit(context)) {
 			args = { ...args };
 			args.sha = context.node.commit.sha;
@@ -35,12 +35,11 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args: CopyMessageToClipboardCommandArgs = {}) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: CopyMessageToClipboardCommandArgs) {
 		uri = getCommandUri(uri, editor);
+		args = { ...args };
 
 		try {
-			args = { ...args };
-
 			let repoPath;
 			// If we don't have an editor then get the message of the last commit to the branch
 			if (uri == null) {

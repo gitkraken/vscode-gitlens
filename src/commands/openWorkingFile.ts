@@ -20,7 +20,7 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
 		super(Commands.OpenWorkingFile);
 	}
 
-	async execute(editor: TextEditor, uri?: Uri, args: OpenWorkingFileCommandArgs = {}) {
+	async execute(editor: TextEditor, uri?: Uri, args?: OpenWorkingFileCommandArgs) {
 		args = { ...args };
 		if (args.line === undefined) {
 			args.line = editor == null ? 0 : editor.selection.active.line;

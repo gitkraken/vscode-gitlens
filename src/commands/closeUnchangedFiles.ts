@@ -20,13 +20,12 @@ export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
 		super(Commands.CloseUnchangedFiles);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args: CloseUnchangedFilesCommandArgs = {}) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: CloseUnchangedFilesCommandArgs) {
 		uri = getCommandUri(uri, editor);
+		args = { ...args };
 
 		try {
 			if (args.uris === undefined) {
-				args = { ...args };
-
 				const repoPath = await getRepoPathOrPrompt(
 					`Close all files except those changed in which repository${GlyphChars.Ellipsis}`
 				);

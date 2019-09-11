@@ -27,7 +27,7 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
 		super(Commands.OpenBranchInRemote);
 	}
 
-	protected preExecute(context: CommandContext, args: OpenBranchInRemoteCommandArgs = {}) {
+	protected preExecute(context: CommandContext, args?: OpenBranchInRemoteCommandArgs) {
 		if (isCommandViewContextWithBranch(context)) {
 			args = { ...args };
 			args.branch = context.node.branch.name;
@@ -37,7 +37,7 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args: OpenBranchInRemoteCommandArgs = {}) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: OpenBranchInRemoteCommandArgs) {
 		uri = getCommandUri(uri, editor);
 
 		const gitUri = uri && (await GitUri.fromUri(uri));
@@ -49,10 +49,10 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
 		);
 		if (!repoPath) return undefined;
 
+		args = { ...args };
+
 		try {
 			if (args.branch === undefined) {
-				args = { ...args };
-
 				const pick = await new ReferencesQuickPick(repoPath).show(
 					`Open which branch on remote${GlyphChars.Ellipsis}`,
 					{
