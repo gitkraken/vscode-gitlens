@@ -29,8 +29,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 
 - Dramatically improves the _Git Commands_ (`gitlens.gitCommands`) experience
+  - Adds a _Keep Open_ toggle (look for the pin icon in the upper right)
+    - Saves to the new `gitlens.gitCommands.closeOnFocusOut` setting to specify whether to dismiss the Git Commands menu when focus is lost (if not, press `ESC` to dismiss)
   - Adds a confirmation toggle (look for the checkmark icon in the upper right) to some of the Git commands
-    - Saves to the new `gitCommands.skipConfirmations` setting to specify which (and when) Git commands will skip the confirmation step
+    - Saves to the new `gitlens.gitCommands.skipConfirmations` setting to specify which (and when) Git commands will skip the confirmation step
   - Adds a new _reset_ Git command to reset current HEAD to a specified commit
   - Adds a new _revert_ Git command to revert specific commits
   - Adds a new _search_ Git command to search for specific commits
