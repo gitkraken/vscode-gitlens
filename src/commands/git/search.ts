@@ -2,7 +2,7 @@
 /* eslint-disable no-loop-func */
 import { QuickInputButton } from 'vscode';
 import { Container } from '../../container';
-import { GitLogCommit, GitService, Repository } from '../../git/gitService';
+import { GitLog, GitLogCommit, GitService, Repository } from '../../git/gitService';
 import { GlyphChars } from '../../constants';
 import { QuickCommandBase, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
 import { RepositoryQuickPickItem } from '../../quickpicks';
@@ -77,6 +77,8 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 		const state: StepState<State> = this._initialState === undefined ? { counter: 0 } : this._initialState;
 		let oneRepo = false;
 		let pickedCommit: GitLogCommit | undefined;
+		let resultsKey: string | undefined;
+		let resultsPromise: Promise<GitLog | undefined> | undefined;
 
 		const cfg = Container.config.gitCommands.search;
 		if (state.matchAll === undefined) {
@@ -368,22 +370,23 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 					state.search = selection[0].item.trim();
 				}
 
-				const resultsPromise = Container.git.getLogForSearch(state.repo.path, {
+				const search = {
 					pattern: state.search,
 					matchAll: state.matchAll,
 					matchCase: state.matchCase,
 					matchRegex: state.matchRegex
-				});
+				};
+				const searchKey = JSON.stringify(search);
+
+				if (resultsPromise === undefined || resultsKey !== searchKey) {
+					resultsPromise = Container.git.getLogForSearch(state.repo.path, search);
+					resultsKey = searchKey;
+				}
 
 				if (state.showInView) {
 					void Container.searchView.search(
 						state.repo.path,
-						{
-							pattern: state.search,
-							matchAll: state.matchAll,
-							matchCase: state.matchCase,
-							matchRegex: state.matchRegex
-						},
+						search,
 						{
 							label: { label: `commits matching: ${state.search}` }
 						},
@@ -434,12 +437,7 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 
 						void Container.searchView.search(
 							state.repo!.path,
-							{
-								pattern: state.search!,
-								matchAll: state.matchAll,
-								matchCase: state.matchCase,
-								matchRegex: state.matchRegex
-							},
+							search,
 							{
 								label: { label: `commits matching: ${state.search}` }
 							},

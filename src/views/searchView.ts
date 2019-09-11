@@ -217,15 +217,15 @@ export class SearchView extends ViewBase<SearchNode> {
 				  };
 		}
 	): (maxCount: number | undefined) => Promise<SearchQueryResult> {
-		return async (maxCount: number | undefined) => {
-			const res = await results;
+		let useCacheOnce = true;
 
-			let log;
-			if (res !== undefined) {
-				log = await (res.query === undefined
-					? (maxCount: number | undefined) => Promise.resolve(res)
-					: res.query)(maxCount);
+		return async (maxCount: number | undefined) => {
+			let log = await results;
+
+			if (!useCacheOnce && log !== undefined && log.query !== undefined) {
+				log = await log.query(maxCount);
 			}
+			useCacheOnce = false;
 
 			const label = this.getSearchLabel(options.label, log);
 			return {
