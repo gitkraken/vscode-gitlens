@@ -19,9 +19,6 @@ import { emojify } from '../../emojis';
 
 const emptyStr = '';
 
-const escapeMarkdownRegex = /[`>#*_\-+.]/g;
-// const sampleMarkdown = '## message `not code` *not important* _no underline_ \n> don\'t quote me \n- don\'t list me \n+ don\'t list me \n1. don\'t list me \nnot h1 \n=== \nnot h2 \n---\n***\n---\n___';
-const markdownHeaderReplacement = `${GlyphChars.ZeroWidthSpace}===`;
 const hasTokenRegexMap = new Map<string, RegExp>();
 
 export interface CommitFormatOptions extends FormatOptions {
@@ -317,13 +314,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			}
 		}
 
-		return `\n> ${message
-			// Escape markdown
-			.replace(escapeMarkdownRegex, '\\$&')
-			// Escape markdown header (since the above regex won't match it)
-			.replace(/^===/gm, markdownHeaderReplacement)
-			// Keep under the same block-quote but with line breaks
-			.replace(/\n/g, '\t\n>  ')}`;
+		return `\n> ${Strings.escapeMarkdown(message, { quoted: true })}`;
 	}
 
 	get sha() {

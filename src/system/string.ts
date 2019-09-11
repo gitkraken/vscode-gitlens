@@ -15,6 +15,24 @@ export namespace Strings {
 		Backslash = 92
 	}
 
+	const escapeMarkdownRegex = /[\\`*_{}[\]()#+\-.!]/g;
+	const escapeMarkdownHeaderRegex = /^===/gm;
+	// const sampleMarkdown = '## message `not code` *not important* _no underline_ \n> don\'t quote me \n- don\'t list me \n+ don\'t list me \n1. don\'t list me \nnot h1 \n=== \nnot h2 \n---\n***\n---\n___';
+	const markdownQuotedRegex = /\n/g;
+
+	export function escapeMarkdown(s: string, options: { quoted?: boolean } = {}): string {
+		s = s
+			// Escape markdown
+			.replace(escapeMarkdownRegex, '\\$&')
+			// Escape markdown header (since the above regex won't match it)
+			.replace(escapeMarkdownHeaderRegex, '\u200b===');
+
+		if (!options.quoted) return s;
+
+		// Keep under the same block-quote but with line breaks
+		return s.replace(markdownQuotedRegex, '\t\n>  ');
+	}
+
 	export function getCommonBase(s1: string, s2: string, delimiter: string) {
 		let char;
 		let index = 0;
