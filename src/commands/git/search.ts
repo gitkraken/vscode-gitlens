@@ -348,7 +348,7 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 							} else {
 								quickpick.items = [
 									{
-										label: 'Search for commits matching',
+										label: 'Search for',
 										description: quickpick.value,
 										item: quickpick.value
 									}
@@ -389,7 +389,7 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 						state.repo.path,
 						search,
 						{
-							label: { label: `commits matching: ${state.search}` }
+							label: { label: `for ${state.search}` }
 						},
 						resultsPromise
 					);
@@ -411,10 +411,10 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 					title: `${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${state.repo.formattedName}`,
 					placeholder:
 						results === undefined
-							? `No results for commits matching: ${state.search}`
+							? `No results for ${state.search}`
 							: `${Strings.pluralize('result', results.count, {
 									number: results.truncated ? `${results.count}+` : undefined
-							  })} for commits matching: ${state.search}`,
+							  })} for ${state.search}`,
 					matchOnDescription: true,
 					matchOnDetail: true,
 					items:
@@ -440,7 +440,7 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 							state.repo!.path,
 							search,
 							{
-								label: { label: `commits matching: ${state.search}` }
+								label: { label: `for ${state.search}` }
 							},
 							results
 						);
@@ -459,7 +459,7 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 					pickedCommit.repoPath,
 					{ pattern: `commit:${pickedCommit.sha}` },
 					{
-						label: { label: `commits matching: commit:${pickedCommit.shortSha}` }
+						label: { label: `for commit id ${pickedCommit.shortSha}` }
 					}
 				);
 

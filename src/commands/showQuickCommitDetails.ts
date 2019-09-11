@@ -122,9 +122,9 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
 			if (args.showInView) {
 				void (await Container.searchView.search(
 					repoPath!,
-					{ pattern: `commit: ${args.commit.sha}` },
+					{ pattern: `commit:${args.commit.sha}` },
 					{
-						label: { label: `commits matching: commit:${args.commit.shortSha}` }
+						label: { label: `for commit id ${args.commit.shortSha}` }
 					}
 				));
 

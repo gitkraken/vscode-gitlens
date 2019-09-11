@@ -113,7 +113,7 @@ export class ShowCommitInViewQuickPickItem extends CommandQuickPickItem {
 			this.commit.repoPath,
 			{ pattern: `commit:${this.commit.sha}` },
 			{
-				label: { label: `commits matching: commit:${this.commit.shortSha}` }
+				label: { label: `for commit id ${this.commit.shortSha}` }
 			}
 		));
 	}

@@ -203,7 +203,7 @@ export class SearchView extends ViewBase<SearchNode> {
 			number: truncated ? `${count}+` : undefined,
 			plural: resultsType.plural,
 			zero: 'No'
-		})} for ${label.label}`;
+		})} ${label.label}`;
 	}
 
 	private getSearchQueryFn(
