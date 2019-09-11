@@ -5165,6 +5165,11 @@
 					"group": "inline@1"
 				},
 				{
+					"command": "gitlens.views.refreshNode",
+					"when": "viewItem == gitlens:search:results",
+					"group": "inline@2"
+				},
+				{
 					"command": "gitlens.views.search.searchCommits",
 					"when": "viewItem == gitlens:search:results",
 					"group": "2_gitlens@1"
