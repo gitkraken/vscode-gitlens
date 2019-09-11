@@ -66,15 +66,16 @@ export class MergeGitCommand extends QuickCommandBase<State> {
 
 	protected async *steps(): StepAsyncGenerator {
 		const state: StepState<State> = this._initialState === undefined ? { counter: 0 } : this._initialState;
-		let oneRepo = false;
+		let repos;
 
 		while (true) {
 			try {
-				if (state.repo === undefined || state.counter < 1) {
-					const repos = [...(await Container.git.getOrderedRepositories())];
+				if (repos === undefined) {
+					repos = [...(await Container.git.getOrderedRepositories())];
+				}
 
+				if (state.repo === undefined || state.counter < 1) {
 					if (repos.length === 1) {
-						oneRepo = true;
 						state.counter++;
 						state.repo = repos[0];
 					} else {
@@ -127,7 +128,7 @@ export class MergeGitCommand extends QuickCommandBase<State> {
 					const selection: StepSelection<typeof step> = yield step;
 
 					if (!this.canPickStepMoveNext(step, state, selection)) {
-						if (oneRepo) {
+						if (repos.length === 1) {
 							break;
 						}
 						continue;

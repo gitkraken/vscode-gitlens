@@ -45,15 +45,16 @@ export class PushGitCommand extends QuickCommandBase<State> {
 
 	protected async *steps(): StepAsyncGenerator {
 		const state: StepState<State> = this._initialState === undefined ? { counter: 0 } : this._initialState;
-		let oneRepo = false;
+		let repos;
 
 		while (true) {
 			try {
-				if (state.repos === undefined || state.counter < 1) {
-					const repos = [...(await Container.git.getOrderedRepositories())];
+				if (repos === undefined) {
+					repos = [...(await Container.git.getOrderedRepositories())];
+				}
 
+				if (state.repos === undefined || state.counter < 1) {
 					if (repos.length === 1) {
-						oneRepo = true;
 						state.counter++;
 						state.repos = [repos[0]];
 					} else {
@@ -114,7 +115,7 @@ export class PushGitCommand extends QuickCommandBase<State> {
 					const selection: StepSelection<typeof step> = yield step;
 
 					if (!this.canPickStepMoveNext(step, state, selection)) {
-						if (oneRepo) {
+						if (repos.length === 1) {
 							break;
 						}
 

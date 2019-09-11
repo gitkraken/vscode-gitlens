@@ -122,7 +122,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 
 	protected async *steps(): StepAsyncGenerator {
 		const state: StepState<State> = this._initialState === undefined ? { counter: 0 } : this._initialState;
-		let oneRepo = false;
+		let repos;
 
 		while (true) {
 			try {
@@ -167,11 +167,12 @@ export class StashGitCommand extends QuickCommandBase<State> {
 
 				this._subcommand = state.subcommand;
 
-				if (state.repo === undefined || state.counter < 2) {
-					const repos = [...(await Container.git.getOrderedRepositories())];
+				if (repos === undefined) {
+					repos = [...(await Container.git.getOrderedRepositories())];
+				}
 
+				if (state.repo === undefined || state.counter < 2) {
 					if (repos.length === 1) {
-						oneRepo = true;
 						state.counter++;
 						state.repo = repos[0];
 					} else {
@@ -213,7 +214,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 						return undefined;
 				}
 
-				if (oneRepo) {
+				if (repos.length === 1) {
 					state.counter--;
 				}
 				continue;
