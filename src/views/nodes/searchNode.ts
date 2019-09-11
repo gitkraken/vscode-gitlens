@@ -38,8 +38,8 @@ export class SearchNode extends ViewNode {
 						...command,
 						arguments: [this, getCommandArgs('')]
 					},
-					'Search for commits with messages',
-					'pattern',
+					'Search by Message',
+					`pattern ${GlyphChars.Dash} use quotes to search for phrases`,
 					`Click to search for commits with matching messages ${GlyphChars.Dash} use quotes to search for phrases`
 				),
 				new CommandMessageNode(
@@ -49,7 +49,7 @@ export class SearchNode extends ViewNode {
 						...command,
 						arguments: [this, getCommandArgs('author:')]
 					},
-					`${GlyphChars.Space.repeat(4)} or, authors or committers`,
+					`${GlyphChars.Space.repeat(4)} or, Author or Committer`,
 					'author: pattern',
 					'Click to search for commits with matching authors or committers'
 				),
@@ -60,9 +60,9 @@ export class SearchNode extends ViewNode {
 						...command,
 						arguments: [this, getCommandArgs('commit:')]
 					},
-					`${GlyphChars.Space.repeat(4)} or, commit id`,
+					`${GlyphChars.Space.repeat(4)} or, Commit ID`,
 					'commit: sha',
-					'Click to search for commits with matching commit id'
+					'Click to search for commits with matching commit ids'
 				),
 				new CommandMessageNode(
 					this.view,
@@ -71,7 +71,7 @@ export class SearchNode extends ViewNode {
 						...command,
 						arguments: [this, getCommandArgs('file:')]
 					},
-					`${GlyphChars.Space.repeat(4)} or, files`,
+					`${GlyphChars.Space.repeat(4)} or, Files`,
 					'file: glob',
 					'Click to search for commits with matching files'
 				),
@@ -82,7 +82,7 @@ export class SearchNode extends ViewNode {
 						...command,
 						arguments: [this, getCommandArgs('change:')]
 					},
-					`${GlyphChars.Space.repeat(4)} or, changes`,
+					`${GlyphChars.Space.repeat(4)} or, Changes`,
 					'change: pattern',
 					'Click to search for commits with matching changes'
 				)

@@ -131,27 +131,27 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 				if (state.search === undefined || state.counter < 2) {
 					const items: QuickPickItemOfT<string>[] = [
 						{
-							label: `${this.title} by Message`,
+							label: searchOperatorToTitleMap.get('')!,
 							description: `pattern ${GlyphChars.Dash} use quotes to search for phrases`,
 							item: ''
 						},
 						{
-							label: `${this.title} by Author or Committer`,
+							label: searchOperatorToTitleMap.get('author:')!,
 							description: 'author: pattern',
 							item: 'author:'
 						},
 						{
-							label: `${this.title} by Commit ID`,
+							label: searchOperatorToTitleMap.get('commit:')!,
 							description: 'commit: sha',
 							item: 'commit:'
 						},
 						{
-							label: `${this.title} by Files`,
+							label: searchOperatorToTitleMap.get('file:')!,
 							description: 'file: glob',
 							item: 'file:'
 						},
 						{
-							label: `${this.title} by Changes`,
+							label: searchOperatorToTitleMap.get('change:')!,
 							description: 'change: pattern',
 							item: 'change:'
 						}
