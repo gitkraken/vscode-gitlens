@@ -43,6 +43,22 @@ export type GitCommandsCommandArgs =
 @command()
 export class GitCommandsCommand extends Command {
 	private readonly GitQuickInputButtons = class {
+		static readonly CloseOnFocusOut: QuickInputButton = {
+			iconPath: {
+				dark: Container.context.asAbsolutePath('images/dark/icon-pin-small.svg') as any,
+				light: Container.context.asAbsolutePath('images/light/icon-pin-small.svg') as any
+			},
+			tooltip: 'Keep Open'
+		};
+
+		static readonly KeepOpen: QuickInputButton = {
+			iconPath: {
+				dark: Container.context.asAbsolutePath('images/dark/icon-pin-small-selected.svg') as any,
+				light: Container.context.asAbsolutePath('images/light/icon-pin-small-selected.svg') as any
+			},
+			tooltip: 'Keep Open'
+		};
+
 		static readonly WillConfirm: QuickInputButton = {
 			iconPath: {
 				dark: Container.context.asAbsolutePath('images/dark/icon-check.svg') as any,
@@ -139,6 +155,15 @@ export class GitCommandsCommand extends Command {
 							return;
 						}
 
+						if (
+							e === this.GitQuickInputButtons.CloseOnFocusOut ||
+							e === this.GitQuickInputButtons.KeepOpen
+						) {
+							await this.toggleKeepOpen(input, commandsStep.command);
+
+							return;
+						}
+
 						if (step.onDidClickButton !== undefined) {
 							step.onDidClickButton(input, e);
 							input.buttons = this.getButtons(step, commandsStep.command);
@@ -201,6 +226,8 @@ export class GitCommandsCommand extends Command {
 
 						if (e === this.GitQuickInputButtons.WillConfirmForced) return;
 						if (
+							e === this.GitQuickInputButtons.CloseOnFocusOut ||
+							e === this.GitQuickInputButtons.KeepOpen ||
 							e === this.GitQuickInputButtons.WillConfirm ||
 							e === this.GitQuickInputButtons.WillSkipConfirm
 						) {
@@ -212,7 +239,19 @@ export class GitCommandsCommand extends Command {
 								command = active;
 							}
 
-							await this.toggleConfirmation(quickpick, command);
+							if (
+								e === this.GitQuickInputButtons.WillConfirm ||
+								e === this.GitQuickInputButtons.WillSkipConfirm
+							) {
+								await this.toggleConfirmation(quickpick, command);
+							}
+
+							if (
+								e === this.GitQuickInputButtons.CloseOnFocusOut ||
+								e === this.GitQuickInputButtons.KeepOpen
+							) {
+								await this.toggleKeepOpen(quickpick, command);
+							}
 
 							return;
 						}
@@ -289,20 +328,7 @@ export class GitCommandsCommand extends Command {
 						const command = quickpick.activeItems[0];
 						if (!QuickCommandBase.is(command)) return;
 
-						const buttons: QuickInputButton[] = [];
-						if (command.canSkipConfirm) {
-							if (command.skipConfirmKey !== undefined) {
-								buttons.push(
-									command.confirm()
-										? this.GitQuickInputButtons.WillConfirm
-										: this.GitQuickInputButtons.WillSkipConfirm
-								);
-							}
-						} else {
-							buttons.push(this.GitQuickInputButtons.WillConfirmForced);
-						}
-
-						quickpick.buttons = buttons;
+						quickpick.buttons = this.getButtons(undefined, command);
 					}),
 					quickpick.onDidAccept(async () => {
 						let items = quickpick.selectedItems;
@@ -412,12 +438,18 @@ export class GitCommandsCommand extends Command {
 	}
 
 	private getButtons(step: QuickInputStep | QuickPickStep | undefined, command?: QuickCommandBase) {
-		if (command === undefined) return [];
-
 		const buttons: QuickInputButton[] = [];
 
 		if (step !== undefined) {
-			if (step.buttons !== undefined) return step.buttons;
+			if (step.buttons !== undefined) {
+				buttons.push(
+					...step.buttons,
+					configuration.get('gitCommands', 'closeOnFocusOut')
+						? this.GitQuickInputButtons.CloseOnFocusOut
+						: this.GitQuickInputButtons.KeepOpen
+				);
+				return buttons;
+			}
 
 			buttons.push(QuickInputButtons.Back);
 
@@ -426,14 +458,23 @@ export class GitCommandsCommand extends Command {
 			}
 		}
 
-		if (!command.canConfirm) return buttons;
-		if (command.canSkipConfirm) {
-			buttons.push(
-				command.confirm() ? this.GitQuickInputButtons.WillConfirm : this.GitQuickInputButtons.WillSkipConfirm
-			);
-		} else {
-			buttons.push(this.GitQuickInputButtons.WillConfirmForced);
+		if (command !== undefined && command.canConfirm) {
+			if (command.canSkipConfirm) {
+				buttons.push(
+					command.confirm()
+						? this.GitQuickInputButtons.WillConfirm
+						: this.GitQuickInputButtons.WillSkipConfirm
+				);
+			} else {
+				buttons.push(this.GitQuickInputButtons.WillConfirmForced);
+			}
 		}
+
+		buttons.push(
+			configuration.get('gitCommands', 'closeOnFocusOut')
+				? this.GitQuickInputButtons.CloseOnFocusOut
+				: this.GitQuickInputButtons.KeepOpen
+		);
 
 		return buttons;
 	}
@@ -471,6 +512,15 @@ export class GitCommandsCommand extends Command {
 		void (await configuration.updateEffective('gitCommands', 'skipConfirmations', skipConfirmations));
 
 		input.buttons = this.getButtons(command.value, command);
+	}
+
+	private async toggleKeepOpen(input: InputBox | QuickPick<QuickPickItem>, command: QuickCommandBase | undefined) {
+		const closeOnFocusOut = !configuration.get('gitCommands', 'closeOnFocusOut');
+
+		input.ignoreFocusOut = !closeOnFocusOut;
+		void (await configuration.updateEffective('gitCommands', 'closeOnFocusOut', closeOnFocusOut));
+
+		input.buttons = this.getButtons(command && command.value, command);
 	}
 }
 
