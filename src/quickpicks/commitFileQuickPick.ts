@@ -6,7 +6,6 @@ import {
 	CopyRemoteFileUrlToClipboardCommandArgs,
 	CopyShaToClipboardCommandArgs,
 	DiffWithPreviousCommandArgs,
-	DiffWithWorkingCommandArgs,
 	openEditor,
 	OpenWorkingFileCommandArgs,
 	ShowQuickCommitDetailsCommandArgs,
@@ -167,9 +166,6 @@ export class CommitFileQuickPick {
 		}
 
 		if (workingUri) {
-			const commandArgs: DiffWithWorkingCommandArgs = {
-				commit: commit
-			};
 			items.push(
 				new CommandQuickPickItem(
 					{
@@ -179,7 +175,7 @@ export class CommitFileQuickPick {
 						} ${GitUri.getFormattedPath(workingUri, { relativeTo: commit.repoPath })}`
 					},
 					Commands.DiffWithWorking,
-					[workingUri, commandArgs]
+					[GitUri.fromCommit(commit)]
 				)
 			);
 		}

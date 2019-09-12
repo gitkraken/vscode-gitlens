@@ -783,10 +783,6 @@ export class ViewCommands {
 				showOptions: options
 			};
 
-			if (!(node instanceof ResultsFilesNode)) {
-				args.commit = node.commit.toFileCommit(file);
-			}
-
 			const uri = GitUri.fromFile(file, repoPath, ref);
 			await commands.executeCommand(Commands.DiffWithWorking, uri, args);
 		}

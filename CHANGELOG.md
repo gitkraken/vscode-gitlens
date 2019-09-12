@@ -76,6 +76,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#794](https://github.com/eamodio/vscode-gitlens/issues/794) - Can't get back to settings page easily
 - Fixes [#738](https://github.com/eamodio/vscode-gitlens/issues/738) - Disable showWhatsNewAfterUpgrades notification
 - Fixes [#723](https://github.com/eamodio/vscode-gitlens/issues/723) (partially) - Top right tool loading/placement enhancement
+- Fixes issues with the _Open Changes with Working File_ command when invoked from a stash
 - Fixes issue where the _Open Line Changes with Previous Revision_ command would open the correct comparison in the diff editor
 - Fixes some issues with the _Open Changes with [Previous|Next] Revision_ commands when in the right or left side of the diff editor
 - Fixes an issue with branch sorting when the current branch was tree'd
