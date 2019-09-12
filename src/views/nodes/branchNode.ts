@@ -11,8 +11,14 @@ import { CommitNode } from './commitNode';
 import { MessageNode, ShowMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
 import { PageableViewNode, ResourceType, ViewNode, ViewRefNode } from './viewNode';
+import { RepositoryNode } from './repositoryNode';
 
 export class BranchNode extends ViewRefNode<RepositoriesView> implements PageableViewNode {
+	static key = ':branch';
+	static getId(repoPath: string, name: string, root: boolean): string {
+		return `${RepositoryNode.getId(repoPath)}${this.key}(${name})${root ? ':root' : ''}`;
+	}
+
 	readonly supportsPaging = true;
 	readonly rememberLastMaxCount = true;
 	maxCount: number | undefined = this.view.getNodeLastMaxCount(this);
@@ -35,9 +41,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 	}
 
 	get id(): string {
-		return `gitlens:repository(${this.branch.repoPath})${this._root ? ':root' : ''}:branch(${this.branch.name})${
-			this.branch.current ? '+current' : ''
-		}${this.branch.remote ? '+remote' : ''}${this.branch.starred ? '+starred' : ''}`;
+		return BranchNode.getId(this.branch.repoPath, this.branch.name, this._root);
 	}
 
 	get current(): boolean {

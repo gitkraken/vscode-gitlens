@@ -6,14 +6,20 @@ import { MessageNode } from './common';
 import { ContributorNode } from './contributorNode';
 import { ResourceType, ViewNode } from './viewNode';
 import { Container } from '../../container';
+import { RepositoryNode } from './repositoryNode';
 
 export class ContributorsNode extends ViewNode<RepositoriesView> {
+	static key = ':contributors';
+	static getId(repoPath: string): string {
+		return `${RepositoryNode.getId(repoPath)}${this.key}`;
+	}
+
 	constructor(uri: GitUri, view: RepositoriesView, parent: ViewNode, public readonly repo: Repository) {
 		super(uri, view, parent);
 	}
 
 	get id(): string {
-		return `gitlens:repository(${this.repo.path}):contributors`;
+		return ContributorsNode.getId(this.repo.path);
 	}
 
 	async getChildren(): Promise<ViewNode[]> {

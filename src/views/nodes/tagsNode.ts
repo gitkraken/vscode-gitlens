@@ -9,14 +9,20 @@ import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { MessageNode } from './common';
 import { TagNode } from './tagNode';
 import { ResourceType, ViewNode } from './viewNode';
+import { RepositoryNode } from './repositoryNode';
 
 export class TagsNode extends ViewNode<RepositoriesView> {
+	static key = ':tags';
+	static getId(repoPath: string): string {
+		return `${RepositoryNode.getId(repoPath)}${this.key}`;
+	}
+
 	constructor(uri: GitUri, view: RepositoriesView, parent: ViewNode, public readonly repo: Repository) {
 		super(uri, view, parent);
 	}
 
 	get id(): string {
-		return `gitlens:repository(${this.repo.path}):tags`;
+		return TagsNode.getId(this.repo.path);
 	}
 
 	async getChildren(): Promise<ViewNode[]> {

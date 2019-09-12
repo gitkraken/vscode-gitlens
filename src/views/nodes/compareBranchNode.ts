@@ -10,8 +10,14 @@ import { Container } from '../../container';
 import { log, Strings } from '../../system';
 import { FilesQueryResults, ResultsFilesNode } from './resultsFilesNode';
 import { ViewShowBranchComparison } from '../../config';
+import { RepositoryNode } from './repositoryNode';
 
 export class CompareBranchNode extends ViewNode<RepositoriesView> {
+	static key = ':compare-branch';
+	static getId(repoPath: string, name: string): string {
+		return `${RepositoryNode.getId(repoPath)}${this.key}(${name})`;
+	}
+
 	private _children: ViewNode[] | undefined;
 	private _compareWith: BranchComparison | undefined;
 
@@ -32,7 +38,7 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
 	}
 
 	get id(): string {
-		return `gitlens:repository(${this.branch.repoPath}):compare:branch(${this.branch.name}):compareWith`;
+		return CompareBranchNode.getId(this.branch.repoPath, this.branch.name);
 	}
 
 	async getChildren(): Promise<ViewNode[]> {

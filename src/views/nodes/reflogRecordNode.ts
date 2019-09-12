@@ -8,8 +8,22 @@ import { ViewWithFiles } from '../viewBase';
 import { CommitNode } from './commitNode';
 import { MessageNode, ShowMoreNode } from './common';
 import { PageableViewNode, ResourceType, ViewNode } from './viewNode';
+import { RepositoryNode } from './repositoryNode';
 
 export class ReflogRecordNode extends ViewNode<ViewWithFiles> implements PageableViewNode {
+	static key = ':reflog-record';
+	static getId(
+		repoPath: string,
+		sha: string,
+		selector: string,
+		command: string,
+		commandArgs: string | undefined,
+		date: Date
+	): string {
+		return `${RepositoryNode.getId(repoPath)}${this.key}(${sha}|${selector}|${command}|${commandArgs ||
+			''}|${date.getTime()})`;
+	}
+
 	readonly supportsPaging = true;
 	readonly rememberLastMaxCount = true;
 	maxCount: number | undefined = this.view.getNodeLastMaxCount(this);
@@ -19,9 +33,14 @@ export class ReflogRecordNode extends ViewNode<ViewWithFiles> implements Pageabl
 	}
 
 	get id(): string {
-		return `gitlens:repository(${this.uri.repoPath}):reflog-record(${this.record.sha}|${this.record.selector}|${
-			this.record.command
-		}|${this.record.commandArgs || ''}|${this.record.date.getTime()})`;
+		return ReflogRecordNode.getId(
+			this.uri.repoPath!,
+			this.record.sha,
+			this.record.selector,
+			this.record.command,
+			this.record.commandArgs,
+			this.record.date
+		);
 	}
 
 	async getChildren(): Promise<ViewNode[]> {

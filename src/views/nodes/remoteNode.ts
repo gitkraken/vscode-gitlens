@@ -9,8 +9,14 @@ import { RepositoriesView } from '../repositoriesView';
 import { BranchNode } from './branchNode';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { ResourceType, ViewNode } from './viewNode';
+import { RepositoryNode } from './repositoryNode';
 
 export class RemoteNode extends ViewNode<RepositoriesView> {
+	static key = ':remote';
+	static getId(repoPath: string, name: string, id: string): string {
+		return `${RepositoryNode.getId(repoPath)}${this.key}(${name}|${id})`;
+	}
+
 	constructor(
 		uri: GitUri,
 		view: RepositoriesView,
@@ -26,7 +32,7 @@ export class RemoteNode extends ViewNode<RepositoriesView> {
 	}
 
 	get id(): string {
-		return `gitlens:repository(${this.remote.repoPath}):remote(${this.remote.name}:${this.remote.id})`;
+		return RemoteNode.getId(this.remote.repoPath, this.remote.name, this.remote.id);
 	}
 
 	async getChildren(): Promise<ViewNode[]> {

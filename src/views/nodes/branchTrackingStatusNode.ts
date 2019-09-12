@@ -8,6 +8,7 @@ import { CommitNode } from './commitNode';
 import { ShowMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
 import { PageableViewNode, ResourceType, ViewNode } from './viewNode';
+import { BranchNode } from './branchNode';
 
 export interface BranchTrackingStatus {
 	ref: string;
@@ -17,6 +18,11 @@ export interface BranchTrackingStatus {
 }
 
 export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements PageableViewNode {
+	static key = ':status:upstream';
+	static getId(repoPath: string, name: string, root: boolean, upstream: string, direction: string): string {
+		return `${BranchNode.getId(repoPath, name, root)}${this.key}(${upstream}|${direction})`;
+	}
+
 	readonly supportsPaging = true;
 	readonly rememberLastMaxCount = true;
 	maxCount: number | undefined = this.view.getNodeLastMaxCount(this);
@@ -34,9 +40,13 @@ export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements
 	}
 
 	get id(): string {
-		return `gitlens:repository(${this.status.repoPath}):${this._root ? 'root:' : ''}branch(${
-			this.status.ref
-		}):status:upstream:(${this.status.upstream}):${this.direction}`;
+		return BranchTrackingStatusNode.getId(
+			this.status.repoPath,
+			this.status.ref,
+			this._root,
+			this.status.upstream!,
+			this.direction
+		);
 	}
 
 	get repoPath(): string {

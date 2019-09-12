@@ -10,8 +10,14 @@ import { MessageNode, ShowMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
 import { PageableViewNode, ResourceType, ViewNode, ViewRefNode } from './viewNode';
 import { emojify } from '../../emojis';
+import { RepositoryNode } from './repositoryNode';
 
 export class TagNode extends ViewRefNode<RepositoriesView> implements PageableViewNode {
+	static key = ':tag';
+	static getId(repoPath: string, name: string): string {
+		return `${RepositoryNode.getId(repoPath)}${this.key}(${name})`;
+	}
+
 	readonly supportsPaging = true;
 	readonly rememberLastMaxCount = true;
 	maxCount: number | undefined = this.view.getNodeLastMaxCount(this);
@@ -25,7 +31,7 @@ export class TagNode extends ViewRefNode<RepositoriesView> implements PageableVi
 	}
 
 	get id(): string {
-		return `gitlens:repository(${this.tag.repoPath}):tag(${this.tag.name})`;
+		return TagNode.getId(this.tag.repoPath, this.tag.name);
 	}
 
 	get label(): string {

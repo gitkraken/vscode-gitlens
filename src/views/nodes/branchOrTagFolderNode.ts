@@ -6,8 +6,15 @@ import { View } from '../viewBase';
 import { BranchNode } from './branchNode';
 import { TagNode } from './tagNode';
 import { ResourceType, ViewNode } from './viewNode';
+import { RepositoryNode } from './repositoryNode';
 
 export class BranchOrTagFolderNode extends ViewNode {
+	static getId(repoPath: string, key: string | undefined, type: string, relativePath: string | undefined): string {
+		return `${RepositoryNode.getId(repoPath)}:${
+			key === undefined ? type : `${key}:${type}`
+		}-folder(${relativePath})`;
+	}
+
 	constructor(
 		view: View,
 		parent: ViewNode,
@@ -27,9 +34,7 @@ export class BranchOrTagFolderNode extends ViewNode {
 	}
 
 	get id(): string {
-		return `gitlens:repository(${this.repoPath})${this._key === undefined ? '' : `:${this._key}`}:${
-			this.type
-		}-folder(${this.relativePath})`;
+		return BranchOrTagFolderNode.getId(this.repoPath, this._key, this.type, this.relativePath);
 	}
 
 	getChildren(): ViewNode[] {

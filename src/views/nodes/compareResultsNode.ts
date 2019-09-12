@@ -8,10 +8,16 @@ import { CompareView } from '../compareView';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
 import { FilesQueryResults, ResultsFilesNode } from './resultsFilesNode';
 import { ResourceType, SubscribeableViewNode, ViewNode } from './viewNode';
+import { RepositoryNode } from './repositoryNode';
 
 let instanceId = 0;
 
 export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
+	static key = ':compare-results';
+	static getId(repoPath: string, ref1: string, ref2: string, instanceId: number): string {
+		return `${RepositoryNode.getId(repoPath)}${this.key}(${ref1}|${ref2}):${instanceId}`;
+	}
+
 	private _children: ViewNode[] | undefined;
 	private _instanceId: number;
 
@@ -28,7 +34,7 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
 	}
 
 	get id(): string {
-		return `gitlens:repository(${this.repoPath}):compare(${this._ref.ref}:${this._compareWith.ref})|${this._instanceId}`;
+		return CompareResultsNode.getId(this.repoPath, this._ref.ref, this._compareWith.ref, this._instanceId);
 	}
 
 	get pinned(): boolean {

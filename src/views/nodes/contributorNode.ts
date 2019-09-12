@@ -9,8 +9,14 @@ import { MessageNode, ShowMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
 import { CommitNode } from './commitNode';
 import { GlyphChars } from '../../constants';
+import { RepositoryNode } from './repositoryNode';
 
 export class ContributorNode extends ViewNode<RepositoriesView> implements PageableViewNode {
+	static key = ':contributor';
+	static getId(repoPath: string, name: string, email: string): string {
+		return `${RepositoryNode.getId(repoPath)}${this.key}(${name}|${email})`;
+	}
+
 	readonly supportsPaging = true;
 	readonly rememberLastMaxCount = true;
 	maxCount: number | undefined = this.view.getNodeLastMaxCount(this);
@@ -24,7 +30,7 @@ export class ContributorNode extends ViewNode<RepositoriesView> implements Pagea
 	}
 
 	get id(): string {
-		return `gitlens:repository(${this.contributor.repoPath}):contributor(${this.contributor.name}|${this.contributor.email}}`;
+		return ContributorNode.getId(this.contributor.repoPath, this.contributor.name, this.contributor.email);
 	}
 
 	async getChildren(): Promise<ViewNode[]> {

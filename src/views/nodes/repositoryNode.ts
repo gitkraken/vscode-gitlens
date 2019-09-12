@@ -29,6 +29,11 @@ import { ResourceType, SubscribeableViewNode, ViewNode } from './viewNode';
 const hasTimeRegex = /[hHm]/;
 
 export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
+	static key = ':repository';
+	static getId(repoPath: string): string {
+		return `gitlens${this.key}(${repoPath})`;
+	}
+
 	private _children: ViewNode[] | undefined;
 	private _lastFetched: number = 0;
 	private _status: Promise<GitStatus | undefined>;
@@ -44,7 +49,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 	}
 
 	get id(): string {
-		return `gitlens:repository(${this.repo.path})${this.repo.starred ? '+starred' : ''}`;
+		return RepositoryNode.getId(this.repo.path);
 	}
 
 	async getChildren(): Promise<ViewNode[]> {

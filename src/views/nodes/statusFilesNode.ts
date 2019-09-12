@@ -18,8 +18,14 @@ import { RepositoriesView } from '../repositoriesView';
 import { FileNode, FolderNode } from './folderNode';
 import { StatusFileNode } from './statusFileNode';
 import { ResourceType, ViewNode } from './viewNode';
+import { RepositoryNode } from './repositoryNode';
 
 export class StatusFilesNode extends ViewNode<RepositoriesView> {
+	static key = ':status-files';
+	static getId(repoPath: string): string {
+		return `${RepositoryNode.getId(repoPath)}${this.key}`;
+	}
+
 	readonly repoPath: string;
 
 	constructor(
@@ -33,7 +39,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 	}
 
 	get id(): string {
-		return `gitlens:repository(${this.status.repoPath}):status:files`;
+		return StatusFilesNode.getId(this.status.repoPath);
 	}
 
 	async getChildren(): Promise<ViewNode[]> {

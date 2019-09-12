@@ -5,11 +5,19 @@ import { Commands } from '../../commands/common';
 import { ViewWithFiles } from '../viewBase';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
 import { ResourceType, ViewNode } from './viewNode';
+import { RepositoryNode } from './repositoryNode';
 import { SearchPattern } from '../../git/gitService';
 
 let instanceId = 0;
 
 export class SearchResultsCommitsNode extends ResultsCommitsNode {
+	static key = ':search-results';
+	static getId(repoPath: string, search: SearchPattern | undefined, instanceId: number): string {
+		return `${RepositoryNode.getId(repoPath)}${this.key}(${
+			search === undefined ? '?' : SearchPattern.toKey(search)
+		}):${instanceId}`;
+	}
+
 	private _instanceId: number;
 
 	constructor(
@@ -29,11 +37,7 @@ export class SearchResultsCommitsNode extends ResultsCommitsNode {
 	}
 
 	get id(): string {
-		return `gitlens:repository(${this.repoPath}):search(${this.search && this.search.pattern}|${
-			this.search && this.search.matchAll ? 'A' : ''
-		}${this.search && this.search.matchCase ? 'C' : ''}${
-			this.search && this.search.matchRegex ? 'R' : ''
-		}):commits|${this._instanceId}`;
+		return SearchResultsCommitsNode.getId(this.repoPath, this.search, this._instanceId);
 	}
 
 	get type(): ResourceType {

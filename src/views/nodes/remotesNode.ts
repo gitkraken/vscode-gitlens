@@ -6,14 +6,20 @@ import { RepositoriesView } from '../repositoriesView';
 import { MessageNode } from './common';
 import { RemoteNode } from './remoteNode';
 import { ResourceType, ViewNode } from './viewNode';
+import { RepositoryNode } from './repositoryNode';
 
 export class RemotesNode extends ViewNode<RepositoriesView> {
+	static key = ':remotes';
+	static getId(repoPath: string): string {
+		return `${RepositoryNode.getId(repoPath)}${this.key}`;
+	}
+
 	constructor(uri: GitUri, view: RepositoriesView, parent: ViewNode, public readonly repo: Repository) {
 		super(uri, view, parent);
 	}
 
 	get id(): string {
-		return `gitlens:repository(${this.repo.path}):remotes`;
+		return RemotesNode.getId(this.repo.path);
 	}
 
 	async getChildren(): Promise<ViewNode[]> {

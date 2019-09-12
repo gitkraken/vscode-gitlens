@@ -8,8 +8,14 @@ import { RepositoriesView } from '../repositoriesView';
 import { BranchNode } from './branchNode';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { ResourceType, ViewNode } from './viewNode';
+import { RepositoryNode } from './repositoryNode';
 
 export class BranchesNode extends ViewNode<RepositoriesView> {
+	static key = ':branches';
+	static getId(repoPath: string): string {
+		return `${RepositoryNode.getId(repoPath)}${this.key}`;
+	}
+
 	private _children: ViewNode[] | undefined;
 
 	constructor(uri: GitUri, view: RepositoriesView, parent: ViewNode, public readonly repo: Repository) {
@@ -17,7 +23,7 @@ export class BranchesNode extends ViewNode<RepositoriesView> {
 	}
 
 	get id(): string {
-		return `gitlens:repository(${this.repo.path}):branches`;
+		return BranchesNode.getId(this.repo.path);
 	}
 
 	async getChildren(): Promise<ViewNode[]> {

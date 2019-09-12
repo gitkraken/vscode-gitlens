@@ -6,8 +6,14 @@ import { Iterables } from '../../system';
 import { View } from '../viewBase';
 import { StashFileNode } from './stashFileNode';
 import { ResourceType, ViewNode, ViewRefNode } from './viewNode';
+import { RepositoryNode } from './repositoryNode';
 
 export class StashNode extends ViewRefNode {
+	static key = ':stash';
+	static getId(repoPath: string, ref: string): string {
+		return `${RepositoryNode.getId(repoPath)}${this.key}(${ref})`;
+	}
+
 	constructor(view: View, parent: ViewNode, public readonly commit: GitStashCommit) {
 		super(commit.toGitUri(), view, parent);
 	}
@@ -17,7 +23,7 @@ export class StashNode extends ViewRefNode {
 	}
 
 	get id(): string {
-		return `gitlens:repository(${this.commit.repoPath}):stash(${this.commit.sha})`;
+		return StashNode.getId(this.commit.repoPath, this.commit.sha);
 	}
 
 	get ref(): string {

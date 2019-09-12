@@ -7,8 +7,14 @@ import { RepositoriesView } from '../repositoriesView';
 import { ReflogRecordNode } from './reflogRecordNode';
 import { debug, gate } from '../../system';
 import { MessageNode, ShowMoreNode } from './common';
+import { RepositoryNode } from './repositoryNode';
 
 export class ReflogNode extends ViewNode<RepositoriesView> implements PageableViewNode {
+	static key = ':reflog';
+	static getId(repoPath: string): string {
+		return `${RepositoryNode.getId(repoPath)}${this.key}`;
+	}
+
 	readonly supportsPaging = true;
 	readonly rememberLastMaxCount = true;
 	maxCount: number | undefined = this.view.getNodeLastMaxCount(this);
@@ -20,7 +26,7 @@ export class ReflogNode extends ViewNode<RepositoriesView> implements PageableVi
 	}
 
 	get id(): string {
-		return `gitlens:repository(${this.repo.path}):reflog`;
+		return ReflogNode.getId(this.repo.path);
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
