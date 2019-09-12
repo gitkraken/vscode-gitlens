@@ -3,7 +3,7 @@ import { CancellationTokenSource, commands, QuickPickItem, window } from 'vscode
 import { Commands } from '../commands';
 import { configuration } from '../configuration';
 import { Container } from '../container';
-import { GitLog, GitLogCommit, GitUri } from '../git/gitService';
+import { GitLog, GitLogCommit, GitUri, SearchPattern } from '../git/gitService';
 import { KeyMapping, Keys } from '../keyboard';
 import { ReferencesQuickPick, ReferencesQuickPickItem } from './referencesQuickPick';
 
@@ -121,7 +121,7 @@ export class ShowCommitInViewQuickPickItem extends CommandQuickPickItem {
 
 export class ShowCommitSearchResultsInViewQuickPickItem extends CommandQuickPickItem {
 	constructor(
-		public readonly search: { pattern: string; matchAll?: boolean; matchCase?: boolean; matchRegex?: boolean },
+		public readonly search: SearchPattern,
 		public readonly results: GitLog,
 		public readonly resultsLabel: string | { label: string; resultsType?: { singular: string; plural: string } },
 		item: QuickPickItem = {

@@ -4,14 +4,10 @@ import { SearchResultsCommitsNode } from '../views/nodes';
 import { Container } from '../container';
 import { Command, command, CommandContext, Commands, isCommandViewContextWithRepo } from './common';
 import { GitCommandsCommandArgs } from '../commands';
+import { SearchPattern } from '../git/gitService';
 
 export interface SearchCommitsCommandArgs {
-	search?: {
-		pattern?: string;
-		matchAll?: boolean;
-		matchCase?: boolean;
-		matchRegex?: boolean;
-	};
+	search?: Partial<SearchPattern>;
 	repoPath?: string;
 
 	prefillOnly?: boolean;
@@ -60,10 +56,7 @@ export class SearchCommitsCommand extends Command {
 			prefillOnly: args.prefillOnly,
 			state: {
 				repo: repo,
-				search: args.search && args.search.pattern,
-				matchAll: args.search && args.search.matchAll,
-				matchCase: args.search && args.search.matchCase,
-				matchRegex: args.search && args.search.matchRegex,
+				...args.search,
 				showInView: args.showInView
 			}
 		};

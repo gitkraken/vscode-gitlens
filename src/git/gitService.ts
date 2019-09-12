@@ -106,6 +106,7 @@ export type SearchOperators =
 	| 'file:'
 	| '~:'
 	| 'change:';
+
 export const searchOperators = new Set<string>([
 	'',
 	'=:',
@@ -119,6 +120,22 @@ export const searchOperators = new Set<string>([
 	'~:',
 	'change:'
 ]);
+
+export interface SearchPattern {
+	pattern: string;
+	matchAll?: boolean;
+	matchCase?: boolean;
+	matchRegex?: boolean;
+}
+
+export namespace SearchPattern {
+	export function toKey(search: SearchPattern) {
+		return `${search.pattern}|${search.matchAll ? 'A' : ''}${search.matchCase ? 'C' : ''}${
+			search.matchRegex ? 'R' : ''
+		}`;
+	}
+}
+
 const normalizeSearchOperatorsMap = new Map<SearchOperators, SearchOperators>([
 	['', 'message:'],
 	['=:', 'message:'],
@@ -1464,12 +1481,7 @@ export class GitService implements Disposable {
 	@log()
 	async getLogForSearch(
 		repoPath: string,
-		search: {
-			pattern: string;
-			matchAll?: boolean;
-			matchCase?: boolean;
-			matchRegex?: boolean;
-		},
+		search: SearchPattern,
 		options: { maxCount?: number } = {}
 	): Promise<GitLog | undefined> {
 		search = { matchAll: false, matchCase: false, matchRegex: true, ...search };

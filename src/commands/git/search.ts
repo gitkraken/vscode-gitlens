@@ -2,7 +2,15 @@
 /* eslint-disable no-loop-func */
 import { QuickInputButton } from 'vscode';
 import { Container } from '../../container';
-import { GitLog, GitLogCommit, GitService, Repository, searchOperators, SearchOperators } from '../../git/gitService';
+import {
+	GitLog,
+	GitLogCommit,
+	GitService,
+	Repository,
+	searchOperators,
+	SearchOperators,
+	SearchPattern
+} from '../../git/gitService';
 import { GlyphChars } from '../../constants';
 import { QuickCommandBase, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
 import { RepositoryQuickPickItem } from '../../quickpicks';
@@ -376,13 +384,13 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 					state.search = selection[0].item.trim();
 				}
 
-				const search = {
+				const search: SearchPattern = {
 					pattern: state.search,
 					matchAll: state.matchAll,
 					matchCase: state.matchCase,
 					matchRegex: state.matchRegex
 				};
-				const searchKey = JSON.stringify(search);
+				const searchKey = SearchPattern.toKey(search);
 
 				if (resultsPromise === undefined || resultsKey !== searchKey) {
 					resultsPromise = Container.git.getLogForSearch(state.repo.path, search);

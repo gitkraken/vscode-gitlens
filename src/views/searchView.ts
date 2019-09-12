@@ -3,7 +3,7 @@ import { commands, ConfigurationChangeEvent } from 'vscode';
 import { configuration, SearchViewConfig, ViewFilesLayout, ViewsConfig } from '../configuration';
 import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
-import { GitLog } from '../git/gitService';
+import { GitLog, SearchPattern } from '../git/gitService';
 import { Functions, Strings } from '../system';
 import { nodeSupportsConditionalDismissal, SearchNode, SearchResultsCommitsNode, ViewNode } from './nodes';
 import { ViewBase } from './viewBase';
@@ -105,12 +105,7 @@ export class SearchView extends ViewBase<SearchNode> {
 
 	async search(
 		repoPath: string,
-		search: {
-			pattern: string;
-			matchAll?: boolean;
-			matchCase?: boolean;
-			matchRegex?: boolean;
-		},
+		search: SearchPattern,
 		{
 			label,
 			...options
@@ -146,12 +141,7 @@ export class SearchView extends ViewBase<SearchNode> {
 
 	showSearchResults(
 		repoPath: string,
-		search: {
-			pattern: string;
-			matchAll?: boolean;
-			matchCase?: boolean;
-			matchRegex?: boolean;
-		},
+		search: SearchPattern,
 		results: GitLog,
 		{
 			label,

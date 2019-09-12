@@ -5,6 +5,7 @@ import { Commands } from '../../commands/common';
 import { ViewWithFiles } from '../viewBase';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
 import { ResourceType, ViewNode } from './viewNode';
+import { SearchPattern } from '../../git/gitService';
 
 let instanceId = 0;
 
@@ -15,12 +16,7 @@ export class SearchResultsCommitsNode extends ResultsCommitsNode {
 		view: ViewWithFiles,
 		parent: ViewNode,
 		repoPath: string,
-		public readonly search: {
-			pattern: string;
-			matchAll?: boolean;
-			matchCase?: boolean;
-			matchRegex?: boolean;
-		},
+		public readonly search: SearchPattern,
 		label: string,
 		commitsQuery: (maxCount: number | undefined) => Promise<CommitsQueryResults>
 	) {
