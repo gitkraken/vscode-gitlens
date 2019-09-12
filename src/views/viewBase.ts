@@ -22,8 +22,7 @@ import { debug, Functions, log, Strings } from '../system';
 import { CompareView } from './compareView';
 import { FileHistoryView } from './fileHistoryView';
 import { LineHistoryView } from './lineHistoryView';
-import { ViewNode } from './nodes';
-import { nodeSupportsPaging, PageableViewNode } from './nodes/viewNode';
+import { PageableViewNode, ViewNode } from './nodes';
 import { RepositoriesView } from './repositoriesView';
 import { SearchView } from './searchView';
 
@@ -129,7 +128,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 
 	protected onElementCollapsed(e: TreeViewExpansionEvent<ViewNode>) {
 		// Clear any last max count if the node was collapsed
-		if (nodeSupportsPaging(e.element)) {
+		if (PageableViewNode.is(e.element)) {
 			this.resetNodeLastMaxCount(e.element);
 		}
 

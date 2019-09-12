@@ -26,7 +26,7 @@ import {
 	FileHistoryNode,
 	FolderNode,
 	LineHistoryNode,
-	nodeSupportsPaging,
+	PageableViewNode,
 	PagerNode,
 	RemoteNode,
 	RepositoryNode,
@@ -68,7 +68,7 @@ export class ViewCommands {
 		commands.registerCommand(
 			'gitlens.views.refreshNode',
 			(node: ViewNode, reset?: boolean) => {
-				if (reset == null && nodeSupportsPaging(node)) {
+				if (reset == null && PageableViewNode.is(node)) {
 					node.maxCount = undefined;
 					node.view.resetNodeLastMaxCount(node);
 				}

@@ -123,8 +123,11 @@ export interface PageableViewNode {
 	readonly rememberLastMaxCount?: boolean;
 	maxCount: number | undefined;
 }
-export function nodeSupportsPaging(node: ViewNode): node is ViewNode & PageableViewNode {
-	return Functions.is<ViewNode & PageableViewNode>(node, 'supportsPaging', true);
+
+export namespace PageableViewNode {
+	export function is(node: ViewNode): node is ViewNode & PageableViewNode {
+		return Functions.is<ViewNode & PageableViewNode>(node, 'supportsPaging', true);
+	}
 }
 
 export abstract class SubscribeableViewNode<TView extends View = View> extends ViewNode<TView> {
