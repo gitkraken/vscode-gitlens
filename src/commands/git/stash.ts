@@ -182,12 +182,14 @@ export class StashGitCommand extends QuickCommandBase<State> {
 						state.counter++;
 						state.repo = repos[0];
 					} else {
+						const active = state.repo ? state.repo : await Container.git.getActiveRepository();
+
 						const step = this.createPickStep<RepositoryQuickPickItem>({
 							title: `${this.title} ${getSubtitle(state.subcommand)}`,
 							placeholder: 'Choose a repository',
 							items: await Promise.all(
 								repos.map(r =>
-									RepositoryQuickPickItem.create(r, r.id === (state.repo && state.repo.id), {
+									RepositoryQuickPickItem.create(r, r.id === (active && active.id), {
 										branch: true,
 										fetched: true,
 										status: true

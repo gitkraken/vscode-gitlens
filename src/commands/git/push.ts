@@ -58,21 +58,25 @@ export class PushGitCommand extends QuickCommandBase<State> {
 						state.counter++;
 						state.repos = [repos[0]];
 					} else {
+						let actives: Repository[];
+						if (state.repos) {
+							actives = state.repos;
+						} else {
+							const active = await Container.git.getActiveRepository();
+							actives = active ? [active] : [];
+						}
+
 						const step = this.createPickStep<RepositoryQuickPickItem>({
 							multiselect: true,
 							title: this.title,
 							placeholder: 'Choose repositories',
 							items: await Promise.all(
 								repos.map(repo =>
-									RepositoryQuickPickItem.create(
-										repo,
-										state.repos ? state.repos.some(r => r.id === repo.id) : undefined,
-										{
-											branch: true,
-											fetched: true,
-											status: true
-										}
-									)
+									RepositoryQuickPickItem.create(repo, actives.some(r => r.id === repo.id), {
+										branch: true,
+										fetched: true,
+										status: true
+									})
 								)
 							)
 						});
