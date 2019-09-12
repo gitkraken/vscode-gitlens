@@ -153,6 +153,113 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 		return this._tree !== undefined ? this._tree.visible : false;
 	}
 
+	async findNode(
+		id: string,
+		options?: {
+			allowPaging?: boolean;
+			getChildren?: (node: ViewNode) => ViewNode[] | Promise<ViewNode[]>;
+			maxDepth?: number;
+		}
+	): Promise<ViewNode | undefined>;
+	async findNode(
+		predicate: (node: ViewNode) => boolean,
+		options?: {
+			allowPaging?: boolean;
+			getChildren?: (node: ViewNode) => ViewNode[] | Promise<ViewNode[]>;
+			maxDepth?: number;
+		}
+	): Promise<ViewNode | undefined>;
+	@log({
+		args: {
+			0: (predicate: string | ((node: ViewNode) => boolean)) =>
+				typeof predicate === 'string' ? predicate : false
+		}
+	})
+	async findNode(
+		predicate: string | ((node: ViewNode) => boolean),
+		{
+			allowPaging = false,
+			getChildren,
+			maxDepth = 2
+		}: {
+			allowPaging?: boolean;
+			getChildren?: (node: ViewNode) => ViewNode[] | Promise<ViewNode[]>;
+			maxDepth?: number;
+		} = {}
+	): Promise<ViewNode | undefined> {
+		if (getChildren === undefined) {
+			getChildren = n => n.getChildren();
+		}
+
+		// If we have no root (e.g. never been initialized) force it so the tree will load properly
+		if (this._root === undefined) {
+			await this.show();
+		}
+
+		return this.findNodeCore(
+			typeof predicate === 'string' ? n => n.id === predicate : predicate,
+			await getChildren(this.ensureRoot()),
+			allowPaging,
+			getChildren,
+			maxDepth
+		);
+	}
+
+	private async findNodeCore(
+		predicate: (node: ViewNode) => boolean,
+		nodes: ViewNode[],
+		allowPaging: boolean,
+		getChildren: (node: ViewNode) => ViewNode[] | Promise<ViewNode[]>,
+		depth: number
+	): Promise<ViewNode | undefined> {
+		const decendents: ViewNode[] = [];
+
+		const defaultPageSize = Container.config.advanced.maxListItems;
+
+		let child;
+		let children;
+		for (const node of nodes) {
+			children = await getChildren(node);
+			if (children.length === 0) continue;
+
+			child = children.find(predicate);
+			if (child !== undefined) return child;
+
+			if (PageableViewNode.is(node)) {
+				// Don't descend into paged children
+				if (!allowPaging || node.maxCount === 0) continue;
+
+				if (defaultPageSize !== 0 && (node.maxCount === undefined || node.maxCount < defaultPageSize)) {
+					await this.showMoreNodeChildren(node, defaultPageSize);
+
+					children = await getChildren(node);
+					if (children.length === 0) continue;
+
+					child = children.find(predicate);
+					if (child !== undefined) return child;
+				}
+
+				await this.showMoreNodeChildren(node, 0);
+
+				children = await getChildren(node);
+				if (children.length === 0) continue;
+
+				child = children.find(predicate);
+				if (child !== undefined) return child;
+
+				// Don't descend into paged children
+				continue;
+			}
+
+			decendents.push(...children);
+		}
+
+		depth--;
+		if (depth === 0) return undefined;
+
+		return this.findNodeCore(predicate, decendents, allowPaging, getChildren, depth);
+	}
+
 	@debug()
 	async refresh(reset: boolean = false) {
 		if (this._root !== undefined && this._root.refresh !== undefined) {
@@ -248,6 +355,8 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 		maxCount: number | undefined,
 		previousNode?: ViewNode
 	) {
+		if (node.maxCount === maxCount) return Promise.resolve();
+
 		if (maxCount === undefined || maxCount === 0) {
 			node.maxCount = maxCount;
 		} else {
