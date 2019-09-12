@@ -70,7 +70,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 
 	constructor(args?: StashGitCommandArgs) {
 		super('stash', 'stash', 'Stash', {
-			description: 'shelves (stashes) changes from the working tree to be reapplied later'
+			description: 'shelves (stashes) local changes to be reapplied later'
 		});
 
 		if (args == null || args.state === undefined) return;
@@ -135,21 +135,27 @@ export class StashGitCommand extends QuickCommandBase<State> {
 						items: [
 							{
 								label: 'apply',
+								description: 'integrates changes from the specified stash into the current branch',
 								picked: state.subcommand === 'apply',
 								item: 'apply'
 							},
 							{
 								label: 'drop',
+								description: 'deletes the specified stash',
 								picked: state.subcommand === 'drop',
 								item: 'drop'
 							},
 							{
 								label: 'pop',
+								description:
+									'integrates changes from the specified stash into the current branch and deletes the stash',
 								picked: state.subcommand === 'pop',
 								item: 'pop'
 							},
 							{
 								label: 'push',
+								description:
+									'saves your local changes to a new stash and discards them from the working tree and index',
 								picked: state.subcommand === 'push',
 								item: 'push'
 							}
