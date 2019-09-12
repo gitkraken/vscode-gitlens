@@ -13,4 +13,3 @@ export * from './quickpicks/referencesQuickPick';
 export * from './quickpicks/remotesQuickPick';
 export * from './quickpicks/repositoriesQuickPick';
 export * from './quickpicks/repoStatusQuickPick';
-export * from './quickpicks/stashListQuickPick';

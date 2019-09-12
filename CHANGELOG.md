@@ -36,7 +36,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds a new _reset_ Git command to reset current HEAD to a specified commit
   - Adds a new _revert_ Git command to revert specific commits
   - Adds a new _search_ Git command to search for specific commits
-  - Adds a new _stash_ Git command with sub-commands for _apply_, _drop_, _pop_, and _push_
+  - Adds a new _stash_ Git command with sub-commands for _apply_, _drop_, _list_, _pop_, and _push_
   - Adds a new _Fetch All & Prune_ option to the _fetch_ Git command
   - Adds the last fetched on date to the confirmation step of the _fetch_ Git command (when a single repo is selected)
   - Adds the last fetched on date to the confirmation step of the _pull_ Git command (when a single repo is selected)
@@ -59,7 +59,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Changes the _Reset to Commit (via Terminal)_ command to use the _reset_ Git command
 - Changes the _Revert Commit (via Terminal)_ command to use the _revert_ Git command
 - Changes all the stash commands to use the new _stash_ Git command
-- Changes _Stash All Changes_ commands in the Source Control view to toggle --kee-index appropriately &mdash; closes [#698](https://github.com/eamodio/vscode-gitlens/issues/698)
+- Changes _Stash All Changes_ commands in the Source Control view to toggle --keep-index appropriately &mdash; closes [#698](https://github.com/eamodio/vscode-gitlens/issues/698)
 - Changes the _Checkout_ command on branches, commits, and tags to use the _switch_ Git command
 - Changes Ansible files to use document scope for code lens &mdash; thanks to [PR #813](https://github.com/eamodio/vscode-gitlens/pull/813) by Ahmadali Shafiee ([@ahmadalli](https://github.com/ahmadalli))
 - Renames _Checkout_ command to _Switch_ for branches and tags for better clarity and to align with the new Git 2.23 commands

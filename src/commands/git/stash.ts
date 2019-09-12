@@ -1,9 +1,11 @@
 'use strict';
-import { QuickInputButtons, QuickPickItem, Uri, window } from 'vscode';
+/* eslint-disable no-loop-func */
+import { commands, QuickInputButtons, QuickPickItem, Uri, window } from 'vscode';
 import { Container } from '../../container';
 import { GitStashCommit, GitUri, Repository } from '../../git/gitService';
 import { BreakQuickCommand, QuickCommandBase, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
 import {
+	CommandQuickPickItem,
 	CommitQuickPickItem,
 	Directive,
 	DirectiveQuickPickItem,
@@ -15,6 +17,8 @@ import { Iterables, Strings } from '../../system';
 import { GlyphChars } from '../../constants';
 import { Logger } from '../../logger';
 import { Messages } from '../../messages';
+import { GitCommandsCommandArgs, ShowQuickCommitDetailsCommandArgs } from '../../commands';
+import { Commands } from '../common';
 
 interface ApplyState {
 	subcommand: 'apply';
@@ -28,6 +32,11 @@ interface DropState {
 	repo: Repository;
 	stash: { stashName: string; message: string; repoPath: string };
 	flags: string[];
+}
+
+interface ListState {
+	subcommand: 'list';
+	repo: Repository;
 }
 
 interface PopState {
@@ -45,12 +54,13 @@ interface PushState {
 	flags: string[];
 }
 
-type State = ApplyState | DropState | PopState | PushState;
+type State = ApplyState | DropState | ListState | PopState | PushState;
 type StashStepState<T> = StepState<T> & { repo: Repository };
 
 const subcommandToSubtitleMap = new Map<State['subcommand'], string>([
 	['apply', 'Apply'],
 	['drop', 'Drop'],
+	['list', 'List'],
 	['pop', 'Pop'],
 	['push', 'Push']
 ]);
@@ -109,7 +119,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 	}
 
 	get canConfirm(): boolean {
-		return this._subcommand !== undefined;
+		return this._subcommand !== undefined && this._subcommand !== 'list';
 	}
 
 	get canSkipConfirm(): boolean {
@@ -144,6 +154,12 @@ export class StashGitCommand extends QuickCommandBase<State> {
 								description: 'deletes the specified stash',
 								picked: state.subcommand === 'drop',
 								item: 'drop'
+							},
+							{
+								label: 'list',
+								description: 'lists the saved stashes',
+								picked: state.subcommand === 'list',
+								item: 'list'
 							},
 							{
 								label: 'pop',
@@ -214,6 +230,9 @@ export class StashGitCommand extends QuickCommandBase<State> {
 						break;
 					case 'drop':
 						yield* this.drop(state as StashStepState<DropState>);
+						break;
+					case 'list':
+						yield* this.list(state as StashStepState<ListState>);
 						break;
 					case 'push':
 						yield* this.push(state as StashStepState<PushState>);
@@ -451,6 +470,73 @@ export class StashGitCommand extends QuickCommandBase<State> {
 			void Container.git.stashDelete(state.repo.path, state.stash.stashName);
 
 			throw new BreakQuickCommand();
+		}
+
+		return undefined;
+	}
+
+	private async *list(state: StashStepState<ListState>): StepAsyncGenerator {
+		let pickedStash: GitStashCommit | undefined;
+
+		while (true) {
+			const stash = await Container.git.getStashList(state.repo.path);
+
+			const step = this.createPickStep<CommitQuickPickItem<GitStashCommit>>({
+				title: `${this.title} ${getSubtitle(state.subcommand)}${Strings.pad(GlyphChars.Dot, 2, 2)}${
+					state.repo.formattedName
+				}`,
+				placeholder:
+					stash === undefined
+						? `${state.repo.formattedName} has no stashes`
+						: 'Choose a stash to show in the Repositories view',
+				matchOnDetail: true,
+				items:
+					stash === undefined
+						? [
+								DirectiveQuickPickItem.create(Directive.Back, true),
+								DirectiveQuickPickItem.create(Directive.Cancel)
+						  ]
+						: [
+								...Iterables.map(stash.commits.values(), c =>
+									CommitQuickPickItem.create(c, c.ref === (pickedStash && pickedStash.ref), {
+										compact: true
+									})
+								)
+						  ]
+			});
+			const selection: StepSelection<typeof step> = yield step;
+
+			if (!this.canPickStepMoveNext(step, state, selection)) {
+				break;
+			}
+
+			state.counter--;
+			pickedStash = selection[0].item;
+
+			// const node = await Container.repositoriesView.findStashNode(pickedStash);
+			// if (node !== undefined) {
+			// 	Container.repositoriesView.reveal(node, { select: true, expand: true });
+			// }
+
+			const gitCommandArgs: GitCommandsCommandArgs = {
+				command: 'search',
+				state: { ...state }
+			};
+
+			const commandArgs: ShowQuickCommitDetailsCommandArgs = {
+				sha: pickedStash.sha,
+				commit: pickedStash,
+				goBackCommand: new CommandQuickPickItem(
+					{
+						label: 'Back',
+						description: ''
+					},
+					Commands.GitCommands,
+					[gitCommandArgs]
+				)
+			};
+
+			void commands.executeCommand(Commands.ShowQuickCommitDetails, pickedStash.toGitUri(), commandArgs);
 		}
 
 		return undefined;
