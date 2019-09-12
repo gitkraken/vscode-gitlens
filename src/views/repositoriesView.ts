@@ -3,10 +3,13 @@ import { commands, ConfigurationChangeEvent, Event, EventEmitter } from 'vscode'
 import { configuration, RepositoriesViewConfig, ViewFilesLayout, ViewsConfig } from '../configuration';
 import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
-import { RepositoriesNode, ViewNode } from './nodes';
+import { BranchesNode, BranchNode, RepositoriesNode, RepositoryNode, StashesNode, StashNode, ViewNode } from './nodes';
 import { ViewBase } from './viewBase';
 import { ViewShowBranchComparison } from '../config';
 import { CompareBranchNode } from './nodes/compareBranchNode';
+import { GitLogCommit, GitStashCommit } from '../git/git';
+
+const emptyArray = (Object.freeze([]) as any) as any[];
 
 export class RepositoriesView extends ViewBase<RepositoriesNode> {
 	constructor() {
@@ -110,6 +113,49 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 
 	get config(): ViewsConfig & RepositoriesViewConfig {
 		return { ...Container.config.views, ...Container.config.views.repositories };
+	}
+
+	findCommitNode(commit: GitLogCommit) {
+		const repoNodeId = RepositoryNode.getId(commit.repoPath);
+
+		return this.findNode((n: any) => n.commit !== undefined && n.commit.sha === commit.sha, {
+			allowPaging: true,
+			maxDepth: 2,
+			getChildren: async n => {
+				// Only search for commit nodes in the same repo within the root BranchNode
+				if (n.id != null && n.id.startsWith(`gitlens${RepositoryNode.key}`)) {
+					if (!n.id.startsWith(repoNodeId)) return emptyArray;
+
+					if (n instanceof BranchNode) {
+						if (!n.root) return emptyArray;
+					} else if (!(n instanceof RepositoryNode) && !(n instanceof BranchesNode)) {
+						return emptyArray;
+					}
+				}
+
+				return n.getChildren();
+			}
+		});
+	}
+
+	findStashNode(stash: GitStashCommit) {
+		const repoNodeId = RepositoryNode.getId(stash.repoPath);
+
+		return this.findNode(StashNode.getId(stash.repoPath, stash.sha), {
+			maxDepth: 2,
+			getChildren: async n => {
+				// Only search for stash nodes in the same repo within a StashesNode
+				if (n.id != null && n.id.startsWith(`gitlens${RepositoryNode.key}`)) {
+					if (!n.id.startsWith(repoNodeId)) return emptyArray;
+
+					if (!(n instanceof RepositoryNode) && !(n instanceof StashesNode)) {
+						return emptyArray;
+					}
+				}
+
+				return n.getChildren();
+			}
+		});
 	}
 
 	private async setAutoRefresh(enabled: boolean, workspaceEnabled?: boolean) {

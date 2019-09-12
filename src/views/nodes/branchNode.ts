@@ -31,7 +31,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 		parent: ViewNode,
 		public readonly branch: GitBranch,
 		// Specifies that the node is shown as a root under the repository node
-		private readonly _root: boolean = false
+		public readonly root: boolean = false
 	) {
 		super(uri, view, parent);
 	}
@@ -41,7 +41,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 	}
 
 	get id(): string {
-		return BranchNode.getId(this.branch.repoPath, this.branch.name, this._root);
+		return BranchNode.getId(this.branch.repoPath, this.branch.name, this.root);
 	}
 
 	get current(): boolean {
@@ -52,7 +52,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 		const branchName = this.branch.getName();
 		if (this.view.config.branches.layout === ViewBranchesLayout.List) return branchName;
 
-		return (this._root && this.current) || this.branch.detached || this.branch.starred
+		return (this.root && this.current) || this.branch.detached || this.branch.starred
 			? branchName
 			: this.branch.getBasename();
 	}
@@ -70,7 +70,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children === undefined) {
 			const children = [];
-			if (!this._root && this.branch.tracking) {
+			if (!this.root && this.branch.tracking) {
 				const status = {
 					ref: this.branch.ref,
 					repoPath: this.branch.repoPath,
@@ -185,7 +185,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 
 		const item = new TreeItem(
 			// Hide the current branch checkmark when the node is displayed as a root under the repository node
-			`${!this._root && this.current ? `${GlyphChars.Check} ${GlyphChars.Space}` : ''}${name}`,
+			`${!this.root && this.current ? `${GlyphChars.Check} ${GlyphChars.Space}` : ''}${name}`,
 			TreeItemCollapsibleState.Collapsed
 		);
 		item.contextValue = ResourceType.Branch;

@@ -3,7 +3,7 @@ import { CancellationTokenSource, commands, QuickPickItem, window } from 'vscode
 import { Commands } from '../commands';
 import { configuration } from '../configuration';
 import { Container } from '../container';
-import { GitLog, GitLogCommit, GitUri, SearchPattern } from '../git/gitService';
+import { GitLog, GitLogCommit, GitStashCommit, GitUri, SearchPattern } from '../git/gitService';
 import { KeyMapping, Keys } from '../keyboard';
 import { ReferencesQuickPick, ReferencesQuickPickItem } from './referencesQuickPick';
 
@@ -102,13 +102,38 @@ export class ShowCommitInViewQuickPickItem extends CommandQuickPickItem {
 		public readonly commit: GitLogCommit,
 		item: QuickPickItem = {
 			label: '$(eye) Show in View',
-			description: `shows the ${commit.isStash ? 'stash' : 'commit'} in the Search Commits view`
+			description: `shows the ${commit.isStash ? 'stash' : 'commit'} in the Repositories view`
 		}
 	) {
 		super(item, undefined, undefined);
 	}
 
 	async execute(): Promise<{} | undefined> {
+		if (GitStashCommit.is(this.commit)) {
+			const node = await Container.repositoriesView.findStashNode(this.commit);
+			if (node !== undefined) {
+				await Container.repositoriesView.reveal(node, {
+					select: true,
+					focus: true,
+					expand: true
+				});
+			}
+
+			return undefined;
+		}
+
+		const node = await Container.repositoriesView.findCommitNode(this.commit);
+		if (node !== undefined) {
+			await Container.repositoriesView.reveal(node, {
+				select: true,
+				focus: true,
+				expand: true
+			});
+
+			return undefined;
+		}
+
+		// Fallback to commit search, if we can't find it
 		return void (await Container.searchView.search(
 			this.commit.repoPath,
 			{ pattern: `commit:${this.commit.sha}` },
