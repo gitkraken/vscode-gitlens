@@ -2,6 +2,9 @@
 import { GitCommitType } from './commit';
 import { GitFile } from './file';
 import { GitLogCommit } from './logCommit';
+import { memoize } from '../../system';
+
+const stashNumberRegex = /stash@{(\d+)}/;
 
 export class GitStashCommit extends GitLogCommit {
 	static is(commit: any): commit is GitStashCommit {
@@ -25,6 +28,14 @@ export class GitStashCommit extends GitLogCommit {
 		files: GitFile[]
 	) {
 		super(type, repoPath, sha, 'You', undefined, authorDate, committedDate, message, fileName, files);
+	}
+
+	@memoize()
+	get number() {
+		const match = stashNumberRegex.exec(this.stashName);
+		if (match == null) return undefined;
+
+		return match[1];
 	}
 
 	get shortSha() {

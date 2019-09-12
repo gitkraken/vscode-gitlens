@@ -159,16 +159,31 @@ export namespace CommitQuickPickItem {
 		options: { compact?: boolean; icon?: boolean; match?: string } = {}
 	) {
 		if (GitStashCommit.is(commit)) {
+			const number = commit.number === undefined ? '' : `${commit.number}: `;
+
+			if (options.compact) {
+				const item: CommitQuickPickItem<T> = {
+					label: `${number}${commit.getShortMessage()}`,
+					description: `${commit.formattedDate}${Strings.pad(
+						GlyphChars.Dot,
+						2,
+						2
+					)}${commit.getFormattedDiffStatus({ compact: true })}`,
+					picked: picked,
+					item: commit
+				};
+
+				return item;
+			}
+
 			const item: CommitQuickPickItem<T> = {
-				label: commit.getShortMessage(),
+				label: `${number}${commit.getShortMessage()}`,
 				description: '',
-				detail: `${GlyphChars.Space.repeat(2)}${commit.stashName || commit.shortSha}${Strings.pad(
+				detail: `${GlyphChars.Space.repeat(2)}${commit.formattedDate}${Strings.pad(
 					GlyphChars.Dot,
 					2,
 					2
-				)}${commit.formattedDate}${Strings.pad(GlyphChars.Dot, 2, 2)}${commit.getFormattedDiffStatus({
-					compact: true
-				})}`,
+				)}${commit.getFormattedDiffStatus({ compact: true })}`,
 				picked: picked,
 				item: commit
 			};
