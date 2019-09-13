@@ -109,7 +109,7 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 				dark: Container.context.asAbsolutePath('images/dark/icon-link.svg') as any,
 				light: Container.context.asAbsolutePath('images/light/icon-link.svg') as any
 			},
-			tooltip: 'Open in Search Commits View'
+			tooltip: 'Open in View'
 		};
 
 		static readonly ShowInView: QuickInputButton = {

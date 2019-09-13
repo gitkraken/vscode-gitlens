@@ -110,37 +110,33 @@ export class ShowCommitInViewQuickPickItem extends CommandQuickPickItem {
 
 	async execute(): Promise<{} | undefined> {
 		if (GitStashCommit.is(this.commit)) {
-			const node = await Container.repositoriesView.findStashNode(this.commit);
-			if (node !== undefined) {
-				await Container.repositoriesView.reveal(node, {
-					select: true,
-					focus: true,
-					expand: true
-				});
-			}
-
-			return undefined;
-		}
-
-		const node = await Container.repositoriesView.findCommitNode(this.commit);
-		if (node !== undefined) {
-			await Container.repositoriesView.reveal(node, {
+			void (await Container.repositoriesView.revealStash(this.commit, {
 				select: true,
 				focus: true,
 				expand: true
-			});
+			}));
 
 			return undefined;
 		}
 
-		// Fallback to commit search, if we can't find it
-		return void (await Container.searchView.search(
-			this.commit.repoPath,
-			{ pattern: `commit:${this.commit.sha}` },
-			{
-				label: { label: `for commit id ${this.commit.shortSha}` }
-			}
-		));
+		const node = await Container.repositoriesView.revealCommit(this.commit, {
+			select: true,
+			focus: true,
+			expand: true
+		});
+
+		if (node === undefined) {
+			// Fallback to commit search, if we can't find it
+			void (await Container.searchView.search(
+				this.commit.repoPath,
+				{ pattern: `commit:${this.commit.sha}` },
+				{
+					label: { label: `for commit id ${this.commit.shortSha}` }
+				}
+			));
+		}
+
+		return undefined;
 	}
 }
 

@@ -115,10 +115,10 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 		return { ...Container.config.views, ...Container.config.views.repositories };
 	}
 
-	findCommitNode(commit: GitLogCommit) {
+	findCommitNode(commit: GitLogCommit | { repoPath: string; ref: string }) {
 		const repoNodeId = RepositoryNode.getId(commit.repoPath);
 
-		return this.findNode((n: any) => n.commit !== undefined && n.commit.sha === commit.sha, {
+		return this.findNode((n: any) => n.commit !== undefined && n.commit.ref === commit.ref, {
 			allowPaging: true,
 			maxDepth: 2,
 			getChildren: async n => {
@@ -138,10 +138,10 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 		});
 	}
 
-	findStashNode(stash: GitStashCommit) {
+	findStashNode(stash: GitStashCommit | { repoPath: string; ref: string }) {
 		const repoNodeId = RepositoryNode.getId(stash.repoPath);
 
-		return this.findNode(StashNode.getId(stash.repoPath, stash.sha), {
+		return this.findNode(StashNode.getId(stash.repoPath, stash.ref), {
 			maxDepth: 2,
 			getChildren: async n => {
 				// Only search for stash nodes in the same repo within a StashesNode
@@ -156,6 +156,71 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 				return n.getChildren();
 			}
 		});
+	}
+
+	async revealCommit(
+		commit: GitLogCommit | { repoPath: string; ref: string },
+		options?: {
+			select?: boolean;
+			focus?: boolean;
+			expand?: boolean | number;
+		}
+	) {
+		const node = await this.findCommitNode(commit);
+		if (node !== undefined) {
+			await this.reveal(node, options);
+		}
+
+		return node;
+	}
+
+	async revealStash(
+		stash: GitStashCommit | { repoPath: string; ref: string },
+		options?: {
+			select?: boolean;
+			focus?: boolean;
+			expand?: boolean | number;
+		}
+	) {
+		const node = await this.findStashNode(stash);
+		if (node !== undefined) {
+			await this.reveal(node, options);
+		}
+
+		return node;
+	}
+
+	async revealStashes(
+		repoPath: string,
+		options?: {
+			select?: boolean;
+			focus?: boolean;
+			expand?: boolean | number;
+		}
+	) {
+		const repoNodeId = RepositoryNode.getId(repoPath);
+
+		const node = await this.findNode(StashesNode.getId(repoPath), {
+			maxDepth: 2,
+			getChildren: async n => {
+				// Only search for nodes in the same repo
+				if (n.id != null && n.id.startsWith(`gitlens${RepositoryNode.key}`)) {
+					if (!n.id.startsWith(repoNodeId)) return emptyArray;
+
+					if (!(n instanceof RepositoryNode)) {
+						return emptyArray;
+					}
+				}
+
+				return n.getChildren();
+			}
+		});
+
+		if (node !== undefined) {
+			await this.reveal(node, options);
+		}
+
+		return node;
 	}
 
 	private async setAutoRefresh(enabled: boolean, workspaceEnabled?: boolean) {

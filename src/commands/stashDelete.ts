@@ -8,7 +8,7 @@ import { GitCommandsCommandArgs } from '../commands';
 
 export interface StashDeleteCommandArgs {
 	repoPath?: string;
-	stashItem?: { stashName: string; message: string; repoPath: string };
+	stashItem?: { stashName: string; message: string; ref: string; repoPath: string };
 
 	goBackCommand?: CommandQuickPickItem;
 }

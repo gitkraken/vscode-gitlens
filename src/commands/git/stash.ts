@@ -1,6 +1,6 @@
 'use strict';
 /* eslint-disable no-loop-func */
-import { commands, QuickInputButtons, QuickPickItem, Uri, window } from 'vscode';
+import { commands, QuickInputButton, QuickInputButtons, QuickPickItem, Uri, window } from 'vscode';
 import { Container } from '../../container';
 import { GitStashCommit, GitUri, Repository } from '../../git/gitService';
 import { BreakQuickCommand, QuickCommandBase, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
@@ -23,14 +23,14 @@ import { Commands } from '../common';
 interface ApplyState {
 	subcommand: 'apply';
 	repo: Repository;
-	stash: { stashName: string; message: string; repoPath: string };
+	stash: { stashName: string; message: string; ref: string; repoPath: string };
 	flags: string[];
 }
 
 interface DropState {
 	subcommand: 'drop';
 	repo: Repository;
-	stash: { stashName: string; message: string; repoPath: string };
+	stash: { stashName: string; message: string; ref: string; repoPath: string };
 	flags: string[];
 }
 
@@ -42,7 +42,7 @@ interface ListState {
 interface PopState {
 	subcommand: 'pop';
 	repo: Repository;
-	stash: { stashName: string; message: string; repoPath: string };
+	stash: { stashName: string; message: string; ref: string; repoPath: string };
 	flags: string[];
 }
 
@@ -76,6 +76,16 @@ export interface StashGitCommandArgs {
 }
 
 export class StashGitCommand extends QuickCommandBase<State> {
+	private readonly Buttons = class {
+		static readonly OpenInView: QuickInputButton = {
+			iconPath: {
+				dark: Container.context.asAbsolutePath('images/dark/icon-link.svg') as any,
+				light: Container.context.asAbsolutePath('images/light/icon-link.svg') as any
+			},
+			tooltip: 'Open in View'
+		};
+	};
+
 	private _subcommand: string | undefined;
 
 	constructor(args?: StashGitCommandArgs) {
@@ -329,7 +339,25 @@ export class StashGitCommand extends QuickCommandBase<State> {
 											}
 										)
 									)
-							  ]
+							  ],
+					additionalButtons: [this.Buttons.OpenInView],
+					onDidClickButton: (quickpick, button) => {
+						if (button === this.Buttons.OpenInView) {
+							if (quickpick.activeItems.length !== 0) {
+								void Container.repositoriesView.revealStash(quickpick.activeItems[0].item, {
+									select: true,
+									expand: true
+								});
+
+								return;
+							}
+
+							void Container.repositoriesView.revealStashes(state.repo.path, {
+								select: true,
+								expand: true
+							});
+						}
+					}
 				});
 				const selection: StepSelection<typeof step> = yield step;
 
@@ -382,7 +410,18 @@ export class StashGitCommand extends QuickCommandBase<State> {
 						}
 					],
 					undefined,
-					{ placeholder: `Confirm ${this.title} ${getSubtitle(state.subcommand)}` }
+					{
+						placeholder: `Confirm ${this.title} ${getSubtitle(state.subcommand)}`,
+						additionalButtons: [this.Buttons.OpenInView],
+						onDidClickButton: (quickpick, button) => {
+							if (button === this.Buttons.OpenInView) {
+								void Container.repositoriesView.revealStash(state.stash!, {
+									select: true,
+									expand: true
+								});
+							}
+						}
+					}
 				);
 				const selection: StepSelection<typeof step> = yield step;
 
@@ -432,7 +471,25 @@ export class StashGitCommand extends QuickCommandBase<State> {
 											}
 										)
 									)
-							  ]
+							  ],
+					additionalButtons: [this.Buttons.OpenInView],
+					onDidClickButton: (quickpick, button) => {
+						if (button === this.Buttons.OpenInView) {
+							if (quickpick.activeItems.length !== 0) {
+								void Container.repositoriesView.revealStash(quickpick.activeItems[0].item, {
+									select: true,
+									expand: true
+								});
+
+								return;
+							}
+
+							void Container.repositoriesView.revealStashes(state.repo.path, {
+								select: true,
+								expand: true
+							});
+						}
+					}
 				});
 				const selection: StepSelection<typeof step> = yield step;
 
@@ -460,7 +517,18 @@ export class StashGitCommand extends QuickCommandBase<State> {
 					}
 				],
 				undefined,
-				{ placeholder: `Confirm ${this.title} ${getSubtitle(state.subcommand)}` }
+				{
+					placeholder: `Confirm ${this.title} ${getSubtitle(state.subcommand)}`,
+					additionalButtons: [this.Buttons.OpenInView],
+					onDidClickButton: (quickpick, button) => {
+						if (button === this.Buttons.OpenInView) {
+							void Container.repositoriesView.revealStash(state.stash!, {
+								select: true,
+								expand: true
+							});
+						}
+					}
+				}
 			);
 			const selection: StepSelection<typeof step> = yield step;
 
@@ -486,10 +554,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 				title: `${this.title} ${getSubtitle(state.subcommand)}${Strings.pad(GlyphChars.Dot, 2, 2)}${
 					state.repo.formattedName
 				}`,
-				placeholder:
-					stash === undefined
-						? `${state.repo.formattedName} has no stashes`
-						: 'Choose a stash to show in the Repositories view',
+				placeholder: stash === undefined ? `${state.repo.formattedName} has no stashes` : 'Choose a stash',
 				matchOnDetail: true,
 				items:
 					stash === undefined
@@ -503,7 +568,25 @@ export class StashGitCommand extends QuickCommandBase<State> {
 										compact: true
 									})
 								)
-						  ]
+						  ],
+				additionalButtons: [this.Buttons.OpenInView],
+				onDidClickButton: (quickpick, button) => {
+					if (button === this.Buttons.OpenInView) {
+						if (quickpick.activeItems.length !== 0) {
+							void Container.repositoriesView.revealStash(quickpick.activeItems[0].item, {
+								select: true,
+								expand: true
+							});
+
+							return;
+						}
+
+						void Container.repositoriesView.revealStashes(state.repo.path, {
+							select: true,
+							expand: true
+						});
+					}
+				}
 			});
 			const selection: StepSelection<typeof step> = yield step;
 
