@@ -145,15 +145,14 @@ export class MergeGitCommand extends QuickCommandBase<State> {
 					const step = this.createConfirmStep(
 						`Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${state.repo.formattedName}`,
 						[],
-						{
-							cancel: DirectiveQuickPickItem.create(Directive.Cancel, true, {
-								label: `Cancel ${this.title}`,
-								detail: `${destination.name} is up to date with ${state.reference.name}`
-							})
-						}
-					);
 
+						DirectiveQuickPickItem.create(Directive.Cancel, true, {
+							label: `Cancel ${this.title}`,
+							detail: `${destination.name} is up to date with ${state.reference.name}`
+						})
+					);
 					yield step;
+
 					break;
 				}
 

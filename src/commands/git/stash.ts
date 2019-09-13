@@ -381,6 +381,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 							item: []
 						}
 					],
+					undefined,
 					{ placeholder: `Confirm ${this.title} ${getSubtitle(state.subcommand)}` }
 				);
 				const selection: StepSelection<typeof step> = yield step;
@@ -442,7 +443,6 @@ export class StashGitCommand extends QuickCommandBase<State> {
 				state.stash = selection[0].item;
 			}
 
-			// if (this.confirm(state.confirm)) {
 			const message =
 				state.stash.message.length > 80
 					? `${state.stash.message.substring(0, 80)}${GlyphChars.Ellipsis}`
@@ -459,6 +459,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 						detail: `Will delete ${state.stash.stashName}`
 					}
 				],
+				undefined,
 				{ placeholder: `Confirm ${this.title} ${getSubtitle(state.subcommand)}` }
 			);
 			const selection: StepSelection<typeof step> = yield step;
@@ -611,6 +612,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 									item: ['--keep-index']
 								}
 						  ],
+					undefined,
 					{ placeholder: `Confirm ${this.title} ${getSubtitle(state.subcommand)}` }
 				);
 				const selection: StepSelection<typeof step> = yield step;

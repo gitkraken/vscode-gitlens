@@ -156,19 +156,15 @@ export abstract class QuickCommandBase<TState = any> implements QuickPickItem {
 	protected createConfirmStep<T extends QuickPickItem>(
 		title: string,
 		confirmations: T[],
-		{
-			cancel,
-			placeholder
-		}: {
-			cancel?: DirectiveQuickPickItem;
-			placeholder?: string;
-		} = {}
+		cancel?: DirectiveQuickPickItem,
+		options: Partial<QuickPickStep<T>> = {}
 	): QuickPickStep<T> {
 		return this.createPickStep<T>({
-			placeholder: placeholder || `Confirm ${this.title}`,
+			placeholder: `Confirm ${this.title}`,
 			title: title,
 			items: [...confirmations, cancel || DirectiveQuickPickItem.create(Directive.Cancel)],
-			selectedItems: [confirmations[0]]
+			selectedItems: [confirmations[0]],
+			...options
 		});
 	}
 

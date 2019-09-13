@@ -170,40 +170,45 @@ export class PullGitCommand extends QuickCommandBase<State> {
 			).fromNow()}`;
 		}
 
-		const step = this.createConfirmStep<GitFlagsQuickPickItem>(`${title}${fetchedOn}`, [
+		const step = this.createConfirmStep<GitFlagsQuickPickItem>(
+			`${title}${fetchedOn}`,
+			[
+				{
+					label: this.title,
+					description: '',
+					detail: `Will pull ${detail}`,
+					item: []
+				},
+				{
+					label: `${this.title} with Rebase`,
+					description: '--rebase',
+					detail: `Will pull ${detail} with rebase`,
+					item: ['--rebase']
+				}
+			],
+			undefined,
 			{
-				label: this.title,
-				description: '',
-				detail: `Will pull ${detail}`,
-				item: []
-			},
-			{
-				label: `${this.title} with Rebase`,
-				description: '--rebase',
-				detail: `Will pull ${detail} with rebase`,
-				item: ['--rebase']
+				additionalButtons: [this.Buttons.Fetch],
+				onDidClickButton: async (quickpick, button) => {
+					if (button !== this.Buttons.Fetch) return;
+
+					quickpick.title = `${title}${Strings.pad(GlyphChars.Dot, 2, 2)}Fetching${GlyphChars.Ellipsis}`;
+					quickpick.busy = true;
+					quickpick.enabled = false;
+
+					try {
+						await repo.fetch({ progress: true });
+
+						const step = await this.getSingleRepoConfirmStep(state);
+						quickpick.title = step.title;
+						quickpick.items = step.items as any;
+					} finally {
+						quickpick.busy = false;
+						quickpick.enabled = true;
+					}
+				}
 			}
-		]);
-
-		step.additionalButtons = [this.Buttons.Fetch];
-		step.onDidClickButton = async (quickpick, button) => {
-			if (button !== this.Buttons.Fetch) return;
-
-			quickpick.title = `${title}${Strings.pad(GlyphChars.Dot, 2, 2)}Fetching${GlyphChars.Ellipsis}`;
-			quickpick.busy = true;
-			quickpick.enabled = false;
-
-			try {
-				await repo.fetch({ progress: true });
-
-				const step = await this.getSingleRepoConfirmStep(state);
-				quickpick.title = step.title;
-				quickpick.items = step.items as any;
-			} finally {
-				quickpick.busy = false;
-				quickpick.enabled = true;
-			}
-		};
+		);
 
 		return step;
 	}

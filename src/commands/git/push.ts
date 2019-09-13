@@ -153,12 +153,10 @@ export class PushGitCommand extends QuickCommandBase<State> {
 				return this.createConfirmStep(
 					`Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${repo.formattedName}`,
 					[],
-					{
-						cancel: DirectiveQuickPickItem.create(Directive.Cancel, true, {
-							label: `Cancel ${this.title}`,
-							detail: 'No commits to push'
-						})
-					}
+					DirectiveQuickPickItem.create(Directive.Cancel, true, {
+						label: `Cancel ${this.title}`,
+						detail: 'No commits to push'
+					})
 				);
 			}
 
