@@ -36,6 +36,24 @@ export interface RebaseGitCommandArgs {
 }
 
 export class RebaseGitCommand extends QuickCommandBase<State> {
+	private readonly Buttons = class {
+		static readonly PickBranch: QuickInputButton = {
+			iconPath: {
+				dark: Container.context.asAbsolutePath('images/dark/icon-branch.svg') as any,
+				light: Container.context.asAbsolutePath('images/light/icon-branch.svg') as any
+			},
+			tooltip: 'Use the selected Branch or Tag'
+		};
+
+		static readonly PickCommit: QuickInputButton = {
+			iconPath: {
+				dark: Container.context.asAbsolutePath('images/dark/icon-commit.svg') as any,
+				light: Container.context.asAbsolutePath('images/light/icon-commit.svg') as any
+			},
+			tooltip: 'Choose a commit from the selected Branch or Tag'
+		};
+	};
+
 	constructor(args?: RebaseGitCommandArgs) {
 		super('rebase', 'rebase', 'Rebase', {
 			description:
@@ -115,18 +133,7 @@ export class RebaseGitCommand extends QuickCommandBase<State> {
 
 				if (state.reference === undefined || state.counter < 2) {
 					const pickBranchOrCommitButton: Mutable<QuickInputButton> = {
-						iconPath: pickCommit
-							? {
-									dark: Container.context.asAbsolutePath('images/dark/icon-commit.svg') as any,
-									light: Container.context.asAbsolutePath('images/light/icon-commit.svg') as any
-							  }
-							: {
-									dark: Container.context.asAbsolutePath('images/dark/icon-branch.svg') as any,
-									light: Container.context.asAbsolutePath('images/light/icon-branch.svg') as any
-							  },
-						tooltip: pickCommit
-							? 'Choose a commit from the selected Branch or Tag'
-							: 'Use the selected Branch or Tag'
+						...(pickCommit ? this.Buttons.PickCommit : this.Buttons.PickBranch)
 					};
 
 					const step = this.createPickStep<ReferencesQuickPickItem>({
@@ -147,17 +154,11 @@ export class RebaseGitCommand extends QuickCommandBase<State> {
 							pickCommit = !pickCommit;
 
 							pickBranchOrCommitButton.iconPath = pickCommit
-								? {
-										dark: Container.context.asAbsolutePath('images/dark/icon-commit.svg') as any,
-										light: Container.context.asAbsolutePath('images/light/icon-commit.svg') as any
-								  }
-								: {
-										dark: Container.context.asAbsolutePath('images/dark/icon-branch.svg') as any,
-										light: Container.context.asAbsolutePath('images/light/icon-branch.svg') as any
-								  };
+								? this.Buttons.PickCommit.iconPath
+								: this.Buttons.PickBranch.iconPath;
 							pickBranchOrCommitButton.tooltip = pickCommit
-								? 'Choose a commit from the selected Branch or Tag'
-								: 'Use the selected Branch or Tag';
+								? this.Buttons.PickCommit.tooltip
+								: this.Buttons.PickBranch.tooltip;
 						},
 						onValidateValue: getValidateGitReferenceFn(state.repo)
 					});

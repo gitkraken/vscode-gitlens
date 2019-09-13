@@ -13,7 +13,7 @@ import {
 	StepState
 } from '../quickCommand';
 import { ReferencesQuickPickItem, RepositoryQuickPickItem } from '../../quickpicks';
-import { PickMutable, Strings } from '../../system';
+import { Mutable, Strings } from '../../system';
 import { Logger } from '../../logger';
 
 interface State {
@@ -30,6 +30,24 @@ export interface SwitchGitCommandArgs {
 }
 
 export class SwitchGitCommand extends QuickCommandBase<State> {
+	private readonly Buttons = class {
+		static readonly HideTags: QuickInputButton = {
+			iconPath: {
+				dark: Container.context.asAbsolutePath('images/dark/icon-tag.svg') as any,
+				light: Container.context.asAbsolutePath('images/light/icon-tag.svg') as any
+			},
+			tooltip: 'Hide Tags'
+		};
+
+		static readonly ShowTags: QuickInputButton = {
+			iconPath: {
+				dark: Container.context.asAbsolutePath('images/dark/icon-tag.svg') as any,
+				light: Container.context.asAbsolutePath('images/light/icon-tag.svg') as any
+			},
+			tooltip: 'Show Tags'
+		};
+	};
+
 	constructor(args?: SwitchGitCommandArgs) {
 		super('switch', 'switch', 'Switch', {
 			description: 'aka checkout, switches the current branch to a specified branch'
@@ -125,12 +143,8 @@ export class SwitchGitCommand extends QuickCommandBase<State> {
 				if (state.reference === undefined || state.counter < 2) {
 					showTags = state.repos.length === 1;
 
-					const toggleTagsButton: PickMutable<QuickInputButton, 'tooltip'> = {
-						iconPath: {
-							dark: Container.context.asAbsolutePath('images/dark/icon-tag.svg') as any,
-							light: Container.context.asAbsolutePath('images/light/icon-tag.svg') as any
-						},
-						tooltip: showTags ? 'Hide Tags' : 'Show Tags'
+					const toggleTagsButton: Mutable<QuickInputButton> = {
+						...(showTags ? this.Buttons.HideTags : this.Buttons.ShowTags)
 					};
 
 					const items = await getBranchesAndOrTags(
@@ -160,7 +174,9 @@ export class SwitchGitCommand extends QuickCommandBase<State> {
 							quickpick.enabled = false;
 
 							showTags = !showTags;
-							toggleTagsButton.tooltip = showTags ? 'Hide Tags' : 'Show Tags';
+							toggleTagsButton.tooltip = showTags
+								? this.Buttons.HideTags.tooltip
+								: this.Buttons.ShowTags.tooltip;
 
 							quickpick.placeholder = `Choose a branch${
 								showTags ? ' or tag' : ''

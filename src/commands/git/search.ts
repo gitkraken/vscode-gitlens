@@ -55,6 +55,80 @@ const searchOperatorToTitleMap = new Map<SearchOperators, string>([
 ]);
 
 export class SearchGitCommand extends QuickCommandBase<State> {
+	private readonly Buttons = class {
+		static readonly MatchCase: QuickInputButton = {
+			iconPath: {
+				dark: Container.context.asAbsolutePath('images/dark/icon-match-case.svg') as any,
+				light: Container.context.asAbsolutePath('images/light/icon-match-case.svg') as any
+			},
+			tooltip: 'Match Case'
+		};
+
+		static readonly MatchCaseSelected: QuickInputButton = {
+			iconPath: {
+				dark: Container.context.asAbsolutePath('images/dark/icon-match-case-selected.svg') as any,
+				light: Container.context.asAbsolutePath('images/light/icon-match-case-selected.svg') as any
+			},
+			tooltip: 'Match Case'
+		};
+
+		static readonly MatchAll: QuickInputButton = {
+			iconPath: {
+				dark: Container.context.asAbsolutePath('images/dark/icon-match-all.svg') as any,
+				light: Container.context.asAbsolutePath('images/light/icon-match-all.svg') as any
+			},
+			tooltip: 'Match All'
+		};
+
+		static readonly MatchAllSelected: QuickInputButton = {
+			iconPath: {
+				dark: Container.context.asAbsolutePath('images/dark/icon-match-all-selected.svg') as any,
+				light: Container.context.asAbsolutePath('images/light/icon-match-all-selected.svg') as any
+			},
+			tooltip: 'Match All'
+		};
+
+		static readonly MatchRegex: QuickInputButton = {
+			iconPath: {
+				dark: Container.context.asAbsolutePath('images/dark/icon-match-regex.svg') as any,
+				light: Container.context.asAbsolutePath('images/light/icon-match-regex.svg') as any
+			},
+			tooltip: 'Match using Regular Expressions'
+		};
+
+		static readonly MatchRegexSelected: QuickInputButton = {
+			iconPath: {
+				dark: Container.context.asAbsolutePath('images/dark/icon-match-regex-selected.svg') as any,
+				light: Container.context.asAbsolutePath('images/light/icon-match-regex-selected.svg') as any
+			},
+			tooltip: 'Match using Regular Expressions'
+		};
+
+		static readonly OpenInView: QuickInputButton = {
+			iconPath: {
+				dark: Container.context.asAbsolutePath('images/dark/icon-link.svg') as any,
+				light: Container.context.asAbsolutePath('images/light/icon-link.svg') as any
+			},
+			tooltip: 'Open in Search Commits View'
+		};
+
+		static readonly ShowInView: QuickInputButton = {
+			iconPath: {
+				dark: Container.context.asAbsolutePath('images/dark/icon-eye.svg') as any,
+				light: Container.context.asAbsolutePath('images/light/icon-eye.svg') as any
+			},
+			tooltip: 'Show Results in Search Commits View'
+		};
+
+		static readonly ShowInViewSelected: QuickInputButton = {
+			iconPath: {
+				dark: Container.context.asAbsolutePath('images/dark/icon-eye-selected.svg') as any,
+				light: Container.context.asAbsolutePath('images/light/icon-eye-selected.svg') as any
+			},
+			tooltip: 'Show Results in Search Commits View'
+		};
+	};
+
 	constructor(args?: SearchGitCommandArgs) {
 		super('search', 'search', 'Search', {
 			description: 'aka grep, searches for commits'
@@ -175,67 +249,16 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 					const titleSuffix = `${Strings.pad(GlyphChars.Dot, 2, 2)}${state.repo.formattedName}`;
 
 					const matchCaseButton: Mutable<QuickInputButton> = {
-						iconPath: state.matchCase
-							? {
-									dark: Container.context.asAbsolutePath(
-										'images/dark/icon-match-case-selected.svg'
-									) as any,
-									light: Container.context.asAbsolutePath(
-										'images/light/icon-match-case-selected.svg'
-									) as any
-							  }
-							: {
-									dark: Container.context.asAbsolutePath('images/dark/icon-match-case.svg') as any,
-									light: Container.context.asAbsolutePath('images/light/icon-match-case.svg') as any
-							  },
-						tooltip: 'Match Case'
+						...(state.matchCase ? this.Buttons.MatchCaseSelected : this.Buttons.MatchCase)
 					};
-
 					const matchAllButton: Mutable<QuickInputButton> = {
-						iconPath: state.matchAll
-							? {
-									dark: Container.context.asAbsolutePath(
-										'images/dark/icon-match-all-selected.svg'
-									) as any,
-									light: Container.context.asAbsolutePath(
-										'images/light/icon-match-all-selected.svg'
-									) as any
-							  }
-							: {
-									dark: Container.context.asAbsolutePath('images/dark/icon-match-all.svg') as any,
-									light: Container.context.asAbsolutePath('images/light/icon-match-all.svg') as any
-							  },
-						tooltip: 'Match All'
+						...(state.matchAll ? this.Buttons.MatchAllSelected : this.Buttons.MatchAll)
 					};
-
 					const matchRegexButton: Mutable<QuickInputButton> = {
-						iconPath: state.matchRegex
-							? {
-									dark: Container.context.asAbsolutePath(
-										'images/dark/icon-match-regex-selected.svg'
-									) as any,
-									light: Container.context.asAbsolutePath(
-										'images/light/icon-match-regex-selected.svg'
-									) as any
-							  }
-							: {
-									dark: Container.context.asAbsolutePath('images/dark/icon-match-regex.svg') as any,
-									light: Container.context.asAbsolutePath('images/light/icon-match-regex.svg') as any
-							  },
-						tooltip: 'Match using Regular Expressions'
+						...(state.matchRegex ? this.Buttons.MatchRegexSelected : this.Buttons.MatchRegex)
 					};
-
 					const showInViewButton: Mutable<QuickInputButton> = {
-						iconPath: state.showInView
-							? {
-									dark: Container.context.asAbsolutePath('images/dark/icon-eye-selected.svg') as any,
-									light: Container.context.asAbsolutePath('images/light/icon-eye-selected.svg') as any
-							  }
-							: {
-									dark: Container.context.asAbsolutePath('images/dark/icon-eye.svg') as any,
-									light: Container.context.asAbsolutePath('images/light/icon-eye.svg') as any
-							  },
-						tooltip: 'Show Results in the Search Commits View'
+						...(state.showInView ? this.Buttons.ShowInViewSelected : this.Buttons.ShowInView)
 					};
 
 					const step = this.createPickStep<QuickPickItemOfT<string>>({
@@ -265,22 +288,8 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 							if (button === matchCaseButton) {
 								state.matchCase = !state.matchCase;
 								matchCaseButton.iconPath = state.matchCase
-									? {
-											dark: Container.context.asAbsolutePath(
-												'images/dark/icon-match-case-selected.svg'
-											) as any,
-											light: Container.context.asAbsolutePath(
-												'images/light/icon-match-case-selected.svg'
-											) as any
-									  }
-									: {
-											dark: Container.context.asAbsolutePath(
-												'images/dark/icon-match-case.svg'
-											) as any,
-											light: Container.context.asAbsolutePath(
-												'images/light/icon-match-case.svg'
-											) as any
-									  };
+									? this.Buttons.MatchCaseSelected.iconPath
+									: this.Buttons.MatchCase.iconPath;
 
 								return;
 							}
@@ -288,22 +297,8 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 							if (button === matchAllButton) {
 								state.matchAll = !state.matchAll;
 								matchAllButton.iconPath = state.matchAll
-									? {
-											dark: Container.context.asAbsolutePath(
-												'images/dark/icon-match-all-selected.svg'
-											) as any,
-											light: Container.context.asAbsolutePath(
-												'images/light/icon-match-all-selected.svg'
-											) as any
-									  }
-									: {
-											dark: Container.context.asAbsolutePath(
-												'images/dark/icon-match-all.svg'
-											) as any,
-											light: Container.context.asAbsolutePath(
-												'images/light/icon-match-all.svg'
-											) as any
-									  };
+									? this.Buttons.MatchAllSelected.iconPath
+									: this.Buttons.MatchAll.iconPath;
 
 								return;
 							}
@@ -311,22 +306,8 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 							if (button === matchRegexButton) {
 								state.matchRegex = !state.matchRegex;
 								matchRegexButton.iconPath = state.matchRegex
-									? {
-											dark: Container.context.asAbsolutePath(
-												'images/dark/icon-match-regex-selected.svg'
-											) as any,
-											light: Container.context.asAbsolutePath(
-												'images/light/icon-match-regex-selected.svg'
-											) as any
-									  }
-									: {
-											dark: Container.context.asAbsolutePath(
-												'images/dark/icon-match-regex.svg'
-											) as any,
-											light: Container.context.asAbsolutePath(
-												'images/light/icon-match-regex.svg'
-											) as any
-									  };
+									? this.Buttons.MatchRegexSelected.iconPath
+									: this.Buttons.MatchRegex.iconPath;
 
 								return;
 							}
@@ -334,18 +315,8 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 							if (button === showInViewButton) {
 								state.showInView = !state.showInView;
 								showInViewButton.iconPath = state.showInView
-									? {
-											dark: Container.context.asAbsolutePath(
-												'images/dark/icon-eye-selected.svg'
-											) as any,
-											light: Container.context.asAbsolutePath(
-												'images/light/icon-eye-selected.svg'
-											) as any
-									  }
-									: {
-											dark: Container.context.asAbsolutePath('images/dark/icon-eye.svg') as any,
-											light: Container.context.asAbsolutePath('images/light/icon-eye.svg') as any
-									  };
+									? this.Buttons.ShowInViewSelected.iconPath
+									: this.Buttons.ShowInView.iconPath;
 							}
 						},
 						onDidChangeValue: (quickpick): boolean => {
@@ -412,14 +383,6 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 
 				const results = await resultsPromise;
 
-				const openInViewButton: QuickInputButton = {
-					iconPath: {
-						dark: Container.context.asAbsolutePath('images/dark/icon-link.svg') as any,
-						light: Container.context.asAbsolutePath('images/light/icon-link.svg') as any
-					},
-					tooltip: 'Open Results in the Search Commits View'
-				};
-
 				const step = this.createPickStep<CommitQuickPickItem>({
 					title: `${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${state.repo.formattedName}`,
 					placeholder:
@@ -445,9 +408,9 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 										)
 									)
 							  ],
-					additionalButtons: [openInViewButton],
+					additionalButtons: [this.Buttons.OpenInView],
 					onDidClickButton: (quickpick, button) => {
-						if (button !== openInViewButton) return;
+						if (button !== this.Buttons.OpenInView) return;
 
 						void Container.searchView.search(
 							state.repo!.path,

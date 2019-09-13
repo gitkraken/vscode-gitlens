@@ -21,6 +21,16 @@ export interface PullGitCommandArgs {
 }
 
 export class PullGitCommand extends QuickCommandBase<State> {
+	private readonly Buttons = class {
+		static readonly Fetch: QuickInputButton = {
+			iconPath: {
+				dark: Container.context.asAbsolutePath('images/dark/icon-sync.svg') as any,
+				light: Container.context.asAbsolutePath('images/light/icon-sync.svg') as any
+			},
+			tooltip: 'Fetch'
+		};
+	};
+
 	constructor(args?: PullGitCommandArgs) {
 		super('pull', 'pull', 'Pull', {
 			description: 'fetches and integrates changes from a remote into the current branch'
@@ -175,17 +185,9 @@ export class PullGitCommand extends QuickCommandBase<State> {
 			}
 		]);
 
-		const fetchButton: QuickInputButton = {
-			iconPath: {
-				dark: Container.context.asAbsolutePath('images/dark/icon-sync.svg') as any,
-				light: Container.context.asAbsolutePath('images/light/icon-sync.svg') as any
-			},
-			tooltip: 'Fetch'
-		};
-
-		step.additionalButtons = [fetchButton];
+		step.additionalButtons = [this.Buttons.Fetch];
 		step.onDidClickButton = async (quickpick, button) => {
-			if (button !== fetchButton) return;
+			if (button !== this.Buttons.Fetch) return;
 
 			quickpick.title = `${title}${Strings.pad(GlyphChars.Dot, 2, 2)}Fetching${GlyphChars.Ellipsis}`;
 			quickpick.busy = true;
