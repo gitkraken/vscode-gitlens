@@ -519,7 +519,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 			// }
 
 			const gitCommandArgs: GitCommandsCommandArgs = {
-				command: 'search',
+				command: 'stash',
 				state: { ...state }
 			};
 
@@ -552,7 +552,6 @@ export class StashGitCommand extends QuickCommandBase<State> {
 					}`,
 					placeholder: 'Please provide a stash message',
 					value: state.message
-					// validate: (value: string | undefined): [boolean, string | undefined] => [value != null, undefined]
 				});
 
 				const value: StepSelection<typeof step> = yield step;
