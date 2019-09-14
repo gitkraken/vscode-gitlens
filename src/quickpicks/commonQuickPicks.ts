@@ -48,7 +48,7 @@ function _getInfiniteCancellablePromise(cancellation: CancellationTokenSource) {
 
 export interface QuickPickItem extends QuickPickItem {
 	onDidSelect?(): void;
-	onDidPressKey?(key: Keys): Promise<{} | undefined>;
+	onDidPressKey?(key: Keys): Promise<void>;
 }
 
 export class CommandQuickPickItem implements QuickPickItem {
@@ -80,8 +80,8 @@ export class CommandQuickPickItem implements QuickPickItem {
 		return commands.executeCommand(this.command, ...(this.args || []));
 	}
 
-	onDidPressKey(key: Keys): Thenable<{} | undefined> {
-		return this.execute();
+	async onDidPressKey(key: Keys): Promise<void> {
+		await this.execute();
 	}
 }
 

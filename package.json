@@ -5279,21 +5279,43 @@
 		"keybindings": [
 			{
 				"command": "gitlens.key.left",
-				"key": "alt+left",
+				"key": "left",
 				"when": "gitlens:key:left"
 			},
 			{
+				"command": "gitlens.key.alt+left",
+				"key": "alt+left",
+				"when": "gitlens:key:alt+left"
+			},
+			{
+				"command": "gitlens.key.ctrl+left",
+				"key": "ctrl+left",
+				"mac": "cmd+left",
+				"when": "gitlens:key:ctrl+left"
+			},
+			{
 				"command": "gitlens.key.right",
-				"key": "alt+right",
+				"key": "right",
 				"when": "gitlens:key:right"
 			},
 			{
-				"command": "gitlens.key.,",
+				"command": "gitlens.key.alt+right",
+				"key": "alt+right",
+				"when": "gitlens:key:alt+right"
+			},
+			{
+				"command": "gitlens.key.ctrl+right",
+				"key": "ctrl+right",
+				"mac": "cmd+right",
+				"when": "gitlens:key:ctrl+right"
+			},
+			{
+				"command": "gitlens.key.alt+,",
 				"key": "alt+,",
 				"when": "gitlens:key:,"
 			},
 			{
-				"command": "gitlens.key..",
+				"command": "gitlens.key.alt+.",
 				"key": "alt+.",
 				"when": "gitlens:key:."
 			},

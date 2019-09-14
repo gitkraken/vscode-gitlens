@@ -18,9 +18,9 @@ import { CommitQuickPickItem } from './gitQuickPicks';
 export class FileHistoryQuickPick {
 	static showProgress(placeHolder: string) {
 		return showQuickPickProgress(placeHolder, {
-			left: KeyNoopCommand,
-			',': KeyNoopCommand,
-			'.': KeyNoopCommand
+			'alt+left': KeyNoopCommand,
+			'alt+,': KeyNoopCommand,
+			'alt+.': KeyNoopCommand
 		});
 	}
 
@@ -178,9 +178,9 @@ export class FileHistoryQuickPick {
 		}
 
 		const scope = await Container.keyboard.beginScope({
-			left: options.goBackCommand,
-			',': options.previousPageCommand,
-			'.': options.nextPageCommand
+			'alt+left': options.goBackCommand,
+			'alt+,': options.previousPageCommand,
+			'alt+.': options.nextPageCommand
 		});
 
 		options.progressCancellation && options.progressCancellation.cancel();

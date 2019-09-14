@@ -54,8 +54,10 @@ export class CommitWithFileStatusQuickPickItem extends CommandQuickPickItem {
 		return openEditor(GitUri.toRevisionUri(this.commit.sha, this._file, this.commit.repoPath), options);
 	}
 
-	onDidPressKey(key: Keys): Thenable<{} | undefined> {
-		if (this.commit.previousSha === undefined) return super.onDidPressKey(key);
+	async onDidPressKey(key: Keys): Promise<void> {
+		if (this.commit.previousSha === undefined) {
+			await super.onDidPressKey(key);
+		}
 
 		const commandArgs: DiffWithPreviousCommandArgs = {
 			commit: this.commit,
@@ -64,7 +66,7 @@ export class CommitWithFileStatusQuickPickItem extends CommandQuickPickItem {
 				preview: false
 			}
 		};
-		return commands.executeCommand(Commands.DiffWithPrevious, this.commit.toGitUri(), commandArgs);
+		await commands.executeCommand(Commands.DiffWithPrevious, this.commit.toGitUri(), commandArgs);
 	}
 }
 
@@ -96,8 +98,8 @@ export class OpenCommitFilesCommandQuickPickItem extends CommandQuickPickItem {
 		return undefined;
 	}
 
-	onDidPressKey(key: Keys): Thenable<{} | undefined> {
-		return this.execute({
+	async onDidPressKey(key: Keys): Promise<void> {
+		await this.execute({
 			preserveFocus: true,
 			preview: false
 		});
@@ -132,8 +134,8 @@ export class OpenCommitFileRevisionsCommandQuickPickItem extends CommandQuickPic
 		return undefined;
 	}
 
-	onDidPressKey(key: Keys): Thenable<{} | undefined> {
-		return this.execute({
+	async onDidPressKey(key: Keys): Promise<void> {
+		await this.execute({
 			preserveFocus: true,
 			preview: false
 		});
@@ -213,9 +215,9 @@ export class CommitQuickPick {
 		}
 
 		const scope = await Container.keyboard.beginScope({
-			left: options.goBackCommand,
-			',': previousCommand,
-			'.': nextCommand
+			'alt+left': options.goBackCommand,
+			'alt+,': previousCommand,
+			'alt+.': nextCommand
 		});
 
 		const pick = await window.showQuickPick(this.getItems(commit, uri, options), {
@@ -226,7 +228,7 @@ export class CommitQuickPick {
 			}${commit.formattedDate} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getShortMessage()}`,
 			ignoreFocusOut: getQuickPickIgnoreFocusOut(),
 			onDidSelectItem: (item: QuickPickItem) => {
-				void scope.setKeyCommand('right', item);
+				void scope.setKeyCommand('alt+right', item);
 				if (typeof item.onDidSelect === 'function') {
 					item.onDidSelect();
 				}

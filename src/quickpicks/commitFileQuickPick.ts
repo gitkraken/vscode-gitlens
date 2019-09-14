@@ -67,8 +67,8 @@ export class OpenCommitFileCommandQuickPickItem extends CommandQuickPickItem {
 		return commands.executeCommand(Commands.OpenWorkingFile, undefined, args);
 	}
 
-	onDidPressKey(key: Keys): Thenable<{} | undefined> {
-		return this.execute({
+	async onDidPressKey(key: Keys): Promise<void> {
+		await this.execute({
 			preserveFocus: true,
 			preview: false
 		});
@@ -105,8 +105,8 @@ export class OpenCommitFileRevisionCommandQuickPickItem extends CommandQuickPick
 		return openEditor(this._uri, options);
 	}
 
-	onDidPressKey(key: Keys): Thenable<{} | undefined> {
-		return this.execute({
+	async onDidPressKey(key: Keys): Promise<void> {
+		await this.execute({
 			preserveFocus: true,
 			preview: false
 		});
@@ -360,9 +360,9 @@ export class CommitFileQuickPick {
 		}
 
 		const scope = await Container.keyboard.beginScope({
-			left: goBackCommand,
-			',': previousCommand,
-			'.': nextCommand
+			'alt+left': goBackCommand,
+			'alt+,': previousCommand,
+			'alt+.': nextCommand
 		});
 
 		const pick = await window.showQuickPick(items, {
@@ -374,7 +374,7 @@ export class CommitFileQuickPick {
 			} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${commit.getShortMessage()}`,
 			ignoreFocusOut: getQuickPickIgnoreFocusOut(),
 			onDidSelectItem: (item: QuickPickItem) => {
-				void scope.setKeyCommand('right', item as KeyCommand);
+				void scope.setKeyCommand('alt+right', item as KeyCommand);
 			}
 		});
 

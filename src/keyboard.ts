@@ -2,33 +2,58 @@
 import { commands, Disposable } from 'vscode';
 import { CommandContext, extensionId, setCommandContext } from './constants';
 import { Logger } from './logger';
+import { log } from './system/decorators/log';
 
 export declare interface KeyCommand {
-	onDidPressKey?(key: Keys): Thenable<{} | undefined>;
+	onDidPressKey?(key: Keys): void | Promise<void>;
 }
 
 const keyNoopCommand = Object.create(null) as KeyCommand;
 export { keyNoopCommand as KeyNoopCommand };
 
-export declare type Keys = 'left' | 'right' | ',' | '.' | 'escape';
-export const keys: Keys[] = ['left', 'right', ',', '.', 'escape'];
+export const keys = [
+	'left',
+	'alt+left',
+	'ctrl+left',
+	'right',
+	'alt+right',
+	'ctrl+right',
+	'alt+,',
+	'alt+.',
+	'escape'
+] as const;
+export type Keys = typeof keys[number];
 
-export declare interface KeyMapping {
-	[id: string]: KeyCommand | (() => Thenable<KeyCommand>) | undefined;
-}
+export type KeyMapping = { [K in Keys]?: KeyCommand | (() => Promise<KeyCommand>) };
+type IndexableKeyMapping = KeyMapping & {
+	[index: string]: KeyCommand | (() => Promise<KeyCommand>) | undefined;
+};
 
 const mappings: KeyMapping[] = [];
 
 export class KeyboardScope implements Disposable {
-	constructor(private readonly mapping: KeyMapping) {
-		for (const key in mapping) {
-			mapping[key] = mapping[key] || keyNoopCommand;
+	private readonly _mapping: IndexableKeyMapping;
+	constructor(mapping: KeyMapping) {
+		this._mapping = mapping;
+		for (const key in this._mapping) {
+			this._mapping[key] = this._mapping[key] || keyNoopCommand;
 		}
+
+		mappings.push(this._mapping);
 	}
 
+	@log({
+		args: false,
+		prefix: context => `${context.prefix}[${mappings.length}]`
+	})
 	async dispose() {
-		const index = mappings.indexOf(this.mapping);
-		Logger.log('KeyboardScope.dispose', mappings.length, index);
+		const index = mappings.indexOf(this._mapping);
+
+		const cc = Logger.getCorrelationContext();
+		if (cc) {
+			cc.exitDetails = ` \u2022 index=${index}`;
+		}
+
 		if (index === mappings.length - 1) {
 			mappings.pop();
 			await this.updateKeyCommandsContext(mappings[mappings.length - 1]);
@@ -37,41 +62,93 @@ export class KeyboardScope implements Disposable {
 		}
 	}
 
-	async begin() {
-		mappings.push(this.mapping);
-		await this.updateKeyCommandsContext(this.mapping);
-		return this;
+	private _paused = true;
+	get paused() {
+		return this._paused;
 	}
 
+	@log<KeyboardScope['clearKeyCommand']>({
+		args: false,
+		prefix: (context, key) => `${context.prefix}[${mappings.length}](${key})`
+	})
 	async clearKeyCommand(key: Keys) {
-		const mapping = mappings[mappings.length - 1];
-		if (mapping !== this.mapping || !mapping[key]) return;
+		const cc = Logger.getCorrelationContext();
 
-		Logger.log('KeyboardScope.clearKeyCommand', mappings.length, key);
+		const mapping = mappings[mappings.length - 1];
+		if (mapping !== this._mapping || !mapping[key]) {
+			if (cc) {
+				cc.exitDetails = ' \u2022 skipped';
+			}
+
+			return;
+		}
+
 		mapping[key] = undefined;
 		await setCommandContext(`${CommandContext.Key}:${key}`, false);
 	}
 
+	@log({
+		args: false,
+		prefix: context => `${context.prefix}(paused=${context.instance._paused})`
+	})
+	async pause(keys?: Keys[]) {
+		if (this._paused) return;
+
+		this._paused = true;
+		const mapping = (Object.keys(this._mapping) as Keys[]).reduce(
+			(accumulator, key) => {
+				accumulator[key] = keys === undefined ? false : keys.includes(key) ? false : this._mapping[key];
+				return accumulator;
+			},
+			{} as any
+		);
+
+		await this.updateKeyCommandsContext(mapping);
+	}
+
+	@log({
+		args: false,
+		prefix: context => `${context.prefix}(paused=${context.instance._paused})`
+	})
+	async resume() {
+		if (!this._paused) return;
+
+		this._paused = false;
+		await this.updateKeyCommandsContext(this._mapping);
+	}
+
+	async start() {
+		await this.resume();
+	}
+
+	@log<KeyboardScope['setKeyCommand']>({
+		args: false,
+		prefix: (context, key) => `${context.prefix}[${mappings.length}](${key})`
+	})
 	async setKeyCommand(key: Keys, command: KeyCommand | (() => Promise<KeyCommand>)) {
+		const cc = Logger.getCorrelationContext();
+
 		const mapping = mappings[mappings.length - 1];
-		if (mapping !== this.mapping) return;
+		if (mapping !== this._mapping) {
+			if (cc) {
+				cc.exitDetails = ' \u2022 skipped';
+			}
 
-		Logger.log('KeyboardScope.setKeyCommand', mappings.length, key, Boolean(mapping[key]));
+			return;
+		}
 
-		if (!mapping[key]) {
-			mapping[key] = command;
+		const set = Boolean(mapping[key]);
+
+		mapping[key] = command;
+		if (!set) {
 			await setCommandContext(`${CommandContext.Key}:${key}`, true);
-		} else {
-			mapping[key] = command;
 		}
 	}
 
 	private async updateKeyCommandsContext(mapping: KeyMapping) {
-		const promises = [];
-		for (const key of keys) {
-			promises.push(setCommandContext(`${CommandContext.Key}:${key}`, Boolean(mapping && mapping[key])));
-		}
-		await Promise.all(promises);
+		await Promise.all(
+			keys.map(key => setCommandContext(`${CommandContext.Key}:${key}`, Boolean(mapping && mapping[key])))
+		);
 	}
 }
 
@@ -89,13 +166,37 @@ export class Keyboard implements Disposable {
 		this._disposable && this._disposable.dispose();
 	}
 
-	beginScope(mapping?: KeyMapping): Promise<KeyboardScope> {
-		Logger.log('Keyboard.beginScope', mappings.length);
-		return new KeyboardScope(mapping ? Object.assign(Object.create(null), mapping) : Object.create(null)).begin();
+	@log<Keyboard['createScope']>({
+		args: false,
+		prefix: (context, mapping) =>
+			`${context.prefix}[${mappings.length}](${mapping === undefined ? '' : Object.keys(mapping).join(',')})`
+	})
+	createScope(mapping?: KeyMapping): KeyboardScope {
+		return new KeyboardScope({ ...mapping });
 	}
 
+	@log<Keyboard['beginScope']>({
+		args: false,
+		prefix: (context, mapping) =>
+			`${context.prefix}[${mappings.length}](${mapping === undefined ? '' : Object.keys(mapping).join(',')})`
+	})
+	async beginScope(mapping?: KeyMapping): Promise<KeyboardScope> {
+		const scope = this.createScope(mapping);
+		await scope.start();
+		return scope;
+	}
+
+	@log()
 	async execute(key: Keys): Promise<{} | undefined> {
-		if (!mappings.length) return undefined;
+		const cc = Logger.getCorrelationContext();
+
+		if (!mappings.length) {
+			if (cc) {
+				cc.exitDetails = ' \u2022 skipped, no mappings';
+			}
+
+			return undefined;
+		}
 
 		try {
 			const mapping = mappings[mappings.length - 1];
@@ -104,13 +205,19 @@ export class Keyboard implements Disposable {
 			if (typeof command === 'function') {
 				command = await command();
 			}
-			if (!command || typeof command.onDidPressKey !== 'function') return undefined;
+			if (!command || typeof command.onDidPressKey !== 'function') {
+				if (cc) {
+					cc.exitDetails = ' \u2022 skipped, no callback';
+				}
 
-			Logger.log('Keyboard.execute', key);
+				return undefined;
+			}
 
-			return await command.onDidPressKey(key);
+			await command.onDidPressKey(key);
+
+			return undefined;
 		} catch (ex) {
-			Logger.error(ex, 'Keyboard.execute');
+			Logger.error(ex, cc);
 			return undefined;
 		}
 	}

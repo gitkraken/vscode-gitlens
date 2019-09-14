@@ -55,7 +55,7 @@ export class ReferencesQuickPick {
 
 		let scope;
 		if (options.goBack) {
-			scope = await Container.keyboard.beginScope({ left: options.goBack });
+			scope = await Container.keyboard.beginScope({ 'alt+left': options.goBack });
 		}
 
 		let autoPick;

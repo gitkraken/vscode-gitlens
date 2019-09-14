@@ -83,7 +83,7 @@ export class OpenStatusFileCommandQuickPickItem extends CommandQuickPickItem {
 		return openEditor(this._status.uri, options);
 	}
 
-	onDidPressKey(key: Keys): Promise<{} | undefined> {
+	async onDidPressKey(key: Keys): Promise<void> {
 		const commandArgs: DiffWithPreviousCommandArgs = {
 			commit: this.commit,
 			line: 0,
@@ -92,11 +92,11 @@ export class OpenStatusFileCommandQuickPickItem extends CommandQuickPickItem {
 				preview: false
 			}
 		};
-		return commands.executeCommand(
+		await commands.executeCommand(
 			Commands.DiffWithPrevious,
 			GitUri.fromFile(this.status, this.status.repoPath),
 			commandArgs
-		) as Promise<{} | undefined>;
+		);
 	}
 }
 
@@ -420,7 +420,7 @@ export class RepoStatusQuickPick {
 			items.splice(0, 0, goBackCommand);
 		}
 
-		const scope = await Container.keyboard.beginScope({ left: goBackCommand });
+		const scope = await Container.keyboard.beginScope({ 'alt+left': goBackCommand });
 
 		const pick = await window.showQuickPick(items, {
 			matchOnDescription: true,
@@ -429,7 +429,7 @@ export class RepoStatusQuickPick {
 			}`,
 			ignoreFocusOut: getQuickPickIgnoreFocusOut(),
 			onDidSelectItem: (item: QuickPickItem) => {
-				void scope.setKeyCommand('right', item);
+				void scope.setKeyCommand('alt+right', item);
 			}
 		});
 

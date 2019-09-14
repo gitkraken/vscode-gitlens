@@ -15,9 +15,9 @@ export class BranchHistoryQuickPick {
 		return showQuickPickProgress(
 			`${branch} history ${GlyphChars.Dash} search by commit message, filename, or commit id`,
 			{
-				left: KeyNoopCommand,
-				',': KeyNoopCommand,
-				'.': KeyNoopCommand
+				'alt+left': KeyNoopCommand,
+				'alt+,': KeyNoopCommand,
+				'alt+.': KeyNoopCommand
 			}
 		);
 	}
@@ -136,9 +136,9 @@ export class BranchHistoryQuickPick {
 		if (progressCancellation.token.isCancellationRequested) return undefined;
 
 		const scope = await Container.keyboard.beginScope({
-			left: goBackCommand,
-			',': previousPageCommand,
-			'.': nextPageCommand
+			'alt+left': goBackCommand,
+			'alt+,': previousPageCommand,
+			'alt+.': nextPageCommand
 		});
 
 		progressCancellation.cancel();

@@ -15,9 +15,9 @@ import { CommitQuickPickItem } from './gitQuickPicks';
 export class CommitsQuickPick {
 	static showProgress(message: string) {
 		return showQuickPickProgress(message, {
-			left: KeyNoopCommand,
-			',': KeyNoopCommand,
-			'.': KeyNoopCommand
+			'alt+left': KeyNoopCommand,
+			'alt+,': KeyNoopCommand,
+			'alt+.': KeyNoopCommand
 		});
 	}
 
@@ -49,7 +49,7 @@ export class CommitsQuickPick {
 
 		if (progressCancellation.token.isCancellationRequested) return undefined;
 
-		const scope = await Container.keyboard.beginScope({ left: options.goBackCommand });
+		const scope = await Container.keyboard.beginScope({ 'alt+left': options.goBackCommand });
 
 		progressCancellation.cancel();
 
@@ -58,7 +58,7 @@ export class CommitsQuickPick {
 			placeHolder: placeHolder,
 			ignoreFocusOut: getQuickPickIgnoreFocusOut()
 			// onDidSelectItem: (item: QuickPickItem) => {
-			//     scope.setKeyCommand('right', item);
+			//     scope.setKeyCommand('alt+right', item);
 			// }
 		});
 
