@@ -120,7 +120,9 @@ export class SearchView extends ViewBase<SearchNode> {
 		},
 		results?: Promise<GitLog | undefined> | GitLog
 	) {
-		await this.show();
+		if (!this.visible) {
+			await this.show();
+		}
 
 		const searchQueryFn = this.getSearchQueryFn(
 			results || Container.git.getLogForSearch(repoPath, search, options),
