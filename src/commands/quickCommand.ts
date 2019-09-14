@@ -2,6 +2,7 @@
 import { InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
 import { Directive, DirectiveQuickPickItem } from '../quickpicks';
 import { Container } from '../container';
+import { Keys } from '../keyboard';
 
 export * from './quickCommand.helpers';
 
@@ -19,6 +20,7 @@ export interface QuickInputStep {
 	value?: string;
 
 	onDidClickButton?(input: InputBox, button: QuickInputButton): void;
+	onDidPressKey?(quickpick: InputBox, key: Keys): void | Promise<void>;
 	validate?(value: string | undefined): [boolean, string | undefined] | Promise<[boolean, string | undefined]>;
 }
 
@@ -41,6 +43,7 @@ export interface QuickPickStep<T extends QuickPickItem = any> {
 	onDidAccept?(quickpick: QuickPick<T>): boolean | Promise<boolean>;
 	onDidChangeValue?(quickpick: QuickPick<T>): boolean | Promise<boolean>;
 	onDidClickButton?(quickpick: QuickPick<T>, button: QuickInputButton): void;
+	onDidPressKey?(quickpick: QuickPick<T>, key: Keys): void | Promise<void>;
 	onValidateValue?(quickpick: QuickPick<T>, value: string, items: T[]): boolean | Promise<boolean>;
 	validate?(selection: T[]): boolean;
 }

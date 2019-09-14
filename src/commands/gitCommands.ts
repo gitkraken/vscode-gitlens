@@ -132,7 +132,30 @@ export class GitCommandsCommand extends Command {
 
 		try {
 			return await new Promise<QuickPickStep | QuickInputStep | undefined>(resolve => {
+				const goBack = async () => {
+					input.value = '';
+					if (commandsStep.command !== undefined) {
+						input.busy = true;
+						resolve((await commandsStep.command.previous()) || commandsStep);
+					}
+				};
+
+				const scope = Container.keyboard.createScope({
+					left: { onDidPressKey: goBack },
+					right: {
+						onDidPressKey: key => step.onDidPressKey && step.onDidPressKey(input, key)
+					},
+					'ctrl+right': {
+						onDidPressKey: key => step.onDidPressKey && step.onDidPressKey(input, key)
+					},
+					'alt+right': {
+						onDidPressKey: key => step.onDidPressKey && step.onDidPressKey(input, key)
+					}
+				});
+				scope.start();
+
 				disposables.push(
+					scope,
 					input.onDidHide(() => resolve()),
 					input.onDidTriggerButton(async e => {
 						if (e === QuickInputButtons.Back) {
@@ -203,17 +226,36 @@ export class GitCommandsCommand extends Command {
 
 		try {
 			return await new Promise<QuickPickStep | QuickInputStep | undefined>(resolve => {
+				const goBack = async () => {
+					quickpick.value = '';
+					if (commandsStep.command !== undefined) {
+						quickpick.busy = true;
+						resolve((await commandsStep.command.previous()) || commandsStep);
+					}
+				};
+
+				const scope = Container.keyboard.createScope({
+					left: { onDidPressKey: goBack },
+					right: {
+						onDidPressKey: key => step.onDidPressKey && step.onDidPressKey(quickpick, key)
+					},
+					'ctrl+right': {
+						onDidPressKey: key => step.onDidPressKey && step.onDidPressKey(quickpick, key)
+					},
+					'alt+right': {
+						onDidPressKey: key => step.onDidPressKey && step.onDidPressKey(quickpick, key)
+					}
+				});
+				scope.start();
+
 				let overrideItems = false;
 
 				disposables.push(
+					scope,
 					quickpick.onDidHide(() => resolve()),
 					quickpick.onDidTriggerButton(async e => {
 						if (e === QuickInputButtons.Back) {
-							quickpick.value = '';
-							if (commandsStep.command !== undefined) {
-								quickpick.busy = true;
-								resolve((await commandsStep.command.previous()) || commandsStep);
-							}
+							goBack();
 
 							return;
 						}
@@ -250,6 +292,15 @@ export class GitCommandsCommand extends Command {
 						}
 					}),
 					quickpick.onDidChangeValue(async e => {
+						if (scope !== undefined) {
+							// Pause the left/right keyboard commands if there is a value, otherwise the left/right arrows won't work in the input properly
+							if (e.length !== 0) {
+								await scope.pause(['left', 'right']);
+							} else {
+								await scope.resume();
+							}
+						}
+
 						if (step.onDidChangeValue !== undefined) {
 							const cancel = await step.onDidChangeValue(quickpick);
 							if (cancel) return;
