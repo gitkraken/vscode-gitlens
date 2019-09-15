@@ -11,6 +11,7 @@ import {
 	getCommandUri,
 	isCommandViewContextWithCommit
 } from './common';
+import { OpenFileInRemoteCommandArgs } from './openFileInRemote';
 
 export interface CopyRemoteFileUrlToClipboardCommandArgs {
 	range?: boolean;
@@ -66,6 +67,7 @@ export class CopyRemoteFileUrlToClipboardCommand extends ActiveEditorCommand {
 			}
 		}
 
-		return commands.executeCommand(Commands.OpenFileInRemote, uri, { ...args, clipboard: true });
+		const commandArgs: OpenFileInRemoteCommandArgs = { ...args, clipboard: true };
+		return commands.executeCommand(Commands.OpenFileInRemote, uri, commandArgs);
 	}
 }
