@@ -5677,7 +5677,7 @@
 	},
 	"devDependencies": {
 		"@types/lodash-es": "4.17.3",
-		"@types/node": "10.14.17",
+		"@types/node": "10.14.18",
 		"@types/vscode": "1.37.0",
 		"@typescript-eslint/eslint-plugin": "2.2.0",
 		"@typescript-eslint/parser": "2.2.0",
