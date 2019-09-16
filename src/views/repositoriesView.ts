@@ -1,15 +1,31 @@
 'use strict';
-import { commands, ConfigurationChangeEvent, Event, EventEmitter } from 'vscode';
+import {
+	CancellationToken,
+	commands,
+	ConfigurationChangeEvent,
+	Event,
+	EventEmitter,
+	ProgressLocation,
+	window
+} from 'vscode';
 import { configuration, RepositoriesViewConfig, ViewFilesLayout, ViewsConfig } from '../configuration';
 import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
-import { BranchesNode, BranchNode, RepositoriesNode, RepositoryNode, StashesNode, StashNode, ViewNode } from './nodes';
+import {
+	BranchesNode,
+	BranchNode,
+	BranchOrTagFolderNode,
+	CompareBranchNode,
+	RepositoriesNode,
+	RepositoryNode,
+	StashesNode,
+	StashNode,
+	ViewNode
+} from './nodes';
 import { ViewBase } from './viewBase';
 import { ViewShowBranchComparison } from '../config';
-import { CompareBranchNode } from './nodes/compareBranchNode';
 import { GitLogCommit, GitStashCommit } from '../git/git';
-
-const emptyArray = (Object.freeze([]) as any) as any[];
+import { GitService } from '../git/gitService';
 
 export class RepositoriesView extends ViewBase<RepositoriesNode> {
 	constructor() {
@@ -115,50 +131,51 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 		return { ...Container.config.views, ...Container.config.views.repositories };
 	}
 
-	findCommitNode(commit: GitLogCommit | { repoPath: string; ref: string }) {
+	findCommitNode(commit: GitLogCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
 		const repoNodeId = RepositoryNode.getId(commit.repoPath);
 
 		return this.findNode((n: any) => n.commit !== undefined && n.commit.ref === commit.ref, {
 			allowPaging: true,
-			maxDepth: 2,
-			getChildren: async n => {
-				// Only search for commit nodes in the same repo within the root BranchNode
-				if (n.id != null && n.id.startsWith(`gitlens${RepositoryNode.key}`)) {
-					if (!n.id.startsWith(repoNodeId)) return emptyArray;
+			maxDepth: 6,
+			canTraverse: n => {
+				// Only search for commit nodes in the same repo within BranchNodes
+				if (n instanceof RepositoriesNode) return true;
 
-					if (n instanceof BranchNode) {
-						if (!n.root) return emptyArray;
-					} else if (!(n instanceof RepositoryNode) && !(n instanceof BranchesNode)) {
-						return emptyArray;
-					}
+				if (
+					n instanceof RepositoryNode ||
+					n instanceof BranchesNode ||
+					n instanceof BranchOrTagFolderNode ||
+					n instanceof BranchNode
+				) {
+					return n.id.startsWith(repoNodeId);
 				}
 
-				return n.getChildren();
-			}
+				return false;
+			},
+			token: token
 		});
 	}
 
-	findStashNode(stash: GitStashCommit | { repoPath: string; ref: string }) {
+	findStashNode(stash: GitStashCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
 		const repoNodeId = RepositoryNode.getId(stash.repoPath);
 
 		return this.findNode(StashNode.getId(stash.repoPath, stash.ref), {
-			maxDepth: 2,
-			getChildren: async n => {
+			maxDepth: 3,
+			canTraverse: n => {
 				// Only search for stash nodes in the same repo within a StashesNode
-				if (n.id != null && n.id.startsWith(`gitlens${RepositoryNode.key}`)) {
-					if (!n.id.startsWith(repoNodeId)) return emptyArray;
+				if (n instanceof RepositoriesNode) return true;
 
-					if (!(n instanceof RepositoryNode) && !(n instanceof StashesNode)) {
-						return emptyArray;
-					}
+				if (n instanceof RepositoryNode || n instanceof StashesNode) {
+					return n.id.startsWith(repoNodeId);
 				}
 
-				return n.getChildren();
-			}
+				return false;
+			},
+			token: token
 		});
 	}
 
-	async revealCommit(
+	revealCommit(
 		commit: GitLogCommit | { repoPath: string; ref: string },
 		options?: {
 			select?: boolean;
@@ -166,28 +183,60 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 			expand?: boolean | number;
 		}
 	) {
-		const node = await this.findCommitNode(commit);
-		if (node !== undefined) {
-			await this.reveal(node, options);
-		}
+		return window.withProgress(
+			{
+				location: ProgressLocation.Notification,
+				title: `Revealing commit '${GitService.shortenSha(commit.ref)}' in the Repositories view...`,
+				cancellable: true
+			},
+			async (progress, token) => {
+				const node = await this.findCommitNode(commit, token);
+				if (node === undefined) return node;
 
-		return node;
+				// Not sure why I need to reveal each parent, but without it the node won't be revealed
+				const nodes: ViewNode[] = [];
+
+				let parent: ViewNode | undefined = node;
+				while (parent !== undefined) {
+					nodes.push(parent);
+					parent = parent.getParent();
+				}
+				nodes.pop();
+
+				for (const n of nodes.reverse()) {
+					try {
+						await this.reveal(n, options);
+					} catch {}
+				}
+
+				return node;
+			}
+		);
 	}
 
 	async revealStash(
-		stash: GitStashCommit | { repoPath: string; ref: string },
+		stash: GitStashCommit | { repoPath: string; ref: string; stashName: string },
 		options?: {
 			select?: boolean;
 			focus?: boolean;
 			expand?: boolean | number;
 		}
 	) {
-		const node = await this.findStashNode(stash);
-		if (node !== undefined) {
-			await this.reveal(node, options);
-		}
+		return window.withProgress(
+			{
+				location: ProgressLocation.Notification,
+				title: `Revealing stash '${stash.stashName}' in the Repositories view...`,
+				cancellable: true
+			},
+			async (progress, token) => {
+				const node = await this.findStashNode(stash, token);
+				if (node !== undefined) {
+					await this.reveal(node, options);
+				}
 
-		return node;
+				return node;
+			}
+		);
 	}
 
 	async revealStashes(
@@ -202,17 +251,15 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 
 		const node = await this.findNode(StashesNode.getId(repoPath), {
 			maxDepth: 2,
-			getChildren: async n => {
-				// Only search for nodes in the same repo
-				if (n.id != null && n.id.startsWith(`gitlens${RepositoryNode.key}`)) {
-					if (!n.id.startsWith(repoNodeId)) return emptyArray;
+			canTraverse: n => {
+				// Only search for stashes nodes in the same repo
+				if (n instanceof RepositoriesNode) return true;
 
-					if (!(n instanceof RepositoryNode)) {
-						return emptyArray;
-					}
+				if (n instanceof RepositoryNode) {
+					return n.id.startsWith(repoNodeId);
 				}
 
-				return n.getChildren();
+				return false;
 			}
 		});
 

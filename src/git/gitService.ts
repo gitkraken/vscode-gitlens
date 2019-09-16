@@ -40,6 +40,7 @@ import {
 	GitBlameParser,
 	GitBranch,
 	GitBranchParser,
+	GitCommit,
 	GitCommitType,
 	GitContributor,
 	GitDiff,
@@ -129,6 +130,12 @@ export interface SearchPattern {
 }
 
 export namespace SearchPattern {
+	export function fromCommit(ref: string): string;
+	export function fromCommit(commit: GitCommit): string;
+	export function fromCommit(refOrCommit: string | GitCommit) {
+		return `commit:${GitService.shortenSha(typeof refOrCommit === 'string' ? refOrCommit : refOrCommit.sha)}`;
+	}
+
 	export function toKey(search: SearchPattern) {
 		return `${search.pattern}|${search.matchAll ? 'A' : ''}${search.matchCase ? 'C' : ''}${
 			search.matchRegex ? 'R' : ''

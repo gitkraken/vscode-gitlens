@@ -3,9 +3,10 @@ import { CancellationTokenSource, commands, QuickPickItem, window } from 'vscode
 import { Commands } from '../commands';
 import { configuration } from '../configuration';
 import { Container } from '../container';
-import { GitLog, GitLogCommit, GitStashCommit, GitUri, SearchPattern } from '../git/gitService';
+import { GitLogCommit, GitStashCommit, GitUri, SearchPattern } from '../git/gitService';
 import { KeyMapping, Keys } from '../keyboard';
 import { ReferencesQuickPick, ReferencesQuickPickItem } from './referencesQuickPick';
+import { GlyphChars } from '../constants';
 
 export function getQuickPickIgnoreFocusOut() {
 	return !configuration.get('advanced', 'quickPick', 'closeOnFocusOut');
@@ -97,12 +98,55 @@ export class MessageQuickPickItem extends CommandQuickPickItem {
 	}
 }
 
-export class ShowCommitInViewQuickPickItem extends CommandQuickPickItem {
+export class OpenCommitInViewQuickPickItem extends CommandQuickPickItem {
 	constructor(
 		public readonly commit: GitLogCommit,
 		item: QuickPickItem = {
-			label: '$(eye) Show in View',
-			description: `shows the ${commit.isStash ? 'stash' : 'commit'} in the Repositories view`
+			label: '$(eye) Open in Search Commits View',
+			description: ''
+		}
+	) {
+		super(item, undefined, undefined);
+	}
+
+	async execute(): Promise<{} | undefined> {
+		void (await Container.searchView.search(
+			this.commit.repoPath,
+			{
+				pattern: SearchPattern.fromCommit(this.commit)
+			},
+			{
+				label: { label: `for ${this.commit.isStash ? 'stash' : 'commit'} id ${this.commit.shortSha}` }
+			}
+		));
+
+		return undefined;
+	}
+}
+
+export class OpenFileHistoryInViewQuickPickItem extends CommandQuickPickItem {
+	constructor(
+		public readonly uri: GitUri,
+		public readonly baseRef: string | undefined,
+		item: QuickPickItem = {
+			label: '$(eye) Open in File History View',
+			description: 'shows the file history in the File History view'
+		}
+	) {
+		super(item, undefined, undefined);
+	}
+
+	async execute(): Promise<{} | undefined> {
+		return void (await Container.fileHistoryView.showHistoryForUri(this.uri, this.baseRef));
+	}
+}
+
+export class RevealCommitInViewQuickPickItem extends CommandQuickPickItem {
+	constructor(
+		public readonly commit: GitLogCommit | GitStashCommit,
+		item: QuickPickItem = {
+			label: '$(eye) Reveal in Repositories View',
+			description: `${commit.isStash ? '' : `${GlyphChars.Dash} this can take a while`}`
 		}
 	) {
 		super(item, undefined, undefined);
@@ -115,49 +159,15 @@ export class ShowCommitInViewQuickPickItem extends CommandQuickPickItem {
 				focus: true,
 				expand: true
 			}));
-
-			return undefined;
-		}
-
-		const node = await Container.repositoriesView.revealCommit(this.commit, {
-			select: true,
-			focus: true,
-			expand: true
-		});
-
-		if (node === undefined) {
-			// Fallback to commit search, if we can't find it
-			void (await Container.searchView.search(
-				this.commit.repoPath,
-				{ pattern: `commit:${this.commit.sha}` },
-				{
-					label: { label: `for commit id ${this.commit.shortSha}` }
-				}
-			));
+		} else {
+			void (await Container.repositoriesView.revealCommit(this.commit, {
+				select: true,
+				focus: true,
+				expand: true
+			}));
 		}
 
 		return undefined;
-	}
-}
-
-export class ShowCommitSearchResultsInViewQuickPickItem extends CommandQuickPickItem {
-	constructor(
-		public readonly search: SearchPattern,
-		public readonly results: GitLog,
-		public readonly resultsLabel: string | { label: string; resultsType?: { singular: string; plural: string } },
-		item: QuickPickItem = {
-			label: '$(eye) Show in View',
-			description: 'shows the search results in the Search Commits view'
-		}
-	) {
-		super(item, undefined, undefined);
-	}
-
-	execute(): Promise<{} | undefined> {
-		Container.searchView.showSearchResults(this.results.repoPath, this.search, this.results, {
-			label: this.resultsLabel
-		});
-		return Promise.resolve(undefined);
 	}
 }
 
@@ -180,22 +190,5 @@ export class ShowFileHistoryFromQuickPickItem extends CommandQuickPickItem {
 			checkmarks: false,
 			goBack: this._goBack
 		});
-	}
-}
-
-export class ShowFileHistoryInViewQuickPickItem extends CommandQuickPickItem {
-	constructor(
-		public readonly uri: GitUri,
-		public readonly baseRef: string | undefined,
-		item: QuickPickItem = {
-			label: '$(eye) Show in View',
-			description: 'shows the file history in the File History view'
-		}
-	) {
-		super(item, undefined, undefined);
-	}
-
-	async execute(): Promise<{} | undefined> {
-		return void (await Container.fileHistoryView.showHistoryForUri(this.uri, this.baseRef));
 	}
 }

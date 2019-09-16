@@ -229,7 +229,7 @@ export class CommitFileQuickPick {
 				new CommandQuickPickItem(
 					{
 						label: '$(clippy) Copy Commit ID to Clipboard',
-						description: `${commit.shortSha}`
+						description: ''
 					},
 					Commands.CopyShaToClipboard,
 					[uri, copyShaCommandArgs]
@@ -243,8 +243,8 @@ export class CommitFileQuickPick {
 			items.push(
 				new CommandQuickPickItem(
 					{
-						label: '$(clippy) Copy Commit Message to Clipboard',
-						description: `${commit.getShortMessage()}`
+						label: `$(clippy) Copy ${commit.isStash ? 'Stash' : 'Commit'} Message to Clipboard`,
+						description: ''
 					},
 					Commands.CopyMessageToClipboard,
 					[uri, copyMessageCommandArgs]

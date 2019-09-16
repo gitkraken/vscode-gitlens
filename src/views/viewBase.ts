@@ -1,5 +1,6 @@
 'use strict';
 import {
+	CancellationToken,
 	commands,
 	ConfigurationChangeEvent,
 	ConfigurationTarget,
@@ -157,16 +158,18 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 		id: string,
 		options?: {
 			allowPaging?: boolean;
-			getChildren?: (node: ViewNode) => ViewNode[] | Promise<ViewNode[]>;
+			canTraverse?: (node: ViewNode) => boolean;
 			maxDepth?: number;
+			token?: CancellationToken;
 		}
 	): Promise<ViewNode | undefined>;
 	async findNode(
 		predicate: (node: ViewNode) => boolean,
 		options?: {
 			allowPaging?: boolean;
-			getChildren?: (node: ViewNode) => ViewNode[] | Promise<ViewNode[]>;
+			canTraverse?: (node: ViewNode) => boolean;
 			maxDepth?: number;
+			token?: CancellationToken;
 		}
 	): Promise<ViewNode | undefined>;
 	@log({
@@ -179,85 +182,150 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 		predicate: string | ((node: ViewNode) => boolean),
 		{
 			allowPaging = false,
-			getChildren,
-			maxDepth = 2
+			canTraverse,
+			maxDepth = 2,
+			token
 		}: {
 			allowPaging?: boolean;
-			getChildren?: (node: ViewNode) => ViewNode[] | Promise<ViewNode[]>;
+			canTraverse?: (node: ViewNode) => boolean;
 			maxDepth?: number;
+			token?: CancellationToken;
 		} = {}
 	): Promise<ViewNode | undefined> {
-		if (getChildren === undefined) {
-			getChildren = n => n.getChildren();
-		}
-
 		// If we have no root (e.g. never been initialized) force it so the tree will load properly
 		if (this._root === undefined) {
 			await this.show();
 		}
 
-		return this.findNodeCore(
+		// const node = await this.findNodeCoreDFS(
+		// 	typeof predicate === 'string' ? n => n.id === predicate : predicate,
+		// 	await this.ensureRoot().getChildren(),
+		// 	allowPaging,
+		// 	canTraverse,
+		// 	maxDepth
+		// );
+
+		const node = await this.findNodeCoreBFS(
 			typeof predicate === 'string' ? n => n.id === predicate : predicate,
-			await getChildren(this.ensureRoot()),
+			this.ensureRoot(),
 			allowPaging,
-			getChildren,
-			maxDepth
+			canTraverse,
+			maxDepth,
+			token
 		);
+
+		return node;
 	}
 
-	private async findNodeCore(
+	// private async findNodeCoreDFS(
+	// 	predicate: (node: ViewNode) => boolean,
+	// 	nodes: ViewNode[],
+	// 	allowPaging: boolean,
+	// 	canTraverse: ((node: ViewNode) => boolean) | undefined,
+	// 	depth: number
+	// ): Promise<ViewNode | undefined> {
+	// 	if (depth === 0) return undefined;
+
+	// 	const defaultPageSize = Container.config.advanced.maxListItems;
+
+	// 	let child;
+	// 	let children;
+	// 	for (const node of nodes) {
+	// 		if (canTraverse !== undefined && !canTraverse(node)) continue;
+
+	// 		children = await node.getChildren();
+	// 		if (children.length === 0) continue;
+
+	// 		child = children.find(predicate);
+	// 		if (child !== undefined) return child;
+
+	// 		if (PageableViewNode.is(node)) {
+	// 			if (node.maxCount !== 0 && allowPaging) {
+	// 				let pageSize = defaultPageSize === 0 ? 0 : (node.maxCount || 0) + defaultPageSize;
+	// 				while (true) {
+	// 					await this.showMoreNodeChildren(node, pageSize);
+
+	// 					child = (await node.getChildren()).find(predicate);
+	// 					if (child !== undefined) return child;
+
+	// 					if (pageSize === 0) break;
+
+	// 					pageSize = 0;
+	// 				}
+	// 			}
+
+	// 			// Don't traverse into paged children
+	// 			continue;
+	// 		}
+
+	// 		return this.findNodeCoreDFS(predicate, children, allowPaging, canTraverse, depth - 1);
+	// 	}
+
+	// 	return undefined;
+	// }
+
+	private async findNodeCoreBFS(
 		predicate: (node: ViewNode) => boolean,
-		nodes: ViewNode[],
+		root: ViewNode,
 		allowPaging: boolean,
-		getChildren: (node: ViewNode) => ViewNode[] | Promise<ViewNode[]>,
-		depth: number
+		canTraverse: ((node: ViewNode) => boolean) | undefined,
+		maxDepth: number,
+		token: CancellationToken | undefined
 	): Promise<ViewNode | undefined> {
-		const decendents: ViewNode[] = [];
+		const queue: (ViewNode | undefined)[] = [root, undefined];
 
 		const defaultPageSize = Container.config.advanced.maxListItems;
 
-		let child;
-		let children;
-		for (const node of nodes) {
-			children = await getChildren(node);
-			if (children.length === 0) continue;
+		let depth = 0;
+		let node: ViewNode | undefined;
+		let children: ViewNode[];
+		while (queue.length > 1) {
+			if (token !== undefined && token.isCancellationRequested) return undefined;
 
-			child = children.find(predicate);
-			if (child !== undefined) return child;
+			node = queue.shift();
+			if (node === undefined) {
+				depth++;
 
-			if (PageableViewNode.is(node)) {
-				// Don't descend into paged children
-				if (!allowPaging || node.maxCount === 0) continue;
+				queue.push(undefined);
+				if (depth > maxDepth) break;
 
-				if (defaultPageSize !== 0 && (node.maxCount === undefined || node.maxCount < defaultPageSize)) {
-					await this.showMoreNodeChildren(node, defaultPageSize);
-
-					children = await getChildren(node);
-					if (children.length === 0) continue;
-
-					child = children.find(predicate);
-					if (child !== undefined) return child;
-				}
-
-				await this.showMoreNodeChildren(node, 0);
-
-				children = await getChildren(node);
-				if (children.length === 0) continue;
-
-				child = children.find(predicate);
-				if (child !== undefined) return child;
-
-				// Don't descend into paged children
 				continue;
 			}
 
-			decendents.push(...children);
+			if (predicate(node)) return node;
+			if (canTraverse !== undefined && !canTraverse(node)) continue;
+
+			children = await node.getChildren();
+			if (children.length === 0) continue;
+
+			if (PageableViewNode.is(node)) {
+				let child = children.find(predicate);
+				if (child !== undefined) return child;
+
+				if (node.maxCount !== 0 && allowPaging) {
+					let pageSize = defaultPageSize === 0 ? 0 : (node.maxCount || 0) + defaultPageSize;
+					while (true) {
+						if (token !== undefined && token.isCancellationRequested) return undefined;
+
+						await this.showMoreNodeChildren(node, pageSize);
+
+						child = (await node.getChildren()).find(predicate);
+						if (child !== undefined) return child;
+
+						if (pageSize === 0) break;
+
+						pageSize = 0;
+					}
+				}
+
+				// Don't traverse into paged children
+				continue;
+			}
+
+			queue.push(...children);
 		}
 
-		depth--;
-		if (depth === 0) return undefined;
-
-		return this.findNodeCore(predicate, decendents, allowPaging, getChildren, depth);
+		return undefined;
 	}
 
 	@debug()

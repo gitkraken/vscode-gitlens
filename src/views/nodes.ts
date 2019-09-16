@@ -5,6 +5,7 @@ export * from './nodes/common';
 export * from './nodes/viewNode';
 export * from './nodes/branchesNode';
 export * from './nodes/branchNode';
+export * from './nodes/branchOrTagFolderNode';
 export * from './nodes/branchTrackingStatusNode';
 export * from './nodes/commitFileNode';
 export * from './nodes/commitNode';

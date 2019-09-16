@@ -24,6 +24,7 @@ import { StashGitCommand, StashGitCommandArgs } from './git/stash';
 import { SwitchGitCommand, SwitchGitCommandArgs } from './git/switch';
 import { Container } from '../container';
 import { configuration } from '../configuration';
+import { KeyMapping } from '../keyboard';
 
 const sanitizeLabel = /\$\(.+?\)|\s/g;
 
@@ -140,18 +141,18 @@ export class GitCommandsCommand extends Command {
 					}
 				};
 
-				const scope = Container.keyboard.createScope({
-					left: { onDidPressKey: goBack },
-					right: {
-						onDidPressKey: key => step.onDidPressKey && step.onDidPressKey(input, key)
-					},
-					'ctrl+right': {
-						onDidPressKey: key => step.onDidPressKey && step.onDidPressKey(input, key)
-					},
-					'alt+right': {
-						onDidPressKey: key => step.onDidPressKey && step.onDidPressKey(input, key)
+				const mapping: KeyMapping = {
+					left: { onDidPressKey: goBack }
+				};
+				if (step.onDidPressKey !== undefined && step.keys !== undefined && step.keys.length !== 0) {
+					for (const key of step.keys) {
+						mapping[key] = {
+							onDidPressKey: key => step.onDidPressKey!(input, key)
+						};
 					}
-				});
+				}
+
+				const scope = Container.keyboard.createScope(mapping);
 				scope.start();
 
 				disposables.push(
@@ -234,18 +235,18 @@ export class GitCommandsCommand extends Command {
 					}
 				};
 
-				const scope = Container.keyboard.createScope({
-					left: { onDidPressKey: goBack },
-					right: {
-						onDidPressKey: key => step.onDidPressKey && step.onDidPressKey(quickpick, key)
-					},
-					'ctrl+right': {
-						onDidPressKey: key => step.onDidPressKey && step.onDidPressKey(quickpick, key)
-					},
-					'alt+right': {
-						onDidPressKey: key => step.onDidPressKey && step.onDidPressKey(quickpick, key)
+				const mapping: KeyMapping = {
+					left: { onDidPressKey: goBack }
+				};
+				if (step.onDidPressKey !== undefined && step.keys !== undefined && step.keys.length !== 0) {
+					for (const key of step.keys) {
+						mapping[key] = {
+							onDidPressKey: key => step.onDidPressKey!(quickpick, key)
+						};
 					}
-				});
+				}
+
+				const scope = Container.keyboard.createScope(mapping);
 				scope.start();
 
 				let overrideItems = false;

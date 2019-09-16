@@ -13,7 +13,7 @@ import {
 } from '../../git/gitService';
 import { GlyphChars } from '../../constants';
 import { QuickCommandBase, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
-import { RepositoryQuickPickItem } from '../../quickpicks';
+import { CommandQuickPickItem, CommitQuickPick, RepositoryQuickPickItem } from '../../quickpicks';
 import { Iterables, Mutable, Strings } from '../../system';
 import { Logger } from '../../logger';
 import {
@@ -23,12 +23,8 @@ import {
 	QuickPickItemOfT
 } from '../../quickpicks/gitQuickPicks';
 
-interface State {
+interface State extends Required<SearchPattern> {
 	repo: Repository;
-	search: string;
-	matchAll: boolean;
-	matchCase: boolean;
-	matchRegex: boolean;
 	showInView: boolean;
 }
 
@@ -141,7 +137,7 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 			counter++;
 		}
 
-		if (args.state.search !== undefined && !args.prefillOnly) {
+		if (args.state.pattern !== undefined && !args.prefillOnly) {
 			counter++;
 		}
 
@@ -195,7 +191,6 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 						const active = state.repo ? state.repo : await Container.git.getActiveRepository();
 
 						const step = this.createPickStep<RepositoryQuickPickItem>({
-							multiselect: true,
 							title: this.title,
 							placeholder: 'Choose repositories',
 							items: await Promise.all(
@@ -218,7 +213,7 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 					}
 				}
 
-				if (state.search === undefined || state.counter < 2) {
+				if (state.pattern === undefined || state.counter < 2) {
 					const items: QuickPickItemOfT<SearchOperators>[] = [
 						{
 							label: searchOperatorToTitleMap.get('')!,
@@ -268,7 +263,7 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 						matchOnDetail: true,
 						additionalButtons: [matchCaseButton, matchAllButton, matchRegexButton, showInViewButton],
 						items: items,
-						value: state.search,
+						value: state.pattern,
 						onDidAccept: (quickpick): boolean => {
 							const pick = quickpick.selectedItems[0];
 							if (!searchOperators.has(pick.item)) return true;
@@ -352,11 +347,11 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 						continue;
 					}
 
-					state.search = selection[0].item.trim();
+					state.pattern = selection[0].item.trim();
 				}
 
 				const search: SearchPattern = {
-					pattern: state.search,
+					pattern: state.pattern,
 					matchAll: state.matchAll,
 					matchCase: state.matchCase,
 					matchRegex: state.matchRegex
@@ -373,7 +368,7 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 						state.repo.path,
 						search,
 						{
-							label: { label: `for ${state.search}` }
+							label: { label: `for ${state.pattern}` }
 						},
 						resultsPromise
 					);
@@ -387,10 +382,10 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 					title: `${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${state.repo.formattedName}`,
 					placeholder:
 						results === undefined
-							? `No results for ${state.search}`
+							? `No results for ${state.pattern}`
 							: `${Strings.pluralize('result', results.count, {
 									number: results.truncated ? `${results.count}+` : undefined
-							  })} for ${state.search}`,
+							  })} for ${state.pattern}`,
 					matchOnDescription: true,
 					matchOnDetail: true,
 					items:
@@ -416,10 +411,31 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 							state.repo!.path,
 							search,
 							{
-								label: { label: `for ${state.search}` }
+								label: { label: `for ${state.pattern}` }
 							},
 							results
 						);
+					},
+					keys: ['right', 'alt+right', 'ctrl+right'],
+					onDidPressKey: async (quickpick, key) => {
+						if (quickpick.activeItems.length === 0) return;
+
+						const commit = quickpick.activeItems[0].item;
+						if (key === 'ctrl+right') {
+							await Container.repositoriesView.revealCommit(commit, {
+								select: true,
+								focus: false,
+								expand: true
+							});
+						} else {
+							await Container.searchView.search(
+								commit.repoPath,
+								{ pattern: SearchPattern.fromCommit(commit) },
+								{
+									label: { label: `for commit id ${commit.shortSha}` }
+								}
+							);
+						}
 					}
 				});
 				const selection: StepSelection<typeof step> = yield step;
@@ -428,38 +444,48 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 					continue;
 				}
 
-				state.counter--;
 				pickedCommit = selection[0].item;
 
-				void Container.searchView.search(
-					pickedCommit.repoPath,
-					{ pattern: `commit:${pickedCommit.sha}` },
-					{
-						label: { label: `for commit id ${pickedCommit.shortSha}` }
+				if (pickedCommit !== undefined) {
+					const step = this.createPickStep<CommandQuickPickItem>({
+						title: `${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${
+							state.repo.formattedName
+						}${Strings.pad(GlyphChars.Dot, 2, 2)}${pickedCommit.shortSha}`,
+						placeholder: `${pickedCommit.shortSha} ${Strings.pad(GlyphChars.Dot, 1, 1)} ${
+							pickedCommit.author ? `${pickedCommit.author}, ` : ''
+						}${pickedCommit.formattedDate} ${Strings.pad(
+							GlyphChars.Dot,
+							1,
+							1
+						)} ${pickedCommit.getShortMessage()}`,
+						items: await CommitQuickPick.getItems(pickedCommit, pickedCommit.toGitUri(), {
+							showChanges: false
+						}),
+						additionalButtons: [this.Buttons.OpenInView],
+						onDidClickButton: (quickpick, button) => {
+							if (button !== this.Buttons.OpenInView) return;
+
+							void Container.searchView.search(
+								pickedCommit!.repoPath,
+								{ pattern: SearchPattern.fromCommit(pickedCommit!) },
+								{
+									label: { label: `for commit id ${pickedCommit!.shortSha}` }
+								}
+							);
+						}
+					});
+					const selection: StepSelection<typeof step> = yield step;
+
+					if (!this.canPickStepMoveNext(step, state, selection)) {
+						continue;
 					}
-				);
 
-				// const gitCommandArgs: GitCommandsCommandArgs = {
-				// 	command: 'search',
-				// 	state: { ...state }
-				// };
-
-				// const commandArgs: ShowQuickCommitDetailsCommandArgs = {
-				// 	sha: commit.sha,
-				// 	commit: commit,
-				// 	goBackCommand: new CommandQuickPickItem(
-				// 		{
-				// 			label: 'Back',
-				// 			description: ''
-				// 		},
-				// 		Commands.GitCommands,
-				// 		[gitCommandArgs]
-				// 	)
-				// };
-
-				// void commands.executeCommand(Commands.ShowQuickCommitDetails, commit.toGitUri(), commandArgs);
-
-				// break;
+					const command = selection[0];
+					if (command instanceof CommandQuickPickItem) {
+						command.execute();
+						break;
+					}
+				}
 			} catch (ex) {
 				Logger.error(ex, this.title);
 

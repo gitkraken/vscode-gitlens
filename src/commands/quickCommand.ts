@@ -15,6 +15,7 @@ export class BreakQuickCommand extends Error {
 export interface QuickInputStep {
 	additionalButtons?: QuickInputButton[];
 	buttons?: QuickInputButton[];
+	keys?: StepNavigationKeys[];
 	placeholder?: string;
 	title?: string;
 	value?: string;
@@ -31,12 +32,13 @@ export function isQuickInputStep(item: QuickPickStep | QuickInputStep): item is 
 export interface QuickPickStep<T extends QuickPickItem = any> {
 	additionalButtons?: QuickInputButton[];
 	buttons?: QuickInputButton[];
-	selectedItems?: QuickPickItem[];
 	items: (DirectiveQuickPickItem | T)[] | DirectiveQuickPickItem[];
+	keys?: StepNavigationKeys[];
 	matchOnDescription?: boolean;
 	matchOnDetail?: boolean;
 	multiselect?: boolean;
 	placeholder?: string;
+	selectedItems?: QuickPickItem[];
 	title?: string;
 	value?: string;
 
@@ -54,6 +56,7 @@ export function isQuickPickStep(item: QuickPickStep | QuickInputStep): item is Q
 
 export type StepAsyncGenerator = AsyncGenerator<QuickPickStep | QuickInputStep, undefined, any | undefined>;
 type StepItemType<T> = T extends QuickPickStep<infer U> ? U[] : T extends QuickInputStep ? string : never;
+export type StepNavigationKeys = Exclude<Exclude<Exclude<Keys, 'left'>, 'alt+left'>, 'ctrl+left'>;
 export type StepSelection<T> = T extends QuickPickStep<infer U>
 	? U[] | Directive
 	: T extends QuickInputStep
