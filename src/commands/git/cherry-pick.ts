@@ -8,6 +8,7 @@ import {
 	getBranchesAndOrTags,
 	getValidateGitReferenceFn,
 	QuickCommandBase,
+	QuickPickStep,
 	StepAsyncGenerator,
 	StepSelection,
 	StepState
@@ -16,17 +17,19 @@ import {
 	CommitQuickPickItem,
 	Directive,
 	DirectiveQuickPickItem,
-	GitFlagsQuickPickItem,
+	FlagsQuickPickItem,
 	ReferencesQuickPickItem,
 	RepositoryQuickPickItem
 } from '../../quickpicks';
 import { runGitCommandInTerminal } from '../../terminal';
 import { Logger } from '../../logger';
 
+type Flags = '--edit';
+
 interface State {
 	repo: Repository;
 	references?: GitReference[];
-	flags: string[];
+	flags: Flags[];
 }
 
 export interface CherryPickGitCommandArgs {
@@ -79,6 +82,10 @@ export class CherryPickGitCommand extends QuickCommandBase<State> {
 		const state: StepState<State> = this._initialState === undefined ? { counter: 0 } : this._initialState;
 		let repos;
 		let selectedBranchOrTag: GitReference | undefined;
+
+		if (state.flags == null) {
+			state.flags = [];
+		}
 
 		while (true) {
 			try {
@@ -198,10 +205,10 @@ export class CherryPickGitCommand extends QuickCommandBase<State> {
 					state.references = selection.map(i => i.item);
 				}
 
-				const step = this.createConfirmStep<GitFlagsQuickPickItem>(
+				const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
 					`Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${state.repo.formattedName}`,
 					[
-						{
+						FlagsQuickPickItem.create<Flags>(state.flags, [], {
 							label: this.title,
 							description: `${
 								state.references!.length === 1
@@ -212,10 +219,9 @@ export class CherryPickGitCommand extends QuickCommandBase<State> {
 								state.references!.length === 1
 									? `commit ${state.references![0].name}`
 									: `${state.references!.length} commits`
-							} onto ${destination.name}`,
-							item: []
-						},
-						{
+							} onto ${destination.name}`
+						}),
+						FlagsQuickPickItem.create<Flags>(state.flags, ['--edit'], {
 							label: `${this.title} & Edit`,
 							description: `--edit ${
 								state.references!.length === 1
@@ -226,9 +232,8 @@ export class CherryPickGitCommand extends QuickCommandBase<State> {
 								state.references!.length === 1
 									? `commit ${state.references![0].name}`
 									: `${state.references!.length} commits`
-							} onto ${destination.name}`,
-							item: ['--edit']
-						}
+							} onto ${destination.name}`
+						})
 					]
 				);
 				const selection: StepSelection<typeof step> = yield step;

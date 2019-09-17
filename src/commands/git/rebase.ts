@@ -7,6 +7,7 @@ import {
 	getBranchesAndOrTags,
 	getValidateGitReferenceFn,
 	QuickCommandBase,
+	QuickPickStep,
 	StepAsyncGenerator,
 	StepSelection,
 	StepState
@@ -15,7 +16,7 @@ import {
 	CommitQuickPickItem,
 	Directive,
 	DirectiveQuickPickItem,
-	GitFlagsQuickPickItem,
+	FlagsQuickPickItem,
 	ReferencesQuickPickItem,
 	RefQuickPickItem,
 	RepositoryQuickPickItem
@@ -24,10 +25,12 @@ import { Iterables, Mutable, Strings } from '../../system';
 import { runGitCommandInTerminal } from '../../terminal';
 import { Logger } from '../../logger';
 
+type Flags = '--interactive';
+
 interface State {
 	repo: Repository;
 	reference: GitReference;
-	flags: string[];
+	flags: Flags[];
 }
 
 export interface RebaseGitCommandArgs {
@@ -91,6 +94,10 @@ export class RebaseGitCommand extends QuickCommandBase<State> {
 		let repos;
 		let selectedBranchOrTag: GitReference | undefined;
 		let pickCommit = false;
+
+		if (state.flags == null) {
+			state.flags = [];
+		}
 
 		while (true) {
 			try {
@@ -238,27 +245,25 @@ export class RebaseGitCommand extends QuickCommandBase<State> {
 					break;
 				}
 
-				const step = this.createConfirmStep<GitFlagsQuickPickItem>(
+				const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
 					`Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${state.repo.formattedName}`,
 					[
-						{
+						FlagsQuickPickItem.create<Flags>(state.flags, [], {
 							label: this.title,
 							description: `${destination.name} with ${state.reference.name}`,
 							detail: `Will update ${destination.name} by applying ${Strings.pluralize(
 								'commit',
 								count
-							)} on top of ${state.reference.name}`,
-							item: []
-						},
-						{
+							)} on top of ${state.reference.name}`
+						}),
+						FlagsQuickPickItem.create<Flags>(state.flags, ['--interactive'], {
 							label: `Interactive ${this.title}`,
 							description: `--interactive ${destination.name} with ${state.reference.name}`,
 							detail: `Will interactively update ${destination.name} by applying ${Strings.pluralize(
 								'commit',
 								count
-							)} on top of ${state.reference.name}`,
-							item: ['--interactive']
-						}
+							)} on top of ${state.reference.name}`
+						})
 					]
 				);
 				const selection: StepSelection<typeof step> = yield step;

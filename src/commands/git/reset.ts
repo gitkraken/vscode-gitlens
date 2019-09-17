@@ -4,21 +4,23 @@ import { Container } from '../../container';
 import { GitReference, Repository } from '../../git/gitService';
 import { GlyphChars } from '../../constants';
 import { Iterables, Strings } from '../../system';
-import { QuickCommandBase, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
+import { QuickCommandBase, QuickPickStep, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
 import {
 	CommitQuickPickItem,
 	Directive,
 	DirectiveQuickPickItem,
-	GitFlagsQuickPickItem,
+	FlagsQuickPickItem,
 	RepositoryQuickPickItem
 } from '../../quickpicks';
 import { runGitCommandInTerminal } from '../../terminal';
 import { Logger } from '../../logger';
 
+type Flags = '--hard';
+
 interface State {
 	repo: Repository;
 	reference?: GitReference;
-	flags: string[];
+	flags: Flags[];
 }
 
 export interface ResetGitCommandArgs {
@@ -59,6 +61,10 @@ export class ResetGitCommand extends QuickCommandBase<State> {
 	protected async *steps(): StepAsyncGenerator {
 		const state: StepState<State> = this._initialState === undefined ? { counter: 0 } : this._initialState;
 		let repos;
+
+		if (state.flags == null) {
+			state.flags = [];
+		}
 
 		while (true) {
 			try {
@@ -141,21 +147,19 @@ export class ResetGitCommand extends QuickCommandBase<State> {
 					state.reference = selection[0].item;
 				}
 
-				const step = this.createConfirmStep<GitFlagsQuickPickItem>(
+				const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
 					`Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${state.repo.formattedName}`,
 					[
-						{
+						FlagsQuickPickItem.create<Flags>(state.flags, [], {
 							label: `Soft ${this.title}`,
 							description: `--soft ${destination.name} to ${state.reference.name}`,
-							detail: `Will soft reset (leaves changes in the working tree) ${destination.name} to ${state.reference.name}`,
-							item: ['--soft']
-						},
-						{
+							detail: `Will soft reset (leaves changes in the working tree) ${destination.name} to ${state.reference.name}`
+						}),
+						FlagsQuickPickItem.create<Flags>(state.flags, ['--hard'], {
 							label: `Hard ${this.title}`,
 							description: `--hard ${destination.name} to ${state.reference.name}`,
-							detail: `Will hard reset (discards all changes) ${destination.name} to ${state.reference.name}`,
-							item: ['--hard']
-						}
+							detail: `Will hard reset (discards all changes) ${destination.name} to ${state.reference.name}`
+						})
 					]
 				);
 				const selection: StepSelection<typeof step> = yield step;

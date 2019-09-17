@@ -1,15 +1,17 @@
 'use strict';
 import { Container } from '../../container';
 import { Repository } from '../../git/gitService';
-import { QuickCommandBase, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
-import { Directive, DirectiveQuickPickItem, RepositoryQuickPickItem } from '../../quickpicks';
+import { QuickCommandBase, QuickPickStep, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
+import { Directive, DirectiveQuickPickItem, FlagsQuickPickItem, RepositoryQuickPickItem } from '../../quickpicks';
 import { Strings } from '../../system';
 import { GlyphChars } from '../../constants';
 import { Logger } from '../../logger';
 
+type Flags = '--force';
+
 interface State {
 	repos: Repository[];
-	flags: string[];
+	flags: Flags[];
 }
 
 export interface PushGitCommandArgs {
@@ -46,6 +48,10 @@ export class PushGitCommand extends QuickCommandBase<State> {
 	protected async *steps(): StepAsyncGenerator {
 		const state: StepState<State> = this._initialState === undefined ? { counter: 0 } : this._initialState;
 		let repos;
+
+		if (state.flags == null) {
+			state.flags = [];
+		}
 
 		while (true) {
 			try {
@@ -91,25 +97,23 @@ export class PushGitCommand extends QuickCommandBase<State> {
 				}
 
 				if (this.confirm(state.confirm)) {
-					let step;
+					let step: QuickPickStep<FlagsQuickPickItem<Flags>>;
 					if (state.repos.length > 1) {
 						step = this.createConfirmStep(
 							`Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${
 								state.repos.length
 							} repositories`,
 							[
-								{
+								FlagsQuickPickItem.create<Flags>(state.flags, [], {
 									label: this.title,
 									description: '',
-									detail: `Will push ${state.repos.length} repositories`,
-									item: []
-								},
-								{
+									detail: `Will push ${state.repos.length} repositories`
+								}),
+								FlagsQuickPickItem.create<Flags>(state.flags, ['--force'], {
 									label: `Force ${this.title}`,
 									description: '--force',
-									detail: `Will force push ${state.repos.length} repositories`,
-									item: ['--force']
-								}
+									detail: `Will force push ${state.repos.length} repositories`
+								})
 							]
 						);
 					} else {
@@ -127,8 +131,6 @@ export class PushGitCommand extends QuickCommandBase<State> {
 					}
 
 					state.flags = selection[0].item;
-				} else {
-					state.flags = state.flags || [];
 				}
 
 				this.execute(state as State);
@@ -166,18 +168,16 @@ export class PushGitCommand extends QuickCommandBase<State> {
 		return this.createConfirmStep(
 			`Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${repo.formattedName}`,
 			[
-				{
+				FlagsQuickPickItem.create<Flags>(state.flags!, [], {
 					label: this.title,
 					description: '',
-					detail: `Will push ${detail}`,
-					item: []
-				},
-				{
+					detail: `Will push ${detail}`
+				}),
+				FlagsQuickPickItem.create<Flags>(state.flags!, ['--force'], {
 					label: `Force ${this.title}`,
 					description: '--force',
-					detail: `Will force push ${detail}`,
-					item: ['--force']
-				}
+					detail: `Will force push ${detail}`
+				})
 			]
 		);
 	}

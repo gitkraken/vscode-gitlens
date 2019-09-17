@@ -5,20 +5,13 @@ import { GitReference, Repository } from '../../git/gitService';
 import { GlyphChars } from '../../constants';
 import { Iterables, Strings } from '../../system';
 import { QuickCommandBase, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
-import {
-	CommitQuickPickItem,
-	Directive,
-	DirectiveQuickPickItem,
-	GitFlagsQuickPickItem,
-	RepositoryQuickPickItem
-} from '../../quickpicks';
+import { CommitQuickPickItem, Directive, DirectiveQuickPickItem, RepositoryQuickPickItem } from '../../quickpicks';
 import { runGitCommandInTerminal } from '../../terminal';
 import { Logger } from '../../logger';
 
 interface State {
 	repo: Repository;
 	references?: GitReference[];
-	flags: string[];
 }
 
 export interface RevertGitCommandArgs {
@@ -57,7 +50,7 @@ export class RevertGitCommand extends QuickCommandBase<State> {
 	execute(state: State) {
 		runGitCommandInTerminal(
 			'revert',
-			[...state.flags, ...state.references!.map(c => c.ref).reverse()].join(' '),
+			[...state.references!.map(c => c.ref).reverse()].join(' '),
 			state.repo.path,
 			true
 		);
@@ -151,7 +144,7 @@ export class RevertGitCommand extends QuickCommandBase<State> {
 					state.references = selection.map(i => i.item);
 				}
 
-				const step = this.createConfirmStep<GitFlagsQuickPickItem>(
+				const step = this.createConfirmStep(
 					`Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${state.repo.formattedName}`,
 					[
 						{
@@ -165,8 +158,7 @@ export class RevertGitCommand extends QuickCommandBase<State> {
 								state.references.length === 1
 									? `commit ${state.references[0].name}`
 									: `${state.references.length} commits`
-							} on ${destination.name}`,
-							item: []
+							} on ${destination.name}`
 						}
 					]
 				);
@@ -175,8 +167,6 @@ export class RevertGitCommand extends QuickCommandBase<State> {
 				if (!this.canPickStepMoveNext(step, state, selection)) {
 					continue;
 				}
-
-				state.flags = selection[0].item;
 
 				this.execute(state as State);
 				break;

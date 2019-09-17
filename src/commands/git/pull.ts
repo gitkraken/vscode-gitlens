@@ -2,15 +2,17 @@
 import { QuickInputButton } from 'vscode';
 import { Container } from '../../container';
 import { Repository } from '../../git/gitService';
-import { QuickCommandBase, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
-import { GitFlagsQuickPickItem, RepositoryQuickPickItem } from '../../quickpicks';
+import { QuickCommandBase, QuickPickStep, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
+import { FlagsQuickPickItem, RepositoryQuickPickItem } from '../../quickpicks';
 import { Dates, Strings } from '../../system';
 import { GlyphChars } from '../../constants';
 import { Logger } from '../../logger';
 
+type Flags = '--rebase';
+
 interface State {
 	repos: Repository[];
-	flags: string[];
+	flags: Flags[];
 }
 
 export interface PullGitCommandArgs {
@@ -58,6 +60,10 @@ export class PullGitCommand extends QuickCommandBase<State> {
 		const state: StepState<State> = this._initialState === undefined ? { counter: 0 } : this._initialState;
 		let repos;
 
+		if (state.flags == null) {
+			state.flags = [];
+		}
+
 		while (true) {
 			try {
 				if (repos === undefined) {
@@ -102,25 +108,23 @@ export class PullGitCommand extends QuickCommandBase<State> {
 				}
 
 				if (this.confirm(state.confirm)) {
-					let step;
+					let step: QuickPickStep<FlagsQuickPickItem<Flags>>;
 					if (state.repos.length > 1) {
-						step = this.createConfirmStep<GitFlagsQuickPickItem>(
+						step = this.createConfirmStep(
 							`Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${
 								state.repos.length
 							} repositories`,
 							[
-								{
+								FlagsQuickPickItem.create<Flags>(state.flags, [], {
 									label: this.title,
 									description: '',
-									detail: `Will pull ${state.repos.length} repositories`,
-									item: []
-								},
-								{
+									detail: `Will pull ${state.repos.length} repositories`
+								}),
+								FlagsQuickPickItem.create<Flags>(state.flags, ['--rebase'], {
 									label: `${this.title} with Rebase`,
 									description: '--rebase',
-									detail: `Will pull with rebase ${state.repos.length} repositories`,
-									item: ['--rebase']
-								}
+									detail: `Will pull with rebase ${state.repos.length} repositories`
+								})
 							]
 						);
 					} else {
@@ -138,8 +142,6 @@ export class PullGitCommand extends QuickCommandBase<State> {
 					}
 
 					state.flags = selection[0].item;
-				} else {
-					state.flags = state.flags || [];
 				}
 
 				this.execute(state as State);
@@ -170,35 +172,30 @@ export class PullGitCommand extends QuickCommandBase<State> {
 			).fromNow()}`;
 		}
 
-		const step = this.createConfirmStep<GitFlagsQuickPickItem>(
+		const step = this.createConfirmStep<FlagsQuickPickItem<Flags>>(
 			`${title}${fetchedOn}`,
 			[
-				{
+				FlagsQuickPickItem.create<Flags>(state.flags!, [], {
 					label: this.title,
 					description: '',
-					detail: `Will pull ${detail}`,
-					item: []
-				},
-				{
+					detail: `Will pull ${detail}`
+				}),
+				FlagsQuickPickItem.create<Flags>(state.flags!, ['--rebase'], {
 					label: `${this.title} with Rebase`,
 					description: '--rebase',
-					detail: `Will pull ${detail} with rebase`,
-					item: ['--rebase']
-				}
+					detail: `Will pull ${detail} with rebase`
+				})
 			],
 			undefined,
 			{
 				additionalButtons: [this.Buttons.Fetch],
 				onDidClickButton: async (quickpick, button) => {
 					if (button !== this.Buttons.Fetch) return;
-
 					quickpick.title = `${title}${Strings.pad(GlyphChars.Dot, 2, 2)}Fetching${GlyphChars.Ellipsis}`;
 					quickpick.busy = true;
 					quickpick.enabled = false;
-
 					try {
 						await repo.fetch({ progress: true });
-
 						const step = await this.getSingleRepoConfirmStep(state);
 						quickpick.title = step.title;
 						quickpick.items = step.items as any;

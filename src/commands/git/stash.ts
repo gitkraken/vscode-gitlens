@@ -3,14 +3,21 @@
 import { QuickInputButton, QuickInputButtons, QuickPickItem, Uri, window } from 'vscode';
 import { Container } from '../../container';
 import { GitStashCommit, GitUri, Repository, SearchPattern } from '../../git/gitService';
-import { BreakQuickCommand, QuickCommandBase, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
+import {
+	BreakQuickCommand,
+	QuickCommandBase,
+	QuickPickStep,
+	StepAsyncGenerator,
+	StepSelection,
+	StepState
+} from '../quickCommand';
 import {
 	CommandQuickPickItem,
 	CommitQuickPick,
 	CommitQuickPickItem,
 	Directive,
 	DirectiveQuickPickItem,
-	GitFlagsQuickPickItem,
+	FlagsQuickPickItem,
 	QuickPickItemOfT,
 	RepositoryQuickPickItem
 } from '../../quickpicks';
@@ -23,14 +30,12 @@ interface ApplyState {
 	subcommand: 'apply';
 	repo: Repository;
 	stash: { stashName: string; message: string; ref: string; repoPath: string };
-	flags: string[];
 }
 
 interface DropState {
 	subcommand: 'drop';
 	repo: Repository;
 	stash: { stashName: string; message: string; ref: string; repoPath: string };
-	flags: string[];
 }
 
 interface ListState {
@@ -42,15 +47,16 @@ interface PopState {
 	subcommand: 'pop';
 	repo: Repository;
 	stash: { stashName: string; message: string; ref: string; repoPath: string };
-	flags: string[];
 }
+
+type PushFlags = '--include-untracked' | '--keep-index';
 
 interface PushState {
 	subcommand: 'push';
 	repo: Repository;
 	message?: string;
 	uris?: Uri[];
-	flags: string[];
+	flags: PushFlags[];
 }
 
 type State = ApplyState | DropState | ListState | PopState | PushState;
@@ -373,7 +379,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 						? `${state.stash.message.substring(0, 80)}${GlyphChars.Ellipsis}`
 						: state.stash.message;
 
-				const step = this.createConfirmStep<GitFlagsQuickPickItem & { command: 'apply' | 'pop' }>(
+				const step = this.createConfirmStep<QuickPickItem & { command: 'apply' | 'pop' }>(
 					`Confirm ${this.title} ${getSubtitle(state.subcommand)}${Strings.pad(GlyphChars.Dot, 2, 2)}${
 						state.repo.formattedName
 					}`,
@@ -389,8 +395,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 									: `Will apply the changes from ${state.stash!.stashName} to the working tree of ${
 											state.repo.formattedName
 									  }`,
-							command: state.subcommand!,
-							item: []
+							command: state.subcommand!
 						},
 						// Alternate confirmation (if pop then apply, and vice versa)
 						{
@@ -404,8 +409,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 									: `Will delete ${
 											state.stash!.stashName
 									  } and apply the changes to the working tree of ${state.repo.formattedName}`,
-							command: state.subcommand === 'pop' ? 'apply' : 'pop',
-							item: []
+							command: state.subcommand === 'pop' ? 'apply' : 'pop'
 						}
 					],
 					undefined,
@@ -429,9 +433,6 @@ export class StashGitCommand extends QuickCommandBase<State> {
 				}
 
 				state.subcommand = selection[0].command;
-				state.flags = selection[0].item;
-			} else {
-				state.flags = state.flags || [];
 			}
 
 			void Container.git.stashApply(state.repo.path, state.stash!.stashName, state.subcommand === 'pop');
@@ -504,7 +505,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 					? `${state.stash.message.substring(0, 80)}${GlyphChars.Ellipsis}`
 					: state.stash.message;
 
-			const step = this.createConfirmStep<QuickPickItem>(
+			const step = this.createConfirmStep(
 				`Confirm ${this.title} ${getSubtitle(state.subcommand)}${Strings.pad(GlyphChars.Dot, 2, 2)}${
 					state.repo.formattedName
 				}`,
@@ -648,6 +649,10 @@ export class StashGitCommand extends QuickCommandBase<State> {
 
 	// eslint-disable-next-line @typescript-eslint/require-await
 	private async *push(state: StashStepState<PushState>): StepAsyncGenerator {
+		if (state.flags == null) {
+			state.flags = [];
+		}
+
 		while (true) {
 			if (state.message === undefined || state.counter < 3) {
 				const step = this.createInputStep({
@@ -668,52 +673,47 @@ export class StashGitCommand extends QuickCommandBase<State> {
 			}
 
 			if (this.confirm(state.confirm)) {
-				const step = this.createConfirmStep<GitFlagsQuickPickItem>(
+				const step: QuickPickStep<FlagsQuickPickItem<PushFlags>> = this.createConfirmStep(
 					`Confirm ${this.title} ${getSubtitle(state.subcommand)}${Strings.pad(GlyphChars.Dot, 2, 2)}${
 						state.repo.formattedName
 					}`,
 					state.uris === undefined || state.uris.length === 0
 						? [
-								{
+								FlagsQuickPickItem.create<PushFlags>(state.flags, [], {
 									label: `${this.title} ${getSubtitle(state.subcommand)}`,
 									description: state.message,
-									detail: 'Will stash uncommitted changes',
-									item: []
-								},
-								{
+									detail: 'Will stash uncommitted changes'
+								}),
+								FlagsQuickPickItem.create<PushFlags>(state.flags, ['--include-untracked'], {
 									label: `${this.title} ${getSubtitle(state.subcommand)} & Include Untracked`,
 									description: `--include-untracked ${state.message}`,
-									detail: 'Will stash uncommitted changes, including untracked files',
-									item: ['--include-untracked']
-								},
-								{
+									detail: 'Will stash uncommitted changes, including untracked files'
+								}),
+								FlagsQuickPickItem.create<PushFlags>(state.flags, ['--keep-index'], {
 									label: `${this.title} ${getSubtitle(state.subcommand)} & Keep Staged`,
 									description: `--keep-index ${state.message}`,
-									detail: 'Will stash uncommitted changes, but will keep staged files intact',
-									item: ['--keep-index']
-								}
+									detail: 'Will stash uncommitted changes, but will keep staged files intact'
+								})
 						  ]
 						: [
-								{
+								FlagsQuickPickItem.create<PushFlags>(state.flags, [], {
 									label: `${this.title} ${getSubtitle(state.subcommand)}`,
 									description: state.message,
 									detail: `Will stash changes in ${
 										state.uris.length === 1
 											? GitUri.getFormattedPath(state.uris[0], { relativeTo: state.repo.path })
 											: `${state.uris.length} files`
-									}`,
-									item: []
-								},
-								{
+									}`
+								}),
+								FlagsQuickPickItem.create<PushFlags>(state.flags, ['--keep-index'], {
 									label: `${this.title} ${getSubtitle(state.subcommand)} & Keep Staged`,
 									description: `--keep-index ${state.message}`,
 									detail: `Will stash changes in ${
 										state.uris.length === 1
 											? GitUri.getFormattedPath(state.uris[0], { relativeTo: state.repo.path })
 											: `${state.uris.length} files`
-									}, but will keep staged files intact`,
-									item: ['--keep-index']
-								}
+									}, but will keep staged files intact`
+								})
 						  ],
 					undefined,
 					{ placeholder: `Confirm ${this.title} ${getSubtitle(state.subcommand)}` }
@@ -725,8 +725,6 @@ export class StashGitCommand extends QuickCommandBase<State> {
 				}
 
 				state.flags = selection[0].item;
-			} else {
-				state.flags = state.flags || [];
 			}
 
 			void Container.git.stashSave(state.repo.path, state.message, state.uris, {

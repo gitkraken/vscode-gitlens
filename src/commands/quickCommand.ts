@@ -169,7 +169,7 @@ export abstract class QuickCommandBase<TState = any> implements QuickPickItem {
 			placeholder: `Confirm ${this.title}`,
 			title: title,
 			items: [...confirmations, cancel || DirectiveQuickPickItem.create(Directive.Cancel)],
-			selectedItems: [confirmations[0]],
+			selectedItems: [confirmations.find(c => c.picked) || confirmations[0]],
 			...options
 		});
 	}
