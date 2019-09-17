@@ -188,6 +188,15 @@ export class GitCommandsCommand extends Command {
 						}
 					}),
 					input.onDidChangeValue(async e => {
+						if (scope !== undefined) {
+							// Pause the left/right keyboard commands if there is a value, otherwise the left/right arrows won't work in the input properly
+							if (e.length !== 0) {
+								await scope.pause(['left', 'right']);
+							} else {
+								await scope.resume();
+							}
+						}
+
 						if (step.validate === undefined) return;
 
 						const [, message] = await step.validate(e);
@@ -212,6 +221,12 @@ export class GitCommandsCommand extends Command {
 				}
 
 				input.show();
+
+				// Manually trigger `onDidChangeValue`, because the InputBox seems to fail to call it properly
+				if (step.value !== undefined) {
+					// HACK: This is fragile!
+					(input as any)._onDidChangeValueEmitter.fire(input.value);
+				}
 			});
 		} finally {
 			input.dispose();
@@ -466,9 +481,10 @@ export class GitCommandsCommand extends Command {
 
 				quickpick.show();
 
-				// Call the step's change directly, because the quickpick doesn't seem to properly
-				if (step.value !== undefined && step.onDidChangeValue !== undefined) {
-					step.onDidChangeValue(quickpick);
+				// Manually trigger `onDidChangeValue`, because the QuickPick seems to fail to call it properly
+				if (step.value !== undefined) {
+					// HACK: This is fragile!
+					(quickpick as any)._onDidChangeValueEmitter.fire(quickpick.value);
 				}
 			});
 		} finally {
