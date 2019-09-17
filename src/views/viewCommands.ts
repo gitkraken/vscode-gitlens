@@ -3,7 +3,6 @@ import { commands, env, TextDocumentShowOptions, Uri, window } from 'vscode';
 import {
 	Commands,
 	DiffWithCommandArgs,
-	DiffWithCommandArgsRevision,
 	DiffWithPreviousCommandArgs,
 	DiffWithWorkingCommandArgs,
 	GitCommandsCommandArgs,
@@ -115,10 +114,10 @@ export class ViewCommands {
 		commands.registerCommand('gitlens.views.openFileRevision', this.openFileRevision, this);
 		commands.registerCommand('gitlens.views.openFileRevisionInRemote', this.openFileRevisionInRemote, this);
 		commands.registerCommand('gitlens.views.openChangedFiles', this.openChangedFiles, this);
-		commands.registerCommand('gitlens.views.openChangedFileChanges', this.openChangedFileChanges, this);
+		commands.registerCommand('gitlens.views.openChangedFileDiffs', this.openChangedFileDiffs, this);
 		commands.registerCommand(
-			'gitlens.views.openChangedFileChangesWithWorking',
-			this.openChangedFileChangesWithWorking,
+			'gitlens.views.openChangedFileDiffsWithWorking',
+			this.openChangedFileDiffsWithWorking,
 			this
 		);
 		commands.registerCommand('gitlens.views.openChangedFileRevisions', this.openChangedFileRevisions, this);
@@ -697,13 +696,60 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private async openChangedFileChanges(
+	private async openChangedFiles(node: CommitNode | StashNode | ResultsFilesNode, options?: TextDocumentShowOptions) {
+		if (!(node instanceof CommitNode) && !(node instanceof StashNode) && !(node instanceof ResultsFilesNode)) {
+			return;
+		}
+
+		options = { preserveFocus: false, preview: false, ...options };
+
+		let repoPath: string;
+		let files;
+		let ref: string;
+
+		if (node instanceof ResultsFilesNode) {
+			const { diff } = await node.getFilesQueryResults();
+			if (diff == null || diff.length === 0) return;
+
+			repoPath = node.repoPath;
+			files = diff;
+			ref = node.ref1 || node.ref2;
+		} else {
+			repoPath = node.commit.repoPath;
+			files = node.commit.files;
+			ref = node.commit.sha;
+		}
+
+		if (files.length > 20) {
+			const result = await window.showWarningMessage(
+				`Are your sure you want to open all ${files.length} files?`,
+				{ title: 'Yes' },
+				{ title: 'No', isCloseAffordance: true }
+			);
+			if (result === undefined || result.title === 'No') return;
+		}
+
+		for (const file of files) {
+			const uri = GitUri.fromFile(file, repoPath, ref);
+
+			const args: OpenWorkingFileCommandArgs = {
+				uri: uri,
+				showOptions: options
+			};
+			await commands.executeCommand(Commands.OpenWorkingFile, undefined, args);
+		}
+	}
+
+	@debug()
+	private async openChangedFileDiffs(
 		node: CommitNode | StashNode | ResultsFilesNode,
-		options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
+		options?: TextDocumentShowOptions
 	) {
 		if (!(node instanceof CommitNode) && !(node instanceof StashNode) && !(node instanceof ResultsFilesNode)) {
 			return;
 		}
+
+		options = { preserveFocus: false, preview: false, ...options };
 
 		let repoPath: string;
 		let files;
@@ -734,24 +780,33 @@ export class ViewCommands {
 			if (result === undefined || result.title === 'No') return;
 		}
 
+		let diffArgs: DiffWithCommandArgs;
 		for (const file of files) {
 			if (file.status === 'A') continue;
 
 			const uri1 = GitUri.fromFile(file, repoPath);
 			const uri2 = file.status === 'R' ? GitUri.fromFile(file, repoPath, ref2, true) : uri1;
 
-			await this.openDiffWith(repoPath, { uri: uri1, sha: ref1 }, { uri: uri2, sha: ref2 }, options);
+			diffArgs = {
+				repoPath: repoPath,
+				lhs: { uri: uri1, sha: ref1 },
+				rhs: { uri: uri2, sha: ref2 },
+				showOptions: options
+			};
+			void (await commands.executeCommand(Commands.DiffWith, diffArgs));
 		}
 	}
 
 	@debug()
-	private async openChangedFileChangesWithWorking(
+	private async openChangedFileDiffsWithWorking(
 		node: CommitNode | StashNode | ResultsFilesNode,
-		options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
+		options?: TextDocumentShowOptions
 	) {
 		if (!(node instanceof CommitNode) && !(node instanceof StashNode) && !(node instanceof ResultsFilesNode)) {
 			return;
 		}
+
+		options = { preserveFocus: false, preview: false, ...options };
 
 		let repoPath: string;
 		let files;
@@ -792,59 +847,15 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private async openChangedFiles(
-		node: CommitNode | StashNode | ResultsFilesNode,
-		options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
-	) {
-		if (!(node instanceof CommitNode) && !(node instanceof StashNode) && !(node instanceof ResultsFilesNode)) {
-			return;
-		}
-
-		let repoPath: string;
-		let files;
-		let ref: string;
-
-		if (node instanceof ResultsFilesNode) {
-			const { diff } = await node.getFilesQueryResults();
-			if (diff == null || diff.length === 0) return;
-
-			repoPath = node.repoPath;
-			files = diff;
-			ref = node.ref1 || node.ref2;
-		} else {
-			repoPath = node.commit.repoPath;
-			files = node.commit.files;
-			ref = node.commit.sha;
-		}
-
-		if (files.length > 20) {
-			const result = await window.showWarningMessage(
-				`Are your sure you want to open all ${files.length} files?`,
-				{ title: 'Yes' },
-				{ title: 'No', isCloseAffordance: true }
-			);
-			if (result === undefined || result.title === 'No') return;
-		}
-
-		for (const file of files) {
-			const uri = GitUri.fromFile(file, repoPath, ref);
-
-			const args: OpenWorkingFileCommandArgs = {
-				uri: uri,
-				showOptions: options
-			};
-			await commands.executeCommand(Commands.OpenWorkingFile, undefined, args);
-		}
-	}
-
-	@debug()
 	private async openChangedFileRevisions(
 		node: CommitNode | StashNode | ResultsFilesNode,
-		options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
+		options?: TextDocumentShowOptions
 	) {
 		if (!(node instanceof CommitNode) && !(node instanceof StashNode) && !(node instanceof ResultsFilesNode)) {
 			return;
 		}
+
+		options = { preserveFocus: false, preview: false, ...options };
 
 		let repoPath: string;
 		let files;
@@ -880,22 +891,6 @@ export class ViewCommands {
 
 			await openEditor(uri, options);
 		}
-	}
-
-	@debug()
-	private openDiffWith(
-		repoPath: string,
-		lhs: DiffWithCommandArgsRevision,
-		rhs: DiffWithCommandArgsRevision,
-		options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
-	) {
-		const diffArgs: DiffWithCommandArgs = {
-			repoPath: repoPath,
-			lhs: lhs,
-			rhs: rhs,
-			showOptions: options
-		};
-		return commands.executeCommand(Commands.DiffWith, diffArgs);
 	}
 
 	async terminalCreateBranch(node: ViewRefNode) {

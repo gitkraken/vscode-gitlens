@@ -2741,12 +2741,12 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.views.openChangedFileChanges",
+				"command": "gitlens.views.openChangedFileDiffs",
 				"title": "Open All Changes",
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.views.openChangedFileChangesWithWorking",
+				"command": "gitlens.views.openChangedFileDiffsWithWorking",
 				"title": "Open All Changes with Working Tree",
 				"category": "GitLens"
 			},
@@ -3686,11 +3686,11 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.openChangedFileChanges",
+					"command": "gitlens.views.openChangedFileDiffs",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.openChangedFileChangesWithWorking",
+					"command": "gitlens.views.openChangedFileDiffsWithWorking",
 					"when": "false"
 				},
 				{
@@ -4705,12 +4705,12 @@
 					"group": "1_gitlens_1@1"
 				},
 				{
-					"command": "gitlens.views.openChangedFileChanges",
+					"command": "gitlens.views.openChangedFileDiffs",
 					"when": "viewItem =~ /gitlens:(commit|stash|results:files)\\b/",
 					"group": "2_gitlens@1"
 				},
 				{
-					"command": "gitlens.views.openChangedFileChangesWithWorking",
+					"command": "gitlens.views.openChangedFileDiffsWithWorking",
 					"when": "viewItem =~ /gitlens:(commit|stash|results:files)\\b/",
 					"group": "2_gitlens@2"
 				},
