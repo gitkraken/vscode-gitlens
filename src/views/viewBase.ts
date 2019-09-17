@@ -175,7 +175,13 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 	@log({
 		args: {
 			0: (predicate: string | ((node: ViewNode) => boolean)) =>
-				typeof predicate === 'string' ? predicate : false
+				typeof predicate === 'string' ? predicate : 'function',
+			1: (opts: {
+				allowPaging?: boolean;
+				canTraverse?: (node: ViewNode) => boolean;
+				maxDepth?: number;
+				token?: CancellationToken;
+			}) => `options=${JSON.stringify({ ...opts, canTraverse: undefined, token: undefined })}`
 		}
 	})
 	async findNode(

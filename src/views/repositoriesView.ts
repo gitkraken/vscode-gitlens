@@ -8,9 +8,16 @@ import {
 	ProgressLocation,
 	window
 } from 'vscode';
-import { configuration, RepositoriesViewConfig, ViewFilesLayout, ViewsConfig } from '../configuration';
+import {
+	configuration,
+	RepositoriesViewConfig,
+	ViewFilesLayout,
+	ViewsConfig,
+	ViewShowBranchComparison
+} from '../configuration';
 import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
+import { GitLogCommit, GitService, GitStashCommit } from '../git/gitService';
 import {
 	BranchesNode,
 	BranchNode,
@@ -22,10 +29,8 @@ import {
 	StashNode,
 	ViewNode
 } from './nodes';
+import { gate } from '../system';
 import { ViewBase } from './viewBase';
-import { ViewShowBranchComparison } from '../config';
-import { GitLogCommit, GitStashCommit } from '../git/git';
-import { GitService } from '../git/gitService';
 
 export class RepositoriesView extends ViewBase<RepositoriesNode> {
 	constructor() {
@@ -175,6 +180,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 		});
 	}
 
+	@gate<RepositoriesView['revealCommit']>(() => '')
 	revealCommit(
 		commit: GitLogCommit | { repoPath: string; ref: string },
 		options?: {
@@ -214,6 +220,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 		);
 	}
 
+	@gate<RepositoriesView['revealStash']>(() => '')
 	async revealStash(
 		stash: GitStashCommit | { repoPath: string; ref: string; stashName: string },
 		options?: {
@@ -239,6 +246,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 		);
 	}
 
+	@gate<RepositoriesView['revealStashes']>(() => '')
 	async revealStashes(
 		repoPath: string,
 		options?: {

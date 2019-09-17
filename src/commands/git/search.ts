@@ -102,10 +102,18 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 
 		static readonly OpenInView: QuickInputButton = {
 			iconPath: {
-				dark: Container.context.asAbsolutePath('images/dark/icon-link.svg') as any,
-				light: Container.context.asAbsolutePath('images/light/icon-link.svg') as any
+				dark: Container.context.asAbsolutePath('images/dark/icon-open.svg') as any,
+				light: Container.context.asAbsolutePath('images/light/icon-open.svg') as any
 			},
-			tooltip: 'Open in View'
+			tooltip: 'Open in Search Commits View'
+		};
+
+		static readonly RevealInView: QuickInputButton = {
+			iconPath: {
+				dark: Container.context.asAbsolutePath('images/dark/icon-eye.svg') as any,
+				light: Container.context.asAbsolutePath('images/light/icon-eye.svg') as any
+			},
+			tooltip: 'Reveal in Repositories View'
 		};
 
 		static readonly ShowInView: QuickInputButton = {
@@ -403,18 +411,30 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 										)
 									)
 							  ],
-					additionalButtons: [this.Buttons.OpenInView],
+					additionalButtons: [this.Buttons.RevealInView, this.Buttons.OpenInView],
 					onDidClickButton: (quickpick, button) => {
-						if (button !== this.Buttons.OpenInView) return;
+						if (button === this.Buttons.OpenInView) {
+							void Container.searchView.search(
+								state.repo!.path,
+								search,
+								{
+									label: { label: `for ${state.pattern}` }
+								},
+								results
+							);
 
-						void Container.searchView.search(
-							state.repo!.path,
-							search,
-							{
-								label: { label: `for ${state.pattern}` }
-							},
-							results
-						);
+							return;
+						}
+
+						if (button === this.Buttons.RevealInView) {
+							if (quickpick.activeItems.length !== 0) {
+								void Container.repositoriesView.revealCommit(quickpick.activeItems[0].item, {
+									select: true,
+									focus: false,
+									expand: true
+								});
+							}
+						}
 					},
 					keys: ['right', 'alt+right', 'ctrl+right'],
 					onDidPressKey: async (quickpick, key) => {
@@ -461,17 +481,27 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 						items: await CommitQuickPick.getItems(pickedCommit, pickedCommit.toGitUri(), {
 							showChanges: false
 						}),
-						additionalButtons: [this.Buttons.OpenInView],
+						additionalButtons: [this.Buttons.RevealInView, this.Buttons.OpenInView],
 						onDidClickButton: (quickpick, button) => {
-							if (button !== this.Buttons.OpenInView) return;
+							if (button === this.Buttons.OpenInView) {
+								void Container.searchView.search(
+									pickedCommit!.repoPath,
+									{ pattern: SearchPattern.fromCommit(pickedCommit!) },
+									{
+										label: { label: `for commit id ${pickedCommit!.shortSha}` }
+									}
+								);
 
-							void Container.searchView.search(
-								pickedCommit!.repoPath,
-								{ pattern: SearchPattern.fromCommit(pickedCommit!) },
-								{
-									label: { label: `for commit id ${pickedCommit!.shortSha}` }
-								}
-							);
+								return;
+							}
+
+							if (button === this.Buttons.RevealInView) {
+								void Container.repositoriesView.revealCommit(pickedCommit!, {
+									select: true,
+									focus: false,
+									expand: true
+								});
+							}
 						}
 					});
 					const selection: StepSelection<typeof step> = yield step;

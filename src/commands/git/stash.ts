@@ -2,7 +2,7 @@
 /* eslint-disable no-loop-func */
 import { QuickInputButton, QuickInputButtons, QuickPickItem, Uri, window } from 'vscode';
 import { Container } from '../../container';
-import { GitStashCommit, GitUri, Repository, SearchPattern } from '../../git/gitService';
+import { GitStashCommit, GitUri, Repository } from '../../git/gitService';
 import {
 	BreakQuickCommand,
 	QuickCommandBase,
@@ -82,12 +82,12 @@ export interface StashGitCommandArgs {
 
 export class StashGitCommand extends QuickCommandBase<State> {
 	private readonly Buttons = class {
-		static readonly OpenInView: QuickInputButton = {
+		static readonly RevealInView: QuickInputButton = {
 			iconPath: {
-				dark: Container.context.asAbsolutePath('images/dark/icon-link.svg') as any,
-				light: Container.context.asAbsolutePath('images/light/icon-link.svg') as any
+				dark: Container.context.asAbsolutePath('images/dark/icon-eye.svg') as any,
+				light: Container.context.asAbsolutePath('images/light/icon-eye.svg') as any
 			},
-			tooltip: 'Open in View'
+			tooltip: 'Reveal in Repositories View'
 		};
 	};
 
@@ -345,9 +345,9 @@ export class StashGitCommand extends QuickCommandBase<State> {
 										)
 									)
 							  ],
-					additionalButtons: [this.Buttons.OpenInView],
+					additionalButtons: [this.Buttons.RevealInView],
 					onDidClickButton: (quickpick, button) => {
-						if (button === this.Buttons.OpenInView) {
+						if (button === this.Buttons.RevealInView) {
 							if (quickpick.activeItems.length !== 0) {
 								void Container.repositoriesView.revealStash(quickpick.activeItems[0].item, {
 									select: true,
@@ -415,9 +415,9 @@ export class StashGitCommand extends QuickCommandBase<State> {
 					undefined,
 					{
 						placeholder: `Confirm ${this.title} ${getSubtitle(state.subcommand)}`,
-						additionalButtons: [this.Buttons.OpenInView],
+						additionalButtons: [this.Buttons.RevealInView],
 						onDidClickButton: (quickpick, button) => {
-							if (button === this.Buttons.OpenInView) {
+							if (button === this.Buttons.RevealInView) {
 								void Container.repositoriesView.revealStash(state.stash!, {
 									select: true,
 									expand: true
@@ -472,9 +472,9 @@ export class StashGitCommand extends QuickCommandBase<State> {
 										)
 									)
 							  ],
-					additionalButtons: [this.Buttons.OpenInView],
+					additionalButtons: [this.Buttons.RevealInView],
 					onDidClickButton: (quickpick, button) => {
-						if (button === this.Buttons.OpenInView) {
+						if (button === this.Buttons.RevealInView) {
 							if (quickpick.activeItems.length !== 0) {
 								void Container.repositoriesView.revealStash(quickpick.activeItems[0].item, {
 									select: true,
@@ -519,9 +519,9 @@ export class StashGitCommand extends QuickCommandBase<State> {
 				undefined,
 				{
 					placeholder: `Confirm ${this.title} ${getSubtitle(state.subcommand)}`,
-					additionalButtons: [this.Buttons.OpenInView],
+					additionalButtons: [this.Buttons.RevealInView],
 					onDidClickButton: (quickpick, button) => {
-						if (button === this.Buttons.OpenInView) {
+						if (button === this.Buttons.RevealInView) {
 							void Container.repositoriesView.revealStash(state.stash!, {
 								select: true,
 								expand: true
@@ -569,9 +569,9 @@ export class StashGitCommand extends QuickCommandBase<State> {
 									})
 								)
 						  ],
-				additionalButtons: [this.Buttons.OpenInView],
+				additionalButtons: [this.Buttons.RevealInView],
 				onDidClickButton: (quickpick, button) => {
-					if (button === this.Buttons.OpenInView) {
+					if (button === this.Buttons.RevealInView) {
 						if (quickpick.activeItems.length !== 0) {
 							void Container.repositoriesView.revealStash(quickpick.activeItems[0].item, {
 								select: true,
@@ -616,17 +616,14 @@ export class StashGitCommand extends QuickCommandBase<State> {
 						pickedStash.number === undefined ? '' : `${pickedStash.number}: `
 					}${pickedStash.getShortMessage()}`,
 					items: await CommitQuickPick.getItems(pickedStash, pickedStash.toGitUri(), { showChanges: false }),
-					additionalButtons: [this.Buttons.OpenInView],
+					additionalButtons: [this.Buttons.RevealInView],
 					onDidClickButton: (quickpick, button) => {
-						if (button !== this.Buttons.OpenInView) return;
+						if (button !== this.Buttons.RevealInView) return;
 
-						void Container.searchView.search(
-							pickedStash!.repoPath,
-							{ pattern: SearchPattern.fromCommit(pickedStash!) },
-							{
-								label: { label: `for commit id ${pickedStash!.shortSha}` }
-							}
-						);
+						void Container.repositoriesView.revealStash(pickedStash!, {
+							select: true,
+							expand: true
+						});
 					}
 				});
 				const selection: StepSelection<typeof step> = yield step;

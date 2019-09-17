@@ -31,9 +31,9 @@ import {
 	CommandQuickPickItem,
 	getQuickPickIgnoreFocusOut,
 	KeyCommandQuickPickItem,
-	OpenCommitInViewQuickPickItem,
+	OpenInSearchCommitsViewQuickPickItem,
 	QuickPickItem,
-	RevealCommitInViewQuickPickItem
+	RevealInRepositoriesViewQuickPickItem
 } from './commonQuickPicks';
 import { OpenRemotesCommandQuickPickItem } from './remotesQuickPick';
 
@@ -284,11 +284,10 @@ export class CommitQuickPick {
 				)
 			);
 
-			items.push(new OpenCommitInViewQuickPickItem(commit));
-			items.push(new RevealCommitInViewQuickPickItem(commit));
+			items.push(new RevealInRepositoriesViewQuickPickItem(commit));
 		} else {
-			items.push(new OpenCommitInViewQuickPickItem(commit));
-			items.push(new RevealCommitInViewQuickPickItem(commit));
+			items.push(new OpenInSearchCommitsViewQuickPickItem(commit));
+			items.push(new RevealInRepositoriesViewQuickPickItem(commit));
 			items.push(new OpenCommitFilesCommandQuickPickItem(commit));
 			items.push(new OpenCommitFileRevisionsCommandQuickPickItem(commit));
 

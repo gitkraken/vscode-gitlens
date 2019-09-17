@@ -8,7 +8,7 @@ import { Messages } from '../messages';
 import {
 	CommandQuickPickItem,
 	FileHistoryQuickPick,
-	OpenFileHistoryInViewQuickPickItem,
+	OpenInFileHistoryViewQuickPickItem,
 	ShowFileHistoryFromQuickPickItem
 } from '../quickpicks';
 import { Iterables, Strings } from '../system';
@@ -148,7 +148,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 						: undefined,
 				showInViewCommand:
 					args.log !== undefined
-						? new OpenFileHistoryInViewQuickPickItem(
+						? new OpenInFileHistoryViewQuickPickItem(
 								gitUri,
 								(args.reference && args.reference.ref) || gitUri.sha
 						  )

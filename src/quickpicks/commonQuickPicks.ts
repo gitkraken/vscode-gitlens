@@ -98,11 +98,11 @@ export class MessageQuickPickItem extends CommandQuickPickItem {
 	}
 }
 
-export class OpenCommitInViewQuickPickItem extends CommandQuickPickItem {
+export class OpenInSearchCommitsViewQuickPickItem extends CommandQuickPickItem {
 	constructor(
 		public readonly commit: GitLogCommit,
 		item: QuickPickItem = {
-			label: '$(eye) Open in Search Commits View',
+			label: '$(link-external) Open in Search Commits View',
 			description: ''
 		}
 	) {
@@ -124,7 +124,7 @@ export class OpenCommitInViewQuickPickItem extends CommandQuickPickItem {
 	}
 }
 
-export class OpenFileHistoryInViewQuickPickItem extends CommandQuickPickItem {
+export class OpenInFileHistoryViewQuickPickItem extends CommandQuickPickItem {
 	constructor(
 		public readonly uri: GitUri,
 		public readonly baseRef: string | undefined,
@@ -141,7 +141,7 @@ export class OpenFileHistoryInViewQuickPickItem extends CommandQuickPickItem {
 	}
 }
 
-export class RevealCommitInViewQuickPickItem extends CommandQuickPickItem {
+export class RevealInRepositoriesViewQuickPickItem extends CommandQuickPickItem {
 	constructor(
 		public readonly commit: GitLogCommit | GitStashCommit,
 		item: QuickPickItem = {

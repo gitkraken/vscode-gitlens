@@ -2228,12 +2228,12 @@
 			},
 			{
 				"command": "gitlens.showCommitInView",
-				"title": "Show Commit in View",
+				"title": "Open in Search Commits View",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.showFileHistoryInView",
-				"title": "Show File History in View",
+				"title": "Open in File History View",
 				"category": "GitLens"
 			},
 			{
