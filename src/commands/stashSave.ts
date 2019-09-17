@@ -14,6 +14,12 @@ import {
 } from './common';
 import { GitCommandsCommandArgs } from '../commands';
 
+const enum ResourceGroupType {
+	Merge,
+	Index,
+	WorkingTree
+}
+
 export interface StashSaveCommandArgs {
 	message?: string;
 	repoPath?: string;
@@ -42,6 +48,11 @@ export class StashSaveCommand extends Command {
 			args.repoPath = context.node.repoPath;
 		} else if (context.type === 'scm-states') {
 			args = { ...args };
+
+			if (!context.scmResourceStates.some(s => (s as any).resourceGroupType === ResourceGroupType.Index)) {
+				args.keepStaged = true;
+			}
+
 			args.uris = context.scmResourceStates.map(s => s.resourceUri);
 		} else if (context.type === 'scm-groups') {
 			args = { ...args };
