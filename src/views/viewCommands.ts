@@ -317,8 +317,8 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private pull(node: RepositoryNode | BranchTrackingStatusNode) {
-		if (node instanceof BranchTrackingStatusNode) {
+	private pull(node: RepositoryNode | BranchNode | BranchTrackingStatusNode) {
+		if (node instanceof BranchNode || node instanceof BranchTrackingStatusNode) {
 			node = node.getParent() as RepositoryNode;
 		}
 		if (!(node instanceof RepositoryNode)) return undefined;
@@ -328,13 +328,16 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private push(node: RepositoryNode | BranchTrackingStatusNode, force?: boolean) {
-		if (node instanceof BranchTrackingStatusNode) {
+	private push(node: RepositoryNode | BranchNode | BranchTrackingStatusNode, force?: boolean) {
+		if (node instanceof BranchNode || node instanceof BranchTrackingStatusNode) {
 			node = node.getParent() as RepositoryNode;
 		}
 		if (!(node instanceof RepositoryNode)) return undefined;
 
-		const args: GitCommandsCommandArgs = { command: 'push', state: { repos: [node.repo] } };
+		const args: GitCommandsCommandArgs = {
+			command: 'push',
+			state: { repos: [node.repo], flags: force ? ['--force'] : [] }
+		};
 		return commands.executeCommand(Commands.GitCommands, args);
 	}
 

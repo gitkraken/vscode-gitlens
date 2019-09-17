@@ -131,6 +131,11 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		let iconSuffix = '';
 		let workingStatus = '';
 
+		let contextValue: string = ResourceType.Repository;
+		if (this.repo.starred) {
+			contextValue += '+starred';
+		}
+
 		const status = await this._status;
 		if (status !== undefined) {
 			tooltip += `\n\nCurrent branch is ${status.branch}`;
@@ -158,10 +163,12 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 				})}`;
 
 				if (status.state.behind) {
+					contextValue += '+behind';
 					iconSuffix = '-red';
 				}
 				if (status.state.ahead) {
 					iconSuffix = status.state.behind ? '-yellow' : '-green';
+					contextValue += '+ahead';
 				}
 			}
 
@@ -180,10 +187,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		}
 
 		const item = new TreeItem(label, TreeItemCollapsibleState.Expanded);
-		item.contextValue = ResourceType.Repository;
-		if (this.repo.starred) {
-			item.contextValue += '+starred';
-		}
+		item.contextValue = contextValue;
 		item.description = `${description || ''}${this.formatLastFetched({
 			prefix: `${Strings.pad(GlyphChars.Dot, 2, 2)}Last fetched `
 		})}`;

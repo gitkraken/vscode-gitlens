@@ -123,6 +123,20 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 		let tooltip = `${this.branch.getName()}${this.current ? ' (current)' : ''}`;
 		let iconSuffix = '';
 
+		let contextValue: string = ResourceType.Branch;
+		if (this.current) {
+			contextValue += '+current';
+		}
+		if (this.branch.remote) {
+			contextValue += '+remote';
+		}
+		if (this.branch.starred) {
+			contextValue += '+starred';
+		}
+		if (this.branch.tracking) {
+			contextValue += '+tracking';
+		}
+
 		let description;
 		if (!this.branch.remote && this.branch.tracking !== undefined) {
 			if (this.view.config.showTrackingBranch) {
@@ -165,9 +179,11 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 
 			if (this.branch.state.ahead || this.branch.state.behind) {
 				if (this.branch.state.behind) {
+					contextValue += '+behind';
 					iconSuffix = '-red';
 				}
 				if (this.branch.state.ahead) {
+					contextValue += '+ahead';
 					iconSuffix = this.branch.state.behind ? '-yellow' : '-green';
 				}
 			}
@@ -188,20 +204,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 			`${!this.root && this.current ? `${GlyphChars.Check} ${GlyphChars.Space}` : ''}${name}`,
 			TreeItemCollapsibleState.Collapsed
 		);
-		item.contextValue = ResourceType.Branch;
-		if (this.current) {
-			item.contextValue += '+current';
-		}
-		if (this.branch.remote) {
-			item.contextValue += '+remote';
-		}
-		if (this.branch.starred) {
-			item.contextValue += '+starred';
-		}
-		if (this.branch.tracking) {
-			item.contextValue += '+tracking';
-		}
-
+		item.contextValue = contextValue;
 		item.description = description;
 		item.iconPath = {
 			dark: Container.context.asAbsolutePath(`images/dark/icon-branch${iconSuffix}.svg`),
