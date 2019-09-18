@@ -34,6 +34,7 @@ export * from './commands/gitCommands';
 export * from './commands/repositories';
 export * from './commands/resetSuppressedWarnings';
 export * from './commands/searchCommits';
+export * from './commands/showCommitsInView';
 export * from './commands/showLastQuickPick';
 export * from './commands/showQuickBranchHistory';
 export * from './commands/showQuickCommitDetails';

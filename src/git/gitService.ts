@@ -133,7 +133,13 @@ export namespace SearchPattern {
 	export function fromCommit(ref: string): string;
 	export function fromCommit(commit: GitCommit): string;
 	export function fromCommit(refOrCommit: string | GitCommit) {
-		return `commit:${GitService.shortenSha(typeof refOrCommit === 'string' ? refOrCommit : refOrCommit.sha)}`;
+		return `#:${GitService.shortenSha(typeof refOrCommit === 'string' ? refOrCommit : refOrCommit.sha)}`;
+	}
+
+	export function fromCommits(refs: string[]): string;
+	export function fromCommits(commits: GitCommit[]): string;
+	export function fromCommits(refsOrCommits: (string | GitCommit)[]) {
+		return refsOrCommits.map(r => `#:${GitService.shortenSha(typeof r === 'string' ? r : r.sha)}`).join(' ');
 	}
 
 	export function toKey(search: SearchPattern) {

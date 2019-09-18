@@ -2,7 +2,7 @@
 import { commands, TextEditor, Uri } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitCommit, GitLog, GitLogCommit, GitUri, SearchPattern } from '../git/gitService';
+import { GitCommit, GitLog, GitLogCommit, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, CommitQuickPick, CommitWithFileStatusQuickPickItem } from '../quickpicks';
@@ -20,7 +20,7 @@ export interface ShowQuickCommitDetailsCommandArgs {
 	sha?: string;
 	commit?: GitCommit | GitLogCommit;
 	repoLog?: GitLog;
-	showInView?: 'reveal' | 'show';
+	revealInView?: boolean;
 
 	goBackCommand?: CommandQuickPickItem;
 }
@@ -38,16 +38,13 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
 	}
 
 	constructor() {
-		super([Commands.RevealCommitInView, Commands.ShowCommitInView, Commands.ShowQuickCommitDetails]);
+		super([Commands.RevealCommitInView, Commands.ShowQuickCommitDetails]);
 	}
 
 	protected preExecute(context: CommandContext, args?: ShowQuickCommitDetailsCommandArgs) {
 		if (context.command === Commands.RevealCommitInView) {
 			args = { ...args };
-			args.showInView = 'reveal';
-		} else if (context.command === Commands.ShowCommitInView) {
-			args = { ...args };
-			args.showInView = 'show';
+			args.revealInView = true;
 		}
 
 		if (context.type === 'viewItem') {
@@ -122,22 +119,12 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
 				return Messages.showCommitNotFoundWarningMessage('Unable to show commit details');
 			}
 
-			if (args.showInView) {
-				if (args.showInView === 'reveal') {
-					void (await Container.repositoriesView.revealCommit(args.commit, {
-						select: true,
-						focus: true,
-						expand: true
-					}));
-				} else {
-					void (await Container.searchView.search(
-						repoPath!,
-						{ pattern: SearchPattern.fromCommit(args.commit) },
-						{
-							label: { label: `for commit id ${args.commit.shortSha}` }
-						}
-					));
-				}
+			if (args.revealInView) {
+				void (await Container.repositoriesView.revealCommit(args.commit, {
+					select: true,
+					focus: true,
+					expand: true
+				}));
 
 				return undefined;
 			}

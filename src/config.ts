@@ -126,6 +126,8 @@ export enum BranchSorting {
 
 export enum CodeLensCommand {
 	DiffWithPrevious = 'gitlens.diffWithPrevious',
+	RevealCommitInView = 'gitlens.revealCommitInView',
+	ShowCommitsInView = 'gitlens.showCommitsInView',
 	ShowQuickCommitDetails = 'gitlens.showQuickCommitDetails',
 	ShowQuickCommitFileDetails = 'gitlens.showQuickCommitFileDetails',
 	ShowQuickCurrentBranchHistory = 'gitlens.showQuickRepoHistory',

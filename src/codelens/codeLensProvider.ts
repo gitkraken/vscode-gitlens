@@ -20,6 +20,7 @@ import {
 import {
 	Commands,
 	DiffWithPreviousCommandArgs,
+	ShowCommitsInViewCommandArgs,
 	ShowQuickCommitDetailsCommandArgs,
 	ShowQuickCommitFileDetailsCommandArgs,
 	ShowQuickFileHistoryCommandArgs
@@ -476,6 +477,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		if (blame === undefined) return lens;
 
 		const recentCommit = Iterables.first(blame.commits.values());
+
 		let title = `${recentCommit.author}, ${recentCommit.formattedDate}`;
 		if (Container.config.debug) {
 			title += ` [${lens.languageId}: ${SymbolKind[lens.symbol.kind]}(${lens.range.start.character}-${
@@ -491,32 +493,21 @@ export class GitCodeLensProvider implements CodeLensProvider {
 
 		switch (lens.desiredCommand) {
 			case CodeLensCommand.DiffWithPrevious:
-				return this.applyDiffWithPreviousCommand<GitRecentChangeCodeLens>(title, lens, blame, recentCommit);
+				return this.applyDiffWithPreviousCommand<GitRecentChangeCodeLens>(title, lens, recentCommit);
+			case CodeLensCommand.RevealCommitInView:
+				return this.applyRevealCommitInViewCommand<GitRecentChangeCodeLens>(title, lens, recentCommit);
+			case CodeLensCommand.ShowCommitsInView:
+				return this.applyShowCommitsInViewCommand<GitRecentChangeCodeLens>(title, lens, blame, recentCommit);
 			case CodeLensCommand.ShowQuickCommitDetails:
-				return this.applyShowQuickCommitDetailsCommand<GitRecentChangeCodeLens>(
-					title,
-					lens,
-					blame,
-					recentCommit
-				);
+				return this.applyShowQuickCommitDetailsCommand<GitRecentChangeCodeLens>(title, lens, recentCommit);
 			case CodeLensCommand.ShowQuickCommitFileDetails:
-				return this.applyShowQuickCommitFileDetailsCommand<GitRecentChangeCodeLens>(
-					title,
-					lens,
-					blame,
-					recentCommit
-				);
+				return this.applyShowQuickCommitFileDetailsCommand<GitRecentChangeCodeLens>(title, lens, recentCommit);
 			case CodeLensCommand.ShowQuickCurrentBranchHistory:
-				return this.applyShowQuickCurrentBranchHistoryCommand<GitRecentChangeCodeLens>(
-					title,
-					lens,
-					blame,
-					recentCommit
-				);
+				return this.applyShowQuickCurrentBranchHistoryCommand<GitRecentChangeCodeLens>(title, lens);
 			case CodeLensCommand.ShowQuickFileHistory:
-				return this.applyShowQuickFileHistoryCommand<GitRecentChangeCodeLens>(title, lens, blame, recentCommit);
+				return this.applyShowQuickFileHistoryCommand<GitRecentChangeCodeLens>(title, lens);
 			case CodeLensCommand.ToggleFileBlame:
-				return this.applyToggleFileBlameCommand<GitRecentChangeCodeLens>(title, lens, blame);
+				return this.applyToggleFileBlameCommand<GitRecentChangeCodeLens>(title, lens);
 			default:
 				return lens;
 		}
@@ -527,9 +518,10 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		if (blame === undefined) return lens;
 
 		const count = blame.authors.size;
-		let title = `${count} ${count > 1 ? 'authors' : 'author'} (${Iterables.first(blame.authors.values()).name}${
-			count > 1 ? ' and others' : ''
-		})`;
+
+		const author = Iterables.first(blame.authors.values()).name;
+
+		let title = `${count} ${count > 1 ? 'authors' : 'author'} (${author}${count > 1 ? ' and others' : ''})`;
 		if (Container.config.debug) {
 			title += ` [${lens.languageId}: ${SymbolKind[lens.symbol.kind]}(${lens.range.start.character}-${
 				lens.range.end.character
@@ -543,19 +535,26 @@ export class GitCodeLensProvider implements CodeLensProvider {
 			)})]`;
 		}
 
+		const commit =
+			Iterables.find(blame.commits.values(), c => c.author === author) || Iterables.first(blame.commits.values());
+
 		switch (lens.desiredCommand) {
 			case CodeLensCommand.DiffWithPrevious:
-				return this.applyDiffWithPreviousCommand<GitAuthorsCodeLens>(title, lens, blame);
+				return this.applyDiffWithPreviousCommand<GitAuthorsCodeLens>(title, lens, commit);
+			case CodeLensCommand.RevealCommitInView:
+				return this.applyRevealCommitInViewCommand<GitAuthorsCodeLens>(title, lens, commit);
+			case CodeLensCommand.ShowCommitsInView:
+				return this.applyShowCommitsInViewCommand<GitAuthorsCodeLens>(title, lens, blame);
 			case CodeLensCommand.ShowQuickCommitDetails:
-				return this.applyShowQuickCommitDetailsCommand<GitAuthorsCodeLens>(title, lens, blame);
+				return this.applyShowQuickCommitDetailsCommand<GitAuthorsCodeLens>(title, lens, commit);
 			case CodeLensCommand.ShowQuickCommitFileDetails:
-				return this.applyShowQuickCommitFileDetailsCommand<GitAuthorsCodeLens>(title, lens, blame);
+				return this.applyShowQuickCommitFileDetailsCommand<GitAuthorsCodeLens>(title, lens, commit);
 			case CodeLensCommand.ShowQuickCurrentBranchHistory:
-				return this.applyShowQuickCurrentBranchHistoryCommand<GitAuthorsCodeLens>(title, lens, blame);
+				return this.applyShowQuickCurrentBranchHistoryCommand<GitAuthorsCodeLens>(title, lens);
 			case CodeLensCommand.ShowQuickFileHistory:
-				return this.applyShowQuickFileHistoryCommand<GitAuthorsCodeLens>(title, lens, blame);
+				return this.applyShowQuickFileHistoryCommand<GitAuthorsCodeLens>(title, lens);
 			case CodeLensCommand.ToggleFileBlame:
-				return this.applyToggleFileBlameCommand<GitAuthorsCodeLens>(title, lens, blame);
+				return this.applyToggleFileBlameCommand<GitAuthorsCodeLens>(title, lens);
 			default:
 				return lens;
 		}
@@ -564,14 +563,8 @@ export class GitCodeLensProvider implements CodeLensProvider {
 	private applyDiffWithPreviousCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(
 		title: string,
 		lens: T,
-		blame: GitBlameLines,
-		commit?: GitBlameCommit
+		commit: GitBlameCommit | undefined
 	): T {
-		if (commit === undefined) {
-			const blameLine = blame.allLines[lens.range.start.line];
-			commit = blame.commits.get(blameLine.sha);
-		}
-
 		const commandArgs: DiffWithPreviousCommandArgs = {
 			commit: commit
 		};
@@ -583,11 +576,52 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		return lens;
 	}
 
-	private applyShowQuickCommitDetailsCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(
+	private applyRevealCommitInViewCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(
+		title: string,
+		lens: T,
+		commit: GitBlameCommit | undefined
+	): T {
+		const commandArgs: ShowQuickCommitDetailsCommandArgs = {
+			commit: commit,
+			sha: commit === undefined ? undefined : commit.sha
+		};
+		lens.command = {
+			title: title,
+			command: commit !== undefined && commit.isUncommitted ? '' : CodeLensCommand.RevealCommitInView,
+			arguments: [lens.uri!.toFileUri(), commandArgs]
+		};
+		return lens;
+	}
+
+	private applyShowCommitsInViewCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(
 		title: string,
 		lens: T,
 		blame: GitBlameLines,
 		commit?: GitBlameCommit
+	): T {
+		let refs;
+		if (commit === undefined) {
+			refs = [...Iterables.filterMap(blame.commits.values(), c => (c.isUncommitted ? undefined : c.ref))];
+		} else {
+			refs = [commit.ref];
+		}
+
+		const commandArgs: ShowCommitsInViewCommandArgs = {
+			repoPath: blame.repoPath,
+			refs: refs
+		};
+		lens.command = {
+			title: title,
+			command: Commands.ShowCommitsInView,
+			arguments: [commandArgs]
+		};
+		return lens;
+	}
+
+	private applyShowQuickCommitDetailsCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(
+		title: string,
+		lens: T,
+		commit: GitBlameCommit | undefined
 	): T {
 		const commandArgs: ShowQuickCommitDetailsCommandArgs = {
 			commit: commit,
@@ -604,8 +638,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 	private applyShowQuickCommitFileDetailsCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(
 		title: string,
 		lens: T,
-		blame: GitBlameLines,
-		commit?: GitBlameCommit
+		commit: GitBlameCommit | undefined
 	): T {
 		const commandArgs: ShowQuickCommitFileDetailsCommandArgs = {
 			commit: commit,
@@ -621,9 +654,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 
 	private applyShowQuickCurrentBranchHistoryCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(
 		title: string,
-		lens: T,
-		blame: GitBlameLines,
-		commit?: GitBlameCommit
+		lens: T
 	): T {
 		lens.command = {
 			title: title,
@@ -635,9 +666,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 
 	private applyShowQuickFileHistoryCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(
 		title: string,
-		lens: T,
-		blame: GitBlameLines,
-		commit?: GitBlameCommit
+		lens: T
 	): T {
 		const commandArgs: ShowQuickFileHistoryCommandArgs = {
 			range: lens.isFullRange ? undefined : lens.blameRange
@@ -652,8 +681,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 
 	private applyToggleFileBlameCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(
 		title: string,
-		lens: T,
-		blame: GitBlameLines
+		lens: T
 	): T {
 		lens.command = {
 			title: title,

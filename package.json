@@ -161,6 +161,8 @@
 					"enum": [
 						"gitlens.toggleFileBlame",
 						"gitlens.diffWithPrevious",
+						"gitlens.revealCommitInView",
+						"gitlens.showCommitsInView",
 						"gitlens.showQuickCommitDetails",
 						"gitlens.showQuickCommitFileDetails",
 						"gitlens.showQuickFileHistory",
@@ -169,6 +171,8 @@
 					"enumDescriptions": [
 						"Toggles file blame annotations",
 						"Compares the current committed file with the previous commit",
+						"Reveals the commit in the Repositories view",
+						"Shows the commits within the range in the Search Commits view",
 						"Shows a commit details quick pick",
 						"Shows a commit file details quick pick",
 						"Shows a file history quick pick",
@@ -201,6 +205,8 @@
 					"enum": [
 						"gitlens.toggleFileBlame",
 						"gitlens.diffWithPrevious",
+						"gitlens.revealCommitInView",
+						"gitlens.showCommitsInView",
 						"gitlens.showQuickCommitDetails",
 						"gitlens.showQuickCommitFileDetails",
 						"gitlens.showQuickFileHistory",
@@ -209,6 +215,8 @@
 					"enumDescriptions": [
 						"Toggles file blame annotations",
 						"Compares the current committed file with the previous commit",
+						"Reveals the commit in the Repositories view",
+						"Shows the commit in the Search Commits view",
 						"Shows a commit details quick pick",
 						"Shows a commit file details quick pick",
 						"Shows a file history quick pick",
@@ -2237,6 +2245,16 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.showCommitInView",
+				"title": "Show Commit in Search Commits View",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.showCommitsInView",
+				"title": "Show Commits within Selection in Search Commits View",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.showFileHistoryInView",
 				"title": "Show in File History View",
 				"category": "GitLens"
@@ -3419,6 +3437,10 @@
 				},
 				{
 					"command": "gitlens.showCommitInView",
+					"when": "gitlens:activeFileStatus =~ /blameable/"
+				},
+				{
+					"command": "gitlens.showCommitsInView",
 					"when": "gitlens:activeFileStatus =~ /blameable/"
 				},
 				{
