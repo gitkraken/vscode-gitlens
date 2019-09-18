@@ -2237,11 +2237,6 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.showFolderHistory",
-				"title": "Show Folder History",
-				"category": "GitLens"
-			},
-			{
 				"command": "gitlens.showQuickCommitDetails",
 				"title": "Show Commit Details",
 				"category": "GitLens"
@@ -3422,10 +3417,6 @@
 					"when": "gitlens:activeFileStatus =~ /tracked/"
 				},
 				{
-					"command": "gitlens.showFolderHistory",
-					"when": "gitlens:enabled"
-				},
-				{
 					"command": "gitlens.showQuickCommitDetails",
 					"when": "gitlens:activeFileStatus =~ /blameable/"
 				},
@@ -4191,11 +4182,6 @@
 				{
 					"command": "gitlens.showQuickFileHistory",
 					"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && config.gitlens.menus.explorer.history",
-					"group": "4_gitlens@1"
-				},
-				{
-					"command": "gitlens.showFolderHistory",
-					"when": "explorerResourceIsFolder && gitlens:enabled && config.gitlens.menus.explorer.history",
 					"group": "4_gitlens@1"
 				},
 				{
