@@ -230,7 +230,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		if (this._options.remotes !== undefined && this._options.remotes.length !== 0) {
 			commands += `**[\` ${GlyphChars.ArrowUpRight} \`](${OpenCommitInRemoteCommand.getMarkdownCommandArgs(
 				this._item.sha
-			)} "Open in Remote")** `;
+			)} "Open on Remote")** `;
 		}
 
 		if (this._item.author !== 'You') {

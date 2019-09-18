@@ -87,7 +87,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 				dark: Container.context.asAbsolutePath('images/dark/icon-eye.svg') as any,
 				light: Container.context.asAbsolutePath('images/light/icon-eye.svg') as any
 			},
-			tooltip: 'Reveal in Repositories View'
+			tooltip: 'Reveal Stash in Repositories View'
 		};
 	};
 

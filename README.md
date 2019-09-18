@@ -832,14 +832,14 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 
 ### Git Commands Menu Settings [#](#git-commands-menu-settings- 'Git Commands Menu Settings')
 
-| Name                                    | Description                                                                                                                  |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `gitlens.gitCommands.closeOnFocusOut`   | Specifies whether to dismiss the Git Commands menu when focus is lost (if not, press `ESC` to dismiss)                       |
-| `gitlens.gitCommands.search.matchAll`   | Specifies whether to match all or any commit message search patterns                                                         |
-| `gitlens.gitCommands.search.matchCase`  | Specifies whether to match commit search patterns with or without regard to casing                                           |
-| `gitlens.gitCommands.search.matchRegex` | Specifies whether to match commit search patterns using regular expressions                                                  |
-| `gitlens.gitCommands.search.showInView` | Specifies whether to show the results of a commit search in the _Search Commits_ view or directly within the quick pick menu |
-| `gitlens.gitCommands.skipConfirmations` | Specifies which (and when) Git commands will skip the confirmation step, using the format: `git-command-name:(menu|command)` |
+| Name                                           | Description                                                                                                                  |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `gitlens.gitCommands.closeOnFocusOut`          | Specifies whether to dismiss the Git Commands menu when focus is lost (if not, press `ESC` to dismiss)                       |
+| `gitlens.gitCommands.search.matchAll`          | Specifies whether to match all or any commit message search patterns                                                         |
+| `gitlens.gitCommands.search.matchCase`         | Specifies whether to match commit search patterns with or without regard to casing                                           |
+| `gitlens.gitCommands.search.matchRegex`        | Specifies whether to match commit search patterns using regular expressions                                                  |
+| `gitlens.gitCommands.search.showResultsInView` | Specifies whether to show the commit search results in the _Search Commits_ view or directly within the quick pick menu      |
+| `gitlens.gitCommands.skipConfirmations`        | Specifies which (and when) Git commands will skip the confirmation step, using the format: `git-command-name:(menu|command)` |
 
 ### Date & Time Settings [#](#date--time-settings- 'Date & Time Settings')
 

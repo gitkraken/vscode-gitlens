@@ -57,7 +57,7 @@ export class SearchCommitsCommand extends Command {
 			state: {
 				repo: repo,
 				...args.search,
-				showInView: args.showInView
+				showResultsInView: args.showInView
 			}
 		};
 		return commands.executeCommand(Commands.GitCommands, gitCommandArgs);

@@ -505,10 +505,10 @@
 					"markdownDescription": "Specifies whether to match commit search patterns using regular expressions",
 					"scope": "window"
 				},
-				"gitlens.gitCommands.search.showInView": {
+				"gitlens.gitCommands.search.showResultsInView": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to show the results of a commit search in the _Search Commits_ view or directly within the quick pick menu",
+					"markdownDescription": "Specifies whether to show the commit search results in the _Search Commits_ view or directly within the quick pick menu",
 					"scope": "window"
 				},
 				"gitlens.gitCommands.skipConfirmations": {
@@ -2228,12 +2228,12 @@
 			},
 			{
 				"command": "gitlens.showCommitInView",
-				"title": "Open in Search Commits View",
+				"title": "Show Commit in Search Commits View",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.showFileHistoryInView",
-				"title": "Open in File History View",
+				"title": "Show in File History View",
 				"category": "GitLens"
 			},
 			{

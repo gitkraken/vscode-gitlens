@@ -102,7 +102,7 @@ export class OpenInSearchCommitsViewQuickPickItem extends CommandQuickPickItem {
 	constructor(
 		public readonly commit: GitLogCommit,
 		item: QuickPickItem = {
-			label: '$(link-external) Open in Search Commits View',
+			label: '$(link-external) Show Commit in Search Commits View',
 			description: ''
 		}
 	) {
@@ -129,7 +129,7 @@ export class OpenInFileHistoryViewQuickPickItem extends CommandQuickPickItem {
 		public readonly uri: GitUri,
 		public readonly baseRef: string | undefined,
 		item: QuickPickItem = {
-			label: '$(eye) Open in File History View',
+			label: '$(eye) Show in File History View',
 			description: 'shows the file history in the File History view'
 		}
 	) {
@@ -145,7 +145,7 @@ export class RevealInRepositoriesViewQuickPickItem extends CommandQuickPickItem 
 	constructor(
 		public readonly commit: GitLogCommit | GitStashCommit,
 		item: QuickPickItem = {
-			label: '$(eye) Reveal in Repositories View',
+			label: '$(eye) Reveal Commit in Repositories View',
 			description: `${commit.isStash ? '' : `${GlyphChars.Dash} this can take a while`}`
 		}
 	) {

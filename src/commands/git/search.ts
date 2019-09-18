@@ -25,7 +25,7 @@ import {
 
 interface State extends Required<SearchPattern> {
 	repo: Repository;
-	showInView: boolean;
+	showResultsInView: boolean;
 }
 
 export interface SearchGitCommandArgs {
@@ -100,23 +100,23 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 			tooltip: 'Match using Regular Expressions'
 		};
 
-		static readonly OpenInView: QuickInputButton = {
-			iconPath: {
-				dark: Container.context.asAbsolutePath('images/dark/icon-open.svg') as any,
-				light: Container.context.asAbsolutePath('images/light/icon-open.svg') as any
-			},
-			tooltip: 'Open in Search Commits View'
-		};
-
 		static readonly RevealInView: QuickInputButton = {
 			iconPath: {
 				dark: Container.context.asAbsolutePath('images/dark/icon-eye.svg') as any,
 				light: Container.context.asAbsolutePath('images/light/icon-eye.svg') as any
 			},
-			tooltip: 'Reveal in Repositories View'
+			tooltip: 'Reveal Commit in Repositories View'
 		};
 
 		static readonly ShowInView: QuickInputButton = {
+			iconPath: {
+				dark: Container.context.asAbsolutePath('images/dark/icon-open.svg') as any,
+				light: Container.context.asAbsolutePath('images/light/icon-open.svg') as any
+			},
+			tooltip: 'Show Commit in Search Commits View'
+		};
+
+		static readonly ShowResultsInView: QuickInputButton = {
 			iconPath: {
 				dark: Container.context.asAbsolutePath('images/dark/icon-eye.svg') as any,
 				light: Container.context.asAbsolutePath('images/light/icon-eye.svg') as any
@@ -124,7 +124,7 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 			tooltip: 'Show Results in Search Commits View'
 		};
 
-		static readonly ShowInViewSelected: QuickInputButton = {
+		static readonly ShowResultsInViewSelected: QuickInputButton = {
 			iconPath: {
 				dark: Container.context.asAbsolutePath('images/dark/icon-eye-selected.svg') as any,
 				light: Container.context.asAbsolutePath('images/light/icon-eye-selected.svg') as any
@@ -181,8 +181,8 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 		if (state.matchRegex === undefined) {
 			state.matchRegex = cfg.matchRegex;
 		}
-		if (state.showInView === undefined) {
-			state.showInView = cfg.showInView;
+		if (state.showResultsInView === undefined) {
+			state.showResultsInView = cfg.showResultsInView;
 		}
 
 		while (true) {
@@ -260,8 +260,10 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 					const matchRegexButton: Mutable<QuickInputButton> = {
 						...(state.matchRegex ? this.Buttons.MatchRegexSelected : this.Buttons.MatchRegex)
 					};
-					const showInViewButton: Mutable<QuickInputButton> = {
-						...(state.showInView ? this.Buttons.ShowInViewSelected : this.Buttons.ShowInView)
+					const showResultsInViewButton: Mutable<QuickInputButton> = {
+						...(state.showResultsInView
+							? this.Buttons.ShowResultsInViewSelected
+							: this.Buttons.ShowResultsInView)
 					};
 
 					const step = this.createPickStep<QuickPickItemOfT<string>>({
@@ -269,7 +271,7 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 						placeholder: 'e.g. "Updates dependencies" author:eamodio',
 						matchOnDescription: true,
 						matchOnDetail: true,
-						additionalButtons: [matchCaseButton, matchAllButton, matchRegexButton, showInViewButton],
+						additionalButtons: [matchCaseButton, matchAllButton, matchRegexButton, showResultsInViewButton],
 						items: items,
 						value: state.pattern,
 						onDidAccept: (quickpick): boolean => {
@@ -315,11 +317,11 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 								return;
 							}
 
-							if (button === showInViewButton) {
-								state.showInView = !state.showInView;
-								showInViewButton.iconPath = state.showInView
-									? this.Buttons.ShowInViewSelected.iconPath
-									: this.Buttons.ShowInView.iconPath;
+							if (button === showResultsInViewButton) {
+								state.showResultsInView = !state.showResultsInView;
+								showResultsInViewButton.iconPath = state.showResultsInView
+									? this.Buttons.ShowResultsInViewSelected.iconPath
+									: this.Buttons.ShowResultsInView.iconPath;
 							}
 						},
 						onDidChangeValue: (quickpick): boolean => {
@@ -371,7 +373,7 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 					resultsKey = searchKey;
 				}
 
-				if (state.showInView) {
+				if (state.showResultsInView) {
 					void Container.searchView.search(
 						state.repo.path,
 						search,
@@ -411,9 +413,9 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 										)
 									)
 							  ],
-					additionalButtons: [this.Buttons.RevealInView, this.Buttons.OpenInView],
+					additionalButtons: [this.Buttons.RevealInView, this.Buttons.ShowInView],
 					onDidClickButton: (quickpick, button) => {
-						if (button === this.Buttons.OpenInView) {
+						if (button === this.Buttons.ShowInView) {
 							void Container.searchView.search(
 								state.repo!.path,
 								search,
@@ -481,9 +483,9 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 						items: await CommitQuickPick.getItems(pickedCommit, pickedCommit.toGitUri(), {
 							showChanges: false
 						}),
-						additionalButtons: [this.Buttons.RevealInView, this.Buttons.OpenInView],
+						additionalButtons: [this.Buttons.RevealInView, this.Buttons.ShowInView],
 						onDidClickButton: (quickpick, button) => {
-							if (button === this.Buttons.OpenInView) {
+							if (button === this.Buttons.ShowInView) {
 								void Container.searchView.search(
 									pickedCommit!.repoPath,
 									{ pattern: SearchPattern.fromCommit(pickedCommit!) },
