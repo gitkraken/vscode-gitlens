@@ -2706,7 +2706,11 @@
 			{
 				"command": "gitlens.views.openChangesWithWorking",
 				"title": "Open Changes with Working File",
-				"category": "GitLens"
+				"category": "GitLens",
+				"icon": {
+					"dark": "images/dark/icon-compare-ref-working.svg",
+					"light": "images/light/icon-compare-ref-working.svg"
+				}
 			},
 			{
 				"command": "gitlens.views.openFile",
@@ -4776,6 +4780,11 @@
 					"command": "gitlens.views.unstageFile",
 					"when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+staged\\b)/",
 					"group": "inline@1"
+				},
+				{
+					"command": "gitlens.views.openChangesWithWorking",
+					"when": "viewItem =~ /gitlens:file\\b/",
+					"group": "inline@97"
 				},
 				{
 					"command": "gitlens.copyShaToClipboard",
