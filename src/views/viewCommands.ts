@@ -651,7 +651,7 @@ export class ViewCommands {
 	@debug()
 	private openFileRevision(
 		node: CommitFileNode | ResultsFileNode | StashFileNode | StatusFileNode,
-		options: OpenFileRevisionCommandArgs = { showOptions: { preserveFocus: true, preview: false } }
+		options?: OpenFileRevisionCommandArgs
 	) {
 		if (
 			!(node instanceof CommitFileNode) &&
@@ -661,6 +661,8 @@ export class ViewCommands {
 		) {
 			return undefined;
 		}
+
+		options = { showOptions: { preserveFocus: true, preview: false }, ...options };
 
 		let uri = options.uri;
 		if (uri == null) {
