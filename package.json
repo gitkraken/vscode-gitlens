@@ -2227,6 +2227,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.revealCommitInView",
+				"title": "Reveal Commit in Repositories View",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.showCommitInView",
 				"title": "Show Commit in Search Commits View",
 				"category": "GitLens"
@@ -3407,6 +3412,10 @@
 				{
 					"command": "gitlens.showLastQuickPick",
 					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.revealCommitInView",
+					"when": "gitlens:activeFileStatus =~ /blameable/"
 				},
 				{
 					"command": "gitlens.showCommitInView",
@@ -4716,9 +4725,14 @@
 					"group": "2_gitlens_quickopen_@2"
 				},
 				{
-					"command": "gitlens.showCommitInView",
+					"command": "gitlens.revealCommitInView",
 					"when": "viewItem =~ /gitlens:commit\\b/",
 					"group": "3_gitlens_explore@1"
+				},
+				{
+					"command": "gitlens.showCommitInView",
+					"when": "viewItem =~ /gitlens:commit\\b/",
+					"group": "3_gitlens_explore@2"
 				},
 				{
 					"command": "gitlens.openCommitInRemote",
@@ -4830,9 +4844,14 @@
 					"group": "3_gitlens_explore@4"
 				},
 				{
-					"command": "gitlens.showCommitInView",
+					"command": "gitlens.revealCommitInView",
 					"when": "viewItem =~ /gitlens:file\\b(?!(:stash|:status))/",
 					"group": "3_gitlens_explore@3"
+				},
+				{
+					"command": "gitlens.showCommitInView",
+					"when": "viewItem =~ /gitlens:file\\b(?!(:stash|:status))/",
+					"group": "3_gitlens_explore@4"
 				},
 				{
 					"command": "gitlens.openFileInRemote",

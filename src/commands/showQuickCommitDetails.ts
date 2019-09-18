@@ -20,7 +20,7 @@ export interface ShowQuickCommitDetailsCommandArgs {
 	sha?: string;
 	commit?: GitCommit | GitLogCommit;
 	repoLog?: GitLog;
-	showInView?: boolean;
+	showInView?: 'reveal' | 'show';
 
 	goBackCommand?: CommandQuickPickItem;
 }
@@ -38,13 +38,16 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
 	}
 
 	constructor() {
-		super([Commands.ShowCommitInView, Commands.ShowQuickCommitDetails]);
+		super([Commands.RevealCommitInView, Commands.ShowCommitInView, Commands.ShowQuickCommitDetails]);
 	}
 
 	protected preExecute(context: CommandContext, args?: ShowQuickCommitDetailsCommandArgs) {
-		if (context.command === Commands.ShowCommitInView) {
+		if (context.command === Commands.RevealCommitInView) {
 			args = { ...args };
-			args.showInView = true;
+			args.showInView = 'reveal';
+		} else if (context.command === Commands.ShowCommitInView) {
+			args = { ...args };
+			args.showInView = 'show';
 		}
 
 		if (context.type === 'viewItem') {
@@ -120,13 +123,21 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
 			}
 
 			if (args.showInView) {
-				void (await Container.searchView.search(
-					repoPath!,
-					{ pattern: SearchPattern.fromCommit(args.commit) },
-					{
-						label: { label: `for commit id ${args.commit.shortSha}` }
-					}
-				));
+				if (args.showInView === 'reveal') {
+					void (await Container.repositoriesView.revealCommit(args.commit, {
+						select: true,
+						focus: true,
+						expand: true
+					}));
+				} else {
+					void (await Container.searchView.search(
+						repoPath!,
+						{ pattern: SearchPattern.fromCommit(args.commit) },
+						{
+							label: { label: `for commit id ${args.commit.shortSha}` }
+						}
+					));
+				}
 
 				return undefined;
 			}

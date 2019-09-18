@@ -71,6 +71,7 @@ export enum Commands {
 	PushRepositories = 'gitlens.pushRepositories',
 	GitCommands = 'gitlens.gitCommands',
 	ResetSuppressedWarnings = 'gitlens.resetSuppressedWarnings',
+	RevealCommitInView = 'gitlens.revealCommitInView',
 	ShowCommitInView = 'gitlens.showCommitInView',
 	SearchCommits = 'gitlens.showCommitSearch',
 	SearchCommitsInView = 'gitlens.views.search.searchCommits',
