@@ -34,7 +34,7 @@ export class GitBranchParser {
 
 		let remote;
 
-		let match: RegExpExecArray | null;
+		let match;
 		do {
 			match = branchWithTrackingRegex.exec(data);
 			if (match == null) break;
@@ -66,7 +66,7 @@ export class GitBranchParser {
 					Number(behind) || 0
 				)
 			);
-		} while (match != null);
+		} while (true);
 
 		return branches;
 	}

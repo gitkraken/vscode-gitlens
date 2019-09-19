@@ -70,7 +70,7 @@ export class GitRemoteParser {
 		let uniqueness;
 		let remote: GitRemote | undefined;
 
-		let match: RegExpExecArray | null;
+		let match;
 		do {
 			match = remoteRegex.exec(data);
 			if (match == null) break;
@@ -105,7 +105,7 @@ export class GitRemoteParser {
 				// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
 				remote.types.push({ url: url, type: ` ${type}`.substr(1) as GitRemoteType });
 			}
-		} while (match != null);
+		} while (true);
 
 		return remotes;
 	}

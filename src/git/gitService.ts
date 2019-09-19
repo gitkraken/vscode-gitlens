@@ -225,11 +225,10 @@ export class GitService implements Disposable {
 	}
 
 	private onAnyRepositoryChanged(repo: Repository, reason: RepositoryChange) {
-		this._trackedCache.clear();
-
 		this._branchesCache.delete(repo.path);
 		this._tagsCache.delete(repo.path);
 		this._tagsWithRefsCache.clear();
+		this._trackedCache.clear();
 
 		if (reason === RepositoryChange.Config) {
 			this._userMapCache.delete(repo.path);
@@ -1150,13 +1149,13 @@ export class GitService implements Disposable {
 			include === 'all' || include === 'branches'
 				? this.getBranches(repoPath, {
 						...options,
-						filter: filterBranches && filterBranches
+						filter: filterBranches
 				  })
 				: undefined,
 			include === 'all' || include === 'tags'
 				? this.getTags(repoPath, {
 						...options,
-						filter: filterTags && filterTags
+						filter: filterTags
 				  })
 				: undefined
 		]);
@@ -1266,7 +1265,7 @@ export class GitService implements Disposable {
 		let key: string;
 		let value: string;
 
-		let match: RegExpExecArray | null;
+		let match;
 		do {
 			match = userConfigRegex.exec(data);
 			if (match == null) break;
@@ -1274,7 +1273,7 @@ export class GitService implements Disposable {
 			[, key, value] = match;
 			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
 			user[key as 'name' | 'email'] = ` ${value}`.substr(1);
-		} while (match != null);
+		} while (true);
 
 		const author = `${user.name} <${user.email}>`;
 		// Check if there is a mailmap for the current user
@@ -2594,7 +2593,6 @@ export class GitService implements Disposable {
 				return GitUri.resolveToUri(fileName, repoPath);
 			}
 
-			ref = renamedRef;
 			fileName = renamedFile;
 		} while (true);
 	}
@@ -2923,7 +2921,7 @@ export class GitService implements Disposable {
 					}
 				}
 			}
-		} while (match != null);
+		} while (true);
 
 		return operations;
 	}
@@ -2956,6 +2954,6 @@ export class GitService implements Disposable {
 			} else {
 				values.push(value);
 			}
-		} while (match != null);
+		} while (true);
 	}
 }

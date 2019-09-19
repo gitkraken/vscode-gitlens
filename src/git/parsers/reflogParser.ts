@@ -40,7 +40,7 @@ export class GitReflogParser {
 		let record: GitReflogRecord | undefined;
 		let truncated = false;
 
-		let match: RegExpExecArray | null;
+		let match;
 		do {
 			match = reflogRegex.exec(data);
 			if (match == null) break;
@@ -105,7 +105,7 @@ export class GitReflogParser {
 				);
 				recordDate = date;
 			}
-		} while (match != null);
+		} while (true);
 
 		// Ensure the regex state is reset
 		reflogRegex.lastIndex = 0;

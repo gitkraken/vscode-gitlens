@@ -19,7 +19,7 @@ export class GitDiffParser {
 		let currentCount;
 		let hunk;
 
-		let match: RegExpExecArray | null;
+		let match;
 		do {
 			match = unifiedDiffRegex.exec(`${data}\n@@`);
 			if (match == null) break;
@@ -43,7 +43,7 @@ export class GitDiffParser {
 					}
 				)
 			);
-		} while (match != null);
+		} while (true);
 
 		if (!hunks.length) return undefined;
 
@@ -147,7 +147,7 @@ export class GitDiffParser {
 						? undefined
 						: ` ${originalFileName}`.substr(1)
 			});
-		} while (match != null);
+		} while (true);
 
 		return files;
 	}

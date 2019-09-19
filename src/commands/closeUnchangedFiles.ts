@@ -6,22 +6,21 @@ import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { Functions } from '../system';
-import { ActiveEditorCommand, command, Commands, getCommandUri, getRepoPathOrPrompt } from './common';
+import { Command, command, Commands, getRepoPathOrPrompt } from './common';
 
 export interface CloseUnchangedFilesCommandArgs {
 	uris?: Uri[];
 }
 
 @command()
-export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
+export class CloseUnchangedFilesCommand extends Command {
 	private _onEditorChangedFn: ((editor: TextEditor | undefined) => void) | undefined;
 
 	constructor() {
 		super(Commands.CloseUnchangedFiles);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: CloseUnchangedFilesCommandArgs) {
-		uri = getCommandUri(uri, editor);
+	async execute(args?: CloseUnchangedFilesCommandArgs) {
 		args = { ...args };
 
 		try {
@@ -46,7 +45,7 @@ export class CloseUnchangedFilesCommand extends ActiveEditorCommand {
 				)
 			);
 
-			editor = window.activeTextEditor;
+			let editor = window.activeTextEditor;
 
 			let count = 0;
 			let loopCount = 0;

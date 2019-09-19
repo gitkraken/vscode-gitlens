@@ -32,7 +32,7 @@ export function memoize<T extends (...arg: any) => any>(resolver?: (...args: Par
 			throw new Error('Not supported');
 		}
 
-		if (!fn || !fnKey) throw new Error('Not supported');
+		if (fn == null) throw new Error('Not supported');
 
 		const memoizeKey = `$memoize$${key}`;
 

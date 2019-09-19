@@ -1,24 +1,23 @@
 'use strict';
-import { TextEditor, Uri, window } from 'vscode';
+import { Uri, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { Arrays } from '../system';
-import { ActiveEditorCommand, command, Commands, getCommandUri, getRepoPathOrPrompt, openEditor } from './common';
+import { Command, command, Commands, getRepoPathOrPrompt, openEditor } from './common';
 
 export interface OpenChangedFilesCommandArgs {
 	uris?: Uri[];
 }
 
 @command()
-export class OpenChangedFilesCommand extends ActiveEditorCommand {
+export class OpenChangedFilesCommand extends Command {
 	constructor() {
 		super(Commands.OpenChangedFiles);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: OpenChangedFilesCommandArgs) {
-		uri = getCommandUri(uri, editor);
+	async execute(args?: OpenChangedFilesCommandArgs) {
 		args = { ...args };
 
 		try {

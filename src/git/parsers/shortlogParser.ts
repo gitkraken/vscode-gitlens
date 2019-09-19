@@ -15,7 +15,7 @@ export class GitShortLogParser {
 		let name;
 		let email;
 
-		let match: RegExpExecArray | null;
+		let match;
 		do {
 			match = shortlogRegex.exec(data);
 			if (match == null) break;
@@ -32,7 +32,7 @@ export class GitShortLogParser {
 					Number(count) || 0
 				)
 			);
-		} while (match != null);
+		} while (true);
 
 		return { repoPath: repoPath, contributors: contributors };
 	}

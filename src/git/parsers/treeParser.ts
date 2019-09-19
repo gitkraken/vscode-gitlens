@@ -17,7 +17,7 @@ export class GitTreeParser {
 		let size;
 		let filePath;
 
-		let match: RegExpExecArray | null;
+		let match;
 		do {
 			match = treeRegex.exec(data);
 			if (match == null) break;
@@ -33,7 +33,7 @@ export class GitTreeParser {
 				// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
 				type: (type == null || type.length === 0 ? emptyStr : ` ${type}`.substr(1)) as 'blob' | 'tree'
 			});
-		} while (match != null);
+		} while (true);
 
 		return trees;
 	}

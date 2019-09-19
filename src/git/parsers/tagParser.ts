@@ -15,7 +15,7 @@ export class GitTagParser {
 		let name;
 		let annotation;
 
-		let match: RegExpExecArray | null;
+		let match;
 		do {
 			match = tagWithAnnotationRegex.exec(data);
 			if (match == null) break;
@@ -32,7 +32,7 @@ export class GitTagParser {
 					annotation == null || annotation.length === 0 ? undefined : ` ${annotation}`.substr(1)
 				)
 			);
-		} while (match != null);
+		} while (true);
 
 		return tags;
 	}
@@ -61,7 +61,7 @@ export class GitTagParser {
 					` ${sha}`.substr(1)
 				)
 			);
-		} while (match != null);
+		} while (true);
 
 		return tags;
 	}

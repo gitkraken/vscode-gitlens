@@ -87,7 +87,7 @@ export namespace Strings {
 					truncateTo: truncateTo == null ? undefined : parseInt(truncateTo, 10)
 				}
 			});
-		} while (match != null);
+		} while (true);
 
 		return tokens;
 	}
@@ -250,7 +250,9 @@ export namespace Strings {
 		return `${s.substring(0, chars)}${ellipsis}`;
 	}
 
-	const ansiRegex = /[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[a-zA-Z\\d]*)*)?\\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PRZcf-ntqry=><~]))/g;
+	// Lifted from https://github.com/chalk/ansi-regex
+	// eslint-disable-next-line no-control-regex
+	const ansiRegex = /[\u001B\u009B][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[-a-zA-Z\d/#&.:=?%@~_]*)*)?\u0007)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-ntqry=><~]))/g;
 	const containsNonAsciiRegex = /[^\x20-\x7F\u00a0\u2026]/;
 
 	export function getWidth(s: string): number {

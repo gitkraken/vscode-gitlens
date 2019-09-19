@@ -43,7 +43,7 @@ export class GitBlameParser {
 		const commits: Map<string, GitBlameCommit> = new Map();
 		const lines: GitCommitLine[] = [];
 
-		let relativeFileName = repoPath && fileName;
+		let relativeFileName;
 
 		let entry: BlameEntry | undefined = undefined;
 		let line: string;

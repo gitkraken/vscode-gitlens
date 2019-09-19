@@ -83,11 +83,7 @@ export class Logger {
 		if (contextOrMessage === undefined || typeof contextOrMessage === 'string') {
 			message = contextOrMessage;
 		} else {
-			message = params.shift();
-
-			if (contextOrMessage !== undefined) {
-				message = `${contextOrMessage.prefix} ${message || emptyStr}`;
-			}
+			message = `${contextOrMessage.prefix} ${params.shift() || emptyStr}`;
 		}
 
 		if (message === undefined) {

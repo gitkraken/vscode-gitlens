@@ -221,8 +221,8 @@ export class GitLogParser {
 									entry.status = 'R';
 								}
 
-								next = lines.next();
-								next = lines.next();
+								void lines.next();
+								void lines.next();
 								next = lines.next();
 
 								match = diffRangeRegex.exec(next.value);
@@ -463,7 +463,7 @@ export class GitLogParser {
 		let file;
 		let renamed;
 
-		let match: RegExpExecArray | null;
+		let match;
 		do {
 			match = logFileSimpleRegex.exec(data);
 			if (match == null) break;
@@ -518,7 +518,7 @@ export class GitLogParser {
 			status = status == null || status.length === 0 ? undefined : ` ${status}`.substr(1);
 
 			break;
-		} while (match != null);
+		} while (true);
 
 		// Ensure the regex state is reset
 		logFileSimpleRenamedFilesRegex.lastIndex = 0;

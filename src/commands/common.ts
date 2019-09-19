@@ -352,7 +352,7 @@ function isScmResourceState(state: any): state is SourceControlResourceState {
 	return (state as SourceControlResourceState).resourceUri != null;
 }
 
-function isTextEditor(editor: any): editor is TextEditor {
+function isTextEditor(editor: any | undefined): editor is TextEditor {
 	if (editor == null) return false;
 
 	return (

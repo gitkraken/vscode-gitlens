@@ -34,7 +34,7 @@ export class StatusFileNode extends ViewNode {
 					ref = undefined;
 					hasUnstagedChanges = true;
 				}
-			} else if (hasUnstagedChanges || hasStagedChanges) {
+			} else if (hasUnstagedChanges) {
 				break;
 			} else {
 				ref = c.sha;
