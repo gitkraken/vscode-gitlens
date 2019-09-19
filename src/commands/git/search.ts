@@ -1,6 +1,6 @@
 'use strict';
 /* eslint-disable no-loop-func */
-import { QuickInputButton } from 'vscode';
+import { QuickInputButton, Uri } from 'vscode';
 import { Container } from '../../container';
 import {
 	GitLog,
@@ -12,9 +12,15 @@ import {
 	SearchPattern
 } from '../../git/gitService';
 import { GlyphChars } from '../../constants';
-import { QuickCommandBase, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
+import {
+	QuickCommandBase,
+	SelectableQuickInputButton,
+	StepAsyncGenerator,
+	StepSelection,
+	StepState
+} from '../quickCommand';
 import { CommandQuickPickItem, CommitQuickPick, RepositoryQuickPickItem } from '../../quickpicks';
-import { Iterables, Mutable, Strings } from '../../system';
+import { Iterables, Strings } from '../../system';
 import { Logger } from '../../logger';
 import {
 	CommitQuickPickItem,
@@ -52,84 +58,44 @@ const searchOperatorToTitleMap = new Map<SearchOperators, string>([
 
 export class SearchGitCommand extends QuickCommandBase<State> {
 	private readonly Buttons = class {
-		static readonly MatchCase: QuickInputButton = {
-			iconPath: {
-				dark: Container.context.asAbsolutePath('images/dark/icon-match-case.svg') as any,
-				light: Container.context.asAbsolutePath('images/light/icon-match-case.svg') as any
-			},
-			tooltip: 'Match Case'
+		static readonly MatchCase = class extends SelectableQuickInputButton {
+			constructor(on = false) {
+				super('Match Case', 'match-case', on);
+			}
 		};
 
-		static readonly MatchCaseSelected: QuickInputButton = {
-			iconPath: {
-				dark: Container.context.asAbsolutePath('images/dark/icon-match-case-selected.svg') as any,
-				light: Container.context.asAbsolutePath('images/light/icon-match-case-selected.svg') as any
-			},
-			tooltip: 'Match Case'
+		static readonly MatchAll = class extends SelectableQuickInputButton {
+			constructor(on = false) {
+				super('Match All', 'match-all', on);
+			}
 		};
 
-		static readonly MatchAll: QuickInputButton = {
-			iconPath: {
-				dark: Container.context.asAbsolutePath('images/dark/icon-match-all.svg') as any,
-				light: Container.context.asAbsolutePath('images/light/icon-match-all.svg') as any
-			},
-			tooltip: 'Match All'
-		};
-
-		static readonly MatchAllSelected: QuickInputButton = {
-			iconPath: {
-				dark: Container.context.asAbsolutePath('images/dark/icon-match-all-selected.svg') as any,
-				light: Container.context.asAbsolutePath('images/light/icon-match-all-selected.svg') as any
-			},
-			tooltip: 'Match All'
-		};
-
-		static readonly MatchRegex: QuickInputButton = {
-			iconPath: {
-				dark: Container.context.asAbsolutePath('images/dark/icon-match-regex.svg') as any,
-				light: Container.context.asAbsolutePath('images/light/icon-match-regex.svg') as any
-			},
-			tooltip: 'Match using Regular Expressions'
-		};
-
-		static readonly MatchRegexSelected: QuickInputButton = {
-			iconPath: {
-				dark: Container.context.asAbsolutePath('images/dark/icon-match-regex-selected.svg') as any,
-				light: Container.context.asAbsolutePath('images/light/icon-match-regex-selected.svg') as any
-			},
-			tooltip: 'Match using Regular Expressions'
+		static readonly MatchRegex = class extends SelectableQuickInputButton {
+			constructor(on = false) {
+				super('Match using Regular Expressions', 'match-regex', on);
+			}
 		};
 
 		static readonly RevealInView: QuickInputButton = {
 			iconPath: {
-				dark: Container.context.asAbsolutePath('images/dark/icon-eye.svg') as any,
-				light: Container.context.asAbsolutePath('images/light/icon-eye.svg') as any
+				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-eye.svg')),
+				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-eye.svg'))
 			},
 			tooltip: 'Reveal Commit in Repositories View'
 		};
 
 		static readonly ShowInView: QuickInputButton = {
 			iconPath: {
-				dark: Container.context.asAbsolutePath('images/dark/icon-open.svg') as any,
-				light: Container.context.asAbsolutePath('images/light/icon-open.svg') as any
+				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-open.svg')),
+				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-open.svg'))
 			},
 			tooltip: 'Show Commit in Search Commits View'
 		};
 
-		static readonly ShowResultsInView: QuickInputButton = {
-			iconPath: {
-				dark: Container.context.asAbsolutePath('images/dark/icon-eye.svg') as any,
-				light: Container.context.asAbsolutePath('images/light/icon-eye.svg') as any
-			},
-			tooltip: 'Show Results in Search Commits View'
-		};
-
-		static readonly ShowResultsInViewSelected: QuickInputButton = {
-			iconPath: {
-				dark: Container.context.asAbsolutePath('images/dark/icon-eye-selected.svg') as any,
-				light: Container.context.asAbsolutePath('images/light/icon-eye-selected.svg') as any
-			},
-			tooltip: 'Show Results in Search Commits View'
+		static readonly ShowResultsInView = class extends SelectableQuickInputButton {
+			constructor(on = false) {
+				super('Show Results in Search Commits View', 'eye', on);
+			}
 		};
 	};
 
@@ -251,20 +217,12 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 					];
 					const titleSuffix = `${Strings.pad(GlyphChars.Dot, 2, 2)}${state.repo.formattedName}`;
 
-					const matchCaseButton: Mutable<QuickInputButton> = {
-						...(state.matchCase ? this.Buttons.MatchCaseSelected : this.Buttons.MatchCase)
-					};
-					const matchAllButton: Mutable<QuickInputButton> = {
-						...(state.matchAll ? this.Buttons.MatchAllSelected : this.Buttons.MatchAll)
-					};
-					const matchRegexButton: Mutable<QuickInputButton> = {
-						...(state.matchRegex ? this.Buttons.MatchRegexSelected : this.Buttons.MatchRegex)
-					};
-					const showResultsInViewButton: Mutable<QuickInputButton> = {
-						...(state.showResultsInView
-							? this.Buttons.ShowResultsInViewSelected
-							: this.Buttons.ShowResultsInView)
-					};
+					const matchCaseButton: SelectableQuickInputButton = new this.Buttons.MatchCase(state.matchCase);
+					const matchAllButton: SelectableQuickInputButton = new this.Buttons.MatchAll(state.matchAll);
+					const matchRegexButton: SelectableQuickInputButton = new this.Buttons.MatchRegex(state.matchRegex);
+					const showResultsInViewButton: SelectableQuickInputButton = new this.Buttons.ShowResultsInView(
+						state.showResultsInView
+					);
 
 					const step = this.createPickStep<QuickPickItemOfT<string>>({
 						title: `${this.title}${titleSuffix}`,
@@ -292,36 +250,28 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 						onDidClickButton: (quickpick, button) => {
 							if (button === matchCaseButton) {
 								state.matchCase = !state.matchCase;
-								matchCaseButton.iconPath = state.matchCase
-									? this.Buttons.MatchCaseSelected.iconPath
-									: this.Buttons.MatchCase.iconPath;
+								matchCaseButton.on = state.matchCase;
 
 								return;
 							}
 
 							if (button === matchAllButton) {
 								state.matchAll = !state.matchAll;
-								matchAllButton.iconPath = state.matchAll
-									? this.Buttons.MatchAllSelected.iconPath
-									: this.Buttons.MatchAll.iconPath;
+								matchAllButton.on = state.matchAll;
 
 								return;
 							}
 
 							if (button === matchRegexButton) {
 								state.matchRegex = !state.matchRegex;
-								matchRegexButton.iconPath = state.matchRegex
-									? this.Buttons.MatchRegexSelected.iconPath
-									: this.Buttons.MatchRegex.iconPath;
+								matchRegexButton.on = state.matchRegex;
 
 								return;
 							}
 
 							if (button === showResultsInViewButton) {
 								state.showResultsInView = !state.showResultsInView;
-								showResultsInViewButton.iconPath = state.showResultsInView
-									? this.Buttons.ShowResultsInViewSelected.iconPath
-									: this.Buttons.ShowResultsInView.iconPath;
+								showResultsInViewButton.on = state.showResultsInView;
 							}
 						},
 						onDidChangeValue: (quickpick): boolean => {

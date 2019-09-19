@@ -84,8 +84,8 @@ export class StashGitCommand extends QuickCommandBase<State> {
 	private readonly Buttons = class {
 		static readonly RevealInView: QuickInputButton = {
 			iconPath: {
-				dark: Container.context.asAbsolutePath('images/dark/icon-eye.svg') as any,
-				light: Container.context.asAbsolutePath('images/light/icon-eye.svg') as any
+				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-eye.svg')),
+				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-eye.svg'))
 			},
 			tooltip: 'Reveal Stash in Repositories View'
 		};

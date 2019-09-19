@@ -1,5 +1,4 @@
 'use strict';
-import { QuickInputButton } from 'vscode';
 import { Container } from '../../container';
 import { GitReference, Repository } from '../../git/gitService';
 import { GlyphChars } from '../../constants';
@@ -10,7 +9,8 @@ import {
 	QuickPickStep,
 	StepAsyncGenerator,
 	StepSelection,
-	StepState
+	StepState,
+	ToggleQuickInputButton
 } from '../quickCommand';
 import {
 	CommitQuickPickItem,
@@ -21,7 +21,7 @@ import {
 	RefQuickPickItem,
 	RepositoryQuickPickItem
 } from '../../quickpicks';
-import { Iterables, Mutable, Strings } from '../../system';
+import { Iterables, Strings } from '../../system';
 import { runGitCommandInTerminal } from '../../terminal';
 import { Logger } from '../../logger';
 
@@ -40,20 +40,14 @@ export interface RebaseGitCommandArgs {
 
 export class RebaseGitCommand extends QuickCommandBase<State> {
 	private readonly Buttons = class {
-		static readonly PickBranch: QuickInputButton = {
-			iconPath: {
-				dark: Container.context.asAbsolutePath('images/dark/icon-branch.svg') as any,
-				light: Container.context.asAbsolutePath('images/light/icon-branch.svg') as any
-			},
-			tooltip: 'Use the selected Branch or Tag'
-		};
-
-		static readonly PickCommit: QuickInputButton = {
-			iconPath: {
-				dark: Container.context.asAbsolutePath('images/dark/icon-commit.svg') as any,
-				light: Container.context.asAbsolutePath('images/light/icon-commit.svg') as any
-			},
-			tooltip: 'Choose a commit from the selected Branch or Tag'
+		static readonly PickBranchOrCommit = class extends ToggleQuickInputButton {
+			constructor(on = false) {
+				super(
+					{ tooltip: 'Use the selected Branch or Tag', icon: 'branch' },
+					{ tooltip: 'Choose a commit from the selected Branch or Tag', icon: 'commit' },
+					on
+				);
+			}
 		};
 	};
 
@@ -139,9 +133,9 @@ export class RebaseGitCommand extends QuickCommandBase<State> {
 				if (destination === undefined) break;
 
 				if (state.reference === undefined || state.counter < 2) {
-					const pickBranchOrCommitButton: Mutable<QuickInputButton> = {
-						...(pickCommit ? this.Buttons.PickCommit : this.Buttons.PickBranch)
-					};
+					const pickBranchOrCommitButton: ToggleQuickInputButton = new this.Buttons.PickBranchOrCommit(
+						pickCommit
+					);
 
 					const step = this.createPickStep<ReferencesQuickPickItem>({
 						title: `${this.title} ${destination.name}${Strings.pad(GlyphChars.Dot, 2, 2)}${
@@ -159,13 +153,7 @@ export class RebaseGitCommand extends QuickCommandBase<State> {
 						// eslint-disable-next-line no-loop-func
 						onDidClickButton: (quickpick, button) => {
 							pickCommit = !pickCommit;
-
-							pickBranchOrCommitButton.iconPath = pickCommit
-								? this.Buttons.PickCommit.iconPath
-								: this.Buttons.PickBranch.iconPath;
-							pickBranchOrCommitButton.tooltip = pickCommit
-								? this.Buttons.PickCommit.tooltip
-								: this.Buttons.PickBranch.tooltip;
+							pickBranchOrCommitButton.on = pickCommit;
 						},
 						onValidateValue: getValidateGitReferenceFn(state.repo)
 					});

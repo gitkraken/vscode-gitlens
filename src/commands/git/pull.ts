@@ -1,5 +1,5 @@
 'use strict';
-import { QuickInputButton } from 'vscode';
+import { QuickInputButton, Uri } from 'vscode';
 import { Container } from '../../container';
 import { Repository } from '../../git/gitService';
 import { QuickCommandBase, QuickPickStep, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
@@ -26,8 +26,8 @@ export class PullGitCommand extends QuickCommandBase<State> {
 	private readonly Buttons = class {
 		static readonly Fetch: QuickInputButton = {
 			iconPath: {
-				dark: Container.context.asAbsolutePath('images/dark/icon-sync.svg') as any,
-				light: Container.context.asAbsolutePath('images/light/icon-sync.svg') as any
+				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-sync.svg')),
+				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-sync.svg'))
 			},
 			tooltip: 'Fetch'
 		};
@@ -198,7 +198,7 @@ export class PullGitCommand extends QuickCommandBase<State> {
 						await repo.fetch({ progress: true });
 						const step = await this.getSingleRepoConfirmStep(state);
 						quickpick.title = step.title;
-						quickpick.items = step.items as any;
+						quickpick.items = step.items as FlagsQuickPickItem<Flags>[];
 					} finally {
 						quickpick.busy = false;
 						quickpick.enabled = true;

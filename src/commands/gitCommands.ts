@@ -1,5 +1,5 @@
 'use strict';
-import { Disposable, InputBox, QuickInputButton, QuickInputButtons, QuickPick, QuickPickItem, window } from 'vscode';
+import { Disposable, InputBox, QuickInputButton, QuickInputButtons, QuickPick, QuickPickItem, Uri, window } from 'vscode';
 import { command, Command, Commands } from './common';
 import { log } from '../system';
 import {
@@ -46,40 +46,40 @@ export class GitCommandsCommand extends Command {
 	private readonly Buttons = class {
 		static readonly CloseOnFocusOut: QuickInputButton = {
 			iconPath: {
-				dark: Container.context.asAbsolutePath('images/dark/icon-pin-small.svg') as any,
-				light: Container.context.asAbsolutePath('images/light/icon-pin-small.svg') as any
+				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-pin-small.svg')),
+				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-pin-small.svg'))
 			},
 			tooltip: 'Keep Open'
 		};
 
 		static readonly KeepOpen: QuickInputButton = {
 			iconPath: {
-				dark: Container.context.asAbsolutePath('images/dark/icon-pin-small-selected.svg') as any,
-				light: Container.context.asAbsolutePath('images/light/icon-pin-small-selected.svg') as any
+				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-pin-small-selected.svg')),
+				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-pin-small-selected.svg'))
 			},
 			tooltip: 'Keep Open'
 		};
 
 		static readonly WillConfirm: QuickInputButton = {
 			iconPath: {
-				dark: Container.context.asAbsolutePath('images/dark/icon-check.svg') as any,
-				light: Container.context.asAbsolutePath('images/light/icon-check.svg') as any
+				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-check.svg')),
+				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-check.svg'))
 			},
 			tooltip: 'Will confirm'
 		};
 
 		static readonly WillConfirmForced: QuickInputButton = {
 			iconPath: {
-				dark: Container.context.asAbsolutePath('images/dark/icon-check.svg') as any,
-				light: Container.context.asAbsolutePath('images/light/icon-check.svg') as any
+				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-check.svg')),
+				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-check.svg'))
 			},
 			tooltip: 'Will always confirm'
 		};
 
 		static readonly WillSkipConfirm: QuickInputButton = {
 			iconPath: {
-				dark: Container.context.asAbsolutePath('images/dark/icon-no-check.svg') as any,
-				light: Container.context.asAbsolutePath('images/light/icon-no-check.svg') as any
+				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-no-check.svg')),
+				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-no-check.svg'))
 			},
 			tooltip: 'Skips confirm'
 		};

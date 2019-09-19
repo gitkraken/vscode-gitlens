@@ -1,6 +1,6 @@
 'use strict';
 /* eslint-disable no-loop-func */
-import { ProgressLocation, QuickInputButton, window } from 'vscode';
+import { ProgressLocation, window } from 'vscode';
 import { Container } from '../../container';
 import { GitBranch, GitReference, Repository } from '../../git/gitService';
 import { GlyphChars } from '../../constants';
@@ -8,12 +8,13 @@ import {
 	getBranchesAndOrTags,
 	getValidateGitReferenceFn,
 	QuickCommandBase,
+	SelectableQuickInputButton,
 	StepAsyncGenerator,
 	StepSelection,
 	StepState
 } from '../quickCommand';
 import { ReferencesQuickPickItem, RepositoryQuickPickItem } from '../../quickpicks';
-import { Mutable, Strings } from '../../system';
+import { Strings } from '../../system';
 import { Logger } from '../../logger';
 
 interface State {
@@ -31,20 +32,10 @@ export interface SwitchGitCommandArgs {
 
 export class SwitchGitCommand extends QuickCommandBase<State> {
 	private readonly Buttons = class {
-		static readonly HideTags: QuickInputButton = {
-			iconPath: {
-				dark: Container.context.asAbsolutePath('images/dark/icon-tag.svg') as any,
-				light: Container.context.asAbsolutePath('images/light/icon-tag.svg') as any
-			},
-			tooltip: 'Hide Tags'
-		};
-
-		static readonly ShowTags: QuickInputButton = {
-			iconPath: {
-				dark: Container.context.asAbsolutePath('images/dark/icon-tag.svg') as any,
-				light: Container.context.asAbsolutePath('images/light/icon-tag.svg') as any
-			},
-			tooltip: 'Show Tags'
+		static readonly ShowTags = class extends SelectableQuickInputButton {
+			constructor(on = false) {
+				super('Show Tags', 'tag', on);
+			}
 		};
 	};
 
@@ -143,9 +134,7 @@ export class SwitchGitCommand extends QuickCommandBase<State> {
 				if (state.reference === undefined || state.counter < 2) {
 					showTags = state.repos.length === 1;
 
-					const toggleTagsButton: Mutable<QuickInputButton> = {
-						...(showTags ? this.Buttons.HideTags : this.Buttons.ShowTags)
-					};
+					const showTagsButton: SelectableQuickInputButton = new this.Buttons.ShowTags(showTags);
 
 					const items = await getBranchesAndOrTags(
 						state.repos,
@@ -168,15 +157,13 @@ export class SwitchGitCommand extends QuickCommandBase<State> {
 						selectedItems: state.reference
 							? items.filter(ref => ref.label === state.reference!.ref)
 							: undefined,
-						additionalButtons: [toggleTagsButton],
+						additionalButtons: [showTagsButton],
 						onDidClickButton: async (quickpick, button) => {
 							quickpick.busy = true;
 							quickpick.enabled = false;
 
 							showTags = !showTags;
-							toggleTagsButton.tooltip = showTags
-								? this.Buttons.HideTags.tooltip
-								: this.Buttons.ShowTags.tooltip;
+							showTagsButton.on = showTags;
 
 							quickpick.placeholder = `Choose a branch${
 								showTags ? ' or tag' : ''

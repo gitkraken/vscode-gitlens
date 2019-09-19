@@ -1,10 +1,54 @@
 'use strict';
-import { InputBox, QuickInputButton, QuickPick, QuickPickItem } from 'vscode';
+import { InputBox, QuickInputButton, QuickPick, QuickPickItem, Uri } from 'vscode';
 import { Directive, DirectiveQuickPickItem } from '../quickpicks';
 import { Container } from '../container';
 import { Keys } from '../keyboard';
 
 export * from './quickCommand.helpers';
+
+export class ToggleQuickInputButton implements QuickInputButton {
+	constructor(
+		private _off: { icon: string; tooltip: string },
+		private _on: { icon: string; tooltip: string },
+		private _toggled = false
+	) {
+		this._iconPath = this.getIconPath();
+	}
+
+	private _iconPath: { light: Uri; dark: Uri };
+	get iconPath(): { light: Uri; dark: Uri } {
+		return this._iconPath;
+	}
+
+	get tooltip(): string {
+		return this._toggled ? this._on.tooltip : this._off.tooltip;
+	}
+
+	get on() {
+		return this._toggled;
+	}
+	set on(value: boolean) {
+		this._toggled = value;
+		this._iconPath = this.getIconPath();
+	}
+
+	private getIconPath() {
+		return {
+			dark: Uri.file(
+				Container.context.asAbsolutePath(`images/dark/icon-${this.on ? this._on.icon : this._off.icon}.svg`)
+			),
+			light: Uri.file(
+				Container.context.asAbsolutePath(`images/light/icon-${this.on ? this._on.icon : this._off.icon}.svg`)
+			)
+		};
+	}
+}
+
+export class SelectableQuickInputButton extends ToggleQuickInputButton {
+	constructor(tooltip: string, icon: string, selected: boolean = false) {
+		super({ tooltip: tooltip, icon: icon }, { tooltip: tooltip, icon: `${icon}-selected` }, selected);
+	}
+}
 
 export class BreakQuickCommand extends Error {
 	constructor() {
