@@ -2245,11 +2245,6 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.showCommitInView",
-				"title": "Show Commit in Search Commits View",
-				"category": "GitLens"
-			},
-			{
 				"command": "gitlens.showCommitsInView",
 				"title": "Show Commits within Selection in Search Commits View",
 				"category": "GitLens"
