@@ -28,28 +28,28 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
     - `alt+left right`, `ctrl+left right`, `cmd+left right` (macOS) &mdash; reveals the selected stash in the _Repositories_ view
   - Adds a new _reset_ command to reset current HEAD to a specified commit
   - Adds a new _revert_ command to revert specific commits
-  - Improves the _fetch_ command
+  - Improves and enhances the _fetch_ command
     - Adds a new _Fetch All & Prune_ confirmation option
     - Adds the last fetched on date to the confirmation step, when a single repo is selected
-  - Improves the _pull_ command
+  - Improves and enhances the _pull_ command
     - Adds a _Fetch_ button to the quick pick menu toolbar on the confirmation step, when a single repo is selected
     - Adds the last fetched on date to the confirmation step, when a single repo is selected
     - Adds the number of commits to pull on the confirmation step, when a single repo is selected
-  - Improves the _push_ command
+  - Improves and enhances the _push_ command
     - Adds a new _Force Push_ confirmation option
     - Adds the number of commits to push on the confirmation step, when a single repo is selected
-  - Improves the _merge_ command
+  - Improves and enhances the _merge_ command
     - Adds a new _Squash Merge_ confirmation option
     - Adds the ability to choose an arbitrary reference (commit id) just by typing (pasting)
-  - Improves the _rebase_ command
+  - Improves and enhances the _rebase_ command
     - Adds the ability to switch between picking a branch/tag or a specific commit via a toggle button in the quick pick menu toolbar
     - Adds the ability to choose an arbitrary reference (commit id) just by typing (pasting)
-  - Improves the _cherry-pick_ command
+  - Improves and enhances the _cherry-pick_ command
     - Adds the ability to choose an arbitrary reference (commit id) just by typing (pasting)
-  - Improves the _checkout_ command &mdash; now renamed to _switch_ for better clarity and to align with the new Git 2.23 commands
+  - Improves and enhances the _checkout_ command &mdash; now renamed to _switch_ for better clarity and to align with the new Git 2.23 commands
     - Adds the ability to create a local branch from a remote branch
     - Adds the ability to choose an arbitrary reference (commit id) just by typing (pasting)
-- Adds an all-new commit search experience, via _Git Commands_ (`gitlens.gitCommands`) or _Search Commits_ (`gitlens.showCommitSearch`)
+- Adds an all-new commit search experience, via the _Git Commands_ (`gitlens.gitCommands`) or _Search Commits_ (`gitlens.showCommitSearch`) commands
   - Adds the ability to match on more than one search pattern &mdash; closes [#410](https://github.com/eamodio/vscode-gitlens/issues/410)
   - Adds case-\[in\]sensitive matching support &mdash; defaults to the new `gitlens.gitCommands.search.matchCase` setting
   - Adds support for regular expression matching &mdash; defaults to the new `gitlens.gitCommands.search.matchRegex` setting
@@ -86,10 +86,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Changes _Stash All Changes_ commands in the Source Control view to toggle --keep-index appropriately &mdash; closes [#698](https://github.com/eamodio/vscode-gitlens/issues/698)
 - Changes Ansible files to use document scope for code lens &mdash; thanks to [PR #813](https://github.com/eamodio/vscode-gitlens/pull/813) by Ahmadali Shafiee ([@ahmadalli](https://github.com/ahmadalli))
-- Changes all fetch commands to use the _fetch_ Git command
-- Changes all pull commands to use the _pull_ Git command
-- Changes all push commands to use the _push_ Git command
-- Changes all the stash commands to use the new _stash_ Git command
+- Changes fetch commands to use the _fetch_ Git command
+- Changes pull commands to use the _pull_ Git command
+- Changes push commands to use the _push_ Git command
+- Changes stash commands to use the new _stash_ Git command
 - Changes the _Checkout_ command on branches, commits, and tags to use the _switch_ Git command
 - Changes the _Cherry Pick Commit (via Terminal)_ command to use the _cherry-pick_ Git command
 - Changes the _Merge Branch (via Terminal)_, and _Squash Branch into Commit (via Terminal)_ commands to use the _merge_ Git command
@@ -121,7 +121,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#723](https://github.com/eamodio/vscode-gitlens/issues/723) (partially) - Top right tool loading/placement enhancement
 - Fixes issues with the _Open Changes with Working File_ command when invoked from a stash
 - Fixes issue where the _Open Line Changes with Previous Revision_ command would open the correct comparison in the diff editor
-- Fixes some issues with the _Open Changes with [Previous|Next] Revision_ commands when in the right or left side of the diff editor
+- Fixes some issues with the _Open Changes with Previous Revision_ and _Open Changes with Next Revision_ commands when in the right or left side of the diff editor
 - Fixes an issue with branch sorting when the current branch was tree'd
 - Fixes issues with the _Explore Repository from Revision_, _Open Revision_, _Open Files_, _Open Revisions_, _Open All Changes_, _Open All Changes with Working Tree_ commands in the latest VS Code
 - Fixes typo of "workbench.colorCustomization" in README &mdash; thanks to [PR #823](https://github.com/eamodio/vscode-gitlens/pull/823) by Kwok ([@mankwok](https://github.com/mankwok))
