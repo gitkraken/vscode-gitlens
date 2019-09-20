@@ -4,67 +4,110 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [10.0.0]- 2019-09-20
 
 ### Added
 
 - Adds all-new iconography to better match VS Code's new visual style &mdash; thanks to John Letey ([@johnletey](https://github.com/johnletey)) and Jon Beaumont-Pike ([@jonbp](https://github.com/jonbp)) for their help!
-- Adds an all-new Welcome experience with a simple quick setup of common GitLens features &mdash; can be accessed via the _Welcome_ (`gitlens.showWelcomePage`) command
-- Adds a new and improved interactive Settings editor experience &mdash; can be accessed via the _Open Settings_ (`gitlens.showSettingsPage`) command
+- Adds an all-new Welcome experience with a simple quick setup of common GitLens features &mdash; accessible via the _GitLens: Welcome_ (`gitlens.showWelcomePage`) command
+- Adds a new and improved interactive Settings editor experience &mdash; accessible via the _GitLens: Open Settings_ (`gitlens.showSettingsPage`) command
+- Adds a new and improved _Git Commands_ (`gitlens.gitCommands`) experience
+  - Adds a _Keep Open_ toggle button to the quick pick menu toolbar
+    - Saves to the new `gitlens.gitCommands.closeOnFocusOut` setting to specify whether to dismiss the Git Commands menu when focus is lost (if not, press `ESC` to dismiss)
+  - Adds a confirmation indicator / toggle button to the quick pick menu toolbar
+    - Indicates whether the specified Git command will have a confirmation step &mdash; some commands require confirmation and can't be toggled
+    - Saves to the new `gitlens.gitCommands.skipConfirmations` setting to specify which (and when) Git commands will skip the confirmation step
+  - Adds keyboard navigation
+    - `left arrow` &mdash; goes back to previous step, if there is no text in the quick pick menu
+    - `alt+left arrow`, `ctrl+left arrow`, `cmd+left arrow` (macOS) &mdash; goes back to previous step
+  - Adds a new _search_ command to search for specific commits &mdash; see below for more details on the all-new commit search experience
+  - Adds a new _stash_ command with sub-commands for _apply_, _drop_, _list_, _pop_, and _push_
+    - Adds a _Reveal Stash in Repositories View_ button to the quick pick menu toolbar
+    - Adds keyboard navigation
+    - `right arrow` &mdash; reveals the selected stash in the _Repositories_ view, if there is no text in the quick pick menu
+    - `alt+left right`, `ctrl+left right`, `cmd+left right` (macOS) &mdash; reveals the selected stash in the _Repositories_ view
+  - Adds a new _reset_ command to reset current HEAD to a specified commit
+  - Adds a new _revert_ command to revert specific commits
+  - Improves the _fetch_ command
+    - Adds a new _Fetch All & Prune_ confirmation option
+    - Adds the last fetched on date to the confirmation step, when a single repo is selected
+  - Improves the _pull_ command
+    - Adds a _Fetch_ button to the quick pick menu toolbar on the confirmation step, when a single repo is selected
+    - Adds the last fetched on date to the confirmation step, when a single repo is selected
+    - Adds the number of commits to pull on the confirmation step, when a single repo is selected
+  - Improves the _push_ command
+    - Adds a new _Force Push_ confirmation option
+    - Adds the number of commits to push on the confirmation step, when a single repo is selected
+  - Improves the _merge_ command
+    - Adds a new _Squash Merge_ confirmation option
+    - Adds the ability to choose an arbitrary reference (commit id) just by typing (pasting)
+  - Improves the _rebase_ command
+    - Adds the ability to switch between picking a branch/tag or a specific commit via a toggle button in the quick pick menu toolbar
+    - Adds the ability to choose an arbitrary reference (commit id) just by typing (pasting)
+  - Improves the _cherry-pick_ command
+    - Adds the ability to choose an arbitrary reference (commit id) just by typing (pasting)
+  - Improves the _checkout_ command &mdash; now renamed to _switch_ for better clarity and to align with the new Git 2.23 commands
+    - Adds the ability to create a local branch from a remote branch
+    - Adds the ability to choose an arbitrary reference (commit id) just by typing (pasting)
 - Adds an all-new commit search experience, via _Git Commands_ (`gitlens.gitCommands`) or _Search Commits_ (`gitlens.showCommitSearch`)
-  - Adds ability to match on more than one search pattern &mdash; closes [#410](https://github.com/eamodio/vscode-gitlens/issues/410)
+  - Adds the ability to match on more than one search pattern &mdash; closes [#410](https://github.com/eamodio/vscode-gitlens/issues/410)
   - Adds case-\[in\]sensitive matching support &mdash; defaults to the new `gitlens.gitCommands.search.matchCase` setting
   - Adds support for regular expression matching &mdash; defaults to the new `gitlens.gitCommands.search.matchRegex` setting
-  - Adds ability to match on all or any patterns when searching commit messages &mdash; defaults to the new `gitlens.gitCommands.search.matchAll` setting
+  - Adds the ability to match on all or any patterns when searching commit messages &mdash; defaults to the new `gitlens.gitCommands.search.matchAll` setting
+  - Adds the ability to show results in the _Search Commits_ view or within the quick pick menu via a toggle button in the quick pick menu toolbar
+  - Adds a _Reveal Commit in Repositories View_ button to the quick pick menu toolbar
+  - Adds a _Show Commit in Search Commits View_ button to the quick pick menu toolbar
+  - Adds keyboard navigation
+    - `right arrow` &mdash; shows the selected commit in the _Search Commits_ view, if there is no text in the quick pick menu
+    - `alt+left right` &mdash; shows the selected commit in the _Search Commits_ view
+    - `ctrl+left right`, `cmd+left right` (macOS) &mdash; reveals the selected commit in the _Repositories_ view
+- Adds a _Reveal Commit in Repositories View_ (`gitlens.revealCommitInView`) command to reveal the current commit in the _Repositories_ view &mdash; this can take a while, so it will show a progress notification with the ability to cancel the operation
+  - Adds _Reveal Commit in Repositories View_ command to the commit context menu in the views
+  - Adds _Reveal Commit in Repositories View_ command in commit quick pick menu
+- Adds a _Show Commits within Selection in Search Commits View_ (`gitlens.showCommitsInView`) command to show all the commits within the current selection in the _Search Commits_ view
+- Adds new actions options to the Git Code Lens
+  - Adds a `gitlens.showCommitsInView` option to the recent change code lens to show the recent commit in the _Search Commits_ view
+  - Adds a `gitlens.showCommitsInView` option to the authors code lens to show the commits within the range of the code lens block in the _Search Commits_ view
+  - Adds a `gitlens.revealCommitInView` option to the recent change code lens to reveal the recent commit in the _Repositories_ view
+  - Adds a `gitlens.revealCommitInView` option to the authors code lens to reveal the primary author's commit in the _Repositories_ view
+- Adds the _Open Changes with Working File_ command to the inline toolbar for files in views
+- Adds the _Open Revision_ command to the editor toolbar and tabs context menu when a revision file is active in the diff editor
+- Adds this _Explore Repository from Revision_ command to the editor toolbar and tabs context menu when a revision file is active
+- Adds a _Prune_ command to remotes in the _Repositories_ view to prune remote references &mdash; closes [#556](https://github.com/eamodio/vscode-gitlens/issues/556) thanks to [PR #815](https://github.com/eamodio/vscode-gitlens/pull/815) by Zach Boyle ([@zaboyle](https://github.com/zaboyle))
 - Adds ability to sort branches and tags in quick pick menus and views &mdash; closes [#745](https://github.com/eamodio/vscode-gitlens/issues/745)
   - Adds a `gitlens.sortBranchesBy` setting to specify how branches are sorted in quick pick menus and views
   - Adds a `gitlens.sortTagsBy` setting to specify how tags are sorted in quick pick menus and views
-- Adds last commit date to branches in quick pick menus and views
+- Adds the _Pull_ and/or _Push_ command to current branch in the _Repositories_ view if the current branch is not up to date with its upstream
 - Adds ability to copy the selected item's details to the clipboard using the standard copy shortcut key when focused on a GitLens view
-- Adds an _Open Revision_ command to the editor toolbar and tabs context menu when a revision file is active in the diff editor
-- Adds an _Explore Repository from Revision_ command to the editor toolbar and tabs context menu when a revision file is active
-- Adds a _Prune_ command to remotes in the _Repositories_ view to prune remote references &mdash; closes [#556](https://github.com/eamodio/vscode-gitlens/issues/556) thanks to [PR #815](https://github.com/eamodio/vscode-gitlens/pull/815) by Zach Boyle ([@zaboyle](https://github.com/zaboyle))
+- Adds last commit date to branches in quick pick menus and views
 - Adds support to use the GitHub avatar (if available) for authors with `@users.noreply.github.com` email addresses &mdash; partially addresses [#281](https://github.com/eamodio/vscode-gitlens/issues/281) thanks to [PR #814](https://github.com/eamodio/vscode-gitlens/pull/814) by bolte-17 ([@bolte-17](https://github.com/bolte-17))
 
 ### Changed
 
-- Dramatically improves the _Git Commands_ (`gitlens.gitCommands`) experience
-  - Adds a _Keep Open_ toggle (look for the pin icon in the upper right)
-    - Saves to the new `gitlens.gitCommands.closeOnFocusOut` setting to specify whether to dismiss the Git Commands menu when focus is lost (if not, press `ESC` to dismiss)
-  - Adds a confirmation toggle (look for the checkmark icon in the upper right) to some of the Git commands
-    - Saves to the new `gitlens.gitCommands.skipConfirmations` setting to specify which (and when) Git commands will skip the confirmation step
-  - Adds a new _reset_ Git command to reset current HEAD to a specified commit
-  - Adds a new _revert_ Git command to revert specific commits
-  - Adds a new _search_ Git command to search for specific commits
-  - Adds a new _stash_ Git command with sub-commands for _apply_, _drop_, _list_, _pop_, and _push_
-  - Adds a new _Fetch All & Prune_ option to the _fetch_ Git command
-  - Adds the last fetched on date to the confirmation step of the _fetch_ Git command (when a single repo is selected)
-  - Adds the last fetched on date to the confirmation step of the _pull_ Git command (when a single repo is selected)
-  - Adds a fetch button to the confirmation step of the _pull_ Git command (when a single repo is selected)
-  - Adds the number of commits to pull to the confirmation step of the _pull_ Git command (when a single repo is selected)
-  - Adds the number of commits to push to the confirmation step of the _push_ Git command (when a single repo is selected)
-  - Adds a new _Squash Merge_ option to the _merge_ Git command
-  - Adds a new _Force Push_ option to the _push_ Git command
-  - Adds ability to create a local branch from a remote branch when using the _switch_ Git command
-  - Adds ability to pick a commit when using the _rebase_ Git command
-  - Adds ability to choose an arbitrary reference when using the _cherry-pick_, _merge_, _rebase_, and _switch_ Git commands
-  - Adds a better experience when choosing an arbitrary reference
-  - Renames the _checkout_ Git command to _switch_ for better clarity and to align with the new Git 2.23 commands
-- Changes the _Cherry Pick Commit (via Terminal)_ command to use the _cherry-pick_ Git command
+- Changes _Stash All Changes_ commands in the Source Control view to toggle --keep-index appropriately &mdash; closes [#698](https://github.com/eamodio/vscode-gitlens/issues/698)
+- Changes Ansible files to use document scope for code lens &mdash; thanks to [PR #813](https://github.com/eamodio/vscode-gitlens/pull/813) by Ahmadali Shafiee ([@ahmadalli](https://github.com/ahmadalli))
 - Changes all fetch commands to use the _fetch_ Git command
-- Changes the _Merge Branch (via Terminal)_, and _Squash Branch into Commit (via Terminal)_ commands to use the _merge_ Git command
 - Changes all pull commands to use the _pull_ Git command
 - Changes all push commands to use the _push_ Git command
+- Changes all the stash commands to use the new _stash_ Git command
+- Changes the _Checkout_ command on branches, commits, and tags to use the _switch_ Git command
+- Changes the _Cherry Pick Commit (via Terminal)_ command to use the _cherry-pick_ Git command
+- Changes the _Merge Branch (via Terminal)_, and _Squash Branch into Commit (via Terminal)_ commands to use the _merge_ Git command
 - Changes the _Rebase (Interactive) Branch (via Terminal)_, _Rebase (Interactive) Branch to Remote (via Terminal)_, and _Rebase to Commit (via Terminal)_ commands to use the _rebase_ Git command
 - Changes the _Reset to Commit (via Terminal)_ command to use the _reset_ Git command
 - Changes the _Revert Commit (via Terminal)_ command to use the _revert_ Git command
-- Changes all the stash commands to use the new _stash_ Git command
-- Changes _Stash All Changes_ commands in the Source Control view to toggle --keep-index appropriately &mdash; closes [#698](https://github.com/eamodio/vscode-gitlens/issues/698)
-- Changes the _Checkout_ command on branches, commits, and tags to use the _switch_ Git command
-- Changes Ansible files to use document scope for code lens &mdash; thanks to [PR #813](https://github.com/eamodio/vscode-gitlens/pull/813) by Ahmadali Shafiee ([@ahmadalli](https://github.com/ahmadalli))
 - Renames _Checkout_ command to _Switch_ for branches and tags for better clarity and to align with the new Git 2.23 commands
 - Renames _Checkout_ command to _Restore_ for commit/stash files for better clarity and to align with the new Git 2.23 commands
 - Renames Stashed Changes to Stashes or Stash depending on the context
+- Renames _Copy \* to Clipboard_ commands to _Copy \*_
+- Renames _Show Commit in View_ (`gitlens.showCommitInView`) command to _Show Commit in Search Commits View_
+- Renames _Show File History in View_ (`gitlens.showFileHistoryInView`) command to _Show in File History View_
+- Rearranges the ordering and groupings of the view item context menus
+
+### Removed
+
+- Removes _Show Commit Details_ from view item context menus
+- Removes _Show File History_ from view item context menus
 
 ### Fixed
 
@@ -80,7 +123,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes issue where the _Open Line Changes with Previous Revision_ command would open the correct comparison in the diff editor
 - Fixes some issues with the _Open Changes with [Previous|Next] Revision_ commands when in the right or left side of the diff editor
 - Fixes an issue with branch sorting when the current branch was tree'd
-- Fixes an issue with the _Explore Repository from Revision_ command in the latest VS Code Insiders
+- Fixes issues with the _Explore Repository from Revision_, _Open Revision_, _Open Files_, _Open Revisions_, _Open All Changes_, _Open All Changes with Working Tree_ commands in the latest VS Code
 - Fixes typo of "workbench.colorCustomization" in README &mdash; thanks to [PR #823](https://github.com/eamodio/vscode-gitlens/pull/823) by Kwok ([@mankwok](https://github.com/mankwok))
 
 ## [9.9.3] - 2019-08-06
@@ -331,7 +374,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#729](https://github.com/eamodio/vscode-gitlens/issues/729) - "Show more results" in search commit show less results
 - Fixes [#716](https://github.com/eamodio/vscode-gitlens/issues/716) - Browsing history of a renamed file fails in forward direction
 - Fixes [#724](https://github.com/eamodio/vscode-gitlens/issues/724) - GitService.getBranches very very very long
-- Fixes [#625](https://github.com/eamodio/vscode-gitlens/issues/625) - Branches in Repositories view shows some commit comment texts as branches
+- Fixes [#625](https://github.com/eamodio/vscode-gitlens/issues/625) - Branches in _Repositories_ view shows some commit comment texts as branches
 - Fixes issues with keyboard navigation (`alt+,` and `alt+.`) in commit details of the file history quick pick menu
 - Fixes issues with keyboard navigation (`alt+,` and `alt+.`) in commit details of the branch history quick pick menu
 - Fixes issues when showing all results in various lists and views
@@ -718,7 +761,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
-- Fixes [#405](https://github.com/eamodio/vscode-gitlens/issues/405) - Secondary, blank repository appears repeatedly in Repositories view
+- Fixes [#405](https://github.com/eamodio/vscode-gitlens/issues/405) - Secondary, blank repository appears repeatedly in _Repositories_ view
 - Fixes [#430](https://github.com/eamodio/vscode-gitlens/issues/430) - File revisions can end up being parsed by language servers (causing errors and warnings, etc)
 - Fixes [#496](https://github.com/eamodio/vscode-gitlens/issues/496) - Short hash length doesn't match git's default length
 - Fixes [#503](https://github.com/eamodio/vscode-gitlens/issues/503) - Open Changes (with difftool) opens one difftool window per changed file
@@ -3117,6 +3160,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
+[10.0.0]: https://github.com/eamodio/vscode-gitlens/compare/v9.9.3...eamodio:v10.0.0
+[9.9.3]: https://github.com/eamodio/vscode-gitlens/compare/v9.9.2...eamodio:v9.9.3
+[9.9.2]: https://github.com/eamodio/vscode-gitlens/compare/v9.9.1...eamodio:v9.9.2
+[9.9.1]: https://github.com/eamodio/vscode-gitlens/compare/v9.9.0...eamodio:v9.9.1
 [9.9.0]: https://github.com/eamodio/vscode-gitlens/compare/v9.8.5...eamodio:v9.9.0
 [9.8.5]: https://github.com/eamodio/vscode-gitlens/compare/v9.8.4...eamodio:v9.8.5
 [9.8.4]: https://github.com/eamodio/vscode-gitlens/compare/v9.8.3...eamodio:v9.8.4
