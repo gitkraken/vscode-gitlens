@@ -362,6 +362,17 @@ export class StashGitCommand extends QuickCommandBase<State> {
 								expand: true
 							});
 						}
+					},
+					keys: ['right', 'alt+right', 'ctrl+right'],
+					onDidPressKey: async (quickpick, key) => {
+						if (quickpick.activeItems.length === 0) return;
+
+						const stash = quickpick.activeItems[0].item;
+						await Container.repositoriesView.revealStash(stash, {
+							select: true,
+							focus: false,
+							expand: true
+						});
 					}
 				});
 				const selection: StepSelection<typeof step> = yield step;
@@ -489,6 +500,17 @@ export class StashGitCommand extends QuickCommandBase<State> {
 								expand: true
 							});
 						}
+					},
+					keys: ['right', 'alt+right', 'ctrl+right'],
+					onDidPressKey: async (quickpick, key) => {
+						if (quickpick.activeItems.length === 0) return;
+
+						const stash = quickpick.activeItems[0].item;
+						await Container.repositoriesView.revealStash(stash, {
+							select: true,
+							focus: false,
+							expand: true
+						});
 					}
 				});
 				const selection: StepSelection<typeof step> = yield step;
