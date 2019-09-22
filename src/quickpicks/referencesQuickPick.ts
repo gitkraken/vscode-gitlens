@@ -156,13 +156,13 @@ export class ReferencesQuickPick {
 				include & ReferencesQuickPickIncludes.Branches
 					? Container.git.getBranches(this.repoPath, {
 							...options,
-							filter: filterBranches && filterBranches
+							filter: filterBranches
 					  })
 					: undefined,
 				include & ReferencesQuickPickIncludes.Tags
 					? Container.git.getTags(this.repoPath, {
 							...options,
-							filter: filterTags && filterTags,
+							filter: filterTags,
 							includeRefs: true
 					  })
 					: undefined

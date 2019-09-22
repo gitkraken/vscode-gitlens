@@ -352,15 +352,6 @@ function isScmResourceState(state: any): state is SourceControlResourceState {
 	return (state as SourceControlResourceState).resourceUri != null;
 }
 
-function isTextEditor(editor: any | undefined): editor is TextEditor {
-	if (editor == null) return false;
-
-	return (
-		editor.id !== undefined &&
-		((editor as TextEditor).edit !== undefined || (editor as TextEditor).document !== undefined)
-	);
-}
-
 export abstract class Command implements Disposable {
 	static getMarkdownCommandArgsCore<T>(command: Commands, args: T): string {
 		return `command:${command}?${encodeURIComponent(JSON.stringify(args))}`;
@@ -412,7 +403,11 @@ export abstract class Command implements Disposable {
 		let editor: TextEditor | undefined = undefined;
 
 		let firstArg = args[0];
-		if (options.editor && (firstArg == null || isTextEditor(firstArg))) {
+
+		if (
+			options.editor &&
+			(firstArg == null || (firstArg.id != null && firstArg.document != null && firstArg.document.uri != null))
+		) {
 			editor = firstArg;
 			args = args.slice(1);
 			firstArg = args[0];

@@ -142,7 +142,7 @@ export class CommitFileNode extends ViewRefFileNode {
 		if (this._tooltip === undefined) {
 			if (this._options.displayAsCommit) {
 				// eslint-disable-next-line no-template-curly-in-string
-				const status = StatusFileFormatter.fromTemplate('${status}${ (originalPath)}', this.file);
+				const status = StatusFileFormatter.fromTemplate('${status}${ (originalPath)}', this.file); // lgtm [js/template-syntax-in-string-literal]
 				this._tooltip = CommitFormatter.fromTemplate(
 					this.commit.isUncommitted
 						? `\${author} ${GlyphChars.Dash} \${id}\n${status}\n\${ago} (\${date})`
