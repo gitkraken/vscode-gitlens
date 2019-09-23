@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Changes the experimental _Incoming Activity_ node in the _Repositories_ view to be available for everyone (not just if `"gitlens.insiders": true`)
 
+### Fixed
+
+- Fixes issue with locating a working file when the file is staged or modified
+
 ## [10.0.0]- 2019-09-20
 
 ### Added

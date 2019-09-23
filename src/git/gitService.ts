@@ -2568,7 +2568,7 @@ export class GitService implements Disposable {
 		do {
 			data = await Git.ls_files(repoPath, fileName);
 			if (data !== undefined) {
-				return GitUri.resolveToUri(data, repoPath);
+				return GitUri.resolveToUri(Strings.splitSingle(data, '\n')[0], repoPath);
 			}
 
 			// TODO: Add caching
