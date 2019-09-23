@@ -99,9 +99,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 				new ContributorsNode(this.uri, this.view, this, this.repo)
 			);
 
-			if (Container.config.insiders) {
-				children.push(new ReflogNode(this.uri, this.view, this, this.repo));
-			}
+			children.push(new ReflogNode(this.uri, this.view, this, this.repo));
 
 			children.push(
 				new RemotesNode(this.uri, this.view, this, this.repo),
