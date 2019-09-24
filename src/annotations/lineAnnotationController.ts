@@ -153,12 +153,22 @@ export class LineAnnotationController implements Disposable {
 
 		const cfg = Container.config.currentLine;
 		if (this.suspended) {
+			if (cc) {
+				cc.exitDetails = ` ${GlyphChars.Dot} Skipped because suspended`;
+			}
+
 			this.clear(editor);
 			return;
 		}
 
 		const trackedDocument = await Container.tracker.getOrAdd(editor.document);
 		if (!trackedDocument.isBlameable && this.suspended) {
+			if (cc) {
+				cc.exitDetails = ` ${GlyphChars.Dot} Skipped because ${
+					this.suspended ? 'suspended' : `document(${trackedDocument.uri.toString(true)}) is not blameable`
+				}`;
+			}
+
 			this.clear(editor);
 			return;
 		}
