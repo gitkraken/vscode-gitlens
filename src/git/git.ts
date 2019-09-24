@@ -870,7 +870,7 @@ export class Git {
 		repoPath: string,
 		{ all, branch, since }: { all?: boolean; branch?: string; since?: string } = {}
 	): Promise<string> {
-		const params = ['log', '-g', `--format=${GitReflogParser.defaultFormat}`, '--date=unix'];
+		const params = ['log', '-g', `--format=${GitReflogParser.defaultFormat}`, '--date=iso8601'];
 		if (all) {
 			params.push('--all');
 		}

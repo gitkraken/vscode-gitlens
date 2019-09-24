@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#862](https://github.com/eamodio/vscode-gitlens/issues/862) - Command failed when expanding a local branch
+- Fixes [#860](https://github.com/eamodio/vscode-gitlens/issues/860) - Unknown date format error
 - Fixes [#858](https://github.com/eamodio/vscode-gitlens/issues/858) - GitHub avatars in blame line hovers are huge
 - Fixes issue with locating a working file when the file is staged or modified
 

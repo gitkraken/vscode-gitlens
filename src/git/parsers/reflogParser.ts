@@ -13,7 +13,7 @@ const rb = '%x3e'; // `%x${'>'.charCodeAt(0).toString(16)}`;
 export class GitReflogParser {
 	static defaultFormat = [
 		`${lb}r${rb}%H`, // ref
-		`${lb}d${rb}%gD`, // reflog selector (with UNIX timestamp)
+		`${lb}d${rb}%gD`, // reflog selector (with iso8601 timestamp)
 		`${lb}s${rb}%gs` // reflog subject
 		// `${lb}n${rb}%D` // ref names
 	].join('');
@@ -95,7 +95,7 @@ export class GitReflogParser {
 					` ${sha}`.substr(1),
 					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
 					` ${selector}`.substr(1),
-					new Date(Number(date) * 1000),
+					new Date(date),
 					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
 					` ${command}`.substr(1),
 					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869

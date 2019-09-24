@@ -15,7 +15,7 @@ export class GitBranchParser {
 		`${lb}u${rb}%(upstream:short)`, // branch upstream
 		`${lb}t${rb}%(upstream:track)`, // branch upstream tracking state
 		`${lb}r${rb}%(objectname)`, // ref
-		`${lb}d${rb}%(committerdate:unix)` // committer date
+		`${lb}d${rb}%(committerdate:iso8601)` // committer date
 	].join('');
 
 	@debug({ args: false, singleLine: true })
@@ -57,7 +57,7 @@ export class GitBranchParser {
 					name,
 					remote,
 					current.charCodeAt(0) === 42, // '*',
-					new Date(Number(date) * 1000),
+					new Date(date),
 					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
 					ref == null || ref.length === 0 ? undefined : ` ${ref}`.substr(1),
 					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
