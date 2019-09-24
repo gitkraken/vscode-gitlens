@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [10.0.1] - 2019-09-24
 
 ### Added
 
@@ -13,7 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
-- Changes the experimental _Incoming Activity_ node in the _Repositories_ view to be available for everyone (not just if `"gitlens.insiders": true`)
+- Changes the experimental _Incoming Activity_ node in the _Repositories_ view to be available for everyone (not just if `gitlens.insiders` is `true`)
 
 ### Fixed
 
