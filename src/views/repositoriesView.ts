@@ -11,6 +11,7 @@ import {
 import {
 	configuration,
 	RepositoriesViewConfig,
+	ViewBranchesLayout,
 	ViewFilesLayout,
 	ViewsConfig,
 	ViewShowBranchComparison
@@ -59,6 +60,16 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 			this
 		);
 		commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this);
+		commands.registerCommand(
+			this.getQualifiedCommand('setBranchesLayoutToList'),
+			() => this.setBranchesLayout(ViewBranchesLayout.List),
+			this
+		);
+		commands.registerCommand(
+			this.getQualifiedCommand('setBranchesLayoutToTree'),
+			() => this.setBranchesLayout(ViewBranchesLayout.Tree),
+			this
+		);
 		commands.registerCommand(
 			this.getQualifiedCommand('setFilesLayoutToAuto'),
 			() => this.setFilesLayout(ViewFilesLayout.Auto),
@@ -302,6 +313,10 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 		if (!(node instanceof CompareBranchNode)) return undefined;
 
 		return node.setComparisonType(comparisonType);
+	}
+
+	private setBranchesLayout(layout: ViewBranchesLayout) {
+		return configuration.updateEffective('views', 'repositories', 'branches', 'layout', layout);
 	}
 
 	private setFilesLayout(layout: ViewFilesLayout) {

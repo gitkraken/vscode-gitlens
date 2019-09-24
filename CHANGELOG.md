@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds a button to toggle the file layout (list vs. tree vs. auto) to the _Repositories_, _Compare_, and _Search Commits_ views
+- Adds a button to toggle the branch layout (list vs. tree) to the _Branches_ node of the _Repositories_ view
+
 ### Changed
 
 - Changes the experimental _Incoming Activity_ node in the _Repositories_ view to be available for everyone (not just if `"gitlens.insiders": true`)
