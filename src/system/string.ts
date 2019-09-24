@@ -15,6 +15,11 @@ export namespace Strings {
 		Backslash = 92
 	}
 
+	export function base64(s: string): string {
+		const buffer = Buffer.from(s);
+		return buffer.toString('base64');
+	}
+
 	const escapeMarkdownRegex = /[\\`*_{}[\]()#+\-.!]/g;
 	const escapeMarkdownHeaderRegex = /^===/gm;
 	// const sampleMarkdown = '## message `not code` *not important* _no underline_ \n> don\'t quote me \n- don\'t list me \n+ don\'t list me \n1. don\'t list me \nnot h1 \n=== \nnot h2 \n---\n***\n---\n___';
