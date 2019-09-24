@@ -1,5 +1,14 @@
 'use strict';
-import { Disposable, InputBox, QuickInputButton, QuickInputButtons, QuickPick, QuickPickItem, Uri, window } from 'vscode';
+import {
+	Disposable,
+	InputBox,
+	QuickInputButton,
+	QuickInputButtons,
+	QuickPick,
+	QuickPickItem,
+	Uri,
+	window
+} from 'vscode';
 import { command, Command, Commands } from './common';
 import { log } from '../system';
 import {

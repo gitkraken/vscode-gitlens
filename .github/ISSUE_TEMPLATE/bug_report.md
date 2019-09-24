@@ -4,7 +4,6 @@ about: Create a report to help GitLens improve
 title: ''
 labels: 'type: potential bug'
 assignees: ''
-
 ---
 
 <!-- Please search existing issues to avoid creating duplicates. -->
