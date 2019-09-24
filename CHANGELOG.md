@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#858](https://github.com/eamodio/vscode-gitlens/issues/858) - GitHub avatars in blame line hovers are huge
 - Fixes issue with locating a working file when the file is staged or modified
 
 ## [10.0.0]- 2019-09-20

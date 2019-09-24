@@ -129,7 +129,9 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			return emptyStr;
 		}
 
-		let avatar = `![](${this._item.getGravatarUri(Container.config.defaultGravatarsStyle).toString(true)})`;
+		let avatar = `![](${this._item
+			.getGravatarUri(Container.config.defaultGravatarsStyle)
+			.toString(true)}|width=16,height=16)`;
 
 		const presence = this._options.presence;
 		if (presence != null) {
