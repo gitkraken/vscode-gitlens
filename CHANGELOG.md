@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds new actions options to the status bar blame
+  - Adds a `gitlens.showCommitsInView` option to show the commit in the _Search Commits_ view
+  - Adds a `gitlens.revealCommitInView` option to to reveal the commit in the _Repositories_ view
+
 ### Fixed
 
 - Fixes issues with issue linking in hovers

@@ -189,6 +189,8 @@ export enum KeyMap {
 export enum StatusBarCommand {
 	DiffWithPrevious = 'gitlens.diffWithPrevious',
 	DiffWithWorking = 'gitlens.diffWithWorking',
+	RevealCommitInView = 'gitlens.revealCommitInView',
+	ShowCommitsInView = 'gitlens.showCommitsInView',
 	ShowQuickCommitDetails = 'gitlens.showQuickCommitDetails',
 	ShowQuickCommitFileDetails = 'gitlens.showQuickCommitFileDetails',
 	ShowQuickCurrentBranchHistory = 'gitlens.showQuickRepoHistory',

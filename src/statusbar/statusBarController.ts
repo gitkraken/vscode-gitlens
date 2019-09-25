@@ -133,18 +133,24 @@ export class StatusBarController implements Disposable {
 
 		switch (cfg.command) {
 			case StatusBarCommand.ToggleFileBlame:
-				this._blameStatusBarItem.tooltip = 'Toggle Blame Annotations';
+				this._blameStatusBarItem.tooltip = 'Toggle File Blame Annotations';
 				break;
 			case StatusBarCommand.DiffWithPrevious:
 				this._blameStatusBarItem.command = Commands.DiffLineWithPrevious;
-				this._blameStatusBarItem.tooltip = 'Compare Line Revision with Previous';
+				this._blameStatusBarItem.tooltip = 'Open Line Changes with Previous Revision';
 				break;
 			case StatusBarCommand.DiffWithWorking:
 				this._blameStatusBarItem.command = Commands.DiffLineWithWorking;
-				this._blameStatusBarItem.tooltip = 'Compare Line Revision with Working';
+				this._blameStatusBarItem.tooltip = 'Open Line Changes with Working File';
 				break;
 			case StatusBarCommand.ToggleCodeLens:
 				this._blameStatusBarItem.tooltip = 'Toggle Git CodeLens';
+				break;
+			case StatusBarCommand.RevealCommitInView:
+				this._blameStatusBarItem.tooltip = 'Reveal Commit in Repositories View';
+				break;
+			case StatusBarCommand.ShowCommitsInView:
+				this._blameStatusBarItem.tooltip = 'Show Commit in Repositories View';
 				break;
 			case StatusBarCommand.ShowQuickCommitDetails:
 				this._blameStatusBarItem.tooltip = 'Show Commit Details';
