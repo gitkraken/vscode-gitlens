@@ -91,6 +91,14 @@ export class LineAnnotationController implements Disposable {
 		return false;
 	}
 
+	@debug({
+		args: {
+			0: (e: LinesChangeEvent) =>
+				`editor=${e.editor ? e.editor.document.uri.toString(true) : undefined}, lines=${
+					e.lines ? e.lines.join(',') : undefined
+				}, pending=${Boolean(e.pending)}, reason=${e.reason}`
+		}
+	})
 	private onActiveLinesChanged(e: LinesChangeEvent) {
 		if (!e.pending && e.lines !== undefined) {
 			void this.refresh(e.editor);
@@ -140,6 +148,10 @@ export class LineAnnotationController implements Disposable {
 
 		const lines = Container.lineTracker.lines;
 		if (editor === undefined || lines === undefined || !isTextEditor(editor)) {
+			if (cc) {
+				cc.exitDetails = ` ${GlyphChars.Dot} Skipped because there is no valid editor or no valid lines`;
+			}
+
 			this.clear(this._editor);
 			return;
 		}
@@ -154,7 +166,7 @@ export class LineAnnotationController implements Disposable {
 		const cfg = Container.config.currentLine;
 		if (this.suspended) {
 			if (cc) {
-				cc.exitDetails = ` ${GlyphChars.Dot} Skipped because suspended`;
+				cc.exitDetails = ` ${GlyphChars.Dot} Skipped because the controller is suspended`;
 			}
 
 			this.clear(editor);
@@ -164,8 +176,10 @@ export class LineAnnotationController implements Disposable {
 		const trackedDocument = await Container.tracker.getOrAdd(editor.document);
 		if (!trackedDocument.isBlameable && this.suspended) {
 			if (cc) {
-				cc.exitDetails = ` ${GlyphChars.Dot} Skipped because ${
-					this.suspended ? 'suspended' : `document(${trackedDocument.uri.toString(true)}) is not blameable`
+				cc.exitDetails = ` ${GlyphChars.Dot} Skipped because the ${
+					this.suspended
+						? 'controller is suspended'
+						: `document(${trackedDocument.uri.toString(true)}) is not blameable`
 				}`;
 			}
 
@@ -176,7 +190,7 @@ export class LineAnnotationController implements Disposable {
 		// Make sure the editor hasn't died since the await above and that we are still on the same line(s)
 		if (editor.document === undefined || !Container.lineTracker.includesAll(lines)) {
 			if (cc) {
-				cc.exitDetails = ` ${GlyphChars.Dot} Skipped because ${
+				cc.exitDetails = ` ${GlyphChars.Dot} Skipped because the ${
 					editor.document === undefined ? 'editor is gone' : `line(s)=${lines.join()} are no longer current`
 				}`;
 			}
