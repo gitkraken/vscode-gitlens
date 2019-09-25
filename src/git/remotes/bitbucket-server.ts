@@ -2,8 +2,8 @@
 import { Range } from 'vscode';
 import { RemoteProvider } from './provider';
 
-const issueEnricherRegex = /(^|\s)(issue #([0-9]+))\b/gi;
-const prEnricherRegex = /(^|\s)(pull request #([0-9]+))\b/gi;
+const issueEnricherRegex = /(^|\s)(issue \\?#([0-9]+))\b/gi;
+const prEnricherRegex = /(^|\s)(pull request \\?#([0-9]+))\b/gi;
 
 export class BitbucketServerRemote extends RemoteProvider {
 	constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {

@@ -307,6 +307,8 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			return message;
 		}
 
+		message = Strings.escapeMarkdown(message, { quoted: true });
+
 		if (this._options.remotes !== undefined) {
 			for (const r of this._options.remotes) {
 				if (r.provider === undefined) continue;
@@ -316,7 +318,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			}
 		}
 
-		return `\n> ${Strings.escapeMarkdown(message, { quoted: true })}`;
+		return `\n> ${message}`;
 	}
 
 	get sha() {

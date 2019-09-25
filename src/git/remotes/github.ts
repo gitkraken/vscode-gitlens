@@ -2,8 +2,8 @@
 import { Range } from 'vscode';
 import { RemoteProvider } from './provider';
 
-const issueEnricherRegex = /(^|\s)((?:#|gh-)([0-9]+))\b/gi;
-const issueEnricher3rdParyRegex = /\b((\w+-?\w+(?!-)\/\w+-?\w+(?!-))#([0-9]+))\b/g;
+const issueEnricherRegex = /(^|\s)((?:\\?#|gh\\?-)([0-9]+))\b/gi;
+const issueEnricher3rdParyRegex = /\b(\w+\\?-?\w+(?!\\?-)\/\w+\\?-?\w+(?!\\?-))\\?#([0-9]+)\b/g;
 
 export class GitHubRemote extends RemoteProvider {
 	constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
@@ -26,7 +26,7 @@ export class GitHubRemote extends RemoteProvider {
 				// Matches eamodio/vscode-gitlens#123
 				.replace(
 					issueEnricher3rdParyRegex,
-					`[$1](${this.protocol}://${this.domain}/$2/issues/$3 "Open Issue #$3 from $2")`
+					`[$&](${this.protocol}://${this.domain}/$1/issues/$2 "Open Issue #$2 from $1")`
 				)
 		);
 	}

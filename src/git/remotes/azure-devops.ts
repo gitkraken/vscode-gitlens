@@ -2,7 +2,7 @@
 import { Range } from 'vscode';
 import { RemoteProvider } from './provider';
 
-const issueEnricherRegex = /(^|\s)(#([0-9]+))\b/gi;
+const issueEnricherRegex = /(^|\s)\\?(#([0-9]+))\b/gi;
 
 const gitRegex = /\/_git\/?/i;
 const legacyDefaultCollectionRegex = /^DefaultCollection\//i;
@@ -53,8 +53,11 @@ export class AzureDevOpsRemote extends RemoteProvider {
 	enrichMessage(message: string): string {
 		// Strip off any `_git` part from the repo url
 		const baseUrl = this.baseUrl.replace(gitRegex, '/');
-		// Matches #123
-		return message.replace(issueEnricherRegex, `$1[$2](${baseUrl}/_workitems/edit/$3 "Open Work Item $2")`);
+		return (
+			message
+				// Matches #123
+				.replace(issueEnricherRegex, `$1[$2](${baseUrl}/_workitems/edit/$3 "Open Work Item $2")`)
+		);
 	}
 
 	protected getUrlForBranches(): string {
