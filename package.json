@@ -2839,9 +2839,22 @@
 				}
 			},
 			{
-				"command": "gitlens.views.contributor.addCoauthoredBy",
+				"command": "gitlens.views.contributors.addAuthors",
+				"title": "Add Co-authors",
+				"category": "GitLens",
+				"icon": {
+					"dark": "images/dark/icon-person-add.svg",
+					"light": "images/light/icon-person-add.svg"
+				}
+			},
+			{
+				"command": "gitlens.views.contributor.addAuthor",
 				"title": "Add as Co-author",
-				"category": "GitLens"
+				"category": "GitLens",
+				"icon": {
+					"dark": "images/dark/icon-person-add.svg",
+					"light": "images/light/icon-person-add.svg"
+				}
 			},
 			{
 				"command": "gitlens.views.contributor.copyToClipboard",
@@ -3817,7 +3830,11 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.contributor.addCoauthoredBy",
+					"command": "gitlens.views.contributors.addAuthors",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.contributor.addAuthor",
 					"when": "false"
 				},
 				{
@@ -4737,9 +4754,24 @@
 					"group": "8_gitlens_actions@1"
 				},
 				{
+					"command": "gitlens.views.contributors.addAuthors",
+					"when": "viewItem =~ /gitlens:contributors\\b/",
+					"group": "inline@1"
+				},
+				{
+					"command": "gitlens.views.contributors.addAuthors",
+					"when": "viewItem =~ /gitlens:contributors\\b/",
+					"group": "1_gitlens_actions@1"
+				},
+				{
 					"command": "gitlens.inviteToLiveShare",
 					"when": "gitlens:vsls && gitlens:vsls != guest && viewItem =~ /gitlens:contributor\\b/",
-					"group": "inline@97"
+					"group": "inline@1"
+				},
+				{
+					"command": "gitlens.views.contributor.addAuthor",
+					"when": "viewItem =~ /gitlens:contributor\\b/",
+					"group": "inline@2"
 				},
 				{
 					"command": "gitlens.views.contributor.copyToClipboard",
@@ -4752,7 +4784,7 @@
 					"group": "1_gitlens_actions@1"
 				},
 				{
-					"command": "gitlens.views.contributor.addCoauthoredBy",
+					"command": "gitlens.views.contributor.addAuthor",
 					"when": "viewItem =~ /gitlens:contributor\\b/",
 					"group": "1_gitlens_actions@2"
 				},

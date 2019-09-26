@@ -22,6 +22,7 @@ import {
 	CompareBranchNode,
 	CompareResultsNode,
 	ContributorNode,
+	ContributorsNode,
 	FileHistoryNode,
 	FolderNode,
 	LineHistoryNode,
@@ -40,7 +41,7 @@ import {
 	ViewRefNode,
 	viewSupportsNodeDismissal
 } from './nodes';
-import { debug, Strings } from '../system';
+import { debug } from '../system';
 import { runGitCommandInTerminal } from '../terminal';
 
 interface CompareSelectedInfo {
@@ -105,7 +106,8 @@ export class ViewCommands {
 
 		commands.registerCommand('gitlens.views.exploreRepoAtRevision', this.exploreRepoAtRevision, this);
 
-		commands.registerCommand('gitlens.views.contributor.addCoauthoredBy', this.contributorAddCoAuthoredBy, this);
+		commands.registerCommand('gitlens.views.contributors.addAuthors', this.contributorsAddAuthors, this);
+		commands.registerCommand('gitlens.views.contributor.addAuthor', this.contributorsAddAuthors, this);
 		commands.registerCommand('gitlens.views.contributor.copyToClipboard', this.contributorCopyToClipboard, this);
 
 		commands.registerCommand('gitlens.views.openChanges', this.openChanges, this);
@@ -232,32 +234,16 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private async contributorAddCoAuthoredBy(node: ContributorNode) {
-		if (!(node instanceof ContributorNode)) return;
+	private async contributorsAddAuthors(node: ContributorNode | ContributorsNode) {
+		if (!(node instanceof ContributorNode) && !(node instanceof ContributorsNode)) return undefined;
 
-		const gitApi = await GitService.getBuiltInGitApi();
-		if (gitApi === undefined) return;
+		const repo = await Container.git.getRepository(node.uri.repoPath!);
 
-		const repo = gitApi.repositories.find(
-			r => Strings.normalizePath(r.rootUri.fsPath) === node.contributor.repoPath
-		);
-		if (repo === undefined) return;
-
-		const coauthor = `${node.contributor.name}${node.contributor.email ? ` <${node.contributor.email}>` : ''}`;
-
-		const message = repo.inputBox.value;
-		if (message.includes(coauthor)) return;
-
-		let newlines;
-		if (message.includes('Co-authored-by: ')) {
-			newlines = '\n';
-		} else if (message.length !== 0 && message.endsWith('\n')) {
-			newlines = '\n\n';
-		} else {
-			newlines = '\n\n\n';
-		}
-
-		repo.inputBox.value = `${message}${newlines}Co-authored-by: ${coauthor}`;
+		const args: GitCommandsCommandArgs = {
+			command: 'co-authors',
+			state: { repo: repo, contributors: node instanceof ContributorNode ? [node.contributor] : undefined }
+		};
+		return commands.executeCommand(Commands.GitCommands, args);
 	}
 
 	@debug()

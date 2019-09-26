@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds better co-author support &mdash; closes [#373](https://github.com/eamodio/vscode-gitlens/issues/373)
+  - Adds a new _co-author_ command to the _Git Commands_ quick pick menu to add a co-author to a commit message
+  - Adds a new _Add Co-authors_ command to the inline toolbar and context menu for the _Contributors_ node in the _Repositories_ view
+  - Adds the _Add as Co-author_ command to the inline toolbar for the contributors in the _Repositories_ view
 - Adds new actions options to the status bar blame
   - Adds a `gitlens.showCommitsInView` option to show the commit in the _Search Commits_ view
   - Adds a `gitlens.revealCommitInView` option to to reveal the commit in the _Repositories_ view

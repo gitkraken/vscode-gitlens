@@ -21,6 +21,7 @@ import {
 } from './quickCommand';
 import { Directive, DirectiveQuickPickItem } from '../quickpicks';
 import { CherryPickGitCommand, CherryPickGitCommandArgs } from './git/cherry-pick';
+import { CoAuthorsGitCommand, CoAuthorsGitCommandArgs } from './git/coauthors';
 import { FetchGitCommand, FetchGitCommandArgs } from './git/fetch';
 import { MergeGitCommand, MergeGitCommandArgs } from './git/merge';
 import { PullGitCommand, PullGitCommandArgs } from './git/pull';
@@ -39,6 +40,7 @@ const sanitizeLabel = /\$\(.+?\)|\s/g;
 
 export type GitCommandsCommandArgs =
 	| CherryPickGitCommandArgs
+	| CoAuthorsGitCommandArgs
 	| FetchGitCommandArgs
 	| MergeGitCommandArgs
 	| PullGitCommandArgs
@@ -593,6 +595,7 @@ class PickCommandStep implements QuickPickStep {
 	constructor(args?: GitCommandsCommandArgs) {
 		this.items = [
 			new CherryPickGitCommand(args && args.command === 'cherry-pick' ? args : undefined),
+			new CoAuthorsGitCommand(args && args.command === 'co-authors' ? args : undefined),
 			new MergeGitCommand(args && args.command === 'merge' ? args : undefined),
 			new FetchGitCommand(args && args.command === 'fetch' ? args : undefined),
 			new PullGitCommand(args && args.command === 'pull' ? args : undefined),

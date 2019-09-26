@@ -4,6 +4,7 @@ import { GlyphChars } from '../constants';
 import { Dates, Strings } from '../system';
 import {
 	GitBranch,
+	GitContributor,
 	GitLogCommit,
 	GitReference,
 	GitRemoteType,
@@ -228,6 +229,20 @@ export namespace CommitQuickPickItem {
 			})}`,
 			picked: picked,
 			item: commit
+		};
+		return item;
+	}
+}
+
+export interface ContributorQuickPickItem extends QuickPickItemOfT<GitContributor> {}
+
+export namespace ContributorQuickPickItem {
+	export function create(contributor: GitContributor, picked?: boolean, options: {} = {}): ContributorQuickPickItem {
+		const item: ContributorQuickPickItem = {
+			label: contributor.name,
+			description: contributor.email,
+			picked: picked,
+			item: contributor
 		};
 		return item;
 	}
