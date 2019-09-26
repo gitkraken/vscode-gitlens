@@ -446,7 +446,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 				state.subcommand = selection[0].command;
 			}
 
-			void Container.git.stashApply(state.repo.path, state.stash!.stashName, state.subcommand === 'pop');
+			void state.repo.stashApply(state.stash!.stashName, { deleteAfter: state.subcommand === 'pop' });
 
 			throw new BreakQuickCommand();
 		}
@@ -558,7 +558,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 				break;
 			}
 
-			void Container.git.stashDelete(state.repo.path, state.stash.stashName);
+			void state.repo.stashDelete(state.stash.stashName);
 
 			throw new BreakQuickCommand();
 		}
@@ -746,7 +746,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 				state.flags = selection[0].item;
 			}
 
-			void Container.git.stashSave(state.repo.path, state.message, state.uris, {
+			void state.repo.stashSave(state.message, state.uris, {
 				includeUntracked: state.flags.includes('--include-untracked'),
 				keepIndex: state.flags.includes('--keep-index')
 			});

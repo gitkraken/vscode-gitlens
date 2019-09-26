@@ -19,7 +19,6 @@ import {
 	RepositoryQuickPickItem
 } from '../../quickpicks';
 import { Strings } from '../../system';
-import { runGitCommandInTerminal } from '../../terminal';
 import { Logger } from '../../logger';
 
 type Flags = '--ff-only' | '--no-ff' | '--squash';
@@ -64,7 +63,7 @@ export class MergeGitCommand extends QuickCommandBase<State> {
 	}
 
 	execute(state: State) {
-		runGitCommandInTerminal('merge', [...state.flags, state.reference.ref].join(' '), state.repo.path, true);
+		return state.repo.merge(...state.flags, state.reference.ref);
 	}
 
 	protected async *steps(): StepAsyncGenerator {

@@ -23,6 +23,7 @@ import { RemoteProviderFactory, RemoteProviders } from '../remotes/factory';
 import { Messages } from '../../messages';
 import { Logger } from '../../logger';
 import { logName } from '../../system/decorators/log';
+import { runGitCommandInTerminal } from '../../terminal';
 
 export enum RepositoryChange {
 	Config = 'config',
@@ -35,9 +36,7 @@ export enum RepositoryChange {
 }
 
 export class RepositoryChangeEvent {
-	readonly changes: RepositoryChange[] = [];
-
-	constructor(public readonly repository?: Repository) {}
+	constructor(public readonly repository?: Repository, public readonly changes: RepositoryChange[] = []) {}
 
 	changed(change: RepositoryChange, solely: boolean = false) {
 		if (solely) return this.changes.length === 1 && this.changes[0] === change;
@@ -98,7 +97,7 @@ export class Repository implements Disposable {
 		public readonly folder: WorkspaceFolder,
 		public readonly path: string,
 		public readonly root: boolean,
-		private readonly onAnyRepositoryChanged: (repo: Repository, reason: RepositoryChange) => void,
+		private readonly onAnyRepositoryChanged: (repo: Repository, e: RepositoryChangeEvent) => void,
 		suspended: boolean,
 		closed: boolean = false
 	) {
@@ -183,7 +182,7 @@ export class Repository implements Disposable {
 		this.fireFileSystemChange(uri);
 	}
 
-	private onRepositoryChanged(uri: Uri) {
+	private onRepositoryChanged(uri: Uri | undefined) {
 		if (uri !== undefined && uri.path.endsWith('refs/stash')) {
 			this.fireChange(RepositoryChange.Stashes);
 
@@ -212,7 +211,6 @@ export class Repository implements Disposable {
 			return;
 		}
 
-		this.onAnyRepositoryChanged(this, RepositoryChange.Repository);
 		this.fireChange(RepositoryChange.Repository);
 	}
 
@@ -224,7 +222,6 @@ export class Repository implements Disposable {
 		const changed = this._closed !== value;
 		this._closed = value;
 		if (changed) {
-			this.onAnyRepositoryChanged(this, RepositoryChange.Closed);
 			this.fireChange(RepositoryChange.Closed);
 		}
 	}
@@ -254,6 +251,12 @@ export class Repository implements Disposable {
 			Logger.error(ex);
 			Messages.showGenericErrorMessage('Unable to checkout repository');
 		}
+	}
+
+	@gate(() => '')
+	@log()
+	cherryPick(...args: any[]) {
+		this.runTerminalCommand('cherry-pick', ...args);
 	}
 
 	containsUri(uri: Uri) {
@@ -368,6 +371,12 @@ export class Repository implements Disposable {
 		return branch !== undefined && branch.tracking !== undefined;
 	}
 
+	@gate(() => '')
+	@log()
+	merge(...args: any[]) {
+		this.runTerminalCommand('merge', ...args);
+	}
+
 	@gate()
 	@log()
 	async pull(options: { progress?: boolean; rebase?: boolean } = {}) {
@@ -425,6 +434,18 @@ export class Repository implements Disposable {
 		}
 	}
 
+	@gate(() => '')
+	@log()
+	rebase(...args: any[]) {
+		this.runTerminalCommand('rebase', ...args);
+	}
+
+	@gate(() => '')
+	@log()
+	reset(...args: any[]) {
+		this.runTerminalCommand('reset', ...args);
+	}
+
 	resume() {
 		if (!this._suspended) return;
 
@@ -441,6 +462,12 @@ export class Repository implements Disposable {
 		}
 	}
 
+	@gate()
+	@log()
+	revert(...args: any[]) {
+		this.runTerminalCommand('revert', ...args);
+	}
+
 	get starred() {
 		const starred = Container.context.workspaceState.get<StarredRepositories>(WorkspaceState.StarredRepositories);
 		return starred !== undefined && starred[this.id] === true;
@@ -448,6 +475,33 @@ export class Repository implements Disposable {
 
 	star() {
 		return this.updateStarred(true);
+	}
+
+	@gate(() => '')
+	@log()
+	async stashApply(stashName: string, options: { deleteAfter?: boolean } = {}) {
+		void (await Container.git.stashApply(this.path, stashName, options));
+		if (!this.supportsChangeEvents) {
+			this.fireChange(RepositoryChange.Stashes);
+		}
+	}
+
+	@gate(() => '')
+	@log()
+	async stashDelete(stashName: string) {
+		void (await Container.git.stashDelete(this.path, stashName));
+		if (!this.supportsChangeEvents) {
+			this.fireChange(RepositoryChange.Stashes);
+		}
+	}
+
+	@gate(() => '')
+	@log()
+	async stashSave(message?: string, uris?: Uri[], options: { includeUntracked?: boolean; keepIndex?: boolean } = {}) {
+		void (await Container.git.stashSave(this.path, message, uris, options));
+		if (!this.supportsChangeEvents) {
+			this.fireChange(RepositoryChange.Stashes);
+		}
 	}
 
 	unstar() {
@@ -497,7 +551,9 @@ export class Repository implements Disposable {
 		this._suspended = true;
 	}
 
-	private fireChange(...reasons: RepositoryChange[]) {
+	private fireChange(...changes: RepositoryChange[]) {
+		this.onAnyRepositoryChanged(this, new RepositoryChangeEvent(this, changes));
+
 		if (this._fireChangeDebounced === undefined) {
 			this._fireChangeDebounced = Functions.debounce(this.fireChangeCore.bind(this), 250);
 		}
@@ -508,7 +564,7 @@ export class Repository implements Disposable {
 
 		const e = this._pendingChanges.repo;
 
-		for (const reason of reasons) {
+		for (const reason of changes) {
 			if (!e.changes.includes(reason)) {
 				e.changes.push(reason);
 			}
@@ -546,5 +602,12 @@ export class Repository implements Disposable {
 		this._pendingChanges.fs = undefined;
 
 		this._onDidChangeFileSystem.fire(e);
+	}
+
+	private runTerminalCommand(command: string, ...args: any[]) {
+		runGitCommandInTerminal(command, args.join(' '), this.path, true);
+		if (!this.supportsChangeEvents) {
+			this.fireChange(RepositoryChange.Repository);
+		}
 	}
 }

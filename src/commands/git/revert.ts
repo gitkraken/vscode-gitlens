@@ -6,7 +6,6 @@ import { GlyphChars } from '../../constants';
 import { Iterables, Strings } from '../../system';
 import { QuickCommandBase, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
 import { CommitQuickPickItem, Directive, DirectiveQuickPickItem, RepositoryQuickPickItem } from '../../quickpicks';
-import { runGitCommandInTerminal } from '../../terminal';
 import { Logger } from '../../logger';
 
 interface State {
@@ -48,12 +47,7 @@ export class RevertGitCommand extends QuickCommandBase<State> {
 	}
 
 	execute(state: State) {
-		runGitCommandInTerminal(
-			'revert',
-			[...state.references!.map(c => c.ref).reverse()].join(' '),
-			state.repo.path,
-			true
-		);
+		return state.repo.revert(...state.references!.map(c => c.ref).reverse());
 	}
 
 	protected async *steps(): StepAsyncGenerator {

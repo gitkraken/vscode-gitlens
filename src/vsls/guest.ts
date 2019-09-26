@@ -2,7 +2,7 @@
 import { CancellationToken, Disposable, window, WorkspaceFolder } from 'vscode';
 import { LiveShare, SharedServiceProxy } from 'vsls';
 import { CommandContext, setCommandContext } from '../constants';
-import { GitCommandOptions, Repository, RepositoryChange } from '../git/git';
+import { GitCommandOptions, Repository, RepositoryChangeEvent } from '../git/git';
 import { Logger } from '../logger';
 import { debug, log } from '../system';
 import { VslsHostService } from './host';
@@ -61,7 +61,7 @@ export class VslsGuestService implements Disposable {
 	@log()
 	async getRepositoriesInFolder(
 		folder: WorkspaceFolder,
-		onAnyRepositoryChanged: (repo: Repository, reason: RepositoryChange) => void
+		onAnyRepositoryChanged: (repo: Repository, e: RepositoryChangeEvent) => void
 	): Promise<Repository[]> {
 		const response = await this.sendRequest(RepositoriesInFolderRequestType, {
 			folderUri: folder.uri.toString(true)

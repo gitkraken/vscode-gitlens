@@ -21,7 +21,6 @@ import {
 	ReferencesQuickPickItem,
 	RepositoryQuickPickItem
 } from '../../quickpicks';
-import { runGitCommandInTerminal } from '../../terminal';
 import { Logger } from '../../logger';
 
 type Flags = '--edit';
@@ -66,12 +65,7 @@ export class CherryPickGitCommand extends QuickCommandBase<State> {
 	}
 
 	execute(state: State) {
-		runGitCommandInTerminal(
-			'cherry-pick',
-			[...state.flags, ...state.references!.map(c => c.ref).reverse()].join(' '),
-			state.repo.path,
-			true
-		);
+		return state.repo.cherryPick(...state.flags, ...state.references!.map(c => c.ref).reverse());
 	}
 
 	isMatch(name: string) {

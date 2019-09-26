@@ -66,7 +66,8 @@ import {
 	GitTree,
 	GitTreeParser,
 	Repository,
-	RepositoryChange
+	RepositoryChange,
+	RepositoryChangeEvent
 } from './git';
 import { GitUri } from './gitUri';
 import { RemoteProviderFactory, RemoteProviders } from './remotes/factory';
@@ -224,17 +225,19 @@ export class GitService implements Disposable {
 		return Container.config.advanced.caching.enabled;
 	}
 
-	private onAnyRepositoryChanged(repo: Repository, reason: RepositoryChange) {
+	private onAnyRepositoryChanged(repo: Repository, e: RepositoryChangeEvent) {
+		if (e.changed(RepositoryChange.Stashes, true)) return;
+
 		this._branchesCache.delete(repo.path);
 		this._tagsCache.delete(repo.path);
 		this._tagsWithRefsCache.clear();
 		this._trackedCache.clear();
 
-		if (reason === RepositoryChange.Config) {
+		if (e.changed(RepositoryChange.Config)) {
 			this._userMapCache.delete(repo.path);
 		}
 
-		if (reason === RepositoryChange.Closed) {
+		if (e.changed(RepositoryChange.Closed)) {
 			// Send a notification that the repositories changed
 			setImmediate(async () => {
 				await this.updateContext(this._repositoryTree);
@@ -2808,8 +2811,8 @@ export class GitService implements Disposable {
 	}
 
 	@log()
-	stashApply(repoPath: string, stashName: string, deleteAfter: boolean = false) {
-		return Git.stash__apply(repoPath, stashName, deleteAfter);
+	stashApply(repoPath: string, stashName: string, { deleteAfter }: { deleteAfter?: boolean } = {}) {
+		return Git.stash__apply(repoPath, stashName, Boolean(deleteAfter));
 	}
 
 	@log()

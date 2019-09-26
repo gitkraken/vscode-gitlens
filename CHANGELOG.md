@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#826](https://github.com/eamodio/vscode-gitlens/issues/826) - Deleting stash doesn't remove the stash from the list - have to refresh
 - Fixes issues with issue linking in hovers
 
 ## [10.0.1] - 2019-09-24

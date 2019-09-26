@@ -22,7 +22,6 @@ import {
 	RepositoryQuickPickItem
 } from '../../quickpicks';
 import { Iterables, Strings } from '../../system';
-import { runGitCommandInTerminal } from '../../terminal';
 import { Logger } from '../../logger';
 
 type Flags = '--interactive';
@@ -80,7 +79,7 @@ export class RebaseGitCommand extends QuickCommandBase<State> {
 	}
 
 	execute(state: State) {
-		runGitCommandInTerminal('rebase', [...state.flags, state.reference.ref].join(' '), state.repo.path, true);
+		return state.repo.rebase(...state.flags, state.reference.ref);
 	}
 
 	protected async *steps(): StepAsyncGenerator {

@@ -12,7 +12,6 @@ import {
 	FlagsQuickPickItem,
 	RepositoryQuickPickItem
 } from '../../quickpicks';
-import { runGitCommandInTerminal } from '../../terminal';
 import { Logger } from '../../logger';
 
 type Flags = '--hard';
@@ -55,7 +54,7 @@ export class ResetGitCommand extends QuickCommandBase<State> {
 	}
 
 	execute(state: State) {
-		runGitCommandInTerminal('reset', [...state.flags, state.reference!.ref].join(' '), state.repo.path, true);
+		return state.repo.reset(...state.flags, state.reference!.ref);
 	}
 
 	protected async *steps(): StepAsyncGenerator {
