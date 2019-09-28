@@ -61,7 +61,7 @@ export class RemoteNode extends ViewNode<RepositoriesView> {
 			'',
 			undefined,
 			hierarchy,
-			`remote(${this.remote.name}`
+			`remote(${this.remote.name})`
 		);
 		const children = root.getChildren() as (BranchOrTagFolderNode | BranchNode)[];
 
