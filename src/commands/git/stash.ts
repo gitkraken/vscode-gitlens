@@ -62,15 +62,15 @@ interface PushState {
 type State = ApplyState | DropState | ListState | PopState | PushState;
 type StashStepState<T> = StepState<T> & { repo: Repository };
 
-const subcommandToSubtitleMap = new Map<State['subcommand'], string>([
+const subcommandToTitleMap = new Map<State['subcommand'], string>([
 	['apply', 'Apply'],
 	['drop', 'Drop'],
 	['list', 'List'],
 	['pop', 'Pop'],
 	['push', 'Push']
 ]);
-function getSubtitle(subcommand: State['subcommand'] | undefined) {
-	return subcommand === undefined ? '' : subcommandToSubtitleMap.get(subcommand);
+function getTitle(title: string, subcommand: State['subcommand'] | undefined) {
+	return subcommand === undefined ? title : `${subcommandToTitleMap.get(subcommand)} ${title}`;
 }
 
 export interface StashGitCommandArgs {
@@ -216,7 +216,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 						const active = state.repo ? state.repo : await Container.git.getActiveRepository();
 
 						const step = this.createPickStep<RepositoryQuickPickItem>({
-							title: `${this.title} ${getSubtitle(state.subcommand)}`,
+							title: getTitle(this.title, state.subcommand),
 							placeholder: 'Choose a repository',
 							items: await Promise.all(
 								repos.map(r =>
@@ -320,7 +320,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 				const stash = await Container.git.getStashList(state.repo.path);
 
 				const step = this.createPickStep<CommitQuickPickItem<GitStashCommit>>({
-					title: `${this.title} ${getSubtitle(state.subcommand)}${Strings.pad(GlyphChars.Dot, 2, 2)}${
+					title: `${getTitle(this.title, state.subcommand)}${Strings.pad(GlyphChars.Dot, 2, 2)}${
 						state.repo.formattedName
 					}`,
 					placeholder:
@@ -367,8 +367,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 					onDidPressKey: async (quickpick, key) => {
 						if (quickpick.activeItems.length === 0) return;
 
-						const stash = quickpick.activeItems[0].item;
-						await Container.repositoriesView.revealStash(stash, {
+						await Container.repositoriesView.revealStash(quickpick.activeItems[0].item, {
 							select: true,
 							focus: false,
 							expand: true
@@ -391,12 +390,12 @@ export class StashGitCommand extends QuickCommandBase<State> {
 						: state.stash.message;
 
 				const step = this.createConfirmStep<QuickPickItem & { command: 'apply' | 'pop' }>(
-					`Confirm ${this.title} ${getSubtitle(state.subcommand)}${Strings.pad(GlyphChars.Dot, 2, 2)}${
+					`Confirm ${getTitle(this.title, state.subcommand)}${Strings.pad(GlyphChars.Dot, 2, 2)}${
 						state.repo.formattedName
 					}`,
 					[
 						{
-							label: `${this.title} ${getSubtitle(state.subcommand)}`,
+							label: getTitle(this.title, state.subcommand),
 							description: `${state.stash.stashName}${Strings.pad(GlyphChars.Dash, 2, 2)}${message}`,
 							detail:
 								state.subcommand === 'pop'
@@ -410,7 +409,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 						},
 						// Alternate confirmation (if pop then apply, and vice versa)
 						{
-							label: `${this.title} ${state.subcommand === 'pop' ? 'Apply' : 'Pop'}`,
+							label: getTitle(this.title, state.subcommand === 'pop' ? 'apply' : 'pop'),
 							description: `${state.stash!.stashName}${Strings.pad(GlyphChars.Dash, 2, 2)}${message}`,
 							detail:
 								state.subcommand === 'pop'
@@ -425,7 +424,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 					],
 					undefined,
 					{
-						placeholder: `Confirm ${this.title} ${getSubtitle(state.subcommand)}`,
+						placeholder: `Confirm ${getTitle(this.title, state.subcommand)}`,
 						additionalButtons: [this.Buttons.RevealInView],
 						onDidClickButton: (quickpick, button) => {
 							if (button === this.Buttons.RevealInView) {
@@ -460,7 +459,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 				const stash = await Container.git.getStashList(state.repo.path);
 
 				const step = this.createPickStep<CommitQuickPickItem<GitStashCommit>>({
-					title: `${this.title} ${getSubtitle(state.subcommand)}${Strings.pad(GlyphChars.Dot, 2, 2)}${
+					title: `${getTitle(this.title, state.subcommand)}${Strings.pad(GlyphChars.Dot, 2, 2)}${
 						state.repo.formattedName
 					}`,
 					placeholder:
@@ -505,8 +504,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 					onDidPressKey: async (quickpick, key) => {
 						if (quickpick.activeItems.length === 0) return;
 
-						const stash = quickpick.activeItems[0].item;
-						await Container.repositoriesView.revealStash(stash, {
+						await Container.repositoriesView.revealStash(quickpick.activeItems[0].item, {
 							select: true,
 							focus: false,
 							expand: true
@@ -528,19 +526,19 @@ export class StashGitCommand extends QuickCommandBase<State> {
 					: state.stash.message;
 
 			const step = this.createConfirmStep(
-				`Confirm ${this.title} ${getSubtitle(state.subcommand)}${Strings.pad(GlyphChars.Dot, 2, 2)}${
+				`Confirm ${getTitle(this.title, state.subcommand)}${Strings.pad(GlyphChars.Dot, 2, 2)}${
 					state.repo.formattedName
 				}`,
 				[
 					{
-						label: `${this.title} ${getSubtitle(state.subcommand)}`,
+						label: getTitle(this.title, state.subcommand),
 						description: `${state.stash.stashName}${Strings.pad(GlyphChars.Dash, 2, 2)}${message}`,
 						detail: `Will delete ${state.stash.stashName}`
 					}
 				],
 				undefined,
 				{
-					placeholder: `Confirm ${this.title} ${getSubtitle(state.subcommand)}`,
+					placeholder: `Confirm ${getTitle(this.title, state.subcommand)}`,
 					additionalButtons: [this.Buttons.RevealInView],
 					onDidClickButton: (quickpick, button) => {
 						if (button === this.Buttons.RevealInView) {
@@ -573,7 +571,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 			const stash = await Container.git.getStashList(state.repo.path);
 
 			const step = this.createPickStep<CommitQuickPickItem<GitStashCommit>>({
-				title: `${this.title} ${getSubtitle(state.subcommand)}${Strings.pad(GlyphChars.Dot, 2, 2)}${
+				title: `${getTitle(this.title, state.subcommand)}${Strings.pad(GlyphChars.Dot, 2, 2)}${
 					state.repo.formattedName
 				}`,
 				placeholder: stash === undefined ? `${state.repo.formattedName} has no stashes` : 'Choose a stash',
@@ -613,8 +611,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 				onDidPressKey: async (quickpick, key) => {
 					if (quickpick.activeItems.length === 0) return;
 
-					const stash = quickpick.activeItems[0].item;
-					await Container.repositoriesView.revealStash(stash, {
+					await Container.repositoriesView.revealStash(quickpick.activeItems[0].item, {
 						select: true,
 						focus: false,
 						expand: true
@@ -631,7 +628,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 
 			if (pickedStash !== undefined) {
 				const step = this.createPickStep<CommandQuickPickItem>({
-					title: `${this.title} ${getSubtitle(state.subcommand)}${Strings.pad(GlyphChars.Dot, 2, 2)}${
+					title: `${getTitle(this.title, state.subcommand)}${Strings.pad(GlyphChars.Dot, 2, 2)}${
 						state.repo.formattedName
 					}${Strings.pad(GlyphChars.Dot, 2, 2)}${pickedStash.shortSha}`,
 					placeholder: `${
@@ -675,7 +672,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 		while (true) {
 			if (state.message === undefined || state.counter < 3) {
 				const step = this.createInputStep({
-					title: `${this.title} ${getSubtitle(state.subcommand)}${Strings.pad(GlyphChars.Dot, 2, 2)}${
+					title: `${getTitle(this.title, state.subcommand)}${Strings.pad(GlyphChars.Dot, 2, 2)}${
 						state.repo.formattedName
 					}`,
 					placeholder: 'Please provide a stash message',
@@ -693,30 +690,30 @@ export class StashGitCommand extends QuickCommandBase<State> {
 
 			if (this.confirm(state.confirm)) {
 				const step: QuickPickStep<FlagsQuickPickItem<PushFlags>> = this.createConfirmStep(
-					`Confirm ${this.title} ${getSubtitle(state.subcommand)}${Strings.pad(GlyphChars.Dot, 2, 2)}${
+					`Confirm ${getTitle(this.title, state.subcommand)}${Strings.pad(GlyphChars.Dot, 2, 2)}${
 						state.repo.formattedName
 					}`,
 					state.uris === undefined || state.uris.length === 0
 						? [
 								FlagsQuickPickItem.create<PushFlags>(state.flags, [], {
-									label: `${this.title} ${getSubtitle(state.subcommand)}`,
+									label: getTitle(this.title, state.subcommand),
 									description: state.message,
 									detail: 'Will stash uncommitted changes'
 								}),
 								FlagsQuickPickItem.create<PushFlags>(state.flags, ['--include-untracked'], {
-									label: `${this.title} ${getSubtitle(state.subcommand)} & Include Untracked`,
+									label: `${getTitle(this.title, state.subcommand)} & Include Untracked`,
 									description: `--include-untracked ${state.message}`,
 									detail: 'Will stash uncommitted changes, including untracked files'
 								}),
 								FlagsQuickPickItem.create<PushFlags>(state.flags, ['--keep-index'], {
-									label: `${this.title} ${getSubtitle(state.subcommand)} & Keep Staged`,
+									label: `${getTitle(this.title, state.subcommand)} & Keep Staged`,
 									description: `--keep-index ${state.message}`,
 									detail: 'Will stash uncommitted changes, but will keep staged files intact'
 								})
 						  ]
 						: [
 								FlagsQuickPickItem.create<PushFlags>(state.flags, [], {
-									label: `${this.title} ${getSubtitle(state.subcommand)}`,
+									label: getTitle(this.title, state.subcommand),
 									description: state.message,
 									detail: `Will stash changes in ${
 										state.uris.length === 1
@@ -725,7 +722,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 									}`
 								}),
 								FlagsQuickPickItem.create<PushFlags>(state.flags, ['--keep-index'], {
-									label: `${this.title} ${getSubtitle(state.subcommand)} & Keep Staged`,
+									label: `${getTitle(this.title, state.subcommand)} & Keep Staged`,
 									description: `--keep-index ${state.message}`,
 									detail: `Will stash changes in ${
 										state.uris.length === 1
@@ -735,7 +732,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 								})
 						  ],
 					undefined,
-					{ placeholder: `Confirm ${this.title} ${getSubtitle(state.subcommand)}` }
+					{ placeholder: `Confirm ${getTitle(this.title, state.subcommand)}` }
 				);
 				const selection: StepSelection<typeof step> = yield step;
 
