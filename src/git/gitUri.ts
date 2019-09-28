@@ -268,32 +268,62 @@ export class GitUri extends ((Uri as any) as UriEx) {
 
 		// If this is a git uri, find its repoPath
 		if (uri.scheme === DocumentSchemes.Git) {
-			const data: { path: string; ref: string } = JSON.parse(uri.query);
+			try {
+				const data: { path: string; ref: string } = JSON.parse(uri.query);
 
-			const repoPath = await Container.git.getRepoPath(data.path);
+				const repoPath = await Container.git.getRepoPath(data.path);
 
-			let ref;
-			switch (data.ref) {
-				case emptyStr:
-				case '~':
-					ref = GitService.uncommittedStagedSha;
-					break;
+				let ref;
+				switch (data.ref) {
+					case emptyStr:
+					case '~':
+						ref = GitService.uncommittedStagedSha;
+						break;
 
-				case null:
-					ref = undefined;
-					break;
+					case null:
+						ref = undefined;
+						break;
 
-				default:
-					ref = data.ref;
-					break;
-			}
+					default:
+						ref = data.ref;
+						break;
+				}
 
-			const commitish: GitCommitish = {
-				fileName: data.path,
-				repoPath: repoPath!,
-				sha: ref
-			};
-			return new GitUri(uri, commitish);
+				const commitish: GitCommitish = {
+					fileName: data.path,
+					repoPath: repoPath!,
+					sha: ref
+				};
+				return new GitUri(uri, commitish);
+			} catch {}
+		}
+
+		if (uri.scheme === DocumentSchemes.PRs) {
+			try {
+				const data: {
+					baseCommit: string;
+					headCommit: string;
+					isBase: boolean;
+					fileName: string;
+					prNumber: number;
+					status: number;
+					remoteName: string;
+				} = JSON.parse(uri.query);
+
+				let repoPath = Strings.normalizePath(uri.fsPath);
+				if (repoPath.endsWith(data.fileName)) {
+					repoPath = repoPath.substr(0, repoPath.length - data.fileName.length - 1);
+				} else {
+					repoPath = (await Container.git.getRepoPath(uri.fsPath))!;
+				}
+
+				const commitish: GitCommitish = {
+					fileName: data.fileName,
+					repoPath: repoPath,
+					sha: data.isBase ? data.baseCommit : data.headCommit
+				};
+				return new GitUri(uri, commitish);
+			} catch {}
 		}
 
 		return new GitUri(uri, await Container.git.getRepoPath(uri));

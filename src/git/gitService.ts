@@ -2606,9 +2606,10 @@ export class GitService implements Disposable {
 		const scheme = typeof schemeOruri === 'string' ? schemeOruri : schemeOruri.scheme;
 		return (
 			scheme === DocumentSchemes.File ||
-			scheme === DocumentSchemes.Vsls ||
 			scheme === DocumentSchemes.Git ||
-			scheme === DocumentSchemes.GitLens
+			scheme === DocumentSchemes.GitLens ||
+			scheme === DocumentSchemes.PRs ||
+			scheme === DocumentSchemes.Vsls
 		);
 	}
 

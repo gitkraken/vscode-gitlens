@@ -57,6 +57,7 @@ export enum DocumentSchemes {
 	Git = 'git',
 	GitLens = 'gitlens',
 	Output = 'output',
+	PRs = 'pr',
 	Vsls = 'vsls'
 }
 
