@@ -613,7 +613,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		};
 		lens.command = {
 			title: title,
-			command: Commands.ShowCommitsInView,
+			command: refs.length === 0 ? '' : Commands.ShowCommitsInView,
 			arguments: [commandArgs]
 		};
 		return lens;
