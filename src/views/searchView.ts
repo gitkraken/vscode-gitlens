@@ -135,7 +135,7 @@ export class SearchView extends ViewBase<SearchNode> {
 				this._root!,
 				repoPath,
 				search,
-				`${typeof label === 'string' ? label : label.label}`,
+				`Results ${typeof label === 'string' ? label : label.label}`,
 				searchQueryFn
 			)
 		);
