@@ -1,6 +1,6 @@
 'use strict';
 import * as paths from 'path';
-import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
+import { commands, QuickPickItem, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import {
 	Commands,
 	CopyMessageToClipboardCommandArgs,
@@ -32,7 +32,6 @@ import {
 	getQuickPickIgnoreFocusOut,
 	KeyCommandQuickPickItem,
 	OpenInSearchCommitsViewQuickPickItem,
-	QuickPickItem,
 	RevealInRepositoriesViewQuickPickItem
 } from './commonQuickPicks';
 import { OpenRemotesCommandQuickPickItem } from './remotesQuickPick';

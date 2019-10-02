@@ -1,6 +1,6 @@
 'use strict';
 import * as paths from 'path';
-import { commands, TextDocumentShowOptions, TextEditor, window } from 'vscode';
+import { commands, QuickPickItem, TextDocumentShowOptions, TextEditor, window } from 'vscode';
 import {
 	Commands,
 	DiffWithPreviousCommandArgs,
@@ -23,7 +23,7 @@ import {
 } from '../git/gitService';
 import { Keys } from '../keyboard';
 import { Iterables, Strings } from '../system';
-import { CommandQuickPickItem, getQuickPickIgnoreFocusOut, QuickPickItem } from './commonQuickPicks';
+import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from './commonQuickPicks';
 
 export class OpenStatusFileCommandQuickPickItem extends CommandQuickPickItem {
 	readonly status: GitStatusFile;

@@ -11,7 +11,6 @@ import { run, RunOptions } from './shell';
 import { GitBranchParser, GitLogParser, GitReflogParser, GitStashParser } from './parsers/parsers';
 import { GitFileStatus } from './models/file';
 
-export type GitLocation = GitLocation;
 export * from './models/models';
 export * from './parsers/parsers';
 export * from './remotes/provider';

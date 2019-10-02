@@ -8,6 +8,13 @@ import { KeyMapping, Keys } from '../keyboard';
 import { ReferencesQuickPick, ReferencesQuickPickItem } from './referencesQuickPick';
 import { GlyphChars } from '../constants';
 
+declare module 'vscode' {
+	interface QuickPickItem {
+		onDidSelect?(): void;
+		onDidPressKey?(key: Keys): Promise<void>;
+	}
+}
+
 export function getQuickPickIgnoreFocusOut() {
 	return !configuration.get('advanced', 'quickPick', 'closeOnFocusOut');
 }
@@ -45,11 +52,6 @@ function _getInfiniteCancellablePromise(cancellation: CancellationTokenSource) {
 			resolve([]);
 		});
 	});
-}
-
-export interface QuickPickItem extends QuickPickItem {
-	onDidSelect?(): void;
-	onDidPressKey?(key: Keys): Promise<void>;
 }
 
 export class CommandQuickPickItem implements QuickPickItem {
