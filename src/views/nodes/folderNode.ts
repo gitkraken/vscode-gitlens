@@ -43,14 +43,17 @@ export class FolderNode extends ViewNode<ViewWithFiles> {
 			this.root.descendants,
 			this.relativePath === undefined
 		);
-		if (nesting !== ViewFilesLayout.List) {
+		if (nesting === ViewFilesLayout.List) {
+			this.root.descendants.forEach(n => (n.relativePath = this.root.relativePath));
+			children = this.root.descendants;
+		} else {
 			children = [];
 			for (const folder of this.root.children.values()) {
 				if (folder.value === undefined) {
 					children.push(
 						new FolderNode(
 							this.view,
-							this,
+							this.folderName ? this : this.parent!,
 							this.repoPath,
 							folder.name,
 							folder,
@@ -61,12 +64,11 @@ export class FolderNode extends ViewNode<ViewWithFiles> {
 					continue;
 				}
 
+				// Make sure to set the parent
+				(folder.value as any).parent = this.folderName ? this : this.parent!;
 				folder.value.relativePath = this.root.relativePath;
 				children.push(folder.value);
 			}
-		} else {
-			this.root.descendants.forEach(n => (n.relativePath = this.root.relativePath));
-			children = this.root.descendants;
 		}
 
 		children.sort((a, b) => {
