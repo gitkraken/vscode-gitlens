@@ -109,7 +109,7 @@ export namespace Arrays {
 			descendants: []
 		};
 
-		const hierarchy = values.reduce((root: HierarchicalItem<T>, value) => {
+		let hierarchy = values.reduce((root: HierarchicalItem<T>, value) => {
 			let folder = root;
 
 			let relativePath = '';
@@ -144,7 +144,10 @@ export namespace Arrays {
 			return root;
 		}, seed);
 
-		if (compact) return compactHierarchy(hierarchy, joinPath, true);
+		if (compact) {
+			hierarchy = compactHierarchy(hierarchy, joinPath, true);
+		}
+
 		return hierarchy;
 	}
 
@@ -156,22 +159,6 @@ export namespace Arrays {
 		if (root.children === undefined) return root;
 
 		const children = [...root.children.values()];
-
-		// Less nesting but duplicate roots
-		if (!isRoot && children.every(c => c.value === undefined)) {
-			const siblings = root.parent && root.parent.children;
-			if (siblings !== undefined) {
-				if (siblings.get(root.name) !== undefined) {
-					siblings.delete(root.name);
-
-					for (const child of children) {
-						child.name = joinPath(root.name, child.name);
-						siblings.set(child.name, child);
-					}
-				}
-			}
-		}
-
 		for (const child of children) {
 			compactHierarchy(child, joinPath, false);
 		}
@@ -182,6 +169,7 @@ export namespace Arrays {
 				root.name = joinPath(root.name, child.name);
 				root.relativePath = child.relativePath;
 				root.children = child.children;
+				root.descendants = child.descendants;
 			}
 		}
 
