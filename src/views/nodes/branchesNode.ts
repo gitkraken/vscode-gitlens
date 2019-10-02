@@ -9,6 +9,7 @@ import { BranchNode } from './branchNode';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { ResourceType, ViewNode } from './viewNode';
 import { RepositoryNode } from './repositoryNode';
+import { MessageNode } from './common';
 
 export class BranchesNode extends ViewNode<RepositoriesView> {
 	static key = ':branches';
@@ -33,7 +34,7 @@ export class BranchesNode extends ViewNode<RepositoriesView> {
 				filter: b => !b.remote,
 				sort: true
 			});
-			if (branches === undefined) return [];
+			if (branches.length === 0) return [new MessageNode(this.view, this, 'No branches could be found.')];
 
 			const branchNodes = branches.map(b => new BranchNode(this.uri, this.view, this, b));
 			if (this.view.config.branches.layout === ViewBranchesLayout.List) return branchNodes;
@@ -41,7 +42,7 @@ export class BranchesNode extends ViewNode<RepositoriesView> {
 			const hierarchy = Arrays.makeHierarchical(
 				branchNodes,
 				n => n.treeHierarchy,
-				(...paths: string[]) => paths.join('/'),
+				(...paths) => paths.join('/'),
 				this.view.config.files.compact
 			);
 

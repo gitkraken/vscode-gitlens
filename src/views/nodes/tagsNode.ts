@@ -35,7 +35,7 @@ export class TagsNode extends ViewNode<RepositoriesView> {
 		const hierarchy = Arrays.makeHierarchical(
 			tagNodes,
 			n => n.tag.name.split('/'),
-			(...paths: string[]) => paths.join('/'),
+			(...paths) => paths.join('/'),
 			this.view.config.files.compact
 		);
 
@@ -49,7 +49,7 @@ export class TagsNode extends ViewNode<RepositoriesView> {
 			hierarchy,
 			'tags'
 		);
-		const children = root.getChildren() as (BranchOrTagFolderNode | TagNode)[];
+		const children = root.getChildren();
 		return children;
 	}
 

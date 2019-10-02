@@ -10,6 +10,7 @@ import { BranchNode } from './branchNode';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { ResourceType, ViewNode } from './viewNode';
 import { RepositoryNode } from './repositoryNode';
+import { MessageNode } from './common';
 
 export class RemoteNode extends ViewNode<RepositoriesView> {
 	static key = ':remote';
@@ -37,11 +38,11 @@ export class RemoteNode extends ViewNode<RepositoriesView> {
 
 	async getChildren(): Promise<ViewNode[]> {
 		const branches = await this.repo.getBranches({
-			// only show remote branchs for this remote
+			// only show remote branches for this remote
 			filter: b => b.remote && b.name.startsWith(this.remote.name),
 			sort: true
 		});
-		if (branches === undefined) return [];
+		if (branches.length === 0) return [new MessageNode(this.view, this, 'No branches could be found.')];
 
 		const branchNodes = branches.map(b => new BranchNode(this.uri, this.view, this, b));
 		if (this.view.config.branches.layout === ViewBranchesLayout.List) return branchNodes;
@@ -49,7 +50,7 @@ export class RemoteNode extends ViewNode<RepositoriesView> {
 		const hierarchy = Arrays.makeHierarchical(
 			branchNodes,
 			n => n.treeHierarchy,
-			(...paths: string[]) => paths.join('/'),
+			(...paths) => paths.join('/'),
 			this.view.config.files.compact
 		);
 
@@ -63,8 +64,7 @@ export class RemoteNode extends ViewNode<RepositoriesView> {
 			hierarchy,
 			`remote(${this.remote.name})`
 		);
-		const children = root.getChildren() as (BranchOrTagFolderNode | BranchNode)[];
-
+		const children = root.getChildren();
 		return children;
 	}
 
