@@ -228,28 +228,31 @@ export class Repository implements Disposable {
 
 	@gate()
 	@log()
-	async checkout(ref: string, options: { createBranch?: string | undefined; progress?: boolean } = {}) {
-		const { progress, ...opts } = { progress: true, ...options };
-		if (!progress) return this.checkoutCore(ref, opts);
-
-		return void (await window.withProgress(
-			{
-				location: ProgressLocation.Notification,
-				title: `Checking out ${this.formattedName} to ${ref}...`,
-				cancellable: false
-			},
-			() => this.checkoutCore(ref, opts)
-		));
+	branch(...args: any[]) {
+		this.runTerminalCommand('branch', ...args);
 	}
 
-	private async checkoutCore(ref: string, options: { createBranch?: string } = {}) {
-		try {
-			void (await Container.git.checkout(this.path, ref, options));
+	@gate()
+	@log()
+	branchDelete(branches: GitBranch | GitBranch[], { force }: { force?: boolean } = {}) {
+		if (!Array.isArray(branches)) {
+			branches = [branches];
+		}
 
-			this.fireChange(RepositoryChange.Repository);
-		} catch (ex) {
-			Logger.error(ex);
-			Messages.showGenericErrorMessage('Unable to checkout repository');
+		const localBranches = branches.filter(b => !b.remote);
+		if (localBranches.length !== 0) {
+			const args = ['--delete'];
+			if (force) {
+				args.push('--force');
+			}
+			this.runTerminalCommand('branch', ...args, ...branches.map(b => b.ref));
+		}
+
+		const remoteBranches = branches.filter(b => b.remote);
+		if (remoteBranches.length !== 0) {
+			for (const branch of remoteBranches) {
+				this.runTerminalCommand('push', `${branch.getRemoteName()} :${branch.getName()}`);
+			}
 		}
 	}
 
@@ -504,6 +507,33 @@ export class Repository implements Disposable {
 		}
 	}
 
+	@gate()
+	@log()
+	async switch(ref: string, options: { createBranch?: string | undefined; progress?: boolean } = {}) {
+		const { progress, ...opts } = { progress: true, ...options };
+		if (!progress) return this.switchCore(ref, opts);
+
+		return void (await window.withProgress(
+			{
+				location: ProgressLocation.Notification,
+				title: `Switching ${this.formattedName} to ${ref}...`,
+				cancellable: false
+			},
+			() => this.switchCore(ref, opts)
+		));
+	}
+
+	private async switchCore(ref: string, options: { createBranch?: string } = {}) {
+		try {
+			void (await Container.git.checkout(this.path, ref, options));
+
+			this.fireChange(RepositoryChange.Repository);
+		} catch (ex) {
+			Logger.error(ex);
+			Messages.showGenericErrorMessage('Unable to switch to reference');
+		}
+	}
+
 	unstar() {
 		return this.updateStarred(false);
 	}
@@ -549,6 +579,23 @@ export class Repository implements Disposable {
 
 	suspend() {
 		this._suspended = true;
+	}
+
+	@gate()
+	@log()
+	tag(...args: any[]) {
+		this.runTerminalCommand('tag', ...args);
+	}
+
+	@gate()
+	@log()
+	tagDelete(tags: GitTag | GitTag[]) {
+		if (!Array.isArray(tags)) {
+			tags = [tags];
+		}
+
+		const args = ['--delete'];
+		this.runTerminalCommand('tag', ...args, ...tags.map(t => t.ref));
 	}
 
 	private fireChange(...changes: RepositoryChange[]) {

@@ -70,7 +70,7 @@ const subcommandToTitleMap = new Map<State['subcommand'], string>([
 	['push', 'Push']
 ]);
 function getTitle(title: string, subcommand: State['subcommand'] | undefined) {
-	return subcommand === undefined ? title : `${subcommandToTitleMap.get(subcommand)} ${title}`;
+	return subcommand == null ? title : `${subcommandToTitleMap.get(subcommand)} ${title}`;
 }
 
 export interface StashGitCommandArgs {
@@ -91,21 +91,21 @@ export class StashGitCommand extends QuickCommandBase<State> {
 		};
 	};
 
-	private _subcommand: string | undefined;
+	private _subcommand: State['subcommand'] | undefined;
 
 	constructor(args?: StashGitCommandArgs) {
 		super('stash', 'stash', 'Stash', {
 			description: 'shelves (stashes) local changes to be reapplied later'
 		});
 
-		if (args == null || args.state === undefined) return;
+		if (args == null || args.state == null) return;
 
 		let counter = 0;
-		if (args.state.subcommand !== undefined) {
+		if (args.state.subcommand != null) {
 			counter++;
 		}
 
-		if (args.state.repo !== undefined) {
+		if (args.state.repo != null) {
 			counter++;
 		}
 
@@ -113,13 +113,13 @@ export class StashGitCommand extends QuickCommandBase<State> {
 			case 'apply':
 			case 'drop':
 			case 'pop':
-				if (args.state.stash !== undefined) {
+				if (args.state.stash != null) {
 					counter++;
 				}
 				break;
 
 			case 'push':
-				if (args.state.message !== undefined) {
+				if (args.state.message != null) {
 					counter++;
 				}
 
@@ -134,7 +134,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 	}
 
 	get canConfirm(): boolean {
-		return this._subcommand !== undefined && this._subcommand !== 'list';
+		return this._subcommand != null && this._subcommand !== 'list';
 	}
 
 	get canSkipConfirm(): boolean {
@@ -142,16 +142,16 @@ export class StashGitCommand extends QuickCommandBase<State> {
 	}
 
 	get skipConfirmKey() {
-		return `${this.key}${this._subcommand === undefined ? '' : `-${this._subcommand}`}:${this.pickedVia}`;
+		return `${this.key}${this._subcommand == null ? '' : `-${this._subcommand}`}:${this.pickedVia}`;
 	}
 
 	protected async *steps(): StepAsyncGenerator {
-		const state: StepState<State> = this._initialState === undefined ? { counter: 0 } : this._initialState;
+		const state: StepState<State> = this._initialState == null ? { counter: 0 } : this._initialState;
 		let repos;
 
 		while (true) {
 			try {
-				if (state.subcommand === undefined || state.counter < 1) {
+				if (state.subcommand == null || state.counter < 1) {
 					this._subcommand = undefined;
 
 					const step = this.createPickStep<QuickPickItemOfT<State['subcommand']>>({
@@ -204,11 +204,11 @@ export class StashGitCommand extends QuickCommandBase<State> {
 
 				this._subcommand = state.subcommand;
 
-				if (repos === undefined) {
+				if (repos == null) {
 					repos = [...(await Container.git.getOrderedRepositories())];
 				}
 
-				if (state.repo === undefined || state.counter < 2) {
+				if (state.repo == null || state.counter < 2) {
 					if (repos.length === 1) {
 						state.counter++;
 						state.repo = repos[0];
@@ -316,7 +316,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 
 	private async *applyOrPop(state: StashStepState<ApplyState> | StashStepState<PopState>): StepAsyncGenerator {
 		while (true) {
-			if (state.stash === undefined || state.counter < 3) {
+			if (state.stash == null || state.counter < 3) {
 				const stash = await Container.git.getStashList(state.repo.path);
 
 				const step = this.createPickStep<CommitQuickPickItem<GitStashCommit>>({
@@ -324,12 +324,12 @@ export class StashGitCommand extends QuickCommandBase<State> {
 						state.repo.formattedName
 					}`,
 					placeholder:
-						stash === undefined
+						stash == null
 							? `${state.repo.formattedName} has no stashes`
 							: 'Choose a stash to apply to your working tree',
 					matchOnDetail: true,
 					items:
-						stash === undefined
+						stash == null
 							? [
 									DirectiveQuickPickItem.create(Directive.Back, true),
 									DirectiveQuickPickItem.create(Directive.Cancel)
@@ -455,7 +455,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 
 	private async *drop(state: StashStepState<DropState>): StepAsyncGenerator {
 		while (true) {
-			if (state.stash === undefined || state.counter < 3) {
+			if (state.stash == null || state.counter < 3) {
 				const stash = await Container.git.getStashList(state.repo.path);
 
 				const step = this.createPickStep<CommitQuickPickItem<GitStashCommit>>({
@@ -463,10 +463,10 @@ export class StashGitCommand extends QuickCommandBase<State> {
 						state.repo.formattedName
 					}`,
 					placeholder:
-						stash === undefined ? `${state.repo.formattedName} has no stashes` : 'Choose a stash to delete',
+						stash == null ? `${state.repo.formattedName} has no stashes` : 'Choose a stash to delete',
 					matchOnDetail: true,
 					items:
-						stash === undefined
+						stash == null
 							? [
 									DirectiveQuickPickItem.create(Directive.Back, true),
 									DirectiveQuickPickItem.create(Directive.Cancel)
@@ -574,10 +574,10 @@ export class StashGitCommand extends QuickCommandBase<State> {
 				title: `${getTitle(this.title, state.subcommand)}${Strings.pad(GlyphChars.Dot, 2, 2)}${
 					state.repo.formattedName
 				}`,
-				placeholder: stash === undefined ? `${state.repo.formattedName} has no stashes` : 'Choose a stash',
+				placeholder: stash == null ? `${state.repo.formattedName} has no stashes` : 'Choose a stash',
 				matchOnDetail: true,
 				items:
-					stash === undefined
+					stash == null
 						? [
 								DirectiveQuickPickItem.create(Directive.Back, true),
 								DirectiveQuickPickItem.create(Directive.Cancel)
@@ -626,13 +626,13 @@ export class StashGitCommand extends QuickCommandBase<State> {
 
 			pickedStash = selection[0].item;
 
-			if (pickedStash !== undefined) {
+			if (pickedStash != null) {
 				const step = this.createPickStep<CommandQuickPickItem>({
 					title: `${getTitle(this.title, state.subcommand)}${Strings.pad(GlyphChars.Dot, 2, 2)}${
 						state.repo.formattedName
 					}${Strings.pad(GlyphChars.Dot, 2, 2)}${pickedStash.shortSha}`,
 					placeholder: `${
-						pickedStash.number === undefined ? '' : `${pickedStash.number}: `
+						pickedStash.number == null ? '' : `${pickedStash.number}: `
 					}${pickedStash.getShortMessage()}`,
 					items: await CommitQuickPick.getItems(pickedStash, pickedStash.toGitUri(), { showChanges: false }),
 					additionalButtons: [this.Buttons.RevealInView],
@@ -670,7 +670,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 		}
 
 		while (true) {
-			if (state.message === undefined || state.counter < 3) {
+			if (state.message == null || state.counter < 3) {
 				const step = this.createInputStep({
 					title: `${getTitle(this.title, state.subcommand)}${Strings.pad(GlyphChars.Dot, 2, 2)}${
 						state.repo.formattedName
@@ -693,7 +693,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 					`Confirm ${getTitle(this.title, state.subcommand)}${Strings.pad(GlyphChars.Dot, 2, 2)}${
 						state.repo.formattedName
 					}`,
-					state.uris === undefined || state.uris.length === 0
+					state.uris == null || state.uris.length === 0
 						? [
 								FlagsQuickPickItem.create<PushFlags>(state.flags, [], {
 									label: getTitle(this.title, state.subcommand),

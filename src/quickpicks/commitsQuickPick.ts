@@ -12,6 +12,12 @@ import {
 } from './commonQuickPicks';
 import { CommitQuickPickItem } from './gitQuickPicks';
 
+export interface CommitsQuickPickOptions {
+	goBackCommand?: CommandQuickPickItem;
+	showAllCommand?: CommandQuickPickItem;
+	showInViewCommand?: CommandQuickPickItem;
+}
+
 export class CommitsQuickPick {
 	static showProgress(message: string) {
 		return showQuickPickProgress(message, {
@@ -25,27 +31,9 @@ export class CommitsQuickPick {
 		log: GitLog | undefined,
 		placeHolder: string,
 		progressCancellation: CancellationTokenSource,
-		options: {
-			goBackCommand?: CommandQuickPickItem;
-			showAllCommand?: CommandQuickPickItem;
-			showInViewCommand?: CommandQuickPickItem;
-		}
+		options: CommitsQuickPickOptions = {}
 	): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
-		const items = ((log && [...Iterables.map(log.commits.values(), c => CommitQuickPickItem.create(c))]) || [
-			new MessageQuickPickItem('No results found')
-		]) as (CommitQuickPickItem | CommandQuickPickItem)[];
-
-		if (options.showInViewCommand !== undefined) {
-			items.splice(0, 0, options.showInViewCommand);
-		}
-
-		if (options.showAllCommand !== undefined) {
-			items.splice(0, 0, options.showAllCommand);
-		}
-
-		if (options.goBackCommand !== undefined) {
-			items.splice(0, 0, options.goBackCommand);
-		}
+		const items = CommitsQuickPick.getItems(log, options);
 
 		if (progressCancellation.token.isCancellationRequested) return undefined;
 
@@ -65,5 +53,29 @@ export class CommitsQuickPick {
 		await scope.dispose();
 
 		return pick;
+	}
+
+	static async getItems(
+		log: GitLog | undefined | Promise<GitLog | undefined>,
+		options: CommitsQuickPickOptions = {}
+	) {
+		log = await log;
+		const items = ((log && [...Iterables.map(log.commits.values(), c => CommitQuickPickItem.create(c))]) || [
+			new MessageQuickPickItem('No results found')
+		]) as (CommitQuickPickItem | CommandQuickPickItem)[];
+
+		if (options.showInViewCommand !== undefined) {
+			items.splice(0, 0, options.showInViewCommand);
+		}
+
+		if (options.showAllCommand !== undefined) {
+			items.splice(0, 0, options.showAllCommand);
+		}
+
+		if (options.goBackCommand !== undefined) {
+			items.splice(0, 0, options.goBackCommand);
+		}
+
+		return items;
 	}
 }

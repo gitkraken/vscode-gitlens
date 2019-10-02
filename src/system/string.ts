@@ -199,11 +199,17 @@ export namespace Strings {
 		count: number,
 		options?: { number?: string; plural?: string; suffix?: string; zero?: string }
 	) {
-		if (options === undefined) return `${count} ${s}${count === 1 ? emptyStr : 's'}`;
+		if (options == null) return `${count} ${s}${count === 1 ? emptyStr : 's'}`;
 
-		return `${count === 0 ? options.zero || count : options.number || count} ${
-			count === 1 ? s : options.plural || `${s}${options.suffix || 's'}`
-		}`;
+		return `${
+			count === 0
+				? options.zero != null
+					? options.zero
+					: count
+				: options.number != null
+				? options.number
+				: count
+		} ${count === 1 ? s : options.plural || `${s}${options.suffix || 's'}`}`;
 	}
 
 	// Removes \ / : * ? " < > | and C0 and C1 control codes

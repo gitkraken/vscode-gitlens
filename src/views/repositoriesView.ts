@@ -18,7 +18,7 @@ import {
 } from '../configuration';
 import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
-import { GitLogCommit, GitService, GitStashCommit } from '../git/gitService';
+import { GitBranch, GitLogCommit, GitService, GitStashCommit, GitTag } from '../git/gitService';
 import {
 	BranchesNode,
 	BranchNode,
@@ -30,6 +30,7 @@ import {
 	RepositoryNode,
 	StashesNode,
 	StashNode,
+	TagsNode,
 	ViewNode
 } from './nodes';
 import { gate } from '../system';
@@ -149,28 +150,46 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 		return { ...Container.config.views, ...Container.config.views.repositories };
 	}
 
-	async findCommit(commit: GitLogCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
-		const repoNodeId = RepositoryNode.getId(commit.repoPath);
+	findBranch(branch: GitBranch, token?: CancellationToken) {
+		const repoNodeId = RepositoryNode.getId(branch.repoPath);
 
-		// Get all the branches the commit is on
-		let branches = await Container.git.getCommitBranches(commit.repoPath, commit.ref);
-		if (branches.length !== 0) {
-		return this.findNode((n: any) => n.commit !== undefined && n.commit.ref === commit.ref, {
-			allowPaging: true,
-			maxDepth: 6,
-			canTraverse: n => {
-				// Only search for commit nodes in the same repo within BranchNodes
-				if (n instanceof RepositoriesNode) return true;
+		if (branch.remote) {
+			return this.findNode((n: any) => n.branch !== undefined && n.branch.ref === branch.ref, {
+				allowPaging: true,
+				maxDepth: 6,
+				canTraverse: n => {
+					// Only search for branch nodes in the same repo within BranchesNode
+					if (n instanceof RepositoriesNode) return true;
 
-					if (n instanceof BranchNode) {
-						return n.id.startsWith(repoNodeId) && branches.includes(n.branch.name);
+					if (n instanceof RemoteNode) {
+						if (!n.id.startsWith(repoNodeId)) return false;
+
+						return n.remote.name === branch.getRemoteName();
 					}
 
-				if (
-					n instanceof RepositoryNode ||
-					n instanceof BranchesNode ||
+					if (
+						n instanceof RepositoryNode ||
+						n instanceof BranchesNode ||
+						n instanceof RemotesNode ||
 						n instanceof BranchOrTagFolderNode
-				) {
+					) {
+						return n.id.startsWith(repoNodeId);
+					}
+
+					return false;
+				},
+				token: token
+			});
+		}
+
+		return this.findNode((n: any) => n.branch !== undefined && n.branch.ref === branch.ref, {
+			allowPaging: true,
+			maxDepth: 5,
+			canTraverse: n => {
+				// Only search for branch nodes in the same repo within BranchesNode
+				if (n instanceof RepositoriesNode) return true;
+
+				if (n instanceof RepositoryNode || n instanceof BranchesNode || n instanceof BranchOrTagFolderNode) {
 					return n.id.startsWith(repoNodeId);
 				}
 
@@ -179,6 +198,37 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 			token: token
 		});
 	}
+
+	async findCommit(commit: GitLogCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
+		const repoNodeId = RepositoryNode.getId(commit.repoPath);
+
+		// Get all the branches the commit is on
+		let branches = await Container.git.getCommitBranches(commit.repoPath, commit.ref);
+		if (branches.length !== 0) {
+			return this.findNode((n: any) => n.commit !== undefined && n.commit.ref === commit.ref, {
+				allowPaging: true,
+				maxDepth: 6,
+				canTraverse: n => {
+					// Only search for commit nodes in the same repo within BranchNodes
+					if (n instanceof RepositoriesNode) return true;
+
+					if (n instanceof BranchNode) {
+						return n.id.startsWith(repoNodeId) && branches.includes(n.branch.name);
+					}
+
+					if (
+						n instanceof RepositoryNode ||
+						n instanceof BranchesNode ||
+						n instanceof BranchOrTagFolderNode
+					) {
+						return n.id.startsWith(repoNodeId);
+					}
+
+					return false;
+				},
+				token: token
+			});
+		}
 
 		// If we didn't find the commit on any local branches, check remote branches
 		branches = await Container.git.getCommitBranches(commit.repoPath, commit.ref, { remotes: true });
@@ -230,6 +280,84 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 		});
 	}
 
+	findTag(tag: GitTag, token?: CancellationToken) {
+		const repoNodeId = RepositoryNode.getId(tag.repoPath);
+
+		return this.findNode((n: any) => n.tag !== undefined && n.tag.ref === tag.ref, {
+			allowPaging: true,
+			maxDepth: 5,
+			canTraverse: n => {
+				// Only search for tag nodes in the same repo within TagsNode
+				if (n instanceof RepositoriesNode) return true;
+
+				if (n instanceof RepositoryNode || n instanceof TagsNode || n instanceof BranchOrTagFolderNode) {
+					return n.id.startsWith(repoNodeId);
+				}
+
+				return false;
+			},
+			token: token
+		});
+	}
+
+	@gate(() => '')
+	revealBranch(
+		branch: GitBranch,
+		options?: {
+			select?: boolean;
+			focus?: boolean;
+			expand?: boolean | number;
+		}
+	) {
+		return window.withProgress(
+			{
+				location: ProgressLocation.Notification,
+				title: `Revealing branch '${branch.name}' in the Repositories view...`,
+				cancellable: true
+			},
+			async (progress, token) => {
+				const node = await this.findBranch(branch, token);
+				if (node === undefined) return node;
+
+				await this.ensureRevealNode(node, options);
+
+				return node;
+			}
+		);
+	}
+
+	@gate(() => '')
+	async revealBranches(
+		repoPath: string,
+		options?: {
+			select?: boolean;
+			focus?: boolean;
+			expand?: boolean | number;
+		}
+	) {
+		const repoNodeId = RepositoryNode.getId(repoPath);
+
+		const node = await this.findNode(BranchesNode.getId(repoPath), {
+			maxDepth: 2,
+			canTraverse: n => {
+				// Only search for branches nodes in the same repo
+				if (n instanceof RepositoriesNode) return true;
+
+				if (n instanceof RepositoryNode) {
+					return n.id.startsWith(repoNodeId);
+				}
+
+				return false;
+			}
+		});
+
+		if (node !== undefined) {
+			await this.reveal(node, options);
+		}
+
+		return node;
+	}
+
 	@gate(() => '')
 	async revealCommit(
 		commit: GitLogCommit | { repoPath: string; ref: string },
@@ -249,21 +377,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 				const node = await this.findCommit(commit, token);
 				if (node === undefined) return node;
 
-				// Not sure why I need to reveal each parent, but without it the node won't be revealed
-				const nodes: ViewNode[] = [];
-
-				let parent: ViewNode | undefined = node;
-				while (parent !== undefined) {
-					nodes.push(parent);
-					parent = parent.getParent();
-				}
-				nodes.pop();
-
-				for (const n of nodes.reverse()) {
-					try {
-						await this.reveal(n, options);
-					} catch {}
-				}
+				await this.ensureRevealNode(node, options);
 
 				return node;
 			}
@@ -326,6 +440,89 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 		}
 
 		return node;
+	}
+
+	@gate(() => '')
+	revealTag(
+		tag: GitTag,
+		options?: {
+			select?: boolean;
+			focus?: boolean;
+			expand?: boolean | number;
+		}
+	) {
+		return window.withProgress(
+			{
+				location: ProgressLocation.Notification,
+				title: `Revealing tag '${tag.name}' in the Repositories view...`,
+				cancellable: true
+			},
+			async (progress, token) => {
+				const node = await this.findTag(tag, token);
+				if (node === undefined) return node;
+
+				await this.ensureRevealNode(node, options);
+
+				return node;
+			}
+		);
+	}
+
+	@gate(() => '')
+	async revealTags(
+		repoPath: string,
+		options?: {
+			select?: boolean;
+			focus?: boolean;
+			expand?: boolean | number;
+		}
+	) {
+		const repoNodeId = RepositoryNode.getId(repoPath);
+
+		const node = await this.findNode(TagsNode.getId(repoPath), {
+			maxDepth: 2,
+			canTraverse: n => {
+				// Only search for tags nodes in the same repo
+				if (n instanceof RepositoriesNode) return true;
+
+				if (n instanceof RepositoryNode) {
+					return n.id.startsWith(repoNodeId);
+				}
+
+				return false;
+			}
+		});
+
+		if (node !== undefined) {
+			await this.reveal(node, options);
+		}
+
+		return node;
+	}
+
+	private async ensureRevealNode(
+		node: ViewNode,
+		options?: {
+			select?: boolean;
+			focus?: boolean;
+			expand?: boolean | number;
+		}
+	) {
+		// Not sure why I need to reveal each parent, but without it the node won't be revealed
+		const nodes: ViewNode[] = [];
+
+		let parent: ViewNode | undefined = node;
+		while (parent !== undefined) {
+			nodes.push(parent);
+			parent = parent.getParent();
+		}
+		nodes.pop();
+
+		for (const n of nodes.reverse()) {
+			try {
+				await this.reveal(n, options);
+			} catch {}
+		}
 	}
 
 	private async setAutoRefresh(enabled: boolean, workspaceEnabled?: boolean) {

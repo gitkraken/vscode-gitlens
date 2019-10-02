@@ -153,6 +153,11 @@ export class ViewCommands {
 		);
 
 		commands.registerCommand('gitlens.views.cherryPick', this.cherryPick, this);
+		commands.registerCommand('gitlens.views.createBranch', this.createBranch, this);
+		commands.registerCommand('gitlens.views.deleteBranch', this.deleteBranch, this);
+		commands.registerCommand('gitlens.views.renameBranch', this.renameBranch, this);
+		commands.registerCommand('gitlens.views.createTag', this.createTag, this);
+		commands.registerCommand('gitlens.views.deleteTag', this.deleteTag, this);
 
 		commands.registerCommand('gitlens.views.mergeBranchInto', this.merge, this);
 
@@ -165,11 +170,7 @@ export class ViewCommands {
 
 		commands.registerCommand('gitlens.views.terminalPushCommit', this.terminalPushCommit, this);
 
-		commands.registerCommand('gitlens.views.terminalCreateBranch', this.terminalCreateBranch, this);
-		commands.registerCommand('gitlens.views.terminalDeleteBranch', this.terminalDeleteBranch, this);
 		commands.registerCommand('gitlens.views.terminalRemoveRemote', this.terminalRemoveRemote, this);
-		commands.registerCommand('gitlens.views.terminalCreateTag', this.terminalCreateTag, this);
-		commands.registerCommand('gitlens.views.terminalDeleteTag', this.terminalDeleteTag, this);
 	}
 
 	@debug()
@@ -253,6 +254,74 @@ export class ViewCommands {
 		await env.clipboard.writeText(
 			`${node.contributor.name}${node.contributor.email ? ` <${node.contributor.email}>` : ''}`
 		);
+	}
+
+	@debug()
+	async createBranch(node: ViewRefNode) {
+		if (!(node instanceof ViewRefNode)) return undefined;
+
+		const repo = await Container.git.getRepository(node.repoPath);
+
+		const args: GitCommandsCommandArgs = {
+			command: 'branch',
+			state: {
+				subcommand: 'create',
+				repo: repo,
+				reference: node instanceof BranchNode ? node.branch : GitReference.create(node.ref)
+			}
+		};
+		return commands.executeCommand(Commands.GitCommands, args);
+	}
+
+	@debug()
+	async createTag(node: ViewRefNode) {
+		if (!(node instanceof ViewRefNode)) return undefined;
+
+		const repo = await Container.git.getRepository(node.repoPath);
+
+		const args: GitCommandsCommandArgs = {
+			command: 'tag',
+			state: {
+				subcommand: 'create',
+				repo: repo,
+				reference: GitReference.create(node.ref)
+			}
+		};
+		return commands.executeCommand(Commands.GitCommands, args);
+	}
+
+	@debug()
+	async deleteBranch(node: BranchNode) {
+		if (!(node instanceof BranchNode)) return undefined;
+
+		const repo = await Container.git.getRepository(node.repoPath);
+
+		const args: GitCommandsCommandArgs = {
+			command: 'branch',
+			state: {
+				subcommand: 'delete',
+				repo: repo,
+				references: [node.branch]
+			}
+		};
+		return commands.executeCommand(Commands.GitCommands, args);
+	}
+
+	@debug()
+	async deleteTag(node: TagNode) {
+		if (!(node instanceof TagNode)) return undefined;
+
+		const repo = await Container.git.getRepository(node.repoPath);
+
+		const args: GitCommandsCommandArgs = {
+			command: 'tag',
+			state: {
+				subcommand: 'delete',
+				repo: repo,
+				references: [node.tag]
+			}
+		};
+		return commands.executeCommand(Commands.GitCommands, args);
 	}
 
 	@debug()
@@ -367,6 +436,23 @@ export class ViewCommands {
 		const args: GitCommandsCommandArgs = {
 			command: 'rebase',
 			state: { repo: repo!, reference: GitReference.create(upstream, { name: upstream, refType: 'branch' }) }
+		};
+		return commands.executeCommand(Commands.GitCommands, args);
+	}
+
+	@debug()
+	async renameBranch(node: BranchNode) {
+		if (!(node instanceof BranchNode)) return undefined;
+
+		const repo = await Container.git.getRepository(node.repoPath);
+
+		const args: GitCommandsCommandArgs = {
+			command: 'branch',
+			state: {
+				subcommand: 'rename',
+				repo: repo,
+				reference: node.branch
+			}
 		};
 		return commands.executeCommand(Commands.GitCommands, args);
 	}
@@ -881,37 +967,6 @@ export class ViewCommands {
 		}
 	}
 
-	async terminalCreateBranch(node: ViewRefNode) {
-		if (!(node instanceof ViewRefNode)) return;
-
-		let remoteBranch = false;
-		let value = undefined;
-		if (node instanceof BranchNode && node.branch.remote) {
-			remoteBranch = true;
-			value = node.branch.getName();
-		}
-
-		const name = await window.showInputBox({
-			prompt: 'Please provide a branch name',
-			placeHolder: 'Branch name',
-			value: value,
-			ignoreFocusOut: true
-		});
-		if (name === undefined || name.length === 0) return;
-
-		runGitCommandInTerminal('branch', `${remoteBranch ? '-t ' : ''}${name} ${node.ref}`, node.repoPath);
-	}
-
-	terminalDeleteBranch(node: BranchNode) {
-		if (!(node instanceof BranchNode)) return;
-
-		if (node.branch.remote) {
-			runGitCommandInTerminal('push', `${node.branch.getRemoteName()} :${node.branch.getName()}`, node.repoPath);
-		} else {
-			runGitCommandInTerminal('branch', `-d ${node.ref}`, node.repoPath);
-		}
-	}
-
 	terminalCheckoutCommit(node: CommitNode) {
 		if (!(node instanceof CommitNode)) return;
 
@@ -931,32 +986,5 @@ export class ViewCommands {
 		if (!(node instanceof RemoteNode)) return;
 
 		runGitCommandInTerminal('remote', `remove ${node.remote.name}`, node.remote.repoPath);
-	}
-
-	async terminalCreateTag(node: ViewRefNode) {
-		if (!(node instanceof ViewRefNode)) return;
-
-		const name = await window.showInputBox({
-			prompt: 'Please provide a tag name',
-			placeHolder: 'Tag name',
-			ignoreFocusOut: true
-		});
-		if (name === undefined || name.length === 0) return;
-
-		const message = await window.showInputBox({
-			prompt: 'Please provide an optional message to annotate the tag',
-			placeHolder: 'Tag message',
-			ignoreFocusOut: true
-		});
-		if (message === undefined) return;
-
-		const args = `${message.length !== 0 ? `-a -m "${message}" ` : ''}${name} ${node.ref}`;
-		runGitCommandInTerminal('tag', args, node.repoPath);
-	}
-
-	terminalDeleteTag(node: TagNode) {
-		if (!(node instanceof TagNode)) return;
-
-		runGitCommandInTerminal('tag', `-d ${node.ref}`, node.repoPath);
 	}
 }

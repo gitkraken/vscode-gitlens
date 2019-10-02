@@ -5,6 +5,22 @@ import { GitBranch, GitTag, Repository } from '../git/git';
 import { BranchQuickPickItem, CommitQuickPickItem, TagQuickPickItem } from '../quickpicks';
 import { Container } from '../container';
 
+export async function getBranches(
+	repos: Repository | Repository[],
+	options: { filterBranches?: (b: GitBranch) => boolean; picked?: string | string[] } = {}
+): Promise<BranchQuickPickItem[]> {
+	return getBranchesAndOrTags(repos, false, options) as Promise<BranchQuickPickItem[]>;
+}
+
+export async function getTags(
+	repos: Repository | Repository[],
+	options: { filterTags?: (t: GitTag) => boolean; picked?: string | string[] } = {}
+): Promise<TagQuickPickItem[]> {
+	return getBranchesAndOrTags(repos, true, { ...options, filterBranches: () => false }) as Promise<
+		TagQuickPickItem[]
+	>;
+}
+
 export async function getBranchesAndOrTags(
 	repos: Repository | Repository[],
 	includeTags: boolean,
@@ -12,8 +28,12 @@ export async function getBranchesAndOrTags(
 		filterBranches,
 		filterTags,
 		picked
-	}: { filterBranches?: (b: GitBranch) => boolean; filterTags?: (t: GitTag) => boolean; picked?: string } = {}
-) {
+	}: {
+		filterBranches?: (b: GitBranch) => boolean;
+		filterTags?: (t: GitTag) => boolean;
+		picked?: string | string[];
+	} = {}
+): Promise<(BranchQuickPickItem | TagQuickPickItem)[]> {
 	let branches: GitBranch[];
 	let tags: GitTag[] | undefined;
 
@@ -48,39 +68,57 @@ export async function getBranchesAndOrTags(
 	if (!includeTags) {
 		return Promise.all(
 			branches.map(b =>
-				BranchQuickPickItem.create(b, undefined, {
-					current: singleRepo ? 'checkmark' : false,
-					ref: singleRepo,
-					status: singleRepo,
-					type: 'remote'
-				})
+				BranchQuickPickItem.create(
+					b,
+					picked != null && (typeof picked === 'string' ? b.ref === picked : picked.includes(b.ref)),
+					{
+						current: singleRepo ? 'checkmark' : false,
+						ref: singleRepo,
+						status: singleRepo,
+						type: 'remote'
+					}
+				)
 			)
 		);
 	}
 
 	return Promise.all<BranchQuickPickItem | TagQuickPickItem>([
-		...branches!
+		...branches
 			.filter(b => !b.remote)
 			.map(b =>
-				BranchQuickPickItem.create(b, picked != null && b.ref === picked, {
-					current: singleRepo ? 'checkmark' : false,
-					ref: singleRepo,
-					status: singleRepo
-				})
+				BranchQuickPickItem.create(
+					b,
+					picked != null && (typeof picked === 'string' ? b.ref === picked : picked.includes(b.ref)),
+					{
+						current: singleRepo ? 'checkmark' : false,
+						ref: singleRepo,
+						status: singleRepo
+					}
+				)
 			),
 		...tags!.map(t =>
-			TagQuickPickItem.create(t, picked != null && t.ref === picked, {
-				ref: singleRepo,
-				type: true
-			})
+			TagQuickPickItem.create(
+				t,
+				picked != null && (typeof picked === 'string' ? t.ref === picked : picked.includes(t.ref)),
+				{
+					ref: singleRepo,
+					type: true
+				}
+			)
 		),
-		...branches!
+		...branches
 			.filter(b => b.remote)
 			.map(b =>
-				BranchQuickPickItem.create(b, picked != null && b.ref === picked, {
-					current: singleRepo ? 'checkmark' : false,
-					type: 'remote'
-				})
+				BranchQuickPickItem.create(
+					b,
+					picked != null && (typeof picked === 'string' ? b.ref === picked : picked.includes(b.ref)),
+					{
+						current: singleRepo ? 'checkmark' : false,
+						ref: singleRepo,
+						status: singleRepo,
+						type: 'remote'
+					}
+				)
 			)
 	]);
 }

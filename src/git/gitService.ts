@@ -2773,7 +2773,7 @@ export class GitService implements Disposable {
 	}
 
 	@log()
-	validateBranchName(ref: string, repoPath?: string) {
+	validateBranchOrTagName(ref: string, repoPath?: string) {
 		return Git.check_ref_format(ref, repoPath);
 	}
 

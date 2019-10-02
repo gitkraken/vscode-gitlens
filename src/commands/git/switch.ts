@@ -44,14 +44,14 @@ export class SwitchGitCommand extends QuickCommandBase<State> {
 			description: 'aka checkout, switches the current branch to a specified branch'
 		});
 
-		if (args == null || args.state === undefined) return;
+		if (args == null || args.state == null) return;
 
 		let counter = 0;
-		if (args.state.repos !== undefined && args.state.repos.length !== 0) {
+		if (args.state.repos != null && args.state.repos.length !== 0) {
 			counter++;
 		}
 
-		if (args.state.reference !== undefined) {
+		if (args.state.reference != null) {
 			counter++;
 		}
 
@@ -73,7 +73,7 @@ export class SwitchGitCommand extends QuickCommandBase<State> {
 			() =>
 				Promise.all(
 					state.repos.map(r =>
-						r.checkout(state.reference.ref, { createBranch: state.createBranch, progress: false })
+						r.switch(state.reference.ref, { createBranch: state.createBranch, progress: false })
 					)
 				)
 		));
@@ -84,17 +84,17 @@ export class SwitchGitCommand extends QuickCommandBase<State> {
 	}
 
 	protected async *steps(): StepAsyncGenerator {
-		const state: StepState<State> = this._initialState === undefined ? { counter: 0 } : this._initialState;
+		const state: StepState<State> = this._initialState == null ? { counter: 0 } : this._initialState;
 		let repos;
 		let showTags = false;
 
 		while (true) {
 			try {
-				if (repos === undefined) {
+				if (repos == null) {
 					repos = [...(await Container.git.getOrderedRepositories())];
 				}
 
-				if (state.repos === undefined || state.counter < 1) {
+				if (state.repos == null || state.counter < 1) {
 					if (repos.length === 1) {
 						state.counter++;
 						state.repos = [repos[0]];
@@ -131,7 +131,7 @@ export class SwitchGitCommand extends QuickCommandBase<State> {
 					}
 				}
 
-				if (state.reference === undefined || state.counter < 2) {
+				if (state.reference == null || state.counter < 2) {
 					showTags = state.repos.length === 1;
 
 					const showTagsButton: SelectableQuickInputButton = new this.Buttons.ShowTags(showTags);
@@ -202,7 +202,7 @@ export class SwitchGitCommand extends QuickCommandBase<State> {
 
 					if (branches.length === 0) {
 						const step = this.createInputStep({
-							title: `${this.title} new branch to ${state.reference.ref}${Strings.pad(
+							title: `${this.title} to new branch based on ${state.reference.ref}${Strings.pad(
 								GlyphChars.Dot,
 								2,
 								2
@@ -219,7 +219,7 @@ export class SwitchGitCommand extends QuickCommandBase<State> {
 								value = value.trim();
 								if (value.length === 0) return [false, 'Please enter a valid branch name'];
 
-								const valid = Boolean(await Container.git.validateBranchName(value));
+								const valid = Boolean(await Container.git.validateBranchOrTagName(value));
 								return [valid, valid ? undefined : `'${value}' isn't a valid branch name`];
 							}
 						});
@@ -231,7 +231,11 @@ export class SwitchGitCommand extends QuickCommandBase<State> {
 						}
 
 						state.createBranch = value;
+					} else {
+						state.createBranch = undefined;
 					}
+				} else {
+					state.createBranch = undefined;
 				}
 
 				if (this.confirm(state.confirm)) {
@@ -243,13 +247,11 @@ export class SwitchGitCommand extends QuickCommandBase<State> {
 						}`,
 						[
 							{
-								label: this.title,
-								description: state.createBranch
-									? `${state.createBranch} (from ${state.reference.name}) `
-									: state.reference.name,
+								label: state.createBranch ? `Create Branch and ${this.title}` : this.title,
+								description: state.createBranch ? `to ${state.createBranch}` : state.reference.name,
 								detail: `Will ${
 									state.createBranch
-										? `create and switch to ${state.createBranch} (from ${state.reference.name})`
+										? `create and switch to branch ${state.createBranch} based on ${state.reference.name}`
 										: `switch to ${state.reference.name}`
 								} in ${
 									state.repos.length === 1

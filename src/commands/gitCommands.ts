@@ -20,6 +20,7 @@ import {
 	StepSelection
 } from './quickCommand';
 import { Directive, DirectiveQuickPickItem } from '../quickpicks';
+import { BranchGitCommand, BranchGitCommandArgs } from './git/branch';
 import { CherryPickGitCommand, CherryPickGitCommandArgs } from './git/cherry-pick';
 import { CoAuthorsGitCommand, CoAuthorsGitCommandArgs } from './git/coauthors';
 import { FetchGitCommand, FetchGitCommandArgs } from './git/fetch';
@@ -32,6 +33,7 @@ import { RevertGitCommand, RevertGitCommandArgs } from './git/revert';
 import { SearchGitCommand, SearchGitCommandArgs } from './git/search';
 import { StashGitCommand, StashGitCommandArgs } from './git/stash';
 import { SwitchGitCommand, SwitchGitCommandArgs } from './git/switch';
+import { TagGitCommand, TagGitCommandArgs } from './git/tag';
 import { Container } from '../container';
 import { configuration } from '../configuration';
 import { KeyMapping } from '../keyboard';
@@ -39,6 +41,7 @@ import { KeyMapping } from '../keyboard';
 const sanitizeLabel = /\$\(.+?\)|\s/g;
 
 export type GitCommandsCommandArgs =
+	| BranchGitCommandArgs
 	| CherryPickGitCommandArgs
 	| CoAuthorsGitCommandArgs
 	| FetchGitCommandArgs
@@ -50,7 +53,8 @@ export type GitCommandsCommandArgs =
 	| RevertGitCommandArgs
 	| SearchGitCommandArgs
 	| StashGitCommandArgs
-	| SwitchGitCommandArgs;
+	| SwitchGitCommandArgs
+	| TagGitCommandArgs;
 
 @command()
 export class GitCommandsCommand extends Command {
@@ -594,6 +598,7 @@ class PickCommandStep implements QuickPickStep {
 
 	constructor(args?: GitCommandsCommandArgs) {
 		this.items = [
+			new BranchGitCommand(args && args.command === 'branch' ? args : undefined),
 			new CherryPickGitCommand(args && args.command === 'cherry-pick' ? args : undefined),
 			new CoAuthorsGitCommand(args && args.command === 'co-authors' ? args : undefined),
 			new MergeGitCommand(args && args.command === 'merge' ? args : undefined),
@@ -605,7 +610,8 @@ class PickCommandStep implements QuickPickStep {
 			new RevertGitCommand(args && args.command === 'revert' ? args : undefined),
 			new SearchGitCommand(args && args.command === 'search' ? args : undefined),
 			new StashGitCommand(args && args.command === 'stash' ? args : undefined),
-			new SwitchGitCommand(args && args.command === 'switch' ? args : undefined)
+			new SwitchGitCommand(args && args.command === 'switch' ? args : undefined),
+			new TagGitCommand(args && args.command === 'tag' ? args : undefined)
 		];
 	}
 

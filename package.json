@@ -2425,7 +2425,7 @@
 			},
 			{
 				"command": "gitlens.stashDelete",
-				"title": "Delete Stash",
+				"title": "Delete Stash...",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-delete.svg",
@@ -2884,18 +2884,33 @@
 				}
 			},
 			{
-				"command": "gitlens.views.terminalCreateBranch",
-				"title": "Create Branch (via Terminal)...",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.views.terminalDeleteBranch",
-				"title": "Delete Branch (via Terminal)",
-				"category": "GitLens"
-			},
-			{
 				"command": "gitlens.views.cherryPick",
-				"title": "Cherry Pick Commit",
+				"title": "Cherry Pick Commit...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.createBranch",
+				"title": "Create Branch...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.deleteBranch",
+				"title": "Delete Branch...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.renameBranch",
+				"title": "Rename Branch...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.createTag",
+				"title": "Create Tag...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.deleteTag",
+				"title": "Delete Tag...",
 				"category": "GitLens"
 			},
 			{
@@ -2920,12 +2935,12 @@
 			},
 			{
 				"command": "gitlens.views.reset",
-				"title": "Reset to Commit",
+				"title": "Reset to Commit...",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.revert",
-				"title": "Revert Commit",
+				"title": "Revert Commit...",
 				"category": "GitLens"
 			},
 			{
@@ -2936,16 +2951,6 @@
 			{
 				"command": "gitlens.views.terminalRemoveRemote",
 				"title": "Remove Remote (via Terminal)",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.views.terminalCreateTag",
-				"title": "Create Tag (via Terminal)...",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.views.terminalDeleteTag",
-				"title": "Delete Tag (via Terminal)",
 				"category": "GitLens"
 			},
 			{
@@ -3850,11 +3855,15 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.terminalCreateBranch",
+					"command": "gitlens.views.createBranch",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.terminalDeleteBranch",
+					"command": "gitlens.views.deleteBranch",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.renameBranch",
 					"when": "false"
 				},
 				{
@@ -3894,11 +3903,11 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.terminalCreateTag",
+					"command": "gitlens.views.createTag",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.terminalDeleteTag",
+					"command": "gitlens.views.deleteTag",
 					"when": "false"
 				},
 				{
@@ -4679,6 +4688,26 @@
 					"group": "1_gitlens_actions@4"
 				},
 				{
+					"command": "gitlens.views.deleteBranch",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
+					"group": "1_gitlens_actions@5"
+				},
+				{
+					"command": "gitlens.views.renameBranch",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b/",
+					"group": "1_gitlens_actions@6"
+				},
+				{
+					"command": "gitlens.views.createBranch",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b/",
+					"group": "1_gitlens_actions@7"
+				},
+				{
+					"command": "gitlens.views.createTag",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b/",
+					"group": "1_gitlens_actions@8"
+				},
+				{
 					"command": "gitlens.views.openDirectoryDiffWithWorking",
 					"when": "viewItem =~ /gitlens:(branch|tag)\\b/",
 					"group": "3_gitlens_explore@20"
@@ -4727,21 +4756,6 @@
 					"command": "gitlens.openBranchInRemote",
 					"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(tracking|remote)\\b)/",
 					"group": "5_gitlens_open@1"
-				},
-				{
-					"command": "gitlens.views.terminalCreateBranch",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:(branch|commit|tag)\\b/",
-					"group": "6_gitlens_terminal@2"
-				},
-				{
-					"command": "gitlens.views.terminalDeleteBranch",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
-					"group": "6_gitlens_terminal@3"
-				},
-				{
-					"command": "gitlens.views.terminalCreateTag",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:(branch|commit)\\b/",
-					"group": "6_gitlens_terminal@4"
 				},
 				{
 					"command": "gitlens.views.star",
@@ -4828,6 +4842,16 @@
 					"command": "gitlens.views.rebaseOntoCommit",
 					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b/",
 					"group": "1_gitlens_actions@5"
+				},
+				{
+					"command": "gitlens.views.createBranch",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b/",
+					"group": "1_gitlens_actions_1@1"
+				},
+				{
+					"command": "gitlens.views.createTag",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b/",
+					"group": "1_gitlens_actions_1@2"
 				},
 				{
 					"command": "gitlens.views.openChangedFileDiffs",
@@ -5366,9 +5390,14 @@
 					"group": "1_gitlens_actions@1"
 				},
 				{
-					"command": "gitlens.views.terminalDeleteTag",
+					"command": "gitlens.views.deleteTag",
 					"when": "!gitlens:readonly && viewItem == gitlens:tag",
-					"group": "6_gitlens_terminal@1"
+					"group": "1_gitlens_actions@2"
+				},
+				{
+					"command": "gitlens.views.createBranch",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:tag\\b/",
+					"group": "1_gitlens_actions@3"
 				},
 				{
 					"command": "gitlens.views.stageDirectory",

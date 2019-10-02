@@ -8,6 +8,17 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds a new commands to _Git Commands_ (`gitlens.gitCommands`)
+  - Adds a new _branch_ command with sub-commands for _create_, _delete_, and _rename_
+    - Adds a _Reveal Branch in Repositories View_ button to the quick pick menu toolbar
+    - Adds keyboard navigation
+    - `right arrow` &mdash; reveals the selected branch in the _Repositories_ view, if there is no text in the quick pick menu
+    - `alt+left right`, `ctrl+left right`, `cmd+left right` (macOS) &mdash; reveals the selected branch in the _Repositories_ view
+  - Adds a new _tag_ command with sub-commands for _create_, and _delete_
+    - Adds a _Reveal Branch in Repositories View_ or _Reveal Tag in Repositories View_ button to the quick pick menu toolbar
+    - Adds keyboard navigation
+    - `right arrow` &mdash; reveals the selected branch or tag in the _Repositories_ view, if there is no text in the quick pick menu
+    - `alt+left right`, `ctrl+left right`, `cmd+left right` (macOS) &mdash; reveals the selected branch or tag in the _Repositories_ view
 - Adds better co-author support &mdash; closes [#373](https://github.com/eamodio/vscode-gitlens/issues/373)
   - Adds a new _co-author_ command to the _Git Commands_ quick pick menu to add a co-author to a commit message
   - Adds a new _Add Co-authors_ command to the inline toolbar and context menu for the _Contributors_ node in the _Repositories_ view
@@ -16,6 +27,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds new actions options to the status bar blame
   - Adds a `gitlens.showCommitsInView` option to show the commit in the _Search Commits_ view
   - Adds a `gitlens.revealCommitInView` option to to reveal the commit in the _Repositories_ view
+- Adds a new _Rename Branch..._ command to branches in the _Repositories_ view
+
+### Changed
+
+- Changes the _Create Branch (via Terminal)..._ command to _Create Branch..._ and uses the _branch_ _create_ Git command
+- Changes the _Delete Branch (via Terminal)..._ command to _Delete Branch..._ and uses the _branch_ _delete_ Git command
+- Changes the _Create Tag (via Terminal)..._ command to _Create Tag..._ and uses the _tag_ _create_ Git command
+- Changes the _Delete Tag (via Terminal)..._ command to _Delete Tag..._ and uses the _tag_ _delete_ Git command
 
 ### Fixed
 
