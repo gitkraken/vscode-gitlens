@@ -24,6 +24,8 @@ import {
 	BranchNode,
 	BranchOrTagFolderNode,
 	CompareBranchNode,
+	RemoteNode,
+	RemotesNode,
 	RepositoriesNode,
 	RepositoryNode,
 	StashesNode,
@@ -147,9 +149,12 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 		return { ...Container.config.views, ...Container.config.views.repositories };
 	}
 
-	findCommitNode(commit: GitLogCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
+	async findCommit(commit: GitLogCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
 		const repoNodeId = RepositoryNode.getId(commit.repoPath);
 
+		// Get all the branches the commit is on
+		let branches = await Container.git.getCommitBranches(commit.repoPath, commit.ref);
+		if (branches.length !== 0) {
 		return this.findNode((n: any) => n.commit !== undefined && n.commit.ref === commit.ref, {
 			allowPaging: true,
 			maxDepth: 6,
@@ -157,11 +162,14 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 				// Only search for commit nodes in the same repo within BranchNodes
 				if (n instanceof RepositoriesNode) return true;
 
+					if (n instanceof BranchNode) {
+						return n.id.startsWith(repoNodeId) && branches.includes(n.branch.name);
+					}
+
 				if (
 					n instanceof RepositoryNode ||
 					n instanceof BranchesNode ||
-					n instanceof BranchOrTagFolderNode ||
-					n instanceof BranchNode
+						n instanceof BranchOrTagFolderNode
 				) {
 					return n.id.startsWith(repoNodeId);
 				}
@@ -172,7 +180,38 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 		});
 	}
 
-	findStashNode(stash: GitStashCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
+		// If we didn't find the commit on any local branches, check remote branches
+		branches = await Container.git.getCommitBranches(commit.repoPath, commit.ref, { remotes: true });
+		if (branches.length === 0) return undefined;
+
+		const remotes = branches.map(b => b.split('/', 1)[0]);
+
+		return this.findNode((n: any) => n.commit !== undefined && n.commit.ref === commit.ref, {
+			allowPaging: true,
+			maxDepth: 8,
+			canTraverse: n => {
+				// Only search for commit nodes in the same repo within BranchNodes
+				if (n instanceof RepositoriesNode) return true;
+
+				if (n instanceof RemoteNode) {
+					return n.id.startsWith(repoNodeId) && remotes.includes(n.remote.name);
+				}
+
+				if (n instanceof BranchNode) {
+					return n.id.startsWith(repoNodeId) && branches.includes(n.branch.name);
+				}
+
+				if (n instanceof RepositoryNode || n instanceof RemotesNode || n instanceof BranchOrTagFolderNode) {
+					return n.id.startsWith(repoNodeId);
+				}
+
+				return false;
+			},
+			token: token
+		});
+	}
+
+	findStash(stash: GitStashCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
 		const repoNodeId = RepositoryNode.getId(stash.repoPath);
 
 		return this.findNode(StashNode.getId(stash.repoPath, stash.ref), {
@@ -191,8 +230,8 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 		});
 	}
 
-	@gate<RepositoriesView['revealCommit']>(() => '')
-	revealCommit(
+	@gate(() => '')
+	async revealCommit(
 		commit: GitLogCommit | { repoPath: string; ref: string },
 		options?: {
 			select?: boolean;
@@ -207,7 +246,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 				cancellable: true
 			},
 			async (progress, token) => {
-				const node = await this.findCommitNode(commit, token);
+				const node = await this.findCommit(commit, token);
 				if (node === undefined) return node;
 
 				// Not sure why I need to reveal each parent, but without it the node won't be revealed
@@ -231,7 +270,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 		);
 	}
 
-	@gate<RepositoriesView['revealStash']>(() => '')
+	@gate(() => '')
 	async revealStash(
 		stash: GitStashCommit | { repoPath: string; ref: string; stashName: string },
 		options?: {
@@ -247,7 +286,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 				cancellable: true
 			},
 			async (progress, token) => {
-				const node = await this.findStashNode(stash, token);
+				const node = await this.findStash(stash, token);
 				if (node !== undefined) {
 					await this.reveal(node, options);
 				}
@@ -257,7 +296,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 		);
 	}
 
-	@gate<RepositoriesView['revealStashes']>(() => '')
+	@gate(() => '')
 	async revealStashes(
 		repoPath: string,
 		options?: {

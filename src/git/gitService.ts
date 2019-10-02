@@ -1209,6 +1209,17 @@ export class GitService implements Disposable {
 	}
 
 	@log()
+	async getCommitBranches(repoPath: string, ref: string, options?: { remotes?: boolean }): Promise<string[]> {
+		const data = await Git.branch__contains(repoPath, ref, options);
+		if (!data) return [];
+
+		return data
+			.split('\n')
+			.map(b => b.substr(2).trim())
+			.filter(Boolean);
+	}
+
+	@log()
 	getCommitCount(repoPath: string, refs: string[]) {
 		return Git.rev_list(repoPath, refs, { count: true });
 	}

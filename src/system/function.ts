@@ -1,6 +1,6 @@
 'use strict';
 import { debounce as _debounce, once as _once } from 'lodash-es';
-import { Disposable } from 'vscode';
+import { CancellationToken, Disposable } from 'vscode';
 
 export interface Deferrable {
 	cancel(): void;
@@ -25,6 +25,59 @@ export namespace Functions {
 			}
 			return fn(...args);
 		};
+	}
+
+	export function cancellable<T>(
+		promise: Thenable<T>,
+		timeoutOrToken: number | CancellationToken,
+		options: {
+			cancelMessage?: string;
+			onDidCancel?(
+				resolve: (value?: T | PromiseLike<T> | undefined) => void,
+				reject: (reason?: any) => void
+			): void;
+		} = {}
+	): Promise<T> {
+		return new Promise((resolve, reject) => {
+			let fulfilled = false;
+			let timer: NodeJS.Timer | undefined;
+			if (typeof timeoutOrToken === 'number') {
+				timer = setTimeout(() => {
+					if (typeof options.onDidCancel === 'function') {
+						options.onDidCancel(resolve, reject);
+					} else {
+						reject(new Error(options.cancelMessage || 'TIMED OUT'));
+					}
+				}, timeoutOrToken);
+			} else {
+				timeoutOrToken.onCancellationRequested(() => {
+					if (fulfilled) return;
+
+					if (typeof options.onDidCancel === 'function') {
+						options.onDidCancel(resolve, reject);
+					} else {
+						reject(new Error(options.cancelMessage || 'CANCELLED'));
+					}
+				});
+			}
+
+			promise.then(
+				() => {
+					fulfilled = true;
+					if (timer !== undefined) {
+						clearTimeout(timer);
+					}
+					resolve(promise);
+				},
+				ex => {
+					fulfilled = true;
+					if (timer !== undefined) {
+						clearTimeout(timer);
+					}
+					reject(ex);
+				}
+			);
+		});
 	}
 
 	export interface DebounceOptions {
@@ -75,6 +128,22 @@ export namespace Functions {
 
 		return tracked;
 	}
+
+	// export function debounceMemoized<T extends (...args: any[]) => any>(
+	// 	fn: T,
+	// 	wait?: number,
+	// 	options?: DebounceOptions & { resolver?(...args: any[]): any }
+	// ): T {
+	// 	const { resolver, ...opts } = options || ({} as DebounceOptions & { resolver?: T });
+
+	// 	const memo = _memoize(() => {
+	// 		return debounce(fn, wait, opts);
+	// 	}, resolver);
+
+	// 	return function(this: any, ...args: []) {
+	// 		return memo.apply(this, args).apply(this, args);
+	// 	} as T;
+	// }
 
 	const comma = ',';
 	const emptyStr = '';
@@ -153,6 +222,39 @@ export namespace Functions {
 		timer = setInterval(fn, ms);
 
 		return disposable;
+	}
+
+	export function progress<T>(promise: Promise<T>, intervalMs: number, onProgress: () => boolean): Promise<T> {
+		return new Promise((resolve, reject) => {
+			let timer: NodeJS.Timer | undefined;
+			timer = setInterval(() => {
+				if (onProgress()) {
+					if (timer !== undefined) {
+						clearInterval(timer);
+						timer = undefined;
+					}
+				}
+			}, intervalMs);
+
+			promise.then(
+				() => {
+					if (timer !== undefined) {
+						clearInterval(timer);
+						timer = undefined;
+					}
+
+					resolve(promise);
+				},
+				ex => {
+					if (timer !== undefined) {
+						clearInterval(timer);
+						timer = undefined;
+					}
+
+					reject(ex);
+				}
+			);
+		});
 	}
 
 	export async function wait(ms: number) {

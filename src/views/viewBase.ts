@@ -208,6 +208,8 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 			token?: CancellationToken;
 		} = {}
 	): Promise<ViewNode | undefined> {
+		const cc = Logger.getCorrelationContext();
+
 		// If we have no root (e.g. never been initialized) force it so the tree will load properly
 		if (this._root === undefined) {
 			await this.show();
@@ -221,16 +223,21 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 		// 	maxDepth
 		// );
 
-		const node = await this.findNodeCoreBFS(
-			typeof predicate === 'string' ? n => n.id === predicate : predicate,
-			this.ensureRoot(),
-			allowPaging,
-			canTraverse,
-			maxDepth,
-			token
-		);
+		try {
+			const node = await this.findNodeCoreBFS(
+				typeof predicate === 'string' ? n => n.id === predicate : predicate,
+				this.ensureRoot(),
+				allowPaging,
+				canTraverse,
+				maxDepth,
+				token
+			);
 
-		return node;
+			return node;
+		} catch (ex) {
+			Logger.error(ex, cc);
+			return undefined;
+		}
 	}
 
 	// private async findNodeCoreDFS(
@@ -295,6 +302,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 		let depth = 0;
 		let node: ViewNode | undefined;
 		let children: ViewNode[];
+		let pagedChildren: ViewNode[];
 		while (queue.length > 1) {
 			if (token !== undefined && token.isCancellationRequested) return undefined;
 
@@ -325,7 +333,15 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 
 						await this.showMoreNodeChildren(node, pageSize);
 
-						child = (await node.getChildren()).find(predicate);
+						pagedChildren = await Functions.cancellable(
+							Promise.resolve(node.getChildren()),
+							token || 60000,
+							{
+								onDidCancel: resolve => resolve([])
+							}
+						);
+
+						child = pagedChildren.find(predicate);
 						if (child !== undefined) return child;
 
 						if (pageSize === 0) break;

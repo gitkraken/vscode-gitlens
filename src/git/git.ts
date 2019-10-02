@@ -403,11 +403,12 @@ export namespace Git {
 		);
 	}
 
-	export function branch__contains(repoPath: string, ref: string, options: { remote: boolean } = { remote: false }) {
-		const params = ['branch', '--contains'];
-		if (options.remote) {
+	export function branch__contains(repoPath: string, ref: string, { remotes = false }: { remotes?: boolean } = {}) {
+		const params = ['branch'];
+		if (remotes) {
 			params.push('-r');
 		}
+		params.push('--contains');
 
 		return git<string>({ cwd: repoPath, configs: ['-c', 'color.branch=false'] }, ...params, ref);
 	}
