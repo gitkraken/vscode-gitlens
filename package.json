@@ -529,6 +529,10 @@
 					"items": {
 						"type": "string",
 						"enum": [
+							"branch-create:command",
+							"branch-create:menu",
+							"co-authors:command",
+							"co-authors:menu",
 							"fetch:command",
 							"fetch:menu",
 							"pull:command",
@@ -542,9 +546,15 @@
 							"stash-push:command",
 							"stash-push:menu",
 							"switch:command",
-							"switch:menu"
+							"switch:menu",
+							"tag-create:command",
+							"tag-create:menu"
 						],
 						"enumDescriptions": [
+							"Skips branch create confirmations when run from a command, e.g. a view action",
+							"Skips branch create confirmations when run from the `Git Commands` menu",
+							"Skips co-author confirmations when run from a command, e.g. a view action",
+							"Skips co-author confirmations when run from the `Git Commands` menu",
 							"Skips fetch confirmations when run from a command, e.g. a view action",
 							"Skips fetch confirmations when run from the `Git Commands` menu",
 							"Skips pull confirmations when run from a command, e.g. a view action",
@@ -558,7 +568,9 @@
 							"Skips stash push confirmations when run from a command, e.g. a view action",
 							"Skips stash push confirmations when run from the `Git Commands` menu",
 							"Skips switch confirmations when run from a command, e.g. a view action",
-							"Skips switch confirmations when run from the `Git Commands` menu"
+							"Skips switch confirmations when run from the `Git Commands` menu",
+							"Skips tag create confirmations when run from a command, e.g. a view action",
+							"Skips tag create confirmations when run from the `Git Commands` menu"
 						]
 					},
 					"minItems": 0,
