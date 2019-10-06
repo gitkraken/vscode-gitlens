@@ -23,7 +23,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds a new _co-author_ command to the _Git Commands_ quick pick menu to add a co-author to a commit message
   - Adds a new _Add Co-authors_ command to the inline toolbar and context menu for the _Contributors_ node in the _Repositories_ view
   - Adds the _Add as Co-author_ command to the inline toolbar for the contributors in the _Repositories_ view
-- Adds support for GitHub Pull Request uri schemes (`pr://`)
+- Adds support for GitHub Pull Request uri schemes (`pr://`) &mdash; closes [#678](https://github.com/eamodio/vscode-gitlens/issues/678)
 - Adds new actions options to the status bar blame
   - Adds a `gitlens.showCommitsInView` option to show the commit in the _Search Commits_ view
   - Adds a `gitlens.revealCommitInView` option to to reveal the commit in the _Repositories_ view
@@ -31,6 +31,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Improves (drastically) the performance of revealing commits in the _Repositories_ view
 - Changes the _Create Branch (via Terminal)..._ command to _Create Branch..._ and uses the _branch_ _create_ Git command
 - Changes the _Delete Branch (via Terminal)..._ command to _Delete Branch..._ and uses the _branch_ _delete_ Git command
 - Changes the _Create Tag (via Terminal)..._ command to _Create Tag..._ and uses the _tag_ _create_ Git command
@@ -39,7 +40,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Fixed
 
 - Fixes [#826](https://github.com/eamodio/vscode-gitlens/issues/826) - Deleting stash doesn't remove the stash from the list - have to refresh
+- Fixes [#769](https://github.com/eamodio/vscode-gitlens/issues/769) - compacting causes duplicate names
 - Fixes issues with issue linking in hovers
+- Fixes issues with the _Show commits in Search Commits view_ Git code lens action with uncommitted changes
+- Fixes missing prefix while search nodes are loading
 
 ## [10.0.1] - 2019-09-24
 
