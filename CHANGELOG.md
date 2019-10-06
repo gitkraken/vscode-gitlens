@@ -4,12 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [10.1.0] - 2019-10-06
 
 ### Added
 
-- Adds a new commands to _Git Commands_ (`gitlens.gitCommands`)
-  - Adds a new _branch_ command with sub-commands for _create_, _delete_, and _rename_
+- Adds a new _Git Commands_ (`gitlens.gitCommands`)
+  - Adds a new _branch_ command with sub-commands for _create_, _rename_, and _delete_
     - Adds a _Reveal Branch in Repositories View_ button to the quick pick menu toolbar
     - Adds keyboard navigation
     - `right arrow` &mdash; reveals the selected branch in the _Repositories_ view, if there is no text in the quick pick menu
