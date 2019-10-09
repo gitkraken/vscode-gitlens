@@ -132,7 +132,7 @@ export class CherryPickGitCommand extends QuickCommandBase<State> {
 						)}(select or enter a reference)`,
 						matchOnDescription: true,
 						matchOnDetail: true,
-						items: await getBranchesAndOrTags(state.repo, true, {
+						items: await getBranchesAndOrTags(state.repo, ['branches', 'tags'], {
 							filterBranches: b => b.id !== destId
 						}),
 						onValidateValue: getValidateGitReferenceFn(state.repo)

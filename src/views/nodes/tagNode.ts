@@ -2,7 +2,7 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
 import { Container } from '../../container';
-import { GitService, GitTag, GitUri } from '../../git/gitService';
+import { GitService, GitTag, GitUri, TagDateFormatting } from '../../git/gitService';
 import { Iterables, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { CommitNode } from './commitNode';
@@ -11,7 +11,6 @@ import { insertDateMarkers } from './helpers';
 import { PageableViewNode, ResourceType, ViewNode, ViewRefNode } from './viewNode';
 import { emojify } from '../../emojis';
 import { RepositoryNode } from './repositoryNode';
-import { Git } from '../../git/git';
 import { GlyphChars } from '../../constants';
 
 export class TagNode extends ViewRefNode<RepositoriesView> implements PageableViewNode {
@@ -72,9 +71,19 @@ export class TagNode extends ViewRefNode<RepositoriesView> implements PageableVi
 		const item = new TreeItem(this.label, TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ResourceType.Tag;
-		item.description = this.tag.annotation !== undefined ? emojify(this.tag.annotation) : '';
-		item.tooltip = `${this.tag.name}${
-			this.tag.annotation !== undefined ? `\n${emojify(this.tag.annotation)}` : ''
+		item.description = `${GitService.shortenSha(this.tag.sha, { force: true })}${Strings.pad(
+			GlyphChars.Dot,
+			2,
+			2
+		)}${emojify(this.tag.message)}`;
+		item.tooltip = `${this.tag.name}${Strings.pad(GlyphChars.Dash, 2, 2)}${GitService.shortenSha(this.tag.sha, {
+			force: true
+		})}\n${this.tag.formatDateFromNow()} (${this.tag.formatDate(TagDateFormatting.dateFormat)})\n\n${emojify(
+			this.tag.message
+		)}${
+			this.tag.commitDate != null && this.tag.date !== this.tag.commitDate
+				? `\n${this.tag.formatCommitDateFromNow()} (${this.tag.formatCommitDate(TagDateFormatting.dateFormat)})`
+				: ''
 		}`;
 
 		return item;

@@ -145,7 +145,7 @@ export class RebaseGitCommand extends QuickCommandBase<State> {
 						} onto${GlyphChars.Space.repeat(3)}(select or enter a reference)`,
 						matchOnDescription: true,
 						matchOnDetail: true,
-						items: await getBranchesAndOrTags(state.repo, true, {
+						items: await getBranchesAndOrTags(state.repo, ['branches', 'tags'], {
 							picked: state.reference && state.reference.ref
 						}),
 						additionalButtons: [pickBranchOrCommitButton],

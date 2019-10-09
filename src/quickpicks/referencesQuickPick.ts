@@ -160,11 +160,7 @@ export class ReferencesQuickPick {
 					  })
 					: undefined,
 				include & ReferencesQuickPickIncludes.Tags
-					? Container.git.getTags(this.repoPath, {
-							...options,
-							filter: filterTags,
-							includeRefs: true
-					  })
+					? Container.git.getTags(this.repoPath, { ...options, filter: filterTags })
 					: undefined
 			]),
 			token

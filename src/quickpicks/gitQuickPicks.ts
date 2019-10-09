@@ -368,7 +368,7 @@ export namespace TagQuickPickItem {
 		tag: GitTag,
 		picked?: boolean,
 		options: {
-			annotation?: boolean;
+			message?: boolean;
 			checked?: boolean;
 			ref?: boolean;
 			type?: boolean;
@@ -379,15 +379,19 @@ export namespace TagQuickPickItem {
 			description = 'tag';
 		}
 
-		if (options.ref && tag.sha) {
+		if (options.ref) {
 			description = description
 				? `${description}${Strings.pad('$(git-commit)', 2, 2)}${GitService.shortenSha(tag.sha)}`
 				: `${Strings.pad('$(git-commit)', 0, 2)}${GitService.shortenSha(tag.sha)}`;
+
+			description = description
+				? `${description}${Strings.pad(GlyphChars.Dot, 2, 2)}${tag.formattedDate}`
+				: tag.formattedDate;
 		}
 
-		if (options.annotation && tag.annotation) {
-			const annotation = emojify(tag.annotation);
-			description = description ? `${description}${Strings.pad(GlyphChars.Dot, 2, 2)}${annotation}` : annotation;
+		if (options.message) {
+			const message = emojify(tag.message);
+			description = description ? `${description}${Strings.pad(GlyphChars.Dot, 2, 2)}${message}` : message;
 		}
 
 		const item: TagQuickPickItem = {

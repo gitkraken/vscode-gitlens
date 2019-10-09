@@ -150,10 +150,10 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
 }
 
 function notifyOnUnsupportedGitVersion(version: string) {
-	if (GitService.compareGitVersion('2.2.0') !== -1) return;
+	if (GitService.compareGitVersion('2.7.2') !== -1) return;
 
-	// If git is less than v2.2.0
-	void Messages.showGitVersionUnsupportedErrorMessage(version);
+	// If git is less than v2.7.2
+	void Messages.showGitVersionUnsupportedErrorMessage(version, '2.7.2');
 }
 
 async function showWelcomeOrWhatsNew(version: string, previousVersion: string | undefined) {

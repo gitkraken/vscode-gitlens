@@ -9,21 +9,19 @@ export async function getBranches(
 	repos: Repository | Repository[],
 	options: { filterBranches?: (b: GitBranch) => boolean; picked?: string | string[] } = {}
 ): Promise<BranchQuickPickItem[]> {
-	return getBranchesAndOrTags(repos, false, options) as Promise<BranchQuickPickItem[]>;
+	return getBranchesAndOrTags(repos, ['branches'], options) as Promise<BranchQuickPickItem[]>;
 }
 
 export async function getTags(
 	repos: Repository | Repository[],
 	options: { filterTags?: (t: GitTag) => boolean; picked?: string | string[] } = {}
 ): Promise<TagQuickPickItem[]> {
-	return getBranchesAndOrTags(repos, true, { ...options, filterBranches: () => false }) as Promise<
-		TagQuickPickItem[]
-	>;
+	return getBranchesAndOrTags(repos, ['tags'], options) as Promise<TagQuickPickItem[]>;
 }
 
 export async function getBranchesAndOrTags(
 	repos: Repository | Repository[],
-	includeTags: boolean,
+	include: ('tags' | 'branches')[],
 	{
 		filterBranches,
 		filterTags,
@@ -34,7 +32,7 @@ export async function getBranchesAndOrTags(
 		picked?: string | string[];
 	} = {}
 ): Promise<(BranchQuickPickItem | TagQuickPickItem)[]> {
-	let branches: GitBranch[];
+	let branches: GitBranch[] | undefined;
 	let tags: GitTag[] | undefined;
 
 	let singleRepo = false;
@@ -42,32 +40,36 @@ export async function getBranchesAndOrTags(
 		singleRepo = true;
 		const repo = repos instanceof Repository ? repos : repos[0];
 
-		[branches, tags] = await Promise.all<GitBranch[], GitTag[] | undefined>([
-			repo.getBranches({ filter: filterBranches, sort: true }),
-			includeTags ? repo.getTags({ filter: filterTags, includeRefs: true, sort: true }) : undefined
+		[branches, tags] = await Promise.all<GitBranch[] | undefined, GitTag[] | undefined>([
+			include.includes('branches') ? repo.getBranches({ filter: filterBranches, sort: true }) : undefined,
+			include.includes('tags') ? repo.getTags({ filter: filterTags, sort: true }) : undefined
 		]);
 	} else {
-		const [branchesByRepo, tagsByRepo] = await Promise.all<GitBranch[][], GitTag[][] | undefined>([
-			Promise.all(repos.map(r => r.getBranches({ filter: filterBranches, sort: true }))),
-			includeTags
-				? Promise.all(repos.map(r => r.getTags({ filter: filterTags, includeRefs: true, sort: true })))
+		const [branchesByRepo, tagsByRepo] = await Promise.all<GitBranch[][] | undefined, GitTag[][] | undefined>([
+			include.includes('branches')
+				? Promise.all(repos.map(r => r.getBranches({ filter: filterBranches, sort: true })))
+				: undefined,
+			include.includes('tags')
+				? Promise.all(repos.map(r => r.getTags({ filter: filterTags, sort: true })))
 				: undefined
 		]);
 
-		branches = GitBranch.sort(
-			Arrays.intersection(...branchesByRepo, ((b1: GitBranch, b2: GitBranch) => b1.name === b2.name) as any)
-		);
+		if (include.includes('branches')) {
+			branches = GitBranch.sort(
+				Arrays.intersection(...branchesByRepo!, ((b1: GitBranch, b2: GitBranch) => b1.name === b2.name) as any)
+			);
+		}
 
-		if (includeTags) {
+		if (include.includes('tags')) {
 			tags = GitTag.sort(
 				Arrays.intersection(...tagsByRepo!, ((t1: GitTag, t2: GitTag) => t1.name === t2.name) as any)
 			);
 		}
 	}
 
-	if (!includeTags) {
+	if (include.includes('branches') && !include.includes('tags')) {
 		return Promise.all(
-			branches.map(b =>
+			branches!.map(b =>
 				BranchQuickPickItem.create(
 					b,
 					picked != null && (typeof picked === 'string' ? b.ref === picked : picked.includes(b.ref)),
@@ -82,8 +84,23 @@ export async function getBranchesAndOrTags(
 		);
 	}
 
+	if (include.includes('tags') && !include.includes('branches')) {
+		return Promise.all(
+			tags!.map(t =>
+				TagQuickPickItem.create(
+					t,
+					picked != null && (typeof picked === 'string' ? t.ref === picked : picked.includes(t.ref)),
+					{
+						message: singleRepo,
+						ref: singleRepo
+					}
+				)
+			)
+		);
+	}
+
 	return Promise.all<BranchQuickPickItem | TagQuickPickItem>([
-		...branches
+		...branches!
 			.filter(b => !b.remote)
 			.map(b =>
 				BranchQuickPickItem.create(
@@ -101,12 +118,13 @@ export async function getBranchesAndOrTags(
 				t,
 				picked != null && (typeof picked === 'string' ? t.ref === picked : picked.includes(t.ref)),
 				{
+					message: singleRepo,
 					ref: singleRepo,
 					type: true
 				}
 			)
 		),
-		...branches
+		...branches!
 			.filter(b => b.remote)
 			.map(b =>
 				BranchQuickPickItem.create(

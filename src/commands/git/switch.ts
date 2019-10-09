@@ -138,7 +138,7 @@ export class SwitchGitCommand extends QuickCommandBase<State> {
 
 					const items = await getBranchesAndOrTags(
 						state.repos,
-						showTags,
+						showTags ? ['branches', 'tags'] : ['branches'],
 						state.repos.length === 1 ? undefined : { filterBranches: b => !b.remote }
 					);
 
@@ -171,7 +171,7 @@ export class SwitchGitCommand extends QuickCommandBase<State> {
 
 							quickpick.items = await getBranchesAndOrTags(
 								state.repos!,
-								showTags,
+								showTags ? ['branches', 'tags'] : ['branches'],
 								state.repos!.length === 1 ? undefined : { filterBranches: b => !b.remote }
 							);
 

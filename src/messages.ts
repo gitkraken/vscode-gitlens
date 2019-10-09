@@ -72,10 +72,10 @@ export class Messages {
 		);
 	}
 
-	static showGitVersionUnsupportedErrorMessage(version: string): Promise<MessageItem | undefined> {
+	static showGitVersionUnsupportedErrorMessage(version: string, required: string): Promise<MessageItem | undefined> {
 		return Messages.showMessage(
 			'error',
-			`GitLens requires a newer version of Git (>= 2.2.0) than is currently installed (${version}). Please install a more recent version of Git.`,
+			`GitLens requires a newer version of Git (>= ${required}) than is currently installed (${version}). Please install a more recent version of Git.`,
 			SuppressedMessages.GitVersionWarning
 		);
 	}

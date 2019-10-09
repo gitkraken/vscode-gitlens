@@ -177,7 +177,6 @@ export class GitService implements Disposable {
 
 	private readonly _branchesCache = new Map<string, GitBranch[]>();
 	private readonly _tagsCache = new Map<string, GitTag[]>();
-	private readonly _tagsWithRefsCache = new Map<string, GitTag[]>();
 	private readonly _trackedCache = new Map<string, boolean | Promise<boolean>>();
 	private readonly _userMapCache = new Map<string, { name?: string; email?: string } | null>();
 
@@ -198,7 +197,6 @@ export class GitService implements Disposable {
 		this._repositoryTree.forEach(r => r.dispose());
 		this._branchesCache.clear();
 		this._tagsCache.clear();
-		this._tagsWithRefsCache.clear();
 		this._trackedCache.clear();
 		this._userMapCache.clear();
 
@@ -230,7 +228,6 @@ export class GitService implements Disposable {
 
 		this._branchesCache.delete(repo.path);
 		this._tagsCache.delete(repo.path);
-		this._tagsWithRefsCache.clear();
 		this._trackedCache.clear();
 
 		if (e.changed(RepositoryChange.Config)) {
@@ -1176,10 +1173,7 @@ export class GitService implements Disposable {
 
 	@log()
 	async getBranchesAndTagsTipsFn(repoPath: string | undefined, currentName?: string) {
-		const [branches, tags] = await Promise.all([
-			this.getBranches(repoPath),
-			this.getTags(repoPath, { includeRefs: true })
-		]);
+		const [branches, tags] = await Promise.all([this.getBranches(repoPath), this.getTags(repoPath)]);
 
 		const branchesAndTagsBySha = Arrays.groupByFilterMap(
 			(branches as { name: string; sha: string }[]).concat(tags as { name: string; sha: string }[]),
@@ -2475,27 +2469,12 @@ export class GitService implements Disposable {
 	@log()
 	async getTags(
 		repoPath: string | undefined,
-		options: { filter?: (t: GitTag) => boolean; includeRefs?: boolean; sort?: boolean } = {}
+		options: { filter?: (t: GitTag) => boolean; sort?: boolean } = {}
 	): Promise<GitTag[]> {
 		if (repoPath === undefined) return [];
 
 		let tags: GitTag[] | undefined;
 		try {
-			if (options.includeRefs) {
-				tags = this._tagsWithRefsCache.get(repoPath);
-				if (tags !== undefined) return tags;
-
-				const data = await Git.show_ref__tags(repoPath);
-				tags = GitTagParser.parseWithRef(data, repoPath) || [];
-
-				const repo = await this.getRepository(repoPath);
-				if (repo !== undefined && repo.supportsChangeEvents) {
-					this._tagsWithRefsCache.set(repoPath, tags);
-				}
-
-				return tags;
-			}
-
 			tags = this._tagsCache.get(repoPath);
 			if (tags !== undefined) return tags;
 

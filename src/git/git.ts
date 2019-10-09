@@ -8,7 +8,7 @@ import { Logger } from '../logger';
 import { Objects, Strings } from '../system';
 import { findGitPath, GitLocation } from './locator';
 import { run, RunOptions } from './shell';
-import { GitBranchParser, GitLogParser, GitReflogParser, GitStashParser } from './parsers/parsers';
+import { GitBranchParser, GitLogParser, GitReflogParser, GitStashParser, GitTagParser } from './parsers/parsers';
 import { GitFileStatus } from './models/file';
 
 export * from './models/models';
@@ -1156,6 +1156,6 @@ export namespace Git {
 	}
 
 	export function tag(repoPath: string) {
-		return git<string>({ cwd: repoPath }, 'tag', '-l', '-n1');
+		return git<string>({ cwd: repoPath }, 'tag', '-l', `--format=${GitTagParser.defaultFormat}`);
 	}
 }

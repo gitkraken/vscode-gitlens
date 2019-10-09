@@ -125,7 +125,7 @@ export class MergeGitCommand extends QuickCommandBase<State> {
 						)}(select or enter a reference)`,
 						matchOnDescription: true,
 						matchOnDetail: true,
-						items: await getBranchesAndOrTags(state.repo, true, {
+						items: await getBranchesAndOrTags(state.repo, ['branches', 'tags'], {
 							filterBranches: b => b.id !== destId,
 							picked: state.reference && state.reference.ref
 						}),

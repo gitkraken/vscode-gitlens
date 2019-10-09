@@ -201,7 +201,9 @@ export enum StatusBarCommand {
 
 export enum TagSorting {
 	NameDesc = 'name:desc',
-	NameAsc = 'name:asc'
+	NameAsc = 'name:asc',
+	DateDesc = 'date:desc',
+	DateAsc = 'date:asc'
 }
 
 export enum ViewBranchesLayout {

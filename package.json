@@ -1308,11 +1308,15 @@
 					"default": "name:desc",
 					"enum": [
 						"name:desc",
-						"name:asc"
+						"name:asc",
+						"date:desc",
+						"date:asc"
 					],
 					"enumDescriptions": [
 						"Sorts tags by name in descending order",
-						"Sorts tags by name in ascending order"
+						"Sorts tags by name in ascending order",
+						"Sorts tags by date in descending order",
+						"Sorts tags by date in ascending order"
 					],
 					"markdownDescription": "Specifies how tags are sorted in quick pick menus and views",
 					"scope": "window"

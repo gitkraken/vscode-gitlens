@@ -360,7 +360,7 @@ export class Repository implements Disposable {
 		return Container.git.getStatusForRepo(this.path);
 	}
 
-	getTags(options?: { filter?: (t: GitTag) => boolean; includeRefs?: boolean; sort?: boolean }): Promise<GitTag[]> {
+	getTags(options?: { filter?: (t: GitTag) => boolean; sort?: boolean }): Promise<GitTag[]> {
 		return Container.git.getTags(this.path, options);
 	}
 
