@@ -24,7 +24,7 @@ export class CopyRemoteFileUrlToClipboardCommand extends ActiveEditorCommand {
 		super(Commands.CopyRemoteFileUrlToClipboard);
 	}
 
-	protected preExecute(context: CommandContext, args: CopyRemoteFileUrlToClipboardCommandArgs = { range: true }) {
+	protected preExecute(context: CommandContext, args?: CopyRemoteFileUrlToClipboardCommandArgs) {
 		if (context.type === 'uris' || context.type === 'scm-states') {
 			args = { ...args, range: false };
 		} else if (isCommandViewContextWithCommit(context)) {
@@ -45,7 +45,9 @@ export class CopyRemoteFileUrlToClipboardCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args: CopyRemoteFileUrlToClipboardCommandArgs = { range: true }) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: CopyRemoteFileUrlToClipboardCommandArgs) {
+		args = { range: true, ...args };
+
 		if (args.sha === undefined) {
 			uri = getCommandUri(uri, editor);
 			if (uri == null) return undefined;

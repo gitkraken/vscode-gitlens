@@ -27,19 +27,19 @@ export class StashApplyCommand extends Command {
 		super(Commands.StashApply);
 	}
 
-	protected preExecute(context: CommandContext, args: StashApplyCommandArgs = { deleteAfter: false }) {
+	protected preExecute(context: CommandContext, args?: StashApplyCommandArgs) {
 		if (isCommandViewContextWithCommit<GitStashCommit>(context)) {
-			args = { ...args };
-			args.stashItem = context.node.commit;
+			args = { ...args, stashItem: context.node.commit };
 		} else if (isCommandViewContextWithRepo(context)) {
-			args = { ...args };
-			args.repoPath = context.node.repo.path;
+			args = { ...args, repoPath: context.node.repo.path };
 		}
 
 		return this.execute(args);
 	}
 
-	async execute(args: StashApplyCommandArgs = { deleteAfter: false }) {
+	async execute(args?: StashApplyCommandArgs) {
+		args = { deleteAfter: false, ...args };
+
 		let repo;
 		if (args.stashItem !== undefined || args.repoPath !== undefined) {
 			repo = await Container.git.getRepository((args.stashItem && args.stashItem.repoPath) || args.repoPath!);

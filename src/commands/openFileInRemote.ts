@@ -31,10 +31,9 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
 		super(Commands.OpenFileInRemote);
 	}
 
-	protected preExecute(context: CommandContext, args: OpenFileInRemoteCommandArgs = { range: true }) {
+	protected preExecute(context: CommandContext, args?: OpenFileInRemoteCommandArgs) {
 		if (isCommandViewContextWithCommit(context)) {
-			args = { ...args };
-			args.range = false;
+			args = { ...args, range: false };
 			if (isCommandViewContextWithBranch(context)) {
 				args.branch = context.node.branch !== undefined ? context.node.branch.name : undefined;
 			}
@@ -49,12 +48,14 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args: OpenFileInRemoteCommandArgs = { range: true }) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: OpenFileInRemoteCommandArgs) {
 		uri = getCommandUri(uri, editor);
 		if (uri == null) return undefined;
 
 		const gitUri = await GitUri.fromUri(uri);
 		if (!gitUri.repoPath) return undefined;
+
+		args = { range: true, ...args };
 
 		try {
 			const remotes = await Container.git.getRemotes(gitUri.repoPath);
