@@ -383,7 +383,7 @@ export class TagGitCommand extends QuickCommandBase<State> {
 
 			void state.repo.tag(
 				...state.flags,
-				...(hasMessage ? [state.message] : []),
+				...(hasMessage ? [`"${state.message}"`] : []),
 				state.name,
 				state.reference.ref
 			);
