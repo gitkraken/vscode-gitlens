@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- Fixes [#872](https://github.com/eamodio/vscode-gitlens/issues/872) - OpenFileInRemoteCommand Cannot read property 'range' of null
+- Fixes [#855](https://github.com/eamodio/vscode-gitlens/issues/855) - Missing tags in Repositories view
+- Fixes an issue when creating tags with a message that contains spaces
+- Fixes an issue when creating and switching to a new branch
+
 ## [10.1.0] - 2019-10-06
 
 ### Added
@@ -3219,6 +3228,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
+[10.1.1]: https://github.com/eamodio/vscode-gitlens/compare/v10.1.0...eamodio:v10.1.1
+[10.1.0]: https://github.com/eamodio/vscode-gitlens/compare/v10.0.1...eamodio:v10.1.0
+[10.0.1]: https://github.com/eamodio/vscode-gitlens/compare/v10.0.0...eamodio:v10.0.1
 [10.0.0]: https://github.com/eamodio/vscode-gitlens/compare/v9.9.3...eamodio:v10.0.0
 [9.9.3]: https://github.com/eamodio/vscode-gitlens/compare/v9.9.2...eamodio:v9.9.3
 [9.9.2]: https://github.com/eamodio/vscode-gitlens/compare/v9.9.1...eamodio:v9.9.2
