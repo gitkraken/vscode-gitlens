@@ -5885,7 +5885,7 @@
 		"sass-loader": "8.0.0",
 		"terser-webpack-plugin": "2.1.2",
 		"ts-loader": "6.2.0",
-		"typescript": "3.6.3",
+		"typescript": "3.6.4",
 		"vsce": "1.67.1",
 		"webpack": "4.41.0",
 		"webpack-bundle-analyzer": "3.5.2",
