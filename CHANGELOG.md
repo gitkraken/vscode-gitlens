@@ -4,7 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [10.1.1] - 2019-10-10
+
+### Added
+
+- Adds new options to sort tags by date, similar to branches via the `gitlens.sortTagsBy` setting
+- Adds the tag reference and date to tags in the _Repositories_ view
+
+### Changed
+
+- Bumps the required version of Git to be at least 2.7.2
 
 ### Fixed
 
