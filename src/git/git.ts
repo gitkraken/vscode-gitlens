@@ -479,7 +479,7 @@ export namespace Git {
 	) {
 		const params = ['checkout'];
 		if (createBranch) {
-			params.push('-b', createBranch, '--track', ref, '--');
+			params.push('-b', createBranch, ref, '--');
 		} else {
 			params.push(ref, '--');
 
