@@ -20,7 +20,7 @@
 			"type": "npm",
 			"script": "build",
 			"group": "build",
-			"problemMatcher": ["$ts-webpack"]
+			"problemMatcher": ["$ts-checker-webpack", "$ts-checker-eslint-webpack"]
 		},
 		{
 			"type": "npm",
@@ -36,7 +36,7 @@
 				"isDefault": true
 			},
 			"isBackground": true,
-			"problemMatcher": ["$ts-webpack-watch"]
+			"problemMatcher": ["$ts-checker-webpack-watch", "$ts-checker-eslint-webpack-watch"]
 		}
 	]
 }
