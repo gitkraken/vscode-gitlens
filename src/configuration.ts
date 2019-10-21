@@ -47,7 +47,7 @@ export class Configuration {
 
 	private _onDidChangeAny = new EventEmitter<ConfigurationChangeEvent>();
 	get onDidChangeAny(): Event<ConfigurationChangeEvent> {
-		return this._onDidChange.event;
+		return this._onDidChangeAny.event;
 	}
 
 	private _onWillChange = new EventEmitter<ConfigurationWillChangeEvent>();
@@ -71,6 +71,7 @@ export class Configuration {
 			e = evt.transform(e);
 		}
 
+		this._onDidChangeAny.fire(e);
 		this._onDidChange.fire(e);
 	}
 
