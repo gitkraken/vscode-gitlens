@@ -168,7 +168,7 @@ export class PullGitCommand extends QuickCommandBase<State> {
 			detail = Strings.pluralize('commit', status.state.behind);
 
 			fetchedOn = `${Strings.pad(GlyphChars.Dot, 2, 2)}Last fetched ${Dates.getFormatter(
-				new Date(lastFetched)
+				new Date(lastFetched!)
 			).fromNow()}`;
 		}
 
