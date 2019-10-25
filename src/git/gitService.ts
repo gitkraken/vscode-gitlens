@@ -1560,7 +1560,7 @@ export class GitService implements Disposable {
 
 						case 'change:':
 							for (const value of values) {
-								searchArgs.add(`-G=${value}`);
+								searchArgs.add(`-G${value}`);
 							}
 
 							break;
