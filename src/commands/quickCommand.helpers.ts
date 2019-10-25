@@ -152,7 +152,7 @@ export function getValidateGitReferenceFn(repo: Repository | Repository[]) {
 		if (!(await Container.git.validateReference(repo.path, value))) return false;
 
 		const commit = await Container.git.getCommit(repo.path, value);
-		quickpick.items = [CommitQuickPickItem.create(commit!, true, { compact: true, icon: true, match: value })];
+		quickpick.items = [CommitQuickPickItem.create(commit!, true, { alwaysShow: true, compact: true, icon: true })];
 		return true;
 	};
 }
