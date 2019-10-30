@@ -9,6 +9,7 @@ const CircularDependencyPlugin = require('circular-dependency-plugin');
 const CspHtmlPlugin = require('csp-html-webpack-plugin');
 const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const HtmlExcludeAssetsPlugin = require('html-webpack-exclude-assets-plugin');
+const HtmlInlineSourcePlugin = require('html-webpack-inline-source-plugin');
 const HtmlPlugin = require('html-webpack-plugin');
 const ImageminPlugin = require('imagemin-webpack-plugin').default;
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
@@ -159,7 +160,7 @@ function getWebviewsConfig(env) {
 			template: 'settings/index.html',
 			filename: path.resolve(__dirname, 'dist/webviews/settings.html'),
 			inject: true,
-			// inlineSource: env.production ? '.(js|css)$' : undefined,
+			inlineSource: env.production ? '.css$' : undefined,
 			cspPlugin: {
 				enabled: true,
 				policy: cspPolicy,
@@ -187,7 +188,7 @@ function getWebviewsConfig(env) {
 			template: 'welcome/index.html',
 			filename: path.resolve(__dirname, 'dist/webviews/welcome.html'),
 			inject: true,
-			// inlineSource: env.production ? '.(js|css)$' : undefined,
+			inlineSource: env.production ? '.css$' : undefined,
 			cspPlugin: {
 				enabled: true,
 				policy: cspPolicy,
@@ -227,7 +228,8 @@ function getWebviewsConfig(env) {
 				speed: env.production ? 1 : 10
 			},
 			svgo: null
-		})
+		}),
+		new HtmlInlineSourcePlugin()
 	];
 
 	return {
