@@ -504,10 +504,6 @@ The compare view provides the following features,
 
 - Adds a _Show Last Opened Quick Pick_ command (`gitlens.showLastQuickPick`) with a shortcut of `alt+-` to quickly get back to where you were when the last GitLens quick pick menu closed
 
-- Adds a _Git Commands_ command (`gitlens.gitCommands`) to provide a guided (step-by-step) access to common Git commands (and their flags)
-
-  - Quickly navigate and execute Git commands through easy-to-use menus where each command requires an explicit confirm step before executing
-
 - Adds commands to Open files, commits, branches, and the repository on the supported remote services, **Bitbucket, GitHub, GitLab, and Azure DevOps** or a [**user-defined** remote services](#custom-remotes-settings 'Jump to Custom Remotes settings') &mdash; only available if a Git upstream service is configured in the repository
   - Also supports [remote services with custom domains](#custom-remotes-settings 'Jump to Custom Remotes settings'), such as **Bitbucket, Bitbucket Server (previously called Stash), GitHub, GitHub Enterprise, GitLab**
   - _Open Branches on Remote_ command (`gitlens.openBranchesInRemote`) &mdash; opens the branches on the supported remote service
@@ -515,6 +511,15 @@ The compare view provides the following features,
   - _Open Commit on Remote_ command (`gitlens.openCommitInRemote`) &mdash; opens the commit revision of the current line on the supported remote service
   - _Open File on Remote_ command (`gitlens.openFileInRemote`) &mdash; opens the current file/revision on the supported remote service
   - _Open Repository on Remote_ command (`gitlens.openRepoInRemote`) &mdash; opens the repository on the supported remote service
+
+#### Git Commands
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/docs/menu-git-commands.png" alt="Git Commands Quick Pick Menu" />
+</p>
+
+- Adds a _Git Commands_ command (`gitlens.gitCommands`) to provide guided (step-by-step) access to common Git commands and their flags
+  - Quickly navigate and execute Git commands through easy-to-use menus where each command requires an explicit confirm step before executing
 
 #### Branch History
 
