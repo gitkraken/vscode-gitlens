@@ -28,7 +28,7 @@
 			},
 			"cwd": "${workspaceFolder}",
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
-			"skipFiles": ["<node_internals>/**", "**/resources/app/out/vs/**"],
+			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
 			"smartStep": true,
 			"sourceMaps": true
 		},
