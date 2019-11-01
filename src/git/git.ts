@@ -1,6 +1,7 @@
 'use strict';
 /* eslint-disable @typescript-eslint/camelcase */
 import * as paths from 'path';
+import * as fs from 'fs';
 import * as iconv from 'iconv-lite';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
@@ -329,6 +330,8 @@ export namespace Git {
 		return git<string>({ cwd: repoPath, stdin: patch }, ...params);
 	}
 
+	const ignoreRevsFileMap = new Map<string, boolean>();
+
 	export async function blame(
 		repoPath: string | undefined,
 		fileName: string,
@@ -347,6 +350,38 @@ export namespace Git {
 		}
 		if (options.args != null) {
 			params.push(...options.args);
+
+			const index = params.indexOf('--ignore-revs-file');
+			if (index !== -1) {
+				// Ensure the version of Git supports the --ignore-revs-file flag, otherwise the blame will fail
+				let supported = Git.validateVersion(2, 23);
+				if (supported) {
+					let ignoreRevsFile = params[index + 1];
+					if (!paths.isAbsolute(ignoreRevsFile)) {
+						ignoreRevsFile = paths.join(repoPath || '', ignoreRevsFile);
+					}
+
+					const exists = ignoreRevsFileMap.get(ignoreRevsFile);
+					if (exists !== undefined) {
+						supported = exists;
+					} else {
+						// Ensure the specified --ignore-revs-file exists, otherwise the blame will fail
+						try {
+							supported = await new Promise(resolve =>
+								fs.exists(ignoreRevsFile, exists => resolve(exists))
+							);
+						} catch {
+							supported = false;
+						}
+
+						ignoreRevsFileMap.set(ignoreRevsFile, supported);
+					}
+				}
+
+				if (!supported) {
+					params.splice(index, 2);
+				}
+			}
 		}
 
 		let stdin;
