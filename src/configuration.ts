@@ -117,7 +117,7 @@ export class Configuration {
 				section += `.${args[1]}`;
 				if (typeof args[2] === 'string') {
 					section += `.${args[2]}`;
-					if (typeof args[2] === 'string') {
+					if (typeof args[3] === 'string') {
 						section += `.${args[3]}`;
 						resource = args[4];
 						defaultValue = args[5];
