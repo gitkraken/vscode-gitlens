@@ -15,7 +15,7 @@ import {
 import { DocumentSchemes } from '../constants';
 import { Container } from '../container';
 import { GitService, GitTree, GitUri } from '../git/gitService';
-import { Iterables, Strings, TernarySearchTree } from '../system';
+import { debug, Iterables, Strings, TernarySearchTree } from '../system';
 
 const emptyArray = new Uint8Array(0);
 
@@ -60,6 +60,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 		throw FileSystemError.NoPermissions;
 	}
 
+	@debug()
 	async readDirectory(uri: Uri): Promise<[string, FileType][]> {
 		const { path, ref, repoPath } = fromGitLensFSUri(uri);
 
@@ -75,6 +76,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 		return items;
 	}
 
+	@debug()
 	async readFile(uri: Uri): Promise<Uint8Array> {
 		const { path, ref, repoPath } = fromGitLensFSUri(uri);
 
@@ -90,6 +92,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 		throw FileSystemError.NoPermissions;
 	}
 
+	@debug()
 	async stat(uri: Uri): Promise<FileStat> {
 		const { path, ref, repoPath } = fromGitLensFSUri(uri);
 
