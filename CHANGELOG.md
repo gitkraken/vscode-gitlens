@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [10.1.2] - 2019-11-06
+
+### Changed
+
+- Changes commit icon to be closer to VS Code's
+- Changes webviews (welcome, settings) to have inline CSS to avoid FOUC (flash of unstyled content)
+- Only applies `--ignore-revs-file` custom blame flag if it is supported by the current Git version and the file exists
+
+### Fixed
+
+- Fixes [#882](https://github.com/eamodio/vscode-gitlens/issues/882) - Search for changes command is malformed
+- Fixes [#875](https://github.com/eamodio/vscode-gitlens/issues/875) - Editing causes all contextual blames to disappear
+- Fixes [#890](https://github.com/eamodio/vscode-gitlens/issues/890) - Version warning "Don't Show Again" button not working
+- Fixes [#889](https://github.com/eamodio/vscode-gitlens/issues/889) - Make the heart icon (support GitLens) rounder
+- Fixes broken view layout buttons in the interactive settings editor
+
 ## [10.1.1] - 2019-10-10
 
 ### Added
