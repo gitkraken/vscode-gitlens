@@ -3,7 +3,7 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { BranchDateFormatting, GitBranch, GitRemoteType, GitUri } from '../../git/gitService';
+import { BranchDateFormatting, GitBranch, GitLog, GitRemoteType, GitUri } from '../../git/gitService';
 import { debug, gate, Iterables, log, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
@@ -18,10 +18,6 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 	static getId(repoPath: string, name: string, root: boolean): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${name})${root ? ':root' : ''}`;
 	}
-
-	readonly supportsPaging = true;
-	readonly rememberLastMaxCount = true;
-	maxCount: number | undefined = this.view.getNodeLastMaxCount(this);
 
 	private _children: ViewNode[] | undefined;
 
@@ -87,10 +83,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 				}
 			}
 
-			const log = await Container.git.getLog(this.uri.repoPath!, {
-				maxCount: this.maxCount !== undefined ? this.maxCount : this.view.config.defaultItemLimit,
-				ref: this.ref
-			});
+			const log = await this.getLog();
 			if (log === undefined) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
 			const getBranchAndTagTips = await Container.git.getBranchesAndTagsTipsFn(
@@ -107,9 +100,9 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 				)
 			);
 
-			if (log.truncated) {
+			if (log.hasMore) {
 				children.push(
-					new ShowMoreNode(this.view, this, 'Commits', log.maxCount, children[children.length - 1])
+					new ShowMoreNode(this.view, this, 'Commits', children[children.length - 1])
 				);
 			}
 
@@ -230,7 +223,37 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 
 	@gate()
 	@debug()
-	refresh() {
+	refresh(reset?: boolean) {
 		this._children = undefined;
+		if (reset) {
+			this._log = undefined;
+		}
+	}
+
+	private _log: GitLog | undefined;
+	private async getLog() {
+		if (this._log === undefined) {
+			this._log = await Container.git.getLog(this.uri.repoPath!, {
+				limit: this.view.config.defaultItemLimit,
+				ref: this.ref
+			});
+		}
+
+		return this._log;
+	}
+
+	get hasMore() {
+		return this._log?.hasMore ?? true;
+	}
+
+	async showMore(limit?: number | { until?: any }) {
+		let log = await this.getLog();
+		if (log === undefined || !log.hasMore) return;
+
+		log = await log.more?.(limit ?? this.view.config.pageItemLimit);
+		if (this._log === log) return;
+
+		this._log = log;
+		this.triggerChange(false);
 	}
 }

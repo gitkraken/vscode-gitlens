@@ -13,7 +13,7 @@ import { ActiveEditorCommand, command, Commands, getCommandUri, openEditor } fro
 export interface OpenFileRevisionCommandArgs {
 	reference?: GitBranch | GitTag | GitReference;
 	uri?: Uri;
-	maxCount?: number;
+	limit?: number;
 
 	line?: number;
 	showOptions?: TextDocumentShowOptions;
@@ -76,7 +76,7 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
 				progressCancellation = FileHistoryQuickPick.showProgress(placeHolder);
 
 				const log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
-					maxCount: args.maxCount,
+					limit: args.limit,
 					ref: (args.reference && args.reference.ref) || gitUri.sha
 				});
 				if (log === undefined) {
@@ -90,12 +90,12 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
 
 				let previousPageCommand: CommandQuickPickItem | undefined = undefined;
 
-				if (log.truncated) {
+				if (log.hasMore) {
 					commandArgs = { ...args };
 					const npc = new CommandQuickPickItem(
 						{
 							label: '$(arrow-right) Show Next Commits',
-							description: `shows ${log.maxCount} newer commits`
+							description: `shows ${log.limit} newer commits`
 						},
 						Commands.OpenFileRevision,
 						[uri, commandArgs]
@@ -107,7 +107,7 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
 						previousPageCommand = new CommandQuickPickItem(
 							{
 								label: '$(arrow-left) Show Previous Commits',
-								description: `shows ${log.maxCount} older commits`
+								description: `shows ${log.limit} older commits`
 							},
 							Commands.OpenFileRevision,
 							[new GitUri(uri, last), commandArgs]
@@ -136,14 +136,14 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
 					[uri, commandArgs]
 				);
 
-				commandArgs = { ...args, maxCount: 0 };
+				commandArgs = { ...args, limit: 0 };
 				const pick = await FileHistoryQuickPick.show(log, gitUri, placeHolder, {
 					pickerOnly: true,
 					progressCancellation: progressCancellation,
 					currentCommand: currentCommand,
 					nextPageCommand: args.nextPageCommand,
 					previousPageCommand: previousPageCommand,
-					showAllCommand: log.truncated
+					showAllCommand: log.hasMore
 						? new CommandQuickPickItem(
 								{
 									label: '$(sync) Show All Commits',

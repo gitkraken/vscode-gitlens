@@ -19,7 +19,7 @@ import {
 import { configuration } from '../configuration';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { debug, Functions, log, Strings } from '../system';
+import { debug, Functions, log, Promises, Strings } from '../system';
 import { CompareView } from './compareView';
 import { FileHistoryView } from './fileHistoryView';
 import { LineHistoryView } from './lineHistoryView';
@@ -51,7 +51,6 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 	}
 
 	protected _disposable: Disposable | undefined;
-	private readonly _lastMaxCounts = new Map<string, number | undefined>();
 	protected _root: TRoot | undefined;
 	protected _tree: TreeView<ViewNode> | undefined;
 
@@ -138,11 +137,6 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 	}
 
 	protected onElementCollapsed(e: TreeViewExpansionEvent<ViewNode>) {
-		// Clear any last max count if the node was collapsed
-		if (PageableViewNode.is(e.element)) {
-			this.resetNodeLastMaxCount(e.element);
-		}
-
 		this._onDidChangeNodeState.fire({ ...e, state: TreeItemCollapsibleState.Collapsed });
 	}
 
@@ -168,7 +162,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 		id: string,
 		options?: {
 			allowPaging?: boolean;
-			canTraverse?: (node: ViewNode) => boolean;
+			canTraverse?: (node: ViewNode) => boolean | Promise<boolean>;
 			maxDepth?: number;
 			token?: CancellationToken;
 		}
@@ -177,7 +171,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 		predicate: (node: ViewNode) => boolean,
 		options?: {
 			allowPaging?: boolean;
-			canTraverse?: (node: ViewNode) => boolean;
+			canTraverse?: (node: ViewNode) => boolean | Promise<boolean>;
 			maxDepth?: number;
 			token?: CancellationToken;
 		}
@@ -188,7 +182,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 				typeof predicate === 'string' ? predicate : 'function',
 			1: (opts: {
 				allowPaging?: boolean;
-				canTraverse?: (node: ViewNode) => boolean;
+				canTraverse?: (node: ViewNode) => boolean | Promise<boolean>;
 				maxDepth?: number;
 				token?: CancellationToken;
 			}) => `options=${JSON.stringify({ ...opts, canTraverse: undefined, token: undefined })}`
@@ -203,7 +197,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 			token
 		}: {
 			allowPaging?: boolean;
-			canTraverse?: (node: ViewNode) => boolean;
+			canTraverse?: (node: ViewNode) => boolean | Promise<boolean>;
 			maxDepth?: number;
 			token?: CancellationToken;
 		} = {}
@@ -214,14 +208,6 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 		if (this._root === undefined) {
 			await this.show();
 		}
-
-		// const node = await this.findNodeCoreDFS(
-		// 	typeof predicate === 'string' ? n => n.id === predicate : predicate,
-		// 	await this.ensureRoot().getChildren(),
-		// 	allowPaging,
-		// 	canTraverse,
-		// 	maxDepth
-		// );
 
 		try {
 			const node = await this.findNodeCoreBFS(
@@ -240,58 +226,11 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 		}
 	}
 
-	// private async findNodeCoreDFS(
-	// 	predicate: (node: ViewNode) => boolean,
-	// 	nodes: ViewNode[],
-	// 	allowPaging: boolean,
-	// 	canTraverse: ((node: ViewNode) => boolean) | undefined,
-	// 	depth: number
-	// ): Promise<ViewNode | undefined> {
-	// 	if (depth === 0) return undefined;
-
-	// 	const defaultPageSize = Container.config.advanced.maxListItems;
-
-	// 	let child;
-	// 	let children;
-	// 	for (const node of nodes) {
-	// 		if (canTraverse !== undefined && !canTraverse(node)) continue;
-
-	// 		children = await node.getChildren();
-	// 		if (children.length === 0) continue;
-
-	// 		child = children.find(predicate);
-	// 		if (child !== undefined) return child;
-
-	// 		if (PageableViewNode.is(node)) {
-	// 			if (node.maxCount !== 0 && allowPaging) {
-	// 				let pageSize = defaultPageSize === 0 ? 0 : (node.maxCount || 0) + defaultPageSize;
-	// 				while (true) {
-	// 					await this.showMoreNodeChildren(node, pageSize);
-
-	// 					child = (await node.getChildren()).find(predicate);
-	// 					if (child !== undefined) return child;
-
-	// 					if (pageSize === 0) break;
-
-	// 					pageSize = 0;
-	// 				}
-	// 			}
-
-	// 			// Don't traverse into paged children
-	// 			continue;
-	// 		}
-
-	// 		return this.findNodeCoreDFS(predicate, children, allowPaging, canTraverse, depth - 1);
-	// 	}
-
-	// 	return undefined;
-	// }
-
 	private async findNodeCoreBFS(
 		predicate: (node: ViewNode) => boolean,
 		root: ViewNode,
 		allowPaging: boolean,
-		canTraverse: ((node: ViewNode) => boolean) | undefined,
+		canTraverse: ((node: ViewNode) => boolean | Promise<boolean>) | undefined,
 		maxDepth: number,
 		token: CancellationToken | undefined
 	): Promise<ViewNode | undefined> {
@@ -317,7 +256,14 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 			}
 
 			if (predicate(node)) return node;
-			if (canTraverse !== undefined && !canTraverse(node)) continue;
+			if (canTraverse !== undefined) {
+				const traversable = canTraverse(node);
+				if (Promises.is(traversable)) {
+					if (!(await traversable)) continue;
+				} else if (!traversable) {
+					continue;
+				}
+			}
 
 			children = await node.getChildren();
 			if (children.length === 0) continue;
@@ -326,12 +272,11 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 				let child = children.find(predicate);
 				if (child !== undefined) return child;
 
-				if (node.maxCount !== 0 && allowPaging) {
-					let pageSize = defaultPageSize === 0 ? 0 : (node.maxCount || 0) + defaultPageSize;
+				if (allowPaging && node.hasMore) {
 					while (true) {
 						if (token !== undefined && token.isCancellationRequested) return undefined;
 
-						await this.showMoreNodeChildren(node, pageSize);
+						await this.showMoreNodeChildren(node, defaultPageSize);
 
 						pagedChildren = await Functions.cancellable(
 							Promise.resolve(node.getChildren()),
@@ -344,9 +289,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 						child = pagedChildren.find(predicate);
 						if (child !== undefined) return child;
 
-						if (pageSize === 0) break;
-
-						pageSize = 0;
+						if (!node.hasMore) break;
 					}
 				}
 
@@ -429,22 +372,6 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 	}
 
 	@debug({
-		args: { 0: (n: ViewNode) => n.toString() }
-	})
-	getNodeLastMaxCount(node: PageableViewNode) {
-		return node.id === undefined ? undefined : this._lastMaxCounts.get(node.id);
-	}
-
-	@debug({
-		args: { 0: (n: ViewNode) => n.toString() }
-	})
-	resetNodeLastMaxCount(node: PageableViewNode) {
-		if (node.id === undefined || !node.rememberLastMaxCount) return;
-
-		this._lastMaxCounts.delete(node.id);
-	}
-
-	@debug({
 		args: {
 			0: (n: ViewNode & PageableViewNode) => n.toString(),
 			3: (n?: ViewNode) => (n === undefined ? '' : n.toString())
@@ -452,26 +379,14 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 	})
 	async showMoreNodeChildren(
 		node: ViewNode & PageableViewNode,
-		maxCount: number | undefined,
+		limit: number | { until: any } | undefined,
 		previousNode?: ViewNode
 	) {
-		if (node.maxCount === maxCount) return Promise.resolve();
-
-		if (maxCount === undefined || maxCount === 0) {
-			node.maxCount = maxCount;
-		} else {
-			node.maxCount = (node.maxCount || maxCount) + maxCount;
-		}
-
-		if (node.rememberLastMaxCount) {
-			this._lastMaxCounts.set(node.id!, node.maxCount);
-		}
-
 		if (previousNode !== undefined) {
 			void (await this.reveal(previousNode, { select: true }));
 		}
 
-		return this.refreshNode(node);
+		return node.showMore(limit);
 	}
 
 	@debug({

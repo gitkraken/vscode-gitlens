@@ -344,7 +344,7 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 						results === undefined
 							? `No results for ${state.pattern}`
 							: `${Strings.pluralize('result', results.count, {
-									number: results.truncated ? `${results.count}+` : undefined
+									number: results.hasMore ? `${results.count}+` : undefined
 							  })} for ${state.pattern}`,
 					matchOnDescription: true,
 					matchOnDetail: true,

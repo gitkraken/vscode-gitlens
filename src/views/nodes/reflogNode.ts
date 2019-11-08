@@ -1,7 +1,7 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
-import { GitUri, Repository } from '../../git/gitService';
+import { GitReflog, GitUri, Repository } from '../../git/gitService';
 import { PageableViewNode, ResourceType, ViewNode } from './viewNode';
 import { RepositoriesView } from '../repositoriesView';
 import { ReflogRecordNode } from './reflogRecordNode';
@@ -14,10 +14,6 @@ export class ReflogNode extends ViewNode<RepositoriesView> implements PageableVi
 	static getId(repoPath: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}`;
 	}
-
-	readonly supportsPaging = true;
-	readonly rememberLastMaxCount = true;
-	maxCount: number | undefined = this.view.getNodeLastMaxCount(this);
 
 	private _children: ViewNode[] | undefined;
 
@@ -33,19 +29,16 @@ export class ReflogNode extends ViewNode<RepositoriesView> implements PageableVi
 		if (this._children === undefined) {
 			const children = [];
 
-			const reflog = await Container.git.getIncomingActivity(this.repo.path, {
-				all: true,
-				maxCount: this.maxCount !== undefined ? this.maxCount : this.view.config.defaultItemLimit
-			});
+			const reflog = await this.getReflog();
 			if (reflog === undefined || reflog.records.length === 0) {
 				return [new MessageNode(this.view, this, 'No activity could be found.')];
 			}
 
 			children.push(...reflog.records.map(r => new ReflogRecordNode(this.view, this, r)));
 
-			if (reflog.truncated) {
+			if (reflog.hasMore) {
 				children.push(
-					new ShowMoreNode(this.view, this, 'Activity', reflog.maxCount, children[children.length - 1])
+					new ShowMoreNode(this.view, this, 'Activity', children[children.length - 1])
 				);
 			}
 
@@ -69,7 +62,37 @@ export class ReflogNode extends ViewNode<RepositoriesView> implements PageableVi
 
 	@gate()
 	@debug()
-	refresh() {
+	refresh(reset?: boolean) {
 		this._children = undefined;
+		if (reset) {
+			this._reflog = undefined;
+		}
+	}
+
+	private _reflog: GitReflog | undefined;
+	private async getReflog() {
+		if (this._reflog === undefined) {
+			this._reflog = await Container.git.getIncomingActivity(this.repo.path, {
+				all: true,
+				limit: this.view.config.defaultItemLimit
+			});
+		}
+
+		return this._reflog;
+	}
+
+	get hasMore() {
+		return this._reflog?.hasMore ?? true;
+	}
+
+	async showMore(limit?: number) {
+		let reflog = await this.getReflog();
+		if (reflog === undefined || !reflog.hasMore) return;
+
+		reflog = await reflog.more?.(limit ?? this.view.config.pageItemLimit);
+		if (this._reflog === reflog) return;
+
+		this._reflog = reflog;
+		this.triggerChange(false);
 	}
 }

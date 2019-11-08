@@ -9,10 +9,12 @@ export interface GitLog {
 	readonly commits: Map<string, GitLogCommit>;
 
 	readonly sha: string | undefined;
-	readonly count: number;
-	readonly maxCount: number | undefined;
 	readonly range: Range | undefined;
-	readonly truncated: boolean;
 
-	query?(maxCount: number | undefined): Promise<GitLog | undefined>;
+	readonly count: number;
+	readonly limit: number | undefined;
+	readonly hasMore: boolean;
+
+	query?(limit: number | undefined): Promise<GitLog | undefined>;
+	more?(limit: number | { until?: string } | undefined): Promise<GitLog | undefined>;
 }

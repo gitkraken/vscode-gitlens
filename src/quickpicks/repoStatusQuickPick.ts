@@ -348,7 +348,7 @@ export class RepoStatusQuickPick {
 		if (status.upstream && status.state.ahead) {
 			const branchHistoryCommandArgs: ShowQuickBranchHistoryCommandArgs = {
 				branch: status.ref,
-				maxCount: 0,
+				limit: 0,
 				goBackCommand: currentCommand
 			};
 			items.splice(
@@ -373,7 +373,7 @@ export class RepoStatusQuickPick {
 		if (status.upstream && status.state.behind) {
 			const branchHistoryCommandArgs: ShowQuickBranchHistoryCommandArgs = {
 				branch: status.ref,
-				maxCount: 0,
+				limit: 0,
 				goBackCommand: currentCommand
 			};
 			items.splice(

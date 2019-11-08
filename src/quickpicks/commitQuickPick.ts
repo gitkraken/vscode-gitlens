@@ -191,7 +191,7 @@ export class CommitQuickPick {
 
 					// Try to find the next commit
 					const nextLog = await Container.git.getLog(commit.repoPath, {
-						maxCount: 1,
+						limit: 1,
 						reverse: true,
 						ref: commit.sha
 					});

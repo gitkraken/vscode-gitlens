@@ -45,7 +45,7 @@ export class CommitFileNode extends ViewRefFileNode {
 			const commit = this.commit.toFileCommit(this.file);
 			if (commit === undefined) {
 				const log = await Container.git.getLogForFile(this.repoPath, this.file.fileName, {
-					maxCount: 2,
+					limit: 2,
 					ref: this.commit.sha
 				});
 				if (log !== undefined) {

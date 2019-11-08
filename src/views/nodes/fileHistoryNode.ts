@@ -3,6 +3,7 @@ import { Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
 import {
 	GitCommitType,
+	GitLog,
 	GitLogCommit,
 	GitService,
 	GitUri,
@@ -11,7 +12,7 @@ import {
 	RepositoryFileSystemChangeEvent
 } from '../../git/gitService';
 import { Logger } from '../../logger';
-import { debug, Iterables } from '../../system';
+import { debug, gate, Iterables } from '../../system';
 import { View } from '../viewBase';
 import { CommitFileNode } from './commitFileNode';
 import { MessageNode, ShowMoreNode } from './common';
@@ -19,9 +20,6 @@ import { insertDateMarkers } from './helpers';
 import { PageableViewNode, ResourceType, SubscribeableViewNode, ViewNode } from './viewNode';
 
 export class FileHistoryNode extends SubscribeableViewNode implements PageableViewNode {
-	readonly supportsPaging = true;
-	maxCount: number | undefined;
-
 	constructor(uri: GitUri, view: View, parent: ViewNode) {
 		super(uri, view, parent);
 	}
@@ -73,10 +71,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 			}
 		}
 
-		const log = await Container.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, {
-			maxCount: this.maxCount !== undefined ? this.maxCount : undefined,
-			ref: this.uri.sha
-		});
+		const log = await this.getLog();
 		if (log !== undefined) {
 			children.push(
 				...insertDateMarkers(
@@ -92,10 +87,8 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 				)
 			);
 
-			if (log.truncated) {
-				children.push(
-					new ShowMoreNode(this.view, this, 'Commits', log.maxCount, children[children.length - 1])
-				);
+			if (log.hasMore) {
+				children.push(new ShowMoreNode(this.view, this, 'Commits', children[children.length - 1]));
 			}
 		}
 
@@ -164,5 +157,40 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 		);
 
 		void this.triggerChange();
+	}
+
+	@gate()
+	@debug()
+	refresh(reset?: boolean) {
+		if (reset) {
+			this._log = undefined;
+		}
+	}
+
+	private _log: GitLog | undefined;
+	private async getLog() {
+		if (this._log === undefined) {
+			this._log = await Container.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, {
+				limit: this.view.config.defaultItemLimit,
+				ref: this.uri.sha
+			});
+		}
+
+		return this._log;
+	}
+
+	get hasMore() {
+		return this._log?.hasMore ?? true;
+	}
+
+	async showMore(limit?: number | { until?: any }) {
+		let log = await this.getLog();
+		if (log === undefined || !log.hasMore) return;
+
+		log = await log.more?.(limit ?? this.view.config.pageItemLimit);
+		if (this._log === log) return;
+
+		this._log = log;
+		this.triggerChange(false);
 	}
 }

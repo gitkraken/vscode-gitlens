@@ -693,11 +693,11 @@ export namespace Git {
 		ref: string | undefined,
 		{
 			authors,
-			maxCount,
+			limit,
 			merges,
 			reverse,
 			similarityThreshold
-		}: { authors?: string[]; maxCount?: number; merges?: boolean; reverse?: boolean; similarityThreshold?: number }
+		}: { authors?: string[]; limit?: number; merges?: boolean; reverse?: boolean; similarityThreshold?: number }
 	) {
 		const params = [
 			'log',
@@ -706,8 +706,8 @@ export namespace Git {
 			'--full-history',
 			`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`
 		];
-		if (maxCount && !reverse) {
-			params.push(`-n${maxCount}`);
+		if (limit && !reverse) {
+			params.push(`-n${limit}`);
 		}
 
 		if (merges) {
@@ -740,7 +740,7 @@ export namespace Git {
 		ref: string | undefined,
 		{
 			filters,
-			maxCount,
+			limit,
 			firstParent = false,
 			renames = true,
 			reverse = false,
@@ -749,7 +749,7 @@ export namespace Git {
 			endLine
 		}: {
 			filters?: GitLogDiffFilter[];
-			maxCount?: number;
+			limit?: number;
 			firstParent?: boolean;
 			renames?: boolean;
 			reverse?: boolean;
@@ -762,8 +762,8 @@ export namespace Git {
 
 		const params = ['log', `--format=${simple ? GitLogParser.simpleFormat : GitLogParser.defaultFormat}`];
 
-		if (maxCount && !reverse) {
-			params.push(`-n${maxCount}`);
+		if (limit && !reverse) {
+			params.push(`-n${limit}`);
 		}
 		params.push(renames ? '--follow' : '-m');
 
@@ -848,7 +848,7 @@ export namespace Git {
 	export function log__search(
 		repoPath: string,
 		search: string[] = emptyArray,
-		{ maxCount, useShow }: { maxCount?: number; useShow?: boolean } = {}
+		{ limit, skip, useShow }: { limit?: number; skip?: number; useShow?: boolean } = {}
 	) {
 		const params = [
 			useShow ? 'show' : 'log',
@@ -856,8 +856,11 @@ export namespace Git {
 			`--format=${GitLogParser.defaultFormat}`,
 			'--use-mailmap'
 		];
-		if (maxCount && !useShow) {
-			params.push(`-n${maxCount}`);
+		if (limit && !useShow) {
+			params.push(`-n${limit}`);
+		}
+		if (skip && !useShow) {
+			params.push(`--skip=${skip}`);
 		}
 
 		return git<string>({ cwd: repoPath }, ...params, ...search);
@@ -916,17 +919,20 @@ export namespace Git {
 
 	export function reflog(
 		repoPath: string,
-		{ all, branch, since }: { all?: boolean; branch?: string; since?: string } = {}
+		{ all, branch, limit, skip }: { all?: boolean; branch?: string; limit?: number; skip?: number } = {}
 	): Promise<string> {
-		const params = ['log', '-g', `--format=${GitReflogParser.defaultFormat}`, '--date=iso8601'];
+		const params = ['log', '--walk-reflogs', `--format=${GitReflogParser.defaultFormat}`, '--date=iso8601'];
 		if (all) {
 			params.push('--all');
 		}
+		if (limit) {
+			params.push(`-n${limit}`);
+		}
+		if (skip) {
+			params.push(`--skip=${skip}`);
+		}
 		if (branch) {
 			params.push(branch);
-		}
-		if (since) {
-			params.push(`--since=${since}`);
 		}
 
 		return git<string>({ cwd: repoPath }, ...params, '--');

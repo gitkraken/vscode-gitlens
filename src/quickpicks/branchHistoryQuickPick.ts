@@ -37,7 +37,7 @@ export class BranchHistoryQuickPick {
 		const currentCommandArgs: ShowQuickBranchHistoryCommandArgs = {
 			branch: branch,
 			log: log,
-			maxCount: log.maxCount,
+			limit: log.limit,
 			goBackCommand: goBackCommand
 		};
 		const currentCommand = new CommandQuickPickItem(
@@ -67,11 +67,11 @@ export class BranchHistoryQuickPick {
 
 		let previousPageCommand: CommandQuickPickItem | undefined = undefined;
 
-		if (log.truncated || log.sha) {
-			if (log.truncated) {
+		if (log.hasMore || log.sha) {
+			if (log.hasMore) {
 				const commandArgs: ShowQuickBranchHistoryCommandArgs = {
 					branch: branch,
-					maxCount: 0,
+					limit: 0,
 					goBackCommand: goBackCommand
 				};
 				items.splice(
@@ -92,16 +92,16 @@ export class BranchHistoryQuickPick {
 				items.splice(0, 0, nextPageCommand);
 			}
 
-			if (log.truncated) {
+			if (log.hasMore) {
 				const commandArgs: ShowQuickBranchHistoryCommandArgs = {
 					branch: branch,
-					maxCount: log.maxCount,
+					limit: log.limit,
 					nextPageCommand: nextPageCommand
 				};
 				const npc = new CommandQuickPickItem(
 					{
 						label: '$(arrow-right) Show Next Commits',
-						description: `shows ${log.maxCount} newer commits`
+						description: `shows ${log.limit} newer commits`
 					},
 					Commands.ShowQuickBranchHistory,
 					[uri, commandArgs]
@@ -111,14 +111,14 @@ export class BranchHistoryQuickPick {
 				if (last != null) {
 					const commandArgs: ShowQuickBranchHistoryCommandArgs = {
 						branch: branch,
-						maxCount: log.maxCount,
+						limit: log.limit,
 						goBackCommand: goBackCommand,
 						nextPageCommand: npc
 					};
 					previousPageCommand = new CommandQuickPickItem(
 						{
 							label: '$(arrow-left) Show Previous Commits',
-							description: `shows ${log.maxCount} older commits`
+							description: `shows ${log.limit} older commits`
 						},
 						Commands.ShowQuickBranchHistory,
 						[new GitUri(uri ? uri : last.uri, last), commandArgs]

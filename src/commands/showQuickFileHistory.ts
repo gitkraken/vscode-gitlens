@@ -18,7 +18,7 @@ import { ShowQuickCommitFileDetailsCommandArgs } from './showQuickCommitFileDeta
 export interface ShowQuickFileHistoryCommandArgs {
 	reference?: GitBranch | GitTag | GitReference;
 	log?: GitLog;
-	maxCount?: number;
+	limit?: number;
 	range?: Range;
 	showInView?: boolean;
 
@@ -64,7 +64,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 		try {
 			if (args.log === undefined) {
 				args.log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
-					maxCount: args.maxCount,
+					limit: args.limit,
 					range: args.range,
 					ref: (args.reference && args.reference.ref) || gitUri.sha
 				});
@@ -82,13 +82,13 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 
 			let previousPageCommand: CommandQuickPickItem | undefined = undefined;
 
-			if (args.log.truncated) {
+			if (args.log.hasMore) {
 				let commandArgs: ShowQuickFileHistoryCommandArgs;
 				commandArgs = { ...args, log: undefined };
 				const npc = new CommandQuickPickItem(
 					{
 						label: '$(arrow-right) Show Next Commits',
-						description: `shows ${args.log.maxCount} newer commits`
+						description: `shows ${args.log.limit} newer commits`
 					},
 					Commands.ShowQuickFileHistory,
 					[gitUri, commandArgs]
@@ -100,7 +100,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 					previousPageCommand = new CommandQuickPickItem(
 						{
 							label: '$(arrow-left) Show Previous Commits',
-							description: `shows ${args.log.maxCount} older commits`
+							description: `shows ${args.log.limit} older commits`
 						},
 						Commands.ShowQuickFileHistory,
 						[new GitUri(uri, last), commandArgs]
@@ -129,6 +129,8 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 				[uri, args]
 			);
 
+			const showAllCommandArgs: ShowQuickFileHistoryCommandArgs = { ...args, log: undefined, limit: 0 };
+
 			const pick = await FileHistoryQuickPick.show(args.log, gitUri, placeHolder, {
 				progressCancellation: progressCancellation,
 				currentCommand: currentCommand,
@@ -136,14 +138,14 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 				nextPageCommand: args.nextPageCommand,
 				previousPageCommand: previousPageCommand,
 				showAllCommand:
-					args.log !== undefined && args.log.truncated
+					args.log !== undefined && args.log.hasMore
 						? new CommandQuickPickItem(
 								{
 									label: '$(sync) Show All Commits',
 									description: 'this may take a while'
 								},
 								Commands.ShowQuickFileHistory,
-								[uri, { ...args, log: undefined, maxCount: 0 }]
+								[uri, showAllCommandArgs]
 						  )
 						: undefined,
 				showInViewCommand:

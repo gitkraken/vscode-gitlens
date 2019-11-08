@@ -106,7 +106,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
 				}
 
 				if (args.repoLog === undefined) {
-					const log = await Container.git.getLog(repoPath!, { maxCount: 2, ref: args.sha });
+					const log = await Container.git.getLog(repoPath!, { limit: 2, ref: args.sha });
 					if (log === undefined) {
 						return Messages.showCommitNotFoundWarningMessage('Unable to show commit details');
 					}

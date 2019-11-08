@@ -140,13 +140,10 @@ export abstract class PagerNode extends ViewNode {
 		view: View,
 		parent: ViewNode & PageableViewNode,
 		protected readonly message: string,
-		maxCount: number | undefined,
 		private readonly _previousNode?: ViewNode,
 		private readonly _pageSize: number = Container.config.views.pageItemLimit
 	) {
 		super(unknownGitUri, view, parent);
-
-		parent.maxCount = maxCount;
 	}
 
 	showMore() {
@@ -190,7 +187,6 @@ export class ShowMoreNode extends PagerNode {
 		view: View,
 		parent: ViewNode & PageableViewNode,
 		itemType: string,
-		maxCount: number | undefined,
 		previousNode: ViewNode,
 		pageSize?: number
 	) {
@@ -200,7 +196,6 @@ export class ShowMoreNode extends PagerNode {
 			pageSize === 0
 				? `Show All ${itemType} ${GlyphChars.Space}${GlyphChars.Dash}${GlyphChars.Space} this may take a while`
 				: `Show More ${itemType}`,
-			maxCount,
 			previousNode,
 			pageSize
 		);

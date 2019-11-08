@@ -1,7 +1,7 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { GitContributor, GitUri } from '../../git/gitService';
-import { Iterables, Strings } from '../../system';
+import { GitContributor, GitLog, GitUri } from '../../git/gitService';
+import { debug, gate, Iterables, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { PageableViewNode, ResourceType, ViewNode } from './viewNode';
 import { Container } from '../../container';
@@ -17,10 +17,6 @@ export class ContributorNode extends ViewNode<RepositoriesView> implements Pagea
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${name}|${email})`;
 	}
 
-	readonly supportsPaging = true;
-	readonly rememberLastMaxCount = true;
-	maxCount: number | undefined = this.view.getNodeLastMaxCount(this);
-
 	constructor(uri: GitUri, view: RepositoriesView, parent: ViewNode, public readonly contributor: GitContributor) {
 		super(uri, view, parent);
 	}
@@ -34,10 +30,7 @@ export class ContributorNode extends ViewNode<RepositoriesView> implements Pagea
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		const log = await Container.git.getLog(this.uri.repoPath!, {
-			maxCount: this.maxCount !== undefined ? this.maxCount : this.view.config.defaultItemLimit,
-			authors: [`^${this.contributor.name} <${this.contributor.email}>$`]
-		});
+		const log = await this.getLog();
 		if (log === undefined) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
 		const getBranchAndTagTips = await Container.git.getBranchesAndTagsTipsFn(this.uri.repoPath);
@@ -51,8 +44,8 @@ export class ContributorNode extends ViewNode<RepositoriesView> implements Pagea
 			)
 		];
 
-		if (log.truncated) {
-			children.push(new ShowMoreNode(this.view, this, 'Commits', log.maxCount, children[children.length - 1]));
+		if (log.hasMore) {
+			children.push(new ShowMoreNode(this.view, this, 'Commits', children[children.length - 1]));
 		}
 		return children;
 	}
@@ -77,5 +70,40 @@ export class ContributorNode extends ViewNode<RepositoriesView> implements Pagea
 		}
 
 		return item;
+	}
+
+	@gate()
+	@debug()
+	refresh(reset?: boolean) {
+		if (reset) {
+			this._log = undefined;
+		}
+	}
+
+	private _log: GitLog | undefined;
+	private async getLog() {
+		if (this._log === undefined) {
+			this._log = await Container.git.getLog(this.uri.repoPath!, {
+				limit: this.view.config.defaultItemLimit,
+				authors: [`^${this.contributor.name} <${this.contributor.email}>$`]
+			});
+		}
+
+		return this._log;
+	}
+
+	get hasMore() {
+		return this._log?.hasMore ?? true;
+	}
+
+	async showMore(limit?: number | { until?: any }) {
+		let log = await this.getLog();
+		if (log === undefined || !log.hasMore) return;
+
+		log = await log.more?.(limit ?? this.view.config.pageItemLimit);
+		if (this._log === log) return;
+
+		this._log = log;
+		this.triggerChange(false);
 	}
 }

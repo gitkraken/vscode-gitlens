@@ -1,8 +1,8 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
-import { GitBranch, GitTrackingState, GitUri } from '../../git/gitService';
-import { Iterables, Strings } from '../../system';
+import { GitBranch, GitLog, GitTrackingState, GitUri } from '../../git/gitService';
+import { debug, gate, Iterables, Strings } from '../../system';
 import { ViewWithFiles } from '../viewBase';
 import { CommitNode } from './commitNode';
 import { ShowMoreNode } from './common';
@@ -23,10 +23,6 @@ export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements
 		return `${BranchNode.getId(repoPath, name, root)}${this.key}(${upstream}|${direction})`;
 	}
 
-	readonly supportsPaging = true;
-	readonly rememberLastMaxCount = true;
-	maxCount: number | undefined = this.view.getNodeLastMaxCount(this);
-
 	constructor(
 		view: ViewWithFiles,
 		parent: ViewNode,
@@ -37,6 +33,14 @@ export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements
 		private readonly _root: boolean = false
 	) {
 		super(GitUri.fromRepoPath(status.repoPath), view, parent);
+	}
+
+	get ahead(): boolean {
+		return this.direction === 'ahead';
+	}
+
+	get behind(): boolean {
+		return this.direction === 'behind';
 	}
 
 	get id(): string {
@@ -54,24 +58,16 @@ export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		const ahead = this.direction === 'ahead';
-		const range = ahead
-			? `${this.status.upstream}..${this.status.ref}`
-			: `${this.status.ref}..${this.status.upstream}`;
-
-		const log = await Container.git.getLog(this.uri.repoPath!, {
-			maxCount: this.maxCount !== undefined ? this.maxCount : this.view.config.defaultItemLimit,
-			ref: range
-		});
+		const log = await this.getLog();
 		if (log === undefined) return [];
 
 		let children;
-		if (ahead) {
+		if (this.ahead) {
 			// Since the last commit when we are looking 'ahead' can have no previous (because of the range given) -- look it up
 			const commits = [...log.commits.values()];
 			const commit = commits[commits.length - 1];
 			if (commit.previousSha === undefined) {
-				const previousLog = await Container.git.getLog(this.uri.repoPath!, { maxCount: 2, ref: commit.sha });
+				const previousLog = await Container.git.getLog(this.uri.repoPath!, { limit: 2, ref: commit.sha });
 				if (previousLog !== undefined) {
 					commits[commits.length - 1] = Iterables.first(previousLog.commits.values());
 				}
@@ -94,14 +90,14 @@ export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements
 			];
 		}
 
-		if (log.truncated) {
-			children.push(new ShowMoreNode(this.view, this, 'Commits', log.maxCount, children[children.length - 1]));
+		if (log.hasMore) {
+			children.push(new ShowMoreNode(this.view, this, 'Commits', children[children.length - 1]));
 		}
 		return children;
 	}
 
 	getTreeItem(): TreeItem {
-		const ahead = this.direction === 'ahead';
+		const ahead = this.ahead;
 		const label = ahead
 			? `${Strings.pluralize('commit', this.status.state.ahead)} ahead`
 			: `${Strings.pluralize('commit', this.status.state.behind)} behind`;
@@ -124,5 +120,43 @@ export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements
 		};
 
 		return item;
+	}
+
+	@gate()
+	@debug()
+	refresh(reset?: boolean) {
+		if (reset) {
+			this._log = undefined;
+		}
+	}
+	private _log: GitLog | undefined;
+	private async getLog() {
+		if (this._log === undefined) {
+			const range = this.ahead
+				? `${this.status.upstream}..${this.status.ref}`
+				: `${this.status.ref}..${this.status.upstream}`;
+
+			this._log = await Container.git.getLog(this.uri.repoPath!, {
+				limit: this.view.config.defaultItemLimit,
+				ref: range
+			});
+		}
+
+		return this._log;
+	}
+
+	get hasMore() {
+		return this._log?.hasMore ?? true;
+	}
+
+	async showMore(limit?: number | { until?: any }) {
+		let log = await this.getLog();
+		if (log === undefined || !log.hasMore) return;
+
+		log = await log.more?.(limit ?? this.view.config.pageItemLimit);
+		if (this._log === log) return;
+
+		this._log = log;
+		this.triggerChange(false);
 	}
 }

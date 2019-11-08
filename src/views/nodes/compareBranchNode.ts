@@ -7,7 +7,7 @@ import { GitBranch, GitService, GitUri } from '../../git/gitService';
 import { CommandQuickPickItem, ReferencesQuickPick } from '../../quickpicks';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
 import { Container } from '../../container';
-import { log, Strings } from '../../system';
+import { log, Mutable, Strings } from '../../system';
 import { FilesQueryResults, ResultsFilesNode } from './resultsFilesNode';
 import { ViewShowBranchComparison } from '../../config';
 import { RepositoryNode } from './repositoryNode';
@@ -188,21 +188,31 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
 		this.view.triggerNodeChange(this);
 	}
 
-	private async getCommitsQuery(maxCount: number | undefined): Promise<CommitsQueryResults> {
+	private async getCommitsQuery(limit: number | undefined): Promise<CommitsQueryResults> {
 		const log = await Container.git.getLog(this.uri.repoPath!, {
-			maxCount: maxCount,
+			limit: limit,
 			ref: `${(this._compareWith && this._compareWith.ref) || 'HEAD'}${this.comparisonNotation}${
 				this.compareWithWorkingTree ? '' : this.branch.ref
 			}`
 		});
 
-		const count = log !== undefined ? log.count : 0;
-		const truncated = log !== undefined ? log.truncated : false;
-
-		return {
-			label: Strings.pluralize('commit', count, { number: truncated ? `${count}+` : undefined, zero: 'No' }),
-			log: log
+		const count = log?.count ?? 0;
+		const results: Mutable<Partial<CommitsQueryResults>> = {
+			label: Strings.pluralize('commit', count, { number: log?.hasMore ?? false ? `${count}+` : undefined, zero: 'No' }),
+			log: log,
+			hasMore: log?.hasMore ?? true
 		};
+		if (results.hasMore) {
+			results.more = async (limit: number | undefined) => {
+				results.log = (await results.log?.more?.(limit)) ?? results.log;
+
+				const count = results.log?.count ?? 0;
+				results.label = Strings.pluralize('commit', count, { number: results.log?.hasMore ?? false ? `${count}+` : undefined, zero: 'No' });
+				results.hasMore = results.log?.hasMore ?? true;
+			};
+		}
+
+		return results as CommitsQueryResults;
 	}
 
 	private async getFilesQuery(): Promise<FilesQueryResults> {

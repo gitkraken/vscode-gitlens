@@ -10,21 +10,19 @@ import { insertDateMarkers } from './helpers';
 import { PageableViewNode, ResourceType, ViewNode } from './viewNode';
 
 export interface CommitsQueryResults {
-	label: string;
-	log: GitLog | undefined;
+	readonly label: string;
+	readonly log: GitLog | undefined;
+	readonly hasMore: boolean;
+	more?(limit: number | undefined): Promise<void>;
 }
 
 export class ResultsCommitsNode extends ViewNode<ViewWithFiles> implements PageableViewNode {
-	readonly supportsPaging = true;
-	readonly rememberLastMaxCount = true;
-	maxCount: number | undefined = this.view.getNodeLastMaxCount(this);
-
 	constructor(
 		view: ViewWithFiles,
 		parent: ViewNode,
 		public readonly repoPath: string,
 		private _label: string,
-		private readonly _commitsQuery: (maxCount: number | undefined) => Promise<CommitsQueryResults>,
+		private readonly _commitsQuery: (limit: number | undefined) => Promise<CommitsQueryResults>,
 		private readonly _options: { expand?: boolean; includeDescription?: boolean } = {}
 	) {
 		super(GitUri.fromRepoPath(repoPath), view, parent);
@@ -59,9 +57,9 @@ export class ResultsCommitsNode extends ViewNode<ViewWithFiles> implements Pagea
 			)
 		];
 
-		if (log.truncated) {
+		if (log.hasMore) {
 			children.push(
-				new ShowMoreNode(this.view, this, 'Results', log.maxCount, children[children.length - 1], this.maxCount)
+				new ShowMoreNode(this.view, this, 'Results', children[children.length - 1])
 			);
 		}
 
@@ -75,25 +73,14 @@ export class ResultsCommitsNode extends ViewNode<ViewWithFiles> implements Pagea
 
 		try {
 			({ label, log } = await Promises.timeout(this.getCommitsQueryResults(), 100));
-			if (log != null) {
-				this.maxCount = log.maxCount;
-			}
-
-			state =
-				log == null || log.count === 0
-					? TreeItemCollapsibleState.None
-					: this._options.expand || log.count === 1
-					? TreeItemCollapsibleState.Expanded
-					: TreeItemCollapsibleState.Collapsed;
+			state = log == null || log.count === 0
+				? TreeItemCollapsibleState.None
+				: this._options.expand || log.count === 1
+				? TreeItemCollapsibleState.Expanded
+				: TreeItemCollapsibleState.Collapsed;
 		} catch (ex) {
 			if (ex instanceof Promises.TimeoutError) {
-				ex.promise.then(({ log }: CommitsQueryResults) => {
-					if (log != null) {
-						this.maxCount = log.maxCount;
-					}
-
-					this.triggerChange(false);
-				});
+				ex.promise.then(() => this.triggerChange(false));
 			}
 
 			// Need to use Collapsed before we have results or the item won't show up in the view until the children are awaited
@@ -118,18 +105,34 @@ export class ResultsCommitsNode extends ViewNode<ViewWithFiles> implements Pagea
 	@gate()
 	@debug()
 	refresh(reset: boolean = false) {
-		if (!reset) return;
-
-		this._commitsQueryResults = this._commitsQuery(this.maxCount);
+		if (reset) {
+			this._commitsQueryResults = undefined;
+			void this.getCommitsQueryResults();
+		}
 	}
 
 	private _commitsQueryResults: Promise<CommitsQueryResults> | undefined;
-
-	protected getCommitsQueryResults() {
+	private async getCommitsQueryResults() {
 		if (this._commitsQueryResults === undefined) {
-			this._commitsQueryResults = this._commitsQuery(this.maxCount);
+			this._commitsQueryResults = this._commitsQuery(Container.config.advanced.maxSearchItems);
+			const results = await this._commitsQueryResults;
+			this._hasMore = results.hasMore;
 		}
 
 		return this._commitsQueryResults;
+	}
+
+	private _hasMore = true;
+	get hasMore() {
+		return this._hasMore;
+	}
+
+	async showMore(limit?: number) {
+		const results = await this.getCommitsQueryResults();
+		if (results === undefined || !results.hasMore) return;
+
+		await results.more?.(limit ?? this.view.config.pageItemLimit);
+
+		this.triggerChange(false);
 	}
 }

@@ -4,13 +4,15 @@ import { configuration, SearchViewConfig, ViewFilesLayout, ViewsConfig } from '.
 import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
 import { GitLog, SearchPattern } from '../git/gitService';
-import { Functions, Strings } from '../system';
+import { Functions, Mutable, Strings } from '../system';
 import { nodeSupportsConditionalDismissal, SearchNode, SearchResultsCommitsNode, ViewNode } from './nodes';
 import { ViewBase } from './viewBase';
 
-interface SearchQueryResult {
-	label: string;
-	log: GitLog | undefined;
+interface SearchQueryResults {
+	readonly label: string;
+	readonly log: GitLog | undefined;
+	readonly hasMore: boolean;
+	more?(limit: number | undefined): Promise<void>;
 }
 
 export class SearchView extends ViewBase<SearchNode> {
@@ -116,7 +118,7 @@ export class SearchView extends ViewBase<SearchNode> {
 						label: string;
 						resultsType?: { singular: string; plural: string };
 				  };
-			maxCount?: number;
+			limit?: number;
 		},
 		results?: Promise<GitLog | undefined> | GitLog
 	) {
@@ -144,7 +146,7 @@ export class SearchView extends ViewBase<SearchNode> {
 	showSearchResults(
 		repoPath: string,
 		search: SearchPattern,
-		results: GitLog,
+		log: GitLog,
 		{
 			label,
 			...options
@@ -155,16 +157,27 @@ export class SearchView extends ViewBase<SearchNode> {
 						label: string;
 						resultsType?: { singular: string; plural: string };
 				  };
-			maxCount?: number;
+			limit?: number;
 		}
 	) {
-		label = this.getSearchLabel(label, results);
-		const searchQueryFn = Functions.cachedOnce(this.getSearchQueryFn(results, { label: label, ...options }), {
-			label: label,
-			log: results
-		});
+		const labelString = this.getSearchLabel(label, log);
+		const results: Mutable<Partial<SearchQueryResults>> = {
+			label: labelString,
+			log: log,
+			hasMore: log.hasMore
+		};
+		if (results.hasMore) {
+			results.more = async (limit: number | undefined) => {
+				results.log = (await results.log?.more?.(limit)) ?? results.log;
 
-		return this.addResults(new SearchResultsCommitsNode(this, this._root!, repoPath, search, label, searchQueryFn));
+				results.label = this.getSearchLabel(label, results.log);
+				results.hasMore = results.log?.hasMore ?? true;
+			};
+		}
+
+		const searchQueryFn = Functions.cachedOnce(this.getSearchQueryFn(log, { label: label, ...options }), results as SearchQueryResults);
+
+		return this.addResults(new SearchResultsCommitsNode(this, this._root!, repoPath, search, labelString, searchQueryFn));
 	}
 
 	private addResults(results: ViewNode) {
@@ -185,21 +198,20 @@ export class SearchView extends ViewBase<SearchNode> {
 	) {
 		if (typeof label === 'string') return label;
 
-		const count = log !== undefined ? log.count : 0;
-		const truncated = log !== undefined ? log.truncated : false;
+		const count = log?.count ?? 0;
 
 		const resultsType =
 			label.resultsType === undefined ? { singular: 'result', plural: 'results' } : label.resultsType;
 
 		return `${Strings.pluralize(resultsType.singular, count, {
-			number: truncated ? `${count}+` : undefined,
+			number: log?.hasMore ?? false ? `${count}+` : undefined,
 			plural: resultsType.plural,
 			zero: 'No'
 		})} ${label.label}`;
 	}
 
 	private getSearchQueryFn(
-		results: Promise<GitLog | undefined> | GitLog | undefined,
+		logOrPromise: Promise<GitLog | undefined> | GitLog | undefined,
 		options: {
 			label:
 				| string
@@ -208,22 +220,32 @@ export class SearchView extends ViewBase<SearchNode> {
 						resultsType?: { singular: string; plural: string };
 				  };
 		}
-	): (maxCount: number | undefined) => Promise<SearchQueryResult> {
+	): (limit: number | undefined) => Promise<SearchQueryResults> {
 		let useCacheOnce = true;
 
-		return async (maxCount: number | undefined) => {
-			let log = await results;
+		return async (limit: number | undefined) => {
+			let log = await logOrPromise;
 
 			if (!useCacheOnce && log !== undefined && log.query !== undefined) {
-				log = await log.query(maxCount);
+				log = await log.query(limit);
 			}
 			useCacheOnce = false;
 
-			const label = this.getSearchLabel(options.label, log);
-			return {
-				label: label,
-				log: log
+			const results: Mutable<Partial<SearchQueryResults>> = {
+				label: this.getSearchLabel(options.label, log),
+				log: log,
+				hasMore: log?.hasMore
 			};
+			if (results.hasMore) {
+				results.more = async (limit: number | undefined) => {
+					results.log = (await results.log?.more?.(limit)) ?? results.log;
+
+					results.label = this.getSearchLabel(options.label, results.log);
+					results.hasMore = results.log?.hasMore ?? true;
+				};
+			}
+
+			return results as SearchQueryResults;
 		};
 	}
 

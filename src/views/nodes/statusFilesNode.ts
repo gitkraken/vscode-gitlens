@@ -49,7 +49,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 
 		let log: GitLog | undefined;
 		if (this.range !== undefined) {
-			log = await Container.git.getLog(repoPath, { maxCount: 0, ref: this.range });
+			log = await Container.git.getLog(repoPath, { limit: 0, ref: this.range });
 			if (log !== undefined) {
 				files = [
 					...Iterables.flatMap(log.commits.values(), c =>

@@ -208,12 +208,15 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 			return this.findNode((n: any) => n.commit !== undefined && n.commit.ref === commit.ref, {
 				allowPaging: true,
 				maxDepth: 6,
-				canTraverse: n => {
+				canTraverse: async n => {
 					// Only search for commit nodes in the same repo within BranchNodes
 					if (n instanceof RepositoriesNode) return true;
 
 					if (n instanceof BranchNode) {
-						return n.id.startsWith(repoNodeId) && branches.includes(n.branch.name);
+						if (n.id.startsWith(repoNodeId) && branches.includes(n.branch.name)) {
+							await n.showMore({ until: commit.ref });
+							return true;
+						}
 					}
 
 					if (

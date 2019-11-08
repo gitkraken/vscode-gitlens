@@ -2,8 +2,8 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
 import { Container } from '../../container';
-import { GitService, GitTag, GitUri, TagDateFormatting } from '../../git/gitService';
-import { Iterables, Strings } from '../../system';
+import { GitLog, GitService, GitTag, GitUri, TagDateFormatting } from '../../git/gitService';
+import { debug, gate, Iterables, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { CommitNode } from './commitNode';
 import { MessageNode, ShowMoreNode } from './common';
@@ -18,10 +18,6 @@ export class TagNode extends ViewRefNode<RepositoriesView> implements PageableVi
 	static getId(repoPath: string, name: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${name})`;
 	}
-
-	readonly supportsPaging = true;
-	readonly rememberLastMaxCount = true;
-	maxCount: number | undefined = this.view.getNodeLastMaxCount(this);
 
 	constructor(uri: GitUri, view: RepositoriesView, parent: ViewNode, public readonly tag: GitTag) {
 		super(uri, view, parent);
@@ -44,10 +40,7 @@ export class TagNode extends ViewRefNode<RepositoriesView> implements PageableVi
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		const log = await Container.git.getLog(this.uri.repoPath!, {
-			maxCount: this.maxCount !== undefined ? this.maxCount : this.view.config.defaultItemLimit,
-			ref: this.tag.name
-		});
+		const log = await this.getLog();
 		if (log === undefined) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
 		const getBranchAndTagTips = await Container.git.getBranchesAndTagsTipsFn(this.uri.repoPath, this.tag.name);
@@ -61,8 +54,8 @@ export class TagNode extends ViewRefNode<RepositoriesView> implements PageableVi
 			)
 		];
 
-		if (log.truncated) {
-			children.push(new ShowMoreNode(this.view, this, 'Commits', log.maxCount, children[children.length - 1]));
+		if (log.hasMore) {
+			children.push(new ShowMoreNode(this.view, this, 'Commits', children[children.length - 1]));
 		}
 		return children;
 	}
@@ -87,5 +80,40 @@ export class TagNode extends ViewRefNode<RepositoriesView> implements PageableVi
 		}`;
 
 		return item;
+	}
+
+	@gate()
+	@debug()
+	refresh(reset?: boolean) {
+		if (reset) {
+			this._log = undefined;
+		}
+	}
+
+	private _log: GitLog | undefined;
+	private async getLog() {
+		if (this._log === undefined) {
+			this._log = await Container.git.getLog(this.uri.repoPath!, {
+				limit: this.view.config.defaultItemLimit,
+				ref: this.tag.name
+			});
+			}
+
+		return this._log;
+	}
+
+	get hasMore() {
+		return this._log?.hasMore ?? true;
+	}
+
+	async showMore(limit?: number | { until?: any }) {
+		let log = await this.getLog();
+		if (log === undefined || !log.hasMore) return;
+
+		log = await log.more?.(limit ?? this.view.config.pageItemLimit);
+		if (this._log === log) return;
+
+		this._log = log;
+		this.triggerChange(false);
 	}
 }

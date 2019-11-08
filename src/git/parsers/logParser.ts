@@ -76,7 +76,7 @@ export class GitLogParser {
 		fileName: string | undefined,
 		sha: string | undefined,
 		currentUser: { name?: string; email?: string } | undefined,
-		maxCount: number | undefined,
+		limit: number | undefined,
 		reverse: boolean,
 		range: Range | undefined
 	): GitLog | undefined {
@@ -103,7 +103,7 @@ export class GitLogParser {
 
 		const authors: Map<string, GitAuthor> = new Map();
 		const commits: Map<string, GitLogCommit> = new Map();
-		let truncationCount = maxCount;
+		let truncationCount = limit;
 
 		let match;
 		let renamedFileName;
@@ -116,7 +116,7 @@ export class GitLogParser {
 			line = next.value;
 
 			// Since log --reverse doesn't properly honor a max count -- enforce it here
-			if (reverse && maxCount && i >= maxCount) break;
+			if (reverse && limit && i >= limit) break;
 
 			// <1-char token> data
 			// e.g. <r> bd1452a2dc
@@ -356,9 +356,9 @@ export class GitLogParser {
 			commits: commits,
 			sha: sha,
 			count: i,
-			maxCount: maxCount,
+			limit: limit,
 			range: range,
-			truncated: Boolean(truncationCount && i >= truncationCount && truncationCount !== 1)
+			hasMore: Boolean(truncationCount && i >= truncationCount && truncationCount !== 1)
 		};
 		return log;
 	}

@@ -334,7 +334,7 @@ export class CommitFileQuickPick {
 				const previousCommandArgs: ShowQuickCommitFileDetailsCommandArgs = {
 					// If we have the full file history, reuse it
 					fileLog:
-						fileLog !== undefined && !fileLog.truncated && fileLog.sha === undefined ? fileLog : undefined,
+						fileLog !== undefined && !fileLog.hasMore && fileLog.sha === undefined ? fileLog : undefined,
 					sha: previousUri.sha,
 					goBackCommand: goBackCommand
 				};
@@ -351,7 +351,7 @@ export class CommitFileQuickPick {
 				const nextCommandArgs: ShowQuickCommitFileDetailsCommandArgs = {
 					// If we have the full file history, reuse it
 					fileLog:
-						fileLog !== undefined && !fileLog.truncated && fileLog.sha === undefined ? fileLog : undefined,
+						fileLog !== undefined && !fileLog.hasMore && fileLog.sha === undefined ? fileLog : undefined,
 					sha: nextUri.sha,
 					goBackCommand: goBackCommand
 				};

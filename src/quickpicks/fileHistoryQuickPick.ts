@@ -55,7 +55,7 @@ export class FileHistoryQuickPick {
 			items.splice(0, 0, options.showInViewCommand);
 		}
 
-		if (log.truncated || log.sha) {
+		if (log.hasMore || log.sha) {
 			if (options.showAllCommand !== undefined) {
 				index++;
 				items.splice(0, 0, options.showAllCommand);
@@ -64,7 +64,7 @@ export class FileHistoryQuickPick {
 				if (workingUri) {
 					const goBackCommandArgs: ShowQuickFileHistoryCommandArgs = {
 						log: log,
-						maxCount: log.maxCount,
+						limit: log.limit,
 						range: log.range,
 						goBackCommand: options.goBackCommand
 					};
@@ -115,7 +115,7 @@ export class FileHistoryQuickPick {
 			if (branch !== undefined) {
 				const commandArgs: ShowQuickFileHistoryCommandArgs = {
 					log: log,
-					maxCount: log.maxCount,
+					limit: log.limit,
 					range: log.range
 				};
 

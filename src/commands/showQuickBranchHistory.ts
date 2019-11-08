@@ -17,7 +17,7 @@ import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
 export interface ShowQuickBranchHistoryCommandArgs {
 	branch?: string;
 	log?: GitLog;
-	maxCount?: number;
+	limit?: number;
 	repoPath?: string;
 
 	goBackCommand?: CommandQuickPickItem;
@@ -81,7 +81,7 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
 
 			if (args.log === undefined) {
 				args.log = await Container.git.getLog(repoPath, {
-					maxCount: args.maxCount,
+					limit: args.limit,
 					ref: (gitUri && gitUri.sha) || args.branch
 				});
 				if (args.log === undefined) return window.showWarningMessage('Unable to show branch history');

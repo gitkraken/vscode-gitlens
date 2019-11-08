@@ -19,7 +19,13 @@ export class GitReflogParser {
 	].join('');
 
 	@debug({ args: false })
-	static parse(data: string, repoPath: string, commands: string[], maxCount: number): GitReflog | undefined {
+	static parse(
+		data: string,
+		repoPath: string,
+		commands: string[],
+		limit: number,
+		totalLimit: number
+	): GitReflog | undefined {
 		if (!data) return undefined;
 
 		const records: GitReflogRecord[] = [];
@@ -36,9 +42,9 @@ export class GitReflogParser {
 		let headSha;
 
 		let count = 0;
+		let total = 0;
 		let recordDate;
 		let record: GitReflogRecord | undefined;
-		let truncated = false;
 
 		let match;
 		do {
@@ -46,6 +52,8 @@ export class GitReflogParser {
 			if (match == null) break;
 
 			[, sha, selector, date, command, commandArgs, details] = match;
+
+			total++;
 
 			if (record !== undefined) {
 				// If the next record has the same sha as the previous, use it if it is not pointing to just HEAD and the previous is
@@ -73,10 +81,7 @@ export class GitReflogParser {
 					recordDate = undefined;
 
 					count++;
-					if (maxCount !== 0 && count >= maxCount) {
-						truncated = true;
-						break;
-					}
+					if (limit !== 0 && count >= limit) break;
 				}
 			}
 
@@ -114,8 +119,9 @@ export class GitReflogParser {
 			repoPath: repoPath,
 			records: records,
 			count: count,
-			maxCount: maxCount,
-			truncated: truncated
+			total: total,
+			limit: limit,
+			hasMore: (limit !== 0 && count >= limit) || (totalLimit !== 0 && total >= totalLimit)
 		};
 	}
 }

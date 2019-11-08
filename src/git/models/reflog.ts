@@ -8,8 +8,10 @@ export interface GitReflog {
 	readonly records: GitReflogRecord[];
 
 	readonly count: number;
-	readonly maxCount: number | undefined;
-	readonly truncated: boolean;
+	readonly total: number;
+	readonly limit: number | undefined;
+	readonly hasMore: boolean;
+	more?(limit: number | undefined): Promise<GitReflog | undefined>;
 }
 
 export class GitReflogRecord {
