@@ -51,6 +51,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 	}
 
 	protected _disposable: Disposable | undefined;
+	private readonly _lastKnownLimits = new Map<string, number | undefined>();
 	protected _root: TRoot | undefined;
 	protected _tree: TreeView<ViewNode> | undefined;
 
@@ -372,6 +373,20 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 	}
 
 	@debug({
+		args: { 0: (n: ViewNode) => n.toString() }
+	})
+	getNodeLastKnownLimit(node: PageableViewNode) {
+		return this._lastKnownLimits.get(node.id);
+	}
+
+	@debug({
+		args: { 0: (n: ViewNode) => n.toString() }
+	})
+	resetNodeLastKnownLimit(node: PageableViewNode) {
+		this._lastKnownLimits.delete(node.id);
+	}
+
+	@debug({
 		args: {
 			0: (n: ViewNode & PageableViewNode) => n.toString(),
 			3: (n?: ViewNode) => (n === undefined ? '' : n.toString())
@@ -386,7 +401,8 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 			void (await this.reveal(previousNode, { select: true }));
 		}
 
-		return node.showMore(limit);
+		await node.showMore(limit);
+		this._lastKnownLimits.set(node.id, node.limit);
 	}
 
 	@debug({

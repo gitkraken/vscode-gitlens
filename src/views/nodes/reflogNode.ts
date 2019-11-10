@@ -74,7 +74,7 @@ export class ReflogNode extends ViewNode<RepositoriesView> implements PageableVi
 		if (this._reflog === undefined) {
 			this._reflog = await Container.git.getIncomingActivity(this.repo.path, {
 				all: true,
-				limit: this.view.config.defaultItemLimit
+				limit: this.limit ?? this.view.config.defaultItemLimit
 			});
 		}
 
@@ -85,6 +85,7 @@ export class ReflogNode extends ViewNode<RepositoriesView> implements PageableVi
 		return this._reflog?.hasMore ?? true;
 	}
 
+	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	async showMore(limit?: number) {
 		let reflog = await this.getReflog();
 		if (reflog === undefined || !reflog.hasMore) return;
@@ -93,6 +94,7 @@ export class ReflogNode extends ViewNode<RepositoriesView> implements PageableVi
 		if (this._reflog === reflog) return;
 
 		this._reflog = reflog;
+		this.limit = reflog?.count;
 		this.triggerChange(false);
 	}
 }

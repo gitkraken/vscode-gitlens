@@ -84,7 +84,7 @@ export class ContributorNode extends ViewNode<RepositoriesView> implements Pagea
 	private async getLog() {
 		if (this._log === undefined) {
 			this._log = await Container.git.getLog(this.uri.repoPath!, {
-				limit: this.view.config.defaultItemLimit,
+				limit: this.limit ?? this.view.config.defaultItemLimit,
 				authors: [`^${this.contributor.name} <${this.contributor.email}>$`]
 			});
 		}
@@ -96,6 +96,7 @@ export class ContributorNode extends ViewNode<RepositoriesView> implements Pagea
 		return this._log?.hasMore ?? true;
 	}
 
+	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	async showMore(limit?: number | { until?: any }) {
 		let log = await this.getLog();
 		if (log === undefined || !log.hasMore) return;
@@ -104,6 +105,7 @@ export class ContributorNode extends ViewNode<RepositoriesView> implements Pagea
 		if (this._log === log) return;
 
 		this._log = log;
+		this.limit = log?.count;
 		this.triggerChange(false);
 	}
 }

@@ -114,7 +114,7 @@ export class ResultsCommitsNode extends ViewNode<ViewWithFiles> implements Pagea
 	private _commitsQueryResults: Promise<CommitsQueryResults> | undefined;
 	private async getCommitsQueryResults() {
 		if (this._commitsQueryResults === undefined) {
-			this._commitsQueryResults = this._commitsQuery(Container.config.advanced.maxSearchItems);
+			this._commitsQueryResults = this._commitsQuery(this.limit ?? Container.config.advanced.maxSearchItems);
 			const results = await this._commitsQueryResults;
 			this._hasMore = results.hasMore;
 		}
@@ -127,12 +127,14 @@ export class ResultsCommitsNode extends ViewNode<ViewWithFiles> implements Pagea
 		return this._hasMore;
 	}
 
+	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	async showMore(limit?: number) {
 		const results = await this.getCommitsQueryResults();
 		if (results === undefined || !results.hasMore) return;
 
 		await results.more?.(limit ?? this.view.config.pageItemLimit);
 
+		this.limit = results.log?.count;
 		this.triggerChange(false);
 	}
 }

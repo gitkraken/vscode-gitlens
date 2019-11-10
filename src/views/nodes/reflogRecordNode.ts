@@ -89,7 +89,7 @@ export class ReflogRecordNode extends ViewNode<ViewWithFiles> implements Pageabl
 		if (this._log === undefined) {
 			const range = `${this.record.previousSha}..${this.record.sha}`;
 			this._log = await Container.git.getLog(this.uri.repoPath!, {
-				limit: this.view.config.defaultItemLimit,
+				limit: this.limit ?? this.view.config.defaultItemLimit,
 				ref: range
 			});
 		}
@@ -101,6 +101,7 @@ export class ReflogRecordNode extends ViewNode<ViewWithFiles> implements Pageabl
 		return this._log?.hasMore ?? true;
 	}
 
+	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	async showMore(limit?: number | { until?: any }) {
 		let log = await this.getLog();
 		if (log === undefined || !log.hasMore) return;
@@ -109,6 +110,7 @@ export class ReflogRecordNode extends ViewNode<ViewWithFiles> implements Pageabl
 		if (this._log === log) return;
 
 		this._log = log;
+		this.limit = log?.count;
 		this.triggerChange(false);
 	}
 }

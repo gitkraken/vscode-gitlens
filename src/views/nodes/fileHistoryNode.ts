@@ -18,14 +18,24 @@ import { CommitFileNode } from './commitFileNode';
 import { MessageNode, ShowMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
 import { PageableViewNode, ResourceType, SubscribeableViewNode, ViewNode } from './viewNode';
+import { RepositoryNode } from './repositoryNode';
 
 export class FileHistoryNode extends SubscribeableViewNode implements PageableViewNode {
+	static key = ':history:file';
+	static getId(repoPath: string, uri: string): string {
+		return `${RepositoryNode.getId(repoPath)}${this.key}(${uri})`;
+	}
+
 	constructor(uri: GitUri, view: View, parent: ViewNode) {
 		super(uri, view, parent);
 	}
 
 	toClipboard(): string {
 		return this.uri.fileName;
+	}
+
+	get id(): string {
+		return FileHistoryNode.getId(this.uri.repoPath!, this.uri.toString(true));
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
@@ -171,7 +181,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 	private async getLog() {
 		if (this._log === undefined) {
 			this._log = await Container.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, {
-				limit: this.view.config.defaultItemLimit,
+				limit: this.limit ?? this.view.config.defaultItemLimit,
 				ref: this.uri.sha
 			});
 		}
@@ -183,6 +193,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 		return this._log?.hasMore ?? true;
 	}
 
+	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	async showMore(limit?: number | { until?: any }) {
 		let log = await this.getLog();
 		if (log === undefined || !log.hasMore) return;
@@ -191,6 +202,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 		if (this._log === log) return;
 
 		this._log = log;
+		this.limit = log?.count;
 		this.triggerChange(false);
 	}
 }

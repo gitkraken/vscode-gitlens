@@ -234,7 +234,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 	private async getLog() {
 		if (this._log === undefined) {
 			this._log = await Container.git.getLog(this.uri.repoPath!, {
-				limit: this.view.config.defaultItemLimit,
+				limit: this.limit ?? this.view.config.defaultItemLimit,
 				ref: this.ref
 			});
 		}
@@ -246,6 +246,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 		return this._log?.hasMore ?? true;
 	}
 
+	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	async showMore(limit?: number | { until?: any }) {
 		let log = await this.getLog();
 		if (log === undefined || !log.hasMore) return;
@@ -254,6 +255,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 		if (this._log === log) return;
 
 		this._log = log;
+		this.limit = log?.count;
 		this.triggerChange(false);
 	}
 }

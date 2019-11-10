@@ -17,8 +17,14 @@ import { CommitFileNode } from './commitFileNode';
 import { MessageNode, ShowMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
 import { PageableViewNode, ResourceType, SubscribeableViewNode, ViewNode } from './viewNode';
+import { RepositoryNode } from './repositoryNode';
 
 export class LineHistoryNode extends SubscribeableViewNode implements PageableViewNode {
+	static key = ':history:line';
+	static getId(repoPath: string, uri: string, selection: Selection): string {
+		return `${RepositoryNode.getId(repoPath)}${this.key}(${uri}[${selection.start.line},${selection.start.character}-${selection.end.line},${selection.end.character}])`;
+	}
+
 	constructor(
 		uri: GitUri,
 		view: View,
@@ -31,6 +37,10 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 
 	toClipboard(): string {
 		return this.uri.fileName;
+	}
+
+	get id(): string {
+		return LineHistoryNode.getId(this.uri.repoPath!, this.uri.toString(true), this.selection);
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
@@ -202,7 +212,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 	private async getLog(selection?: Selection) {
 		if (this._log === undefined) {
 			this._log = await Container.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, {
-				limit: this.view.config.defaultItemLimit,
+				limit: this.limit ?? this.view.config.defaultItemLimit,
 				ref: this.uri.sha,
 				range: selection ?? this.selection
 			});
@@ -215,6 +225,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 		return this._log?.hasMore ?? true;
 	}
 
+	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	async showMore(limit?: number | { until?: any }) {
 		let log = await this.getLog();
 		if (log === undefined || !log.hasMore) return;
@@ -223,6 +234,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 		if (this._log === log) return;
 
 		this._log = log;
+		this.limit = log?.count;
 		this.triggerChange(false);
 	}
 }

@@ -118,6 +118,8 @@ export function nodeSupportsConditionalDismissal(node: ViewNode): node is ViewNo
 }
 
 export interface PageableViewNode {
+	readonly id: string;
+	limit?: number;
 	readonly hasMore: boolean;
 	showMore(limit?: number | { until?: any }): Promise<void>;
 }
