@@ -58,9 +58,7 @@ export class ResultsCommitsNode extends ViewNode<ViewWithFiles> implements Pagea
 		];
 
 		if (log.hasMore) {
-			children.push(
-				new ShowMoreNode(this.view, this, 'Results', children[children.length - 1])
-			);
+			children.push(new ShowMoreNode(this.view, this, 'Results', children[children.length - 1]));
 		}
 
 		return children;
@@ -73,11 +71,12 @@ export class ResultsCommitsNode extends ViewNode<ViewWithFiles> implements Pagea
 
 		try {
 			({ label, log } = await Promises.timeout(this.getCommitsQueryResults(), 100));
-			state = log == null || log.count === 0
-				? TreeItemCollapsibleState.None
-				: this._options.expand || log.count === 1
-				? TreeItemCollapsibleState.Expanded
-				: TreeItemCollapsibleState.Collapsed;
+			state =
+				log == null || log.count === 0
+					? TreeItemCollapsibleState.None
+					: this._options.expand || log.count === 1
+					? TreeItemCollapsibleState.Expanded
+					: TreeItemCollapsibleState.Collapsed;
 		} catch (ex) {
 			if (ex instanceof Promises.TimeoutError) {
 				ex.promise.then(() => this.triggerChange(false));

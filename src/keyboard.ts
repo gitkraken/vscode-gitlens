@@ -95,13 +95,10 @@ export class KeyboardScope implements Disposable {
 		if (this._paused) return;
 
 		this._paused = true;
-		const mapping = (Object.keys(this._mapping) as Keys[]).reduce(
-			(accumulator, key) => {
-				accumulator[key] = keys === undefined ? false : keys.includes(key) ? false : this._mapping[key];
-				return accumulator;
-			},
-			{} as any
-		);
+		const mapping = (Object.keys(this._mapping) as Keys[]).reduce((accumulator, key) => {
+			accumulator[key] = keys === undefined ? false : keys.includes(key) ? false : this._mapping[key];
+			return accumulator;
+		}, {} as any);
 
 		await this.updateKeyCommandsContext(mapping);
 	}

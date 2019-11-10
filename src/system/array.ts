@@ -15,32 +15,26 @@ export namespace Arrays {
 		source: T[],
 		predicateMapper: (item: T) => TMapped | null | undefined
 	): TMapped[] {
-		return source.reduce(
-			(accumulator, current) => {
-				const mapped = predicateMapper(current);
-				if (mapped != null) {
-					accumulator.push(mapped);
-				}
-				return accumulator;
-			},
-			[] as TMapped[]
-		);
+		return source.reduce((accumulator, current) => {
+			const mapped = predicateMapper(current);
+			if (mapped != null) {
+				accumulator.push(mapped);
+			}
+			return accumulator;
+		}, [] as TMapped[]);
 	}
 
 	export function filterMapAsync<T, TMapped>(
 		source: T[],
 		predicateMapper: (item: T) => Promise<TMapped | null | undefined>
 	): Promise<TMapped[]> {
-		return source.reduce(
-			async (accumulator, current) => {
-				const mapped = await predicateMapper(current);
-				if (mapped != null) {
-					accumulator.push(mapped);
-				}
-				return accumulator;
-			},
-			[] as any
-		);
+		return source.reduce(async (accumulator, current) => {
+			const mapped = await predicateMapper(current);
+			if (mapped != null) {
+				accumulator.push(mapped);
+			}
+			return accumulator;
+		}, [] as any);
 	}
 
 	export function groupBy<T>(source: T[], accessor: (item: T) => string): { [key: string]: T[] } {

@@ -173,7 +173,8 @@ async function showWelcomeOrWhatsNew(version: string, previousVersion: string | 
 	if (
 		(major === prevMajor && minor === prevMinor) ||
 		// Don't notify on downgrades
-		(major < prevMajor || (major === prevMajor && minor < prevMinor))
+		major < prevMajor ||
+		(major === prevMajor && minor < prevMinor)
 	) {
 		return;
 	}

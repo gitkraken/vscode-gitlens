@@ -10,7 +10,7 @@ import { GitLabRemote } from './gitlab';
 import { RemoteProvider } from './provider';
 
 export { RemoteProvider };
-export type RemoteProviders = [string | RegExp, ((domain: string, path: string) => RemoteProvider)][];
+export type RemoteProviders = [string | RegExp, (domain: string, path: string) => RemoteProvider][];
 
 const defaultProviders: RemoteProviders = [
 	['bitbucket.org', (domain: string, path: string) => new BitbucketRemote(domain, path)],

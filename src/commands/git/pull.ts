@@ -89,11 +89,15 @@ export class PullGitCommand extends QuickCommandBase<State> {
 							placeholder: 'Choose repositories',
 							items: await Promise.all(
 								repos.map(repo =>
-									RepositoryQuickPickItem.create(repo, actives.some(r => r.id === repo.id), {
-										branch: true,
-										fetched: true,
-										status: true
-									})
+									RepositoryQuickPickItem.create(
+										repo,
+										actives.some(r => r.id === repo.id),
+										{
+											branch: true,
+											fetched: true,
+											status: true
+										}
+									)
 								)
 							)
 						});

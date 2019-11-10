@@ -63,15 +63,15 @@ export class ReflogRecordNode extends ViewNode<ViewWithFiles> implements Pageabl
 			this.record.HEAD.length === 0
 				? ''
 				: `${this.record.HEAD} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} `
-			}${this.record.formattedDate}`;
+		}${this.record.formattedDate}`;
 		item.contextValue = ResourceType.ReflogRecord;
 		item.tooltip = `${this.record.HEAD.length === 0 ? '' : `${this.record.HEAD}\n`}${this.record.command}${
 			this.record.commandArgs ? ` ${this.record.commandArgs}` : ''
-			}${
+		}${
 			this.record.details ? ` (${this.record.details})` : ''
-			}\n${this.record.formatDateFromNow()} (${this.record.formatDate()})\n${this.record.previousShortSha} ${
+		}\n${this.record.formatDateFromNow()} (${this.record.formatDate()})\n${this.record.previousShortSha} ${
 			GlyphChars.Space
-			}${GlyphChars.ArrowRight}${GlyphChars.Space} ${this.record.shortSha}`;
+		}${GlyphChars.ArrowRight}${GlyphChars.Space} ${this.record.shortSha}`;
 
 		return item;
 	}

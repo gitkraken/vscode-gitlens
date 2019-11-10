@@ -127,7 +127,8 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 
 		if (
 			editor.document.uri.path === this.uri.path &&
-			(this._selection !== undefined && editor.selection.isEqual(this._selection))
+			this._selection !== undefined &&
+			editor.selection.isEqual(this._selection)
 		) {
 			if (cc !== undefined) {
 				cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
@@ -140,7 +141,8 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 		if (
 			this.uri !== unknownGitUri &&
 			UriComparer.equals(gitUri, this.uri) &&
-			(this._selection !== undefined && editor.selection.isEqual(this._selection))
+			this._selection !== undefined &&
+			editor.selection.isEqual(this._selection)
 		) {
 			return true;
 		}

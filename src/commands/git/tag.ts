@@ -46,7 +46,10 @@ interface DeleteState {
 type State = CreateState | DeleteState;
 type StashStepState<T> = StepState<T> & { repo: Repository };
 
-const subcommandToTitleMap = new Map<State['subcommand'], string>([['create', 'Create'], ['delete', 'Delete']]);
+const subcommandToTitleMap = new Map<State['subcommand'], string>([
+	['create', 'Create'],
+	['delete', 'Delete']
+]);
 function getTitle(title: string, subcommand: State['subcommand'] | undefined) {
 	return subcommand == null ? title : `${subcommandToTitleMap.get(subcommand)} ${title}`;
 }

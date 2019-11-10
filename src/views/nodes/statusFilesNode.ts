@@ -93,7 +93,13 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 			...Iterables.map(
 				Objects.values(groups),
 				files =>
-					new StatusFileNode(this.view, this, repoPath, files[files.length - 1], files.map(s => s.commit))
+					new StatusFileNode(
+						this.view,
+						this,
+						repoPath,
+						files[files.length - 1],
+						files.map(s => s.commit)
+					)
 			)
 		];
 

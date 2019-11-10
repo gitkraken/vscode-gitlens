@@ -175,9 +175,14 @@ export class SearchView extends ViewBase<SearchNode> {
 			};
 		}
 
-		const searchQueryFn = Functions.cachedOnce(this.getSearchQueryFn(log, { label: label, ...options }), results as SearchQueryResults);
+		const searchQueryFn = Functions.cachedOnce(
+			this.getSearchQueryFn(log, { label: label, ...options }),
+			results as SearchQueryResults
+		);
 
-		return this.addResults(new SearchResultsCommitsNode(this, this._root!, repoPath, search, labelString, searchQueryFn));
+		return this.addResults(
+			new SearchResultsCommitsNode(this, this._root!, repoPath, search, labelString, searchQueryFn)
+		);
 	}
 
 	private addResults(results: ViewNode) {

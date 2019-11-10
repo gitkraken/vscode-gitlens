@@ -43,7 +43,8 @@ export class FileHistoryQuickPick {
 
 		const items = Array.from(Iterables.map(log.commits.values(), c => CommitQuickPickItem.create(c))) as (
 			| CommitQuickPickItem
-			| CommandQuickPickItem)[];
+			| CommandQuickPickItem
+		)[];
 
 		let index = 0;
 

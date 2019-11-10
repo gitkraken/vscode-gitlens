@@ -1501,7 +1501,10 @@ export class GitService implements Disposable {
 		}
 	}
 
-	private getLogMoreFn(log: GitLog, options: { authors?: string[]; limit?: number; merges?: boolean; ref?: string; reverse?: boolean }): (limit: number | { until: string } | undefined) => Promise<GitLog> {
+	private getLogMoreFn(
+		log: GitLog,
+		options: { authors?: string[]; limit?: number; merges?: boolean; ref?: string; reverse?: boolean }
+	): (limit: number | { until: string } | undefined) => Promise<GitLog> {
 		return async (limit: number | { until: string } | undefined) => {
 			const moreUntil = limit != null && typeof limit === 'object' ? limit.until : undefined;
 			let moreLimit = typeof limit === 'number' ? limit : undefined;
@@ -1635,7 +1638,8 @@ export class GitService implements Disposable {
 			);
 
 			if (log !== undefined) {
-				log.query = (limit: number | undefined) => this.getLogForSearch(repoPath, search, { ...options, limit: limit });
+				log.query = (limit: number | undefined) =>
+					this.getLogForSearch(repoPath, search, { ...options, limit: limit });
 				if (log.hasMore) {
 					log.more = this.getLogForSearchMoreFn(log, search, options);
 				}
@@ -1647,7 +1651,11 @@ export class GitService implements Disposable {
 		}
 	}
 
-	private getLogForSearchMoreFn(log: GitLog, search: SearchPattern, options: { limit?: number }): (limit: number | undefined) => Promise<GitLog> {
+	private getLogForSearchMoreFn(
+		log: GitLog,
+		search: SearchPattern,
+		options: { limit?: number }
+	): (limit: number | undefined) => Promise<GitLog> {
 		return async (limit: number | undefined) => {
 			limit = limit ?? Container.config.advanced.maxSearchItems ?? 0;
 
@@ -1670,7 +1678,8 @@ export class GitService implements Disposable {
 				count: log.count + moreLog.count,
 				limit: (log.limit ?? 0) + limit,
 				hasMore: moreLog.hasMore,
-				query: (limit: number | undefined) => this.getLogForSearch(log.repoPath, search, { ...options, limit: limit })
+				query: (limit: number | undefined) =>
+					this.getLogForSearch(log.repoPath, search, { ...options, limit: limit })
 			};
 			mergedLog.more = this.getLogForSearchMoreFn(mergedLog, search, options);
 
@@ -1843,7 +1852,8 @@ export class GitService implements Disposable {
 
 			if (log !== undefined) {
 				const opts = { ...options, ref: ref, range: range };
-				log.query = (limit: number | undefined) => this.getLogForFile(repoPath, fileName, { ...opts, limit: limit });
+				log.query = (limit: number | undefined) =>
+					this.getLogForFile(repoPath, fileName, { ...opts, limit: limit });
 				if (log.hasMore) {
 					log.more = this.getLogForFileMoreFn(log, fileName, opts);
 				}
@@ -1869,7 +1879,11 @@ export class GitService implements Disposable {
 		}
 	}
 
-	private getLogForFileMoreFn(log: GitLog, fileName: string, options: { limit?: number; range?: Range; ref?: string; renames?: boolean; reverse?: boolean }): (limit: number | { until: string } | undefined) => Promise<GitLog> {
+	private getLogForFileMoreFn(
+		log: GitLog,
+		fileName: string,
+		options: { limit?: number; range?: Range; ref?: string; renames?: boolean; reverse?: boolean }
+	): (limit: number | { until: string } | undefined) => Promise<GitLog> {
 		return async (limit: number | { until: string } | undefined) => {
 			const moreUntil = limit != null && typeof limit === 'object' ? limit.until : undefined;
 			let moreLimit = typeof limit === 'number' ? limit : undefined;
@@ -1900,7 +1914,8 @@ export class GitService implements Disposable {
 				count: log.count + moreLog.count,
 				limit: moreUntil == null ? (log.limit ?? 0) + moreLimit : undefined,
 				hasMore: moreUntil == null ? moreLog.hasMore : true,
-				query: (limit: number | undefined) => this.getLogForFile(log.repoPath, fileName, { ...options, limit: limit })
+				query: (limit: number | undefined) =>
+					this.getLogForFile(log.repoPath, fileName, { ...options, limit: limit })
 			};
 			mergedLog.more = this.getLogForFileMoreFn(mergedLog, fileName, options);
 
@@ -2308,7 +2323,7 @@ export class GitService implements Disposable {
 			const data = await Git.reflog(repoPath, { ...options, limit: limit * 100 });
 			if (data === undefined) return undefined;
 
-			const reflog = GitReflogParser.parse( data, repoPath, reflogCommands, limit, limit * 100);
+			const reflog = GitReflogParser.parse(data, repoPath, reflogCommands, limit, limit * 100);
 			if (reflog?.hasMore) {
 				reflog.more = this.getReflogMoreFn(reflog, options);
 			}
@@ -2320,7 +2335,10 @@ export class GitService implements Disposable {
 		}
 	}
 
-	private getReflogMoreFn(reflog: GitReflog, options: { all?: boolean; branch?: string; limit?: number; skip?: number }): (limit: number) => Promise<GitReflog> {
+	private getReflogMoreFn(
+		reflog: GitReflog,
+		options: { all?: boolean; branch?: string; limit?: number; skip?: number }
+	): (limit: number) => Promise<GitReflog> {
 		return async (limit: number | undefined) => {
 			limit = limit ?? Container.config.advanced.maxSearchItems ?? 0;
 
@@ -2340,7 +2358,7 @@ export class GitService implements Disposable {
 				count: reflog.count + moreLog.count,
 				total: reflog.total + moreLog.total,
 				limit: (reflog.limit ?? 0) + limit,
-				hasMore: moreLog.hasMore,
+				hasMore: moreLog.hasMore
 			};
 			mergedLog.more = this.getReflogMoreFn(mergedLog, options);
 

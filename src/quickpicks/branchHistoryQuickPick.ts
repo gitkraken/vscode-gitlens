@@ -32,7 +32,8 @@ export class BranchHistoryQuickPick {
 	): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
 		const items = Array.from(Iterables.map(log.commits.values(), c => CommitQuickPickItem.create(c))) as (
 			| CommitQuickPickItem
-			| CommandQuickPickItem)[];
+			| CommandQuickPickItem
+		)[];
 
 		const currentCommandArgs: ShowQuickBranchHistoryCommandArgs = {
 			branch: branch,

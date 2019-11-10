@@ -97,7 +97,7 @@ export class TagNode extends ViewRefNode<RepositoriesView> implements PageableVi
 				limit: this.limit ?? this.view.config.defaultItemLimit,
 				ref: this.tag.name
 			});
-			}
+		}
 
 		return this._log;
 	}

@@ -74,7 +74,10 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
 			if (!args.ref1) {
 				const pick = await new ReferencesQuickPick(repoPath).show(
 					`Compare Working Tree with${GlyphChars.Ellipsis}`,
-					{ allowEnteringRefs: true, checkmarks: false }
+					{
+						allowEnteringRefs: true,
+						checkmarks: false
+					}
 				);
 				if (pick === undefined) return undefined;
 

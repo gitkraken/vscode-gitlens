@@ -209,7 +209,10 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
 
 		const count = log?.count ?? 0;
 		const results: Mutable<Partial<CommitsQueryResults>> = {
-			label: Strings.pluralize('commit', count, { number: log?.hasMore ?? false ? `${count}+` : undefined, zero: 'No' }),
+			label: Strings.pluralize('commit', count, {
+				number: log?.hasMore ?? false ? `${count}+` : undefined,
+				zero: 'No'
+			}),
 			log: log,
 			hasMore: log?.hasMore ?? true
 		};
@@ -218,7 +221,10 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
 				results.log = (await results.log?.more?.(limit)) ?? results.log;
 
 				const count = results.log?.count ?? 0;
-				results.label = Strings.pluralize('commit', count, { number: results.log?.hasMore ?? false ? `${count}+` : undefined, zero: 'No' });
+				results.label = Strings.pluralize('commit', count, {
+					number: results.log?.hasMore ?? false ? `${count}+` : undefined,
+					zero: 'No'
+				});
 				results.hasMore = results.log?.hasMore ?? true;
 			};
 		}

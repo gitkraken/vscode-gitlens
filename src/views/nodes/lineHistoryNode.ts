@@ -22,7 +22,9 @@ import { RepositoryNode } from './repositoryNode';
 export class LineHistoryNode extends SubscribeableViewNode implements PageableViewNode {
 	static key = ':history:line';
 	static getId(repoPath: string, uri: string, selection: Selection): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}(${uri}[${selection.start.line},${selection.start.character}-${selection.end.line},${selection.end.character}])`;
+		return `${RepositoryNode.getId(repoPath)}${this.key}(${uri}[${selection.start.line},${
+			selection.start.character
+		}-${selection.end.line},${selection.end.character}])`;
 	}
 
 	constructor(
