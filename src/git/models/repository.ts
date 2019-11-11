@@ -228,7 +228,7 @@ export class Repository implements Disposable {
 
 	@gate()
 	@log()
-	branch(...args: any[]) {
+	branch(...args: string[]) {
 		this.runTerminalCommand('branch', ...args);
 	}
 
@@ -258,7 +258,7 @@ export class Repository implements Disposable {
 
 	@gate(() => '')
 	@log()
-	cherryPick(...args: any[]) {
+	cherryPick(...args: string[]) {
 		this.runTerminalCommand('cherry-pick', ...args);
 	}
 
@@ -376,7 +376,7 @@ export class Repository implements Disposable {
 
 	@gate(() => '')
 	@log()
-	merge(...args: any[]) {
+	merge(...args: string[]) {
 		this.runTerminalCommand('merge', ...args);
 	}
 
@@ -439,13 +439,13 @@ export class Repository implements Disposable {
 
 	@gate(() => '')
 	@log()
-	rebase(...args: any[]) {
+	rebase(...args: string[]) {
 		this.runTerminalCommand('rebase', ...args);
 	}
 
 	@gate(() => '')
 	@log()
-	reset(...args: any[]) {
+	reset(...args: string[]) {
 		this.runTerminalCommand('reset', ...args);
 	}
 
@@ -467,7 +467,7 @@ export class Repository implements Disposable {
 
 	@gate()
 	@log()
-	revert(...args: any[]) {
+	revert(...args: string[]) {
 		this.runTerminalCommand('revert', ...args);
 	}
 
@@ -583,7 +583,7 @@ export class Repository implements Disposable {
 
 	@gate()
 	@log()
-	tag(...args: any[]) {
+	tag(...args: string[]) {
 		this.runTerminalCommand('tag', ...args);
 	}
 
@@ -651,8 +651,8 @@ export class Repository implements Disposable {
 		this._onDidChangeFileSystem.fire(e);
 	}
 
-	private runTerminalCommand(command: string, ...args: any[]) {
-		const parsedArgs = args.map(arg => (arg.indexOf('#') >= 0 ? `"${arg}"` : arg));
+	private runTerminalCommand(command: string, ...args: string[]) {
+		const parsedArgs = args.map(arg => (arg.startsWith('#') ? `"${arg}"` : arg));
 		runGitCommandInTerminal(command, parsedArgs.join(' '), this.path, true);
 		if (!this.supportsChangeEvents) {
 			this.fireChange(RepositoryChange.Repository);
