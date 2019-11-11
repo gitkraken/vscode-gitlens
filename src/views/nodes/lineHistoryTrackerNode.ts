@@ -1,5 +1,5 @@
 'use strict';
-import { Disposable, Selection, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { Selection, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { UriComparer } from '../../comparers';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
@@ -171,17 +171,22 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 
 		return Container.lineTracker.start(
 			this,
-			Disposable.from(
-				Container.lineTracker.onDidChangeActiveLines((e: LinesChangeEvent) => {
-					if (e.pending) return;
+			Container.lineTracker.onDidChangeActiveLines((e: LinesChangeEvent) => {
+				if (e.pending) return;
 
-					onActiveLinesChanged(e);
-				})
-			)
+				onActiveLinesChanged(e);
+			})
 		);
 	}
 
-	@debug({ args: false })
+	@debug({
+		args: {
+			0: (e: LinesChangeEvent) =>
+				`editor=${e.editor?.document.uri.toString(true)}, lines=${e.lines?.join(',')}, pending=${Boolean(
+					e.pending
+				)}, reason=${e.reason}`
+		}
+	})
 	private onActiveLinesChanged(e: LinesChangeEvent) {
 		void this.triggerChange();
 	}

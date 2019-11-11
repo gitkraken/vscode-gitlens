@@ -15,6 +15,7 @@ import { Annotations } from '../annotations/annotations';
 import { configuration } from '../configuration';
 import { Container } from '../container';
 import { LinesChangeEvent } from '../trackers/gitLineTracker';
+import { debug } from '../system';
 
 export class LineHoverController implements Disposable {
 	private _disposable: Disposable;
@@ -43,7 +44,7 @@ export class LineHoverController implements Disposable {
 		if (Container.config.hovers.enabled && Container.config.hovers.currentLine.enabled) {
 			Container.lineTracker.start(
 				this,
-				Disposable.from(Container.lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this))
+				Container.lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this)
 			);
 
 			this.register(window.activeTextEditor);
@@ -53,6 +54,14 @@ export class LineHoverController implements Disposable {
 		}
 	}
 
+	@debug({
+		args: {
+			0: (e: LinesChangeEvent) =>
+				`editor=${e.editor?.document.uri.toString(true)}, lines=${e.lines?.join(',')}, pending=${Boolean(
+					e.pending
+				)}, reason=${e.reason}`
+		}
+	})
 	private onActiveLinesChanged(e: LinesChangeEvent) {
 		if (e.pending) return;
 

@@ -6,6 +6,7 @@ import { isTextEditor } from '../constants';
 import { Container } from '../container';
 import { CommitFormatter, GitCommit } from '../git/gitService';
 import { LinesChangeEvent } from '../trackers/gitLineTracker';
+import { debug } from '../system';
 
 export class StatusBarController implements Disposable {
 	private _blameStatusBarItem: StatusBarItem | undefined;
@@ -80,7 +81,7 @@ export class StatusBarController implements Disposable {
 			if (configuration.changed(e, 'statusBar', 'enabled')) {
 				Container.lineTracker.start(
 					this,
-					Disposable.from(Container.lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this))
+					Container.lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this)
 				);
 			}
 		} else if (configuration.changed(e, 'statusBar', 'enabled')) {
@@ -93,6 +94,14 @@ export class StatusBarController implements Disposable {
 		}
 	}
 
+	@debug({
+		args: {
+			0: (e: LinesChangeEvent) =>
+				`editor=${e.editor?.document.uri.toString(true)}, lines=${e.lines?.join(',')}, pending=${Boolean(
+					e.pending
+				)}, reason=${e.reason}`
+		}
+	})
 	private onActiveLinesChanged(e: LinesChangeEvent) {
 		// If we need to reduceFlicker, don't clear if only the selected lines changed
 		let clear = !(

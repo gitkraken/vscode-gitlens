@@ -9,6 +9,7 @@ import {
 	GitDocumentState
 } from './gitDocumentTracker';
 import { LinesChangeEvent, LineTracker } from './lineTracker';
+import { debug } from '../system';
 
 export * from './lineTracker';
 
@@ -17,9 +18,6 @@ export class GitLineState {
 }
 
 export class GitLineTracker extends LineTracker<GitLineState> {
-	private _count = 0;
-	private _subscriptions: Map<any, Disposable> = new Map();
-
 	protected async fireLinesChanged(e: LinesChangeEvent) {
 		this.reset();
 
@@ -31,10 +29,32 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 		return super.fireLinesChanged(updated ? e : { ...e, lines: undefined });
 	}
 
+	protected onStart(): Disposable | undefined {
+		return Disposable.from(
+			Container.tracker.onDidChangeBlameState(this.onBlameStateChanged, this),
+			Container.tracker.onDidChangeDirtyState(this.onDirtyStateChanged, this),
+			Container.tracker.onDidTriggerDirtyIdle(this.onDirtyIdleTriggered, this)
+		);
+	}
+
+	@debug({
+		args: {
+			0: (e: DocumentBlameStateChangeEvent<GitDocumentState>) =>
+				`editor=${e.editor.document.uri.toString(true)}, doc=${e.document.uri.toString(true)}, blameable=${
+					e.blameable
+				}`
+		}
+	})
 	private onBlameStateChanged(e: DocumentBlameStateChangeEvent<GitDocumentState>) {
 		this.trigger('editor');
 	}
 
+	@debug({
+		args: {
+			0: (e: DocumentDirtyIdleTriggerEvent<GitDocumentState>) =>
+				`editor=${e.editor.document.uri.toString(true)}, doc=${e.document.uri.toString(true)}`
+		}
+	})
 	private onDirtyIdleTriggered(e: DocumentDirtyIdleTriggerEvent<GitDocumentState>) {
 		const maxLines = Container.config.advanced.blame.sizeThresholdAfterEdit;
 		if (maxLines > 0 && e.document.lineCount > maxLines) return;
@@ -42,6 +62,12 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 		this.resume();
 	}
 
+	@debug({
+		args: {
+			0: (e: DocumentDirtyStateChangeEvent<GitDocumentState>) =>
+				`editor=${e.editor.document.uri.toString(true)}, doc=${e.document.uri.toString(true)}, dirty=${e.dirty}`
+		}
+	})
 	private onDirtyStateChanged(e: DocumentDirtyStateChangeEvent<GitDocumentState>) {
 		if (e.dirty) {
 			this.suspend();
@@ -52,6 +78,7 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 
 	private _suspended = false;
 
+	@debug()
 	private resume(options: { force?: boolean } = {}) {
 		if (!options.force && !this._suspended) return;
 
@@ -59,57 +86,12 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 		this.trigger('editor');
 	}
 
+	@debug()
 	private suspend(options: { force?: boolean } = {}) {
 		if (!options.force && this._suspended) return;
 
 		this._suspended = true;
 		this.trigger('editor');
-	}
-
-	isSubscribed(subscriber: any) {
-		return this._subscriptions.has(subscriber);
-	}
-
-	start(subscriber: any, subscription: Disposable): Disposable {
-		const disposable = {
-			dispose: () => this.stop(subscriber)
-		};
-
-		if (this.isSubscribed(subscriber)) return disposable;
-
-		this._subscriptions.set(subscriber, subscription);
-
-		this._count++;
-		if (this._count === 1) {
-			super.start();
-
-			this._disposable = Disposable.from(
-				this._disposable!,
-				Container.tracker.onDidChangeBlameState(this.onBlameStateChanged, this),
-				Container.tracker.onDidChangeDirtyState(this.onDirtyStateChanged, this),
-				Container.tracker.onDidTriggerDirtyIdle(this.onDirtyIdleTriggered, this)
-			);
-		}
-
-		return disposable;
-	}
-
-	stop(subscriber: any) {
-		const subscription = this._subscriptions.get(subscriber);
-		if (subscription === undefined) return;
-
-		this._subscriptions.delete(subscriber);
-		subscription.dispose();
-
-		if (this._disposable === undefined) {
-			this._count = 0;
-			return;
-		}
-
-		this._count--;
-		if (this._count === 0) {
-			super.stop();
-		}
 	}
 
 	private async updateState(lines: number[], editor: TextEditor): Promise<boolean> {

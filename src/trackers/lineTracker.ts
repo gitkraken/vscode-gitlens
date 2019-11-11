@@ -23,7 +23,9 @@ export class LineTracker<T> implements Disposable {
 	private readonly _state: Map<number, T | undefined> = new Map();
 
 	dispose() {
-		this.stop();
+		for (const subscriber of this._subscriptions.keys()) {
+			this.stop(subscriber);
+		}
 	}
 
 	private onActiveTextEditorChanged(editor: TextEditor | undefined) {
@@ -32,7 +34,7 @@ export class LineTracker<T> implements Disposable {
 
 		this.reset();
 		this._editor = editor;
-		this._lines = editor !== undefined ? editor.selections.map(s => s.active.line) : undefined;
+		this._lines = editor?.selections.map(s => s.active.line);
 
 		this.trigger('editor');
 	}
@@ -41,15 +43,14 @@ export class LineTracker<T> implements Disposable {
 		// If this isn't for our cached editor and its not a real editor -- kick out
 		if (this._editor !== e.textEditor && !isTextEditor(e.textEditor)) return;
 
-		const reason = this._editor === e.textEditor ? 'selection' : 'editor';
-
 		const lines = e.selections.map(s => s.active.line);
 		if (this._editor === e.textEditor && this.includesAll(lines)) return;
 
 		this.reset();
 		this._editor = e.textEditor;
 		this._lines = lines;
-		this.trigger(reason);
+
+		this.trigger(this._editor === e.textEditor ? 'selection' : 'editor');
 	}
 
 	getState(line: number): T | undefined {
@@ -81,26 +82,63 @@ export class LineTracker<T> implements Disposable {
 		this._state.clear();
 	}
 
-	start(subscriber?: any, subscription?: Disposable): void {
-		if (this._disposable !== undefined) return;
+	private _subscriptions: Map<any, Disposable[]> = new Map();
 
-		this._disposable = Disposable.from(
-			window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveTextEditorChanged, 0), this),
-			window.onDidChangeTextEditorSelection(this.onTextEditorSelectionChanged, this)
-		);
-
-		setImmediate(() => this.onActiveTextEditorChanged(window.activeTextEditor));
+	isSubscribed(subscriber: any) {
+		return this._subscriptions.has(subscriber);
 	}
 
-	stop(subscriber?: any) {
-		if (this._disposable === undefined) return;
+	protected onStart(): Disposable | undefined {
+		return undefined;
+	}
+
+	start(subscriber: any, subscription: Disposable): Disposable {
+		const disposable = {
+			dispose: () => this.stop(subscriber)
+		};
+
+		const first = this._subscriptions.size === 0;
+
+		let subs = this._subscriptions.get(subscriber);
+		if (subs === undefined) {
+			subs = [subscription];
+			this._subscriptions.set(subscriber, subs);
+		} else {
+			subs.push(subscription);
+		}
+
+		if (first) {
+			this._disposable = Disposable.from(
+				window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveTextEditorChanged, 0), this),
+				window.onDidChangeTextEditorSelection(this.onTextEditorSelectionChanged, this),
+				this.onStart() ?? { dispose: () => {} }
+			);
+
+			setImmediate(() => this.onActiveTextEditorChanged(window.activeTextEditor));
+		}
+
+		return disposable;
+	}
+
+	stop(subscriber: any) {
+		const subs = this._subscriptions.get(subscriber);
+		if (subs === undefined) return;
+
+		this._subscriptions.delete(subscriber);
+		for (const sub of subs) {
+			sub.dispose();
+		}
+
+		if (this._subscriptions.size !== 0) return;
 
 		if (this._linesChangedDebounced !== undefined) {
 			this._linesChangedDebounced.cancel();
 		}
 
-		this._disposable.dispose();
-		this._disposable = undefined;
+		if (this._disposable !== undefined) {
+			this._disposable.dispose();
+			this._disposable = undefined;
+		}
 	}
 
 	protected fireLinesChanged(e: LinesChangeEvent) {
@@ -133,7 +171,12 @@ export class LineTracker<T> implements Disposable {
 				(e: LinesChangeEvent) => {
 					if (window.activeTextEditor !== e.editor) return;
 					// Make sure we are still on the same lines
-					if (!LineTracker.includesAll(e.lines, e.editor && e.editor.selections.map(s => s.active.line))) {
+					if (
+						!LineTracker.includesAll(
+							e.lines,
+							e.editor?.selections.map(s => s.active.line)
+						)
+					) {
 						return;
 					}
 

@@ -94,9 +94,9 @@ export class LineAnnotationController implements Disposable {
 	@debug({
 		args: {
 			0: (e: LinesChangeEvent) =>
-				`editor=${e.editor ? e.editor.document.uri.toString(true) : undefined}, lines=${
-					e.lines ? e.lines.join(',') : undefined
-				}, pending=${Boolean(e.pending)}, reason=${e.reason}`
+				`editor=${e.editor?.document.uri.toString(true)}, lines=${e.lines?.join(',')}, pending=${Boolean(
+					e.pending
+				)}, reason=${e.reason}`
 		}
 	})
 	private onActiveLinesChanged(e: LinesChangeEvent) {
@@ -113,7 +113,7 @@ export class LineAnnotationController implements Disposable {
 		void this.refresh(window.activeTextEditor);
 	}
 
-	@debug({ args: false })
+	@debug({ args: false, singleLine: true })
 	clear(editor: TextEditor | undefined) {
 		if (this._editor !== editor && this._editor !== undefined) {
 			this.clearAnnotations(this._editor);
@@ -235,7 +235,7 @@ export class LineAnnotationController implements Disposable {
 			if (!Container.lineTracker.isSubscribed(this)) {
 				Container.lineTracker.start(
 					this,
-					Disposable.from(Container.lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this))
+					Container.lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this)
 				);
 			}
 
