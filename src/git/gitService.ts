@@ -3051,7 +3051,19 @@ export class GitService implements Disposable {
 
 		let match = searchMessageOperationRegex.exec(search);
 		if (match != null && match[1] !== '') {
-			this.parseSearchMessageOperations(match[1], operations);
+			[, value] = match;
+
+			if (GitService.isSha(value)) {
+				let values = operations.get('commit:');
+				if (values === undefined) {
+					values = [value];
+					operations.set('commit:', values);
+				} else {
+					values.push(value);
+				}
+			} else {
+				this.parseSearchMessageOperations(value, operations);
+			}
 		}
 
 		do {
