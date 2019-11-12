@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Changes commit search to auto-detect full commit shas without the need to prefix it with `commit:` or `#:`
+- Changes paging in GitLens views to no longer be naive and now only loads the additional required data for much better performance
+- Restores the original commit icon in the editor toolbar
+
+### Fixed
+
+- Fixes [#667](https://github.com/eamodio/vscode-gitlens/issues/893) - Problems with # symbol in branch names &mdash; thanks to [PR #894](https://github.com/eamodio/vscode-gitlens/pull/894) by Allan Karlson ([@bees4ever](https://github.com/bees4ever))
+- Fixes [#667](https://github.com/eamodio/vscode-gitlens/issues/667) - Decoration rendered before code
+- Fixes issues where line blame annotations would sometimes stop working
+
 ## [10.1.2] - 2019-11-06
 
 ### Changed
