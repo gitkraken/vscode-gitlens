@@ -1,7 +1,7 @@
 'use strict';
 import { Disposable, Event, EventEmitter, TextEditor, TextEditorSelectionChangeEvent, window } from 'vscode';
 import { isTextEditor } from '../constants';
-import { Deferrable, Functions } from '../system';
+import { debug, Deferrable, Functions } from '../system';
 
 export interface LinesChangeEvent {
 	readonly editor: TextEditor | undefined;
@@ -88,10 +88,9 @@ export class LineTracker<T> implements Disposable {
 		return this._subscriptions.has(subscriber);
 	}
 
-	protected onStart(): Disposable | undefined {
-		return undefined;
-	}
+	protected onStart?(): Disposable | undefined;
 
+	@debug({ args: false })
 	start(subscriber: any, subscription: Disposable): Disposable {
 		const disposable = {
 			dispose: () => this.stop(subscriber)
@@ -111,7 +110,7 @@ export class LineTracker<T> implements Disposable {
 			this._disposable = Disposable.from(
 				window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveTextEditorChanged, 0), this),
 				window.onDidChangeTextEditorSelection(this.onTextEditorSelectionChanged, this),
-				this.onStart() ?? { dispose: () => {} }
+				this.onStart?.() ?? { dispose: () => {} }
 			);
 
 			setImmediate(() => this.onActiveTextEditorChanged(window.activeTextEditor));
@@ -120,6 +119,7 @@ export class LineTracker<T> implements Disposable {
 		return disposable;
 	}
 
+	@debug({ args: false })
 	stop(subscriber: any) {
 		const subs = this._subscriptions.get(subscriber);
 		if (subs === undefined) return;
@@ -139,6 +139,33 @@ export class LineTracker<T> implements Disposable {
 			this._disposable.dispose();
 			this._disposable = undefined;
 		}
+	}
+
+	private _suspended = false;
+	get suspended() {
+		return this._suspended;
+	}
+
+	protected onResume?(): void;
+
+	@debug()
+	resume(options: { force?: boolean } = {}) {
+		if (!options.force && !this._suspended) return;
+
+		this._suspended = false;
+		void this.onResume?.();
+		this.trigger('editor');
+	}
+
+	protected onSuspend?(): void;
+
+	@debug()
+	suspend(options: { force?: boolean } = {}) {
+		if (!options.force && this._suspended) return;
+
+		this._suspended = true;
+		void this.onSuspend?.();
+		this.trigger('editor');
 	}
 
 	protected fireLinesChanged(e: LinesChangeEvent) {

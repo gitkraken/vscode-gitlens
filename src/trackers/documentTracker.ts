@@ -9,6 +9,7 @@ import {
 	Range,
 	TextDocument,
 	TextDocumentChangeEvent,
+	TextDocumentContentChangeEvent,
 	TextEditor,
 	TextLine,
 	Uri,
@@ -22,6 +23,12 @@ import { Deferrable, Functions } from '../system';
 import { DocumentBlameStateChangeEvent, TrackedDocument } from './trackedDocument';
 
 export * from './trackedDocument';
+
+export interface DocumentContentChangeEvent<T> {
+	readonly editor: TextEditor;
+	readonly document: TrackedDocument<T>;
+	readonly contentChanges: ReadonlyArray<TextDocumentContentChangeEvent>;
+}
 
 export interface DocumentDirtyStateChangeEvent<T> {
 	readonly editor: TextEditor;
@@ -38,6 +45,11 @@ export class DocumentTracker<T> implements Disposable {
 	private _onDidChangeBlameState = new EventEmitter<DocumentBlameStateChangeEvent<T>>();
 	get onDidChangeBlameState(): Event<DocumentBlameStateChangeEvent<T>> {
 		return this._onDidChangeBlameState.event;
+	}
+
+	private _onDidChangeContent = new EventEmitter<DocumentContentChangeEvent<T>>();
+	get onDidChangeContent(): Event<DocumentContentChangeEvent<T>> {
+		return this._onDidChangeContent.event;
 	}
 
 	private _onDidChangeDirtyState = new EventEmitter<DocumentDirtyStateChangeEvent<T>>();
@@ -127,7 +139,9 @@ export class DocumentTracker<T> implements Disposable {
 
 	private onTextDocumentChanged(e: TextDocumentChangeEvent) {
 		const { scheme } = e.document.uri;
-		if (scheme !== DocumentSchemes.File && scheme !== DocumentSchemes.Vsls) return;
+		if (scheme !== DocumentSchemes.File && scheme !== DocumentSchemes.Git && scheme !== DocumentSchemes.Vsls) {
+			return;
+		}
 
 		let doc = this._documentMap.get(e.document);
 		if (doc === undefined) {
@@ -146,6 +160,11 @@ export class DocumentTracker<T> implements Disposable {
 			} else {
 				this._dirtyIdleTriggeredDebounced.cancel();
 			}
+		}
+
+		// Only fire change events for the active document
+		if (editor !== undefined && editor.document === e.document) {
+			this._onDidChangeContent.fire({ editor: editor, document: doc, contentChanges: e.contentChanges });
 		}
 
 		if (!doc.forceDirtyStateChangeOnNextDocumentChange && doc.dirty === dirty) return;

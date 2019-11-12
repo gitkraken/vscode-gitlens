@@ -4,6 +4,7 @@ import { Container } from '../container';
 import { GitBlameCommit, GitLogCommit } from '../git/gitService';
 import {
 	DocumentBlameStateChangeEvent,
+	DocumentContentChangeEvent,
 	DocumentDirtyIdleTriggerEvent,
 	DocumentDirtyStateChangeEvent,
 	GitDocumentState
@@ -22,19 +23,37 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 		this.reset();
 
 		let updated = false;
-		if (!this._suspended && !e.pending && e.lines !== undefined && e.editor !== undefined) {
+		if (!this.suspended && !e.pending && e.lines !== undefined && e.editor !== undefined) {
 			updated = await this.updateState(e.lines, e.editor);
 		}
 
 		return super.fireLinesChanged(updated ? e : { ...e, lines: undefined });
 	}
 
+	private _subscriptionOnlyWhenActive: Disposable | undefined;
+
 	protected onStart(): Disposable | undefined {
+		this.onResume();
+
 		return Disposable.from(
+			{ dispose: () => this.onSuspend() },
 			Container.tracker.onDidChangeBlameState(this.onBlameStateChanged, this),
 			Container.tracker.onDidChangeDirtyState(this.onDirtyStateChanged, this),
 			Container.tracker.onDidTriggerDirtyIdle(this.onDirtyIdleTriggered, this)
 		);
+	}
+
+	protected onResume(): void {
+		if (this._subscriptionOnlyWhenActive === undefined) {
+			this._subscriptionOnlyWhenActive = Container.tracker.onDidChangeContent(this.onContentChanged, this);
+		}
+	}
+
+	protected onSuspend(): void {
+		if (this._subscriptionOnlyWhenActive === undefined) return;
+
+		this._subscriptionOnlyWhenActive.dispose();
+		this._subscriptionOnlyWhenActive = undefined;
 	}
 
 	@debug({
@@ -47,6 +66,18 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 	})
 	private onBlameStateChanged(e: DocumentBlameStateChangeEvent<GitDocumentState>) {
 		this.trigger('editor');
+	}
+
+	@debug({
+		args: {
+			0: (e: DocumentContentChangeEvent<GitDocumentState>) =>
+				`editor=${e.editor.document.uri.toString(true)}, doc=${e.document.uri.toString(true)}`
+		}
+	})
+	private onContentChanged(e: DocumentContentChangeEvent<GitDocumentState>) {
+		if (e.contentChanges.some(cc => this.lines?.some(l => cc.range.start.line <= l && cc.range.end.line >= l))) {
+			this.trigger('editor');
+		}
 	}
 
 	@debug({
@@ -74,24 +105,6 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 		} else {
 			this.resume({ force: true });
 		}
-	}
-
-	private _suspended = false;
-
-	@debug()
-	private resume(options: { force?: boolean } = {}) {
-		if (!options.force && !this._suspended) return;
-
-		this._suspended = false;
-		this.trigger('editor');
-	}
-
-	@debug()
-	private suspend(options: { force?: boolean } = {}) {
-		if (!options.force && this._suspended) return;
-
-		this._suspended = true;
-		this.trigger('editor');
 	}
 
 	private async updateState(lines: number[], editor: TextEditor): Promise<boolean> {
