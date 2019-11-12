@@ -43,6 +43,7 @@ import {
 } from './nodes';
 import { debug } from '../system';
 import { runGitCommandInTerminal } from '../terminal';
+import { FileAnnotationType } from '../config';
 
 interface CompareSelectedInfo {
 	ref: string;
@@ -124,6 +125,8 @@ export class ViewCommands {
 		);
 		commands.registerCommand('gitlens.views.openChangedFileRevisions', this.openChangedFileRevisions, this);
 		commands.registerCommand('gitlens.views.applyChanges', this.applyChanges, this);
+		commands.registerCommand('gitlens.views.highlightChanges', this.highlightChanges, this);
+		commands.registerCommand('gitlens.views.highlightRevisionChanges', this.highlightRevisionChanges, this);
 		commands.registerCommand('gitlens.views.restore', this.restore, this);
 		commands.registerCommand('gitlens.views.switchToBranch', this.switch, this);
 		commands.registerCommand('gitlens.views.switchToCommit', this.switch, this);
@@ -340,6 +343,44 @@ export class ViewCommands {
 		}
 
 		return undefined;
+	}
+
+	@debug()
+	private async highlightChanges(node: CommitFileNode | ResultsFileNode | StashFileNode) {
+		if (
+			!(node instanceof CommitFileNode) &&
+			!(node instanceof StashFileNode) &&
+			!(node instanceof ResultsFileNode)
+		) {
+			return;
+		}
+
+		void (await this.openFile(node));
+		void (await Container.fileAnnotations.toggle(
+			window.activeTextEditor,
+			FileAnnotationType.RecentChanges,
+			node.ref,
+			true
+		));
+	}
+
+	@debug()
+	private async highlightRevisionChanges(node: CommitFileNode | ResultsFileNode | StashFileNode) {
+		if (
+			!(node instanceof CommitFileNode) &&
+			!(node instanceof StashFileNode) &&
+			!(node instanceof ResultsFileNode)
+		) {
+			return;
+		}
+
+		void (await this.openFileRevision(node, { showOptions: { preserveFocus: true, preview: true } }));
+		void (await Container.fileAnnotations.toggle(
+			window.activeTextEditor,
+			FileAnnotationType.RecentChanges,
+			node.ref,
+			true
+		));
 	}
 
 	@debug()

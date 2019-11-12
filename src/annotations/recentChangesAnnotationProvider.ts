@@ -1,5 +1,13 @@
 'use strict';
-import { MarkdownString, Position, Range, TextEditor, TextEditorDecorationType } from 'vscode';
+import {
+	MarkdownString,
+	Position,
+	Range,
+	Selection,
+	TextEditor,
+	TextEditorDecorationType,
+	TextEditorRevealType
+} from 'vscode';
 import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
 import { GitUri } from '../git/gitService';
@@ -29,10 +37,26 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 
 		this.annotationType = FileAnnotationType.RecentChanges;
 
-		const commit = await Container.git.getCommitForFile(this._uri.repoPath, this._uri.fsPath);
+		let ref1 = this._uri.sha;
+		let ref2;
+		if (typeof shaOrLine === 'string') {
+			if (shaOrLine !== this._uri.sha) {
+				ref2 = `${shaOrLine}^`;
+			}
+		}
+
+		const commit = await Container.git.getCommitForFile(this._uri.repoPath, this._uri.fsPath, {
+			ref: ref2 ?? ref1
+		});
 		if (commit === undefined) return false;
 
-		const diff = await Container.git.getDiffForFile(this._uri, commit.sha);
+		if (ref2 !== undefined) {
+			ref2 = commit.ref;
+		} else {
+			ref1 = commit.ref;
+		}
+
+		const diff = await Container.git.getDiffForFile(this._uri, ref1, ref2);
 		if (diff === undefined) return false;
 
 		let start = process.hrtime();
@@ -41,6 +65,8 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 		const dateFormat = cfg.defaultDateFormat;
 
 		this.decorations = [];
+
+		let selection: Selection | undefined;
 
 		for (const hunk of diff.hunks) {
 			// Subtract 2 because editor lines are 0-based and we will be adding 1 in the first iteration of the loop
@@ -55,6 +81,9 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 				const range = this.editor.document.validateRange(
 					new Range(new Position(count, 0), new Position(count, Number.MAX_SAFE_INTEGER))
 				);
+				if (selection === undefined) {
+					selection = new Selection(range.start, range.end);
+				}
 
 				let message: MarkdownString | undefined = undefined;
 
@@ -93,6 +122,11 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 			this.editor.setDecorations(this.decoration, this.decorations);
 
 			Logger.log(cc, `${Strings.getDurationMilliseconds(start)} ms to apply recent changes annotations`);
+
+			if (selection !== undefined) {
+				this.editor.selection = selection;
+				this.editor.revealRange(selection, TextEditorRevealType.InCenterIfOutsideViewport);
+			}
 		}
 
 		return true;

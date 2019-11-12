@@ -1231,7 +1231,7 @@ export class GitService implements Disposable {
 		});
 		if (log === undefined) return undefined;
 
-		const commit = options.ref && log.commits.get(options.ref);
+		const commit = options.ref ? log.commits.get(options.ref) : undefined;
 		if (commit === undefined && !options.firstIfNotFound && options.ref) {
 			// If the ref isn't a valid sha we will never find it, so let it fall through so we return the first
 			if (Git.isSha(options.ref) || Git.isUncommitted(options.ref)) return undefined;

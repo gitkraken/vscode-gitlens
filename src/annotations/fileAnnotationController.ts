@@ -332,7 +332,9 @@ export class FileAnnotationController implements Disposable {
 	): Promise<boolean> {
 		if (this.getToggleMode(type) === AnnotationsToggleMode.Window) {
 			let first = this._annotationType === undefined;
-			const reset = !first && this._annotationType !== type;
+			const reset =
+				(!first && this._annotationType !== type) ||
+				(this._annotationType === FileAnnotationType.RecentChanges && typeof shaOrLine === 'string');
 
 			this._annotationType = type;
 
@@ -406,7 +408,9 @@ export class FileAnnotationController implements Disposable {
 		const provider = this.getProvider(editor);
 		if (provider === undefined) return this.show(editor, type, shaOrLine);
 
-		const reopen = provider.annotationType !== type;
+		const reopen =
+			provider.annotationType !== type ||
+			(type === FileAnnotationType.RecentChanges && typeof shaOrLine === 'string');
 		if (on === true && !reopen) return true;
 
 		if (this.isInWindowToggle()) {

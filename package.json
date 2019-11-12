@@ -2546,6 +2546,16 @@
 				}
 			},
 			{
+				"command": "gitlens.views.highlightChanges",
+				"title": "Highlight Changes",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.highlightRevisionChanges",
+				"title": "Highlight Revision Changes",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.restore",
 				"title": "Restore",
 				"category": "GitLens",
@@ -3668,6 +3678,14 @@
 				},
 				{
 					"command": "gitlens.views.addRemote",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.highlightChanges",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.highlightRevisionChanges",
 					"when": "false"
 				},
 				{
@@ -5002,6 +5020,16 @@
 					"command": "gitlens.views.openFileRevision",
 					"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results)/",
 					"group": "2_gitlens_quickopen_@2"
+				},
+				{
+					"command": "gitlens.views.highlightChanges",
+					"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results)/",
+					"group": "3_gitlens_explore@1"
+				},
+				{
+					"command": "gitlens.views.highlightRevisionChanges",
+					"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results)/",
+					"group": "3_gitlens_explore@2"
 				},
 				{
 					"command": "gitlens.showFileHistoryInView",
