@@ -5,7 +5,7 @@ import * as paths from 'path';
 import * as iconv from 'iconv-lite';
 import { Logger } from '../logger';
 
-const isWindows = process.platform === 'win32';
+export const isWindows = process.platform === 'win32';
 
 const slashesRegex = /[\\/]/;
 const ps1Regex = /\.ps1$/i;

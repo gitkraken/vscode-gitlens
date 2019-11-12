@@ -72,6 +72,7 @@ import {
 import { GitUri } from './gitUri';
 import { RemoteProviderFactory, RemoteProviders } from './remotes/factory';
 import { GitReflogParser, GitShortLogParser } from './parsers/parsers';
+import { isWindows } from './shell';
 
 export * from './gitUri';
 export * from './models/models';
@@ -2472,11 +2473,43 @@ export class GitService implements Disposable {
 		return rp;
 	}
 
+	@debug()
 	private async getRepoPathCore(filePath: string, isDirectory: boolean): Promise<string | undefined> {
+		const cc = Logger.getCorrelationContext();
+
 		try {
-			return await Git.rev_parse__show_toplevel(isDirectory ? filePath : paths.dirname(filePath));
+			const path = isDirectory ? filePath : paths.dirname(filePath);
+
+			let repoPath = await Git.rev_parse__show_toplevel(path);
+			if (repoPath === undefined || isWindows) return repoPath;
+
+			// If we are not on Windows (symlinks don't seem to have the same issue on Windows), check if we are a symlink and if so, use the symlink path (not its resolved path)
+			// This is because VS Code will provide document Uris using the symlinked path
+			return await new Promise<string>(resolve => {
+				fs.realpath(path, { encoding: 'utf8' }, (err, resolvedPath) => {
+					if (err != null) {
+						Logger.debug(cc, `fs.realpath failed; repoPath=${repoPath}`);
+						resolve(repoPath);
+						return;
+					}
+
+					if (path.toLowerCase() === resolvedPath.toLowerCase()) {
+						Logger.debug(cc, `No symlink detected; repoPath=${repoPath}`);
+						resolve(repoPath);
+						return;
+					}
+
+					const linkPath = Strings.normalizePath(resolvedPath, { stripTrailingSlash: true });
+					repoPath = repoPath!.replace(linkPath, path);
+					Logger.debug(
+						cc,
+						`Symlink detected; repoPath=${repoPath}, path=${path}, resolvedPath=${resolvedPath}`
+					);
+					resolve(repoPath);
+				});
+			});
 		} catch (ex) {
-			Logger.error(ex);
+			Logger.error(ex, cc);
 			return undefined;
 		}
 	}
