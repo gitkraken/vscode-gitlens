@@ -2289,8 +2289,8 @@
 				"title": "Show Revision Details",
 				"category": "GitLens",
 				"icon": {
-					"dark": "images/dark/icon-commit.svg",
-					"light": "images/light/icon-commit.svg"
+					"dark": "images/dark/icon-commit-horizontal.svg",
+					"light": "images/light/icon-commit-horizontal.svg"
 				},
 				"enablement": "gitlens:activeFileStatus =~ /revision/ && resourceScheme != git"
 			},
