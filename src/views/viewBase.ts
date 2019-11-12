@@ -372,16 +372,12 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 		}
 	}
 
-	@debug({
-		args: { 0: (n: ViewNode) => n.toString() }
-	})
+	@debug({ args: { 0: (n: ViewNode) => n.toString() }, singleLine: true })
 	getNodeLastKnownLimit(node: PageableViewNode) {
 		return this._lastKnownLimits.get(node.id);
 	}
 
-	@debug({
-		args: { 0: (n: ViewNode) => n.toString() }
-	})
+	@debug({ args: { 0: (n: ViewNode) => n.toString() }, singleLine: true })
 	resetNodeLastKnownLimit(node: PageableViewNode) {
 		this._lastKnownLimits.delete(node.id);
 	}
