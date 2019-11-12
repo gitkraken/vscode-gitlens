@@ -5,7 +5,7 @@ import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { Arrays } from '../system';
-import { Command, command, Commands, getRepoPathOrPrompt, openEditor } from './common';
+import { command, Command, Commands, findOrOpenEditor, getRepoPathOrPrompt } from './common';
 
 export interface OpenChangedFilesCommandArgs {
 	uris?: Uri[];
@@ -34,7 +34,7 @@ export class OpenChangedFilesCommand extends Command {
 			}
 
 			for (const uri of args.uris) {
-				await openEditor(uri, { preserveFocus: true, preview: false });
+				await findOrOpenEditor(uri, { preserveFocus: true, preview: false });
 			}
 
 			return undefined;

@@ -8,7 +8,7 @@ import {
 	CopyShaToClipboardCommandArgs,
 	DiffDirectoryCommandArgs,
 	DiffWithPreviousCommandArgs,
-	openEditor,
+	findOrOpenEditor,
 	OpenWorkingFileCommandArgs,
 	ShowQuickCommitDetailsCommandArgs,
 	StashApplyCommandArgs,
@@ -51,7 +51,7 @@ export class CommitWithFileStatusQuickPickItem extends CommandQuickPickItem {
 	}
 
 	execute(options?: TextDocumentShowOptions): Thenable<TextEditor | undefined> {
-		return openEditor(GitUri.toRevisionUri(this.commit.sha, this._file, this.commit.repoPath), options);
+		return findOrOpenEditor(GitUri.toRevisionUri(this.commit.sha, this._file, this.commit.repoPath), options);
 	}
 
 	async onDidPressKey(key: Keys): Promise<void> {
@@ -129,7 +129,7 @@ export class OpenCommitFileRevisionsCommandQuickPickItem extends CommandQuickPic
 		);
 
 		for (const uri of uris) {
-			await openEditor(uri, options);
+			await findOrOpenEditor(uri, options);
 		}
 		return undefined;
 	}

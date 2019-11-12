@@ -5,8 +5,8 @@ import {
 	DiffWithCommandArgs,
 	DiffWithPreviousCommandArgs,
 	DiffWithWorkingCommandArgs,
+	findOrOpenEditor,
 	GitCommandsCommandArgs,
-	openEditor,
 	OpenFileInRemoteCommandArgs,
 	OpenFileRevisionCommandArgs,
 	OpenWorkingFileCommandArgs
@@ -752,7 +752,7 @@ export class ViewCommands {
 			}
 		}
 
-		return openEditor(uri, options.showOptions || { preserveFocus: true, preview: false });
+		return findOrOpenEditor(uri, options.showOptions || { preserveFocus: true, preview: false });
 	}
 
 	@debug()
@@ -963,7 +963,7 @@ export class ViewCommands {
 		for (const file of files) {
 			const uri = GitUri.toRevisionUri(file.status === 'D' ? ref2 : ref1, file, repoPath);
 
-			await openEditor(uri, options);
+			await findOrOpenEditor(uri, options);
 		}
 	}
 

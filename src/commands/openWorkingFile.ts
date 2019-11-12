@@ -5,7 +5,7 @@ import { Container } from '../container';
 import { GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { ActiveEditorCommand, command, Commands, getCommandUri, openEditor } from './common';
+import { ActiveEditorCommand, command, Commands, findOrOpenEditor, getCommandUri } from './common';
 
 export interface OpenWorkingFileCommandArgs {
 	uri?: Uri;
@@ -53,7 +53,7 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
 				args.showOptions.selection = new Range(args.line, 0, args.line, 0);
 			}
 
-			const e = await openEditor(args.uri, { ...args.showOptions, rethrow: true });
+			const e = await findOrOpenEditor(args.uri, { ...args.showOptions, rethrow: true });
 			if (args.annotationType === undefined) return e;
 
 			return Container.fileAnnotations.show(e, args.annotationType, args.line);

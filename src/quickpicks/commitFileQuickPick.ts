@@ -6,7 +6,7 @@ import {
 	CopyRemoteFileUrlToClipboardCommandArgs,
 	CopyShaToClipboardCommandArgs,
 	DiffWithPreviousCommandArgs,
-	openEditor,
+	findOrOpenEditor,
 	OpenWorkingFileCommandArgs,
 	ShowQuickCommitDetailsCommandArgs,
 	ShowQuickCommitFileDetailsCommandArgs,
@@ -102,7 +102,7 @@ export class OpenCommitFileRevisionCommandQuickPickItem extends CommandQuickPick
 	}
 
 	execute(options?: TextDocumentShowOptions): Thenable<TextEditor | undefined> {
-		return openEditor(this._uri, options);
+		return findOrOpenEditor(this._uri, options);
 	}
 
 	async onDidPressKey(key: Keys): Promise<void> {

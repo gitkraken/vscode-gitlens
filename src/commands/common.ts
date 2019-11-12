@@ -537,6 +537,58 @@ export abstract class EditorCommand implements Disposable {
 	abstract execute(editor: TextEditor, edit: TextEditorEdit, ...args: any[]): any;
 }
 
+export function findEditor(uri: Uri, lastActive?: TextEditor): TextEditor | undefined {
+	const normalizedUri = uri.toString(false);
+
+	let e = window.activeTextEditor;
+	if (e !== undefined && e.document.uri.toString(false) === normalizedUri) {
+		return e;
+	}
+
+	let found;
+	for (e of window.visibleTextEditors) {
+		// Prioritize the last active window over other visible ones
+		if (e === lastActive && e.document.uri.toString(false) === normalizedUri) {
+			return e;
+		}
+
+		if (e.document.uri.toString(false) === normalizedUri) {
+			found = e;
+		}
+	}
+
+	return found;
+}
+
+export async function findOrOpenEditor(
+	uri: Uri,
+	options: TextDocumentShowOptions & { rethrow?: boolean } = {},
+	lastActive?: TextEditor
+): Promise<TextEditor | undefined> {
+	const e = findEditor(uri, lastActive);
+	if (e !== undefined) {
+		if (!options.preserveFocus) {
+			await window.showTextDocument(e.document, { ...options, viewColumn: e.viewColumn });
+		}
+
+		return e;
+	}
+
+	let column = window.activeTextEditor?.viewColumn;
+
+	// If we have a last active view column and it isn't the same as the webview's, then use it
+	if (lastActive !== undefined && lastActive.viewColumn !== undefined && lastActive.viewColumn !== column) {
+		column = lastActive.viewColumn;
+	} else if (column !== undefined) {
+		column--;
+		if (column <= 0) {
+			column = undefined;
+		}
+	}
+
+	return openEditor(uri, { viewColumn: column, ...options });
+}
+
 export async function openEditor(
 	uri: Uri,
 	options: TextDocumentShowOptions & { rethrow?: boolean } = {}

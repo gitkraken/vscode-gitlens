@@ -8,7 +8,7 @@ import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, FileHistoryQuickPick, ShowFileHistoryFromQuickPickItem } from '../quickpicks';
 import { Iterables, Strings } from '../system';
-import { ActiveEditorCommand, command, Commands, getCommandUri, openEditor } from './common';
+import { ActiveEditorCommand, command, Commands, findOrOpenEditor, getCommandUri } from './common';
 
 export interface OpenFileRevisionCommandArgs {
 	reference?: GitBranch | GitTag | GitReference;
@@ -180,7 +180,7 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
 				args.showOptions.selection = new Range(args.line, 0, args.line, 0);
 			}
 
-			const e = await openEditor(args.uri, { ...args.showOptions, rethrow: true });
+			const e = await findOrOpenEditor(args.uri, { ...args.showOptions, rethrow: true });
 			if (args.annotationType === undefined) return e;
 
 			return Container.fileAnnotations.show(e, args.annotationType, args.line);

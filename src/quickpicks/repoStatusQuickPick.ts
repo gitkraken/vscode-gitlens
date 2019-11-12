@@ -4,8 +4,8 @@ import { commands, QuickPickItem, TextDocumentShowOptions, TextEditor, window } 
 import {
 	Commands,
 	DiffWithPreviousCommandArgs,
+	findOrOpenEditor,
 	OpenChangedFilesCommandArgs,
-	openEditor,
 	ShowQuickBranchHistoryCommandArgs,
 	ShowQuickRepoStatusCommandArgs,
 	ShowQuickStashListCommandArgs
@@ -80,7 +80,7 @@ export class OpenStatusFileCommandQuickPickItem extends CommandQuickPickItem {
 	}
 
 	execute(options?: TextDocumentShowOptions): Thenable<TextEditor | undefined> {
-		return openEditor(this._status.uri, options);
+		return findOrOpenEditor(this._status.uri, options);
 	}
 
 	async onDidPressKey(key: Keys): Promise<void> {

@@ -4,7 +4,7 @@ import { GlyphChars } from '../constants';
 import { GitBranch, GitReference, GitTag, GitUri } from '../git/gitService';
 import { CommandQuickPickItem, ReferencesQuickPick } from '../quickpicks';
 import { Strings } from '../system';
-import { ActiveEditorCommand, command, Commands, getCommandUri, openEditor } from './common';
+import { ActiveEditorCommand, command, Commands, findOrOpenEditor, getCommandUri } from './common';
 
 export interface OpenFileRevisionFromCommandArgs {
 	reference?: GitBranch | GitTag | GitReference;
@@ -50,7 +50,7 @@ export class OpenFileRevisionFromCommand extends ActiveEditorCommand {
 			args.showOptions.selection = new Range(args.line, 0, args.line, 0);
 		}
 
-		return openEditor(GitUri.toRevisionUri(args.reference.ref, gitUri.fsPath, gitUri.repoPath), {
+		return findOrOpenEditor(GitUri.toRevisionUri(args.reference.ref, gitUri.fsPath, gitUri.repoPath), {
 			...args.showOptions,
 			rethrow: true
 		});

@@ -4,7 +4,7 @@ import { Container } from '../container';
 import { GitCommit, GitService, GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { ActiveEditorCommand, command, CommandContext, Commands, getCommandUri, openEditor } from './common';
+import { ActiveEditorCommand, command, CommandContext, Commands, findOrOpenEditor, getCommandUri } from './common';
 import { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithPreviousCommandArgs {
@@ -77,7 +77,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 
 				// If we have no previous and the current is the working file, just open the working file
 				if (diffUris.current.sha === undefined) {
-					return openEditor(diffUris.current, args.showOptions);
+					return findOrOpenEditor(diffUris.current, args.showOptions);
 				}
 
 				if (!diffUris.current.isUncommittedStaged) {

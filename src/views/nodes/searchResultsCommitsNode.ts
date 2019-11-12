@@ -1,7 +1,6 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { SearchCommitsCommandArgs } from '../../commands';
-import { Commands } from '../../commands/common';
+import { Commands, SearchCommitsCommandArgs } from '../../commands';
 import { ViewWithFiles } from '../viewBase';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
 import { ResourceType, ViewNode } from './viewNode';
