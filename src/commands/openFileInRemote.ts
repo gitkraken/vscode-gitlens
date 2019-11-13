@@ -60,7 +60,10 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
 		try {
 			const remotes = await Container.git.getRemotes(gitUri.repoPath);
 			const range =
-				args.range && editor != null && UriComparer.equals(editor.document.uri, uri)
+				args.range &&
+				editor != null &&
+				UriComparer.equals(editor.document.uri, uri) &&
+				!editor.selection.start.isEqual(editor.selection.end)
 					? new Range(
 							editor.selection.start.with({ line: editor.selection.start.line + 1 }),
 							editor.selection.end.with({ line: editor.selection.end.line + 1 })
