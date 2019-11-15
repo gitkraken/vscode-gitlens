@@ -87,7 +87,7 @@ export interface Config {
 		};
 		toggleMode: AnnotationsToggleMode;
 	};
-	remotes: RemotesConfig[];
+	remotes: RemotesConfig[] | null;
 	showWhatsNewAfterUpgrades: boolean;
 	sortBranchesBy: BranchSorting;
 	sortTagsBy: TagSorting;
@@ -255,7 +255,7 @@ export interface AdvancedConfig {
 		closeOnFocusOut: boolean;
 	};
 	repositorySearchDepth: number;
-	similarityThreshold: number;
+	similarityThreshold: number | null;
 	telemetry: {
 		enabled: boolean;
 	};

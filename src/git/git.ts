@@ -553,7 +553,7 @@ export namespace Git {
 		fileName: string,
 		ref1?: string,
 		ref2?: string,
-		options: { encoding?: string; filter?: string; similarityThreshold?: number } = {}
+		options: { encoding?: string; filter?: string; similarityThreshold?: number | null } = {}
 	): Promise<string> {
 		const params = [
 			'diff',
@@ -605,7 +605,7 @@ export namespace Git {
 		repoPath: string,
 		ref1?: string,
 		ref2?: string,
-		{ filter, similarityThreshold }: { filter?: string; similarityThreshold?: number } = {}
+		{ filter, similarityThreshold }: { filter?: string; similarityThreshold?: number | null } = {}
 	) {
 		const params = [
 			'diff',
@@ -697,7 +697,13 @@ export namespace Git {
 			merges,
 			reverse,
 			similarityThreshold
-		}: { authors?: string[]; limit?: number; merges?: boolean; reverse?: boolean; similarityThreshold?: number }
+		}: {
+			authors?: string[];
+			limit?: number;
+			merges?: boolean;
+			reverse?: boolean;
+			similarityThreshold?: number | null;
+		}
 	) {
 		const params = [
 			'log',
@@ -806,7 +812,7 @@ export namespace Git {
 	export async function log__file_recent(
 		repoPath: string,
 		fileName: string,
-		{ ref, similarityThreshold }: { ref?: string; similarityThreshold?: number } = {}
+		{ ref, similarityThreshold }: { ref?: string; similarityThreshold?: number | null } = {}
 	) {
 		const params = [
 			'log',
@@ -1068,7 +1074,7 @@ export namespace Git {
 		fileName: string,
 		ref: string,
 		originalFileName?: string,
-		{ similarityThreshold }: { similarityThreshold?: number } = {}
+		{ similarityThreshold }: { similarityThreshold?: number | null } = {}
 	) {
 		const params = [
 			'show',
@@ -1110,7 +1116,7 @@ export namespace Git {
 		{
 			format = GitStashParser.defaultFormat,
 			similarityThreshold
-		}: { format?: string; similarityThreshold?: number } = {}
+		}: { format?: string; similarityThreshold?: number | null } = {}
 	) {
 		return git<string>(
 			{ cwd: repoPath },
@@ -1156,7 +1162,7 @@ export namespace Git {
 	export function status(
 		repoPath: string,
 		porcelainVersion: number = 1,
-		{ similarityThreshold }: { similarityThreshold?: number } = {}
+		{ similarityThreshold }: { similarityThreshold?: number | null } = {}
 	): Promise<string> {
 		const params = [
 			'status',
@@ -1165,7 +1171,7 @@ export namespace Git {
 			'-u'
 		];
 		if (Git.validateVersion(2, 18)) {
-			params.push(`--find-renames=${similarityThreshold == null ? '' : `${similarityThreshold}%`}`);
+			params.push(`--find-renames${similarityThreshold == null ? '' : `=${similarityThreshold}%`}`);
 		}
 
 		return git<string>(
@@ -1179,13 +1185,13 @@ export namespace Git {
 		repoPath: string,
 		fileName: string,
 		porcelainVersion: number = 1,
-		{ similarityThreshold }: { similarityThreshold?: number } = {}
+		{ similarityThreshold }: { similarityThreshold?: number | null } = {}
 	): Promise<string> {
 		const [file, root] = Git.splitPath(fileName, repoPath);
 
 		const params = ['status', porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain'];
 		if (Git.validateVersion(2, 18)) {
-			params.push(`--find-renames=${similarityThreshold == null ? '' : `${similarityThreshold}%`}`);
+			params.push(`--find-renames${similarityThreshold == null ? '' : `=${similarityThreshold}%`}`);
 		}
 
 		return git<string>(
