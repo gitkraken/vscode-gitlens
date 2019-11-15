@@ -40,6 +40,8 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 		return BranchNode.getId(this.branch.repoPath, this.branch.name, this.root);
 	}
 
+	compacted: boolean = false;
+
 	get current(): boolean {
 		return this.branch.current;
 	}
@@ -48,7 +50,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 		const branchName = this.branch.getName();
 		if (this.view.config.branches.layout === ViewBranchesLayout.List) return branchName;
 
-		return (this.root && this.current) || this.branch.detached || this.branch.starred
+		return this.compacted || this.root || this.current || this.branch.detached || this.branch.starred
 			? branchName
 			: this.branch.getBasename();
 	}
@@ -58,7 +60,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 	}
 
 	get treeHierarchy(): string[] {
-		return this.branch.current || this.branch.detached || this.branch.starred
+		return this.root || this.current || this.branch.detached || this.branch.starred
 			? [this.branch.name]
 			: this.branch.getName().split('/');
 	}

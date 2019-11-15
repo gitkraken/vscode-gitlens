@@ -94,7 +94,8 @@ export namespace Arrays {
 		values: T[],
 		splitPath: (i: T) => string[],
 		joinPath: (...paths: string[]) => string,
-		compact: boolean = false
+		compact: boolean = false,
+		canCompact?: (i: T) => boolean
 	): HierarchicalItem<T> {
 		const seed = {
 			name: '',
@@ -139,7 +140,7 @@ export namespace Arrays {
 		}, seed);
 
 		if (compact) {
-			hierarchy = compactHierarchy(hierarchy, joinPath, true);
+			hierarchy = compactHierarchy(hierarchy, joinPath, true, canCompact);
 		}
 
 		return hierarchy;
@@ -148,22 +149,27 @@ export namespace Arrays {
 	export function compactHierarchy<T>(
 		root: HierarchicalItem<T>,
 		joinPath: (...paths: string[]) => string,
-		isRoot: boolean = true
+		isRoot: boolean = true,
+		canCompact?: (i: T) => boolean
 	): HierarchicalItem<T> {
 		if (root.children === undefined) return root;
 
 		const children = [...root.children.values()];
 		for (const child of children) {
-			compactHierarchy(child, joinPath, false);
+			compactHierarchy(child, joinPath, false, canCompact);
 		}
 
 		if (!isRoot && children.length === 1) {
 			const child = children[0];
-			if (child.value === undefined) {
+			if (
+				root.value === undefined &&
+				(child.value === undefined || canCompact === undefined || canCompact(child.value))
+			) {
 				root.name = joinPath(root.name, child.name);
 				root.relativePath = child.relativePath;
 				root.children = child.children;
 				root.descendants = child.descendants;
+				root.value = child.value;
 			}
 		}
 

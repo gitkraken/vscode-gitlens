@@ -43,7 +43,11 @@ export class BranchesNode extends ViewNode<RepositoriesView> {
 				branchNodes,
 				n => n.treeHierarchy,
 				(...paths) => paths.join('/'),
-				this.view.config.files.compact
+				this.view.config.files.compact,
+				b => {
+					b.compacted = true;
+					return true;
+				}
 			);
 
 			const root = new BranchOrTagFolderNode(
