@@ -1339,6 +1339,30 @@
 
 									<div class="setting" data-enablement="views.repositories.enabled">
 										<div class="setting__input">
+											<label for="sortBranchesBy">Sort branches</label>
+											<select id="sortBranchesBy" name="sortBranchesBy" data-setting disabled>
+												<option value="name:desc">by name, descending</option>
+												<option value="name:asc">by name, ascending</option>
+												<option value="date:desc">by date, descending</option>
+												<option value="date:asc">by date, ascending</option>
+											</select>
+										</div>
+									</div>
+
+									<div class="setting" data-enablement="views.repositories.enabled">
+										<div class="setting__input">
+											<label for="sortTagsBy">Sort tags</label>
+											<select id="sortTagsBy" name="sortTagsBy" data-setting disabled>
+												<option value="name:desc">by name, descending</option>
+												<option value="name:asc">by name, ascending</option>
+												<option value="date:desc">by date, descending</option>
+												<option value="date:asc">by date, ascending</option>
+											</select>
+										</div>
+									</div>
+
+									<div class="setting" data-enablement="views.repositories.enabled">
+										<div class="setting__input">
 											<label for="views.repositories.files.layout">Layout files</label>
 											<select
 												id="views.repositories.files.layout"
