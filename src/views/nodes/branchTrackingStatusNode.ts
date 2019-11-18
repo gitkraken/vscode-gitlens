@@ -129,6 +129,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements
 			this._log = undefined;
 		}
 	}
+
 	private _log: GitLog | undefined;
 	private async getLog() {
 		if (this._log === undefined) {
