@@ -6,17 +6,26 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds a _Highlight Changes_ command (`gitlens.views.highlightChanges`) to commits in GitLens views to highlight the changes lines in the current file
+- Adds a _Highlight Revision Changes_ command (`gitlens.views.highlightRevisionChanges`) to commits in GitLens views to highlight the changes lines in the revision
+- Adds branch and tag sorting options to the interactive settings editor
+
 ### Changed
 
 - Changes commit search to auto-detect full commit shas without the need to prefix it with `commit:` or `#:`
 - Changes paging in GitLens views to no longer be naive and now only loads the additional required data for much better performance
+- Changes the _Toggle File Layout_ command icon when in tree layout to match VS Code
 - Restores the original commit icon in the editor toolbar
 
 ### Fixed
 
-- Fixes [#667](https://github.com/eamodio/vscode-gitlens/issues/893) - Problems with # symbol in branch names &mdash; thanks to [PR #894](https://github.com/eamodio/vscode-gitlens/pull/894) by Allan Karlson ([@bees4ever](https://github.com/bees4ever))
+- Fixes [#893](https://github.com/eamodio/vscode-gitlens/issues/893) - Problems with # symbol in branch names &mdash; thanks to [PR #894](https://github.com/eamodio/vscode-gitlens/pull/894) by Allan Karlson ([@bees4ever](https://github.com/bees4ever))
+- Fixes [#677](https://github.com/eamodio/vscode-gitlens/issues/677) - Line and file history not working in symlinked repository
 - Fixes [#667](https://github.com/eamodio/vscode-gitlens/issues/667) - Decoration rendered before code
 - Fixes issues where line blame annotations would sometimes stop working
+- Fixes compact view when branches are shown as a tree
 
 ## [10.1.2] - 2019-11-06
 
