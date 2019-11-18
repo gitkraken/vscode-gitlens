@@ -53,6 +53,40 @@
 			"type": "object",
 			"title": "GitLens — Use 'GitLens: Open Settings' for a richer, interactive experience",
 			"properties": {
+				"gitlens.autolinks": {
+					"type": "array",
+					"items": {
+						"type": "object",
+						"required": [
+							"prefix",
+							"url"
+						],
+						"properties": {
+							"prefix": {
+								"type": "string",
+								"description": "Specifies the short prefix to use to generate autolinks for the external resource"
+							},
+							"ignoreCase": {
+								"type": "boolean",
+								"description": "Specifies whether case should be ignored when matching the prefix",
+								"default": false
+							},
+							"title": {
+								"type": "string",
+								"description": "Specifies an optional title for the generated autolink. Use `<num>` as the variable for the reference number",
+								"default": null
+							},
+							"url": {
+								"type": "string",
+								"description": "Specifies the url of the external resource you want to link to. Use `<num>` as the variable for the reference number"
+							}
+						},
+						"default": null
+					},
+					"uniqueItems": true,
+					"markdownDescription": "Specifies autolinks to external resources in commit messages. Use <num> as the variable for the reference number",
+					"scope": "window"
+				},
 				"gitlens.blame.avatars": {
 					"type": "boolean",
 					"default": true,

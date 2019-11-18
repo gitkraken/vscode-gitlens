@@ -1,8 +1,8 @@
 'use strict';
 import { Range } from 'vscode';
 import { RemoteProvider } from './provider';
-
-const issueEnricherRegex = /(^|\s)\\?(#([0-9]+))\b/gi;
+import { AutolinkReference } from '../../config';
+import { DynamicAutolinkReference } from '../../annotations/autolinks';
 
 const gitRegex = /\/_git\/?/i;
 const legacyDefaultCollectionRegex = /^DefaultCollection\//i;
@@ -34,6 +34,22 @@ export class AzureDevOpsRemote extends RemoteProvider {
 		super(domain, path, protocol, name);
 	}
 
+	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
+	get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
+		if (this._autolinks === undefined) {
+			// Strip off any `_git` part from the repo url
+			const baseUrl = this.baseUrl.replace(gitRegex, '/');
+			this._autolinks = [
+				{
+					prefix: '#',
+					url: `${baseUrl}/_workitems/edit/<num>`,
+					title: 'Open Work Item #<num>'
+				}
+			];
+		}
+		return this._autolinks;
+	}
+
 	get icon() {
 		return 'vsts';
 	}
@@ -48,16 +64,6 @@ export class AzureDevOpsRemote extends RemoteProvider {
 			this._displayPath = this.path.replace(gitRegex, '/').replace(legacyDefaultCollectionRegex, '');
 		}
 		return this._displayPath;
-	}
-
-	enrichMessage(message: string): string {
-		// Strip off any `_git` part from the repo url
-		const baseUrl = this.baseUrl.replace(gitRegex, '/');
-		return (
-			message
-				// Matches #123
-				.replace(issueEnricherRegex, `$1[$2](${baseUrl}/_workitems/edit/$3 "Open Work Item $2")`)
-		);
 	}
 
 	protected getUrlForBranches(): string {

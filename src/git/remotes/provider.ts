@@ -1,8 +1,10 @@
 'use strict';
 import { env, Range, Uri, window } from 'vscode';
+import { AutolinkReference } from '../../config';
 import { Logger } from '../../logger';
 import { Messages } from '../../messages';
 import { GitLogCommit } from '../models/logCommit';
+import { DynamicAutolinkReference } from '../../annotations/autolinks';
 
 export enum RemoteResourceType {
 	Branch = 'branch',
@@ -75,6 +77,10 @@ export abstract class RemoteProvider {
 		this._name = name;
 	}
 
+	get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
+		return [];
+	}
+
 	get icon(): string {
 		return 'remote';
 	}
@@ -87,10 +93,6 @@ export abstract class RemoteProvider {
 
 	protected get baseUrl() {
 		return `${this.protocol}://${this.domain}/${this.path}`;
-	}
-
-	enrichMessage(message: string): string {
-		return message;
 	}
 
 	protected formatName(name: string) {

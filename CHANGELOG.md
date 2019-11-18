@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds user-defined autolinks to external resources in commit messages &mdash; closes [#897](https://github.com/eamodio/vscode-gitlens/issues/897)
+  - Adds a `gitlens.autolinks` setting to configure the autolinks
+  - For example to autolink Jira issues (e.g. `JIRA-123 ⟶ https://jira.company.com/issue?query=123`):
+    - Use `"gitlens.autolinks": [{ "prefix": "JIRA-", "url": "https://jira.company.com/issue?query=<num>" }]`
 - Adds a _Highlight Changes_ command (`gitlens.views.highlightChanges`) to commits in GitLens views to highlight the changes lines in the current file
 - Adds a _Highlight Revision Changes_ command (`gitlens.views.highlightRevisionChanges`) to commits in GitLens views to highlight the changes lines in the revision
 - Adds branch and tag sorting options to the interactive settings editor

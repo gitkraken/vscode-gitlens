@@ -307,16 +307,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			return message;
 		}
 
-		message = Strings.escapeMarkdown(message, { quoted: true });
-
-		if (this._options.remotes !== undefined) {
-			for (const r of this._options.remotes) {
-				if (r.provider === undefined) continue;
-
-				message = r.provider.enrichMessage(message);
-				break;
-			}
-		}
+		message = Container.autolinks.linkify(Strings.escapeMarkdown(message, { quoted: true }), this._options.remotes);
 
 		return `\n> ${message}`;
 	}
@@ -357,3 +348,13 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		return regex.test(format);
 	}
 }
+
+// const autolinks = new Autolinks();
+// const text = autolinks.linkify(`\\#756
+// foo
+// bar
+// baz \\#756
+// boo\\#789
+// \\#666
+// gh\\-89 gh\\-89gh\\-89 GH\\-89`);
+// console.log(text);

@@ -1,5 +1,6 @@
 'use strict';
 import { commands, ConfigurationChangeEvent, Disposable, ExtensionContext, Uri } from 'vscode';
+import { Autolinks } from './annotations/autolinks';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { LineAnnotationController } from './annotations/lineAnnotationController';
 import { GitCodeLensController } from './codelens/codeLensController';
@@ -139,6 +140,15 @@ export class Container {
 			}
 			e.transform = this._applyModeConfigurationTransformBound;
 		}
+	}
+
+	private static _autolinks: Autolinks;
+	static get autolinks() {
+		if (this._autolinks === undefined) {
+			this._context.subscriptions.push((this._autolinks = new Autolinks()));
+		}
+
+		return this._autolinks;
 	}
 
 	private static _codeLensController: GitCodeLensController;

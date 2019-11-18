@@ -2,6 +2,7 @@
 import { TraceLevel } from './logger';
 
 export interface Config {
+	autolinks: AutolinkReference[] | null;
 	blame: {
 		avatars: boolean;
 		compact: boolean;
@@ -115,6 +116,14 @@ export interface Config {
 export enum AnnotationsToggleMode {
 	File = 'file',
 	Window = 'window'
+}
+
+export interface AutolinkReference {
+	prefix: string;
+	url: string;
+	title?: string;
+	ignoreCase?: boolean;
+	linkify?: ((text: string) => string) | null;
 }
 
 export enum BranchSorting {

@@ -1,12 +1,26 @@
 'use strict';
 import { Range } from 'vscode';
 import { RemoteProvider } from './provider';
-
-const issueEnricherRegex = /(^|\s)(\\?#([0-9]+))\b/gi;
+import { AutolinkReference } from '../../config';
+import { DynamicAutolinkReference } from '../../annotations/autolinks';
 
 export class GitLabRemote extends RemoteProvider {
 	constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
 		super(domain, path, protocol, name, custom);
+	}
+
+	private _autolinks: (AutolinkReference | DynamicAutolinkReference)[] | undefined;
+	get autolinks(): (AutolinkReference | DynamicAutolinkReference)[] {
+		if (this._autolinks === undefined) {
+			this._autolinks = [
+				{
+					prefix: '#',
+					url: `${this.baseUrl}/issues/<num>`,
+					title: 'Open Issue #<num>'
+				}
+			];
+		}
+		return this._autolinks;
 	}
 
 	get icon() {
@@ -15,14 +29,6 @@ export class GitLabRemote extends RemoteProvider {
 
 	get name() {
 		return this.formatName('GitLab');
-	}
-
-	enrichMessage(message: string): string {
-		return (
-			message
-				// Matches #123
-				.replace(issueEnricherRegex, `$1[$2](${this.baseUrl}/issues/$3 "Open Issue $2")`)
-		);
 	}
 
 	protected getUrlForBranches(): string {
