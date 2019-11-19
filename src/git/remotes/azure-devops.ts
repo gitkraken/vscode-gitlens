@@ -43,7 +43,7 @@ export class AzureDevOpsRemote extends RemoteProvider {
 				{
 					prefix: '#',
 					url: `${baseUrl}/_workitems/edit/<num>`,
-					title: 'Open Work Item #<num>'
+					title: `Open Work Item #<num> on ${this.name}`
 				}
 			];
 		}

@@ -1,7 +1,7 @@
 'use strict';
 import { WorkspaceState } from '../../constants';
 import { Container } from '../../container';
-import { RemoteProvider } from '../remotes/factory';
+import { RemoteProvider, RemoteProviderWithApi } from '../remotes/factory';
 
 export enum GitRemoteType {
 	Fetch = 'fetch',
@@ -28,7 +28,7 @@ export class GitRemote {
 		public readonly scheme: string,
 		public readonly domain: string,
 		public readonly path: string,
-		public readonly provider: RemoteProvider | undefined,
+		public readonly provider: RemoteProvider | RemoteProviderWithApi | undefined,
 		public readonly types: { type: GitRemoteType; url: string }[]
 	) {}
 

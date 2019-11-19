@@ -82,6 +82,9 @@ export interface Config {
 	};
 	modes: { [key: string]: ModeConfig };
 	outputLevel: TraceLevel;
+	pullRequests: {
+		enabled: boolean;
+	};
 	recentChanges: {
 		highlight: {
 			locations: HighlightLocations[];
