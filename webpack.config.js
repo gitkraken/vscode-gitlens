@@ -27,6 +27,21 @@ module.exports = function(env, argv) {
 		env.optimizeImages = true;
 	}
 
+	// TODO: Total and complete HACK until the following issue is resolved
+	// https://github.com/gr2m/universal-user-agent/issues/23
+
+	const packageJSON = path.resolve(__dirname, 'node_modules/universal-user-agent/package.json');
+	if (fs.existsSync(packageJSON)) {
+		// eslint-disable-next-line import/no-dynamic-require
+		const uua = require(packageJSON);
+		console.log(uua.module);
+		if (uua.module !== 'dist-node/index.js') {
+			console.log("Rewrote universal-user-agent's package.json module field to `dist-node/index.js`");
+			uua.module = 'dist-node/index.js';
+			fs.writeFileSync(packageJSON, `${JSON.stringify(uua, undefined, 4)}\n`, 'utf8');
+		}
+	}
+
 	return [getExtensionConfig(env), getWebviewsConfig(env)];
 };
 
@@ -78,7 +93,8 @@ function getExtensionConfig(env) {
 		devtool: 'source-map',
 		output: {
 			libraryTarget: 'commonjs2',
-			filename: 'extension.js'
+			filename: 'extension.js',
+			chunkFilename: 'feature-[name].js'
 		},
 		optimization: {
 			minimizer: [
@@ -94,7 +110,13 @@ function getExtensionConfig(env) {
 						module: true
 					}
 				})
-			]
+			],
+			splitChunks: {
+				cacheGroups: {
+					vendors: false
+				},
+				chunks: 'async'
+			}
 		},
 		externals: {
 			vscode: 'commonjs vscode'
@@ -116,6 +138,9 @@ function getExtensionConfig(env) {
 			]
 		},
 		resolve: {
+			// alias: {
+			// 	'universal-user-agent': 'node_modules/universal-user-agent/dist-node/index.js'
+			// }
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 			symlinks: false
 		},

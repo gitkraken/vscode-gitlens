@@ -26,6 +26,7 @@ export enum Commands {
 	ClearFileAnnotations = 'gitlens.clearFileAnnotations',
 	CloseUnchangedFiles = 'gitlens.closeUnchangedFiles',
 	ComputingFileAnnotations = 'gitlens.computingFileAnnotations',
+	ConnectRemoteProvider = 'gitlens.connectRemoteProvider',
 	CopyMessageToClipboard = 'gitlens.copyMessageToClipboard',
 	CopyRemoteFileUrlToClipboard = 'gitlens.copyRemoteFileUrlToClipboard',
 	CopyShaToClipboard = 'gitlens.copyShaToClipboard',
@@ -37,7 +38,6 @@ export enum Commands {
 	DiffWorkingWith = 'gitlens.diffWorkingWith',
 	// DEPRECATED
 	DiffWorkingWithBranch = 'gitlens.diffWorkingWithBranch',
-	ExternalDiffAll = 'gitlens.externalDiffAll',
 	DiffWith = 'gitlens.diffWith',
 	// DEPRECATED
 	DiffWithBranch = 'gitlens.diffWithBranch',
@@ -51,8 +51,10 @@ export enum Commands {
 	DiffWithWorking = 'gitlens.diffWithWorking',
 	DiffWithWorkingInDiffRight = 'gitlens.diffWithWorkingInDiffRight',
 	DiffLineWithWorking = 'gitlens.diffLineWithWorking',
+	DisconnectRemoteProvider = 'gitlens.disconnectRemoteProvider',
 	ExploreRepoAtRevision = 'gitlens.exploreRepoAtRevision',
 	ExternalDiff = 'gitlens.externalDiff',
+	ExternalDiffAll = 'gitlens.externalDiffAll',
 	FetchRepositories = 'gitlens.fetchRepositories',
 	InviteToLiveShare = 'gitlens.inviteToLiveShare',
 	OpenChangedFiles = 'gitlens.openChangedFiles',

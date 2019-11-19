@@ -39,6 +39,7 @@ export * from './diff';
 export * from './file';
 export * from './log';
 export * from './logCommit';
+export * from './pullRequest';
 export * from './remote';
 export * from './repository';
 export * from './reflog';

@@ -60,6 +60,22 @@ export namespace Promises {
 			);
 		});
 	}
+
+	export function first<T>(promises: Promise<T>[], predicate: (value: T) => boolean): Promise<T | undefined> {
+		const newPromises: Promise<T | undefined>[] = promises.map(
+			p =>
+				new Promise<T>((resolve, reject) =>
+					p.then(value => {
+						if (predicate(value)) {
+							resolve(value);
+						}
+					}, reject)
+				)
+		);
+		newPromises.push(Promise.all(promises).then(() => undefined));
+		return Promise.race(newPromises);
+	}
+
 	export function is<T>(obj: T | Promise<T>): obj is Promise<T> {
 		return obj != null && typeof (obj as Promise<T>).then === 'function';
 	}

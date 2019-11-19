@@ -159,9 +159,8 @@ export class Annotations {
 		// uri: GitUri,
 		// editorLine: number,
 		format: string,
-		dateFormat: string | null,
-		scrollable: boolean = true,
-		getBranchAndTagTips?: (sha: string) => string | undefined
+		formatOptions?: CommitFormatOptions,
+		scrollable: boolean = true
 	): Partial<DecorationOptions> {
 		// TODO: Enable this once there is better caching
 		// let diffUris;
@@ -170,8 +169,7 @@ export class Annotations {
 		// }
 
 		const message = CommitFormatter.fromTemplate(format, commit, {
-			dateFormat: dateFormat,
-			getBranchAndTagTips: getBranchAndTagTips,
+			...formatOptions,
 			// previousLineDiffUris: diffUris,
 			truncateMessageAtNewLine: true
 		});

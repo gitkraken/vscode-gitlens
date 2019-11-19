@@ -3,12 +3,12 @@ import { commands, ConfigurationChangeEvent, Disposable, ExtensionContext, Uri }
 import { Autolinks } from './annotations/autolinks';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { LineAnnotationController } from './annotations/lineAnnotationController';
+import { clearAvatarCache } from './avatars';
 import { GitCodeLensController } from './codelens/codeLensController';
 import { Commands, ToggleFileBlameCommandArgs } from './commands';
 import { AnnotationsToggleMode, Config, configuration, ConfigurationWillChangeEvent } from './configuration';
 import { GitFileSystemProvider } from './git/fsProvider';
 import { GitService } from './git/gitService';
-import { clearAvatarCache } from './avatars';
 import { LineHoverController } from './hovers/lineHoverController';
 import { Keyboard } from './keyboard';
 import { Logger } from './logger';
@@ -195,6 +195,19 @@ export class Container {
 	private static _git: GitService;
 	static get git() {
 		return this._git;
+	}
+
+	private static _github: Promise<import('./github/github').GitHubApi> | undefined;
+	static get github() {
+		if (this._github === undefined) {
+			this._github = this._loadGitHubApi();
+		}
+
+		return this._github;
+	}
+
+	private static async _loadGitHubApi() {
+		return new (await import(/* webpackChunkName: "github" */ './github/github')).GitHubApi();
 	}
 
 	private static _keyboard: Keyboard;

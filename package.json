@@ -457,7 +457,7 @@
 				},
 				"gitlens.currentLine.format": {
 					"type": "string",
-					"default": "${author}, ${agoOrDate} • ${message}",
+					"default": "${author}${\" via \"pullRequest}, ${agoOrDate}${ • message}",
 					"markdownDescription": "Specifies the format of the current line blame annotation. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.currentLine.dateFormat#` setting",
 					"scope": "window"
 				},
@@ -749,7 +749,7 @@
 				},
 				"gitlens.hovers.detailsMarkdownFormat": {
 					"type": "string",
-					"default": "${avatar} &nbsp;__${author}__, ${ago} &nbsp; _(${date})_ \n\n${message}\n\n${commands}",
+					"default": "${avatar} &nbsp;__${author}__${\" via \"pullRequest}, ${ago} &nbsp; _(${date})_ \n\n${message}\n\n${commands}",
 					"markdownDescription": "Specifies the format (in markdown) of the _commit details_ hover. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 					"scope": "window"
 				},
@@ -1196,6 +1196,12 @@
 						"Logs all errors, warnings, and messages with extra context useful for debugging"
 					],
 					"markdownDescription": "Specifies how much (if any) output will be sent to the GitLens output channel",
+					"scope": "window"
+				},
+				"gitlens.pullRequests.enabled": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to provide information about the Pull Request (if any) that introduced a commit. Requires a connection to a supported remote service (e.g. GitHub)",
 					"scope": "window"
 				},
 				"gitlens.recentChanges.highlight.locations": {
@@ -2384,6 +2390,24 @@
 				"command": "gitlens.showQuickStashList",
 				"title": "Show Stashes",
 				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.connectRemoteProvider",
+				"title": "Connect to Remote",
+				"category": "GitLens",
+				"icon": {
+					"dark": "images/dark/icon-plug.svg",
+					"light": "images/light/icon-plug.svg"
+				}
+			},
+			{
+				"command": "gitlens.disconnectRemoteProvider",
+				"title": "Disconnect from Remote",
+				"category": "GitLens",
+				"icon": {
+					"dark": "images/dark/icon-unplug.svg",
+					"light": "images/light/icon-unplug.svg"
+				}
 			},
 			{
 				"command": "gitlens.copyMessageToClipboard",
@@ -3655,6 +3679,14 @@
 				{
 					"command": "gitlens.showQuickStashList",
 					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.connectRemoteProvider",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.disconnectRemoteProvider",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.copyMessageToClipboard",
@@ -5196,9 +5228,19 @@
 					"group": "inline@97"
 				},
 				{
+					"command": "gitlens.connectRemoteProvider",
+					"when": "viewItem =~ /gitlens:remote\\b(?=.*?\\b\\+disconnected\\b)/",
+					"group": "inline@98"
+				},
+				{
+					"command": "gitlens.disconnectRemoteProvider",
+					"when": "viewItem =~ /gitlens:remote\\b(?=.*?\\b\\+connected\\b)/",
+					"group": "inline@98"
+				},
+				{
 					"command": "gitlens.openRepoInRemote",
 					"when": "viewItem =~ /gitlens:remote\\b/",
-					"group": "inline@98"
+					"group": "inline@99"
 				},
 				{
 					"command": "gitlens.views.fetch",
@@ -5234,6 +5276,16 @@
 					"command": "gitlens.views.unsetAsDefault",
 					"when": "viewItem =~ /gitlens:remote\\b(?=.*?\\b\\+default\\b)/",
 					"group": "8_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.connectRemoteProvider",
+					"when": "viewItem =~ /gitlens:remote\\b(?=.*?\\b\\+disconnected\\b)/",
+					"group": "8_gitlens_actions@2"
+				},
+				{
+					"command": "gitlens.disconnectRemoteProvider",
+					"when": "viewItem =~ /gitlens:remote\\b(?=.*?\\b\\+connected\\b)/",
+					"group": "8_gitlens_actions@2"
 				},
 				{
 					"command": "gitlens.views.exploreRepoAtRevision",
@@ -6008,12 +6060,14 @@
 		"vscode:prepublish": "yarn run bundle"
 	},
 	"dependencies": {
+		"@octokit/graphql": "4.3.1",
 		"dayjs": "1.8.17",
 		"iconv-lite": "0.5.0",
 		"lodash-es": "4.17.15",
 		"vsls": "0.3.1291"
 	},
 	"devDependencies": {
+		"@types/keytar": "4.4.0",
 		"@types/lodash-es": "4.17.3",
 		"@types/node": "10.14.22",
 		"@types/vscode": "1.37.0",

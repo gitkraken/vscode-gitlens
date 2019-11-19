@@ -16,7 +16,7 @@ import { LinesChangeEvent } from '../trackers/gitLineTracker';
 import { Annotations } from './annotations';
 import { debug, log } from '../system';
 import { Logger } from '../logger';
-import { CommitFormatter } from '../git/gitService';
+import { CommitFormatter, CommitPullRequest, GitRemote } from '../git/gitService';
 
 const annotationDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
 	after: {
@@ -140,6 +140,14 @@ export class LineAnnotationController implements Disposable {
 		editor.setDecorations(annotationDecoration, []);
 	}
 
+	private async getPullRequestForCommit(ref: string, remotes: GitRemote[]) {
+		try {
+			return await Container.git.getPullRequestForCommit(ref, remotes, { timeout: 100 });
+		} catch {
+			return undefined;
+		}
+	}
+
 	@debug({ args: false })
 	private async refresh(editor: TextEditor | undefined) {
 		if (editor === undefined && this._editor === undefined) return;
@@ -206,19 +214,58 @@ export class LineAnnotationController implements Disposable {
 			getBranchAndTagTips = await Container.git.getBranchesAndTagsTipsFn(trackedDocument.uri.repoPath);
 		}
 
+		let prs;
+		if (
+			Container.config.pullRequests.enabled &&
+			CommitFormatter.has(
+				cfg.format,
+				'pullRequest',
+				'pullRequestAgo',
+				'pullRequestAgoOrDate',
+				'pullRequestDate',
+				'pullRequestState'
+			)
+		) {
+			const promises = [];
+			let remotes;
+
+			for (const l of lines) {
+				const state = Container.lineTracker.getState(l);
+				if (state?.commit == null || state.commit.isUncommitted || (remotes != null && remotes.length === 0)) {
+					continue;
+				}
+
+				if (remotes == null) {
+					remotes = await Container.git.getRemotes(state.commit.repoPath);
+				}
+				promises.push(this.getPullRequestForCommit(state.commit.ref, remotes));
+			}
+
+			prs = new Map<string, CommitPullRequest | undefined>();
+			for await (const pr of promises) {
+				if (pr === undefined) continue;
+
+				prs.set(pr?.ref, pr);
+			}
+		}
+
 		const decorations = [];
+
 		for (const l of lines) {
 			const state = Container.lineTracker.getState(l);
-			if (state === undefined || state.commit === undefined) continue;
+			if (state?.commit == null) continue;
 
 			const decoration = Annotations.trailing(
 				state.commit,
 				// await GitUri.fromUri(editor.document.uri),
 				// l,
 				cfg.format,
-				cfg.dateFormat === null ? Container.config.defaultDateFormat : cfg.dateFormat,
-				cfg.scrollable,
-				getBranchAndTagTips
+				{
+					dateFormat: cfg.dateFormat === null ? Container.config.defaultDateFormat : cfg.dateFormat,
+					getBranchAndTagTips: getBranchAndTagTips,
+					pr: prs?.get(state.commit.ref)
+				},
+				cfg.scrollable
 			) as DecorationOptions;
 			decoration.range = editor.document.validateRange(
 				new Range(l, Number.MAX_SAFE_INTEGER, l, Number.MAX_SAFE_INTEGER)

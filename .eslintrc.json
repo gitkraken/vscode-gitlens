@@ -61,7 +61,6 @@
 		"no-throw-literal": "error",
 		"no-unmodified-loop-condition": "warn",
 		"no-unneeded-ternary": "error",
-		"no-unused-expressions": ["warn", { "allowShortCircuit": true }],
 		"no-use-before-define": "off",
 		"no-useless-call": "error",
 		"no-useless-catch": "error",
@@ -130,6 +129,7 @@
 		"@typescript-eslint/no-namespace": "off",
 		"@typescript-eslint/no-non-null-assertion": "off",
 		"@typescript-eslint/no-parameter-properties": "off",
+		"@typescript-eslint/no-unused-expressions": ["warn", { "allowShortCircuit": true }],
 		"@typescript-eslint/no-unused-vars": ["warn", { "args": "none" }],
 		"@typescript-eslint/no-use-before-define": "off",
 		"@typescript-eslint/unbound-method": "off" // Too many bugs right now: https://github.com/typescript-eslint/typescript-eslint/issues?utf8=%E2%9C%93&q=is%3Aissue+is%3Aopen+unbound-method
