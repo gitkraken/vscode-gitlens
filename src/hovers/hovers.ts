@@ -10,9 +10,11 @@ import {
 	GitCommit,
 	GitDiffHunkLine,
 	GitLogCommit,
+	GitRemote,
 	GitService,
 	GitUri
 } from '../git/gitService';
+import { Promises } from '../system/promise';
 
 export namespace Hovers {
 	export async function changesMessage(
@@ -150,10 +152,12 @@ export namespace Hovers {
 			dateFormat = 'MMMM Do, YYYY h:mma';
 		}
 
-		const [presence, previousLineDiffUris, remotes] = await Promise.all([
-			Container.vsls.maybeGetPresence(commit.email).catch(reason => undefined),
+		const remotes = await Container.git.getRemotes(commit.repoPath, { sort: true });
+
+		const [previousLineDiffUris, pr, presence] = await Promise.all([
 			commit.isUncommitted ? commit.getPreviousLineDiffUris(uri, editorLine, uri.sha) : undefined,
-			Container.git.getRemotes(commit.repoPath, { sort: true })
+			getPullRequestForCommit(commit.ref, remotes),
+			Container.vsls.maybeGetPresence(commit.email).catch(reason => undefined)
 		]);
 
 		const details = CommitFormatter.fromTemplate(Container.config.hovers.detailsMarkdownFormat, commit, {
@@ -161,6 +165,7 @@ export namespace Hovers {
 			dateFormat: dateFormat,
 			line: editorLine,
 			markdown: true,
+			pr: pr,
 			presence: presence,
 			previousLineDiffUris: previousLineDiffUris,
 			remotes: remotes
@@ -179,5 +184,16 @@ export namespace Hovers {
 		return `\`\`\`diff${hunkLine.previous === undefined ? '' : `\n-${hunkLine.previous.line}`}${
 			hunkLine.current === undefined ? '' : `\n+${hunkLine.current.line}`
 		}\n\`\`\``;
+	}
+
+	async function getPullRequestForCommit(ref: string, remotes: GitRemote[]) {
+		try {
+			return await Container.git.getPullRequestForCommit(ref, remotes, { timeout: 250 });
+		} catch (ex) {
+			if (ex instanceof Promises.CancellationError) {
+				return ex;
+			}
+			return undefined;
+		}
 	}
 }

@@ -16,13 +16,12 @@ import {
 import { configuration } from '../../configuration';
 import { StarredRepositories, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
-import { Functions, gate, log } from '../../system';
+import { Functions, gate, Iterables, log, logName } from '../../system';
 import { GitBranch, GitContributor, GitDiffShortStat, GitRemote, GitStash, GitStatus, GitTag } from '../git';
 import { GitUri } from '../gitUri';
-import { RemoteProviderFactory, RemoteProviders } from '../remotes/factory';
+import { RemoteProviderFactory, RemoteProviders, RemoteProviderWithApi } from '../remotes/factory';
 import { Messages } from '../../messages';
 import { Logger } from '../../logger';
-import { logName } from '../../system/decorators/log';
 import { runGitCommandInTerminal } from '../../terminal';
 
 export enum RepositoryChange {
@@ -91,6 +90,7 @@ export class Repository implements Disposable {
 	private _pendingChanges: { repo?: RepositoryChangeEvent; fs?: RepositoryFileSystemChangeEvent } = {};
 	private _providers: RemoteProviders | undefined;
 	private _remotes: Promise<GitRemote[]> | undefined;
+	private _remotesDisposable: Disposable | undefined;
 	private _suspended: boolean;
 
 	constructor(
@@ -161,7 +161,8 @@ export class Repository implements Disposable {
 		//     }
 		// }
 
-		this._disposable && this._disposable.dispose();
+		this._remotesDisposable?.dispose();
+		this._disposable?.dispose();
 	}
 
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
@@ -169,7 +170,7 @@ export class Repository implements Disposable {
 			this._providers = RemoteProviderFactory.loadProviders(configuration.get('remotes', this.folder.uri));
 
 			if (!configuration.initializing(e)) {
-				this._remotes = undefined;
+				this.resetRemotesCache();
 				this.fireChange(RepositoryChange.Remotes);
 			}
 		}
@@ -192,7 +193,7 @@ export class Repository implements Disposable {
 		this._branch = undefined;
 
 		if (uri !== undefined && uri.path.endsWith('refs/remotes')) {
-			this._remotes = undefined;
+			this.resetRemotesCache();
 			this.fireChange(RepositoryChange.Remotes);
 
 			return;
@@ -205,7 +206,7 @@ export class Repository implements Disposable {
 		}
 
 		if (uri !== undefined && uri.path.endsWith('config')) {
-			this._remotes = undefined;
+			this.resetRemotesCache();
 			this.fireChange(RepositoryChange.Config, RepositoryChange.Remotes);
 
 			return;
@@ -347,9 +348,33 @@ export class Repository implements Disposable {
 
 			// Since we are caching the results, always sort
 			this._remotes = Container.git.getRemotesCore(this.path, this._providers, { sort: true });
+			this.subscribeToRemotes(this._remotes);
 		}
 
 		return this._remotes;
+	}
+
+	private resetRemotesCache() {
+		this._remotes = undefined;
+		if (this._remotesDisposable !== undefined) {
+			this._remotesDisposable.dispose();
+			this._remotesDisposable = undefined;
+		}
+	}
+
+	private async subscribeToRemotes(remotes: Promise<GitRemote[]>) {
+		if (this._remotesDisposable !== undefined) {
+			this._remotesDisposable.dispose();
+			this._remotesDisposable = undefined;
+		}
+
+		this._remotesDisposable = Disposable.from(
+			...Iterables.filterMap(await remotes, r => {
+				if (!(r.provider instanceof RemoteProviderWithApi)) return undefined;
+
+				return r.provider.onDidChange(() => this.fireChange(RepositoryChange.Remotes));
+			})
+		);
 	}
 
 	getStashList(): Promise<GitStash | undefined> {

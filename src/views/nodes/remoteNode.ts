@@ -3,7 +3,7 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { GitRemote, GitRemoteType, GitUri, Repository } from '../../git/gitService';
+import { GitRemote, GitRemoteType, GitUri, RemoteProviderWithApi, Repository } from '../../git/gitService';
 import { Arrays, log } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { BranchNode } from './branchNode';
@@ -72,7 +72,7 @@ export class RemoteNode extends ViewNode<RepositoriesView> {
 		return children;
 	}
 
-	getTreeItem(): TreeItem {
+	async getTreeItem(): Promise<TreeItem> {
 		let arrows;
 		let left;
 		let right;
@@ -103,35 +103,43 @@ export class RemoteNode extends ViewNode<RepositoriesView> {
 			TreeItemCollapsibleState.Collapsed
 		);
 
-		item.description =
-			this.remote.provider !== undefined
-				? `${arrows}${GlyphChars.Space} ${this.remote.provider.name} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} ${this.remote.provider.displayPath}`
-				: `${arrows}${GlyphChars.Space} ${
-						this.remote.domain
-							? `${this.remote.domain} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} `
-							: ''
-				  }${this.remote.path}`;
-		item.contextValue = ResourceType.Remote;
-		if (this.remote.default) {
-			item.contextValue += '+default';
-		}
-
-		if (this.remote.provider !== undefined) {
+		if (this.remote.provider != null) {
+			item.description = `${arrows}${GlyphChars.Space} ${this.remote.provider.name} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} ${this.remote.provider.displayPath}`;
 			item.iconPath = {
 				dark: Container.context.asAbsolutePath(`images/dark/icon-${this.remote.provider.icon}.svg`),
 				light: Container.context.asAbsolutePath(`images/light/icon-${this.remote.provider.icon}.svg`)
 			};
+
+			if (this.remote.provider instanceof RemoteProviderWithApi) {
+				const connected = await this.remote.provider.isConnected();
+
+				item.contextValue += `${ResourceType.Remote}${connected ? '+connected' : '+disconnected'}`;
+				item.tooltip = `${this.remote.name} (${this.remote.provider.name} ${GlyphChars.Dash} ${
+					connected ? 'connected' : 'not connected'
+				})\n${this.remote.provider.displayPath}\n`;
+			} else {
+				item.contextValue = ResourceType.Remote;
+				item.tooltip = `${this.remote.name} (${this.remote.provider.name})\n${this.remote.provider.displayPath}\n`;
+			}
 		} else {
+			item.description = `${arrows}${GlyphChars.Space} ${
+				this.remote.domain
+					? `${this.remote.domain} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} `
+					: ''
+			}${this.remote.path}`;
+			item.contextValue = ResourceType.Remote;
 			item.iconPath = {
 				dark: Container.context.asAbsolutePath('images/dark/icon-remote.svg'),
 				light: Container.context.asAbsolutePath('images/light/icon-remote.svg')
 			};
+			item.tooltip = `${this.remote.name} (${this.remote.domain})\n${this.remote.path}\n`;
+		}
+
+		if (this.remote.default) {
+			item.contextValue += '+default';
 		}
 
 		item.id = this.id;
-		item.tooltip = `${this.remote.name} (${
-			this.remote.provider !== undefined ? this.remote.provider.name : this.remote.domain
-		})\n${this.remote.provider !== undefined ? this.remote.provider.displayPath : this.remote.path}\n`;
 
 		for (const type of this.remote.types) {
 			item.tooltip += `\n${type.url} (${type.type})`;
