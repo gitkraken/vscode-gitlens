@@ -47,11 +47,11 @@ export class Autolinks implements Disposable {
 			}
 		}
 
-		if (remotes !== undefined) {
+		if (remotes != null && remotes.length !== 0) {
 			for (const r of remotes) {
 				if (r.provider === undefined) continue;
 
-				for (const ref of this._references) {
+				for (const ref of r.provider.autolinks) {
 					if (requiresGenerator(ref)) {
 						ref.linkify = this._getAutolinkGenerator(ref);
 					}
