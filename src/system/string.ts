@@ -60,8 +60,8 @@ export namespace Strings {
 
 	const pathNormalizeRegex = /\\/g;
 	const pathStripTrailingSlashRegex = /\/$/g;
-	const tokenRegex = /\$\{(\W*)?([^|]*?)(?:\|(\d+)(-|\?)?)?(\W*)?\}/g;
-	const tokenSanitizeRegex = /\$\{(?:\W*)?(\w*?)(?:[\W\d]*)\}/g;
+	const tokenRegex = /\$\{(".*?"|\W*)?([^|]*?)(?:\|(\d+)(-|\?)?)?(".*?"|\W*)?\}/g;
+	const tokenSanitizeRegex = /\$\{(?:".*?"|\W*)?(\w*?)(?:".*?"|[\W\d]*)\}/g;
 	// eslint-disable-next-line no-template-curly-in-string
 	const tokenSanitizeReplacement = '$${this.$1}';
 
@@ -87,7 +87,10 @@ export namespace Strings {
 				options: {
 					collapseWhitespace: option === '?',
 					padDirection: option === '-' ? 'left' : 'right',
-					prefix: prefix,
+					prefix:
+						prefix?.length > 1 && prefix?.startsWith('"') && prefix?.endsWith('"')
+							? prefix.substr(1, prefix.length - 2)
+							: prefix,
 					suffix: suffix,
 					truncateTo: truncateTo == null ? undefined : parseInt(truncateTo, 10)
 				}
