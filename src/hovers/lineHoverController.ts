@@ -80,6 +80,13 @@ export class LineHoverController implements Disposable {
 		return this._hoverProviderDisposable !== undefined;
 	}
 
+	@debug({
+		args: {
+			0: document => document.uri.toString(true),
+			1: (position: Position) => `${position.line}:${position.character}`,
+			2: () => false
+		}
+	})
 	async provideDetailsHover(
 		document: TextDocument,
 		position: Position,
@@ -139,6 +146,13 @@ export class LineHoverController implements Disposable {
 		return new Hover(message, range);
 	}
 
+	@debug({
+		args: {
+			0: document => document.uri.toString(true),
+			1: (position: Position) => `${position.line}:${position.character}`,
+			2: () => false
+		}
+	})
 	async provideChangesHover(
 		document: TextDocument,
 		position: Position,
