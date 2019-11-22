@@ -70,7 +70,7 @@ export class ResultsCommitsNode extends ViewNode<ViewWithFiles> implements Pagea
 		let state;
 
 		try {
-			({ label, log } = await Promises.timeout(this.getCommitsQueryResults(), 100));
+			({ label, log } = await Promises.cancellable(this.getCommitsQueryResults(), 100));
 			state =
 				log == null || log.count === 0
 					? TreeItemCollapsibleState.None
@@ -78,7 +78,7 @@ export class ResultsCommitsNode extends ViewNode<ViewWithFiles> implements Pagea
 					? TreeItemCollapsibleState.Expanded
 					: TreeItemCollapsibleState.Collapsed;
 		} catch (ex) {
-			if (ex instanceof Promises.TimeoutError) {
+			if (ex instanceof Promises.CancellationError) {
 				ex.promise.then(() => this.triggerChange(false));
 			}
 

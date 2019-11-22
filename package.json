@@ -4241,11 +4241,6 @@
 			],
 			"editor/title": [
 				{
-					"command": "gitlens.exploreRepoAtRevision",
-					"when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme =~ /^(?!(file|git)$).*$/",
-					"group": "navigation@-100"
-				},
-				{
 					"command": "gitlens.diffWithWorking",
 					"when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme =~ /^(?!(file|git)$).*$/",
 					"group": "navigation@-99"
@@ -4870,12 +4865,12 @@
 				},
 				{
 					"command": "gitlens.inviteToLiveShare",
-					"when": "gitlens:vsls && gitlens:vsls != guest && viewItem =~ /gitlens:contributor\\b/",
+					"when": "gitlens:vsls && gitlens:vsls != guest && viewItem =~ /gitlens:contributor\\b(?!.*?\\b\\+current\\b)/",
 					"group": "inline@1"
 				},
 				{
 					"command": "gitlens.views.contributor.addAuthor",
-					"when": "viewItem =~ /gitlens:contributor\\b/",
+					"when": "viewItem =~ /gitlens:contributor\\b(?!.*?\\b\\+current\\b)/",
 					"group": "inline@2"
 				},
 				{
@@ -4885,12 +4880,12 @@
 				},
 				{
 					"command": "gitlens.inviteToLiveShare",
-					"when": "gitlens:vsls && gitlens:vsls != guest && viewItem =~ /gitlens:contributor\\b/",
+					"when": "gitlens:vsls && gitlens:vsls != guest && viewItem =~ /gitlens:contributor\\b(?!.*?\\b\\+current\\b)/",
 					"group": "1_gitlens_actions@1"
 				},
 				{
 					"command": "gitlens.views.contributor.addAuthor",
-					"when": "viewItem =~ /gitlens:contributor\\b/",
+					"when": "viewItem =~ /gitlens:contributor\\b(?!.*?\\b\\+current\\b)/",
 					"group": "1_gitlens_actions@2"
 				},
 				{

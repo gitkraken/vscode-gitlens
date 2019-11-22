@@ -65,11 +65,11 @@ export class ResultsFilesNode extends ViewNode<ViewWithFiles> {
 		let state;
 
 		try {
-			({ label, diff } = await Promises.timeout(this.getFilesQueryResults(), 100));
+			({ label, diff } = await Promises.cancellable(this.getFilesQueryResults(), 100));
 			state =
 				diff == null || diff.length === 0 ? TreeItemCollapsibleState.None : TreeItemCollapsibleState.Expanded;
 		} catch (ex) {
-			if (ex instanceof Promises.TimeoutError) {
+			if (ex instanceof Promises.CancellationError) {
 				ex.promise.then(() => this.triggerChange(false));
 			}
 
