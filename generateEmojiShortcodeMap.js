@@ -22,7 +22,7 @@ async function generate() {
 		if (emoji.shortcodes == null || emoji.shortcodes.length === 0) continue;
 
 		for (let code of emoji.shortcodes) {
-			if (code[0] === ':' && code[code.length - 1] === ':') {
+			if (code.startsWith(':') && code.endsWith(':')) {
 				code = code.substring(1, code.length - 2);
 			}
 
@@ -48,7 +48,7 @@ async function generate() {
 	// eslint-disable-next-line import/no-dynamic-require
 	const gitmojis = require(path.join(process.cwd(), 'gitmojis.json')).gitmojis;
 	for (const emoji of gitmojis) {
-		if (emoji.code[0] === ':' && emoji.code[emoji.code.length - 1] === ':') {
+		if (emoji.code.startsWith(':') && emoji.code.endsWith(':')) {
 			emoji.code = emoji.code.substring(1, emoji.code.length - 2);
 		}
 
