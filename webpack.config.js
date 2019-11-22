@@ -7,6 +7,7 @@ const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPl
 const { CleanWebpackPlugin: CleanPlugin } = require('clean-webpack-plugin');
 const CircularDependencyPlugin = require('circular-dependency-plugin');
 const CspHtmlPlugin = require('csp-html-webpack-plugin');
+// const ESLintPlugin = require('eslint-webpack-plugin');
 const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const HtmlExcludeAssetsPlugin = require('html-webpack-exclude-assets-plugin');
 const HtmlInlineSourcePlugin = require('html-webpack-inline-source-plugin');
@@ -35,9 +36,15 @@ function getExtensionConfig(env) {
 	 */
 	const plugins = [
 		new CleanPlugin({ cleanOnceBeforeBuildPatterns: ['**/*', '!**/webviews/**'] }),
+		// new ESLintPlugin({
+		// 	context: path.resolve(__dirname, 'src'),
+		// 	files: '**/*.ts',
+		// 	lintDirtyModulesOnly: true
+		// })
 		new ForkTsCheckerPlugin({
 			async: false,
-			eslint: true
+			eslint: true,
+			useTypescriptIncrementalApi: true
 		})
 	];
 
@@ -95,7 +102,8 @@ function getExtensionConfig(env) {
 		module: {
 			rules: [
 				{
-					exclude: /node_modules|\.d\.ts$/,
+					exclude: /\.d\.ts$/,
+					include: path.resolve(__dirname, 'src'),
 					test: /\.tsx?$/,
 					use: {
 						loader: 'ts-loader',
@@ -108,7 +116,8 @@ function getExtensionConfig(env) {
 			]
 		},
 		resolve: {
-			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json']
+			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
+			symlinks: false
 		},
 		plugins: plugins,
 		stats: {
@@ -146,10 +155,16 @@ function getWebviewsConfig(env) {
 	 */
 	const plugins = [
 		new CleanPlugin({ cleanOnceBeforeBuildPatterns: clean }),
+		// new ESLintPlugin({
+		// 	context: path.resolve(__dirname, 'src/webviews/apps'),
+		// 	files: '**/*.ts',
+		// 	lintDirtyModulesOnly: true
+		// }),
 		new ForkTsCheckerPlugin({
 			tsconfig: path.resolve(__dirname, 'tsconfig.webviews.json'),
 			async: false,
-			eslint: true
+			eslint: true,
+			useTypescriptIncrementalApi: true
 		}),
 		new MiniCssExtractPlugin({
 			filename: '[name].css'
@@ -250,12 +265,14 @@ function getWebviewsConfig(env) {
 		module: {
 			rules: [
 				{
-					exclude: /node_modules|\.d\.ts$/,
+					exclude: /\.d\.ts$/,
+					include: path.resolve(__dirname, 'src'),
 					test: /\.tsx?$/,
 					use: {
 						loader: 'ts-loader',
 						options: {
 							configFile: 'tsconfig.webviews.json',
+							experimentalWatchApi: true,
 							transpileOnly: true
 						}
 					}
@@ -286,7 +303,8 @@ function getWebviewsConfig(env) {
 		},
 		resolve: {
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
-			modules: [path.resolve(__dirname, 'src/webviews/apps'), 'node_modules']
+			modules: [path.resolve(__dirname, 'src/webviews/apps'), 'node_modules'],
+			symlinks: false
 		},
 		plugins: plugins,
 		stats: {
