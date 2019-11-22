@@ -15,7 +15,8 @@
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
 			"smartStep": true,
-			"sourceMaps": true
+			"sourceMaps": true,
+			"trace": true
 		},
 		{
 			"name": "Launch GitLens (Sandbox)",
@@ -30,7 +31,8 @@
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
 			"smartStep": true,
-			"sourceMaps": true
+			"sourceMaps": true,
+			"trace": true
 		},
 		{
 			"name": "Watch & Launch GitLens",
@@ -43,10 +45,11 @@
 			"args": ["--extensionDevelopmentPath=${workspaceFolder}"],
 			"cwd": "${workspaceFolder}",
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
+			"preLaunchTask": "npm: watch",
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
 			"smartStep": true,
 			"sourceMaps": true,
-			"preLaunchTask": "npm: watch"
+			"trace": true
 		}
 	]
 }
