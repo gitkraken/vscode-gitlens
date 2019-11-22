@@ -23,7 +23,7 @@ export namespace Promises {
 			let fulfilled = false;
 			let timer: NodeJS.Timer | undefined;
 			if (typeof timeoutOrToken === 'number') {
-				timer = setTimeout(() => {
+				timer = global.setTimeout(() => {
 					if (typeof options.onDidCancel === 'function') {
 						options.onDidCancel(resolve, reject);
 					} else {
