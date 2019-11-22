@@ -9,6 +9,7 @@ import {
 	Range,
 	TextDocument,
 	TextEditor,
+	Uri,
 	window
 } from 'vscode';
 import { Annotations } from '../annotations/annotations';
@@ -16,10 +17,12 @@ import { configuration } from '../configuration';
 import { Container } from '../container';
 import { LinesChangeEvent } from '../trackers/gitLineTracker';
 import { debug } from '../system';
+import { UriComparer } from '../comparers';
 
 export class LineHoverController implements Disposable {
 	private _disposable: Disposable;
 	private _hoverProviderDisposable: Disposable | undefined;
+	private _uri: Uri | undefined;
 
 	constructor() {
 		this._disposable = Disposable.from(configuration.onDidChange(this.onConfigurationChanged, this));
@@ -71,13 +74,9 @@ export class LineHoverController implements Disposable {
 			return;
 		}
 
-		if (e.reason !== 'editor' && this.registered) return;
+		if (this.isRegistered(e.editor?.document.uri)) return;
 
 		this.register(e.editor);
-	}
-
-	get registered() {
-		return this._hoverProviderDisposable !== undefined;
 	}
 
 	@debug({
@@ -188,6 +187,10 @@ export class LineHoverController implements Disposable {
 		return new Hover(message, range);
 	}
 
+	private isRegistered(uri: Uri | undefined) {
+		return this._hoverProviderDisposable !== undefined && UriComparer.equals(this._uri, uri);
+	}
+
 	private register(editor: TextEditor | undefined) {
 		this.unregister();
 
@@ -196,11 +199,13 @@ export class LineHoverController implements Disposable {
 		const cfg = Container.config.hovers;
 		if (!cfg.enabled || !cfg.currentLine.enabled || (!cfg.currentLine.details && !cfg.currentLine.changes)) return;
 
+		this._uri = editor.document.uri;
+
 		const subscriptions = [];
 		if (cfg.currentLine.changes) {
 			subscriptions.push(
 				languages.registerHoverProvider(
-					{ pattern: editor.document.uri.fsPath },
+					{ pattern: this._uri.fsPath },
 					{
 						provideHover: this.provideChangesHover.bind(this)
 					}
@@ -210,7 +215,7 @@ export class LineHoverController implements Disposable {
 		if (cfg.currentLine.details) {
 			subscriptions.push(
 				languages.registerHoverProvider(
-					{ pattern: editor.document.uri.fsPath },
+					{ pattern: this._uri.fsPath },
 					{
 						provideHover: this.provideDetailsHover.bind(this)
 					}
@@ -222,6 +227,7 @@ export class LineHoverController implements Disposable {
 	}
 
 	private unregister() {
+		this._uri = undefined;
 		if (this._hoverProviderDisposable !== undefined) {
 			this._hoverProviderDisposable.dispose();
 			this._hoverProviderDisposable = undefined;
