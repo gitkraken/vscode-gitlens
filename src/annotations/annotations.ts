@@ -21,7 +21,7 @@ import {
 	GitService,
 	GitUri
 } from '../git/gitService';
-import { Objects, Strings } from '../system';
+import { debug, Objects, Strings, timeout } from '../system';
 import { toRgba } from '../webviews/apps/shared/colors';
 
 export interface ComputedHeatmap {
@@ -196,7 +196,7 @@ export class Annotations {
 		}
 
 		const [presence, previousLineDiffUris, remotes] = await Promise.all([
-			Container.vsls.getContactPresence(commit.email),
+			Annotations.maybeGetPresence(commit.email).catch(reason => undefined),
 			commit.isUncommitted ? commit.getPreviousLineDiffUris(uri, editorLine, uri.sha) : undefined,
 			Container.git.getRemotes(commit.repoPath, { sort: true })
 		]);
@@ -389,5 +389,11 @@ export class Annotations {
 		}
 
 		return `rgba(${computedHeatmapColor.rgb}, ${(1 - age / 10).toFixed(2)})`;
+	}
+
+	@debug()
+	@timeout(250)
+	private static maybeGetPresence(email: string | undefined) {
+		return Container.vsls.getContactPresence(email);
 	}
 }

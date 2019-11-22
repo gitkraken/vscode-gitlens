@@ -10,6 +10,7 @@ import { insertDateMarkers } from './helpers';
 import { CommitNode } from './commitNode';
 import { GlyphChars } from '../../constants';
 import { RepositoryNode } from './repositoryNode';
+import { ContactPresence } from '../../vsls/vsls';
 
 export class ContributorNode extends ViewNode<RepositoriesView> implements PageableViewNode {
 	static key = ':contributor';
@@ -17,7 +18,13 @@ export class ContributorNode extends ViewNode<RepositoriesView> implements Pagea
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${name}|${email})`;
 	}
 
-	constructor(uri: GitUri, view: RepositoriesView, parent: ViewNode, public readonly contributor: GitContributor) {
+	constructor(
+		uri: GitUri,
+		view: RepositoriesView,
+		parent: ViewNode,
+		public readonly contributor: GitContributor,
+		private readonly _presenceMap: Map<string, ContactPresence> | undefined
+	) {
 		super(uri, view, parent);
 	}
 
@@ -50,12 +57,15 @@ export class ContributorNode extends ViewNode<RepositoriesView> implements Pagea
 		return children;
 	}
 
-	async getTreeItem(): Promise<TreeItem> {
-		const presence = await Container.vsls.getContactPresence(this.contributor.email);
+	getTreeItem(): TreeItem {
+		const presence = this._presenceMap?.get(this.contributor.email);
 
-		const item = new TreeItem(this.contributor.name, TreeItemCollapsibleState.Collapsed);
+		const item = new TreeItem(
+			this.contributor.current ? `${this.contributor.name} (you)` : this.contributor.name,
+			TreeItemCollapsibleState.Collapsed
+		);
 		item.id = this.id;
-		item.contextValue = ResourceType.Contributor;
+		item.contextValue = this.contributor.current ? `${ResourceType.Contributor}+current` : ResourceType.Contributor;
 		item.description = `${
 			presence != null && presence.status !== 'offline'
 				? `${presence.statusText} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} `

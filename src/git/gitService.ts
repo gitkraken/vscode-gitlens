@@ -1258,7 +1258,21 @@ export class GitService implements Disposable {
 
 		const data = await Git.shortlog(repoPath);
 		const shortlog = GitShortLogParser.parse(data, repoPath);
-		return shortlog === undefined ? [] : shortlog.contributors;
+		if (shortlog == null) return [];
+
+		// Mark the current user
+		const currentUser = await Container.git.getCurrentUser(repoPath);
+		if (currentUser != null) {
+			const index = shortlog.contributors.findIndex(
+				c => currentUser.email === c.email && currentUser.name === c.name
+			);
+			if (index !== -1) {
+				const c = shortlog.contributors[index];
+				shortlog.contributors.splice(index, 1, new GitContributor(c.repoPath, c.name, c.email, c.count, true));
+			}
+		}
+
+		return shortlog.contributors;
 	}
 
 	@log()

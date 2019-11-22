@@ -2,29 +2,65 @@
 import { CancellationToken } from 'vscode';
 
 export namespace Promises {
-	export function cancellable<T>(promise: Promise<T>, token: CancellationToken): Promise<T | undefined> {
-		return new Promise<T | undefined>((resolve, reject) => {
-			token.onCancellationRequested(() => resolve(undefined));
-
-			promise.then(resolve, reject);
-		});
-	}
-
-	export function is<T>(obj: T | Promise<T>): obj is Promise<T> {
-		return obj && typeof (obj as Promise<T>).then === 'function';
-	}
-
-	export class TimeoutError<T> extends Error {
-		constructor(public readonly promise: T) {
-			super('Promise timed out');
+	export class CancellationError<T> extends Error {
+		constructor(public readonly promise: T, message: string) {
+			super(message);
 		}
 	}
 
-	export function timeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-		return new Promise<T>((resolve, reject) => {
-			setTimeout(() => reject(new TimeoutError(promise)), ms);
+	export function cancellable<T>(
+		promise: Thenable<T>,
+		timeoutOrToken: number | CancellationToken,
+		options: {
+			cancelMessage?: string;
+			onDidCancel?(
+				resolve: (value?: T | PromiseLike<T> | undefined) => void,
+				reject: (reason?: any) => void
+			): void;
+		} = {}
+	): Promise<T> {
+		return new Promise((resolve, reject) => {
+			let fulfilled = false;
+			let timer: NodeJS.Timer | undefined;
+			if (typeof timeoutOrToken === 'number') {
+				timer = setTimeout(() => {
+					if (typeof options.onDidCancel === 'function') {
+						options.onDidCancel(resolve, reject);
+					} else {
+						reject(new CancellationError(promise, options.cancelMessage || 'TIMED OUT'));
+					}
+				}, timeoutOrToken);
+			} else {
+				timeoutOrToken.onCancellationRequested(() => {
+					if (fulfilled) return;
 
-			promise.then(resolve, reject);
+					if (typeof options.onDidCancel === 'function') {
+						options.onDidCancel(resolve, reject);
+					} else {
+						reject(new CancellationError(promise, options.cancelMessage || 'CANCELLED'));
+					}
+				});
+			}
+
+			promise.then(
+				() => {
+					fulfilled = true;
+					if (timer !== undefined) {
+						clearTimeout(timer);
+					}
+					resolve(promise);
+				},
+				ex => {
+					fulfilled = true;
+					if (timer !== undefined) {
+						clearTimeout(timer);
+					}
+					reject(ex);
+				}
+			);
 		});
+	}
+	export function is<T>(obj: T | Promise<T>): obj is Promise<T> {
+		return obj != null && typeof (obj as Promise<T>).then === 'function';
 	}
 }

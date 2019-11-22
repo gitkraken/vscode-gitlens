@@ -279,7 +279,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 
 						await this.showMoreNodeChildren(node, defaultPageSize);
 
-						pagedChildren = await Functions.cancellable(
+						pagedChildren = await Promises.cancellable(
 							Promise.resolve(node.getChildren()),
 							token || 60000,
 							{
@@ -372,7 +372,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 		}
 	}
 
-	@debug({ args: { 0: (n: ViewNode) => n.toString() }, singleLine: true })
+	// @debug({ args: { 0: (n: ViewNode) => n.toString() }, singleLine: true })
 	getNodeLastKnownLimit(node: PageableViewNode) {
 		return this._lastKnownLimits.get(node.id);
 	}
