@@ -166,7 +166,7 @@ export namespace Functions {
 				}
 			}
 		};
-		timer = setInterval(fn, ms);
+		timer = global.setInterval(fn, ms);
 
 		return disposable;
 	}
@@ -174,7 +174,7 @@ export namespace Functions {
 	export function progress<T>(promise: Promise<T>, intervalMs: number, onProgress: () => boolean): Promise<T> {
 		return new Promise((resolve, reject) => {
 			let timer: NodeJS.Timer | undefined;
-			timer = setInterval(() => {
+			timer = global.setInterval(() => {
 				if (onProgress()) {
 					if (timer !== undefined) {
 						clearInterval(timer);
