@@ -3,11 +3,11 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { BranchComparison, BranchComparisons, GlyphChars, WorkspaceState } from '../../constants';
 import { ResourceType, ViewNode } from './viewNode';
 import { RepositoriesView } from '../repositoriesView';
-import { GitBranch, GitService, GitUri } from '../../git/gitService';
+import { GitBranch, GitRevision, GitService, GitUri } from '../../git/gitService';
 import { CommandQuickPickItem, ReferencesQuickPick } from '../../quickpicks';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
 import { Container } from '../../container';
-import { log, Mutable, Strings } from '../../system';
+import { debug, gate, log, Mutable, Strings } from '../../system';
 import { FilesQueryResults, ResultsFilesNode } from './resultsFilesNode';
 import { ViewShowBranchComparison } from '../../config';
 import { RepositoryNode } from './repositoryNode';
@@ -25,7 +25,7 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
 		super(uri, view, parent);
 
 		const comparisons = Container.context.workspaceState.get<BranchComparisons>(WorkspaceState.BranchComparisons);
-		const compareWith = comparisons && comparisons[branch.id];
+		const compareWith = comparisons?.[branch.id];
 		if (compareWith !== undefined && typeof compareWith === 'string') {
 			this._compareWith = {
 				ref: compareWith,
@@ -145,14 +145,11 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
 		this.view.triggerNodeChange(this);
 	}
 
-	private get comparisonNotation() {
-		return (
-			(this._compareWith && this._compareWith.notation) ||
-			(Container.config.advanced.useSymmetricDifferenceNotation ? '...' : '..')
-		);
+	private get comparisonNotation(): '..' | '...' {
+		return this._compareWith?.notation ?? (Container.config.advanced.useSymmetricDifferenceNotation ? '...' : '..');
 	}
 
-	private get diffComparisonNotation() {
+	private get diffComparisonNotation(): '..' | '...' {
 		// In git diff the range syntax doesn't mean the same thing as with git log -- since git diff is about comparing endpoints not ranges
 		// see https://git-scm.com/docs/git-diff#Documentation/git-diff.txt-emgitdiffemltoptionsgtltcommitgtltcommitgt--ltpathgt82308203
 		// So inverting the range syntax should be about equivalent for the behavior we want
@@ -160,11 +157,7 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
 	}
 
 	private get comparisonType() {
-		return (
-			(this._compareWith && this._compareWith.type) ||
-			this.view.config.showBranchComparison ||
-			ViewShowBranchComparison.Working
-		);
+		return this._compareWith?.type ?? (this.view.config.showBranchComparison || ViewShowBranchComparison.Working);
 	}
 
 	private get compareWithWorkingTree() {
@@ -191,9 +184,11 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
 	private async getCommitsQuery(limit: number | undefined): Promise<CommitsQueryResults> {
 		const log = await Container.git.getLog(this.uri.repoPath!, {
 			limit: limit,
-			ref: `${(this._compareWith && this._compareWith.ref) || 'HEAD'}${this.comparisonNotation}${
-				this.compareWithWorkingTree ? '' : this.branch.ref
-			}`
+			ref: GitRevision.createRange(
+				this._compareWith?.ref || 'HEAD',
+				this.compareWithWorkingTree ? '' : this.branch.ref,
+				this.comparisonNotation
+			)
 		});
 
 		const count = log?.count ?? 0;
@@ -221,12 +216,20 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
 		return results as CommitsQueryResults;
 	}
 
+	@gate()
+	@debug()
+	refresh() {
+		this._children = undefined;
+	}
+
 	private async getFilesQuery(): Promise<FilesQueryResults> {
 		const diff = await Container.git.getDiffStatus(
 			this.uri.repoPath!,
-			`${(this._compareWith && this._compareWith.ref) || 'HEAD'}${this.diffComparisonNotation}${
-				this.compareWithWorkingTree ? '' : this.branch.ref
-			}`
+			GitRevision.createRange(
+				this._compareWith?.ref || 'HEAD',
+				this.compareWithWorkingTree ? '' : this.branch.ref,
+				this.diffComparisonNotation
+			)
 		);
 
 		return {

@@ -1,6 +1,6 @@
 'use strict';
 import { Container } from '../../container';
-import { GitReference, Repository } from '../../git/gitService';
+import { GitReference, GitRevision, Repository } from '../../git/gitService';
 import { GlyphChars } from '../../constants';
 import {
 	getBranchesAndOrTags,
@@ -145,7 +145,7 @@ export class MergeGitCommand extends QuickCommandBase<State> {
 
 				const count =
 					(await Container.git.getCommitCount(state.repo.path, [
-						`${destination.name}..${state.reference.name}`
+						GitRevision.createRange(destination.name, state.reference.name)
 					])) || 0;
 				if (count === 0) {
 					const step = this.createConfirmStep(
