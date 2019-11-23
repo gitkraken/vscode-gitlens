@@ -1,7 +1,7 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
-import { GitBranch, GitLog, GitTrackingState, GitUri } from '../../git/gitService';
+import { GitBranch, GitLog, GitRevision, GitTrackingState, GitUri } from '../../git/gitService';
 import { debug, gate, Iterables, Strings } from '../../system';
 import { ViewWithFiles } from '../viewBase';
 import { CommitNode } from './commitNode';
@@ -134,8 +134,8 @@ export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements
 	private async getLog() {
 		if (this._log === undefined) {
 			const range = this.ahead
-				? `${this.status.upstream}..${this.status.ref}`
-				: `${this.status.ref}..${this.status.upstream}`;
+				? GitRevision.createRange(this.status.upstream, this.status.ref)
+				: GitRevision.createRange(this.status.ref, this.status.upstream);
 
 			this._log = await Container.git.getLog(this.uri.repoPath!, {
 				limit: this.limit ?? this.view.config.defaultItemLimit,

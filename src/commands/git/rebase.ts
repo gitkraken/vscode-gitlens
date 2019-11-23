@@ -1,6 +1,6 @@
 'use strict';
 import { Container } from '../../container';
-import { GitReference, Repository } from '../../git/gitService';
+import { GitReference, GitRevision, Repository } from '../../git/gitService';
 import { GlyphChars } from '../../constants';
 import {
 	getBranchesAndOrTags,
@@ -216,7 +216,7 @@ export class RebaseGitCommand extends QuickCommandBase<State> {
 
 				const count =
 					(await Container.git.getCommitCount(state.repo.path, [
-						`${state.reference.ref}..${destination.ref}`
+						GitRevision.createRange(state.reference.ref, destination.ref)
 					])) || 0;
 				if (count === 0) {
 					const step = this.createConfirmStep(
