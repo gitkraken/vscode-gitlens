@@ -4,6 +4,7 @@ import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import {
 	GitBranch,
+	GitRevision,
 	GitStatus,
 	GitUri,
 	Repository,
@@ -81,7 +82,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 				}
 
 				if (status.state.ahead || (status.files.length !== 0 && this.includeWorkingTree)) {
-					const range = status.upstream ? `${status.upstream}..${branch.ref}` : undefined;
+					const range = status.upstream ? GitRevision.createRange(status.upstream, branch.ref) : undefined;
 					children.push(new StatusFilesNode(this.view, this, status, range));
 				}
 

@@ -16,6 +16,7 @@ import {
 	GitCommitType,
 	GitFileStatus,
 	GitLogCommit,
+	GitRevision,
 	GitService,
 	GitStatus,
 	GitStatusFile,
@@ -363,7 +364,7 @@ export class RepoStatusQuickPick {
 					},
 					Commands.ShowQuickBranchHistory,
 					[
-						GitUri.fromRepoPath(status.repoPath, `${status.upstream}..${status.ref}`),
+						GitUri.fromRepoPath(status.repoPath, GitRevision.createRange(status.upstream, status.ref)),
 						branchHistoryCommandArgs
 					]
 				)
@@ -394,7 +395,7 @@ export class RepoStatusQuickPick {
 					},
 					Commands.ShowQuickBranchHistory,
 					[
-						GitUri.fromRepoPath(status.repoPath, `${status.ref}..${status.upstream}`),
+						GitUri.fromRepoPath(status.repoPath, GitRevision.createRange(status.ref, status.upstream)),
 						branchHistoryCommandArgs
 					]
 				)

@@ -1,7 +1,7 @@
 'use strict';
 /* eslint-disable no-loop-func */
 import { Container } from '../../container';
-import { GitReference, Repository } from '../../git/gitService';
+import { GitReference, GitRevision, Repository } from '../../git/gitService';
 import { GlyphChars } from '../../constants';
 import { Iterables, Strings } from '../../system';
 import {
@@ -157,7 +157,7 @@ export class CherryPickGitCommand extends QuickCommandBase<State> {
 
 				if (selectedBranchOrTag !== undefined && state.counter < 3) {
 					const log = await Container.git.getLog(state.repo.path, {
-						ref: `${destination.ref}..${selectedBranchOrTag.ref}`,
+						ref: GitRevision.createRange(destination.ref, selectedBranchOrTag.ref),
 						merges: false
 					});
 

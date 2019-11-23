@@ -1,6 +1,36 @@
 'use strict';
-
 import { Git } from '../git';
+
+const revisionRangeRegex = /([^.]*)(\.\.\.?)([^.]*)/;
+
+export namespace GitRevision {
+	export function createRange(
+		ref1: string | undefined,
+		ref2: string | undefined,
+		notation: '..' | '...' = '..'
+	): string {
+		return `${ref1 || ''}${notation}${ref2 || ''}`;
+	}
+
+	export function toParams(ref: string | undefined) {
+		if (ref == null || ref.length === 0) return [];
+
+		const match = revisionRangeRegex.exec(ref);
+		if (match == null) return [ref];
+
+		const [, ref1, notation, ref2] = match;
+
+		const range = [];
+		if (ref1) {
+			range.push(ref1);
+		}
+		range.push(notation);
+		if (ref2) {
+			range.push(ref2);
+		}
+		return range;
+	}
+}
 
 export interface GitReference {
 	readonly refType: 'branch' | 'tag' | 'revision';
