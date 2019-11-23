@@ -5,10 +5,12 @@ import { Container } from '../container';
 import { GitUri } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { ActiveEditorCommand, command, Commands, findOrOpenEditor, getCommandUri } from './common';
+import { ActiveEditorCommand, command, CommandContext, Commands, findOrOpenEditor, getCommandUri } from './common';
 
 export interface OpenRevisionFileCommandArgs {
 	uri?: Uri;
+
+	inDiffRightEditor?: boolean;
 	line?: number;
 	showOptions?: TextDocumentShowOptions;
 	annotationType?: FileAnnotationType;
@@ -17,10 +19,19 @@ export interface OpenRevisionFileCommandArgs {
 @command()
 export class OpenRevisionFileCommand extends ActiveEditorCommand {
 	constructor() {
-		super(Commands.OpenRevisionFile);
+		super([Commands.OpenRevisionFile, Commands.OpenRevisionFileInDiffRight]);
 	}
 
-	async execute(editor: TextEditor, uri?: Uri, args?: OpenRevisionFileCommandArgs) {
+	protected preExecute(context: CommandContext, args?: OpenRevisionFileCommandArgs) {
+		if (context.command === Commands.OpenRevisionFileInDiffRight) {
+			args = { ...args };
+			args.inDiffRightEditor = true;
+		}
+
+		return this.execute(context.editor, context.uri, args);
+	}
+
+	async execute(editor?: TextEditor, uri?: Uri, args?: OpenRevisionFileCommandArgs) {
 		args = { ...args };
 		if (args.line === undefined) {
 			args.line = editor == null ? 0 : editor.selection.active.line;
@@ -34,14 +45,35 @@ export class OpenRevisionFileCommand extends ActiveEditorCommand {
 				uri = args.uri;
 			}
 
-			args.uri = await GitUri.fromUri(uri);
-			if (GitUri.is(args.uri) && args.uri.sha) {
-				const commit = await Container.git.getCommit(args.uri.repoPath!, args.uri.sha);
+			const gitUri = await GitUri.fromUri(uri);
+			if (gitUri?.sha) {
+				if (args.inDiffRightEditor) {
+					try {
+						const diffUris = await Container.git.getPreviousDiffUris(
+							gitUri.repoPath!,
+							gitUri,
+							gitUri.sha,
+							0
+						);
+						args.uri = GitUri.toRevisionUri(diffUris?.previous ?? gitUri);
+					} catch (ex) {
+						Logger.error(
+							ex,
+							'OpenRevisionFileCommand',
+							`getPreviousDiffUris(${gitUri?.repoPath}, ${gitUri.fsPath}, ${gitUri?.sha})`
+						);
+						return Messages.showGenericErrorMessage('Unable to open revision');
+					}
+				} else {
+					const commit = await Container.git.getCommit(gitUri.repoPath!, gitUri.sha);
 
-				args.uri =
-					commit !== undefined && commit.status === 'D'
-						? GitUri.toRevisionUri(commit.previousSha!, commit.previousUri.fsPath, commit.repoPath)
-						: GitUri.toRevisionUri(args.uri);
+					args.uri =
+						commit !== undefined && commit.status === 'D'
+							? GitUri.toRevisionUri(commit.previousSha!, commit.previousUri.fsPath, commit.repoPath)
+							: GitUri.toRevisionUri(gitUri);
+				}
+			} else {
+				args.uri = GitUri.toRevisionUri(gitUri);
 			}
 
 			if (args.line !== undefined && args.line !== 0) {

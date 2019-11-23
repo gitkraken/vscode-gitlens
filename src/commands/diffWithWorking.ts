@@ -2,10 +2,13 @@
 import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { Container } from '../container';
 import { GitService, GitUri } from '../git/gitService';
-import { ActiveEditorCommand, command, Commands, getCommandUri } from './common';
+import { ActiveEditorCommand, command, CommandContext, Commands, getCommandUri } from './common';
 import { DiffWithCommandArgs } from './diffWith';
+import { Messages } from '../messages';
+import { Logger } from '../logger';
 
 export interface DiffWithWorkingCommandArgs {
+	inDiffRightEditor?: boolean;
 	line?: number;
 	showOptions?: TextDocumentShowOptions;
 }
@@ -13,18 +16,41 @@ export interface DiffWithWorkingCommandArgs {
 @command()
 export class DiffWithWorkingCommand extends ActiveEditorCommand {
 	constructor() {
-		super(Commands.DiffWithWorking);
+		super([Commands.DiffWithWorking, Commands.DiffWithWorkingInDiffRight]);
+	}
+
+	protected preExecute(context: CommandContext, args?: DiffWithWorkingCommandArgs) {
+		if (context.command === Commands.DiffWithWorkingInDiffRight) {
+			args = { ...args };
+			args.inDiffRightEditor = true;
+		}
+
+		return this.execute(context.editor, context.uri, args);
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: DiffWithWorkingCommandArgs): Promise<any> {
 		uri = getCommandUri(uri, editor);
 		if (uri == null) return undefined;
 
-		const gitUri = await GitUri.fromUri(uri);
+		let gitUri = await GitUri.fromUri(uri);
 
 		args = { ...args };
 		if (args.line === undefined) {
 			args.line = editor == null ? 0 : editor.selection.active.line;
+		}
+
+		if (args.inDiffRightEditor) {
+			try {
+				const diffUris = await Container.git.getPreviousDiffUris(gitUri.repoPath!, gitUri, gitUri.sha, 0);
+				gitUri = diffUris?.previous ?? gitUri;
+			} catch (ex) {
+				Logger.error(
+					ex,
+					'DiffWithWorkingCommand',
+					`getPreviousDiffUris(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`
+				);
+				return Messages.showGenericErrorMessage('Unable to open compare');
+			}
 		}
 
 		// if (args.commit === undefined || args.commit.isUncommitted) {
