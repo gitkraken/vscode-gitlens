@@ -259,7 +259,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 	@debug({
 		exit: uri => `returned ${Logger.toLoggable(uri)}`
 	})
-	static async fromUri(uri: Uri) {
+	static async fromUri(uri: Uri): Promise<GitUri> {
 		if (GitUri.is(uri)) return uri;
 
 		if (!Container.git.isTrackable(uri)) return new GitUri(uri);
