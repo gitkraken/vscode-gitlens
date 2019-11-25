@@ -6,12 +6,11 @@ import * as iconv from 'iconv-lite';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { Iterables, Objects, Strings } from '../system';
+import { Objects, Strings } from '../system';
 import { findGitPath, GitLocation } from './locator';
 import { run, RunOptions } from './shell';
 import { GitBranchParser, GitLogParser, GitReflogParser, GitStashParser, GitTagParser } from './parsers/parsers';
 import { GitFileStatus } from './models/file';
-import { GitRevision } from './models/models';
 
 export * from './models/models';
 export * from './parsers/parsers';
@@ -118,6 +117,10 @@ export async function git<TOut extends string | Buffer>(options: GitCommandOptio
 			'color.ui=false',
 			...(configs !== undefined ? configs : emptyArray)
 		);
+
+		if (process.platform === 'win32') {
+			args.splice(0, 0, '-c', 'core.longpaths=true');
+		}
 
 		promise = run<TOut>(gitInfo.path, args, encoding, runOpts);
 
@@ -618,10 +621,10 @@ export namespace Git {
 			params.push(`--diff-filter=${filter}`);
 		}
 		if (ref1) {
-			params.push(...GitRevision.toParams(ref1));
+			params.push(ref1);
 		}
 		if (ref2) {
-			params.push(...GitRevision.toParams(ref2));
+			params.push(ref2);
 		}
 
 		return git<string>({ cwd: repoPath, configs: ['-c', 'color.diff=false'] }, ...params, '--');
@@ -630,7 +633,7 @@ export namespace Git {
 	export function diff__shortstat(repoPath: string, ref?: string) {
 		const params = ['diff', '--shortstat', '--no-ext-diff'];
 		if (ref) {
-			params.push(...GitRevision.toParams(ref));
+			params.push(ref);
 		}
 
 		return git<string>({ cwd: repoPath, configs: ['-c', 'color.diff=false'] }, ...params, '--');
@@ -730,7 +733,7 @@ export namespace Git {
 			if (reverse) {
 				params.push('--reverse', '--ancestry-path', `${ref}..HEAD`);
 			} else {
-				params.push(...GitRevision.toParams(ref));
+				params.push(ref);
 			}
 		}
 
@@ -974,7 +977,7 @@ export namespace Git {
 		if (options.count) {
 			params.push('--count');
 		}
-		params.push(...Iterables.flatMap(refs, r => GitRevision.toParams(r)));
+		params.push(...refs);
 
 		const data = await git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, 'rev-list', ...params, '--');
 		return data.length === 0 ? undefined : Number(data.trim()) || undefined;
