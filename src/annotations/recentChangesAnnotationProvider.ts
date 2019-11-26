@@ -8,14 +8,14 @@ import {
 	TextEditorDecorationType,
 	TextEditorRevealType
 } from 'vscode';
+import { AnnotationProviderBase } from './annotationProvider';
 import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
 import { GitUri } from '../git/gitService';
+import { Hovers } from '../hovers/hovers';
 import { Logger } from '../logger';
 import { log, Strings } from '../system';
 import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
-import { AnnotationProviderBase } from './annotationProvider';
-import { Annotations } from './annotations';
 
 export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 	private readonly _uri: GitUri;
@@ -90,7 +90,7 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 				if (cfg.hovers.enabled && cfg.hovers.annotations.enabled) {
 					if (cfg.hovers.annotations.details) {
 						this.decorations.push({
-							hoverMessage: await Annotations.detailsHoverMessage(
+							hoverMessage: await Hovers.detailsMessage(
 								commit,
 								await GitUri.fromUri(this.editor.document.uri),
 								count,
@@ -102,7 +102,7 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 					}
 
 					if (cfg.hovers.annotations.changes) {
-						message = await Annotations.changesHoverMessage(commit, this._uri, count, hunkLine);
+						message = await Hovers.changesMessage(commit, this._uri, count, hunkLine);
 						if (message === undefined) continue;
 					}
 				}

@@ -6,7 +6,7 @@ import { Container } from '../container';
 import { Logger } from '../logger';
 import { VslsGuestService } from './guest';
 import { VslsHostService } from './host';
-import { debug } from '../system';
+import { debug, timeout } from '../system';
 
 export const vslsUriPrefixRegex = /^[/|\\]~(?:\d+?|external)(?:[/|\\]|$)/;
 export const vslsUriRootRegex = /^[/|\\]~(?:\d+?|external)$/;
@@ -148,6 +148,12 @@ export class VslsController implements Disposable {
 		return new Map<string, ContactPresence>(
 			Object.values(contacts).map(c => [c.email, contactStatusToPresence(c.status)])
 		);
+	}
+
+	@debug()
+	@timeout(250)
+	maybeGetPresence(email: string | undefined) {
+		return Container.vsls.getContactPresence(email);
 	}
 
 	async invite(email: string | undefined) {

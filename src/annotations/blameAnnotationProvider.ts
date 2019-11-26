@@ -10,12 +10,13 @@ import {
 	TextEditor,
 	TextEditorDecorationType
 } from 'vscode';
+import { AnnotationProviderBase } from './annotationProvider';
+import { ComputedHeatmap } from './annotations';
 import { Container } from '../container';
 import { GitBlame, GitBlameCommit, GitCommit, GitUri } from '../git/gitService';
+import { Hovers } from '../hovers/hovers';
 import { Arrays, Iterables, log } from '../system';
 import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
-import { AnnotationProviderBase } from './annotationProvider';
-import { Annotations, ComputedHeatmap } from './annotations';
 
 export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase {
 	protected _blame: Promise<GitBlame | undefined>;
@@ -232,7 +233,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		const commitLine = commit.lines.find(l => l.line === line) || commit.lines[0];
 		editorLine = commitLine.originalLine - 1;
 
-		const message = await Annotations.detailsHoverMessage(
+		const message = await Hovers.detailsMessage(
 			logCommit || commit,
 			await GitUri.fromUri(document.uri),
 			editorLine,
@@ -253,11 +254,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		const commit = await this.getCommitForHover(position);
 		if (commit === undefined) return undefined;
 
-		const message = await Annotations.changesHoverMessage(
-			commit,
-			await GitUri.fromUri(document.uri),
-			position.line
-		);
+		const message = await Hovers.changesMessage(commit, await GitUri.fromUri(document.uri), position.line);
 		if (message === undefined) return undefined;
 
 		return new Hover(
