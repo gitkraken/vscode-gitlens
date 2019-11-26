@@ -12,9 +12,9 @@ import {
 	Uri,
 	window
 } from 'vscode';
-import { Annotations } from '../annotations/annotations';
 import { configuration } from '../configuration';
 import { Container } from '../container';
+import { Hovers } from './hovers';
 import { LinesChangeEvent } from '../trackers/gitLineTracker';
 import { debug } from '../system';
 import { UriComparer } from '../comparers';
@@ -135,7 +135,7 @@ export class LineHoverController implements Disposable {
 		const trackedDocument = await Container.tracker.get(document);
 		if (trackedDocument === undefined) return undefined;
 
-		const message = await Annotations.detailsHoverMessage(
+		const message = await Hovers.detailsMessage(
 			logCommit || commit,
 			trackedDocument.uri,
 			editorLine,
@@ -181,7 +181,7 @@ export class LineHoverController implements Disposable {
 		const trackedDocument = await Container.tracker.get(document);
 		if (trackedDocument === undefined) return undefined;
 
-		const message = await Annotations.changesHoverMessage(commit, trackedDocument.uri, position.line);
+		const message = await Hovers.changesMessage(commit, trackedDocument.uri, position.line);
 		if (message === undefined) return undefined;
 
 		return new Hover(message, range);
