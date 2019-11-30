@@ -116,7 +116,7 @@
 				},
 				"gitlens.blame.format": {
 					"type": "string",
-					"default": "${message|40?} ${agoOrDate|14-}",
+					"default": "${message|50?} ${agoOrDate|14-}",
 					"markdownDescription": "Specifies the format of the gutter blame annotations. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.blame.dateFormat#` setting",
 					"scope": "window"
 				},
@@ -457,7 +457,7 @@
 				},
 				"gitlens.currentLine.format": {
 					"type": "string",
-					"default": "${author}${\" via \"pullRequest}, ${agoOrDate}${ • message}",
+					"default": "${message|50? • }${author}${\" via \"pullRequest}, ${agoOrDate}",
 					"markdownDescription": "Specifies the format of the current line blame annotation. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.currentLine.dateFormat#` setting",
 					"scope": "window"
 				},
