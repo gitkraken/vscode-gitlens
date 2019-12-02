@@ -3,6 +3,7 @@ import { Disposable, env, QuickInputButton, Range, Uri, window } from 'vscode';
 import { DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference } from '../../config';
 import { Container } from '../../container';
+import { Issue } from '../models/issue';
 import { PullRequest } from '../models/pullRequest';
 import { RemoteProviderWithApi } from './provider';
 
@@ -94,7 +95,7 @@ export class GitHubRemote extends RemoteProviderWithApi<{ token: string }> {
 				input.placeholder = 'Generate a personal access token from github.com (required)';
 
 				input.show();
-		});
+			});
 		} finally {
 			input.dispose();
 			disposable?.dispose();
@@ -132,6 +133,11 @@ export class GitHubRemote extends RemoteProviderWithApi<{ token: string }> {
 		if (sha) return `${this.baseUrl}/blob/${sha}/${fileName}${line}`;
 		if (branch) return `${this.baseUrl}/blob/${branch}/${fileName}${line}`;
 		return `${this.baseUrl}?path=${fileName}${line}`;
+	}
+
+	protected async onGetIssue({ token }: { token: string }, id: number): Promise<Issue | undefined> {
+		const [owner, repo] = this.splitPath();
+		return (await Container.github).getIssue(token, owner, repo, id, { baseUrl: this.apiBaseUrl });
 	}
 
 	protected async onGetPullRequestForCommit(
