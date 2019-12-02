@@ -154,14 +154,16 @@ export namespace Hovers {
 
 		const remotes = await Container.git.getRemotes(commit.repoPath, { sort: true });
 
-		const [previousLineDiffUris, pr, presence] = await Promise.all([
+		const [previousLineDiffUris, autolinkedIssues, pr, presence] = await Promise.all([
 			commit.isUncommitted ? commit.getPreviousLineDiffUris(uri, editorLine, uri.sha) : undefined,
+			Container.autolinks.getIssueLinks(commit.message, remotes),
 			getPullRequestForCommit(commit.ref, remotes),
 			Container.vsls.maybeGetPresence(commit.email).catch(reason => undefined)
 		]);
 
 		const details = CommitFormatter.fromTemplate(Container.config.hovers.detailsMarkdownFormat, commit, {
 			annotationType: annotationType,
+			autolinkedIssues: autolinkedIssues,
 			dateFormat: dateFormat,
 			line: editorLine,
 			markdown: true,

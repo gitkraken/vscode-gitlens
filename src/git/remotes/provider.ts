@@ -6,6 +6,7 @@ import { Container } from '../../container';
 import { CredentialChangeEvent, CredentialManager } from '../../credentials';
 import { Logger } from '../../logger';
 import { Messages } from '../../messages';
+import { Issue } from '../models/issue';
 import { GitLogCommit } from '../models/logCommit';
 import { PullRequest } from '../models/pullRequest';
 import { debug, Promises } from '../../system';
@@ -210,7 +211,7 @@ export abstract class RemoteProviderWithApi<T extends string | {} = any> extends
 			this._onDidChange.fire();
 
 			return;
-	}
+		}
 
 		if (e.reason === 'clear' && (e.key === undefined || e.key === this.credentialsKey)) {
 			this._credentials = undefined;
@@ -233,6 +234,21 @@ export abstract class RemoteProviderWithApi<T extends string | {} = any> extends
 		return (await this.credentials()) != null;
 	}
 
+	@debug()
+	async getIssue(id: number): Promise<Issue | undefined> {
+		const cc = Logger.getCorrelationContext();
+
+		if (!(await this.isConnected())) return undefined;
+
+		try {
+			return await this.onGetIssue(this._credentials!, id);
+		} catch (ex) {
+			Logger.error(ex, cc);
+
+			return undefined;
+		}
+	}
+
 	private _prsByCommit = new Map<string, Promise<PullRequest | null> | PullRequest | null>();
 
 	@debug()
@@ -247,6 +263,7 @@ export abstract class RemoteProviderWithApi<T extends string | {} = any> extends
 		return pr.then(pr => pr ?? undefined);
 	}
 
+	protected abstract onGetIssue(credentials: T, id: number): Promise<Issue | undefined>;
 	protected abstract onGetPullRequestForCommit(credentials: T, ref: string): Promise<PullRequest | undefined>;
 
 	protected _credentials: T | null | undefined;

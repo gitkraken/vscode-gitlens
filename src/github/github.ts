@@ -2,7 +2,7 @@
 import { graphql } from '@octokit/graphql';
 import { Logger } from '../logger';
 import { debug } from '../system';
-import { PullRequest, PullRequestState } from '../git/gitService';
+import { Issue, PullRequest, PullRequestState } from '../git/gitService';
 
 export class GitHubApi {
 	@debug()
@@ -74,6 +74,62 @@ export class GitHubApi {
 			throw ex;
 		}
 	}
+
+	@debug()
+	async getIssue(
+		token: string,
+		owner: string,
+		repo: string,
+		number: number,
+		options?: {
+			baseUrl?: string;
+		}
+	): Promise<Issue | undefined> {
+		const cc = Logger.getCorrelationContext();
+
+		try {
+			const query = `query pr($owner: String!, $repo: String!, $number: Int!) {
+	repository(name: $repo, owner: $owner) {
+		issue(number: $number) {
+			createdAt
+			closed
+			closedAt
+			title
+		}
+	}
+}`;
+
+			const variables = { owner: owner, repo: repo, number: number };
+			Logger.debug(cc, `variables: ${JSON.stringify(variables)}`);
+
+			const rsp = await graphql(query, {
+				...variables,
+				headers: { authorization: `token ${token}` },
+				...options
+			});
+			const issue = rsp?.repository?.issue as GitHubIssue | undefined;
+			if (issue == null) return undefined;
+
+			return {
+				id: issue.number,
+				date: new Date(issue.createdAt),
+				title: issue.title,
+				closed: issue.closed,
+				closedDate: issue.closedAt == null ? undefined : new Date(issue.closedAt)
+			};
+		} catch (ex) {
+			Logger.error(ex, cc);
+			throw ex;
+		}
+	}
+}
+
+interface GitHubIssue {
+	number: number;
+	createdAt: string;
+	closed: boolean;
+	closedAt: string | null;
+	title: string;
 }
 
 interface GitHubPullRequest {
