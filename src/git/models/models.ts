@@ -37,6 +37,7 @@ export * from './commit';
 export * from './contributor';
 export * from './diff';
 export * from './file';
+export * from './issue';
 export * from './log';
 export * from './logCommit';
 export * from './pullRequest';

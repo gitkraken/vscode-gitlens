@@ -126,7 +126,6 @@ export interface AutolinkReference {
 	url: string;
 	title?: string;
 	ignoreCase?: boolean;
-	linkify?: ((text: string) => string) | null;
 }
 
 export enum BranchSorting {
