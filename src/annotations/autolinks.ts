@@ -2,18 +2,17 @@
 import { ConfigurationChangeEvent, Disposable } from 'vscode';
 import { AutolinkReference, configuration } from '../configuration';
 import { Container } from '../container';
-import { Dates, Strings } from '../system';
+import { Dates, Iterables, Promises, Strings } from '../system';
 import { Logger } from '../logger';
 import { GitRemote, Issue } from '../git/git';
-import { RemoteProviderWithApi } from '../git/remotes/provider';
 import { GlyphChars } from '../constants';
 
 const numRegex = /<num>/g;
 
 export interface CacheableAutolinkReference extends AutolinkReference {
 	linkify?: ((text: string) => string) | null;
-	markdownRegex?: RegExp;
-	textRegex?: RegExp;
+	messageMarkdownRegex?: RegExp;
+	messageRegex?: RegExp;
 }
 
 export interface DynamicAutolinkReference {
@@ -48,46 +47,59 @@ export class Autolinks implements Disposable {
 		}
 	}
 
-	async getIssueLinks(text: string, remotes: GitRemote[]) {
-		if (remotes.length === 0) return undefined;
+	async getIssueLinks(message: string, remote: GitRemote, { timeout }: { timeout?: number } = {}) {
+		const provider = remote.provider;
+		if (!provider?.hasApi()) return undefined;
+		if (!(await provider.isConnected())) return undefined;
 
-		const issues = new Map<number, Issue>();
+		const ids = new Set<number>();
 
-		for (const r of remotes) {
-			if (!(r.provider instanceof RemoteProviderWithApi)) continue;
-			if (!(await r.provider.isConnected())) continue;
+		let match;
+		let num;
+		for (const ref of provider.autolinks) {
+			if (!isCacheable(ref)) continue;
 
-			for (const ref of r.provider.autolinks) {
-				if (!isCacheable(ref)) continue;
-
-				if (ref.textRegex === undefined) {
-					ref.textRegex = new RegExp(`(?<=^|\\s)(${ref.prefix}([0-9]+))\\b`, 'g');
-				}
-
-				let match;
-				let num;
-				let id;
-				let issue;
-				do {
-					match = ref.textRegex.exec(text);
-					if (match == null) break;
-
-					[, , num] = match;
-
-					id = Number(num);
-					issue = await r.provider.getIssue(id);
-					if (issue != null) {
-						issues.set(id, issue);
-					}
-				} while (true);
+			if (ref.messageRegex === undefined) {
+				ref.messageRegex = new RegExp(`(?<=^|\\s)(${ref.prefix}([0-9]+))\\b`, 'g');
 			}
+
+			do {
+				match = ref.messageRegex.exec(message);
+				if (match == null) break;
+
+				[, , num] = match;
+
+				ids.add(Number(num));
+			} while (true);
+		}
+
+		if (ids.size === 0) return undefined;
+
+		const promises = [
+			...Iterables.map<number, [number, Promise<Issue | undefined>]>(ids.values(), id => [
+				id,
+				provider.getIssue(id)
+			])
+		];
+
+		const promise =
+			timeout != null && timeout > 0
+				? Promises.raceAll(promises, timeout)
+				: Promise.all(promises.map(([, p]) => p));
+
+		const issues = new Map<number, Issue | Promises.CancellationErrorWithId<number>>();
+		for (const issue of await promise) {
+			if (issue == null) continue;
+
+			issues.set(issue.id, issue);
 		}
 
 		if (issues.size === 0) return undefined;
+
 		return issues;
 	}
 
-	linkify(text: string, remotes?: GitRemote[], issues?: Map<number, Issue>) {
+	linkify(text: string, remotes?: GitRemote[], issues?: Map<number, Issue | Promises.CancellationError>) {
 		for (const ref of this._references) {
 			if (this.ensureAutolinkCached(ref, issues)) {
 				if (ref.linkify != null) {
@@ -115,13 +127,13 @@ export class Autolinks implements Disposable {
 
 	private ensureAutolinkCached(
 		ref: CacheableAutolinkReference | DynamicAutolinkReference,
-		issues?: Map<number, Issue>
+		issues?: Map<number, Issue | Promises.CancellationError>
 	): ref is CacheableAutolinkReference | DynamicAutolinkReference {
 		if (isDynamic(ref)) return true;
 
 		try {
-			if (ref.markdownRegex === undefined) {
-				ref.markdownRegex = new RegExp(
+			if (ref.messageMarkdownRegex === undefined) {
+				ref.messageMarkdownRegex = new RegExp(
 					`(?<=^|\\s)(${Strings.escapeMarkdown(ref.prefix).replace(/\\/g, '\\\\')}([0-9]+))\\b`,
 					'g'
 				);
@@ -131,19 +143,21 @@ export class Autolinks implements Disposable {
 				const markdown = `[$1](${ref.url.replace(numRegex, '$2')}${
 					ref.title ? ` "${ref.title.replace(numRegex, '$2')}"` : ''
 				})`;
-				ref.linkify = (text: string) => text.replace(ref.markdownRegex!, markdown);
+				ref.linkify = (text: string) => text.replace(ref.messageMarkdownRegex!, markdown);
 
 				return true;
 			}
 
 			ref.linkify = (text: string) =>
-				text.replace(ref.markdownRegex!, (substring, linkText, number) => {
+				text.replace(ref.messageMarkdownRegex!, (substring, linkText, number) => {
 					const issue = issues?.get(Number(number));
 
 					return `[${linkText}](${ref.url.replace(numRegex, number)}${
 						ref.title
 							? ` "${ref.title.replace(numRegex, number)}${
-									issue
+									issue instanceof Promises.CancellationError
+										? `\n${GlyphChars.Dash.repeat(2)}\nDetails timed out`
+										: issue
 										? `\n${GlyphChars.Dash.repeat(2)}\n${issue.title.replace(/([")])/g, '\\$1')}\n${
 												issue.closed ? 'Closed' : 'Opened'
 										  }, ${Dates.getFormatter(issue.closedDate ?? issue.date).fromNow()}`

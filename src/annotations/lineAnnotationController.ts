@@ -14,9 +14,9 @@ import { GlyphChars, isTextEditor } from '../constants';
 import { Container } from '../container';
 import { LinesChangeEvent } from '../trackers/gitLineTracker';
 import { Annotations } from './annotations';
-import { debug, log } from '../system';
+import { debug, Iterables, log, Promises } from '../system';
 import { Logger } from '../logger';
-import { CommitFormatter, CommitPullRequest, GitRemote } from '../git/gitService';
+import { CommitFormatter, GitBlameCommit, PullRequest } from '../git/gitService';
 
 const annotationDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
 	after: {
@@ -140,12 +140,61 @@ export class LineAnnotationController implements Disposable {
 		editor.setDecorations(annotationDecoration, []);
 	}
 
-	private async getPullRequestForCommit(ref: string, remotes: GitRemote[]) {
-		try {
-			return await Container.git.getPullRequestForCommit(ref, remotes, { timeout: 100 });
-		} catch {
-			return undefined;
+	private async getPullRequests(
+		repoPath: string,
+		lines: [number, GitBlameCommit][],
+		{ timeout }: { timeout?: number } = {}
+	) {
+		if (lines.length === 0) return undefined;
+
+		const remotes = await Container.git.getRemotes(repoPath);
+		const remote = remotes.find(r => r.default);
+		if (remote === undefined) return undefined;
+
+		const provider = remote.provider;
+		if (!provider?.hasApi()) return undefined;
+		if (!(await provider.isConnected())) return undefined;
+
+		const refs = new Set<string>();
+
+		for (const [, commit] of lines) {
+			refs.add(commit.ref);
 		}
+
+		if (refs.size === 0) return undefined;
+
+		const promises = [
+			...Iterables.map<string, [string, Promise<[string, PullRequest | undefined]>]>(refs.values(), ref => [
+				ref,
+				Container.git.getPullRequestForCommit(ref, remote).then(pr => [ref, pr])
+			])
+		];
+
+		const promise =
+			timeout != null && timeout > 0
+				? Promises.raceAll(promises, timeout)
+				: Promise.all(promises.map(([, p]) => p));
+
+		const prs = new Map<string, PullRequest | Promises.CancellationErrorWithId<string>>();
+
+		let ref;
+		let pr;
+		for (const result of await promise) {
+			if (result == null) continue;
+
+			if (result instanceof Promises.CancellationErrorWithId) {
+				prs.set(result.id, result);
+			} else {
+				[ref, pr] = result;
+				if (pr == null) continue;
+
+				prs.set(ref, pr);
+			}
+		}
+
+		if (prs.size === 0) return undefined;
+
+		return prs;
 	}
 
 	@debug({ args: false })
@@ -209,61 +258,49 @@ export class LineAnnotationController implements Disposable {
 			cc.exitDetails = ` ${GlyphChars.Dot} line(s)=${lines.join()}`;
 		}
 
-		let getBranchAndTagTips;
-		if (CommitFormatter.has(cfg.format, 'tips')) {
-			getBranchAndTagTips = await Container.git.getBranchesAndTagsTipsFn(trackedDocument.uri.repoPath);
-		}
+		const commitLines = [
+			...Iterables.filterMap<number, [number, GitBlameCommit]>(lines, l => {
+				const state = Container.lineTracker.getState(l);
+				if (state?.commit == null) return undefined;
 
-		let prs;
-		if (
-			Container.config.pullRequests.enabled &&
+				return [l, state.commit];
+			})
+		];
+
+		const repoPath = trackedDocument.uri.repoPath;
+
+		const [getBranchAndTagTips, prs] = await Promise.all([
+			CommitFormatter.has(cfg.format, 'tips') ? Container.git.getBranchesAndTagsTipsFn(repoPath) : undefined,
+			repoPath != null &&
+			Container.config.currentLine.pullRequests.enabled &&
 			CommitFormatter.has(
-				cfg.format,
+				Container.config.currentLine.format,
 				'pullRequest',
 				'pullRequestAgo',
 				'pullRequestAgoOrDate',
 				'pullRequestDate',
 				'pullRequestState'
 			)
-		) {
-			const promises = [];
-			let remotes;
-
-			for (const l of lines) {
-				const state = Container.lineTracker.getState(l);
-				if (state?.commit == null || state.commit.isUncommitted || (remotes != null && remotes.length === 0)) {
-					continue;
-				}
-
-				if (remotes == null) {
-					remotes = await Container.git.getRemotes(state.commit.repoPath);
-				}
-				promises.push(this.getPullRequestForCommit(state.commit.ref, remotes));
-			}
-
-			prs = new Map<string, CommitPullRequest | undefined>();
-			for await (const pr of promises) {
-				if (pr === undefined) continue;
-
-				prs.set(pr?.ref, pr);
-			}
-		}
+				? this.getPullRequests(
+						repoPath,
+						commitLines.filter(([, commit]) => !commit.isUncommitted),
+						{ timeout: 250 }
+				  )
+				: undefined
+		]);
 
 		const decorations = [];
 
-		for (const l of lines) {
-			const state = Container.lineTracker.getState(l);
-			if (state?.commit == null) continue;
-
+		for (const [l, commit] of commitLines) {
 			const decoration = Annotations.trailing(
-				state.commit,
+				commit,
 				// await GitUri.fromUri(editor.document.uri),
 				// l,
 				cfg.format,
 				{
 					dateFormat: cfg.dateFormat === null ? Container.config.defaultDateFormat : cfg.dateFormat,
 					getBranchAndTagTips: getBranchAndTagTips,
-					pr: prs?.get(state.commit.ref)
+					pullRequestOrRemote: prs?.get(commit.ref)
 				},
 				cfg.scrollable
 			) as DecorationOptions;

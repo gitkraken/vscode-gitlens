@@ -461,6 +461,12 @@
 					"markdownDescription": "Specifies the format of the current line blame annotation. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.currentLine.dateFormat#` setting",
 					"scope": "window"
 				},
+				"gitlens.currentLine.pullRequests.enabled": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to provide information about the Pull Request (if any) that introduced a commit in the current line blame annotation. Requires a connection to a supported remote service (e.g. GitHub)",
+					"scope": "window"
+				},
 				"gitlens.currentLine.scrollable": {
 					"type": "boolean",
 					"default": true,
@@ -757,6 +763,24 @@
 					"type": "boolean",
 					"default": true,
 					"markdownDescription": "Specifies whether to provide any hovers",
+					"scope": "window"
+				},
+				"gitlens.hovers.autolinks.enabled": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to automatically link external resources in commit messages",
+					"scope": "window"
+				},
+				"gitlens.hovers.autolinks.enhanced": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to lookup additional details about automatically link external resources in commit messages. Requires a connection to a supported remote service (e.g. GitHub)",
+					"scope": "window"
+				},
+				"gitlens.hovers.pullRequests.enabled": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to provide information about the Pull Request (if any) that introduced a commit in the hovers. Requires a connection to a supported remote service (e.g. GitHub)",
 					"scope": "window"
 				},
 				"gitlens.insiders": {
@@ -1196,12 +1220,6 @@
 						"Logs all errors, warnings, and messages with extra context useful for debugging"
 					],
 					"markdownDescription": "Specifies how much (if any) output will be sent to the GitLens output channel",
-					"scope": "window"
-				},
-				"gitlens.pullRequests.enabled": {
-					"type": "boolean",
-					"default": true,
-					"markdownDescription": "Specifies whether to provide information about the Pull Request (if any) that introduced a commit. Requires a connection to a supported remote service (e.g. GitHub)",
 					"scope": "window"
 				},
 				"gitlens.recentChanges.highlight.locations": {

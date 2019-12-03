@@ -156,7 +156,7 @@ export namespace Hovers {
 
 		const [previousLineDiffUris, autolinkedIssues, pr, presence] = await Promise.all([
 			commit.isUncommitted ? commit.getPreviousLineDiffUris(uri, editorLine, uri.sha) : undefined,
-			Container.autolinks.getIssueLinks(commit.message, remotes),
+			getAutoLinkedIssues(commit.message, remotes),
 			getPullRequestForCommit(commit.ref, remotes),
 			Container.vsls.maybeGetPresence(commit.email).catch(reason => undefined)
 		]);
@@ -167,7 +167,7 @@ export namespace Hovers {
 			dateFormat: dateFormat,
 			line: editorLine,
 			markdown: true,
-			pr: pr,
+			pullRequestOrRemote: pr,
 			presence: presence,
 			previousLineDiffUris: previousLineDiffUris,
 			remotes: remotes
@@ -188,9 +188,50 @@ export namespace Hovers {
 		}\n\`\`\``;
 	}
 
-	async function getPullRequestForCommit(ref: string, remotes: GitRemote[]) {
+	async function getAutoLinkedIssues(message: string, remotes: GitRemote[]) {
+		if (
+			!Container.config.hovers.autolinks.enabled ||
+			!Container.config.hovers.autolinks.enhanced ||
+			!CommitFormatter.has(Container.config.hovers.detailsMarkdownFormat, 'message')
+		) {
+			return undefined;
+		}
+
+		const remote = remotes.find(r => r.default && r.provider != null);
+		if (remote === undefined) return undefined;
+
 		try {
-			return await Container.git.getPullRequestForCommit(ref, remotes, { timeout: 250 });
+			return await Container.autolinks.getIssueLinks(message, remote, { timeout: 250 });
+		} catch {
+			return undefined;
+		}
+	}
+
+	async function getPullRequestForCommit(ref: string, remotes: GitRemote[]) {
+		if (
+			!Container.config.hovers.pullRequests.enabled ||
+			!CommitFormatter.has(
+				Container.config.hovers.detailsMarkdownFormat,
+				'pullRequest',
+				'pullRequestAgo',
+				'pullRequestAgoOrDate',
+				'pullRequestDate',
+				'pullRequestState'
+			)
+		) {
+			return undefined;
+		}
+
+		const remote = remotes.find(r => r.default && r.provider != null);
+		if (remote === undefined) return undefined;
+
+		const provider = remote.provider;
+		if (provider?.hasApi() && !(await provider.isConnected())) {
+			return remote;
+		}
+
+		try {
+			return await Container.git.getPullRequestForCommit(ref, remote, { timeout: 250 });
 		} catch (ex) {
 			if (ex instanceof Promises.CancellationError) {
 				return ex;

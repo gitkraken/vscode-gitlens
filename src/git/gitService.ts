@@ -92,7 +92,6 @@ export * from './formatters/formatters';
 export * from './remotes/provider';
 export { RemoteProviderFactory } from './remotes/factory';
 
-const emptyArray = (Object.freeze([]) as any) as any[];
 const emptyStr = '';
 const slash = '/';
 
@@ -109,12 +108,6 @@ const searchOperationRegex = /((?:=|message|@|author|#|commit|\?|file|~|change):
 
 const emptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
 const reflogCommands = ['merge', 'pull'];
-
-export interface CommitPullRequest {
-	ref: string;
-	pr: PullRequest | undefined;
-	remote: GitRemote | undefined;
-}
 
 export type SearchOperators =
 	| ''
@@ -2353,71 +2346,30 @@ export class GitService implements Disposable {
 
 	async getPullRequestForCommit(
 		ref: string,
-		remotes: GitRemote[],
+		remote: GitRemote,
 		{ timeout }: { timeout?: number } = {}
-	): Promise<CommitPullRequest | undefined> {
-		if (
-			!Container.config.pullRequests.enabled ||
-			(remotes != null && remotes.length === 0) ||
-			Git.isUncommitted(ref)
-		) {
+	): Promise<PullRequest | undefined> {
+		if (Git.isUncommitted(ref) || !remote.provider?.hasApi()) return undefined;
+		if (!(await remote.provider.isConnected())) return undefined;
+
+		let promiseOrPR = remote.provider.getPullRequestForCommit(ref);
+		if (promiseOrPR == null || !Promises.is(promiseOrPR)) {
+			return promiseOrPR;
+		}
+
+		if (timeout != null && timeout > 0) {
+			promiseOrPR = Promises.cancellable(promiseOrPR, timeout);
+		}
+
+		try {
+			return await promiseOrPR;
+		} catch (ex) {
+			if (ex instanceof Promises.CancellationError) {
+				throw ex;
+			}
+
 			return undefined;
 		}
-
-		const pr: CommitPullRequest = {
-			ref: ref,
-			pr: undefined,
-			remote: undefined
-		};
-
-		const prs: Promise<[PullRequest | undefined, GitRemote]>[] = [];
-
-		let foundConnectedDefaultSkipOthers = false;
-		for (const remote of GitRemote.sort(remotes)) {
-			if (!remote.provider?.hasApi()) continue;
-
-			if (!(await remote.provider.isConnected())) {
-				if (pr.remote == null) {
-					pr.remote = remote;
-				}
-				continue;
-			}
-
-			if (!foundConnectedDefaultSkipOthers) {
-				if (remote.default) {
-					foundConnectedDefaultSkipOthers = true;
-				}
-
-				const requestOrPR = remote.provider.getPullRequestForCommit(ref);
-				if (requestOrPR == null || !Promises.is(requestOrPR)) {
-					pr.pr = requestOrPR;
-					pr.remote = requestOrPR !== undefined ? remote : undefined;
-					break;
-				}
-				prs.push(requestOrPR.then(pr => [pr, remote]));
-			} else if (pr.remote !== undefined) {
-				break;
-			}
-		}
-
-		if (prs.length !== 0) {
-			pr.remote = undefined;
-
-			let promise = Promises.first(prs, ([pr]) => pr != null);
-			if (timeout != null && timeout > 0) {
-				promise = Promises.cancellable(promise, timeout);
-			}
-
-			try {
-				[pr.pr, pr.remote] = (await promise) ?? emptyArray;
-			} catch (ex) {
-				if (ex instanceof Promises.CancellationError) {
-					throw ex;
-				}
-			}
-		}
-
-		return pr;
 	}
 
 	@log()
