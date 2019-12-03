@@ -7,6 +7,7 @@ import { Issue, PullRequest, PullRequestState } from '../git/gitService';
 export class GitHubApi {
 	@debug()
 	async getPullRequestForCommit(
+		provider: string,
 		token: string,
 		owner: string,
 		repo: string,
@@ -57,6 +58,7 @@ export class GitHubApi {
 			if (pr.repository.owner.login !== owner) return undefined;
 
 			return new PullRequest(
+				provider,
 				pr.number,
 				pr.title,
 				pr.permalink,
@@ -77,6 +79,7 @@ export class GitHubApi {
 
 	@debug()
 	async getIssue(
+		provider: string,
 		token: string,
 		owner: string,
 		repo: string,
@@ -111,7 +114,8 @@ export class GitHubApi {
 			if (issue == null) return undefined;
 
 			return {
-				id: issue.number,
+				provider: provider,
+				id: number,
 				date: new Date(issue.createdAt),
 				title: issue.title,
 				closed: issue.closed,

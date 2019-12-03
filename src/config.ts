@@ -24,6 +24,9 @@ export interface Config {
 		dateFormat: string | null;
 		enabled: boolean;
 		format: string;
+		pullRequests: {
+			enabled: boolean;
+		};
 		scrollable: boolean;
 	};
 	codeLens: CodeLensConfig;
@@ -56,6 +59,10 @@ export interface Config {
 			enabled: boolean;
 			over: 'line' | 'annotation';
 		};
+		autolinks: {
+			enabled: boolean;
+			enhanced: boolean;
+		};
 		currentLine: {
 			changes: boolean;
 			details: boolean;
@@ -66,6 +73,9 @@ export interface Config {
 		changesDiff: 'line' | 'hunk';
 		detailsMarkdownFormat: string;
 		enabled: boolean;
+		pullRequests: {
+			enabled: boolean;
+		};
 	};
 	insiders: boolean;
 	keymap: KeyMap;
@@ -82,9 +92,6 @@ export interface Config {
 	};
 	modes: { [key: string]: ModeConfig };
 	outputLevel: TraceLevel;
-	pullRequests: {
-		enabled: boolean;
-	};
 	recentChanges: {
 		highlight: {
 			locations: HighlightLocations[];

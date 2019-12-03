@@ -19,7 +19,12 @@ export enum PullRequestState {
 }
 
 export class PullRequest {
+	static is(pr: any): pr is PullRequest {
+		return pr instanceof PullRequest;
+	}
+
 	constructor(
+		public readonly provider: string,
 		public readonly number: number,
 		public readonly title: string,
 		public readonly url: string,
