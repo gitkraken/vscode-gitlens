@@ -11,7 +11,7 @@ import {
 import { DateStyle, FileAnnotationType } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { CommitPullRequest, GitCommit, GitLogCommit, GitRemote, GitService, GitUri, Issue } from '../gitService';
+import { GitCommit, GitLogCommit, GitRemote, GitService, GitUri, Issue, PullRequest } from '../gitService';
 import { Strings } from '../../system';
 import { FormatOptions, Formatter } from './formatter';
 import { ContactPresence } from '../../vsls/vsls';
@@ -25,12 +25,12 @@ const hasTokenRegexMap = new Map<string, RegExp>();
 
 export interface CommitFormatOptions extends FormatOptions {
 	annotationType?: FileAnnotationType;
-	autolinkedIssues?: Map<number, Issue>;
+	autolinkedIssues?: Map<number, Issue | Promises.CancellationError>;
 	dateStyle?: DateStyle;
 	getBranchAndTagTips?: (sha: string) => string | undefined;
 	line?: number;
 	markdown?: boolean;
-	pr?: CommitPullRequest | Promises.CancellationError<CommitPullRequest>;
+	pullRequestOrRemote?: PullRequest | Promises.CancellationError | GitRemote;
 	presence?: ContactPresence;
 	previousLineDiffUris?: { current: GitUri; previous: GitUri | undefined };
 	remotes?: GitRemote[];
@@ -105,17 +105,17 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	private get _pullRequestDate() {
-		const { pr } = this._options;
-		if (pr == null || pr instanceof Promises.CancellationError) return emptyStr;
+		const { pullRequestOrRemote: pr } = this._options;
+		if (pr == null || !PullRequest.is(pr)) return emptyStr;
 
-		return pr.pr?.formatDate(this._options.dateFormat) ?? emptyStr;
+		return pr.formatDate(this._options.dateFormat) ?? emptyStr;
 	}
 
 	private get _pullRequestDateAgo() {
-		const { pr } = this._options;
-		if (pr == null || pr instanceof Promises.CancellationError) return emptyStr;
+		const { pullRequestOrRemote: pr } = this._options;
+		if (pr == null || !PullRequest.is(pr)) return emptyStr;
 
-		return pr.pr?.formatDateFromNow() ?? emptyStr;
+		return pr.formatDateFromNow() ?? emptyStr;
 	}
 
 	private get _pullRequestDateOrAgo() {
@@ -242,21 +242,19 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			this._item.sha
 		)} "Show Commit Details")${separator}`;
 
-		const { pr } = this._options;
+		const { pullRequestOrRemote: pr } = this._options;
 		if (pr != null) {
-			if (pr instanceof Promises.CancellationError) {
+			if (PullRequest.is(pr)) {
+				commands += `[\`PR #${pr.number}\`](${pr.url} "Open Pull Request \\#${pr.number} on ${
+					pr.provider
+				}\n${GlyphChars.Dash.repeat(2)}\n${pr.title}\n${pr.state}, ${pr.formatDateFromNow()}")${separator}`;
+			} else if (pr instanceof Promises.CancellationError) {
 				commands += `[\`PR (loading${GlyphChars.Ellipsis})\`](# "Searching for a Pull Request (if any) that introduced this commit...")${separator}`;
-			} else if (pr.pr != null) {
-				commands += `[\`PR #${pr.pr.number}\`](${pr.pr.url} "Open Pull Request \\#${pr.pr.number}${
-					pr.remote?.provider != null ? ` on ${pr.remote.provider.name}` : ''
-				}\n${GlyphChars.Dash.repeat(2)}\n${pr.pr.title}\n${
-					pr.pr.state
-				}, ${pr.pr.formatDateFromNow()}")${separator}`;
-			} else if (pr.remote?.provider != null) {
-				commands += `[\`Connect to ${pr.remote.provider.name}${
+			} else if (pr.provider != null) {
+				commands += `[\`Connect to ${pr.provider.name}${
 					GlyphChars.Ellipsis
-				}\`](${ConnectRemoteProviderCommand.getMarkdownCommandArgs(pr.remote)} "Connect to ${
-					pr.remote.provider.name
+				}\`](${ConnectRemoteProviderCommand.getMarkdownCommandArgs(pr)} "Connect to ${
+					pr.provider.name
 				} to enable the display of the Pull Request (if any) that introduced this commit")${separator}`;
 			}
 		}
@@ -356,30 +354,32 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			return message;
 		}
 
-		message = Container.autolinks.linkify(
-			Strings.escapeMarkdown(message, { quoted: true }),
-			this._options.remotes,
-			this._options.autolinkedIssues
-		);
+		if (Container.config.hovers.autolinks.enabled) {
+			message = Container.autolinks.linkify(
+				Strings.escapeMarkdown(message, { quoted: true }),
+				this._options.remotes,
+				this._options.autolinkedIssues
+			);
+		}
 
 		return `\n> ${message}`;
 	}
 
 	get pullRequest() {
-		const { pr } = this._options;
+		const { pullRequestOrRemote: pr } = this._options;
 		if (pr == null) return emptyStr;
 
 		let text;
-		if (pr instanceof Promises.CancellationError) {
+		if (PullRequest.is(pr)) {
+			text = this._options.markdown
+				? `[PR #${pr.number}](${pr.url} "Open Pull Request \\#${pr.number} on ${
+						pr.provider
+				  }\n${GlyphChars.Dash.repeat(2)}\n${pr.title}\n${pr.state}, ${pr.formatDateFromNow()}")`
+				: `PR #${pr.number}`;
+		} else if (pr instanceof Promises.CancellationError) {
 			text = this._options.markdown
 				? `[PR (loading${GlyphChars.Ellipsis})](# "Searching for a Pull Request (if any) that introduced this commit...")`
 				: `PR (loading${GlyphChars.Ellipsis})`;
-		} else if (pr.pr != null) {
-			text = this._options.markdown
-				? `[PR #${pr.pr.number}](${pr.pr.url} "Open Pull Request \\#${pr.pr.number}${
-						pr.remote?.provider != null ? ` on ${pr.remote.provider.name}` : ''
-				  }\n${GlyphChars.Dash.repeat(2)}\n${pr.pr.title}\n${pr.pr.state}, ${pr.pr.formatDateFromNow()}")`
-				: `PR #${pr.pr.number}`;
 		} else {
 			return emptyStr;
 		}
@@ -400,10 +400,10 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get pullRequestState() {
-		const { pr } = this._options;
-		if (pr == null || pr instanceof Promises.CancellationError) return emptyStr;
+		const { pullRequestOrRemote: pr } = this._options;
+		if (pr == null || !PullRequest.is(pr)) return emptyStr;
 
-		return this._padOrTruncate(pr.pr?.state ?? emptyStr, this._options.tokenOptions.pullRequestState);
+		return this._padOrTruncate(pr.state ?? emptyStr, this._options.tokenOptions.pullRequestState);
 	}
 
 	get sha() {

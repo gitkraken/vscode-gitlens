@@ -137,7 +137,7 @@ export class GitHubRemote extends RemoteProviderWithApi<{ token: string }> {
 
 	protected async onGetIssue({ token }: { token: string }, id: number): Promise<Issue | undefined> {
 		const [owner, repo] = this.splitPath();
-		return (await Container.github).getIssue(token, owner, repo, id, { baseUrl: this.apiBaseUrl });
+		return (await Container.github).getIssue(this.name, token, owner, repo, id, { baseUrl: this.apiBaseUrl });
 	}
 
 	protected async onGetPullRequestForCommit(
@@ -145,6 +145,8 @@ export class GitHubRemote extends RemoteProviderWithApi<{ token: string }> {
 		ref: string
 	): Promise<PullRequest | undefined> {
 		const [owner, repo] = this.splitPath();
-		return (await Container.github).getPullRequestForCommit(token, owner, repo, ref, { baseUrl: this.apiBaseUrl });
+		return (await Container.github).getPullRequestForCommit(this.name, token, owner, repo, ref, {
+			baseUrl: this.apiBaseUrl
+		});
 	}
 }
