@@ -25,7 +25,7 @@ const hasTokenRegexMap = new Map<string, RegExp>();
 
 export interface CommitFormatOptions extends FormatOptions {
 	annotationType?: FileAnnotationType;
-	autolinkedIssues?: Map<number, Issue | Promises.CancellationError>;
+	autolinkedIssues?: Map<number, Issue | Promises.CancellationError | undefined>;
 	dateStyle?: DateStyle;
 	getBranchAndTagTips?: (sha: string) => string | undefined;
 	line?: number;
@@ -249,7 +249,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					pr.provider
 				}\n${GlyphChars.Dash.repeat(2)}\n${pr.title}\n${pr.state}, ${pr.formatDateFromNow()}")${separator}`;
 			} else if (pr instanceof Promises.CancellationError) {
-				commands += `[\`PR (loading${GlyphChars.Ellipsis})\`](# "Searching for a Pull Request (if any) that introduced this commit...")${separator}`;
+				commands += `[\`PR ${GlyphChars.Ellipsis}\`](# "Searching for a Pull Request (if any) that introduced this commit...")${separator}`;
 			} else if (pr.provider != null) {
 				commands += `[\`Connect to ${pr.provider.name}${
 					GlyphChars.Ellipsis
@@ -378,8 +378,8 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				: `PR #${pr.number}`;
 		} else if (pr instanceof Promises.CancellationError) {
 			text = this._options.markdown
-				? `[PR (loading${GlyphChars.Ellipsis})](# "Searching for a Pull Request (if any) that introduced this commit...")`
-				: `PR (loading${GlyphChars.Ellipsis})`;
+				? `[PR ${GlyphChars.Ellipsis}](# "Searching for a Pull Request (if any) that introduced this commit...")`
+				: `PR ${GlyphChars.Ellipsis}`;
 		} else {
 			return emptyStr;
 		}

@@ -9,7 +9,7 @@ import { Messages } from '../../messages';
 import { Issue } from '../models/issue';
 import { GitLogCommit } from '../models/logCommit';
 import { PullRequest } from '../models/pullRequest';
-import { debug, Promises } from '../../system';
+import { debug, gate, Promises } from '../../system';
 
 export enum RemoteResourceType {
 	Branch = 'branch',
@@ -230,15 +230,27 @@ export abstract class RemoteProviderWithApi<T extends string | {} = any> extends
 		return this.clearCredentials();
 	}
 
+	@gate()
+	@debug<RemoteProviderWithApi['isConnected']>({
+		exit: connected => `returned ${connected}`
+	})
 	async isConnected(): Promise<boolean> {
 		return (await this.credentials()) != null;
 	}
 
+	get maybeConnected(): boolean | undefined {
+		if (this._credentials === undefined) return undefined;
+
+		return this._credentials !== null;
+	}
+
+	@gate()
 	@debug()
 	async getIssue(id: number): Promise<Issue | undefined> {
 		const cc = Logger.getCorrelationContext();
 
-		if (!(await this.isConnected())) return undefined;
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected) return undefined;
 
 		try {
 			return await this.onGetIssue(this._credentials!, id);
@@ -251,6 +263,7 @@ export abstract class RemoteProviderWithApi<T extends string | {} = any> extends
 
 	private _prsByCommit = new Map<string, Promise<PullRequest | null> | PullRequest | null>();
 
+	@gate()
 	@debug()
 	getPullRequestForCommit(ref: string): Promise<PullRequest | undefined> | PullRequest | undefined {
 		let pr = this._prsByCommit.get(ref);
@@ -292,11 +305,13 @@ export abstract class RemoteProviderWithApi<T extends string | {} = any> extends
 		return this.custom ? `${this.name}:${this.domain}` : this.name;
 	}
 
+	@gate()
 	@debug()
 	private async getPullRequestForCommitCore(ref: string) {
 		const cc = Logger.getCorrelationContext();
 
-		if (!(await this.isConnected())) return null;
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected) return null;
 
 		try {
 			const pr = (await this.onGetPullRequestForCommit(this._credentials!, ref)) ?? null;

@@ -1,5 +1,6 @@
 'use strict';
 import { CancellationToken } from 'vscode';
+import { Iterables } from './iterable';
 
 export namespace Promises {
 	export class CancellationError<TPromise = any> extends Error {
@@ -88,41 +89,69 @@ export namespace Promises {
 
 	export function raceAll<TPromise>(
 		promises: Promise<TPromise>[],
-		timeout: number
+		timeout?: number
 	): Promise<(TPromise | Promises.CancellationError<Promise<TPromise>>)[]>;
 	export function raceAll<TPromise, T>(
-		promises: [T, Promise<TPromise>][],
-		timeout: number
-	): Promise<(TPromise | Promises.CancellationErrorWithId<T, Promise<TPromise>>)[]>;
-	export function raceAll<TPromise, T>(promises: Promise<TPromise>[] | [T, Promise<TPromise>][], timeout: number) {
-		if (hasIds(promises)) {
-			return Promise.all(
-				promises.map(([id, p]) =>
-					Promise.race([
-						p,
-						new Promise<CancellationErrorWithId<T, Promise<TPromise>>>(resolve =>
-							setTimeout(() => resolve(new CancellationErrorWithId(id, p, 'TIMED OUT')), timeout)
-						)
-					])
+		promises: Map<T, Promise<TPromise>>,
+		timeout?: number
+	): Promise<Map<T, TPromise | Promises.CancellationErrorWithId<T, Promise<TPromise>>>>;
+	export function raceAll<TPromise, T>(
+		ids: Iterable<T>,
+		fn: (id: T) => Promise<TPromise>,
+		timeout?: number
+	): Promise<Map<T, TPromise | Promises.CancellationErrorWithId<T, Promise<TPromise>>>>;
+	export async function raceAll<TPromise, T>(
+		promisesOrIds: Promise<TPromise>[] | Map<T, Promise<TPromise>> | Iterable<T>,
+		timeoutOrFn?: number | ((id: T) => Promise<TPromise>),
+		timeout?: number
+	) {
+		let promises;
+		if (timeoutOrFn != null && typeof timeoutOrFn !== 'number') {
+			promises = new Map(
+				Iterables.map<T, [T, Promise<TPromise>]>(promisesOrIds as Iterable<T>, id => [id, timeoutOrFn(id)])
+			);
+		} else {
+			timeout = timeoutOrFn;
+			promises = promisesOrIds as Promise<TPromise>[] | Map<T, Promise<TPromise>>;
+		}
+
+		if (promises instanceof Map) {
+			return new Map(
+				await Promise.all(
+					Iterables.map<
+						[T, Promise<TPromise>],
+						Promise<[T, TPromise | CancellationErrorWithId<T, Promise<TPromise>>]>
+					>(
+						promises.entries(),
+						timeout == null
+							? ([id, promise]) => promise.then(p => [id, p])
+							: ([id, promise]) =>
+									Promise.race([
+										promise,
+
+										new Promise<CancellationErrorWithId<T, Promise<TPromise>>>(resolve =>
+											setTimeout(
+												() => resolve(new CancellationErrorWithId(id, promise, 'TIMED OUT')),
+												timeout!
+											)
+										)
+									]).then(p => [id, p])
+					)
 				)
 			);
 		}
 
 		return Promise.all(
-			promises.map(p =>
-				Promise.race([
-					p,
-					new Promise<CancellationError<Promise<TPromise>>>(resolve =>
-						setTimeout(() => resolve(new CancellationError(p, 'TIMED OUT')), timeout)
-					)
-				])
-			)
+			timeout == null
+				? promises
+				: promises.map(p =>
+						Promise.race([
+							p,
+							new Promise<CancellationError<Promise<TPromise>>>(resolve =>
+								setTimeout(() => resolve(new CancellationError(p, 'TIMED OUT')), timeout!)
+							)
+						])
+				  )
 		);
-	}
-
-	function hasIds<TPromise, T>(
-		promises: Promise<TPromise>[] | [T, Promise<TPromise>][]
-	): promises is [T, Promise<TPromise>][] {
-		return Array.isArray(promises[0]);
 	}
 }

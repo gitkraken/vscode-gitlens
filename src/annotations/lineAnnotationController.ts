@@ -16,7 +16,7 @@ import { LinesChangeEvent } from '../trackers/gitLineTracker';
 import { Annotations } from './annotations';
 import { debug, Iterables, log, Promises } from '../system';
 import { Logger } from '../logger';
-import { CommitFormatter, GitBlameCommit, PullRequest } from '../git/gitService';
+import { CommitFormatter, GitBlameCommit } from '../git/gitService';
 
 const annotationDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
 	after: {
@@ -149,11 +149,11 @@ export class LineAnnotationController implements Disposable {
 
 		const remotes = await Container.git.getRemotes(repoPath);
 		const remote = remotes.find(r => r.default);
-		if (remote === undefined) return undefined;
+		if (!remote?.provider?.hasApi()) return undefined;
 
-		const provider = remote.provider;
-		if (!provider?.hasApi()) return undefined;
-		if (!(await provider.isConnected())) return undefined;
+		const { provider } = remote;
+		const connected = provider.maybeConnected ?? (await provider.isConnected());
+		if (!connected) return undefined;
 
 		const refs = new Set<string>();
 
@@ -163,36 +163,12 @@ export class LineAnnotationController implements Disposable {
 
 		if (refs.size === 0) return undefined;
 
-		const promises = [
-			...Iterables.map<string, [string, Promise<[string, PullRequest | undefined]>]>(refs.values(), ref => [
-				ref,
-				Container.git.getPullRequestForCommit(ref, remote).then(pr => [ref, pr])
-			])
-		];
-
-		const promise =
-			timeout != null && timeout > 0
-				? Promises.raceAll(promises, timeout)
-				: Promise.all(promises.map(([, p]) => p));
-
-		const prs = new Map<string, PullRequest | Promises.CancellationErrorWithId<string>>();
-
-		let ref;
-		let pr;
-		for (const result of await promise) {
-			if (result == null) continue;
-
-			if (result instanceof Promises.CancellationErrorWithId) {
-				prs.set(result.id, result);
-			} else {
-				[ref, pr] = result;
-				if (pr == null) continue;
-
-				prs.set(ref, pr);
-			}
-		}
-
-		if (prs.size === 0) return undefined;
+		const prs = await Promises.raceAll(
+			refs.values(),
+			ref => Container.git.getPullRequestForCommit(ref, provider),
+			timeout
+		);
+		if (prs.size === 0 || Iterables.every(prs.values(), pr => pr === undefined)) return undefined;
 
 		return prs;
 	}
@@ -269,6 +245,9 @@ export class LineAnnotationController implements Disposable {
 
 		const repoPath = trackedDocument.uri.repoPath;
 
+		// TODO: Make this configurable?
+		const timeout = 100;
+
 		const [getBranchAndTagTips, prs] = await Promise.all([
 			CommitFormatter.has(cfg.format, 'tips') ? Container.git.getBranchesAndTagsTipsFn(repoPath) : undefined,
 			repoPath != null &&
@@ -284,10 +263,36 @@ export class LineAnnotationController implements Disposable {
 				? this.getPullRequests(
 						repoPath,
 						commitLines.filter(([, commit]) => !commit.isUncommitted),
-						{ timeout: 250 }
+						{ timeout: timeout }
 				  )
 				: undefined
 		]);
+
+		if (prs !== undefined) {
+			const timeouts = [
+				...Iterables.filterMap(prs.values(), pr =>
+					pr instanceof Promises.CancellationError ? pr.promise : undefined
+				)
+			];
+
+			// If there are any PRs that timed out, refresh the annotation(s) once they complete
+			if (timeouts.length !== 0) {
+				Logger.debug(
+					cc,
+					`${GlyphChars.Dot} pull request queries (${timeouts.length}) took too long (over ${timeout} ms)`
+				);
+				Promise.all(timeouts).then(() => {
+					if (editor === this._editor) {
+						Logger.debug(
+							cc,
+							`${GlyphChars.Dot} pull request queries (${timeouts.length}) completed; refreshing...`
+						);
+
+						this.refresh(editor);
+					}
+				});
+			}
+		}
 
 		const decorations = [];
 

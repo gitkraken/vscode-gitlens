@@ -81,7 +81,7 @@ import {
 	RepositoryChangeEvent
 } from './git';
 import { GitUri } from './gitUri';
-import { RemoteProviderFactory, RemoteProviders } from './remotes/factory';
+import { RemoteProviderFactory, RemoteProviders, RemoteProviderWithApi } from './remotes/factory';
 import { GitReflogParser, GitShortLogParser } from './parsers/parsers';
 import { isWindows } from './shell';
 import { PullRequest, PullRequestDateFormatting } from './models/models';
@@ -2347,12 +2347,31 @@ export class GitService implements Disposable {
 	async getPullRequestForCommit(
 		ref: string,
 		remote: GitRemote,
+		options?: { timeout?: number }
+	): Promise<PullRequest | undefined>;
+	async getPullRequestForCommit(
+		ref: string,
+		provider: RemoteProviderWithApi,
+		options?: { timeout?: number }
+	): Promise<PullRequest | undefined>;
+	@gate()
+	@debug({ args: { 1: () => false } })
+	async getPullRequestForCommit(
+		ref: string,
+		remoteOrProvider: GitRemote | RemoteProviderWithApi,
 		{ timeout }: { timeout?: number } = {}
 	): Promise<PullRequest | undefined> {
-		if (Git.isUncommitted(ref) || !remote.provider?.hasApi()) return undefined;
-		if (!(await remote.provider.isConnected())) return undefined;
+		if (Git.isUncommitted(ref)) return undefined;
 
-		let promiseOrPR = remote.provider.getPullRequestForCommit(ref);
+		let provider;
+		if (GitRemote.is(remoteOrProvider)) {
+			({ provider } = remoteOrProvider);
+			if (!provider?.hasApi()) return undefined;
+		} else {
+			provider = remoteOrProvider;
+		}
+
+		let promiseOrPR = provider.getPullRequestForCommit(ref);
 		if (promiseOrPR == null || !Promises.is(promiseOrPR)) {
 			return promiseOrPR;
 		}
