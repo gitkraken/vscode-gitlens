@@ -5,7 +5,11 @@ import { debug } from '../system';
 import { Issue, PullRequest, PullRequestState } from '../git/gitService';
 
 export class GitHubApi {
-	@debug()
+	@debug({
+		args: {
+			1: token => '<token>'
+		}
+	})
 	async getPullRequestForCommit(
 		provider: string,
 		token: string,
@@ -45,7 +49,7 @@ export class GitHubApi {
 }`;
 
 			const variables = { owner: owner, repo: repo, sha: ref };
-			Logger.debug(cc, `variables: ${JSON.stringify(variables)}`);
+			// Logger.debug(cc, `variables: ${JSON.stringify(variables)}`);
 
 			const rsp = await graphql(query, {
 				...variables,
@@ -77,7 +81,11 @@ export class GitHubApi {
 		}
 	}
 
-	@debug()
+	@debug({
+		args: {
+			1: token => '<token>'
+		}
+	})
 	async getIssue(
 		provider: string,
 		token: string,
@@ -103,7 +111,7 @@ export class GitHubApi {
 }`;
 
 			const variables = { owner: owner, repo: repo, number: number };
-			Logger.debug(cc, `variables: ${JSON.stringify(variables)}`);
+			// Logger.debug(cc, `variables: ${JSON.stringify(variables)}`);
 
 			const rsp = await graphql(query, {
 				...variables,

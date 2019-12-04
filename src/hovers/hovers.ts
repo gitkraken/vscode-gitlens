@@ -14,7 +14,8 @@ import {
 	GitService,
 	GitUri
 } from '../git/gitService';
-import { Promises } from '../system/promise';
+import { Logger, TraceLevel } from '../logger';
+import { Iterables, Promises, Strings } from '../system';
 
 export namespace Hovers {
 	export async function changesMessage(
@@ -189,25 +190,72 @@ export namespace Hovers {
 	}
 
 	async function getAutoLinkedIssues(message: string, remotes: GitRemote[]) {
+		const cc = Logger.getNewCorrelationContext('Hovers.getAutoLinkedIssues');
+		Logger.debug(cc, `${GlyphChars.Dash} message=<message>`);
+
+		const start = process.hrtime();
+
 		if (
 			!Container.config.hovers.autolinks.enabled ||
 			!Container.config.hovers.autolinks.enhanced ||
 			!CommitFormatter.has(Container.config.hovers.detailsMarkdownFormat, 'message')
 		) {
+			Logger.debug(cc, `completed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
+
 			return undefined;
 		}
 
 		const remote = remotes.find(r => r.default && r.provider != null);
-		if (remote === undefined) return undefined;
+		if (remote === undefined) {
+			Logger.debug(cc, `completed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
+
+			return undefined;
+		}
+
+		// TODO: Make this configurable?
+		const timeout = 250;
 
 		try {
-			return await Container.autolinks.getIssueLinks(message, remote, { timeout: 250 });
-		} catch {
+			const autolinkedIssues = await Container.autolinks.getIssueLinks(message, remote, { timeout: timeout });
+
+			if (autolinkedIssues !== undefined && (Logger.level === TraceLevel.Debug || Logger.isDebugging)) {
+				const timeouts = [
+					...Iterables.filterMap(autolinkedIssues.values(), issue =>
+						issue instanceof Promises.CancellationError ? issue.promise : undefined
+					)
+				];
+
+				// If there are any PRs that timed out, refresh the annotation(s) once they complete
+				if (timeouts.length !== 0) {
+					Logger.debug(
+						cc,
+						`timed out ${GlyphChars.Dash} issue queries (${
+							timeouts.length
+						}) took too long (over ${timeout} ms) ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(
+							start
+						)} ms`
+					);
+
+					return autolinkedIssues;
+				}
+			}
+
+			Logger.debug(cc, `completed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
+
+			return autolinkedIssues;
+		} catch (ex) {
+			Logger.error(ex, cc, `failed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
+
 			return undefined;
 		}
 	}
 
 	async function getPullRequestForCommit(ref: string, remotes: GitRemote[]) {
+		const cc = Logger.getNewCorrelationContext('Hovers.getPullRequestForCommit');
+		Logger.debug(cc, `${GlyphChars.Dash} ref=${ref}`);
+
+		const start = process.hrtime();
+
 		if (
 			!Container.config.hovers.pullRequests.enabled ||
 			!CommitFormatter.has(
@@ -219,23 +267,41 @@ export namespace Hovers {
 				'pullRequestState'
 			)
 		) {
+			Logger.debug(cc, `completed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
+
 			return undefined;
 		}
 
 		const remote = remotes.find(r => r.default && r.provider != null);
-		if (remote === undefined) return undefined;
+		if (!remote?.provider?.hasApi()) {
+			Logger.debug(cc, `completed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
 
-		const provider = remote.provider;
-		if (provider?.hasApi() && !(await provider.isConnected())) {
+			return undefined;
+		}
+
+		const { provider } = remote;
+		const connected = provider.maybeConnected ?? (await provider.isConnected());
+		if (!connected) {
+			Logger.debug(cc, `completed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
+
 			return remote;
 		}
 
 		try {
-			return await Container.git.getPullRequestForCommit(ref, remote, { timeout: 250 });
+			const pr = await Container.git.getPullRequestForCommit(ref, provider, { timeout: 250 });
+
+			Logger.debug(cc, `completed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
+
+			return pr;
 		} catch (ex) {
 			if (ex instanceof Promises.CancellationError) {
+				Logger.debug(cc, `timed out ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
+
 				return ex;
 			}
+
+			Logger.error(ex, cc, `failed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
+
 			return undefined;
 		}
 	}
