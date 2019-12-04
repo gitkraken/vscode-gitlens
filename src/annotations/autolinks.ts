@@ -2,7 +2,7 @@
 import { ConfigurationChangeEvent, Disposable } from 'vscode';
 import { AutolinkReference, configuration } from '../configuration';
 import { Container } from '../container';
-import { Dates, Iterables, Promises, Strings } from '../system';
+import { Dates, debug, Iterables, Promises, Strings } from '../system';
 import { Logger } from '../logger';
 import { GitRemote, Issue } from '../git/git';
 import { GlyphChars } from '../constants';
@@ -47,10 +47,13 @@ export class Autolinks implements Disposable {
 		}
 	}
 
+	@debug({ args: false })
 	async getIssueLinks(message: string, remote: GitRemote, { timeout }: { timeout?: number } = {}) {
-		const provider = remote.provider;
-		if (!provider?.hasApi()) return undefined;
-		if (!(await provider.isConnected())) return undefined;
+		if (!remote.provider?.hasApi()) return undefined;
+
+		const { provider } = remote;
+		const connected = provider.maybeConnected ?? (await provider.isConnected());
+		if (!connected) return undefined;
 
 		const ids = new Set<number>();
 
@@ -75,31 +78,14 @@ export class Autolinks implements Disposable {
 
 		if (ids.size === 0) return undefined;
 
-		const promises = [
-			...Iterables.map<number, [number, Promise<Issue | undefined>]>(ids.values(), id => [
-				id,
-				provider.getIssue(id)
-			])
-		];
-
-		const promise =
-			timeout != null && timeout > 0
-				? Promises.raceAll(promises, timeout)
-				: Promise.all(promises.map(([, p]) => p));
-
-		const issues = new Map<number, Issue | Promises.CancellationErrorWithId<number>>();
-		for (const issue of await promise) {
-			if (issue == null) continue;
-
-			issues.set(issue.id, issue);
-		}
-
-		if (issues.size === 0) return undefined;
+		const issues = await Promises.raceAll(ids.values(), id => provider.getIssue(id), timeout);
+		if (issues.size === 0 || Iterables.every(issues.values(), pr => pr === undefined)) return undefined;
 
 		return issues;
 	}
 
-	linkify(text: string, remotes?: GitRemote[], issues?: Map<number, Issue | Promises.CancellationError>) {
+	@debug({ args: false })
+	linkify(text: string, remotes?: GitRemote[], issues?: Map<number, Issue | Promises.CancellationError | undefined>) {
 		for (const ref of this._references) {
 			if (this.ensureAutolinkCached(ref, issues)) {
 				if (ref.linkify != null) {
@@ -127,7 +113,7 @@ export class Autolinks implements Disposable {
 
 	private ensureAutolinkCached(
 		ref: CacheableAutolinkReference | DynamicAutolinkReference,
-		issues?: Map<number, Issue | Promises.CancellationError>
+		issues?: Map<number, Issue | Promises.CancellationError | undefined>
 	): ref is CacheableAutolinkReference | DynamicAutolinkReference {
 		if (isDynamic(ref)) return true;
 

@@ -17,7 +17,7 @@ export function getCorrelationId() {
 	return correlationCounter;
 }
 
-function getNextCorrelationId() {
+export function getNextCorrelationId() {
 	if (correlationCounter === Number.MAX_SAFE_INTEGER) {
 		correlationCounter = 0;
 	}

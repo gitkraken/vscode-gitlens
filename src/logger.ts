@@ -1,7 +1,7 @@
 'use strict';
 import { ExtensionContext, OutputChannel, Uri, window } from 'vscode';
 import { extensionOutputChannelName } from './constants';
-import { getCorrelationContext } from './system';
+import { getCorrelationContext, getNextCorrelationId } from './system';
 // import { Telemetry } from './telemetry';
 
 const emptyStr = '';
@@ -111,6 +111,14 @@ export class Logger {
 
 	static getCorrelationContext() {
 		return getCorrelationContext();
+	}
+
+	static getNewCorrelationContext(prefix: string): LogCorrelationContext {
+		const correlationId = getNextCorrelationId();
+		return {
+			correlationId: correlationId,
+			prefix: `[${correlationId}] ${prefix}`
+		};
 	}
 
 	static log(message: string, ...params: any[]): void;

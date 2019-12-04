@@ -3,7 +3,7 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { GitRemote, GitRemoteType, GitUri, RemoteProviderWithApi, Repository } from '../../git/gitService';
+import { GitRemote, GitRemoteType, GitUri, Repository } from '../../git/gitService';
 import { Arrays, log } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { BranchNode } from './branchNode';
@@ -104,22 +104,24 @@ export class RemoteNode extends ViewNode<RepositoriesView> {
 		);
 
 		if (this.remote.provider != null) {
-			item.description = `${arrows}${GlyphChars.Space} ${this.remote.provider.name} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} ${this.remote.provider.displayPath}`;
+			const { provider } = this.remote;
+
+			item.description = `${arrows}${GlyphChars.Space} ${provider.name} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} ${provider.displayPath}`;
 			item.iconPath = {
-				dark: Container.context.asAbsolutePath(`images/dark/icon-${this.remote.provider.icon}.svg`),
-				light: Container.context.asAbsolutePath(`images/light/icon-${this.remote.provider.icon}.svg`)
+				dark: Container.context.asAbsolutePath(`images/dark/icon-${provider.icon}.svg`),
+				light: Container.context.asAbsolutePath(`images/light/icon-${provider.icon}.svg`)
 			};
 
-			if (this.remote.provider instanceof RemoteProviderWithApi) {
-				const connected = await this.remote.provider.isConnected();
+			if (provider.hasApi()) {
+				const connected = provider.maybeConnected ?? (await provider.isConnected());
 
 				item.contextValue += `${ResourceType.Remote}${connected ? '+connected' : '+disconnected'}`;
-				item.tooltip = `${this.remote.name} (${this.remote.provider.name} ${GlyphChars.Dash} ${
+				item.tooltip = `${this.remote.name} (${provider.name} ${GlyphChars.Dash} ${
 					connected ? 'connected' : 'not connected'
-				})\n${this.remote.provider.displayPath}\n`;
+				})\n${provider.displayPath}\n`;
 			} else {
 				item.contextValue = ResourceType.Remote;
-				item.tooltip = `${this.remote.name} (${this.remote.provider.name})\n${this.remote.provider.displayPath}\n`;
+				item.tooltip = `${this.remote.name} (${provider.name})\n${provider.displayPath}\n`;
 			}
 		} else {
 			item.description = `${arrows}${GlyphChars.Space} ${
