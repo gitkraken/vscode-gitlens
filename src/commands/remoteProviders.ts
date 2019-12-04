@@ -39,12 +39,17 @@ export class ConnectRemoteProviderCommand extends Command {
 	}
 
 	async execute(args?: ConnectRemoteProviderCommandArgs): Promise<any> {
-		if (args?.repoPath == null || args?.remote == null) return undefined;
+		if (args?.repoPath == null || args?.remote == null) return false;
 
-		const remote = (await Container.git.getRemotes(args.repoPath)).find(r => args.remote);
-		if (!remote?.provider?.hasApi()) return undefined;
+		const remotes = await Container.git.getRemotes(args.repoPath);
+		const remote = remotes.find(r => args.remote);
+		if (!remote?.provider?.hasApi()) return false;
 
-		return remote.provider.connect();
+		const connected = await remote.provider.connect();
+		if (connected && !remotes.some(r => r.default)) {
+			await remote.setAsDefault(true);
+		}
+		return connected;
 	}
 }
 
