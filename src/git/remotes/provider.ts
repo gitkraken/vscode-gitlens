@@ -223,7 +223,7 @@ export abstract class RemoteProviderWithApi<T extends string | {} = any> extends
 
 	abstract get apiBaseUrl(): string;
 
-	abstract async connect(): Promise<void>;
+	abstract async connect(): Promise<boolean>;
 
 	disconnect(): Promise<void> {
 		this._prsByCommit.clear();

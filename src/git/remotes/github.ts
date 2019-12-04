@@ -101,9 +101,10 @@ export class GitHubRemote extends RemoteProviderWithApi<{ token: string }> {
 			disposable?.dispose();
 		}
 
-		if (token == null || token.length === 0) return;
+		if (token == null || token.length === 0) return false;
 
-		this.saveCredentials({ token: token });
+		await this.saveCredentials({ token: token });
+		return true;
 	}
 
 	protected getUrlForBranches(): string {
