@@ -219,6 +219,7 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
 		}
 	}
 
+	@gate()
 	@debug()
 	async ensureSubscription() {
 		// We only need to subscribe if we are visible and if auto-refresh enabled (when supported)
