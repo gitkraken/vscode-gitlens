@@ -4,7 +4,7 @@ import { configuration } from '../configuration';
 import { Container } from '../container';
 import { ModesQuickPick } from '../quickpicks';
 import { command, Command, Commands } from './common';
-import { log } from '../system/decorators/log';
+import { log } from '../system';
 import { Logger } from '../logger';
 
 @command()
