@@ -2,7 +2,7 @@
 import { commands, Disposable } from 'vscode';
 import { CommandContext, extensionId, setCommandContext } from './constants';
 import { Logger } from './logger';
-import { log } from './system/decorators/log';
+import { log } from './system';
 
 export declare interface KeyCommand {
 	onDidPressKey?(key: Keys): void | Promise<void>;
