@@ -605,6 +605,23 @@ export class GitService implements Disposable {
 		}
 	}
 
+	@log()
+	async excludeIgnoredUris(repoPath: string, uris: Uri[]): Promise<Uri[]> {
+		const paths = new Map<string, Uri>(uris.map(u => [Strings.normalizePath(u.fsPath), u]));
+
+		const data = await Git.check_ignore(repoPath, ...paths.keys());
+		if (data == null) return uris;
+
+		const ignored = data.split('\0').filter(Boolean);
+		if (ignored.length === 0) return uris;
+
+		for (const file of ignored) {
+			paths.delete(file);
+		}
+
+		return [...paths.values()];
+	}
+
 	@gate()
 	@log()
 	fetch(repoPath: string, options: { all?: boolean; prune?: boolean; remote?: string } = {}) {
