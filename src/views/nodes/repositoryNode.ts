@@ -12,7 +12,7 @@ import {
 	RepositoryChangeEvent,
 	RepositoryFileSystemChangeEvent
 } from '../../git/gitService';
-import { Dates, debug, gate, log, Strings } from '../../system';
+import { Arrays, Dates, debug, gate, log, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { CompareBranchNode } from './compareBranchNode';
 import { BranchesNode } from './branchesNode';
@@ -219,10 +219,13 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 
 	@gate()
 	@debug()
-	async refresh() {
-		this._status = this.repo.getStatus();
+	async refresh(reset: boolean = false) {
+		if (reset) {
+			this._status = this.repo.getStatus();
 
-		this._children = undefined;
+			this._children = undefined;
+		}
+
 		await this.ensureSubscription();
 	}
 
@@ -270,8 +273,32 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 					.join(', ')}${e.uris.length > 1 ? ', ...' : ''}] }`
 		}
 	})
-	private onFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
-		void this.triggerChange();
+	private async onFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
+		this._status = this.repo.getStatus();
+
+		if (this._children !== undefined) {
+			const status = await this._status;
+
+			let index = this._children.findIndex(c => c instanceof StatusFilesNode);
+			if (status !== undefined && (status.state.ahead || status.files.length !== 0)) {
+				let deleteCount = 1;
+				if (index === -1) {
+					index = Arrays.findLastIndex(
+						this._children,
+						c => c instanceof BranchTrackingStatusNode || c instanceof BranchNode
+					);
+					deleteCount = 0;
+					index++;
+				}
+
+				const range = status.upstream ? GitRevision.createRange(status.upstream, status.sha) : undefined;
+				this._children.splice(index, deleteCount, new StatusFilesNode(this.view, this, status, range));
+			} else if (index !== -1) {
+				this._children.splice(index, 1);
+			}
+		}
+
+		void this.triggerChange(false);
 	}
 
 	@debug({
@@ -292,7 +319,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 			e.changed(RepositoryChange.Repository) ||
 			e.changed(RepositoryChange.Config)
 		) {
-			void this.triggerChange();
+			void this.triggerChange(true);
 
 			return;
 		}

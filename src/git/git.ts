@@ -483,6 +483,15 @@ export namespace Git {
 		}
 	}
 
+	export function check_ignore(repoPath: string, ...files: string[]) {
+		return git<string>(
+			{ cwd: repoPath, errors: GitErrorHandling.Ignore, stdin: files.join('\0') },
+			'check-ignore',
+			'-z',
+			'--stdin'
+		);
+	}
+
 	export function check_mailmap(repoPath: string, author: string) {
 		return git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore, local: true }, 'check-mailmap', author);
 	}

@@ -24,6 +24,8 @@ import { Messages } from '../../messages';
 import { Logger } from '../../logger';
 import { runGitCommandInTerminal } from '../../terminal';
 
+const ignoreGitRegex = /\.git(?:\/|\\|$)/;
+
 export enum RepositoryChange {
 	Config = 'config',
 	Closed = 'closed',
@@ -178,7 +180,7 @@ export class Repository implements Disposable {
 
 	private onFileSystemChanged(uri: Uri) {
 		// Ignore .git changes
-		if (/\.git(?:\/|\\|$)/.test(uri.fsPath)) return;
+		if (ignoreGitRegex.test(uri.fsPath)) return;
 
 		this.fireFileSystemChange(uri);
 	}
@@ -670,8 +672,15 @@ export class Repository implements Disposable {
 		this._fireFileSystemChangeDebounced(e);
 	}
 
-	private fireFileSystemChangeCore(e: RepositoryFileSystemChangeEvent) {
+	private async fireFileSystemChangeCore(e: RepositoryFileSystemChangeEvent) {
 		this._pendingChanges.fs = undefined;
+
+		const uris = await Container.git.excludeIgnoredUris(this.path, e.uris);
+		if (uris.length === 0) return;
+
+		if (uris.length !== e.uris.length) {
+			e = { ...e, uris: uris };
+		}
 
 		this._onDidChangeFileSystem.fire(e);
 	}

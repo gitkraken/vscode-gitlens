@@ -1,5 +1,10 @@
 'use strict';
-import { intersectionWith as _intersectionWith, isEqual as _isEqual, xor as _xor } from 'lodash-es';
+import {
+	findLastIndex as _findLastIndex,
+	intersectionWith as _intersectionWith,
+	isEqual as _isEqual,
+	xor as _xor
+} from 'lodash-es';
 
 export namespace Arrays {
 	export function countUniques<T>(source: T[], accessor: (item: T) => string): { [key: string]: number } {
@@ -36,6 +41,8 @@ export namespace Arrays {
 			return accumulator;
 		}, [] as any);
 	}
+
+	export const findLastIndex = _findLastIndex;
 
 	export function groupBy<T>(source: T[], accessor: (item: T) => string): { [key: string]: T[] } {
 		return source.reduce((groupings, current) => {
