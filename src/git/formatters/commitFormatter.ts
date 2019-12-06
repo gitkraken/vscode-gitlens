@@ -12,12 +12,11 @@ import { DateStyle, FileAnnotationType } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitCommit, GitLogCommit, GitRemote, GitService, GitUri, Issue, PullRequest } from '../gitService';
-import { Strings } from '../../system';
+import { Promises, Strings } from '../../system';
 import { FormatOptions, Formatter } from './formatter';
 import { ContactPresence } from '../../vsls/vsls';
 import { getPresenceDataUri } from '../../avatars';
 import { emojify } from '../../emojis';
-import { Promises } from '../../system/promise';
 
 const emptyStr = '';
 
