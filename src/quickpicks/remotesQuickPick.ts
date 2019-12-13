@@ -142,7 +142,10 @@ export class RemotesQuickPick {
 		clipboard?: boolean,
 		goBackCommand?: CommandQuickPickItem
 	): Promise<OpenRemoteCommandQuickPickItem | CommandQuickPickItem | undefined> {
-		const items = remotes.map(r => new OpenRemoteCommandQuickPickItem(r, resource, clipboard)) as (
+		const items = remotes
+			// show the origin as the top, 'default' pick
+			.sort(r => (r.name === 'origin' ? -1 : 0))
+			.map(r => new OpenRemoteCommandQuickPickItem(r, resource, clipboard)) as (
 			| OpenRemoteCommandQuickPickItem
 			| CommandQuickPickItem
 		)[];
