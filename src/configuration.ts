@@ -14,12 +14,6 @@ import { Config } from './config';
 import { extensionId } from './constants';
 import { Objects } from './system';
 
-const emptyConfig: Config = new Proxy<Config>({} as Config, {
-	get: function() {
-		return emptyConfig;
-	}
-});
-
 type ConfigInspection<T> = {
 	key: string;
 	defaultValue?: T;
