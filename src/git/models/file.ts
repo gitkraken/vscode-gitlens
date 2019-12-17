@@ -26,7 +26,7 @@ export namespace GitFile {
 		relativeTo?: string
 	): string {
 		const directory = GitUri.getDirectory(file.fileName, relativeTo);
-		return includeOriginal && file.status === 'R' && file.originalFileName
+		return includeOriginal && (file.status === 'R' || file.status === 'C') && file.originalFileName
 			? `${directory} ${Strings.pad(GlyphChars.ArrowLeft, 1, 1)} ${file.originalFileName}`
 			: directory;
 	}

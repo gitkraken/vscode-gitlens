@@ -111,7 +111,7 @@ export class ResultsFileNode extends ViewRefFileNode {
 			rhs: {
 				sha: this.ref2,
 				uri:
-					this.file.status === 'R'
+					this.file.status === 'R' || this.file.status === 'C'
 						? GitUri.fromFile(this.file, this.uri.repoPath!, this.ref2, true)
 						: this.uri
 			},
