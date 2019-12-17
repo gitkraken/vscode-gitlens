@@ -86,18 +86,21 @@ export function log<T extends (...arg: any) => any>(
 		| typeof Logger.debug
 		| typeof Logger.log;
 
-	return (target: any, key: string, descriptor: PropertyDescriptor) => {
+	return (target: any, key: string, descriptor: PropertyDescriptor & { [key: string]: any }) => {
 		let fn: Function | undefined;
+		let fnKey: string | undefined;
 		if (typeof descriptor.value === 'function') {
 			fn = descriptor.value;
+			fnKey = 'value';
 		} else if (typeof descriptor.get === 'function') {
 			fn = descriptor.get;
+			fnKey = 'get';
 		}
-		if (fn == null) throw new Error('Not supported');
+		if (fn == null || fnKey == null) throw new Error('Not supported');
 
 		const parameters = Functions.getParameters(fn);
 
-		descriptor.value = function(this: any, ...args: Parameters<T>) {
+		descriptor[fnKey] = function(this: any, ...args: Parameters<T>) {
 			const correlationId = getNextCorrelationId();
 
 			if (
