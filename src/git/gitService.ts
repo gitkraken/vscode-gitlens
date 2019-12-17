@@ -55,6 +55,7 @@ import {
 	GitCommitType,
 	GitContributor,
 	GitDiff,
+	GitDiffFilter,
 	GitDiffHunkLine,
 	GitDiffParser,
 	GitDiffShortStat,
@@ -62,7 +63,6 @@ import {
 	GitFile,
 	GitLog,
 	GitLogCommit,
-	GitLogDiffFilter,
 	GitLogParser,
 	GitReflog,
 	GitRemote,
@@ -83,7 +83,7 @@ import {
 import { GitUri } from './gitUri';
 import { RemoteProviderFactory, RemoteProviders, RemoteProviderWithApi } from './remotes/factory';
 import { GitReflogParser, GitShortLogParser } from './parsers/parsers';
-import { isWindows } from './shell';
+import { fsExists, isWindows } from './shell';
 import { PullRequest, PullRequestDateFormatting } from './models/models';
 
 export * from './gitUri';
@@ -1428,7 +1428,7 @@ export class GitService implements Disposable {
 			} else {
 				data = await Git.diff(root, file, ref1, ref2, {
 					...options,
-					filter: 'M',
+					filters: ['M'],
 					similarityThreshold: Container.config.advanced.similarityThreshold
 				});
 			}
@@ -1481,7 +1481,7 @@ export class GitService implements Disposable {
 		repoPath: string,
 		ref1?: string,
 		ref2?: string,
-		options: { filter?: string; similarityThreshold?: number } = {}
+		options: { filters?: GitDiffFilter[]; similarityThreshold?: number } = {}
 	): Promise<GitFile[] | undefined> {
 		try {
 			const data = await Git.diff__name_status(repoPath, ref1, ref2, {
@@ -2067,7 +2067,7 @@ export class GitService implements Disposable {
 		// If we have no ref (or staged ref) there is no next commit
 		if (ref === undefined || ref.length === 0 || Git.isUncommittedStaged(ref)) return undefined;
 
-		let filters: GitLogDiffFilter[] | undefined;
+		let filters: GitDiffFilter[] | undefined;
 		if (ref === GitService.deletedOrMissingSha) {
 			// If we are trying to move next from a deleted or missing ref then get the first commit
 			ref = undefined;
@@ -2088,7 +2088,7 @@ export class GitService implements Disposable {
 		// If the file was deleted, check for a possible rename
 		if (status === 'D') {
 			data = await Git.log__file(repoPath, '.', nextRef, {
-				filters: ['R'],
+				filters: ['R', 'C'],
 				limit: 1,
 				// startLine: editorLine !== undefined ? editorLine + 1 : undefined
 				simple: true
@@ -2851,7 +2851,8 @@ export class GitService implements Disposable {
 		do {
 			data = await Git.ls_files(repoPath, fileName);
 			if (data !== undefined) {
-				return GitUri.resolveToUri(Strings.splitSingle(data, '\n')[0], repoPath);
+				fileName = Strings.splitSingle(data, '\n')[0];
+				break;
 			}
 
 			// TODO: Add caching
@@ -2863,21 +2864,21 @@ export class GitService implements Disposable {
 
 			// Now check if that commit had any renames
 			data = await Git.log__file(repoPath, '.', ref, {
-				filters: ['R'],
+				filters: ['R', 'C', 'D'],
 				limit: 1,
 				simple: true
 			});
-			if (data == null || data.length === 0) {
-				return GitUri.resolveToUri(fileName, repoPath);
-			}
+			if (data == null || data.length === 0) break;
 
-			const [renamedRef, renamedFile] = GitLogParser.parseSimpleRenamed(data, fileName);
-			if (renamedRef === undefined || renamedFile === undefined) {
-				return GitUri.resolveToUri(fileName, repoPath);
-			}
+			const [foundRef, foundFile, foundStatus] = GitLogParser.parseSimpleRenamed(data, fileName);
+			if (foundStatus === 'D' && foundFile != null) return undefined;
+			if (foundRef == null || foundFile == null) break;
 
-			fileName = renamedFile;
+			fileName = foundFile;
 		} while (true);
+
+		uri = GitUri.resolveToUri(fileName, repoPath);
+		return (await fsExists(uri.fsPath)) ? uri : undefined;
 	}
 
 	isTrackable(scheme: string): boolean;
