@@ -9,14 +9,16 @@ import { GlyphChars } from '../constants';
 
 const numRegex = /<num>/g;
 
+const superscripts = ['\u00B9', '\u00B2', '\u00B3', '\u2074', '\u2075', '\u2076', '\u2077', '\u2078', '\u2079'];
+
 export interface CacheableAutolinkReference extends AutolinkReference {
-	linkify?: ((text: string) => string) | null;
+	linkify?: ((text: string, markdown: boolean) => string) | null;
 	messageMarkdownRegex?: RegExp;
 	messageRegex?: RegExp;
 }
 
 export interface DynamicAutolinkReference {
-	linkify: (text: string) => string;
+	linkify: (text: string, markdown: boolean) => string;
 }
 
 function isDynamic(ref: AutolinkReference | DynamicAutolinkReference): ref is DynamicAutolinkReference {
@@ -85,11 +87,16 @@ export class Autolinks implements Disposable {
 	}
 
 	@debug({ args: false })
-	linkify(text: string, remotes?: GitRemote[], issues?: Map<number, Issue | Promises.CancellationError | undefined>) {
+	linkify(
+		text: string,
+		markdown: boolean,
+		remotes?: GitRemote[],
+		issues?: Map<number, Issue | Promises.CancellationError | undefined>
+	) {
 		for (const ref of this._references) {
 			if (this.ensureAutolinkCached(ref, issues)) {
 				if (ref.linkify != null) {
-					text = ref.linkify(text);
+					text = ref.linkify(text, markdown);
 				}
 			}
 		}
@@ -101,7 +108,7 @@ export class Autolinks implements Disposable {
 				for (const ref of r.provider.autolinks) {
 					if (this.ensureAutolinkCached(ref, issues)) {
 						if (ref.linkify != null) {
-							text = ref.linkify(text);
+							text = ref.linkify(text, markdown);
 						}
 					}
 				}
@@ -126,32 +133,66 @@ export class Autolinks implements Disposable {
 			}
 
 			if (issues == null || issues.size === 0) {
-				const markdown = `[$1](${ref.url.replace(numRegex, '$2')}${
+				const replacement = `[$1](${ref.url.replace(numRegex, '$2')}${
 					ref.title ? ` "${ref.title.replace(numRegex, '$2')}"` : ''
 				})`;
-				ref.linkify = (text: string) => text.replace(ref.messageMarkdownRegex!, markdown);
+				ref.linkify = (text: string, markdown: boolean) =>
+					!markdown ? text : text.replace(ref.messageMarkdownRegex!, replacement);
 
 				return true;
 			}
 
-			ref.linkify = (text: string) =>
-				text.replace(ref.messageMarkdownRegex!, (substring, linkText, number) => {
-					const issue = issues?.get(Number(number));
+			ref.linkify = (text: string, markdown: boolean) => {
+				if (markdown) {
+					return text.replace(ref.messageMarkdownRegex!, (substring, linkText, number) => {
+						const issue = issues?.get(Number(number));
 
-					return `[${linkText}](${ref.url.replace(numRegex, number)}${
-						ref.title
-							? ` "${ref.title.replace(numRegex, number)}${
-									issue instanceof Promises.CancellationError
-										? `\n${GlyphChars.Dash.repeat(2)}\nDetails timed out`
-										: issue
-										? `\n${GlyphChars.Dash.repeat(2)}\n${issue.title.replace(/([")])/g, '\\$1')}\n${
-												issue.closed ? 'Closed' : 'Opened'
-										  }, ${Dates.getFormatter(issue.closedDate ?? issue.date).fromNow()}`
-										: ''
-							  }"`
-							: ''
-					})`;
+						return `[${linkText}](${ref.url.replace(numRegex, number)}${
+							ref.title
+								? ` "${ref.title.replace(numRegex, number)}${
+										issue instanceof Promises.CancellationError
+											? `\n${GlyphChars.Dash.repeat(2)}\nDetails timed out`
+											: issue
+											? `\n${GlyphChars.Dash.repeat(2)}\n${issue.title.replace(
+													/([")])/g,
+													'\\$1'
+											  )}\n${issue.closed ? 'Closed' : 'Opened'}, ${Dates.getFormatter(
+													issue.closedDate ?? issue.date
+											  ).fromNow()}`
+											: ''
+								  }"`
+								: ''
+						})`;
+					});
+				}
+
+				let footnotes: string[] | undefined;
+				let superscript;
+
+				text = text.replace(ref.messageRegex!, (substring, linkText, number) => {
+					const issue = issues?.get(Number(number));
+					if (issue == null) return linkText;
+
+					if (footnotes === undefined) {
+						footnotes = [];
+					}
+					superscript = superscripts[footnotes.length];
+					footnotes.push(
+						`${superscript} ${
+							issue instanceof Promises.CancellationError
+								? 'Details timed out'
+								: issue
+								? `${issue.title}  ${GlyphChars.Dot}  ${
+										issue.closed ? 'Closed' : 'Opened'
+								  }, ${Dates.getFormatter(issue.closedDate ?? issue.date).fromNow()}`
+								: ''
+						}`
+					);
+					return `${linkText}${superscript}`;
 				});
+
+				return footnotes == null || footnotes.length === 0 ? text : `${text}\n\n${footnotes.join('\n')}`;
+			};
 		} catch (ex) {
 			Logger.error(
 				ex,

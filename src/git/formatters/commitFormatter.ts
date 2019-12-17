@@ -349,19 +349,16 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		message = emojify(message);
 		message = this._padOrTruncate(message, this._options.tokenOptions.message);
 
-		if (!this._options.markdown) {
-			return message;
-		}
-
 		if (Container.config.hovers.autolinks.enabled) {
 			message = Container.autolinks.linkify(
-				Strings.escapeMarkdown(message, { quoted: true }),
+				this._options.markdown ? Strings.escapeMarkdown(message, { quoted: true }) : message,
+				this._options.markdown ?? false,
 				this._options.remotes,
 				this._options.autolinkedIssues
 			);
 		}
 
-		return `\n> ${message}`;
+		return this._options.markdown ? `\n> ${message}` : message;
 	}
 
 	get pullRequest() {
