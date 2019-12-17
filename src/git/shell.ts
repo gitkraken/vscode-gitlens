@@ -186,3 +186,7 @@ export function run<TOut extends string | Buffer>(
 		}
 	});
 }
+
+export function fsExists(path: string) {
+	return new Promise<boolean>(resolve => fs.exists(path, exists => resolve(exists)));
+}

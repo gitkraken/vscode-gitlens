@@ -1,14 +1,13 @@
 'use strict';
 /* eslint-disable @typescript-eslint/camelcase */
 import * as paths from 'path';
-import * as fs from 'fs';
 import * as iconv from 'iconv-lite';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { Objects, Strings } from '../system';
 import { findGitPath, GitLocation } from './locator';
-import { run, RunOptions } from './shell';
+import { fsExists, run, RunOptions } from './shell';
 import { GitBranchParser, GitLogParser, GitReflogParser, GitStashParser, GitTagParser } from './parsers/parsers';
 import { GitFileStatus } from './models/file';
 
@@ -16,7 +15,7 @@ export * from './models/models';
 export * from './parsers/parsers';
 export * from './remotes/provider';
 
-export type GitLogDiffFilter = Exclude<GitFileStatus, '!' | '?'>;
+export type GitDiffFilter = Exclude<GitFileStatus, '!' | '?'>;
 
 const emptyArray = (Object.freeze([]) as any) as any[];
 const emptyObj = Object.freeze({});
@@ -371,9 +370,7 @@ export namespace Git {
 					} else {
 						// Ensure the specified --ignore-revs-file exists, otherwise the blame will fail
 						try {
-							supported = await new Promise(resolve =>
-								fs.exists(ignoreRevsFile, exists => resolve(exists))
-							);
+							supported = await fsExists(ignoreRevsFile);
 						} catch {
 							supported = false;
 						}
@@ -566,7 +563,7 @@ export namespace Git {
 		fileName: string,
 		ref1?: string,
 		ref2?: string,
-		options: { encoding?: string; filter?: string; similarityThreshold?: number | null } = {}
+		options: { encoding?: string; filters?: GitDiffFilter[]; similarityThreshold?: number | null } = {}
 	): Promise<string> {
 		const params = [
 			'diff',
@@ -575,8 +572,9 @@ export namespace Git {
 			'-U0',
 			'--minimal'
 		];
-		if (options.filter) {
-			params.push(`--diff-filter=${options.filter}`);
+
+		if (options.filters != null && options.filters.length !== 0) {
+			params.push(`--diff-filter=${options.filters.join(emptyStr)}`);
 		}
 
 		if (ref1) {
@@ -590,11 +588,13 @@ export namespace Git {
 			params.push(Git.isUncommittedStaged(ref2) ? '--staged' : ref2);
 		}
 
-		const encoding: BufferEncoding = options.encoding === 'utf8' ? 'utf8' : 'binary';
-
 		try {
 			return await git<string>(
-				{ cwd: repoPath, configs: ['-c', 'color.diff=false'], encoding: encoding },
+				{
+					cwd: repoPath,
+					configs: ['-c', 'color.diff=false'],
+					encoding: options.encoding === 'utf8' ? 'utf8' : 'binary'
+				},
 				...params,
 				'--',
 				fileName
@@ -618,7 +618,7 @@ export namespace Git {
 		repoPath: string,
 		ref1?: string,
 		ref2?: string,
-		{ filter, similarityThreshold }: { filter?: string; similarityThreshold?: number | null } = {}
+		{ filters, similarityThreshold }: { filters?: GitDiffFilter[]; similarityThreshold?: number | null } = {}
 	) {
 		const params = [
 			'diff',
@@ -626,8 +626,8 @@ export namespace Git {
 			`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
 			'--no-ext-diff'
 		];
-		if (filter) {
-			params.push(`--diff-filter=${filter}`);
+		if (filters != null && filters.length !== 0) {
+			params.push(`--diff-filter=${filters.join(emptyStr)}`);
 		}
 		if (ref1) {
 			params.push(ref1);
@@ -767,7 +767,7 @@ export namespace Git {
 			startLine,
 			endLine
 		}: {
-			filters?: GitLogDiffFilter[];
+			filters?: GitDiffFilter[];
 			limit?: number;
 			firstParent?: boolean;
 			renames?: boolean;
@@ -1030,9 +1030,32 @@ export namespace Git {
 	}
 
 	export async function rev_parse__show_toplevel(cwd: string): Promise<string | undefined> {
-		const data = await git<string>({ cwd: cwd, errors: GitErrorHandling.Ignore }, 'rev-parse', '--show-toplevel');
-		// Make sure to normalize: https://github.com/git-for-windows/git/issues/2478
-		return data.length === 0 ? undefined : Strings.normalizePath(data.trim());
+		try {
+			const data = await git<string>(
+				{ cwd: cwd, errors: GitErrorHandling.Throw },
+				'rev-parse',
+				'--show-toplevel'
+			);
+			// Make sure to normalize: https://github.com/git-for-windows/git/issues/2478
+			return data.length === 0 ? undefined : Strings.normalizePath(data.trim());
+		} catch (ex) {
+			if (ex.code === 'ENOENT') {
+				// If the `cwd` doesn't exist, walk backward to see if any parent folder exists
+				let exists = await fsExists(cwd);
+				if (!exists) {
+					do {
+						const parent = paths.dirname(cwd);
+						if (parent === cwd || parent.length === 0) return undefined;
+
+						cwd = parent;
+						exists = await fsExists(cwd);
+					} while (!exists);
+
+					return rev_parse__show_toplevel(cwd);
+				}
+			}
+			return undefined;
+		}
 	}
 
 	export function shortlog(repoPath: string) {

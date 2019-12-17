@@ -12,13 +12,13 @@ const diffRegex = /diff --git a\/(.*) b\/(.*)/;
 const diffRangeRegex = /^@@ -(\d+?),(\d+?) \+(\d+?),(\d+?) @@/;
 
 export const fileStatusRegex = /(\S)\S*\t([^\t\n]+)(?:\t(.+))?/;
-const fileStatusAndSummaryRegex = /^(\d+?|-)\s+?(\d+?|-)\s+?(.*)(?:\n\s(delete|rename|create))?/;
+const fileStatusAndSummaryRegex = /^(\d+?|-)\s+?(\d+?|-)\s+?(.*)(?:\n\s(delete|rename|copy|create))?/;
 const fileStatusAndSummaryRenamedFileRegex = /(.+)\s=>\s(.+)/;
 const fileStatusAndSummaryRenamedFilePathRegex = /(.*?){(.+?)\s=>\s(.*?)}(.*)/;
 
 const logFileSimpleRegex = /^<r> (.*)\s*(?:(?:diff --git a\/(.*) b\/(.*))|(?:(\S)\S*\t([^\t\n]+)(?:\t(.+))?))/gm;
 const logFileSimpleRenamedRegex = /^<r> (\S+)\s*(.*)$/s;
-const logFileSimpleRenamedFilesRegex = /^(\S)\S*\t([^\t\n]+)(?:\t(.+)?)$/gm;
+const logFileSimpleRenamedFilesRegex = /^(\S)\S*\t([^\t\n]+)(?:\t(.+)?)?$/gm;
 
 // Using %x00 codes because some shells seem to try to expand things if not
 const lb = '%x3c'; // `%x${'<'.charCodeAt(0).toString(16)}`;
@@ -258,8 +258,9 @@ export class GitLogParser {
 											entry.status = 'M' as GitFileStatus;
 											entry.fileName = match[3];
 											break;
+										case 'copy':
 										case 'rename':
-											entry.status = 'R' as GitFileStatus;
+											entry.status = (match[4] === 'copy' ? 'C' : 'R') as GitFileStatus;
 
 											renamedFileName = match[3];
 											renamedMatch = fileStatusAndSummaryRenamedFilePathRegex.exec(
@@ -510,7 +511,12 @@ export class GitLogParser {
 
 			[, status, file, renamed] = match;
 
-			if (originalFileName !== file) continue;
+			if (originalFileName !== file) {
+				status = undefined;
+				file = undefined;
+				renamed = undefined;
+				continue;
+			}
 
 			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
 			file = ` ${renamed || file}`.substr(1);
@@ -523,9 +529,9 @@ export class GitLogParser {
 		// Ensure the regex state is reset
 		logFileSimpleRenamedFilesRegex.lastIndex = 0;
 
-		// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
 		return [
-			ref == null || ref.length === 0 ? undefined : ` ${ref}`.substr(1),
+			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+			ref == null || ref.length === 0 || file == null ? undefined : ` ${ref}`.substr(1),
 			file,
 			status as GitFileStatus | undefined
 		];
