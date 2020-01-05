@@ -182,7 +182,7 @@ export function run<TOut extends string | Buffer>(
 		);
 
 		if (stdin) {
-			proc.stdin.end(stdin, stdinEncoding || 'utf8');
+			proc.stdin?.end(stdin, stdinEncoding || 'utf8');
 		}
 	});
 }
