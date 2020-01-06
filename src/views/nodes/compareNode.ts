@@ -144,7 +144,10 @@ export class CompareNode extends ViewNode<CompareView> {
 					checked:
 						typeof this._selectedRef.ref === 'string' ? this._selectedRef.ref : this._selectedRef.ref.ref,
 					checkmarks: true,
-					include: ReferencesQuickPickIncludes.BranchesAndTags | ReferencesQuickPickIncludes.WorkingTree
+					include:
+						ReferencesQuickPickIncludes.BranchesAndTags |
+						ReferencesQuickPickIncludes.HEAD |
+						ReferencesQuickPickIncludes.WorkingTree
 				}
 			);
 			if (pick === undefined) {
@@ -181,7 +184,10 @@ export class CompareNode extends ViewNode<CompareView> {
 			const pick = await new ReferencesQuickPick(repoPath).show(`Compare${GlyphChars.Ellipsis}`, {
 				allowEnteringRefs: true,
 				checkmarks: false,
-				include: ReferencesQuickPickIncludes.BranchesAndTags | ReferencesQuickPickIncludes.WorkingTree
+				include:
+					ReferencesQuickPickIncludes.BranchesAndTags |
+					ReferencesQuickPickIncludes.HEAD |
+					ReferencesQuickPickIncludes.WorkingTree
 			});
 			if (pick === undefined) {
 				await this.view.show();

@@ -13,6 +13,7 @@ export enum ReferencesQuickPickIncludes {
 	Branches = 1,
 	Tags = 2,
 	WorkingTree = 4,
+	HEAD = 8,
 
 	BranchesAndTags = 3
 }
@@ -215,8 +216,12 @@ export class ReferencesQuickPick {
 			}
 		}
 
+		if (include & ReferencesQuickPickIncludes.HEAD) {
+			(items as QuickPickItem[]).splice(0, 0, RefQuickPickItem.create('HEAD', undefined, { icon: true }));
+		}
+
 		if (include & ReferencesQuickPickIncludes.WorkingTree) {
-			(items as QuickPickItem[]).splice(0, 0, RefQuickPickItem.create('', undefined));
+			(items as QuickPickItem[]).splice(0, 0, RefQuickPickItem.create('', undefined, { icon: true }));
 		}
 
 		if (goBack !== undefined) {
