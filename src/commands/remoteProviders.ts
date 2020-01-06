@@ -94,7 +94,7 @@ export class DisconnectRemoteProviderCommand extends Command {
 	async execute(args?: DisconnectRemoteProviderCommandArgs): Promise<any> {
 		if (args?.repoPath == null || args?.remote == null) return undefined;
 
-		const remote = (await Container.git.getRemotes(args.repoPath)).find(r => args.remote);
+		const remote = (await Container.git.getRemotes(args.repoPath)).find(r => r.name === args.remote);
 		if (!remote?.provider?.hasApi()) return undefined;
 
 		return remote.provider.disconnect();
