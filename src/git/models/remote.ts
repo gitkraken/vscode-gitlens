@@ -19,6 +19,7 @@ export class GitRemote<
 		return remotes.sort(
 			(a, b) =>
 				(a.default ? -1 : 1) - (b.default ? -1 : 1) ||
+				(a.name === 'origin' ? -1 : 0) ||
 				a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
 		);
 	}
