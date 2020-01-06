@@ -81,7 +81,7 @@ import {
 	RepositoryChangeEvent
 } from './git';
 import { GitUri } from './gitUri';
-import { RemoteProviderFactory, RemoteProviders, RemoteProviderWithApi } from './remotes/factory';
+import { RemoteProvider, RemoteProviderFactory, RemoteProviders, RemoteProviderWithApi } from './remotes/factory';
 import { GitReflogParser, GitShortLogParser } from './parsers/parsers';
 import { fsExists, isWindows } from './shell';
 import { PullRequest, PullRequestDateFormatting } from './models/models';
@@ -2467,8 +2467,8 @@ export class GitService implements Disposable {
 	@log()
 	async getRemotes(
 		repoPath: string | undefined,
-		options: { includeAll?: boolean; sort?: boolean } = {}
-	): Promise<GitRemote[]> {
+		options: { sort?: boolean } = {}
+	): Promise<GitRemote<RemoteProvider>[]> {
 		if (repoPath === undefined) return [];
 
 		const repository = await this.getRepository(repoPath);
@@ -2476,9 +2476,7 @@ export class GitService implements Disposable {
 			? repository.getRemotes({ sort: options.sort })
 			: this.getRemotesCore(repoPath, undefined, { sort: options.sort }));
 
-		if (options.includeAll) return remotes;
-
-		return remotes.filter(r => r.provider !== undefined);
+		return remotes.filter(r => r.provider != null) as GitRemote<RemoteProvider>[];
 	}
 
 	async getRemotesCore(

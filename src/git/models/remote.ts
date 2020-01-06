@@ -8,7 +8,9 @@ export enum GitRemoteType {
 	Push = 'push'
 }
 
-export class GitRemote {
+export class GitRemote<
+	TProvider extends RemoteProvider | undefined = RemoteProvider | RemoteProviderWithApi | undefined
+> {
 	static is(remote: any): remote is GitRemote {
 		return remote instanceof GitRemote;
 	}
@@ -28,7 +30,7 @@ export class GitRemote {
 		public readonly scheme: string,
 		public readonly domain: string,
 		public readonly path: string,
-		public readonly provider: RemoteProvider | RemoteProviderWithApi | undefined,
+		public readonly provider: TProvider,
 		public readonly types: { type: GitRemoteType; url: string }[]
 	) {}
 

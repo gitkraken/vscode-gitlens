@@ -7,42 +7,39 @@ import {
 	GitRemote,
 	GitService,
 	GitUri,
+	RemoteProvider,
 	RemoteResource,
 	RemoteResourceType
 } from '../git/gitService';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from './commonQuickPicks';
 
 export class OpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
-	private remote: GitRemote;
-	private resource: RemoteResource;
-
-	constructor(remote: GitRemote, resource: RemoteResource, public readonly clipboard?: boolean) {
+	constructor(
+		private readonly remote: GitRemote<RemoteProvider>,
+		private readonly resource: RemoteResource,
+		public readonly clipboard?: boolean
+	) {
 		super(
 			{
 				label: clipboard
 					? `$(link-external) Copy ${getNameFromRemoteResource(resource)} Url to Clipboard from ${
-							remote.provider!.name
+							remote.provider.name
 					  }`
-					: `$(link-external) Open ${getNameFromRemoteResource(resource)} on ${remote.provider!.name}`,
-				description: `$(repo) ${remote.provider!.path}`
+					: `$(link-external) Open ${getNameFromRemoteResource(resource)} on ${remote.provider.name}`,
+				description: `$(repo) ${remote.provider.path}`
 			},
 			undefined,
 			undefined
 		);
-
-		this.remote = remote;
-		this.resource = resource;
 	}
 
 	execute(): Thenable<{} | undefined> {
-		if (this.clipboard) return this.remote.provider!.copy(this.resource);
-
-		return this.remote.provider!.open(this.resource);
+		return this.clipboard ? this.remote.provider.copy(this.resource) : this.remote.provider.open(this.resource);
 	}
 }
 
 export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
-	constructor(remotes: GitRemote[], resource: RemoteResource, goBackCommand?: CommandQuickPickItem) {
+	constructor(remotes: GitRemote<RemoteProvider>[], resource: RemoteResource, goBackCommand?: CommandQuickPickItem) {
 		const name = getNameFromRemoteResource(resource);
 
 		let description;
@@ -95,13 +92,7 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
 				break;
 		}
 
-		let remote: GitRemote | undefined;
-		if (remotes.length > 1) {
-			remote = remotes.find(r => r.default);
-		} else if (remotes.length === 1) {
-			remote = remotes[0];
-		}
-
+		let remote = remotes.length === 1 ? remotes[0] : remotes.find(r => r.default);
 		if (remote != null) {
 			const commandArgs: OpenInRemoteCommandArgs = {
 				remotes: remotes,
@@ -110,8 +101,8 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
 			};
 			super(
 				{
-					label: `$(link-external) Open ${name} on ${remote.provider!.name}`,
-					description: `${description} in ${GlyphChars.Space}$(repo) ${remote.provider!.path}`
+					label: `$(link-external) Open ${name} on ${remote.provider.name}`,
+					description: `${description} in ${GlyphChars.Space}$(repo) ${remote.provider.path}`
 				},
 				Commands.OpenInRemote,
 				[undefined, commandArgs]
@@ -121,10 +112,11 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
 		}
 
 		remote = remotes[0];
-		// Use the real provider name if there is only 1 provider
-		const provider = remotes.every(r => r.provider !== undefined && r.provider.name === remote!.provider!.name)
-			? remote.provider!.name
-			: 'Remote';
+		let providerName = remote.provider.name;
+		// Only use the real provider name if there is only 1 type of provider
+		if (!remotes.every(r => r.provider.name === providerName)) {
+			providerName = 'Remote';
+		}
 
 		const commandArgs: OpenInRemoteCommandArgs = {
 			remotes: remotes,
@@ -133,7 +125,7 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
 		};
 		super(
 			{
-				label: `$(link-external) Open ${name} on ${provider}${GlyphChars.Ellipsis}`,
+				label: `$(link-external) Open ${name} on ${providerName}${GlyphChars.Ellipsis}`,
 				description: `${description}`
 			},
 			Commands.OpenInRemote,
@@ -144,7 +136,7 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
 
 export class RemotesQuickPick {
 	static async show(
-		remotes: GitRemote[],
+		remotes: GitRemote<RemoteProvider>[],
 		placeHolder: string,
 		resource: RemoteResource,
 		clipboard?: boolean,
