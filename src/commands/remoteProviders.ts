@@ -43,7 +43,7 @@ export class ConnectRemoteProviderCommand extends Command {
 
 		const remotes = await Container.git.getRemotes(args.repoPath);
 		const remote = remotes.find(r => r.name === args.remote);
-		if (!remote?.provider?.hasApi()) return false;
+		if (!remote?.provider.hasApi()) return false;
 
 		const connected = await remote.provider.connect();
 		if (connected && !remotes.some(r => r.default)) {
@@ -95,7 +95,7 @@ export class DisconnectRemoteProviderCommand extends Command {
 		if (args?.repoPath == null || args?.remote == null) return undefined;
 
 		const remote = (await Container.git.getRemotes(args.repoPath)).find(r => r.name === args.remote);
-		if (!remote?.provider?.hasApi()) return undefined;
+		if (!remote?.provider.hasApi()) return undefined;
 
 		return remote.provider.disconnect();
 	}

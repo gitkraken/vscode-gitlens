@@ -1,7 +1,7 @@
 'use strict';
 import { TextEditor, Uri } from 'vscode';
 import { GlyphChars } from '../constants';
-import { GitRemote, GitService, RemoteResource, RemoteResourceType } from '../git/gitService';
+import { GitRemote, GitService, RemoteProvider, RemoteResource, RemoteResourceType } from '../git/gitService';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { CommandQuickPickItem, OpenRemoteCommandQuickPickItem, RemotesQuickPick } from '../quickpicks';
@@ -10,7 +10,7 @@ import { ActiveEditorCommand, command, Commands } from './common';
 
 export interface OpenInRemoteCommandArgs {
 	remote?: string;
-	remotes?: GitRemote[];
+	remotes?: GitRemote<RemoteProvider>[];
 	resource?: RemoteResource;
 	clipboard?: boolean;
 
@@ -36,13 +36,7 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
 		}
 
 		try {
-			let remote: GitRemote | undefined;
-			if (args.remotes.length > 1) {
-				remote = args.remotes.find(r => r.default);
-			} else if (args.remotes.length === 1) {
-				remote = args.remotes[0];
-			}
-
+			const remote = args.remotes.length === 1 ? args.remotes[0] : args.remotes.find(r => r.default);
 			if (remote != null) {
 				this.ensureRemoteBranchName(args);
 				const command = new OpenRemoteCommandQuickPickItem(remote, args.resource, args.clipboard);
