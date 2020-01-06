@@ -84,7 +84,10 @@ export class DiffBranchWithCommand extends ActiveEditorCommand {
 					allowEnteringRefs: true,
 					checked: args.ref1,
 					checkmarks: checkmarks,
-					include: ReferencesQuickPickIncludes.BranchesAndTags | ReferencesQuickPickIncludes.WorkingTree
+					include:
+						ReferencesQuickPickIncludes.BranchesAndTags |
+						ReferencesQuickPickIncludes.HEAD |
+						ReferencesQuickPickIncludes.WorkingTree
 				});
 				if (pick === undefined) return undefined;
 
