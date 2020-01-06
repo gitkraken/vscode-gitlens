@@ -269,11 +269,11 @@ export namespace RefQuickPickItem {
 	export function create(
 		ref: string,
 		picked?: boolean,
-		options: { alwaysShow?: boolean; ref?: boolean } = {}
+		options: { alwaysShow?: boolean; ref?: boolean; icon?: boolean } = {}
 	): RefQuickPickItem {
 		if (ref === '') {
 			return {
-				label: `${Strings.pad('$(file-directory)', 0, 2)}Working Tree`,
+				label: `${options.icon ? Strings.pad('$(file-directory)', 0, 2) : ''}Working Tree`,
 				description: '',
 				alwaysShow: options.alwaysShow,
 				picked: picked,
@@ -286,7 +286,7 @@ export namespace RefQuickPickItem {
 
 		if (ref === 'HEAD') {
 			return {
-				label: 'HEAD',
+				label: `${options.icon ? Strings.pad('$(git-branch)', 0, 2) : ''}HEAD`,
 				description: '',
 				alwaysShow: options.alwaysShow,
 				picked: picked,
