@@ -1,5 +1,6 @@
 'use strict';
 import { Disposable, TextEditor } from 'vscode';
+import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitBlameCommit, GitLogCommit } from '../git/gitService';
 import {
@@ -10,6 +11,7 @@ import {
 	GitDocumentState
 } from './gitDocumentTracker';
 import { LinesChangeEvent, LineTracker } from './lineTracker';
+import { Logger } from '../logger';
 import { debug } from '../system';
 
 export * from './lineTracker';
@@ -107,22 +109,58 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 		}
 	}
 
+	@debug({
+		args: {
+			0: (lines: number[]) => lines?.join(','),
+			1: (editor: TextEditor) => editor.document.uri.toString(true)
+		},
+		exit: updated => `returned ${updated}`,
+		singleLine: true
+	})
 	private async updateState(lines: number[], editor: TextEditor): Promise<boolean> {
+		const cc = Logger.getCorrelationContext();
+
+		if (!this.includesAll(lines)) {
+			if (cc != null) {
+				cc.exitDetails = ` ${GlyphChars.Dot} lines no longer match`;
+			}
+
+			return false;
+		}
+
 		const trackedDocument = await Container.tracker.getOrAdd(editor.document);
-		if (!trackedDocument.isBlameable || !this.includesAll(lines)) return false;
+		if (!trackedDocument.isBlameable) {
+			if (cc != null) {
+				cc.exitDetails = ` ${GlyphChars.Dot} document is not blameable`;
+			}
+
+			return false;
+		}
 
 		if (lines.length === 1) {
 			const blameLine = editor.document.isDirty
 				? await Container.git.getBlameForLineContents(trackedDocument.uri, lines[0], editor.document.getText())
 				: await Container.git.getBlameForLine(trackedDocument.uri, lines[0]);
-			if (blameLine === undefined) return false;
+			if (blameLine === undefined) {
+				if (cc != null) {
+					cc.exitDetails = ` ${GlyphChars.Dot} blame failed`;
+				}
+
+				return false;
+			}
 
 			this.setState(blameLine.line.line - 1, new GitLineState(blameLine.commit));
 		} else {
 			const blame = editor.document.isDirty
 				? await Container.git.getBlameForFileContents(trackedDocument.uri, editor.document.getText())
 				: await Container.git.getBlameForFile(trackedDocument.uri);
-			if (blame === undefined) return false;
+			if (blame === undefined) {
+				if (cc != null) {
+					cc.exitDetails = ` ${GlyphChars.Dot} blame failed`;
+				}
+
+				return false;
+			}
 
 			for (const line of lines) {
 				const commitLine = blame.lines[line];
@@ -130,7 +168,23 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 			}
 		}
 
-		if (!trackedDocument.isBlameable || !this.includesAll(lines)) return false;
+		// Check again because of the awaits above
+
+		if (!this.includesAll(lines)) {
+			if (cc != null) {
+				cc.exitDetails = ` ${GlyphChars.Dot} lines no longer match`;
+			}
+
+			return false;
+		}
+
+		if (!trackedDocument.isBlameable) {
+			if (cc != null) {
+				cc.exitDetails = ` ${GlyphChars.Dot} document is not blameable`;
+			}
+
+			return false;
+		}
 
 		if (editor.document.isDirty) {
 			trackedDocument.setForceDirtyStateChangeOnNextDocumentChange();
