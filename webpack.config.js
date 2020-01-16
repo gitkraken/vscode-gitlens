@@ -34,7 +34,6 @@ module.exports = function(env, argv) {
 	if (fs.existsSync(packageJSON)) {
 		// eslint-disable-next-line import/no-dynamic-require
 		const uua = require(packageJSON);
-		console.log(uua.module);
 		if (uua.module !== 'dist-node/index.js') {
 			console.log("Rewrote universal-user-agent's package.json module field to `dist-node/index.js`");
 			uua.module = 'dist-node/index.js';
