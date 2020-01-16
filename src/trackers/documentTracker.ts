@@ -260,7 +260,11 @@ export class DocumentTracker<T> implements Disposable {
 				const msg = ex.toString();
 				if (msg.includes('File seems to be binary and cannot be opened as text')) {
 					document = new BinaryTextDocument(documentOrId);
-				} else if (msg.includes('File not found')) {
+				} else if (
+					msg.includes('File not found') ||
+					msg.includes('Unable to read file') ||
+					msg.includes('Unable to resolve non-existing file')
+				) {
 					// If we can't find the file, assume it is because the file has been renamed or deleted at some point
 					document = new MissingRevisionTextDocument(documentOrId);
 
