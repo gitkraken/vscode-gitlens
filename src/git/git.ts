@@ -1036,7 +1036,8 @@ export namespace Git {
 				'rev-parse',
 				'--show-toplevel'
 			);
-			return data.length === 0 ? undefined : data.trim();
+			// Make sure to normalize: https://github.com/git-for-windows/git/issues/2478
+			return data.length === 0 ? undefined : Strings.normalizePath(data.trim());
 		} catch (ex) {
 			if (ex.code === 'ENOENT') {
 				// If the `cwd` doesn't exist, walk backward to see if any parent folder exists
