@@ -167,7 +167,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 		return GitService.shortenSha(this.sha);
 	}
 
-	@memoize<GitUri['documentUri']>(options => `${options!.useVersionedPath ? 'versioned' : ''}`)
+	@memoize<GitUri['documentUri']>(options => `${options?.useVersionedPath ? 'versioned' : ''}`)
 	documentUri({ useVersionedPath }: { useVersionedPath?: boolean } = {}) {
 		if (useVersionedPath && this.versionedPath !== undefined) return GitUri.file(this.versionedPath);
 		if (this.scheme !== 'file') return this;
