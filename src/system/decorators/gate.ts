@@ -45,15 +45,26 @@ export function gate<T extends (...arg: any) => any>(resolver?: (...args: Parame
 
 			let promise = this[prop];
 			if (promise === undefined) {
-				const result = fn!.apply(this, args);
-				if (result == null || !Promises.is(result)) {
-					return result;
-				}
+				let result;
+				try {
+					result = fn!.apply(this, args);
+					if (result == null || !Promises.is(result)) {
+						return result;
+					}
 
-				this[prop] = promise = result.then((r: any) => {
+					this[prop] = promise = result
+						.then((r: any) => {
+							this[prop] = undefined;
+							return r;
+						})
+						.catch(ex => {
+							this[prop] = undefined;
+							throw ex;
+						});
+				} catch (ex) {
 					this[prop] = undefined;
-					return r;
-				});
+					throw ex;
+				}
 			}
 
 			return promise;

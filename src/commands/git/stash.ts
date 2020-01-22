@@ -274,11 +274,15 @@ export class StashGitCommand extends QuickCommandBase<State> {
 							)
 						) {
 							void window.showWarningMessage(
-								'Unable to apply stash. Your working tree changes would be overwritten'
+								'Unable to apply stash. Your working tree changes would be overwritten. Please commit or stash your changes before trying again'
 							);
 
 							return undefined;
-						} else if (ex.message.includes('Auto-merging') && ex.message.includes('CONFLICT')) {
+						} else if (
+							(ex.message.includes('Auto-merging') && ex.message.includes('CONFLICT')) ||
+							(ex.stdout?.includes('Auto-merging') && ex.stdout?.includes('CONFLICT')) ||
+							ex.stdout?.includes('needs merge')
+						) {
 							void window.showInformationMessage('Stash applied with conflicts');
 
 							return undefined;
@@ -445,7 +449,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 				state.subcommand = selection[0].command;
 			}
 
-			void state.repo.stashApply(state.stash!.stashName, { deleteAfter: state.subcommand === 'pop' });
+			void (await state.repo.stashApply(state.stash!.stashName, { deleteAfter: state.subcommand === 'pop' }));
 
 			throw new BreakQuickCommand();
 		}
@@ -556,7 +560,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 				break;
 			}
 
-			void state.repo.stashDelete(state.stash.stashName);
+			void (await state.repo.stashDelete(state.stash.stashName));
 
 			throw new BreakQuickCommand();
 		}
@@ -653,7 +657,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 
 				const command = selection[0];
 				if (command instanceof CommandQuickPickItem) {
-					command.execute();
+					void (await command.execute());
 
 					throw new BreakQuickCommand();
 				}
@@ -743,10 +747,10 @@ export class StashGitCommand extends QuickCommandBase<State> {
 				state.flags = selection[0].item;
 			}
 
-			void state.repo.stashSave(state.message, state.uris, {
+			void (await state.repo.stashSave(state.message, state.uris, {
 				includeUntracked: state.flags.includes('--include-untracked'),
 				keepIndex: state.flags.includes('--keep-index')
-			});
+			}));
 
 			throw new BreakQuickCommand();
 		}
