@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [10.2.1] - 2020-02-10
+
+### Fixed
+
+- Fixes [#932](https://github.com/eamodio/vscode-gitlens/issues/932) - Absolute path used in compare on git version 2.25.0.windows.1
+- Fixes an issue with showing changes of staged files in _File History_ view, _Open Changes with Previous Revision_ command, etc.
+- Fixes certain error handling because of change in a VS Code error message
+- Fixes file history issues w/ copied/deleted files
+
 ## [10.2.0] - 2019-11-18
 
 ### Added
