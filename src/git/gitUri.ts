@@ -372,7 +372,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 		const path = GitUri.resolve(fileName, repoPath);
 		return Uri.parse(
 			// Change encoded / back to / otherwise uri parsing won't work properly
-			`${DocumentSchemes.Git}:${encodeURIComponent(path).replace(/%2F/g, slash)}?${encodeURIComponent(
+			`${DocumentSchemes.Git}:/${encodeURIComponent(path).replace(/%2F/g, slash)}?${encodeURIComponent(
 				JSON.stringify({
 					// Ensure we use the fsPath here, otherwise the url won't open properly
 					path: Uri.file(path).fsPath,
