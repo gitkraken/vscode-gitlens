@@ -43,41 +43,82 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 
 		if (this.uri.sha === undefined) {
 			const status = await Container.git.getStatusForFile(this.uri.repoPath!, this.uri.fsPath);
-			if (status !== undefined && (status.indexStatus !== undefined || status.workingTreeStatus !== undefined)) {
-				let sha;
-				let previousSha;
-				if (status.workingTreeStatus !== undefined) {
-					sha = GitService.uncommittedSha;
-					if (status.indexStatus !== undefined) {
-						previousSha = GitService.uncommittedStagedSha;
-					} else if (status.workingTreeStatus !== '?') {
-						previousSha = 'HEAD';
-					}
-				} else {
-					sha = GitService.uncommittedStagedSha;
-					previousSha = 'HEAD';
-				}
-
+			if (status?.workingTreeStatus !== undefined || status?.indexStatus !== undefined) {
 				const user = await Container.git.getCurrentUser(this.uri.repoPath!);
-				const commit = new GitLogCommit(
-					GitCommitType.LogFile,
-					this.uri.repoPath!,
-					sha,
-					'You',
-					user !== undefined ? user.email : undefined,
-					new Date(),
-					new Date(),
-					'',
-					status.fileName,
-					[status],
-					status.status,
-					status.originalFileName,
-					previousSha,
-					status.originalFileName || status.fileName
-				);
-				children.push(
-					new CommitFileNode(this.view, this, status, commit, { displayAsCommit: true, inFileHistory: true })
-				);
+				if (status.workingTreeStatus !== undefined && status.indexStatus !== undefined) {
+					let commit = new GitLogCommit(
+						GitCommitType.LogFile,
+						this.uri.repoPath!,
+						GitService.uncommittedSha,
+						'You',
+						user !== undefined ? user.email : undefined,
+						new Date(),
+						new Date(),
+						'',
+						status.fileName,
+						[status],
+						status.status,
+						status.originalFileName,
+						GitService.uncommittedStagedSha,
+						status.originalFileName || status.fileName
+					);
+
+					children.push(
+						new CommitFileNode(this.view, this, status, commit, {
+							displayAsCommit: true,
+							inFileHistory: true
+						})
+					);
+
+					commit = new GitLogCommit(
+						GitCommitType.LogFile,
+						this.uri.repoPath!,
+						GitService.uncommittedStagedSha,
+						'You',
+						user !== undefined ? user.email : undefined,
+						new Date(),
+						new Date(),
+						'',
+						status.fileName,
+						[status],
+						status.status,
+						status.originalFileName,
+						'HEAD',
+						status.originalFileName || status.fileName
+					);
+
+					children.push(
+						new CommitFileNode(this.view, this, status, commit, {
+							displayAsCommit: true,
+							inFileHistory: true
+						})
+					);
+				} else {
+					const commit = new GitLogCommit(
+						GitCommitType.LogFile,
+						this.uri.repoPath!,
+						status.workingTreeStatus !== undefined
+							? GitService.uncommittedSha
+							: GitService.uncommittedStagedSha,
+						'You',
+						user !== undefined ? user.email : undefined,
+						new Date(),
+						new Date(),
+						'',
+						status.fileName,
+						[status],
+						status.status,
+						status.originalFileName,
+						'HEAD',
+						status.originalFileName || status.fileName
+					);
+					children.push(
+						new CommitFileNode(this.view, this, status, commit, {
+							displayAsCommit: true,
+							inFileHistory: true
+						})
+					);
+				}
 			}
 		}
 

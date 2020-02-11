@@ -59,32 +59,6 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 				for (const commit of blame.commits.values()) {
 					if (!commit.isUncommitted) continue;
 
-					const file: GitFile = {
-						fileName: commit.fileName,
-						indexStatus: '?',
-						originalFileName: commit.originalFileName,
-						repoPath: this.uri.repoPath!,
-						status: 'M',
-						workingTreeStatus: '?'
-					};
-
-					const uncommitted = new GitLogCommit(
-						GitCommitType.LogFile,
-						this.uri.repoPath!,
-						commit.sha,
-						'You',
-						commit.email,
-						commit.authorDate,
-						commit.committerDate,
-						commit.message,
-						commit.fileName,
-						[file],
-						'M',
-						commit.originalFileName,
-						commit.previousSha,
-						commit.originalFileName || commit.fileName
-					);
-
 					const firstLine = blame.lines[0];
 					const lastLine = blame.lines[blame.lines.length - 1];
 
@@ -97,15 +71,103 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 						selection.active.character
 					);
 
-					children.splice(
-						0,
-						0,
-						new CommitFileNode(this.view, this, file, uncommitted, {
-							displayAsCommit: true,
-							inFileHistory: true,
-							selection: selection
-						})
-					);
+					const status = await Container.git.getStatusForFile(this.uri.repoPath!, this.uri.fsPath);
+
+					const file: GitFile = {
+						fileName: commit.fileName,
+						indexStatus: status?.indexStatus ?? '?',
+						originalFileName: commit.originalFileName,
+						repoPath: this.uri.repoPath!,
+						status: 'M',
+						workingTreeStatus: status?.workingTreeStatus ?? '?'
+					};
+
+					if (status?.workingTreeStatus !== undefined && status?.indexStatus !== undefined) {
+						let uncommitted = new GitLogCommit(
+							GitCommitType.LogFile,
+							this.uri.repoPath!,
+							GitService.uncommittedStagedSha,
+							'You',
+							commit.email,
+							commit.authorDate,
+							commit.committerDate,
+							commit.message,
+							commit.fileName,
+							[file],
+							'M',
+							commit.originalFileName,
+							commit.previousSha,
+							commit.originalFileName || commit.fileName
+						);
+
+						children.splice(
+							0,
+							0,
+							new CommitFileNode(this.view, this, file, uncommitted, {
+								displayAsCommit: true,
+								inFileHistory: true,
+								selection: selection
+							})
+						);
+
+						uncommitted = new GitLogCommit(
+							GitCommitType.LogFile,
+							this.uri.repoPath!,
+							GitService.uncommittedSha,
+							'You',
+							commit.email,
+							commit.authorDate,
+							commit.committerDate,
+							commit.message,
+							commit.fileName,
+							[file],
+							'M',
+							commit.originalFileName,
+							GitService.uncommittedStagedSha,
+							commit.originalFileName || commit.fileName
+						);
+
+						children.splice(
+							0,
+							0,
+							new CommitFileNode(this.view, this, file, uncommitted, {
+								displayAsCommit: true,
+								inFileHistory: true,
+								selection: selection
+							})
+						);
+					} else {
+						const uncommitted = new GitLogCommit(
+							GitCommitType.LogFile,
+							this.uri.repoPath!,
+							status?.workingTreeStatus !== undefined
+								? GitService.uncommittedSha
+								: status?.indexStatus !== undefined
+								? GitService.uncommittedStagedSha
+								: commit.sha,
+							'You',
+							commit.email,
+							commit.authorDate,
+							commit.committerDate,
+							commit.message,
+							commit.fileName,
+							[file],
+							'M',
+							commit.originalFileName,
+							commit.previousSha,
+							commit.originalFileName || commit.fileName
+						);
+
+						children.splice(
+							0,
+							0,
+							new CommitFileNode(this.view, this, file, uncommitted, {
+								displayAsCommit: true,
+								inFileHistory: true,
+								selection: selection
+							})
+						);
+					}
 
 					break;
 				}
