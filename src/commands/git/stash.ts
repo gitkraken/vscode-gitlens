@@ -403,26 +403,18 @@ export class StashGitCommand extends QuickCommandBase<State> {
 							description: `${state.stash.stashName}${Strings.pad(GlyphChars.Dash, 2, 2)}${message}`,
 							detail:
 								state.subcommand === 'pop'
-									? `Will delete ${
-											state.stash!.stashName
-									  } and apply the changes to the working tree of ${state.repo.formattedName}`
-									: `Will apply the changes from ${state.stash!.stashName} to the working tree of ${
-											state.repo.formattedName
-									  }`,
+									? `Will delete ${state.stash.stashName} and apply the changes to the working tree of ${state.repo.formattedName}`
+									: `Will apply the changes from ${state.stash.stashName} to the working tree of ${state.repo.formattedName}`,
 							command: state.subcommand!
 						},
 						// Alternate confirmation (if pop then apply, and vice versa)
 						{
 							label: getTitle(this.title, state.subcommand === 'pop' ? 'apply' : 'pop'),
-							description: `${state.stash!.stashName}${Strings.pad(GlyphChars.Dash, 2, 2)}${message}`,
+							description: `${state.stash.stashName}${Strings.pad(GlyphChars.Dash, 2, 2)}${message}`,
 							detail:
 								state.subcommand === 'pop'
-									? `Will apply the changes from ${state.stash!.stashName} to the working tree of ${
-											state.repo.formattedName
-									  }`
-									: `Will delete ${
-											state.stash!.stashName
-									  } and apply the changes to the working tree of ${state.repo.formattedName}`,
+									? `Will apply the changes from ${state.stash.stashName} to the working tree of ${state.repo.formattedName}`
+									: `Will delete ${state.stash.stashName} and apply the changes to the working tree of ${state.repo.formattedName}`,
 							command: state.subcommand === 'pop' ? 'apply' : 'pop'
 						}
 					],
@@ -449,7 +441,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 				state.subcommand = selection[0].command;
 			}
 
-			void (await state.repo.stashApply(state.stash!.stashName, { deleteAfter: state.subcommand === 'pop' }));
+			void (await state.repo.stashApply(state.stash.stashName, { deleteAfter: state.subcommand === 'pop' }));
 
 			throw new BreakQuickCommand();
 		}

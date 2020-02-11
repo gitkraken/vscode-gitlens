@@ -18,7 +18,7 @@
 		"url": "https://github.com/eamodio/vscode-gitlens.git"
 	},
 	"engines": {
-		"vscode": "^1.37.0"
+		"vscode": "^1.42.0"
 	},
 	"main": "./dist/extension",
 	"icon": "images/gitlens-icon.png",
@@ -6079,27 +6079,27 @@
 	},
 	"dependencies": {
 		"@octokit/graphql": "4.3.1",
-		"dayjs": "1.8.19",
+		"dayjs": "1.8.20",
 		"iconv-lite": "0.5.1",
 		"lodash-es": "4.17.15",
-		"vsls": "0.3.1291"
+		"vsls": "1.0.1526"
 	},
 	"devDependencies": {
 		"@types/keytar": "4.4.2",
 		"@types/lodash-es": "4.17.3",
-		"@types/node": "12.12.24",
-		"@types/vscode": "1.37.0",
-		"@typescript-eslint/eslint-plugin": "2.17.0",
-		"@typescript-eslint/parser": "2.17.0",
+		"@types/node": "12.12.26",
+		"@types/vscode": "1.42.0",
+		"@typescript-eslint/eslint-plugin": "2.19.2",
+		"@typescript-eslint/parser": "2.19.2",
 		"circular-dependency-plugin": "5.2.0",
 		"clean-webpack-plugin": "3.0.0",
 		"csp-html-webpack-plugin": "3.0.4",
 		"css-loader": "3.4.2",
 		"eslint": "6.8.0",
 		"eslint-cli": "1.1.1",
-		"eslint-config-prettier": "6.9.0",
-		"eslint-plugin-import": "2.20.0",
-		"fork-ts-checker-webpack-plugin": "4.0.2",
+		"eslint-config-prettier": "6.10.0",
+		"eslint-plugin-import": "2.20.1",
+		"fork-ts-checker-webpack-plugin": "4.0.3",
 		"html-webpack-exclude-assets-plugin": "0.0.7",
 		"html-webpack-inline-source-plugin": "0.0.10",
 		"html-webpack-plugin": "3.2.0",
@@ -6108,12 +6108,12 @@
 		"node-sass": "4.13.1",
 		"prettier": "1.19.1",
 		"sass-loader": "8.0.2",
-		"terser-webpack-plugin": "2.3.2",
+		"terser-webpack-plugin": "2.3.4",
 		"ts-loader": "6.2.1",
-		"typescript": "3.8.0-beta",
-		"vsce": "1.71.0",
-		"webpack": "4.41.5",
+		"typescript": "3.8.1-rc",
+		"vsce": "1.73.0",
+		"webpack": "4.41.6",
 		"webpack-bundle-analyzer": "3.6.0",
-		"webpack-cli": "3.3.10"
+		"webpack-cli": "3.3.11"
 	}
 }
