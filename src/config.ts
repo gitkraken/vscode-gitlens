@@ -132,6 +132,7 @@ export interface AutolinkReference {
 	prefix: string;
 	url: string;
 	title?: string;
+	alphanumeric?: boolean;
 	ignoreCase?: boolean;
 }
 

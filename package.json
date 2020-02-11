@@ -70,11 +70,6 @@
 								"type": "string",
 								"description": "Specifies the short prefix to use to generate autolinks for the external resource"
 							},
-							"ignoreCase": {
-								"type": "boolean",
-								"description": "Specifies whether case should be ignored when matching the prefix",
-								"default": false
-							},
 							"title": {
 								"type": [
 									"string",
@@ -86,6 +81,16 @@
 							"url": {
 								"type": "string",
 								"description": "Specifies the url of the external resource you want to link to. Use `<num>` as the variable for the reference number"
+							},
+							"alphanumeric": {
+								"type": "boolean",
+								"description": "Specifies whether alphanumeric should be allowed in `<num>`",
+								"default": false
+							},
+							"ignoreCase": {
+								"type": "boolean",
+								"description": "Specifies whether case should be ignored when matching the prefix",
+								"default": false
 							}
 						}
 					},
