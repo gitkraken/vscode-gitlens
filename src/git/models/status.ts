@@ -148,7 +148,7 @@ export class GitStatusFile implements GitFile {
 	) {}
 
 	get status(): GitFileStatus {
-		return this.indexStatus || this.workingTreeStatus || '?';
+		return this.indexStatus ?? this.workingTreeStatus ?? '?';
 	}
 
 	get staged() {
