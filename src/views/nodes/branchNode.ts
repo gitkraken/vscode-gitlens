@@ -212,7 +212,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 	@log()
 	async star() {
 		await this.branch.star();
-		void this.parent!.triggerChange();
+		void this.view.refresh(true);
 	}
 
 	@log()
