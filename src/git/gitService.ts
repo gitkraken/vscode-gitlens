@@ -84,7 +84,7 @@ import { GitUri } from './gitUri';
 import { RemoteProvider, RemoteProviderFactory, RemoteProviders, RemoteProviderWithApi } from './remotes/factory';
 import { GitReflogParser, GitShortLogParser } from './parsers/parsers';
 import { fsExists, isWindows } from './shell';
-import { PullRequest, PullRequestDateFormatting } from './models/models';
+import { GitRevision, PullRequest, PullRequestDateFormatting } from './models/models';
 
 export * from './gitUri';
 export * from './models/models';
@@ -1566,16 +1566,26 @@ export class GitService implements Disposable {
 
 			moreLimit = moreLimit ?? Container.config.advanced.maxSearchItems ?? 0;
 
+			// If the log is for a range, then just get everything prior + more
+			if (GitRevision.isDottedRangeNotation(log.sha)) {
+				const moreLog = await this.getLog(log.repoPath, {
+					...options,
+					limit: moreLimit === 0 ? 0 : (options.limit ?? 0) + moreLimit
+				});
+				// If we can't find any more, assume we have everything
+				if (moreLog === undefined) return { ...log, hasMore: false };
+
+				return moreLog;
+			}
+
 			const ref = Iterables.last(log.commits.values())?.ref;
 			const moreLog = await this.getLog(log.repoPath, {
 				...options,
 				limit: moreUntil == null ? moreLimit : 0,
 				ref: moreUntil == null ? `${ref}^` : `${moreUntil}^..${ref}^`
 			});
-			if (moreLog === undefined) {
-				// If we can't find any more, assume we have everything
-				return { ...log, hasMore: false };
-			}
+			// If we can't find any more, assume we have everything
+			if (moreLog === undefined) return { ...log, hasMore: false };
 
 			const mergedLog: GitLog = {
 				repoPath: log.repoPath,
