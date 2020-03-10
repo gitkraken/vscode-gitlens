@@ -9,6 +9,10 @@ export namespace GitRevision {
 	): string {
 		return `${ref1 || ''}${notation}${ref2 || ''}`;
 	}
+
+	export function isDottedRangeNotation(ref: string | undefined) {
+		return ref?.includes('..') ?? false;
+	}
 }
 
 export interface GitReference {
