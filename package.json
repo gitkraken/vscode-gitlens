@@ -3481,7 +3481,7 @@
 			},
 			{
 				"command": "gitlens.views.showMoreChildren",
-				"title": "Show More",
+				"title": "Load More",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-unfold.svg",
@@ -3490,7 +3490,7 @@
 			},
 			{
 				"command": "gitlens.views.showAllChildren",
-				"title": "Show All",
+				"title": "Load All",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-unfold.svg",
