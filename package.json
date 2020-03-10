@@ -6119,7 +6119,7 @@
 		"dayjs": "1.8.22",
 		"iconv-lite": "0.5.1",
 		"lodash-es": "4.17.15",
-		"vsls": "1.0.1526"
+		"vsls": "0.3.1291"
 	},
 	"devDependencies": {
 		"@types/keytar": "4.4.2",
