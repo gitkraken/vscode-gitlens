@@ -1,6 +1,6 @@
 'use strict';
-import { debounce as _debounce, once as _once } from 'lodash-es';
 import { Disposable } from 'vscode';
+import { debounce as _debounce, once as _once } from 'lodash-es';
 
 export interface Deferrable {
 	cancel(): void;

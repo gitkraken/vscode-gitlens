@@ -1,7 +1,7 @@
 'use strict';
+import { Event, EventEmitter } from 'vscode';
 // eslint-disable-next-line import/no-unresolved
 import * as keytarType from 'keytar';
-import { Event, EventEmitter } from 'vscode';
 import { extensionId } from './constants';
 import { Logger } from './logger';
 

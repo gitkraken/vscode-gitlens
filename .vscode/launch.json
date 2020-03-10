@@ -13,6 +13,10 @@
 			},
 			"cwd": "${workspaceFolder}",
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
+			"presentation": {
+				"group": "2_launch",
+				"order": 1
+			},
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
 			"smartStep": true,
 			"sourceMaps": true,
@@ -29,6 +33,10 @@
 			},
 			"cwd": "${workspaceFolder}",
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
+			"presentation": {
+				"group": "2_launch",
+				"order": 2
+			},
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
 			"smartStep": true,
 			"sourceMaps": true,
@@ -46,6 +54,10 @@
 			"cwd": "${workspaceFolder}",
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
 			"preLaunchTask": "npm: watch",
+			"presentation": {
+				"group": "1_watch",
+				"order": 1
+			},
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
 			"smartStep": true,
 			"sourceMaps": true,
