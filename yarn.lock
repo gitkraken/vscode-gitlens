@@ -7346,10 +7346,10 @@ vsce@1.74.0:
     yauzl "^2.3.1"
     yazl "^2.2.2"
 
-vsls@1.0.1526:
-  version "1.0.1526"
-  resolved "https://registry.yarnpkg.com/vsls/-/vsls-1.0.1526.tgz#7940cb77335a15de5cdbc74f169fc81b7b602dda"
-  integrity sha512-bxqb2iZzauwVluidgFS1CPZHF1KbNwIGqHeIow/7gtrJpLBLg+Bs0dgSvHLJafwfQulO+dsycWYPF64R6D3R/A==
+vsls@0.3.1291:
+  version "0.3.1291"
+  resolved "https://registry.yarnpkg.com/vsls/-/vsls-0.3.1291.tgz#55928c363b24d39a5d03d8e946ba85d7dcec3e38"
+  integrity sha512-8yJPN9p7k+XYyczOVtQmpun4K1CRDsw/hdnIzT/c40r5bIkpptfsBlHmmLemoIV+CAHvrTLdWKEf5OtRvdcn9A==
 
 watchpack@^1.6.0:
   version "1.6.0"
