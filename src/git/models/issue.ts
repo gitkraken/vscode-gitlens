@@ -1,6 +1,7 @@
 'use strict';
 
-export interface Issue {
+export interface IssueOrPullRequest {
+	type: 'Issue' | 'PullRequest';
 	provider: string;
 	id: number;
 	date: Date;
