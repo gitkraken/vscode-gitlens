@@ -85,7 +85,7 @@ export namespace Hovers {
 				return undefined;
 			}
 
-			message = `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs({
+			message = `[$(compare-changes) Changes](${DiffWithCommand.getMarkdownCommandArgs({
 				lhs: {
 					sha: diffUris.previous.sha || '',
 					uri: diffUris.previous.documentUri()
@@ -105,9 +105,9 @@ export namespace Hovers {
 								working: 'Working Tree'
 							}
 					  })}_`
-					: `[\`${GitService.shortenSha(
+					: `[$(git-commit) ${GitService.shortenSha(
 							diffUris.previous.sha || ''
-					  )}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
+					  )}](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
 							diffUris.previous.sha || ''
 					  )} "Show Commit Details")`;
 
@@ -118,26 +118,29 @@ export namespace Hovers {
 								working: 'Working Tree'
 							}
 					  })}_`
-					: `[\`${GitService.shortenSha(
+					: `[$(git-commit) ${GitService.shortenSha(
 							diffUris.current.sha || ''
-					  )}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
+					  )}](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
 							diffUris.current.sha || ''
 					  )} "Show Commit Details")`;
 		} else {
-			message = `[\`Changes\`](${DiffWithCommand.getMarkdownCommandArgs(commit, editorLine)} "Open Changes")`;
+			message = `[$(compare-changes) Changes](${DiffWithCommand.getMarkdownCommandArgs(
+				commit,
+				editorLine
+			)} "Open Changes")`;
 
-			previous = `[\`${commit.previousShortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
-				commit.previousSha
-			)} "Show Commit Details")`;
+			previous = `[$(git-commit) ${
+				commit.previousShortSha
+			}](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.previousSha)} "Show Commit Details")`;
 
-			current = `[\`${commit.shortSha}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
+			current = `[$(git-commit) ${commit.shortSha}](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
 				commit.sha
 			)} "Show Commit Details")`;
 		}
 
 		message += ` &nbsp; ${GlyphChars.Dash} &nbsp; ${previous} &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; ${current}\n${diff}`;
 
-		const markdown = new MarkdownString(message);
+		const markdown = new MarkdownString(message, true);
 		markdown.isTrusted = true;
 		return markdown;
 	}
@@ -155,16 +158,16 @@ export namespace Hovers {
 
 		const remotes = await Container.git.getRemotes(commit.repoPath, { sort: true });
 
-		const [previousLineDiffUris, autolinkedIssues, pr, presence] = await Promise.all([
+		const [previousLineDiffUris, autolinkedIssuesOrPullRequests, pr, presence] = await Promise.all([
 			commit.isUncommitted ? commit.getPreviousLineDiffUris(uri, editorLine, uri.sha) : undefined,
-			getAutoLinkedIssues(commit.message, remotes),
+			getAutoLinkedIssuesOrPullRequests(commit.message, remotes),
 			getPullRequestForCommit(commit.ref, remotes),
 			Container.vsls.maybeGetPresence(commit.email).catch(reason => undefined)
 		]);
 
 		const details = CommitFormatter.fromTemplate(Container.config.hovers.detailsMarkdownFormat, commit, {
 			annotationType: annotationType,
-			autolinkedIssues: autolinkedIssues,
+			autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,
 			dateFormat: dateFormat,
 			line: editorLine,
 			markdown: true,
@@ -174,7 +177,7 @@ export namespace Hovers {
 			remotes: remotes
 		});
 
-		const markdown = new MarkdownString(details);
+		const markdown = new MarkdownString(details, true);
 		markdown.isTrusted = true;
 		return markdown;
 	}
@@ -189,7 +192,7 @@ export namespace Hovers {
 		}\n\`\`\``;
 	}
 
-	async function getAutoLinkedIssues(message: string, remotes: GitRemote[]) {
+	async function getAutoLinkedIssuesOrPullRequests(message: string, remotes: GitRemote[]) {
 		const cc = Logger.getNewCorrelationContext('Hovers.getAutoLinkedIssues');
 		Logger.debug(cc, `${GlyphChars.Dash} message=<message>`);
 
@@ -216,11 +219,13 @@ export namespace Hovers {
 		const timeout = 250;
 
 		try {
-			const autolinkedIssues = await Container.autolinks.getIssueLinks(message, remote, { timeout: timeout });
+			const autolinks = await Container.autolinks.getIssueOrPullRequestLinks(message, remote, {
+				timeout: timeout
+			});
 
-			if (autolinkedIssues !== undefined && (Logger.level === TraceLevel.Debug || Logger.isDebugging)) {
+			if (autolinks !== undefined && (Logger.level === TraceLevel.Debug || Logger.isDebugging)) {
 				const timeouts = [
-					...Iterables.filterMap(autolinkedIssues.values(), issue =>
+					...Iterables.filterMap(autolinks.values(), issue =>
 						issue instanceof Promises.CancellationError ? issue.promise : undefined
 					)
 				];
@@ -229,20 +234,20 @@ export namespace Hovers {
 				if (timeouts.length !== 0) {
 					Logger.debug(
 						cc,
-						`timed out ${GlyphChars.Dash} issue queries (${
+						`timed out ${GlyphChars.Dash} issue/pr queries (${
 							timeouts.length
 						}) took too long (over ${timeout} ms) ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(
 							start
 						)} ms`
 					);
 
-					return autolinkedIssues;
+					return autolinks;
 				}
 			}
 
 			Logger.debug(cc, `completed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
 
-			return autolinkedIssues;
+			return autolinks;
 		} catch (ex) {
 			Logger.error(ex, cc, `failed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
 
