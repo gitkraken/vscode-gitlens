@@ -4,7 +4,7 @@ import { AutolinkReference, configuration } from '../configuration';
 import { Container } from '../container';
 import { Dates, debug, Iterables, Promises, Strings } from '../system';
 import { Logger } from '../logger';
-import { GitRemote, Issue } from '../git/git';
+import { GitRemote, IssueOrPullRequest } from '../git/git';
 import { GlyphChars } from '../constants';
 
 const numRegex = /<num>/g;
@@ -50,7 +50,7 @@ export class Autolinks implements Disposable {
 	}
 
 	@debug({ args: false })
-	async getIssueLinks(message: string, remote: GitRemote, { timeout }: { timeout?: number } = {}) {
+	async getIssueOrPullRequestLinks(message: string, remote: GitRemote, { timeout }: { timeout?: number } = {}) {
 		if (!remote.provider?.hasApi()) return undefined;
 
 		const { provider } = remote;
@@ -83,10 +83,16 @@ export class Autolinks implements Disposable {
 
 		if (ids.size === 0) return undefined;
 
-		const issues = await Promises.raceAll(ids.values(), id => provider.getIssue(id), timeout);
-		if (issues.size === 0 || Iterables.every(issues.values(), pr => pr === undefined)) return undefined;
+		const issuesOrPullRequests = await Promises.raceAll(
+			ids.values(),
+			id => provider.getIssueOrPullRequest(id),
+			timeout
+		);
+		if (issuesOrPullRequests.size === 0 || Iterables.every(issuesOrPullRequests.values(), pr => pr === undefined)) {
+			return undefined;
+		}
 
-		return issues;
+		return issuesOrPullRequests;
 	}
 
 	@debug({ args: false })
@@ -94,10 +100,10 @@ export class Autolinks implements Disposable {
 		text: string,
 		markdown: boolean,
 		remotes?: GitRemote[],
-		issues?: Map<number, Issue | Promises.CancellationError | undefined>
+		issuesOrPullRequests?: Map<number, IssueOrPullRequest | Promises.CancellationError | undefined>
 	) {
 		for (const ref of this._references) {
-			if (this.ensureAutolinkCached(ref, issues)) {
+			if (this.ensureAutolinkCached(ref, issuesOrPullRequests)) {
 				if (ref.linkify != null) {
 					text = ref.linkify(text, markdown);
 				}
@@ -109,7 +115,7 @@ export class Autolinks implements Disposable {
 				if (r.provider === undefined) continue;
 
 				for (const ref of r.provider.autolinks) {
-					if (this.ensureAutolinkCached(ref, issues)) {
+					if (this.ensureAutolinkCached(ref, issuesOrPullRequests)) {
 						if (ref.linkify != null) {
 							text = ref.linkify(text, markdown);
 						}
@@ -123,7 +129,7 @@ export class Autolinks implements Disposable {
 
 	private ensureAutolinkCached(
 		ref: CacheableAutolinkReference | DynamicAutolinkReference,
-		issues?: Map<number, Issue | Promises.CancellationError | undefined>
+		issuesOrPullRequests?: Map<number, IssueOrPullRequest | Promises.CancellationError | undefined>
 	): ref is CacheableAutolinkReference | DynamicAutolinkReference {
 		if (isDynamic(ref)) return true;
 
@@ -137,7 +143,7 @@ export class Autolinks implements Disposable {
 				);
 			}
 
-			if (issues == null || issues.size === 0) {
+			if (issuesOrPullRequests == null || issuesOrPullRequests.size === 0) {
 				const replacement = `[$1](${ref.url.replace(numRegex, '$2')}${
 					ref.title ? ` "${ref.title.replace(numRegex, '$2')}"` : ''
 				})`;
@@ -150,7 +156,7 @@ export class Autolinks implements Disposable {
 			ref.linkify = (text: string, markdown: boolean) => {
 				if (markdown) {
 					return text.replace(ref.messageMarkdownRegex!, (substring, linkText, number) => {
-						const issue = issues?.get(Number(number));
+						const issue = issuesOrPullRequests?.get(Number(number));
 
 						return `[${linkText}](${ref.url.replace(numRegex, number)}${
 							ref.title
@@ -175,7 +181,7 @@ export class Autolinks implements Disposable {
 				let superscript;
 
 				text = text.replace(ref.messageRegex!, (substring, linkText, number) => {
-					const issue = issues?.get(Number(number));
+					const issue = issuesOrPullRequests?.get(Number(number));
 					if (issue == null) return linkText;
 
 					if (footnotes === undefined) {

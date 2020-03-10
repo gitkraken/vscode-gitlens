@@ -2,7 +2,7 @@
 import { graphql } from '@octokit/graphql';
 import { Logger } from '../logger';
 import { debug } from '../system';
-import { Issue, PullRequest, PullRequestState } from '../git/gitService';
+import { IssueOrPullRequest, PullRequest, PullRequestState } from '../git/gitService';
 
 export class GitHubApi {
 	@debug({
@@ -86,7 +86,7 @@ export class GitHubApi {
 			1: token => '<token>'
 		}
 	})
-	async getIssue(
+	async getIssueOrPullRequest(
 		provider: string,
 		token: string,
 		owner: string,
@@ -95,17 +95,26 @@ export class GitHubApi {
 		options?: {
 			baseUrl?: string;
 		}
-	): Promise<Issue | undefined> {
+	): Promise<IssueOrPullRequest | undefined> {
 		const cc = Logger.getCorrelationContext();
 
 		try {
 			const query = `query pr($owner: String!, $repo: String!, $number: Int!) {
 	repository(name: $repo, owner: $owner) {
-		issue(number: $number) {
-			createdAt
-			closed
-			closedAt
-			title
+		issueOrPullRequest(number: $number) {
+			__typename
+			... on Issue {
+				createdAt
+				closed
+				closedAt
+				title
+			}
+			... on PullRequest {
+				createdAt
+				closed
+				closedAt
+				title
+			}
 		}
 	}
 }`;
@@ -118,11 +127,12 @@ export class GitHubApi {
 				headers: { authorization: `token ${token}` },
 				...options
 			});
-			const issue = rsp?.repository?.issue as GitHubIssue | undefined;
+			const issue = rsp?.repository?.issueOrPullRequest as GitHubIssueOrPullRequest | undefined;
 			if (issue == null) return undefined;
 
 			return {
 				provider: provider,
+				type: issue.type,
 				id: number,
 				date: new Date(issue.createdAt),
 				title: issue.title,
@@ -136,7 +146,8 @@ export class GitHubApi {
 	}
 }
 
-interface GitHubIssue {
+interface GitHubIssueOrPullRequest {
+	type: 'Issue' | 'PullRequest';
 	number: number;
 	createdAt: string;
 	closed: boolean;

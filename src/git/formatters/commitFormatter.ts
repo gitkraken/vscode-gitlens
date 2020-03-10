@@ -11,7 +11,7 @@ import {
 import { DateStyle, FileAnnotationType } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { GitCommit, GitLogCommit, GitRemote, GitService, GitUri, Issue, PullRequest } from '../gitService';
+import { GitCommit, GitLogCommit, GitRemote, GitService, GitUri, IssueOrPullRequest, PullRequest } from '../gitService';
 import { Promises, Strings } from '../../system';
 import { FormatOptions, Formatter } from './formatter';
 import { ContactPresence } from '../../vsls/vsls';
@@ -24,7 +24,7 @@ const hasTokenRegexMap = new Map<string, RegExp>();
 
 export interface CommitFormatOptions extends FormatOptions {
 	annotationType?: FileAnnotationType;
-	autolinkedIssues?: Map<number, Issue | Promises.CancellationError | undefined>;
+	autolinkedIssuesOrPullRequests?: Map<number, IssueOrPullRequest | Promises.CancellationError | undefined>;
 	dateStyle?: DateStyle;
 	getBranchAndTagTips?: (sha: string) => string | undefined;
 	line?: number;
@@ -354,7 +354,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				this._options.markdown ? Strings.escapeMarkdown(message, { quoted: true }) : message,
 				this._options.markdown ?? false,
 				this._options.remotes,
-				this._options.autolinkedIssues
+				this._options.autolinkedIssuesOrPullRequests
 			);
 		}
 

@@ -3,7 +3,7 @@ import { Disposable, env, QuickInputButton, Range, Uri, window } from 'vscode';
 import { DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference } from '../../config';
 import { Container } from '../../container';
-import { Issue } from '../models/issue';
+import { IssueOrPullRequest } from '../models/issue';
 import { PullRequest } from '../models/pullRequest';
 import { RemoteProviderWithApi } from './provider';
 
@@ -136,9 +136,14 @@ export class GitHubRemote extends RemoteProviderWithApi<{ token: string }> {
 		return `${this.baseUrl}?path=${fileName}${line}`;
 	}
 
-	protected async onGetIssue({ token }: { token: string }, id: number): Promise<Issue | undefined> {
+	protected async onGetIssueOrPullRequest(
+		{ token }: { token: string },
+		id: number
+	): Promise<IssueOrPullRequest | undefined> {
 		const [owner, repo] = this.splitPath();
-		return (await Container.github)?.getIssue(this.name, token, owner, repo, id, { baseUrl: this.apiBaseUrl });
+		return (await Container.github)?.getIssueOrPullRequest(this.name, token, owner, repo, id, {
+			baseUrl: this.apiBaseUrl
+		});
 	}
 
 	protected async onGetPullRequestForCommit(
