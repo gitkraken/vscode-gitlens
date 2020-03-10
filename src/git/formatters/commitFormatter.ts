@@ -235,33 +235,33 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			return commands;
 		}
 
-		const separator = ' &nbsp;';
+		const separator = ' &nbsp;&nbsp;|&nbsp;&nbsp; ';
 
-		commands = `[\`${this.id}\`](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
+		commands = `---\n\n[$(git-commit) ${this.id}](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
 			this._item.sha
 		)} "Show Commit Details")${separator}`;
 
 		const { pullRequestOrRemote: pr } = this._options;
 		if (pr != null) {
 			if (PullRequest.is(pr)) {
-				commands += `[\`PR #${pr.number}\`](${pr.url} "Open Pull Request \\#${pr.number} on ${
+				commands += `[$(git-pull-request) PR #${pr.number}](${pr.url} "Open Pull Request \\#${pr.number} on ${
 					pr.provider
 				}\n${GlyphChars.Dash.repeat(2)}\n${pr.title}\n${pr.state}, ${pr.formatDateFromNow()}")${separator}`;
 			} else if (pr instanceof Promises.CancellationError) {
-				commands += `[\`PR ${GlyphChars.Ellipsis}\`](# "Searching for a Pull Request (if any) that introduced this commit...")${separator}`;
+				commands += `[$(git-pull-request) PR (${GlyphChars.Ellipsis})](# "Searching for a Pull Request (if any) that introduced this commit...")${separator}`;
 			} else if (pr.provider != null) {
-				commands += `[\`Connect to ${pr.provider.name}${
+				commands += `[$(plug) Connect to ${pr.provider.name}${
 					GlyphChars.Ellipsis
-				}\`](${ConnectRemoteProviderCommand.getMarkdownCommandArgs(pr)} "Connect to ${
+				}](${ConnectRemoteProviderCommand.getMarkdownCommandArgs(pr)} "Connect to ${
 					pr.provider.name
 				} to enable the display of the Pull Request (if any) that introduced this commit")${separator}`;
 			}
 		}
 
-		commands += `**[\`${GlyphChars.MuchLessThan}\`](${DiffWithCommand.getMarkdownCommandArgs(
+		commands += `[$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs(
 			this._item,
 			this._options.line
-		)} "Open Changes")**${separator}`;
+		)} "Open Changes")${separator}`;
 
 		if (this._item.previousSha !== undefined) {
 			let annotationType = this._options.annotationType;
@@ -274,29 +274,29 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				this._item.previousUri.fsPath,
 				this._item.repoPath
 			);
-			commands += `**[\` ${GlyphChars.EqualsTriple} \`](${OpenFileRevisionCommand.getMarkdownCommandArgs(
+			commands += `[$(history)](${OpenFileRevisionCommand.getMarkdownCommandArgs(
 				uri,
 				annotationType || FileAnnotationType.Blame,
 				this._options.line
-			)} "Blame Previous Revision")**${separator}`;
+			)} "Blame Previous Revision")${separator}`;
 		}
 
 		if (this._options.remotes !== undefined && this._options.remotes.length !== 0) {
-			commands += `**[\` ${GlyphChars.ArrowUpRight} \`](${OpenCommitInRemoteCommand.getMarkdownCommandArgs(
+			commands += `[$(link-external)](${OpenCommitInRemoteCommand.getMarkdownCommandArgs(
 				this._item.sha
-			)} "Open on Remote")**${separator}`;
+			)} "Open on Remote")${separator}`;
 		}
 
 		if (this._item.author !== 'You') {
 			const presence = this._options.presence;
 			if (presence != null) {
-				commands += `[\` ${GlyphChars.Envelope}+ \`](${InviteToLiveShareCommand.getMarkdownCommandArgs(
+				commands += `[$(live-share)](${InviteToLiveShareCommand.getMarkdownCommandArgs(
 					this._item.email
 				)} "Invite ${this._item.author} (${presence.statusText}) to a Live Share Session")${separator}`;
 			}
 		}
 
-		commands += `[\`${GlyphChars.MiddleEllipsis}\`](${ShowQuickCommitFileDetailsCommand.getMarkdownCommandArgs({
+		commands += `[$(ellipsis)](${ShowQuickCommitFileDetailsCommand.getMarkdownCommandArgs({
 			revisionUri: GitUri.toRevisionUri(this._item.toGitUri()).toString(true)
 		})} "Show More Actions")`;
 
