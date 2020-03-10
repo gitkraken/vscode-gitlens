@@ -58,6 +58,8 @@ export class GitBranch implements GitReference {
 					(a, b) =>
 						(a.current ? -1 : 1) - (b.current ? -1 : 1) ||
 						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
+						(a.name === 'master' ? -1 : 0) ||
+						(a.name === 'develop' ? (b.name === 'master' ? 0 : -1) : 0) ||
 						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
 						b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' })
 				);
@@ -66,6 +68,8 @@ export class GitBranch implements GitReference {
 					(a, b) =>
 						(a.current ? -1 : 1) - (b.current ? -1 : 1) ||
 						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
+						(a.name === 'master' ? -1 : 0) ||
+						(a.name === 'develop' ? (b.name === 'master' ? 0 : -1) : 0) ||
 						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
 						a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
 				);
