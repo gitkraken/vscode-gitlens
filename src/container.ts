@@ -197,7 +197,7 @@ export class Container {
 		return this._git;
 	}
 
-	private static _github: Promise<import('./github/github').GitHubApi> | undefined;
+	private static _github: Promise<import('./github/github').GitHubApi | undefined> | undefined;
 	static get github() {
 		if (this._github === undefined) {
 			this._github = this._loadGitHubApi();
@@ -207,7 +207,12 @@ export class Container {
 	}
 
 	private static async _loadGitHubApi() {
-		return new (await import(/* webpackChunkName: "github" */ './github/github')).GitHubApi();
+		try {
+			return new (await import(/* webpackChunkName: "github" */ './github/github')).GitHubApi();
+		} catch (ex) {
+			Logger.error(ex);
+			return undefined;
+		}
 	}
 
 	private static _keyboard: Keyboard;

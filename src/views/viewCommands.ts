@@ -900,7 +900,8 @@ export class ViewCommands {
 			if (file.status === 'A') continue;
 
 			const uri1 = GitUri.fromFile(file, repoPath);
-			const uri2 = file.status === 'R' || file.status === 'C' ? GitUri.fromFile(file, repoPath, ref2, true) : uri1;
+			const uri2 =
+				file.status === 'R' || file.status === 'C' ? GitUri.fromFile(file, repoPath, ref2, true) : uri1;
 
 			diffArgs = {
 				repoPath: repoPath,
