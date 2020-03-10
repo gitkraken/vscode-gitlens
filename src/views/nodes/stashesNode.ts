@@ -3,19 +3,19 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
 import { GitUri, Repository } from '../../git/gitService';
 import { Iterables } from '../../system';
-import { View } from '../viewBase';
+import { ViewWithFiles } from '../viewBase';
 import { MessageNode } from './common';
 import { StashNode } from './stashNode';
 import { ResourceType, ViewNode } from './viewNode';
 import { RepositoryNode } from './repositoryNode';
 
-export class StashesNode extends ViewNode {
+export class StashesNode extends ViewNode<ViewWithFiles> {
 	static key = ':stashes';
 	static getId(repoPath: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}`;
 	}
 
-	constructor(uri: GitUri, view: View, parent: ViewNode, public readonly repo: Repository) {
+	constructor(uri: GitUri, view: ViewWithFiles, parent: ViewNode, public readonly repo: Repository) {
 		super(uri, view, parent);
 	}
 
