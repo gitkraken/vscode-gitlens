@@ -58,7 +58,7 @@ export class ResultsCommitsNode extends ViewNode<ViewWithFiles> implements Pagea
 		];
 
 		if (log.hasMore) {
-			children.push(new ShowMoreNode(this.view, this, 'Results', children[children.length - 1]));
+			children.push(new ShowMoreNode(this.view, this, children[children.length - 1]));
 		}
 
 		return children;

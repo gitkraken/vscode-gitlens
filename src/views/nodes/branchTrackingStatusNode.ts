@@ -91,7 +91,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements
 		}
 
 		if (log.hasMore) {
-			children.push(new ShowMoreNode(this.view, this, 'Commits', children[children.length - 1]));
+			children.push(new ShowMoreNode(this.view, this, children[children.length - 1]));
 		}
 		return children;
 	}

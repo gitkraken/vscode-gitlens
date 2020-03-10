@@ -166,16 +166,12 @@ export abstract class PagerNode extends ViewNode {
 		const item = new TreeItem(this.message, TreeItemCollapsibleState.None);
 		item.contextValue = ResourceType.Pager;
 		item.command = this.getCommand();
-		item.iconPath = {
-			dark: Container.context.asAbsolutePath('images/dark/icon-ellipsis.svg'),
-			light: Container.context.asAbsolutePath('images/light/icon-ellipsis.svg')
-		};
 		return item;
 	}
 
 	getCommand(): Command | undefined {
 		return {
-			title: 'Show More',
+			title: 'Load more',
 			command: 'gitlens.views.showMoreChildren',
 			arguments: [this]
 		};
@@ -183,19 +179,13 @@ export abstract class PagerNode extends ViewNode {
 }
 
 export class ShowMoreNode extends PagerNode {
-	constructor(
-		view: View,
-		parent: ViewNode & PageableViewNode,
-		itemType: string,
-		previousNode: ViewNode,
-		pageSize?: number
-	) {
+	constructor(view: View, parent: ViewNode & PageableViewNode, previousNode: ViewNode, pageSize?: number) {
 		super(
 			view,
 			parent,
 			pageSize === 0
-				? `Show All ${itemType} ${GlyphChars.Space}${GlyphChars.Dash}${GlyphChars.Space} this may take a while`
-				: `Show More ${itemType}`,
+				? `Load all ${GlyphChars.Space}${GlyphChars.Dash}${GlyphChars.Space} this may take a while`
+				: 'Load more',
 			previousNode,
 			pageSize
 		);

@@ -37,7 +37,7 @@ export class ReflogNode extends ViewNode<RepositoriesView> implements PageableVi
 			children.push(...reflog.records.map(r => new ReflogRecordNode(this.view, this, r)));
 
 			if (reflog.hasMore) {
-				children.push(new ShowMoreNode(this.view, this, 'Activity', children[children.length - 1]));
+				children.push(new ShowMoreNode(this.view, this, children[children.length - 1]));
 			}
 
 			this._children = children;

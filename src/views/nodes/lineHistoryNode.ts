@@ -192,7 +192,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 			);
 
 			if (log.hasMore) {
-				children.push(new ShowMoreNode(this.view, this, 'Commits', children[children.length - 1]));
+				children.push(new ShowMoreNode(this.view, this, children[children.length - 1]));
 			}
 		}
 
