@@ -15,6 +15,7 @@ import {
 import { OpenInRemoteCommandArgs } from './openInRemote';
 
 export interface OpenCommitInRemoteCommandArgs {
+	clipboard?: boolean;
 	sha?: string;
 }
 
@@ -86,7 +87,8 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
 					type: RemoteResourceType.Commit,
 					sha: args.sha
 				},
-				remotes: remotes
+				remotes: remotes,
+				clipboard: args.clipboard
 			};
 			return commands.executeCommand(Commands.OpenInRemote, uri, commandArgs);
 		} catch (ex) {

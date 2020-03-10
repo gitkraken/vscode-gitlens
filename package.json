@@ -2442,8 +2442,17 @@
 				}
 			},
 			{
+				"command": "gitlens.copyRemoteCommitUrlToClipboard",
+				"title": "Copy Remote Commit Url",
+				"category": "GitLens",
+				"icon": {
+					"dark": "images/dark/icon-copy-link.svg",
+					"light": "images/light/icon-copy-link.svg"
+				}
+			},
+			{
 				"command": "gitlens.copyRemoteFileUrlToClipboard",
-				"title": "Copy Remote Url",
+				"title": "Copy Remote File Url",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-copy-link.svg",
@@ -3716,6 +3725,10 @@
 					"when": "gitlens:activeFileStatus =~ /blameable/"
 				},
 				{
+					"command": "gitlens.copyRemoteCommitUrlToClipboard",
+					"when": "gitlens:activeFileStatus =~ /tracked/ && gitlens:activeFileStatus =~ /remotes/"
+				},
+				{
 					"command": "gitlens.copyRemoteFileUrlToClipboard",
 					"when": "gitlens:activeFileStatus =~ /tracked/ && gitlens:activeFileStatus =~ /remotes/"
 				},
@@ -4316,9 +4329,14 @@
 					"group": "9_cutcopypaste_gitlens@2"
 				},
 				{
-					"command": "gitlens.copyRemoteFileUrlToClipboard",
+					"command": "gitlens.copyRemoteCommitUrlToClipboard",
 					"when": "editorTextFocus && gitlens:activeFileStatus =~ /remotes/ && config.gitlens.menus.editor.clipboard",
 					"group": "9_cutcopypaste_gitlens@3"
+				},
+				{
+					"command": "gitlens.copyRemoteFileUrlToClipboard",
+					"when": "editorTextFocus && gitlens:activeFileStatus =~ /remotes/ && config.gitlens.menus.editor.clipboard",
+					"group": "9_cutcopypaste_gitlens@4"
 				}
 			],
 			"editor/title": [
@@ -5059,7 +5077,8 @@
 				{
 					"command": "gitlens.openCommitInRemote",
 					"when": "viewItem =~ /gitlens:commit\\b/ && gitlens:hasRemotes",
-					"group": "2_gitlens_quickopen_2@1"
+					"group": "2_gitlens_quickopen_2@1",
+					"alt": "gitlens.copyRemoteCommitUrlToClipboard"
 				},
 				{
 					"command": "gitlens.revealCommitInView",
@@ -5184,7 +5203,8 @@
 				{
 					"command": "gitlens.openCommitInRemote",
 					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && gitlens:hasRemotes",
-					"group": "2_gitlens_quickopen_2@3"
+					"group": "2_gitlens_quickopen_2@3",
+					"alt": "gitlens.copyRemoteCommitUrlToClipboard"
 				},
 				{
 					"command": "gitlens.views.highlightChanges",
@@ -5210,6 +5230,11 @@
 					"command": "gitlens.showCommitInView",
 					"when": "viewItem =~ /gitlens:file\\b(?!(:stash|:status))/",
 					"group": "3_gitlens_explore@4"
+				},
+				{
+					"command": "gitlens.copyRemoteCommitUrlToClipboard",
+					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && gitlens:hasRemotes",
+					"group": "7_gitlens_cutcopypaste@3"
 				},
 				{
 					"command": "gitlens.copyRemoteFileUrlToClipboard",

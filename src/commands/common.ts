@@ -28,6 +28,7 @@ export enum Commands {
 	ComputingFileAnnotations = 'gitlens.computingFileAnnotations',
 	ConnectRemoteProvider = 'gitlens.connectRemoteProvider',
 	CopyMessageToClipboard = 'gitlens.copyMessageToClipboard',
+	CopyRemoteCommitUrlToClipboard = 'gitlens.copyRemoteCommitUrlToClipboard',
 	CopyRemoteFileUrlToClipboard = 'gitlens.copyRemoteFileUrlToClipboard',
 	CopyShaToClipboard = 'gitlens.copyShaToClipboard',
 	DiffDirectory = 'gitlens.diffDirectory',
