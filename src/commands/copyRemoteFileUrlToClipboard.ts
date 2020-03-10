@@ -40,6 +40,9 @@ export class CopyRemoteFileUrlToClipboardCommand extends ActiveEditorCommand {
 				context.node.commit.isFile ? context.node.commit.uri : context.node.uri,
 				args
 			);
+		} else if (context.type === 'viewItem') {
+			args = { ...args, range: false };
+			return this.execute(context.editor, context.node.uri ?? context.uri, args);
 		}
 
 		return this.execute(context.editor, context.uri, args);

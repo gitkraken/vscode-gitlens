@@ -650,7 +650,9 @@ The compare view provides the following features,
 
 - Adds a _Copy Commit Message to Clipboard_ command (`gitlens.copyMessageToClipboard`) to copy the commit message of the current line to the clipboard or from the most recent commit to the current branch, if there is no current editor
 
-- Adds a _Copy Remote Url to Clipboard_ command (`gitlens.copyRemoteFileUrlToClipboard`) to copy the remote url of the current file and line to the clipboard
+- Adds a _Copy Remote Commit Url to Clipboard_ command (`gitlens.copyRemoteCommitUrlToClipboard`) to copy the remote url of the commit of the current line to the clipboard
+
+- Adds a _Copy Remote File Url to Clipboard_ command (`gitlens.copyRemoteFileUrlToClipboard`) to copy the remote url of the current file and line to the clipboard
 
 - Adds an _Open Working File"_ command (`gitlens.openWorkingFile`) to open the working file for the current file revision
 
