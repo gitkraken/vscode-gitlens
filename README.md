@@ -11,18 +11,14 @@
 
 > GitLens **supercharges** the Git capabilities built into Visual Studio Code. It helps you to **visualize code authorship** at a glance via Git blame annotations and code lens, **seamlessly navigate and explore** Git repositories, **gain valuable insights** via powerful comparison commands, and so much more.
 
-## Support GitLens
+## Sponsor GitLens
 
-| Sponsored by                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| <p align="center" style="font-size:10px;font-weight:400;margin:8px 0 8px 0;">[![](https://alt-images.codestream.com/codestream_logo_gitlens_vscmarket.png)](https://codestream.com/?utm_source=vscmarket&utm_medium=banner&utm_campaign=gitlens 'Try CodeStream')<br/>Discuss, review, and share code with your team in VS Code. Links discussions about code to your code. Integrates w/ Slack, Jira, Trello, and Live Share. **[Try it free](https://codestream.com/?utm_source=vscmarket&utm_medium=banner&utm_campaign=gitlens 'Try CodeStream')**</p> |
+<p align="center">Sponsored by</p>
+<p align="center" style="font-size:10px;font-weight:400;margin:8px 0 8px 0;">
+  <a title="Try CodeStream &mdash; The World's Best Code Discussion Tool" href="https://codestream.com/?utm_source=vscmarket&utm_medium=banner&utm_campaign=gitlens"><img src="https://alt-images.codestream.com/codestream_logo_gitlens_vscmarket.png" alt="CodeStream &mdash; The World's Best Code Discussion Tool" /></a>
+</p>
 
-While GitLens is generously offered to everyone free of charge, if you find it useful, please consider [**supporting**](https://gitlens.amod.io/#support-gitlens) it.
-
-- [**Become a Sponsor**](https://www.patreon.com/eamodio 'Become a sponsor on Patreon') &mdash; join the growing group of generous [backers](https://github.com/eamodio/vscode-gitlens/blob/master/BACKERS.md)
-- [**Donate via PayPal**](https://www.paypal.me/eamodio 'Donate via PayPal') or [**Donate via Cash App**](https://cash.me/$eamodio 'Donate via Cash App')
-
-Also please [write a review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details 'Write a review'), [star me on GitHub](https://github.com/eamodio/vscode-gitlens 'Star me on GitHub'), and [follow me on Twitter](https://twitter.com/eamodio 'Follow me on Twitter')
+While GitLens is generously offered to everyone free of charge, if you find it useful, please consider [**sponsoring**](https://gitlens.amod.io/#sponsor) it. Also please [write a review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details 'Write a review'), [star me on GitHub](https://github.com/eamodio/vscode-gitlens 'Star me on GitHub'), and [follow me on Twitter](https://twitter.com/eamodio 'Follow me on Twitter')
 
 # What's new in GitLens 10
 

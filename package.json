@@ -2069,7 +2069,7 @@
 		"commands": [
 			{
 				"command": "gitlens.supportGitLens",
-				"title": "Support GitLens ❤",
+				"title": "Sponsor GitLens ❤",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-heart.svg",
