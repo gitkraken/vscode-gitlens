@@ -97,15 +97,11 @@ export class Messages {
 	}
 
 	static async showSupportGitLensMessage() {
-		const actions: MessageItem[] = [
-			{ title: 'Become a Sponsor' },
-			{ title: 'Donate via PayPal' },
-			{ title: 'Donate via Cash App' }
-		];
+		const actions: MessageItem[] = [{ title: 'Sponsor GitLens' }];
 
 		const result = await Messages.showMessage(
 			'info',
-			'While GitLens is offered to everyone for free, if you find it useful, please consider [supporting](https://gitlens.amod.io/#support-gitlens) it. Thank you! ❤',
+			'While GitLens is offered to everyone for free, if you find it useful, please consider [sponsoring](https://gitlens.amod.io/#sponsor) it. Thank you! ❤',
 			undefined,
 			null,
 			...actions
@@ -114,11 +110,7 @@ export class Messages {
 		if (result != null) {
 			let uri;
 			if (result === actions[0]) {
-				uri = Uri.parse('https://www.patreon.com/eamodio');
-			} else if (result === actions[1]) {
-				uri = Uri.parse('https://www.paypal.me/eamodio');
-			} else if (result === actions[2]) {
-				uri = Uri.parse('https://cash.me/$eamodio');
+				uri = Uri.parse('https://gitlens.amod.io/#sponsor');
 			}
 
 			if (uri !== undefined) {
@@ -146,7 +138,7 @@ export class Messages {
 			} else if (result === actions[1]) {
 				await env.openExternal(Uri.parse('https://github.com/eamodio/vscode-gitlens/blob/master/CHANGELOG.md'));
 			} else if (result === actions[2]) {
-				await env.openExternal(Uri.parse('https://gitlens.amod.io/#support-gitlens'));
+				await env.openExternal(Uri.parse('https://gitlens.amod.io/#sponsor'));
 			}
 		}
 	}
