@@ -8,7 +8,7 @@ Please note the [Code of Conduct](CODE_OF_CONDUCT.md) document, please follow it
 
 ## Your First Code Contribution
 
-Unsure where to begin contributing? You can start by looking through the [`help-wanted`](https://github.com/eamodio/vscode-gitlens/labels/help%20wanted) issues.
+Unsure where to begin contributing? You can start by looking through the [`help-wanted`](https://github.com/eamodio/vscode-gitlens/labels/help-wanted) issues.
 
 ### Getting the code
 
