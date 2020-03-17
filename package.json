@@ -84,7 +84,7 @@
 							},
 							"alphanumeric": {
 								"type": "boolean",
-								"description": "Specifies whether alphanumeric should be allowed in `<num>`",
+								"description": "Specifies whether alphanumeric characters should be allowed in `<num>`",
 								"default": false
 							},
 							"ignoreCase": {

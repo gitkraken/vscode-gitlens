@@ -246,7 +246,7 @@ export abstract class RemoteProviderWithApi<T extends string | {} = any> extends
 
 	@gate()
 	@debug()
-	async getIssueOrPullRequest(id: number): Promise<IssueOrPullRequest | undefined> {
+	async getIssueOrPullRequest(id: string): Promise<IssueOrPullRequest | undefined> {
 		const cc = Logger.getCorrelationContext();
 
 		const connected = this.maybeConnected ?? (await this.isConnected());
@@ -276,7 +276,7 @@ export abstract class RemoteProviderWithApi<T extends string | {} = any> extends
 		return pr.then(pr => pr ?? undefined);
 	}
 
-	protected abstract onGetIssueOrPullRequest(credentials: T, id: number): Promise<IssueOrPullRequest | undefined>;
+	protected abstract onGetIssueOrPullRequest(credentials: T, id: string): Promise<IssueOrPullRequest | undefined>;
 	protected abstract onGetPullRequestForCommit(credentials: T, ref: string): Promise<PullRequest | undefined>;
 
 	protected _credentials: T | null | undefined;
