@@ -237,7 +237,10 @@ export class LineAnnotationController implements Disposable {
 		const commitLines = [
 			...Iterables.filterMap<number, [number, GitBlameCommit]>(lines, l => {
 				const state = Container.lineTracker.getState(l);
-				if (state?.commit == null) return undefined;
+				if (state?.commit == null) {
+					Logger.debug(cc, `Line ${l} returned no commit`);
+					return undefined;
+				}
 
 				return [l, state.commit];
 			})
