@@ -6116,7 +6116,7 @@
 	},
 	"dependencies": {
 		"@octokit/graphql": "4.3.1",
-		"dayjs": "1.8.22",
+		"dayjs": "1.8.23",
 		"iconv-lite": "0.5.1",
 		"lodash-es": "4.17.15",
 		"vsls": "0.3.1291"
@@ -6126,8 +6126,8 @@
 		"@types/lodash-es": "4.17.3",
 		"@types/node": "12.12.29",
 		"@types/vscode": "1.42.0",
-		"@typescript-eslint/eslint-plugin": "2.23.0",
-		"@typescript-eslint/parser": "2.23.0",
+		"@typescript-eslint/eslint-plugin": "2.24.0",
+		"@typescript-eslint/parser": "2.24.0",
 		"circular-dependency-plugin": "5.2.0",
 		"clean-webpack-plugin": "3.0.0",
 		"csp-html-webpack-plugin": "3.0.4",
@@ -6136,7 +6136,7 @@
 		"eslint-cli": "1.1.1",
 		"eslint-config-prettier": "6.10.0",
 		"eslint-plugin-import": "2.20.1",
-		"fork-ts-checker-webpack-plugin": "4.0.5",
+		"fork-ts-checker-webpack-plugin": "4.1.0",
 		"html-webpack-exclude-assets-plugin": "0.0.7",
 		"html-webpack-inline-source-plugin": "0.0.10",
 		"html-webpack-plugin": "3.2.0",
@@ -6150,7 +6150,7 @@
 		"typescript": "3.8.3",
 		"vsce": "1.74.0",
 		"webpack": "4.42.0",
-		"webpack-bundle-analyzer": "3.6.0",
+		"webpack-bundle-analyzer": "3.6.1",
 		"webpack-cli": "3.3.11"
 	}
 }
