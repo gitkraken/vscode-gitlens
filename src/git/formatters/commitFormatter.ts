@@ -24,7 +24,7 @@ const hasTokenRegexMap = new Map<string, RegExp>();
 
 export interface CommitFormatOptions extends FormatOptions {
 	annotationType?: FileAnnotationType;
-	autolinkedIssuesOrPullRequests?: Map<number, IssueOrPullRequest | Promises.CancellationError | undefined>;
+	autolinkedIssuesOrPullRequests?: Map<string, IssueOrPullRequest | Promises.CancellationError | undefined>;
 	dateStyle?: DateStyle;
 	getBranchAndTagTips?: (sha: string) => string | undefined;
 	line?: number;

@@ -138,10 +138,10 @@ export class GitHubRemote extends RemoteProviderWithApi<{ token: string }> {
 
 	protected async onGetIssueOrPullRequest(
 		{ token }: { token: string },
-		id: number
+		id: string
 	): Promise<IssueOrPullRequest | undefined> {
 		const [owner, repo] = this.splitPath();
-		return (await Container.github)?.getIssueOrPullRequest(this.name, token, owner, repo, id, {
+		return (await Container.github)?.getIssueOrPullRequest(this.name, token, owner, repo, Number(id), {
 			baseUrl: this.apiBaseUrl
 		});
 	}

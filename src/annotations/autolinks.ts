@@ -49,7 +49,13 @@ export class Autolinks implements Disposable {
 		}
 	}
 
-	@debug({ args: false })
+	@debug({
+		args: {
+			0: (message: string) => message.substring(0, 50),
+			1: _ => false,
+			2: ({ timeout }) => timeout
+		}
+	})
 	async getIssueOrPullRequestLinks(message: string, remote: GitRemote, { timeout }: { timeout?: number } = {}) {
 		if (!remote.provider?.hasApi()) return undefined;
 
@@ -57,7 +63,7 @@ export class Autolinks implements Disposable {
 		const connected = provider.maybeConnected ?? (await provider.isConnected());
 		if (!connected) return undefined;
 
-		const ids = new Set<number>();
+		const ids = new Set<string>();
 
 		let match;
 		let num;
@@ -77,7 +83,7 @@ export class Autolinks implements Disposable {
 
 				[, , num] = match;
 
-				ids.add(Number(num));
+				ids.add(num);
 			} while (true);
 		}
 
@@ -95,12 +101,18 @@ export class Autolinks implements Disposable {
 		return issuesOrPullRequests;
 	}
 
-	@debug({ args: false })
+	@debug({
+		args: {
+			0: (text: string) => text.substring(0, 30),
+			2: _ => false,
+			3: _ => false
+		}
+	})
 	linkify(
 		text: string,
 		markdown: boolean,
 		remotes?: GitRemote[],
-		issuesOrPullRequests?: Map<number, IssueOrPullRequest | Promises.CancellationError | undefined>
+		issuesOrPullRequests?: Map<string, IssueOrPullRequest | Promises.CancellationError | undefined>
 	) {
 		for (const ref of this._references) {
 			if (this.ensureAutolinkCached(ref, issuesOrPullRequests)) {
@@ -129,7 +141,7 @@ export class Autolinks implements Disposable {
 
 	private ensureAutolinkCached(
 		ref: CacheableAutolinkReference | DynamicAutolinkReference,
-		issuesOrPullRequests?: Map<number, IssueOrPullRequest | Promises.CancellationError | undefined>
+		issuesOrPullRequests?: Map<string, IssueOrPullRequest | Promises.CancellationError | undefined>
 	): ref is CacheableAutolinkReference | DynamicAutolinkReference {
 		if (isDynamic(ref)) return true;
 
@@ -155,12 +167,12 @@ export class Autolinks implements Disposable {
 
 			ref.linkify = (text: string, markdown: boolean) => {
 				if (markdown) {
-					return text.replace(ref.messageMarkdownRegex!, (substring, linkText, number) => {
-						const issue = issuesOrPullRequests?.get(Number(number));
+					return text.replace(ref.messageMarkdownRegex!, (_substring, linkText, num) => {
+						const issue = issuesOrPullRequests?.get(num);
 
-						return `[${linkText}](${ref.url.replace(numRegex, number)}${
+						return `[${linkText}](${ref.url.replace(numRegex, num)}${
 							ref.title
-								? ` "${ref.title.replace(numRegex, number)}${
+								? ` "${ref.title.replace(numRegex, num)}${
 										issue instanceof Promises.CancellationError
 											? `\n${GlyphChars.Dash.repeat(2)}\nDetails timed out`
 											: issue
@@ -180,8 +192,8 @@ export class Autolinks implements Disposable {
 				let footnotes: string[] | undefined;
 				let superscript;
 
-				text = text.replace(ref.messageRegex!, (substring, linkText, number) => {
-					const issue = issuesOrPullRequests?.get(Number(number));
+				text = text.replace(ref.messageRegex!, (_substring, linkText, num) => {
+					const issue = issuesOrPullRequests?.get(num);
 					if (issue == null) return linkText;
 
 					if (footnotes === undefined) {
