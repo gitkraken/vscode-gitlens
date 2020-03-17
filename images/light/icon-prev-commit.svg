@@ -1,6 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
-    <circle r="4" stroke="#424242" stroke-linejoin="bevel" transform="matrix(-1 0 0 1 10.5 7.5)"/>
-    <path stroke="#424242" stroke-linejoin="bevel" d="M14 7.5h2"/>
-    <path fill="#424242" d="M1.5 7.5l4-5H4l-4 5 4 5h1.5l-4-5z"/>
-    <path stroke="#424242" stroke-linejoin="bevel" d="M6.5 7.5H1"/>
+<svg width="16" height="16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle r="4" transform="matrix(-1 0 0 1 9.5 7.5)" stroke="#424242" stroke-linejoin="bevel"/>
+    <path d="M13.5 7.5H16" stroke="#424242" stroke-linejoin="bevel"/>
+    <path d="M2.5 10.35L0 7.85v-.7l2.5-2.5.71.7L1.57 7H6v1H1.57l1.65 1.65-.72.7z" fill="#424242"/>
 </svg>
