@@ -11,7 +11,7 @@ import {
 	GitLogCommit,
 	GitService,
 	GitStatus,
-	GitUri
+	GitUri,
 } from '../../git/gitService';
 import { Arrays, Iterables, Objects, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
@@ -32,7 +32,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 		view: RepositoriesView,
 		parent: ViewNode,
 		public readonly status: GitStatus,
-		public readonly range: string | undefined
+		public readonly range: string | undefined,
 	) {
 		super(GitUri.fromRepoPath(status.repoPath), view, parent);
 		this.repoPath = status.repoPath;
@@ -56,8 +56,8 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 						c.files.map(s => {
 							const file: GitFileWithCommit = { ...s, commit: c };
 							return file;
-						})
-					)
+						}),
+					),
 				];
 			}
 		}
@@ -74,14 +74,14 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 
 						return [
 							this.toStatusFile(s, GitService.uncommittedSha, GitService.uncommittedStagedSha),
-							this.toStatusFile(s, GitService.uncommittedStagedSha, 'HEAD', older)
+							this.toStatusFile(s, GitService.uncommittedStagedSha, 'HEAD', older),
 						];
 					} else if (s.indexStatus !== undefined) {
 						return [this.toStatusFile(s, GitService.uncommittedStagedSha, 'HEAD')];
 					}
 
 					return [this.toStatusFile(s, GitService.uncommittedSha, 'HEAD')];
-				})
+				}),
 			);
 		}
 
@@ -98,9 +98,9 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 						this,
 						repoPath,
 						files[files.length - 1],
-						files.map(s => s.commit)
-					)
-			)
+						files.map(s => s.commit),
+					),
+			),
 		];
 
 		if (this.view.config.files.layout !== ViewFilesLayout.List) {
@@ -108,7 +108,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 				children,
 				n => n.uri.relativePath.split('/'),
 				(...parts: string[]) => Strings.normalizePath(paths.join(...parts)),
-				this.view.config.files.compact
+				this.view.config.files.compact,
 			);
 
 			const root = new FolderNode(this.view, this, repoPath, '', hierarchy, true);
@@ -117,7 +117,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 			children.sort(
 				(a, b) =>
 					a.priority - b.priority ||
-					a.label!.localeCompare(b.label!, undefined, { numeric: true, sensitivity: 'base' })
+					a.label!.localeCompare(b.label!, undefined, { numeric: true, sensitivity: 'base' }),
 			);
 		}
 
@@ -156,7 +156,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 		item.contextValue = ResourceType.StatusFiles;
 		item.iconPath = {
 			dark: Container.context.asAbsolutePath('images/dark/icon-diff.svg'),
-			light: Container.context.asAbsolutePath('images/light/icon-diff.svg')
+			light: Container.context.asAbsolutePath('images/light/icon-diff.svg'),
 		};
 
 		return item;
@@ -188,8 +188,8 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 				file.status,
 				file.originalFileName,
 				previousRef,
-				file.fileName
-			)
+				file.fileName,
+			),
 		};
 	}
 }

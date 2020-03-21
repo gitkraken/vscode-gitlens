@@ -21,7 +21,7 @@ export interface RevertGitCommandArgs {
 export class RevertGitCommand extends QuickCommandBase<State> {
 	constructor(args?: RevertGitCommandArgs) {
 		super('revert', 'revert', 'Revert', {
-			description: 'undoes the changes of specified commits, by creating new commits with inverted changes'
+			description: 'undoes the changes of specified commits, by creating new commits with inverted changes',
 		});
 
 		if (args == null || args.state === undefined) return;
@@ -38,7 +38,7 @@ export class RevertGitCommand extends QuickCommandBase<State> {
 		this._initialState = {
 			counter: counter,
 			confirm: true,
-			...args.state
+			...args.state,
 		};
 	}
 
@@ -75,10 +75,10 @@ export class RevertGitCommand extends QuickCommandBase<State> {
 									RepositoryQuickPickItem.create(r, r.id === (active && active.id), {
 										branch: true,
 										fetched: true,
-										status: true
-									})
-								)
-							)
+										status: true,
+									}),
+								),
+							),
 						});
 						const selection: StepSelection<typeof step> = yield step;
 
@@ -96,7 +96,7 @@ export class RevertGitCommand extends QuickCommandBase<State> {
 				if (state.references === undefined || state.counter < 2) {
 					const log = await Container.git.getLog(state.repo.path, {
 						ref: destination.ref,
-						merges: false
+						merges: false,
 					});
 
 					const step = this.createPickStep<CommitQuickPickItem>({
@@ -112,7 +112,7 @@ export class RevertGitCommand extends QuickCommandBase<State> {
 							log === undefined
 								? [
 										DirectiveQuickPickItem.create(Directive.Back, true),
-										DirectiveQuickPickItem.create(Directive.Cancel)
+										DirectiveQuickPickItem.create(Directive.Cancel),
 								  ]
 								: [
 										...Iterables.map(log.commits.values(), commit =>
@@ -121,10 +121,10 @@ export class RevertGitCommand extends QuickCommandBase<State> {
 												state.references
 													? state.references.some(r => r.ref === commit.ref)
 													: undefined,
-												{ compact: true, icon: true }
-											)
-										)
-								  ]
+												{ compact: true, icon: true },
+											),
+										),
+								  ],
 					});
 					const selection: StepSelection<typeof step> = yield step;
 
@@ -152,9 +152,9 @@ export class RevertGitCommand extends QuickCommandBase<State> {
 								state.references.length === 1
 									? `commit ${state.references[0].name}`
 									: `${state.references.length} commits`
-							} on ${destination.name}`
-						}
-					]
+							} on ${destination.name}`,
+						},
+					],
 				);
 				const selection: StepSelection<typeof step> = yield step;
 

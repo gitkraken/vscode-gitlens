@@ -37,7 +37,7 @@ export function memoize<T extends (...arg: any) => any>(resolver?: (...args: Par
 		const memoizeKey = `$memoize$${key}`;
 
 		let result;
-		descriptor[fnKey] = function(...args: any[]) {
+		descriptor[fnKey] = function (...args: any[]) {
 			const prop =
 				fnKey === 'get' || args.length === 0
 					? memoizeKey
@@ -54,7 +54,7 @@ export function memoize<T extends (...arg: any) => any>(resolver?: (...args: Par
 				configurable: false,
 				enumerable: false,
 				writable: false,
-				value: result
+				value: result,
 			});
 
 			return result;

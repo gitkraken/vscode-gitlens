@@ -20,7 +20,7 @@ export class IpcCommandType<P = any> {
 export function onIpcCommand<CT extends IpcCommandType>(
 	type: CT,
 	command: IpcMessage,
-	fn: (params: IpcCommandParamsOf<CT>) => unknown
+	fn: (params: IpcCommandParamsOf<CT>) => unknown,
 ) {
 	fn(command.params);
 }
@@ -28,7 +28,7 @@ export function onIpcCommand<CT extends IpcCommandType>(
 export function onIpcNotification<NT extends IpcNotificationType>(
 	type: NT,
 	notification: IpcMessage,
-	fn: (params: IpcNotificationParamsOf<NT>) => void
+	fn: (params: IpcNotificationParamsOf<NT>) => void,
 ) {
 	fn(notification.params);
 }
@@ -37,7 +37,7 @@ export interface DidChangeConfigurationNotificationParams {
 	config: Config;
 }
 export const DidChangeConfigurationNotificationType = new IpcNotificationType<DidChangeConfigurationNotificationParams>(
-	'configuration/didChange'
+	'configuration/didChange',
 );
 
 export const ReadyCommandType = new IpcCommandType<{}>('webview/ready');
@@ -51,7 +51,7 @@ export interface UpdateConfigurationCommandParams {
 	uri?: string;
 }
 export const UpdateConfigurationCommandType = new IpcCommandType<UpdateConfigurationCommandParams>(
-	'configuration/update'
+	'configuration/update',
 );
 
 export interface SettingsDidRequestJumpToNotificationParams {

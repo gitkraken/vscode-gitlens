@@ -23,7 +23,7 @@ export class CopyRemoteCommitUrlToClipboardCommand extends ActiveEditorCommand {
 			return this.execute(
 				context.editor,
 				context.node.commit.isFile ? context.node.commit.uri : context.node.uri,
-				args
+				args,
 			);
 		}
 

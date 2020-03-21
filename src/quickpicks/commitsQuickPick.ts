@@ -8,7 +8,7 @@ import {
 	CommandQuickPickItem,
 	getQuickPickIgnoreFocusOut,
 	MessageQuickPickItem,
-	showQuickPickProgress
+	showQuickPickProgress,
 } from './commonQuickPicks';
 import { CommitQuickPickItem } from './gitQuickPicks';
 
@@ -23,7 +23,7 @@ export class CommitsQuickPick {
 		return showQuickPickProgress(message, {
 			'alt+left': KeyNoopCommand,
 			'alt+,': KeyNoopCommand,
-			'alt+.': KeyNoopCommand
+			'alt+.': KeyNoopCommand,
 		});
 	}
 
@@ -31,7 +31,7 @@ export class CommitsQuickPick {
 		log: GitLog | undefined,
 		placeHolder: string,
 		progressCancellation: CancellationTokenSource,
-		options: CommitsQuickPickOptions = {}
+		options: CommitsQuickPickOptions = {},
 	): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
 		const items = CommitsQuickPick.getItems(log, options);
 
@@ -44,7 +44,7 @@ export class CommitsQuickPick {
 		const pick = await window.showQuickPick(items, {
 			matchOnDescription: true,
 			placeHolder: placeHolder,
-			ignoreFocusOut: getQuickPickIgnoreFocusOut()
+			ignoreFocusOut: getQuickPickIgnoreFocusOut(),
 			// onDidSelectItem: (item: QuickPickItem) => {
 			//     scope.setKeyCommand('alt+right', item);
 			// }
@@ -57,11 +57,11 @@ export class CommitsQuickPick {
 
 	static async getItems(
 		log: GitLog | undefined | Promise<GitLog | undefined>,
-		options: CommitsQuickPickOptions = {}
+		options: CommitsQuickPickOptions = {},
 	) {
 		log = await log;
 		const items = ((log && [...Iterables.map(log.commits.values(), c => CommitQuickPickItem.create(c))]) || [
-			new MessageQuickPickItem('No results found')
+			new MessageQuickPickItem('No results found'),
 		]) as (CommitQuickPickItem | CommandQuickPickItem)[];
 
 		if (options.showInViewCommand !== undefined) {

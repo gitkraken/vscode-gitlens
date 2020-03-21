@@ -44,15 +44,15 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 					new MessageNode(
 						this.view,
 						this,
-						'There are no editors open that can provide line history information.'
-					)
+						'There are no editors open that can provide line history information.',
+					),
 				];
 			}
 
 			const commitish: GitCommitish = {
 				...this.uri,
 				repoPath: this.uri.repoPath!,
-				sha: this.uri.sha || this._base
+				sha: this.uri.sha || this._base,
 			};
 			const fileUri = new GitUri(this.uri, commitish);
 			this._child = new LineHistoryNode(fileUri, this.view, this, this._selection!, this._editorContents);
@@ -78,8 +78,8 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 			{
 				allowEnteringRefs: true,
 				checked: this._base,
-				checkmarks: true
-			}
+				checkmarks: true,
+			},
 		);
 		if (pick === undefined || pick instanceof CommandQuickPickItem) return;
 
@@ -92,7 +92,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 
 	@gate()
 	@debug({
-		exit: r => `returned ${r}`
+		exit: r => `returned ${r}`,
 	})
 	async refresh(reset: boolean = false) {
 		const cc = Logger.getCorrelationContext();
@@ -175,7 +175,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 				if (e.pending) return;
 
 				onActiveLinesChanged(e);
-			})
+			}),
 		);
 	}
 
@@ -183,9 +183,9 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 		args: {
 			0: (e: LinesChangeEvent) =>
 				`editor=${e.editor?.document.uri.toString(true)}, lines=${e.lines?.join(',')}, pending=${Boolean(
-					e.pending
-				)}, reason=${e.reason}`
-		}
+					e.pending,
+				)}, reason=${e.reason}`,
+		},
 	})
 	private onActiveLinesChanged(e: LinesChangeEvent) {
 		void this.triggerChange();

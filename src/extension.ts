@@ -59,7 +59,7 @@ export async function activate(context: ExtensionContext) {
 
 		if (ex.message.includes('Unable to find git')) {
 			await window.showErrorMessage(
-				"GitLens was unable to find Git. Please make sure Git is installed. Also ensure that Git is either in the PATH, or that 'git.path' is pointed to its installed location."
+				"GitLens was unable to find Git. Please make sure Git is installed. Also ensure that Git is either in the PATH, or that 'git.path' is pointed to its installed location.",
 			);
 		}
 
@@ -90,7 +90,7 @@ export async function activate(context: ExtensionContext) {
 	Logger.log(
 		`GitLens (v${gitlensVersion}${cfg.mode.active ? `, mode: ${cfg.mode.active}` : ''}) activated ${
 			GlyphChars.Dot
-		} ${Strings.getDurationMilliseconds(start)} ms`
+		} ${Strings.getDurationMilliseconds(start)} ms`,
 	);
 }
 
@@ -112,7 +112,7 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
 		} else if (Versions.compare(previous, Versions.from(9, 8, 2)) !== 1) {
 			const name = configuration.name('views', 'repositories', 'showBranchComparison');
 			await configuration.migrate(name, 'views', 'repositories', 'showBranchComparison', {
-				migrationFn: (v: boolean) => (v === false ? false : ViewShowBranchComparison.Working)
+				migrationFn: (v: boolean) => (v === false ? false : ViewShowBranchComparison.Working),
 			});
 		} else if (Versions.compare(previous, Versions.from(9, 6, 3)) !== 1) {
 			const formatMigrationFn = (v: string) => {
@@ -136,12 +136,12 @@ async function migrateSettings(context: ExtensionContext, previousVersion: strin
 					configuration.name('views', 'commitFormat'),
 					configuration.name('views', 'commitDescriptionFormat'),
 					configuration.name('views', 'stashFormat'),
-					configuration.name('views', 'stashDescriptionFormat')
+					configuration.name('views', 'stashDescriptionFormat'),
 				].map(s =>
 					configuration.migrate(s, s as any, {
-						migrationFn: formatMigrationFn
-					})
-				)
+						migrationFn: formatMigrationFn,
+					}),
+				),
 			);
 		}
 	} catch (ex) {

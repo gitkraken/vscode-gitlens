@@ -29,7 +29,7 @@ export class TrackedDocument<T> implements Disposable {
 		private readonly _document: TextDocument,
 		public readonly key: string,
 		public dirty: boolean,
-		private _eventDelegates: { onDidBlameStateChange(e: DocumentBlameStateChangeEvent<T>): void }
+		private _eventDelegates: { onDidBlameStateChange(e: DocumentBlameStateChangeEvent<T>): void },
 	) {
 		this._repo = this.initialize(_document.uri);
 	}
@@ -46,7 +46,7 @@ export class TrackedDocument<T> implements Disposable {
 			if (!(await Functions.waitUntil(() => Container.git !== undefined, 2000))) {
 				Logger.log(
 					`TrackedDocument.initialize(${uri.toString(true)})`,
-					'Timed out waiting for the GitService to start'
+					'Timed out waiting for the GitService to start',
 				);
 				throw new Error('TrackedDocument timed out waiting for the GitService to start');
 			}

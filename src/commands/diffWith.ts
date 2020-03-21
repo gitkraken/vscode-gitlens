@@ -37,26 +37,26 @@ export class DiffWithCommand extends ActiveEditorCommand {
 					repoPath: commit.repoPath,
 					lhs: {
 						sha: 'HEAD',
-						uri: commit.uri
+						uri: commit.uri,
 					},
 					rhs: {
 						sha: '',
-						uri: commit.uri
+						uri: commit.uri,
 					},
-					line: line
+					line: line,
 				};
 			} else {
 				args = {
 					repoPath: commit.repoPath,
 					lhs: {
 						sha: commit.previousSha !== undefined ? commit.previousSha : GitService.deletedOrMissingSha,
-						uri: commit.previousUri
+						uri: commit.previousUri,
 					},
 					rhs: {
 						sha: commit.sha,
-						uri: commit.uri
+						uri: commit.uri,
 					},
-					line: line
+					line: line,
 				};
 			}
 		} else {
@@ -77,7 +77,7 @@ export class DiffWithCommand extends ActiveEditorCommand {
 			...args,
 			lhs: { ...args.lhs },
 			rhs: { ...args.rhs },
-			showOptions: args.showOptions === undefined ? undefined : { ...args.showOptions }
+			showOptions: args.showOptions === undefined ? undefined : { ...args.showOptions },
 		};
 
 		if (args.repoPath === undefined) return undefined;
@@ -88,7 +88,7 @@ export class DiffWithCommand extends ActiveEditorCommand {
 
 			[args.lhs.sha, args.rhs.sha] = await Promise.all([
 				await Container.git.resolveReference(args.repoPath, args.lhs.sha, args.lhs.uri),
-				await Container.git.resolveReference(args.repoPath, args.rhs.sha, args.rhs.uri)
+				await Container.git.resolveReference(args.repoPath, args.rhs.sha, args.rhs.uri),
 			]);
 
 			if (args.lhs.sha !== GitService.deletedOrMissingSha) {
@@ -100,7 +100,7 @@ export class DiffWithCommand extends ActiveEditorCommand {
 				const status = await Container.git.getFileStatusForCommit(
 					args.repoPath,
 					args.rhs.uri.fsPath,
-					args.rhs.sha
+					args.rhs.sha,
 				);
 				if (status !== undefined && status.status === 'D') {
 					args.rhs.sha = GitService.deletedOrMissingSha;
@@ -111,7 +111,7 @@ export class DiffWithCommand extends ActiveEditorCommand {
 
 			const [lhs, rhs] = await Promise.all([
 				Container.git.getVersionedUri(args.repoPath, args.lhs.uri.fsPath, args.lhs.sha),
-				Container.git.getVersionedUri(args.repoPath, args.rhs.uri.fsPath, args.rhs.sha)
+				Container.git.getVersionedUri(args.repoPath, args.rhs.uri.fsPath, args.rhs.sha),
 			]);
 
 			let rhsSuffix = GitService.shortenSha(rhsSha, { strings: { uncommitted: 'Working Tree' } }) || '';
@@ -170,7 +170,7 @@ export class DiffWithCommand extends ActiveEditorCommand {
 					? GitUri.toRevisionUri(GitService.deletedOrMissingSha, args.rhs.uri.fsPath, args.repoPath)
 					: rhs,
 				title,
-				args.showOptions
+				args.showOptions,
 			);
 		} catch (ex) {
 			Logger.error(ex, 'DiffWithCommand', 'getVersionedFile');

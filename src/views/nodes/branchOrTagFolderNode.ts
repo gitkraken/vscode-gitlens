@@ -24,7 +24,7 @@ export class BranchOrTagFolderNode extends ViewNode {
 		public readonly relativePath: string | undefined,
 		public readonly root: Arrays.HierarchicalItem<BranchNode | TagNode>,
 		private readonly _key?: string,
-		private readonly _expanded: boolean = false
+		private readonly _expanded: boolean = false,
 	) {
 		super(GitUri.fromRepoPath(repoPath), view, parent);
 	}
@@ -58,8 +58,8 @@ export class BranchOrTagFolderNode extends ViewNode {
 						folder.relativePath,
 						folder,
 						this._key,
-						expanded
-					)
+						expanded,
+					),
 				);
 				continue;
 			}
@@ -75,7 +75,7 @@ export class BranchOrTagFolderNode extends ViewNode {
 	getTreeItem(): TreeItem {
 		const item = new TreeItem(
 			this.label,
-			this._expanded ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed
+			this._expanded ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
 		);
 		item.id = this.id;
 		item.contextValue = ResourceType.Folder;

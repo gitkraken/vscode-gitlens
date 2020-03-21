@@ -88,7 +88,7 @@ export class OpenInRemoteCommand extends ActiveEditorCommand {
 				placeHolder,
 				args.resource,
 				args.clipboard,
-				args.goBackCommand
+				args.goBackCommand,
 			);
 			if (pick === undefined) return undefined;
 

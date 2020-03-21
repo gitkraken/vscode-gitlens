@@ -15,7 +15,7 @@ import {
 	TextEditorViewColumnChangeEvent,
 	ThemeColor,
 	window,
-	workspace
+	workspace,
 } from 'vscode';
 import { AnnotationsToggleMode, configuration, FileAnnotationType, HighlightLocations } from '../configuration';
 import { CommandContext, GlyphChars, isTextEditor, setCommandContext } from '../constants';
@@ -26,7 +26,7 @@ import { Functions, Iterables } from '../system';
 import {
 	DocumentBlameStateChangeEvent,
 	DocumentDirtyStateChangeEvent,
-	GitDocumentState
+	GitDocumentState,
 } from '../trackers/gitDocumentTracker';
 import { AnnotationProviderBase, AnnotationStatus, TextEditorCorrelationKey } from './annotationProvider';
 import { GutterBlameAnnotationProvider } from './gutterBlameAnnotationProvider';
@@ -39,25 +39,25 @@ export enum AnnotationClearReason {
 	ColumnChanged = 'ColumnChanged',
 	Disposing = 'Disposing',
 	DocumentChanged = 'DocumentChanged',
-	DocumentClosed = 'DocumentClosed'
+	DocumentClosed = 'DocumentClosed',
 }
 
 export const Decorations = {
 	blameAnnotation: window.createTextEditorDecorationType({
 		rangeBehavior: DecorationRangeBehavior.ClosedOpen,
-		textDecoration: 'none'
+		textDecoration: 'none',
 	}),
 	blameHighlight: undefined as TextEditorDecorationType | undefined,
 	heatmapAnnotation: window.createTextEditorDecorationType({
 		before: {
 			contentText: GlyphChars.ZeroWidthSpace,
 			height: '100%',
-			margin: '0 26px -1px 0'
-		}
+			margin: '0 26px -1px 0',
+		},
 	}),
 	heatmapHighlight: undefined as TextEditorDecorationType | undefined,
 	recentChangesAnnotation: undefined as TextEditorDecorationType | undefined,
-	recentChangesHighlight: undefined as TextEditorDecorationType | undefined
+	recentChangesHighlight: undefined as TextEditorDecorationType | undefined,
 };
 
 export class FileAnnotationController implements Disposable {
@@ -113,13 +113,13 @@ export class FileAnnotationController implements Disposable {
 					dark: {
 						gutterIconPath: cfgHighlight.locations.includes(HighlightLocations.Gutter)
 							? Container.context.asAbsolutePath('images/dark/highlight-gutter.svg')
-							: undefined
+							: undefined,
 					},
 					light: {
 						gutterIconPath: cfgHighlight.locations.includes(HighlightLocations.Gutter)
 							? Container.context.asAbsolutePath('images/light/highlight-gutter.svg')
-							: undefined
-					}
+							: undefined,
+					},
 				});
 			} else {
 				Decorations.blameHighlight = undefined;
@@ -144,13 +144,13 @@ export class FileAnnotationController implements Disposable {
 				dark: {
 					gutterIconPath: cfgHighlight.locations.includes(HighlightLocations.Gutter)
 						? Container.context.asAbsolutePath('images/dark/highlight-gutter.svg')
-						: undefined
+						: undefined,
 				},
 				light: {
 					gutterIconPath: cfgHighlight.locations.includes(HighlightLocations.Gutter)
 						? Container.context.asAbsolutePath('images/light/highlight-gutter.svg')
-						: undefined
-				}
+						: undefined,
+				},
 			});
 		}
 
@@ -192,12 +192,12 @@ export class FileAnnotationController implements Disposable {
 				if (provider.annotationType === FileAnnotationType.RecentChanges) {
 					provider.reset({
 						decoration: Decorations.recentChangesAnnotation!,
-						highlightDecoration: Decorations.recentChangesHighlight
+						highlightDecoration: Decorations.recentChangesHighlight,
 					});
 				} else if (provider.annotationType === FileAnnotationType.Blame) {
 					provider.reset({
 						decoration: Decorations.blameAnnotation,
-						highlightDecoration: Decorations.blameHighlight
+						highlightDecoration: Decorations.blameHighlight,
 					});
 				} else {
 					void this.show(provider.editor, FileAnnotationType.Heatmap);
@@ -263,7 +263,7 @@ export class FileAnnotationController implements Disposable {
 			// If we don't find an exact match, do a fuzzy match (since we can't properly track editors)
 			const fuzzyProvider = Iterables.find(
 				this._annotationProviders.values(),
-				p => p.editor.document === e.textEditor.document
+				p => p.editor.document === e.textEditor.document,
 			);
 			if (fuzzyProvider == null) return;
 
@@ -328,7 +328,7 @@ export class FileAnnotationController implements Disposable {
 	async show(
 		editor: TextEditor | undefined,
 		type: FileAnnotationType,
-		shaOrLine?: string | number
+		shaOrLine?: string | number,
 	): Promise<boolean> {
 		if (this.getToggleMode(type) === AnnotationsToggleMode.Window) {
 			let first = this._annotationType === undefined;
@@ -374,7 +374,7 @@ export class FileAnnotationController implements Disposable {
 					editor,
 					type,
 					shaOrLine,
-					progress
+					progress,
 				);
 				const provider = await computingAnnotations;
 
@@ -383,7 +383,7 @@ export class FileAnnotationController implements Disposable {
 				}
 
 				return computingAnnotations;
-			}
+			},
 		);
 
 		return provider !== undefined;
@@ -393,7 +393,7 @@ export class FileAnnotationController implements Disposable {
 		editor: TextEditor | undefined,
 		type: FileAnnotationType,
 		shaOrLine?: string | number,
-		on?: boolean
+		on?: boolean,
 	): Promise<boolean> {
 		if (editor !== undefined) {
 			const trackedDocument = await Container.tracker.getOrAdd(editor.document);
@@ -435,8 +435,8 @@ export class FileAnnotationController implements Disposable {
 
 						await this.clear(e, AnnotationClearReason.User);
 						return undefined;
-					}
-				}
+					},
+				},
 			});
 		}
 	}
@@ -477,7 +477,7 @@ export class FileAnnotationController implements Disposable {
 		editor: TextEditor,
 		type: FileAnnotationType,
 		shaOrLine?: string | number,
-		progress?: Progress<{ message: string }>
+		progress?: Progress<{ message: string }>,
 	): Promise<AnnotationProviderBase | undefined> {
 		if (progress !== undefined) {
 			let annotationsLabel = 'annotations';
@@ -496,7 +496,7 @@ export class FileAnnotationController implements Disposable {
 			}
 
 			progress.report({
-				message: `Computing ${annotationsLabel} for ${paths.basename(editor.document.fileName)}`
+				message: `Computing ${annotationsLabel} for ${paths.basename(editor.document.fileName)}`,
 			});
 		}
 
@@ -512,7 +512,7 @@ export class FileAnnotationController implements Disposable {
 					editor,
 					trackedDocument,
 					Decorations.blameAnnotation,
-					Decorations.blameHighlight
+					Decorations.blameHighlight,
 				);
 				break;
 
@@ -521,7 +521,7 @@ export class FileAnnotationController implements Disposable {
 					editor,
 					trackedDocument,
 					Decorations.heatmapAnnotation,
-					Decorations.heatmapHighlight
+					Decorations.heatmapHighlight,
 				);
 				break;
 
@@ -530,7 +530,7 @@ export class FileAnnotationController implements Disposable {
 					editor,
 					trackedDocument,
 					Decorations.recentChangesAnnotation!,
-					Decorations.recentChangesHighlight
+					Decorations.recentChangesHighlight,
 				);
 				break;
 		}
@@ -549,7 +549,7 @@ export class FileAnnotationController implements Disposable {
 				window.onDidChangeVisibleTextEditors(Functions.debounce(this.onVisibleTextEditorsChanged, 50), this),
 				workspace.onDidCloseTextDocument(this.onTextDocumentClosed, this),
 				Container.tracker.onDidChangeBlameState(this.onBlameStateChanged, this),
-				Container.tracker.onDidChangeDirtyState(this.onDirtyStateChanged, this)
+				Container.tracker.onDidChangeDirtyState(this.onDirtyStateChanged, this),
 			);
 		}
 

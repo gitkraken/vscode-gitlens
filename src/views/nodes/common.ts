@@ -18,7 +18,7 @@ export class MessageNode extends ViewNode {
 					light: string | Uri;
 					dark: string | Uri;
 			  }
-			| ThemeIcon
+			| ThemeIcon,
 	) {
 		super(unknownGitUri, view, parent);
 	}
@@ -52,7 +52,7 @@ export class CommandMessageNode extends MessageNode {
 					light: string | Uri;
 					dark: string | Uri;
 			  }
-			| ThemeIcon
+			| ThemeIcon,
 	) {
 		super(view, parent, message, description, tooltip, iconPath);
 	}
@@ -85,7 +85,7 @@ export class UpdateableMessageNode extends ViewNode {
 					light: string | Uri;
 					dark: string | Uri;
 			  }
-			| ThemeIcon
+			| ThemeIcon,
 	) {
 		super(unknownGitUri, view, parent);
 	}
@@ -117,7 +117,7 @@ export class UpdateableMessageNode extends ViewNode {
 				  }
 				| ThemeIcon;
 		},
-		view: View
+		view: View,
 	) {
 		if (changes.message !== undefined) {
 			this._message = changes.message;
@@ -141,7 +141,7 @@ export abstract class PagerNode extends ViewNode {
 		parent: ViewNode & PageableViewNode,
 		protected readonly message: string,
 		private readonly _previousNode?: ViewNode,
-		private readonly _pageSize: number = Container.config.views.pageItemLimit
+		private readonly _pageSize: number = Container.config.views.pageItemLimit,
 	) {
 		super(unknownGitUri, view, parent);
 	}
@@ -150,7 +150,7 @@ export abstract class PagerNode extends ViewNode {
 		return this.view.showMoreNodeChildren(
 			this.parent! as ViewNode & PageableViewNode,
 			this._pageSize,
-			this._previousNode
+			this._previousNode,
 		);
 	}
 
@@ -173,7 +173,7 @@ export abstract class PagerNode extends ViewNode {
 		return {
 			title: 'Load more',
 			command: 'gitlens.views.showMoreChildren',
-			arguments: [this]
+			arguments: [this],
 		};
 	}
 }
@@ -187,7 +187,7 @@ export class ShowMoreNode extends PagerNode {
 				? `Load all ${GlyphChars.Space}${GlyphChars.Dash}${GlyphChars.Space} this may take a while`
 				: 'Load more',
 			previousNode,
-			pageSize
+			pageSize,
 		);
 	}
 }

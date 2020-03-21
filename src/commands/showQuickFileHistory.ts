@@ -9,7 +9,7 @@ import {
 	CommandQuickPickItem,
 	FileHistoryQuickPick,
 	OpenInFileHistoryViewQuickPickItem,
-	ShowFileHistoryFromQuickPickItem
+	ShowFileHistoryFromQuickPickItem,
 } from '../quickpicks';
 import { Iterables, Strings } from '../system';
 import { ActiveEditorCachedCommand, command, CommandContext, Commands, getCommandUri } from './common';
@@ -56,7 +56,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 		}
 
 		const placeHolder = `${gitUri.getFormattedPath({
-			suffix: args.reference ? ` (${args.reference.name})` : undefined
+			suffix: args.reference ? ` (${args.reference.name})` : undefined,
 		})}${gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''}`;
 
 		const progressCancellation = FileHistoryQuickPick.showProgress(placeHolder);
@@ -66,7 +66,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 				args.log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
 					limit: args.limit,
 					range: args.range,
-					ref: (args.reference && args.reference.ref) || gitUri.sha
+					ref: (args.reference && args.reference.ref) || gitUri.sha,
 				});
 				if (args.log === undefined) {
 					if (args.reference) {
@@ -88,10 +88,10 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 				const npc = new CommandQuickPickItem(
 					{
 						label: '$(arrow-right) Show Next Commits',
-						description: `shows ${args.log.limit} newer commits`
+						description: `shows ${args.log.limit} newer commits`,
 					},
 					Commands.ShowQuickFileHistory,
-					[gitUri, commandArgs]
+					[gitUri, commandArgs],
 				);
 
 				const last = Iterables.last(args.log.commits.values());
@@ -100,10 +100,10 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 					previousPageCommand = new CommandQuickPickItem(
 						{
 							label: '$(arrow-left) Show Previous Commits',
-							description: `shows ${args.log.limit} older commits`
+							description: `shows ${args.log.limit} older commits`,
 						},
 						Commands.ShowQuickFileHistory,
-						[new GitUri(uri, last), commandArgs]
+						[new GitUri(uri, last), commandArgs],
 					);
 				}
 			}
@@ -123,10 +123,10 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 							: gitUri.sha
 							? ` from ${GlyphChars.Space}$(git-commit) ${gitUri.shortSha}`
 							: ''
-					}`
+					}`,
 				},
 				Commands.ShowQuickFileHistory,
-				[uri, args]
+				[uri, args],
 			);
 
 			const showAllCommandArgs: ShowQuickFileHistoryCommandArgs = { ...args, log: undefined, limit: 0 };
@@ -142,19 +142,19 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 						? new CommandQuickPickItem(
 								{
 									label: '$(sync) Show All Commits',
-									description: 'this may take a while'
+									description: 'this may take a while',
 								},
 								Commands.ShowQuickFileHistory,
-								[uri, showAllCommandArgs]
+								[uri, showAllCommandArgs],
 						  )
 						: undefined,
 				showInViewCommand:
 					args.log !== undefined
 						? new OpenInFileHistoryViewQuickPickItem(
 								gitUri,
-								(args.reference && args.reference.ref) || gitUri.sha
+								(args.reference && args.reference.ref) || gitUri.sha,
 						  )
-						: undefined
+						: undefined,
 			});
 			if (pick === undefined) return undefined;
 
@@ -167,7 +167,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 					...args,
 					log: undefined,
 					reference: reference.item,
-					goBackCommand: currentCommand
+					goBackCommand: currentCommand,
 				};
 				return commands.executeCommand(Commands.ShowQuickFileHistory, gitUri, commandArgs);
 			}
@@ -178,7 +178,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 				commit: pick.item,
 				fileLog: args.log,
 				sha: pick.item.sha,
-				goBackCommand: currentCommand
+				goBackCommand: currentCommand,
 			};
 
 			return commands.executeCommand(Commands.ShowQuickCommitFileDetails, pick.item.toGitUri(), commandArgs);

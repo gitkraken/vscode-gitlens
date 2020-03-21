@@ -10,7 +10,7 @@ export enum TraceLevel {
 	Silent = 'silent',
 	Errors = 'errors',
 	Verbose = 'verbose',
-	Debug = 'debug'
+	Debug = 'debug',
 }
 
 const ConsolePrefix = `[${extensionOutputChannelName}]`;
@@ -102,7 +102,7 @@ export class Logger {
 
 		if (this.output !== undefined && this.level !== TraceLevel.Silent) {
 			this.output.appendLine(
-				`${this.timestamp} ${message || emptyStr}${this.toLoggableParams(false, params)}\n${ex}`
+				`${this.timestamp} ${message || emptyStr}${this.toLoggableParams(false, params)}\n${ex}`,
 			);
 		}
 
@@ -117,7 +117,7 @@ export class Logger {
 		const correlationId = getNextCorrelationId();
 		return {
 			correlationId: correlationId,
-			prefix: `[${correlationId}] ${prefix}`
+			prefix: `[${correlationId}] ${prefix}`,
 		};
 	}
 

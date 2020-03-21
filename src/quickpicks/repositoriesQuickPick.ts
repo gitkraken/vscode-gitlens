@@ -8,12 +8,12 @@ import { RepositoryQuickPickItem } from './gitQuickPicks';
 export class RepositoriesQuickPick {
 	static async show(
 		placeHolder: string,
-		goBackCommand?: CommandQuickPickItem
+		goBackCommand?: CommandQuickPickItem,
 	): Promise<RepositoryQuickPickItem | CommandQuickPickItem | undefined> {
 		const items: (RepositoryQuickPickItem | CommandQuickPickItem)[] = await Promise.all([
 			...Iterables.map(await Container.git.getOrderedRepositories(), r =>
-				RepositoryQuickPickItem.create(r, undefined, { branch: true, status: true })
-			)
+				RepositoryQuickPickItem.create(r, undefined, { branch: true, status: true }),
+			),
 		]);
 
 		if (goBackCommand !== undefined) {
@@ -24,7 +24,7 @@ export class RepositoriesQuickPick {
 
 		const pick = await window.showQuickPick(items, {
 			placeHolder: placeHolder,
-			ignoreFocusOut: getQuickPickIgnoreFocusOut()
+			ignoreFocusOut: getQuickPickIgnoreFocusOut(),
 		});
 
 		// await scope.dispose();

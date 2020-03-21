@@ -8,7 +8,7 @@ import {
 	Range,
 	TextDocument,
 	TextEditor,
-	TextEditorDecorationType
+	TextEditorDecorationType,
 } from 'vscode';
 import { AnnotationProviderBase } from './annotationProvider';
 import { ComputedHeatmap } from './annotations';
@@ -27,7 +27,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		editor: TextEditor,
 		trackedDocument: TrackedDocument<GitDocumentState>,
 		decoration: TextEditorDecorationType,
-		highlightDecoration: TextEditorDecorationType | undefined
+		highlightDecoration: TextEditorDecorationType | undefined,
 	) {
 		super(editor, trackedDocument, decoration, highlightDecoration);
 
@@ -92,7 +92,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 			l.sha === sha
 				? // editor lines are 0-based
 				  this.editor.document.validateRange(new Range(l.line - 1, 0, l.line - 1, Number.MAX_SAFE_INTEGER))
-				: undefined
+				: undefined,
 		);
 
 		this.editor.setDecorations(this.highlightDecoration, highlightDecorationRanges);
@@ -155,7 +155,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 			cold: newest < d.getTime(),
 			colors: {
 				cold: Container.config.heatmap.coldColor,
-				hot: Container.config.heatmap.hotColor
+				hot: Container.config.heatmap.hotColor,
 			},
 			median: median,
 			newest: newest,
@@ -169,7 +169,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 				}
 
 				return index;
-			}
+			},
 		};
 	}
 
@@ -188,9 +188,9 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 				languages.registerHoverProvider(
 					{ pattern: this.document.uri.fsPath },
 					{
-						provideHover: this.provideChangesHover.bind(this)
-					}
-				)
+						provideHover: this.provideChangesHover.bind(this),
+					},
+				),
 			);
 		}
 		if (providers.details) {
@@ -198,9 +198,9 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 				languages.registerHoverProvider(
 					{ pattern: this.document.uri.fsPath },
 					{
-						provideHover: this.provideDetailsHover.bind(this)
-					}
-				)
+						provideHover: this.provideDetailsHover.bind(this),
+					},
+				),
 			);
 		}
 
@@ -210,7 +210,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 	async provideDetailsHover(
 		document: TextDocument,
 		position: Position,
-		token: CancellationToken
+		token: CancellationToken,
 	): Promise<Hover | undefined> {
 		const commit = await this.getCommitForHover(position);
 		if (commit === undefined) return undefined;
@@ -219,7 +219,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		let logCommit: GitCommit | undefined = undefined;
 		if (!commit.isUncommitted) {
 			logCommit = await Container.git.getCommitForFile(commit.repoPath, commit.uri.fsPath, {
-				ref: commit.sha
+				ref: commit.sha,
 			});
 			if (logCommit !== undefined) {
 				// Preserve the previous commit from the blame commit
@@ -238,18 +238,18 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 			await GitUri.fromUri(document.uri),
 			editorLine,
 			Container.config.defaultDateFormat,
-			this.annotationType
+			this.annotationType,
 		);
 		return new Hover(
 			message,
-			document.validateRange(new Range(position.line, 0, position.line, Number.MAX_SAFE_INTEGER))
+			document.validateRange(new Range(position.line, 0, position.line, Number.MAX_SAFE_INTEGER)),
 		);
 	}
 
 	async provideChangesHover(
 		document: TextDocument,
 		position: Position,
-		token: CancellationToken
+		token: CancellationToken,
 	): Promise<Hover | undefined> {
 		const commit = await this.getCommitForHover(position);
 		if (commit === undefined) return undefined;
@@ -259,7 +259,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 
 		return new Hover(
 			message,
-			document.validateRange(new Range(position.line, 0, position.line, Number.MAX_SAFE_INTEGER))
+			document.validateRange(new Range(position.line, 0, position.line, Number.MAX_SAFE_INTEGER)),
 		);
 	}
 

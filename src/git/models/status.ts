@@ -15,7 +15,7 @@ export class GitStatus {
 		public readonly sha: string,
 		public readonly files: GitStatusFile[],
 		public readonly state: GitTrackingState,
-		public readonly upstream?: string
+		public readonly upstream?: string,
 	) {
 		this.detached = GitBranch.isDetached(branch);
 		if (this.detached) {
@@ -32,7 +32,7 @@ export class GitStatus {
 		const diff = {
 			added: 0,
 			deleted: 0,
-			changed: 0
+			changed: 0,
 		};
 
 		if (this.files.length === 0) return diff;
@@ -61,7 +61,7 @@ export class GitStatus {
 		expand,
 		prefix = '',
 		separator = ' ',
-		suffix = ''
+		suffix = '',
 	}: {
 		compact?: boolean;
 		empty?: string;
@@ -118,7 +118,7 @@ export class GitStatus {
 	static getUpstreamStatus(
 		upstream: string | undefined,
 		state: { ahead: number; behind: number },
-		options: { empty?: string; expand?: boolean; prefix?: string; separator?: string; suffix?: string } = {}
+		options: { empty?: string; expand?: boolean; prefix?: string; separator?: string; suffix?: string } = {},
 	): string {
 		if (upstream === undefined || (state.behind === 0 && state.ahead === 0)) return options.empty || '';
 
@@ -144,7 +144,7 @@ export class GitStatusFile implements GitFile {
 		public readonly indexStatus: GitFileStatus | undefined,
 		public readonly workingTreeStatus: GitFileStatus | undefined,
 		public readonly fileName: string,
-		public readonly originalFileName?: string
+		public readonly originalFileName?: string,
 	) {}
 
 	get status(): GitFileStatus {
@@ -187,7 +187,7 @@ export class GitStatusFile implements GitFile {
 			this.getChangedValue(changes.indexStatus, this.indexStatus) as GitFileStatus,
 			this.getChangedValue(changes.workTreeStatus, this.workingTreeStatus) as GitFileStatus,
 			changes.fileName || this.fileName,
-			this.getChangedValue(changes.originalFileName, this.originalFileName)
+			this.getChangedValue(changes.originalFileName, this.originalFileName),
 		);
 	}
 

@@ -9,14 +9,14 @@ import {
 	QuickPickStep,
 	StepAsyncGenerator,
 	StepSelection,
-	StepState
+	StepState,
 } from '../quickCommand';
 import {
 	Directive,
 	DirectiveQuickPickItem,
 	FlagsQuickPickItem,
 	ReferencesQuickPickItem,
-	RepositoryQuickPickItem
+	RepositoryQuickPickItem,
 } from '../../quickpicks';
 import { Strings } from '../../system';
 import { Logger } from '../../logger';
@@ -37,7 +37,7 @@ export interface MergeGitCommandArgs {
 export class MergeGitCommand extends QuickCommandBase<State> {
 	constructor(args?: MergeGitCommandArgs) {
 		super('merge', 'merge', 'Merge', {
-			description: 'integrates changes from a specified branch into the current branch'
+			description: 'integrates changes from a specified branch into the current branch',
 		});
 
 		if (args == null || args.state === undefined) return;
@@ -54,7 +54,7 @@ export class MergeGitCommand extends QuickCommandBase<State> {
 		this._initialState = {
 			counter: counter,
 			confirm: true,
-			...args.state
+			...args.state,
 		};
 	}
 
@@ -95,10 +95,10 @@ export class MergeGitCommand extends QuickCommandBase<State> {
 									RepositoryQuickPickItem.create(r, r.id === (active && active.id), {
 										branch: true,
 										fetched: true,
-										status: true
-									})
-								)
-							)
+										status: true,
+									}),
+								),
+							),
 						});
 						const selection: StepSelection<typeof step> = yield step;
 
@@ -121,15 +121,15 @@ export class MergeGitCommand extends QuickCommandBase<State> {
 							state.repo.formattedName
 						}`,
 						placeholder: `Choose a branch or tag to merge into ${destination.name}${GlyphChars.Space.repeat(
-							3
+							3,
 						)}(select or enter a reference)`,
 						matchOnDescription: true,
 						matchOnDetail: true,
 						items: await getBranchesAndOrTags(state.repo, ['branches', 'tags'], {
 							filterBranches: b => b.id !== destId,
-							picked: state.reference && state.reference.ref
+							picked: state.reference && state.reference.ref,
 						}),
-						onValidateValue: getValidateGitReferenceFn(state.repo)
+						onValidateValue: getValidateGitReferenceFn(state.repo),
 					});
 					const selection: StepSelection<typeof step> = yield step;
 
@@ -145,7 +145,7 @@ export class MergeGitCommand extends QuickCommandBase<State> {
 
 				const count =
 					(await Container.git.getCommitCount(state.repo.path, [
-						GitRevision.createRange(destination.name, state.reference.name)
+						GitRevision.createRange(destination.name, state.reference.name),
 					])) || 0;
 				if (count === 0) {
 					const step = this.createConfirmStep(
@@ -154,8 +154,8 @@ export class MergeGitCommand extends QuickCommandBase<State> {
 
 						DirectiveQuickPickItem.create(Directive.Cancel, true, {
 							label: `Cancel ${this.title}`,
-							detail: `${destination.name} is up to date with ${state.reference.name}`
-						})
+							detail: `${destination.name} is up to date with ${state.reference.name}`,
+						}),
 					);
 					yield step;
 
@@ -170,31 +170,31 @@ export class MergeGitCommand extends QuickCommandBase<State> {
 							description: `${state.reference.name} into ${destination.name}`,
 							detail: `Will merge ${Strings.pluralize('commit', count)} from ${
 								state.reference.name
-							} into ${destination.name}`
+							} into ${destination.name}`,
 						}),
 						FlagsQuickPickItem.create<Flags>(state.flags, ['--ff-only'], {
 							label: `Fast-forward ${this.title}`,
 							description: `--ff-only ${state.reference.name} into ${destination.name}`,
 							detail: `Will fast-forward merge ${Strings.pluralize('commit', count)} from ${
 								state.reference.name
-							} into ${destination.name}`
+							} into ${destination.name}`,
 						}),
 						FlagsQuickPickItem.create<Flags>(state.flags, ['--no-ff'], {
 							label: `No Fast-forward ${this.title}`,
 							description: `--no-ff ${state.reference.name} into ${destination.name}`,
 							detail: `Will create a merge commit when merging ${Strings.pluralize(
 								'commit',
-								count
-							)} from ${state.reference.name} into ${destination.name}`
+								count,
+							)} from ${state.reference.name} into ${destination.name}`,
 						}),
 						FlagsQuickPickItem.create<Flags>(state.flags, ['--squash'], {
 							label: `Squash ${this.title}`,
 							description: `--squash ${state.reference.name} into ${destination.name}`,
 							detail: `Will squash ${Strings.pluralize('commit', count)} from ${
 								state.reference.name
-							} into one when merging into ${destination.name}`
-						})
-					]
+							} into one when merging into ${destination.name}`,
+						}),
+					],
 				);
 				const selection: StepSelection<typeof step> = yield step;
 

@@ -21,7 +21,7 @@ export class ResultsFilesNode extends ViewNode<ViewWithFiles> {
 		public readonly repoPath: string,
 		public readonly ref1: string,
 		public readonly ref2: string,
-		private readonly _filesQuery: () => Promise<FilesQueryResults>
+		private readonly _filesQuery: () => Promise<FilesQueryResults>,
 	) {
 		super(GitUri.fromRepoPath(repoPath), view, parent);
 	}
@@ -35,7 +35,7 @@ export class ResultsFilesNode extends ViewNode<ViewWithFiles> {
 		if (diff === undefined) return [];
 
 		let children: FileNode[] = [
-			...Iterables.map(diff, s => new ResultsFileNode(this.view, this, this.repoPath, s, this.ref1, this.ref2))
+			...Iterables.map(diff, s => new ResultsFileNode(this.view, this, this.repoPath, s, this.ref1, this.ref2)),
 		];
 
 		if (this.view.config.files.layout !== ViewFilesLayout.List) {
@@ -43,7 +43,7 @@ export class ResultsFilesNode extends ViewNode<ViewWithFiles> {
 				children,
 				n => n.uri.relativePath.split('/'),
 				(...parts: string[]) => Strings.normalizePath(paths.join(...parts)),
-				this.view.config.files.compact
+				this.view.config.files.compact,
 			);
 
 			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
@@ -52,7 +52,7 @@ export class ResultsFilesNode extends ViewNode<ViewWithFiles> {
 			children.sort(
 				(a, b) =>
 					a.priority - b.priority ||
-					a.label!.localeCompare(b.label!, undefined, { numeric: true, sensitivity: 'base' })
+					a.label!.localeCompare(b.label!, undefined, { numeric: true, sensitivity: 'base' }),
 			);
 		}
 

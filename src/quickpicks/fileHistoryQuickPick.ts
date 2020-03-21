@@ -10,7 +10,7 @@ import {
 	CommandQuickPickItem,
 	getQuickPickIgnoreFocusOut,
 	ShowFileHistoryFromQuickPickItem,
-	showQuickPickProgress
+	showQuickPickProgress,
 } from './commonQuickPicks';
 import { OpenRemotesCommandQuickPickItem } from './remotesQuickPick';
 import { CommitQuickPickItem } from './gitQuickPicks';
@@ -20,7 +20,7 @@ export class FileHistoryQuickPick {
 		return showQuickPickProgress(placeHolder, {
 			'alt+left': KeyNoopCommand,
 			'alt+,': KeyNoopCommand,
-			'alt+.': KeyNoopCommand
+			'alt+.': KeyNoopCommand,
 		});
 	}
 
@@ -37,7 +37,7 @@ export class FileHistoryQuickPick {
 			progressCancellation?: CancellationTokenSource;
 			showAllCommand?: CommandQuickPickItem;
 			showInViewCommand?: CommandQuickPickItem;
-		} = {}
+		} = {},
 	): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
 		options = { pickerOnly: false, ...options };
 
@@ -67,7 +67,7 @@ export class FileHistoryQuickPick {
 						log: log,
 						limit: log.limit,
 						range: log.range,
-						goBackCommand: options.goBackCommand
+						goBackCommand: options.goBackCommand,
 					};
 
 					const commandArgs: ShowQuickFileHistoryCommandArgs = {
@@ -76,11 +76,11 @@ export class FileHistoryQuickPick {
 								label: `go back ${GlyphChars.ArrowBack}`,
 								description: `to history of ${uri.getFormattedPath()}${
 									uri.sha ? ` from ${GlyphChars.Space}$(git-commit) ${uri.shortSha}` : ''
-								}`
+								}`,
 							},
 							Commands.ShowQuickFileHistory,
-							[uri, goBackCommandArgs]
-						)
+							[uri, goBackCommandArgs],
+						),
 					};
 
 					index++;
@@ -90,11 +90,11 @@ export class FileHistoryQuickPick {
 						new CommandQuickPickItem(
 							{
 								label: '$(history) Show File History',
-								description: `of ${GitUri.getFormattedPath(workingUri, { relativeTo: log.repoPath })}`
+								description: `of ${GitUri.getFormattedPath(workingUri, { relativeTo: log.repoPath })}`,
 							},
 							Commands.ShowQuickFileHistory,
-							[workingUri, commandArgs]
-						)
+							[workingUri, commandArgs],
+						),
 					);
 				}
 			}
@@ -117,7 +117,7 @@ export class FileHistoryQuickPick {
 				const commandArgs: ShowQuickFileHistoryCommandArgs = {
 					log: log,
 					limit: log.limit,
-					range: log.range
+					range: log.range,
 				};
 
 				const currentCommand = new CommandQuickPickItem(
@@ -125,16 +125,16 @@ export class FileHistoryQuickPick {
 						label: `go back ${GlyphChars.ArrowBack}`,
 						description: `to history of ${uri.getFormattedPath()}${
 							uri.sha ? ` from ${GlyphChars.Space}$(git-commit) ${uri.shortSha}` : ''
-						}`
+						}`,
 					},
 					Commands.ShowQuickFileHistory,
-					[uri, commandArgs]
+					[uri, commandArgs],
 				);
 
 				// Only show the full repo option if we are the root
 				if (options.goBackCommand === undefined) {
 					const commandArgs: ShowQuickCurrentBranchHistoryCommandArgs = {
-						goBackCommand: currentCommand
+						goBackCommand: currentCommand,
 					};
 					items.splice(
 						index++,
@@ -142,11 +142,11 @@ export class FileHistoryQuickPick {
 						new CommandQuickPickItem(
 							{
 								label: `${GlyphChars.SpaceThin}$(git-branch) Show Branch History`,
-								description: `shows history of ${GlyphChars.Space}$(git-branch) ${branch.name}`
+								description: `shows history of ${GlyphChars.Space}$(git-branch) ${branch.name}`,
 							},
 							Commands.ShowQuickCurrentBranchHistory,
-							[undefined, commandArgs]
-						)
+							[undefined, commandArgs],
+						),
 					);
 				}
 
@@ -158,12 +158,12 @@ export class FileHistoryQuickPick {
 									type: RemoteResourceType.Revision,
 									branch: branch.name,
 									fileName: uri.relativePath,
-									sha: uri.sha
+									sha: uri.sha,
 							  }
 							: {
 									type: RemoteResourceType.File,
 									branch: branch.name,
-									fileName: uri.relativePath
+									fileName: uri.relativePath,
 							  };
 					items.splice(index++, 0, new OpenRemotesCommandQuickPickItem(remotes, resource, currentCommand));
 				}
@@ -181,7 +181,7 @@ export class FileHistoryQuickPick {
 		const scope = await Container.keyboard.beginScope({
 			'alt+left': options.goBackCommand,
 			'alt+,': options.previousPageCommand,
-			'alt+.': options.nextPageCommand
+			'alt+.': options.nextPageCommand,
 		});
 
 		options.progressCancellation && options.progressCancellation.cancel();
@@ -190,7 +190,7 @@ export class FileHistoryQuickPick {
 			matchOnDescription: true,
 			matchOnDetail: true,
 			placeHolder: placeHolder,
-			ignoreFocusOut: getQuickPickIgnoreFocusOut()
+			ignoreFocusOut: getQuickPickIgnoreFocusOut(),
 			// onDidSelectItem: (item: QuickPickItem) => {
 			//     scope.setKeyCommand('right', item);
 			// }

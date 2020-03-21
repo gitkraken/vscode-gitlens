@@ -13,7 +13,7 @@ import {
 	Commands,
 	getCommandUri,
 	getRepoPathOrActiveOrPrompt,
-	isCommandViewContextWithRef
+	isCommandViewContextWithRef,
 } from './common';
 
 export interface DiffDirectoryCommandArgs {
@@ -28,7 +28,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
 			Commands.DiffDirectory,
 			Commands.DiffDirectoryWithHead,
 			Commands.ViewsOpenDirectoryDiff,
-			Commands.ViewsOpenDirectoryDiffWithWorking
+			Commands.ViewsOpenDirectoryDiffWithWorking,
 		]);
 	}
 
@@ -67,7 +67,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
 			const repoPath = await getRepoPathOrActiveOrPrompt(
 				uri,
 				editor,
-				`Compare directory in which repository${GlyphChars.Ellipsis}`
+				`Compare directory in which repository${GlyphChars.Ellipsis}`,
 			);
 			if (!repoPath) return undefined;
 
@@ -76,8 +76,8 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
 					`Compare Working Tree with${GlyphChars.Ellipsis}`,
 					{
 						allowEnteringRefs: true,
-						checkmarks: false
-					}
+						checkmarks: false,
+					},
 				);
 				if (pick === undefined) return undefined;
 
@@ -94,12 +94,12 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
 			if (msg === 'No diff tool found') {
 				const result = await window.showWarningMessage(
 					'Unable to open directory compare because there is no Git diff tool configured',
-					'View Git Docs'
+					'View Git Docs',
 				);
 				if (!result) return undefined;
 
 				return env.openExternal(
-					Uri.parse('https://git-scm.com/docs/git-config#Documentation/git-config.txt-difftool')
+					Uri.parse('https://git-scm.com/docs/git-config#Documentation/git-config.txt-difftool'),
 				);
 			}
 

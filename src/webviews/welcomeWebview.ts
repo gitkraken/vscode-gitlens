@@ -29,10 +29,10 @@ export class WelcomeWebview extends WebviewBase {
 
 	renderEndOfBody() {
 		const bootstrap: WelcomeState = {
-			config: Container.config
+			config: Container.config,
 		};
 		return `<script type="text/javascript" nonce="Z2l0bGVucy1ib290c3RyYXA=">window.bootstrap = ${JSON.stringify(
-			bootstrap
+			bootstrap,
 		)};</script>`;
 	}
 }

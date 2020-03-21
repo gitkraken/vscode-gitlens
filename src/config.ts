@@ -125,7 +125,7 @@ export interface Config {
 
 export enum AnnotationsToggleMode {
 	File = 'file',
-	Window = 'window'
+	Window = 'window',
 }
 
 export interface AutolinkReference {
@@ -140,7 +140,7 @@ export enum BranchSorting {
 	NameDesc = 'name:desc',
 	NameAsc = 'name:asc',
 	DateDesc = 'date:desc',
-	DateAsc = 'date:asc'
+	DateAsc = 'date:asc',
 }
 
 export enum CodeLensCommand {
@@ -151,13 +151,13 @@ export enum CodeLensCommand {
 	ShowQuickCommitFileDetails = 'gitlens.showQuickCommitFileDetails',
 	ShowQuickCurrentBranchHistory = 'gitlens.showQuickRepoHistory',
 	ShowQuickFileHistory = 'gitlens.showQuickFileHistory',
-	ToggleFileBlame = 'gitlens.toggleFileBlame'
+	ToggleFileBlame = 'gitlens.toggleFileBlame',
 }
 
 export enum CodeLensScopes {
 	Document = 'document',
 	Containers = 'containers',
-	Blocks = 'blocks'
+	Blocks = 'blocks',
 }
 
 export enum CustomRemoteType {
@@ -165,23 +165,23 @@ export enum CustomRemoteType {
 	BitbucketServer = 'BitbucketServer',
 	Custom = 'Custom',
 	GitHub = 'GitHub',
-	GitLab = 'GitLab'
+	GitLab = 'GitLab',
 }
 
 export enum DateSource {
 	Authored = 'authored',
-	Committed = 'committed'
+	Committed = 'committed',
 }
 
 export enum DateStyle {
 	Absolute = 'absolute',
-	Relative = 'relative'
+	Relative = 'relative',
 }
 
 export enum FileAnnotationType {
 	Blame = 'blame',
 	Heatmap = 'heatmap',
-	RecentChanges = 'recentChanges'
+	RecentChanges = 'recentChanges',
 }
 
 export enum GravatarDefaultStyle {
@@ -190,19 +190,19 @@ export enum GravatarDefaultStyle {
 	Monster = 'monsterid',
 	MysteryPerson = 'mp',
 	Retro = 'retro',
-	Robot = 'robohash'
+	Robot = 'robohash',
 }
 
 export enum HighlightLocations {
 	Gutter = 'gutter',
 	Line = 'line',
-	Overview = 'overview'
+	Overview = 'overview',
 }
 
 export enum KeyMap {
 	Alternate = 'alternate',
 	Chorded = 'chorded',
-	None = 'none'
+	None = 'none',
 }
 
 export enum StatusBarCommand {
@@ -215,36 +215,36 @@ export enum StatusBarCommand {
 	ShowQuickCurrentBranchHistory = 'gitlens.showQuickRepoHistory',
 	ShowQuickFileHistory = 'gitlens.showQuickFileHistory',
 	ToggleCodeLens = 'gitlens.toggleCodeLens',
-	ToggleFileBlame = 'gitlens.toggleFileBlame'
+	ToggleFileBlame = 'gitlens.toggleFileBlame',
 }
 
 export enum TagSorting {
 	NameDesc = 'name:desc',
 	NameAsc = 'name:asc',
 	DateDesc = 'date:desc',
-	DateAsc = 'date:asc'
+	DateAsc = 'date:asc',
 }
 
 export enum ViewBranchesLayout {
 	List = 'list',
-	Tree = 'tree'
+	Tree = 'tree',
 }
 
 export enum ViewFilesLayout {
 	Auto = 'auto',
 	List = 'list',
-	Tree = 'tree'
+	Tree = 'tree',
 }
 
 export enum ViewLocation {
 	Explorer = 'explorer',
 	GitLens = 'gitlens',
-	SourceControl = 'scm'
+	SourceControl = 'scm',
 }
 
 export enum ViewShowBranchComparison {
 	Branch = 'branch',
-	Working = 'working'
+	Working = 'working',
 }
 
 export interface AdvancedConfig {

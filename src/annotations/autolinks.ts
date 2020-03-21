@@ -53,8 +53,8 @@ export class Autolinks implements Disposable {
 		args: {
 			0: (message: string) => message.substring(0, 50),
 			1: _ => false,
-			2: ({ timeout }) => timeout
-		}
+			2: ({ timeout }) => timeout,
+		},
 	})
 	async getIssueOrPullRequestLinks(message: string, remote: GitRemote, { timeout }: { timeout?: number } = {}) {
 		if (!remote.provider?.hasApi()) return undefined;
@@ -73,7 +73,7 @@ export class Autolinks implements Disposable {
 			if (ref.messageRegex === undefined) {
 				ref.messageRegex = new RegExp(
 					`(?<=^|\\s|\\()(${ref.prefix}([${ref.alphanumeric ? '\\w' : '0-9'}]+))\\b`,
-					ref.ignoreCase ? 'gi' : 'g'
+					ref.ignoreCase ? 'gi' : 'g',
 				);
 			}
 
@@ -92,7 +92,7 @@ export class Autolinks implements Disposable {
 		const issuesOrPullRequests = await Promises.raceAll(
 			ids.values(),
 			id => provider.getIssueOrPullRequest(id),
-			timeout
+			timeout,
 		);
 		if (issuesOrPullRequests.size === 0 || Iterables.every(issuesOrPullRequests.values(), pr => pr === undefined)) {
 			return undefined;
@@ -105,14 +105,14 @@ export class Autolinks implements Disposable {
 		args: {
 			0: (text: string) => text.substring(0, 30),
 			2: _ => false,
-			3: _ => false
-		}
+			3: _ => false,
+		},
 	})
 	linkify(
 		text: string,
 		markdown: boolean,
 		remotes?: GitRemote[],
-		issuesOrPullRequests?: Map<string, IssueOrPullRequest | Promises.CancellationError | undefined>
+		issuesOrPullRequests?: Map<string, IssueOrPullRequest | Promises.CancellationError | undefined>,
 	) {
 		for (const ref of this._references) {
 			if (this.ensureAutolinkCached(ref, issuesOrPullRequests)) {
@@ -141,7 +141,7 @@ export class Autolinks implements Disposable {
 
 	private ensureAutolinkCached(
 		ref: CacheableAutolinkReference | DynamicAutolinkReference,
-		issuesOrPullRequests?: Map<string, IssueOrPullRequest | Promises.CancellationError | undefined>
+		issuesOrPullRequests?: Map<string, IssueOrPullRequest | Promises.CancellationError | undefined>,
 	): ref is CacheableAutolinkReference | DynamicAutolinkReference {
 		if (isDynamic(ref)) return true;
 
@@ -151,7 +151,7 @@ export class Autolinks implements Disposable {
 					`(?<=^|\\s|\\()(${Strings.escapeMarkdown(ref.prefix).replace(/\\/g, '\\\\')}([${
 						ref.alphanumeric ? '\\w' : '0-9'
 					}]+))\\b`,
-					ref.ignoreCase ? 'gi' : 'g'
+					ref.ignoreCase ? 'gi' : 'g',
 				);
 			}
 
@@ -178,9 +178,9 @@ export class Autolinks implements Disposable {
 											: issue
 											? `\n${GlyphChars.Dash.repeat(2)}\n${issue.title.replace(
 													/([")])/g,
-													'\\$1'
+													'\\$1',
 											  )}\n${issue.closed ? 'Closed' : 'Opened'}, ${Dates.getFormatter(
-													issue.closedDate ?? issue.date
+													issue.closedDate ?? issue.date,
 											  ).fromNow()}`
 											: ''
 								  }"`
@@ -209,7 +209,7 @@ export class Autolinks implements Disposable {
 										issue.closed ? 'Closed' : 'Opened'
 								  }, ${Dates.getFormatter(issue.closedDate ?? issue.date).fromNow()}`
 								: ''
-						}`
+						}`,
 					);
 					return `${linkText}${superscript}`;
 				});
@@ -219,7 +219,7 @@ export class Autolinks implements Disposable {
 		} catch (ex) {
 			Logger.error(
 				ex,
-				`Failed to create autolink generator: prefix=${ref.prefix}, url=${ref.url}, title=${ref.title}`
+				`Failed to create autolink generator: prefix=${ref.prefix}, url=${ref.url}, title=${ref.title}`,
 			);
 			ref.linkify = null;
 		}

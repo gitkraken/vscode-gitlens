@@ -7,7 +7,7 @@ import {
 	QuickPick,
 	QuickPickItem,
 	Uri,
-	window
+	window,
 } from 'vscode';
 import { command, Command, Commands } from './common';
 import { log } from '../system';
@@ -17,7 +17,7 @@ import {
 	QuickCommandBase,
 	QuickInputStep,
 	QuickPickStep,
-	StepSelection
+	StepSelection,
 } from './quickCommand';
 import { Directive, DirectiveQuickPickItem } from '../quickpicks';
 import { BranchGitCommand, BranchGitCommandArgs } from './git/branch';
@@ -62,41 +62,41 @@ export class GitCommandsCommand extends Command {
 		static readonly CloseOnFocusOut: QuickInputButton = {
 			iconPath: {
 				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-pin-small.svg')),
-				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-pin-small.svg'))
+				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-pin-small.svg')),
 			},
-			tooltip: 'Keep Open'
+			tooltip: 'Keep Open',
 		};
 
 		static readonly KeepOpen: QuickInputButton = {
 			iconPath: {
 				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-pin-small-selected.svg')),
-				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-pin-small-selected.svg'))
+				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-pin-small-selected.svg')),
 			},
-			tooltip: 'Keep Open'
+			tooltip: 'Keep Open',
 		};
 
 		static readonly WillConfirm: QuickInputButton = {
 			iconPath: {
 				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-check.svg')),
-				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-check.svg'))
+				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-check.svg')),
 			},
-			tooltip: 'Will confirm'
+			tooltip: 'Will confirm',
 		};
 
 		static readonly WillConfirmForced: QuickInputButton = {
 			iconPath: {
 				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-check.svg')),
-				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-check.svg'))
+				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-check.svg')),
 			},
-			tooltip: 'Will always confirm'
+			tooltip: 'Will always confirm',
 		};
 
 		static readonly WillSkipConfirm: QuickInputButton = {
 			iconPath: {
 				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-no-check.svg')),
-				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-no-check.svg'))
+				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-no-check.svg')),
 			},
-			tooltip: 'Skips confirm'
+			tooltip: 'Skips confirm',
 		};
 	};
 
@@ -157,12 +157,12 @@ export class GitCommandsCommand extends Command {
 				};
 
 				const mapping: KeyMapping = {
-					left: { onDidPressKey: goBack }
+					left: { onDidPressKey: goBack },
 				};
 				if (step.onDidPressKey !== undefined && step.keys !== undefined && step.keys.length !== 0) {
 					for (const key of step.keys) {
 						mapping[key] = {
-							onDidPressKey: key => step.onDidPressKey!(input, key)
+							onDidPressKey: key => step.onDidPressKey!(input, key),
 						};
 					}
 				}
@@ -219,7 +219,7 @@ export class GitCommandsCommand extends Command {
 					}),
 					input.onDidAccept(async () => {
 						resolve(await this.nextStep(input, commandsStep.command!, input.value));
-					})
+					}),
 				);
 
 				input.buttons = this.getButtons(step, commandsStep.command);
@@ -266,12 +266,12 @@ export class GitCommandsCommand extends Command {
 				};
 
 				const mapping: KeyMapping = {
-					left: { onDidPressKey: goBack }
+					left: { onDidPressKey: goBack },
 				};
 				if (step.onDidPressKey !== undefined && step.keys !== undefined && step.keys.length !== 0) {
 					for (const key of step.keys) {
 						mapping[key] = {
-							onDidPressKey: key => step.onDidPressKey!(quickpick, key)
+							onDidPressKey: key => step.onDidPressKey!(quickpick, key),
 						};
 					}
 				}
@@ -360,7 +360,7 @@ export class GitCommandsCommand extends Command {
 								} else {
 									const cmd = quickpick.value.trim().toLowerCase();
 									const item = step.items.find(
-										i => i.label.replace(sanitizeLabel, '').toLowerCase() === cmd
+										i => i.label.replace(sanitizeLabel, '').toLowerCase() === cmd,
 									);
 									if (item === undefined) return;
 
@@ -463,7 +463,7 @@ export class GitCommandsCommand extends Command {
 						}
 
 						resolve(await this.nextStep(quickpick, commandsStep.command!, items as QuickPickItem[]));
-					})
+					}),
 				);
 
 				quickpick.title = step.title;
@@ -517,7 +517,7 @@ export class GitCommandsCommand extends Command {
 					...step.buttons,
 					configuration.get('gitCommands', 'closeOnFocusOut')
 						? this.Buttons.CloseOnFocusOut
-						: this.Buttons.KeepOpen
+						: this.Buttons.KeepOpen,
 				);
 				return buttons;
 			}
@@ -538,7 +538,7 @@ export class GitCommandsCommand extends Command {
 		}
 
 		buttons.push(
-			configuration.get('gitCommands', 'closeOnFocusOut') ? this.Buttons.CloseOnFocusOut : this.Buttons.KeepOpen
+			configuration.get('gitCommands', 'closeOnFocusOut') ? this.Buttons.CloseOnFocusOut : this.Buttons.KeepOpen,
 		);
 
 		return buttons;
@@ -547,7 +547,7 @@ export class GitCommandsCommand extends Command {
 	private async nextStep(
 		quickInput: InputBox | QuickPick<QuickPickItem>,
 		command: QuickCommandBase,
-		value: StepSelection<any> | undefined
+		value: StepSelection<any> | undefined,
 	) {
 		quickInput.busy = true;
 		// quickInput.enabled = false;
@@ -561,7 +561,7 @@ export class GitCommandsCommand extends Command {
 
 	private async toggleConfirmation(
 		input: InputBox | QuickPick<QuickPickItem>,
-		command: QuickCommandBase | undefined
+		command: QuickCommandBase | undefined,
 	) {
 		if (command === undefined || command.skipConfirmKey === undefined) return;
 
@@ -611,7 +611,7 @@ class PickCommandStep implements QuickPickStep {
 			new SearchGitCommand(args && args.command === 'search' ? args : undefined),
 			new StashGitCommand(args && args.command === 'stash' ? args : undefined),
 			new SwitchGitCommand(args && args.command === 'switch' ? args : undefined),
-			new TagGitCommand(args && args.command === 'tag' ? args : undefined)
+			new TagGitCommand(args && args.command === 'tag' ? args : undefined),
 		];
 	}
 

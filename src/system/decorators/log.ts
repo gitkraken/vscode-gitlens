@@ -59,7 +59,7 @@ export function debug<T extends (...arg: any) => any>(
 		sanitize?(key: string, value: any): any;
 		singleLine?: boolean;
 		timed?: boolean;
-	} = { timed: true }
+	} = { timed: true },
 ) {
 	return log<T>({ debug: true, ...options });
 }
@@ -78,7 +78,7 @@ export function log<T extends (...arg: any) => any>(
 		sanitize?(key: string, value: any): any;
 		singleLine?: boolean;
 		timed?: boolean;
-	} = { timed: true }
+	} = { timed: true },
 ) {
 	options = { timed: true, ...options };
 
@@ -100,7 +100,7 @@ export function log<T extends (...arg: any) => any>(
 
 		const parameters = Functions.getParameters(fn);
 
-		descriptor[fnKey] = function(this: any, ...args: Parameters<T>) {
+		descriptor[fnKey] = function (this: any, ...args: Parameters<T>) {
 			const correlationId = getNextCorrelationId();
 
 			if (
@@ -138,9 +138,9 @@ export function log<T extends (...arg: any) => any>(
 						instance: this,
 						instanceName: instanceName,
 						name: key,
-						prefix: prefix
+						prefix: prefix,
 					},
-					...args
+					...args,
 				);
 			}
 
@@ -204,7 +204,7 @@ export function log<T extends (...arg: any) => any>(
 									? correlationContext.exitDetails
 									: emptyStr
 							}${timing}`,
-							loggableParams
+							loggableParams,
 						);
 					} else {
 						Logger.error(
@@ -214,7 +214,7 @@ export function log<T extends (...arg: any) => any>(
 								correlationContext !== undefined && correlationContext.exitDetails
 									? correlationContext.exitDetails
 									: emptyStr
-							}${timing}`
+							}${timing}`,
 						);
 					}
 
@@ -253,7 +253,7 @@ export function log<T extends (...arg: any) => any>(
 										? correlationContext.exitDetails
 										: emptyStr
 								}${timing}`,
-								loggableParams
+								loggableParams,
 							);
 						} else {
 							logFn(
@@ -262,7 +262,7 @@ export function log<T extends (...arg: any) => any>(
 										? correlationContext.exitDetails
 										: emptyStr
 								}${timing}`,
-								loggableParams
+								loggableParams,
 							);
 						}
 					} else {
@@ -271,7 +271,7 @@ export function log<T extends (...arg: any) => any>(
 								correlationContext !== undefined && correlationContext.exitDetails
 									? correlationContext.exitDetails
 									: emptyStr
-							}${timing}`
+							}${timing}`,
 						);
 					}
 

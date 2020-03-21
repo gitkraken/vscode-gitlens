@@ -26,7 +26,7 @@ export class GitStatusParser {
 		const files = [];
 		const state = {
 			ahead: 0,
-			behind: 0
+			behind: 0,
 		};
 		let upstream;
 
@@ -68,7 +68,7 @@ export class GitStatusParser {
 		let sha: string | undefined;
 		const state = {
 			ahead: 0,
-			behind: 0
+			behind: 0,
 		};
 		let upstream;
 
@@ -101,10 +101,7 @@ export class GitStatusParser {
 						break;
 					case '2': {
 						// rename
-						const file = lineParts
-							.slice(9)
-							.join(' ')
-							.split('\t');
+						const file = lineParts.slice(9).join(' ').split('\t');
 						files.push(this.parseStatusFile(repoPath, lineParts[1], file[0], file[1]));
 						break;
 					}
@@ -124,7 +121,7 @@ export class GitStatusParser {
 			sha || emptyStr,
 			files,
 			state,
-			upstream
+			upstream,
 		);
 	}
 
@@ -132,7 +129,7 @@ export class GitStatusParser {
 		repoPath: string,
 		rawStatus: string,
 		fileName: string,
-		originalFileName?: string
+		originalFileName?: string,
 	): GitStatusFile {
 		let indexStatus = !rawStatus.startsWith('.') ? rawStatus[0].trim() : undefined;
 		if (indexStatus == null || indexStatus.length === 0) {
@@ -152,7 +149,7 @@ export class GitStatusParser {
 			indexStatus as GitFileStatus | undefined,
 			workTreeStatus as GitFileStatus | undefined,
 			fileName,
-			originalFileName
+			originalFileName,
 		);
 	}
 }

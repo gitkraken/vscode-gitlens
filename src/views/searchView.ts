@@ -37,29 +37,29 @@ export class SearchView extends ViewBase<SearchNode> {
 		commands.registerCommand(
 			this.getQualifiedCommand('copy'),
 			() => commands.executeCommand('gitlens.views.copy', this.selection),
-			this
+			this,
 		);
 		commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this);
 		commands.registerCommand(
 			this.getQualifiedCommand('setFilesLayoutToAuto'),
 			() => this.setFilesLayout(ViewFilesLayout.Auto),
-			this
+			this,
 		);
 		commands.registerCommand(
 			this.getQualifiedCommand('setFilesLayoutToList'),
 			() => this.setFilesLayout(ViewFilesLayout.List),
-			this
+			this,
 		);
 		commands.registerCommand(
 			this.getQualifiedCommand('setFilesLayoutToTree'),
 			() => this.setFilesLayout(ViewFilesLayout.Tree),
-			this
+			this,
 		);
 		commands.registerCommand(this.getQualifiedCommand('setKeepResultsToOn'), () => this.setKeepResults(true), this);
 		commands.registerCommand(
 			this.getQualifiedCommand('setKeepResultsToOff'),
 			() => this.setKeepResults(false),
-			this
+			this,
 		);
 	}
 
@@ -120,7 +120,7 @@ export class SearchView extends ViewBase<SearchNode> {
 				  };
 			limit?: number;
 		},
-		results?: Promise<GitLog | undefined> | GitLog
+		results?: Promise<GitLog | undefined> | GitLog,
 	) {
 		if (!this.visible) {
 			await this.show();
@@ -128,7 +128,7 @@ export class SearchView extends ViewBase<SearchNode> {
 
 		const searchQueryFn = this.getSearchQueryFn(
 			results || Container.git.getLogForSearch(repoPath, search, options),
-			{ label: label }
+			{ label: label },
 		);
 
 		return this.addResults(
@@ -138,8 +138,8 @@ export class SearchView extends ViewBase<SearchNode> {
 				repoPath,
 				search,
 				`Results ${typeof label === 'string' ? label : label.label}`,
-				searchQueryFn
-			)
+				searchQueryFn,
+			),
 		);
 	}
 
@@ -158,13 +158,13 @@ export class SearchView extends ViewBase<SearchNode> {
 						resultsType?: { singular: string; plural: string };
 				  };
 			limit?: number;
-		}
+		},
 	) {
 		const labelString = this.getSearchLabel(label, log);
 		const results: Mutable<Partial<SearchQueryResults>> = {
 			label: labelString,
 			log: log,
-			hasMore: log.hasMore
+			hasMore: log.hasMore,
 		};
 		if (results.hasMore) {
 			results.more = async (limit: number | undefined) => {
@@ -177,11 +177,11 @@ export class SearchView extends ViewBase<SearchNode> {
 
 		const searchQueryFn = Functions.cachedOnce(
 			this.getSearchQueryFn(log, { label: label, ...options }),
-			results as SearchQueryResults
+			results as SearchQueryResults,
 		);
 
 		return this.addResults(
-			new SearchResultsCommitsNode(this, this._root!, repoPath, search, labelString, searchQueryFn)
+			new SearchResultsCommitsNode(this, this._root!, repoPath, search, labelString, searchQueryFn),
 		);
 	}
 
@@ -199,7 +199,7 @@ export class SearchView extends ViewBase<SearchNode> {
 					label: string;
 					resultsType?: { singular: string; plural: string };
 			  },
-		log: GitLog | undefined
+		log: GitLog | undefined,
 	) {
 		if (typeof label === 'string') return label;
 
@@ -211,7 +211,7 @@ export class SearchView extends ViewBase<SearchNode> {
 		return `${Strings.pluralize(resultsType.singular, count, {
 			number: log?.hasMore ?? false ? `${count}+` : undefined,
 			plural: resultsType.plural,
-			zero: 'No'
+			zero: 'No',
 		})} ${label.label}`;
 	}
 
@@ -224,7 +224,7 @@ export class SearchView extends ViewBase<SearchNode> {
 						label: string;
 						resultsType?: { singular: string; plural: string };
 				  };
-		}
+		},
 	): (limit: number | undefined) => Promise<SearchQueryResults> {
 		let useCacheOnce = true;
 
@@ -239,7 +239,7 @@ export class SearchView extends ViewBase<SearchNode> {
 			const results: Mutable<Partial<SearchQueryResults>> = {
 				label: this.getSearchLabel(options.label, log),
 				log: log,
-				hasMore: log?.hasMore
+				hasMore: log?.hasMore,
 			};
 			if (results.hasMore) {
 				results.more = async (limit: number | undefined) => {

@@ -32,7 +32,7 @@ export class BranchesNode extends ViewNode<RepositoriesView> {
 			const branches = await this.repo.getBranches({
 				// only show local branches
 				filter: b => !b.remote,
-				sort: true
+				sort: true,
 			});
 			if (branches.length === 0) return [new MessageNode(this.view, this, 'No branches could be found.')];
 
@@ -47,7 +47,7 @@ export class BranchesNode extends ViewNode<RepositoriesView> {
 				b => {
 					b.compacted = true;
 					return true;
-				}
+				},
 			);
 
 			const root = new BranchOrTagFolderNode(
@@ -58,7 +58,7 @@ export class BranchesNode extends ViewNode<RepositoriesView> {
 				'',
 				undefined,
 				hierarchy,
-				'branches'
+				'branches',
 			);
 			this._children = root.getChildren();
 		}
@@ -73,7 +73,7 @@ export class BranchesNode extends ViewNode<RepositoriesView> {
 		}
 		item.iconPath = {
 			dark: Container.context.asAbsolutePath('images/dark/icon-branch.svg'),
-			light: Container.context.asAbsolutePath('images/light/icon-branch.svg')
+			light: Container.context.asAbsolutePath('images/light/icon-branch.svg'),
 		};
 		item.id = this.id;
 

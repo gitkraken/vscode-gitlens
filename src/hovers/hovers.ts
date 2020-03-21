@@ -12,7 +12,7 @@ import {
 	GitLogCommit,
 	GitRemote,
 	GitService,
-	GitUri
+	GitUri,
 } from '../git/gitService';
 import { Logger, TraceLevel } from '../logger';
 import { Iterables, Promises, Strings } from '../system';
@@ -21,19 +21,19 @@ export namespace Hovers {
 	export async function changesMessage(
 		commit: GitBlameCommit,
 		uri: GitUri,
-		editorLine: number
+		editorLine: number,
 	): Promise<MarkdownString | undefined>;
 	export async function changesMessage(
 		commit: GitLogCommit,
 		uri: GitUri,
 		editorLine: number,
-		hunkLine: GitDiffHunkLine
+		hunkLine: GitDiffHunkLine,
 	): Promise<MarkdownString | undefined>;
 	export async function changesMessage(
 		commit: GitBlameCommit | GitLogCommit,
 		uri: GitUri,
 		editorLine: number,
-		hunkLine?: GitDiffHunkLine
+		hunkLine?: GitDiffHunkLine,
 	): Promise<MarkdownString | undefined> {
 		const documentRef = uri.sha;
 		if (GitBlameCommit.is(commit)) {
@@ -67,7 +67,7 @@ export namespace Hovers {
 					editorLine,
 					undefined,
 					GitService.uncommittedStagedSha,
-					originalFileName
+					originalFileName,
 				);
 			}
 		}
@@ -88,45 +88,45 @@ export namespace Hovers {
 			message = `[$(compare-changes) Changes](${DiffWithCommand.getMarkdownCommandArgs({
 				lhs: {
 					sha: diffUris.previous.sha || '',
-					uri: diffUris.previous.documentUri()
+					uri: diffUris.previous.documentUri(),
 				},
 				rhs: {
 					sha: diffUris.current.sha || '',
-					uri: diffUris.current.documentUri()
+					uri: diffUris.current.documentUri(),
 				},
 				repoPath: commit.repoPath,
-				line: editorLine
+				line: editorLine,
 			})} "Open Changes")`;
 
 			previous =
 				diffUris.previous.sha === undefined || diffUris.previous.isUncommitted
 					? `_${GitService.shortenSha(diffUris.previous.sha, {
 							strings: {
-								working: 'Working Tree'
-							}
+								working: 'Working Tree',
+							},
 					  })}_`
 					: `[$(git-commit) ${GitService.shortenSha(
-							diffUris.previous.sha || ''
+							diffUris.previous.sha || '',
 					  )}](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
-							diffUris.previous.sha || ''
+							diffUris.previous.sha || '',
 					  )} "Show Commit Details")`;
 
 			current =
 				diffUris.current.sha === undefined || diffUris.current.isUncommitted
 					? `_${GitService.shortenSha(diffUris.current.sha, {
 							strings: {
-								working: 'Working Tree'
-							}
+								working: 'Working Tree',
+							},
 					  })}_`
 					: `[$(git-commit) ${GitService.shortenSha(
-							diffUris.current.sha || ''
+							diffUris.current.sha || '',
 					  )}](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
-							diffUris.current.sha || ''
+							diffUris.current.sha || '',
 					  )} "Show Commit Details")`;
 		} else {
 			message = `[$(compare-changes) Changes](${DiffWithCommand.getMarkdownCommandArgs(
 				commit,
-				editorLine
+				editorLine,
 			)} "Open Changes")`;
 
 			previous = `[$(git-commit) ${
@@ -134,7 +134,7 @@ export namespace Hovers {
 			}](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.previousSha)} "Show Commit Details")`;
 
 			current = `[$(git-commit) ${commit.shortSha}](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
-				commit.sha
+				commit.sha,
 			)} "Show Commit Details")`;
 		}
 
@@ -150,7 +150,7 @@ export namespace Hovers {
 		uri: GitUri,
 		editorLine: number,
 		dateFormat: string | null,
-		annotationType: FileAnnotationType | undefined
+		annotationType: FileAnnotationType | undefined,
 	): Promise<MarkdownString> {
 		if (dateFormat === null) {
 			dateFormat = 'MMMM Do, YYYY h:mma';
@@ -162,7 +162,7 @@ export namespace Hovers {
 			commit.isUncommitted ? commit.getPreviousLineDiffUris(uri, editorLine, uri.sha) : undefined,
 			getAutoLinkedIssuesOrPullRequests(commit.message, remotes),
 			getPullRequestForCommit(commit.ref, remotes),
-			Container.vsls.maybeGetPresence(commit.email).catch(reason => undefined)
+			Container.vsls.maybeGetPresence(commit.email).catch(reason => undefined),
 		]);
 
 		const details = CommitFormatter.fromTemplate(Container.config.hovers.detailsMarkdownFormat, commit, {
@@ -174,7 +174,7 @@ export namespace Hovers {
 			pullRequestOrRemote: pr,
 			presence: presence,
 			previousLineDiffUris: previousLineDiffUris,
-			remotes: remotes
+			remotes: remotes,
 		});
 
 		const markdown = new MarkdownString(details, true);
@@ -220,14 +220,14 @@ export namespace Hovers {
 
 		try {
 			const autolinks = await Container.autolinks.getIssueOrPullRequestLinks(message, remote, {
-				timeout: timeout
+				timeout: timeout,
 			});
 
 			if (autolinks !== undefined && (Logger.level === TraceLevel.Debug || Logger.isDebugging)) {
 				const timeouts = [
 					...Iterables.filterMap(autolinks.values(), issue =>
-						issue instanceof Promises.CancellationError ? issue.promise : undefined
-					)
+						issue instanceof Promises.CancellationError ? issue.promise : undefined,
+					),
 				];
 
 				// If there are any PRs that timed out, refresh the annotation(s) once they complete
@@ -237,8 +237,8 @@ export namespace Hovers {
 						`timed out ${GlyphChars.Dash} issue/pr queries (${
 							timeouts.length
 						}) took too long (over ${timeout} ms) ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(
-							start
-						)} ms`
+							start,
+						)} ms`,
 					);
 
 					return autolinks;
@@ -269,7 +269,7 @@ export namespace Hovers {
 				'pullRequestAgo',
 				'pullRequestAgoOrDate',
 				'pullRequestDate',
-				'pullRequestState'
+				'pullRequestState',
 			)
 		) {
 			Logger.debug(cc, `completed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);

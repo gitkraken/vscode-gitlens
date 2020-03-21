@@ -37,7 +37,7 @@ export class StashesNode extends ViewNode<ViewWithFiles> {
 
 		item.iconPath = {
 			dark: Container.context.asAbsolutePath('images/dark/icon-stash.svg'),
-			light: Container.context.asAbsolutePath('images/light/icon-stash.svg')
+			light: Container.context.asAbsolutePath('images/light/icon-stash.svg'),
 		};
 
 		return item;

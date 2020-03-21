@@ -10,7 +10,7 @@ import {
 	StepAsyncGenerator,
 	StepSelection,
 	StepState,
-	ToggleQuickInputButton
+	ToggleQuickInputButton,
 } from '../quickCommand';
 import {
 	CommitQuickPickItem,
@@ -19,7 +19,7 @@ import {
 	FlagsQuickPickItem,
 	ReferencesQuickPickItem,
 	RefQuickPickItem,
-	RepositoryQuickPickItem
+	RepositoryQuickPickItem,
 } from '../../quickpicks';
 import { Iterables, Strings } from '../../system';
 import { Logger } from '../../logger';
@@ -44,7 +44,7 @@ export class RebaseGitCommand extends QuickCommandBase<State> {
 				super(
 					{ tooltip: 'Use the selected Branch or Tag', icon: 'branch' },
 					{ tooltip: 'Choose a commit from the selected Branch or Tag', icon: 'commit' },
-					on
+					on,
 				);
 			}
 		};
@@ -53,7 +53,7 @@ export class RebaseGitCommand extends QuickCommandBase<State> {
 	constructor(args?: RebaseGitCommandArgs) {
 		super('rebase', 'rebase', 'Rebase', {
 			description:
-				'integrates changes from a specified branch into the current branch, by changing the base of the branch and reapplying the commits on top'
+				'integrates changes from a specified branch into the current branch, by changing the base of the branch and reapplying the commits on top',
 		});
 
 		if (args == null || args.state === undefined) return;
@@ -70,7 +70,7 @@ export class RebaseGitCommand extends QuickCommandBase<State> {
 		this._initialState = {
 			counter: counter,
 			confirm: true,
-			...args.state
+			...args.state,
 		};
 	}
 
@@ -113,10 +113,10 @@ export class RebaseGitCommand extends QuickCommandBase<State> {
 									RepositoryQuickPickItem.create(r, r.id === (active && active.id), {
 										branch: true,
 										fetched: true,
-										status: true
-									})
-								)
-							)
+										status: true,
+									}),
+								),
+							),
 						});
 						const selection: StepSelection<typeof step> = yield step;
 
@@ -133,7 +133,7 @@ export class RebaseGitCommand extends QuickCommandBase<State> {
 
 				if (state.reference === undefined || state.counter < 2) {
 					const pickBranchOrCommitButton: ToggleQuickInputButton = new this.Buttons.PickBranchOrCommit(
-						pickCommit
+						pickCommit,
 					);
 
 					const step = this.createPickStep<ReferencesQuickPickItem>({
@@ -146,7 +146,7 @@ export class RebaseGitCommand extends QuickCommandBase<State> {
 						matchOnDescription: true,
 						matchOnDetail: true,
 						items: await getBranchesAndOrTags(state.repo, ['branches', 'tags'], {
-							picked: state.reference && state.reference.ref
+							picked: state.reference && state.reference.ref,
 						}),
 						additionalButtons: [pickBranchOrCommitButton],
 						// eslint-disable-next-line no-loop-func
@@ -154,7 +154,7 @@ export class RebaseGitCommand extends QuickCommandBase<State> {
 							pickCommit = !pickCommit;
 							pickBranchOrCommitButton.on = pickCommit;
 						},
-						onValidateValue: getValidateGitReferenceFn(state.repo)
+						onValidateValue: getValidateGitReferenceFn(state.repo),
 					});
 					const selection: StepSelection<typeof step> = yield step;
 
@@ -176,7 +176,7 @@ export class RebaseGitCommand extends QuickCommandBase<State> {
 				if (pickCommit && selectedBranchOrTag !== undefined && state.counter < 3) {
 					const log = await Container.git.getLog(state.repo.path, {
 						ref: selectedBranchOrTag.ref,
-						merges: false
+						merges: false,
 					});
 
 					const step = this.createPickStep<CommitQuickPickItem | RefQuickPickItem>({
@@ -193,17 +193,17 @@ export class RebaseGitCommand extends QuickCommandBase<State> {
 							log === undefined
 								? [
 										DirectiveQuickPickItem.create(Directive.Back, true),
-										DirectiveQuickPickItem.create(Directive.Cancel)
+										DirectiveQuickPickItem.create(Directive.Cancel),
 								  ]
 								: [
 										...Iterables.map(log.commits.values(), commit =>
 											CommitQuickPickItem.create(commit, undefined, {
 												compact: true,
-												icon: true
-											})
-										)
+												icon: true,
+											}),
+										),
 								  ],
-						onValidateValue: getValidateGitReferenceFn(state.repo)
+						onValidateValue: getValidateGitReferenceFn(state.repo),
 					});
 					const selection: StepSelection<typeof step> = yield step;
 
@@ -216,7 +216,7 @@ export class RebaseGitCommand extends QuickCommandBase<State> {
 
 				const count =
 					(await Container.git.getCommitCount(state.repo.path, [
-						GitRevision.createRange(state.reference.ref, destination.ref)
+						GitRevision.createRange(state.reference.ref, destination.ref),
 					])) || 0;
 				if (count === 0) {
 					const step = this.createConfirmStep(
@@ -224,8 +224,8 @@ export class RebaseGitCommand extends QuickCommandBase<State> {
 						[],
 						DirectiveQuickPickItem.create(Directive.Cancel, true, {
 							label: `Cancel ${this.title}`,
-							detail: `${destination.name} is up to date with ${state.reference.name}`
-						})
+							detail: `${destination.name} is up to date with ${state.reference.name}`,
+						}),
 					);
 					yield step;
 
@@ -240,18 +240,18 @@ export class RebaseGitCommand extends QuickCommandBase<State> {
 							description: `${destination.name} with ${state.reference.name}`,
 							detail: `Will update ${destination.name} by applying ${Strings.pluralize(
 								'commit',
-								count
-							)} on top of ${state.reference.name}`
+								count,
+							)} on top of ${state.reference.name}`,
 						}),
 						FlagsQuickPickItem.create<Flags>(state.flags, ['--interactive'], {
 							label: `Interactive ${this.title}`,
 							description: `--interactive ${destination.name} with ${state.reference.name}`,
 							detail: `Will interactively update ${destination.name} by applying ${Strings.pluralize(
 								'commit',
-								count
-							)} on top of ${state.reference.name}`
-						})
-					]
+								count,
+							)} on top of ${state.reference.name}`,
+						}),
+					],
 				);
 				const selection: StepSelection<typeof step> = yield step;
 

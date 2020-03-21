@@ -3,7 +3,7 @@ import {
 	findLastIndex as _findLastIndex,
 	intersectionWith as _intersectionWith,
 	isEqual as _isEqual,
-	xor as _xor
+	xor as _xor,
 } from 'lodash-es';
 
 export namespace Arrays {
@@ -18,7 +18,7 @@ export namespace Arrays {
 
 	export function filterMap<T, TMapped>(
 		source: T[],
-		predicateMapper: (item: T) => TMapped | null | undefined
+		predicateMapper: (item: T) => TMapped | null | undefined,
 	): TMapped[] {
 		return source.reduce((accumulator, current) => {
 			const mapped = predicateMapper(current);
@@ -31,7 +31,7 @@ export namespace Arrays {
 
 	export function filterMapAsync<T, TMapped>(
 		source: T[],
-		predicateMapper: (item: T) => Promise<TMapped | null | undefined>
+		predicateMapper: (item: T) => Promise<TMapped | null | undefined>,
 	): Promise<TMapped[]> {
 		return source.reduce(async (accumulator, current) => {
 			const mapped = await predicateMapper(current);
@@ -66,7 +66,7 @@ export namespace Arrays {
 	export function groupByFilterMap<TKey, TValue, TMapped>(
 		source: TValue[],
 		accessor: (item: TValue) => TKey,
-		predicateMapper: (item: TValue) => TMapped | null | undefined
+		predicateMapper: (item: TValue) => TMapped | null | undefined,
 	): Map<TKey, TMapped[]> {
 		return source.reduce((groupings, current) => {
 			const mapped = predicateMapper(current);
@@ -102,13 +102,13 @@ export namespace Arrays {
 		splitPath: (i: T) => string[],
 		joinPath: (...paths: string[]) => string,
 		compact: boolean = false,
-		canCompact?: (i: T) => boolean
+		canCompact?: (i: T) => boolean,
 	): HierarchicalItem<T> {
 		const seed = {
 			name: '',
 			relativePath: '',
 			children: new Map(),
-			descendants: []
+			descendants: [],
 		};
 
 		let hierarchy = values.reduce((root: HierarchicalItem<T>, value) => {
@@ -129,7 +129,7 @@ export namespace Arrays {
 						relativePath: relativePath,
 						parent: folder,
 						children: undefined,
-						descendants: undefined
+						descendants: undefined,
 					};
 					folder.children.set(folderName, f);
 				}
@@ -157,7 +157,7 @@ export namespace Arrays {
 		root: HierarchicalItem<T>,
 		joinPath: (...paths: string[]) => string,
 		isRoot: boolean = true,
-		canCompact?: (i: T) => boolean
+		canCompact?: (i: T) => boolean,
 	): HierarchicalItem<T> {
 		if (root.children === undefined) return root;
 

@@ -27,7 +27,7 @@ export enum GitCommitType {
 	Log = 'log',
 	LogFile = 'logFile',
 	Stash = 'stash',
-	StashFile = 'stashFile'
+	StashFile = 'stashFile',
 }
 
 export const CommitDateFormatting = {
@@ -39,7 +39,7 @@ export const CommitDateFormatting = {
 		CommitDateFormatting.dateFormat = configuration.get('defaultDateFormat');
 		CommitDateFormatting.dateSource = configuration.get('defaultDateSource');
 		CommitDateFormatting.dateStyle = configuration.get('defaultDateStyle');
-	}
+	},
 };
 
 export abstract class GitCommit implements GitReference {
@@ -65,7 +65,7 @@ export abstract class GitCommit implements GitReference {
 		fileName: string,
 		public readonly originalFileName: string | undefined,
 		public previousSha: string | undefined,
-		public previousFileName: string | undefined
+		public previousFileName: string | undefined,
 	) {
 		this._fileName = fileName || '';
 	}
@@ -144,7 +144,7 @@ export abstract class GitCommit implements GitReference {
 	}
 
 	@memoize<GitCommit['getPreviousLineDiffUris']>(
-		(uri, editorLine, ref) => `${uri.toString(true)}|${editorLine || ''}|${ref || ''}`
+		(uri, editorLine, ref) => `${uri.toString(true)}|${editorLine || ''}|${ref || ''}`,
 	)
 	getPreviousLineDiffUris(uri: Uri, editorLine: number, ref: string | undefined) {
 		if (!this.isFile) return Promise.resolve(undefined);

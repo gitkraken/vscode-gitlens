@@ -40,8 +40,8 @@ export class DiffWithRefCommand extends ActiveEditorCommand {
 			{
 				allowEnteringRefs: true,
 				checkmarks: false,
-				goBack: args.goBackCommand
-			}
+				goBack: args.goBackCommand,
+			},
 		);
 		if (pick === undefined) return undefined;
 
@@ -69,14 +69,14 @@ export class DiffWithRefCommand extends ActiveEditorCommand {
 			lhs: {
 				sha: pick.remote ? `remotes/${ref}` : ref,
 				uri: renamedUri || (gitUri as Uri),
-				title: renamedTitle || `${paths.basename(gitUri.fsPath)} (${GitService.shortenSha(ref)})`
+				title: renamedTitle || `${paths.basename(gitUri.fsPath)} (${GitService.shortenSha(ref)})`,
 			},
 			rhs: {
 				sha: '',
-				uri: gitUri as Uri
+				uri: gitUri as Uri,
 			},
 			line: args.line,
-			showOptions: args.showOptions
+			showOptions: args.showOptions,
 		};
 		return commands.executeCommand(Commands.DiffWith, diffArgs);
 	}

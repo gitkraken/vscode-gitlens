@@ -68,7 +68,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 				authority: uri.authority,
 				path: uri.path,
 				query: JSON.stringify(data),
-				fragment: uri.fragment
+				fragment: uri.fragment,
 			});
 
 			this.repoPath = data.repoPath;
@@ -95,7 +95,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 
 		const [authority, fsPath] = GitUri.ensureValidUNCPath(
 			uri.authority,
-			GitUri.resolve(commitOrRepoPath.fileName || uri.fsPath, commitOrRepoPath.repoPath)
+			GitUri.resolve(commitOrRepoPath.fileName || uri.fsPath, commitOrRepoPath.repoPath),
 		);
 
 		let path;
@@ -121,7 +121,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 			authority: authority,
 			path: path,
 			query: uri.query,
-			fragment: uri.fragment
+			fragment: uri.fragment,
 		});
 		this.repoPath = commitOrRepoPath.repoPath;
 		this.versionedPath = commitOrRepoPath.versionedPath;
@@ -185,7 +185,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 		const {
 			relativeTo = this.repoPath,
 			separator = Strings.pad(GlyphChars.Dot, 2, 2),
-			suffix = emptyStr
+			suffix = emptyStr,
 		} = options;
 
 		const directory = GitUri.getDirectory(this.fsPath, relativeTo);
@@ -228,7 +228,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 
 		return new GitUri(commit.previousUri, {
 			repoPath: commit.repoPath,
-			sha: commit.previousSha
+			sha: commit.previousSha,
 		});
 	}
 
@@ -239,7 +239,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 			typeof fileOrName === 'string'
 				? fileOrName
 				: (original && fileOrName.originalFileName) || fileOrName.fileName,
-			repoPath
+			repoPath,
 		);
 		return ref == null || ref.length === 0
 			? new GitUri(uri, repoPath)
@@ -257,7 +257,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 	}
 
 	@debug({
-		exit: uri => `returned ${Logger.toLoggable(uri)}`
+		exit: uri => `returned ${Logger.toLoggable(uri)}`,
 	})
 	static async fromUri(uri: Uri): Promise<GitUri> {
 		if (GitUri.is(uri)) return uri;
@@ -292,7 +292,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 				const commitish: GitCommitish = {
 					fileName: data.path,
 					repoPath: repoPath!,
-					sha: ref
+					sha: ref,
 				};
 				return new GitUri(uri, commitish);
 			} catch {}
@@ -320,7 +320,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 				const commitish: GitCommitish = {
 					fileName: data.fileName,
 					repoPath: repoPath,
-					sha: data.isBase ? data.baseCommit : data.headCommit
+					sha: data.isBase ? data.baseCommit : data.headCommit,
 				};
 				return new GitUri(uri, commitish);
 			} catch {}
@@ -340,7 +340,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 
 	static getFormattedPath(
 		fileNameOrUri: string | Uri,
-		options: { relativeTo?: string; separator?: string; suffix?: string } = {}
+		options: { relativeTo?: string; separator?: string; suffix?: string } = {},
 	): string {
 		const { relativeTo, separator = Strings.pad(GlyphChars.Dot, 2, 2), suffix = emptyStr } = options;
 
@@ -376,9 +376,9 @@ export class GitUri extends ((Uri as any) as UriEx) {
 				JSON.stringify({
 					// Ensure we use the fsPath here, otherwise the url won't open properly
 					path: Uri.file(path).fsPath,
-					ref: '~'
-				})
-			)}`
+					ref: '~',
+				}),
+			)}`,
 		);
 	}
 
@@ -446,7 +446,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 		const data: UriRevisionData = {
 			path: filePath,
 			ref: ref,
-			repoPath: Strings.normalizePath(repoPath!)
+			repoPath: Strings.normalizePath(repoPath!),
 		};
 
 		const uri = Uri.parse(
@@ -454,7 +454,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 			`${DocumentSchemes.GitLens}://${encodeURIComponent(shortSha.replace(/\//g, '\u200A\u2215\u200A'))}${
 				// Change encoded / back to / otherwise uri parsing won't work properly
 				filePath === slash ? emptyStr : encodeURIComponent(filePath).replace(/%2F/g, slash)
-			}?${encodeURIComponent(JSON.stringify(data))}`
+			}?${encodeURIComponent(JSON.stringify(data))}`,
 		);
 		return uri;
 	}

@@ -30,7 +30,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements
 		public readonly status: BranchTrackingStatus,
 		public readonly direction: 'ahead' | 'behind',
 		// Specifies that the node is shown as a root under the repository node
-		private readonly _root: boolean = false
+		private readonly _root: boolean = false,
 	) {
 		super(GitUri.fromRepoPath(status.repoPath), view, parent);
 	}
@@ -49,7 +49,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements
 			this.status.ref,
 			this._root,
 			this.status.upstream!,
-			this.direction
+			this.direction,
 		);
 	}
 
@@ -77,16 +77,16 @@ export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements
 				...insertDateMarkers(
 					Iterables.map(commits, c => new CommitNode(this.view, this, c, this.branch)),
 					this,
-					1
-				)
+					1,
+				),
 			];
 		} else {
 			children = [
 				...insertDateMarkers(
 					Iterables.map(log.commits.values(), c => new CommitNode(this.view, this, c, this.branch)),
 					this,
-					1
-				)
+					1,
+				),
 			];
 		}
 
@@ -116,7 +116,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements
 		const iconSuffix = ahead ? 'upload' : 'download';
 		item.iconPath = {
 			dark: Container.context.asAbsolutePath(`images/dark/icon-${iconSuffix}.svg`),
-			light: Container.context.asAbsolutePath(`images/light/icon-${iconSuffix}.svg`)
+			light: Container.context.asAbsolutePath(`images/light/icon-${iconSuffix}.svg`),
 		};
 
 		return item;
@@ -139,7 +139,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements
 
 			this._log = await Container.git.getLog(this.uri.repoPath!, {
 				limit: this.limit ?? this.view.config.defaultItemLimit,
-				ref: range
+				ref: range,
 			});
 		}
 

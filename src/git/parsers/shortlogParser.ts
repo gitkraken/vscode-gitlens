@@ -29,8 +29,8 @@ export class GitShortLogParser {
 					` ${name}`.substr(1),
 					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
 					` ${email}`.substr(1),
-					Number(count) || 0
-				)
+					Number(count) || 0,
+				),
 			);
 		} while (true);
 

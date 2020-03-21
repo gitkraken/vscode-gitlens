@@ -47,7 +47,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 				gitUri,
 				gitUri.sha,
 				// If we are in the left-side of the diff editor, we need to skip forward 1 more revision
-				args.inDiffLeftEditor ? 1 : 0
+				args.inDiffLeftEditor ? 1 : 0,
 			);
 
 			if (diffUris === undefined || diffUris.next === undefined) return undefined;
@@ -56,21 +56,21 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 				repoPath: diffUris.current.repoPath,
 				lhs: {
 					sha: diffUris.current.sha || '',
-					uri: diffUris.current.documentUri()
+					uri: diffUris.current.documentUri(),
 				},
 				rhs: {
 					sha: diffUris.next.sha || '',
-					uri: diffUris.next.documentUri()
+					uri: diffUris.next.documentUri(),
 				},
 				line: args.line,
-				showOptions: args.showOptions
+				showOptions: args.showOptions,
 			};
 			return commands.executeCommand(Commands.DiffWith, diffArgs);
 		} catch (ex) {
 			Logger.error(
 				ex,
 				'DiffWithNextCommand',
-				`getNextDiffUris(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`
+				`getNextDiffUris(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`,
 			);
 			return Messages.showGenericErrorMessage('Unable to open compare');
 		}

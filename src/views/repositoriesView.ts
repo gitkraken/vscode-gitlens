@@ -6,7 +6,7 @@ import {
 	Event,
 	EventEmitter,
 	ProgressLocation,
-	window
+	window,
 } from 'vscode';
 import {
 	configuration,
@@ -14,7 +14,7 @@ import {
 	ViewBranchesLayout,
 	ViewFilesLayout,
 	ViewsConfig,
-	ViewShowBranchComparison
+	ViewShowBranchComparison,
 } from '../configuration';
 import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
@@ -31,7 +31,7 @@ import {
 	StashesNode,
 	StashNode,
 	TagsNode,
-	ViewNode
+	ViewNode,
 } from './nodes';
 import { gate } from '../system';
 import { ViewBase } from './viewBase';
@@ -60,55 +60,55 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 		commands.registerCommand(
 			this.getQualifiedCommand('copy'),
 			() => commands.executeCommand('gitlens.views.copy', this.selection),
-			this
+			this,
 		);
 		commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this);
 		commands.registerCommand(
 			this.getQualifiedCommand('setBranchesLayoutToList'),
 			() => this.setBranchesLayout(ViewBranchesLayout.List),
-			this
+			this,
 		);
 		commands.registerCommand(
 			this.getQualifiedCommand('setBranchesLayoutToTree'),
 			() => this.setBranchesLayout(ViewBranchesLayout.Tree),
-			this
+			this,
 		);
 		commands.registerCommand(
 			this.getQualifiedCommand('setFilesLayoutToAuto'),
 			() => this.setFilesLayout(ViewFilesLayout.Auto),
-			this
+			this,
 		);
 		commands.registerCommand(
 			this.getQualifiedCommand('setFilesLayoutToList'),
 			() => this.setFilesLayout(ViewFilesLayout.List),
-			this
+			this,
 		);
 		commands.registerCommand(
 			this.getQualifiedCommand('setFilesLayoutToTree'),
 			() => this.setFilesLayout(ViewFilesLayout.Tree),
-			this
+			this,
 		);
 
 		commands.registerCommand(
 			this.getQualifiedCommand('setAutoRefreshToOn'),
 			() => this.setAutoRefresh(Container.config.views.repositories.autoRefresh, true),
-			this
+			this,
 		);
 		commands.registerCommand(
 			this.getQualifiedCommand('setAutoRefreshToOff'),
 			() => this.setAutoRefresh(Container.config.views.repositories.autoRefresh, false),
-			this
+			this,
 		);
 
 		commands.registerCommand(
 			this.getQualifiedCommand('setBranchComparisonToWorking'),
 			n => this.setBranchComparison(n, ViewShowBranchComparison.Working),
-			this
+			this,
 		);
 		commands.registerCommand(
 			this.getQualifiedCommand('setBranchComparisonToBranch'),
 			n => this.setBranchComparison(n, ViewShowBranchComparison.Branch),
-			this
+			this,
 		);
 	}
 
@@ -178,7 +178,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 
 					return false;
 				},
-				token: token
+				token: token,
 			});
 		}
 
@@ -195,7 +195,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 
 				return false;
 			},
-			token: token
+			token: token,
 		});
 	}
 
@@ -229,7 +229,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 
 					return false;
 				},
-				token: token
+				token: token,
 			});
 		}
 
@@ -260,7 +260,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 
 				return false;
 			},
-			token: token
+			token: token,
 		});
 	}
 
@@ -279,7 +279,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 
 				return false;
 			},
-			token: token
+			token: token,
 		});
 	}
 
@@ -299,7 +299,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 
 				return false;
 			},
-			token: token
+			token: token,
 		});
 	}
 
@@ -310,13 +310,13 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 			select?: boolean;
 			focus?: boolean;
 			expand?: boolean | number;
-		}
+		},
 	) {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
 				title: `Revealing branch '${branch.name}' in the Repositories view...`,
-				cancellable: true
+				cancellable: true,
 			},
 			async (progress, token) => {
 				const node = await this.findBranch(branch, token);
@@ -325,7 +325,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 				await this.ensureRevealNode(node, options);
 
 				return node;
-			}
+			},
 		);
 	}
 
@@ -336,7 +336,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 			select?: boolean;
 			focus?: boolean;
 			expand?: boolean | number;
-		}
+		},
 	) {
 		const repoNodeId = RepositoryNode.getId(repoPath);
 
@@ -351,7 +351,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 				}
 
 				return false;
-			}
+			},
 		});
 
 		if (node !== undefined) {
@@ -368,13 +368,13 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 			select?: boolean;
 			focus?: boolean;
 			expand?: boolean | number;
-		}
+		},
 	) {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
 				title: `Revealing commit '${GitService.shortenSha(commit.ref)}' in the Repositories view...`,
-				cancellable: true
+				cancellable: true,
 			},
 			async (progress, token) => {
 				const node = await this.findCommit(commit, token);
@@ -383,7 +383,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 				await this.ensureRevealNode(node, options);
 
 				return node;
-			}
+			},
 		);
 	}
 
@@ -394,13 +394,13 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 			select?: boolean;
 			focus?: boolean;
 			expand?: boolean | number;
-		}
+		},
 	) {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
 				title: `Revealing stash '${stash.stashName}' in the Repositories view...`,
-				cancellable: true
+				cancellable: true,
 			},
 			async (progress, token) => {
 				const node = await this.findStash(stash, token);
@@ -409,7 +409,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 				}
 
 				return node;
-			}
+			},
 		);
 	}
 
@@ -420,7 +420,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 			select?: boolean;
 			focus?: boolean;
 			expand?: boolean | number;
-		}
+		},
 	) {
 		const repoNodeId = RepositoryNode.getId(repoPath);
 
@@ -435,7 +435,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 				}
 
 				return false;
-			}
+			},
 		});
 
 		if (node !== undefined) {
@@ -452,13 +452,13 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 			select?: boolean;
 			focus?: boolean;
 			expand?: boolean | number;
-		}
+		},
 	) {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
 				title: `Revealing tag '${tag.name}' in the Repositories view...`,
-				cancellable: true
+				cancellable: true,
 			},
 			async (progress, token) => {
 				const node = await this.findTag(tag, token);
@@ -467,7 +467,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 				await this.ensureRevealNode(node, options);
 
 				return node;
-			}
+			},
 		);
 	}
 
@@ -478,7 +478,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 			select?: boolean;
 			focus?: boolean;
 			expand?: boolean | number;
-		}
+		},
 	) {
 		const repoNodeId = RepositoryNode.getId(repoPath);
 
@@ -493,7 +493,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 				}
 
 				return false;
-			}
+			},
 		});
 
 		if (node !== undefined) {
@@ -509,7 +509,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 			select?: boolean;
 			focus?: boolean;
 			expand?: boolean | number;
-		}
+		},
 	) {
 		// Not sure why I need to reveal each parent, but without it the node won't be revealed
 		const nodes: ViewNode[] = [];
@@ -533,12 +533,12 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 			if (workspaceEnabled === undefined) {
 				workspaceEnabled = Container.context.workspaceState.get<boolean>(
 					WorkspaceState.ViewsRepositoriesAutoRefresh,
-					true
+					true,
 				);
 			} else {
 				await Container.context.workspaceState.update(
 					WorkspaceState.ViewsRepositoriesAutoRefresh,
-					workspaceEnabled
+					workspaceEnabled,
 				);
 			}
 		}

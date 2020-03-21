@@ -38,7 +38,7 @@ export class HeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase 
 			if (heatmap !== undefined) {
 				heatmap = {
 					...heatmap,
-					range: new Range(editorLine, 0, editorLine, 0)
+					range: new Range(editorLine, 0, editorLine, 0),
 				};
 
 				this.decorations.push(heatmap);

@@ -9,7 +9,7 @@ import {
 	QuickPickStep,
 	StepAsyncGenerator,
 	StepSelection,
-	StepState
+	StepState,
 } from '../quickCommand';
 import {
 	CommandQuickPickItem,
@@ -19,7 +19,7 @@ import {
 	DirectiveQuickPickItem,
 	FlagsQuickPickItem,
 	QuickPickItemOfT,
-	RepositoryQuickPickItem
+	RepositoryQuickPickItem,
 } from '../../quickpicks';
 import { Iterables, Strings } from '../../system';
 import { GlyphChars } from '../../constants';
@@ -67,7 +67,7 @@ const subcommandToTitleMap = new Map<State['subcommand'], string>([
 	['drop', 'Drop'],
 	['list', 'List'],
 	['pop', 'Pop'],
-	['push', 'Push']
+	['push', 'Push'],
 ]);
 function getTitle(title: string, subcommand: State['subcommand'] | undefined) {
 	return subcommand == null ? title : `${subcommandToTitleMap.get(subcommand)} ${title}`;
@@ -85,9 +85,9 @@ export class StashGitCommand extends QuickCommandBase<State> {
 		static readonly RevealInView: QuickInputButton = {
 			iconPath: {
 				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-eye.svg')),
-				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-eye.svg'))
+				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-eye.svg')),
 			},
-			tooltip: 'Reveal Stash in Repositories View'
+			tooltip: 'Reveal Stash in Repositories View',
 		};
 	};
 
@@ -95,7 +95,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 
 	constructor(args?: StashGitCommandArgs) {
 		super('stash', 'stash', 'Stash', {
-			description: 'shelves (stashes) local changes to be reapplied later'
+			description: 'shelves (stashes) local changes to be reapplied later',
 		});
 
 		if (args == null || args.state == null) return;
@@ -129,7 +129,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 		this._initialState = {
 			counter: counter,
 			confirm: args.confirm,
-			...args.state
+			...args.state,
 		};
 	}
 
@@ -162,36 +162,36 @@ export class StashGitCommand extends QuickCommandBase<State> {
 								label: 'apply',
 								description: 'integrates changes from the specified stash into the current branch',
 								picked: state.subcommand === 'apply',
-								item: 'apply'
+								item: 'apply',
 							},
 							{
 								label: 'drop',
 								description: 'deletes the specified stash',
 								picked: state.subcommand === 'drop',
-								item: 'drop'
+								item: 'drop',
 							},
 							{
 								label: 'list',
 								description: 'lists the saved stashes',
 								picked: state.subcommand === 'list',
-								item: 'list'
+								item: 'list',
 							},
 							{
 								label: 'pop',
 								description:
 									'integrates changes from the specified stash into the current branch and deletes the stash',
 								picked: state.subcommand === 'pop',
-								item: 'pop'
+								item: 'pop',
 							},
 							{
 								label: 'push',
 								description:
 									'saves your local changes to a new stash and discards them from the working tree and index',
 								picked: state.subcommand === 'push',
-								item: 'push'
-							}
+								item: 'push',
+							},
 						],
-						buttons: [QuickInputButtons.Back]
+						buttons: [QuickInputButtons.Back],
 					});
 					const selection: StepSelection<typeof step> = yield step;
 
@@ -223,10 +223,10 @@ export class StashGitCommand extends QuickCommandBase<State> {
 									RepositoryQuickPickItem.create(r, r.id === (active && active.id), {
 										branch: true,
 										fetched: true,
-										status: true
-									})
-								)
-							)
+										status: true,
+									}),
+								),
+							),
 						});
 						const selection: StepSelection<typeof step> = yield step;
 
@@ -270,11 +270,11 @@ export class StashGitCommand extends QuickCommandBase<State> {
 					case 'pop':
 						if (
 							ex.message.includes(
-								'Your local changes to the following files would be overwritten by merge'
+								'Your local changes to the following files would be overwritten by merge',
 							)
 						) {
 							void window.showWarningMessage(
-								'Unable to apply stash. Your working tree changes would be overwritten. Please commit or stash your changes before trying again'
+								'Unable to apply stash. Your working tree changes would be overwritten. Please commit or stash your changes before trying again',
 							);
 
 							return undefined;
@@ -289,7 +289,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 						}
 
 						void Messages.showGenericErrorMessage(
-							`Unable to apply stash \u2014 ${ex.message.trim().replace(/\n+?/g, '; ')}`
+							`Unable to apply stash \u2014 ${ex.message.trim().replace(/\n+?/g, '; ')}`,
 						);
 
 						return undefined;
@@ -336,7 +336,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 						stash == null
 							? [
 									DirectiveQuickPickItem.create(Directive.Back, true),
-									DirectiveQuickPickItem.create(Directive.Cancel)
+									DirectiveQuickPickItem.create(Directive.Cancel),
 							  ]
 							: [
 									...Iterables.map(stash.commits.values(), c =>
@@ -344,10 +344,10 @@ export class StashGitCommand extends QuickCommandBase<State> {
 											c,
 											c.stashName === (state.stash && state.stash.stashName),
 											{
-												compact: true
-											}
-										)
-									)
+												compact: true,
+											},
+										),
+									),
 							  ],
 					additionalButtons: [this.Buttons.RevealInView],
 					onDidClickButton: (quickpick, button) => {
@@ -355,7 +355,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 							if (quickpick.activeItems.length !== 0) {
 								void Container.repositoriesView.revealStash(quickpick.activeItems[0].item, {
 									select: true,
-									expand: true
+									expand: true,
 								});
 
 								return;
@@ -363,7 +363,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 
 							void Container.repositoriesView.revealStashes(state.repo.path, {
 								select: true,
-								expand: true
+								expand: true,
 							});
 						}
 					},
@@ -374,9 +374,9 @@ export class StashGitCommand extends QuickCommandBase<State> {
 						await Container.repositoriesView.revealStash(quickpick.activeItems[0].item, {
 							select: true,
 							focus: false,
-							expand: true
+							expand: true,
 						});
-					}
+					},
 				});
 				const selection: StepSelection<typeof step> = yield step;
 
@@ -405,7 +405,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 								state.subcommand === 'pop'
 									? `Will delete ${state.stash.stashName} and apply the changes to the working tree of ${state.repo.formattedName}`
 									: `Will apply the changes from ${state.stash.stashName} to the working tree of ${state.repo.formattedName}`,
-							command: state.subcommand!
+							command: state.subcommand!,
 						},
 						// Alternate confirmation (if pop then apply, and vice versa)
 						{
@@ -415,8 +415,8 @@ export class StashGitCommand extends QuickCommandBase<State> {
 								state.subcommand === 'pop'
 									? `Will apply the changes from ${state.stash.stashName} to the working tree of ${state.repo.formattedName}`
 									: `Will delete ${state.stash.stashName} and apply the changes to the working tree of ${state.repo.formattedName}`,
-							command: state.subcommand === 'pop' ? 'apply' : 'pop'
-						}
+							command: state.subcommand === 'pop' ? 'apply' : 'pop',
+						},
 					],
 					undefined,
 					{
@@ -426,11 +426,11 @@ export class StashGitCommand extends QuickCommandBase<State> {
 							if (button === this.Buttons.RevealInView) {
 								void Container.repositoriesView.revealStash(state.stash!, {
 									select: true,
-									expand: true
+									expand: true,
 								});
 							}
-						}
-					}
+						},
+					},
 				);
 				const selection: StepSelection<typeof step> = yield step;
 
@@ -465,7 +465,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 						stash == null
 							? [
 									DirectiveQuickPickItem.create(Directive.Back, true),
-									DirectiveQuickPickItem.create(Directive.Cancel)
+									DirectiveQuickPickItem.create(Directive.Cancel),
 							  ]
 							: [
 									...Iterables.map(stash.commits.values(), c =>
@@ -473,10 +473,10 @@ export class StashGitCommand extends QuickCommandBase<State> {
 											c,
 											c.stashName === (state.stash && state.stash.stashName),
 											{
-												compact: true
-											}
-										)
-									)
+												compact: true,
+											},
+										),
+									),
 							  ],
 					additionalButtons: [this.Buttons.RevealInView],
 					onDidClickButton: (quickpick, button) => {
@@ -484,7 +484,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 							if (quickpick.activeItems.length !== 0) {
 								void Container.repositoriesView.revealStash(quickpick.activeItems[0].item, {
 									select: true,
-									expand: true
+									expand: true,
 								});
 
 								return;
@@ -492,7 +492,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 
 							void Container.repositoriesView.revealStashes(state.repo.path, {
 								select: true,
-								expand: true
+								expand: true,
 							});
 						}
 					},
@@ -503,9 +503,9 @@ export class StashGitCommand extends QuickCommandBase<State> {
 						await Container.repositoriesView.revealStash(quickpick.activeItems[0].item, {
 							select: true,
 							focus: false,
-							expand: true
+							expand: true,
 						});
-					}
+					},
 				});
 				const selection: StepSelection<typeof step> = yield step;
 
@@ -529,8 +529,8 @@ export class StashGitCommand extends QuickCommandBase<State> {
 					{
 						label: getTitle(this.title, state.subcommand),
 						description: `${state.stash.stashName}${Strings.pad(GlyphChars.Dash, 2, 2)}${message}`,
-						detail: `Will delete ${state.stash.stashName}`
-					}
+						detail: `Will delete ${state.stash.stashName}`,
+					},
 				],
 				undefined,
 				{
@@ -540,11 +540,11 @@ export class StashGitCommand extends QuickCommandBase<State> {
 						if (button === this.Buttons.RevealInView) {
 							void Container.repositoriesView.revealStash(state.stash!, {
 								select: true,
-								expand: true
+								expand: true,
 							});
 						}
-					}
-				}
+					},
+				},
 			);
 			const selection: StepSelection<typeof step> = yield step;
 
@@ -576,14 +576,14 @@ export class StashGitCommand extends QuickCommandBase<State> {
 					stash == null
 						? [
 								DirectiveQuickPickItem.create(Directive.Back, true),
-								DirectiveQuickPickItem.create(Directive.Cancel)
+								DirectiveQuickPickItem.create(Directive.Cancel),
 						  ]
 						: [
 								...Iterables.map(stash.commits.values(), c =>
 									CommitQuickPickItem.create(c, c.ref === (pickedStash && pickedStash.ref), {
-										compact: true
-									})
-								)
+										compact: true,
+									}),
+								),
 						  ],
 				additionalButtons: [this.Buttons.RevealInView],
 				onDidClickButton: (quickpick, button) => {
@@ -591,7 +591,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 						if (quickpick.activeItems.length !== 0) {
 							void Container.repositoriesView.revealStash(quickpick.activeItems[0].item, {
 								select: true,
-								expand: true
+								expand: true,
 							});
 
 							return;
@@ -599,7 +599,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 
 						void Container.repositoriesView.revealStashes(state.repo.path, {
 							select: true,
-							expand: true
+							expand: true,
 						});
 					}
 				},
@@ -610,9 +610,9 @@ export class StashGitCommand extends QuickCommandBase<State> {
 					await Container.repositoriesView.revealStash(quickpick.activeItems[0].item, {
 						select: true,
 						focus: false,
-						expand: true
+						expand: true,
 					});
-				}
+				},
 			});
 			const selection: StepSelection<typeof step> = yield step;
 
@@ -637,9 +637,9 @@ export class StashGitCommand extends QuickCommandBase<State> {
 
 						void Container.repositoriesView.revealStash(pickedStash!, {
 							select: true,
-							expand: true
+							expand: true,
 						});
-					}
+					},
 				});
 				const selection: StepSelection<typeof step> = yield step;
 
@@ -672,7 +672,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 						state.repo.formattedName
 					}`,
 					placeholder: 'Please provide a stash message',
-					value: state.message
+					value: state.message,
 				});
 
 				const value: StepSelection<typeof step> = yield step;
@@ -694,18 +694,18 @@ export class StashGitCommand extends QuickCommandBase<State> {
 								FlagsQuickPickItem.create<PushFlags>(state.flags, [], {
 									label: getTitle(this.title, state.subcommand),
 									description: state.message,
-									detail: 'Will stash uncommitted changes'
+									detail: 'Will stash uncommitted changes',
 								}),
 								FlagsQuickPickItem.create<PushFlags>(state.flags, ['--include-untracked'], {
 									label: `${getTitle(this.title, state.subcommand)} & Include Untracked`,
 									description: `--include-untracked ${state.message}`,
-									detail: 'Will stash uncommitted changes, including untracked files'
+									detail: 'Will stash uncommitted changes, including untracked files',
 								}),
 								FlagsQuickPickItem.create<PushFlags>(state.flags, ['--keep-index'], {
 									label: `${getTitle(this.title, state.subcommand)} & Keep Staged`,
 									description: `--keep-index ${state.message}`,
-									detail: 'Will stash uncommitted changes, but will keep staged files intact'
-								})
+									detail: 'Will stash uncommitted changes, but will keep staged files intact',
+								}),
 						  ]
 						: [
 								FlagsQuickPickItem.create<PushFlags>(state.flags, [], {
@@ -715,7 +715,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 										state.uris.length === 1
 											? GitUri.getFormattedPath(state.uris[0], { relativeTo: state.repo.path })
 											: `${state.uris.length} files`
-									}`
+									}`,
 								}),
 								FlagsQuickPickItem.create<PushFlags>(state.flags, ['--keep-index'], {
 									label: `${getTitle(this.title, state.subcommand)} & Keep Staged`,
@@ -724,11 +724,11 @@ export class StashGitCommand extends QuickCommandBase<State> {
 										state.uris.length === 1
 											? GitUri.getFormattedPath(state.uris[0], { relativeTo: state.repo.path })
 											: `${state.uris.length} files`
-									}, but will keep staged files intact`
-								})
+									}, but will keep staged files intact`,
+								}),
 						  ],
 					undefined,
-					{ placeholder: `Confirm ${getTitle(this.title, state.subcommand)}` }
+					{ placeholder: `Confirm ${getTitle(this.title, state.subcommand)}` },
 				);
 				const selection: StepSelection<typeof step> = yield step;
 
@@ -741,7 +741,7 @@ export class StashGitCommand extends QuickCommandBase<State> {
 
 			void (await state.repo.stashSave(state.message, state.uris, {
 				includeUntracked: state.flags.includes('--include-untracked'),
-				keepIndex: state.flags.includes('--keep-index')
+				keepIndex: state.flags.includes('--keep-index'),
 			}));
 
 			throw new BreakQuickCommand();

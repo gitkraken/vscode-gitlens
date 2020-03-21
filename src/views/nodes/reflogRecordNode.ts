@@ -18,10 +18,11 @@ export class ReflogRecordNode extends ViewNode<ViewWithFiles> implements Pageabl
 		selector: string,
 		command: string,
 		commandArgs: string | undefined,
-		date: Date
+		date: Date,
 	): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}(${sha}|${selector}|${command}|${commandArgs ||
-			''}|${date.getTime()})`;
+		return `${RepositoryNode.getId(repoPath)}${this.key}(${sha}|${selector}|${command}|${
+			commandArgs || ''
+		}|${date.getTime()})`;
 	}
 
 	constructor(view: ViewWithFiles, parent: ViewNode, public readonly record: GitReflogRecord) {
@@ -35,7 +36,7 @@ export class ReflogRecordNode extends ViewNode<ViewWithFiles> implements Pageabl
 			this.record.selector,
 			this.record.command,
 			this.record.commandArgs,
-			this.record.date
+			this.record.date,
 		);
 	}
 
@@ -44,7 +45,7 @@ export class ReflogRecordNode extends ViewNode<ViewWithFiles> implements Pageabl
 		if (log === undefined) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
 		const children: (CommitNode | ShowMoreNode)[] = [
-			...Iterables.map(log.commits.values(), c => new CommitNode(this.view, this, c))
+			...Iterables.map(log.commits.values(), c => new CommitNode(this.view, this, c)),
 		];
 
 		if (log.hasMore) {
@@ -56,7 +57,7 @@ export class ReflogRecordNode extends ViewNode<ViewWithFiles> implements Pageabl
 	getTreeItem(): TreeItem {
 		const item = new TreeItem(
 			`${this.record.command}${this.record.commandArgs ? ` ${this.record.commandArgs}` : ''}`,
-			TreeItemCollapsibleState.Collapsed
+			TreeItemCollapsibleState.Collapsed,
 		);
 		item.id = this.id;
 		item.description = `${
@@ -90,7 +91,7 @@ export class ReflogRecordNode extends ViewNode<ViewWithFiles> implements Pageabl
 			const range = `${this.record.previousSha}..${this.record.sha}`;
 			this._log = await Container.git.getLog(this.uri.repoPath!, {
 				limit: this.limit ?? this.view.config.defaultItemLimit,
-				ref: range
+				ref: range,
 			});
 		}
 

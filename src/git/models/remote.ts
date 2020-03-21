@@ -5,7 +5,7 @@ import { RemoteProvider, RemoteProviderWithApi } from '../remotes/factory';
 
 export enum GitRemoteType {
 	Fetch = 'fetch',
-	Push = 'push'
+	Push = 'push',
 }
 
 export class GitRemote<
@@ -20,7 +20,7 @@ export class GitRemote<
 			(a, b) =>
 				(a.default ? -1 : 1) - (b.default ? -1 : 1) ||
 				(a.name === 'origin' ? -1 : 0) ||
-				a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+				a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }),
 		);
 	}
 
@@ -32,7 +32,7 @@ export class GitRemote<
 		public readonly domain: string,
 		public readonly path: string,
 		public readonly provider: TProvider,
-		public readonly types: { type: GitRemoteType; url: string }[]
+		public readonly types: { type: GitRemoteType; url: string }[],
 	) {}
 
 	get default() {

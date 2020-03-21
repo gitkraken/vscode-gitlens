@@ -14,7 +14,7 @@ export class ResultsFileNode extends ViewRefFileNode {
 		repoPath: string,
 		public readonly file: GitFile,
 		public readonly ref1: string,
-		public readonly ref2: string
+		public readonly ref2: string,
 	) {
 		super(GitUri.fromFile(file, repoPath, ref1 || ref2), view, parent);
 	}
@@ -42,13 +42,13 @@ export class ResultsFileNode extends ViewRefFileNode {
 		item.tooltip = StatusFileFormatter.fromTemplate(
 			// eslint-disable-next-line no-template-curly-in-string
 			'${file}\n${directory}/\n\n${status}${ (originalPath)}',
-			this.file
+			this.file,
 		);
 
 		const statusIcon = GitFile.getStatusIcon(this.file.status);
 		item.iconPath = {
 			dark: Container.context.asAbsolutePath(paths.join('images', 'dark', statusIcon)),
-			light: Container.context.asAbsolutePath(paths.join('images', 'light', statusIcon))
+			light: Container.context.asAbsolutePath(paths.join('images', 'light', statusIcon)),
 		};
 
 		item.command = this.getCommand();
@@ -62,8 +62,8 @@ export class ResultsFileNode extends ViewRefFileNode {
 				this.view.config.commitFileDescriptionFormat,
 				this.file,
 				{
-					relativePath: this.relativePath
-				}
+					relativePath: this.relativePath,
+				},
 			);
 		}
 		return this._description;
@@ -82,7 +82,7 @@ export class ResultsFileNode extends ViewRefFileNode {
 		if (this._label === undefined) {
 			// eslint-disable-next-line no-template-curly-in-string
 			this._label = StatusFileFormatter.fromTemplate('${file}', this.file, {
-				relativePath: this.relativePath
+				relativePath: this.relativePath,
 			});
 		}
 		return this._label;
@@ -106,27 +106,27 @@ export class ResultsFileNode extends ViewRefFileNode {
 		const commandArgs: DiffWithCommandArgs = {
 			lhs: {
 				sha: this.ref1,
-				uri: this.uri
+				uri: this.uri,
 			},
 			rhs: {
 				sha: this.ref2,
 				uri:
 					this.file.status === 'R' || this.file.status === 'C'
 						? GitUri.fromFile(this.file, this.uri.repoPath!, this.ref2, true)
-						: this.uri
+						: this.uri,
 			},
 			repoPath: this.uri.repoPath!,
 
 			line: 0,
 			showOptions: {
 				preserveFocus: true,
-				preview: true
-			}
+				preview: true,
+			},
 		};
 		return {
 			title: 'Open Changes',
 			command: Commands.DiffWith,
-			arguments: [this.uri, commandArgs]
+			arguments: [this.uri, commandArgs],
 		};
 	}
 }

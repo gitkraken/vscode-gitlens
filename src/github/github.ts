@@ -7,8 +7,8 @@ import { IssueOrPullRequest, PullRequest, PullRequestState } from '../git/gitSer
 export class GitHubApi {
 	@debug({
 		args: {
-			1: token => '<token>'
-		}
+			1: token => '<token>',
+		},
 	})
 	async getPullRequestForCommit(
 		provider: string,
@@ -18,7 +18,7 @@ export class GitHubApi {
 		ref: string,
 		options?: {
 			baseUrl?: string;
-		}
+		},
 	): Promise<PullRequest | undefined> {
 		const cc = Logger.getCorrelationContext();
 
@@ -54,7 +54,7 @@ export class GitHubApi {
 			const rsp = await graphql(query, {
 				...variables,
 				headers: { authorization: `token ${token}` },
-				...options
+				...options,
 			});
 			const pr = rsp?.repository?.object?.associatedPullRequests?.nodes?.[0] as GitHubPullRequest | undefined;
 			if (pr == null) return undefined;
@@ -73,7 +73,7 @@ export class GitHubApi {
 					: PullRequestState.Open,
 				new Date(pr.updatedAt),
 				pr.closedAt == null ? undefined : new Date(pr.closedAt),
-				pr.mergedAt == null ? undefined : new Date(pr.mergedAt)
+				pr.mergedAt == null ? undefined : new Date(pr.mergedAt),
 			);
 		} catch (ex) {
 			Logger.error(ex, cc);
@@ -83,8 +83,8 @@ export class GitHubApi {
 
 	@debug({
 		args: {
-			1: token => '<token>'
-		}
+			1: token => '<token>',
+		},
 	})
 	async getIssueOrPullRequest(
 		provider: string,
@@ -94,7 +94,7 @@ export class GitHubApi {
 		number: number,
 		options?: {
 			baseUrl?: string;
-		}
+		},
 	): Promise<IssueOrPullRequest | undefined> {
 		const cc = Logger.getCorrelationContext();
 
@@ -125,7 +125,7 @@ export class GitHubApi {
 			const rsp = await graphql(query, {
 				...variables,
 				headers: { authorization: `token ${token}` },
-				...options
+				...options,
 			});
 			const issue = rsp?.repository?.issueOrPullRequest as GitHubIssueOrPullRequest | undefined;
 			if (issue == null) return undefined;
@@ -137,7 +137,7 @@ export class GitHubApi {
 				date: new Date(issue.createdAt),
 				title: issue.title,
 				closed: issue.closed,
-				closedDate: issue.closedAt == null ? undefined : new Date(issue.closedAt)
+				closedDate: issue.closedAt == null ? undefined : new Date(issue.closedAt),
 			};
 		} catch (ex) {
 			Logger.error(ex, cc);

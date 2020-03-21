@@ -46,7 +46,7 @@ export enum ResourceType {
 	StatusAheadOfUpstream = 'gitlens:status:upstream:ahead',
 	StatusBehindUpstream = 'gitlens:status:upstream:behind',
 	Tag = 'gitlens:tag',
-	Tags = 'gitlens:tags'
+	Tags = 'gitlens:tags',
 }
 
 export const unknownGitUri = new GitUri();
@@ -139,7 +139,7 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
 
 		const disposables = [
 			this.view.onDidChangeVisibility(this.onVisibilityChanged, this),
-			this.view.onDidChangeNodeState(this.onNodeStateChanged, this)
+			this.view.onDidChangeNodeState(this.onNodeStateChanged, this),
 		];
 
 		if (viewSupportsAutoRefresh(this.view)) {

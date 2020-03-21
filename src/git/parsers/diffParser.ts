@@ -35,13 +35,13 @@ export class GitDiffParser {
 					` ${hunk}`.substr(1),
 					{
 						start: currentStart,
-						end: currentStart + (Number(currentCount) || 0)
+						end: currentStart + (Number(currentCount) || 0),
 					},
 					{
 						start: previousStart,
-						end: previousStart + (Number(previousCount) || 0)
-					}
-				)
+						end: previousStart + (Number(previousCount) || 0),
+					},
+				),
 			);
 		} while (true);
 
@@ -49,7 +49,7 @@ export class GitDiffParser {
 
 		const diff: GitDiff = {
 			diff: debug ? data : undefined,
-			hunks: hunks
+			hunks: hunks,
 		};
 		return diff;
 	}
@@ -65,7 +65,7 @@ export class GitDiffParser {
 				case '+':
 					currentLines.push({
 						line: ` ${l.substring(1)}`,
-						state: 'added'
+						state: 'added',
 					});
 
 					if (removed > 0) {
@@ -81,7 +81,7 @@ export class GitDiffParser {
 
 					previousLines.push({
 						line: ` ${l.substring(1)}`,
-						state: 'removed'
+						state: 'removed',
 					});
 
 					break;
@@ -110,7 +110,7 @@ export class GitDiffParser {
 			hunkLines.push({
 				hunk: hunk,
 				current: currentLines[i],
-				previous: previousLines[i]
+				previous: previousLines[i],
 			});
 		}
 
@@ -145,7 +145,7 @@ export class GitDiffParser {
 				originalFileName:
 					originalFileName == null || originalFileName.length === 0
 						? undefined
-						: ` ${originalFileName}`.substr(1)
+						: ` ${originalFileName}`.substr(1),
 			});
 		} while (true);
 
@@ -164,7 +164,7 @@ export class GitDiffParser {
 		const diffShortStat: GitDiffShortStat = {
 			files: files == null ? 0 : parseInt(files, 10),
 			insertions: insertions == null ? 0 : parseInt(insertions, 10),
-			deletions: deletions == null ? 0 : parseInt(deletions, 10)
+			deletions: deletions == null ? 0 : parseInt(deletions, 10),
 		};
 
 		return diffShortStat;

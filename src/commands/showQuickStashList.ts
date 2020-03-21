@@ -29,8 +29,8 @@ export class ShowQuickStashListCommand extends Command {
 			command: 'stash',
 			state: {
 				subcommand: 'list',
-				repo: repo
-			}
+				repo: repo,
+			},
 		};
 		return commands.executeCommand(Commands.GitCommands, gitCommandArgs);
 	}

@@ -57,7 +57,7 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 						fileName: args.commit.previousFileName!,
 						originalFileName: null,
 						previousSha: null,
-						previousFileName: null
+						previousFileName: null,
 					});
 					// editor lines are 0-based
 					args.line = blame.line.line - 1;
@@ -77,14 +77,14 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 			repoPath: args.commit.repoPath,
 			lhs: {
 				sha: args.commit.sha,
-				uri: args.commit.uri
+				uri: args.commit.uri,
 			},
 			rhs: {
 				sha: '',
-				uri: workingUri
+				uri: workingUri,
 			},
 			line: args.line,
-			showOptions: args.showOptions
+			showOptions: args.showOptions,
 		};
 		return commands.executeCommand(Commands.DiffWith, diffArgs);
 	}

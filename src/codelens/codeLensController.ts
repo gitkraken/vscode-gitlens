@@ -7,7 +7,7 @@ import { Logger } from '../logger';
 import {
 	DocumentBlameStateChangeEvent,
 	DocumentDirtyIdleTriggerEvent,
-	GitDocumentState
+	GitDocumentState,
 } from '../trackers/gitDocumentTracker';
 import { GitCodeLensProvider } from './codeLensProvider';
 
@@ -99,7 +99,7 @@ export class GitCodeLensController implements Disposable {
 		this._providerDisposable = Disposable.from(
 			languages.registerCodeLensProvider(GitCodeLensProvider.selector, this._provider),
 			Container.tracker.onDidChangeBlameState(this.onBlameStateChanged, this),
-			Container.tracker.onDidTriggerDirtyIdle(this.onDirtyIdleTriggered, this)
+			Container.tracker.onDidTriggerDirtyIdle(this.onDirtyIdleTriggered, this),
 		);
 	}
 }

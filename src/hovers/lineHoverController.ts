@@ -10,7 +10,7 @@ import {
 	TextDocument,
 	TextEditor,
 	Uri,
-	window
+	window,
 } from 'vscode';
 import { configuration } from '../configuration';
 import { Container } from '../container';
@@ -47,7 +47,7 @@ export class LineHoverController implements Disposable {
 		if (Container.config.hovers.enabled && Container.config.hovers.currentLine.enabled) {
 			Container.lineTracker.start(
 				this,
-				Container.lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this)
+				Container.lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this),
 			);
 
 			this.register(window.activeTextEditor);
@@ -61,9 +61,9 @@ export class LineHoverController implements Disposable {
 		args: {
 			0: (e: LinesChangeEvent) =>
 				`editor=${e.editor?.document.uri.toString(true)}, lines=${e.lines?.join(',')}, pending=${Boolean(
-					e.pending
-				)}, reason=${e.reason}`
-		}
+					e.pending,
+				)}, reason=${e.reason}`,
+		},
 	})
 	private onActiveLinesChanged(e: LinesChangeEvent) {
 		if (e.pending) return;
@@ -83,13 +83,13 @@ export class LineHoverController implements Disposable {
 		args: {
 			0: document => document.uri.toString(true),
 			1: (position: Position) => `${position.line}:${position.character}`,
-			2: () => false
-		}
+			2: () => false,
+		},
 	})
 	async provideDetailsHover(
 		document: TextDocument,
 		position: Position,
-		token: CancellationToken
+		token: CancellationToken,
 	): Promise<Hover | undefined> {
 		if (!Container.lineTracker.includes(position.line)) return undefined;
 
@@ -106,7 +106,7 @@ export class LineHoverController implements Disposable {
 		if (!wholeLine && Container.lineAnnotations.suspended) return undefined;
 
 		const range = document.validateRange(
-			new Range(position.line, wholeLine ? 0 : Number.MAX_SAFE_INTEGER, position.line, Number.MAX_SAFE_INTEGER)
+			new Range(position.line, wholeLine ? 0 : Number.MAX_SAFE_INTEGER, position.line, Number.MAX_SAFE_INTEGER),
 		);
 		if (!wholeLine && range.start.character !== position.character) return undefined;
 
@@ -114,7 +114,7 @@ export class LineHoverController implements Disposable {
 		let logCommit = lineState !== undefined ? lineState.logCommit : undefined;
 		if (logCommit === undefined && !commit.isUncommitted) {
 			logCommit = await Container.git.getCommitForFile(commit.repoPath, commit.uri.fsPath, {
-				ref: commit.sha
+				ref: commit.sha,
 			});
 			if (logCommit !== undefined) {
 				// Preserve the previous commit from the blame commit
@@ -140,7 +140,7 @@ export class LineHoverController implements Disposable {
 			trackedDocument.uri,
 			editorLine,
 			Container.config.defaultDateFormat,
-			fileAnnotations
+			fileAnnotations,
 		);
 		return new Hover(message, range);
 	}
@@ -149,13 +149,13 @@ export class LineHoverController implements Disposable {
 		args: {
 			0: document => document.uri.toString(true),
 			1: (position: Position) => `${position.line}:${position.character}`,
-			2: () => false
-		}
+			2: () => false,
+		},
 	})
 	async provideChangesHover(
 		document: TextDocument,
 		position: Position,
-		token: CancellationToken
+		token: CancellationToken,
 	): Promise<Hover | undefined> {
 		if (!Container.lineTracker.includes(position.line)) return undefined;
 
@@ -174,7 +174,7 @@ export class LineHoverController implements Disposable {
 		if (!wholeLine && Container.lineAnnotations.suspended) return undefined;
 
 		const range = document.validateRange(
-			new Range(position.line, wholeLine ? 0 : Number.MAX_SAFE_INTEGER, position.line, Number.MAX_SAFE_INTEGER)
+			new Range(position.line, wholeLine ? 0 : Number.MAX_SAFE_INTEGER, position.line, Number.MAX_SAFE_INTEGER),
 		);
 		if (!wholeLine && range.start.character !== position.character) return undefined;
 
@@ -207,9 +207,9 @@ export class LineHoverController implements Disposable {
 				languages.registerHoverProvider(
 					{ pattern: this._uri.fsPath },
 					{
-						provideHover: this.provideChangesHover.bind(this)
-					}
-				)
+						provideHover: this.provideChangesHover.bind(this),
+					},
+				),
 			);
 		}
 		if (cfg.currentLine.details) {
@@ -217,9 +217,9 @@ export class LineHoverController implements Disposable {
 				languages.registerHoverProvider(
 					{ pattern: this._uri.fsPath },
 					{
-						provideHover: this.provideDetailsHover.bind(this)
-					}
-				)
+						provideHover: this.provideDetailsHover.bind(this),
+					},
+				),
 			);
 		}
 

@@ -8,7 +8,7 @@ import {
 	GitUri,
 	RepositoryChange,
 	RepositoryChangeEvent,
-	RepositoryFileSystemChangeEvent
+	RepositoryFileSystemChangeEvent,
 } from '../../git/gitService';
 import { Logger } from '../../logger';
 import { debug, gate, Iterables } from '../../system';
@@ -32,7 +32,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 		view: View,
 		parent: ViewNode,
 		public readonly selection: Selection,
-		private readonly _editorContents: string | undefined
+		private readonly _editorContents: string | undefined,
 	) {
 		super(uri, view, parent);
 	}
@@ -68,7 +68,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 						(firstActive ? lastLine : firstLine).originalLine - 1,
 						selection.anchor.character,
 						(firstActive ? firstLine : lastLine).originalLine - 1,
-						selection.active.character
+						selection.active.character,
 					);
 
 					const status = await Container.git.getStatusForFile(this.uri.repoPath!, this.uri.fsPath);
@@ -79,7 +79,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 						originalFileName: commit.originalFileName,
 						repoPath: this.uri.repoPath!,
 						status: 'M',
-						workingTreeStatus: status?.workingTreeStatus ?? '?'
+						workingTreeStatus: status?.workingTreeStatus ?? '?',
 					};
 
 					if (status?.workingTreeStatus !== undefined && status?.indexStatus !== undefined) {
@@ -97,7 +97,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 							'M',
 							commit.originalFileName,
 							commit.previousSha,
-							commit.originalFileName || commit.fileName
+							commit.originalFileName || commit.fileName,
 						);
 
 						children.splice(
@@ -106,8 +106,8 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 							new CommitFileNode(this.view, this, file, uncommitted, {
 								displayAsCommit: true,
 								inFileHistory: true,
-								selection: selection
-							})
+								selection: selection,
+							}),
 						);
 
 						uncommitted = new GitLogCommit(
@@ -124,7 +124,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 							'M',
 							commit.originalFileName,
 							GitService.uncommittedStagedSha,
-							commit.originalFileName || commit.fileName
+							commit.originalFileName || commit.fileName,
 						);
 
 						children.splice(
@@ -133,8 +133,8 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 							new CommitFileNode(this.view, this, file, uncommitted, {
 								displayAsCommit: true,
 								inFileHistory: true,
-								selection: selection
-							})
+								selection: selection,
+							}),
 						);
 					} else {
 						const uncommitted = new GitLogCommit(
@@ -155,7 +155,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 							'M',
 							commit.originalFileName,
 							commit.previousSha,
-							commit.originalFileName || commit.fileName
+							commit.originalFileName || commit.fileName,
 						);
 
 						children.splice(
@@ -164,8 +164,8 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 							new CommitFileNode(this.view, this, file, uncommitted, {
 								displayAsCommit: true,
 								inFileHistory: true,
-								selection: selection
-							})
+								selection: selection,
+							}),
 						);
 					}
 
@@ -184,11 +184,11 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 							new CommitFileNode(this.view, this, c.files[0], c, {
 								displayAsCommit: true,
 								inFileHistory: true,
-								selection: selection
-							})
+								selection: selection,
+							}),
 					),
-					this
-				)
+					this,
+				),
 			);
 
 			if (log.hasMore) {
@@ -214,7 +214,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 					  }`
 					: ''
 			}`,
-			TreeItemCollapsibleState.Expanded
+			TreeItemCollapsibleState.Expanded,
 		);
 		item.contextValue = ResourceType.LineHistory;
 		item.description = this.uri.directory;
@@ -224,7 +224,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 
 		item.iconPath = {
 			dark: Container.context.asAbsolutePath('images/dark/icon-history.svg'),
-			light: Container.context.asAbsolutePath('images/light/icon-history.svg')
+			light: Container.context.asAbsolutePath('images/light/icon-history.svg'),
 		};
 
 		void this.ensureSubscription();
@@ -240,7 +240,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 		const subscription = Disposable.from(
 			repo.onDidChange(this.onRepoChanged, this),
 			repo.onDidChangeFileSystem(this.onRepoFileSystemChanged, this),
-			{ dispose: () => repo.stopWatchingFileSystem() }
+			{ dispose: () => repo.stopWatchingFileSystem() },
 		);
 
 		repo.startWatchingFileSystem();
@@ -278,7 +278,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 			this._log = await Container.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, {
 				limit: this.limit ?? this.view.config.defaultItemLimit,
 				ref: this.uri.sha,
-				range: selection ?? this.selection
+				range: selection ?? this.selection,
 			});
 		}
 

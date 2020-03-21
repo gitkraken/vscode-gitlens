@@ -10,7 +10,7 @@ import {
 	FileSystemProvider,
 	FileType,
 	Uri,
-	workspace
+	workspace,
 } from 'vscode';
 import { DocumentSchemes } from '../constants';
 import { Container } from '../container';
@@ -36,8 +36,8 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 		this._disposable = Disposable.from(
 			workspace.registerFileSystemProvider(DocumentSchemes.GitLens, this, {
 				isCaseSensitive: true,
-				isReadonly: true
-			})
+				isReadonly: true,
+			}),
 		);
 	}
 
@@ -70,8 +70,8 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 		const items = [
 			...Iterables.map<GitTree, [string, FileType]>(tree, t => [
 				path != null && path.length !== 0 ? Strings.normalizePath(paths.relative(path, t.path)) : t.path,
-				typeToFileType(t.type)
-			])
+				typeToFileType(t.type),
+			]),
 		];
 		return items;
 	}
@@ -101,7 +101,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 				type: FileType.File,
 				size: 0,
 				ctime: 0,
-				mtime: 0
+				mtime: 0,
 			};
 		}
 
@@ -120,7 +120,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 					type: FileType.Directory,
 					size: 0,
 					ctime: 0,
-					mtime: 0
+					mtime: 0,
 				};
 			}
 
@@ -135,7 +135,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 			type: typeToFileType(treeItem.type),
 			size: treeItem.size,
 			ctime: 0,
-			mtime: 0
+			mtime: 0,
 		};
 	}
 
@@ -143,7 +143,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 		return {
 			dispose: () => {
 				// nothing to dispose
-			}
+			},
 		};
 	}
 

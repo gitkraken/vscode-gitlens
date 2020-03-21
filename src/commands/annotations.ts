@@ -68,12 +68,12 @@ export class ToggleFileBlameCommand extends ActiveEditorCommand {
 				editor,
 				args.type!,
 				args.sha !== undefined ? args.sha : editor && editor.selection.active.line,
-				args.on
+				args.on,
 			);
 		} catch (ex) {
 			Logger.error(ex, 'ToggleFileBlameCommand');
 			return window.showErrorMessage(
-				`Unable to toggle file ${args.type} annotations. See output channel for more details`
+				`Unable to toggle file ${args.type} annotations. See output channel for more details`,
 			);
 		}
 	}
@@ -88,7 +88,7 @@ export class ToggleFileHeatmapCommand extends ActiveEditorCommand {
 	execute(editor: TextEditor, uri?: Uri, args?: ToggleFileBlameCommandArgs): Thenable<any> {
 		const copyArgs: ToggleFileBlameCommandArgs = {
 			...args,
-			type: FileAnnotationType.Heatmap
+			type: FileAnnotationType.Heatmap,
 		};
 		return commands.executeCommand(Commands.ToggleFileBlame, uri, copyArgs);
 	}
@@ -103,7 +103,7 @@ export class ToggleFileRecentChangesCommand extends ActiveEditorCommand {
 	execute(editor: TextEditor, uri?: Uri, args?: ToggleFileBlameCommandArgs): Thenable<any> {
 		const copyArgs: ToggleFileBlameCommandArgs = {
 			...args,
-			type: FileAnnotationType.RecentChanges
+			type: FileAnnotationType.RecentChanges,
 		};
 		return commands.executeCommand(Commands.ToggleFileBlame, uri, copyArgs);
 	}
@@ -121,7 +121,7 @@ export class ToggleLineBlameCommand extends ActiveEditorCommand {
 		} catch (ex) {
 			Logger.error(ex, 'ToggleLineBlameCommand');
 			return window.showErrorMessage(
-				'Unable to toggle line blame annotations. See output channel for more details'
+				'Unable to toggle line blame annotations. See output channel for more details',
 			);
 		}
 	}

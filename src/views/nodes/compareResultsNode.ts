@@ -27,7 +27,7 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
 		private _ref: NamedRef,
 		private _compareWith: NamedRef,
 		private _pinned: boolean = false,
-		private _comparisonNotation?: '...' | '..'
+		private _comparisonNotation?: '...' | '..',
 	) {
 		super(GitUri.fromRepoPath(repoPath), view);
 		this._instanceId = instanceId++;
@@ -54,10 +54,10 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
 					this.getCommitsQuery.bind(this),
 					{
 						expand: false,
-						includeDescription: true
-					}
+						includeDescription: true,
+					},
 				),
-				new ResultsFilesNode(this.view, this, this.uri.repoPath!, ref1, ref2, this.getFilesQuery.bind(this))
+				new ResultsFilesNode(this.view, this, this.uri.repoPath!, ref1, ref2, this.getFilesQuery.bind(this)),
 			];
 		}
 		return this._children;
@@ -71,10 +71,13 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
 		}
 
 		const item = new TreeItem(
-			`Comparing ${this._ref.label ||
-				GitService.shortenSha(this._ref.ref, { strings: { working: 'Working Tree' } })} to ${this._compareWith
-				.label || GitService.shortenSha(this._compareWith.ref, { strings: { working: 'Working Tree' } })}`,
-			this._state || TreeItemCollapsibleState.Collapsed
+			`Comparing ${
+				this._ref.label || GitService.shortenSha(this._ref.ref, { strings: { working: 'Working Tree' } })
+			} to ${
+				this._compareWith.label ||
+				GitService.shortenSha(this._compareWith.ref, { strings: { working: 'Working Tree' } })
+			}`,
+			this._state || TreeItemCollapsibleState.Collapsed,
 		);
 		item.contextValue = `${ResourceType.CompareResults}+${
 			this.comparisonNotation === '..' ? 'twodot' : 'threedot'
@@ -87,7 +90,7 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
 		if (this._pinned) {
 			item.iconPath = {
 				dark: Container.context.asAbsolutePath('images/dark/icon-pin-small.svg'),
-				light: Container.context.asAbsolutePath('images/light/icon-pin-small.svg')
+				light: Container.context.asAbsolutePath('images/light/icon-pin-small.svg'),
 			};
 		}
 
@@ -105,7 +108,7 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
 			return [
 				(await Container.git.getMergeBase(this.repoPath, this._compareWith.ref, this._ref.ref)) ||
 					this._compareWith.ref,
-				this._ref.ref
+				this._ref.ref,
 			];
 		}
 
@@ -120,7 +123,7 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
 			path: this.repoPath,
 			ref1: this._ref,
 			ref2: this._compareWith,
-			notation: this._comparisonNotation
+			notation: this._comparisonNotation,
 		});
 
 		this._pinned = true;
@@ -144,7 +147,7 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
 				path: this.repoPath,
 				ref1: this._ref,
 				ref2: this._compareWith,
-				notation: this._comparisonNotation
+				notation: this._comparisonNotation,
 			});
 		}
 
@@ -168,7 +171,7 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
 				path: this.repoPath,
 				ref1: this._ref,
 				ref2: this._compareWith,
-				notation: this._comparisonNotation
+				notation: this._comparisonNotation,
 			});
 		}
 
@@ -204,17 +207,17 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
 	private async getCommitsQuery(limit: number | undefined): Promise<CommitsQueryResults> {
 		const log = await Container.git.getLog(this.uri.repoPath!, {
 			limit: limit,
-			ref: `${this._compareWith.ref || 'HEAD'}${this.comparisonNotation}${this._ref.ref || 'HEAD'}`
+			ref: `${this._compareWith.ref || 'HEAD'}${this.comparisonNotation}${this._ref.ref || 'HEAD'}`,
 		});
 
 		const count = log?.count ?? 0;
 		const results: Mutable<Partial<CommitsQueryResults>> = {
 			label: Strings.pluralize('commit', count, {
 				number: log?.hasMore ?? false ? `${count}+` : undefined,
-				zero: 'No'
+				zero: 'No',
 			}),
 			log: log,
-			hasMore: log?.hasMore ?? true
+			hasMore: log?.hasMore ?? true,
 		};
 		if (results.hasMore) {
 			results.more = async (limit: number | undefined) => {
@@ -223,7 +226,7 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
 				const count = results.log?.count ?? 0;
 				results.label = Strings.pluralize('commit', count, {
 					number: results.log?.hasMore ?? false ? `${count}+` : undefined,
-					zero: 'No'
+					zero: 'No',
 				});
 				results.hasMore = results.log?.hasMore ?? true;
 			};
@@ -246,7 +249,7 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
 
 		return {
 			label: `${Strings.pluralize('file', diff !== undefined ? diff.length : 0, { zero: 'No' })} changed`,
-			diff: diff
+			diff: diff,
 		};
 	}
 

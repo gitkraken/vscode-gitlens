@@ -21,7 +21,7 @@ export class GitBlameCommit extends GitCommit {
 		originalFileName: string | undefined,
 		previousSha: string | undefined,
 		previousFileName: string | undefined,
-		public readonly lines: GitCommitLine[]
+		public readonly lines: GitCommitLine[],
 	) {
 		super(
 			GitCommitType.Blame,
@@ -35,7 +35,7 @@ export class GitBlameCommit extends GitCommit {
 			fileName,
 			originalFileName,
 			previousSha,
-			previousFileName
+			previousFileName,
 		);
 	}
 
@@ -59,7 +59,7 @@ export class GitBlameCommit extends GitCommit {
 			this.getChangedValue(changes.originalFileName, this.originalFileName),
 			this.getChangedValue(changes.previousSha, this.previousSha),
 			this.getChangedValue(changes.previousFileName, this.previousFileName),
-			this.getChangedValue(changes.lines, changes.sha || changes.fileName ? [] : this.lines) || []
+			this.getChangedValue(changes.lines, changes.sha || changes.fileName ? [] : this.lines) || [],
 		);
 	}
 }

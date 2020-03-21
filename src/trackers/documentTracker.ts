@@ -14,7 +14,7 @@ import {
 	TextLine,
 	Uri,
 	window,
-	workspace
+	workspace,
 } from 'vscode';
 import { configuration } from '../configuration';
 import { CommandContext, DocumentSchemes, isActiveDocument, isTextEditor, setCommandContext } from '../constants';
@@ -73,7 +73,7 @@ export class DocumentTracker<T> implements Disposable {
 			// window.onDidChangeVisibleTextEditors(Functions.debounce(this.onVisibleEditorsChanged, 5000), this),
 			workspace.onDidChangeTextDocument(Functions.debounce(this.onTextDocumentChanged, 50), this),
 			workspace.onDidCloseTextDocument(this.onTextDocumentClosed, this),
-			workspace.onDidSaveTextDocument(this.onTextDocumentSaved, this)
+			workspace.onDidSaveTextDocument(this.onTextDocumentSaved, this),
 		);
 
 		this.onConfigurationChanged(configuration.initializingChangeEvent);
@@ -307,7 +307,7 @@ export class DocumentTracker<T> implements Disposable {
 
 		// Always start out false, so we will fire the event if needed
 		const doc = new TrackedDocument<T>(document, key, false, {
-			onDidBlameStateChange: (e: DocumentBlameStateChangeEvent<T>) => this._onDidChangeBlameState.fire(e)
+			onDidBlameStateChange: (e: DocumentBlameStateChangeEvent<T>) => this._onDidChangeBlameState.fire(e),
 		});
 		this._documentMap.set(document, doc);
 		this._documentMap.set(key, doc);
@@ -347,7 +347,7 @@ export class DocumentTracker<T> implements Disposable {
 							this._onDidTriggerDirtyIdle.fire(e);
 						},
 						this._dirtyIdleTriggerDelay,
-						{ track: true }
+						{ track: true },
 					);
 				}
 

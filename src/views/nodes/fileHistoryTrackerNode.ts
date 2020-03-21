@@ -42,8 +42,8 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 					new MessageNode(
 						this.view,
 						this,
-						'There are no editors open that can provide file history information.'
-					)
+						'There are no editors open that can provide file history information.',
+					),
 				];
 			}
 
@@ -73,8 +73,8 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 			{
 				allowEnteringRefs: true,
 				checked: this._baseRef,
-				checkmarks: true
-			}
+				checkmarks: true,
+			},
 		);
 		if (pick === undefined || pick instanceof CommandQuickPickItem) return;
 
@@ -87,7 +87,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 
 	@gate()
 	@debug({
-		exit: r => `returned ${r}`
+		exit: r => `returned ${r}`,
 	})
 	async refresh(reset: boolean = false) {
 		const cc = Logger.getCorrelationContext();
@@ -176,7 +176,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	@debug()
 	protected subscribe() {
 		return Disposable.from(
-			window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveEditorChanged, 500), this)
+			window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveEditorChanged, 500), this),
 		);
 	}
 

@@ -81,7 +81,7 @@ export class StatusBarController implements Disposable {
 			if (configuration.changed(e, 'statusBar', 'enabled')) {
 				Container.lineTracker.start(
 					this,
-					Container.lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this)
+					Container.lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this),
 				);
 			}
 		} else if (configuration.changed(e, 'statusBar', 'enabled')) {
@@ -98,9 +98,9 @@ export class StatusBarController implements Disposable {
 		args: {
 			0: (e: LinesChangeEvent) =>
 				`editor=${e.editor?.document.uri.toString(true)}, lines=${e.lines?.join(',')}, pending=${Boolean(
-					e.pending
-				)}, reason=${e.reason}`
-		}
+					e.pending,
+				)}, reason=${e.reason}`,
+		},
 	})
 	private onActiveLinesChanged(e: LinesChangeEvent) {
 		// If we need to reduceFlicker, don't clear if only the selected lines changed
@@ -137,7 +137,7 @@ export class StatusBarController implements Disposable {
 
 		this._blameStatusBarItem.text = `$(git-commit) ${CommitFormatter.fromTemplate(cfg.format, commit, {
 			truncateMessageAtNewLine: true,
-			dateFormat: cfg.dateFormat === null ? Container.config.defaultDateFormat : cfg.dateFormat
+			dateFormat: cfg.dateFormat === null ? Container.config.defaultDateFormat : cfg.dateFormat,
 		})}`;
 
 		switch (cfg.command) {

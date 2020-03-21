@@ -7,7 +7,7 @@ import {
 	Range,
 	TextEditor,
 	TextEditorDecorationType,
-	window
+	window,
 } from 'vscode';
 import { configuration } from '../configuration';
 import { GlyphChars, isTextEditor } from '../constants';
@@ -21,9 +21,9 @@ import { CommitFormatter, GitBlameCommit } from '../git/gitService';
 const annotationDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
 	after: {
 		margin: '0 0 0 3em',
-		textDecoration: 'none'
+		textDecoration: 'none',
 	},
-	rangeBehavior: DecorationRangeBehavior.ClosedOpen
+	rangeBehavior: DecorationRangeBehavior.ClosedOpen,
 });
 
 export class LineAnnotationController implements Disposable {
@@ -34,7 +34,7 @@ export class LineAnnotationController implements Disposable {
 	constructor() {
 		this._disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
-			Container.fileAnnotations.onDidToggleAnnotations(this.onFileAnnotationsToggled, this)
+			Container.fileAnnotations.onDidToggleAnnotations(this.onFileAnnotationsToggled, this),
 		);
 		this.onConfigurationChanged(configuration.initializingChangeEvent);
 	}
@@ -95,9 +95,9 @@ export class LineAnnotationController implements Disposable {
 		args: {
 			0: (e: LinesChangeEvent) =>
 				`editor=${e.editor?.document.uri.toString(true)}, lines=${e.lines?.join(',')}, pending=${Boolean(
-					e.pending
-				)}, reason=${e.reason}`
-		}
+					e.pending,
+				)}, reason=${e.reason}`,
+		},
 	})
 	private onActiveLinesChanged(e: LinesChangeEvent) {
 		if (!e.pending && e.lines !== undefined) {
@@ -143,7 +143,7 @@ export class LineAnnotationController implements Disposable {
 	private async getPullRequests(
 		repoPath: string,
 		lines: [number, GitBlameCommit][],
-		{ timeout }: { timeout?: number } = {}
+		{ timeout }: { timeout?: number } = {},
 	) {
 		if (lines.length === 0) return undefined;
 
@@ -166,7 +166,7 @@ export class LineAnnotationController implements Disposable {
 		const prs = await Promises.raceAll(
 			refs.values(),
 			ref => Container.git.getPullRequestForCommit(ref, provider),
-			timeout
+			timeout,
 		);
 		if (prs.size === 0 || Iterables.every(prs.values(), pr => pr === undefined)) return undefined;
 
@@ -243,7 +243,7 @@ export class LineAnnotationController implements Disposable {
 				}
 
 				return [l, state.commit];
-			})
+			}),
 		];
 
 		const repoPath = trackedDocument.uri.repoPath;
@@ -261,34 +261,34 @@ export class LineAnnotationController implements Disposable {
 				'pullRequestAgo',
 				'pullRequestAgoOrDate',
 				'pullRequestDate',
-				'pullRequestState'
+				'pullRequestState',
 			)
 				? this.getPullRequests(
 						repoPath,
 						commitLines.filter(([, commit]) => !commit.isUncommitted),
-						{ timeout: timeout }
+						{ timeout: timeout },
 				  )
-				: undefined
+				: undefined,
 		]);
 
 		if (prs !== undefined) {
 			const timeouts = [
 				...Iterables.filterMap(prs.values(), pr =>
-					pr instanceof Promises.CancellationError ? pr.promise : undefined
-				)
+					pr instanceof Promises.CancellationError ? pr.promise : undefined,
+				),
 			];
 
 			// If there are any PRs that timed out, refresh the annotation(s) once they complete
 			if (timeouts.length !== 0) {
 				Logger.debug(
 					cc,
-					`${GlyphChars.Dot} pull request queries (${timeouts.length}) took too long (over ${timeout} ms)`
+					`${GlyphChars.Dot} pull request queries (${timeouts.length}) took too long (over ${timeout} ms)`,
 				);
 				Promise.all(timeouts).then(() => {
 					if (editor === this._editor) {
 						Logger.debug(
 							cc,
-							`${GlyphChars.Dot} pull request queries (${timeouts.length}) completed; refreshing...`
+							`${GlyphChars.Dot} pull request queries (${timeouts.length}) completed; refreshing...`,
 						);
 
 						this.refresh(editor);
@@ -308,12 +308,12 @@ export class LineAnnotationController implements Disposable {
 				{
 					dateFormat: cfg.dateFormat === null ? Container.config.defaultDateFormat : cfg.dateFormat,
 					getBranchAndTagTips: getBranchAndTagTips,
-					pullRequestOrRemote: prs?.get(commit.ref)
+					pullRequestOrRemote: prs?.get(commit.ref),
 				},
-				cfg.scrollable
+				cfg.scrollable,
 			) as DecorationOptions;
 			decoration.range = editor.document.validateRange(
-				new Range(l, Number.MAX_SAFE_INTEGER, l, Number.MAX_SAFE_INTEGER)
+				new Range(l, Number.MAX_SAFE_INTEGER, l, Number.MAX_SAFE_INTEGER),
 			);
 
 			decorations.push(decoration);
@@ -327,7 +327,7 @@ export class LineAnnotationController implements Disposable {
 			if (!Container.lineTracker.isSubscribed(this)) {
 				Container.lineTracker.start(
 					this,
-					Container.lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this)
+					Container.lineTracker.onDidChangeActiveLines(this.onActiveLinesChanged, this),
 				);
 			}
 

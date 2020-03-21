@@ -27,15 +27,15 @@ export class PullGitCommand extends QuickCommandBase<State> {
 		static readonly Fetch: QuickInputButton = {
 			iconPath: {
 				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-sync.svg')),
-				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-sync.svg'))
+				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-sync.svg')),
 			},
-			tooltip: 'Fetch'
+			tooltip: 'Fetch',
 		};
 	};
 
 	constructor(args?: PullGitCommandArgs) {
 		super('pull', 'pull', 'Pull', {
-			description: 'fetches and integrates changes from a remote into the current branch'
+			description: 'fetches and integrates changes from a remote into the current branch',
 		});
 
 		if (args == null || args.state === undefined) return;
@@ -48,7 +48,7 @@ export class PullGitCommand extends QuickCommandBase<State> {
 		this._initialState = {
 			counter: counter,
 			confirm: args.confirm,
-			...args.state
+			...args.state,
 		};
 	}
 
@@ -95,11 +95,11 @@ export class PullGitCommand extends QuickCommandBase<State> {
 										{
 											branch: true,
 											fetched: true,
-											status: true
-										}
-									)
-								)
-							)
+											status: true,
+										},
+									),
+								),
+							),
 						});
 						const selection: StepSelection<typeof step> = yield step;
 
@@ -122,14 +122,14 @@ export class PullGitCommand extends QuickCommandBase<State> {
 								FlagsQuickPickItem.create<Flags>(state.flags, [], {
 									label: this.title,
 									description: '',
-									detail: `Will pull ${state.repos.length} repositories`
+									detail: `Will pull ${state.repos.length} repositories`,
 								}),
 								FlagsQuickPickItem.create<Flags>(state.flags, ['--rebase'], {
 									label: `${this.title} with Rebase`,
 									description: '--rebase',
-									detail: `Will pull with rebase ${state.repos.length} repositories`
-								})
-							]
+									detail: `Will pull with rebase ${state.repos.length} repositories`,
+								}),
+							],
 						);
 					} else {
 						step = await this.getSingleRepoConfirmStep(state);
@@ -172,7 +172,7 @@ export class PullGitCommand extends QuickCommandBase<State> {
 			detail = Strings.pluralize('commit', status.state.behind);
 
 			fetchedOn = `${Strings.pad(GlyphChars.Dot, 2, 2)}Last fetched ${Dates.getFormatter(
-				new Date(lastFetched!)
+				new Date(lastFetched!),
 			).fromNow()}`;
 		}
 
@@ -182,13 +182,13 @@ export class PullGitCommand extends QuickCommandBase<State> {
 				FlagsQuickPickItem.create<Flags>(state.flags!, [], {
 					label: this.title,
 					description: '',
-					detail: `Will pull ${detail}`
+					detail: `Will pull ${detail}`,
 				}),
 				FlagsQuickPickItem.create<Flags>(state.flags!, ['--rebase'], {
 					label: `${this.title} with Rebase`,
 					description: '--rebase',
-					detail: `Will pull ${detail} with rebase`
-				})
+					detail: `Will pull ${detail} with rebase`,
+				}),
 			],
 			undefined,
 			{
@@ -207,8 +207,8 @@ export class PullGitCommand extends QuickCommandBase<State> {
 						quickpick.busy = false;
 						quickpick.enabled = true;
 					}
-				}
-			}
+				},
+			},
 		);
 
 		return step;

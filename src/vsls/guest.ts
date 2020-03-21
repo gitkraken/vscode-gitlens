@@ -44,7 +44,7 @@ export class VslsGuestService implements Disposable {
 
 		void setCommandContext(CommandContext.Enabled, false);
 		void window.showWarningMessage(
-			'GitLens features will be unavailable. Unable to connect to the host GitLens service. The host may have disabled GitLens guest access or may not have GitLens installed.'
+			'GitLens features will be unavailable. Unable to connect to the host GitLens service. The host may have disabled GitLens guest access or may not have GitLens installed.',
 		);
 	}
 
@@ -61,14 +61,14 @@ export class VslsGuestService implements Disposable {
 	@log()
 	async getRepositoriesInFolder(
 		folder: WorkspaceFolder,
-		onAnyRepositoryChanged: (repo: Repository, e: RepositoryChangeEvent) => void
+		onAnyRepositoryChanged: (repo: Repository, e: RepositoryChangeEvent) => void,
 	): Promise<Repository[]> {
 		const response = await this.sendRequest(RepositoriesInFolderRequestType, {
-			folderUri: folder.uri.toString(true)
+			folderUri: folder.uri.toString(true),
 		});
 
 		return response.repositories.map(
-			(r: RepositoryProxy) => new Repository(folder, r.path, r.root, onAnyRepositoryChanged, false, r.closed)
+			(r: RepositoryProxy) => new Repository(folder, r.path, r.root, onAnyRepositoryChanged, false, r.closed),
 		);
 	}
 
@@ -76,7 +76,7 @@ export class VslsGuestService implements Disposable {
 	private sendRequest<TRequest, TResponse>(
 		requestType: RequestType<TRequest, TResponse>,
 		request: TRequest,
-		cancellation?: CancellationToken
+		cancellation?: CancellationToken,
 	): Promise<TResponse> {
 		return this._service.request(requestType.name, [request]);
 	}

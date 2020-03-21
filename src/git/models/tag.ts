@@ -10,7 +10,7 @@ export const TagDateFormatting = {
 	reset: () => {
 		TagDateFormatting.dateFormat = configuration.get('defaultDateFormat');
 		TagDateFormatting.dateStyle = configuration.get('defaultDateStyle');
-	}
+	},
 };
 
 export class GitTag implements GitReference {
@@ -32,11 +32,11 @@ export class GitTag implements GitReference {
 				return tags.sort((a, b) => b.date.getTime() - a.date.getTime());
 			case TagSorting.NameAsc:
 				return tags.sort((a, b) =>
-					b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' })
+					b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' }),
 				);
 			default:
 				return tags.sort((a, b) =>
-					a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+					a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }),
 				);
 		}
 	}
@@ -49,7 +49,7 @@ export class GitTag implements GitReference {
 		public readonly sha: string,
 		public readonly message: string,
 		public readonly date: Date,
-		public readonly commitDate: Date | undefined
+		public readonly commitDate: Date | undefined,
 	) {}
 
 	get formattedDate(): string {

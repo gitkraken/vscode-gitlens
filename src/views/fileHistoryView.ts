@@ -26,29 +26,29 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode> {
 		commands.registerCommand(
 			this.getQualifiedCommand('copy'),
 			() => commands.executeCommand('gitlens.views.copy', this.selection),
-			this
+			this,
 		);
 		commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this);
 		commands.registerCommand(this.getQualifiedCommand('changeBase'), () => this.changeBase(), this);
 		commands.registerCommand(
 			this.getQualifiedCommand('setEditorFollowingOn'),
 			() => this.setEditorFollowing(true),
-			this
+			this,
 		);
 		commands.registerCommand(
 			this.getQualifiedCommand('setEditorFollowingOff'),
 			() => this.setEditorFollowing(false),
-			this
+			this,
 		);
 		commands.registerCommand(
 			this.getQualifiedCommand('setRenameFollowingOn'),
 			() => this.setRenameFollowing(true),
-			this
+			this,
 		);
 		commands.registerCommand(
 			this.getQualifiedCommand('setRenameFollowingOff'),
 			() => this.setRenameFollowing(false),
-			this
+			this,
 		);
 	}
 

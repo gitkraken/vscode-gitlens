@@ -37,11 +37,11 @@ export namespace Functions {
 	export function debounce<T extends (...args: any[]) => any>(
 		fn: T,
 		wait?: number,
-		options?: DebounceOptions
+		options?: DebounceOptions,
 	): T & Deferrable {
 		const { track, ...opts }: DebounceOptions = {
 			track: false,
-			...(options || {})
+			...(options || {}),
 		};
 
 		if (track !== true) return _debounce(fn, wait, opts);
@@ -49,26 +49,26 @@ export namespace Functions {
 		let pending = false;
 
 		const debounced = _debounce(
-			(function(this: any, ...args: any[]) {
+			(function (this: any, ...args: any[]) {
 				pending = false;
 				return fn.apply(this, args);
 			} as any) as T,
 			wait,
-			options
+			options,
 		) as T & Deferrable;
 
-		const tracked = (function(this: any, ...args: any[]) {
+		const tracked = (function (this: any, ...args: any[]) {
 			pending = true;
 			return debounced.apply(this, args);
 		} as any) as T & Deferrable;
 
-		tracked.pending = function() {
+		tracked.pending = function () {
 			return pending;
 		};
-		tracked.cancel = function() {
+		tracked.cancel = function () {
 			return debounced.cancel.apply(debounced);
 		};
-		tracked.flush = function(...args: any[]) {
+		tracked.flush = function (...args: any[]) {
 			// eslint-disable-next-line prefer-spread
 			return debounced.flush.apply(debounced, args);
 		};
@@ -133,7 +133,7 @@ export namespace Functions {
 	export function is<T extends object>(
 		o: object,
 		propOrMatcher?: keyof T | ((o: any) => boolean),
-		value?: any
+		value?: any,
 	): o is T {
 		if (propOrMatcher == null) return o != null;
 		if (typeof propOrMatcher === 'function') return propOrMatcher(o);
@@ -164,7 +164,7 @@ export namespace Functions {
 					clearInterval(timer);
 					timer = undefined;
 				}
-			}
+			},
 		};
 		timer = global.setInterval(fn, ms);
 
@@ -199,7 +199,7 @@ export namespace Functions {
 					}
 
 					reject(ex);
-				}
+				},
 			);
 		});
 	}

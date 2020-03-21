@@ -25,7 +25,7 @@ export class GitStashCommit extends GitLogCommit {
 		committedDate: Date,
 		message: string,
 		fileName: string,
-		files: GitFile[]
+		files: GitFile[],
 	) {
 		super(type, repoPath, sha, 'You', undefined, authorDate, committedDate, message, fileName, files);
 	}
@@ -60,7 +60,7 @@ export class GitStashCommit extends GitLogCommit {
 			changes.committedDate || this.committerDate,
 			changes.message || this.message,
 			changes.fileName || this.fileName,
-			this.getChangedValue(changes.files, this.files) || []
+			this.getChangedValue(changes.files, this.files) || [],
 		);
 	}
 }

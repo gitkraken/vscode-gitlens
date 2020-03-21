@@ -39,7 +39,7 @@ async function generate() {
 	// https://github.com/carloscuesta/gitmoji/blob/master/src/data/gitmojis.json
 	await download(
 		'https://raw.githubusercontent.com/carloscuesta/gitmoji/master/src/data/gitmojis.json',
-		'gitmojis.json'
+		'gitmojis.json',
 	);
 
 	/**

@@ -75,14 +75,14 @@ export class StatusFileNode extends ViewNode {
 				item.tooltip = StatusFileFormatter.fromTemplate(
 					// eslint-disable-next-line no-template-curly-in-string
 					'${file}\n${directory}/\n\n${status}${ (originalPath)} in Index (staged)',
-					this.file
+					this.file,
 				);
 			} else {
 				item.contextValue += '+unstaged';
 				item.tooltip = StatusFileFormatter.fromTemplate(
 					// eslint-disable-next-line no-template-curly-in-string
 					'${file}\n${directory}/\n\n${status}${ (originalPath)} in Working Tree',
-					this.file
+					this.file,
 				);
 			}
 
@@ -112,13 +112,13 @@ export class StatusFileNode extends ViewNode {
 				const icon = GitFile.getStatusIcon(this.file.status);
 				item.iconPath = {
 					dark: Container.context.asAbsolutePath(paths.join('images', 'dark', icon)),
-					light: Container.context.asAbsolutePath(paths.join('images', 'light', icon))
+					light: Container.context.asAbsolutePath(paths.join('images', 'light', icon)),
 				};
 			}
 
 			item.tooltip = StatusFileFormatter.fromTemplate(
 				`\${file}\n\${directory}/\n\n\${status}\${ (originalPath)} in ${this.getChangedIn()}`,
-				this.file
+				this.file,
 			);
 		}
 
@@ -136,11 +136,11 @@ export class StatusFileNode extends ViewNode {
 				this.view.config.statusFileDescriptionFormat,
 				{
 					...this.file,
-					commit: this.commit
+					commit: this.commit,
 				},
 				{
-					relativePath: this.relativePath
-				}
+					relativePath: this.relativePath,
+				},
 			);
 		}
 		return this._description;
@@ -161,11 +161,11 @@ export class StatusFileNode extends ViewNode {
 				this.view.config.statusFileFormat,
 				{
 					...this.file,
-					commit: this.commit
+					commit: this.commit,
 				},
 				{
-					relativePath: this.relativePath
-				}
+					relativePath: this.relativePath,
+				},
 			);
 		}
 		return this._label;
@@ -227,13 +227,13 @@ export class StatusFileNode extends ViewNode {
 			line: 0,
 			showOptions: {
 				preserveFocus: true,
-				preview: true
-			}
+				preview: true,
+			},
 		};
 		return {
 			title: 'Compare File with Previous Revision',
 			command: Commands.DiffWithPrevious,
-			arguments: [GitUri.fromFile(this.file, this.repoPath), commandArgs]
+			arguments: [GitUri.fromFile(this.file, this.repoPath), commandArgs],
 		};
 	}
 }

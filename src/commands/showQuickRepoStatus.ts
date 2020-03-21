@@ -24,7 +24,7 @@ export class ShowQuickRepoStatusCommand extends ActiveEditorCachedCommand {
 			const repoPath = await getRepoPathOrActiveOrPrompt(
 				uri,
 				editor,
-				`Show status for which repository${GlyphChars.Ellipsis}`
+				`Show status for which repository${GlyphChars.Ellipsis}`,
 			);
 			if (!repoPath) return undefined;
 

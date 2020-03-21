@@ -25,7 +25,7 @@ export enum BuiltInCommands {
 	RevealLine = 'revealLine',
 	SetContext = 'setContext',
 	ShowExplorerActivity = 'workbench.view.explorer',
-	ShowReferences = 'editor.action.showReferences'
+	ShowReferences = 'editor.action.showReferences',
 }
 
 export enum CommandContext {
@@ -44,7 +44,7 @@ export enum CommandContext {
 	ViewsLineHistoryEditorFollowing = 'gitlens:views:lineHistory:editorFollowing',
 	ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',
 	ViewsSearchKeepResults = 'gitlens:views:search:keepResults',
-	Vsls = 'gitlens:vsls'
+	Vsls = 'gitlens:vsls',
 }
 
 export function setCommandContext(key: CommandContext | string, value: any) {
@@ -58,7 +58,7 @@ export enum DocumentSchemes {
 	GitLens = 'gitlens',
 	Output = 'output',
 	PRs = 'pr',
-	Vsls = 'vsls'
+	Vsls = 'vsls',
 }
 
 export function getEditorIfActive(document: TextDocument): TextEditor | undefined {
@@ -123,11 +123,11 @@ export enum GlyphChars {
 	SpaceThinnest = '\u200A',
 	SquareWithBottomShadow = '\u274F',
 	SquareWithTopShadow = '\u2750',
-	ZeroWidthSpace = '\u200b'
+	ZeroWidthSpace = '\u200b',
 }
 
 export enum GlobalState {
-	GitLensVersion = 'gitlensVersion'
+	GitLensVersion = 'gitlensVersion',
 }
 
 export const ImageMimetypes: { [key: string]: string } = {
@@ -139,7 +139,7 @@ export const ImageMimetypes: { [key: string]: string } = {
 	'.webp': 'image/webp',
 	'.tif': 'image/tiff',
 	'.tiff': 'image/tiff',
-	'.bmp': 'image/bmp'
+	'.bmp': 'image/bmp',
 };
 
 export interface BranchComparison {
@@ -184,5 +184,5 @@ export enum WorkspaceState {
 	StarredRepositories = 'gitlens:starred:repositories',
 	ViewsCompareKeepResults = 'gitlens:views:compare:keepResults',
 	ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',
-	ViewsSearchKeepResults = 'gitlens:views:search:keepResults'
+	ViewsSearchKeepResults = 'gitlens:views:search:keepResults',
 }

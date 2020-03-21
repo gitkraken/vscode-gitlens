@@ -47,7 +47,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 				Logger.error(
 					ex,
 					'DiffWithWorkingCommand',
-					`getPreviousDiffUris(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`
+					`getPreviousDiffUris(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`,
 				);
 				return Messages.showGenericErrorMessage('Unable to open compare');
 			}
@@ -68,14 +68,14 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 					repoPath: gitUri.repoPath,
 					lhs: {
 						sha: GitService.uncommittedStagedSha,
-						uri: gitUri.documentUri()
+						uri: gitUri.documentUri(),
 					},
 					rhs: {
 						sha: '',
-						uri: gitUri.documentUri()
+						uri: gitUri.documentUri(),
 					},
 					line: args.line,
-					showOptions: args.showOptions
+					showOptions: args.showOptions,
 				};
 
 				return commands.executeCommand(Commands.DiffWith, diffArgs);
@@ -93,14 +93,14 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 			repoPath: gitUri.repoPath,
 			lhs: {
 				sha: gitUri.sha,
-				uri: uri
+				uri: uri,
 			},
 			rhs: {
 				sha: '',
-				uri: workingUri
+				uri: workingUri,
 			},
 			line: args.line,
-			showOptions: args.showOptions
+			showOptions: args.showOptions,
 		};
 		return commands.executeCommand(Commands.DiffWith, diffArgs);
 	}

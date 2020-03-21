@@ -19,13 +19,13 @@ export class SearchNode extends ViewNode {
 		if (this._children.length === 0) {
 			const command = {
 				title: ' ',
-				command: 'gitlens.showCommitSearch'
+				command: 'gitlens.showCommitSearch',
 			};
 
 			const getCommandArgs = (search: SearchOperators): SearchCommitsCommandArgs => {
 				return {
 					search: { pattern: search },
-					prefillOnly: true
+					prefillOnly: true,
 				};
 			};
 
@@ -35,56 +35,56 @@ export class SearchNode extends ViewNode {
 					this,
 					{
 						...command,
-						arguments: [this, getCommandArgs('message:')]
+						arguments: [this, getCommandArgs('message:')],
 					},
 					'Search by Message',
 					`pattern or message: pattern or =: pattern ${GlyphChars.Dash} use quotes to search for phrases`,
-					`Click to search for commits with matching messages ${GlyphChars.Dash} use quotes to search for phrases`
+					`Click to search for commits with matching messages ${GlyphChars.Dash} use quotes to search for phrases`,
 				),
 				new CommandMessageNode(
 					this.view,
 					this,
 					{
 						...command,
-						arguments: [this, getCommandArgs('author:')]
+						arguments: [this, getCommandArgs('author:')],
 					},
 					`${GlyphChars.Space.repeat(4)} or, Author`,
 					'author: pattern or @: pattern',
-					'Click to search for commits with matching authors'
+					'Click to search for commits with matching authors',
 				),
 				new CommandMessageNode(
 					this.view,
 					this,
 					{
 						...command,
-						arguments: [this, getCommandArgs('commit:')]
+						arguments: [this, getCommandArgs('commit:')],
 					},
 					`${GlyphChars.Space.repeat(4)} or, Commit ID`,
 					'commit: sha or #: sha',
-					'Click to search for commits with matching commit ids'
+					'Click to search for commits with matching commit ids',
 				),
 				new CommandMessageNode(
 					this.view,
 					this,
 					{
 						...command,
-						arguments: [this, getCommandArgs('file:')]
+						arguments: [this, getCommandArgs('file:')],
 					},
 					`${GlyphChars.Space.repeat(4)} or, Files`,
 					'file: glob or ?: glob',
-					'Click to search for commits with matching files'
+					'Click to search for commits with matching files',
 				),
 				new CommandMessageNode(
 					this.view,
 					this,
 					{
 						...command,
-						arguments: [this, getCommandArgs('change:')]
+						arguments: [this, getCommandArgs('change:')],
 					},
 					`${GlyphChars.Space.repeat(4)} or, Changes`,
 					'change: pattern or ~: pattern',
-					'Click to search for commits with matching changes'
-				)
+					'Click to search for commits with matching changes',
+				),
 			];
 		}
 
@@ -119,7 +119,7 @@ export class SearchNode extends ViewNode {
 	}
 
 	@log({
-		args: { 0: (n: ViewNode) => n.toString() }
+		args: { 0: (n: ViewNode) => n.toString() },
 	})
 	dismiss(node: ViewNode) {
 		if (this._children.length === 0) return;
@@ -140,7 +140,7 @@ export class SearchNode extends ViewNode {
 			...Iterables.filterMap(this._children, c => {
 				const result = c.refresh === undefined ? false : c.refresh();
 				return Promises.is<boolean | void>(result) ? result : undefined;
-			})
+			}),
 		];
 		await Promise.all(promises);
 	}

@@ -36,7 +36,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
 				gitUri.repoPath!,
 				gitUri,
 				args.line,
-				gitUri.sha
+				gitUri.sha,
 			);
 
 			if (diffUris === undefined || diffUris.previous === undefined) {
@@ -47,21 +47,21 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
 				repoPath: diffUris.current.repoPath,
 				lhs: {
 					sha: diffUris.previous.sha || '',
-					uri: diffUris.previous.documentUri()
+					uri: diffUris.previous.documentUri(),
 				},
 				rhs: {
 					sha: diffUris.current.sha || '',
-					uri: diffUris.current.documentUri()
+					uri: diffUris.current.documentUri(),
 				},
 				line: args.line,
-				showOptions: args.showOptions
+				showOptions: args.showOptions,
 			};
 			return commands.executeCommand(Commands.DiffWith, diffArgs);
 		} catch (ex) {
 			Logger.error(
 				ex,
 				'DiffLineWithPreviousCommand',
-				`getPreviousLineDiffUris(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`
+				`getPreviousLineDiffUris(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`,
 			);
 			return Messages.showGenericErrorMessage('Unable to open compare');
 		}

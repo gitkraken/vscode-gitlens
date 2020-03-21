@@ -33,9 +33,9 @@ async function _showQuickPickProgress(message: string, cancellation: Cancellatio
 			_getInfiniteCancellablePromise(cancellation),
 			{
 				placeHolder: message,
-				ignoreFocusOut: getQuickPickIgnoreFocusOut()
+				ignoreFocusOut: getQuickPickIgnoreFocusOut(),
 			},
-			cancellation.token
+			cancellation.token,
 		);
 	} catch (ex) {
 		// Not sure why this throws
@@ -105,8 +105,8 @@ export class OpenInSearchCommitsViewQuickPickItem extends CommandQuickPickItem {
 		public readonly commit: GitLogCommit,
 		item: QuickPickItem = {
 			label: '$(link-external) Show Commit in Search Commits View',
-			description: ''
-		}
+			description: '',
+		},
 	) {
 		super(item, undefined, undefined);
 	}
@@ -115,11 +115,11 @@ export class OpenInSearchCommitsViewQuickPickItem extends CommandQuickPickItem {
 		void (await Container.searchView.search(
 			this.commit.repoPath,
 			{
-				pattern: SearchPattern.fromCommit(this.commit)
+				pattern: SearchPattern.fromCommit(this.commit),
 			},
 			{
-				label: { label: `for ${this.commit.isStash ? 'stash' : 'commit'} id ${this.commit.shortSha}` }
-			}
+				label: { label: `for ${this.commit.isStash ? 'stash' : 'commit'} id ${this.commit.shortSha}` },
+			},
 		));
 
 		return undefined;
@@ -132,8 +132,8 @@ export class OpenInFileHistoryViewQuickPickItem extends CommandQuickPickItem {
 		public readonly baseRef: string | undefined,
 		item: QuickPickItem = {
 			label: '$(eye) Show in File History View',
-			description: 'shows the file history in the File History view'
-		}
+			description: 'shows the file history in the File History view',
+		},
 	) {
 		super(item, undefined, undefined);
 	}
@@ -148,8 +148,8 @@ export class RevealInRepositoriesViewQuickPickItem extends CommandQuickPickItem 
 		public readonly commit: GitLogCommit | GitStashCommit,
 		item: QuickPickItem = {
 			label: '$(eye) Reveal Commit in Repositories View',
-			description: `${commit.isStash ? '' : `${GlyphChars.Dash} this can take a while`}`
-		}
+			description: `${commit.isStash ? '' : `${GlyphChars.Dash} this can take a while`}`,
+		},
 	) {
 		super(item, undefined, undefined);
 	}
@@ -159,13 +159,13 @@ export class RevealInRepositoriesViewQuickPickItem extends CommandQuickPickItem 
 			void (await Container.repositoriesView.revealStash(this.commit, {
 				select: true,
 				focus: true,
-				expand: true
+				expand: true,
 			}));
 		} else {
 			void (await Container.repositoriesView.revealCommit(this.commit, {
 				select: true,
 				focus: true,
-				expand: true
+				expand: true,
 			}));
 		}
 
@@ -180,8 +180,8 @@ export class ShowFileHistoryFromQuickPickItem extends CommandQuickPickItem {
 		private readonly _goBack?: CommandQuickPickItem,
 		item: QuickPickItem = {
 			label: '$(history) Show File History from...',
-			description: 'shows an alternate file history'
-		}
+			description: 'shows an alternate file history',
+		},
 	) {
 		super(item, undefined, undefined);
 	}
@@ -190,7 +190,7 @@ export class ShowFileHistoryFromQuickPickItem extends CommandQuickPickItem {
 		return new ReferencesQuickPick(this.repoPath).show(this.placeHolder, {
 			allowEnteringRefs: true,
 			checkmarks: false,
-			goBack: this._goBack
+			goBack: this._goBack,
 		});
 	}
 }

@@ -13,7 +13,7 @@ export enum SuppressedMessages {
 	GitVersionWarning = 'suppressGitVersionWarning',
 	LineUncommittedWarning = 'suppressLineUncommittedWarning',
 	NoRepositoryWarning = 'suppressNoRepositoryWarning',
-	SupportGitLensNotification = 'suppressSupportGitLensNotification'
+	SupportGitLensNotification = 'suppressSupportGitLensNotification',
 }
 
 export class Messages {
@@ -22,13 +22,13 @@ export class Messages {
 			return Messages.showMessage(
 				'info',
 				'There is no previous commit.',
-				SuppressedMessages.CommitHasNoPreviousCommitWarning
+				SuppressedMessages.CommitHasNoPreviousCommitWarning,
 			);
 		}
 		return Messages.showMessage(
 			'info',
 			`Commit ${commit.shortSha} (${commit.author}, ${commit.formattedDate}) has no previous commit.`,
-			SuppressedMessages.CommitHasNoPreviousCommitWarning
+			SuppressedMessages.CommitHasNoPreviousCommitWarning,
 		);
 	}
 
@@ -36,7 +36,7 @@ export class Messages {
 		return Messages.showMessage(
 			'warn',
 			`${message}. The commit could not be found.`,
-			SuppressedMessages.CommitNotFoundWarning
+			SuppressedMessages.CommitNotFoundWarning,
 		);
 	}
 
@@ -47,7 +47,7 @@ export class Messages {
 			`${message}. See output channel for more details`,
 			undefined,
 			null,
-			...actions
+			...actions,
 		);
 
 		if (result !== undefined) {
@@ -60,7 +60,7 @@ export class Messages {
 		return Messages.showMessage(
 			'warn',
 			`${message}. The file is probably not under source control.`,
-			SuppressedMessages.FileNotUnderSourceControlWarning
+			SuppressedMessages.FileNotUnderSourceControlWarning,
 		);
 	}
 
@@ -68,7 +68,7 @@ export class Messages {
 		return Messages.showMessage(
 			'error',
 			'GitLens requires Git to be enabled. Please re-enable Git \u2014 set `git.enabled` to true and reload',
-			SuppressedMessages.GitDisabledWarning
+			SuppressedMessages.GitDisabledWarning,
 		);
 	}
 
@@ -76,7 +76,7 @@ export class Messages {
 		return Messages.showMessage(
 			'error',
 			`GitLens requires a newer version of Git (>= ${required}) than is currently installed (${version}). Please install a more recent version of Git.`,
-			SuppressedMessages.GitVersionWarning
+			SuppressedMessages.GitVersionWarning,
 		);
 	}
 
@@ -84,7 +84,7 @@ export class Messages {
 		return Messages.showMessage(
 			'warn',
 			`${message}. The line has uncommitted changes.`,
-			SuppressedMessages.LineUncommittedWarning
+			SuppressedMessages.LineUncommittedWarning,
 		);
 	}
 
@@ -92,7 +92,7 @@ export class Messages {
 		return Messages.showMessage(
 			'warn',
 			`${message}. No repository could be found.`,
-			SuppressedMessages.NoRepositoryWarning
+			SuppressedMessages.NoRepositoryWarning,
 		);
 	}
 
@@ -104,7 +104,7 @@ export class Messages {
 			'While GitLens is offered to everyone for free, if you find it useful, please consider [sponsoring](https://gitlens.amod.io/#sponsor) it. Thank you! ❤',
 			undefined,
 			null,
-			...actions
+			...actions,
 		);
 
 		if (result != null) {
@@ -129,7 +129,7 @@ export class Messages {
 			`GitLens has been updated to v${version} — check out what's new!`,
 			undefined,
 			null,
-			...actions
+			...actions,
 		);
 
 		if (result != null) {
@@ -178,7 +178,7 @@ export class Messages {
 
 		if ((suppressionKey !== undefined && dontShowAgain === null) || result === dontShowAgain) {
 			Logger.log(
-				`ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain}) don't show again requested`
+				`ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain}) don't show again requested`,
 			);
 			await this.suppressedMessage(suppressionKey!);
 
@@ -188,7 +188,7 @@ export class Messages {
 		Logger.log(
 			`ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain}) returned ${
 				result ? result.title : result
-			}`
+			}`,
 		);
 		return result;
 	}

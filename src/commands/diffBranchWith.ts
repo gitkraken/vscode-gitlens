@@ -11,7 +11,7 @@ import {
 	CommandContext,
 	Commands,
 	getCommandUri,
-	getRepoPathOrActiveOrPrompt
+	getRepoPathOrActiveOrPrompt,
 } from './common';
 
 export interface DiffBranchWithCommandArgs {
@@ -26,7 +26,7 @@ export class DiffBranchWithCommand extends ActiveEditorCommand {
 			Commands.DiffHeadWith,
 			Commands.DiffWorkingWith,
 			Commands.DiffHeadWithBranch,
-			Commands.DiffWorkingWithBranch
+			Commands.DiffWorkingWithBranch,
 		]);
 	}
 
@@ -58,7 +58,7 @@ export class DiffBranchWithCommand extends ActiveEditorCommand {
 			const repoPath = await getRepoPathOrActiveOrPrompt(
 				uri,
 				editor,
-				`Compare in which repository${GlyphChars.Ellipsis}`
+				`Compare in which repository${GlyphChars.Ellipsis}`,
 			);
 			if (!repoPath) return undefined;
 
@@ -87,7 +87,7 @@ export class DiffBranchWithCommand extends ActiveEditorCommand {
 					include:
 						ReferencesQuickPickIncludes.BranchesAndTags |
 						ReferencesQuickPickIncludes.HEAD |
-						ReferencesQuickPickIncludes.WorkingTree
+						ReferencesQuickPickIncludes.WorkingTree,
 				});
 				if (pick === undefined) return undefined;
 

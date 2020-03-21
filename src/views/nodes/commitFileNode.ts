@@ -14,7 +14,7 @@ export class CommitFileNode extends ViewRefFileNode {
 		parent: ViewNode,
 		public readonly file: GitFile,
 		public commit: GitLogCommit,
-		private readonly _options: { displayAsCommit?: boolean; inFileHistory?: boolean; selection?: Selection } = {}
+		private readonly _options: { displayAsCommit?: boolean; inFileHistory?: boolean; selection?: Selection } = {},
 	) {
 		super(GitUri.fromFile(file, commit.repoPath, commit.sha), view, parent);
 	}
@@ -46,7 +46,7 @@ export class CommitFileNode extends ViewRefFileNode {
 			if (commit === undefined) {
 				const log = await Container.git.getLogForFile(this.repoPath, this.file.fileName, {
 					limit: 2,
-					ref: this.commit.sha
+					ref: this.commit.sha,
 				});
 				if (log !== undefined) {
 					this.commit = log.commits.get(this.commit.sha) || this.commit;
@@ -67,7 +67,7 @@ export class CommitFileNode extends ViewRefFileNode {
 			const icon = GitFile.getStatusIcon(this.file.status);
 			item.iconPath = {
 				dark: Container.context.asAbsolutePath(paths.join('images', 'dark', icon)),
-				light: Container.context.asAbsolutePath(paths.join('images', 'light', icon))
+				light: Container.context.asAbsolutePath(paths.join('images', 'light', icon)),
 			};
 		}
 
@@ -87,10 +87,10 @@ export class CommitFileNode extends ViewRefFileNode {
 			this._description = this._options.displayAsCommit
 				? CommitFormatter.fromTemplate(this.getCommitDescriptionTemplate(), this.commit, {
 						truncateMessageAtNewLine: true,
-						dateFormat: Container.config.defaultDateFormat
+						dateFormat: Container.config.defaultDateFormat,
 				  })
 				: StatusFileFormatter.fromTemplate(this.getCommitFileDescriptionTemplate(), this.file, {
-						relativePath: this.relativePath
+						relativePath: this.relativePath,
 				  });
 		}
 		return this._description;
@@ -110,10 +110,10 @@ export class CommitFileNode extends ViewRefFileNode {
 			this._label = this._options.displayAsCommit
 				? CommitFormatter.fromTemplate(this.getCommitTemplate(), this.commit, {
 						truncateMessageAtNewLine: true,
-						dateFormat: Container.config.defaultDateFormat
+						dateFormat: Container.config.defaultDateFormat,
 				  })
 				: StatusFileFormatter.fromTemplate(this.getCommitFileTemplate(), this.file, {
-						relativePath: this.relativePath
+						relativePath: this.relativePath,
 				  });
 		}
 		return this._label;
@@ -151,18 +151,18 @@ export class CommitFileNode extends ViewRefFileNode {
 						  } \${id}\n${status}\n\${ago} (\${date})\n\n\${message}${this.commit.getFormattedDiffStatus({
 								expand: true,
 								prefix: '\n\n',
-								separator: '\n'
+								separator: '\n',
 						  })}`,
 					this.commit,
 					{
-						dateFormat: Container.config.defaultDateFormat
-					}
+						dateFormat: Container.config.defaultDateFormat,
+					},
 				);
 			} else {
 				this._tooltip = StatusFileFormatter.fromTemplate(
 					// eslint-disable-next-line no-template-curly-in-string
 					'${file}\n${directory}/\n\n${status}${ (originalPath)}',
-					this.file
+					this.file,
 				);
 			}
 		}
@@ -198,13 +198,13 @@ export class CommitFileNode extends ViewRefFileNode {
 			line: line,
 			showOptions: {
 				preserveFocus: true,
-				preview: true
-			}
+				preview: true,
+			},
 		};
 		return {
 			title: 'Compare File with Previous Revision',
 			command: Commands.DiffWithPrevious,
-			arguments: [GitUri.fromFile(this.file, this.commit.repoPath), commandArgs]
+			arguments: [GitUri.fromFile(this.file, this.commit.repoPath), commandArgs],
 		};
 	}
 }

@@ -25,7 +25,7 @@ export class ShowQuickCurrentBranchHistoryCommand extends ActiveEditorCachedComm
 			const repoPath = await getRepoPathOrActiveOrPrompt(
 				uri,
 				editor,
-				`Show current branch history for which repository${GlyphChars.Ellipsis}`
+				`Show current branch history for which repository${GlyphChars.Ellipsis}`,
 			);
 			if (!repoPath) return undefined;
 
@@ -35,7 +35,7 @@ export class ShowQuickCurrentBranchHistoryCommand extends ActiveEditorCachedComm
 			const commandArgs: ShowQuickBranchHistoryCommandArgs = {
 				branch: branch.name,
 				repoPath: repoPath,
-				goBackCommand: args && args.goBackCommand
+				goBackCommand: args && args.goBackCommand,
 			};
 			return commands.executeCommand(Commands.ShowQuickBranchHistory, uri, commandArgs);
 		} catch (ex) {

@@ -14,7 +14,7 @@ export class GitTagParser {
 		`${lb}r${rb}%(objectname)`, // ref
 		`${lb}d${rb}%(creatordate:iso8601)`, // created date
 		`${lb}ad${rb}%(authordate:iso8601)`, // author date
-		`${lb}s${rb}%(subject)` // message
+		`${lb}s${rb}%(subject)`, // message
 	].join('');
 
 	@debug({ args: false, singleLine: true })
@@ -48,8 +48,8 @@ export class GitTagParser {
 					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
 					` ${message}`.substr(1),
 					new Date(date),
-					commitDate == null || commitDate.length === 0 ? undefined : new Date(commitDate)
-				)
+					commitDate == null || commitDate.length === 0 ? undefined : new Date(commitDate),
+				),
 			);
 		} while (true);
 

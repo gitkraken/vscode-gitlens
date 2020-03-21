@@ -10,7 +10,7 @@ export class ShowViewCommand extends Command {
 			Commands.ShowFileHistoryView,
 			Commands.ShowLineHistoryView,
 			Commands.ShowRepositoriesView,
-			Commands.ShowSearchView
+			Commands.ShowSearchView,
 		]);
 	}
 

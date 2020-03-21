@@ -31,7 +31,7 @@ class TextEditorComparer extends Comparer<TextEditor> {
 	equals(
 		lhs: TextEditor | undefined,
 		rhs: TextEditor | undefined,
-		options: { useId: boolean; usePosition: boolean } = { useId: false, usePosition: false }
+		options: { useId: boolean; usePosition: boolean } = { useId: false, usePosition: false },
 	) {
 		if (lhs === rhs) return true;
 		if (lhs === undefined || rhs === undefined) return false;
@@ -54,5 +54,5 @@ const uriComparer = new UriComparer();
 export {
 	textDocumentComparer as TextDocumentComparer,
 	textEditorComparer as TextEditorComparer,
-	uriComparer as UriComparer
+	uriComparer as UriComparer,
 };

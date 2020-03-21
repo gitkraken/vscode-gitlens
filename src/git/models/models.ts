@@ -5,7 +5,7 @@ export namespace GitRevision {
 	export function createRange(
 		ref1: string | undefined,
 		ref2: string | undefined,
-		notation: '..' | '...' = '..'
+		notation: '..' | '...' = '..',
 	): string {
 		return `${ref1 || ''}${notation}${ref2 || ''}`;
 	}
@@ -24,7 +24,7 @@ export interface GitReference {
 export namespace GitReference {
 	export function create(
 		ref: string,
-		{ name, refType }: { name?: string; refType?: 'branch' | 'tag' } = {}
+		{ name, refType }: { name?: string; refType?: 'branch' | 'tag' } = {},
 	): GitReference {
 		return { name: name || Git.shortenSha(ref, { force: true }), ref: ref, refType: refType || 'revision' };
 	}

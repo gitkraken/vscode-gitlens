@@ -53,14 +53,14 @@ export class OpenRevisionFileCommand extends ActiveEditorCommand {
 							gitUri.repoPath!,
 							gitUri,
 							gitUri.sha,
-							0
+							0,
 						);
 						args.uri = GitUri.toRevisionUri(diffUris?.previous ?? gitUri);
 					} catch (ex) {
 						Logger.error(
 							ex,
 							'OpenRevisionFileCommand',
-							`getPreviousDiffUris(${gitUri?.repoPath}, ${gitUri.fsPath}, ${gitUri?.sha})`
+							`getPreviousDiffUris(${gitUri?.repoPath}, ${gitUri.fsPath}, ${gitUri?.sha})`,
 						);
 						return Messages.showGenericErrorMessage('Unable to open revision');
 					}

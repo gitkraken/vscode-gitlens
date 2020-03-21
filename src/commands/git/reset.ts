@@ -10,7 +10,7 @@ import {
 	Directive,
 	DirectiveQuickPickItem,
 	FlagsQuickPickItem,
-	RepositoryQuickPickItem
+	RepositoryQuickPickItem,
 } from '../../quickpicks';
 import { Logger } from '../../logger';
 
@@ -45,7 +45,7 @@ export class ResetGitCommand extends QuickCommandBase<State> {
 		this._initialState = {
 			counter: counter,
 			confirm: true,
-			...args.state
+			...args.state,
 		};
 	}
 
@@ -86,10 +86,10 @@ export class ResetGitCommand extends QuickCommandBase<State> {
 									RepositoryQuickPickItem.create(r, r.id === (active && active.id), {
 										branch: true,
 										fetched: true,
-										status: true
-									})
-								)
-							)
+										status: true,
+									}),
+								),
+							),
 						});
 						const selection: StepSelection<typeof step> = yield step;
 
@@ -107,7 +107,7 @@ export class ResetGitCommand extends QuickCommandBase<State> {
 				if (state.reference === undefined || state.counter < 2) {
 					const log = await Container.git.getLog(state.repo.path, {
 						ref: destination.ref,
-						merges: false
+						merges: false,
 					});
 
 					const step = this.createPickStep<CommitQuickPickItem>({
@@ -122,17 +122,17 @@ export class ResetGitCommand extends QuickCommandBase<State> {
 							log === undefined
 								? [
 										DirectiveQuickPickItem.create(Directive.Back, true),
-										DirectiveQuickPickItem.create(Directive.Cancel)
+										DirectiveQuickPickItem.create(Directive.Cancel),
 								  ]
 								: [
 										...Iterables.map(log.commits.values(), commit =>
 											CommitQuickPickItem.create(
 												commit,
 												state.reference ? state.reference.ref === commit.ref : undefined,
-												{ compact: true, icon: true }
-											)
-										)
-								  ]
+												{ compact: true, icon: true },
+											),
+										),
+								  ],
 					});
 					const selection: StepSelection<typeof step> = yield step;
 
@@ -152,14 +152,14 @@ export class ResetGitCommand extends QuickCommandBase<State> {
 						FlagsQuickPickItem.create<Flags>(state.flags, [], {
 							label: `Soft ${this.title}`,
 							description: `--soft ${destination.name} to ${state.reference.name}`,
-							detail: `Will soft reset (leaves changes in the working tree) ${destination.name} to ${state.reference.name}`
+							detail: `Will soft reset (leaves changes in the working tree) ${destination.name} to ${state.reference.name}`,
 						}),
 						FlagsQuickPickItem.create<Flags>(state.flags, ['--hard'], {
 							label: `Hard ${this.title}`,
 							description: `--hard ${destination.name} to ${state.reference.name}`,
-							detail: `Will hard reset (discards all changes) ${destination.name} to ${state.reference.name}`
-						})
-					]
+							detail: `Will hard reset (discards all changes) ${destination.name} to ${state.reference.name}`,
+						}),
+					],
 				);
 				const selection: StepSelection<typeof step> = yield step;
 

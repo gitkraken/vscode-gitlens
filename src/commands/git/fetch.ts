@@ -35,14 +35,14 @@ export class FetchGitCommand extends QuickCommandBase<State> {
 		this._initialState = {
 			counter: counter,
 			confirm: args.confirm,
-			...args.state
+			...args.state,
 		};
 	}
 
 	execute(state: State) {
 		return Container.git.fetchAll(state.repos, {
 			all: state.flags.includes('--all'),
-			prune: state.flags.includes('--prune')
+			prune: state.flags.includes('--prune'),
 		});
 	}
 
@@ -85,11 +85,11 @@ export class FetchGitCommand extends QuickCommandBase<State> {
 										{
 											branch: true,
 											fetched: true,
-											status: true
-										}
-									)
-								)
-							)
+											status: true,
+										},
+									),
+								),
+							),
 						});
 						const selection: StepSelection<typeof step> = yield step;
 
@@ -107,7 +107,7 @@ export class FetchGitCommand extends QuickCommandBase<State> {
 						const lastFetched = await state.repos[0].getLastFetched();
 						if (lastFetched !== 0) {
 							fetchedOn = `${Strings.pad(GlyphChars.Dot, 2, 2)}Last fetched ${Dates.getFormatter(
-								new Date(lastFetched)
+								new Date(lastFetched),
 							).fromNow()}`;
 						}
 					}
@@ -126,7 +126,7 @@ export class FetchGitCommand extends QuickCommandBase<State> {
 									state.repos.length === 1
 										? state.repos[0].formattedName
 										: `${state.repos.length} repositories`
-								}`
+								}`,
 							}),
 							FlagsQuickPickItem.create<Flags>(state.flags, ['--prune'], {
 								label: `${this.title} & Prune`,
@@ -135,7 +135,7 @@ export class FetchGitCommand extends QuickCommandBase<State> {
 									state.repos.length === 1
 										? state.repos[0].formattedName
 										: `${state.repos.length} repositories`
-								}`
+								}`,
 							}),
 							FlagsQuickPickItem.create<Flags>(state.flags, ['--all'], {
 								label: `${this.title} All`,
@@ -144,7 +144,7 @@ export class FetchGitCommand extends QuickCommandBase<State> {
 									state.repos.length === 1
 										? state.repos[0].formattedName
 										: `${state.repos.length} repositories`
-								}`
+								}`,
 							}),
 							FlagsQuickPickItem.create<Flags>(state.flags, ['--all', '--prune'], {
 								label: `${this.title} All & Prune`,
@@ -153,9 +153,9 @@ export class FetchGitCommand extends QuickCommandBase<State> {
 									state.repos.length === 1
 										? state.repos[0].formattedName
 										: `${state.repos.length} repositories`
-								}`
-							})
-						]
+								}`,
+							}),
+						],
 					);
 					const selection: StepSelection<typeof step> = yield step;
 

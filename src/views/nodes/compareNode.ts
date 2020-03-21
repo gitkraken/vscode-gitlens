@@ -95,7 +95,7 @@ export class CompareNode extends ViewNode<CompareView> {
 	}
 
 	@log({
-		args: { 0: (n: ViewNode) => n.toString() }
+		args: { 0: (n: ViewNode) => n.toString() },
 	})
 	dismiss(node: ViewNode) {
 		this._selectedRef = undefined;
@@ -119,7 +119,7 @@ export class CompareNode extends ViewNode<CompareView> {
 			...Iterables.filterMap(this._children, c => {
 				const result = c.refresh === undefined ? false : c.refresh();
 				return Promises.is<boolean | void>(result) ? result : undefined;
-			})
+			}),
 		];
 		await Promise.all(promises);
 	}
@@ -147,8 +147,8 @@ export class CompareNode extends ViewNode<CompareView> {
 					include:
 						ReferencesQuickPickIncludes.BranchesAndTags |
 						ReferencesQuickPickIncludes.HEAD |
-						ReferencesQuickPickIncludes.WorkingTree
-				}
+						ReferencesQuickPickIncludes.WorkingTree,
+				},
 			);
 			if (pick === undefined) {
 				await this.view.show();
@@ -187,7 +187,7 @@ export class CompareNode extends ViewNode<CompareView> {
 				include:
 					ReferencesQuickPickIncludes.BranchesAndTags |
 					ReferencesQuickPickIncludes.HEAD |
-					ReferencesQuickPickIncludes.WorkingTree
+					ReferencesQuickPickIncludes.WorkingTree,
 			});
 			if (pick === undefined) {
 				await this.view.show();

@@ -48,10 +48,10 @@ export class TagNode extends ViewRefNode<RepositoriesView> implements PageableVi
 			...insertDateMarkers(
 				Iterables.map(
 					log.commits.values(),
-					c => new CommitNode(this.view, this, c, undefined, getBranchAndTagTips)
+					c => new CommitNode(this.view, this, c, undefined, getBranchAndTagTips),
 				),
-				this
-			)
+				this,
+			),
 		];
 
 		if (log.hasMore) {
@@ -67,12 +67,12 @@ export class TagNode extends ViewRefNode<RepositoriesView> implements PageableVi
 		item.description = `${GitService.shortenSha(this.tag.sha, { force: true })}${Strings.pad(
 			GlyphChars.Dot,
 			2,
-			2
+			2,
 		)}${emojify(this.tag.message)}`;
 		item.tooltip = `${this.tag.name}${Strings.pad(GlyphChars.Dash, 2, 2)}${GitService.shortenSha(this.tag.sha, {
-			force: true
+			force: true,
 		})}\n${this.tag.formatDateFromNow()} (${this.tag.formatDate(TagDateFormatting.dateFormat)})\n\n${emojify(
-			this.tag.message
+			this.tag.message,
 		)}${
 			this.tag.commitDate != null && this.tag.date !== this.tag.commitDate
 				? `\n${this.tag.formatCommitDateFromNow()} (${this.tag.formatCommitDate(TagDateFormatting.dateFormat)})`
@@ -95,7 +95,7 @@ export class TagNode extends ViewRefNode<RepositoriesView> implements PageableVi
 		if (this._log === undefined) {
 			this._log = await Container.git.getLog(this.uri.repoPath!, {
 				limit: this.limit ?? this.view.config.defaultItemLimit,
-				ref: this.tag.name
+				ref: this.tag.name,
 			});
 		}
 

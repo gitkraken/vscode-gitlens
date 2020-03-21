@@ -31,26 +31,26 @@ export class ComparePickerNode extends ViewNode<CompareView> {
 		if (selectedRef === undefined) {
 			item = new TreeItem(
 				'Compare <branch, tag, or ref> with <branch, tag, or ref>',
-				TreeItemCollapsibleState.None
+				TreeItemCollapsibleState.None,
 			);
 			item.contextValue = ResourceType.ComparePicker;
 			item.description = description;
 			item.tooltip = `Click to select or enter a reference for compare${GlyphChars.Ellipsis}`;
 			item.command = {
 				title: `Compare${GlyphChars.Ellipsis}`,
-				command: this.view.getQualifiedCommand('selectForCompare')
+				command: this.view.getQualifiedCommand('selectForCompare'),
 			};
 		} else {
 			item = new TreeItem(
 				`Compare ${selectedRef.label} with <branch, tag, or ref>`,
-				TreeItemCollapsibleState.None
+				TreeItemCollapsibleState.None,
 			);
 			item.contextValue = ResourceType.ComparePickerWithRef;
 			item.description = description;
 			item.tooltip = `Click to compare ${selectedRef.label} with${GlyphChars.Ellipsis}`;
 			item.command = {
 				title: `Compare ${selectedRef.label} with${GlyphChars.Ellipsis}`,
-				command: this.view.getQualifiedCommand('compareWithSelected')
+				command: this.view.getQualifiedCommand('compareWithSelected'),
 			};
 		}
 

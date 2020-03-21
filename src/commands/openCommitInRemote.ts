@@ -10,7 +10,7 @@ import {
 	CommandContext,
 	Commands,
 	getCommandUri,
-	isCommandViewContextWithCommit
+	isCommandViewContextWithCommit,
 } from './common';
 import { OpenInRemoteCommandArgs } from './openInRemote';
 
@@ -62,7 +62,7 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
 						: await Container.git.getBlameForLine(gitUri, blameline);
 				if (blame === undefined) {
 					return Messages.showFileNotUnderSourceControlWarningMessage(
-						'Unable to open commit on remote provider'
+						'Unable to open commit on remote provider',
 					);
 				}
 
@@ -73,7 +73,7 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
 						sha: commit.previousSha,
 						fileName: commit.previousFileName,
 						previousSha: null,
-						previousFileName: null
+						previousFileName: null,
 					});
 				}
 
@@ -85,16 +85,16 @@ export class OpenCommitInRemoteCommand extends ActiveEditorCommand {
 			const commandArgs: OpenInRemoteCommandArgs = {
 				resource: {
 					type: RemoteResourceType.Commit,
-					sha: args.sha
+					sha: args.sha,
 				},
 				remotes: remotes,
-				clipboard: args.clipboard
+				clipboard: args.clipboard,
 			};
 			return commands.executeCommand(Commands.OpenInRemote, uri, commandArgs);
 		} catch (ex) {
 			Logger.error(ex, 'OpenCommitInRemoteCommand');
 			return window.showErrorMessage(
-				'Unable to open commit on remote provider. See output channel for more details'
+				'Unable to open commit on remote provider. See output channel for more details',
 			);
 		}
 	}

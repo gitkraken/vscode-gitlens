@@ -46,14 +46,14 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 					repoPath: args.commit.repoPath,
 					lhs: {
 						sha: `${args.commit.sha}^`,
-						uri: args.commit.originalUri
+						uri: args.commit.originalUri,
 					},
 					rhs: {
 						sha: args.commit.sha || '',
-						uri: args.commit.uri
+						uri: args.commit.uri,
 					},
 					line: args.line,
-					showOptions: args.showOptions
+					showOptions: args.showOptions,
 				};
 				return commands.executeCommand(Commands.DiffWith, diffArgs);
 			}
@@ -69,7 +69,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 				gitUri,
 				gitUri.sha,
 				// If we are in the right-side of the diff editor, we need to skip back 1 more revision
-				args.inDiffRightEditor ? 1 : 0
+				args.inDiffRightEditor ? 1 : 0,
 			);
 
 			if (diffUris === undefined || diffUris.previous === undefined) {
@@ -88,7 +88,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 				diffUris.previous = GitUri.fromFile(
 					diffUris.current.fileName,
 					diffUris.current.repoPath!,
-					GitService.deletedOrMissingSha
+					GitService.deletedOrMissingSha,
 				);
 			}
 
@@ -96,21 +96,21 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 				repoPath: diffUris.current.repoPath,
 				lhs: {
 					sha: diffUris.previous.sha || '',
-					uri: diffUris.previous.documentUri()
+					uri: diffUris.previous.documentUri(),
 				},
 				rhs: {
 					sha: diffUris.current.sha || '',
-					uri: diffUris.current.documentUri()
+					uri: diffUris.current.documentUri(),
 				},
 				line: args.line,
-				showOptions: args.showOptions
+				showOptions: args.showOptions,
 			};
 			return commands.executeCommand(Commands.DiffWith, diffArgs);
 		} catch (ex) {
 			Logger.error(
 				ex,
 				'DiffWithPreviousCommand',
-				`getPreviousDiffUris(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`
+				`getPreviousDiffUris(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`,
 			);
 			return Messages.showGenericErrorMessage('Unable to open compare');
 		}

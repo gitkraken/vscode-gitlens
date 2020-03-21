@@ -10,7 +10,7 @@ export class ToggleQuickInputButton implements QuickInputButton {
 	constructor(
 		private _off: { icon: string; tooltip: string },
 		private _on: { icon: string; tooltip: string },
-		private _toggled = false
+		private _toggled = false,
 	) {
 		this._iconPath = this.getIconPath();
 	}
@@ -35,11 +35,11 @@ export class ToggleQuickInputButton implements QuickInputButton {
 	private getIconPath() {
 		return {
 			dark: Uri.file(
-				Container.context.asAbsolutePath(`images/dark/icon-${this.on ? this._on.icon : this._off.icon}.svg`)
+				Container.context.asAbsolutePath(`images/dark/icon-${this.on ? this._on.icon : this._off.icon}.svg`),
 			),
 			light: Uri.file(
-				Container.context.asAbsolutePath(`images/light/icon-${this.on ? this._on.icon : this._off.icon}.svg`)
-			)
+				Container.context.asAbsolutePath(`images/light/icon-${this.on ? this._on.icon : this._off.icon}.svg`),
+			),
 		};
 	}
 }
@@ -128,7 +128,7 @@ export abstract class QuickCommandBase<TState = any> implements QuickPickItem {
 		options: {
 			description?: string;
 			detail?: string;
-		} = {}
+		} = {},
 	) {
 		this.description = options.description;
 		this.detail = options.detail;
@@ -207,14 +207,14 @@ export abstract class QuickCommandBase<TState = any> implements QuickPickItem {
 		title: string,
 		confirmations: T[],
 		cancel?: DirectiveQuickPickItem,
-		options: Partial<QuickPickStep<T>> = {}
+		options: Partial<QuickPickStep<T>> = {},
 	): QuickPickStep<T> {
 		return this.createPickStep<T>({
 			placeholder: `Confirm ${this.title}`,
 			title: title,
 			items: [...confirmations, cancel || DirectiveQuickPickItem.create(Directive.Cancel)],
 			selectedItems: [confirmations.find(c => c.picked) || confirmations[0]],
-			...options
+			...options,
 		});
 	}
 
@@ -229,7 +229,7 @@ export abstract class QuickCommandBase<TState = any> implements QuickPickItem {
 	protected async canInputStepMoveNext<T extends QuickInputStep>(
 		step: T,
 		state: { counter: number },
-		value: Directive | string
+		value: Directive | string,
 	) {
 		//: value is string
 		if (value === Directive.Cancel) throw new BreakQuickCommand();
@@ -254,7 +254,7 @@ export abstract class QuickCommandBase<TState = any> implements QuickPickItem {
 	protected canPickStepMoveNext<T extends QuickPickStep>(
 		step: T,
 		state: { counter: number },
-		selection: StepItemType<T> | Directive
+		selection: StepItemType<T> | Directive,
 	): selection is StepItemType<T> {
 		if (selection === Directive.Cancel) throw new BreakQuickCommand();
 		if (selection === Directive.Back) {

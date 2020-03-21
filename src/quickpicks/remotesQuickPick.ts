@@ -9,7 +9,7 @@ import {
 	GitUri,
 	RemoteProvider,
 	RemoteResource,
-	RemoteResourceType
+	RemoteResourceType,
 } from '../git/gitService';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from './commonQuickPicks';
 
@@ -17,7 +17,7 @@ export class OpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 	constructor(
 		private readonly remote: GitRemote<RemoteProvider>,
 		private readonly resource: RemoteResource,
-		public readonly clipboard?: boolean
+		public readonly clipboard?: boolean,
 	) {
 		super(
 			{
@@ -26,10 +26,10 @@ export class OpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 							remote.provider.name
 					  }`
 					: `$(link-external) Open ${getNameFromRemoteResource(resource)} on ${remote.provider.name}`,
-				description: `$(repo) ${remote.provider.path}`
+				description: `$(repo) ${remote.provider.path}`,
 			},
 			undefined,
-			undefined
+			undefined,
 		);
 	}
 
@@ -97,15 +97,15 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
 			const commandArgs: OpenInRemoteCommandArgs = {
 				remotes: remotes,
 				resource: resource,
-				goBackCommand: goBackCommand
+				goBackCommand: goBackCommand,
 			};
 			super(
 				{
 					label: `$(link-external) Open ${name} on ${remote.provider.name}`,
-					description: `${description} in ${GlyphChars.Space}$(repo) ${remote.provider.path}`
+					description: `${description} in ${GlyphChars.Space}$(repo) ${remote.provider.path}`,
 				},
 				Commands.OpenInRemote,
-				[undefined, commandArgs]
+				[undefined, commandArgs],
 			);
 
 			return;
@@ -121,15 +121,15 @@ export class OpenRemotesCommandQuickPickItem extends CommandQuickPickItem {
 		const commandArgs: OpenInRemoteCommandArgs = {
 			remotes: remotes,
 			resource: resource,
-			goBackCommand: goBackCommand
+			goBackCommand: goBackCommand,
 		};
 		super(
 			{
 				label: `$(link-external) Open ${name} on ${providerName}${GlyphChars.Ellipsis}`,
-				description: `${description}`
+				description: `${description}`,
 			},
 			Commands.OpenInRemote,
-			[undefined, commandArgs]
+			[undefined, commandArgs],
 		);
 	}
 }
@@ -140,7 +140,7 @@ export class RemotesQuickPick {
 		placeHolder: string,
 		resource: RemoteResource,
 		clipboard?: boolean,
-		goBackCommand?: CommandQuickPickItem
+		goBackCommand?: CommandQuickPickItem,
 	): Promise<OpenRemoteCommandQuickPickItem | CommandQuickPickItem | undefined> {
 		const items = remotes.map(r => new OpenRemoteCommandQuickPickItem(r, resource, clipboard)) as (
 			| OpenRemoteCommandQuickPickItem
@@ -155,7 +155,7 @@ export class RemotesQuickPick {
 
 		const pick = await window.showQuickPick(items, {
 			placeHolder: placeHolder,
-			ignoreFocusOut: getQuickPickIgnoreFocusOut()
+			ignoreFocusOut: getQuickPickIgnoreFocusOut(),
 		});
 		if (pick === undefined) return undefined;
 
