@@ -7,7 +7,7 @@ const markers: [number, string][] = [
 	[0, 'Less than a week ago'],
 	[7, 'Over a week ago'],
 	[30, 'Over a month ago'],
-	[90, 'Over 3 months ago']
+	[90, 'Over 3 months ago'],
 ];
 
 // eslint-disable-next-line consistent-return
@@ -15,7 +15,7 @@ export function* insertDateMarkers<T extends ViewNode & { commit: GitLogCommit }
 	iterable: Iterable<T>,
 	parent: ViewNode,
 	skip?: number,
-	{ show }: { show: boolean } = { show: true }
+	{ show }: { show: boolean } = { show: true },
 ): Iterable<ViewNode> {
 	if (!parent.view.config.showRelativeDateMarkers || !show) {
 		return yield* iterable;

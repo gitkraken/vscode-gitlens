@@ -12,7 +12,7 @@ import {
 	CommandContext,
 	Commands,
 	getCommandUri,
-	isCommandViewContextWithCommit
+	isCommandViewContextWithCommit,
 } from './common';
 import { ShowQuickCommitFileDetailsCommandArgs } from './showQuickCommitFileDetails';
 
@@ -33,7 +33,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
 		const args = typeof argsOrSha === 'string' ? { sha: argsOrSha } : argsOrSha;
 		return super.getMarkdownCommandArgsCore<ShowQuickCommitDetailsCommandArgs>(
 			Commands.ShowQuickCommitDetails,
-			args
+			args,
 		);
 	}
 
@@ -123,7 +123,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
 				void (await Container.repositoriesView.revealCommit(args.commit, {
 					select: true,
 					focus: true,
-					expand: true
+					expand: true,
 				}));
 
 				return undefined;
@@ -136,10 +136,10 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
 					args.goBackCommand = new CommandQuickPickItem(
 						{
 							label: `go back ${GlyphChars.ArrowBack}`,
-							description: `to ${branch.name} history`
+							description: `to ${branch.name} history`,
 						},
 						Commands.ShowQuickCurrentBranchHistory,
-						[args.commit.toGitUri()]
+						[args.commit.toGitUri()],
 					);
 				}
 			}
@@ -148,16 +148,16 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
 			const currentCommand = new CommandQuickPickItem(
 				{
 					label: `go back ${GlyphChars.ArrowBack}`,
-					description: `to details of ${GlyphChars.Space}$(git-commit) ${args.commit.shortSha}`
+					description: `to details of ${GlyphChars.Space}$(git-commit) ${args.commit.shortSha}`,
 				},
 				Commands.ShowQuickCommitDetails,
-				[args.commit.toGitUri(), args]
+				[args.commit.toGitUri(), args],
 			);
 
 			const pick = await new CommitQuickPick(repoPath).show(args.commit as GitLogCommit, uri, {
 				currentCommand: currentCommand,
 				goBackCommand: args.goBackCommand,
-				repoLog: args.repoLog
+				repoLog: args.repoLog,
 			});
 			if (pick === undefined) return undefined;
 
@@ -166,7 +166,7 @@ export class ShowQuickCommitDetailsCommand extends ActiveEditorCachedCommand {
 			const commandArgs: ShowQuickCommitFileDetailsCommandArgs = {
 				commit: pick.commit,
 				sha: pick.sha,
-				goBackCommand: currentCommand
+				goBackCommand: currentCommand,
 			};
 			return commands.executeCommand(Commands.ShowQuickCommitFileDetails, pick.commit.toGitUri(), commandArgs);
 		} catch (ex) {

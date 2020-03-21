@@ -12,7 +12,7 @@ import {
 	CommandContext,
 	Commands,
 	getCommandUri,
-	isCommandViewContextWithCommit
+	isCommandViewContextWithCommit,
 } from './common';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
 
@@ -30,7 +30,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
 	static getMarkdownCommandArgs(args: ShowQuickCommitFileDetailsCommandArgs): string {
 		return super.getMarkdownCommandArgsCore<ShowQuickCommitFileDetailsCommandArgs>(
 			Commands.ShowQuickCommitFileDetails,
-			args
+			args,
 		);
 	}
 
@@ -95,7 +95,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
 			} catch (ex) {
 				Logger.error(ex, 'ShowQuickCommitFileDetailsCommand', `getBlameForLine(${blameline})`);
 				return window.showErrorMessage(
-					'Unable to show commit file details. See output channel for more details'
+					'Unable to show commit file details. See output channel for more details',
 				);
 			}
 		}
@@ -128,17 +128,17 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
 			if (args.goBackCommand === undefined) {
 				const commandArgs: ShowQuickCommitDetailsCommandArgs = {
 					commit: args.commit,
-					sha: args.sha
+					sha: args.sha,
 				};
 
 				// Create a command to get back to the commit details
 				args.goBackCommand = new CommandQuickPickItem(
 					{
 						label: `go back ${GlyphChars.ArrowBack}`,
-						description: `to details of ${GlyphChars.Space}$(git-commit) ${shortSha}`
+						description: `to details of ${GlyphChars.Space}$(git-commit) ${shortSha}`,
 					},
 					Commands.ShowQuickCommitDetails,
-					[args.commit.toGitUri(), commandArgs]
+					[args.commit.toGitUri(), commandArgs],
 				);
 			}
 
@@ -148,10 +148,10 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
 					label: `go back ${GlyphChars.ArrowBack}`,
 					description: `to details of ${args.commit.getFormattedPath()} from ${
 						GlyphChars.Space
-					}$(git-commit) ${shortSha}`
+					}$(git-commit) ${shortSha}`,
 				},
 				Commands.ShowQuickCommitFileDetails,
-				[args.commit.toGitUri(), args]
+				[args.commit.toGitUri(), args],
 			);
 
 			const pick = await CommitFileQuickPick.show(
@@ -159,7 +159,7 @@ export class ShowQuickCommitFileDetailsCommand extends ActiveEditorCachedCommand
 				uri,
 				args.goBackCommand,
 				currentCommand,
-				args.fileLog
+				args.fileLog,
 			);
 			if (pick === undefined) return undefined;
 

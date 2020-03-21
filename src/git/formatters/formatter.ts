@@ -55,7 +55,7 @@ export abstract class Formatter<TItem = any, TOptions extends FormatOptions = Fo
 				padDirection: 'left',
 				prefix: undefined,
 				suffix: undefined,
-				truncateTo: undefined
+				truncateTo: undefined,
 			};
 		}
 
@@ -103,7 +103,7 @@ export abstract class Formatter<TItem = any, TOptions extends FormatOptions = Fo
 		formatter: TFormatter | Constructor<TFormatter>,
 		template: string,
 		item: TItem,
-		dateFormatOrOptions?: string | null | TOptions
+		dateFormatOrOptions?: string | null | TOptions,
 	): string {
 		// Preserve spaces
 		template = template.replace(spaceReplacementRegex, '\u00a0');
@@ -113,7 +113,7 @@ export abstract class Formatter<TItem = any, TOptions extends FormatOptions = Fo
 		if (dateFormatOrOptions == null || typeof dateFormatOrOptions === 'string') {
 			// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
 			options = {
-				dateFormat: dateFormatOrOptions
+				dateFormat: dateFormatOrOptions,
 			} as TOptions;
 		} else {
 			options = dateFormatOrOptions;

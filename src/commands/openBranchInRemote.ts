@@ -12,7 +12,7 @@ import {
 	Commands,
 	getCommandUri,
 	getRepoPathOrActiveOrPrompt,
-	isCommandViewContextWithBranch
+	isCommandViewContextWithBranch,
 } from './common';
 import { OpenInRemoteCommandArgs } from './openInRemote';
 
@@ -45,7 +45,7 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
 		const repoPath = await getRepoPathOrActiveOrPrompt(
 			gitUri,
 			editor,
-			`Open branch on remote for which repository${GlyphChars.Ellipsis}`
+			`Open branch on remote for which repository${GlyphChars.Ellipsis}`,
 		);
 		if (!repoPath) return undefined;
 
@@ -59,8 +59,8 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
 						autoPick: true,
 						checkmarks: false,
 						filterBranches: b => b.tracking !== undefined,
-						include: ReferencesQuickPickIncludes.Branches
-					}
+						include: ReferencesQuickPickIncludes.Branches,
+					},
 				);
 				if (pick === undefined || pick instanceof CommandQuickPickItem) return undefined;
 
@@ -72,16 +72,16 @@ export class OpenBranchInRemoteCommand extends ActiveEditorCommand {
 			const commandArgs: OpenInRemoteCommandArgs = {
 				resource: {
 					type: RemoteResourceType.Branch,
-					branch: args.branch || 'HEAD'
+					branch: args.branch || 'HEAD',
 				},
 				remote: args.remote,
-				remotes: remotes
+				remotes: remotes,
 			};
 			return commands.executeCommand(Commands.OpenInRemote, uri, commandArgs);
 		} catch (ex) {
 			Logger.error(ex, 'OpenBranchInRemoteCommandArgs');
 			return window.showErrorMessage(
-				'Unable to open branch on remote provider. See output channel for more details'
+				'Unable to open branch on remote provider. See output channel for more details',
 			);
 		}
 	}

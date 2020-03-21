@@ -7,7 +7,7 @@ import {
 	PinnedComparison,
 	PinnedComparisons,
 	setCommandContext,
-	WorkspaceState
+	WorkspaceState,
 } from '../constants';
 import { Container } from '../container';
 import { CompareNode, CompareResultsNode, nodeSupportsConditionalDismissal, ViewNode } from './nodes';
@@ -35,29 +35,29 @@ export class CompareView extends ViewBase<CompareNode> {
 		commands.registerCommand(
 			this.getQualifiedCommand('copy'),
 			() => commands.executeCommand('gitlens.views.copy', this.selection),
-			this
+			this,
 		);
 		commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this);
 		commands.registerCommand(
 			this.getQualifiedCommand('setFilesLayoutToAuto'),
 			() => this.setFilesLayout(ViewFilesLayout.Auto),
-			this
+			this,
 		);
 		commands.registerCommand(
 			this.getQualifiedCommand('setFilesLayoutToList'),
 			() => this.setFilesLayout(ViewFilesLayout.List),
-			this
+			this,
 		);
 		commands.registerCommand(
 			this.getQualifiedCommand('setFilesLayoutToTree'),
 			() => this.setFilesLayout(ViewFilesLayout.Tree),
-			this
+			this,
 		);
 		commands.registerCommand(this.getQualifiedCommand('setKeepResultsToOn'), () => this.setKeepResults(true), this);
 		commands.registerCommand(
 			this.getQualifiedCommand('setKeepResultsToOff'),
 			() => this.setKeepResults(false),
-			this
+			this,
 		);
 
 		commands.registerCommand(this.getQualifiedCommand('pinComparison'), this.pinComparison, this);
@@ -116,8 +116,8 @@ export class CompareView extends ViewBase<CompareNode> {
 				this,
 				repoPath,
 				typeof ref1 === 'string' ? { ref: ref1 } : ref1,
-				typeof ref2 === 'string' ? { ref: ref2 } : ref2
-			)
+				typeof ref2 === 'string' ? { ref: ref2 } : ref2,
+			),
 		);
 	}
 

@@ -16,7 +16,7 @@ const ImageminPlugin = require('imagemin-webpack-plugin').default;
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const TerserPlugin = require('terser-webpack-plugin');
 
-module.exports = function(env, argv) {
+module.exports = function (env, argv) {
 	env = env || {};
 	env.analyzeBundle = Boolean(env.analyzeBundle);
 	env.analyzeDeps = Boolean(env.analyzeDeps);
@@ -44,8 +44,8 @@ function getExtensionConfig(env) {
 		new ForkTsCheckerPlugin({
 			async: false,
 			eslint: true,
-			useTypescriptIncrementalApi: true
-		})
+			useTypescriptIncrementalApi: true,
+		}),
 	];
 
 	if (env.analyzeDeps) {
@@ -54,12 +54,12 @@ function getExtensionConfig(env) {
 				cwd: __dirname,
 				exclude: /node_modules/,
 				failOnError: false,
-				onDetected: function({ module: webpackModuleRecord, paths, compilation }) {
+				onDetected: function ({ module: webpackModuleRecord, paths, compilation }) {
 					if (paths.some(p => p.includes('container.ts'))) return;
 
 					compilation.warnings.push(new Error(paths.join(' -> ')));
-				}
-			})
+				},
+			}),
 		);
 	}
 
@@ -73,13 +73,13 @@ function getExtensionConfig(env) {
 		mode: env.production ? 'production' : 'development',
 		target: 'node',
 		node: {
-			__dirname: false
+			__dirname: false,
 		},
 		devtool: 'source-map',
 		output: {
 			libraryTarget: 'commonjs2',
 			filename: 'extension.js',
-			chunkFilename: 'feature-[name].js'
+			chunkFilename: 'feature-[name].js',
 		},
 		optimization: {
 			minimizer: [
@@ -92,19 +92,19 @@ function getExtensionConfig(env) {
 						// Keep the class names otherwise @log won't provide a useful name
 						// eslint-disable-next-line @typescript-eslint/camelcase
 						keep_classnames: true,
-						module: true
-					}
-				})
+						module: true,
+					},
+				}),
 			],
 			splitChunks: {
 				cacheGroups: {
-					vendors: false
+					vendors: false,
 				},
-				chunks: 'async'
-			}
+				chunks: 'async',
+			},
 		},
 		externals: {
-			vscode: 'commonjs vscode'
+			vscode: 'commonjs vscode',
 		},
 		module: {
 			rules: [
@@ -116,18 +116,18 @@ function getExtensionConfig(env) {
 						loader: 'ts-loader',
 						options: {
 							experimentalWatchApi: true,
-							transpileOnly: true
-						}
-					}
-				}
-			]
+							transpileOnly: true,
+						},
+					},
+				},
+			],
 		},
 		resolve: {
 			alias: {
-				'universal-user-agent': path.resolve(__dirname, 'node_modules/universal-user-agent/dist-node/index.js')
+				'universal-user-agent': path.resolve(__dirname, 'node_modules/universal-user-agent/dist-node/index.js'),
 			},
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
-			symlinks: false
+			symlinks: false,
 		},
 		plugins: plugins,
 		stats: {
@@ -137,8 +137,8 @@ function getExtensionConfig(env) {
 			env: true,
 			errors: true,
 			timings: true,
-			warnings: true
-		}
+			warnings: true,
+		},
 	};
 }
 
@@ -153,7 +153,7 @@ function getWebviewsConfig(env) {
 		'default-src': "'none'",
 		'img-src': ['vscode-resource:', 'https:', 'data:'],
 		'script-src': ['vscode-resource:', "'nonce-Z2l0bGVucy1ib290c3RyYXA='"],
-		'style-src': ['vscode-resource:']
+		'style-src': ['vscode-resource:'],
 	};
 
 	if (!env.production) {
@@ -174,10 +174,10 @@ function getWebviewsConfig(env) {
 			tsconfig: path.resolve(__dirname, 'tsconfig.webviews.json'),
 			async: false,
 			eslint: true,
-			useTypescriptIncrementalApi: true
+			useTypescriptIncrementalApi: true,
 		}),
 		new MiniCssExtractPlugin({
-			filename: '[name].css'
+			filename: '[name].css',
 		}),
 		new HtmlPlugin({
 			excludeAssets: [/.+-styles\.js/],
@@ -191,8 +191,8 @@ function getWebviewsConfig(env) {
 				policy: cspPolicy,
 				nonceEnabled: {
 					'script-src': true,
-					'style-src': true
-				}
+					'style-src': true,
+				},
 			},
 			minify: env.production
 				? {
@@ -203,9 +203,9 @@ function getWebviewsConfig(env) {
 						removeEmptyAttributes: true,
 						removeStyleLinkTypeAttributes: true,
 						keepClosingSlash: true,
-						minifyCSS: true
+						minifyCSS: true,
 				  }
-				: false
+				: false,
 		}),
 		new HtmlPlugin({
 			excludeAssets: [/.+-styles\.js/],
@@ -219,8 +219,8 @@ function getWebviewsConfig(env) {
 				policy: cspPolicy,
 				nonceEnabled: {
 					'script-src': true,
-					'style-src': true
-				}
+					'style-src': true,
+				},
 			},
 			minify: env.production
 				? {
@@ -231,9 +231,9 @@ function getWebviewsConfig(env) {
 						removeEmptyAttributes: true,
 						removeStyleLinkTypeAttributes: true,
 						keepClosingSlash: true,
-						minifyCSS: true
+						minifyCSS: true,
 				  }
-				: false
+				: false,
 		}),
 		new HtmlExcludeAssetsPlugin(),
 		new CspHtmlPlugin(),
@@ -242,7 +242,7 @@ function getWebviewsConfig(env) {
 			externalImages: {
 				context: path.resolve(__dirname, 'src/webviews/apps/images'),
 				sources: glob.sync('src/webviews/apps/images/settings/*.png'),
-				destination: path.resolve(__dirname, 'images')
+				destination: path.resolve(__dirname, 'images'),
 			},
 			cacheFolder: path.resolve(__dirname, 'node_modules', '.cache', 'imagemin-webpack-plugin'),
 			gifsicle: null,
@@ -250,11 +250,11 @@ function getWebviewsConfig(env) {
 			optipng: null,
 			pngquant: {
 				quality: '85-100',
-				speed: env.production ? 1 : 10
+				speed: env.production ? 1 : 10,
 			},
-			svgo: null
+			svgo: null,
 		}),
-		new HtmlInlineSourcePlugin()
+		new HtmlInlineSourcePlugin(),
 	];
 
 	return {
@@ -263,14 +263,14 @@ function getWebviewsConfig(env) {
 		entry: {
 			'main-styles': ['./scss/main.scss'],
 			settings: ['./settings/index.ts'],
-			welcome: ['./welcome/index.ts']
+			welcome: ['./welcome/index.ts'],
 		},
 		mode: env.production ? 'production' : 'development',
 		devtool: env.production ? undefined : 'eval-source-map',
 		output: {
 			filename: '[name].js',
 			path: path.resolve(__dirname, 'dist/webviews'),
-			publicPath: '#{root}/dist/webviews/'
+			publicPath: '#{root}/dist/webviews/',
 		},
 		module: {
 			rules: [
@@ -283,38 +283,38 @@ function getWebviewsConfig(env) {
 						options: {
 							configFile: 'tsconfig.webviews.json',
 							experimentalWatchApi: true,
-							transpileOnly: true
-						}
-					}
+							transpileOnly: true,
+						},
+					},
 				},
 				{
 					test: /\.scss$/,
 					use: [
 						{
-							loader: MiniCssExtractPlugin.loader
+							loader: MiniCssExtractPlugin.loader,
 						},
 						{
 							loader: 'css-loader',
 							options: {
 								sourceMap: true,
-								url: false
-							}
+								url: false,
+							},
 						},
 						{
 							loader: 'sass-loader',
 							options: {
-								sourceMap: true
-							}
-						}
+								sourceMap: true,
+							},
+						},
 					],
-					exclude: /node_modules/
-				}
-			]
+					exclude: /node_modules/,
+				},
+			],
 		},
 		resolve: {
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 			modules: [path.resolve(__dirname, 'src/webviews/apps'), 'node_modules'],
-			symlinks: false
+			symlinks: false,
 		},
 		plugins: plugins,
 		stats: {
@@ -324,7 +324,7 @@ function getWebviewsConfig(env) {
 			env: true,
 			errors: true,
 			timings: true,
-			warnings: true
-		}
+			warnings: true,
+		},
 	};
 }

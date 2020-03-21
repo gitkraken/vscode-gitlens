@@ -63,7 +63,7 @@ export class GitLogParser {
 		`${lb}s${rb}`,
 		'%B', // summary
 		`${lb}${sl}s${rb}`,
-		`${lb}f${rb}`
+		`${lb}f${rb}`,
 	].join('%n');
 
 	static simpleFormat = `${lb}r${rb}${sp}%H`;
@@ -78,7 +78,7 @@ export class GitLogParser {
 		currentUser: { name?: string; email?: string } | undefined,
 		limit: number | undefined,
 		reverse: boolean,
-		range: Range | undefined
+		range: Range | undefined,
 	): GitLog | undefined {
 		if (!data) return undefined;
 
@@ -125,7 +125,7 @@ export class GitLogParser {
 			switch (token) {
 				case 114: // 'r': // ref
 					entry = {
-						ref: line.substring(4)
+						ref: line.substring(4),
 					};
 					break;
 
@@ -201,12 +201,12 @@ export class GitLogParser {
 									entry.files.push({
 										status: match[1] as GitFileStatus,
 										fileName: renamedFileName,
-										originalFileName: match[2]
+										originalFileName: match[2],
 									});
 								} else {
 									entry.files.push({
 										status: match[1] as GitFileStatus,
-										fileName: match[2]
+										fileName: match[2],
 									});
 								}
 							}
@@ -230,12 +230,12 @@ export class GitLogParser {
 									entry.line = {
 										from: {
 											line: parseInt(match[1], 10),
-											count: parseInt(match[2], 10)
+											count: parseInt(match[2], 10),
 										},
 										to: {
 											line: parseInt(match[3], 10),
-											count: parseInt(match[4], 10)
-										}
+											count: parseInt(match[4], 10),
+										},
 									};
 								}
 
@@ -250,7 +250,7 @@ export class GitLogParser {
 								if (match != null) {
 									entry.fileStats = {
 										insertions: Number(match[1]) || 0,
-										deletions: Number(match[2]) || 0
+										deletions: Number(match[2]) || 0,
 									};
 
 									switch (match[4]) {
@@ -264,7 +264,7 @@ export class GitLogParser {
 
 											renamedFileName = match[3];
 											renamedMatch = fileStatusAndSummaryRenamedFilePathRegex.exec(
-												renamedFileName
+												renamedFileName,
 											);
 											if (renamedMatch != null) {
 												// If there is no new path, the path part was removed so ensure we don't end up with //
@@ -275,7 +275,7 @@ export class GitLogParser {
 												entry.originalFileName = `${renamedMatch[1]}${renamedMatch[2]}${renamedMatch[4]}`;
 											} else {
 												renamedMatch = fileStatusAndSummaryRenamedFileRegex.exec(
-													renamedFileName
+													renamedFileName,
 												);
 												if (renamedMatch != null) {
 													entry.fileName = renamedMatch[2];
@@ -308,7 +308,7 @@ export class GitLogParser {
 
 					if (entry.files !== undefined) {
 						entry.fileName = Arrays.filterMap(entry.files, f => (f.fileName ? f.fileName : undefined)).join(
-							', '
+							', ',
 						);
 					}
 
@@ -317,8 +317,8 @@ export class GitLogParser {
 						repoPath = Strings.normalizePath(
 							fileName.replace(
 								fileName.startsWith(slash) ? `/${entry.fileName}` : entry.fileName!,
-								emptyStr
-							)
+								emptyStr,
+							),
 						);
 						relativeFileName = Strings.normalizePath(paths.relative(repoPath, fileName));
 					} else {
@@ -343,7 +343,7 @@ export class GitLogParser {
 						commits,
 						authors,
 						recentCommit,
-						currentUser
+						currentUser,
 					);
 
 					break;
@@ -359,7 +359,7 @@ export class GitLogParser {
 			count: i,
 			limit: limit,
 			range: range,
-			hasMore: Boolean(truncationCount && i >= truncationCount && truncationCount !== 1)
+			hasMore: Boolean(truncationCount && i >= truncationCount && truncationCount !== 1),
 		};
 		return log;
 	}
@@ -373,7 +373,7 @@ export class GitLogParser {
 		commits: Map<string, GitLogCommit>,
 		authors: Map<string, GitAuthor>,
 		recentCommit: GitLogCommit | undefined,
-		currentUser: { name?: string; email?: string } | undefined
+		currentUser: { name?: string; email?: string } | undefined,
 	): GitLogCommit | undefined {
 		if (commit === undefined) {
 			if (entry.author !== undefined) {
@@ -393,7 +393,7 @@ export class GitLogParser {
 				if (author === undefined) {
 					author = {
 						name: entry.author,
-						lineCount: 0
+						lineCount: 0,
 					};
 					authors.set(entry.author, author);
 				}
@@ -407,8 +407,8 @@ export class GitLogParser {
 					{
 						status: entry.status!,
 						fileName: relativeFileName,
-						originalFileName: originalFileName
-					}
+						originalFileName: originalFileName,
+					},
 				];
 			}
 
@@ -429,7 +429,7 @@ export class GitLogParser {
 				undefined,
 				entry.fileStats,
 				entry.parentShas,
-				entry.line
+				entry.line,
 			);
 
 			commits.set(entry.ref!, commit);
@@ -455,7 +455,7 @@ export class GitLogParser {
 	static parseSimple(
 		data: string,
 		skip: number,
-		skipRef?: string
+		skipRef?: string,
 	): [string | undefined, string | undefined, GitFileStatus | undefined] {
 		let ref;
 		let diffFile;
@@ -487,14 +487,14 @@ export class GitLogParser {
 		return [
 			ref == null || ref.length === 0 ? undefined : ` ${ref}`.substr(1),
 			file,
-			status as GitFileStatus | undefined
+			status as GitFileStatus | undefined,
 		];
 	}
 
 	@debug({ args: false })
 	static parseSimpleRenamed(
 		data: string,
-		originalFileName: string
+		originalFileName: string,
 	): [string | undefined, string | undefined, GitFileStatus | undefined] {
 		let match = logFileSimpleRenamedRegex.exec(data);
 		if (match == null) return [undefined, undefined, undefined];
@@ -533,7 +533,7 @@ export class GitLogParser {
 			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
 			ref == null || ref.length === 0 || file == null ? undefined : ` ${ref}`.substr(1),
 			file,
-			status as GitFileStatus | undefined
+			status as GitFileStatus | undefined,
 		];
 	}
 }

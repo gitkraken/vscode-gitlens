@@ -37,7 +37,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 		const gitUri = await GitUri.fromUri(uri);
 
 		const placeHolder = `Compare ${gitUri.getFormattedPath({
-			suffix: args.reference ? ` (${args.reference.name})` : undefined
+			suffix: args.reference ? ` (${args.reference.name})` : undefined,
 		})}${gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''} with revision${
 			GlyphChars.Ellipsis
 		}`;
@@ -46,7 +46,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 		try {
 			const log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
 				limit: args.limit,
-				ref: (args.reference && args.reference.ref) || gitUri.sha
+				ref: (args.reference && args.reference.ref) || gitUri.sha,
 			});
 			if (log === undefined) {
 				if (args.reference) {
@@ -65,10 +65,10 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 				const npc = new CommandQuickPickItem(
 					{
 						label: '$(arrow-right) Show Next Commits',
-						description: `shows ${log.limit} newer commits`
+						description: `shows ${log.limit} newer commits`,
 					},
 					Commands.DiffWithRevision,
-					[uri, commandArgs]
+					[uri, commandArgs],
 				);
 
 				const last = Iterables.last(log.commits.values());
@@ -77,10 +77,10 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 					previousPageCommand = new CommandQuickPickItem(
 						{
 							label: '$(arrow-left) Show Previous Commits',
-							description: `shows ${log.limit} older commits`
+							description: `shows ${log.limit} older commits`,
 						},
 						Commands.DiffWithRevision,
-						[new GitUri(uri, last), commandArgs]
+						[new GitUri(uri, last), commandArgs],
 					);
 				}
 			}
@@ -100,10 +100,10 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 							: gitUri.sha
 							? ` from ${GlyphChars.Space}$(git-commit) ${gitUri.shortSha}`
 							: ''
-					}`
+					}`,
 				},
 				Commands.DiffWithRevision,
-				[uri, commandArgs]
+				[uri, commandArgs],
 			);
 
 			commandArgs = { ...args, limit: 0 };
@@ -117,12 +117,12 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 					? new CommandQuickPickItem(
 							{
 								label: '$(sync) Show All Commits',
-								description: 'this may take a while'
+								description: 'this may take a while',
 							},
 							Commands.DiffWithRevision,
-							[uri, commandArgs]
+							[uri, commandArgs],
 					  )
-					: undefined
+					: undefined,
 			});
 			if (pick === undefined) return undefined;
 
@@ -133,7 +133,7 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 
 				commandArgs = {
 					...args,
-					reference: reference.item
+					reference: reference.item,
 				};
 				return commands.executeCommand(Commands.DiffWithRevision, gitUri, commandArgs);
 			}
@@ -146,14 +146,14 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 				repoPath: gitUri.repoPath,
 				lhs: {
 					sha: ref,
-					uri: gitUri as Uri
+					uri: gitUri as Uri,
 				},
 				rhs: {
 					sha: '',
-					uri: gitUri as Uri
+					uri: gitUri as Uri,
 				},
 				line: args.line,
-				showOptions: args.showOptions
+				showOptions: args.showOptions,
 			};
 			return await commands.executeCommand(Commands.DiffWith, diffArgs);
 		} catch (ex) {

@@ -22,7 +22,7 @@ export interface EmitterOptions {
 
 export class Emitter<T> {
 	// eslint-disable-next-line  @typescript-eslint/no-empty-function
-	private static readonly _noop = function() {};
+	private static readonly _noop = function () {};
 
 	private readonly _options?: EmitterOptions;
 	private _disposed: boolean = false;
@@ -75,7 +75,7 @@ export class Emitter<T> {
 								}
 							}
 						}
-					}
+					},
 				};
 				if (Array.isArray(disposables)) {
 					disposables.push(result);
@@ -264,7 +264,7 @@ class LinkedList<E> {
 		let element: { done: false; value: E };
 		let node = this._first;
 		return {
-			next: function(): IteratorResult<E> {
+			next: function (): IteratorResult<E> {
 				if (node === Node.Undefined) {
 					return FIN;
 				}
@@ -276,7 +276,7 @@ class LinkedList<E> {
 				}
 				node = node.next;
 				return element;
-			}
+			},
 		};
 	}
 

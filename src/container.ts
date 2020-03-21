@@ -320,7 +320,7 @@ export class Container {
 
 			if (command !== undefined) {
 				const commandArgs: ToggleFileBlameCommandArgs = {
-					on: true
+					on: true,
 				};
 				// Make sure to delay the execution by a bit so that the configuration changes get propegated first
 				setTimeout(() => commands.executeCommand(command!, commandArgs), 50);
@@ -378,7 +378,7 @@ export class Container {
 				`gitlens.${configuration.name('views', 'fileHistory')}`,
 				`gitlens.${configuration.name('views', 'lineHistory')}`,
 				`gitlens.${configuration.name('views', 'repositories')}`,
-				`gitlens.${configuration.name('views', 'search')}`
+				`gitlens.${configuration.name('views', 'search')}`,
 			];
 		}
 
@@ -391,7 +391,7 @@ export class Container {
 				}
 
 				return original(section, resource);
-			}
+			},
 		};
 	}
 }

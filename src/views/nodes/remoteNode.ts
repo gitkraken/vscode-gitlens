@@ -23,7 +23,7 @@ export class RemoteNode extends ViewNode<RepositoriesView> {
 		view: RepositoriesView,
 		parent: ViewNode,
 		public readonly remote: GitRemote,
-		public readonly repo: Repository
+		public readonly repo: Repository,
 	) {
 		super(uri, view, parent);
 	}
@@ -40,7 +40,7 @@ export class RemoteNode extends ViewNode<RepositoriesView> {
 		const branches = await this.repo.getBranches({
 			// only show remote branches for this remote
 			filter: b => b.remote && b.name.startsWith(this.remote.name),
-			sort: true
+			sort: true,
 		});
 		if (branches.length === 0) return [new MessageNode(this.view, this, 'No branches could be found.')];
 
@@ -55,7 +55,7 @@ export class RemoteNode extends ViewNode<RepositoriesView> {
 			b => {
 				b.compacted = true;
 				return true;
-			}
+			},
 		);
 
 		const root = new BranchOrTagFolderNode(
@@ -66,7 +66,7 @@ export class RemoteNode extends ViewNode<RepositoriesView> {
 			'',
 			undefined,
 			hierarchy,
-			`remote(${this.remote.name})`
+			`remote(${this.remote.name})`,
 		);
 		const children = root.getChildren();
 		return children;
@@ -100,7 +100,7 @@ export class RemoteNode extends ViewNode<RepositoriesView> {
 
 		const item = new TreeItem(
 			`${this.remote.default ? `${GlyphChars.Check} ${GlyphChars.Space}` : ''}${this.remote.name}`,
-			TreeItemCollapsibleState.Collapsed
+			TreeItemCollapsibleState.Collapsed,
 		);
 
 		if (this.remote.provider != null) {
@@ -109,7 +109,7 @@ export class RemoteNode extends ViewNode<RepositoriesView> {
 			item.description = `${arrows}${GlyphChars.Space} ${provider.name} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} ${provider.displayPath}`;
 			item.iconPath = {
 				dark: Container.context.asAbsolutePath(`images/dark/icon-${provider.icon}.svg`),
-				light: Container.context.asAbsolutePath(`images/light/icon-${provider.icon}.svg`)
+				light: Container.context.asAbsolutePath(`images/light/icon-${provider.icon}.svg`),
 			};
 
 			if (provider.hasApi()) {
@@ -132,7 +132,7 @@ export class RemoteNode extends ViewNode<RepositoriesView> {
 			item.contextValue = ResourceType.Remote;
 			item.iconPath = {
 				dark: Container.context.asAbsolutePath('images/dark/icon-remote.svg'),
-				light: Container.context.asAbsolutePath('images/light/icon-remote.svg')
+				light: Container.context.asAbsolutePath('images/light/icon-remote.svg'),
 			};
 			item.tooltip = `${this.remote.name} (${this.remote.domain})\n${this.remote.path}\n`;
 		}

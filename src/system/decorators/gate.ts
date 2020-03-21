@@ -30,7 +30,7 @@ export function gate<T extends (...arg: any) => any>(resolver?: (...args: Parame
 
 		const gateKey = `$gate$${key}`;
 
-		descriptor.value = function(this: any, ...args: any[]) {
+		descriptor.value = function (this: any, ...args: any[]) {
 			const prop =
 				args.length === 0 ? gateKey : `${gateKey}$${(resolver || defaultResolver)(...(args as Parameters<T>))}`;
 
@@ -39,7 +39,7 @@ export function gate<T extends (...arg: any) => any>(resolver?: (...args: Parame
 					configurable: false,
 					enumerable: false,
 					writable: true,
-					value: undefined
+					value: undefined,
 				});
 			}
 

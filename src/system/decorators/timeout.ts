@@ -8,7 +8,7 @@ export function timeout<T extends (...arg: any) => any>(timeout: number): any;
 export function timeout<T extends (...arg: any) => any>(timeoutFromLastArg: true, defaultTimeout?: number): any;
 export function timeout<T extends (...arg: any) => any>(
 	timeoutOrTimeoutFromLastArg: number | boolean,
-	defaultTimeout?: number
+	defaultTimeout?: number,
 ): any {
 	let timeout: number | undefined;
 	let timeoutFromLastArg = false;
@@ -25,7 +25,7 @@ export function timeout<T extends (...arg: any) => any>(
 		}
 		if (fn == null) throw new Error('Not supported');
 
-		descriptor.value = function(this: any, ...args: any[]) {
+		descriptor.value = function (this: any, ...args: any[]) {
 			if (timeoutFromLastArg) {
 				const lastArg = args[args.length - 1];
 				if (lastArg != null && typeof lastArg === 'number') {
@@ -56,7 +56,7 @@ export function timeout<T extends (...arg: any) => any>(
 						clearTimeout(id);
 						reject(new Promises.CancellationError(result, `Timed out after ${timeout} ms`));
 					}, timeout!);
-				})
+				}),
 			]);
 		};
 	};

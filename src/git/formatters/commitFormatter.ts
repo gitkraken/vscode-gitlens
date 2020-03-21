@@ -6,7 +6,7 @@ import {
 	OpenCommitInRemoteCommand,
 	OpenFileRevisionCommand,
 	ShowQuickCommitDetailsCommand,
-	ShowQuickCommitFileDetailsCommand
+	ShowQuickCommitFileDetailsCommand,
 } from '../../commands';
 import { DateStyle, FileAnnotationType } from '../../configuration';
 import { GlyphChars } from '../../constants';
@@ -182,7 +182,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	get changes() {
 		return this._padOrTruncate(
 			GitLogCommit.is(this._item) ? this._item.getFormattedDiffStatus() : emptyStr,
-			this._options.tokenOptions.changes
+			this._options.tokenOptions.changes,
 		);
 	}
 
@@ -191,7 +191,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			GitLogCommit.is(this._item)
 				? this._item.getFormattedDiffStatus({ compact: true, separator: emptyStr })
 				: emptyStr,
-			this._options.tokenOptions.changesShort
+			this._options.tokenOptions.changesShort,
 		);
 	}
 
@@ -206,29 +206,29 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					GitService.shortenSha(
 						GitService.isUncommittedStaged(diffUris.current.sha)
 							? diffUris.current.sha
-							: GitService.uncommittedSha
+							: GitService.uncommittedSha,
 					)!,
-					this._options.tokenOptions.id
+					this._options.tokenOptions.id,
 				)}\``;
 
 				commands += `&nbsp; **[\`${GlyphChars.MuchLessThan}\`](${DiffWithCommand.getMarkdownCommandArgs({
 					lhs: {
 						sha: diffUris.previous.sha || emptyStr,
-						uri: diffUris.previous.documentUri()
+						uri: diffUris.previous.documentUri(),
 					},
 					rhs: {
 						sha: diffUris.current.sha || emptyStr,
-						uri: diffUris.current.documentUri()
+						uri: diffUris.current.documentUri(),
 					},
 					repoPath: this._item.repoPath,
-					line: this._options.line
+					line: this._options.line,
 				})} "Open Changes")** `;
 			} else {
 				commands = `\`${this._padOrTruncate(
 					GitService.shortenSha(
-						this._item.isUncommittedStaged ? GitService.uncommittedStagedSha : GitService.uncommittedSha
+						this._item.isUncommittedStaged ? GitService.uncommittedStagedSha : GitService.uncommittedSha,
 					)!,
-					this._options.tokenOptions.id
+					this._options.tokenOptions.id,
 				)}\``;
 			}
 
@@ -238,7 +238,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		const separator = ' &nbsp;&nbsp;|&nbsp;&nbsp; ';
 
 		commands = `---\n\n[$(git-commit) ${this.id}](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
-			this._item.sha
+			this._item.sha,
 		)} "Show Commit Details")${separator}`;
 
 		const { pullRequestOrRemote: pr } = this._options;
@@ -260,7 +260,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 		commands += `[$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs(
 			this._item,
-			this._options.line
+			this._options.line,
 		)} "Open Changes")${separator}`;
 
 		if (this._item.previousSha !== undefined) {
@@ -272,18 +272,18 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			const uri = GitUri.toRevisionUri(
 				this._item.previousSha,
 				this._item.previousUri.fsPath,
-				this._item.repoPath
+				this._item.repoPath,
 			);
 			commands += `[$(history)](${OpenFileRevisionCommand.getMarkdownCommandArgs(
 				uri,
 				annotationType || FileAnnotationType.Blame,
-				this._options.line
+				this._options.line,
 			)} "Blame Previous Revision")${separator}`;
 		}
 
 		if (this._options.remotes !== undefined && this._options.remotes.length !== 0) {
 			commands += `[$(link-external)](${OpenCommitInRemoteCommand.getMarkdownCommandArgs(
-				this._item.sha
+				this._item.sha,
 			)} "Open on Remote")${separator}`;
 		}
 
@@ -291,13 +291,13 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			const presence = this._options.presence;
 			if (presence != null) {
 				commands += `[$(live-share)](${InviteToLiveShareCommand.getMarkdownCommandArgs(
-					this._item.email
+					this._item.email,
 				)} "Invite ${this._item.author} (${presence.statusText}) to a Live Share Session")${separator}`;
 			}
 		}
 
 		commands += `[$(ellipsis)](${ShowQuickCommitFileDetailsCommand.getMarkdownCommandArgs({
-			revisionUri: GitUri.toRevisionUri(this._item.toGitUri()).toString(true)
+			revisionUri: GitUri.toRevisionUri(this._item.toGitUri()).toString(true),
 		})} "Show More Actions")`;
 
 		return commands;
@@ -334,7 +334,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 			return this._padOrTruncate(
 				`${this._options.markdown ? '\n> ' : ''}${staged ? 'Staged' : 'Uncommitted'} changes`,
-				this._options.tokenOptions.message
+				this._options.tokenOptions.message,
 			);
 		}
 
@@ -354,7 +354,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				this._options.markdown ? Strings.escapeMarkdown(message, { quoted: true }) : message,
 				this._options.markdown ?? false,
 				this._options.remotes,
-				this._options.autolinkedIssuesOrPullRequests
+				this._options.autolinkedIssuesOrPullRequests,
 			);
 		}
 
@@ -418,12 +418,12 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	static fromTemplate(
 		template: string,
 		commit: GitCommit,
-		dateFormatOrOptions?: string | null | CommitFormatOptions
+		dateFormatOrOptions?: string | null | CommitFormatOptions,
 	): string;
 	static fromTemplate(
 		template: string,
 		commit: GitCommit,
-		dateFormatOrOptions?: string | null | CommitFormatOptions
+		dateFormatOrOptions?: string | null | CommitFormatOptions,
 	): string {
 		return super.fromTemplateCore(this, template, commit, dateFormatOrOptions);
 	}

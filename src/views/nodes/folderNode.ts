@@ -24,7 +24,7 @@ export class FolderNode extends ViewNode<ViewWithFiles> {
 		public readonly folderName: string,
 		public readonly root: Arrays.HierarchicalItem<FileNode>,
 		private readonly containsWorkingFiles?: boolean,
-		public readonly relativePath?: string
+		public readonly relativePath?: string,
 	) {
 		super(GitUri.fromRepoPath(repoPath), view, parent);
 	}
@@ -41,7 +41,7 @@ export class FolderNode extends ViewNode<ViewWithFiles> {
 		const nesting = FolderNode.getFileNesting(
 			this.view.config.files,
 			this.root.descendants,
-			this.relativePath === undefined
+			this.relativePath === undefined,
 		);
 		if (nesting === ViewFilesLayout.List) {
 			this.root.descendants.forEach(n => (n.relativePath = this.root.relativePath));
@@ -58,8 +58,8 @@ export class FolderNode extends ViewNode<ViewWithFiles> {
 							folder.name,
 							folder,
 							this.containsWorkingFiles,
-							folder.relativePath
-						)
+							folder.relativePath,
+						),
 					);
 					continue;
 				}
@@ -100,7 +100,7 @@ export class FolderNode extends ViewNode<ViewWithFiles> {
 	static getFileNesting<T extends FileNode>(
 		config: ViewsFilesConfig,
 		children: T[],
-		isRoot: boolean
+		isRoot: boolean,
 	): ViewFilesLayout {
 		const nesting = config.layout || ViewFilesLayout.Auto;
 		if (nesting === ViewFilesLayout.Auto) {

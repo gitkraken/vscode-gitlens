@@ -9,7 +9,7 @@ import {
 	BranchHistoryQuickPick,
 	CommandQuickPickItem,
 	ReferencesQuickPick,
-	ReferencesQuickPickIncludes
+	ReferencesQuickPickIncludes,
 } from '../quickpicks';
 import { ActiveEditorCachedCommand, command, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
 import { ShowQuickCommitDetailsCommandArgs } from './showQuickCommitDetails';
@@ -45,7 +45,7 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
 				(await getRepoPathOrActiveOrPrompt(
 					gitUri,
 					editor,
-					`Show branch history in which repository${GlyphChars.Ellipsis}`
+					`Show branch history in which repository${GlyphChars.Ellipsis}`,
 				));
 			if (!repoPath) return undefined;
 
@@ -55,10 +55,10 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
 					goBackCommand = new CommandQuickPickItem(
 						{
 							label: `go back ${GlyphChars.ArrowBack}`,
-							description: 'to which repository'
+							description: 'to which repository',
 						},
 						Commands.ShowQuickBranchHistory,
-						[uri, args]
+						[uri, args],
 					);
 				}
 
@@ -67,8 +67,8 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
 					{
 						checkmarks: false,
 						goBack: goBackCommand,
-						include: ReferencesQuickPickIncludes.Branches
-					}
+						include: ReferencesQuickPickIncludes.Branches,
+					},
 				);
 				if (pick === undefined) return undefined;
 				if (pick instanceof CommandQuickPickItem) return pick.execute();
@@ -82,7 +82,7 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
 			if (args.log === undefined) {
 				args.log = await Container.git.getLog(repoPath, {
 					limit: args.limit,
-					ref: (gitUri && gitUri.sha) || args.branch
+					ref: (gitUri && gitUri.sha) || args.branch,
 				});
 				if (args.log === undefined) return window.showWarningMessage('Unable to show branch history');
 			}
@@ -97,7 +97,7 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
 				args.branch,
 				progressCancellation!,
 				args.goBackCommand,
-				args.nextPageCommand
+				args.nextPageCommand,
 			);
 			if (pick === undefined) return undefined;
 
@@ -107,17 +107,17 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
 			const currentCommand = new CommandQuickPickItem(
 				{
 					label: `go back ${GlyphChars.ArrowBack}`,
-					description: `to history of ${GlyphChars.Space}$(git-branch) ${args.branch}`
+					description: `to history of ${GlyphChars.Space}$(git-branch) ${args.branch}`,
 				},
 				Commands.ShowQuickBranchHistory,
-				[uri, { ...args }]
+				[uri, { ...args }],
 			);
 
 			const commandArgs: ShowQuickCommitDetailsCommandArgs = {
 				sha: pick.item.sha,
 				commit: pick.item,
 				repoLog: args.log,
-				goBackCommand: currentCommand
+				goBackCommand: currentCommand,
 			};
 			return commands.executeCommand(Commands.ShowQuickCommitDetails, pick.item.toGitUri(), commandArgs);
 		} catch (ex) {

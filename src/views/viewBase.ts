@@ -14,7 +14,7 @@ import {
 	TreeView,
 	TreeViewExpansionEvent,
 	TreeViewVisibilityChangeEvent,
-	window
+	window,
 } from 'vscode';
 import { configuration } from '../configuration';
 import { Container } from '../container';
@@ -58,15 +58,14 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 	constructor(public readonly id: string, public readonly name: string) {
 		if (Logger.isDebugging) {
 			const fn = this.getTreeItem;
-			this.getTreeItem = async function(this: ViewBase<TRoot>, node: ViewNode) {
+			this.getTreeItem = async function (this: ViewBase<TRoot>, node: ViewNode) {
 				const item = await fn.apply(this, [node]);
 
 				const parent = node.getParent();
 				if (parent !== undefined) {
-					item.tooltip = `${item.tooltip ||
-						item.label}\n\nDBG:\nnode: ${node.toString()}\nparent: ${parent.toString()}\ncontext: ${
-						item.contextValue
-					}`;
+					item.tooltip = `${
+						item.tooltip || item.label
+					}\n\nDBG:\nnode: ${node.toString()}\nparent: ${parent.toString()}\ncontext: ${item.contextValue}`;
 				} else {
 					item.tooltip = `${item.tooltip || item.label}\n\nDBG:\nnode: ${node.toString()}\ncontext: ${
 						item.contextValue
@@ -104,13 +103,13 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 
 		this._tree = window.createTreeView(`${this.id}${container ? `:${container}` : ''}`, {
 			...options,
-			treeDataProvider: this
+			treeDataProvider: this,
 		});
 		this._disposable = Disposable.from(
 			this._tree,
 			this._tree.onDidChangeVisibility(Functions.debounce(this.onVisibilityChanged, 250), this),
 			this._tree.onDidCollapseElement(this.onElementCollapsed, this),
-			this._tree.onDidExpandElement(this.onElementExpanded, this)
+			this._tree.onDidExpandElement(this.onElementExpanded, this),
 		);
 	}
 
@@ -166,7 +165,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 			canTraverse?: (node: ViewNode) => boolean | Promise<boolean>;
 			maxDepth?: number;
 			token?: CancellationToken;
-		}
+		},
 	): Promise<ViewNode | undefined>;
 	async findNode(
 		predicate: (node: ViewNode) => boolean,
@@ -175,7 +174,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 			canTraverse?: (node: ViewNode) => boolean | Promise<boolean>;
 			maxDepth?: number;
 			token?: CancellationToken;
-		}
+		},
 	): Promise<ViewNode | undefined>;
 	@log({
 		args: {
@@ -186,8 +185,8 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 				canTraverse?: (node: ViewNode) => boolean | Promise<boolean>;
 				maxDepth?: number;
 				token?: CancellationToken;
-			}) => `options=${JSON.stringify({ ...opts, canTraverse: undefined, token: undefined })}`
-		}
+			}) => `options=${JSON.stringify({ ...opts, canTraverse: undefined, token: undefined })}`,
+		},
 	})
 	async findNode(
 		predicate: string | ((node: ViewNode) => boolean),
@@ -195,13 +194,13 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 			allowPaging = false,
 			canTraverse,
 			maxDepth = 2,
-			token
+			token,
 		}: {
 			allowPaging?: boolean;
 			canTraverse?: (node: ViewNode) => boolean | Promise<boolean>;
 			maxDepth?: number;
 			token?: CancellationToken;
-		} = {}
+		} = {},
 	): Promise<ViewNode | undefined> {
 		const cc = Logger.getCorrelationContext();
 
@@ -217,7 +216,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 				allowPaging,
 				canTraverse,
 				maxDepth,
-				token
+				token,
 			);
 
 			return node;
@@ -233,7 +232,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 		allowPaging: boolean,
 		canTraverse: ((node: ViewNode) => boolean | Promise<boolean>) | undefined,
 		maxDepth: number,
-		token: CancellationToken | undefined
+		token: CancellationToken | undefined,
 	): Promise<ViewNode | undefined> {
 		const queue: (ViewNode | undefined)[] = [root, undefined];
 
@@ -283,8 +282,8 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 							Promise.resolve(node.getChildren()),
 							token || 60000,
 							{
-								onDidCancel: resolve => resolve([])
-							}
+								onDidCancel: resolve => resolve([]),
+							},
 						);
 
 						child = pagedChildren.find(predicate);
@@ -314,7 +313,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 	}
 
 	@debug({
-		args: { 0: (n: ViewNode) => n.toString() }
+		args: { 0: (n: ViewNode) => n.toString() },
 	})
 	async refreshNode(node: ViewNode, reset: boolean = false) {
 		if (node.refresh !== undefined) {
@@ -326,7 +325,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 	}
 
 	@log({
-		args: { 0: (n: ViewNode) => n.toString() }
+		args: { 0: (n: ViewNode) => n.toString() },
 	})
 	async reveal(
 		node: ViewNode,
@@ -334,7 +333,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 			select?: boolean;
 			focus?: boolean;
 			expand?: boolean | number;
-		}
+		},
 	) {
 		if (this._tree === undefined) return;
 
@@ -360,7 +359,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 
 				const result = await window.showErrorMessage(
 					`Unable to show the ${this.name} view since it's currently disabled. Would you like to enable it?`,
-					...actions
+					...actions,
 				);
 
 				if (result === actions[0]) {
@@ -385,13 +384,13 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 	@debug({
 		args: {
 			0: (n: ViewNode & PageableViewNode) => n.toString(),
-			3: (n?: ViewNode) => (n === undefined ? '' : n.toString())
-		}
+			3: (n?: ViewNode) => (n === undefined ? '' : n.toString()),
+		},
 	})
 	async showMoreNodeChildren(
 		node: ViewNode & PageableViewNode,
 		limit: number | { until: any } | undefined,
-		previousNode?: ViewNode
+		previousNode?: ViewNode,
 	) {
 		if (previousNode !== undefined) {
 			void (await this.reveal(previousNode, { select: true }));
@@ -402,7 +401,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 	}
 
 	@debug({
-		args: { 0: (n: ViewNode) => (n != null ? n.toString() : '') }
+		args: { 0: (n: ViewNode) => (n != null ? n.toString() : '') },
 	})
 	triggerNodeChange(node?: ViewNode) {
 		// Since the root node won't actually refresh, force everything

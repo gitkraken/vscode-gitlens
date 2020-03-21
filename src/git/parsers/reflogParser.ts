@@ -14,7 +14,7 @@ export class GitReflogParser {
 	static defaultFormat = [
 		`${lb}r${rb}%H`, // ref
 		`${lb}d${rb}%gD`, // reflog selector (with iso8601 timestamp)
-		`${lb}s${rb}%gs` // reflog subject
+		`${lb}s${rb}%gs`, // reflog subject
 		// `${lb}n${rb}%D` // ref names
 	].join('');
 
@@ -24,7 +24,7 @@ export class GitReflogParser {
 		repoPath: string,
 		commands: string[],
 		limit: number,
-		totalLimit: number
+		totalLimit: number,
 	): GitReflog | undefined {
 		if (!data) return undefined;
 
@@ -106,7 +106,7 @@ export class GitReflogParser {
 					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
 					commandArgs == null || commandArgs.length === 0 ? undefined : commandArgs.substr(1),
 					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-					details == null || details.length === 0 ? undefined : details.substr(1)
+					details == null || details.length === 0 ? undefined : details.substr(1),
 				);
 				recordDate = date;
 			}
@@ -121,7 +121,7 @@ export class GitReflogParser {
 			count: count,
 			total: total,
 			limit: limit,
-			hasMore: (limit !== 0 && count >= limit) || (totalLimit !== 0 && total >= totalLimit)
+			hasMore: (limit !== 0 && count >= limit) || (totalLimit !== 0 && total >= totalLimit),
 		};
 	}
 }

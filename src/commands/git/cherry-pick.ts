@@ -11,7 +11,7 @@ import {
 	QuickPickStep,
 	StepAsyncGenerator,
 	StepSelection,
-	StepState
+	StepState,
 } from '../quickCommand';
 import {
 	CommitQuickPickItem,
@@ -19,7 +19,7 @@ import {
 	DirectiveQuickPickItem,
 	FlagsQuickPickItem,
 	ReferencesQuickPickItem,
-	RepositoryQuickPickItem
+	RepositoryQuickPickItem,
 } from '../../quickpicks';
 import { Logger } from '../../logger';
 
@@ -39,7 +39,7 @@ export interface CherryPickGitCommandArgs {
 export class CherryPickGitCommand extends QuickCommandBase<State> {
 	constructor(args?: CherryPickGitCommandArgs) {
 		super('cherry-pick', 'cherry-pick', 'Cherry Pick', {
-			description: 'integrates changes from specified commits into the current branch'
+			description: 'integrates changes from specified commits into the current branch',
 		});
 
 		if (args == null || args.state === undefined) return;
@@ -56,7 +56,7 @@ export class CherryPickGitCommand extends QuickCommandBase<State> {
 		this._initialState = {
 			counter: counter,
 			confirm: true,
-			...args.state
+			...args.state,
 		};
 	}
 
@@ -102,10 +102,10 @@ export class CherryPickGitCommand extends QuickCommandBase<State> {
 									RepositoryQuickPickItem.create(r, r.id === (active && active.id), {
 										branch: true,
 										fetched: true,
-										status: true
-									})
-								)
-							)
+										status: true,
+									}),
+								),
+							),
 						});
 						const selection: StepSelection<typeof step> = yield step;
 
@@ -128,14 +128,14 @@ export class CherryPickGitCommand extends QuickCommandBase<State> {
 							state.repo.formattedName
 						}`,
 						placeholder: `Choose a branch or tag to cherry-pick from${GlyphChars.Space.repeat(
-							3
+							3,
 						)}(select or enter a reference)`,
 						matchOnDescription: true,
 						matchOnDetail: true,
 						items: await getBranchesAndOrTags(state.repo, ['branches', 'tags'], {
-							filterBranches: b => b.id !== destId
+							filterBranches: b => b.id !== destId,
 						}),
-						onValidateValue: getValidateGitReferenceFn(state.repo)
+						onValidateValue: getValidateGitReferenceFn(state.repo),
 					});
 					const selection: StepSelection<typeof step> = yield step;
 
@@ -158,7 +158,7 @@ export class CherryPickGitCommand extends QuickCommandBase<State> {
 				if (selectedBranchOrTag !== undefined && state.counter < 3) {
 					const log = await Container.git.getLog(state.repo.path, {
 						ref: GitRevision.createRange(destination.ref, selectedBranchOrTag.ref),
-						merges: false
+						merges: false,
 					});
 
 					const step = this.createPickStep<CommitQuickPickItem>({
@@ -176,7 +176,7 @@ export class CherryPickGitCommand extends QuickCommandBase<State> {
 							log === undefined
 								? [
 										DirectiveQuickPickItem.create(Directive.Back, true),
-										DirectiveQuickPickItem.create(Directive.Cancel)
+										DirectiveQuickPickItem.create(Directive.Cancel),
 								  ]
 								: [
 										...Iterables.map(log.commits.values(), commit =>
@@ -185,10 +185,10 @@ export class CherryPickGitCommand extends QuickCommandBase<State> {
 												state.references
 													? state.references.some(r => r.ref === commit.ref)
 													: undefined,
-												{ compact: true, icon: true }
-											)
-										)
-								  ]
+												{ compact: true, icon: true },
+											),
+										),
+								  ],
 					});
 					const selection: StepSelection<typeof step> = yield step;
 
@@ -213,7 +213,7 @@ export class CherryPickGitCommand extends QuickCommandBase<State> {
 								state.references!.length === 1
 									? `commit ${state.references![0].name}`
 									: `${state.references!.length} commits`
-							} onto ${destination.name}`
+							} onto ${destination.name}`,
 						}),
 						FlagsQuickPickItem.create<Flags>(state.flags, ['--edit'], {
 							label: `${this.title} & Edit`,
@@ -226,9 +226,9 @@ export class CherryPickGitCommand extends QuickCommandBase<State> {
 								state.references!.length === 1
 									? `commit ${state.references![0].name}`
 									: `${state.references!.length} commits`
-							} onto ${destination.name}`
-						})
-					]
+							} onto ${destination.name}`,
+						}),
+					],
 				);
 				const selection: StepSelection<typeof step> = yield step;
 

@@ -37,7 +37,7 @@ export class CoAuthorsGitCommand extends QuickCommandBase<State> {
 		this._initialState = {
 			counter: counter,
 			confirm: args.confirm,
-			...args.state
+			...args.state,
 		};
 	}
 
@@ -89,7 +89,7 @@ export class CoAuthorsGitCommand extends QuickCommandBase<State> {
 					if (gitApi !== undefined) {
 						// Filter out any repo's that are not known to the built-in git
 						repos = repos.filter(repo =>
-							gitApi.repositories.find(r => Strings.normalizePath(r.rootUri.fsPath) === repo.path)
+							gitApi.repositories.find(r => Strings.normalizePath(r.rootUri.fsPath) === repo.path),
 						);
 
 						// Ensure that the active repo is known to the built-in git
@@ -121,10 +121,10 @@ export class CoAuthorsGitCommand extends QuickCommandBase<State> {
 												RepositoryQuickPickItem.create(r, r.id === (active && active.id), {
 													branch: true,
 													fetched: true,
-													status: true
-												})
-											)
-									  )
+													status: true,
+												}),
+											),
+									  ),
 						});
 						const selection: StepSelection<typeof step> = yield step;
 
@@ -143,8 +143,8 @@ export class CoAuthorsGitCommand extends QuickCommandBase<State> {
 						placeholder: 'Choose contributors to add as co-authors',
 						matchOnDescription: true,
 						items: (await Container.git.getContributors(state.repo.path)).map(c =>
-							ContributorQuickPickItem.create(c)
-						)
+							ContributorQuickPickItem.create(c),
+						),
 					});
 					const selection: StepSelection<typeof step> = yield step;
 

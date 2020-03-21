@@ -10,7 +10,7 @@ import {
 	Repository,
 	RepositoryChange,
 	RepositoryChangeEvent,
-	RepositoryFileSystemChangeEvent
+	RepositoryFileSystemChangeEvent,
 } from '../../git/gitService';
 import { Arrays, Dates, debug, gate, log, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
@@ -69,7 +69,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 					status.upstream,
 					status.state.ahead,
 					status.state.behind,
-					status.detached
+					status.detached,
 				);
 				children.push(new BranchNode(this.uri, this.view, this, branch, true));
 
@@ -97,7 +97,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 
 			children.push(
 				new BranchesNode(this.uri, this.view, this, this.repo),
-				new ContributorsNode(this.uri, this.view, this, this.repo)
+				new ContributorsNode(this.uri, this.view, this, this.repo),
 			);
 
 			children.push(new ReflogNode(this.uri, this.view, this, this.repo));
@@ -105,7 +105,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 			children.push(
 				new RemotesNode(this.uri, this.view, this, this.repo),
 				new StashesNode(this.uri, this.view, this, this.repo),
-				new TagsNode(this.uri, this.view, this, this.repo)
+				new TagsNode(this.uri, this.view, this, this.repo),
 			);
 			this._children = children;
 		}
@@ -120,7 +120,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		const lastFetchedTooltip = this.formatLastFetched({
 			prefix: `${Strings.pad(GlyphChars.Dash, 2, 2)}Last fetched on `,
 			format: Container.config.defaultDateFormat || 'dddd MMMM Do, YYYY',
-			includeTime: true
+			includeTime: true,
 		});
 
 		let description;
@@ -142,12 +142,12 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 			if (status.files.length !== 0 && this.includeWorkingTree) {
 				workingStatus = status.getFormattedDiffStatus({
 					compact: true,
-					prefix: Strings.pad(GlyphChars.Dot, 2, 2)
+					prefix: Strings.pad(GlyphChars.Dot, 2, 2),
 				});
 			}
 
 			const upstreamStatus = status.getUpstreamStatus({
-				prefix: `${GlyphChars.Space} `
+				prefix: `${GlyphChars.Space} `,
 			});
 
 			description = `${status.branch}${upstreamStatus}${workingStatus}`;
@@ -158,7 +158,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 					empty: 'No commits ahead or behind',
 					expand: true,
 					separator: '\n',
-					suffix: '\n'
+					suffix: '\n',
 				})}`;
 
 				if (status.state.behind) {
@@ -175,7 +175,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 				tooltip += `\n\nWorking tree has uncommitted changes${status.getFormattedDiffStatus({
 					expand: true,
 					prefix: '\n',
-					separator: '\n'
+					separator: '\n',
 				})}`;
 			}
 		}
@@ -188,11 +188,11 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		const item = new TreeItem(label, TreeItemCollapsibleState.Expanded);
 		item.contextValue = contextValue;
 		item.description = `${description || ''}${this.formatLastFetched({
-			prefix: `${Strings.pad(GlyphChars.Dot, 2, 2)}Last fetched `
+			prefix: `${Strings.pad(GlyphChars.Dot, 2, 2)}Last fetched `,
 		})}`;
 		item.iconPath = {
 			dark: Container.context.asAbsolutePath(`images/dark/icon-repo${iconSuffix}.svg`),
-			light: Container.context.asAbsolutePath(`images/light/icon-repo${iconSuffix}.svg`)
+			light: Container.context.asAbsolutePath(`images/light/icon-repo${iconSuffix}.svg`),
 		};
 		item.id = this.id;
 		item.tooltip = tooltip;
@@ -251,7 +251,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 
 		if (this.includeWorkingTree) {
 			disposables.push(this.repo.onDidChangeFileSystem(this.onFileSystemChanged, this), {
-				dispose: () => this.repo.stopWatchingFileSystem()
+				dispose: () => this.repo.stopWatchingFileSystem(),
 			});
 
 			this.repo.startWatchingFileSystem();
@@ -270,8 +270,8 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 				`{ repository: ${e.repository ? e.repository.name : ''}, uris(${e.uris.length}): [${e.uris
 					.slice(0, 1)
 					.map(u => u.fsPath)
-					.join(', ')}${e.uris.length > 1 ? ', ...' : ''}] }`
-		}
+					.join(', ')}${e.uris.length > 1 ? ', ...' : ''}] }`,
+		},
 	})
 	private async onFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
 		this._status = this.repo.getStatus();
@@ -285,7 +285,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 				if (index === -1) {
 					index = Arrays.findLastIndex(
 						this._children,
-						c => c instanceof BranchTrackingStatusNode || c instanceof BranchNode
+						c => c instanceof BranchTrackingStatusNode || c instanceof BranchNode,
 					);
 					deleteCount = 0;
 					index++;
@@ -304,8 +304,8 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 	@debug({
 		args: {
 			0: (e: RepositoryChangeEvent) =>
-				`{ repository: ${e.repository ? e.repository.name : ''}, changes: ${e.changes.join()} }`
-		}
+				`{ repository: ${e.repository ? e.repository.name : ''}, changes: ${e.changes.join()} }`,
+		},
 	})
 	private onRepoChanged(e: RepositoryChangeEvent) {
 		if (e.changed(RepositoryChange.Closed)) {

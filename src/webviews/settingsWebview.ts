@@ -7,7 +7,7 @@ import {
 	onIpcCommand,
 	ReadyCommandType,
 	SettingsDidRequestJumpToNotificationType,
-	SettingsState
+	SettingsState,
 } from './protocol';
 import { WebviewBase } from './webviewBase';
 import { applyViewLayoutPreset } from './helpers';
@@ -27,7 +27,7 @@ export class SettingsWebview extends WebviewBase {
 				Commands.ShowSettingsPageAndJumpToFileHistoryView,
 				Commands.ShowSettingsPageAndJumpToLineHistoryView,
 				Commands.ShowSettingsPageAndJumpToRepositoriesView,
-				Commands.ShowSettingsPageAndJumpToSearchCommitsView
+				Commands.ShowSettingsPageAndJumpToSearchCommitsView,
 			].map(c => {
 				// The show and jump commands are structured to have a # separating the base command from the anchor
 				let anchor: string | undefined;
@@ -37,7 +37,7 @@ export class SettingsWebview extends WebviewBase {
 				}
 
 				return commands.registerCommand(c, () => this.onShowCommand(anchor), this);
-			})
+			}),
 		);
 	}
 
@@ -89,10 +89,10 @@ export class SettingsWebview extends WebviewBase {
 			// Make sure to get the raw config, not from the container which has the modes mixed in
 			config: configuration.get(),
 			scope: 'user',
-			scopes: scopes
+			scopes: scopes,
 		};
 		return `<script type="text/javascript" nonce="Z2l0bGVucy1ib290c3RyYXA=">window.bootstrap = ${JSON.stringify(
-			bootstrap
+			bootstrap,
 		)};</script>`;
 	}
 

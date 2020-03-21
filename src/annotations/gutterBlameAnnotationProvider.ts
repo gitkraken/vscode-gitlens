@@ -39,7 +39,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		const options: CommitFormatOptions = {
 			dateFormat: cfg.dateFormat === null ? Container.config.defaultDateFormat : cfg.dateFormat,
 			getBranchAndTagTips: getBranchAndTagTips,
-			tokenOptions: tokenOptions
+			tokenOptions: tokenOptions,
 		};
 
 		const avatars = cfg.avatars;
@@ -79,9 +79,9 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 						before: {
 							...gutter.renderOptions!.before,
 							contentText: GlyphChars.Space.repeat(
-								Strings.getWidth(gutter.renderOptions!.before!.contentText!)
-							)
-						}
+								Strings.getWidth(gutter.renderOptions!.before!.contentText!),
+							),
+						},
 					};
 
 					if (separateLines) {
@@ -112,7 +112,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 			if (gutter !== undefined) {
 				gutter = {
 					...gutter,
-					range: new Range(editorLine, 0, editorLine, 0)
+					range: new Range(editorLine, 0, editorLine, 0),
 				};
 
 				this.decorations.push(gutter);
@@ -167,7 +167,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		commit: GitBlameCommit,
 		range: Range,
 		gravatarDefault: GravatarDefaultStyle,
-		map: { [email: string]: { decoration: TextEditorDecorationType; ranges: Range[] } }
+		map: { [email: string]: { decoration: TextEditorDecorationType; ranges: Range[] } },
 	) {
 		const avatarDecoration = map[commit.email!];
 		if (avatarDecoration !== undefined) {
@@ -179,9 +179,9 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		map[commit.email!] = {
 			decoration: window.createTextEditorDecorationType({
 				gutterIconPath: commit.getGravatarUri(gravatarDefault),
-				gutterIconSize: '16px 16px'
+				gutterIconSize: '16px 16px',
 			}),
-			ranges: [range]
+			ranges: [range],
 		};
 	}
 }

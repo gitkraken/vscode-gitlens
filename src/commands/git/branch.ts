@@ -10,7 +10,7 @@ import {
 	QuickPickStep,
 	StepAsyncGenerator,
 	StepSelection,
-	StepState
+	StepState,
 } from '../quickCommand';
 import {
 	BranchQuickPickItem,
@@ -18,7 +18,7 @@ import {
 	DirectiveQuickPickItem,
 	FlagsQuickPickItem,
 	QuickPickItemOfT,
-	RepositoryQuickPickItem
+	RepositoryQuickPickItem,
 } from '../../quickpicks';
 import { Strings } from '../../system';
 import { GlyphChars } from '../../constants';
@@ -59,7 +59,7 @@ type StashStepState<T> = StepState<T> & { repo: Repository };
 const subcommandToTitleMap = new Map<State['subcommand'], string>([
 	['create', 'Create'],
 	['delete', 'Delete'],
-	['rename', 'Rename']
+	['rename', 'Rename'],
 ]);
 function getTitle(title: string, subcommand: State['subcommand'] | undefined) {
 	return subcommand == null ? title : `${subcommandToTitleMap.get(subcommand)} ${title}`;
@@ -77,9 +77,9 @@ export class BranchGitCommand extends QuickCommandBase<State> {
 		static readonly RevealInView: QuickInputButton = {
 			iconPath: {
 				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-eye.svg')),
-				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-eye.svg'))
+				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-eye.svg')),
 			},
-			tooltip: 'Reveal Branch in Repositories View'
+			tooltip: 'Reveal Branch in Repositories View',
 		};
 	};
 
@@ -87,7 +87,7 @@ export class BranchGitCommand extends QuickCommandBase<State> {
 
 	constructor(args?: BranchGitCommandArgs) {
 		super('branch', 'branch', 'Branch', {
-			description: 'create, rename, or delete branches'
+			description: 'create, rename, or delete branches',
 		});
 
 		if (args == null || args.state == null) return;
@@ -133,7 +133,7 @@ export class BranchGitCommand extends QuickCommandBase<State> {
 		this._initialState = {
 			counter: counter,
 			confirm: args.confirm,
-			...args.state
+			...args.state,
 		};
 	}
 
@@ -166,22 +166,22 @@ export class BranchGitCommand extends QuickCommandBase<State> {
 								label: 'create',
 								description: 'creates a new branch',
 								picked: state.subcommand === 'create',
-								item: 'create'
+								item: 'create',
 							},
 							{
 								label: 'delete',
 								description: 'deletes the specified branches',
 								picked: state.subcommand === 'delete',
-								item: 'delete'
+								item: 'delete',
 							},
 							{
 								label: 'rename',
 								description: 'renames the specified branch',
 								picked: state.subcommand === 'rename',
-								item: 'rename'
-							}
+								item: 'rename',
+							},
 						],
-						buttons: [QuickInputButtons.Back]
+						buttons: [QuickInputButtons.Back],
 					});
 					const selection: StepSelection<typeof step> = yield step;
 
@@ -213,10 +213,10 @@ export class BranchGitCommand extends QuickCommandBase<State> {
 									RepositoryQuickPickItem.create(r, r.id === (active && active.id), {
 										branch: true,
 										fetched: true,
-										status: true
-									})
-								)
-							)
+										status: true,
+									}),
+								),
+							),
 						});
 						const selection: StepSelection<typeof step> = yield step;
 
@@ -268,7 +268,7 @@ export class BranchGitCommand extends QuickCommandBase<State> {
 		while (true) {
 			if (state.reference == null || state.counter < 3) {
 				const branches = await getBranches(state.repo, {
-					picked: state.reference != null ? state.reference.ref : (await state.repo.getBranch())!.ref
+					picked: state.reference != null ? state.reference.ref : (await state.repo.getBranch())!.ref,
 				});
 
 				const step = this.createPickStep<BranchQuickPickItem>({
@@ -282,7 +282,7 @@ export class BranchGitCommand extends QuickCommandBase<State> {
 						branches.length === 0
 							? [
 									DirectiveQuickPickItem.create(Directive.Back, true),
-									DirectiveQuickPickItem.create(Directive.Cancel)
+									DirectiveQuickPickItem.create(Directive.Cancel),
 							  ]
 							: branches,
 					additionalButtons: [this.Buttons.RevealInView],
@@ -291,7 +291,7 @@ export class BranchGitCommand extends QuickCommandBase<State> {
 							if (quickpick.activeItems.length !== 0) {
 								void Container.repositoriesView.revealBranch(quickpick.activeItems[0].item, {
 									select: true,
-									expand: true
+									expand: true,
 								});
 
 								return;
@@ -299,7 +299,7 @@ export class BranchGitCommand extends QuickCommandBase<State> {
 
 							void Container.repositoriesView.revealBranches(state.repo.path, {
 								select: true,
-								expand: true
+								expand: true,
 							});
 						}
 					},
@@ -310,9 +310,9 @@ export class BranchGitCommand extends QuickCommandBase<State> {
 						await Container.repositoriesView.revealBranch(quickpick.activeItems[0].item, {
 							select: true,
 							focus: false,
-							expand: true
+							expand: true,
 						});
-					}
+					},
 				});
 				const selection: StepSelection<typeof step> = yield step;
 
@@ -337,7 +337,7 @@ export class BranchGitCommand extends QuickCommandBase<State> {
 
 						const valid = Boolean(await Container.git.validateBranchOrTagName(value));
 						return [valid, valid ? undefined : `'${value}' isn't a valid branch name`];
-					}
+					},
 				});
 
 				const value: StepSelection<typeof step> = yield step;
@@ -356,18 +356,18 @@ export class BranchGitCommand extends QuickCommandBase<State> {
 						FlagsQuickPickItem.create<CreateFlags>(state.flags, [], {
 							label: title,
 							description: state.name,
-							detail: `Will create branch ${state.name} based on ${state.reference.name}`
+							detail: `Will create branch ${state.name} based on ${state.reference.name}`,
 						}),
 						FlagsQuickPickItem.create<CreateFlags>(state.flags, ['--switch'], {
 							label: `${title} and Switch`,
 							description: `to ${state.name}`,
-							detail: `Will create and switch to branch ${state.name} based on ${state.reference.name}`
-						})
+							detail: `Will create and switch to branch ${state.name} based on ${state.reference.name}`,
+						}),
 					],
 					undefined,
 					{
-						placeholder: `Confirm ${title}`
-					}
+						placeholder: `Confirm ${title}`,
+					},
 				);
 				const selection: StepSelection<typeof step> = yield step;
 
@@ -401,7 +401,7 @@ export class BranchGitCommand extends QuickCommandBase<State> {
 			if (state.references == null || state.references.length === 0 || state.counter < 3) {
 				const branches = await getBranches(state.repo, {
 					filterBranches: b => !b.current,
-					picked: state.references != null ? state.references.map(r => r.ref) : undefined
+					picked: state.references != null ? state.references.map(r => r.ref) : undefined,
 				});
 
 				const step = this.createPickStep<BranchQuickPickItem>({
@@ -416,7 +416,7 @@ export class BranchGitCommand extends QuickCommandBase<State> {
 						branches.length === 0
 							? [
 									DirectiveQuickPickItem.create(Directive.Back, true),
-									DirectiveQuickPickItem.create(Directive.Cancel)
+									DirectiveQuickPickItem.create(Directive.Cancel),
 							  ]
 							: branches,
 					additionalButtons: [this.Buttons.RevealInView],
@@ -425,7 +425,7 @@ export class BranchGitCommand extends QuickCommandBase<State> {
 							if (quickpick.activeItems.length !== 0) {
 								void Container.repositoriesView.revealBranch(quickpick.activeItems[0].item, {
 									select: true,
-									expand: true
+									expand: true,
 								});
 
 								return;
@@ -433,7 +433,7 @@ export class BranchGitCommand extends QuickCommandBase<State> {
 
 							void Container.repositoriesView.revealBranches(state.repo.path, {
 								select: true,
-								expand: true
+								expand: true,
 							});
 						}
 					},
@@ -444,9 +444,9 @@ export class BranchGitCommand extends QuickCommandBase<State> {
 						await Container.repositoriesView.revealBranch(quickpick.activeItems[0].item, {
 							select: true,
 							focus: false,
-							expand: true
+							expand: true,
 						});
-					}
+					},
 				});
 				const selection: StepSelection<typeof step> = yield step;
 
@@ -460,9 +460,9 @@ export class BranchGitCommand extends QuickCommandBase<State> {
 			title = getTitle(
 				Strings.pluralize('Branch', state.references.length, {
 					number: '',
-					suffix: 'es'
+					suffix: 'es',
 				}).trim(),
-				state.subcommand
+				state.subcommand,
 			);
 
 			const step: QuickPickStep<FlagsQuickPickItem<DeleteFlags>> = this.createConfirmStep(
@@ -477,8 +477,8 @@ export class BranchGitCommand extends QuickCommandBase<State> {
 										state.references[0].remote ? 'remote' : ''
 								  } branch ${state.references[0].getName()}`
 								: `Will delete ${Strings.pluralize('branch', state.references.length, {
-										suffix: 'es'
-								  })}`
+										suffix: 'es',
+								  })}`,
 					}),
 					// Don't allow force if there are remote branches
 					...(!state.references.some(r => r.remote)
@@ -493,17 +493,17 @@ export class BranchGitCommand extends QuickCommandBase<State> {
 													'branch',
 													state.references.length,
 													{
-														suffix: 'es'
-													}
-											  )}`
-								})
+														suffix: 'es',
+													},
+											  )}`,
+								}),
 						  ]
-						: [])
+						: []),
 				],
 				undefined,
 				{
-					placeholder: `Confirm ${title}`
-				}
+					placeholder: `Confirm ${title}`,
+				},
 			);
 			const selection: StepSelection<typeof step> = yield step;
 
@@ -543,7 +543,7 @@ export class BranchGitCommand extends QuickCommandBase<State> {
 						branches.length === 0
 							? [
 									DirectiveQuickPickItem.create(Directive.Back, true),
-									DirectiveQuickPickItem.create(Directive.Cancel)
+									DirectiveQuickPickItem.create(Directive.Cancel),
 							  ]
 							: branches,
 					additionalButtons: [this.Buttons.RevealInView],
@@ -552,7 +552,7 @@ export class BranchGitCommand extends QuickCommandBase<State> {
 							if (quickpick.activeItems.length !== 0) {
 								void Container.repositoriesView.revealBranch(quickpick.activeItems[0].item, {
 									select: true,
-									expand: true
+									expand: true,
 								});
 
 								return;
@@ -560,7 +560,7 @@ export class BranchGitCommand extends QuickCommandBase<State> {
 
 							void Container.repositoriesView.revealBranches(state.repo.path, {
 								select: true,
-								expand: true
+								expand: true,
 							});
 						}
 					},
@@ -571,9 +571,9 @@ export class BranchGitCommand extends QuickCommandBase<State> {
 						await Container.repositoriesView.revealBranch(quickpick.activeItems[0].item, {
 							select: true,
 							focus: false,
-							expand: true
+							expand: true,
 						});
-					}
+					},
 				});
 				const selection: StepSelection<typeof step> = yield step;
 
@@ -598,7 +598,7 @@ export class BranchGitCommand extends QuickCommandBase<State> {
 
 						const valid = Boolean(await Container.git.validateBranchOrTagName(value));
 						return [valid, valid ? undefined : `'${value}' isn't a valid branch name`];
-					}
+					},
 				});
 
 				const value: StepSelection<typeof step> = yield step;
@@ -616,13 +616,13 @@ export class BranchGitCommand extends QuickCommandBase<State> {
 					FlagsQuickPickItem.create<RenameFlags>(state.flags, ['-m'], {
 						label: title,
 						description: state.reference.getName(),
-						detail: `Will rename branch ${state.reference.getName()} to ${state.name}`
-					})
+						detail: `Will rename branch ${state.reference.getName()} to ${state.name}`,
+					}),
 				],
 				undefined,
 				{
-					placeholder: `Confirm ${title}`
-				}
+					placeholder: `Confirm ${title}`,
+				},
 			);
 			const selection: StepSelection<typeof step> = yield step;
 

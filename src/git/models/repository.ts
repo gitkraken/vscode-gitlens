@@ -11,7 +11,7 @@ import {
 	Uri,
 	window,
 	workspace,
-	WorkspaceFolder
+	WorkspaceFolder,
 } from 'vscode';
 import { configuration } from '../../configuration';
 import { StarredRepositories, WorkspaceState } from '../../constants';
@@ -33,7 +33,7 @@ export enum RepositoryChange {
 	Remotes = 'remotes',
 	Repository = 'repository',
 	Stashes = 'stashes',
-	Tags = 'tags'
+	Tags = 'tags',
 }
 
 export class RepositoryChangeEvent {
@@ -101,7 +101,7 @@ export class Repository implements Disposable {
 		public readonly root: boolean,
 		private readonly onAnyRepositoryChanged: (repo: Repository, e: RepositoryChangeEvent) => void,
 		suspended: boolean,
-		closed: boolean = false
+		closed: boolean = false,
 	) {
 		const relativePath = paths.relative(folder.uri.fsPath, path);
 		if (root) {
@@ -140,15 +140,15 @@ export class Repository implements Disposable {
 **/.git/refs/remotes/**,\
 **/.git/refs/tags/**,\
 **/.gitignore\
-}'
-			)
+}',
+			),
 		);
 		this._disposable = Disposable.from(
 			watcher,
 			watcher.onDidChange(this.onRepositoryChanged, this),
 			watcher.onDidCreate(this.onRepositoryChanged, this),
 			watcher.onDidDelete(this.onRepositoryChanged, this),
-			configuration.onDidChange(this.onConfigurationChanged, this)
+			configuration.onDidChange(this.onConfigurationChanged, this),
 		);
 		this.onConfigurationChanged(configuration.initializingChangeEvent);
 	}
@@ -282,9 +282,9 @@ export class Repository implements Disposable {
 		return void (await window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Fetching ${opts.remote ? `${opts.remote} of ` : ''}${this.formattedName}...`
+				title: `Fetching ${opts.remote ? `${opts.remote} of ` : ''}${this.formattedName}...`,
 			},
-			() => this.fetchCore(opts)
+			() => this.fetchCore(opts),
 		));
 	}
 
@@ -316,7 +316,7 @@ export class Repository implements Disposable {
 			filterTags?: (t: GitTag) => boolean;
 			include?: 'all' | 'branches' | 'tags';
 			sort?: boolean;
-		} = {}
+		} = {},
 	) {
 		return Container.git.getBranchesAndOrTags(this.path, options);
 	}
@@ -375,7 +375,7 @@ export class Repository implements Disposable {
 				if (!(r.provider instanceof RemoteProviderWithApi)) return undefined;
 
 				return r.provider.onDidChange(() => this.fireChange(RepositoryChange.Remotes));
-			})
+			}),
 		);
 	}
 
@@ -416,9 +416,9 @@ export class Repository implements Disposable {
 		return void (await window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Pulling ${this.formattedName}...`
+				title: `Pulling ${this.formattedName}...`,
 			},
-			() => this.pullCore(opts)
+			() => this.pullCore(opts),
 		));
 	}
 
@@ -447,9 +447,9 @@ export class Repository implements Disposable {
 		return void (await window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Pushing ${this.formattedName}...`
+				title: `Pushing ${this.formattedName}...`,
 			},
-			() => this.pushCore(force)
+			() => this.pushCore(force),
 		));
 	}
 
@@ -544,9 +544,9 @@ export class Repository implements Disposable {
 			{
 				location: ProgressLocation.Notification,
 				title: `Switching ${this.formattedName} to ${ref}...`,
-				cancellable: false
+				cancellable: false,
 			},
-			() => this.switchCore(ref, opts)
+			() => this.switchCore(ref, opts),
 		));
 	}
 
@@ -592,7 +592,7 @@ export class Repository implements Disposable {
 			watcher,
 			watcher.onDidChange(this.onFileSystemChanged, this),
 			watcher.onDidCreate(this.onFileSystemChanged, this),
-			watcher.onDidDelete(this.onFileSystemChanged, this)
+			watcher.onDidDelete(this.onFileSystemChanged, this),
 		);
 	}
 

@@ -24,7 +24,7 @@ async function findSpecificGit(path: string): Promise<GitLocation> {
 
 	return {
 		path: path,
-		version: parseVersion(version.trim())
+		version: parseVersion(version.trim()),
 	};
 }
 

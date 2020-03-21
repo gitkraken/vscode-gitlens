@@ -23,7 +23,7 @@ export namespace GitFile {
 	export function getFormattedDirectory(
 		file: GitFile,
 		includeOriginal: boolean = false,
-		relativeTo?: string
+		relativeTo?: string,
 	): string {
 		const directory = GitUri.getDirectory(file.fileName, relativeTo);
 		return includeOriginal && (file.status === 'R' || file.status === 'C') && file.originalFileName
@@ -33,7 +33,7 @@ export namespace GitFile {
 
 	export function getFormattedPath(
 		file: GitFile,
-		options: { relativeTo?: string; separator?: string; suffix?: string } = {}
+		options: { relativeTo?: string; separator?: string; suffix?: string } = {},
 	): string {
 		return GitUri.getFormattedPath(file.fileName, options);
 	}
@@ -59,7 +59,7 @@ export namespace GitFile {
 		T: 'icon-status-modified.svg',
 		U: 'icon-status-conflict.svg',
 		X: 'icon-status-unknown.svg',
-		B: 'icon-status-unknown.svg'
+		B: 'icon-status-unknown.svg',
 	};
 
 	export function getStatusIcon(status: GitFileStatus): string {
@@ -77,7 +77,7 @@ export namespace GitFile {
 		T: '$(diff-modified)',
 		U: '$(alert)',
 		X: '$(question)',
-		B: '$(question)'
+		B: '$(question)',
 	};
 
 	export function getStatusOcticon(status: GitFileStatus, missing: string = GlyphChars.Space.repeat(4)): string {
@@ -95,7 +95,7 @@ export namespace GitFile {
 		T: 'Modified',
 		U: 'Conflict',
 		X: 'Unknown',
-		B: 'Unknown'
+		B: 'Unknown',
 	};
 
 	export function getStatusText(status: GitFileStatus): string {

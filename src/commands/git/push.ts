@@ -24,7 +24,7 @@ export interface PushGitCommandArgs {
 export class PushGitCommand extends QuickCommandBase<State> {
 	constructor(args?: PushGitCommandArgs) {
 		super('push', 'push', 'Push', {
-			description: 'pushes changes from the current branch to a remote'
+			description: 'pushes changes from the current branch to a remote',
 		});
 
 		if (args == null || args.state === undefined) return;
@@ -37,7 +37,7 @@ export class PushGitCommand extends QuickCommandBase<State> {
 		this._initialState = {
 			counter: counter,
 			confirm: args.confirm,
-			...args.state
+			...args.state,
 		};
 	}
 
@@ -84,11 +84,11 @@ export class PushGitCommand extends QuickCommandBase<State> {
 										{
 											branch: true,
 											fetched: true,
-											status: true
-										}
-									)
-								)
-							)
+											status: true,
+										},
+									),
+								),
+							),
 						});
 						const selection: StepSelection<typeof step> = yield step;
 
@@ -111,14 +111,14 @@ export class PushGitCommand extends QuickCommandBase<State> {
 								FlagsQuickPickItem.create<Flags>(state.flags, [], {
 									label: this.title,
 									description: '',
-									detail: `Will push ${state.repos.length} repositories`
+									detail: `Will push ${state.repos.length} repositories`,
 								}),
 								FlagsQuickPickItem.create<Flags>(state.flags, ['--force'], {
 									label: `Force ${this.title}`,
 									description: '--force',
-									detail: `Will force push ${state.repos.length} repositories`
-								})
-							]
+									detail: `Will force push ${state.repos.length} repositories`,
+								}),
+							],
 						);
 					} else {
 						step = await this.getSingleRepoConfirmStep(state);
@@ -161,8 +161,8 @@ export class PushGitCommand extends QuickCommandBase<State> {
 					[],
 					DirectiveQuickPickItem.create(Directive.Cancel, true, {
 						label: `Cancel ${this.title}`,
-						detail: 'No commits to push'
-					})
+						detail: 'No commits to push',
+					}),
 				);
 			}
 
@@ -175,14 +175,14 @@ export class PushGitCommand extends QuickCommandBase<State> {
 				FlagsQuickPickItem.create<Flags>(state.flags!, [], {
 					label: this.title,
 					description: '',
-					detail: `Will push ${detail}`
+					detail: `Will push ${detail}`,
 				}),
 				FlagsQuickPickItem.create<Flags>(state.flags!, ['--force'], {
 					label: `Force ${this.title}`,
 					description: '--force',
-					detail: `Will force push ${detail}`
-				})
-			]
+					detail: `Will force push ${detail}`,
+				}),
+			],
 		);
 	}
 }

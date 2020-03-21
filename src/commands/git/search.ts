@@ -9,7 +9,7 @@ import {
 	Repository,
 	searchOperators,
 	SearchOperators,
-	SearchPattern
+	SearchPattern,
 } from '../../git/gitService';
 import { GlyphChars } from '../../constants';
 import {
@@ -17,7 +17,7 @@ import {
 	SelectableQuickInputButton,
 	StepAsyncGenerator,
 	StepSelection,
-	StepState
+	StepState,
 } from '../quickCommand';
 import { CommandQuickPickItem, CommitQuickPick, RepositoryQuickPickItem } from '../../quickpicks';
 import { Iterables, Strings } from '../../system';
@@ -26,7 +26,7 @@ import {
 	CommitQuickPickItem,
 	Directive,
 	DirectiveQuickPickItem,
-	QuickPickItemOfT
+	QuickPickItemOfT,
 } from '../../quickpicks/gitQuickPicks';
 
 interface State extends Required<SearchPattern> {
@@ -53,7 +53,7 @@ const searchOperatorToTitleMap = new Map<SearchOperators, string>([
 	['?:', 'Search by File'],
 	['file:', 'Search by File'],
 	['~:', 'Search by Changes'],
-	['change:', 'Search by Changes']
+	['change:', 'Search by Changes'],
 ]);
 
 export class SearchGitCommand extends QuickCommandBase<State> {
@@ -79,17 +79,17 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 		static readonly RevealInView: QuickInputButton = {
 			iconPath: {
 				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-eye.svg')),
-				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-eye.svg'))
+				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-eye.svg')),
 			},
-			tooltip: 'Reveal Commit in Repositories View'
+			tooltip: 'Reveal Commit in Repositories View',
 		};
 
 		static readonly ShowInView: QuickInputButton = {
 			iconPath: {
 				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-open.svg')),
-				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-open.svg'))
+				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-open.svg')),
 			},
-			tooltip: 'Show Commit in Search Commits View'
+			tooltip: 'Show Commit in Search Commits View',
 		};
 
 		static readonly ShowResultsInView = class extends SelectableQuickInputButton {
@@ -101,7 +101,7 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 
 	constructor(args?: SearchGitCommandArgs) {
 		super('search', 'search', 'Search', {
-			description: 'aka grep, searches for commits'
+			description: 'aka grep, searches for commits',
 		});
 
 		if (args == null || args.state === undefined) return;
@@ -118,7 +118,7 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 		this._initialState = {
 			counter: counter,
 			confirm: args.confirm,
-			...args.state
+			...args.state,
 		};
 	}
 
@@ -172,10 +172,10 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 									RepositoryQuickPickItem.create(r, r.id === (active && active.id), {
 										branch: true,
 										fetched: true,
-										status: true
-									})
-								)
-							)
+										status: true,
+									}),
+								),
+							),
 						});
 						const selection: StepSelection<typeof step> = yield step;
 
@@ -192,28 +192,28 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 						{
 							label: searchOperatorToTitleMap.get('')!,
 							description: `pattern or message: pattern or =: pattern ${GlyphChars.Dash} use quotes to search for phrases`,
-							item: 'message:'
+							item: 'message:',
 						},
 						{
 							label: searchOperatorToTitleMap.get('author:')!,
 							description: 'author: pattern or @: pattern',
-							item: 'author:'
+							item: 'author:',
 						},
 						{
 							label: searchOperatorToTitleMap.get('commit:')!,
 							description: 'commit: sha or #: sha',
-							item: 'commit:'
+							item: 'commit:',
 						},
 						{
 							label: searchOperatorToTitleMap.get('file:')!,
 							description: 'file: glob or ?: glob',
-							item: 'file:'
+							item: 'file:',
 						},
 						{
 							label: searchOperatorToTitleMap.get('change:')!,
 							description: 'change: pattern or ~: pattern',
-							item: 'change:'
-						}
+							item: 'change:',
+						},
 					];
 					const titleSuffix = `${Strings.pad(GlyphChars.Dot, 2, 2)}${state.repo.formattedName}`;
 
@@ -221,7 +221,7 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 					const matchAllButton: SelectableQuickInputButton = new this.Buttons.MatchAll(state.matchAll);
 					const matchRegexButton: SelectableQuickInputButton = new this.Buttons.MatchRegex(state.matchRegex);
 					const showResultsInViewButton: SelectableQuickInputButton = new this.Buttons.ShowResultsInView(
-						state.showResultsInView
+						state.showResultsInView,
 					);
 
 					const step = this.createPickStep<QuickPickItemOfT<string>>({
@@ -289,13 +289,13 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 									{
 										label: 'Search for',
 										description: quickpick.value,
-										item: quickpick.value
-									}
+										item: quickpick.value,
+									},
 								];
 							}
 
 							return true;
-						}
+						},
 					});
 					const selection: StepSelection<typeof step> = yield step;
 
@@ -314,7 +314,7 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 					pattern: state.pattern,
 					matchAll: state.matchAll,
 					matchCase: state.matchCase,
-					matchRegex: state.matchRegex
+					matchRegex: state.matchRegex,
 				};
 				const searchKey = SearchPattern.toKey(search);
 
@@ -328,9 +328,9 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 						state.repo.path,
 						search,
 						{
-							label: { label: `for ${state.pattern}` }
+							label: { label: `for ${state.pattern}` },
 						},
-						resultsPromise
+						resultsPromise,
 					);
 
 					break;
@@ -344,7 +344,7 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 						results === undefined
 							? `No results for ${state.pattern}`
 							: `${Strings.pluralize('result', results.count, {
-									number: results.hasMore ? `${results.count}+` : undefined
+									number: results.hasMore ? `${results.count}+` : undefined,
 							  })} for ${state.pattern}`,
 					matchOnDescription: true,
 					matchOnDetail: true,
@@ -352,16 +352,16 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 						results === undefined
 							? [
 									DirectiveQuickPickItem.create(Directive.Back, true),
-									DirectiveQuickPickItem.create(Directive.Cancel)
+									DirectiveQuickPickItem.create(Directive.Cancel),
 							  ]
 							: [
 									...Iterables.map(results.commits.values(), commit =>
 										CommitQuickPickItem.create(
 											commit,
 											commit.ref === (pickedCommit && pickedCommit.ref),
-											{ compact: true, icon: true }
-										)
-									)
+											{ compact: true, icon: true },
+										),
+									),
 							  ],
 					additionalButtons: [this.Buttons.RevealInView, this.Buttons.ShowInView],
 					onDidClickButton: (quickpick, button) => {
@@ -370,9 +370,9 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 								state.repo!.path,
 								search,
 								{
-									label: { label: `for ${state.pattern}` }
+									label: { label: `for ${state.pattern}` },
 								},
-								results
+								results,
 							);
 
 							return;
@@ -383,7 +383,7 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 								void Container.repositoriesView.revealCommit(quickpick.activeItems[0].item, {
 									select: true,
 									focus: false,
-									expand: true
+									expand: true,
 								});
 							}
 						}
@@ -397,18 +397,18 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 							await Container.repositoriesView.revealCommit(commit, {
 								select: true,
 								focus: false,
-								expand: true
+								expand: true,
 							});
 						} else {
 							await Container.searchView.search(
 								commit.repoPath,
 								{ pattern: SearchPattern.fromCommit(commit) },
 								{
-									label: { label: `for commit id ${commit.shortSha}` }
-								}
+									label: { label: `for commit id ${commit.shortSha}` },
+								},
 							);
 						}
-					}
+					},
 				});
 				const selection: StepSelection<typeof step> = yield step;
 
@@ -428,10 +428,10 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 						}${pickedCommit.formattedDate} ${Strings.pad(
 							GlyphChars.Dot,
 							1,
-							1
+							1,
 						)} ${pickedCommit.getShortMessage()}`,
 						items: await CommitQuickPick.getItems(pickedCommit, pickedCommit.toGitUri(), {
-							showChanges: false
+							showChanges: false,
 						}),
 						additionalButtons: [this.Buttons.RevealInView, this.Buttons.ShowInView],
 						onDidClickButton: (quickpick, button) => {
@@ -440,8 +440,8 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 									pickedCommit!.repoPath,
 									{ pattern: SearchPattern.fromCommit(pickedCommit!) },
 									{
-										label: { label: `for commit id ${pickedCommit!.shortSha}` }
-									}
+										label: { label: `for commit id ${pickedCommit!.shortSha}` },
+									},
 								);
 
 								return;
@@ -451,10 +451,10 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 								void Container.repositoriesView.revealCommit(pickedCommit!, {
 									select: true,
 									focus: false,
-									expand: true
+									expand: true,
 								});
 							}
-						}
+						},
 					});
 					const selection: StepSelection<typeof step> = yield step;
 

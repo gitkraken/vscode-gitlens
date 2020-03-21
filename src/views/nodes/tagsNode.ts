@@ -36,7 +36,7 @@ export class TagsNode extends ViewNode<RepositoriesView> {
 			tagNodes,
 			n => n.tag.name.split('/'),
 			(...paths) => paths.join('/'),
-			this.view.config.files.compact
+			this.view.config.files.compact,
 		);
 
 		const root = new BranchOrTagFolderNode(
@@ -47,7 +47,7 @@ export class TagsNode extends ViewNode<RepositoriesView> {
 			'',
 			undefined,
 			hierarchy,
-			'tags'
+			'tags',
 		);
 		const children = root.getChildren();
 		return children;
@@ -60,7 +60,7 @@ export class TagsNode extends ViewNode<RepositoriesView> {
 
 		item.iconPath = {
 			dark: Container.context.asAbsolutePath('images/dark/icon-tag.svg'),
-			light: Container.context.asAbsolutePath('images/light/icon-tag.svg')
+			light: Container.context.asAbsolutePath('images/light/icon-tag.svg'),
 		};
 
 		return item;

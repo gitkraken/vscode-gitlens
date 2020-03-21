@@ -15,7 +15,7 @@ export enum ReferencesQuickPickIncludes {
 	WorkingTree = 4,
 	HEAD = 8,
 
-	BranchesAndTags = 3
+	BranchesAndTags = 3,
 }
 
 export interface ReferencesQuickPickOptions {
@@ -36,21 +36,21 @@ export class ReferencesQuickPick {
 		placeHolder: string,
 		options?: Exclude<ReferencesQuickPickOptions, CommandQuickPickItem> & {
 			include: ReferencesQuickPickIncludes.Branches;
-		}
+		},
 	): Promise<BranchQuickPickItem | undefined>;
 	async show(
 		placeHolder: string,
 		options?: Exclude<ReferencesQuickPickOptions, CommandQuickPickItem> & {
 			include: ReferencesQuickPickIncludes.Tags;
-		}
+		},
 	): Promise<TagQuickPickItem | undefined>;
 	async show(
 		placeHolder: string,
-		options?: Exclude<ReferencesQuickPickOptions, CommandQuickPickItem>
+		options?: Exclude<ReferencesQuickPickOptions, CommandQuickPickItem>,
 	): Promise<ReferencesQuickPickItem | undefined>;
 	async show(
 		placeHolder: string,
-		options: ReferencesQuickPickOptions = { checkmarks: true }
+		options: ReferencesQuickPickOptions = { checkmarks: true },
 	): Promise<ReferencesQuickPickItem | CommandQuickPickItem | undefined> {
 		const cancellation = new CancellationTokenSource();
 
@@ -122,9 +122,9 @@ export class ReferencesQuickPick {
 					items,
 					{
 						placeHolder: placeHolder,
-						ignoreFocusOut: getQuickPickIgnoreFocusOut()
+						ignoreFocusOut: getQuickPickIgnoreFocusOut(),
 					},
-					cancellation.token
+					cancellation.token,
 				);
 			}
 
@@ -148,7 +148,7 @@ export class ReferencesQuickPick {
 
 	private async getItems(
 		{ checked, checkmarks, filterBranches, filterTags, goBack, include, ...options }: ReferencesQuickPickOptions,
-		token: CancellationToken
+		token: CancellationToken,
 	): Promise<(BranchQuickPickItem | TagQuickPickItem | CommandQuickPickItem)[]> {
 		include = include || ReferencesQuickPickIncludes.BranchesAndTags;
 
@@ -157,14 +157,14 @@ export class ReferencesQuickPick {
 				include & ReferencesQuickPickIncludes.Branches
 					? Container.git.getBranches(this.repoPath, {
 							...options,
-							filter: filterBranches
+							filter: filterBranches,
 					  })
 					: undefined,
 				include & ReferencesQuickPickIncludes.Tags
 					? Container.git.getTags(this.repoPath, { ...options, filter: filterTags })
-					: undefined
+					: undefined,
 			]),
-			token
+			token,
 		);
 		if (results === undefined || token.isCancellationRequested) return [];
 
@@ -180,17 +180,17 @@ export class ReferencesQuickPick {
 							current: true,
 							checked: b.name === checked,
 							ref: true,
-							status: true
-						})
+							status: true,
+						}),
 					),
 				...tags.map(t =>
-					TagQuickPickItem.create(t, checkmarks, { checked: t.name === checked, ref: true, type: true })
+					TagQuickPickItem.create(t, checkmarks, { checked: t.name === checked, ref: true, type: true }),
 				),
 				...branches
 					.filter(b => b.remote)
 					.map(b =>
-						BranchQuickPickItem.create(b, checkmarks, { checked: b.name === checked, type: 'remote' })
-					)
+						BranchQuickPickItem.create(b, checkmarks, { checked: b.name === checked, type: 'remote' }),
+					),
 			]);
 		} else if (branches !== undefined) {
 			items = await Promise.all(
@@ -200,9 +200,9 @@ export class ReferencesQuickPick {
 						checked: b.name === checked,
 						ref: true,
 						status: true,
-						type: 'remote'
-					})
-				)
+						type: 'remote',
+					}),
+				),
 			);
 		} else {
 			items = tags!.map(t => TagQuickPickItem.create(t, checkmarks, { checked: t.name === checked, ref: true }));

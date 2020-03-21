@@ -26,7 +26,7 @@ export class CloseUnchangedFilesCommand extends Command {
 		try {
 			if (args.uris === undefined) {
 				const repoPath = await getRepoPathOrPrompt(
-					`Close all files except those changed in which repository${GlyphChars.Ellipsis}`
+					`Close all files except those changed in which repository${GlyphChars.Ellipsis}`,
 				);
 				if (!repoPath) return undefined;
 
@@ -41,8 +41,8 @@ export class CloseUnchangedFilesCommand extends Command {
 			const disposable = window.onDidChangeActiveTextEditor(
 				Functions.debounce(
 					(e: TextEditor | undefined) => this._onEditorChangedFn && this._onEditorChangedFn(e),
-					50
-				)
+					50,
+				),
 			);
 
 			let editor = window.activeTextEditor;
@@ -87,7 +87,7 @@ export class CloseUnchangedFilesCommand extends Command {
 							(editor.document.isDirty ||
 								// eslint-disable-next-line no-loop-func
 								args.uris.some(uri =>
-									UriComparer.equals(uri, editor!.document && editor!.document.uri)
+									UriComparer.equals(uri, editor!.document && editor!.document.uri),
 								)))
 					) {
 						editor = await this.nextEditor();

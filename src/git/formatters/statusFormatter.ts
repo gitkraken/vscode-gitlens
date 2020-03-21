@@ -80,12 +80,12 @@ export class StatusFileFormatter extends Formatter<GitFile, StatusFormatOptions>
 	static fromTemplate(
 		template: string,
 		file: GitFile,
-		dateFormatOrOptions?: string | null | StatusFormatOptions
+		dateFormatOrOptions?: string | null | StatusFormatOptions,
 	): string;
 	static fromTemplate(
 		template: string,
 		file: GitFile,
-		dateFormatOrOptions?: string | null | StatusFormatOptions
+		dateFormatOrOptions?: string | null | StatusFormatOptions,
 	): string {
 		return super.fromTemplateCore(this, template, file, dateFormatOrOptions);
 	}

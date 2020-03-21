@@ -10,14 +10,14 @@ import {
 	Commands,
 	isCommandViewContextWithFile,
 	isCommandViewContextWithRepo,
-	isCommandViewContextWithRepoPath
+	isCommandViewContextWithRepoPath,
 } from './common';
 import { GitCommandsCommandArgs } from '../commands';
 
 const enum ResourceGroupType {
 	Merge,
 	Index,
-	WorkingTree
+	WorkingTree,
 }
 
 export interface StashSaveCommandArgs {
@@ -63,7 +63,7 @@ export class StashSaveCommand extends Command {
 
 			args.uris = context.scmResourceGroups.reduce<Uri[]>(
 				(a, b) => a.concat(b.resourceStates.map(s => s.resourceUri)),
-				[]
+				[],
 			);
 		}
 
@@ -85,8 +85,8 @@ export class StashSaveCommand extends Command {
 				repo: repo,
 				message: args.message,
 				uris: args.uris,
-				flags: args.keepStaged ? ['--keep-index'] : undefined
-			}
+				flags: args.keepStaged ? ['--keep-index'] : undefined,
+			},
 		};
 		return commands.executeCommand(Commands.GitCommands, gitCommandArgs);
 	}

@@ -17,7 +17,7 @@ export class GitContributor {
 		public readonly name: string,
 		public readonly email: string,
 		public readonly count: number,
-		public readonly current: boolean = false
+		public readonly current: boolean = false,
 	) {}
 
 	getGravatarUri(fallback: GravatarDefaultStyle, size: number = 16): Uri {

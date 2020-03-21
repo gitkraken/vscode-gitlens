@@ -30,7 +30,7 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
 			this._compareWith = {
 				ref: compareWith,
 				notation: Container.config.advanced.useSymmetricDifferenceNotation ? '...' : '..',
-				type: this.view.config.showBranchComparison || ViewShowBranchComparison.Working
+				type: this.view.config.showBranchComparison || ViewShowBranchComparison.Working,
 			};
 		} else {
 			this._compareWith = compareWith;
@@ -59,8 +59,8 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
 					this.getCommitsQuery.bind(this),
 					{
 						expand: false,
-						includeDescription: false
-					}
+						includeDescription: false,
+					},
 				),
 				new ResultsFilesNode(
 					this.view,
@@ -68,8 +68,8 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
 					this.uri.repoPath!,
 					ref1,
 					this.compareWithWorkingTree ? '' : this.branch.ref,
-					this.getFilesQuery.bind(this)
-				)
+					this.getFilesQuery.bind(this),
+				),
 			];
 		}
 		return this._children;
@@ -90,9 +90,9 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
 				this._compareWith.ref,
 				{
 					strings: {
-						working: 'Working Tree'
-					}
-				}
+						working: 'Working Tree',
+					},
+				},
 			)}`;
 			state = TreeItemCollapsibleState.Collapsed;
 		}
@@ -103,7 +103,7 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
 				GlyphChars.Ellipsis
 			}`,
 			command: 'gitlens.views.executeNodeCallback',
-			arguments: [() => this.compareWith()]
+			arguments: [() => this.compareWith()],
 		};
 		item.contextValue = `${ResourceType.CompareBranch}${this._compareWith === undefined ? '' : '+comparing'}+${
 			this.comparisonNotation === '..' ? 'twodot' : 'threedot'
@@ -111,11 +111,11 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
 		item.description = description;
 		item.iconPath = {
 			dark: Container.context.asAbsolutePath(
-				`images/dark/icon-compare-${this.compareWithWorkingTree ? 'ref-working' : 'refs'}.svg`
+				`images/dark/icon-compare-${this.compareWithWorkingTree ? 'ref-working' : 'refs'}.svg`,
 			),
 			light: Container.context.asAbsolutePath(
-				`images/light/icon-compare-${this.compareWithWorkingTree ? 'ref-working' : 'refs'}.svg`
-			)
+				`images/light/icon-compare-${this.compareWithWorkingTree ? 'ref-working' : 'refs'}.svg`,
+			),
 		};
 		item.id = this.id;
 		item.tooltip = `Click to compare ${this.branch.name}${this.compareWithWorkingTree ? ' (working)' : ''} with${
@@ -167,14 +167,14 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
 	private async compareWith() {
 		const pick = await new ReferencesQuickPick(this.branch.repoPath).show(
 			`Compare ${this.branch.name}${this.compareWithWorkingTree ? ' (working)' : ''} with${GlyphChars.Ellipsis}`,
-			{ allowEnteringRefs: true, checked: this.branch.ref, checkmarks: true }
+			{ allowEnteringRefs: true, checked: this.branch.ref, checkmarks: true },
 		);
 		if (pick === undefined || pick instanceof CommandQuickPickItem) return;
 
 		this.updateCompareWith({
 			ref: pick.ref,
 			notation: this.comparisonNotation,
-			type: this.comparisonType
+			type: this.comparisonType,
 		});
 
 		this._children = undefined;
@@ -187,18 +187,18 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
 			ref: GitRevision.createRange(
 				this._compareWith?.ref || 'HEAD',
 				this.compareWithWorkingTree ? '' : this.branch.ref,
-				this.comparisonNotation
-			)
+				this.comparisonNotation,
+			),
 		});
 
 		const count = log?.count ?? 0;
 		const results: Mutable<Partial<CommitsQueryResults>> = {
 			label: Strings.pluralize('commit', count, {
 				number: log?.hasMore ?? false ? `${count}+` : undefined,
-				zero: 'No'
+				zero: 'No',
 			}),
 			log: log,
-			hasMore: log?.hasMore ?? true
+			hasMore: log?.hasMore ?? true,
 		};
 		if (results.hasMore) {
 			results.more = async (limit: number | undefined) => {
@@ -207,7 +207,7 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
 				const count = results.log?.count ?? 0;
 				results.label = Strings.pluralize('commit', count, {
 					number: results.log?.hasMore ?? false ? `${count}+` : undefined,
-					zero: 'No'
+					zero: 'No',
 				});
 				results.hasMore = results.log?.hasMore ?? true;
 			};
@@ -228,13 +228,13 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
 			GitRevision.createRange(
 				this._compareWith?.ref || 'HEAD',
 				this.compareWithWorkingTree ? '' : this.branch.ref,
-				this.diffComparisonNotation
-			)
+				this.diffComparisonNotation,
+			),
 		);
 
 		return {
 			label: `${Strings.pluralize('file', diff !== undefined ? diff.length : 0, { zero: 'No' })} changed`,
-			diff: diff
+			diff: diff,
 		};
 	}
 

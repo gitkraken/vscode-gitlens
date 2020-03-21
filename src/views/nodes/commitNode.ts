@@ -19,7 +19,7 @@ export class CommitNode extends ViewRefNode<ViewWithFiles> {
 		public readonly commit: GitLogCommit,
 		public readonly branch?: GitBranch,
 		private readonly getBranchAndTagTips?: (sha: string) => string | undefined,
-		private readonly _options: { expand?: boolean } = {}
+		private readonly _options: { expand?: boolean } = {},
 	) {
 		super(commit.toGitUri(), view, parent);
 	}
@@ -35,7 +35,7 @@ export class CommitNode extends ViewRefNode<ViewWithFiles> {
 	getChildren(): ViewNode[] {
 		const commit = this.commit;
 		let children: FileNode[] = [
-			...Iterables.map(commit.files, s => new CommitFileNode(this.view, this, s, commit.toFileCommit(s)))
+			...Iterables.map(commit.files, s => new CommitFileNode(this.view, this, s, commit.toFileCommit(s))),
 		];
 
 		if (this.view.config.files.layout !== ViewFilesLayout.List) {
@@ -43,14 +43,14 @@ export class CommitNode extends ViewRefNode<ViewWithFiles> {
 				children,
 				n => n.uri.relativePath.split('/'),
 				(...parts: string[]) => Strings.normalizePath(paths.join(...parts)),
-				this.view.config.files.compact
+				this.view.config.files.compact,
 			);
 
 			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
 			children = root.getChildren() as FileNode[];
 		} else {
 			children.sort((a, b) =>
-				a.label!.localeCompare(b.label!, undefined, { numeric: true, sensitivity: 'base' })
+				a.label!.localeCompare(b.label!, undefined, { numeric: true, sensitivity: 'base' }),
 			);
 		}
 		return children;
@@ -60,12 +60,12 @@ export class CommitNode extends ViewRefNode<ViewWithFiles> {
 		const label = CommitFormatter.fromTemplate(this.view.config.commitFormat, this.commit, {
 			dateFormat: Container.config.defaultDateFormat,
 			getBranchAndTagTips: this.getBranchAndTagTips,
-			truncateMessageAtNewLine: true
+			truncateMessageAtNewLine: true,
 		});
 
 		const item = new TreeItem(
 			label,
-			this._options.expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed
+			this._options.expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
 		);
 		item.contextValue = ResourceType.Commit;
 		if (this.branch !== undefined && this.branch.current) {
@@ -73,7 +73,7 @@ export class CommitNode extends ViewRefNode<ViewWithFiles> {
 		}
 		item.description = CommitFormatter.fromTemplate(this.view.config.commitDescriptionFormat, this.commit, {
 			truncateMessageAtNewLine: true,
-			dateFormat: Container.config.defaultDateFormat
+			dateFormat: Container.config.defaultDateFormat,
 		});
 
 		if (this.view.config.avatars) {
@@ -81,7 +81,7 @@ export class CommitNode extends ViewRefNode<ViewWithFiles> {
 		} else {
 			item.iconPath = {
 				dark: Container.context.asAbsolutePath('images/dark/icon-commit.svg'),
-				light: Container.context.asAbsolutePath('images/light/icon-commit.svg')
+				light: Container.context.asAbsolutePath('images/light/icon-commit.svg'),
 			};
 		}
 
@@ -92,15 +92,15 @@ export class CommitNode extends ViewRefNode<ViewWithFiles> {
 			this.commit,
 			{
 				dateFormat: Container.config.defaultDateFormat,
-				getBranchAndTagTips: this.getBranchAndTagTips
-			}
+				getBranchAndTagTips: this.getBranchAndTagTips,
+			},
 		);
 
 		if (!this.commit.isUncommitted) {
 			item.tooltip += this.commit.getFormattedDiffStatus({
 				expand: true,
 				prefix: '\n\n',
-				separator: '\n'
+				separator: '\n',
 			});
 		}
 
@@ -113,13 +113,13 @@ export class CommitNode extends ViewRefNode<ViewWithFiles> {
 			line: 0,
 			showOptions: {
 				preserveFocus: true,
-				preview: true
-			}
+				preview: true,
+			},
 		};
 		return {
 			title: 'Compare File with Previous Revision',
 			command: Commands.DiffWithPrevious,
-			arguments: [this.uri, commandArgs]
+			arguments: [this.uri, commandArgs],
 		};
 	}
 }

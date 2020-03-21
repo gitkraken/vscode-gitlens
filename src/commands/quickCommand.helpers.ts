@@ -7,14 +7,14 @@ import { Container } from '../container';
 
 export async function getBranches(
 	repos: Repository | Repository[],
-	options: { filterBranches?: (b: GitBranch) => boolean; picked?: string | string[] } = {}
+	options: { filterBranches?: (b: GitBranch) => boolean; picked?: string | string[] } = {},
 ): Promise<BranchQuickPickItem[]> {
 	return getBranchesAndOrTags(repos, ['branches'], options) as Promise<BranchQuickPickItem[]>;
 }
 
 export async function getTags(
 	repos: Repository | Repository[],
-	options: { filterTags?: (t: GitTag) => boolean; picked?: string | string[] } = {}
+	options: { filterTags?: (t: GitTag) => boolean; picked?: string | string[] } = {},
 ): Promise<TagQuickPickItem[]> {
 	return getBranchesAndOrTags(repos, ['tags'], options) as Promise<TagQuickPickItem[]>;
 }
@@ -25,12 +25,12 @@ export async function getBranchesAndOrTags(
 	{
 		filterBranches,
 		filterTags,
-		picked
+		picked,
 	}: {
 		filterBranches?: (b: GitBranch) => boolean;
 		filterTags?: (t: GitTag) => boolean;
 		picked?: string | string[];
-	} = {}
+	} = {},
 ): Promise<(BranchQuickPickItem | TagQuickPickItem)[]> {
 	let branches: GitBranch[] | undefined;
 	let tags: GitTag[] | undefined;
@@ -42,7 +42,7 @@ export async function getBranchesAndOrTags(
 
 		[branches, tags] = await Promise.all<GitBranch[] | undefined, GitTag[] | undefined>([
 			include.includes('branches') ? repo.getBranches({ filter: filterBranches, sort: true }) : undefined,
-			include.includes('tags') ? repo.getTags({ filter: filterTags, sort: true }) : undefined
+			include.includes('tags') ? repo.getTags({ filter: filterTags, sort: true }) : undefined,
 		]);
 	} else {
 		const [branchesByRepo, tagsByRepo] = await Promise.all<GitBranch[][] | undefined, GitTag[][] | undefined>([
@@ -51,18 +51,18 @@ export async function getBranchesAndOrTags(
 				: undefined,
 			include.includes('tags')
 				? Promise.all(repos.map(r => r.getTags({ filter: filterTags, sort: true })))
-				: undefined
+				: undefined,
 		]);
 
 		if (include.includes('branches')) {
 			branches = GitBranch.sort(
-				Arrays.intersection(...branchesByRepo!, ((b1: GitBranch, b2: GitBranch) => b1.name === b2.name) as any)
+				Arrays.intersection(...branchesByRepo!, ((b1: GitBranch, b2: GitBranch) => b1.name === b2.name) as any),
 			);
 		}
 
 		if (include.includes('tags')) {
 			tags = GitTag.sort(
-				Arrays.intersection(...tagsByRepo!, ((t1: GitTag, t2: GitTag) => t1.name === t2.name) as any)
+				Arrays.intersection(...tagsByRepo!, ((t1: GitTag, t2: GitTag) => t1.name === t2.name) as any),
 			);
 		}
 	}
@@ -77,10 +77,10 @@ export async function getBranchesAndOrTags(
 						current: singleRepo ? 'checkmark' : false,
 						ref: singleRepo,
 						status: singleRepo,
-						type: 'remote'
-					}
-				)
-			)
+						type: 'remote',
+					},
+				),
+			),
 		);
 	}
 
@@ -92,10 +92,10 @@ export async function getBranchesAndOrTags(
 					picked != null && (typeof picked === 'string' ? t.ref === picked : picked.includes(t.ref)),
 					{
 						message: singleRepo,
-						ref: singleRepo
-					}
-				)
-			)
+						ref: singleRepo,
+					},
+				),
+			),
 		);
 	}
 
@@ -109,9 +109,9 @@ export async function getBranchesAndOrTags(
 					{
 						current: singleRepo ? 'checkmark' : false,
 						ref: singleRepo,
-						status: singleRepo
-					}
-				)
+						status: singleRepo,
+					},
+				),
 			),
 		...tags!.map(t =>
 			TagQuickPickItem.create(
@@ -120,9 +120,9 @@ export async function getBranchesAndOrTags(
 				{
 					message: singleRepo,
 					ref: singleRepo,
-					type: true
-				}
-			)
+					type: true,
+				},
+			),
 		),
 		...branches!
 			.filter(b => b.remote)
@@ -134,10 +134,10 @@ export async function getBranchesAndOrTags(
 						current: singleRepo ? 'checkmark' : false,
 						ref: singleRepo,
 						status: singleRepo,
-						type: 'remote'
-					}
-				)
-			)
+						type: 'remote',
+					},
+				),
+			),
 	]);
 }
 

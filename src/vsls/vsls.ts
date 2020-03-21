@@ -84,7 +84,7 @@ export class VslsController implements Disposable {
 			setCommandContext(CommandContext.Vsls, true);
 
 			this._disposable = Disposable.from(
-				api.onDidChangeSession(e => this.onLiveShareSessionChanged(api, e), this)
+				api.onDidChangeSession(e => this.onLiveShareSessionChanged(api, e), this),
 			);
 		} catch (ex) {
 			Logger.error(ex);
@@ -117,8 +117,8 @@ export class VslsController implements Disposable {
 
 	@debug({
 		args: {
-			0: (emails: string[]) => `length=${emails.length}`
-		}
+			0: (emails: string[]) => `length=${emails.length}`,
+		},
 	})
 	async getContacts(emails: string[]) {
 		const api = await this._api;
@@ -138,15 +138,15 @@ export class VslsController implements Disposable {
 
 	@debug({
 		args: {
-			0: (emails: string[]) => `length=${emails.length}`
-		}
+			0: (emails: string[]) => `length=${emails.length}`,
+		},
 	})
 	async getContactsPresence(emails: string[]): Promise<Map<string, ContactPresence> | undefined> {
 		const contacts = await this.getContacts(emails);
 		if (contacts == null) return undefined;
 
 		return new Map<string, ContactPresence>(
-			Object.values(contacts).map(c => [c.email, contactStatusToPresence(c.status)])
+			Object.values(contacts).map(c => [c.email, contactStatusToPresence(c.status)]),
 		);
 	}
 

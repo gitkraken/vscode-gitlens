@@ -10,7 +10,7 @@ import {
 	QuickPickStep,
 	StepAsyncGenerator,
 	StepSelection,
-	StepState
+	StepState,
 } from '../quickCommand';
 import {
 	BranchQuickPickItem,
@@ -19,7 +19,7 @@ import {
 	FlagsQuickPickItem,
 	QuickPickItemOfT,
 	RepositoryQuickPickItem,
-	TagQuickPickItem
+	TagQuickPickItem,
 } from '../../quickpicks';
 import { Strings } from '../../system';
 import { GlyphChars } from '../../constants';
@@ -48,7 +48,7 @@ type StashStepState<T> = StepState<T> & { repo: Repository };
 
 const subcommandToTitleMap = new Map<State['subcommand'], string>([
 	['create', 'Create'],
-	['delete', 'Delete']
+	['delete', 'Delete'],
 ]);
 function getTitle(title: string, subcommand: State['subcommand'] | undefined) {
 	return subcommand == null ? title : `${subcommandToTitleMap.get(subcommand)} ${title}`;
@@ -66,9 +66,9 @@ export class TagGitCommand extends QuickCommandBase<State> {
 		static readonly RevealInView: QuickInputButton = {
 			iconPath: {
 				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-eye.svg')),
-				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-eye.svg'))
+				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-eye.svg')),
 			},
-			tooltip: 'Reveal Tag in Repositories View'
+			tooltip: 'Reveal Tag in Repositories View',
 		};
 	};
 
@@ -76,7 +76,7 @@ export class TagGitCommand extends QuickCommandBase<State> {
 
 	constructor(args?: TagGitCommandArgs) {
 		super('tag', 'tag', 'Tag', {
-			description: 'create, or delete tags'
+			description: 'create, or delete tags',
 		});
 
 		if (args == null || args.state == null) return;
@@ -116,7 +116,7 @@ export class TagGitCommand extends QuickCommandBase<State> {
 		this._initialState = {
 			counter: counter,
 			confirm: args.confirm,
-			...args.state
+			...args.state,
 		};
 	}
 
@@ -149,16 +149,16 @@ export class TagGitCommand extends QuickCommandBase<State> {
 								label: 'create',
 								description: 'creates a new tag',
 								picked: state.subcommand === 'create',
-								item: 'create'
+								item: 'create',
 							},
 							{
 								label: 'delete',
 								description: 'deletes the specified tags',
 								picked: state.subcommand === 'delete',
-								item: 'delete'
-							}
+								item: 'delete',
+							},
 						],
-						buttons: [QuickInputButtons.Back]
+						buttons: [QuickInputButtons.Back],
 					});
 					const selection: StepSelection<typeof step> = yield step;
 
@@ -190,10 +190,10 @@ export class TagGitCommand extends QuickCommandBase<State> {
 									RepositoryQuickPickItem.create(r, r.id === (active && active.id), {
 										branch: true,
 										fetched: true,
-										status: true
-									})
-								)
-							)
+										status: true,
+									}),
+								),
+							),
 						});
 						const selection: StepSelection<typeof step> = yield step;
 
@@ -242,7 +242,7 @@ export class TagGitCommand extends QuickCommandBase<State> {
 		while (true) {
 			if (state.reference == null || state.counter < 3) {
 				const branches = await getBranches(state.repo, {
-					picked: state.reference != null ? state.reference.ref : (await state.repo.getBranch())!.ref
+					picked: state.reference != null ? state.reference.ref : (await state.repo.getBranch())!.ref,
 				});
 
 				const step = this.createPickStep<BranchQuickPickItem>({
@@ -256,7 +256,7 @@ export class TagGitCommand extends QuickCommandBase<State> {
 						branches.length === 0
 							? [
 									DirectiveQuickPickItem.create(Directive.Back, true),
-									DirectiveQuickPickItem.create(Directive.Cancel)
+									DirectiveQuickPickItem.create(Directive.Cancel),
 							  ]
 							: branches,
 					additionalButtons: [this.Buttons.RevealInView],
@@ -265,7 +265,7 @@ export class TagGitCommand extends QuickCommandBase<State> {
 							if (quickpick.activeItems.length !== 0) {
 								void Container.repositoriesView.revealBranch(quickpick.activeItems[0].item, {
 									select: true,
-									expand: true
+									expand: true,
 								});
 
 								return;
@@ -273,7 +273,7 @@ export class TagGitCommand extends QuickCommandBase<State> {
 
 							void Container.repositoriesView.revealBranches(state.repo.path, {
 								select: true,
-								expand: true
+								expand: true,
 							});
 						}
 					},
@@ -284,9 +284,9 @@ export class TagGitCommand extends QuickCommandBase<State> {
 						await Container.repositoriesView.revealBranch(quickpick.activeItems[0].item, {
 							select: true,
 							focus: false,
-							expand: true
+							expand: true,
 						});
-					}
+					},
 				});
 				const selection: StepSelection<typeof step> = yield step;
 
@@ -311,7 +311,7 @@ export class TagGitCommand extends QuickCommandBase<State> {
 
 						const valid = Boolean(await Container.git.validateBranchOrTagName(value));
 						return [valid, valid ? undefined : `'${value}' isn't a valid tag name`];
-					}
+					},
 				});
 
 				const value: StepSelection<typeof step> = yield step;
@@ -328,7 +328,7 @@ export class TagGitCommand extends QuickCommandBase<State> {
 					title: `${title} at ${state.reference.name}${Strings.pad(GlyphChars.Dot, 2, 2)}${
 						state.repo.formattedName
 					}`,
-					placeholder: 'Please provide an optional message to annotate the tag'
+					placeholder: 'Please provide an optional message to annotate the tag',
 					// validate: async (value: string | undefined): Promise<[boolean, string | undefined]> => {
 					// 	if (value == null) return [false, undefined];
 
@@ -358,7 +358,7 @@ export class TagGitCommand extends QuickCommandBase<State> {
 						FlagsQuickPickItem.create<CreateFlags>(state.flags, hasMessage ? ['-m'] : [], {
 							label: title,
 							description: state.name,
-							detail: `Will create tag ${state.name} at ${state.reference.name}`
+							detail: `Will create tag ${state.name} at ${state.reference.name}`,
 						}),
 						FlagsQuickPickItem.create<CreateFlags>(
 							state.flags,
@@ -366,14 +366,14 @@ export class TagGitCommand extends QuickCommandBase<State> {
 							{
 								label: `Force ${title}`,
 								description: `to ${state.name}`,
-								detail: `Will forcably create tag ${state.name} at ${state.reference.name}`
-							}
-						)
+								detail: `Will forcably create tag ${state.name} at ${state.reference.name}`,
+							},
+						),
 					],
 					undefined,
 					{
-						placeholder: `Confirm ${title}`
-					}
+						placeholder: `Confirm ${title}`,
+					},
 				);
 				const selection: StepSelection<typeof step> = yield step;
 
@@ -388,7 +388,7 @@ export class TagGitCommand extends QuickCommandBase<State> {
 				...state.flags,
 				...(hasMessage ? [`"${state.message}"`] : []),
 				state.name,
-				state.reference.ref
+				state.reference.ref,
 			);
 
 			throw new BreakQuickCommand();
@@ -403,7 +403,7 @@ export class TagGitCommand extends QuickCommandBase<State> {
 
 			if (state.references == null || state.references.length === 0 || state.counter < 3) {
 				const tags = await getTags(state.repo, {
-					picked: state.references != null ? state.references.map(r => r.ref) : undefined
+					picked: state.references != null ? state.references.map(r => r.ref) : undefined,
 				});
 
 				const step = this.createPickStep<TagQuickPickItem>({
@@ -416,7 +416,7 @@ export class TagGitCommand extends QuickCommandBase<State> {
 						tags.length === 0
 							? [
 									DirectiveQuickPickItem.create(Directive.Back, true),
-									DirectiveQuickPickItem.create(Directive.Cancel)
+									DirectiveQuickPickItem.create(Directive.Cancel),
 							  ]
 							: tags,
 					additionalButtons: [this.Buttons.RevealInView],
@@ -425,7 +425,7 @@ export class TagGitCommand extends QuickCommandBase<State> {
 							if (quickpick.activeItems.length !== 0) {
 								void Container.repositoriesView.revealTag(quickpick.activeItems[0].item, {
 									select: true,
-									expand: true
+									expand: true,
 								});
 
 								return;
@@ -433,7 +433,7 @@ export class TagGitCommand extends QuickCommandBase<State> {
 
 							void Container.repositoriesView.revealTags(state.repo.path, {
 								select: true,
-								expand: true
+								expand: true,
 							});
 						}
 					},
@@ -444,9 +444,9 @@ export class TagGitCommand extends QuickCommandBase<State> {
 						await Container.repositoriesView.revealTag(quickpick.activeItems[0].item, {
 							select: true,
 							focus: false,
-							expand: true
+							expand: true,
 						});
-					}
+					},
 				});
 				const selection: StepSelection<typeof step> = yield step;
 
@@ -459,7 +459,7 @@ export class TagGitCommand extends QuickCommandBase<State> {
 
 			title = getTitle(
 				Strings.pluralize('Tag', state.references.length, { number: '' }).trim(),
-				state.subcommand
+				state.subcommand,
 			);
 
 			const step = this.createConfirmStep(
@@ -471,13 +471,13 @@ export class TagGitCommand extends QuickCommandBase<State> {
 						detail:
 							state.references.length === 1
 								? `Will delete tag ${state.references[0].name}`
-								: `Will delete ${Strings.pluralize('tag', state.references.length)}`
-					}
+								: `Will delete ${Strings.pluralize('tag', state.references.length)}`,
+					},
 				],
 				undefined,
 				{
-					placeholder: `Confirm ${title}`
-				}
+					placeholder: `Confirm ${title}`,
+				},
 			);
 			const selection: StepSelection<typeof step> = yield step;
 

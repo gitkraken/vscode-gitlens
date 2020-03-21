@@ -11,7 +11,7 @@ import {
 	Commands,
 	getCommandUri,
 	getRepoPathOrActiveOrPrompt,
-	isCommandViewContextWithRemote
+	isCommandViewContextWithRemote,
 } from './common';
 import { OpenInRemoteCommandArgs } from './openInRemote';
 
@@ -42,7 +42,7 @@ export class OpenBranchesInRemoteCommand extends ActiveEditorCommand {
 		const repoPath = await getRepoPathOrActiveOrPrompt(
 			gitUri,
 			editor,
-			`Open branches on remote for which repository${GlyphChars.Ellipsis}`
+			`Open branches on remote for which repository${GlyphChars.Ellipsis}`,
 		);
 		if (!repoPath) return undefined;
 
@@ -51,16 +51,16 @@ export class OpenBranchesInRemoteCommand extends ActiveEditorCommand {
 
 			const commandArgs: OpenInRemoteCommandArgs = {
 				resource: {
-					type: RemoteResourceType.Branches
+					type: RemoteResourceType.Branches,
 				},
 				remote: args && args.remote,
-				remotes: remotes
+				remotes: remotes,
 			};
 			return commands.executeCommand(Commands.OpenInRemote, uri, commandArgs);
 		} catch (ex) {
 			Logger.error(ex, 'OpenBranchesInRemoteCommand');
 			return window.showErrorMessage(
-				'Unable to open branches on remote provider. See output channel for more details'
+				'Unable to open branches on remote provider. See output channel for more details',
 			);
 		}
 	}

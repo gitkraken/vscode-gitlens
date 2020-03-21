@@ -16,7 +16,7 @@ export const BranchDateFormatting = {
 	reset: () => {
 		BranchDateFormatting.dateFormat = configuration.get('defaultDateFormat');
 		BranchDateFormatting.dateStyle = configuration.get('defaultDateStyle');
-	}
+	},
 };
 
 export interface GitTrackingState {
@@ -43,7 +43,7 @@ export class GitBranch implements GitReference {
 						(a.current ? -1 : 1) - (b.current ? -1 : 1) ||
 						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
-						(a.date === undefined ? -1 : a.date.getTime()) - (b.date === undefined ? -1 : b.date.getTime())
+						(a.date === undefined ? -1 : a.date.getTime()) - (b.date === undefined ? -1 : b.date.getTime()),
 				);
 			case BranchSorting.DateDesc:
 				return branches.sort(
@@ -51,7 +51,7 @@ export class GitBranch implements GitReference {
 						(a.current ? -1 : 1) - (b.current ? -1 : 1) ||
 						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
-						(b.date === undefined ? -1 : b.date.getTime()) - (a.date === undefined ? -1 : a.date.getTime())
+						(b.date === undefined ? -1 : b.date.getTime()) - (a.date === undefined ? -1 : a.date.getTime()),
 				);
 			case BranchSorting.NameAsc:
 				return branches.sort(
@@ -61,7 +61,7 @@ export class GitBranch implements GitReference {
 						(a.name === 'master' ? -1 : 0) ||
 						(a.name === 'develop' ? (b.name === 'master' ? 0 : -1) : 0) ||
 						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
-						b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' })
+						b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' }),
 				);
 			default:
 				return branches.sort(
@@ -71,7 +71,7 @@ export class GitBranch implements GitReference {
 						(a.name === 'master' ? -1 : 0) ||
 						(a.name === 'develop' ? (b.name === 'master' ? 0 : -1) : 0) ||
 						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
-						a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+						a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }),
 				);
 		}
 	}
@@ -92,7 +92,7 @@ export class GitBranch implements GitReference {
 		tracking?: string,
 		ahead: number = 0,
 		behind: number = 0,
-		detached: boolean = false
+		detached: boolean = false,
 	) {
 		this.id = `${repoPath}|${remote ? 'remotes/' : 'heads/'}${name}`;
 
@@ -104,7 +104,7 @@ export class GitBranch implements GitReference {
 		this.tracking = tracking == null || tracking.length === 0 ? undefined : tracking;
 		this.state = {
 			ahead: ahead,
-			behind: behind
+			behind: behind,
 		};
 	}
 

@@ -305,7 +305,7 @@ export class TernarySearchTree<E> {
 				node = node.mid;
 				return {
 					// eslint-disable-next-line no-loop-func
-					[Symbol.iterator]: () => this._nodeIterator(node!, limit)
+					[Symbol.iterator]: () => this._nodeIterator(node!, limit),
 				};
 			}
 		}
@@ -344,7 +344,7 @@ export class TernarySearchTree<E> {
 	private _forEach(
 		node: TernarySearchTreeNode<E> | undefined,
 		callback: (value: E, index: string) => any,
-		limit: boolean = false
+		limit: boolean = false,
 	) {
 		if (node === undefined) return;
 

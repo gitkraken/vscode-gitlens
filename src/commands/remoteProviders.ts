@@ -17,7 +17,7 @@ export class ConnectRemoteProviderCommand extends Command {
 		if (GitRemote.is(argsOrRemote)) {
 			args = {
 				remote: argsOrRemote.id,
-				repoPath: argsOrRemote.repoPath
+				repoPath: argsOrRemote.repoPath,
 			};
 		} else {
 			args = argsOrRemote;
@@ -67,7 +67,7 @@ export class DisconnectRemoteProviderCommand extends Command {
 		if (GitRemote.is(argsOrRemote)) {
 			args = {
 				remote: argsOrRemote.id,
-				repoPath: argsOrRemote.repoPath
+				repoPath: argsOrRemote.repoPath,
 			};
 		} else {
 			args = argsOrRemote;
@@ -75,7 +75,7 @@ export class DisconnectRemoteProviderCommand extends Command {
 
 		return super.getMarkdownCommandArgsCore<DisconnectRemoteProviderCommandArgs>(
 			Commands.DisconnectRemoteProvider,
-			args
+			args,
 		);
 	}
 

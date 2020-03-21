@@ -41,7 +41,7 @@ export class SettingsApp extends AppWithConfig<SettingsState> {
 		}
 
 		this._observer = new IntersectionObserver(this.onObserver.bind(this), {
-			rootMargin: `-${top}px 0px 0px 0px`
+			rootMargin: `-${top}px 0px 0px 0px`,
 		});
 
 		for (const el of document.querySelectorAll('section[id]>.section__header')) {
@@ -54,24 +54,24 @@ export class SettingsApp extends AppWithConfig<SettingsState> {
 	protected onBind(me: this) {
 		super.onBind(me);
 
-		DOM.listenAll('.section--collapsible>.section__header', 'click', function(this: HTMLInputElement, e: Event) {
+		DOM.listenAll('.section--collapsible>.section__header', 'click', function (this: HTMLInputElement, e: Event) {
 			return me.onSectionHeaderClicked(this, e as MouseEvent);
 		});
-		DOM.listenAll('.setting--expandable .setting__expander', 'click', function(this: HTMLInputElement, e: Event) {
+		DOM.listenAll('.setting--expandable .setting__expander', 'click', function (this: HTMLInputElement, e: Event) {
 			return me.onSettingExpanderCicked(this, e as MouseEvent);
 		});
 		DOM.listenAll('a[data-action="jump"]', 'mousedown', (e: Event) => {
 			e.stopPropagation();
 			e.preventDefault();
 		});
-		DOM.listenAll('a[data-action="jump"]', 'click', function(this: HTMLAnchorElement, e: Event) {
+		DOM.listenAll('a[data-action="jump"]', 'click', function (this: HTMLAnchorElement, e: Event) {
 			return me.onJumpToLinkClicked(this, e as MouseEvent);
 		});
 		DOM.listenAll('[data-action]', 'mousedown', (e: Event) => {
 			e.stopPropagation();
 			e.preventDefault();
 		});
-		DOM.listenAll('[data-action]', 'click', function(this: HTMLAnchorElement, e: Event) {
+		DOM.listenAll('[data-action]', 'click', function (this: HTMLAnchorElement, e: Event) {
 			return me.onActionLinkClicked(this, e as MouseEvent);
 		});
 	}
@@ -207,7 +207,7 @@ export class SettingsApp extends AppWithConfig<SettingsState> {
 		const top = el.getBoundingClientRect().top - document.body.getBoundingClientRect().top - height;
 		window.scrollTo({
 			top: top,
-			behavior: 'smooth'
+			behavior: 'smooth',
 		});
 	}
 

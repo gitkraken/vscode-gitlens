@@ -17,7 +17,7 @@ export enum RemoteResourceType {
 	Commit = 'commit',
 	File = 'file',
 	Repo = 'repo',
-	Revision = 'revision'
+	Revision = 'revision',
 }
 
 export type RemoteResource =
@@ -77,7 +77,7 @@ export abstract class RemoteProvider {
 		public readonly path: string,
 		public readonly protocol: string = 'https',
 		name?: string,
-		public readonly custom: boolean = false
+		public readonly custom: boolean = false,
 	) {
 		this._name = name;
 	}
@@ -107,7 +107,7 @@ export abstract class RemoteProvider {
 		} catch (ex) {
 			if (ex.message.includes("Couldn't find the required `xsel` binary")) {
 				window.showErrorMessage(
-					'Unable to copy remote url, xsel is not installed. Please install it via your package manager, e.g. `sudo apt install xsel`'
+					'Unable to copy remote url, xsel is not installed. Please install it via your package manager, e.g. `sudo apt install xsel`',
 				);
 				return undefined;
 			}
@@ -138,7 +138,7 @@ export abstract class RemoteProvider {
 					resource.fileName,
 					resource.branch !== undefined ? encodeURIComponent(resource.branch) : undefined,
 					undefined,
-					resource.range
+					resource.range,
 				);
 			case RemoteResourceType.Repo:
 				return this.getUrlForRepository();
@@ -147,7 +147,7 @@ export abstract class RemoteProvider {
 					resource.fileName,
 					resource.branch !== undefined ? encodeURIComponent(resource.branch) : undefined,
 					resource.sha !== undefined ? encodeURIComponent(resource.sha) : undefined,
-					resource.range
+					resource.range,
 				);
 			default:
 				return undefined;
@@ -232,7 +232,7 @@ export abstract class RemoteProviderWithApi<T extends string | {} = any> extends
 
 	@gate()
 	@debug<RemoteProviderWithApi['isConnected']>({
-		exit: connected => `returned ${connected}`
+		exit: connected => `returned ${connected}`,
 	})
 	async isConnected(): Promise<boolean> {
 		return (await this.credentials()) != null;

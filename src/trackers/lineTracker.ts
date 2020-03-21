@@ -93,7 +93,7 @@ export class LineTracker<T> implements Disposable {
 	@debug({ args: false })
 	start(subscriber: any, subscription: Disposable): Disposable {
 		const disposable = {
-			dispose: () => this.stop(subscriber)
+			dispose: () => this.stop(subscriber),
 		};
 
 		const first = this._subscriptions.size === 0;
@@ -111,7 +111,7 @@ export class LineTracker<T> implements Disposable {
 				window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveTextEditorChanged, 0), this),
 				window.onDidChangeTextEditorSelection(this.onTextEditorSelectionChanged, this),
 				// eslint-disable-next-line @typescript-eslint/no-empty-function
-				this.onStart?.() ?? { dispose: () => {} }
+				this.onStart?.() ?? { dispose: () => {} },
 			);
 
 			setImmediate(() => this.onActiveTextEditorChanged(window.activeTextEditor));
@@ -202,7 +202,7 @@ export class LineTracker<T> implements Disposable {
 					if (
 						!LineTracker.includesAll(
 							e.lines,
-							e.editor?.selections.map(s => s.active.line)
+							e.editor?.selections.map(s => s.active.line),
 						)
 					) {
 						return;
@@ -211,7 +211,7 @@ export class LineTracker<T> implements Disposable {
 					void this.fireLinesChanged(e);
 				},
 				250,
-				{ track: true }
+				{ track: true },
 			);
 		}
 

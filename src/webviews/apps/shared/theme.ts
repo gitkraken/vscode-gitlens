@@ -17,12 +17,12 @@ export function initializeAndWatchThemeColors() {
 		} else {
 			bodyStyle.setProperty(
 				'--font-family',
-				computedStyle.getPropertyValue('--vscode-editor-font-family').trim()
+				computedStyle.getPropertyValue('--vscode-editor-font-family').trim(),
 			);
 			bodyStyle.setProperty('--font-size', computedStyle.getPropertyValue('--vscode-editor-font-size').trim());
 			bodyStyle.setProperty(
 				'--font-weight',
-				computedStyle.getPropertyValue('--vscode-editor-font-weight').trim()
+				computedStyle.getPropertyValue('--vscode-editor-font-weight').trim(),
 			);
 		}
 

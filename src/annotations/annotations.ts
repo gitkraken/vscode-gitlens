@@ -4,7 +4,7 @@ import {
 	DecorationOptions,
 	ThemableDecorationAttachmentRenderOptions,
 	ThemableDecorationRenderOptions,
-	ThemeColor
+	ThemeColor,
 } from 'vscode';
 import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
@@ -52,12 +52,12 @@ export class Annotations {
 		commit: GitCommit,
 		format: string,
 		dateFormatOrFormatOptions: string | null | CommitFormatOptions,
-		renderOptions: RenderOptions
+		renderOptions: RenderOptions,
 	): Partial<DecorationOptions> {
 		const decoration: Partial<DecorationOptions> = {
 			renderOptions: {
-				before: { ...renderOptions }
-			}
+				before: { ...renderOptions },
+			},
 		};
 
 		if (commit.isUncommitted) {
@@ -74,7 +74,7 @@ export class Annotations {
 		separateLines: boolean,
 		heatmap: HeatmapConfig,
 		format: string,
-		options: CommitFormatOptions
+		options: CommitFormatOptions,
 	): RenderOptions {
 		// Get the character count of all the tokens, assuming there there is a cap (bail if not)
 		let chars = 0;
@@ -127,19 +127,19 @@ export class Annotations {
 			margin: '0 26px -1px 0',
 			textDecoration: separateLines ? 'overline solid rgba(0, 0, 0, .2)' : 'none',
 			width: width,
-			uncommittedColor: new ThemeColor('gitlens.gutterUncommittedForegroundColor')
+			uncommittedColor: new ThemeColor('gitlens.gutterUncommittedForegroundColor'),
 		};
 	}
 
 	static heatmap(
 		commit: GitCommit,
 		heatmap: ComputedHeatmap,
-		renderOptions: RenderOptions
+		renderOptions: RenderOptions,
 	): Partial<DecorationOptions> {
 		const decoration: Partial<DecorationOptions> = {
 			renderOptions: {
-				before: { ...renderOptions }
-			}
+				before: { ...renderOptions },
+			},
 		};
 
 		Annotations.applyHeatmap(decoration, commit.date, heatmap);
@@ -150,7 +150,7 @@ export class Annotations {
 	static heatmapRenderOptions(): RenderOptions {
 		return {
 			borderStyle: 'solid',
-			borderWidth: '0 0 0 2px'
+			borderWidth: '0 0 0 2px',
 		};
 	}
 
@@ -160,7 +160,7 @@ export class Annotations {
 		// editorLine: number,
 		format: string,
 		formatOptions?: CommitFormatOptions,
-		scrollable: boolean = true
+		scrollable: boolean = true,
 	): Partial<DecorationOptions> {
 		// TODO: Enable this once there is better caching
 		// let diffUris;
@@ -171,7 +171,7 @@ export class Annotations {
 		const message = CommitFormatter.fromTemplate(format, commit, {
 			...formatOptions,
 			// previousLineDiffUris: diffUris,
-			truncateMessageAtNewLine: true
+			truncateMessageAtNewLine: true,
 		});
 
 		return {
@@ -183,9 +183,9 @@ export class Annotations {
 					fontWeight: 'normal',
 					fontStyle: 'normal',
 					// Pull the decoration out of the document flow if we want to be scrollable
-					textDecoration: `none;${scrollable ? '' : ' position: absolute;'}`
-				}
-			}
+					textDecoration: `none;${scrollable ? '' : ' position: absolute;'}`,
+				},
+			},
 		};
 	}
 
@@ -204,7 +204,7 @@ export class Annotations {
 			const [r, g, b] = rgba;
 			computedHeatmapColor = {
 				color: baseColor,
-				rgb: `${r}, ${g}, ${b}`
+				rgb: `${r}, ${g}, ${b}`,
 			};
 		}
 

@@ -8,7 +8,7 @@ import {
 	TextEditorDecorationType,
 	TextEditorSelectionChangeEvent,
 	Uri,
-	window
+	window,
 } from 'vscode';
 import { TextDocumentComparer } from '../comparers';
 import { FileAnnotationType } from '../configuration';
@@ -18,7 +18,7 @@ import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracke
 
 export enum AnnotationStatus {
 	Computing = 'computing',
-	Computed = 'computed'
+	Computed = 'computed',
 }
 
 export type TextEditorCorrelationKey = string;
@@ -40,13 +40,13 @@ export abstract class AnnotationProviderBase implements Disposable {
 		public editor: TextEditor,
 		protected readonly trackedDocument: TrackedDocument<GitDocumentState>,
 		protected decoration: TextEditorDecorationType,
-		protected highlightDecoration: TextEditorDecorationType | undefined
+		protected highlightDecoration: TextEditorDecorationType | undefined,
 	) {
 		this.correlationKey = AnnotationProviderBase.getCorrelationKey(this.editor);
 		this.document = this.editor.document;
 
 		this.disposable = Disposable.from(
-			window.onDidChangeTextEditorSelection(this.onTextEditorSelectionChanged, this)
+			window.onDidChangeTextEditorSelection(this.onTextEditorSelectionChanged, this),
 		);
 	}
 

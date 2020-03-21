@@ -37,17 +37,17 @@ export class ShowCommitsInViewCommand extends ActiveEditorCommand {
 						? await Container.git.getBlameForRangeContents(
 								gitUri,
 								editor.selection,
-								editor.document.getText()
+								editor.document.getText(),
 						  )
 						: await Container.git.getBlameForRange(gitUri, editor.selection);
 					if (blame === undefined) {
 						return Messages.showFileNotUnderSourceControlWarningMessage(
-							'Unable to show commits in Search Commits view'
+							'Unable to show commits in Search Commits view',
 						);
 					}
 
 					args.refs = [
-						...Iterables.filterMap(blame.commits.values(), c => (c.isUncommitted ? undefined : c.ref))
+						...Iterables.filterMap(blame.commits.values(), c => (c.isUncommitted ? undefined : c.ref)),
 					];
 				} catch (ex) {
 					Logger.error(ex, 'ShowCommitsInViewCommand', 'getBlameForRange');
@@ -70,8 +70,8 @@ export class ShowCommitsInViewCommand extends ActiveEditorCommand {
 			state: {
 				repo: repo,
 				pattern: SearchPattern.fromCommits(args.refs),
-				showResultsInView: true
-			}
+				showResultsInView: true,
+			},
 		};
 		return commands.executeCommand(Commands.GitCommands, gitCommandArgs);
 	}

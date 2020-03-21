@@ -40,7 +40,7 @@ export class StashNode extends ViewRefNode<ViewWithFiles> {
 		// See https://stackoverflow.com/questions/12681529/
 		const log = await Container.git.getLog(this.commit.repoPath, {
 			limit: 1,
-			ref: `${this.commit.stashName}^3`
+			ref: `${this.commit.stashName}^3`,
 		});
 		if (log !== undefined) {
 			const commit = Iterables.first(log.commits.values());
@@ -57,14 +57,14 @@ export class StashNode extends ViewRefNode<ViewWithFiles> {
 				children,
 				n => n.uri.relativePath.split('/'),
 				(...parts: string[]) => Strings.normalizePath(paths.join(...parts)),
-				this.view.config.files.compact
+				this.view.config.files.compact,
 			);
 
 			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
 			children = root.getChildren() as FileNode[];
 		} else {
 			children.sort((a, b) =>
-				a.label!.localeCompare(b.label!, undefined, { numeric: true, sensitivity: 'base' })
+				a.label!.localeCompare(b.label!, undefined, { numeric: true, sensitivity: 'base' }),
 			);
 		}
 		return children;
@@ -74,19 +74,19 @@ export class StashNode extends ViewRefNode<ViewWithFiles> {
 		const item = new TreeItem(
 			CommitFormatter.fromTemplate(this.view.config.stashFormat, this.commit, {
 				truncateMessageAtNewLine: true,
-				dateFormat: Container.config.defaultDateFormat
+				dateFormat: Container.config.defaultDateFormat,
 			}),
-			TreeItemCollapsibleState.Collapsed
+			TreeItemCollapsibleState.Collapsed,
 		);
 		item.id = this.id;
 		item.description = CommitFormatter.fromTemplate(this.view.config.stashDescriptionFormat, this.commit, {
 			truncateMessageAtNewLine: true,
-			dateFormat: Container.config.defaultDateFormat
+			dateFormat: Container.config.defaultDateFormat,
 		});
 		item.contextValue = ResourceType.Stash;
 		// eslint-disable-next-line no-template-curly-in-string
 		item.tooltip = CommitFormatter.fromTemplate('${ago} (${date})\n\n${message}', this.commit, {
-			dateFormat: Container.config.defaultDateFormat
+			dateFormat: Container.config.defaultDateFormat,
 		});
 
 		return item;

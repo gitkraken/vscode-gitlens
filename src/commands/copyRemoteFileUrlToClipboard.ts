@@ -9,7 +9,7 @@ import {
 	CommandContext,
 	Commands,
 	getCommandUri,
-	isCommandViewContextWithCommit
+	isCommandViewContextWithCommit,
 } from './common';
 import { OpenFileInRemoteCommandArgs } from './openFileInRemote';
 
@@ -38,7 +38,7 @@ export class CopyRemoteFileUrlToClipboardCommand extends ActiveEditorCommand {
 			return this.execute(
 				context.editor,
 				context.node.commit.isFile ? context.node.commit.uri : context.node.uri,
-				args
+				args,
 			);
 		} else if (context.type === 'viewItem') {
 			args = { ...args, range: false };
@@ -61,7 +61,7 @@ export class CopyRemoteFileUrlToClipboardCommand extends ActiveEditorCommand {
 			args = { ...args };
 			if (gitUri.sha === undefined) {
 				const commit = await Container.git.getCommitForFile(gitUri.repoPath, gitUri.fsPath, {
-					firstIfNotFound: true
+					firstIfNotFound: true,
 				});
 
 				if (commit !== undefined) {

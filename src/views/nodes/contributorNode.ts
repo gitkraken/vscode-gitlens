@@ -23,7 +23,7 @@ export class ContributorNode extends ViewNode<RepositoriesView> implements Pagea
 		view: RepositoriesView,
 		parent: ViewNode,
 		public readonly contributor: GitContributor,
-		private readonly _presenceMap: Map<string, ContactPresence> | undefined
+		private readonly _presenceMap: Map<string, ContactPresence> | undefined,
 	) {
 		super(uri, view, parent);
 	}
@@ -45,10 +45,10 @@ export class ContributorNode extends ViewNode<RepositoriesView> implements Pagea
 			...insertDateMarkers(
 				Iterables.map(
 					log.commits.values(),
-					c => new CommitNode(this.view, this, c, undefined, getBranchAndTagTips)
+					c => new CommitNode(this.view, this, c, undefined, getBranchAndTagTips),
 				),
-				this
-			)
+				this,
+			),
 		];
 
 		if (log.hasMore) {
@@ -62,7 +62,7 @@ export class ContributorNode extends ViewNode<RepositoriesView> implements Pagea
 
 		const item = new TreeItem(
 			this.contributor.current ? `${this.contributor.name} (you)` : this.contributor.name,
-			TreeItemCollapsibleState.Collapsed
+			TreeItemCollapsibleState.Collapsed,
 		);
 		item.id = this.id;
 		item.contextValue = this.contributor.current ? `${ResourceType.Contributor}+current` : ResourceType.Contributor;
@@ -95,7 +95,7 @@ export class ContributorNode extends ViewNode<RepositoriesView> implements Pagea
 		if (this._log === undefined) {
 			this._log = await Container.git.getLog(this.uri.repoPath!, {
 				limit: this.limit ?? this.view.config.defaultItemLimit,
-				authors: [`^${this.contributor.name} <${this.contributor.email}>$`]
+				authors: [`^${this.contributor.name} <${this.contributor.email}>$`],
 			});
 		}
 

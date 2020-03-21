@@ -11,7 +11,7 @@ import {
 	CommandContext,
 	Commands,
 	getCommandUri,
-	isCommandViewContextWithCommit
+	isCommandViewContextWithCommit,
 } from './common';
 
 export interface CopyMessageToClipboardCommandArgs {
@@ -64,7 +64,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 								? await Container.git.getBlameForLineContents(
 										gitUri,
 										blameline,
-										editor.document.getText()
+										editor.document.getText(),
 								  )
 								: await Container.git.getBlameForLine(gitUri, blameline);
 						if (!blame) return undefined;
@@ -93,7 +93,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 		} catch (ex) {
 			if (ex.message.includes("Couldn't find the required `xsel` binary")) {
 				window.showErrorMessage(
-					'Unable to copy message, xsel is not installed. Please install it via your package manager, e.g. `sudo apt install xsel`'
+					'Unable to copy message, xsel is not installed. Please install it via your package manager, e.g. `sudo apt install xsel`',
 				);
 				return undefined;
 			}

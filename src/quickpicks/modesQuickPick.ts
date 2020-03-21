@@ -21,7 +21,7 @@ export class ModesQuickPick {
 					modeCfg.name
 				} mode`,
 				description: modeCfg.description ? `\u00a0${GlyphChars.Dash}\u00a0 ${modeCfg.description}` : '',
-				key: key
+				key: key,
 			};
 			return item;
 		});
@@ -29,12 +29,12 @@ export class ModesQuickPick {
 		if (mode) {
 			items.splice(0, 0, {
 				label: `Exit ${Container.config.modes[mode].name} mode`,
-				key: undefined
+				key: undefined,
 			});
 		}
 
 		const pick = await window.showQuickPick(items, {
-			placeHolder: 'select a GitLens mode to enter'
+			placeHolder: 'select a GitLens mode to enter',
 		});
 
 		return pick;

@@ -6,7 +6,7 @@ import {
 	Selection,
 	TextEditor,
 	TextEditorDecorationType,
-	TextEditorRevealType
+	TextEditorRevealType,
 } from 'vscode';
 import { AnnotationProviderBase } from './annotationProvider';
 import { FileAnnotationType } from '../configuration';
@@ -24,7 +24,7 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 		editor: TextEditor,
 		trackedDocument: TrackedDocument<GitDocumentState>,
 		decoration: TextEditorDecorationType,
-		highlightDecoration: TextEditorDecorationType | undefined
+		highlightDecoration: TextEditorDecorationType | undefined,
 	) {
 		super(editor, trackedDocument, decoration, highlightDecoration);
 
@@ -46,7 +46,7 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 		}
 
 		const commit = await Container.git.getCommitForFile(this._uri.repoPath, this._uri.fsPath, {
-			ref: ref2 ?? ref1
+			ref: ref2 ?? ref1,
 		});
 		if (commit === undefined) return false;
 
@@ -79,7 +79,7 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 				if (hunkLine.current.state === 'unchanged') continue;
 
 				const range = this.editor.document.validateRange(
-					new Range(new Position(count, 0), new Position(count, Number.MAX_SAFE_INTEGER))
+					new Range(new Position(count, 0), new Position(count, Number.MAX_SAFE_INTEGER)),
 				);
 				if (selection === undefined) {
 					selection = new Selection(range.start, range.end);
@@ -95,9 +95,9 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 								await GitUri.fromUri(this.editor.document.uri),
 								count,
 								dateFormat,
-								this.annotationType
+								this.annotationType,
 							),
-							range: range
+							range: range,
 						});
 					}
 
@@ -109,7 +109,7 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 
 				this.decorations.push({
 					hoverMessage: message,
-					range: range
+					range: range,
 				});
 			}
 		}

@@ -9,7 +9,7 @@ import {
 	GitUri,
 	RepositoryChange,
 	RepositoryChangeEvent,
-	RepositoryFileSystemChangeEvent
+	RepositoryFileSystemChangeEvent,
 } from '../../git/gitService';
 import { Logger } from '../../logger';
 import { debug, gate, Iterables } from '../../system';
@@ -60,14 +60,14 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 						status.status,
 						status.originalFileName,
 						GitService.uncommittedStagedSha,
-						status.originalFileName || status.fileName
+						status.originalFileName || status.fileName,
 					);
 
 					children.push(
 						new CommitFileNode(this.view, this, status, commit, {
 							displayAsCommit: true,
-							inFileHistory: true
-						})
+							inFileHistory: true,
+						}),
 					);
 
 					commit = new GitLogCommit(
@@ -84,14 +84,14 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 						status.status,
 						status.originalFileName,
 						'HEAD',
-						status.originalFileName || status.fileName
+						status.originalFileName || status.fileName,
 					);
 
 					children.push(
 						new CommitFileNode(this.view, this, status, commit, {
 							displayAsCommit: true,
-							inFileHistory: true
-						})
+							inFileHistory: true,
+						}),
 					);
 				} else {
 					const commit = new GitLogCommit(
@@ -110,13 +110,13 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 						status.status,
 						status.originalFileName,
 						'HEAD',
-						status.originalFileName || status.fileName
+						status.originalFileName || status.fileName,
 					);
 					children.push(
 						new CommitFileNode(this.view, this, status, commit, {
 							displayAsCommit: true,
-							inFileHistory: true
-						})
+							inFileHistory: true,
+						}),
 					);
 				}
 			}
@@ -131,11 +131,11 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 						c =>
 							new CommitFileNode(this.view, this, c.files[0], c, {
 								displayAsCommit: true,
-								inFileHistory: true
-							})
+								inFileHistory: true,
+							}),
 					),
-					this
-				)
+					this,
+				),
 			);
 
 			if (log.hasMore) {
@@ -158,7 +158,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 					  }`
 					: ''
 			}`,
-			TreeItemCollapsibleState.Expanded
+			TreeItemCollapsibleState.Expanded,
 		);
 		item.contextValue = ResourceType.FileHistory;
 		item.description = this.uri.directory;
@@ -168,7 +168,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 
 		item.iconPath = {
 			dark: Container.context.asAbsolutePath('images/dark/icon-history.svg'),
-			light: Container.context.asAbsolutePath('images/light/icon-history.svg')
+			light: Container.context.asAbsolutePath('images/light/icon-history.svg'),
 		};
 
 		void this.ensureSubscription();
@@ -184,7 +184,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 		const subscription = Disposable.from(
 			repo.onDidChange(this.onRepoChanged, this),
 			repo.onDidChangeFileSystem(this.onRepoFileSystemChanged, this),
-			{ dispose: () => repo.stopWatchingFileSystem() }
+			{ dispose: () => repo.stopWatchingFileSystem() },
 		);
 
 		repo.startWatchingFileSystem();
@@ -204,7 +204,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 		if (!e.uris.some(uri => uri.toString(true) === this.uri.toString(true))) return;
 
 		Logger.debug(
-			`FileHistoryNode${this.id}.onRepoFileSystemChanged(${this.uri.toString(true)}); triggering node refresh`
+			`FileHistoryNode${this.id}.onRepoFileSystemChanged(${this.uri.toString(true)}); triggering node refresh`,
 		);
 
 		void this.triggerChange();
@@ -223,7 +223,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 		if (this._log === undefined) {
 			this._log = await Container.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, {
 				limit: this.limit ?? this.view.config.defaultItemLimit,
-				ref: this.uri.sha
+				ref: this.uri.sha,
 			});
 		}
 

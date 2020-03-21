@@ -11,7 +11,7 @@ import {
 	WebviewPanel,
 	WebviewPanelOnDidChangeViewStateEvent,
 	window,
-	workspace
+	workspace,
 } from 'vscode';
 import { configuration } from '../configuration';
 import { Container } from '../container';
@@ -22,7 +22,7 @@ import {
 	IpcNotificationParamsOf,
 	IpcNotificationType,
 	onIpcCommand,
-	UpdateConfigurationCommandType
+	UpdateConfigurationCommandType,
 } from './protocol';
 import { Commands } from '../commands';
 
@@ -30,10 +30,10 @@ let ipcSequence = 0;
 
 const emptyCommands: Disposable[] = [
 	{
-		dispose: function() {
+		dispose: function () {
 			/* noop */
-		}
-	}
+		},
+	},
 ];
 
 export abstract class WebviewBase implements Disposable {
@@ -44,7 +44,7 @@ export abstract class WebviewBase implements Disposable {
 	constructor(showCommand: Commands, private readonly _column?: ViewColumn) {
 		this._disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
-			commands.registerCommand(showCommand, this.onShowCommand, this)
+			commands.registerCommand(showCommand, this.onShowCommand, this),
 		);
 	}
 
@@ -81,7 +81,7 @@ export abstract class WebviewBase implements Disposable {
 	private onViewStateChanged(e: WebviewPanelOnDidChangeViewStateEvent) {
 		Logger.log(
 			`Webview(${this.id}).onViewStateChanged`,
-			`active=${e.webviewPanel.active}, visible=${e.webviewPanel.visible}`
+			`active=${e.webviewPanel.active}, visible=${e.webviewPanel.visible}`,
 		);
 
 		// Anytime the webview becomes active, make sure it has the most up-to-date config
@@ -163,8 +163,8 @@ export abstract class WebviewBase implements Disposable {
 					retainContextWhenHidden: true,
 					enableFindWidget: true,
 					enableCommandUris: true,
-					enableScripts: true
-				}
+					enableScripts: true,
+				},
 			);
 
 			this._panel.iconPath = Uri.file(Container.context.asAbsolutePath('images/gitlens-icon.png'));
@@ -173,7 +173,7 @@ export abstract class WebviewBase implements Disposable {
 				this._panel.onDidDispose(this.onPanelDisposed, this),
 				this._panel.onDidChangeViewState(this.onViewStateChanged, this),
 				this._panel.webview.onDidReceiveMessage(this.onMessageReceivedCore, this),
-				...this.registerCommands()
+				...this.registerCommands(),
 			);
 
 			this._panel.webview.html = html;
@@ -210,9 +210,7 @@ export abstract class WebviewBase implements Disposable {
 
 		let html = content.replace(
 			/#{root}/g,
-			Uri.file(Container.context.asAbsolutePath('.'))
-				.with({ scheme: 'vscode-resource' })
-				.toString()
+			Uri.file(Container.context.asAbsolutePath('.')).with({ scheme: 'vscode-resource' }).toString(),
 		);
 
 		if (this.renderHead) {

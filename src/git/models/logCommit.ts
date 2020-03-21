@@ -8,7 +8,7 @@ import { GitFile, GitFileStatus } from './file';
 const emptyStats = Object.freeze({
 	added: 0,
 	deleted: 0,
-	changed: 0
+	changed: 0,
 });
 
 export interface GitLogCommitLine {
@@ -57,7 +57,7 @@ export class GitLogCommit extends GitCommit {
 			  }
 			| undefined,
 		public readonly parentShas?: string[],
-		public readonly line?: GitLogCommitLine
+		public readonly line?: GitLogCommitLine,
 	) {
 		super(
 			type,
@@ -71,7 +71,7 @@ export class GitLogCommit extends GitCommit {
 			fileName,
 			originalFileName,
 			previousSha || `${sha}^`,
-			previousFileName
+			previousFileName,
 		);
 	}
 
@@ -93,7 +93,7 @@ export class GitLogCommit extends GitCommit {
 			return {
 				added: this._fileStats.insertions,
 				deleted: this._fileStats.deletions,
-				changed: 0
+				changed: 0,
 			};
 		}
 
@@ -102,7 +102,7 @@ export class GitLogCommit extends GitCommit {
 		const diff = {
 			added: 0,
 			deleted: 0,
-			changed: 0
+			changed: 0,
 		};
 		for (const f of this.files) {
 			switch (f.status) {
@@ -128,7 +128,7 @@ export class GitLogCommit extends GitCommit {
 		expand,
 		prefix = '',
 		separator = ' ',
-		suffix = ''
+		suffix = '',
 	}: {
 		compact?: boolean;
 		empty?: string;
@@ -189,7 +189,7 @@ export class GitLogCommit extends GitCommit {
 			previousSha: previousSha,
 			previousFileName: file.originalFileName || file.fileName,
 			status: file.status,
-			files: [file]
+			files: [file],
 		});
 	}
 
@@ -225,7 +225,7 @@ export class GitLogCommit extends GitCommit {
 			this.getChangedValue(changes.previousFileName, this.previousFileName),
 			this._fileStats,
 			this.parentShas,
-			this.line
+			this.line,
 		);
 	}
 }

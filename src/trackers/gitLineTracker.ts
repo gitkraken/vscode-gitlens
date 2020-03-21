@@ -8,7 +8,7 @@ import {
 	DocumentContentChangeEvent,
 	DocumentDirtyIdleTriggerEvent,
 	DocumentDirtyStateChangeEvent,
-	GitDocumentState
+	GitDocumentState,
 } from './gitDocumentTracker';
 import { LinesChangeEvent, LineTracker } from './lineTracker';
 import { Logger } from '../logger';
@@ -41,7 +41,7 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 			{ dispose: () => this.onSuspend() },
 			Container.tracker.onDidChangeBlameState(this.onBlameStateChanged, this),
 			Container.tracker.onDidChangeDirtyState(this.onDirtyStateChanged, this),
-			Container.tracker.onDidTriggerDirtyIdle(this.onDirtyIdleTriggered, this)
+			Container.tracker.onDidTriggerDirtyIdle(this.onDirtyIdleTriggered, this),
 		);
 	}
 
@@ -63,8 +63,8 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 			0: (e: DocumentBlameStateChangeEvent<GitDocumentState>) =>
 				`editor=${e.editor.document.uri.toString(true)}, doc=${e.document.uri.toString(true)}, blameable=${
 					e.blameable
-				}`
-		}
+				}`,
+		},
 	})
 	private onBlameStateChanged(e: DocumentBlameStateChangeEvent<GitDocumentState>) {
 		this.trigger('editor');
@@ -73,8 +73,8 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 	@debug({
 		args: {
 			0: (e: DocumentContentChangeEvent<GitDocumentState>) =>
-				`editor=${e.editor.document.uri.toString(true)}, doc=${e.document.uri.toString(true)}`
-		}
+				`editor=${e.editor.document.uri.toString(true)}, doc=${e.document.uri.toString(true)}`,
+		},
 	})
 	private onContentChanged(e: DocumentContentChangeEvent<GitDocumentState>) {
 		if (e.contentChanges.some(cc => this.lines?.some(l => cc.range.start.line <= l && cc.range.end.line >= l))) {
@@ -85,8 +85,8 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 	@debug({
 		args: {
 			0: (e: DocumentDirtyIdleTriggerEvent<GitDocumentState>) =>
-				`editor=${e.editor.document.uri.toString(true)}, doc=${e.document.uri.toString(true)}`
-		}
+				`editor=${e.editor.document.uri.toString(true)}, doc=${e.document.uri.toString(true)}`,
+		},
 	})
 	private onDirtyIdleTriggered(e: DocumentDirtyIdleTriggerEvent<GitDocumentState>) {
 		const maxLines = Container.config.advanced.blame.sizeThresholdAfterEdit;
@@ -98,8 +98,10 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 	@debug({
 		args: {
 			0: (e: DocumentDirtyStateChangeEvent<GitDocumentState>) =>
-				`editor=${e.editor.document.uri.toString(true)}, doc=${e.document.uri.toString(true)}, dirty=${e.dirty}`
-		}
+				`editor=${e.editor.document.uri.toString(true)}, doc=${e.document.uri.toString(true)}, dirty=${
+					e.dirty
+				}`,
+		},
 	})
 	private onDirtyStateChanged(e: DocumentDirtyStateChangeEvent<GitDocumentState>) {
 		if (e.dirty) {
@@ -112,10 +114,10 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 	@debug({
 		args: {
 			0: (lines: number[]) => lines?.join(','),
-			1: (editor: TextEditor) => editor.document.uri.toString(true)
+			1: (editor: TextEditor) => editor.document.uri.toString(true),
 		},
 		exit: updated => `returned ${updated}`,
-		singleLine: true
+		singleLine: true,
 	})
 	private async updateState(lines: number[], editor: TextEditor): Promise<boolean> {
 		const cc = Logger.getCorrelationContext();

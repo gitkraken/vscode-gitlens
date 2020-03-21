@@ -23,7 +23,7 @@ export class OpenChangedFilesCommand extends Command {
 		try {
 			if (args.uris === undefined) {
 				const repoPath = await getRepoPathOrPrompt(
-					`Open all files changed in which repository${GlyphChars.Ellipsis}`
+					`Open all files changed in which repository${GlyphChars.Ellipsis}`,
 				);
 				if (!repoPath) return undefined;
 

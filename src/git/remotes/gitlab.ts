@@ -16,8 +16,8 @@ export class GitLabRemote extends RemoteProvider {
 				{
 					prefix: '#',
 					url: `${this.baseUrl}/issues/<num>`,
-					title: `Open Issue #<num> on ${this.name}`
-				}
+					title: `Open Issue #<num> on ${this.name}`,
+				},
 			];
 		}
 		return this._autolinks;

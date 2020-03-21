@@ -32,7 +32,7 @@ export class GitStashParser {
 		`${lb}s${rb}`,
 		'%B', // summary
 		`${lb}${sl}s${rb}`,
-		`${lb}f${rb}`
+		`${lb}f${rb}`,
 	].join('%n');
 
 	@debug({ args: false, singleLine: true })
@@ -70,7 +70,7 @@ export class GitStashParser {
 			switch (token) {
 				case 114: // 'r': // ref
 					entry = {
-						ref: line.substring(4)
+						ref: line.substring(4),
 					};
 					break;
 
@@ -131,12 +131,12 @@ export class GitStashParser {
 									entry.files.push({
 										status: match[1] as GitFileStatus,
 										fileName: renamedFileName,
-										originalFileName: match[2]
+										originalFileName: match[2],
 									});
 								} else {
 									entry.files.push({
 										status: match[1] as GitFileStatus,
-										fileName: match[2]
+										fileName: match[2],
 									});
 								}
 							}
@@ -144,7 +144,7 @@ export class GitStashParser {
 
 						if (entry.files !== undefined) {
 							entry.fileNames = Arrays.filterMap(entry.files, f =>
-								f.fileName ? f.fileName : undefined
+								f.fileName ? f.fileName : undefined,
 							).join(', ');
 						}
 					}
@@ -155,7 +155,7 @@ export class GitStashParser {
 
 		const stash: GitStash = {
 			repoPath: repoPath,
-			commits: commits
+			commits: commits,
 		};
 		return stash;
 	}
@@ -172,7 +172,7 @@ export class GitStashParser {
 				new Date((entry.committedDate! as any) * 1000),
 				entry.summary === undefined ? emptyStr : entry.summary,
 				entry.fileNames!,
-				entry.files || []
+				entry.files || [],
 			);
 		}
 

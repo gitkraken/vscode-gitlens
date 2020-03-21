@@ -25,11 +25,11 @@ export class SearchResultsCommitsNode extends ResultsCommitsNode {
 		repoPath: string,
 		public readonly search: SearchPattern,
 		label: string,
-		commitsQuery: (limit: number | undefined) => Promise<CommitsQueryResults>
+		commitsQuery: (limit: number | undefined) => Promise<CommitsQueryResults>,
 	) {
 		super(view, parent, repoPath, label, commitsQuery, {
 			expand: true,
-			includeDescription: true
+			includeDescription: true,
 		});
 
 		this._instanceId = instanceId++;
@@ -50,12 +50,12 @@ export class SearchResultsCommitsNode extends ResultsCommitsNode {
 			const args: SearchCommitsCommandArgs = {
 				search: this.search,
 				prefillOnly: true,
-				showInView: true
+				showInView: true,
 			};
 			item.command = {
 				title: 'Search Commits',
 				command: Commands.SearchCommitsInView,
-				arguments: [args]
+				arguments: [args],
 			};
 		}
 

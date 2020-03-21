@@ -12,7 +12,7 @@ import {
 	Uri,
 	ViewColumn,
 	window,
-	workspace
+	workspace,
 } from 'vscode';
 import { BuiltInCommands, DocumentSchemes, ImageMimetypes } from '../constants';
 import { Container } from '../container';
@@ -118,7 +118,7 @@ export enum Commands {
 	ToggleReviewMode = 'gitlens.toggleReviewMode',
 	ToggleZenMode = 'gitlens.toggleZenMode',
 	ViewsOpenDirectoryDiff = 'gitlens.views.openDirectoryDiff',
-	ViewsOpenDirectoryDiffWithWorking = 'gitlens.views.openDirectoryDiffWithWorking'
+	ViewsOpenDirectoryDiffWithWorking = 'gitlens.views.openDirectoryDiffWithWorking',
 }
 
 interface CommandConstructor {
@@ -153,7 +153,7 @@ export async function getRepoPathOrActiveOrPrompt(
 	uri: Uri | undefined,
 	editor: TextEditor | undefined,
 	placeholder: string,
-	goBackCommand?: CommandQuickPickItem
+	goBackCommand?: CommandQuickPickItem,
 ) {
 	let repoPath = await Container.git.getRepoPathOrActive(uri, editor);
 	if (!repoPath) {
@@ -240,7 +240,7 @@ export interface CommandViewItemContext extends CommandBaseContext {
 }
 
 export function isCommandViewContextWithBranch(
-	context: CommandContext
+	context: CommandContext,
 ): context is CommandViewItemContext & { node: ViewNode & { branch: GitBranch } } {
 	if (context.type !== 'viewItem') return false;
 
@@ -248,7 +248,7 @@ export function isCommandViewContextWithBranch(
 }
 
 export function isCommandViewContextWithCommit<T extends GitCommit>(
-	context: CommandContext
+	context: CommandContext,
 ): context is CommandViewItemContext & { node: ViewNode & { commit: T } } {
 	if (context.type !== 'viewItem') return false;
 
@@ -256,7 +256,7 @@ export function isCommandViewContextWithCommit<T extends GitCommit>(
 }
 
 export function isCommandViewContextWithContributor(
-	context: CommandContext
+	context: CommandContext,
 ): context is CommandViewItemContext & { node: ViewNode & { contributor: GitContributor } } {
 	if (context.type !== 'viewItem') return false;
 
@@ -264,7 +264,7 @@ export function isCommandViewContextWithContributor(
 }
 
 export function isCommandViewContextWithFile(
-	context: CommandContext
+	context: CommandContext,
 ): context is CommandViewItemContext & { node: ViewNode & { file: GitFile; repoPath: string } } {
 	if (context.type !== 'viewItem') return false;
 
@@ -273,7 +273,7 @@ export function isCommandViewContextWithFile(
 }
 
 export function isCommandViewContextWithFileCommit(
-	context: CommandContext
+	context: CommandContext,
 ): context is CommandViewItemContext & { node: ViewNode & { commit: GitCommit; file: GitFile; repoPath: string } } {
 	if (context.type !== 'viewItem') return false;
 
@@ -286,7 +286,7 @@ export function isCommandViewContextWithFileCommit(
 }
 
 export function isCommandViewContextWithFileRefs(
-	context: CommandContext
+	context: CommandContext,
 ): context is CommandViewItemContext & {
 	node: ViewNode & { file: GitFile; ref1: string; ref2: string; repoPath: string };
 } {
@@ -302,13 +302,13 @@ export function isCommandViewContextWithFileRefs(
 }
 
 export function isCommandViewContextWithRef(
-	context: CommandContext
+	context: CommandContext,
 ): context is CommandViewItemContext & { node: ViewNode & { ref: string } } {
 	return context.type === 'viewItem' && context.node instanceof ViewRefNode;
 }
 
 export function isCommandViewContextWithRemote(
-	context: CommandContext
+	context: CommandContext,
 ): context is CommandViewItemContext & { node: ViewNode & { remote: GitRemote } } {
 	if (context.type !== 'viewItem') return false;
 
@@ -316,7 +316,7 @@ export function isCommandViewContextWithRemote(
 }
 
 export function isCommandViewContextWithRepo(
-	context: CommandContext
+	context: CommandContext,
 ): context is CommandViewItemContext & { node: ViewNode & { repo: Repository } } {
 	if (context.type !== 'viewItem') return false;
 
@@ -324,7 +324,7 @@ export function isCommandViewContextWithRepo(
 }
 
 export function isCommandViewContextWithRepoPath(
-	context: CommandContext
+	context: CommandContext,
 ): context is CommandViewItemContext & { node: ViewNode & { repoPath: string } } {
 	if (context.type !== 'viewItem') return false;
 
@@ -371,14 +371,14 @@ export abstract class Command implements Disposable {
 			this._disposable = commands.registerCommand(
 				command,
 				(...args: any[]) => this._execute(command, ...args),
-				this
+				this,
 			);
 
 			return;
 		}
 
 		const subscriptions = command.map(cmd =>
-			commands.registerCommand(cmd, (...args: any[]) => this._execute(cmd, ...args), this)
+			commands.registerCommand(cmd, (...args: any[]) => this._execute(cmd, ...args), this),
 		);
 		this._disposable = Disposable.from(...subscriptions);
 	}
@@ -448,7 +448,7 @@ export abstract class Command implements Disposable {
 
 			return [
 				{ command: command, type: 'scm-states', scmResourceStates: states, uri: states[0].resourceUri },
-				args.slice(count)
+				args.slice(count),
 			];
 		}
 
@@ -500,7 +500,7 @@ export abstract class ActiveEditorCachedCommand extends ActiveEditorCommand {
 	protected _execute(command: string, ...args: any[]): any {
 		lastCommand = {
 			command: command,
-			args: args
+			args: args,
 		};
 		return super._execute(command, ...args);
 	}
@@ -523,8 +523,8 @@ export abstract class EditorCommand implements Disposable {
 					cmd,
 					(editor: TextEditor, edit: TextEditorEdit, ...args: any[]) =>
 						this.executeCore(cmd, editor, edit, ...args),
-					this
-				)
+					this,
+				),
 			);
 		}
 		this._disposable = Disposable.from(...subscriptions);
@@ -568,7 +568,7 @@ export function findEditor(uri: Uri, lastActive?: TextEditor): TextEditor | unde
 export async function findOrOpenEditor(
 	uri: Uri,
 	options: TextDocumentShowOptions & { rethrow?: boolean } = {},
-	lastActive?: TextEditor
+	lastActive?: TextEditor,
 ): Promise<TextEditor | undefined> {
 	const e = findEditor(uri, lastActive);
 	if (e !== undefined) {
@@ -596,7 +596,7 @@ export async function findOrOpenEditor(
 
 export async function openEditor(
 	uri: Uri,
-	options: TextDocumentShowOptions & { rethrow?: boolean } = {}
+	options: TextDocumentShowOptions & { rethrow?: boolean } = {},
 ): Promise<TextEditor | undefined> {
 	const { rethrow, ...opts } = options;
 	try {
@@ -615,7 +615,7 @@ export async function openEditor(
 			preserveFocus: false,
 			preview: true,
 			viewColumn: ViewColumn.Active,
-			...opts
+			...opts,
 		});
 	} catch (ex) {
 		const msg = ex.toString();
@@ -642,6 +642,6 @@ export function openWorkspace(uri: Uri, name: string, options: { openInNewWindow
 	return workspace.updateWorkspaceFolders(
 		workspace.workspaceFolders !== undefined ? workspace.workspaceFolders.length : 0,
 		null,
-		{ uri: uri, name: name }
+		{ uri: uri, name: name },
 	);
 }

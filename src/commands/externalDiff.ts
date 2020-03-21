@@ -13,7 +13,7 @@ import {
 	Commands,
 	getRepoPathOrPrompt,
 	isCommandViewContextWithFileCommit,
-	isCommandViewContextWithFileRefs
+	isCommandViewContextWithFileRefs,
 } from './common';
 
 enum Status {
@@ -34,13 +34,13 @@ enum Status {
 	DELETED_BY_THEM,
 	BOTH_ADDED,
 	BOTH_DELETED,
-	BOTH_MODIFIED
+	BOTH_MODIFIED,
 }
 
 enum ResourceGroupType {
 	Merge,
 	Index,
-	WorkingTree
+	WorkingTree,
 }
 
 interface Resource extends SourceControlResourceState {
@@ -79,8 +79,8 @@ export class ExternalDiffCommand extends Command {
 					uri: GitUri.fromFile(context.node.file, context.node.file.repoPath || context.node.repoPath),
 					staged: context.node.commit.isUncommittedStaged || context.node.file.indexStatus !== undefined,
 					ref1: ref1,
-					ref2: ref2
-				}
+					ref2: ref2,
+				},
 			];
 
 			return this.execute(args);
@@ -92,8 +92,8 @@ export class ExternalDiffCommand extends Command {
 					uri: GitUri.fromFile(context.node.file, context.node.file.repoPath || context.node.repoPath),
 					staged: context.node.file.indexStatus !== undefined,
 					ref1: context.node.ref1,
-					ref2: context.node.ref2
-				}
+					ref2: context.node.ref2,
+				},
 			];
 
 			return this.execute(args);
@@ -103,16 +103,16 @@ export class ExternalDiffCommand extends Command {
 			if (context.type === 'scm-states') {
 				args.files = context.scmResourceStates.map(r => ({
 					uri: r.resourceUri,
-					staged: (r as Resource).resourceGroupType === ResourceGroupType.Index
+					staged: (r as Resource).resourceGroupType === ResourceGroupType.Index,
 				}));
 			} else if (context.type === 'scm-groups') {
 				args.files = Arrays.filterMap(context.scmResourceGroups[0].resourceStates, r =>
 					this.isModified(r)
 						? {
 								uri: r.resourceUri,
-								staged: (r as Resource).resourceGroupType === ResourceGroupType.Index
+								staged: (r as Resource).resourceGroupType === ResourceGroupType.Index,
 						  }
-						: undefined
+						: undefined,
 				);
 			}
 		}
@@ -184,12 +184,12 @@ export class ExternalDiffCommand extends Command {
 			if (tool === undefined) {
 				const result = await window.showWarningMessage(
 					'Unable to open changes in diff tool. No Git diff tool is configured',
-					'View Git Docs'
+					'View Git Docs',
 				);
 				if (!result) return undefined;
 
 				return env.openExternal(
-					Uri.parse('https://git-scm.com/docs/git-config#Documentation/git-config.txt-difftool')
+					Uri.parse('https://git-scm.com/docs/git-config#Documentation/git-config.txt-difftool'),
 				);
 			}
 
@@ -198,7 +198,7 @@ export class ExternalDiffCommand extends Command {
 					ref1: file.ref1,
 					ref2: file.ref2,
 					staged: file.staged,
-					tool: tool
+					tool: tool,
 				});
 			}
 

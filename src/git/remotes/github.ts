@@ -14,9 +14,9 @@ export class GitHubRemote extends RemoteProviderWithApi<{ token: string }> {
 		static readonly Help: QuickInputButton = {
 			iconPath: {
 				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-help.svg')),
-				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-help.svg'))
+				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-help.svg')),
 			},
-			tooltip: 'Help'
+			tooltip: 'Help',
 		};
 	};
 
@@ -35,21 +35,21 @@ export class GitHubRemote extends RemoteProviderWithApi<{ token: string }> {
 				{
 					prefix: '#',
 					url: `${this.baseUrl}/issues/<num>`,
-					title: `Open Issue #<num> on ${this.name}`
+					title: `Open Issue #<num> on ${this.name}`,
 				},
 				{
 					prefix: 'gh-',
 					url: `${this.baseUrl}/issues/<num>`,
 					title: `Open Issue #<num> on ${this.name}`,
-					ignoreCase: true
+					ignoreCase: true,
 				},
 				{
 					linkify: (text: string) =>
 						text.replace(
 							issueEnricher3rdParyRegex,
-							`[$&](${this.protocol}://${this.domain}/$1/issues/$2 "Open Issue #$2 from $1 on ${this.name}")`
-						)
-				}
+							`[$&](${this.protocol}://${this.domain}/$1/issues/$2 "Open Issue #$2 from $1 on ${this.name}")`,
+						),
+				},
 			];
 		}
 		return this._autolinks;
@@ -84,9 +84,9 @@ export class GitHubRemote extends RemoteProviderWithApi<{ token: string }> {
 							(input.validationMessage =
 								e == null || e.length === 0
 									? 'Must be a valid GitHub personal access token'
-									: undefined)
+									: undefined),
 					),
-					input.onDidAccept(() => resolve(input.value))
+					input.onDidAccept(() => resolve(input.value)),
 				);
 
 				input.buttons = [this.Buttons.Help];
@@ -138,21 +138,21 @@ export class GitHubRemote extends RemoteProviderWithApi<{ token: string }> {
 
 	protected async onGetIssueOrPullRequest(
 		{ token }: { token: string },
-		id: string
+		id: string,
 	): Promise<IssueOrPullRequest | undefined> {
 		const [owner, repo] = this.splitPath();
 		return (await Container.github)?.getIssueOrPullRequest(this.name, token, owner, repo, Number(id), {
-			baseUrl: this.apiBaseUrl
+			baseUrl: this.apiBaseUrl,
 		});
 	}
 
 	protected async onGetPullRequestForCommit(
 		{ token }: { token: string },
-		ref: string
+		ref: string,
 	): Promise<PullRequest | undefined> {
 		const [owner, repo] = this.splitPath();
 		return (await Container.github)?.getPullRequestForCommit(this.name, token, owner, repo, ref, {
-			baseUrl: this.apiBaseUrl
+			baseUrl: this.apiBaseUrl,
 		});
 	}
 }

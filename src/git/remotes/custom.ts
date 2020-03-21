@@ -47,13 +47,13 @@ export class CustomRemote extends RemoteProvider {
 		if (sha) {
 			return Strings.interpolate(
 				this.urls.fileInCommit,
-				this.getContext({ id: sha, file: fileName, line: line })
+				this.getContext({ id: sha, file: fileName, line: line }),
 			);
 		}
 		if (branch) {
 			return Strings.interpolate(
 				this.urls.fileInBranch,
-				this.getContext({ branch: branch, file: fileName, line: line })
+				this.getContext({ branch: branch, file: fileName, line: line }),
 			);
 		}
 		return Strings.interpolate(this.urls.file, this.getContext({ file: fileName, line: line }));
@@ -65,7 +65,7 @@ export class CustomRemote extends RemoteProvider {
 			repo: this.path,
 			repoBase: repoBase,
 			repoPath: repoPath,
-			...(context || {})
+			...(context || {}),
 		};
 	}
 }

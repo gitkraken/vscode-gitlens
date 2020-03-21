@@ -9,7 +9,7 @@ import {
 	GitCommandsCommandArgs,
 	OpenFileInRemoteCommandArgs,
 	OpenFileRevisionCommandArgs,
-	OpenWorkingFileCommandArgs
+	OpenWorkingFileCommandArgs,
 } from '../commands';
 import { BuiltInCommands, CommandContext, setCommandContext } from '../constants';
 import { Container } from '../container';
@@ -39,7 +39,7 @@ import {
 	ViewNode,
 	ViewRefFileNode,
 	ViewRefNode,
-	viewSupportsNodeDismissal
+	viewSupportsNodeDismissal,
 } from './nodes';
 import { debug } from '../system';
 import { runGitCommandInTerminal } from '../terminal';
@@ -64,7 +64,7 @@ export class ViewCommands {
 					.join(',');
 				await env.clipboard.writeText(data);
 			},
-			this
+			this,
 		);
 		commands.registerCommand(
 			'gitlens.views.refreshNode',
@@ -76,17 +76,17 @@ export class ViewCommands {
 
 				return node.view.refreshNode(node, reset == null ? true : reset);
 			},
-			this
+			this,
 		);
 		commands.registerCommand(
 			'gitlens.views.expandNode',
 			(node: ViewNode) => node.view.reveal(node, { select: false, focus: false, expand: 3 }),
-			this
+			this,
 		);
 		commands.registerCommand(
 			'gitlens.views.dismissNode',
 			(node: ViewNode) => viewSupportsNodeDismissal(node.view) && node.view.dismissNode(node),
-			this
+			this,
 		);
 		commands.registerCommand('gitlens.views.executeNodeCallback', (fn: <R>() => Promise<R>) => fn(), this);
 		commands.registerCommand('gitlens.views.showMoreChildren', (node: PagerNode) => node.showMore(), this);
@@ -121,7 +121,7 @@ export class ViewCommands {
 		commands.registerCommand(
 			'gitlens.views.openChangedFileDiffsWithWorking',
 			this.openChangedFileDiffsWithWorking,
-			this
+			this,
 		);
 		commands.registerCommand('gitlens.views.openChangedFileRevisions', this.openChangedFileRevisions, this);
 		commands.registerCommand('gitlens.views.applyChanges', this.applyChanges, this);
@@ -152,7 +152,7 @@ export class ViewCommands {
 		commands.registerCommand(
 			'gitlens.views.setComparisonToThreeDot',
 			n => this.setComparisonNotation(n, '...'),
-			this
+			this,
 		);
 
 		commands.registerCommand('gitlens.views.cherryPick', this.cherryPick, this);
@@ -182,7 +182,7 @@ export class ViewCommands {
 			prompt: 'Please provide a name for the remote',
 			placeHolder: 'Remote name',
 			value: undefined,
-			ignoreFocusOut: true
+			ignoreFocusOut: true,
 		});
 		if (name === undefined || name.length === 0) return undefined;
 
@@ -190,7 +190,7 @@ export class ViewCommands {
 			prompt: 'Please provide the repository url for the remote',
 			placeHolder: 'Remote repository url',
 			value: undefined,
-			ignoreFocusOut: true
+			ignoreFocusOut: true,
 		});
 		if (url === undefined || url.length === 0) return undefined;
 
@@ -225,7 +225,7 @@ export class ViewCommands {
 
 		const args: GitCommandsCommandArgs = {
 			command: 'cherry-pick',
-			state: { repo: repo!, references: [GitReference.create(node.ref)] }
+			state: { repo: repo!, references: [GitReference.create(node.ref)] },
 		};
 		return commands.executeCommand(Commands.GitCommands, args);
 	}
@@ -245,7 +245,7 @@ export class ViewCommands {
 
 		const args: GitCommandsCommandArgs = {
 			command: 'co-authors',
-			state: { repo: repo, contributors: node instanceof ContributorNode ? [node.contributor] : undefined }
+			state: { repo: repo, contributors: node instanceof ContributorNode ? [node.contributor] : undefined },
 		};
 		return commands.executeCommand(Commands.GitCommands, args);
 	}
@@ -255,7 +255,7 @@ export class ViewCommands {
 		if (!(node instanceof ContributorNode)) return;
 
 		await env.clipboard.writeText(
-			`${node.contributor.name}${node.contributor.email ? ` <${node.contributor.email}>` : ''}`
+			`${node.contributor.name}${node.contributor.email ? ` <${node.contributor.email}>` : ''}`,
 		);
 	}
 
@@ -270,8 +270,8 @@ export class ViewCommands {
 			state: {
 				subcommand: 'create',
 				repo: repo,
-				reference: node instanceof BranchNode ? node.branch : GitReference.create(node.ref)
-			}
+				reference: node instanceof BranchNode ? node.branch : GitReference.create(node.ref),
+			},
 		};
 		return commands.executeCommand(Commands.GitCommands, args);
 	}
@@ -287,8 +287,8 @@ export class ViewCommands {
 			state: {
 				subcommand: 'create',
 				repo: repo,
-				reference: GitReference.create(node.ref)
-			}
+				reference: GitReference.create(node.ref),
+			},
 		};
 		return commands.executeCommand(Commands.GitCommands, args);
 	}
@@ -304,8 +304,8 @@ export class ViewCommands {
 			state: {
 				subcommand: 'delete',
 				repo: repo,
-				references: [node.branch]
-			}
+				references: [node.branch],
+			},
 		};
 		return commands.executeCommand(Commands.GitCommands, args);
 	}
@@ -321,8 +321,8 @@ export class ViewCommands {
 			state: {
 				subcommand: 'delete',
 				repo: repo,
-				references: [node.tag]
-			}
+				references: [node.tag],
+			},
 		};
 		return commands.executeCommand(Commands.GitCommands, args);
 	}
@@ -360,7 +360,7 @@ export class ViewCommands {
 			window.activeTextEditor,
 			FileAnnotationType.RecentChanges,
 			node.ref,
-			true
+			true,
 		));
 	}
 
@@ -379,7 +379,7 @@ export class ViewCommands {
 			window.activeTextEditor,
 			FileAnnotationType.RecentChanges,
 			node.ref,
-			true
+			true,
 		));
 	}
 
@@ -391,7 +391,7 @@ export class ViewCommands {
 
 		const args: GitCommandsCommandArgs = {
 			command: 'merge',
-			state: { repo: repo!, reference: node instanceof BranchNode ? node.branch : node.tag }
+			state: { repo: repo!, reference: node instanceof BranchNode ? node.branch : node.tag },
 		};
 		return commands.executeCommand(Commands.GitCommands, args);
 	}
@@ -431,7 +431,7 @@ export class ViewCommands {
 
 		const args: GitCommandsCommandArgs = {
 			command: 'push',
-			state: { repos: [node.repo], flags: force ? ['--force'] : [] }
+			state: { repos: [node.repo], flags: force ? ['--force'] : [] },
 		};
 		return commands.executeCommand(Commands.GitCommands, args);
 	}
@@ -450,16 +450,16 @@ export class ViewCommands {
 				command: 'rebase',
 				state: {
 					repo: repo!,
-					reference: GitReference.create(node.ref)
-				}
+					reference: GitReference.create(node.ref),
+				},
 			};
 		} else {
 			args = {
 				command: 'rebase',
 				state: {
 					repo: repo!,
-					reference: node instanceof BranchNode ? node.branch : node.tag
-				}
+					reference: node instanceof BranchNode ? node.branch : node.tag,
+				},
 			};
 		}
 		return commands.executeCommand(Commands.GitCommands, args);
@@ -476,7 +476,7 @@ export class ViewCommands {
 
 		const args: GitCommandsCommandArgs = {
 			command: 'rebase',
-			state: { repo: repo!, reference: GitReference.create(upstream, { name: upstream, refType: 'branch' }) }
+			state: { repo: repo!, reference: GitReference.create(upstream, { name: upstream, refType: 'branch' }) },
 		};
 		return commands.executeCommand(Commands.GitCommands, args);
 	}
@@ -492,8 +492,8 @@ export class ViewCommands {
 			state: {
 				subcommand: 'rename',
 				repo: repo,
-				reference: node.branch
-			}
+				reference: node.branch,
+			},
 		};
 		return commands.executeCommand(Commands.GitCommands, args);
 	}
@@ -506,7 +506,7 @@ export class ViewCommands {
 
 		const args: GitCommandsCommandArgs = {
 			command: 'reset',
-			state: { repo: repo!, reference: GitReference.create(node.ref) }
+			state: { repo: repo!, reference: GitReference.create(node.ref) },
 		};
 		return commands.executeCommand(Commands.GitCommands, args);
 	}
@@ -526,7 +526,7 @@ export class ViewCommands {
 
 		const args: GitCommandsCommandArgs = {
 			command: 'revert',
-			state: { repo: repo!, references: [GitReference.create(node.ref)] }
+			state: { repo: repo!, references: [GitReference.create(node.ref)] },
 		};
 		return commands.executeCommand(Commands.GitCommands, args);
 	}
@@ -576,14 +576,14 @@ export class ViewCommands {
 		if (node instanceof BranchNode) {
 			args = {
 				command: 'switch',
-				state: { repos: [repo!], reference: node.branch.current ? undefined : node.branch }
+				state: { repos: [repo!], reference: node.branch.current ? undefined : node.branch },
 			};
 		} else if (node instanceof TagNode) {
 			args = { command: 'switch', state: { repos: [repo!], reference: node.tag } };
 		} else {
 			args = {
 				command: 'switch',
-				state: { repos: [repo!], reference: GitReference.create(node.ref) }
+				state: { repos: [repo!], reference: GitReference.create(node.ref) },
 			};
 		}
 
@@ -653,7 +653,7 @@ export class ViewCommands {
 		return Container.compareView.compare(
 			node.repoPath,
 			{ ref: commonAncestor, label: `ancestry with ${node.ref} (${GitService.shortenSha(commonAncestor)})` },
-			''
+			'',
 		);
 	}
 
@@ -691,12 +691,12 @@ export class ViewCommands {
 			repoPath: selected.repoPath,
 			lhs: {
 				sha: selected.ref,
-				uri: selected.uri!
+				uri: selected.uri!,
 			},
 			rhs: {
 				sha: node.ref,
-				uri: node.uri
-			}
+				uri: node.uri,
+			},
 		};
 		return commands.executeCommand(Commands.DiffWith, diffArgs);
 	}
@@ -710,7 +710,7 @@ export class ViewCommands {
 		this._selectedFile = {
 			ref: node.ref,
 			repoPath: node.repoPath,
-			uri: node.uri
+			uri: node.uri,
 		};
 		setCommandContext(CommandContext.ViewsCanCompareFile, true);
 	}
@@ -734,8 +734,8 @@ export class ViewCommands {
 		const args: DiffWithWorkingCommandArgs = {
 			showOptions: {
 				preserveFocus: true,
-				preview: false
-			}
+				preview: false,
+			},
 		};
 		return commands.executeCommand(Commands.DiffWithWorking, node.uri, args);
 	}
@@ -755,8 +755,8 @@ export class ViewCommands {
 			uri: node.uri,
 			showOptions: {
 				preserveFocus: true,
-				preview: false
-			}
+				preview: false,
+			},
 		};
 		return commands.executeCommand(Commands.OpenWorkingFile, undefined, args);
 	}
@@ -764,7 +764,7 @@ export class ViewCommands {
 	@debug()
 	private openFileRevision(
 		node: CommitFileNode | ResultsFileNode | StashFileNode | StatusFileNode,
-		options?: OpenFileRevisionCommandArgs
+		options?: OpenFileRevisionCommandArgs,
 	) {
 		if (
 			!(node instanceof CommitFileNode) &&
@@ -787,7 +787,7 @@ export class ViewCommands {
 						? GitUri.toRevisionUri(
 								node.commit.previousSha!,
 								node.commit.previousUri.fsPath,
-								node.commit.repoPath
+								node.commit.repoPath,
 						  )
 						: GitUri.toRevisionUri(node.uri);
 			}
@@ -801,12 +801,12 @@ export class ViewCommands {
 		if (!(node instanceof CommitFileNode) || node instanceof StashFileNode) return undefined;
 
 		const args: OpenFileInRemoteCommandArgs = {
-			range: false
+			range: false,
 		};
 		return commands.executeCommand(
 			Commands.OpenFileInRemote,
 			node.commit.toGitUri(node.commit.status === 'D'),
-			args
+			args,
 		);
 	}
 
@@ -839,7 +839,7 @@ export class ViewCommands {
 			const result = await window.showWarningMessage(
 				`Are your sure you want to open all ${files.length} files?`,
 				{ title: 'Yes' },
-				{ title: 'No', isCloseAffordance: true }
+				{ title: 'No', isCloseAffordance: true },
 			);
 			if (result === undefined || result.title === 'No') return;
 		}
@@ -849,7 +849,7 @@ export class ViewCommands {
 
 			const args: OpenWorkingFileCommandArgs = {
 				uri: uri,
-				showOptions: options
+				showOptions: options,
 			};
 			await commands.executeCommand(Commands.OpenWorkingFile, undefined, args);
 		}
@@ -858,7 +858,7 @@ export class ViewCommands {
 	@debug()
 	private async openChangedFileDiffs(
 		node: CommitNode | StashNode | ResultsFilesNode,
-		options?: TextDocumentShowOptions
+		options?: TextDocumentShowOptions,
 	) {
 		if (!(node instanceof CommitNode) && !(node instanceof StashNode) && !(node instanceof ResultsFilesNode)) {
 			return;
@@ -890,7 +890,7 @@ export class ViewCommands {
 			const result = await window.showWarningMessage(
 				`Are your sure you want to open all ${files.length} files?`,
 				{ title: 'Yes' },
-				{ title: 'No', isCloseAffordance: true }
+				{ title: 'No', isCloseAffordance: true },
 			);
 			if (result === undefined || result.title === 'No') return;
 		}
@@ -907,7 +907,7 @@ export class ViewCommands {
 				repoPath: repoPath,
 				lhs: { uri: uri1, sha: ref1 },
 				rhs: { uri: uri2, sha: ref2 },
-				showOptions: options
+				showOptions: options,
 			};
 			void (await commands.executeCommand(Commands.DiffWith, diffArgs));
 		}
@@ -916,7 +916,7 @@ export class ViewCommands {
 	@debug()
 	private async openChangedFileDiffsWithWorking(
 		node: CommitNode | StashNode | ResultsFilesNode,
-		options?: TextDocumentShowOptions
+		options?: TextDocumentShowOptions,
 	) {
 		if (!(node instanceof CommitNode) && !(node instanceof StashNode) && !(node instanceof ResultsFilesNode)) {
 			return;
@@ -945,7 +945,7 @@ export class ViewCommands {
 			const result = await window.showWarningMessage(
 				`Are your sure you want to open all ${files.length} files?`,
 				{ title: 'Yes' },
-				{ title: 'No', isCloseAffordance: true }
+				{ title: 'No', isCloseAffordance: true },
 			);
 			if (result === undefined || result.title === 'No') return;
 		}
@@ -954,7 +954,7 @@ export class ViewCommands {
 			if (file.status === 'A' || file.status === 'D') continue;
 
 			const args: DiffWithWorkingCommandArgs = {
-				showOptions: options
+				showOptions: options,
 			};
 
 			const uri = GitUri.fromFile(file, repoPath, ref);
@@ -965,7 +965,7 @@ export class ViewCommands {
 	@debug()
 	private async openChangedFileRevisions(
 		node: CommitNode | StashNode | ResultsFilesNode,
-		options?: TextDocumentShowOptions
+		options?: TextDocumentShowOptions,
 	) {
 		if (!(node instanceof CommitNode) && !(node instanceof StashNode) && !(node instanceof ResultsFilesNode)) {
 			return;
@@ -997,7 +997,7 @@ export class ViewCommands {
 			const result = await window.showWarningMessage(
 				`Are your sure you want to open all ${files.length} files?`,
 				{ title: 'Yes' },
-				{ title: 'No', isCloseAffordance: true }
+				{ title: 'No', isCloseAffordance: true },
 			);
 			if (result === undefined || result.title === 'No') return;
 		}

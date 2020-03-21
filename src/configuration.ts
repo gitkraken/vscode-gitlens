@@ -8,7 +8,7 @@ import {
 	EventEmitter,
 	ExtensionContext,
 	Uri,
-	workspace
+	workspace,
 } from 'vscode';
 import { Config } from './config';
 import { extensionId } from './constants';
@@ -30,7 +30,7 @@ export interface ConfigurationWillChangeEvent {
 export class Configuration {
 	static configure(context: ExtensionContext) {
 		context.subscriptions.push(
-			workspace.onDidChangeConfiguration(configuration.onConfigurationChanged, configuration)
+			workspace.onDidChangeConfiguration(configuration.onConfigurationChanged, configuration),
 		);
 	}
 
@@ -57,7 +57,7 @@ export class Configuration {
 		}
 
 		const evt: ConfigurationWillChangeEvent = {
-			change: e
+			change: e,
 		};
 		this._onWillChange.fire(evt);
 
@@ -70,7 +70,7 @@ export class Configuration {
 	}
 
 	readonly initializingChangeEvent: ConfigurationChangeEvent = {
-		affectsConfiguration: (section: string, resource?: Uri) => true
+		affectsConfiguration: (section: string, resource?: Uri) => true,
 	};
 
 	get(): Config;
@@ -79,14 +79,14 @@ export class Configuration {
 		s1: S1,
 		s2: S2,
 		resource?: Uri | null,
-		defaultValue?: Config[S1][S2]
+		defaultValue?: Config[S1][S2],
 	): Config[S1][S2];
 	get<S1 extends keyof Config, S2 extends keyof Config[S1], S3 extends keyof Config[S1][S2]>(
 		s1: S1,
 		s2: S2,
 		s3: S3,
 		resource?: Uri | null,
-		defaultValue?: Config[S1][S2][S3]
+		defaultValue?: Config[S1][S2][S3],
 	): Config[S1][S2][S3];
 	get<
 		S1 extends keyof Config,
@@ -99,7 +99,7 @@ export class Configuration {
 		s3: S3,
 		s4: S4,
 		resource?: Uri | null,
-		defaultValue?: Config[S1][S2][S3][S4]
+		defaultValue?: Config[S1][S2][S3][S4],
 	): Config[S1][S2][S3][S4];
 	get<T>(...args: any[]): T {
 		let section: string | undefined;
@@ -149,14 +149,14 @@ export class Configuration {
 		e: ConfigurationChangeEvent,
 		s1: S1,
 		s2: S2,
-		resource?: Uri | null
+		resource?: Uri | null,
 	): boolean;
 	changed<S1 extends keyof Config, S2 extends keyof Config[S1], S3 extends keyof Config[S1][S2]>(
 		e: ConfigurationChangeEvent,
 		s1: S1,
 		s2: S2,
 		s3: S3,
-		resource?: Uri | null
+		resource?: Uri | null,
 	): boolean;
 	changed<
 		S1 extends keyof Config,
@@ -196,13 +196,13 @@ export class Configuration {
 	inspect<S1 extends keyof Config, S2 extends keyof Config[S1]>(
 		s1: S1,
 		s2: S2,
-		resource?: Uri | null
+		resource?: Uri | null,
 	): ConfigInspection<Config[S1][S2]> | undefined;
 	inspect<S1 extends keyof Config, S2 extends keyof Config[S1], S3 extends keyof Config[S1][S2]>(
 		s1: S1,
 		s2: S2,
 		s3: S3,
-		resource?: Uri | null
+		resource?: Uri | null,
 	): ConfigInspection<Config[S1][S2][S3]> | undefined;
 	inspect<
 		S1 extends keyof Config,
@@ -242,20 +242,20 @@ export class Configuration {
 	migrate<S1 extends keyof Config>(
 		from: string,
 		to1: S1,
-		options: { fallbackValue?: Config[S1]; migrationFn?(value: any): Config[S1] }
+		options: { fallbackValue?: Config[S1]; migrationFn?(value: any): Config[S1] },
 	): Promise<boolean>;
 	migrate<S1 extends keyof Config, S2 extends keyof Config[S1]>(
 		from: string,
 		to1: S1,
 		to2: S2,
-		options: { fallbackValue?: Config[S1][S2]; migrationFn?(value: any): Config[S1][S2] }
+		options: { fallbackValue?: Config[S1][S2]; migrationFn?(value: any): Config[S1][S2] },
 	): Promise<boolean>;
 	migrate<S1 extends keyof Config, S2 extends keyof Config[S1], S3 extends keyof Config[S1][S2]>(
 		from: string,
 		to1: S1,
 		to2: S2,
 		to3: S3,
-		options: { fallbackValue?: Config[S1][S2][S3]; migrationFn?(value: any): Config[S1][S2][S3] }
+		options: { fallbackValue?: Config[S1][S2][S3]; migrationFn?(value: any): Config[S1][S2][S3] },
 	): Promise<boolean>;
 	migrate<
 		S1 extends keyof Config,
@@ -268,7 +268,7 @@ export class Configuration {
 		to2: S2,
 		to3: S3,
 		to4: S4,
-		options: { fallbackValue?: Config[S1][S2][S3][S4]; migrationFn?(value: any): Config[S1][S2][S3][S4] }
+		options: { fallbackValue?: Config[S1][S2][S3][S4]; migrationFn?(value: any): Config[S1][S2][S3][S4] },
 	): Promise<boolean>;
 	async migrate(from: string, ...args: any[]): Promise<boolean> {
 		let to: string = args[0];
@@ -302,7 +302,7 @@ export class Configuration {
 			await this.update(
 				to as any,
 				options.migrationFn ? options.migrationFn(inspection.globalValue) : inspection.globalValue,
-				ConfigurationTarget.Global
+				ConfigurationTarget.Global,
 			);
 			migrated = true;
 			// Can't delete the old setting currently because it errors with `Unable to write to User Settings because <setting name> is not a registered configuration`
@@ -318,7 +318,7 @@ export class Configuration {
 			await this.update(
 				to as any,
 				options.migrationFn ? options.migrationFn(inspection.workspaceValue) : inspection.workspaceValue,
-				ConfigurationTarget.Workspace
+				ConfigurationTarget.Workspace,
 			);
 			migrated = true;
 			// Can't delete the old setting currently because it errors with `Unable to write to User Settings because <setting name> is not a registered configuration`
@@ -336,7 +336,7 @@ export class Configuration {
 				options.migrationFn
 					? options.migrationFn(inspection.workspaceFolderValue)
 					: inspection.workspaceFolderValue,
-				ConfigurationTarget.WorkspaceFolder
+				ConfigurationTarget.WorkspaceFolder,
 			);
 			migrated = true;
 			// Can't delete the old setting currently because it errors with `Unable to write to User Settings because <setting name> is not a registered configuration`
@@ -359,20 +359,20 @@ export class Configuration {
 	migrateIfMissing<S1 extends keyof Config>(
 		from: string,
 		to1: S1,
-		options: { migrationFn?(value: any): Config[S1] }
+		options: { migrationFn?(value: any): Config[S1] },
 	): Promise<void>;
 	migrateIfMissing<S1 extends keyof Config, S2 extends keyof Config[S1]>(
 		from: string,
 		to1: S1,
 		to2: S2,
-		options: { migrationFn?(value: any): Config[S1][S2] }
+		options: { migrationFn?(value: any): Config[S1][S2] },
 	): Promise<void>;
 	migrateIfMissing<S1 extends keyof Config, S2 extends keyof Config[S1], S3 extends keyof Config[S1][S2]>(
 		from: string,
 		to1: S1,
 		to2: S2,
 		to3: S3,
-		options: { migrationFn?(value: any): Config[S1][S2][S3] }
+		options: { migrationFn?(value: any): Config[S1][S2][S3] },
 	): Promise<void>;
 	migrateIfMissing<
 		S1 extends keyof Config,
@@ -385,7 +385,7 @@ export class Configuration {
 		to2: S2,
 		to3: S3,
 		to4: S4,
-		options: { migrationFn?(value: any): Config[S1][S2][S3][S4] }
+		options: { migrationFn?(value: any): Config[S1][S2][S3][S4] },
 	): Promise<void>;
 	async migrateIfMissing(from: string, ...args: any[]): Promise<void> {
 		let to: string = args[0];
@@ -421,7 +421,7 @@ export class Configuration {
 				await this.update(
 					to as any,
 					options.migrationFn ? options.migrationFn(fromInspection.globalValue) : fromInspection.globalValue,
-					ConfigurationTarget.Global
+					ConfigurationTarget.Global,
 				);
 				// Can't delete the old setting currently because it errors with `Unable to write to User Settings because <setting name> is not a registered configuration`
 				// if (from !== to) {
@@ -440,7 +440,7 @@ export class Configuration {
 					options.migrationFn
 						? options.migrationFn(fromInspection.workspaceValue)
 						: fromInspection.workspaceValue,
-					ConfigurationTarget.Workspace
+					ConfigurationTarget.Workspace,
 				);
 				// Can't delete the old setting currently because it errors with `Unable to write to User Settings because <setting name> is not a registered configuration`
 				// if (from !== to) {
@@ -459,7 +459,7 @@ export class Configuration {
 					options.migrationFn
 						? options.migrationFn(fromInspection.workspaceFolderValue)
 						: fromInspection.workspaceFolderValue,
-					ConfigurationTarget.WorkspaceFolder
+					ConfigurationTarget.WorkspaceFolder,
 				);
 				// Can't delete the old setting currently because it errors with `Unable to write to User Settings because <setting name> is not a registered configuration`
 				// if (from !== to) {
@@ -477,7 +477,7 @@ export class Configuration {
 	name<S1 extends keyof Config, S2 extends keyof Config[S1], S3 extends keyof Config[S1][S2]>(
 		s1: S1,
 		s2: S2,
-		s3: S3
+		s3: S3,
 	): string;
 	name<
 		S1 extends keyof Config,
@@ -494,7 +494,7 @@ export class Configuration {
 		s1: S1,
 		s2: S2,
 		value: Config[S1][S2] | undefined,
-		target: ConfigurationTarget
+		target: ConfigurationTarget,
 	): Thenable<void>;
 
 	update<S1 extends keyof Config, S2 extends keyof Config[S1], S3 extends keyof Config[S1][S2]>(
@@ -502,7 +502,7 @@ export class Configuration {
 		s2: S2,
 		s3: S3,
 		value: Config[S1][S2][S3] | undefined,
-		target: ConfigurationTarget
+		target: ConfigurationTarget,
 	): Thenable<void>;
 	update<
 		S1 extends keyof Config,
@@ -515,7 +515,7 @@ export class Configuration {
 		s3: S3,
 		s4: S4,
 		value: Config[S1][S2][S3][S4] | undefined,
-		target: ConfigurationTarget
+		target: ConfigurationTarget,
 	): Thenable<void>;
 	update(...args: any[]) {
 		let section: string = args[0];
@@ -555,13 +555,13 @@ export class Configuration {
 	updateEffective<S1 extends keyof Config, S2 extends keyof Config[S1]>(
 		s1: S1,
 		s2: S2,
-		value: Config[S1][S2]
+		value: Config[S1][S2],
 	): Thenable<void>;
 	updateEffective<S1 extends keyof Config, S2 extends keyof Config[S1], S3 extends keyof Config[S1][S2]>(
 		s1: S1,
 		s2: S2,
 		s3: S3,
-		value: Config[S1][S2][S3]
+		value: Config[S1][S2][S3],
 	): Thenable<void>;
 	updateEffective<
 		S1 extends keyof Config,
@@ -609,7 +609,7 @@ export class Configuration {
 		return configuration.update(
 			section as any,
 			Objects.areEquivalent(value, inspect.defaultValue) ? undefined : value,
-			ConfigurationTarget.Global
+			ConfigurationTarget.Global,
 		);
 	}
 }

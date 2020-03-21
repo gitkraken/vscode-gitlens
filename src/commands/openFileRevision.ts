@@ -28,7 +28,7 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
 	static getMarkdownCommandArgs(
 		argsOrUri: OpenFileRevisionCommandArgs | Uri,
 		annotationType?: FileAnnotationType,
-		line?: number
+		line?: number,
 	): string {
 		let args: OpenFileRevisionCommandArgs | Uri;
 		if (argsOrUri instanceof Uri) {
@@ -37,7 +37,7 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
 			args = {
 				uri: uri,
 				line: line,
-				annotationType: annotationType
+				annotationType: annotationType,
 			};
 		} else {
 			args = argsOrUri;
@@ -68,7 +68,7 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
 				const gitUri = await GitUri.fromUri(uri);
 
 				const placeHolder = `Open revision of ${gitUri.getFormattedPath({
-					suffix: args.reference ? ` (${args.reference.name})` : undefined
+					suffix: args.reference ? ` (${args.reference.name})` : undefined,
 				})}${gitUri.sha ? ` ${Strings.pad(GlyphChars.Dot, 1, 1)} ${gitUri.shortSha}` : ''}${
 					GlyphChars.Ellipsis
 				}`;
@@ -77,7 +77,7 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
 
 				const log = await Container.git.getLogForFile(gitUri.repoPath, gitUri.fsPath, {
 					limit: args.limit,
-					ref: (args.reference && args.reference.ref) || gitUri.sha
+					ref: (args.reference && args.reference.ref) || gitUri.sha,
 				});
 				if (log === undefined) {
 					if (args.reference) {
@@ -95,10 +95,10 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
 					const npc = new CommandQuickPickItem(
 						{
 							label: '$(arrow-right) Show Next Commits',
-							description: `shows ${log.limit} newer commits`
+							description: `shows ${log.limit} newer commits`,
 						},
 						Commands.OpenFileRevision,
-						[uri, commandArgs]
+						[uri, commandArgs],
 					);
 
 					const last = Iterables.last(log.commits.values());
@@ -107,10 +107,10 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
 						previousPageCommand = new CommandQuickPickItem(
 							{
 								label: '$(arrow-left) Show Previous Commits',
-								description: `shows ${log.limit} older commits`
+								description: `shows ${log.limit} older commits`,
 							},
 							Commands.OpenFileRevision,
-							[new GitUri(uri, last), commandArgs]
+							[new GitUri(uri, last), commandArgs],
 						);
 					}
 				}
@@ -130,10 +130,10 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
 								: gitUri.sha
 								? ` from ${GlyphChars.Space}$(git-commit) ${gitUri.shortSha}`
 								: ''
-						}`
+						}`,
 					},
 					Commands.OpenFileRevision,
-					[uri, commandArgs]
+					[uri, commandArgs],
 				);
 
 				commandArgs = { ...args, limit: 0 };
@@ -147,12 +147,12 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
 						? new CommandQuickPickItem(
 								{
 									label: '$(sync) Show All Commits',
-									description: 'this may take a while'
+									description: 'this may take a while',
 								},
 								Commands.OpenFileRevision,
-								[uri, commandArgs]
+								[uri, commandArgs],
 						  )
-						: undefined
+						: undefined,
 				});
 				if (pick === undefined) return undefined;
 
@@ -163,7 +163,7 @@ export class OpenFileRevisionCommand extends ActiveEditorCommand {
 
 					commandArgs = {
 						...args,
-						reference: reference.item
+						reference: reference.item,
 					};
 					return commands.executeCommand(Commands.OpenFileRevision, gitUri, commandArgs);
 				}

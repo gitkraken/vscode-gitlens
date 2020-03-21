@@ -90,7 +90,7 @@ export function findExecutable(exe: string, args: string[]): { cmd: string; args
 			'System32',
 			'WindowsPowerShell',
 			'v1.0',
-			'PowerShell.exe'
+			'PowerShell.exe',
 		);
 		const psargs = ['-ExecutionPolicy', 'Unrestricted', '-NoLogo', '-NonInteractive', '-File', exe];
 
@@ -145,7 +145,7 @@ export function run<TOut extends string | Buffer>(
 	command: string,
 	args: any[],
 	encoding: BufferEncoding | 'buffer',
-	options: RunOptions = {}
+	options: RunOptions = {},
 ): Promise<TOut> {
 	const { stdin, stdinEncoding, ...opts }: RunOptions = { maxBuffer: 100 * 1024 * 1024, ...options };
 
@@ -176,9 +176,9 @@ export function run<TOut extends string | Buffer>(
 				resolve(
 					encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer'
 						? (stdout as TOut)
-						: (iconv.decode(Buffer.from(stdout, 'binary'), encoding) as TOut)
+						: (iconv.decode(Buffer.from(stdout, 'binary'), encoding) as TOut),
 				);
-			}
+			},
 		);
 
 		if (stdin) {

@@ -11,7 +11,7 @@ import {
 	Commands,
 	getCommandUri,
 	getRepoPathOrActiveOrPrompt,
-	isCommandViewContextWithRemote
+	isCommandViewContextWithRemote,
 } from './common';
 import { OpenInRemoteCommandArgs } from './openInRemote';
 
@@ -42,7 +42,7 @@ export class OpenRepoInRemoteCommand extends ActiveEditorCommand {
 		const repoPath = await getRepoPathOrActiveOrPrompt(
 			gitUri,
 			editor,
-			`Open which repository on remote${GlyphChars.Ellipsis}`
+			`Open which repository on remote${GlyphChars.Ellipsis}`,
 		);
 		if (!repoPath) return undefined;
 
@@ -51,16 +51,16 @@ export class OpenRepoInRemoteCommand extends ActiveEditorCommand {
 
 			const commandArgs: OpenInRemoteCommandArgs = {
 				resource: {
-					type: RemoteResourceType.Repo
+					type: RemoteResourceType.Repo,
 				},
 				remote: args && args.remote,
-				remotes: remotes
+				remotes: remotes,
 			};
 			return commands.executeCommand(Commands.OpenInRemote, uri, commandArgs);
 		} catch (ex) {
 			Logger.error(ex, 'OpenRepoInRemoteCommand');
 			return window.showErrorMessage(
-				'Unable to open repository on remote provider. See output channel for more details'
+				'Unable to open repository on remote provider. See output channel for more details',
 			);
 		}
 	}

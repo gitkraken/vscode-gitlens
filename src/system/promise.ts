@@ -22,9 +22,9 @@ export namespace Promises {
 			cancelMessage?: string;
 			onDidCancel?(
 				resolve: (value?: T | PromiseLike<T> | undefined) => void,
-				reject: (reason?: any) => void
+				reject: (reason?: any) => void,
 			): void;
-		} = {}
+		} = {},
 	): Promise<T> {
 		return new Promise((resolve, reject) => {
 			let fulfilled = false;
@@ -63,7 +63,7 @@ export namespace Promises {
 						clearTimeout(timer);
 					}
 					reject(ex);
-				}
+				},
 			);
 		});
 	}
@@ -76,8 +76,8 @@ export namespace Promises {
 						if (predicate(value)) {
 							resolve(value);
 						}
-					}, reject)
-				)
+					}, reject),
+				),
 		);
 		newPromises.push(Promise.all(promises).then(() => undefined));
 		return Promise.race(newPromises);
@@ -89,26 +89,26 @@ export namespace Promises {
 
 	export function raceAll<TPromise>(
 		promises: Promise<TPromise>[],
-		timeout?: number
+		timeout?: number,
 	): Promise<(TPromise | Promises.CancellationError<Promise<TPromise>>)[]>;
 	export function raceAll<TPromise, T>(
 		promises: Map<T, Promise<TPromise>>,
-		timeout?: number
+		timeout?: number,
 	): Promise<Map<T, TPromise | Promises.CancellationErrorWithId<T, Promise<TPromise>>>>;
 	export function raceAll<TPromise, T>(
 		ids: Iterable<T>,
 		fn: (id: T) => Promise<TPromise>,
-		timeout?: number
+		timeout?: number,
 	): Promise<Map<T, TPromise | Promises.CancellationErrorWithId<T, Promise<TPromise>>>>;
 	export async function raceAll<TPromise, T>(
 		promisesOrIds: Promise<TPromise>[] | Map<T, Promise<TPromise>> | Iterable<T>,
 		timeoutOrFn?: number | ((id: T) => Promise<TPromise>),
-		timeout?: number
+		timeout?: number,
 	) {
 		let promises;
 		if (timeoutOrFn != null && typeof timeoutOrFn !== 'number') {
 			promises = new Map(
-				Iterables.map<T, [T, Promise<TPromise>]>(promisesOrIds as Iterable<T>, id => [id, timeoutOrFn(id)])
+				Iterables.map<T, [T, Promise<TPromise>]>(promisesOrIds as Iterable<T>, id => [id, timeoutOrFn(id)]),
 			);
 		} else {
 			timeout = timeoutOrFn;
@@ -132,12 +132,12 @@ export namespace Promises {
 										new Promise<CancellationErrorWithId<T, Promise<TPromise>>>(resolve =>
 											setTimeout(
 												() => resolve(new CancellationErrorWithId(id, promise, 'TIMED OUT')),
-												timeout!
-											)
-										)
-									]).then(p => [id, p])
-					)
-				)
+												timeout!,
+											),
+										),
+									]).then(p => [id, p]),
+					),
+				),
 			);
 		}
 
@@ -148,10 +148,10 @@ export namespace Promises {
 						Promise.race([
 							p,
 							new Promise<CancellationError<Promise<TPromise>>>(resolve =>
-								setTimeout(() => resolve(new CancellationError(p, 'TIMED OUT')), timeout!)
-							)
-						])
-				  )
+								setTimeout(() => resolve(new CancellationError(p, 'TIMED OUT')), timeout!),
+							),
+						]),
+				  ),
 		);
 	}
 }

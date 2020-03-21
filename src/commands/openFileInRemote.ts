@@ -12,7 +12,7 @@ import {
 	Commands,
 	getCommandUri,
 	isCommandViewContextWithBranch,
-	isCommandViewContextWithCommit
+	isCommandViewContextWithCommit,
 } from './common';
 import { OpenInRemoteCommandArgs } from './openInRemote';
 import { Strings } from '../system';
@@ -41,7 +41,7 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
 			return this.execute(
 				context.editor,
 				context.node.commit.isFile ? context.node.commit.uri : context.node.uri,
-				args
+				args,
 			);
 		}
 
@@ -63,7 +63,7 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
 				args.range && editor != null && UriComparer.equals(editor.document.uri, uri)
 					? new Range(
 							editor.selection.start.with({ line: editor.selection.start.line + 1 }),
-							editor.selection.end.with({ line: editor.selection.end.line + 1 })
+							editor.selection.end.with({ line: editor.selection.end.line + 1 }),
 					  )
 					: undefined;
 			let sha = args.sha || gitUri.sha;
@@ -89,8 +89,8 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
 							autoPick: true,
 							checkmarks: false,
 							filterBranches: b => b.tracking !== undefined,
-							include: ReferencesQuickPickIncludes.Branches
-						}
+							include: ReferencesQuickPickIncludes.Branches,
+						},
 					);
 					if (pick === undefined || pick instanceof CommandQuickPickItem) return undefined;
 
@@ -107,23 +107,23 @@ export class OpenFileInRemoteCommand extends ActiveEditorCommand {
 								type: RemoteResourceType.File,
 								branch: args.branch || 'HEAD',
 								fileName: gitUri.relativePath,
-								range: range
+								range: range,
 						  }
 						: {
 								type: RemoteResourceType.Revision,
 								branch: args.branch || 'HEAD',
 								fileName: gitUri.relativePath,
 								range: range,
-								sha: sha
+								sha: sha,
 						  },
 				remotes: remotes,
-				clipboard: args.clipboard
+				clipboard: args.clipboard,
 			};
 			return commands.executeCommand(Commands.OpenInRemote, uri, commandArgs);
 		} catch (ex) {
 			Logger.error(ex, 'OpenFileInRemoteCommand');
 			return window.showErrorMessage(
-				'Unable to open file on remote provider. See output channel for more details'
+				'Unable to open file on remote provider. See output channel for more details',
 			);
 		}
 	}

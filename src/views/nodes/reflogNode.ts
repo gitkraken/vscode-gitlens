@@ -52,7 +52,7 @@ export class ReflogNode extends ViewNode<RepositoriesView> implements PageableVi
 		item.description = 'experimental';
 		item.iconPath = {
 			dark: Container.context.asAbsolutePath('images/dark/icon-activity.svg'),
-			light: Container.context.asAbsolutePath('images/light/icon-activity.svg')
+			light: Container.context.asAbsolutePath('images/light/icon-activity.svg'),
 		};
 
 		return item;
@@ -72,7 +72,7 @@ export class ReflogNode extends ViewNode<RepositoriesView> implements PageableVi
 		if (this._reflog === undefined) {
 			this._reflog = await Container.git.getIncomingActivity(this.repo.path, {
 				all: true,
-				limit: this.limit ?? this.view.config.defaultItemLimit
+				limit: this.limit ?? this.view.config.defaultItemLimit,
 			});
 		}
 

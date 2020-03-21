@@ -41,7 +41,7 @@ export class ContributorsNode extends ViewNode<RepositoriesView> {
 
 		item.iconPath = {
 			dark: Container.context.asAbsolutePath('images/dark/icon-people.svg'),
-			light: Container.context.asAbsolutePath('images/light/icon-people.svg')
+			light: Container.context.asAbsolutePath('images/light/icon-people.svg'),
 		};
 
 		return item;

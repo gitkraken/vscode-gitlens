@@ -38,7 +38,7 @@ export class RemotesNode extends ViewNode<RepositoriesView> {
 
 		item.iconPath = {
 			dark: Container.context.asAbsolutePath('images/dark/icon-remote.svg'),
-			light: Container.context.asAbsolutePath('images/light/icon-remote.svg')
+			light: Container.context.asAbsolutePath('images/light/icon-remote.svg'),
 		};
 
 		return item;

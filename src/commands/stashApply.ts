@@ -9,7 +9,7 @@ import {
 	CommandContext,
 	Commands,
 	isCommandViewContextWithCommit,
-	isCommandViewContextWithRepo
+	isCommandViewContextWithRepo,
 } from './common';
 import { GitCommandsCommandArgs } from '../commands';
 
@@ -50,8 +50,8 @@ export class StashApplyCommand extends Command {
 			state: {
 				subcommand: args.deleteAfter ? 'pop' : 'apply',
 				repo: repo,
-				stash: args.stashItem
-			}
+				stash: args.stashItem,
+			},
 		};
 		return commands.executeCommand(Commands.GitCommands, gitCommandArgs);
 	}

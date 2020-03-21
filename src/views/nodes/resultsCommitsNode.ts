@@ -23,7 +23,7 @@ export class ResultsCommitsNode extends ViewNode<ViewWithFiles> implements Pagea
 		public readonly repoPath: string,
 		private _label: string,
 		private readonly _commitsQuery: (limit: number | undefined) => Promise<CommitsQueryResults>,
-		private readonly _options: { expand?: boolean; includeDescription?: boolean } = {}
+		private readonly _options: { expand?: boolean; includeDescription?: boolean } = {},
 	) {
 		super(GitUri.fromRepoPath(repoPath), view, parent);
 
@@ -49,12 +49,12 @@ export class ResultsCommitsNode extends ViewNode<ViewWithFiles> implements Pagea
 			...insertDateMarkers(
 				Iterables.map(
 					log.commits.values(),
-					c => new CommitNode(this.view, this, c, undefined, getBranchAndTagTips, options)
+					c => new CommitNode(this.view, this, c, undefined, getBranchAndTagTips, options),
 				),
 				this,
 				undefined,
-				{ show: log.count > 1 }
-			)
+				{ show: log.count > 1 },
+			),
 		];
 
 		if (log.hasMore) {

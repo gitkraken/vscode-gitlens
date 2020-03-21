@@ -27,7 +27,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 		parent: ViewNode,
 		public readonly branch: GitBranch,
 		// Specifies that the node is shown as a root under the repository node
-		public readonly root: boolean = false
+		public readonly root: boolean = false,
 	) {
 		super(uri, view, parent);
 	}
@@ -73,7 +73,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 					ref: this.branch.ref,
 					repoPath: this.branch.repoPath,
 					state: this.branch.state,
-					upstream: this.branch.tracking
+					upstream: this.branch.tracking,
 				};
 
 				if (this.branch.state.behind) {
@@ -90,16 +90,16 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 
 			const getBranchAndTagTips = await Container.git.getBranchesAndTagsTipsFn(
 				this.uri.repoPath,
-				this.branch.name
+				this.branch.name,
 			);
 			children.push(
 				...insertDateMarkers(
 					Iterables.map(
 						log.commits.values(),
-						c => new CommitNode(this.view, this, c, this.branch, getBranchAndTagTips)
+						c => new CommitNode(this.view, this, c, this.branch, getBranchAndTagTips),
 					),
-					this
-				)
+					this,
+				),
 			);
 
 			if (log.hasMore) {
@@ -167,7 +167,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 			tooltip += ` is tracking ${this.branch.tracking}\n${this.branch.getTrackingStatus({
 				empty: 'up-to-date',
 				expand: true,
-				separator: '\n'
+				separator: '\n',
 			})}`;
 
 			if (this.branch.state.ahead || this.branch.state.behind) {
@@ -188,20 +188,20 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 			}`;
 
 			tooltip += `\nLast commit ${this.branch.formatDateFromNow()} (${this.branch.formatDate(
-				BranchDateFormatting.dateFormat
+				BranchDateFormatting.dateFormat,
 			)})`;
 		}
 
 		const item = new TreeItem(
 			// Hide the current branch checkmark when the node is displayed as a root under the repository node
 			`${!this.root && this.current ? `${GlyphChars.Check} ${GlyphChars.Space}` : ''}${name}`,
-			TreeItemCollapsibleState.Collapsed
+			TreeItemCollapsibleState.Collapsed,
 		);
 		item.contextValue = contextValue;
 		item.description = description;
 		item.iconPath = {
 			dark: Container.context.asAbsolutePath(`images/dark/icon-branch${iconSuffix}.svg`),
-			light: Container.context.asAbsolutePath(`images/light/icon-branch${iconSuffix}.svg`)
+			light: Container.context.asAbsolutePath(`images/light/icon-branch${iconSuffix}.svg`),
 		};
 		item.id = this.id;
 		item.tooltip = tooltip;
@@ -235,7 +235,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 		if (this._log === undefined) {
 			this._log = await Container.git.getLog(this.uri.repoPath!, {
 				limit: this.limit ?? this.view.config.defaultItemLimit,
-				ref: this.ref
+				ref: this.ref,
 			});
 		}
 

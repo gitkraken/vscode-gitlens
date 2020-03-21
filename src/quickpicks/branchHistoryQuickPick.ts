@@ -17,8 +17,8 @@ export class BranchHistoryQuickPick {
 			{
 				'alt+left': KeyNoopCommand,
 				'alt+,': KeyNoopCommand,
-				'alt+.': KeyNoopCommand
-			}
+				'alt+.': KeyNoopCommand,
+			},
 		);
 	}
 
@@ -28,7 +28,7 @@ export class BranchHistoryQuickPick {
 		branch: string,
 		progressCancellation: CancellationTokenSource,
 		goBackCommand?: CommandQuickPickItem,
-		nextPageCommand?: CommandQuickPickItem
+		nextPageCommand?: CommandQuickPickItem,
 	): Promise<CommitQuickPickItem | CommandQuickPickItem | undefined> {
 		const items = Array.from(Iterables.map(log.commits.values(), c => CommitQuickPickItem.create(c))) as (
 			| CommitQuickPickItem
@@ -39,15 +39,15 @@ export class BranchHistoryQuickPick {
 			branch: branch,
 			log: log,
 			limit: log.limit,
-			goBackCommand: goBackCommand
+			goBackCommand: goBackCommand,
 		};
 		const currentCommand = new CommandQuickPickItem(
 			{
 				label: `go back ${GlyphChars.ArrowBack}`,
-				description: `to history of ${GlyphChars.Space}$(git-branch) ${branch}`
+				description: `to history of ${GlyphChars.Space}$(git-branch) ${branch}`,
 			},
 			Commands.ShowQuickBranchHistory,
-			[uri, currentCommandArgs]
+			[uri, currentCommandArgs],
 		);
 
 		const remotes = await Container.git.getRemotes((uri && uri.repoPath) || log.repoPath, { sort: true });
@@ -59,10 +59,10 @@ export class BranchHistoryQuickPick {
 					remotes,
 					{
 						type: RemoteResourceType.Branch,
-						branch: branch
+						branch: branch,
 					},
-					currentCommand
-				)
+					currentCommand,
+				),
 			);
 		}
 
@@ -73,7 +73,7 @@ export class BranchHistoryQuickPick {
 				const commandArgs: ShowQuickBranchHistoryCommandArgs = {
 					branch: branch,
 					limit: 0,
-					goBackCommand: goBackCommand
+					goBackCommand: goBackCommand,
 				};
 				items.splice(
 					0,
@@ -81,11 +81,11 @@ export class BranchHistoryQuickPick {
 					new CommandQuickPickItem(
 						{
 							label: '$(sync) Show All Commits',
-							description: 'this may take a while'
+							description: 'this may take a while',
 						},
 						Commands.ShowQuickBranchHistory,
-						[GitUri.fromRepoPath(log.repoPath), commandArgs]
-					)
+						[GitUri.fromRepoPath(log.repoPath), commandArgs],
+					),
 				);
 			}
 
@@ -97,15 +97,15 @@ export class BranchHistoryQuickPick {
 				const commandArgs: ShowQuickBranchHistoryCommandArgs = {
 					branch: branch,
 					limit: log.limit,
-					nextPageCommand: nextPageCommand
+					nextPageCommand: nextPageCommand,
 				};
 				const npc = new CommandQuickPickItem(
 					{
 						label: '$(arrow-right) Show Next Commits',
-						description: `shows ${log.limit} newer commits`
+						description: `shows ${log.limit} newer commits`,
 					},
 					Commands.ShowQuickBranchHistory,
-					[uri, commandArgs]
+					[uri, commandArgs],
 				);
 
 				const last = Iterables.last(log.commits.values());
@@ -114,15 +114,15 @@ export class BranchHistoryQuickPick {
 						branch: branch,
 						limit: log.limit,
 						goBackCommand: goBackCommand,
-						nextPageCommand: npc
+						nextPageCommand: npc,
 					};
 					previousPageCommand = new CommandQuickPickItem(
 						{
 							label: '$(arrow-left) Show Previous Commits',
-							description: `shows ${log.limit} older commits`
+							description: `shows ${log.limit} older commits`,
 						},
 						Commands.ShowQuickBranchHistory,
-						[new GitUri(uri ? uri : last.uri, last), commandArgs]
+						[new GitUri(uri ? uri : last.uri, last), commandArgs],
 					);
 
 					items.splice(0, 0, previousPageCommand);
@@ -139,7 +139,7 @@ export class BranchHistoryQuickPick {
 		const scope = await Container.keyboard.beginScope({
 			'alt+left': goBackCommand,
 			'alt+,': previousPageCommand,
-			'alt+.': nextPageCommand
+			'alt+.': nextPageCommand,
 		});
 
 		progressCancellation.cancel();
@@ -148,7 +148,7 @@ export class BranchHistoryQuickPick {
 			matchOnDescription: true,
 			matchOnDetail: true,
 			placeHolder: `${branch} history ${GlyphChars.Dash} search by commit message, filename, or commit id`,
-			ignoreFocusOut: getQuickPickIgnoreFocusOut()
+			ignoreFocusOut: getQuickPickIgnoreFocusOut(),
 			// onDidSelectItem: (item: QuickPickItem) => {
 			//     scope.setKeyCommand('right', item);
 			// }

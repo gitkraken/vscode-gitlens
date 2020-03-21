@@ -17,7 +17,7 @@ export class GitDiffHunk {
 	constructor(
 		public readonly diff: string,
 		public currentPosition: { start: number; end: number },
-		public previousPosition: { start: number; end: number }
+		public previousPosition: { start: number; end: number },
 	) {}
 
 	@memoize()

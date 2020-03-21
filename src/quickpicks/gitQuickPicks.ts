@@ -11,7 +11,7 @@ import {
 	GitService,
 	GitStashCommit,
 	GitTag,
-	Repository
+	Repository,
 } from '../git/gitService';
 import { emojify } from '../emojis';
 
@@ -35,7 +35,7 @@ function hasFlags<T>(flags: T[], has?: T | T[]): boolean {
 
 export enum Directive {
 	Back = 'Back',
-	Cancel = 'Cancel'
+	Cancel = 'Cancel',
 }
 
 export interface DirectiveQuickPickItem extends QuickPickItem {
@@ -46,7 +46,7 @@ export namespace DirectiveQuickPickItem {
 	export function create(
 		directive: Directive,
 		picked?: boolean,
-		options: { label?: string; description?: string; detail?: string } = {}
+		options: { label?: string; description?: string; detail?: string } = {},
 	) {
 		const item: DirectiveQuickPickItem = {
 			label: options.label || directive,
@@ -54,7 +54,7 @@ export namespace DirectiveQuickPickItem {
 			detail: options.detail,
 			alwaysShow: true,
 			picked: picked,
-			directive: directive
+			directive: directive,
 		};
 
 		return item;
@@ -82,7 +82,7 @@ export namespace BranchQuickPickItem {
 			ref?: boolean;
 			status?: boolean;
 			type?: boolean | 'remote';
-		} = {}
+		} = {},
 	) {
 		let description = '';
 		if (options.type === true) {
@@ -159,7 +159,7 @@ export namespace BranchQuickPickItem {
 			item: branch,
 			current: branch.current,
 			ref: branch.name,
-			remote: branch.remote
+			remote: branch.remote,
 		};
 
 		return item;
@@ -172,7 +172,7 @@ export namespace CommitQuickPickItem {
 	export function create<T extends GitLogCommit = GitLogCommit>(
 		commit: T,
 		picked?: boolean,
-		options: { alwaysShow?: boolean; compact?: boolean; icon?: boolean } = {}
+		options: { alwaysShow?: boolean; compact?: boolean; icon?: boolean } = {},
 	) {
 		if (GitStashCommit.is(commit)) {
 			const number = commit.number === undefined ? '' : `${commit.number}: `;
@@ -183,11 +183,11 @@ export namespace CommitQuickPickItem {
 					description: `${commit.formattedDate}${Strings.pad(
 						GlyphChars.Dot,
 						2,
-						2
+						2,
 					)}${commit.getFormattedDiffStatus({ compact: true })}`,
 					alwaysShow: options.alwaysShow,
 					picked: picked,
-					item: commit
+					item: commit,
 				};
 
 				return item;
@@ -199,11 +199,11 @@ export namespace CommitQuickPickItem {
 				detail: `${GlyphChars.Space.repeat(2)}${commit.formattedDate}${Strings.pad(
 					GlyphChars.Dot,
 					2,
-					2
+					2,
 				)}${commit.getFormattedDiffStatus({ compact: true })}`,
 				alwaysShow: options.alwaysShow,
 				picked: picked,
-				item: commit
+				item: commit,
 			};
 
 			return item;
@@ -217,7 +217,7 @@ export namespace CommitQuickPickItem {
 				}${Strings.pad(GlyphChars.Dot, 2, 2)}${commit.getFormattedDiffStatus({ compact: true })}`,
 				alwaysShow: options.alwaysShow,
 				picked: picked,
-				item: commit
+				item: commit,
 			};
 			return item;
 		}
@@ -228,13 +228,13 @@ export namespace CommitQuickPickItem {
 			detail: `${GlyphChars.Space.repeat(2)}${commit.author}, ${commit.formattedDate}${Strings.pad(
 				'$(git-commit)',
 				2,
-				2
+				2,
 			)}${commit.shortSha}${Strings.pad(GlyphChars.Dot, 2, 2)}${commit.getFormattedDiffStatus({
-				compact: true
+				compact: true,
 			})}`,
 			alwaysShow: options.alwaysShow,
 			picked: picked,
-			item: commit
+			item: commit,
 		};
 		return item;
 	}
@@ -246,14 +246,14 @@ export namespace ContributorQuickPickItem {
 	export function create(
 		contributor: GitContributor,
 		picked?: boolean,
-		options: { alwaysShow?: boolean } = {}
+		options: { alwaysShow?: boolean } = {},
 	): ContributorQuickPickItem {
 		const item: ContributorQuickPickItem = {
 			label: contributor.name,
 			description: contributor.email,
 			alwaysShow: options.alwaysShow,
 			picked: picked,
-			item: contributor
+			item: contributor,
 		};
 		return item;
 	}
@@ -269,7 +269,7 @@ export namespace RefQuickPickItem {
 	export function create(
 		ref: string,
 		picked?: boolean,
-		options: { alwaysShow?: boolean; ref?: boolean; icon?: boolean } = {}
+		options: { alwaysShow?: boolean; ref?: boolean; icon?: boolean } = {},
 	): RefQuickPickItem {
 		if (ref === '') {
 			return {
@@ -280,7 +280,7 @@ export namespace RefQuickPickItem {
 				item: GitReference.create(ref, { name: 'Working Tree' }),
 				current: false,
 				ref: ref,
-				remote: false
+				remote: false,
 			};
 		}
 
@@ -293,7 +293,7 @@ export namespace RefQuickPickItem {
 				item: GitReference.create(ref, { name: 'HEAD' }),
 				current: false,
 				ref: ref,
-				remote: false
+				remote: false,
 			};
 		}
 
@@ -307,7 +307,7 @@ export namespace RefQuickPickItem {
 			item: gitRef,
 			current: false,
 			ref: ref,
-			remote: false
+			remote: false,
 		};
 
 		return item;
@@ -322,7 +322,7 @@ export namespace RepositoryQuickPickItem {
 	export async function create(
 		repository: Repository,
 		picked?: boolean,
-		options: { alwaysShow?: boolean; branch?: boolean; fetched?: boolean; status?: boolean } = {}
+		options: { alwaysShow?: boolean; branch?: boolean; fetched?: boolean; status?: boolean } = {},
 	) {
 		let repoStatus;
 		if (options.branch || options.status) {
@@ -339,12 +339,12 @@ export namespace RepositoryQuickPickItem {
 			if (repoStatus.files.length !== 0) {
 				workingStatus = repoStatus.getFormattedDiffStatus({
 					compact: true,
-					prefix: Strings.pad(GlyphChars.Dot, 2, 2)
+					prefix: Strings.pad(GlyphChars.Dot, 2, 2),
 				});
 			}
 
 			const upstreamStatus = repoStatus.getUpstreamStatus({
-				prefix: description ? `${GlyphChars.Space} ` : ''
+				prefix: description ? `${GlyphChars.Space} ` : '',
 			});
 
 			const status = `${upstreamStatus}${workingStatus}`;
@@ -369,7 +369,7 @@ export namespace RepositoryQuickPickItem {
 			alwaysShow: options.alwaysShow,
 			picked: picked,
 			item: repository,
-			repoPath: repository.path
+			repoPath: repository.path,
 		};
 
 		return item;
@@ -392,7 +392,7 @@ export namespace TagQuickPickItem {
 			checked?: boolean;
 			ref?: boolean;
 			type?: boolean;
-		} = {}
+		} = {},
 	) {
 		let description = '';
 		if (options.type) {
@@ -424,7 +424,7 @@ export namespace TagQuickPickItem {
 			item: tag,
 			current: false,
 			ref: tag.name,
-			remote: false
+			remote: false,
 		};
 
 		return item;

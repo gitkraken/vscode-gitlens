@@ -41,8 +41,8 @@ export class StashDeleteCommand extends Command {
 			state: {
 				subcommand: 'drop',
 				repo: repo,
-				stash: args.stashItem
-			}
+				stash: args.stashItem,
+			},
 		};
 		return commands.executeCommand(Commands.GitCommands, gitCommandArgs);
 	}

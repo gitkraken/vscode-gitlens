@@ -104,7 +104,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 
 		if (this.view.config.autoReveal) {
 			subscriptions.push(
-				window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveEditorChanged, 500), this)
+				window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveEditorChanged, 500), this),
 			);
 		}
 

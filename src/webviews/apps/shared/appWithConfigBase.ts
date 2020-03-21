@@ -5,7 +5,7 @@ import {
 	DidChangeConfigurationNotificationType,
 	IpcMessage,
 	onIpcNotification,
-	UpdateConfigurationCommandType
+	UpdateConfigurationCommandType,
 } from '../../protocol';
 import { DOM } from './dom';
 import { App } from './appBase';
@@ -26,28 +26,28 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 	}
 
 	protected onBind(me: this) {
-		DOM.listenAll('input[type=checkbox][data-setting]', 'change', function(this: HTMLInputElement) {
+		DOM.listenAll('input[type=checkbox][data-setting]', 'change', function (this: HTMLInputElement) {
 			return me.onInputChecked(this);
 		});
-		DOM.listenAll('input[type=text][data-setting], input:not([type])[data-setting]', 'blur', function(
-			this: HTMLInputElement
+		DOM.listenAll('input[type=text][data-setting], input:not([type])[data-setting]', 'blur', function (
+			this: HTMLInputElement,
 		) {
 			return me.onInputBlurred(this);
 		});
-		DOM.listenAll('input[type=text][data-setting], input:not([type])[data-setting]', 'focus', function(
-			this: HTMLInputElement
+		DOM.listenAll('input[type=text][data-setting], input:not([type])[data-setting]', 'focus', function (
+			this: HTMLInputElement,
 		) {
 			return me.onInputFocused(this);
 		});
-		DOM.listenAll('input[type=text][data-setting][data-setting-preview]', 'input', function(
-			this: HTMLInputElement
+		DOM.listenAll('input[type=text][data-setting][data-setting-preview]', 'input', function (
+			this: HTMLInputElement,
 		) {
 			return me.onInputChanged(this);
 		});
-		DOM.listenAll('select[data-setting]', 'change', function(this: HTMLSelectElement) {
+		DOM.listenAll('select[data-setting]', 'change', function (this: HTMLSelectElement) {
 			return me.onInputSelected(this);
 		});
-		DOM.listenAll('.popup', 'mousedown', function(this: HTMLElement, e: Event) {
+		DOM.listenAll('.popup', 'mousedown', function (this: HTMLElement, e: Event) {
 			return me.onPopupMouseDown(this, e as MouseEvent);
 		});
 	}
@@ -75,7 +75,7 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 		this.sendCommand(UpdateConfigurationCommandType, {
 			changes: { ...this._changes },
 			removes: Object.keys(this._changes).filter(k => this._changes[k] === undefined),
-			scope: this.getSettingsScope()
+			scope: this.getSettingsScope(),
 		});
 
 		this._changes = Object.create(null);
@@ -119,7 +119,7 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 		if (this._updating) return;
 
 		this.log(
-			`${this.appName}.onInputChecked: name=${element.name}, checked=${element.checked}, value=${element.value}`
+			`${this.appName}.onInputChecked: name=${element.name}, checked=${element.checked}, value=${element.value}`,
 		);
 
 		switch (element.dataset.settingType) {
@@ -285,7 +285,7 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 			}
 
 			for (const el of document.querySelectorAll<HTMLInputElement>(
-				'input[type=text][data-setting], input:not([type])[data-setting]'
+				'input[type=text][data-setting], input:not([type])[data-setting]',
 			)) {
 				el.value = this.getSettingValue<string>(el.name) || '';
 			}

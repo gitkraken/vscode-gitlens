@@ -25,12 +25,12 @@ export namespace Iterables {
 	}
 
 	export function filter<T>(
-		source: Iterable<T | undefined | null> | IterableIterator<T | undefined | null>
+		source: Iterable<T | undefined | null> | IterableIterator<T | undefined | null>,
 	): Iterable<T>;
 	export function filter<T>(source: Iterable<T> | IterableIterator<T>, predicate: (item: T) => boolean): Iterable<T>;
 	export function* filter<T>(
 		source: Iterable<T> | IterableIterator<T>,
-		predicate?: (item: T) => boolean
+		predicate?: (item: T) => boolean,
 	): Iterable<T> {
 		if (predicate === undefined) {
 			for (const item of source) {
@@ -45,7 +45,7 @@ export namespace Iterables {
 
 	export function* filterMap<T, TMapped>(
 		source: Iterable<T> | IterableIterator<T>,
-		predicateMapper: (item: T) => TMapped | undefined | null
+		predicateMapper: (item: T) => TMapped | undefined | null,
 	): Iterable<TMapped> {
 		for (const item of source) {
 			const mapped = predicateMapper(item);
@@ -74,7 +74,7 @@ export namespace Iterables {
 
 	export function* flatMap<T, TMapped>(
 		source: Iterable<T> | IterableIterator<T>,
-		mapper: (item: T) => Iterable<TMapped>
+		mapper: (item: T) => Iterable<TMapped>,
 	): Iterable<TMapped> {
 		for (const item of source) {
 			yield* mapper(item);
@@ -121,7 +121,7 @@ export namespace Iterables {
 
 	export function* map<T, TMapped>(
 		source: Iterable<T> | IterableIterator<T>,
-		mapper: (item: T) => TMapped
+		mapper: (item: T) => TMapped,
 	): Iterable<TMapped> {
 		for (const item of source) {
 			yield mapper(item);

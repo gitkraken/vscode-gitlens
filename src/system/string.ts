@@ -13,7 +13,7 @@ export namespace Strings {
 		/**
 		 * The `\` character.
 		 */
-		Backslash = 92
+		Backslash = 92,
 	}
 
 	export function base64(s: string): string {
@@ -94,8 +94,8 @@ export namespace Strings {
 							? prefix.substr(1, prefix.length - 2)
 							: prefix,
 					suffix: suffix,
-					truncateTo: truncateTo == null ? undefined : parseInt(truncateTo, 10)
-				}
+					truncateTo: truncateTo == null ? undefined : parseInt(truncateTo, 10),
+				},
 			});
 		} while (true);
 
@@ -131,14 +131,12 @@ export namespace Strings {
 	}
 
 	export function md5(s: string, encoding: HexBase64Latin1Encoding = 'base64'): string {
-		return createHash('md5')
-			.update(s)
-			.digest(encoding);
+		return createHash('md5').update(s).digest(encoding);
 	}
 
 	export function normalizePath(
 		fileName: string,
-		options: { addLeadingSlash?: boolean; stripTrailingSlash?: boolean } = { stripTrailingSlash: true }
+		options: { addLeadingSlash?: boolean; stripTrailingSlash?: boolean } = { stripTrailingSlash: true },
 	) {
 		if (fileName == null || fileName.length === 0) return fileName;
 
@@ -207,7 +205,7 @@ export namespace Strings {
 	export function pluralize(
 		s: string,
 		count: number,
-		options?: { number?: string; plural?: string; suffix?: string; zero?: string }
+		options?: { number?: string; plural?: string; suffix?: string; zero?: string },
 	) {
 		if (options == null) return `${count} ${s}${count === 1 ? emptyStr : 's'}`;
 
@@ -232,9 +230,7 @@ export namespace Strings {
 	}
 
 	export function sha1(s: string, encoding: HexBase64Latin1Encoding = 'base64'): string {
-		return createHash('sha1')
-			.update(s)
-			.digest(encoding);
+		return createHash('sha1').update(s).digest(encoding);
 	}
 
 	export function splitLast(s: string, splitter: string) {

@@ -9,13 +9,13 @@ export const PullRequestDateFormatting = {
 	reset: () => {
 		PullRequestDateFormatting.dateFormat = configuration.get('defaultDateFormat');
 		PullRequestDateFormatting.dateStyle = configuration.get('defaultDateStyle');
-	}
+	},
 };
 
 export enum PullRequestState {
 	Open = 'Open',
 	Closed = 'Closed',
-	Merged = 'Merged'
+	Merged = 'Merged',
 }
 
 export class PullRequest {
@@ -31,7 +31,7 @@ export class PullRequest {
 		public readonly state: PullRequestState,
 		public readonly date: Date,
 		public readonly closedDate?: Date,
-		public readonly mergedDate?: Date
+		public readonly mergedDate?: Date,
 	) {}
 
 	get formattedDate(): string {

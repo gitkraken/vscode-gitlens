@@ -12,7 +12,7 @@ import {
 	OpenWorkingFileCommandArgs,
 	ShowQuickCommitDetailsCommandArgs,
 	StashApplyCommandArgs,
-	StashDeleteCommandArgs
+	StashDeleteCommandArgs,
 } from '../commands';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
@@ -23,7 +23,7 @@ import {
 	GitService,
 	GitStashCommit,
 	GitUri,
-	RemoteResourceType
+	RemoteResourceType,
 } from '../git/gitService';
 import { KeyNoopCommand, Keys } from '../keyboard';
 import { Arrays, Iterables, Strings } from '../system';
@@ -32,7 +32,7 @@ import {
 	getQuickPickIgnoreFocusOut,
 	KeyCommandQuickPickItem,
 	OpenInSearchCommitsViewQuickPickItem,
-	RevealInRepositoriesViewQuickPickItem
+	RevealInRepositoriesViewQuickPickItem,
 } from './commonQuickPicks';
 import { OpenRemotesCommandQuickPickItem } from './remotesQuickPick';
 
@@ -40,7 +40,7 @@ export class CommitWithFileStatusQuickPickItem extends CommandQuickPickItem {
 	constructor(public readonly commit: GitLogCommit, private readonly _file: GitFile) {
 		super({
 			label: `${Strings.pad(GitFile.getStatusOcticon(_file.status), 4, 2)} ${paths.basename(_file.fileName)}`,
-			description: GitFile.getFormattedDirectory(_file, true)
+			description: GitFile.getFormattedDirectory(_file, true),
 		});
 
 		this.commit = commit.toFileCommit(_file);
@@ -63,8 +63,8 @@ export class CommitWithFileStatusQuickPickItem extends CommandQuickPickItem {
 			commit: this.commit,
 			showOptions: {
 				preserveFocus: true,
-				preview: false
-			}
+				preview: false,
+			},
 		};
 		await commands.executeCommand(Commands.DiffWithPrevious, this.commit.toGitUri(), commandArgs);
 	}
@@ -75,22 +75,22 @@ export class OpenCommitFilesCommandQuickPickItem extends CommandQuickPickItem {
 		super(
 			item || {
 				label: '$(file-symlink-file) Open Files',
-				description: ''
+				description: '',
 				// detail: `Opens all of the changed file in the working tree`
-			}
+			},
 		);
 	}
 
 	async execute(
-		options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
+		options: TextDocumentShowOptions = { preserveFocus: false, preview: false },
 	): Promise<{} | undefined> {
 		const uris = Arrays.filterMap(this._commit.files, f =>
-			GitUri.fromFile(f, this._commit.repoPath, this._commit.sha)
+			GitUri.fromFile(f, this._commit.repoPath, this._commit.sha),
 		);
 		for (const uri of uris) {
 			const args: OpenWorkingFileCommandArgs = {
 				uri: uri,
-				showOptions: options
+				showOptions: options,
 			};
 			await commands.executeCommand(Commands.OpenWorkingFile, undefined, args);
 		}
@@ -101,7 +101,7 @@ export class OpenCommitFilesCommandQuickPickItem extends CommandQuickPickItem {
 	async onDidPressKey(key: Keys): Promise<void> {
 		await this.execute({
 			preserveFocus: true,
-			preview: false
+			preview: false,
 		});
 	}
 }
@@ -111,21 +111,21 @@ export class OpenCommitFileRevisionsCommandQuickPickItem extends CommandQuickPic
 		super(
 			item || {
 				label: '$(file-symlink-file) Open Revisions',
-				description: `from ${GlyphChars.Space}$(git-commit) ${_commit.shortSha}`
+				description: `from ${GlyphChars.Space}$(git-commit) ${_commit.shortSha}`,
 				// detail: `Opens all of the changed files in $(git-commit) ${commit.shortSha}`
-			}
+			},
 		);
 	}
 
 	async execute(
-		options: TextDocumentShowOptions = { preserveFocus: false, preview: false }
+		options: TextDocumentShowOptions = { preserveFocus: false, preview: false },
 	): Promise<{} | undefined> {
 		const uris = Arrays.filterMap(this._commit.files, f =>
 			GitUri.toRevisionUri(
 				f.status === 'D' ? this._commit.previousFileSha : this._commit.sha,
 				f,
-				this._commit.repoPath
-			)
+				this._commit.repoPath,
+			),
 		);
 
 		for (const uri of uris) {
@@ -137,7 +137,7 @@ export class OpenCommitFileRevisionsCommandQuickPickItem extends CommandQuickPic
 	async onDidPressKey(key: Keys): Promise<void> {
 		await this.execute({
 			preserveFocus: true,
-			preview: false
+			preview: false,
 		});
 	}
 }
@@ -155,7 +155,7 @@ export class CommitQuickPick {
 	async show(
 		commit: GitLogCommit,
 		uri: Uri,
-		options: CommitQuickPickOptions = {}
+		options: CommitQuickPickOptions = {},
 	): Promise<CommitWithFileStatusQuickPickItem | CommandQuickPickItem | undefined> {
 		options = { showChanges: true, ...options };
 
@@ -172,11 +172,11 @@ export class CommitQuickPick {
 				const previousCommandArgs: ShowQuickCommitDetailsCommandArgs = {
 					repoLog: options.repoLog,
 					sha: previousRef,
-					goBackCommand: options.goBackCommand
+					goBackCommand: options.goBackCommand,
 				};
 				return new KeyCommandQuickPickItem(Commands.ShowQuickCommitDetails, [
 					Uri.file(commit.repoPath),
-					previousCommandArgs
+					previousCommandArgs,
 				]);
 			};
 
@@ -193,7 +193,7 @@ export class CommitQuickPick {
 					const nextLog = await Container.git.getLog(commit.repoPath, {
 						limit: 1,
 						reverse: true,
-						ref: commit.sha
+						ref: commit.sha,
 					});
 
 					const next = nextLog && Iterables.first(nextLog.commits.values());
@@ -208,11 +208,11 @@ export class CommitQuickPick {
 				const nextCommandArgs: ShowQuickCommitDetailsCommandArgs = {
 					repoLog: log,
 					sha: c.nextSha,
-					goBackCommand: options.goBackCommand
+					goBackCommand: options.goBackCommand,
 				};
 				return new KeyCommandQuickPickItem(Commands.ShowQuickCommitDetails, [
 					Uri.file(commit.repoPath),
-					nextCommandArgs
+					nextCommandArgs,
 				]);
 			};
 		}
@@ -220,7 +220,7 @@ export class CommitQuickPick {
 		const scope = await Container.keyboard.beginScope({
 			'alt+left': options.goBackCommand,
 			'alt+,': previousCommand,
-			'alt+.': nextCommand
+			'alt+.': nextCommand,
 		});
 
 		const pick = await window.showQuickPick(CommitQuickPick.getItems(commit, uri, options), {
@@ -235,7 +235,7 @@ export class CommitQuickPick {
 				if (typeof item.onDidSelect === 'function') {
 					item.onDidSelect();
 				}
-			}
+			},
 		});
 
 		await scope.dispose();
@@ -251,7 +251,7 @@ export class CommitQuickPick {
 			const stashApplyCommmandArgs: StashApplyCommandArgs = {
 				deleteAfter: false,
 				stashItem: commit,
-				goBackCommand: options.currentCommand
+				goBackCommand: options.currentCommand,
 			};
 			items.push(
 				new CommandQuickPickItem(
@@ -259,16 +259,16 @@ export class CommitQuickPick {
 						label: '$(git-pull-request) Apply Stash',
 						description: `${
 							commit.number === undefined ? '' : `${commit.number}: `
-						}${commit.getShortMessage()}`
+						}${commit.getShortMessage()}`,
 					},
 					Commands.StashApply,
-					[stashApplyCommmandArgs]
-				)
+					[stashApplyCommmandArgs],
+				),
 			);
 
 			const stashDeleteCommmandArgs: StashDeleteCommandArgs = {
 				stashItem: commit,
-				goBackCommand: options.currentCommand
+				goBackCommand: options.currentCommand,
 			};
 			items.push(
 				new CommandQuickPickItem(
@@ -276,11 +276,11 @@ export class CommitQuickPick {
 						label: '$(x) Delete Stash',
 						description: `${
 							commit.number === undefined ? '' : `${commit.number}: `
-						}${commit.getShortMessage()}`
+						}${commit.getShortMessage()}`,
 					},
 					Commands.StashDelete,
-					[stashDeleteCommmandArgs]
-				)
+					[stashDeleteCommmandArgs],
+				),
 			);
 
 			items.push(new RevealInRepositoriesViewQuickPickItem(commit));
@@ -297,10 +297,10 @@ export class CommitQuickPick {
 						remotes,
 						{
 							type: RemoteResourceType.Commit,
-							sha: commit.sha
+							sha: commit.sha,
 						},
-						options.currentCommand
-					)
+						options.currentCommand,
+					),
 				);
 			}
 		}
@@ -309,7 +309,7 @@ export class CommitQuickPick {
 
 		let diffDirectoryCommmandArgs: DiffDirectoryCommandArgs = {
 			ref1: previousSha,
-			ref2: commit.sha
+			ref2: commit.sha,
 		};
 		items.push(
 			new CommandQuickPickItem(
@@ -317,71 +317,71 @@ export class CommitQuickPick {
 					label: '$(git-compare) Open Directory Compare with Previous Revision',
 					description: `$(git-commit) ${GitService.shortenSha(previousSha)} ${
 						GlyphChars.Space
-					} $(git-compare) ${GlyphChars.Space} $(git-commit) ${commit.shortSha}`
+					} $(git-compare) ${GlyphChars.Space} $(git-commit) ${commit.shortSha}`,
 				},
 				Commands.DiffDirectory,
-				[commit.uri, diffDirectoryCommmandArgs]
-			)
+				[commit.uri, diffDirectoryCommmandArgs],
+			),
 		);
 
 		diffDirectoryCommmandArgs = {
-			ref1: commit.sha
+			ref1: commit.sha,
 		};
 		items.push(
 			new CommandQuickPickItem(
 				{
 					label: '$(git-compare) Open Directory Compare with Working Tree',
-					description: `$(git-commit) ${commit.shortSha} ${GlyphChars.Space} $(git-compare) ${GlyphChars.Space} Working Tree`
+					description: `$(git-commit) ${commit.shortSha} ${GlyphChars.Space} $(git-compare) ${GlyphChars.Space} Working Tree`,
 				},
 				Commands.DiffDirectory,
-				[uri, diffDirectoryCommmandArgs]
-			)
+				[uri, diffDirectoryCommmandArgs],
+			),
 		);
 
 		if (!GitStashCommit.is(commit)) {
 			const copyShaCommandArgs: CopyShaToClipboardCommandArgs = {
-				sha: commit.sha
+				sha: commit.sha,
 			};
 			items.push(
 				new CommandQuickPickItem(
 					{
 						label: '$(clippy) Copy Commit ID to Clipboard',
-						description: ''
+						description: '',
 					},
 					Commands.CopyShaToClipboard,
-					[uri, copyShaCommandArgs]
-				)
+					[uri, copyShaCommandArgs],
+				),
 			);
 		}
 
 		const copyMessageCommandArgs: CopyMessageToClipboardCommandArgs = {
 			message: commit.message,
-			sha: commit.sha
+			sha: commit.sha,
 		};
 		items.push(
 			new CommandQuickPickItem(
 				{
 					label: `$(clippy) Copy ${commit.isStash ? 'Stash' : 'Commit'} Message to Clipboard`,
-					description: ''
+					description: '',
 				},
 				Commands.CopyMessageToClipboard,
-				[uri, copyMessageCommandArgs]
-			)
+				[uri, copyMessageCommandArgs],
+			),
 		);
 
 		if (!GitStashCommit.is(commit)) {
 			if (remotes !== undefined && remotes.length) {
 				const copyRemoteUrlCommandArgs: CopyRemoteFileUrlToClipboardCommandArgs = {
-					sha: commit.sha
+					sha: commit.sha,
 				};
 				items.push(
 					new CommandQuickPickItem(
 						{
-							label: '$(clippy) Copy Remote Url to Clipboard'
+							label: '$(clippy) Copy Remote Url to Clipboard',
 						},
 						Commands.CopyRemoteFileUrlToClipboard,
-						[uri, copyRemoteUrlCommandArgs]
-					)
+						[uri, copyRemoteUrlCommandArgs],
+					),
 				);
 			}
 		}
@@ -391,17 +391,17 @@ export class CommitQuickPick {
 				commit: commit,
 				repoLog: options.repoLog,
 				sha: commit.sha,
-				goBackCommand: options.goBackCommand
+				goBackCommand: options.goBackCommand,
 			};
 			items.push(
 				new CommandQuickPickItem(
 					{
 						label: 'Changed Files',
-						description: commit.getFormattedDiffStatus()
+						description: commit.getFormattedDiffStatus(),
 					},
 					Commands.ShowQuickCommitDetails,
-					[uri, commitDetailsCommandArgs]
-				)
+					[uri, commitDetailsCommandArgs],
+				),
 			);
 
 			items.push(...commit.files.map(fs => new CommitWithFileStatusQuickPickItem(commit, fs)));

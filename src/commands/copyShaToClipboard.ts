@@ -11,7 +11,7 @@ import {
 	CommandContext,
 	Commands,
 	getCommandUri,
-	isCommandViewContextWithCommit
+	isCommandViewContextWithCommit,
 } from './common';
 
 export interface CopyShaToClipboardCommandArgs {
@@ -72,7 +72,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 		} catch (ex) {
 			if (ex.message.includes("Couldn't find the required `xsel` binary")) {
 				window.showErrorMessage(
-					'Unable to copy commit id, xsel is not installed. Please install it via your package manager, e.g. `sudo apt install xsel`'
+					'Unable to copy commit id, xsel is not installed. Please install it via your package manager, e.g. `sudo apt install xsel`',
 				);
 				return undefined;
 			}
