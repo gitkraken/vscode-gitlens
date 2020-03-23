@@ -114,7 +114,6 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 
 	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (
-			!configuration.changed(e, 'views', 'repositories') &&
 			!configuration.changed(e, 'views') &&
 			!configuration.changed(e, 'defaultDateFormat') &&
 			!configuration.changed(e, 'defaultDateSource') &&

@@ -70,7 +70,6 @@ export class CompareView extends ViewBase<CompareNode> {
 
 	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (
-			!configuration.changed(e, 'views', 'compare') &&
 			!configuration.changed(e, 'views') &&
 			!configuration.changed(e, 'defaultDateFormat') &&
 			!configuration.changed(e, 'defaultDateSource') &&

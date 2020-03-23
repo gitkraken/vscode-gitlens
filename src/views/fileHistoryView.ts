@@ -54,7 +54,6 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode> {
 
 	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (
-			!configuration.changed(e, 'views', 'fileHistory') &&
 			!configuration.changed(e, 'views') &&
 			!configuration.changed(e, 'defaultDateFormat') &&
 			!configuration.changed(e, 'defaultDateSource') &&
