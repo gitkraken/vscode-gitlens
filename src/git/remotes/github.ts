@@ -1,5 +1,5 @@
 'use strict';
-import { Disposable, env, QuickInputButton, Range, Uri, window } from 'vscode';
+import { Disposable, env, QuickInputButton, Range, ThemeIcon, Uri, window } from 'vscode';
 import { DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference } from '../../config';
 import { Container } from '../../container';
@@ -12,10 +12,7 @@ const issueEnricher3rdParyRegex = /\b(\w+\\?-?\w+(?!\\?-)\/\w+\\?-?\w+(?!\\?-))\
 export class GitHubRemote extends RemoteProviderWithApi<{ token: string }> {
 	private readonly Buttons = class {
 		static readonly Help: QuickInputButton = {
-			iconPath: {
-				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-help.svg')),
-				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-help.svg')),
-			},
+			iconPath: new ThemeIcon('question'),
 			tooltip: 'Help',
 		};
 	};

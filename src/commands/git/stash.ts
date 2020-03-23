@@ -1,6 +1,6 @@
 'use strict';
 /* eslint-disable no-loop-func */
-import { QuickInputButton, QuickInputButtons, QuickPickItem, Uri, window } from 'vscode';
+import { QuickInputButton, QuickInputButtons, QuickPickItem, ThemeIcon, Uri, window } from 'vscode';
 import { Container } from '../../container';
 import { GitStashCommit, GitUri, Repository } from '../../git/gitService';
 import {
@@ -83,10 +83,7 @@ export interface StashGitCommandArgs {
 export class StashGitCommand extends QuickCommandBase<State> {
 	private readonly Buttons = class {
 		static readonly RevealInView: QuickInputButton = {
-			iconPath: {
-				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-eye.svg')),
-				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-eye.svg')),
-			},
+			iconPath: new ThemeIcon('eye'),
 			tooltip: 'Reveal Stash in Repositories View',
 		};
 	};

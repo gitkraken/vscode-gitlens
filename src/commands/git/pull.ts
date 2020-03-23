@@ -1,5 +1,5 @@
 'use strict';
-import { QuickInputButton, Uri } from 'vscode';
+import { QuickInputButton, ThemeIcon } from 'vscode';
 import { Container } from '../../container';
 import { Repository } from '../../git/gitService';
 import { QuickCommandBase, QuickPickStep, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
@@ -25,10 +25,7 @@ export interface PullGitCommandArgs {
 export class PullGitCommand extends QuickCommandBase<State> {
 	private readonly Buttons = class {
 		static readonly Fetch: QuickInputButton = {
-			iconPath: {
-				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-sync.svg')),
-				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-sync.svg')),
-			},
+			iconPath: new ThemeIcon('sync'),
 			tooltip: 'Fetch',
 		};
 	};

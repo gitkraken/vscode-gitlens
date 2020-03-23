@@ -1,6 +1,6 @@
 'use strict';
 /* eslint-disable no-loop-func */
-import { QuickInputButton, QuickInputButtons, Uri } from 'vscode';
+import { QuickInputButton, QuickInputButtons, ThemeIcon } from 'vscode';
 import { Container } from '../../container';
 import { GitReference, GitTag, Repository } from '../../git/gitService';
 import {
@@ -64,10 +64,7 @@ export interface TagGitCommandArgs {
 export class TagGitCommand extends QuickCommandBase<State> {
 	private readonly Buttons = class {
 		static readonly RevealInView: QuickInputButton = {
-			iconPath: {
-				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-eye.svg')),
-				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-eye.svg')),
-			},
+			iconPath: new ThemeIcon('eye'),
 			tooltip: 'Reveal Tag in Repositories View',
 		};
 	};

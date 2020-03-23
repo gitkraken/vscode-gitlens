@@ -1,7 +1,6 @@
 'use strict';
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
-import { Container } from '../../container';
 import { GitUri, Repository } from '../../git/gitService';
 import { Arrays } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
@@ -57,12 +56,7 @@ export class TagsNode extends ViewNode<RepositoriesView> {
 		const item = new TreeItem('Tags', TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ResourceType.Tags;
-
-		item.iconPath = {
-			dark: Container.context.asAbsolutePath('images/dark/icon-tag.svg'),
-			light: Container.context.asAbsolutePath('images/light/icon-tag.svg'),
-		};
-
+		item.iconPath = new ThemeIcon('tag');
 		return item;
 	}
 }

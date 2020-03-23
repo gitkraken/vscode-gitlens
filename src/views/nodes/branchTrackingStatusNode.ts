@@ -1,5 +1,5 @@
 'use strict';
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
 import { GitBranch, GitLog, GitRevision, GitTrackingState, GitUri } from '../../git/gitService';
 import { debug, gate, Iterables, Strings } from '../../system';
@@ -111,14 +111,8 @@ export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements
 				? ResourceType.BranchStatusAheadOfUpstream
 				: ResourceType.BranchStatusBehindUpstream;
 		}
+		item.iconPath = new ThemeIcon(ahead ? 'cloud-upload' : 'cloud-download');
 		item.tooltip = `${label}${ahead ? ' of ' : ''}${this.status.upstream}`;
-
-		const iconSuffix = ahead ? 'upload' : 'download';
-		item.iconPath = {
-			dark: Container.context.asAbsolutePath(`images/dark/icon-${iconSuffix}.svg`),
-			light: Container.context.asAbsolutePath(`images/light/icon-${iconSuffix}.svg`),
-		};
-
 		return item;
 	}
 
