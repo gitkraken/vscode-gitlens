@@ -23,13 +23,13 @@ export class GitCodeLensController implements Disposable {
 	}
 
 	dispose() {
-		this._providerDisposable && this._providerDisposable.dispose();
-		this._disposable && this._disposable.dispose();
+		this._providerDisposable?.dispose();
+		this._disposable?.dispose();
 	}
 
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (
-			configuration.changed(e, 'codeLens', null) ||
+			configuration.changed(e, 'codeLens') ||
 			configuration.changed(e, 'defaultDateFormat') ||
 			configuration.changed(e, 'defaultDateSource') ||
 			configuration.changed(e, 'defaultDateStyle')
@@ -40,16 +40,9 @@ export class GitCodeLensController implements Disposable {
 
 			const cfg = Container.config.codeLens;
 			if (cfg.enabled && (cfg.recentChange.enabled || cfg.authors.enabled)) {
-				if (this._provider !== undefined) {
-					this._provider.reset();
-				} else {
-					this.createProvider();
-				}
+				this.ensureProvider();
 			} else {
-				if (this._providerDisposable !== undefined) {
-					this._providerDisposable.dispose();
-					this._providerDisposable = undefined;
-				}
+				this._providerDisposable?.dispose();
 				this._provider = undefined;
 			}
 
@@ -81,20 +74,24 @@ export class GitCodeLensController implements Disposable {
 
 		Logger.log('toggleCodeLens()');
 		if (this._provider !== undefined) {
-			if (this._providerDisposable !== undefined) {
-				this._providerDisposable.dispose();
-				this._providerDisposable = undefined;
-			}
-
+			this._providerDisposable?.dispose();
 			this._provider = undefined;
 
 			return;
 		}
 
-		this.createProvider();
+		this.ensureProvider();
 	}
 
-	private createProvider() {
+	private ensureProvider() {
+		if (this._provider !== undefined) {
+			this._provider.reset();
+
+			return;
+		}
+
+		this._providerDisposable?.dispose();
+
 		this._provider = new GitCodeLensProvider(Container.context, Container.git, Container.tracker);
 		this._providerDisposable = Disposable.from(
 			languages.registerCodeLensProvider(GitCodeLensProvider.selector, this._provider),

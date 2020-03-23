@@ -1,5 +1,5 @@
 'use strict';
-import { commands, ConfigurationChangeEvent, Disposable, ExtensionContext, Uri } from 'vscode';
+import { commands, ConfigurationChangeEvent, ConfigurationScope, Disposable, ExtensionContext } from 'vscode';
 import { Autolinks } from './annotations/autolinks';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { LineAnnotationController } from './annotations/lineAnnotationController';
@@ -385,13 +385,8 @@ export class Container {
 		const original = e.affectsConfiguration;
 		return {
 			...e,
-			affectsConfiguration: (section: string, resource?: Uri) => {
-				if (this._configsAffectedByMode && this._configsAffectedByMode.some(n => section.startsWith(n))) {
-					return true;
-				}
-
-				return original(section, resource);
-			},
+			affectsConfiguration: (section: string, scope?: ConfigurationScope) =>
+				this._configsAffectedByMode?.some(n => section.startsWith(n)) ? true : original(section, scope),
 		};
 	}
 }

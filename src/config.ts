@@ -293,7 +293,7 @@ export interface CodeLensConfig {
 		command: CodeLensCommand;
 	};
 	scopes: CodeLensScopes[];
-	scopesByLanguage: CodeLensLanguageScope[];
+	scopesByLanguage: CodeLensLanguageScope[] | null;
 	symbolScopes: string[];
 }
 

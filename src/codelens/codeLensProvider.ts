@@ -119,16 +119,12 @@ export class GitCodeLensProvider implements CodeLensProvider {
 			}
 		}
 
-		const cfg = configuration.get('codeLens', document.uri);
+		const cfg = configuration.get('codeLens', document);
 
-		let languageScope =
-			cfg.scopesByLanguage &&
-			cfg.scopesByLanguage.find(
-				ll => ll.language !== undefined && ll.language.toLowerCase() === document.languageId,
-			);
+		let languageScope = cfg.scopesByLanguage?.find(ll => ll.language?.toLowerCase() === document.languageId);
 		if (languageScope == null) {
 			languageScope = {
-				language: undefined,
+				language: document.languageId,
 			};
 		}
 		if (languageScope.scopes == null) {
