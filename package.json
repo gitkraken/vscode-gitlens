@@ -2071,64 +2071,43 @@
 				"command": "gitlens.supportGitLens",
 				"title": "Sponsor GitLens ❤",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-heart.svg",
-					"light": "images/light/icon-heart.svg"
-				}
+				"icon": "$(heart)"
 			},
 			{
 				"command": "gitlens.showSettingsPage",
 				"title": "Open Settings",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-gear.svg",
-					"light": "images/light/icon-gear.svg"
-				}
+				"icon": "$(gear)"
 			},
 			{
 				"command": "gitlens.showSettingsPage#repositories-view",
 				"title": "Open Settings",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-gear.svg",
-					"light": "images/light/icon-gear.svg"
-				}
+				"icon": "$(gear)"
 			},
 			{
 				"command": "gitlens.showSettingsPage#file-history-view",
 				"title": "Open Settings",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-gear.svg",
-					"light": "images/light/icon-gear.svg"
-				}
+				"icon": "$(gear)"
 			},
 			{
 				"command": "gitlens.showSettingsPage#line-history-view",
 				"title": "Open Settings",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-gear.svg",
-					"light": "images/light/icon-gear.svg"
-				}
+				"icon": "$(gear)"
 			},
 			{
 				"command": "gitlens.showSettingsPage#search-commits-view",
 				"title": "Open Settings",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-gear.svg",
-					"light": "images/light/icon-gear.svg"
-				}
+				"icon": "$(gear)"
 			},
 			{
 				"command": "gitlens.showSettingsPage#compare-view",
 				"title": "Open Settings",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-gear.svg",
-					"light": "images/light/icon-gear.svg"
-				}
+				"icon": "$(gear)"
 			},
 			{
 				"command": "gitlens.showWelcomePage",
@@ -2339,10 +2318,7 @@
 				"command": "gitlens.showCommitSearch",
 				"title": "Search Commits",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-search.svg",
-					"light": "images/light/icon-search.svg"
-				}
+				"icon": "$(search)"
 			},
 			{
 				"command": "gitlens.showLastQuickPick",
@@ -2418,10 +2394,7 @@
 				"command": "gitlens.connectRemoteProvider",
 				"title": "Connect to Remote",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-plug.svg",
-					"light": "images/light/icon-plug.svg"
-				}
+				"icon": "$(plug)"
 			},
 			{
 				"command": "gitlens.disconnectRemoteProvider",
@@ -2482,37 +2455,25 @@
 				"command": "gitlens.openBranchesInRemote",
 				"title": "Open Branches on Remote",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-link.svg",
-					"light": "images/light/icon-link.svg"
-				}
+				"icon": "$(link-external)"
 			},
 			{
 				"command": "gitlens.openBranchInRemote",
 				"title": "Open Branch on Remote",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-link.svg",
-					"light": "images/light/icon-link.svg"
-				}
+				"icon": "$(link-external)"
 			},
 			{
 				"command": "gitlens.openCommitInRemote",
 				"title": "Open Commit on Remote",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-link.svg",
-					"light": "images/light/icon-link.svg"
-				}
+				"icon": "$(link-external)"
 			},
 			{
 				"command": "gitlens.openFileInRemote",
 				"title": "Open File on Remote",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-link.svg",
-					"light": "images/light/icon-link.svg"
-				}
+				"icon": "$(link-external)"
 			},
 			{
 				"command": "gitlens.openFileRevision",
@@ -2528,10 +2489,7 @@
 				"command": "gitlens.openRepoInRemote",
 				"title": "Open Repository on Remote",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-link.svg",
-					"light": "images/light/icon-link.svg"
-				}
+				"icon": "$(link-external)"
 			},
 			{
 				"command": "gitlens.openRevisionFile",
@@ -2557,10 +2515,7 @@
 				"command": "gitlens.openWorkingFile",
 				"title": "Open File",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-open-working-file.svg",
-					"light": "images/light/icon-open-working-file.svg"
-				}
+				"icon": "$(go-to-file)"
 			},
 			{
 				"command": "gitlens.stashApply",
@@ -2575,10 +2530,7 @@
 				"command": "gitlens.stashDelete",
 				"title": "Delete Stash...",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-delete.svg",
-					"light": "images/light/icon-delete.svg"
-				}
+				"icon": "$(trash)"
 			},
 			{
 				"command": "gitlens.stashSave",
@@ -2617,65 +2569,44 @@
 				"command": "gitlens.inviteToLiveShare",
 				"title": "Invite to Live Share",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-link-color.svg",
-					"light": "images/light/icon-link-color.svg"
-				}
+				"icon": "$(live-share)"
 			},
 			{
 				"command": "gitlens.exploreRepoAtRevision",
 				"title": "Explore Repository from Revision",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-open-folder.svg",
-					"light": "images/light/icon-open-folder.svg"
-				},
+				"icon": "$(folder-opened)",
 				"enablement": "gitlens:activeFileStatus =~ /revision/ && resourceScheme != git"
 			},
 			{
 				"command": "gitlens.views.exploreRepoAtRevision",
 				"title": "Explore Repository from Revision",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-open-folder.svg",
-					"light": "images/light/icon-open-folder.svg"
-				}
+				"icon": "$(folder-opened)"
 			},
 			{
 				"command": "gitlens.fetchRepositories",
 				"title": "Fetch Repositories",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-sync.svg",
-					"light": "images/light/icon-sync.svg"
-				}
+				"icon": "$(sync)"
 			},
 			{
 				"command": "gitlens.pullRepositories",
 				"title": "Pull Repositories",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-pull.svg",
-					"light": "images/light/icon-pull.svg"
-				}
+				"icon": "$(arrow-down)"
 			},
 			{
 				"command": "gitlens.pushRepositories",
 				"title": "Push Repositories",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-push.svg",
-					"light": "images/light/icon-push.svg"
-				}
+				"icon": "$(arrow-up)"
 			},
 			{
 				"command": "gitlens.views.addRemote",
 				"title": "Add Remote",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-add.svg",
-					"light": "images/light/icon-add.svg"
-				}
+				"icon": "$(add)"
 			},
 			{
 				"command": "gitlens.views.highlightChanges",
@@ -2762,28 +2693,19 @@
 				"command": "gitlens.views.fetch",
 				"title": "Fetch",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-sync.svg",
-					"light": "images/light/icon-sync.svg"
-				}
+				"icon": "$(sync)"
 			},
 			{
 				"command": "gitlens.views.pull",
 				"title": "Pull",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-pull.svg",
-					"light": "images/light/icon-pull.svg"
-				}
+				"icon": "$(arrow-down)"
 			},
 			{
 				"command": "gitlens.views.push",
 				"title": "Push",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-push.svg",
-					"light": "images/light/icon-push.svg"
-				}
+				"icon": "$(arrow-up)"
 			},
 			{
 				"command": "gitlens.views.pushWithForce",
@@ -2813,55 +2735,37 @@
 				"command": "gitlens.views.stageDirectory",
 				"title": "Stage All Changes",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-add.svg",
-					"light": "images/light/icon-add.svg"
-				}
+				"icon": "$(add)"
 			},
 			{
 				"command": "gitlens.views.stageFile",
 				"title": "Stage Changes",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-add.svg",
-					"light": "images/light/icon-add.svg"
-				}
+				"icon": "$(add)"
 			},
 			{
 				"command": "gitlens.views.unstageDirectory",
 				"title": "Unstage All Changes",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-minus.svg",
-					"light": "images/light/icon-minus.svg"
-				}
+				"icon": "$(add)"
 			},
 			{
 				"command": "gitlens.views.unstageFile",
 				"title": "Unstage Changes",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-minus.svg",
-					"light": "images/light/icon-minus.svg"
-				}
+				"icon": "$(remove)"
 			},
 			{
 				"command": "gitlens.views.star",
 				"title": "Add to Favorites",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-star.svg",
-					"light": "images/light/icon-star.svg"
-				}
+				"icon": "$(star-empty)"
 			},
 			{
 				"command": "gitlens.views.unstar",
 				"title": "Remove from Favorites",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-star-filled.svg",
-					"light": "images/light/icon-star-filled.svg"
-				}
+				"icon": "$(star-full)"
 			},
 			{
 				"command": "gitlens.views.openDirectoryDiff",
@@ -2891,28 +2795,22 @@
 				"command": "gitlens.views.openFile",
 				"title": "Open File",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-open-file.svg",
-					"light": "images/light/icon-open-file.svg"
-				}
+				"icon": "$(go-to-file)"
 			},
 			{
 				"command": "gitlens.views.openFileRevision",
 				"title": "Open Revision",
 				"category": "GitLens",
 				"icon": {
-					"dark": "images/dark/icon-open-file.svg",
-					"light": "images/light/icon-open-file.svg"
+					"dark": "images/dark/icon-open-revision.svg",
+					"light": "images/light/icon-open-revision.svg"
 				}
 			},
 			{
 				"command": "gitlens.views.openFileRevisionInRemote",
 				"title": "Open Revision on Remote",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-link.svg",
-					"light": "images/light/icon-link.svg"
-				}
+				"icon": "$(link-external)"
 			},
 			{
 				"command": "gitlens.views.openChangedFiles",
@@ -2953,10 +2851,7 @@
 				"command": "gitlens.views.compareWithHead",
 				"title": "Compare with HEAD",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-compare-refs.svg",
-					"light": "images/light/icon-compare-refs.svg"
-				}
+				"icon": "$(compare-changes)"
 			},
 			{
 				"command": "gitlens.views.compareWithRemote",
@@ -3115,10 +3010,7 @@
 				"command": "gitlens.views.repositories.refresh",
 				"title": "Refresh",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-refresh.svg",
-					"light": "images/light/icon-refresh.svg"
-				}
+				"icon": "$(refresh)"
 			},
 			{
 				"command": "gitlens.views.repositories.setBranchComparisonToWorking",
@@ -3133,37 +3025,25 @@
 				"command": "gitlens.views.repositories.setBranchComparisonToBranch",
 				"title": "Switch to Branch Comparison",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-compare-refs.svg",
-					"light": "images/light/icon-compare-refs.svg"
-				}
+				"icon": "$(compare-changes)"
 			},
 			{
 				"command": "gitlens.views.repositories.setBranchesLayoutToList",
 				"title": "Toggle Branch Layout (Tree)",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-view-tree.svg",
-					"light": "images/light/icon-view-tree.svg"
-				}
+				"icon": "$(list-tree)"
 			},
 			{
 				"command": "gitlens.views.repositories.setBranchesLayoutToTree",
 				"title": "Toggle Branch Layout (List)",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-view-list.svg",
-					"light": "images/light/icon-view-list.svg"
-				}
+				"icon": "$(list-flat)"
 			},
 			{
 				"command": "gitlens.views.repositories.setFilesLayoutToAuto",
 				"title": "Toggle File Layout (Tree)",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-view-tree.svg",
-					"light": "images/light/icon-view-tree.svg"
-				}
+				"icon": "$(list-tree)"
 			},
 			{
 				"command": "gitlens.views.repositories.setFilesLayoutToList",
@@ -3178,10 +3058,7 @@
 				"command": "gitlens.views.repositories.setFilesLayoutToTree",
 				"title": "Toggle File Layout (List)",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-view-list.svg",
-					"light": "images/light/icon-view-list.svg"
-				}
+				"icon": "$(list-flat)"
 			},
 			{
 				"command": "gitlens.views.repositories.setAutoRefreshToOn",
@@ -3197,37 +3074,25 @@
 				"command": "gitlens.views.fileHistory.refresh",
 				"title": "Refresh",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-refresh.svg",
-					"light": "images/light/icon-refresh.svg"
-				}
+				"icon": "$(refresh)"
 			},
 			{
 				"command": "gitlens.views.fileHistory.changeBase",
 				"title": "Change Base...",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-history.svg",
-					"light": "images/light/icon-history.svg"
-				}
+				"icon": "$(history)"
 			},
 			{
 				"command": "gitlens.views.fileHistory.setEditorFollowingOn",
 				"title": "Resume File Tracking",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-location.svg",
-					"light": "images/light/icon-location.svg"
-				}
+				"icon": "$(eye-closed)"
 			},
 			{
 				"command": "gitlens.views.fileHistory.setEditorFollowingOff",
 				"title": "Pause File Tracking",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-location-filled.svg",
-					"light": "images/light/icon-location-filled.svg"
-				}
+				"icon": "$(eye)"
 			},
 			{
 				"command": "gitlens.views.fileHistory.setRenameFollowingOn",
@@ -3243,37 +3108,25 @@
 				"command": "gitlens.views.lineHistory.refresh",
 				"title": "Refresh",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-refresh.svg",
-					"light": "images/light/icon-refresh.svg"
-				}
+				"icon": "$(refresh)"
 			},
 			{
 				"command": "gitlens.views.lineHistory.changeBase",
 				"title": "Change Base...",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-history.svg",
-					"light": "images/light/icon-history.svg"
-				}
+				"icon": "$(history)"
 			},
 			{
 				"command": "gitlens.views.lineHistory.setEditorFollowingOn",
 				"title": "Resume Line Tracking",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-location.svg",
-					"light": "images/light/icon-location.svg"
-				}
+				"icon": "$(eye-closed)"
 			},
 			{
 				"command": "gitlens.views.lineHistory.setEditorFollowingOff",
 				"title": "Pause Line Tracking",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-location-filled.svg",
-					"light": "images/light/icon-location-filled.svg"
-				}
+				"icon": "$(eye)"
 			},
 			{
 				"command": "gitlens.views.lineHistory.setRenameFollowingOn",
@@ -3289,37 +3142,25 @@
 				"command": "gitlens.views.compare.selectForCompare",
 				"title": "Compare References...",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-compare-refs.svg",
-					"light": "images/light/icon-compare-refs.svg"
-				}
+				"icon": "$(compare-changes)"
 			},
 			{
 				"command": "gitlens.views.compare.clear",
 				"title": "Clear Results",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-clear.svg",
-					"light": "images/light/icon-clear.svg"
-				}
+				"icon": "$(clear-all)"
 			},
 			{
 				"command": "gitlens.views.compare.refresh",
 				"title": "Refresh",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-refresh.svg",
-					"light": "images/light/icon-refresh.svg"
-				}
+				"icon": "$(refresh)"
 			},
 			{
 				"command": "gitlens.views.compare.setFilesLayoutToAuto",
 				"title": "Automatic Layout",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-view-tree.svg",
-					"light": "images/light/icon-view-tree.svg"
-				}
+				"icon": "$(list-tree)"
 			},
 			{
 				"command": "gitlens.views.compare.setFilesLayoutToList",
@@ -3334,28 +3175,19 @@
 				"command": "gitlens.views.compare.setFilesLayoutToTree",
 				"title": "Tree Layout",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-view-list.svg",
-					"light": "images/light/icon-view-list.svg"
-				}
+				"icon": "$(list-flat)"
 			},
 			{
 				"command": "gitlens.views.compare.setKeepResultsToOn",
 				"title": "Keep Results",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-lock.svg",
-					"light": "images/light/icon-lock.svg"
-				}
+				"icon": "$(unlock)"
 			},
 			{
 				"command": "gitlens.views.compare.setKeepResultsToOff",
 				"title": "Keep Results",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-locked.svg",
-					"light": "images/light/icon-locked.svg"
-				}
+				"icon": "$(lock)"
 			},
 			{
 				"command": "gitlens.views.compare.pinComparison",
@@ -3370,10 +3202,7 @@
 				"command": "gitlens.views.compare.unpinComparison",
 				"title": "Unpin Comparison",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-unpin.svg",
-					"light": "images/light/icon-unpin.svg"
-				}
+				"icon": "$(pin)"
 			},
 			{
 				"command": "gitlens.views.compare.swapComparison",
@@ -3388,37 +3217,25 @@
 				"command": "gitlens.views.search.searchCommits",
 				"title": "Search Commits",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-search.svg",
-					"light": "images/light/icon-search.svg"
-				}
+				"icon": "$(search)"
 			},
 			{
 				"command": "gitlens.views.search.clear",
 				"title": "Clear Results",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-clear.svg",
-					"light": "images/light/icon-clear.svg"
-				}
+				"icon": "$(clear-all)"
 			},
 			{
 				"command": "gitlens.views.search.refresh",
 				"title": "Refresh",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-refresh.svg",
-					"light": "images/light/icon-refresh.svg"
-				}
+				"icon": "$(refresh)"
 			},
 			{
 				"command": "gitlens.views.search.setFilesLayoutToAuto",
 				"title": "Automatic Layout",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-view-tree.svg",
-					"light": "images/light/icon-view-tree.svg"
-				}
+				"icon": "$(list-tree)"
 			},
 			{
 				"command": "gitlens.views.search.setFilesLayoutToList",
@@ -3433,37 +3250,25 @@
 				"command": "gitlens.views.search.setFilesLayoutToTree",
 				"title": "Tree Layout",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-view-list.svg",
-					"light": "images/light/icon-view-list.svg"
-				}
+				"icon": "$(list-flat)"
 			},
 			{
 				"command": "gitlens.views.search.setKeepResultsToOn",
 				"title": "Keep Results",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-lock.svg",
-					"light": "images/light/icon-lock.svg"
-				}
+				"icon": "$(unlock)"
 			},
 			{
 				"command": "gitlens.views.search.setKeepResultsToOff",
 				"title": "Keep Results",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-locked.svg",
-					"light": "images/light/icon-locked.svg"
-				}
+				"icon": "$(lock)"
 			},
 			{
 				"command": "gitlens.views.dismissNode",
 				"title": "Dismiss",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-close.svg",
-					"light": "images/light/icon-close.svg"
-				}
+				"icon": "$(close)"
 			},
 			{
 				"command": "gitlens.views.expandNode",
@@ -3474,19 +3279,12 @@
 				"command": "gitlens.views.refreshNode",
 				"title": "Refresh",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-refresh.svg",
-					"light": "images/light/icon-refresh.svg"
-				}
+				"icon": "$(refresh)"
 			},
 			{
 				"command": "gitlens.views.showMoreChildren",
 				"title": "Load More",
-				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-unfold.svg",
-					"light": "images/light/icon-unfold.svg"
-				}
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.showAllChildren",

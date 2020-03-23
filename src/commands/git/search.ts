@@ -1,6 +1,6 @@
 'use strict';
 /* eslint-disable no-loop-func */
-import { QuickInputButton, Uri } from 'vscode';
+import { QuickInputButton, ThemeIcon, Uri } from 'vscode';
 import { Container } from '../../container';
 import {
 	GitLog,
@@ -77,10 +77,7 @@ export class SearchGitCommand extends QuickCommandBase<State> {
 		};
 
 		static readonly RevealInView: QuickInputButton = {
-			iconPath: {
-				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-eye.svg')),
-				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-eye.svg')),
-			},
+			iconPath: new ThemeIcon('eye'),
 			tooltip: 'Reveal Commit in Repositories View',
 		};
 

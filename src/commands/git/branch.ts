@@ -1,6 +1,6 @@
 'use strict';
 /* eslint-disable no-loop-func */
-import { QuickInputButton, QuickInputButtons, Uri } from 'vscode';
+import { QuickInputButton, QuickInputButtons, ThemeIcon } from 'vscode';
 import { Container } from '../../container';
 import { GitBranch, GitReference, Repository } from '../../git/gitService';
 import {
@@ -75,10 +75,7 @@ export interface BranchGitCommandArgs {
 export class BranchGitCommand extends QuickCommandBase<State> {
 	private readonly Buttons = class {
 		static readonly RevealInView: QuickInputButton = {
-			iconPath: {
-				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-eye.svg')),
-				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-eye.svg')),
-			},
+			iconPath: new ThemeIcon('eye'),
 			tooltip: 'Reveal Branch in Repositories View',
 		};
 	};

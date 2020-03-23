@@ -1,6 +1,6 @@
 'use strict';
 import * as paths from 'path';
-import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { ViewFilesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
@@ -75,16 +75,9 @@ export class CommitNode extends ViewRefNode<ViewWithFiles> {
 			truncateMessageAtNewLine: true,
 			dateFormat: Container.config.defaultDateFormat,
 		});
-
-		if (this.view.config.avatars) {
-			item.iconPath = this.commit.getGravatarUri(Container.config.defaultGravatarsStyle);
-		} else {
-			item.iconPath = {
-				dark: Container.context.asAbsolutePath('images/dark/icon-commit.svg'),
-				light: Container.context.asAbsolutePath('images/light/icon-commit.svg'),
-			};
-		}
-
+		item.iconPath = this.view.config.avatars
+			? this.commit.getGravatarUri(Container.config.defaultGravatarsStyle)
+			: new ThemeIcon('git-commit');
 		item.tooltip = CommitFormatter.fromTemplate(
 			this.commit.isUncommitted
 				? `\${author} ${GlyphChars.Dash} \${id}\n\${ago} (\${date})`

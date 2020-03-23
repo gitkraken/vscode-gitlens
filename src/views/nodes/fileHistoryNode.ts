@@ -1,5 +1,5 @@
 'use strict';
-import { Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Disposable, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
 import {
 	GitCommitType,
@@ -162,14 +162,10 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 		);
 		item.contextValue = ResourceType.FileHistory;
 		item.description = this.uri.directory;
+		item.iconPath = new ThemeIcon('history');
 		item.tooltip = `History of ${this.uri.fileName}\n${this.uri.directory}/${
 			this.uri.sha === undefined ? '' : `\n\n${this.uri.sha}`
 		}`;
-
-		item.iconPath = {
-			dark: Container.context.asAbsolutePath('images/dark/icon-history.svg'),
-			light: Container.context.asAbsolutePath('images/light/icon-history.svg'),
-		};
 
 		void this.ensureSubscription();
 

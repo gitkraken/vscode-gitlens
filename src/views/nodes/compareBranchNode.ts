@@ -1,5 +1,5 @@
 'use strict';
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { BranchComparison, BranchComparisons, GlyphChars, WorkspaceState } from '../../constants';
 import { ResourceType, ViewNode } from './viewNode';
 import { RepositoriesView } from '../repositoriesView';
@@ -109,14 +109,14 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
 			this.comparisonNotation === '..' ? 'twodot' : 'threedot'
 		}+${this.comparisonType}`;
 		item.description = description;
-		item.iconPath = {
-			dark: Container.context.asAbsolutePath(
-				`images/dark/icon-compare-${this.compareWithWorkingTree ? 'ref-working' : 'refs'}.svg`,
-			),
-			light: Container.context.asAbsolutePath(
-				`images/light/icon-compare-${this.compareWithWorkingTree ? 'ref-working' : 'refs'}.svg`,
-			),
-		};
+		if (this.compareWithWorkingTree) {
+			item.iconPath = {
+				dark: Container.context.asAbsolutePath('images/dark/icon-compare-ref-working.svg'),
+				light: Container.context.asAbsolutePath('images/light/icon-compare-ref-working.svg'),
+			};
+		} else {
+			item.iconPath = new ThemeIcon('git-compare');
+		}
 		item.id = this.id;
 		item.tooltip = `Click to compare ${this.branch.name}${this.compareWithWorkingTree ? ' (working)' : ''} with${
 			GlyphChars.Ellipsis

@@ -1,5 +1,5 @@
 'use strict';
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GitContributor, GitUri, Repository } from '../../git/gitService';
 import { RepositoriesView } from '../repositoriesView';
 import { MessageNode } from './common';
@@ -38,12 +38,7 @@ export class ContributorsNode extends ViewNode<RepositoriesView> {
 		const item = new TreeItem('Contributors', TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ResourceType.Contributors;
-
-		item.iconPath = {
-			dark: Container.context.asAbsolutePath('images/dark/icon-people.svg'),
-			light: Container.context.asAbsolutePath('images/light/icon-people.svg'),
-		};
-
+		item.iconPath = new ThemeIcon('organization');
 		return item;
 	}
 
