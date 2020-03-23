@@ -3,6 +3,7 @@ export * from './config';
 
 import {
 	ConfigurationChangeEvent,
+	ConfigurationScope,
 	ConfigurationTarget,
 	Event,
 	EventEmitter,
@@ -50,7 +51,7 @@ export class Configuration {
 	}
 
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
-		if (!e.affectsConfiguration(extensionId, null!)) {
+		if (!e.affectsConfiguration(extensionId)) {
 			this._onDidChangeAny.fire(e);
 
 			return;
@@ -70,22 +71,22 @@ export class Configuration {
 	}
 
 	readonly initializingChangeEvent: ConfigurationChangeEvent = {
-		affectsConfiguration: (section: string, resource?: Uri) => true,
+		affectsConfiguration: (section: string, scope?: ConfigurationScope) => true,
 	};
 
 	get(): Config;
-	get<S1 extends keyof Config>(s1: S1, resource?: Uri | null, defaultValue?: Config[S1]): Config[S1];
+	get<S1 extends keyof Config>(s1: S1, scope?: ConfigurationScope | null, defaultValue?: Config[S1]): Config[S1];
 	get<S1 extends keyof Config, S2 extends keyof Config[S1]>(
 		s1: S1,
 		s2: S2,
-		resource?: Uri | null,
+		scope?: ConfigurationScope | null,
 		defaultValue?: Config[S1][S2],
 	): Config[S1][S2];
 	get<S1 extends keyof Config, S2 extends keyof Config[S1], S3 extends keyof Config[S1][S2]>(
 		s1: S1,
 		s2: S2,
 		s3: S3,
-		resource?: Uri | null,
+		scope?: ConfigurationScope | null,
 		defaultValue?: Config[S1][S2][S3],
 	): Config[S1][S2][S3];
 	get<
@@ -98,12 +99,12 @@ export class Configuration {
 		s2: S2,
 		s3: S3,
 		s4: S4,
-		resource?: Uri | null,
+		scope?: ConfigurationScope | null,
 		defaultValue?: Config[S1][S2][S3][S4],
 	): Config[S1][S2][S3][S4];
 	get<T>(...args: any[]): T {
 		let section: string | undefined;
-		let resource: Uri | null | undefined;
+		let scope: ConfigurationScope | null | undefined;
 		let defaultValue: T | undefined;
 		if (args.length > 0) {
 			section = args[0];
@@ -113,103 +114,112 @@ export class Configuration {
 					section += `.${args[2]}`;
 					if (typeof args[3] === 'string') {
 						section += `.${args[3]}`;
-						resource = args[4];
+						scope = args[4];
 						defaultValue = args[5];
 					} else {
-						resource = args[3];
+						scope = args[3];
 						defaultValue = args[4];
 					}
 				} else {
-					resource = args[2];
+					scope = args[2];
 					defaultValue = args[3];
 				}
 			} else {
-				resource = args[1];
+				scope = args[1];
 				defaultValue = args[2];
 			}
 		}
 
 		return defaultValue === undefined
 			? workspace
-					.getConfiguration(section === undefined ? undefined : extensionId, resource)
+					.getConfiguration(section === undefined ? undefined : extensionId, scope)
 					.get<T>(section === undefined ? extensionId : section)!
 			: workspace
-					.getConfiguration(section === undefined ? undefined : extensionId, resource)
+					.getConfiguration(section === undefined ? undefined : extensionId, scope)
 					.get<T>(section === undefined ? extensionId : section, defaultValue)!;
 	}
 
-	getAny<T>(section: string, resource?: Uri | null, defaultValue?: T) {
+	getAny<T>(section: string, scope?: ConfigurationScope | null, defaultValue?: T) {
 		return defaultValue === undefined
-			? workspace.getConfiguration(undefined, resource).get<T>(section)!
-			: workspace.getConfiguration(undefined, resource).get<T>(section, defaultValue)!;
+			? workspace.getConfiguration(undefined, scope).get<T>(section)!
+			: workspace.getConfiguration(undefined, scope).get<T>(section, defaultValue)!;
 	}
 
-	changed<S1 extends keyof Config>(e: ConfigurationChangeEvent, s1: S1, resource?: Uri | null): boolean;
+	changed<S1 extends keyof Config>(e: ConfigurationChangeEvent, s1: S1, scope?: ConfigurationScope | null): boolean;
 	changed<S1 extends keyof Config, S2 extends keyof Config[S1]>(
 		e: ConfigurationChangeEvent,
 		s1: S1,
 		s2: S2,
-		resource?: Uri | null,
+		scope?: ConfigurationScope | null,
 	): boolean;
 	changed<S1 extends keyof Config, S2 extends keyof Config[S1], S3 extends keyof Config[S1][S2]>(
 		e: ConfigurationChangeEvent,
 		s1: S1,
 		s2: S2,
 		s3: S3,
-		resource?: Uri | null,
+		scope?: ConfigurationScope | null,
 	): boolean;
 	changed<
 		S1 extends keyof Config,
 		S2 extends keyof Config[S1],
 		S3 extends keyof Config[S1][S2],
 		S4 extends keyof Config[S1][S2][S3]
-	>(e: ConfigurationChangeEvent, s1: S1, s2: S2, s3: S3, s4: S4, resource?: Uri | null): boolean;
+	>(e: ConfigurationChangeEvent, s1: S1, s2: S2, s3: S3, s4: S4, scope?: ConfigurationScope | null): boolean;
 	changed(e: ConfigurationChangeEvent, ...args: any[]) {
 		let section: string = args[0];
-		let resource: Uri | null | undefined;
+		let scope: ConfigurationScope | null | undefined;
 		if (typeof args[1] === 'string') {
 			section += `.${args[1]}`;
 			if (typeof args[2] === 'string') {
 				section += `.${args[2]}`;
 				if (typeof args[3] === 'string') {
 					section += args[3];
-					resource = args[4];
+					scope = args[4];
 				} else {
-					resource = args[3];
+					scope = args[3];
 				}
 			} else {
-				resource = args[2];
+				scope = args[2];
 			}
 		} else {
-			resource = args[1];
+			scope = args[1];
 		}
 
 		// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-		return e.affectsConfiguration(`${extensionId}.${section}`, resource!);
+		return e.affectsConfiguration(`${extensionId}.${section}`, scope!);
 	}
 
 	initializing(e: ConfigurationChangeEvent) {
 		return e === this.initializingChangeEvent;
 	}
 
-	inspect<S1 extends keyof Config>(s1: S1, resource?: Uri | null): ConfigInspection<Config[S1]> | undefined;
+	inspect<S1 extends keyof Config>(
+		s1: S1,
+		scope?: ConfigurationScope | null,
+	): ConfigInspection<Config[S1]> | undefined;
 	inspect<S1 extends keyof Config, S2 extends keyof Config[S1]>(
 		s1: S1,
 		s2: S2,
-		resource?: Uri | null,
+		scope?: ConfigurationScope | null,
 	): ConfigInspection<Config[S1][S2]> | undefined;
 	inspect<S1 extends keyof Config, S2 extends keyof Config[S1], S3 extends keyof Config[S1][S2]>(
 		s1: S1,
 		s2: S2,
 		s3: S3,
-		resource?: Uri | null,
+		scope?: ConfigurationScope | null,
 	): ConfigInspection<Config[S1][S2][S3]> | undefined;
 	inspect<
 		S1 extends keyof Config,
 		S2 extends keyof Config[S1],
 		S3 extends keyof Config[S1][S2],
 		S4 extends keyof Config[S1][S2][S3]
-	>(s1: S1, s2: S2, s3: S3, s4: S4, resource?: Uri | null): ConfigInspection<Config[S1][S2][S3][S4]> | undefined;
+	>(
+		s1: S1,
+		s2: S2,
+		s3: S3,
+		s4: S4,
+		scope?: ConfigurationScope | null,
+	): ConfigInspection<Config[S1][S2][S3][S4]> | undefined;
 	inspect(...args: any[]) {
 		let section: string = args[0];
 		let resource: Uri | null | undefined;
@@ -235,8 +245,8 @@ export class Configuration {
 			.inspect(section === undefined ? extensionId : section);
 	}
 
-	inspectAny(section: string, resource?: Uri | null) {
-		return workspace.getConfiguration(undefined, resource).inspect(section);
+	inspectAny(section: string, scope?: ConfigurationScope | null) {
+		return workspace.getConfiguration(undefined, scope).inspect(section);
 	}
 
 	migrate<S1 extends keyof Config>(
@@ -545,9 +555,9 @@ export class Configuration {
 		return workspace.getConfiguration(extensionId).update(section, value, target);
 	}
 
-	updateAny(section: string, value: any, target: ConfigurationTarget, resource?: Uri | null) {
+	updateAny(section: string, value: any, target: ConfigurationTarget, scope?: ConfigurationScope | null) {
 		return workspace
-			.getConfiguration(undefined, target === ConfigurationTarget.Global ? undefined : resource!)
+			.getConfiguration(undefined, target === ConfigurationTarget.Global ? undefined : scope!)
 			.update(section, value, target);
 	}
 

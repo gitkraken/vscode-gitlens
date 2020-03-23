@@ -93,7 +93,7 @@ export class DocumentTracker<T> implements Disposable {
 		// Only rest the cached state if we aren't initializing
 		if (
 			!configuration.initializing(e) &&
-			(configuration.changed(e, 'blame', 'ignoreWhitespace', null) ||
+			(configuration.changed(e, 'blame', 'ignoreWhitespace') ||
 				configuration.changed(e, 'advanced', 'caching', 'enabled'))
 		) {
 			for (const d of this._documentMap.values()) {

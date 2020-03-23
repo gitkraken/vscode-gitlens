@@ -302,90 +302,12 @@
 					"maxItems": 4,
 					"uniqueItems": true,
 					"markdownDescription": "Specifies where Git code lens will be shown in the document",
-					"scope": "resource"
+					"scope": "language-overridable"
 				},
 				"gitlens.codeLens.scopesByLanguage": {
+					"deprecationMessage": "Deprecated. Use per-language `gitlens.codeLens.scopes` and `gitlens.codeLens.symbolScopes` settings instead",
 					"type": "array",
-					"default": [
-						{
-							"language": "azure-pipelines",
-							"scopes": [
-								"document"
-							]
-						},
-						{
-							"language": "ansible",
-							"scopes": [
-								"document"
-							]
-						},
-						{
-							"language": "css",
-							"scopes": [
-								"document"
-							]
-						},
-						{
-							"language": "html",
-							"scopes": [
-								"document"
-							]
-						},
-						{
-							"language": "json",
-							"scopes": [
-								"document"
-							]
-						},
-						{
-							"language": "jsonc",
-							"scopes": [
-								"document"
-							]
-						},
-						{
-							"language": "less",
-							"scopes": [
-								"document"
-							]
-						},
-						{
-							"language": "postcss",
-							"scopes": [
-								"document"
-							]
-						},
-						{
-							"language": "python",
-							"symbolScopes": [
-								"!Module"
-							]
-						},
-						{
-							"language": "scss",
-							"scopes": [
-								"document"
-							]
-						},
-						{
-							"language": "stylus",
-							"scopes": [
-								"document"
-							]
-						},
-						{
-							"language": "vue",
-							"scopes": [
-								"document"
-							]
-						},
-						{
-							"language": "yaml",
-							"scopes": [
-								"document"
-							]
-						}
-					],
+					"default": null,
 					"items": {
 						"type": "object",
 						"required": [
@@ -443,7 +365,7 @@
 					},
 					"uniqueItems": true,
 					"markdownDescription": "Specifies a set of document symbols where Git code lens will or will not be shown in the document. Prefix with `!` to avoid providing a Git code lens for the symbol. Must be a member of `SymbolKind`",
-					"scope": "resource"
+					"scope": "language-overridable"
 				},
 				"gitlens.currentLine.dateFormat": {
 					"type": [
@@ -1999,6 +1921,73 @@
 					"markdownDescription": "Specifies whether to use the symmetric difference (three-dot) notation or the range (two-dot) notation for comparisons. See the [Git docs](https://git-scm.com/docs/gitrevisions#_dotted_range_notations)",
 					"scope": "window"
 				}
+			}
+		},
+		"configurationDefaults": {
+			"[azure-pipelines]": {
+				"gitlens.codeLens.scopes": [
+					"document"
+				]
+			},
+			"[ansible]": {
+				"gitlens.codeLens.scopes": [
+					"document"
+				]
+			},
+			"[css]": {
+				"gitlens.codeLens.scopes": [
+					"document"
+				]
+			},
+			"[html]": {
+				"gitlens.codeLens.scopes": [
+					"document"
+				]
+			},
+			"[json]": {
+				"gitlens.codeLens.scopes": [
+					"document"
+				]
+			},
+			"[jsonc]": {
+				"gitlens.codeLens.scopes": [
+					"document"
+				]
+			},
+			"[less]": {
+				"gitlens.codeLens.scopes": [
+					"document"
+				]
+			},
+			"[postcss]": {
+				"gitlens.codeLens.scopes": [
+					"document"
+				]
+			},
+			"[python]": {
+				"gitlens.codeLens.symbolScopes": [
+					"!Module"
+				]
+			},
+			"[scss]": {
+				"gitlens.codeLens.scopes": [
+					"document"
+				]
+			},
+			"[stylus]": {
+				"gitlens.codeLens.scopes": [
+					"document"
+				]
+			},
+			"[vue]": {
+				"gitlens.codeLens.scopes": [
+					"document"
+				]
+			},
+			"[yaml]": {
+				"gitlens.codeLens.scopes": [
+					"document"
+				]
 			}
 		},
 		"colors": [
