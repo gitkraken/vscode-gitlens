@@ -14,7 +14,7 @@ import {
 } from '../../quickpicks';
 import { Logger } from '../../logger';
 
-type Flags = '--hard';
+type Flags = '--hard' | '--soft';
 
 interface State {
 	repo: Repository;
@@ -150,9 +150,14 @@ export class ResetGitCommand extends QuickCommandBase<State> {
 					`Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${state.repo.formattedName}`,
 					[
 						FlagsQuickPickItem.create<Flags>(state.flags, [], {
+							label: this.title,
+							description: `${destination.name} to ${state.reference.name}`,
+							detail: `Will reset (leaves changes in the working tree) ${destination.name} to ${state.reference.name}`,
+						}),
+						FlagsQuickPickItem.create<Flags>(state.flags, ['--soft'], {
 							label: `Soft ${this.title}`,
 							description: `--soft ${destination.name} to ${state.reference.name}`,
-							detail: `Will soft reset (leaves changes in the working tree) ${destination.name} to ${state.reference.name}`,
+							detail: `Will soft reset (leaves changes in the index and working tree) ${destination.name} to ${state.reference.name}`,
 						}),
 						FlagsQuickPickItem.create<Flags>(state.flags, ['--hard'], {
 							label: `Hard ${this.title}`,
