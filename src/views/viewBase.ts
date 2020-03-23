@@ -96,7 +96,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 	protected abstract onConfigurationChanged(e: ConfigurationChangeEvent): void;
 
 	protected initialize(container?: string, options: { showCollapseAll?: boolean } = {}) {
-		if (this._disposable) {
+		if (this._disposable != null) {
 			this._disposable.dispose();
 			this._onDidChangeTreeData = new EventEmitter<ViewNode>();
 		}

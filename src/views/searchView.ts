@@ -65,7 +65,6 @@ export class SearchView extends ViewBase<SearchNode> {
 
 	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (
-			!configuration.changed(e, 'views', 'search') &&
 			!configuration.changed(e, 'views') &&
 			!configuration.changed(e, 'defaultDateFormat') &&
 			!configuration.changed(e, 'defaultDateSource') &&

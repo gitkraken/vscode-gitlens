@@ -53,7 +53,6 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode> {
 
 	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (
-			!configuration.changed(e, 'views', 'lineHistory') &&
 			!configuration.changed(e, 'views') &&
 			!configuration.changed(e, 'defaultDateFormat') &&
 			!configuration.changed(e, 'defaultDateSource') &&
