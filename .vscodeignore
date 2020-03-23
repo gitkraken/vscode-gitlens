@@ -1,5 +1,6 @@
 .github/**
 .vscode/**
+.yarn/**
 dist/webviews/main.js
 emoji/**
 images/docs/**
@@ -7,6 +8,7 @@ images/**/*.pdn
 node_modules/**
 src/**
 test/**
+*.fig
 *.map
 .eslintignore
 .eslintrc.json
