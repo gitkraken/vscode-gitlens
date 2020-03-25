@@ -1037,7 +1037,8 @@ export namespace Git {
 				'--show-toplevel',
 			);
 			// Make sure to normalize: https://github.com/git-for-windows/git/issues/2478
-			return data.length === 0 ? undefined : Strings.normalizePath(data.trim());
+			// Keep trailing spaces which are part of the directory name
+			return data.length === 0 ? undefined : Strings.normalizePath(data.trimLeft().replace(/(\r\n|\r|\n)+$/, ''));
 		} catch (ex) {
 			if (ex.code === 'ENOENT') {
 				// If the `cwd` doesn't exist, walk backward to see if any parent folder exists
