@@ -83,7 +83,7 @@ import {
 import { GitUri } from './gitUri';
 import { RemoteProvider, RemoteProviderFactory, RemoteProviders, RemoteProviderWithApi } from './remotes/factory';
 import { GitReflogParser, GitShortLogParser } from './parsers/parsers';
-import { fsExists, isWindows } from './shell';
+import { fsExists, getNetworkPathForDrive, isWindows } from './shell';
 import { GitRevision, PullRequest, PullRequestDateFormatting } from './models/models';
 
 export * from './gitUri';
@@ -100,6 +100,7 @@ const RepoSearchWarnings = {
 };
 
 const doubleQuoteRegex = /"/g;
+const driveLetterRegex = /(?<=^\/?)([a-zA-Z])(?=:\/)/;
 const userConfigRegex = /^user\.(name|email) (.*)$/gm;
 const mappedAuthorRegex = /(.+)\s<(.+)>/;
 const searchMessageOperationRegex = /(?=(.*?)\s?(?:(?:=:|message:|@:|author:|#:|commit:|\?:|file:|~:|change:)|$))/;
@@ -2586,7 +2587,34 @@ export class GitService implements Disposable {
 			const path = isDirectory ? filePath : paths.dirname(filePath);
 
 			let repoPath = await Git.rev_parse__show_toplevel(path);
-			if (repoPath === undefined || isWindows) return repoPath;
+			if (repoPath === undefined) return repoPath;
+
+			if (isWindows) {
+				// On Git 2.25+ if you call `rev-parse --show-toplevel` on a mapped drive, instead of getting the mapped drive path back, you get the UNC path for the mapped drive.
+				// So try to normalize it back to the mapped drive path, if possible
+
+				const repoUri = Uri.file(repoPath);
+				const pathUri = Uri.file(path);
+				if (repoUri.authority.length !== 0 && pathUri.authority.length === 0) {
+					const match = driveLetterRegex.exec(pathUri.path);
+					if (match != null) {
+						const [, letter] = match;
+
+						try {
+							const networkPath = await getNetworkPathForDrive(letter);
+							if (networkPath != null) {
+								return Strings.normalizePath(
+									repoUri.fsPath.replace(networkPath, `${letter.toLowerCase()}:`),
+								);
+							}
+						} catch {}
+					}
+
+					return Strings.normalizePath(pathUri.fsPath);
+				}
+
+				return repoPath;
+			}
 
 			// If we are not on Windows (symlinks don't seem to have the same issue on Windows), check if we are a symlink and if so, use the symlink path (not its resolved path)
 			// This is because VS Code will provide document Uris using the symlinked path
