@@ -1,8 +1,7 @@
 'use strict';
-import { exec, execFile } from 'child_process';
+import { execFile } from 'child_process';
 import * as fs from 'fs';
 import * as paths from 'path';
-import { promisify } from 'util';
 import * as iconv from 'iconv-lite';
 import { Logger } from '../logger';
 
@@ -190,21 +189,4 @@ export function run<TOut extends string | Buffer>(
 
 export function fsExists(path: string) {
 	return new Promise<boolean>(resolve => fs.exists(path, exists => resolve(exists)));
-}
-
-const networkDriveRegex = /([A-Z]):\s+(.*?)\s*$/m;
-
-export async function getNetworkPathForDrive(letter: string): Promise<string | undefined> {
-	const result = await promisify(exec)(
-		`wmic logicaldisk where 'drivetype=4 and deviceid="${letter}:"' get deviceid,providername`,
-		{
-			maxBuffer: 2000 * 1024,
-		},
-	);
-
-	const match = networkDriveRegex.exec(result.stdout);
-	if (match == null) return undefined;
-
-	const [, , path] = match;
-	return path;
 }

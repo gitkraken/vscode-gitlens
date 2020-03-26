@@ -83,7 +83,7 @@ import {
 import { GitUri } from './gitUri';
 import { RemoteProvider, RemoteProviderFactory, RemoteProviders, RemoteProviderWithApi } from './remotes/factory';
 import { GitReflogParser, GitShortLogParser } from './parsers/parsers';
-import { fsExists, getNetworkPathForDrive, isWindows } from './shell';
+import { fsExists, isWindows } from './shell';
 import { GitRevision, PullRequest, PullRequestDateFormatting } from './models/models';
 
 export * from './gitUri';
@@ -2601,8 +2601,12 @@ export class GitService implements Disposable {
 						const [, letter] = match;
 
 						try {
-							const networkPath = await getNetworkPathForDrive(letter);
-							if (networkPath != null) {
+							const networkPath = await new Promise<string>(resolve =>
+								fs.realpath.native(`${letter}:`, { encoding: 'utf8' }, (err, resolvedPath) =>
+									resolve(err != null ? undefined : resolvedPath),
+								),
+							);
+							if (networkPath !== undefined) {
 								return Strings.normalizePath(
 									repoUri.fsPath.replace(networkPath, `${letter.toLowerCase()}:`),
 								);
