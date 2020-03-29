@@ -225,7 +225,7 @@ export class Logger {
 		let name;
 		if (typeof instance === 'function') {
 			if (instance.prototype == null || instance.prototype.constructor == null) {
-				return instance.name;
+				return (instance as Function).name;
 			}
 
 			name = instance.prototype.constructor.name;
