@@ -258,6 +258,7 @@ export interface AdvancedConfig {
 		enabled: boolean;
 	};
 	fileHistoryFollowsRenames: boolean;
+	fileHistoryShowAllBranches: boolean;
 	maxListItems: number;
 	maxSearchItems: number;
 	messages: {

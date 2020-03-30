@@ -50,6 +50,16 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode> {
 			() => this.setRenameFollowing(false),
 			this,
 		);
+		commands.registerCommand(
+			this.getQualifiedCommand('setShowAllBranchesOn'),
+			() => this.setShowAllBranches(true),
+			this,
+		);
+		commands.registerCommand(
+			this.getQualifiedCommand('setShowAllBranchesOff'),
+			() => this.setShowAllBranches(false),
+			this,
+		);
 		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this);
 		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this);
 	}
@@ -70,7 +80,8 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode> {
 			!configuration.changed(e, 'defaultDateSource') &&
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
-			!configuration.changed(e, 'advanced', 'fileHistoryFollowsRenames')
+			!configuration.changed(e, 'advanced', 'fileHistoryFollowsRenames') &&
+			!configuration.changed(e, 'advanced', 'fileHistoryShowAllBranches')
 		) {
 			return;
 		}
@@ -115,6 +126,10 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode> {
 
 	private setRenameFollowing(enabled: boolean) {
 		return configuration.updateEffective('advanced', 'fileHistoryFollowsRenames', enabled);
+	}
+
+	private setShowAllBranches(enabled: boolean) {
+		return configuration.updateEffective('advanced', 'fileHistoryShowAllBranches', enabled);
 	}
 
 	private setShowAvatars(enabled: boolean) {

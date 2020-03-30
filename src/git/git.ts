@@ -758,20 +758,24 @@ export namespace Git {
 		fileName: string,
 		ref: string | undefined,
 		{
+			all,
 			filters,
 			limit,
 			firstParent = false,
 			renames = true,
 			reverse = false,
+			skip,
 			simple = false,
 			startLine,
 			endLine,
 		}: {
+			all?: boolean;
 			filters?: GitDiffFilter[];
 			limit?: number;
 			firstParent?: boolean;
 			renames?: boolean;
 			reverse?: boolean;
+			skip?: number;
 			simple?: boolean;
 			startLine?: number;
 			endLine?: number;
@@ -784,7 +788,16 @@ export namespace Git {
 		if (limit && !reverse) {
 			params.push(`-n${limit}`);
 		}
-		params.push(renames ? '--follow' : '-m');
+
+		if (skip) {
+			params.push(`--skip=${skip}`);
+		}
+
+		if (all) {
+			params.push('--all');
+		}
+
+		params.push(all !== true && renames ? '--follow' : '-m');
 
 		if (filters != null && filters.length !== 0) {
 			params.push(`--diff-filter=${filters.join(emptyStr)}`);

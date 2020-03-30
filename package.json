@@ -1827,6 +1827,12 @@
 					"markdownDescription": "Specifies whether file histories will follow renames — will affect how merge commits are shown in histories",
 					"scope": "window"
 				},
+				"gitlens.advanced.fileHistoryShowAllBranches": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "Specifies whether file histories will show commits from all branches",
+					"scope": "window"
+				},
 				"gitlens.advanced.maxListItems": {
 					"type": "number",
 					"default": 200,
@@ -3096,11 +3102,23 @@
 			{
 				"command": "gitlens.views.fileHistory.setRenameFollowingOn",
 				"title": "Follow Renames",
-				"category": "GitLens"
+				"category": "GitLens",
+				"enablement": "!config.gitlens.advanced.fileHistoryShowAllBranches"
 			},
 			{
 				"command": "gitlens.views.fileHistory.setRenameFollowingOff",
 				"title": "Don't Follow Renames",
+				"category": "GitLens",
+				"enablement": "!config.gitlens.advanced.fileHistoryShowAllBranches"
+			},
+			{
+				"command": "gitlens.views.fileHistory.setShowAllBranchesOn",
+				"title": "Show Commits from All Branches",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.fileHistory.setShowAllBranchesOff",
+				"title": "Show Commits from Current Branch Only",
 				"category": "GitLens"
 			},
 			{
@@ -4006,6 +4024,14 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.fileHistory.setShowAllBranchesOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setShowAllBranchesOff",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.fileHistory.setShowAvatarsOn",
 					"when": "false"
 				},
@@ -4553,11 +4579,28 @@
 				},
 				{
 					"command": "gitlens.views.fileHistory.setRenameFollowingOn",
+					"when": "view =~ /^gitlens\\.views\\.fileHistory:/ && !config.gitlens.advanced.fileHistoryFollowsRenames && !config.gitlens.advanced.fileHistoryShowAllBranches",
+					"group": "2_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setRenameFollowingOn",
+					"when": "view =~ /^gitlens\\.views\\.fileHistory:/ && config.gitlens.advanced.fileHistoryShowAllBranches",
 					"group": "2_gitlens@0"
 				},
 				{
 					"command": "gitlens.views.fileHistory.setRenameFollowingOff",
+					"when": "view =~ /^gitlens\\.views\\.fileHistory:/ && config.gitlens.advanced.fileHistoryFollowsRenames && !config.gitlens.advanced.fileHistoryShowAllBranches",
 					"group": "2_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setShowAllBranchesOn",
+					"when": "view =~ /^gitlens\\.views\\.fileHistory:/ && !config.gitlens.advanced.fileHistoryShowAllBranches",
+					"group": "2_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setShowAllBranchesOff",
+					"when": "view =~ /^gitlens\\.views\\.fileHistory:/ && config.gitlens.advanced.fileHistoryShowAllBranches",
+					"group": "2_gitlens@1"
 				},
 				{
 					"command": "gitlens.views.lineHistory.setEditorFollowingOn",
