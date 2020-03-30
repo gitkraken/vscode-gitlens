@@ -4143,23 +4143,23 @@
 					"group": "navigation@-99"
 				},
 				{
-					"command": "gitlens.openRevisionFile",
-					"when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme =~ /^(?!(file|git)$).*$/ && isInDiffLeftEditor",
-					"group": "navigation@-98"
-				},
-				{
-					"command": "gitlens.openRevisionFileInDiffRight",
-					"when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme =~ /^(?!(file|git)$).*$/ && isInDiffRightEditor",
-					"group": "navigation@-98"
-				},
-				{
 					"command": "gitlens.openWorkingFile",
 					"when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme =~ /^(?!(file|git)$).*$/",
-					"group": "navigation@-97"
+					"group": "navigation@-98"
 				},
 				{
 					"command": "gitlens.openWorkingFile",
 					"when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme == git && !isInDiffEditor",
+					"group": "navigation@-98"
+				},
+				{
+					"command": "gitlens.openRevisionFile",
+					"when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme =~ /^(?!(file|git)$).*$/ && isInDiffLeftEditor",
+					"group": "navigation@-97"
+				},
+				{
+					"command": "gitlens.openRevisionFileInDiffRight",
+					"when": "gitlens:activeFileStatus =~ /revision/ && resourceScheme =~ /^(?!(file|git)$).*$/ && isInDiffRightEditor",
 					"group": "navigation@-97"
 				},
 				{
