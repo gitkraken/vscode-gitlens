@@ -3037,6 +3037,16 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.views.repositories.setShowAvatarsOn",
+				"title": "Show Avatars",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.repositories.setShowAvatarsOff",
+				"title": "Hide Avatars",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.fileHistory.refresh",
 				"title": "Refresh",
 				"category": "GitLens",
@@ -3071,6 +3081,16 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.views.fileHistory.setShowAvatarsOn",
+				"title": "Show Avatars",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.fileHistory.setShowAvatarsOff",
+				"title": "Hide Avatars",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.lineHistory.refresh",
 				"title": "Refresh",
 				"category": "GitLens",
@@ -3102,6 +3122,16 @@
 			{
 				"command": "gitlens.views.lineHistory.setRenameFollowingOff",
 				"title": "Don't Follow Renames",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.lineHistory.setShowAvatarsOn",
+				"title": "Show Avatars",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.lineHistory.setShowAvatarsOff",
+				"title": "Hide Avatars",
 				"category": "GitLens"
 			},
 			{
@@ -3154,6 +3184,16 @@
 				"title": "Keep Results",
 				"category": "GitLens",
 				"icon": "$(lock)"
+			},
+			{
+				"command": "gitlens.views.compare.setShowAvatarsOn",
+				"title": "Show Avatars",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.compare.setShowAvatarsOff",
+				"title": "Hide Avatars",
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.compare.pinComparison",
@@ -3229,6 +3269,16 @@
 				"title": "Keep Results",
 				"category": "GitLens",
 				"icon": "$(lock)"
+			},
+			{
+				"command": "gitlens.views.search.setShowAvatarsOn",
+				"title": "Show Avatars",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.search.setShowAvatarsOff",
+				"title": "Hide Avatars",
+				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.dismissNode",
@@ -3901,6 +3951,14 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.repositories.setShowAvatarsOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.repositories.setShowAvatarsOff",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.fileHistory.refresh",
 					"when": "false"
 				},
@@ -3925,6 +3983,14 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.fileHistory.setShowAvatarsOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setShowAvatarsOff",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.lineHistory.refresh",
 					"when": "false"
 				},
@@ -3946,6 +4012,14 @@
 				},
 				{
 					"command": "gitlens.views.lineHistory.setRenameFollowingOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.lineHistory.setShowAvatarsOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.lineHistory.setShowAvatarsOff",
 					"when": "false"
 				},
 				{
@@ -3978,6 +4052,14 @@
 				},
 				{
 					"command": "gitlens.views.compare.setKeepResultsToOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.compare.setShowAvatarsOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.compare.setShowAvatarsOff",
 					"when": "false"
 				},
 				{
@@ -4018,6 +4100,14 @@
 				},
 				{
 					"command": "gitlens.views.search.setKeepResultsToOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.search.setShowAvatarsOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.search.setShowAvatarsOff",
 					"when": "false"
 				},
 				{
@@ -4389,14 +4479,24 @@
 					"group": "navigation@99"
 				},
 				{
+					"command": "gitlens.views.repositories.setShowAvatarsOn",
+					"when": "view =~ /^gitlens\\.views\\.repositories:/ && !config.gitlens.views.repositories.avatars",
+					"group": "1_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.repositories.setShowAvatarsOff",
+					"when": "view =~ /^gitlens\\.views\\.repositories:/ && config.gitlens.views.repositories.avatars",
+					"group": "1_gitlens@0"
+				},
+				{
 					"command": "gitlens.views.repositories.setAutoRefreshToOn",
 					"when": "view =~ /^gitlens\\.views\\.repositories:/ && config.gitlens.views.repositories.autoRefresh && !gitlens:views:repositories:autoRefresh",
-					"group": "2_gitlens"
+					"group": "2_gitlens@0"
 				},
 				{
 					"command": "gitlens.views.repositories.setAutoRefreshToOff",
 					"when": "view =~ /^gitlens\\.views\\.repositories:/ && config.gitlens.views.repositories.autoRefresh && gitlens:views:repositories:autoRefresh",
-					"group": "2_gitlens"
+					"group": "2_gitlens@0"
 				},
 				{
 					"command": "gitlens.views.fileHistory.setEditorFollowingOn",
@@ -4419,14 +4519,22 @@
 					"group": "navigation@99"
 				},
 				{
+					"command": "gitlens.views.fileHistory.setShowAvatarsOn",
+					"when": "view =~ /^gitlens\\.views\\.fileHistory:/ && !config.gitlens.views.fileHistory.avatars",
+					"group": "1_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setShowAvatarsOff",
+					"when": "view =~ /^gitlens\\.views\\.fileHistory:/ && config.gitlens.views.fileHistory.avatars",
+					"group": "1_gitlens@0"
+				},
+				{
 					"command": "gitlens.views.fileHistory.setRenameFollowingOn",
-					"when": "view =~ /^gitlens\\.views\\.fileHistory:/ && !config.gitlens.advanced.fileHistoryFollowsRenames",
-					"group": "1_gitlens"
+					"group": "2_gitlens@0"
 				},
 				{
 					"command": "gitlens.views.fileHistory.setRenameFollowingOff",
-					"when": "view =~ /^gitlens\\.views\\.fileHistory:/ && config.gitlens.advanced.fileHistoryFollowsRenames",
-					"group": "1_gitlens"
+					"group": "2_gitlens@0"
 				},
 				{
 					"command": "gitlens.views.lineHistory.setEditorFollowingOn",
@@ -4449,14 +4557,24 @@
 					"group": "navigation@99"
 				},
 				{
+					"command": "gitlens.views.lineHistory.setShowAvatarsOn",
+					"when": "view =~ /^gitlens\\.views\\.lineHistory:/ && !config.gitlens.views.lineHistory.avatars",
+					"group": "1_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.lineHistory.setShowAvatarsOff",
+					"when": "view =~ /^gitlens\\.views\\.lineHistory:/ && config.gitlens.views.lineHistory.avatars",
+					"group": "1_gitlens@0"
+				},
+				{
 					"command": "gitlens.views.lineHistory.setRenameFollowingOn",
 					"when": "view =~ /^gitlens\\.views\\.lineHistory:/ && !config.gitlens.advanced.fileHistoryFollowsRenames",
-					"group": "1_gitlens"
+					"group": "2_gitlens@0"
 				},
 				{
 					"command": "gitlens.views.lineHistory.setRenameFollowingOff",
 					"when": "view =~ /^gitlens\\.views\\.lineHistory:/ && config.gitlens.advanced.fileHistoryFollowsRenames",
-					"group": "1_gitlens"
+					"group": "2_gitlens@0"
 				},
 				{
 					"command": "gitlens.views.compare.selectForCompare",
@@ -4499,6 +4617,16 @@
 					"group": "navigation@99"
 				},
 				{
+					"command": "gitlens.views.compare.setShowAvatarsOn",
+					"when": "view =~ /^gitlens\\.views\\.compare:/ && !config.gitlens.views.compare.avatars",
+					"group": "1_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.compare.setShowAvatarsOff",
+					"when": "view =~ /^gitlens\\.views\\.compare:/ && config.gitlens.views.compare.avatars",
+					"group": "1_gitlens@0"
+				},
+				{
 					"command": "gitlens.views.search.searchCommits",
 					"when": "view =~ /^gitlens\\.views\\.search:/",
 					"group": "navigation@10"
@@ -4537,6 +4665,16 @@
 					"command": "gitlens.views.search.refresh",
 					"when": "view =~ /^gitlens\\.views\\.search:/",
 					"group": "navigation@99"
+				},
+				{
+					"command": "gitlens.views.search.setShowAvatarsOn",
+					"when": "view =~ /^gitlens\\.views\\.search:/ && !config.gitlens.views.search.avatars",
+					"group": "1_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.search.setShowAvatarsOff",
+					"when": "view =~ /^gitlens\\.views\\.search:/ && config.gitlens.views.search.avatars",
+					"group": "1_gitlens@0"
 				},
 				{
 					"command": "gitlens.supportGitLens",
