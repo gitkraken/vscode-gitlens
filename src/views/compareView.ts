@@ -59,18 +59,27 @@ export class CompareView extends ViewBase<CompareNode> {
 			() => this.setKeepResults(false),
 			this,
 		);
-
+		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this);
+		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this);
 		commands.registerCommand(this.getQualifiedCommand('pinComparison'), this.pinComparison, this);
 		commands.registerCommand(this.getQualifiedCommand('unpinComparison'), this.unpinComparison, this);
 		commands.registerCommand(this.getQualifiedCommand('swapComparison'), this.swapComparison, this);
-
 		commands.registerCommand(this.getQualifiedCommand('selectForCompare'), this.selectForCompare, this);
 		commands.registerCommand(this.getQualifiedCommand('compareWithSelected'), this.compareWithSelected, this);
 	}
 
 	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (
-			!configuration.changed(e, 'views') &&
+			!configuration.changed(e, 'views', 'compare') &&
+			!configuration.changed(e, 'views', 'commitFileDescriptionFormat') &&
+			!configuration.changed(e, 'views', 'commitFileFormat') &&
+			!configuration.changed(e, 'views', 'commitDescriptionFormat') &&
+			!configuration.changed(e, 'views', 'commitFormat') &&
+			!configuration.changed(e, 'views', 'defaultItemLimit') &&
+			!configuration.changed(e, 'views', 'pageItemLimit') &&
+			!configuration.changed(e, 'views', 'showRelativeDateMarkers') &&
+			!configuration.changed(e, 'views', 'statusFileDescriptionFormat') &&
+			!configuration.changed(e, 'views', 'statusFileFormat') &&
 			!configuration.changed(e, 'defaultDateFormat') &&
 			!configuration.changed(e, 'defaultDateSource') &&
 			!configuration.changed(e, 'defaultDateStyle') &&
@@ -172,6 +181,10 @@ export class CompareView extends ViewBase<CompareNode> {
 	private setKeepResults(enabled: boolean) {
 		Container.context.workspaceState.update(WorkspaceState.ViewsCompareKeepResults, enabled);
 		setCommandContext(CommandContext.ViewsCompareKeepResults, enabled);
+	}
+
+	private setShowAvatars(enabled: boolean) {
+		return configuration.updateEffective('views', 'compare', 'avatars', enabled);
 	}
 
 	private pinComparison(node: ViewNode) {

@@ -49,11 +49,22 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode> {
 			() => this.setRenameFollowing(false),
 			this,
 		);
+		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this);
+		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this);
 	}
 
 	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (
-			!configuration.changed(e, 'views') &&
+			!configuration.changed(e, 'views', 'lineHistory') &&
+			!configuration.changed(e, 'views', 'commitFileDescriptionFormat') &&
+			!configuration.changed(e, 'views', 'commitFileFormat') &&
+			!configuration.changed(e, 'views', 'commitDescriptionFormat') &&
+			!configuration.changed(e, 'views', 'commitFormat') &&
+			!configuration.changed(e, 'views', 'defaultItemLimit') &&
+			!configuration.changed(e, 'views', 'pageItemLimit') &&
+			!configuration.changed(e, 'views', 'showRelativeDateMarkers') &&
+			!configuration.changed(e, 'views', 'statusFileDescriptionFormat') &&
+			!configuration.changed(e, 'views', 'statusFileFormat') &&
 			!configuration.changed(e, 'defaultDateFormat') &&
 			!configuration.changed(e, 'defaultDateSource') &&
 			!configuration.changed(e, 'defaultDateStyle') &&
@@ -95,5 +106,9 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode> {
 
 	private setRenameFollowing(enabled: boolean) {
 		return configuration.updateEffective('advanced', 'fileHistoryFollowsRenames', enabled);
+	}
+
+	private setShowAvatars(enabled: boolean) {
+		return configuration.updateEffective('views', 'lineHistory', 'avatars', enabled);
 	}
 }
