@@ -1,4 +1,5 @@
 'use strict';
+import { configuration } from '../../configuration';
 import { Container } from '../../container';
 import { Repository } from '../../git/gitService';
 import { QuickCommandBase, QuickPickStep, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
@@ -101,6 +102,8 @@ export class PushGitCommand extends QuickCommandBase<State> {
 				}
 
 				if (this.confirm(state.confirm)) {
+					const useForceWithLease = configuration.getAny<boolean>('git.useForcePushWithLease') ?? false;
+
 					let step: QuickPickStep<FlagsQuickPickItem<Flags>>;
 					if (state.repos.length > 1) {
 						step = this.createConfirmStep(
@@ -114,14 +117,16 @@ export class PushGitCommand extends QuickCommandBase<State> {
 									detail: `Will push ${state.repos.length} repositories`,
 								}),
 								FlagsQuickPickItem.create<Flags>(state.flags, ['--force'], {
-									label: `Force ${this.title}`,
-									description: '--force',
-									detail: `Will force push ${state.repos.length} repositories`,
+									label: `Force ${this.title}${useForceWithLease ? ' (with lease)' : ''}`,
+									description: `--force${useForceWithLease ? '-with-lease' : ''}`,
+									detail: `Will force push${useForceWithLease ? ' (with lease)' : ''} ${
+										state.repos.length
+									} repositories`,
 								}),
 							],
 						);
 					} else {
-						step = await this.getSingleRepoConfirmStep(state);
+						step = await this.getSingleRepoConfirmStep(state, useForceWithLease);
 					}
 
 					const selection: StepSelection<typeof step> = yield step;
@@ -149,7 +154,7 @@ export class PushGitCommand extends QuickCommandBase<State> {
 		return undefined;
 	}
 
-	private async getSingleRepoConfirmStep(state: StepState<State>) {
+	private async getSingleRepoConfirmStep(state: StepState<State>, useForceWithLease: boolean) {
 		const repo = state.repos![0];
 		const status = await repo.getStatus();
 
@@ -178,9 +183,9 @@ export class PushGitCommand extends QuickCommandBase<State> {
 					detail: `Will push ${detail}`,
 				}),
 				FlagsQuickPickItem.create<Flags>(state.flags!, ['--force'], {
-					label: `Force ${this.title}`,
-					description: '--force',
-					detail: `Will force push ${detail}`,
+					label: `Force ${this.title}${useForceWithLease ? ' (with lease)' : ''}`,
+					description: `--force${useForceWithLease ? '-with-lease' : ''}`,
+					detail: `Will force push${useForceWithLease ? ' (with lease)' : ''} ${detail}`,
 				}),
 			],
 		);
