@@ -5714,6 +5714,16 @@
 					"when": "viewItem =~ /gitlens:pager\\b/",
 					"group": "1_gitlens_actions@1"
 				}
+			],
+			"extension/context": [
+				{
+					"command": "gitlens.showSettingsPage",
+					"when": "extension == eamodio.gitlens && extensionStatus == installed"
+				},
+				{
+					"command": "gitlens.showWelcomePage",
+					"when": "extension == eamodio.gitlens && extensionStatus == installed"
+				}
 			]
 		},
 		"keybindings": [
