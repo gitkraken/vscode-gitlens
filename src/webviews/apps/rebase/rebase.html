@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+	</head>
+
+	<body class="preload">
+		<div class="container">
+			<header>
+				<h2>Interactive Rebase</h2>
+				<h4 id="subhead"></h4>
+			</header>
+			<ul id="entries" class="entries"></ul>
+			<div class="shortcuts">
+				<span class="shortcut"><kbd>p</kbd><span>Pick</span></span>
+				<span class="shortcut"><kbd>r</kbd><span>Reword</span></span>
+				<span class="shortcut"><kbd>e</kbd><span>Edit</span></span>
+				<span class="shortcut"><kbd>s</kbd><span>Squash</span></span>
+				<span class="shortcut"><kbd>d</kbd><span>Drop</span></span>
+				<span class="shortcut"><kbd>alt ↑</kbd><span>Move Up</span></span>
+				<span class="shortcut"><kbd>alt ↓</kbd><span>Move Down</span></span>
+			</div>
+			<div class="actions">
+				<button name="start" class="button button--flat-primary" data-action="start">Start Rebase</button>
+				<button name="abort" class="button button--flat" data-action="abort">Abort</button>
+			</div>
+		</div>
+		#{endOfBody}
+	</body>
+</html>

@@ -23,6 +23,7 @@ import { RepositoriesView } from './views/repositoriesView';
 import { SearchView } from './views/searchView';
 import { ViewCommands } from './views/viewCommands';
 import { VslsController } from './vsls/vsls';
+import { RebaseEditorProvider } from './webviews/rebaseEditor';
 import { SettingsWebview } from './webviews/settingsWebview';
 import { WelcomeWebview } from './webviews/welcomeWebview';
 
@@ -109,6 +110,7 @@ export class Container {
 			});
 		}
 
+		context.subscriptions.push(new RebaseEditorProvider());
 		context.subscriptions.push(new GitFileSystemProvider());
 
 		context.subscriptions.push(configuration.onWillChange(this.onConfigurationChanging, this));

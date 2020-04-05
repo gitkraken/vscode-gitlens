@@ -71,3 +71,66 @@ export interface SettingsState extends AppStateWithConfig {
 }
 
 export type WelcomeState = AppStateWithConfig;
+
+export interface Author {
+	readonly author: string;
+	readonly avatarUrl: string;
+	readonly email: string | undefined;
+}
+
+export interface Commit {
+	readonly ref: string;
+	readonly author: string;
+	// readonly avatarUrl: string;
+	readonly date: string;
+	readonly dateFromNow: string;
+	// readonly email: string | undefined;
+	readonly message: string;
+	// readonly command: string;
+}
+
+export type RebaseEntryAction = 'pick' | 'reword' | 'edit' | 'squash' | 'fixup' | 'break' | 'drop';
+
+export interface RebaseEntry {
+	readonly action: RebaseEntryAction;
+	readonly ref: string;
+	readonly message: string;
+	readonly index: number;
+}
+
+export interface RebaseDidChangeNotificationParams {
+	entries: RebaseEntry[];
+}
+export const RebaseDidChangeNotificationType = new IpcNotificationType<RebaseDidChangeNotificationParams>(
+	'rebase/change',
+);
+
+export const RebaseDidStartCommandType = new IpcCommandType('rebase/start');
+
+export const RebaseDidAbortCommandType = new IpcCommandType('rebase/abort');
+
+export interface RebaseDidChangeEntryCommandParams {
+	ref: string;
+	action: RebaseEntryAction;
+}
+export const RebaseDidChangeEntryCommandType = new IpcCommandType<RebaseDidChangeEntryCommandParams>(
+	'rebase/change/entry',
+);
+
+export interface RebaseDidMoveEntryCommandParams {
+	ref: string;
+	down: boolean;
+}
+export const RebaseDidMoveEntryCommandType = new IpcCommandType<RebaseDidMoveEntryCommandParams>('rebase/move/entry');
+
+export interface RebaseState extends RebaseDidChangeNotificationParams {
+	branch: string;
+	onto: string;
+
+	entries: RebaseEntry[];
+	authors: Author[];
+	commits: Commit[];
+	commands: {
+		commit: string;
+	};
+}
