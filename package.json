@@ -18,7 +18,7 @@
 		"url": "https://github.com/eamodio/vscode-gitlens.git"
 	},
 	"engines": {
-		"vscode": "^1.42.0"
+		"vscode": "^1.44.0"
 	},
 	"main": "./dist/extension",
 	"icon": "images/gitlens-icon.png",
@@ -5920,6 +5920,17 @@
 				"key": "ctrl+c",
 				"mac": "cmd+c",
 				"when": "gitlens:enabled && focusedView =~ /^gitlens\\.views\\.search/"
+			}
+		],
+		"customEditors": [
+			{
+				"viewType": "gitlens.rebase",
+				"displayName": "Interactive Rebase Editor",
+				"selector": [
+					{
+						"filenamePattern": "git-rebase-todo"
+					}
+				]
 			}
 		],
 		"resourceLabelFormatters": [

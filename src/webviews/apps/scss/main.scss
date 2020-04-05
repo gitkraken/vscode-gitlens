@@ -123,9 +123,10 @@ header {
 	margin: 0 3em;
 }
 
+button,
 input,
 select,
-button {
+textarea {
 	font-family: var(--font-family);
 	font-size: inherit;
 	margin: 0;
@@ -151,7 +152,8 @@ input[type='checkbox'] {
 }
 
 input[type='text'],
-input:not([type]) {
+input:not([type]),
+textarea {
 	background: none;
 	color: var(--color-foreground);
 	margin: 0 10px;
@@ -189,6 +191,10 @@ input:not([type]) {
 	}
 }
 
+kbd {
+	font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+}
+
 label {
 	cursor: pointer;
 }
@@ -197,9 +203,11 @@ select {
 	background: none;
 	color: var(--color-foreground);
 	cursor: pointer;
-	margin: 0 0.75em;
-	padding: 2px;
+	padding: 2px 23px 2px 8px;
 	min-width: 5em;
+	appearance: none;
+	-webkit-appearance: none;
+	-moz-appearance: none;
 
 	.vscode-light & {
 		border: 1px solid rgba(0, 0, 0, 0.3);
@@ -224,26 +232,47 @@ select {
 		color: var(--color-foreground--75);
 		cursor: default;
 	}
-}
 
-select option {
-	.vscode-light & {
-		background-color: var(--color-background--darken-05);
-	}
-
-	.vscode-dark & {
-		background-color: var(--color-background--lighten-05);
-	}
-
-	&:focus {
-		outline-color: var(--color-focus-border);
+	& option {
 		.vscode-light & {
-			background-color: rgba(255, 255, 255, 0.4);
+			background-color: var(--color-background--darken-05);
 		}
 
 		.vscode-dark & {
-			background-color: rgba(0, 0, 0, 0.2);
+			background-color: var(--color-background--lighten-05);
 		}
+
+		&:focus {
+			outline-color: var(--color-focus-border);
+			.vscode-light & {
+				background-color: rgba(255, 255, 255, 0.4);
+			}
+
+			.vscode-dark & {
+				background-color: rgba(0, 0, 0, 0.2);
+			}
+		}
+	}
+}
+
+.select-container {
+	display: inline-block;
+	position: relative;
+	margin: 0 0.75em;
+
+	&::after {
+		content: '\eab4';
+		font-family: codicon;
+		font-size: 14px;
+		width: 14px;
+		height: 14px;
+		line-height: 14px;
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		right: 6px;
+		margin: auto;
+		pointer-events: none;
 	}
 }
 
@@ -288,7 +317,8 @@ ul {
 	}
 	transition: background-color 250ms, border-color 250ms, color 250ms;
 
-	&:hover {
+	&:hover,
+	&:focus {
 		.vscode-light & {
 			background-color: var(--color-button-background--darken-30);
 			border-color: var(--color-button-background--darken-30);
@@ -313,7 +343,8 @@ ul {
 	font-weight: 600;
 	transition: background-color 250ms, border-color 250ms, color 250ms;
 
-	&:hover {
+	&:hover,
+	&:focus {
 		background: rgba(0, 0, 0, 0.2);
 		border-color: rgba(255, 255, 255, 0.6);
 		color: white !important;
@@ -331,7 +362,8 @@ ul {
 	font-weight: 600;
 	transition: background-color 250ms, border-color 250ms, color 250ms;
 
-	&:hover {
+	&:hover,
+	&:focus {
 		.vscode-dark & {
 			background-color: white;
 			border-color: white;
@@ -1207,3 +1239,88 @@ section {
 }
 
 @import 'popup';
+
+body.rebase {
+	height: unset;
+}
+
+.container--rebase {
+	font-size: 1.3em;
+	grid-template-areas: 'entries' 'shortcuts' 'actions';
+	grid-gap: 0.5em 3em;
+}
+
+.rebase-entries {
+	grid-area: entries;
+}
+
+.rebase-shortcuts {
+	grid-area: shortcuts;
+	margin: 0 auto;
+}
+
+.rebase-actions {
+	grid-area: actions;
+	margin: 10px;
+}
+
+.rebase-entry {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin: 0 10px;
+	padding: 10px 0;
+
+	// &:focus-within {
+	// 	outline: -webkit-focus-ring-color auto 1px;
+	// }
+}
+
+.rebase-entry-action {
+	flex: auto 0 0;
+	margin: 0 10px;
+}
+
+.rebase-entry-message {
+	flex: 100% 1 1;
+	margin: 0 10px;
+
+	.rebase-entry--drop & {
+		text-decoration: line-through;
+	}
+}
+
+.rebase-entry-ref {
+	flex: auto 0 0;
+	margin: 0 10px;
+	opacity: 0.5;
+
+	.rebase-entry--squash & {
+		&::before {
+			content: attr(data-prev);
+		}
+	}
+
+	.rebase-entry--drop & {
+		text-decoration: line-through;
+	}
+}
+
+.shortcut {
+	display: inline-block;
+	margin: 5px 10px 5px 0;
+	opacity: 0.6;
+
+	& kbd {
+		display: inline-block;
+		padding: 3px 5px;
+		margin: 0 2px;
+		font-size: 11px;
+		line-height: 11px;
+		vertical-align: baseline;
+	}
+
+	& span {
+		margin: 0 0 0 5px;
+	}
+}

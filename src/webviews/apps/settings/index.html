@@ -146,7 +146,9 @@
 					<div class="hero__toolbar">
 						<div class="hero__toolbar-scope hidden">
 							<label for="scopes">Save Settings to</label>
-							<select id="scopes" name="scope"> </select>
+							<div class="select-container">
+								<select id="scopes" name="scope"> </select>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -337,37 +339,39 @@
 												<label class="nowrap" for="codeLens.recentChange.command"
 													>When clicked</label
 												>
-												<select
-													id="codeLens.recentChange.command"
-													name="codeLens.recentChange.command"
-													data-setting
-													disabled
-												>
-													<option value="gitlens.toggleFileBlame"
-														>toggles the file blame annotations</option
+												<div class="select-container">
+													<select
+														id="codeLens.recentChange.command"
+														name="codeLens.recentChange.command"
+														data-setting
+														disabled
 													>
-													<option value="gitlens.diffWithPrevious"
-														>opens changes with the previous revision</option
-													>
-													<option value="gitlens.revealCommitInView"
-														>reveals the commit in the Repositories view</option
-													>
-													<option value="gitlens.showCommitsInView"
-														>shows the commit in the Search Commits view</option
-													>
-													<option value="gitlens.showQuickCommitDetails"
-														>shows details of the commit</option
-													>
-													<option value="gitlens.showQuickCommitFileDetails">
-														shows file details of the commit
-													</option>
-													<option value="gitlens.showQuickFileHistory"
-														>shows the current file history</option
-													>
-													<option value="gitlens.showQuickRepoHistory"
-														>shows the current branch history</option
-													>
-												</select>
+														<option value="gitlens.toggleFileBlame"
+															>toggles the file blame annotations</option
+														>
+														<option value="gitlens.diffWithPrevious"
+															>opens changes with the previous revision</option
+														>
+														<option value="gitlens.revealCommitInView"
+															>reveals the commit in the Repositories view</option
+														>
+														<option value="gitlens.showCommitsInView"
+															>shows the commit in the Search Commits view</option
+														>
+														<option value="gitlens.showQuickCommitDetails"
+															>shows details of the commit</option
+														>
+														<option value="gitlens.showQuickCommitFileDetails">
+															shows file details of the commit
+														</option>
+														<option value="gitlens.showQuickFileHistory"
+															>shows the current file history</option
+														>
+														<option value="gitlens.showQuickRepoHistory"
+															>shows the current branch history</option
+														>
+													</select>
+												</div>
 											</div>
 										</div>
 									</div>
@@ -397,38 +401,40 @@
 												<label class="nowrap" for="codeLens.authors.command"
 													>When clicked</label
 												>
-												<select
-													id="codeLens.authors.command"
-													name="codeLens.authors.command"
-													data-setting
-													disabled
-												>
-													<option value="gitlens.toggleFileBlame"
-														>toggles the file blame annotations</option
+												<div class="select-container">
+													<select
+														id="codeLens.authors.command"
+														name="codeLens.authors.command"
+														data-setting
+														disabled
 													>
-													<option value="gitlens.diffWithPrevious"
-														>opens changes with the previous revision</option
-													>
-													<option value="gitlens.revealCommitInView"
-														>reveals the commit in the Repositories view</option
-													>
-													<option value="gitlens.showCommitsInView"
-														>shows the commits within the range in the Search Commits
-														view</option
-													>
-													<option value="gitlens.showQuickCommitDetails"
-														>shows details of the commit</option
-													>
-													<option value="gitlens.showQuickCommitFileDetails">
-														show file details of the commit
-													</option>
-													<option value="gitlens.showQuickFileHistory"
-														>shows the current file history</option
-													>
-													<option value="gitlens.showQuickRepoHistory"
-														>shows the current branch history</option
-													>
-												</select>
+														<option value="gitlens.toggleFileBlame"
+															>toggles the file blame annotations</option
+														>
+														<option value="gitlens.diffWithPrevious"
+															>opens changes with the previous revision</option
+														>
+														<option value="gitlens.revealCommitInView"
+															>reveals the commit in the Repositories view</option
+														>
+														<option value="gitlens.showCommitsInView"
+															>shows the commits within the range in the Search Commits
+															view</option
+														>
+														<option value="gitlens.showQuickCommitDetails"
+															>shows details of the commit</option
+														>
+														<option value="gitlens.showQuickCommitFileDetails">
+															show file details of the commit
+														</option>
+														<option value="gitlens.showQuickFileHistory"
+															>shows the current file history</option
+														>
+														<option value="gitlens.showQuickRepoHistory"
+															>shows the current branch history</option
+														>
+													</select>
+												</div>
 											</div>
 										</div>
 									</div>
@@ -606,58 +612,62 @@
 									<div class="setting" data-enablement="statusBar.enabled">
 										<div class="setting__input">
 											<label for="statusBar.alignment">Position the annotation on the</label>
-											<select
-												id="statusBar.alignment"
-												name="statusBar.alignment"
-												data-setting
-												disabled
-											>
-												<option value="left">left</option>
-												<option value="right">right</option>
-											</select>
+											<div class="select-container">
+												<select
+													id="statusBar.alignment"
+													name="statusBar.alignment"
+													data-setting
+													disabled
+												>
+													<option value="left">left</option>
+													<option value="right">right</option>
+												</select>
+											</div>
 										</div>
 									</div>
 
 									<div class="setting" data-enablement="statusBar.enabled">
 										<div class="setting__input">
 											<label class="nowrap" for="statusBar.command">When clicked</label>
-											<select
-												id="statusBar.command"
-												name="statusBar.command"
-												data-setting
-												disabled
-											>
-												<option value="gitlens.toggleFileBlame"
-													>toggles the file blame annotations</option
+											<div class="select-container">
+												<select
+													id="statusBar.command"
+													name="statusBar.command"
+													data-setting
+													disabled
 												>
-												<option value="gitlens.diffWithPrevious"
-													>opens line changes with the previous revision</option
-												>
-												<option value="gitlens.diffWithWorking"
-													>opens line changes with the working file</option
-												>
-												<option value="gitlens.revealCommitInView"
-													>reveals the commit in the Repositories view</option
-												>
-												<option value="gitlens.showCommitsInView"
-													>shows the commit in the Search Commits view</option
-												>
-												<option value="gitlens.toggleCodeLens"
-													>toggles the Git code lens</option
-												>
-												<option value="gitlens.showQuickCommitDetails"
-													>shows details of the commit</option
-												>
-												<option value="gitlens.showQuickCommitFileDetails"
-													>shows file details of the commit</option
-												>
-												<option value="gitlens.showQuickFileHistory"
-													>shows the current file history</option
-												>
-												<option value="gitlens.showQuickRepoHistory"
-													>shows the current branch history</option
-												>
-											</select>
+													<option value="gitlens.toggleFileBlame"
+														>toggles the file blame annotations</option
+													>
+													<option value="gitlens.diffWithPrevious"
+														>opens line changes with the previous revision</option
+													>
+													<option value="gitlens.diffWithWorking"
+														>opens line changes with the working file</option
+													>
+													<option value="gitlens.revealCommitInView"
+														>reveals the commit in the Repositories view</option
+													>
+													<option value="gitlens.showCommitsInView"
+														>shows the commit in the Search Commits view</option
+													>
+													<option value="gitlens.toggleCodeLens"
+														>toggles the Git code lens</option
+													>
+													<option value="gitlens.showQuickCommitDetails"
+														>shows details of the commit</option
+													>
+													<option value="gitlens.showQuickCommitFileDetails"
+														>shows file details of the commit</option
+													>
+													<option value="gitlens.showQuickFileHistory"
+														>shows the current file history</option
+													>
+													<option value="gitlens.showQuickRepoHistory"
+														>shows the current branch history</option
+													>
+												</select>
+											</div>
 										</div>
 									</div>
 
@@ -799,15 +809,17 @@
 										>
 											<div class="setting__input">
 												<label for="hovers.currentLine.over">Shown when over the</label>
-												<select
-													id="hovers.currentLine.over"
-													name="hovers.currentLine.over"
-													data-setting
-													disabled
-												>
-													<option value="annotation">annotation only</option>
-													<option value="line">line &amp; annotation</option>
-												</select>
+												<div class="select-container">
+													<select
+														id="hovers.currentLine.over"
+														name="hovers.currentLine.over"
+														data-setting
+														disabled
+													>
+														<option value="annotation">annotation only</option>
+														<option value="line">line &amp; annotation</option>
+													</select>
+												</div>
 											</div>
 										</div>
 
@@ -818,15 +830,17 @@
 										>
 											<div class="setting__input">
 												<label for="hovers.currentLine.over">Shown when over the</label>
-												<select
-													id="hovers.currentLine.over"
-													name="hovers.currentLine.over"
-													data-setting
-													disabled
-												>
-													<option value="annotation">annotation only</option>
-													<option value="line">line</option>
-												</select>
+												<div class="select-container">
+													<select
+														id="hovers.currentLine.over"
+														name="hovers.currentLine.over"
+														data-setting
+														disabled
+													>
+														<option value="annotation">annotation only</option>
+														<option value="line">line</option>
+													</select>
+												</div>
 											</div>
 										</div>
 
@@ -989,15 +1003,17 @@
 											<div class="setting__input">
 												<div class="setting__input">
 													<label for="hovers.annotations.over">Shown when over the</label>
-													<select
-														id="hovers.annotations.over"
-														name="hovers.annotations.over"
-														data-setting
-														disabled
-													>
-														<option value="annotation">annotation only</option>
-														<option value="line">line &amp; annotation</option>
-													</select>
+													<div class="select-container">
+														<select
+															id="hovers.annotations.over"
+															name="hovers.annotations.over"
+															data-setting
+															disabled
+														>
+															<option value="annotation">annotation only</option>
+															<option value="line">line &amp; annotation</option>
+														</select>
+													</div>
 												</div>
 											</div>
 										</div>
@@ -1131,16 +1147,18 @@
 									<div class="setting" data-enablement="views.repositories.enabled">
 										<div class="setting__input nowrap">
 											<label for="views.repositories.location">Show Repositories in the </label>
-											<select
-												id="views.repositories.location"
-												name="views.repositories.location"
-												data-setting
-												disabled
-											>
-												<option value="gitlens">GitLens side bar</option>
-												<option value="explorer">Explorer side bar</option>
-												<option value="scm">Source Control side bar</option>
-											</select>
+											<div class="select-container">
+												<select
+													id="views.repositories.location"
+													name="views.repositories.location"
+													data-setting
+													disabled
+												>
+													<option value="gitlens">GitLens side bar</option>
+													<option value="explorer">Explorer side bar</option>
+													<option value="scm">Source Control side bar</option>
+												</select>
+											</div>
 											<a
 												class="link__configure"
 												data-action="jump"
@@ -1154,16 +1172,18 @@
 									<div class="setting" data-enablement="views.fileHistory.enabled">
 										<div class="setting__input nowrap">
 											<label for="views.fileHistory.location">Show File History in the </label>
-											<select
-												id="views.fileHistory.location"
-												name="views.fileHistory.location"
-												data-setting
-												disabled
-											>
-												<option value="gitlens">GitLens side bar</option>
-												<option value="explorer">Explorer side bar</option>
-												<option value="scm">Source Control side bar</option>
-											</select>
+											<div class="select-container">
+												<select
+													id="views.fileHistory.location"
+													name="views.fileHistory.location"
+													data-setting
+													disabled
+												>
+													<option value="gitlens">GitLens side bar</option>
+													<option value="explorer">Explorer side bar</option>
+													<option value="scm">Source Control side bar</option>
+												</select>
+											</div>
 											<a
 												class="link__configure"
 												data-action="jump"
@@ -1177,16 +1197,18 @@
 									<div class="setting" data-enablement="views.lineHistory.enabled">
 										<div class="setting__input nowrap">
 											<label for="views.lineHistory.location">Show Line History in the </label>
-											<select
-												id="views.lineHistory.location"
-												name="views.lineHistory.location"
-												data-setting
-												disabled
-											>
-												<option value="gitlens">GitLens side bar</option>
-												<option value="explorer">Explorer side bar</option>
-												<option value="scm">Source Control side bar</option>
-											</select>
+											<div class="select-container">
+												<select
+													id="views.lineHistory.location"
+													name="views.lineHistory.location"
+													data-setting
+													disabled
+												>
+													<option value="gitlens">GitLens side bar</option>
+													<option value="explorer">Explorer side bar</option>
+													<option value="scm">Source Control side bar</option>
+												</select>
+											</div>
 											<a
 												class="link__configure"
 												data-action="jump"
@@ -1200,16 +1222,18 @@
 									<div class="setting" data-enablement="views.search.enabled">
 										<div class="setting__input nowrap">
 											<label for="views.search.location">Show Search Commits in the </label>
-											<select
-												id="views.search.location"
-												name="views.search.location"
-												data-setting
-												disabled
-											>
-												<option value="gitlens">GitLens side bar</option>
-												<option value="explorer">Explorer side bar</option>
-												<option value="scm">Source Control side bar</option>
-											</select>
+											<div class="select-container">
+												<select
+													id="views.search.location"
+													name="views.search.location"
+													data-setting
+													disabled
+												>
+													<option value="gitlens">GitLens side bar</option>
+													<option value="explorer">Explorer side bar</option>
+													<option value="scm">Source Control side bar</option>
+												</select>
+											</div>
 											<a
 												class="link__configure"
 												data-action="jump"
@@ -1223,16 +1247,18 @@
 									<div class="setting" data-enablement="views.compare.enabled">
 										<div class="setting__input nowrap">
 											<label for="views.compare.location">Show Compare in the </label>
-											<select
-												id="views.compare.location"
-												name="views.compare.location"
-												data-setting
-												disabled
-											>
-												<option value="gitlens">GitLens side bar</option>
-												<option value="explorer">Explorer side bar</option>
-												<option value="scm">Source Control side bar</option>
-											</select>
+											<div class="select-container">
+												<select
+													id="views.compare.location"
+													name="views.compare.location"
+													data-setting
+													disabled
+												>
+													<option value="gitlens">GitLens side bar</option>
+													<option value="explorer">Explorer side bar</option>
+													<option value="scm">Source Control side bar</option>
+												</select>
+											</div>
 											<a
 												class="link__configure"
 												data-action="jump"
@@ -1280,16 +1306,18 @@
 									<div class="setting" data-enablement="views.repositories.enabled">
 										<div class="setting__input">
 											<label for="views.repositories.location">Show in the</label>
-											<select
-												id="views.repositories.location"
-												name="views.repositories.location"
-												data-setting
-												disabled
-											>
-												<option value="gitlens">GitLens side bar</option>
-												<option value="explorer">Explorer side bar</option>
-												<option value="scm">Source Control side bar</option>
-											</select>
+											<div class="select-container">
+												<select
+													id="views.repositories.location"
+													name="views.repositories.location"
+													data-setting
+													disabled
+												>
+													<option value="gitlens">GitLens side bar</option>
+													<option value="explorer">Explorer side bar</option>
+													<option value="scm">Source Control side bar</option>
+												</select>
+											</div>
 										</div>
 									</div>
 
@@ -1306,16 +1334,18 @@
 											<label for="views.repositories.showBranchComparison"
 												>Show a comparison of a user-selected reference (branch, tag, etc) to
 												the
-												<select
-													id="views.repositories.showBranchComparison"
-													name="views.repositories.showBranchComparison"
-													data-setting
-													data-enablement="views.repositories.enabled &amp; views.repositories.showBranchComparison !false"
-													disabled
-												>
-													<option value="branch">current branch</option>
-													<option value="working">working tree</option>
-												</select>
+												<div class="select-container">
+													<select
+														id="views.repositories.showBranchComparison"
+														name="views.repositories.showBranchComparison"
+														data-setting
+														data-enablement="views.repositories.enabled &amp; views.repositories.showBranchComparison !false"
+														disabled
+													>
+														<option value="branch">current branch</option>
+														<option value="working">working tree</option>
+													</select>
+												</div>
 											</label>
 										</div>
 									</div>
@@ -1323,55 +1353,63 @@
 									<div class="setting" data-enablement="views.repositories.enabled">
 										<div class="setting__input">
 											<label for="views.repositories.branches.layout">Layout branches</label>
-											<select
-												id="views.repositories.branches.layout"
-												name="views.repositories.branches.layout"
-												data-setting
-												disabled
-											>
-												<option value="list">as a list</option>
-												<option value="tree">as a tree</option>
-											</select>
+											<div class="select-container">
+												<select
+													id="views.repositories.branches.layout"
+													name="views.repositories.branches.layout"
+													data-setting
+													disabled
+												>
+													<option value="list">as a list</option>
+													<option value="tree">as a tree</option>
+												</select>
+											</div>
 										</div>
 									</div>
 
 									<div class="setting" data-enablement="views.repositories.enabled">
 										<div class="setting__input">
 											<label for="sortBranchesBy">Sort branches</label>
-											<select id="sortBranchesBy" name="sortBranchesBy" data-setting disabled>
-												<option value="name:desc">by name, descending</option>
-												<option value="name:asc">by name, ascending</option>
-												<option value="date:desc">by date, descending</option>
-												<option value="date:asc">by date, ascending</option>
-											</select>
+											<div class="select-container">
+												<select id="sortBranchesBy" name="sortBranchesBy" data-setting disabled>
+													<option value="name:desc">by name, descending</option>
+													<option value="name:asc">by name, ascending</option>
+													<option value="date:desc">by date, descending</option>
+													<option value="date:asc">by date, ascending</option>
+												</select>
+											</div>
 										</div>
 									</div>
 
 									<div class="setting" data-enablement="views.repositories.enabled">
 										<div class="setting__input">
 											<label for="sortTagsBy">Sort tags</label>
-											<select id="sortTagsBy" name="sortTagsBy" data-setting disabled>
-												<option value="name:desc">by name, descending</option>
-												<option value="name:asc">by name, ascending</option>
-												<option value="date:desc">by date, descending</option>
-												<option value="date:asc">by date, ascending</option>
-											</select>
+											<div class="select-container">
+												<select id="sortTagsBy" name="sortTagsBy" data-setting disabled>
+													<option value="name:desc">by name, descending</option>
+													<option value="name:asc">by name, ascending</option>
+													<option value="date:desc">by date, descending</option>
+													<option value="date:asc">by date, ascending</option>
+												</select>
+											</div>
 										</div>
 									</div>
 
 									<div class="setting" data-enablement="views.repositories.enabled">
 										<div class="setting__input">
 											<label for="views.repositories.files.layout">Layout files</label>
-											<select
-												id="views.repositories.files.layout"
-												name="views.repositories.files.layout"
-												data-setting
-												disabled
-											>
-												<option value="auto">automatically</option>
-												<option value="list">as a list</option>
-												<option value="tree">as a tree</option>
-											</select>
+											<div class="select-container">
+												<select
+													id="views.repositories.files.layout"
+													name="views.repositories.files.layout"
+													data-setting
+													disabled
+												>
+													<option value="auto">automatically</option>
+													<option value="list">as a list</option>
+													<option value="tree">as a tree</option>
+												</select>
+											</div>
 										</div>
 										<p
 											class="setting__hint"
@@ -1516,16 +1554,18 @@
 									<div class="setting" data-enablement="views.fileHistory.enabled">
 										<div class="setting__input">
 											<label for="views.fileHistory.location">Show in the</label>
-											<select
-												id="views.fileHistory.location"
-												name="views.fileHistory.location"
-												data-setting
-												disabled
-											>
-												<option value="gitlens">GitLens side bar</option>
-												<option value="explorer">Explorer side bar</option>
-												<option value="scm">Source Control side bar</option>
-											</select>
+											<div class="select-container">
+												<select
+													id="views.fileHistory.location"
+													name="views.fileHistory.location"
+													data-setting
+													disabled
+												>
+													<option value="gitlens">GitLens side bar</option>
+													<option value="explorer">Explorer side bar</option>
+													<option value="scm">Source Control side bar</option>
+												</select>
+											</div>
 										</div>
 									</div>
 
@@ -1592,16 +1632,18 @@
 									<div class="setting" data-enablement="views.lineHistory.enabled">
 										<div class="setting__input">
 											<label for="views.lineHistory.location">Show in the</label>
-											<select
-												id="views.lineHistory.location"
-												name="views.lineHistory.location"
-												data-setting
-												disabled
-											>
-												<option value="gitlens">GitLens side bar</option>
-												<option value="explorer">Explorer side bar</option>
-												<option value="scm">Source Control side bar</option>
-											</select>
+											<div class="select-container">
+												<select
+													id="views.lineHistory.location"
+													name="views.lineHistory.location"
+													data-setting
+													disabled
+												>
+													<option value="gitlens">GitLens side bar</option>
+													<option value="explorer">Explorer side bar</option>
+													<option value="scm">Source Control side bar</option>
+												</select>
+											</div>
 										</div>
 									</div>
 
@@ -1663,32 +1705,36 @@
 									<div class="setting" data-enablement="views.search.enabled">
 										<div class="setting__input">
 											<label for="views.search.location">Show in the</label>
-											<select
-												id="views.search.location"
-												name="views.search.location"
-												data-setting
-												disabled
-											>
-												<option value="gitlens">GitLens side bar</option>
-												<option value="explorer">Explorer side bar</option>
-												<option value="scm">Source Control side bar</option>
-											</select>
+											<div class="select-container">
+												<select
+													id="views.search.location"
+													name="views.search.location"
+													data-setting
+													disabled
+												>
+													<option value="gitlens">GitLens side bar</option>
+													<option value="explorer">Explorer side bar</option>
+													<option value="scm">Source Control side bar</option>
+												</select>
+											</div>
 										</div>
 									</div>
 
 									<div class="setting" data-enablement="views.search.enabled">
 										<div class="setting__input">
 											<label for="views.search.files.layout">Layout files</label>
-											<select
-												id="views.search.files.layout"
-												name="views.search.files.layout"
-												data-setting
-												disabled
-											>
-												<option value="auto">automatically</option>
-												<option value="list">as a list</option>
-												<option value="tree">as a tree</option>
-											</select>
+											<div class="select-container">
+												<select
+													id="views.search.files.layout"
+													name="views.search.files.layout"
+													data-setting
+													disabled
+												>
+													<option value="auto">automatically</option>
+													<option value="list">as a list</option>
+													<option value="tree">as a tree</option>
+												</select>
+											</div>
 										</div>
 									</div>
 
@@ -1793,32 +1839,36 @@
 									<div class="setting" data-enablement="views.compare.enabled">
 										<div class="setting__input">
 											<label for="views.compare.location">Show in the</label>
-											<select
-												id="views.compare.location"
-												name="views.compare.location"
-												data-setting
-												disabled
-											>
-												<option value="gitlens">GitLens side bar</option>
-												<option value="explorer">Explorer side bar</option>
-												<option value="scm">Source Control side bar</option>
-											</select>
+											<div class="select-container">
+												<select
+													id="views.compare.location"
+													name="views.compare.location"
+													data-setting
+													disabled
+												>
+													<option value="gitlens">GitLens side bar</option>
+													<option value="explorer">Explorer side bar</option>
+													<option value="scm">Source Control side bar</option>
+												</select>
+											</div>
 										</div>
 									</div>
 
 									<div class="setting" data-enablement="views.compare.enabled">
 										<div class="setting__input">
 											<label for="views.compare.files.layout">Layout files</label>
-											<select
-												id="views.compare.files.layout"
-												name="views.compare.files.layout"
-												data-setting
-												disabled
-											>
-												<option value="auto">automatically</option>
-												<option value="list">as a list</option>
-												<option value="tree">as a tree</option>
-											</select>
+											<div class="select-container">
+												<select
+													id="views.compare.files.layout"
+													name="views.compare.files.layout"
+													data-setting
+													disabled
+												>
+													<option value="auto">automatically</option>
+													<option value="list">as a list</option>
+													<option value="tree">as a tree</option>
+												</select>
+											</div>
 										</div>
 									</div>
 
@@ -1936,10 +1986,12 @@
 								<div class="setting">
 									<div class="setting__input">
 										<label for="blame.toggleMode">Toggle annotations </label>
-										<select id="blame.toggleMode" name="blame.toggleMode" data-setting>
-											<option value="file">individually for each file</option>
-											<option value="window">for all files</option>
-										</select>
+										<div class="select-container">
+											<select id="blame.toggleMode" name="blame.toggleMode" data-setting>
+												<option value="file">individually for each file</option>
+												<option value="window">for all files</option>
+											</select>
+										</div>
 									</div>
 								</div>
 
@@ -1985,15 +2037,17 @@
 									<div class="setting" data-enablement="blame.heatmap.enabled" disabled>
 										<div class="setting__input">
 											<label for="blame.heatmap.location">Position the heatmap on the</label>
-											<select
-												id="blame.heatmap.location"
-												name="blame.heatmap.location"
-												data-setting
-												disabled
-											>
-												<option value="left">left</option>
-												<option value="right">right</option>
-											</select>
+											<div class="select-container">
+												<select
+													id="blame.heatmap.location"
+													name="blame.heatmap.location"
+													data-setting
+													disabled
+												>
+													<option value="left">left</option>
+													<option value="right">right</option>
+												</select>
+											</div>
 										</div>
 									</div>
 								</div>
@@ -2193,10 +2247,12 @@
 								<div class="setting">
 									<div class="setting__input">
 										<label for="heatmap.toggleMode">Toggle annotations </label>
-										<select id="heatmap.toggleMode" name="heatmap.toggleMode" data-setting>
-											<option value="file">individually for each file</option>
-											<option value="window">for all files</option>
-										</select>
+										<div class="select-container">
+											<select id="heatmap.toggleMode" name="heatmap.toggleMode" data-setting>
+												<option value="file">individually for each file</option>
+												<option value="window">for all files</option>
+											</select>
+										</div>
 									</div>
 								</div>
 							</div>
@@ -2254,14 +2310,16 @@
 								<div class="setting">
 									<div class="setting__input">
 										<label for="recentChanges.toggleMode">Toggle annotations </label>
-										<select
-											id="recentChanges.toggleMode"
-											name="recentChanges.toggleMode"
-											data-setting
-										>
-											<option value="file">individually for each file</option>
-											<option value="window">for all files</option>
-										</select>
+										<div class="select-container">
+											<select
+												id="recentChanges.toggleMode"
+												name="recentChanges.toggleMode"
+												data-setting
+											>
+												<option value="file">individually for each file</option>
+												<option value="window">for all files</option>
+											</select>
+										</div>
 									</div>
 								</div>
 
@@ -2947,11 +3005,13 @@
 								<div class="setting">
 									<div class="setting__input">
 										<label for="keymap">Use</label>
-										<select id="keymap" name="keymap" data-setting>
-											<option value="alternate">alt-based</option>
-											<option value="chorded">chorded (default)</option>
-											<option value="none">user-defined</option>
-										</select>
+										<div class="select-container">
+											<select id="keymap" name="keymap" data-setting>
+												<option value="alternate">alt-based</option>
+												<option value="chorded">chorded (default)</option>
+												<option value="none">user-defined</option>
+											</select>
+										</div>
 										<label for="keymap"> keyboard shortcuts</label>
 									</div>
 									<span class="setting__hint hidden" data-visibility="keymap =alternate">
@@ -3061,15 +3121,17 @@
 									<div class="setting" data-enablement="mode.statusBar.enabled">
 										<div class="setting__input">
 											<label for="mode.statusBar.alignment">Position the annotation on the</label>
-											<select
-												id="mode.statusBar.alignment"
-												name="mode.statusBar.alignment"
-												data-setting
-												disabled
-											>
-												<option value="left">left</option>
-												<option value="right">right</option>
-											</select>
+											<div class="select-container">
+												<select
+													id="mode.statusBar.alignment"
+													name="mode.statusBar.alignment"
+													data-setting
+													disabled
+												>
+													<option value="left">left</option>
+													<option value="right">right</option>
+												</select>
+											</div>
 										</div>
 									</div>
 								</div>

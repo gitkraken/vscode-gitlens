@@ -71,3 +71,38 @@ export interface SettingsState extends AppStateWithConfig {
 }
 
 export interface WelcomeState extends AppStateWithConfig {}
+
+export type RebaseEntryAction = 'pick' | 'reword' | 'edit' | 'squash' | 'fixup' | 'break' | 'drop';
+
+export interface RebaseEntry {
+	action: RebaseEntryAction;
+	ref: string;
+	message: string;
+}
+
+export interface RebaseDidChangeNotificationParams {
+	entries: RebaseEntry[];
+}
+export const RebaseDidChangeNotificationType = new IpcNotificationType<RebaseDidChangeNotificationParams>(
+	'rebase/change',
+);
+
+export const RebaseDidStartCommandType = new IpcCommandType<{}>('rebase/start');
+
+export const RebaseDidAbortCommandType = new IpcCommandType<{}>('rebase/abort');
+
+export interface RebaseDidChangeEntryCommandParams {
+	ref: string;
+	action: RebaseEntryAction;
+}
+export const RebaseDidChangeEntryCommandType = new IpcCommandType<RebaseDidChangeEntryCommandParams>(
+	'rebase/change/entry',
+);
+
+export interface RebaseDidMoveEntryCommandParams {
+	ref: string;
+	down: boolean;
+}
+export const RebaseDidMoveEntryCommandType = new IpcCommandType<RebaseDidMoveEntryCommandParams>('rebase/move/entry');
+
+export interface RebaseState extends RebaseDidChangeNotificationParams {}
