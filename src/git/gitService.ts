@@ -2675,7 +2675,10 @@ export class GitService implements Disposable {
 							);
 							if (networkPath !== undefined) {
 								return Strings.normalizePath(
-									repoUri.fsPath.replace(networkPath, `${letter.toLowerCase()}:`),
+									repoUri.fsPath.replace(
+										networkPath,
+										`${letter.toLowerCase()}:${networkPath.endsWith('\\') ? '\\' : ''}`,
+									),
 								);
 							}
 						} catch {}
