@@ -20,7 +20,7 @@ export class GitContributor {
 		public readonly current: boolean = false,
 	) {}
 
-	getGravatarUri(fallback: GravatarDefaultStyle, size: number = 16): Uri {
+	getAvatarUri(fallback: GravatarDefaultStyle, size: number = 16): Uri {
 		return getAvatarUri(this.email, fallback, size);
 	}
 }

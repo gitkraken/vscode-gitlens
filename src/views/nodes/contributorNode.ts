@@ -76,7 +76,7 @@ export class ContributorNode extends ViewNode<RepositoriesView> implements Pagea
 		}\n${Strings.pluralize('commit', this.contributor.count)}`;
 
 		if (this.view.config.avatars) {
-			item.iconPath = this.contributor.getGravatarUri(Container.config.defaultGravatarsStyle);
+			item.iconPath = this.contributor.getAvatarUri(Container.config.defaultGravatarsStyle);
 		}
 
 		return item;

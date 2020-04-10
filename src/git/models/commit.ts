@@ -218,7 +218,7 @@ export abstract class GitCommit implements GitReference {
 		return GitUri.getFormattedPath(this.fileName, options);
 	}
 
-	getGravatarUri(fallback: GravatarDefaultStyle, size: number = 16): Uri {
+	getAvatarUri(fallback: GravatarDefaultStyle, size: number = 16): Uri {
 		return getAvatarUri(this.email, fallback, size);
 	}
 

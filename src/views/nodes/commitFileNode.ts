@@ -62,7 +62,7 @@ export class CommitFileNode extends ViewRefFileNode {
 		item.tooltip = this.tooltip;
 
 		if (this._options.displayAsCommit && this.view.config.avatars) {
-			item.iconPath = this.commit.getGravatarUri(Container.config.defaultGravatarsStyle);
+			item.iconPath = this.commit.getAvatarUri(Container.config.defaultGravatarsStyle);
 		} else {
 			const icon = GitFile.getStatusIcon(this.file.status);
 			item.iconPath = {
