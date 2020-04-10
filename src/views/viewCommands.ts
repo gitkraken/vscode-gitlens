@@ -374,9 +374,7 @@ export class ViewCommands {
 			return;
 		}
 
-		void (await this.openFileRevision(node as CommitFileNode | ResultsFileNode | StashFileNode, {
-			showOptions: { preserveFocus: true, preview: true },
-		}));
+		void (await this.openFileRevision(node, { showOptions: { preserveFocus: true, preview: true } }));
 		void (await Container.fileAnnotations.toggle(
 			window.activeTextEditor,
 			FileAnnotationType.RecentChanges,
