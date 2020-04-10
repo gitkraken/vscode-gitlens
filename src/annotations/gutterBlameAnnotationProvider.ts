@@ -96,7 +96,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 				this.decorations.push(gutter);
 
 				if (avatars && !cfg.compact && commit !== undefined && commit.email !== undefined) {
-					this.addOrUpdateGravatarDecoration(commit, gutter.range, gravatarDefault, avatarDecorationsMap!);
+					this.addOrUpdateAvatarDecoration(commit, gutter.range, gravatarDefault, avatarDecorationsMap!);
 				}
 
 				continue;
@@ -118,7 +118,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 				this.decorations.push(gutter);
 
 				if (avatars && commit.email !== undefined) {
-					this.addOrUpdateGravatarDecoration(commit, gutter.range, gravatarDefault, avatarDecorationsMap!);
+					this.addOrUpdateAvatarDecoration(commit, gutter.range, gravatarDefault, avatarDecorationsMap!);
 				}
 
 				continue;
@@ -135,7 +135,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 			this.decorations.push(gutter);
 
 			if (avatars && commit.email !== undefined) {
-				this.addOrUpdateGravatarDecoration(commit, gutter.range, gravatarDefault, avatarDecorationsMap!);
+				this.addOrUpdateAvatarDecoration(commit, gutter.range, gravatarDefault, avatarDecorationsMap!);
 			}
 
 			decorationsMap[l.sha] = gutter;
@@ -163,7 +163,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		return true;
 	}
 
-	addOrUpdateGravatarDecoration(
+	addOrUpdateAvatarDecoration(
 		commit: GitBlameCommit,
 		range: Range,
 		gravatarDefault: GravatarDefaultStyle,
@@ -178,7 +178,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
 		map[commit.email!] = {
 			decoration: window.createTextEditorDecorationType({
-				gutterIconPath: commit.getGravatarUri(gravatarDefault),
+				gutterIconPath: commit.getAvatarUri(gravatarDefault),
 				gutterIconSize: '16px 16px',
 			}),
 			ranges: [range],

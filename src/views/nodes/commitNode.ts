@@ -76,7 +76,7 @@ export class CommitNode extends ViewRefNode<ViewWithFiles> {
 			dateFormat: Container.config.defaultDateFormat,
 		});
 		item.iconPath = this.view.config.avatars
-			? this.commit.getGravatarUri(Container.config.defaultGravatarsStyle)
+			? this.commit.getAvatarUri(Container.config.defaultGravatarsStyle)
 			: new ThemeIcon('git-commit');
 		item.tooltip = CommitFormatter.fromTemplate(
 			this.commit.isUncommitted

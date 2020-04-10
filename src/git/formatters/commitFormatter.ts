@@ -163,15 +163,15 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				presence.status === 'dnd' ? 'in ' : emptyStr
 			}${presence.statusText.toLocaleLowerCase()}`;
 
-			return `${this._getGravatarMarkdown(title)}${this._getPresenceMarkdown(presence, title)}`;
+			return `${this._getAvatarMarkdown(title)}${this._getPresenceMarkdown(presence, title)}`;
 		}
 
-		return this._getGravatarMarkdown(this._item.author);
+		return this._getAvatarMarkdown(this._item.author);
 	}
 
-	private _getGravatarMarkdown(title: string) {
+	private _getAvatarMarkdown(title: string) {
 		return `![${title}](${this._item
-			.getGravatarUri(Container.config.defaultGravatarsStyle)
+			.getAvatarUri(Container.config.defaultGravatarsStyle)
 			.toString(true)}|width=16,height=16 "${title}")`;
 	}
 
