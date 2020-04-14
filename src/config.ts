@@ -456,3 +456,8 @@ export interface ViewsFilesConfig {
 	layout: ViewFilesLayout;
 	threshold: number;
 }
+
+export const viewKeys: (keyof Pick<
+	Config['views'],
+	'repositories' | 'fileHistory' | 'lineHistory' | 'compare' | 'search'
+>)[] = ['repositories', 'fileHistory', 'lineHistory', 'compare', 'search'];
