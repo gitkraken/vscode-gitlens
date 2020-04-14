@@ -631,6 +631,19 @@ ul {
 	flex-wrap: wrap;
 }
 
+.preset {
+	text-align: center;
+
+	p {
+		color: var(--color-foreground--75);
+		display: block;
+		font-weight: 200;
+		font-size: 1.3rem;
+		margin: -0.5em 1em 0.5em 1em;
+		text-align: center;
+	}
+}
+
 section {
 	display: flex;
 	flex-wrap: wrap;

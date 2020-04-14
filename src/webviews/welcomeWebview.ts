@@ -1,10 +1,8 @@
 'use strict';
-import { commands } from 'vscode';
 import { Commands } from '../commands';
 import { Container } from '../container';
 import { WelcomeState } from './protocol';
 import { WebviewBase } from './webviewBase';
-import { applyViewLayoutPreset } from './helpers';
 
 export class WelcomeWebview extends WebviewBase {
 	constructor() {
@@ -21,10 +19,6 @@ export class WelcomeWebview extends WebviewBase {
 
 	get title(): string {
 		return 'Welcome to GitLens';
-	}
-
-	registerCommands() {
-		return [commands.registerCommand(`${this.id}.applyViewLayoutPreset`, applyViewLayoutPreset, this)];
 	}
 
 	renderEndOfBody() {

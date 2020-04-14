@@ -79,6 +79,7 @@ export enum Commands {
 	RevealCommitInView = 'gitlens.revealCommitInView',
 	SearchCommits = 'gitlens.showCommitSearch',
 	SearchCommitsInView = 'gitlens.views.search.searchCommits',
+	SetViewsLayout = 'gitlens.setViewsLayout',
 	ShowCommitInView = 'gitlens.showCommitInView',
 	ShowCommitsInView = 'gitlens.showCommitsInView',
 	ShowCompareView = 'gitlens.showCompareView',

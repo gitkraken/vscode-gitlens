@@ -2287,6 +2287,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.setViewsLayout",
+				"title": "Set Views Layout",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.showCommitSearch",
 				"title": "Search Commits",
 				"category": "GitLens",
@@ -5931,27 +5936,27 @@
 			"gitlens": [
 				{
 					"id": "gitlens.views.repositories:gitlens",
-					"name": "Repositories",
+					"name": "GitLens: Repositories",
 					"when": "config.gitlens.views.repositories.enabled && config.gitlens.views.repositories.location == gitlens"
 				},
 				{
 					"id": "gitlens.views.fileHistory:gitlens",
-					"name": "File History",
+					"name": "GitLens: File History",
 					"when": "config.gitlens.views.fileHistory.enabled && config.gitlens.views.fileHistory.location == gitlens"
 				},
 				{
 					"id": "gitlens.views.lineHistory:gitlens",
-					"name": "Line History",
+					"name": "GitLens: Line History",
 					"when": "config.gitlens.views.lineHistory.enabled && config.gitlens.views.lineHistory.location == gitlens"
 				},
 				{
 					"id": "gitlens.views.compare:gitlens",
-					"name": "Compare",
+					"name": "GitLens: Compare Commits",
 					"when": "config.gitlens.views.compare.enabled && config.gitlens.views.compare.location == gitlens"
 				},
 				{
 					"id": "gitlens.views.search:gitlens",
-					"name": "Search Commits",
+					"name": "GitLens: Search Commits",
 					"when": "config.gitlens.views.search.enabled && config.gitlens.views.search.location == gitlens"
 				}
 			],
@@ -5973,7 +5978,7 @@
 				},
 				{
 					"id": "gitlens.views.compare:explorer",
-					"name": "GitLens: Compare",
+					"name": "GitLens: Compare Commits",
 					"when": "gitlens:enabled && config.gitlens.views.compare.enabled && config.gitlens.views.compare.location == explorer"
 				},
 				{
@@ -6000,7 +6005,7 @@
 				},
 				{
 					"id": "gitlens.views.compare:scm",
-					"name": "GitLens: Compare",
+					"name": "GitLens: Compare Commits",
 					"when": "gitlens:enabled && config.gitlens.views.compare.enabled && config.gitlens.views.compare.location == scm"
 				},
 				{

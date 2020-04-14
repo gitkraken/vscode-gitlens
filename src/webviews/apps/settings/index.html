@@ -1103,147 +1103,33 @@
 							<div class="section__content">
 								<p class="blurb mt-0">
 									GitLens views can be configured to be shown in different side bar layouts to best
-									match your workflow. You can easily change the default layout (where all views are
-									shown together on the GitLens side bar) below
+									match your workflow
 								</p>
 								<div class="presets mb-1">
-									<a
-										class="button button--flat"
-										title="Shows all the views together on the GitLens side bar"
-										href="command:gitlens.settings.applyViewLayoutPreset?%22default%22"
-										>Default Layout</a
-									>
-									<a
-										class="button button--flat"
-										title="Shows all the views together on the Source Control side bar"
-										href="command:gitlens.settings.applyViewLayoutPreset?%22scm%22"
-										>Source Control Layout</a
-									>
-									<a
-										class="button button--flat"
-										title="Shows Repositories on the Source Control side bar, File and Line History on the Explorer side bar, and others on the GitLens side bar"
-										href="command:gitlens.settings.applyViewLayoutPreset?%22contextual%22"
-										>Contextual Layout</a
-									>
+									<div class="preset">
+										<a
+											class="button button--flat"
+											title="Shows all the views together on the GitLens side bar"
+											href="command:gitlens.setViewsLayout?%7B%22layout%22%3A%22default%22%7D"
+											>GitLens Layout (default)</a
+										>
+										<p>Shows all the views together on the GitLens side bar</p>
+									</div>
+									<div class="preset">
+										<a
+											class="button button--flat"
+											title="Shows all the views together on the Source Control side bar"
+											href="command:gitlens.setViewsLayout?%7B%22layout%22%3A%22scm%22%7D"
+											>Source Control Layout</a
+										>
+										<p>Shows all the views together on the Source Control side bar</p>
+									</div>
 								</div>
 
-								<div class="settings ml-2 mr-2">
-									<div class="setting" data-enablement="views.repositories.enabled">
-										<div class="setting__input nowrap">
-											<label for="views.repositories.location">Show Repositories in the </label>
-											<select
-												id="views.repositories.location"
-												name="views.repositories.location"
-												data-setting
-												disabled
-											>
-												<option value="gitlens">GitLens side bar</option>
-												<option value="explorer">Explorer side bar</option>
-												<option value="scm">Source Control side bar</option>
-											</select>
-											<a
-												class="link__configure"
-												data-action="jump"
-												title="Jump to Repositories view settings"
-												href="#repositories-view"
-											>
-												<i class="icon icon__gear"></i>
-											</a>
-										</div>
-									</div>
-									<div class="setting" data-enablement="views.fileHistory.enabled">
-										<div class="setting__input nowrap">
-											<label for="views.fileHistory.location">Show File History in the </label>
-											<select
-												id="views.fileHistory.location"
-												name="views.fileHistory.location"
-												data-setting
-												disabled
-											>
-												<option value="gitlens">GitLens side bar</option>
-												<option value="explorer">Explorer side bar</option>
-												<option value="scm">Source Control side bar</option>
-											</select>
-											<a
-												class="link__configure"
-												data-action="jump"
-												title="Jump to File History view settings"
-												href="#file-history-view"
-											>
-												<i class="icon icon__gear"></i>
-											</a>
-										</div>
-									</div>
-									<div class="setting" data-enablement="views.lineHistory.enabled">
-										<div class="setting__input nowrap">
-											<label for="views.lineHistory.location">Show Line History in the </label>
-											<select
-												id="views.lineHistory.location"
-												name="views.lineHistory.location"
-												data-setting
-												disabled
-											>
-												<option value="gitlens">GitLens side bar</option>
-												<option value="explorer">Explorer side bar</option>
-												<option value="scm">Source Control side bar</option>
-											</select>
-											<a
-												class="link__configure"
-												data-action="jump"
-												title="Jump to Line History view settings"
-												href="#line-history-view"
-											>
-												<i class="icon icon__gear"></i>
-											</a>
-										</div>
-									</div>
-									<div class="setting" data-enablement="views.search.enabled">
-										<div class="setting__input nowrap">
-											<label for="views.search.location">Show Search Commits in the </label>
-											<select
-												id="views.search.location"
-												name="views.search.location"
-												data-setting
-												disabled
-											>
-												<option value="gitlens">GitLens side bar</option>
-												<option value="explorer">Explorer side bar</option>
-												<option value="scm">Source Control side bar</option>
-											</select>
-											<a
-												class="link__configure"
-												data-action="jump"
-												title="Jump to Search Commits view settings"
-												href="#search-commits-view"
-											>
-												<i class="icon icon__gear"></i>
-											</a>
-										</div>
-									</div>
-									<div class="setting" data-enablement="views.compare.enabled">
-										<div class="setting__input nowrap">
-											<label for="views.compare.location">Show Compare in the </label>
-											<select
-												id="views.compare.location"
-												name="views.compare.location"
-												data-setting
-												disabled
-											>
-												<option value="gitlens">GitLens side bar</option>
-												<option value="explorer">Explorer side bar</option>
-												<option value="scm">Source Control side bar</option>
-											</select>
-											<a
-												class="link__configure"
-												data-action="jump"
-												title="Jump to Compare view settings"
-												href="#compare-view"
-											>
-												<i class="icon icon__gear"></i>
-											</a>
-										</div>
-									</div>
-								</div>
+								<p class="section__hint">
+									<i class="icon icon__info"></i> You can also simply drag &amp; drop individual views
+									to create custom layouts
+								</p>
 							</div>
 						</div>
 					</div>

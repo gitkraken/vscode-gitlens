@@ -10,7 +10,6 @@ import {
 	SettingsState,
 } from './protocol';
 import { WebviewBase } from './webviewBase';
-import { applyViewLayoutPreset } from './helpers';
 
 const anchorRegex = /.*?#(.*)/;
 
@@ -94,9 +93,5 @@ export class SettingsWebview extends WebviewBase {
 		return `<script type="text/javascript" nonce="Z2l0bGVucy1ib290c3RyYXA=">window.bootstrap = ${JSON.stringify(
 			bootstrap,
 		)};</script>`;
-	}
-
-	registerCommands() {
-		return [commands.registerCommand(`${this.id}.applyViewLayoutPreset`, applyViewLayoutPreset, this)];
 	}
 }
