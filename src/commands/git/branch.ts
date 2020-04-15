@@ -587,6 +587,7 @@ export class BranchGitCommand extends QuickCommandBase<State> {
 						state.repo.formattedName
 					}`,
 					placeholder: `Please provide a new name for branch ${state.reference.getName()}`,
+					value: state.reference?.name,
 					validate: async (value: string | undefined): Promise<[boolean, string | undefined]> => {
 						if (value == null) return [false, undefined];
 
