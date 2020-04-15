@@ -852,6 +852,40 @@
 										}
 									]
 								},
+								"scm": {
+									"anyOf": [
+										{
+											"enum": [
+												false
+											]
+										},
+										{
+											"type": "object",
+											"properties": {
+												"authors": {
+													"type": "boolean"
+												}
+											}
+										}
+									]
+								},
+								"scmGroupInline": {
+									"anyOf": [
+										{
+											"enum": [
+												false
+											]
+										},
+										{
+											"type": "object",
+											"properties": {
+												"stash": {
+													"type": "boolean"
+												}
+											}
+										}
+									]
+								},
 								"scmGroup": {
 									"anyOf": [
 										{
@@ -869,9 +903,6 @@
 													"type": "boolean"
 												},
 												"stash": {
-													"type": "boolean"
-												},
-												"stashInline": {
 													"type": "boolean"
 												}
 											}
@@ -935,11 +966,16 @@
 							"history": true,
 							"remote": true
 						},
+						"scm": {
+							"authors": true
+						},
+						"scmGroupInline": {
+							"stash": true
+						},
 						"scmGroup": {
 							"compare": true,
 							"openClose": true,
-							"stash": true,
-							"stashInline": true
+							"stash": true
 						},
 						"scmItem": {
 							"clipboard": true,
@@ -4434,14 +4470,14 @@
 			"scm/title": [
 				{
 					"command": "gitlens.addAuthors",
-					"when": "gitlens:enabled && !gitlens:readonly",
+					"when": "gitlens:enabled && !gitlens:readonly && config.gitlens.menus.scm.authors",
 					"group": "navigation@-99"
 				}
 			],
 			"scm/resourceGroup/context": [
 				{
 					"command": "gitlens.stashSave",
-					"when": "gitlens:enabled && !gitlens:readonly && config.gitlens.menus.scmGroup.stashInline",
+					"when": "gitlens:enabled && !gitlens:readonly && config.gitlens.menus.scmGroupInline.stash",
 					"group": "inline@-1"
 				},
 				{

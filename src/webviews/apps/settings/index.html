@@ -2652,6 +2652,72 @@
 									<div class="setting__input">
 										<div class="setting__expander"></div>
 										<input
+											id="menus.scm"
+											name="menus.scm"
+											type="checkbox"
+											value="undefined"
+											data-setting
+											data-setting-type="object"
+											disabled
+										/>
+										<label for="menus.scm">Add commands to the Source Control toolbar</label>
+									</div>
+								</div>
+
+								<div class="settings ml-4">
+									<div class="setting" data-enablement="menus.scm">
+										<div class="setting__input">
+											<input
+												id="menus.scm.authors"
+												name="menus.scm.authors"
+												type="checkbox"
+												data-setting
+												data-setting-type="object"
+												disabled
+											/>
+											<label for="menus.scm.authors">Add co-authors command</label>
+										</div>
+									</div>
+								</div>
+
+								<div class="setting setting--expandable" data-enablement="menus">
+									<div class="setting__input">
+										<div class="setting__expander"></div>
+										<input
+											id="menus.scmGroupInline"
+											name="menus.scmGroupInline"
+											type="checkbox"
+											value="undefined"
+											data-setting
+											data-setting-type="object"
+											disabled
+										/>
+										<label for="menus.scmGroupInline"
+											>Add commands to the Source Control groups toolbar</label
+										>
+									</div>
+								</div>
+
+								<div class="settings ml-4">
+									<div class="setting" data-enablement="menus.scmGroupInline">
+										<div class="setting__input">
+											<input
+												id="menus.scmGroupInline.stash"
+												name="menus.scmGroupInline.stash"
+												type="checkbox"
+												data-setting
+												data-setting-type="object"
+												disabled
+											/>
+											<label for="menus.scmGroupInline.stash">Add stash changes command</label>
+										</div>
+									</div>
+								</div>
+
+								<div class="setting setting--expandable" data-enablement="menus">
+									<div class="setting__input">
+										<div class="setting__expander"></div>
+										<input
 											id="menus.scmGroup"
 											name="menus.scmGroup"
 											type="checkbox"
@@ -2667,22 +2733,6 @@
 								</div>
 
 								<div class="settings ml-4">
-									<div class="setting" data-enablement="menus.scmGroup">
-										<div class="setting__input">
-											<input
-												id="menus.scmGroup.stashInline"
-												name="menus.scmGroup.stashInline"
-												type="checkbox"
-												data-setting
-												data-setting-type="object"
-												disabled
-											/>
-											<label for="menus.scmGroup.stashInline"
-												>Add stash changes command to the inline toolbar</label
-											>
-										</div>
-									</div>
-
 									<div class="setting" data-enablement="menus.scmGroup">
 										<div class="setting__input">
 											<input
