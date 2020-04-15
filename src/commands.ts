@@ -1,5 +1,6 @@
 'use strict';
 
+export * from './commands/addAuthors';
 export * from './commands/annotations';
 export * from './commands/closeUnchangedFiles';
 export * from './commands/common';

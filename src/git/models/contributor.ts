@@ -23,4 +23,8 @@ export class GitContributor {
 	getAvatarUri(fallback: GravatarDefaultStyle, size: number = 16): Uri {
 		return getAvatarUri(this.email, fallback, size);
 	}
+
+	toCoauthor(): string {
+		return `${this.name}${this.email ? ` <${this.email}>` : ''}`;
+	}
 }

@@ -4,6 +4,7 @@ import {
 	commands,
 	Disposable,
 	ExtensionContext,
+	SourceControl,
 	SourceControlResourceGroup,
 	SourceControlResourceState,
 	TextDocumentShowOptions,
@@ -23,6 +24,7 @@ import { CommandQuickPickItem, RepositoriesQuickPick } from '../quickpicks';
 import { ViewNode, ViewRefNode } from '../views/nodes';
 
 export enum Commands {
+	AddAuthors = 'gitlens.addAuthors',
 	ClearFileAnnotations = 'gitlens.clearFileAnnotations',
 	CloseUnchangedFiles = 'gitlens.closeUnchangedFiles',
 	ComputingFileAnnotations = 'gitlens.computingFileAnnotations',
@@ -345,6 +347,7 @@ function isScmResourceGroup(group: any): group is SourceControlResourceGroup {
 	if (group == null) return false;
 
 	return (
+		(group as SourceControl).inputBox === undefined &&
 		(group as SourceControlResourceGroup).id !== undefined &&
 		(group.handle !== undefined ||
 			(group as SourceControlResourceGroup).label !== undefined ||
