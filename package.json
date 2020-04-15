@@ -2391,6 +2391,15 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.addAuthors",
+				"title": "Add Co-authors",
+				"category": "GitLens",
+				"icon": {
+					"dark": "images/dark/icon-person-add.svg",
+					"light": "images/light/icon-person-add.svg"
+				}
+			},
+			{
 				"command": "gitlens.connectRemoteProvider",
 				"title": "Connect to Remote",
 				"category": "GitLens",
@@ -4420,6 +4429,13 @@
 					"command": "gitlens.copyRemoteFileUrlToClipboard",
 					"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && gitlens:hasRemotes && config.gitlens.menus.explorer.clipboard",
 					"group": "6_copypath@100"
+				}
+			],
+			"scm/title": [
+				{
+					"command": "gitlens.addAuthors",
+					"when": "gitlens:enabled && !gitlens:readonly",
+					"group": "navigation@-99"
 				}
 			],
 			"scm/resourceGroup/context": [

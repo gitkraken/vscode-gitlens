@@ -1,5 +1,6 @@
 /* eslint-disable no-loop-func */
 'use strict';
+import { commands } from 'vscode';
 import { Container } from '../../container';
 import { GitContributor, GitService, Repository } from '../../git/gitService';
 import { QuickCommandBase, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
@@ -56,12 +57,14 @@ export class CoAuthorsGitCommand extends QuickCommandBase<State> {
 		const repo = gitApi.repositories.find(r => Strings.normalizePath(r.rootUri.fsPath) === state.repo.path);
 		if (repo === undefined) return;
 
+		let message = repo.inputBox.value;
+
+		const index = message.indexOf('Co-authored-by: ');
+		if (index !== -1) {
+			message = message.substring(0, index - 1).trimRight();
+		}
+
 		for (const c of state.contributors) {
-			const coauthor = `${c.name}${c.email ? ` <${c.email}>` : ''}`;
-
-			const message = repo.inputBox.value;
-			if (message.includes(coauthor)) continue;
-
 			let newlines;
 			if (message.includes('Co-authored-by: ')) {
 				newlines = '\n';
@@ -71,8 +74,11 @@ export class CoAuthorsGitCommand extends QuickCommandBase<State> {
 				newlines = '\n\n\n';
 			}
 
-			repo.inputBox.value = `${message}${newlines}Co-authored-by: ${coauthor}`;
+			message += `${newlines}Co-authored-by: ${c.toCoauthor()}`;
 		}
+
+		repo.inputBox.value = message;
+		void (await commands.executeCommand('workbench.view.scm'));
 	}
 
 	protected async *steps(): StepAsyncGenerator {
@@ -137,13 +143,18 @@ export class CoAuthorsGitCommand extends QuickCommandBase<State> {
 				}
 
 				if (state.contributors === undefined || state.counter < 2) {
+					const message = (await GitService.getBuiltInGitApi())?.repositories.find(
+						r => Strings.normalizePath(r.rootUri.fsPath) === state.repo!.path,
+					)?.inputBox.value;
+
 					const step = this.createPickStep<ContributorQuickPickItem>({
 						title: `${this.title} to ${state.repo.formattedName}`,
+						allowEmpty: true,
 						multiselect: true,
 						placeholder: 'Choose contributors to add as co-authors',
 						matchOnDescription: true,
 						items: (await Container.git.getContributors(state.repo.path)).map(c =>
-							ContributorQuickPickItem.create(c),
+							ContributorQuickPickItem.create(c, message?.includes(c.toCoauthor())),
 						),
 					});
 					const selection: StepSelection<typeof step> = yield step;

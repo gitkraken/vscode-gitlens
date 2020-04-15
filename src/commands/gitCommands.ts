@@ -405,9 +405,15 @@ export class GitCommandsCommand extends Command {
 						if (items.length === 0) {
 							if (!quickpick.canSelectMany || quickpick.activeItems.length === 0) {
 								const value = quickpick.value.trim();
-								if (value.length === 0) return;
+								if (value.length === 0 && !step.allowEmpty) return;
 
-								if (step.onDidAccept === undefined) return;
+								if (step.onDidAccept === undefined) {
+									if (step.allowEmpty) {
+										resolve(await this.nextStep(quickpick, commandsStep.command!, []));
+									}
+
+									return;
+								}
 
 								quickpick.busy = true;
 

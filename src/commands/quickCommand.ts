@@ -75,6 +75,7 @@ export function isQuickInputStep(item: QuickPickStep | QuickInputStep): item is 
 
 export interface QuickPickStep<T extends QuickPickItem = any> {
 	additionalButtons?: QuickInputButton[];
+	allowEmpty?: boolean;
 	buttons?: QuickInputButton[];
 	items: (DirectiveQuickPickItem | T)[] | DirectiveQuickPickItem[];
 	keys?: StepNavigationKeys[];
