@@ -356,13 +356,22 @@ export interface MenuConfig {
 				history: boolean;
 				remote: boolean;
 		  };
+	scm:
+		| false
+		| {
+				authors: boolean;
+		  };
+	scmGroupInline:
+		| false
+		| {
+				stash: boolean;
+		  };
 	scmGroup:
 		| false
 		| {
 				compare: boolean;
 				openClose: boolean;
 				stash: boolean;
-				stashInline: boolean;
 		  };
 	scmItem:
 		| false
