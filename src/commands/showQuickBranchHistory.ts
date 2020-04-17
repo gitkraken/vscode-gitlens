@@ -6,7 +6,9 @@ import { executeGitCommand } from './gitCommands';
 import { GitUri } from '../git/gitUri';
 
 export interface ShowQuickBranchHistoryCommandArgs {
+	repoPath?: string;
 	branch?: string;
+	tag?: string;
 }
 
 @command()
@@ -29,24 +31,27 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
 
 		const gitUri = uri && (await GitUri.fromUri(uri));
 
+		const repoPath = args?.repoPath ?? gitUri?.repoPath;
+
+		let ref: GitReference | 'HEAD' | undefined;
+		if (repoPath != null) {
+			if (args?.branch != null) {
+				ref =
+					args.branch === 'HEAD'
+						? 'HEAD'
+						: GitReference.create(args.branch, repoPath, {
+								refType: 'branch',
+								name: args.branch,
+								remote: false,
+						  });
+			} else if (args?.tag != null) {
+				ref = GitReference.create(args.tag, repoPath, { refType: 'tag', name: args.tag });
+			}
+		}
+
 		return executeGitCommand({
 			command: 'log',
-			state:
-				gitUri?.repoPath != null
-					? {
-							repo: gitUri.repoPath,
-							reference:
-								args?.branch != null
-									? args.branch === 'HEAD'
-										? 'HEAD'
-										: GitReference.create(args.branch, gitUri.repoPath, {
-												refType: 'branch',
-												name: args.branch,
-												remote: false,
-										  })
-									: undefined,
-					  }
-					: {},
+			state: repoPath != null ? { repo: repoPath, reference: ref } : {},
 		});
 	}
 }
