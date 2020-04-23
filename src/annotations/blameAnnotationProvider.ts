@@ -13,7 +13,8 @@ import {
 import { AnnotationProviderBase } from './annotationProvider';
 import { ComputedHeatmap } from './annotations';
 import { Container } from '../container';
-import { GitBlame, GitBlameCommit, GitCommit, GitUri } from '../git/gitService';
+import { GitBlame, GitBlameCommit, GitCommit } from '../git/git';
+import { GitUri } from '../git/gitUri';
 import { Hovers } from '../hovers/hovers';
 import { Arrays, Iterables, log } from '../system';
 import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';

@@ -2,7 +2,7 @@
 import * as paths from 'path';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
-import { CommitFormatter, GitStashCommit } from '../../git/gitService';
+import { CommitFormatter, GitStashCommit } from '../../git/git';
 import { Arrays, Iterables, Strings } from '../../system';
 import { ViewWithFiles } from '../viewBase';
 import { StashFileNode } from './stashFileNode';
@@ -51,7 +51,7 @@ export class StashNode extends ViewRefNode<ViewWithFiles> {
 			}
 		}
 
-		let children: FileNode[] = files.map(s => new StashFileNode(this.view, this, s, this.commit.toFileCommit(s)));
+		let children: FileNode[] = files.map(s => new StashFileNode(this.view, this, s, this.commit.toFileCommit(s)!));
 		if (this.view.config.files.layout !== ViewFilesLayout.List) {
 			const hierarchy = Arrays.makeHierarchical(
 				children,

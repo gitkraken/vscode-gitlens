@@ -1,9 +1,9 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { getRepoPathOrPrompt } from '../../commands';
-import { CommandContext, GlyphChars, NamedRef, setCommandContext } from '../../constants';
-import { GitService } from '../../git/gitService';
-import { ReferencesQuickPick, ReferencesQuickPickIncludes } from '../../quickpicks';
+import { CommandContext, NamedRef, setCommandContext } from '../../constants';
+import { GitRevision } from '../../git/git';
+import { ReferencePicker, ReferencesQuickPickIncludes } from '../../quickpicks';
 import { debug, gate, Iterables, log, Promises } from '../../system';
 import { CompareView } from '../compareView';
 import { MessageNode } from './common';
@@ -137,13 +137,15 @@ export class CompareNode extends ViewNode<CompareView> {
 		}
 
 		if (ref === undefined) {
-			const pick = await new ReferencesQuickPick(repoPath).show(
-				`Compare ${this.getRefName(this._selectedRef.ref)} with${GlyphChars.Ellipsis}`,
+			const pick = await ReferencePicker.show(
+				repoPath,
+				`Compare ${this.getRefName(this._selectedRef.ref)} with`,
+				'Choose a reference to compare with',
 				{
 					allowEnteringRefs: true,
-					checked:
+					picked:
 						typeof this._selectedRef.ref === 'string' ? this._selectedRef.ref : this._selectedRef.ref.ref,
-					checkmarks: true,
+					// checkmarks: true,
 					include:
 						ReferencesQuickPickIncludes.BranchesAndTags |
 						ReferencesQuickPickIncludes.HEAD |
@@ -170,7 +172,7 @@ export class CompareNode extends ViewNode<CompareView> {
 
 	async selectForCompare(repoPath?: string, ref?: string | NamedRef) {
 		if (repoPath === undefined) {
-			repoPath = await getRepoPathOrPrompt(`Compare in which repository${GlyphChars.Ellipsis}`);
+			repoPath = await getRepoPathOrPrompt('Compare');
 		}
 		if (repoPath === undefined) {
 			await this.view.show();
@@ -181,15 +183,15 @@ export class CompareNode extends ViewNode<CompareView> {
 
 		let autoCompare = false;
 		if (ref === undefined) {
-			const pick = await new ReferencesQuickPick(repoPath).show(`Compare${GlyphChars.Ellipsis}`, {
+			const pick = await ReferencePicker.show(repoPath, 'Compare', 'Choose a reference to compare', {
 				allowEnteringRefs: true,
-				checkmarks: false,
+				// checkmarks: false,
 				include:
 					ReferencesQuickPickIncludes.BranchesAndTags |
 					ReferencesQuickPickIncludes.HEAD |
 					ReferencesQuickPickIncludes.WorkingTree,
 			});
-			if (pick === undefined) {
+			if (pick == null) {
 				await this.view.show();
 				await this.view.reveal(this._comparePickerNode!, { focus: true, select: true });
 
@@ -213,6 +215,6 @@ export class CompareNode extends ViewNode<CompareView> {
 	}
 
 	private getRefName(ref: string | NamedRef) {
-		return typeof ref === 'string' ? GitService.shortenSha(ref)! : ref.label || GitService.shortenSha(ref.ref)!;
+		return typeof ref === 'string' ? GitRevision.shorten(ref)! : ref.label || GitRevision.shorten(ref.ref)!;
 	}
 }

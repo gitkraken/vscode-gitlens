@@ -1,7 +1,7 @@
 {
 	"extends": "./tsconfig.json",
 	"compilerOptions": {
-		"lib": ["dom", "dom.iterable", "es2018"],
+		"lib": ["dom", "dom.iterable", "es2019"],
 		"outDir": "dist/webviews"
 	},
 	"include": ["src/config.ts", "src/webviews/protocol.ts", "src/webviews/apps/**/*"],

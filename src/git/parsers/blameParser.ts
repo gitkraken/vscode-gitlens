@@ -1,6 +1,6 @@
 'use strict';
 import * as paths from 'path';
-import { Git, GitAuthor, GitBlame, GitBlameCommit, GitCommitLine } from '../git';
+import { GitAuthor, GitBlame, GitBlameCommit, GitCommitLine, GitRevision } from '../git';
 import { debug, Strings } from '../../system';
 
 const emptyStr = '';
@@ -69,7 +69,7 @@ export class GitBlameParser {
 
 			switch (lineParts[0]) {
 				case 'author':
-					if (Git.isUncommitted(entry.sha)) {
+					if (GitRevision.isUncommitted(entry.sha)) {
 						entry.author = 'You';
 					} else {
 						entry.author = lineParts.slice(1).join(' ').trim();
@@ -77,7 +77,7 @@ export class GitBlameParser {
 					break;
 
 				case 'author-mail': {
-					if (Git.isUncommitted(entry.sha)) {
+					if (GitRevision.isUncommitted(entry.sha)) {
 						entry.authorEmail = currentUser !== undefined ? currentUser.email : undefined;
 						continue;
 					}

@@ -5,7 +5,7 @@ import { ViewWithFiles } from '../viewBase';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
 import { ResourceType, ViewNode } from './viewNode';
 import { RepositoryNode } from './repositoryNode';
-import { SearchPattern } from '../../git/gitService';
+import { SearchPattern } from '../../git/git';
 
 let instanceId = 0;
 

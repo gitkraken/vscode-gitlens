@@ -31,7 +31,7 @@ function ensureTerminal(cwd: string): Terminal {
 }
 
 export function runGitCommandInTerminal(command: string, args: string, cwd: string, execute: boolean = false) {
-	// let git = GitService.getGitPath();
+	// let git = Git.getGitPath();
 	// if (git.includes(' ')) {
 	//     git = `"${git}"`;
 	// }

@@ -87,6 +87,11 @@ export class GitLogCommit extends GitCommit {
 		return this.isFile ? this.previousSha! : `${this.sha}^`;
 	}
 
+	findFile(fileName: string): GitFile | undefined {
+		fileName = GitUri.relativeTo(fileName, this.repoPath);
+		return this.files.find(f => f.fileName === fileName);
+	}
+
 	@memoize()
 	getDiffStatus() {
 		if (this._fileStats !== undefined) {
@@ -162,19 +167,14 @@ export class GitLogCommit extends GitCommit {
 		}${compact && deleted === 0 ? '' : `-${deleted}`}${suffix}`;
 	}
 
-	toFileCommit(fileName: string): GitLogCommit | undefined;
-	toFileCommit(file: GitFile): GitLogCommit;
-	toFileCommit(fileNameOrFile: string | GitFile): GitLogCommit | undefined {
-		const fileName =
-			typeof fileNameOrFile === 'string'
-				? GitUri.relativeTo(fileNameOrFile, this.repoPath)
-				: fileNameOrFile.fileName;
-		const file = this.files.find(f => f.fileName === fileName);
-		if (file === undefined) return undefined;
+	toFileCommit(file: string | GitFile): GitLogCommit | undefined {
+		const fileName = typeof file === 'string' ? GitUri.relativeTo(file, this.repoPath) : file.fileName;
+		const foundFile = this.files.find(f => f.fileName === fileName);
+		if (foundFile === undefined) return undefined;
 
 		let sha;
 		// If this is a stash commit with an untracked file
-		if (this.type === GitCommitType.Stash && file.status === '?') {
+		if (this.type === GitCommitType.Stash && foundFile.status === '?') {
 			sha = `${this.sha}^3`;
 		}
 
@@ -184,12 +184,12 @@ export class GitLogCommit extends GitCommit {
 		return this.with({
 			type: this.isStash ? GitCommitType.StashFile : GitCommitType.LogFile,
 			sha: sha,
-			fileName: file.fileName,
-			originalFileName: file.originalFileName,
+			fileName: foundFile.fileName,
+			originalFileName: foundFile.originalFileName,
 			previousSha: previousSha,
-			previousFileName: file.originalFileName || file.fileName,
-			status: file.status,
-			files: [file],
+			previousFileName: foundFile.originalFileName || foundFile.fileName,
+			status: foundFile.status,
+			files: [foundFile],
 		});
 	}
 

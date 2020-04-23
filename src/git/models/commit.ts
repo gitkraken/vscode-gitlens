@@ -4,10 +4,9 @@ import { configuration, DateSource, DateStyle, GravatarDefaultStyle } from '../.
 import { Container } from '../../container';
 import { Dates, memoize } from '../../system';
 import { CommitFormatter } from '../formatters/formatters';
-import { Git } from '../git';
 import { GitUri } from '../gitUri';
 import { getAvatarUri } from '../../avatars';
-import { GitReference } from './models';
+import { GitReference, GitRevision, GitRevisionReference } from './models';
 
 export interface GitAuthor {
 	name: string;
@@ -42,13 +41,13 @@ export const CommitDateFormatting = {
 	},
 };
 
-export abstract class GitCommit implements GitReference {
+export abstract class GitCommit implements GitRevisionReference {
 	static is(commit: any): commit is GitCommit {
 		return commit instanceof GitCommit;
 	}
 
-	static isOfRefType(branch: GitReference | undefined) {
-		return branch !== undefined && branch.refType === 'revision';
+	static isOfRefType(commit: GitReference | undefined) {
+		return commit?.refType === 'revision';
 	}
 
 	readonly refType = 'revision';
@@ -96,7 +95,7 @@ export abstract class GitCommit implements GitReference {
 
 	@memoize()
 	get shortSha() {
-		return Git.shortenSha(this.sha);
+		return GitRevision.shorten(this.sha);
 	}
 
 	get isFile() {
@@ -113,12 +112,12 @@ export abstract class GitCommit implements GitReference {
 
 	@memoize()
 	get isUncommitted(): boolean {
-		return Git.isUncommitted(this.sha);
+		return GitRevision.isUncommitted(this.sha);
 	}
 
 	@memoize()
 	get isUncommittedStaged(): boolean {
-		return Git.isUncommittedStaged(this.sha);
+		return GitRevision.isUncommittedStaged(this.sha);
 	}
 
 	@memoize()
@@ -131,7 +130,7 @@ export abstract class GitCommit implements GitReference {
 	}
 
 	get previousShortSha() {
-		return this.previousSha && Git.shortenSha(this.previousSha);
+		return this.previousSha && GitRevision.shorten(this.previousSha);
 	}
 
 	get previousUri(): Uri {
@@ -214,7 +213,9 @@ export abstract class GitCommit implements GitReference {
 		return this.dateFormatter.fromNow();
 	}
 
-	getFormattedPath(options: { relativeTo?: string; separator?: string; suffix?: string } = {}): string {
+	getFormattedPath(
+		options: { relativeTo?: string; separator?: string; suffix?: string; truncateTo?: number } = {},
+	): string {
 		return GitUri.getFormattedPath(this.fileName, options);
 	}
 

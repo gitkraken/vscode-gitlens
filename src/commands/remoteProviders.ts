@@ -1,5 +1,5 @@
 'use strict';
-import { GitCommit, GitRemote } from '../git/gitService';
+import { GitCommit, GitRemote } from '../git/git';
 import { command, Command, CommandContext, Commands, isCommandViewContextWithRemote } from './common';
 import { Container } from '../container';
 

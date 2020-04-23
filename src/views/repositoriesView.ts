@@ -18,7 +18,15 @@ import {
 } from '../configuration';
 import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
-import { GitBranch, GitLogCommit, GitService, GitStashCommit, GitTag } from '../git/gitService';
+import {
+	GitBranch,
+	GitBranchReference,
+	GitLogCommit,
+	GitReference,
+	GitRevisionReference,
+	GitStashReference,
+	GitTagReference,
+} from '../git/git';
 import {
 	BranchesNode,
 	BranchNode,
@@ -162,7 +170,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 		return { ...Container.config.views, ...Container.config.views.repositories };
 	}
 
-	findBranch(branch: GitBranch, token?: CancellationToken) {
+	findBranch(branch: GitBranchReference, token?: CancellationToken) {
 		const repoNodeId = RepositoryNode.getId(branch.repoPath);
 
 		if (branch.remote) {
@@ -176,7 +184,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 					if (n instanceof RemoteNode) {
 						if (!n.id.startsWith(repoNodeId)) return false;
 
-						return n.remote.name === branch.getRemoteName();
+						return branch.remote && n.remote.name === GitBranch.getRemote(branch.name); //branch.getRemoteName();
 					}
 
 					if (
@@ -276,7 +284,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 		});
 	}
 
-	findStash(stash: GitStashCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
+	findStash(stash: GitStashReference, token?: CancellationToken) {
 		const repoNodeId = RepositoryNode.getId(stash.repoPath);
 
 		return this.findNode(StashNode.getId(stash.repoPath, stash.ref), {
@@ -295,7 +303,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 		});
 	}
 
-	findTag(tag: GitTag, token?: CancellationToken) {
+	findTag(tag: GitTagReference, token?: CancellationToken) {
 		const repoNodeId = RepositoryNode.getId(tag.repoPath);
 
 		return this.findNode((n: any) => n.tag !== undefined && n.tag.ref === tag.ref, {
@@ -317,7 +325,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 
 	@gate(() => '')
 	revealBranch(
-		branch: GitBranch,
+		branch: GitBranchReference,
 		options?: {
 			select?: boolean;
 			focus?: boolean;
@@ -327,7 +335,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing branch '${branch.name}' in the Repositories view...`,
+				title: `Revealing ${GitReference.toString(branch, { icon: false })} in the Repositories view...`,
 				cancellable: true,
 			},
 			async (progress, token) => {
@@ -375,7 +383,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 
 	@gate(() => '')
 	async revealCommit(
-		commit: GitLogCommit | { repoPath: string; ref: string },
+		commit: GitRevisionReference,
 		options?: {
 			select?: boolean;
 			focus?: boolean;
@@ -385,7 +393,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing commit '${GitService.shortenSha(commit.ref)}' in the Repositories view...`,
+				title: `Revealing ${GitReference.toString(commit, { icon: false })} in the Repositories view...`,
 				cancellable: true,
 			},
 			async (progress, token) => {
@@ -400,8 +408,40 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 	}
 
 	@gate(() => '')
+	async revealRepository(
+		repoPath: string,
+		options?: {
+			select?: boolean;
+			focus?: boolean;
+			expand?: boolean | number;
+		},
+	) {
+		const repoNodeId = RepositoryNode.getId(repoPath);
+
+		const node = await this.findNode(repoNodeId, {
+			maxDepth: 1,
+			canTraverse: n => {
+				// Only search for branches nodes in the same repo
+				if (n instanceof RepositoriesNode) return true;
+
+				// if (n instanceof RepositoryNode) {
+				// 	return n.id.startsWith(repoNodeId);
+				// }
+
+				return false;
+			},
+		});
+
+		if (node !== undefined) {
+			await this.reveal(node, options);
+		}
+
+		return node;
+	}
+
+	@gate(() => '')
 	async revealStash(
-		stash: GitStashCommit | { repoPath: string; ref: string; stashName: string },
+		stash: GitStashReference,
 		options?: {
 			select?: boolean;
 			focus?: boolean;
@@ -411,7 +451,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing stash '${stash.stashName}' in the Repositories view...`,
+				title: `Revealing ${GitReference.toString(stash, { icon: false })} in the Repositories view...`,
 				cancellable: true,
 			},
 			async (progress, token) => {
@@ -459,7 +499,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 
 	@gate(() => '')
 	revealTag(
-		tag: GitTag,
+		tag: GitTagReference,
 		options?: {
 			select?: boolean;
 			focus?: boolean;
@@ -469,7 +509,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing tag '${tag.name}' in the Repositories view...`,
+				title: `Revealing ${GitReference.toString(tag, { icon: false })} in the Repositories view...`,
 				cancellable: true,
 			},
 			async (progress, token) => {

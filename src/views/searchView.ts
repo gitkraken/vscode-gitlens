@@ -3,8 +3,8 @@ import { commands, ConfigurationChangeEvent } from 'vscode';
 import { configuration, SearchViewConfig, ViewFilesLayout, ViewsConfig } from '../configuration';
 import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
-import { GitLog, SearchPattern } from '../git/gitService';
-import { Functions, Mutable, Strings } from '../system';
+import { GitLog, SearchPattern } from '../git/git';
+import { Functions, Strings } from '../system';
 import { nodeSupportsConditionalDismissal, SearchNode, SearchResultsCommitsNode, ViewNode } from './nodes';
 import { ViewBase } from './viewBase';
 
@@ -120,6 +120,7 @@ export class SearchView extends ViewBase<SearchNode> {
 		search: SearchPattern,
 		{
 			label,
+			reveal,
 			...options
 		}: {
 			label:
@@ -129,6 +130,11 @@ export class SearchView extends ViewBase<SearchNode> {
 						resultsType?: { singular: string; plural: string };
 				  };
 			limit?: number;
+			reveal?: {
+				select?: boolean;
+				focus?: boolean;
+				expand?: boolean | number;
+			};
 		},
 		results?: Promise<GitLog | undefined> | GitLog,
 	) {
@@ -150,6 +156,7 @@ export class SearchView extends ViewBase<SearchNode> {
 				`Results ${typeof label === 'string' ? label : label.label}`,
 				searchQueryFn,
 			),
+			reveal,
 		);
 	}
 
@@ -159,6 +166,8 @@ export class SearchView extends ViewBase<SearchNode> {
 		log: GitLog,
 		{
 			label,
+			reveal,
+
 			...options
 		}: {
 			label:
@@ -168,6 +177,11 @@ export class SearchView extends ViewBase<SearchNode> {
 						resultsType?: { singular: string; plural: string };
 				  };
 			limit?: number;
+			reveal?: {
+				select?: boolean;
+				focus?: boolean;
+				expand?: boolean | number;
+			};
 		},
 	) {
 		const labelString = this.getSearchLabel(label, log);
@@ -192,14 +206,22 @@ export class SearchView extends ViewBase<SearchNode> {
 
 		return this.addResults(
 			new SearchResultsCommitsNode(this, this._root!, repoPath, search, labelString, searchQueryFn),
+			reveal,
 		);
 	}
 
-	private addResults(results: ViewNode) {
+	private addResults(
+		results: ViewNode,
+		options: {
+			select?: boolean;
+			focus?: boolean;
+			expand?: boolean | number;
+		} = { select: true, expand: true },
+	) {
 		const root = this.ensureRoot();
 		root.addOrReplace(results, !this.keepResults);
 
-		setImmediate(() => void this.reveal(results, { select: true, expand: true }));
+		setImmediate(() => void this.reveal(results, options));
 	}
 
 	private getSearchLabel(

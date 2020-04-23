@@ -3,7 +3,7 @@ import { DecorationOptions, Range, TextEditorDecorationType, window } from 'vsco
 import { FileAnnotationType, GravatarDefaultStyle } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { CommitFormatOptions, CommitFormatter, GitBlameCommit } from '../git/gitService';
+import { CommitFormatOptions, CommitFormatter, GitBlameCommit } from '../git/git';
 import { Logger } from '../logger';
 import { log, Objects, Strings } from '../system';
 import { Annotations } from './annotations';

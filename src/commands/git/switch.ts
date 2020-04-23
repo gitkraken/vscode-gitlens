@@ -1,74 +1,72 @@
 'use strict';
-/* eslint-disable no-loop-func */
-import { ProgressLocation, window } from 'vscode';
+import { ProgressLocation, QuickPickItem, window } from 'vscode';
 import { Container } from '../../container';
-import { GitBranch, GitReference, Repository } from '../../git/gitService';
-import { GlyphChars } from '../../constants';
+import { GitReference, Repository } from '../../git/git';
 import {
-	getBranchesAndOrTags,
-	getValidateGitReferenceFn,
-	QuickCommandBase,
-	SelectableQuickInputButton,
-	StepAsyncGenerator,
+	appendReposToTitle,
+	inputBranchNameStep,
+	PartialStepState,
+	pickBranchOrTagStepMultiRepo,
+	pickRepositoriesStep,
+	QuickCommand,
+	QuickPickStep,
+	StepGenerator,
+	StepResult,
+	StepResultGenerator,
 	StepSelection,
 	StepState,
 } from '../quickCommand';
-import { ReferencesQuickPickItem, RepositoryQuickPickItem } from '../../quickpicks';
-import { Strings } from '../../system';
-import { Logger } from '../../logger';
+import { Arrays } from '../../system';
+
+interface Context {
+	repos: Repository[];
+	showTags: boolean;
+	title: string;
+}
 
 interface State {
-	repos: Repository[];
-	reference: GitBranch | GitReference;
+	repos: string | string[] | Repository | Repository[];
+	reference: GitReference;
 	createBranch?: string;
 }
 
+type SwitchStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repos', string | string[] | Repository>;
+
 export interface SwitchGitCommandArgs {
 	readonly command: 'switch';
-	state?: Partial<State>;
-
 	confirm?: boolean;
+	state?: Partial<State>;
 }
 
-export class SwitchGitCommand extends QuickCommandBase<State> {
-	private readonly Buttons = class {
-		static readonly ShowTags = class extends SelectableQuickInputButton {
-			constructor(on = false) {
-				super('Show Tags', 'tag', on);
-			}
-		};
-	};
-
+export class SwitchGitCommand extends QuickCommand<State> {
 	constructor(args?: SwitchGitCommandArgs) {
 		super('switch', 'switch', 'Switch', {
 			description: 'aka checkout, switches the current branch to a specified branch',
 		});
 
-		if (args == null || args.state == null) return;
-
 		let counter = 0;
-		if (args.state.repos != null && args.state.repos.length !== 0) {
+		if (args?.state?.repos != null && (!Array.isArray(args.state.repos) || args.state.repos.length !== 0)) {
 			counter++;
 		}
 
-		if (args.state.reference != null) {
+		if (args?.state?.reference != null) {
 			counter++;
 		}
 
-		this._initialState = {
+		this.initialState = {
 			counter: counter,
-			confirm: args.confirm,
-			...args.state,
+			confirm: args?.confirm,
+			...args?.state,
 		};
 	}
 
-	async execute(state: State) {
+	async execute(state: SwitchStepState) {
 		return void (await window.withProgress(
 			{
 				location: ProgressLocation.Notification,
 				title: `Switching ${
 					state.repos.length === 1 ? state.repos[0].formattedName : `${state.repos.length} repositories`
-				} to ${state.reference.ref}`,
+				} to ${state.reference.name}`,
 			},
 			() =>
 				Promise.all(
@@ -83,204 +81,120 @@ export class SwitchGitCommand extends QuickCommandBase<State> {
 		return super.isMatch(name) || name === 'checkout';
 	}
 
-	protected async *steps(): StepAsyncGenerator {
-		const state: StepState<State> = this._initialState == null ? { counter: 0 } : this._initialState;
-		let repos;
-		let showTags = false;
+	protected async *steps(state: PartialStepState<State>): StepGenerator {
+		const context: Context = {
+			repos: [...(await Container.git.getOrderedRepositories())],
+			showTags: false,
+			title: this.title,
+		};
 
-		while (true) {
-			try {
-				if (repos == null) {
-					repos = [...(await Container.git.getOrderedRepositories())];
-				}
+		if (state.repos != null && !Array.isArray(state.repos)) {
+			state.repos = [state.repos] as string[] | Repository[];
+		}
 
-				if (state.repos == null || state.counter < 1) {
-					if (repos.length === 1) {
+		while (this.canStepsContinue(state)) {
+			context.title = this.title;
+
+			if (
+				state.counter < 1 ||
+				state.repos == null ||
+				state.repos.length === 0 ||
+				Arrays.isStringArray(state.repos)
+			) {
+				if (context.repos.length === 1) {
+					if (state.repos == null) {
 						state.counter++;
-						state.repos = [repos[0]];
-					} else {
-						let actives: Repository[];
-						if (state.repos) {
-							actives = state.repos;
-						} else {
-							const active = await Container.git.getActiveRepository();
-							actives = active ? [active] : [];
-						}
-
-						const step = this.createPickStep<RepositoryQuickPickItem>({
-							multiselect: true,
-							title: this.title,
-							placeholder: 'Choose repositories',
-							items: await Promise.all(
-								repos.map(repo =>
-									RepositoryQuickPickItem.create(
-										repo,
-										actives.some(r => r.id === repo.id),
-										{
-											branch: true,
-											fetched: true,
-											status: true,
-										},
-									),
-								),
-							),
-						});
-						const selection: StepSelection<typeof step> = yield step;
-
-						if (!this.canPickStepMoveNext(step, state, selection)) {
-							break;
-						}
-
-						state.repos = selection.map(i => i.item);
 					}
-				}
-
-				if (state.reference == null || state.counter < 2) {
-					showTags = state.repos.length === 1;
-
-					const showTagsButton: SelectableQuickInputButton = new this.Buttons.ShowTags(showTags);
-
-					const items = await getBranchesAndOrTags(
-						state.repos,
-						showTags ? ['branches', 'tags'] : ['branches'],
-						state.repos.length === 1 ? undefined : { filterBranches: b => !b.remote },
+					state.repos = [context.repos[0]];
+				} else {
+					const result = yield* pickRepositoriesStep(
+						state as ExcludeSome<typeof state, 'repos', string | Repository>,
+						context,
 					);
+					// Always break on the first step (so we will go back)
+					if (result === StepResult.Break) break;
 
-					const step = this.createPickStep<ReferencesQuickPickItem>({
-						title: `${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${
-							state.repos.length === 1
-								? state.repos[0].formattedName
-								: `${state.repos.length} repositories`
-						}`,
-						placeholder: `Choose a branch${showTags ? ' or tag' : ''} to switch to${GlyphChars.Space.repeat(
-							3,
-						)}(select or enter a reference)`,
-						matchOnDescription: true,
-						matchOnDetail: true,
-						items: items,
-						selectedItems: state.reference
-							? items.filter(ref => ref.label === state.reference!.ref)
-							: undefined,
-						additionalButtons: [showTagsButton],
-						onDidClickButton: async (quickpick, button) => {
-							quickpick.busy = true;
-							quickpick.enabled = false;
+					state.repos = result;
+				}
+			}
 
-							showTags = !showTags;
-							showTagsButton.on = showTags;
-
-							quickpick.placeholder = `Choose a branch${
-								showTags ? ' or tag' : ''
-							} to switch to${GlyphChars.Space.repeat(3)}(select or enter a reference)`;
-
-							quickpick.items = await getBranchesAndOrTags(
-								state.repos!,
-								showTags ? ['branches', 'tags'] : ['branches'],
-								state.repos!.length === 1 ? undefined : { filterBranches: b => !b.remote },
-							);
-
-							quickpick.busy = false;
-							quickpick.enabled = true;
-						},
-						onValidateValue: getValidateGitReferenceFn(state.repos),
-					});
-					const selection: StepSelection<typeof step> = yield step;
-
-					if (!this.canPickStepMoveNext(step, state, selection)) {
-						if (repos.length === 1) {
-							break;
-						}
-
-						continue;
+			if (state.counter < 2 || state.reference == null) {
+				const result = yield* pickBranchOrTagStepMultiRepo(state as SwitchStepState, context, {
+					placeholder: context => `Choose a branch${context.showTags ? ' or tag' : ''} to switch to`,
+				});
+				if (result === StepResult.Break) {
+					// If we skipped the previous step, make sure we back up past it
+					if (context.repos.length === 1) {
+						state.counter--;
 					}
 
-					state.reference = selection[0].item;
+					continue;
 				}
 
-				if (GitBranch.is(state.reference) && state.reference.remote) {
-					const branches = await Container.git.getBranches(state.reference.repoPath, {
-						filter: b => {
-							return b.tracking === state.reference!.name;
-						},
+				state.reference = result;
+			}
+
+			if (GitReference.isBranch(state.reference) && state.reference.remote) {
+				context.title = `Create Branch and ${this.title}`;
+
+				const branches = await Container.git.getBranches(state.reference.repoPath, {
+					filter: b => b.tracking === state.reference!.name,
+				});
+
+				if (branches.length === 0) {
+					const result = yield* inputBranchNameStep(state as SwitchStepState, context, {
+						placeholder: 'Please provide a name for the new branch',
+						titleContext: ` based on ${GitReference.toString(state.reference, {
+							icon: false,
+						})}`,
+						value: state.createBranch ?? GitReference.getNameWithoutRemote(state.reference),
 					});
+					if (result === StepResult.Break) continue;
 
-					if (branches.length === 0) {
-						const step = this.createInputStep({
-							title: `${this.title} to new branch based on ${state.reference.ref}${Strings.pad(
-								GlyphChars.Dot,
-								2,
-								2,
-							)}${
-								state.repos.length === 1
-									? state.repos[0].formattedName
-									: `${state.repos.length} repositories`
-							}`,
-							placeholder: 'Please provide a name for the local branch',
-							value: state.reference.getName(),
-							validate: async (value: string | undefined): Promise<[boolean, string | undefined]> => {
-								if (value == null) return [false, undefined];
-
-								value = value.trim();
-								if (value.length === 0) return [false, 'Please enter a valid branch name'];
-
-								const valid = Boolean(await Container.git.validateBranchOrTagName(value));
-								return [valid, valid ? undefined : `'${value}' isn't a valid branch name`];
-							},
-						});
-
-						const value: StepSelection<typeof step> = yield step;
-
-						if (!(await this.canInputStepMoveNext(step, state, value))) {
-							continue;
-						}
-
-						state.createBranch = value;
-					} else {
-						state.createBranch = undefined;
-					}
+					state.createBranch = result;
 				} else {
 					state.createBranch = undefined;
 				}
-
-				if (this.confirm(state.confirm)) {
-					const step = this.createConfirmStep(
-						`Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${
-							state.repos.length === 1
-								? state.repos[0].formattedName
-								: `${state.repos.length} repositories`
-						}`,
-						[
-							{
-								label: state.createBranch ? `Create Branch and ${this.title}` : this.title,
-								description: state.createBranch ? `to ${state.createBranch}` : state.reference.name,
-								detail: `Will ${
-									state.createBranch
-										? `create and switch to branch ${state.createBranch} based on ${state.reference.name}`
-										: `switch to ${state.reference.name}`
-								} in ${
-									state.repos.length === 1
-										? state.repos[0].formattedName
-										: `${state.repos.length} repositories`
-								}`,
-							},
-						],
-					);
-					const selection: StepSelection<typeof step> = yield step;
-
-					if (!this.canPickStepMoveNext(step, state, selection)) {
-						continue;
-					}
-				}
-
-				this.execute(state as State);
-				break;
-			} catch (ex) {
-				Logger.error(ex, this.title);
-
-				throw ex;
+			} else {
+				state.createBranch = undefined;
 			}
+
+			if (this.confirm(state.confirm)) {
+				const result = yield* this.confirmStep(state as SwitchStepState, context);
+				if (result === StepResult.Break) continue;
+			}
+
+			QuickCommand.endSteps(state);
+			this.execute(state as SwitchStepState);
 		}
 
-		return undefined;
+		return state.counter < 0 ? StepResult.Break : undefined;
+	}
+
+	private *confirmStep(state: SwitchStepState, context: Context): StepResultGenerator<void> {
+		const step: QuickPickStep<QuickPickItem> = this.createConfirmStep(
+			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			[
+				{
+					label: context.title,
+					description: state.createBranch ? '-b' : '',
+					detail: `Will ${
+						state.createBranch
+							? `create and switch to a new branch named ${
+									state.createBranch
+							  } from ${GitReference.toString(state.reference)}`
+							: `switch to ${GitReference.toString(state.reference)}`
+					} in ${
+						state.repos.length === 1
+							? `$(repo) ${state.repos[0].formattedName}`
+							: `${state.repos.length} repositories`
+					}`,
+				},
+			],
+			undefined,
+			{ placeholder: `Confirm ${context.title}` },
+		);
+		const selection: StepSelection<typeof step> = yield step;
+		return QuickCommand.canPickStepContinue(step, state, selection) ? undefined : StepResult.Break;
 	}
 }

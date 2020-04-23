@@ -1,12 +1,13 @@
 'use strict';
 import * as paths from 'path';
-import { commands, Range, TextDocumentShowOptions, TextEditor, Uri, ViewColumn } from 'vscode';
+import { commands, Range, TextDocumentShowOptions, Uri, ViewColumn } from 'vscode';
+import { command, Command, Commands } from './common';
 import { BuiltInCommands, GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitCommit, GitService, GitUri } from '../git/gitService';
+import { GitCommit, GitRevision } from '../git/git';
+import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { ActiveEditorCommand, command, Commands } from './common';
 
 export interface DiffWithCommandArgsRevision {
 	sha: string;
@@ -24,7 +25,7 @@ export interface DiffWithCommandArgs {
 }
 
 @command()
-export class DiffWithCommand extends ActiveEditorCommand {
+export class DiffWithCommand extends Command {
 	static getMarkdownCommandArgs(args: DiffWithCommandArgs): string;
 	static getMarkdownCommandArgs(commit: GitCommit, line?: number): string;
 	static getMarkdownCommandArgs(argsOrCommit: DiffWithCommandArgs | GitCommit, line?: number): string {
@@ -49,7 +50,7 @@ export class DiffWithCommand extends ActiveEditorCommand {
 				args = {
 					repoPath: commit.repoPath,
 					lhs: {
-						sha: commit.previousSha !== undefined ? commit.previousSha : GitService.deletedOrMissingSha,
+						sha: commit.previousSha != null ? commit.previousSha : GitRevision.deletedOrMissing,
 						uri: commit.previousUri,
 					},
 					rhs: {
@@ -70,17 +71,17 @@ export class DiffWithCommand extends ActiveEditorCommand {
 		super(Commands.DiffWith);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: DiffWithCommandArgs): Promise<any> {
-		if (args === undefined || args.lhs === undefined || args.rhs === undefined) return undefined;
+	async execute(args?: DiffWithCommandArgs): Promise<any> {
+		if (args?.lhs == null || args?.rhs == null) return;
 
 		args = {
 			...args,
 			lhs: { ...args.lhs },
 			rhs: { ...args.rhs },
-			showOptions: args.showOptions === undefined ? undefined : { ...args.showOptions },
+			showOptions: args.showOptions == null ? undefined : { ...args.showOptions },
 		};
 
-		if (args.repoPath === undefined) return undefined;
+		if (args.repoPath == null) return;
 
 		try {
 			let lhsSha = args.lhs.sha;
@@ -91,19 +92,19 @@ export class DiffWithCommand extends ActiveEditorCommand {
 				await Container.git.resolveReference(args.repoPath, args.rhs.sha, args.rhs.uri),
 			]);
 
-			if (args.lhs.sha !== GitService.deletedOrMissingSha) {
+			if (args.lhs.sha !== GitRevision.deletedOrMissing) {
 				lhsSha = args.lhs.sha;
 			}
 
-			if (args.rhs.sha && args.rhs.sha !== GitService.deletedOrMissingSha) {
+			if (args.rhs.sha && args.rhs.sha !== GitRevision.deletedOrMissing) {
 				// Ensure that the file still exists in this commit
 				const status = await Container.git.getFileStatusForCommit(
 					args.repoPath,
 					args.rhs.uri.fsPath,
 					args.rhs.sha,
 				);
-				if (status !== undefined && status.status === 'D') {
-					args.rhs.sha = GitService.deletedOrMissingSha;
+				if (status != null && status.status === 'D') {
+					args.rhs.sha = GitRevision.deletedOrMissing;
 				} else {
 					rhsSha = args.rhs.sha;
 				}
@@ -114,22 +115,22 @@ export class DiffWithCommand extends ActiveEditorCommand {
 				Container.git.getVersionedUri(args.repoPath, args.rhs.uri.fsPath, args.rhs.sha),
 			]);
 
-			let rhsSuffix = GitService.shortenSha(rhsSha, { strings: { uncommitted: 'Working Tree' } }) || '';
-			if (rhs === undefined) {
-				if (GitService.isUncommitted(args.rhs.sha)) {
+			let rhsSuffix = GitRevision.shorten(rhsSha, { strings: { uncommitted: 'Working Tree' } });
+			if (rhs == null) {
+				if (GitRevision.isUncommitted(args.rhs.sha)) {
 					rhsSuffix = 'deleted';
-				} else if (rhsSuffix.length === 0 && args.rhs.sha === GitService.deletedOrMissingSha) {
+				} else if (rhsSuffix.length === 0 && args.rhs.sha === GitRevision.deletedOrMissing) {
 					rhsSuffix = 'not in Working Tree';
 				} else {
 					rhsSuffix = `deleted${rhsSuffix.length === 0 ? '' : ` in ${rhsSuffix}`}`;
 				}
-			} else if (lhs === undefined) {
+			} else if (lhs == null) {
 				rhsSuffix = `added${rhsSuffix.length === 0 ? '' : ` in ${rhsSuffix}`}`;
 			}
 
-			let lhsSuffix = args.lhs.sha !== GitService.deletedOrMissingSha ? GitService.shortenSha(lhsSha) || '' : '';
-			if (lhs === undefined && args.rhs.sha.length === 0) {
-				if (rhs !== undefined) {
+			let lhsSuffix = args.lhs.sha !== GitRevision.deletedOrMissing ? GitRevision.shorten(lhsSha) : '';
+			if (lhs == null && args.rhs.sha.length === 0) {
+				if (rhs != null) {
 					lhsSuffix = lhsSuffix.length === 0 ? '' : `not in ${lhsSuffix}`;
 					rhsSuffix = '';
 				} else {
@@ -137,44 +138,40 @@ export class DiffWithCommand extends ActiveEditorCommand {
 				}
 			}
 
-			if (args.lhs.title === undefined && (lhs !== undefined || lhsSuffix.length !== 0)) {
+			if (args.lhs.title == null && (lhs != null || lhsSuffix.length !== 0)) {
 				args.lhs.title = `${paths.basename(args.lhs.uri.fsPath)}${lhsSuffix ? ` (${lhsSuffix})` : ''}`;
 			}
-			if (args.rhs.title === undefined) {
+			if (args.rhs.title == null) {
 				args.rhs.title = `${paths.basename(args.rhs.uri.fsPath)}${rhsSuffix ? ` (${rhsSuffix})` : ''}`;
 			}
 
 			const title =
-				args.lhs.title !== undefined && args.rhs.title !== undefined
+				args.lhs.title != null && args.rhs.title != null
 					? `${args.lhs.title} ${GlyphChars.ArrowLeftRightLong} ${args.rhs.title}`
 					: args.lhs.title || args.rhs.title;
 
-			if (args.showOptions === undefined) {
+			if (args.showOptions == null) {
 				args.showOptions = {};
 			}
 
-			if (args.showOptions.viewColumn === undefined) {
+			if (args.showOptions.viewColumn == null) {
 				args.showOptions.viewColumn = ViewColumn.Active;
 			}
 
-			if (args.line !== undefined && args.line !== 0) {
+			if (args.line != null && args.line !== 0) {
 				args.showOptions.selection = new Range(args.line, 0, args.line, 0);
 			}
 
-			return await commands.executeCommand(
+			void (await commands.executeCommand(
 				BuiltInCommands.Diff,
-				lhs === undefined
-					? GitUri.toRevisionUri(GitService.deletedOrMissingSha, args.lhs.uri.fsPath, args.repoPath)
-					: lhs,
-				rhs === undefined
-					? GitUri.toRevisionUri(GitService.deletedOrMissingSha, args.rhs.uri.fsPath, args.repoPath)
-					: rhs,
+				lhs ?? GitUri.toRevisionUri(GitRevision.deletedOrMissing, args.lhs.uri.fsPath, args.repoPath),
+				rhs ?? GitUri.toRevisionUri(GitRevision.deletedOrMissing, args.rhs.uri.fsPath, args.repoPath),
 				title,
 				args.showOptions,
-			);
+			));
 		} catch (ex) {
 			Logger.error(ex, 'DiffWithCommand', 'getVersionedFile');
-			return Messages.showGenericErrorMessage('Unable to open compare');
+			Messages.showGenericErrorMessage('Unable to open compare');
 		}
 	}
 }

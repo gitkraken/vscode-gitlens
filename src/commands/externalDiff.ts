@@ -1,11 +1,5 @@
 'use strict';
 import { env, SourceControlResourceState, Uri, window } from 'vscode';
-import { GlyphChars } from '../constants';
-import { Container } from '../container';
-import { GitService, GitUri } from '../git/gitService';
-import { Logger } from '../logger';
-import { Messages } from '../messages';
-import { Arrays } from '../system';
 import {
 	command,
 	Command,
@@ -15,6 +9,12 @@ import {
 	isCommandViewContextWithFileCommit,
 	isCommandViewContextWithFileRefs,
 } from './common';
+import { Container } from '../container';
+import { GitRevision } from '../git/git';
+import { GitUri } from '../git/gitUri';
+import { Logger } from '../logger';
+import { Messages } from '../messages';
+import { Arrays } from '../system';
 
 enum Status {
 	INDEX_MODIFIED,
@@ -69,15 +69,15 @@ export class ExternalDiffCommand extends Command {
 		args = { ...args };
 
 		if (isCommandViewContextWithFileCommit(context)) {
-			const ref1 = GitService.isUncommitted(context.node.commit.previousFileSha)
+			const ref1 = GitRevision.isUncommitted(context.node.commit.previousFileSha)
 				? ''
 				: context.node.commit.previousFileSha;
 			const ref2 = context.node.commit.isUncommitted ? '' : context.node.commit.sha;
 
 			args.files = [
 				{
-					uri: GitUri.fromFile(context.node.file, context.node.file.repoPath || context.node.repoPath),
-					staged: context.node.commit.isUncommittedStaged || context.node.file.indexStatus !== undefined,
+					uri: GitUri.fromFile(context.node.file, context.node.file.repoPath ?? context.node.repoPath),
+					staged: context.node.commit.isUncommittedStaged || context.node.file.indexStatus != null,
 					ref1: ref1,
 					ref2: ref2,
 				},
@@ -89,8 +89,8 @@ export class ExternalDiffCommand extends Command {
 		if (isCommandViewContextWithFileRefs(context)) {
 			args.files = [
 				{
-					uri: GitUri.fromFile(context.node.file, context.node.file.repoPath || context.node.repoPath),
-					staged: context.node.file.indexStatus !== undefined,
+					uri: GitUri.fromFile(context.node.file, context.node.file.repoPath ?? context.node.repoPath),
+					staged: context.node.file.indexStatus != null,
 					ref1: context.node.ref1,
 					ref2: context.node.ref2,
 				},
@@ -99,7 +99,7 @@ export class ExternalDiffCommand extends Command {
 			return this.execute(args);
 		}
 
-		if (args.files === undefined) {
+		if (args.files == null) {
 			if (context.type === 'scm-states') {
 				args.files = context.scmResourceStates.map(r => ({
 					uri: r.resourceUri,
@@ -118,12 +118,12 @@ export class ExternalDiffCommand extends Command {
 		}
 
 		if (context.command === Commands.ExternalDiffAll) {
-			if (args.files === undefined) {
-				const repoPath = await getRepoPathOrPrompt(`Open changes from which repository${GlyphChars.Ellipsis}`);
+			if (args.files == null) {
+				const repoPath = await getRepoPathOrPrompt('Open All Changes (with difftool)');
 				if (!repoPath) return undefined;
 
 				const status = await Container.git.getStatusForRepo(repoPath);
-				if (status === undefined) {
+				if (status == null) {
 					return window.showInformationMessage("The repository doesn't have any changes");
 				}
 
@@ -154,17 +154,19 @@ export class ExternalDiffCommand extends Command {
 
 		try {
 			let repoPath;
-			if (args.files === undefined) {
+			if (args.files == null) {
 				const editor = window.activeTextEditor;
-				if (editor === undefined) return undefined;
+				if (editor == null) return;
 
 				repoPath = await Container.git.getRepoPathOrActive(undefined, editor);
-				if (!repoPath) return undefined;
+				if (!repoPath) return;
 
 				const uri = editor.document.uri;
 				const status = await Container.git.getStatusForFile(repoPath, uri.fsPath);
-				if (status === undefined) {
-					return window.showInformationMessage("The current file doesn't have any changes");
+				if (status == null) {
+					window.showInformationMessage("The current file doesn't have any changes");
+
+					return;
 				}
 
 				args.files = [];
@@ -177,20 +179,22 @@ export class ExternalDiffCommand extends Command {
 				}
 			} else {
 				repoPath = await Container.git.getRepoPath(args.files[0].uri.fsPath);
-				if (!repoPath) return undefined;
+				if (!repoPath) return;
 			}
 
 			const tool = await Container.git.getDiffTool(repoPath);
-			if (tool === undefined) {
+			if (tool == null) {
 				const result = await window.showWarningMessage(
 					'Unable to open changes in diff tool. No Git diff tool is configured',
 					'View Git Docs',
 				);
-				if (!result) return undefined;
+				if (!result) return;
 
-				return env.openExternal(
+				void env.openExternal(
 					Uri.parse('https://git-scm.com/docs/git-config#Documentation/git-config.txt-difftool'),
 				);
+
+				return;
 			}
 
 			for (const file of args.files) {
@@ -201,11 +205,9 @@ export class ExternalDiffCommand extends Command {
 					tool: tool,
 				});
 			}
-
-			return undefined;
 		} catch (ex) {
 			Logger.error(ex, 'ExternalDiffCommand');
-			return Messages.showGenericErrorMessage('Unable to open changes in diff tool');
+			Messages.showGenericErrorMessage('Unable to open changes in diff tool');
 		}
 	}
 }

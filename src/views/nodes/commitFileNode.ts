@@ -4,7 +4,8 @@ import { Command, Selection, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { CommitFormatter, GitFile, GitLogCommit, GitUri, StatusFileFormatter } from '../../git/gitService';
+import { CommitFormatter, GitFile, GitLogCommit, StatusFileFormatter } from '../../git/git';
+import { GitUri } from '../../git/gitUri';
 import { View } from '../viewBase';
 import { ResourceType, ViewNode, ViewRefFileNode } from './viewNode';
 

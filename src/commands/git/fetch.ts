@@ -1,184 +1,166 @@
 'use strict';
-import { Container } from '../../container';
-import { Repository } from '../../git/gitService';
-import { QuickCommandBase, QuickPickStep, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
-import { FlagsQuickPickItem, RepositoryQuickPickItem } from '../../quickpicks';
-import { Dates, Strings } from '../../system';
 import { GlyphChars } from '../../constants';
-import { Logger } from '../../logger';
+import { Container } from '../../container';
+import { Repository } from '../../git/git';
+import {
+	appendReposToTitle,
+	PartialStepState,
+	pickRepositoriesStep,
+	QuickCommand,
+	QuickPickStep,
+	StepGenerator,
+	StepResult,
+	StepResultGenerator,
+	StepSelection,
+	StepState,
+} from '../quickCommand';
+import { FlagsQuickPickItem } from '../../quickpicks';
+import { Arrays, Dates, Strings } from '../../system';
+
+interface Context {
+	repos: Repository[];
+	title: string;
+}
 
 type Flags = '--all' | '--prune';
 
 interface State {
-	repos: Repository[];
+	repos: string | string[] | Repository | Repository[];
 	flags: Flags[];
 }
 
 export interface FetchGitCommandArgs {
 	readonly command: 'fetch';
-	state?: Partial<State>;
-
 	confirm?: boolean;
+	state?: Partial<State>;
 }
 
-export class FetchGitCommand extends QuickCommandBase<State> {
+type FetchStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repos', string | string[] | Repository>;
+
+export class FetchGitCommand extends QuickCommand<State> {
 	constructor(args?: FetchGitCommandArgs) {
 		super('fetch', 'fetch', 'Fetch', { description: 'fetches changes from one or more remotes' });
 
-		if (args == null || args.state === undefined) return;
-
 		let counter = 0;
-		if (args.state.repos !== undefined && args.state.repos.length !== 0) {
+		if (args?.state?.repos != null && (!Array.isArray(args.state.repos) || args.state.repos.length !== 0)) {
 			counter++;
 		}
 
-		this._initialState = {
+		this.initialState = {
 			counter: counter,
-			confirm: args.confirm,
-			...args.state,
+			confirm: args?.confirm,
+			...args?.state,
 		};
 	}
 
-	execute(state: State) {
+	execute(state: FetchStepState) {
 		return Container.git.fetchAll(state.repos, {
 			all: state.flags.includes('--all'),
 			prune: state.flags.includes('--prune'),
 		});
 	}
 
-	protected async *steps(): StepAsyncGenerator {
-		const state: StepState<State> = this._initialState === undefined ? { counter: 0 } : this._initialState;
-		let repos;
+	protected async *steps(state: PartialStepState<State>): StepGenerator {
+		const context: Context = {
+			repos: [...(await Container.git.getOrderedRepositories())],
+			title: this.title,
+		};
 
 		if (state.flags == null) {
 			state.flags = [];
 		}
 
-		while (true) {
-			try {
-				if (repos === undefined) {
-					repos = [...(await Container.git.getOrderedRepositories())];
-				}
+		if (state.repos != null && !Array.isArray(state.repos)) {
+			state.repos = [state.repos as any];
+		}
 
-				if (state.repos === undefined || state.counter < 1) {
-					if (repos.length === 1) {
+		while (this.canStepsContinue(state)) {
+			context.title = this.title;
+
+			if (
+				state.counter < 1 ||
+				state.repos == null ||
+				state.repos.length === 0 ||
+				Arrays.isStringArray(state.repos)
+			) {
+				if (context.repos.length === 1) {
+					if (state.repos == null) {
 						state.counter++;
-						state.repos = [repos[0]];
-					} else {
-						let actives: Repository[];
-						if (state.repos) {
-							actives = state.repos;
-						} else {
-							const active = await Container.git.getActiveRepository();
-							actives = active ? [active] : [];
-						}
-
-						const step = this.createPickStep<RepositoryQuickPickItem>({
-							multiselect: true,
-							title: this.title,
-							placeholder: 'Choose repositories',
-							items: await Promise.all(
-								repos.map(repo =>
-									RepositoryQuickPickItem.create(
-										repo,
-										actives.some(r => r.id === repo.id),
-										{
-											branch: true,
-											fetched: true,
-											status: true,
-										},
-									),
-								),
-							),
-						});
-						const selection: StepSelection<typeof step> = yield step;
-
-						if (!this.canPickStepMoveNext(step, state, selection)) {
-							break;
-						}
-
-						state.repos = selection.map(i => i.item);
 					}
-				}
-
-				if (this.confirm(state.confirm)) {
-					let fetchedOn = '';
-					if (state.repos.length === 1) {
-						const lastFetched = await state.repos[0].getLastFetched();
-						if (lastFetched !== 0) {
-							fetchedOn = `${Strings.pad(GlyphChars.Dot, 2, 2)}Last fetched ${Dates.getFormatter(
-								new Date(lastFetched),
-							).fromNow()}`;
-						}
-					}
-
-					const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
-						`Confirm ${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${
-							state.repos.length === 1
-								? `${state.repos[0].formattedName}${fetchedOn}`
-								: `${state.repos.length} repositories`
-						}`,
-						[
-							FlagsQuickPickItem.create<Flags>(state.flags, [], {
-								label: this.title,
-								description: '',
-								detail: `Will fetch ${
-									state.repos.length === 1
-										? state.repos[0].formattedName
-										: `${state.repos.length} repositories`
-								}`,
-							}),
-							FlagsQuickPickItem.create<Flags>(state.flags, ['--prune'], {
-								label: `${this.title} & Prune`,
-								description: '--prune',
-								detail: `Will fetch and prune ${
-									state.repos.length === 1
-										? state.repos[0].formattedName
-										: `${state.repos.length} repositories`
-								}`,
-							}),
-							FlagsQuickPickItem.create<Flags>(state.flags, ['--all'], {
-								label: `${this.title} All`,
-								description: '--all',
-								detail: `Will fetch all remotes of ${
-									state.repos.length === 1
-										? state.repos[0].formattedName
-										: `${state.repos.length} repositories`
-								}`,
-							}),
-							FlagsQuickPickItem.create<Flags>(state.flags, ['--all', '--prune'], {
-								label: `${this.title} All & Prune`,
-								description: '--all --prune',
-								detail: `Will fetch and prune all remotes of ${
-									state.repos.length === 1
-										? state.repos[0].formattedName
-										: `${state.repos.length} repositories`
-								}`,
-							}),
-						],
+					state.repos = [context.repos[0]];
+				} else {
+					const result = yield* pickRepositoriesStep(
+						state as ExcludeSome<typeof state, 'repos', string | Repository>,
+						context,
 					);
-					const selection: StepSelection<typeof step> = yield step;
+					// Always break on the first step (so we will go back)
+					if (result === StepResult.Break) break;
 
-					if (!this.canPickStepMoveNext(step, state, selection)) {
-						if (repos.length === 1) {
-							break;
-						}
+					state.repos = result;
+				}
+			}
 
-						continue;
+			if (this.confirm(state.confirm)) {
+				const result = yield* this.confirmStep(state as FetchStepState, context);
+				if (result === StepResult.Break) {
+					// If we skipped the previous step, make sure we back up past it
+					if (context.repos.length === 1) {
+						state.counter--;
 					}
 
-					state.flags = selection[0].item;
+					continue;
 				}
 
-				this.execute(state as State);
-				break;
-			} catch (ex) {
-				Logger.error(ex, this.title);
+				state.flags = result;
+			}
 
-				throw ex;
+			QuickCommand.endSteps(state);
+			this.execute(state as FetchStepState);
+		}
+
+		return state.counter < 0 ? StepResult.Break : undefined;
+	}
+
+	private async *confirmStep(state: FetchStepState, context: Context): StepResultGenerator<Flags[]> {
+		let lastFetchedOn = '';
+		if (state.repos.length === 1) {
+			const lastFetched = await state.repos[0].getLastFetched();
+			if (lastFetched !== 0) {
+				lastFetchedOn = `${Strings.pad(GlyphChars.Dot, 2, 2)}Last fetched ${Dates.getFormatter(
+					new Date(lastFetched),
+				).fromNow()}`;
 			}
 		}
 
-		return undefined;
+		const reposToFetch =
+			state.repos.length === 1 ? `$(repo) ${state.repos[0].formattedName}` : `${state.repos.length} repositories`;
+
+		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = QuickCommand.createConfirmStep(
+			appendReposToTitle(`Confirm ${this.title}`, state, context, lastFetchedOn),
+			[
+				FlagsQuickPickItem.create<Flags>(state.flags, [], {
+					label: this.title,
+					detail: `Will fetch ${reposToFetch}`,
+				}),
+				FlagsQuickPickItem.create<Flags>(state.flags, ['--prune'], {
+					label: `${this.title} & Prune`,
+					description: '--prune',
+					detail: `Will fetch and prune ${reposToFetch}`,
+				}),
+				FlagsQuickPickItem.create<Flags>(state.flags, ['--all'], {
+					label: `${this.title} All`,
+					description: '--all',
+					detail: `Will fetch all remotes of ${reposToFetch}`,
+				}),
+				FlagsQuickPickItem.create<Flags>(state.flags, ['--all', '--prune'], {
+					label: `${this.title} All & Prune`,
+					description: '--all --prune',
+					detail: `Will fetch and prune all remotes of ${reposToFetch}`,
+				}),
+			],
+			context,
+		);
+		const selection: StepSelection<typeof step> = yield step;
+		return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
 	}
 }

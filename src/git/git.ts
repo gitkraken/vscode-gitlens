@@ -9,11 +9,13 @@ import { Objects, Strings } from '../system';
 import { findGitPath, GitLocation } from './locator';
 import { fsExists, run, RunOptions } from './shell';
 import { GitBranchParser, GitLogParser, GitReflogParser, GitStashParser, GitTagParser } from './parsers/parsers';
-import { GitFileStatus } from './models/file';
+import { GitFileStatus, GitRevision } from './models/models';
 
 export * from './models/models';
 export * from './parsers/parsers';
+export * from './formatters/formatters';
 export * from './remotes/provider';
+export * from './search';
 
 export type GitDiffFilter = Exclude<GitFileStatus, '!' | '?'>;
 
@@ -201,13 +203,13 @@ let gitInfo: GitLocation;
 
 export namespace Git {
 	export const deletedOrMissingSha = '0000000000000000000000000000000000000000-';
-	export const shaLikeRegex = /(^[0-9a-f]{40}([\^@~:]\S*)?$)|(^[0]{40}(:|-)$)/;
-	export const shaRegex = /(^[0-9a-f]{40}$)|(^[0]{40}(:|-)$)/;
-	export const shaParentRegex = /(^[0-9a-f]{40})\^[0-3]?$/;
-	export const shaShortenRegex = /^(.*?)([\^@~:].*)?$/;
-	export const uncommittedRegex = /^[0]{40}(?:[\^@~:]\S*)?:?$/;
+	// export const shaLikeRegex = /(^[0-9a-f]{40}([\^@~:]\S*)?$)|(^[0]{40}(:|-)$)/;
+	// export const shaRegex = /(^[0-9a-f]{40}$)|(^[0]{40}(:|-)$)/;
+	// export const shaParentRegex = /(^[0-9a-f]{40})\^[0-3]?$/;
+	// export const shaShortenRegex = /^(.*?)([\^@~:].*)?$/;
+	// export const uncommittedRegex = /^[0]{40}(?:[\^@~:]\S*)?:?$/;
 	export const uncommittedSha = '0000000000000000000000000000000000000000';
-	export const uncommittedStagedRegex = /^[0]{40}([\^@~]\S*)?:$/;
+	// export const uncommittedStagedRegex = /^[0]{40}([\^@~]\S*)?:$/;
 	export const uncommittedStagedSha = '0000000000000000000000000000000000000000:';
 
 	export function getEncoding(encoding: string | undefined) {
@@ -234,60 +236,62 @@ export namespace Git {
 		);
 	}
 
-	export function isSha(ref: string) {
-		return isMatch(Git.shaRegex, ref);
-	}
+	// export function isSha(ref: string) {
+	// 	return isMatch(Git.shaRegex, ref);
+	// }
 
-	export function isShaLike(ref: string) {
-		return isMatch(Git.shaLikeRegex, ref);
-	}
+	// export function isShaLike(ref: string) {
+	// 	return isMatch(Git.shaLikeRegex, ref);
+	// }
 
-	export function isShaParent(ref: string) {
-		return isMatch(Git.shaParentRegex, ref);
-	}
+	// export function isShaParent(ref: string) {
+	// 	return isMatch(Git.shaParentRegex, ref);
+	// }
 
-	export function isUncommitted(ref: string | undefined) {
-		return isMatch(Git.uncommittedRegex, ref);
-	}
+	// export function isUncommitted(ref: string | undefined) {
+	// 	return isMatch(Git.uncommittedRegex, ref);
+	// }
 
-	export function isUncommittedStaged(ref: string | undefined): boolean {
-		return isMatch(Git.uncommittedStagedRegex, ref);
-	}
+	// export function isUncommittedStaged(ref: string | undefined): boolean {
+	// 	return isMatch(Git.uncommittedStagedRegex, ref);
+	// }
 
-	export function shortenSha(
-		ref: string | undefined,
-		{
-			force,
-			strings = {},
-		}: {
-			force?: boolean;
-			strings?: { uncommitted?: string; uncommittedStaged?: string; working?: string };
-		} = {},
-	) {
-		if (ref == null || ref.length === 0) return strings.working || emptyStr;
-		if (Git.isUncommitted(ref)) {
-			return Git.isUncommittedStaged(ref)
-				? strings.uncommittedStaged || 'Index'
-				: strings.uncommitted || 'Working Tree';
-		}
+	// export function shortenSha(
+	// 	ref: string | undefined,
+	// 	{
+	// 		force,
+	// 		strings = {},
+	// 	}: {
+	// 		force?: boolean;
+	// 		strings?: { uncommitted?: string; uncommittedStaged?: string; working?: string };
+	// 	} = {},
+	// ) {
+	// 	if (ref === GitRevision.deletedOrMissing) return '(deleted)';
 
-		if (!force && !Git.isShaLike(ref)) return ref;
+	// 	if (ref == null || ref.length === 0) return strings.working || emptyStr;
+	// 	if (GitRevision.isUncommitted(ref)) {
+	// 		return GitRevision.isUncommittedStaged(ref)
+	// 			? strings.uncommittedStaged || 'Index'
+	// 			: strings.uncommitted || 'Working Tree';
+	// 	}
 
-		// Don't allow shas to be shortened to less than 5 characters
-		const len = Math.max(5, Container.config.advanced.abbreviatedShaLength);
+	// 	if (!force && !Git.isShaLike(ref)) return ref;
 
-		// If we have a suffix, append it
-		const match = Git.shaShortenRegex.exec(ref);
-		if (match != null) {
-			const [, rev, suffix] = match;
+	// 	// Don't allow shas to be shortened to less than 5 characters
+	// 	const len = Math.max(5, Container.config.advanced.abbreviatedShaLength);
 
-			if (suffix != null) {
-				return `${rev.substr(0, len)}${suffix}`;
-			}
-		}
+	// 	// If we have a suffix, append it
+	// 	const match = Git.shaShortenRegex.exec(ref);
+	// 	if (match != null) {
+	// 		const [, rev, suffix] = match;
 
-		return ref.substr(0, len);
-	}
+	// 		if (suffix != null) {
+	// 			return `${rev.substr(0, len)}${suffix}`;
+	// 		}
+	// 	}
+
+	// 	return ref.substr(0, len);
+	// }
 
 	export function splitPath(
 		fileName: string,
@@ -313,10 +317,6 @@ export namespace Git {
 	export function validateVersion(major: number, minor: number): boolean {
 		const [gitMajor, gitMinor] = gitInfo.version.split('.');
 		return parseInt(gitMajor, 10) >= major && parseInt(gitMinor, 10) >= minor;
-	}
-
-	function isMatch(regex: RegExp, ref: string | undefined) {
-		return ref == null || ref.length === 0 ? false : regex.test(ref);
 	}
 
 	// Git commands
@@ -387,7 +387,7 @@ export namespace Git {
 
 		let stdin;
 		if (ref) {
-			if (Git.isUncommittedStaged(ref)) {
+			if (GitRevision.isUncommittedStaged(ref)) {
 				// Pipe the blame contents to stdin
 				params.push('--contents', '-');
 
@@ -449,7 +449,7 @@ export namespace Git {
 	}
 
 	export async function cat_file__resolve(repoPath: string, fileName: string, ref: string) {
-		if (Git.isUncommitted(ref)) return ref;
+		if (GitRevision.isUncommitted(ref)) return ref;
 
 		try {
 			void (await git<string>(
@@ -462,7 +462,7 @@ export namespace Git {
 		} catch (ex) {
 			const msg = ex && ex.toString();
 			if (GitErrors.notAValidObjectName.test(msg)) {
-				return Git.deletedOrMissingSha;
+				return GitRevision.deletedOrMissing;
 			}
 
 			return undefined;
@@ -470,7 +470,7 @@ export namespace Git {
 	}
 
 	export async function cat_file__validate(repoPath: string, ref: string) {
-		if (Git.isUncommitted(ref)) return true;
+		if (GitRevision.isUncommitted(ref)) return true;
 
 		try {
 			void (await git<string>({ cwd: repoPath, errors: GitErrorHandling.Throw }, 'cat-file', '-t', ref));
@@ -582,10 +582,10 @@ export namespace Git {
 			if (ref1.endsWith('^3^')) {
 				ref1 = rootSha;
 			}
-			params.push(Git.isUncommittedStaged(ref1) ? '--staged' : ref1);
+			params.push(GitRevision.isUncommittedStaged(ref1) ? '--staged' : ref1);
 		}
 		if (ref2) {
-			params.push(Git.isUncommittedStaged(ref2) ? '--staged' : ref2);
+			params.push(GitRevision.isUncommittedStaged(ref2) ? '--staged' : ref2);
 		}
 
 		try {
@@ -738,7 +738,7 @@ export namespace Git {
 			params.push('--use-mailmap', ...authors.map(a => `--author=${a}`));
 		}
 
-		if (ref && !Git.isUncommittedStaged(ref)) {
+		if (ref && !GitRevision.isUncommittedStaged(ref)) {
 			// If we are reversing, we must add a range (with HEAD) because we are using --ancestry-path for better reverse walking
 			if (reverse) {
 				params.push('--reverse', '--ancestry-path', `${ref}..HEAD`);
@@ -819,7 +819,7 @@ export namespace Git {
 			params.push(`-L ${startLine},${endLine == null ? startLine : endLine}:${file}`);
 		}
 
-		if (ref && !Git.isUncommittedStaged(ref)) {
+		if (ref && !GitRevision.isUncommittedStaged(ref)) {
 			// If we are reversing, we must add a range (with HEAD) because we are using --ancestry-path for better reverse walking
 			if (reverse) {
 				params.push('--reverse', '--ancestry-path', `${ref}..HEAD`);
@@ -901,7 +901,7 @@ export namespace Git {
 
 	// export function log__shortstat(repoPath: string, options: { ref?: string }) {
 	//     const params = ['log', '--shortstat', '--oneline'];
-	//     if (options.ref && !Git.isUncommittedStaged(options.ref)) {
+	//     if (options.ref && !GitRevision.isUncommittedStaged(options.ref)) {
 	//         params.push(options.ref);
 	//     }
 	//     return git<string>({ cwd: repoPath }, ...params, '--');
@@ -913,7 +913,7 @@ export namespace Git {
 		{ ref, untracked }: { ref?: string; untracked?: boolean } = {},
 	): Promise<string | undefined> {
 		const params = ['ls-files'];
-		if (ref && !Git.isUncommitted(ref)) {
+		if (ref && !GitRevision.isUncommitted(ref)) {
 			params.push(`--with-tree=${ref}`);
 		}
 
@@ -1035,7 +1035,7 @@ export namespace Git {
 				const sha = await log__recent(repoPath);
 				if (sha === undefined) return undefined;
 
-				return [`(HEAD detached at ${shortenSha(sha)})`, sha];
+				return [`(HEAD detached at ${GitRevision.shorten(sha)})`, sha];
 			}
 
 			defaultExceptionHandler(ex, repoPath);
@@ -1087,10 +1087,10 @@ export namespace Git {
 	): Promise<TOut | undefined> {
 		const [file, root] = Git.splitPath(fileName, repoPath);
 
-		if (Git.isUncommittedStaged(ref)) {
+		if (GitRevision.isUncommittedStaged(ref)) {
 			ref = ':';
 		}
-		if (Git.isUncommitted(ref)) throw new Error(`ref=${ref} is uncommitted`);
+		if (GitRevision.isUncommitted(ref)) throw new Error(`ref=${ref} is uncommitted`);
 
 		const opts: GitCommandOptions = {
 			configs: ['-c', 'log.showSignature=false'],

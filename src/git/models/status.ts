@@ -6,6 +6,16 @@ import { GitUri } from '../gitUri';
 import { GitBranch, GitTrackingState } from './branch';
 import { GitFile, GitFileStatus } from './file';
 
+export interface ComputedWorkingTreeGitStatus {
+	staged: number;
+	stagedAddsAndChanges: GitStatusFile[];
+	stagedStatus: string;
+
+	unstaged: number;
+	unstagedAddsAndChanges: GitStatusFile[];
+	unstagedStatus: string;
+}
+
 export class GitStatus {
 	readonly detached: boolean;
 
@@ -25,6 +35,73 @@ export class GitStatus {
 
 	get ref() {
 		return this.detached ? this.sha : this.branch;
+	}
+
+	@memoize()
+	computeWorkingTreeStatus(): ComputedWorkingTreeGitStatus {
+		let stagedAdds = 0;
+		let unstagedAdds = 0;
+		let stagedChanges = 0;
+		let unstagedChanges = 0;
+		let stagedDeletes = 0;
+		let unstagedDeletes = 0;
+
+		const stagedAddsAndChanges: GitStatusFile[] = [];
+		const unstagedAddsAndChanges: GitStatusFile[] = [];
+
+		for (const f of this.files) {
+			switch (f.indexStatus) {
+				case 'A':
+				case '?':
+					stagedAdds++;
+					stagedAddsAndChanges.push(f);
+					break;
+
+				case 'D':
+					stagedDeletes++;
+					break;
+
+				case undefined:
+					break;
+
+				default:
+					stagedChanges++;
+					stagedAddsAndChanges.push(f);
+					break;
+			}
+
+			switch (f.workingTreeStatus) {
+				case 'A':
+				case '?':
+					unstagedAdds++;
+					unstagedAddsAndChanges.push(f);
+					break;
+
+				case 'D':
+					unstagedDeletes++;
+					break;
+
+				case undefined:
+					break;
+
+				default:
+					unstagedChanges++;
+					unstagedAddsAndChanges.push(f);
+					break;
+			}
+		}
+
+		const staged = stagedAdds + stagedChanges + stagedDeletes;
+		const unstaged = unstagedAdds + unstagedChanges + unstagedDeletes;
+
+		return {
+			staged: staged,
+			stagedStatus: staged > 0 ? `+${stagedAdds} ~${stagedChanges} -${stagedDeletes}` : '',
+			stagedAddsAndChanges: stagedAddsAndChanges,
+			unstaged: unstaged,
+			unstagedStatus: unstaged > 0 ? `+${unstagedAdds} ~${unstagedChanges} -${unstagedDeletes}` : '',
+			unstagedAddsAndChanges: unstagedAddsAndChanges,
+		};
 	}
 
 	@memoize()
@@ -120,7 +197,7 @@ export class GitStatus {
 		state: { ahead: number; behind: number },
 		options: { empty?: string; expand?: boolean; prefix?: string; separator?: string; suffix?: string } = {},
 	): string {
-		if (upstream === undefined || (state.behind === 0 && state.ahead === 0)) return options.empty || '';
+		if (upstream == null || (state.behind === 0 && state.ahead === 0)) return options.empty || '';
 
 		const { expand, prefix = '', separator = ' ', suffix = '' } = options;
 		if (expand) {
@@ -169,7 +246,7 @@ export class GitStatusFile implements GitFile {
 	}
 
 	getOcticon() {
-		return GitFile.getStatusOcticon(this.status);
+		return GitFile.getStatusCodicon(this.status);
 	}
 
 	getStatusText(): string {

@@ -1,67 +1,35 @@
 'use strict';
 import { QuickPickItem } from 'vscode';
+import { Commands, GitCommandsCommand, GitCommandsCommandArgs } from '../commands';
 import { GlyphChars } from '../constants';
-import { Dates, Strings } from '../system';
+import { emojify } from '../emojis';
 import {
 	GitBranch,
 	GitContributor,
 	GitLogCommit,
 	GitReference,
 	GitRemoteType,
-	GitService,
+	GitRevision,
 	GitStashCommit,
 	GitTag,
 	Repository,
-} from '../git/gitService';
-import { emojify } from '../emojis';
+} from '../git/git';
+import { CommandQuickPickItem, QuickPickItemOfT } from './quickPicksItems';
+import { Dates, Strings } from '../system';
 
-export interface QuickPickItemOfT<T = any> extends QuickPickItem {
-	readonly item: T;
-}
+export class GitCommandQuickPickItem extends CommandQuickPickItem<[GitCommandsCommandArgs]> {
+	label!: string;
+	description?: string;
+	detail?: string | undefined;
 
-export interface FlagsQuickPickItem<T> extends QuickPickItemOfT<T[]> {}
-export namespace FlagsQuickPickItem {
-	export function create<T>(flags: T[], item: T[], options: QuickPickItem) {
-		return { ...options, item: item, picked: hasFlags(flags, item) };
-	}
-}
-
-function hasFlags<T>(flags: T[], has?: T | T[]): boolean {
-	if (has === undefined) return flags.length === 0;
-	if (!Array.isArray(has)) return flags.includes(has);
-
-	return has.length === 0 ? flags.length === 0 : has.every(f => flags.includes(f));
-}
-
-export enum Directive {
-	Back = 'Back',
-	Cancel = 'Cancel',
-}
-
-export interface DirectiveQuickPickItem extends QuickPickItem {
-	directive: Directive;
-}
-
-export namespace DirectiveQuickPickItem {
-	export function create(
-		directive: Directive,
-		picked?: boolean,
-		options: { label?: string; description?: string; detail?: string } = {},
-	) {
-		const item: DirectiveQuickPickItem = {
-			label: options.label || directive,
-			description: options.description || '',
-			detail: options.detail,
-			alwaysShow: true,
-			picked: picked,
-			directive: directive,
-		};
-
-		return item;
+	constructor(label: string, args: GitCommandsCommandArgs);
+	constructor(item: QuickPickItem, args: GitCommandsCommandArgs);
+	constructor(labelOrItem: string | QuickPickItem, args: GitCommandsCommandArgs) {
+		super(labelOrItem, Commands.GitCommands, [args], { suppressKeyPress: true });
 	}
 
-	export function is(item: QuickPickItem): item is DirectiveQuickPickItem {
-		return item != null && 'directive' in item;
+	executeSteps(pickedVia: 'menu' | 'command') {
+		return GitCommandsCommand.getSteps(this.args![0], pickedVia);
 	}
 }
 
@@ -136,8 +104,8 @@ export namespace BranchQuickPickItem {
 		if (options.ref) {
 			if (branch.sha) {
 				description = description
-					? `${description}${Strings.pad('$(git-commit)', 2, 2)}${GitService.shortenSha(branch.sha)}`
-					: `${Strings.pad('$(git-commit)', 0, 2)}${GitService.shortenSha(branch.sha)}`;
+					? `${description}${Strings.pad('$(git-commit)', 2, 2)}${GitRevision.shorten(branch.sha)}`
+					: `${Strings.pad('$(git-commit)', 0, 2)}${GitRevision.shorten(branch.sha)}`;
 			}
 
 			if (branch.date !== undefined) {
@@ -148,14 +116,14 @@ export namespace BranchQuickPickItem {
 		}
 
 		const checked =
-			options.checked || (options.checked === undefined && options.current === 'checkmark' && branch.current);
+			options.checked || (options.checked == null && options.current === 'checkmark' && branch.current);
 		const item: BranchQuickPickItem = {
-			label: `${GlyphChars.SpaceThin}${Strings.pad('$(git-branch)', 0, 2)}${GlyphChars.SpaceThinnest}${
-				branch.name
-			}${checked ? `${GlyphChars.Space.repeat(2)}$(check)${GlyphChars.Space}` : ''}`,
+			label: `${Strings.pad('$(git-branch)', 0, 2)}${branch.name}${
+				checked ? `${GlyphChars.Space.repeat(2)}$(check)${GlyphChars.Space}` : ''
+			}`,
 			description: description,
 			alwaysShow: options.alwaysShow,
-			picked: picked === undefined ? branch.current : picked,
+			picked: picked ?? branch.current,
 			item: branch,
 			current: branch.current,
 			ref: branch.name,
@@ -164,6 +132,11 @@ export namespace BranchQuickPickItem {
 
 		return item;
 	}
+}
+
+export class CommitLoadMoreQuickPickItem implements QuickPickItem {
+	readonly label = 'Load more';
+	readonly alwaysShow = true;
 }
 
 export interface CommitQuickPickItem<T extends GitLogCommit = GitLogCommit> extends QuickPickItemOfT<T> {}
@@ -175,11 +148,11 @@ export namespace CommitQuickPickItem {
 		options: { alwaysShow?: boolean; compact?: boolean; icon?: boolean } = {},
 	) {
 		if (GitStashCommit.is(commit)) {
-			const number = commit.number === undefined ? '' : `${commit.number}: `;
+			const number = commit.number == null ? '' : `${commit.number}: `;
 
 			if (options.compact) {
 				const item: CommitQuickPickItem<T> = {
-					label: `${number}${commit.getShortMessage()}`,
+					label: `${options.icon ? Strings.pad('$(archive)', 0, 2) : ''}${number}${commit.getShortMessage()}`,
 					description: `${commit.formattedDate}${Strings.pad(
 						GlyphChars.Dot,
 						2,
@@ -194,7 +167,7 @@ export namespace CommitQuickPickItem {
 			}
 
 			const item: CommitQuickPickItem<T> = {
-				label: `${number}${commit.getShortMessage()}`,
+				label: `${options.icon ? Strings.pad('$(archive)', 0, 2) : ''}${number}${commit.getShortMessage()}`,
 				description: '',
 				detail: `${GlyphChars.Space.repeat(2)}${commit.formattedDate}${Strings.pad(
 					GlyphChars.Dot,
@@ -268,6 +241,7 @@ export interface RefQuickPickItem extends QuickPickItemOfT<GitReference> {
 export namespace RefQuickPickItem {
 	export function create(
 		ref: string,
+		repoPath: string,
 		picked?: boolean,
 		options: { alwaysShow?: boolean; ref?: boolean; icon?: boolean } = {},
 	): RefQuickPickItem {
@@ -277,7 +251,7 @@ export namespace RefQuickPickItem {
 				description: '',
 				alwaysShow: options.alwaysShow,
 				picked: picked,
-				item: GitReference.create(ref, { name: 'Working Tree' }),
+				item: GitReference.create(ref, repoPath, { refType: 'revision', name: 'Working Tree' }),
 				current: false,
 				ref: ref,
 				remote: false,
@@ -290,14 +264,14 @@ export namespace RefQuickPickItem {
 				description: '',
 				alwaysShow: options.alwaysShow,
 				picked: picked,
-				item: GitReference.create(ref, { name: 'HEAD' }),
+				item: GitReference.create(ref, repoPath, { refType: 'revision', name: 'HEAD' }),
 				current: false,
 				ref: ref,
 				remote: false,
 			};
 		}
 
-		const gitRef = GitReference.create(ref);
+		const gitRef = GitReference.create(ref, repoPath);
 
 		const item: RefQuickPickItem = {
 			label: `Commit ${gitRef.name}`,
@@ -401,8 +375,8 @@ export namespace TagQuickPickItem {
 
 		if (options.ref) {
 			description = description
-				? `${description}${Strings.pad('$(git-commit)', 2, 2)}${GitService.shortenSha(tag.sha)}`
-				: `${Strings.pad('$(git-commit)', 0, 2)}${GitService.shortenSha(tag.sha)}`;
+				? `${description}${Strings.pad('$(git-commit)', 2, 2)}${GitRevision.shorten(tag.sha)}`
+				: `${Strings.pad('$(git-commit)', 0, 2)}${GitRevision.shorten(tag.sha)}`;
 
 			description = description
 				? `${description}${Strings.pad(GlyphChars.Dot, 2, 2)}${tag.formattedDate}`

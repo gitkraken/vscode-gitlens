@@ -1,6 +1,6 @@
 'use strict';
-import { Messages } from '../messages';
 import { command, Command, Commands } from './common';
+import { Messages } from '../messages';
 
 @command()
 export class SupportGitLensCommand extends Command {

@@ -2,7 +2,7 @@
 import { graphql } from '@octokit/graphql';
 import { Logger } from '../logger';
 import { debug } from '../system';
-import { IssueOrPullRequest, PullRequest, PullRequestState } from '../git/gitService';
+import { IssueOrPullRequest, PullRequest, PullRequestState } from '../git/git';
 
 export class GitHubApi {
 	@debug({

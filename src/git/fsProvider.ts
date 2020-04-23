@@ -14,7 +14,8 @@ import {
 } from 'vscode';
 import { DocumentSchemes } from '../constants';
 import { Container } from '../container';
-import { GitService, GitTree, GitUri } from '../git/gitService';
+import { GitRevision, GitTree } from '../git/git';
+import { GitUri } from '../git/gitUri';
 import { debug, Iterables, Strings, TernarySearchTree } from '../system';
 
 const emptyArray = new Uint8Array(0);
@@ -80,7 +81,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 	async readFile(uri: Uri): Promise<Uint8Array> {
 		const { path, ref, repoPath } = fromGitLensFSUri(uri);
 
-		if (ref === GitService.deletedOrMissingSha) return emptyArray;
+		if (ref === GitRevision.deletedOrMissing) return emptyArray;
 
 		const buffer = await Container.git.getVersionedFileBuffer(repoPath, path, ref);
 		if (buffer === undefined) return emptyArray;
@@ -96,7 +97,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 	async stat(uri: Uri): Promise<FileStat> {
 		const { path, ref, repoPath } = fromGitLensFSUri(uri);
 
-		if (ref === GitService.deletedOrMissingSha) {
+		if (ref === GitRevision.deletedOrMissing) {
 			return {
 				type: FileType.File,
 				size: 0,

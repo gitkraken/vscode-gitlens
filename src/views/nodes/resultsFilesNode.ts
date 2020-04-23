@@ -2,7 +2,8 @@
 import * as paths from 'path';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
-import { GitFile, GitUri } from '../../git/gitService';
+import { GitFile } from '../../git/git';
+import { GitUri } from '../../git/gitUri';
 import { Arrays, debug, gate, Iterables, Promises, Strings } from '../../system';
 import { ViewWithFiles } from '../viewBase';
 import { FileNode, FolderNode } from './folderNode';

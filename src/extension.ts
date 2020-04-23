@@ -5,7 +5,9 @@ import { ViewShowBranchComparison } from './config';
 import { configuration, Configuration } from './configuration';
 import { CommandContext, extensionQualifiedId, GlobalState, GlyphChars, setCommandContext } from './constants';
 import { Container } from './container';
-import { GitCommit, GitService, GitUri } from './git/gitService';
+import { Git, GitCommit } from './git/git';
+import { GitService } from './git/gitService';
+import { GitUri } from './git/gitUri';
 import { Logger } from './logger';
 import { Messages } from './messages';
 import { Strings, Versions } from './system';
@@ -70,7 +72,7 @@ export async function activate(context: ExtensionContext) {
 
 	registerCommands(context);
 
-	const gitVersion = GitService.getGitVersion();
+	const gitVersion = Git.getGitVersion();
 
 	// Telemetry.configure(ApplicationInsightsKey);
 

@@ -5,7 +5,7 @@ import { FileAnnotationController } from './annotations/fileAnnotationController
 import { LineAnnotationController } from './annotations/lineAnnotationController';
 import { clearAvatarCache } from './avatars';
 import { GitCodeLensController } from './codelens/codeLensController';
-import { Commands, ToggleFileBlameCommandArgs } from './commands';
+import { Commands, ToggleFileAnnotationCommandArgs } from './commands';
 import { AnnotationsToggleMode, Config, configuration, ConfigurationWillChangeEvent, viewKeys } from './configuration';
 import { extensionId } from './constants';
 import { GitFileSystemProvider } from './git/fsProvider';
@@ -335,8 +335,8 @@ export class Container {
 					break;
 			}
 
-			if (command !== undefined) {
-				const commandArgs: ToggleFileBlameCommandArgs = {
+			if (command != null) {
+				const commandArgs: ToggleFileAnnotationCommandArgs = {
 					on: true,
 				};
 				// Make sure to delay the execution by a bit so that the configuration changes get propegated first

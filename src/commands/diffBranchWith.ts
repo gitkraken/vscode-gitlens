@@ -1,10 +1,5 @@
 'use strict';
 import { TextEditor, Uri } from 'vscode';
-import { GlyphChars } from '../constants';
-import { Container } from '../container';
-import { Logger } from '../logger';
-import { Messages } from '../messages';
-import { CommandQuickPickItem, ReferencesQuickPick, ReferencesQuickPickIncludes } from '../quickpicks';
 import {
 	ActiveEditorCommand,
 	command,
@@ -13,6 +8,10 @@ import {
 	getCommandUri,
 	getRepoPathOrActiveOrPrompt,
 } from './common';
+import { Container } from '../container';
+import { Logger } from '../logger';
+import { Messages } from '../messages';
+import { ReferencePicker, ReferencesQuickPickIncludes } from '../quickpicks';
 
 export interface DiffBranchWithCommandArgs {
 	ref1?: string;
@@ -22,24 +21,17 @@ export interface DiffBranchWithCommandArgs {
 @command()
 export class DiffBranchWithCommand extends ActiveEditorCommand {
 	constructor() {
-		super([
-			Commands.DiffHeadWith,
-			Commands.DiffWorkingWith,
-			Commands.DiffHeadWithBranch,
-			Commands.DiffWorkingWithBranch,
-		]);
+		super([Commands.DiffHeadWith, Commands.DiffWorkingWith]);
 	}
 
 	protected preExecute(context: CommandContext, args?: DiffBranchWithCommandArgs) {
 		switch (context.command) {
 			case Commands.DiffHeadWith:
-			case Commands.DiffHeadWithBranch:
 				args = { ...args };
 				args.ref1 = 'HEAD';
 				break;
 
 			case Commands.DiffWorkingWith:
-			case Commands.DiffWorkingWithBranch:
 				args = { ...args };
 				args.ref1 = '';
 				break;
@@ -52,57 +44,49 @@ export class DiffBranchWithCommand extends ActiveEditorCommand {
 		uri = getCommandUri(uri, editor);
 		args = { ...args };
 
-		if (args.ref1 === undefined) return undefined;
+		if (args.ref1 == null) return;
 
 		try {
-			const repoPath = await getRepoPathOrActiveOrPrompt(
-				uri,
-				editor,
-				`Compare in which repository${GlyphChars.Ellipsis}`,
-			);
-			if (!repoPath) return undefined;
+			// let checkmarks;
+			let title;
+			switch (args.ref1) {
+				case '':
+					// checkmarks = false;
+					title = 'Compare Working Tree with';
+					break;
+				case 'HEAD':
+					// checkmarks = false;
+					title = 'Compare HEAD with';
+					break;
+				default:
+					// checkmarks = true;
+					title = `Compare ${args.ref1} with`;
+					break;
+			}
+
+			const repoPath = await getRepoPathOrActiveOrPrompt(uri, editor, title);
+			if (!repoPath) return;
 
 			if (!args.ref2) {
-				let checkmarks;
-				let placeHolder;
-				switch (args.ref1) {
-					case '':
-						checkmarks = false;
-						placeHolder = `Compare Working Tree with${GlyphChars.Ellipsis}`;
-						break;
-					case 'HEAD':
-						checkmarks = false;
-						placeHolder = `Compare HEAD with${GlyphChars.Ellipsis}`;
-						break;
-					default:
-						checkmarks = true;
-						placeHolder = `Compare ${args.ref1} with${GlyphChars.Ellipsis}`;
-						break;
-				}
-
-				const pick = await new ReferencesQuickPick(repoPath).show(placeHolder, {
+				const pick = await ReferencePicker.show(repoPath, title, 'Choose a reference to compare with', {
 					allowEnteringRefs: true,
-					checked: args.ref1,
-					checkmarks: checkmarks,
+					picked: args.ref1,
+					// checkmarks: checkmarks,
 					include:
 						ReferencesQuickPickIncludes.BranchesAndTags |
 						ReferencesQuickPickIncludes.HEAD |
 						ReferencesQuickPickIncludes.WorkingTree,
 				});
-				if (pick === undefined) return undefined;
-
-				if (pick instanceof CommandQuickPickItem) return pick.execute();
+				if (pick == null) return;
 
 				args.ref2 = pick.ref;
-				if (args.ref2 === undefined) return undefined;
+				if (args.ref2 == null) return;
 			}
 
-			await Container.compareView.compare(repoPath, args.ref1, args.ref2);
-
-			return undefined;
+			void (await Container.compareView.compare(repoPath, args.ref1, args.ref2));
 		} catch (ex) {
-			Logger.error(ex, 'DiffBranchWithBranchCommand');
-			return Messages.showGenericErrorMessage('Unable to open branch compare');
+			Logger.error(ex, 'DiffBranchWithCommand');
+			Messages.showGenericErrorMessage('Unable to open branch compare');
 		}
 	}
 }

@@ -5,7 +5,7 @@ import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { ViewFilesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { CommitFormatter, GitBranch, GitLogCommit } from '../../git/gitService';
+import { CommitFormatter, GitBranch, GitLogCommit } from '../../git/git';
 import { Arrays, Iterables, Strings } from '../../system';
 import { ViewWithFiles } from '../viewBase';
 import { CommitFileNode } from './commitFileNode';
@@ -35,7 +35,7 @@ export class CommitNode extends ViewRefNode<ViewWithFiles> {
 	getChildren(): ViewNode[] {
 		const commit = this.commit;
 		let children: FileNode[] = [
-			...Iterables.map(commit.files, s => new CommitFileNode(this.view, this, s, commit.toFileCommit(s))),
+			...Iterables.map(commit.files, s => new CommitFileNode(this.view, this, s, commit.toFileCommit(s)!)),
 		];
 
 		if (this.view.config.files.layout !== ViewFilesLayout.List) {

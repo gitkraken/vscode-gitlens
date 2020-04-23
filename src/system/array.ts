@@ -18,10 +18,11 @@ export namespace Arrays {
 
 	export function filterMap<T, TMapped>(
 		source: T[],
-		predicateMapper: (item: T) => TMapped | null | undefined,
+		predicateMapper: (item: T, index: number) => TMapped | null | undefined,
 	): TMapped[] {
+		let index = 0;
 		return source.reduce((accumulator, current) => {
-			const mapped = predicateMapper(current);
+			const mapped = predicateMapper(current, index++);
 			if (mapped != null) {
 				accumulator.push(mapped);
 			}
@@ -31,10 +32,11 @@ export namespace Arrays {
 
 	export function filterMapAsync<T, TMapped>(
 		source: T[],
-		predicateMapper: (item: T) => Promise<TMapped | null | undefined>,
+		predicateMapper: (item: T, index: number) => Promise<TMapped | null | undefined>,
 	): Promise<TMapped[]> {
+		let index = 0;
 		return source.reduce(async (accumulator, current) => {
-			const mapped = await predicateMapper(current);
+			const mapped = await predicateMapper(current, index++);
 			if (mapped != null) {
 				accumulator.push(mapped);
 			}
@@ -85,6 +87,10 @@ export namespace Arrays {
 
 	export function areEquivalent<T>(value: T[], other: T[]) {
 		return _xor(value, other).length === 0;
+	}
+
+	export function isStringArray<T extends any[]>(array: string[] | T): array is string[] {
+		return typeof array[0] === 'string';
 	}
 
 	export interface HierarchicalItem<T> {

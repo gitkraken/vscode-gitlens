@@ -1,11 +1,11 @@
 'use strict';
 import { ConfigurationTarget } from 'vscode';
+import { command, Command, Commands } from './common';
 import { configuration } from '../configuration';
 import { Container } from '../container';
-import { ModesQuickPick } from '../quickpicks';
-import { command, Command, Commands } from './common';
-import { log } from '../system';
 import { Logger } from '../logger';
+import { ModePicker } from '../quickpicks';
+import { log } from '../system';
 
 @command()
 export class SwitchModeCommand extends Command {
@@ -17,7 +17,7 @@ export class SwitchModeCommand extends Command {
 	async execute() {
 		const cc = Logger.getCorrelationContext();
 
-		const pick = await ModesQuickPick.show();
+		const pick = await ModePicker.show();
 		if (pick === undefined) return;
 
 		if (cc) {

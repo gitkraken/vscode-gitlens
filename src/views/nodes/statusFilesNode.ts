@@ -3,16 +3,16 @@ import * as paths from 'path';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout } from '../../configuration';
 import { Container } from '../../container';
-import { GitStatusFile } from '../../git/git';
 import {
 	GitCommitType,
 	GitFileWithCommit,
 	GitLog,
 	GitLogCommit,
-	GitService,
+	GitRevision,
 	GitStatus,
-	GitUri,
-} from '../../git/gitService';
+	GitStatusFile,
+} from '../../git/git';
+import { GitUri } from '../../git/gitUri';
 import { Arrays, Iterables, Objects, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { FileNode, FolderNode } from './folderNode';
@@ -73,14 +73,14 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 						older.setMilliseconds(older.getMilliseconds() - 1);
 
 						return [
-							this.toStatusFile(s, GitService.uncommittedSha, GitService.uncommittedStagedSha),
-							this.toStatusFile(s, GitService.uncommittedStagedSha, 'HEAD', older),
+							this.toStatusFile(s, GitRevision.uncommitted, GitRevision.uncommittedStaged),
+							this.toStatusFile(s, GitRevision.uncommittedStaged, 'HEAD', older),
 						];
 					} else if (s.indexStatus !== undefined) {
-						return [this.toStatusFile(s, GitService.uncommittedStagedSha, 'HEAD')];
+						return [this.toStatusFile(s, GitRevision.uncommittedStaged, 'HEAD')];
 					}
 
-					return [this.toStatusFile(s, GitService.uncommittedSha, 'HEAD')];
+					return [this.toStatusFile(s, GitRevision.uncommitted, 'HEAD')];
 				}),
 			);
 		}

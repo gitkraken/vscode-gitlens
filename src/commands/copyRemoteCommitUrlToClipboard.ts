@@ -1,9 +1,16 @@
 'use strict';
-import { commands, TextEditor, Uri } from 'vscode';
-import { ActiveEditorCommand, command, CommandContext, Commands, isCommandViewContextWithCommit } from './common';
-import { OpenCommitInRemoteCommandArgs } from './openCommitInRemote';
+import { TextEditor, Uri } from 'vscode';
+import {
+	ActiveEditorCommand,
+	command,
+	CommandContext,
+	Commands,
+	executeEditorCommand,
+	isCommandViewContextWithCommit,
+} from './common';
+import { OpenCommitOnRemoteCommandArgs } from './openCommitOnRemote';
 
-export interface CopyRemoteCommitUrlToClipboardCommandArgs extends OpenCommitInRemoteCommandArgs {
+export interface CopyRemoteCommitUrlToClipboardCommandArgs extends OpenCommitOnRemoteCommandArgs {
 	sha?: string;
 }
 
@@ -31,7 +38,9 @@ export class CopyRemoteCommitUrlToClipboardCommand extends ActiveEditorCommand {
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: CopyRemoteCommitUrlToClipboardCommandArgs) {
-		const commandArgs: OpenCommitInRemoteCommandArgs = { ...args, clipboard: true };
-		return commands.executeCommand(Commands.OpenCommitInRemote, uri, commandArgs);
+		void (await executeEditorCommand<OpenCommitOnRemoteCommandArgs>(Commands.OpenCommitInRemote, uri, {
+			...args,
+			clipboard: true,
+		}));
 	}
 }

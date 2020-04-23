@@ -10,6 +10,6 @@ export class ResetSuppressedWarningsCommand extends Command {
 	}
 
 	async execute() {
-		await configuration.update('advanced', 'messages', undefined, ConfigurationTarget.Global);
+		void (await configuration.update('advanced', 'messages', undefined, ConfigurationTarget.Global));
 	}
 }

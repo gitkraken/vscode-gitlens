@@ -2,7 +2,8 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
 import { Container } from '../../container';
-import { GitUri, Repository } from '../../git/gitService';
+import { Repository } from '../../git/git';
+import { GitUri } from '../../git/gitUri';
 import { Arrays, debug, gate } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { BranchNode } from './branchNode';

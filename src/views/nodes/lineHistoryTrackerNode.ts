@@ -1,16 +1,16 @@
 'use strict';
 import { Selection, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { MessageNode } from './common';
 import { UriComparer } from '../../comparers';
-import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { GitCommitish, GitUri } from '../../git/gitService';
+import { GitReference } from '../../git/git';
+import { GitCommitish, GitUri } from '../../git/gitUri';
+import { LineHistoryView } from '../lineHistoryView';
+import { LineHistoryNode } from './lineHistoryNode';
 import { Logger } from '../../logger';
-import { CommandQuickPickItem, ReferencesQuickPick } from '../../quickpicks';
+import { ReferencePicker } from '../../quickpicks';
 import { debug, Functions, gate, log } from '../../system';
 import { LinesChangeEvent } from '../../trackers/gitLineTracker';
-import { LineHistoryView } from '../lineHistoryView';
-import { MessageNode } from './common';
-import { LineHistoryNode } from './lineHistoryNode';
 import { ResourceType, SubscribeableViewNode, unknownGitUri, ViewNode } from './viewNode';
 
 export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryView> {
@@ -73,18 +73,25 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 	@gate()
 	@log()
 	async changeBase() {
-		const pick = await new ReferencesQuickPick(this.uri.repoPath).show(
-			`Change the line history base to${GlyphChars.Ellipsis}`,
+		const pick = await ReferencePicker.show(
+			this.uri.repoPath!,
+			'Change Line History Base',
+			'Choose a reference to set as the new base',
 			{
 				allowEnteringRefs: true,
-				checked: this._base,
-				checkmarks: true,
+				picked: this._base,
+				// checkmarks: true,
 			},
 		);
-		if (pick === undefined || pick instanceof CommandQuickPickItem) return;
+		if (pick == null) return;
 
-		this._base = pick.current ? undefined : pick.ref;
-		if (this._child === undefined) return;
+		if (GitReference.isBranch(pick)) {
+			const branch = await Container.git.getBranch(this.uri.repoPath);
+			this._base = branch?.name === pick.name ? undefined : pick.ref;
+		} else {
+			this._base = pick.ref;
+		}
+		if (this._child == null) return;
 
 		this._uri = unknownGitUri;
 		await this.triggerChange();

@@ -1,10 +1,10 @@
 'use strict';
 import { StarredBranches, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
-import { Git, GitRemote } from '../git';
+import { GitRemote, GitRevision } from '../git';
 import { GitStatus } from './status';
 import { Dates, memoize } from '../../system';
-import { GitReference } from './models';
+import { GitBranchReference, GitReference } from './models';
 import { BranchSorting, configuration, DateStyle } from '../../configuration';
 
 const whitespaceRegex = /\s/;
@@ -24,13 +24,13 @@ export interface GitTrackingState {
 	behind: number;
 }
 
-export class GitBranch implements GitReference {
+export class GitBranch implements GitBranchReference {
 	static is(branch: any): branch is GitBranch {
 		return branch instanceof GitBranch;
 	}
 
 	static isOfRefType(branch: GitReference | undefined) {
-		return branch !== undefined && branch.refType === 'branch';
+		return branch?.refType === 'branch';
 	}
 
 	static sort(branches: GitBranch[]) {
@@ -58,8 +58,8 @@ export class GitBranch implements GitReference {
 					(a, b) =>
 						(a.current ? -1 : 1) - (b.current ? -1 : 1) ||
 						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
-						(a.name === 'master' ? -1 : 0) ||
-						(a.name === 'develop' ? (b.name === 'master' ? 0 : -1) : 0) ||
+						(a.name === 'master' ? -1 : 1) - (b.name === 'master' ? -1 : 1) ||
+						(a.name === 'develop' ? -1 : 1) - (b.name === 'develop' ? -1 : 1) ||
 						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
 						b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' }),
 				);
@@ -68,8 +68,8 @@ export class GitBranch implements GitReference {
 					(a, b) =>
 						(a.current ? -1 : 1) - (b.current ? -1 : 1) ||
 						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
-						(a.name === 'master' ? -1 : 0) ||
-						(a.name === 'develop' ? (b.name === 'master' ? 0 : -1) : 0) ||
+						(a.name === 'master' ? -1 : 1) - (b.name === 'master' ? -1 : 1) ||
+						(a.name === 'develop' ? -1 : 1) - (b.name === 'develop' ? -1 : 1) ||
 						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
 						a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }),
 				);
@@ -138,13 +138,13 @@ export class GitBranch implements GitReference {
 
 	@memoize()
 	getBasename(): string {
-		const name = this.getName();
+		const name = this.getNameWithoutRemote();
 		const index = name.lastIndexOf('/');
 		return index !== -1 ? name.substring(index + 1) : name;
 	}
 
 	@memoize()
-	getName(): string {
+	getNameWithoutRemote(): string {
 		return this.remote ? this.name.substring(this.name.indexOf('/') + 1) : this.name;
 	}
 
@@ -206,11 +206,11 @@ export class GitBranch implements GitReference {
 	}
 
 	static formatDetached(sha: string): string {
-		return `(${Git.shortenSha(sha)}...)`;
+		return `(${GitRevision.shorten(sha)}...)`;
 	}
 
-	static getRemote(branch: string): string {
-		return branch.substring(0, branch.indexOf('/'));
+	static getRemote(name: string): string {
+		return name.substring(0, name.indexOf('/'));
 	}
 
 	static isDetached(name: string): boolean {

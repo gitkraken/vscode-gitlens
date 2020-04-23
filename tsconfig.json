@@ -2,7 +2,7 @@
 	"compilerOptions": {
 		"experimentalDecorators": true,
 		"forceConsistentCasingInFileNames": true,
-		"lib": ["es2018"],
+		"lib": ["es2019"],
 		"module": "esnext",
 		"moduleResolution": "node",
 		"noFallthroughCasesInSwitch": true,
@@ -14,7 +14,7 @@
 		"skipLibCheck": true,
 		"sourceMap": true,
 		"strict": true,
-		"target": "es2018"
+		"target": "es2019"
 	},
 	"exclude": ["node_modules", "test", "src/webviews/apps"]
 }

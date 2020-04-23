@@ -1,22 +1,14 @@
 'use strict';
-import {
-	Disposable,
-	InputBox,
-	QuickInputButton,
-	QuickInputButtons,
-	QuickPick,
-	QuickPickItem,
-	Uri,
-	window,
-} from 'vscode';
+import { Disposable, InputBox, QuickInputButton, QuickInputButtons, QuickPick, QuickPickItem, window } from 'vscode';
 import { command, Command, Commands } from './common';
 import { log } from '../system';
 import {
 	isQuickInputStep,
 	isQuickPickStep,
-	QuickCommandBase,
+	QuickCommand,
 	QuickInputStep,
 	QuickPickStep,
+	StepGenerator,
 	StepSelection,
 } from './quickCommand';
 import { Directive, DirectiveQuickPickItem } from '../quickpicks';
@@ -24,6 +16,7 @@ import { BranchGitCommand, BranchGitCommandArgs } from './git/branch';
 import { CherryPickGitCommand, CherryPickGitCommandArgs } from './git/cherry-pick';
 import { CoAuthorsGitCommand, CoAuthorsGitCommandArgs } from './git/coauthors';
 import { FetchGitCommand, FetchGitCommandArgs } from './git/fetch';
+import { LogGitCommand, LogGitCommandArgs } from './git/log';
 import { MergeGitCommand, MergeGitCommandArgs } from './git/merge';
 import { PullGitCommand, PullGitCommandArgs } from './git/pull';
 import { PushGitCommand, PushGitCommandArgs } from './git/push';
@@ -31,12 +24,18 @@ import { RebaseGitCommand, RebaseGitCommandArgs } from './git/rebase';
 import { ResetGitCommand, ResetGitCommandArgs } from './git/reset';
 import { RevertGitCommand, RevertGitCommandArgs } from './git/revert';
 import { SearchGitCommand, SearchGitCommandArgs } from './git/search';
+import { ShowGitCommand, ShowGitCommandArgs } from './git/show';
 import { StashGitCommand, StashGitCommandArgs } from './git/stash';
+import { StatusGitCommand, StatusGitCommandArgs } from './git/status';
 import { SwitchGitCommand, SwitchGitCommandArgs } from './git/switch';
 import { TagGitCommand, TagGitCommandArgs } from './git/tag';
 import { Container } from '../container';
 import { configuration } from '../configuration';
 import { KeyMapping } from '../keyboard';
+import { QuickCommandButtons, ToggleQuickInputButton } from './quickCommand.buttons';
+import { Promises } from '../system/promise';
+
+export * from './gitCommands.actions';
 
 const sanitizeLabel = /\$\(.+?\)|\s/g;
 
@@ -45,6 +44,7 @@ export type GitCommandsCommandArgs =
 	| CherryPickGitCommandArgs
 	| CoAuthorsGitCommandArgs
 	| FetchGitCommandArgs
+	| LogGitCommandArgs
 	| MergeGitCommandArgs
 	| PullGitCommandArgs
 	| PushGitCommandArgs
@@ -52,55 +52,29 @@ export type GitCommandsCommandArgs =
 	| ResetGitCommandArgs
 	| RevertGitCommandArgs
 	| SearchGitCommandArgs
+	| ShowGitCommandArgs
 	| StashGitCommandArgs
+	| StatusGitCommandArgs
 	| SwitchGitCommandArgs
 	| TagGitCommandArgs;
 
+// eslint-disable-next-line @typescript-eslint/no-empty-function
+function* nullSteps(): StepGenerator {}
+
 @command()
 export class GitCommandsCommand extends Command {
-	private readonly Buttons = class {
-		static readonly CloseOnFocusOut: QuickInputButton = {
-			iconPath: {
-				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-pin-small.svg')),
-				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-pin-small.svg')),
-			},
-			tooltip: 'Keep Open',
-		};
+	static getSteps(args: GitCommandsCommandArgs, pickedVia: 'menu' | 'command'): StepGenerator {
+		const commandsStep = new PickCommandStep(args);
 
-		static readonly KeepOpen: QuickInputButton = {
-			iconPath: {
-				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-pin-small-selected.svg')),
-				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-pin-small-selected.svg')),
-			},
-			tooltip: 'Keep Open',
-		};
+		const command = commandsStep.find(args.command);
+		if (command == null) return nullSteps();
 
-		static readonly WillConfirm: QuickInputButton = {
-			iconPath: {
-				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-check.svg')),
-				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-check.svg')),
-			},
-			tooltip: 'Will confirm',
-		};
+		commandsStep.setCommand(command, pickedVia);
 
-		static readonly WillConfirmForced: QuickInputButton = {
-			iconPath: {
-				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-check.svg')),
-				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-check.svg')),
-			},
-			tooltip: 'Will always confirm',
-		};
+		return command.executeSteps();
+	}
 
-		static readonly WillSkipConfirm: QuickInputButton = {
-			iconPath: {
-				dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-no-check.svg')),
-				light: Uri.file(Container.context.asAbsolutePath('images/light/icon-no-check.svg')),
-			},
-			tooltip: 'Skips confirm',
-		};
-	};
-
-	private _pickedVia: 'menu' | 'command' = 'menu';
+	private startedWith: 'menu' | 'command' = 'menu';
 
 	constructor() {
 		super(Commands.GitCommands);
@@ -110,22 +84,17 @@ export class GitCommandsCommand extends Command {
 	async execute(args?: GitCommandsCommandArgs) {
 		const commandsStep = new PickCommandStep(args);
 
-		let step: QuickPickStep | QuickInputStep | undefined = commandsStep;
+		const command = args?.command != null ? commandsStep.find(args.command) : undefined;
+		this.startedWith = command != null ? 'command' : 'menu';
 
-		if (args) {
-			const command = commandsStep.find(args.command);
-			if (command !== undefined) {
-				this._pickedVia = 'command';
-				commandsStep.setCommand(command, this._pickedVia);
-
-				const next = await command.next();
-				if (next.done) return;
-
-				step = next.value;
+		let step = command == null ? commandsStep : await this.getCommandStep(command, commandsStep);
+		while (step != null) {
+			// If we are trying to back up to the menu and have a starting command, then just reset to the starting command
+			if (step === commandsStep && command != null) {
+				step = await this.getCommandStep(command, commandsStep);
+				continue;
 			}
-		}
 
-		while (step !== undefined) {
 			if (isQuickPickStep(step)) {
 				step = await this.showPickStep(step, commandsStep);
 				continue;
@@ -140,6 +109,73 @@ export class GitCommandsCommand extends Command {
 		}
 	}
 
+	private getButtons(step: QuickInputStep | QuickPickStep | undefined, command?: QuickCommand) {
+		const buttons: QuickInputButton[] = [];
+
+		if (step != null) {
+			if (step.buttons != null) {
+				buttons.push(...step.buttons, new QuickCommandButtons.KeepOpenToggle());
+				return buttons;
+			}
+
+			buttons.push(QuickInputButtons.Back);
+
+			if (step.additionalButtons != null) {
+				buttons.push(...step.additionalButtons);
+			}
+		}
+
+		if (command?.canConfirm) {
+			if (command.canSkipConfirm) {
+				const willConfirmToggle = new QuickCommandButtons.WillConfirmToggle(command.confirm(), async input => {
+					if (command?.skipConfirmKey == null) return;
+
+					const skipConfirmations = configuration.get('gitCommands', 'skipConfirmations') ?? [];
+
+					const index = skipConfirmations.indexOf(command.skipConfirmKey);
+					if (index !== -1) {
+						skipConfirmations.splice(index, 1);
+					} else {
+						skipConfirmations.push(command.skipConfirmKey);
+					}
+
+					void (await configuration.updateEffective('gitCommands', 'skipConfirmations', skipConfirmations));
+				});
+				buttons.push(willConfirmToggle);
+			} else {
+				buttons.push(QuickCommandButtons.WillConfirmForced);
+			}
+		}
+
+		buttons.push(new QuickCommandButtons.KeepOpenToggle());
+
+		return buttons;
+	}
+
+	private async getCommandStep(command: QuickCommand, commandsStep: PickCommandStep) {
+		commandsStep.setCommand(command, 'command');
+
+		const next = await command.next();
+		if (next.done) return undefined;
+
+		return next.value;
+	}
+
+	private async nextStep(
+		quickInput: InputBox | QuickPick<QuickPickItem>,
+		command: QuickCommand,
+		value: StepSelection<any> | undefined,
+	) {
+		quickInput.busy = true;
+		// quickInput.enabled = false;
+
+		const next = await command.next(value);
+		if (next.done) return undefined;
+
+		quickInput.value = '';
+		return next.value;
+	}
+
 	private async showInputStep(step: QuickInputStep, commandsStep: PickCommandStep) {
 		const input = window.createInputBox();
 		input.ignoreFocusOut = !configuration.get('gitCommands', 'closeOnFocusOut');
@@ -150,16 +186,16 @@ export class GitCommandsCommand extends Command {
 			return await new Promise<QuickPickStep | QuickInputStep | undefined>(resolve => {
 				const goBack = async () => {
 					input.value = '';
-					if (commandsStep.command !== undefined) {
+					if (commandsStep.command != null) {
 						input.busy = true;
-						resolve((await commandsStep.command.previous()) || commandsStep);
+						resolve((await commandsStep.command.previous()) ?? commandsStep);
 					}
 				};
 
 				const mapping: KeyMapping = {
 					left: { onDidPressKey: goBack },
 				};
-				if (step.onDidPressKey !== undefined && step.keys !== undefined && step.keys.length !== 0) {
+				if (step.onDidPressKey != null && step.keys != null && step.keys.length !== 0) {
 					for (const key of step.keys) {
 						mapping[key] = {
 							onDidPressKey: key => step.onDidPressKey!(input, key),
@@ -175,35 +211,39 @@ export class GitCommandsCommand extends Command {
 					input.onDidHide(() => resolve()),
 					input.onDidTriggerButton(async e => {
 						if (e === QuickInputButtons.Back) {
-							input.value = '';
-							if (commandsStep.command !== undefined) {
-								input.busy = true;
-								resolve((await commandsStep.command.previous()) || commandsStep);
+							goBack();
+							return;
+						}
+
+						if (e === QuickCommandButtons.WillConfirmForced) return;
+
+						if (e instanceof ToggleQuickInputButton && e.onDidClick != null) {
+							const result = e.onDidClick(input);
+
+							input.buttons = this.getButtons(step, commandsStep.command);
+
+							if ((await result) === true) {
+								resolve(commandsStep.command?.retry());
+								return;
+							}
+
+							if (Promises.is(result)) {
+								input.buttons = this.getButtons(step, commandsStep.command);
 							}
 
 							return;
 						}
 
-						if (e === this.Buttons.WillConfirmForced) return;
-						if (e === this.Buttons.WillConfirm || e === this.Buttons.WillSkipConfirm) {
-							await this.toggleConfirmation(input, commandsStep.command);
-
-							return;
-						}
-
-						if (e === this.Buttons.CloseOnFocusOut || e === this.Buttons.KeepOpen) {
-							await this.toggleKeepOpen(input, commandsStep.command);
-
-							return;
-						}
-
-						if (step.onDidClickButton !== undefined) {
-							step.onDidClickButton(input, e);
+						if (step.onDidClickButton != null) {
+							const result = step.onDidClickButton(input, e);
 							input.buttons = this.getButtons(step, commandsStep.command);
+							if ((await result) === true) {
+								resolve(commandsStep.command?.retry());
+							}
 						}
 					}),
 					input.onDidChangeValue(async e => {
-						if (scope !== undefined) {
+						if (scope != null) {
 							// Pause the left/right keyboard commands if there is a value, otherwise the left/right arrows won't work in the input properly
 							if (e.length !== 0) {
 								await scope.pause(['left', 'right']);
@@ -212,7 +252,7 @@ export class GitCommandsCommand extends Command {
 							}
 						}
 
-						if (step.validate === undefined) return;
+						if (step.validate == null) return;
 
 						const [, message] = await step.validate(e);
 						input.validationMessage = message;
@@ -225,20 +265,20 @@ export class GitCommandsCommand extends Command {
 				input.buttons = this.getButtons(step, commandsStep.command);
 				input.title = step.title;
 				input.placeholder = step.placeholder;
-				if (step.value !== undefined) {
+				input.prompt = step.prompt;
+				if (step.value != null) {
 					input.value = step.value;
 				}
 
 				// If we are starting over clear the previously active command
-				if (commandsStep.command !== undefined && step === commandsStep) {
-					this._pickedVia = 'menu';
-					commandsStep.setCommand(undefined, this._pickedVia);
+				if (commandsStep.command != null && step === commandsStep) {
+					commandsStep.setCommand(undefined, 'menu');
 				}
 
 				input.show();
 
 				// Manually trigger `onDidChangeValue`, because the InputBox seems to fail to call it properly
-				if (step.value !== undefined) {
+				if (step.value != null) {
 					// HACK: This is fragile!
 					(input as any)._onDidChangeValueEmitter.fire(input.value);
 				}
@@ -257,18 +297,49 @@ export class GitCommandsCommand extends Command {
 
 		try {
 			return await new Promise<QuickPickStep | QuickInputStep | undefined>(resolve => {
-				const goBack = async () => {
+				async function goBack() {
 					quickpick.value = '';
-					if (commandsStep.command !== undefined) {
+					if (commandsStep.command != null) {
 						quickpick.busy = true;
-						resolve((await commandsStep.command.previous()) || commandsStep);
+						resolve((await commandsStep.command.previous()) ?? commandsStep);
 					}
-				};
+				}
+
+				async function loadMore() {
+					if (step.onDidLoadMore == null) return;
+
+					quickpick.busy = true;
+					quickpick.enabled = false;
+
+					try {
+						const items = await step.onDidLoadMore?.(quickpick);
+
+						let activeIndex = -1;
+						if (quickpick.activeItems.length !== 0) {
+							const active = quickpick.activeItems[0];
+							activeIndex = quickpick.items.indexOf(active);
+
+							// If the active item is the "Load more" directive, then select the previous item
+							if (DirectiveQuickPickItem.is(active)) {
+								activeIndex--;
+							}
+						}
+
+						quickpick.items = step.items = items;
+
+						if (activeIndex) {
+							quickpick.activeItems = [quickpick.items[activeIndex]];
+						}
+					} finally {
+						quickpick.busy = false;
+						quickpick.enabled = true;
+					}
+				}
 
 				const mapping: KeyMapping = {
 					left: { onDidPressKey: goBack },
 				};
-				if (step.onDidPressKey !== undefined && step.keys !== undefined && step.keys.length !== 0) {
+				if (step.onDidPressKey != null && step.keys != null && step.keys.length !== 0) {
 					for (const key of step.keys) {
 						mapping[key] = {
 							onDidPressKey: key => step.onDidPressKey!(quickpick, key),
@@ -284,46 +355,61 @@ export class GitCommandsCommand extends Command {
 				disposables.push(
 					scope,
 					quickpick.onDidHide(() => resolve()),
+
 					quickpick.onDidTriggerButton(async e => {
 						if (e === QuickInputButtons.Back) {
 							goBack();
-
 							return;
 						}
 
-						if (e === this.Buttons.WillConfirmForced) return;
-						if (
-							e === this.Buttons.CloseOnFocusOut ||
-							e === this.Buttons.KeepOpen ||
-							e === this.Buttons.WillConfirm ||
-							e === this.Buttons.WillSkipConfirm
-						) {
-							let command = commandsStep.command;
-							if (command === undefined && quickpick.activeItems.length !== 0) {
+						if (e === QuickCommandButtons.WillConfirmForced) return;
+
+						if (e === QuickCommandButtons.LoadMore) {
+							loadMore();
+							return;
+						}
+
+						if (e instanceof ToggleQuickInputButton && e.onDidClick != null) {
+							let activeCommand;
+							if (commandsStep.command == null && quickpick.activeItems.length !== 0) {
 								const active = quickpick.activeItems[0];
-								if (!QuickCommandBase.is(active)) return;
-
-								command = active;
+								if (QuickCommand.is(active)) {
+									activeCommand = active;
+								}
 							}
 
-							if (e === this.Buttons.WillConfirm || e === this.Buttons.WillSkipConfirm) {
-								await this.toggleConfirmation(quickpick, command);
+							const result = e.onDidClick(quickpick);
+
+							quickpick.buttons = this.getButtons(
+								activeCommand != null ? activeCommand.value : step,
+								activeCommand ?? commandsStep.command,
+							);
+
+							if ((await result) === true) {
+								resolve(commandsStep.command?.retry());
+								return;
 							}
 
-							if (e === this.Buttons.CloseOnFocusOut || e === this.Buttons.KeepOpen) {
-								await this.toggleKeepOpen(quickpick, command);
+							if (Promises.is(result)) {
+								quickpick.buttons = this.getButtons(
+									activeCommand != null ? activeCommand.value : step,
+									activeCommand ?? commandsStep.command,
+								);
 							}
 
 							return;
 						}
 
-						if (step.onDidClickButton !== undefined) {
-							step.onDidClickButton(quickpick, e);
+						if (step.onDidClickButton != null) {
+							const result = step.onDidClickButton(quickpick, e);
 							quickpick.buttons = this.getButtons(step, commandsStep.command);
+							if ((await result) === true) {
+								resolve(commandsStep.command?.retry());
+							}
 						}
 					}),
 					quickpick.onDidChangeValue(async e => {
-						if (scope !== undefined) {
+						if (scope != null) {
 							// Pause the left/right keyboard commands if there is a value, otherwise the left/right arrows won't work in the input properly
 							if (e.length !== 0) {
 								await scope.pause(['left', 'right']);
@@ -332,7 +418,7 @@ export class GitCommandsCommand extends Command {
 							}
 						}
 
-						if (step.onDidChangeValue !== undefined) {
+						if (step.onDidChangeValue != null) {
 							const cancel = await step.onDidChangeValue(quickpick);
 							if (cancel) return;
 						}
@@ -352,23 +438,22 @@ export class GitCommandsCommand extends Command {
 								}
 
 								let items;
-								if (commandsStep.command === undefined) {
+								if (commandsStep.command == null) {
 									const command = commandsStep.find(quickpick.value.trim(), true);
-									if (command === undefined) return;
+									if (command == null) return;
 
-									commandsStep.setCommand(command, this._pickedVia);
+									commandsStep.setCommand(command, this.startedWith);
 								} else {
 									const cmd = quickpick.value.trim().toLowerCase();
 									const item = step.items.find(
 										i => i.label.replace(sanitizeLabel, '').toLowerCase() === cmd,
 									);
-									if (item === undefined) return;
+									if (item == null) return;
 
 									items = [item];
 								}
 
 								resolve(await this.nextStep(quickpick, commandsStep.command!, items));
-
 								return;
 							}
 						}
@@ -376,11 +461,11 @@ export class GitCommandsCommand extends Command {
 						// Assume there is no matches (since there is no activeItems)
 						if (
 							!quickpick.canSelectMany &&
-							commandsStep.command !== undefined &&
+							commandsStep.command != null &&
 							e.trim().length !== 0 &&
 							(overrideItems || quickpick.activeItems.length === 0)
 						) {
-							if (step.onValidateValue === undefined) return;
+							if (step.onValidateValue == null) return;
 
 							overrideItems = await step.onValidateValue(quickpick, e.trim(), step.items);
 						} else {
@@ -393,10 +478,10 @@ export class GitCommandsCommand extends Command {
 						}
 					}),
 					quickpick.onDidChangeActive(() => {
-						if (commandsStep.command !== undefined || quickpick.activeItems.length === 0) return;
+						if (commandsStep.command != null || quickpick.activeItems.length === 0) return;
 
 						const command = quickpick.activeItems[0];
-						if (!QuickCommandBase.is(command)) return;
+						if (!QuickCommand.is(command)) return;
 
 						quickpick.buttons = this.getButtons(undefined, command);
 					}),
@@ -407,7 +492,7 @@ export class GitCommandsCommand extends Command {
 								const value = quickpick.value.trim();
 								if (value.length === 0 && !step.allowEmpty) return;
 
-								if (step.onDidAccept === undefined) {
+								if (step.onDidAccept == null) {
 									if (step.allowEmpty) {
 										resolve(await this.nextStep(quickpick, commandsStep.command!, []));
 									}
@@ -429,7 +514,7 @@ export class GitCommandsCommand extends Command {
 						}
 
 						if (items.length === 1) {
-							const item = items[0];
+							const [item] = items;
 							if (DirectiveQuickPickItem.is(item)) {
 								switch (item.directive) {
 									case Directive.Cancel:
@@ -437,34 +522,32 @@ export class GitCommandsCommand extends Command {
 										return;
 
 									case Directive.Back:
-										quickpick.value = '';
-										if (commandsStep.command !== undefined) {
-											quickpick.busy = true;
-											resolve((await commandsStep.command.previous()) || commandsStep);
-										}
+										goBack();
+										return;
+
+									case Directive.LoadMore:
+										loadMore();
 										return;
 								}
 							}
 						}
 
-						if (commandsStep.command === undefined) {
-							const command = items[0];
-							if (!QuickCommandBase.is(command)) return;
+						if (commandsStep.command == null) {
+							const [command] = items;
+							if (!QuickCommand.is(command)) return;
 
-							commandsStep.setCommand(command, this._pickedVia);
+							commandsStep.setCommand(command, this.startedWith);
 						}
 
 						if (!quickpick.canSelectMany) {
-							if (step.onDidAccept !== undefined) {
+							if (step.onDidAccept != null) {
 								quickpick.busy = true;
 
 								const next = await step.onDidAccept(quickpick);
 
 								quickpick.busy = false;
 
-								if (!next) {
-									return;
-								}
+								if (!next) return;
 							}
 						}
 
@@ -481,29 +564,28 @@ export class GitCommandsCommand extends Command {
 				quickpick.items = step.items;
 
 				if (quickpick.canSelectMany) {
-					quickpick.selectedItems = step.selectedItems || quickpick.items.filter(i => i.picked);
+					quickpick.selectedItems = step.selectedItems ?? quickpick.items.filter(i => i.picked);
 					quickpick.activeItems = quickpick.selectedItems;
 				} else {
-					quickpick.activeItems = step.selectedItems || quickpick.items.filter(i => i.picked);
+					quickpick.activeItems = step.selectedItems ?? quickpick.items.filter(i => i.picked);
 				}
 
 				// If we are starting over clear the previously active command
-				if (commandsStep.command !== undefined && step === commandsStep) {
-					this._pickedVia = 'menu';
-					commandsStep.setCommand(undefined, this._pickedVia);
+				if (commandsStep.command != null && step === commandsStep) {
+					commandsStep.setCommand(undefined, 'menu');
 				}
 
 				// Needs to be after we reset the command
 				quickpick.buttons = this.getButtons(step, commandsStep.command);
 
-				if (step.value !== undefined) {
+				if (step.value != null) {
 					quickpick.value = step.value;
 				}
 
 				quickpick.show();
 
 				// Manually trigger `onDidChangeValue`, because the QuickPick seems to fail to call it properly
-				if (step.value !== undefined) {
+				if (step.value != null) {
 					// HACK: This is fragile!
 					(quickpick as any)._onDidChangeValueEmitter.fire(quickpick.value);
 				}
@@ -513,138 +595,64 @@ export class GitCommandsCommand extends Command {
 			disposables.forEach(d => d.dispose());
 		}
 	}
-
-	private getButtons(step: QuickInputStep | QuickPickStep | undefined, command?: QuickCommandBase) {
-		const buttons: QuickInputButton[] = [];
-
-		if (step !== undefined) {
-			if (step.buttons !== undefined) {
-				buttons.push(
-					...step.buttons,
-					configuration.get('gitCommands', 'closeOnFocusOut')
-						? this.Buttons.CloseOnFocusOut
-						: this.Buttons.KeepOpen,
-				);
-				return buttons;
-			}
-
-			buttons.push(QuickInputButtons.Back);
-
-			if (step.additionalButtons !== undefined) {
-				buttons.push(...step.additionalButtons);
-			}
-		}
-
-		if (command !== undefined && command.canConfirm) {
-			if (command.canSkipConfirm) {
-				buttons.push(command.confirm() ? this.Buttons.WillConfirm : this.Buttons.WillSkipConfirm);
-			} else {
-				buttons.push(this.Buttons.WillConfirmForced);
-			}
-		}
-
-		buttons.push(
-			configuration.get('gitCommands', 'closeOnFocusOut') ? this.Buttons.CloseOnFocusOut : this.Buttons.KeepOpen,
-		);
-
-		return buttons;
-	}
-
-	private async nextStep(
-		quickInput: InputBox | QuickPick<QuickPickItem>,
-		command: QuickCommandBase,
-		value: StepSelection<any> | undefined,
-	) {
-		quickInput.busy = true;
-		// quickInput.enabled = false;
-
-		const next = await command.next(value);
-		if (next.done) return undefined;
-
-		quickInput.value = '';
-		return next.value;
-	}
-
-	private async toggleConfirmation(
-		input: InputBox | QuickPick<QuickPickItem>,
-		command: QuickCommandBase | undefined,
-	) {
-		if (command === undefined || command.skipConfirmKey === undefined) return;
-
-		const skipConfirmations = configuration.get('gitCommands', 'skipConfirmations') || [];
-
-		const index = skipConfirmations.indexOf(command.skipConfirmKey);
-		if (index !== -1) {
-			skipConfirmations.splice(index, 1);
-		} else {
-			skipConfirmations.push(command.skipConfirmKey);
-		}
-
-		void (await configuration.updateEffective('gitCommands', 'skipConfirmations', skipConfirmations));
-
-		input.buttons = this.getButtons(command.value, command);
-	}
-
-	private async toggleKeepOpen(input: InputBox | QuickPick<QuickPickItem>, command: QuickCommandBase | undefined) {
-		const closeOnFocusOut = !configuration.get('gitCommands', 'closeOnFocusOut');
-
-		input.ignoreFocusOut = !closeOnFocusOut;
-		void (await configuration.updateEffective('gitCommands', 'closeOnFocusOut', closeOnFocusOut));
-
-		input.buttons = this.getButtons(command && command.value, command);
-	}
 }
 
 class PickCommandStep implements QuickPickStep {
 	readonly buttons = [];
-	readonly items: QuickCommandBase[];
+	private readonly hiddenItems: QuickCommand[];
+	readonly items: QuickCommand[];
 	readonly matchOnDescription = true;
 	readonly placeholder = 'Choose a git command';
 	readonly title = 'GitLens';
 
 	constructor(args?: GitCommandsCommandArgs) {
 		this.items = [
-			new BranchGitCommand(args && args.command === 'branch' ? args : undefined),
-			new CherryPickGitCommand(args && args.command === 'cherry-pick' ? args : undefined),
-			new CoAuthorsGitCommand(args && args.command === 'co-authors' ? args : undefined),
-			new MergeGitCommand(args && args.command === 'merge' ? args : undefined),
-			new FetchGitCommand(args && args.command === 'fetch' ? args : undefined),
-			new PullGitCommand(args && args.command === 'pull' ? args : undefined),
-			new PushGitCommand(args && args.command === 'push' ? args : undefined),
-			new RebaseGitCommand(args && args.command === 'rebase' ? args : undefined),
-			new ResetGitCommand(args && args.command === 'reset' ? args : undefined),
-			new RevertGitCommand(args && args.command === 'revert' ? args : undefined),
-			new SearchGitCommand(args && args.command === 'search' ? args : undefined),
-			new StashGitCommand(args && args.command === 'stash' ? args : undefined),
-			new SwitchGitCommand(args && args.command === 'switch' ? args : undefined),
-			new TagGitCommand(args && args.command === 'tag' ? args : undefined),
+			new BranchGitCommand(args?.command === 'branch' ? args : undefined),
+			new CherryPickGitCommand(args?.command === 'cherry-pick' ? args : undefined),
+			new CoAuthorsGitCommand(args?.command === 'co-authors' ? args : undefined),
+			new FetchGitCommand(args?.command === 'fetch' ? args : undefined),
+			new LogGitCommand(args?.command === 'log' ? args : undefined),
+			new MergeGitCommand(args?.command === 'merge' ? args : undefined),
+			new PullGitCommand(args?.command === 'pull' ? args : undefined),
+			new PushGitCommand(args?.command === 'push' ? args : undefined),
+			new RebaseGitCommand(args?.command === 'rebase' ? args : undefined),
+			new ResetGitCommand(args?.command === 'reset' ? args : undefined),
+			new RevertGitCommand(args?.command === 'revert' ? args : undefined),
+			new SearchGitCommand(args?.command === 'search' ? args : undefined),
+			new ShowGitCommand(args?.command === 'show' ? args : undefined),
+			new StashGitCommand(args?.command === 'stash' ? args : undefined),
+			new StatusGitCommand(args?.command === 'status' ? args : undefined),
+			new SwitchGitCommand(args?.command === 'switch' ? args : undefined),
+			new TagGitCommand(args?.command === 'tag' ? args : undefined),
 		];
+
+		this.hiddenItems = [];
 	}
 
-	private _active: QuickCommandBase | undefined;
-	get command(): QuickCommandBase | undefined {
-		return this._active;
+	private _command: QuickCommand | undefined;
+	get command(): QuickCommand | undefined {
+		return this._command;
 	}
 
 	find(commandName: string, fuzzy: boolean = false) {
 		if (fuzzy) {
 			const cmd = commandName.toLowerCase();
-			return this.items.find(c => c.isMatch(cmd));
+			return this.items.find(c => c.isMatch(cmd)) ?? this.hiddenItems.find(c => c.isMatch(cmd));
 		}
 
-		return this.items.find(c => c.key === commandName);
+		return this.items.find(c => c.key === commandName) ?? this.hiddenItems.find(c => c.key === commandName);
 	}
 
-	setCommand(value: QuickCommandBase | undefined, reason: 'menu' | 'command'): void {
-		if (this._active !== undefined) {
-			this._active.picked = false;
+	setCommand(command: QuickCommand | undefined, via: 'menu' | 'command'): void {
+		if (this._command != null) {
+			this._command.picked = false;
 		}
 
-		this._active = value;
-
-		if (this._active !== undefined) {
-			this._active.picked = true;
-			this._active.pickedVia = reason;
+		if (command != null) {
+			command.picked = true;
+			command.pickedVia = via;
 		}
+
+		this._command = command;
 	}
 }

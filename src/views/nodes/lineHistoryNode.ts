@@ -1,15 +1,17 @@
 'use strict';
 import { Disposable, Selection, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
-import { GitCommitType, GitFile, GitLogCommit } from '../../git/git';
 import {
+	GitCommitType,
+	GitFile,
 	GitLog,
-	GitService,
-	GitUri,
+	GitLogCommit,
+	GitRevision,
 	RepositoryChange,
 	RepositoryChangeEvent,
 	RepositoryFileSystemChangeEvent,
-} from '../../git/gitService';
+} from '../../git/git';
+import { GitUri } from '../../git/gitUri';
 import { Logger } from '../../logger';
 import { debug, gate, Iterables } from '../../system';
 import { View } from '../viewBase';
@@ -86,7 +88,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 						let uncommitted = new GitLogCommit(
 							GitCommitType.LogFile,
 							this.uri.repoPath!,
-							GitService.uncommittedStagedSha,
+							GitRevision.uncommittedStaged,
 							'You',
 							commit.email,
 							commit.authorDate,
@@ -113,7 +115,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 						uncommitted = new GitLogCommit(
 							GitCommitType.LogFile,
 							this.uri.repoPath!,
-							GitService.uncommittedSha,
+							GitRevision.uncommitted,
 							'You',
 							commit.email,
 							commit.authorDate,
@@ -123,7 +125,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 							[file],
 							'M',
 							commit.originalFileName,
-							GitService.uncommittedStagedSha,
+							GitRevision.uncommittedStaged,
 							commit.originalFileName || commit.fileName,
 						);
 
@@ -141,9 +143,9 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 							GitCommitType.LogFile,
 							this.uri.repoPath!,
 							status?.workingTreeStatus !== undefined
-								? GitService.uncommittedSha
+								? GitRevision.uncommitted
 								: status?.indexStatus !== undefined
-								? GitService.uncommittedStagedSha
+								? GitRevision.uncommittedStaged
 								: commit.sha,
 							'You',
 							commit.email,
@@ -207,11 +209,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 		const item = new TreeItem(
 			`${this.uri.fileName}${lines}${
 				this.uri.sha
-					? ` ${
-							this.uri.sha === GitService.deletedOrMissingSha
-								? this.uri.shortSha
-								: `(${this.uri.shortSha})`
-					  }`
+					? ` ${this.uri.sha === GitRevision.deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`
 					: ''
 			}`,
 			TreeItemCollapsibleState.Expanded,

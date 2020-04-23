@@ -63,7 +63,7 @@ export function getNameFromRemoteResource(resource: RemoteResource) {
 		case RemoteResourceType.Repo:
 			return 'Repository';
 		case RemoteResourceType.Revision:
-			return 'Revision';
+			return 'File';
 		default:
 			return '';
 	}

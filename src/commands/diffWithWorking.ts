@@ -1,11 +1,12 @@
 'use strict';
-import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
+import { TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
+import { ActiveEditorCommand, command, CommandContext, Commands, executeCommand, getCommandUri } from './common';
 import { Container } from '../container';
-import { GitService, GitUri } from '../git/gitService';
-import { ActiveEditorCommand, command, CommandContext, Commands, getCommandUri } from './common';
 import { DiffWithCommandArgs } from './diffWith';
-import { Messages } from '../messages';
+import { GitRevision } from '../git/git';
+import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
+import { Messages } from '../messages';
 
 export interface DiffWithWorkingCommandArgs {
 	inDiffRightEditor?: boolean;
@@ -29,19 +30,18 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 			}
 		}
 
-		// Always pass the editor.uri (if we have one), so we are correct for a split diff
-		return this.execute(context.editor, context.editor?.document.uri ?? context.uri, args);
+		return this.execute(context.editor, context.uri, args);
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: DiffWithWorkingCommandArgs): Promise<any> {
 		uri = getCommandUri(uri, editor);
-		if (uri == null) return undefined;
+		if (uri == null) return;
 
 		let gitUri = await GitUri.fromUri(uri);
 
 		args = { ...args };
-		if (args.line === undefined) {
-			args.line = editor == null ? 0 : editor.selection.active.line;
+		if (args.line == null) {
+			args.line = editor?.selection.active.line ?? 0;
 		}
 
 		if (args.inDiffRightEditor) {
@@ -54,25 +54,33 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 					'DiffWithWorkingCommand',
 					`getPreviousDiffUris(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`,
 				);
-				return Messages.showGenericErrorMessage('Unable to open compare');
+				Messages.showGenericErrorMessage('Unable to open compare');
+
+				return;
 			}
 		}
 
-		// if (args.commit === undefined || args.commit.isUncommitted) {
+		// if (args.commit == null || args.commit.isUncommitted) {
 		// If the sha is missing, just let the user know the file matches
-		if (gitUri.sha === undefined) return window.showInformationMessage('File matches the working tree');
-		if (gitUri.sha === GitService.deletedOrMissingSha) {
-			return window.showWarningMessage('Unable to open compare. File has been deleted from the working tree');
+		if (gitUri.sha == null) {
+			window.showInformationMessage('File matches the working tree');
+
+			return;
+		}
+		if (gitUri.sha === GitRevision.deletedOrMissing) {
+			window.showWarningMessage('Unable to open compare. File has been deleted from the working tree');
+
+			return;
 		}
 
 		// If we are a fake "staged" sha, check the status
 		if (gitUri.isUncommittedStaged) {
 			const status = await Container.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath);
-			if (status !== undefined && status.indexStatus !== undefined) {
-				const diffArgs: DiffWithCommandArgs = {
+			if (status?.indexStatus != null) {
+				void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
 					repoPath: gitUri.repoPath,
 					lhs: {
-						sha: GitService.uncommittedStagedSha,
+						sha: GitRevision.uncommittedStaged,
 						uri: gitUri.documentUri(),
 					},
 					rhs: {
@@ -81,20 +89,22 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 					},
 					line: args.line,
 					showOptions: args.showOptions,
-				};
+				}));
 
-				return commands.executeCommand(Commands.DiffWith, diffArgs);
+				return;
 			}
 		}
 
 		uri = gitUri.toFileUri();
 
 		const workingUri = await Container.git.getWorkingUri(gitUri.repoPath!, uri);
-		if (workingUri === undefined) {
-			return window.showWarningMessage('Unable to open compare. File has been deleted from the working tree');
+		if (workingUri == null) {
+			window.showWarningMessage('Unable to open compare. File has been deleted from the working tree');
+
+			return;
 		}
 
-		const diffArgs: DiffWithCommandArgs = {
+		void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
 			repoPath: gitUri.repoPath,
 			lhs: {
 				sha: gitUri.sha,
@@ -106,7 +116,6 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 			},
 			line: args.line,
 			showOptions: args.showOptions,
-		};
-		return commands.executeCommand(Commands.DiffWith, diffArgs);
+		}));
 	}
 }

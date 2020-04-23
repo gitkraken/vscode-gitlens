@@ -3,7 +3,8 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { GitRemote, GitRemoteType, GitUri, Repository } from '../../git/gitService';
+import { GitRemote, GitRemoteType, Repository } from '../../git/git';
+import { GitUri } from '../../git/gitUri';
 import { Arrays, log } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { BranchNode } from './branchNode';
@@ -148,11 +149,6 @@ export class RemoteNode extends ViewNode<RepositoriesView> {
 		}
 
 		return item;
-	}
-
-	@log()
-	fetch(options: { progress?: boolean } = {}) {
-		return this.repo.fetch({ ...options, remote: this.remote.name });
 	}
 
 	@log()

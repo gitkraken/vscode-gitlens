@@ -1,44 +1,57 @@
-/* eslint-disable no-loop-func */
 'use strict';
 import { commands } from 'vscode';
 import { Container } from '../../container';
-import { GitContributor, GitService, Repository } from '../../git/gitService';
-import { QuickCommandBase, StepAsyncGenerator, StepSelection, StepState } from '../quickCommand';
-import { ContributorQuickPickItem, Directive, DirectiveQuickPickItem, RepositoryQuickPickItem } from '../../quickpicks';
-import { Logger } from '../../logger';
+import { GitContributor, Repository } from '../../git/git';
+import { GitService } from '../../git/gitService';
+import {
+	PartialStepState,
+	pickContributorsStep,
+	pickRepositoryStep,
+	QuickCommand,
+	StepGenerator,
+	StepResult,
+	StepState,
+} from '../quickCommand';
 import { Strings } from '../../system';
 
+interface Context {
+	repos: Repository[];
+	activeRepo: Repository | undefined;
+	title: string;
+}
+
 interface State {
-	repo: Repository;
-	contributors: GitContributor[];
+	repo: string | Repository;
+	contributors: GitContributor | GitContributor[];
 }
 
 export interface CoAuthorsGitCommandArgs {
 	readonly command: 'co-authors';
 	state?: Partial<State>;
-
-	confirm?: boolean;
 }
 
-export class CoAuthorsGitCommand extends QuickCommandBase<State> {
+type CoAuthorStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repo', string>;
+
+export class CoAuthorsGitCommand extends QuickCommand<State> {
 	constructor(args?: CoAuthorsGitCommandArgs) {
 		super('co-authors', 'co-authors', 'Add Co-Authors', { description: 'adds co-authors to a commit message' });
 
-		if (args == null || args.state === undefined) return;
-
 		let counter = 0;
-		if (args.state.repo !== undefined) {
+		if (args?.state?.repo != null) {
 			counter++;
 		}
 
-		if (args.state.contributors !== undefined) {
+		if (
+			args?.state?.contributors != null &&
+			(!Array.isArray(args.state.contributors) || args.state.contributors.length !== 0)
+		) {
 			counter++;
 		}
 
-		this._initialState = {
+		this.initialState = {
 			counter: counter,
-			confirm: args.confirm,
-			...args.state,
+			confirm: false,
+			...args?.state,
 		};
 	}
 
@@ -46,22 +59,21 @@ export class CoAuthorsGitCommand extends QuickCommandBase<State> {
 		return false;
 	}
 
-	get hidden(): boolean {
-		return true;
-	}
-
-	async execute(state: State) {
-		const gitApi = await GitService.getBuiltInGitApi();
-		if (gitApi === undefined) return;
-
-		const repo = gitApi.repositories.find(r => Strings.normalizePath(r.rootUri.fsPath) === state.repo.path);
-		if (repo === undefined) return;
+	async execute(state: CoAuthorStepState) {
+		const repo = (await GitService.getBuiltInGitApi())?.repositories.find(
+			r => Strings.normalizePath(r.rootUri.fsPath) === state.repo.path,
+		);
+		if (repo == null) return;
 
 		let message = repo.inputBox.value;
 
 		const index = message.indexOf('Co-authored-by: ');
 		if (index !== -1) {
 			message = message.substring(0, index - 1).trimRight();
+		}
+
+		if (state.contributors != null && !Array.isArray(state.contributors)) {
+			state.contributors = [state.contributors];
 		}
 
 		for (const c of state.contributors) {
@@ -81,103 +93,75 @@ export class CoAuthorsGitCommand extends QuickCommandBase<State> {
 		void (await commands.executeCommand('workbench.view.scm'));
 	}
 
-	protected async *steps(): StepAsyncGenerator {
-		const state: StepState<State> = this._initialState === undefined ? { counter: 0 } : this._initialState;
-		let activeRepo: Repository | undefined;
-		let repos;
+	protected async *steps(state: PartialStepState<State>): StepGenerator {
+		const context: Context = {
+			repos: [...(await Container.git.getOrderedRepositories())],
+			activeRepo: undefined,
+			title: this.title,
+		};
 
-		while (true) {
-			try {
-				if (repos === undefined) {
-					repos = [...(await Container.git.getOrderedRepositories())];
+		const gitApi = await GitService.getBuiltInGitApi();
+		if (gitApi != null) {
+			// Filter out any repo's that are not known to the built-in git
+			context.repos = context.repos.filter(repo =>
+				gitApi.repositories.find(r => Strings.normalizePath(r.rootUri.fsPath) === repo.path),
+			);
 
-					const gitApi = await GitService.getBuiltInGitApi();
-					if (gitApi !== undefined) {
-						// Filter out any repo's that are not known to the built-in git
-						repos = repos.filter(repo =>
-							gitApi.repositories.find(r => Strings.normalizePath(r.rootUri.fsPath) === repo.path),
-						);
-
-						// Ensure that the active repo is known to the built-in git
-						activeRepo = await Container.git.getActiveRepository();
-						if (
-							activeRepo !== undefined &&
-							!gitApi.repositories.some(r => r.rootUri.fsPath === activeRepo!.path)
-						) {
-							activeRepo = undefined;
-						}
-					}
-				}
-
-				if (state.repo === undefined || !repos.includes(state.repo) || state.counter < 1) {
-					if (repos.length === 1) {
-						state.counter++;
-						state.repo = repos[0];
-					} else {
-						const active = state.repo ? state.repo : await Container.git.getActiveRepository();
-
-						const step = this.createPickStep<RepositoryQuickPickItem>({
-							title: this.title,
-							placeholder: 'Choose a repository',
-							items:
-								repos.length === 0
-									? [DirectiveQuickPickItem.create(Directive.Cancel)]
-									: await Promise.all(
-											repos.map(r =>
-												RepositoryQuickPickItem.create(r, r.id === (active && active.id), {
-													branch: true,
-													fetched: true,
-													status: true,
-												}),
-											),
-									  ),
-						});
-						const selection: StepSelection<typeof step> = yield step;
-
-						if (!this.canPickStepMoveNext(step, state, selection)) {
-							break;
-						}
-
-						state.repo = selection[0].item;
-					}
-				}
-
-				if (state.contributors === undefined || state.counter < 2) {
-					const message = (await GitService.getBuiltInGitApi())?.repositories.find(
-						r => Strings.normalizePath(r.rootUri.fsPath) === state.repo!.path,
-					)?.inputBox.value;
-
-					const step = this.createPickStep<ContributorQuickPickItem>({
-						title: `${this.title} to ${state.repo.formattedName}`,
-						allowEmpty: true,
-						multiselect: true,
-						placeholder: 'Choose contributors to add as co-authors',
-						matchOnDescription: true,
-						items: (await Container.git.getContributors(state.repo.path)).map(c =>
-							ContributorQuickPickItem.create(c, message?.includes(c.toCoauthor())),
-						),
-					});
-					const selection: StepSelection<typeof step> = yield step;
-
-					if (!this.canPickStepMoveNext(step, state, selection)) {
-						if (repos.length === 1) {
-							break;
-						}
-						continue;
-					}
-
-					state.contributors = selection.map(i => i.item);
-				}
-
-				await this.execute(state as State);
-				break;
-			} catch (ex) {
-				Logger.error(ex, this.title);
-
-				throw ex;
+			// Ensure that the active repo is known to the built-in git
+			context.activeRepo = await Container.git.getActiveRepository();
+			if (
+				context.activeRepo != null &&
+				!gitApi.repositories.some(r => r.rootUri.fsPath === context.activeRepo!.path)
+			) {
+				context.activeRepo = undefined;
 			}
 		}
 
-		return undefined;
+		while (this.canStepsContinue(state)) {
+			context.title = this.title;
+
+			if (
+				state.counter < 1 ||
+				state.repo == null ||
+				typeof state.repo === 'string' ||
+				!context.repos.includes(state.repo)
+			) {
+				if (context.repos.length === 1) {
+					if (state.repo == null) {
+						state.counter++;
+					}
+					state.repo = context.repos[0];
+				} else {
+					const result = yield* pickRepositoryStep(state, context);
+					// Always break on the first step (so we will go back)
+					if (result === StepResult.Break) break;
+
+					state.repo = result;
+				}
+			}
+
+			if (state.counter < 2 || state.contributors == null) {
+				const result = yield* pickContributorsStep(
+					state as CoAuthorStepState,
+					context,
+					'Choose contributors to add as co-authors',
+				);
+				if (result === StepResult.Break) {
+					// If we skipped the previous step, make sure we back up past it
+					if (context.repos.length === 1) {
+						state.counter--;
+					}
+
+					continue;
+				}
+
+				state.contributors = result;
+			}
+
+			QuickCommand.endSteps(state);
+			this.execute(state as CoAuthorStepState);
+		}
+
+		return state.counter < 0 ? StepResult.Break : undefined;
 	}
 }

@@ -1,7 +1,7 @@
 'use strict';
 import { Disposable, TextEditor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { Container } from '../../container';
-import { GitUri } from '../../git/gitService';
+import { GitUri } from '../../git/gitUri';
 import { Logger } from '../../logger';
 import { debug, Functions, gate } from '../../system';
 import { RepositoriesView } from '../repositoriesView';

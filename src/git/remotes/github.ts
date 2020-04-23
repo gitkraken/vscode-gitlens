@@ -73,7 +73,7 @@ export class GitHubRemote extends RemoteProviderWithApi<{ token: string }> {
 					input.onDidHide(() => resolve(undefined)),
 					input.onDidTriggerButton(e => {
 						if (e === this.Buttons.Help) {
-							env.openExternal(Uri.parse('https://github.com/eamodio/vscode-gitlens/wiki'));
+							void env.openExternal(Uri.parse('https://github.com/eamodio/vscode-gitlens/wiki'));
 						}
 					}),
 					input.onDidChangeValue(

@@ -1,5 +1,6 @@
 'use strict';
-import { GitDiff, GitDiffHunk, GitDiffHunkLine, GitDiffLine, GitDiffShortStat, GitFile, GitFileStatus } from '../git';
+import { GitDiff, GitDiffHunk, GitDiffHunkLine, GitDiffLine, GitDiffShortStat } from '../models/diff';
+import { GitFile, GitFileStatus } from '../models/file';
 import { debug, Strings } from '../../system';
 
 const nameStatusDiffRegex = /^(.*?)\t(.*?)(?:\t(.*?))?$/gm;

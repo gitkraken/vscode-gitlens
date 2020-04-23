@@ -2,7 +2,7 @@
 import { DecorationOptions, Range } from 'vscode';
 import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
-import { GitBlameCommit } from '../git/gitService';
+import { GitBlameCommit } from '../git/git';
 import { Logger } from '../logger';
 import { log, Strings } from '../system';
 import { Annotations } from './annotations';

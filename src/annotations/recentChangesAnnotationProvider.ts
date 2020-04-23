@@ -11,7 +11,7 @@ import {
 import { AnnotationProviderBase } from './annotationProvider';
 import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
-import { GitUri } from '../git/gitService';
+import { GitUri } from '../git/gitUri';
 import { Hovers } from '../hovers/hovers';
 import { Logger } from '../logger';
 import { log, Strings } from '../system';

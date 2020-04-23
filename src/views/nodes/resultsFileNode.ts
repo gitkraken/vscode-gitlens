@@ -3,7 +3,8 @@ import * as paths from 'path';
 import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithCommandArgs } from '../../commands';
 import { Container } from '../../container';
-import { GitFile, GitUri, StatusFileFormatter } from '../../git/gitService';
+import { GitFile, StatusFileFormatter } from '../../git/git';
+import { GitUri } from '../../git/gitUri';
 import { View } from '../viewBase';
 import { ResourceType, ViewNode, ViewRefFileNode } from './viewNode';
 

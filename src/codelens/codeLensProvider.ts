@@ -21,8 +21,8 @@ import {
 	Commands,
 	DiffWithPreviousCommandArgs,
 	ShowCommitsInViewCommandArgs,
-	ShowQuickCommitDetailsCommandArgs,
-	ShowQuickCommitFileDetailsCommandArgs,
+	ShowQuickCommitCommandArgs,
+	ShowQuickCommitFileCommandArgs,
 	ShowQuickFileHistoryCommandArgs,
 } from '../commands';
 import {
@@ -34,7 +34,9 @@ import {
 } from '../configuration';
 import { BuiltInCommands, DocumentSchemes } from '../constants';
 import { Container } from '../container';
-import { GitBlame, GitBlameCommit, GitBlameLines, GitService, GitUri } from '../git/gitService';
+import { GitBlame, GitBlameCommit, GitBlameLines } from '../git/git';
+import { GitService } from '../git/gitService';
+import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { Functions, Iterables } from '../system';
 import { DocumentTracker, GitDocumentState } from '../trackers/gitDocumentTracker';
@@ -586,7 +588,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		lens: T,
 		commit: GitBlameCommit | undefined,
 	): T {
-		const commandArgs: ShowQuickCommitDetailsCommandArgs = {
+		const commandArgs: ShowQuickCommitCommandArgs = {
 			commit: commit,
 			sha: commit === undefined ? undefined : commit.sha,
 		};
@@ -628,7 +630,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		lens: T,
 		commit: GitBlameCommit | undefined,
 	): T {
-		const commandArgs: ShowQuickCommitDetailsCommandArgs = {
+		const commandArgs: ShowQuickCommitCommandArgs = {
 			commit: commit,
 			sha: commit === undefined ? undefined : commit.sha,
 		};
@@ -645,7 +647,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		lens: T,
 		commit: GitBlameCommit | undefined,
 	): T {
-		const commandArgs: ShowQuickCommitFileDetailsCommandArgs = {
+		const commandArgs: ShowQuickCommitFileCommandArgs = {
 			commit: commit,
 			sha: commit === undefined ? undefined : commit.sha,
 		};

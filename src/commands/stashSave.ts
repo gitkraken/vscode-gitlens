@@ -1,8 +1,6 @@
 'use strict';
-import { commands, Uri } from 'vscode';
-import { Container } from '../container';
-import { GitUri } from '../git/gitUri';
-import { CommandQuickPickItem } from '../quickpicks';
+import { Uri } from 'vscode';
+import { GitActions } from '../commands';
 import {
 	command,
 	Command,
@@ -12,7 +10,7 @@ import {
 	isCommandViewContextWithRepo,
 	isCommandViewContextWithRepoPath,
 } from './common';
-import { GitCommandsCommandArgs } from '../commands';
+import { GitUri } from '../git/gitUri';
 
 const enum ResourceGroupType {
 	Merge,
@@ -25,8 +23,6 @@ export interface StashSaveCommandArgs {
 	repoPath?: string;
 	uris?: Uri[];
 	keepStaged?: boolean;
-
-	goBackCommand?: CommandQuickPickItem;
 }
 
 @command()
@@ -70,24 +66,7 @@ export class StashSaveCommand extends Command {
 		return this.execute(args);
 	}
 
-	async execute(args?: StashSaveCommandArgs) {
-		args = { ...args };
-
-		let repo;
-		if (args.uris !== undefined || args.repoPath !== undefined) {
-			repo = await Container.git.getRepository((args.uris && args.uris[0]) || args.repoPath!);
-		}
-
-		const gitCommandArgs: GitCommandsCommandArgs = {
-			command: 'stash',
-			state: {
-				subcommand: 'push',
-				repo: repo,
-				message: args.message,
-				uris: args.uris,
-				flags: args.keepStaged ? ['--keep-index'] : undefined,
-			},
-		};
-		return commands.executeCommand(Commands.GitCommands, gitCommandArgs);
+	execute(args?: StashSaveCommandArgs) {
+		return GitActions.Stash.push(args?.repoPath, args?.uris, args?.message, args?.keepStaged);
 	}
 }

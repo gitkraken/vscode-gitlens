@@ -2,7 +2,7 @@
 import { Range, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
 import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
-import { GitUri } from '../git/gitService';
+import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { ActiveEditorCommand, command, Commands, findOrOpenEditor, getCommandUri } from './common';
@@ -22,14 +22,14 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
 
 	async execute(editor: TextEditor, uri?: Uri, args?: OpenWorkingFileCommandArgs) {
 		args = { ...args };
-		if (args.line === undefined) {
-			args.line = editor == null ? 0 : editor.selection.active.line;
+		if (args.line == null) {
+			args.line = editor?.selection.active.line;
 		}
 
 		try {
 			if (args.uri == null) {
 				uri = getCommandUri(uri, editor);
-				if (uri == null) return undefined;
+				if (uri == null) return;
 			} else {
 				uri = args.uri;
 			}
@@ -38,9 +38,11 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
 			if (GitUri.is(args.uri) && args.uri.sha) {
 				const workingUri = await Container.git.getWorkingUri(args.uri.repoPath!, args.uri);
 				if (workingUri === undefined) {
-					return window.showWarningMessage(
+					window.showWarningMessage(
 						'Unable to open working file. File could not be found in the working tree',
 					);
+
+					return;
 				}
 
 				args.uri = new GitUri(workingUri, args.uri.repoPath);
@@ -53,13 +55,13 @@ export class OpenWorkingFileCommand extends ActiveEditorCommand {
 				args.showOptions.selection = new Range(args.line, 0, args.line, 0);
 			}
 
-			const e = await findOrOpenEditor(args.uri, { ...args.showOptions, rethrow: true });
-			if (args.annotationType === undefined) return e;
+			const e = await findOrOpenEditor(args.uri, { ...args.showOptions, throwOnError: true });
+			if (args.annotationType === undefined) return;
 
-			return Container.fileAnnotations.show(e, args.annotationType, args.line);
+			void (await Container.fileAnnotations.show(e, args.annotationType, args.line));
 		} catch (ex) {
 			Logger.error(ex, 'OpenWorkingFileCommand');
-			return Messages.showGenericErrorMessage('Unable to open working file');
+			Messages.showGenericErrorMessage('Unable to open working file');
 		}
 	}
 }

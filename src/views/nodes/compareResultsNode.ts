@@ -2,8 +2,9 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { NamedRef } from '../../constants';
 import { Container } from '../../container';
-import { GitService, GitUri } from '../../git/gitService';
-import { debug, gate, log, Mutable, Strings } from '../../system';
+import { GitRevision } from '../../git/git';
+import { GitUri } from '../../git/gitUri';
+import { debug, gate, log, Strings } from '../../system';
 import { CompareView } from '../compareView';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
 import { FilesQueryResults, ResultsFilesNode } from './resultsFilesNode';
@@ -72,10 +73,10 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
 
 		const item = new TreeItem(
 			`Comparing ${
-				this._ref.label || GitService.shortenSha(this._ref.ref, { strings: { working: 'Working Tree' } })
+				this._ref.label || GitRevision.shorten(this._ref.ref, { strings: { working: 'Working Tree' } })
 			} to ${
 				this._compareWith.label ||
-				GitService.shortenSha(this._compareWith.ref, { strings: { working: 'Working Tree' } })
+				GitRevision.shorten(this._compareWith.ref, { strings: { working: 'Working Tree' } })
 			}`,
 			this._state || TreeItemCollapsibleState.Collapsed,
 		);

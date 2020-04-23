@@ -16,7 +16,7 @@ import { LinesChangeEvent } from '../trackers/gitLineTracker';
 import { Annotations } from './annotations';
 import { debug, Iterables, log, Promises } from '../system';
 import { Logger } from '../logger';
-import { CommitFormatter, GitBlameCommit } from '../git/gitService';
+import { CommitFormatter, GitBlameCommit } from '../git/git';
 
 const annotationDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
 	after: {

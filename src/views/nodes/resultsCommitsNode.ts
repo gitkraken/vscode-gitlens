@@ -1,7 +1,8 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
-import { GitLog, GitUri } from '../../git/gitService';
+import { GitLog } from '../../git/git';
+import { GitUri } from '../../git/gitUri';
 import { debug, gate, Iterables, Promises } from '../../system';
 import { ViewWithFiles } from '../viewBase';
 import { CommitNode } from './commitNode';

@@ -6,12 +6,12 @@ import {
 	GitBranch,
 	GitRevision,
 	GitStatus,
-	GitUri,
 	Repository,
 	RepositoryChange,
 	RepositoryChangeEvent,
 	RepositoryFileSystemChangeEvent,
-} from '../../git/gitService';
+} from '../../git/git';
+import { GitUri } from '../../git/gitUri';
 import { Arrays, Dates, debug, gate, log, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { CompareBranchNode } from './compareBranchNode';

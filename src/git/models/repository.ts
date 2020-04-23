@@ -23,6 +23,7 @@ import { RemoteProviderFactory, RemoteProviders, RemoteProviderWithApi } from '.
 import { Messages } from '../../messages';
 import { Logger } from '../../logger';
 import { runGitCommandInTerminal } from '../../terminal';
+import { GitBranchReference, GitReference, GitTagReference } from './models';
 
 const ignoreGitRegex = /\.git(?:\/|\\|$)/;
 
@@ -237,7 +238,7 @@ export class Repository implements Disposable {
 
 	@gate()
 	@log()
-	branchDelete(branches: GitBranch | GitBranch[], { force }: { force?: boolean } = {}) {
+	branchDelete(branches: GitBranchReference | GitBranchReference[], { force }: { force?: boolean } = {}) {
 		if (!Array.isArray(branches)) {
 			branches = [branches];
 		}
@@ -254,7 +255,10 @@ export class Repository implements Disposable {
 		const remoteBranches = branches.filter(b => b.remote);
 		if (remoteBranches.length !== 0) {
 			for (const branch of remoteBranches) {
-				this.runTerminalCommand('push', `${branch.getRemoteName()} :${branch.getName()}`);
+				this.runTerminalCommand(
+					'push',
+					`${GitBranch.getRemote(branch.name)} :${GitReference.getNameWithoutRemote(branch)}`,
+				);
 			}
 		}
 	}
@@ -615,7 +619,7 @@ export class Repository implements Disposable {
 
 	@gate()
 	@log()
-	tagDelete(tags: GitTag | GitTag[]) {
+	tagDelete(tags: GitTagReference | GitTagReference[]) {
 		if (!Array.isArray(tags)) {
 			tags = [tags];
 		}

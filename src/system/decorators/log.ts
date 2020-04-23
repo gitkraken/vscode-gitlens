@@ -3,6 +3,7 @@ import { LogCorrelationContext, Logger, TraceLevel } from '../../logger';
 import { Functions } from '../function';
 import { Promises } from '../promise';
 import { Strings } from '../string';
+import { Arrays } from '../array';
 
 const emptyStr = '';
 
@@ -163,22 +164,19 @@ export function log<T extends (...arg: any) => any>(
 				const argFns = typeof options.args === 'object' ? options.args : undefined;
 				let argFn;
 				let loggable;
-				loggableParams = args
-					.map((v: any, index: number) => {
-						const p = parameters[index];
+				loggableParams = Arrays.filterMap(args, (v: any, index: number) => {
+					const p = parameters[index];
 
-						argFn = argFns !== undefined ? argFns[index] : undefined;
-						if (argFn !== undefined) {
-							loggable = argFn(v);
-							if (loggable === false) return undefined;
-						} else {
-							loggable = Logger.toLoggable(v, options.sanitize);
-						}
+					argFn = argFns !== undefined ? argFns[index] : undefined;
+					if (argFn !== undefined) {
+						loggable = argFn(v);
+						if (loggable === false) return undefined;
+					} else {
+						loggable = Logger.toLoggable(v, options.sanitize);
+					}
 
-						return p ? `${p}=${loggable}` : loggable;
-					})
-					.filter(Boolean)
-					.join(', ');
+					return p ? `${p}=${loggable}` : loggable;
+				}).join(', ');
 
 				if (!options.singleLine) {
 					if (!options.debug) {

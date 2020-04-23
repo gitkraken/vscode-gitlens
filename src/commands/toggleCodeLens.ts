@@ -1,6 +1,6 @@
 'use strict';
-import { Container } from '../container';
 import { command, Command, Commands } from './common';
+import { Container } from '../container';
 
 @command()
 export class ToggleCodeLensCommand extends Command {

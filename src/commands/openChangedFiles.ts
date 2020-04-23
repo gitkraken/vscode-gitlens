@@ -1,11 +1,10 @@
 'use strict';
 import { Uri, window } from 'vscode';
-import { GlyphChars } from '../constants';
+import { command, Command, Commands, findOrOpenEditor, getRepoPathOrPrompt } from './common';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { Arrays } from '../system';
-import { command, Command, Commands, findOrOpenEditor, getRepoPathOrPrompt } from './common';
 
 export interface OpenChangedFilesCommandArgs {
 	uris?: Uri[];
@@ -21,26 +20,26 @@ export class OpenChangedFilesCommand extends Command {
 		args = { ...args };
 
 		try {
-			if (args.uris === undefined) {
-				const repoPath = await getRepoPathOrPrompt(
-					`Open all files changed in which repository${GlyphChars.Ellipsis}`,
-				);
-				if (!repoPath) return undefined;
+			if (args.uris == null) {
+				const repoPath = await getRepoPathOrPrompt('Open All Changed Files');
+				if (!repoPath) return;
 
 				const status = await Container.git.getStatusForRepo(repoPath);
-				if (status === undefined) return window.showWarningMessage('Unable to open changed files');
+				if (status == null) {
+					window.showWarningMessage('Unable to open changed files');
+
+					return;
+				}
 
 				args.uris = Arrays.filterMap(status.files, f => (f.status !== 'D' ? f.uri : undefined));
 			}
 
 			for (const uri of args.uris) {
-				await findOrOpenEditor(uri, { preserveFocus: true, preview: false });
+				void (await findOrOpenEditor(uri, { preserveFocus: true, preview: false }));
 			}
-
-			return undefined;
 		} catch (ex) {
 			Logger.error(ex, 'OpenChangedFilesCommand');
-			return Messages.showGenericErrorMessage('Unable to open all changed files');
+			Messages.showGenericErrorMessage('Unable to open all changed files');
 		}
 	}
 }

@@ -7,8 +7,8 @@ export interface ModesQuickPickItem extends QuickPickItem {
 	key: string | undefined;
 }
 
-export class ModesQuickPick {
-	static async show(): Promise<ModesQuickPickItem | undefined> {
+export namespace ModePicker {
+	export async function show(): Promise<ModesQuickPickItem | undefined> {
 		const modes = Object.keys(Container.config.modes);
 		if (modes.length === 0) return undefined;
 

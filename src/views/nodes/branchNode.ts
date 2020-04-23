@@ -3,7 +3,8 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { BranchDateFormatting, GitBranch, GitLog, GitRemoteType, GitUri } from '../../git/gitService';
+import { BranchDateFormatting, GitBranch, GitLog, GitRemoteType } from '../../git/git';
+import { GitUri } from '../../git/gitUri';
 import { debug, gate, Iterables, log, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
@@ -47,7 +48,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 	}
 
 	get label(): string {
-		const branchName = this.branch.getName();
+		const branchName = this.branch.getNameWithoutRemote();
 		if (this.view.config.branches.layout === ViewBranchesLayout.List) return branchName;
 
 		return this.compacted || this.root || this.current || this.branch.detached || this.branch.starred
@@ -62,7 +63,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 	get treeHierarchy(): string[] {
 		return this.root || this.current || this.branch.detached || this.branch.starred
 			? [this.branch.name]
-			: this.branch.getName().split('/');
+			: this.branch.getNameWithoutRemote().split('/');
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
@@ -113,7 +114,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 
 	async getTreeItem(): Promise<TreeItem> {
 		const name = this.label;
-		let tooltip = `${this.branch.getName()}${this.current ? ' (current)' : ''}`;
+		let tooltip = `${this.branch.getNameWithoutRemote()}${this.current ? ' (current)' : ''}`;
 		let iconSuffix = '';
 
 		let contextValue: string = ResourceType.Branch;

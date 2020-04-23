@@ -1,6 +1,6 @@
 'use strict';
 import { Dates, memoize } from '../../system';
-import { GitReference } from './models';
+import { GitReference, GitTagReference } from './models';
 import { configuration, DateStyle, TagSorting } from '../../configuration';
 
 export const TagDateFormatting = {
@@ -13,13 +13,13 @@ export const TagDateFormatting = {
 	},
 };
 
-export class GitTag implements GitReference {
+export class GitTag implements GitTagReference {
 	static is(tag: any): tag is GitTag {
 		return tag instanceof GitTag;
 	}
 
 	static isOfRefType(tag: GitReference | undefined) {
-		return tag !== undefined && tag.refType === 'tag';
+		return tag?.refType === 'tag';
 	}
 
 	static sort(tags: GitTag[]) {

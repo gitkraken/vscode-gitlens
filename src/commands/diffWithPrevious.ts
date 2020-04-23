@@ -1,10 +1,19 @@
 'use strict';
-import { commands, TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
+import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { Container } from '../container';
-import { GitCommit, GitService, GitUri } from '../git/gitService';
+import { GitCommit, GitRevision } from '../git/git';
+import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { ActiveEditorCommand, command, CommandContext, Commands, findOrOpenEditor, getCommandUri } from './common';
+import {
+	ActiveEditorCommand,
+	command,
+	CommandContext,
+	Commands,
+	executeCommand,
+	findOrOpenEditor,
+	getCommandUri,
+} from './common';
 import { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffWithPreviousCommandArgs {
@@ -31,23 +40,22 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 			}
 		}
 
-		// Always pass the editor.uri (if we have one), so we are correct for a split diff
-		return this.execute(context.editor, context.editor?.document.uri ?? context.uri, args);
+		return this.execute(context.editor, context.uri, args);
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: DiffWithPreviousCommandArgs) {
 		uri = getCommandUri(uri, editor);
-		if (uri == null) return undefined;
+		if (uri == null) return;
 
 		args = { ...args };
-		if (args.line === undefined) {
-			args.line = editor == null ? 0 : editor.selection.active.line;
+		if (args.line == null) {
+			args.line = editor?.selection.active.line ?? 0;
 		}
 
 		let gitUri;
-		if (args.commit !== undefined) {
+		if (args.commit != null) {
 			if (!args.commit.isUncommitted) {
-				const diffArgs: DiffWithCommandArgs = {
+				void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
 					repoPath: args.commit.repoPath,
 					lhs: {
 						sha: `${args.commit.sha}^`,
@@ -59,8 +67,9 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 					},
 					line: args.line,
 					showOptions: args.showOptions,
-				};
-				return commands.executeCommand(Commands.DiffWith, diffArgs);
+				}));
+
+				return;
 			}
 
 			gitUri = GitUri.fromCommit(args.commit);
@@ -82,27 +91,35 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 				args.inDiffRightEditor ? 1 : 0,
 			);
 
-			if (diffUris === undefined || diffUris.previous === undefined) {
-				if (diffUris === undefined) return Messages.showCommitHasNoPreviousCommitWarningMessage();
+			if (diffUris == null || diffUris.previous == null) {
+				if (diffUris == null) {
+					Messages.showCommitHasNoPreviousCommitWarningMessage();
+
+					return;
+				}
 
 				// If we have no previous and the current is the working file, just open the working file
-				if (diffUris.current.sha === undefined) {
-					return findOrOpenEditor(diffUris.current, args.showOptions);
+				if (diffUris.current.sha == null) {
+					void (await findOrOpenEditor(diffUris.current, args.showOptions));
+
+					return;
 				}
 
 				if (!diffUris.current.isUncommittedStaged) {
-					return Messages.showCommitHasNoPreviousCommitWarningMessage();
+					Messages.showCommitHasNoPreviousCommitWarningMessage();
+
+					return;
 				}
 
 				// If we have no previous and the current is staged, then diff staged with missing
 				diffUris.previous = GitUri.fromFile(
 					diffUris.current.fileName,
 					diffUris.current.repoPath!,
-					GitService.deletedOrMissingSha,
+					GitRevision.deletedOrMissing,
 				);
 			}
 
-			const diffArgs: DiffWithCommandArgs = {
+			void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
 				repoPath: diffUris.current.repoPath,
 				lhs: {
 					sha: diffUris.previous.sha || '',
@@ -114,15 +131,14 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 				},
 				line: args.line,
 				showOptions: args.showOptions,
-			};
-			return commands.executeCommand(Commands.DiffWith, diffArgs);
+			}));
 		} catch (ex) {
 			Logger.error(
 				ex,
 				'DiffWithPreviousCommand',
 				`getPreviousDiffUris(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`,
 			);
-			return Messages.showGenericErrorMessage('Unable to open compare');
+			Messages.showGenericErrorMessage('Unable to open compare');
 		}
 	}
 }

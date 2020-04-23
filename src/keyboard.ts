@@ -202,7 +202,7 @@ export class Keyboard implements Disposable {
 			if (typeof command === 'function') {
 				command = await command();
 			}
-			if (!command || typeof command.onDidPressKey !== 'function') {
+			if (typeof command?.onDidPressKey !== 'function') {
 				if (cc) {
 					cc.exitDetails = ' \u2022 skipped, no callback';
 				}

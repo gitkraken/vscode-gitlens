@@ -1,7 +1,16 @@
 'use strict';
 import * as paths from 'path';
 import { Range } from 'vscode';
-import { Git, GitAuthor, GitCommitType, GitFile, GitFileStatus, GitLog, GitLogCommit, GitLogCommitLine } from '../git';
+import {
+	GitAuthor,
+	GitCommitType,
+	GitFile,
+	GitFileStatus,
+	GitLog,
+	GitLogCommit,
+	GitLogCommitLine,
+	GitRevision,
+} from '../git';
 import { Arrays, debug, Strings } from '../../system';
 
 const emptyEntry: LogEntry = {};
@@ -130,7 +139,7 @@ export class GitLogParser {
 					break;
 
 				case 97: // 'a': // author
-					if (Git.isUncommitted(entry.ref)) {
+					if (GitRevision.isUncommitted(entry.ref)) {
 						entry.author = 'You';
 					} else {
 						entry.author = line.substring(4);

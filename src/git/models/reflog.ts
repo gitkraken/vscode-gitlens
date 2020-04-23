@@ -1,6 +1,6 @@
 'use strict';
 import { Dates, memoize } from '../../system';
-import { CommitDateFormatting, Git } from '../git';
+import { CommitDateFormatting, GitRevision } from '../git';
 import { DateStyle } from '../../config';
 
 export interface GitReflog {
@@ -67,7 +67,7 @@ export class GitReflogRecord {
 
 	@memoize()
 	get previousShortSha() {
-		return Git.shortenSha(this._previousSha);
+		return GitRevision.shorten(this._previousSha);
 	}
 
 	get selector() {
@@ -76,7 +76,7 @@ export class GitReflogRecord {
 
 	@memoize()
 	get shortSha() {
-		return Git.shortenSha(this.sha);
+		return GitRevision.shorten(this.sha);
 	}
 
 	update(previousSha?: string, selector?: string) {

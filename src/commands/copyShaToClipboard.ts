@@ -1,7 +1,7 @@
 'use strict';
 import { env, TextEditor, Uri, window } from 'vscode';
 import { Container } from '../container';
-import { GitUri } from '../git/gitService';
+import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { Iterables } from '../system';
@@ -42,43 +42,44 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 			// If we don't have an editor then get the sha of the last commit to the branch
 			if (uri == null) {
 				const repoPath = await Container.git.getActiveRepoPath(editor);
-				if (!repoPath) return undefined;
+				if (!repoPath) return;
 
 				const log = await Container.git.getLog(repoPath, { limit: 1 });
-				if (!log) return undefined;
+				if (!log) return;
 
 				args.sha = Iterables.first(log.commits.values()).sha;
-			} else if (args.sha === undefined) {
-				const blameline = (editor && editor.selection.active.line) || 0;
-				if (blameline < 0) return undefined;
+			} else if (args.sha == null) {
+				const blameline = editor?.selection.active.line ?? 0;
+				if (blameline < 0) return;
 
 				try {
 					const gitUri = await GitUri.fromUri(uri);
-					const blame =
-						editor && editor.document && editor.document.isDirty
-							? await Container.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
-							: await Container.git.getBlameForLine(gitUri, blameline);
-					if (blame === undefined) return undefined;
+					const blame = editor?.document.isDirty
+						? await Container.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
+						: await Container.git.getBlameForLine(gitUri, blameline);
+					if (blame == null) return;
 
 					args.sha = blame.commit.sha;
 				} catch (ex) {
 					Logger.error(ex, 'CopyShaToClipboardCommand', `getBlameForLine(${blameline})`);
-					return Messages.showGenericErrorMessage('Unable to copy commit id');
+					Messages.showGenericErrorMessage('Unable to copy commit id');
+
+					return;
 				}
 			}
 
 			void (await env.clipboard.writeText(args.sha));
-			return undefined;
 		} catch (ex) {
 			if (ex.message.includes("Couldn't find the required `xsel` binary")) {
 				window.showErrorMessage(
 					'Unable to copy commit id, xsel is not installed. Please install it via your package manager, e.g. `sudo apt install xsel`',
 				);
-				return undefined;
+
+				return;
 			}
 
 			Logger.error(ex, 'CopyShaToClipboardCommand');
-			return Messages.showGenericErrorMessage('Unable to copy commit id');
+			Messages.showGenericErrorMessage('Unable to copy commit id');
 		}
 	}
 }

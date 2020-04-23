@@ -1,36 +1,36 @@
 'use strict';
-/* eslint-disable no-loop-func */
-import { QuickInputButton, QuickInputButtons, ThemeIcon } from 'vscode';
+import { QuickInputButtons, QuickPickItem } from 'vscode';
 import { Container } from '../../container';
-import { GitReference, GitTag, Repository } from '../../git/gitService';
+import { GitReference, GitTagReference, Repository } from '../../git/git';
 import {
-	BreakQuickCommand,
-	getTags,
-	QuickCommandBase,
+	appendReposToTitle,
+	inputTagNameStep,
+	PartialStepState,
+	pickBranchOrTagStep,
+	pickRepositoryStep,
+	pickTagsStep,
+	QuickCommand,
 	QuickPickStep,
-	StepAsyncGenerator,
+	StepGenerator,
+	StepResult,
+	StepResultGenerator,
 	StepSelection,
 	StepState,
 } from '../quickCommand';
-import {
-	BranchQuickPickItem,
-	Directive,
-	DirectiveQuickPickItem,
-	FlagsQuickPickItem,
-	QuickPickItemOfT,
-	RepositoryQuickPickItem,
-	TagQuickPickItem,
-} from '../../quickpicks';
+import { FlagsQuickPickItem, QuickPickItemOfT } from '../../quickpicks';
 import { Strings } from '../../system';
-import { GlyphChars } from '../../constants';
-import { Logger } from '../../logger';
-import { getBranches } from '../quickCommand.helpers';
+
+interface Context {
+	repos: Repository[];
+	showTags: boolean;
+	title: string;
+}
 
 type CreateFlags = '--force' | '-m';
 
 interface CreateState {
 	subcommand: 'create';
-	repo: Repository;
+	repo: string | Repository;
 	reference: GitReference;
 	name: string;
 	message: string;
@@ -39,12 +39,14 @@ interface CreateState {
 
 interface DeleteState {
 	subcommand: 'delete';
-	repo: Repository;
-	references: GitTag[];
+	repo: string | Repository;
+	references: GitTagReference | GitTagReference[];
 }
 
 type State = CreateState | DeleteState;
-type StashStepState<T> = StepState<T> & { repo: Repository };
+type TagStepState<T extends State> = SomeNonNullable<StepState<T>, 'subcommand'>;
+type CreateStepState<T extends CreateState = CreateState> = TagStepState<ExcludeSome<T, 'repo', string>>;
+type DeleteStepState<T extends DeleteState = DeleteState> = TagStepState<ExcludeSome<T, 'repo', string>>;
 
 const subcommandToTitleMap = new Map<State['subcommand'], string>([
 	['create', 'Create'],
@@ -56,437 +58,320 @@ function getTitle(title: string, subcommand: State['subcommand'] | undefined) {
 
 export interface TagGitCommandArgs {
 	readonly command: 'tag';
-	state?: Partial<State>;
-
 	confirm?: boolean;
+	state?: Partial<State>;
 }
 
-export class TagGitCommand extends QuickCommandBase<State> {
-	private readonly Buttons = class {
-		static readonly RevealInView: QuickInputButton = {
-			iconPath: new ThemeIcon('eye'),
-			tooltip: 'Reveal Tag in Repositories View',
-		};
-	};
-
-	private _subcommand: State['subcommand'] | undefined;
+export class TagGitCommand extends QuickCommand<State> {
+	private subcommand: State['subcommand'] | undefined;
 
 	constructor(args?: TagGitCommandArgs) {
 		super('tag', 'tag', 'Tag', {
 			description: 'create, or delete tags',
 		});
 
-		if (args == null || args.state == null) return;
-
 		let counter = 0;
-		if (args.state.subcommand != null) {
+		if (args?.state?.subcommand != null) {
+			counter++;
+
+			switch (args.state.subcommand) {
+				case 'create':
+					if (args.state.reference != null) {
+						counter++;
+					}
+
+					if (args.state.name != null) {
+						counter++;
+					}
+
+					if (args.state.message != null) {
+						counter++;
+					}
+
+					break;
+				case 'delete':
+					if (
+						args.state.references != null &&
+						(!Array.isArray(args.state.references) || args.state.references.length !== 0)
+					) {
+						counter++;
+					}
+
+					break;
+			}
+		}
+
+		if (args?.state?.repo != null) {
 			counter++;
 		}
 
-		if (args.state.repo != null) {
-			counter++;
-		}
-
-		switch (args.state.subcommand) {
-			case 'create':
-				if (args.state.reference != null) {
-					counter++;
-				}
-
-				if (args.state.name != null) {
-					counter++;
-				}
-
-				if (args.state.message != null) {
-					counter++;
-				}
-
-				break;
-			case 'delete':
-				if (args.state.references != null && args.state.references.length !== 0) {
-					counter++;
-				}
-
-				break;
-		}
-
-		this._initialState = {
+		this.initialState = {
 			counter: counter,
-			confirm: args.confirm,
-			...args.state,
+			confirm: args?.confirm,
+			...args?.state,
 		};
 	}
 
 	get canConfirm(): boolean {
-		return this._subcommand != null;
+		return this.subcommand != null;
 	}
 
 	get canSkipConfirm(): boolean {
-		return this._subcommand === 'delete' ? false : super.canSkipConfirm;
+		return this.subcommand === 'delete' ? false : super.canSkipConfirm;
 	}
 
 	get skipConfirmKey() {
-		return `${this.key}${this._subcommand == null ? '' : `-${this._subcommand}`}:${this.pickedVia}`;
+		return `${this.key}${this.subcommand == null ? '' : `-${this.subcommand}`}:${this.pickedVia}`;
 	}
 
-	protected async *steps(): StepAsyncGenerator {
-		const state: StepState<State> = this._initialState == null ? { counter: 0 } : this._initialState;
-		let repos;
+	protected async *steps(state: PartialStepState<State>): StepGenerator {
+		const context: Context = {
+			repos: [...(await Container.git.getOrderedRepositories())],
+			showTags: false,
+			title: this.title,
+		};
 
-		while (true) {
-			try {
-				if (state.subcommand == null || state.counter < 1) {
-					this._subcommand = undefined;
+		while (this.canStepsContinue(state)) {
+			context.title = this.title;
 
-					const step = this.createPickStep<QuickPickItemOfT<State['subcommand']>>({
-						title: this.title,
-						placeholder: `Choose a ${this.label} command`,
-						items: [
-							{
-								label: 'create',
-								description: 'creates a new tag',
-								picked: state.subcommand === 'create',
-								item: 'create',
-							},
-							{
-								label: 'delete',
-								description: 'deletes the specified tags',
-								picked: state.subcommand === 'delete',
-								item: 'delete',
-							},
-						],
-						buttons: [QuickInputButtons.Back],
-					});
-					const selection: StepSelection<typeof step> = yield step;
+			if (state.counter < 1 || state.subcommand == null) {
+				this.subcommand = undefined;
 
-					if (!this.canPickStepMoveNext(step, state, selection)) {
-						break;
-					}
+				const result = yield* this.pickSubcommandStep(state, context);
+				// Always break on the first step (so we will go back)
+				if (result === StepResult.Break) break;
 
-					state.subcommand = selection[0].item;
-				}
+				state.subcommand = result;
+			}
 
-				this._subcommand = state.subcommand;
+			this.subcommand = state.subcommand;
 
-				if (repos == null) {
-					repos = [...(await Container.git.getOrderedRepositories())];
-				}
-
-				if (state.repo == null || state.counter < 2) {
-					if (repos.length === 1) {
+			if (state.counter < 2 || state.repo == null || typeof state.repo === 'string') {
+				if (context.repos.length === 1) {
+					if (state.repo == null) {
 						state.counter++;
-						state.repo = repos[0];
-					} else {
-						const active = state.repo ? state.repo : await Container.git.getActiveRepository();
-
-						const step = this.createPickStep<RepositoryQuickPickItem>({
-							title: getTitle(this.title, state.subcommand),
-							placeholder: 'Choose a repository',
-							items: await Promise.all(
-								repos.map(r =>
-									RepositoryQuickPickItem.create(r, r.id === (active && active.id), {
-										branch: true,
-										fetched: true,
-										status: true,
-									}),
-								),
-							),
-						});
-						const selection: StepSelection<typeof step> = yield step;
-
-						if (!this.canPickStepMoveNext(step, state, selection)) {
-							continue;
-						}
-
-						state.repo = selection[0].item;
 					}
+					state.repo = context.repos[0];
+				} else {
+					const result = yield* pickRepositoryStep(state, context);
+					if (result === StepResult.Break) continue;
+
+					state.repo = result;
 				}
+			}
 
-				switch (state.subcommand) {
-					case 'create':
-						yield* this.create(state as StashStepState<CreateState>);
-						break;
-					case 'delete':
-						yield* this.delete(state as StashStepState<DeleteState>);
-						break;
-					default:
-						return undefined;
+			context.title = getTitle(state.subcommand === 'delete' ? 'Tags' : this.title, state.subcommand);
+
+			switch (state.subcommand) {
+				case 'create': {
+					this.createCommandSteps(state as CreateStepState, context);
+					// Clear any chosen name, since we are exiting this subcommand
+					state.name = undefined;
+					break;
 				}
+				case 'delete':
+					yield* this.deleteCommandSteps(state as DeleteStepState, context);
+					break;
+				default:
+					QuickCommand.endSteps(state);
+					break;
+			}
 
-				if (repos.length === 1) {
-					state.counter--;
-				}
-				continue;
-			} catch (ex) {
-				if (ex instanceof BreakQuickCommand) break;
-
-				Logger.error(ex, `${this.title}.${state.subcommand}`);
-
-				throw ex;
+			// If we skipped the previous step, make sure we back up past it
+			if (context.repos.length === 1) {
+				state.counter--;
 			}
 		}
 
-		return undefined;
+		return state.counter < 0 ? StepResult.Break : undefined;
 	}
 
-	private async *create(state: StashStepState<CreateState>): StepAsyncGenerator {
+	private *pickSubcommandStep(
+		state: PartialStepState<State>,
+		context: Context,
+	): StepResultGenerator<State['subcommand']> {
+		const step = QuickCommand.createPickStep<QuickPickItemOfT<State['subcommand']>>({
+			title: this.title,
+			placeholder: `Choose a ${this.label} command`,
+			items: [
+				{
+					label: 'create',
+					description: 'creates a new tag',
+					picked: state.subcommand === 'create',
+					item: 'create',
+				},
+				{
+					label: 'delete',
+					description: 'deletes the specified tags',
+					picked: state.subcommand === 'delete',
+					item: 'delete',
+				},
+			],
+			buttons: [QuickInputButtons.Back],
+		});
+		const selection: StepSelection<typeof step> = yield step;
+		return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+	}
+
+	private async *createCommandSteps(state: CreateStepState, context: Context): StepResultGenerator<void> {
 		if (state.flags == null) {
 			state.flags = [];
 		}
 
-		const title = getTitle(this.title, state.subcommand);
-
-		while (true) {
-			if (state.reference == null || state.counter < 3) {
-				const branches = await getBranches(state.repo, {
-					picked: state.reference != null ? state.reference.ref : (await state.repo.getBranch())!.ref,
+		while (this.canStepsContinue(state)) {
+			if (state.counter < 3 || state.reference == null) {
+				const result = yield* pickBranchOrTagStep(state, context, {
+					placeholder: context =>
+						`Choose a branch${context.showTags ? ' or tag' : ''} to create the new tag from`,
+					picked: state.reference?.ref ?? (await state.repo.getBranch())?.ref,
+					value: GitReference.isRevision(state.reference) ? state.reference.ref : undefined,
 				});
+				// Always break on the first step (so we will go back)
+				if (result === StepResult.Break) break;
 
-				const step = this.createPickStep<BranchQuickPickItem>({
-					title: `${title}${Strings.pad(GlyphChars.Dot, 2, 2)}${state.repo.formattedName}`,
-					placeholder:
-						branches.length === 0
-							? `${state.repo.formattedName} has no tags`
-							: 'Choose a branch to create the new tag from',
-					matchOnDetail: true,
-					items:
-						branches.length === 0
-							? [
-									DirectiveQuickPickItem.create(Directive.Back, true),
-									DirectiveQuickPickItem.create(Directive.Cancel),
-							  ]
-							: branches,
-					additionalButtons: [this.Buttons.RevealInView],
-					onDidClickButton: (quickpick, button) => {
-						if (button === this.Buttons.RevealInView) {
-							if (quickpick.activeItems.length !== 0) {
-								void Container.repositoriesView.revealBranch(quickpick.activeItems[0].item, {
-									select: true,
-									expand: true,
-								});
-
-								return;
-							}
-
-							void Container.repositoriesView.revealBranches(state.repo.path, {
-								select: true,
-								expand: true,
-							});
-						}
-					},
-					keys: ['right', 'alt+right', 'ctrl+right'],
-					onDidPressKey: async (quickpick, key) => {
-						if (quickpick.activeItems.length === 0) return;
-
-						await Container.repositoriesView.revealBranch(quickpick.activeItems[0].item, {
-							select: true,
-							focus: false,
-							expand: true,
-						});
-					},
-				});
-				const selection: StepSelection<typeof step> = yield step;
-
-				if (!this.canPickStepMoveNext(step, state, selection)) {
-					break;
-				}
-
-				state.reference = selection[0].item;
+				state.reference = result;
 			}
 
-			if (state.name == null || state.counter < 4) {
-				const step = this.createInputStep({
-					title: `${title} at ${state.reference.name}${Strings.pad(GlyphChars.Dot, 2, 2)}${
-						state.repo.formattedName
-					}`,
+			if (state.counter < 4 || state.name == null) {
+				const result = yield* inputTagNameStep(state, context, {
 					placeholder: 'Please provide a name for the new tag',
-					validate: async (value: string | undefined): Promise<[boolean, string | undefined]> => {
-						if (value == null) return [false, undefined];
-
-						value = value.trim();
-						if (value.length === 0) return [false, 'Please enter a valid tag name'];
-
-						const valid = Boolean(await Container.git.validateBranchOrTagName(value));
-						return [valid, valid ? undefined : `'${value}' isn't a valid tag name`];
-					},
+					titleContext: ` at ${GitReference.toString(state.reference, { icon: false })}`,
+					value: state.name ?? GitReference.getNameWithoutRemote(state.reference),
 				});
+				if (result === StepResult.Break) continue;
 
-				const value: StepSelection<typeof step> = yield step;
-
-				if (!(await this.canInputStepMoveNext(step, state, value))) {
-					continue;
-				}
-
-				state.name = value;
+				state.name = result;
 			}
 
-			if (state.message == null || state.counter < 5) {
-				const step = this.createInputStep({
-					title: `${title} at ${state.reference.name}${Strings.pad(GlyphChars.Dot, 2, 2)}${
-						state.repo.formattedName
-					}`,
-					placeholder: 'Please provide an optional message to annotate the tag',
-					// validate: async (value: string | undefined): Promise<[boolean, string | undefined]> => {
-					// 	if (value == null) return [false, undefined];
+			if (state.counter < 5 || state.message == null) {
+				const result = yield* this.createCommandInputMessageStep(state, context);
+				if (result === StepResult.Break) continue;
 
-					// 	value = value.trim();
-					// 	if (value.length === 0) return [false, 'Please enter a valid tag name'];
-
-					// 	const valid = Boolean(await Container.git.validateBranchOrTagName(value));
-					// 	return [valid, valid ? undefined : `'${value}' isn't a valid tag name`];
-					// }
-				});
-
-				const value: StepSelection<typeof step> = yield step;
-
-				if (!(await this.canInputStepMoveNext(step, state, value))) {
-					continue;
-				}
-
-				state.message = value;
+				state.message = result;
 			}
-
-			const hasMessage = state.message.length !== 0;
 
 			if (this.confirm(state.confirm)) {
-				const step: QuickPickStep<FlagsQuickPickItem<CreateFlags>> = this.createConfirmStep(
-					`Confirm ${title}${Strings.pad(GlyphChars.Dot, 2, 2)}${state.repo.formattedName}`,
-					[
-						FlagsQuickPickItem.create<CreateFlags>(state.flags, hasMessage ? ['-m'] : [], {
-							label: title,
-							description: state.name,
-							detail: `Will create tag ${state.name} at ${state.reference.name}`,
-						}),
-						FlagsQuickPickItem.create<CreateFlags>(
-							state.flags,
-							hasMessage ? ['--force', '-m'] : ['--force'],
-							{
-								label: `Force ${title}`,
-								description: `to ${state.name}`,
-								detail: `Will forcably create tag ${state.name} at ${state.reference.name}`,
-							},
-						),
-					],
-					undefined,
-					{
-						placeholder: `Confirm ${title}`,
-					},
-				);
-				const selection: StepSelection<typeof step> = yield step;
+				const result = yield* this.createCommandConfirmStep(state, context);
+				if (result === StepResult.Break) continue;
 
-				if (!this.canPickStepMoveNext(step, state, selection)) {
-					break;
-				}
-
-				state.flags = selection[0].item;
+				state.flags = result;
 			}
 
+			QuickCommand.endSteps(state);
 			void state.repo.tag(
 				...state.flags,
-				...(hasMessage ? [`"${state.message}"`] : []),
+				...(state.message.length !== 0 ? [`"${state.message}"`] : []),
 				state.name,
 				state.reference.ref,
 			);
-
-			throw new BreakQuickCommand();
 		}
-
-		return undefined;
 	}
 
-	private async *delete(state: StashStepState<DeleteState>): StepAsyncGenerator {
-		while (true) {
-			let title = getTitle('Tags', state.subcommand);
+	private async *createCommandInputMessageStep(
+		state: CreateStepState,
+		context: Context,
+	): StepResultGenerator<string> {
+		const step = QuickCommand.createInputStep({
+			title: appendReposToTitle(
+				`${context.title} at ${GitReference.toString(state.reference, { icon: false })}`,
+				state,
+				context,
+			),
+			placeholder: 'Please provide an optional message to annotate the tag',
+			value: state.message,
+			prompt: 'Enter optional message',
+		});
 
-			if (state.references == null || state.references.length === 0 || state.counter < 3) {
-				const tags = await getTags(state.repo, {
-					picked: state.references != null ? state.references.map(r => r.ref) : undefined,
-				});
+		const value: StepSelection<typeof step> = yield step;
 
-				const step = this.createPickStep<TagQuickPickItem>({
-					multiselect: tags.length !== 0,
-					title: `${title}${Strings.pad(GlyphChars.Dot, 2, 2)}${state.repo.formattedName}`,
-					placeholder:
-						tags.length === 0 ? `${state.repo.formattedName} has no tags` : 'Choose tags to delete',
-					matchOnDetail: true,
-					items:
-						tags.length === 0
-							? [
-									DirectiveQuickPickItem.create(Directive.Back, true),
-									DirectiveQuickPickItem.create(Directive.Cancel),
-							  ]
-							: tags,
-					additionalButtons: [this.Buttons.RevealInView],
-					onDidClickButton: (quickpick, button) => {
-						if (button === this.Buttons.RevealInView) {
-							if (quickpick.activeItems.length !== 0) {
-								void Container.repositoriesView.revealTag(quickpick.activeItems[0].item, {
-									select: true,
-									expand: true,
-								});
+		if (
+			!QuickCommand.canStepContinue(step, state, value) ||
+			!(await QuickCommand.canInputStepContinue(step, state, value))
+		) {
+			return StepResult.Break;
+		}
 
-								return;
-							}
+		return value;
+	}
 
-							void Container.repositoriesView.revealTags(state.repo.path, {
-								select: true,
-								expand: true,
-							});
-						}
+	private *createCommandConfirmStep(
+		state: CreateStepState<CreateState>,
+		context: Context,
+	): StepResultGenerator<CreateFlags[]> {
+		const step: QuickPickStep<FlagsQuickPickItem<CreateFlags>> = QuickCommand.createConfirmStep(
+			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			[
+				FlagsQuickPickItem.create<CreateFlags>(state.flags, state.message.length !== 0 ? ['-m'] : [], {
+					label: context.title,
+					description: state.message.length !== 0 ? '-m' : '',
+					detail: `Will create a new tag named ${state.name} at ${GitReference.toString(state.reference)}`,
+				}),
+				FlagsQuickPickItem.create<CreateFlags>(
+					state.flags,
+					state.message.length !== 0 ? ['--force', '-m'] : ['--force'],
+					{
+						label: `Force ${context.title}`,
+						description: `--force${state.message.length !== 0 ? ' -m' : ''}`,
+						detail: `Will forcably create a new tag named ${state.name} at ${GitReference.toString(
+							state.reference,
+						)}`,
 					},
-					keys: ['right', 'alt+right', 'ctrl+right'],
-					onDidPressKey: async (quickpick, key) => {
-						if (quickpick.activeItems.length === 0) return;
+				),
+			],
+			context,
+		);
+		const selection: StepSelection<typeof step> = yield step;
+		return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+	}
 
-						await Container.repositoriesView.revealTag(quickpick.activeItems[0].item, {
-							select: true,
-							focus: false,
-							expand: true,
-						});
-					},
-				});
-				const selection: StepSelection<typeof step> = yield step;
-
-				if (!this.canPickStepMoveNext(step, state, selection)) {
-					break;
-				}
-
-				state.references = selection.map(i => i.item);
+	// eslint-disable-next-line @typescript-eslint/require-await
+	private async *deleteCommandSteps(state: DeleteStepState, context: Context): StepGenerator {
+		while (this.canStepsContinue(state)) {
+			if (state.references != null && !Array.isArray(state.references)) {
+				state.references = [state.references];
 			}
 
-			title = getTitle(
+			if (state.counter < 3 || state.references == null || state.references.length === 0) {
+				context.title = getTitle('Tags', state.subcommand);
+
+				const result = yield* pickTagsStep(state, context, {
+					picked: state.references?.map(r => r.ref),
+					placeholder: 'Choose tags to delete',
+				});
+				// Always break on the first step (so we will go back)
+				if (result === StepResult.Break) break;
+
+				state.references = result;
+			}
+
+			context.title = getTitle(
 				Strings.pluralize('Tag', state.references.length, { number: '' }).trim(),
 				state.subcommand,
 			);
 
-			const step = this.createConfirmStep(
-				`Confirm ${title}${Strings.pad(GlyphChars.Dot, 2, 2)}${state.repo.formattedName}`,
-				[
-					{
-						label: title,
-						description: state.references.map(r => r.name).join(', '),
-						detail:
-							state.references.length === 1
-								? `Will delete tag ${state.references[0].name}`
-								: `Will delete ${Strings.pluralize('tag', state.references.length)}`,
-					},
-				],
-				undefined,
-				{
-					placeholder: `Confirm ${title}`,
-				},
-			);
-			const selection: StepSelection<typeof step> = yield step;
+			const result = yield* this.deleteCommandConfirmStep(state, context);
+			if (result === StepResult.Break) continue;
 
-			if (!this.canPickStepMoveNext(step, state, selection)) {
-				break;
-			}
-
+			QuickCommand.endSteps(state);
 			void state.repo.tagDelete(state.references);
-
-			throw new BreakQuickCommand();
 		}
+	}
 
-		return undefined;
+	private *deleteCommandConfirmStep(
+		state: DeleteStepState<DeleteState>,
+		context: Context,
+	): StepResultGenerator<void> {
+		const step: QuickPickStep<QuickPickItem> = QuickCommand.createConfirmStep(
+			appendReposToTitle(`Confirm ${context.title}`, state, context),
+			[
+				{
+					label: context.title,
+					detail: `Will delete ${GitReference.toString(state.references)}`,
+				},
+			],
+			context,
+		);
+		const selection: StepSelection<typeof step> = yield step;
+		return QuickCommand.canPickStepContinue(step, state, selection) ? undefined : StepResult.Break;
 	}
 }

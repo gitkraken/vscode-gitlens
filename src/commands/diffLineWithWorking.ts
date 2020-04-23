@@ -1,11 +1,12 @@
 'use strict';
-import { commands, TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
+import { TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
+import { ActiveEditorCommand, command, Commands, executeCommand, getCommandUri } from './common';
 import { Container } from '../container';
-import { GitCommit, GitService, GitUri } from '../git/gitService';
+import { DiffWithCommandArgs } from './diffWith';
+import { GitCommit, GitRevision } from '../git/git';
+import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { ActiveEditorCommand, command, Commands, getCommandUri } from './common';
-import { DiffWithCommandArgs } from './diffWith';
 
 export interface DiffLineWithWorkingCommandArgs {
 	commit?: GitCommit;
@@ -22,26 +23,27 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: DiffLineWithWorkingCommandArgs): Promise<any> {
 		uri = getCommandUri(uri, editor);
-		if (uri == null) return undefined;
+		if (uri == null) return;
 
 		const gitUri = await GitUri.fromUri(uri);
 
 		args = { ...args };
-		if (args.line === undefined) {
-			args.line = editor == null ? 0 : editor.selection.active.line;
+		if (args.line == null) {
+			args.line = editor?.selection.active.line ?? 0;
 		}
 
-		if (args.commit === undefined || args.commit.isUncommitted) {
+		if (args.commit == null || args.commit.isUncommitted) {
 			const blameline = args.line;
-			if (blameline < 0) return undefined;
+			if (blameline < 0) return;
 
 			try {
-				const blame =
-					editor && editor.document && editor.document.isDirty
-						? await Container.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
-						: await Container.git.getBlameForLine(gitUri, blameline);
-				if (blame === undefined) {
-					return Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
+				const blame = editor?.document.isDirty
+					? await Container.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
+					: await Container.git.getBlameForLine(gitUri, blameline);
+				if (blame == null) {
+					Messages.showFileNotUnderSourceControlWarningMessage('Unable to open compare');
+
+					return;
 				}
 
 				args.commit = blame.commit;
@@ -50,10 +52,7 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 				if (args.commit.isUncommitted) {
 					const status = await Container.git.getStatusForFile(gitUri.repoPath!, gitUri.fsPath);
 					args.commit = args.commit.with({
-						sha:
-							status !== undefined && status.indexStatus !== undefined
-								? GitService.uncommittedStagedSha
-								: args.commit.previousSha!,
+						sha: status?.indexStatus != null ? GitRevision.uncommittedStaged : args.commit.previousSha!,
 						fileName: args.commit.previousFileName!,
 						originalFileName: null,
 						previousSha: null,
@@ -64,16 +63,20 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 				}
 			} catch (ex) {
 				Logger.error(ex, 'DiffLineWithWorkingCommand', `getBlameForLine(${blameline})`);
-				return Messages.showGenericErrorMessage('Unable to open compare');
+				Messages.showGenericErrorMessage('Unable to open compare');
+
+				return;
 			}
 		}
 
 		const workingUri = await args.commit.getWorkingUri();
-		if (workingUri === undefined) {
-			return window.showWarningMessage('Unable to open compare. File has been deleted from the working tree');
+		if (workingUri == null) {
+			window.showWarningMessage('Unable to open compare. File has been deleted from the working tree');
+
+			return;
 		}
 
-		const diffArgs: DiffWithCommandArgs = {
+		void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
 			repoPath: args.commit.repoPath,
 			lhs: {
 				sha: args.commit.sha,
@@ -85,7 +88,6 @@ export class DiffLineWithWorkingCommand extends ActiveEditorCommand {
 			},
 			line: args.line,
 			showOptions: args.showOptions,
-		};
-		return commands.executeCommand(Commands.DiffWith, diffArgs);
+		}));
 	}
 }

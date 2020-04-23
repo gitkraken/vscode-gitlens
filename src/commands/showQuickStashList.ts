@@ -1,14 +1,9 @@
 'use strict';
-import { commands } from 'vscode';
-import { Container } from '../container';
-import { CommandQuickPickItem } from '../quickpicks';
+import { executeGitCommand } from '../commands';
 import { Command, command, Commands } from './common';
-import { GitCommandsCommandArgs } from '../commands';
 
 export interface ShowQuickStashListCommandArgs {
 	repoPath?: string;
-
-	goBackCommand?: CommandQuickPickItem;
 }
 
 @command()
@@ -17,21 +12,13 @@ export class ShowQuickStashListCommand extends Command {
 		super(Commands.ShowQuickStashList);
 	}
 
-	async execute(args?: ShowQuickStashListCommandArgs) {
-		args = { ...args };
-
-		let repo;
-		if (args.repoPath !== undefined) {
-			repo = await Container.git.getRepository(args.repoPath);
-		}
-
-		const gitCommandArgs: GitCommandsCommandArgs = {
+	execute(args?: ShowQuickStashListCommandArgs) {
+		return executeGitCommand({
 			command: 'stash',
 			state: {
 				subcommand: 'list',
-				repo: repo,
+				repo: args?.repoPath,
 			},
-		};
-		return commands.executeCommand(Commands.GitCommands, gitCommandArgs);
+		});
 	}
 }

@@ -6,7 +6,7 @@ import { debug, gate, Iterables, log, Promises } from '../../system';
 import { View } from '../viewBase';
 import { CommandMessageNode, MessageNode } from './common';
 import { ResourceType, unknownGitUri, ViewNode } from './viewNode';
-import { SearchOperators } from '../../git/gitService';
+import { SearchOperators } from '../../git/git';
 
 export class SearchNode extends ViewNode {
 	private _children: (ViewNode | MessageNode)[] = [];

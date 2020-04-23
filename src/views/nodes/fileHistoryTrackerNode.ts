@@ -1,19 +1,19 @@
 'use strict';
 import { Disposable, TextEditor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import { UriComparer } from '../../comparers';
-import { GlyphChars } from '../../constants';
-import { Container } from '../../container';
-import { GitCommitish, GitUri } from '../../git/gitService';
-import { Logger } from '../../logger';
-import { CommandQuickPickItem, ReferencesQuickPick } from '../../quickpicks';
-import { debug, Functions, gate, log } from '../../system';
-import { FileHistoryView } from '../fileHistoryView';
 import { MessageNode } from './common';
+import { UriComparer } from '../../comparers';
+import { Container } from '../../container';
+import { FileHistoryView } from '../fileHistoryView';
 import { FileHistoryNode } from './fileHistoryNode';
+import { GitReference } from '../../git/git';
+import { GitCommitish, GitUri } from '../../git/gitUri';
+import { Logger } from '../../logger';
+import { ReferencePicker } from '../../quickpicks';
+import { debug, Functions, gate, log } from '../../system';
 import { ResourceType, SubscribeableViewNode, unknownGitUri, ViewNode } from './viewNode';
 
 export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryView> {
-	private _baseRef: string | undefined;
+	private _base: string | undefined;
 	private _fileUri: GitUri | undefined;
 	private _child: FileHistoryNode | undefined;
 
@@ -48,7 +48,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 			}
 
 			const uri = this._fileUri || this.uri;
-			const commitish: GitCommitish = { ...uri, repoPath: uri.repoPath!, sha: this._baseRef || uri.sha };
+			const commitish: GitCommitish = { ...uri, repoPath: uri.repoPath!, sha: this._base || uri.sha };
 			const fileUri = new GitUri(uri, commitish);
 			this._child = new FileHistoryNode(fileUri, this.view, this);
 		}
@@ -68,18 +68,25 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	@gate()
 	@log()
 	async changeBase() {
-		const pick = await new ReferencesQuickPick(this.uri.repoPath).show(
-			`Change the file history base to${GlyphChars.Ellipsis}`,
+		const pick = await ReferencePicker.show(
+			this.uri.repoPath!,
+			'Change File History Base',
+			'Choose a reference to set as the new base',
 			{
 				allowEnteringRefs: true,
-				checked: this._baseRef,
-				checkmarks: true,
+				picked: this._base,
+				// checkmarks: true,
 			},
 		);
-		if (pick === undefined || pick instanceof CommandQuickPickItem) return;
+		if (pick == null) return;
 
-		this._baseRef = pick.current ? undefined : pick.ref;
-		if (this._child === undefined) return;
+		if (GitReference.isBranch(pick)) {
+			const branch = await Container.git.getBranch(this.uri.repoPath);
+			this._base = branch?.name === pick.name ? undefined : pick.ref;
+		} else {
+			this._base = pick.ref;
+		}
+		if (this._child == null) return;
 
 		this._uri = unknownGitUri;
 		await this.triggerChange();
@@ -155,7 +162,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	setEditorFollowing(enabled: boolean) {
 		if (enabled && this._fileUri !== undefined) {
 			this._fileUri = undefined;
-			this._baseRef = undefined;
+			this._base = undefined;
 
 			this._uri = unknownGitUri;
 			// Don't need to call triggerChange here, since canSubscribe will do it
@@ -167,7 +174,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	@log()
 	async showHistoryForUri(uri: GitUri, baseRef?: string) {
 		this._fileUri = uri;
-		this._baseRef = baseRef;
+		this._base = baseRef;
 
 		this._uri = unknownGitUri;
 		await this.triggerChange();

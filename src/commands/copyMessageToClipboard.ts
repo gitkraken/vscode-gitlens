@@ -1,7 +1,7 @@
 'use strict';
 import { env, TextEditor, Uri, window } from 'vscode';
 import { Container } from '../container';
-import { GitUri } from '../git/gitService';
+import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { Iterables } from '../system';
@@ -44,32 +44,27 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 			// If we don't have an editor then get the message of the last commit to the branch
 			if (uri == null) {
 				repoPath = await Container.git.getActiveRepoPath(editor);
-				if (!repoPath) return undefined;
+				if (!repoPath) return;
 
 				const log = await Container.git.getLog(repoPath, { limit: 1 });
-				if (!log) return undefined;
+				if (!log) return;
 
 				args.message = Iterables.first(log.commits.values()).message;
-			} else if (args.message === undefined) {
+			} else if (args.message == null) {
 				const gitUri = await GitUri.fromUri(uri);
 				repoPath = gitUri.repoPath;
 
-				if (args.sha === undefined) {
-					const blameline = (editor && editor.selection.active.line) || 0;
-					if (blameline < 0) return undefined;
+				if (args.sha == null) {
+					const blameline = editor?.selection.active.line ?? 0;
+					if (blameline < 0) return;
 
 					try {
-						const blame =
-							editor && editor.document && editor.document.isDirty
-								? await Container.git.getBlameForLineContents(
-										gitUri,
-										blameline,
-										editor.document.getText(),
-								  )
-								: await Container.git.getBlameForLine(gitUri, blameline);
-						if (!blame) return undefined;
+						const blame = editor?.document.isDirty
+							? await Container.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
+							: await Container.git.getBlameForLine(gitUri, blameline);
+						if (blame == null) return;
 
-						if (blame.commit.isUncommitted) return undefined;
+						if (blame.commit.isUncommitted) return;
 
 						args.sha = blame.commit.sha;
 						if (!repoPath) {
@@ -77,29 +72,31 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 						}
 					} catch (ex) {
 						Logger.error(ex, 'CopyMessageToClipboardCommand', `getBlameForLine(${blameline})`);
-						return Messages.showGenericErrorMessage('Unable to copy message');
+						Messages.showGenericErrorMessage('Unable to copy message');
+
+						return;
 					}
 				}
 
 				// Get the full commit message -- since blame only returns the summary
 				const commit = await Container.git.getCommit(repoPath!, args.sha);
-				if (commit === undefined) return undefined;
+				if (commit == null) return;
 
 				args.message = commit.message;
 			}
 
 			void (await env.clipboard.writeText(args.message));
-			return undefined;
 		} catch (ex) {
 			if (ex.message.includes("Couldn't find the required `xsel` binary")) {
 				window.showErrorMessage(
 					'Unable to copy message, xsel is not installed. Please install it via your package manager, e.g. `sudo apt install xsel`',
 				);
-				return undefined;
+
+				return;
 			}
 
 			Logger.error(ex, 'CopyMessageToClipboardCommand');
-			return Messages.showGenericErrorMessage('Unable to copy message');
+			Messages.showGenericErrorMessage('Unable to copy message');
 		}
 	}
 }

@@ -1,7 +1,7 @@
 'use strict';
-import { commands, SourceControl } from 'vscode';
+import { SourceControl } from 'vscode';
 import { command, Command, Commands } from './common';
-import { GitCommandsCommandArgs } from './gitCommands';
+import { executeGitCommand } from './gitCommands';
 import { Container } from '../container';
 
 @command()
@@ -16,10 +16,9 @@ export class AddAuthorsCommand extends Command {
 			repo = await Container.git.getRepository(sourceControl.rootUri);
 		}
 
-		const args: GitCommandsCommandArgs = {
+		return executeGitCommand({
 			command: 'co-authors',
 			state: { repo: repo, contributors: undefined },
-		};
-		return commands.executeCommand(Commands.GitCommands, args);
+		});
 	}
 }

@@ -1,8 +1,7 @@
 'use strict';
-import { commands } from 'vscode';
 import { Container } from '../container';
 import { command, Command, Commands } from './common';
-import { GitCommandsCommandArgs } from '../commands';
+import { executeGitCommand } from '../commands';
 
 @command()
 export class FetchRepositoriesCommand extends Command {
@@ -11,10 +10,7 @@ export class FetchRepositoriesCommand extends Command {
 	}
 
 	async execute() {
-		const repositories = await Container.git.getOrderedRepositories();
-
-		const args: GitCommandsCommandArgs = { command: 'fetch', state: { repos: repositories } };
-		return commands.executeCommand(Commands.GitCommands, args);
+		return executeGitCommand({ command: 'fetch', state: { repos: await Container.git.getOrderedRepositories() } });
 	}
 }
 
@@ -25,10 +21,7 @@ export class PullRepositoriesCommand extends Command {
 	}
 
 	async execute() {
-		const repositories = await Container.git.getOrderedRepositories();
-
-		const args: GitCommandsCommandArgs = { command: 'pull', state: { repos: repositories } };
-		return commands.executeCommand(Commands.GitCommands, args);
+		return executeGitCommand({ command: 'pull', state: { repos: await Container.git.getOrderedRepositories() } });
 	}
 }
 
@@ -39,9 +32,6 @@ export class PushRepositoriesCommand extends Command {
 	}
 
 	async execute() {
-		const repositories = await Container.git.getOrderedRepositories();
-
-		const args: GitCommandsCommandArgs = { command: 'push', state: { repos: repositories } };
-		return commands.executeCommand(Commands.GitCommands, args);
+		return executeGitCommand({ command: 'push', state: { repos: await Container.git.getOrderedRepositories() } });
 	}
 }

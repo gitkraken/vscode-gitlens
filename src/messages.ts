@@ -2,7 +2,7 @@
 import { ConfigurationTarget, env, MessageItem, Uri, window } from 'vscode';
 import { configuration } from './configuration';
 import { CommandContext, setCommandContext } from './constants';
-import { GitCommit } from './git/gitService';
+import { GitCommit } from './git/git';
 import { Logger } from './logger';
 
 export enum SuppressedMessages {

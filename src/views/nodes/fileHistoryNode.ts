@@ -5,12 +5,12 @@ import {
 	GitCommitType,
 	GitLog,
 	GitLogCommit,
-	GitService,
-	GitUri,
+	GitRevision,
 	RepositoryChange,
 	RepositoryChangeEvent,
 	RepositoryFileSystemChangeEvent,
-} from '../../git/gitService';
+} from '../../git/git';
+import { GitUri } from '../../git/gitUri';
 import { Logger } from '../../logger';
 import { debug, gate, Iterables } from '../../system';
 import { View } from '../viewBase';
@@ -49,7 +49,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 					let commit = new GitLogCommit(
 						GitCommitType.LogFile,
 						this.uri.repoPath!,
-						GitService.uncommittedSha,
+						GitRevision.uncommitted,
 						'You',
 						user !== undefined ? user.email : undefined,
 						new Date(),
@@ -59,7 +59,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 						[status],
 						status.status,
 						status.originalFileName,
-						GitService.uncommittedStagedSha,
+						GitRevision.uncommittedStaged,
 						status.originalFileName || status.fileName,
 					);
 
@@ -73,7 +73,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 					commit = new GitLogCommit(
 						GitCommitType.LogFile,
 						this.uri.repoPath!,
-						GitService.uncommittedStagedSha,
+						GitRevision.uncommittedStaged,
 						'You',
 						user !== undefined ? user.email : undefined,
 						new Date(),
@@ -98,8 +98,8 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 						GitCommitType.LogFile,
 						this.uri.repoPath!,
 						status.workingTreeStatus !== undefined
-							? GitService.uncommittedSha
-							: GitService.uncommittedStagedSha,
+							? GitRevision.uncommitted
+							: GitRevision.uncommittedStaged,
 						'You',
 						user !== undefined ? user.email : undefined,
 						new Date(),
@@ -151,11 +151,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 		const item = new TreeItem(
 			`${this.uri.fileName}${
 				this.uri.sha
-					? ` ${
-							this.uri.sha === GitService.deletedOrMissingSha
-								? this.uri.shortSha
-								: `(${this.uri.shortSha})`
-					  }`
+					? ` ${this.uri.sha === GitRevision.deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`
 					: ''
 			}`,
 			TreeItemCollapsibleState.Expanded,

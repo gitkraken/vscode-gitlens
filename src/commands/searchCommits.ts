@@ -1,10 +1,8 @@
 'use strict';
-import { commands } from 'vscode';
-import { SearchResultsCommitsNode } from '../views/nodes';
-import { Container } from '../container';
+import { executeGitCommand } from '../commands';
 import { Command, command, CommandContext, Commands, isCommandViewContextWithRepo } from './common';
-import { GitCommandsCommandArgs } from '../commands';
-import { SearchPattern } from '../git/gitService';
+import { SearchPattern } from '../git/git';
+import { SearchResultsCommitsNode } from '../views/nodes';
 
 export interface SearchCommitsCommandArgs {
 	search?: Partial<SearchPattern>;
@@ -44,22 +42,14 @@ export class SearchCommitsCommand extends Command {
 	}
 
 	async execute(args?: SearchCommitsCommandArgs) {
-		args = { ...args };
-
-		let repo;
-		if (args.repoPath !== undefined) {
-			repo = await Container.git.getRepository(args.repoPath);
-		}
-
-		const gitCommandArgs: GitCommandsCommandArgs = {
+		void (await executeGitCommand({
 			command: 'search',
-			prefillOnly: args.prefillOnly,
+			prefillOnly: args?.prefillOnly,
 			state: {
-				repo: repo,
-				...args.search,
-				showResultsInView: args.showInView,
+				repo: args?.repoPath,
+				...args?.search,
+				showResultsInView: args?.showInView,
 			},
-		};
-		return commands.executeCommand(Commands.GitCommands, gitCommandArgs);
+		}));
 	}
 }

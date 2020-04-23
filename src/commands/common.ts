@@ -17,14 +17,17 @@ import {
 } from 'vscode';
 import { BuiltInCommands, DocumentSchemes, ImageMimetypes } from '../constants';
 import { Container } from '../container';
-import { GitBranch, GitCommit, GitContributor, GitFile, GitRemote, GitUri, Repository } from '../git/gitService';
+import { GitBranch, GitCommit, GitContributor, GitFile, GitRemote, Repository } from '../git/git';
+import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
-import { CommandQuickPickItem, RepositoriesQuickPick } from '../quickpicks';
+import { CommandQuickPickItem, RepositoryPicker } from '../quickpicks';
 // import { Telemetry } from '../telemetry';
 import { ViewNode, ViewRefNode } from '../views/nodes';
 
 export enum Commands {
 	AddAuthors = 'gitlens.addAuthors',
+	BrowseRepoAtRevision = 'gitlens.browseRepoAtRevision',
+	BrowseRepoAtRevisionInNewWindow = 'gitlens.browseRepoAtRevisionInNewWindow',
 	ClearFileAnnotations = 'gitlens.clearFileAnnotations',
 	CloseUnchangedFiles = 'gitlens.closeUnchangedFiles',
 	ComputingFileAnnotations = 'gitlens.computingFileAnnotations',
@@ -36,26 +39,19 @@ export enum Commands {
 	DiffDirectory = 'gitlens.diffDirectory',
 	DiffDirectoryWithHead = 'gitlens.diffDirectoryWithHead',
 	DiffHeadWith = 'gitlens.diffHeadWith',
-	// DEPRECATED
-	DiffHeadWithBranch = 'gitlens.diffHeadWithBranch',
 	DiffWorkingWith = 'gitlens.diffWorkingWith',
-	// DEPRECATED
-	DiffWorkingWithBranch = 'gitlens.diffWorkingWithBranch',
 	DiffWith = 'gitlens.diffWith',
-	// DEPRECATED
-	DiffWithBranch = 'gitlens.diffWithBranch',
-	DiffWithRef = 'gitlens.diffWithRef',
 	DiffWithNext = 'gitlens.diffWithNext',
 	DiffWithNextInDiffLeft = 'gitlens.diffWithNextInDiffLeft',
 	DiffWithPrevious = 'gitlens.diffWithPrevious',
 	DiffWithPreviousInDiffRight = 'gitlens.diffWithPreviousInDiffRight',
 	DiffLineWithPrevious = 'gitlens.diffLineWithPrevious',
 	DiffWithRevision = 'gitlens.diffWithRevision',
+	DiffWithRevisionFrom = 'gitlens.diffWithRevisionFrom',
 	DiffWithWorking = 'gitlens.diffWithWorking',
 	DiffWithWorkingInDiffRight = 'gitlens.diffWithWorkingInDiffRight',
 	DiffLineWithWorking = 'gitlens.diffLineWithWorking',
 	DisconnectRemoteProvider = 'gitlens.disconnectRemoteProvider',
-	ExploreRepoAtRevision = 'gitlens.exploreRepoAtRevision',
 	ExternalDiff = 'gitlens.externalDiff',
 	ExternalDiffAll = 'gitlens.externalDiffAll',
 	FetchRepositories = 'gitlens.fetchRepositories',
@@ -65,14 +61,11 @@ export enum Commands {
 	OpenBranchInRemote = 'gitlens.openBranchInRemote',
 	OpenCommitInRemote = 'gitlens.openCommitInRemote',
 	OpenFileInRemote = 'gitlens.openFileInRemote',
-	OpenFileRevision = 'gitlens.openFileRevision',
-	OpenFileRevisionFrom = 'gitlens.openFileRevisionFrom',
-	// DEPRECATED
-	OpenFileRevisionFromBranch = 'gitlens.openFileRevisionFromBranch',
-	OpenInRemote = 'gitlens.openInRemote',
+	OpenFileAtRevision = 'gitlens.openFileRevision',
+	OpenFileAtRevisionFrom = 'gitlens.openFileRevisionFrom',
+	OpenOnRemote = 'gitlens.openInRemote',
 	OpenRepoInRemote = 'gitlens.openRepoInRemote',
 	OpenRevisionFile = 'gitlens.openRevisionFile',
-	OpenRevisionFileInDiffRight = 'gitlens.openRevisionFileInDiffRight',
 	OpenWorkingFile = 'gitlens.openWorkingFile',
 	PullRepositories = 'gitlens.pullRepositories',
 	PushRepositories = 'gitlens.pushRepositories',
@@ -90,12 +83,12 @@ export enum Commands {
 	ShowLineHistoryView = 'gitlens.showLineHistoryView',
 	ShowLastQuickPick = 'gitlens.showLastQuickPick',
 	ShowQuickBranchHistory = 'gitlens.showQuickBranchHistory',
-	ShowQuickCommitDetails = 'gitlens.showQuickCommitDetails',
-	ShowQuickCommitFileDetails = 'gitlens.showQuickCommitFileDetails',
+	ShowQuickCommit = 'gitlens.showQuickCommitDetails',
+	ShowQuickCommitFile = 'gitlens.showQuickCommitFileDetails',
 	ShowQuickCurrentBranchHistory = 'gitlens.showQuickRepoHistory',
 	ShowQuickFileHistory = 'gitlens.showQuickFileHistory',
 	ShowQuickRepoStatus = 'gitlens.showQuickRepoStatus',
-	ShowQuickRevisionDetails = 'gitlens.showQuickRevisionDetails',
+	ShowQuickCommitRevision = 'gitlens.showQuickRevisionDetails',
 	ShowQuickStashList = 'gitlens.showQuickStashList',
 	ShowRepositoriesView = 'gitlens.showRepositoriesView',
 	ShowSearchView = 'gitlens.showSearchView',
@@ -108,7 +101,6 @@ export enum Commands {
 	ShowSettingsPageAndJumpToSearchCommitsView = 'gitlens.showSettingsPage#search-commits-view',
 	ShowWelcomePage = 'gitlens.showWelcomePage',
 	StashApply = 'gitlens.stashApply',
-	StashDelete = 'gitlens.stashDelete',
 	StashSave = 'gitlens.stashSave',
 	StashSaveFiles = 'gitlens.stashSaveFiles',
 	SupportGitLens = 'gitlens.supportGitLens',
@@ -122,6 +114,14 @@ export enum Commands {
 	ToggleZenMode = 'gitlens.toggleZenMode',
 	ViewsOpenDirectoryDiff = 'gitlens.views.openDirectoryDiff',
 	ViewsOpenDirectoryDiffWithWorking = 'gitlens.views.openDirectoryDiffWithWorking',
+}
+
+export function executeCommand<T>(command: Commands, args: T) {
+	return commands.executeCommand(command, args);
+}
+
+export function executeEditorCommand<T>(command: Commands, uri: Uri | undefined, args: T) {
+	return commands.executeCommand(command, uri, args);
 }
 
 interface CommandConstructor {
@@ -143,60 +143,34 @@ export function registerCommands(context: ExtensionContext): void {
 }
 
 export function getCommandUri(uri?: Uri, editor?: TextEditor): Uri | undefined {
-	if (uri instanceof Uri) return uri;
-	if (editor == null) return undefined;
-
-	const document = editor.document;
-	if (document == null) return undefined;
-
-	return document.uri;
+	// Always use the editor.uri (if we have one), so we are correct for a split diff
+	return editor?.document?.uri ?? uri;
 }
 
-export async function getRepoPathOrActiveOrPrompt(
-	uri: Uri | undefined,
-	editor: TextEditor | undefined,
-	placeholder: string,
-	goBackCommand?: CommandQuickPickItem,
-) {
-	let repoPath = await Container.git.getRepoPathOrActive(uri, editor);
-	if (!repoPath) {
-		const pick = await RepositoriesQuickPick.show(placeholder, goBackCommand);
-		if (pick instanceof CommandQuickPickItem) {
-			await pick.execute();
-			return undefined;
-		}
+export async function getRepoPathOrActiveOrPrompt(uri: Uri | undefined, editor: TextEditor | undefined, title: string) {
+	const repoPath = await Container.git.getRepoPathOrActive(uri, editor);
+	if (repoPath) return repoPath;
 
-		if (pick === undefined) {
-			if (goBackCommand !== undefined) {
-				await goBackCommand.execute();
-			}
-			return undefined;
-		}
-
-		repoPath = pick.repoPath;
+	const pick = await RepositoryPicker.show(title);
+	if (pick instanceof CommandQuickPickItem) {
+		await pick.execute();
+		return undefined;
 	}
-	return repoPath;
+
+	return pick?.repoPath;
 }
 
-export async function getRepoPathOrPrompt(placeholder: string, goBackCommand?: CommandQuickPickItem, uri?: Uri) {
-	let repoPath = await Container.git.getRepoPath(uri);
-	if (!repoPath) {
-		const pick = await RepositoriesQuickPick.show(placeholder, goBackCommand);
-		if (pick instanceof CommandQuickPickItem) {
-			await pick.execute();
-			return undefined;
-		}
+export async function getRepoPathOrPrompt(title: string, uri?: Uri) {
+	const repoPath = await Container.git.getRepoPath(uri);
+	if (repoPath) return repoPath;
 
-		if (pick === undefined) {
-			if (goBackCommand !== undefined) {
-				await goBackCommand.execute();
-			}
-			return undefined;
-		}
-
-		repoPath = pick.repoPath;
+	const pick = await RepositoryPicker.show(title);
+	if (pick instanceof CommandQuickPickItem) {
+		void (await pick.execute());
+		return undefined;
 	}
-	return repoPath;
+
+	return pick?.repoPath;
 }
 
 export interface CommandContextParsingOptions {
@@ -272,7 +246,7 @@ export function isCommandViewContextWithFile(
 	if (context.type !== 'viewItem') return false;
 
 	const node = context.node as ViewNode & { file: GitFile; repoPath: string };
-	return node.file !== undefined && (node.file.repoPath !== undefined || node.repoPath !== undefined);
+	return node.file != null && (node.file.repoPath != null || node.repoPath != null);
 }
 
 export function isCommandViewContextWithFileCommit(
@@ -281,11 +255,7 @@ export function isCommandViewContextWithFileCommit(
 	if (context.type !== 'viewItem') return false;
 
 	const node = context.node as ViewNode & { commit: GitCommit; file: GitFile; repoPath: string };
-	return (
-		node.file !== undefined &&
-		GitCommit.is(node.commit) &&
-		(node.file.repoPath !== undefined || node.repoPath !== undefined)
-	);
+	return node.file != null && GitCommit.is(node.commit) && (node.file.repoPath != null || node.repoPath != null);
 }
 
 export function isCommandViewContextWithFileRefs(
@@ -297,10 +267,10 @@ export function isCommandViewContextWithFileRefs(
 
 	const node = context.node as ViewNode & { file: GitFile; ref1: string; ref2: string; repoPath: string };
 	return (
-		node.file !== undefined &&
-		node.ref1 !== undefined &&
-		node.ref2 !== undefined &&
-		(node.file.repoPath !== undefined || node.repoPath !== undefined)
+		node.file != null &&
+		node.ref1 != null &&
+		node.ref2 != null &&
+		(node.file.repoPath != null || node.repoPath != null)
 	);
 }
 
@@ -347,11 +317,11 @@ function isScmResourceGroup(group: any): group is SourceControlResourceGroup {
 	if (group == null) return false;
 
 	return (
-		(group as SourceControl).inputBox === undefined &&
-		(group as SourceControlResourceGroup).id !== undefined &&
-		(group.handle !== undefined ||
-			(group as SourceControlResourceGroup).label !== undefined ||
-			(group as SourceControlResourceGroup).resourceStates !== undefined)
+		(group as SourceControl).inputBox == null &&
+		(group as SourceControlResourceGroup).id != null &&
+		(group.handle != null ||
+			(group as SourceControlResourceGroup).label != null ||
+			(group as SourceControlResourceGroup).resourceStates != null)
 	);
 }
 
@@ -424,7 +394,7 @@ export abstract class Command implements Disposable {
 
 		if (options.uri && (firstArg == null || firstArg instanceof Uri)) {
 			const [uri, ...rest] = args as [Uri, any];
-			if (uri !== undefined) {
+			if (uri != null) {
 				const uris = rest[0];
 				if (uris != null && Array.isArray(uris) && uris.length !== 0 && uris[0] instanceof Uri) {
 					return [{ command: command, type: 'uris', editor: editor, uri: uri, uris: uris }, rest.slice(1)];
@@ -546,56 +516,34 @@ export abstract class EditorCommand implements Disposable {
 	abstract execute(editor: TextEditor, edit: TextEditorEdit, ...args: any[]): any;
 }
 
-export function findEditor(uri: Uri, lastActive?: TextEditor): TextEditor | undefined {
+export function findEditor(uri: Uri, options?: { includeDiffs?: boolean }): TextEditor | undefined {
+	const active = window.activeTextEditor;
 	const normalizedUri = uri.toString(false);
 
-	let e = window.activeTextEditor;
-	if (e !== undefined && e.document.uri.toString(false) === normalizedUri) {
-		return e;
-	}
-
-	let found;
-	for (e of window.visibleTextEditors) {
-		// Prioritize the last active window over other visible ones
-		if (e === lastActive && e.document.uri.toString(false) === normalizedUri) {
+	for (const e of [...(active != null ? [active] : []), ...window.visibleTextEditors]) {
+		if (e.document.uri.toString(false) === normalizedUri && (options?.includeDiffs || e?.viewColumn != null)) {
 			return e;
 		}
-
-		if (e.document.uri.toString(false) === normalizedUri) {
-			found = e;
-		}
 	}
 
-	return found;
+	return undefined;
 }
 
 export async function findOrOpenEditor(
 	uri: Uri,
-	options: TextDocumentShowOptions & { rethrow?: boolean } = {},
-	lastActive?: TextEditor,
+	openOptions?: TextDocumentShowOptions & { throwOnError?: boolean },
+	findOptions?: { includeDiffs?: boolean },
 ): Promise<TextEditor | undefined> {
-	const e = findEditor(uri, lastActive);
-	if (e !== undefined) {
-		if (!options.preserveFocus) {
-			await window.showTextDocument(e.document, { ...options, viewColumn: e.viewColumn });
+	const e = findEditor(uri, findOptions);
+	if (e != null) {
+		if (!openOptions?.preserveFocus) {
+			await window.showTextDocument(e.document, { ...openOptions, viewColumn: e.viewColumn });
 		}
 
 		return e;
 	}
 
-	let column = window.activeTextEditor?.viewColumn;
-
-	// If we have a last active view column and it isn't the same as the webview's, then use it
-	if (lastActive !== undefined && lastActive.viewColumn !== undefined && lastActive.viewColumn !== column) {
-		column = lastActive.viewColumn;
-	} else if (column !== undefined) {
-		column--;
-		if (column <= 0) {
-			column = undefined;
-		}
-	}
-
-	return openEditor(uri, { viewColumn: column, ...options });
+	return openEditor(uri, { viewColumn: window.activeTextEditor?.viewColumn, ...openOptions });
 }
 
 export async function openEditor(
@@ -644,7 +592,7 @@ export function openWorkspace(uri: Uri, name: string, options: { openInNewWindow
 	}
 
 	return workspace.updateWorkspaceFolders(
-		workspace.workspaceFolders !== undefined ? workspace.workspaceFolders.length : 0,
+		workspace.workspaceFolders != null ? workspace.workspaceFolders.length : 0,
 		null,
 		{ uri: uri, name: name },
 	);

@@ -1,9 +1,10 @@
 'use strict';
-import { commands, TextEditor, Uri } from 'vscode';
+import { TextEditor, Uri } from 'vscode';
 import { Container } from '../container';
 import { ActiveEditorCommand, command, Commands, getCommandUri } from './common';
-import { GitUri, SearchPattern } from '../git/gitService';
-import { GitCommandsCommandArgs } from '../commands';
+import { SearchPattern } from '../git/git';
+import { GitUri } from '../git/gitUri';
+import { executeGitCommand } from '../commands';
 import { Messages } from '../messages';
 import { Iterables } from '../system';
 import { Logger } from '../logger';
@@ -60,19 +61,13 @@ export class ShowCommitsInViewCommand extends ActiveEditorCommand {
 			}
 		}
 
-		let repo;
-		if (args.repoPath !== undefined) {
-			repo = await Container.git.getRepository(args.repoPath);
-		}
-
-		const gitCommandArgs: GitCommandsCommandArgs = {
+		return executeGitCommand({
 			command: 'search',
 			state: {
-				repo: repo,
+				repo: args?.repoPath,
 				pattern: SearchPattern.fromCommits(args.refs),
 				showResultsInView: true,
 			},
-		};
-		return commands.executeCommand(Commands.GitCommands, gitCommandArgs);
+		});
 	}
 }

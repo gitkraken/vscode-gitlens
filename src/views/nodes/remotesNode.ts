@@ -1,7 +1,8 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
-import { GitUri, Repository } from '../../git/gitService';
+import { Repository } from '../../git/git';
+import { GitUri } from '../../git/gitUri';
 import { RepositoriesView } from '../repositoriesView';
 import { MessageNode } from './common';
 import { RemoteNode } from './remoteNode';

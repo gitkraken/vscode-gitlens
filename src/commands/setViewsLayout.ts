@@ -21,7 +21,7 @@ export class SetViewsLayoutCommand extends Command {
 
 	async execute(args?: SetViewsLayoutCommandArgs) {
 		let layout = args?.layout;
-		if (layout === undefined) {
+		if (layout == null) {
 			const pick = await window.showQuickPick(
 				[
 					{

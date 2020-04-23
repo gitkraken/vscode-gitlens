@@ -1,45 +1,52 @@
 'use strict';
-import { TextEditor, Uri, window } from 'vscode';
-import { GlyphChars } from '../constants';
-import { Container } from '../container';
-import { Logger } from '../logger';
-import { Messages } from '../messages';
-import { CommandQuickPickItem, RepoStatusQuickPick } from '../quickpicks';
-import { ActiveEditorCachedCommand, command, Commands, getCommandUri, getRepoPathOrActiveOrPrompt } from './common';
+import { executeGitCommand } from '../commands';
+import { Command, command, Commands } from './common';
+import { CommandQuickPickItem } from '../quickpicks';
 
 export interface ShowQuickRepoStatusCommandArgs {
 	goBackCommand?: CommandQuickPickItem;
 }
 
+export interface ShowQuickRepoStatusCommandArgs {
+	repoPath?: string;
+}
+
 @command()
-export class ShowQuickRepoStatusCommand extends ActiveEditorCachedCommand {
+export class ShowQuickRepoStatusCommand extends Command {
 	constructor() {
 		super(Commands.ShowQuickRepoStatus);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: ShowQuickRepoStatusCommandArgs) {
-		uri = getCommandUri(uri, editor);
+	async execute(args?: ShowQuickRepoStatusCommandArgs) {
+		return executeGitCommand({
+			command: 'status',
+			state: {
+				repo: args?.repoPath,
+			},
+		});
 
-		try {
-			const repoPath = await getRepoPathOrActiveOrPrompt(
-				uri,
-				editor,
-				`Show status for which repository${GlyphChars.Ellipsis}`,
-			);
-			if (!repoPath) return undefined;
+		// uri = getCommandUri(uri, editor);
 
-			const status = await Container.git.getStatusForRepo(repoPath);
-			if (status === undefined) return window.showWarningMessage('Unable to show repository status');
+		// try {
+		// 	const repoPath = await getRepoPathOrActiveOrPrompt(
+		// 		uri,
+		// 		editor,
+		// 		`Show status for which repository${GlyphChars.Ellipsis}`,
+		// 	);
+		// 	if (!repoPath) return undefined;
 
-			const pick = await RepoStatusQuickPick.show(status, args && args.goBackCommand);
-			if (pick === undefined) return undefined;
+		// 	const status = await Container.git.getStatusForRepo(repoPath);
+		// 	if (status === undefined) return window.showWarningMessage('Unable to show repository status');
 
-			if (pick instanceof CommandQuickPickItem) return pick.execute();
+		// 	const pick = await RepoStatusQuickPick.show(status, args && args.goBackCommand);
+		// 	if (pick === undefined) return undefined;
 
-			return undefined;
-		} catch (ex) {
-			Logger.error(ex, 'ShowQuickRepoStatusCommand');
-			return Messages.showGenericErrorMessage('Unable to show repository status');
-		}
+		// 	if (pick instanceof CommandQuickPickItem) return pick.execute();
+
+		// 	return undefined;
+		// } catch (ex) {
+		// 	Logger.error(ex, 'ShowQuickRepoStatusCommand');
+		// 	return Messages.showGenericErrorMessage('Unable to show repository status');
+		// }
 	}
 }

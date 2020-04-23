@@ -1,7 +1,8 @@
 'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
-import { GitUri, Repository } from '../../git/gitService';
+import { Repository } from '../../git/git';
+import { GitUri } from '../../git/gitUri';
 import { Arrays } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';

@@ -4,7 +4,7 @@ import { Commands } from '../commands';
 import { configuration, StatusBarCommand } from '../configuration';
 import { isTextEditor } from '../constants';
 import { Container } from '../container';
-import { CommitFormatter, GitCommit } from '../git/gitService';
+import { CommitFormatter, GitCommit } from '../git/git';
 import { LinesChangeEvent } from '../trackers/gitLineTracker';
 import { debug } from '../system';
 

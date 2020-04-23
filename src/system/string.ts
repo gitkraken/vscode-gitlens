@@ -250,7 +250,7 @@ export namespace Strings {
 	export function truncate(s: string, truncateTo: number, ellipsis: string = '\u2026', width?: number) {
 		if (!s) return s;
 
-		width = width || getWidth(s);
+		width = width ?? getWidth(s);
 		if (width <= truncateTo) return s;
 		if (width === s.length) return `${s.substring(0, truncateTo - 1)}${ellipsis}`;
 
@@ -266,6 +266,15 @@ export namespace Strings {
 		}
 
 		return `${s.substring(0, chars)}${ellipsis}`;
+	}
+
+	export function truncateMiddle(s: string, truncateTo: number, ellipsis: string = '\u2026') {
+		if (!s) return s;
+
+		const width = getWidth(s);
+		if (width <= truncateTo) return s;
+
+		return `${s.slice(0, Math.floor(truncateTo / 2) - 1)}${ellipsis}${s.slice(width - Math.ceil(truncateTo / 2))}`;
 	}
 
 	// Lifted from https://github.com/chalk/ansi-regex

@@ -1,11 +1,5 @@
 'use strict';
 import { env, TextEditor, Uri, window } from 'vscode';
-import { GlyphChars } from '../constants';
-import { Container } from '../container';
-import { Logger } from '../logger';
-import { Messages } from '../messages';
-import { CommandQuickPickItem, ReferencesQuickPick } from '../quickpicks';
-import { CompareResultsNode } from '../views/nodes';
 import {
 	ActiveEditorCommand,
 	command,
@@ -15,14 +9,19 @@ import {
 	getRepoPathOrActiveOrPrompt,
 	isCommandViewContextWithRef,
 } from './common';
+import { Container } from '../container';
+import { Logger } from '../logger';
+import { Messages } from '../messages';
+import { ReferencePicker } from '../quickpicks';
+import { CompareResultsNode } from '../views/nodes';
 
-export interface DiffDirectoryCommandArgs {
+export interface OpenDirectoryCompareCommandArgs {
 	ref1?: string;
 	ref2?: string;
 }
 
 @command()
-export class DiffDirectoryCommand extends ActiveEditorCommand {
+export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
 	constructor() {
 		super([
 			Commands.DiffDirectory,
@@ -32,7 +31,7 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
 		]);
 	}
 
-	protected async preExecute(context: CommandContext, args?: DiffDirectoryCommandArgs) {
+	protected async preExecute(context: CommandContext, args?: OpenDirectoryCompareCommandArgs) {
 		switch (context.command) {
 			case Commands.DiffDirectoryWithHead:
 				args = { ...args };
@@ -59,36 +58,31 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
 		return this.execute(context.editor, context.uri, args);
 	}
 
-	async execute(editor?: TextEditor, uri?: Uri, args?: DiffDirectoryCommandArgs) {
+	async execute(editor?: TextEditor, uri?: Uri, args?: OpenDirectoryCompareCommandArgs) {
 		uri = getCommandUri(uri, editor);
 		args = { ...args };
 
 		try {
-			const repoPath = await getRepoPathOrActiveOrPrompt(
-				uri,
-				editor,
-				`Compare directory in which repository${GlyphChars.Ellipsis}`,
-			);
-			if (!repoPath) return undefined;
+			const repoPath = await getRepoPathOrActiveOrPrompt(uri, editor, 'Directory Compare Working Tree With');
+			if (!repoPath) return;
 
 			if (!args.ref1) {
-				const pick = await new ReferencesQuickPick(repoPath).show(
-					`Compare Working Tree with${GlyphChars.Ellipsis}`,
+				const pick = await ReferencePicker.show(
+					repoPath,
+					'Directory Compare Working Tree with',
+					'Choose a branch or tag to compare with',
 					{
 						allowEnteringRefs: true,
-						checkmarks: false,
+						// checkmarks: false,
 					},
 				);
-				if (pick === undefined) return undefined;
-
-				if (pick instanceof CommandQuickPickItem) return pick.execute();
+				if (pick == null) return;
 
 				args.ref1 = pick.ref;
-				if (args.ref1 === undefined) return undefined;
+				if (args.ref1 == null) return;
 			}
 
-			Container.git.openDirectoryDiff(repoPath, args.ref1, args.ref2);
-			return undefined;
+			void Container.git.openDirectoryCompare(repoPath, args.ref1, args.ref2);
 		} catch (ex) {
 			const msg = ex && ex.toString();
 			if (msg === 'No diff tool found') {
@@ -96,15 +90,17 @@ export class DiffDirectoryCommand extends ActiveEditorCommand {
 					'Unable to open directory compare because there is no Git diff tool configured',
 					'View Git Docs',
 				);
-				if (!result) return undefined;
+				if (!result) return;
 
-				return env.openExternal(
+				void env.openExternal(
 					Uri.parse('https://git-scm.com/docs/git-config#Documentation/git-config.txt-difftool'),
 				);
+
+				return;
 			}
 
 			Logger.error(ex, 'DiffDirectoryCommand');
-			return Messages.showGenericErrorMessage('Unable to open directory compare');
+			Messages.showGenericErrorMessage('Unable to open directory compare');
 		}
 	}
 }

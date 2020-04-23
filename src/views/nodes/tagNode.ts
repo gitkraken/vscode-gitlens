@@ -2,7 +2,8 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
 import { Container } from '../../container';
-import { GitLog, GitService, GitTag, GitUri, TagDateFormatting } from '../../git/gitService';
+import { GitLog, GitRevision, GitTag, TagDateFormatting } from '../../git/git';
+import { GitUri } from '../../git/gitUri';
 import { debug, gate, Iterables, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { CommitNode } from './commitNode';
@@ -64,12 +65,12 @@ export class TagNode extends ViewRefNode<RepositoriesView> implements PageableVi
 		const item = new TreeItem(this.label, TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ResourceType.Tag;
-		item.description = `${GitService.shortenSha(this.tag.sha, { force: true })}${Strings.pad(
+		item.description = `${GitRevision.shorten(this.tag.sha, { force: true })}${Strings.pad(
 			GlyphChars.Dot,
 			2,
 			2,
 		)}${emojify(this.tag.message)}`;
-		item.tooltip = `${this.tag.name}${Strings.pad(GlyphChars.Dash, 2, 2)}${GitService.shortenSha(this.tag.sha, {
+		item.tooltip = `${this.tag.name}${Strings.pad(GlyphChars.Dash, 2, 2)}${GitRevision.shorten(this.tag.sha, {
 			force: true,
 		})}\n${this.tag.formatDateFromNow()} (${this.tag.formatDate(TagDateFormatting.dateFormat)})\n\n${emojify(
 			this.tag.message,

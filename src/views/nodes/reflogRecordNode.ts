@@ -2,7 +2,8 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { GitLog, GitReflogRecord, GitUri } from '../../git/gitService';
+import { GitLog, GitReflogRecord } from '../../git/git';
+import { GitUri } from '../../git/gitUri';
 import { debug, gate, Iterables } from '../../system';
 import { ViewWithFiles } from '../viewBase';
 import { CommitNode } from './commitNode';

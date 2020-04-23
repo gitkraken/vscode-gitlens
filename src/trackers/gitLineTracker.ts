@@ -2,7 +2,7 @@
 import { Disposable, TextEditor } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitBlameCommit, GitLogCommit } from '../git/gitService';
+import { GitBlameCommit, GitLogCommit } from '../git/git';
 import {
 	DocumentBlameStateChangeEvent,
 	DocumentContentChangeEvent,

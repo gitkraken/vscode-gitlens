@@ -1,5 +1,5 @@
 'use strict';
-import { GitLogCommit } from '../../git/gitService';
+import { GitLogCommit } from '../../git/git';
 import { MessageNode } from './common';
 import { ViewNode } from './viewNode';
 

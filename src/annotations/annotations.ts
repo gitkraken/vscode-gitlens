@@ -8,7 +8,7 @@ import {
 } from 'vscode';
 import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
-import { CommitFormatOptions, CommitFormatter, GitCommit } from '../git/gitService';
+import { CommitFormatOptions, CommitFormatter, GitCommit } from '../git/git';
 import { Objects, Strings } from '../system';
 import { toRgba } from '../webviews/apps/shared/colors';
 

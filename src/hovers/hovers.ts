@@ -1,6 +1,6 @@
 'use strict';
 import { MarkdownString } from 'vscode';
-import { DiffWithCommand, ShowQuickCommitDetailsCommand } from '../commands';
+import { DiffWithCommand, ShowQuickCommitCommand } from '../commands';
 import { FileAnnotationType } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
@@ -11,9 +11,9 @@ import {
 	GitDiffHunkLine,
 	GitLogCommit,
 	GitRemote,
-	GitService,
-	GitUri,
-} from '../git/gitService';
+	GitRevision,
+} from '../git/git';
+import { GitUri } from '../git/gitUri';
 import { Logger, TraceLevel } from '../logger';
 import { Iterables, Promises, Strings } from '../system';
 
@@ -40,7 +40,7 @@ export namespace Hovers {
 			// TODO: Figure out how to optimize this
 			let ref;
 			if (commit.isUncommitted) {
-				if (GitService.isUncommittedStaged(documentRef)) {
+				if (GitRevision.isUncommittedStaged(documentRef)) {
 					ref = documentRef;
 				}
 			} else {
@@ -66,7 +66,7 @@ export namespace Hovers {
 					uri,
 					editorLine,
 					undefined,
-					GitService.uncommittedStagedSha,
+					GitRevision.uncommittedStaged,
 					originalFileName,
 				);
 			}
@@ -100,27 +100,27 @@ export namespace Hovers {
 
 			previous =
 				diffUris.previous.sha === undefined || diffUris.previous.isUncommitted
-					? `_${GitService.shortenSha(diffUris.previous.sha, {
+					? `_${GitRevision.shorten(diffUris.previous.sha, {
 							strings: {
 								working: 'Working Tree',
 							},
 					  })}_`
-					: `[$(git-commit) ${GitService.shortenSha(
+					: `[$(git-commit) ${GitRevision.shorten(
 							diffUris.previous.sha || '',
-					  )}](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
+					  )}](${ShowQuickCommitCommand.getMarkdownCommandArgs(
 							diffUris.previous.sha || '',
 					  )} "Show Commit Details")`;
 
 			current =
 				diffUris.current.sha === undefined || diffUris.current.isUncommitted
-					? `_${GitService.shortenSha(diffUris.current.sha, {
+					? `_${GitRevision.shorten(diffUris.current.sha, {
 							strings: {
 								working: 'Working Tree',
 							},
 					  })}_`
-					: `[$(git-commit) ${GitService.shortenSha(
+					: `[$(git-commit) ${GitRevision.shorten(
 							diffUris.current.sha || '',
-					  )}](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
+					  )}](${ShowQuickCommitCommand.getMarkdownCommandArgs(
 							diffUris.current.sha || '',
 					  )} "Show Commit Details")`;
 		} else {
@@ -129,11 +129,11 @@ export namespace Hovers {
 				editorLine,
 			)} "Open Changes")`;
 
-			previous = `[$(git-commit) ${
-				commit.previousShortSha
-			}](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(commit.previousSha)} "Show Commit Details")`;
+			previous = `[$(git-commit) ${commit.previousShortSha}](${ShowQuickCommitCommand.getMarkdownCommandArgs(
+				commit.previousSha,
+			)} "Show Commit Details")`;
 
-			current = `[$(git-commit) ${commit.shortSha}](${ShowQuickCommitDetailsCommand.getMarkdownCommandArgs(
+			current = `[$(git-commit) ${commit.shortSha}](${ShowQuickCommitCommand.getMarkdownCommandArgs(
 				commit.sha,
 			)} "Show Commit Details")`;
 		}
