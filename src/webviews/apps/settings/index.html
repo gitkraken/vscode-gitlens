@@ -334,6 +334,14 @@
 											data-enablement="codeLens.enabled &amp; codeLens.recentChange.enabled"
 										>
 											<div class="setting__input">
+												<input
+													id="codeLens.recentChange.command"
+													name="codeLens.recentChange.command"
+													type="checkbox"
+													value="gitlens.showQuickCommitFileDetails"
+													data-setting
+													disabled
+												/>
 												<label class="nowrap" for="codeLens.recentChange.command"
 													>When clicked</label
 												>
@@ -341,6 +349,7 @@
 													id="codeLens.recentChange.command"
 													name="codeLens.recentChange.command"
 													data-setting
+													data-enablement="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.recentChange.command !false"
 													disabled
 												>
 													<option value="gitlens.toggleFileBlame"
@@ -394,6 +403,14 @@
 											data-enablement="codeLens.enabled &amp; codeLens.authors.enabled"
 										>
 											<div class="setting__input">
+												<input
+													id="codeLens.authors.command"
+													name="codeLens.authors.command"
+													type="checkbox"
+													value="gitlens.toggleFileBlame"
+													data-setting
+													disabled
+												/>
 												<label class="nowrap" for="codeLens.authors.command"
 													>When clicked</label
 												>
@@ -401,6 +418,7 @@
 													id="codeLens.authors.command"
 													name="codeLens.authors.command"
 													data-setting
+													data-enablement="codeLens.enabled &amp; codeLens.authors.enabled &amp; codeLens.authors.command !false"
 													disabled
 												>
 													<option value="gitlens.toggleFileBlame"

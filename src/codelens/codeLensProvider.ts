@@ -48,7 +48,7 @@ export class GitRecentChangeCodeLens extends CodeLens {
 		public readonly blameRange: Range,
 		public readonly isFullRange: boolean,
 		range: Range,
-		public readonly desiredCommand: CodeLensCommand,
+		public readonly desiredCommand: CodeLensCommand | false,
 		command?: Command | undefined,
 	) {
 		super(range, command);
@@ -68,7 +68,7 @@ export class GitAuthorsCodeLens extends CodeLens {
 		public readonly blameRange: Range,
 		public readonly isFullRange: boolean,
 		range: Range,
-		public readonly desiredCommand: CodeLensCommand,
+		public readonly desiredCommand: CodeLensCommand | false,
 	) {
 		super(range);
 	}
@@ -488,6 +488,10 @@ export class GitCodeLensProvider implements CodeLensProvider {
 			})]`;
 		}
 
+		if (!lens.desiredCommand) {
+			return this.applyCommandWithNoClickAction(title, lens);
+		}
+
 		switch (lens.desiredCommand) {
 			case CodeLensCommand.DiffWithPrevious:
 				return this.applyDiffWithPreviousCommand<GitRecentChangeCodeLens>(title, lens, recentCommit);
@@ -530,6 +534,10 @@ export class GitCodeLensProvider implements CodeLensProvider {
 				Iterables.map(blame.authors.values(), a => a.name),
 				', ',
 			)})]`;
+		}
+
+		if (!lens.desiredCommand) {
+			return this.applyCommandWithNoClickAction(title, lens);
 		}
 
 		const commit =
@@ -684,6 +692,17 @@ export class GitCodeLensProvider implements CodeLensProvider {
 			title: title,
 			command: Commands.ToggleFileBlame,
 			arguments: [lens.uri!.toFileUri()],
+		};
+		return lens;
+	}
+
+	private applyCommandWithNoClickAction<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(
+		title: string,
+		lens: T,
+	): T {
+		lens.command = {
+			title: title,
+			command: '',
 		};
 		return lens;
 	}

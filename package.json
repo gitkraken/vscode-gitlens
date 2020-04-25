@@ -204,28 +204,37 @@
 					"scope": "window"
 				},
 				"gitlens.codeLens.authors.command": {
-					"type": "string",
+					"anyOf": [
+						{
+							"enum": [
+								false
+							]
+						},
+						{
+							"type": "string",
+							"enum": [
+								"gitlens.toggleFileBlame",
+								"gitlens.diffWithPrevious",
+								"gitlens.revealCommitInView",
+								"gitlens.showCommitsInView",
+								"gitlens.showQuickCommitDetails",
+								"gitlens.showQuickCommitFileDetails",
+								"gitlens.showQuickFileHistory",
+								"gitlens.showQuickRepoHistory"
+							],
+							"enumDescriptions": [
+								"Toggles file blame annotations",
+								"Compares the current committed file with the previous commit",
+								"Reveals the commit in the Repositories view",
+								"Shows the commits within the range in the Search Commits view",
+								"Shows a commit details quick pick",
+								"Shows a commit file details quick pick",
+								"Shows a file history quick pick",
+								"Shows a branch history quick pick"
+							]
+						}
+					],
 					"default": "gitlens.toggleFileBlame",
-					"enum": [
-						"gitlens.toggleFileBlame",
-						"gitlens.diffWithPrevious",
-						"gitlens.revealCommitInView",
-						"gitlens.showCommitsInView",
-						"gitlens.showQuickCommitDetails",
-						"gitlens.showQuickCommitFileDetails",
-						"gitlens.showQuickFileHistory",
-						"gitlens.showQuickRepoHistory"
-					],
-					"enumDescriptions": [
-						"Toggles file blame annotations",
-						"Compares the current committed file with the previous commit",
-						"Reveals the commit in the Repositories view",
-						"Shows the commits within the range in the Search Commits view",
-						"Shows a commit details quick pick",
-						"Shows a commit file details quick pick",
-						"Shows a file history quick pick",
-						"Shows a branch history quick pick"
-					],
 					"markdownDescription": "Specifies the command to be executed when an _authors_ code lens is clicked",
 					"scope": "window"
 				},
@@ -248,28 +257,37 @@
 					"scope": "window"
 				},
 				"gitlens.codeLens.recentChange.command": {
-					"type": "string",
+					"anyOf": [
+						{
+							"enum": [
+								false
+							]
+						},
+						{
+							"type": "string",
+							"enum": [
+								"gitlens.toggleFileBlame",
+								"gitlens.diffWithPrevious",
+								"gitlens.revealCommitInView",
+								"gitlens.showCommitsInView",
+								"gitlens.showQuickCommitDetails",
+								"gitlens.showQuickCommitFileDetails",
+								"gitlens.showQuickFileHistory",
+								"gitlens.showQuickRepoHistory"
+							],
+							"enumDescriptions": [
+								"Toggles file blame annotations",
+								"Compares the current committed file with the previous commit",
+								"Reveals the commit in the Repositories view",
+								"Shows the commit in the Search Commits view",
+								"Shows a commit details quick pick",
+								"Shows a commit file details quick pick",
+								"Shows a file history quick pick",
+								"Shows a branch history quick pick"
+							]
+						}
+					],
 					"default": "gitlens.showQuickCommitFileDetails",
-					"enum": [
-						"gitlens.toggleFileBlame",
-						"gitlens.diffWithPrevious",
-						"gitlens.revealCommitInView",
-						"gitlens.showCommitsInView",
-						"gitlens.showQuickCommitDetails",
-						"gitlens.showQuickCommitFileDetails",
-						"gitlens.showQuickFileHistory",
-						"gitlens.showQuickRepoHistory"
-					],
-					"enumDescriptions": [
-						"Toggles file blame annotations",
-						"Compares the current committed file with the previous commit",
-						"Reveals the commit in the Repositories view",
-						"Shows the commit in the Search Commits view",
-						"Shows a commit details quick pick",
-						"Shows a commit file details quick pick",
-						"Shows a file history quick pick",
-						"Shows a branch history quick pick"
-					],
 					"markdownDescription": "Specifies the command to be executed when a _recent change_ code lens is clicked",
 					"scope": "window"
 				},
