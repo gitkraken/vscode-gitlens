@@ -285,13 +285,13 @@ export interface AdvancedConfig {
 export interface CodeLensConfig {
 	authors: {
 		enabled: boolean;
-		command: CodeLensCommand;
+		command: CodeLensCommand | false;
 	};
 	enabled: boolean;
 	includeSingleLineSymbols: boolean;
 	recentChange: {
 		enabled: boolean;
-		command: CodeLensCommand;
+		command: CodeLensCommand | false;
 	};
 	scopes: CodeLensScopes[];
 	scopesByLanguage: CodeLensLanguageScope[] | null;
