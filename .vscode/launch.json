@@ -62,6 +62,27 @@
 			"smartStep": true,
 			"sourceMaps": true,
 			"trace": true
+		},
+		{
+			"name": "Watch & Launch GitLens (Sandbox)",
+			"type": "extensionHost",
+			"request": "launch",
+			"runtimeExecutable": "${execPath}",
+			"args": ["--disable-extensions", "--extensionDevelopmentPath=${workspaceFolder}"],
+			"env": {
+				"VSCODE_DEBUGGING_EXTENSION": "gitlens"
+			},
+			"cwd": "${workspaceFolder}",
+			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
+			"preLaunchTask": "npm: watch",
+			"presentation": {
+				"group": "1_watch",
+				"order": 2
+			},
+			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
+			"smartStep": true,
+			"sourceMaps": true,
+			"trace": true
 		}
 	]
 }
