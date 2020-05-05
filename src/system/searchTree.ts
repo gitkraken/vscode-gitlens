@@ -6,7 +6,7 @@ import { Strings } from './string';
 
 const FIN = { done: true, value: undefined };
 
-// eslint-disable-next-line @typescript-eslint/interface-name-prefix
+// eslint-disable-next-line @typescript-eslint/naming-convention
 export interface IKeyIterator {
 	reset(key: string): this;
 	next(): this;

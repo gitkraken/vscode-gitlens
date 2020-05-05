@@ -102,7 +102,7 @@ export class Logger {
 
 		if (this.output !== undefined && this.level !== TraceLevel.Silent) {
 			this.output.appendLine(
-				`${this.timestamp} ${message || emptyStr}${this.toLoggableParams(false, params)}\n${ex}`,
+				`${this.timestamp} ${message || emptyStr}${this.toLoggableParams(false, params)}\n${ex?.toString()}`,
 			);
 		}
 
@@ -222,15 +222,15 @@ export class Logger {
 	}
 
 	static toLoggableName(instance: Function | object) {
-		let name;
+		let name: string;
 		if (typeof instance === 'function') {
 			if (instance.prototype == null || instance.prototype.constructor == null) {
 				return instance.name;
 			}
 
-			name = instance.prototype.constructor.name;
+			name = instance.prototype.constructor.name ?? emptyStr;
 		} else {
-			name = instance.constructor != null ? instance.constructor.name : emptyStr;
+			name = instance.constructor?.name ?? emptyStr;
 		}
 
 		// Strip webpack module name (since I never name classes with an _)

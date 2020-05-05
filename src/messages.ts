@@ -150,10 +150,12 @@ export class Messages {
 		dontShowAgain: MessageItem | null = { title: "Don't Show Again" },
 		...actions: MessageItem[]
 	): Promise<MessageItem | undefined> {
-		Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain})`);
+		Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${JSON.stringify(dontShowAgain)})`);
 
 		if (suppressionKey !== undefined && configuration.get('advanced', 'messages', suppressionKey)) {
-			Logger.log(`ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain}) skipped`);
+			Logger.log(
+				`ShowMessage(${type}, '${message}', ${suppressionKey}, ${JSON.stringify(dontShowAgain)}) skipped`,
+			);
 			return undefined;
 		}
 
@@ -178,7 +180,9 @@ export class Messages {
 
 		if ((suppressionKey !== undefined && dontShowAgain === null) || result === dontShowAgain) {
 			Logger.log(
-				`ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain}) don't show again requested`,
+				`ShowMessage(${type}, '${message}', ${suppressionKey}, ${JSON.stringify(
+					dontShowAgain,
+				)}) don't show again requested`,
 			);
 			await this.suppressedMessage(suppressionKey!);
 
@@ -186,7 +190,7 @@ export class Messages {
 		}
 
 		Logger.log(
-			`ShowMessage(${type}, '${message}', ${suppressionKey}, ${dontShowAgain}) returned ${
+			`ShowMessage(${type}, '${message}', ${suppressionKey}, ${JSON.stringify(dontShowAgain)}) returned ${
 				result ? result.title : result
 			}`,
 		);

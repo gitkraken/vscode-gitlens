@@ -7,7 +7,7 @@ import { IssueOrPullRequest, PullRequest, PullRequestState } from '../git/gitSer
 export class GitHubApi {
 	@debug({
 		args: {
-			1: token => '<token>',
+			1: _ => '<token>',
 		},
 	})
 	async getPullRequestForCommit(
@@ -51,12 +51,20 @@ export class GitHubApi {
 			const variables = { owner: owner, repo: repo, sha: ref };
 			// Logger.debug(cc, `variables: ${JSON.stringify(variables)}`);
 
-			const rsp = await graphql(query, {
+			const rsp = await graphql<{
+				repository?: {
+					object?: {
+						associatedPullRequests?: {
+							nodes?: GitHubPullRequest[];
+						};
+					};
+				};
+			}>(query, {
 				...variables,
 				headers: { authorization: `token ${token}` },
 				...options,
 			});
-			const pr = rsp?.repository?.object?.associatedPullRequests?.nodes?.[0] as GitHubPullRequest | undefined;
+			const pr = rsp?.repository?.object?.associatedPullRequests?.nodes?.[0];
 			if (pr == null) return undefined;
 			// GitHub seems to sometimes return PRs for forks
 			if (pr.repository.owner.login !== owner) return undefined;
@@ -83,7 +91,7 @@ export class GitHubApi {
 
 	@debug({
 		args: {
-			1: token => '<token>',
+			1: _ => '<token>',
 		},
 	})
 	async getIssueOrPullRequest(
@@ -122,12 +130,12 @@ export class GitHubApi {
 			const variables = { owner: owner, repo: repo, number: number };
 			// Logger.debug(cc, `variables: ${JSON.stringify(variables)}`);
 
-			const rsp = await graphql(query, {
+			const rsp = await graphql<{ repository?: { issueOrPullRequest?: GitHubIssueOrPullRequest } }>(query, {
 				...variables,
 				headers: { authorization: `token ${token}` },
 				...options,
 			});
-			const issue = rsp?.repository?.issueOrPullRequest as GitHubIssueOrPullRequest | undefined;
+			const issue = rsp?.repository?.issueOrPullRequest;
 			if (issue == null) return undefined;
 
 			return {

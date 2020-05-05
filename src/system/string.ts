@@ -110,6 +110,7 @@ export namespace Strings {
 
 		let fn = interpolationMap.get(template);
 		if (fn === undefined) {
+			// eslint-disable-next-line @typescript-eslint/no-implied-eval
 			fn = new Function(`return \`${template.replace(tokenSanitizeRegex, tokenSanitizeReplacement)}\`;`);
 			interpolationMap.set(template, fn);
 		}

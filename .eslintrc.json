@@ -7,7 +7,6 @@
 		"eslint:recommended",
 		"plugin:@typescript-eslint/recommended",
 		"plugin:@typescript-eslint/recommended-requiring-type-checking",
-		"plugin:@typescript-eslint/eslint-recommended",
 		"plugin:import/errors",
 		"plugin:import/warnings",
 		"plugin:import/typescript",
@@ -112,6 +111,7 @@
 				"newlines-between": "never"
 			}
 		],
+		"@typescript-eslint/ban-types": "off", // TODO@eamodio revisit
 		"@typescript-eslint/consistent-type-assertions": [
 			"error",
 			{
@@ -121,17 +121,88 @@
 		],
 		"@typescript-eslint/explicit-function-return-type": "off",
 		"@typescript-eslint/explicit-member-accessibility": "off",
+		"@typescript-eslint/explicit-module-boundary-types": "off", // TODO@eamodio revisit
+		"@typescript-eslint/naming-convention": [
+			"error",
+			{
+				"selector": "variable",
+				"format": ["camelCase", "PascalCase"],
+				"leadingUnderscore": "allow",
+				"filter": {
+					"regex": "^_$",
+					"match": false
+				}
+			},
+			{
+				"selector": "variableLike",
+				"format": ["camelCase"],
+				"leadingUnderscore": "allow",
+				"filter": {
+					"regex": "^_$",
+					"match": false
+				}
+			},
+			{
+				"selector": "memberLike",
+				"modifiers": ["private"],
+				"format": ["camelCase"],
+				"leadingUnderscore": "allow"
+			},
+			{
+				"selector": "memberLike",
+				"modifiers": ["private", "readonly"],
+				"format": ["camelCase", "PascalCase"],
+				"leadingUnderscore": "allow"
+			},
+			{
+				"selector": "memberLike",
+				"modifiers": ["static", "readonly"],
+				"format": ["camelCase", "PascalCase"]
+			},
+			{
+				"selector": "interface",
+				"format": ["PascalCase"],
+				"custom": {
+					"regex": "^I[A-Z]",
+					"match": false
+				}
+			}
+		],
 		"@typescript-eslint/no-empty-function": ["warn", { "allow": ["constructors"] }],
 		"@typescript-eslint/no-empty-interface": "off",
 		"@typescript-eslint/no-explicit-any": "off",
+		"@typescript-eslint/no-floating-promises": "off", // TODO@eamodio revisit
 		"@typescript-eslint/no-inferrable-types": ["warn", { "ignoreParameters": true, "ignoreProperties": true }],
 		"@typescript-eslint/no-misused-promises": ["error", { "checksVoidReturn": false }],
 		"@typescript-eslint/no-namespace": "off",
 		"@typescript-eslint/no-non-null-assertion": "off",
 		"@typescript-eslint/no-parameter-properties": "off",
+		"@typescript-eslint/no-unnecessary-condition": "off",
+		"@typescript-eslint/no-unsafe-assignment": "off", // TODO@eamodio revisit
+		"@typescript-eslint/no-unsafe-call": "off", // TODO@eamodio revisit
+		"@typescript-eslint/no-unsafe-member-access": "off", // TODO@eamodio revisit
+		"@typescript-eslint/no-unsafe-return": "off", // TODO@eamodio revisit
 		"@typescript-eslint/no-unused-expressions": ["warn", { "allowShortCircuit": true }],
-		"@typescript-eslint/no-unused-vars": ["warn", { "args": "none" }],
+		"@typescript-eslint/no-unused-vars": [
+			"warn",
+			{
+				"args": "after-used",
+				"argsIgnorePattern": "^_",
+				"ignoreRestSiblings": true,
+				"varsIgnorePattern": "^_$"
+			}
+		],
 		"@typescript-eslint/no-use-before-define": "off",
+		"@typescript-eslint/prefer-nullish-coalescing": "warn",
+		"@typescript-eslint/prefer-optional-chain": "warn",
+		"@typescript-eslint/restrict-template-expressions": [
+			"error",
+			{ "allowAny": true, "allowBoolean": true, "allowNumber": true, "allowNullish": true }
+		],
+		"@typescript-eslint/strict-boolean-expressions": [
+			"warn",
+			{ "allowNullableBoolean": true, "allowNullableNumber": true, "allowNullableString": true }
+		],
 		"@typescript-eslint/unbound-method": "off" // Too many bugs right now: https://github.com/typescript-eslint/typescript-eslint/issues?utf8=%E2%9C%93&q=is%3Aissue+is%3Aopen+unbound-method
 	}
 }

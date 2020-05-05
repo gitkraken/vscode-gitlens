@@ -8,10 +8,10 @@ import {
 
 export namespace Arrays {
 	export function countUniques<T>(source: T[], accessor: (item: T) => string): { [key: string]: number } {
-		const uniqueCounts = Object.create(null);
+		const uniqueCounts: Record<string, number> = Object.create(null);
 		for (const item of source) {
 			const value = accessor(item);
-			uniqueCounts[value] = (uniqueCounts[value] || 0) + 1;
+			uniqueCounts[value] = (uniqueCounts[value] ?? 0) + 1;
 		}
 		return uniqueCounts;
 	}

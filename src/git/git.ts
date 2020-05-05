@@ -1,5 +1,5 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 'use strict';
-/* eslint-disable @typescript-eslint/camelcase */
 import * as paths from 'path';
 import * as iconv from 'iconv-lite';
 import { GlyphChars } from '../constants';

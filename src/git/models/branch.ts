@@ -199,7 +199,6 @@ export class GitBranch implements GitReference {
 		if (star) {
 			starred![this.id] = true;
 		} else {
-			// eslint-disable-next-line @typescript-eslint/no-unused-vars
 			const { [this.id]: _, ...rest } = starred!;
 			starred = rest;
 		}

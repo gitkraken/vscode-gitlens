@@ -249,7 +249,6 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
 		if (compareWith) {
 			comparisons![this.branch.id] = { ...compareWith };
 		} else {
-			// eslint-disable-next-line @typescript-eslint/no-unused-vars
 			const { [this.branch.id]: _, ...rest } = comparisons!;
 			comparisons = rest;
 		}

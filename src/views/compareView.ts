@@ -155,7 +155,6 @@ export class CompareView extends ViewBase<CompareNode> {
 		if (pin !== undefined) {
 			pinned![id] = { ...pin };
 		} else {
-			// eslint-disable-next-line @typescript-eslint/no-unused-vars
 			const { [id]: _, ...rest } = pinned!;
 			pinned = rest;
 		}

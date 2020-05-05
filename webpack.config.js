@@ -1,5 +1,8 @@
-'use strict';
+// @ts-check
 /* eslint-disable @typescript-eslint/no-var-requires */
+/* eslint-disable @typescript-eslint/prefer-nullish-coalescing */
+/* eslint-disable @typescript-eslint/strict-boolean-expressions */
+'use strict';
 const fs = require('fs');
 const path = require('path');
 const glob = require('glob');
@@ -7,43 +10,97 @@ const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPl
 const { CleanWebpackPlugin: CleanPlugin } = require('clean-webpack-plugin');
 const CircularDependencyPlugin = require('circular-dependency-plugin');
 const CspHtmlPlugin = require('csp-html-webpack-plugin');
-// const ESLintPlugin = require('eslint-webpack-plugin');
 const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
-const HtmlExcludeAssetsPlugin = require('html-webpack-exclude-assets-plugin');
-const HtmlInlineSourcePlugin = require('html-webpack-inline-source-plugin');
 const HtmlPlugin = require('html-webpack-plugin');
+const HtmlSkipAssetsPlugin = require('html-webpack-skip-assets-plugin').HtmlWebpackSkipAssetsPlugin;
 const ImageminPlugin = require('imagemin-webpack-plugin').default;
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const TerserPlugin = require('terser-webpack-plugin');
 
-module.exports = function (env, argv) {
-	env = env || {};
-	env.analyzeBundle = Boolean(env.analyzeBundle);
-	env.analyzeDeps = Boolean(env.analyzeDeps);
-	env.production = env.analyzeBundle || Boolean(env.production);
-	env.optimizeImages = Boolean(env.optimizeImages) || (env.production && !env.analyzeBundle);
-
-	if (!env.optimizeImages && !fs.existsSync(path.resolve(__dirname, 'images/settings'))) {
-		env.optimizeImages = true;
+class InlineChunkHtmlPlugin {
+	constructor(htmlPlugin, patterns) {
+		this.htmlPlugin = htmlPlugin;
+		this.patterns = patterns;
 	}
 
-	return [getExtensionConfig(env), getWebviewsConfig(env)];
-};
+	getInlinedTag(publicPath, assets, tag) {
+		if (
+			(tag.tagName !== 'script' || !(tag.attributes && tag.attributes.src)) &&
+			(tag.tagName !== 'link' || !(tag.attributes && tag.attributes.href))
+		) {
+			return tag;
+		}
 
-function getExtensionConfig(env) {
+		let chunkName = tag.tagName === 'link' ? tag.attributes.href : tag.attributes.src;
+		if (publicPath) {
+			chunkName = chunkName.replace(publicPath, '');
+		}
+		if (!this.patterns.some(pattern => chunkName.match(pattern))) {
+			return tag;
+		}
+
+		const asset = assets[chunkName];
+		if (asset == null) {
+			return tag;
+		}
+
+		return { tagName: tag.tagName === 'link' ? 'style' : tag.tagName, innerHTML: asset.source(), closeTag: true };
+	}
+
+	apply(compiler) {
+		let publicPath = compiler.options.output.publicPath || '';
+		if (publicPath && !publicPath.endsWith('/')) {
+			publicPath += '/';
+		}
+
+		compiler.hooks.compilation.tap('InlineChunkHtmlPlugin', compilation => {
+			const getInlinedTagFn = tag => this.getInlinedTag(publicPath, compilation.assets, tag);
+
+			this.htmlPlugin.getHooks(compilation).alterAssetTagGroups.tap('InlineChunkHtmlPlugin', assets => {
+				assets.headTags = assets.headTags.map(getInlinedTagFn);
+				assets.bodyTags = assets.bodyTags.map(getInlinedTagFn);
+			});
+		});
+	}
+}
+
+module.exports =
+	/**
+	 * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; optimizeImages?: boolean; } | undefined } env
+	 * @param {{ mode: 'production' | 'development' | 'none' | undefined; }} argv
+	 */
+	function (env, argv) {
+		const mode = argv.mode || 'none';
+
+		env = {
+			analyzeBundle: false,
+			analyzeDeps: false,
+			optimizeImages: mode === 'production',
+			...env,
+		};
+
+		if (env.analyzeBundle || env.analyzeDeps) {
+			env.optimizeImages = false;
+		} else if (!env.optimizeImages && !fs.existsSync(path.resolve(__dirname, 'images/settings'))) {
+			env.optimizeImages = true;
+		}
+
+		return [getExtensionConfig(mode, env), getWebviewsConfig(mode, env)];
+	};
+
+/**
+ * @param { 'production' | 'development' | 'none' } mode
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; optimizeImages?: boolean; }} env
+ */
+function getExtensionConfig(mode, env) {
 	/**
 	 * @type any[]
 	 */
 	const plugins = [
 		new CleanPlugin({ cleanOnceBeforeBuildPatterns: ['**/*', '!**/webviews/**'] }),
-		// new ESLintPlugin({
-		// 	context: path.resolve(__dirname, 'src'),
-		// 	files: '**/*.ts',
-		// 	lintDirtyModulesOnly: true
-		// })
 		new ForkTsCheckerPlugin({
 			async: false,
-			eslint: true,
+			eslint: true, // { files: './src/**/*.ts' },
 			useTypescriptIncrementalApi: true,
 		}),
 	];
@@ -54,7 +111,7 @@ function getExtensionConfig(env) {
 				cwd: __dirname,
 				exclude: /node_modules/,
 				failOnError: false,
-				onDetected: function ({ module: webpackModuleRecord, paths, compilation }) {
+				onDetected: function ({ module: _webpackModuleRecord, paths, compilation }) {
 					if (paths.some(p => p.includes('container.ts'))) return;
 
 					compilation.warnings.push(new Error(paths.join(' -> ')));
@@ -70,7 +127,7 @@ function getExtensionConfig(env) {
 	return {
 		name: 'extension',
 		entry: './src/extension.ts',
-		mode: env.production ? 'production' : 'development',
+		mode: mode,
 		target: 'node',
 		node: {
 			__dirname: false,
@@ -90,7 +147,6 @@ function getExtensionConfig(env) {
 					terserOptions: {
 						ecma: 8,
 						// Keep the class names otherwise @log won't provide a useful name
-						// eslint-disable-next-line @typescript-eslint/camelcase
 						keep_classnames: true,
 						module: true,
 					},
@@ -142,7 +198,11 @@ function getExtensionConfig(env) {
 	};
 }
 
-function getWebviewsConfig(env) {
+/**
+ * @param { 'production' | 'development' | 'none' } mode
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; optimizeImages?: boolean; }} env
+ */
+function getWebviewsConfig(mode, env) {
 	const clean = ['**/*'];
 	if (env.optimizeImages) {
 		console.log('Optimizing images (src/webviews/apps/images/settings/*.png)...');
@@ -156,7 +216,7 @@ function getWebviewsConfig(env) {
 		'style-src': ['vscode-resource:'],
 	};
 
-	if (!env.production) {
+	if (mode === 'production') {
 		cspPolicy['script-src'].push("'unsafe-eval'");
 	}
 
@@ -165,16 +225,10 @@ function getWebviewsConfig(env) {
 	 */
 	const plugins = [
 		new CleanPlugin({ cleanOnceBeforeBuildPatterns: clean }),
-		// new ESLintPlugin({
-		// 	context: path.resolve(__dirname, 'src/webviews/apps'),
-		// 	files: '**/*.ts',
-		// 	lintDirtyModulesOnly: true
-		// }),
 		new ForkTsCheckerPlugin({
 			tsconfig: path.resolve(__dirname, 'tsconfig.webviews.json'),
 			async: false,
-			eslint: true,
-			useTypescriptIncrementalApi: true,
+			eslint: true, // { files: './src/**/*.ts' },
 		}),
 		new MiniCssExtractPlugin({
 			filename: '[name].css',
@@ -185,7 +239,6 @@ function getWebviewsConfig(env) {
 			template: 'settings/index.html',
 			filename: path.resolve(__dirname, 'dist/webviews/settings.html'),
 			inject: true,
-			inlineSource: env.production ? '.css$' : undefined,
 			cspPlugin: {
 				enabled: true,
 				policy: cspPolicy,
@@ -194,18 +247,19 @@ function getWebviewsConfig(env) {
 					'style-src': true,
 				},
 			},
-			minify: env.production
-				? {
-						removeComments: true,
-						collapseWhitespace: true,
-						removeRedundantAttributes: false,
-						useShortDoctype: true,
-						removeEmptyAttributes: true,
-						removeStyleLinkTypeAttributes: true,
-						keepClosingSlash: true,
-						minifyCSS: true,
-				  }
-				: false,
+			minify:
+				mode === 'production'
+					? {
+							removeComments: true,
+							collapseWhitespace: true,
+							removeRedundantAttributes: false,
+							useShortDoctype: true,
+							removeEmptyAttributes: true,
+							removeStyleLinkTypeAttributes: true,
+							keepClosingSlash: true,
+							minifyCSS: true,
+					  }
+					: false,
 		}),
 		new HtmlPlugin({
 			excludeAssets: [/.+-styles\.js/],
@@ -213,7 +267,6 @@ function getWebviewsConfig(env) {
 			template: 'welcome/index.html',
 			filename: path.resolve(__dirname, 'dist/webviews/welcome.html'),
 			inject: true,
-			inlineSource: env.production ? '.css$' : undefined,
 			cspPlugin: {
 				enabled: true,
 				policy: cspPolicy,
@@ -222,20 +275,21 @@ function getWebviewsConfig(env) {
 					'style-src': true,
 				},
 			},
-			minify: env.production
-				? {
-						removeComments: true,
-						collapseWhitespace: true,
-						removeRedundantAttributes: false,
-						useShortDoctype: true,
-						removeEmptyAttributes: true,
-						removeStyleLinkTypeAttributes: true,
-						keepClosingSlash: true,
-						minifyCSS: true,
-				  }
-				: false,
+			minify:
+				mode === 'production'
+					? {
+							removeComments: true,
+							collapseWhitespace: true,
+							removeRedundantAttributes: false,
+							useShortDoctype: true,
+							removeEmptyAttributes: true,
+							removeStyleLinkTypeAttributes: true,
+							keepClosingSlash: true,
+							minifyCSS: true,
+					  }
+					: false,
 		}),
-		new HtmlExcludeAssetsPlugin(),
+		new HtmlSkipAssetsPlugin({}),
 		new CspHtmlPlugin(),
 		new ImageminPlugin({
 			disable: !env.optimizeImages,
@@ -250,11 +304,11 @@ function getWebviewsConfig(env) {
 			optipng: null,
 			pngquant: {
 				quality: '85-100',
-				speed: env.production ? 1 : 10,
+				speed: mode === 'production' ? 1 : 10,
 			},
 			svgo: null,
 		}),
-		new HtmlInlineSourcePlugin(),
+		new InlineChunkHtmlPlugin(HtmlPlugin, mode === 'production' ? ['\\.css$'] : []),
 	];
 
 	return {
@@ -265,8 +319,8 @@ function getWebviewsConfig(env) {
 			settings: ['./settings/index.ts'],
 			welcome: ['./welcome/index.ts'],
 		},
-		mode: env.production ? 'production' : 'development',
-		devtool: env.production ? undefined : 'eval-source-map',
+		mode: mode,
+		devtool: mode === 'production' ? undefined : 'eval-source-map',
 		output: {
 			filename: '[name].js',
 			path: path.resolve(__dirname, 'dist/webviews'),
