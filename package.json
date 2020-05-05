@@ -324,7 +324,10 @@
 				},
 				"gitlens.codeLens.scopesByLanguage": {
 					"deprecationMessage": "Deprecated. Use per-language `gitlens.codeLens.scopes` and `gitlens.codeLens.symbolScopes` settings instead",
-					"type": "array",
+					"type": [
+						"array",
+						"null"
+					],
 					"default": null,
 					"items": {
 						"type": "object",
