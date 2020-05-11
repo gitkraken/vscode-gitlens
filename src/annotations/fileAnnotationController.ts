@@ -14,6 +14,7 @@ import {
 	TextEditorDecorationType,
 	TextEditorViewColumnChangeEvent,
 	ThemeColor,
+	Uri,
 	window,
 	workspace,
 } from 'vscode';
@@ -84,23 +85,35 @@ export class FileAnnotationController implements Disposable {
 	dispose() {
 		void this.clearAll();
 
-		Decorations.blameAnnotation && Decorations.blameAnnotation.dispose();
-		Decorations.blameHighlight && Decorations.blameHighlight.dispose();
+		Decorations.blameAnnotation?.dispose();
+		Decorations.blameHighlight?.dispose();
 
-		this._annotationsDisposable && this._annotationsDisposable.dispose();
-		this._disposable && this._disposable.dispose();
+		this._annotationsDisposable?.dispose();
+		this._disposable?.dispose();
 	}
 
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
 		const cfg = Container.config;
 
 		if (configuration.changed(e, 'blame', 'highlight')) {
-			Decorations.blameHighlight && Decorations.blameHighlight.dispose();
+			Decorations.blameHighlight?.dispose();
+			Decorations.blameHighlight = undefined;
 
 			const cfgHighlight = cfg.blame.highlight;
 
 			if (cfgHighlight.enabled) {
+				// TODO@eamodio: Read from the theme color when the API exists
+				const gutterHighlightColor = '#00bcf2'; // new ThemeColor('gitlens.lineHighlightOverviewRulerColor')
+				const gutterHighlightUri = cfgHighlight.locations.includes(HighlightLocations.Gutter)
+					? Uri.parse(
+							`data:image/svg+xml,${encodeURIComponent(
+								`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><rect fill='${gutterHighlightColor}' fill-opacity='0.6' x='7' y='0' width='3' height='18'/></svg>`,
+							)}`,
+					  )
+					: undefined;
+
 				Decorations.blameHighlight = window.createTextEditorDecorationType({
+					gutterIconPath: gutterHighlightUri,
 					gutterIconSize: 'contain',
 					isWholeLine: true,
 					overviewRulerLane: OverviewRulerLane.Right,
@@ -110,28 +123,27 @@ export class FileAnnotationController implements Disposable {
 					overviewRulerColor: cfgHighlight.locations.includes(HighlightLocations.Overview)
 						? new ThemeColor('gitlens.lineHighlightOverviewRulerColor')
 						: undefined,
-					dark: {
-						gutterIconPath: cfgHighlight.locations.includes(HighlightLocations.Gutter)
-							? Container.context.asAbsolutePath('images/dark/highlight-gutter.svg')
-							: undefined,
-					},
-					light: {
-						gutterIconPath: cfgHighlight.locations.includes(HighlightLocations.Gutter)
-							? Container.context.asAbsolutePath('images/light/highlight-gutter.svg')
-							: undefined,
-					},
 				});
-			} else {
-				Decorations.blameHighlight = undefined;
 			}
 		}
 
 		if (configuration.changed(e, 'recentChanges', 'highlight')) {
-			Decorations.recentChangesAnnotation && Decorations.recentChangesAnnotation.dispose();
+			Decorations.recentChangesAnnotation?.dispose();
 
 			const cfgHighlight = cfg.recentChanges.highlight;
 
+			// TODO@eamodio: Read from the theme color when the API exists
+			const gutterHighlightColor = '#00bcf2'; // new ThemeColor('gitlens.lineHighlightOverviewRulerColor')
+			const gutterHighlightUri = cfgHighlight.locations.includes(HighlightLocations.Gutter)
+				? Uri.parse(
+						`data:image/svg+xml,${encodeURIComponent(
+							`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><rect fill='${gutterHighlightColor}' fill-opacity='0.6' x='7' y='0' width='3' height='18'/></svg>`,
+						)}`,
+				  )
+				: undefined;
+
 			Decorations.recentChangesAnnotation = window.createTextEditorDecorationType({
+				gutterIconPath: gutterHighlightUri,
 				gutterIconSize: 'contain',
 				isWholeLine: true,
 				overviewRulerLane: OverviewRulerLane.Right,
@@ -141,16 +153,6 @@ export class FileAnnotationController implements Disposable {
 				overviewRulerColor: cfgHighlight.locations.includes(HighlightLocations.Overview)
 					? new ThemeColor('gitlens.lineHighlightOverviewRulerColor')
 					: undefined,
-				dark: {
-					gutterIconPath: cfgHighlight.locations.includes(HighlightLocations.Gutter)
-						? Container.context.asAbsolutePath('images/dark/highlight-gutter.svg')
-						: undefined,
-				},
-				light: {
-					gutterIconPath: cfgHighlight.locations.includes(HighlightLocations.Gutter)
-						? Container.context.asAbsolutePath('images/light/highlight-gutter.svg')
-						: undefined,
-				},
 			});
 		}
 
