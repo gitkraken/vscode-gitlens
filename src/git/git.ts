@@ -724,13 +724,14 @@ export namespace Git {
 			`--format=${GitLogParser.defaultFormat}`,
 			'--full-history',
 			`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
+			'-m',
 		];
 		if (limit && !reverse) {
 			params.push(`-n${limit}`);
 		}
 
-		if (merges) {
-			params.push('-m');
+		if (!merges) {
+			params.push('--first-parent');
 		}
 
 		if (authors) {
