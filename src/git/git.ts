@@ -804,7 +804,7 @@ export namespace Git {
 			params.push(`--diff-filter=${filters.join(emptyStr)}`);
 		}
 
-		if (firstParent) {
+		if ((all !== true && renames) || firstParent) {
 			params.push('--first-parent');
 		}
 
