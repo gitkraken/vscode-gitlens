@@ -22,10 +22,15 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 	protected preExecute(context: CommandContext, args?: DiffWithWorkingCommandArgs) {
 		if (context.command === Commands.DiffWithWorkingInDiffRight) {
 			args = { ...args };
-			args.inDiffRightEditor = true;
+
+			// Ensure we are on the right side -- context.uri is always the right-side uri, so ensure the editor matches, otherwise we are on the left
+			if (context.editor?.document.uri.toString() === context.uri?.toString()) {
+				args.inDiffRightEditor = true;
+			}
 		}
 
-		return this.execute(context.editor, context.uri, args);
+		// Always pass the editor.uri (if we have one), so we are correct for a split diff
+		return this.execute(context.editor, context.editor?.document.uri ?? context.uri, args);
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: DiffWithWorkingCommandArgs): Promise<any> {

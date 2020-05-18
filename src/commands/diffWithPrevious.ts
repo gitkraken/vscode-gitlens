@@ -24,10 +24,15 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 	protected preExecute(context: CommandContext, args?: DiffWithPreviousCommandArgs) {
 		if (context.command === Commands.DiffWithPreviousInDiffRight) {
 			args = { ...args };
-			args.inDiffRightEditor = true;
+
+			// Ensure we are on the right side -- context.uri is always the right-side uri, so ensure the editor matches, otherwise we are on the left
+			if (context.editor?.document.uri.toString() === context.uri?.toString()) {
+				args.inDiffRightEditor = true;
+			}
 		}
 
-		return this.execute(context.editor, context.uri, args);
+		// Always pass the editor.uri (if we have one), so we are correct for a split diff
+		return this.execute(context.editor, context.editor?.document.uri ?? context.uri, args);
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: DiffWithPreviousCommandArgs) {
@@ -62,6 +67,11 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 		} else {
 			gitUri = await GitUri.fromUri(uri);
 		}
+
+		// If we are in the right diff editor, we can't really trust the line number
+		// if (args.inDiffRightEditor && args.line !== 0) {
+		// 	// TODO@eamodio figure out how to tell where the line moved in the previous commit (if at all)
+		// }
 
 		try {
 			const diffUris = await Container.git.getPreviousDiffUris(
