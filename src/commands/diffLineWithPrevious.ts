@@ -53,7 +53,7 @@ export class DiffLineWithPreviousCommand extends ActiveEditorCommand {
 					sha: diffUris.current.sha || '',
 					uri: diffUris.current.documentUri(),
 				},
-				line: args.line,
+				line: diffUris.line,
 				showOptions: args.showOptions,
 			};
 			return commands.executeCommand(Commands.DiffWith, diffArgs);

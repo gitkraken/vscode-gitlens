@@ -2270,7 +2270,7 @@ export class GitService implements Disposable {
 		editorLine: number,
 		ref: string | undefined,
 		skip: number = 0,
-	): Promise<{ current: GitUri; previous: GitUri | undefined } | undefined> {
+	): Promise<{ current: GitUri; previous: GitUri | undefined; line: number } | undefined> {
 		if (ref === GitService.deletedOrMissingSha) return undefined;
 
 		let fileName = GitUri.relativeTo(uri, repoPath);
@@ -2302,6 +2302,7 @@ export class GitService implements Disposable {
 							return {
 								current: GitUri.fromFile(fileName, repoPath, undefined),
 								previous: GitUri.fromFile(fileName, repoPath, GitService.uncommittedStagedSha),
+								line: editorLine,
 							};
 						}
 					}
@@ -2310,6 +2311,7 @@ export class GitService implements Disposable {
 					return {
 						current: GitUri.fromFile(fileName, repoPath, undefined),
 						previous: await this.getPreviousUri(repoPath, uri, undefined, skip, editorLine),
+						line: editorLine,
 					};
 				}
 
@@ -2353,6 +2355,7 @@ export class GitService implements Disposable {
 				return {
 					current: current,
 					previous: await this.getPreviousUri(repoPath, uri, undefined, skip, editorLine),
+					line: editorLine,
 				};
 			}
 
@@ -2379,7 +2382,8 @@ export class GitService implements Disposable {
 
 		return {
 			current: current,
-			previous: previous || (await this.getPreviousUri(repoPath, uri, ref, skip, editorLine)),
+			previous: previous ?? (await this.getPreviousUri(repoPath, uri, ref, skip, editorLine)),
+			line: editorLine,
 		};
 	}
 
