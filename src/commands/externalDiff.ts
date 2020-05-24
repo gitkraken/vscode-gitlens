@@ -164,7 +164,7 @@ export class ExternalDiffCommand extends Command {
 				const uri = editor.document.uri;
 				const status = await Container.git.getStatusForFile(repoPath, uri.fsPath);
 				if (status == null) {
-					window.showInformationMessage("The current file doesn't have any changes");
+					void window.showInformationMessage("The current file doesn't have any changes");
 
 					return;
 				}
@@ -207,7 +207,7 @@ export class ExternalDiffCommand extends Command {
 			}
 		} catch (ex) {
 			Logger.error(ex, 'ExternalDiffCommand');
-			Messages.showGenericErrorMessage('Unable to open changes in diff tool');
+			void Messages.showGenericErrorMessage('Unable to open changes in diff tool');
 		}
 	}
 }

@@ -23,7 +23,7 @@ export class ComparePickerNode extends ViewNode<CompareView> {
 		if (repoPath !== undefined) {
 			if ((await Container.git.getRepositoryCount()) > 1) {
 				const repo = await Container.git.getRepository(repoPath);
-				description = (repo && repo.formattedName) || repoPath;
+				description = repo?.formattedName ?? repoPath;
 			}
 		}
 

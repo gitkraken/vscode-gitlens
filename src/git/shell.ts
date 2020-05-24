@@ -31,7 +31,7 @@ function runDownPath(exe: string): string {
 	const target = paths.join('.', exe);
 	try {
 		const stats = fs.statSync(target);
-		if (stats && stats.isFile() && isExecutable(stats)) return target;
+		if (stats?.isFile() && isExecutable(stats)) return target;
 	} catch {}
 
 	const path = process.env.PATH;
@@ -42,7 +42,7 @@ function runDownPath(exe: string): string {
 			const needle = paths.join(p, exe);
 			try {
 				stats = fs.statSync(needle);
-				if (stats && stats.isFile() && isExecutable(stats)) return needle;
+				if (stats?.isFile() && isExecutable(stats)) return needle;
 			} catch {}
 		}
 	}
@@ -53,7 +53,9 @@ function runDownPath(exe: string): string {
 function isExecutable(stats: fs.Stats) {
 	if (isWindows) return true;
 
+	// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 	const isGroup = stats.gid ? process.getgid && stats.gid === process.getgid() : true;
+	// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 	const isUser = stats.uid ? process.getuid && stats.uid === process.getuid() : true;
 
 	return Boolean(stats.mode & 0o0001 || (stats.mode & 0o0010 && isGroup) || (stats.mode & 0o0100 && isUser));
@@ -86,7 +88,7 @@ export function findExecutable(exe: string, args: string[]): { cmd: string; args
 
 	if (ps1Regex.test(exe)) {
 		const cmd = paths.join(
-			process.env.SYSTEMROOT || 'C:\\WINDOWS',
+			process.env.SYSTEMROOT ?? 'C:\\WINDOWS',
 			'System32',
 			'WindowsPowerShell',
 			'v1.0',
@@ -98,7 +100,7 @@ export function findExecutable(exe: string, args: string[]): { cmd: string; args
 	}
 
 	if (batOrCmdRegex.test(exe)) {
-		const cmd = paths.join(process.env.SYSTEMROOT || 'C:\\WINDOWS', 'System32', 'cmd.exe');
+		const cmd = paths.join(process.env.SYSTEMROOT ?? 'C:\\WINDOWS', 'System32', 'cmd.exe');
 		const cmdArgs = ['/C', exe, ...args];
 
 		return { cmd: cmd, args: cmdArgs };
@@ -181,8 +183,8 @@ export function run<TOut extends string | Buffer>(
 			},
 		);
 
-		if (stdin) {
-			proc.stdin?.end(stdin, stdinEncoding || 'utf8');
+		if (stdin != null) {
+			proc.stdin?.end(stdin, stdinEncoding ?? 'utf8');
 		}
 	});
 }

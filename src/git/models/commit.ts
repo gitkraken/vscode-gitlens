@@ -143,7 +143,7 @@ export abstract class GitCommit implements GitRevisionReference {
 	}
 
 	@memoize<GitCommit['getPreviousLineDiffUris']>(
-		(uri, editorLine, ref) => `${uri.toString(true)}|${editorLine || ''}|${ref || ''}`,
+		(uri, editorLine, ref) => `${uri.toString(true)}|${editorLine ?? ''}|${ref ?? ''}`,
 	)
 	getPreviousLineDiffUris(uri: Uri, editorLine: number, ref: string | undefined) {
 		if (!this.isFile) return Promise.resolve(undefined);

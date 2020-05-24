@@ -44,12 +44,12 @@ export class CopyRemoteResourceCommandQuickPickItem extends CommandQuickPickItem
 
 	async onDidPressKey(key: Keys): Promise<void> {
 		await super.onDidPressKey(key);
-		window.showInformationMessage('Url copied to the clipboard');
+		void window.showInformationMessage('Url copied to the clipboard');
 	}
 }
 
 export class OpenRemoteResourceCommandQuickPickItem extends CommandQuickPickItem {
-	constructor(remotes: GitRemote<RemoteProvider>[], resource: RemoteResource, goBackCommand?: CommandQuickPickItem) {
+	constructor(remotes: GitRemote<RemoteProvider>[], resource: RemoteResource) {
 		const providers = GitRemote.getHighlanderProviders(remotes);
 		const commandArgs: OpenOnRemoteCommandArgs = {
 			resource: resource,

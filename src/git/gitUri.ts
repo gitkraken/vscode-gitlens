@@ -95,7 +95,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 
 		const [authority, fsPath] = GitUri.ensureValidUNCPath(
 			uri.authority,
-			GitUri.resolve(commitOrRepoPath.fileName || uri.fsPath, commitOrRepoPath.repoPath),
+			GitUri.resolve(commitOrRepoPath.fileName ?? uri.fsPath, commitOrRepoPath.repoPath),
 		);
 
 		let path;

@@ -10,7 +10,7 @@ import { debug } from '../system';
 
 export class StatusBarController implements Disposable {
 	private _blameStatusBarItem: StatusBarItem | undefined;
-	private _disposable: Disposable;
+	private readonly _disposable: Disposable;
 	private _modeStatusBarItem: StatusBarItem | undefined;
 
 	constructor() {
@@ -21,11 +21,11 @@ export class StatusBarController implements Disposable {
 	dispose() {
 		this.clearBlame();
 
-		this._blameStatusBarItem && this._blameStatusBarItem.dispose();
-		this._modeStatusBarItem && this._modeStatusBarItem.dispose();
+		this._blameStatusBarItem?.dispose();
+		this._modeStatusBarItem?.dispose();
 
 		Container.lineTracker.stop(this);
-		this._disposable && this._disposable.dispose();
+		this._disposable.dispose();
 	}
 
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
@@ -34,21 +34,21 @@ export class StatusBarController implements Disposable {
 				Container.config.mode.active && Container.config.mode.statusBar.enabled
 					? Container.config.modes[Container.config.mode.active]
 					: undefined;
-			if (mode && mode.statusBarItemName) {
+			if (mode?.statusBarItemName) {
 				const alignment =
 					Container.config.mode.statusBar.alignment !== 'left'
 						? StatusBarAlignment.Right
 						: StatusBarAlignment.Left;
 
 				if (configuration.changed(e, 'mode', 'statusBar', 'alignment')) {
-					if (this._modeStatusBarItem !== undefined && this._modeStatusBarItem.alignment !== alignment) {
-						this._modeStatusBarItem.dispose();
+					if (this._modeStatusBarItem?.alignment !== alignment) {
+						this._modeStatusBarItem?.dispose();
 						this._modeStatusBarItem = undefined;
 					}
 				}
 
 				this._modeStatusBarItem =
-					this._modeStatusBarItem ||
+					this._modeStatusBarItem ??
 					window.createStatusBarItem(alignment, alignment === StatusBarAlignment.Right ? 999 : 1);
 				this._modeStatusBarItem.command = Commands.SwitchMode;
 				this._modeStatusBarItem.text = mode.statusBarItemName;
@@ -74,7 +74,7 @@ export class StatusBarController implements Disposable {
 			}
 
 			this._blameStatusBarItem =
-				this._blameStatusBarItem ||
+				this._blameStatusBarItem ??
 				window.createStatusBarItem(alignment, alignment === StatusBarAlignment.Right ? 1000 : 0);
 			this._blameStatusBarItem.command = Container.config.statusBar.command;
 
@@ -111,7 +111,7 @@ export class StatusBarController implements Disposable {
 		);
 		if (!e.pending && e.lines !== undefined) {
 			const state = Container.lineTracker.getState(e.lines[0]);
-			if (state !== undefined && state.commit !== undefined) {
+			if (state?.commit !== undefined) {
 				this.updateBlame(state.commit, e.editor!);
 
 				return;

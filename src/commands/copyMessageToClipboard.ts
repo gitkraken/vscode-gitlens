@@ -72,7 +72,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 						}
 					} catch (ex) {
 						Logger.error(ex, 'CopyMessageToClipboardCommand', `getBlameForLine(${blameline})`);
-						Messages.showGenericErrorMessage('Unable to copy message');
+						void Messages.showGenericErrorMessage('Unable to copy message');
 
 						return;
 					}
@@ -87,8 +87,9 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 
 			void (await env.clipboard.writeText(args.message));
 		} catch (ex) {
-			if (ex.message.includes("Couldn't find the required `xsel` binary")) {
-				window.showErrorMessage(
+			const msg: string = ex?.message ?? '';
+			if (msg.includes("Couldn't find the required `xsel` binary")) {
+				void window.showErrorMessage(
 					'Unable to copy message, xsel is not installed. Please install it via your package manager, e.g. `sudo apt install xsel`',
 				);
 
@@ -96,7 +97,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 			}
 
 			Logger.error(ex, 'CopyMessageToClipboardCommand');
-			Messages.showGenericErrorMessage('Unable to copy message');
+			void Messages.showGenericErrorMessage('Unable to copy message');
 		}
 	}
 }

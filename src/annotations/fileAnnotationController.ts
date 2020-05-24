@@ -68,7 +68,7 @@ export class FileAnnotationController implements Disposable {
 	}
 
 	private _annotationsDisposable: Disposable | undefined;
-	private _annotationProviders: Map<TextEditorCorrelationKey, AnnotationProviderBase> = new Map();
+	private _annotationProviders = new Map<TextEditorCorrelationKey, AnnotationProviderBase>();
 	private _disposable: Disposable;
 	private _editor: TextEditor | undefined;
 	private _keyboardScope: KeyboardScope | undefined = undefined;
@@ -78,7 +78,7 @@ export class FileAnnotationController implements Disposable {
 	constructor() {
 		this._disposable = Disposable.from(configuration.onDidChange(this.onConfigurationChanged, this));
 
-		this._toggleModes = new Map();
+		this._toggleModes = new Map<FileAnnotationType, AnnotationsToggleMode>();
 		this.onConfigurationChanged(configuration.initializingChangeEvent);
 	}
 
@@ -222,10 +222,10 @@ export class FileAnnotationController implements Disposable {
 
 		const provider = this.getProvider(editor);
 		if (provider === undefined) {
-			setCommandContext(CommandContext.AnnotationStatus, undefined);
+			void setCommandContext(CommandContext.AnnotationStatus, undefined);
 			void this.detachKeyboardHook();
 		} else {
-			setCommandContext(CommandContext.AnnotationStatus, provider.status);
+			void setCommandContext(CommandContext.AnnotationStatus, provider.status);
 			void this.attachKeyboardHook();
 		}
 	}
@@ -294,7 +294,7 @@ export class FileAnnotationController implements Disposable {
 	private getToggleMode(annotationType: FileAnnotationType | undefined): AnnotationsToggleMode {
 		if (annotationType === undefined) return AnnotationsToggleMode.File;
 
-		return this._toggleModes.get(annotationType) || AnnotationsToggleMode.File;
+		return this._toggleModes.get(annotationType) ?? AnnotationsToggleMode.File;
 	}
 
 	clear(editor: TextEditor, reason: AnnotationClearReason = AnnotationClearReason.User) {
@@ -381,7 +381,7 @@ export class FileAnnotationController implements Disposable {
 				const provider = await computingAnnotations;
 
 				if (editor === this._editor) {
-					await setCommandContext(CommandContext.AnnotationStatus, provider && provider.status);
+					await setCommandContext(CommandContext.AnnotationStatus, provider?.status);
 				}
 
 				return computingAnnotations;

@@ -116,7 +116,7 @@ export class PushGitCommand extends QuickCommand<State> {
 			}
 
 			QuickCommand.endSteps(state);
-			this.execute(state as State<Repository[]>);
+			void this.execute(state as State<Repository[]>);
 		}
 
 		return state.counter < 0 ? StepResult.Break : undefined;

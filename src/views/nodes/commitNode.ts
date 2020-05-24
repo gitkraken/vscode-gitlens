@@ -68,7 +68,7 @@ export class CommitNode extends ViewRefNode<ViewWithFiles> {
 			this._options.expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
 		);
 		item.contextValue = ResourceType.Commit;
-		if (this.branch !== undefined && this.branch.current) {
+		if (this.branch?.current) {
 			item.contextValue += '+current';
 		}
 		item.description = CommitFormatter.fromTemplate(this.view.config.commitDescriptionFormat, this.commit, {

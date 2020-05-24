@@ -120,7 +120,7 @@ export class TrackedDocument<T> implements Disposable {
 	}
 
 	activate() {
-		setCommandContext(CommandContext.ActiveFileStatus, this.getStatus());
+		void setCommandContext(CommandContext.ActiveFileStatus, this.getStatus());
 	}
 
 	async ensureInitialized() {
@@ -197,7 +197,7 @@ export class TrackedDocument<T> implements Disposable {
 		if (active !== undefined) {
 			const blameable = this.isBlameable;
 
-			setCommandContext(CommandContext.ActiveFileStatus, this.getStatus());
+			void setCommandContext(CommandContext.ActiveFileStatus, this.getStatus());
 
 			if (!options.initializing && wasBlameable !== blameable) {
 				const e: DocumentBlameStateChangeEvent<T> = { editor: active, document: this, blameable: blameable };

@@ -569,7 +569,7 @@ export class ViewCommands {
 		const selected = this._selectedFile;
 
 		this._selectedFile = undefined;
-		setCommandContext(CommandContext.ViewsCanCompareFile, false);
+		void setCommandContext(CommandContext.ViewsCanCompareFile, false);
 
 		const diffArgs: DiffWithCommandArgs = {
 			repoPath: selected.repoPath,
@@ -596,7 +596,7 @@ export class ViewCommands {
 			repoPath: node.repoPath,
 			uri: node.uri,
 		};
-		setCommandContext(CommandContext.ViewsCanCompareFile, true);
+		void setCommandContext(CommandContext.ViewsCanCompareFile, true);
 	}
 
 	@debug()
@@ -821,7 +821,7 @@ export class ViewCommands {
 			}
 		}
 
-		return findOrOpenEditor(uri, options.showOptions || { preserveFocus: true, preview: false });
+		return findOrOpenEditor(uri, options.showOptions ?? { preserveFocus: true, preview: false });
 	}
 
 	@debug()
@@ -885,7 +885,7 @@ export class ViewCommands {
 	async terminalPushCommit(node: CommitNode) {
 		if (!(node instanceof CommitNode)) return;
 
-		const branch = node.branch || (await Container.git.getBranch(node.repoPath));
+		const branch = node.branch ?? (await Container.git.getBranch(node.repoPath));
 		if (branch === undefined) return;
 
 		runGitCommandInTerminal(

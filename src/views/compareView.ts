@@ -17,7 +17,7 @@ export class CompareView extends ViewBase<CompareNode> {
 	constructor() {
 		super('gitlens.views.compare', 'Compare');
 
-		setCommandContext(CommandContext.ViewsCompareKeepResults, this.keepResults);
+		void setCommandContext(CommandContext.ViewsCompareKeepResults, this.keepResults);
 	}
 
 	getRoot() {
@@ -149,13 +149,13 @@ export class CompareView extends ViewBase<CompareNode> {
 	async updatePinnedComparison(id: string, pin?: PinnedComparison) {
 		let pinned = Container.context.workspaceState.get<PinnedComparisons>(WorkspaceState.PinnedComparisons);
 		if (pinned == null) {
-			pinned = Object.create(null);
+			pinned = Object.create(null) as PinnedComparisons;
 		}
 
 		if (pin !== undefined) {
-			pinned![id] = { ...pin };
+			pinned[id] = { ...pin };
 		} else {
-			const { [id]: _, ...rest } = pinned!;
+			const { [id]: _, ...rest } = pinned;
 			pinned = rest;
 		}
 
@@ -178,8 +178,8 @@ export class CompareView extends ViewBase<CompareNode> {
 	}
 
 	private setKeepResults(enabled: boolean) {
-		Container.context.workspaceState.update(WorkspaceState.ViewsCompareKeepResults, enabled);
-		setCommandContext(CommandContext.ViewsCompareKeepResults, enabled);
+		void Container.context.workspaceState.update(WorkspaceState.ViewsCompareKeepResults, enabled);
+		void setCommandContext(CommandContext.ViewsCompareKeepResults, enabled);
 	}
 
 	private setShowAvatars(enabled: boolean) {

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-types */
 'use strict';
 
 // Taken from github.com/microsoft/vscode/src/vs/base/common/event.ts
@@ -51,7 +52,7 @@ export class Emitter<T> {
 					this._options.onFirstListenerAdd(this);
 				}
 
-				const remove = this._listeners.push(!thisArgs ? listener : [listener, thisArgs]);
+				const remove = this._listeners.push(thisArgs != null ? listener : [listener, thisArgs]);
 
 				if (firstListener && this._options && this._options.onFirstListenerDidAdd) {
 					this._options.onFirstListenerDidAdd(this);
@@ -269,7 +270,7 @@ class LinkedList<E> {
 					return FIN;
 				}
 
-				if (!element) {
+				if (element == null) {
 					element = { done: false, value: node.element };
 				} else {
 					element.value = node.element;

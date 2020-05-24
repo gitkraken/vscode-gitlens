@@ -30,7 +30,7 @@ export class OpenFileAtRevisionFromCommand extends ActiveEditorCommand {
 
 		const gitUri = await GitUri.fromUri(uri);
 		if (!gitUri.repoPath) {
-			Messages.showNoRepositoryWarningMessage('Unable to open file revision');
+			void Messages.showNoRepositoryWarningMessage('Unable to open file revision');
 			return;
 		}
 

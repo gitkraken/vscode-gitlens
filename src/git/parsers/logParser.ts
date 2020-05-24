@@ -110,8 +110,8 @@ export class GitLogParser {
 			repoPath = Strings.normalizePath(repoPath);
 		}
 
-		const authors: Map<string, GitAuthor> = new Map();
-		const commits: Map<string, GitLogCommit> = new Map();
+		const authors = new Map<string, GitAuthor>();
+		const commits = new Map<string, GitLogCommit>();
 		let truncationCount = limit;
 
 		let match;
@@ -416,7 +416,7 @@ export class GitLogParser {
 			}
 
 			const originalFileName =
-				entry.originalFileName || (relativeFileName !== entry.fileName ? entry.fileName : undefined);
+				entry.originalFileName ?? (relativeFileName !== entry.fileName ? entry.fileName : undefined);
 
 			if (type === GitCommitType.LogFile) {
 				entry.files = [
@@ -438,7 +438,7 @@ export class GitLogParser {
 				new Date((entry.committedDate! as any) * 1000),
 				entry.summary === undefined ? emptyStr : entry.summary,
 				relativeFileName,
-				entry.files || [],
+				entry.files ?? [],
 				entry.status,
 				originalFileName,
 				type === GitCommitType.Log ? entry.parentShas![0] : undefined,
@@ -460,8 +460,8 @@ export class GitLogParser {
 
 			// Only add a filename if this is a file log
 			if (type === GitCommitType.LogFile) {
-				recentCommit.previousFileName = commit.originalFileName || commit.fileName;
-				commit.nextFileName = recentCommit.originalFileName || recentCommit.fileName;
+				recentCommit.previousFileName = commit.originalFileName ?? commit.fileName;
+				commit.nextFileName = recentCommit.originalFileName ?? recentCommit.fileName;
 			}
 		}
 		return commit;

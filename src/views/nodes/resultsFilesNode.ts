@@ -79,7 +79,7 @@ export class ResultsFilesNode extends ViewNode<ViewWithFiles> {
 			state = TreeItemCollapsibleState.Collapsed;
 		}
 
-		const item = new TreeItem(label || 'files changed', state);
+		const item = new TreeItem(label ?? 'files changed', state);
 		item.contextValue = ResourceType.ResultsFiles;
 		item.id = this.id;
 

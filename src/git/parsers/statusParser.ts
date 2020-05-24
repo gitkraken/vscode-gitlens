@@ -58,7 +58,7 @@ export class GitStatusParser {
 			}
 		}
 
-		return new GitStatus(Strings.normalizePath(repoPath), branch || emptyStr, emptyStr, files, state, upstream);
+		return new GitStatus(Strings.normalizePath(repoPath), branch ?? emptyStr, emptyStr, files, state, upstream);
 	}
 
 	@debug({ args: false, singleLine: true })
@@ -117,8 +117,8 @@ export class GitStatusParser {
 
 		return new GitStatus(
 			Strings.normalizePath(repoPath),
-			branch || emptyStr,
-			sha || emptyStr,
+			branch ?? emptyStr,
+			sha ?? emptyStr,
 			files,
 			state,
 			upstream,

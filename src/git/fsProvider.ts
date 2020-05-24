@@ -43,7 +43,7 @@ export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 	}
 
 	dispose() {
-		this._disposable && this._disposable.dispose();
+		this._disposable.dispose();
 	}
 
 	private _onDidChangeFile = new EventEmitter<FileChangeEvent[]>();

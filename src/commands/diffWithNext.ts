@@ -56,11 +56,11 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 			void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
 				repoPath: diffUris.current.repoPath,
 				lhs: {
-					sha: diffUris.current.sha || '',
+					sha: diffUris.current.sha ?? '',
 					uri: diffUris.current.documentUri(),
 				},
 				rhs: {
-					sha: diffUris.next.sha || '',
+					sha: diffUris.next.sha ?? '',
 					uri: diffUris.next.documentUri(),
 				},
 				line: args.line,
@@ -72,7 +72,7 @@ export class DiffWithNextCommand extends ActiveEditorCommand {
 				'DiffWithNextCommand',
 				`getNextDiffUris(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`,
 			);
-			Messages.showGenericErrorMessage('Unable to open compare');
+			void Messages.showGenericErrorMessage('Unable to open compare');
 		}
 	}
 }

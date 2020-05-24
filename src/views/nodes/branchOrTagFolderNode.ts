@@ -45,9 +45,7 @@ export class BranchOrTagFolderNode extends ViewNode {
 		for (const folder of this.root.children.values()) {
 			if (folder.value === undefined) {
 				// If the folder contains the current branch, expand it by default
-				const expanded =
-					folder.descendants !== undefined &&
-					folder.descendants.some(n => n instanceof BranchNode && n.current);
+				const expanded = folder.descendants?.some(n => n instanceof BranchNode && n.current);
 				children.push(
 					new BranchOrTagFolderNode(
 						this.view,

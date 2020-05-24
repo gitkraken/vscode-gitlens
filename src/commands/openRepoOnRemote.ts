@@ -52,7 +52,7 @@ export class OpenRepoOnRemoteCommand extends ActiveEditorCommand {
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenRepoOnRemoteCommand');
-			window.showErrorMessage(
+			void window.showErrorMessage(
 				'Unable to open repository on remote provider. See output channel for more details',
 			);
 		}

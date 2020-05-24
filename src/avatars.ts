@@ -36,7 +36,7 @@ export function getAvatarUri(email: string | undefined, fallback: GravatarDefaul
 	if (avatar !== undefined) return avatar;
 
 	avatar =
-		getAvatarUriFromGitHubNoReplyAddress(email, size) ||
+		getAvatarUriFromGitHubNoReplyAddress(email, size) ??
 		Uri.parse(`https://www.gravatar.com/avatar/${hash}.jpg?s=${size}&d=${fallback}`);
 	avatarCache.set(key, avatar);
 

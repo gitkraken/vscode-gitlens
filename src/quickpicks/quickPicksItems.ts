@@ -140,10 +140,10 @@ export class CommandQuickPickItem<Arguments extends any[] = any[]> implements Qu
 		}
 	}
 
-	execute(options?: { preserveFocus?: boolean; preview?: boolean }): Promise<unknown | undefined> {
+	execute(_options?: { preserveFocus?: boolean; preview?: boolean }): Promise<unknown | undefined> {
 		if (this.command === undefined) return Promise.resolve(undefined);
 
-		const result = commands.executeCommand(this.command, ...(this.args || [])) as Promise<unknown | undefined>;
+		const result = commands.executeCommand(this.command, ...(this.args ?? [])) as Promise<unknown | undefined>;
 		// this.options?.onDidExecute?.(options, result);
 		return result;
 	}
@@ -157,7 +157,7 @@ export class CommandQuickPickItem<Arguments extends any[] = any[]> implements Qu
 	}
 }
 
-export interface FlagsQuickPickItem<T> extends QuickPickItemOfT<T[]> {}
+export type FlagsQuickPickItem<T> = QuickPickItemOfT<T[]>;
 export namespace FlagsQuickPickItem {
 	export function create<T>(flags: T[], item: T[], options: QuickPickItem) {
 		return { ...options, item: item, picked: hasFlags(flags, item) };
@@ -182,7 +182,7 @@ export class OpenInSearchCommitsViewQuickPickItem extends CommandQuickPickItem {
 		super(item, undefined, undefined);
 	}
 
-	async execute(options?: { preserveFocus?: boolean; preview?: boolean }): Promise<{} | undefined> {
+	async execute(options?: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
 		void (await Container.searchView.search(
 			this.reference.repoPath,
 			{
@@ -199,8 +199,6 @@ export class OpenInSearchCommitsViewQuickPickItem extends CommandQuickPickItem {
 				},
 			},
 		));
-
-		return undefined;
 	}
 }
 
@@ -217,7 +215,7 @@ export class RevealInRepositoriesViewQuickPickItem extends CommandQuickPickItem 
 		super(item, undefined, undefined);
 	}
 
-	async execute(options?: { preserveFocus?: boolean; preview?: boolean }): Promise<{} | undefined> {
+	async execute(options?: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
 		if (GitStashCommit.is(this.reference)) {
 			void (await Container.repositoriesView.revealStash(this.reference, {
 				select: true,
@@ -231,7 +229,5 @@ export class RevealInRepositoriesViewQuickPickItem extends CommandQuickPickItem 
 				expand: true,
 			}));
 		}
-
-		return undefined;
 	}
 }

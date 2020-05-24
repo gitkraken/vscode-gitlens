@@ -27,7 +27,7 @@ export function isQuickInputStep(
 	return typeof step === 'object' && (step as QuickPickStep).items == null;
 }
 
-export interface QuickPickStep<T extends QuickPickItem = any> {
+export interface QuickPickStep<T extends QuickPickItem = QuickPickItem> {
 	additionalButtons?: QuickInputButton[];
 	allowEmpty?: boolean;
 	buttons?: QuickInputButton[];
@@ -73,7 +73,7 @@ export type StepSelection<T> = T extends QuickPickStep<infer U>
 	? string | Directive
 	: never;
 export type PartialStepState<T = unknown> = Partial<T> & { counter: number; confirm?: boolean; startingStep?: number };
-export type StepState<T = {}> = T & { counter: number; confirm?: boolean; startingStep?: number };
+export type StepState<T = Record<string, unknown>> = T & { counter: number; confirm?: boolean; startingStep?: number };
 
 export abstract class QuickCommand<State = any> implements QuickPickItem {
 	readonly description?: string;
@@ -194,8 +194,8 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 		return QuickCommand.createPickStep<T>({
 			placeholder: `Confirm ${this.title}`,
 			title: title,
-			items: [...confirmations, cancel || DirectiveQuickPickItem.create(Directive.Cancel)],
-			selectedItems: [confirmations.find(c => c.picked) || confirmations[0]],
+			items: [...confirmations, cancel ?? DirectiveQuickPickItem.create(Directive.Cancel)],
+			selectedItems: [confirmations.find(c => c.picked) ?? confirmations[0]],
 			...options,
 		});
 	}
@@ -223,7 +223,8 @@ export namespace QuickCommand {
 	) {
 		if (!canStepContinue(step, state, value)) return false;
 
-		if (step.validate == null || (await step.validate(value))) {
+		const [valid] = (await step.validate?.(value)) ?? [true];
+		if (valid) {
 			state.counter++;
 			return true;
 		}
@@ -238,7 +239,7 @@ export namespace QuickCommand {
 	): selection is StepItemType<T> {
 		if (!canStepContinue(step, state, selection)) return false;
 
-		if (step.validate == null || step.validate(selection)) {
+		if (step.validate?.(selection) ?? true) {
 			state.counter++;
 			return true;
 		}
@@ -282,8 +283,8 @@ export namespace QuickCommand {
 		return createPickStep<T>({
 			placeholder: `Confirm ${context.title}`,
 			title: title,
-			items: [...confirmations, cancel || DirectiveQuickPickItem.create(Directive.Cancel)],
-			selectedItems: [confirmations.find(c => c.picked) || confirmations[0]],
+			items: [...confirmations, cancel ?? DirectiveQuickPickItem.create(Directive.Cancel)],
+			selectedItems: [confirmations.find(c => c.picked) ?? confirmations[0]],
 			...options,
 		});
 	}

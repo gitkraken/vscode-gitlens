@@ -19,7 +19,7 @@ export class SearchView extends ViewBase<SearchNode> {
 	constructor() {
 		super('gitlens.views.search', 'Search Commits');
 
-		setCommandContext(CommandContext.ViewsSearchKeepResults, this.keepResults);
+		void setCommandContext(CommandContext.ViewsSearchKeepResults, this.keepResults);
 	}
 
 	getRoot() {
@@ -143,7 +143,7 @@ export class SearchView extends ViewBase<SearchNode> {
 		}
 
 		const searchQueryFn = this.getSearchQueryFn(
-			results || Container.git.getLogForSearch(repoPath, search, options),
+			results ?? Container.git.getLogForSearch(repoPath, search, options),
 			{ label: label },
 		);
 
@@ -291,8 +291,8 @@ export class SearchView extends ViewBase<SearchNode> {
 	}
 
 	private setKeepResults(enabled: boolean) {
-		Container.context.workspaceState.update(WorkspaceState.ViewsSearchKeepResults, enabled);
-		setCommandContext(CommandContext.ViewsSearchKeepResults, enabled);
+		void Container.context.workspaceState.update(WorkspaceState.ViewsSearchKeepResults, enabled);
+		void setCommandContext(CommandContext.ViewsSearchKeepResults, enabled);
 	}
 
 	private setShowAvatars(enabled: boolean) {

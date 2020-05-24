@@ -68,17 +68,17 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
 		let description;
 		if ((await Container.git.getRepositoryCount()) > 1) {
 			const repo = await Container.git.getRepository(this.uri.repoPath!);
-			description = (repo && repo.formattedName) || this.uri.repoPath;
+			description = repo?.formattedName ?? this.uri.repoPath;
 		}
 
 		const item = new TreeItem(
 			`Comparing ${
-				this._ref.label || GitRevision.shorten(this._ref.ref, { strings: { working: 'Working Tree' } })
+				this._ref.label ?? GitRevision.shorten(this._ref.ref, { strings: { working: 'Working Tree' } })
 			} to ${
-				this._compareWith.label ||
+				this._compareWith.label ??
 				GitRevision.shorten(this._compareWith.ref, { strings: { working: 'Working Tree' } })
 			}`,
-			this._state || TreeItemCollapsibleState.Collapsed,
+			this._state ?? TreeItemCollapsibleState.Collapsed,
 		);
 		item.contextValue = `${ResourceType.CompareResults}+${
 			this.comparisonNotation === '..' ? 'twodot' : 'threedot'
@@ -107,7 +107,7 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
 	async getDiffRefs(): Promise<[string, string]> {
 		if (this.comparisonNotation === '..') {
 			return [
-				(await Container.git.getMergeBase(this.repoPath, this._compareWith.ref, this._ref.ref)) ||
+				(await Container.git.getMergeBase(this.repoPath, this._compareWith.ref, this._ref.ref)) ??
 					this._compareWith.ref,
 				this._ref.ref,
 			];
@@ -195,7 +195,7 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
 	}
 
 	private get comparisonNotation() {
-		return this._comparisonNotation || (Container.config.advanced.useSymmetricDifferenceNotation ? '...' : '..');
+		return this._comparisonNotation ?? (Container.config.advanced.useSymmetricDifferenceNotation ? '...' : '..');
 	}
 
 	private get diffComparisonNotation() {

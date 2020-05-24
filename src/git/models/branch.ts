@@ -193,13 +193,13 @@ export class GitBranch implements GitBranchReference {
 	private async updateStarred(star: boolean) {
 		let starred = Container.context.workspaceState.get<StarredBranches>(WorkspaceState.StarredBranches);
 		if (starred === undefined) {
-			starred = Object.create(null);
+			starred = Object.create(null) as StarredBranches;
 		}
 
 		if (star) {
-			starred![this.id] = true;
+			starred[this.id] = true;
 		} else {
-			const { [this.id]: _, ...rest } = starred!;
+			const { [this.id]: _, ...rest } = starred;
 			starred = rest;
 		}
 		await Container.context.workspaceState.update(WorkspaceState.StarredBranches, starred);

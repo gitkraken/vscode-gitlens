@@ -29,7 +29,7 @@ export class ContributorsNode extends ViewNode<RepositoriesView> {
 		if (contributors.length === 0) return [new MessageNode(this.view, this, 'No contributors could be found.')];
 
 		GitContributor.sort(contributors);
-		const presenceMap = await this.maybeGetPresenceMap(contributors).catch(reason => undefined);
+		const presenceMap = await this.maybeGetPresenceMap(contributors).catch(() => undefined);
 
 		const children = contributors.map(c => new ContributorNode(this.uri, this.view, this, c, presenceMap));
 		return children;

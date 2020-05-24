@@ -60,7 +60,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 						status.status,
 						status.originalFileName,
 						GitRevision.uncommittedStaged,
-						status.originalFileName || status.fileName,
+						status.originalFileName ?? status.fileName,
 					);
 
 					children.push(
@@ -84,7 +84,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 						status.status,
 						status.originalFileName,
 						'HEAD',
-						status.originalFileName || status.fileName,
+						status.originalFileName ?? status.fileName,
 					);
 
 					children.push(
@@ -110,7 +110,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 						status.status,
 						status.originalFileName,
 						'HEAD',
-						status.originalFileName || status.fileName,
+						status.originalFileName ?? status.fileName,
 					);
 					children.push(
 						new CommitFileNode(this.view, this, status, commit, {
@@ -236,6 +236,6 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 
 		this._log = log;
 		this.limit = log?.count;
-		this.triggerChange(false);
+		void this.triggerChange(false);
 	}
 }

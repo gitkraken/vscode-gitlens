@@ -9,12 +9,14 @@ export class ToggleLineBlameCommand extends ActiveEditorCommand {
 		super(Commands.ToggleLineBlame);
 	}
 
-	async execute(editor: TextEditor, uri?: Uri): Promise<void> {
+	async execute(editor: TextEditor, _uri?: Uri): Promise<void> {
 		try {
 			void (await Container.lineAnnotations.toggle(editor));
 		} catch (ex) {
 			Logger.error(ex, 'ToggleLineBlameCommand');
-			window.showErrorMessage('Unable to toggle line blame annotations. See output channel for more details');
+			void window.showErrorMessage(
+				'Unable to toggle line blame annotations. See output channel for more details',
+			);
 		}
 	}
 }

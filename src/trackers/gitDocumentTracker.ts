@@ -14,7 +14,7 @@ export type CachedDiff = CachedItem<GitDiff>;
 export type CachedLog = CachedItem<GitLog>;
 
 export class GitDocumentState {
-	private cache: Map<string, CachedBlame | CachedDiff | CachedLog> = new Map();
+	private cache = new Map<string, CachedBlame | CachedDiff | CachedLog>();
 
 	constructor(public readonly key: string) {}
 

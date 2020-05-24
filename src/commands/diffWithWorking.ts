@@ -54,7 +54,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 					'DiffWithWorkingCommand',
 					`getPreviousDiffUris(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`,
 				);
-				Messages.showGenericErrorMessage('Unable to open compare');
+				void Messages.showGenericErrorMessage('Unable to open compare');
 
 				return;
 			}
@@ -63,12 +63,12 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 		// if (args.commit == null || args.commit.isUncommitted) {
 		// If the sha is missing, just let the user know the file matches
 		if (gitUri.sha == null) {
-			window.showInformationMessage('File matches the working tree');
+			void window.showInformationMessage('File matches the working tree');
 
 			return;
 		}
 		if (gitUri.sha === GitRevision.deletedOrMissing) {
-			window.showWarningMessage('Unable to open compare. File has been deleted from the working tree');
+			void window.showWarningMessage('Unable to open compare. File has been deleted from the working tree');
 
 			return;
 		}
@@ -99,7 +99,7 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 
 		const workingUri = await Container.git.getWorkingUri(gitUri.repoPath!, uri);
 		if (workingUri == null) {
-			window.showWarningMessage('Unable to open compare. File has been deleted from the working tree');
+			void window.showWarningMessage('Unable to open compare. File has been deleted from the working tree');
 
 			return;
 		}

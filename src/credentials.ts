@@ -36,7 +36,8 @@ export namespace CredentialManager {
 	const _onDidChange = new EventEmitter<CredentialChangeEvent>();
 	export const onDidChange: Event<CredentialChangeEvent> = _onDidChange.event;
 
-	export async function addOrUpdate(key: string, value: string | {}) {
+	export async function addOrUpdate(key: string, value: string | object) {
+		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 		if (!key || !value) return;
 		if (keychain == null) {
 			Logger.log('CredentialManager.addOrUpdate: No credential store found');
@@ -83,7 +84,7 @@ export namespace CredentialManager {
 		}
 	}
 
-	export async function getAs<T extends {}>(key: string): Promise<T | undefined> {
+	export async function getAs<T extends object>(key: string): Promise<T | undefined> {
 		const value = await get(key);
 		if (value == null) return undefined;
 

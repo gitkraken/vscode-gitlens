@@ -30,7 +30,7 @@ export class CloseUnchangedFilesCommand extends Command {
 
 				const status = await Container.git.getStatusForRepo(repoPath);
 				if (status == null) {
-					window.showWarningMessage('Unable to close unchanged files');
+					void window.showWarningMessage('Unable to close unchanged files');
 
 					return;
 				}
@@ -86,12 +86,9 @@ export class CloseUnchangedFilesCommand extends Command {
 				for (let i = 0; i <= count; i++) {
 					if (
 						editor == null ||
-						(editor.document !== undefined &&
-							(editor.document.isDirty ||
-								// eslint-disable-next-line no-loop-func
-								args.uris.some(uri =>
-									UriComparer.equals(uri, editor!.document && editor!.document.uri),
-								)))
+						editor.document.isDirty ||
+						// eslint-disable-next-line no-loop-func
+						args.uris.some(uri => UriComparer.equals(uri, editor?.document.uri))
 					) {
 						editor = await this.nextEditor();
 					} else {
@@ -103,7 +100,7 @@ export class CloseUnchangedFilesCommand extends Command {
 			disposable.dispose();
 		} catch (ex) {
 			Logger.error(ex, 'CloseUnchangedFilesCommand');
-			Messages.showGenericErrorMessage('Unable to close all unchanged files');
+			void Messages.showGenericErrorMessage('Unable to close all unchanged files');
 		}
 	}
 
@@ -132,7 +129,7 @@ export class CloseUnchangedFilesCommand extends Command {
 	}
 
 	private waitForEditorChange(timeout: number = 500): Promise<TextEditor | undefined> {
-		return new Promise<TextEditor>((resolve, reject) => {
+		return new Promise<TextEditor>(resolve => {
 			let timer: NodeJS.Timer | undefined;
 
 			this._onEditorChangedFn = (editor: TextEditor | undefined) => {

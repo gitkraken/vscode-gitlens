@@ -48,7 +48,7 @@ export namespace Hovers {
 			}
 
 			const line = editorLine + 1;
-			const commitLine = commit.lines.find(l => l.line === line) || commit.lines[0];
+			const commitLine = commit.lines.find(l => l.line === line) ?? commit.lines[0];
 
 			let originalFileName = commit.originalFileName;
 			if (originalFileName === undefined) {
@@ -87,11 +87,11 @@ export namespace Hovers {
 
 			message = `[$(compare-changes) Changes](${DiffWithCommand.getMarkdownCommandArgs({
 				lhs: {
-					sha: diffUris.previous.sha || '',
+					sha: diffUris.previous.sha ?? '',
 					uri: diffUris.previous.documentUri(),
 				},
 				rhs: {
-					sha: diffUris.current.sha || '',
+					sha: diffUris.current.sha ?? '',
 					uri: diffUris.current.documentUri(),
 				},
 				repoPath: commit.repoPath,
@@ -162,7 +162,7 @@ export namespace Hovers {
 			commit.isUncommitted ? commit.getPreviousLineDiffUris(uri, editorLine, uri.sha) : undefined,
 			getAutoLinkedIssuesOrPullRequests(commit.message, remotes),
 			getPullRequestForCommit(commit.ref, remotes),
-			Container.vsls.maybeGetPresence(commit.email).catch(reason => undefined),
+			Container.vsls.maybeGetPresence(commit.email).catch(() => undefined),
 		]);
 
 		const details = CommitFormatter.fromTemplate(Container.config.hovers.detailsMarkdownFormat, commit, {

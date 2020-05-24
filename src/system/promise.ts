@@ -34,7 +34,7 @@ export namespace Promises {
 					if (typeof options.onDidCancel === 'function') {
 						options.onDidCancel(resolve, reject);
 					} else {
-						reject(new CancellationError(promise, options.cancelMessage || 'TIMED OUT'));
+						reject(new CancellationError(promise, options.cancelMessage ?? 'TIMED OUT'));
 					}
 				}, timeoutOrToken);
 			} else {
@@ -44,7 +44,7 @@ export namespace Promises {
 					if (typeof options.onDidCancel === 'function') {
 						options.onDidCancel(resolve, reject);
 					} else {
-						reject(new CancellationError(promise, options.cancelMessage || 'CANCELLED'));
+						reject(new CancellationError(promise, options.cancelMessage ?? 'CANCELLED'));
 					}
 				});
 			}

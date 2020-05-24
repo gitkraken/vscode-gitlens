@@ -62,7 +62,9 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 					? await Container.git.getBlameForLineContents(gitUri, blameline, editor.document.getText())
 					: await Container.git.getBlameForLine(gitUri, blameline);
 				if (blame == null) {
-					Messages.showFileNotUnderSourceControlWarningMessage('Unable to open commit on remote provider');
+					void Messages.showFileNotUnderSourceControlWarningMessage(
+						'Unable to open commit on remote provider',
+					);
 
 					return;
 				}
@@ -91,7 +93,9 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenCommitOnRemoteCommand');
-			window.showErrorMessage('Unable to open commit on remote provider. See output channel for more details');
+			void window.showErrorMessage(
+				'Unable to open commit on remote provider. See output channel for more details',
+			);
 		}
 	}
 }

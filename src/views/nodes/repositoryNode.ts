@@ -113,13 +113,13 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		const label = this.repo.formattedName || this.uri.repoPath || '';
+		const label = this.repo.formattedName ?? this.uri.repoPath ?? '';
 
 		this._lastFetched = await this.repo.getLastFetched();
 
 		const lastFetchedTooltip = this.formatLastFetched({
 			prefix: `${Strings.pad(GlyphChars.Dash, 2, 2)}Last fetched on `,
-			format: Container.config.defaultDateFormat || 'dddd MMMM Do, YYYY',
+			format: Container.config.defaultDateFormat ?? 'dddd MMMM Do, YYYY',
 			includeTime: true,
 		});
 
@@ -187,7 +187,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 
 		const item = new TreeItem(label, TreeItemCollapsibleState.Expanded);
 		item.contextValue = contextValue;
-		item.description = `${description || ''}${this.formatLastFetched({
+		item.description = `${description ?? ''}${this.formatLastFetched({
 			prefix: `${Strings.pad(GlyphChars.Dot, 2, 2)}Last fetched `,
 		})}`;
 		item.iconPath = {
@@ -273,7 +273,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 					.join(', ')}${e.uris.length > 1 ? ', ...' : ''}] }`,
 		},
 	})
-	private async onFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
+	private async onFileSystemChanged(_e: RepositoryFileSystemChangeEvent) {
 		this._status = this.repo.getStatus();
 
 		if (this._children !== undefined) {
@@ -356,7 +356,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		//     }
 		// }
 
-		let format = options.format || Container.config.defaultDateShortFormat || 'MMM D, YYYY';
+		let format = options.format ?? Container.config.defaultDateShortFormat ?? 'MMM D, YYYY';
 		if (
 			(options.includeTime ||
 				// If less than a day has passed show the time too
@@ -367,7 +367,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 			format = `h:mma, ${format}`;
 		}
 
-		return `${options.prefix || ''}${Dates.getFormatter(new Date(this._lastFetched)).format(format)}`;
+		return `${options.prefix ?? ''}${Dates.getFormatter(new Date(this._lastFetched)).format(format)}`;
 	}
 
 	// @debug()

@@ -338,7 +338,7 @@ export abstract class Command implements Disposable {
 
 	protected readonly contextParsingOptions: CommandContextParsingOptions = { editor: false, uri: false };
 
-	private _disposable: Disposable;
+	private readonly _disposable: Disposable;
 
 	constructor(command: Commands | Commands[]) {
 		if (typeof command === 'string') {
@@ -358,7 +358,7 @@ export abstract class Command implements Disposable {
 	}
 
 	dispose() {
-		this._disposable && this._disposable.dispose();
+		this._disposable.dispose();
 	}
 
 	protected preExecute(context: CommandContext, ...args: any[]): Promise<any> {
@@ -483,7 +483,7 @@ export abstract class ActiveEditorCachedCommand extends ActiveEditorCommand {
 }
 
 export abstract class EditorCommand implements Disposable {
-	private _disposable: Disposable;
+	private readonly _disposable: Disposable;
 
 	constructor(command: Commands | Commands[]) {
 		if (!Array.isArray(command)) {
@@ -505,7 +505,7 @@ export abstract class EditorCommand implements Disposable {
 	}
 
 	dispose() {
-		this._disposable && this._disposable.dispose();
+		this._disposable.dispose();
 	}
 
 	private executeCore(command: string, editor: TextEditor, edit: TextEditorEdit, ...args: any[]): any {
@@ -570,7 +570,7 @@ export async function openEditor(
 			...opts,
 		});
 	} catch (ex) {
-		const msg = ex.toString();
+		const msg: string = ex?.toString() ?? '';
 		if (msg.includes('File seems to be binary and cannot be opened as text')) {
 			await commands.executeCommand(BuiltInCommands.Open, uri);
 
@@ -586,7 +586,7 @@ export async function openEditor(
 
 export function openWorkspace(uri: Uri, name: string, options: { openInNewWindow?: boolean } = {}) {
 	if (options.openInNewWindow) {
-		commands.executeCommand(BuiltInCommands.OpenFolder, uri, true);
+		void commands.executeCommand(BuiltInCommands.OpenFolder, uri, true);
 
 		return true;
 	}

@@ -17,7 +17,7 @@ export async function activate(context: ExtensionContext) {
 	const start = process.hrtime();
 
 	// Pretend we are enabled (until we know otherwise) and set the view contexts to reduce flashing on load
-	setCommandContext(CommandContext.Enabled, true);
+	void setCommandContext(CommandContext.Enabled, true);
 
 	Logger.configure(context, configuration.get('outputLevel'), o => {
 		if (GitUri.is(o)) {
@@ -39,7 +39,7 @@ export async function activate(context: ExtensionContext) {
 	const enabled = workspace.getConfiguration('git', null).get<boolean>('enabled', true);
 	if (!enabled) {
 		Logger.log(`GitLens (v${gitlensVersion}) was NOT activated -- "git.enabled": false`);
-		setCommandContext(CommandContext.Enabled, false);
+		void setCommandContext(CommandContext.Enabled, false);
 
 		void Messages.showGitDisabledErrorMessage();
 
@@ -57,9 +57,10 @@ export async function activate(context: ExtensionContext) {
 		await GitService.initialize();
 	} catch (ex) {
 		Logger.error(ex, `GitLens (v${gitlensVersion}) activate`);
-		setCommandContext(CommandContext.Enabled, false);
+		void setCommandContext(CommandContext.Enabled, false);
 
-		if (ex.message.includes('Unable to find git')) {
+		const msg: string = ex?.message ?? '';
+		if (msg.includes('Unable to find git')) {
 			await window.showErrorMessage(
 				"GitLens was unable to find Git. Please make sure Git is installed. Also ensure that Git is either in the PATH, or that 'git.path' is pointed to its installed location.",
 			);
@@ -76,7 +77,7 @@ export async function activate(context: ExtensionContext) {
 
 	// Telemetry.configure(ApplicationInsightsKey);
 
-	// const telemetryContext: { [id: string]: any } = Object.create(null);
+	// const telemetryContext: Record<string, any> = Object.create(null);
 	// telemetryContext.version = gitlensVersion;
 	// telemetryContext['git.version'] = gitVersion;
 	// Telemetry.setContext(telemetryContext);
@@ -84,7 +85,7 @@ export async function activate(context: ExtensionContext) {
 	notifyOnUnsupportedGitVersion(gitVersion);
 	void showWelcomeOrWhatsNew(gitlensVersion, previousVersion);
 
-	context.globalState.update(GlobalState.GitLensVersion, gitlensVersion);
+	void context.globalState.update(GlobalState.GitLensVersion, gitlensVersion);
 
 	// Constantly over my data cap so stop collecting initialized event
 	// Telemetry.trackEvent('initialized', Objects.flatten(cfg, 'config', true));

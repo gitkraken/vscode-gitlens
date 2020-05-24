@@ -57,14 +57,14 @@ export namespace ReferencePicker {
 						{
 							onDidPressKey: key => {
 								if (quickpick.activeItems.length !== 0) {
-									options.onDidPressKey!(key, quickpick);
+									void options.onDidPressKey!(key, quickpick);
 								}
 							},
 						} as KeyCommand,
 					]),
 				),
 			);
-			scope.start();
+			void scope.start();
 			disposables.push(scope);
 		}
 

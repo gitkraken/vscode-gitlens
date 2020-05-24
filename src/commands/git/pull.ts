@@ -115,7 +115,7 @@ export class PullGitCommand extends QuickCommand<State> {
 			}
 
 			QuickCommand.endSteps(state);
-			this.execute(state as PullStepState);
+			void this.execute(state as PullStepState);
 		}
 
 		return state.counter < 0 ? StepResult.Break : undefined;

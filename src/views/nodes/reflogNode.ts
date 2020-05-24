@@ -94,6 +94,6 @@ export class ReflogNode extends ViewNode<RepositoriesView> implements PageableVi
 
 		this._reflog = reflog;
 		this.limit = reflog?.count;
-		this.triggerChange(false);
+		void this.triggerChange(false);
 	}
 }

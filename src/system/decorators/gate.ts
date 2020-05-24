@@ -20,6 +20,7 @@ function defaultResolver(...args: any[]): string {
 
 export function gate<T extends (...arg: any) => any>(resolver?: (...args: Parameters<T>) => string) {
 	return (target: any, key: string, descriptor: PropertyDescriptor) => {
+		// eslint-disable-next-line @typescript-eslint/ban-types
 		let fn: Function | undefined;
 		if (typeof descriptor.value === 'function') {
 			fn = descriptor.value;
@@ -32,7 +33,7 @@ export function gate<T extends (...arg: any) => any>(resolver?: (...args: Parame
 
 		descriptor.value = function (this: any, ...args: any[]) {
 			const prop =
-				args.length === 0 ? gateKey : `${gateKey}$${(resolver || defaultResolver)(...(args as Parameters<T>))}`;
+				args.length === 0 ? gateKey : `${gateKey}$${(resolver ?? defaultResolver)(...(args as Parameters<T>))}`;
 
 			if (!Object.prototype.hasOwnProperty.call(this, prop)) {
 				Object.defineProperty(this, prop, {

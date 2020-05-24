@@ -19,8 +19,8 @@ export class SettingsWebview extends WebviewBase {
 	constructor() {
 		super(Commands.ShowSettingsPage);
 
-		this._disposable = Disposable.from(
-			this._disposable,
+		this.disposable = Disposable.from(
+			this.disposable,
 			...[
 				Commands.ShowSettingsPageAndJumpToCompareView,
 				Commands.ShowSettingsPageAndJumpToFileHistoryView,
@@ -50,9 +50,11 @@ export class SettingsWebview extends WebviewBase {
 	protected onMessageReceived(e: IpcMessage) {
 		switch (e.method) {
 			case ReadyCommandType.method:
-				onIpcCommand(ReadyCommandType, e, params => {
+				onIpcCommand(ReadyCommandType, e, _params => {
 					if (this._pendingJumpToAnchor !== undefined) {
-						this.notify(SettingsDidRequestJumpToNotificationType, { anchor: this._pendingJumpToAnchor });
+						void this.notify(SettingsDidRequestJumpToNotificationType, {
+							anchor: this._pendingJumpToAnchor,
+						});
 						this._pendingJumpToAnchor = undefined;
 					}
 				});
@@ -80,7 +82,7 @@ export class SettingsWebview extends WebviewBase {
 
 	renderEndOfBody() {
 		const scopes: ['user' | 'workspace', string][] = [['user', 'User']];
-		if (workspace.workspaceFolders !== undefined && workspace.workspaceFolders.length) {
+		if (workspace.workspaceFolders?.length) {
 			scopes.push(['workspace', 'Workspace']);
 		}
 

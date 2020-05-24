@@ -57,7 +57,7 @@ export class GitRemoteParser {
 		if (!data) return undefined;
 
 		const remotes: GitRemote[] = [];
-		const groups = Object.create(null);
+		const groups = Object.create(null) as Record<string, GitRemote | undefined>;
 
 		let name;
 		let url;

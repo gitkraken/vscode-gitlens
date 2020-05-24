@@ -10,7 +10,7 @@ import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 
 export class HeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase {
 	@log()
-	async onProvideAnnotation(shaOrLine?: string | number, type?: FileAnnotationType): Promise<boolean> {
+	async onProvideAnnotation(_shaOrLine?: string | number, _type?: FileAnnotationType): Promise<boolean> {
 		const cc = Logger.getCorrelationContext();
 
 		this.annotationType = FileAnnotationType.Heatmap;
@@ -23,7 +23,7 @@ export class HeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase 
 		const renderOptions = Annotations.heatmapRenderOptions();
 
 		this.decorations = [];
-		const decorationsMap: { [sha: string]: DecorationOptions | undefined } = Object.create(null);
+		const decorationsMap = Object.create(null) as Record<string, DecorationOptions | undefined>;
 
 		let commit: GitBlameCommit | undefined;
 		let heatmap: DecorationOptions | undefined;

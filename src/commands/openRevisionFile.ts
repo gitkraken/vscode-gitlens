@@ -54,7 +54,7 @@ export class OpenRevisionFileCommand extends ActiveEditorCommand {
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenRevisionFileCommand');
-			Messages.showGenericErrorMessage('Unable to open file revision');
+			void Messages.showGenericErrorMessage('Unable to open file revision');
 		}
 	}
 }

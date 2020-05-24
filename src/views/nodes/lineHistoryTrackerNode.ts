@@ -52,7 +52,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 			const commitish: GitCommitish = {
 				...this.uri,
 				repoPath: this.uri.repoPath!,
-				sha: this.uri.sha || this._base,
+				sha: this.uri.sha ?? this._base,
 			};
 			const fileUri = new GitUri(this.uri, commitish);
 			this._child = new LineHistoryNode(fileUri, this.view, this, this._selection!, this._editorContents);
@@ -116,7 +116,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 			if (
 				this.uri === unknownGitUri ||
 				(Container.git.isTrackable(this.uri) &&
-					window.visibleTextEditors.some(e => e.document && e.document.uri.path === this.uri.path))
+					window.visibleTextEditors.some(e => e.document?.uri.path === this.uri.path))
 			) {
 				return true;
 			}
@@ -194,7 +194,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 				)}, reason=${e.reason}`,
 		},
 	})
-	private onActiveLinesChanged(e: LinesChangeEvent) {
+	private onActiveLinesChanged(_e: LinesChangeEvent) {
 		void this.triggerChange();
 	}
 }

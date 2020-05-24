@@ -151,7 +151,7 @@ export class StashGitCommand extends QuickCommand<State> {
 			if (state.counter < 1 || state.subcommand == null) {
 				this.subcommand = undefined;
 
-				const result = yield* this.pickSubcommandStep(state, context);
+				const result = yield* this.pickSubcommandStep(state);
 				// Always break on the first step (so we will go back)
 				if (result === StepResult.Break) break;
 
@@ -204,10 +204,7 @@ export class StashGitCommand extends QuickCommand<State> {
 		return state.counter < 0 ? StepResult.Break : undefined;
 	}
 
-	private *pickSubcommandStep(
-		state: PartialStepState<State>,
-		context: Context,
-	): StepResultGenerator<State['subcommand']> {
+	private *pickSubcommandStep(state: PartialStepState<State>): StepResultGenerator<State['subcommand']> {
 		const step = QuickCommand.createPickStep<QuickPickItemOfT<State['subcommand']>>({
 			title: this.title,
 			placeholder: `Choose a ${this.label} command`,
@@ -285,7 +282,8 @@ export class StashGitCommand extends QuickCommand<State> {
 			} catch (ex) {
 				Logger.error(ex, context.title);
 
-				if (ex.message.includes('Your local changes to the following files would be overwritten by merge')) {
+				const msg: string = ex?.message ?? '';
+				if (msg.includes('Your local changes to the following files would be overwritten by merge')) {
 					void window.showWarningMessage(
 						'Unable to apply stash. Your working tree changes would be overwritten. Please commit or stash your changes before trying again',
 					);
@@ -294,9 +292,11 @@ export class StashGitCommand extends QuickCommand<State> {
 				}
 
 				if (
-					(ex.message.includes('Auto-merging') && ex.message.includes('CONFLICT')) ||
-					(ex.stdout?.includes('Auto-merging') && ex.stdout?.includes('CONFLICT')) ||
-					ex.stdout?.includes('needs merge')
+					(msg.includes('Auto-merging') && msg.includes('CONFLICT')) ||
+					// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+					(ex?.stdout?.includes('Auto-merging') && ex?.stdout?.includes('CONFLICT')) ||
+					// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+					ex?.stdout?.includes('needs merge')
 				) {
 					void window.showInformationMessage('Stash applied with conflicts');
 
@@ -304,7 +304,7 @@ export class StashGitCommand extends QuickCommand<State> {
 				}
 
 				void Messages.showGenericErrorMessage(
-					`Unable to apply stash \u2014 ${ex.message.trim().replace(/\n+?/g, '; ')}`,
+					`Unable to apply stash \u2014 ${msg.trim().replace(/\n+?/g, '; ')}`,
 				);
 
 				return;
@@ -489,8 +489,9 @@ export class StashGitCommand extends QuickCommand<State> {
 			} catch (ex) {
 				Logger.error(ex, context.title);
 
-				if (ex.message.includes('newer version of Git')) {
-					void window.showErrorMessage(`Unable to stash changes. ${ex.message}`);
+				const msg: string = ex?.toString() ?? '';
+				if (msg.includes('newer version of Git')) {
+					void window.showErrorMessage(`Unable to stash changes. ${msg}`);
 
 					return;
 				}

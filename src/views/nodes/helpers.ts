@@ -21,7 +21,7 @@ export function* insertDateMarkers<T extends ViewNode & { commit: GitLogCommit }
 		return yield* iterable;
 	}
 
-	let index = skip || 0;
+	let index = skip ?? 0;
 	let time = undefined;
 	const now = Date.now();
 

@@ -59,13 +59,13 @@ export class CustomRemote extends RemoteProvider {
 		return Strings.interpolate(this.urls.file, this.getContext({ file: fileName, line: line }));
 	}
 
-	private getContext(context?: {}) {
+	private getContext(context?: Record<string, unknown>) {
 		const [repoBase, repoPath] = this.splitPath();
 		return {
 			repo: this.path,
 			repoBase: repoBase,
 			repoPath: repoPath,
-			...(context || {}),
+			...(context ?? {}),
 		};
 	}
 }

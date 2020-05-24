@@ -111,7 +111,43 @@
 				"newlines-between": "never"
 			}
 		],
-		"@typescript-eslint/ban-types": "off", // TODO@eamodio revisit
+		"@typescript-eslint/ban-types": [
+			"error",
+			{
+				"extendDefaults": false,
+				"types": {
+					"String": {
+						"message": "Use string instead",
+						"fixWith": "string"
+					},
+					"Boolean": {
+						"message": "Use boolean instead",
+						"fixWith": "boolean"
+					},
+					"Number": {
+						"message": "Use number instead",
+						"fixWith": "number"
+					},
+					"Symbol": {
+						"message": "Use symbol instead",
+						"fixWith": "symbol"
+					},
+					"Function": {
+						"message": "The `Function` type accepts any function-like value.\nIt provides no type safety when calling the function, which can be a common source of bugs.\nIt also accepts things like class declarations, which will throw at runtime as they will not be called with `new`.\nIf you are expecting the function to accept certain arguments, you should explicitly define the function shape."
+					},
+					"Object": {
+						"message": "The `Object` type actually means \"any non-nullish value\", so it is marginally better than `unknown`.\n- If you want a type meaning \"any object\", you probably want `Record<string, unknown>` instead.\n- If you want a type meaning \"any value\", you probably want `unknown` instead."
+					},
+					"{}": {
+						"message": "`{}` actually means \"any non-nullish value\".\n- If you want a type meaning \"any object\", you probably want `object` or `Record<string, unknown>` instead.\n- If you want a type meaning \"any value\", you probably want `unknown` instead.",
+						"fixWith": "object"
+					}
+					// "object": {
+					// 	"message": "The `object` type is currently hard to use ([see this issue](https://github.com/microsoft/TypeScript/issues/21732)).\nConsider using `Record<string, unknown>` instead, as it allows you to more easily inspect and use the keys."
+					// }
+				}
+			}
+		],
 		"@typescript-eslint/consistent-type-assertions": [
 			"error",
 			{
@@ -169,9 +205,9 @@
 			}
 		],
 		"@typescript-eslint/no-empty-function": ["warn", { "allow": ["constructors"] }],
-		"@typescript-eslint/no-empty-interface": "off",
+		"@typescript-eslint/no-empty-interface": "error",
 		"@typescript-eslint/no-explicit-any": "off",
-		"@typescript-eslint/no-floating-promises": "off", // TODO@eamodio revisit
+		"@typescript-eslint/no-floating-promises": "error",
 		"@typescript-eslint/no-inferrable-types": ["warn", { "ignoreParameters": true, "ignoreProperties": true }],
 		"@typescript-eslint/no-misused-promises": ["error", { "checksVoidReturn": false }],
 		"@typescript-eslint/no-namespace": "off",

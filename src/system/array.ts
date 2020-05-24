@@ -7,8 +7,8 @@ import {
 } from 'lodash-es';
 
 export namespace Arrays {
-	export function countUniques<T>(source: T[], accessor: (item: T) => string): { [key: string]: number } {
-		const uniqueCounts: Record<string, number> = Object.create(null);
+	export function countUniques<T>(source: T[], accessor: (item: T) => string): Record<string, number> {
+		const uniqueCounts = Object.create(null) as Record<string, number>;
 		for (const item of source) {
 			const value = accessor(item);
 			uniqueCounts[value] = (uniqueCounts[value] ?? 0) + 1;
@@ -46,19 +46,19 @@ export namespace Arrays {
 
 	export const findLastIndex = _findLastIndex;
 
-	export function groupBy<T>(source: T[], accessor: (item: T) => string): { [key: string]: T[] } {
+	export function groupBy<T>(source: T[], accessor: (item: T) => string): Record<string, T[]> {
 		return source.reduce((groupings, current) => {
 			const value = accessor(current);
-			groupings[value] = groupings[value] || [];
+			groupings[value] = groupings[value] ?? [];
 			groupings[value].push(current);
 			return groupings;
-		}, Object.create(null));
+		}, Object.create(null) as Record<string, T[]>);
 	}
 
 	export function groupByMap<TKey, TValue>(source: TValue[], accessor: (item: TValue) => TKey): Map<TKey, TValue[]> {
 		return source.reduce((groupings, current) => {
 			const value = accessor(current);
-			const group = groupings.get(value) || [];
+			const group = groupings.get(value) ?? [];
 			groupings.set(value, group);
 			group.push(current);
 			return groupings;
@@ -74,7 +74,7 @@ export namespace Arrays {
 			const mapped = predicateMapper(current);
 			if (mapped != null) {
 				const value = accessor(current);
-				const group = groupings.get(value) || [];
+				const group = groupings.get(value) ?? [];
 				groupings.set(value, group);
 				group.push(mapped);
 			}
@@ -190,9 +190,10 @@ export namespace Arrays {
 	}
 
 	export function uniqueBy<T>(source: T[], accessor: (item: T) => any, predicate?: (item: T) => boolean): T[] {
-		const uniqueValues = Object.create(null);
+		const uniqueValues = Object.create(null) as Record<string, any>;
 		return source.filter(item => {
 			const value = accessor(item);
+			// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 			if (uniqueValues[value]) return false;
 
 			uniqueValues[value] = accessor;

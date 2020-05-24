@@ -117,6 +117,6 @@ export class TagNode extends ViewRefNode<RepositoriesView> implements PageableVi
 
 		this._log = log;
 		this.limit = log?.count;
-		this.triggerChange(false);
+		void this.triggerChange(false);
 	}
 }

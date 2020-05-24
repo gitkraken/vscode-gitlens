@@ -84,7 +84,7 @@ export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
 
 			void Container.git.openDirectoryCompare(repoPath, args.ref1, args.ref2);
 		} catch (ex) {
-			const msg = ex && ex.toString();
+			const msg: string = ex?.toString() ?? '';
 			if (msg === 'No diff tool found') {
 				const result = await window.showWarningMessage(
 					'Unable to open directory compare because there is no Git diff tool configured',
@@ -100,7 +100,7 @@ export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
 			}
 
 			Logger.error(ex, 'DiffDirectoryCommand');
-			Messages.showGenericErrorMessage('Unable to open directory compare');
+			void Messages.showGenericErrorMessage('Unable to open directory compare');
 		}
 	}
 }

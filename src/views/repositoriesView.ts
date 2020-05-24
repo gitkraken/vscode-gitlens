@@ -595,7 +595,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 			}
 		}
 
-		setCommandContext(CommandContext.ViewsRepositoriesAutoRefresh, enabled && workspaceEnabled);
+		void setCommandContext(CommandContext.ViewsRepositoriesAutoRefresh, enabled && workspaceEnabled);
 
 		this._onDidChangeAutoRefresh.fire();
 	}

@@ -102,14 +102,15 @@ export namespace Strings {
 		return tokens;
 	}
 
+	// eslint-disable-next-line @typescript-eslint/ban-types
 	const interpolationMap = new Map<string, Function>();
 
 	export function interpolate(template: string, context: object | undefined): string {
 		if (template == null || template.length === 0) return template;
-		if (context === undefined) return template.replace(tokenSanitizeRegex, emptyStr);
+		if (context == null) return template.replace(tokenSanitizeRegex, emptyStr);
 
 		let fn = interpolationMap.get(template);
-		if (fn === undefined) {
+		if (fn == null) {
 			// eslint-disable-next-line @typescript-eslint/no-implied-eval
 			fn = new Function(`return \`${template.replace(tokenSanitizeRegex, tokenSanitizeReplacement)}\`;`);
 			interpolationMap.set(template, fn);
@@ -170,19 +171,19 @@ export namespace Strings {
 	}
 
 	export function padLeft(s: string, padTo: number, padding: string = '\u00a0', width?: number) {
-		const diff = padTo - (width || getWidth(s));
+		const diff = padTo - (width ?? getWidth(s));
 		return diff <= 0 ? s : padding.repeat(diff) + s;
 	}
 
 	export function padLeftOrTruncate(s: string, max: number, padding?: string, width?: number) {
-		width = width || getWidth(s);
+		width = width ?? getWidth(s);
 		if (width < max) return padLeft(s, max, padding, width);
 		if (width > max) return truncate(s, max, undefined, width);
 		return s;
 	}
 
 	export function padRight(s: string, padTo: number, padding: string = '\u00a0', width?: number) {
-		const diff = padTo - (width || getWidth(s));
+		const diff = padTo - (width ?? getWidth(s));
 		return diff <= 0 ? s : s + padding.repeat(diff);
 	}
 
@@ -190,14 +191,14 @@ export namespace Strings {
 		const left = max < 0;
 		max = Math.abs(max);
 
-		width = width || getWidth(s);
+		width = width ?? getWidth(s);
 		if (width < max) return left ? padLeft(s, max, padding, width) : padRight(s, max, padding, width);
 		if (width > max) return truncate(s, max, undefined, width);
 		return s;
 	}
 
 	export function padRightOrTruncate(s: string, max: number, padding?: string, width?: number) {
-		width = width || getWidth(s);
+		width = width ?? getWidth(s);
 		if (width < max) return padRight(s, max, padding, width);
 		if (width > max) return truncate(s, max);
 		return s;
@@ -218,7 +219,7 @@ export namespace Strings {
 				: options.number != null
 				? options.number
 				: count
-		} ${count === 1 ? s : options.plural || `${s}${options.suffix || 's'}`}`;
+		} ${count === 1 ? s : options.plural ?? `${s}${options.suffix ?? 's'}`}`;
 	}
 
 	// Removes \ / : * ? " < > | and C0 and C1 control codes

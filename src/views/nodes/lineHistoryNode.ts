@@ -99,7 +99,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 							'M',
 							commit.originalFileName,
 							commit.previousSha,
-							commit.originalFileName || commit.fileName,
+							commit.originalFileName ?? commit.fileName,
 						);
 
 						children.splice(
@@ -126,7 +126,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 							'M',
 							commit.originalFileName,
 							GitRevision.uncommittedStaged,
-							commit.originalFileName || commit.fileName,
+							commit.originalFileName ?? commit.fileName,
 						);
 
 						children.splice(
@@ -157,7 +157,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 							'M',
 							commit.originalFileName,
 							commit.previousSha,
-							commit.originalFileName || commit.fileName,
+							commit.originalFileName ?? commit.fileName,
 						);
 
 						children.splice(
@@ -293,6 +293,6 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 
 		this._log = log;
 		this.limit = log?.count;
-		this.triggerChange(false);
+		void this.triggerChange(false);
 	}
 }

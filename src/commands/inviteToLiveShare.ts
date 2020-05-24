@@ -31,7 +31,7 @@ export class InviteToLiveShareCommand extends Command {
 	}
 
 	async execute(args?: InviteToLiveShareCommandArgs) {
-		if (args != null && args.email) {
+		if (args?.email) {
 			const contact = await Container.vsls.getContact(args.email);
 			if (contact != null) {
 				return contact.invite();

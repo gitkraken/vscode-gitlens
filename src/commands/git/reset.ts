@@ -69,7 +69,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
 			repos: [...(await Container.git.getOrderedRepositories())],
-			cache: new Map(),
+			cache: new Map<string, Promise<GitLog | undefined>>(),
 			destination: undefined!,
 			title: this.title,
 		};

@@ -3,21 +3,21 @@ import { isEqual as _isEqual } from 'lodash-es';
 import { Arrays } from './array';
 
 export namespace Objects {
-	export function entries<T>(o: { [key: string]: T }): IterableIterator<[string, T]>;
-	export function entries<T>(o: { [key: number]: T }): IterableIterator<[string, T]>;
+	export function entries<T>(o: Record<string, T>): IterableIterator<[string, T]>;
+	export function entries<T>(o: Record<number, T>): IterableIterator<[string, T]>;
 	export function* entries<T>(o: any): IterableIterator<[string, T]> {
 		for (const key in o) {
 			yield [key, o[key]];
 		}
 	}
 
-	export function flatten(o: any, prefix: string = '', stringify: boolean = false): { [key: string]: any } {
-		const flattened = Object.create(null);
+	export function flatten(o: any, prefix: string = '', stringify: boolean = false): Record<string, any> {
+		const flattened = Object.create(null) as Record<string, any>;
 		_flatten(flattened, prefix, o, stringify);
 		return flattened;
 	}
 
-	function _flatten(flattened: { [key: string]: any }, key: string, value: any, stringify: boolean = false) {
+	function _flatten(flattened: Record<string, any>, key: string, value: any, stringify: boolean = false) {
 		if (Object(value) !== value) {
 			if (stringify) {
 				if (value == null) {
@@ -61,7 +61,7 @@ export namespace Objects {
 		return isEqual(value, other);
 	}
 
-	export function paths(o: { [key: string]: any }, path?: string): string[] {
+	export function paths(o: Record<string, any>, path?: string): string[] {
 		const results = [];
 
 		for (const key in o) {
@@ -76,8 +76,8 @@ export namespace Objects {
 		return results;
 	}
 
-	export function values<T>(o: { [key: string]: T }): IterableIterator<T>;
-	export function values<T>(o: { [key: number]: T }): IterableIterator<T>;
+	export function values<T>(o: Record<string, T>): IterableIterator<T>;
+	export function values<T>(o: Record<number, T>): IterableIterator<T>;
 	export function* values<T>(o: any): IterableIterator<T> {
 		for (const key in o) {
 			yield o[key];

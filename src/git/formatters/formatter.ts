@@ -5,10 +5,10 @@ const emptyStr = '';
 
 export interface FormatOptions {
 	dateFormat?: string | null;
-	tokenOptions?: { [id: string]: Strings.TokenOptions | undefined };
+	tokenOptions?: Record<string, Strings.TokenOptions | undefined>;
 }
 
-type Constructor<T = {}> = new (...args: any[]) => T;
+type Constructor<T = Record<string, unknown>> = new (...args: any[]) => T;
 
 const spaceReplacementRegex = / /g;
 
@@ -87,7 +87,7 @@ export abstract class Formatter<TItem = any, TOptions extends FormatOptions = Fo
 		}
 
 		if (options.prefix || options.suffix) {
-			s = `${options.prefix || emptyStr}${s}${options.suffix || emptyStr}`;
+			s = `${options.prefix ?? emptyStr}${s}${options.suffix ?? emptyStr}`;
 		}
 
 		return s;

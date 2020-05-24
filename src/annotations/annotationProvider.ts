@@ -10,7 +10,6 @@ import {
 	Uri,
 	window,
 } from 'vscode';
-import { TextDocumentComparer } from '../comparers';
 import { FileAnnotationType } from '../configuration';
 import { CommandContext, setCommandContext } from '../constants';
 import { Functions } from '../system';
@@ -53,13 +52,13 @@ export abstract class AnnotationProviderBase implements Disposable {
 	dispose() {
 		this.clear();
 
-		this.disposable && this.disposable.dispose();
+		this.disposable.dispose();
 	}
 
 	private onTextEditorSelectionChanged(e: TextEditorSelectionChangeEvent) {
-		if (!TextDocumentComparer.equals(this.document, e.textEditor && e.textEditor.document)) return;
+		if (this.document !== e.textEditor.document) return;
 
-		this.selection(e.selections[0].active.line);
+		void this.selection(e.selections[0].active.line);
 	}
 
 	get editorId(): string {
@@ -147,10 +146,10 @@ export abstract class AnnotationProviderBase implements Disposable {
 		this.correlationKey = AnnotationProviderBase.getCorrelationKey(editor);
 		this.document = editor.document;
 
-		if (this.decorations !== undefined && this.decorations.length) {
+		if (this.decorations?.length) {
 			this.editor.setDecorations(this.decoration, this.decorations);
 
-			if (this.additionalDecorations !== undefined && this.additionalDecorations.length) {
+			if (this.additionalDecorations?.length) {
 				for (const d of this.additionalDecorations) {
 					this.editor.setDecorations(d.decoration, d.ranges);
 				}

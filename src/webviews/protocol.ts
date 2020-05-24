@@ -40,7 +40,7 @@ export const DidChangeConfigurationNotificationType = new IpcNotificationType<Di
 	'configuration/didChange',
 );
 
-export const ReadyCommandType = new IpcCommandType<{}>('webview/ready');
+export const ReadyCommandType = new IpcCommandType('webview/ready');
 
 export interface UpdateConfigurationCommandParams {
 	changes: {
@@ -70,4 +70,4 @@ export interface SettingsState extends AppStateWithConfig {
 	scopes: ['user' | 'workspace', string][];
 }
 
-export interface WelcomeState extends AppStateWithConfig {}
+export type WelcomeState = AppStateWithConfig;

@@ -132,7 +132,7 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 		return true;
 	}
 
-	selection(shaOrLine?: string | number): Promise<void> {
+	selection(_shaOrLine?: string | number): Promise<void> {
 		return Promise.resolve(undefined);
 	}
 

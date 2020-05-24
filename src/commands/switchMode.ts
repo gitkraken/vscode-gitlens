@@ -21,7 +21,7 @@ export class SwitchModeCommand extends Command {
 		if (pick === undefined) return;
 
 		if (cc) {
-			cc.exitDetails = ` \u2014 mode=${pick.key || ''}`;
+			cc.exitDetails = ` \u2014 mode=${pick.key ?? ''}`;
 		}
 
 		const active = Container.config.mode.active;

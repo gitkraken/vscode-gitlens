@@ -91,10 +91,10 @@ export class ResultsCommitsNode extends ViewNode<ViewWithFiles> implements Pagea
 		let description;
 		if (this._options.includeDescription && (await Container.git.getRepositoryCount()) > 1) {
 			const repo = await Container.git.getRepository(this.repoPath);
-			description = (repo && repo.formattedName) || this.repoPath;
+			description = repo?.formattedName ?? this.repoPath;
 		}
 
-		const item = new TreeItem(label || this._label, state);
+		const item = new TreeItem(label ?? this._label, state);
 		item.contextValue = this.type;
 		item.description = description;
 		item.id = this.id;
@@ -135,6 +135,6 @@ export class ResultsCommitsNode extends ViewNode<ViewWithFiles> implements Pagea
 		await results.more?.(limit ?? this.view.config.pageItemLimit);
 
 		this.limit = results.log?.count;
-		this.triggerChange(false);
+		void this.triggerChange(false);
 	}
 }

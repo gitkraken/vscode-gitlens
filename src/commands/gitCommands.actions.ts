@@ -786,7 +786,7 @@ export namespace GitActions {
 			}
 
 			for (const file of files) {
-				openChangesWithDiffTool(file, ref!);
+				void openChangesWithDiffTool(file, ref!);
 			}
 		}
 
@@ -927,7 +927,7 @@ export namespace GitActions {
 				}
 			}
 
-			Container.git.openDiffTool(
+			void Container.git.openDiffTool(
 				commitOrRef.repoPath,
 				GitUri.fromFile(file, file.repoPath ?? commitOrRef.repoPath),
 				{
@@ -990,7 +990,7 @@ export namespace GitActions {
 			try {
 				void (await Container.git.openDirectoryCompare(ref.repoPath, ref.ref, `${ref.ref}^`));
 			} catch (ex) {
-				const msg = ex && ex.toString();
+				const msg: string = ex?.toString() ?? '';
 				if (msg === 'No diff tool found') {
 					const result = await window.showWarningMessage(
 						'Unable to open directory compare because there is no Git diff tool configured',
@@ -1011,7 +1011,7 @@ export namespace GitActions {
 			try {
 				void (await Container.git.openDirectoryCompare(ref.repoPath, ref.ref, undefined));
 			} catch (ex) {
-				const msg = ex && ex.toString();
+				const msg: string = ex?.toString() ?? '';
 				if (msg === 'No diff tool found') {
 					const result = await window.showWarningMessage(
 						'Unable to open directory compare because there is no Git diff tool configured',

@@ -39,8 +39,8 @@ export class GitBlameParser {
 	): GitBlame | undefined {
 		if (!data) return undefined;
 
-		const authors: Map<string, GitAuthor> = new Map();
-		const commits: Map<string, GitBlameCommit> = new Map();
+		const authors = new Map<string, GitAuthor>();
+		const commits = new Map<string, GitBlameCommit>();
 		const lines: GitCommitLine[] = [];
 
 		let relativeFileName;

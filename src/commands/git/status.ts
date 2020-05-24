@@ -115,7 +115,7 @@ export class StatusGitCommand extends QuickCommand<State> {
 			if (result instanceof CommandQuickPickItem) {
 				QuickCommand.endSteps(state);
 
-				result.execute();
+				void result.execute();
 				break;
 			}
 		}

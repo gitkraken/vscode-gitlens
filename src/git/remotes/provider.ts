@@ -96,24 +96,24 @@ export abstract class RemoteProvider {
 
 	abstract get name(): string;
 
-	async copy(resource: RemoteResource): Promise<{} | undefined> {
+	async copy(resource: RemoteResource): Promise<void> {
 		const url = this.url(resource);
-		if (url === undefined) return undefined;
+		if (url === undefined) return;
 
 		try {
 			void (await env.clipboard.writeText(url));
-
-			return undefined;
 		} catch (ex) {
-			if (ex.message.includes("Couldn't find the required `xsel` binary")) {
-				window.showErrorMessage(
+			const msg: string = ex?.toString() ?? '';
+			if (msg.includes("Couldn't find the required `xsel` binary")) {
+				void window.showErrorMessage(
 					'Unable to copy remote url, xsel is not installed. Please install it via your package manager, e.g. `sudo apt install xsel`',
 				);
-				return undefined;
+
+				return;
 			}
 
 			Logger.error(ex, 'CopyRemoteUrlToClipboardCommand');
-			return Messages.showGenericErrorMessage('Unable to copy remote url');
+			void Messages.showGenericErrorMessage('Unable to copy remote url');
 		}
 	}
 
@@ -121,7 +121,7 @@ export abstract class RemoteProvider {
 		return RemoteProviderWithApi.is(this);
 	}
 
-	open(resource: RemoteResource): Thenable<{} | undefined> {
+	open(resource: RemoteResource): Promise<boolean | undefined> {
 		return this.openUrl(this.url(resource));
 	}
 
@@ -180,14 +180,14 @@ export abstract class RemoteProvider {
 		return this.baseUrl;
 	}
 
-	private openUrl(url?: string): Thenable<{} | undefined> {
-		if (url === undefined) return Promise.resolve(undefined);
+	private async openUrl(url?: string): Promise<boolean | undefined> {
+		if (url == null) return undefined;
 
 		return env.openExternal(Uri.parse(url));
 	}
 }
 
-export abstract class RemoteProviderWithApi<T extends string | {} = any> extends RemoteProvider {
+export abstract class RemoteProviderWithApi<T extends object = any> extends RemoteProvider {
 	static is(provider: RemoteProvider | undefined): provider is RemoteProviderWithApi {
 		return provider instanceof RemoteProviderWithApi;
 	}

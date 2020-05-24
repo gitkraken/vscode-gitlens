@@ -139,7 +139,7 @@ export class GitService implements Disposable {
 		this._trackedCache.clear();
 		this._userMapCache.clear();
 
-		this._disposable && this._disposable.dispose();
+		this._disposable.dispose();
 	}
 
 	@log()
@@ -151,7 +151,7 @@ export class GitService implements Disposable {
 			gitPath = gitApi.git.path;
 		}
 
-		await Git.setOrFindGitPath(gitPath || configuration.getAny<string>('git.path'));
+		await Git.setOrFindGitPath(gitPath ?? configuration.getAny<string>('git.path'));
 	}
 
 	get readonly() {
@@ -210,7 +210,7 @@ export class GitService implements Disposable {
 		if (e == null) {
 			initializing = true;
 			e = {
-				added: workspace.workspaceFolders || [],
+				added: workspace.workspaceFolders ?? [],
 				removed: [],
 			};
 
@@ -314,8 +314,8 @@ export class GitService implements Disposable {
 
 		// Get any specified excludes -- this is a total hack, but works for some simple cases and something is better than nothing :)
 		let excludes = {
-			...configuration.getAny<{ [key: string]: boolean }>('files.exclude', uri, {}),
-			...configuration.getAny<{ [key: string]: boolean }>('search.exclude', uri, {}),
+			...configuration.getAny<Record<string, boolean>>('files.exclude', uri, {}),
+			...configuration.getAny<Record<string, boolean>>('search.exclude', uri, {}),
 		};
 
 		const excludedPaths = [
@@ -329,14 +329,15 @@ export class GitService implements Disposable {
 		excludes = excludedPaths.reduce((accumulator, current) => {
 			accumulator[current] = true;
 			return accumulator;
-		}, Object.create(null));
+		}, Object.create(null) as Record<string, boolean>);
 
 		let repoPaths;
 		try {
 			repoPaths = await this.repositorySearchCore(uri.fsPath, depth, excludes);
 		} catch (ex) {
-			if (RepoSearchWarnings.doesNotExist.test(ex.message || emptyStr)) {
-				Logger.log(cc, `FAILED${ex.message ? ` Error: ${ex.message}` : emptyStr}`);
+			const msg: string = ex?.toString() ?? emptyStr;
+			if (RepoSearchWarnings.doesNotExist.test(msg)) {
+				Logger.log(cc, `FAILED${msg ? ` Error: ${msg}` : emptyStr}`);
 			} else {
 				Logger.error(ex, cc, 'FAILED');
 			}
@@ -372,7 +373,7 @@ export class GitService implements Disposable {
 	private repositorySearchCore(
 		root: string,
 		depth: number,
-		excludes: { [key: string]: boolean },
+		excludes: Record<string, boolean>,
 		repositories: string[] = [],
 	): Promise<string[]> {
 		const cc = Logger.getCorrelationContext();
@@ -471,7 +472,7 @@ export class GitService implements Disposable {
 	async applyChangesToWorkingFile(uri: GitUri, ref1?: string, ref2?: string) {
 		const cc = Logger.getCorrelationContext();
 
-		ref1 = ref1 || uri.sha;
+		ref1 = ref1 ?? uri.sha;
 		if (ref1 == null || uri.repoPath == null) return;
 
 		if (ref2 == null) {
@@ -486,7 +487,8 @@ export class GitService implements Disposable {
 			});
 			void (await Git.apply(uri.repoPath, patch));
 		} catch (ex) {
-			if (patch && /patch does not apply/i.test(ex.message)) {
+			const msg: string = ex?.toString() ?? emptyStr;
+			if (patch && /patch does not apply/i.test(msg)) {
 				const result = await window.showWarningMessage(
 					'Unable to apply changes cleanly. Retry and allow conflicts?',
 					{ title: 'Yes' },
@@ -518,7 +520,8 @@ export class GitService implements Disposable {
 		try {
 			return await Git.checkout(repoPath, ref, options);
 		} catch (ex) {
-			if (/overwritten by checkout/i.test(ex.message)) {
+			const msg: string = ex?.toString() ?? emptyStr;
+			if (/overwritten by checkout/i.test(msg)) {
 				void Messages.showGenericErrorMessage(
 					`Unable to checkout '${ref}'. Please commit or stash your changes before switching branches`,
 				);
@@ -569,7 +572,7 @@ export class GitService implements Disposable {
 		if (repositories.length === 0) return;
 
 		if (repositories.length === 1) {
-			repositories[0].fetch(options);
+			await repositories[0].fetch(options);
 
 			return;
 		}
@@ -598,7 +601,7 @@ export class GitService implements Disposable {
 		if (repositories.length === 0) return;
 
 		if (repositories.length === 1) {
-			repositories[0].pull(options);
+			await repositories[0].pull(options);
 
 			return;
 		}
@@ -625,7 +628,7 @@ export class GitService implements Disposable {
 		if (repositories.length === 0) return;
 
 		if (repositories.length === 1) {
-			repositories[0].push(options);
+			await repositories[0].push(options);
 
 			return;
 		}
@@ -659,7 +662,7 @@ export class GitService implements Disposable {
 		},
 	})
 	async getActiveRepoPath(editor?: TextEditor): Promise<string | undefined> {
-		editor = editor || window.activeTextEditor;
+		editor = editor ?? window.activeTextEditor;
 
 		let repoPath;
 		if (editor != null) {
@@ -746,7 +749,7 @@ export class GitService implements Disposable {
 		} catch (ex) {
 			// Trap and cache expected blame errors
 			if (document.state != null) {
-				const msg = ex && ex.toString();
+				const msg = ex?.toString() ?? '';
 				Logger.debug(cc, `Cache replace (with empty promise): '${key}'`);
 
 				const value: CachedBlame = {
@@ -766,7 +769,7 @@ export class GitService implements Disposable {
 
 	@log({
 		args: {
-			1: contents => '<contents>',
+			1: _contents => '<contents>',
 		},
 	})
 	async getBlameForFileContents(uri: GitUri, contents: string): Promise<GitBlame | undefined> {
@@ -830,7 +833,7 @@ export class GitService implements Disposable {
 		} catch (ex) {
 			// Trap and cache expected blame errors
 			if (document.state != null) {
-				const msg = ex && ex.toString();
+				const msg = ex?.toString() ?? '';
 				Logger.debug(cc, `Cache replace (with empty promise): '${key}'`);
 
 				const value: CachedBlame = {
@@ -899,7 +902,7 @@ export class GitService implements Disposable {
 
 	@log({
 		args: {
-			2: contents => '<contents>',
+			2: _contents => '<contents>',
 		},
 	})
 	async getBlameForLineContents(
@@ -963,7 +966,7 @@ export class GitService implements Disposable {
 
 	@log({
 		args: {
-			2: contents => '<contents>',
+			2: _contents => '<contents>',
 		},
 	})
 	async getBlameForRangeContents(uri: GitUri, range: Range, contents: string): Promise<GitBlameLines | undefined> {
@@ -975,7 +978,7 @@ export class GitService implements Disposable {
 
 	@log({
 		args: {
-			0: blame => '<blame>',
+			0: _blame => '<blame>',
 		},
 	})
 	getBlameForRangeSync(blame: GitBlame, uri: GitUri, range: Range): GitBlameLines | undefined {
@@ -992,8 +995,8 @@ export class GitService implements Disposable {
 		const startLine = range.start.line + 1;
 		const endLine = range.end.line + 1;
 
-		const authors: Map<string, GitAuthor> = new Map();
-		const commits: Map<string, GitBlameCommit> = new Map();
+		const authors = new Map<string, GitAuthor>();
+		const commits = new Map<string, GitBlameCommit>();
 		for (const c of blame.commits.values()) {
 			if (!shas.has(c.sha)) continue;
 
@@ -1148,7 +1151,7 @@ export class GitService implements Disposable {
 		const log = await this.getLog(repoPath, { limit: 2, ref: ref });
 		if (log == null) return undefined;
 
-		return log.commits.get(ref) || Iterables.first(log.commits.values());
+		return log.commits.get(ref) ?? Iterables.first(log.commits.values());
 	}
 
 	@log()
@@ -1350,7 +1353,7 @@ export class GitService implements Disposable {
 		} catch (ex) {
 			// Trap and cache expected diff errors
 			if (document.state != null) {
-				const msg = ex && ex.toString();
+				const msg = ex?.toString() ?? '';
 				Logger.debug(cc, `Cache replace (with empty promise): '${key}'`);
 
 				const value: CachedDiff = {
@@ -1889,7 +1892,7 @@ export class GitService implements Disposable {
 		} catch (ex) {
 			// Trap and cache expected log errors
 			if (document.state != null && range == null && !options.reverse) {
-				const msg = ex && ex.toString();
+				const msg: string = ex?.toString() ?? '';
 				Logger.debug(cc, `Cache replace (with empty promise): '${key}'`);
 
 				const value: CachedLog = {
@@ -2083,18 +2086,18 @@ export class GitService implements Disposable {
 				simple: true,
 			});
 			if (data == null || data.length === 0) {
-				return GitUri.fromFile(file || fileName, repoPath, nextRef);
+				return GitUri.fromFile(file ?? fileName, repoPath, nextRef);
 			}
 
-			const [nextRenamedRef, renamedFile] = GitLogParser.parseSimpleRenamed(data, file || fileName);
+			const [nextRenamedRef, renamedFile] = GitLogParser.parseSimpleRenamed(data, file ?? fileName);
 			return GitUri.fromFile(
-				renamedFile || file || fileName,
+				renamedFile ?? file ?? fileName,
 				repoPath,
-				nextRenamedRef || nextRef || GitRevision.deletedOrMissing,
+				nextRenamedRef ?? nextRef ?? GitRevision.deletedOrMissing,
 			);
 		}
 
-		return GitUri.fromFile(file || fileName, repoPath, nextRef);
+		return GitUri.fromFile(file ?? fileName, repoPath, nextRef);
 	}
 
 	@log()
@@ -2242,7 +2245,7 @@ export class GitService implements Disposable {
 			// If line is committed, diff with line ref with previous
 			else {
 				ref = blameLine.commit.sha;
-				fileName = blameLine.commit.fileName || blameLine.commit.originalFileName || fileName;
+				fileName = blameLine.commit.fileName || (blameLine.commit.originalFileName ?? fileName);
 				uri = GitUri.resolveToUri(fileName, repoPath);
 				editorLine = blameLine.line.originalLine - 1;
 
@@ -2271,7 +2274,7 @@ export class GitService implements Disposable {
 
 			// Diff with line ref with previous
 			ref = blameLine.commit.sha;
-			fileName = blameLine.commit.fileName || blameLine.commit.originalFileName || fileName;
+			fileName = blameLine.commit.fileName || (blameLine.commit.originalFileName ?? fileName);
 			uri = GitUri.resolveToUri(fileName, repoPath);
 			editorLine = blameLine.line.originalLine - 1;
 
@@ -2321,17 +2324,18 @@ export class GitService implements Disposable {
 				startLine: editorLine != null ? editorLine + 1 : undefined,
 			});
 		} catch (ex) {
+			const msg: string = ex?.toString() ?? emptyStr;
 			// If the line count is invalid just fallback to the most recent commit
-			if ((ref == null || GitRevision.isUncommittedStaged(ref)) && GitErrors.invalidLineCount.test(ex.message)) {
+			if ((ref == null || GitRevision.isUncommittedStaged(ref)) && GitErrors.invalidLineCount.test(msg)) {
 				if (ref == null) {
 					const status = await this.getStatusForFile(repoPath, fileName);
-					if (status != null && status.indexStatus != null) {
+					if (status?.indexStatus != null) {
 						return GitUri.fromFile(fileName, repoPath, GitRevision.uncommittedStaged);
 					}
 				}
 
 				ref = await Git.log__file_recent(repoPath, fileName);
-				return GitUri.fromFile(fileName, repoPath, ref || GitRevision.deletedOrMissing);
+				return GitUri.fromFile(fileName, repoPath, ref ?? GitRevision.deletedOrMissing);
 			}
 
 			Logger.error(ex, cc);
@@ -2343,7 +2347,7 @@ export class GitService implements Disposable {
 		// If the previous ref matches the ref we asked for assume we are at the end of the history
 		if (ref != null && ref === previousRef) return undefined;
 
-		return GitUri.fromFile(file || fileName, repoPath, previousRef || GitRevision.deletedOrMissing);
+		return GitUri.fromFile(file ?? fileName, repoPath, previousRef ?? GitRevision.deletedOrMissing);
 	}
 
 	async getPullRequestForCommit(
@@ -2471,7 +2475,7 @@ export class GitService implements Disposable {
 	): Promise<GitRemote[]> {
 		if (repoPath == null) return [];
 
-		providers = providers || RemoteProviderFactory.loadProviders(configuration.get('remotes', null));
+		providers = providers ?? RemoteProviderFactory.loadProviders(configuration.get('remotes', null));
 
 		try {
 			const data = await Git.remote(repoPath);
@@ -2783,7 +2787,7 @@ export class GitService implements Disposable {
 		let tags = this.useCaching ? this._tagsCache.get(repoPath) : undefined;
 		if (tags == null) {
 			const data = await Git.tag(repoPath);
-			tags = GitTagParser.parse(data, repoPath) || [];
+			tags = GitTagParser.parse(data, repoPath) ?? [];
 
 			const repo = await this.getRepository(repoPath);
 			if (repo?.supportsChangeEvents) {
@@ -2808,7 +2812,7 @@ export class GitService implements Disposable {
 
 		const data = await Git.ls_tree(repoPath, ref, { fileName: fileName });
 		const trees = GitTreeParser.parse(data);
-		return trees == null || trees.length === 0 ? undefined : trees[0];
+		return trees?.length ? trees[0] : undefined;
 	}
 
 	@log()
@@ -2816,7 +2820,7 @@ export class GitService implements Disposable {
 		if (repoPath == null) return [];
 
 		const data = await Git.ls_tree(repoPath, ref);
-		return GitTreeParser.parse(data) || [];
+		return GitTreeParser.parse(data) ?? [];
 	}
 
 	@log()
@@ -2991,7 +2995,7 @@ export class GitService implements Disposable {
 	@log()
 	async getDiffTool(repoPath?: string) {
 		return (
-			(await Git.config__get('diff.guitool', repoPath, { local: true })) ||
+			(await Git.config__get('diff.guitool', repoPath, { local: true })) ??
 			Git.config__get('diff.tool', repoPath, { local: true })
 		);
 	}
@@ -3038,7 +3042,7 @@ export class GitService implements Disposable {
 		if (fileNameOrUri == null) {
 			if (GitRevision.isSha(ref) || !GitRevision.isShaLike(ref) || ref.endsWith('^3')) return ref;
 
-			return (await Git.rev_parse(repoPath, ref)) || ref;
+			return (await Git.rev_parse(repoPath, ref)) ?? ref;
 		}
 
 		const fileName =

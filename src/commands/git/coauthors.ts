@@ -159,7 +159,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 			}
 
 			QuickCommand.endSteps(state);
-			this.execute(state as CoAuthorStepState);
+			void this.execute(state as CoAuthorStepState);
 		}
 
 		return state.counter < 0 ? StepResult.Break : undefined;

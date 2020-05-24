@@ -127,7 +127,7 @@ export class GitCommandsCommand extends Command {
 
 		if (command?.canConfirm) {
 			if (command.canSkipConfirm) {
-				const willConfirmToggle = new QuickCommandButtons.WillConfirmToggle(command.confirm(), async input => {
+				const willConfirmToggle = new QuickCommandButtons.WillConfirmToggle(command.confirm(), async () => {
 					if (command?.skipConfirmKey == null) return;
 
 					const skipConfirmations = configuration.get('gitCommands', 'skipConfirmations') ?? [];
@@ -204,14 +204,14 @@ export class GitCommandsCommand extends Command {
 				}
 
 				const scope = Container.keyboard.createScope(mapping);
-				scope.start();
+				void scope.start();
 
 				disposables.push(
 					scope,
 					input.onDidHide(() => resolve()),
 					input.onDidTriggerButton(async e => {
 						if (e === QuickInputButtons.Back) {
-							goBack();
+							void goBack();
 							return;
 						}
 
@@ -348,7 +348,7 @@ export class GitCommandsCommand extends Command {
 				}
 
 				const scope = Container.keyboard.createScope(mapping);
-				scope.start();
+				void scope.start();
 
 				let overrideItems = false;
 
@@ -358,14 +358,14 @@ export class GitCommandsCommand extends Command {
 
 					quickpick.onDidTriggerButton(async e => {
 						if (e === QuickInputButtons.Back) {
-							goBack();
+							void goBack();
 							return;
 						}
 
 						if (e === QuickCommandButtons.WillConfirmForced) return;
 
 						if (e === QuickCommandButtons.LoadMore) {
-							loadMore();
+							void loadMore();
 							return;
 						}
 
@@ -522,11 +522,11 @@ export class GitCommandsCommand extends Command {
 										return;
 
 									case Directive.Back:
-										goBack();
+										void goBack();
 										return;
 
 									case Directive.LoadMore:
-										loadMore();
+										void loadMore();
 										return;
 								}
 							}

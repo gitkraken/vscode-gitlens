@@ -60,10 +60,7 @@ export class VslsController implements Disposable {
 	private async initialize() {
 		try {
 			// If we have a vsls: workspace open, we might be a guest, so wait until live share transitions into a mode
-			if (
-				workspace.workspaceFolders !== undefined &&
-				workspace.workspaceFolders.some(f => f.uri.scheme === DocumentSchemes.Vsls)
-			) {
+			if (workspace.workspaceFolders?.some(f => f.uri.scheme === DocumentSchemes.Vsls)) {
 				this.setReadonly(true);
 				this._waitForReady = new Promise(resolve => (this._onReady = resolve));
 			}
@@ -71,7 +68,7 @@ export class VslsController implements Disposable {
 			this._api = getApi();
 			const api = await this._api;
 			if (api == null) {
-				setCommandContext(CommandContext.Vsls, false);
+				void setCommandContext(CommandContext.Vsls, false);
 				// Tear it down if we can't talk to live share
 				if (this._onReady !== undefined) {
 					this._onReady();
@@ -81,7 +78,7 @@ export class VslsController implements Disposable {
 				return;
 			}
 
-			setCommandContext(CommandContext.Vsls, true);
+			void setCommandContext(CommandContext.Vsls, true);
 
 			this._disposable = Disposable.from(
 				api.onDidChangeSession(e => this.onLiveShareSessionChanged(api, e), this),
@@ -101,7 +98,7 @@ export class VslsController implements Disposable {
 	}
 	private setReadonly(value: boolean) {
 		this._readonly = value;
-		setCommandContext(CommandContext.Readonly, value ? true : undefined);
+		void setCommandContext(CommandContext.Readonly, value ? true : undefined);
 	}
 
 	@debug()
@@ -197,20 +194,20 @@ export class VslsController implements Disposable {
 		switch (e.session.role) {
 			case Role.Host:
 				this.setReadonly(false);
-				setCommandContext(CommandContext.Vsls, 'host');
+				void setCommandContext(CommandContext.Vsls, 'host');
 				if (Container.config.liveshare.allowGuestAccess) {
 					this._host = await VslsHostService.share(api);
 				}
 				break;
 			case Role.Guest:
 				this.setReadonly(true);
-				setCommandContext(CommandContext.Vsls, 'guest');
+				void setCommandContext(CommandContext.Vsls, 'guest');
 				this._guest = await VslsGuestService.connect(api);
 				break;
 
 			default:
 				this.setReadonly(false);
-				setCommandContext(CommandContext.Vsls, true);
+				void setCommandContext(CommandContext.Vsls, true);
 				break;
 		}
 

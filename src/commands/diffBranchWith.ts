@@ -86,7 +86,7 @@ export class DiffBranchWithCommand extends ActiveEditorCommand {
 			void (await Container.compareView.compare(repoPath, args.ref1, args.ref2));
 		} catch (ex) {
 			Logger.error(ex, 'DiffBranchWithCommand');
-			Messages.showGenericErrorMessage('Unable to open branch compare');
+			void Messages.showGenericErrorMessage('Unable to open branch compare');
 		}
 	}
 }

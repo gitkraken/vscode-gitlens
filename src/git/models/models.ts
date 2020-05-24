@@ -28,7 +28,7 @@ export namespace GitRevision {
 		ref2: string | undefined,
 		notation: '..' | '...' = '..',
 	): string {
-		return `${ref1 || ''}${notation}${ref2 || ''}`;
+		return `${ref1 ?? ''}${notation}${ref2 ?? ''}`;
 	}
 
 	export function isRange(ref: string | undefined) {
@@ -70,8 +70,8 @@ export namespace GitRevision {
 		if (ref == null || ref.length === 0) return strings.working ?? emptyStr;
 		if (isUncommitted(ref)) {
 			return isUncommittedStaged(ref)
-				? strings.uncommittedStaged || 'Index'
-				: strings.uncommitted || 'Working Tree';
+				? strings.uncommittedStaged ?? 'Index'
+				: strings.uncommitted ?? 'Working Tree';
 		}
 
 		if (GitRevision.isRange(ref)) return ref;

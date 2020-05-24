@@ -148,7 +148,7 @@ export class GitStatus {
 		suffix?: string;
 	} = {}): string {
 		const { added, changed, deleted } = this.getDiffStatus();
-		if (added === 0 && changed === 0 && deleted === 0) return empty || '';
+		if (added === 0 && changed === 0 && deleted === 0) return empty ?? '';
 
 		if (expand) {
 			let status = '';
@@ -197,7 +197,7 @@ export class GitStatus {
 		state: { ahead: number; behind: number },
 		options: { empty?: string; expand?: boolean; prefix?: string; separator?: string; suffix?: string } = {},
 	): string {
-		if (upstream == null || (state.behind === 0 && state.ahead === 0)) return options.empty || '';
+		if (upstream == null || (state.behind === 0 && state.ahead === 0)) return options.empty ?? '';
 
 		const { expand, prefix = '', separator = ' ', suffix = '' } = options;
 		if (expand) {
@@ -263,7 +263,7 @@ export class GitStatusFile implements GitFile {
 			this.repoPath,
 			this.getChangedValue(changes.indexStatus, this.indexStatus) as GitFileStatus,
 			this.getChangedValue(changes.workTreeStatus, this.workingTreeStatus) as GitFileStatus,
-			changes.fileName || this.fileName,
+			changes.fileName ?? this.fileName,
 			this.getChangedValue(changes.originalFileName, this.originalFileName),
 		);
 	}

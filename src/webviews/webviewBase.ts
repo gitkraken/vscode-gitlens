@@ -37,12 +37,12 @@ const emptyCommands: Disposable[] = [
 ];
 
 export abstract class WebviewBase implements Disposable {
-	protected _disposable: Disposable;
+	protected disposable: Disposable;
 	private _disposablePanel: Disposable | undefined;
 	private _panel: WebviewPanel | undefined;
 
 	constructor(showCommand: Commands, private readonly _column?: ViewColumn) {
-		this._disposable = Disposable.from(
+		this.disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			commands.registerCommand(showCommand, this.onShowCommand, this),
 		);
@@ -61,16 +61,16 @@ export abstract class WebviewBase implements Disposable {
 	renderEndOfBody?(): string | Promise<string>;
 
 	dispose() {
-		this._disposable && this._disposable.dispose();
+		this.disposable.dispose();
 		this._disposablePanel && this._disposablePanel.dispose();
 	}
 
 	protected onShowCommand() {
-		this.show(this._column);
+		void this.show(this._column);
 	}
 
-	private onConfigurationChanged(e: ConfigurationChangeEvent) {
-		this.notifyDidChangeConfiguration();
+	private onConfigurationChanged(_e: ConfigurationChangeEvent) {
+		void this.notifyDidChangeConfiguration();
 	}
 
 	private onPanelDisposed() {
@@ -86,7 +86,7 @@ export abstract class WebviewBase implements Disposable {
 
 		// Anytime the webview becomes active, make sure it has the most up-to-date config
 		if (e.webviewPanel.active) {
-			this.notifyDidChangeConfiguration();
+			void this.notifyDidChangeConfiguration();
 		}
 	}
 
@@ -181,7 +181,7 @@ export abstract class WebviewBase implements Disposable {
 			// Reset the html to get the webview to reload
 			this._panel.webview.html = '';
 			this._panel.webview.html = html;
-			this._panel.reveal(this._panel.viewColumn || ViewColumn.Active, false);
+			this._panel.reveal(this._panel.viewColumn ?? ViewColumn.Active, false);
 		}
 	}
 

@@ -165,7 +165,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 			}
 
 			QuickCommand.endSteps(state);
-			this.execute(state as SwitchStepState);
+			void this.execute(state as SwitchStepState);
 		}
 
 		return state.counter < 0 ? StepResult.Break : undefined;

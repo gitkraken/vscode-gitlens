@@ -19,7 +19,7 @@ export class SettingsApp extends AppWithConfig<SettingsState> {
 	protected onInitialize() {
 		// Add scopes if available
 		const scopes = DOM.getElementById<HTMLSelectElement>('scopes');
-		if (scopes && this.state.scopes.length > 1) {
+		if (scopes != null && this.state.scopes.length > 1) {
 			for (const [scope, text] of this.state.scopes) {
 				const option = document.createElement('option');
 				option.value = scope;
@@ -93,7 +93,7 @@ export class SettingsApp extends AppWithConfig<SettingsState> {
 		}
 	}
 
-	private onObserver(entries: IntersectionObserverEntry[], observer: IntersectionObserver) {
+	private onObserver(entries: IntersectionObserverEntry[], _observer: IntersectionObserver) {
 		for (const entry of entries) {
 			this._sections.set(entry.target.parentElement!.id, entry.isIntersecting);
 		}
@@ -189,7 +189,7 @@ export class SettingsApp extends AppWithConfig<SettingsState> {
 		element.parentElement!.classList.toggle('collapsed');
 	}
 
-	private onSettingExpanderCicked(element: HTMLElement, e: MouseEvent) {
+	private onSettingExpanderCicked(element: HTMLElement, _e: MouseEvent) {
 		element.parentElement!.parentElement!.classList.toggle('expanded');
 	}
 

@@ -65,7 +65,7 @@ function findGitWin32(): Promise<GitLocation> {
 
 export async function findGitPath(path?: string): Promise<GitLocation> {
 	try {
-		return await findSpecificGit(path || 'git');
+		return await findSpecificGit(path ?? 'git');
 	} catch (ex) {
 		try {
 			switch (process.platform) {

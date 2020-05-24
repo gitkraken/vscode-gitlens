@@ -48,7 +48,7 @@ export class GitStashParser {
 			repoPath = Strings.normalizePath(repoPath);
 		}
 
-		const commits: Map<string, GitStashCommit> = new Map();
+		const commits = new Map<string, GitStashCommit>();
 
 		let entry: StashEntry = emptyEntry;
 		let line: string | undefined = undefined;
@@ -172,7 +172,7 @@ export class GitStashParser {
 				new Date((entry.committedDate! as any) * 1000),
 				entry.summary === undefined ? emptyStr : entry.summary,
 				entry.fileNames!,
-				entry.files || [],
+				entry.files ?? [],
 			);
 		}
 

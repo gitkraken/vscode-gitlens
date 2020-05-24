@@ -90,7 +90,7 @@ export interface Config {
 			alignment: 'left' | 'right';
 		};
 	};
-	modes: { [key: string]: ModeConfig };
+	modes: Record<string, ModeConfig>;
 	outputLevel: TraceLevel;
 	recentChanges: {
 		highlight: {

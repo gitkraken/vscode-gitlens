@@ -20,7 +20,7 @@ import { debug } from '../system';
 import { UriComparer } from '../comparers';
 
 export class LineHoverController implements Disposable {
-	private _disposable: Disposable;
+	private readonly _disposable: Disposable;
 	private _hoverProviderDisposable: Disposable | undefined;
 	private _uri: Uri | undefined;
 
@@ -33,7 +33,7 @@ export class LineHoverController implements Disposable {
 		this.unregister();
 
 		Container.lineTracker.stop(this);
-		this._disposable && this._disposable.dispose();
+		this._disposable.dispose();
 	}
 
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
@@ -89,7 +89,7 @@ export class LineHoverController implements Disposable {
 	async provideDetailsHover(
 		document: TextDocument,
 		position: Position,
-		token: CancellationToken,
+		_token: CancellationToken,
 	): Promise<Hover | undefined> {
 		if (!Container.lineTracker.includes(position.line)) return undefined;
 
@@ -129,14 +129,14 @@ export class LineHoverController implements Disposable {
 
 		let editorLine = position.line;
 		const line = editorLine + 1;
-		const commitLine = commit.lines.find(l => l.line === line) || commit.lines[0];
+		const commitLine = commit.lines.find(l => l.line === line) ?? commit.lines[0];
 		editorLine = commitLine.originalLine - 1;
 
 		const trackedDocument = await Container.tracker.get(document);
 		if (trackedDocument === undefined) return undefined;
 
 		const message = await Hovers.detailsMessage(
-			logCommit || commit,
+			logCommit ?? commit,
 			trackedDocument.uri,
 			editorLine,
 			Container.config.defaultDateFormat,
@@ -155,7 +155,7 @@ export class LineHoverController implements Disposable {
 	async provideChangesHover(
 		document: TextDocument,
 		position: Position,
-		token: CancellationToken,
+		_token: CancellationToken,
 	): Promise<Hover | undefined> {
 		if (!Container.lineTracker.includes(position.line)) return undefined;
 

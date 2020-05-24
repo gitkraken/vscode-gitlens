@@ -100,7 +100,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		private readonly _tracker: DocumentTracker<GitDocumentState>,
 	) {}
 
-	reset(reason?: 'idle' | 'saved') {
+	reset(_reason?: 'idle' | 'saved') {
 		this._onDidChangeCodeLenses.fire();
 	}
 
@@ -352,7 +352,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 				break;
 		}
 
-		return valid ? range || getRangeFromSymbol(symbol) : undefined;
+		return valid ? range ?? getRangeFromSymbol(symbol) : undefined;
 	}
 
 	private provideCodeLens(
@@ -471,7 +471,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		return Promise.reject<CodeLens>(undefined);
 	}
 
-	private resolveGitRecentChangeCodeLens(lens: GitRecentChangeCodeLens, token: CancellationToken): CodeLens {
+	private resolveGitRecentChangeCodeLens(lens: GitRecentChangeCodeLens, _token: CancellationToken): CodeLens {
 		const blame = lens.getBlame();
 		if (blame === undefined) return lens;
 
@@ -490,7 +490,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 			})]`;
 		}
 
-		if (!lens.desiredCommand) {
+		if (lens.desiredCommand === false) {
 			return this.applyCommandWithNoClickAction(title, lens);
 		}
 
@@ -516,7 +516,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		}
 	}
 
-	private resolveGitAuthorsCodeLens(lens: GitAuthorsCodeLens, token: CancellationToken): CodeLens {
+	private resolveGitAuthorsCodeLens(lens: GitAuthorsCodeLens, _token: CancellationToken): CodeLens {
 		const blame = lens.getBlame();
 		if (blame === undefined) return lens;
 
@@ -538,12 +538,12 @@ export class GitCodeLensProvider implements CodeLensProvider {
 			)})]`;
 		}
 
-		if (!lens.desiredCommand) {
+		if (lens.desiredCommand === false) {
 			return this.applyCommandWithNoClickAction(title, lens);
 		}
 
 		const commit =
-			Iterables.find(blame.commits.values(), c => c.author === author) || Iterables.first(blame.commits.values());
+			Iterables.find(blame.commits.values(), c => c.author === author) ?? Iterables.first(blame.commits.values());
 
 		switch (lens.desiredCommand) {
 			case CodeLensCommand.DiffWithPrevious:
@@ -594,7 +594,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		};
 		lens.command = {
 			title: title,
-			command: commit !== undefined && commit.isUncommitted ? '' : CodeLensCommand.RevealCommitInView,
+			command: commit?.isUncommitted ? '' : CodeLensCommand.RevealCommitInView,
 			arguments: [lens.uri!.toFileUri(), commandArgs],
 		};
 		return lens;
@@ -636,7 +636,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		};
 		lens.command = {
 			title: title,
-			command: commit !== undefined && commit.isUncommitted ? '' : CodeLensCommand.ShowQuickCommitDetails,
+			command: commit?.isUncommitted ? '' : CodeLensCommand.ShowQuickCommitDetails,
 			arguments: [lens.uri!.toFileUri(), commandArgs],
 		};
 		return lens;
@@ -653,7 +653,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		};
 		lens.command = {
 			title: title,
-			command: commit !== undefined && commit.isUncommitted ? '' : CodeLensCommand.ShowQuickCommitFileDetails,
+			command: commit?.isUncommitted ? '' : CodeLensCommand.ShowQuickCommitFileDetails,
 			arguments: [lens.uri!.toFileUri(), commandArgs],
 		};
 		return lens;

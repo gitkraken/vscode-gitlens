@@ -1,6 +1,6 @@
 'use strict';
 import { Container } from '../../container';
-import { GitLogCommit, GitRevisionReference, GitStashCommit, Repository } from '../../git/git';
+import { GitAuthor, GitLogCommit, GitRevisionReference, GitStashCommit, Repository } from '../../git/git';
 import {
 	PartialStepState,
 	pickCommitStep,
@@ -112,8 +112,8 @@ export class ShowGitCommand extends QuickCommand<State> {
 					const result = yield* pickCommitStep(state as ShowStepState, context, {
 						log: {
 							repoPath: state.repo.path,
-							authors: new Map(),
-							commits: new Map(),
+							authors: new Map<string, GitAuthor>(),
+							commits: new Map<string, GitLogCommit>(),
 							sha: undefined,
 							range: undefined,
 							count: 0,
@@ -153,7 +153,7 @@ export class ShowGitCommand extends QuickCommand<State> {
 				if (result instanceof CommandQuickPickItem && !(result instanceof CommitFilesQuickPickItem)) {
 					QuickCommand.endSteps(state);
 
-					result.execute();
+					void result.execute();
 					break;
 				}
 			}
@@ -201,7 +201,7 @@ export class ShowGitCommand extends QuickCommand<State> {
 			if (result instanceof CommandQuickPickItem) {
 				QuickCommand.endSteps(state);
 
-				result.execute();
+				void result.execute();
 				break;
 			}
 		}

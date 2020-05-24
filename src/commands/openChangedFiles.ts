@@ -26,7 +26,7 @@ export class OpenChangedFilesCommand extends Command {
 
 				const status = await Container.git.getStatusForRepo(repoPath);
 				if (status == null) {
-					window.showWarningMessage('Unable to open changed files');
+					void window.showWarningMessage('Unable to open changed files');
 
 					return;
 				}
@@ -39,7 +39,7 @@ export class OpenChangedFilesCommand extends Command {
 			}
 		} catch (ex) {
 			Logger.error(ex, 'OpenChangedFilesCommand');
-			Messages.showGenericErrorMessage('Unable to open all changed files');
+			void Messages.showGenericErrorMessage('Unable to open all changed files');
 		}
 	}
 }

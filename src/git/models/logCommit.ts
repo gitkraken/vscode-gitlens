@@ -70,7 +70,7 @@ export class GitLogCommit extends GitCommit {
 			message,
 			fileName,
 			originalFileName,
-			previousSha || `${sha}^`,
+			previousSha ?? `${sha}^`,
 			previousFileName,
 		);
 	}
@@ -143,7 +143,7 @@ export class GitLogCommit extends GitCommit {
 		suffix?: string;
 	} = {}): string {
 		const { added, changed, deleted } = this.getDiffStatus();
-		if (added === 0 && changed === 0 && deleted === 0) return empty || '';
+		if (added === 0 && changed === 0 && deleted === 0) return empty ?? '';
 
 		if (expand) {
 			const type = this.isFile ? 'line' : 'file';
@@ -187,7 +187,7 @@ export class GitLogCommit extends GitCommit {
 			fileName: foundFile.fileName,
 			originalFileName: foundFile.originalFileName,
 			previousSha: previousSha,
-			previousFileName: foundFile.originalFileName || foundFile.fileName,
+			previousFileName: foundFile.originalFileName ?? foundFile.fileName,
 			status: foundFile.status,
 			files: [foundFile],
 		});
@@ -209,17 +209,17 @@ export class GitLogCommit extends GitCommit {
 		files?: GitFile[] | null;
 	}): GitLogCommit {
 		return new GitLogCommit(
-			changes.type || this.type,
+			changes.type ?? this.type,
 			this.repoPath,
 			this.getChangedValue(changes.sha, this.sha)!,
-			changes.author || this.author,
-			changes.email || this.email,
-			changes.authorDate || this.authorDate,
-			changes.committedDate || this.committerDate,
-			changes.message || this.message,
-			changes.fileName || this.fileName,
-			this.getChangedValue(changes.files, this.files) || [],
-			changes.status || this.status,
+			changes.author ?? this.author,
+			changes.email ?? this.email,
+			changes.authorDate ?? this.authorDate,
+			changes.committedDate ?? this.committerDate,
+			changes.message ?? this.message,
+			changes.fileName ?? this.fileName,
+			this.getChangedValue(changes.files, this.files) ?? [],
+			changes.status ?? this.status,
 			this.getChangedValue(changes.originalFileName, this.originalFileName),
 			this.getChangedValue(changes.previousSha, this.previousSha),
 			this.getChangedValue(changes.previousFileName, this.previousFileName),

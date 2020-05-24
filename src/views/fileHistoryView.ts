@@ -87,7 +87,7 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode> {
 		}
 
 		if (configuration.changed(e, 'views', 'fileHistory', 'enabled')) {
-			setCommandContext(CommandContext.ViewsFileHistoryEditorFollowing, true);
+			void setCommandContext(CommandContext.ViewsFileHistoryEditorFollowing, true);
 		}
 
 		if (configuration.changed(e, 'views', 'fileHistory', 'location')) {
@@ -118,7 +118,7 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode> {
 	}
 
 	private setEditorFollowing(enabled: boolean) {
-		setCommandContext(CommandContext.ViewsFileHistoryEditorFollowing, enabled);
+		void setCommandContext(CommandContext.ViewsFileHistoryEditorFollowing, enabled);
 		if (this._root !== undefined) {
 			this._root.setEditorFollowing(enabled);
 		}

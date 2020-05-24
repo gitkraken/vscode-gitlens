@@ -206,7 +206,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		let commands;
 		if (this._item.isUncommitted) {
 			const { previousLineDiffUris: diffUris } = this._options;
-			if (diffUris != null && diffUris.previous != null) {
+			if (diffUris?.previous != null) {
 				commands = `\`${this._padOrTruncate(
 					GitRevision.shorten(
 						GitRevision.isUncommittedStaged(diffUris.current.sha)
@@ -218,11 +218,11 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 				commands += `&nbsp; **[\`${GlyphChars.MuchLessThan}\`](${DiffWithCommand.getMarkdownCommandArgs({
 					lhs: {
-						sha: diffUris.previous.sha || emptyStr,
+						sha: diffUris.previous.sha ?? emptyStr,
 						uri: diffUris.previous.documentUri(),
 					},
 					rhs: {
-						sha: diffUris.current.sha || emptyStr,
+						sha: diffUris.current.sha ?? emptyStr,
 						uri: diffUris.current.documentUri(),
 					},
 					repoPath: this._item.repoPath,
@@ -281,7 +281,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			);
 			commands += `[$(history)](${OpenFileAtRevisionCommand.getMarkdownCommandArgs(
 				uri,
-				annotationType || FileAnnotationType.Blame,
+				annotationType ?? FileAnnotationType.Blame,
 				this._options.line,
 			)} "Blame Previous Revision")${separator}`;
 		}
@@ -327,11 +327,11 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get email() {
-		return this._padOrTruncate(this._item.email || emptyStr, this._options.tokenOptions.email);
+		return this._padOrTruncate(this._item.email ?? emptyStr, this._options.tokenOptions.email);
 	}
 
 	get id() {
-		return this._padOrTruncate(this._item.shortSha || emptyStr, this._options.tokenOptions.id);
+		return this._padOrTruncate(this._item.shortSha ?? emptyStr, this._options.tokenOptions.id);
 	}
 
 	get message() {

@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/prefer-nullish-coalescing */
+/* eslint-disable @typescript-eslint/strict-boolean-expressions */
 'use strict';
 import { Iterables } from './iterable';
 import { Strings } from './string';
@@ -278,7 +280,7 @@ export class TernarySearchTree<E> {
 				break;
 			}
 		}
-		return (node && node.value) || candidate;
+		return node?.value || candidate;
 	}
 
 	findSuperstr(key: string, limit: boolean = false): Iterable<E> | undefined {

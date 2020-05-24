@@ -64,7 +64,7 @@ export interface GitCommandOptions extends RunOptions {
 }
 
 // A map of running git commands -- avoids running duplicate overlaping commands
-const pendingCommands: Map<string, Promise<string | Buffer>> = new Map();
+const pendingCommands = new Map<string, Promise<string | Buffer>>();
 
 export async function git<TOut extends string | Buffer>(options: GitCommandOptions, ...args: any[]): Promise<TOut> {
 	if (Container.vsls.isMaybeGuest) {
@@ -83,7 +83,7 @@ export async function git<TOut extends string | Buffer>(options: GitCommandOptio
 
 	const { configs, correlationKey, errors: errorHandling, ...opts } = options;
 
-	const encoding = options.encoding || 'utf8';
+	const encoding = options.encoding ?? 'utf8';
 	const runOpts: RunOptions = {
 		...opts,
 		encoding: encoding === 'utf8' ? 'utf8' : encoding === 'buffer' ? 'buffer' : 'binary',
@@ -91,7 +91,7 @@ export async function git<TOut extends string | Buffer>(options: GitCommandOptio
 		// Shouldn't *really* be needed but better safe than sorry
 		env: {
 			...process.env,
-			...(options.env || emptyObj),
+			...(options.env ?? emptyObj),
 			GCM_INTERACTIVE: 'NEVER',
 			GCM_PRESERVE_CREDS: 'TRUE',
 			LC_ALL: 'C',
@@ -188,11 +188,11 @@ function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [nu
 		}
 
 		const match = GitErrors.badRevision.exec(msg);
-		if (match != null && match) {
+		if (match != null) {
 			const [, ref] = match;
 
 			// Since looking up a ref with ^3 (e.g. looking for untracked files in a stash) can error on some versions of git just ignore it
-			if (ref != null && ref.endsWith('^3')) return emptyStr;
+			if (ref?.endsWith('^3')) return emptyStr;
 		}
 	}
 
@@ -361,7 +361,7 @@ export namespace Git {
 				if (supported) {
 					let ignoreRevsFile = params[index + 1];
 					if (!paths.isAbsolute(ignoreRevsFile)) {
-						ignoreRevsFile = paths.join(repoPath || '', ignoreRevsFile);
+						ignoreRevsFile = paths.join(repoPath ?? emptyStr, ignoreRevsFile);
 					}
 
 					const exists = ignoreRevsFileMap.get(ignoreRevsFile);
@@ -460,7 +460,7 @@ export namespace Git {
 			));
 			return ref;
 		} catch (ex) {
-			const msg = ex && ex.toString();
+			const msg: string = ex?.toString();
 			if (GitErrors.notAValidObjectName.test(msg)) {
 				return GitRevision.deletedOrMissing;
 			}
@@ -507,7 +507,7 @@ export namespace Git {
 
 		try {
 			const data = await git<string>(
-				{ cwd: repoPath || emptyStr, errors: GitErrorHandling.Throw, local: true },
+				{ cwd: repoPath ?? emptyStr, errors: GitErrorHandling.Throw, local: true },
 				...params,
 				ref,
 			);
@@ -540,7 +540,7 @@ export namespace Git {
 
 	export async function config__get(key: string, repoPath?: string, options: { local?: boolean } = {}) {
 		const data = await git<string>(
-			{ cwd: repoPath || emptyStr, errors: GitErrorHandling.Ignore, local: options.local },
+			{ cwd: repoPath ?? emptyStr, errors: GitErrorHandling.Ignore, local: options.local },
 			'config',
 			'--get',
 			key,
@@ -550,7 +550,7 @@ export namespace Git {
 
 	export async function config__get_regex(pattern: string, repoPath?: string, options: { local?: boolean } = {}) {
 		const data = await git<string>(
-			{ cwd: repoPath || emptyStr, errors: GitErrorHandling.Ignore, local: options.local },
+			{ cwd: repoPath ?? emptyStr, errors: GitErrorHandling.Ignore, local: options.local },
 			'config',
 			'--get-regex',
 			pattern,
@@ -1026,7 +1026,7 @@ export namespace Git {
 			);
 			return [data, undefined];
 		} catch (ex) {
-			const msg = ex && ex.toString();
+			const msg: string = ex?.toString() ?? '';
 			if (GitErrors.badRevision.test(msg) || GitWarnings.noUpstream.test(msg)) {
 				return [ex.stdout, undefined];
 			}
@@ -1095,7 +1095,7 @@ export namespace Git {
 		const opts: GitCommandOptions = {
 			configs: ['-c', 'log.showSignature=false'],
 			cwd: root,
-			encoding: options.encoding || 'utf8',
+			encoding: options.encoding ?? 'utf8',
 			errors: GitErrorHandling.Throw,
 		};
 		const args = ref.endsWith(':') ? `${ref}./${file}` : `${ref}:./${file}`;
@@ -1104,7 +1104,7 @@ export namespace Git {
 			const data = await git<TOut>(opts, 'show', args, '--');
 			return data;
 		} catch (ex) {
-			const msg = ex && ex.toString();
+			const msg: string = ex?.toString() ?? '';
 			if (ref === ':' && GitErrors.badRevision.test(msg)) {
 				return Git.show<TOut>(repoPath, fileName, 'HEAD:', options);
 			}

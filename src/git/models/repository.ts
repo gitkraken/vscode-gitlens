@@ -187,7 +187,7 @@ export class Repository implements Disposable {
 	}
 
 	private onRepositoryChanged(uri: Uri | undefined) {
-		if (uri !== undefined && uri.path.endsWith('refs/stash')) {
+		if (uri?.path.endsWith('refs/stash')) {
 			this.fireChange(RepositoryChange.Stashes);
 
 			return;
@@ -195,20 +195,20 @@ export class Repository implements Disposable {
 
 		this._branch = undefined;
 
-		if (uri !== undefined && uri.path.endsWith('refs/remotes')) {
+		if (uri?.path.endsWith('refs/remotes')) {
 			this.resetRemotesCache();
 			this.fireChange(RepositoryChange.Remotes);
 
 			return;
 		}
 
-		if (uri !== undefined && uri.path.endsWith('refs/tags')) {
+		if (uri?.path.endsWith('refs/tags')) {
 			this.fireChange(RepositoryChange.Tags);
 
 			return;
 		}
 
-		if (uri !== undefined && uri.path.endsWith('config')) {
+		if (uri?.path.endsWith('config')) {
 			this.resetRemotesCache();
 			this.fireChange(RepositoryChange.Config, RepositoryChange.Remotes);
 
@@ -299,7 +299,7 @@ export class Repository implements Disposable {
 			this.fireChange(RepositoryChange.Repository);
 		} catch (ex) {
 			Logger.error(ex);
-			Messages.showGenericErrorMessage('Unable to fetch repository');
+			void Messages.showGenericErrorMessage('Unable to fetch repository');
 		}
 	}
 
@@ -345,7 +345,7 @@ export class Repository implements Disposable {
 		}
 	}
 
-	getRemotes(options: { sort?: boolean } = {}): Promise<GitRemote[]> {
+	getRemotes(_options: { sort?: boolean } = {}): Promise<GitRemote[]> {
 		if (this._remotes === undefined || !this.supportsChangeEvents) {
 			if (this._providers === undefined) {
 				const remotesCfg = configuration.get('remotes', this.folder.uri);
@@ -354,7 +354,7 @@ export class Repository implements Disposable {
 
 			// Since we are caching the results, always sort
 			this._remotes = Container.git.getRemotesCore(this.path, this._providers, { sort: true });
-			this.subscribeToRemotes(this._remotes);
+			void this.subscribeToRemotes(this._remotes);
 		}
 
 		return this._remotes;
@@ -397,12 +397,12 @@ export class Repository implements Disposable {
 
 	async hasRemotes(): Promise<boolean> {
 		const remotes = await this.getRemotes();
-		return remotes !== undefined && remotes.length > 0;
+		return remotes?.length > 0;
 	}
 
 	async hasTrackingBranch(): Promise<boolean> {
 		const branch = await this.getBranch();
-		return branch !== undefined && branch.tracking !== undefined;
+		return branch?.tracking != null;
 	}
 
 	@gate(() => '')
@@ -438,7 +438,7 @@ export class Repository implements Disposable {
 			this.fireChange(RepositoryChange.Repository);
 		} catch (ex) {
 			Logger.error(ex);
-			Messages.showGenericErrorMessage('Unable to pull repository');
+			void Messages.showGenericErrorMessage('Unable to pull repository');
 		}
 	}
 
@@ -464,7 +464,7 @@ export class Repository implements Disposable {
 			this.fireChange(RepositoryChange.Repository);
 		} catch (ex) {
 			Logger.error(ex);
-			Messages.showGenericErrorMessage('Unable to push repository');
+			void Messages.showGenericErrorMessage('Unable to push repository');
 		}
 	}
 
@@ -561,7 +561,7 @@ export class Repository implements Disposable {
 			this.fireChange(RepositoryChange.Repository);
 		} catch (ex) {
 			Logger.error(ex);
-			Messages.showGenericErrorMessage('Unable to switch to reference');
+			void Messages.showGenericErrorMessage('Unable to switch to reference');
 		}
 	}
 
@@ -572,13 +572,13 @@ export class Repository implements Disposable {
 	private async updateStarred(star: boolean) {
 		let starred = Container.context.workspaceState.get<StarredRepositories>(WorkspaceState.StarredRepositories);
 		if (starred === undefined) {
-			starred = Object.create(null);
+			starred = Object.create(null) as StarredRepositories;
 		}
 
 		if (star) {
-			starred![this.id] = true;
+			starred[this.id] = true;
 		} else {
-			const { [this.id]: _, ...rest } = starred!;
+			const { [this.id]: _, ...rest } = starred;
 			starred = rest;
 		}
 		await Container.context.workspaceState.update(WorkspaceState.StarredRepositories, starred);

@@ -5,7 +5,7 @@ const path = require('path');
 
 async function generate() {
 	/**
-	 * @type {{ [code: string]: string }}
+	 * @type {Record<string, string>}
 	 */
 	let map = Object.create(null);
 
@@ -77,7 +77,7 @@ async function generate() {
 }
 
 function download(url, destination) {
-	return new Promise((resolve, reject) => {
+	return new Promise(resolve => {
 		const stream = fs.createWriteStream(destination);
 		https.get(url, rsp => {
 			rsp.pipe(stream);
@@ -89,4 +89,4 @@ function download(url, destination) {
 	});
 }
 
-generate();
+void generate();

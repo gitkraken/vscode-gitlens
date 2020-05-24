@@ -155,6 +155,6 @@ export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements
 
 		this._log = log;
 		this.limit = log?.count;
-		this.triggerChange(false);
+		void this.triggerChange(false);
 	}
 }

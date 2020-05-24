@@ -115,7 +115,7 @@ export class FetchGitCommand extends QuickCommand<State> {
 			}
 
 			QuickCommand.endSteps(state);
-			this.execute(state as FetchStepState);
+			void this.execute(state as FetchStepState);
 		}
 
 		return state.counter < 0 ? StepResult.Break : undefined;

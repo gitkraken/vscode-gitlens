@@ -52,7 +52,9 @@ export class OpenBranchesOnRemoteCommand extends ActiveEditorCommand {
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenBranchesOnRemoteCommand');
-			window.showErrorMessage('Unable to open branches on remote provider. See output channel for more details');
+			void window.showErrorMessage(
+				'Unable to open branches on remote provider. See output channel for more details',
+			);
 		}
 	}
 }

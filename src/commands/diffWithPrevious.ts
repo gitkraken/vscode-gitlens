@@ -93,7 +93,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 
 			if (diffUris == null || diffUris.previous == null) {
 				if (diffUris == null) {
-					Messages.showCommitHasNoPreviousCommitWarningMessage();
+					void Messages.showCommitHasNoPreviousCommitWarningMessage();
 
 					return;
 				}
@@ -106,7 +106,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 				}
 
 				if (!diffUris.current.isUncommittedStaged) {
-					Messages.showCommitHasNoPreviousCommitWarningMessage();
+					void Messages.showCommitHasNoPreviousCommitWarningMessage();
 
 					return;
 				}
@@ -122,11 +122,11 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 			void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
 				repoPath: diffUris.current.repoPath,
 				lhs: {
-					sha: diffUris.previous.sha || '',
+					sha: diffUris.previous.sha ?? '',
 					uri: diffUris.previous.documentUri(),
 				},
 				rhs: {
-					sha: diffUris.current.sha || '',
+					sha: diffUris.current.sha ?? '',
 					uri: diffUris.current.documentUri(),
 				},
 				line: args.line,
@@ -138,7 +138,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 				'DiffWithPreviousCommand',
 				`getPreviousDiffUris(${gitUri.repoPath}, ${gitUri.fsPath}, ${gitUri.sha})`,
 			);
-			Messages.showGenericErrorMessage('Unable to open compare');
+			void Messages.showGenericErrorMessage('Unable to open compare');
 		}
 	}
 }

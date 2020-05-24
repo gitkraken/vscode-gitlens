@@ -4,9 +4,9 @@ import { IpcCommandParamsOf, IpcCommandType, IpcMessage, ReadyCommandType } from
 import { initializeAndWatchThemeColors } from './theme';
 
 interface VsCodeApi {
-	postMessage(msg: {}): void;
-	setState(state: {}): void;
-	getState(): {};
+	postMessage(msg: object): void;
+	setState(state: object): void;
+	getState(): object;
 }
 
 declare function acquireVsCodeApi(): VsCodeApi;

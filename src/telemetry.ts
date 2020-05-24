@@ -22,13 +22,13 @@
 //         Logger.log(`Telemetry.configure ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
 //     }
 
-//     static setContext(context?: { [key: string]: string }) {
+//     static setContext(context?: Record<string, string>) {
 //         if (_reporter === undefined) return;
 
 //         _reporter.setContext(context);
 //     }
 
-//     static trackEvent(name: string, properties?: { [key: string]: string }, measurements?: { [key: string]: number; }) {
+//     static trackEvent(name: string, properties?: Record<string, string>, measurements?: Record<string, number;>) {
 //         if (_reporter === undefined) return;
 
 //         _reporter.trackEvent(name, properties, measurements);
@@ -45,7 +45,7 @@
 
 //     private appInsights: ApplicationInsights;
 //     private _client: Client;
-//     private _context: { [key: string]: string };
+//     private _context: Record<string, string>;
 
 //     constructor(key: string) {
 //         const diagChannelState = process.env['APPLICATION_INSIGHTS_NO_DIAGNOSTIC_CHANNEL'];
@@ -75,7 +75,7 @@
 //         this.stripPII(this._client);
 //     }
 
-//     setContext(context?: { [key: string]: string }) {
+//     setContext(context?: Record<string, string>) {
 //         if (!this._context) {
 //             this._context = Object.create(null);
 
@@ -96,7 +96,7 @@
 //         Object.assign(this._client.commonProperties, this._context);
 //     }
 
-//     trackEvent(name: string, properties?: { [key: string]: string }, measurements?: { [key: string]: number; }) {
+//     trackEvent(name: string, properties?: Record<string, string>, measurements?: Record<string, number;>) {
 //         this._client.trackEvent(name, properties, measurements);
 //     }
 

@@ -27,7 +27,7 @@ const annotationDecoration: TextEditorDecorationType = window.createTextEditorDe
 });
 
 export class LineAnnotationController implements Disposable {
-	private _disposable: Disposable;
+	private readonly _disposable: Disposable;
 	private _editor: TextEditor | undefined;
 	private _enabled: boolean = false;
 
@@ -43,7 +43,7 @@ export class LineAnnotationController implements Disposable {
 		this.clearAnnotations(this._editor);
 
 		Container.lineTracker.stop(this);
-		this._disposable && this._disposable.dispose();
+		this._disposable.dispose();
 	}
 
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
@@ -284,14 +284,14 @@ export class LineAnnotationController implements Disposable {
 					cc,
 					`${GlyphChars.Dot} pull request queries (${timeouts.length}) took too long (over ${timeout} ms)`,
 				);
-				Promise.all(timeouts).then(() => {
+				void Promise.all(timeouts).then(() => {
 					if (editor === this._editor) {
 						Logger.debug(
 							cc,
 							`${GlyphChars.Dot} pull request queries (${timeouts.length}) completed; refreshing...`,
 						);
 
-						this.refresh(editor);
+						void this.refresh(editor);
 					}
 				});
 			}

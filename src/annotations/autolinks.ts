@@ -204,11 +204,9 @@ export class Autolinks implements Disposable {
 						`${superscript} ${
 							issue instanceof Promises.CancellationError
 								? 'Details timed out'
-								: issue
-								? `${issue.title}  ${GlyphChars.Dot}  ${
+								: `${issue.title}  ${GlyphChars.Dot}  ${
 										issue.closed ? 'Closed' : 'Opened'
 								  }, ${Dates.getFormatter(issue.closedDate ?? issue.date).fromNow()}`
-								: ''
 						}`,
 					);
 					return `${linkText}${superscript}`;

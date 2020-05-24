@@ -64,7 +64,7 @@ export class DocumentTracker<T> implements Disposable {
 
 	private _dirtyIdleTriggerDelay!: number;
 	private readonly _disposable: Disposable | undefined;
-	private readonly _documentMap: Map<TextDocument | string, TrackedDocument<T>> = new Map();
+	private readonly _documentMap = new Map<TextDocument | string, TrackedDocument<T>>();
 
 	constructor() {
 		this._disposable = Disposable.from(
@@ -120,7 +120,7 @@ export class DocumentTracker<T> implements Disposable {
 			this._timer = setTimeout(() => {
 				this._timer = undefined;
 
-				setCommandContext(CommandContext.ActiveFileStatus, undefined);
+				void setCommandContext(CommandContext.ActiveFileStatus, undefined);
 			}, 250);
 
 			return;
@@ -257,7 +257,7 @@ export class DocumentTracker<T> implements Disposable {
 			try {
 				document = await workspace.openTextDocument(documentOrId.documentUri({ useVersionedPath: true }));
 			} catch (ex) {
-				const msg = ex.toString();
+				const msg: string = ex?.toString() ?? '';
 				if (msg.includes('File seems to be binary and cannot be opened as text')) {
 					document = new BinaryTextDocument(documentOrId);
 				} else if (
@@ -394,25 +394,25 @@ class EmptyTextDocument implements TextDocument {
 		this.version = 0;
 	}
 
-	getText(range?: Range | undefined): string {
+	getText(_range?: Range | undefined): string {
 		throw new Error('Method not supported.');
 	}
 
-	getWordRangeAtPosition(position: Position, regex?: RegExp | undefined): Range | undefined {
+	getWordRangeAtPosition(_position: Position, _regex?: RegExp | undefined): Range | undefined {
 		throw new Error('Method not supported.');
 	}
 
 	lineAt(line: number): TextLine;
 	lineAt(position: Position): TextLine;
-	lineAt(position: any): TextLine {
+	lineAt(_position: any): TextLine {
 		throw new Error('Method not supported.');
 	}
 
-	offsetAt(position: Position): number {
+	offsetAt(_position: Position): number {
 		throw new Error('Method not supported.');
 	}
 
-	positionAt(offset: number): Position {
+	positionAt(_offset: number): Position {
 		throw new Error('Method not supported.');
 	}
 
@@ -420,11 +420,11 @@ class EmptyTextDocument implements TextDocument {
 		throw new Error('Method not supported.');
 	}
 
-	validatePosition(position: Position): Position {
+	validatePosition(_position: Position): Position {
 		throw new Error('Method not supported.');
 	}
 
-	validateRange(range: Range): Range {
+	validateRange(_range: Range): Range {
 		throw new Error('Method not supported.');
 	}
 }

@@ -50,7 +50,7 @@ export class CommitFileNode extends ViewRefFileNode {
 					ref: this.commit.sha,
 				});
 				if (log !== undefined) {
-					this.commit = log.commits.get(this.commit.sha) || this.commit;
+					this.commit = log.commits.get(this.commit.sha) ?? this.commit;
 				}
 			} else {
 				this.commit = commit;

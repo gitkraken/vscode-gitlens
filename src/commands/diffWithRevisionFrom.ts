@@ -28,7 +28,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 
 		const gitUri = await GitUri.fromUri(uri);
 		if (!gitUri.repoPath) {
-			Messages.showNoRepositoryWarningMessage('Unable to open file compare');
+			void Messages.showNoRepositoryWarningMessage('Unable to open file compare');
 
 			return;
 		}
@@ -71,7 +71,7 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 			lhs: {
 				sha: GitReference.isBranch(pick) && pick.remote ? `remotes/${ref}` : ref,
 				uri: renamedUri ?? gitUri,
-				title: renamedTitle || `${paths.basename(gitUri.fsPath)} (${GitRevision.shorten(ref)})`,
+				title: renamedTitle ?? `${paths.basename(gitUri.fsPath)} (${GitRevision.shorten(ref)})`,
 			},
 			rhs: {
 				sha: '',

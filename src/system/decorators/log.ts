@@ -44,6 +44,7 @@ export interface LogContext {
 export const LogInstanceNameFn = Symbol('logInstanceNameFn');
 
 export function logName<T>(fn: (c: T, name: string) => string) {
+	// eslint-disable-next-line @typescript-eslint/ban-types
 	return (target: Function) => {
 		(target as any)[LogInstanceNameFn] = fn;
 	};
@@ -51,7 +52,7 @@ export function logName<T>(fn: (c: T, name: string) => string) {
 
 export function debug<T extends (...arg: any) => any>(
 	options: {
-		args?: false | { [arg: string]: (arg: any) => string | false };
+		args?: false | Record<string, (arg: any) => string | false>;
 		condition?(...args: Parameters<T>): boolean;
 		correlate?: boolean;
 		enter?(...args: Parameters<T>): string;
@@ -69,7 +70,7 @@ type PromiseType<T> = T extends Promise<infer U> ? U : T;
 
 export function log<T extends (...arg: any) => any>(
 	options: {
-		args?: false | { [arg: number]: (arg: any) => string | false };
+		args?: false | Record<number, (arg: any) => string | false>;
 		condition?(...args: Parameters<T>): boolean;
 		correlate?: boolean;
 		debug?: boolean;
@@ -87,7 +88,8 @@ export function log<T extends (...arg: any) => any>(
 		| typeof Logger.debug
 		| typeof Logger.log;
 
-	return (target: any, key: string, descriptor: PropertyDescriptor & { [key: string]: any }) => {
+	return (target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>) => {
+		// eslint-disable-next-line @typescript-eslint/ban-types
 		let fn: Function | undefined;
 		let fnKey: string | undefined;
 		if (typeof descriptor.value === 'function') {
@@ -116,7 +118,8 @@ export function log<T extends (...arg: any) => any>(
 			let instanceName: string;
 			if (this != null) {
 				instanceName = Logger.toLoggableName(this);
-				if (this.constructor != null && this.constructor[LogInstanceNameFn]) {
+				// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+				if (this.constructor?.[LogInstanceNameFn]) {
 					instanceName = target.constructor[LogInstanceNameFn](this, instanceName);
 				}
 			} else {
@@ -198,9 +201,7 @@ export function log<T extends (...arg: any) => any>(
 							ex,
 							`${prefix}${enter}`,
 							`failed${
-								correlationContext !== undefined && correlationContext.exitDetails
-									? correlationContext.exitDetails
-									: emptyStr
+								correlationContext?.exitDetails ? correlationContext.exitDetails : emptyStr
 							}${timing}`,
 							loggableParams,
 						);
@@ -209,9 +210,7 @@ export function log<T extends (...arg: any) => any>(
 							ex,
 							prefix,
 							`failed${
-								correlationContext !== undefined && correlationContext.exitDetails
-									? correlationContext.exitDetails
-									: emptyStr
+								correlationContext?.exitDetails ? correlationContext.exitDetails : emptyStr
 							}${timing}`,
 						);
 					}
@@ -247,18 +246,14 @@ export function log<T extends (...arg: any) => any>(
 						if (!options.debug) {
 							Logger.logWithDebugParams(
 								`${prefix}${enter} ${exit}${
-									correlationContext !== undefined && correlationContext.exitDetails
-										? correlationContext.exitDetails
-										: emptyStr
+									correlationContext?.exitDetails ? correlationContext.exitDetails : emptyStr
 								}${timing}`,
 								loggableParams,
 							);
 						} else {
 							logFn(
 								`${prefix}${enter} ${exit}${
-									correlationContext !== undefined && correlationContext.exitDetails
-										? correlationContext.exitDetails
-										: emptyStr
+									correlationContext?.exitDetails ? correlationContext.exitDetails : emptyStr
 								}${timing}`,
 								loggableParams,
 							);
@@ -266,9 +261,7 @@ export function log<T extends (...arg: any) => any>(
 					} else {
 						logFn(
 							`${prefix} ${exit}${
-								correlationContext !== undefined && correlationContext.exitDetails
-									? correlationContext.exitDetails
-									: emptyStr
+								correlationContext?.exitDetails ? correlationContext.exitDetails : emptyStr
 							}${timing}`,
 						);
 					}

@@ -64,10 +64,10 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 				const parent = node.getParent();
 				if (parent !== undefined) {
 					item.tooltip = `${
-						item.tooltip || item.label
+						item.tooltip ?? item.label
 					}\n\nDBG:\nnode: ${node.toString()}\nparent: ${parent.toString()}\ncontext: ${item.contextValue}`;
 				} else {
-					item.tooltip = `${item.tooltip || item.label}\n\nDBG:\nnode: ${node.toString()}\ncontext: ${
+					item.tooltip = `${item.tooltip ?? item.label}\n\nDBG:\nnode: ${node.toString()}\ncontext: ${
 						item.contextValue
 					}`;
 				}
@@ -243,7 +243,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 		let children: ViewNode[];
 		let pagedChildren: ViewNode[];
 		while (queue.length > 1) {
-			if (token !== undefined && token.isCancellationRequested) return undefined;
+			if (token?.isCancellationRequested) return undefined;
 
 			node = queue.shift();
 			if (node === undefined) {
@@ -274,13 +274,13 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 
 				if (allowPaging && node.hasMore) {
 					while (true) {
-						if (token !== undefined && token.isCancellationRequested) return undefined;
+						if (token?.isCancellationRequested) return undefined;
 
 						await this.showMoreNodeChildren(node, defaultPageSize);
 
 						pagedChildren = await Promises.cancellable(
 							Promise.resolve(node.getChildren()),
-							token || 60000,
+							token ?? 60000,
 							{
 								onDidCancel: resolve => resolve([]),
 							},
@@ -305,7 +305,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 
 	@debug()
 	async refresh(reset: boolean = false) {
-		if (this._root !== undefined && this._root.refresh !== undefined) {
+		if (this._root?.refresh != null) {
 			await this._root.refresh(reset);
 		}
 
@@ -354,6 +354,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 			Logger.error(ex);
 
 			const section = Strings.splitSingle(this.id, '.')[1];
+			// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 			if (!configuration.get(section as any, 'enabled')) {
 				const actions: MessageItem[] = [{ title: 'Enable' }, { title: 'Cancel', isCloseAffordance: true }];
 

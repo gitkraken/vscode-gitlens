@@ -91,12 +91,12 @@ export class VslsHostService implements Disposable {
 	}
 
 	@log()
-	private onAvailabilityChanged(available: boolean) {
+	private onAvailabilityChanged(_available: boolean) {
 		// TODO
 	}
 
 	@debug()
-	private onWorkspaceFoldersChanged(e?: WorkspaceFoldersChangeEvent) {
+	private onWorkspaceFoldersChanged(_e?: WorkspaceFoldersChangeEvent) {
 		if (workspace.workspaceFolders === undefined || workspace.workspaceFolders.length === 0) return;
 
 		const cc = Logger.getCorrelationContext();
@@ -127,7 +127,7 @@ export class VslsHostService implements Disposable {
 	@log()
 	private async onGitCommandRequest(
 		request: GitCommandRequest,
-		cancellation: CancellationToken,
+		_cancellation: CancellationToken,
 	): Promise<GitCommandResponse> {
 		const { options, args } = request;
 
@@ -137,7 +137,7 @@ export class VslsHostService implements Disposable {
 		let isRootWorkspace = false;
 		if (options.cwd !== undefined && options.cwd.length > 0 && this._sharedToLocalPaths !== undefined) {
 			// This is all so ugly, but basically we are converting shared paths to local paths
-			if (this._sharedPathsRegex !== undefined && this._sharedPathsRegex.test(options.cwd)) {
+			if (this._sharedPathsRegex?.test(options.cwd)) {
 				options.cwd = Strings.normalizePath(options.cwd).replace(this._sharedPathsRegex, (match, shared) => {
 					if (!isRootWorkspace) {
 						isRootWorkspace = shared === '/~0';
@@ -172,7 +172,7 @@ export class VslsHostService implements Disposable {
 					args.splice(i, 1, arg.substr(1));
 				}
 
-				if (this._sharedPathsRegex !== undefined && this._sharedPathsRegex.test(arg)) {
+				if (this._sharedPathsRegex?.test(arg)) {
 					args.splice(
 						i,
 						1,
@@ -204,7 +204,7 @@ export class VslsHostService implements Disposable {
 	@log()
 	private async onRepositoriesInFolderRequest(
 		request: RepositoriesInFolderRequest,
-		cancellation: CancellationToken,
+		_cancellation: CancellationToken,
 	): Promise<RepositoriesInFolderResponse> {
 		const uri = this.convertSharedUriToLocal(Uri.parse(request.folderUri));
 		const normalized = Strings.normalizePath(uri.fsPath, { stripTrailingSlash: true }).toLowerCase();

@@ -70,9 +70,7 @@ export class Configuration {
 		this._onDidChange.fire(e);
 	}
 
-	readonly initializingChangeEvent: ConfigurationChangeEvent = {
-		affectsConfiguration: (section: string, scope?: ConfigurationScope) => true,
-	};
+	readonly initializingChangeEvent: ConfigurationChangeEvent = { affectsConfiguration: () => true };
 
 	get(): Config;
 	get<S1 extends keyof Config>(s1: S1, scope?: ConfigurationScope | null, defaultValue?: Config[S1]): Config[S1];

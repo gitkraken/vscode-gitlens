@@ -52,15 +52,15 @@ export class GitStashCommit extends GitLogCommit {
 		files?: GitFile[] | null;
 	}): GitLogCommit {
 		return new GitStashCommit(
-			changes.type || this.type,
+			changes.type ?? this.type,
 			this.stashName,
 			this.repoPath,
 			this.getChangedValue(changes.sha, this.sha)!,
-			changes.authorDate || this.authorDate,
-			changes.committedDate || this.committerDate,
-			changes.message || this.message,
-			changes.fileName || this.fileName,
-			this.getChangedValue(changes.files, this.files) || [],
+			changes.authorDate ?? this.authorDate,
+			changes.committedDate ?? this.committerDate,
+			changes.message ?? this.message,
+			changes.fileName ?? this.fileName,
+			this.getChangedValue(changes.files, this.files) ?? [],
 		);
 	}
 }

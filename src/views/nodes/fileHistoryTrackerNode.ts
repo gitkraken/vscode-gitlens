@@ -47,8 +47,8 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 				];
 			}
 
-			const uri = this._fileUri || this.uri;
-			const commitish: GitCommitish = { ...uri, repoPath: uri.repoPath!, sha: this._base || uri.sha };
+			const uri = this._fileUri ?? this.uri;
+			const commitish: GitCommitish = { ...uri, repoPath: uri.repoPath!, sha: this._base ?? uri.sha };
 			const fileUri = new GitUri(uri, commitish);
 			this._child = new FileHistoryNode(fileUri, this.view, this);
 		}
@@ -109,7 +109,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 			if (
 				this.uri === unknownGitUri ||
 				(Container.git.isTrackable(this.uri) &&
-					window.visibleTextEditors.some(e => e.document && e.document.uri.path === this.uri.path))
+					window.visibleTextEditors.some(e => e.document?.uri.path === this.uri.path))
 			) {
 				return true;
 			}
@@ -141,7 +141,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 			}
 		}
 
-		if (this.uri !== unknownGitUri && UriComparer.equals(uri || gitUri, this.uri)) {
+		if (this.uri !== unknownGitUri && UriComparer.equals(uri ?? gitUri, this.uri)) {
 			return true;
 		}
 
@@ -188,7 +188,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	}
 
 	@debug({ args: false })
-	private onActiveEditorChanged(editor: TextEditor | undefined) {
+	private onActiveEditorChanged(_editor: TextEditor | undefined) {
 		void this.triggerChange();
 	}
 }

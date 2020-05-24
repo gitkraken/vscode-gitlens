@@ -380,7 +380,7 @@ export async function* pickBranchStep<
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
-		onDidPressKey: async (quickpick, key) => {
+		onDidPressKey: async quickpick => {
 			if (quickpick.activeItems.length === 0) return;
 
 			await Container.repositoriesView.revealBranch(quickpick.activeItems[0].item, {
@@ -445,7 +445,7 @@ export async function* pickBranchesStep<
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
-		onDidPressKey: async (quickpick, key) => {
+		onDidPressKey: async quickpick => {
 			if (quickpick.activeItems.length === 0) return;
 
 			await Container.repositoriesView.revealBranch(quickpick.activeItems[0].item, {
@@ -558,7 +558,7 @@ export async function* pickBranchOrTagStep<
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
-		onDidPressKey: (quickpick, key) => {
+		onDidPressKey: quickpick => {
 			if (quickpick.activeItems.length === 0) return;
 
 			const item = quickpick.activeItems[0].item;
@@ -674,7 +674,7 @@ export async function* pickBranchOrTagStepMultiRepo<
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
-		onDidPressKey: (quickpick, key) => {
+		onDidPressKey: quickpick => {
 			if (quickpick.activeItems.length === 0) return;
 
 			const item = quickpick.activeItems[0].item;
@@ -1001,7 +1001,7 @@ export async function* pickRepositoryStep<
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
-		onDidPressKey: (quickpick, key) => {
+		onDidPressKey: quickpick => {
 			if (quickpick.activeItems.length === 0) return;
 
 			void Container.repositoriesView.revealRepository(quickpick.activeItems[0].item.path, {
@@ -1064,7 +1064,7 @@ export async function* pickRepositoriesStep<
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
-		onDidPressKey: (quickpick, key) => {
+		onDidPressKey: quickpick => {
 			if (quickpick.activeItems.length === 0) return;
 
 			void Container.repositoriesView.revealRepository(quickpick.activeItems[0].item.path, {
@@ -1153,7 +1153,7 @@ export function* pickStashStep<
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
-		onDidPressKey: async (quickpick, key) => {
+		onDidPressKey: async quickpick => {
 			if (quickpick.activeItems.length === 0) return;
 
 			await Container.repositoriesView.revealStash(quickpick.activeItems[0].item, {
@@ -1218,7 +1218,7 @@ export async function* pickTagsStep<
 			}
 		},
 		keys: ['right', 'alt+right', 'ctrl+right'],
-		onDidPressKey: async (quickpick, key) => {
+		onDidPressKey: async quickpick => {
 			if (quickpick.activeItems.length === 0) return;
 
 			await Container.repositoriesView.revealTag(quickpick.activeItems[0].item, {

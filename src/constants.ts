@@ -130,7 +130,7 @@ export enum GlobalState {
 	GitLensVersion = 'gitlensVersion',
 }
 
-export const ImageMimetypes: { [key: string]: string } = {
+export const ImageMimetypes: Record<string, string> = {
 	'.png': 'image/png',
 	'.gif': 'image/gif',
 	'.jpg': 'image/jpeg',

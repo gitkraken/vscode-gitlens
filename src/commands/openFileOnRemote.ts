@@ -68,7 +68,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 							editor.selection.end.with({ line: editor.selection.end.line + 1 }),
 					  )
 					: undefined;
-			let sha = args.sha || gitUri.sha;
+			let sha = args.sha ?? gitUri.sha;
 
 			if (args.branch == null && sha != null && !GitRevision.isSha(sha) && remotes.length !== 0) {
 				const [remoteName, branchName] = Strings.splitSingle(sha, '/');
@@ -116,7 +116,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenFileOnRemoteCommand');
-			window.showErrorMessage('Unable to open file on remote provider. See output channel for more details');
+			void window.showErrorMessage('Unable to open file on remote provider. See output channel for more details');
 		}
 	}
 }

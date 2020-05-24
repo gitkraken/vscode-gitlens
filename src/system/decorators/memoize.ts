@@ -18,7 +18,8 @@ function defaultResolver(...args: any[]): string {
 }
 
 export function memoize<T extends (...arg: any) => any>(resolver?: (...args: Parameters<T>) => string) {
-	return (target: any, key: string, descriptor: PropertyDescriptor & { [key: string]: any }) => {
+	return (target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>) => {
+		// eslint-disable-next-line @typescript-eslint/ban-types
 		let fn: Function | undefined;
 		let fnKey: string | undefined;
 
@@ -41,7 +42,7 @@ export function memoize<T extends (...arg: any) => any>(resolver?: (...args: Par
 			const prop =
 				fnKey === 'get' || args.length === 0
 					? memoizeKey
-					: `${memoizeKey}$${(resolver || defaultResolver)(...(args as Parameters<T>))}`;
+					: `${memoizeKey}$${(resolver ?? defaultResolver)(...(args as Parameters<T>))}`;
 
 			if (Object.prototype.hasOwnProperty.call(this, prop)) {
 				result = this[prop];

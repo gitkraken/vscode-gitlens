@@ -22,7 +22,7 @@ export class ReflogRecordNode extends ViewNode<ViewWithFiles> implements Pageabl
 		date: Date,
 	): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${sha}|${selector}|${command}|${
-			commandArgs || ''
+			commandArgs ?? ''
 		}|${date.getTime()})`;
 	}
 
@@ -113,6 +113,6 @@ export class ReflogRecordNode extends ViewNode<ViewWithFiles> implements Pageabl
 
 		this._log = log;
 		this.limit = log?.count;
-		this.triggerChange(false);
+		void this.triggerChange(false);
 	}
 }

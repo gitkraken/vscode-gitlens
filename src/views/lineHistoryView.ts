@@ -75,7 +75,7 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode> {
 		}
 
 		if (configuration.changed(e, 'views', 'lineHistory', 'enabled')) {
-			setCommandContext(CommandContext.ViewsLineHistoryEditorFollowing, true);
+			void setCommandContext(CommandContext.ViewsLineHistoryEditorFollowing, true);
 		}
 
 		if (configuration.changed(e, 'views', 'lineHistory', 'location')) {
@@ -98,7 +98,7 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode> {
 	}
 
 	private setEditorFollowing(enabled: boolean) {
-		setCommandContext(CommandContext.ViewsLineHistoryEditorFollowing, enabled);
+		void setCommandContext(CommandContext.ViewsLineHistoryEditorFollowing, enabled);
 		if (this._root !== undefined) {
 			this._root.setEditorFollowing(enabled);
 		}

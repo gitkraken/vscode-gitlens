@@ -77,7 +77,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
 		const context: Context = {
 			repos: [...(await Container.git.getOrderedRepositories())],
-			cache: new Map(),
+			cache: new Map<string, Promise<GitLog | undefined>>(),
 			destination: undefined!,
 			pickCommit: false,
 			selectedBranchOrTag: undefined,
@@ -192,7 +192,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 		const count =
 			(await Container.git.getCommitCount(state.repo.path, [
 				GitRevision.createRange(context.destination.name, state.reference.name),
-			])) || 0;
+			])) ?? 0;
 		if (count === 0) {
 			const step: QuickPickStep<DirectiveQuickPickItem> = this.createConfirmStep(
 				appendReposToTitle(`Confirm ${context.title}`, state, context),

@@ -66,7 +66,7 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 				}`,
 		},
 	})
-	private onBlameStateChanged(e: DocumentBlameStateChangeEvent<GitDocumentState>) {
+	private onBlameStateChanged(_e: DocumentBlameStateChangeEvent<GitDocumentState>) {
 		this.trigger('editor');
 	}
 

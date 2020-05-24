@@ -20,7 +20,7 @@ export class LineTracker<T> implements Disposable {
 	protected _disposable: Disposable | undefined;
 	private _editor: TextEditor | undefined;
 
-	private readonly _state: Map<number, T | undefined> = new Map();
+	private readonly _state = new Map<number, T | undefined>();
 
 	dispose() {
 		for (const subscriber of this._subscriptions.keys()) {
@@ -67,7 +67,7 @@ export class LineTracker<T> implements Disposable {
 	}
 
 	includes(line: number): boolean {
-		return this._lines !== undefined && this._lines.includes(line);
+		return this._lines?.includes(line) ?? false;
 	}
 
 	includesAll(lines: number[] | undefined): boolean {
@@ -82,7 +82,7 @@ export class LineTracker<T> implements Disposable {
 		this._state.clear();
 	}
 
-	private _subscriptions: Map<any, Disposable[]> = new Map();
+	private _subscriptions = new Map<any, Disposable[]>();
 
 	isSubscribed(subscriber: any) {
 		return this._subscriptions.has(subscriber);

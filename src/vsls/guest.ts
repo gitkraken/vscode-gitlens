@@ -76,7 +76,7 @@ export class VslsGuestService implements Disposable {
 	private sendRequest<TRequest, TResponse>(
 		requestType: RequestType<TRequest, TResponse>,
 		request: TRequest,
-		cancellation?: CancellationToken,
+		_cancellation?: CancellationToken,
 	): Promise<TResponse> {
 		return this._service.request(requestType.name, [request]);
 	}

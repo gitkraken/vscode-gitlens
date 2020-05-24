@@ -1,7 +1,7 @@
 'use strict';
 import * as emojis from './emojis.json';
 
-const emojiMap: { [key: string]: string } = (emojis as any).default;
+const emojiMap = (emojis as any).default as Record<string, string>;
 const emojiRegex = /:([-+_a-z0-9]+):/g;
 
 export function emojify(message: string) {

@@ -130,7 +130,7 @@ export class OpenOnRemoteCommand extends Command {
 			void (await pick?.execute());
 		} catch (ex) {
 			Logger.error(ex, 'OpenOnRemoteCommand');
-			Messages.showGenericErrorMessage('Unable to open in remote provider');
+			void Messages.showGenericErrorMessage('Unable to open in remote provider');
 		}
 	}
 }

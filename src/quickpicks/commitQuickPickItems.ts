@@ -67,7 +67,7 @@ export class CommitFileQuickPickItem extends CommandQuickPickItem {
 
 export class CommitCopyIdQuickPickItem extends CommandQuickPickItem {
 	constructor(private readonly commit: GitLogCommit, item?: QuickPickItem) {
-		super(item || '$(clippy) Copy Commit ID');
+		super(item ?? '$(clippy) Copy Commit ID');
 	}
 
 	execute(): Promise<void> {
@@ -76,13 +76,13 @@ export class CommitCopyIdQuickPickItem extends CommandQuickPickItem {
 
 	async onDidPressKey(key: Keys): Promise<void> {
 		await super.onDidPressKey(key);
-		window.showInformationMessage('Commit ID copied to the clipboard');
+		void window.showInformationMessage('Commit ID copied to the clipboard');
 	}
 }
 
 export class CommitCopyMessageQuickPickItem extends CommandQuickPickItem {
 	constructor(private readonly commit: GitLogCommit, item?: QuickPickItem) {
-		super(item || '$(clippy) Copy Message');
+		super(item ?? '$(clippy) Copy Message');
 	}
 
 	execute(): Promise<void> {
@@ -91,7 +91,9 @@ export class CommitCopyMessageQuickPickItem extends CommandQuickPickItem {
 
 	async onDidPressKey(key: Keys): Promise<void> {
 		await super.onDidPressKey(key);
-		window.showInformationMessage(`${this.commit.isStash ? 'Stash' : 'Commit'} Message copied to the clipboard`);
+		void window.showInformationMessage(
+			`${this.commit.isStash ? 'Stash' : 'Commit'} Message copied to the clipboard`,
+		);
 	}
 }
 
@@ -157,7 +159,7 @@ export class CommitOpenChangesWithWorkingCommandQuickPickItem extends CommandQui
 
 export class CommitOpenDirectoryCompareCommandQuickPickItem extends CommandQuickPickItem {
 	constructor(private readonly commit: GitLogCommit, item?: QuickPickItem) {
-		super(item || '$(git-compare) Open Directory Compare');
+		super(item ?? '$(git-compare) Open Directory Compare');
 	}
 
 	execute(): Promise<void> {
@@ -167,7 +169,7 @@ export class CommitOpenDirectoryCompareCommandQuickPickItem extends CommandQuick
 
 export class CommitOpenDirectoryCompareWithWorkingCommandQuickPickItem extends CommandQuickPickItem {
 	constructor(private readonly commit: GitLogCommit, item?: QuickPickItem) {
-		super(item || '$(git-compare) Open Directory Compare with Working Tree');
+		super(item ?? '$(git-compare) Open Directory Compare with Working Tree');
 	}
 
 	execute(): Promise<void> {
@@ -187,7 +189,7 @@ export class CommitOpenFilesCommandQuickPickItem extends CommandQuickPickItem {
 
 export class CommitOpenFileCommandQuickPickItem extends CommandQuickPickItem {
 	constructor(private readonly commit: GitLogCommit, private readonly file: string | GitFile, item?: QuickPickItem) {
-		super(item || '$(file) Open File');
+		super(item ?? '$(file) Open File');
 	}
 
 	execute(options?: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
@@ -207,7 +209,7 @@ export class CommitOpenRevisionsCommandQuickPickItem extends CommandQuickPickIte
 
 export class CommitOpenRevisionCommandQuickPickItem extends CommandQuickPickItem {
 	constructor(private readonly commit: GitLogCommit, private readonly file: string | GitFile, item?: QuickPickItem) {
-		super(item || '$(file) Open File at Revision');
+		super(item ?? '$(file) Open File at Revision');
 	}
 
 	execute(options?: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
@@ -217,7 +219,7 @@ export class CommitOpenRevisionCommandQuickPickItem extends CommandQuickPickItem
 
 export class CommitApplyFileChangesCommandQuickPickItem extends CommandQuickPickItem {
 	constructor(private readonly commit: GitLogCommit, private readonly file: string | GitFile, item?: QuickPickItem) {
-		super(item || 'Apply Changes');
+		super(item ?? 'Apply Changes');
 	}
 
 	async execute(): Promise<void> {
@@ -228,7 +230,7 @@ export class CommitApplyFileChangesCommandQuickPickItem extends CommandQuickPick
 export class CommitRestoreFileChangesCommandQuickPickItem extends CommandQuickPickItem {
 	constructor(private readonly commit: GitLogCommit, private readonly file: string | GitFile, item?: QuickPickItem) {
 		super(
-			item || {
+			item ?? {
 				label: 'Restore',
 				description: 'aka checkout',
 			},

@@ -198,7 +198,7 @@ export class Messages {
 	}
 
 	private static suppressedMessage(suppressionKey: SuppressedMessages) {
-		const messages: { [key: string]: boolean | undefined } = configuration.get('advanced', 'messages');
+		const messages: Record<string, boolean | undefined> = configuration.get('advanced', 'messages');
 
 		messages[suppressionKey] = true;
 

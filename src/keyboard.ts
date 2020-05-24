@@ -36,7 +36,7 @@ export class KeyboardScope implements Disposable {
 	constructor(mapping: KeyMapping) {
 		this._mapping = mapping;
 		for (const key in this._mapping) {
-			this._mapping[key] = this._mapping[key] || keyNoopCommand;
+			this._mapping[key] = this._mapping[key] ?? keyNoopCommand;
 		}
 
 		mappings.push(this._mapping);
@@ -96,9 +96,9 @@ export class KeyboardScope implements Disposable {
 
 		this._paused = true;
 		const mapping = (Object.keys(this._mapping) as Keys[]).reduce((accumulator, key) => {
-			accumulator[key] = keys === undefined ? false : keys.includes(key) ? false : this._mapping[key];
+			accumulator[key] = keys == null || keys.includes(key) ? undefined : this._mapping[key];
 			return accumulator;
-		}, {} as any);
+		}, Object.create(null) as KeyMapping);
 
 		await this.updateKeyCommandsContext(mapping);
 	}
@@ -143,14 +143,12 @@ export class KeyboardScope implements Disposable {
 	}
 
 	private async updateKeyCommandsContext(mapping: KeyMapping) {
-		await Promise.all(
-			keys.map(key => setCommandContext(`${CommandContext.Key}:${key}`, Boolean(mapping && mapping[key]))),
-		);
+		await Promise.all(keys.map(key => setCommandContext(`${CommandContext.Key}:${key}`, Boolean(mapping?.[key]))));
 	}
 }
 
 export class Keyboard implements Disposable {
-	private _disposable: Disposable;
+	private readonly _disposable: Disposable;
 
 	constructor() {
 		const subscriptions = keys.map(key =>
@@ -160,7 +158,7 @@ export class Keyboard implements Disposable {
 	}
 
 	dispose() {
-		this._disposable && this._disposable.dispose();
+		this._disposable.dispose();
 	}
 
 	@log<Keyboard['createScope']>({
@@ -184,7 +182,7 @@ export class Keyboard implements Disposable {
 	}
 
 	@log()
-	async execute(key: Keys): Promise<{} | undefined> {
+	async execute(key: Keys): Promise<void> {
 		const cc = Logger.getCorrelationContext();
 
 		if (!mappings.length) {
@@ -192,7 +190,7 @@ export class Keyboard implements Disposable {
 				cc.exitDetails = ' \u2022 skipped, no mappings';
 			}
 
-			return undefined;
+			return;
 		}
 
 		try {
@@ -207,15 +205,12 @@ export class Keyboard implements Disposable {
 					cc.exitDetails = ' \u2022 skipped, no callback';
 				}
 
-				return undefined;
+				return;
 			}
 
-			await command.onDidPressKey(key);
-
-			return undefined;
+			void (await command.onDidPressKey(key));
 		} catch (ex) {
 			Logger.error(ex, cc);
-			return undefined;
 		}
 	}
 }

@@ -29,7 +29,7 @@ export class ClearFileAnnotationsCommand extends EditorCommand {
 			void (await Container.fileAnnotations.clear(editor));
 		} catch (ex) {
 			Logger.error(ex, 'ClearFileAnnotationsCommand');
-			Messages.showGenericErrorMessage('Unable to clear file annotations');
+			void Messages.showGenericErrorMessage('Unable to clear file annotations');
 		}
 	}
 }
@@ -110,6 +110,8 @@ async function toggleFileAnnotations(
 		));
 	} catch (ex) {
 		Logger.error(ex, 'ToggleFileAnnotationsCommand');
-		window.showErrorMessage(`Unable to toggle file ${args.type} annotations. See output channel for more details`);
+		void window.showErrorMessage(
+			`Unable to toggle file ${args.type} annotations. See output channel for more details`,
+		);
 	}
 }

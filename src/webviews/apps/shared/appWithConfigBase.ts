@@ -14,7 +14,7 @@ import { Dates } from '../../../system/date';
 const dateFormatter = Dates.getFormatter(new Date('Wed Jul 25 2018 19:18:00 GMT-0400'));
 
 export abstract class AppWithConfig<TState extends AppStateWithConfig> extends App<TState> {
-	private _changes: { [key: string]: any } = Object.create(null);
+	private _changes = Object.create(null) as Record<string, any>;
 	private _updating: boolean = false;
 
 	constructor(appName: string, state: TState) {
@@ -78,7 +78,7 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 			scope: this.getSettingsScope(),
 		});
 
-		this._changes = Object.create(null);
+		this._changes = Object.create(null) as Record<string, any>;
 	}
 
 	protected getSettingsScope(): 'user' | 'workspace' {
@@ -126,7 +126,7 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 			case 'object': {
 				const props = element.name.split('.');
 				const settingName = props.splice(0, 1)[0];
-				const setting = this.getSettingValue(settingName) || Object.create(null);
+				const setting = this.getSettingValue(settingName) ?? Object.create(null);
 
 				if (element.checked) {
 					set(setting, props.join('.'), fromCheckboxValue(element.value));
@@ -139,7 +139,7 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 				break;
 			}
 			case 'array': {
-				const setting = this.getSettingValue(element.name) || [];
+				const setting = this.getSettingValue(element.name) ?? [];
 				if (Array.isArray(setting)) {
 					if (element.checked) {
 						if (!setting.includes(element.value)) {
@@ -203,7 +203,7 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 		e.preventDefault();
 
 		const el = e.target as HTMLElement;
-		if (el && el.matches('[data-token]')) {
+		if (el?.matches('[data-token]')) {
 			this.onTokenMouseDown(el, e);
 		}
 	}
@@ -226,7 +226,7 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 		e.preventDefault();
 	}
 
-	private evaluateStateExpression(expression: string, changes: { [key: string]: string | boolean }): boolean {
+	private evaluateStateExpression(expression: string, changes: Record<string, string | boolean>): boolean {
 		let state = false;
 		for (const expr of expression.trim().split('&')) {
 			const [lhs, op, rhs] = parseStateExpression(expr);
@@ -236,7 +236,7 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 					// Equals
 					let value = changes[lhs];
 					if (value === undefined) {
-						value = this.getSettingValue<string | boolean>(lhs) || false;
+						value = this.getSettingValue<string | boolean>(lhs) ?? false;
 					}
 					state = rhs !== undefined ? rhs === String(value) : Boolean(value);
 					break;
@@ -245,8 +245,9 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 					// Not equals
 					let value = changes[lhs];
 					if (value === undefined) {
-						value = this.getSettingValue<string | boolean>(lhs) || false;
+						value = this.getSettingValue<string | boolean>(lhs) ?? false;
 					}
+					// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 					state = rhs !== undefined ? rhs !== String(value) : !value;
 					break;
 				}
@@ -275,19 +276,19 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 		try {
 			for (const el of document.querySelectorAll<HTMLInputElement>('input[type=checkbox][data-setting]')) {
 				if (el.dataset.settingType === 'array') {
-					el.checked = (this.getSettingValue<string[]>(el.name) || []).includes(el.value);
+					el.checked = (this.getSettingValue<string[]>(el.name) ?? []).includes(el.value);
 				} else if (el.dataset.valueOff != null) {
 					const value = this.getSettingValue<string>(el.name);
 					el.checked = el.dataset.valueOff !== value;
 				} else {
-					el.checked = this.getSettingValue<boolean>(el.name) || false;
+					el.checked = this.getSettingValue<boolean>(el.name) ?? false;
 				}
 			}
 
 			for (const el of document.querySelectorAll<HTMLInputElement>(
 				'input[type=text][data-setting], input:not([type])[data-setting]',
 			)) {
-				el.value = this.getSettingValue<string>(el.name) || '';
+				el.value = this.getSettingValue<string>(el.name) ?? '';
 			}
 
 			for (const el of document.querySelectorAll<HTMLSelectElement>('select[data-setting]')) {
@@ -319,7 +320,7 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 		}
 	}
 
-	private setEnablement(state: { [key: string]: string | boolean }) {
+	private setEnablement(state: Record<string, string | boolean>) {
 		for (const el of document.querySelectorAll<HTMLElement>('[data-enablement]')) {
 			const disabled = !this.evaluateStateExpression(el.dataset.enablement!, state);
 			if (disabled) {
@@ -339,7 +340,7 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 		}
 	}
 
-	private setVisibility(state: { [key: string]: string | boolean }) {
+	private setVisibility(state: Record<string, string | boolean>) {
 		for (const el of document.querySelectorAll<HTMLElement>('[data-visibility]')) {
 			el.classList.toggle('hidden', !this.evaluateStateExpression(el.dataset.visibility!, state));
 		}
@@ -371,11 +372,11 @@ function ensureIfBoolean(value: string | boolean): string | boolean {
 	return value;
 }
 
-function get<T>(o: { [key: string]: any }, path: string): T | undefined {
+function get<T>(o: Record<string, any>, path: string): T | undefined {
 	return path.split('.').reduce((o = {}, key) => (o == null ? undefined : o[key]), o) as T;
 }
 
-function set(o: { [key: string]: any }, path: string, value: any): { [key: string]: any } {
+function set(o: Record<string, any>, path: string, value: any): Record<string, any> {
 	const props = path.split('.');
 	const length = props.length;
 	const lastIndex = length - 1;
@@ -412,8 +413,8 @@ function parseStateExpression(expression: string): [string, string, string | boo
 	return [lhs.trim(), op !== undefined ? op.trim() : '=', rhs !== undefined ? rhs.trim() : rhs];
 }
 
-function flatten(o: { [key: string]: any }, path?: string): { [key: string]: any } {
-	const results: { [key: string]: any } = {};
+function flatten(o: Record<string, any>, path?: string): Record<string, any> {
+	const results: Record<string, any> = {};
 
 	for (const key in o) {
 		const value = o[key];

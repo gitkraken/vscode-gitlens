@@ -78,7 +78,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		} else if (typeof shaOrLine === 'number') {
 			if (shaOrLine >= 0) {
 				const commitLine = blame.lines[shaOrLine];
-				sha = commitLine && commitLine.sha;
+				sha = commitLine?.sha;
 			}
 		} else {
 			sha = Iterables.first(blame.commits.values()).sha;
@@ -211,7 +211,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 	async provideDetailsHover(
 		document: TextDocument,
 		position: Position,
-		token: CancellationToken,
+		_token: CancellationToken,
 	): Promise<Hover | undefined> {
 		const commit = await this.getCommitForHover(position);
 		if (commit === undefined) return undefined;
@@ -231,11 +231,11 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 
 		let editorLine = this.editor.selection.active.line;
 		const line = editorLine + 1;
-		const commitLine = commit.lines.find(l => l.line === line) || commit.lines[0];
+		const commitLine = commit.lines.find(l => l.line === line) ?? commit.lines[0];
 		editorLine = commitLine.originalLine - 1;
 
 		const message = await Hovers.detailsMessage(
-			logCommit || commit,
+			logCommit ?? commit,
 			await GitUri.fromUri(document.uri),
 			editorLine,
 			Container.config.defaultDateFormat,
@@ -250,7 +250,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 	async provideChangesHover(
 		document: TextDocument,
 		position: Position,
-		token: CancellationToken,
+		_token: CancellationToken,
 	): Promise<Hover | undefined> {
 		const commit = await this.getCommitForHover(position);
 		if (commit === undefined) return undefined;

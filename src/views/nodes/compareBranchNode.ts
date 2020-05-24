@@ -31,6 +31,7 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
 			this._compareWith = {
 				ref: compareWith,
 				notation: Container.config.advanced.useSymmetricDifferenceNotation ? '...' : '..',
+				// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 				type: this.view.config.showBranchComparison || ViewShowBranchComparison.Working,
 			};
 		} else {
@@ -48,7 +49,7 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
 		if (this._children === undefined) {
 			let ref1 = this._compareWith.ref || 'HEAD';
 			if (this.comparisonNotation === '..') {
-				ref1 = (await Container.git.getMergeBase(this.branch.repoPath, ref1, this.branch.ref)) || ref1;
+				ref1 = (await Container.git.getMergeBase(this.branch.repoPath, ref1, this.branch.ref)) ?? ref1;
 			}
 
 			this._children = [
@@ -158,6 +159,7 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
 	}
 
 	private get comparisonType() {
+		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 		return this._compareWith?.type ?? (this.view.config.showBranchComparison || ViewShowBranchComparison.Working);
 	}
 
@@ -174,7 +176,7 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
 		);
 		if (pick === undefined || pick instanceof CommandQuickPickItem) return;
 
-		this.updateCompareWith({
+		await this.updateCompareWith({
 			ref: pick.ref,
 			notation: this.comparisonNotation,
 			type: this.comparisonType,
@@ -188,7 +190,7 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
 		const log = await Container.git.getLog(this.uri.repoPath!, {
 			limit: limit,
 			ref: GitRevision.createRange(
-				this._compareWith?.ref || 'HEAD',
+				this._compareWith?.ref ?? 'HEAD',
 				this.compareWithWorkingTree ? '' : this.branch.ref,
 				this.comparisonNotation,
 			),
@@ -229,7 +231,7 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
 		const diff = await Container.git.getDiffStatus(
 			this.uri.repoPath!,
 			GitRevision.createRange(
-				this._compareWith?.ref || 'HEAD',
+				this._compareWith?.ref ?? 'HEAD',
 				this.compareWithWorkingTree ? '' : this.branch.ref,
 				this.diffComparisonNotation,
 			),
@@ -246,13 +248,13 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
 
 		let comparisons = Container.context.workspaceState.get<BranchComparisons>(WorkspaceState.BranchComparisons);
 		if (comparisons === undefined) {
-			comparisons = Object.create(null);
+			comparisons = Object.create(null) as BranchComparisons;
 		}
 
 		if (compareWith) {
-			comparisons![this.branch.id] = { ...compareWith };
+			comparisons[this.branch.id] = { ...compareWith };
 		} else {
-			const { [this.branch.id]: _, ...rest } = comparisons!;
+			const { [this.branch.id]: _, ...rest } = comparisons;
 			comparisons = rest;
 		}
 		await Container.context.workspaceState.update(WorkspaceState.BranchComparisons, comparisons);

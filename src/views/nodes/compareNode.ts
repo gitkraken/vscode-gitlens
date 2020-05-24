@@ -88,7 +88,7 @@ export class CompareNode extends ViewNode<CompareView> {
 	@log()
 	clear() {
 		this._selectedRef = undefined;
-		setCommandContext(CommandContext.ViewsCanCompare, false);
+		void setCommandContext(CommandContext.ViewsCanCompare, false);
 
 		this._children.length = 0;
 		this.view.triggerNodeChange();
@@ -99,7 +99,7 @@ export class CompareNode extends ViewNode<CompareView> {
 	})
 	dismiss(node: ViewNode) {
 		this._selectedRef = undefined;
-		setCommandContext(CommandContext.ViewsCanCompare, false);
+		void setCommandContext(CommandContext.ViewsCanCompare, false);
 
 		if (this._children.length !== 0) {
 			const index = this._children.indexOf(node);
@@ -165,7 +165,7 @@ export class CompareNode extends ViewNode<CompareView> {
 		const ref1 = this._selectedRef;
 
 		this._selectedRef = undefined;
-		setCommandContext(CommandContext.ViewsCanCompare, false);
+		void setCommandContext(CommandContext.ViewsCanCompare, false);
 
 		void (await this.view.compare(repoPath, ref1.ref, ref));
 	}
@@ -204,7 +204,7 @@ export class CompareNode extends ViewNode<CompareView> {
 		}
 
 		this._selectedRef = { label: this.getRefName(ref), repoPath: repoPath, ref: ref };
-		setCommandContext(CommandContext.ViewsCanCompare, true);
+		void setCommandContext(CommandContext.ViewsCanCompare, true);
 
 		void (await this.triggerChange());
 		await this.view.reveal(this._comparePickerNode!, { focus: true, select: true });
@@ -215,6 +215,6 @@ export class CompareNode extends ViewNode<CompareView> {
 	}
 
 	private getRefName(ref: string | NamedRef) {
-		return typeof ref === 'string' ? GitRevision.shorten(ref)! : ref.label || GitRevision.shorten(ref.ref)!;
+		return typeof ref === 'string' ? GitRevision.shorten(ref)! : ref.label ?? GitRevision.shorten(ref.ref)!;
 	}
 }

@@ -117,6 +117,6 @@ export class ContributorNode extends ViewNode<RepositoriesView> implements Pagea
 
 		this._log = log;
 		this.limit = log?.count;
-		this.triggerChange(false);
+		void this.triggerChange(false);
 	}
 }

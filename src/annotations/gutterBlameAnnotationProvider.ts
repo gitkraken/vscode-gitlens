@@ -11,7 +11,7 @@ import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 
 export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 	@log()
-	async onProvideAnnotation(shaOrLine?: string | number, type?: FileAnnotationType): Promise<boolean> {
+	async onProvideAnnotation(_shaOrLine?: string | number, _type?: FileAnnotationType): Promise<boolean> {
 		const cc = Logger.getCorrelationContext();
 
 		this.annotationType = FileAnnotationType.Blame;
@@ -48,10 +48,10 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		const renderOptions = Annotations.gutterRenderOptions(separateLines, cfg.heatmap, cfg.format, options);
 
 		this.decorations = [];
-		const decorationsMap: { [sha: string]: DecorationOptions | undefined } = Object.create(null);
-		const avatarDecorationsMap:
-			| { [email: string]: { decoration: TextEditorDecorationType; ranges: Range[] } }
-			| undefined = avatars ? Object.create(null) : undefined;
+		const decorationsMap = Object.create(null) as Record<string, DecorationOptions | undefined>;
+		const avatarDecorationsMap = avatars
+			? (Object.create(null) as Record<string, { decoration: TextEditorDecorationType; ranges: Range[] }>)
+			: undefined;
 
 		let commit: GitBlameCommit | undefined;
 		let compacted = false;
@@ -167,7 +167,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		commit: GitBlameCommit,
 		range: Range,
 		gravatarDefault: GravatarDefaultStyle,
-		map: { [email: string]: { decoration: TextEditorDecorationType; ranges: Range[] } },
+		map: Record<string, { decoration: TextEditorDecorationType; ranges: Range[] }>,
 	) {
 		const avatarDecoration = map[commit.email!];
 		if (avatarDecoration !== undefined) {

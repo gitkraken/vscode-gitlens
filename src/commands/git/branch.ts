@@ -158,7 +158,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 			if (state.counter < 1 || state.subcommand == null) {
 				this.subcommand = undefined;
 
-				const result = yield* this.pickSubcommandStep(state, context);
+				const result = yield* this.pickSubcommandStep(state);
 				// Always break on the first step (so we will go back)
 				if (result === StepResult.Break) break;
 
@@ -211,10 +211,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 		return state.counter < 0 ? StepResult.Break : undefined;
 	}
 
-	private *pickSubcommandStep(
-		state: PartialStepState<State>,
-		context: Context,
-	): StepResultGenerator<State['subcommand']> {
+	private *pickSubcommandStep(state: PartialStepState<State>): StepResultGenerator<State['subcommand']> {
 		const step = QuickCommand.createPickStep<QuickPickItemOfT<State['subcommand']>>({
 			title: this.title,
 			placeholder: `Choose a ${this.label} command`,

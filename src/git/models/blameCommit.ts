@@ -49,17 +49,17 @@ export class GitBlameCommit extends GitCommit {
 	}): GitBlameCommit {
 		return new GitBlameCommit(
 			this.repoPath,
-			changes.sha || this.sha,
+			changes.sha ?? this.sha,
 			this.author,
 			this.email,
 			this.authorDate,
 			this.committerDate,
 			this.message,
-			changes.fileName || this.fileName,
+			changes.fileName ?? this.fileName,
 			this.getChangedValue(changes.originalFileName, this.originalFileName),
 			this.getChangedValue(changes.previousSha, this.previousSha),
 			this.getChangedValue(changes.previousFileName, this.previousFileName),
-			this.getChangedValue(changes.lines, changes.sha || changes.fileName ? [] : this.lines) || [],
+			this.getChangedValue(changes.lines, changes.sha ?? changes.fileName ? [] : this.lines) ?? [],
 		);
 	}
 }
