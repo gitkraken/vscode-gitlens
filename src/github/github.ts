@@ -61,7 +61,7 @@ export class GitHubApi {
 				};
 			}>(query, {
 				...variables,
-				headers: { authorization: `token ${token}` },
+				headers: { authorization: `Bearer ${token}` },
 				...options,
 			});
 			const pr = rsp?.repository?.object?.associatedPullRequests?.nodes?.[0];
@@ -132,7 +132,7 @@ export class GitHubApi {
 
 			const rsp = await graphql<{ repository?: { issueOrPullRequest?: GitHubIssueOrPullRequest } }>(query, {
 				...variables,
-				headers: { authorization: `token ${token}` },
+				headers: { authorization: `Bearer ${token}` },
 				...options,
 			});
 			const issue = rsp?.repository?.issueOrPullRequest;
