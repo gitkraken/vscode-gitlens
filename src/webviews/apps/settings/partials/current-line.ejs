@@ -1,0 +1,107 @@
+<section id="current-line" class="section--settings section--collapsible">
+	<div class="section__header">
+		<div class="setting__input setting__input--big">
+			<input
+				id="currentLine.enabled"
+				name="currentLine.enabled"
+				type="checkbox"
+				data-setting
+				data-add-settings-off="hovers.currentLine.over=line"
+			/>
+			<label for="currentLine.enabled">Current Line Blame</label>
+			<a
+				class="link__learn-more"
+				title="Learn more"
+				href="https://github.com/eamodio/vscode-gitlens/tree/master/#current-line-blame-"
+			>
+				<i class="icon icon__info"></i>
+			</a>
+		</div>
+
+		<p class="section__header-hint">
+			Adds an unobtrusive blame annotation at the end of the current line
+		</p>
+		<div class="section__header-info">
+			<i class="icon icon--md icon__bulb"></i>
+			<div>
+				<p>
+					Use the
+					<a class="command" title="Run command" href="command:gitlens.toggleLineBlame"
+						>GitLens: Toggle Line Blame Annotations</a
+					>
+					command to override this setting for the current window
+				</p>
+			</div>
+		</div>
+	</div>
+
+	<div class="section__collapsible">
+		<div class="section__group">
+			<div class="section__content">
+				<div class="settings settings--fixed ml-1">
+					<div class="setting" data-enablement="currentLine.enabled">
+						<div class="setting__input setting__input--format">
+							<label for="currentLine.format">Annotation&nbsp;format</label>
+							<input
+								id="currentLine.format"
+								name="currentLine.format"
+								type="text"
+								placeholder="&#36;&#123;authorAgoOrDate&#125; &bull; &#36;&#123;message&#125;"
+								data-setting
+								data-default-value="&#36;&#123;authorAgoOrDate&#125; &bull; &#36;&#123;message&#125;"
+								data-popup-trigger
+								disabled
+							/>
+							<label for="currentLine.format" title="See available tokens">
+								<i class="icon icon__chevron-down"></i>
+							</label>
+						</div>
+						<div id="currentLine.format.popup" class="popup hidden"></div>
+					</div>
+
+					<div class="setting" data-enablement="currentLine.enabled">
+						<div class="setting__input">
+							<input
+								id="currentLine.scrollable"
+								name="currentLine.scrollable"
+								type="checkbox"
+								data-setting
+								disabled
+							/>
+							<label for="currentLine.scrollable">
+								Include the annotation when scrolling the editor horizontally
+							</label>
+						</div>
+						<p class="setting__hint">
+							When enabled the annotation can be scrolled into view when it is outside the viewport
+						</p>
+					</div>
+				</div>
+			</div>
+
+			<div class="section__preview">
+				<img class="image__preview" src="#{root}/images/settings/current-line-blame.png" />
+				<img
+					class="image__preview--overlay hidden"
+					src="#{root}/images/settings/current-line-blame-on.png"
+					data-visibility="currentLine.enabled"
+				/>
+				<img
+					class="image__preview--overlay hidden"
+					src="#{root}/images/settings/current-line-blame-on-scrollable.png"
+					data-visibility="currentLine.enabled &amp; currentLine.scrollable"
+				/>
+			</div>
+		</div>
+
+		<div class="section__group">
+			<p class="section__hint">
+				<i class="icon icon__info"></i> For more options, open
+				<a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings"
+					>User Settings</a
+				>
+				and search for <b><i>gitlens.currentLine</i></b>
+			</p>
+		</div>
+	</div>
+</section>

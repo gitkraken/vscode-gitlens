@@ -1,0 +1,272 @@
+<section id="code-lens" class="section--settings section--collapsible">
+	<div class="section__header">
+		<div class="setting__input setting__input--big">
+			<input id="codeLens.enabled" name="codeLens.enabled" type="checkbox" data-setting />
+			<label for="codeLens.enabled">Git Code Lens</label>
+			<a
+				class="link__learn-more"
+				title="Learn more"
+				href="https://github.com/eamodio/vscode-gitlens/tree/master/#git-code-lens-"
+			>
+				<i class="icon icon__info"></i>
+			</a>
+		</div>
+
+		<p class="section__header-hint">
+			Adds authorship code lens to the top of files and on code blocks
+		</p>
+		<div class="section__header-info">
+			<i class="icon icon__bulb"></i>
+			<div>
+				<p>
+					Use the
+					<a class="command" title="Run command" href="command:gitlens.toggleCodeLens"
+						>GitLens: Toggle Git Code Lens</a
+					>
+					command to override this setting for the current window
+				</p>
+			</div>
+		</div>
+	</div>
+
+	<div class="section__collapsible">
+		<div class="section__group">
+			<div class="section__content">
+				<div class="settings settings--fixed ml-1">
+					<div class="setting" data-enablement="codeLens.enabled">
+						<div class="setting__input">
+							<input
+								id="codeLens.recentChange.enabled"
+								name="codeLens.recentChange.enabled"
+								type="checkbox"
+								data-setting
+								disabled
+							/>
+							<label for="codeLens.recentChange.enabled">
+								Add the author and date of the most recent change for the file or code block
+							</label>
+						</div>
+					</div>
+
+					<div class="settings settings--fixed ml-2">
+						<div class="setting" data-enablement="codeLens.enabled &amp; codeLens.recentChange.enabled">
+							<div class="setting__input">
+								<input
+									id="codeLens.recentChange.command"
+									name="codeLens.recentChange.command"
+									type="checkbox"
+									value="gitlens.showQuickCommitFileDetails"
+									data-setting
+									disabled
+								/>
+								<label class="nowrap" for="codeLens.recentChange.command">When clicked</label>
+								<select
+									id="codeLens.recentChange.command"
+									name="codeLens.recentChange.command"
+									data-setting
+									data-enablement="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.recentChange.command !false"
+									disabled
+								>
+									<option value="gitlens.toggleFileBlame">toggles the file blame annotations</option>
+									<option value="gitlens.diffWithPrevious"
+										>opens changes with the previous revision</option
+									>
+									<option value="gitlens.revealCommitInView"
+										>reveals the commit in the Repositories view</option
+									>
+									<option value="gitlens.showCommitsInView"
+										>shows the commit in the Search Commits view</option
+									>
+									<option value="gitlens.showQuickCommitDetails">shows details of the commit</option>
+									<option value="gitlens.showQuickCommitFileDetails">
+										shows file details of the commit
+									</option>
+									<option value="gitlens.showQuickFileHistory">shows the current file history</option>
+									<option value="gitlens.showQuickRepoHistory"
+										>shows the current branch history</option
+									>
+								</select>
+							</div>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="codeLens.enabled">
+						<div class="setting__input">
+							<input
+								id="codeLens.authors.enabled"
+								name="codeLens.authors.enabled"
+								type="checkbox"
+								data-setting
+								disabled
+							/>
+							<label for="codeLens.authors.enabled">
+								Add the number of authors and the most prominent author of the file or code block
+							</label>
+						</div>
+					</div>
+
+					<div class="settings settings--fixed ml-2">
+						<div class="setting" data-enablement="codeLens.enabled &amp; codeLens.authors.enabled">
+							<div class="setting__input">
+								<input
+									id="codeLens.authors.command"
+									name="codeLens.authors.command"
+									type="checkbox"
+									value="gitlens.toggleFileBlame"
+									data-setting
+									disabled
+								/>
+								<label class="nowrap" for="codeLens.authors.command">When clicked</label>
+								<select
+									id="codeLens.authors.command"
+									name="codeLens.authors.command"
+									data-setting
+									data-enablement="codeLens.enabled &amp; codeLens.authors.enabled &amp; codeLens.authors.command !false"
+									disabled
+								>
+									<option value="gitlens.toggleFileBlame">toggles the file blame annotations</option>
+									<option value="gitlens.diffWithPrevious"
+										>opens changes with the previous revision</option
+									>
+									<option value="gitlens.revealCommitInView"
+										>reveals the commit in the Repositories view</option
+									>
+									<option value="gitlens.showCommitsInView"
+										>shows the commits within the range in the Search Commits view</option
+									>
+									<option value="gitlens.showQuickCommitDetails">shows details of the commit</option>
+									<option value="gitlens.showQuickCommitFileDetails">
+										show file details of the commit
+									</option>
+									<option value="gitlens.showQuickFileHistory">shows the current file history</option>
+									<option value="gitlens.showQuickRepoHistory"
+										>shows the current branch history</option
+									>
+								</select>
+							</div>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="codeLens.enabled">
+						<div class="setting__input">
+							<label class="non-interactive">Add code lens to the following scopes</label>
+						</div>
+					</div>
+
+					<div class="settings ml-2">
+						<div class="setting" data-enablement="codeLens.enabled">
+							<div class="setting__input">
+								<input
+									id="codeLens.scopes"
+									name="codeLens.scopes"
+									type="checkbox"
+									value="document"
+									data-setting
+									data-setting-type="array"
+									disabled
+								/>
+								<label for="codeLens.scopes">File scope</label>
+							</div>
+							<p class="setting__hint">At the top of the file</p>
+						</div>
+
+						<div class="setting" data-enablement="codeLens.enabled">
+							<div class="setting__input">
+								<input
+									id="codeLens.scopes-1"
+									name="codeLens.scopes"
+									type="checkbox"
+									value="containers"
+									data-setting
+									data-setting-type="array"
+									disabled
+								/>
+								<label for="codeLens.scopes-1">Containers scope</label>
+							</div>
+							<p class="setting__hint">
+								At the start of modules, classes, interfaces, etc
+							</p>
+						</div>
+
+						<div class="setting" data-enablement="codeLens.enabled">
+							<div class="setting__input">
+								<input
+									id="codeLens.scopes-2"
+									name="codeLens.scopes"
+									type="checkbox"
+									value="blocks"
+									data-setting
+									data-setting-type="array"
+									disabled
+								/>
+								<label for="codeLens.scopes-2">Block scope</label>
+							</div>
+							<p class="setting__hint">At the start of functions, methods, etc</p>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="section__preview">
+				<img class="image__preview" src="#{root}/images/settings/code-lens.png" />
+				<img
+					class="image__preview--overlay hidden"
+					src="#{root}/images/settings/code-lens-file-recent+authors.png"
+					data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled &amp; codeLens.scopes +document"
+				/>
+				<img
+					class="image__preview--overlay hidden"
+					src="#{root}/images/settings/code-lens-file-recent.png"
+					data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled =false &amp; codeLens.scopes +document"
+				/>
+				<img
+					class="image__preview--overlay hidden"
+					src="#{root}/images/settings/code-lens-file-authors.png"
+					data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled =false &amp; codeLens.authors.enabled &amp; codeLens.scopes +document"
+				/>
+
+				<img
+					class="image__preview--overlay hidden"
+					src="#{root}/images/settings/code-lens-containers-recent+authors.png"
+					data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled &amp; codeLens.scopes +containers"
+				/>
+				<img
+					class="image__preview--overlay hidden"
+					src="#{root}/images/settings/code-lens-containers-recent.png"
+					data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled =false &amp; codeLens.scopes +containers"
+				/>
+				<img
+					class="image__preview--overlay hidden"
+					src="#{root}/images/settings/code-lens-containers-authors.png"
+					data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled =false &amp; codeLens.authors.enabled &amp; codeLens.scopes +containers"
+				/>
+
+				<img
+					class="image__preview--overlay hidden"
+					src="#{root}/images/settings/code-lens-blocks-recent+authors.png"
+					data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled &amp; codeLens.scopes +blocks"
+				/>
+				<img
+					class="image__preview--overlay hidden"
+					src="#{root}/images/settings/code-lens-blocks-recent.png"
+					data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.authors.enabled =false &amp; codeLens.scopes +blocks"
+				/>
+				<img
+					class="image__preview--overlay hidden"
+					src="#{root}/images/settings/code-lens-blocks-authors.png"
+					data-visibility="codeLens.enabled &amp; codeLens.recentChange.enabled =false &amp; codeLens.authors.enabled &amp; codeLens.scopes +blocks"
+				/>
+			</div>
+		</div>
+
+		<div class="section__group">
+			<p class="section__hint">
+				<i class="icon icon__info"></i> For more options, open
+				<a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings"
+					>User Settings</a
+				>
+				and search for <b><i>gitlens.codeLens</i></b>
+			</p>
+		</div>
+	</div>
+</section>

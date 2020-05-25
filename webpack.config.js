@@ -210,12 +210,12 @@ function getWebviewsConfig(mode, env) {
 
 	const cspPolicy = {
 		'default-src': "'none'",
-		'img-src': ['vscode-resource:', 'https:', 'data:'],
-		'script-src': ['vscode-resource:', "'nonce-Z2l0bGVucy1ib290c3RyYXA='"],
-		'style-src': ['vscode-resource:'],
+		'img-src': ['#{cspSource}', 'https:', 'data:'],
+		'script-src': ['#{cspSource}', "'nonce-Z2l0bGVucy1ib290c3RyYXA='"],
+		'style-src': ['#{cspSource}'],
 	};
 
-	if (mode === 'production') {
+	if (mode !== 'production') {
 		cspPolicy['script-src'].push("'unsafe-eval'");
 	}
 
@@ -237,7 +237,7 @@ function getWebviewsConfig(mode, env) {
 		new HtmlPlugin({
 			excludeAssets: [/.+-styles\.js/],
 			excludeChunks: ['welcome'],
-			template: 'settings/index.html',
+			template: 'settings/settings.ejs',
 			filename: path.resolve(__dirname, 'dist/webviews/settings.html'),
 			inject: true,
 			cspPlugin: {
@@ -265,7 +265,7 @@ function getWebviewsConfig(mode, env) {
 		new HtmlPlugin({
 			excludeAssets: [/.+-styles\.js/],
 			excludeChunks: ['settings'],
-			template: 'welcome/index.html',
+			template: 'welcome/welcome.ejs',
 			filename: path.resolve(__dirname, 'dist/webviews/welcome.html'),
 			inject: true,
 			cspPlugin: {
@@ -317,10 +317,11 @@ function getWebviewsConfig(mode, env) {
 		context: path.resolve(__dirname, 'src/webviews/apps'),
 		entry: {
 			'main-styles': ['./scss/main.scss'],
-			settings: ['./settings/index.ts'],
-			welcome: ['./welcome/index.ts'],
+			settings: ['./settings/settings.ts'],
+			welcome: ['./welcome/welcome.ts'],
 		},
 		mode: mode,
+		target: 'web',
 		devtool: mode === 'production' ? undefined : 'eval-source-map',
 		output: {
 			filename: '[name].js',
@@ -363,6 +364,10 @@ function getWebviewsConfig(mode, env) {
 						},
 					],
 					exclude: /node_modules/,
+				},
+				{
+					test: /\.ejs$/,
+					loader: 'ejs-loader',
 				},
 			],
 		},

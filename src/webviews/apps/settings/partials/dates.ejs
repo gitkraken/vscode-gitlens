@@ -1,0 +1,96 @@
+<section id="dates" class="section--settings section--collapsible">
+	<div class="section__header">
+		<h2>Dates & Times</h2>
+	</div>
+
+	<div class="section__collapsible">
+		<div class="section__group">
+			<div class="section__content">
+				<div class="setting">
+					<div class="setting__input">
+						<input
+							id="defaultDateStyle"
+							name="defaultDateStyle"
+							type="checkbox"
+							value="relative"
+							data-value-off="absolute"
+							data-setting
+						/>
+						<label for="defaultDateStyle">Allow relative date formatting</label>
+					</div>
+					<span class="setting__hint hidden" data-visibility="defaultDateStyle =relative"
+						>Shows some dates relatively, e.g. 1 day ago</span
+					>
+					<span class="setting__hint hidden" data-visibility="defaultDateStyle =absolute"
+						>Shows dates absolutely, e.g.
+						<span
+							data-setting-preview="defaultDateFormat"
+							data-setting-preview-type="date"
+							data-setting-preview-default="MMMM Do, YYYY h:mma"
+						></span>
+					</span>
+				</div>
+
+				<div class="settings">
+					<div class="setting">
+						<div class="setting__input">
+							<label for="defaultDateFormat">Date&nbsp;format</label>
+							<input
+								id="defaultDateFormat"
+								name="defaultDateFormat"
+								type="text"
+								placeholder="defaults to MMMM Do, YYYY h:mma"
+								data-setting
+								data-setting-preview
+							/>
+							<a
+								class="link__learn-more"
+								title="See Moment.js docs for valid date formats"
+								href="https://momentjs.com/docs/#/displaying/format/"
+							>
+								<i class="icon icon__info"></i>
+							</a>
+						</div>
+						<span class="setting__hint"
+							>Example date:
+							<span
+								data-setting-preview="defaultDateFormat"
+								data-setting-preview-type="date"
+								data-setting-preview-default="MMMM Do, YYYY h:mma"
+							></span>
+						</span>
+					</div>
+
+					<div class="setting">
+						<div class="setting__input">
+							<label for="defaultDateShortFormat">Short&nbsp;date&nbsp;format</label>
+							<input
+								id="defaultDateShortFormat"
+								name="defaultDateShortFormat"
+								type="text"
+								placeholder="defaults to MMM D, YYYY"
+								data-setting
+								data-setting-preview
+							/>
+							<a
+								class="link__learn-more"
+								title="See Moment.js docs for valid date formats"
+								href="https://momentjs.com/docs/#/displaying/format/"
+							>
+								<i class="icon icon__info"></i>
+							</a>
+						</div>
+						<span class="setting__hint"
+							>Example short date:
+							<span
+								data-setting-preview="defaultDateShortFormat"
+								data-setting-preview-type="date"
+								data-setting-preview-default="MMM D, YYYY"
+							></span>
+						</span>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</section>

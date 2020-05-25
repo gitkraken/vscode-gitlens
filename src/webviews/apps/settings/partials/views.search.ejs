@@ -1,0 +1,116 @@
+<section id="search-commits-view" class="section--settings section--collapsible">
+	<div class="section__header">
+		<div class="setting__input setting__input--big">
+			<input id="views.search.enabled" name="views.search.enabled" type="checkbox" data-setting />
+			<label for="views.search.enabled">Search Commits view</label>
+			<a
+				class="link__learn-more"
+				title="Learn more"
+				href="https://github.com/eamodio/vscode-gitlens/tree/master/#search-commits-view-"
+			>
+				<i class="icon icon__info"></i>
+			</a>
+		</div>
+
+		<p class="section__header-hint">
+			Adds a Search Commits view to search and explore commit histories by message, author, files, id, etc
+		</p>
+	</div>
+
+	<div class="section__collapsible">
+		<div class="section__group">
+			<div class="section__content">
+				<div class="settings settings--fixed ml-1">
+					<div class="setting" data-enablement="views.search.enabled">
+						<div class="setting__input">
+							<label for="views.search.location">Show in the</label>
+							<select id="views.search.location" name="views.search.location" data-setting disabled>
+								<option value="gitlens">GitLens side bar</option>
+								<option value="explorer">Explorer side bar</option>
+								<option value="scm">Source Control side bar</option>
+							</select>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="views.search.enabled">
+						<div class="setting__input">
+							<label for="views.search.files.layout">Layout files</label>
+							<select
+								id="views.search.files.layout"
+								name="views.search.files.layout"
+								data-setting
+								disabled
+							>
+								<option value="auto">automatically</option>
+								<option value="list">as a list</option>
+								<option value="tree">as a tree</option>
+							</select>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="views.search.enabled">
+						<div class="setting__input">
+							<input
+								id="views.search.files.compact"
+								name="views.search.files.compact"
+								type="checkbox"
+								data-setting
+								disabled
+							/>
+							<label for="views.search.files.compact">Use compact file layout</label>
+						</div>
+						<p class="setting__hint">
+							Compacts (flattens) unnecessary nesting when using a tree layouts
+						</p>
+					</div>
+
+					<div class="setting" data-enablement="views.search.enabled">
+						<div class="setting__input">
+							<input
+								id="views.search.avatars"
+								name="views.search.avatars"
+								type="checkbox"
+								data-setting
+								disabled
+							/>
+							<label for="views.search.avatars">Use author avatars icons</label>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="section__preview" data-visibility="views.search.enabled">
+				<img
+					class="image__preview hidden"
+					src="#{root}/images/settings/view-search.png"
+					data-visibility="views.search.enabled &amp; views.search.files.layout !tree"
+				/>
+				<img
+					class="image__preview hidden"
+					src="#{root}/images/settings/view-search-tree-compact.png"
+					data-visibility="views.search.enabled &amp; views.search.files.layout =tree &amp; views.search.files.compact"
+				/>
+				<img
+					class="image__preview hidden"
+					src="#{root}/images/settings/view-search-tree.png"
+					data-visibility="views.search.enabled &amp; views.search.files.layout =tree &amp; views.search.files.compact =false"
+				/>
+				<img
+					class="image__preview--overlay hidden"
+					src="#{root}/images/settings/view-search-avatars.png"
+					data-visibility="views.search.enabled &amp; views.search.avatars"
+				/>
+			</div>
+		</div>
+
+		<div class="section__group">
+			<p class="section__hint">
+				<i class="icon icon__info"></i> For more options, open
+				<a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings"
+					>User Settings</a
+				>
+				and search for <b><i>gitlens.views.search</i></b> or <b><i>gitlens.views</i></b>
+			</p>
+		</div>
+	</div>
+</section>

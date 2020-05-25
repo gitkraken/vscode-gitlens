@@ -8,6 +8,7 @@ import {
 	Disposable,
 	Uri,
 	ViewColumn,
+	Webview,
 	WebviewPanel,
 	WebviewPanelOnDidChangeViewStateEvent,
 	window,
@@ -101,7 +102,7 @@ export abstract class WebviewBase implements Disposable {
 						const inspect = configuration.inspect(key as any)!;
 
 						let value = params.changes[key];
-						if (value !== undefined) {
+						if (value != null) {
 							if (params.scope === 'workspace') {
 								if (value === inspect.workspaceValue) continue;
 							} else {
@@ -136,25 +137,21 @@ export abstract class WebviewBase implements Disposable {
 	}
 
 	get visible() {
-		return this._panel === undefined ? false : this._panel.visible;
+		return this._panel?.visible ?? false;
 	}
 
 	hide() {
-		if (this._panel === undefined) return;
-
-		this._panel.dispose();
+		this._panel?.dispose();
 	}
 
 	setTitle(title: string) {
-		if (this._panel === undefined) return;
+		if (this._panel == null) return;
 
 		this._panel.title = title;
 	}
 
 	async show(column: ViewColumn = ViewColumn.Active): Promise<void> {
-		const html = await this.getHtml();
-
-		if (this._panel === undefined) {
+		if (this._panel == null) {
 			this._panel = window.createWebviewPanel(
 				this.id,
 				this.title,
@@ -176,17 +173,20 @@ export abstract class WebviewBase implements Disposable {
 				...this.registerCommands(),
 			);
 
-			this._panel.webview.html = html;
+			this._panel.webview.html = await this.getHtml(this._panel.webview);
 		} else {
+			const html = await this.getHtml(this._panel.webview);
+
 			// Reset the html to get the webview to reload
 			this._panel.webview.html = '';
 			this._panel.webview.html = html;
+
 			this._panel.reveal(this._panel.viewColumn ?? ViewColumn.Active, false);
 		}
 	}
 
 	private _html: string | undefined;
-	private async getHtml(): Promise<string> {
+	private async getHtml(webview: Webview): Promise<string> {
 		const filename = Container.context.asAbsolutePath(paths.join('dist/webviews/', this.filename));
 
 		let content;
@@ -202,16 +202,15 @@ export abstract class WebviewBase implements Disposable {
 				});
 			});
 		} else {
-			if (this._html !== undefined) return this._html;
+			if (this._html != null) return this._html;
 
 			const doc = await workspace.openTextDocument(filename);
 			content = doc.getText();
 		}
 
-		let html = content.replace(
-			/#{root}/g,
-			Uri.file(Container.context.asAbsolutePath('.')).with({ scheme: 'vscode-resource' }).toString(),
-		);
+		let html = content
+			.replace(/#{cspSource}/g, webview.cspSource)
+			.replace(/#{root}/g, webview.asWebviewUri(Uri.file(Container.context.asAbsolutePath('.'))).toString());
 
 		if (this.renderHead) {
 			html = html.replace(/#{head}/i, await this.renderHead());
@@ -249,7 +248,7 @@ export abstract class WebviewBase implements Disposable {
 	}
 
 	private postMessage(message: IpcMessage) {
-		if (this._panel === undefined) return Promise.resolve(false);
+		if (this._panel == null) return Promise.resolve(false);
 
 		return this._panel.webview.postMessage(message);
 	}

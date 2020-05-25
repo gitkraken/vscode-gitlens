@@ -1,0 +1,54 @@
+<section id="shortcuts" class="section--settings section--collapsible">
+	<div class="section__header">
+		<h2>Keyboard Shortcuts</h2>
+	</div>
+
+	<div class="section__collapsible">
+		<div class="section__group">
+			<div class="section__content">
+				<div class="setting">
+					<div class="setting__input">
+						<label for="keymap">Use</label>
+						<select id="keymap" name="keymap" data-setting>
+							<option value="alternate">alt-based</option>
+							<option value="chorded">chorded (default)</option>
+							<option value="none">user-defined</option>
+						</select>
+						<label for="keymap"> keyboard shortcuts</label>
+					</div>
+					<span class="setting__hint hidden" data-visibility="keymap =alternate">
+						<span class="shortcut-key">Alt</span> based (<span class="shortcut-key">&#x2325;</span>
+						on macOS) shortcuts. Not great for non-English keyboard layouts
+					</span>
+					<span class="setting__hint hidden" data-visibility="keymap =chorded">
+						Chorded shortcuts that start with
+						<span class="shortcut-key">Ctrl+Shift+G</span> (<span class="shortcut-key"
+							>&#x2325;&#x2318;G</span
+						>
+						on macOS). Better for non-English keyboard layouts
+					</span>
+					<span class="setting__hint hidden" data-visibility="keymap =none">
+						GitLens won't bind any keyboard shortcuts. Configure your own via the
+						<a
+							class="command"
+							title="Open Keyboard Shortcuts"
+							href="command:workbench.action.openGlobalKeybindings"
+							>Keyboard Shortcuts</a
+						>
+						editor
+					</span>
+				</div>
+			</div>
+		</div>
+
+		<div class="section__group">
+			<p class="section__hint">
+				<i class="icon icon__info"></i> Search for <b><i>gitlens</i></b> in the
+				<a class="command" title="Open Keyboard Shortcuts" href="command:workbench.action.openGlobalKeybindings"
+					>Keyboard Shortcuts</a
+				>
+				editor to see the shortcuts and to customize them further
+			</p>
+		</div>
+	</div>
+</section>

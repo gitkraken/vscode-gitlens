@@ -1,0 +1,234 @@
+<section id="blame" class="section--settings section--collapsible">
+	<div class="section__header">
+		<h2>
+			Gutter Blame
+			<a
+				class="link__learn-more"
+				title="Learn more"
+				href="https://github.com/eamodio/vscode-gitlens/tree/master/#gutter-blame-"
+			>
+				<i class="icon icon__info"></i>
+			</a>
+		</h2>
+
+		<p class="section__header-hint">
+			Adds on-demand gutter blame annotations for the whole file
+		</p>
+		<div class="section__header-info">
+			<i class="icon icon--md icon__bulb"></i>
+			<div>
+				<p>
+					Use the
+					<span class="command hidden" data-visibility="blame.toggleMode =file">
+						GitLens: Toggle File Blame Annotations
+					</span>
+					<a
+						class="command hidden"
+						title="Run command"
+						href="command:gitlens.toggleFileBlame"
+						data-visibility="blame.toggleMode =window"
+						>GitLens: Toggle File Blame Annotations</a
+					>
+					command to turn the annotations on or off
+				</p>
+				<p>Press <span class="shortcut-key">Esc</span> to turn off the annotations</p>
+			</div>
+		</div>
+	</div>
+
+	<div class="section__collapsible">
+		<div class="section__group">
+			<div class="section__content">
+				<div class="setting">
+					<div class="setting__input">
+						<label for="blame.toggleMode">Toggle annotations </label>
+						<select id="blame.toggleMode" name="blame.toggleMode" data-setting>
+							<option value="file">individually for each file</option>
+							<option value="window">for all files</option>
+						</select>
+					</div>
+				</div>
+
+				<div class="setting">
+					<div class="setting__input setting__input--format">
+						<label for="blame.format">Annotation&nbsp;format</label>
+						<input
+							id="blame.format"
+							name="blame.format"
+							type="text"
+							placeholder="&#36;&#123;message|40?&#125; &#36;&#123;agoOrDate|14-&#125;"
+							data-setting
+							data-default-value="&#36;&#123;message|40?&#125; &#36;&#123;agoOrDate|14-&#125;"
+							data-popup-trigger
+						/>
+						<label for="blame.format" title="See available tokens">
+							<i class="icon icon__chevron-down"></i>
+						</label>
+						<div id="blame.format.popup" class="popup hidden"></div>
+					</div>
+				</div>
+
+				<div class="setting">
+					<div class="setting__input">
+						<input id="blame.heatmap.enabled" name="blame.heatmap.enabled" type="checkbox" data-setting />
+						<label for="blame.heatmap.enabled">
+							Add a heatmap (age) indicator to show how recently lines were changed
+						</label>
+					</div>
+					<p class="setting__hint">
+						Indicator color reflects the age of the most recent change (hot or cold), while indicator
+						brightness ranges from bright (newer) to dim (older) based on the relative age
+					</p>
+				</div>
+
+				<div class="settings settings--fixed ml-2">
+					<div class="setting" data-enablement="blame.heatmap.enabled" disabled>
+						<div class="setting__input">
+							<label for="blame.heatmap.location">Position the heatmap on the</label>
+							<select id="blame.heatmap.location" name="blame.heatmap.location" data-setting disabled>
+								<option value="left">left</option>
+								<option value="right">right</option>
+							</select>
+						</div>
+					</div>
+				</div>
+
+				<div class="setting">
+					<div class="setting__input">
+						<input id="blame.avatars" name="blame.avatars" type="checkbox" data-setting />
+						<label for="blame.avatars">Add author avatars in the gutter</label>
+					</div>
+				</div>
+
+				<div class="setting">
+					<div class="setting__input">
+						<input id="blame.compact" name="blame.compact" type="checkbox" data-setting />
+						<label for="blame.compact">Use compact view</label>
+					</div>
+					<p class="setting__hint">
+						Compacts (deduplicates) matching adjacent blame annotations
+					</p>
+				</div>
+
+				<div class="setting">
+					<div class="setting__input">
+						<input
+							id="blame.highlight.enabled"
+							name="blame.highlight.enabled"
+							type="checkbox"
+							data-setting
+						/>
+						<label for="blame.highlight.enabled">
+							Highlight other lines changed by the same commit as the current line
+						</label>
+					</div>
+				</div>
+
+				<div class="settings ml-2">
+					<div class="setting" data-enablement="blame.highlight.enabled">
+						<div class="setting__input">
+							<input
+								id="blame.highlight.locations"
+								name="blame.highlight.locations"
+								type="checkbox"
+								value="gutter"
+								data-setting
+								data-setting-type="array"
+								disabled
+							/>
+							<label for="blame.highlight.locations">Add gutter highlight</label>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="blame.highlight.enabled">
+						<div class="setting__input">
+							<input
+								id="blame.highlight.locations-1"
+								name="blame.highlight.locations"
+								type="checkbox"
+								value="line"
+								data-setting
+								data-setting-type="array"
+								disabled
+							/>
+							<label for="blame.highlight.locations-1">Add line highlight</label>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="blame.highlight.enabled">
+						<div class="setting__input">
+							<input
+								id="blame.highlight.locations-2"
+								name="blame.highlight.locations"
+								type="checkbox"
+								value="overview"
+								data-setting
+								data-setting-type="array"
+								disabled
+							/>
+							<label for="blame.highlight.locations-2">Add scroll bar highlight</label>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="section__preview">
+				<img
+					class="image__preview hidden"
+					src="#{root}/images/settings/blame.png"
+					data-visibility="blame.compact =false"
+				/>
+				<img
+					class="image__preview hidden"
+					src="#{root}/images/settings/blame-compact.png"
+					data-visibility="blame.compact"
+				/>
+				<img
+					class="image__preview--overlay hidden"
+					src="#{root}/images/settings/blame-avatars.png"
+					data-visibility="blame.avatars &amp; blame.compact =false"
+				/>
+				<img
+					class="image__preview--overlay hidden"
+					src="#{root}/images/settings/blame-avatars-compact.png"
+					data-visibility="blame.avatars &amp; blame.compact"
+				/>
+				<img
+					class="image__preview--overlay hidden"
+					src="#{root}/images/settings/blame-highlight-gutter.png"
+					data-visibility="blame.highlight.enabled &amp; blame.highlight.locations +gutter"
+				/>
+				<img
+					class="image__preview--overlay hidden"
+					src="#{root}/images/settings/blame-highlight-line.png"
+					data-visibility="blame.highlight.enabled &amp; blame.highlight.locations +line"
+				/>
+				<img
+					class="image__preview--overlay hidden"
+					src="#{root}/images/settings/blame-highlight-scrollbar.png"
+					data-visibility="blame.highlight.enabled &amp; blame.highlight.locations +overview"
+				/>
+				<img
+					class="image__preview--overlay hidden"
+					src="#{root}/images/settings/blame-heatmap-left.png"
+					data-visibility="blame.heatmap.enabled &amp; blame.heatmap.location =left"
+				/>
+				<img
+					class="image__preview--overlay hidden"
+					src="#{root}/images/settings/blame-heatmap-right.png"
+					data-visibility="blame.heatmap.enabled &amp; blame.heatmap.location =right"
+				/>
+			</div>
+		</div>
+
+		<div class="section__group">
+			<p class="section__hint">
+				<i class="icon icon__info"></i> For more options, open
+				<a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings"
+					>User Settings</a
+				>
+				and search for <b><i>gitlens.blame</i></b>
+			</p>
+		</div>
+	</div>
+</section>

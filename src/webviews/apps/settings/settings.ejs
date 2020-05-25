@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+	</head>
+
+	<template id="token-popup">
+		<h3 class="token-popup__title">Available Tokens</h3>
+		<div class="token-popup__scroller">
+			<table class="token-popup__table">
+				<tbody>
+					<tr>
+						<td>Commit Id</td>
+						<td><span class="token" data-token="id">id</span></td>
+					</tr>
+					<tr>
+						<td>Commit Author</td>
+						<td><span class="token" data-token="author">author</span></td>
+					</tr>
+					<tr>
+						<td>Commit Author E-mail</td>
+						<td><span class="token" data-token="email">email</span></td>
+					</tr>
+					<tr>
+						<td>Commit Message</td>
+						<td><span class="token" data-token="message">message</span></td>
+					</tr>
+					<tr>
+						<td>
+							Commit or Authored Date<br /><i
+								>Relative, e.g. 1 day ago<br />Committed vs Authored based on setting</i
+							>
+						</td>
+						<td><span class="token" data-token="ago">ago</span></td>
+					</tr>
+					<tr>
+						<td>
+							Commit or Authored Date<br /><i
+								>Absolute, e.g. August 8th, 2016 10:48am<br />Committed vs Authored based on setting</i
+							>
+						</td>
+						<td><span class="token" data-token="date">date</span></td>
+					</tr>
+					<tr>
+						<td>
+							Commit or Authored Date<br /><i
+								>Relative or absolute based on date setting<br />Committed vs Authored based on
+								setting</i
+							>
+						</td>
+						<td><span class="token" data-token="agoOrDate">agoOrDate</span></td>
+					</tr>
+					<tr>
+						<td>Authored Date<br /><i>Relative date</i></td>
+						<td><span class="token" data-token="authorAgo">authorAgo</span></td>
+					</tr>
+					<tr>
+						<td>Authored Date<br /><i>Absolute, e.g. August 8th, 2016 10:48am</i></td>
+						<td><span class="token" data-token="authorDate">authorDate</span></td>
+					</tr>
+					<tr>
+						<td>Authored Date<br /><i>Relative or absolute date based on date setting</i></td>
+						<td><span class="token" data-token="authorAgoOrDate">authorAgoOrDate</span></td>
+					</tr>
+					<tr>
+						<td>Commit Date<br /><i>Relative date</i></td>
+						<td><span class="token" data-token="committerAgo">committerAgo</span></td>
+					</tr>
+					<tr>
+						<td>Commit Date<br /><i>Absolute, e.g. August 8th, 2016 10:48am</i></td>
+						<td><span class="token" data-token="committerDate">committerDate</span></td>
+					</tr>
+					<tr>
+						<td>Commit Date<br /><i>Relative or absolute date based on date setting</i></td>
+						<td><span class="token" data-token="committerAgoOrDate">committerAgoOrDate</span></td>
+					</tr>
+					<tr>
+						<td>Branch & Tag Tips<br /><i>Indicates if the commit is a tip of any branches or tags</i></td>
+						<td><span class="token" data-token="tips">tips</span></td>
+					</tr>
+					<!-- <tr>
+						<td>
+							Changes Indicator<br /><i
+								>Indicates adds, changes, renames, and deletes<br />e.g +1 ~3 -0</i
+							>
+						</td>
+						<td><span class="token" data-token="changes">changes</span></td>
+					</tr>
+					<tr>
+						<td>
+							Changes Indicator (short)<br /><i
+								>Indicates adds, changes, renames, and deletes<br />e.g +1~3</i
+							>
+						</td>
+						<td><span class="token" data-token="changesShort">changesShort</span></td>
+					</tr> -->
+					<!-- <tr>
+						<td>Author Avatar</td>
+						<td><span class="token" data-token="avatar">avatar</span></td>
+					</tr> -->
+					<!-- <tr>
+						<td>
+							Commands<br /><i>Set of commit command buttons<br />only valid in hovers</i>
+						</td>
+						<td><span class="token" data-token="commands">commands</span></td>
+					</tr> -->
+				</tbody>
+			</table>
+		</div>
+		<span class="token-popup__hint">
+			<i class="icon icon__info"></i>
+			<a href="https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting" title="Open formatting docs"
+				>Learn more</a
+			>
+			about formatting options
+		</span>
+	</template>
+
+	<body class="preload">
+		<div class="container">
+			<header>
+				<a class="header__link" title="Learn more about GitLens" href="https://gitlens.amod.io">
+					<div class="header__logo">
+						<img class="image__logo" src="#{root}/images/gitlens-icon.png" />
+						<div>
+							<h1>Git<span class="header__logo--highlight">Lens</span></h1>
+							<p class="header__subtitle">Git supercharged</p>
+						</div>
+					</div>
+				</a>
+				<p class="header__blurb">
+					GitLens <b>supercharges</b> the Git capabilities built into Visual Studio Code. It helps you to
+					<b>visualize code authorship</b> at a glance via Git blame annotations and code lens,
+					<b>seamlessly navigate and explore</b> Git repositories, <b>gain valuable insights</b> via powerful
+					comparison commands, and so much more.
+				</p>
+			</header>
+
+			<div class="hero__area hero__area--sticky">
+				<div class="hero__row">
+					<h2 class="hero__title">Settings</h2>
+					<div class="hero__title-actions">
+						<a href="#" data-action="collapse" title="Collapse all sections">collapse all</a>
+						<a href="#" data-action="expand" class="hidden" title="Expand all sections">expand all</a>
+					</div>
+					<div class="hero__toolbar">
+						<div class="hero__toolbar-scope hidden">
+							<label for="scopes">Save Settings to</label>
+							<select id="scopes" name="scope"> </select>
+						</div>
+					</div>
+				</div>
+				<p class="hero__subtitle">
+					For advanced customizations, refer to the
+					<a
+						title="See the GitLens settings docs"
+						href="https://github.com/eamodio/vscode-gitlens/tree/master/#gitlens-settings-"
+						>GitLens docs</a
+					>
+					and edit your
+					<a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings"
+						>User Settings</a
+					>
+				</p>
+			</div>
+
+			<div class="content__area content__area--full-scroll">
+				<!-- prettier-ignore -->
+				<%= require('./partials/current-line.ejs')() %>
+				<!-- prettier-ignore -->
+				<%= require('./partials/code-lens.ejs')() %>
+				<!-- prettier-ignore -->
+				<%= require('./partials/status-bar.ejs')() %>
+				<!-- prettier-ignore -->
+				<%= require('./partials/hovers.ejs')() %>
+				<!-- prettier-ignore -->
+				<%= require('./partials/views.ejs')() %>
+				<!-- prettier-ignore -->
+				<%= require('./partials/views.repositories.ejs')() %>
+				<!-- prettier-ignore -->
+				<%= require('./partials/views.file-history.ejs')() %>
+				<!-- prettier-ignore -->
+				<%= require('./partials/views.line-history.ejs')() %>
+				<!-- prettier-ignore -->
+				<%= require('./partials/views.search.ejs')() %>
+				<!-- prettier-ignore -->
+				<%= require('./partials/views.compare.ejs')() %>
+				<!-- prettier-ignore -->
+				<%= require('./partials/blame.ejs')() %>
+				<!-- prettier-ignore -->
+				<%= require('./partials/heatmap.ejs')() %>
+				<!-- prettier-ignore -->
+				<%= require('./partials/recent-changes.ejs')() %>
+				<!-- prettier-ignore -->
+				<%= require('./partials/dates.ejs')() %>
+				<!-- prettier-ignore -->
+				<%= require('./partials/menus.ejs')() %>
+				<!-- prettier-ignore -->
+				<%= require('./partials/shortcuts.ejs')() %>
+				<!-- prettier-ignore -->
+				<%= require('./partials/modes.ejs')() %>
+			</div>
+
+			<div class="sidebar">
+				<div class="sidebar__group">
+					<h2>Jump to</h2>
+					<ul>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#current-line"
+								title="Jump to Current Line Blame settings"
+								>Current Line Blame</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#code-lens"
+								title="Jump to Git Code Lens settings"
+								>Git Code Lens</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#status-bar"
+								title="Jump to Status Bar Blame settings"
+								>Status Bar Blame</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#hovers"
+								title="Jump to Hovers settings"
+								>Hovers</a
+							>
+						</li>
+
+						<li class="mt-1">
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#views"
+								title="Jump to Views settings"
+								>Views</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#repositories-view"
+								title="Jump to Repositories view settings"
+								>Repositories view</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#file-history-view"
+								title="Jump to File History view settings"
+								>File History view</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#line-history-view"
+								title="Jump to Line History view settings"
+								>Line History view</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#search-commits-view"
+								title="Jump to Search Commits view settings"
+								>Search Commits view</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#compare-view"
+								title="Jump to Compare view settings"
+								>Compare view</a
+							>
+						</li>
+
+						<li class="mt-1">
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#blame"
+								title="Jump to Gutter Blame settings"
+								>Gutter Blame</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#heatmap"
+								title="Jump to Gutter Heatmap settings"
+								>Gutter Heatmap</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#recent-changes"
+								title="Jump to Recent Changes settings"
+								>Recent Changes</a
+							>
+						</li>
+
+						<li class="mt-1">
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#dates"
+								title="Jump to Dates & Times settings"
+								>Dates & Times</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#menus"
+								title="Jump to Menus & Toolbars settings"
+								>Menus & Toolbars</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#shortcuts"
+								title="Jump to Keyboard Shortcuts settings"
+								>Keyboard Shortcuts</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#modes"
+								title="Jump to Modes settings"
+								>Modes</a
+							>
+						</li>
+					</ul>
+				</div>
+				<div class="sidebar__group">
+					<a
+						class="button button--flat-primary mt-1"
+						title="Sponsor GitLens"
+						href="https://gitlens.amod.io/#sponsor"
+						>&#x2764; GitLens
+					</a>
+				</div>
+				<div class="sidebar__group">
+					<h2>Help</h2>
+					<ul>
+						<li>
+							<a href="https://github.com/eamodio/vscode-gitlens/blob/master/README.md">Documentation</a>
+						</li>
+						<li>
+							<a href="https://github.com/eamodio/vscode-gitlens/issues">Questions &amp; Issues</a>
+						</li>
+						<li>
+							<a href="https://vscode-slack.amod.io">Slack</a>
+							<small> &nbsp;&nbsp;&mdash;&nbsp; #gitlens channel</small>
+						</li>
+						<li>
+							<a href="https://twitter.com/eamodio">Twitter</a>
+							<small> &nbsp;&nbsp;&mdash;&nbsp; #gitlens hashtag</small>
+						</li>
+					</ul>
+				</div>
+				<div class="sidebar__group">
+					<h2>Resources</h2>
+					<ul>
+						<li><a href="https://gitlens.amod.io">Website</a></li>
+						<li>
+							<a href="https://marketplace.visualstudio.com/items/eamodio.gitlens/changelog">Changelog</a>
+						</li>
+						<li>
+							<a href="https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens"
+								>Marketplace</a
+							>
+						</li>
+						<li><a href="https://github.com/eamodio/vscode-gitlens">GitHub</a></li>
+						<li>
+							<a href="https://marketplace.visualstudio.com/items/eamodio.gitlens/license">License</a>
+						</li>
+					</ul>
+				</div>
+			</div>
+		</div>
+
+		#{endOfBody}
+	</body>
+</html>

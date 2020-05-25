@@ -1,0 +1,537 @@
+<section id="menus" class="section--settings section--collapsible">
+	<div class="section__header">
+		<div class="setting__input setting__input--big">
+			<input id="menus" name="menus" type="checkbox" value="undefined" data-setting />
+			<label for="menus">Menus &amp; Toolbars</label>
+		</div>
+
+		<p class="section__header-hint">
+			Adds many helpful commands to the built-in menus &amp; toolbars
+		</p>
+
+		<div class="section__header-info">
+			<i class="icon icon__info"></i>
+			<div>
+				<p>
+					Any changes to these settings will require a
+					<a class="command" title="Reload Window" href="command:workbench.action.reloadWindow">reload</a>
+					before they will take effect
+				</p>
+			</div>
+		</div>
+	</div>
+
+	<div class="section__collapsible">
+		<div class="section__group">
+			<div class="section__content">
+				<div class="setting setting--expandable" data-enablement="menus">
+					<div class="setting__input">
+						<div class="setting__expander"></div>
+						<input
+							id="menus.editor"
+							name="menus.editor"
+							type="checkbox"
+							value="undefined"
+							data-setting
+							data-setting-type="object"
+							disabled
+						/>
+						<label for="menus.editor">Add commands to the editor context menu</label>
+					</div>
+				</div>
+
+				<div class="settings ml-4">
+					<div class="setting" data-enablement="menus.editor">
+						<div class="setting__input">
+							<input
+								id="menus.editor.compare"
+								name="menus.editor.compare"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.editor.compare">Add comparison commands</label>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="menus.editor">
+						<div class="setting__input">
+							<input
+								id="menus.editor.remote"
+								name="menus.editor.remote"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.editor.remote">Add open on remote commands</label>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="menus.editor">
+						<div class="setting__input">
+							<input
+								id="menus.editor.details"
+								name="menus.editor.details"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.editor.details">Add commit details commands</label>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="menus.editor">
+						<div class="setting__input">
+							<input
+								id="menus.editor.history"
+								name="menus.editor.history"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.editor.history">Add file history commands</label>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="menus.editor">
+						<div class="setting__input">
+							<input
+								id="menus.editor.blame"
+								name="menus.editor.blame"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.editor.blame">Add blame commands</label>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="menus.editor">
+						<div class="setting__input">
+							<input
+								id="menus.editor.clipboard"
+								name="menus.editor.clipboard"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.editor.clipboard">Add copy to clipboard commands</label>
+						</div>
+					</div>
+				</div>
+
+				<div class="setting setting--expandable" data-enablement="menus">
+					<div class="setting__input">
+						<div class="setting__expander"></div>
+						<input
+							id="menus.editorTab"
+							name="menus.editorTab"
+							type="checkbox"
+							value="undefined"
+							data-setting
+							data-setting-type="object"
+							disabled
+						/>
+						<label for="menus.editorTab">Add commands to the editor tab context menu</label>
+					</div>
+				</div>
+
+				<div class="settings ml-4">
+					<div class="setting" data-enablement="menus.editorTab">
+						<div class="setting__input">
+							<input
+								id="menus.editorTab.remote"
+								name="menus.editorTab.remote"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.editorTab.remote">Add open on remote commands</label>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="menus.editorTab">
+						<div class="setting__input">
+							<input
+								id="menus.editorTab.compare"
+								name="menus.editorTab.compare"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.editorTab.compare">Add comparison commands</label>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="menus.editorTab">
+						<div class="setting__input">
+							<input
+								id="menus.editorTab.history"
+								name="menus.editorTab.history"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.editorTab.history">Add file history commands</label>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="menus.editorTab">
+						<div class="setting__input">
+							<input
+								id="menus.editorTab.clipboard"
+								name="menus.editorTab.clipboard"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.editorTab.clipboard">Add copy to clipboard commands</label>
+						</div>
+					</div>
+				</div>
+
+				<div class="setting setting--expandable" data-enablement="menus">
+					<div class="setting__input">
+						<div class="setting__expander"></div>
+						<input
+							id="menus.editorGroup"
+							name="menus.editorGroup"
+							type="checkbox"
+							value="undefined"
+							data-setting
+							data-setting-type="object"
+							disabled
+						/>
+						<label for="menus.editorGroup">Add commands to the editor group toolbar</label>
+					</div>
+				</div>
+
+				<div class="settings ml-4">
+					<div class="setting" data-enablement="menus.editorGroup">
+						<div class="setting__input">
+							<input
+								id="menus.editorGroup.compare"
+								name="menus.editorGroup.compare"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.editorGroup.compare">Add comparison commands</label>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="menus.editorGroup">
+						<div class="setting__input">
+							<input
+								id="menus.editorGroup.blame"
+								name="menus.editorGroup.blame"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.editorGroup.blame">Add blame commands</label>
+						</div>
+					</div>
+				</div>
+
+				<div class="setting setting--expandable" data-enablement="menus">
+					<div class="setting__input">
+						<div class="setting__expander"></div>
+						<input
+							id="menus.explorer"
+							name="menus.explorer"
+							type="checkbox"
+							value="undefined"
+							data-setting
+							data-setting-type="object"
+							disabled
+						/>
+						<label for="menus.explorer">Add commands to the Explorer items context menu</label>
+					</div>
+				</div>
+
+				<div class="settings ml-4">
+					<div class="setting" data-enablement="menus.explorer">
+						<div class="setting__input">
+							<input
+								id="menus.explorer.remote"
+								name="menus.explorer.remote"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.explorer.remote">Add open on remote commands</label>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="menus.explorer">
+						<div class="setting__input">
+							<input
+								id="menus.explorer.compare"
+								name="menus.explorer.compare"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.explorer.compare">Add comparison commands</label>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="menus.explorer">
+						<div class="setting__input">
+							<input
+								id="menus.explorer.history"
+								name="menus.explorer.history"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.explorer.history">Add file history commands</label>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="menus.explorer">
+						<div class="setting__input">
+							<input
+								id="menus.explorer.clipboard"
+								name="menus.explorer.clipboard"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.explorer.clipboard">Add copy to clipboard commands</label>
+						</div>
+					</div>
+				</div>
+
+				<div class="setting setting--expandable" data-enablement="menus">
+					<div class="setting__input">
+						<div class="setting__expander"></div>
+						<input
+							id="menus.scm"
+							name="menus.scm"
+							type="checkbox"
+							value="undefined"
+							data-setting
+							data-setting-type="object"
+							disabled
+						/>
+						<label for="menus.scm">Add commands to the Source Control toolbar</label>
+					</div>
+				</div>
+
+				<div class="settings ml-4">
+					<div class="setting" data-enablement="menus.scm">
+						<div class="setting__input">
+							<input
+								id="menus.scm.authors"
+								name="menus.scm.authors"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.scm.authors">Add co-authors command</label>
+						</div>
+					</div>
+				</div>
+
+				<div class="setting setting--expandable" data-enablement="menus">
+					<div class="setting__input">
+						<div class="setting__expander"></div>
+						<input
+							id="menus.scmGroupInline"
+							name="menus.scmGroupInline"
+							type="checkbox"
+							value="undefined"
+							data-setting
+							data-setting-type="object"
+							disabled
+						/>
+						<label for="menus.scmGroupInline">Add commands to the Source Control groups toolbar</label>
+					</div>
+				</div>
+
+				<div class="settings ml-4">
+					<div class="setting" data-enablement="menus.scmGroupInline">
+						<div class="setting__input">
+							<input
+								id="menus.scmGroupInline.stash"
+								name="menus.scmGroupInline.stash"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.scmGroupInline.stash">Add stash changes command</label>
+						</div>
+					</div>
+				</div>
+
+				<div class="setting setting--expandable" data-enablement="menus">
+					<div class="setting__input">
+						<div class="setting__expander"></div>
+						<input
+							id="menus.scmGroup"
+							name="menus.scmGroup"
+							type="checkbox"
+							value="undefined"
+							data-setting
+							data-setting-type="object"
+							disabled
+						/>
+						<label for="menus.scmGroup">Add commands to the Source Control groups context menu</label>
+					</div>
+				</div>
+
+				<div class="settings ml-4">
+					<div class="setting" data-enablement="menus.scmGroup">
+						<div class="setting__input">
+							<input
+								id="menus.scmGroup.openClose"
+								name="menus.scmGroup.openClose"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.scmGroup.openClose">Add open & close changed files commands</label>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="menus.scmGroup">
+						<div class="setting__input">
+							<input
+								id="menus.scmGroup.compare"
+								name="menus.scmGroup.compare"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.scmGroup.compare">Add comparison commands</label>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="menus.scmGroup">
+						<div class="setting__input">
+							<input
+								id="menus.scmGroup.stash"
+								name="menus.scmGroup.stash"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.scmGroup.stash">Add stash changes command</label>
+						</div>
+					</div>
+				</div>
+
+				<div class="setting setting--expandable" data-enablement="menus">
+					<div class="setting__input">
+						<div class="setting__expander"></div>
+						<input
+							id="menus.scmItem"
+							name="menus.scmItem"
+							type="checkbox"
+							value="undefined"
+							data-setting
+							data-setting-type="object"
+							disabled
+						/>
+						<label for="menus.scmItem">Add commands to the Source Control items context menu</label>
+					</div>
+				</div>
+
+				<div class="settings ml-4">
+					<div class="setting" data-enablement="menus.scmItem">
+						<div class="setting__input">
+							<input
+								id="menus.scmItem.remote"
+								name="menus.scmItem.remote"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.scmItem.remote">Add open on remote commands</label>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="menus.scmItem">
+						<div class="setting__input">
+							<input
+								id="menus.scmItem.compare"
+								name="menus.scmItem.compare"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.scmItem.compare">Add comparison commands</label>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="menus.scmItem">
+						<div class="setting__input">
+							<input
+								id="menus.scmItem.history"
+								name="menus.scmItem.history"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.scmItem.history">Add file history command</label>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="menus.scmItem">
+						<div class="setting__input">
+							<input
+								id="menus.scmItem.stash"
+								name="menus.scmItem.stash"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.scmItem.stash">Add stash changes command</label>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="menus.scmItem">
+						<div class="setting__input">
+							<input
+								id="menus.scmItem.clipboard"
+								name="menus.scmItem.clipboard"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.scmItem.clipboard">Add copy to clipboard commands</label>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</section>
