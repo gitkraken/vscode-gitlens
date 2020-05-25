@@ -1,5 +1,4 @@
 'use strict';
-/* eslint-disable constructor-super */
 import * as paths from 'path';
 import { Uri } from 'vscode';
 import { UriComparer } from '../comparers';

@@ -10,6 +10,7 @@ src/**
 test/**
 *.fig
 *.map
+.eslintcache
 .eslintignore
 .eslintrc.json
 .gitattributes

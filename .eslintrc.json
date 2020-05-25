@@ -15,7 +15,7 @@
 	],
 	"parser": "@typescript-eslint/parser",
 	"parserOptions": {
-		"ecmaVersion": 2018,
+		"ecmaVersion": 2019,
 		"sourceType": "module",
 		"ecmaFeatures": {
 			"impliedStrict": true
@@ -23,6 +23,8 @@
 		"project": "tsconfig.eslint.json"
 	},
 	"plugins": ["import", "@typescript-eslint"],
+	"reportUnusedDisableDirectives": true,
+	"root": true,
 	"rules": {
 		"arrow-parens": ["off"],
 		"brace-style": ["off", "stroustrup"],

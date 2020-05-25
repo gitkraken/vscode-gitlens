@@ -1022,7 +1022,6 @@ export async function* pickRepositoriesStep<
 	let actives: Repository[];
 	if (state.repos) {
 		if (Arrays.isStringArray(state.repos)) {
-			// eslint-disable-next-line no-loop-func
 			actives = Arrays.filterMap(state.repos, path => context.repos.find(r => r.path === path));
 		} else {
 			actives = state.repos;

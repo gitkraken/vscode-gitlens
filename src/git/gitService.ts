@@ -18,7 +18,6 @@ import {
 	WorkspaceFolder,
 	WorkspaceFoldersChangeEvent,
 } from 'vscode';
-// eslint-disable-next-line import/no-unresolved
 import { API as BuiltInGitApi, GitExtension } from '../@types/git';
 import { configuration } from '../configuration';
 import { CommandContext, DocumentSchemes, setCommandContext } from '../constants';

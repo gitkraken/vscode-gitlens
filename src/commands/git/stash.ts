@@ -458,7 +458,6 @@ export class StashGitCommand extends QuickCommand<State> {
 		}
 	}
 
-	// eslint-disable-next-line @typescript-eslint/require-await
 	private async *pushCommandSteps(state: PushStepState, context: Context): StepGenerator {
 		if (state.flags == null) {
 			state.flags = [];

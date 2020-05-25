@@ -100,8 +100,7 @@ function getExtensionConfig(mode, env) {
 		new CleanPlugin({ cleanOnceBeforeBuildPatterns: ['**/*', '!**/webviews/**'] }),
 		new ForkTsCheckerPlugin({
 			async: false,
-			eslint: true, // { files: './src/**/*.ts' },
-			useTypescriptIncrementalApi: true,
+			eslint: { enabled: true, files: path.resolve(__dirname, 'src/**/*.ts'), options: { cache: true } },
 		}),
 	];
 
@@ -226,9 +225,11 @@ function getWebviewsConfig(mode, env) {
 	const plugins = [
 		new CleanPlugin({ cleanOnceBeforeBuildPatterns: clean }),
 		new ForkTsCheckerPlugin({
-			tsconfig: path.resolve(__dirname, 'tsconfig.webviews.json'),
 			async: false,
-			eslint: true, // { files: './src/**/*.ts' },
+			eslint: { enabled: true, files: path.resolve(__dirname, 'src/**/*.ts'), options: { cache: true } },
+			typescript: {
+				tsconfig: path.resolve(__dirname, 'tsconfig.webviews.json'),
+			},
 		}),
 		new MiniCssExtractPlugin({
 			filename: '[name].css',
