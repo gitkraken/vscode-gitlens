@@ -73,6 +73,7 @@ export class GitHubRemote extends RemoteProviderWithApi<{ token: string }> {
 					input.onDidHide(() => resolve(undefined)),
 					input.onDidTriggerButton(e => {
 						if (e === this.Buttons.Help) {
+							// TODO@eamodio link to proper wiki
 							void env.openExternal(Uri.parse('https://github.com/eamodio/vscode-gitlens/wiki'));
 						}
 					}),
@@ -86,7 +87,8 @@ export class GitHubRemote extends RemoteProviderWithApi<{ token: string }> {
 					input.onDidAccept(() => resolve(input.value)),
 				);
 
-				input.buttons = [this.Buttons.Help];
+				// TODO@eamodio add this button once we have a valid help link above
+				// input.buttons = [this.Buttons.Help];
 				input.title = `Connect to ${this.name}`;
 				input.prompt = 'Enter a GitHub personal access token';
 				input.placeholder = 'Generate a personal access token from github.com (required)';
