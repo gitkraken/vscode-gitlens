@@ -21,7 +21,6 @@ import { GitBranch, GitCommit, GitContributor, GitFile, GitRemote, Repository } 
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, RepositoryPicker } from '../quickpicks';
-// import { Telemetry } from '../telemetry';
 import { ViewNode, ViewRefNode } from '../views/nodes';
 
 export enum Commands {
@@ -368,8 +367,6 @@ export abstract class Command implements Disposable {
 	abstract execute(...args: any[]): any;
 
 	protected _execute(command: string, ...args: any[]): any {
-		// Telemetry.trackEvent(command);
-
 		const [context, rest] = Command.parseContext(command, { ...this.contextParsingOptions }, ...args);
 		return this.preExecute(context, ...rest);
 	}
@@ -509,7 +506,6 @@ export abstract class EditorCommand implements Disposable {
 	}
 
 	private executeCore(command: string, editor: TextEditor, edit: TextEditorEdit, ...args: any[]): any {
-		// Telemetry.trackEvent(command);
 		return this.execute(editor, edit, ...args);
 	}
 

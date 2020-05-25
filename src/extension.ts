@@ -11,7 +11,6 @@ import { GitUri } from './git/gitUri';
 import { Logger } from './logger';
 import { Messages } from './messages';
 import { Strings, Versions } from './system';
-// import { Telemetry } from './telemetry';
 
 export async function activate(context: ExtensionContext) {
 	const start = process.hrtime();
@@ -75,20 +74,10 @@ export async function activate(context: ExtensionContext) {
 
 	const gitVersion = Git.getGitVersion();
 
-	// Telemetry.configure(ApplicationInsightsKey);
-
-	// const telemetryContext: Record<string, any> = Object.create(null);
-	// telemetryContext.version = gitlensVersion;
-	// telemetryContext['git.version'] = gitVersion;
-	// Telemetry.setContext(telemetryContext);
-
 	notifyOnUnsupportedGitVersion(gitVersion);
 	void showWelcomeOrWhatsNew(gitlensVersion, previousVersion);
 
 	void context.globalState.update(GlobalState.GitLensVersion, gitlensVersion);
-
-	// Constantly over my data cap so stop collecting initialized event
-	// Telemetry.trackEvent('initialized', Objects.flatten(cfg, 'config', true));
 
 	Logger.log(
 		`GitLens (v${gitlensVersion}${cfg.mode.active ? `, mode: ${cfg.mode.active}` : ''}) activated ${

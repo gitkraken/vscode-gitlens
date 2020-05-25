@@ -2,7 +2,6 @@
 import { ExtensionContext, OutputChannel, Uri, window } from 'vscode';
 import { extensionOutputChannelName } from './constants';
 import { getCorrelationContext, getNextCorrelationId } from './system';
-// import { Telemetry } from './telemetry';
 
 const emptyStr = '';
 
@@ -105,8 +104,6 @@ export class Logger {
 				`${this.timestamp} ${message ?? emptyStr}${this.toLoggableParams(false, params)}\n${ex?.toString()}`,
 			);
 		}
-
-		// Telemetry.trackException(ex);
 	}
 
 	static getCorrelationContext() {

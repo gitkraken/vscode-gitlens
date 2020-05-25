@@ -1972,12 +1972,6 @@
 					"markdownDescription": "Specifies the amount (percent) of similarity a deleted and added file pair must have to be considered a rename",
 					"scope": "window"
 				},
-				"gitlens.advanced.telemetry.enabled": {
-					"type": "boolean",
-					"default": true,
-					"markdownDescription": "Specifies whether to enable GitLens telemetry (even if enabled still abides by the overall `#telemetry.enableTelemetry#` setting",
-					"scope": "window"
-				},
 				"gitlens.advanced.useSymmetricDifferenceNotation": {
 					"type": "boolean",
 					"default": true,

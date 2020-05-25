@@ -276,9 +276,6 @@ export interface AdvancedConfig {
 	};
 	repositorySearchDepth: number;
 	similarityThreshold: number | null;
-	telemetry: {
-		enabled: boolean;
-	};
 	useSymmetricDifferenceNotation: boolean;
 }
 
