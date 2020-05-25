@@ -101,6 +101,7 @@ function getExtensionConfig(mode, env) {
 		new ForkTsCheckerPlugin({
 			async: false,
 			eslint: { enabled: true, files: 'src/**/*.ts', options: { cache: true } },
+			formatter: 'basic',
 		}),
 	];
 
@@ -227,6 +228,7 @@ function getWebviewsConfig(mode, env) {
 		new ForkTsCheckerPlugin({
 			async: false,
 			eslint: { enabled: true, files: path.resolve(__dirname, 'src/**/*.ts'), options: { cache: true } },
+			formatter: 'basic',
 			typescript: {
 				tsconfig: path.resolve(__dirname, 'tsconfig.webviews.json'),
 			},
