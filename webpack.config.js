@@ -100,7 +100,7 @@ function getExtensionConfig(mode, env) {
 		new CleanPlugin({ cleanOnceBeforeBuildPatterns: ['**/*', '!**/webviews/**'] }),
 		new ForkTsCheckerPlugin({
 			async: false,
-			eslint: { enabled: true, files: path.resolve(__dirname, 'src/**/*.ts'), options: { cache: true } },
+			eslint: { enabled: true, files: 'src/**/*.ts', options: { cache: true } },
 		}),
 	];
 
