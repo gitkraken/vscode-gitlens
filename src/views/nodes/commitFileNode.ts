@@ -203,7 +203,7 @@ export class CommitFileNode extends ViewRefFileNode {
 			},
 		};
 		return {
-			title: 'Compare File with Previous Revision',
+			title: 'Open Changes with Previous Revision',
 			command: Commands.DiffWithPrevious,
 			arguments: [GitUri.fromFile(this.file, this.commit.repoPath), commandArgs],
 		};

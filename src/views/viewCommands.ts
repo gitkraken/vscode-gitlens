@@ -5,6 +5,8 @@ import {
 	DiffWithCommandArgs,
 	DiffWithPreviousCommandArgs,
 	DiffWithWorkingCommandArgs,
+	executeCommand,
+	executeEditorCommand,
 	findOrOpenEditor,
 	GitActions,
 	OpenFileAtRevisionCommandArgs,
@@ -571,7 +573,7 @@ export class ViewCommands {
 		this._selectedFile = undefined;
 		void setCommandContext(CommandContext.ViewsCanCompareFile, false);
 
-		const diffArgs: DiffWithCommandArgs = {
+		return executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
 			repoPath: selected.repoPath,
 			lhs: {
 				sha: selected.ref,
@@ -581,8 +583,7 @@ export class ViewCommands {
 				sha: node.ref,
 				uri: node.uri,
 			},
-		};
-		return commands.executeCommand(Commands.DiffWith, diffArgs);
+		});
 	}
 
 	private _selectedFile: CompareSelectedInfo | undefined;
@@ -625,14 +626,27 @@ export class ViewCommands {
 
 	@debug()
 	private openChanges(node: ViewRefFileNode | StatusFileNode) {
-		if (!(node instanceof ViewRefFileNode) && !(node instanceof StatusFileNode)) return undefined;
+		if (!(node instanceof ViewRefFileNode) && !(node instanceof StatusFileNode)) return;
 
 		const command = node.getCommand();
-		if (command === undefined || command.arguments === undefined) return undefined;
+		if (command?.arguments == null) return;
 
-		const [uri, args] = command.arguments as [Uri, DiffWithPreviousCommandArgs];
-		args.showOptions!.preview = false;
-		return commands.executeCommand(command.command, uri, args);
+		switch (command.command) {
+			case Commands.DiffWith: {
+				const [args] = command.arguments as [DiffWithCommandArgs];
+				args.showOptions!.preview = false;
+				void executeCommand<DiffWithCommandArgs>(command.command, args);
+				break;
+			}
+			case Commands.DiffWithPrevious: {
+				const [uri, args] = command.arguments as [Uri, DiffWithPreviousCommandArgs];
+				args.showOptions!.preview = false;
+				void executeEditorCommand<DiffWithPreviousCommandArgs>(command.command, uri, args);
+				break;
+			}
+			default:
+				throw new Error(`Unexpected command: ${command.command}`);
+		}
 
 		// TODO@eamodio Revisit this
 		// return GitActions.Commit.openChanges(node.file, node instanceof ViewRefFileNode ? node.ref : node.commit, {

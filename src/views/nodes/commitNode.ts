@@ -110,7 +110,7 @@ export class CommitNode extends ViewRefNode<ViewWithFiles> {
 			},
 		};
 		return {
-			title: 'Compare File with Previous Revision',
+			title: 'Open Changes with Previous Revision',
 			command: Commands.DiffWithPrevious,
 			arguments: [this.uri, commandArgs],
 		};

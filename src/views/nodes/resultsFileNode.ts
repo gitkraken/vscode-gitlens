@@ -127,7 +127,7 @@ export class ResultsFileNode extends ViewRefFileNode {
 		return {
 			title: 'Open Changes',
 			command: Commands.DiffWith,
-			arguments: [this.uri, commandArgs],
+			arguments: [commandArgs],
 		};
 	}
 }

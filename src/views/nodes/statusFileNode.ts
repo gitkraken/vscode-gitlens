@@ -232,7 +232,7 @@ export class StatusFileNode extends ViewNode {
 			},
 		};
 		return {
-			title: 'Compare File with Previous Revision',
+			title: 'Open Changes with Previous Revision',
 			command: Commands.DiffWithPrevious,
 			arguments: [GitUri.fromFile(this.file, this.repoPath), commandArgs],
 		};
