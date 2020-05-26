@@ -1,5 +1,5 @@
 'use strict';
-import { Disposable, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
 import {
 	GitLog,
@@ -92,9 +92,8 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 		);
 		item.contextValue = ResourceType.FileHistory;
 		item.description = this.uri.directory;
-		item.iconPath = new ThemeIcon('history');
 		item.tooltip = `History of ${this.uri.fileName}\n${this.uri.directory}/${
-			this.uri.sha === undefined ? '' : `\n\n${this.uri.sha}`
+			this.uri.sha == null ? '' : `\n\n${this.uri.sha}`
 		}`;
 
 		void this.ensureSubscription();
@@ -105,7 +104,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 	@debug()
 	protected async subscribe() {
 		const repo = await Container.git.getRepository(this.uri);
-		if (repo === undefined) return undefined;
+		if (repo == null) return undefined;
 
 		const subscription = Disposable.from(
 			repo.onDidChange(this.onRepoChanged, this),
@@ -146,7 +145,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 
 	private _log: GitLog | undefined;
 	private async getLog() {
-		if (this._log === undefined) {
+		if (this._log == null) {
 			this._log = await Container.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, {
 				limit: this.limit ?? this.view.config.defaultItemLimit,
 				ref: this.uri.sha,
@@ -163,7 +162,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	async showMore(limit?: number | { until?: any }) {
 		let log = await this.getLog();
-		if (log === undefined || !log.hasMore) return;
+		if (log == null || !log.hasMore) return;
 
 		log = await log.more?.(limit ?? this.view.config.pageItemLimit);
 		if (this._log === log) return;

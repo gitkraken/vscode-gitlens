@@ -17,6 +17,7 @@ import {
 	window,
 } from 'vscode';
 import { configuration } from '../configuration';
+import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { debug, Functions, log, Promises, Strings } from '../system';
@@ -62,7 +63,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 				const item = await fn.apply(this, [node]);
 
 				const parent = node.getParent();
-				if (parent !== undefined) {
+				if (parent != null) {
 					item.tooltip = `${
 						item.tooltip ?? item.label
 					}\n\nDBG:\nnode: ${node.toString()}\nparent: ${parent.toString()}\ncontext: ${item.contextValue}`;
@@ -83,6 +84,41 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 
 	dispose() {
 		this._disposable?.dispose();
+	}
+
+	private _title: string | undefined;
+	get title(): string | undefined {
+		return this._title;
+	}
+	set title(value: string | undefined) {
+		this._title = value;
+		this.updateTitle();
+	}
+
+	private _titleContext: string | undefined;
+	get titleContext(): string | undefined {
+		return this._titleContext;
+	}
+	set titleContext(value: string | undefined) {
+		this._titleContext = value;
+		this.updateTitle();
+	}
+
+	private _description: string | undefined;
+	get description(): string | undefined {
+		return this._description;
+	}
+	set description(value: string | undefined) {
+		this._description = value;
+		this.updateTitle();
+	}
+
+	private updateTitle() {
+		if (this._tree == null) return;
+
+		this._tree.title = `${this.title}${this.titleContext ? ` ${GlyphChars.Dot} ${this.titleContext}` : ''}${
+			this.description ? ` ${this.description}` : ''
+		}`;
 	}
 
 	getQualifiedCommand(command: string) {
@@ -111,10 +147,11 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 			this._tree.onDidCollapseElement(this.onElementCollapsed, this),
 			this._tree.onDidExpandElement(this.onElementExpanded, this),
 		);
+		this._title = this._tree.title;
 	}
 
-	protected ensureRoot() {
-		if (this._root === undefined) {
+	protected ensureRoot(force: boolean = false) {
+		if (this._root == null || force) {
 			this._root = this.getRoot();
 		}
 
@@ -122,7 +159,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 	}
 
 	getChildren(node?: ViewNode): ViewNode[] | Promise<ViewNode[]> {
-		if (node !== undefined) return node.getChildren();
+		if (node != null) return node.getChildren();
 
 		const root = this.ensureRoot();
 		return root.getChildren();
@@ -149,13 +186,13 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 	}
 
 	get selection(): ViewNode[] {
-		if (this._tree === undefined || this._root === undefined) return [];
+		if (this._tree == null || this._root == null) return [];
 
 		return this._tree.selection;
 	}
 
 	get visible(): boolean {
-		return this._tree !== undefined ? this._tree.visible : false;
+		return this._tree != null ? this._tree.visible : false;
 	}
 
 	async findNode(
@@ -205,7 +242,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 		const cc = Logger.getCorrelationContext();
 
 		// If we have no root (e.g. never been initialized) force it so the tree will load properly
-		if (this._root === undefined) {
+		if (this._root == null) {
 			await this.show();
 		}
 
@@ -246,7 +283,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 			if (token?.isCancellationRequested) return undefined;
 
 			node = queue.shift();
-			if (node === undefined) {
+			if (node == null) {
 				depth++;
 
 				queue.push(undefined);
@@ -256,7 +293,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 			}
 
 			if (predicate(node)) return node;
-			if (canTraverse !== undefined) {
+			if (canTraverse != null) {
 				const traversable = canTraverse(node);
 				if (Promises.is(traversable)) {
 					if (!(await traversable)) continue;
@@ -270,7 +307,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 
 			if (PageableViewNode.is(node)) {
 				let child = children.find(predicate);
-				if (child !== undefined) return child;
+				if (child != null) return child;
 
 				if (allowPaging && node.hasMore) {
 					while (true) {
@@ -287,7 +324,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 						);
 
 						child = pagedChildren.find(predicate);
-						if (child !== undefined) return child;
+						if (child != null) return child;
 
 						if (!node.hasMore) break;
 					}
@@ -305,9 +342,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 
 	@debug()
 	async refresh(reset: boolean = false) {
-		if (this._root?.refresh != null) {
-			await this._root.refresh(reset);
-		}
+		await this._root?.refresh?.(reset);
 
 		this.triggerNodeChange();
 	}
@@ -316,7 +351,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 		args: { 0: (n: ViewNode) => n.toString() },
 	})
 	async refreshNode(node: ViewNode, reset: boolean = false) {
-		if (node.refresh !== undefined) {
+		if (node.refresh != null) {
 			const cancel = await node.refresh(reset);
 			if (cancel === true) return;
 		}
@@ -335,7 +370,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 			expand?: boolean | number;
 		},
 	) {
-		if (this._tree === undefined) return;
+		if (this._tree == null) return;
 
 		try {
 			await this._tree.reveal(node, options);
@@ -385,7 +420,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 	@debug({
 		args: {
 			0: (n: ViewNode & PageableViewNode) => n.toString(),
-			3: (n?: ViewNode) => (n === undefined ? '' : n.toString()),
+			3: (n?: ViewNode) => (n == null ? '' : n.toString()),
 		},
 	})
 	async showMoreNodeChildren(
@@ -393,7 +428,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 		limit: number | { until: any } | undefined,
 		previousNode?: ViewNode,
 	) {
-		if (previousNode !== undefined) {
+		if (previousNode != null) {
 			void (await this.reveal(previousNode, { select: true }));
 		}
 
@@ -406,6 +441,6 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 	})
 	triggerNodeChange(node?: ViewNode) {
 		// Since the root node won't actually refresh, force everything
-		this._onDidChangeTreeData.fire(node !== undefined && node !== this._root ? node : undefined);
+		this._onDidChangeTreeData.fire(node != null && node !== this._root ? node : undefined);
 	}
 }

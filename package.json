@@ -1606,7 +1606,7 @@
 				},
 				"gitlens.views.lineHistory.enabled": {
 					"type": "boolean",
-					"default": true,
+					"default": false,
 					"markdownDescription": "Specifies whether to show the _Line History_ view",
 					"scope": "window"
 				},
@@ -3170,15 +3170,27 @@
 			},
 			{
 				"command": "gitlens.views.fileHistory.setEditorFollowingOn",
-				"title": "Resume File Tracking",
+				"title": "Unpin the Current File History",
 				"category": "GitLens",
-				"icon": "$(eye-closed)"
+				"icon": "$(pinned)"
 			},
 			{
 				"command": "gitlens.views.fileHistory.setEditorFollowingOff",
-				"title": "Pause File Tracking",
+				"title": "Pin the Current File History",
+				"category": "GitLens",
+				"icon": "$(pin)"
+			},
+			{
+				"command": "gitlens.views.fileHistory.setCursorFollowingOn",
+				"title": "Follow the Cursor",
 				"category": "GitLens",
 				"icon": "$(eye)"
+			},
+			{
+				"command": "gitlens.views.fileHistory.setCursorFollowingOff",
+				"title": "Unfollow the Cursor",
+				"category": "GitLens",
+				"icon": "$(eye-closed)"
 			},
 			{
 				"command": "gitlens.views.fileHistory.setRenameFollowingOn",
@@ -3226,15 +3238,15 @@
 			},
 			{
 				"command": "gitlens.views.lineHistory.setEditorFollowingOn",
-				"title": "Resume Line Tracking",
+				"title": "Unpin the Current File History",
 				"category": "GitLens",
-				"icon": "$(eye-closed)"
+				"icon": "$(pinned)"
 			},
 			{
 				"command": "gitlens.views.lineHistory.setEditorFollowingOff",
-				"title": "Pause Line Tracking",
+				"title": "Pin the Current File History",
 				"category": "GitLens",
-				"icon": "$(eye)"
+				"icon": "$(pin)"
 			},
 			{
 				"command": "gitlens.views.lineHistory.setRenameFollowingOn",
@@ -4101,6 +4113,14 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.fileHistory.setCursorFollowingOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setCursorFollowingOff",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.fileHistory.setRenameFollowingOn",
 					"when": "false"
 				},
@@ -4652,9 +4672,19 @@
 					"group": "navigation@10"
 				},
 				{
+					"command": "gitlens.views.fileHistory.setCursorFollowingOn",
+					"when": "view =~ /^gitlens\\.views\\.fileHistory:/ && !gitlens:views:fileHistory:cursorFollowing",
+					"group": "navigation@11"
+				},
+				{
+					"command": "gitlens.views.fileHistory.setCursorFollowingOff",
+					"when": "view =~ /^gitlens\\.views\\.fileHistory:/ && gitlens:views:fileHistory:cursorFollowing",
+					"group": "navigation@11"
+				},
+				{
 					"command": "gitlens.views.fileHistory.changeBase",
 					"when": "view =~ /^gitlens\\.views\\.fileHistory:/",
-					"group": "navigation@11"
+					"group": "navigation@12"
 				},
 				{
 					"command": "gitlens.views.fileHistory.refresh",
@@ -6082,7 +6112,7 @@
 					"when": "config.gitlens.views.lineHistory.enabled && config.gitlens.views.lineHistory.location == gitlens",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/history.svg",
-					"visibility": "collapsed"
+					"visibility": "hidden"
 				},
 				{
 					"id": "gitlens.views.compare:gitlens",
@@ -6122,7 +6152,7 @@
 					"when": "gitlens:enabled && config.gitlens.views.lineHistory.enabled && config.gitlens.views.lineHistory.location == explorer",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/history.svg",
-					"visibility": "collapsed"
+					"visibility": "hidden"
 				},
 				{
 					"id": "gitlens.views.compare:explorer",
@@ -6162,7 +6192,7 @@
 					"when": "gitlens:enabled && config.gitlens.views.lineHistory.enabled && config.gitlens.views.lineHistory.location == scm",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/history.svg",
-					"visibility": "collapsed"
+					"visibility": "hidden"
 				},
 				{
 					"id": "gitlens.views.compare:scm",

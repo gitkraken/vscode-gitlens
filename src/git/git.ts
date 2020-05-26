@@ -781,7 +781,7 @@ export namespace Git {
 					params.push('--numstat', '--summary');
 				}
 			} else {
-				// Don't include --name-status or -s because Git won't honor it
+				// Don't include `--name-status`, `--numstat`, or `--summary` because they aren't supported with `-L`
 				params.push(`-L ${startLine},${endLine == null ? startLine : endLine}:${file}`);
 			}
 		}

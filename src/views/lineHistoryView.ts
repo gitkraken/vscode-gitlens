@@ -82,7 +82,7 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode> {
 			this.initialize(this.config.location);
 		}
 
-		if (!configuration.initializing(e) && this._root !== undefined) {
+		if (!configuration.initializing(e) && this._root != null) {
 			void this.refresh(true);
 		}
 	}
@@ -92,16 +92,13 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode> {
 	}
 
 	private changeBase() {
-		if (this._root !== undefined) {
-			void this._root.changeBase();
-		}
+		void this._root?.changeBase();
 	}
 
 	private setEditorFollowing(enabled: boolean) {
 		void setCommandContext(CommandContext.ViewsLineHistoryEditorFollowing, enabled);
-		if (this._root !== undefined) {
-			this._root.setEditorFollowing(enabled);
-		}
+		this._root?.setEditorFollowing(enabled);
+		this.description = enabled ? '' : ' (pinned)';
 	}
 
 	private setRenameFollowing(enabled: boolean) {

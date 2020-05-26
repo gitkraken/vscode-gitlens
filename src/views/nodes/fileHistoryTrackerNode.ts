@@ -29,15 +29,15 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 
 	@debug()
 	private resetChild() {
-		if (this._child === undefined) return;
+		if (this._child == null) return;
 
 		this._child.dispose();
 		this._child = undefined;
 	}
 
 	getChildren(): ViewNode[] {
-		if (this._child === undefined) {
-			if (this._fileUri === undefined && this.uri === unknownGitUri) {
+		if (this._child == null) {
+			if (this._fileUri == null && this.uri === unknownGitUri) {
 				return [
 					new MessageNode(
 						this.view,

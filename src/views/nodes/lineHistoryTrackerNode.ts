@@ -3,6 +3,7 @@ import { Selection, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { MessageNode } from './common';
 import { UriComparer } from '../../comparers';
 import { Container } from '../../container';
+import { FileHistoryView } from '../fileHistoryView';
 import { GitReference } from '../../git/git';
 import { GitCommitish, GitUri } from '../../git/gitUri';
 import { LineHistoryView } from '../lineHistoryView';
@@ -13,13 +14,13 @@ import { debug, Functions, gate, log } from '../../system';
 import { LinesChangeEvent } from '../../trackers/gitLineTracker';
 import { ResourceType, SubscribeableViewNode, unknownGitUri, ViewNode } from './viewNode';
 
-export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryView> {
+export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryView | FileHistoryView> {
 	private _base: string | undefined;
 	private _child: LineHistoryNode | undefined;
 	private _editorContents: string | undefined;
 	private _selection: Selection | undefined;
 
-	constructor(view: LineHistoryView) {
+	constructor(view: LineHistoryView | FileHistoryView) {
 		super(unknownGitUri, view);
 	}
 
@@ -31,14 +32,14 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 
 	@debug()
 	private resetChild() {
-		if (this._child === undefined) return;
+		if (this._child == null) return;
 
 		this._child.dispose();
 		this._child = undefined;
 	}
 
 	getChildren(): ViewNode[] {
-		if (this._child === undefined) {
+		if (this._child == null) {
 			if (this.uri === unknownGitUri) {
 				return [
 					new MessageNode(

@@ -4,16 +4,16 @@ import { configuration, FileHistoryViewConfig, ViewsConfig } from '../configurat
 import { CommandContext, setCommandContext } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
-import { FileHistoryTrackerNode } from './nodes';
+import { FileHistoryTrackerNode, LineHistoryTrackerNode } from './nodes';
 import { ViewBase } from './viewBase';
 
-export class FileHistoryView extends ViewBase<FileHistoryTrackerNode> {
+export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHistoryTrackerNode> {
 	constructor() {
 		super('gitlens.views.fileHistory', 'File History');
 	}
 
 	getRoot() {
-		return new FileHistoryTrackerNode(this);
+		return this._followCursor ? new LineHistoryTrackerNode(this) : new FileHistoryTrackerNode(this);
 	}
 
 	protected get location(): string {
@@ -30,6 +30,16 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode> {
 		);
 		commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this);
 		commands.registerCommand(this.getQualifiedCommand('changeBase'), () => this.changeBase(), this);
+		commands.registerCommand(
+			this.getQualifiedCommand('setCursorFollowingOn'),
+			() => this.setCursorFollowing(true),
+			this,
+		);
+		commands.registerCommand(
+			this.getQualifiedCommand('setCursorFollowingOff'),
+			() => this.setCursorFollowing(false),
+			this,
+		);
 		commands.registerCommand(
 			this.getQualifiedCommand('setEditorFollowingOn'),
 			() => this.setEditorFollowing(true),
@@ -87,14 +97,15 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode> {
 		}
 
 		if (configuration.changed(e, 'views', 'fileHistory', 'enabled')) {
-			void setCommandContext(CommandContext.ViewsFileHistoryEditorFollowing, true);
+			void setCommandContext(CommandContext.ViewsFileHistoryEditorFollowing, this._followEditor);
+			void setCommandContext(CommandContext.ViewsFileHistoryCursorFollowing, this._followCursor);
 		}
 
 		if (configuration.changed(e, 'views', 'fileHistory', 'location')) {
 			this.initialize(this.config.location);
 		}
 
-		if (!configuration.initializing(e) && this._root !== undefined) {
+		if (!configuration.initializing(e) && this._root != null) {
 			void this.refresh(true);
 		}
 	}
@@ -104,24 +115,39 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode> {
 	}
 
 	async showHistoryForUri(uri: GitUri, baseRef?: string) {
-		const root = this.ensureRoot();
-
+		this.setCursorFollowing(false);
 		this.setEditorFollowing(false);
-		await root.showHistoryForUri(uri, baseRef);
+
+		const root = this.ensureRoot(true);
+		if (root instanceof FileHistoryTrackerNode) {
+			await root.showHistoryForUri(uri, baseRef);
+		}
 		return this.show();
 	}
 
 	private changeBase() {
-		if (this._root !== undefined) {
-			void this._root.changeBase();
-		}
+		void this._root?.changeBase();
 	}
 
+	private _followCursor: boolean = false;
+	private setCursorFollowing(enabled: boolean) {
+		this._followCursor = enabled;
+		void setCommandContext(CommandContext.ViewsFileHistoryCursorFollowing, enabled);
+
+		const root = this.ensureRoot(true);
+		root.setEditorFollowing(this._followEditor);
+		void root.ensureSubscription();
+		void this.refresh(true);
+
+		this.titleContext = this._followCursor ? this.titleContext : undefined;
+	}
+
+	private _followEditor: boolean = true;
 	private setEditorFollowing(enabled: boolean) {
+		this._followEditor = enabled;
 		void setCommandContext(CommandContext.ViewsFileHistoryEditorFollowing, enabled);
-		if (this._root !== undefined) {
-			this._root.setEditorFollowing(enabled);
-		}
+		this._root?.setEditorFollowing(enabled);
+		this.description = enabled ? '' : ' (pinned)';
 	}
 
 	private setRenameFollowing(enabled: boolean) {
