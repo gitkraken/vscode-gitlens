@@ -381,8 +381,10 @@ export class StashGitCommand extends QuickCommand<State> {
 			const result = yield* this.dropCommandConfirmStep(state, context);
 			if (result === StepResult.Break) continue;
 
+			QuickCommand.endSteps(state);
 			try {
-				void (await state.repo.stashDelete(`stash@{${state.reference.ref}}`));
+				// drop can only take a stash index, e.g. `stash@{1}`
+				void (await state.repo.stashDelete(`stash@{${state.reference.number}}`));
 			} catch (ex) {
 				Logger.error(ex, context.title);
 
