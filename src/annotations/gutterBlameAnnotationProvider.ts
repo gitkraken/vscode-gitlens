@@ -1,11 +1,11 @@
 'use strict';
-import { DecorationOptions, Range, TextEditorDecorationType, window } from 'vscode';
+import { DecorationOptions, Range, ThemableDecorationAttachmentRenderOptions } from 'vscode';
 import { FileAnnotationType, GravatarDefaultStyle } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { CommitFormatOptions, CommitFormatter, GitBlameCommit } from '../git/git';
 import { Logger } from '../logger';
-import { log, Objects, Strings } from '../system';
+import { log, Strings } from '../system';
 import { Annotations } from './annotations';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 
@@ -17,7 +17,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		this.annotationType = FileAnnotationType.Blame;
 
 		const blame = await this.getBlame();
-		if (blame === undefined) return false;
+		if (blame == null) return false;
 
 		let start = process.hrtime();
 
@@ -45,13 +45,17 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		const avatars = cfg.avatars;
 		const gravatarDefault = Container.config.defaultGravatarsStyle;
 		const separateLines = cfg.separateLines;
-		const renderOptions = Annotations.gutterRenderOptions(separateLines, cfg.heatmap, cfg.format, options);
+		const renderOptions = Annotations.gutterRenderOptions(
+			separateLines,
+			cfg.heatmap,
+			cfg.avatars,
+			cfg.format,
+			options,
+		);
 
 		this.decorations = [];
-		const decorationsMap = Object.create(null) as Record<string, DecorationOptions | undefined>;
-		const avatarDecorationsMap = avatars
-			? (Object.create(null) as Record<string, { decoration: TextEditorDecorationType; ranges: Range[] }>)
-			: undefined;
+		const decorationsMap = new Map<string, DecorationOptions | undefined>();
+		const avatarDecorationsMap = avatars ? new Map<string, ThemableDecorationAttachmentRenderOptions>() : undefined;
 
 		let commit: GitBlameCommit | undefined;
 		let compacted = false;
@@ -60,7 +64,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
 		let computedHeatmap;
 		if (cfg.heatmap.enabled) {
-			computedHeatmap = this.getComputedHeatmap(blame);
+			computedHeatmap = await this.getComputedHeatmap(blame);
 		}
 
 		for (const l of blame.lines) {
@@ -68,7 +72,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 			const editorLine = l.line - 1;
 
 			if (previousSha === l.sha) {
-				if (gutter === undefined) continue;
+				if (gutter == null) continue;
 
 				// Use a shallow copy of the previous decoration options
 				gutter = { ...gutter };
@@ -85,7 +89,9 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 					};
 
 					if (separateLines) {
-						gutter.renderOptions.before!.textDecoration = 'none';
+						gutter.renderOptions.before!.textDecoration = `none;box-sizing:border-box${
+							avatars ? ';padding: 0 0 0 18px' : ''
+						}`;
 					}
 
 					compacted = true;
@@ -95,10 +101,6 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
 				this.decorations.push(gutter);
 
-				if (avatars && !cfg.compact && commit !== undefined && commit.email !== undefined) {
-					this.addOrUpdateAvatarDecoration(commit, gutter.range, gravatarDefault, avatarDecorationsMap!);
-				}
-
 				continue;
 			}
 
@@ -106,10 +108,10 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 			previousSha = l.sha;
 
 			commit = blame.commits.get(l.sha);
-			if (commit === undefined) continue;
+			if (commit == null) continue;
 
-			gutter = decorationsMap[l.sha];
-			if (gutter !== undefined) {
+			gutter = decorationsMap.get(l.sha);
+			if (gutter != null) {
 				gutter = {
 					...gutter,
 					range: new Range(editorLine, 0, editorLine, 0),
@@ -117,16 +119,12 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
 				this.decorations.push(gutter);
 
-				if (avatars && commit.email !== undefined) {
-					this.addOrUpdateAvatarDecoration(commit, gutter.range, gravatarDefault, avatarDecorationsMap!);
-				}
-
 				continue;
 			}
 
 			gutter = Annotations.gutter(commit, cfg.format, options, renderOptions) as DecorationOptions;
 
-			if (computedHeatmap !== undefined) {
+			if (computedHeatmap != null) {
 				Annotations.applyHeatmap(gutter, commit.date, computedHeatmap);
 			}
 
@@ -134,27 +132,19 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
 			this.decorations.push(gutter);
 
-			if (avatars && commit.email !== undefined) {
-				this.addOrUpdateAvatarDecoration(commit, gutter.range, gravatarDefault, avatarDecorationsMap!);
+			if (avatars && commit.email != null) {
+				this.applyAvatarDecoration(commit, gutter, gravatarDefault, avatarDecorationsMap!);
 			}
 
-			decorationsMap[l.sha] = gutter;
+			decorationsMap.set(l.sha, gutter);
 		}
 
 		Logger.log(cc, `${Strings.getDurationMilliseconds(start)} ms to compute gutter blame annotations`);
 
-		if (this.decorations.length) {
+		if (this.decoration != null && this.decorations.length) {
 			start = process.hrtime();
 
 			this.editor.setDecorations(this.decoration, this.decorations);
-
-			if (avatars) {
-				this.additionalDecorations = [];
-				for (const d of Objects.values(avatarDecorationsMap!)) {
-					this.additionalDecorations.push(d);
-					this.editor.setDecorations(d.decoration, d.ranges);
-				}
-			}
 
 			Logger.log(cc, `${Strings.getDurationMilliseconds(start)} ms to apply all gutter blame annotations`);
 		}
@@ -163,25 +153,23 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		return true;
 	}
 
-	addOrUpdateAvatarDecoration(
+	applyAvatarDecoration(
 		commit: GitBlameCommit,
-		range: Range,
+		gutter: DecorationOptions,
 		gravatarDefault: GravatarDefaultStyle,
-		map: Record<string, { decoration: TextEditorDecorationType; ranges: Range[] }>,
+		map: Map<string, ThemableDecorationAttachmentRenderOptions>,
 	) {
-		const avatarDecoration = map[commit.email!];
-		if (avatarDecoration !== undefined) {
-			avatarDecoration.ranges.push(range);
-
-			return;
+		let avatarDecoration = map.get(commit.email!);
+		if (avatarDecoration == null) {
+			avatarDecoration = {
+				contentIconPath: commit.getAvatarUri(gravatarDefault),
+				height: '16px',
+				width: '16px',
+				textDecoration: 'none;position:absolute;top:1px;left:5px',
+			};
+			map.set(commit.email!, avatarDecoration);
 		}
 
-		map[commit.email!] = {
-			decoration: window.createTextEditorDecorationType({
-				gutterIconPath: commit.getAvatarUri(gravatarDefault),
-				gutterIconSize: '16px 16px',
-			}),
-			ranges: [range],
-		};
+		gutter.renderOptions!.after = avatarDecoration;
 	}
 }

@@ -11,7 +11,7 @@ import {
 	TextEditorDecorationType,
 } from 'vscode';
 import { AnnotationProviderBase } from './annotationProvider';
-import { ComputedHeatmap } from './annotations';
+import { ComputedHeatmap, getHeatmapColors } from './annotations';
 import { Container } from '../container';
 import { GitBlame, GitBlameCommit, GitCommit } from '../git/git';
 import { GitUri } from '../git/gitUri';
@@ -27,7 +27,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 	constructor(
 		editor: TextEditor,
 		trackedDocument: TrackedDocument<GitDocumentState>,
-		decoration: TextEditorDecorationType,
+		decoration: TextEditorDecorationType | undefined,
 		highlightDecoration: TextEditorDecorationType | undefined,
 	) {
 		super(editor, trackedDocument, decoration, highlightDecoration);
@@ -43,7 +43,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 	}
 
 	clear() {
-		if (this._hoverProviderDisposable !== undefined) {
+		if (this._hoverProviderDisposable != null) {
 			this._hoverProviderDisposable.dispose();
 			this._hoverProviderDisposable = undefined;
 		}
@@ -54,7 +54,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		decoration: TextEditorDecorationType;
 		highlightDecoration: TextEditorDecorationType | undefined;
 	}) {
-		if (this.editor !== undefined) {
+		if (this.editor != null) {
 			this._blame = this.editor.document.isDirty
 				? Container.git.getBlameForFileContents(this._uri, this.editor.document.getText())
 				: Container.git.getBlameForFile(this._uri);
@@ -67,7 +67,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 	async selection(shaOrLine?: string | number, blame?: GitBlame) {
 		if (!this.highlightDecoration) return;
 
-		if (blame === undefined) {
+		if (blame == null) {
 			blame = await this._blame;
 			if (!blame || !blame.lines.length) return;
 		}
@@ -101,19 +101,19 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 
 	async validate(): Promise<boolean> {
 		const blame = await this._blame;
-		return blame !== undefined && blame.lines.length !== 0;
+		return blame != null && blame.lines.length !== 0;
 	}
 
 	protected async getBlame(): Promise<GitBlame | undefined> {
 		const blame = await this._blame;
-		if (blame === undefined || blame.lines.length === 0) return undefined;
+		if (blame == null || blame.lines.length === 0) return undefined;
 
 		return blame;
 	}
 
 	@log({ args: false })
-	protected getComputedHeatmap(blame: GitBlame): ComputedHeatmap {
-		const dates = [];
+	protected async getComputedHeatmap(blame: GitBlame): Promise<ComputedHeatmap> {
+		const dates: Date[] = [];
 
 		let commit;
 		let previousSha;
@@ -122,46 +122,53 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 			previousSha = l.sha;
 
 			commit = blame.commits.get(l.sha);
-			if (commit === undefined) continue;
+			if (commit == null) continue;
 
 			dates.push(commit.date);
 		}
 
 		dates.sort((a, b) => a.getTime() - b.getTime());
 
-		const half = Math.floor(dates.length / 2);
-		const median =
-			dates.length % 2 ? dates[half].getTime() : (dates[half - 1].getTime() + dates[half].getTime()) / 2.0;
+		const coldThresholdDate = new Date();
+		coldThresholdDate.setDate(coldThresholdDate.getDate() - (Container.config.heatmap.ageThreshold || 90));
+		const coldThresholdTimestamp = coldThresholdDate.getTime();
 
-		const lookup: number[] = [];
+		const hotDates: Date[] = [];
+		const coldDates: Date[] = [];
 
-		const newest = dates[dates.length - 1].getTime();
-		let step = (newest - median) / 5;
-		for (let i = 5; i > 0; i--) {
-			lookup.push(median + step * i);
+		for (const d of dates) {
+			if (d.getTime() < coldThresholdTimestamp) {
+				coldDates.push(d);
+			} else {
+				hotDates.push(d);
+			}
 		}
 
-		lookup.push(median);
-
-		const oldest = dates[0].getTime();
-		step = (median - oldest) / 4;
-		for (let i = 1; i <= 4; i++) {
-			lookup.push(median - step * i);
+		let lookupTable:
+			| number[]
+			| {
+					hot: number[];
+					cold: number[];
+			  };
+		if (hotDates.length && coldDates.length) {
+			lookupTable = {
+				hot: getRelativeAgeLookupTable(hotDates),
+				cold: getRelativeAgeLookupTable(coldDates),
+			};
+		} else {
+			lookupTable = getRelativeAgeLookupTable(dates);
 		}
-
-		const d = new Date();
-		d.setDate(d.getDate() - (Container.config.heatmap.ageThreshold || 90));
 
 		return {
-			cold: newest < d.getTime(),
-			colors: {
-				cold: Container.config.heatmap.coldColor,
-				hot: Container.config.heatmap.hotColor,
-			},
-			median: median,
-			newest: newest,
-			oldest: oldest,
-			computeAge: (date: Date) => {
+			coldThresholdTimestamp: coldThresholdTimestamp,
+			colors: await getHeatmapColors(),
+			computeRelativeAge: (date: Date) => {
+				const lookup = Array.isArray(lookupTable)
+					? lookupTable
+					: date.getTime() < coldThresholdTimestamp
+					? lookupTable.cold
+					: lookupTable.hot;
+
 				const time = date.getTime();
 				let index = 0;
 				for (let i = 0; i < lookup.length; i++) {
@@ -214,7 +221,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		_token: CancellationToken,
 	): Promise<Hover | undefined> {
 		const commit = await this.getCommitForHover(position);
-		if (commit === undefined) return undefined;
+		if (commit == null) return undefined;
 
 		// Get the full commit message -- since blame only returns the summary
 		let logCommit: GitCommit | undefined = undefined;
@@ -222,7 +229,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 			logCommit = await Container.git.getCommitForFile(commit.repoPath, commit.uri.fsPath, {
 				ref: commit.sha,
 			});
-			if (logCommit !== undefined) {
+			if (logCommit != null) {
 				// Preserve the previous commit from the blame commit
 				logCommit.previousFileName = commit.previousFileName;
 				logCommit.previousSha = commit.previousSha;
@@ -253,10 +260,10 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		_token: CancellationToken,
 	): Promise<Hover | undefined> {
 		const commit = await this.getCommitForHover(position);
-		if (commit === undefined) return undefined;
+		if (commit == null) return undefined;
 
 		const message = await Hovers.changesMessage(commit, await GitUri.fromUri(document.uri), position.line);
-		if (message === undefined) return undefined;
+		if (message == null) return undefined;
 
 		return new Hover(
 			message,
@@ -268,10 +275,33 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		if (Container.config.hovers.annotations.over !== 'line' && position.character !== 0) return undefined;
 
 		const blame = await this.getBlame();
-		if (blame === undefined) return undefined;
+		if (blame == null) return undefined;
 
 		const line = blame.lines[position.line];
 
 		return blame.commits.get(line.sha);
 	}
+}
+
+function getRelativeAgeLookupTable(dates: Date[]) {
+	const lookup: number[] = [];
+
+	const half = Math.floor(dates.length / 2);
+	const median = dates.length % 2 ? dates[half].getTime() : (dates[half - 1].getTime() + dates[half].getTime()) / 2.0;
+
+	const newest = dates[dates.length - 1].getTime();
+	let step = (newest - median) / 5;
+	for (let i = 5; i > 0; i--) {
+		lookup.push(median + step * i);
+	}
+
+	lookup.push(median);
+
+	const oldest = dates[0].getTime();
+	step = (median - oldest) / 4;
+	for (let i = 1; i <= 4; i++) {
+		lookup.push(median - step * i);
+	}
+
+	return lookup;
 }

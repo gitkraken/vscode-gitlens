@@ -24,7 +24,7 @@ export type TextEditorCorrelationKey = string;
 
 export abstract class AnnotationProviderBase implements Disposable {
 	static getCorrelationKey(editor: TextEditor | undefined): TextEditorCorrelationKey {
-		return editor !== undefined ? (editor as any).id : '';
+		return editor != null ? (editor as any).id : '';
 	}
 
 	annotationType: FileAnnotationType | undefined;
@@ -38,7 +38,7 @@ export abstract class AnnotationProviderBase implements Disposable {
 	constructor(
 		public editor: TextEditor,
 		protected readonly trackedDocument: TrackedDocument<GitDocumentState>,
-		protected decoration: TextEditorDecorationType,
+		protected decoration: TextEditorDecorationType | undefined,
 		protected highlightDecoration: TextEditorDecorationType | undefined,
 	) {
 		this.correlationKey = AnnotationProviderBase.getCorrelationKey(this.editor);
@@ -62,12 +62,12 @@ export abstract class AnnotationProviderBase implements Disposable {
 	}
 
 	get editorId(): string {
-		if (this.editor === undefined || this.editor.document === undefined) return '';
+		if (this.editor?.document == null) return '';
 		return (this.editor as any).id;
 	}
 
 	get editorUri(): Uri | undefined {
-		if (this.editor === undefined || this.editor.document === undefined) return undefined;
+		if (this.editor?.document == null) return undefined;
 		return this.editor.document.uri;
 	}
 
@@ -75,15 +75,15 @@ export abstract class AnnotationProviderBase implements Disposable {
 
 	clear() {
 		this.status = undefined;
-		if (this.editor === undefined) return;
+		if (this.editor == null) return;
 
-		if (this.decoration !== undefined) {
+		if (this.decoration != null) {
 			try {
 				this.editor.setDecorations(this.decoration, []);
 			} catch {}
 		}
 
-		if (this.additionalDecorations !== undefined && this.additionalDecorations.length > 0) {
+		if (this.additionalDecorations?.length) {
 			for (const d of this.additionalDecorations) {
 				try {
 					this.editor.setDecorations(d.decoration, []);
@@ -93,7 +93,7 @@ export abstract class AnnotationProviderBase implements Disposable {
 			this.additionalDecorations = undefined;
 		}
 
-		if (this.highlightDecoration !== undefined) {
+		if (this.highlightDecoration != null) {
 			try {
 				this.editor.setDecorations(this.highlightDecoration, []);
 			} catch {}
@@ -111,7 +111,7 @@ export abstract class AnnotationProviderBase implements Disposable {
 		decoration: TextEditorDecorationType;
 		highlightDecoration: TextEditorDecorationType | undefined;
 	}) {
-		if (this._resetDebounced === undefined) {
+		if (this._resetDebounced == null) {
 			this._resetDebounced = Functions.debounce(this.onReset.bind(this), 250);
 		}
 
@@ -122,14 +122,14 @@ export abstract class AnnotationProviderBase implements Disposable {
 		decoration: TextEditorDecorationType;
 		highlightDecoration: TextEditorDecorationType | undefined;
 	}) {
-		if (changes !== undefined) {
+		if (changes != null) {
 			this.clear();
 
 			this.decoration = changes.decoration;
 			this.highlightDecoration = changes.highlightDecoration;
 		}
 
-		await this.provideAnnotation(this.editor === undefined ? undefined : this.editor.selection.active.line);
+		await this.provideAnnotation(this.editor == null ? undefined : this.editor.selection.active.line);
 	}
 
 	async restore(editor: TextEditor) {
@@ -146,13 +146,13 @@ export abstract class AnnotationProviderBase implements Disposable {
 		this.correlationKey = AnnotationProviderBase.getCorrelationKey(editor);
 		this.document = editor.document;
 
-		if (this.decorations?.length) {
+		if (this.decoration != null && this.decorations?.length) {
 			this.editor.setDecorations(this.decoration, this.decorations);
+		}
 
-			if (this.additionalDecorations?.length) {
-				for (const d of this.additionalDecorations) {
-					this.editor.setDecorations(d.decoration, d.ranges);
-				}
+		if (this.additionalDecorations?.length) {
+			for (const d of this.additionalDecorations) {
+				this.editor.setDecorations(d.decoration, d.ranges);
 			}
 		}
 

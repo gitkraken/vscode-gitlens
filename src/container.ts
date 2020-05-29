@@ -1,5 +1,5 @@
 'use strict';
-import { commands, ConfigurationChangeEvent, ConfigurationScope, Disposable, ExtensionContext } from 'vscode';
+import { commands, ConfigurationChangeEvent, ConfigurationScope, ExtensionContext } from 'vscode';
 import { Autolinks } from './annotations/autolinks';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { LineAnnotationController } from './annotations/lineAnnotationController';
@@ -57,9 +57,7 @@ export class Container {
 		if (config.views.compare.enabled) {
 			context.subscriptions.push((this._compareView = new CompareView()));
 		} else {
-			let disposable: Disposable;
-			// eslint-disable-next-line prefer-const
-			disposable = configuration.onDidChange(e => {
+			const disposable = configuration.onDidChange(e => {
 				if (configuration.changed(e, 'views', 'compare', 'enabled')) {
 					disposable.dispose();
 					context.subscriptions.push((this._compareView = new CompareView()));
@@ -70,9 +68,7 @@ export class Container {
 		if (config.views.fileHistory.enabled) {
 			context.subscriptions.push((this._fileHistoryView = new FileHistoryView()));
 		} else {
-			let disposable: Disposable;
-			// eslint-disable-next-line prefer-const
-			disposable = configuration.onDidChange(e => {
+			const disposable = configuration.onDidChange(e => {
 				if (configuration.changed(e, 'views', 'fileHistory', 'enabled')) {
 					disposable.dispose();
 					context.subscriptions.push((this._fileHistoryView = new FileHistoryView()));
@@ -83,9 +79,7 @@ export class Container {
 		if (config.views.lineHistory.enabled) {
 			context.subscriptions.push((this._lineHistoryView = new LineHistoryView()));
 		} else {
-			let disposable: Disposable;
-			// eslint-disable-next-line prefer-const
-			disposable = configuration.onDidChange(e => {
+			const disposable = configuration.onDidChange(e => {
 				if (configuration.changed(e, 'views', 'lineHistory', 'enabled')) {
 					disposable.dispose();
 					context.subscriptions.push((this._lineHistoryView = new LineHistoryView()));
@@ -96,9 +90,7 @@ export class Container {
 		if (config.views.repositories.enabled) {
 			context.subscriptions.push((this._repositoriesView = new RepositoriesView()));
 		} else {
-			let disposable: Disposable;
-			// eslint-disable-next-line prefer-const
-			disposable = configuration.onDidChange(e => {
+			const disposable = configuration.onDidChange(e => {
 				if (configuration.changed(e, 'views', 'repositories', 'enabled')) {
 					disposable.dispose();
 					context.subscriptions.push((this._repositoriesView = new RepositoriesView()));
@@ -109,9 +101,7 @@ export class Container {
 		if (config.views.search.enabled) {
 			context.subscriptions.push((this._searchView = new SearchView()));
 		} else {
-			let disposable: Disposable;
-			// eslint-disable-next-line prefer-const
-			disposable = configuration.onDidChange(e => {
+			const disposable = configuration.onDidChange(e => {
 				if (configuration.changed(e, 'views', 'search', 'enabled')) {
 					disposable.dispose();
 					context.subscriptions.push((this._searchView = new SearchView()));

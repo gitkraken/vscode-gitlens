@@ -2,23 +2,25 @@
 import {
 	DecorationInstanceRenderOptions,
 	DecorationOptions,
+	Range,
+	TextEditorDecorationType,
 	ThemableDecorationAttachmentRenderOptions,
 	ThemableDecorationRenderOptions,
 	ThemeColor,
+	Uri,
+	window,
 } from 'vscode';
 import { configuration } from '../configuration';
 import { GlyphChars } from '../constants';
+import { Container } from '../container';
 import { CommitFormatOptions, CommitFormatter, GitCommit } from '../git/git';
 import { Objects, Strings } from '../system';
 import { toRgba } from '../webviews/apps/shared/colors';
 
 export interface ComputedHeatmap {
-	cold: boolean;
-	colors: { hot: string; cold: string };
-	median: number;
-	newest: number;
-	oldest: number;
-	computeAge(date: Date): number;
+	coldThresholdTimestamp: number;
+	colors: { hot: string[]; cold: string[] };
+	computeRelativeAge(date: Date): number;
 }
 
 interface HeatmapConfig {
@@ -36,16 +38,101 @@ interface RenderOptions
 
 const defaultHeatmapHotColor = '#f66a0a';
 const defaultHeatmapColdColor = '#0a60f6';
+const defaultHeatmapColors = [
+	'#f66a0a',
+	'#ef6939',
+	'#e96950',
+	'#e26862',
+	'#db6871',
+	'#d3677e',
+	'#cc678a',
+	'#c46696',
+	'#bb66a0',
+	'#b365a9',
+	'#a965b3',
+	'#a064bb',
+	'#9664c4',
+	'#8a63cc',
+	'#7e63d3',
+	'#7162db',
+	'#6262e2',
+	'#5061e9',
+	'#3961ef',
+	'#0a60f6',
+];
 
-let computedHeatmapColor: {
-	color: string;
-	rgb: string;
-};
+let heatmapColors: { hot: string[]; cold: string[] } | undefined;
+export async function getHeatmapColors() {
+	if (heatmapColors == null) {
+		let colors;
+		if (
+			Container.config.heatmap.coldColor === defaultHeatmapColdColor &&
+			Container.config.heatmap.hotColor === defaultHeatmapHotColor
+		) {
+			colors = defaultHeatmapColors;
+		} else {
+			const chroma = await import(/* webpackChunkName: "heatmap-chroma" */ 'chroma-js');
+			colors = chroma
+				.scale([Container.config.heatmap.hotColor, Container.config.heatmap.coldColor])
+				.mode('lrgb')
+				.classes(20)
+				.colors(20);
+		}
+
+		heatmapColors = {
+			hot: colors.slice(0, 10),
+			cold: colors.slice(10, 20),
+		};
+
+		const disposable = configuration.onDidChange(e => {
+			if (
+				configuration.changed(e, 'heatmap', 'ageThreshold') ||
+				configuration.changed(e, 'heatmap', 'hotColor') ||
+				configuration.changed(e, 'heatmap', 'coldColor')
+			) {
+				disposable.dispose();
+				heatmapColors = undefined;
+			}
+		});
+	}
+
+	return heatmapColors;
+}
 
 export class Annotations {
 	static applyHeatmap(decoration: Partial<DecorationOptions>, date: Date, heatmap: ComputedHeatmap) {
-		const color = this.getHeatmapColor(date, heatmap);
-		decoration.renderOptions!.before!.borderColor = color;
+		const [r, g, b, a] = this.getHeatmapColor(date, heatmap);
+		decoration.renderOptions!.before!.borderColor = `rgba(${r},${g},${b},${a})`;
+	}
+
+	static addOrUpdateGutterHeatmapDecoration(
+		date: Date,
+		heatmap: ComputedHeatmap,
+		range: Range,
+		map: Map<string, { decoration: TextEditorDecorationType; ranges: Range[] }>,
+	) {
+		const [r, g, b, a] = this.getHeatmapColor(date, heatmap);
+
+		const key = `${r},${g},${b},${a}`;
+		let colorDecoration = map.get(key);
+		if (colorDecoration == null) {
+			colorDecoration = {
+				decoration: window.createTextEditorDecorationType({
+					gutterIconPath: Uri.parse(
+						`data:image/svg+xml,${encodeURIComponent(
+							`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><rect fill='rgb(${r},${g},${b})' fill-opacity='${a}' x='7' y='0' width='2' height='18'/></svg>`,
+						)}`,
+					),
+					gutterIconSize: 'contain',
+				}),
+				ranges: [range],
+			};
+			map.set(key, colorDecoration);
+		} else {
+			colorDecoration.ranges.push(range);
+		}
+
+		return colorDecoration.decoration;
 	}
 
 	static gutter(
@@ -73,6 +160,7 @@ export class Annotations {
 	static gutterRenderOptions(
 		separateLines: boolean,
 		heatmap: HeatmapConfig,
+		avatars: boolean,
 		format: string,
 		options: CommitFormatOptions,
 	): RenderOptions {
@@ -110,9 +198,9 @@ export class Annotations {
 		if (chars >= 0) {
 			const spacing = configuration.getAny<number>('editor.letterSpacing');
 			if (spacing != null && spacing !== 0) {
-				width = `calc(${chars}ch + ${Math.round(chars * spacing)}px)`;
+				width = `calc(${chars}ch + ${Math.round(chars * spacing) + (avatars ? 13 : -6)}px)`;
 			} else {
-				width = `${chars}ch`;
+				width = `calc(${chars}ch ${avatars ? '+ 13px' : '- 6px'})`;
 			}
 		}
 
@@ -125,32 +213,11 @@ export class Annotations {
 			fontStyle: 'normal',
 			height: '100%',
 			margin: '0 26px -1px 0',
-			textDecoration: separateLines ? 'overline solid rgba(0, 0, 0, .2)' : 'none',
+			textDecoration: separateLines
+				? `overline solid rgba(0, 0, 0, .2);box-sizing:border-box${avatars ? ';padding: 0 0 0 18px' : ''}`
+				: `none;box-sizing:border-box${avatars ? ';padding: 0 0 0 18px' : ''}`,
 			width: width,
 			uncommittedColor: new ThemeColor('gitlens.gutterUncommittedForegroundColor'),
-		};
-	}
-
-	static heatmap(
-		commit: GitCommit,
-		heatmap: ComputedHeatmap,
-		renderOptions: RenderOptions,
-	): Partial<DecorationOptions> {
-		const decoration: Partial<DecorationOptions> = {
-			renderOptions: {
-				before: { ...renderOptions },
-			},
-		};
-
-		Annotations.applyHeatmap(decoration, commit.date, heatmap);
-
-		return decoration;
-	}
-
-	static heatmapRenderOptions(): RenderOptions {
-		return {
-			borderStyle: 'solid',
-			borderWidth: '0 0 0 2px',
 		};
 	}
 
@@ -190,24 +257,12 @@ export class Annotations {
 	}
 
 	private static getHeatmapColor(date: Date, heatmap: ComputedHeatmap) {
-		const baseColor = heatmap.cold ? heatmap.colors.cold : heatmap.colors.hot;
+		const age = heatmap.computeRelativeAge(date);
+		const colors = date.getTime() < heatmap.coldThresholdTimestamp ? heatmap.colors.cold : heatmap.colors.hot;
 
-		const age = heatmap.computeAge(date);
-		if (age === 0) return baseColor;
+		const color = toRgba(colors[age]);
+		const a = color == null ? 0 : age === 0 ? 1 : age <= 5 ? 0.8 : 0.6;
 
-		if (computedHeatmapColor === undefined || computedHeatmapColor.color !== baseColor) {
-			let rgba = toRgba(baseColor);
-			if (rgba == null) {
-				rgba = toRgba(heatmap.cold ? defaultHeatmapColdColor : defaultHeatmapHotColor)!;
-			}
-
-			const [r, g, b] = rgba;
-			computedHeatmapColor = {
-				color: baseColor,
-				rgb: `${r}, ${g}, ${b}`,
-			};
-		}
-
-		return `rgba(${computedHeatmapColor.rgb}, ${(1 - age / 10).toFixed(2)})`;
+		return [...(color ?? [0, 0, 0]), a];
 	}
 }

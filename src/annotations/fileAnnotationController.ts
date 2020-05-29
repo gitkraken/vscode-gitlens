@@ -19,7 +19,7 @@ import {
 	workspace,
 } from 'vscode';
 import { AnnotationsToggleMode, configuration, FileAnnotationType, HighlightLocations } from '../configuration';
-import { CommandContext, GlyphChars, isTextEditor, setCommandContext } from '../constants';
+import { CommandContext, isTextEditor, setCommandContext } from '../constants';
 import { Container } from '../container';
 import { KeyboardScope } from '../keyboard';
 import { Logger } from '../logger';
@@ -49,13 +49,7 @@ export const Decorations = {
 		textDecoration: 'none',
 	}),
 	blameHighlight: undefined as TextEditorDecorationType | undefined,
-	heatmapAnnotation: window.createTextEditorDecorationType({
-		before: {
-			contentText: GlyphChars.ZeroWidthSpace,
-			height: '100%',
-			margin: '0 26px -1px 0',
-		},
-	}),
+	heatmapAnnotation: undefined as TextEditorDecorationType | undefined,
 	heatmapHighlight: undefined as TextEditorDecorationType | undefined,
 	recentChangesAnnotation: undefined as TextEditorDecorationType | undefined,
 	recentChangesHighlight: undefined as TextEditorDecorationType | undefined,
@@ -189,7 +183,7 @@ export class FileAnnotationController implements Disposable {
 		) {
 			// Since the configuration has changed -- reset any visible annotations
 			for (const provider of this._annotationProviders.values()) {
-				if (provider === undefined) continue;
+				if (provider == null) continue;
 
 				if (provider.annotationType === FileAnnotationType.RecentChanges) {
 					provider.reset({
@@ -209,7 +203,7 @@ export class FileAnnotationController implements Disposable {
 	}
 
 	private async onActiveTextEditorChanged(editor: TextEditor | undefined) {
-		if (editor !== undefined && !isTextEditor(editor)) return;
+		if (editor != null && !isTextEditor(editor)) return;
 
 		this._editor = editor;
 		// Logger.log('AnnotationController.onActiveTextEditorChanged', editor && editor.document.uri.fsPath);
@@ -221,7 +215,7 @@ export class FileAnnotationController implements Disposable {
 		}
 
 		const provider = this.getProvider(editor);
-		if (provider === undefined) {
+		if (provider == null) {
 			void setCommandContext(CommandContext.AnnotationStatus, undefined);
 			void this.detachKeyboardHook();
 		} else {
@@ -235,7 +229,7 @@ export class FileAnnotationController implements Disposable {
 		if (e.blameable) return;
 
 		const editor = window.activeTextEditor;
-		if (editor === undefined) return;
+		if (editor == null) return;
 
 		void this.clear(editor, AnnotationClearReason.BlameabilityChanged);
 	}
@@ -261,7 +255,7 @@ export class FileAnnotationController implements Disposable {
 	private onTextEditorViewColumnChanged(e: TextEditorViewColumnChangeEvent) {
 		// FYI https://github.com/Microsoft/vscode/issues/35602
 		const provider = this.getProvider(e.textEditor);
-		if (provider === undefined) {
+		if (provider == null) {
 			// If we don't find an exact match, do a fuzzy match (since we can't properly track editors)
 			const fuzzyProvider = Iterables.find(
 				this._annotationProviders.values(),
@@ -281,7 +275,7 @@ export class FileAnnotationController implements Disposable {
 		let provider: AnnotationProviderBase | undefined;
 		for (const e of editors) {
 			provider = this.getProvider(e);
-			if (provider === undefined) continue;
+			if (provider == null) continue;
 
 			void provider.restore(e);
 		}
@@ -292,7 +286,7 @@ export class FileAnnotationController implements Disposable {
 	}
 
 	private getToggleMode(annotationType: FileAnnotationType | undefined): AnnotationsToggleMode {
-		if (annotationType === undefined) return AnnotationsToggleMode.File;
+		if (annotationType == null) return AnnotationsToggleMode.File;
 
 		return this._toggleModes.get(annotationType) ?? AnnotationsToggleMode.File;
 	}
@@ -314,16 +308,16 @@ export class FileAnnotationController implements Disposable {
 
 	async getAnnotationType(editor: TextEditor | undefined): Promise<FileAnnotationType | undefined> {
 		const provider = this.getProvider(editor);
-		if (provider === undefined) return undefined;
+		if (provider == null) return undefined;
 
 		const trackedDocument = await Container.tracker.get(editor!.document);
-		if (trackedDocument === undefined || !trackedDocument.isBlameable) return undefined;
+		if (trackedDocument == null || !trackedDocument.isBlameable) return undefined;
 
 		return provider.annotationType;
 	}
 
 	getProvider(editor: TextEditor | undefined): AnnotationProviderBase | undefined {
-		if (editor === undefined || editor.document === undefined) return undefined;
+		if (editor == null || editor.document == null) return undefined;
 		return this._annotationProviders.get(AnnotationProviderBase.getCorrelationKey(editor));
 	}
 
@@ -333,7 +327,7 @@ export class FileAnnotationController implements Disposable {
 		shaOrLine?: string | number,
 	): Promise<boolean> {
 		if (this.getToggleMode(type) === AnnotationsToggleMode.Window) {
-			let first = this._annotationType === undefined;
+			let first = this._annotationType == null;
 			const reset =
 				(!first && this._annotationType !== type) ||
 				(this._annotationType === FileAnnotationType.RecentChanges && typeof shaOrLine === 'string');
@@ -354,14 +348,14 @@ export class FileAnnotationController implements Disposable {
 			}
 		}
 
-		if (editor === undefined) return false; // || editor.viewColumn === undefined) return false;
+		if (editor == null) return false; // || editor.viewColumn == null) return false;
 		this._editor = editor;
 
 		const trackedDocument = await Container.tracker.getOrAdd(editor.document);
 		if (!trackedDocument.isBlameable) return false;
 
 		const currentProvider = this.getProvider(editor);
-		if (currentProvider !== undefined && currentProvider.annotationType === type) {
+		if (currentProvider?.annotationType === type) {
 			await currentProvider.selection(shaOrLine);
 			return true;
 		}
@@ -388,7 +382,7 @@ export class FileAnnotationController implements Disposable {
 			},
 		);
 
-		return provider !== undefined;
+		return provider != null;
 	}
 
 	async toggle(
@@ -397,7 +391,7 @@ export class FileAnnotationController implements Disposable {
 		shaOrLine?: string | number,
 		on?: boolean,
 	): Promise<boolean> {
-		if (editor !== undefined) {
+		if (editor != null) {
 			const trackedDocument = await Container.tracker.getOrAdd(editor.document);
 			if (
 				(type === FileAnnotationType.RecentChanges && !trackedDocument.isTracked) ||
@@ -408,7 +402,7 @@ export class FileAnnotationController implements Disposable {
 		}
 
 		const provider = this.getProvider(editor);
-		if (provider === undefined) return this.show(editor, type, shaOrLine);
+		if (provider == null) return this.show(editor, type, shaOrLine);
 
 		const reopen =
 			provider.annotationType !== type ||
@@ -428,12 +422,12 @@ export class FileAnnotationController implements Disposable {
 
 	private async attachKeyboardHook() {
 		// Allows pressing escape to exit the annotations
-		if (this._keyboardScope === undefined) {
+		if (this._keyboardScope == null) {
 			this._keyboardScope = await Container.keyboard.beginScope({
 				escape: {
 					onDidPressKey: async () => {
 						const e = this._editor;
-						if (e === undefined) return undefined;
+						if (e == null) return undefined;
 
 						await this.clear(e, AnnotationClearReason.User);
 						return undefined;
@@ -445,7 +439,7 @@ export class FileAnnotationController implements Disposable {
 
 	private async clearCore(key: TextEditorCorrelationKey, reason: AnnotationClearReason) {
 		const provider = this._annotationProviders.get(key);
-		if (provider === undefined) return;
+		if (provider == null) return;
 
 		Logger.log(`${reason}:`, `Clear annotations for ${key}`);
 
@@ -468,7 +462,7 @@ export class FileAnnotationController implements Disposable {
 	}
 
 	private async detachKeyboardHook() {
-		if (this._keyboardScope === undefined) return;
+		if (this._keyboardScope == null) return;
 
 		await this._keyboardScope.dispose();
 		this._keyboardScope = undefined;
@@ -481,7 +475,7 @@ export class FileAnnotationController implements Disposable {
 		shaOrLine?: string | number,
 		progress?: Progress<{ message: string }>,
 	): Promise<AnnotationProviderBase | undefined> {
-		if (progress !== undefined) {
+		if (progress != null) {
 			let annotationsLabel = 'annotations';
 			switch (type) {
 				case FileAnnotationType.Blame:
@@ -536,9 +530,9 @@ export class FileAnnotationController implements Disposable {
 				);
 				break;
 		}
-		if (provider === undefined || !(await provider.validate())) return undefined;
+		if (provider == null || !(await provider.validate())) return undefined;
 
-		if (currentProvider !== undefined) {
+		if (currentProvider != null) {
 			await this.clearCore(currentProvider.correlationKey, AnnotationClearReason.User);
 		}
 

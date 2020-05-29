@@ -62,9 +62,7 @@ export class Emitter<T> {
 					this._options.onListenerDidAdd(this, listener, thisArgs);
 				}
 
-				let result: Disposable;
-				// eslint-disable-next-line prefer-const
-				result = {
+				const result = {
 					dispose: () => {
 						result.dispose = Emitter._noop;
 						if (!this._disposed) {

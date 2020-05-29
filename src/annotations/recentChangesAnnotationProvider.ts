@@ -116,7 +116,7 @@ export class RecentChangesAnnotationProvider extends AnnotationProviderBase {
 
 		Logger.log(cc, `${Strings.getDurationMilliseconds(start)} ms to compute recent changes annotations`);
 
-		if (this.decorations.length) {
+		if (this.decoration != null && this.decorations.length) {
 			start = process.hrtime();
 
 			this.editor.setDecorations(this.decoration, this.decorations);

@@ -1,4 +1,6 @@
-// @ts-check
+//@ts-check
+/** @typedef {import('webpack').Configuration} WebpackConfig **/
+
 /* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable @typescript-eslint/prefer-nullish-coalescing */
 /* eslint-disable @typescript-eslint/strict-boolean-expressions */
@@ -68,6 +70,7 @@ module.exports =
 	/**
 	 * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; optimizeImages?: boolean; } | undefined } env
 	 * @param {{ mode: 'production' | 'development' | 'none' | undefined; }} argv
+	 * @returns { WebpackConfig[] }
 	 */
 	function (env, argv) {
 		const mode = argv.mode || 'none';
@@ -91,10 +94,11 @@ module.exports =
 /**
  * @param { 'production' | 'development' | 'none' } mode
  * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; optimizeImages?: boolean; }} env
+ * @returns { WebpackConfig }
  */
 function getExtensionConfig(mode, env) {
 	/**
-	 * @type any[]
+	 * @type WebpackConfig['plugins']
 	 */
 	const plugins = [
 		new CleanPlugin({ cleanOnceBeforeBuildPatterns: ['**/*', '!**/webviews/**'] }),
@@ -201,6 +205,7 @@ function getExtensionConfig(mode, env) {
 /**
  * @param { 'production' | 'development' | 'none' } mode
  * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; optimizeImages?: boolean; }} env
+ * @returns { WebpackConfig }
  */
 function getWebviewsConfig(mode, env) {
 	const clean = ['**/*'];
@@ -221,7 +226,7 @@ function getWebviewsConfig(mode, env) {
 	}
 
 	/**
-	 * @type any[]
+	 * @type WebpackConfig['plugins']
 	 */
 	const plugins = [
 		new CleanPlugin({ cleanOnceBeforeBuildPatterns: clean }),
