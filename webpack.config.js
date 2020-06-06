@@ -235,7 +235,7 @@ function getWebviewsConfig(mode, env) {
 			eslint: { enabled: true, files: path.resolve(__dirname, 'src/**/*.ts'), options: { cache: true } },
 			formatter: 'basic',
 			typescript: {
-				tsconfig: path.resolve(__dirname, 'tsconfig.webviews.json'),
+				configFile: path.resolve(__dirname, 'tsconfig.webviews.json'),
 			},
 		}),
 		new MiniCssExtractPlugin({
