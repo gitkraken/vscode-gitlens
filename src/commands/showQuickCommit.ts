@@ -71,14 +71,14 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 			try {
 				const blame = await Container.git.getBlameForLine(gitUri, blameline);
 				if (blame == null) {
-					void Messages.showFileNotUnderSourceControlWarningMessage('Unable to show commit details');
+					void Messages.showFileNotUnderSourceControlWarningMessage('Unable to show commit');
 
 					return;
 				}
 
 				// Because the previous sha of an uncommitted file isn't trust worthy we just have to kick out
 				if (blame.commit.isUncommitted) {
-					void Messages.showLineUncommittedWarningMessage('Unable to show commit details');
+					void Messages.showLineUncommittedWarningMessage('Unable to show commit');
 
 					return;
 				}
@@ -88,8 +88,8 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 
 				args.commit = blame.commit;
 			} catch (ex) {
-				Logger.error(ex, 'ShowQuickCommitDetailsCommand', `getBlameForLine(${blameline})`);
-				void Messages.showGenericErrorMessage('Unable to show commit details');
+				Logger.error(ex, 'ShowQuickCommitCommand', `getBlameForLine(${blameline})`);
+				void Messages.showGenericErrorMessage('Unable to show commit');
 
 				return;
 			}
@@ -108,7 +108,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 				if (args.repoLog === undefined) {
 					const log = await Container.git.getLog(repoPath!, { limit: 2, ref: args.sha });
 					if (log === undefined) {
-						void Messages.showCommitNotFoundWarningMessage('Unable to show commit details');
+						void Messages.showCommitNotFoundWarningMessage('Unable to show commit');
 
 						return;
 					}
@@ -118,7 +118,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 			}
 
 			if (args.commit === undefined) {
-				void Messages.showCommitNotFoundWarningMessage('Unable to show commit details');
+				void Messages.showCommitNotFoundWarningMessage('Unable to show commit');
 
 				return;
 			}
@@ -141,8 +141,8 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 				},
 			}));
 		} catch (ex) {
-			Logger.error(ex, 'ShowQuickCommitDetailsCommand');
-			void Messages.showGenericErrorMessage('Unable to show commit details');
+			Logger.error(ex, 'ShowQuickCommitCommand');
+			void Messages.showGenericErrorMessage('Unable to show commit');
 		}
 	}
 }

@@ -160,7 +160,7 @@ For more advanced customizations, refer to the [settings documentation](#gitlens
 - Adds a **details hover** annotation to the current line to show more commit details ([optional](#hover-settings- 'Jump to the Hover settings'), on by default)
   - Provides **automatic issue linking** to Bitbucket, GitHub, GitLab, and Azure DevOps in commit messages
   - Provides a **quick-access command bar** with _Open Changes_, _Blame Previous Revision_, _Open on Remote_, _Invite to Live Share_ (if available), and _Show More Actions_ command buttons
-  - Click the commit id to execute the _Show Commit Details_ command
+  - Click the commit id to execute the _Show Commit_ command
 
 ##### Changes (diff) Hover
 
@@ -170,7 +170,7 @@ For more advanced customizations, refer to the [settings documentation](#gitlens
 
 - Adds a **changes (diff) hover** annotation to the current line to show the line's previous version ([optional](#hover-settings- 'Jump to the Hover settings'), on by default)
   - Click the **Changes** to execute the _Open Changes_ command
-  - Click the current and previous commit ids to execute the _Show Commit Details_ command
+  - Click the current and previous commit ids to execute the _Show Commit_ command
 
 #### Annotation Hovers
 
@@ -189,7 +189,7 @@ For more advanced customizations, refer to the [settings documentation](#gitlens
 - Adds a **details hover** annotation to each line while annotating to show more commit details ([optional](#hover-settings- 'Jump to the Hover settings'), on by default)
   - Provides **automatic issue linking** to Bitbucket, GitHub, GitLab, and Azure DevOps in commit messages
   - Provides a **quick-access command bar** with _Open Changes_, _Blame Previous Revision_, _Open on Remote_, _Invite to Live Share_ (if available), and _Show More Actions_ command buttons
-  - Click the commit id to execute the _Show Commit Details_ command
+  - Click the commit id to execute the _Show Commit_ command
 
 ##### Changes (diff) Hover
 
@@ -199,7 +199,7 @@ For more advanced customizations, refer to the [settings documentation](#gitlens
 
 - Adds a **changes (diff) hover** annotation to each line while annotating to show the line's previous version ([optional](#hover-settings- 'Jump to the Hover settings'), on by default)
   - Click the **Changes** to execute the _Open Changes_ command
-  - Click the current and previous commit ids to execute the _Show Commit Details_ command
+  - Click the current and previous commit ids to execute the _Show Commit_ command
 
 ---
 
@@ -407,7 +407,7 @@ The search commits view provides the following features,
   - Results can be provided by the following commands
     - _Search Commits_ command (`gitlens.showCommitSearch`)
     - _Show File History_ command (`gitlens.showQuickFileHistory`)
-    - _Show Commit Details_ command (`gitlens.showQuickCommitDetails`)
+    - _Show Commit_ command (`gitlens.showQuickCommitDetails`)
 
 ---
 
@@ -549,7 +549,7 @@ The compare view provides the following features,
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/docs/menu-commit-details.png" alt="Commit Details Quick Pick Menu" />
 </p>
 
-- Adds a _Show Commit Details_ command (`gitlens.showQuickCommitDetails`) to show a **commit details quick pick menu** of the most recent commit of the current file
+- Adds a _Show Commit_ command (`gitlens.showQuickCommitDetails`) to show a **commit details quick pick menu** of the most recent commit of the current file
   - Quickly see the set of files changed in the commit, complete with status indicators for adds, changes, renames, and deletes
   - Provides additional entries to _Show in View_, _Open Commit on \<remote-service\>_ (if available), _Open Files_, _Open Revisions_, _Open Directory Compare with Previous Revision_, _Open Directory Compare with Working Tree_, _Copy Commit ID to Clipboard_, _Copy Commit Message to Clipboard_
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
@@ -561,7 +561,7 @@ The compare view provides the following features,
 </p>
 
 - Adds a _Show Commit File Details_ command (`gitlens.showQuickCommitFileDetails`) with a shortcut of `alt+c` to show a **file commit details quick pick menu** of the most recent commit of the current file
-  - Provides entries to _Open Changes_, _Open Changes with Working File_, _Open File_, _Open Revision_, _Open File on \<remote-service\>_ (if available), _Open Revision on \<remote-service\>_ (if available), _Copy Commit ID to Clipboard_, _Copy Commit Message to Clipboard_, _Show Commit Details_, _Show File History_, and _Show Previous File History_
+  - Provides entries to _Open Changes_, _Open Changes with Working File_, _Open File_, _Open Revision_, _Open File on \<remote-service\>_ (if available), _Open Revision on \<remote-service\>_ (if available), _Copy Commit ID to Clipboard_, _Copy Commit Message to Clipboard_, _Show Commit_, _Show File History_, and _Show Previous File History_
   - Navigate back to the previous quick pick menu via `alt+left arrow`, if available
   - Use the `alt+right arrow` shortcut on an entry to execute it without closing the quick pick menu, if possible &mdash; commands that open windows outside of VS Code will still close the quick pick menu unless [`"gitlens.advanced.quickPick.closeOnFocusOut": false`](#misc-settings- 'Jump to Misc settings') is set
 

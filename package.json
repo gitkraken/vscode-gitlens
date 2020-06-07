@@ -2398,12 +2398,12 @@
 			},
 			{
 				"command": "gitlens.showQuickCommitDetails",
-				"title": "Show Commit Details",
+				"title": "Show Commit",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.showQuickCommitFileDetails",
-				"title": "Show Commit Details",
+				"title": "Show Commit",
 				"category": "GitLens"
 			},
 			{

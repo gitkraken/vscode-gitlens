@@ -162,10 +162,10 @@ export class StatusBarController implements Disposable {
 				this._blameStatusBarItem.tooltip = 'Show Commit in Repositories View';
 				break;
 			case StatusBarCommand.ShowQuickCommitDetails:
-				this._blameStatusBarItem.tooltip = 'Show Commit Details';
+				this._blameStatusBarItem.tooltip = 'Show Commit';
 				break;
 			case StatusBarCommand.ShowQuickCommitFileDetails:
-				this._blameStatusBarItem.tooltip = 'Show Line Commit Details';
+				this._blameStatusBarItem.tooltip = 'Show Commit';
 				break;
 			case StatusBarCommand.ShowQuickFileHistory:
 				this._blameStatusBarItem.tooltip = 'Show File History';
