@@ -139,7 +139,7 @@ function getExtensionConfig(mode, env) {
 		devtool: 'source-map',
 		output: {
 			libraryTarget: 'commonjs2',
-			filename: 'extension.js',
+			filename: 'gitlens.js',
 			chunkFilename: 'feature-[name].js',
 		},
 		optimization: {

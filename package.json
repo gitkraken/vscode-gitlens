@@ -20,7 +20,7 @@
 	"engines": {
 		"vscode": "^1.45.1"
 	},
-	"main": "./dist/extension",
+	"main": "./dist/gitlens",
 	"icon": "images/gitlens-icon.png",
 	"preview": false,
 	"badges": [
