@@ -9,6 +9,7 @@ import { Strings } from '../../system';
 import { View } from '../viewBase';
 import { CommitFileNode } from './commitFileNode';
 import { ResourceType, ViewNode } from './viewNode';
+import { DiffWithCommandArgs } from '../../commands/diffWith';
 
 export class StatusFileNode extends ViewNode {
 	public readonly commits: GitLogCommit[];
@@ -121,6 +122,8 @@ export class StatusFileNode extends ViewNode {
 				`\${file}\n\${directory}/\n\n\${status}\${ (originalPath)} in ${this.getChangedIn()}`,
 				this.file,
 			);
+
+			item.command = this.getCommand();
 		}
 
 		// Only cache the label/description for a single refresh
@@ -223,8 +226,34 @@ export class StatusFileNode extends ViewNode {
 	}
 
 	getCommand(): Command | undefined {
-		const commandArgs: DiffWithPreviousCommandArgs = {
-			commit: this.commit,
+		if ((this._hasStagedChanges || this._hasUnstagedChanges) && this.commits.length === 1) {
+			const commandArgs: DiffWithPreviousCommandArgs = {
+				commit: this.commit,
+				line: 0,
+				showOptions: {
+					preserveFocus: true,
+					preview: true,
+				},
+			};
+			return {
+				title: 'Open Changes with Previous Revision',
+				command: Commands.DiffWithPrevious,
+				arguments: [GitUri.fromFile(this.file, this.repoPath), commandArgs],
+			};
+		}
+
+		const commit = this.commits[this.commits.length - 1];
+		const file = commit.findFile(this.file.fileName)!;
+		const commandArgs: DiffWithCommandArgs = {
+			lhs: {
+				sha: `${commit.sha}^`,
+				uri: GitUri.fromFile(file, this.repoPath, undefined, true),
+			},
+			rhs: {
+				sha: '',
+				uri: GitUri.fromFile(this.file, this.repoPath),
+			},
+			repoPath: this.repoPath,
 			line: 0,
 			showOptions: {
 				preserveFocus: true,
@@ -232,9 +261,9 @@ export class StatusFileNode extends ViewNode {
 			},
 		};
 		return {
-			title: 'Open Changes with Previous Revision',
-			command: Commands.DiffWithPrevious,
-			arguments: [GitUri.fromFile(this.file, this.repoPath), commandArgs],
+			title: 'Open Changes',
+			command: Commands.DiffWith,
+			arguments: [commandArgs],
 		};
 	}
 }
