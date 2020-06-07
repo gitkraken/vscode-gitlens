@@ -1,7 +1,7 @@
 'use strict';
 import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { ActiveEditorCommand, command, Commands, executeCommand, getCommandUri } from './common';
-import { GlyphChars } from '../constants';
+import { GlyphChars, quickPickTitleMaxChars } from '../constants';
 import { Container } from '../container';
 import { DiffWithCommandArgs } from './diffWith';
 import { GitRevision } from '../git/git';
@@ -44,10 +44,12 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 							: undefined),
 				);
 
+			const title = `Open Changes with Revision${Strings.pad(GlyphChars.Dot, 2, 2)}`;
 			const pick = await CommitPicker.show(
 				log,
-				`Open Changes with Revision${Strings.pad(GlyphChars.Dot, 2, 2)}${gitUri.getFormattedPath({
+				`${title}${gitUri.getFormattedFilename({
 					suffix: gitUri.sha ? `:${GitRevision.shorten(gitUri.sha)}` : undefined,
+					truncateTo: quickPickTitleMaxChars - title.length,
 				})}`,
 				'Choose a commit to compare with',
 				{

@@ -3,7 +3,7 @@ import { QuickInputButton, QuickPick } from 'vscode';
 import { Commands } from './common';
 import { configuration } from '../configuration';
 import { Container } from '../container';
-import { GlyphChars } from '../constants';
+import { GlyphChars, quickPickTitleMaxChars } from '../constants';
 import {
 	GitBranch,
 	GitBranchReference,
@@ -78,17 +78,26 @@ export function appendReposToTitle<
 	State extends { repo: Repository } | { repos: Repository[] },
 	Context extends { repos: Repository[] }
 >(title: string, state: State, context: Context, additionalContext?: string) {
-	if (context.repos.length === 1) return `${title}${additionalContext ?? ''}`;
-
-	if ((state as { repo: Repository }).repo != null) {
-		return `${title}${Strings.pad(GlyphChars.Dot, 2, 2)}${(state as { repo: Repository }).repo.formattedName}`;
+	if (context.repos.length === 1) {
+		return `${title}${Strings.truncate(additionalContext ?? '', quickPickTitleMaxChars - title.length)}`;
 	}
 
-	return `${title}${Strings.pad(GlyphChars.Dot, 2, 2)}${
-		(state as { repos: Repository[] }).repos.length === 1
-			? `${(state as { repos: Repository[] }).repos[0].formattedName}${additionalContext ?? ''}`
-			: `${(state as { repos: Repository[] }).repos.length} repositories`
-	}`;
+	let repoContext;
+	if ((state as { repo: Repository }).repo != null) {
+		repoContext = `${additionalContext ?? ''}${Strings.pad(GlyphChars.Dot, 2, 2)}${
+			(state as { repo: Repository }).repo.formattedName
+		}`;
+	} else if ((state as { repos: Repository[] }).repos.length === 1) {
+		repoContext = `${additionalContext ?? ''}${Strings.pad(GlyphChars.Dot, 2, 2)}${
+			(state as { repos: Repository[] }).repos[0].formattedName
+		}`;
+	} else {
+		repoContext = `${Strings.pad(GlyphChars.Dot, 2, 2)}${
+			(state as { repos: Repository[] }).repos.length
+		} repositories`;
+	}
+
+	return `${title}${Strings.truncate(repoContext, quickPickTitleMaxChars - title.length)}`;
 }
 
 export async function getBranches(
@@ -1521,10 +1530,7 @@ export async function* showCommitOrStashFileStep<
 			}),
 			state,
 			context,
-			`${Strings.pad(GlyphChars.Dot, 2, 2)}${GitUri.getFormattedPath(state.fileName, {
-				relativeTo: state.repo.path,
-				truncateTo: 35,
-			})}`,
+			`${Strings.pad(GlyphChars.Dot, 2, 2)}${GitUri.getFormattedFilename(state.fileName)}`,
 		),
 		placeholder: `${GitUri.getFormattedPath(state.fileName, {
 			relativeTo: state.repo.path,

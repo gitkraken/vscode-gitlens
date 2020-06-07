@@ -2,7 +2,7 @@
 import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { ActiveEditorCommand, command, Commands, getCommandUri } from './common';
 import { FileAnnotationType } from '../configuration';
-import { GlyphChars } from '../constants';
+import { GlyphChars, quickPickTitleMaxChars } from '../constants';
 import { Container } from '../container';
 import { GitRevision } from '../git/git';
 import { GitUri } from '../git/gitUri';
@@ -72,10 +72,12 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 								: undefined),
 					);
 
+				const title = `Open File at Revision${Strings.pad(GlyphChars.Dot, 2, 2)}`;
 				const pick = await CommitPicker.show(
 					log,
-					`Open File at Revision${Strings.pad(GlyphChars.Dot, 2, 2)}${gitUri.getFormattedPath({
+					`${title}${gitUri.getFormattedFilename({
 						suffix: gitUri.sha ? `:${GitRevision.shorten(gitUri.sha)}` : undefined,
+						truncateTo: quickPickTitleMaxChars - title.length,
 					})}`,
 					'Choose a commit to open the file revision from',
 					{

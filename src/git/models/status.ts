@@ -241,7 +241,7 @@ export class GitStatusFile implements GitFile {
 		return GitFile.getFormattedDirectory(this, includeOriginal);
 	}
 
-	getFormattedPath(options: { relativeTo?: string; separator?: string; suffix?: string } = {}): string {
+	getFormattedPath(options: { relativeTo?: string; suffix?: string; truncateTo?: number } = {}): string {
 		return GitFile.getFormattedPath(this, options);
 	}
 

@@ -213,9 +213,7 @@ export abstract class GitCommit implements GitRevisionReference {
 		return this.dateFormatter.fromNow();
 	}
 
-	getFormattedPath(
-		options: { relativeTo?: string; separator?: string; suffix?: string; truncateTo?: number } = {},
-	): string {
+	getFormattedPath(options: { relativeTo?: string; suffix?: string; truncateTo?: number } = {}): string {
 		return GitUri.getFormattedPath(this.fileName, options);
 	}
 

@@ -250,6 +250,7 @@ export namespace Strings {
 
 	export function truncate(s: string, truncateTo: number, ellipsis: string = '\u2026', width?: number) {
 		if (!s) return s;
+		if (truncateTo <= 1) return ellipsis;
 
 		width = width ?? getWidth(s);
 		if (width <= truncateTo) return s;
@@ -269,8 +270,31 @@ export namespace Strings {
 		return `${s.substring(0, chars)}${ellipsis}`;
 	}
 
+	export function truncateLeft(s: string, truncateTo: number, ellipsis: string = '\u2026', width?: number) {
+		if (!s) return s;
+		if (truncateTo <= 1) return ellipsis;
+
+		width = width ?? getWidth(s);
+		if (width <= truncateTo) return s;
+		if (width === s.length) return `${ellipsis}${s.substring(width - truncateTo)}`;
+
+		// Skip ahead to start as far as we can by assuming all the double-width characters won't be truncated
+		let chars = Math.floor(truncateTo / (width / s.length));
+		let count = getWidth(s.substring(0, chars));
+		while (count < truncateTo) {
+			count += getWidth(s[chars++]);
+		}
+
+		if (count >= truncateTo) {
+			chars--;
+		}
+
+		return `${ellipsis}${s.substring(s.length - chars)}`;
+	}
+
 	export function truncateMiddle(s: string, truncateTo: number, ellipsis: string = '\u2026') {
 		if (!s) return s;
+		if (truncateTo <= 1) return ellipsis;
 
 		const width = getWidth(s);
 		if (width <= truncateTo) return s;

@@ -12,7 +12,7 @@ import {
 	StepResult,
 	StepState,
 } from '../quickCommand';
-import { GlyphChars } from '../../constants';
+import { GlyphChars, quickPickTitleMaxChars } from '../../constants';
 import { GitUri } from '../../git/gitUri';
 import { Strings } from '../../system';
 
@@ -128,19 +128,17 @@ export class LogGitCommand extends QuickCommand<State> {
 				context.selectedBranchOrTag = state.reference;
 			}
 
-			context.title = `${this.title}${Strings.pad(GlyphChars.Dot, 2, 2)}${GitReference.toString(
-				context.selectedBranchOrTag,
-				{
-					icon: false,
-				},
-			)}${
-				state.fileName
-					? `${Strings.pad(GlyphChars.Dot, 2, 2)}${GitUri.getFormattedPath(state.fileName, {
-							relativeTo: state.repo.path,
-							truncateTo: 35,
-					  })}`
-					: ''
-			}`;
+			context.title = `${this.title}${Strings.pad(
+				GlyphChars.Dot,
+				2,
+				2,
+			)}${GitReference.toString(context.selectedBranchOrTag, { icon: false })}`;
+
+			if (state.fileName) {
+				context.title += `${Strings.pad(GlyphChars.Dot, 2, 2)}${GitUri.getFormattedFilename(state.fileName, {
+					truncateTo: quickPickTitleMaxChars - context.title.length - 3,
+				})}`;
+			}
 
 			if (state.counter < 3 && context.selectedBranchOrTag != null) {
 				const ref = context.selectedBranchOrTag.ref;

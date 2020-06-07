@@ -2,7 +2,7 @@
 import * as paths from 'path';
 import { TextDocumentShowOptions, TextEditor, Uri } from 'vscode';
 import { ActiveEditorCommand, command, Commands, executeCommand, getCommandUri } from './common';
-import { GlyphChars } from '../constants';
+import { GlyphChars, quickPickTitleMaxChars } from '../constants';
 import { Container } from '../container';
 import { DiffWithCommandArgs } from './diffWith';
 import { GitReference, GitRevision } from '../git/git';
@@ -38,9 +38,10 @@ export class DiffWithRevisionFromCommand extends ActiveEditorCommand {
 			args.line = editor?.selection.active.line ?? 0;
 		}
 
+		const title = `Open Changes with Branch or Tag${Strings.pad(GlyphChars.Dot, 2, 2)}`;
 		const pick = await ReferencePicker.show(
 			gitUri.repoPath,
-			`Open Changes with Branch or Tag${Strings.pad(GlyphChars.Dot, 2, 2)}${gitUri.getFormattedPath()}`,
+			`${title}${gitUri.getFormattedFilename({ truncateTo: quickPickTitleMaxChars - title.length })}`,
 			'Choose a branch or tag to compare with',
 			{
 				allowEnteringRefs: true,

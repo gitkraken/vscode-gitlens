@@ -1,5 +1,6 @@
 'use strict';
 import { QuickInputButtons, QuickPickItem, Uri, window } from 'vscode';
+import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitReference, GitStashCommit, GitStashReference, Repository } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
@@ -21,6 +22,7 @@ import {
 import { FlagsQuickPickItem, QuickPickItemOfT } from '../../quickpicks';
 import { Logger } from '../../logger';
 import { Messages } from '../../messages';
+import { Strings } from '../../system';
 
 interface Context {
 	repos: Repository[];
@@ -506,7 +508,18 @@ export class StashGitCommand extends QuickCommand<State> {
 
 	private async *pushCommandInputMessageStep(state: PushStepState, context: Context): StepResultGenerator<string> {
 		const step = QuickCommand.createInputStep({
-			title: appendReposToTitle(context.title, state, context),
+			title: appendReposToTitle(
+				context.title,
+				state,
+				context,
+				state.uris != null
+					? `${Strings.pad(GlyphChars.Dot, 2, 2)}${
+							state.uris.length === 1
+								? GitUri.getFormattedFilename(state.uris[0])
+								: `${state.uris.length} files`
+					  }`
+					: undefined,
+			),
 			placeholder: 'Please provide a stash message',
 			value: state.message,
 			prompt: 'Enter stash message',
@@ -546,17 +559,17 @@ export class StashGitCommand extends QuickCommand<State> {
 				: [
 						FlagsQuickPickItem.create<PushFlags>(state.flags, [], {
 							label: context.title,
-							detail: `Will stash changes in ${
+							detail: `Will stash changes from ${
 								state.uris.length === 1
-									? GitUri.getFormattedPath(state.uris[0], { relativeTo: state.repo.path })
+									? GitUri.getFormattedFilename(state.uris[0])
 									: `${state.uris.length} files`
 							}`,
 						}),
 						FlagsQuickPickItem.create<PushFlags>(state.flags, ['--keep-index'], {
 							label: `${context.title} & Keep Staged`,
-							detail: `Will stash changes in ${
+							detail: `Will stash changes from ${
 								state.uris.length === 1
-									? GitUri.getFormattedPath(state.uris[0], { relativeTo: state.repo.path })
+									? GitUri.getFormattedFilename(state.uris[0])
 									: `${state.uris.length} files`
 							}, but will keep staged files intact`,
 						}),

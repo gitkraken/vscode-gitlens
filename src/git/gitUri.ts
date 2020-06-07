@@ -2,7 +2,7 @@
 import * as paths from 'path';
 import { Uri } from 'vscode';
 import { UriComparer } from '../comparers';
-import { DocumentSchemes, GlyphChars } from '../constants';
+import { DocumentSchemes } from '../constants';
 import { Container } from '../container';
 import { GitCommit, GitFile, GitRevision } from '../git/git';
 import { Logger } from '../logger';
@@ -180,15 +180,12 @@ export class GitUri extends ((Uri as any) as UriEx) {
 		return this.sha === (GitUri.is(uri) ? uri.sha : undefined);
 	}
 
-	getFormattedPath(options: { relativeTo?: string; separator?: string; suffix?: string } = {}): string {
-		const {
-			relativeTo = this.repoPath,
-			separator = Strings.pad(GlyphChars.Dot, 1, 1),
-			suffix = emptyStr,
-		} = options;
+	getFormattedFilename(options: { suffix?: string; truncateTo?: number } = {}): string {
+		return GitUri.getFormattedFilename(this.fsPath, options);
+	}
 
-		const directory = GitUri.getDirectory(this.fsPath, relativeTo);
-		return `${paths.basename(this.fsPath)}${suffix}${directory ? `${separator}${directory}` : emptyStr}`;
+	getFormattedPath(options: { relativeTo?: string; suffix?: string; truncateTo?: number } = {}): string {
+		return GitUri.getFormattedPath(this.fsPath, { relativeTo: this.repoPath, ...options });
 	}
 
 	@memoize()
@@ -330,39 +327,78 @@ export class GitUri extends ((Uri as any) as UriEx) {
 		return directory == null || directory.length === 0 || directory === '.' ? emptyStr : directory;
 	}
 
-	static getFormattedPath(
+	static getFormattedFilename(
 		fileNameOrUri: string | Uri,
-		options: { relativeTo?: string; separator?: string; suffix?: string; truncateTo?: number },
+		options: {
+			suffix?: string;
+			truncateTo?: number;
+		} = {},
 	): string {
-		const { relativeTo, separator = Strings.pad(GlyphChars.Dot, 1, 1), suffix = emptyStr, truncateTo } = options;
+		const { suffix = emptyStr, truncateTo } = options;
 
 		let fileName: string;
 		if (fileNameOrUri instanceof Uri) {
-			if (GitUri.is(fileNameOrUri)) return fileNameOrUri.getFormattedPath(options);
-
 			fileName = fileNameOrUri.fsPath;
 		} else {
 			fileName = fileNameOrUri;
 		}
 
-		const file = `${paths.basename(fileName)}${suffix}`;
-		if (truncateTo != null && file.length > truncateTo) {
+		let file = paths.basename(fileName);
+		if (truncateTo != null && file.length >= truncateTo) {
 			return Strings.truncateMiddle(file, truncateTo);
 		}
 
-		let directory = GitUri.getDirectory(fileName, relativeTo);
-		if (!directory) {
-			return file;
-		}
-
-		if (truncateTo != null) {
-			const dirTruncateTo = truncateTo - (file.length + separator.length);
-			if (directory.length > dirTruncateTo) {
-				directory = Strings.truncateMiddle(directory, dirTruncateTo);
+		if (suffix) {
+			if (truncateTo != null && file.length + suffix.length >= truncateTo) {
+				return `${Strings.truncateMiddle(file, truncateTo - suffix.length)}${suffix}`;
 			}
+
+			file += suffix;
 		}
 
-		return `${file}${separator}${directory}`;
+		return file;
+	}
+
+	static getFormattedPath(
+		fileNameOrUri: string | Uri,
+		options: {
+			relativeTo?: string;
+			suffix?: string;
+			truncateTo?: number;
+		},
+	): string {
+		const { relativeTo, suffix = emptyStr, truncateTo } = options;
+
+		let fileName: string;
+		if (fileNameOrUri instanceof Uri) {
+			fileName = fileNameOrUri.fsPath;
+		} else {
+			fileName = fileNameOrUri;
+		}
+
+		let file = paths.basename(fileName);
+		if (truncateTo != null && file.length >= truncateTo) {
+			return Strings.truncateMiddle(file, truncateTo);
+		}
+
+		if (suffix) {
+			if (truncateTo != null && file.length + suffix.length >= truncateTo) {
+				return `${Strings.truncateMiddle(file, truncateTo - suffix.length)}${suffix}`;
+			}
+
+			file += suffix;
+		}
+
+		const directory = GitUri.getDirectory(fileName, relativeTo);
+		if (!directory) return file;
+
+		file = `/${file}`;
+
+		if (truncateTo != null && file.length + directory.length >= truncateTo) {
+			return `${Strings.truncateLeft(directory, truncateTo - file.length)}${file}`;
+		}
+
+		return `${directory}${file}`;
 	}
 
 	static relativeTo(fileNameOrUri: string | Uri, relativeTo: string | undefined): string {

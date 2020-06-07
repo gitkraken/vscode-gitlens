@@ -8,6 +8,8 @@ export const extensionOutputChannelName = 'GitLens';
 export const extensionQualifiedId = `eamodio.${extensionId}`;
 export const extensionTerminalName = 'GitLens';
 
+export const quickPickTitleMaxChars = 80;
+
 export enum BuiltInCommands {
 	CloseActiveEditor = 'workbench.action.closeActiveEditor',
 	CloseAllEditors = 'workbench.action.closeAllEditors',

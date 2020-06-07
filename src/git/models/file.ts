@@ -44,7 +44,7 @@ export namespace GitFile {
 
 	export function getFormattedPath(
 		file: GitFile,
-		options: { relativeTo?: string; separator?: string; suffix?: string; truncateTo?: number } = {},
+		options: { relativeTo?: string; suffix?: string; truncateTo?: number } = {},
 	): string {
 		return GitUri.getFormattedPath(file.fileName, options);
 	}
