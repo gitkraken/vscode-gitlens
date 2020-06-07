@@ -196,6 +196,7 @@ export class CommitFileNode extends ViewRefFileNode {
 
 		const commandArgs: DiffWithPreviousCommandArgs = {
 			commit: this.commit,
+			uri: GitUri.fromFile(this.file, this.commit.repoPath),
 			line: line,
 			showOptions: {
 				preserveFocus: true,
@@ -205,7 +206,7 @@ export class CommitFileNode extends ViewRefFileNode {
 		return {
 			title: 'Open Changes with Previous Revision',
 			command: Commands.DiffWithPrevious,
-			arguments: [GitUri.fromFile(this.file, this.commit.repoPath), commandArgs],
+			arguments: [undefined, commandArgs],
 		};
 	}
 }

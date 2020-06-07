@@ -10,6 +10,7 @@ import { Messages } from '../messages';
 
 export interface DiffWithWorkingCommandArgs {
 	inDiffRightEditor?: boolean;
+	uri?: Uri;
 	line?: number;
 	showOptions?: TextDocumentShowOptions;
 }
@@ -34,12 +35,16 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: DiffWithWorkingCommandArgs): Promise<any> {
-		uri = getCommandUri(uri, editor);
-		if (uri == null) return;
+		args = { ...args };
+		if (args.uri == null) {
+			uri = getCommandUri(uri, editor);
+			if (uri == null) return;
+		} else {
+			uri = args.uri;
+		}
 
 		let gitUri = await GitUri.fromUri(uri);
 
-		args = { ...args };
 		if (args.line == null) {
 			args.line = editor?.selection.active.line ?? 0;
 		}
@@ -60,7 +65,6 @@ export class DiffWithWorkingCommand extends ActiveEditorCommand {
 			}
 		}
 
-		// if (args.commit == null || args.commit.isUncommitted) {
 		// If the sha is missing, just let the user know the file matches
 		if (gitUri.sha == null) {
 			void window.showInformationMessage('File matches the working tree');

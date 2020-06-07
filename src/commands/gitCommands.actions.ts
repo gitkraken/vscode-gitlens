@@ -36,7 +36,7 @@ async function ensureRepo(repo: string | Repository): Promise<Repository> {
 
 export namespace GitActions {
 	export async function browseAtRevision(uri: Uri, options?: { openInNewWindow?: boolean }) {
-		void (await executeEditorCommand<BrowseRepoAtRevisionCommandArgs>(Commands.BrowseRepoAtRevision, uri, {
+		void (await executeEditorCommand<BrowseRepoAtRevisionCommandArgs>(Commands.BrowseRepoAtRevision, undefined, {
 			uri: uri,
 			openInNewWindow: options?.openInNewWindow,
 		}));
@@ -977,11 +977,10 @@ export namespace GitActions {
 
 			options = { preserveFocus: true, preview: false, ...options };
 
-			void (await executeEditorCommand<DiffWithWorkingCommandArgs>(
-				Commands.DiffWithWorking,
-				GitUri.fromFile(file, ref.repoPath, ref.ref),
-				{ showOptions: options },
-			));
+			void (await executeEditorCommand<DiffWithWorkingCommandArgs>(Commands.DiffWithWorking, undefined, {
+				uri: GitUri.fromFile(file, ref.repoPath, ref.ref),
+				showOptions: options,
+			}));
 		}
 
 		export async function openDirectoryCompare(

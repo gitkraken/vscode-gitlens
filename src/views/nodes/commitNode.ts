@@ -103,6 +103,7 @@ export class CommitNode extends ViewRefNode<ViewWithFiles> {
 	getCommand(): Command | undefined {
 		const commandArgs: DiffWithPreviousCommandArgs = {
 			commit: this.commit,
+			uri: this.uri,
 			line: 0,
 			showOptions: {
 				preserveFocus: true,
@@ -112,7 +113,7 @@ export class CommitNode extends ViewRefNode<ViewWithFiles> {
 		return {
 			title: 'Open Changes with Previous Revision',
 			command: Commands.DiffWithPrevious,
-			arguments: [this.uri, commandArgs],
+			arguments: [undefined, commandArgs],
 		};
 	}
 }

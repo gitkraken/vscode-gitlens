@@ -229,6 +229,7 @@ export class StatusFileNode extends ViewNode {
 		if ((this._hasStagedChanges || this._hasUnstagedChanges) && this.commits.length === 1) {
 			const commandArgs: DiffWithPreviousCommandArgs = {
 				commit: this.commit,
+				uri: GitUri.fromFile(this.file, this.repoPath),
 				line: 0,
 				showOptions: {
 					preserveFocus: true,
@@ -238,7 +239,7 @@ export class StatusFileNode extends ViewNode {
 			return {
 				title: 'Open Changes with Previous Revision',
 				command: Commands.DiffWithPrevious,
-				arguments: [GitUri.fromFile(this.file, this.repoPath), commandArgs],
+				arguments: [undefined, commandArgs],
 			};
 		}
 

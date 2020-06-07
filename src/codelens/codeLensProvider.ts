@@ -574,11 +574,12 @@ export class GitCodeLensProvider implements CodeLensProvider {
 	): T {
 		const commandArgs: DiffWithPreviousCommandArgs = {
 			commit: commit,
+			uri: lens.uri!.toFileUri(),
 		};
 		lens.command = {
 			title: title,
 			command: Commands.DiffWithPrevious,
-			arguments: [lens.uri!.toFileUri(), commandArgs],
+			arguments: [undefined, commandArgs],
 		};
 		return lens;
 	}

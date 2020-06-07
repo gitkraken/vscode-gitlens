@@ -639,9 +639,9 @@ export class ViewCommands {
 				break;
 			}
 			case Commands.DiffWithPrevious: {
-				const [uri, args] = command.arguments as [Uri, DiffWithPreviousCommandArgs];
+				const [, args] = command.arguments as [Uri, DiffWithPreviousCommandArgs];
 				args.showOptions!.preview = false;
-				void executeEditorCommand<DiffWithPreviousCommandArgs>(command.command, uri, args);
+				void executeEditorCommand<DiffWithPreviousCommandArgs>(command.command, undefined, args);
 				break;
 			}
 			default:
@@ -725,13 +725,13 @@ export class ViewCommands {
 		if (!(node instanceof ViewRefFileNode) && !(node instanceof StatusFileNode)) return undefined;
 
 		if (node instanceof StatusFileNode) {
-			const args: DiffWithWorkingCommandArgs = {
+			return executeEditorCommand<DiffWithWorkingCommandArgs>(Commands.DiffWithWorking, undefined, {
+				uri: node.uri,
 				showOptions: {
 					preserveFocus: true,
 					preview: true,
 				},
-			};
-			return commands.executeCommand(Commands.DiffWithWorking, node.uri, args);
+			});
 		}
 
 		return GitActions.Commit.openChangesWithWorking(node.file, { repoPath: node.repoPath, ref: node.ref });
@@ -748,14 +748,13 @@ export class ViewCommands {
 			return;
 		}
 
-		const args: OpenWorkingFileCommandArgs = {
+		void (await executeEditorCommand<OpenWorkingFileCommandArgs>(Commands.OpenWorkingFile, undefined, {
 			uri: node.uri,
 			showOptions: {
 				preserveFocus: true,
 				preview: false,
 			},
-		};
-		void (await commands.executeCommand(Commands.OpenWorkingFile, undefined, args));
+		}));
 	}
 
 	@debug()
@@ -795,11 +794,10 @@ export class ViewCommands {
 		for (const file of files) {
 			const uri = GitUri.fromFile(file, repoPath, ref);
 
-			const args: OpenWorkingFileCommandArgs = {
+			await executeEditorCommand<OpenWorkingFileCommandArgs>(Commands.OpenWorkingFile, undefined, {
 				uri: uri,
 				showOptions: options,
-			};
-			await commands.executeCommand(Commands.OpenWorkingFile, undefined, args);
+			});
 		}
 	}
 
@@ -886,13 +884,12 @@ export class ViewCommands {
 	private openRevisionOnRemote(node: CommitFileNode) {
 		if (!(node instanceof CommitFileNode) || node instanceof StashFileNode) return undefined;
 
-		const args: OpenFileOnRemoteCommandArgs = {
-			range: false,
-		};
-		return commands.executeCommand(
+		return executeEditorCommand<OpenFileOnRemoteCommandArgs>(
 			Commands.OpenFileInRemote,
 			node.commit.toGitUri(node.commit.status === 'D'),
-			args,
+			{
+				range: false,
+			},
 		);
 	}
 

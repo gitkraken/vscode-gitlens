@@ -20,6 +20,7 @@ export interface DiffWithPreviousCommandArgs {
 	commit?: GitCommit;
 
 	inDiffRightEditor?: boolean;
+	uri?: Uri;
 	line?: number;
 	showOptions?: TextDocumentShowOptions;
 }
@@ -44,10 +45,14 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: DiffWithPreviousCommandArgs) {
-		uri = getCommandUri(uri, editor);
-		if (uri == null) return;
-
 		args = { ...args };
+		if (args.uri == null) {
+			uri = getCommandUri(uri, editor);
+			if (uri == null) return;
+		} else {
+			uri = args.uri;
+		}
+
 		if (args.line == null) {
 			args.line = editor?.selection.active.line ?? 0;
 		}

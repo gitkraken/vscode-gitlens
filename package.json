@@ -5180,18 +5180,18 @@
 					"alt": "gitlens.views.openFile"
 				},
 				{
+					"command": "gitlens.views.openChangesWithWorking",
+					"when": "viewItem =~ /gitlens:file\\b/",
+					"group": "inline@96"
+				},
+				{
 					"command": "gitlens.views.stageFile",
 					"when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+unstaged\\b)/",
-					"group": "inline@1"
+					"group": "inline@97"
 				},
 				{
 					"command": "gitlens.views.unstageFile",
 					"when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+staged\\b)/",
-					"group": "inline@1"
-				},
-				{
-					"command": "gitlens.views.openChangesWithWorking",
-					"when": "viewItem =~ /gitlens:file\\b/",
 					"group": "inline@97"
 				},
 				{
