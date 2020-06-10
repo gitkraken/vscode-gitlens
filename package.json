@@ -54,7 +54,11 @@
 			"title": "GitLens — Use 'GitLens: Open Settings' for a richer, interactive experience",
 			"properties": {
 				"gitlens.autolinks": {
-					"type": "array",
+					"type": [
+						"array",
+						"null"
+					],
+					"default": null,
 					"items": {
 						"type": "object",
 						"required": [
@@ -72,19 +76,21 @@
 								"default": false
 							},
 							"title": {
-								"type": "string",
-								"description": "Specifies an optional title for the generated autolink. Use `<num>` as the variable for the reference number",
-								"default": null
+								"type": [
+									"string",
+									"null"
+								],
+								"default": null,
+								"description": "Specifies an optional title for the generated autolink. Use `<num>` as the variable for the reference number"
 							},
 							"url": {
 								"type": "string",
 								"description": "Specifies the url of the external resource you want to link to. Use `<num>` as the variable for the reference number"
 							}
-						},
-						"default": null
+						}
 					},
 					"uniqueItems": true,
-					"markdownDescription": "Specifies autolinks to external resources in commit messages. Use <num> as the variable for the reference number",
+					"markdownDescription": "Specifies autolinks to external resources in commit messages. Use `<num>` as the variable for the reference number",
 					"scope": "window"
 				},
 				"gitlens.blame.avatars": {
@@ -100,7 +106,10 @@
 					"scope": "window"
 				},
 				"gitlens.blame.dateFormat": {
-					"type": "string",
+					"type": [
+						"string",
+						"null"
+					],
 					"default": null,
 					"markdownDescription": "Specifies how to format absolute dates (e.g. using the `${date}` token) in gutter blame annotations. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats",
 					"scope": "window"
@@ -432,7 +441,10 @@
 					"scope": "resource"
 				},
 				"gitlens.currentLine.dateFormat": {
-					"type": "string",
+					"type": [
+						"string",
+						"null"
+					],
 					"default": null,
 					"markdownDescription": "Specifies how to format absolute dates (e.g. using the `${date}` token) for the current line blame annotation. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats",
 					"scope": "window"
@@ -462,13 +474,19 @@
 					"scope": "window"
 				},
 				"gitlens.defaultDateFormat": {
-					"type": "string",
+					"type": [
+						"string",
+						"null"
+					],
 					"default": null,
 					"markdownDescription": "Specifies how absolute dates will be formatted by default. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats",
 					"scope": "window"
 				},
 				"gitlens.defaultDateShortFormat": {
-					"type": "string",
+					"type": [
+						"string",
+						"null"
+					],
 					"default": null,
 					"markdownDescription": "Specifies how short absolute dates will be formatted by default. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats",
 					"scope": "window"
@@ -1221,7 +1239,10 @@
 					"scope": "window"
 				},
 				"gitlens.remotes": {
-					"type": "array",
+					"type": [
+						"array",
+						"null"
+					],
 					"default": null,
 					"items": {
 						"type": "object",
@@ -1400,7 +1421,10 @@
 					"scope": "window"
 				},
 				"gitlens.statusBar.dateFormat": {
-					"type": "string",
+					"type": [
+						"string",
+						"null"
+					],
 					"default": null,
 					"markdownDescription": "Specifies how to format absolute dates (e.g. using the `${date}` token) in the blame information in the status bar. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats",
 					"scope": "window"
@@ -1817,7 +1841,10 @@
 					"scope": "window"
 				},
 				"gitlens.advanced.blame.customArguments": {
-					"type": "array",
+					"type": [
+						"array",
+						"null"
+					],
 					"default": null,
 					"items": {
 						"type": "string"
@@ -1923,13 +1950,9 @@
 					"scope": "resource"
 				},
 				"gitlens.advanced.similarityThreshold": {
-					"anyOf": [
-						{
-							"type": "number"
-						},
-						{
-							"type": "null"
-						}
+					"type": [
+						"number",
+						"null"
 					],
 					"default": null,
 					"markdownDescription": "Specifies the amount (percent) of similarity a deleted and added file pair must have to be considered a rename",
