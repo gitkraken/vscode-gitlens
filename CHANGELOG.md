@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [10.2.2] - 2020-06-10
+
+### Added
+
+- Adds unique icons for each GitLens view to better support view moving in VS Code 1.46
+
+### Fixed
+
+- Fixes an issue with some settings showing up with errors on the VS Code settings UI
+
 ## [10.2.1] - 2020-02-10
 
 ### Fixed
