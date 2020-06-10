@@ -5820,81 +5820,111 @@
 				{
 					"id": "gitlens.views.repositories:gitlens",
 					"name": "Repositories",
-					"when": "config.gitlens.views.repositories.enabled && config.gitlens.views.repositories.location == gitlens"
+					"when": "config.gitlens.views.repositories.enabled && config.gitlens.views.repositories.location == gitlens",
+					"contextualTitle": "GitLens",
+					"icon": "images/views/repositories.svg"
 				},
 				{
 					"id": "gitlens.views.fileHistory:gitlens",
 					"name": "File History",
-					"when": "config.gitlens.views.fileHistory.enabled && config.gitlens.views.fileHistory.location == gitlens"
+					"when": "config.gitlens.views.fileHistory.enabled && config.gitlens.views.fileHistory.location == gitlens",
+					"contextualTitle": "GitLens",
+					"icon": "images/views/history.svg"
 				},
 				{
 					"id": "gitlens.views.lineHistory:gitlens",
 					"name": "Line History",
-					"when": "config.gitlens.views.lineHistory.enabled && config.gitlens.views.lineHistory.location == gitlens"
+					"when": "config.gitlens.views.lineHistory.enabled && config.gitlens.views.lineHistory.location == gitlens",
+					"contextualTitle": "GitLens",
+					"icon": "images/views/history.svg"
 				},
 				{
 					"id": "gitlens.views.compare:gitlens",
-					"name": "Compare",
-					"when": "config.gitlens.views.compare.enabled && config.gitlens.views.compare.location == gitlens"
+					"name": "Compare Commits",
+					"when": "config.gitlens.views.compare.enabled && config.gitlens.views.compare.location == gitlens",
+					"contextualTitle": "GitLens",
+					"icon": "images/views/compare.svg"
 				},
 				{
 					"id": "gitlens.views.search:gitlens",
 					"name": "Search Commits",
-					"when": "config.gitlens.views.search.enabled && config.gitlens.views.search.location == gitlens"
+					"when": "config.gitlens.views.search.enabled && config.gitlens.views.search.location == gitlens",
+					"contextualTitle": "GitLens",
+					"icon": "images/views/search.svg"
 				}
 			],
 			"explorer": [
 				{
 					"id": "gitlens.views.repositories:explorer",
-					"name": "GitLens: Repositories",
-					"when": "gitlens:enabled && config.gitlens.views.repositories.enabled && config.gitlens.views.repositories.location == explorer"
+					"name": "Repositories",
+					"when": "gitlens:enabled && config.gitlens.views.repositories.enabled && config.gitlens.views.repositories.location == explorer",
+					"contextualTitle": "GitLens",
+					"icon": "images/views/repositories.svg"
 				},
 				{
 					"id": "gitlens.views.fileHistory:explorer",
-					"name": "GitLens: File History",
-					"when": "gitlens:enabled && config.gitlens.views.fileHistory.enabled && config.gitlens.views.fileHistory.location == explorer"
+					"name": "File History",
+					"when": "gitlens:enabled && config.gitlens.views.fileHistory.enabled && config.gitlens.views.fileHistory.location == explorer",
+					"contextualTitle": "GitLens",
+					"icon": "images/views/history.svg"
 				},
 				{
 					"id": "gitlens.views.lineHistory:explorer",
-					"name": "GitLens: Line History",
-					"when": "gitlens:enabled && config.gitlens.views.lineHistory.enabled && config.gitlens.views.lineHistory.location == explorer"
+					"name": "Line History",
+					"when": "gitlens:enabled && config.gitlens.views.lineHistory.enabled && config.gitlens.views.lineHistory.location == explorer",
+					"contextualTitle": "GitLens",
+					"icon": "images/views/history.svg"
 				},
 				{
 					"id": "gitlens.views.compare:explorer",
-					"name": "GitLens: Compare",
-					"when": "gitlens:enabled && config.gitlens.views.compare.enabled && config.gitlens.views.compare.location == explorer"
+					"name": "Compare Commits",
+					"when": "gitlens:enabled && config.gitlens.views.compare.enabled && config.gitlens.views.compare.location == explorer",
+					"contextualTitle": "GitLens",
+					"icon": "images/views/compare.svg"
 				},
 				{
 					"id": "gitlens.views.search:explorer",
-					"name": "GitLens: Search Commits",
-					"when": "gitlens:enabled && config.gitlens.views.search.enabled && config.gitlens.views.search.location == explorer"
+					"name": "Search Commits",
+					"when": "gitlens:enabled && config.gitlens.views.search.enabled && config.gitlens.views.search.location == explorer",
+					"contextualTitle": "GitLens",
+					"icon": "images/views/search.svg"
 				}
 			],
 			"scm": [
 				{
 					"id": "gitlens.views.repositories:scm",
-					"name": "GitLens: Repositories",
-					"when": "gitlens:enabled && config.gitlens.views.repositories.enabled && config.gitlens.views.repositories.location == scm"
+					"name": "Repositories",
+					"when": "gitlens:enabled && config.gitlens.views.repositories.enabled && config.gitlens.views.repositories.location == scm",
+					"contextualTitle": "GitLens",
+					"icon": "images/views/repositories.svg"
 				},
 				{
 					"id": "gitlens.views.fileHistory:scm",
-					"name": "GitLens: File History",
-					"when": "gitlens:enabled && config.gitlens.views.fileHistory.enabled && config.gitlens.views.fileHistory.location == scm"
+					"name": "File History",
+					"when": "gitlens:enabled && config.gitlens.views.fileHistory.enabled && config.gitlens.views.fileHistory.location == scm",
+					"contextualTitle": "GitLens",
+					"icon": "images/views/history.svg"
 				},
 				{
 					"id": "gitlens.views.lineHistory:scm",
-					"name": "GitLens: Line History",
-					"when": "gitlens:enabled && config.gitlens.views.lineHistory.enabled && config.gitlens.views.lineHistory.location == scm"
+					"name": "Line History",
+					"when": "gitlens:enabled && config.gitlens.views.lineHistory.enabled && config.gitlens.views.lineHistory.location == scm",
+					"contextualTitle": "GitLens",
+					"icon": "images/views/history.svg"
 				},
 				{
 					"id": "gitlens.views.compare:scm",
-					"name": "GitLens: Compare",
-					"when": "gitlens:enabled && config.gitlens.views.compare.enabled && config.gitlens.views.compare.location == scm"
+					"name": "Compare Commits",
+					"when": "gitlens:enabled && config.gitlens.views.compare.enabled && config.gitlens.views.compare.location == scm",
+					"contextualTitle": "GitLens",
+					"icon": "images/views/compare.svg"
 				},
 				{
 					"id": "gitlens.views.search:scm",
-					"name": "GitLens: Search Commits",
-					"when": "gitlens:enabled && config.gitlens.views.search.enabled && config.gitlens.views.search.location == scm"
+					"name": "Search Commits",
+					"when": "gitlens:enabled && config.gitlens.views.search.enabled && config.gitlens.views.search.location == scm",
+					"contextualTitle": "GitLens",
+					"icon": "images/views/search.svg"
 				}
 			]
 		}
