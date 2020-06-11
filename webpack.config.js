@@ -375,6 +375,11 @@ function getWebviewsConfig(mode, env) {
 				{
 					test: /\.ejs$/,
 					loader: 'ejs-loader',
+					options: {
+						variable: 'data',
+						interpolate: '\\{\\{(.+?)\\}\\}',
+						evaluate: '\\[\\[(.+?)\\]\\]',
+					},
 				},
 			],
 		},
