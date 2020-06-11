@@ -1155,7 +1155,7 @@ export namespace Git {
 		const args = ref.endsWith(':') ? `${ref}./${file}` : `${ref}:./${file}`;
 
 		try {
-			const data = await git<TOut>(opts, 'show', args, '--');
+			const data = await git<TOut>(opts, 'show', '--textconv', args, '--');
 			return data;
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
