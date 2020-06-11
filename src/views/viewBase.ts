@@ -82,7 +82,7 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 	}
 
 	dispose() {
-		this._disposable && this._disposable.dispose();
+		this._disposable?.dispose();
 	}
 
 	getQualifiedCommand(command: string) {

@@ -454,7 +454,7 @@ export class FileAnnotationController implements Disposable {
 		if (this._annotationProviders.size === 0) {
 			Logger.log('Remove all listener registrations for annotations');
 
-			this._annotationsDisposable && this._annotationsDisposable.dispose();
+			this._annotationsDisposable?.dispose();
 			this._annotationsDisposable = undefined;
 		}
 

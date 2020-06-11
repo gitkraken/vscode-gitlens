@@ -58,7 +58,7 @@ export class Emitter<T> {
 					this._options.onFirstListenerDidAdd(this);
 				}
 
-				if (this._options && this._options.onListenerDidAdd) {
+				if (this._options?.onListenerDidAdd) {
 					this._options.onListenerDidAdd(this, listener, thisArgs);
 				}
 
@@ -67,7 +67,7 @@ export class Emitter<T> {
 						result.dispose = Emitter._noop;
 						if (!this._disposed) {
 							remove();
-							if (this._options && this._options.onLastListenerRemove) {
+							if (this._options?.onLastListenerRemove) {
 								const hasListeners = this._listeners && !this._listeners.isEmpty();
 								if (!hasListeners) {
 									this._options.onLastListenerRemove(this);

@@ -57,7 +57,7 @@ export class GitRecentChangeCodeLens extends CodeLens {
 	}
 
 	getBlame(): GitBlameLines | undefined {
-		return this.blame && this.blame();
+		return this.blame?.();
 	}
 }
 

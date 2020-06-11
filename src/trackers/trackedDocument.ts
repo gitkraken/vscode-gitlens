@@ -38,7 +38,7 @@ export class TrackedDocument<T> implements Disposable {
 	dispose() {
 		this._disposed = true;
 		this.reset('dispose');
-		this._disposable && this._disposable.dispose();
+		this._disposable?.dispose();
 	}
 
 	private async initialize(uri: Uri): Promise<Repository | undefined> {

@@ -40,7 +40,7 @@ export class Autolinks implements Disposable {
 	}
 
 	dispose() {
-		this._disposable && this._disposable.dispose();
+		this._disposable?.dispose();
 	}
 
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {

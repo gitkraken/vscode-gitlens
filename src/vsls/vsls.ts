@@ -47,14 +47,9 @@ export class VslsController implements Disposable {
 	}
 
 	dispose() {
-		this._disposable && this._disposable.dispose();
-		if (this._host !== undefined) {
-			this._host.dispose();
-		}
-
-		if (this._guest !== undefined) {
-			this._guest.dispose();
-		}
+		this._disposable?.dispose();
+		this._host?.dispose();
+		this._guest?.dispose();
 	}
 
 	private async initialize() {

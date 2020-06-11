@@ -80,7 +80,7 @@ export class DocumentTracker<T> implements Disposable {
 	}
 
 	dispose() {
-		this._disposable && this._disposable.dispose();
+		this._disposable?.dispose();
 
 		this.clear();
 	}

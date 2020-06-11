@@ -63,7 +63,7 @@ export abstract class WebviewBase implements Disposable {
 
 	dispose() {
 		this.disposable.dispose();
-		this._disposablePanel && this._disposablePanel.dispose();
+		this._disposablePanel?.dispose();
 	}
 
 	protected onShowCommand() {
@@ -75,7 +75,7 @@ export abstract class WebviewBase implements Disposable {
 	}
 
 	private onPanelDisposed() {
-		this._disposablePanel && this._disposablePanel.dispose();
+		this._disposablePanel?.dispose();
 		this._panel = undefined;
 	}
 

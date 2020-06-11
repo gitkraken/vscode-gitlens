@@ -414,7 +414,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get tips() {
-		const branchAndTagTips = this._options.getBranchAndTagTips && this._options.getBranchAndTagTips(this._item.sha);
+		const branchAndTagTips = this._options.getBranchAndTagTips?.(this._item.sha);
 		if (branchAndTagTips == null) return emptyStr;
 
 		return this._padOrTruncate(branchAndTagTips, this._options.tokenOptions.tips);
