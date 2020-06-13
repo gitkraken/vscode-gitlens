@@ -58,6 +58,7 @@ export class GitBranch implements GitBranchReference {
 					(a, b) =>
 						(a.current ? -1 : 1) - (b.current ? -1 : 1) ||
 						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
+						(a.name === 'main' ? -1 : 1) - (b.name === 'main' ? -1 : 1) ||
 						(a.name === 'master' ? -1 : 1) - (b.name === 'master' ? -1 : 1) ||
 						(a.name === 'develop' ? -1 : 1) - (b.name === 'develop' ? -1 : 1) ||
 						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
@@ -68,6 +69,7 @@ export class GitBranch implements GitBranchReference {
 					(a, b) =>
 						(a.current ? -1 : 1) - (b.current ? -1 : 1) ||
 						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
+						(a.name === 'main' ? -1 : 1) - (b.name === 'main' ? -1 : 1) ||
 						(a.name === 'master' ? -1 : 1) - (b.name === 'master' ? -1 : 1) ||
 						(a.name === 'develop' ? -1 : 1) - (b.name === 'develop' ? -1 : 1) ||
 						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
