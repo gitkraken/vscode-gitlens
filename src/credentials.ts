@@ -29,7 +29,12 @@ interface CredentialClearEvent {
 	reason: 'clear';
 }
 
-export type CredentialChangeEvent = CredentialSaveEvent | CredentialClearEvent;
+interface CredentialInvalidEvent {
+	key: string | undefined;
+	reason: 'invalid';
+}
+
+export type CredentialChangeEvent = CredentialSaveEvent | CredentialClearEvent | CredentialInvalidEvent;
 
 export namespace CredentialManager {
 	const _onDidChange = new EventEmitter<CredentialChangeEvent>();
@@ -88,5 +93,11 @@ export namespace CredentialManager {
 		if (value == null) return undefined;
 
 		return JSON.parse(value) as T;
+	}
+
+	export function invalidate(key: string) {
+		if (!key) return;
+
+		_onDidChange.fire({ key: key, reason: 'invalid' });
 	}
 }

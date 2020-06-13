@@ -11,6 +11,14 @@ import { GitLogCommit } from '../models/logCommit';
 import { PullRequest } from '../models/pullRequest';
 import { debug, gate, Promises } from '../../system';
 
+export class CredentialError extends Error {
+	constructor(private original: Error) {
+		super(original.message);
+
+		Error.captureStackTrace(this, CredentialError);
+	}
+}
+
 export enum RemoteResourceType {
 	Branch = 'branch',
 	Branches = 'branches',
@@ -197,6 +205,8 @@ export abstract class RemoteProviderWithApi<T extends object = any> extends Remo
 		return this._onDidChange.event;
 	}
 
+	private badCredentialsCount = 0;
+
 	constructor(domain: string, path: string, protocol?: string, name?: string, custom?: boolean) {
 		super(domain, path, protocol, name, custom);
 
@@ -204,6 +214,13 @@ export abstract class RemoteProviderWithApi<T extends object = any> extends Remo
 	}
 
 	private onCredentialsChanged(e: CredentialChangeEvent) {
+		if (e.reason === 'invalid' && e.key === this.credentialsKey) {
+			this._credentials = null;
+			this._onDidChange.fire();
+
+			return;
+		}
+
 		if (e.reason === 'save' && e.key === this.credentialsKey) {
 			if (this._credentials === null) {
 				this._credentials = undefined;
@@ -253,10 +270,15 @@ export abstract class RemoteProviderWithApi<T extends object = any> extends Remo
 		if (!connected) return undefined;
 
 		try {
-			return await this.onGetIssueOrPullRequest(this._credentials!, id);
+			const issueOrPullRequest = await this.onGetIssueOrPullRequest(this._credentials!, id);
+			this.badCredentialsCount = 0;
+			return issueOrPullRequest;
 		} catch (ex) {
 			Logger.error(ex, cc);
 
+			if (ex instanceof CredentialError) {
+				this.handleBadCredentials();
+			}
 			return undefined;
 		}
 	}
@@ -283,6 +305,7 @@ export abstract class RemoteProviderWithApi<T extends object = any> extends Remo
 	protected credentials() {
 		if (this._credentials === undefined) {
 			return CredentialManager.getAs<T>(this.credentialsKey).then(c => {
+				this.badCredentialsCount = 0;
 				this._credentials = c ?? null;
 				return c ?? undefined;
 			});
@@ -291,12 +314,20 @@ export abstract class RemoteProviderWithApi<T extends object = any> extends Remo
 	}
 
 	protected async clearCredentials() {
+		this.badCredentialsCount = 0;
 		this._credentials = undefined;
 		await CredentialManager.clear(this.credentialsKey);
 		this._credentials = undefined;
 	}
 
+	protected invalidateCredentials() {
+		this.badCredentialsCount = 0;
+		this._credentials = null;
+		CredentialManager.invalidate(this.credentialsKey);
+	}
+
 	protected saveCredentials(credentials: T) {
+		this.badCredentialsCount = 0;
 		this._credentials = credentials;
 		return CredentialManager.addOrUpdate(this.credentialsKey, credentials);
 	}
@@ -316,12 +347,25 @@ export abstract class RemoteProviderWithApi<T extends object = any> extends Remo
 		try {
 			const pr = (await this.onGetPullRequestForCommit(this._credentials!, ref)) ?? null;
 			this._prsByCommit.set(ref, pr);
+			this.badCredentialsCount = 0;
 			return pr;
 		} catch (ex) {
 			Logger.error(ex, cc);
 
 			this._prsByCommit.delete(ref);
+
+			if (ex instanceof CredentialError) {
+				this.handleBadCredentials();
+			}
 			return null;
+		}
+	}
+
+	private handleBadCredentials() {
+		this.badCredentialsCount++;
+
+		if (this.badCredentialsCount >= 5) {
+			this.invalidateCredentials();
 		}
 	}
 }

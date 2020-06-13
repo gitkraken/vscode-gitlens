@@ -2,7 +2,7 @@
 import { graphql } from '@octokit/graphql';
 import { Logger } from '../logger';
 import { debug } from '../system';
-import { IssueOrPullRequest, PullRequest, PullRequestState } from '../git/git';
+import { CredentialError, IssueOrPullRequest, PullRequest, PullRequestState } from '../git/git';
 
 export class GitHubApi {
 	@debug({
@@ -64,6 +64,7 @@ export class GitHubApi {
 				headers: { authorization: `Bearer ${token}` },
 				...options,
 			});
+
 			const pr = rsp?.repository?.object?.associatedPullRequests?.nodes?.[0];
 			if (pr == null) return undefined;
 			// GitHub seems to sometimes return PRs for forks
@@ -85,6 +86,10 @@ export class GitHubApi {
 			);
 		} catch (ex) {
 			Logger.error(ex, cc);
+
+			if (ex.code === 401) {
+				throw new CredentialError(ex);
+			}
 			throw ex;
 		}
 	}
@@ -135,6 +140,7 @@ export class GitHubApi {
 				headers: { authorization: `Bearer ${token}` },
 				...options,
 			});
+
 			const issue = rsp?.repository?.issueOrPullRequest;
 			if (issue == null) return undefined;
 
@@ -149,6 +155,10 @@ export class GitHubApi {
 			};
 		} catch (ex) {
 			Logger.error(ex, cc);
+
+			if (ex.code === 401) {
+				throw new CredentialError(ex);
+			}
 			throw ex;
 		}
 	}

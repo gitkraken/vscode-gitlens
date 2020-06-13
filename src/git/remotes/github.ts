@@ -11,9 +11,14 @@ const issueEnricher3rdParyRegex = /\b(\w+\\?-?\w+(?!\\?-)\/\w+\\?-?\w+(?!\\?-))\
 
 export class GitHubRemote extends RemoteProviderWithApi<{ token: string }> {
 	private readonly Buttons = class {
-		static readonly Help: QuickInputButton = {
-			iconPath: new ThemeIcon('question'),
-			tooltip: 'Help',
+		// static readonly Help: QuickInputButton = {
+		// 	iconPath: new ThemeIcon('question'),
+		// 	tooltip: 'Help',
+		// };
+
+		static readonly OpenPATs: QuickInputButton = {
+			iconPath: new ThemeIcon('globe'),
+			tooltip: 'Open Personal Access Tokens on GitHub',
 		};
 	};
 
@@ -72,10 +77,14 @@ export class GitHubRemote extends RemoteProviderWithApi<{ token: string }> {
 				disposable = Disposable.from(
 					input.onDidHide(() => resolve(undefined)),
 					input.onDidTriggerButton(e => {
-						if (e === this.Buttons.Help) {
-							// TODO@eamodio link to proper wiki
-							void env.openExternal(Uri.parse('https://github.com/eamodio/vscode-gitlens/wiki'));
+						if (e === this.Buttons.OpenPATs) {
+							void env.openExternal(Uri.parse('https://github.com/settings/tokens'));
 						}
+
+						// if (e === this.Buttons.Help) {
+						// 	// TODO@eamodio link to proper wiki
+						// 	void env.openExternal(Uri.parse('https://github.com/eamodio/vscode-gitlens/wiki'));
+						// }
 					}),
 					input.onDidChangeValue(
 						e =>
@@ -88,10 +97,10 @@ export class GitHubRemote extends RemoteProviderWithApi<{ token: string }> {
 				);
 
 				// TODO@eamodio add this button once we have a valid help link above
-				// input.buttons = [this.Buttons.Help];
+				input.buttons = [this.Buttons.OpenPATs]; // [this.Buttons.Help];
 				input.title = `Connect to ${this.name}`;
 				input.prompt = 'Enter a GitHub personal access token';
-				input.placeholder = 'Generate a personal access token from github.com (required)';
+				input.placeholder = 'Generate a personal access token (with repo access) from github.com (required)';
 
 				input.show();
 			});

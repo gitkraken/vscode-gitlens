@@ -9,14 +9,14 @@ import {
 	TextEditorDecorationType,
 	window,
 } from 'vscode';
+import { Annotations } from './annotations';
 import { configuration } from '../configuration';
 import { GlyphChars, isTextEditor } from '../constants';
 import { Container } from '../container';
-import { LinesChangeEvent } from '../trackers/gitLineTracker';
-import { Annotations } from './annotations';
+import { CommitFormatter, GitBlameCommit, PullRequest } from '../git/git';
+import { LogCorrelationContext, Logger } from '../logger';
 import { debug, Iterables, log, Promises } from '../system';
-import { Logger } from '../logger';
-import { CommitFormatter, GitBlameCommit } from '../git/git';
+import { LinesChangeEvent } from '../trackers/gitLineTracker';
 
 const annotationDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
 	after: {
@@ -174,7 +174,7 @@ export class LineAnnotationController implements Disposable {
 	}
 
 	@debug({ args: false })
-	private async refresh(editor: TextEditor | undefined) {
+	private async refresh(editor: TextEditor | undefined, options?: { prs?: Map<string, PullRequest | undefined> }) {
 		if (editor === undefined && this._editor === undefined) return;
 
 		const cc = Logger.getCorrelationContext();
@@ -250,7 +250,6 @@ export class LineAnnotationController implements Disposable {
 
 		// TODO: Make this configurable?
 		const timeout = 100;
-
 		const [getBranchAndTagTips, prs] = await Promise.all([
 			CommitFormatter.has(cfg.format, 'tips') ? Container.git.getBranchesAndTagsTipsFn(repoPath) : undefined,
 			repoPath != null &&
@@ -263,7 +262,8 @@ export class LineAnnotationController implements Disposable {
 				'pullRequestDate',
 				'pullRequestState',
 			)
-				? this.getPullRequests(
+				? options?.prs ??
+				  this.getPullRequests(
 						repoPath,
 						commitLines.filter(([, commit]) => !commit.isUncommitted),
 						{ timeout: timeout },
@@ -271,30 +271,8 @@ export class LineAnnotationController implements Disposable {
 				: undefined,
 		]);
 
-		if (prs !== undefined) {
-			const timeouts = [
-				...Iterables.filterMap(prs.values(), pr =>
-					pr instanceof Promises.CancellationError ? pr.promise : undefined,
-				),
-			];
-
-			// If there are any PRs that timed out, refresh the annotation(s) once they complete
-			if (timeouts.length !== 0) {
-				Logger.debug(
-					cc,
-					`${GlyphChars.Dot} pull request queries (${timeouts.length}) took too long (over ${timeout} ms)`,
-				);
-				void Promise.all(timeouts).then(() => {
-					if (editor === this._editor) {
-						Logger.debug(
-							cc,
-							`${GlyphChars.Dot} pull request queries (${timeouts.length}) completed; refreshing...`,
-						);
-
-						void this.refresh(editor);
-					}
-				});
-			}
+		if (prs != null) {
+			void this.waitForAnyPendingPullRequests(editor, prs, timeout, cc);
 		}
 
 		const decorations = [];
@@ -335,5 +313,32 @@ export class LineAnnotationController implements Disposable {
 		}
 
 		Container.lineTracker.stop(this);
+	}
+
+	private async waitForAnyPendingPullRequests(
+		editor: TextEditor,
+		prs: Map<
+			string,
+			PullRequest | Promises.CancellationErrorWithId<string, Promise<PullRequest | undefined>> | undefined
+		>,
+		timeout: number,
+		cc: LogCorrelationContext | undefined,
+	) {
+		// If there are any PRs that timed out, refresh the annotation(s) once they complete
+		const count = Iterables.count(prs.values(), pr => pr instanceof Promises.CancellationError);
+		Logger.debug(cc, `${GlyphChars.Dot} ${count} pull request queries took too long (over ${timeout} ms)`);
+
+		if (count === 0) return;
+
+		const resolved = new Map<string, PullRequest | undefined>();
+		for (const [key, value] of prs) {
+			resolved.set(key, value instanceof Promises.CancellationError ? await value.promise : value);
+		}
+
+		if (editor !== this._editor) return;
+
+		Logger.debug(cc, `${GlyphChars.Dot} ${count} pull request queries completed; refreshing...`);
+
+		void this.refresh(editor, { prs: resolved });
 	}
 }
