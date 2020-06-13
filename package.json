@@ -6201,7 +6201,7 @@
 		"eslint-cli": "1.1.1",
 		"eslint-config-prettier": "6.11.0",
 		"eslint-plugin-import": "2.21.2",
-		"fork-ts-checker-webpack-plugin": "5.0.0-beta.5",
+		"fork-ts-checker-webpack-plugin": "5.0.0-beta.7",
 		"html-webpack-plugin": "4.3.0",
 		"html-webpack-skip-assets-plugin": "0.0.2",
 		"imagemin-webpack-plugin": "2.4.2",
