@@ -34,7 +34,11 @@ export enum Commands {
 	CopyMessageToClipboard = 'gitlens.copyMessageToClipboard',
 	CopyRemoteCommitUrlToClipboard = 'gitlens.copyRemoteCommitUrlToClipboard',
 	CopyRemoteFileUrlToClipboard = 'gitlens.copyRemoteFileUrlToClipboard',
+
 	CopyShaToClipboard = 'gitlens.copyShaToClipboard',
+
+	CopyRelativePathToClipboard = 'gitlens.copyRelativePathToClipboard',
+
 	DiffDirectory = 'gitlens.diffDirectory',
 	DiffDirectoryWithHead = 'gitlens.diffDirectoryWithHead',
 	DiffHeadWith = 'gitlens.diffHeadWith',

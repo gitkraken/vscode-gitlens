@@ -2502,6 +2502,15 @@
 				}
 			},
 			{
+				"command": "gitlens.copyRelativePathToClipboard",
+				"title": "Copy Relative Path",
+				"category": "GitLens",
+				"icon": {
+					"dark": "images/dark/icon-copy.svg",
+					"light": "images/light/icon-copy.svg"
+				}
+			},
+			{
 				"command": "gitlens.closeUnchangedFiles",
 				"title": "Close Unchanged Files",
 				"category": "GitLens"
@@ -3668,6 +3677,10 @@
 					"when": "gitlens:activeFileStatus =~ /blameable/"
 				},
 				{
+					"command": "gitlens.copyRelativePathToClipboard",
+					"when": "gitlens:enabled"
+				},
+				{
 					"command": "gitlens.closeUnchangedFiles",
 					"when": "gitlens:enabled"
 				},
@@ -4320,6 +4333,11 @@
 					"command": "gitlens.copyRemoteFileUrlToClipboard",
 					"when": "editorTextFocus && gitlens:activeFileStatus =~ /remotes/ && config.gitlens.menus.editor.clipboard",
 					"group": "9_cutcopypaste_gitlens@4"
+				},
+				{
+					"command": "gitlens.copyRelativePathToClipboard",
+					"when": "editorTextFocus && gitlens:activeFileStatus =~ /blameable/ && config.gitlens.menus.editor.clipboard",
+					"group": "9_cutcopypaste_gitlens@5"
 				}
 			],
 			"editor/title": [

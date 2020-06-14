@@ -8,6 +8,7 @@ export * from './commands/copyMessageToClipboard';
 export * from './commands/copyRemoteCommitUrlToClipboard';
 export * from './commands/copyRemoteFileUrlToClipboard';
 export * from './commands/copyShaToClipboard';
+export * from './commands/copyRelativePathToClipboard';
 export * from './commands/diffBranchWith';
 export * from './commands/openDirectoryCompare';
 export * from './commands/diffLineWithPrevious';
