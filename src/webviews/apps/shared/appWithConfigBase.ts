@@ -29,21 +29,27 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 		DOM.listenAll('input[type=checkbox][data-setting]', 'change', function (this: HTMLInputElement) {
 			return me.onInputChecked(this);
 		});
-		DOM.listenAll('input[type=text][data-setting], input:not([type])[data-setting]', 'blur', function (
-			this: HTMLInputElement,
-		) {
-			return me.onInputBlurred(this);
-		});
-		DOM.listenAll('input[type=text][data-setting], input:not([type])[data-setting]', 'focus', function (
-			this: HTMLInputElement,
-		) {
-			return me.onInputFocused(this);
-		});
-		DOM.listenAll('input[type=text][data-setting][data-setting-preview]', 'input', function (
-			this: HTMLInputElement,
-		) {
-			return me.onInputChanged(this);
-		});
+		DOM.listenAll(
+			'input[type=text][data-setting], input[type=number][data-setting], input:not([type])[data-setting]',
+			'blur',
+			function (this: HTMLInputElement) {
+				return me.onInputBlurred(this);
+			},
+		);
+		DOM.listenAll(
+			'input[type=text][data-setting], input[type=number][data-setting], input:not([type])[data-setting]',
+			'focus',
+			function (this: HTMLInputElement) {
+				return me.onInputFocused(this);
+			},
+		);
+		DOM.listenAll(
+			'input[type=text][data-setting][data-setting-preview], input[type=number][data-setting][data-setting-preview]',
+			'input',
+			function (this: HTMLInputElement) {
+				return me.onInputChanged(this);
+			},
+		);
 		DOM.listenAll('select[data-setting]', 'change', function (this: HTMLSelectElement) {
 			return me.onInputSelected(this);
 		});
@@ -101,7 +107,7 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 			}
 		}
 
-		this._changes[element.name] = value;
+		this._changes[element.name] = element.type === 'number' && value != null ? Number(value) : value;
 
 		// this.setAdditionalSettings(element.checked ? element.dataset.addSettingsOn : element.dataset.addSettingsOff);
 		this.applyChanges();
@@ -286,7 +292,7 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 			}
 
 			for (const el of document.querySelectorAll<HTMLInputElement>(
-				'input[type=text][data-setting], input:not([type])[data-setting]',
+				'input[type=text][data-setting], input[type=number][data-setting], input:not([type])[data-setting]',
 			)) {
 				el.value = this.getSettingValue<string>(el.name) ?? '';
 			}

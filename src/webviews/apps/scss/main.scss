@@ -150,6 +150,7 @@ input[type='checkbox'] {
 	}
 }
 
+input[type='number'],
 input[type='text'],
 input:not([type]) {
 	background: none;
@@ -187,6 +188,10 @@ input:not([type]) {
 	&::placeholder {
 		color: var(--vscode-input-placeholderForeground);
 	}
+}
+
+input[type='number'] {
+	max-width: 100px;
 }
 
 label {

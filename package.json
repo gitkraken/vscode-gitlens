@@ -586,8 +586,8 @@
 					"scope": "window"
 				},
 				"gitlens.heatmap.ageThreshold": {
-					"type": "string",
-					"default": "90",
+					"type": "number",
+					"default": 90,
 					"markdownDescription": "Specifies the age of the most recent change (in days) after which the gutter heatmap annotations will be cold rather than hot (i.e. will use `#gitlens.heatmap.coldColor#` instead of `#gitlens.heatmap.hotColor#`)",
 					"scope": "window"
 				},
