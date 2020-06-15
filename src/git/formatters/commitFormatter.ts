@@ -175,9 +175,10 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	private _getAvatarMarkdown(title: string) {
+		const size = Container.config.hovers.avatarSize;
 		return `![${title}](${this._item
-			.getAvatarUri(Container.config.defaultGravatarsStyle)
-			.toString(true)}|width=16,height=16 "${title}")`;
+			.getAvatarUri(Container.config.defaultGravatarsStyle, size)
+			.toString(true)}|width=${size},height=${size} "${title}")`;
 	}
 
 	private _getPresenceMarkdown(presence: ContactPresence, title: string) {

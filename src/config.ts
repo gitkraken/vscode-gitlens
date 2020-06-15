@@ -70,6 +70,7 @@ export interface Config {
 			over: 'line' | 'annotation';
 		};
 		avatars: boolean;
+		avatarSize: number;
 		changesDiff: 'line' | 'hunk';
 		detailsMarkdownFormat: string;
 		enabled: boolean;

@@ -687,6 +687,12 @@
 					"markdownDescription": "Specifies whether to show avatar images in hovers",
 					"scope": "window"
 				},
+				"gitlens.hovers.avatarSize": {
+					"type": "number",
+					"default": 32,
+					"markdownDescription": "Specifies the size of the avatar images in hovers",
+					"scope": "window"
+				},
 				"gitlens.hovers.changesDiff": {
 					"type": "string",
 					"default": "line",
