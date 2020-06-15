@@ -100,24 +100,17 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 				if (args.repoLog != null) {
 					args.commit = args.repoLog.commits.get(args.sha);
 					// If we can't find the commit, kill the repoLog
-					if (args.commit === undefined) {
+					if (args.commit == null) {
 						args.repoLog = undefined;
 					}
 				}
 
-				if (args.repoLog === undefined) {
-					const log = await Container.git.getLog(repoPath!, { limit: 2, ref: args.sha });
-					if (log === undefined) {
-						void Messages.showCommitNotFoundWarningMessage('Unable to show commit');
-
-						return;
-					}
-
-					args.commit = log.commits.get(args.sha);
+				if (args.repoLog == null) {
+					args.commit = await Container.git.getCommit(repoPath!, args.sha);
 				}
 			}
 
-			if (args.commit === undefined) {
+			if (args.commit == null) {
 				void Messages.showCommitNotFoundWarningMessage('Unable to show commit');
 
 				return;
