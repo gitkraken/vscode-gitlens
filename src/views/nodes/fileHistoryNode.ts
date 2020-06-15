@@ -2,9 +2,7 @@
 import { Disposable, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
 import {
-	GitCommitType,
 	GitLog,
-	GitLogCommit,
 	GitRevision,
 	RepositoryChange,
 	RepositoryChangeEvent,
@@ -41,89 +39,25 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 	async getChildren(): Promise<ViewNode[]> {
 		const children: ViewNode[] = [];
 
-		if (this.uri.sha === undefined) {
+		if (this.uri.sha == null) {
 			const status = await Container.git.getStatusForFile(this.uri.repoPath!, this.uri.fsPath);
-			if (status?.workingTreeStatus !== undefined || status?.indexStatus !== undefined) {
-				const user = await Container.git.getCurrentUser(this.uri.repoPath!);
-				if (status.workingTreeStatus !== undefined && status.indexStatus !== undefined) {
-					let commit = new GitLogCommit(
-						GitCommitType.LogFile,
-						this.uri.repoPath!,
-						GitRevision.uncommitted,
-						'You',
-						user !== undefined ? user.email : undefined,
-						new Date(),
-						new Date(),
-						'',
-						status.fileName,
-						[status],
-						status.status,
-						status.originalFileName,
-						GitRevision.uncommittedStaged,
-						status.originalFileName ?? status.fileName,
-					);
 
-					children.push(
-						new CommitFileNode(this.view, this, status, commit, {
-							displayAsCommit: true,
-							inFileHistory: true,
-						}),
-					);
-
-					commit = new GitLogCommit(
-						GitCommitType.LogFile,
-						this.uri.repoPath!,
-						GitRevision.uncommittedStaged,
-						'You',
-						user !== undefined ? user.email : undefined,
-						new Date(),
-						new Date(),
-						'',
-						status.fileName,
-						[status],
-						status.status,
-						status.originalFileName,
-						'HEAD',
-						status.originalFileName ?? status.fileName,
-					);
-
-					children.push(
-						new CommitFileNode(this.view, this, status, commit, {
-							displayAsCommit: true,
-							inFileHistory: true,
-						}),
-					);
-				} else {
-					const commit = new GitLogCommit(
-						GitCommitType.LogFile,
-						this.uri.repoPath!,
-						status.workingTreeStatus !== undefined
-							? GitRevision.uncommitted
-							: GitRevision.uncommittedStaged,
-						'You',
-						user !== undefined ? user.email : undefined,
-						new Date(),
-						new Date(),
-						'',
-						status.fileName,
-						[status],
-						status.status,
-						status.originalFileName,
-						'HEAD',
-						status.originalFileName ?? status.fileName,
-					);
-					children.push(
-						new CommitFileNode(this.view, this, status, commit, {
-							displayAsCommit: true,
-							inFileHistory: true,
-						}),
-					);
-				}
+			const commits = await status?.toPsuedoCommits();
+			if (commits?.length) {
+				children.push(
+					...commits.map(
+						commit =>
+							new CommitFileNode(this.view, this, status!, commit, {
+								displayAsCommit: true,
+								inFileHistory: true,
+							}),
+					),
+				);
 			}
 		}
 
 		const log = await this.getLog();
-		if (log !== undefined) {
+		if (log != null) {
 			children.push(
 				...insertDateMarkers(
 					Iterables.map(

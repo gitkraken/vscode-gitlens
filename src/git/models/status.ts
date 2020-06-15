@@ -1,10 +1,12 @@
 'use strict';
 import { Uri } from 'vscode';
-import { GlyphChars } from '../../constants';
-import { memoize, Strings } from '../../system';
-import { GitUri } from '../gitUri';
 import { GitBranch, GitTrackingState } from './branch';
+import { GlyphChars } from '../../constants';
+import { Container } from '../../container';
 import { GitFile, GitFileStatus } from './file';
+import { GitUri } from '../gitUri';
+import { GitCommitType, GitLogCommit, GitRevision } from './models';
+import { memoize, Strings } from '../../system';
 
 export interface ComputedWorkingTreeGitStatus {
 	staged: number;
@@ -224,12 +226,16 @@ export class GitStatusFile implements GitFile {
 		public readonly originalFileName?: string,
 	) {}
 
+	get edited() {
+		return this.workingTreeStatus != null;
+	}
+
 	get status(): GitFileStatus {
 		return this.indexStatus ?? this.workingTreeStatus ?? '?';
 	}
 
 	get staged() {
-		return this.indexStatus !== undefined;
+		return this.indexStatus != null;
 	}
 
 	@memoize()
@@ -251,6 +257,71 @@ export class GitStatusFile implements GitFile {
 
 	getStatusText(): string {
 		return GitFile.getStatusText(this.status);
+	}
+
+	async toPsuedoCommits(): Promise<GitLogCommit[]> {
+		if (this.workingTreeStatus == null && this.indexStatus == null) return [];
+
+		const commits = [];
+
+		const user = await Container.git.getCurrentUser(this.repoPath);
+		if (this.workingTreeStatus != null && this.indexStatus != null) {
+			commits.push(
+				new GitLogCommit(
+					GitCommitType.LogFile,
+					this.repoPath,
+					GitRevision.uncommitted,
+					'You',
+					user?.email ?? undefined,
+					new Date(),
+					new Date(),
+					'',
+					this.fileName,
+					[this],
+					this.status,
+					this.originalFileName,
+					GitRevision.uncommittedStaged,
+					this.originalFileName ?? this.fileName,
+				),
+				new GitLogCommit(
+					GitCommitType.LogFile,
+					this.repoPath,
+					GitRevision.uncommittedStaged,
+					'You',
+					user != null ? user.email : undefined,
+					new Date(),
+					new Date(),
+					'',
+					this.fileName,
+					[this],
+					this.status,
+					this.originalFileName,
+					'HEAD',
+					this.originalFileName ?? this.fileName,
+				),
+			);
+		} else {
+			commits.push(
+				new GitLogCommit(
+					GitCommitType.LogFile,
+					this.repoPath,
+					this.workingTreeStatus != null ? GitRevision.uncommitted : GitRevision.uncommittedStaged,
+					'You',
+					user?.email ?? undefined,
+					new Date(),
+					new Date(),
+					'',
+					this.fileName,
+					[this],
+					this.status,
+					this.originalFileName,
+					'HEAD',
+					this.originalFileName ?? this.fileName,
+				),
+			);
+		}
+
+		return commits;
 	}
 
 	with(changes: {

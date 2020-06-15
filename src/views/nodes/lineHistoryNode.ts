@@ -52,7 +52,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 
 		let selection = this.selection;
 
-		if (this.uri.sha === undefined) {
+		if (this.uri.sha == null) {
 			// Check for any uncommitted changes in the range
 			const blame = this._editorContents
 				? await Container.git.getBlameForRangeContents(this.uri, selection, this._editorContents)
