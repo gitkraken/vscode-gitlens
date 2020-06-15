@@ -32,7 +32,7 @@ export class ConnectRemoteProviderCommand extends Command {
 
 	protected preExecute(context: CommandContext, args?: ConnectRemoteProviderCommandArgs) {
 		if (isCommandViewContextWithRemote(context)) {
-			args = { ...args, remote: context.node.remote.name, repoPath: context.node.remote.repoPath };
+			args = { ...args, remote: context.node.remote.id, repoPath: context.node.remote.repoPath };
 		}
 
 		return this.execute(args);
@@ -42,7 +42,7 @@ export class ConnectRemoteProviderCommand extends Command {
 		if (args?.repoPath == null || args?.remote == null) return false;
 
 		const remotes = await Container.git.getRemotes(args.repoPath);
-		const remote = remotes.find(r => r.name === args.remote);
+		const remote = remotes.find(r => r.id === args.remote);
 		if (!remote?.provider.hasApi()) return false;
 
 		const connected = await remote.provider.connect();
@@ -85,7 +85,7 @@ export class DisconnectRemoteProviderCommand extends Command {
 
 	protected preExecute(context: CommandContext, args?: ConnectRemoteProviderCommandArgs) {
 		if (isCommandViewContextWithRemote(context)) {
-			args = { ...args, remote: context.node.remote.name, repoPath: context.node.remote.repoPath };
+			args = { ...args, remote: context.node.remote.id, repoPath: context.node.remote.repoPath };
 		}
 
 		return this.execute(args);
@@ -94,7 +94,7 @@ export class DisconnectRemoteProviderCommand extends Command {
 	async execute(args?: DisconnectRemoteProviderCommandArgs): Promise<any> {
 		if (args?.repoPath == null || args?.remote == null) return undefined;
 
-		const remote = (await Container.git.getRemotes(args.repoPath)).find(r => r.name === args.remote);
+		const remote = (await Container.git.getRemotes(args.repoPath)).find(r => r.id === args.remote);
 		if (!remote?.provider.hasApi()) return undefined;
 
 		return remote.provider.disconnect();
