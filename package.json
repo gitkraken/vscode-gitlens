@@ -166,7 +166,7 @@
 							"overview"
 						],
 						"enumDescriptions": [
-							"Adds a gutter glyph",
+							"Adds a gutter indicator",
 							"Adds a full-line highlight background color",
 							"Adds a decoration to the overview ruler (scroll bar)"
 						]
@@ -201,6 +201,43 @@
 						"Toggles the window, i.e. all files at once"
 					],
 					"markdownDescription": "Specifies how the gutter blame annotations will be toggled",
+					"scope": "window"
+				},
+				"gitlens.changes.locations": {
+					"type": "array",
+					"default": [
+						"gutter",
+						"overview"
+					],
+					"items": {
+						"type": "string",
+						"enum": [
+							"gutter",
+							"overview"
+						],
+						"enumDescriptions": [
+							"Adds a gutter indicator",
+							"Adds a decoration to the overview ruler (scroll bar)"
+						]
+					},
+					"minItems": 1,
+					"maxItems": 3,
+					"uniqueItems": true,
+					"markdownDescription": "Specifies where the indicators of the gutter changes annotations will be shown",
+					"scope": "window"
+				},
+				"gitlens.changes.toggleMode": {
+					"type": "string",
+					"default": "file",
+					"enum": [
+						"file",
+						"window"
+					],
+					"enumDescriptions": [
+						"Toggles each file individually",
+						"Toggles the window, i.e. all files at once"
+					],
+					"markdownDescription": "Specifies how the gutter changes annotations will be toggled",
 					"scope": "window"
 				},
 				"gitlens.codeLens.authors.command": {
@@ -1140,13 +1177,13 @@
 								"type": "string",
 								"enum": [
 									"blame",
-									"heatmap",
-									"recentChanges"
+									"changes",
+									"heatmap"
 								],
 								"enumDescriptions": [
 									"Shows the gutter blame annotations",
-									"Shows the gutter heatmap annotations",
-									"Shows the recently changed lines annotations"
+									"Shows the gutter changes annotations",
+									"Shows the gutter heatmap annotations"
 								],
 								"description": "Specifies which (if any) file annotations will be shown when this user-defined mode is active"
 							},
@@ -1210,46 +1247,6 @@
 						"Logs all errors, warnings, and messages with extra context useful for debugging"
 					],
 					"markdownDescription": "Specifies how much (if any) output will be sent to the GitLens output channel",
-					"scope": "window"
-				},
-				"gitlens.recentChanges.highlight.locations": {
-					"type": "array",
-					"default": [
-						"gutter",
-						"line",
-						"overview"
-					],
-					"items": {
-						"type": "string",
-						"enum": [
-							"gutter",
-							"line",
-							"overview"
-						],
-						"enumDescriptions": [
-							"Adds a gutter glyph",
-							"Adds a full-line highlight background color",
-							"Adds a decoration to the overview ruler (scroll bar)"
-						]
-					},
-					"minItems": 1,
-					"maxItems": 3,
-					"uniqueItems": true,
-					"markdownDescription": "Specifies where the highlights of the recently changed lines will be shown",
-					"scope": "window"
-				},
-				"gitlens.recentChanges.toggleMode": {
-					"type": "string",
-					"default": "file",
-					"enum": [
-						"file",
-						"window"
-					],
-					"enumDescriptions": [
-						"Toggles each file individually",
-						"Toggles the window, i.e. all files at once"
-					],
-					"markdownDescription": "Specifies how the recently changed lines annotations will be toggled",
 					"scope": "window"
 				},
 				"gitlens.remotes": {
@@ -2328,8 +2325,8 @@
 				}
 			},
 			{
-				"command": "gitlens.toggleFileRecentChanges",
-				"title": "Toggle Recent File Changes Annotations",
+				"command": "gitlens.toggleFileChanges",
+				"title": "Toggle File Changes Annotations",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-git.svg",
@@ -3566,7 +3563,7 @@
 					"when": "gitlens:activeFileStatus =~ /blameable/"
 				},
 				{
-					"command": "gitlens.toggleFileRecentChanges",
+					"command": "gitlens.toggleFileChanges",
 					"when": "gitlens:activeFileStatus =~ /blameable/"
 				},
 				{

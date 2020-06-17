@@ -300,7 +300,7 @@ export class ViewCommands {
 		void (await this.openFile(node));
 		void (await Container.fileAnnotations.toggle(
 			window.activeTextEditor,
-			FileAnnotationType.RecentChanges,
+			FileAnnotationType.Changes,
 			node.ref,
 			true,
 		));
@@ -319,7 +319,7 @@ export class ViewCommands {
 		void (await this.openRevision(node, { showOptions: { preserveFocus: true, preview: true } }));
 		void (await Container.fileAnnotations.toggle(
 			window.activeTextEditor,
-			FileAnnotationType.RecentChanges,
+			FileAnnotationType.Changes,
 			node.ref,
 			true,
 		));

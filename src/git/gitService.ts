@@ -1192,6 +1192,17 @@ export class GitService implements Disposable {
 	}
 
 	@log()
+	async getOldestUnpushedRefForFile(repoPath: string, fileName: string): Promise<string | undefined> {
+		const data = await Git.log__file(repoPath, fileName, '@{push}..', {
+			format: 'refs',
+			renames: true,
+		});
+		if (data == null || data.length === 0) return undefined;
+
+		return GitLogParser.parseLastRefOnly(data);
+	}
+
+	@log()
 	getConfig(key: string, repoPath?: string): Promise<string | undefined> {
 		return Git.config__get(key, repoPath);
 	}
@@ -1334,18 +1345,115 @@ export class GitService implements Disposable {
 		const [file, root] = Git.splitPath(fileName, repoPath, false);
 
 		try {
-			let data;
-			if (ref1 != null && ref2 == null && !GitRevision.isUncommittedStaged(ref1)) {
-				data = await Git.show__diff(root, file, ref1, originalFileName, {
-					similarityThreshold: Container.config.advanced.similarityThreshold,
-				});
-			} else {
-				data = await Git.diff(root, file, ref1, ref2, {
-					...options,
-					filters: ['M'],
-					similarityThreshold: Container.config.advanced.similarityThreshold,
-				});
+			// let data;
+			// if (ref2 == null && ref1 != null && !GitRevision.isUncommittedStaged(ref1)) {
+			// 	data = await Git.show__diff(root, file, ref1, originalFileName, {
+			// 		similarityThreshold: Container.config.advanced.similarityThreshold,
+			// 	});
+			// } else {
+			const data = await Git.diff(root, file, ref1, ref2, {
+				...options,
+				filters: ['M'],
+				similarityThreshold: Container.config.advanced.similarityThreshold,
+			});
+			// }
+
+			const diff = GitDiffParser.parse(data);
+			return diff;
+		} catch (ex) {
+			// Trap and cache expected diff errors
+			if (document.state != null) {
+				const msg = ex?.toString() ?? '';
+				Logger.debug(cc, `Cache replace (with empty promise): '${key}'`);
+
+				const value: CachedDiff = {
+					item: emptyPromise as Promise<GitDiff>,
+					errorMessage: msg,
+				};
+				document.state.set<CachedDiff>(key, value);
+
+				return emptyPromise as Promise<GitDiff>;
 			}
+
+			return undefined;
+		}
+	}
+
+	@log({
+		args: {
+			1: _contents => '<contents>',
+		},
+	})
+	async getDiffForFileContents(
+		uri: GitUri,
+		ref: string,
+		contents: string,
+		originalFileName?: string,
+	): Promise<GitDiff | undefined> {
+		const cc = Logger.getCorrelationContext();
+
+		const key = `diff:${Strings.sha1(contents)}`;
+
+		const doc = await Container.tracker.getOrAdd(uri);
+		if (this.useCaching) {
+			if (doc.state != null) {
+				const cachedDiff = doc.state.get<CachedDiff>(key);
+				if (cachedDiff != null) {
+					Logger.debug(cc, `Cache hit: ${key}`);
+					return cachedDiff.item;
+				}
+			}
+
+			Logger.debug(cc, `Cache miss: ${key}`);
+
+			if (doc.state == null) {
+				doc.state = new GitDocumentState(doc.key);
+			}
+		}
+
+		const promise = this.getDiffForFileContentsCore(
+			uri.repoPath,
+			uri.fsPath,
+			ref,
+			contents,
+			originalFileName,
+			{ encoding: GitService.getEncoding(uri) },
+			doc,
+			key,
+			cc,
+		);
+
+		if (doc.state != null) {
+			Logger.debug(cc, `Cache add: '${key}'`);
+
+			const value: CachedDiff = {
+				item: promise as Promise<GitDiff>,
+			};
+			doc.state.set<CachedDiff>(key, value);
+		}
+
+		return promise;
+	}
+
+	async getDiffForFileContentsCore(
+		repoPath: string | undefined,
+		fileName: string,
+		ref: string,
+		contents: string,
+		originalFileName: string | undefined,
+		options: { encoding?: string },
+		document: TrackedDocument<GitDocumentState>,
+		key: string,
+		cc: LogCorrelationContext | undefined,
+	): Promise<GitDiff | undefined> {
+		const [file, root] = Git.splitPath(fileName, repoPath, false);
+
+		try {
+			const data = await Git.diff__contents(root, file, ref, contents, {
+				...options,
+				filters: ['M'],
+				similarityThreshold: Container.config.advanced.similarityThreshold,
+			});
 
 			const diff = GitDiffParser.parse(data);
 			return diff;
@@ -1381,10 +1489,10 @@ export class GitService implements Disposable {
 			if (diff == null) return undefined;
 
 			const line = editorLine + 1;
-			const hunk = diff.hunks.find(c => c.currentPosition.start <= line && c.currentPosition.end >= line);
+			const hunk = diff.hunks.find(c => c.current.position.start <= line && c.current.position.end >= line);
 			if (hunk == null) return undefined;
 
-			return hunk.lines[line - hunk.currentPosition.start];
+			return hunk.lines[line - hunk.current.position.start];
 		} catch (ex) {
 			return undefined;
 		}
@@ -2071,7 +2179,7 @@ export class GitService implements Disposable {
 			limit: skip + 1,
 			// startLine: editorLine != null ? editorLine + 1 : undefined,
 			reverse: true,
-			simple: true,
+			format: 'simple',
 		});
 		if (data == null || data.length === 0) return undefined;
 
@@ -2082,7 +2190,7 @@ export class GitService implements Disposable {
 				filters: ['R', 'C'],
 				limit: 1,
 				// startLine: editorLine != null ? editorLine + 1 : undefined
-				simple: true,
+				format: 'simple',
 			});
 			if (data == null || data.length === 0) {
 				return GitUri.fromFile(file ?? fileName, repoPath, nextRef);
@@ -2319,7 +2427,7 @@ export class GitService implements Disposable {
 			data = await Git.log__file(repoPath, fileName, ref, {
 				limit: skip + 2,
 				firstParent: firstParent,
-				simple: true,
+				format: 'simple',
 				startLine: editorLine != null ? editorLine + 1 : undefined,
 			});
 		} catch (ex) {
@@ -2882,7 +2990,7 @@ export class GitService implements Disposable {
 			data = await Git.log__file(repoPath, '.', ref, {
 				filters: ['R', 'C', 'D'],
 				limit: 1,
-				simple: true,
+				format: 'simple',
 			});
 			if (data == null || data.length === 0) break;
 

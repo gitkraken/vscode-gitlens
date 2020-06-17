@@ -27,7 +27,9 @@ export class GitDiffParser {
 
 			[, previousStart, previousCount, currentStart, currentCount, hunk] = match;
 
+			previousCount = Number(previousCount) || 0;
 			previousStart = Number(previousStart) || 0;
+			currentCount = Number(currentCount) || 0;
 			currentStart = Number(currentStart) || 0;
 
 			hunks.push(
@@ -35,12 +37,18 @@ export class GitDiffParser {
 					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
 					` ${hunk}`.substr(1),
 					{
-						start: currentStart,
-						end: currentStart + (Number(currentCount) || 0),
+						count: currentCount,
+						position: {
+							start: currentStart,
+							end: currentStart + (currentCount > 0 ? currentCount - 1 : 0),
+						},
 					},
 					{
-						start: previousStart,
-						end: previousStart + (Number(previousCount) || 0),
+						count: previousCount,
+						position: {
+							start: previousStart,
+							end: previousStart + (previousCount > 0 ? previousCount - 1 : 0),
+						},
 					},
 				),
 			);
@@ -56,14 +64,18 @@ export class GitDiffParser {
 	}
 
 	@debug({ args: false, singleLine: true })
-	static parseHunk(hunk: GitDiffHunk): GitDiffHunkLine[] {
+	static parseHunk(hunk: GitDiffHunk): { lines: GitDiffHunkLine[]; state: 'added' | 'changed' | 'removed' } {
 		const currentLines: (GitDiffLine | undefined)[] = [];
 		const previousLines: (GitDiffLine | undefined)[] = [];
+
+		let hasAddedOrChanged;
+		let hasRemoved;
 
 		let removed = 0;
 		for (const l of Strings.lines(hunk.diff)) {
 			switch (l[0]) {
 				case '+':
+					hasAddedOrChanged = true;
 					currentLines.push({
 						line: ` ${l.substring(1)}`,
 						state: 'added',
@@ -78,6 +90,7 @@ export class GitDiffParser {
 					break;
 
 				case '-':
+					hasRemoved = true;
 					removed++;
 
 					previousLines.push({
@@ -115,7 +128,10 @@ export class GitDiffParser {
 			});
 		}
 
-		return hunkLines;
+		return {
+			lines: hunkLines,
+			state: hasAddedOrChanged && hasRemoved ? 'changed' : hasAddedOrChanged ? 'added' : 'removed',
+		};
 	}
 
 	@debug({ args: false, singleLine: true })

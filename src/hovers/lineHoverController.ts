@@ -12,7 +12,7 @@ import {
 	Uri,
 	window,
 } from 'vscode';
-import { configuration } from '../configuration';
+import { configuration, FileAnnotationType } from '../configuration';
 import { Container } from '../container';
 import { Hovers } from './hovers';
 import { LinesChangeEvent } from '../trackers/gitLineTracker';
@@ -98,8 +98,10 @@ export class LineHoverController implements Disposable {
 		if (commit === undefined) return undefined;
 
 		// Avoid double annotations if we are showing the whole-file hover blame annotations
-		const fileAnnotations = await Container.fileAnnotations.getAnnotationType(window.activeTextEditor);
-		if (fileAnnotations !== undefined && Container.config.hovers.annotations.details) return undefined;
+		if (Container.config.hovers.annotations.details) {
+			const fileAnnotations = await Container.fileAnnotations.getAnnotationType(window.activeTextEditor);
+			if (fileAnnotations === FileAnnotationType.Blame) return undefined;
+		}
 
 		const wholeLine = Container.config.hovers.currentLine.over === 'line';
 		// If we aren't showing the hover over the whole line, make sure the annotation is on
@@ -140,7 +142,6 @@ export class LineHoverController implements Disposable {
 			trackedDocument.uri,
 			editorLine,
 			Container.config.defaultDateFormat,
-			fileAnnotations,
 		);
 		return new Hover(message, range);
 	}
@@ -166,7 +167,7 @@ export class LineHoverController implements Disposable {
 		// Avoid double annotations if we are showing the whole-file hover blame annotations
 		if (Container.config.hovers.annotations.changes) {
 			const fileAnnotations = await Container.fileAnnotations.getAnnotationType(window.activeTextEditor);
-			if (fileAnnotations !== undefined) return undefined;
+			if (fileAnnotations === FileAnnotationType.Blame) return undefined;
 		}
 
 		const wholeLine = Container.config.hovers.currentLine.over === 'line';

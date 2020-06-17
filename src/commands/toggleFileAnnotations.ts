@@ -55,6 +55,20 @@ export class ToggleFileBlameCommand extends ActiveEditorCommand {
 }
 
 @command()
+export class ToggleFileChangesCommand extends ActiveEditorCommand {
+	constructor() {
+		super(Commands.ToggleFileChanges);
+	}
+
+	execute(editor: TextEditor, uri?: Uri, args?: ToggleFileAnnotationCommandArgs): Promise<void> {
+		return toggleFileAnnotations(editor, uri, {
+			...args,
+			type: FileAnnotationType.Changes,
+		});
+	}
+}
+
+@command()
 export class ToggleFileHeatmapCommand extends ActiveEditorCommand {
 	constructor() {
 		super(Commands.ToggleFileHeatmap);
@@ -64,20 +78,6 @@ export class ToggleFileHeatmapCommand extends ActiveEditorCommand {
 		return toggleFileAnnotations(editor, uri, {
 			...args,
 			type: FileAnnotationType.Heatmap,
-		});
-	}
-}
-
-@command()
-export class ToggleFileRecentChangesCommand extends ActiveEditorCommand {
-	constructor() {
-		super(Commands.ToggleFileRecentChanges);
-	}
-
-	execute(editor: TextEditor, uri?: Uri, args?: ToggleFileAnnotationCommandArgs): Promise<void> {
-		return toggleFileAnnotations(editor, uri, {
-			...args,
-			type: FileAnnotationType.RecentChanges,
 		});
 	}
 }

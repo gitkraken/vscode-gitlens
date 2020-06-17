@@ -12,7 +12,7 @@ import {
 } from 'vscode';
 import { FileAnnotationType } from '../configuration';
 import { CommandContext, setCommandContext } from '../constants';
-import { Functions } from '../system';
+import { Logger } from '../logger';
 import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 
 export enum AnnotationStatus {
@@ -32,15 +32,12 @@ export abstract class AnnotationProviderBase implements Disposable {
 	document: TextDocument;
 	status: AnnotationStatus | undefined;
 
-	protected decorations: DecorationOptions[] | undefined;
+	private decorations:
+		| { decorationType: TextEditorDecorationType; rangesOrOptions: Range[] | DecorationOptions[] }[]
+		| undefined;
 	protected disposable: Disposable;
 
-	constructor(
-		public editor: TextEditor,
-		protected readonly trackedDocument: TrackedDocument<GitDocumentState>,
-		protected decoration: TextEditorDecorationType | undefined,
-		protected highlightDecoration: TextEditorDecorationType | undefined,
-	) {
+	constructor(public editor: TextEditor, protected readonly trackedDocument: TrackedDocument<GitDocumentState>) {
 		this.correlationKey = AnnotationProviderBase.getCorrelationKey(this.editor);
 		this.document = this.editor.document;
 
@@ -71,65 +68,19 @@ export abstract class AnnotationProviderBase implements Disposable {
 		return this.editor.document.uri;
 	}
 
-	protected additionalDecorations: { decoration: TextEditorDecorationType; ranges: Range[] }[] | undefined;
-
 	clear() {
 		this.status = undefined;
 		if (this.editor == null) return;
 
-		if (this.decoration != null) {
-			try {
-				this.editor.setDecorations(this.decoration, []);
-			} catch {}
-		}
-
-		if (this.additionalDecorations?.length) {
-			for (const d of this.additionalDecorations) {
+		if (this.decorations?.length) {
+			for (const d of this.decorations) {
 				try {
-					this.editor.setDecorations(d.decoration, []);
+					this.editor.setDecorations(d.decorationType, []);
 				} catch {}
 			}
 
-			this.additionalDecorations = undefined;
+			this.decorations = undefined;
 		}
-
-		if (this.highlightDecoration != null) {
-			try {
-				this.editor.setDecorations(this.highlightDecoration, []);
-			} catch {}
-		}
-	}
-
-	private _resetDebounced:
-		| ((changes?: {
-				decoration: TextEditorDecorationType;
-				highlightDecoration: TextEditorDecorationType | undefined;
-		  }) => void)
-		| undefined;
-
-	reset(changes?: {
-		decoration: TextEditorDecorationType;
-		highlightDecoration: TextEditorDecorationType | undefined;
-	}) {
-		if (this._resetDebounced == null) {
-			this._resetDebounced = Functions.debounce(this.onReset.bind(this), 250);
-		}
-
-		this._resetDebounced(changes);
-	}
-
-	async onReset(changes?: {
-		decoration: TextEditorDecorationType;
-		highlightDecoration: TextEditorDecorationType | undefined;
-	}) {
-		if (changes != null) {
-			this.clear();
-
-			this.decoration = changes.decoration;
-			this.highlightDecoration = changes.highlightDecoration;
-		}
-
-		await this.provideAnnotation(this.editor == null ? undefined : this.editor.selection.active.line);
 	}
 
 	async restore(editor: TextEditor) {
@@ -146,13 +97,9 @@ export abstract class AnnotationProviderBase implements Disposable {
 		this.correlationKey = AnnotationProviderBase.getCorrelationKey(editor);
 		this.document = editor.document;
 
-		if (this.decoration != null && this.decorations?.length) {
-			this.editor.setDecorations(this.decoration, this.decorations);
-		}
-
-		if (this.additionalDecorations?.length) {
-			for (const d of this.additionalDecorations) {
-				this.editor.setDecorations(d.decoration, d.ranges);
+		if (this.decorations?.length) {
+			for (const d of this.decorations) {
+				this.editor.setDecorations(d.decorationType, d.rangesOrOptions);
 			}
 		}
 
@@ -164,16 +111,37 @@ export abstract class AnnotationProviderBase implements Disposable {
 
 	async provideAnnotation(shaOrLine?: string | number): Promise<boolean> {
 		this.status = AnnotationStatus.Computing;
-		if (await this.onProvideAnnotation(shaOrLine)) {
-			this.status = AnnotationStatus.Computed;
-			return true;
+		try {
+			if (await this.onProvideAnnotation(shaOrLine)) {
+				this.status = AnnotationStatus.Computed;
+				return true;
+			}
+		} catch (ex) {
+			Logger.error(ex);
 		}
 
 		this.status = undefined;
 		return false;
 	}
 
-	abstract onProvideAnnotation(shaOrLine?: string | number): Promise<boolean>;
+	protected abstract onProvideAnnotation(shaOrLine?: string | number): Promise<boolean>;
+
 	abstract selection(shaOrLine?: string | number): Promise<void>;
+
+	protected setDecorations(
+		decorations: { decorationType: TextEditorDecorationType; rangesOrOptions: Range[] | DecorationOptions[] }[],
+	) {
+		if (this.decorations?.length) {
+			this.clear();
+		}
+
+		this.decorations = decorations;
+		if (this.decorations?.length) {
+			for (const d of this.decorations) {
+				this.editor.setDecorations(d.decorationType, d.rangesOrOptions);
+			}
+		}
+	}
+
 	abstract validate(): Promise<boolean>;
 }

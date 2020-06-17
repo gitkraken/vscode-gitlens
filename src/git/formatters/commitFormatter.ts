@@ -32,7 +32,6 @@ const emptyStr = '';
 const hasTokenRegexMap = new Map<string, RegExp>();
 
 export interface CommitFormatOptions extends FormatOptions {
-	annotationType?: FileAnnotationType;
 	autolinkedIssuesOrPullRequests?: Map<string, IssueOrPullRequest | Promises.CancellationError | undefined>;
 	dateStyle?: DateStyle;
 	getBranchAndTagTips?: (sha: string) => string | undefined;
@@ -270,11 +269,6 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		)} "Open Changes")${separator}`;
 
 		if (this._item.previousSha != null) {
-			let annotationType = this._options.annotationType;
-			if (annotationType === FileAnnotationType.RecentChanges) {
-				annotationType = FileAnnotationType.Blame;
-			}
-
 			const uri = GitUri.toRevisionUri(
 				this._item.previousSha,
 				this._item.previousUri.fsPath,
@@ -282,7 +276,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			);
 			commands += `[$(history)](${OpenFileAtRevisionCommand.getMarkdownCommandArgs(
 				uri,
-				annotationType ?? FileAnnotationType.Blame,
+				FileAnnotationType.Blame,
 				this._options.line,
 			)} "Blame Previous Revision")${separator}`;
 		}

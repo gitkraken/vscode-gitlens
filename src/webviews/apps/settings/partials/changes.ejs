@@ -1,7 +1,7 @@
-<section id="recent-changes" class="section--settings section--collapsible">
+<section id="changes" class="section--settings section--collapsible">
 	<div class="section__header">
 		<h2>
-			Recent Changes
+			Gutter Changes
 			<a
 				class="link__learn-more"
 				title="Learn more"
@@ -12,23 +12,24 @@
 		</h2>
 
 		<p class="section__header-hint">
-			Adds on-demand recent changes annotations to highlight lines changed by the most recent commit
+			Adds on-demand gutter changes annotations to highlight any local changes or lines changed by the most recent
+			commit
 		</p>
 		<div class="section__header-info">
 			<i class="icon icon--md icon__bulb"></i>
 			<div>
 				<p>
 					Use the
-					<span class="command hidden" data-visibility="recentChanges.toggleMode =file">
-						GitLens: Toggle Recent File Changes Annotations
+					<span class="command hidden" data-visibility="changes.toggleMode =file">
+						GitLens: Toggle File Changes Annotations
 					</span>
 					<a
 						class="command hidden"
 						title="Run command"
-						href="command:gitlens.toggleFileRecentChanges"
-						data-visibility="recentChanges.toggleMode =window"
+						href="command:gitlens.toggleFileChanges"
+						data-visibility="changes.toggleMode =window"
 					>
-						GitLens: Toggle Recent File Changes Annotations
+						GitLens: Toggle File Changes Annotations
 					</a>
 					command to turn the annotations on or off
 				</p>
@@ -42,8 +43,8 @@
 			<div class="section__content">
 				<div class="setting">
 					<div class="setting__input">
-						<label for="recentChanges.toggleMode">Toggle annotations </label>
-						<select id="recentChanges.toggleMode" name="recentChanges.toggleMode" data-setting>
+						<label for="changes.toggleMode">Toggle annotations </label>
+						<select id="changes.toggleMode" name="changes.toggleMode" data-setting>
 							<option value="file">individually for each file</option>
 							<option value="window">for all files</option>
 						</select>
@@ -54,42 +55,28 @@
 					<div class="setting">
 						<div class="setting__input">
 							<input
-								id="recentChanges.highlight.locations"
-								name="recentChanges.highlight.locations"
+								id="changes.locations"
+								name="changes.locations"
 								type="checkbox"
 								value="gutter"
 								data-setting
 								data-setting-type="array"
 							/>
-							<label for="recentChanges.highlight.locations">Add gutter highlight</label>
+							<label for="changes.locations">Add gutter indicator</label>
 						</div>
 					</div>
 
 					<div class="setting">
 						<div class="setting__input">
 							<input
-								id="recentChanges.highlight.locations-1"
-								name="recentChanges.highlight.locations"
-								type="checkbox"
-								value="line"
-								data-setting
-								data-setting-type="array"
-							/>
-							<label for="recentChanges.highlight.locations-1">Add line highlight</label>
-						</div>
-					</div>
-
-					<div class="setting">
-						<div class="setting__input">
-							<input
-								id="recentChanges.highlight.locations-2"
-								name="recentChanges.highlight.locations"
+								id="changes.locations-1"
+								name="changes.locations"
 								type="checkbox"
 								value="overview"
 								data-setting
 								data-setting-type="array"
 							/>
-							<label for="recentChanges.highlight.locations-2">Add scroll bar highlight</label>
+							<label for="changes.locations-1">Add scroll bar indicator</label>
 						</div>
 					</div>
 				</div>
@@ -100,17 +87,12 @@
 				<img
 					class="image__preview--overlay hidden"
 					src="#{root}/images/settings/recent-changes-highlight-gutter.png"
-					data-visibility="recentChanges.highlight.locations +gutter"
-				/>
-				<img
-					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/recent-changes-highlight-line.png"
-					data-visibility="recentChanges.highlight.locations +line"
+					data-visibility="changes.locations +gutter"
 				/>
 				<img
 					class="image__preview--overlay hidden"
 					src="#{root}/images/settings/recent-changes-highlight-scrollbar.png"
-					data-visibility="recentChanges.highlight.locations +overview"
+					data-visibility="changes.locations +overview"
 				/>
 			</div>
 		</div>

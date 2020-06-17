@@ -58,6 +58,10 @@ export interface ViewNode {
 
 @logName<ViewNode>((c, name) => `${name}${c.id != null ? `(${c.id})` : ''}`)
 export abstract class ViewNode<TView extends View = View> {
+	static is(node: any): node is ViewNode {
+		return node instanceof ViewNode;
+	}
+
 	constructor(uri: GitUri, public readonly view: TView, protected readonly parent?: ViewNode) {
 		this._uri = uri;
 	}

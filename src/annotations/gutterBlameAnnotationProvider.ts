@@ -1,15 +1,26 @@
 'use strict';
 import { DecorationOptions, Range, ThemableDecorationAttachmentRenderOptions } from 'vscode';
+import { Annotations } from './annotations';
+import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 import { FileAnnotationType, GravatarDefaultStyle } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { CommitFormatOptions, CommitFormatter, GitBlameCommit } from '../git/git';
+import { Decorations } from './fileAnnotationController';
+import { CommitFormatOptions, CommitFormatter, GitBlame, GitBlameCommit } from '../git/git';
 import { Logger } from '../logger';
-import { log, Strings } from '../system';
-import { Annotations } from './annotations';
-import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
+import { Arrays, Iterables, log, Strings } from '../system';
 
 export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
+	clear() {
+		super.clear();
+
+		if (Decorations.gutterBlameHighlight != null) {
+			try {
+				this.editor.setDecorations(Decorations.gutterBlameHighlight, []);
+			} catch {}
+		}
+	}
+
 	@log()
 	async onProvideAnnotation(_shaOrLine?: string | number, _type?: FileAnnotationType): Promise<boolean> {
 		const cc = Logger.getCorrelationContext();
@@ -53,7 +64,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 			options,
 		);
 
-		this.decorations = [];
+		const decorationOptions = [];
 		const decorationsMap = new Map<string, DecorationOptions | undefined>();
 		const avatarDecorationsMap = avatars ? new Map<string, ThemableDecorationAttachmentRenderOptions>() : undefined;
 
@@ -99,7 +110,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
 				gutter.range = new Range(editorLine, 0, editorLine, 0);
 
-				this.decorations.push(gutter);
+				decorationOptions.push(gutter);
 
 				continue;
 			}
@@ -117,7 +128,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 					range: new Range(editorLine, 0, editorLine, 0),
 				};
 
-				this.decorations.push(gutter);
+				decorationOptions.push(gutter);
 
 				continue;
 			}
@@ -130,7 +141,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
 			gutter.range = new Range(editorLine, 0, editorLine, 0);
 
-			this.decorations.push(gutter);
+			decorationOptions.push(gutter);
 
 			if (avatars && commit.email != null) {
 				this.applyAvatarDecoration(commit, gutter, gravatarDefault, avatarDecorationsMap!);
@@ -141,10 +152,12 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 
 		Logger.log(cc, `${Strings.getDurationMilliseconds(start)} ms to compute gutter blame annotations`);
 
-		if (this.decoration != null && this.decorations.length) {
+		if (decorationOptions.length) {
 			start = process.hrtime();
 
-			this.editor.setDecorations(this.decoration, this.decorations);
+			this.setDecorations([
+				{ decorationType: Decorations.gutterBlameAnnotation, rangesOrOptions: decorationOptions },
+			]);
 
 			Logger.log(cc, `${Strings.getDurationMilliseconds(start)} ms to apply all gutter blame annotations`);
 		}
@@ -153,7 +166,43 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		return true;
 	}
 
-	applyAvatarDecoration(
+	@log({ args: false })
+	async selection(shaOrLine?: string | number, blame?: GitBlame) {
+		if (Decorations.gutterBlameHighlight == null) return;
+
+		if (blame == null) {
+			blame = await this.blame;
+			if (!blame?.lines.length) return;
+		}
+
+		let sha: string | undefined = undefined;
+		if (typeof shaOrLine === 'string') {
+			sha = shaOrLine;
+		} else if (typeof shaOrLine === 'number') {
+			if (shaOrLine >= 0) {
+				const commitLine = blame.lines[shaOrLine];
+				sha = commitLine?.sha;
+			}
+		} else {
+			sha = Iterables.first(blame.commits.values()).sha;
+		}
+
+		if (!sha) {
+			this.editor.setDecorations(Decorations.gutterBlameHighlight, []);
+			return;
+		}
+
+		const highlightDecorationRanges = Arrays.filterMap(blame.lines, l =>
+			l.sha === sha
+				? // editor lines are 0-based
+				  this.editor.document.validateRange(new Range(l.line - 1, 0, l.line - 1, Number.MAX_SAFE_INTEGER))
+				: undefined,
+		);
+
+		this.editor.setDecorations(Decorations.gutterBlameHighlight, highlightDecorationRanges);
+	}
+
+	private applyAvatarDecoration(
 		commit: GitBlameCommit,
 		gutter: DecorationOptions,
 		gravatarDefault: GravatarDefaultStyle,

@@ -55,8 +55,8 @@ Here are just some of the **features** that GitLens provides,
   - a [**_Search Commits_ view**](#search-commits-view- 'Jump to the Search Commits view') to search and explore commit histories by message, author, files, id, etc
   - a [**_Compare_ view**](#compare-view- 'Jump to the Compare view') to visualize comparisons between branches, tags, commits, and more
 - on-demand [**gutter blame**](#gutter-blame- 'Jump to the Gutter Blame') annotations, including a heatmap, for the whole file
+- on-demand [**gutter changes**](#gutter-changes- 'Jump to the Gutter Changes') annotations to highlight any local changes or lines changed by the most recent commit
 - on-demand [**gutter heatmap**](#gutter-heatmap- 'Jump to the Gutter Heatmap') annotations to show how recently lines were changed, relative to all the other changes in the file and to now (hot vs. cold)
-- on-demand [**recent changes**](#recent-changes- 'Jump to the Recent Changes') annotations to highlight lines changed by the most recent commit
 - many [**powerful commands**](#navigate-and-explore- 'Jump to the Navigate and Explorer') for exploring commits and histories, comparing and navigating revisions, stash access, repository status, etc
 - user-defined [**modes**](#modes- 'Jump to the Modes') for quickly toggling between sets of settings
 - and so much [**more**](#and-more- 'Jump to More')
@@ -458,6 +458,18 @@ The compare view provides the following features,
 
 ---
 
+### Gutter Changes [#](#changes- 'Gutter Changes')
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/docs/changes.png" alt="Gutter Changes" />
+</p>
+
+- Adds an on-demand, [customizable](#gutter-changes-settings- 'Jump to the Gutter Changes settings') and [themable](#themable-colors- 'Jump to the Themable Colors'), **gutter changes annotation** to highlight any local changes or lines changed by the most recent commit
+  - Adds _Toggle File Changes Annotations_ command (`gitlens.toggleFileChanges`) to toggle the changes annotations on and off
+  - Press `Escape` to turn off the annotations
+
+---
+
 ### Gutter Heatmap [#](#gutter-heatmap- 'Gutter Heatmap')
 
 <p align="center">
@@ -468,18 +480,6 @@ The compare view provides the following features,
   - The indicator's [customizable](#gutter-heatmap-settings- 'Jump to the Gutter Heatmap settings') color will either be hot or cold based on the age of the most recent change (cold after 90 days by [default](#gutter-heatmap-settings- 'Jump to the Gutter Heatmap settings'))
   - The indicator's brightness ranges from bright (newer) to dim (older) based on the relative age, which is calculated from the median age of all the changes in the file
   - Adds _Toggle File Heatmap Annotations_ command (`gitlens.toggleFileHeatmap`) to toggle the heatmap on and off
-  - Press `Escape` to turn off the annotations
-
----
-
-### Recent Changes [#](#recent-changes- 'Recent Changes')
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/master/images/docs/recent-changes.png" alt="Recent Changes" />
-</p>
-
-- Adds an on-demand, [customizable](#recent-changes-settings- 'Jump to the Recent Changes settings') and [themable](#themable-colors- 'Jump to the Themable Colors'), **recent changes annotation** to highlight lines changed by the most recent commit
-  - Adds _Toggle Recent File Changes Annotations_ command (`gitlens.toggleFileRecentChanges`) to toggle the recent changes annotations on and off
   - Press `Escape` to turn off the annotations
 
 ---
@@ -821,10 +821,17 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 | `gitlens.blame.heatmap.enabled`     | Specifies whether to provide a heatmap indicator in the gutter blame annotations                                                                                                                                                                                             |
 | `gitlens.blame.heatmap.location`    | Specifies where the heatmap indicators will be shown in the gutter blame annotations<br /><br />`left` - adds a heatmap indicator on the left edge of the gutter blame annotations<br />`right` - adds a heatmap indicator on the right edge of the gutter blame annotations |
 | `gitlens.blame.highlight.enabled`   | Specifies whether to highlight lines associated with the current line                                                                                                                                                                                                        |
-| `gitlens.blame.highlight.locations` | Specifies where the associated line highlights will be shown<br /><br />`gutter` - adds a gutter glyph<br />`line` - adds a full-line highlight background color<br />`overview` - adds a decoration to the overview ruler (scroll bar)                                      |
+| `gitlens.blame.highlight.locations` | Specifies where the associated line highlights will be shown<br /><br />`gutter` - adds a gutter indicator<br />`line` - adds a full-line highlight background color<br />`overview` - adds a decoration to the overview ruler (scroll bar)                                  |
 | `gitlens.blame.ignoreWhitespace`    | Specifies whether to ignore whitespace when comparing revisions during blame operations                                                                                                                                                                                      |
 | `gitlens.blame.separateLines`       | Specifies whether gutter blame annotations will have line separators                                                                                                                                                                                                         |
 | `gitlens.blame.toggleMode`          | Specifies how the gutter blame annotations will be toggled<br /><br />`file` - toggles each file individually<br />`window` - toggles the window, i.e. all files at once                                                                                                     |
+
+### Gutter Changes Settings [#](#gutter-changes-settings- 'Gutter Changes Settings')
+
+| Name                         | Description                                                                                                                                                                                         |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gitlens.changes.locations`  | Specifies where the indicators of the gutter changes annotations will be shown<br /><br />`gutter` - adds a gutter indicator<br />`overview` - adds a decoration to the overview ruler (scroll bar) |
+| `gitlens.changes.toggleMode` | Specifies how the gutter changes annotations will be toggled<br /><br />`file` - toggles each file individually<br />`window` - toggles the window, i.e. all files at once                          |
 
 ### Gutter Heatmap Settings [#](#gutter-heatmap-settings- 'Gutter Heatmap Settings')
 
@@ -834,13 +841,6 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 | `gitlens.heatmap.coldColor`    | Specifies the base color of the gutter heatmap annotations when the most recent change is older (cold) than the `gitlens.heatmap.ageThreshold` value                                                            |
 | `gitlens.heatmap.hotColor`     | Specifies the base color of the gutter heatmap annotations when the most recent change is newer (hot) than the `gitlens.heatmap.ageThreshold` value                                                             |
 | `gitlens.heatmap.toggleMode`   | Specifies how the gutter heatmap annotations will be toggled<br /><br />`file` - toggles each file individually<br />`window` - toggles the window, i.e. all files at once                                      |
-
-### Recent Changes Settings [#](#recent-changes-settings- 'Recent Changes Settings')
-
-| Name                                        | Description                                                                                                                                                                                                                                           |
-| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `gitlens.recentChanges.highlight.locations` | Specifies where the highlights of the recently changed lines will be shown<br /><br />`gutter` - adds a gutter glyph<br />`line` - adds a full-line highlight background color<br />`overview` - adds a decoration to the overview ruler (scroll bar) |
-| `gitlens.recentChanges.toggleMode`          | Specifies how the recently changed lines annotations will be toggled<br /><br />`file` - toggles each file individually<br />`window` - toggles the window, i.e. all files at once                                                                    |
 
 ### Git Commands Menu Settings [#](#git-commands-menu-settings- 'Git Commands Menu Settings')
 

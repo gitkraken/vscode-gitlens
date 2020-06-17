@@ -14,12 +14,17 @@ export interface Config {
 		};
 		highlight: {
 			enabled: boolean;
-			locations: HighlightLocations[];
+			locations: BlameHighlightLocations[];
 		};
 		ignoreWhitespace: boolean;
 		separateLines: boolean;
 		toggleMode: AnnotationsToggleMode;
 	};
+	changes: {
+		locations: ChangesLocations[];
+		toggleMode: AnnotationsToggleMode;
+	};
+	codeLens: CodeLensConfig;
 	currentLine: {
 		dateFormat: string | null;
 		enabled: boolean;
@@ -29,7 +34,6 @@ export interface Config {
 		};
 		scrollable: boolean;
 	};
-	codeLens: CodeLensConfig;
 	debug: boolean;
 	defaultDateFormat: string | null;
 	defaultDateShortFormat: string | null;
@@ -93,12 +97,6 @@ export interface Config {
 	};
 	modes: Record<string, ModeConfig>;
 	outputLevel: TraceLevel;
-	recentChanges: {
-		highlight: {
-			locations: HighlightLocations[];
-		};
-		toggleMode: AnnotationsToggleMode;
-	};
 	remotes: RemotesConfig[] | null;
 	showWhatsNewAfterUpgrades: boolean;
 	sortBranchesBy: BranchSorting;
@@ -137,11 +135,22 @@ export interface AutolinkReference {
 	ignoreCase?: boolean;
 }
 
+export enum BlameHighlightLocations {
+	Gutter = 'gutter',
+	Line = 'line',
+	Overview = 'overview',
+}
+
 export enum BranchSorting {
 	NameDesc = 'name:desc',
 	NameAsc = 'name:asc',
 	DateDesc = 'date:desc',
 	DateAsc = 'date:asc',
+}
+
+export enum ChangesLocations {
+	Gutter = 'gutter',
+	Overview = 'overview',
 }
 
 export enum CodeLensCommand {
@@ -181,8 +190,8 @@ export enum DateStyle {
 
 export enum FileAnnotationType {
 	Blame = 'blame',
+	Changes = 'changes',
 	Heatmap = 'heatmap',
-	RecentChanges = 'recentChanges',
 }
 
 export enum GravatarDefaultStyle {
@@ -192,12 +201,6 @@ export enum GravatarDefaultStyle {
 	MysteryPerson = 'mp',
 	Retro = 'retro',
 	Robot = 'robohash',
-}
-
-export enum HighlightLocations {
-	Gutter = 'gutter',
-	Line = 'line',
-	Overview = 'overview',
 }
 
 export enum KeyMap {
@@ -386,7 +389,7 @@ export interface ModeConfig {
 	name: string;
 	statusBarItemName?: string;
 	description?: string;
-	annotations?: 'blame' | 'heatmap' | 'recentChanges';
+	annotations?: 'blame' | 'changes' | 'heatmap';
 	codeLens?: boolean;
 	currentLine?: boolean;
 	hovers?: boolean;

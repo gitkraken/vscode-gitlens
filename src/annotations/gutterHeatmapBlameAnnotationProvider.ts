@@ -1,14 +1,13 @@
 'use strict';
 import { Range, TextEditorDecorationType } from 'vscode';
+import { Annotations } from './annotations';
+import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 import { FileAnnotationType } from '../configuration';
-import { Container } from '../container';
 import { GitBlameCommit } from '../git/git';
 import { Logger } from '../logger';
 import { log, Strings } from '../system';
-import { Annotations } from './annotations';
-import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 
-export class HeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase {
+export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase {
 	@log()
 	async onProvideAnnotation(_shaOrLine?: string | number, _type?: FileAnnotationType): Promise<boolean> {
 		const cc = Logger.getCorrelationContext();
@@ -20,7 +19,10 @@ export class HeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase 
 
 		let start = process.hrtime();
 
-		const decorationsMap = new Map<string, { decoration: TextEditorDecorationType; ranges: Range[] }>();
+		const decorationsMap = new Map<
+			string,
+			{ decorationType: TextEditorDecorationType; rangesOrOptions: Range[] }
+		>();
 		const computedHeatmap = await this.getComputedHeatmap(blame);
 
 		let commit: GitBlameCommit | undefined;
@@ -44,16 +46,16 @@ export class HeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase 
 		if (decorationsMap.size) {
 			start = process.hrtime();
 
-			this.additionalDecorations = [];
-			for (const d of decorationsMap.values()) {
-				this.additionalDecorations.push(d);
-				this.editor.setDecorations(d.decoration, d.ranges);
-			}
+			this.setDecorations([...decorationsMap.values()]);
 
 			Logger.log(cc, `${Strings.getDurationMilliseconds(start)} ms to apply recent changes annotations`);
 		}
 
-		this.registerHoverProviders(Container.config.hovers.annotations);
+		// this.registerHoverProviders(Container.config.hovers.annotations);
 		return true;
+	}
+
+	selection(_shaOrLine?: string | number): Promise<void> {
+		return Promise.resolve();
 	}
 }

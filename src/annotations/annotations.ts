@@ -109,7 +109,7 @@ export class Annotations {
 		date: Date,
 		heatmap: ComputedHeatmap,
 		range: Range,
-		map: Map<string, { decoration: TextEditorDecorationType; ranges: Range[] }>,
+		map: Map<string, { decorationType: TextEditorDecorationType; rangesOrOptions: Range[] }>,
 	) {
 		const [r, g, b, a] = this.getHeatmapColor(date, heatmap);
 
@@ -117,7 +117,7 @@ export class Annotations {
 		let colorDecoration = map.get(key);
 		if (colorDecoration == null) {
 			colorDecoration = {
-				decoration: window.createTextEditorDecorationType({
+				decorationType: window.createTextEditorDecorationType({
 					gutterIconPath: Uri.parse(
 						`data:image/svg+xml,${encodeURIComponent(
 							`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><rect fill='rgb(${r},${g},${b})' fill-opacity='${a}' x='7' y='0' width='2' height='18'/></svg>`,
@@ -125,14 +125,14 @@ export class Annotations {
 					),
 					gutterIconSize: 'contain',
 				}),
-				ranges: [range],
+				rangesOrOptions: [range],
 			};
 			map.set(key, colorDecoration);
 		} else {
-			colorDecoration.ranges.push(range);
+			colorDecoration.rangesOrOptions.push(range);
 		}
 
-		return colorDecoration.decoration;
+		return colorDecoration.decorationType;
 	}
 
 	static gutter(

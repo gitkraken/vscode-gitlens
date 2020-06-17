@@ -315,13 +315,13 @@ export class Container {
 					config.blame.toggleMode = AnnotationsToggleMode.Window;
 					command = Commands.ToggleFileBlame;
 					break;
+				case 'changes':
+					config.changes.toggleMode = AnnotationsToggleMode.Window;
+					command = Commands.ToggleFileChanges;
+					break;
 				case 'heatmap':
 					config.heatmap.toggleMode = AnnotationsToggleMode.Window;
 					command = Commands.ToggleFileHeatmap;
-					break;
-				case 'recentChanges':
-					config.recentChanges.toggleMode = AnnotationsToggleMode.Window;
-					command = Commands.ToggleFileRecentChanges;
 					break;
 			}
 
@@ -375,11 +375,11 @@ export class Container {
 				`gitlens.${configuration.name('mode')}`,
 				`gitlens.${configuration.name('modes')}`,
 				`gitlens.${configuration.name('blame', 'toggleMode')}`,
+				`gitlens.${configuration.name('changes', 'toggleMode')}`,
 				`gitlens.${configuration.name('codeLens')}`,
 				`gitlens.${configuration.name('currentLine')}`,
 				`gitlens.${configuration.name('heatmap', 'toggleMode')}`,
 				`gitlens.${configuration.name('hovers')}`,
-				`gitlens.${configuration.name('recentChanges', 'toggleMode')}`,
 				`gitlens.${configuration.name('statusBar')}`,
 				`gitlens.${configuration.name('views', 'compare')}`,
 				`gitlens.${configuration.name('views', 'fileHistory')}`,

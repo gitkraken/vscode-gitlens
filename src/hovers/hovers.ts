@@ -1,13 +1,13 @@
 'use strict';
 import { MarkdownString } from 'vscode';
 import { DiffWithCommand, ShowQuickCommitCommand } from '../commands';
-import { FileAnnotationType } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import {
 	CommitFormatter,
 	GitBlameCommit,
 	GitCommit,
+	GitDiffHunk,
 	GitDiffHunkLine,
 	GitLogCommit,
 	GitRemote,
@@ -19,23 +19,13 @@ import { Iterables, Promises, Strings } from '../system';
 
 export namespace Hovers {
 	export async function changesMessage(
-		commit: GitBlameCommit,
-		uri: GitUri,
-		editorLine: number,
-	): Promise<MarkdownString | undefined>;
-	export async function changesMessage(
-		commit: GitLogCommit,
-		uri: GitUri,
-		editorLine: number,
-		hunkLine: GitDiffHunkLine,
-	): Promise<MarkdownString | undefined>;
-	export async function changesMessage(
 		commit: GitBlameCommit | GitLogCommit,
 		uri: GitUri,
 		editorLine: number,
-		hunkLine?: GitDiffHunkLine,
 	): Promise<MarkdownString | undefined> {
 		const documentRef = uri.sha;
+
+		let hunkLine;
 		if (GitBlameCommit.is(commit)) {
 			// TODO: Figure out how to optimize this
 			let ref;
@@ -51,17 +41,18 @@ export namespace Hovers {
 			const commitLine = commit.lines.find(l => l.line === line) ?? commit.lines[0];
 
 			let originalFileName = commit.originalFileName;
-			if (originalFileName === undefined) {
+			if (originalFileName == null) {
 				if (uri.fsPath !== commit.uri.fsPath) {
 					originalFileName = commit.fileName;
 				}
 			}
 
 			editorLine = commitLine.originalLine - 1;
+			// TODO: Doesn't work with dirty files -- pass in editor? or contents?
 			hunkLine = await Container.git.getDiffForLine(uri, editorLine, ref, undefined, originalFileName);
 
 			// If we didn't find a diff & ref is undefined (meaning uncommitted), check for a staged diff
-			if (hunkLine === undefined && ref === undefined) {
+			if (hunkLine == null && ref == null) {
 				hunkLine = await Container.git.getDiffForLine(
 					uri,
 					editorLine,
@@ -72,7 +63,7 @@ export namespace Hovers {
 			}
 		}
 
-		if (hunkLine === undefined || commit.previousSha === undefined) return undefined;
+		if (hunkLine == null || commit.previousSha == null) return undefined;
 
 		const diff = getDiffFromHunkLine(hunkLine);
 
@@ -81,11 +72,11 @@ export namespace Hovers {
 		let current;
 		if (commit.isUncommitted) {
 			const diffUris = await commit.getPreviousLineDiffUris(uri, editorLine, documentRef);
-			if (diffUris === undefined || diffUris.previous === undefined) {
+			if (diffUris == null || diffUris.previous == null) {
 				return undefined;
 			}
 
-			message = `[$(compare-changes) Changes](${DiffWithCommand.getMarkdownCommandArgs({
+			message = `[$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs({
 				lhs: {
 					sha: diffUris.previous.sha ?? '',
 					uri: diffUris.previous.documentUri(),
@@ -99,7 +90,7 @@ export namespace Hovers {
 			})} "Open Changes")`;
 
 			previous =
-				diffUris.previous.sha === undefined || diffUris.previous.isUncommitted
+				diffUris.previous.sha == null || diffUris.previous.isUncommitted
 					? `_${GitRevision.shorten(diffUris.previous.sha, {
 							strings: {
 								working: 'Working Tree',
@@ -107,12 +98,10 @@ export namespace Hovers {
 					  })}_`
 					: `[$(git-commit) ${GitRevision.shorten(
 							diffUris.previous.sha || '',
-					  )}](${ShowQuickCommitCommand.getMarkdownCommandArgs(
-							diffUris.previous.sha || '',
-					  )} "Show Commit Details")`;
+					  )}](${ShowQuickCommitCommand.getMarkdownCommandArgs(diffUris.previous.sha || '')} "Show Commit")`;
 
 			current =
-				diffUris.current.sha === undefined || diffUris.current.isUncommitted
+				diffUris.current.sha == null || diffUris.current.isUncommitted
 					? `_${GitRevision.shorten(diffUris.current.sha, {
 							strings: {
 								working: 'Working Tree',
@@ -120,25 +109,68 @@ export namespace Hovers {
 					  })}_`
 					: `[$(git-commit) ${GitRevision.shorten(
 							diffUris.current.sha || '',
-					  )}](${ShowQuickCommitCommand.getMarkdownCommandArgs(
-							diffUris.current.sha || '',
-					  )} "Show Commit Details")`;
+					  )}](${ShowQuickCommitCommand.getMarkdownCommandArgs(diffUris.current.sha || '')} "Show Commit")`;
 		} else {
-			message = `[$(compare-changes) Changes](${DiffWithCommand.getMarkdownCommandArgs(
+			message = `[$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs(
 				commit,
 				editorLine,
 			)} "Open Changes")`;
 
 			previous = `[$(git-commit) ${commit.previousShortSha}](${ShowQuickCommitCommand.getMarkdownCommandArgs(
 				commit.previousSha,
-			)} "Show Commit Details")`;
+			)} "Show Commit")`;
 
 			current = `[$(git-commit) ${commit.shortSha}](${ShowQuickCommitCommand.getMarkdownCommandArgs(
 				commit.sha,
-			)} "Show Commit Details")`;
+			)} "Show Commit")`;
 		}
 
-		message += ` &nbsp; ${GlyphChars.Dash} &nbsp; ${previous} &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; ${current}\n${diff}`;
+		message = `${diff}\n---\n\nChanges  &nbsp;${previous} &nbsp;${GlyphChars.ArrowLeftRightLong}&nbsp; ${current} &nbsp;&nbsp;|&nbsp;&nbsp; ${message}`;
+
+		const markdown = new MarkdownString(message, true);
+		markdown.isTrusted = true;
+		return markdown;
+	}
+
+	export function localChangesMessage(
+		fromCommit: GitLogCommit | undefined,
+		uri: GitUri,
+		editorLine: number,
+		hunk: GitDiffHunk,
+	): MarkdownString {
+		const diff = getDiffFromHunk(hunk);
+
+		let message;
+		let previous;
+		let current;
+		if (fromCommit == null) {
+			previous = '_Working Tree_';
+			current = '_Unsaved_';
+		} else {
+			const file = fromCommit.findFile(uri.fsPath)!;
+
+			message = `[$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs({
+				lhs: {
+					sha: fromCommit.sha,
+					uri: GitUri.fromFile(file, uri.repoPath!, undefined, true).toFileUri(),
+				},
+				rhs: {
+					sha: '',
+					uri: uri.toFileUri(),
+				},
+				repoPath: uri.repoPath!,
+				line: editorLine,
+			})} "Open Changes")`;
+
+			previous = `[$(git-commit) ${fromCommit.shortSha}](${ShowQuickCommitCommand.getMarkdownCommandArgs(
+				fromCommit.sha,
+			)} "Show Commit")`;
+
+			current = '_Working Tree_';
+		}
+		message = `${diff}\n---\n\nLocal Changes  &nbsp;${previous} &nbsp;${
+			GlyphChars.ArrowLeftRightLong
+		}&nbsp; ${current}${message == null ? '' : ` &nbsp;&nbsp;|&nbsp;&nbsp; ${message}`}`;
 
 		const markdown = new MarkdownString(message, true);
 		markdown.isTrusted = true;
@@ -150,7 +182,6 @@ export namespace Hovers {
 		uri: GitUri,
 		editorLine: number,
 		dateFormat: string | null,
-		annotationType: FileAnnotationType | undefined,
 	): Promise<MarkdownString> {
 		if (dateFormat === null) {
 			dateFormat = 'MMMM Do, YYYY h:mma';
@@ -166,7 +197,6 @@ export namespace Hovers {
 		]);
 
 		const details = CommitFormatter.fromTemplate(Container.config.hovers.detailsMarkdownFormat, commit, {
-			annotationType: annotationType,
 			autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,
 			dateFormat: dateFormat,
 			line: editorLine,
@@ -182,13 +212,17 @@ export namespace Hovers {
 		return markdown;
 	}
 
-	function getDiffFromHunkLine(hunkLine: GitDiffHunkLine): string {
-		if (Container.config.hovers.changesDiff === 'hunk') {
-			return `\`\`\`diff\n${hunkLine.hunk.diff}\n\`\`\``;
+	function getDiffFromHunk(hunk: GitDiffHunk): string {
+		return `\`\`\`diff\n${hunk.diff.trim()}\n\`\`\``;
+	}
+
+	function getDiffFromHunkLine(hunkLine: GitDiffHunkLine, diffStyle?: 'line' | 'hunk'): string {
+		if (diffStyle === 'hunk' || (diffStyle == null && Container.config.hovers.changesDiff === 'hunk')) {
+			return getDiffFromHunk(hunkLine.hunk);
 		}
 
-		return `\`\`\`diff${hunkLine.previous === undefined ? '' : `\n-${hunkLine.previous.line}`}${
-			hunkLine.current === undefined ? '' : `\n+${hunkLine.current.line}`
+		return `\`\`\`diff${hunkLine.previous == null ? '' : `\n-${hunkLine.previous.line.trim()}`}${
+			hunkLine.current == null ? '' : `\n+${hunkLine.current.line.trim()}`
 		}\n\`\`\``;
 	}
 
@@ -209,7 +243,7 @@ export namespace Hovers {
 		}
 
 		const remote = remotes.find(r => r.default && r.provider != null);
-		if (remote === undefined) {
+		if (remote == null) {
 			Logger.debug(cc, `completed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
 
 			return undefined;
@@ -223,23 +257,33 @@ export namespace Hovers {
 				timeout: timeout,
 			});
 
-			if (autolinks !== undefined && (Logger.level === TraceLevel.Debug || Logger.isDebugging)) {
-				const timeouts = [
-					...Iterables.filterMap(autolinks.values(), issue =>
-						issue instanceof Promises.CancellationError ? issue.promise : undefined,
-					),
-				];
-
-				// If there are any PRs that timed out, refresh the annotation(s) once they complete
-				if (timeouts.length !== 0) {
+			if (autolinks != null && (Logger.level === TraceLevel.Debug || Logger.isDebugging)) {
+				// If there are any issues/PRs that timed out, log it
+				const count = Iterables.count(autolinks.values(), pr => pr instanceof Promises.CancellationError);
+				if (count !== 0) {
 					Logger.debug(
 						cc,
-						`timed out ${GlyphChars.Dash} issue/pr queries (${
-							timeouts.length
-						}) took too long (over ${timeout} ms) ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(
-							start,
-						)} ms`,
+						`timed out ${
+							GlyphChars.Dash
+						} ${count} issue/pull request queries took too long (over ${timeout} ms) ${
+							GlyphChars.Dot
+						} ${Strings.getDurationMilliseconds(start)} ms`,
 					);
+
+					// const pending = [
+					// 	...Iterables.map(autolinks.values(), issueOrPullRequest =>
+					// 		issueOrPullRequest instanceof Promises.CancellationError
+					// 			? issueOrPullRequest.promise
+					// 			: undefined,
+					// 	),
+					// ];
+					// void Promise.all(pending).then(() => {
+					// 	Logger.debug(
+					// 		cc,
+					// 		`${GlyphChars.Dot} ${count} issue/pull request queries completed; refreshing...`,
+					// 	);
+					// 	void commands.executeCommand('editor.action.showHover');
+					// });
 
 					return autolinks;
 				}

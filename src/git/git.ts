@@ -614,6 +614,67 @@ export namespace Git {
 		}
 	}
 
+	export async function diff__contents(
+		repoPath: string,
+		fileName: string,
+		ref: string,
+		contents: string,
+		options: { encoding?: string; filters?: GitDiffFilter[]; similarityThreshold?: number | null } = {},
+	): Promise<string> {
+		const params = [
+			'diff',
+			`-M${options.similarityThreshold == null ? '' : `${options.similarityThreshold}%`}`,
+			'--no-ext-diff',
+			'-U0',
+			'--minimal',
+		];
+
+		if (options.filters != null && options.filters.length !== 0) {
+			params.push(`--diff-filter=${options.filters.join(emptyStr)}`);
+		}
+
+		// // <sha>^3 signals an untracked file in a stash and if we are trying to find its parent, use the root sha
+		// if (ref.endsWith('^3^')) {
+		// 	ref = rootSha;
+		// }
+		// params.push(GitRevision.isUncommittedStaged(ref) ? '--staged' : ref);
+
+		params.push('--no-index');
+
+		try {
+			return await git<string>(
+				{
+					cwd: repoPath,
+					configs: ['-c', 'color.diff=false'],
+					encoding: options.encoding === 'utf8' ? 'utf8' : 'binary',
+					stdin: contents,
+				},
+				...params,
+				'--',
+				fileName,
+				// Pipe the contents to stdin
+				'-',
+			);
+		} catch (ex) {
+			// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+			if (ex.stdout) {
+				return ex.stdout;
+			}
+
+			const match = GitErrors.badRevision.exec(ex.message);
+			if (match !== null) {
+				const [, matchedRef] = match;
+
+				// If the bad ref is trying to find a parent ref, assume we hit to the last commit, so try again using the root sha
+				if (matchedRef === ref && matchedRef != null && matchedRef.endsWith('^')) {
+					return Git.diff__contents(repoPath, fileName, rootSha, contents, options);
+				}
+			}
+
+			throw ex;
+		}
+	}
+
 	export function diff__name_status(
 		repoPath: string,
 		ref1?: string,
@@ -766,7 +827,7 @@ export namespace Git {
 			renames = true,
 			reverse = false,
 			skip,
-			simple = false,
+			format = 'default',
 			startLine,
 			endLine,
 		}: {
@@ -777,14 +838,17 @@ export namespace Git {
 			renames?: boolean;
 			reverse?: boolean;
 			skip?: number;
-			simple?: boolean;
+			format?: 'refs' | 'simple' | 'default';
 			startLine?: number;
 			endLine?: number;
 		} = {},
 	) {
 		const [file, root] = Git.splitPath(fileName, repoPath);
 
-		const params = ['log', `--format=${simple ? GitLogParser.simpleFormat : GitLogParser.defaultFormat}`];
+		const params = [
+			'log',
+			`--format=${format === 'default' ? GitLogParser.defaultFormat : GitLogParser.simpleFormat}`,
+		];
 
 		if (limit && !reverse) {
 			params.push(`-n${limit}`);
@@ -808,15 +872,17 @@ export namespace Git {
 			params.push('--first-parent');
 		}
 
-		if (startLine == null) {
-			if (simple) {
-				params.push('--name-status');
+		if (format !== 'refs') {
+			if (startLine == null) {
+				if (format === 'simple') {
+					params.push('--name-status');
+				} else {
+					params.push('--numstat', '--summary');
+				}
 			} else {
-				params.push('--numstat', '--summary');
+				// Don't include --name-status or -s because Git won't honor it
+				params.push(`-L ${startLine},${endLine == null ? startLine : endLine}:${file}`);
 			}
-		} else {
-			// Don't include --name-status or -s because Git won't honor it
-			params.push(`-L ${startLine},${endLine == null ? startLine : endLine}:${file}`);
 		}
 
 		if (ref && !GitRevision.isUncommittedStaged(ref)) {

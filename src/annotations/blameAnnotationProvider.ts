@@ -4,11 +4,11 @@ import {
 	Disposable,
 	Hover,
 	languages,
+	MarkdownString,
 	Position,
 	Range,
 	TextDocument,
 	TextEditor,
-	TextEditorDecorationType,
 } from 'vscode';
 import { AnnotationProviderBase } from './annotationProvider';
 import { ComputedHeatmap, getHeatmapColors } from './annotations';
@@ -16,26 +16,19 @@ import { Container } from '../container';
 import { GitBlame, GitBlameCommit, GitCommit } from '../git/git';
 import { GitUri } from '../git/gitUri';
 import { Hovers } from '../hovers/hovers';
-import { Arrays, Iterables, log } from '../system';
+import { log } from '../system';
 import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 
 export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase {
-	protected _blame: Promise<GitBlame | undefined>;
-	protected _hoverProviderDisposable: Disposable | undefined;
-	protected readonly _uri: GitUri;
+	protected blame: Promise<GitBlame | undefined>;
+	protected hoverProviderDisposable: Disposable | undefined;
 
-	constructor(
-		editor: TextEditor,
-		trackedDocument: TrackedDocument<GitDocumentState>,
-		decoration: TextEditorDecorationType | undefined,
-		highlightDecoration: TextEditorDecorationType | undefined,
-	) {
-		super(editor, trackedDocument, decoration, highlightDecoration);
+	constructor(editor: TextEditor, trackedDocument: TrackedDocument<GitDocumentState>) {
+		super(editor, trackedDocument);
 
-		this._uri = trackedDocument.uri;
-		this._blame = editor.document.isDirty
-			? Container.git.getBlameForFileContents(this._uri, editor.document.getText())
-			: Container.git.getBlameForFile(this._uri);
+		this.blame = editor.document.isDirty
+			? Container.git.getBlameForFileContents(this.trackedDocument.uri, editor.document.getText())
+			: Container.git.getBlameForFile(this.trackedDocument.uri);
 
 		if (editor.document.isDirty) {
 			trackedDocument.setForceDirtyStateChangeOnNextDocumentChange();
@@ -43,69 +36,20 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 	}
 
 	clear() {
-		if (this._hoverProviderDisposable != null) {
-			this._hoverProviderDisposable.dispose();
-			this._hoverProviderDisposable = undefined;
+		if (this.hoverProviderDisposable != null) {
+			this.hoverProviderDisposable.dispose();
+			this.hoverProviderDisposable = undefined;
 		}
 		super.clear();
 	}
 
-	onReset(changes?: {
-		decoration: TextEditorDecorationType;
-		highlightDecoration: TextEditorDecorationType | undefined;
-	}) {
-		if (this.editor != null) {
-			this._blame = this.editor.document.isDirty
-				? Container.git.getBlameForFileContents(this._uri, this.editor.document.getText())
-				: Container.git.getBlameForFile(this._uri);
-		}
-
-		return super.onReset(changes);
-	}
-
-	@log({ args: false })
-	async selection(shaOrLine?: string | number, blame?: GitBlame) {
-		if (!this.highlightDecoration) return;
-
-		if (blame == null) {
-			blame = await this._blame;
-			if (!blame || !blame.lines.length) return;
-		}
-
-		let sha: string | undefined = undefined;
-		if (typeof shaOrLine === 'string') {
-			sha = shaOrLine;
-		} else if (typeof shaOrLine === 'number') {
-			if (shaOrLine >= 0) {
-				const commitLine = blame.lines[shaOrLine];
-				sha = commitLine?.sha;
-			}
-		} else {
-			sha = Iterables.first(blame.commits.values()).sha;
-		}
-
-		if (!sha) {
-			this.editor.setDecorations(this.highlightDecoration, []);
-			return;
-		}
-
-		const highlightDecorationRanges = Arrays.filterMap(blame.lines, l =>
-			l.sha === sha
-				? // editor lines are 0-based
-				  this.editor.document.validateRange(new Range(l.line - 1, 0, l.line - 1, Number.MAX_SAFE_INTEGER))
-				: undefined,
-		);
-
-		this.editor.setDecorations(this.highlightDecoration, highlightDecorationRanges);
-	}
-
 	async validate(): Promise<boolean> {
-		const blame = await this._blame;
+		const blame = await this.blame;
 		return blame != null && blame.lines.length !== 0;
 	}
 
 	protected async getBlame(): Promise<GitBlame | undefined> {
-		const blame = await this._blame;
+		const blame = await this.blame;
 		if (blame == null || blame.lines.length === 0) return undefined;
 
 		return blame;
@@ -190,39 +134,46 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 			return;
 		}
 
-		const subscriptions: Disposable[] = [];
-		if (providers.changes) {
-			subscriptions.push(
-				languages.registerHoverProvider(
-					{ pattern: this.document.uri.fsPath },
-					{
-						provideHover: this.provideChangesHover.bind(this),
-					},
-				),
-			);
-		}
-		if (providers.details) {
-			subscriptions.push(
-				languages.registerHoverProvider(
-					{ pattern: this.document.uri.fsPath },
-					{
-						provideHover: this.provideDetailsHover.bind(this),
-					},
-				),
-			);
-		}
-
-		this._hoverProviderDisposable = Disposable.from(...subscriptions);
+		this.hoverProviderDisposable = languages.registerHoverProvider(
+			{ pattern: this.document.uri.fsPath },
+			{
+				provideHover: (document, position, token) => this.provideHover(providers, document, position, token),
+			},
+		);
 	}
 
-	async provideDetailsHover(
+	async provideHover(
+		providers: { details: boolean; changes: boolean },
 		document: TextDocument,
 		position: Position,
 		_token: CancellationToken,
 	): Promise<Hover | undefined> {
-		const commit = await this.getCommitForHover(position);
+		if (Container.config.hovers.annotations.over !== 'line' && position.character !== 0) return undefined;
+
+		const blame = await this.getBlame();
+		if (blame == null) return undefined;
+
+		const line = blame.lines[position.line];
+
+		const commit = blame.commits.get(line.sha);
 		if (commit == null) return undefined;
 
+		const messages = (
+			await Promise.all([
+				providers.details ? this.getDetailsHoverMessage(commit, document) : undefined,
+				providers.changes
+					? Hovers.changesMessage(commit, await GitUri.fromUri(document.uri), position.line)
+					: undefined,
+			])
+		).filter(Boolean) as MarkdownString[];
+
+		return new Hover(
+			messages,
+			document.validateRange(new Range(position.line, 0, position.line, Number.MAX_SAFE_INTEGER)),
+		);
+	}
+
+	private async getDetailsHoverMessage(commit: GitBlameCommit, document: TextDocument) {
 		// Get the full commit message -- since blame only returns the summary
 		let logCommit: GitCommit | undefined = undefined;
 		if (!commit.isUncommitted) {
@@ -241,45 +192,12 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 		const commitLine = commit.lines.find(l => l.line === line) ?? commit.lines[0];
 		editorLine = commitLine.originalLine - 1;
 
-		const message = await Hovers.detailsMessage(
+		return Hovers.detailsMessage(
 			logCommit ?? commit,
 			await GitUri.fromUri(document.uri),
 			editorLine,
 			Container.config.defaultDateFormat,
-			this.annotationType,
 		);
-		return new Hover(
-			message,
-			document.validateRange(new Range(position.line, 0, position.line, Number.MAX_SAFE_INTEGER)),
-		);
-	}
-
-	async provideChangesHover(
-		document: TextDocument,
-		position: Position,
-		_token: CancellationToken,
-	): Promise<Hover | undefined> {
-		const commit = await this.getCommitForHover(position);
-		if (commit == null) return undefined;
-
-		const message = await Hovers.changesMessage(commit, await GitUri.fromUri(document.uri), position.line);
-		if (message == null) return undefined;
-
-		return new Hover(
-			message,
-			document.validateRange(new Range(position.line, 0, position.line, Number.MAX_SAFE_INTEGER)),
-		);
-	}
-
-	private async getCommitForHover(position: Position): Promise<GitBlameCommit | undefined> {
-		if (Container.config.hovers.annotations.over !== 'line' && position.character !== 0) return undefined;
-
-		const blame = await this.getBlame();
-		if (blame == null) return undefined;
-
-		const line = blame.lines[position.line];
-
-		return blame.commits.get(line.sha);
 	}
 }
 

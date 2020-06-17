@@ -11,6 +11,7 @@ import { GitUri } from './git/gitUri';
 import { Logger } from './logger';
 import { Messages } from './messages';
 import { Strings, Versions } from './system';
+import { ViewNode } from './views/nodes';
 
 export async function activate(context: ExtensionContext) {
 	const start = process.hrtime();
@@ -27,6 +28,10 @@ export async function activate(context: ExtensionContext) {
 
 		if (GitCommit.is(o)) {
 			return `GitCommit(${o.sha ? ` sha=${o.sha}` : ''}${o.repoPath ? ` repoPath=${o.repoPath}` : ''})`;
+		}
+
+		if (ViewNode.is(o)) {
+			return o.toString();
 		}
 
 		return undefined;
