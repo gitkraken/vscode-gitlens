@@ -139,7 +139,7 @@ export class CommitLoadMoreQuickPickItem implements QuickPickItem {
 	readonly alwaysShow = true;
 }
 
-export type CommitQuickPickItem<T extends GitLogCommit = GitLogCommit> = QuickPickItemOfT<T>
+export type CommitQuickPickItem<T extends GitLogCommit = GitLogCommit> = QuickPickItemOfT<T>;
 
 export namespace CommitQuickPickItem {
 	export function create<T extends GitLogCommit = GitLogCommit>(
@@ -213,7 +213,7 @@ export namespace CommitQuickPickItem {
 	}
 }
 
-export type ContributorQuickPickItem = QuickPickItemOfT<GitContributor>
+export type ContributorQuickPickItem = QuickPickItemOfT<GitContributor>;
 
 export namespace ContributorQuickPickItem {
 	export function create(
