@@ -182,8 +182,8 @@ export class CommitOpenFilesCommandQuickPickItem extends CommandQuickPickItem {
 		super(item ?? '$(files) Open Files');
 	}
 
-	execute(options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
-		return GitActions.Commit.openFiles(this.commit, options);
+	execute(_options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
+		return GitActions.Commit.openFiles(this.commit);
 	}
 }
 
@@ -202,8 +202,8 @@ export class CommitOpenRevisionsCommandQuickPickItem extends CommandQuickPickIte
 		super(item ?? '$(files) Open Files at Revision');
 	}
 
-	execute(options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
-		return GitActions.Commit.openFilesAtRevision(this.commit, options);
+	execute(_options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
+		return GitActions.Commit.openFilesAtRevision(this.commit);
 	}
 }
 

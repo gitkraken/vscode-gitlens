@@ -1,6 +1,6 @@
 'use strict';
 import { Uri, window } from 'vscode';
-import { command, Command, Commands, findOrOpenEditor, getRepoPathOrPrompt } from './common';
+import { Command, command, Commands, findOrOpenEditors, getRepoPathOrPrompt } from './common';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
@@ -34,9 +34,7 @@ export class OpenChangedFilesCommand extends Command {
 				args.uris = Arrays.filterMap(status.files, f => (f.status !== 'D' ? f.uri : undefined));
 			}
 
-			for (const uri of args.uris) {
-				void (await findOrOpenEditor(uri, { preserveFocus: true, preview: false }));
-			}
+			findOrOpenEditors(args.uris);
 		} catch (ex) {
 			Logger.error(ex, 'OpenChangedFilesCommand');
 			void Messages.showGenericErrorMessage('Unable to open all changed files');

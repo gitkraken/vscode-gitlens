@@ -7,9 +7,11 @@ import {
 	executeCommand,
 	executeEditorCommand,
 	findOrOpenEditor,
+	findOrOpenEditors,
 	GitCommandsCommandArgs,
 	OpenWorkingFileCommandArgs,
 } from '../commands';
+import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
 import {
 	GitBranchReference,
@@ -24,7 +26,6 @@ import {
 	Repository,
 } from '../git/git';
 import { GitUri } from '../git/gitUri';
-import { FileAnnotationType } from '../configuration';
 
 export async function executeGitCommand(args: GitCommandsCommandArgs): Promise<void> {
 	void (await executeCommand<GitCommandsCommandArgs>(Commands.GitCommands, args));
@@ -1025,15 +1026,30 @@ export namespace GitActions {
 			}
 		}
 
+		export async function openFile(uri: Uri, options?: TextDocumentShowOptions): Promise<void>;
 		export async function openFile(
 			file: string | GitFile,
 			ref: GitRevisionReference,
 			options?: TextDocumentShowOptions,
+		): Promise<void>;
+		export async function openFile(
+			fileOrUri: string | GitFile | Uri,
+			refOrOptions?: GitRevisionReference | TextDocumentShowOptions,
+			options?: TextDocumentShowOptions,
 		) {
+			let uri;
+			if (fileOrUri instanceof Uri) {
+				uri = fileOrUri;
+				options = refOrOptions as TextDocumentShowOptions;
+			} else {
+				const ref = refOrOptions as GitRevisionReference;
+				uri = GitUri.fromFile(fileOrUri, ref.repoPath, ref.ref);
+			}
+
 			options = { preserveFocus: true, preview: false, ...options };
 
 			void (await executeEditorCommand<OpenWorkingFileCommandArgs>(Commands.OpenWorkingFile, undefined, {
-				uri: GitUri.fromFile(file, ref.repoPath, ref.ref),
+				uri: uri,
 				showOptions: options,
 			}));
 		}
@@ -1097,38 +1113,74 @@ export namespace GitActions {
 			}
 		}
 
-		export async function openFiles(commit: GitLogCommit, options?: TextDocumentShowOptions) {
-			if (commit.files.length > 20) {
+		export async function openFiles(commit: GitLogCommit): Promise<void>;
+		export async function openFiles(files: GitFile[], repoPath: string, ref: string): Promise<void>;
+		export async function openFiles(
+			commitOrFiles: GitLogCommit | GitFile[],
+			repoPath?: string,
+			ref?: string,
+		): Promise<void> {
+			let files;
+			if (GitLogCommit.is(commitOrFiles)) {
+				files = commitOrFiles.files;
+				repoPath = commitOrFiles.repoPath;
+				ref = commitOrFiles.sha;
+			} else {
+				files = commitOrFiles;
+			}
+
+			if (files.length > 20) {
 				const result = await window.showWarningMessage(
-					`Are your sure you want to open all ${commit.files.length} files?`,
+					`Are your sure you want to open all ${files.length} files?`,
 					{ title: 'Yes' },
 					{ title: 'No', isCloseAffordance: true },
 				);
 				if (result == null || result.title === 'No') return;
 			}
 
-			options = { preserveFocus: true, preview: false, ...options };
-
-			for (const file of commit.files) {
-				void (await openFile(file, commit, options));
-			}
+			const uris: Uri[] = (
+				await Promise.all(
+					files.map(file => Container.git.getWorkingUri(repoPath!, GitUri.fromFile(file, repoPath!, ref))),
+				)
+			).filter(Boolean) as Uri[];
+			findOrOpenEditors(uris);
 		}
 
-		export async function openFilesAtRevision(commit: GitLogCommit, options?: TextDocumentShowOptions) {
-			if (commit.files.length > 20) {
+		export async function openFilesAtRevision(commit: GitLogCommit): Promise<void>;
+		export async function openFilesAtRevision(
+			files: GitFile[],
+			repoPath: string,
+			ref1: string,
+			ref2: string,
+		): Promise<void>;
+		export async function openFilesAtRevision(
+			commitOrFiles: GitLogCommit | GitFile[],
+			repoPath?: string,
+			ref1?: string,
+			ref2?: string,
+		): Promise<void> {
+			let files;
+			if (GitLogCommit.is(commitOrFiles)) {
+				files = commitOrFiles.files;
+				repoPath = commitOrFiles.repoPath;
+				ref1 = commitOrFiles.sha;
+				ref2 = commitOrFiles.previousFileSha;
+			} else {
+				files = commitOrFiles;
+			}
+
+			if (files.length > 20) {
 				const result = await window.showWarningMessage(
-					`Are your sure you want to open all ${commit.files.length} revisions?`,
+					`Are your sure you want to open all ${files.length} revisions?`,
 					{ title: 'Yes' },
 					{ title: 'No', isCloseAffordance: true },
 				);
 				if (result == null || result.title === 'No') return;
 			}
 
-			options = { preserveFocus: true, preview: false, ...options };
-
-			for (const file of commit.files) {
-				void (await openFileAtRevision(file, commit, options));
-			}
+			findOrOpenEditors(
+				files.map(file => GitUri.toRevisionUri(file.status === 'D' ? ref2! : ref1!, file, repoPath!)),
+			);
 		}
 
 		export async function restoreFile(file: string | GitFile, ref: GitRevisionReference) {

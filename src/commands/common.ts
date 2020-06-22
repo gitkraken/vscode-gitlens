@@ -512,12 +512,13 @@ export abstract class EditorCommand implements Disposable {
 	abstract execute(editor: TextEditor, edit: TextEditorEdit, ...args: any[]): any;
 }
 
-export function findEditor(uri: Uri, options?: { includeDiffs?: boolean }): TextEditor | undefined {
+export function findEditor(uri: Uri): TextEditor | undefined {
 	const active = window.activeTextEditor;
-	const normalizedUri = uri.toString(false);
+	const normalizedUri = uri.toString();
 
 	for (const e of [...(active != null ? [active] : []), ...window.visibleTextEditors]) {
-		if (e.document.uri.toString(false) === normalizedUri && (options?.includeDiffs || e?.viewColumn != null)) {
+		// Don't include diff editors
+		if (e.document.uri.toString() === normalizedUri && e?.viewColumn != null) {
 			return e;
 		}
 	}
@@ -527,19 +528,33 @@ export function findEditor(uri: Uri, options?: { includeDiffs?: boolean }): Text
 
 export async function findOrOpenEditor(
 	uri: Uri,
-	openOptions?: TextDocumentShowOptions & { throwOnError?: boolean },
-	findOptions?: { includeDiffs?: boolean },
+	options?: TextDocumentShowOptions & { throwOnError?: boolean },
 ): Promise<TextEditor | undefined> {
-	const e = findEditor(uri, findOptions);
+	const e = findEditor(uri);
 	if (e != null) {
-		if (!openOptions?.preserveFocus) {
-			await window.showTextDocument(e.document, { ...openOptions, viewColumn: e.viewColumn });
+		if (!options?.preserveFocus) {
+			await window.showTextDocument(e.document, { ...options, viewColumn: e.viewColumn });
 		}
 
 		return e;
 	}
 
-	return openEditor(uri, { viewColumn: window.activeTextEditor?.viewColumn, ...openOptions });
+	return openEditor(uri, { viewColumn: window.activeTextEditor?.viewColumn, ...options });
+}
+
+export function findOrOpenEditors(uris: Uri[]): void {
+	const normalizedUris = new Map(uris.map(uri => [uri.toString(), uri]));
+
+	for (const e of window.visibleTextEditors) {
+		// Don't include diff editors
+		if (e?.viewColumn != null) {
+			normalizedUris.delete(e.document.uri.toString());
+		}
+	}
+
+	for (const uri of normalizedUris.values()) {
+		void commands.executeCommand(BuiltInCommands.Open, uri, { background: true, preview: false });
+	}
 }
 
 export async function openEditor(

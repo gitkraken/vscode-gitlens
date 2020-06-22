@@ -7,11 +7,9 @@ import {
 	DiffWithWorkingCommandArgs,
 	executeCommand,
 	executeEditorCommand,
-	findOrOpenEditor,
 	GitActions,
 	OpenFileAtRevisionCommandArgs,
 	OpenFileOnRemoteCommandArgs,
-	OpenWorkingFileCommandArgs,
 } from '../commands';
 import { FileAnnotationType } from '../config';
 import { BuiltInCommands, CommandContext, setCommandContext } from '../constants';
@@ -748,61 +746,30 @@ export class ViewCommands {
 			return;
 		}
 
-		void (await executeEditorCommand<OpenWorkingFileCommandArgs>(Commands.OpenWorkingFile, undefined, {
-			uri: node.uri,
-			showOptions: {
-				preserveFocus: true,
-				preview: false,
-			},
-		}));
+		await GitActions.Commit.openFile(node.uri, {
+			preserveFocus: true,
+			preview: false,
+		});
 	}
 
 	@debug()
-	private async openFiles(node: CommitNode | StashNode | ResultsFilesNode, options?: TextDocumentShowOptions) {
+	private async openFiles(node: CommitNode | StashNode | ResultsFilesNode) {
 		if (!(node instanceof CommitNode) && !(node instanceof StashNode) && !(node instanceof ResultsFilesNode)) {
 			return;
 		}
-
-		options = { preserveFocus: false, preview: false, ...options };
-
-		let repoPath: string;
-		let files;
-		let ref: string;
 
 		if (node instanceof ResultsFilesNode) {
 			const { diff } = await node.getFilesQueryResults();
 			if (diff == null || diff.length === 0) return;
 
-			repoPath = node.repoPath;
-			files = diff;
-			ref = node.ref1 || node.ref2;
+			await GitActions.Commit.openFiles(diff, node.repoPath, node.ref1 || node.ref2);
 		} else {
-			repoPath = node.commit.repoPath;
-			files = node.commit.files;
-			ref = node.commit.sha;
-		}
-
-		if (files.length > 20) {
-			const result = await window.showWarningMessage(
-				`Are your sure you want to open all ${files.length} files?`,
-				{ title: 'Yes' },
-				{ title: 'No', isCloseAffordance: true },
-			);
-			if (result === undefined || result.title === 'No') return;
-		}
-
-		for (const file of files) {
-			const uri = GitUri.fromFile(file, repoPath, ref);
-
-			await executeEditorCommand<OpenWorkingFileCommandArgs>(Commands.OpenWorkingFile, undefined, {
-				uri: uri,
-				showOptions: options,
-			});
+			await GitActions.Commit.openFiles(node.commit);
 		}
 	}
 
 	@debug()
-	private openRevision(
+	private async openRevision(
 		node: CommitFileNode | ResultsFileNode | StashFileNode | StatusFileNode,
 		options?: OpenFileAtRevisionCommandArgs,
 	) {
@@ -812,7 +779,7 @@ export class ViewCommands {
 			!(node instanceof ResultsFileNode) &&
 			!(node instanceof StatusFileNode)
 		) {
-			return undefined;
+			return;
 		}
 
 		options = { showOptions: { preserveFocus: true, preview: false }, ...options };
@@ -833,50 +800,22 @@ export class ViewCommands {
 			}
 		}
 
-		return findOrOpenEditor(uri, options.showOptions ?? { preserveFocus: true, preview: false });
+		await GitActions.Commit.openFileAtRevision(uri, options.showOptions ?? { preserveFocus: true, preview: false });
 	}
 
 	@debug()
-	private async openRevisions(node: CommitNode | StashNode | ResultsFilesNode, options?: TextDocumentShowOptions) {
+	private async openRevisions(node: CommitNode | StashNode | ResultsFilesNode, _options?: TextDocumentShowOptions) {
 		if (!(node instanceof CommitNode) && !(node instanceof StashNode) && !(node instanceof ResultsFilesNode)) {
 			return;
 		}
-
-		options = { preserveFocus: false, preview: false, ...options };
-
-		let repoPath: string;
-		let files;
-		let ref1: string;
-		let ref2: string;
 
 		if (node instanceof ResultsFilesNode) {
 			const { diff } = await node.getFilesQueryResults();
 			if (diff == null || diff.length === 0) return;
 
-			repoPath = node.repoPath;
-			files = diff;
-			ref1 = node.ref1;
-			ref2 = node.ref2;
+			await GitActions.Commit.openFilesAtRevision(diff, node.repoPath, node.ref1, node.ref2);
 		} else {
-			repoPath = node.commit.repoPath;
-			files = node.commit.files;
-			ref1 = node.commit.sha;
-			ref2 = node.commit.previousFileSha;
-		}
-
-		if (files.length > 20) {
-			const result = await window.showWarningMessage(
-				`Are your sure you want to open all ${files.length} files?`,
-				{ title: 'Yes' },
-				{ title: 'No', isCloseAffordance: true },
-			);
-			if (result === undefined || result.title === 'No') return;
-		}
-
-		for (const file of files) {
-			const uri = GitUri.toRevisionUri(file.status === 'D' ? ref2 : ref1, file, repoPath);
-
-			await findOrOpenEditor(uri, options);
+			await GitActions.Commit.openFilesAtRevision(node.commit);
 		}
 	}
 
