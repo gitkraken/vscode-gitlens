@@ -3144,12 +3144,14 @@ export class GitService implements Disposable {
 	async resolveReference(repoPath: string, ref: string, uri?: Uri): Promise<string>;
 	@log()
 	async resolveReference(repoPath: string, ref: string, fileNameOrUri?: string | Uri) {
-		if (ref == null || ref.length === 0 || ref === GitRevision.deletedOrMissing) return ref;
+		if (ref == null || ref.length === 0 || ref === GitRevision.deletedOrMissing || GitRevision.isUncommitted(ref)) {
+			return ref;
+		}
 
 		if (fileNameOrUri == null) {
 			if (GitRevision.isSha(ref) || !GitRevision.isShaLike(ref) || ref.endsWith('^3')) return ref;
 
-			return (await Git.rev_parse(repoPath, ref)) ?? ref;
+			return (await Git.rev_parse__verify(repoPath, ref)) ?? ref;
 		}
 
 		const fileName =
@@ -3157,15 +3159,10 @@ export class GitService implements Disposable {
 				? fileNameOrUri
 				: Strings.normalizePath(paths.relative(repoPath, fileNameOrUri.fsPath));
 
-		if (GitRevision.isShaParent(ref)) {
-			const parentRef = await Git.log__file_recent(repoPath, fileName, { ref: ref });
-			if (parentRef != null) return parentRef;
-		}
+		const blob = await Git.rev_parse__verify(repoPath, ref, fileName);
+		if (blob == null) return ref;
 
-		const ensuredRef = await Git.cat_file__resolve(repoPath, fileName, ref);
-		if (ensuredRef == null) return ref;
-
-		return ensuredRef;
+		return (await Git.log__find_object(repoPath, blob)) ?? ref;
 	}
 
 	@log()
@@ -3174,8 +3171,11 @@ export class GitService implements Disposable {
 	}
 
 	@log()
-	validateReference(repoPath: string, ref: string) {
-		return Git.cat_file__validate(repoPath, ref);
+	async validateReference(repoPath: string, ref: string) {
+		if (ref == null || ref.length === 0) return false;
+		if (ref === GitRevision.deletedOrMissing || GitRevision.isUncommitted(ref)) return true;
+
+		return (await Git.rev_parse__verify(repoPath, ref)) != null;
 	}
 
 	stageFile(repoPath: string, fileName: string): Promise<string>;

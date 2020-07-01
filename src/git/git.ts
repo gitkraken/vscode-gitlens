@@ -448,38 +448,6 @@ export namespace Git {
 		return git<string>({ cwd: repoPath, configs: ['-c', 'color.branch=false'] }, ...params, ref);
 	}
 
-	export async function cat_file__resolve(repoPath: string, fileName: string, ref: string) {
-		if (GitRevision.isUncommitted(ref)) return ref;
-
-		try {
-			void (await git<string>(
-				{ cwd: repoPath, errors: GitErrorHandling.Throw },
-				'cat-file',
-				'-e',
-				`${ref}:./${fileName}`,
-			));
-			return ref;
-		} catch (ex) {
-			const msg: string = ex?.toString();
-			if (GitErrors.notAValidObjectName.test(msg)) {
-				return GitRevision.deletedOrMissing;
-			}
-
-			return undefined;
-		}
-	}
-
-	export async function cat_file__validate(repoPath: string, ref: string) {
-		if (GitRevision.isUncommitted(ref)) return true;
-
-		try {
-			void (await git<string>({ cwd: repoPath, errors: GitErrorHandling.Throw }, 'cat-file', '-t', ref));
-			return true;
-		} catch (ex) {
-			return false;
-		}
-	}
-
 	export function check_ignore(repoPath: string, ...files: string[]) {
 		return git<string>(
 			{ cwd: repoPath, errors: GitErrorHandling.Ignore, stdin: files.join('\0') },
@@ -922,6 +890,17 @@ export namespace Git {
 		return data.length === 0 ? undefined : data.trim();
 	}
 
+	export async function log__find_object(repoPath: string, objectId: string) {
+		const data = await git<string>(
+			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
+			'log',
+			'-n1',
+			'--format=%H',
+			`--find-object=${objectId}`,
+		);
+		return data.length === 0 ? undefined : data.trim();
+	}
+
 	export async function log__recent(repoPath: string) {
 		const data = await git<string>(
 			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
@@ -1072,11 +1051,6 @@ export namespace Git {
 		return data.length === 0 ? undefined : Number(data.trim()) || undefined;
 	}
 
-	export async function rev_parse(repoPath: string, ref: string): Promise<string | undefined> {
-		const data = await git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, 'rev-parse', ref);
-		return data.length === 0 ? undefined : data.trim();
-	}
-
 	export async function rev_parse__currentBranch(
 		repoPath: string,
 	): Promise<[string, string | undefined] | undefined> {
@@ -1137,6 +1111,20 @@ export namespace Git {
 			}
 			return undefined;
 		}
+	}
+
+	export async function rev_parse__verify(
+		repoPath: string,
+		ref: string,
+		filename?: string,
+	): Promise<string | undefined> {
+		const data = await git<string>(
+			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
+			'rev-parse',
+			'--verify',
+			filename ? `${ref}:./${filename}` : `${ref}^{commit}`,
+		);
+		return data.length === 0 ? undefined : data.trim();
 	}
 
 	export function shortlog(repoPath: string) {
