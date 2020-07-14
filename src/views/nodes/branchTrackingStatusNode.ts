@@ -113,7 +113,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements
 				: ResourceType.BranchStatusBehindUpstream;
 		}
 		item.iconPath = new ThemeIcon(ahead ? 'cloud-upload' : 'cloud-download');
-		item.tooltip = `${label}${ahead ? ' of ' : ''}${this.status.upstream}`;
+		item.tooltip = `${label}${ahead ? ' of ' : ' '}${this.status.upstream}`;
 		return item;
 	}
 
