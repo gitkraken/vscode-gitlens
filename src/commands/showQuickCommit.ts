@@ -16,6 +16,7 @@ import { Logger } from '../logger';
 import { Messages } from '../messages';
 
 export interface ShowQuickCommitCommandArgs {
+	repoPath?: string;
 	sha?: string;
 	commit?: GitCommit | GitLogCommit;
 	repoLog?: GitLog;
@@ -24,10 +25,10 @@ export interface ShowQuickCommitCommandArgs {
 
 @command()
 export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
-	static getMarkdownCommandArgs(sha: string): string;
+	static getMarkdownCommandArgs(sha: string, repoPath?: string): string;
 	static getMarkdownCommandArgs(args: ShowQuickCommitCommandArgs): string;
-	static getMarkdownCommandArgs(argsOrSha: ShowQuickCommitCommandArgs | string): string {
-		const args = typeof argsOrSha === 'string' ? { sha: argsOrSha } : argsOrSha;
+	static getMarkdownCommandArgs(argsOrSha: ShowQuickCommitCommandArgs | string, repoPath?: string): string {
+		const args = typeof argsOrSha === 'string' ? { sha: argsOrSha, repoPath: repoPath } : argsOrSha;
 		return super.getMarkdownCommandArgsCore<ShowQuickCommitCommandArgs>(Commands.ShowQuickCommit, args);
 	}
 
@@ -55,9 +56,9 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: ShowQuickCommitCommandArgs) {
 		uri = getCommandUri(uri, editor);
-		if (uri == null) return;
+		if (uri == null && args?.repoPath == null) return;
 
-		const gitUri = await GitUri.fromUri(uri);
+		const gitUri = uri != null ? await GitUri.fromUri(uri) : GitUri.fromRepoPath(args!.repoPath!);
 
 		let repoPath = gitUri.repoPath;
 
