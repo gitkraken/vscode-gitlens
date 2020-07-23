@@ -22,40 +22,49 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 	}
 
 	protected onInitialized() {
-		this.setState();
+		this.updateState();
 	}
 
-	protected onBind(me: this) {
-		DOM.listenAll('input[type=checkbox][data-setting]', 'change', function (this: HTMLInputElement) {
-			return me.onInputChecked(this);
-		});
-		DOM.listenAll(
-			'input[type=text][data-setting], input[type=number][data-setting], input:not([type])[data-setting]',
-			'blur',
-			function (this: HTMLInputElement) {
-				return me.onInputBlurred(this);
-			},
+	protected onBind() {
+		const disposables = super.onBind?.() ?? [];
+
+		// eslint-disable-next-line @typescript-eslint/no-this-alias
+		const me = this;
+
+		disposables.push(
+			DOM.on('input[type=checkbox][data-setting]', 'change', function (this: HTMLInputElement) {
+				return me.onInputChecked(this);
+			}),
+			DOM.on(
+				'input[type=text][data-setting], input[type=number][data-setting], input:not([type])[data-setting]',
+				'blur',
+				function (this: HTMLInputElement) {
+					return me.onInputBlurred(this);
+				},
+			),
+			DOM.on(
+				'input[type=text][data-setting], input[type=number][data-setting], input:not([type])[data-setting]',
+				'focus',
+				function (this: HTMLInputElement) {
+					return me.onInputFocused(this);
+				},
+			),
+			DOM.on(
+				'input[type=text][data-setting][data-setting-preview], input[type=number][data-setting][data-setting-preview]',
+				'input',
+				function (this: HTMLInputElement) {
+					return me.onInputChanged(this);
+				},
+			),
+			DOM.on('select[data-setting]', 'change', function (this: HTMLSelectElement) {
+				return me.onInputSelected(this);
+			}),
+			DOM.on('.popup', 'mousedown', function (this: HTMLElement, e: Event) {
+				return me.onPopupMouseDown(this, e as MouseEvent);
+			}),
 		);
-		DOM.listenAll(
-			'input[type=text][data-setting], input[type=number][data-setting], input:not([type])[data-setting]',
-			'focus',
-			function (this: HTMLInputElement) {
-				return me.onInputFocused(this);
-			},
-		);
-		DOM.listenAll(
-			'input[type=text][data-setting][data-setting-preview], input[type=number][data-setting][data-setting-preview]',
-			'input',
-			function (this: HTMLInputElement) {
-				return me.onInputChanged(this);
-			},
-		);
-		DOM.listenAll('select[data-setting]', 'change', function (this: HTMLSelectElement) {
-			return me.onInputSelected(this);
-		});
-		DOM.listenAll('.popup', 'mousedown', function (this: HTMLElement, e: Event) {
-			return me.onPopupMouseDown(this, e as MouseEvent);
-		});
+
+		return disposables;
 	}
 
 	protected onMessageReceived(e: MessageEvent) {
@@ -66,7 +75,7 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 				onIpcNotification(DidChangeConfigurationNotificationType, msg, params => {
 					this.state.config = params.config;
 
-					this.setState();
+					this.updateState();
 				});
 				break;
 
@@ -276,7 +285,7 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 		return get<T>(this.state.config, path);
 	}
 
-	private setState() {
+	private updateState() {
 		this._updating = true;
 
 		try {

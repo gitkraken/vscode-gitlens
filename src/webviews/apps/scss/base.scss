@@ -1,0 +1,271 @@
+html {
+	height: 100%;
+	font-size: 62.5%;
+	box-sizing: border-box;
+}
+
+body {
+	background-color: var(--color-background);
+	color: var(--color-foreground);
+	font-family: var(--font-family);
+	height: 100%;
+	line-height: 1.4;
+	font-size: 100% !important;
+
+	&.vscode-light {
+		background-color: var(--color-background--darken-075);
+	}
+}
+
+// canvas.snow {
+// 	max-width: calc(100% - 20px);
+// 	pointer-events: none;
+// 	position: fixed;
+// 	z-index: 2147483646;
+// }
+
+// .snow__trigger {
+// 	cursor: pointer;
+// 	position: fixed;
+// 	right: 10px;
+// 	top: 5px;
+// 	transform: rotate(-20deg);
+// 	width: 22px;
+// 	z-index: 2147483647;
+
+// 	& svg:hover {
+// 		& path:first-child {
+// 			fill: #f30000;
+// 		}
+// 	}
+// }
+
+a {
+	border: 0;
+	color: var(--color-link-foreground);
+	font-weight: 400;
+	outline: none;
+	text-decoration: none;
+
+	&:not([href]):not([tabindex]):focus,
+	&:not([href]):not([tabindex]):hover {
+		color: inherit;
+		text-decoration: none;
+	}
+
+	&:focus {
+		outline-color: var(--color-focus-border);
+	}
+}
+
+b {
+	font-weight: 600;
+}
+
+h1 {
+	border: none;
+	font-size: 4rem;
+	font-weight: 400;
+	margin: 0;
+	padding: 0;
+	white-space: nowrap;
+}
+
+h2 {
+	font-size: 2.2rem;
+	font-weight: 200;
+	line-height: normal;
+	margin: 1em 0 0.3em 0;
+	white-space: nowrap;
+}
+
+h3 {
+	font-size: 1.8rem;
+	font-weight: 200;
+	line-height: normal;
+	margin: 1em 0 0.3em 0;
+	white-space: nowrap;
+}
+
+h4 {
+	font-size: 1rem;
+	font-weight: 200;
+	line-height: normal;
+	margin: 1em 0 0.3em 0;
+	white-space: nowrap;
+}
+
+button,
+input,
+select,
+textarea {
+	font-family: var(--font-family);
+	font-size: inherit;
+	margin: 0;
+}
+
+input[type='checkbox'] {
+	background: none;
+	border: none;
+	cursor: pointer;
+	margin: 0;
+	padding: 0 10px;
+	mix-blend-mode: luminosity;
+
+	&:focus {
+		background: rgba(0, 0, 0, 0.1);
+		border-radius: 5px;
+		outline: none;
+	}
+
+	&[disabled] {
+		color: var(--color-foreground--75);
+		cursor: default;
+	}
+}
+
+input[type='number'],
+input[type='text'],
+input:not([type]),
+textarea {
+	background: none;
+	color: var(--color-foreground);
+	margin: 0 10px;
+	max-width: 300px;
+	padding: 4px;
+	width: 100%;
+
+	.vscode-dark & {
+		border: 1px solid rgba(255, 255, 255, 0.3);
+	}
+
+	.vscode-light & {
+		border: 1px solid rgba(0, 0, 0, 0.3);
+	}
+
+	&:focus {
+		outline-color: var(--color-focus-border);
+
+		.vscode-light & {
+			background-color: rgba(255, 255, 255, 0.4);
+		}
+
+		.vscode-dark & {
+			background-color: rgba(0, 0, 0, 0.2);
+		}
+	}
+
+	&[disabled] {
+		color: var(--color-foreground--75);
+		cursor: default;
+	}
+
+	&::placeholder {
+		color: var(--vscode-input-placeholderForeground);
+	}
+}
+
+input[type='number'] {
+	max-width: 100px;
+}
+
+kbd {
+	display: inline-block;
+	font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+	font-size: 11px;
+	line-height: 11px;
+	padding: 3px 5px;
+	margin: 0 2px;
+	vertical-align: baseline;
+}
+
+label {
+	cursor: pointer;
+}
+
+select {
+	background: none;
+	color: var(--color-foreground);
+	cursor: pointer;
+	padding: 2px 23px 2px 8px;
+	min-width: 5em;
+	appearance: none;
+	-webkit-appearance: none;
+
+	.vscode-light & {
+		border: 1px solid rgba(0, 0, 0, 0.3);
+	}
+
+	.vscode-dark & {
+		border: 1px solid rgba(255, 255, 255, 0.3);
+	}
+
+	&:focus {
+		outline-color: var(--color-focus-border);
+		.vscode-light & {
+			background-color: rgba(255, 255, 255, 0.4);
+		}
+
+		.vscode-dark & {
+			background-color: rgba(0, 0, 0, 0.2);
+		}
+	}
+
+	&[disabled] {
+		color: var(--color-foreground--75);
+		cursor: default;
+	}
+
+	& option {
+		.vscode-light & {
+			background-color: var(--color-background--darken-05);
+		}
+
+		.vscode-dark & {
+			background-color: var(--color-background--lighten-05);
+		}
+
+		&:focus {
+			outline-color: var(--color-focus-border);
+
+			.vscode-light & {
+				background-color: rgba(255, 255, 255, 0.4);
+			}
+
+			.vscode-dark & {
+				background-color: rgba(0, 0, 0, 0.2);
+			}
+		}
+	}
+}
+
+.select-container {
+	display: inline-block;
+	position: relative;
+	margin: 0 0.75em;
+
+	&::after {
+		content: '\eab4';
+		font-family: codicon;
+		font-size: 14px;
+		width: 14px;
+		height: 14px;
+		line-height: 14px;
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		right: 6px;
+		margin: auto;
+		pointer-events: none;
+	}
+}
+
+ul {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+::-webkit-scrollbar-corner {
+	background-color: transparent !important;
+}

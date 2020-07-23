@@ -1,49 +1,59 @@
 'use strict';
 /*global document*/
 
-type DOMEvent = Event;
+export interface Disposable {
+	dispose: () => void;
+}
 
 export namespace DOM {
-	export type Event = DOMEvent;
+	export function on<K extends keyof DocumentEventMap, T extends Element>(
+		selector: string,
+		name: K,
+		listener: (this: T, ev: DocumentEventMap[K]) => any,
+		options?: boolean | AddEventListenerOptions,
+		el?: Element,
+	): Disposable;
+	export function on<K extends keyof DocumentEventMap, T extends Element>(
+		el: Document | Element,
+		name: K,
+		listener: (this: T, ev: DocumentEventMap[K]) => any,
+		options?: boolean | AddEventListenerOptions,
+	): Disposable;
+	export function on<K extends keyof DocumentEventMap, T extends Element>(
+		selectorOrElement: string | Document | Element,
+		name: K,
+		listener: (this: T, ev: DocumentEventMap[K]) => any,
+		options?: boolean | AddEventListenerOptions,
+		el?: Element,
+	): Disposable {
+		let disposed = false;
 
-	export function getElementById<T extends HTMLElement>(id: string): T {
-		return document.getElementById(id) as T;
-	}
+		if (typeof selectorOrElement === 'string') {
+			const $els = (el ?? document).querySelectorAll(selectorOrElement);
+			for (const $el of $els) {
+				$el.addEventListener(name, listener as EventListener, options ?? false);
+			}
 
-	// export function query<T extends HTMLElement>(selectors: string): T;
-	// export function query<T extends HTMLElement>(element: HTMLElement, selectors: string): T;
-	// export function query<T extends HTMLElement>(elementOrselectors: string | HTMLElement, selectors?: string): T {
-	//     let element: Document | HTMLElement;
-	//     if (typeof elementOrselectors === 'string') {
-	//         element = document;
-	//         selectors = elementOrselectors;
-	//     }
-	//     else {
-	//         element = elementOrselectors;
-	//     }
+			return {
+				dispose: () => {
+					if (disposed) return;
+					disposed = true;
 
-	//     return element.querySelector(selectors) as T;
-	// }
-
-	// export function queryAll<T extends Element>(selectors: string): T;
-	// export function queryAll<T extends Element>(element: HTMLElement, selectors: string): T;
-	// export function queryAll<T extends Element>(elementOrselectors: string | HTMLElement, selectors?: string): T {
-	//     let element: Document | HTMLElement;
-	//     if (typeof elementOrselectors === 'string') {
-	//         element = document;
-	//         selectors = elementOrselectors;
-	//     }
-	//     else {
-	//         element = elementOrselectors;
-	//     }
-
-	//     return element.querySelectorAll(selectors) as NodeList<T>;
-	// }
-
-	export function listenAll(selector: string, name: string, listener: EventListener) {
-		const els = (document.querySelectorAll(selector) as unknown) as Element[];
-		for (const el of els) {
-			el.addEventListener(name, listener, false);
+					for (const $el of $els) {
+						$el.removeEventListener(name, listener as EventListener, options ?? false);
+					}
+				},
+			};
 		}
+
+		selectorOrElement.addEventListener(name, listener as EventListener, options ?? false);
+		return {
+			dispose: () => {
+				if (disposed) return;
+				disposed = true;
+
+				selectorOrElement.removeEventListener(name, listener as EventListener, options ?? false);
+			},
+		};
 	}
 }

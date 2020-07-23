@@ -9,22 +9,22 @@
 				<div class="setting">
 					<div class="setting__input">
 						<label for="keymap">Use</label>
-						<select id="keymap" name="keymap" data-setting>
-							<option value="alternate">alt-based</option>
-							<option value="chorded">chorded (default)</option>
-							<option value="none">user-defined</option>
-						</select>
+						<div class="select-container">
+							<select id="keymap" name="keymap" data-setting>
+								<option value="alternate">alt-based</option>
+								<option value="chorded">chorded (default)</option>
+								<option value="none">user-defined</option>
+							</select>
+						</div>
 						<label for="keymap"> keyboard shortcuts</label>
 					</div>
 					<span class="setting__hint hidden" data-visibility="keymap =alternate">
-						<span class="shortcut-key">Alt</span> based (<span class="shortcut-key">&#x2325;</span>
+						<kbd>Alt</kbd> based (<kbd>&#x2325;</kbd>
 						on macOS) shortcuts. Not great for non-English keyboard layouts
 					</span>
 					<span class="setting__hint hidden" data-visibility="keymap =chorded">
 						Chorded shortcuts that start with
-						<span class="shortcut-key">Ctrl+Shift+G</span> (<span class="shortcut-key"
-							>&#x2325;&#x2318;G</span
-						>
+						<kbd>Ctrl+Shift+G</kbd> (<kbd>&#x2325;&#x2318;G</kbd>
 						on macOS). Better for non-English keyboard layouts
 					</span>
 					<span class="setting__hint hidden" data-visibility="keymap =none">

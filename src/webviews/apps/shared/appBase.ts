@@ -1,5 +1,6 @@
 'use strict';
 /*global window document*/
+import { Disposable } from 'vscode';
 import { IpcCommandParamsOf, IpcCommandType, IpcMessage, ReadyCommandType } from '../../protocol';
 import { initializeAndWatchThemeColors } from './theme';
 
@@ -12,12 +13,21 @@ interface VsCodeApi {
 declare function acquireVsCodeApi(): VsCodeApi;
 
 let ipcSequence = 0;
+function nextIpcId() {
+	if (ipcSequence === Number.MAX_SAFE_INTEGER) {
+		ipcSequence = 1;
+	} else {
+		ipcSequence++;
+	}
 
-export abstract class App<TState> {
+	return `webview:${ipcSequence}`;
+}
+
+export abstract class App<State extends object> {
 	private readonly _api: VsCodeApi;
-	protected state: TState;
+	protected state: State;
 
-	constructor(protected readonly appName: string, state: TState) {
+	constructor(protected readonly appName: string, state: State) {
 		this.log(`${this.appName}.ctor`);
 
 		this._api = acquireVsCodeApi();
@@ -27,22 +37,16 @@ export abstract class App<TState> {
 		setTimeout(() => {
 			this.log(`${this.appName}.initializing`);
 
-			if (this.onInitialize !== undefined) {
-				this.onInitialize();
-			}
-			if (this.onBind !== undefined) {
-				this.onBind(this);
-			}
+			this.onInitialize?.();
+			this.bind();
 
-			if (this.onMessageReceived !== undefined) {
+			if (this.onMessageReceived != null) {
 				window.addEventListener('message', this.onMessageReceived.bind(this));
 			}
 
 			this.sendCommand(ReadyCommandType, {});
 
-			if (this.onInitialized !== undefined) {
-				this.onInitialized();
-			}
+			this.onInitialized?.();
 
 			setTimeout(() => {
 				document.body.classList.remove('preload');
@@ -51,26 +55,31 @@ export abstract class App<TState> {
 	}
 
 	protected onInitialize?(): void;
-	protected onBind?(me: this): void;
+	protected onBind?(): Disposable[];
 	protected onInitialized?(): void;
 	protected onMessageReceived?(e: MessageEvent): void;
+
+	private bindDisposables: Disposable[] | undefined;
+	protected bind() {
+		this.bindDisposables?.forEach(d => d.dispose());
+		this.bindDisposables = this.onBind?.();
+	}
 
 	protected log(message: string) {
 		console.log(message);
 	}
 
-	protected sendCommand<CT extends IpcCommandType>(type: CT, params: IpcCommandParamsOf<CT>): void {
-		return this.postMessage({ id: this.nextIpcId(), method: type.method, params: params });
+	protected getState(): State {
+		return this._api.getState() as State;
 	}
 
-	private nextIpcId() {
-		if (ipcSequence === Number.MAX_SAFE_INTEGER) {
-			ipcSequence = 1;
-		} else {
-			ipcSequence++;
-		}
+	protected sendCommand<CT extends IpcCommandType>(type: CT, params: IpcCommandParamsOf<CT>): void {
+		return this.postMessage({ id: nextIpcId(), method: type.method, params: params });
+	}
 
-		return `webview:${ipcSequence}`;
+	protected setState(state: State) {
+		this.state = state;
+		this._api.setState(state);
 	}
 
 	private postMessage(e: IpcMessage) {

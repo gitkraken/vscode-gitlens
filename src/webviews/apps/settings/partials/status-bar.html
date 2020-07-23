@@ -44,38 +44,44 @@
 					<div class="setting" data-enablement="statusBar.enabled">
 						<div class="setting__input">
 							<label for="statusBar.alignment">Position the annotation on the</label>
-							<select id="statusBar.alignment" name="statusBar.alignment" data-setting disabled>
-								<option value="left">left</option>
-								<option value="right">right</option>
-							</select>
+							<div class="select-container">
+								<select id="statusBar.alignment" name="statusBar.alignment" data-setting disabled>
+									<option value="left">left</option>
+									<option value="right">right</option>
+								</select>
+							</div>
 						</div>
 					</div>
 
 					<div class="setting" data-enablement="statusBar.enabled">
 						<div class="setting__input">
 							<label class="nowrap" for="statusBar.command">When clicked</label>
-							<select id="statusBar.command" name="statusBar.command" data-setting disabled>
-								<option value="gitlens.toggleFileBlame">toggles the file blame annotations</option>
-								<option value="gitlens.diffWithPrevious"
-									>opens line changes with the previous revision</option
-								>
-								<option value="gitlens.diffWithWorking"
-									>opens line changes with the working file</option
-								>
-								<option value="gitlens.revealCommitInView"
-									>reveals the commit in the Repositories view</option
-								>
-								<option value="gitlens.showCommitsInView"
-									>shows the commit in the Search Commits view</option
-								>
-								<option value="gitlens.toggleCodeLens">toggles the Git code lens</option>
-								<option value="gitlens.showQuickCommitDetails">shows details of the commit</option>
-								<option value="gitlens.showQuickCommitFileDetails"
-									>shows file details of the commit</option
-								>
-								<option value="gitlens.showQuickFileHistory">shows the current file history</option>
-								<option value="gitlens.showQuickRepoHistory">shows the current branch history</option>
-							</select>
+							<div class="select-container">
+								<select id="statusBar.command" name="statusBar.command" data-setting disabled>
+									<option value="gitlens.toggleFileBlame">toggles the file blame annotations</option>
+									<option value="gitlens.diffWithPrevious"
+										>opens line changes with the previous revision</option
+									>
+									<option value="gitlens.diffWithWorking"
+										>opens line changes with the working file</option
+									>
+									<option value="gitlens.revealCommitInView"
+										>reveals the commit in the Repositories view</option
+									>
+									<option value="gitlens.showCommitsInView"
+										>shows the commit in the Search Commits view</option
+									>
+									<option value="gitlens.toggleCodeLens">toggles the Git code lens</option>
+									<option value="gitlens.showQuickCommitDetails">shows details of the commit</option>
+									<option value="gitlens.showQuickCommitFileDetails"
+										>shows file details of the commit</option
+									>
+									<option value="gitlens.showQuickFileHistory">shows the current file history</option>
+									<option value="gitlens.showQuickRepoHistory"
+										>shows the current branch history</option
+									>
+								</select>
+							</div>
 						</div>
 					</div>
 

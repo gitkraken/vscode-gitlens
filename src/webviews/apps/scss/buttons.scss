@@ -1,0 +1,99 @@
+.button {
+	background: none;
+	border: none;
+	border-radius: 3px;
+	cursor: pointer;
+	display: inline-block;
+	font-size: 1.1rem;
+	letter-spacing: 0.25em;
+	margin: 1em 0.5em;
+	padding: 1em 1.75em;
+	text-decoration: none;
+	text-transform: uppercase;
+	user-select: none;
+	white-space: nowrap;
+
+	&:focus {
+		outline: none;
+	}
+}
+
+.button--big {
+	font-size: 1.5rem;
+}
+
+.button--flat {
+	.vscode-light & {
+		border: 1px solid rgba(0, 0, 0, 0.6);
+		color: black;
+	}
+	.vscode-dark & {
+		border: 1px solid rgba(255, 255, 255, 0.6);
+		color: white !important;
+	}
+	transition: background-color 250ms, border-color 250ms, color 250ms;
+
+	&:hover,
+	&:focus {
+		.vscode-light & {
+			background-color: var(--color-button-background--darken-30);
+			border-color: var(--color-button-background--darken-30);
+			color: white !important;
+		}
+		.vscode-dark & {
+			background-color: white;
+			border-color: white;
+			color: black !important;
+		}
+	}
+
+	.preload & {
+		transition-duration: 0s !important;
+	}
+}
+
+.button--flat-inverse {
+	background-color: white;
+	border: 1px solid white;
+	color: black !important;
+	font-weight: 600;
+	transition: background-color 250ms, border-color 250ms, color 250ms;
+
+	&:hover,
+	&:focus {
+		background: rgba(0, 0, 0, 0.2);
+		border-color: rgba(255, 255, 255, 0.6);
+		color: white !important;
+	}
+
+	.preload & {
+		transition-duration: 0s !important;
+	}
+}
+
+.button--flat-primary {
+	background-color: var(--color-button-background);
+	border: 1px solid var(--color-button-background);
+	color: var(--color-button-foreground) !important;
+	font-weight: 600;
+	transition: background-color 250ms, border-color 250ms, color 250ms;
+
+	&:hover,
+	&:focus {
+		.vscode-dark & {
+			background-color: white;
+			border-color: white;
+			color: black !important;
+		}
+
+		.vscode-light & {
+			background-color: var(--color-button-background--darken-30);
+			border-color: var(--color-button-background--darken-30);
+			color: white !important;
+		}
+	}
+
+	.preload & {
+		transition-duration: 0s !important;
+	}
+}

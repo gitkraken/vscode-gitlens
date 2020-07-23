@@ -28,6 +28,15 @@ import {
 import { Commands } from '../commands';
 
 let ipcSequence = 0;
+function nextIpcId() {
+	if (ipcSequence === Number.MAX_SAFE_INTEGER) {
+		ipcSequence = 1;
+	} else {
+		ipcSequence++;
+	}
+
+	return `host:${ipcSequence}`;
+}
 
 const emptyCommands: Disposable[] = [
 	{
@@ -229,17 +238,7 @@ export abstract class WebviewBase implements Disposable {
 	}
 
 	protected notify<NT extends IpcNotificationType>(type: NT, params: IpcNotificationParamsOf<NT>): Thenable<boolean> {
-		return this.postMessage({ id: this.nextIpcId(), method: type.method, params: params });
-	}
-
-	private nextIpcId() {
-		if (ipcSequence === Number.MAX_SAFE_INTEGER) {
-			ipcSequence = 1;
-		} else {
-			ipcSequence++;
-		}
-
-		return `host:${ipcSequence}`;
+		return this.postMessage({ id: nextIpcId(), method: type.method, params: params });
 	}
 
 	private notifyDidChangeConfiguration() {

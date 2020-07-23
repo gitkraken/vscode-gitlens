@@ -24,16 +24,18 @@
 					<div class="setting" data-enablement="views.repositories.enabled">
 						<div class="setting__input">
 							<label for="views.repositories.location">Show in the</label>
-							<select
-								id="views.repositories.location"
-								name="views.repositories.location"
-								data-setting
-								disabled
-							>
-								<option value="gitlens">GitLens side bar</option>
-								<option value="explorer">Explorer side bar</option>
-								<option value="scm">Source Control side bar</option>
-							</select>
+							<div class="select-container">
+								<select
+									id="views.repositories.location"
+									name="views.repositories.location"
+									data-setting
+									disabled
+								>
+									<option value="gitlens">GitLens side bar</option>
+									<option value="explorer">Explorer side bar</option>
+									<option value="scm">Source Control side bar</option>
+								</select>
+							</div>
 						</div>
 					</div>
 
@@ -49,16 +51,18 @@
 							/>
 							<label for="views.repositories.showBranchComparison"
 								>Show a comparison of a user-selected reference (branch, tag, etc) to the
-								<select
-									id="views.repositories.showBranchComparison"
-									name="views.repositories.showBranchComparison"
-									data-setting
-									data-enablement="views.repositories.enabled &amp; views.repositories.showBranchComparison !false"
-									disabled
-								>
-									<option value="branch">current branch</option>
-									<option value="working">working tree</option>
-								</select>
+								<div class="select-container">
+									<select
+										id="views.repositories.showBranchComparison"
+										name="views.repositories.showBranchComparison"
+										data-setting
+										data-enablement="views.repositories.enabled &amp; views.repositories.showBranchComparison !false"
+										disabled
+									>
+										<option value="branch">current branch</option>
+										<option value="working">working tree</option>
+									</select>
+								</div>
 							</label>
 						</div>
 					</div>
@@ -66,55 +70,63 @@
 					<div class="setting" data-enablement="views.repositories.enabled">
 						<div class="setting__input">
 							<label for="views.repositories.branches.layout">Layout branches</label>
-							<select
-								id="views.repositories.branches.layout"
-								name="views.repositories.branches.layout"
-								data-setting
-								disabled
-							>
-								<option value="list">as a list</option>
-								<option value="tree">as a tree</option>
-							</select>
+							<div class="select-container">
+								<select
+									id="views.repositories.branches.layout"
+									name="views.repositories.branches.layout"
+									data-setting
+									disabled
+								>
+									<option value="list">as a list</option>
+									<option value="tree">as a tree</option>
+								</select>
+							</div>
 						</div>
 					</div>
 
 					<div class="setting" data-enablement="views.repositories.enabled">
 						<div class="setting__input">
 							<label for="sortBranchesBy">Sort branches</label>
-							<select id="sortBranchesBy" name="sortBranchesBy" data-setting disabled>
-								<option value="name:desc">by name, descending</option>
-								<option value="name:asc">by name, ascending</option>
-								<option value="date:desc">by date, descending</option>
-								<option value="date:asc">by date, ascending</option>
-							</select>
+							<div class="select-container">
+								<select id="sortBranchesBy" name="sortBranchesBy" data-setting disabled>
+									<option value="name:desc">by name, descending</option>
+									<option value="name:asc">by name, ascending</option>
+									<option value="date:desc">by date, descending</option>
+									<option value="date:asc">by date, ascending</option>
+								</select>
+							</div>
 						</div>
 					</div>
 
 					<div class="setting" data-enablement="views.repositories.enabled">
 						<div class="setting__input">
 							<label for="sortTagsBy">Sort tags</label>
-							<select id="sortTagsBy" name="sortTagsBy" data-setting disabled>
-								<option value="name:desc">by name, descending</option>
-								<option value="name:asc">by name, ascending</option>
-								<option value="date:desc">by date, descending</option>
-								<option value="date:asc">by date, ascending</option>
-							</select>
+							<div class="select-container">
+								<select id="sortTagsBy" name="sortTagsBy" data-setting disabled>
+									<option value="name:desc">by name, descending</option>
+									<option value="name:asc">by name, ascending</option>
+									<option value="date:desc">by date, descending</option>
+									<option value="date:asc">by date, ascending</option>
+								</select>
+							</div>
 						</div>
 					</div>
 
 					<div class="setting" data-enablement="views.repositories.enabled">
 						<div class="setting__input">
 							<label for="views.repositories.files.layout">Layout files</label>
-							<select
-								id="views.repositories.files.layout"
-								name="views.repositories.files.layout"
-								data-setting
-								disabled
-							>
-								<option value="auto">automatically</option>
-								<option value="list">as a list</option>
-								<option value="tree">as a tree</option>
-							</select>
+							<div class="select-container">
+								<select
+									id="views.repositories.files.layout"
+									name="views.repositories.files.layout"
+									data-setting
+									disabled
+								>
+									<option value="auto">automatically</option>
+									<option value="list">as a list</option>
+									<option value="tree">as a tree</option>
+								</select>
+							</div>
 						</div>
 						<p class="setting__hint" data-visibility="views.repositories.files.layout =auto">
 							Chooses the best layout based on the number of files at each nesting level

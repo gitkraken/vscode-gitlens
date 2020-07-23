@@ -31,7 +31,7 @@
 					>
 					command to turn the annotations on or off
 				</p>
-				<p>Press <span class="shortcut-key">Esc</span> to turn off the annotations</p>
+				<p>Press <kbd>Esc</kbd> to turn off the annotations</p>
 			</div>
 		</div>
 	</div>
@@ -42,10 +42,12 @@
 				<div class="setting">
 					<div class="setting__input">
 						<label for="blame.toggleMode">Toggle annotations </label>
-						<select id="blame.toggleMode" name="blame.toggleMode" data-setting>
-							<option value="file">individually for each file</option>
-							<option value="window">for all files</option>
-						</select>
+						<div class="select-container">
+							<select id="blame.toggleMode" name="blame.toggleMode" data-setting>
+								<option value="file">individually for each file</option>
+								<option value="window">for all files</option>
+							</select>
+						</div>
 					</div>
 				</div>
 
@@ -85,10 +87,12 @@
 					<div class="setting" data-enablement="blame.heatmap.enabled" disabled>
 						<div class="setting__input">
 							<label for="blame.heatmap.location">Position the heatmap on the</label>
-							<select id="blame.heatmap.location" name="blame.heatmap.location" data-setting disabled>
-								<option value="left">left</option>
-								<option value="right">right</option>
-							</select>
+							<div class="select-container">
+								<select id="blame.heatmap.location" name="blame.heatmap.location" data-setting disabled>
+									<option value="left">left</option>
+									<option value="right">right</option>
+								</select>
+							</div>
 						</div>
 					</div>
 				</div>

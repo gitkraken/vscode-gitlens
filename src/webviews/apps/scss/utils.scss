@@ -1,0 +1,99 @@
+.bold {
+	font-weight: 600;
+}
+
+.center {
+	text-align: center;
+}
+
+.hidden {
+	display: none !important;
+}
+
+.mb-0 {
+	margin-bottom: 0 !important;
+}
+
+.mb-05 {
+	margin-bottom: 0.5em !important;
+}
+
+.mb-1 {
+	margin-bottom: 1em !important;
+}
+
+.mb-2 {
+	margin-bottom: 2em !important;
+}
+
+.ml-0 {
+	margin-left: 0 !important;
+}
+
+.ml-1 {
+	margin-left: 1em !important;
+}
+
+.ml-2 {
+	margin-left: 2em !important;
+}
+
+.ml-3 {
+	margin-left: 3em !important;
+}
+
+.ml-4 {
+	margin-left: 4em !important;
+}
+
+.mr-0 {
+	margin-right: 0 !important;
+}
+
+.mr-1 {
+	margin-right: 1em !important;
+}
+
+.mr-2 {
+	margin-right: 2em !important;
+}
+
+.mt-n1 {
+	margin-top: -1em !important;
+}
+
+.mt-0 {
+	margin-top: 0 !important;
+}
+
+.mt-05 {
+	margin-top: 0.5em !important;
+}
+
+.mt-1 {
+	margin-top: 1em !important;
+}
+
+.mt-2 {
+	margin-top: 2em !important;
+}
+
+.non-interactive {
+	cursor: default !important;
+}
+
+.nowrap {
+	white-space: nowrap !important;
+}
+
+.light {
+	.vscode-dark & {
+		display: none;
+	}
+}
+
+.dark {
+	.vscode-light & {
+		display: none;
+	}
+}

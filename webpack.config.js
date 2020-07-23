@@ -4,6 +4,7 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable @typescript-eslint/prefer-nullish-coalescing */
 /* eslint-disable @typescript-eslint/strict-boolean-expressions */
+/* eslint-disable @typescript-eslint/prefer-optional-chain */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -229,10 +230,14 @@ function getWebviewsConfig(mode, env) {
 	 * @type WebpackConfig['plugins']
 	 */
 	const plugins = [
-		new CleanPlugin({ cleanOnceBeforeBuildPatterns: clean }),
+		new CleanPlugin({ cleanOnceBeforeBuildPatterns: clean, cleanStaleWebpackAssets: false }),
 		new ForkTsCheckerPlugin({
 			async: false,
-			eslint: { enabled: true, files: path.resolve(__dirname, 'src/**/*.ts'), options: { cache: true } },
+			eslint: {
+				enabled: true,
+				files: path.resolve(__dirname, 'src/webviews/apps/**/*.ts'),
+				options: { cache: true },
+			},
 			formatter: 'basic',
 			typescript: {
 				configFile: path.resolve(__dirname, 'tsconfig.webviews.json'),
@@ -242,9 +247,9 @@ function getWebviewsConfig(mode, env) {
 			filename: '[name].css',
 		}),
 		new HtmlPlugin({
+			template: 'settings/settings.html',
+			chunks: ['settings', 'settings-styles'],
 			excludeAssets: [/.+-styles\.js/],
-			excludeChunks: ['welcome'],
-			template: 'settings/settings.ejs',
 			filename: path.resolve(__dirname, 'dist/webviews/settings.html'),
 			inject: true,
 			cspPlugin: {
@@ -270,9 +275,9 @@ function getWebviewsConfig(mode, env) {
 					: false,
 		}),
 		new HtmlPlugin({
+			template: 'welcome/welcome.html',
+			chunks: ['welcome', 'welcome-styles'],
 			excludeAssets: [/.+-styles\.js/],
-			excludeChunks: ['settings'],
-			template: 'welcome/welcome.ejs',
 			filename: path.resolve(__dirname, 'dist/webviews/welcome.html'),
 			inject: true,
 			cspPlugin: {
@@ -323,9 +328,10 @@ function getWebviewsConfig(mode, env) {
 		name: 'webviews',
 		context: path.resolve(__dirname, 'src/webviews/apps'),
 		entry: {
-			'main-styles': ['./scss/main.scss'],
 			settings: ['./settings/settings.ts'],
+			'settings-styles': ['./scss/settings.scss'],
 			welcome: ['./welcome/welcome.ts'],
+			'welcome-styles': ['./scss/welcome.scss'],
 		},
 		mode: mode,
 		target: 'web',
@@ -371,11 +377,6 @@ function getWebviewsConfig(mode, env) {
 						},
 					],
 					exclude: /node_modules/,
-				},
-				{
-					test: /\.ejs$/,
-					loader: 'ejs-compiled-loader',
-					options: {},
 				},
 			],
 		},

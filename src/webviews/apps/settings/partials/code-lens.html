@@ -60,32 +60,40 @@
 									disabled
 								/>
 								<label class="nowrap" for="codeLens.recentChange.command">When clicked</label>
-								<select
-									id="codeLens.recentChange.command"
-									name="codeLens.recentChange.command"
-									data-setting
-									data-enablement="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.recentChange.command !false"
-									disabled
-								>
-									<option value="gitlens.toggleFileBlame">toggles the file blame annotations</option>
-									<option value="gitlens.diffWithPrevious"
-										>opens changes with the previous revision</option
+								<div class="select-container">
+									<select
+										id="codeLens.recentChange.command"
+										name="codeLens.recentChange.command"
+										data-setting
+										data-enablement="codeLens.enabled &amp; codeLens.recentChange.enabled &amp; codeLens.recentChange.command !false"
+										disabled
 									>
-									<option value="gitlens.revealCommitInView"
-										>reveals the commit in the Repositories view</option
-									>
-									<option value="gitlens.showCommitsInView"
-										>shows the commit in the Search Commits view</option
-									>
-									<option value="gitlens.showQuickCommitDetails">shows details of the commit</option>
-									<option value="gitlens.showQuickCommitFileDetails">
-										shows file details of the commit
-									</option>
-									<option value="gitlens.showQuickFileHistory">shows the current file history</option>
-									<option value="gitlens.showQuickRepoHistory"
-										>shows the current branch history</option
-									>
-								</select>
+										<option value="gitlens.toggleFileBlame"
+											>toggles the file blame annotations</option
+										>
+										<option value="gitlens.diffWithPrevious"
+											>opens changes with the previous revision</option
+										>
+										<option value="gitlens.revealCommitInView"
+											>reveals the commit in the Repositories view</option
+										>
+										<option value="gitlens.showCommitsInView"
+											>shows the commit in the Search Commits view</option
+										>
+										<option value="gitlens.showQuickCommitDetails"
+											>shows details of the commit</option
+										>
+										<option value="gitlens.showQuickCommitFileDetails">
+											shows file details of the commit
+										</option>
+										<option value="gitlens.showQuickFileHistory"
+											>shows the current file history</option
+										>
+										<option value="gitlens.showQuickRepoHistory"
+											>shows the current branch history</option
+										>
+									</select>
+								</div>
 							</div>
 						</div>
 					</div>
@@ -117,32 +125,40 @@
 									disabled
 								/>
 								<label class="nowrap" for="codeLens.authors.command">When clicked</label>
-								<select
-									id="codeLens.authors.command"
-									name="codeLens.authors.command"
-									data-setting
-									data-enablement="codeLens.enabled &amp; codeLens.authors.enabled &amp; codeLens.authors.command !false"
-									disabled
-								>
-									<option value="gitlens.toggleFileBlame">toggles the file blame annotations</option>
-									<option value="gitlens.diffWithPrevious"
-										>opens changes with the previous revision</option
+								<div class="select-container">
+									<select
+										id="codeLens.authors.command"
+										name="codeLens.authors.command"
+										data-setting
+										data-enablement="codeLens.enabled &amp; codeLens.authors.enabled &amp; codeLens.authors.command !false"
+										disabled
 									>
-									<option value="gitlens.revealCommitInView"
-										>reveals the commit in the Repositories view</option
-									>
-									<option value="gitlens.showCommitsInView"
-										>shows the commits within the range in the Search Commits view</option
-									>
-									<option value="gitlens.showQuickCommitDetails">shows details of the commit</option>
-									<option value="gitlens.showQuickCommitFileDetails">
-										show file details of the commit
-									</option>
-									<option value="gitlens.showQuickFileHistory">shows the current file history</option>
-									<option value="gitlens.showQuickRepoHistory"
-										>shows the current branch history</option
-									>
-								</select>
+										<option value="gitlens.toggleFileBlame"
+											>toggles the file blame annotations</option
+										>
+										<option value="gitlens.diffWithPrevious"
+											>opens changes with the previous revision</option
+										>
+										<option value="gitlens.revealCommitInView"
+											>reveals the commit in the Repositories view</option
+										>
+										<option value="gitlens.showCommitsInView"
+											>shows the commits within the range in the Search Commits view</option
+										>
+										<option value="gitlens.showQuickCommitDetails"
+											>shows details of the commit</option
+										>
+										<option value="gitlens.showQuickCommitFileDetails">
+											show file details of the commit
+										</option>
+										<option value="gitlens.showQuickFileHistory"
+											>shows the current file history</option
+										>
+										<option value="gitlens.showQuickRepoHistory"
+											>shows the current branch history</option
+										>
+									</select>
+								</div>
 							</div>
 						</div>
 					</div>

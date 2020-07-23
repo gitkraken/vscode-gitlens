@@ -146,7 +146,9 @@
 					<div class="hero__toolbar">
 						<div class="hero__toolbar-scope hidden">
 							<label for="scopes">Save Settings to</label>
-							<select id="scopes" name="scope"> </select>
+							<div class="select-container">
+								<select id="scopes" name="scope"></select>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -166,39 +168,39 @@
 
 			<div class="content__area content__area--full-scroll">
 				<!-- prettier-ignore -->
-				<%- include partials/current-line.ejs -%>
+				<%= require('html-loader!./partials/current-line.html') %>
 				<!-- prettier-ignore -->
-				<%- include partials/code-lens.ejs -%>
+				<%= require('html-loader!./partials/code-lens.html') %>
 				<!-- prettier-ignore -->
-				<%- include partials/status-bar.ejs -%>
+				<%= require('html-loader!./partials/status-bar.html') %>
 				<!-- prettier-ignore -->
-				<%- include partials/hovers.ejs -%>
+				<%= require('html-loader!./partials/hovers.html') %>
 				<!-- prettier-ignore -->
-				<%- include partials/views.ejs -%>
+				<%= require('html-loader!./partials/views.html') %>
 				<!-- prettier-ignore -->
-				<%- include partials/views.repositories.ejs -%>
+				<%= require('html-loader!./partials/views.repositories.html') %>
 				<!-- prettier-ignore -->
-				<%- include partials/views.file-history.ejs -%>
+				<%= require('html-loader!./partials/views.file-history.html') %>
 				<!-- prettier-ignore -->
-				<%- include partials/views.line-history.ejs -%>
+				<%= require('html-loader!./partials/views.line-history.html') %>
 				<!-- prettier-ignore -->
-				<%- include partials/views.search.ejs -%>
+				<%= require('html-loader!./partials/views.search.html') %>
 				<!-- prettier-ignore -->
-				<%- include partials/views.compare.ejs -%>
+				<%= require('html-loader!./partials/views.compare.html') %>
 				<!-- prettier-ignore -->
-				<%- include partials/blame.ejs -%>
+				<%= require('html-loader!./partials/blame.html') %>
 				<!-- prettier-ignore -->
-				<%- include partials/changes.ejs -%>
+				<%= require('html-loader!./partials/changes.html') %>
 				<!-- prettier-ignore -->
-				<%- include partials/heatmap.ejs -%>
+				<%= require('html-loader!./partials/heatmap.html') %>
 				<!-- prettier-ignore -->
-				<%- include partials/dates.ejs -%>
+				<%= require('html-loader!./partials/dates.html') %>
 				<!-- prettier-ignore -->
-				<%- include partials/menus.ejs -%>
+				<%= require('html-loader!./partials/menus.html') %>
 				<!-- prettier-ignore -->
-				<%- include partials/shortcuts.ejs -%>
+				<%= require('html-loader!./partials/shortcuts.html') %>
 				<!-- prettier-ignore -->
-				<%- include partials/modes.ejs -%>
+				<%= require('html-loader!./partials/modes.html') %>
 			</div>
 
 			<div class="sidebar">

@@ -33,7 +33,7 @@
 					</a>
 					command to turn the annotations on or off
 				</p>
-				<p>Press <span class="shortcut-key">Esc</span> to turn off the annotations</p>
+				<p>Press <kbd>Esc</kbd> to turn off the annotations</p>
 			</div>
 		</div>
 	</div>
@@ -44,10 +44,12 @@
 				<div class="setting">
 					<div class="setting__input">
 						<label for="changes.toggleMode">Toggle annotations </label>
-						<select id="changes.toggleMode" name="changes.toggleMode" data-setting>
-							<option value="file">individually for each file</option>
-							<option value="window">for all files</option>
-						</select>
+						<div class="select-container">
+							<select id="changes.toggleMode" name="changes.toggleMode" data-setting>
+								<option value="file">individually for each file</option>
+								<option value="window">for all files</option>
+							</select>
+						</div>
 					</div>
 				</div>
 

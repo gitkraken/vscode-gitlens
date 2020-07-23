@@ -24,27 +24,31 @@
 					<div class="setting" data-enablement="views.compare.enabled">
 						<div class="setting__input">
 							<label for="views.compare.location">Show in the</label>
-							<select id="views.compare.location" name="views.compare.location" data-setting disabled>
-								<option value="gitlens">GitLens side bar</option>
-								<option value="explorer">Explorer side bar</option>
-								<option value="scm">Source Control side bar</option>
-							</select>
+							<div class="select-container">
+								<select id="views.compare.location" name="views.compare.location" data-setting disabled>
+									<option value="gitlens">GitLens side bar</option>
+									<option value="explorer">Explorer side bar</option>
+									<option value="scm">Source Control side bar</option>
+								</select>
+							</div>
 						</div>
 					</div>
 
 					<div class="setting" data-enablement="views.compare.enabled">
 						<div class="setting__input">
 							<label for="views.compare.files.layout">Layout files</label>
-							<select
-								id="views.compare.files.layout"
-								name="views.compare.files.layout"
-								data-setting
-								disabled
-							>
-								<option value="auto">automatically</option>
-								<option value="list">as a list</option>
-								<option value="tree">as a tree</option>
-							</select>
+							<div class="select-container">
+								<select
+									id="views.compare.files.layout"
+									name="views.compare.files.layout"
+									data-setting
+									disabled
+								>
+									<option value="auto">automatically</option>
+									<option value="list">as a list</option>
+									<option value="tree">as a tree</option>
+								</select>
+							</div>
 						</div>
 					</div>
 

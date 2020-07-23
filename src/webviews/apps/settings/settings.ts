@@ -18,7 +18,7 @@ export class SettingsApp extends AppWithConfig<SettingsState> {
 
 	protected onInitialize() {
 		// Add scopes if available
-		const scopes = DOM.getElementById<HTMLSelectElement>('scopes');
+		const scopes = document.getElementById('scopes') as HTMLSelectElement;
 		if (scopes != null && this.state.scopes.length > 1) {
 			for (const [scope, text] of this.state.scopes) {
 				const option = document.createElement('option');
@@ -51,29 +51,36 @@ export class SettingsApp extends AppWithConfig<SettingsState> {
 		}
 	}
 
-	protected onBind(me: this) {
-		super.onBind(me);
+	protected onBind() {
+		const disposables = super.onBind?.() ?? [];
 
-		DOM.listenAll('.section--collapsible>.section__header', 'click', function (this: HTMLInputElement, e: Event) {
-			return me.onSectionHeaderClicked(this, e as MouseEvent);
-		});
-		DOM.listenAll('.setting--expandable .setting__expander', 'click', function (this: HTMLInputElement, e: Event) {
-			return me.onSettingExpanderCicked(this, e as MouseEvent);
-		});
-		DOM.listenAll('a[data-action="jump"]', 'mousedown', (e: Event) => {
-			e.stopPropagation();
-			e.preventDefault();
-		});
-		DOM.listenAll('a[data-action="jump"]', 'click', function (this: HTMLAnchorElement, e: Event) {
-			return me.onJumpToLinkClicked(this, e as MouseEvent);
-		});
-		DOM.listenAll('[data-action]', 'mousedown', (e: Event) => {
-			e.stopPropagation();
-			e.preventDefault();
-		});
-		DOM.listenAll('[data-action]', 'click', function (this: HTMLAnchorElement, e: Event) {
-			return me.onActionLinkClicked(this, e as MouseEvent);
-		});
+		// eslint-disable-next-line @typescript-eslint/no-this-alias
+		const me = this;
+
+		disposables.push(
+			DOM.on('.section--collapsible>.section__header', 'click', function (this: Element, e: MouseEvent) {
+				return me.onSectionHeaderClicked(this as HTMLInputElement, e);
+			}),
+			DOM.on('.setting--expandable .setting__expander', 'click', function (this: Element, e: MouseEvent) {
+				return me.onSettingExpanderCicked(this as HTMLInputElement, e);
+			}),
+			DOM.on('a[data-action="jump"]', 'mousedown', (e: Event) => {
+				e.stopPropagation();
+				e.preventDefault();
+			}),
+			DOM.on('a[data-action="jump"]', 'click', function (this: Element, e: MouseEvent) {
+				return me.onJumpToLinkClicked(this as HTMLAnchorElement, e);
+			}),
+			DOM.on('[data-action]', 'mousedown', (e: Event) => {
+				e.stopPropagation();
+				e.preventDefault();
+			}),
+			DOM.on('[data-action]', 'click', function (this: Element, e: MouseEvent) {
+				return me.onActionLinkClicked(this as HTMLAnchorElement, e);
+			}),
+		);
+
+		return disposables;
 	}
 
 	protected onMessageReceived(e: MessageEvent) {
