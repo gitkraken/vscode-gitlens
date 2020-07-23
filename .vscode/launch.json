@@ -3,18 +3,19 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"name": "Launch GitLens",
+			"name": "Run GitLens",
 			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
 			"args": ["--extensionDevelopmentPath=${workspaceFolder}"],
+			"cwd": "${workspaceFolder}",
+			"debugWebviews": { "urlFilter": "*eamodio.gitlens*" },
 			"env": {
 				"VSCODE_DEBUGGING_EXTENSION": "gitlens"
 			},
-			"cwd": "${workspaceFolder}",
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
 			"presentation": {
-				"group": "2_launch",
+				"group": "2_run",
 				"order": 1
 			},
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
@@ -23,18 +24,19 @@
 			"trace": true
 		},
 		{
-			"name": "Launch GitLens (Sandbox)",
+			"name": "Run GitLens (Sandboxed)",
 			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
 			"args": ["--disable-extensions", "--extensionDevelopmentPath=${workspaceFolder}"],
+			"cwd": "${workspaceFolder}",
+			"debugWebviews": { "urlFilter": "*eamodio.gitlens*" },
 			"env": {
 				"VSCODE_DEBUGGING_EXTENSION": "gitlens"
 			},
-			"cwd": "${workspaceFolder}",
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
 			"presentation": {
-				"group": "2_launch",
+				"group": "2_run",
 				"order": 2
 			},
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
@@ -44,16 +46,20 @@
 		},
 		{
 			"name": "Watch & Launch GitLens",
-			"type": "extensionHost",
+			"type": "pwa-extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
+			"args": ["--extensionDevelopmentPath=${workspaceFolder}"],
+			"cwd": "${workspaceFolder}",
+			"debugWebviews": {
+				"urlFilter": "*eamodio.gitlens*",
+				"webRoot": "${workspaceFolder}/src/webviews/apps"
+			},
 			"env": {
 				"VSCODE_DEBUGGING_EXTENSION": "gitlens"
 			},
-			"args": ["--extensionDevelopmentPath=${workspaceFolder}"],
-			"cwd": "${workspaceFolder}",
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
-			"preLaunchTask": "npm: watch",
+			"preLaunchTask": "${defaultBuildTask}",
 			"presentation": {
 				"group": "1_watch",
 				"order": 1
@@ -64,15 +70,16 @@
 			"trace": true
 		},
 		{
-			"name": "Watch & Launch GitLens (Sandbox)",
+			"name": "Watch & Launch GitLens (Sandboxed)",
 			"type": "extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
 			"args": ["--disable-extensions", "--extensionDevelopmentPath=${workspaceFolder}"],
+			"cwd": "${workspaceFolder}",
+			"debugWebviews": { "urlFilter": "*eamodio.gitlens*" },
 			"env": {
 				"VSCODE_DEBUGGING_EXTENSION": "gitlens"
 			},
-			"cwd": "${workspaceFolder}",
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
 			"preLaunchTask": "npm: watch",
 			"presentation": {
