@@ -29,7 +29,7 @@ export class TagsNode extends ViewNode<RepositoriesView> {
 		const tags = await this.repo.getTags({ sort: true });
 		if (tags.length === 0) return [new MessageNode(this.view, this, 'No tags could be found.')];
 
-		const tagNodes = tags.map(t => new TagNode(this.uri, this.view, this, t));
+		const tagNodes = tags.map(t => new TagNode(GitUri.fromRepoPath(this.uri.repoPath!, t.ref), this.view, this, t));
 		if (this.view.config.branches.layout === ViewBranchesLayout.List) return tagNodes;
 
 		const hierarchy = Arrays.makeHierarchical(
