@@ -7,11 +7,11 @@ import {
 	onIpcNotification,
 	UpdateConfigurationCommandType,
 } from '../../protocol';
-import { DOM } from './dom';
 import { App } from './appBase';
-import { Dates } from '../../../system/date';
+import { DOM } from './dom';
+import { getDateFormatter } from '../shared/date';
 
-const dateFormatter = Dates.getFormatter(new Date('Wed Jul 25 2018 19:18:00 GMT-0400'));
+const dateFormatter = getDateFormatter(new Date('Wed Jul 25 2018 19:18:00 GMT-0400'));
 
 export abstract class AppWithConfig<TState extends AppStateWithConfig> extends App<TState> {
 	private _changes = Object.create(null) as Record<string, any>;

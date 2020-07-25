@@ -1,0 +1,11 @@
+{
+	"extends": "../../../tsconfig.json",
+	"compilerOptions": {
+		"allowSyntheticDefaultImports": true,
+		"esModuleInterop": true,
+		"lib": ["dom", "dom.iterable", "es2019"],
+		"outDir": "dist/webviews"
+	},
+	"include": ["../../config.ts", "../protocol.ts", "**/*"],
+	"exclude": ["node_modules", "test"]
+}

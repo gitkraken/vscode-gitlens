@@ -20,7 +20,7 @@
 		"ecmaFeatures": {
 			"impliedStrict": true
 		},
-		"project": "tsconfig.eslint.json"
+		"project": "tsconfig.json"
 	},
 	"plugins": ["import", "@typescript-eslint"],
 	"reportUnusedDisableDirectives": true,

@@ -85,7 +85,7 @@ module.exports =
 
 		if (env.analyzeBundle || env.analyzeDeps) {
 			env.optimizeImages = false;
-		} else if (!env.optimizeImages && !fs.existsSync(path.resolve(__dirname, 'images/settings'))) {
+		} else if (!env.optimizeImages && !fs.existsSync(path.join(__dirname, 'images/settings'))) {
 			env.optimizeImages = true;
 		}
 
@@ -171,7 +171,7 @@ function getExtensionConfig(mode, env) {
 			rules: [
 				{
 					exclude: /\.d\.ts$/,
-					include: path.resolve(__dirname, 'src'),
+					include: path.join(__dirname, 'src'),
 					test: /\.tsx?$/,
 					use: {
 						loader: 'ts-loader',
@@ -185,7 +185,7 @@ function getExtensionConfig(mode, env) {
 		},
 		resolve: {
 			alias: {
-				'universal-user-agent': path.resolve(__dirname, 'node_modules/universal-user-agent/dist-node/index.js'),
+				'universal-user-agent': path.join(__dirname, 'node_modules/universal-user-agent/dist-node/index.js'),
 			},
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 			symlinks: false,
@@ -209,10 +209,12 @@ function getExtensionConfig(mode, env) {
  * @returns { WebpackConfig }
  */
 function getWebviewsConfig(mode, env) {
+	const basePath = path.join(__dirname, 'src/webviews/apps');
+
 	const clean = ['**/*'];
 	if (env.optimizeImages) {
 		console.log('Optimizing images (src/webviews/apps/images/settings/*.png)...');
-		clean.push(path.resolve(__dirname, 'images/settings/*'));
+		clean.push(path.join(__dirname, 'images/settings/*'));
 	}
 
 	const cspPolicy = {
@@ -235,12 +237,12 @@ function getWebviewsConfig(mode, env) {
 			async: false,
 			eslint: {
 				enabled: true,
-				files: path.resolve(__dirname, 'src/webviews/apps/**/*.ts'),
+				files: path.join(basePath, '**/*.ts'),
 				options: { cache: true },
 			},
 			formatter: 'basic',
 			typescript: {
-				configFile: path.resolve(__dirname, 'tsconfig.webviews.json'),
+				configFile: path.join(basePath, 'tsconfig.json'),
 			},
 		}),
 		new MiniCssExtractPlugin({
@@ -250,7 +252,7 @@ function getWebviewsConfig(mode, env) {
 			template: 'rebase/rebase.html',
 			chunks: ['rebase', 'rebase-styles'],
 			excludeAssets: [/.+-styles\.js/],
-			filename: path.resolve(__dirname, 'dist/webviews/rebase.html'),
+			filename: path.join(__dirname, 'dist/webviews/rebase.html'),
 			inject: true,
 			inlineSource: mode === 'production' ? '.css$' : undefined,
 			cspPlugin: {
@@ -279,7 +281,7 @@ function getWebviewsConfig(mode, env) {
 			template: 'settings/settings.html',
 			chunks: ['settings', 'settings-styles'],
 			excludeAssets: [/.+-styles\.js/],
-			filename: path.resolve(__dirname, 'dist/webviews/settings.html'),
+			filename: path.join(__dirname, 'dist/webviews/settings.html'),
 			inject: true,
 			cspPlugin: {
 				enabled: true,
@@ -307,7 +309,7 @@ function getWebviewsConfig(mode, env) {
 			template: 'welcome/welcome.html',
 			chunks: ['welcome', 'welcome-styles'],
 			excludeAssets: [/.+-styles\.js/],
-			filename: path.resolve(__dirname, 'dist/webviews/welcome.html'),
+			filename: path.join(__dirname, 'dist/webviews/welcome.html'),
 			inject: true,
 			cspPlugin: {
 				enabled: true,
@@ -336,11 +338,11 @@ function getWebviewsConfig(mode, env) {
 		new ImageminPlugin({
 			disable: !env.optimizeImages,
 			externalImages: {
-				context: path.resolve(__dirname, 'src/webviews/apps/images'),
-				sources: glob.sync('src/webviews/apps/images/settings/*.png'),
-				destination: path.resolve(__dirname, 'images'),
+				context: path.join(basePath, 'images'),
+				sources: glob.sync(path.join(basePath, 'images/settings/*.png')),
+				destination: path.join(__dirname, 'images'),
 			},
-			cacheFolder: path.resolve(__dirname, 'node_modules', '.cache', 'imagemin-webpack-plugin'),
+			cacheFolder: path.join(__dirname, 'node_modules', '.cache', 'imagemin-webpack-plugin'),
 			gifsicle: null,
 			jpegtran: null,
 			optipng: null,
@@ -355,7 +357,7 @@ function getWebviewsConfig(mode, env) {
 
 	return {
 		name: 'webviews',
-		context: path.resolve(__dirname, 'src/webviews/apps'),
+		context: basePath,
 		entry: {
 			rebase: ['./rebase/rebase.ts'],
 			'rebase-styles': ['./scss/rebase.scss'],
@@ -369,19 +371,19 @@ function getWebviewsConfig(mode, env) {
 		devtool: mode === 'production' ? undefined : 'eval-source-map',
 		output: {
 			filename: '[name].js',
-			path: path.resolve(__dirname, 'dist/webviews'),
+			path: path.join(__dirname, 'dist/webviews'),
 			publicPath: '#{root}/dist/webviews/',
 		},
 		module: {
 			rules: [
 				{
 					exclude: /\.d\.ts$/,
-					include: path.resolve(__dirname, 'src'),
+					include: path.join(__dirname, 'src'),
 					test: /\.tsx?$/,
 					use: {
 						loader: 'ts-loader',
 						options: {
-							configFile: 'tsconfig.webviews.json',
+							configFile: path.join(basePath, 'tsconfig.json'),
 							experimentalWatchApi: true,
 							transpileOnly: true,
 						},
@@ -413,7 +415,7 @@ function getWebviewsConfig(mode, env) {
 		},
 		resolve: {
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
-			modules: [path.resolve(__dirname, 'src/webviews/apps'), 'node_modules'],
+			modules: [basePath, 'node_modules'],
 			symlinks: false,
 		},
 		plugins: plugins,
