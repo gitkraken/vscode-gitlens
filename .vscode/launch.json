@@ -10,9 +10,6 @@
 			"args": ["--extensionDevelopmentPath=${workspaceFolder}"],
 			"cwd": "${workspaceFolder}",
 			"debugWebviews": { "urlFilter": "*eamodio.gitlens*" },
-			"env": {
-				"VSCODE_DEBUGGING_EXTENSION": "gitlens"
-			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
 			"presentation": {
 				"group": "2_run",
@@ -31,9 +28,6 @@
 			"args": ["--disable-extensions", "--extensionDevelopmentPath=${workspaceFolder}"],
 			"cwd": "${workspaceFolder}",
 			"debugWebviews": { "urlFilter": "*eamodio.gitlens*" },
-			"env": {
-				"VSCODE_DEBUGGING_EXTENSION": "gitlens"
-			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
 			"presentation": {
 				"group": "2_run",
@@ -55,9 +49,6 @@
 				"urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
-			"env": {
-				"VSCODE_DEBUGGING_EXTENSION": "gitlens"
-			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
 			"preLaunchTask": "${defaultBuildTask}",
 			"presentation": {
@@ -77,9 +68,6 @@
 			"args": ["--disable-extensions", "--extensionDevelopmentPath=${workspaceFolder}"],
 			"cwd": "${workspaceFolder}",
 			"debugWebviews": { "urlFilter": "*eamodio.gitlens*" },
-			"env": {
-				"VSCODE_DEBUGGING_EXTENSION": "gitlens"
-			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
 			"preLaunchTask": "npm: watch",
 			"presentation": {

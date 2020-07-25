@@ -1,5 +1,5 @@
 'use strict';
-import { ExtensionContext, OutputChannel, Uri, window } from 'vscode';
+import { ExtensionContext, ExtensionMode, OutputChannel, Uri, window } from 'vscode';
 import { extensionOutputChannelName } from './constants';
 import { getCorrelationContext, getNextCorrelationId } from './system';
 
@@ -14,8 +14,6 @@ export enum TraceLevel {
 
 const ConsolePrefix = `[${extensionOutputChannelName}]`;
 
-const isDebuggingRegex = /\bgitlens\b/i;
-
 export interface LogCorrelationContext {
 	readonly correlationId?: number;
 	readonly prefix: string;
@@ -29,7 +27,13 @@ export class Logger {
 	static configure(context: ExtensionContext, level: TraceLevel, loggableFn?: (o: any) => string | undefined) {
 		this.customLoggableFn = loggableFn;
 
+		this._isDebugging = context.extensionMode === ExtensionMode.Development;
 		this.level = level;
+	}
+
+	private static _isDebugging: boolean;
+	static get isDebugging() {
+		return this._isDebugging;
 	}
 
 	private static _level: TraceLevel = TraceLevel.Silent;
@@ -251,18 +255,6 @@ export class Logger {
 
 		const loggableParams = params.map(p => this.toLoggable(p)).join(', ');
 		return loggableParams.length !== 0 ? ` \u2014 ${loggableParams}` : emptyStr;
-	}
-
-	private static _isDebugging: boolean | undefined;
-	static get isDebugging() {
-		if (this._isDebugging == null) {
-			const env = process.env;
-			this._isDebugging = env?.VSCODE_DEBUGGING_EXTENSION
-				? isDebuggingRegex.test(env.VSCODE_DEBUGGING_EXTENSION)
-				: false;
-		}
-
-		return this._isDebugging;
 	}
 
 	static gitOutput: OutputChannel | undefined;
