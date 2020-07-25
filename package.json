@@ -6199,6 +6199,7 @@
 		"dayjs": "1.8.30",
 		"iconv-lite": "0.6.2",
 		"lodash-es": "4.17.15",
+		"sortablejs": "1.10.2",
 		"vsls": "1.0.2532"
 	},
 	"devDependencies": {
@@ -6206,6 +6207,7 @@
 		"@types/keytar": "4.4.2",
 		"@types/lodash-es": "4.17.3",
 		"@types/node": "12.12.51",
+		"@types/sortablejs": "1.10.5",
 		"@types/vscode": "1.47.0",
 		"@typescript-eslint/eslint-plugin": "3.7.0",
 		"@typescript-eslint/parser": "3.7.0",

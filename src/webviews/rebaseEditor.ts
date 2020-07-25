@@ -1,6 +1,5 @@
 'use strict';
-import * as paths from 'path';
-import * as fs from 'fs';
+import { TextDecoder } from 'util';
 import {
 	CancellationToken,
 	commands,
@@ -128,7 +127,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 			});
 		} while (true);
 
-		return entries;
+		return entries.reverse();
 	}
 
 	private parseEntriesAndSendChange(panel: WebviewPanel, document: TextDocument) {
@@ -141,7 +140,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 	}
 
 	private async parseState(document: TextDocument): Promise<RebaseState> {
-		const repoPath = await Container.git.getRepoPath(paths.join(document.uri.fsPath, '../../..'));
+		const repoPath = await Container.git.getRepoPath(Uri.joinPath(document.uri, '../../..'));
 		const branch = await Container.git.getBranch(repoPath);
 
 		const contents = document.getText();
@@ -263,8 +262,48 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 						new Range(new Position(start.line, 0), new Position(start.line, Number.MAX_SAFE_INTEGER)),
 					);
 
+					// Fake the new set of entries, so we can ensure that the last entry isn't a squash/fixup
+					const newEntries = [...entries];
+					newEntries.splice(entries.indexOf(entry), 1, {
+						...entry,
+						action: params.action,
+					});
+
+					let squashing = false;
+
+					for (const entry of newEntries) {
+						if (entry.action === 'squash' || entry.action === 'fixup') {
+							squashing = true;
+						} else if (squashing) {
+							if (entry.action !== 'drop') {
+								squashing = false;
+							}
+						}
+					}
+
 					const edit = new WorkspaceEdit();
-					edit.replace(document.uri, range, `${params.action} ${entry.ref} ${entry.message}`);
+
+					let action = params.action;
+
+					// Ensure that the last entry isn't a squash/fixup
+					if (squashing) {
+						const lastEntry = newEntries[newEntries.length - 1];
+						if (entry.ref === lastEntry.ref) {
+							action = 'pick';
+						} else {
+							const start = document.positionAt(lastEntry.index);
+							const range = document.validateRange(
+								new Range(
+									new Position(start.line, 0),
+									new Position(start.line, Number.MAX_SAFE_INTEGER),
+								),
+							);
+
+							edit.replace(document.uri, range, `pick ${lastEntry.ref} ${lastEntry.message}`);
+						}
+					}
+
+					edit.replace(document.uri, range, `${action} ${entry.ref} ${entry.message}`);
 					await workspace.applyEdit(edit);
 				});
 
@@ -278,8 +317,24 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 					if (entry == null) return;
 
 					const index = entries.findIndex(e => e.ref === params.ref);
-					if ((!params.down && index === 0) || (params.down && index === entries.length - 1)) {
-						return;
+
+					let newIndex;
+					if (params.relative) {
+						if ((params.to === -1 && index === 0) || (params.to === 1 && index === entries.length - 1)) {
+							return;
+						}
+
+						newIndex = index + params.to;
+					} else {
+						if (index === params.to) return;
+
+						newIndex = params.to;
+					}
+
+					const newEntry = entries[newIndex];
+					let newLine = document.positionAt(newEntry.index).line;
+					if (newIndex < index) {
+						newLine++;
 					}
 
 					const start = document.positionAt(entry.index);
@@ -287,13 +342,48 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 						new Range(new Position(start.line, 0), new Position(start.line + 1, 0)),
 					);
 
+					// Fake the new set of entries, so we can ensure that the last entry isn't a squash/fixup
+					const newEntries = [...entries];
+					newEntries.splice(index, 1);
+					newEntries.splice(newIndex, 0, entry);
+
+					let squashing = false;
+
+					for (const entry of newEntries) {
+						if (entry.action === 'squash' || entry.action === 'fixup') {
+							squashing = true;
+						} else if (squashing) {
+							if (entry.action !== 'drop') {
+								squashing = false;
+							}
+						}
+					}
+
 					const edit = new WorkspaceEdit();
+
+					let action = entry.action;
+
+					// Ensure that the last entry isn't a squash/fixup
+					if (squashing) {
+						const lastEntry = newEntries[newEntries.length - 1];
+						if (entry.ref === lastEntry.ref) {
+							action = 'pick';
+						} else {
+							const start = document.positionAt(lastEntry.index);
+							const range = document.validateRange(
+								new Range(
+									new Position(start.line, 0),
+									new Position(start.line, Number.MAX_SAFE_INTEGER),
+								),
+							);
+
+							edit.replace(document.uri, range, `pick ${lastEntry.ref} ${lastEntry.message}`);
+						}
+					}
+
 					edit.delete(document.uri, range);
-					edit.insert(
-						document.uri,
-						new Position(range.start.line + (params.down ? 2 : -1), 0),
-						`${entry.action} ${entry.ref} ${entry.message}\n`,
-					);
+					edit.insert(document.uri, new Position(newLine, 0), `${action} ${entry.ref} ${entry.message}\n`);
+
 					await workspace.applyEdit(edit);
 				});
 
@@ -303,24 +393,16 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 	private _html: string | undefined;
 	private async getHtml(webview: Webview, document: TextDocument): Promise<string> {
-		const filename = Container.context.asAbsolutePath(paths.join('dist/webviews/', 'rebase.html'));
+		const uri = Uri.joinPath(Container.context.extensionUri, 'dist', 'webviews', 'rebase.html');
 
 		let content;
 		// When we are debugging avoid any caching so that we can change the html and have it update without reloading
 		if (Logger.isDebugging) {
-			content = await new Promise<string>((resolve, reject) => {
-				fs.readFile(filename, 'utf8', (err, data) => {
-					if (err) {
-						reject(err);
-					} else {
-						resolve(data);
-					}
-				});
-			});
+			content = new TextDecoder('utf8').decode(await workspace.fs.readFile(uri));
 		} else {
 			if (this._html !== undefined) return this._html;
 
-			const doc = await workspace.openTextDocument(filename);
+			const doc = await workspace.openTextDocument(uri);
 			content = doc.getText();
 		}
 

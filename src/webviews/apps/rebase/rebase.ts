@@ -1,5 +1,6 @@
 'use strict';
 /*global document*/
+import Sortable from 'sortablejs';
 import {
 	onIpcNotification,
 	RebaseDidAbortCommandType,
@@ -52,6 +53,51 @@ class RebaseEditor extends App<RebaseState> {
 		// eslint-disable-next-line @typescript-eslint/no-this-alias
 		const me = this;
 
+		const $container = document.getElementById('entries')!;
+		Sortable.create($container, {
+			animation: 150,
+			handle: '.entry-handle',
+			filter: '.entry--base',
+			dragClass: 'entry--drag',
+			ghostClass: 'entry--dragging',
+			onChange: () => {
+				let squashing = false;
+				let squashToHere = false;
+
+				const $entries = document.querySelectorAll<HTMLLIElement>('li[data-ref]');
+				for (const $entry of $entries) {
+					squashToHere = false;
+					if ($entry.classList.contains('entry--squash') || $entry.classList.contains('entry--fixup')) {
+						squashing = true;
+					} else if (squashing) {
+						if (!$entry.classList.contains('entry--drop')) {
+							squashToHere = true;
+							squashing = false;
+						}
+					}
+
+					$entry.classList.toggle(
+						'entry--squash-to',
+						squashToHere && !$entry.classList.contains('entry--base'),
+					);
+				}
+			},
+			onEnd: e => {
+				if (e.newIndex == null || e.newIndex === e.oldIndex) {
+					return;
+				}
+
+				const ref = e.item.dataset.ref;
+				if (ref) {
+					console.log(ref, e.newIndex, e.oldIndex);
+					this.moveEntry(ref, e.newIndex, false);
+
+					document.querySelectorAll<HTMLLIElement>(`li[data-ref="${ref}"]`)[0]?.focus();
+				}
+			},
+			onMove: e => !e.related.classList.contains('entry--base'),
+		});
+
 		disposables.push(
 			DOM.on('[data-action="start"]', 'click', () => this.onStartClicked()),
 			DOM.on('[data-action="abort"]', 'click', () => this.onAbortClicked()),
@@ -76,7 +122,7 @@ class RebaseEditor extends App<RebaseState> {
 							if (ref) {
 								e.stopPropagation();
 
-								me.moveEntry(ref, e.key === 'ArrowDown');
+								me.moveEntry(ref, e.key === 'ArrowDown' ? 1 : -1, true);
 							}
 						} else {
 							if (me.state == null) return;
@@ -94,7 +140,7 @@ class RebaseEditor extends App<RebaseState> {
 							}
 
 							ref = me.state.entries[index].ref;
-							document.querySelectorAll<HTMLLIElement>(`li[data-ref="${ref}`)[0]?.focus();
+							document.querySelectorAll<HTMLLIElement>(`li[data-ref="${ref}"]`)[0]?.focus();
 						}
 					}
 				} else if (!e.metaKey && !e.altKey && !e.ctrlKey) {
@@ -128,12 +174,13 @@ class RebaseEditor extends App<RebaseState> {
 		return this.state?.entries.findIndex(e => e.ref === ref) ?? -1;
 	}
 
-	private moveEntry(ref: string, down: boolean) {
+	private moveEntry(ref: string, index: number, relative: boolean) {
 		const entry = this.getEntry(ref);
 		if (entry !== undefined) {
 			this.sendCommand(RebaseDidMoveEntryCommandType, {
 				ref: entry.ref,
-				down: !down,
+				to: index,
+				relative: relative,
 			});
 		}
 	}
@@ -185,7 +232,7 @@ class RebaseEditor extends App<RebaseState> {
 		const $subhead = document.getElementById('subhead')! as HTMLHeadingElement;
 		$subhead.innerHTML = `<span class="branch ml-1 mr-1">${state.branch}</span><span>Rebasing ${
 			state.entries.length
-		} commit${state.entries.length > 1 ? 's' : ''} onto <span class="commit">${state.onto}</span>`;
+		} commit${state.entries.length !== 1 ? 's' : ''} onto <span class="commit">${state.onto}</span>`;
 
 		const $container = document.getElementById('entries')!;
 
@@ -198,17 +245,29 @@ class RebaseEditor extends App<RebaseState> {
 		$container.innerHTML = '';
 		if (state.entries.length === 0) return;
 
+		let squashing = false;
+		let squashToHere = false;
 		let tabIndex = 0;
 
-		// let prev: string | undefined;
-		for (const entry of state.entries.reverse()) {
+		for (const entry of state.entries) {
+			squashToHere = false;
+			if (entry.action === 'squash' || entry.action === 'fixup') {
+				squashing = true;
+			} else if (squashing) {
+				if (entry.action !== 'drop') {
+					squashToHere = true;
+					squashing = false;
+				}
+			}
+
 			let $el: HTMLLIElement;
 			[$el, tabIndex] = this.createEntry(entry, state, ++tabIndex);
-			$container.appendChild($el);
 
-			// if (entry.action !== 'drop') {
-			// 	prev = entry.ref;
-			// }
+			if (squashToHere) {
+				$el.classList.add('entry--squash-to');
+			}
+
+			$container.appendChild($el);
 		}
 
 		const commit = state.commits.find(c => c.ref.startsWith(state.onto));
@@ -242,6 +301,10 @@ class RebaseEditor extends App<RebaseState> {
 
 		if (entry.action != null) {
 			$entry.tabIndex = tabIndex++;
+
+			const $dragHandle = document.createElement('span');
+			$dragHandle.classList.add('entry-handle');
+			$entry.appendChild($dragHandle);
 
 			const $selectContainer = document.createElement('div');
 			$selectContainer.classList.add('entry-action', 'select-container');

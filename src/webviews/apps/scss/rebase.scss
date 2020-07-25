@@ -34,6 +34,17 @@ h4 {
 
 .entries {
 	grid-area: entries;
+	// border-left: 2px solid var(--color-highlight);
+	border-left: 2px solid;
+	margin-left: 10px;
+	padding-left: 4px;
+
+	.vscode-dark & {
+		border-color: var(--color-background--lighten-15);
+	}
+	.vscode-light & {
+		border-color: var(--color-background--darken-15);
+	}
 }
 
 .shortcuts {
@@ -52,12 +63,32 @@ h4 {
 	justify-content: space-between;
 	margin: 0 10px;
 	padding: 10px 0;
+	border: 2px solid transparent;
+	border-radius: 3px;
+
+	&::after {
+		display: inline-block;
+		content: ' ';
+		background-color: var(--color-background);
+		// border: 2px solid var(--color-highlight);
+		border: 2px solid var(--color-foreground--50);
+		border-radius: 50%;
+		height: 12px;
+		width: 12px;
+		margin-left: -25px;
+		position: absolute;
+		z-index: 2;
+	}
 
 	&:focus-within {
-		outline: -webkit-focus-ring-color auto 1px;
+		outline: none;
+		border: 2px solid var(--color-highlight--50);
+		border-radius: 3px;
 	}
 
 	&.entry--base {
+		margin-left: 10px;
+
 		.vscode-dark & {
 			background: rgba(255, 255, 255, 0.1);
 		}
@@ -66,10 +97,124 @@ h4 {
 			background: rgba(0, 0, 0, 0.1);
 		}
 
+		// &::after {
+		// 	background-color: var(--color-highlight);
+		// }
+
 		&:focus,
 		&:focus-within {
 			outline: none !important;
 		}
+	}
+
+	&.entry--squash-to {
+		&::after {
+			border: 2px solid rgba(212, 153, 0, 1);
+			z-index: 3;
+		}
+
+		&::before {
+			display: inline-block;
+			content: ' ';
+			background-color: var(--color-background);
+			border-left: 2px solid rgba(212, 153, 0, 1);
+			height: 32px;
+			width: 2px;
+			margin-left: -18px;
+			margin-top: -10px;
+			position: absolute;
+			z-index: 1;
+		}
+	}
+
+	&.entry--edit,
+	&.entry--reword {
+		&::after {
+			border: 2px solid rgba(0, 153, 0, 1);
+			z-index: 3;
+		}
+	}
+
+	&.entry--squash,
+	&.entry--fixup {
+		&::after {
+			display: none;
+		}
+
+		&::before {
+			display: inline-block;
+			content: ' ';
+			background-color: var(--color-background);
+			border-left: 2px solid rgba(212, 153, 0, 1);
+			height: 64px;
+			width: 2px;
+			margin-left: -18px;
+			margin-top: 6px;
+			position: absolute;
+			z-index: 1;
+		}
+	}
+
+	&.entry--drop {
+		&::after {
+			display: none;
+		}
+
+		&::before {
+			display: inline-block;
+			content: ' ';
+			background-color: var(--color-background);
+			border-left: 2px solid rgba(153, 0, 0, 1);
+			height: 48px;
+			width: 2px;
+			margin-left: -18px;
+			position: absolute;
+			z-index: 1;
+		}
+	}
+
+	&:nth-last-child(2) {
+		& select {
+			& > option[value='squash'],
+			& > option[value='fixup'] {
+				display: none;
+			}
+		}
+
+		&.entry--squash-to {
+			& select {
+				& > option[value='drop'] {
+					display: none;
+				}
+			}
+		}
+	}
+}
+
+.entry--drag {
+	opacity: 0 !important;
+}
+
+.entry--dragging {
+	background: var(--color-highlight--25);
+	opacity: 0.8;
+}
+
+.entry-handle {
+	display: inline-block;
+	border-left: 2px dotted;
+	border-right: 2px dotted;
+	height: 14px;
+	width: 3px;
+	margin-left: 10px;
+	cursor: ns-resize;
+
+	.vscode-dark & {
+		border-color: var(--color-foreground--75);
+	}
+
+	.vscode-light & {
+		border-color: var(--color-foreground--75);
 	}
 }
 
@@ -109,32 +254,6 @@ h4 {
 	text-overflow: ellipsis;
 	white-space: nowrap;
 
-	.entry--squash &,
-	.entry--fixup & {
-		padding-left: 28px;
-
-		&::before {
-			content: ' ';
-			position: absolute;
-			top: 10px;
-			left: 6px;
-			width: 15px;
-			height: 18px;
-			border-top: 1px solid currentColor;
-			border-left: 1px solid currentColor;
-		}
-
-		&::after {
-			content: ' ';
-			position: absolute;
-			top: 14px;
-			left: 1px;
-			padding: 6px;
-			box-shadow: 1px -1px currentColor;
-			transform: rotate(135deg);
-		}
-	}
-
 	.entry--drop & {
 		text-decoration: line-through;
 		opacity: 0.25;
@@ -145,8 +264,9 @@ h4 {
 	flex: auto 0 0;
 	margin: 0 -5px 0 0;
 
+	.entry--squash &,
+	.entry--fixup &,
 	.entry--drop & {
-		// text-decoration: line-through;
 		opacity: 0.25;
 	}
 }
@@ -158,6 +278,12 @@ h4 {
 	margin: 0 10px;
 	opacity: 0.5;
 
+	.vscode-light & {
+		opacity: 0.6;
+	}
+
+	.entry--squash &,
+	.entry--fixup &,
 	.entry--drop & {
 		text-decoration: line-through;
 		opacity: 0.25;

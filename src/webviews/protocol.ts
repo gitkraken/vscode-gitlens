@@ -119,7 +119,8 @@ export const RebaseDidChangeEntryCommandType = new IpcCommandType<RebaseDidChang
 
 export interface RebaseDidMoveEntryCommandParams {
 	ref: string;
-	down: boolean;
+	to: number;
+	relative: boolean;
 }
 export const RebaseDidMoveEntryCommandType = new IpcCommandType<RebaseDidMoveEntryCommandParams>('rebase/move/entry');
 
