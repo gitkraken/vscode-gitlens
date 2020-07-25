@@ -20,7 +20,7 @@
 		z-index: 1001;
 
 		.vscode-light & {
-			border-bottom-color: var(--color-background--darken-075);
+			border-bottom-color: var(--color-background--darken-05);
 		}
 
 		.vscode-dark & {
@@ -29,7 +29,7 @@
 	}
 
 	.vscode-light & {
-		background: var(--color-background--darken-075);
+		background: var(--color-background--darken-05);
 	}
 
 	.vscode-dark & {

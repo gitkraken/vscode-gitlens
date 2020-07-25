@@ -2,6 +2,12 @@
 @import 'buttons';
 @import 'icons';
 
+body {
+	&.vscode-light {
+		background-color: var(--color-background--darken-05);
+	}
+}
+
 header {
 	grid-area: header;
 	display: grid;
