@@ -380,10 +380,7 @@ export abstract class Command implements Disposable {
 
 		let firstArg = args[0];
 
-		if (
-			options.editor &&
-			(firstArg == null || (firstArg.id != null && firstArg.document != null && firstArg.document.uri != null))
-		) {
+		if (options.editor && (firstArg == null || (firstArg.id != null && firstArg.document?.uri != null))) {
 			editor = firstArg;
 			args = args.slice(1);
 			firstArg = args[0];
@@ -452,7 +449,10 @@ export abstract class ActiveEditorCommand extends Command {
 	}
 
 	protected _execute(command: string, ...args: any[]): any {
-		return super._execute(command, window.activeTextEditor, ...args);
+		// Only include the editor if there are no args
+		return args.length === 0
+			? super._execute(command, window.activeTextEditor)
+			: super._execute(command, undefined, ...args);
 	}
 
 	abstract execute(editor?: TextEditor, ...args: any[]): any;
