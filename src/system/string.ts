@@ -39,6 +39,10 @@ export namespace Strings {
 		return s.replace(markdownQuotedRegex, '\t\n>  ');
 	}
 
+	export function escapeRegex(s: string) {
+		return s.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+	}
+
 	export function getCommonBase(s1: string, s2: string, delimiter: string) {
 		let char;
 		let index = 0;

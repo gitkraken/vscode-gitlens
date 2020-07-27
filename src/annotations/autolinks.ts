@@ -72,7 +72,9 @@ export class Autolinks implements Disposable {
 
 			if (ref.messageRegex === undefined) {
 				ref.messageRegex = new RegExp(
-					`(?<=^|\\s|\\()(${ref.prefix}([${ref.alphanumeric ? '\\w' : '0-9'}]+))\\b`,
+					`(?<=^|\\s|\\(|\\\\\\[)(${Strings.escapeRegex(ref.prefix)}([${
+						ref.alphanumeric ? '\\w' : '0-9'
+					}]+))\\b`,
 					ref.ignoreCase ? 'gi' : 'g',
 				);
 			}
@@ -148,7 +150,7 @@ export class Autolinks implements Disposable {
 		try {
 			if (ref.messageMarkdownRegex === undefined) {
 				ref.messageMarkdownRegex = new RegExp(
-					`(?<=^|\\s|\\()(${Strings.escapeMarkdown(ref.prefix).replace(/\\/g, '\\\\')}([${
+					`(?<=^|\\s|\\(|\\\\\\[)(${Strings.escapeRegex(Strings.escapeMarkdown(ref.prefix))}([${
 						ref.alphanumeric ? '\\w' : '0-9'
 					}]+))\\b`,
 					ref.ignoreCase ? 'gi' : 'g',
