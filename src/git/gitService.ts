@@ -3162,7 +3162,7 @@ export class GitService implements Disposable {
 		const blob = await Git.rev_parse__verify(repoPath, ref, fileName);
 		if (blob == null) return ref;
 
-		return (await Git.log__find_object(repoPath, blob)) ?? ref;
+		return (await Git.log__find_object(repoPath, blob, ref)) ?? ref;
 	}
 
 	@log()

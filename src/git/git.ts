@@ -890,13 +890,14 @@ export namespace Git {
 		return data.length === 0 ? undefined : data.trim();
 	}
 
-	export async function log__find_object(repoPath: string, objectId: string) {
+	export async function log__find_object(repoPath: string, objectId: string, ref: string) {
 		const data = await git<string>(
 			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
 			'log',
 			'-n1',
 			'--format=%H',
 			`--find-object=${objectId}`,
+			ref,
 		);
 		return data.length === 0 ? undefined : data.trim();
 	}
