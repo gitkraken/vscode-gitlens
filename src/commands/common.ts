@@ -173,8 +173,7 @@ export async function getRepoPathOrPrompt(title: string, uri?: Uri) {
 }
 
 export interface CommandContextParsingOptions {
-	editor: boolean;
-	uri: boolean;
+	expectsEditor: boolean;
 }
 
 export interface CommandBaseContext {
@@ -335,7 +334,7 @@ export abstract class Command implements Disposable {
 		return `command:${command}?${encodeURIComponent(JSON.stringify(args))}`;
 	}
 
-	protected readonly contextParsingOptions: CommandContextParsingOptions = { editor: false, uri: false };
+	protected readonly contextParsingOptions: CommandContextParsingOptions = { expectsEditor: false };
 
 	private readonly _disposable: Disposable;
 
@@ -380,23 +379,39 @@ export abstract class Command implements Disposable {
 
 		let firstArg = args[0];
 
-		if (options.editor && (firstArg == null || (firstArg.id != null && firstArg.document?.uri != null))) {
-			editor = firstArg;
-			args = args.slice(1);
-			firstArg = args[0];
-		}
-
-		if (options.uri && (firstArg == null || firstArg instanceof Uri)) {
-			const [uri, ...rest] = args as [Uri, any];
-			if (uri != null) {
-				const uris = rest[0];
-				if (uris != null && Array.isArray(uris) && uris.length !== 0 && uris[0] instanceof Uri) {
-					return [{ command: command, type: 'uris', editor: editor, uri: uri, uris: uris }, rest.slice(1)];
-				}
-				return [{ command: command, type: 'uri', editor: editor, uri: uri }, rest];
+		if (options.expectsEditor) {
+			if (firstArg == null || (firstArg.id != null && firstArg.document?.uri != null)) {
+				editor = firstArg;
+				args = args.slice(1);
+				firstArg = args[0];
 			}
 
-			args = args.slice(1);
+			if (args.length > 0 && (firstArg == null || firstArg instanceof Uri)) {
+				const [uri, ...rest] = args as [Uri, any];
+				if (uri != null) {
+					// If the uri matches the active editor, then pass the active editor
+					if (editor == null && uri.toString() === window.activeTextEditor?.document.uri.toString()) {
+						editor = window.activeTextEditor;
+					} else {
+						// eslint-disable-next-line no-debugger
+						debugger;
+					}
+
+					const uris = rest[0];
+					if (uris != null && Array.isArray(uris) && uris.length !== 0 && uris[0] instanceof Uri) {
+						return [
+							{ command: command, type: 'uris', editor: editor, uri: uri, uris: uris },
+							rest.slice(1),
+						];
+					}
+					return [{ command: command, type: 'uri', editor: editor, uri: uri }, rest];
+				}
+
+				args = args.slice(1);
+			} else if (editor == null) {
+				// If we are expecting an editor and we have no uri, then pass the active editor
+				editor = window.activeTextEditor;
+			}
 		}
 
 		if (firstArg instanceof ViewNode) {
@@ -438,7 +453,7 @@ export abstract class Command implements Disposable {
 }
 
 export abstract class ActiveEditorCommand extends Command {
-	protected readonly contextParsingOptions: CommandContextParsingOptions = { editor: true, uri: true };
+	protected readonly contextParsingOptions: CommandContextParsingOptions = { expectsEditor: true };
 
 	constructor(command: Commands | Commands[]) {
 		super(command);
@@ -449,10 +464,7 @@ export abstract class ActiveEditorCommand extends Command {
 	}
 
 	protected _execute(command: string, ...args: any[]): any {
-		// Only include the editor if there are no args
-		return args.length === 0
-			? super._execute(command, window.activeTextEditor)
-			: super._execute(command, undefined, ...args);
+		return super._execute(command, undefined, ...args);
 	}
 
 	abstract execute(editor?: TextEditor, ...args: any[]): any;
