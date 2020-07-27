@@ -36,7 +36,7 @@ export class DiffWithPreviousCommand extends ActiveEditorCommand {
 			args = { ...args };
 
 			// Ensure we are on the right side -- context.uri is always the right-side uri, so ensure the editor matches, otherwise we are on the left
-			if (context.editor?.document.uri.toString() === context.uri?.toString()) {
+			if (context.editor == null || context.editor?.document.uri.toString() === context.uri?.toString()) {
 				args.inDiffRightEditor = true;
 			}
 		}

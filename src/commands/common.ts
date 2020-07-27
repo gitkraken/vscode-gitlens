@@ -392,9 +392,6 @@ export abstract class Command implements Disposable {
 					// If the uri matches the active editor, then pass the active editor
 					if (editor == null && uri.toString() === window.activeTextEditor?.document.uri.toString()) {
 						editor = window.activeTextEditor;
-					} else {
-						// eslint-disable-next-line no-debugger
-						debugger;
 					}
 
 					const uris = rest[0];
@@ -448,7 +445,7 @@ export abstract class Command implements Disposable {
 			return [{ command: command, type: 'scm-groups', scmResourceGroups: groups }, args.slice(count)];
 		}
 
-		return [{ command: command, type: 'unknown', editor: editor }, args];
+		return [{ command: command, type: 'unknown', editor: editor, uri: editor?.document.uri }, args];
 	}
 }
 
