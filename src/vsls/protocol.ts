@@ -1,7 +1,8 @@
 'use strict';
 import { GitCommandOptions } from '../git/git';
 
-export class RequestType<TRequest, TResponse> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export class RequestType<Request, Response> {
 	constructor(public readonly name: string) {}
 }
 

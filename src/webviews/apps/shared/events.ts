@@ -8,6 +8,7 @@ export interface Disposable {
 }
 
 export interface Event<T> {
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	(listener: (e: T) => any, thisArgs?: any, disposables?: Disposable[]): Disposable;
 }
 
@@ -22,7 +23,7 @@ export interface EmitterOptions {
 }
 
 export class Emitter<T> {
-	// eslint-disable-next-line  @typescript-eslint/no-empty-function
+	// eslint-disable-next-line @typescript-eslint/no-empty-function
 	private static readonly _noop = function () {};
 
 	private readonly _options?: EmitterOptions;

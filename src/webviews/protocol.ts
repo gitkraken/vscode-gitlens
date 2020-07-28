@@ -8,11 +8,13 @@ export interface IpcMessage {
 }
 
 export type IpcNotificationParamsOf<NT> = NT extends IpcNotificationType<infer P> ? P : never;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export class IpcNotificationType<P = any> {
 	constructor(public readonly method: string) {}
 }
 
 export type IpcCommandParamsOf<CT> = CT extends IpcCommandType<infer P> ? P : never;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export class IpcCommandType<P = any> {
 	constructor(public readonly method: string) {}
 }
