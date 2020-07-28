@@ -202,16 +202,6 @@ function defaultExceptionHandler(ex: Error, cwd: string | undefined, start?: [nu
 let gitInfo: GitLocation;
 
 export namespace Git {
-	export const deletedOrMissingSha = '0000000000000000000000000000000000000000-';
-	// export const shaLikeRegex = /(^[0-9a-f]{40}([\^@~:]\S*)?$)|(^[0]{40}(:|-)$)/;
-	// export const shaRegex = /(^[0-9a-f]{40}$)|(^[0]{40}(:|-)$)/;
-	// export const shaParentRegex = /(^[0-9a-f]{40})\^[0-3]?$/;
-	// export const shaShortenRegex = /^(.*?)([\^@~:].*)?$/;
-	// export const uncommittedRegex = /^[0]{40}(?:[\^@~:]\S*)?:?$/;
-	export const uncommittedSha = '0000000000000000000000000000000000000000';
-	// export const uncommittedStagedRegex = /^[0]{40}([\^@~]\S*)?:$/;
-	export const uncommittedStagedSha = '0000000000000000000000000000000000000000:';
-
 	export function getEncoding(encoding: string | undefined) {
 		return encoding !== undefined && iconv.encodingExists(encoding) ? encoding : 'utf8';
 	}
@@ -235,63 +225,6 @@ export namespace Git {
 			} ${Strings.getDurationMilliseconds(start)} ms`,
 		);
 	}
-
-	// export function isSha(ref: string) {
-	// 	return isMatch(Git.shaRegex, ref);
-	// }
-
-	// export function isShaLike(ref: string) {
-	// 	return isMatch(Git.shaLikeRegex, ref);
-	// }
-
-	// export function isShaParent(ref: string) {
-	// 	return isMatch(Git.shaParentRegex, ref);
-	// }
-
-	// export function isUncommitted(ref: string | undefined) {
-	// 	return isMatch(Git.uncommittedRegex, ref);
-	// }
-
-	// export function isUncommittedStaged(ref: string | undefined): boolean {
-	// 	return isMatch(Git.uncommittedStagedRegex, ref);
-	// }
-
-	// export function shortenSha(
-	// 	ref: string | undefined,
-	// 	{
-	// 		force,
-	// 		strings = {},
-	// 	}: {
-	// 		force?: boolean;
-	// 		strings?: { uncommitted?: string; uncommittedStaged?: string; working?: string };
-	// 	} = {},
-	// ) {
-	// 	if (ref === GitRevision.deletedOrMissing) return '(deleted)';
-
-	// 	if (ref == null || ref.length === 0) return strings.working || emptyStr;
-	// 	if (GitRevision.isUncommitted(ref)) {
-	// 		return GitRevision.isUncommittedStaged(ref)
-	// 			? strings.uncommittedStaged || 'Index'
-	// 			: strings.uncommitted || 'Working Tree';
-	// 	}
-
-	// 	if (!force && !Git.isShaLike(ref)) return ref;
-
-	// 	// Don't allow shas to be shortened to less than 5 characters
-	// 	const len = Math.max(5, Container.config.advanced.abbreviatedShaLength);
-
-	// 	// If we have a suffix, append it
-	// 	const match = Git.shaShortenRegex.exec(ref);
-	// 	if (match != null) {
-	// 		const [, rev, suffix] = match;
-
-	// 		if (suffix != null) {
-	// 			return `${rev.substr(0, len)}${suffix}`;
-	// 		}
-	// 	}
-
-	// 	return ref.substr(0, len);
-	// }
 
 	export function splitPath(
 		fileName: string,

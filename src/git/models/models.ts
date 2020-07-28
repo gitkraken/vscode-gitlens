@@ -3,8 +3,6 @@
 import { Container } from '../../container';
 import { GlyphChars } from '../../constants';
 
-// import { Git } from '../git';
-
 const emptyStr = '';
 
 const shaLikeRegex = /(^[0-9a-f]{40}([\^@~:]\S*)?$)|(^[0]{40}(:|-)$)/;
