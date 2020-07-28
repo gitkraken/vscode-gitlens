@@ -1,7 +1,6 @@
 'use strict';
 import { ConfigurationTarget, env, MessageItem, Uri, window } from 'vscode';
 import { configuration } from './configuration';
-import { CommandContext, setCommandContext } from './constants';
 import { GitCommit } from './git/git';
 import { Logger } from './logger';
 
@@ -13,7 +12,6 @@ export enum SuppressedMessages {
 	GitVersionWarning = 'suppressGitVersionWarning',
 	LineUncommittedWarning = 'suppressLineUncommittedWarning',
 	NoRepositoryWarning = 'suppressNoRepositoryWarning',
-	SupportGitLensNotification = 'suppressSupportGitLensNotification',
 }
 
 export class Messages {
@@ -94,31 +92,6 @@ export class Messages {
 			`${message}. No repository could be found.`,
 			SuppressedMessages.NoRepositoryWarning,
 		);
-	}
-
-	static async showSupportGitLensMessage() {
-		const actions: MessageItem[] = [{ title: 'Sponsor GitLens' }];
-
-		const result = await Messages.showMessage(
-			'info',
-			'While GitLens is offered to everyone for free, if you find it useful, please consider [sponsoring](https://gitlens.amod.io/#sponsor) it. Thank you! ❤',
-			undefined,
-			null,
-			...actions,
-		);
-
-		if (result != null) {
-			let uri;
-			if (result === actions[0]) {
-				uri = Uri.parse('https://gitlens.amod.io/#sponsor');
-			}
-
-			if (uri !== undefined) {
-				await setCommandContext(CommandContext.ViewsHideSupportGitLens, true);
-				await this.suppressedMessage(SuppressedMessages.SupportGitLensNotification);
-				await env.openExternal(uri);
-			}
-		}
 	}
 
 	static async showWhatsNewMessage(version: string) {

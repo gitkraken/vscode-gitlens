@@ -1,6 +1,6 @@
 'use strict';
+import { env, Uri } from 'vscode';
 import { command, Command, Commands } from './common';
-import { Messages } from '../messages';
 
 @command()
 export class SupportGitLensCommand extends Command {
@@ -8,7 +8,7 @@ export class SupportGitLensCommand extends Command {
 		super(Commands.SupportGitLens);
 	}
 
-	execute() {
-		return Messages.showSupportGitLensMessage();
+	async execute() {
+		await env.openExternal(Uri.parse('https://gitlens.amod.io/#sponsor'));
 	}
 }

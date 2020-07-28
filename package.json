@@ -1914,8 +1914,7 @@
 						"suppressGitDisabledWarning": false,
 						"suppressGitVersionWarning": false,
 						"suppressLineUncommittedWarning": false,
-						"suppressNoRepositoryWarning": false,
-						"suppressSupportGitLensNotification": false
+						"suppressNoRepositoryWarning": false
 					},
 					"properties": {
 						"suppressCommitHasNoPreviousCommitWarning": {
@@ -1943,10 +1942,6 @@
 							"default": false
 						},
 						"suppressNoRepositoryWarning": {
-							"type": "boolean",
-							"default": false
-						},
-						"suppressSupportGitLensNotification": {
 							"type": "boolean",
 							"default": false
 						}
@@ -2118,7 +2113,7 @@
 		"commands": [
 			{
 				"command": "gitlens.supportGitLens",
-				"title": "Sponsor GitLens ❤",
+				"title": "Sponsor GitLens",
 				"category": "GitLens",
 				"icon": "$(heart)"
 			},
@@ -4835,34 +4830,34 @@
 					"group": "1_gitlens@0"
 				},
 				{
-					"command": "gitlens.supportGitLens",
-					"when": "view =~ /^gitlens\\.views\\..*:/ && config.gitlens.advanced.messages.suppressSupportGitLensNotification != true && gitlens:views:supportGitLens:hide != true",
-					"group": "navigation@1"
-				},
-				{
 					"command": "gitlens.showSettingsPage#repositories-view",
 					"when": "view =~ /^gitlens\\.views\\.repositories:/",
-					"group": "9_gitlens"
+					"group": "9_gitlens@1"
 				},
 				{
 					"command": "gitlens.showSettingsPage#file-history-view",
 					"when": "view =~ /^gitlens\\.views\\.fileHistory:/",
-					"group": "9_gitlens"
+					"group": "9_gitlens@1"
 				},
 				{
 					"command": "gitlens.showSettingsPage#line-history-view",
 					"when": "view =~ /^gitlens\\.views\\.lineHistory:/",
-					"group": "9_gitlens"
+					"group": "9_gitlens@1"
 				},
 				{
 					"command": "gitlens.showSettingsPage#search-commits-view",
 					"when": "view =~ /^gitlens\\.views\\.search:/",
-					"group": "9_gitlens"
+					"group": "9_gitlens@1"
 				},
 				{
 					"command": "gitlens.showSettingsPage",
 					"when": "view =~ /^gitlens\\.views\\.compare:/",
-					"group": "9_gitlens"
+					"group": "9_gitlens@1"
+				},
+				{
+					"command": "gitlens.supportGitLens",
+					"when": "view =~ /^gitlens\\.views\\..*:/",
+					"group": "9_gitlens@-1"
 				}
 			],
 			"view/item/context": [

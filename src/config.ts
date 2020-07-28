@@ -273,7 +273,6 @@ export interface AdvancedConfig {
 		suppressGitVersionWarning: boolean;
 		suppressLineUncommittedWarning: boolean;
 		suppressNoRepositoryWarning: boolean;
-		suppressSupportGitLensNotification: boolean;
 	};
 	quickPick: {
 		closeOnFocusOut: boolean;
