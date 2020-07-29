@@ -8,7 +8,6 @@ export interface Disposable {
 }
 
 export interface Event<T> {
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	(listener: (e: T) => any, thisArgs?: any, disposables?: Disposable[]): Disposable;
 }
 
