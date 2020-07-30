@@ -18,7 +18,7 @@ import {
 	WorkspaceFolder,
 	WorkspaceFoldersChangeEvent,
 } from 'vscode';
-import { API as BuiltInGitApi, GitExtension } from '../@types/git';
+import { API as BuiltInGitApi, Repository as BuiltInGitRepository, GitExtension } from '../@types/git';
 import { configuration } from '../configuration';
 import { CommandContext, DocumentSchemes, setCommandContext } from '../constants';
 import { Container } from '../container';
@@ -62,6 +62,7 @@ import {
 	GitLog,
 	GitLogCommit,
 	GitLogParser,
+	GitReference,
 	GitReflog,
 	GitRemote,
 	GitRemoteParser,
@@ -620,7 +621,7 @@ export class GitService implements Disposable {
 			0: (repos?: Repository[]) => (repos == null ? false : repos.map(r => r.name).join(', ')),
 		},
 	})
-	async pushAll(repositories?: Repository[], options: { force?: boolean } = {}) {
+	async pushAll(repositories?: Repository[], options: { force?: boolean; reference?: GitReference } = {}) {
 		if (repositories == null) {
 			repositories = await this.getOrderedRepositories();
 		}
@@ -3268,6 +3269,22 @@ export class GitService implements Disposable {
 		} catch {}
 
 		return undefined;
+	}
+
+	@log()
+	static async getBuiltInGitRepository(repoPath: string): Promise<BuiltInGitRepository | undefined> {
+		const gitApi = await GitService.getBuiltInGitApi();
+		if (gitApi == null) return undefined;
+
+		const normalizedPath = Strings.normalizePath(repoPath, { stripTrailingSlash: true }).toLowerCase();
+
+		const repo = gitApi.repositories.find(r => {
+			const normalized = Strings.normalizePath(r.rootUri.fsPath, {
+				stripTrailingSlash: true,
+			}).toLowerCase();
+			return normalized === normalizedPath;
+		});
+		return repo;
 	}
 
 	static getEncoding(repoPath: string, fileName: string): string;

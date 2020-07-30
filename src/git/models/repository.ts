@@ -18,6 +18,7 @@ import { StarredRepositories, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
 import { Functions, gate, Iterables, log, logName } from '../../system';
 import { GitBranch, GitContributor, GitDiffShortStat, GitRemote, GitStash, GitStatus, GitTag } from '../git';
+import { GitService } from '../gitService';
 import { GitUri } from '../gitUri';
 import { RemoteProviderFactory, RemoteProviders, RemoteProviderWithApi } from '../remotes/factory';
 import { Messages } from '../../messages';
@@ -444,22 +445,36 @@ export class Repository implements Disposable {
 
 	@gate()
 	@log()
-	async push(options: { force?: boolean; progress?: boolean } = {}) {
-		const { force, progress } = { progress: true, ...options };
-		if (!progress) return this.pushCore(force);
+	async push(options: { force?: boolean; progress?: boolean; reference?: GitReference } = {}) {
+		const { force, progress, reference } = { progress: true, ...options };
+		if (!progress) return this.pushCore(force, reference);
 
 		return void (await window.withProgress(
 			{
 				location: ProgressLocation.Notification,
 				title: `Pushing ${this.formattedName}...`,
 			},
-			() => this.pushCore(force),
+			() => this.pushCore(force, reference),
 		));
 	}
 
-	private async pushCore(force: boolean = false) {
+	private async pushCore(force: boolean = false, reference?: GitReference) {
 		try {
-			void (await commands.executeCommand(force ? 'git.pushForce' : 'git.push', this.path));
+			if (reference != null) {
+				const branch = await this.getBranch();
+				if (branch === undefined) return;
+
+				const repo = await GitService.getBuiltInGitRepository(this.path);
+				if (repo == null) return;
+
+				await repo?.push(
+					branch.getRemoteName(),
+					`${reference.ref}:${branch.getNameWithoutRemote()}`,
+					undefined,
+				);
+			} else {
+				void (await commands.executeCommand(force ? 'git.pushForce' : 'git.push', this.path));
+			}
 
 			this.fireChange(RepositoryChange.Repository);
 		} catch (ex) {

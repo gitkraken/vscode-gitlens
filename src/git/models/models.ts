@@ -219,23 +219,26 @@ export namespace GitReference {
 
 	export function toString(
 		refs: GitReference | GitReference[] | undefined,
-		options?: { capitalize?: boolean; expand?: boolean; icon?: boolean } | false,
+		options?: { capitalize?: boolean; expand?: boolean; icon?: boolean; label?: boolean } | false,
 	) {
 		if (refs == null) return '';
 
-		options = options === false ? {} : { expand: true, icon: true, ...options };
+		options =
+			options === false
+				? {}
+				: { expand: true, icon: true, label: options?.label ?? options?.expand ?? true, ...options };
 
 		let result;
 		if (!Array.isArray(refs) || refs.length === 1) {
 			const ref = Array.isArray(refs) ? refs[0] : refs;
 			switch (ref.refType) {
 				case 'branch':
-					result = `${options.expand ? `${ref.remote ? 'remote ' : ''}branch ` : ''}${
+					result = `${options.label ? `${ref.remote ? 'remote ' : ''}branch ` : ''}${
 						options.icon ? `$(git-branch) ${ref.name}${GlyphChars.Space}` : ref.name
 					}`;
 					break;
 				case 'tag':
-					result = `${options.expand ? 'tag ' : ''}${
+					result = `${options.label ? 'tag ' : ''}${
 						options.icon ? `$(tag) ${ref.name}${GlyphChars.Space}` : ref.name
 					}`;
 					break;
@@ -250,7 +253,7 @@ export namespace GitReference {
 							}`;
 						}
 
-						result = `${options.expand ? 'stash ' : ''}${
+						result = `${options.label ? 'stash ' : ''}${
 							options.icon
 								? `$(archive) ${message ?? ref.name}${GlyphChars.Space}`
 								: `${message ?? ref.number ?? ref.name}`
@@ -266,7 +269,7 @@ export namespace GitReference {
 									: ` (${ref.message})`;
 						}
 
-						result = `${options.expand ? 'commit ' : ''}${
+						result = `${options.label ? 'commit ' : ''}${
 							options.icon
 								? `$(git-commit) ${ref.name}${message ?? ''}${GlyphChars.Space}`
 								: `${ref.name}${message ?? ''}`

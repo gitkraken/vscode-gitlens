@@ -1,11 +1,12 @@
 'use strict';
 import { configuration } from '../../configuration';
 import { Container } from '../../container';
-import { Repository } from '../../git/git';
+import { GitReference, Repository } from '../../git/git';
 import {
 	appendReposToTitle,
 	PartialStepState,
 	pickRepositoriesStep,
+	pickRepositoryStep,
 	QuickCommand,
 	QuickCommandButtons,
 	QuickPickStep,
@@ -28,6 +29,7 @@ type Flags = '--force';
 
 interface State<Repos = string | string[] | Repository | Repository[]> {
 	repos: Repos;
+	reference?: GitReference;
 	flags: Flags[];
 }
 
@@ -58,7 +60,10 @@ export class PushGitCommand extends QuickCommand<State> {
 	}
 
 	execute(state: State<Repository[]>) {
-		return Container.git.pushAll(state.repos, { force: state.flags.includes('--force') });
+		return Container.git.pushAll(state.repos, {
+			force: state.flags.includes('--force'),
+			reference: state.reference,
+		});
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
@@ -89,6 +94,15 @@ export class PushGitCommand extends QuickCommand<State> {
 						state.counter++;
 					}
 					state.repos = [context.repos[0]];
+				} else if (state.reference != null) {
+					const result = yield* pickRepositoryStep(
+						{ ...state, repos: undefined, reference: undefined },
+						context,
+					);
+					// Always break on the first step (so we will go back)
+					if (result === StepResult.Break) break;
+
+					state.repos = [result];
 				} else {
 					const result = yield* pickRepositoriesStep(
 						state as ExcludeSome<typeof state, 'repos', string | Repository>,
@@ -163,38 +177,46 @@ export class PushGitCommand extends QuickCommand<State> {
 					).fromNow()}`;
 				}
 
-				if (status?.state.behind) {
-					step = this.createConfirmStep(
-						appendReposToTitle(`Confirm ${context.title}`, state, context, lastFetchedOn),
-						[],
-						DirectiveQuickPickItem.create(Directive.Cancel, true, {
-							label: `Cancel ${this.title}`,
-							detail: `Cannot push; $(repo) ${repo.formattedName} is behind by ${Strings.pluralize(
-								'commit',
-								status.state.behind,
-							)}`,
-						}),
-					);
+				let pushDetails;
+				if (state.reference != null) {
+					pushDetails = status?.state.ahead
+						? ` commits up to ${GitReference.toString(state.reference, { label: false })} to $(repo) ${
+								repo.formattedName
+						  }`
+						: ` to ${repo.formattedName}`;
 				} else {
-					const pushDetails = status?.state.ahead
+					pushDetails = status?.state.ahead
 						? ` ${Strings.pluralize('commit', status.state.ahead)} to $(repo) ${repo.formattedName}`
 						: ` to ${repo.formattedName}`;
-
-					step = this.createConfirmStep(
-						appendReposToTitle(`Confirm ${context.title}`, state, context, lastFetchedOn),
-						[
-							FlagsQuickPickItem.create<Flags>(state.flags, [], {
-								label: this.title,
-								detail: `Will push${pushDetails}`,
-							}),
-							FlagsQuickPickItem.create<Flags>(state.flags, ['--force'], {
-								label: `Force ${this.title}${useForceWithLease ? ' (with lease)' : ''}`,
-								description: `--force${useForceWithLease ? '-with-lease' : ''}`,
-								detail: `Will force push${useForceWithLease ? ' (with lease)' : ''} ${pushDetails}`,
-							}),
-						],
-					);
 				}
+
+				step = this.createConfirmStep(
+					appendReposToTitle(`Confirm ${context.title}`, state, context, lastFetchedOn),
+					[
+						...(status?.state.behind
+							? []
+							: [
+									FlagsQuickPickItem.create<Flags>(state.flags, [], {
+										label: this.title,
+										detail: `Will push${pushDetails}`,
+									}),
+							  ]),
+						FlagsQuickPickItem.create<Flags>(state.flags, ['--force'], {
+							label: `Force ${this.title}${useForceWithLease ? ' (with lease)' : ''}`,
+							description: `--force${useForceWithLease ? '-with-lease' : ''}`,
+							detail: `Will force push${useForceWithLease ? ' (with lease)' : ''} ${pushDetails}`,
+						}),
+					],
+					status?.state.behind
+						? DirectiveQuickPickItem.create(Directive.Cancel, true, {
+								label: `Cancel ${this.title}`,
+								detail: `Cannot push; $(repo) ${repo.formattedName} is behind by ${Strings.pluralize(
+									'commit',
+									status.state.behind,
+								)}`,
+						  })
+						: undefined,
+				);
 
 				step.additionalButtons = [QuickCommandButtons.Fetch];
 				step.onDidClickButton = async (quickpick, button) => {

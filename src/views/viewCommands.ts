@@ -166,6 +166,7 @@ export class ViewCommands {
 		commands.registerCommand('gitlens.views.deleteTag', this.deleteTag, this);
 
 		commands.registerCommand('gitlens.views.mergeBranchInto', this.merge, this);
+		commands.registerCommand('gitlens.views.pushToCommit', this.pushToCommit, this);
 
 		commands.registerCommand('gitlens.views.rebaseOntoBranch', this.rebase, this);
 		commands.registerCommand('gitlens.views.rebaseOntoUpstream', this.rebaseToRemote, this);
@@ -173,8 +174,6 @@ export class ViewCommands {
 
 		commands.registerCommand('gitlens.views.reset', this.reset, this);
 		commands.registerCommand('gitlens.views.revert', this.revert, this);
-
-		commands.registerCommand('gitlens.views.terminalPushCommit', this.terminalPushCommit, this);
 
 		commands.registerCommand('gitlens.views.terminalRemoveRemote', this.terminalRemoveRemote, this);
 	}
@@ -324,10 +323,17 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private async merge(node: BranchNode | TagNode) {
+	private merge(node: BranchNode | TagNode) {
 		if (!(node instanceof BranchNode) && !(node instanceof TagNode)) return undefined;
 
 		return GitActions.merge(node.repoPath, node instanceof BranchNode ? node.branch : node.tag);
+	}
+
+	@debug()
+	private pushToCommit(node: CommitNode) {
+		if (!(node instanceof CommitNode)) return undefined;
+
+		return GitActions.push(node.repoPath, false, node.commit);
 	}
 
 	@debug()
@@ -829,19 +835,6 @@ export class ViewCommands {
 			{
 				range: false,
 			},
-		);
-	}
-
-	async terminalPushCommit(node: CommitNode) {
-		if (!(node instanceof CommitNode)) return;
-
-		const branch = node.branch ?? (await Container.git.getBranch(node.repoPath));
-		if (branch === undefined) return;
-
-		runGitCommandInTerminal(
-			'push',
-			`${branch.getRemoteName()} ${node.ref}:${branch.getNameWithoutRemote()}`,
-			node.repoPath,
 		);
 	}
 
