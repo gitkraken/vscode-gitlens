@@ -2513,25 +2513,25 @@
 				"command": "gitlens.openBranchesInRemote",
 				"title": "Open Branches on Remote",
 				"category": "GitLens",
-				"icon": "$(link-external)"
+				"icon": "$(globe)"
 			},
 			{
 				"command": "gitlens.openBranchInRemote",
 				"title": "Open Branch on Remote",
 				"category": "GitLens",
-				"icon": "$(link-external)"
+				"icon": "$(globe)"
 			},
 			{
 				"command": "gitlens.openCommitInRemote",
 				"title": "Open Commit on Remote",
 				"category": "GitLens",
-				"icon": "$(link-external)"
+				"icon": "$(globe)"
 			},
 			{
 				"command": "gitlens.openFileInRemote",
 				"title": "Open File on Remote",
 				"category": "GitLens",
-				"icon": "$(link-external)"
+				"icon": "$(globe)"
 			},
 			{
 				"command": "gitlens.openFileRevision",
@@ -2555,7 +2555,7 @@
 				"command": "gitlens.openRepoInRemote",
 				"title": "Open Repository on Remote",
 				"category": "GitLens",
-				"icon": "$(link-external)"
+				"icon": "$(globe)"
 			},
 			{
 				"command": "gitlens.openRevisionFile",
@@ -2879,7 +2879,7 @@
 				"command": "gitlens.views.openFileRevisionInRemote",
 				"title": "Open File at Revision on Remote",
 				"category": "GitLens",
-				"icon": "$(link-external)"
+				"icon": "$(globe)"
 			},
 			{
 				"command": "gitlens.views.openChangedFiles",
