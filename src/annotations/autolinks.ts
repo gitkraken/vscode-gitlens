@@ -172,22 +172,26 @@ export class Autolinks implements Disposable {
 					return text.replace(ref.messageMarkdownRegex!, (_substring, linkText, num) => {
 						const issue = issuesOrPullRequests?.get(num);
 
-						return `[${linkText}](${ref.url.replace(numRegex, num)}${
-							ref.title
-								? ` "${ref.title.replace(numRegex, num)}${
-										issue instanceof Promises.CancellationError
-											? `\n${GlyphChars.Dash.repeat(2)}\nDetails timed out`
-											: issue
-											? `\n${GlyphChars.Dash.repeat(2)}\n${issue.title.replace(
-													/([")])/g,
-													'\\$1',
-											  )}\n${issue.closed ? 'Closed' : 'Opened'}, ${Dates.getFormatter(
-													issue.closedDate ?? issue.date,
-											  ).fromNow()}`
-											: ''
-								  }"`
-								: ''
-						})`;
+						let title = '';
+						if (ref.title) {
+							title = ` "${ref.title.replace(numRegex, num)}`;
+
+							if (issue) {
+								if (issue instanceof Promises.CancellationError) {
+									title += `\n${GlyphChars.Dash.repeat(2)}\nDetails timed out`;
+								} else {
+									title += `\n${GlyphChars.Dash.repeat(2)}\n${issue.title.replace(
+										/([")\\])/g,
+										'\\$1',
+									)}\n${issue.closed ? 'Closed' : 'Opened'}, ${Dates.getFormatter(
+										issue.closedDate ?? issue.date,
+									).fromNow()}`;
+								}
+							}
+							title += '"';
+						}
+
+						return `[${linkText}](${ref.url.replace(numRegex, num)}${title}`;
 					});
 				}
 
