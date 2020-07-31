@@ -6209,7 +6209,7 @@
 		"circular-dependency-plugin": "5.2.0",
 		"clean-webpack-plugin": "3.0.0",
 		"csp-html-webpack-plugin": "4.0.0",
-		"css-loader": "4.1.0",
+		"css-loader": "4.1.1",
 		"eslint": "7.5.0",
 		"eslint-cli": "1.1.1",
 		"eslint-config-prettier": "6.11.0",
@@ -6227,7 +6227,7 @@
 		"ts-loader": "8.0.1",
 		"typescript": "3.9.7",
 		"vsce": "1.77.0",
-		"webpack": "4.44.0",
+		"webpack": "4.44.1",
 		"webpack-bundle-analyzer": "3.8.0",
 		"webpack-cli": "3.3.12"
 	}
