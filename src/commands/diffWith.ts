@@ -103,10 +103,14 @@ export class DiffWithCommand extends Command {
 					args.rhs.uri.fsPath,
 					args.rhs.sha,
 				);
-				if (status != null && status.status === 'D') {
+				if (status?.status === 'D') {
 					args.rhs.sha = GitRevision.deletedOrMissing;
 				} else {
 					rhsSha = args.rhs.sha;
+				}
+
+				if (status?.status === 'A' && args.lhs.sha.endsWith('^')) {
+					args.lhs.sha = GitRevision.deletedOrMissing;
 				}
 			}
 

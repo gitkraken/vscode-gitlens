@@ -3161,7 +3161,7 @@ export class GitService implements Disposable {
 				: Strings.normalizePath(paths.relative(repoPath, fileNameOrUri.fsPath));
 
 		const blob = await Git.rev_parse__verify(repoPath, ref, fileName);
-		if (blob == null) return ref;
+		if (blob == null) return GitRevision.deletedOrMissing;
 
 		return (await Git.log__find_object(repoPath, blob, ref)) ?? ref;
 	}
