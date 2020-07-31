@@ -68,7 +68,7 @@ export class LineHoverController implements Disposable {
 	private onActiveLinesChanged(e: LinesChangeEvent) {
 		if (e.pending) return;
 
-		if (e.editor === undefined || e.lines === undefined) {
+		if (e.editor == null || e.lines == null) {
 			this.unregister();
 
 			return;
@@ -94,8 +94,8 @@ export class LineHoverController implements Disposable {
 		if (!Container.lineTracker.includes(position.line)) return undefined;
 
 		const lineState = Container.lineTracker.getState(position.line);
-		const commit = lineState !== undefined ? lineState.commit : undefined;
-		if (commit === undefined) return undefined;
+		const commit = lineState?.commit;
+		if (commit == null) return undefined;
 
 		// Avoid double annotations if we are showing the whole-file hover blame annotations
 		if (Container.config.hovers.annotations.details) {
@@ -113,17 +113,17 @@ export class LineHoverController implements Disposable {
 		if (!wholeLine && range.start.character !== position.character) return undefined;
 
 		// Get the full commit message -- since blame only returns the summary
-		let logCommit = lineState !== undefined ? lineState.logCommit : undefined;
-		if (logCommit === undefined && !commit.isUncommitted) {
+		let logCommit = lineState?.logCommit;
+		if (logCommit == null && !commit.isUncommitted) {
 			logCommit = await Container.git.getCommitForFile(commit.repoPath, commit.uri.fsPath, {
 				ref: commit.sha,
 			});
-			if (logCommit !== undefined) {
+			if (logCommit != null) {
 				// Preserve the previous commit from the blame commit
 				logCommit.previousSha = commit.previousSha;
 				logCommit.previousFileName = commit.previousFileName;
 
-				if (lineState !== undefined) {
+				if (lineState != null) {
 					lineState.logCommit = logCommit;
 				}
 			}
@@ -135,7 +135,7 @@ export class LineHoverController implements Disposable {
 		editorLine = commitLine.originalLine - 1;
 
 		const trackedDocument = await Container.tracker.get(document);
-		if (trackedDocument === undefined) return undefined;
+		if (trackedDocument == null) return undefined;
 
 		const message = await Hovers.detailsMessage(
 			logCommit ?? commit,
@@ -161,8 +161,8 @@ export class LineHoverController implements Disposable {
 		if (!Container.lineTracker.includes(position.line)) return undefined;
 
 		const lineState = Container.lineTracker.getState(position.line);
-		const commit = lineState !== undefined ? lineState.commit : undefined;
-		if (commit === undefined) return undefined;
+		const commit = lineState?.commit;
+		if (commit == null) return undefined;
 
 		// Avoid double annotations if we are showing the whole-file hover blame annotations
 		if (Container.config.hovers.annotations.changes) {
@@ -180,22 +180,22 @@ export class LineHoverController implements Disposable {
 		if (!wholeLine && range.start.character !== position.character) return undefined;
 
 		const trackedDocument = await Container.tracker.get(document);
-		if (trackedDocument === undefined) return undefined;
+		if (trackedDocument == null) return undefined;
 
 		const message = await Hovers.changesMessage(commit, trackedDocument.uri, position.line);
-		if (message === undefined) return undefined;
+		if (message == null) return undefined;
 
 		return new Hover(message, range);
 	}
 
 	private isRegistered(uri: Uri | undefined) {
-		return this._hoverProviderDisposable !== undefined && UriComparer.equals(this._uri, uri);
+		return this._hoverProviderDisposable != null && UriComparer.equals(this._uri, uri);
 	}
 
 	private register(editor: TextEditor | undefined) {
 		this.unregister();
 
-		if (editor === undefined) return;
+		if (editor == null) return;
 
 		const cfg = Container.config.hovers;
 		if (!cfg.enabled || !cfg.currentLine.enabled || (!cfg.currentLine.details && !cfg.currentLine.changes)) return;
@@ -229,7 +229,7 @@ export class LineHoverController implements Disposable {
 
 	private unregister() {
 		this._uri = undefined;
-		if (this._hoverProviderDisposable !== undefined) {
+		if (this._hoverProviderDisposable != null) {
 			this._hoverProviderDisposable.dispose();
 			this._hoverProviderDisposable = undefined;
 		}

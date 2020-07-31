@@ -34,7 +34,7 @@ export namespace Hovers {
 					ref = documentRef;
 				}
 			} else {
-				ref = commit.sha;
+				ref = documentRef ? commit.previousSha : commit.sha;
 			}
 
 			const line = editorLine + 1;
@@ -49,7 +49,7 @@ export namespace Hovers {
 
 			editorLine = commitLine.originalLine - 1;
 			// TODO: Doesn't work with dirty files -- pass in editor? or contents?
-			hunkLine = await Container.git.getDiffForLine(uri, editorLine, ref, undefined, originalFileName);
+			hunkLine = await Container.git.getDiffForLine(uri, editorLine, ref, uri.sha, originalFileName);
 
 			// If we didn't find a diff & ref is undefined (meaning uncommitted), check for a staged diff
 			if (hunkLine == null && ref == null) {
