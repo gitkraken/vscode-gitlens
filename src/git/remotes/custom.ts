@@ -1,8 +1,9 @@
 'use strict';
-import { Range } from 'vscode';
+import { Range, Uri } from 'vscode';
 import { RemotesUrlsConfig } from '../../configuration';
-import { Strings } from '../../system';
+import { Repository } from '../models/repository';
 import { RemoteProvider } from './provider';
+import { Strings } from '../../system';
 
 export class CustomRemote extends RemoteProvider {
 	private readonly urls: RemotesUrlsConfig;
@@ -14,6 +15,13 @@ export class CustomRemote extends RemoteProvider {
 
 	get name() {
 		return this.formatName('Custom');
+	}
+
+	getLocalInfoFromRemoteUri(
+		_repository: Repository,
+		_uri: Uri,
+	): Promise<{ uri: Uri; startLine?: number; endLine?: number } | undefined> {
+		return Promise.resolve(undefined);
 	}
 
 	protected getUrlForRepository(): string {

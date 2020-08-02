@@ -2528,6 +2528,11 @@
 				"icon": "$(globe)"
 			},
 			{
+				"command": "gitlens.openFileFromRemote",
+				"title": "Open File From Remote",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.openFileInRemote",
 				"title": "Open File on Remote",
 				"category": "GitLens",

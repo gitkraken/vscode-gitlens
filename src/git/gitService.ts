@@ -2843,6 +2843,20 @@ export class GitService implements Disposable {
 		return repo;
 	}
 
+	async getLocalInfoFromRemoteUri(
+		uri: Uri,
+		options?: { validate?: boolean },
+	): Promise<{ uri: Uri; startLine?: number; endLine?: number } | undefined> {
+		for (const repo of await this.getRepositories()) {
+			for (const remote of await repo.getRemotes()) {
+				const local = await remote?.provider?.getLocalInfoFromRemoteUri(repo, uri, options);
+				if (local != null) return local;
+			}
+		}
+
+		return undefined;
+	}
+
 	async getRepositoryCount(): Promise<number> {
 		const repositoryTree = await this.getRepositoryTree();
 		return repositoryTree.count();

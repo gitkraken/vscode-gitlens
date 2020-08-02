@@ -59,6 +59,7 @@ export enum Commands {
 	OpenBranchesInRemote = 'gitlens.openBranchesInRemote',
 	OpenBranchInRemote = 'gitlens.openBranchInRemote',
 	OpenCommitInRemote = 'gitlens.openCommitInRemote',
+	OpenFileFromRemote = 'gitlens.openFileFromRemote',
 	OpenFileInRemote = 'gitlens.openFileInRemote',
 	OpenFileAtRevision = 'gitlens.openFileRevision',
 	OpenFileAtRevisionFrom = 'gitlens.openFileRevisionFrom',

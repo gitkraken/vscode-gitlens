@@ -9,6 +9,7 @@ import { Messages } from '../../messages';
 import { IssueOrPullRequest } from '../models/issue';
 import { GitLogCommit } from '../models/logCommit';
 import { PullRequest } from '../models/pullRequest';
+import { Repository } from '../models/repository';
 import { debug, gate, Promises } from '../../system';
 
 export class CredentialError extends Error {
@@ -128,6 +129,12 @@ export abstract class RemoteProvider {
 	hasApi(): this is RemoteProviderWithApi {
 		return RemoteProviderWithApi.is(this);
 	}
+
+	abstract getLocalInfoFromRemoteUri(
+		repository: Repository,
+		uri: Uri,
+		options?: { validate?: boolean },
+	): Promise<{ uri: Uri; startLine?: number; endLine?: number } | undefined>;
 
 	open(resource: RemoteResource): Promise<boolean | undefined> {
 		return this.openUrl(this.url(resource));

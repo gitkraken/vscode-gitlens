@@ -4,10 +4,14 @@ import { DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference } from '../../config';
 import { Container } from '../../container';
 import { IssueOrPullRequest } from '../models/issue';
+import { GitRevision } from '../models/models';
 import { PullRequest } from '../models/pullRequest';
+import { Repository } from '../models/repository';
 import { RemoteProviderWithApi } from './provider';
 
 const issueEnricher3rdParyRegex = /\b(\w+\\?-?\w+(?!\\?-)\/\w+\\?-?\w+(?!\\?-))\\?#([0-9]+)\b/g;
+const fileRegex = /^\/([^/]+)\/([^/]+?)\/blob(.+)$/i;
+const rangeRegex = /^L(\d+)(?:-L(\d+))?$/;
 
 export class GitHubRemote extends RemoteProviderWithApi<{ token: string }> {
 	private readonly Buttons = class {
@@ -113,6 +117,68 @@ export class GitHubRemote extends RemoteProviderWithApi<{ token: string }> {
 
 		await this.saveCredentials({ token: token });
 		return true;
+	}
+
+	async getLocalInfoFromRemoteUri(
+		repository: Repository,
+		uri: Uri,
+		options?: { validate?: boolean },
+	): Promise<{ uri: Uri; startLine?: number; endLine?: number } | undefined> {
+		if (uri.authority !== this.domain) return undefined;
+		if ((options?.validate ?? true) && !uri.path.startsWith(`/${this.path}/`)) return undefined;
+
+		let startLine;
+		let endLine;
+		if (uri.fragment) {
+			const match = rangeRegex.exec(uri.fragment);
+			if (match != null) {
+				const [, start, end] = match;
+				if (start) {
+					startLine = parseInt(start, 10);
+					if (end) {
+						endLine = parseInt(end, 10);
+					}
+				}
+			}
+		}
+
+		const match = fileRegex.exec(uri.path);
+		if (match == null) return undefined;
+
+		const [, , , path] = match;
+
+		// Check for a permalink
+		let index = path.indexOf('/', 1);
+		if (index !== -1) {
+			const sha = path.substring(1, index);
+			if (GitRevision.isSha(sha)) {
+				const uri = repository.toAbsoluteUri(path.substr(index), { validate: options?.validate });
+				if (uri != null) return { uri: uri, startLine: startLine, endLine: endLine };
+			}
+		}
+
+		const branches = new Set<string>(
+			(
+				await repository.getBranches({
+					filter: b => b.remote,
+				})
+			).map(b => b.getNameWithoutRemote()),
+		);
+
+		// Check for a link with branch (and deal with branch names with /)
+		let branch;
+		index = path.length;
+		do {
+			index = path.lastIndexOf('/', index - 1);
+			branch = path.substring(1, index);
+
+			if (branches.has(branch)) {
+				const uri = repository.toAbsoluteUri(path.substr(index), { validate: options?.validate });
+				if (uri != null) return { uri: uri, startLine: startLine, endLine: endLine };
+			}
+		} while (index > 0);
+
+		return undefined;
 	}
 
 	protected getUrlForBranches(): string {

@@ -1,14 +1,18 @@
 'use strict';
-import { Range } from 'vscode';
-import { RemoteProvider } from './provider';
-import { AutolinkReference } from '../../config';
+import { Range, Uri } from 'vscode';
 import { DynamicAutolinkReference } from '../../annotations/autolinks';
+import { AutolinkReference } from '../../config';
+import { Repository } from '../models/repository';
+import { RemoteProvider } from './provider';
 
 const gitRegex = /\/_git\/?/i;
 const legacyDefaultCollectionRegex = /^DefaultCollection\//i;
 const orgAndProjectRegex = /^(.*?)\/(.*?)\/(.*)/;
 const sshDomainRegex = /^(ssh|vs-ssh)\./i;
 const sshPathRegex = /^\/?v\d\//i;
+
+const fileRegex = /path=([^&]+)/i;
+const rangeRegex = /line=(\d+)(?:&lineEnd=(\d+))?/;
 
 export class AzureDevOpsRemote extends RemoteProvider {
 	constructor(domain: string, path: string, protocol?: string, name?: string, legacy: boolean = false) {
@@ -64,6 +68,39 @@ export class AzureDevOpsRemote extends RemoteProvider {
 			this._displayPath = this.path.replace(gitRegex, '/').replace(legacyDefaultCollectionRegex, '');
 		}
 		return this._displayPath;
+	}
+
+	// eslint-disable-next-line @typescript-eslint/require-await
+	async getLocalInfoFromRemoteUri(
+		repository: Repository,
+		uri: Uri,
+		options?: { validate?: boolean },
+	): Promise<{ uri: Uri; startLine?: number; endLine?: number } | undefined> {
+		if (uri.authority !== this.domain) return undefined;
+		// if ((options?.validate ?? true) && !uri.path.startsWith(`/${this.path}/`)) return undefined;
+
+		let startLine;
+		let endLine;
+		if (uri.query) {
+			const match = rangeRegex.exec(uri.query);
+			if (match != null) {
+				const [, start, end] = match;
+				if (start) {
+					startLine = parseInt(start, 10);
+					if (end) {
+						endLine = parseInt(end, 10);
+					}
+				}
+			}
+		}
+
+		const match = fileRegex.exec(uri.query);
+		if (match == null) return undefined;
+
+		const [, path] = match;
+
+		const absoluteUri = repository.toAbsoluteUri(path, { validate: options?.validate });
+		return absoluteUri != null ? { uri: absoluteUri, startLine: startLine, endLine: endLine } : undefined;
 	}
 
 	protected getUrlForBranches(): string {

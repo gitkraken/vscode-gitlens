@@ -580,6 +580,11 @@ export class Repository implements Disposable {
 		}
 	}
 
+	toAbsoluteUri(path: string, options?: { validate?: boolean }): Uri | undefined {
+		const uri = Uri.joinPath(GitUri.file(this.path), path);
+		return !(options?.validate ?? true) || this.containsUri(uri) ? uri : undefined;
+	}
+
 	unstar() {
 		return this.updateStarred(false);
 	}
