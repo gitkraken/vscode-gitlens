@@ -37,7 +37,7 @@ export class CopyRemoteResourceCommandQuickPickItem extends CommandQuickPickItem
 			`$(clippy) Copy ${providers?.length ? providers[0].name : 'Remote'} ${getNameFromRemoteResource(
 				resource,
 			)} Url${providers?.length === 1 ? '' : GlyphChars.Ellipsis}`,
-			Commands.OpenOnRemote,
+			Commands.OpenInRemote,
 			[commandArgs],
 		);
 	}
@@ -62,7 +62,7 @@ export class OpenRemoteResourceCommandQuickPickItem extends CommandQuickPickItem
 					? providers[0].name
 					: `${providers?.length ? providers[0].name : 'Remote'}${GlyphChars.Ellipsis}`
 			}`,
-			Commands.OpenOnRemote,
+			Commands.OpenInRemote,
 			[commandArgs],
 		);
 	}

@@ -27,7 +27,7 @@ export type OpenOnRemoteCommandArgs =
 @command()
 export class OpenOnRemoteCommand extends Command {
 	constructor() {
-		super(Commands.OpenOnRemote);
+		super(Commands.OpenInRemote);
 	}
 
 	async execute(args?: OpenOnRemoteCommandArgs) {

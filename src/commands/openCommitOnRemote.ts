@@ -83,7 +83,7 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 				args.sha = commit.sha;
 			}
 
-			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
+			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenInRemote, {
 				resource: {
 					type: RemoteResourceType.Commit,
 					sha: args.sha,

@@ -102,7 +102,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 				}
 			}
 
-			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
+			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenInRemote, {
 				resource: {
 					type: sha == null ? RemoteResourceType.File : RemoteResourceType.Revision,
 					branch: args.branch ?? 'HEAD',

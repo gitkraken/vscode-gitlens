@@ -60,7 +60,7 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 				args.branch = pick.ref;
 			}
 
-			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
+			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenInRemote, {
 				resource: {
 					type: RemoteResourceType.Branch,
 					branch: args.branch || 'HEAD',
