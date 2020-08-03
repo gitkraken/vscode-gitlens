@@ -65,7 +65,9 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 				args.range && editor != null && UriComparer.equals(editor.document.uri, uri)
 					? new Range(
 							editor.selection.start.with({ line: editor.selection.start.line + 1 }),
-							editor.selection.end.with({ line: editor.selection.end.line + 1 }),
+							editor.selection.end.with({
+								line: editor.selection.end.line + (editor.selection.end.character === 0 ? 0 : 1),
+							}),
 					  )
 					: undefined;
 			let sha = args.sha ?? gitUri.sha;
