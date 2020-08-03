@@ -283,6 +283,7 @@ function getWebviewsConfig(mode, env) {
 			excludeAssets: [/.+-styles\.js/],
 			filename: path.join(__dirname, 'dist/webviews/settings.html'),
 			inject: true,
+			inlineSource: mode === 'production' ? '.css$' : undefined,
 			cspPlugin: {
 				enabled: true,
 				policy: cspPolicy,
@@ -311,6 +312,7 @@ function getWebviewsConfig(mode, env) {
 			excludeAssets: [/.+-styles\.js/],
 			filename: path.join(__dirname, 'dist/webviews/welcome.html'),
 			inject: true,
+			inlineSource: mode === 'production' ? '.css$' : undefined,
 			cspPlugin: {
 				enabled: true,
 				policy: cspPolicy,
