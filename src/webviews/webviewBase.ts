@@ -1,6 +1,5 @@
 'use strict';
-import * as paths from 'path';
-import * as fs from 'fs';
+import { TextDecoder } from 'util';
 import {
 	commands,
 	ConfigurationChangeEvent,
@@ -194,32 +193,13 @@ export abstract class WebviewBase implements Disposable {
 		}
 	}
 
-	private _html: string | undefined;
 	private async getHtml(webview: Webview): Promise<string> {
-		const filename = Container.context.asAbsolutePath(paths.join('dist/webviews/', this.filename));
-
-		let content;
-		// When we are debugging avoid any caching so that we can change the html and have it update without reloading
-		if (Logger.isDebugging) {
-			content = await new Promise<string>((resolve, reject) => {
-				fs.readFile(filename, 'utf8', (err, data) => {
-					if (err) {
-						reject(err);
-					} else {
-						resolve(data);
-					}
-				});
-			});
-		} else {
-			if (this._html != null) return this._html;
-
-			const doc = await workspace.openTextDocument(filename);
-			content = doc.getText();
-		}
+		const uri = Uri.joinPath(Container.context.extensionUri, 'dist', 'webviews', this.filename);
+		const content = new TextDecoder('utf8').decode(await workspace.fs.readFile(uri));
 
 		let html = content
 			.replace(/#{cspSource}/g, webview.cspSource)
-			.replace(/#{root}/g, webview.asWebviewUri(Uri.file(Container.context.asAbsolutePath('.'))).toString());
+			.replace(/#{root}/g, webview.asWebviewUri(Container.context.extensionUri).toString());
 
 		if (this.renderHead) {
 			html = html.replace(/#{head}/i, await this.renderHead());
@@ -233,7 +213,6 @@ export abstract class WebviewBase implements Disposable {
 			html = html.replace(/#{endOfBody}/i, await this.renderEndOfBody());
 		}
 
-		this._html = html;
 		return html;
 	}
 
