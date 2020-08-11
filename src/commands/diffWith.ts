@@ -88,8 +88,8 @@ export class DiffWithCommand extends Command {
 			let rhsSha = args.rhs.sha;
 
 			[args.lhs.sha, args.rhs.sha] = await Promise.all([
-				await Container.git.resolveReference(args.repoPath, args.lhs.sha, args.lhs.uri),
-				await Container.git.resolveReference(args.repoPath, args.rhs.sha, args.rhs.uri),
+				await Container.git.resolveReference(args.repoPath, args.lhs.sha, args.lhs.uri, { timeout: 100 }),
+				await Container.git.resolveReference(args.repoPath, args.rhs.sha, args.rhs.uri, { timeout: 100 }),
 			]);
 
 			if (args.lhs.sha !== GitRevision.deletedOrMissing) {

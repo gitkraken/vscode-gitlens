@@ -823,15 +823,13 @@ export namespace Git {
 		return data.length === 0 ? undefined : data.trim();
 	}
 
-	export async function log__find_object(repoPath: string, objectId: string, ref: string) {
-		const data = await git<string>(
-			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
-			'log',
-			'-n1',
-			'--format=%H',
-			`--find-object=${objectId}`,
-			ref,
-		);
+	export async function log__find_object(repoPath: string, objectId: string, ref: string, file?: string) {
+		const params = ['log', '-n1', '--no-renames', '--format=%H', `--find-object=${objectId}`, ref];
+		if (file) {
+			params.push('--', file);
+		}
+
+		const data = await git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...params);
 		return data.length === 0 ? undefined : data.trim();
 	}
 

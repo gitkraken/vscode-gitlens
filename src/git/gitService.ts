@@ -27,6 +27,7 @@ import { Messages } from '../messages';
 import {
 	Arrays,
 	debug,
+	Functions,
 	gate,
 	Iterables,
 	log,
@@ -3155,10 +3156,20 @@ export class GitService implements Disposable {
 		return Git.difftool__dir_diff(repoPath, tool, ref1, ref2);
 	}
 
-	async resolveReference(repoPath: string, ref: string, fileName?: string): Promise<string>;
-	async resolveReference(repoPath: string, ref: string, uri?: Uri): Promise<string>;
+	async resolveReference(
+		repoPath: string,
+		ref: string,
+		fileName?: string,
+		options?: { timeout?: number },
+	): Promise<string>;
+	async resolveReference(repoPath: string, ref: string, uri?: Uri, options?: { timeout?: number }): Promise<string>;
 	@log()
-	async resolveReference(repoPath: string, ref: string, fileNameOrUri?: string | Uri) {
+	async resolveReference(
+		repoPath: string,
+		ref: string,
+		fileNameOrUri?: string | Uri,
+		options?: { timeout?: number },
+	) {
 		if (ref == null || ref.length === 0 || ref === GitRevision.deletedOrMissing || GitRevision.isUncommitted(ref)) {
 			return ref;
 		}
@@ -3177,7 +3188,12 @@ export class GitService implements Disposable {
 		const blob = await Git.rev_parse__verify(repoPath, ref, fileName);
 		if (blob == null) return GitRevision.deletedOrMissing;
 
-		return (await Git.log__find_object(repoPath, blob, ref)) ?? ref;
+		let promise: Promise<string | void | undefined> = Git.log__find_object(repoPath, blob, ref, fileName);
+		if (options?.timeout != null) {
+			promise = Promise.race([promise, Functions.wait(options.timeout)]);
+		}
+
+		return (await promise) ?? ref;
 	}
 
 	@log()
