@@ -43,7 +43,7 @@ export namespace GitActions {
 		}));
 	}
 
-	export async function cherryPick(repo?: string | Repository, refs?: GitRevisionReference | GitRevisionReference[]) {
+	export function cherryPick(repo?: string | Repository, refs?: GitRevisionReference | GitRevisionReference[]) {
 		return executeGitCommand({
 			command: 'cherry-pick',
 			state: { repo: repo, references: refs },
@@ -54,7 +54,7 @@ export namespace GitActions {
 		return executeGitCommand({ command: 'fetch', state: { repos: repos } });
 	}
 
-	export async function merge(repo?: string | Repository, ref?: GitReference) {
+	export function merge(repo?: string | Repository, ref?: GitReference) {
 		return executeGitCommand({ command: 'merge', state: { repo: repo, reference: ref } });
 	}
 
@@ -69,28 +69,28 @@ export namespace GitActions {
 		});
 	}
 
-	export async function rebase(repo?: string | Repository, ref?: GitReference, interactive: boolean = true) {
+	export function rebase(repo?: string | Repository, ref?: GitReference, interactive: boolean = true) {
 		return executeGitCommand({
 			command: 'rebase',
 			state: { repo: repo, reference: ref, flags: interactive ? ['--interactive'] : [] },
 		});
 	}
 
-	export async function reset(repo?: string | Repository, ref?: GitRevisionReference) {
+	export function reset(repo?: string | Repository, ref?: GitRevisionReference) {
 		return executeGitCommand({
 			command: 'reset',
 			state: { repo: repo, reference: ref },
 		});
 	}
 
-	export async function revert(repo?: string | Repository, refs?: GitRevisionReference | GitRevisionReference[]) {
+	export function revert(repo?: string | Repository, refs?: GitRevisionReference | GitRevisionReference[]) {
 		return executeGitCommand({
 			command: 'revert',
 			state: { repo: repo, references: refs },
 		});
 	}
 
-	export async function switchTo(repos?: string | string[] | Repository | Repository[], ref?: GitReference) {
+	export function switchTo(repos?: string | string[] | Repository | Repository[], ref?: GitReference) {
 		return executeGitCommand({
 			command: 'switch',
 			state: { repos: repos, reference: ref },
@@ -110,7 +110,7 @@ export namespace GitActions {
 			});
 		}
 
-		export async function remove(repo?: string | Repository, refs?: GitBranchReference | GitBranchReference[]) {
+		export function remove(repo?: string | Repository, refs?: GitBranchReference | GitBranchReference[]) {
 			return executeGitCommand({
 				command: 'branch',
 				state: {
@@ -121,7 +121,7 @@ export namespace GitActions {
 			});
 		}
 
-		export async function rename(repo?: string | Repository, ref?: GitBranchReference, name?: string) {
+		export function rename(repo?: string | Repository, ref?: GitBranchReference, name?: string) {
 			return executeGitCommand({
 				command: 'branch',
 				state: {
@@ -644,7 +644,7 @@ export namespace GitActions {
 	}
 
 	export namespace Contributor {
-		export async function addAuthors(repo?: string | Repository, contributors?: GitContributor | GitContributor[]) {
+		export function addAuthors(repo?: string | Repository, contributors?: GitContributor | GitContributor[]) {
 			return executeGitCommand({
 				command: 'co-authors',
 				state: { repo: repo, contributors: contributors },
@@ -723,33 +723,28 @@ export namespace GitActions {
 	}
 
 	export namespace Stash {
-		export async function apply(repo?: string | Repository, ref?: GitStashReference) {
+		export function apply(repo?: string | Repository, ref?: GitStashReference) {
 			return executeGitCommand({
 				command: 'stash',
 				state: { subcommand: 'apply', repo: repo, reference: ref },
 			});
 		}
 
-		export async function drop(repo?: string | Repository, ref?: GitStashReference) {
+		export function drop(repo?: string | Repository, ref?: GitStashReference) {
 			return executeGitCommand({
 				command: 'stash',
 				state: { subcommand: 'drop', repo: repo, reference: ref },
 			});
 		}
 
-		export async function pop(repo?: string | Repository, ref?: GitStashReference) {
+		export function pop(repo?: string | Repository, ref?: GitStashReference) {
 			return executeGitCommand({
 				command: 'stash',
 				state: { subcommand: 'pop', repo: repo, reference: ref },
 			});
 		}
 
-		export async function push(
-			repo?: string | Repository,
-			uris?: Uri[],
-			message?: string,
-			keepStaged: boolean = false,
-		) {
+		export function push(repo?: string | Repository, uris?: Uri[], message?: string, keepStaged: boolean = false) {
 			return executeGitCommand({
 				command: 'stash',
 				state: {

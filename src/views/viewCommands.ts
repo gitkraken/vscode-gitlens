@@ -60,7 +60,7 @@ export class ViewCommands {
 				if (selection.length === 0) return;
 
 				const data = selection
-					.filter(n => n.toClipboard !== undefined)
+					.filter(n => n.toClipboard != null)
 					.map(n => n.toClipboard!())
 					.join(',');
 				await env.clipboard.writeText(data);
@@ -179,13 +179,15 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private async addRemote(node: RemoteNode) {
+	private addRemote(node: RemoteNode) {
+		if (!(node instanceof RemoteNode)) return Promise.resolve();
+
 		return GitActions.Remote.add(node.repo);
 	}
 
 	@debug()
-	private async applyChanges(node: ViewRefFileNode) {
-		if (!(node instanceof ViewRefFileNode)) return undefined;
+	private applyChanges(node: ViewRefFileNode) {
+		if (!(node instanceof ViewRefFileNode)) return Promise.resolve();
 
 		if (node instanceof ResultsFileNode) {
 			return GitActions.Commit.applyChanges(
@@ -195,14 +197,14 @@ export class ViewCommands {
 			);
 		}
 
-		if (node.ref == null || node.ref === 'HEAD') return undefined;
+		if (node.ref == null || node.ref === 'HEAD') return Promise.resolve();
 
 		return GitActions.Commit.applyChanges(node.file, GitReference.create(node.ref, node.repoPath));
 	}
 
 	@debug()
-	private async cherryPick(node: CommitNode) {
-		if (!(node instanceof CommitNode)) return undefined;
+	private cherryPick(node: CommitNode) {
+		if (!(node instanceof CommitNode)) return Promise.resolve();
 
 		return GitActions.cherryPick(node.repoPath, GitReference.create(node.ref, node.repoPath));
 	}
@@ -215,8 +217,8 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private async contributorsAddAuthors(node: ContributorNode | ContributorsNode) {
-		if (!(node instanceof ContributorNode) && !(node instanceof ContributorsNode)) return undefined;
+	private contributorsAddAuthors(node: ContributorNode | ContributorsNode) {
+		if (!(node instanceof ContributorNode) && !(node instanceof ContributorsNode)) return Promise.resolve();
 
 		return GitActions.Contributor.addAuthors(
 			node.uri.repoPath,
@@ -225,15 +227,15 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private async contributorCopyToClipboard(node: ContributorNode) {
-		if (!(node instanceof ContributorNode)) return undefined;
+	private contributorCopyToClipboard(node: ContributorNode) {
+		if (!(node instanceof ContributorNode)) return Promise.resolve();
 
 		return GitActions.Contributor.copyToClipboard(node.contributor);
 	}
 
 	@debug()
-	async createBranch(node: ViewRefNode) {
-		if (!(node instanceof ViewRefNode)) return undefined;
+	private createBranch(node: ViewRefNode) {
+		if (!(node instanceof ViewRefNode)) return Promise.resolve();
 
 		return GitActions.Branch.create(
 			node.repoPath,
@@ -242,36 +244,36 @@ export class ViewCommands {
 	}
 
 	@debug()
-	async createTag(node: ViewRefNode) {
-		if (!(node instanceof ViewRefNode)) return undefined;
+	private createTag(node: ViewRefNode) {
+		if (!(node instanceof ViewRefNode)) return Promise.resolve();
 
 		return GitActions.Branch.create(node.repoPath, GitReference.create(node.ref, node.repoPath));
 	}
 
 	@debug()
-	async deleteBranch(node: BranchNode) {
-		if (!(node instanceof BranchNode)) return undefined;
+	private deleteBranch(node: BranchNode) {
+		if (!(node instanceof BranchNode)) return Promise.resolve();
 
 		return GitActions.Branch.remove(node.repoPath, node.branch);
 	}
 
 	@debug()
-	async deleteStash(node: StashNode) {
-		if (!(node instanceof StashNode)) return undefined;
+	private deleteStash(node: StashNode) {
+		if (!(node instanceof StashNode)) return Promise.resolve();
 
 		return GitActions.Stash.drop(node.repoPath, node.commit);
 	}
 
 	@debug()
-	async deleteTag(node: TagNode) {
-		if (!(node instanceof TagNode)) return undefined;
+	private deleteTag(node: TagNode) {
+		if (!(node instanceof TagNode)) return Promise.resolve();
 
 		return GitActions.Tag.remove(node.repoPath, node.tag);
 	}
 
 	@debug()
 	private browseRepoAtRevision(node: ViewRefNode, openInNewWindow: boolean = false) {
-		if (!(node instanceof ViewRefNode)) return undefined;
+		if (!(node instanceof ViewRefNode)) return Promise.resolve();
 
 		return GitActions.browseAtRevision(node.uri, { openInNewWindow: openInNewWindow });
 	}
@@ -281,7 +283,7 @@ export class ViewCommands {
 		if (node instanceof RepositoryNode) return GitActions.fetch(node.repo);
 		if (node instanceof RemoteNode) return GitActions.Remote.fetch(node.remote.repoPath, node.remote.name);
 
-		return undefined;
+		return Promise.resolve();
 	}
 
 	@debug()
@@ -324,27 +326,29 @@ export class ViewCommands {
 
 	@debug()
 	private merge(node: BranchNode | TagNode) {
-		if (!(node instanceof BranchNode) && !(node instanceof TagNode)) return undefined;
+		if (!(node instanceof BranchNode) && !(node instanceof TagNode)) return Promise.resolve();
 
 		return GitActions.merge(node.repoPath, node instanceof BranchNode ? node.branch : node.tag);
 	}
 
 	@debug()
 	private pushToCommit(node: CommitNode) {
-		if (!(node instanceof CommitNode)) return undefined;
+		if (!(node instanceof CommitNode)) return Promise.resolve();
 
 		return GitActions.push(node.repoPath, false, node.commit);
 	}
 
 	@debug()
 	private openInTerminal(node: RepositoryNode) {
-		if (!(node instanceof RepositoryNode)) return undefined;
+		if (!(node instanceof RepositoryNode)) return Promise.resolve();
 
 		return commands.executeCommand(BuiltInCommands.OpenInTerminal, Uri.file(node.repo.path));
 	}
 
 	@debug()
 	private async pruneRemote(node: RemoteNode) {
+		if (!(node instanceof RemoteNode)) return Promise.resolve();
+
 		return GitActions.Remote.prune(node.repo, node.remote.name);
 	}
 
@@ -353,7 +357,7 @@ export class ViewCommands {
 		if (node instanceof BranchNode || node instanceof BranchTrackingStatusNode) {
 			node = node.getParent() as RepositoryNode;
 		}
-		if (!(node instanceof RepositoryNode)) return undefined;
+		if (!(node instanceof RepositoryNode)) return Promise.resolve();
 
 		return GitActions.pull(node.repo);
 	}
@@ -363,15 +367,15 @@ export class ViewCommands {
 		if (node instanceof BranchNode || node instanceof BranchTrackingStatusNode) {
 			node = node.getParent() as RepositoryNode;
 		}
-		if (!(node instanceof RepositoryNode)) return undefined;
+		if (!(node instanceof RepositoryNode)) return Promise.resolve();
 
 		return GitActions.push(node.repo, force);
 	}
 
 	@debug()
-	private async rebase(node: BranchNode | CommitNode | TagNode) {
+	private rebase(node: BranchNode | CommitNode | TagNode) {
 		if (!(node instanceof BranchNode) && !(node instanceof CommitNode) && !(node instanceof TagNode)) {
-			return undefined;
+			return Promise.resolve();
 		}
 
 		return GitActions.rebase(
@@ -385,11 +389,11 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private async rebaseToRemote(node: BranchNode | BranchTrackingStatusNode) {
-		if (!(node instanceof BranchNode) && !(node instanceof BranchTrackingStatusNode)) return undefined;
+	private rebaseToRemote(node: BranchNode | BranchTrackingStatusNode) {
+		if (!(node instanceof BranchNode) && !(node instanceof BranchTrackingStatusNode)) return Promise.resolve();
 
 		const upstream = node instanceof BranchNode ? node.branch.tracking : node.status.upstream;
-		if (upstream == null) return undefined;
+		if (upstream == null) return Promise.resolve();
 
 		return GitActions.rebase(
 			node.repoPath,
@@ -402,42 +406,43 @@ export class ViewCommands {
 	}
 
 	@debug()
-	async renameBranch(node: BranchNode) {
-		if (!(node instanceof BranchNode)) return undefined;
+	private renameBranch(node: BranchNode) {
+		if (!(node instanceof BranchNode)) return Promise.resolve();
 
 		return GitActions.Branch.rename(node.repoPath, node.branch);
 	}
 
 	@debug()
-	private async reset(node: CommitNode) {
-		if (!(node instanceof CommitNode)) return undefined;
+	private reset(node: CommitNode) {
+		if (!(node instanceof CommitNode)) return Promise.resolve();
 
 		return GitActions.reset(node.repoPath, GitReference.create(node.ref, node.repoPath));
 	}
 
 	@debug()
-	private async restore(node: ViewRefFileNode) {
-		if (!(node instanceof ViewRefFileNode)) return undefined;
+	private restore(node: ViewRefFileNode) {
+		if (!(node instanceof ViewRefFileNode)) return Promise.resolve();
 
 		return GitActions.Commit.restoreFile(node.fileName, GitReference.create(node.ref, node.repoPath));
 	}
 
 	@debug()
-	private async revert(node: CommitNode) {
-		if (!(node instanceof CommitNode)) return undefined;
+	private revert(node: CommitNode) {
+		if (!(node instanceof CommitNode)) return Promise.resolve();
 
 		return GitActions.revert(node.repoPath, GitReference.create(node.ref, node.repoPath));
 	}
 
 	@debug()
 	private setAsDefault(node: RemoteNode) {
-		if (node instanceof RemoteNode) return node.setAsDefault();
-		return undefined;
+		if (!(node instanceof RemoteNode)) return Promise.resolve();
+
+		return node.setAsDefault();
 	}
 
 	@debug()
 	private setComparisonNotation(node: ViewNode, comparisonNotation: '...' | '..') {
-		if (!(node instanceof CompareResultsNode) && !(node instanceof CompareBranchNode)) return undefined;
+		if (!(node instanceof CompareResultsNode) && !(node instanceof CompareBranchNode)) return Promise.resolve();
 
 		return node.setComparisonNotation(comparisonNotation);
 	}
@@ -460,13 +465,14 @@ export class ViewCommands {
 
 	@debug()
 	private star(node: BranchNode | RepositoryNode) {
-		if (node instanceof BranchNode || node instanceof RepositoryNode) return node.star();
-		return undefined;
+		if (!(node instanceof BranchNode) && !(node instanceof RepositoryNode)) return Promise.resolve();
+
+		return node.star();
 	}
 
 	@debug()
-	private async switch(node: ViewRefNode) {
-		if (!(node instanceof ViewRefNode)) return undefined;
+	private switch(node: ViewRefNode) {
+		if (!(node instanceof ViewRefNode)) return Promise.resolve();
 
 		return GitActions.switchTo(
 			node.repoPath,
@@ -482,8 +488,9 @@ export class ViewCommands {
 
 	@debug()
 	private unsetAsDefault(node: RemoteNode) {
-		if (node instanceof RemoteNode) return node.setAsDefault(false);
-		return undefined;
+		if (!(node instanceof RemoteNode)) return Promise.resolve();
+
+		return node.setAsDefault(false);
 	}
 
 	@debug()
@@ -504,28 +511,29 @@ export class ViewCommands {
 
 	@debug()
 	private unstar(node: BranchNode | RepositoryNode) {
-		if (node instanceof BranchNode || node instanceof RepositoryNode) return node.unstar();
-		return undefined;
+		if (!(node instanceof BranchNode) && !(node instanceof RepositoryNode)) return Promise.resolve();
+
+		return node.unstar();
 	}
 
 	@debug()
 	private compareWithHead(node: ViewRefNode) {
-		if (!(node instanceof ViewRefNode)) return undefined;
+		if (!(node instanceof ViewRefNode)) return Promise.resolve();
 
 		return Container.compareView.compare(node.repoPath, node.ref, 'HEAD');
 	}
 
 	@debug()
 	private compareWithRemote(node: BranchNode) {
-		if (!(node instanceof BranchNode)) return undefined;
-		if (!node.branch.tracking) return undefined;
+		if (!(node instanceof BranchNode)) return Promise.resolve();
+		if (!node.branch.tracking) return Promise.resolve();
 
 		return Container.compareView.compare(node.repoPath, node.branch.tracking, node.ref);
 	}
 
 	@debug()
 	private compareWithWorking(node: ViewRefNode) {
-		if (!(node instanceof ViewRefNode)) return undefined;
+		if (!(node instanceof ViewRefNode)) return Promise.resolve();
 
 		return Container.compareView.compare(node.repoPath, node.ref, '');
 	}
@@ -535,10 +543,10 @@ export class ViewCommands {
 		if (!(node instanceof BranchNode)) return undefined;
 
 		const branch = await Container.git.getBranch(node.repoPath);
-		if (branch === undefined) return undefined;
+		if (branch == null) return undefined;
 
 		const commonAncestor = await Container.git.getMergeBase(node.repoPath, branch.ref, node.ref);
-		if (commonAncestor === undefined) return undefined;
+		if (commonAncestor == null) return undefined;
 
 		return Container.compareView.compare(
 			node.repoPath,
@@ -563,13 +571,13 @@ export class ViewCommands {
 
 	@debug()
 	private compareFileWithSelected(node: ViewRefFileNode) {
-		if (this._selectedFile === undefined || !(node instanceof ViewRefFileNode) || node.ref === undefined) {
-			return undefined;
+		if (this._selectedFile == null || !(node instanceof ViewRefFileNode) || node.ref == null) {
+			return Promise.resolve();
 		}
 
 		if (this._selectedFile.repoPath !== node.repoPath) {
 			this.selectFileForCompare(node);
-			return undefined;
+			return Promise.resolve();
 		}
 
 		const selected = this._selectedFile;
@@ -594,7 +602,7 @@ export class ViewCommands {
 
 	@debug()
 	private selectFileForCompare(node: ViewRefFileNode) {
-		if (!(node instanceof ViewRefFileNode) || node.ref === undefined) return;
+		if (!(node instanceof ViewRefFileNode) || node.ref == null) return;
 
 		this._selectedFile = {
 			ref: node.ref,
@@ -709,7 +717,7 @@ export class ViewCommands {
 		// 		{ title: 'Yes' },
 		// 		{ title: 'No', isCloseAffordance: true },
 		// 	);
-		// 	if (result === undefined || result.title === 'No') return;
+		// 	if (result == null || result.title === 'No') return;
 		// }
 
 		// for (const file of files) {
@@ -726,7 +734,7 @@ export class ViewCommands {
 
 	@debug()
 	private openChangesWithWorking(node: ViewRefFileNode | StatusFileNode) {
-		if (!(node instanceof ViewRefFileNode) && !(node instanceof StatusFileNode)) return undefined;
+		if (!(node instanceof ViewRefFileNode) && !(node instanceof StatusFileNode)) return Promise.resolve();
 
 		if (node instanceof StatusFileNode) {
 			return executeEditorCommand<DiffWithWorkingCommandArgs>(Commands.DiffWithWorking, undefined, {
@@ -742,17 +750,17 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private async openFile(node: ViewRefFileNode | StatusFileNode | FileHistoryNode | LineHistoryNode) {
+	private openFile(node: ViewRefFileNode | StatusFileNode | FileHistoryNode | LineHistoryNode) {
 		if (
 			!(node instanceof ViewRefFileNode) &&
 			!(node instanceof StatusFileNode) &&
 			!(node instanceof FileHistoryNode) &&
 			!(node instanceof LineHistoryNode)
 		) {
-			return;
+			return Promise.resolve();
 		}
 
-		await GitActions.Commit.openFile(node.uri, {
+		return GitActions.Commit.openFile(node.uri, {
 			preserveFocus: true,
 			preview: false,
 		});
@@ -761,21 +769,21 @@ export class ViewCommands {
 	@debug()
 	private async openFiles(node: CommitNode | StashNode | ResultsFilesNode) {
 		if (!(node instanceof CommitNode) && !(node instanceof StashNode) && !(node instanceof ResultsFilesNode)) {
-			return;
+			return undefined;
 		}
 
 		if (node instanceof ResultsFilesNode) {
 			const { diff } = await node.getFilesQueryResults();
-			if (diff == null || diff.length === 0) return;
+			if (diff == null || diff.length === 0) return undefined;
 
-			await GitActions.Commit.openFiles(diff, node.repoPath, node.ref1 || node.ref2);
-		} else {
-			await GitActions.Commit.openFiles(node.commit);
+			return GitActions.Commit.openFiles(diff, node.repoPath, node.ref1 || node.ref2);
 		}
+
+		return GitActions.Commit.openFiles(node.commit);
 	}
 
 	@debug()
-	private async openRevision(
+	private openRevision(
 		node: CommitFileNode | ResultsFileNode | StashFileNode | StatusFileNode,
 		options?: OpenFileAtRevisionCommandArgs,
 	) {
@@ -785,7 +793,7 @@ export class ViewCommands {
 			!(node instanceof ResultsFileNode) &&
 			!(node instanceof StatusFileNode)
 		) {
-			return;
+			return Promise.resolve();
 		}
 
 		options = { showOptions: { preserveFocus: true, preview: false }, ...options };
@@ -806,28 +814,31 @@ export class ViewCommands {
 			}
 		}
 
-		await GitActions.Commit.openFileAtRevision(uri, options.showOptions ?? { preserveFocus: true, preview: false });
+		return GitActions.Commit.openFileAtRevision(
+			uri,
+			options.showOptions ?? { preserveFocus: true, preview: false },
+		);
 	}
 
 	@debug()
 	private async openRevisions(node: CommitNode | StashNode | ResultsFilesNode, _options?: TextDocumentShowOptions) {
 		if (!(node instanceof CommitNode) && !(node instanceof StashNode) && !(node instanceof ResultsFilesNode)) {
-			return;
+			return undefined;
 		}
 
 		if (node instanceof ResultsFilesNode) {
 			const { diff } = await node.getFilesQueryResults();
-			if (diff == null || diff.length === 0) return;
+			if (diff == null || diff.length === 0) return undefined;
 
-			await GitActions.Commit.openFilesAtRevision(diff, node.repoPath, node.ref1, node.ref2);
-		} else {
-			await GitActions.Commit.openFilesAtRevision(node.commit);
+			return GitActions.Commit.openFilesAtRevision(diff, node.repoPath, node.ref1, node.ref2);
 		}
+
+		return GitActions.Commit.openFilesAtRevision(node.commit);
 	}
 
 	@debug()
 	private openRevisionOnRemote(node: CommitFileNode) {
-		if (!(node instanceof CommitFileNode) || node instanceof StashFileNode) return undefined;
+		if (!(node instanceof CommitFileNode) || node instanceof StashFileNode) return Promise.resolve();
 
 		return executeEditorCommand<OpenFileOnRemoteCommandArgs>(
 			Commands.OpenFileInRemote,
@@ -838,7 +849,7 @@ export class ViewCommands {
 		);
 	}
 
-	terminalRemoveRemote(node: RemoteNode) {
+	private terminalRemoveRemote(node: RemoteNode) {
 		if (!(node instanceof RemoteNode)) return;
 
 		runGitCommandInTerminal('remote', `remove ${node.remote.name}`, node.remote.repoPath);
