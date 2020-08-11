@@ -6190,7 +6190,9 @@
 		"watch": "webpack --watch --mode development --info-verbosity verbose",
 		"watch:extension": "webpack --watch --mode development --config-name extension --info-verbosity verbose",
 		"watch:webviews": "webpack --watch --mode development --config-name webviews --info-verbosity verbose",
-		"update:emoji": "pushd emoji && node ./shortcodeToEmoji.js && popd",
+		"update-dts": "pushd \"src/@types\" && npx vscode-dts dev && popd",
+		"update-dts:master": "pushd \"src/@types\" && npx vscode-dts master && popd",
+		"update-emoji": "pushd emoji && node ./shortcodeToEmoji.js && popd",
 		"vscode:prepublish": "yarn run bundle"
 	},
 	"dependencies": {
@@ -6235,5 +6237,6 @@
 		"webpack": "4.44.1",
 		"webpack-bundle-analyzer": "3.8.0",
 		"webpack-cli": "3.3.12"
-	}
+	},
+	"enableProposedApi": true
 }
