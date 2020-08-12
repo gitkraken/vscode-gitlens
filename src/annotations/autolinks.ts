@@ -191,7 +191,7 @@ export class Autolinks implements Disposable {
 							title += '"';
 						}
 
-						return `[${linkText}](${ref.url.replace(numRegex, num)}${title}`;
+						return `[${linkText}](${ref.url.replace(numRegex, num)}${title})`;
 					});
 				}
 
