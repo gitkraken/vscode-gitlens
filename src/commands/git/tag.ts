@@ -164,7 +164,7 @@ export class TagGitCommand extends QuickCommand<State> {
 
 			switch (state.subcommand) {
 				case 'create': {
-					this.createCommandSteps(state as CreateStepState, context);
+					yield* this.createCommandSteps(state as CreateStepState, context);
 					// Clear any chosen name, since we are exiting this subcommand
 					state.name = undefined;
 					break;

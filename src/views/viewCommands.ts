@@ -247,7 +247,7 @@ export class ViewCommands {
 	private createTag(node: ViewRefNode) {
 		if (!(node instanceof ViewRefNode)) return Promise.resolve();
 
-		return GitActions.Branch.create(node.repoPath, GitReference.create(node.ref, node.repoPath));
+		return GitActions.Tag.create(node.repoPath, GitReference.create(node.ref, node.repoPath));
 	}
 
 	@debug()
