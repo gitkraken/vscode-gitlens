@@ -445,22 +445,40 @@ export class Repository implements Disposable {
 
 	@gate()
 	@log()
-	async push(options: { force?: boolean; progress?: boolean; reference?: GitReference } = {}) {
-		const { force, progress, reference } = { progress: true, ...options };
-		if (!progress) return this.pushCore(force, reference);
+	async push(
+		options: {
+			force?: boolean;
+			progress?: boolean;
+			reference?: GitReference;
+			setUpstream?: { branch: string; remote: string };
+		} = {},
+	) {
+		const { progress, ...opts } = { progress: true, ...options };
+		if (!progress) return this.pushCore(opts);
 
 		return void (await window.withProgress(
 			{
 				location: ProgressLocation.Notification,
 				title: `Pushing ${this.formattedName}...`,
 			},
-			() => this.pushCore(force, reference),
+			() => this.pushCore(opts),
 		));
 	}
 
-	private async pushCore(force: boolean = false, reference?: GitReference) {
+	private async pushCore(
+		options: {
+			force?: boolean;
+			reference?: GitReference;
+			setUpstream?: { branch: string; remote: string };
+		} = {},
+	) {
 		try {
-			if (reference != null) {
+			if (options.setUpstream != null) {
+				const repo = await GitService.getBuiltInGitRepository(this.path);
+				if (repo == null) return;
+
+				await repo?.push(options.setUpstream.remote, options.setUpstream.branch, true);
+			} else if (options.reference != null) {
 				const branch = await this.getBranch();
 				if (branch === undefined) return;
 
@@ -469,11 +487,11 @@ export class Repository implements Disposable {
 
 				await repo?.push(
 					branch.getRemoteName(),
-					`${reference.ref}:${branch.getNameWithoutRemote()}`,
+					`${options.reference.ref}:${branch.getNameWithoutRemote()}`,
 					undefined,
 				);
 			} else {
-				void (await commands.executeCommand(force ? 'git.pushForce' : 'git.push', this.path));
+				void (await commands.executeCommand(options.force ? 'git.pushForce' : 'git.push', this.path));
 			}
 
 			this.fireChange(RepositoryChange.Repository);

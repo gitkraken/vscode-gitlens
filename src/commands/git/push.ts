@@ -1,7 +1,7 @@
 'use strict';
 import { configuration } from '../../configuration';
 import { Container } from '../../container';
-import { GitReference, Repository } from '../../git/git';
+import { GitBranchReference, GitReference, Repository } from '../../git/git';
 import {
 	appendReposToTitle,
 	PartialStepState,
@@ -25,7 +25,7 @@ interface Context {
 	title: string;
 }
 
-type Flags = '--force';
+type Flags = '--force' | '--set-upstream' | string;
 
 interface State<Repos = string | string[] | Repository | Repository[]> {
 	repos: Repos;
@@ -60,8 +60,15 @@ export class PushGitCommand extends QuickCommand<State> {
 	}
 
 	execute(state: State<Repository[]>) {
+		let setUpstream: { branch: string; remote: string } | undefined;
+		if (state.flags.includes('--set-upstream')) {
+			const index = state.flags.indexOf('--set-upstream');
+			setUpstream = { branch: state.flags[index + 1], remote: state.flags[index + 2] };
+		}
+
 		return Container.git.pushAll(state.repos, {
 			force: state.flags.includes('--force'),
+			setUpstream: setUpstream,
 			reference: state.reference,
 		});
 	}
@@ -159,14 +166,46 @@ export class PushGitCommand extends QuickCommand<State> {
 
 			const status = await repo.getStatus();
 			if (status?.state.ahead === 0) {
-				step = this.createConfirmStep(
-					appendReposToTitle(`Confirm ${context.title}`, state, context),
-					[],
-					DirectiveQuickPickItem.create(Directive.Cancel, true, {
-						label: `Cancel ${this.title}`,
-						detail: 'No commits found to push',
-					}),
-				);
+				const items: FlagsQuickPickItem<Flags>[] = [];
+
+				if (state.reference == null && status.upstream == null) {
+					const branchRef: GitBranchReference = {
+						refType: 'branch',
+						name: status.branch,
+						ref: status.branch,
+						remote: false,
+						repoPath: status.repoPath,
+					};
+
+					for (const remote of await repo.getRemotes()) {
+						items.push(
+							FlagsQuickPickItem.create<Flags>(
+								state.flags,
+								['--set-upstream', status.branch, remote.name],
+								{
+									label: `${this.title} to ${remote.name}`,
+									detail: `Will push ${GitReference.toString(branchRef)} to ${remote.name}`,
+								},
+							),
+						);
+					}
+				}
+
+				if (items.length) {
+					step = this.createConfirmStep(
+						appendReposToTitle(`Confirm ${context.title}`, state, context),
+						items,
+					);
+				} else {
+					step = this.createConfirmStep(
+						appendReposToTitle(`Confirm ${context.title}`, state, context),
+						[],
+						DirectiveQuickPickItem.create(Directive.Cancel, true, {
+							label: `Cancel ${this.title}`,
+							detail: 'No commits found to push',
+						}),
+					);
+				}
 			} else {
 				let lastFetchedOn = '';
 
