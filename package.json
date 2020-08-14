@@ -46,6 +46,8 @@
 		"multi-root ready"
 	],
 	"activationEvents": [
+		"onCustomEditor:gitlens.rebase",
+		"onFileSystem:gitlens",
 		"*"
 	],
 	"contributes": {
@@ -6079,21 +6081,24 @@
 					"name": "Line History",
 					"when": "config.gitlens.views.lineHistory.enabled && config.gitlens.views.lineHistory.location == gitlens",
 					"contextualTitle": "GitLens",
-					"icon": "images/views/history.svg"
+					"icon": "images/views/history.svg",
+					"visibility": "collapsed"
 				},
 				{
 					"id": "gitlens.views.compare:gitlens",
 					"name": "Compare Commits",
 					"when": "config.gitlens.views.compare.enabled && config.gitlens.views.compare.location == gitlens",
 					"contextualTitle": "GitLens",
-					"icon": "images/views/compare.svg"
+					"icon": "images/views/compare.svg",
+					"visibility": "collapsed"
 				},
 				{
 					"id": "gitlens.views.search:gitlens",
 					"name": "Search Commits",
 					"when": "config.gitlens.views.search.enabled && config.gitlens.views.search.location == gitlens",
 					"contextualTitle": "GitLens",
-					"icon": "images/views/search.svg"
+					"icon": "images/views/search.svg",
+					"visibility": "collapsed"
 				}
 			],
 			"explorer": [
@@ -6116,21 +6121,24 @@
 					"name": "Line History",
 					"when": "gitlens:enabled && config.gitlens.views.lineHistory.enabled && config.gitlens.views.lineHistory.location == explorer",
 					"contextualTitle": "GitLens",
-					"icon": "images/views/history.svg"
+					"icon": "images/views/history.svg",
+					"visibility": "collapsed"
 				},
 				{
 					"id": "gitlens.views.compare:explorer",
 					"name": "Compare Commits",
 					"when": "gitlens:enabled && config.gitlens.views.compare.enabled && config.gitlens.views.compare.location == explorer",
 					"contextualTitle": "GitLens",
-					"icon": "images/views/compare.svg"
+					"icon": "images/views/compare.svg",
+					"visibility": "collapsed"
 				},
 				{
 					"id": "gitlens.views.search:explorer",
 					"name": "Search Commits",
 					"when": "gitlens:enabled && config.gitlens.views.search.enabled && config.gitlens.views.search.location == explorer",
 					"contextualTitle": "GitLens",
-					"icon": "images/views/search.svg"
+					"icon": "images/views/search.svg",
+					"visibility": "collapsed"
 				}
 			],
 			"scm": [
@@ -6153,21 +6161,24 @@
 					"name": "Line History",
 					"when": "gitlens:enabled && config.gitlens.views.lineHistory.enabled && config.gitlens.views.lineHistory.location == scm",
 					"contextualTitle": "GitLens",
-					"icon": "images/views/history.svg"
+					"icon": "images/views/history.svg",
+					"visibility": "collapsed"
 				},
 				{
 					"id": "gitlens.views.compare:scm",
 					"name": "Compare Commits",
 					"when": "gitlens:enabled && config.gitlens.views.compare.enabled && config.gitlens.views.compare.location == scm",
 					"contextualTitle": "GitLens",
-					"icon": "images/views/compare.svg"
+					"icon": "images/views/compare.svg",
+					"visibility": "collapsed"
 				},
 				{
 					"id": "gitlens.views.search:scm",
 					"name": "Search Commits",
 					"when": "gitlens:enabled && config.gitlens.views.search.enabled && config.gitlens.views.search.location == scm",
 					"contextualTitle": "GitLens",
-					"icon": "images/views/search.svg"
+					"icon": "images/views/search.svg",
+					"visibility": "collapsed"
 				}
 			]
 		}
