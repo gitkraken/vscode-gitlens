@@ -153,6 +153,7 @@ export class LogGitCommand extends QuickCommand<State> {
 				}
 
 				const result = yield* pickCommitStep(state as LogStepState, context, {
+					ignoreFocusOut: true,
 					log: await log,
 					onDidLoadMore: log => context.cache.set(ref, Promise.resolve(log)),
 					placeholder: (context, log) =>

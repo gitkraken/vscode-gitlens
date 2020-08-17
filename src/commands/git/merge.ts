@@ -159,6 +159,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 				}
 
 				const result: StepResult<GitReference> = yield* pickCommitStep(state as MergeStepState, context, {
+					ignoreFocusOut: true,
 					log: await log,
 					onDidLoadMore: log => context.cache.set(ref, Promise.resolve(log)),
 					placeholder: (context, log) =>

@@ -87,6 +87,8 @@ export class GitCommandsCommand extends Command {
 		const command = args?.command != null ? commandsStep.find(args.command) : undefined;
 		this.startedWith = command != null ? 'command' : 'menu';
 
+		let ignoreFocusOut;
+
 		let step = command == null ? commandsStep : await this.getCommandStep(command, commandsStep);
 		while (step != null) {
 			// If we are trying to back up to the menu and have a starting command, then just reset to the starting command
@@ -95,13 +97,25 @@ export class GitCommandsCommand extends Command {
 				continue;
 			}
 
+			if (ignoreFocusOut && step.ignoreFocusOut == null) {
+				step.ignoreFocusOut = true;
+			}
+
 			if (isQuickPickStep(step)) {
 				step = await this.showPickStep(step, commandsStep);
+				if (step?.ignoreFocusOut === true) {
+					ignoreFocusOut = true;
+				}
+
 				continue;
 			}
 
 			if (isQuickInputStep(step)) {
 				step = await this.showInputStep(step, commandsStep);
+				if (step?.ignoreFocusOut === true) {
+					ignoreFocusOut = true;
+				}
+
 				continue;
 			}
 
@@ -114,7 +128,7 @@ export class GitCommandsCommand extends Command {
 
 		if (step != null) {
 			if (step.buttons != null) {
-				buttons.push(...step.buttons, new QuickCommandButtons.KeepOpenToggle());
+				buttons.push(...step.buttons);
 				return buttons;
 			}
 
@@ -147,8 +161,6 @@ export class GitCommandsCommand extends Command {
 			}
 		}
 
-		buttons.push(new QuickCommandButtons.KeepOpenToggle());
-
 		return buttons;
 	}
 
@@ -178,7 +190,9 @@ export class GitCommandsCommand extends Command {
 
 	private async showInputStep(step: QuickInputStep, commandsStep: PickCommandStep) {
 		const input = window.createInputBox();
-		input.ignoreFocusOut = !configuration.get('gitCommands', 'closeOnFocusOut');
+		input.ignoreFocusOut = !configuration.get('gitCommands', 'closeOnFocusOut')
+			? true
+			: step.ignoreFocusOut ?? false;
 
 		const disposables: Disposable[] = [];
 
@@ -290,8 +304,13 @@ export class GitCommandsCommand extends Command {
 	}
 
 	private async showPickStep(step: QuickPickStep, commandsStep: PickCommandStep) {
+		const originalIgnoreFocusOut = !configuration.get('gitCommands', 'closeOnFocusOut')
+			? true
+			: step.ignoreFocusOut ?? false;
+		const originalStepIgnoreFocusOut = step.ignoreFocusOut;
+
 		const quickpick = window.createQuickPick();
-		quickpick.ignoreFocusOut = !configuration.get('gitCommands', 'closeOnFocusOut');
+		quickpick.ignoreFocusOut = originalIgnoreFocusOut;
 
 		const disposables: Disposable[] = [];
 
@@ -423,6 +442,17 @@ export class GitCommandsCommand extends Command {
 							if (cancel) return;
 						}
 
+						// If something was typed, keep the quick pick open on focus loss
+						if (e.length !== 0 && !quickpick.ignoreFocusOut) {
+							quickpick.ignoreFocusOut = true;
+							step.ignoreFocusOut = true;
+						}
+						// If something typed was cleared, and we changed the behavior, then allow the quick pick close on focus loss
+						else if (e.length === 0 && quickpick.ignoreFocusOut && !originalIgnoreFocusOut) {
+							quickpick.ignoreFocusOut = originalIgnoreFocusOut;
+							step.ignoreFocusOut = originalStepIgnoreFocusOut;
+						}
+
 						if (!overrideItems) {
 							if (quickpick.canSelectMany && e === ' ') {
 								quickpick.value = '';
@@ -484,6 +514,20 @@ export class GitCommandsCommand extends Command {
 						if (!QuickCommand.is(command)) return;
 
 						quickpick.buttons = this.getButtons(undefined, command);
+					}),
+					quickpick.onDidChangeSelection(e => {
+						if (!quickpick.canSelectMany) return;
+
+						// If something was selected, keep the quick pick open on focus loss
+						if (e.length !== 0 && !quickpick.ignoreFocusOut) {
+							quickpick.ignoreFocusOut = true;
+							step.ignoreFocusOut = true;
+						}
+						// If the selection was cleared, and we changed the behavior, then allow the quick pick close on focus loss
+						else if (e?.length === 0 && quickpick.ignoreFocusOut && !originalIgnoreFocusOut) {
+							quickpick.ignoreFocusOut = originalIgnoreFocusOut;
+							step.ignoreFocusOut = originalStepIgnoreFocusOut;
+						}
 					}),
 					quickpick.onDidAccept(async () => {
 						let items = quickpick.selectedItems;
@@ -600,6 +644,7 @@ export class GitCommandsCommand extends Command {
 class PickCommandStep implements QuickPickStep {
 	readonly buttons = [];
 	private readonly hiddenItems: QuickCommand[];
+	ignoreFocusOut = false;
 	readonly items: QuickCommand[];
 	readonly matchOnDescription = true;
 	readonly placeholder = 'Choose a git command';

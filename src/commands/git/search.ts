@@ -175,6 +175,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 			if (state.counter < 4 || context.commit == null) {
 				const repoPath = state.repo.path;
 				const result = yield* pickCommitStep(state as SearchStepState, context, {
+					ignoreFocusOut: true,
 					log: await context.resultsPromise,
 					onDidLoadMore: log => (context.resultsPromise = Promise.resolve(log)),
 					placeholder: (context, log) =>
@@ -316,6 +317,10 @@ export class SearchGitCommand extends QuickCommand<State> {
 				if (quickpick.value.length === 0) {
 					quickpick.items = items;
 				} else {
+					// If something was typed/selected, keep the quick pick open on focus lossrop
+					quickpick.ignoreFocusOut = true;
+					step.ignoreFocusOut = true;
+
 					quickpick.items = [
 						{
 							label: 'Search for',

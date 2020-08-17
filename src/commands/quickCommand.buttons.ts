@@ -1,7 +1,6 @@
 'use strict';
 import { QuickInput, QuickInputButton, ThemeIcon, Uri } from 'vscode';
 import { Container } from '../container';
-import { configuration } from '../configuration';
 
 export class ToggleQuickInputButton implements QuickInputButton {
 	constructor(
@@ -59,26 +58,6 @@ export namespace QuickCommandButtons {
 	export const Fetch: QuickInputButton = {
 		iconPath: new ThemeIcon('sync'),
 		tooltip: 'Fetch',
-	};
-
-	export const KeepOpenToggle = class extends ToggleQuickInputButton {
-		constructor() {
-			super(
-				() => ({
-					on: { tooltip: 'Keep Open', icon: new ThemeIcon('pinned') },
-					off: { tooltip: 'Keep Open', icon: new ThemeIcon('pin') },
-				}),
-				!configuration.get('gitCommands', 'closeOnFocusOut'),
-			);
-
-			this.onDidClick = async input => {
-				const closeOnFocusOut = !configuration.get('gitCommands', 'closeOnFocusOut');
-				this.on = !closeOnFocusOut;
-
-				input.ignoreFocusOut = !closeOnFocusOut;
-				void (await configuration.updateEffective('gitCommands', 'closeOnFocusOut', closeOnFocusOut));
-			};
-		}
 	};
 
 	export const LoadMore: QuickInputButton = {

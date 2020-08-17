@@ -160,6 +160,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				}
 
 				const result: StepResult<GitReference> = yield* pickCommitStep(state as RebaseStepState, context, {
+					ignoreFocusOut: true,
 					log: await log,
 					onDidLoadMore: log => context.cache.set(ref, Promise.resolve(log)),
 					placeholder: (context, log) =>

@@ -536,7 +536,7 @@
 				},
 				"gitlens.gitCommands.closeOnFocusOut": {
 					"type": "boolean",
-					"default": false,
+					"default": true,
 					"markdownDescription": "Specifies whether to dismiss the Git Commands menu when focus is lost (if not, press `ESC` to dismiss)",
 					"scope": "window"
 				},

@@ -709,6 +709,7 @@ export function* pickCommitStep<
 	state: State,
 	context: Context,
 	{
+		ignoreFocusOut,
 		log,
 		onDidLoadMore,
 		picked,
@@ -716,6 +717,7 @@ export function* pickCommitStep<
 		showInViewButton: showInView,
 		titleContext,
 	}: {
+		ignoreFocusOut?: boolean;
 		log: GitLog | undefined;
 		onDidLoadMore?: (log: GitLog | undefined) => void;
 		picked?: string | string[] | undefined;
@@ -746,6 +748,7 @@ export function* pickCommitStep<
 	const step = QuickCommand.createPickStep<CommitQuickPickItem>({
 		title: appendReposToTitle(`${context.title}${titleContext ?? ''}`, state, context),
 		placeholder: typeof placeholder === 'string' ? placeholder : placeholder(context, log),
+		ignoreFocusOut: ignoreFocusOut,
 		matchOnDescription: true,
 		matchOnDetail: true,
 		value: typeof picked === 'string' && log?.count === 0 ? picked : undefined,
@@ -1093,11 +1096,13 @@ export function* pickStashStep<
 	state: State,
 	context: Context,
 	{
+		ignoreFocusOut,
 		stash,
 		picked,
 		placeholder,
 		titleContext,
 	}: {
+		ignoreFocusOut?: boolean;
 		stash: GitStash | undefined;
 		picked: string | string[] | undefined;
 		placeholder: string | ((context: Context, stash: GitStash | undefined) => string);
@@ -1107,6 +1112,7 @@ export function* pickStashStep<
 	const step = QuickCommand.createPickStep<CommitQuickPickItem<GitStashCommit>>({
 		title: appendReposToTitle(`${context.title}${titleContext ?? ''}`, state, context),
 		placeholder: typeof placeholder === 'string' ? placeholder : placeholder(context, stash),
+		ignoreFocusOut: ignoreFocusOut,
 		matchOnDescription: true,
 		matchOnDetail: true,
 		items:
@@ -1259,6 +1265,7 @@ export async function* showCommitOrStashStep<
 			context,
 		),
 		placeholder: GitReference.toString(state.reference, { capitalize: true, icon: false }),
+		ignoreFocusOut: true,
 		items: await getShowCommitOrStashStepItems(state),
 		additionalButtons: GitReference.isStash(state.reference)
 			? [QuickCommandButtons.RevealInView]
@@ -1461,6 +1468,7 @@ export async function* showCommitOrStashFilesStep<
 			context,
 		),
 		placeholder: GitReference.toString(state.reference, { capitalize: true, icon: false }),
+		ignoreFocusOut: true,
 		items: [
 			new CommitFilesQuickPickItem(state.reference, state.fileName == null),
 			...state.reference.files.map(
@@ -1537,6 +1545,7 @@ export async function* showCommitOrStashFileStep<
 		})} in ${GitReference.toString(state.reference, {
 			icon: false,
 		})}`,
+		ignoreFocusOut: true,
 		items: await getShowCommitOrStashFileStepItems(state),
 		matchOnDescription: true,
 		additionalButtons: [QuickCommandButtons.RevealInView, QuickCommandButtons.ShowInView],
@@ -1728,6 +1737,7 @@ export function* showRepositoryStatusStep<
 	const step: QuickPickStep<CommandQuickPickItem> = QuickCommand.createPickStep<CommandQuickPickItem>({
 		title: appendReposToTitle(context.title, state, context),
 		placeholder: `${upstream ? `${upstream}, ${working}` : working}`, //'Changes to be committed',
+		ignoreFocusOut: true,
 		items: getShowRepositoryStatusStepItems(state, context),
 		keys: ['right', 'alt+right', 'ctrl+right'],
 		onDidPressKey: async (quickpick, key) => {

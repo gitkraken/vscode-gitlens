@@ -53,6 +53,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Overhauls the _Git Commands_ (`gitlens.gitCommands`) quick pick menus
   - Adds many more options
   - Adds improved titles for better clarity, context, and flow
+  - Removes the _Keep Open_ toggle button to the quick pick menu toolbar &mdash; the behavior is now automatically determined (unless overridden by the `gitlens.gitCommands.closeOnFocusOut` setting)
 - Changes avatars in the blame file annotations to new be displayed as part of the annotations rather than in the gutter
 - Changes the _Git Commands' push_ command to honor and reflect the `git.useForcePushWithLease` setting
 - Changes to use VS Code's built-in icons (codicons) where possible &mdash; closes [#985](https://github.com/eamodio/vscode-gitlens/issues/985)

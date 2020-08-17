@@ -10,6 +10,7 @@ export * from './quickCommand.steps';
 export interface QuickInputStep {
 	additionalButtons?: QuickInputButton[];
 	buttons?: QuickInputButton[];
+	ignoreFocusOut?: boolean;
 	keys?: StepNavigationKeys[];
 	placeholder?: string;
 	prompt?: string;
@@ -31,6 +32,7 @@ export interface QuickPickStep<T extends QuickPickItem = QuickPickItem> {
 	additionalButtons?: QuickInputButton[];
 	allowEmpty?: boolean;
 	buttons?: QuickInputButton[];
+	ignoreFocusOut?: boolean;
 	items: (DirectiveQuickPickItem | T)[]; // | DirectiveQuickPickItem[];
 	keys?: StepNavigationKeys[];
 	matchOnDescription?: boolean;
@@ -191,13 +193,7 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 		cancel?: DirectiveQuickPickItem,
 		options: Partial<QuickPickStep<T>> = {},
 	): QuickPickStep<T> {
-		return QuickCommand.createPickStep<T>({
-			placeholder: `Confirm ${this.title}`,
-			title: title,
-			items: [...confirmations, cancel ?? DirectiveQuickPickItem.create(Directive.Cancel)],
-			selectedItems: [confirmations.find(c => c.picked) ?? confirmations[0]],
-			...options,
-		});
+		return QuickCommand.createConfirmStep(title, confirmations, { title: this.title }, cancel, options);
 	}
 
 	protected getStepState(limitBackNavigation: boolean): PartialStepState<State> {
@@ -283,6 +279,7 @@ export namespace QuickCommand {
 		return createPickStep<T>({
 			placeholder: `Confirm ${context.title}`,
 			title: title,
+			ignoreFocusOut: true,
 			items: [...confirmations, cancel ?? DirectiveQuickPickItem.create(Directive.Cancel)],
 			selectedItems: [confirmations.find(c => c.picked) ?? confirmations[0]],
 			...options,
@@ -290,6 +287,8 @@ export namespace QuickCommand {
 	}
 
 	export function createInputStep(step: QuickInputStep): QuickInputStep {
+		// Make sure any input steps won't close on focus loss
+		step.ignoreFocusOut = true;
 		return step;
 	}
 
