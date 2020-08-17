@@ -4,7 +4,7 @@
 		"allowSyntheticDefaultImports": true,
 		"esModuleInterop": true,
 		"lib": ["dom", "dom.iterable", "es2019"],
-		"outDir": "dist/webviews"
+		"outDir": "../../"
 	},
 	"include": ["../../config.ts", "../protocol.ts", "**/*"],
 	"exclude": ["node_modules", "test"]
