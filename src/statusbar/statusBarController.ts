@@ -54,8 +54,8 @@ export class StatusBarController implements Disposable {
 				this._modeStatusBarItem.text = mode.statusBarItemName;
 				this._modeStatusBarItem.tooltip = 'Switch GitLens Mode';
 				this._modeStatusBarItem.show();
-			} else if (this._modeStatusBarItem !== undefined) {
-				this._modeStatusBarItem.dispose();
+			} else {
+				this._modeStatusBarItem?.dispose();
 				this._modeStatusBarItem = undefined;
 			}
 		}
@@ -67,8 +67,8 @@ export class StatusBarController implements Disposable {
 				Container.config.statusBar.alignment !== 'left' ? StatusBarAlignment.Right : StatusBarAlignment.Left;
 
 			if (configuration.changed(e, 'statusBar', 'alignment')) {
-				if (this._blameStatusBarItem !== undefined && this._blameStatusBarItem.alignment !== alignment) {
-					this._blameStatusBarItem.dispose();
+				if (this._blameStatusBarItem?.alignment !== alignment) {
+					this._blameStatusBarItem?.dispose();
 					this._blameStatusBarItem = undefined;
 				}
 			}
@@ -87,19 +87,17 @@ export class StatusBarController implements Disposable {
 		} else if (configuration.changed(e, 'statusBar', 'enabled')) {
 			Container.lineTracker.stop(this);
 
-			if (this._blameStatusBarItem !== undefined) {
-				this._blameStatusBarItem.dispose();
-				this._blameStatusBarItem = undefined;
-			}
+			this._blameStatusBarItem?.dispose();
+			this._blameStatusBarItem = undefined;
 		}
 	}
 
 	@debug({
 		args: {
 			0: (e: LinesChangeEvent) =>
-				`editor=${e.editor?.document.uri.toString(true)}, lines=${e.lines?.join(',')}, pending=${Boolean(
-					e.pending,
-				)}, reason=${e.reason}`,
+				`editor=${e.editor?.document.uri.toString(true)}, selections=${e.selections
+					?.map(s => `[${s.anchor}-${s.active}]`)
+					.join(',')}, pending=${Boolean(e.pending)}, reason=${e.reason}`,
 		},
 	})
 	private onActiveLinesChanged(e: LinesChangeEvent) {
@@ -107,11 +105,11 @@ export class StatusBarController implements Disposable {
 		let clear = !(
 			Container.config.statusBar.reduceFlicker &&
 			e.reason === 'selection' &&
-			(e.pending || e.lines !== undefined)
+			(e.pending || e.selections != null)
 		);
-		if (!e.pending && e.lines !== undefined) {
-			const state = Container.lineTracker.getState(e.lines[0]);
-			if (state?.commit !== undefined) {
+		if (!e.pending && e.selections != null) {
+			const state = Container.lineTracker.getState(e.selections[0].active);
+			if (state?.commit != null) {
 				this.updateBlame(state.commit, e.editor!);
 
 				return;
@@ -126,14 +124,12 @@ export class StatusBarController implements Disposable {
 	}
 
 	clearBlame() {
-		if (this._blameStatusBarItem !== undefined) {
-			this._blameStatusBarItem.hide();
-		}
+		this._blameStatusBarItem?.hide();
 	}
 
 	private updateBlame(commit: GitCommit, editor: TextEditor) {
 		const cfg = Container.config.statusBar;
-		if (!cfg.enabled || this._blameStatusBarItem === undefined || !isTextEditor(editor)) return;
+		if (!cfg.enabled || this._blameStatusBarItem == null || !isTextEditor(editor)) return;
 
 		this._blameStatusBarItem.text = `$(git-commit) ${CommitFormatter.fromTemplate(cfg.format, commit, {
 			truncateMessageAtNewLine: true,

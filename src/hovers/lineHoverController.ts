@@ -60,15 +60,15 @@ export class LineHoverController implements Disposable {
 	@debug({
 		args: {
 			0: (e: LinesChangeEvent) =>
-				`editor=${e.editor?.document.uri.toString(true)}, lines=${e.lines?.join(',')}, pending=${Boolean(
-					e.pending,
-				)}, reason=${e.reason}`,
+				`editor=${e.editor?.document.uri.toString(true)}, selections=${e.selections
+					?.map(s => `[${s.anchor}-${s.active}]`)
+					.join(',')}, pending=${Boolean(e.pending)}, reason=${e.reason}`,
 		},
 	})
 	private onActiveLinesChanged(e: LinesChangeEvent) {
 		if (e.pending) return;
 
-		if (e.editor == null || e.lines == null) {
+		if (e.editor == null || e.selections == null) {
 			this.unregister();
 
 			return;

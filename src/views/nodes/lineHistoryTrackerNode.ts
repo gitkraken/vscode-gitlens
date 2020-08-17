@@ -190,9 +190,9 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 	@debug({
 		args: {
 			0: (e: LinesChangeEvent) =>
-				`editor=${e.editor?.document.uri.toString(true)}, lines=${e.lines?.join(',')}, pending=${Boolean(
-					e.pending,
-				)}, reason=${e.reason}`,
+				`editor=${e.editor?.document.uri.toString(true)}, selections=${e.selections
+					?.map(s => `[${s.anchor}-${s.active}]`)
+					.join(',')}, pending=${Boolean(e.pending)}, reason=${e.reason}`,
 		},
 	})
 	private onActiveLinesChanged(_e: LinesChangeEvent) {

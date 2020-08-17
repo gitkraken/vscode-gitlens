@@ -12,7 +12,7 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 		super('gitlens.views.fileHistory', 'File History');
 	}
 
-	getRoot() {
+	getRoot(): LineHistoryTrackerNode | FileHistoryTrackerNode {
 		return this._followCursor ? new LineHistoryTrackerNode(this) : new FileHistoryTrackerNode(this);
 	}
 

@@ -10,7 +10,7 @@ import {
 	DocumentDirtyStateChangeEvent,
 	GitDocumentState,
 } from './gitDocumentTracker';
-import { LinesChangeEvent, LineTracker } from './lineTracker';
+import { LinesChangeEvent, LineSelection, LineTracker } from './lineTracker';
 import { Logger } from '../logger';
 import { debug } from '../system';
 
@@ -25,11 +25,11 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 		this.reset();
 
 		let updated = false;
-		if (!this.suspended && !e.pending && e.lines !== undefined && e.editor !== undefined) {
-			updated = await this.updateState(e.lines, e.editor);
+		if (!this.suspended && !e.pending && e.selections != null && e.editor != null) {
+			updated = await this.updateState(e.selections, e.editor);
 		}
 
-		return super.fireLinesChanged(updated ? e : { ...e, lines: undefined });
+		return super.fireLinesChanged(updated ? e : { ...e, selections: undefined });
 	}
 
 	private _subscriptionOnlyWhenActive: Disposable | undefined;
@@ -46,15 +46,13 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 	}
 
 	protected onResume(): void {
-		if (this._subscriptionOnlyWhenActive === undefined) {
+		if (this._subscriptionOnlyWhenActive == null) {
 			this._subscriptionOnlyWhenActive = Container.tracker.onDidChangeContent(this.onContentChanged, this);
 		}
 	}
 
 	protected onSuspend(): void {
-		if (this._subscriptionOnlyWhenActive === undefined) return;
-
-		this._subscriptionOnlyWhenActive.dispose();
+		this._subscriptionOnlyWhenActive?.dispose();
 		this._subscriptionOnlyWhenActive = undefined;
 	}
 
@@ -77,7 +75,15 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 		},
 	})
 	private onContentChanged(e: DocumentContentChangeEvent<GitDocumentState>) {
-		if (e.contentChanges.some(cc => this.lines?.some(l => cc.range.start.line <= l && cc.range.end.line >= l))) {
+		if (
+			e.contentChanges.some(cc =>
+				this.selections?.some(
+					selection =>
+						(cc.range.end.line >= selection.active && selection.active >= cc.range.start.line) ||
+						(cc.range.start.line >= selection.active && selection.active >= cc.range.end.line),
+				),
+			)
+		) {
 			this.trigger('editor');
 		}
 	}
@@ -113,16 +119,16 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 
 	@debug({
 		args: {
-			0: (lines: number[]) => lines?.join(','),
+			0: (selections: LineSelection[]) => selections?.map(s => s.active).join(','),
 			1: (editor: TextEditor) => editor.document.uri.toString(true),
 		},
 		exit: updated => `returned ${updated}`,
 		singleLine: true,
 	})
-	private async updateState(lines: number[], editor: TextEditor): Promise<boolean> {
+	private async updateState(selections: LineSelection[], editor: TextEditor): Promise<boolean> {
 		const cc = Logger.getCorrelationContext();
 
-		if (!this.includesAll(lines)) {
+		if (!this.includes(selections)) {
 			if (cc != null) {
 				cc.exitDetails = ` ${GlyphChars.Dot} lines no longer match`;
 			}
@@ -139,10 +145,14 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 			return false;
 		}
 
-		if (lines.length === 1) {
+		if (selections.length === 1) {
 			const blameLine = editor.document.isDirty
-				? await Container.git.getBlameForLineContents(trackedDocument.uri, lines[0], editor.document.getText())
-				: await Container.git.getBlameForLine(trackedDocument.uri, lines[0]);
+				? await Container.git.getBlameForLineContents(
+						trackedDocument.uri,
+						selections[0].active,
+						editor.document.getText(),
+				  )
+				: await Container.git.getBlameForLine(trackedDocument.uri, selections[0].active);
 			if (blameLine === undefined) {
 				if (cc != null) {
 					cc.exitDetails = ` ${GlyphChars.Dot} blame failed`;
@@ -164,15 +174,15 @@ export class GitLineTracker extends LineTracker<GitLineState> {
 				return false;
 			}
 
-			for (const line of lines) {
-				const commitLine = blame.lines[line];
-				this.setState(line, new GitLineState(blame.commits.get(commitLine.sha)));
+			for (const selection of selections) {
+				const commitLine = blame.lines[selection.active];
+				this.setState(selection.active, new GitLineState(blame.commits.get(commitLine.sha)));
 			}
 		}
 
 		// Check again because of the awaits above
 
-		if (!this.includesAll(lines)) {
+		if (!this.includes(selections)) {
 			if (cc != null) {
 				cc.exitDetails = ` ${GlyphChars.Dot} lines no longer match`;
 			}

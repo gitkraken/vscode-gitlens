@@ -16,7 +16,7 @@ import { Container } from '../container';
 import { CommitFormatter, GitBlameCommit, PullRequest } from '../git/git';
 import { LogCorrelationContext, Logger } from '../logger';
 import { debug, Iterables, log, Promises } from '../system';
-import { LinesChangeEvent } from '../trackers/gitLineTracker';
+import { LinesChangeEvent, LineSelection } from '../trackers/gitLineTracker';
 
 const annotationDecoration: TextEditorDecorationType = window.createTextEditorDecorationType({
 	after: {
@@ -94,13 +94,13 @@ export class LineAnnotationController implements Disposable {
 	@debug({
 		args: {
 			0: (e: LinesChangeEvent) =>
-				`editor=${e.editor?.document.uri.toString(true)}, lines=${e.lines?.join(',')}, pending=${Boolean(
-					e.pending,
-				)}, reason=${e.reason}`,
+				`editor=${e.editor?.document.uri.toString(true)}, selections=${e.selections
+					?.map(s => `[${s.anchor}-${s.active}]`)
+					.join(',')}, pending=${Boolean(e.pending)}, reason=${e.reason}`,
 		},
 	})
 	private onActiveLinesChanged(e: LinesChangeEvent) {
-		if (!e.pending && e.lines !== undefined) {
+		if (!e.pending && e.selections !== undefined) {
 			void this.refresh(e.editor);
 
 			return;
@@ -168,21 +168,21 @@ export class LineAnnotationController implements Disposable {
 			ref => Container.git.getPullRequestForCommit(ref, provider),
 			timeout,
 		);
-		if (prs.size === 0 || Iterables.every(prs.values(), pr => pr === undefined)) return undefined;
+		if (prs.size === 0 || Iterables.every(prs.values(), pr => pr == null)) return undefined;
 
 		return prs;
 	}
 
 	@debug({ args: false })
 	private async refresh(editor: TextEditor | undefined, options?: { prs?: Map<string, PullRequest | undefined> }) {
-		if (editor === undefined && this._editor === undefined) return;
+		if (editor == null && this._editor == null) return;
 
 		const cc = Logger.getCorrelationContext();
 
-		const lines = Container.lineTracker.lines;
-		if (editor === undefined || lines === undefined || !isTextEditor(editor)) {
+		const selections = Container.lineTracker.selections;
+		if (editor == null || selections == null || !isTextEditor(editor)) {
 			if (cc) {
-				cc.exitDetails = ` ${GlyphChars.Dot} Skipped because there is no valid editor or no valid lines`;
+				cc.exitDetails = ` ${GlyphChars.Dot} Skipped because there is no valid editor or no valid selections`;
 			}
 
 			this.clear(this._editor);
@@ -221,28 +221,34 @@ export class LineAnnotationController implements Disposable {
 		}
 
 		// Make sure the editor hasn't died since the await above and that we are still on the same line(s)
-		if (editor.document === undefined || !Container.lineTracker.includesAll(lines)) {
+		if (editor.document == null || !Container.lineTracker.includes(selections)) {
 			if (cc) {
 				cc.exitDetails = ` ${GlyphChars.Dot} Skipped because the ${
-					editor.document === undefined ? 'editor is gone' : `line(s)=${lines.join()} are no longer current`
+					editor.document == null
+						? 'editor is gone'
+						: `selection(s)=${selections
+								.map(s => `[${s.anchor}-${s.active}]`)
+								.join()} are no longer current`
 				}`;
 			}
 			return;
 		}
 
 		if (cc) {
-			cc.exitDetails = ` ${GlyphChars.Dot} line(s)=${lines.join()}`;
+			cc.exitDetails = ` ${GlyphChars.Dot} selection(s)=${selections
+				.map(s => `[${s.anchor}-${s.active}]`)
+				.join()}`;
 		}
 
 		const commitLines = [
-			...Iterables.filterMap<number, [number, GitBlameCommit]>(lines, l => {
-				const state = Container.lineTracker.getState(l);
+			...Iterables.filterMap<LineSelection, [number, GitBlameCommit]>(selections, selection => {
+				const state = Container.lineTracker.getState(selection.active);
 				if (state?.commit == null) {
-					Logger.debug(cc, `Line ${l} returned no commit`);
+					Logger.debug(cc, `Line ${selection.active} returned no commit`);
 					return undefined;
 				}
 
-				return [l, state.commit];
+				return [selection.active, state.commit];
 			}),
 		];
 
