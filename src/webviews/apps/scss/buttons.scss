@@ -16,6 +16,11 @@
 	&:focus {
 		outline: none;
 	}
+
+	&[disabled] {
+		cursor: default !important;
+		opacity: 0.25 !important;
+	}
 }
 
 .button--big {
@@ -29,21 +34,21 @@
 	}
 	.vscode-dark & {
 		border: 1px solid rgba(255, 255, 255, 0.6);
-		color: white !important;
+		color: white;
 	}
 	transition: background-color 250ms, border-color 250ms, color 250ms;
 
-	&:hover,
-	&:focus {
+	&:not([disabled]):hover,
+	&:not([disabled]):focus {
 		.vscode-light & {
 			background-color: var(--color-button-background--darken-30);
 			border-color: var(--color-button-background--darken-30);
-			color: white !important;
+			color: white;
 		}
 		.vscode-dark & {
 			background-color: white;
 			border-color: white;
-			color: black !important;
+			color: black;
 		}
 	}
 
@@ -55,15 +60,15 @@
 .button--flat-inverse {
 	background-color: white;
 	border: 1px solid white;
-	color: black !important;
+	color: black;
 	font-weight: 600;
 	transition: background-color 250ms, border-color 250ms, color 250ms;
 
-	&:hover,
-	&:focus {
+	&:not([disabled]):hover,
+	&:not([disabled]):focus {
 		background: rgba(0, 0, 0, 0.2);
 		border-color: rgba(255, 255, 255, 0.6);
-		color: white !important;
+		color: white;
 	}
 
 	.preload & {
@@ -74,22 +79,22 @@
 .button--flat-primary {
 	background-color: var(--color-button-background);
 	border: 1px solid var(--color-button-background);
-	color: var(--color-button-foreground) !important;
+	color: var(--color-button-foreground);
 	font-weight: 600;
 	transition: background-color 250ms, border-color 250ms, color 250ms;
 
-	&:hover,
-	&:focus {
+	&:not([disabled]):hover,
+	&:not([disabled]):focus {
 		.vscode-dark & {
 			background-color: white;
 			border-color: white;
-			color: black !important;
+			color: black;
 		}
 
 		.vscode-light & {
 			background-color: var(--color-button-background--darken-30);
 			border-color: var(--color-button-background--darken-30);
-			color: white !important;
+			color: white;
 		}
 	}
 

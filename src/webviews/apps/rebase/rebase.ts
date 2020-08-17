@@ -243,7 +243,24 @@ class RebaseEditor extends App<RebaseState> {
 		}
 
 		$container.innerHTML = '';
-		if (state.entries.length === 0) return;
+		if (state.entries.length === 0) {
+			$container.classList.add('entries--empty');
+
+			const $button = document.querySelector<HTMLButtonElement>('.button[name="start"]');
+			if ($button != null) {
+				$button.disabled = true;
+			}
+
+			const $entry = document.createElement('li');
+
+			const $el = document.createElement('h3');
+			$el.innerText = 'No commits to rebase';
+
+			$entry.appendChild($el);
+			$container.appendChild($entry);
+
+			return;
+		}
 
 		let squashing = false;
 		let squashToHere = false;

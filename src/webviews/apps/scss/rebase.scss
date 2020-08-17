@@ -47,6 +47,15 @@ h4 {
 	}
 }
 
+.entries--empty {
+	border: none;
+
+	h3 {
+		margin: 1em auto;
+		width: fit-content;
+	}
+}
+
 .shortcuts {
 	grid-area: shortcuts;
 	margin: 0 auto;
