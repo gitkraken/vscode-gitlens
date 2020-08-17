@@ -27,6 +27,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Provides indicators of local changes, if any, or recent commit changes, and distinguishes between added, changed, and removed lines
   - Similar to the built-in Git gutter changes for un-staged changes, but shows all local (un-pushed) changes
   - Shows a changes hover with the full set of changes (diff hunk) and even with unsaved changes
+- Adds a new _Follow the Cursor_ command to the _File History_ view &mdash; which will ultimately replace the _Line History_ view, although, for now, it will just be disabled by default
 - Adds a new _Open File from Remote_ (`gitlens.openFileFromRemote`) command &mdash; opens the local file from a remote file url
 - Adds a new _Copy Remote Commit Url_ (`gitlens.copyRemoteCommitUrlToClipboard`) command &mdash; copies the remote url of the current line commit to the clipboard
 - Adds much improved co-author support
@@ -50,7 +51,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 
 - Overhauls the _Git Commands_ (`gitlens.gitCommands`) quick pick menus
-  - Adds more command options, better titles and working for more clarity, context, and flow
+  - Adds many more options
+  - Adds improved titles for better clarity, context, and flow
 - Changes avatars in the blame file annotations to new be displayed as part of the annotations rather than in the gutter
 - Changes the _Git Commands' push_ command to honor and reflect the `git.useForcePushWithLease` setting
 - Changes to use VS Code's built-in icons (codicons) where possible &mdash; closes [#985](https://github.com/eamodio/vscode-gitlens/issues/985)
@@ -77,6 +79,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes issue where a selection change wouldn't always trigger a Line History refresh
+- Fixes issues where GitLens' files would not re-open properly on reload
 - Fixes _Incomplete string escaping or encoding_ code scan warning &mdash; https://github.com/eamodio/vscode-gitlens/security/code-scanning/1
 - Fixes _Inefficient regular expression_ code scan warning &mdash; https://github.com/eamodio/vscode-gitlens/security/code-scanning/2
 - Fixes [#1072](https://github.com/eamodio/vscode-gitlens/issues/1072) - Add whitespace to tree item tooltip &mdash; thanks to [PR #1073](https://github.com/eamodio/vscode-gitlens/pull/1073) by Alex ([@deadmeu](https://github.com/deadmeu))
