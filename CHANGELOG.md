@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds an all-new custom editor for rebasing (TODO: more details & image)
-  ![Rebase Editor](images/docs/rebase-editor.gif)
+  ![Rebase Editor](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/rebase-editor.gif)
   - Includes drag & drop support
 - (PREVIEW) Adds Pull Request information to line annotations and hovers (TODO: more details & image)
 - Adds improved autolinks support
