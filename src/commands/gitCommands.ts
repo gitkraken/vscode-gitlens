@@ -90,6 +90,11 @@ export class GitCommandsCommand extends Command {
 		let ignoreFocusOut;
 
 		let step = command == null ? commandsStep : await this.getCommandStep(command, commandsStep);
+		// If this is the first step, don't honor the step's setting
+		if (step?.ignoreFocusOut === true) {
+			step.ignoreFocusOut = undefined;
+		}
+
 		while (step != null) {
 			// If we are trying to back up to the menu and have a starting command, then just reset to the starting command
 			if (step === commandsStep && command != null) {
