@@ -46,7 +46,7 @@ export class RemoteNode extends ViewNode<RepositoriesView> {
 		if (branches.length === 0) return [new MessageNode(this.view, this, 'No branches could be found.')];
 
 		const branchNodes = branches.map(
-			b => new BranchNode(GitUri.fromRepoPath(this.uri.repoPath!, b.ref), this.view, this, b),
+			b => new BranchNode(GitUri.fromRepoPath(this.uri.repoPath!, b.ref), this.view, this, b, false),
 		);
 		if (this.view.config.branches.layout === ViewBranchesLayout.List) return branchNodes;
 

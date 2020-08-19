@@ -1,36 +1,59 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { BranchesView } from '../branchesView';
+import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
+import { CommitNode } from './commitNode';
+import { HistoryView } from '../historyView';
+import { MessageNode, ShowMoreNode } from './common';
 import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { BranchDateFormatting, GitBranch, GitBranchReference, GitLog, GitRemoteType } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { debug, gate, Iterables, log, Strings } from '../../system';
-import { RepositoriesView } from '../repositoriesView';
-import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
-import { CommitNode } from './commitNode';
-import { MessageNode, ShowMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
-import { ContextValues, PageableViewNode, ViewNode, ViewRefNode } from './viewNode';
+import { RepositoriesView } from '../repositoriesView';
 import { RepositoryNode } from './repositoryNode';
+import { debug, gate, Iterables, log, Strings } from '../../system';
+import { ContextValues, PageableViewNode, ViewNode, ViewRefNode } from './viewNode';
 
-export class BranchNode extends ViewRefNode<RepositoriesView, GitBranchReference> implements PageableViewNode {
+export class BranchNode extends ViewRefNode<RepositoriesView | BranchesView | HistoryView, GitBranchReference>
+	implements PageableViewNode {
 	static key = ':branch';
 	static getId(repoPath: string, name: string, root: boolean): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${name})${root ? ':root' : ''}`;
 	}
 
 	private _children: ViewNode[] | undefined;
+	private readonly options: {
+		expanded: boolean;
+		showCurrent: boolean;
+		showTracking: boolean;
+	};
 
 	constructor(
 		uri: GitUri,
-		view: RepositoriesView,
+		view: RepositoriesView | BranchesView | HistoryView,
 		parent: ViewNode,
 		public readonly branch: GitBranch,
 		// Specifies that the node is shown as a root under the repository node
-		public readonly root: boolean = false,
+		private readonly root: boolean,
+
+		options?: {
+			expanded?: boolean;
+			showCurrent?: boolean;
+			showTracking?: boolean;
+		},
 	) {
 		super(uri, view, parent);
+
+		this.options = {
+			expanded: false,
+			// Hide the current branch checkmark when the node is displayed as a root under the repository node
+			showCurrent: !this.root,
+			// Don't show tracking info the node is displayed as a root under the repository node
+			showTracking: !this.root,
+			...options,
+		};
 	}
 
 	toClipboard(): string {
@@ -49,9 +72,12 @@ export class BranchNode extends ViewRefNode<RepositoriesView, GitBranchReference
 
 	get label(): string {
 		const branchName = this.branch.getNameWithoutRemote();
-		if (this.view.config.branches.layout === ViewBranchesLayout.List) return branchName;
-
-		return this.compacted || this.root || this.current || this.branch.detached || this.branch.starred
+		return this.view.config.branches?.layout !== ViewBranchesLayout.Tree ||
+			this.compacted ||
+			this.root ||
+			this.current ||
+			this.branch.detached ||
+			this.branch.starred
 			? branchName
 			: this.branch.getBasename();
 	}
@@ -69,7 +95,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView, GitBranchReference
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children === undefined) {
 			const children = [];
-			if (!this.root && this.branch.tracking) {
+			if (this.options.showTracking && this.branch.tracking) {
 				const status = {
 					ref: this.branch.ref,
 					repoPath: this.branch.repoPath,
@@ -78,11 +104,15 @@ export class BranchNode extends ViewRefNode<RepositoriesView, GitBranchReference
 				};
 
 				if (this.branch.state.behind) {
-					children.push(new BranchTrackingStatusNode(this.view, this, this.branch, status, 'behind'));
+					children.push(
+						new BranchTrackingStatusNode(this.view, this, this.branch, status, 'behind', this.root),
+					);
 				}
 
 				if (this.branch.state.ahead) {
-					children.push(new BranchTrackingStatusNode(this.view, this, this.branch, status, 'ahead'));
+					children.push(
+						new BranchTrackingStatusNode(this.view, this, this.branch, status, 'ahead', this.root),
+					);
 				}
 			}
 
@@ -194,9 +224,8 @@ export class BranchNode extends ViewRefNode<RepositoriesView, GitBranchReference
 		}
 
 		const item = new TreeItem(
-			// Hide the current branch checkmark when the node is displayed as a root under the repository node
-			`${!this.root && this.current ? `${GlyphChars.Check} ${GlyphChars.Space}` : ''}${name}`,
-			TreeItemCollapsibleState.Collapsed,
+			`${this.options.showCurrent && this.current ? `${GlyphChars.Check} ${GlyphChars.Space}` : ''}${name}`,
+			this.options.expanded ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
 		);
 		item.contextValue = contextValue;
 		item.description = description;
@@ -219,7 +248,8 @@ export class BranchNode extends ViewRefNode<RepositoriesView, GitBranchReference
 	@log()
 	async unstar() {
 		await this.branch.unstar();
-		void this.parent!.triggerChange();
+		void this.view.refresh(true);
+		// void this.parent!.triggerChange();
 	}
 
 	@gate()

@@ -304,25 +304,6 @@ export interface CodeLensLanguageScope {
 	symbolScopes?: string[];
 }
 
-export interface CompareViewConfig {
-	avatars: boolean;
-	enabled: boolean;
-	files: ViewsFilesConfig;
-	location: ViewLocation;
-}
-
-export interface FileHistoryViewConfig {
-	avatars: boolean;
-	enabled: boolean;
-	location: ViewLocation;
-}
-
-export interface LineHistoryViewConfig {
-	avatars: boolean;
-	enabled: boolean;
-	location: ViewLocation;
-}
-
 export interface MenuConfig {
 	editor:
 		| false
@@ -416,6 +397,130 @@ export interface RemotesUrlsConfig {
 	fileRange: string;
 }
 
+export interface ViewsCommonConfig {
+	commitFileDescriptionFormat: string;
+	commitFileFormat: string;
+	commitDescriptionFormat: string;
+	commitFormat: string;
+	defaultItemLimit: number;
+	pageItemLimit: number;
+	showRelativeDateMarkers: boolean;
+	stashFileDescriptionFormat: string;
+	stashFileFormat: string;
+	stashDescriptionFormat: string;
+	stashFormat: string;
+	statusFileDescriptionFormat: string;
+	statusFileFormat: string;
+}
+
+export const viewsCommonConfigKeys: (keyof ViewsCommonConfig)[] = [
+	'commitFileDescriptionFormat',
+	'commitFileFormat',
+	'commitDescriptionFormat',
+	'commitFormat',
+	'defaultItemLimit',
+	'pageItemLimit',
+	'showRelativeDateMarkers',
+	'stashFileDescriptionFormat',
+	'stashFileFormat',
+	'stashDescriptionFormat',
+	'stashFormat',
+	'statusFileDescriptionFormat',
+	'statusFileFormat',
+];
+
+interface ViewsConfigs {
+	branches: BranchesViewConfig;
+	compare: CompareViewConfig;
+	contributors: ContributorsViewConfig;
+	fileHistory: FileHistoryViewConfig;
+	history: HistoryViewConfig;
+	lineHistory: LineHistoryViewConfig;
+	remotes: RemotesViewConfig;
+	repositories: RepositoriesViewConfig;
+	search: SearchViewConfig;
+	stashes: StashesViewConfig;
+	tags: TagsViewConfig;
+}
+
+export type ViewsConfigKeys = keyof ViewsConfigs;
+export const viewsConfigKeys: ViewsConfigKeys[] = [
+	'branches',
+	'compare',
+	'contributors',
+	'fileHistory',
+	'history',
+	'lineHistory',
+	'remotes',
+	'repositories',
+	'search',
+	'stashes',
+	'tags',
+];
+
+export type ViewsConfig = ViewsCommonConfig & ViewsConfigs;
+
+type ViewsWithLocation = keyof Pick<
+	ViewsConfigs,
+	'compare' | 'fileHistory' | 'lineHistory' | 'repositories' | 'search'
+>;
+
+export const viewsWithLocationConfigKeys: ViewsWithLocation[] = [
+	'compare',
+	'fileHistory',
+	'lineHistory',
+	'repositories',
+	'search',
+];
+
+export interface BranchesViewConfig {
+	avatars: boolean;
+	branches: {
+		layout: ViewBranchesLayout;
+	};
+	files: ViewsFilesConfig;
+	showTrackingBranch: boolean;
+}
+
+export interface CompareViewConfig {
+	avatars: boolean;
+	enabled: boolean;
+	files: ViewsFilesConfig;
+	location: ViewLocation;
+}
+
+export interface ContributorsViewConfig {
+	avatars: boolean;
+	files: ViewsFilesConfig;
+}
+
+export interface FileHistoryViewConfig {
+	avatars: boolean;
+	enabled: boolean;
+	location: ViewLocation;
+}
+
+export interface HistoryViewConfig {
+	avatars: boolean;
+	branches: undefined;
+	files: ViewsFilesConfig;
+	showTrackingBranch: boolean;
+}
+
+export interface LineHistoryViewConfig {
+	avatars: boolean;
+	enabled: boolean;
+	location: ViewLocation;
+}
+
+export interface RemotesViewConfig {
+	avatars: boolean;
+	branches: {
+		layout: ViewBranchesLayout;
+	};
+	files: ViewsFilesConfig;
+}
+
 export interface RepositoriesViewConfig {
 	autoRefresh: boolean;
 	autoReveal: boolean;
@@ -439,25 +544,14 @@ export interface SearchViewConfig {
 	location: ViewLocation;
 }
 
-export interface ViewsConfig {
-	fileHistory: FileHistoryViewConfig;
-	commitFileDescriptionFormat: string;
-	commitFileFormat: string;
-	commitDescriptionFormat: string;
-	commitFormat: string;
-	compare: CompareViewConfig;
-	defaultItemLimit: number;
-	lineHistory: LineHistoryViewConfig;
-	pageItemLimit: number;
-	repositories: RepositoriesViewConfig;
-	search: SearchViewConfig;
-	showRelativeDateMarkers: boolean;
-	stashFileDescriptionFormat: string;
-	stashFileFormat: string;
-	stashDescriptionFormat: string;
-	stashFormat: string;
-	statusFileDescriptionFormat: string;
-	statusFileFormat: string;
+export interface StashesViewConfig {
+	avatars: boolean;
+	files: ViewsFilesConfig;
+}
+
+export interface TagsViewConfig {
+	avatars: boolean;
+	files: ViewsFilesConfig;
 }
 
 export interface ViewsFilesConfig {
@@ -465,8 +559,3 @@ export interface ViewsFilesConfig {
 	layout: ViewFilesLayout;
 	threshold: number;
 }
-
-export const viewKeys: (keyof Pick<
-	Config['views'],
-	'repositories' | 'fileHistory' | 'lineHistory' | 'compare' | 'search'
->)[] = ['repositories', 'fileHistory', 'lineHistory', 'compare', 'search'];

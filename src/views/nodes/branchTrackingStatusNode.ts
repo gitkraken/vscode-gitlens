@@ -1,15 +1,16 @@
 'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { BranchNode } from './branchNode';
+import { BranchTrackingStatusFilesNode } from './branchTrackingStatusFilesNode';
+import { CommitNode } from './commitNode';
+import { ShowMoreNode } from './common';
 import { Container } from '../../container';
 import { GitBranch, GitLog, GitRevision, GitTrackingState } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { debug, gate, Iterables, Strings } from '../../system';
-import { ViewWithFiles } from '../viewBase';
-import { CommitNode } from './commitNode';
-import { ShowMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
+import { debug, gate, Iterables, Strings } from '../../system';
+import { ViewsWithFiles } from '../viewBase';
 import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
-import { BranchNode } from './branchNode';
 
 export interface BranchTrackingStatus {
 	ref: string;
@@ -18,20 +19,20 @@ export interface BranchTrackingStatus {
 	upstream?: string;
 }
 
-export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements PageableViewNode {
-	static key = ':status:upstream';
+export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implements PageableViewNode {
+	static key = ':status-branch:upstream';
 	static getId(repoPath: string, name: string, root: boolean, upstream: string, direction: string): string {
 		return `${BranchNode.getId(repoPath, name, root)}${this.key}(${upstream}|${direction})`;
 	}
 
 	constructor(
-		view: ViewWithFiles,
+		view: ViewsWithFiles,
 		parent: ViewNode,
 		public readonly branch: GitBranch,
 		public readonly status: BranchTrackingStatus,
 		public readonly direction: 'ahead' | 'behind',
 		// Specifies that the node is shown as a root under the repository node
-		private readonly _root: boolean = false,
+		private readonly root: boolean = false,
 	) {
 		super(GitUri.fromRepoPath(status.repoPath), view, parent);
 	}
@@ -48,7 +49,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements
 		return BranchTrackingStatusNode.getId(
 			this.status.repoPath,
 			this.status.ref,
-			this._root,
+			this.root,
 			this.status.upstream!,
 			this.direction,
 		);
@@ -94,6 +95,22 @@ export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements
 		if (log.hasMore) {
 			children.push(new ShowMoreNode(this.view, this, children[children.length - 1]));
 		}
+
+		if (this.status.upstream && this.direction === 'ahead' && this.status.state.ahead > 0) {
+			children.splice(
+				0,
+				0,
+				new BranchTrackingStatusFilesNode(
+					this.view,
+					this,
+					this.branch,
+					this.status as Required<BranchTrackingStatus>,
+					this.direction,
+					this.root,
+				),
+			);
+		}
+
 		return children;
 	}
 
@@ -105,7 +122,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements
 
 		const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
-		if (this._root) {
+		if (this.root) {
 			item.contextValue = ahead ? ContextValues.StatusAheadOfUpstream : ContextValues.StatusBehindUpstream;
 		} else {
 			item.contextValue = ahead

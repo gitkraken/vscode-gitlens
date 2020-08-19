@@ -1,12 +1,14 @@
 'use strict';
 import { commands, ConfigurationChangeEvent } from 'vscode';
-import { configuration, LineHistoryViewConfig, ViewsConfig } from '../configuration';
+import { configuration, LineHistoryViewConfig } from '../configuration';
 import { CommandContext, setCommandContext } from '../constants';
 import { Container } from '../container';
 import { LineHistoryTrackerNode } from './nodes';
 import { ViewBase } from './viewBase';
 
-export class LineHistoryView extends ViewBase<LineHistoryTrackerNode> {
+export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistoryViewConfig> {
+	protected readonly configKey = 'lineHistory';
+
 	constructor() {
 		super('gitlens.views.lineHistory', 'Line History');
 	}
@@ -53,42 +55,34 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode> {
 		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this);
 	}
 
-	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
+		const changed = super.filterConfigurationChanged(e);
 		if (
-			!configuration.changed(e, 'views', 'lineHistory') &&
-			!configuration.changed(e, 'views', 'commitFileDescriptionFormat') &&
-			!configuration.changed(e, 'views', 'commitFileFormat') &&
-			!configuration.changed(e, 'views', 'commitDescriptionFormat') &&
-			!configuration.changed(e, 'views', 'commitFormat') &&
-			!configuration.changed(e, 'views', 'defaultItemLimit') &&
-			!configuration.changed(e, 'views', 'pageItemLimit') &&
-			!configuration.changed(e, 'views', 'showRelativeDateMarkers') &&
-			!configuration.changed(e, 'views', 'statusFileDescriptionFormat') &&
-			!configuration.changed(e, 'views', 'statusFileFormat') &&
+			!changed &&
 			!configuration.changed(e, 'defaultDateFormat') &&
 			!configuration.changed(e, 'defaultDateSource') &&
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
 			!configuration.changed(e, 'advanced', 'fileHistoryFollowsRenames')
 		) {
-			return;
+			return false;
 		}
 
-		if (configuration.changed(e, 'views', 'lineHistory', 'enabled')) {
+		return true;
+	}
+
+	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
+		if (configuration.changed(e, 'views', this.configKey, 'enabled')) {
 			void setCommandContext(CommandContext.ViewsLineHistoryEditorFollowing, true);
 		}
 
-		if (configuration.changed(e, 'views', 'lineHistory', 'location')) {
+		if (configuration.changed(e, 'views', this.configKey, 'location')) {
 			this.initialize(this.config.location);
 		}
 
 		if (!configuration.initializing(e) && this._root != null) {
 			void this.refresh(true);
 		}
-	}
-
-	get config(): ViewsConfig & LineHistoryViewConfig {
-		return { ...Container.config.views, ...Container.config.views.lineHistory };
 	}
 
 	private changeBase() {
@@ -106,6 +100,6 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode> {
 	}
 
 	private setShowAvatars(enabled: boolean) {
-		return configuration.updateEffective('views', 'lineHistory', 'avatars', enabled);
+		return configuration.updateEffective('views', this.configKey, 'avatars', enabled);
 	}
 }

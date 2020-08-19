@@ -16,26 +16,66 @@ import {
 	TreeViewVisibilityChangeEvent,
 	window,
 } from 'vscode';
-import { configuration } from '../configuration';
+import { BranchesView } from './branchesView';
+import { HistoryView } from './historyView';
+import { CompareView } from './compareView';
+import {
+	BranchesViewConfig,
+	CompareViewConfig,
+	configuration,
+	ContributorsViewConfig,
+	FileHistoryViewConfig,
+	HistoryViewConfig,
+	LineHistoryViewConfig,
+	RemotesViewConfig,
+	RepositoriesViewConfig,
+	SearchViewConfig,
+	StashesViewConfig,
+	TagsViewConfig,
+	ViewsCommonConfig,
+	viewsCommonConfigKeys,
+	ViewsConfigKeys,
+	viewsConfigKeys,
+} from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { Logger } from '../logger';
-import { debug, Functions, log, Promises, Strings } from '../system';
-import { CompareView } from './compareView';
 import { FileHistoryView } from './fileHistoryView';
 import { LineHistoryView } from './lineHistoryView';
+import { Logger } from '../logger';
 import { PageableViewNode, ViewNode } from './nodes';
 import { RepositoriesView } from './repositoriesView';
 import { SearchView } from './searchView';
+import { debug, Functions, log, Promises, Strings } from '../system';
 
-export type View = RepositoriesView | FileHistoryView | LineHistoryView | CompareView | SearchView;
-export type ViewWithFiles = RepositoriesView | CompareView | SearchView;
+export type View =
+	| BranchesView
+	| CompareView
+	| FileHistoryView
+	| HistoryView
+	| LineHistoryView
+	| RepositoriesView
+	| SearchView;
+export type ViewsWithFiles = BranchesView | CompareView | HistoryView | RepositoriesView | SearchView;
 
 export interface TreeViewNodeStateChangeEvent<T> extends TreeViewExpansionEvent<T> {
 	state: TreeItemCollapsibleState;
 }
 
-export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeDataProvider<ViewNode>, Disposable {
+export abstract class ViewBase<
+	RootNode extends ViewNode<View>,
+	ViewConfig extends
+		| BranchesViewConfig
+		| CompareViewConfig
+		| ContributorsViewConfig
+		| FileHistoryViewConfig
+		| HistoryViewConfig
+		| LineHistoryViewConfig
+		| RemotesViewConfig
+		| RepositoriesViewConfig
+		| SearchViewConfig
+		| StashesViewConfig
+		| TagsViewConfig
+> implements TreeDataProvider<ViewNode>, Disposable {
 	protected _onDidChangeTreeData = new EventEmitter<ViewNode | undefined>();
 	get onDidChangeTreeData(): Event<ViewNode | undefined> {
 		return this._onDidChangeTreeData.event;
@@ -53,13 +93,13 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 
 	protected _disposable: Disposable | undefined;
 	private readonly _lastKnownLimits = new Map<string, number | undefined>();
-	protected _root: TRoot | undefined;
+	protected _root: RootNode | undefined;
 	protected _tree: TreeView<ViewNode> | undefined;
 
 	constructor(public readonly id: string, public readonly name: string) {
 		if (Logger.isDebugging) {
 			const fn = this.getTreeItem;
-			this.getTreeItem = async function (this: ViewBase<TRoot>, node: ViewNode) {
+			this.getTreeItem = async function (this: ViewBase<RootNode, ViewConfig>, node: ViewNode) {
 				const item = await fn.apply(this, [node]);
 
 				const parent = node.getParent();
@@ -78,8 +118,26 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 
 		this.registerCommands();
 
-		Container.context.subscriptions.push(configuration.onDidChange(this.onConfigurationChanged, this));
+		Container.context.subscriptions.push(
+			configuration.onDidChange(e => {
+				if (!this.filterConfigurationChanged(e)) return;
+
+				this._config = undefined;
+				this.onConfigurationChanged(e);
+			}, this),
+		);
 		setImmediate(() => this.onConfigurationChanged(configuration.initializingChangeEvent));
+	}
+
+	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
+		if (!configuration.changed(e, 'views')) return false;
+
+		if (configuration.changed(e, 'views', this.configKey)) return true;
+		for (const key of viewsCommonConfigKeys) {
+			if (configuration.changed(e, 'views', key)) return true;
+		}
+
+		return false;
 	}
 
 	dispose() {
@@ -136,9 +194,11 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 		return `${this.id}.${command}`;
 	}
 
-	protected abstract get location(): string;
+	protected get location(): string | undefined {
+		return undefined;
+	}
 
-	protected abstract getRoot(): TRoot;
+	protected abstract getRoot(): RootNode;
 	protected abstract registerCommands(): void;
 	protected abstract onConfigurationChanged(e: ConfigurationChangeEvent): void;
 
@@ -351,6 +411,31 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 		return undefined;
 	}
 
+	protected async ensureRevealNode(
+		node: ViewNode,
+		options?: {
+			select?: boolean;
+			focus?: boolean;
+			expand?: boolean | number;
+		},
+	) {
+		// Not sure why I need to reveal each parent, but without it the node won't be revealed
+		const nodes: ViewNode[] = [];
+
+		let parent: ViewNode | undefined = node;
+		while (parent !== undefined) {
+			nodes.push(parent);
+			parent = parent.getParent();
+		}
+		nodes.pop();
+
+		for (const n of nodes.reverse()) {
+			try {
+				await this.reveal(n, options);
+			} catch {}
+		}
+	}
+
 	@debug()
 	async refresh(reset: boolean = false) {
 		await this._root?.refresh?.(reset);
@@ -453,5 +538,21 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 	triggerNodeChange(node?: ViewNode) {
 		// Since the root node won't actually refresh, force everything
 		this._onDidChangeTreeData.fire(node != null && node !== this._root ? node : undefined);
+	}
+
+	protected abstract readonly configKey: ViewsConfigKeys;
+
+	private _config: (ViewConfig & ViewsCommonConfig) | undefined;
+	get config(): ViewConfig & ViewsCommonConfig {
+		if (this._config == null) {
+			const cfg = { ...Container.config.views };
+			for (const view of viewsConfigKeys) {
+				delete cfg[view];
+			}
+
+			this._config = { ...(cfg as ViewsCommonConfig), ...(Container.config.views[this.configKey] as ViewConfig) };
+		}
+
+		return this._config;
 	}
 }

@@ -1,7 +1,7 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, SearchCommitsCommandArgs } from '../../commands';
-import { ViewWithFiles } from '../viewBase';
+import { ViewsWithFiles } from '../viewBase';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
 import { ContextValues, ViewNode } from './viewNode';
 import { RepositoryNode } from './repositoryNode';
@@ -20,7 +20,7 @@ export class SearchResultsCommitsNode extends ResultsCommitsNode {
 	private _instanceId: number;
 
 	constructor(
-		view: ViewWithFiles,
+		view: ViewsWithFiles,
 		parent: ViewNode,
 		repoPath: string,
 		public readonly search: SearchPattern,

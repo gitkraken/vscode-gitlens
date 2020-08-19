@@ -1,13 +1,15 @@
 'use strict';
 import { commands, ConfigurationChangeEvent } from 'vscode';
-import { configuration, FileHistoryViewConfig, ViewsConfig } from '../configuration';
+import { configuration, FileHistoryViewConfig } from '../configuration';
 import { CommandContext, setCommandContext } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { FileHistoryTrackerNode, LineHistoryTrackerNode } from './nodes';
 import { ViewBase } from './viewBase';
 
-export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHistoryTrackerNode> {
+export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHistoryTrackerNode, FileHistoryViewConfig> {
+	protected readonly configKey = 'fileHistory';
+
 	constructor() {
 		super('gitlens.views.fileHistory', 'File History');
 	}
@@ -74,18 +76,10 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this);
 	}
 
-	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
+		const changed = super.filterConfigurationChanged(e);
 		if (
-			!configuration.changed(e, 'views', 'fileHistory') &&
-			!configuration.changed(e, 'views', 'commitFileDescriptionFormat') &&
-			!configuration.changed(e, 'views', 'commitFileFormat') &&
-			!configuration.changed(e, 'views', 'commitDescriptionFormat') &&
-			!configuration.changed(e, 'views', 'commitFormat') &&
-			!configuration.changed(e, 'views', 'defaultItemLimit') &&
-			!configuration.changed(e, 'views', 'pageItemLimit') &&
-			!configuration.changed(e, 'views', 'showRelativeDateMarkers') &&
-			!configuration.changed(e, 'views', 'statusFileDescriptionFormat') &&
-			!configuration.changed(e, 'views', 'statusFileFormat') &&
+			!changed &&
 			!configuration.changed(e, 'defaultDateFormat') &&
 			!configuration.changed(e, 'defaultDateSource') &&
 			!configuration.changed(e, 'defaultDateStyle') &&
@@ -93,25 +87,25 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 			!configuration.changed(e, 'advanced', 'fileHistoryFollowsRenames') &&
 			!configuration.changed(e, 'advanced', 'fileHistoryShowAllBranches')
 		) {
-			return;
+			return false;
 		}
 
-		if (configuration.changed(e, 'views', 'fileHistory', 'enabled')) {
+		return true;
+	}
+
+	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
+		if (configuration.changed(e, 'views', this.configKey, 'enabled')) {
 			void setCommandContext(CommandContext.ViewsFileHistoryEditorFollowing, this._followEditor);
 			void setCommandContext(CommandContext.ViewsFileHistoryCursorFollowing, this._followCursor);
 		}
 
-		if (configuration.changed(e, 'views', 'fileHistory', 'location')) {
+		if (configuration.changed(e, 'views', this.configKey, 'location')) {
 			this.initialize(this.config.location);
 		}
 
 		if (!configuration.initializing(e) && this._root != null) {
 			void this.refresh(true);
 		}
-	}
-
-	get config(): ViewsConfig & FileHistoryViewConfig {
-		return { ...Container.config.views, ...Container.config.views.fileHistory };
 	}
 
 	async showHistoryForUri(uri: GitUri, baseRef?: string) {
@@ -160,6 +154,6 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 	}
 
 	private setShowAvatars(enabled: boolean) {
-		return configuration.updateEffective('views', 'fileHistory', 'avatars', enabled);
+		return configuration.updateEffective('views', this.configKey, 'avatars', enabled);
 	}
 }

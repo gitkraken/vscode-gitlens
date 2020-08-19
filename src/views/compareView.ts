@@ -1,6 +1,6 @@
 'use strict';
 import { commands, ConfigurationChangeEvent } from 'vscode';
-import { CompareViewConfig, configuration, ViewFilesLayout, ViewsConfig } from '../configuration';
+import { CompareViewConfig, configuration, ViewFilesLayout } from '../configuration';
 import {
 	CommandContext,
 	NamedRef,
@@ -13,7 +13,9 @@ import { Container } from '../container';
 import { CompareNode, CompareResultsNode, nodeSupportsConditionalDismissal, ViewNode } from './nodes';
 import { ViewBase } from './viewBase';
 
-export class CompareView extends ViewBase<CompareNode> {
+export class CompareView extends ViewBase<CompareNode, CompareViewConfig> {
+	protected readonly configKey = 'compare';
+
 	constructor() {
 		super('gitlens.views.compare', 'Compare');
 
@@ -68,37 +70,29 @@ export class CompareView extends ViewBase<CompareNode> {
 		commands.registerCommand(this.getQualifiedCommand('compareWithSelected'), this.compareWithSelected, this);
 	}
 
-	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
+		const changed = super.filterConfigurationChanged(e);
 		if (
-			!configuration.changed(e, 'views', 'compare') &&
-			!configuration.changed(e, 'views', 'commitFileDescriptionFormat') &&
-			!configuration.changed(e, 'views', 'commitFileFormat') &&
-			!configuration.changed(e, 'views', 'commitDescriptionFormat') &&
-			!configuration.changed(e, 'views', 'commitFormat') &&
-			!configuration.changed(e, 'views', 'defaultItemLimit') &&
-			!configuration.changed(e, 'views', 'pageItemLimit') &&
-			!configuration.changed(e, 'views', 'showRelativeDateMarkers') &&
-			!configuration.changed(e, 'views', 'statusFileDescriptionFormat') &&
-			!configuration.changed(e, 'views', 'statusFileFormat') &&
+			!changed &&
 			!configuration.changed(e, 'defaultDateFormat') &&
 			!configuration.changed(e, 'defaultDateSource') &&
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle')
 		) {
-			return;
+			return false;
 		}
 
-		if (configuration.changed(e, 'views', 'compare', 'location')) {
+		return true;
+	}
+
+	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
+		if (configuration.changed(e, 'views', this.configKey, 'location')) {
 			this.initialize(this.config.location, { showCollapseAll: true });
 		}
 
-		if (!configuration.initializing(e) && this._root !== undefined) {
+		if (!configuration.initializing(e) && this._root != null) {
 			void this.refresh(true);
 		}
-	}
-
-	get config(): ViewsConfig & CompareViewConfig {
-		return { ...Container.config.views, ...Container.config.views.compare };
 	}
 
 	get keepResults(): boolean {
@@ -106,13 +100,11 @@ export class CompareView extends ViewBase<CompareNode> {
 	}
 
 	clear() {
-		if (this._root === undefined) return;
-
-		this._root.clear();
+		this._root?.clear();
 	}
 
 	dismissNode(node: ViewNode) {
-		if (this._root === undefined) return;
+		if (this._root == null) return;
 		if (nodeSupportsConditionalDismissal(node) && node.canDismiss() === false) return;
 
 		this._root.dismiss(node);
@@ -174,7 +166,7 @@ export class CompareView extends ViewBase<CompareNode> {
 	}
 
 	private setFilesLayout(layout: ViewFilesLayout) {
-		return configuration.updateEffective('views', 'compare', 'files', 'layout', layout);
+		return configuration.updateEffective('views', this.configKey, 'files', 'layout', layout);
 	}
 
 	private setKeepResults(enabled: boolean) {
@@ -183,7 +175,7 @@ export class CompareView extends ViewBase<CompareNode> {
 	}
 
 	private setShowAvatars(enabled: boolean) {
-		return configuration.updateEffective('views', 'compare', 'avatars', enabled);
+		return configuration.updateEffective('views', this.configKey, 'avatars', enabled);
 	}
 
 	private pinComparison(node: ViewNode) {

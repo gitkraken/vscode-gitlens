@@ -90,7 +90,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 					children.push(new CompareBranchNode(this.uri, this.view, this, branch));
 				}
 
-				if (!this.view.config.repositories.compact) {
+				if (!this.view.config.compact) {
 					children.push(new MessageNode(this.view, this, '', GlyphChars.Dash.repeat(2), ''));
 				}
 			}
@@ -243,7 +243,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 
 	@debug()
 	protected subscribe() {
-		const disposables = [this.repo.onDidChange(this.onRepoChanged, this)];
+		const disposables = [this.repo.onDidChange(this.onRepositoryChanged, this)];
 
 		// if (Container.config.defaultDateStyle === DateStyle.Relative) {
 		//     disposables.push(Functions.interval(() => void this.updateLastFetched(), 60000));
@@ -307,7 +307,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 				`{ repository: ${e.repository ? e.repository.name : ''}, changes: ${e.changes.join()} }`,
 		},
 	})
-	private onRepoChanged(e: RepositoryChangeEvent) {
+	private onRepositoryChanged(e: RepositoryChangeEvent) {
 		if (e.changed(RepositoryChange.Closed)) {
 			this.dispose();
 
@@ -316,23 +316,25 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 
 		if (
 			this._children === undefined ||
-			e.changed(RepositoryChange.Repository) ||
-			e.changed(RepositoryChange.Config)
+			e.changed(RepositoryChange.Config) ||
+			e.changed(RepositoryChange.Index) ||
+			e.changed(RepositoryChange.Heads) ||
+			e.changed(RepositoryChange.Unknown)
 		) {
 			void this.triggerChange(true);
 
 			return;
 		}
 
-		if (e.changed(RepositoryChange.Stashes)) {
-			const node = this._children.find(c => c instanceof StashesNode);
+		if (e.changed(RepositoryChange.Remotes)) {
+			const node = this._children.find(c => c instanceof RemotesNode);
 			if (node !== undefined) {
 				void this.view.triggerNodeChange(node);
 			}
 		}
 
-		if (e.changed(RepositoryChange.Remotes)) {
-			const node = this._children.find(c => c instanceof RemotesNode);
+		if (e.changed(RepositoryChange.Stash)) {
+			const node = this._children.find(c => c instanceof StashesNode);
 			if (node !== undefined) {
 				void this.view.triggerNodeChange(node);
 			}

@@ -4,19 +4,19 @@ import { Container } from '../../container';
 import { Repository } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { Iterables } from '../../system';
-import { ViewWithFiles } from '../viewBase';
+import { ViewsWithFiles } from '../viewBase';
 import { MessageNode } from './common';
 import { StashNode } from './stashNode';
 import { ContextValues, ViewNode } from './viewNode';
 import { RepositoryNode } from './repositoryNode';
 
-export class StashesNode extends ViewNode<ViewWithFiles> {
+export class StashesNode extends ViewNode<ViewsWithFiles> {
 	static key = ':stashes';
 	static getId(repoPath: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}`;
 	}
 
-	constructor(uri: GitUri, view: ViewWithFiles, parent: ViewNode, public readonly repo: Repository) {
+	constructor(uri: GitUri, view: ViewsWithFiles, parent: ViewNode, public readonly repo: Repository) {
 		super(uri, view, parent);
 	}
 

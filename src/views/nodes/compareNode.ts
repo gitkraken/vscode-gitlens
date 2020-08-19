@@ -215,6 +215,8 @@ export class CompareNode extends ViewNode<CompareView> {
 	}
 
 	private getRefName(ref: string | NamedRef) {
-		return typeof ref === 'string' ? GitRevision.shorten(ref)! : ref.label ?? GitRevision.shorten(ref.ref)!;
+		return typeof ref === 'string'
+			? GitRevision.shorten(ref, { strings: { working: 'Working Tree' } })!
+			: ref.label ?? GitRevision.shorten(ref.ref)!;
 	}
 }

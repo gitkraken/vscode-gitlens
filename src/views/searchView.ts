@@ -1,6 +1,6 @@
 'use strict';
 import { commands, ConfigurationChangeEvent } from 'vscode';
-import { configuration, SearchViewConfig, ViewFilesLayout, ViewsConfig } from '../configuration';
+import { configuration, SearchViewConfig, ViewFilesLayout } from '../configuration';
 import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
 import { GitLog, SearchPattern } from '../git/git';
@@ -15,7 +15,9 @@ interface SearchQueryResults {
 	more?(limit: number | undefined): Promise<void>;
 }
 
-export class SearchView extends ViewBase<SearchNode> {
+export class SearchView extends ViewBase<SearchNode, SearchViewConfig> {
+	protected readonly configKey = 'search';
+
 	constructor() {
 		super('gitlens.views.search', 'Search Commits');
 
@@ -65,37 +67,29 @@ export class SearchView extends ViewBase<SearchNode> {
 		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this);
 	}
 
-	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
+		const changed = super.filterConfigurationChanged(e);
 		if (
-			!configuration.changed(e, 'views', 'search') &&
-			!configuration.changed(e, 'views', 'commitFileDescriptionFormat') &&
-			!configuration.changed(e, 'views', 'commitFileFormat') &&
-			!configuration.changed(e, 'views', 'commitDescriptionFormat') &&
-			!configuration.changed(e, 'views', 'commitFormat') &&
-			!configuration.changed(e, 'views', 'defaultItemLimit') &&
-			!configuration.changed(e, 'views', 'pageItemLimit') &&
-			!configuration.changed(e, 'views', 'showRelativeDateMarkers') &&
-			!configuration.changed(e, 'views', 'statusFileDescriptionFormat') &&
-			!configuration.changed(e, 'views', 'statusFileFormat') &&
+			!changed &&
 			!configuration.changed(e, 'defaultDateFormat') &&
 			!configuration.changed(e, 'defaultDateSource') &&
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle')
 		) {
-			return;
+			return false;
 		}
 
-		if (configuration.changed(e, 'views', 'search', 'location')) {
+		return true;
+	}
+
+	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
+		if (configuration.changed(e, 'views', this.configKey, 'location')) {
 			this.initialize(this.config.location, { showCollapseAll: true });
 		}
 
-		if (!configuration.initializing(e) && this._root !== undefined) {
+		if (!configuration.initializing(e) && this._root != null) {
 			void this.refresh(true);
 		}
-	}
-
-	get config(): ViewsConfig & SearchViewConfig {
-		return { ...Container.config.views, ...Container.config.views.search };
 	}
 
 	get keepResults(): boolean {
@@ -103,13 +97,11 @@ export class SearchView extends ViewBase<SearchNode> {
 	}
 
 	clear() {
-		if (this._root === undefined) return;
-
-		this._root.clear();
+		this._root?.clear();
 	}
 
 	dismissNode(node: ViewNode) {
-		if (this._root === undefined) return;
+		if (this._root == null) return;
 		if (nodeSupportsConditionalDismissal(node) && node.canDismiss() === false) return;
 
 		this._root.dismiss(node);
@@ -287,7 +279,7 @@ export class SearchView extends ViewBase<SearchNode> {
 	}
 
 	private setFilesLayout(layout: ViewFilesLayout) {
-		return configuration.updateEffective('views', 'search', 'files', 'layout', layout);
+		return configuration.updateEffective('views', this.configKey, 'files', 'layout', layout);
 	}
 
 	private setKeepResults(enabled: boolean) {
@@ -296,6 +288,6 @@ export class SearchView extends ViewBase<SearchNode> {
 	}
 
 	private setShowAvatars(enabled: boolean) {
-		return configuration.updateEffective('views', 'search', 'avatars', enabled);
+		return configuration.updateEffective('views', this.configKey, 'avatars', enabled);
 	}
 }

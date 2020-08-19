@@ -13,7 +13,6 @@ import {
 	RepositoriesViewConfig,
 	ViewBranchesLayout,
 	ViewFilesLayout,
-	ViewsConfig,
 	ViewShowBranchComparison,
 } from '../configuration';
 import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
@@ -44,7 +43,9 @@ import {
 import { gate } from '../system';
 import { ViewBase } from './viewBase';
 
-export class RepositoriesView extends ViewBase<RepositoriesNode> {
+export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesViewConfig> {
+	protected readonly configKey = 'repositories';
+
 	constructor() {
 		super('gitlens.views.repositories', 'Repositories');
 	}
@@ -120,22 +121,10 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 		);
 	}
 
-	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
+	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
+		const changed = super.filterConfigurationChanged(e);
 		if (
-			!configuration.changed(e, 'views', 'repositories') &&
-			!configuration.changed(e, 'views', 'commitFileDescriptionFormat') &&
-			!configuration.changed(e, 'views', 'commitFileFormat') &&
-			!configuration.changed(e, 'views', 'commitDescriptionFormat') &&
-			!configuration.changed(e, 'views', 'commitFormat') &&
-			!configuration.changed(e, 'views', 'defaultItemLimit') &&
-			!configuration.changed(e, 'views', 'pageItemLimit') &&
-			!configuration.changed(e, 'views', 'showRelativeDateMarkers') &&
-			!configuration.changed(e, 'views', 'stashFileDescriptionFormat') &&
-			!configuration.changed(e, 'views', 'stashFileFormat') &&
-			!configuration.changed(e, 'views', 'stashDescriptionFormat') &&
-			!configuration.changed(e, 'views', 'stashFormat') &&
-			!configuration.changed(e, 'views', 'statusFileDescriptionFormat') &&
-			!configuration.changed(e, 'views', 'statusFileFormat') &&
+			!changed &&
 			!configuration.changed(e, 'defaultDateFormat') &&
 			!configuration.changed(e, 'defaultDateSource') &&
 			!configuration.changed(e, 'defaultDateStyle') &&
@@ -143,18 +132,21 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 			!configuration.changed(e, 'sortBranchesBy') &&
 			!configuration.changed(e, 'sortTagsBy')
 		) {
-			return;
+			return false;
 		}
 
-		if (configuration.changed(e, 'views', 'repositories', 'autoRefresh')) {
+		return true;
+	}
+	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
+		if (configuration.changed(e, 'views', this.configKey, 'autoRefresh')) {
 			void this.setAutoRefresh(Container.config.views.repositories.autoRefresh);
 		}
 
-		if (configuration.changed(e, 'views', 'repositories', 'location')) {
+		if (configuration.changed(e, 'views', this.configKey, 'location')) {
 			this.initialize(this.config.location, { showCollapseAll: true });
 		}
 
-		if (!configuration.initializing(e) && this._root !== undefined) {
+		if (!configuration.initializing(e) && this._root != null) {
 			void this.refresh(true);
 		}
 	}
@@ -164,10 +156,6 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 			this.config.autoRefresh &&
 			Container.context.workspaceState.get<boolean>(WorkspaceState.ViewsRepositoriesAutoRefresh, true)
 		);
-	}
-
-	get config(): ViewsConfig & RepositoriesViewConfig {
-		return { ...Container.config.views, ...Container.config.views.repositories };
 	}
 
 	findBranch(branch: GitBranchReference, token?: CancellationToken) {
@@ -555,31 +543,6 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 		return node;
 	}
 
-	private async ensureRevealNode(
-		node: ViewNode,
-		options?: {
-			select?: boolean;
-			focus?: boolean;
-			expand?: boolean | number;
-		},
-	) {
-		// Not sure why I need to reveal each parent, but without it the node won't be revealed
-		const nodes: ViewNode[] = [];
-
-		let parent: ViewNode | undefined = node;
-		while (parent !== undefined) {
-			nodes.push(parent);
-			parent = parent.getParent();
-		}
-		nodes.pop();
-
-		for (const n of nodes.reverse()) {
-			try {
-				await this.reveal(n, options);
-			} catch {}
-		}
-	}
-
 	private async setAutoRefresh(enabled: boolean, workspaceEnabled?: boolean) {
 		if (enabled) {
 			if (workspaceEnabled === undefined) {
@@ -607,14 +570,14 @@ export class RepositoriesView extends ViewBase<RepositoriesNode> {
 	}
 
 	private setBranchesLayout(layout: ViewBranchesLayout) {
-		return configuration.updateEffective('views', 'repositories', 'branches', 'layout', layout);
+		return configuration.updateEffective('views', this.configKey, 'branches', 'layout', layout);
 	}
 
 	private setFilesLayout(layout: ViewFilesLayout) {
-		return configuration.updateEffective('views', 'repositories', 'files', 'layout', layout);
+		return configuration.updateEffective('views', this.configKey, 'files', 'layout', layout);
 	}
 
 	private setShowAvatars(enabled: boolean) {
-		return configuration.updateEffective('views', 'repositories', 'avatars', enabled);
+		return configuration.updateEffective('views', this.configKey, 'avatars', enabled);
 	}
 }

@@ -1,6 +1,6 @@
 'use strict';
 import { commands, ConfigurationTarget, window } from 'vscode';
-import { configuration, viewKeys, ViewLocation } from '../configuration';
+import { configuration, ViewLocation, viewsWithLocationConfigKeys } from '../configuration';
 import { command, Command, Commands } from './common';
 import { extensionId } from '../constants';
 
@@ -58,7 +58,7 @@ export class SetViewsLayoutCommand extends Command {
 				return;
 		}
 
-		for (const view of viewKeys) {
+		for (const view of viewsWithLocationConfigKeys) {
 			if (configuration.get('views', view, 'location') === location) {
 				await commands.executeCommand(`${extensionId}.views.${view}:${location}.resetViewLocation`);
 			} else {

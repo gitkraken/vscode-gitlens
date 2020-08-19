@@ -258,7 +258,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 	}
 
 	private onRepoChanged(e: RepositoryChangeEvent) {
-		if (!e.changed(RepositoryChange.Repository)) return;
+		if (!e.changed(RepositoryChange.Heads)) return;
 
 		Logger.log(`LineHistoryNode.onRepoChanged(${e.changes.join()}); triggering node refresh`);
 

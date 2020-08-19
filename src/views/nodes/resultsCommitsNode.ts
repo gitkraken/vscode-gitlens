@@ -4,7 +4,7 @@ import { Container } from '../../container';
 import { GitLog } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { debug, gate, Iterables, Promises } from '../../system';
-import { ViewWithFiles } from '../viewBase';
+import { ViewsWithFiles } from '../viewBase';
 import { CommitNode } from './commitNode';
 import { ShowMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
@@ -17,9 +17,9 @@ export interface CommitsQueryResults {
 	more?(limit: number | undefined): Promise<void>;
 }
 
-export class ResultsCommitsNode extends ViewNode<ViewWithFiles> implements PageableViewNode {
+export class ResultsCommitsNode extends ViewNode<ViewsWithFiles> implements PageableViewNode {
 	constructor(
-		view: ViewWithFiles,
+		view: ViewsWithFiles,
 		parent: ViewNode,
 		public readonly repoPath: string,
 		private _label: string,

@@ -6,7 +6,13 @@ import { LineAnnotationController } from './annotations/lineAnnotationController
 import { clearAvatarCache } from './avatars';
 import { GitCodeLensController } from './codelens/codeLensController';
 import { Commands, ToggleFileAnnotationCommandArgs } from './commands';
-import { AnnotationsToggleMode, Config, configuration, ConfigurationWillChangeEvent, viewKeys } from './configuration';
+import {
+	AnnotationsToggleMode,
+	Config,
+	configuration,
+	ConfigurationWillChangeEvent,
+	viewsWithLocationConfigKeys,
+} from './configuration';
 import { extensionId } from './constants';
 import { GitFileSystemProvider } from './git/fsProvider';
 import { GitService } from './git/gitService';
@@ -17,8 +23,10 @@ import { StatusBarController } from './statusbar/statusBarController';
 import { GitTerminalLinkProvider } from './terminal/linkProvider';
 import { GitDocumentTracker } from './trackers/gitDocumentTracker';
 import { GitLineTracker } from './trackers/gitLineTracker';
+import { BranchesView } from './views/branchesView';
 import { CompareView } from './views/compareView';
 import { FileHistoryView } from './views/fileHistoryView';
+import { HistoryView } from './views/historyView';
 import { LineHistoryView } from './views/lineHistoryView';
 import { RepositoriesView } from './views/repositoriesView';
 import { SearchView } from './views/searchView';
@@ -55,6 +63,9 @@ export class Container {
 		context.subscriptions.push((this._keyboard = new Keyboard()));
 		context.subscriptions.push((this._settingsWebview = new SettingsWebview()));
 		context.subscriptions.push((this._welcomeWebview = new WelcomeWebview()));
+
+		context.subscriptions.push((this._branchesView = new BranchesView()));
+		context.subscriptions.push((this._historyView = new HistoryView()));
 
 		if (config.views.compare.enabled) {
 			context.subscriptions.push((this._compareView = new CompareView()));
@@ -129,7 +140,7 @@ export class Container {
 			clearAvatarCache();
 		}
 
-		for (const view of viewKeys) {
+		for (const view of viewsWithLocationConfigKeys) {
 			if (configuration.changed(e.change, 'views', view, 'location')) {
 				setTimeout(
 					() =>
@@ -165,6 +176,15 @@ export class Container {
 	private static _codeLensController: GitCodeLensController;
 	static get codeLens() {
 		return this._codeLensController;
+	}
+
+	private static _branchesView: BranchesView | undefined;
+	static get branchesView() {
+		if (this._branchesView === undefined) {
+			this._context.subscriptions.push((this._branchesView = new BranchesView()));
+		}
+
+		return this._branchesView;
 	}
 
 	private static _compareView: CompareView | undefined;
@@ -224,6 +244,15 @@ export class Container {
 			Logger.error(ex);
 			return undefined;
 		}
+	}
+
+	private static _historyView: HistoryView | undefined;
+	static get historyView() {
+		if (this._historyView === undefined) {
+			this._context.subscriptions.push((this._historyView = new HistoryView()));
+		}
+
+		return this._historyView;
 	}
 
 	private static _keyboard: Keyboard;

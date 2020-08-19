@@ -182,7 +182,8 @@ export namespace GitReference {
 				};
 			default:
 				return {
-					name: options.name ?? GitRevision.shorten(ref, { force: true }),
+					name:
+						options.name ?? GitRevision.shorten(ref, { force: true, strings: { working: 'Working Tree' } }),
 					ref: ref,
 					refType: 'revision',
 					repoPath: repoPath,

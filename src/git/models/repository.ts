@@ -27,22 +27,26 @@ import { runGitCommandInTerminal } from '../../terminal';
 import { GitBranchReference, GitReference, GitTagReference } from './models';
 
 const ignoreGitRegex = /\.git(?:\/|\\|$)/;
+const refsRegex = /\.git\/refs\/(heads|remotes|tags)/;
 
 export enum RepositoryChange {
 	Config = 'config',
 	Closed = 'closed',
 	// FileSystem = 'file-system',
+	Heads = 'heads',
+	Index = 'index',
+	Ignores = 'ignores',
 	Remotes = 'remotes',
-	Repository = 'repository',
-	Stashes = 'stashes',
+	Stash = 'stash',
 	Tags = 'tags',
+	Unknown = 'unknown',
 }
 
 export class RepositoryChangeEvent {
 	constructor(public readonly repository?: Repository, public readonly changes: RepositoryChange[] = []) {}
 
-	changed(change: RepositoryChange, solely: boolean = false) {
-		if (solely) return this.changes.length === 1 && this.changes[0] === change;
+	changed(change: RepositoryChange, only: boolean = false) {
+		if (only) return this.changes.length === 1 && this.changes[0] === change;
 
 		return this.changes.includes(change);
 
@@ -188,35 +192,65 @@ export class Repository implements Disposable {
 	}
 
 	private onRepositoryChanged(uri: Uri | undefined) {
-		if (uri?.path.endsWith('refs/stash')) {
-			this.fireChange(RepositoryChange.Stashes);
+		if (uri == null) {
+			this.fireChange(RepositoryChange.Unknown);
 
 			return;
 		}
 
-		this._branch = undefined;
-
-		if (uri?.path.endsWith('refs/remotes')) {
-			this.resetRemotesCache();
-			this.fireChange(RepositoryChange.Remotes);
-
-			return;
-		}
-
-		if (uri?.path.endsWith('refs/tags')) {
-			this.fireChange(RepositoryChange.Tags);
-
-			return;
-		}
-
-		if (uri?.path.endsWith('config')) {
+		if (uri.path.endsWith('.git/config')) {
 			this.resetRemotesCache();
 			this.fireChange(RepositoryChange.Config, RepositoryChange.Remotes);
 
 			return;
 		}
 
-		this.fireChange(RepositoryChange.Repository);
+		if (uri.path.endsWith('.git/index')) {
+			this.fireChange(RepositoryChange.Index);
+
+			return;
+		}
+
+		if (uri.path.endsWith('.git/HEAD') || uri.path.endsWith('.git/ORIG_HEAD')) {
+			this._branch = undefined;
+			this.fireChange(RepositoryChange.Heads);
+
+			return;
+		}
+
+		if (uri.path.endsWith('.git/refs/stash')) {
+			this.fireChange(RepositoryChange.Stash);
+
+			return;
+		}
+
+		if (uri.path.endsWith('/.gitignore')) {
+			this.fireChange(RepositoryChange.Ignores);
+
+			return;
+		}
+
+		const match = refsRegex.exec(uri.path);
+		if (match != null) {
+			switch (match[1]) {
+				case 'heads':
+					this._branch = undefined;
+					this.fireChange(RepositoryChange.Heads);
+
+					return;
+				case 'remotes':
+					this.resetRemotesCache();
+					this.fireChange(RepositoryChange.Remotes);
+
+					return;
+				case 'tags':
+					this.fireChange(RepositoryChange.Tags);
+
+					return;
+			}
+		}
+
+		this.fireChange(RepositoryChange.Unknown);
 	}
 
 	private _closed: boolean = false;
@@ -297,7 +331,7 @@ export class Repository implements Disposable {
 		try {
 			void (await Container.git.fetch(this.path, options));
 
-			this.fireChange(RepositoryChange.Repository);
+			this.fireChange(RepositoryChange.Unknown);
 		} catch (ex) {
 			Logger.error(ex);
 			void Messages.showGenericErrorMessage('Unable to fetch repository');
@@ -311,7 +345,9 @@ export class Repository implements Disposable {
 		return this._branch;
 	}
 
-	getBranches(options: { filter?: (b: GitBranch) => boolean; sort?: boolean } = {}): Promise<GitBranch[]> {
+	getBranches(
+		options: { filter?: (b: GitBranch) => boolean; sort?: boolean | { current: boolean } } = {},
+	): Promise<GitBranch[]> {
 		return Container.git.getBranches(this.path, options);
 	}
 
@@ -320,7 +356,7 @@ export class Repository implements Disposable {
 			filterBranches?: (b: GitBranch) => boolean;
 			filterTags?: (t: GitTag) => boolean;
 			include?: 'all' | 'branches' | 'tags';
-			sort?: boolean;
+			sort?: boolean | { current: boolean };
 		} = {},
 	) {
 		return Container.git.getBranchesAndOrTags(this.path, options);
@@ -436,7 +472,7 @@ export class Repository implements Disposable {
 				void (await Container.git.fetch(this.path));
 			}
 
-			this.fireChange(RepositoryChange.Repository);
+			this.fireChange(RepositoryChange.Unknown);
 		} catch (ex) {
 			Logger.error(ex);
 			void Messages.showGenericErrorMessage('Unable to pull repository');
@@ -494,7 +530,7 @@ export class Repository implements Disposable {
 				void (await commands.executeCommand(options.force ? 'git.pushForce' : 'git.push', this.path));
 			}
 
-			this.fireChange(RepositoryChange.Repository);
+			this.fireChange(RepositoryChange.Unknown);
 		} catch (ex) {
 			Logger.error(ex);
 			void Messages.showGenericErrorMessage('Unable to push repository');
@@ -549,7 +585,7 @@ export class Repository implements Disposable {
 	async stashApply(stashName: string, options: { deleteAfter?: boolean } = {}) {
 		void (await Container.git.stashApply(this.path, stashName, options));
 		if (!this.supportsChangeEvents) {
-			this.fireChange(RepositoryChange.Stashes);
+			this.fireChange(RepositoryChange.Stash);
 		}
 	}
 
@@ -558,7 +594,7 @@ export class Repository implements Disposable {
 	async stashDelete(stashName: string) {
 		void (await Container.git.stashDelete(this.path, stashName));
 		if (!this.supportsChangeEvents) {
-			this.fireChange(RepositoryChange.Stashes);
+			this.fireChange(RepositoryChange.Stash);
 		}
 	}
 
@@ -567,7 +603,7 @@ export class Repository implements Disposable {
 	async stashSave(message?: string, uris?: Uri[], options: { includeUntracked?: boolean; keepIndex?: boolean } = {}) {
 		void (await Container.git.stashSave(this.path, message, uris, options));
 		if (!this.supportsChangeEvents) {
-			this.fireChange(RepositoryChange.Stashes);
+			this.fireChange(RepositoryChange.Stash);
 		}
 	}
 
@@ -591,7 +627,7 @@ export class Repository implements Disposable {
 		try {
 			void (await Container.git.checkout(this.path, ref, options));
 
-			this.fireChange(RepositoryChange.Repository);
+			this.fireChange(RepositoryChange.Unknown);
 		} catch (ex) {
 			Logger.error(ex);
 			void Messages.showGenericErrorMessage('Unable to switch to reference');
@@ -730,7 +766,7 @@ export class Repository implements Disposable {
 		const parsedArgs = args.map(arg => (arg.startsWith('#') ? `"${arg}"` : arg));
 		runGitCommandInTerminal(command, parsedArgs.join(' '), this.path, true);
 		if (!this.supportsChangeEvents) {
-			this.fireChange(RepositoryChange.Repository);
+			this.fireChange(RepositoryChange.Unknown);
 		}
 	}
 }

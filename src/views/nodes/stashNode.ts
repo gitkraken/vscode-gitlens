@@ -4,20 +4,20 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
 import { CommitFormatter, GitStashCommit, GitStashReference } from '../../git/git';
 import { Arrays, Iterables, Strings } from '../../system';
-import { ViewWithFiles } from '../viewBase';
+import { ViewsWithFiles } from '../viewBase';
 import { StashFileNode } from './stashFileNode';
 import { ContextValues, ViewNode, ViewRefNode } from './viewNode';
 import { RepositoryNode } from './repositoryNode';
 import { FileNode, FolderNode } from '../nodes';
 import { ViewFilesLayout } from '../../config';
 
-export class StashNode extends ViewRefNode<ViewWithFiles, GitStashReference> {
+export class StashNode extends ViewRefNode<ViewsWithFiles, GitStashReference> {
 	static key = ':stash';
 	static getId(repoPath: string, ref: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${ref})`;
 	}
 
-	constructor(view: ViewWithFiles, parent: ViewNode, public readonly commit: GitStashCommit) {
+	constructor(view: ViewsWithFiles, parent: ViewNode, public readonly commit: GitStashCommit) {
 		super(commit.toGitUri(), view, parent);
 	}
 

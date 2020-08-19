@@ -33,14 +33,16 @@ export class GitBranch implements GitBranchReference {
 		return branch?.refType === 'branch';
 	}
 
-	static sort(branches: GitBranch[]) {
+	static sort(branches: GitBranch[], options?: { current: boolean }) {
 		const order = configuration.get('sortBranchesBy');
+
+		const opts = { current: true, ...options };
 
 		switch (order) {
 			case BranchSorting.DateAsc:
 				return branches.sort(
 					(a, b) =>
-						(a.current ? -1 : 1) - (b.current ? -1 : 1) ||
+						(opts.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
 						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
 						(a.date === undefined ? -1 : a.date.getTime()) - (b.date === undefined ? -1 : b.date.getTime()),
@@ -48,7 +50,7 @@ export class GitBranch implements GitBranchReference {
 			case BranchSorting.DateDesc:
 				return branches.sort(
 					(a, b) =>
-						(a.current ? -1 : 1) - (b.current ? -1 : 1) ||
+						(opts.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
 						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
 						(b.date === undefined ? -1 : b.date.getTime()) - (a.date === undefined ? -1 : a.date.getTime()),
@@ -56,7 +58,7 @@ export class GitBranch implements GitBranchReference {
 			case BranchSorting.NameAsc:
 				return branches.sort(
 					(a, b) =>
-						(a.current ? -1 : 1) - (b.current ? -1 : 1) ||
+						(opts.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
 						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 						(a.name === 'main' ? -1 : 1) - (b.name === 'main' ? -1 : 1) ||
 						(a.name === 'master' ? -1 : 1) - (b.name === 'master' ? -1 : 1) ||
@@ -67,7 +69,7 @@ export class GitBranch implements GitBranchReference {
 			default:
 				return branches.sort(
 					(a, b) =>
-						(a.current ? -1 : 1) - (b.current ? -1 : 1) ||
+						(opts.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
 						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 						(a.name === 'main' ? -1 : 1) - (b.name === 'main' ? -1 : 1) ||
 						(a.name === 'master' ? -1 : 1) - (b.name === 'master' ? -1 : 1) ||

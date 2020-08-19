@@ -5,13 +5,13 @@ import { Container } from '../../container';
 import { GitLog, GitReflogRecord } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { debug, gate, Iterables } from '../../system';
-import { ViewWithFiles } from '../viewBase';
+import { ViewsWithFiles } from '../viewBase';
 import { CommitNode } from './commitNode';
 import { MessageNode, ShowMoreNode } from './common';
 import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
 import { RepositoryNode } from './repositoryNode';
 
-export class ReflogRecordNode extends ViewNode<ViewWithFiles> implements PageableViewNode {
+export class ReflogRecordNode extends ViewNode<ViewsWithFiles> implements PageableViewNode {
 	static key = ':reflog-record';
 	static getId(
 		repoPath: string,
@@ -26,7 +26,7 @@ export class ReflogRecordNode extends ViewNode<ViewWithFiles> implements Pageabl
 		}|${date.getTime()})`;
 	}
 
-	constructor(view: ViewWithFiles, parent: ViewNode, public readonly record: GitReflogRecord) {
+	constructor(view: ViewsWithFiles, parent: ViewNode, public readonly record: GitReflogRecord) {
 		super(GitUri.fromRepoPath(record.repoPath), view, parent);
 	}
 

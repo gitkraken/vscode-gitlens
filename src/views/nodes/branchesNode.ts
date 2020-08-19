@@ -1,18 +1,19 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { BranchesView } from '../branchesView';
+import { BranchNode } from './branchNode';
+import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
+import { MessageNode } from './common';
 import { ViewBranchesLayout } from '../../configuration';
 import { Container } from '../../container';
 import { Repository } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { Arrays, debug, gate } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
-import { BranchNode } from './branchNode';
-import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
-import { ContextValues, ViewNode } from './viewNode';
 import { RepositoryNode } from './repositoryNode';
-import { MessageNode } from './common';
+import { Arrays, debug, gate } from '../../system';
+import { ContextValues, ViewNode } from './viewNode';
 
-export class BranchesNode extends ViewNode<RepositoriesView> {
+export class BranchesNode extends ViewNode<RepositoriesView | BranchesView> {
 	static key = ':branches';
 	static getId(repoPath: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}`;
@@ -20,7 +21,12 @@ export class BranchesNode extends ViewNode<RepositoriesView> {
 
 	private _children: ViewNode[] | undefined;
 
-	constructor(uri: GitUri, view: RepositoriesView, parent: ViewNode, public readonly repo: Repository) {
+	constructor(
+		uri: GitUri,
+		view: RepositoriesView | BranchesView,
+		parent: ViewNode,
+		public readonly repo: Repository,
+	) {
 		super(uri, view, parent);
 	}
 
@@ -33,12 +39,12 @@ export class BranchesNode extends ViewNode<RepositoriesView> {
 			const branches = await this.repo.getBranches({
 				// only show local branches
 				filter: b => !b.remote,
-				sort: true,
+				sort: this.view instanceof RepositoriesView ? true : { current: false },
 			});
 			if (branches.length === 0) return [new MessageNode(this.view, this, 'No branches could be found.')];
 
 			const branchNodes = branches.map(
-				b => new BranchNode(GitUri.fromRepoPath(this.uri.repoPath!, b.ref), this.view, this, b),
+				b => new BranchNode(GitUri.fromRepoPath(this.uri.repoPath!, b.ref), this.view, this, b, false),
 			);
 			if (this.view.config.branches.layout === ViewBranchesLayout.List) return branchNodes;
 

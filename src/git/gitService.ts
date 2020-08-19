@@ -164,7 +164,7 @@ export class GitService implements Disposable {
 	}
 
 	private onAnyRepositoryChanged(repo: Repository, e: RepositoryChangeEvent) {
-		if (e.changed(RepositoryChange.Stashes, true)) return;
+		if (e.changed(RepositoryChange.Stash, true)) return;
 
 		this._branchesCache.delete(repo.path);
 		this._tagsCache.delete(repo.path);
@@ -1036,27 +1036,14 @@ export class GitService implements Disposable {
 	async getBranch(repoPath: string | undefined): Promise<GitBranch | undefined> {
 		if (repoPath == null) return undefined;
 
-		const data = await Git.rev_parse__currentBranch(repoPath);
-		if (data == null) return undefined;
-
-		const committerDate = await Git.log__recent_committerdate(repoPath);
-
-		const branch = data[0].split('\n');
-		return new GitBranch(
-			repoPath,
-			branch[0],
-			false,
-			true,
-			committerDate == null ? undefined : new Date(Number(committerDate) * 1000),
-			data[1],
-			branch[1],
-		);
+		const [branch] = await this.getBranches(repoPath, { filter: b => b.current });
+		return branch;
 	}
 
 	@log()
 	async getBranches(
 		repoPath: string | undefined,
-		options: { filter?: (b: GitBranch) => boolean; sort?: boolean } = {},
+		options: { filter?: (b: GitBranch) => boolean; sort?: boolean | { current: boolean } } = {},
 	): Promise<GitBranch[]> {
 		if (repoPath == null) return [];
 
@@ -1065,7 +1052,24 @@ export class GitService implements Disposable {
 			const data = await Git.for_each_ref__branch(repoPath, { all: true });
 			// If we don't get any data, assume the repo doesn't have any commits yet so check if we have a current branch
 			if (data == null || data.length === 0) {
-				const current = await this.getBranch(repoPath);
+				let current;
+
+				const data = await Git.rev_parse__currentBranch(repoPath);
+				if (data != null) {
+					const committerDate = await Git.log__recent_committerdate(repoPath);
+
+					const [name, tracking] = data[0].split('\n');
+					current = new GitBranch(
+						repoPath,
+						name,
+						false,
+						true,
+						committerDate == null ? undefined : new Date(Number(committerDate) * 1000),
+						data[1],
+						tracking,
+					);
+				}
+
 				branches = current != null ? [current] : [];
 			} else {
 				branches = GitBranchParser.parse(data, repoPath);
@@ -1083,8 +1087,9 @@ export class GitService implements Disposable {
 			branches = branches.filter(options.filter);
 		}
 
+		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 		if (options.sort) {
-			GitBranch.sort(branches);
+			GitBranch.sort(branches, typeof options.sort === 'boolean' ? undefined : options.sort);
 		}
 
 		return branches;
@@ -1097,12 +1102,13 @@ export class GitService implements Disposable {
 			filterBranches,
 			filterTags,
 			include,
+			sort,
 			...options
 		}: {
 			filterBranches?: (b: GitBranch) => boolean;
 			filterTags?: (t: GitTag) => boolean;
 			include?: 'all' | 'branches' | 'tags';
-			sort?: boolean;
+			sort?: boolean | { current: boolean };
 		} = {},
 	) {
 		const [branches, tags] = await Promise.all<GitBranch[] | undefined, GitTag[] | undefined>([
@@ -1110,12 +1116,14 @@ export class GitService implements Disposable {
 				? this.getBranches(repoPath, {
 						...options,
 						filter: filterBranches,
+						sort: sort,
 				  })
 				: undefined,
 			include === 'all' || include === 'tags'
 				? this.getTags(repoPath, {
 						...options,
 						filter: filterTags,
+						sort: Boolean(sort),
 				  })
 				: undefined,
 		]);

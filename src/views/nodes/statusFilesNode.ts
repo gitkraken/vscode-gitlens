@@ -11,6 +11,7 @@ import {
 	GitRevision,
 	GitStatus,
 	GitStatusFile,
+	GitTrackingState,
 } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { Arrays, Iterables, Objects, Strings } from '../../system';
@@ -31,7 +32,14 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 	constructor(
 		view: RepositoriesView,
 		parent: ViewNode,
-		public readonly status: GitStatus,
+		public readonly status:
+			| GitStatus
+			| {
+					readonly repoPath: string;
+					readonly files: GitStatusFile[];
+					readonly state: GitTrackingState;
+					readonly upstream?: string;
+			  },
 		public readonly range: string | undefined,
 	) {
 		super(GitUri.fromRepoPath(status.repoPath), view, parent);
@@ -39,7 +47,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 	}
 
 	get id(): string {
-		return StatusFilesNode.getId(this.status.repoPath);
+		return StatusFilesNode.getId(this.repoPath);
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
@@ -125,9 +133,9 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		let files = this.status.files !== undefined && this.includeWorkingTree ? this.status.files.length : 0;
+		let files = this.includeWorkingTree ? this.status.files.length : 0;
 
-		if (this.status.upstream !== undefined && this.status.state.ahead > 0) {
+		if (this.status.upstream != null && this.status.state.ahead > 0) {
 			if (files > 0) {
 				const aheadFiles = await Container.git.getDiffStatus(this.repoPath, `${this.status.upstream}...`);
 

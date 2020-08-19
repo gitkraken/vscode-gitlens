@@ -69,7 +69,13 @@ export class TrackedDocument<T> implements Disposable {
 	}
 
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
-		if (!e.changed(RepositoryChange.Repository)) return;
+		if (
+			!e.changed(RepositoryChange.Index) &&
+			!e.changed(RepositoryChange.Heads) &&
+			!e.changed(RepositoryChange.Unknown)
+		) {
+			return;
+		}
 
 		// Reset any cached state
 		this.reset('repository');
