@@ -2,7 +2,7 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
 import { Container } from '../../container';
-import { GitLog, GitRevision, GitTag, TagDateFormatting } from '../../git/git';
+import { GitLog, GitRevision, GitTag, GitTagReference, TagDateFormatting } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { debug, gate, Iterables, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
@@ -14,7 +14,7 @@ import { emojify } from '../../emojis';
 import { RepositoryNode } from './repositoryNode';
 import { GlyphChars } from '../../constants';
 
-export class TagNode extends ViewRefNode<RepositoriesView> implements PageableViewNode {
+export class TagNode extends ViewRefNode<RepositoriesView, GitTagReference> implements PageableViewNode {
 	static key = ':tag';
 	static getId(repoPath: string, name: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${name})`;
@@ -36,8 +36,8 @@ export class TagNode extends ViewRefNode<RepositoriesView> implements PageableVi
 		return this.view.config.branches.layout === ViewBranchesLayout.Tree ? this.tag.getBasename() : this.tag.name;
 	}
 
-	get ref(): string {
-		return this.tag.name;
+	get ref(): GitTagReference {
+		return this.tag;
 	}
 
 	async getChildren(): Promise<ViewNode[]> {

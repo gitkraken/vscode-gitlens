@@ -2,7 +2,7 @@
 import * as paths from 'path';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
-import { CommitFormatter, GitStashCommit } from '../../git/git';
+import { CommitFormatter, GitStashCommit, GitStashReference } from '../../git/git';
 import { Arrays, Iterables, Strings } from '../../system';
 import { ViewWithFiles } from '../viewBase';
 import { StashFileNode } from './stashFileNode';
@@ -11,7 +11,7 @@ import { RepositoryNode } from './repositoryNode';
 import { FileNode, FolderNode } from '../nodes';
 import { ViewFilesLayout } from '../../config';
 
-export class StashNode extends ViewRefNode<ViewWithFiles> {
+export class StashNode extends ViewRefNode<ViewWithFiles, GitStashReference> {
 	static key = ':stash';
 	static getId(repoPath: string, ref: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${ref})`;
@@ -29,8 +29,8 @@ export class StashNode extends ViewRefNode<ViewWithFiles> {
 		return StashNode.getId(this.commit.repoPath, this.commit.sha);
 	}
 
-	get ref(): string {
-		return this.commit.sha;
+	get ref(): GitStashReference {
+		return this.commit;
 	}
 
 	async getChildren(): Promise<ViewNode[]> {

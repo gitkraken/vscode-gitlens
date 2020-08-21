@@ -47,10 +47,10 @@ export abstract class GitCommit implements GitRevisionReference {
 	}
 
 	static isOfRefType(commit: GitReference | undefined) {
-		return commit?.refType === 'revision';
+		return commit?.refType === 'revision' || commit?.refType === 'stash';
 	}
 
-	readonly refType = 'revision';
+	readonly refType: GitRevisionReference['refType'] = 'revision';
 
 	constructor(
 		public readonly type: GitCommitType,

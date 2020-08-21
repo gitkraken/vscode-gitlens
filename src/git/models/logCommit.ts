@@ -1,9 +1,10 @@
 'use strict';
 import { Uri } from 'vscode';
-import { memoize, Strings } from '../../system';
-import { GitUri } from '../gitUri';
 import { GitCommit, GitCommitType } from './commit';
 import { GitFile, GitFileStatus } from './file';
+import { GitUri } from '../gitUri';
+import { GitReference } from './models';
+import { memoize, Strings } from '../../system';
 
 const emptyStats = Object.freeze({
 	added: 0,
@@ -23,6 +24,10 @@ export interface GitLogCommitLine {
 }
 
 export class GitLogCommit extends GitCommit {
+	static isOfRefType(commit: GitReference | undefined) {
+		return commit?.refType === 'revision';
+	}
+
 	static is(commit: any): commit is GitLogCommit {
 		return (
 			commit instanceof GitLogCommit

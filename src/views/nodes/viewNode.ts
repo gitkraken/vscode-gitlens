@@ -1,6 +1,6 @@
 'use strict';
 import { Command, Disposable, Event, TreeItem, TreeItemCollapsibleState, TreeViewVisibilityChangeEvent } from 'vscode';
-import { GitFile } from '../../git/git';
+import { GitFile, GitReference, GitRevisionReference } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { Logger } from '../../logger';
 import { debug, Functions, gate, logName } from '../../system';
@@ -98,19 +98,22 @@ export abstract class ViewNode<TView extends View = View> {
 	}
 }
 
-export abstract class ViewRefNode<TView extends View = View> extends ViewNode<TView> {
-	abstract get ref(): string;
+export abstract class ViewRefNode<
+	TView extends View = View,
+	TReference extends GitReference = GitReference
+> extends ViewNode<TView> {
+	abstract get ref(): TReference;
 
 	get repoPath(): string {
 		return this.uri.repoPath!;
 	}
 
 	toString() {
-		return `${super.toString()}:${this.ref}`;
+		return `${super.toString()}:${GitReference.toString(this.ref, false)}`;
 	}
 }
 
-export abstract class ViewRefFileNode<TView extends View = View> extends ViewRefNode<TView> {
+export abstract class ViewRefFileNode<TView extends View = View> extends ViewRefNode<TView, GitRevisionReference> {
 	abstract get file(): GitFile;
 	abstract get fileName(): string;
 

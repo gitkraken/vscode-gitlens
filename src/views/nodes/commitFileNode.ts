@@ -4,7 +4,7 @@ import { Command, Selection, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { CommitFormatter, GitFile, GitLogCommit, StatusFileFormatter } from '../../git/git';
+import { CommitFormatter, GitFile, GitLogCommit, GitRevisionReference, StatusFileFormatter } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { View } from '../viewBase';
 import { ResourceType, ViewNode, ViewRefFileNode } from './viewNode';
@@ -32,8 +32,8 @@ export class CommitFileNode extends ViewRefFileNode {
 		return 0;
 	}
 
-	get ref(): string {
-		return this.commit.sha;
+	get ref(): GitRevisionReference {
+		return this.commit;
 	}
 
 	getChildren(): ViewNode[] {

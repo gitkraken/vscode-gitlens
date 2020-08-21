@@ -3,7 +3,7 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { BranchDateFormatting, GitBranch, GitLog, GitRemoteType } from '../../git/git';
+import { BranchDateFormatting, GitBranch, GitBranchReference, GitLog, GitRemoteType } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { debug, gate, Iterables, log, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
@@ -14,7 +14,7 @@ import { insertDateMarkers } from './helpers';
 import { PageableViewNode, ResourceType, ViewNode, ViewRefNode } from './viewNode';
 import { RepositoryNode } from './repositoryNode';
 
-export class BranchNode extends ViewRefNode<RepositoriesView> implements PageableViewNode {
+export class BranchNode extends ViewRefNode<RepositoriesView, GitBranchReference> implements PageableViewNode {
 	static key = ':branch';
 	static getId(repoPath: string, name: string, root: boolean): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${name})${root ? ':root' : ''}`;
@@ -56,8 +56,8 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 			: this.branch.getBasename();
 	}
 
-	get ref(): string {
-		return this.branch.ref;
+	get ref(): GitBranchReference {
+		return this.branch;
 	}
 
 	get treeHierarchy(): string[] {
@@ -236,7 +236,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView> implements Pageabl
 		if (this._log === undefined) {
 			this._log = await Container.git.getLog(this.uri.repoPath!, {
 				limit: this.limit ?? this.view.config.defaultItemLimit,
-				ref: this.ref,
+				ref: this.ref.ref,
 			});
 		}
 

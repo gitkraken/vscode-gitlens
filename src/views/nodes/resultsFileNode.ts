@@ -3,7 +3,7 @@ import * as paths from 'path';
 import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithCommandArgs } from '../../commands';
 import { Container } from '../../container';
-import { GitFile, StatusFileFormatter } from '../../git/git';
+import { GitFile, GitReference, GitRevisionReference, StatusFileFormatter } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { View } from '../viewBase';
 import { ResourceType, ViewNode, ViewRefFileNode } from './viewNode';
@@ -28,8 +28,8 @@ export class ResultsFileNode extends ViewRefFileNode {
 		return this.file.fileName;
 	}
 
-	get ref() {
-		return this.ref1 || this.ref2;
+	get ref(): GitRevisionReference {
+		return GitReference.create(this.ref1 || this.ref2, this.uri.repoPath!);
 	}
 
 	getChildren(): ViewNode[] {

@@ -197,16 +197,16 @@ export class ViewCommands {
 			);
 		}
 
-		if (node.ref == null || node.ref === 'HEAD') return Promise.resolve();
+		if (node.ref == null || node.ref.ref === 'HEAD') return Promise.resolve();
 
-		return GitActions.Commit.applyChanges(node.file, GitReference.create(node.ref, node.repoPath));
+		return GitActions.Commit.applyChanges(node.file, node.ref);
 	}
 
 	@debug()
 	private cherryPick(node: CommitNode) {
 		if (!(node instanceof CommitNode)) return Promise.resolve();
 
-		return GitActions.cherryPick(node.repoPath, GitReference.create(node.ref, node.repoPath));
+		return GitActions.cherryPick(node.repoPath, node.ref);
 	}
 
 	@debug()
@@ -237,17 +237,14 @@ export class ViewCommands {
 	private createBranch(node: ViewRefNode) {
 		if (!(node instanceof ViewRefNode)) return Promise.resolve();
 
-		return GitActions.Branch.create(
-			node.repoPath,
-			node instanceof BranchNode ? node.branch : GitReference.create(node.ref, node.repoPath),
-		);
+		return GitActions.Branch.create(node.repoPath, node.ref);
 	}
 
 	@debug()
 	private createTag(node: ViewRefNode) {
 		if (!(node instanceof ViewRefNode)) return Promise.resolve();
 
-		return GitActions.Tag.create(node.repoPath, GitReference.create(node.ref, node.repoPath));
+		return GitActions.Tag.create(node.repoPath, node.ref);
 	}
 
 	@debug()
@@ -300,7 +297,7 @@ export class ViewCommands {
 		void (await Container.fileAnnotations.toggle(
 			window.activeTextEditor,
 			FileAnnotationType.Changes,
-			node.ref,
+			node.ref.ref,
 			true,
 		));
 	}
@@ -319,7 +316,7 @@ export class ViewCommands {
 		void (await Container.fileAnnotations.toggle(
 			window.activeTextEditor,
 			FileAnnotationType.Changes,
-			node.ref,
+			node.ref.ref,
 			true,
 		));
 	}
@@ -378,14 +375,7 @@ export class ViewCommands {
 			return Promise.resolve();
 		}
 
-		return GitActions.rebase(
-			node.repoPath,
-			node instanceof CommitNode
-				? GitReference.create(node.ref, node.repoPath)
-				: node instanceof BranchNode
-				? node.branch
-				: node.tag,
-		);
+		return GitActions.rebase(node.repoPath, node.ref);
 	}
 
 	@debug()
@@ -416,21 +406,21 @@ export class ViewCommands {
 	private reset(node: CommitNode) {
 		if (!(node instanceof CommitNode)) return Promise.resolve();
 
-		return GitActions.reset(node.repoPath, GitReference.create(node.ref, node.repoPath));
+		return GitActions.reset(node.repoPath, node.ref);
 	}
 
 	@debug()
 	private restore(node: ViewRefFileNode) {
 		if (!(node instanceof ViewRefFileNode)) return Promise.resolve();
 
-		return GitActions.Commit.restoreFile(node.fileName, GitReference.create(node.ref, node.repoPath));
+		return GitActions.Commit.restoreFile(node.fileName, node.ref);
 	}
 
 	@debug()
 	private revert(node: CommitNode) {
 		if (!(node instanceof CommitNode)) return Promise.resolve();
 
-		return GitActions.revert(node.repoPath, GitReference.create(node.ref, node.repoPath));
+		return GitActions.revert(node.repoPath, node.ref);
 	}
 
 	@debug()
@@ -476,13 +466,7 @@ export class ViewCommands {
 
 		return GitActions.switchTo(
 			node.repoPath,
-			node instanceof BranchNode
-				? node.branch.current
-					? undefined
-					: node.branch
-				: node instanceof TagNode
-				? node.tag
-				: GitReference.create(node.ref, node.repoPath),
+			node instanceof BranchNode && node.branch.current ? undefined : node.ref,
 		);
 	}
 
@@ -545,12 +529,12 @@ export class ViewCommands {
 		const branch = await Container.git.getBranch(node.repoPath);
 		if (branch == null) return undefined;
 
-		const commonAncestor = await Container.git.getMergeBase(node.repoPath, branch.ref, node.ref);
+		const commonAncestor = await Container.git.getMergeBase(node.repoPath, branch.ref, node.ref.ref);
 		if (commonAncestor == null) return undefined;
 
 		return Container.compareView.compare(
 			node.repoPath,
-			{ ref: commonAncestor, label: `ancestry with ${node.ref} (${GitRevision.shorten(commonAncestor)})` },
+			{ ref: commonAncestor, label: `ancestry with ${node.ref.ref} (${GitRevision.shorten(commonAncestor)})` },
 			'',
 		);
 	}
@@ -592,7 +576,7 @@ export class ViewCommands {
 				uri: selected.uri!,
 			},
 			rhs: {
-				sha: node.ref,
+				sha: node.ref.ref,
 				uri: node.uri,
 			},
 		});
@@ -605,7 +589,7 @@ export class ViewCommands {
 		if (!(node instanceof ViewRefFileNode) || node.ref == null) return;
 
 		this._selectedFile = {
-			ref: node.ref,
+			ref: node.ref.ref,
 			repoPath: node.repoPath,
 			uri: node.uri,
 		};
@@ -746,7 +730,7 @@ export class ViewCommands {
 			});
 		}
 
-		return GitActions.Commit.openChangesWithWorking(node.file, { repoPath: node.repoPath, ref: node.ref });
+		return GitActions.Commit.openChangesWithWorking(node.file, { repoPath: node.repoPath, ref: node.ref.ref });
 	}
 
 	@debug()

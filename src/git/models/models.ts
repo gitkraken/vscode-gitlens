@@ -101,16 +101,17 @@ export interface GitBranchReference {
 }
 
 export interface GitRevisionReference {
-	readonly refType: 'revision';
+	readonly refType: 'revision' | 'stash';
 	name: string;
 	ref: string;
 	repoPath: string;
 
+	number?: string | undefined;
 	message?: string;
 }
 
 export interface GitStashReference {
-	readonly refType: 'revision';
+	readonly refType: 'stash';
 	name: string;
 	ref: string;
 	repoPath: string;
@@ -167,7 +168,7 @@ export namespace GitReference {
 				return {
 					name: options.name,
 					ref: ref,
-					refType: 'revision',
+					refType: 'stash',
 					repoPath: repoPath,
 					number: options.number,
 					message: options.message,
@@ -210,7 +211,7 @@ export namespace GitReference {
 	}
 
 	export function isStash(ref: GitReference | undefined): ref is GitStashReference {
-		return ref?.refType === 'revision' && (ref as any)?.stashName;
+		return ref?.refType === 'stash' || (ref?.refType === 'revision' && (ref as any)?.stashName);
 	}
 
 	export function isTag(ref: GitReference | undefined): ref is GitTagReference {

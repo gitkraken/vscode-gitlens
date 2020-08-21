@@ -2,11 +2,16 @@
 import { GitCommitType } from './commit';
 import { GitFile } from './file';
 import { GitLogCommit } from './logCommit';
+import { GitReference } from './models';
 import { memoize } from '../../system';
 
 const stashNumberRegex = /stash@{(\d+)}/;
 
 export class GitStashCommit extends GitLogCommit {
+	static isOfRefType(commit: GitReference | undefined) {
+		return commit?.refType === 'stash';
+	}
+
 	static is(commit: any): commit is GitStashCommit {
 		return (
 			commit instanceof GitStashCommit
@@ -15,6 +20,8 @@ export class GitStashCommit extends GitLogCommit {
 			//     (commit.type === GitCommitType.Stash || commit.type === GitCommitType.StashFile))
 		);
 	}
+
+	readonly refType = 'stash';
 
 	constructor(
 		type: GitCommitType,
