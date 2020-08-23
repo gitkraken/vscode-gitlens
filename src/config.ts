@@ -519,6 +519,7 @@ export interface RemotesViewConfig {
 		layout: ViewBranchesLayout;
 	};
 	files: ViewsFilesConfig;
+	showTrackingBranch: boolean;
 }
 
 export interface RepositoriesViewConfig {

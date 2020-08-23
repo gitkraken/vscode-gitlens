@@ -1,19 +1,20 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { BranchNode } from './branchNode';
+import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
+import { MessageNode } from './common';
 import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitRemote, GitRemoteType, Repository } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { Arrays, log } from '../../system';
+import { RemotesView } from '../remotesView';
 import { RepositoriesView } from '../repositoriesView';
-import { BranchNode } from './branchNode';
-import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
-import { ContextValues, ViewNode } from './viewNode';
 import { RepositoryNode } from './repositoryNode';
-import { MessageNode } from './common';
+import { Arrays, log } from '../../system';
+import { ContextValues, ViewNode } from './viewNode';
 
-export class RemoteNode extends ViewNode<RepositoriesView> {
+export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 	static key = ':remote';
 	static getId(repoPath: string, name: string, id: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${name}|${id})`;
@@ -21,7 +22,7 @@ export class RemoteNode extends ViewNode<RepositoriesView> {
 
 	constructor(
 		uri: GitUri,
-		view: RepositoriesView,
+		view: RemotesView | RepositoriesView,
 		parent: ViewNode,
 		public readonly remote: GitRemote,
 		public readonly repo: Repository,

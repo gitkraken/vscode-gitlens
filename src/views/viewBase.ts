@@ -43,6 +43,7 @@ import { FileHistoryView } from './fileHistoryView';
 import { LineHistoryView } from './lineHistoryView';
 import { Logger } from '../logger';
 import { PageableViewNode, ViewNode } from './nodes';
+import { RemotesView } from './remotesView';
 import { RepositoriesView } from './repositoriesView';
 import { SearchView } from './searchView';
 import { debug, Functions, log, Promises, Strings } from '../system';
@@ -54,10 +55,18 @@ export type View =
 	| FileHistoryView
 	| HistoryView
 	| LineHistoryView
+	| RemotesView
 	| RepositoriesView
 	| SearchView
 	| TagsView;
-export type ViewsWithFiles = BranchesView | CompareView | HistoryView | RepositoriesView | SearchView | TagsView;
+export type ViewsWithFiles =
+	| BranchesView
+	| CompareView
+	| HistoryView
+	| RemotesView
+	| RepositoriesView
+	| SearchView
+	| TagsView;
 
 export interface TreeViewNodeStateChangeEvent<T> extends TreeViewExpansionEvent<T> {
 	state: TreeItemCollapsibleState;

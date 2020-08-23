@@ -11,12 +11,14 @@ import { Container } from '../../container';
 import { BranchDateFormatting, GitBranch, GitBranchReference, GitLog, GitRemoteType } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { insertDateMarkers } from './helpers';
+import { RemotesView } from '../remotesView';
 import { RepositoriesView } from '../repositoriesView';
 import { RepositoryNode } from './repositoryNode';
 import { debug, gate, Iterables, log, Strings } from '../../system';
 import { ContextValues, PageableViewNode, ViewNode, ViewRefNode } from './viewNode';
 
-export class BranchNode extends ViewRefNode<RepositoriesView | BranchesView | HistoryView, GitBranchReference>
+export class BranchNode
+	extends ViewRefNode<BranchesView | HistoryView | RemotesView | RepositoriesView, GitBranchReference>
 	implements PageableViewNode {
 	static key = ':branch';
 	static getId(repoPath: string, name: string, root: boolean): string {
@@ -32,7 +34,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView | BranchesView | Hi
 
 	constructor(
 		uri: GitUri,
-		view: RepositoriesView | BranchesView | HistoryView,
+		view: BranchesView | HistoryView | RemotesView | RepositoriesView,
 		parent: ViewNode,
 		public readonly branch: GitBranch,
 		// Specifies that the node is shown as a root under the repository node
