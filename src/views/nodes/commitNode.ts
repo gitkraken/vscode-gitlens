@@ -6,7 +6,7 @@ import { ViewFilesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { CommitFormatter, GitBranch, GitLogCommit, GitRevisionReference } from '../../git/git';
-import { Arrays, Iterables, Strings } from '../../system';
+import { Arrays, Strings } from '../../system';
 import { ViewsWithFiles } from '../viewBase';
 import { CommitFileNode } from './commitFileNode';
 import { FileNode, FolderNode } from './folderNode';
@@ -34,9 +34,10 @@ export class CommitNode extends ViewRefNode<ViewsWithFiles, GitRevisionReference
 
 	getChildren(): ViewNode[] {
 		const commit = this.commit;
-		let children: FileNode[] = [
-			...Iterables.map(commit.files, s => new CommitFileNode(this.view, this, s, commit.toFileCommit(s)!)),
-		];
+
+		let children: FileNode[] = commit.files.map(
+			s => new CommitFileNode(this.view, this, s, commit.toFileCommit(s)!),
+		);
 
 		if (this.view.config.files.layout !== ViewFilesLayout.List) {
 			const hierarchy = Arrays.makeHierarchical(

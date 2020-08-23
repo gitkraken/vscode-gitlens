@@ -420,8 +420,8 @@ export class Repository implements Disposable {
 		);
 	}
 
-	getStashList(): Promise<GitStash | undefined> {
-		return Container.git.getStashList(this.path);
+	getStash(): Promise<GitStash | undefined> {
+		return Container.git.getStash(this.path);
 	}
 
 	getStatus(): Promise<GitStatus | undefined> {

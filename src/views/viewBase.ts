@@ -39,6 +39,7 @@ import {
 } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
+import { ContributorsView } from './contributorsView';
 import { FileHistoryView } from './fileHistoryView';
 import { LineHistoryView } from './lineHistoryView';
 import { Logger } from '../logger';
@@ -46,9 +47,9 @@ import { PageableViewNode, ViewNode } from './nodes';
 import { RemotesView } from './remotesView';
 import { RepositoriesView } from './repositoriesView';
 import { SearchView } from './searchView';
+import { StashesView } from './stashesView';
 import { debug, Functions, log, Promises, Strings } from '../system';
 import { TagsView } from './tagsView';
-import { ContributorsView } from './contributorsView';
 
 export type View =
 	| BranchesView
@@ -60,6 +61,7 @@ export type View =
 	| RemotesView
 	| RepositoriesView
 	| SearchView
+	| StashesView
 	| TagsView;
 export type ViewsWithFiles =
 	| BranchesView
@@ -69,6 +71,7 @@ export type ViewsWithFiles =
 	| RemotesView
 	| RepositoriesView
 	| SearchView
+	| StashesView
 	| TagsView;
 
 export interface TreeViewNodeStateChangeEvent<T> extends TreeViewExpansionEvent<T> {

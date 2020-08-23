@@ -32,6 +32,7 @@ import { LineHistoryView } from './views/lineHistoryView';
 import { RemotesView } from './views/remotesView';
 import { RepositoriesView } from './views/repositoriesView';
 import { SearchView } from './views/searchView';
+import { StashesView } from './views/stashesView';
 import { TagsView } from './views/tagsView';
 import { ViewCommands } from './views/viewCommands';
 import { VslsController } from './vsls/vsls';
@@ -71,6 +72,7 @@ export class Container {
 		context.subscriptions.push((this._contributorsView = new ContributorsView()));
 		context.subscriptions.push((this._historyView = new HistoryView()));
 		context.subscriptions.push((this._remotesView = new RemotesView()));
+		context.subscriptions.push((this._stashesView = new StashesView()));
 		context.subscriptions.push((this._tagsView = new TagsView()));
 
 		if (config.views.compare.enabled) {
@@ -329,6 +331,15 @@ export class Container {
 	private static _settingsWebview: SettingsWebview;
 	static get settingsWebview() {
 		return this._settingsWebview;
+	}
+
+	private static _stashesView: StashesView | undefined;
+	static get stashesView() {
+		if (this._stashesView === undefined) {
+			this._context.subscriptions.push((this._stashesView = new StashesView()));
+		}
+
+		return this._stashesView;
 	}
 
 	private static _statusBarController: StatusBarController;

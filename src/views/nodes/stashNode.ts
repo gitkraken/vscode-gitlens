@@ -34,7 +34,7 @@ export class StashNode extends ViewRefNode<ViewsWithFiles, GitStashReference> {
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		const files = this.commit.files;
+		let files = this.commit.files;
 
 		// Check for any untracked files -- since git doesn't return them via `git stash list` :(
 		// See https://stackoverflow.com/questions/12681529/
@@ -42,16 +42,18 @@ export class StashNode extends ViewRefNode<ViewsWithFiles, GitStashReference> {
 			limit: 1,
 			ref: `${this.commit.stashName}^3`,
 		});
-		if (log !== undefined) {
+		if (log != null) {
 			const commit = Iterables.first(log.commits.values());
-			if (commit !== undefined && commit.files.length !== 0) {
+			if (commit != null && commit.files.length !== 0) {
 				// Since these files are untracked -- make them look that way
 				commit.files.forEach(s => (s.status = '?'));
-				files.splice(files.length, 0, ...commit.files);
+
+				files = { ...files, ...commit.files };
 			}
 		}
 
 		let children: FileNode[] = files.map(s => new StashFileNode(this.view, this, s, this.commit.toFileCommit(s)!));
+
 		if (this.view.config.files.layout !== ViewFilesLayout.List) {
 			const hierarchy = Arrays.makeHierarchical(
 				children,

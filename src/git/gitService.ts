@@ -2875,7 +2875,7 @@ export class GitService implements Disposable {
 	}
 
 	@log()
-	async getStashList(repoPath: string | undefined): Promise<GitStash | undefined> {
+	async getStash(repoPath: string | undefined): Promise<GitStash | undefined> {
 		if (repoPath == null) return undefined;
 
 		const data = await Git.stash__list(repoPath, {
