@@ -8,7 +8,7 @@ import { debug, gate, Iterables } from '../../system';
 import { ViewWithFiles } from '../viewBase';
 import { CommitNode } from './commitNode';
 import { MessageNode, ShowMoreNode } from './common';
-import { PageableViewNode, ResourceType, ViewNode } from './viewNode';
+import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
 import { RepositoryNode } from './repositoryNode';
 
 export class ReflogRecordNode extends ViewNode<ViewWithFiles> implements PageableViewNode {
@@ -66,7 +66,7 @@ export class ReflogRecordNode extends ViewNode<ViewWithFiles> implements Pageabl
 				? ''
 				: `${this.record.HEAD} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} `
 		}${this.record.formattedDate}`;
-		item.contextValue = ResourceType.ReflogRecord;
+		item.contextValue = ContextValues.ReflogRecord;
 		item.tooltip = `${this.record.HEAD.length === 0 ? '' : `${this.record.HEAD}\n`}${this.record.command}${
 			this.record.commandArgs ? ` ${this.record.commandArgs}` : ''
 		}${

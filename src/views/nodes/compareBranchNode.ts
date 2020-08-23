@@ -1,7 +1,7 @@
 'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { BranchComparison, BranchComparisons, GlyphChars, WorkspaceState } from '../../constants';
-import { ResourceType, ViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 import { RepositoriesView } from '../repositoriesView';
 import { GitBranch, GitRevision } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
@@ -107,7 +107,7 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
 			command: 'gitlens.views.executeNodeCallback',
 			arguments: [() => this.compareWith()],
 		};
-		item.contextValue = `${ResourceType.CompareBranch}${this._compareWith === undefined ? '' : '+comparing'}+${
+		item.contextValue = `${ContextValues.CompareBranch}${this._compareWith === undefined ? '' : '+comparing'}+${
 			this.comparisonNotation === '..' ? 'twodot' : 'threedot'
 		}+${this.comparisonType}`;
 		item.description = description;

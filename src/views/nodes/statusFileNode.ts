@@ -8,7 +8,7 @@ import { GitUri } from '../../git/gitUri';
 import { Strings } from '../../system';
 import { View } from '../viewBase';
 import { CommitFileNode } from './commitFileNode';
-import { ResourceType, ViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 import { DiffWithCommandArgs } from '../../commands/diffWith';
 
 export class StatusFileNode extends ViewNode {
@@ -71,7 +71,7 @@ export class StatusFileNode extends ViewNode {
 		item.description = this.description;
 
 		if ((this._hasStagedChanges || this._hasUnstagedChanges) && this.commits.length === 1) {
-			item.contextValue = ResourceType.File;
+			item.contextValue = ContextValues.File;
 			if (this._hasStagedChanges) {
 				item.contextValue += '+staged';
 				item.tooltip = StatusFileFormatter.fromTemplate(
@@ -96,7 +96,7 @@ export class StatusFileNode extends ViewNode {
 		} else {
 			item.collapsibleState = TreeItemCollapsibleState.Collapsed;
 			if (this._hasStagedChanges || this._hasUnstagedChanges) {
-				item.contextValue = ResourceType.File;
+				item.contextValue = ContextValues.File;
 				if (this._hasStagedChanges && this._hasUnstagedChanges) {
 					item.contextValue += '+staged+unstaged';
 				} else if (this._hasStagedChanges) {
@@ -109,7 +109,7 @@ export class StatusFileNode extends ViewNode {
 				item.resourceUri = GitUri.resolveToUri(this.file.fileName, this.repoPath);
 				item.iconPath = ThemeIcon.File;
 			} else {
-				item.contextValue = ResourceType.StatusFileCommits;
+				item.contextValue = ContextValues.StatusFileCommits;
 
 				const icon = GitFile.getStatusIcon(this.file.status);
 				item.iconPath = {

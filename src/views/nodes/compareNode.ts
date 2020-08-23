@@ -8,7 +8,7 @@ import { debug, gate, Iterables, log, Promises } from '../../system';
 import { CompareView } from '../compareView';
 import { MessageNode } from './common';
 import { ComparePickerNode } from './comparePickerNode';
-import { ResourceType, unknownGitUri, ViewNode } from './viewNode';
+import { ContextValues, unknownGitUri, ViewNode } from './viewNode';
 
 interface RepoRef {
 	label: string;
@@ -55,7 +55,7 @@ export class CompareNode extends ViewNode<CompareView> {
 
 	getTreeItem(): TreeItem {
 		const item = new TreeItem('Compare', TreeItemCollapsibleState.Expanded);
-		item.contextValue = ResourceType.Compare;
+		item.contextValue = ContextValues.Compare;
 		return item;
 	}
 

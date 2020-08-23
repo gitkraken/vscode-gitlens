@@ -4,7 +4,7 @@ import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { CompareView } from '../compareView';
 import { CompareNode } from './compareNode';
-import { ResourceType, unknownGitUri, ViewNode } from './viewNode';
+import { ContextValues, unknownGitUri, ViewNode } from './viewNode';
 
 export class ComparePickerNode extends ViewNode<CompareView> {
 	constructor(view: CompareView, protected readonly parent: CompareNode) {
@@ -33,7 +33,7 @@ export class ComparePickerNode extends ViewNode<CompareView> {
 				'Compare <branch, tag, or ref> with <branch, tag, or ref>',
 				TreeItemCollapsibleState.None,
 			);
-			item.contextValue = ResourceType.ComparePicker;
+			item.contextValue = ContextValues.ComparePicker;
 			item.description = description;
 			item.tooltip = `Click to select or enter a reference for compare${GlyphChars.Ellipsis}`;
 			item.command = {
@@ -45,7 +45,7 @@ export class ComparePickerNode extends ViewNode<CompareView> {
 				`Compare ${selectedRef.label} with <branch, tag, or ref>`,
 				TreeItemCollapsibleState.None,
 			);
-			item.contextValue = ResourceType.ComparePickerWithRef;
+			item.contextValue = ContextValues.ComparePickerWithRef;
 			item.description = description;
 			item.tooltip = `Click to compare ${selectedRef.label} with${GlyphChars.Ellipsis}`;
 			item.command = {

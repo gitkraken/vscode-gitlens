@@ -7,7 +7,7 @@ import { Container } from '../../container';
 import { CommitFormatter, GitFile, GitLogCommit, GitRevisionReference, StatusFileFormatter } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { View } from '../viewBase';
-import { ResourceType, ViewNode, ViewRefFileNode } from './viewNode';
+import { ContextValues, ViewNode, ViewRefFileNode } from './viewNode';
 
 export class CommitFileNode extends ViewRefFileNode {
 	constructor(
@@ -58,7 +58,7 @@ export class CommitFileNode extends ViewRefFileNode {
 		}
 
 		const item = new TreeItem(this.label, TreeItemCollapsibleState.None);
-		item.contextValue = this.resourceType;
+		item.contextValue = this.contextValye;
 		item.description = this.description;
 		item.tooltip = this.tooltip;
 
@@ -80,6 +80,14 @@ export class CommitFileNode extends ViewRefFileNode {
 		this._tooltip = undefined;
 
 		return item;
+	}
+
+	protected get contextValye(): string {
+		if (!this.commit.isUncommitted) {
+			return `${ContextValues.File}+committed${this._options.inFileHistory ? '+history' : ''}`;
+		}
+
+		return this.commit.isUncommittedStaged ? `${ContextValues.File}+staged` : `${ContextValues.File}+unstaged`;
 	}
 
 	private _description: string | undefined;
@@ -128,14 +136,6 @@ export class CommitFileNode extends ViewRefFileNode {
 		this._relativePath = value;
 		this._label = undefined;
 		this._tooltip = undefined;
-	}
-
-	protected get resourceType(): string {
-		if (!this.commit.isUncommitted) {
-			return `${ResourceType.File}+committed${this._options.inFileHistory ? '+history' : ''}`;
-		}
-
-		return this.commit.isUncommittedStaged ? `${ResourceType.File}+staged` : `${ResourceType.File}+unstaged`;
 	}
 
 	private _tooltip: string | undefined;

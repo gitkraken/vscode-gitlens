@@ -11,7 +11,7 @@ import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
 import { CommitNode } from './commitNode';
 import { MessageNode, ShowMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
-import { PageableViewNode, ResourceType, ViewNode, ViewRefNode } from './viewNode';
+import { ContextValues, PageableViewNode, ViewNode, ViewRefNode } from './viewNode';
 import { RepositoryNode } from './repositoryNode';
 
 export class BranchNode extends ViewRefNode<RepositoriesView, GitBranchReference> implements PageableViewNode {
@@ -117,7 +117,7 @@ export class BranchNode extends ViewRefNode<RepositoriesView, GitBranchReference
 		let tooltip = `${this.branch.getNameWithoutRemote()}${this.current ? ' (current)' : ''}`;
 		let iconSuffix = '';
 
-		let contextValue: string = ResourceType.Branch;
+		let contextValue: string = ContextValues.Branch;
 		if (this.current) {
 			contextValue += '+current';
 		}

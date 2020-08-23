@@ -8,7 +8,7 @@ import { ViewWithFiles } from '../viewBase';
 import { CommitNode } from './commitNode';
 import { ShowMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
-import { PageableViewNode, ResourceType, ViewNode } from './viewNode';
+import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
 import { BranchNode } from './branchNode';
 
 export interface BranchTrackingStatus {
@@ -106,11 +106,11 @@ export class BranchTrackingStatusNode extends ViewNode<ViewWithFiles> implements
 		const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		if (this._root) {
-			item.contextValue = ahead ? ResourceType.StatusAheadOfUpstream : ResourceType.StatusBehindUpstream;
+			item.contextValue = ahead ? ContextValues.StatusAheadOfUpstream : ContextValues.StatusBehindUpstream;
 		} else {
 			item.contextValue = ahead
-				? ResourceType.BranchStatusAheadOfUpstream
-				: ResourceType.BranchStatusBehindUpstream;
+				? ContextValues.BranchStatusAheadOfUpstream
+				: ContextValues.BranchStatusBehindUpstream;
 		}
 		item.iconPath = new ThemeIcon(ahead ? 'cloud-upload' : 'cloud-download');
 		item.tooltip = `${label}${ahead ? ' of ' : ' '}${this.status.upstream}`;

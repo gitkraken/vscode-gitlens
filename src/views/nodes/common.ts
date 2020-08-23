@@ -2,7 +2,7 @@ import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vsc
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { View } from '../viewBase';
-import { PageableViewNode, ResourceType, unknownGitUri, ViewNode } from './viewNode';
+import { ContextValues, PageableViewNode, unknownGitUri, ViewNode } from './viewNode';
 
 export class MessageNode extends ViewNode {
 	constructor(
@@ -29,7 +29,7 @@ export class MessageNode extends ViewNode {
 
 	getTreeItem(): TreeItem | Promise<TreeItem> {
 		const item = new TreeItem(this._message, TreeItemCollapsibleState.None);
-		item.contextValue = ResourceType.Message;
+		item.contextValue = ContextValues.Message;
 		item.description = this._description;
 		item.tooltip = this._tooltip;
 		item.iconPath = this._iconPath;
@@ -97,7 +97,7 @@ export class UpdateableMessageNode extends ViewNode {
 	getTreeItem(): TreeItem | Promise<TreeItem> {
 		const item = new TreeItem(this._message, TreeItemCollapsibleState.None);
 		item.id = this.id;
-		item.contextValue = ResourceType.Message;
+		item.contextValue = ContextValues.Message;
 		item.tooltip = this._tooltip;
 		item.iconPath = this._iconPath;
 		return item;
@@ -164,7 +164,7 @@ export abstract class PagerNode extends ViewNode {
 
 	getTreeItem(): TreeItem | Promise<TreeItem> {
 		const item = new TreeItem(this.message, TreeItemCollapsibleState.None);
-		item.contextValue = ResourceType.Pager;
+		item.contextValue = ContextValues.Pager;
 		item.command = this.getCommand();
 		return item;
 	}

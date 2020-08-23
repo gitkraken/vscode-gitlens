@@ -7,7 +7,7 @@ import { debug, Functions, gate } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { MessageNode } from './common';
 import { RepositoryNode } from './repositoryNode';
-import { ResourceType, SubscribeableViewNode, unknownGitUri, ViewNode } from './viewNode';
+import { ContextValues, SubscribeableViewNode, unknownGitUri, ViewNode } from './viewNode';
 
 export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 	private _children: (RepositoryNode | MessageNode)[] | undefined;
@@ -47,7 +47,7 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 
 	getTreeItem(): TreeItem {
 		const item = new TreeItem('Repositories', TreeItemCollapsibleState.Expanded);
-		item.contextValue = ResourceType.Repositories;
+		item.contextValue = ContextValues.Repositories;
 
 		void this.ensureSubscription();
 

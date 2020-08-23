@@ -5,7 +5,7 @@ import { GlyphChars } from '../../constants';
 import { debug, gate, Iterables, log, Promises } from '../../system';
 import { View } from '../viewBase';
 import { CommandMessageNode, MessageNode } from './common';
-import { ResourceType, unknownGitUri, ViewNode } from './viewNode';
+import { ContextValues, unknownGitUri, ViewNode } from './viewNode';
 import { SearchOperators } from '../../git/git';
 
 export class SearchNode extends ViewNode {
@@ -93,7 +93,7 @@ export class SearchNode extends ViewNode {
 
 	getTreeItem(): TreeItem {
 		const item = new TreeItem('Search', TreeItemCollapsibleState.Expanded);
-		item.contextValue = ResourceType.Search;
+		item.contextValue = ContextValues.Search;
 		return item;
 	}
 

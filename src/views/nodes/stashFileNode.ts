@@ -2,15 +2,15 @@
 import { GitFile, GitLogCommit } from '../../git/git';
 import { View } from '../viewBase';
 import { CommitFileNode } from './commitFileNode';
-import { ResourceType, ViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 
 export class StashFileNode extends CommitFileNode {
 	constructor(view: View, parent: ViewNode, file: GitFile, commit: GitLogCommit) {
 		super(view, parent, file, commit);
 	}
 
-	protected get resourceType(): ResourceType {
-		return ResourceType.StashFile;
+	protected get contextValye(): ContextValues {
+		return ContextValues.StashFile;
 	}
 
 	protected getCommitTemplate() {

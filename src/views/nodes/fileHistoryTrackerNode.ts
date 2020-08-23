@@ -10,7 +10,7 @@ import { GitCommitish, GitUri } from '../../git/gitUri';
 import { Logger } from '../../logger';
 import { ReferencePicker } from '../../quickpicks';
 import { debug, Functions, gate, log } from '../../system';
-import { ResourceType, SubscribeableViewNode, unknownGitUri, ViewNode } from './viewNode';
+import { ContextValues, SubscribeableViewNode, unknownGitUri, ViewNode } from './viewNode';
 
 export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryView> {
 	private _base: string | undefined;
@@ -58,7 +58,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 
 	getTreeItem(): TreeItem {
 		const item = new TreeItem('File History', TreeItemCollapsibleState.Expanded);
-		item.contextValue = ResourceType.ActiveFileHistory;
+		item.contextValue = ContextValues.ActiveFileHistory;
 
 		void this.ensureSubscription();
 

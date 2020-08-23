@@ -17,7 +17,7 @@ import { Arrays, Iterables, Objects, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { FileNode, FolderNode } from './folderNode';
 import { StatusFileNode } from './statusFileNode';
-import { ResourceType, ViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 import { RepositoryNode } from './repositoryNode';
 
 export class StatusFilesNode extends ViewNode<RepositoriesView> {
@@ -153,7 +153,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 		const label = `${Strings.pluralize('file', files)} changed`;
 		const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
-		item.contextValue = ResourceType.StatusFiles;
+		item.contextValue = ContextValues.StatusFiles;
 		item.iconPath = {
 			dark: Container.context.asAbsolutePath('images/dark/icon-diff.svg'),
 			light: Container.context.asAbsolutePath('images/light/icon-diff.svg'),

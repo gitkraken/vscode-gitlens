@@ -7,7 +7,7 @@ import { Iterables } from '../../system';
 import { ViewWithFiles } from '../viewBase';
 import { MessageNode } from './common';
 import { StashNode } from './stashNode';
-import { ResourceType, ViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 import { RepositoryNode } from './repositoryNode';
 
 export class StashesNode extends ViewNode<ViewWithFiles> {
@@ -34,7 +34,7 @@ export class StashesNode extends ViewNode<ViewWithFiles> {
 	getTreeItem(): TreeItem {
 		const item = new TreeItem('Stashes', TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
-		item.contextValue = ResourceType.Stashes;
+		item.contextValue = ContextValues.Stashes;
 
 		item.iconPath = {
 			dark: Container.context.asAbsolutePath('images/dark/icon-stash.svg'),

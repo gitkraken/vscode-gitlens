@@ -4,7 +4,7 @@ import { ViewFilesLayout, ViewsFilesConfig } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
 import { Arrays } from '../../system';
 import { ViewWithFiles } from '../viewBase';
-import { ResourceType, ViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 
 export interface FileNode extends ViewNode {
 	folderName: string;
@@ -84,7 +84,7 @@ export class FolderNode extends ViewNode<ViewWithFiles> {
 
 	getTreeItem(): TreeItem {
 		const item = new TreeItem(this.label, TreeItemCollapsibleState.Expanded);
-		item.contextValue = ResourceType.Folder;
+		item.contextValue = ContextValues.Folder;
 		if (this.containsWorkingFiles) {
 			item.contextValue += '+working';
 		}

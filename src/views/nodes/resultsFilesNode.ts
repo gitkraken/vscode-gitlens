@@ -8,7 +8,7 @@ import { Arrays, debug, gate, Iterables, Promises, Strings } from '../../system'
 import { ViewWithFiles } from '../viewBase';
 import { FileNode, FolderNode } from './folderNode';
 import { ResultsFileNode } from './resultsFileNode';
-import { ResourceType, ViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 
 export interface FilesQueryResults {
 	label: string;
@@ -80,7 +80,7 @@ export class ResultsFilesNode extends ViewNode<ViewWithFiles> {
 		}
 
 		const item = new TreeItem(label ?? 'files changed', state);
-		item.contextValue = ResourceType.ResultsFiles;
+		item.contextValue = ContextValues.ResultsFiles;
 		item.id = this.id;
 
 		return item;

@@ -25,7 +25,7 @@ import { RemotesNode } from './remotesNode';
 import { StashesNode } from './stashesNode';
 import { StatusFilesNode } from './statusFilesNode';
 import { TagsNode } from './tagsNode';
-import { ResourceType, SubscribeableViewNode, ViewNode } from './viewNode';
+import { ContextValues, SubscribeableViewNode, ViewNode } from './viewNode';
 
 const hasTimeRegex = /[hHm]/;
 
@@ -130,7 +130,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		let iconSuffix = '';
 		let workingStatus = '';
 
-		let contextValue: string = ResourceType.Repository;
+		let contextValue: string = ContextValues.Repository;
 		if (this.repo.starred) {
 			contextValue += '+starred';
 		}

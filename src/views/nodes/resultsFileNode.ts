@@ -6,7 +6,7 @@ import { Container } from '../../container';
 import { GitFile, GitReference, GitRevisionReference, StatusFileFormatter } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { View } from '../viewBase';
-import { ResourceType, ViewNode, ViewRefFileNode } from './viewNode';
+import { ContextValues, ViewNode, ViewRefFileNode } from './viewNode';
 
 export class ResultsFileNode extends ViewRefFileNode {
 	constructor(
@@ -38,7 +38,7 @@ export class ResultsFileNode extends ViewRefFileNode {
 
 	getTreeItem(): TreeItem {
 		const item = new TreeItem(this.label, TreeItemCollapsibleState.None);
-		item.contextValue = ResourceType.ResultsFile;
+		item.contextValue = ContextValues.ResultsFile;
 		item.description = this.description;
 		item.tooltip = StatusFileFormatter.fromTemplate(
 			// eslint-disable-next-line no-template-curly-in-string

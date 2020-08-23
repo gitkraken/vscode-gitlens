@@ -9,7 +9,7 @@ import { Arrays, log } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { BranchNode } from './branchNode';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
-import { ResourceType, ViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 import { RepositoryNode } from './repositoryNode';
 import { MessageNode } from './common';
 
@@ -118,12 +118,12 @@ export class RemoteNode extends ViewNode<RepositoriesView> {
 			if (provider.hasApi()) {
 				const connected = provider.maybeConnected ?? (await provider.isConnected());
 
-				item.contextValue += `${ResourceType.Remote}${connected ? '+connected' : '+disconnected'}`;
+				item.contextValue += `${ContextValues.Remote}${connected ? '+connected' : '+disconnected'}`;
 				item.tooltip = `${this.remote.name} (${provider.name} ${GlyphChars.Dash} ${
 					connected ? 'connected' : 'not connected'
 				})\n${provider.displayPath}\n`;
 			} else {
-				item.contextValue = ResourceType.Remote;
+				item.contextValue = ContextValues.Remote;
 				item.tooltip = `${this.remote.name} (${provider.name})\n${provider.displayPath}\n`;
 			}
 		} else {
@@ -132,7 +132,7 @@ export class RemoteNode extends ViewNode<RepositoriesView> {
 					? `${this.remote.domain} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} `
 					: ''
 			}${this.remote.path}`;
-			item.contextValue = ResourceType.Remote;
+			item.contextValue = ContextValues.Remote;
 			item.iconPath = {
 				dark: Container.context.asAbsolutePath('images/dark/icon-remote.svg'),
 				light: Container.context.asAbsolutePath('images/light/icon-remote.svg'),

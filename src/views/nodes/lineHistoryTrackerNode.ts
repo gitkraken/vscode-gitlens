@@ -12,7 +12,7 @@ import { Logger } from '../../logger';
 import { ReferencePicker } from '../../quickpicks';
 import { debug, Functions, gate, log } from '../../system';
 import { LinesChangeEvent } from '../../trackers/gitLineTracker';
-import { ResourceType, SubscribeableViewNode, unknownGitUri, ViewNode } from './viewNode';
+import { ContextValues, SubscribeableViewNode, unknownGitUri, ViewNode } from './viewNode';
 
 export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryView | FileHistoryView> {
 	private _base: string | undefined;
@@ -64,7 +64,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 
 	getTreeItem(): TreeItem {
 		const item = new TreeItem('Line History', TreeItemCollapsibleState.Expanded);
-		item.contextValue = ResourceType.ActiveLineHistory;
+		item.contextValue = ContextValues.ActiveLineHistory;
 
 		void this.ensureSubscription();
 

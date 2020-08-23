@@ -4,7 +4,7 @@ import { GitContributor, GitLog } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { debug, gate, Iterables, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
-import { PageableViewNode, ResourceType, ViewNode } from './viewNode';
+import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
 import { Container } from '../../container';
 import { MessageNode, ShowMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
@@ -66,7 +66,9 @@ export class ContributorNode extends ViewNode<RepositoriesView> implements Pagea
 			TreeItemCollapsibleState.Collapsed,
 		);
 		item.id = this.id;
-		item.contextValue = this.contributor.current ? `${ResourceType.Contributor}+current` : ResourceType.Contributor;
+		item.contextValue = this.contributor.current
+			? `${ContextValues.Contributor}+current`
+			: ContextValues.Contributor;
 		item.description = `${
 			presence != null && presence.status !== 'offline'
 				? `${presence.statusText} ${GlyphChars.Space}${GlyphChars.Dot}${GlyphChars.Space} `

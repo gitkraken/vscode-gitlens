@@ -8,7 +8,7 @@ import { ViewWithFiles } from '../viewBase';
 import { CommitNode } from './commitNode';
 import { ShowMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
-import { PageableViewNode, ResourceType, ViewNode } from './viewNode';
+import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
 
 export interface CommitsQueryResults {
 	readonly label: string;
@@ -35,8 +35,8 @@ export class ResultsCommitsNode extends ViewNode<ViewWithFiles> implements Pagea
 		return `${this.parent!.id}:results:commits`;
 	}
 
-	get type(): ResourceType {
-		return ResourceType.ResultsCommits;
+	get type(): ContextValues {
+		return ContextValues.ResultsCommits;
 	}
 
 	async getChildren(): Promise<ViewNode[]> {

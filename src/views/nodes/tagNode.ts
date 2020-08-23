@@ -9,7 +9,7 @@ import { RepositoriesView } from '../repositoriesView';
 import { CommitNode } from './commitNode';
 import { MessageNode, ShowMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
-import { PageableViewNode, ResourceType, ViewNode, ViewRefNode } from './viewNode';
+import { ContextValues, PageableViewNode, ViewNode, ViewRefNode } from './viewNode';
 import { emojify } from '../../emojis';
 import { RepositoryNode } from './repositoryNode';
 import { GlyphChars } from '../../constants';
@@ -64,7 +64,7 @@ export class TagNode extends ViewRefNode<RepositoriesView, GitTagReference> impl
 	getTreeItem(): TreeItem {
 		const item = new TreeItem(this.label, TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
-		item.contextValue = ResourceType.Tag;
+		item.contextValue = ContextValues.Tag;
 		item.description = `${GitRevision.shorten(this.tag.sha, { force: true })}${Strings.pad(
 			GlyphChars.Dot,
 			2,

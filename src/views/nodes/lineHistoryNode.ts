@@ -18,7 +18,7 @@ import { View } from '../viewBase';
 import { CommitFileNode } from './commitFileNode';
 import { MessageNode, ShowMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
-import { PageableViewNode, ResourceType, SubscribeableViewNode, ViewNode } from './viewNode';
+import { ContextValues, PageableViewNode, SubscribeableViewNode, ViewNode } from './viewNode';
 import { RepositoryNode } from './repositoryNode';
 
 export class LineHistoryNode extends SubscribeableViewNode implements PageableViewNode {
@@ -214,7 +214,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 			}`,
 			TreeItemCollapsibleState.Expanded,
 		);
-		item.contextValue = ResourceType.LineHistory;
+		item.contextValue = ContextValues.LineHistory;
 		item.description = this.uri.directory;
 		item.tooltip = `History of ${this.uri.fileName}${lines}\n${this.uri.directory}/${
 			this.uri.sha == null ? '' : `\n\n${this.uri.sha}`

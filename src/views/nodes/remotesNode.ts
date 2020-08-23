@@ -6,7 +6,7 @@ import { GitUri } from '../../git/gitUri';
 import { RepositoriesView } from '../repositoriesView';
 import { MessageNode } from './common';
 import { RemoteNode } from './remoteNode';
-import { ResourceType, ViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 import { RepositoryNode } from './repositoryNode';
 
 export class RemotesNode extends ViewNode<RepositoriesView> {
@@ -35,7 +35,7 @@ export class RemotesNode extends ViewNode<RepositoriesView> {
 	getTreeItem(): TreeItem {
 		const item = new TreeItem('Remotes', TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
-		item.contextValue = ResourceType.Remotes;
+		item.contextValue = ContextValues.Remotes;
 
 		item.iconPath = {
 			dark: Container.context.asAbsolutePath('images/dark/icon-remote.svg'),

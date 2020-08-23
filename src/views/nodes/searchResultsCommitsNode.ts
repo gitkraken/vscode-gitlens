@@ -3,7 +3,7 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, SearchCommitsCommandArgs } from '../../commands';
 import { ViewWithFiles } from '../viewBase';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
-import { ResourceType, ViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 import { RepositoryNode } from './repositoryNode';
 import { SearchPattern } from '../../git/git';
 
@@ -39,8 +39,8 @@ export class SearchResultsCommitsNode extends ResultsCommitsNode {
 		return SearchResultsCommitsNode.getId(this.repoPath, this.search, this._instanceId);
 	}
 
-	get type(): ResourceType {
-		return ResourceType.SearchResults;
+	get type(): ContextValues {
+		return ContextValues.SearchResults;
 	}
 
 	async getTreeItem(): Promise<TreeItem> {

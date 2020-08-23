@@ -6,7 +6,7 @@ import { CommitFormatter, GitStashCommit, GitStashReference } from '../../git/gi
 import { Arrays, Iterables, Strings } from '../../system';
 import { ViewWithFiles } from '../viewBase';
 import { StashFileNode } from './stashFileNode';
-import { ResourceType, ViewNode, ViewRefNode } from './viewNode';
+import { ContextValues, ViewNode, ViewRefNode } from './viewNode';
 import { RepositoryNode } from './repositoryNode';
 import { FileNode, FolderNode } from '../nodes';
 import { ViewFilesLayout } from '../../config';
@@ -83,7 +83,7 @@ export class StashNode extends ViewRefNode<ViewWithFiles, GitStashReference> {
 			truncateMessageAtNewLine: true,
 			dateFormat: Container.config.defaultDateFormat,
 		});
-		item.contextValue = ResourceType.Stash;
+		item.contextValue = ContextValues.Stash;
 		// eslint-disable-next-line no-template-curly-in-string
 		item.tooltip = CommitFormatter.fromTemplate('${ago} (${date})\n\n${message}', this.commit, {
 			dateFormat: Container.config.defaultDateFormat,

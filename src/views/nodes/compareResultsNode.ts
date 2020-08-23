@@ -8,7 +8,7 @@ import { debug, gate, log, Strings } from '../../system';
 import { CompareView } from '../compareView';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
 import { FilesQueryResults, ResultsFilesNode } from './resultsFilesNode';
-import { ResourceType, SubscribeableViewNode, ViewNode } from './viewNode';
+import { ContextValues, SubscribeableViewNode, ViewNode } from './viewNode';
 import { RepositoryNode } from './repositoryNode';
 
 let instanceId = 0;
@@ -80,7 +80,7 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
 			}`,
 			this._state ?? TreeItemCollapsibleState.Collapsed,
 		);
-		item.contextValue = `${ResourceType.CompareResults}+${
+		item.contextValue = `${ContextValues.CompareResults}+${
 			this.comparisonNotation === '..' ? 'twodot' : 'threedot'
 		}`;
 		if (this._pinned) {

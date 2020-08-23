@@ -3,7 +3,7 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Container } from '../../container';
 import { GitReflog, Repository } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { PageableViewNode, ResourceType, ViewNode } from './viewNode';
+import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
 import { RepositoriesView } from '../repositoriesView';
 import { ReflogRecordNode } from './reflogRecordNode';
 import { debug, gate } from '../../system';
@@ -49,7 +49,7 @@ export class ReflogNode extends ViewNode<RepositoriesView> implements PageableVi
 	getTreeItem(): TreeItem {
 		const item = new TreeItem('Incoming Activity', TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
-		item.contextValue = ResourceType.Reflog;
+		item.contextValue = ContextValues.Reflog;
 		item.description = 'experimental';
 		item.iconPath = {
 			dark: Container.context.asAbsolutePath('images/dark/icon-activity.svg'),

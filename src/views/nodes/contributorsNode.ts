@@ -5,7 +5,7 @@ import { GitUri } from '../../git/gitUri';
 import { RepositoriesView } from '../repositoriesView';
 import { MessageNode } from './common';
 import { ContributorNode } from './contributorNode';
-import { ResourceType, ViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 import { Container } from '../../container';
 import { RepositoryNode } from './repositoryNode';
 import { debug, timeout } from '../../system';
@@ -38,7 +38,7 @@ export class ContributorsNode extends ViewNode<RepositoriesView> {
 	getTreeItem(): TreeItem {
 		const item = new TreeItem('Contributors', TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
-		item.contextValue = ResourceType.Contributors;
+		item.contextValue = ContextValues.Contributors;
 		item.iconPath = new ThemeIcon('organization');
 		return item;
 	}

@@ -10,7 +10,7 @@ import { Arrays, Iterables, Strings } from '../../system';
 import { ViewWithFiles } from '../viewBase';
 import { CommitFileNode } from './commitFileNode';
 import { FileNode, FolderNode } from './folderNode';
-import { ResourceType, ViewNode, ViewRefNode } from './viewNode';
+import { ContextValues, ViewNode, ViewRefNode } from './viewNode';
 
 export class CommitNode extends ViewRefNode<ViewWithFiles, GitRevisionReference> {
 	constructor(
@@ -67,7 +67,7 @@ export class CommitNode extends ViewRefNode<ViewWithFiles, GitRevisionReference>
 			label,
 			this._options.expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
 		);
-		item.contextValue = ResourceType.Commit;
+		item.contextValue = ContextValues.Commit;
 		if (this.branch?.current) {
 			item.contextValue += '+current';
 		}

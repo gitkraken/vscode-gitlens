@@ -8,7 +8,7 @@ import { RepositoriesView } from '../repositoriesView';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { MessageNode } from './common';
 import { TagNode } from './tagNode';
-import { ResourceType, ViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 import { RepositoryNode } from './repositoryNode';
 
 export class TagsNode extends ViewNode<RepositoriesView> {
@@ -56,7 +56,7 @@ export class TagsNode extends ViewNode<RepositoriesView> {
 	getTreeItem(): TreeItem {
 		const item = new TreeItem('Tags', TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
-		item.contextValue = ResourceType.Tags;
+		item.contextValue = ContextValues.Tags;
 		item.iconPath = new ThemeIcon('tag');
 		return item;
 	}

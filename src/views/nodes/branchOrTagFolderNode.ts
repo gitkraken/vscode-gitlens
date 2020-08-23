@@ -5,7 +5,7 @@ import { Arrays } from '../../system';
 import { View } from '../viewBase';
 import { BranchNode } from './branchNode';
 import { TagNode } from './tagNode';
-import { ResourceType, ViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 import { RepositoryNode } from './repositoryNode';
 
 export class BranchOrTagFolderNode extends ViewNode {
@@ -76,7 +76,7 @@ export class BranchOrTagFolderNode extends ViewNode {
 			this._expanded ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
 		);
 		item.id = this.id;
-		item.contextValue = ResourceType.Folder;
+		item.contextValue = ContextValues.Folder;
 		item.iconPath = ThemeIcon.Folder;
 		item.tooltip = this.label;
 		return item;

@@ -8,7 +8,7 @@ import { Arrays, debug, gate } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { BranchNode } from './branchNode';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
-import { ResourceType, ViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 import { RepositoryNode } from './repositoryNode';
 import { MessageNode } from './common';
 
@@ -70,7 +70,7 @@ export class BranchesNode extends ViewNode<RepositoriesView> {
 
 	async getTreeItem(): Promise<TreeItem> {
 		const item = new TreeItem('Branches', TreeItemCollapsibleState.Collapsed);
-		item.contextValue = ResourceType.Branches;
+		item.contextValue = ContextValues.Branches;
 		if (await this.repo.hasRemotes()) {
 			item.contextValue += '+remotes';
 		}

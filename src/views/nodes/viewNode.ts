@@ -6,7 +6,7 @@ import { Logger } from '../../logger';
 import { debug, Functions, gate, logName } from '../../system';
 import { TreeViewNodeStateChangeEvent, View } from '../viewBase';
 
-export enum ResourceType {
+export enum ContextValues {
 	ActiveFileHistory = 'gitlens:history:active:file',
 	ActiveLineHistory = 'gitlens:history:active:line',
 	Branch = 'gitlens:branch',
