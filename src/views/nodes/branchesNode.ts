@@ -13,7 +13,7 @@ import { RepositoryNode } from './repositoryNode';
 import { Arrays, debug, gate } from '../../system';
 import { ContextValues, ViewNode } from './viewNode';
 
-export class BranchesNode extends ViewNode<RepositoriesView | BranchesView> {
+export class BranchesNode extends ViewNode<BranchesView | RepositoriesView> {
 	static key = ':branches';
 	static getId(repoPath: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}`;
@@ -23,7 +23,7 @@ export class BranchesNode extends ViewNode<RepositoriesView | BranchesView> {
 
 	constructor(
 		uri: GitUri,
-		view: RepositoriesView | BranchesView,
+		view: BranchesView | RepositoriesView,
 		parent: ViewNode,
 		public readonly repo: Repository,
 	) {

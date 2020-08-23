@@ -1525,7 +1525,7 @@
 				"gitlens.views.branches.files.compact": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Branches_ view. Only applies when `#gitlens.views.repositories.files.layout#` is set to `tree` or `auto`",
+					"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Branches_ view. Only applies when `#gitlens.views.branches.files.layout#` is set to `tree` or `auto`",
 					"scope": "window"
 				},
 				"gitlens.views.branches.files.layout": {
@@ -1661,7 +1661,7 @@
 				"gitlens.views.history.files.compact": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _History_ view. Only applies when `#gitlens.views.repositories.files.layout#` is set to `tree` or `auto`",
+					"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _History_ view. Only applies when `#gitlens.views.history.files.layout#` is set to `tree` or `auto`",
 					"scope": "window"
 				},
 				"gitlens.views.history.files.layout": {
@@ -1939,6 +1939,54 @@
 					"type": "string",
 					"default": "${directory}${  ←  originalPath}",
 					"markdownDescription": "Specifies the description format of the status of a working or committed file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
+					"scope": "window"
+				},
+				"gitlens.views.tags.avatars": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Tags_ view",
+					"scope": "window"
+				},
+				"gitlens.views.tags.branches.layout": {
+					"type": "string",
+					"default": "tree",
+					"enum": [
+						"list",
+						"tree"
+					],
+					"enumDescriptions": [
+						"Displays branches as a list",
+						"Displays branches as a tree when branch names contain slashes `/`"
+					],
+					"markdownDescription": "Specifies how the _Tags_ view will display branches",
+					"scope": "window"
+				},
+				"gitlens.views.tags.files.compact": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Tags_ view. Only applies when `#gitlens.views.tags.files.layout#` is set to `tree` or `auto`",
+					"scope": "window"
+				},
+				"gitlens.views.tags.files.layout": {
+					"type": "string",
+					"default": "auto",
+					"enum": [
+						"auto",
+						"list",
+						"tree"
+					],
+					"enumDescriptions": [
+						"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.tags.files.threshold#` value and the number of files at each nesting level",
+						"Displays files as a list",
+						"Displays files as a tree"
+					],
+					"markdownDescription": "Specifies how the _Tags_ view will display files",
+					"scope": "window"
+				},
+				"gitlens.views.tags.files.threshold": {
+					"type": "number",
+					"default": 5,
+					"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Tags_ view. Only applies when `#gitlens.views.tags.files.layout#` is set to `auto`",
 					"scope": "window"
 				},
 				"gitlens.advanced.abbreviatedShaLength": {
@@ -3242,14 +3290,14 @@
 				"icon": "$(refresh)"
 			},
 			{
-				"command": "gitlens.views.branches.setBranchesLayoutToList",
-				"title": "Toggle Branch Layout (Tree)",
+				"command": "gitlens.views.branches.setLayoutToList",
+				"title": "Toggle Layout (Tree)",
 				"category": "GitLens",
 				"icon": "$(list-tree)"
 			},
 			{
-				"command": "gitlens.views.branches.setBranchesLayoutToTree",
-				"title": "Toggle Branch Layout (List)",
+				"command": "gitlens.views.branches.setLayoutToTree",
+				"title": "Toggle Layout (List)",
 				"category": "GitLens",
 				"icon": "$(list-flat)"
 			},
@@ -3601,6 +3649,60 @@
 			},
 			{
 				"command": "gitlens.views.search.setShowAvatarsOff",
+				"title": "Hide Avatars",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.tags.copy",
+				"title": "Copy",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.tags.refresh",
+				"title": "Refresh",
+				"category": "GitLens",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "gitlens.views.tags.setLayoutToList",
+				"title": "Toggle Layout (Tree)",
+				"category": "GitLens",
+				"icon": "$(list-tree)"
+			},
+			{
+				"command": "gitlens.views.tags.setLayoutToTree",
+				"title": "Toggle Layout (List)",
+				"category": "GitLens",
+				"icon": "$(list-flat)"
+			},
+			{
+				"command": "gitlens.views.tags.setFilesLayoutToAuto",
+				"title": "Toggle File Layout (Tree)",
+				"category": "GitLens",
+				"icon": "$(list-tree)"
+			},
+			{
+				"command": "gitlens.views.tags.setFilesLayoutToList",
+				"title": "Toggle File Layout (Auto)",
+				"category": "GitLens",
+				"icon": {
+					"dark": "images/dark/icon-view-auto.svg",
+					"light": "images/light/icon-view-auto.svg"
+				}
+			},
+			{
+				"command": "gitlens.views.tags.setFilesLayoutToTree",
+				"title": "Toggle File Layout (List)",
+				"category": "GitLens",
+				"icon": "$(list-flat)"
+			},
+			{
+				"command": "gitlens.views.tags.setShowAvatarsOn",
+				"title": "Show Avatars",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.tags.setShowAvatarsOff",
 				"title": "Hide Avatars",
 				"category": "GitLens"
 			},
@@ -4279,11 +4381,11 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.branches.setBranchesLayoutToList",
+					"command": "gitlens.views.branches.setLayoutToList",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.branches.setBranchesLayoutToTree",
+					"command": "gitlens.views.branches.setLayoutToTree",
 					"when": "false"
 				},
 				{
@@ -4516,6 +4618,42 @@
 				},
 				{
 					"command": "gitlens.views.search.setShowAvatarsOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.tags.copy",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.tags.refresh",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.tags.setLayoutToList",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.tags.setLayoutToTree",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.tags.setFilesLayoutToAuto",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.tags.setFilesLayoutToList",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.tags.setFilesLayoutToTree",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.tags.setShowAvatarsOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.tags.setShowAvatarsOff",
 					"when": "false"
 				},
 				{
@@ -5151,12 +5289,12 @@
 					"group": "9_gitlens@-1"
 				},
 				{
-					"command": "gitlens.views.branches.setBranchesLayoutToList",
+					"command": "gitlens.views.branches.setLayoutToList",
 					"when": "view =~ /gitlens\\.views\\.branches/ && config.gitlens.views.branches.branches.layout == tree",
 					"group": "navigation@1"
 				},
 				{
-					"command": "gitlens.views.branches.setBranchesLayoutToTree",
+					"command": "gitlens.views.branches.setLayoutToTree",
 					"when": "view =~ /gitlens\\.views\\.branches/ && config.gitlens.views.branches.branches.layout == list",
 					"group": "navigation@1"
 				},
@@ -5218,6 +5356,46 @@
 				{
 					"command": "gitlens.views.history.setShowAvatarsOff",
 					"when": "view =~ /^gitlens\\.views\\.history/ && config.gitlens.views.history.avatars",
+					"group": "1_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.tags.setLayoutToList",
+					"when": "view =~ /gitlens\\.views\\.tags/ && config.gitlens.views.tags.branches.layout == tree",
+					"group": "navigation@1"
+				},
+				{
+					"command": "gitlens.views.tags.setLayoutToTree",
+					"when": "view =~ /gitlens\\.views\\.tags/ && config.gitlens.views.tags.branches.layout == list",
+					"group": "navigation@1"
+				},
+				{
+					"command": "gitlens.views.tags.setFilesLayoutToList",
+					"when": "view =~ /^gitlens\\.views\\.tags/ && config.gitlens.views.tags.files.layout == auto",
+					"group": "navigation@13"
+				},
+				{
+					"command": "gitlens.views.tags.setFilesLayoutToTree",
+					"when": "view =~ /^gitlens\\.views\\.tags/ && config.gitlens.views.tags.files.layout == list",
+					"group": "navigation@13"
+				},
+				{
+					"command": "gitlens.views.tags.setFilesLayoutToAuto",
+					"when": "view =~ /^gitlens\\.views\\.tags/ && config.gitlens.views.tags.files.layout == tree",
+					"group": "navigation@13"
+				},
+				{
+					"command": "gitlens.views.tags.refresh",
+					"when": "view =~ /^gitlens\\.views\\.tags/",
+					"group": "navigation@99"
+				},
+				{
+					"command": "gitlens.views.tags.setShowAvatarsOn",
+					"when": "view =~ /^gitlens\\.views\\.tags/ && !config.gitlens.views.tags.avatars",
+					"group": "1_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.tags.setShowAvatarsOff",
+					"when": "view =~ /^gitlens\\.views\\.tags/ && config.gitlens.views.tags.avatars",
 					"group": "1_gitlens@0"
 				}
 			],

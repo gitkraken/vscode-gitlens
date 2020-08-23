@@ -46,6 +46,7 @@ import { PageableViewNode, ViewNode } from './nodes';
 import { RepositoriesView } from './repositoriesView';
 import { SearchView } from './searchView';
 import { debug, Functions, log, Promises, Strings } from '../system';
+import { TagsView } from './tagsView';
 
 export type View =
 	| BranchesView
@@ -54,8 +55,9 @@ export type View =
 	| HistoryView
 	| LineHistoryView
 	| RepositoriesView
-	| SearchView;
-export type ViewsWithFiles = BranchesView | CompareView | HistoryView | RepositoriesView | SearchView;
+	| SearchView
+	| TagsView;
+export type ViewsWithFiles = BranchesView | CompareView | HistoryView | RepositoriesView | SearchView | TagsView;
 
 export interface TreeViewNodeStateChangeEvent<T> extends TreeViewExpansionEvent<T> {
 	state: TreeItemCollapsibleState;

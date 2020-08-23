@@ -551,6 +551,9 @@ export interface StashesViewConfig {
 
 export interface TagsViewConfig {
 	avatars: boolean;
+	branches: {
+		layout: ViewBranchesLayout;
+	};
 	files: ViewsFilesConfig;
 }
 

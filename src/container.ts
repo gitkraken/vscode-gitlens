@@ -30,6 +30,7 @@ import { HistoryView } from './views/historyView';
 import { LineHistoryView } from './views/lineHistoryView';
 import { RepositoriesView } from './views/repositoriesView';
 import { SearchView } from './views/searchView';
+import { TagsView } from './views/tagsView';
 import { ViewCommands } from './views/viewCommands';
 import { VslsController } from './vsls/vsls';
 import { RebaseEditorProvider } from './webviews/rebaseEditor';
@@ -66,6 +67,7 @@ export class Container {
 
 		context.subscriptions.push((this._branchesView = new BranchesView()));
 		context.subscriptions.push((this._historyView = new HistoryView()));
+		context.subscriptions.push((this._tagsView = new TagsView()));
 
 		if (config.views.compare.enabled) {
 			context.subscriptions.push((this._compareView = new CompareView()));
@@ -310,6 +312,15 @@ export class Container {
 	private static _statusBarController: StatusBarController;
 	static get statusBar() {
 		return this._statusBarController;
+	}
+
+	private static _tagsView: TagsView | undefined;
+	static get tagsView() {
+		if (this._tagsView === undefined) {
+			this._context.subscriptions.push((this._tagsView = new TagsView()));
+		}
+
+		return this._tagsView;
 	}
 
 	private static _tracker: GitDocumentTracker;

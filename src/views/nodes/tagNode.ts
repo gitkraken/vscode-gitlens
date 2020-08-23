@@ -13,14 +13,15 @@ import { ContextValues, PageableViewNode, ViewNode, ViewRefNode } from './viewNo
 import { emojify } from '../../emojis';
 import { RepositoryNode } from './repositoryNode';
 import { GlyphChars } from '../../constants';
+import { TagsView } from '../tagsView';
 
-export class TagNode extends ViewRefNode<RepositoriesView, GitTagReference> implements PageableViewNode {
+export class TagNode extends ViewRefNode<TagsView | RepositoriesView, GitTagReference> implements PageableViewNode {
 	static key = ':tag';
 	static getId(repoPath: string, name: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${name})`;
 	}
 
-	constructor(uri: GitUri, view: RepositoriesView, parent: ViewNode, public readonly tag: GitTag) {
+	constructor(uri: GitUri, view: TagsView | RepositoriesView, parent: ViewNode, public readonly tag: GitTag) {
 		super(uri, view, parent);
 	}
 

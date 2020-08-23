@@ -39,7 +39,7 @@ import { debug, gate } from '../system';
 import { ViewBase } from './viewBase';
 
 export class BranchesRepositoryNode extends SubscribeableViewNode<BranchesView> {
-	private child: ViewNode | undefined;
+	private child: BranchesNode | undefined;
 
 	constructor(
 		uri: GitUri,
@@ -169,13 +169,13 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 		);
 		commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this);
 		commands.registerCommand(
-			this.getQualifiedCommand('setBranchesLayoutToList'),
-			() => this.setBranchesLayout(ViewBranchesLayout.List),
+			this.getQualifiedCommand('setLayoutToList'),
+			() => this.setLayout(ViewBranchesLayout.List),
 			this,
 		);
 		commands.registerCommand(
-			this.getQualifiedCommand('setBranchesLayoutToTree'),
-			() => this.setBranchesLayout(ViewBranchesLayout.Tree),
+			this.getQualifiedCommand('setLayoutToTree'),
+			() => this.setLayout(ViewBranchesLayout.Tree),
 			this,
 		);
 		commands.registerCommand(
@@ -389,7 +389,7 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 		);
 	}
 
-	private setBranchesLayout(layout: ViewBranchesLayout) {
+	private setLayout(layout: ViewBranchesLayout) {
 		return configuration.updateEffective('views', this.configKey, 'branches', 'layout', layout);
 	}
 

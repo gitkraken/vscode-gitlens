@@ -1,23 +1,24 @@
 'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
+import { MessageNode } from './common';
 import { ViewBranchesLayout } from '../../configuration';
 import { Repository } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { Arrays } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
-import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
-import { MessageNode } from './common';
-import { TagNode } from './tagNode';
-import { ContextValues, ViewNode } from './viewNode';
 import { RepositoryNode } from './repositoryNode';
+import { Arrays } from '../../system';
+import { TagNode } from './tagNode';
+import { TagsView } from '../tagsView';
+import { ContextValues, ViewNode } from './viewNode';
 
-export class TagsNode extends ViewNode<RepositoriesView> {
+export class TagsNode extends ViewNode<TagsView | RepositoriesView> {
 	static key = ':tags';
 	static getId(repoPath: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}`;
 	}
 
-	constructor(uri: GitUri, view: RepositoriesView, parent: ViewNode, public readonly repo: Repository) {
+	constructor(uri: GitUri, view: TagsView | RepositoriesView, parent: ViewNode, public readonly repo: Repository) {
 		super(uri, view, parent);
 	}
 
