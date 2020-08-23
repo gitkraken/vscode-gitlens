@@ -174,10 +174,7 @@ export namespace Arrays {
 
 		if (!isRoot && children.length === 1) {
 			const child = children[0];
-			if (
-				root.value === undefined &&
-				(child.value === undefined || canCompact === undefined || canCompact(child.value))
-			) {
+			if (child.value === undefined || canCompact?.(child.value)) {
 				root.name = joinPath(root.name, child.name);
 				root.relativePath = child.relativePath;
 				root.children = child.children;
