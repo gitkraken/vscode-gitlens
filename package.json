@@ -5352,17 +5352,17 @@
 			"view/title": [
 				{
 					"command": "gitlens.pushRepositories",
-					"when": "gitlens:hasRemotes && !gitlens:readonly && view =~ /^gitlens\\.views\\.(repositories|history):/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && view =~ /^gitlens\\.views\\.(repositories:|history)/",
 					"group": "navigation@10"
 				},
 				{
 					"command": "gitlens.pullRepositories",
-					"when": "gitlens:hasRemotes && !gitlens:readonly && view =~ /^gitlens\\.views\\.(repositories|history):/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && view =~ /^gitlens\\.views\\.(repositories:|history)/",
 					"group": "navigation@11"
 				},
 				{
 					"command": "gitlens.fetchRepositories",
-					"when": "gitlens:hasRemotes && !gitlens:readonly && view =~ /^gitlens\\.views\\.(repositories|history):/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && view =~ /^gitlens\\.views\\.(repositories:|history)/",
 					"group": "navigation@12"
 				},
 				{
