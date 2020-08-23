@@ -48,10 +48,12 @@ import { RepositoriesView } from './repositoriesView';
 import { SearchView } from './searchView';
 import { debug, Functions, log, Promises, Strings } from '../system';
 import { TagsView } from './tagsView';
+import { ContributorsView } from './contributorsView';
 
 export type View =
 	| BranchesView
 	| CompareView
+	| ContributorsView
 	| FileHistoryView
 	| HistoryView
 	| LineHistoryView
@@ -62,6 +64,7 @@ export type View =
 export type ViewsWithFiles =
 	| BranchesView
 	| CompareView
+	| ContributorsView
 	| HistoryView
 	| RemotesView
 	| RepositoriesView

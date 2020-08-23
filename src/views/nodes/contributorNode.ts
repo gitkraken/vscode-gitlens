@@ -1,19 +1,20 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { CommitNode } from './commitNode';
+import { MessageNode, ShowMoreNode } from './common';
+import { GlyphChars } from '../../constants';
+import { Container } from '../../container';
+import { ContributorsView } from '../contributorsView';
 import { GitContributor, GitLog } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { debug, gate, Iterables, Strings } from '../../system';
-import { RepositoriesView } from '../repositoriesView';
-import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
-import { Container } from '../../container';
-import { MessageNode, ShowMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
-import { CommitNode } from './commitNode';
-import { GlyphChars } from '../../constants';
+import { RepositoriesView } from '../repositoriesView';
 import { RepositoryNode } from './repositoryNode';
+import { debug, gate, Iterables, Strings } from '../../system';
+import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
 import { ContactPresence } from '../../vsls/vsls';
 
-export class ContributorNode extends ViewNode<RepositoriesView> implements PageableViewNode {
+export class ContributorNode extends ViewNode<ContributorsView | RepositoriesView> implements PageableViewNode {
 	static key = ':contributor';
 	static getId(repoPath: string, name: string, email: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${name}|${email})`;
@@ -21,7 +22,7 @@ export class ContributorNode extends ViewNode<RepositoriesView> implements Pagea
 
 	constructor(
 		uri: GitUri,
-		view: RepositoriesView,
+		view: ContributorsView | RepositoriesView,
 		parent: ViewNode,
 		public readonly contributor: GitContributor,
 		private readonly _presenceMap: Map<string, ContactPresence> | undefined,

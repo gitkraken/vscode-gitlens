@@ -1,22 +1,28 @@
 'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { MessageNode } from './common';
+import { Container } from '../../container';
+import { ContributorNode } from './contributorNode';
+import { ContributorsView } from '../contributorsView';
 import { GitContributor, Repository } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { RepositoriesView } from '../repositoriesView';
-import { MessageNode } from './common';
-import { ContributorNode } from './contributorNode';
-import { ContextValues, ViewNode } from './viewNode';
-import { Container } from '../../container';
 import { RepositoryNode } from './repositoryNode';
+import { RepositoriesView } from '../repositoriesView';
 import { debug, timeout } from '../../system';
+import { ContextValues, ViewNode } from './viewNode';
 
-export class ContributorsNode extends ViewNode<RepositoriesView> {
+export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesView> {
 	static key = ':contributors';
 	static getId(repoPath: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}`;
 	}
 
-	constructor(uri: GitUri, view: RepositoriesView, parent: ViewNode, public readonly repo: Repository) {
+	constructor(
+		uri: GitUri,
+		view: ContributorsView | RepositoriesView,
+		parent: ViewNode,
+		public readonly repo: Repository,
+	) {
 		super(uri, view, parent);
 	}
 
