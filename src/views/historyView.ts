@@ -24,6 +24,7 @@ import {
 	BranchesNode,
 	BranchNode,
 	BranchOrTagFolderNode,
+	CompareBranchNode,
 	ContextValues,
 	MessageNode,
 	RemoteNode,
@@ -38,7 +39,7 @@ import { debug, gate } from '../system';
 import { ViewBase } from './viewBase';
 
 export class HistoryRepositoryNode extends SubscribeableViewNode<HistoryView> {
-	private children: BranchNode[] | undefined;
+	private children: (BranchNode | CompareBranchNode)[] | undefined;
 
 	constructor(
 		uri: GitUri,
@@ -62,6 +63,10 @@ export class HistoryRepositoryNode extends SubscribeableViewNode<HistoryView> {
 					showTracking: true,
 				}),
 			];
+
+			if (this.view.config.showBranchComparison !== false) {
+				this.children.push(new CompareBranchNode(this.uri, this.view, this, branch));
+			}
 
 			void this.ensureSubscription();
 		}

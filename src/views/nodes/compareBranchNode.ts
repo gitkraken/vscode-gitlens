@@ -1,19 +1,20 @@
 'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { BranchComparison, BranchComparisons, GlyphChars, WorkspaceState } from '../../constants';
-import { ContextValues, ViewNode } from './viewNode';
-import { RepositoriesView } from '../repositoriesView';
+import { ViewShowBranchComparison } from '../../config';
+import { Container } from '../../container';
 import { GitBranch, GitRevision } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { HistoryView } from '../historyView';
 import { CommandQuickPickItem, ReferencePicker } from '../../quickpicks';
-import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
-import { Container } from '../../container';
-import { debug, gate, log, Strings } from '../../system';
-import { FilesQueryResults, ResultsFilesNode } from './resultsFilesNode';
-import { ViewShowBranchComparison } from '../../config';
+import { RepositoriesView } from '../repositoriesView';
 import { RepositoryNode } from './repositoryNode';
+import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
+import { FilesQueryResults, ResultsFilesNode } from './resultsFilesNode';
+import { debug, gate, log, Strings } from '../../system';
+import { ContextValues, ViewNode } from './viewNode';
 
-export class CompareBranchNode extends ViewNode<RepositoriesView> {
+export class CompareBranchNode extends ViewNode<HistoryView | RepositoriesView> {
 	static key = ':compare-branch';
 	static getId(repoPath: string, name: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${name})`;
@@ -22,7 +23,12 @@ export class CompareBranchNode extends ViewNode<RepositoriesView> {
 	private _children: ViewNode[] | undefined;
 	private _compareWith: BranchComparison | undefined;
 
-	constructor(uri: GitUri, view: RepositoriesView, parent: ViewNode, public readonly branch: GitBranch) {
+	constructor(
+		uri: GitUri,
+		view: HistoryView | RepositoriesView,
+		parent: ViewNode,
+		public readonly branch: GitBranch,
+	) {
 		super(uri, view, parent);
 
 		const comparisons = Container.context.workspaceState.get<BranchComparisons>(WorkspaceState.BranchComparisons);

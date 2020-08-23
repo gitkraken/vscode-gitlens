@@ -504,6 +504,7 @@ export interface HistoryViewConfig {
 	avatars: boolean;
 	branches: undefined;
 	files: ViewsFilesConfig;
+	showBranchComparison: false | ViewShowBranchComparison;
 	showTrackingBranch: boolean;
 }
 

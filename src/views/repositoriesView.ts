@@ -8,13 +8,7 @@ import {
 	ProgressLocation,
 	window,
 } from 'vscode';
-import {
-	configuration,
-	RepositoriesViewConfig,
-	ViewBranchesLayout,
-	ViewFilesLayout,
-	ViewShowBranchComparison,
-} from '../configuration';
+import { configuration, RepositoriesViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../configuration';
 import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
 import {
@@ -30,7 +24,6 @@ import {
 	BranchesNode,
 	BranchNode,
 	BranchOrTagFolderNode,
-	CompareBranchNode,
 	RemoteNode,
 	RemotesNode,
 	RepositoriesNode,
@@ -38,7 +31,6 @@ import {
 	StashesNode,
 	StashNode,
 	TagsNode,
-	ViewNode,
 } from './nodes';
 import { gate } from '../system';
 import { ViewBase } from './viewBase';
@@ -109,16 +101,6 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		);
 		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this);
 		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this);
-		commands.registerCommand(
-			this.getQualifiedCommand('setBranchComparisonToWorking'),
-			n => this.setBranchComparison(n, ViewShowBranchComparison.Working),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setBranchComparisonToBranch'),
-			n => this.setBranchComparison(n, ViewShowBranchComparison.Branch),
-			this,
-		);
 	}
 
 	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
@@ -561,12 +543,6 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		void setCommandContext(CommandContext.ViewsRepositoriesAutoRefresh, enabled && workspaceEnabled);
 
 		this._onDidChangeAutoRefresh.fire();
-	}
-
-	private setBranchComparison(node: ViewNode, comparisonType: Exclude<ViewShowBranchComparison, false>) {
-		if (!(node instanceof CompareBranchNode)) return undefined;
-
-		return node.setComparisonType(comparisonType);
 	}
 
 	private setBranchesLayout(layout: ViewBranchesLayout) {

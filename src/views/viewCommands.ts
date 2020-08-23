@@ -11,7 +11,7 @@ import {
 	OpenFileAtRevisionCommandArgs,
 	OpenFileOnRemoteCommandArgs,
 } from '../commands';
-import { FileAnnotationType } from '../config';
+import { FileAnnotationType, ViewShowBranchComparison } from '../config';
 import { BuiltInCommands, CommandContext, setCommandContext } from '../constants';
 import { Container } from '../container';
 import { GitReference, GitRevision } from '../git/git';
@@ -154,6 +154,16 @@ export class ViewCommands {
 		commands.registerCommand(
 			'gitlens.views.setComparisonToThreeDot',
 			n => this.setComparisonNotation(n, '...'),
+			this,
+		);
+		commands.registerCommand(
+			'gitlens.views.setBranchComparisonToWorking',
+			n => this.setBranchComparison(n, ViewShowBranchComparison.Working),
+			this,
+		);
+		commands.registerCommand(
+			'gitlens.views.setBranchComparisonToBranch',
+			n => this.setBranchComparison(n, ViewShowBranchComparison.Branch),
 			this,
 		);
 
@@ -427,6 +437,13 @@ export class ViewCommands {
 		if (!(node instanceof RemoteNode)) return Promise.resolve();
 
 		return node.setAsDefault();
+	}
+
+	@debug()
+	private setBranchComparison(node: ViewNode, comparisonType: Exclude<ViewShowBranchComparison, false>) {
+		if (!(node instanceof CompareBranchNode)) return undefined;
+
+		return node.setComparisonType(comparisonType);
 	}
 
 	@debug()
