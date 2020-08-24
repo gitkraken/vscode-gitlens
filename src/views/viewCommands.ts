@@ -351,22 +351,21 @@ export class ViewCommands {
 
 	@debug()
 	private pull(node: RepositoryNode | BranchNode | BranchTrackingStatusNode) {
+		if (node instanceof RepositoryNode) return GitActions.pull(node.repo);
 		if (node instanceof BranchNode || node instanceof BranchTrackingStatusNode) {
-			node = node.getParent() as RepositoryNode;
+			return GitActions.pull(node.repoPath);
 		}
-		if (!(node instanceof RepositoryNode)) return Promise.resolve();
 
-		return GitActions.pull(node.repo);
+		return Promise.resolve();
 	}
 
 	@debug()
 	private push(node: RepositoryNode | BranchNode | BranchTrackingStatusNode, force?: boolean) {
+		if (node instanceof RepositoryNode) return GitActions.push(node.repo, force);
 		if (node instanceof BranchNode || node instanceof BranchTrackingStatusNode) {
-			node = node.getParent() as RepositoryNode;
+			return GitActions.push(node.repoPath, force);
 		}
-		if (!(node instanceof RepositoryNode)) return Promise.resolve();
-
-		return GitActions.push(node.repo, force);
+		return Promise.resolve();
 	}
 
 	@debug()
