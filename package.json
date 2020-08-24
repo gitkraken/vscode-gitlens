@@ -7077,6 +7077,10 @@
 					"icon": "images/views/repositories.svg"
 				},
 				{
+					"id": "gitlens.views.history",
+					"name": "History"
+				},
+				{
 					"id": "gitlens.views.fileHistory:gitlens",
 					"name": "File History",
 					"when": "config.gitlens.views.fileHistory.enabled && config.gitlens.views.fileHistory.location == gitlens",
@@ -7092,11 +7096,27 @@
 					"visibility": "hidden"
 				},
 				{
-					"id": "gitlens.views.compare:gitlens",
-					"name": "Compare Commits",
-					"when": "config.gitlens.views.compare.enabled && config.gitlens.views.compare.location == gitlens",
-					"contextualTitle": "GitLens",
-					"icon": "images/views/compare.svg",
+					"id": "gitlens.views.branches",
+					"name": "Branches"
+				},
+				{
+					"id": "gitlens.views.remotes",
+					"name": "Remotes",
+					"visibility": "collapsed"
+				},
+				{
+					"id": "gitlens.views.tags",
+					"name": "Tags",
+					"visibility": "collapsed"
+				},
+				{
+					"id": "gitlens.views.stashes",
+					"name": "Stashes",
+					"visibility": "collapsed"
+				},
+				{
+					"id": "gitlens.views.contributors",
+					"name": "Contributors",
 					"visibility": "collapsed"
 				},
 				{
@@ -7108,28 +7128,12 @@
 					"visibility": "collapsed"
 				},
 				{
-					"id": "gitlens.views.branches",
-					"name": "Branches"
-				},
-				{
-					"id": "gitlens.views.contributors",
-					"name": "Contributors"
-				},
-				{
-					"id": "gitlens.views.history",
-					"name": "History"
-				},
-				{
-					"id": "gitlens.views.remotes",
-					"name": "Remotes"
-				},
-				{
-					"id": "gitlens.views.stashes",
-					"name": "Stashes"
-				},
-				{
-					"id": "gitlens.views.tags",
-					"name": "Tags"
+					"id": "gitlens.views.compare:gitlens",
+					"name": "Compare Commits",
+					"when": "config.gitlens.views.compare.enabled && config.gitlens.views.compare.location == gitlens",
+					"contextualTitle": "GitLens",
+					"icon": "images/views/compare.svg",
+					"visibility": "collapsed"
 				}
 			],
 			"explorer": [

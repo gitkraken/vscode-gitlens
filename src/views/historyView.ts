@@ -166,6 +166,7 @@ export class HistoryViewNode extends ViewNode<HistoryView> {
 		return item;
 	}
 }
+
 export class HistoryView extends ViewBase<HistoryViewNode, HistoryViewConfig> {
 	protected readonly configKey = 'history';
 
