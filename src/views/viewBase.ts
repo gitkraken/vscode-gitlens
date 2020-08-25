@@ -113,7 +113,18 @@ export abstract class ViewBase<TRoot extends ViewNode<View>> implements TreeData
 		this.updateTitle();
 	}
 
+	private _updateTitleDebounced: (() => void) | undefined = undefined;
 	private updateTitle() {
+		if (this._tree == null) return;
+
+		if (this._updateTitleDebounced === undefined) {
+			this._updateTitleDebounced = Functions.debounce(this.updateTitleCore.bind(this), 100);
+		}
+
+		this._updateTitleDebounced();
+	}
+
+	private updateTitleCore() {
 		if (this._tree == null) return;
 
 		this._tree.title = `${this.title}${this.titleContext ? ` ${GlyphChars.Dot} ${this.titleContext}` : ''}${

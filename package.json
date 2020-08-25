@@ -3182,15 +3182,15 @@
 			},
 			{
 				"command": "gitlens.views.fileHistory.setCursorFollowingOn",
-				"title": "Follow the Cursor",
+				"title": "Toggle Mode (File)",
 				"category": "GitLens",
-				"icon": "$(eye)"
+				"icon": "$(file)"
 			},
 			{
 				"command": "gitlens.views.fileHistory.setCursorFollowingOff",
-				"title": "Unfollow the Cursor",
+				"title": "Toggle Mode (Line)",
 				"category": "GitLens",
-				"icon": "$(eye-closed)"
+				"icon": "$(list-selection)"
 			},
 			{
 				"command": "gitlens.views.fileHistory.setRenameFollowingOn",
