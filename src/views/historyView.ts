@@ -116,7 +116,12 @@ export class HistoryRepositoryNode extends SubscribeableViewNode<HistoryView> {
 			return;
 		}
 
-		if (e.changed(RepositoryChange.Index) || e.changed(RepositoryChange.Heads)) {
+		if (
+			e.changed(RepositoryChange.Config) ||
+			e.changed(RepositoryChange.Index) ||
+			e.changed(RepositoryChange.Heads) ||
+			e.changed(RepositoryChange.Remotes)
+		) {
 			void this.triggerChange(true);
 			if (this.root) {
 				void this.parent?.triggerChange(true);
@@ -153,8 +158,10 @@ export class HistoryViewNode extends ViewNode<HistoryView> {
 
 			const branch = await child.repo.getBranch();
 			const status = branch?.getTrackingStatus();
-			this.view.titleContext =
-				branch != null ? `${branch.name}${status ? ` ${GlyphChars.Dot} ${status}` : ''}` : undefined;
+			this.view.title =
+				branch != null
+					? `${branch.name} Branch ${status ? ` ${GlyphChars.Dot} ${status}` : ''}`
+					: 'Current Branch';
 
 			return child.getChildren();
 		}

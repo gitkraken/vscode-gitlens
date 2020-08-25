@@ -199,6 +199,7 @@ export class Repository implements Disposable {
 		}
 
 		if (uri.path.endsWith('.git/config')) {
+			this._branch = undefined;
 			this.resetRemotesCache();
 			this.fireChange(RepositoryChange.Config, RepositoryChange.Remotes);
 
@@ -239,6 +240,7 @@ export class Repository implements Disposable {
 
 					return;
 				case 'remotes':
+					this._branch = undefined;
 					this.resetRemotesCache();
 					this.fireChange(RepositoryChange.Remotes);
 

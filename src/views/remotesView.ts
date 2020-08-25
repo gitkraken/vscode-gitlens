@@ -96,7 +96,7 @@ export class RemotesRepositoryNode extends SubscribeableViewNode<RemotesView> {
 			return;
 		}
 
-		if (e.changed(RepositoryChange.Remotes)) {
+		if (e.changed(RepositoryChange.Config) || e.changed(RepositoryChange.Remotes)) {
 			void this.triggerChange(true);
 			if (this.root) {
 				void this.parent?.triggerChange(true);

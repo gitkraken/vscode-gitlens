@@ -69,7 +69,7 @@ export class ContributorsRepositoryNode extends SubscribeableViewNode<Contributo
 			return;
 		}
 
-		if (e.changed(RepositoryChange.Heads)) {
+		if (e.changed(RepositoryChange.Config) || e.changed(RepositoryChange.Heads)) {
 			void this.triggerChange(true);
 			if (this.root) {
 				void this.parent?.triggerChange(true);
