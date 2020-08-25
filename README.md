@@ -435,7 +435,7 @@ The compare view provides the following features,
   - **\* Files Changed** &mdash; lists all of the files changed between the compared revisions
     - Expands to a file-based view of all changed files in the working tree ([optionally](#compare-view-settings- 'Jump to the Compare view settings')) and/or all files in all commits ahead of the upstream
   - Results can be provided by the following commands
-    - _Compare with Remote_ command (`gitlens.views.compareWithRemote`)
+    - _Compare with Upstream_ command (`gitlens.views.compareWithUpstream`)
     - _Compare with HEAD_ command (`gitlens.views.compareWithHead`)
     - _Compare with Working Tree_ command (`gitlens.views.compareWithWorking`)
     - _Compare with Selected_ command (`gitlens.views.compareWithSelected`)

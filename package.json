@@ -2930,8 +2930,8 @@
 				"icon": "$(compare-changes)"
 			},
 			{
-				"command": "gitlens.views.compareWithRemote",
-				"title": "Compare with Remote",
+				"command": "gitlens.views.compareWithUpstream",
+				"title": "Compare with Upstream",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-compare-ref-remote.svg",
@@ -3949,7 +3949,7 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.compareWithRemote",
+					"command": "gitlens.views.compareWithUpstream",
 					"when": "false"
 				},
 				{
@@ -4935,7 +4935,7 @@
 					"group": "inline@10"
 				},
 				{
-					"command": "gitlens.views.compareWithRemote",
+					"command": "gitlens.views.compareWithUpstream",
 					"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+tracking\\b)/",
 					"group": "inline@97"
 				},
@@ -5011,7 +5011,7 @@
 					"group": "2_gitlens_quickopen@2"
 				},
 				{
-					"command": "gitlens.views.compareWithRemote",
+					"command": "gitlens.views.compareWithUpstream",
 					"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+tracking\\b)/",
 					"group": "4_gitlens_compare@1"
 				},

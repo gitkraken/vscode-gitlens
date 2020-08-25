@@ -143,7 +143,7 @@ export class ViewCommands {
 
 		commands.registerCommand('gitlens.views.compareAncestryWithWorking', this.compareAncestryWithWorking, this);
 		commands.registerCommand('gitlens.views.compareWithHead', this.compareWithHead, this);
-		commands.registerCommand('gitlens.views.compareWithRemote', this.compareWithRemote, this);
+		commands.registerCommand('gitlens.views.compareWithUpstream', this.compareWithUpstream, this);
 		commands.registerCommand('gitlens.views.compareWithSelected', this.compareWithSelected, this);
 		commands.registerCommand('gitlens.views.selectForCompare', this.selectForCompare, this);
 		commands.registerCommand('gitlens.views.compareFileWithSelected', this.compareFileWithSelected, this);
@@ -507,7 +507,7 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private compareWithRemote(node: BranchNode) {
+	private compareWithUpstream(node: BranchNode) {
 		if (!(node instanceof BranchNode)) return Promise.resolve();
 		if (!node.branch.tracking) return Promise.resolve();
 
