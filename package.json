@@ -1871,7 +1871,7 @@
 				},
 				"gitlens.views.repositories.enabled": {
 					"type": "boolean",
-					"default": true,
+					"default": false,
 					"markdownDescription": "Specifies whether to show the _Repositories_ view",
 					"scope": "window"
 				},
