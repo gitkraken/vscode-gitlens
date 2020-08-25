@@ -38,7 +38,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 		this._child = undefined;
 	}
 
-	getChildren(): ViewNode[] {
+	getChildren(): ViewNode[] | Promise<ViewNode[]> {
 		if (this._child == null) {
 			if (this.uri === unknownGitUri) {
 				return [
@@ -59,7 +59,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 			this._child = new LineHistoryNode(fileUri, this.view, this, this._selection!, this._editorContents);
 		}
 
-		return [this._child];
+		return this._child.getChildren();
 	}
 
 	getTreeItem(): TreeItem {

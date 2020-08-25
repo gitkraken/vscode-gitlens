@@ -77,6 +77,14 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 			}
 		}
 
+		this.view.titleContext = `${this.uri.fileName}${
+			this.uri.sha
+				? ` ${this.uri.sha === GitRevision.deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`
+				: ''
+		}`;
+
+		void this.ensureSubscription();
+
 		if (children.length === 0) return [new MessageNode(this.view, this, 'No file history could be found.')];
 		return children;
 	}
@@ -94,6 +102,12 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 		item.description = this.uri.directory;
 		item.tooltip = `History of ${this.uri.fileName}\n${this.uri.directory}/${
 			this.uri.sha == null ? '' : `\n\n${this.uri.sha}`
+		}`;
+
+		this.view.titleContext = `${this.uri.fileName}${
+			this.uri.sha
+				? ` ${this.uri.sha === GitRevision.deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`
+				: ''
 		}`;
 
 		void this.ensureSubscription();
@@ -122,7 +136,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 
 		Logger.log(`FileHistoryNode.onRepoChanged(${e.changes.join()}); triggering node refresh`);
 
-		void this.triggerChange();
+		void (this.parent ?? this).triggerChange(true);
 	}
 
 	private onRepoFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
@@ -132,7 +146,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 			`FileHistoryNode${this.id}.onRepoFileSystemChanged(${this.uri.toString(true)}); triggering node refresh`,
 		);
 
-		void this.triggerChange();
+		void (this.parent ?? this).triggerChange(true);
 	}
 
 	@gate()
@@ -169,6 +183,9 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 
 		this._log = log;
 		this.limit = log?.count;
-		void this.triggerChange(false);
+		void (this.parent ?? this).triggerChange(false);
+		if (this.parent) {
+			this.view.triggerNodeChange(this.parent);
+		}
 	}
 }

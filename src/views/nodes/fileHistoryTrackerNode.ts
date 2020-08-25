@@ -35,7 +35,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		this._child = undefined;
 	}
 
-	getChildren(): ViewNode[] {
+	getChildren(): ViewNode[] | Promise<ViewNode[]> {
 		if (this._child == null) {
 			if (this._fileUri == null && this.uri === unknownGitUri) {
 				return [
@@ -53,7 +53,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 			this._child = new FileHistoryNode(fileUri, this.view, this);
 		}
 
-		return [this._child];
+		return this._child.getChildren();
 	}
 
 	getTreeItem(): TreeItem {

@@ -198,14 +198,25 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 			}
 		}
 
+		const lines = this.selection.isSingleLine
+			? `:${this.selection.start.line + 1}`
+			: `:${this.selection.start.line + 1}-${this.selection.end.line + 1}`;
+		this.view.titleContext = `${this.uri.fileName}${lines}${
+			this.uri.sha
+				? ` ${this.uri.sha === GitRevision.deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`
+				: ''
+		}`;
+
+		void this.ensureSubscription();
+
 		if (children.length === 0) return [new MessageNode(this.view, this, 'No line history could be found.')];
 		return children;
 	}
 
 	getTreeItem(): TreeItem {
 		const lines = this.selection.isSingleLine
-			? ` #${this.selection.start.line + 1}`
-			: ` #${this.selection.start.line + 1}-${this.selection.end.line + 1}`;
+			? `:${this.selection.start.line + 1}`
+			: `:${this.selection.start.line + 1}-${this.selection.end.line + 1}`;
 		const item = new TreeItem(
 			`${this.uri.fileName}${lines}${
 				this.uri.sha
@@ -222,7 +233,11 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 
 		void this.ensureSubscription();
 
-		this.view.titleContext = lines;
+		this.view.titleContext = `${this.uri.fileName}${lines}${
+			this.uri.sha
+				? ` ${this.uri.sha === GitRevision.deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`
+				: ''
+		}`;
 		return item;
 	}
 
@@ -247,7 +262,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 
 		Logger.log(`LineHistoryNode.onRepoChanged(${e.changes.join()}); triggering node refresh`);
 
-		void this.triggerChange();
+		void (this.parent ?? this).triggerChange();
 	}
 
 	private onRepoFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
@@ -255,7 +270,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 
 		Logger.debug(`LineHistoryNode.onRepoFileSystemChanged(${this.uri.toString(true)}); triggering node refresh`);
 
-		void this.triggerChange();
+		void (this.parent ?? this).triggerChange();
 	}
 
 	@gate()
@@ -293,6 +308,9 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 
 		this._log = log;
 		this.limit = log?.count;
-		void this.triggerChange(false);
+		void (this.parent ?? this).triggerChange(false);
+		if (this.parent) {
+			this.view.triggerNodeChange(this.parent);
+		}
 	}
 }
