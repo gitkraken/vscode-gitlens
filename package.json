@@ -2650,13 +2650,13 @@
 			},
 			{
 				"command": "gitlens.views.browseRepoAtRevision",
-				"title": "Browse Repository from Revision",
+				"title": "Browse Repository from Here",
 				"category": "GitLens",
 				"icon": "$(folder-opened)"
 			},
 			{
 				"command": "gitlens.views.browseRepoAtRevisionInNewWindow",
-				"title": "Browse Repository at Revision in New Window",
+				"title": "Browse Repository from Here in New Window",
 				"category": "GitLens",
 				"icon": "$(folder-opened)"
 			},
