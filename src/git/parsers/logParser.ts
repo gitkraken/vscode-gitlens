@@ -120,7 +120,7 @@ export class GitLogParser {
 		let renamedFileName;
 		let renamedMatch;
 
-		while (true) {
+		loop: while (true) {
 			next = lines.next();
 			if (next.done) break;
 
@@ -347,6 +347,7 @@ export class GitLogParser {
 					const commit = commits.get(entry.ref!);
 					if (commit === undefined) {
 						i++;
+						if (limit && i > limit) break loop;
 					} else if (truncationCount) {
 						// Since this matches an existing commit it will be skipped, so reduce our truncationCount to ensure accurate truncation detection
 						truncationCount--;
@@ -377,7 +378,7 @@ export class GitLogParser {
 			count: i,
 			limit: limit,
 			range: range,
-			hasMore: Boolean(truncationCount && i >= truncationCount && truncationCount !== 1),
+			hasMore: Boolean(truncationCount && i > truncationCount && truncationCount !== 1),
 		};
 		return log;
 	}

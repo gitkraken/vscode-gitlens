@@ -689,7 +689,7 @@ export namespace Git {
 			'-m',
 		];
 		if (limit && !reverse) {
-			params.push(`-n${limit}`);
+			params.push(`-n${limit + 1}`);
 		}
 
 		if (!merges) {
@@ -752,7 +752,7 @@ export namespace Git {
 		];
 
 		if (limit && !reverse) {
-			params.push(`-n${limit}`);
+			params.push(`-n${limit + 1}`);
 		}
 
 		if (skip) {
@@ -867,7 +867,7 @@ export namespace Git {
 			'--use-mailmap',
 		];
 		if (limit && !useShow) {
-			params.push(`-n${limit}`);
+			params.push(`-n${limit + 1}`);
 		}
 		if (skip && !useShow) {
 			params.push(`--skip=${skip}`);
