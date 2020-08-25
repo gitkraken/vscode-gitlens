@@ -7077,10 +7077,6 @@
 					"icon": "images/views/repositories.svg"
 				},
 				{
-					"id": "gitlens.views.history",
-					"name": "History"
-				},
-				{
 					"id": "gitlens.views.fileHistory:gitlens",
 					"name": "File History",
 					"when": "config.gitlens.views.fileHistory.enabled && config.gitlens.views.fileHistory.location == gitlens",
@@ -7094,30 +7090,6 @@
 					"contextualTitle": "GitLens",
 					"icon": "images/views/history.svg",
 					"visibility": "hidden"
-				},
-				{
-					"id": "gitlens.views.branches",
-					"name": "Branches"
-				},
-				{
-					"id": "gitlens.views.remotes",
-					"name": "Remotes",
-					"visibility": "collapsed"
-				},
-				{
-					"id": "gitlens.views.tags",
-					"name": "Tags",
-					"visibility": "collapsed"
-				},
-				{
-					"id": "gitlens.views.stashes",
-					"name": "Stashes",
-					"visibility": "collapsed"
-				},
-				{
-					"id": "gitlens.views.contributors",
-					"name": "Contributors",
-					"visibility": "collapsed"
 				},
 				{
 					"id": "gitlens.views.search:gitlens",
@@ -7185,6 +7157,12 @@
 					"icon": "images/views/repositories.svg"
 				},
 				{
+					"id": "gitlens.views.history",
+					"name": "Current Branch",
+					"contextualTitle": "GitLens",
+					"icon": "images/views/history.svg"
+				},
+				{
 					"id": "gitlens.views.fileHistory:scm",
 					"name": "File History",
 					"when": "gitlens:enabled && config.gitlens.views.fileHistory.enabled && config.gitlens.views.fileHistory.location == scm",
@@ -7198,6 +7176,35 @@
 					"contextualTitle": "GitLens",
 					"icon": "images/views/history.svg",
 					"visibility": "hidden"
+				},
+				{
+					"id": "gitlens.views.branches",
+					"name": "Branches",
+					"contextualTitle": "GitLens"
+				},
+				{
+					"id": "gitlens.views.remotes",
+					"name": "Remotes",
+					"contextualTitle": "GitLens",
+					"visibility": "collapsed"
+				},
+				{
+					"id": "gitlens.views.tags",
+					"name": "Tags",
+					"contextualTitle": "GitLens",
+					"visibility": "collapsed"
+				},
+				{
+					"id": "gitlens.views.stashes",
+					"name": "Stashes",
+					"contextualTitle": "GitLens",
+					"visibility": "collapsed"
+				},
+				{
+					"id": "gitlens.views.contributors",
+					"name": "Contributors",
+					"contextualTitle": "GitLens",
+					"visibility": "collapsed"
 				},
 				{
 					"id": "gitlens.views.compare:scm",
