@@ -74,13 +74,16 @@ export class CommitsRepositoryNode extends SubscribeableViewNode<CommitsView> {
 		this.splatted = false;
 		void this.ensureSubscription();
 
+		const branch = await this.repo.getBranch();
+
 		const item = new TreeItem(
 			this.repo.formattedName ?? this.uri.repoPath ?? '',
-			TreeItemCollapsibleState.Expanded,
+			(branch?.state.ahead ?? 0) > 0 || (branch?.state.behind ?? 0) > 0
+				? TreeItemCollapsibleState.Expanded
+				: TreeItemCollapsibleState.Collapsed,
 		);
 		item.contextValue = ContextValues.RepositoryFolder;
 
-		const branch = await this.repo.getBranch();
 		if (branch != null) {
 			const status = branch?.getTrackingStatus();
 			item.description = `${branch.name}${status ? ` ${GlyphChars.Dot} ${status}` : ''}`;
