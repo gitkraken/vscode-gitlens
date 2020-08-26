@@ -2991,6 +2991,15 @@
 				}
 			},
 			{
+				"command": "gitlens.views.switchToAnotherBranch",
+				"title": "Switch to Another Branch",
+				"category": "GitLens",
+				"icon": {
+					"dark": "images/dark/icon-checkout.svg",
+					"light": "images/light/icon-checkout.svg"
+				}
+			},
+			{
 				"command": "gitlens.views.switchToBranch",
 				"title": "Switch to Branch",
 				"category": "GitLens",
@@ -4372,6 +4381,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.switchToAnotherBranch",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.switchToBranch",
 					"when": "false"
 				},
@@ -5393,19 +5406,24 @@
 					"group": "navigation@12"
 				},
 				{
+					"command": "gitlens.views.switchToAnotherBranch",
+					"when": "!gitlens:readonly && view =~ /^gitlens\\.views\\.commits/",
+					"group": "navigation@13"
+				},
+				{
 					"command": "gitlens.views.repositories.setFilesLayoutToList",
 					"when": "view =~ /^gitlens\\.views\\.repositories:/ && config.gitlens.views.repositories.files.layout == auto",
-					"group": "navigation@13"
+					"group": "navigation@14"
 				},
 				{
 					"command": "gitlens.views.repositories.setFilesLayoutToTree",
 					"when": "view =~ /^gitlens\\.views\\.repositories:/ && config.gitlens.views.repositories.files.layout == list",
-					"group": "navigation@13"
+					"group": "navigation@14"
 				},
 				{
 					"command": "gitlens.views.repositories.setFilesLayoutToAuto",
 					"when": "view =~ /^gitlens\\.views\\.repositories:/ && config.gitlens.views.repositories.files.layout == tree",
-					"group": "navigation@13"
+					"group": "navigation@14"
 				},
 				{
 					"command": "gitlens.views.repositories.refresh",
@@ -5911,8 +5929,13 @@
 					"group": "inline@9"
 				},
 				{
+					"command": "gitlens.views.switchToAnotherBranch",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)/",
+					"group": "inline@10"
+				},
+				{
 					"command": "gitlens.views.switchToBranch",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b/",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
 					"group": "inline@10"
 				},
 				{
@@ -5942,8 +5965,13 @@
 					"group": "inline@99"
 				},
 				{
+					"command": "gitlens.views.switchToAnotherBranch",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)/",
+					"group": "1_gitlens_actions@1"
+				},
+				{
 					"command": "gitlens.views.switchToBranch",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b/",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
 					"group": "1_gitlens_actions@1"
 				},
 				{

@@ -131,6 +131,7 @@ export class ViewCommands {
 		commands.registerCommand('gitlens.views.highlightRevisionChanges', this.highlightRevisionChanges, this);
 		commands.registerCommand('gitlens.views.restore', this.restore, this);
 		commands.registerCommand('gitlens.views.switchToBranch', this.switch, this);
+		commands.registerCommand('gitlens.views.switchToAnotherBranch', this.switch, this);
 		commands.registerCommand('gitlens.views.switchToCommit', this.switch, this);
 		commands.registerCommand('gitlens.views.switchToTag', this.switch, this);
 		commands.registerCommand('gitlens.views.addRemote', this.addRemote, this);
@@ -477,7 +478,11 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private switch(node: ViewRefNode) {
+	private switch(node?: ViewRefNode) {
+		if (node == null) {
+			return GitActions.switchTo(Container.git.getHighlanderRepoPath());
+		}
+
 		if (!(node instanceof ViewRefNode)) return Promise.resolve();
 
 		return GitActions.switchTo(
