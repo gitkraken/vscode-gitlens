@@ -31,6 +31,7 @@ export class BranchNode
 		showCurrent: boolean;
 		showTracking: boolean;
 	};
+	protected splatted = true;
 
 	constructor(
 		uri: GitUri,
@@ -145,6 +146,8 @@ export class BranchNode
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
+		this.splatted = false;
+
 		const name = this.label;
 		let tooltip = `${this.branch.getNameWithoutRemote()}${this.current ? ' (current)' : ''}`;
 		let iconSuffix = '';
@@ -251,7 +254,6 @@ export class BranchNode
 	async unstar() {
 		await this.branch.unstar();
 		void this.view.refresh(true);
-		// void this.parent!.triggerChange();
 	}
 
 	@gate()

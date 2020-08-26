@@ -14,8 +14,9 @@ import { ContextValues, SubscribeableViewNode, unknownGitUri, ViewNode } from '.
 
 export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryView> {
 	private _base: string | undefined;
-	private _fileUri: GitUri | undefined;
 	private _child: FileHistoryNode | undefined;
+	private _fileUri: GitUri | undefined;
+	protected splatted = true;
 
 	constructor(view: FileHistoryView) {
 		super(unknownGitUri, view);
@@ -57,6 +58,8 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	}
 
 	getTreeItem(): TreeItem {
+		this.splatted = false;
+
 		const item = new TreeItem('File History', TreeItemCollapsibleState.Expanded);
 		item.contextValue = ContextValues.ActiveFileHistory;
 

@@ -19,6 +19,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 	private _child: LineHistoryNode | undefined;
 	private _editorContents: string | undefined;
 	private _selection: Selection | undefined;
+	protected splatted = true;
 
 	constructor(view: LineHistoryView | FileHistoryView) {
 		super(unknownGitUri, view);
@@ -63,6 +64,8 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 	}
 
 	getTreeItem(): TreeItem {
+		this.splatted = false;
+
 		const item = new TreeItem('Line History', TreeItemCollapsibleState.Expanded);
 		item.contextValue = ContextValues.ActiveLineHistory;
 

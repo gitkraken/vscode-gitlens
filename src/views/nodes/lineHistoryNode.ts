@@ -18,7 +18,7 @@ import { insertDateMarkers } from './helpers';
 import { Logger } from '../../logger';
 import { LineHistoryTrackerNode } from './lineHistoryTrackerNode';
 import { RepositoryNode } from './repositoryNode';
-import { debug, gate, Iterables } from '../../system';
+import { debug, gate, Iterables, memoize } from '../../system';
 import { View } from '../viewBase';
 import { ContextValues, PageableViewNode, SubscribeableViewNode, ViewNode } from './viewNode';
 
@@ -29,6 +29,8 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 			selection.start.character
 		}-${selection.end.line},${selection.end.character}])`;
 	}
+
+	protected splatted = true;
 
 	constructor(
 		uri: GitUri,
@@ -49,6 +51,12 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
+		void this.ensureSubscription();
+
+		this.view.titleDescription = `${this.label}${
+			this.parent instanceof LineHistoryTrackerNode && !this.parent.followingEditor ? ' (pinned)' : ''
+		}`;
+
 		const children: ViewNode[] = [];
 
 		let selection = this.selection;
@@ -199,47 +207,42 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 			}
 		}
 
-		const lines = this.selection.isSingleLine
-			? `:${this.selection.start.line + 1}`
-			: `:${this.selection.start.line + 1}-${this.selection.end.line + 1}`;
-		this.view.titleDescription = `${this.uri.fileName}${lines}${
-			this.uri.sha
-				? ` ${this.uri.sha === GitRevision.deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`
-				: ''
-		}${this.parent instanceof LineHistoryTrackerNode && !this.parent.followingEditor ? ' (pinned)' : ''}`;
-
-		void this.ensureSubscription();
-
 		if (children.length === 0) return [new MessageNode(this.view, this, 'No line history could be found.')];
 		return children;
 	}
 
 	getTreeItem(): TreeItem {
-		const lines = this.selection.isSingleLine
-			? `:${this.selection.start.line + 1}`
-			: `:${this.selection.start.line + 1}-${this.selection.end.line + 1}`;
-		const item = new TreeItem(
-			`${this.uri.fileName}${lines}${
-				this.uri.sha
-					? ` ${this.uri.sha === GitRevision.deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`
-					: ''
-			}`,
-			TreeItemCollapsibleState.Expanded,
-		);
-		item.contextValue = ContextValues.LineHistory;
-		item.description = this.uri.directory;
-		item.tooltip = `History of ${this.uri.fileName}${lines}\n${this.uri.directory}/${
-			this.uri.sha == null ? '' : `\n\n${this.uri.sha}`
-		}${this.parent instanceof LineHistoryTrackerNode && !this.parent.followingEditor ? ' (pinned)' : ''}`;
-
+		this.splatted = false;
 		void this.ensureSubscription();
 
-		this.view.titleDescription = `${this.uri.fileName}${lines}${
+		const label = this.label;
+		const item = new TreeItem(label, TreeItemCollapsibleState.Expanded);
+		item.contextValue = ContextValues.LineHistory;
+		item.description = this.uri.directory;
+		item.tooltip = `History of ${this.uri.fileName}${this.lines}\n${this.uri.directory}/${
+			this.uri.sha == null ? '' : `\n\n${this.uri.sha}`
+		}`;
+
+		this.view.titleDescription = `${label}${
+			this.parent instanceof LineHistoryTrackerNode && !this.parent.followingEditor ? ' (pinned)' : ''
+		}`;
+
+		return item;
+	}
+
+	get label() {
+		return `${this.uri.fileName}${this.lines}${
 			this.uri.sha
 				? ` ${this.uri.sha === GitRevision.deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`
 				: ''
 		}`;
-		return item;
+	}
+
+	@memoize()
+	get lines() {
+		return this.selection.isSingleLine
+			? `:${this.selection.start.line + 1}`
+			: `:${this.selection.start.line + 1}-${this.selection.end.line + 1}`;
 	}
 
 	@debug()
@@ -261,17 +264,17 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 	private onRepoChanged(e: RepositoryChangeEvent) {
 		if (!e.changed(RepositoryChange.Heads)) return;
 
-		Logger.log(`LineHistoryNode.onRepoChanged(${e.changes.join()}); triggering node refresh`);
+		Logger.debug(`LineHistoryNode.onRepoChanged(${e.changes.join()}); triggering node refresh`);
 
-		void (this.parent ?? this).triggerChange();
+		void this.triggerChange();
 	}
 
 	private onRepoFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
-		if (!e.uris.some(uri => uri.toString(true) === this.uri.toString(true))) return;
+		if (!e.uris.some(uri => uri.toString() === this.uri.toString())) return;
 
 		Logger.debug(`LineHistoryNode.onRepoFileSystemChanged(${this.uri.toString(true)}); triggering node refresh`);
 
-		void (this.parent ?? this).triggerChange();
+		void this.triggerChange();
 	}
 
 	@gate()
@@ -309,9 +312,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 
 		this._log = log;
 		this.limit = log?.count;
-		void (this.parent ?? this).triggerChange(false);
-		if (this.parent) {
-			this.view.triggerNodeChange(this.parent);
-		}
+		// Needs to force if splatted, since the parent node will cancel the refresh (since it thinks nothing changed)
+		void this.triggerChange(false, this.splatted);
 	}
 }

@@ -25,6 +25,8 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${uri})`;
 	}
 
+	protected splatted = true;
+
 	constructor(uri: GitUri, view: View, parent: ViewNode) {
 		super(uri, view, parent);
 	}
@@ -38,6 +40,12 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
+		void this.ensureSubscription();
+
+		this.view.titleDescription = `${this.label}${
+			this.parent instanceof FileHistoryTrackerNode && !this.parent.followingEditor ? ' (pinned)' : ''
+		}`;
+
 		const children: ViewNode[] = [];
 
 		if (this.uri.sha == null) {
@@ -78,42 +86,35 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 			}
 		}
 
-		this.view.titleDescription = `${this.uri.fileName}${
-			this.uri.sha
-				? ` ${this.uri.sha === GitRevision.deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`
-				: ''
-		}${this.parent instanceof FileHistoryTrackerNode && !this.parent.followingEditor ? ' (pinned)' : ''}`;
-
-		void this.ensureSubscription();
-
 		if (children.length === 0) return [new MessageNode(this.view, this, 'No file history could be found.')];
 		return children;
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem(
-			`${this.uri.fileName}${
-				this.uri.sha
-					? ` ${this.uri.sha === GitRevision.deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`
-					: ''
-			}`,
-			TreeItemCollapsibleState.Expanded,
-		);
+		this.splatted = false;
+		void this.ensureSubscription();
+
+		const label = this.label;
+		const item = new TreeItem(label, TreeItemCollapsibleState.Expanded);
 		item.contextValue = ContextValues.FileHistory;
 		item.description = this.uri.directory;
 		item.tooltip = `History of ${this.uri.fileName}\n${this.uri.directory}/${
 			this.uri.sha == null ? '' : `\n\n${this.uri.sha}`
 		}`;
 
-		this.view.titleDescription = `${this.uri.fileName}${
+		this.view.titleDescription = `${label}${
+			this.parent instanceof FileHistoryTrackerNode && !this.parent.followingEditor ? ' (pinned)' : ''
+		}`;
+
+		return item;
+	}
+
+	get label() {
+		return `${this.uri.fileName}${
 			this.uri.sha
 				? ` ${this.uri.sha === GitRevision.deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`
 				: ''
-		}${this.parent instanceof FileHistoryTrackerNode && !this.parent.followingEditor ? ' (pinned)' : ''}`;
-
-		void this.ensureSubscription();
-
-		return item;
+		}`;
 	}
 
 	@debug()
@@ -135,19 +136,17 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 	private onRepoChanged(e: RepositoryChangeEvent) {
 		if (!e.changed(RepositoryChange.Heads)) return;
 
-		Logger.log(`FileHistoryNode.onRepoChanged(${e.changes.join()}); triggering node refresh`);
+		Logger.debug(`FileHistoryNode.onRepoChanged(${e.changes.join()}); triggering node refresh`);
 
-		void (this.parent ?? this).triggerChange(true);
+		void this.triggerChange();
 	}
 
 	private onRepoFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
-		if (!e.uris.some(uri => uri.toString(true) === this.uri.toString(true))) return;
+		if (!e.uris.some(uri => uri.toString() === this.uri.toString())) return;
 
-		Logger.debug(
-			`FileHistoryNode${this.id}.onRepoFileSystemChanged(${this.uri.toString(true)}); triggering node refresh`,
-		);
+		Logger.debug(`FileHistoryNode.onRepoFileSystemChanged(${this.uri.toString(true)}); triggering node refresh`);
 
-		void (this.parent ?? this).triggerChange(true);
+		void this.triggerChange();
 	}
 
 	@gate()
@@ -184,9 +183,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 
 		this._log = log;
 		this.limit = log?.count;
-		void (this.parent ?? this).triggerChange(false);
-		if (this.parent) {
-			this.view.triggerNodeChange(this.parent);
-		}
+		// Needs to force if splatted, since the parent node will cancel the refresh (since it thinks nothing changed)
+		void this.triggerChange(false, this.splatted);
 	}
 }
