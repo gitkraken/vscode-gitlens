@@ -9,7 +9,7 @@ import { GitBranch, GitLog, GitRevision, GitTrackingState } from '../../git/git'
 import { GitUri } from '../../git/gitUri';
 import { insertDateMarkers } from './helpers';
 import { RepositoriesView } from '../repositoriesView';
-import { debug, gate, Iterables, Strings } from '../../system';
+import { debug, gate, Iterables, memoize, Strings } from '../../system';
 import { ViewsWithFiles } from '../viewBase';
 import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
 
@@ -97,12 +97,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 			children.push(new ShowMoreNode(this.view, this, children[children.length - 1]));
 		}
 
-		if (
-			!(this.view instanceof RepositoriesView) &&
-			this.status.upstream &&
-			this.ahead &&
-			this.status.state.ahead > 0
-		) {
+		if (!this.isReposView && this.status.upstream && this.ahead && this.status.state.ahead > 0) {
 			children.push(
 				new BranchTrackingStatusFilesNode(
 					this.view,
@@ -120,15 +115,16 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 
 	getTreeItem(): TreeItem {
 		const ahead = this.ahead;
-		const label = ahead
+		let label = ahead
 			? `${Strings.pluralize('commit', this.status.state.ahead)} ahead`
 			: `${Strings.pluralize('commit', this.status.state.behind)} behind`;
+		if (!this.isReposView) {
+			label += `${ahead ? ' of ' : ' '}${this.status.upstream}`;
+		}
 
 		const item = new TreeItem(
 			label,
-			ahead && !(this.view instanceof RepositoriesView)
-				? TreeItemCollapsibleState.Expanded
-				: TreeItemCollapsibleState.Collapsed,
+			ahead && !this.isReposView ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
 		);
 		item.id = this.id;
 		if (this.root) {
@@ -141,6 +137,11 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 		item.iconPath = new ThemeIcon(ahead ? 'cloud-upload' : 'cloud-download');
 		item.tooltip = `${label}${ahead ? ' of ' : ' '}${this.status.upstream}`;
 		return item;
+	}
+
+	@memoize()
+	private get isReposView() {
+		return this.view instanceof RepositoriesView;
 	}
 
 	@gate()
