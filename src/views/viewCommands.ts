@@ -113,9 +113,9 @@ export class ViewCommands {
 			this,
 		);
 
-		commands.registerCommand('gitlens.views.contributors.addAuthors', this.contributorsAddAuthors, this);
-		commands.registerCommand('gitlens.views.contributor.addAuthor', this.contributorsAddAuthors, this);
-		commands.registerCommand('gitlens.views.contributor.copyToClipboard', this.contributorCopyToClipboard, this);
+		commands.registerCommand('gitlens.views.addAuthors', this.addAuthors, this);
+		commands.registerCommand('gitlens.views.addAuthor', this.addAuthors, this);
+		commands.registerCommand('gitlens.views.copyContributorToClipboard', this.copyContributorToClipboard, this);
 
 		commands.registerCommand('gitlens.views.openChanges', this.openChanges, this);
 		commands.registerCommand('gitlens.views.openChangesWithWorking', this.openChangesWithWorking, this);
@@ -189,6 +189,16 @@ export class ViewCommands {
 	}
 
 	@debug()
+	private addAuthors(node: ContributorNode | ContributorsNode) {
+		if (!(node instanceof ContributorNode) && !(node instanceof ContributorsNode)) return Promise.resolve();
+
+		return GitActions.Contributor.addAuthors(
+			node.uri.repoPath,
+			node instanceof ContributorNode ? node.contributor : undefined,
+		);
+	}
+
+	@debug()
 	private addRemote(node: RemoteNode) {
 		if (!(node instanceof RemoteNode)) return Promise.resolve();
 
@@ -227,17 +237,7 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private contributorsAddAuthors(node: ContributorNode | ContributorsNode) {
-		if (!(node instanceof ContributorNode) && !(node instanceof ContributorsNode)) return Promise.resolve();
-
-		return GitActions.Contributor.addAuthors(
-			node.uri.repoPath,
-			node instanceof ContributorNode ? node.contributor : undefined,
-		);
-	}
-
-	@debug()
-	private contributorCopyToClipboard(node: ContributorNode) {
+	private copyContributorToClipboard(node: ContributorNode) {
 		if (!(node instanceof ContributorNode)) return Promise.resolve();
 
 		return GitActions.Contributor.copyToClipboard(node.contributor);

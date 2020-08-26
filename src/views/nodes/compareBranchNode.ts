@@ -1,11 +1,11 @@
 'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { CommitsView } from '../commitsView';
 import { BranchComparison, BranchComparisons, GlyphChars, WorkspaceState } from '../../constants';
 import { ViewShowBranchComparison } from '../../config';
 import { Container } from '../../container';
 import { GitBranch, GitRevision } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { HistoryView } from '../historyView';
 import { CommandQuickPickItem, ReferencePicker } from '../../quickpicks';
 import { RepositoriesView } from '../repositoriesView';
 import { RepositoryNode } from './repositoryNode';
@@ -14,7 +14,7 @@ import { FilesQueryResults, ResultsFilesNode } from './resultsFilesNode';
 import { debug, gate, log, Strings } from '../../system';
 import { ContextValues, ViewNode } from './viewNode';
 
-export class CompareBranchNode extends ViewNode<HistoryView | RepositoriesView> {
+export class CompareBranchNode extends ViewNode<CommitsView | RepositoriesView> {
 	static key = ':compare-branch';
 	static getId(repoPath: string, name: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${name})`;
@@ -25,7 +25,7 @@ export class CompareBranchNode extends ViewNode<HistoryView | RepositoriesView> 
 
 	constructor(
 		uri: GitUri,
-		view: HistoryView | RepositoriesView,
+		view: CommitsView | RepositoriesView,
 		parent: ViewNode,
 		public readonly branch: GitBranch,
 	) {

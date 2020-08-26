@@ -431,10 +431,10 @@ export const viewsCommonConfigKeys: (keyof ViewsCommonConfig)[] = [
 
 interface ViewsConfigs {
 	branches: BranchesViewConfig;
+	commits: CommitsViewConfig;
 	compare: CompareViewConfig;
 	contributors: ContributorsViewConfig;
 	fileHistory: FileHistoryViewConfig;
-	history: HistoryViewConfig;
 	lineHistory: LineHistoryViewConfig;
 	remotes: RemotesViewConfig;
 	repositories: RepositoriesViewConfig;
@@ -446,10 +446,10 @@ interface ViewsConfigs {
 export type ViewsConfigKeys = keyof ViewsConfigs;
 export const viewsConfigKeys: ViewsConfigKeys[] = [
 	'branches',
+	'commits',
 	'compare',
 	'contributors',
 	'fileHistory',
-	'history',
 	'lineHistory',
 	'remotes',
 	'repositories',
@@ -482,6 +482,14 @@ export interface BranchesViewConfig {
 	showTrackingBranch: boolean;
 }
 
+export interface CommitsViewConfig {
+	avatars: boolean;
+	branches: undefined;
+	files: ViewsFilesConfig;
+	showBranchComparison: false | ViewShowBranchComparison;
+	showTrackingBranch: boolean;
+}
+
 export interface CompareViewConfig {
 	avatars: boolean;
 	enabled: boolean;
@@ -498,14 +506,6 @@ export interface FileHistoryViewConfig {
 	avatars: boolean;
 	enabled: boolean;
 	location: ViewLocation;
-}
-
-export interface HistoryViewConfig {
-	avatars: boolean;
-	branches: undefined;
-	files: ViewsFilesConfig;
-	showBranchComparison: false | ViewShowBranchComparison;
-	showTrackingBranch: boolean;
 }
 
 export interface LineHistoryViewConfig {

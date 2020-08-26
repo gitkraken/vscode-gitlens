@@ -17,15 +17,15 @@ import {
 	window,
 } from 'vscode';
 import { BranchesView } from './branchesView';
-import { HistoryView } from './historyView';
+import { CommitsView } from './commitsView';
 import { CompareView } from './compareView';
 import {
 	BranchesViewConfig,
+	CommitsViewConfig,
 	CompareViewConfig,
 	configuration,
 	ContributorsViewConfig,
 	FileHistoryViewConfig,
-	HistoryViewConfig,
 	LineHistoryViewConfig,
 	RemotesViewConfig,
 	RepositoriesViewConfig,
@@ -34,8 +34,8 @@ import {
 	TagsViewConfig,
 	ViewsCommonConfig,
 	viewsCommonConfigKeys,
-	ViewsConfigKeys,
 	viewsConfigKeys,
+	ViewsConfigKeys,
 } from '../configuration';
 import { Container } from '../container';
 import { ContributorsView } from './contributorsView';
@@ -56,7 +56,7 @@ export type View =
 	| CompareView
 	| ContributorsView
 	| FileHistoryView
-	| HistoryView
+	| CommitsView
 	| LineHistoryView
 	| RemotesView
 	| RepositoriesView
@@ -67,7 +67,7 @@ export type ViewsWithFiles =
 	| BranchesView
 	| CompareView
 	| ContributorsView
-	| HistoryView
+	| CommitsView
 	| RemotesView
 	| RepositoriesView
 	| SearchView
@@ -85,7 +85,7 @@ export abstract class ViewBase<
 		| CompareViewConfig
 		| ContributorsViewConfig
 		| FileHistoryViewConfig
-		| HistoryViewConfig
+		| CommitsViewConfig
 		| LineHistoryViewConfig
 		| RemotesViewConfig
 		| RepositoriesViewConfig

@@ -8,7 +8,7 @@ import {
 	TreeItemCollapsibleState,
 	window,
 } from 'vscode';
-import { configuration, HistoryViewConfig, ViewFilesLayout } from '../configuration';
+import { CommitsViewConfig, configuration, ViewFilesLayout } from '../configuration';
 import { Container } from '../container';
 import {
 	GitLogCommit,
@@ -37,12 +37,12 @@ import {
 import { debug, gate } from '../system';
 import { ViewBase } from './viewBase';
 
-export class HistoryRepositoryNode extends SubscribeableViewNode<HistoryView> {
+export class CommitsRepositoryNode extends SubscribeableViewNode<CommitsView> {
 	private children: (BranchNode | CompareBranchNode)[] | undefined;
 
 	constructor(
 		uri: GitUri,
-		view: HistoryView,
+		view: CommitsView,
 		parent: ViewNode,
 		public readonly repo: Repository,
 		private readonly root: boolean,
@@ -129,10 +129,10 @@ export class HistoryRepositoryNode extends SubscribeableViewNode<HistoryView> {
 	}
 }
 
-export class HistoryViewNode extends ViewNode<HistoryView> {
-	private children: HistoryRepositoryNode[] | undefined;
+export class CommitsViewNode extends ViewNode<CommitsView> {
+	private children: CommitsRepositoryNode[] | undefined;
 
-	constructor(view: HistoryView) {
+	constructor(view: CommitsView) {
 		super(unknownGitUri, view);
 	}
 
@@ -149,7 +149,7 @@ export class HistoryViewNode extends ViewNode<HistoryView> {
 
 		const root = repositories.length === 1;
 		this.children = repositories.map(
-			r => new HistoryRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, root),
+			r => new CommitsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, root),
 		);
 
 		if (root) {
@@ -157,10 +157,10 @@ export class HistoryViewNode extends ViewNode<HistoryView> {
 
 			const branch = await child.repo.getBranch();
 			if (branch != null) {
-				this.view.title = `${branch.name} Branch`;
+				this.view.title = `${branch.name} Commits`;
 				this.view.titleDescription = branch?.getTrackingStatus();
 			} else {
-				this.view.title = 'Current Branch';
+				this.view.title = 'Commits';
 				this.view.titleDescription = undefined;
 			}
 
@@ -170,20 +170,20 @@ export class HistoryViewNode extends ViewNode<HistoryView> {
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem('History', TreeItemCollapsibleState.Expanded);
+		const item = new TreeItem('Commits', TreeItemCollapsibleState.Expanded);
 		return item;
 	}
 }
 
-export class HistoryView extends ViewBase<HistoryViewNode, HistoryViewConfig> {
-	protected readonly configKey = 'history';
+export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
+	protected readonly configKey = 'commits';
 
 	constructor() {
-		super('gitlens.views.history', 'History');
+		super('gitlens.views.commits', 'Commits');
 	}
 
 	getRoot() {
-		return new HistoryViewNode(this);
+		return new CommitsViewNode(this);
 	}
 
 	protected registerCommands() {

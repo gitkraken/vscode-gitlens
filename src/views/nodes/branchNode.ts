@@ -3,7 +3,7 @@ import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { BranchesView } from '../branchesView';
 import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
 import { CommitNode } from './commitNode';
-import { HistoryView } from '../historyView';
+import { CommitsView } from '../commitsView';
 import { MessageNode, ShowMoreNode } from './common';
 import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
@@ -18,7 +18,7 @@ import { debug, gate, Iterables, log, Strings } from '../../system';
 import { ContextValues, PageableViewNode, ViewNode, ViewRefNode } from './viewNode';
 
 export class BranchNode
-	extends ViewRefNode<BranchesView | HistoryView | RemotesView | RepositoriesView, GitBranchReference>
+	extends ViewRefNode<BranchesView | CommitsView | RemotesView | RepositoriesView, GitBranchReference>
 	implements PageableViewNode {
 	static key = ':branch';
 	static getId(repoPath: string, name: string, root: boolean): string {
@@ -34,7 +34,7 @@ export class BranchNode
 
 	constructor(
 		uri: GitUri,
-		view: BranchesView | HistoryView | RemotesView | RepositoriesView,
+		view: BranchesView | CommitsView | RemotesView | RepositoriesView,
 		parent: ViewNode,
 		public readonly branch: GitBranch,
 		// Specifies that the node is shown as a root under the repository node
