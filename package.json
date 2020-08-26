@@ -3646,13 +3646,13 @@
 			},
 			{
 				"command": "gitlens.views.fileHistory.setCursorFollowingOn",
-				"title": "Toggle Mode (File)",
+				"title": "Toggle File/Line History (File)",
 				"category": "GitLens",
 				"icon": "$(file)"
 			},
 			{
 				"command": "gitlens.views.fileHistory.setCursorFollowingOff",
-				"title": "Toggle Mode (Line)",
+				"title": "Toggle File/Line History (Line)",
 				"category": "GitLens",
 				"icon": "$(list-selection)"
 			},
