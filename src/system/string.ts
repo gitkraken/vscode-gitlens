@@ -380,8 +380,8 @@ export namespace Strings {
 		if (
 			cp >= 0x1100 &&
 			(cp <= 0x115f || // Hangul Jamo
-			cp === 0x2329 || // LEFT-POINTING ANGLE BRACKET
-			cp === 0x232a || // RIGHT-POINTING ANGLE BRACKET
+				cp === 0x2329 || // LEFT-POINTING ANGLE BRACKET
+				cp === 0x232a || // RIGHT-POINTING ANGLE BRACKET
 				// CJK Radicals Supplement .. Enclosed CJK Letters and Months
 				(cp >= 0x2e80 && cp <= 0x3247 && cp !== 0x303f) ||
 				// Enclosed CJK Letters and Months .. CJK Unified Ideographs Extension A
