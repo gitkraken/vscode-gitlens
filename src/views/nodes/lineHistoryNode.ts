@@ -1,5 +1,7 @@
 'use strict';
 import { Disposable, Selection, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { CommitFileNode } from './commitFileNode';
+import { MessageNode, ShowMoreNode } from './common';
 import { Container } from '../../container';
 import {
 	GitCommitType,
@@ -12,14 +14,13 @@ import {
 	RepositoryFileSystemChangeEvent,
 } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { insertDateMarkers } from './helpers';
 import { Logger } from '../../logger';
+import { LineHistoryTrackerNode } from './lineHistoryTrackerNode';
+import { RepositoryNode } from './repositoryNode';
 import { debug, gate, Iterables } from '../../system';
 import { View } from '../viewBase';
-import { CommitFileNode } from './commitFileNode';
-import { MessageNode, ShowMoreNode } from './common';
-import { insertDateMarkers } from './helpers';
 import { ContextValues, PageableViewNode, SubscribeableViewNode, ViewNode } from './viewNode';
-import { RepositoryNode } from './repositoryNode';
 
 export class LineHistoryNode extends SubscribeableViewNode implements PageableViewNode {
 	static key = ':history:line';
@@ -201,11 +202,11 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 		const lines = this.selection.isSingleLine
 			? `:${this.selection.start.line + 1}`
 			: `:${this.selection.start.line + 1}-${this.selection.end.line + 1}`;
-		this.view.titleContext = `${this.uri.fileName}${lines}${
+		this.view.titleDescription = `${this.uri.fileName}${lines}${
 			this.uri.sha
 				? ` ${this.uri.sha === GitRevision.deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`
 				: ''
-		}`;
+		}${this.parent instanceof LineHistoryTrackerNode && !this.parent.followingEditor ? ' (pinned)' : ''}`;
 
 		void this.ensureSubscription();
 
@@ -229,11 +230,11 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 		item.description = this.uri.directory;
 		item.tooltip = `History of ${this.uri.fileName}${lines}\n${this.uri.directory}/${
 			this.uri.sha == null ? '' : `\n\n${this.uri.sha}`
-		}`;
+		}${this.parent instanceof LineHistoryTrackerNode && !this.parent.followingEditor ? ' (pinned)' : ''}`;
 
 		void this.ensureSubscription();
 
-		this.view.titleContext = `${this.uri.fileName}${lines}${
+		this.view.titleDescription = `${this.uri.fileName}${lines}${
 			this.uri.sha
 				? ` ${this.uri.sha === GitRevision.deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`
 				: ''

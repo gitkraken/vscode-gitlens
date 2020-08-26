@@ -6,6 +6,8 @@ import { Container } from '../container';
 import { LineHistoryTrackerNode } from './nodes';
 import { ViewBase } from './viewBase';
 
+const pinnedSuffix = ' (pinned)';
+
 export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistoryViewConfig> {
 	protected readonly configKey = 'lineHistory';
 
@@ -92,7 +94,17 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistor
 	private setEditorFollowing(enabled: boolean) {
 		void setCommandContext(CommandContext.ViewsLineHistoryEditorFollowing, enabled);
 		this._root?.setEditorFollowing(enabled);
-		this.description = enabled ? '' : ' (pinned)';
+
+		if (this.titleDescription?.endsWith(pinnedSuffix)) {
+			if (enabled) {
+				this.titleDescription = this.titleDescription.substr(
+					0,
+					this.titleDescription.length - pinnedSuffix.length,
+				);
+			}
+		} else if (!enabled) {
+			this.titleDescription += pinnedSuffix;
+		}
 	}
 
 	private setRenameFollowing(enabled: boolean) {

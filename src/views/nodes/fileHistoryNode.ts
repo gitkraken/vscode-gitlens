@@ -1,6 +1,9 @@
 'use strict';
 import { Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { CommitFileNode } from './commitFileNode';
+import { MessageNode, ShowMoreNode } from './common';
 import { Container } from '../../container';
+import { FileHistoryTrackerNode } from './fileHistoryTrackerNode';
 import {
 	GitLog,
 	GitRevision,
@@ -9,14 +12,12 @@ import {
 	RepositoryFileSystemChangeEvent,
 } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { insertDateMarkers } from './helpers';
 import { Logger } from '../../logger';
+import { RepositoryNode } from './repositoryNode';
 import { debug, gate, Iterables } from '../../system';
 import { View } from '../viewBase';
-import { CommitFileNode } from './commitFileNode';
-import { MessageNode, ShowMoreNode } from './common';
-import { insertDateMarkers } from './helpers';
 import { ContextValues, PageableViewNode, SubscribeableViewNode, ViewNode } from './viewNode';
-import { RepositoryNode } from './repositoryNode';
 
 export class FileHistoryNode extends SubscribeableViewNode implements PageableViewNode {
 	static key = ':history:file';
@@ -77,11 +78,11 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 			}
 		}
 
-		this.view.titleContext = `${this.uri.fileName}${
+		this.view.titleDescription = `${this.uri.fileName}${
 			this.uri.sha
 				? ` ${this.uri.sha === GitRevision.deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`
 				: ''
-		}`;
+		}${this.parent instanceof FileHistoryTrackerNode && !this.parent.followingEditor ? ' (pinned)' : ''}`;
 
 		void this.ensureSubscription();
 
@@ -104,11 +105,11 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 			this.uri.sha == null ? '' : `\n\n${this.uri.sha}`
 		}`;
 
-		this.view.titleContext = `${this.uri.fileName}${
+		this.view.titleDescription = `${this.uri.fileName}${
 			this.uri.sha
 				? ` ${this.uri.sha === GitRevision.deletedOrMissing ? this.uri.shortSha : `(${this.uri.shortSha})`}`
 				: ''
-		}`;
+		}${this.parent instanceof FileHistoryTrackerNode && !this.parent.followingEditor ? ' (pinned)' : ''}`;
 
 		void this.ensureSubscription();
 

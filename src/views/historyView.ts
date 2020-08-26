@@ -9,7 +9,6 @@ import {
 	window,
 } from 'vscode';
 import { configuration, HistoryViewConfig, ViewFilesLayout } from '../configuration';
-import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import {
 	GitLogCommit,
@@ -157,11 +156,13 @@ export class HistoryViewNode extends ViewNode<HistoryView> {
 			const [child] = this.children;
 
 			const branch = await child.repo.getBranch();
-			const status = branch?.getTrackingStatus();
-			this.view.title =
-				branch != null
-					? `${branch.name} Branch ${status ? ` ${GlyphChars.Dot} ${status}` : ''}`
-					: 'Current Branch';
+			if (branch != null) {
+				this.view.title = `${branch.name} Branch`;
+				this.view.titleDescription = branch?.getTrackingStatus();
+			} else {
+				this.view.title = 'Current Branch';
+				this.view.titleDescription = undefined;
+			}
 
 			return child.getChildren();
 		}

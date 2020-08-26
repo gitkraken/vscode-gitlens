@@ -37,7 +37,6 @@ import {
 	ViewsConfigKeys,
 	viewsConfigKeys,
 } from '../configuration';
-import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { ContributorsView } from './contributorsView';
 import { FileHistoryView } from './fileHistoryView';
@@ -50,6 +49,7 @@ import { SearchView } from './searchView';
 import { StashesView } from './stashesView';
 import { debug, Functions, log, Promises, Strings } from '../system';
 import { TagsView } from './tagsView';
+import { GlyphChars } from '../constants';
 
 export type View =
 	| BranchesView
@@ -170,21 +170,12 @@ export abstract class ViewBase<
 		this.updateTitle();
 	}
 
-	private _titleContext: string | undefined;
-	get titleContext(): string | undefined {
-		return this._titleContext;
+	private _titleDescription: string | undefined;
+	get titleDescription(): string | undefined {
+		return this._titleDescription;
 	}
-	set titleContext(value: string | undefined) {
-		this._titleContext = value;
-		this.updateTitle();
-	}
-
-	private _description: string | undefined;
-	get description(): string | undefined {
-		return this._description;
-	}
-	set description(value: string | undefined) {
-		this._description = value;
+	set titleDescription(value: string | undefined) {
+		this._titleDescription = value;
 		this.updateTitle();
 	}
 
@@ -201,10 +192,13 @@ export abstract class ViewBase<
 
 	private updateTitleCore() {
 		if (this._tree == null) return;
-
-		this._tree.title = `${this.title}${this.titleContext ? ` ${GlyphChars.Dot} ${this.titleContext}` : ''}${
-			this.description ? ` ${this.description}` : ''
-		}`;
+		if (this._tree.visible) {
+			this._tree.title = `${this.title}${
+				this.titleDescription ? ` ${GlyphChars.Dot} ${this.titleDescription}` : ''
+			}`;
+		} else {
+			this._tree.title = this.title;
+		}
 	}
 
 	getQualifiedCommand(command: string) {
@@ -270,6 +264,9 @@ export abstract class ViewBase<
 	}
 
 	protected onVisibilityChanged(e: TreeViewVisibilityChangeEvent) {
+		if (this.titleDescription) {
+			this.updateTitleCore();
+		}
 		this._onDidChangeVisibility.fire(e);
 	}
 

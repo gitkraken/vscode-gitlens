@@ -132,7 +132,7 @@ export class RemotesViewNode extends ViewNode<RemotesView> {
 			const [child] = this.children;
 
 			const remotes = await child.repo.getRemotes();
-			this.view.description = remotes.length === 0 ? undefined : `(${remotes.length})`;
+			this.view.title = `Remotes (${remotes.length})`;
 
 			return child.getChildren();
 		}

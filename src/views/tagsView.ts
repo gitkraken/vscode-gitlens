@@ -123,7 +123,7 @@ export class TagsViewNode extends ViewNode<TagsView> {
 			const [child] = this.children;
 
 			const tags = await child.repo.getTags();
-			this.view.description = tags.length === 0 ? undefined : `(${tags.length})`;
+			this.view.title = `Tags (${tags.length})`;
 
 			return child.getChildren();
 		}

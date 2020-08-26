@@ -105,7 +105,7 @@ export class StashesViewNode extends ViewNode<StashesView> {
 			const [child] = this.children;
 
 			const stash = await child.repo.getStash();
-			this.view.description = stash == null ? undefined : `(${stash.commits.size})`;
+			this.view.title = `Stashes (${stash?.commits.size ?? 0})`;
 
 			return child.getChildren();
 		}

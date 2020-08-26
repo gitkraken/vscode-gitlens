@@ -139,7 +139,7 @@ export class BranchesViewNode extends ViewNode<BranchesView> {
 			const [child] = this.children;
 
 			const branches = await child.repo.getBranches({ filter: b => !b.remote });
-			this.view.description = branches.length === 0 ? undefined : `(${branches.length})`;
+			this.view.title = `Branches (${branches.length})`;
 
 			return child.getChildren();
 		}

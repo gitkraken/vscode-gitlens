@@ -65,6 +65,10 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		return item;
 	}
 
+	get followingEditor(): boolean {
+		return this.canSubscribe;
+	}
+
 	@gate()
 	@log()
 	async changeBase() {

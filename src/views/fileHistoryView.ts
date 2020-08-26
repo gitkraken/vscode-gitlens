@@ -7,6 +7,8 @@ import { GitUri } from '../git/gitUri';
 import { FileHistoryTrackerNode, LineHistoryTrackerNode } from './nodes';
 import { ViewBase } from './viewBase';
 
+const pinnedSuffix = ' (pinned)';
+
 export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHistoryTrackerNode, FileHistoryViewConfig> {
 	protected readonly configKey = 'fileHistory';
 
@@ -129,7 +131,7 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 		void setCommandContext(CommandContext.ViewsFileHistoryCursorFollowing, enabled);
 
 		this.title = this._followCursor ? 'Line History' : 'File History';
-		this.titleContext = this._followCursor ? this.titleContext : undefined;
+		// this.titleContext = this._followCursor ? this.titleContext : undefined;
 
 		const root = this.ensureRoot(true);
 		root.setEditorFollowing(this._followEditor);
@@ -142,7 +144,17 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 		this._followEditor = enabled;
 		void setCommandContext(CommandContext.ViewsFileHistoryEditorFollowing, enabled);
 		this._root?.setEditorFollowing(enabled);
-		this.description = enabled ? '' : ' (pinned)';
+
+		if (this.titleDescription?.endsWith(pinnedSuffix)) {
+			if (enabled) {
+				this.titleDescription = this.titleDescription.substr(
+					0,
+					this.titleDescription.length - pinnedSuffix.length,
+				);
+			}
+		} else if (!enabled) {
+			this.titleDescription += pinnedSuffix;
+		}
 	}
 
 	private setRenameFollowing(enabled: boolean) {

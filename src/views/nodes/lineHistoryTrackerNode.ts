@@ -71,6 +71,10 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 		return item;
 	}
 
+	get followingEditor(): boolean {
+		return this.canSubscribe;
+	}
+
 	@gate()
 	@log()
 	async changeBase() {
