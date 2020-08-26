@@ -460,11 +460,9 @@ export abstract class ViewBase<
 	@debug({
 		args: { 0: (n: ViewNode) => n.toString() },
 	})
-	async refreshNode(node: ViewNode, reset: boolean = false) {
-		if (node.refresh != null) {
-			const cancel = await node.refresh(reset);
-			if (cancel === true) return;
-		}
+	async refreshNode(node: ViewNode, reset: boolean = false, force: boolean = false) {
+		const cancel = await node.refresh?.(reset);
+		if (!force && cancel === true) return;
 
 		this.triggerNodeChange(node);
 	}

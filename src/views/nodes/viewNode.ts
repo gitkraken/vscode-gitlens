@@ -64,6 +64,8 @@ export abstract class ViewNode<TView extends View = View> {
 		return node instanceof ViewNode;
 	}
 
+	protected splatted = false;
+
 	constructor(uri: GitUri, public readonly view: TView, protected readonly parent?: ViewNode) {
 		this._uri = uri;
 	}
@@ -82,6 +84,11 @@ export abstract class ViewNode<TView extends View = View> {
 	abstract getChildren(): ViewNode[] | Promise<ViewNode[]>;
 
 	getParent(): ViewNode | undefined {
+		// If this node has been splatted (e.g. not shown itself, but its children are), then return its grandparent
+		if (this.splatted) {
+			return this.parent?.getParent() ?? this.parent;
+		}
+
 		return this.parent;
 	}
 
@@ -95,8 +102,13 @@ export abstract class ViewNode<TView extends View = View> {
 
 	@gate()
 	@debug()
-	triggerChange(reset: boolean = false): Promise<void> {
-		return this.view.refreshNode(this, reset);
+	triggerChange(reset: boolean = false, force: boolean = false): Promise<void> {
+		// If this node has been splatted (e.g. not shown itself, but its children are), then delegate the change to its parent
+		if (this.splatted && this.parent != null) {
+			return this.parent.triggerChange(reset, force);
+		}
+
+		return this.view.refreshNode(this, reset, force);
 	}
 }
 
