@@ -9,6 +9,7 @@ import {
 	window,
 } from 'vscode';
 import { CommitsViewConfig, configuration, ViewFilesLayout } from '../configuration';
+import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import {
 	GitLogCommit,
@@ -39,18 +40,15 @@ import { ViewBase } from './viewBase';
 
 export class CommitsRepositoryNode extends SubscribeableViewNode<CommitsView> {
 	private children: (BranchNode | CompareBranchNode)[] | undefined;
+	protected splatted = true;
 
-	constructor(
-		uri: GitUri,
-		view: CommitsView,
-		parent: ViewNode,
-		public readonly repo: Repository,
-		private readonly root: boolean,
-	) {
+	constructor(uri: GitUri, view: CommitsView, parent: ViewNode, public readonly repo: Repository) {
 		super(uri, view, parent);
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
+		void this.ensureSubscription();
+
 		if (this.children == null) {
 			const branch = await this.repo.getBranch();
 			if (branch == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
@@ -66,20 +64,27 @@ export class CommitsRepositoryNode extends SubscribeableViewNode<CommitsView> {
 			if (this.view.config.showBranchComparison !== false) {
 				this.children.push(new CompareBranchNode(this.uri, this.view, this, branch));
 			}
-
-			void this.ensureSubscription();
 		}
-		return this.children;
+
+		const [branch, ...rest] = this.children;
+		return [...(await branch.getChildren()), ...rest];
 	}
 
-	getTreeItem(): TreeItem {
+	async getTreeItem(): Promise<TreeItem> {
+		this.splatted = false;
+		void this.ensureSubscription();
+
 		const item = new TreeItem(
 			this.repo.formattedName ?? this.uri.repoPath ?? '',
 			TreeItemCollapsibleState.Expanded,
 		);
 		item.contextValue = ContextValues.RepositoryFolder;
 
-		void this.ensureSubscription();
+		const branch = await this.repo.getBranch();
+		if (branch != null) {
+			const status = branch?.getTrackingStatus();
+			item.description = `${branch.name}${status ? ` ${GlyphChars.Dot} ${status}` : ''}`;
+		}
 
 		return item;
 	}
@@ -122,9 +127,6 @@ export class CommitsRepositoryNode extends SubscribeableViewNode<CommitsView> {
 			e.changed(RepositoryChange.Remotes)
 		) {
 			void this.triggerChange(true);
-			if (this.root) {
-				void this.parent?.triggerChange(true);
-			}
 		}
 	}
 }
@@ -147,12 +149,11 @@ export class CommitsViewNode extends ViewNode<CommitsView> {
 		const repositories = await Container.git.getOrderedRepositories();
 		if (repositories.length === 0) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
-		const root = repositories.length === 1;
 		this.children = repositories.map(
-			r => new CommitsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, root),
+			r => new CommitsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r),
 		);
 
-		if (root) {
+		if (this.children.length === 1) {
 			const [child] = this.children;
 
 			const branch = await child.repo.getBranch();
