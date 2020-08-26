@@ -8,6 +8,7 @@ import { Container } from '../../container';
 import { GitBranch, GitLog, GitRevision, GitTrackingState } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { insertDateMarkers } from './helpers';
+import { RepositoriesView } from '../repositoriesView';
 import { debug, gate, Iterables, Strings } from '../../system';
 import { ViewsWithFiles } from '../viewBase';
 import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
@@ -96,10 +97,13 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 			children.push(new ShowMoreNode(this.view, this, children[children.length - 1]));
 		}
 
-		if (this.status.upstream && this.direction === 'ahead' && this.status.state.ahead > 0) {
-			children.splice(
-				0,
-				0,
+		if (
+			!(this.view instanceof RepositoriesView) &&
+			this.status.upstream &&
+			this.ahead &&
+			this.status.state.ahead > 0
+		) {
+			children.push(
 				new BranchTrackingStatusFilesNode(
 					this.view,
 					this,
@@ -120,7 +124,12 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 			? `${Strings.pluralize('commit', this.status.state.ahead)} ahead`
 			: `${Strings.pluralize('commit', this.status.state.behind)} behind`;
 
-		const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
+		const item = new TreeItem(
+			label,
+			ahead && !(this.view instanceof RepositoriesView)
+				? TreeItemCollapsibleState.Expanded
+				: TreeItemCollapsibleState.Collapsed,
+		);
 		item.id = this.id;
 		if (this.root) {
 			item.contextValue = ahead ? ContextValues.StatusAheadOfUpstream : ContextValues.StatusBehindUpstream;
