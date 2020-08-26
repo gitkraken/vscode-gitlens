@@ -1030,11 +1030,20 @@ export async function* pickRepositoryStep<
 export async function* pickRepositoriesStep<
 	State extends PartialStepState & { repos?: string[] | Repository[] },
 	Context extends { repos: Repository[]; title: string }
->(state: State, context: Context, placeholder: string = 'Choose repositories'): StepResultGenerator<Repository[]> {
+>(
+	state: State,
+	context: Context,
+	options?: { placeholder?: string; skipIfPossible?: boolean },
+): StepResultGenerator<Repository[]> {
+	options = { placeholder: 'Choose repositories', skipIfPossible: false, ...options };
+
 	let actives: Repository[];
 	if (state.repos) {
 		if (Arrays.isStringArray(state.repos)) {
 			actives = Arrays.filterMap(state.repos, path => context.repos.find(r => r.path === path));
+			if (options.skipIfPossible && actives.length !== 0 && state.repos.length === actives.length) {
+				return actives;
+			}
 		} else {
 			actives = state.repos;
 		}
@@ -1046,7 +1055,7 @@ export async function* pickRepositoriesStep<
 	const step = QuickCommand.createPickStep<RepositoryQuickPickItem>({
 		multiselect: true,
 		title: context.title,
-		placeholder: placeholder,
+		placeholder: options.placeholder,
 		items:
 			context.repos.length === 0
 				? [DirectiveQuickPickItem.create(Directive.Cancel)]

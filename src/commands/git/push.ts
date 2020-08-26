@@ -114,6 +114,7 @@ export class PushGitCommand extends QuickCommand<State> {
 					const result = yield* pickRepositoriesStep(
 						state as ExcludeSome<typeof state, 'repos', string | Repository>,
 						context,
+						{ skipIfPossible: state.counter >= 1 },
 					);
 					// Always break on the first step (so we will go back)
 					if (result === StepResult.Break) break;
