@@ -101,19 +101,13 @@ export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithFiles> {
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		// if (this.status.state.ahead > 0) {
 		const stats = await Container.git.getChangedFilesCount(this.repoPath, `${this.status.upstream}...`);
 		const files = stats?.files ?? 0;
-		// }
 
 		const label = `${Strings.pluralize('file', files)} changed`;
 		const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
-		item.contextValue = ContextValues.StatusFiles;
-		// item.iconPath = {
-		// 	dark: Container.context.asAbsolutePath('images/dark/icon-diff.svg'),
-		// 	light: Container.context.asAbsolutePath('images/light/icon-diff.svg'),
-		// };
+		item.contextValue = ContextValues.BranchStatusFiles;
 
 		return item;
 	}
