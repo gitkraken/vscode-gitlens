@@ -3094,7 +3094,7 @@
 				"command": "gitlens.views.unstageDirectory",
 				"title": "Unstage All Changes",
 				"category": "GitLens",
-				"icon": "$(add)"
+				"icon": "$(remove)"
 			},
 			{
 				"command": "gitlens.views.unstageFile",
