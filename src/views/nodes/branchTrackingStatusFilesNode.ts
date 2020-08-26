@@ -87,7 +87,7 @@ export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithFiles> {
 				this.view.config.files.compact,
 			);
 
-			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy, true);
+			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy, false);
 			children = root.getChildren() as FileNode[];
 		} else {
 			children.sort(
