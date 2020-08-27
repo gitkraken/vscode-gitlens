@@ -39,6 +39,8 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	getChildren(): ViewNode[] | Promise<ViewNode[]> {
 		if (this._child == null) {
 			if (this._fileUri == null && this.uri === unknownGitUri) {
+				this.view.titleDescription = undefined;
+
 				return [
 					new MessageNode(
 						this.view,
