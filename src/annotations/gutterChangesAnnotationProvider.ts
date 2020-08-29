@@ -138,7 +138,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase {
 					  ]
 					: [Container.git.getDiffForFile(this.trackedDocument.uri, ref1, ref2)],
 			)
-		).filter(Boolean) as GitDiff[];
+		).filter(<T>(d?: T): d is T => Boolean(d));
 		if (!diffs?.length) return false;
 
 		let start = process.hrtime();

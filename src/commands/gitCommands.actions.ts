@@ -595,7 +595,7 @@ export namespace GitActions {
 				await Promise.all(
 					files.map(file => Container.git.getWorkingUri(repoPath!, GitUri.fromFile(file, repoPath!, ref))),
 				)
-			).filter(Boolean) as Uri[];
+			).filter(<T>(u?: T): u is T => Boolean(u));
 			findOrOpenEditors(uris);
 		}
 

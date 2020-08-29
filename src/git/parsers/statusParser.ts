@@ -12,7 +12,7 @@ export class GitStatusParser {
 	static parse(data: string, repoPath: string, porcelainVersion: number): GitStatus | undefined {
 		if (!data) return undefined;
 
-		const lines = data.split('\n').filter(Boolean);
+		const lines = data.split('\n').filter(<T>(i?: T): i is T => Boolean(i));
 		if (lines.length === 0) return undefined;
 
 		if (porcelainVersion < 2) return this.parseV1(lines, repoPath);

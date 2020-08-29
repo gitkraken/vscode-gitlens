@@ -542,7 +542,7 @@ export class GitService implements Disposable {
 		const data = await Git.check_ignore(repoPath, ...paths.keys());
 		if (data == null) return uris;
 
-		const ignored = data.split('\0').filter(Boolean);
+		const ignored = data.split('\0').filter(<T>(i?: T): i is T => Boolean(i));
 		if (ignored.length === 0) return uris;
 
 		for (const file of ignored) {
@@ -1174,7 +1174,7 @@ export class GitService implements Disposable {
 		return data
 			.split('\n')
 			.map(b => b.substr(2).trim())
-			.filter(Boolean);
+			.filter(<T>(i?: T): i is T => Boolean(i));
 	}
 
 	@log()

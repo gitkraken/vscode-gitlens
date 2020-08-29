@@ -1,15 +1,5 @@
 'use strict';
-import {
-	CancellationToken,
-	Disposable,
-	Hover,
-	languages,
-	MarkdownString,
-	Position,
-	Range,
-	TextDocument,
-	TextEditor,
-} from 'vscode';
+import { CancellationToken, Disposable, Hover, languages, Position, Range, TextDocument, TextEditor } from 'vscode';
 import { AnnotationProviderBase } from './annotationProvider';
 import { ComputedHeatmap, getHeatmapColors } from './annotations';
 import { Container } from '../container';
@@ -165,7 +155,7 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 					? Hovers.changesMessage(commit, await GitUri.fromUri(document.uri), position.line)
 					: undefined,
 			])
-		).filter(Boolean) as MarkdownString[];
+		).filter(<T>(m?: T): m is T => Boolean(m));
 
 		return new Hover(
 			messages,
