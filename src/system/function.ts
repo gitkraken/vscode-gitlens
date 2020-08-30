@@ -2,9 +2,10 @@
 import { Disposable } from 'vscode';
 import { debounce as _debounce, once as _once } from 'lodash-es';
 
-export interface Deferrable {
+export interface Deferrable<T extends (...args: any[]) => any> {
+	(...args: Parameters<T>): ReturnType<T> | undefined;
 	cancel(): void;
-	flush(...args: any[]): void;
+	flush(): ReturnType<T> | undefined;
 	pending?(): boolean;
 }
 
@@ -38,7 +39,7 @@ export namespace Functions {
 		fn: T,
 		wait?: number,
 		options?: DebounceOptions,
-	): T & Deferrable {
+	): Deferrable<T> {
 		const { track, ...opts }: DebounceOptions = {
 			track: false,
 			...(options ?? {}),
@@ -55,12 +56,12 @@ export namespace Functions {
 			} as any) as T,
 			wait,
 			options,
-		) as T & Deferrable;
+		);
 
-		const tracked = (function (this: any, ...args: any[]) {
+		const tracked: Deferrable<T> = function (this: any, ...args: Parameters<T>) {
 			pending = true;
 			return debounced.apply(this, args);
-		} as any) as T & Deferrable;
+		} as any;
 
 		tracked.pending = function () {
 			return pending;
@@ -68,9 +69,8 @@ export namespace Functions {
 		tracked.cancel = function () {
 			return debounced.cancel.apply(debounced);
 		};
-		tracked.flush = function (...args: any[]) {
-			// eslint-disable-next-line prefer-spread
-			return debounced.flush.apply(debounced, args);
+		tracked.flush = function () {
+			return debounced.flush.apply(debounced);
 		};
 
 		return tracked;

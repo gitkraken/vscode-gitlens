@@ -315,8 +315,8 @@ export class DocumentTracker<T> implements Disposable {
 		return doc;
 	}
 
-	private _dirtyIdleTriggeredDebounced: (((e: DocumentDirtyIdleTriggerEvent<T>) => void) & Deferrable) | undefined;
-	private _dirtyStateChangedDebounced: (((e: DocumentDirtyStateChangeEvent<T>) => void) & Deferrable) | undefined;
+	private _dirtyIdleTriggeredDebounced: Deferrable<(e: DocumentDirtyIdleTriggerEvent<T>) => void> | undefined;
+	private _dirtyStateChangedDebounced: Deferrable<(e: DocumentDirtyStateChangeEvent<T>) => void> | undefined;
 	private fireDocumentDirtyStateChanged(e: DocumentDirtyStateChangeEvent<T>) {
 		if (e.dirty) {
 			setImmediate(async () => {

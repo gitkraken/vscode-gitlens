@@ -199,7 +199,7 @@ export class LineTracker<T> implements Disposable {
 		this.onLinesChanged({ editor: this._editor, selections: this.selections, reason: reason });
 	}
 
-	private _linesChangedDebounced: (((e: LinesChangeEvent) => void) & Deferrable) | undefined;
+	private _linesChangedDebounced: Deferrable<(e: LinesChangeEvent) => void> | undefined;
 
 	private onLinesChanged(e: LinesChangeEvent) {
 		if (e.selections === undefined) {
