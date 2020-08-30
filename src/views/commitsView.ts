@@ -161,10 +161,9 @@ export class CommitsViewNode extends ViewNode<CommitsView> {
 
 			const branch = await child.repo.getBranch();
 			if (branch != null) {
-				this.view.title = `${branch.name} Commits`;
-				this.view.titleDescription = branch?.getTrackingStatus();
+				const status = branch.getTrackingStatus();
+				this.view.titleDescription = `${branch.name}${status ? ` ${GlyphChars.Dot} ${status}` : ''}`;
 			} else {
-				this.view.title = 'Commits';
 				this.view.titleDescription = undefined;
 			}
 
