@@ -11,6 +11,7 @@ const pinnedSuffix = ' (pinned)';
 
 export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHistoryTrackerNode, FileHistoryViewConfig> {
 	protected readonly configKey = 'fileHistory';
+	protected readonly showCollapseAll = false;
 
 	constructor() {
 		super('gitlens.views.fileHistory', 'File History');
@@ -18,10 +19,6 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 
 	getRoot(): LineHistoryTrackerNode | FileHistoryTrackerNode {
 		return this._followCursor ? new LineHistoryTrackerNode(this) : new FileHistoryTrackerNode(this);
-	}
-
-	protected get location(): string {
-		return this.config.location;
 	}
 
 	protected registerCommands() {
@@ -101,13 +98,7 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 			void setCommandContext(CommandContext.ViewsFileHistoryCursorFollowing, this._followCursor);
 		}
 
-		if (configuration.changed(e, 'views', this.configKey, 'location')) {
-			this.initialize(this.config.location);
-		}
-
-		if (!configuration.initializing(e) && this._root != null) {
-			void this.refresh(true);
-		}
+		super.onConfigurationChanged(e);
 	}
 
 	async showHistoryForUri(uri: GitUri, baseRef?: string) {
@@ -122,7 +113,7 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 	}
 
 	private changeBase() {
-		void this._root?.changeBase();
+		void this.root?.changeBase();
 	}
 
 	private _followCursor: boolean = false;
@@ -131,7 +122,6 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 		void setCommandContext(CommandContext.ViewsFileHistoryCursorFollowing, enabled);
 
 		this.title = this._followCursor ? 'Line History' : 'File History';
-		// this.titleContext = this._followCursor ? this.titleContext : undefined;
 
 		const root = this.ensureRoot(true);
 		root.setEditorFollowing(this._followEditor);
@@ -143,7 +133,7 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 	private setEditorFollowing(enabled: boolean) {
 		this._followEditor = enabled;
 		void setCommandContext(CommandContext.ViewsFileHistoryEditorFollowing, enabled);
-		this._root?.setEditorFollowing(enabled);
+		this.root?.setEditorFollowing(enabled);
 
 		if (this.titleDescription?.endsWith(pinnedSuffix)) {
 			if (enabled) {

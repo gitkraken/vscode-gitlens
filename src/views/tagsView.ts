@@ -201,16 +201,6 @@ export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
 		return true;
 	}
 
-	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
-		if (configuration.initializing(e)) {
-			this.initialize(undefined, { showCollapseAll: true });
-		}
-
-		if (!configuration.initializing(e) && this._root != null) {
-			void this.refresh(true);
-		}
-	}
-
 	findTag(tag: GitTagReference, token?: CancellationToken) {
 		const repoNodeId = RepositoryNode.getId(tag.repoPath);
 

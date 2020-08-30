@@ -108,10 +108,12 @@ export abstract class ViewBase<
 		return this._onDidChangeNodeState.event;
 	}
 
-	protected _disposable: Disposable | undefined;
+	protected disposable: Disposable | undefined;
+	protected root: RootNode | undefined;
+	protected tree: TreeView<ViewNode> | undefined;
+	protected readonly showCollapseAll: boolean = true;
+
 	private readonly _lastKnownLimits = new Map<string, number | undefined>();
-	protected _root: RootNode | undefined;
-	protected _tree: TreeView<ViewNode> | undefined;
 
 	constructor(public readonly id: string, public readonly name: string) {
 		if (Logger.isDebugging) {
@@ -143,6 +145,9 @@ export abstract class ViewBase<
 				this.onConfigurationChanged(e);
 			}, this),
 		);
+
+		this.initialize({ showCollapseAll: this.showCollapseAll });
+
 		setImmediate(() => this.onConfigurationChanged(configuration.initializingChangeEvent));
 	}
 
@@ -158,7 +163,7 @@ export abstract class ViewBase<
 	}
 
 	dispose() {
-		this._disposable?.dispose();
+		this.disposable?.dispose();
 	}
 
 	private _title: string | undefined;
@@ -181,7 +186,7 @@ export abstract class ViewBase<
 
 	private _updateTitleDebounced: (() => void) | undefined = undefined;
 	private updateTitle() {
-		if (this._tree == null) return;
+		if (this.tree == null) return;
 
 		if (this._updateTitleDebounced === undefined) {
 			this._updateTitleDebounced = Functions.debounce(this.updateTitleCore.bind(this), 100);
@@ -191,13 +196,13 @@ export abstract class ViewBase<
 	}
 
 	private updateTitleCore() {
-		if (this._tree == null) return;
-		if (this._tree.visible) {
-			this._tree.title = `${this.title}${
+		if (this.tree == null) return;
+		if (this.tree.visible) {
+			this.tree.title = `${this.title}${
 				this.titleDescription ? ` ${GlyphChars.Dot} ${this.titleDescription}` : ''
 			}`;
 		} else {
-			this._tree.title = this.title;
+			this.tree.title = this.title;
 		}
 	}
 
@@ -205,39 +210,39 @@ export abstract class ViewBase<
 		return `${this.id}.${command}`;
 	}
 
-	protected get location(): string | undefined {
-		return undefined;
-	}
-
 	protected abstract getRoot(): RootNode;
 	protected abstract registerCommands(): void;
-	protected abstract onConfigurationChanged(e: ConfigurationChangeEvent): void;
+	protected onConfigurationChanged(e: ConfigurationChangeEvent): void {
+		if (!configuration.initializing(e) && this.root != null) {
+			void this.refresh(true);
+		}
+	}
 
-	protected initialize(container?: string, options: { showCollapseAll?: boolean } = {}) {
-		if (this._disposable != null) {
-			this._disposable.dispose();
+	protected initialize(options: { showCollapseAll?: boolean } = {}) {
+		if (this.disposable != null) {
+			this.disposable.dispose();
 			this._onDidChangeTreeData = new EventEmitter<ViewNode>();
 		}
 
-		this._tree = window.createTreeView(`${this.id}${container ? `:${container}` : ''}`, {
+		this.tree = window.createTreeView(this.id, {
 			...options,
 			treeDataProvider: this,
 		});
-		this._disposable = Disposable.from(
-			this._tree,
-			this._tree.onDidChangeVisibility(Functions.debounce(this.onVisibilityChanged, 250), this),
-			this._tree.onDidCollapseElement(this.onElementCollapsed, this),
-			this._tree.onDidExpandElement(this.onElementExpanded, this),
+		this.disposable = Disposable.from(
+			this.tree,
+			this.tree.onDidChangeVisibility(Functions.debounce(this.onVisibilityChanged, 250), this),
+			this.tree.onDidCollapseElement(this.onElementCollapsed, this),
+			this.tree.onDidExpandElement(this.onElementExpanded, this),
 		);
-		this._title = this._tree.title;
+		this._title = this.tree.title;
 	}
 
 	protected ensureRoot(force: boolean = false) {
-		if (this._root == null || force) {
-			this._root = this.getRoot();
+		if (this.root == null || force) {
+			this.root = this.getRoot();
 		}
 
-		return this._root;
+		return this.root;
 	}
 
 	getChildren(node?: ViewNode): ViewNode[] | Promise<ViewNode[]> {
@@ -271,13 +276,13 @@ export abstract class ViewBase<
 	}
 
 	get selection(): ViewNode[] {
-		if (this._tree == null || this._root == null) return [];
+		if (this.tree == null || this.root == null) return [];
 
-		return this._tree.selection;
+		return this.tree.selection;
 	}
 
 	get visible(): boolean {
-		return this._tree != null ? this._tree.visible : false;
+		return this.tree != null ? this.tree.visible : false;
 	}
 
 	async findNode(
@@ -327,7 +332,7 @@ export abstract class ViewBase<
 		const cc = Logger.getCorrelationContext();
 
 		// If we have no root (e.g. never been initialized) force it so the tree will load properly
-		if (this._root == null) {
+		if (this.root == null) {
 			await this.show();
 		}
 
@@ -452,7 +457,7 @@ export abstract class ViewBase<
 
 	@debug()
 	async refresh(reset: boolean = false) {
-		await this._root?.refresh?.(reset);
+		await this.root?.refresh?.(reset);
 
 		this.triggerNodeChange();
 	}
@@ -478,10 +483,10 @@ export abstract class ViewBase<
 			expand?: boolean | number;
 		},
 	) {
-		if (this._tree == null) return;
+		if (this.tree == null) return;
 
 		try {
-			await this._tree.reveal(node, options);
+			await this.tree.reveal(node, options);
 		} catch (ex) {
 			Logger.error(ex);
 		}
@@ -489,10 +494,8 @@ export abstract class ViewBase<
 
 	@log()
 	async show() {
-		const location = this.location;
-
 		try {
-			void (await commands.executeCommand(`${this.id}${location ? `:${location}` : ''}.focus`));
+			void (await commands.executeCommand(`${this.id}.focus`));
 		} catch (ex) {
 			Logger.error(ex);
 
@@ -509,7 +512,7 @@ export abstract class ViewBase<
 				if (result === actions[0]) {
 					await configuration.update(section as any, 'enabled', true, ConfigurationTarget.Global);
 
-					void (await commands.executeCommand(`${this.id}${location ? `:${location}` : ''}.focus`));
+					void (await commands.executeCommand(`${this.id}.focus`));
 				}
 			}
 		}
@@ -549,7 +552,7 @@ export abstract class ViewBase<
 	})
 	triggerNodeChange(node?: ViewNode) {
 		// Since the root node won't actually refresh, force everything
-		this._onDidChangeTreeData.fire(node != null && node !== this._root ? node : undefined);
+		this._onDidChangeTreeData.fire(node != null && node !== this.root ? node : undefined);
 	}
 
 	protected abstract readonly configKey: ViewsConfigKeys;

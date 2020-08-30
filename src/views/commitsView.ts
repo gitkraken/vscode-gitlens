@@ -232,16 +232,6 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 		return true;
 	}
 
-	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
-		if (configuration.initializing(e)) {
-			this.initialize(undefined, { showCollapseAll: true });
-		}
-
-		if (!configuration.initializing(e) && this._root !== undefined) {
-			void this.refresh(true);
-		}
-	}
-
 	async findCommit(commit: GitLogCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
 		const repoNodeId = RepositoryNode.getId(commit.repoPath);
 

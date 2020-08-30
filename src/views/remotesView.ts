@@ -210,16 +210,6 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 		return true;
 	}
 
-	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
-		if (configuration.initializing(e)) {
-			this.initialize(undefined, { showCollapseAll: true });
-		}
-
-		if (!configuration.initializing(e) && this._root != null) {
-			void this.refresh(true);
-		}
-	}
-
 	findBranch(branch: GitBranchReference, token?: CancellationToken) {
 		if (!branch.remote) return undefined;
 

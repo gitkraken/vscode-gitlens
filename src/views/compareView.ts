@@ -26,10 +26,6 @@ export class CompareView extends ViewBase<CompareNode, CompareViewConfig> {
 		return new CompareNode(this);
 	}
 
-	protected get location(): string {
-		return this.config.location;
-	}
-
 	protected registerCommands() {
 		void Container.viewCommands;
 
@@ -85,29 +81,19 @@ export class CompareView extends ViewBase<CompareNode, CompareViewConfig> {
 		return true;
 	}
 
-	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
-		if (configuration.changed(e, 'views', this.configKey, 'location')) {
-			this.initialize(this.config.location, { showCollapseAll: true });
-		}
-
-		if (!configuration.initializing(e) && this._root != null) {
-			void this.refresh(true);
-		}
-	}
-
 	get keepResults(): boolean {
 		return Container.context.workspaceState.get<boolean>(WorkspaceState.ViewsCompareKeepResults, false);
 	}
 
 	clear() {
-		this._root?.clear();
+		this.root?.clear();
 	}
 
 	dismissNode(node: ViewNode) {
-		if (this._root == null) return;
+		if (this.root == null) return;
 		if (nodeSupportsConditionalDismissal(node) && node.canDismiss() === false) return;
 
-		this._root.dismiss(node);
+		this.root.dismiss(node);
 	}
 
 	compare(repoPath: string, ref1: string | NamedRef, ref2: string | NamedRef) {

@@ -10,6 +10,7 @@ const pinnedSuffix = ' (pinned)';
 
 export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistoryViewConfig> {
 	protected readonly configKey = 'lineHistory';
+	protected readonly showCollapseAll = false;
 
 	constructor() {
 		super('gitlens.views.lineHistory', 'Line History');
@@ -17,10 +18,6 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistor
 
 	getRoot() {
 		return new LineHistoryTrackerNode(this);
-	}
-
-	protected get location(): string {
-		return this.config.location;
 	}
 
 	protected registerCommands() {
@@ -78,22 +75,16 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistor
 			void setCommandContext(CommandContext.ViewsLineHistoryEditorFollowing, true);
 		}
 
-		if (configuration.changed(e, 'views', this.configKey, 'location')) {
-			this.initialize(this.config.location);
-		}
-
-		if (!configuration.initializing(e) && this._root != null) {
-			void this.refresh(true);
-		}
+		super.onConfigurationChanged(e);
 	}
 
 	private changeBase() {
-		void this._root?.changeBase();
+		void this.root?.changeBase();
 	}
 
 	private setEditorFollowing(enabled: boolean) {
 		void setCommandContext(CommandContext.ViewsLineHistoryEditorFollowing, enabled);
-		this._root?.setEditorFollowing(enabled);
+		this.root?.setEditorFollowing(enabled);
 
 		if (this.titleDescription?.endsWith(pinnedSuffix)) {
 			if (enabled) {

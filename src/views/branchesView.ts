@@ -217,16 +217,6 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 		return true;
 	}
 
-	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
-		if (configuration.initializing(e)) {
-			this.initialize(undefined, { showCollapseAll: true });
-		}
-
-		if (!configuration.initializing(e) && this._root != null) {
-			void this.refresh(true);
-		}
-	}
-
 	findBranch(branch: GitBranchReference, token?: CancellationToken) {
 		const repoNodeId = RepositoryNode.getId(branch.repoPath);
 

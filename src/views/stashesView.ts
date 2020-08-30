@@ -172,16 +172,6 @@ export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 		return true;
 	}
 
-	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
-		if (configuration.initializing(e)) {
-			this.initialize(undefined, { showCollapseAll: true });
-		}
-
-		if (!configuration.initializing(e) && this._root != null) {
-			void this.refresh(true);
-		}
-	}
-
 	private setFilesLayout(layout: ViewFilesLayout) {
 		return configuration.updateEffective('views', this.configKey, 'files', 'layout', layout);
 	}

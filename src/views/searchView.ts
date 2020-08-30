@@ -28,10 +28,6 @@ export class SearchView extends ViewBase<SearchNode, SearchViewConfig> {
 		return new SearchNode(this);
 	}
 
-	protected get location(): string {
-		return this.config.location;
-	}
-
 	protected registerCommands() {
 		void Container.viewCommands;
 
@@ -82,29 +78,19 @@ export class SearchView extends ViewBase<SearchNode, SearchViewConfig> {
 		return true;
 	}
 
-	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
-		if (configuration.changed(e, 'views', this.configKey, 'location')) {
-			this.initialize(this.config.location, { showCollapseAll: true });
-		}
-
-		if (!configuration.initializing(e) && this._root != null) {
-			void this.refresh(true);
-		}
-	}
-
 	get keepResults(): boolean {
 		return Container.context.workspaceState.get<boolean>(WorkspaceState.ViewsSearchKeepResults, false);
 	}
 
 	clear() {
-		this._root?.clear();
+		this.root?.clear();
 	}
 
 	dismissNode(node: ViewNode) {
-		if (this._root == null) return;
+		if (this.root == null) return;
 		if (nodeSupportsConditionalDismissal(node) && node.canDismiss() === false) return;
 
-		this._root.dismiss(node);
+		this.root.dismiss(node);
 	}
 
 	async search(
@@ -142,7 +128,7 @@ export class SearchView extends ViewBase<SearchNode, SearchViewConfig> {
 		return this.addResults(
 			new SearchResultsCommitsNode(
 				this,
-				this._root!,
+				this.root!,
 				repoPath,
 				search,
 				`Results ${typeof label === 'string' ? label : label.label}`,
@@ -197,7 +183,7 @@ export class SearchView extends ViewBase<SearchNode, SearchViewConfig> {
 		);
 
 		return this.addResults(
-			new SearchResultsCommitsNode(this, this._root!, repoPath, search, labelString, searchQueryFn),
+			new SearchResultsCommitsNode(this, this.root!, repoPath, search, labelString, searchQueryFn),
 			reveal,
 		);
 	}

@@ -6,14 +6,7 @@ import { LineAnnotationController } from './annotations/lineAnnotationController
 import { clearAvatarCache } from './avatars';
 import { GitCodeLensController } from './codelens/codeLensController';
 import { Commands, ToggleFileAnnotationCommandArgs } from './commands';
-import {
-	AnnotationsToggleMode,
-	Config,
-	configuration,
-	ConfigurationWillChangeEvent,
-	viewsWithLocationConfigKeys,
-} from './configuration';
-import { extensionId } from './constants';
+import { AnnotationsToggleMode, Config, configuration, ConfigurationWillChangeEvent } from './configuration';
 import { GitFileSystemProvider } from './git/fsProvider';
 import { GitService } from './git/gitService';
 import { LineHoverController } from './hovers/lineHoverController';
@@ -146,22 +139,6 @@ export class Container {
 
 		if (configuration.changed(e.change, 'defaultGravatarsStyle')) {
 			clearAvatarCache();
-		}
-
-		for (const view of viewsWithLocationConfigKeys) {
-			if (configuration.changed(e.change, 'views', view, 'location')) {
-				setTimeout(
-					() =>
-						commands.executeCommand(
-							`${extensionId}.views.${view}:${configuration.get(
-								'views',
-								view,
-								'location',
-							)}.resetViewLocation`,
-						),
-					0,
-				);
-			}
 		}
 
 		if (configuration.changed(e.change, 'mode') || configuration.changed(e.change, 'modes')) {

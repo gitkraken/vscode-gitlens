@@ -240,12 +240,6 @@ export enum ViewFilesLayout {
 	Tree = 'tree',
 }
 
-export enum ViewLocation {
-	Explorer = 'explorer',
-	GitLens = 'gitlens',
-	SourceControl = 'scm',
-}
-
 export enum ViewShowBranchComparison {
 	Branch = 'branch',
 	Working = 'working',
@@ -445,33 +439,20 @@ interface ViewsConfigs {
 
 export type ViewsConfigKeys = keyof ViewsConfigs;
 export const viewsConfigKeys: ViewsConfigKeys[] = [
-	'branches',
 	'commits',
-	'compare',
-	'contributors',
+	'repositories',
 	'fileHistory',
 	'lineHistory',
+	'branches',
 	'remotes',
-	'repositories',
-	'search',
 	'stashes',
 	'tags',
+	'contributors',
+	'search',
+	'compare',
 ];
 
 export type ViewsConfig = ViewsCommonConfig & ViewsConfigs;
-
-type ViewsWithLocation = keyof Pick<
-	ViewsConfigs,
-	'compare' | 'fileHistory' | 'lineHistory' | 'repositories' | 'search'
->;
-
-export const viewsWithLocationConfigKeys: ViewsWithLocation[] = [
-	'compare',
-	'fileHistory',
-	'lineHistory',
-	'repositories',
-	'search',
-];
 
 export interface BranchesViewConfig {
 	avatars: boolean;
@@ -494,7 +475,6 @@ export interface CompareViewConfig {
 	avatars: boolean;
 	enabled: boolean;
 	files: ViewsFilesConfig;
-	location: ViewLocation;
 }
 
 export interface ContributorsViewConfig {
@@ -505,13 +485,11 @@ export interface ContributorsViewConfig {
 export interface FileHistoryViewConfig {
 	avatars: boolean;
 	enabled: boolean;
-	location: ViewLocation;
 }
 
 export interface LineHistoryViewConfig {
 	avatars: boolean;
 	enabled: boolean;
-	location: ViewLocation;
 }
 
 export interface RemotesViewConfig {
@@ -534,7 +512,6 @@ export interface RepositoriesViewConfig {
 	enabled: boolean;
 	files: ViewsFilesConfig;
 	includeWorkingTree: boolean;
-	location: ViewLocation;
 	showBranchComparison: false | ViewShowBranchComparison;
 	showTrackingBranch: boolean;
 }
@@ -543,7 +520,6 @@ export interface SearchViewConfig {
 	avatars: boolean;
 	enabled: boolean;
 	files: ViewsFilesConfig;
-	location: ViewLocation;
 }
 
 export interface StashesViewConfig {

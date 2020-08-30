@@ -51,10 +51,6 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		return new RepositoriesNode(this);
 	}
 
-	protected get location(): string {
-		return this.config.location;
-	}
-
 	protected registerCommands() {
 		void Container.viewCommands;
 
@@ -124,13 +120,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 			void this.setAutoRefresh(Container.config.views.repositories.autoRefresh);
 		}
 
-		if (configuration.changed(e, 'views', this.configKey, 'location')) {
-			this.initialize(this.config.location, { showCollapseAll: true });
-		}
-
-		if (!configuration.initializing(e) && this._root != null) {
-			void this.refresh(true);
-		}
+		super.onConfigurationChanged(e);
 	}
 
 	get autoRefresh() {
