@@ -40,7 +40,7 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 
 	async getChildren(): Promise<ViewNode[]> {
 		const log = await this.getLog();
-		if (log === undefined) return [new MessageNode(this.view, this, 'No commits could be found.')];
+		if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
 		const getBranchAndTagTips = await Container.git.getBranchesAndTagsTipsFn(this.uri.repoPath);
 		const children = [
@@ -96,7 +96,7 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 
 	private _log: GitLog | undefined;
 	private async getLog() {
-		if (this._log === undefined) {
+		if (this._log == null) {
 			this._log = await Container.git.getLog(this.uri.repoPath!, {
 				limit: this.limit ?? this.view.config.defaultItemLimit,
 				authors: [`^${this.contributor.name} <${this.contributor.email}>$`],
@@ -113,13 +113,14 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	async showMore(limit?: number | { until?: any }) {
 		let log = await this.getLog();
-		if (log === undefined || !log.hasMore) return;
+		if (log == null || !log.hasMore) return;
 
 		log = await log.more?.(limit ?? this.view.config.pageItemLimit);
 		if (this._log === log) return;
 
 		this._log = log;
 		this.limit = log?.count;
+
 		void this.triggerChange(false);
 	}
 }

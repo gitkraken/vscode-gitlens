@@ -35,7 +35,7 @@ export class BranchesNode extends ViewNode<BranchesView | RepositoriesView> {
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		if (this._children === undefined) {
+		if (this._children == null) {
 			const branches = await this.repo.getBranches({
 				// only show local branches
 				filter: b => !b.remote,
@@ -71,6 +71,7 @@ export class BranchesNode extends ViewNode<BranchesView | RepositoriesView> {
 			);
 			this._children = root.getChildren();
 		}
+
 		return this._children;
 	}
 

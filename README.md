@@ -20,17 +20,10 @@
 
 While GitLens is generously offered to everyone free of charge, if you find it useful, please consider [**sponsoring**](https://gitlens.amod.io/#sponsor) it. Also please [write a review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details 'Write a review'), [star me on GitHub](https://github.com/eamodio/vscode-gitlens 'Star me on GitHub'), and [follow me on Twitter](https://twitter.com/eamodio 'Follow me on Twitter')
 
-# What's new in GitLens 10
+# What's new in GitLens 11
 
-- Adds all-new iconography to better match VS Code's new visual style
-- Adds an all-new Welcome experience with a simple quick setup of common GitLens features
-- Adds a new and improved interactive Settings editor experience
-- Adds a new and improved _Git Commands_ experience
-- Adds an all-new commit search experience &mdash; complete with ability to match on more than one search pattern
-- Adds a _Reveal Commit in Repositories View_ command to reveal the current commit in the _Repositories_ view
-- Adds a _Show Commits within Selection in Search Commits View_ command to show all the commits within the current selection in the _Search Commits_ view
-- Adds new actions options to the Git Code Lens
-- Adds ability to sort branches and tags in quick pick menus and views
+TBD
+
 - And much more
 
 See the [release notes](https://github.com/eamodio/vscode-gitlens/blob/master/CHANGELOG.md 'Open Release Notes') for the full set of changes
@@ -767,19 +760,19 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 
 See also [View Settings](#view-settings- 'Jump to the View settings')
 
-| Name                                 | Description                                                                                                                                                                                          |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `gitlens.views.fileHistory.avatars`  | Specifies whether to show avatar images instead of status icons in the _File History_ view                                                                                                           |
-| `gitlens.views.fileHistory.enabled`  | Specifies whether to show the _File History_ view                                                                                                                                                    |
+| Name                                | Description                                                                                |
+| ----------------------------------- | ------------------------------------------------------------------------------------------ |
+| `gitlens.views.fileHistory.avatars` | Specifies whether to show avatar images instead of status icons in the _File History_ view |
+| `gitlens.views.fileHistory.enabled` | Specifies whether to show the _File History_ view                                          |
 
 ### Line History View Settings [#](#line-history-view-settings- 'Line History View Settings')
 
 See also [View Settings](#view-settings- 'Jump to the View settings')
 
-| Name                                 | Description                                                                                                                                                                                          |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `gitlens.views.lineHistory.avatars`  | Specifies whether to show avatar images instead of status icons in the _Line History_ view                                                                                                           |
-| `gitlens.views.lineHistory.enabled`  | Specifies whether to show the _Line History_ view                                                                                                                                                    |
+| Name                                | Description                                                                                |
+| ----------------------------------- | ------------------------------------------------------------------------------------------ |
+| `gitlens.views.lineHistory.avatars` | Specifies whether to show avatar images instead of status icons in the _Line History_ view |
+| `gitlens.views.lineHistory.enabled` | Specifies whether to show the _Line History_ view                                          |
 
 ### Search View Settings [#](#search-view-settings- 'Search View Settings')
 

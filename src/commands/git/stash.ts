@@ -4,7 +4,7 @@ import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitReference, GitStashCommit, GitStashReference, Repository } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { GitCommandsCommand } from '../gitCommands';
+import { GitActions, GitCommandsCommand } from '../gitCommands';
 import {
 	appendReposToTitle,
 	PartialStepState,
@@ -353,7 +353,7 @@ export class StashGitCommand extends QuickCommand<State> {
 				additionalButtons: [QuickCommandButtons.RevealInView],
 				onDidClickButton: (quickpick, button) => {
 					if (button === QuickCommandButtons.RevealInView) {
-						void Container.repositoriesView.revealStash(state.reference, {
+						void GitActions.Stash.reveal(state.reference, {
 							select: true,
 							expand: true,
 						});
@@ -412,7 +412,7 @@ export class StashGitCommand extends QuickCommand<State> {
 				additionalButtons: [QuickCommandButtons.RevealInView],
 				onDidClickButton: (quickpick, button) => {
 					if (button === QuickCommandButtons.RevealInView) {
-						void Container.repositoriesView.revealStash(state.reference, {
+						void GitActions.Stash.reveal(state.reference, {
 							select: true,
 							expand: true,
 						});

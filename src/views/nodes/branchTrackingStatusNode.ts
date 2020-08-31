@@ -62,16 +62,16 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 
 	async getChildren(): Promise<ViewNode[]> {
 		const log = await this.getLog();
-		if (log === undefined) return [];
+		if (log == null) return [];
 
 		let children;
 		if (this.ahead) {
 			// Since the last commit when we are looking 'ahead' can have no previous (because of the range given) -- look it up
 			const commits = [...log.commits.values()];
 			const commit = commits[commits.length - 1];
-			if (commit.previousSha === undefined) {
+			if (commit.previousSha == null) {
 				const previousLog = await Container.git.getLog(this.uri.repoPath!, { limit: 2, ref: commit.sha });
-				if (previousLog !== undefined) {
+				if (previousLog != null) {
 					commits[commits.length - 1] = Iterables.first(previousLog.commits.values());
 				}
 			}
@@ -154,7 +154,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 
 	private _log: GitLog | undefined;
 	private async getLog() {
-		if (this._log === undefined) {
+		if (this._log == null) {
 			const range = this.ahead
 				? GitRevision.createRange(this.status.upstream, this.status.ref)
 				: GitRevision.createRange(this.status.ref, this.status.upstream);
@@ -175,13 +175,14 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	async showMore(limit?: number | { until?: any }) {
 		let log = await this.getLog();
-		if (log === undefined || !log.hasMore) return;
+		if (log == null || !log.hasMore) return;
 
 		log = await log.more?.(limit ?? this.view.config.pageItemLimit);
 		if (this._log === log) return;
 
 		this._log = log;
 		this.limit = log?.count;
+
 		void this.triggerChange(false);
 	}
 }

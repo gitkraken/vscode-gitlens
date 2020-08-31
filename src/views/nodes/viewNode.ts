@@ -84,12 +84,8 @@ export abstract class ViewNode<TView extends View = View> {
 	abstract getChildren(): ViewNode[] | Promise<ViewNode[]>;
 
 	getParent(): ViewNode | undefined {
-		// If this node has been splatted (e.g. not shown itself, but its children are), then return its grandparent
-		if (this.splatted) {
-			return this.parent?.getParent() ?? this.parent;
-		}
-
-		return this.parent;
+		// If this node's parent has been splatted (e.g. not shown itself, but its children are), then return its grandparent
+		return this.parent?.splatted ? this.parent?.getParent() : this.parent;
 	}
 
 	abstract getTreeItem(): TreeItem | Promise<TreeItem>;
@@ -110,6 +106,8 @@ export abstract class ViewNode<TView extends View = View> {
 
 		return this.view.refreshNode(this, reset, force);
 	}
+
+	getSplattedChild?(): Promise<ViewNode | undefined>;
 }
 
 export abstract class ViewRefNode<

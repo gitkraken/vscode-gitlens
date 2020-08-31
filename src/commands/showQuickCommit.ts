@@ -10,7 +10,7 @@ import {
 } from './common';
 import { Container } from '../container';
 import { GitCommit, GitLog, GitLogCommit } from '../git/git';
-import { executeGitCommand } from './gitCommands';
+import { executeGitCommand, GitActions } from './gitCommands';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
@@ -137,7 +137,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 			}
 
 			if (args.revealInView) {
-				void (await Container.repositoriesView.revealCommit(args.commit, {
+				void (await GitActions.Commit.reveal(args.commit, {
 					select: true,
 					focus: true,
 					expand: true,

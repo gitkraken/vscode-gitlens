@@ -7,7 +7,7 @@ import { Repository } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { RepositoriesView } from '../repositoriesView';
 import { RepositoryNode } from './repositoryNode';
-import { Arrays } from '../../system';
+import { Arrays, debug, gate } from '../../system';
 import { TagNode } from './tagNode';
 import { TagsView } from '../tagsView';
 import { ContextValues, ViewNode } from './viewNode';
@@ -18,6 +18,8 @@ export class TagsNode extends ViewNode<TagsView | RepositoriesView> {
 		return `${RepositoryNode.getId(repoPath)}${this.key}`;
 	}
 
+	private _children: ViewNode[] | undefined;
+
 	constructor(uri: GitUri, view: TagsView | RepositoriesView, parent: ViewNode, public readonly repo: Repository) {
 		super(uri, view, parent);
 	}
@@ -27,31 +29,36 @@ export class TagsNode extends ViewNode<TagsView | RepositoriesView> {
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		const tags = await this.repo.getTags({ sort: true });
-		if (tags.length === 0) return [new MessageNode(this.view, this, 'No tags could be found.')];
+		if (this._children == null) {
+			const tags = await this.repo.getTags({ sort: true });
+			if (tags.length === 0) return [new MessageNode(this.view, this, 'No tags could be found.')];
 
-		const tagNodes = tags.map(t => new TagNode(GitUri.fromRepoPath(this.uri.repoPath!, t.ref), this.view, this, t));
-		if (this.view.config.branches.layout === ViewBranchesLayout.List) return tagNodes;
+			const tagNodes = tags.map(
+				t => new TagNode(GitUri.fromRepoPath(this.uri.repoPath!, t.ref), this.view, this, t),
+			);
+			if (this.view.config.branches.layout === ViewBranchesLayout.List) return tagNodes;
 
-		const hierarchy = Arrays.makeHierarchical(
-			tagNodes,
-			n => n.tag.name.split('/'),
-			(...paths) => paths.join('/'),
-			this.view.config.files.compact,
-		);
+			const hierarchy = Arrays.makeHierarchical(
+				tagNodes,
+				n => n.tag.name.split('/'),
+				(...paths) => paths.join('/'),
+				this.view.config.files.compact,
+			);
 
-		const root = new BranchOrTagFolderNode(
-			this.view,
-			this,
-			'tag',
-			this.repo.path,
-			'',
-			undefined,
-			hierarchy,
-			'tags',
-		);
-		const children = root.getChildren();
-		return children;
+			const root = new BranchOrTagFolderNode(
+				this.view,
+				this,
+				'tag',
+				this.repo.path,
+				'',
+				undefined,
+				hierarchy,
+				'tags',
+			);
+			this._children = root.getChildren();
+		}
+
+		return this._children;
 	}
 
 	getTreeItem(): TreeItem {
@@ -60,5 +67,11 @@ export class TagsNode extends ViewNode<TagsView | RepositoriesView> {
 		item.contextValue = ContextValues.Tags;
 		item.iconPath = new ThemeIcon('tag');
 		return item;
+	}
+
+	@gate()
+	@debug()
+	refresh() {
+		this._children = undefined;
 	}
 }

@@ -1,45 +1,73 @@
 'use strict';
-import { commands, ConfigurationChangeEvent, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import {
+	CancellationToken,
+	commands,
+	ConfigurationChangeEvent,
+	ProgressLocation,
+	TreeItem,
+	TreeItemCollapsibleState,
+	window,
+} from 'vscode';
 import { configuration, StashesViewConfig, ViewFilesLayout } from '../configuration';
 import { Container } from '../container';
-import { Repository, RepositoryChange, RepositoryChangeEvent } from '../git/git';
+import { GitReference, GitStashReference, Repository, RepositoryChange, RepositoryChangeEvent } from '../git/git';
 import { GitUri } from '../git/gitUri';
-import { ContextValues, MessageNode, StashesNode, SubscribeableViewNode, unknownGitUri, ViewNode } from './nodes';
+import {
+	ContextValues,
+	MessageNode,
+	RepositoryNode,
+	StashesNode,
+	StashNode,
+	SubscribeableViewNode,
+	unknownGitUri,
+	ViewNode,
+} from './nodes';
 import { debug, gate } from '../system';
 import { ViewBase } from './viewBase';
 
 export class StashesRepositoryNode extends SubscribeableViewNode<StashesView> {
+	protected splatted = true;
 	private child: StashesNode | undefined;
 
-	constructor(
-		uri: GitUri,
-		view: StashesView,
-		parent: ViewNode,
-		public readonly repo: Repository,
-		private readonly root: boolean,
-	) {
+	constructor(uri: GitUri, view: StashesView, parent: ViewNode, public readonly repo: Repository, splatted: boolean) {
 		super(uri, view, parent);
+
+		this.splatted = splatted;
+	}
+
+	get id(): string {
+		return RepositoryNode.getId(this.repo.path);
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
+		void this.ensureSubscription();
+
 		if (this.child == null) {
 			this.child = new StashesNode(this.uri, this.view, this, this.repo);
-
-			void this.ensureSubscription();
 		}
+
 		return this.child.getChildren();
 	}
 
 	getTreeItem(): TreeItem {
+		this.splatted = false;
+		void this.ensureSubscription();
+
 		const item = new TreeItem(
 			this.repo.formattedName ?? this.uri.repoPath ?? '',
 			TreeItemCollapsibleState.Expanded,
 		);
 		item.contextValue = ContextValues.RepositoryFolder;
 
-		void this.ensureSubscription();
-
 		return item;
+	}
+
+	async getSplattedChild() {
+		if (this.child == null) {
+			await this.getChildren();
+		}
+
+		return this.child;
 	}
 
 	@gate()
@@ -71,14 +99,15 @@ export class StashesRepositoryNode extends SubscribeableViewNode<StashesView> {
 
 		if (e.changed(RepositoryChange.Config) || e.changed(RepositoryChange.Heads)) {
 			void this.triggerChange(true);
-			if (this.root) {
-				void this.parent?.triggerChange(true);
-			}
+			// if (this.root) {
+			// 	void this.parent?.triggerChange(true);
+			// }
 		}
 	}
 }
 
 export class StashesViewNode extends ViewNode<StashesView> {
+	protected splatted = true;
 	private children: StashesRepositoryNode[] | undefined;
 
 	constructor(view: StashesView) {
@@ -86,22 +115,17 @@ export class StashesViewNode extends ViewNode<StashesView> {
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		if (this.children != null) {
-			for (const child of this.children) {
-				child.dispose?.();
-			}
-			this.children = undefined;
+		if (this.children == null) {
+			const repositories = await Container.git.getOrderedRepositories();
+			if (repositories.length === 0) return [new MessageNode(this.view, this, 'No stashes could be found.')];
+
+			const splat = repositories.length === 1;
+			this.children = repositories.map(
+				r => new StashesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, splat),
+			);
 		}
 
-		const repositories = await Container.git.getOrderedRepositories();
-		if (repositories.length === 0) return [new MessageNode(this.view, this, 'No stashes could be found.')];
-
-		const root = repositories.length === 1;
-		this.children = repositories.map(
-			r => new StashesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, root),
-		);
-
-		if (root) {
+		if (this.children.length === 1) {
 			const [child] = this.children;
 
 			const stash = await child.repo.getStash();
@@ -109,12 +133,32 @@ export class StashesViewNode extends ViewNode<StashesView> {
 
 			return child.getChildren();
 		}
+
 		return this.children;
 	}
 
 	getTreeItem(): TreeItem {
 		const item = new TreeItem('Stashes', TreeItemCollapsibleState.Expanded);
 		return item;
+	}
+
+	async getSplattedChild() {
+		if (this.children == null) {
+			await this.getChildren();
+		}
+
+		return this.children?.length === 1 ? this.children[0] : undefined;
+	}
+
+	@gate()
+	@debug()
+	refresh(reset: boolean = false) {
+		if (reset && this.children != null) {
+			for (const child of this.children) {
+				child.dispose();
+			}
+			this.children = undefined;
+		}
 	}
 }
 
@@ -170,6 +214,50 @@ export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 		}
 
 		return true;
+	}
+
+	findStash(stash: GitStashReference, token?: CancellationToken) {
+		const repoNodeId = RepositoryNode.getId(stash.repoPath);
+
+		return this.findNode(StashNode.getId(stash.repoPath, stash.ref), {
+			maxDepth: 2,
+			canTraverse: n => {
+				if (n instanceof StashesViewNode) return true;
+
+				if (n instanceof StashesRepositoryNode) {
+					return n.id.startsWith(repoNodeId);
+				}
+
+				return false;
+			},
+			token: token,
+		});
+	}
+
+	@gate(() => '')
+	async revealStash(
+		stash: GitStashReference,
+		options?: {
+			select?: boolean;
+			focus?: boolean;
+			expand?: boolean | number;
+		},
+	) {
+		return window.withProgress(
+			{
+				location: ProgressLocation.Notification,
+				title: `Revealing ${GitReference.toString(stash, { icon: false })} in the side bar...`,
+				cancellable: true,
+			},
+			async (progress, token) => {
+				const node = await this.findStash(stash, token);
+				if (node == null) return undefined;
+
+				await this.ensureRevealNode(node, options);
+
+				return node;
+			},
+		);
 	}
 
 	private setFilesLayout(layout: ViewFilesLayout) {

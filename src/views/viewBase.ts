@@ -395,7 +395,11 @@ export abstract class ViewBase<
 			children = await node.getChildren();
 			if (children.length === 0) continue;
 
-			if (PageableViewNode.is(node)) {
+			while (node != null && !PageableViewNode.is(node)) {
+				node = await node.getSplattedChild?.();
+			}
+
+			if (node != null && PageableViewNode.is(node)) {
 				let child = children.find(predicate);
 				if (child != null) return child;
 
@@ -442,11 +446,14 @@ export abstract class ViewBase<
 		const nodes: ViewNode[] = [];
 
 		let parent: ViewNode | undefined = node;
-		while (parent !== undefined) {
+		while (parent != null) {
 			nodes.push(parent);
 			parent = parent.getParent();
 		}
-		nodes.pop();
+
+		if (nodes.length > 1) {
+			nodes.pop();
+		}
 
 		for (const n of nodes.reverse()) {
 			try {

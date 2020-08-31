@@ -8,7 +8,7 @@ import { GitContributor, Repository } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { RepositoryNode } from './repositoryNode';
 import { RepositoriesView } from '../repositoriesView';
-import { debug, timeout } from '../../system';
+import { debug, gate, timeout } from '../../system';
 import { ContextValues, ViewNode } from './viewNode';
 
 export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesView> {
@@ -16,6 +16,8 @@ export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesVi
 	static getId(repoPath: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}`;
 	}
+
+	private _children: ViewNode[] | undefined;
 
 	constructor(
 		uri: GitUri,
@@ -31,14 +33,17 @@ export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesVi
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		const contributors = await this.repo.getContributors();
-		if (contributors.length === 0) return [new MessageNode(this.view, this, 'No contributors could be found.')];
+		if (this._children == null) {
+			const contributors = await this.repo.getContributors();
+			if (contributors.length === 0) return [new MessageNode(this.view, this, 'No contributors could be found.')];
 
-		GitContributor.sort(contributors);
-		const presenceMap = await this.maybeGetPresenceMap(contributors).catch(() => undefined);
+			GitContributor.sort(contributors);
+			const presenceMap = await this.maybeGetPresenceMap(contributors).catch(() => undefined);
 
-		const children = contributors.map(c => new ContributorNode(this.uri, this.view, this, c, presenceMap));
-		return children;
+			this._children = contributors.map(c => new ContributorNode(this.uri, this.view, this, c, presenceMap));
+		}
+
+		return this._children;
 	}
 
 	getTreeItem(): TreeItem {
@@ -47,6 +52,12 @@ export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesVi
 		item.contextValue = ContextValues.Contributors;
 		item.iconPath = new ThemeIcon('organization');
 		return item;
+	}
+
+	@gate()
+	@debug()
+	refresh() {
+		this._children = undefined;
 	}
 
 	@debug({ args: false })

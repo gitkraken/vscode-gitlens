@@ -9,12 +9,15 @@ import { RemotesView } from '../remotesView';
 import { RepositoriesView } from '../repositoriesView';
 import { RepositoryNode } from './repositoryNode';
 import { ContextValues, ViewNode } from './viewNode';
+import { debug, gate } from '../../system';
 
 export class RemotesNode extends ViewNode<RemotesView | RepositoriesView> {
 	static key = ':remotes';
 	static getId(repoPath: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}`;
 	}
+
+	private _children: ViewNode[] | undefined;
 
 	constructor(uri: GitUri, view: RemotesView | RepositoriesView, parent: ViewNode, public readonly repo: Repository) {
 		super(uri, view, parent);
@@ -25,12 +28,16 @@ export class RemotesNode extends ViewNode<RemotesView | RepositoriesView> {
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		const remotes = await this.repo.getRemotes({ sort: true });
-		if (remotes === undefined || remotes.length === 0) {
-			return [new MessageNode(this.view, this, 'No remotes could be found')];
+		if (this._children == null) {
+			const remotes = await this.repo.getRemotes({ sort: true });
+			if (remotes == null || remotes.length === 0) {
+				return [new MessageNode(this.view, this, 'No remotes could be found')];
+			}
+
+			this._children = remotes.map(r => new RemoteNode(this.uri, this.view, this, r, this.repo));
 		}
 
-		return remotes.map(r => new RemoteNode(this.uri, this.view, this, r, this.repo));
+		return this._children;
 	}
 
 	getTreeItem(): TreeItem {
@@ -44,5 +51,11 @@ export class RemotesNode extends ViewNode<RemotesView | RepositoriesView> {
 		};
 
 		return item;
+	}
+
+	@gate()
+	@debug()
+	refresh() {
+		this._children = undefined;
 	}
 }

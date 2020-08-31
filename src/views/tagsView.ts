@@ -13,10 +13,8 @@ import { Container } from '../container';
 import { GitReference, GitTagReference, Repository, RepositoryChange, RepositoryChangeEvent } from '../git/git';
 import { GitUri } from '../git/gitUri';
 import {
-	BranchOrTagFolderNode,
 	ContextValues,
 	MessageNode,
-	RepositoriesNode,
 	RepositoryNode,
 	SubscribeableViewNode,
 	TagsNode,
@@ -25,39 +23,51 @@ import {
 } from './nodes';
 import { debug, gate } from '../system';
 import { ViewBase } from './viewBase';
+import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
 
 export class TagsRepositoryNode extends SubscribeableViewNode<TagsView> {
+	protected splatted = true;
 	private child: TagsNode | undefined;
 
-	constructor(
-		uri: GitUri,
-		view: TagsView,
-		parent: ViewNode,
-		public readonly repo: Repository,
-		private readonly root: boolean,
-	) {
+	constructor(uri: GitUri, view: TagsView, parent: ViewNode, public readonly repo: Repository, splatted: boolean) {
 		super(uri, view, parent);
+
+		this.splatted = splatted;
+	}
+
+	get id(): string {
+		return RepositoryNode.getId(this.repo.path);
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
+		void this.ensureSubscription();
+
 		if (this.child == null) {
 			this.child = new TagsNode(this.uri, this.view, this, this.repo);
-
-			void this.ensureSubscription();
 		}
+
 		return this.child.getChildren();
 	}
 
 	getTreeItem(): TreeItem {
+		this.splatted = false;
+		void this.ensureSubscription();
+
 		const item = new TreeItem(
 			this.repo.formattedName ?? this.uri.repoPath ?? '',
 			TreeItemCollapsibleState.Expanded,
 		);
 		item.contextValue = ContextValues.RepositoryFolder;
 
-		void this.ensureSubscription();
-
 		return item;
+	}
+
+	async getSplattedChild() {
+		if (this.child == null) {
+			await this.getChildren();
+		}
+
+		return this.child;
 	}
 
 	@gate()
@@ -89,14 +99,15 @@ export class TagsRepositoryNode extends SubscribeableViewNode<TagsView> {
 
 		if (e.changed(RepositoryChange.Config) || e.changed(RepositoryChange.Tags)) {
 			void this.triggerChange(true);
-			if (this.root) {
-				void this.parent?.triggerChange(true);
-			}
+			// if (this.root) {
+			// 	void this.parent?.triggerChange(true);
+			// }
 		}
 	}
 }
 
 export class TagsViewNode extends ViewNode<TagsView> {
+	protected splatted = true;
 	private children: TagsRepositoryNode[] | undefined;
 
 	constructor(view: TagsView) {
@@ -104,22 +115,17 @@ export class TagsViewNode extends ViewNode<TagsView> {
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		if (this.children != null) {
-			for (const child of this.children) {
-				child.dispose?.();
-			}
-			this.children = undefined;
+		if (this.children == null) {
+			const repositories = await Container.git.getOrderedRepositories();
+			if (repositories.length === 0) return [new MessageNode(this.view, this, 'No tags could be found.')];
+
+			const splat = repositories.length === 1;
+			this.children = repositories.map(
+				r => new TagsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, splat),
+			);
 		}
 
-		const repositories = await Container.git.getOrderedRepositories();
-		if (repositories.length === 0) return [new MessageNode(this.view, this, 'No tags could be found.')];
-
-		const root = repositories.length === 1;
-		this.children = repositories.map(
-			r => new TagsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, root),
-		);
-
-		if (root) {
+		if (this.children.length === 1) {
 			const [child] = this.children;
 
 			const tags = await child.repo.getTags();
@@ -127,12 +133,32 @@ export class TagsViewNode extends ViewNode<TagsView> {
 
 			return child.getChildren();
 		}
+
 		return this.children;
 	}
 
 	getTreeItem(): TreeItem {
 		const item = new TreeItem('Tags', TreeItemCollapsibleState.Expanded);
 		return item;
+	}
+
+	async getSplattedChild() {
+		if (this.children == null) {
+			await this.getChildren();
+		}
+
+		return this.children?.length === 1 ? this.children[0] : undefined;
+	}
+
+	@gate()
+	@debug()
+	refresh(reset: boolean = false) {
+		if (reset && this.children != null) {
+			for (const child of this.children) {
+				child.dispose();
+			}
+			this.children = undefined;
+		}
 	}
 }
 
@@ -204,14 +230,13 @@ export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
 	findTag(tag: GitTagReference, token?: CancellationToken) {
 		const repoNodeId = RepositoryNode.getId(tag.repoPath);
 
-		return this.findNode((n: any) => n.tag !== undefined && n.tag.ref === tag.ref, {
+		return this.findNode((n: any) => n.tag?.ref === tag.ref, {
 			allowPaging: true,
-			maxDepth: 5,
+			maxDepth: 2,
 			canTraverse: n => {
-				// Only search for tag nodes in the same repo within TagsNode
-				if (n instanceof RepositoriesNode) return true;
+				if (n instanceof TagsViewNode) return true;
 
-				if (n instanceof RepositoryNode || n instanceof TagsNode || n instanceof BranchOrTagFolderNode) {
+				if (n instanceof TagsRepositoryNode || n instanceof BranchOrTagFolderNode) {
 					return n.id.startsWith(repoNodeId);
 				}
 
@@ -233,12 +258,12 @@ export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(tag, { icon: false })} in the Repositories view...`,
+				title: `Revealing ${GitReference.toString(tag, { icon: false })} in the side bar...`,
 				cancellable: true,
 			},
 			async (progress, token) => {
 				const node = await this.findTag(tag, token);
-				if (node === undefined) return node;
+				if (node == null) return undefined;
 
 				await this.ensureRevealNode(node, options);
 

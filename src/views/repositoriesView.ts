@@ -300,7 +300,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 			},
 			async (progress, token) => {
 				const node = await this.findBranch(branch, token);
-				if (node === undefined) return node;
+				if (node == null) return undefined;
 
 				await this.ensureRevealNode(node, options);
 
@@ -358,7 +358,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 			},
 			async (progress, token) => {
 				const node = await this.findCommit(commit, token);
-				if (node === undefined) return node;
+				if (node == null) return undefined;
 
 				await this.ensureRevealNode(node, options);
 
@@ -474,7 +474,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 			},
 			async (progress, token) => {
 				const node = await this.findTag(tag, token);
-				if (node === undefined) return node;
+				if (node == null) return undefined;
 
 				await this.ensureRevealNode(node, options);
 

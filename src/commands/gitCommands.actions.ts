@@ -11,7 +11,7 @@ import {
 	GitCommandsCommandArgs,
 	OpenWorkingFileCommandArgs,
 } from '../commands';
-import { FileAnnotationType } from '../configuration';
+import { configuration, FileAnnotationType } from '../configuration';
 import { Container } from '../container';
 import {
 	GitBranchReference,
@@ -19,6 +19,7 @@ import {
 	GitFile,
 	GitLogCommit,
 	GitReference,
+	GitRemote,
 	GitRevision,
 	GitRevisionReference,
 	GitStashReference,
@@ -131,6 +132,28 @@ export namespace GitActions {
 					name: name,
 				},
 			});
+		}
+
+		export async function reveal(
+			branch: GitBranchReference,
+			options?: {
+				select?: boolean;
+				focus?: boolean;
+				expand?: boolean | number;
+			},
+		) {
+			if (configuration.get('views', 'repositories', 'enabled')) {
+				return Container.repositoriesView.revealBranch(branch, options);
+			}
+
+			let node;
+			if (!branch.remote) {
+				node = await Container.branchesView.revealBranch(branch, options);
+			} else {
+				node = await Container.remotesView.revealBranch(branch, options);
+			}
+
+			return node;
 		}
 	}
 
@@ -641,6 +664,32 @@ export namespace GitActions {
 				fileName: typeof file === 'string' ? file : file.fileName,
 			}));
 		}
+
+		export async function reveal(
+			commit: GitRevisionReference,
+			options?: {
+				select?: boolean;
+				focus?: boolean;
+				expand?: boolean | number;
+			},
+		) {
+			if (configuration.get('views', 'repositories', 'enabled')) {
+				return Container.repositoriesView.revealCommit(commit, options);
+			}
+
+			// TODO@eamodio stop duplicate notifications
+
+			let node = await Container.commitsView.revealCommit(commit, options);
+			if (node != null) return node;
+
+			node = await Container.branchesView.revealCommit(commit, options);
+			if (node != null) return node;
+
+			node = await Container.remotesView.revealCommit(commit, options);
+			if (node != null) return node;
+
+			return undefined;
+		}
 	}
 
 	export namespace Contributor {
@@ -678,6 +727,22 @@ export namespace GitActions {
 					references: refs,
 				},
 			});
+		}
+
+		export async function reveal(
+			tag: GitTagReference,
+			options?: {
+				select?: boolean;
+				focus?: boolean;
+				expand?: boolean | number;
+			},
+		) {
+			if (configuration.get('views', 'repositories', 'enabled')) {
+				return Container.repositoriesView.revealTag(tag, options);
+			}
+
+			const node = await Container.tagsView.revealTag(tag, options);
+			return node;
 		}
 	}
 
@@ -720,6 +785,22 @@ export namespace GitActions {
 		export async function prune(repo: string | Repository, remote: string) {
 			void (await Container.git.pruneRemote(typeof repo === 'string' ? repo : repo.path, remote));
 		}
+
+		export async function reveal(
+			remote: GitRemote,
+			options?: {
+				select?: boolean;
+				focus?: boolean;
+				expand?: boolean | number;
+			},
+		) {
+			// if (configuration.get('views', 'repositories', 'enabled')) {
+			// 	return Container.repositoriesView.revealRemote(remote, options);
+			// }
+
+			const node = await Container.remotesView.revealRemote(remote, options);
+			return node;
+		}
 	}
 
 	export namespace Stash {
@@ -755,6 +836,22 @@ export namespace GitActions {
 					flags: keepStaged ? ['--keep-index'] : undefined,
 				},
 			});
+		}
+
+		export async function reveal(
+			stash: GitStashReference,
+			options?: {
+				select?: boolean;
+				focus?: boolean;
+				expand?: boolean | number;
+			},
+		) {
+			if (configuration.get('views', 'repositories', 'enabled')) {
+				return Container.repositoriesView.revealStash(stash, options);
+			}
+
+			const node = await Container.stashesView.revealStash(stash, options);
+			return node;
 		}
 	}
 }

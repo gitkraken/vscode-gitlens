@@ -99,7 +99,7 @@ export namespace QuickCommandButtons {
 
 	export const RevealInView: QuickInputButton = {
 		iconPath: new ThemeIcon('eye'),
-		tooltip: 'Reveal in Repositories View',
+		tooltip: 'Reveal in Side Bar',
 	};
 
 	export const ShowInView: QuickInputButton = {

@@ -21,15 +21,10 @@ import {
 } from '../git/git';
 import { GitUri } from '../git/gitUri';
 import {
-	BranchesNode,
 	BranchNode,
-	BranchOrTagFolderNode,
 	CompareBranchNode,
 	ContextValues,
 	MessageNode,
-	RemoteNode,
-	RemotesNode,
-	RepositoriesNode,
 	RepositoryNode,
 	SubscribeableViewNode,
 	unknownGitUri,
@@ -37,13 +32,20 @@ import {
 } from './nodes';
 import { debug, gate } from '../system';
 import { ViewBase } from './viewBase';
+import { BranchTrackingStatusNode } from './nodes/branchTrackingStatusNode';
 
 export class CommitsRepositoryNode extends SubscribeableViewNode<CommitsView> {
-	private children: (BranchNode | CompareBranchNode)[] | undefined;
 	protected splatted = true;
+	private children: (BranchNode | CompareBranchNode)[] | undefined;
 
-	constructor(uri: GitUri, view: CommitsView, parent: ViewNode, public readonly repo: Repository) {
+	constructor(uri: GitUri, view: CommitsView, parent: ViewNode, public readonly repo: Repository, splatted: boolean) {
 		super(uri, view, parent);
+
+		this.splatted = splatted;
+	}
+
+	get id(): string {
+		return RepositoryNode.getId(this.repo.path);
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
@@ -92,6 +94,14 @@ export class CommitsRepositoryNode extends SubscribeableViewNode<CommitsView> {
 		return item;
 	}
 
+	async getSplattedChild() {
+		if (this.children == null) {
+			await this.getChildren();
+		}
+
+		return this.children?.[0];
+	}
+
 	@gate()
 	@debug()
 	async refresh(reset: boolean = false) {
@@ -135,6 +145,7 @@ export class CommitsRepositoryNode extends SubscribeableViewNode<CommitsView> {
 }
 
 export class CommitsViewNode extends ViewNode<CommitsView> {
+	protected splatted = true;
 	private children: CommitsRepositoryNode[] | undefined;
 
 	constructor(view: CommitsView) {
@@ -142,19 +153,15 @@ export class CommitsViewNode extends ViewNode<CommitsView> {
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		if (this.children != null) {
-			for (const child of this.children) {
-				child.dispose();
-			}
-			this.children = undefined;
+		if (this.children == null) {
+			const repositories = await Container.git.getOrderedRepositories();
+			if (repositories.length === 0) return [new MessageNode(this.view, this, 'No commits could be found.')];
+
+			const splat = repositories.length === 1;
+			this.children = repositories.map(
+				r => new CommitsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, splat),
+			);
 		}
-
-		const repositories = await Container.git.getOrderedRepositories();
-		if (repositories.length === 0) return [new MessageNode(this.view, this, 'No commits could be found.')];
-
-		this.children = repositories.map(
-			r => new CommitsRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r),
-		);
 
 		if (this.children.length === 1) {
 			const [child] = this.children;
@@ -169,12 +176,32 @@ export class CommitsViewNode extends ViewNode<CommitsView> {
 
 			return child.getChildren();
 		}
+
 		return this.children;
 	}
 
 	getTreeItem(): TreeItem {
 		const item = new TreeItem('Commits', TreeItemCollapsibleState.Expanded);
 		return item;
+	}
+
+	async getSplattedChild() {
+		if (this.children == null) {
+			await this.getChildren();
+		}
+
+		return this.children?.length === 1 ? this.children[0] : undefined;
+	}
+
+	@gate()
+	@debug()
+	refresh(reset: boolean = false) {
+		if (reset && this.children != null) {
+			for (const child of this.children) {
+				child.dispose();
+			}
+			this.children = undefined;
+		}
 	}
 }
 
@@ -235,59 +262,40 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 	async findCommit(commit: GitLogCommit | { repoPath: string; ref: string }, token?: CancellationToken) {
 		const repoNodeId = RepositoryNode.getId(commit.repoPath);
 
-		// Get all the branches the commit is on
-		let branches = await Container.git.getCommitBranches(commit.repoPath, commit.ref);
-		if (branches.length !== 0) {
-			return this.findNode((n: any) => n.commit !== undefined && n.commit.ref === commit.ref, {
-				allowPaging: true,
-				maxDepth: 6,
-				canTraverse: async n => {
-					// Only search for commit nodes in the same repo within BranchNodes
-					if (n instanceof RepositoriesNode) return true;
+		const branch = await Container.git.getBranch(commit.repoPath);
+		if (branch == null) return undefined;
 
-					if (n instanceof BranchNode) {
-						if (n.id.startsWith(repoNodeId) && branches.includes(n.branch.name)) {
-							await n.showMore({ until: commit.ref });
-							return true;
+		// Get all the branches the commit is on
+		const branches = await Container.git.getCommitBranches(commit.repoPath, commit.ref);
+		if (branches.length === 0 || !branches.includes(branch.name)) return undefined;
+
+		return this.findNode((n: any) => n.commit?.ref === commit.ref, {
+			allowPaging: true,
+			maxDepth: 2,
+			canTraverse: async n => {
+				if (n instanceof CommitsViewNode) {
+					let node: ViewNode | undefined = await n.getSplattedChild?.();
+					if (node instanceof CommitsRepositoryNode) {
+						node = await node.getSplattedChild?.();
+						if (node instanceof BranchNode) {
+							await node.showMore({ until: commit.ref });
 						}
 					}
 
-					if (
-						n instanceof RepositoryNode ||
-						n instanceof BranchesNode ||
-						n instanceof BranchOrTagFolderNode
-					) {
-						return n.id.startsWith(repoNodeId);
+					return true;
+				}
+
+				if (n instanceof CommitsRepositoryNode) {
+					if (n.id.startsWith(repoNodeId)) {
+						const node = await n.getSplattedChild?.();
+						if (node instanceof BranchNode) {
+							await node.showMore({ until: commit.ref });
+							return true;
+						}
 					}
-
-					return false;
-				},
-				token: token,
-			});
-		}
-
-		// If we didn't find the commit on any local branches, check remote branches
-		branches = await Container.git.getCommitBranches(commit.repoPath, commit.ref, { remotes: true });
-		if (branches.length === 0) return undefined;
-
-		const remotes = branches.map(b => b.split('/', 1)[0]);
-
-		return this.findNode((n: any) => n.commit !== undefined && n.commit.ref === commit.ref, {
-			allowPaging: true,
-			maxDepth: 8,
-			canTraverse: n => {
-				// Only search for commit nodes in the same repo within BranchNodes
-				if (n instanceof RepositoriesNode) return true;
-
-				if (n instanceof RemoteNode) {
-					return n.id.startsWith(repoNodeId) && remotes.includes(n.remote.name);
 				}
 
-				if (n instanceof BranchNode) {
-					return n.id.startsWith(repoNodeId) && branches.includes(n.branch.name);
-				}
-
-				if (n instanceof RepositoryNode || n instanceof RemotesNode || n instanceof BranchOrTagFolderNode) {
+				if (n instanceof BranchTrackingStatusNode) {
 					return n.id.startsWith(repoNodeId);
 				}
 
@@ -309,12 +317,12 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(commit, { icon: false })} in the Repositories view...`,
+				title: `Revealing ${GitReference.toString(commit, { icon: false })} in the side bar...`,
 				cancellable: true,
 			},
 			async (progress, token) => {
 				const node = await this.findCommit(commit, token);
-				if (node === undefined) return node;
+				if (node == null) return undefined;
 
 				await this.ensureRevealNode(node, options);
 

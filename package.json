@@ -264,7 +264,7 @@
 							"enumDescriptions": [
 								"Toggles file blame annotations",
 								"Compares the current committed file with the previous commit",
-								"Reveals the commit in the Repositories view",
+								"Reveals the commit in the side bar",
 								"Shows the commits within the range in the Search Commits view",
 								"Shows a commit details quick pick",
 								"Shows a commit file details quick pick",
@@ -317,7 +317,7 @@
 							"enumDescriptions": [
 								"Toggles file blame annotations",
 								"Compares the current committed file with the previous commit",
-								"Reveals the commit in the Repositories view",
+								"Reveals the commit in the side bar",
 								"Shows the commit in the Search Commits view",
 								"Shows a commit details quick pick",
 								"Shows a commit file details quick pick",
@@ -1423,7 +1423,7 @@
 						"Compares the current line commit with the previous",
 						"Compares the current line commit with the working tree",
 						"Toggles Git code lens",
-						"Reveals the commit in the Repositories view",
+						"Reveals the commit in the side bar",
 						"Shows the commit in the Search Commits view",
 						"Shows a commit details quick pick",
 						"Shows a commit file details quick pick",
@@ -2585,7 +2585,7 @@
 			},
 			{
 				"command": "gitlens.revealCommitInView",
-				"title": "Reveal Commit in Repositories View",
+				"title": "Reveal Commit in Side BSar",
 				"category": "GitLens"
 			},
 			{

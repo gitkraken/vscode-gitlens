@@ -11,7 +11,6 @@ import {
 import { BranchesViewConfig, configuration, ViewBranchesLayout, ViewFilesLayout } from '../configuration';
 import { Container } from '../container';
 import {
-	GitBranch,
 	GitBranchReference,
 	GitLogCommit,
 	GitReference,
@@ -27,9 +26,6 @@ import {
 	BranchOrTagFolderNode,
 	ContextValues,
 	MessageNode,
-	RemoteNode,
-	RemotesNode,
-	RepositoriesNode,
 	RepositoryNode,
 	SubscribeableViewNode,
 	unknownGitUri,
@@ -39,6 +35,7 @@ import { debug, gate } from '../system';
 import { ViewBase } from './viewBase';
 
 export class BranchesRepositoryNode extends SubscribeableViewNode<BranchesView> {
+	protected splatted = true;
 	private child: BranchesNode | undefined;
 
 	constructor(
@@ -46,30 +43,46 @@ export class BranchesRepositoryNode extends SubscribeableViewNode<BranchesView> 
 		view: BranchesView,
 		parent: ViewNode,
 		public readonly repo: Repository,
-		private readonly root: boolean,
+		splatted: boolean,
 	) {
 		super(uri, view, parent);
+
+		this.splatted = splatted;
+	}
+
+	get id(): string {
+		return RepositoryNode.getId(this.repo.path);
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
+		void this.ensureSubscription();
+
 		if (this.child == null) {
 			this.child = new BranchesNode(this.uri, this.view, this, this.repo);
-
-			void this.ensureSubscription();
 		}
+
 		return this.child.getChildren();
 	}
 
 	getTreeItem(): TreeItem {
+		this.splatted = false;
+		void this.ensureSubscription();
+
 		const item = new TreeItem(
 			this.repo.formattedName ?? this.uri.repoPath ?? '',
 			TreeItemCollapsibleState.Expanded,
 		);
 		item.contextValue = ContextValues.RepositoryFolder;
 
-		void this.ensureSubscription();
-
 		return item;
+	}
+
+	async getSplattedChild() {
+		if (this.child == null) {
+			await this.getChildren();
+		}
+
+		return this.child;
 	}
 
 	@gate()
@@ -105,14 +118,15 @@ export class BranchesRepositoryNode extends SubscribeableViewNode<BranchesView> 
 			e.changed(RepositoryChange.Remotes)
 		) {
 			void this.triggerChange(true);
-			if (this.root) {
-				void this.parent?.triggerChange(true);
-			}
+			// if (this.root) {
+			// 	void this.parent?.triggerChange(true);
+			// }
 		}
 	}
 }
 
 export class BranchesViewNode extends ViewNode<BranchesView> {
+	protected splatted = true;
 	private children: BranchesRepositoryNode[] | undefined;
 
 	constructor(view: BranchesView) {
@@ -120,22 +134,17 @@ export class BranchesViewNode extends ViewNode<BranchesView> {
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		if (this.children != null) {
-			for (const child of this.children) {
-				child.dispose?.();
-			}
-			this.children = undefined;
+		if (this.children == null) {
+			const repositories = await Container.git.getOrderedRepositories();
+			if (repositories.length === 0) return [new MessageNode(this.view, this, 'No branches could be found.')];
+
+			const splat = repositories.length === 1;
+			this.children = repositories.map(
+				r => new BranchesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, splat),
+			);
 		}
 
-		const repositories = await Container.git.getOrderedRepositories();
-		if (repositories.length === 0) return [new MessageNode(this.view, this, 'No branches could be found.')];
-
-		const root = repositories.length === 1;
-		this.children = repositories.map(
-			r => new BranchesRepositoryNode(GitUri.fromRepoPath(r.path), this.view, this, r, root),
-		);
-
-		if (root) {
+		if (this.children.length === 1) {
 			const [child] = this.children;
 
 			const branches = await child.repo.getBranches({ filter: b => !b.remote });
@@ -143,12 +152,32 @@ export class BranchesViewNode extends ViewNode<BranchesView> {
 
 			return child.getChildren();
 		}
+
 		return this.children;
 	}
 
 	getTreeItem(): TreeItem {
 		const item = new TreeItem('Branches', TreeItemCollapsibleState.Expanded);
 		return item;
+	}
+
+	async getSplattedChild() {
+		if (this.children == null) {
+			await this.getChildren();
+		}
+
+		return this.children?.length === 1 ? this.children[0] : undefined;
+	}
+
+	@gate()
+	@debug()
+	refresh(reset: boolean = false) {
+		if (reset && this.children != null) {
+			for (const child of this.children) {
+				child.dispose();
+			}
+			this.children = undefined;
+		}
 	}
 }
 
@@ -218,45 +247,17 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 	}
 
 	findBranch(branch: GitBranchReference, token?: CancellationToken) {
+		if (branch.remote) return undefined;
+
 		const repoNodeId = RepositoryNode.getId(branch.repoPath);
 
-		if (branch.remote) {
-			return this.findNode((n: any) => n.branch !== undefined && n.branch.ref === branch.ref, {
-				allowPaging: true,
-				maxDepth: 6,
-				canTraverse: n => {
-					// Only search for branch nodes in the same repo within BranchesNode
-					if (n instanceof RepositoriesNode) return true;
-
-					if (n instanceof RemoteNode) {
-						if (!n.id.startsWith(repoNodeId)) return false;
-
-						return branch.remote && n.remote.name === GitBranch.getRemote(branch.name); //branch.getRemoteName();
-					}
-
-					if (
-						n instanceof RepositoryNode ||
-						n instanceof BranchesNode ||
-						n instanceof RemotesNode ||
-						n instanceof BranchOrTagFolderNode
-					) {
-						return n.id.startsWith(repoNodeId);
-					}
-
-					return false;
-				},
-				token: token,
-			});
-		}
-
-		return this.findNode((n: any) => n.branch !== undefined && n.branch.ref === branch.ref, {
+		return this.findNode((n: any) => n.branch?.ref === branch.ref, {
 			allowPaging: true,
-			maxDepth: 5,
+			maxDepth: 4,
 			canTraverse: n => {
-				// Only search for branch nodes in the same repo within BranchesNode
-				if (n instanceof RepositoriesNode) return true;
+				if (n instanceof BranchesViewNode) return true;
 
-				if (n instanceof RepositoryNode || n instanceof BranchesNode || n instanceof BranchOrTagFolderNode) {
+				if (n instanceof BranchesRepositoryNode || n instanceof BranchOrTagFolderNode) {
 					return n.id.startsWith(repoNodeId);
 				}
 
@@ -270,59 +271,22 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 		const repoNodeId = RepositoryNode.getId(commit.repoPath);
 
 		// Get all the branches the commit is on
-		let branches = await Container.git.getCommitBranches(commit.repoPath, commit.ref);
-		if (branches.length !== 0) {
-			return this.findNode((n: any) => n.commit !== undefined && n.commit.ref === commit.ref, {
-				allowPaging: true,
-				maxDepth: 6,
-				canTraverse: async n => {
-					// Only search for commit nodes in the same repo within BranchNodes
-					if (n instanceof RepositoriesNode) return true;
-
-					if (n instanceof BranchNode) {
-						if (n.id.startsWith(repoNodeId) && branches.includes(n.branch.name)) {
-							await n.showMore({ until: commit.ref });
-							return true;
-						}
-					}
-
-					if (
-						n instanceof RepositoryNode ||
-						n instanceof BranchesNode ||
-						n instanceof BranchOrTagFolderNode
-					) {
-						return n.id.startsWith(repoNodeId);
-					}
-
-					return false;
-				},
-				token: token,
-			});
-		}
-
-		// If we didn't find the commit on any local branches, check remote branches
-		branches = await Container.git.getCommitBranches(commit.repoPath, commit.ref, { remotes: true });
+		const branches = await Container.git.getCommitBranches(commit.repoPath, commit.ref);
 		if (branches.length === 0) return undefined;
 
-		const remotes = branches.map(b => b.split('/', 1)[0]);
-
-		return this.findNode((n: any) => n.commit !== undefined && n.commit.ref === commit.ref, {
+		return this.findNode((n: any) => n.commit?.ref === commit.ref, {
 			allowPaging: true,
-			maxDepth: 8,
-			canTraverse: n => {
-				// Only search for commit nodes in the same repo within BranchNodes
-				if (n instanceof RepositoriesNode) return true;
+			maxDepth: 5,
+			canTraverse: async n => {
+				if (n instanceof BranchesViewNode) return true;
 
-				if (n instanceof RemoteNode) {
-					return n.id.startsWith(repoNodeId) && remotes.includes(n.remote.name);
-				}
-
-				if (n instanceof BranchNode) {
-					return n.id.startsWith(repoNodeId) && branches.includes(n.branch.name);
-				}
-
-				if (n instanceof RepositoryNode || n instanceof RemotesNode || n instanceof BranchOrTagFolderNode) {
+				if (n instanceof BranchesRepositoryNode || n instanceof BranchOrTagFolderNode) {
 					return n.id.startsWith(repoNodeId);
+				}
+
+				if (n instanceof BranchNode && branches.includes(n.branch.name)) {
+					await n.showMore({ until: commit.ref });
+					return true;
 				}
 
 				return false;
@@ -343,12 +307,12 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(branch, { icon: false })} in the Repositories view...`,
+				title: `Revealing ${GitReference.toString(branch, { icon: false })} in the side bar...`,
 				cancellable: true,
 			},
 			async (progress, token) => {
 				const node = await this.findBranch(branch, token);
-				if (node === undefined) return node;
+				if (node == null) return undefined;
 
 				await this.ensureRevealNode(node, options);
 
@@ -369,12 +333,12 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 		return window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Revealing ${GitReference.toString(commit, { icon: false })} in the Repositories view...`,
+				title: `Revealing ${GitReference.toString(commit, { icon: false })} in the side bar...`,
 				cancellable: true,
 			},
 			async (progress, token) => {
 				const node = await this.findCommit(commit, token);
-				if (node === undefined) return node;
+				if (node == null) return undefined;
 
 				await this.ensureRevealNode(node, options);
 

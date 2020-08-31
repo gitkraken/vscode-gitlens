@@ -73,6 +73,7 @@ import {
 } from '../quickpicks';
 import { Arrays, Iterables, Strings } from '../system';
 import { GitUri } from '../git/gitUri';
+import { GitActions } from './gitCommands.actions';
 
 export function appendReposToTitle<
 	State extends { repo: Repository } | { repos: Repository[] },
@@ -382,7 +383,7 @@ export async function* pickBranchStep<
 					return;
 				}
 
-				void Container.repositoriesView.revealBranch(quickpick.activeItems[0].item, {
+				void GitActions.Branch.reveal(quickpick.activeItems[0].item, {
 					select: true,
 					expand: true,
 				});
@@ -392,7 +393,7 @@ export async function* pickBranchStep<
 		onDidPressKey: async quickpick => {
 			if (quickpick.activeItems.length === 0) return;
 
-			await Container.repositoriesView.revealBranch(quickpick.activeItems[0].item, {
+			await GitActions.Branch.reveal(quickpick.activeItems[0].item, {
 				select: true,
 				focus: false,
 				expand: true,
@@ -447,7 +448,7 @@ export async function* pickBranchesStep<
 					return;
 				}
 
-				void Container.repositoriesView.revealBranch(quickpick.activeItems[0].item, {
+				void GitActions.Branch.reveal(quickpick.activeItems[0].item, {
 					select: true,
 					expand: true,
 				});
@@ -457,7 +458,7 @@ export async function* pickBranchesStep<
 		onDidPressKey: async quickpick => {
 			if (quickpick.activeItems.length === 0) return;
 
-			await Container.repositoriesView.revealBranch(quickpick.activeItems[0].item, {
+			await GitActions.Branch.reveal(quickpick.activeItems[0].item, {
 				select: true,
 				focus: false,
 				expand: true,
@@ -558,11 +559,11 @@ export async function* pickBranchOrTagStep<
 
 				const item = quickpick.activeItems[0].item;
 				if (GitReference.isBranch(item)) {
-					void Container.repositoriesView.revealBranch(item, { select: true, expand: true });
+					void GitActions.Branch.reveal(item, { select: true, expand: true });
 				} else if (GitReference.isTag(item)) {
-					void Container.repositoriesView.revealTag(item, { select: true, expand: true });
+					void GitActions.Tag.reveal(item, { select: true, expand: true });
 				} else if (GitReference.isRevision(item)) {
-					void Container.repositoriesView.revealCommit(item, { select: true, expand: true });
+					void GitActions.Commit.reveal(item, { select: true, expand: true });
 				}
 			}
 		},
@@ -572,11 +573,11 @@ export async function* pickBranchOrTagStep<
 
 			const item = quickpick.activeItems[0].item;
 			if (GitReference.isBranch(item)) {
-				void Container.repositoriesView.revealBranch(item, { select: true, focus: false, expand: true });
+				void GitActions.Branch.reveal(item, { select: true, focus: false, expand: true });
 			} else if (GitReference.isTag(item)) {
-				void Container.repositoriesView.revealTag(item, { select: true, focus: false, expand: true });
+				void GitActions.Tag.reveal(item, { select: true, focus: false, expand: true });
 			} else if (GitReference.isRevision(item)) {
-				void Container.repositoriesView.revealCommit(item, { select: true, focus: false, expand: true });
+				void GitActions.Commit.reveal(item, { select: true, focus: false, expand: true });
 			}
 		},
 		onValidateValue: getValidateGitReferenceFn(state.repo),
@@ -674,11 +675,11 @@ export async function* pickBranchOrTagStepMultiRepo<
 
 				const item = quickpick.activeItems[0].item;
 				if (GitReference.isBranch(item)) {
-					void Container.repositoriesView.revealBranch(item, { select: true, expand: true });
+					void GitActions.Branch.reveal(item, { select: true, expand: true });
 				} else if (GitReference.isTag(item)) {
-					void Container.repositoriesView.revealTag(item, { select: true, expand: true });
+					void GitActions.Tag.reveal(item, { select: true, expand: true });
 				} else if (GitReference.isRevision(item)) {
-					void Container.repositoriesView.revealCommit(item, { select: true, expand: true });
+					void GitActions.Commit.reveal(item, { select: true, expand: true });
 				}
 			}
 		},
@@ -688,11 +689,11 @@ export async function* pickBranchOrTagStepMultiRepo<
 
 			const item = quickpick.activeItems[0].item;
 			if (GitReference.isBranch(item)) {
-				void Container.repositoriesView.revealBranch(item, { select: true, focus: false, expand: true });
+				void GitActions.Branch.reveal(item, { select: true, focus: false, expand: true });
 			} else if (GitReference.isTag(item)) {
-				void Container.repositoriesView.revealTag(item, { select: true, focus: false, expand: true });
+				void GitActions.Tag.reveal(item, { select: true, focus: false, expand: true });
 			} else if (GitReference.isRevision(item)) {
-				void Container.repositoriesView.revealCommit(item, { select: true, focus: false, expand: true });
+				void GitActions.Commit.reveal(item, { select: true, focus: false, expand: true });
 			}
 		},
 		onValidateValue: getValidateGitReferenceFn(state.repos),
@@ -778,7 +779,7 @@ export function* pickCommitStep<
 			if (quickpick.activeItems.length === 0 || log == null) return;
 
 			if (button === QuickCommandButtons.RevealInView) {
-				void Container.repositoriesView.revealCommit(quickpick.activeItems[0].item, {
+				void GitActions.Commit.reveal(quickpick.activeItems[0].item, {
 					select: true,
 					focus: false,
 					expand: true,
@@ -809,7 +810,7 @@ export function* pickCommitStep<
 			if (quickpick.activeItems.length === 0) return;
 
 			if (key === 'ctrl+right') {
-				await Container.repositoriesView.revealCommit(quickpick.activeItems[0].item, {
+				await GitActions.Commit.reveal(quickpick.activeItems[0].item, {
 					select: true,
 					focus: false,
 					expand: true,
@@ -897,7 +898,7 @@ export function* pickCommitsStep<
 			if (quickpick.activeItems.length === 0 || log == null) return;
 
 			if (button === QuickCommandButtons.RevealInView) {
-				void Container.repositoriesView.revealCommit(quickpick.activeItems[0].item, {
+				void GitActions.Commit.reveal(quickpick.activeItems[0].item, {
 					select: true,
 					focus: false,
 					expand: true,
@@ -928,7 +929,7 @@ export function* pickCommitsStep<
 			if (quickpick.activeItems.length === 0) return;
 
 			if (key === 'ctrl+right') {
-				await Container.repositoriesView.revealCommit(quickpick.activeItems[0].item, {
+				await GitActions.Commit.reveal(quickpick.activeItems[0].item, {
 					select: true,
 					focus: false,
 					expand: true,
@@ -1146,7 +1147,7 @@ export function* pickStashStep<
 						expand: true,
 					});
 				} else {
-					void Container.repositoriesView.revealStash(quickpick.activeItems[0].item, {
+					void GitActions.Stash.reveal(quickpick.activeItems[0].item, {
 						select: true,
 						focus: false,
 						expand: true,
@@ -1179,7 +1180,7 @@ export function* pickStashStep<
 		onDidPressKey: async quickpick => {
 			if (quickpick.activeItems.length === 0) return;
 
-			await Container.repositoriesView.revealStash(quickpick.activeItems[0].item, {
+			await GitActions.Stash.reveal(quickpick.activeItems[0].item, {
 				select: true,
 				focus: false,
 				expand: true,
@@ -1234,7 +1235,7 @@ export async function* pickTagsStep<
 					return;
 				}
 
-				void Container.repositoriesView.revealTag(quickpick.activeItems[0].item, {
+				void GitActions.Tag.reveal(quickpick.activeItems[0].item, {
 					select: true,
 					expand: true,
 				});
@@ -1244,7 +1245,7 @@ export async function* pickTagsStep<
 		onDidPressKey: async quickpick => {
 			if (quickpick.activeItems.length === 0) return;
 
-			await Container.repositoriesView.revealTag(quickpick.activeItems[0].item, {
+			await GitActions.Tag.reveal(quickpick.activeItems[0].item, {
 				select: true,
 				focus: false,
 				expand: true,
@@ -1299,13 +1300,13 @@ export async function* showCommitOrStashStep<
 
 			if (button === QuickCommandButtons.RevealInView) {
 				if (GitReference.isStash(state.reference)) {
-					void Container.repositoriesView.revealStash(state.reference, {
+					void GitActions.Stash.reveal(state.reference, {
 						select: true,
 						focus: false,
 						expand: true,
 					});
 				} else {
-					void Container.repositoriesView.revealCommit(state.reference, {
+					void GitActions.Commit.reveal(state.reference, {
 						select: true,
 						focus: false,
 						expand: true,
@@ -1506,13 +1507,13 @@ export async function* showCommitOrStashFilesStep<
 
 			if (button === QuickCommandButtons.RevealInView) {
 				if (GitReference.isStash(state.reference)) {
-					void Container.repositoriesView.revealStash(state.reference, {
+					void GitActions.Stash.reveal(state.reference, {
 						select: true,
 						focus: false,
 						expand: true,
 					});
 				} else {
-					void Container.repositoriesView.revealCommit(state.reference, {
+					void GitActions.Commit.reveal(state.reference, {
 						select: true,
 						focus: false,
 						expand: true,
@@ -1578,13 +1579,13 @@ export async function* showCommitOrStashFileStep<
 
 			if (button === QuickCommandButtons.RevealInView) {
 				if (GitReference.isStash(state.reference)) {
-					void Container.repositoriesView.revealStash(state.reference, {
+					void GitActions.Stash.reveal(state.reference, {
 						select: true,
 						focus: false,
 						expand: true,
 					});
 				} else {
-					void Container.repositoriesView.revealCommit(state.reference, {
+					void GitActions.Commit.reveal(state.reference, {
 						select: true,
 						focus: false,
 						expand: true,

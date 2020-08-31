@@ -183,6 +183,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 
 		this._log = log;
 		this.limit = log?.count;
+
 		// Needs to force if splatted, since the parent node will cancel the refresh (since it thinks nothing changed)
 		void this.triggerChange(false, this.splatted);
 	}

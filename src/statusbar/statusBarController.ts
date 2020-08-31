@@ -152,10 +152,10 @@ export class StatusBarController implements Disposable {
 				this._blameStatusBarItem.tooltip = 'Toggle Git CodeLens';
 				break;
 			case StatusBarCommand.RevealCommitInView:
-				this._blameStatusBarItem.tooltip = 'Reveal Commit in Repositories View';
+				this._blameStatusBarItem.tooltip = 'Reveal Commit in the Side Bar';
 				break;
 			case StatusBarCommand.ShowCommitsInView:
-				this._blameStatusBarItem.tooltip = 'Show Commit in Repositories View';
+				this._blameStatusBarItem.tooltip = 'Show Commit in Search Commits View';
 				break;
 			case StatusBarCommand.ShowQuickCommitDetails:
 				this._blameStatusBarItem.tooltip = 'Show Commit';
