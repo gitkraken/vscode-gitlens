@@ -60,8 +60,15 @@ export class SetViewsLayoutCommand extends Command {
 
 				break;
 			case ViewsLayout.SourceControl:
-				for (const view of viewsConfigKeys) {
-					void (await commands.executeCommand(`${extensionId}.views.${view}.resetViewLocation`));
+				try {
+					void (await commands.executeCommand(
+						'workbench.action.moveViews',
+						viewsConfigKeys.map(view => `${extensionId}.views.${view}`, 'workbench.view.scm'),
+					));
+				} catch {
+					for (const view of viewsConfigKeys) {
+						void (await commands.executeCommand(`${extensionId}.views.${view}.resetViewLocation`));
+					}
 				}
 
 				break;
