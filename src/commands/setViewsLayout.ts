@@ -49,22 +49,33 @@ export class SetViewsLayoutCommand extends Command {
 		switch (layout) {
 			case ViewsLayout.GitLens:
 				try {
-					void (await commands.executeCommand(
-						'workbench.action.moveViews',
-						viewsConfigKeys.map(
-							view => `${extensionId}.views.${view}`,
-							`workbench.view.extension.${extensionId}`,
-						),
-					));
-				} catch {}
+					// Because of https://github.com/microsoft/vscode/issues/105774, run the command twice which seems to fix things
+					let count = 0;
+					while (count++ < 2) {
+						void (await commands.executeCommand(
+							'vscode.moveViews',
+							{
+								viewIds: viewsConfigKeys.map(view => `${extensionId}.views.${view}`),
+								destinationId: `workbench.view.extension.${extensionId}`,
+							},
+						));
+					}
+				} catch { }
 
 				break;
 			case ViewsLayout.SourceControl:
 				try {
-					void (await commands.executeCommand(
-						'workbench.action.moveViews',
-						viewsConfigKeys.map(view => `${extensionId}.views.${view}`, 'workbench.view.scm'),
-					));
+					// Because of https://github.com/microsoft/vscode/issues/105774, run the command twice which seems to fix things
+					let count = 0;
+					while (count++ < 2) {
+						void (await commands.executeCommand(
+							'vscode.moveViews',
+							{
+								viewIds: viewsConfigKeys.map(view => `${extensionId}.views.${view}`),
+								destinationId: 'workbench.view.scm'
+							},
+						));
+					}
 				} catch {
 					for (const view of viewsConfigKeys) {
 						void (await commands.executeCommand(`${extensionId}.views.${view}.resetViewLocation`));
