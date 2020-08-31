@@ -183,7 +183,8 @@ export class ViewCommands {
 		commands.registerCommand('gitlens.views.rebaseOntoUpstream', this.rebaseToRemote, this);
 		commands.registerCommand('gitlens.views.rebaseOntoCommit', this.rebase, this);
 
-		commands.registerCommand('gitlens.views.reset', this.reset, this);
+		commands.registerCommand('gitlens.views.resetCommit', this.resetCommit, this);
+		commands.registerCommand('gitlens.views.resetToCommit', this.resetToCommit, this);
 		commands.registerCommand('gitlens.views.revert', this.revert, this);
 
 		commands.registerCommand('gitlens.views.terminalRemoveRemote', this.terminalRemoveRemote, this);
@@ -413,7 +414,21 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private reset(node: CommitNode) {
+	private resetCommit(node: CommitNode) {
+		if (!(node instanceof CommitNode)) return Promise.resolve();
+
+		return GitActions.reset(
+			node.repoPath,
+			GitReference.create(`${node.ref.ref}^`, node.ref.repoPath, {
+				refType: 'revision',
+				name: `${node.ref.name}^`,
+				message: node.ref.message,
+			}),
+		);
+	}
+
+	@debug()
+	private resetToCommit(node: CommitNode) {
 		if (!(node instanceof CommitNode)) return Promise.resolve();
 
 		return GitActions.reset(node.repoPath, node.ref);

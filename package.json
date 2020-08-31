@@ -3235,7 +3235,7 @@
 			},
 			{
 				"command": "gitlens.views.mergeBranchInto",
-				"title": "Merge Branch into Current...",
+				"title": "Merge Branch into Current Branch...",
 				"category": "GitLens"
 			},
 			{
@@ -3245,22 +3245,27 @@
 			},
 			{
 				"command": "gitlens.views.rebaseOntoBranch",
-				"title": "Rebase Current onto Branch...",
+				"title": "Rebase Current Branch onto Branch...",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.rebaseOntoCommit",
-				"title": "Rebase Current onto Commit...",
+				"title": "Rebase Current Branch onto Commit...",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.rebaseOntoUpstream",
-				"title": "Rebase Current onto Upstream...",
+				"title": "Rebase Current Branch onto Upstream...",
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.views.reset",
-				"title": "Reset to Commit...",
+				"command": "gitlens.views.resetCommit",
+				"title": "Reset Commit...",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.resetToCommit",
+				"title": "Reset Current Branch to Commit...",
 				"category": "GitLens"
 			},
 			{
@@ -4517,7 +4522,11 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.reset",
+					"command": "gitlens.views.resetCommit",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.resetToCommit",
 					"when": "false"
 				},
 				{
@@ -6051,24 +6060,29 @@
 					"group": "1_gitlens_actions@2"
 				},
 				{
-					"command": "gitlens.views.reset",
+					"command": "gitlens.views.resetCommit",
 					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)/",
 					"group": "1_gitlens_actions@3"
 				},
 				{
-					"command": "gitlens.views.pushToCommit",
+					"command": "gitlens.views.resetToCommit",
 					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)/",
 					"group": "1_gitlens_actions@4"
 				},
 				{
+					"command": "gitlens.views.pushToCommit",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)/",
+					"group": "1_gitlens_actions@5"
+				},
+				{
 					"command": "gitlens.views.rebaseOntoCommit",
 					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b/",
-					"group": "1_gitlens_actions@5"
+					"group": "1_gitlens_actions@6"
 				},
 				{
 					"command": "gitlens.views.switchToCommit",
 					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b/",
-					"group": "1_gitlens_actions@6"
+					"group": "1_gitlens_actions@7"
 				},
 				{
 					"command": "gitlens.views.createBranch",

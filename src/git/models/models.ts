@@ -271,10 +271,20 @@ export namespace GitReference {
 									: ` (${ref.message})`;
 						}
 
-						result = `${options.label ? 'commit ' : ''}${
+						let name;
+						let prefix;
+						if (options.expand && options.label && GitRevision.isShaParent(ref.ref)) {
+							name = ref.name.endsWith('^') ? ref.name.substr(0, ref.name.length - 1) : ref.name;
+							prefix = 'before ';
+						} else {
+							name = ref.name;
+							prefix = '';
+						}
+
+						result = `${options.label ? `${prefix}commit ` : ''}${
 							options.icon
-								? `$(git-commit) ${ref.name}${message ?? ''}${GlyphChars.Space}`
-								: `${ref.name}${message ?? ''}`
+								? `$(git-commit) ${name}${message ?? ''}${GlyphChars.Space}`
+								: `${name}${message ?? ''}`
 						}`;
 					}
 					break;
