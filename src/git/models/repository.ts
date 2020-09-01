@@ -113,7 +113,7 @@ export class Repository implements Disposable {
 		if (root) {
 			// Check if the repository is not contained by a workspace folder
 			const repoFolder = workspace.getWorkspaceFolder(GitUri.fromRepoPath(path));
-			if (repoFolder === undefined) {
+			if (repoFolder == null) {
 				// If it isn't within a workspace folder we can't get change events, see: https://github.com/Microsoft/vscode/issues/3025
 				this.supportsChangeEvents = false;
 				this.formattedName = this.name = paths.basename(path);
@@ -308,7 +308,7 @@ export class Repository implements Disposable {
 
 	containsUri(uri: Uri) {
 		if (GitUri.is(uri)) {
-			uri = uri.repoPath !== undefined ? GitUri.file(uri.repoPath) : uri.documentUri();
+			uri = uri.repoPath != null ? GitUri.file(uri.repoPath) : uri.documentUri();
 		}
 
 		return this.folder === workspace.getWorkspaceFolder(uri);
@@ -341,7 +341,7 @@ export class Repository implements Disposable {
 	}
 
 	getBranch(): Promise<GitBranch | undefined> {
-		if (this._branch === undefined || !this.supportsChangeEvents) {
+		if (this._branch == null || !this.supportsChangeEvents) {
 			this._branch = Container.git.getBranch(this.path);
 		}
 		return this._branch;
@@ -385,8 +385,8 @@ export class Repository implements Disposable {
 	}
 
 	getRemotes(_options: { sort?: boolean } = {}): Promise<GitRemote[]> {
-		if (this._remotes === undefined || !this.supportsChangeEvents) {
-			if (this._providers === undefined) {
+		if (this._remotes == null || !this.supportsChangeEvents) {
+			if (this._providers == null) {
 				const remotesCfg = configuration.get('remotes', this.folder.uri);
 				this._providers = RemoteProviderFactory.loadProviders(remotesCfg);
 			}
@@ -401,17 +401,13 @@ export class Repository implements Disposable {
 
 	private resetRemotesCache() {
 		this._remotes = undefined;
-		if (this._remotesDisposable !== undefined) {
-			this._remotesDisposable.dispose();
-			this._remotesDisposable = undefined;
-		}
+		this._remotesDisposable?.dispose();
+		this._remotesDisposable = undefined;
 	}
 
 	private async subscribeToRemotes(remotes: Promise<GitRemote[]>) {
-		if (this._remotesDisposable !== undefined) {
-			this._remotesDisposable.dispose();
-			this._remotesDisposable = undefined;
-		}
+		this._remotesDisposable?.dispose();
+		this._remotesDisposable = undefined;
 
 		this._remotesDisposable = Disposable.from(
 			...Iterables.filterMap(await remotes, r => {
@@ -518,7 +514,7 @@ export class Repository implements Disposable {
 				await repo?.push(options.setUpstream.remote, options.setUpstream.branch, true);
 			} else if (options.reference != null) {
 				const branch = await this.getBranch();
-				if (branch === undefined) return;
+				if (branch == null) return;
 
 				const repo = await GitService.getBuiltInGitRepository(this.path);
 				if (repo == null) return;
@@ -558,11 +554,11 @@ export class Repository implements Disposable {
 
 		// If we've come back into focus and we are dirty, fire the change events
 
-		if (this._pendingChanges.repo !== undefined) {
+		if (this._pendingChanges.repo != null) {
 			this._fireChangeDebounced!(this._pendingChanges.repo);
 		}
 
-		if (this._pendingChanges.fs !== undefined) {
+		if (this._pendingChanges.fs != null) {
 			this._fireFileSystemChangeDebounced!(this._pendingChanges.fs);
 		}
 	}
@@ -575,7 +571,7 @@ export class Repository implements Disposable {
 
 	get starred() {
 		const starred = Container.context.workspaceState.get<StarredRepositories>(WorkspaceState.StarredRepositories);
-		return starred !== undefined && starred[this.id] === true;
+		return starred != null && starred[this.id] === true;
 	}
 
 	star() {
@@ -647,7 +643,7 @@ export class Repository implements Disposable {
 
 	private async updateStarred(star: boolean) {
 		let starred = Container.context.workspaceState.get<StarredRepositories>(WorkspaceState.StarredRepositories);
-		if (starred === undefined) {
+		if (starred == null) {
 			starred = Object.create(null) as StarredRepositories;
 		}
 
@@ -662,7 +658,7 @@ export class Repository implements Disposable {
 
 	startWatchingFileSystem() {
 		this._fsWatchCounter++;
-		if (this._fsWatcherDisposable !== undefined) return;
+		if (this._fsWatcherDisposable != null) return;
 
 		// TODO: createFileSystemWatcher doesn't work unless the folder is part of the workspaceFolders
 		// https://github.com/Microsoft/vscode/issues/3025
@@ -676,7 +672,7 @@ export class Repository implements Disposable {
 	}
 
 	stopWatchingFileSystem() {
-		if (this._fsWatcherDisposable === undefined) return;
+		if (this._fsWatcherDisposable == null) return;
 		if (--this._fsWatchCounter > 0) return;
 
 		this._fsWatcherDisposable.dispose();
@@ -707,11 +703,11 @@ export class Repository implements Disposable {
 	private fireChange(...changes: RepositoryChange[]) {
 		this.onAnyRepositoryChanged(this, new RepositoryChangeEvent(this, changes));
 
-		if (this._fireChangeDebounced === undefined) {
+		if (this._fireChangeDebounced == null) {
 			this._fireChangeDebounced = Functions.debounce(this.fireChangeCore.bind(this), 250);
 		}
 
-		if (this._pendingChanges.repo === undefined) {
+		if (this._pendingChanges.repo == null) {
 			this._pendingChanges.repo = new RepositoryChangeEvent(this);
 		}
 
@@ -735,11 +731,11 @@ export class Repository implements Disposable {
 	}
 
 	private fireFileSystemChange(uri: Uri) {
-		if (this._fireFileSystemChangeDebounced === undefined) {
+		if (this._fireFileSystemChangeDebounced == null) {
 			this._fireFileSystemChangeDebounced = Functions.debounce(this.fireFileSystemChangeCore.bind(this), 2500);
 		}
 
-		if (this._pendingChanges.fs === undefined) {
+		if (this._pendingChanges.fs == null) {
 			this._pendingChanges.fs = { repository: this, uris: [] };
 		}
 
