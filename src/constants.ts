@@ -40,6 +40,7 @@ export enum CommandContext {
 	Readonly = 'gitlens:readonly',
 	ViewsCanCompare = 'gitlens:views:canCompare',
 	ViewsCanCompareFile = 'gitlens:views:canCompare:file',
+	ViewsCommitsMyCommitsOnly = 'gitlens:views:commits:myCommitsOnly',
 	ViewsCompareKeepResults = 'gitlens:views:compare:keepResults',
 	ViewsFileHistoryCursorFollowing = 'gitlens:views:fileHistory:cursorFollowing',
 	ViewsFileHistoryEditorFollowing = 'gitlens:views:fileHistory:editorFollowing',

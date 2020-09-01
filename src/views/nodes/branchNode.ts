@@ -30,6 +30,7 @@ export class BranchNode
 		expanded: boolean;
 		showCurrent: boolean;
 		showTracking: boolean;
+		authors?: string[];
 	};
 	protected splatted = true;
 
@@ -45,6 +46,7 @@ export class BranchNode
 			expanded?: boolean;
 			showCurrent?: boolean;
 			showTracking?: boolean;
+			authors?: string[];
 		},
 	) {
 		super(uri, view, parent);
@@ -271,6 +273,7 @@ export class BranchNode
 			this._log = await Container.git.getLog(this.uri.repoPath!, {
 				limit: this.limit ?? this.view.config.defaultItemLimit,
 				ref: this.ref.ref,
+				authors: this.options?.authors,
 			});
 		}
 

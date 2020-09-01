@@ -9,7 +9,7 @@ import {
 	window,
 } from 'vscode';
 import { CommitsViewConfig, configuration, ViewFilesLayout } from '../configuration';
-import { GlyphChars } from '../constants';
+import { CommandContext, GlyphChars, setCommandContext } from '../constants';
 import { Container } from '../container';
 import {
 	GitLogCommit,
@@ -55,11 +55,20 @@ export class CommitsRepositoryNode extends SubscribeableViewNode<CommitsView> {
 			const branch = await this.repo.getBranch();
 			if (branch == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
+			let authors;
+			if (this.view.state.myCommitsOnly) {
+				const user = await Container.git.getCurrentUser(this.repo.path);
+				if (user != null) {
+					authors = [`^${user.name} <${user.email}>$`];
+				}
+			}
+
 			this.children = [
 				new BranchNode(this.uri, this.view, this, branch, true, {
 					expanded: true,
 					showCurrent: false,
 					showTracking: true,
+					authors: authors,
 				}),
 			];
 
@@ -205,11 +214,20 @@ export class CommitsViewNode extends ViewNode<CommitsView> {
 	}
 }
 
+interface CommitsViewState {
+	myCommitsOnly?: boolean;
+}
+
 export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 	protected readonly configKey = 'commits';
 
 	constructor() {
 		super('gitlens.views.commits', 'Commits');
+	}
+
+	private readonly _state: CommitsViewState = {};
+	get state(): CommitsViewState {
+		return this._state;
 	}
 
 	getRoot() {
@@ -238,6 +256,16 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 		commands.registerCommand(
 			this.getQualifiedCommand('setFilesLayoutToTree'),
 			() => this.setFilesLayout(ViewFilesLayout.Tree),
+			this,
+		);
+		commands.registerCommand(
+			this.getQualifiedCommand('setMyCommitsOnlyOn'),
+			() => this.setMyCommitsOnly(true),
+			this,
+		);
+		commands.registerCommand(
+			this.getQualifiedCommand('setMyCommitsOnlyOff'),
+			() => this.setMyCommitsOnly(false),
 			this,
 		);
 		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this);
@@ -337,5 +365,11 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 
 	private setShowAvatars(enabled: boolean) {
 		return configuration.updateEffective('views', this.configKey, 'avatars', enabled);
+	}
+
+	private setMyCommitsOnly(enabled: boolean) {
+		void setCommandContext(CommandContext.ViewsCommitsMyCommitsOnly, enabled);
+		this.state.myCommitsOnly = enabled;
+		void this.refresh(true);
 	}
 }

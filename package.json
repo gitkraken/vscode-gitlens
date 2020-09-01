@@ -3411,6 +3411,18 @@
 				"icon": "$(list-flat)"
 			},
 			{
+				"command": "gitlens.views.commits.setMyCommitsOnlyOn",
+				"title": "Toggle Authors (Everyone)",
+				"category": "GitLens",
+				"icon": "$(organization)"
+			},
+			{
+				"command": "gitlens.views.commits.setMyCommitsOnlyOff",
+				"title": "Toggle Authors (You)",
+				"category": "GitLens",
+				"icon": "$(person)"
+			},
+			{
 				"command": "gitlens.views.commits.setShowAvatarsOn",
 				"title": "Show Avatars",
 				"category": "GitLens"
@@ -4630,6 +4642,14 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.commits.setMyCommitsOnlyOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.commits.setMyCommitsOnlyOff",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.commits.setShowAvatarsOn",
 					"when": "false"
 				},
@@ -5668,6 +5688,16 @@
 					"command": "gitlens.views.commits.setFilesLayoutToAuto",
 					"when": "view =~ /^gitlens\\.views\\.commits/ && config.gitlens.views.commits.files.layout == tree",
 					"group": "navigation@13"
+				},
+				{
+					"command": "gitlens.views.commits.setMyCommitsOnlyOn",
+					"when": "view =~ /^gitlens\\.views\\.commits/ && !gitlens:views:commits:myCommitsOnly",
+					"group": "navigation@14"
+				},
+				{
+					"command": "gitlens.views.commits.setMyCommitsOnlyOff",
+					"when": "view =~ /^gitlens\\.views\\.commits/ && gitlens:views:commits:myCommitsOnly",
+					"group": "navigation@14"
 				},
 				{
 					"command": "gitlens.views.commits.refresh",
