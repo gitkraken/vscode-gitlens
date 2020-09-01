@@ -8,6 +8,7 @@ import { GitBranchReference, GitReference } from './models';
 import { BranchSorting, configuration, DateStyle } from '../../configuration';
 
 const whitespaceRegex = /\s/;
+const detachedHEADRegex = /^(?=.*\bHEAD\b)(?=.*\bdetached\b).*$/;
 
 export const BranchDateFormatting = {
 	dateFormat: undefined! as string | null,
@@ -220,6 +221,6 @@ export class GitBranch implements GitBranchReference {
 	static isDetached(name: string): boolean {
 		// If there is whitespace in the name assume this is not a valid branch name
 		// Deals with detached HEAD states
-		return whitespaceRegex.test(name) || name.includes('(detached)');
+		return whitespaceRegex.test(name) || detachedHEADRegex.test(name);
 	}
 }

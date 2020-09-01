@@ -1036,7 +1036,27 @@ export class GitService implements Disposable {
 	async getBranch(repoPath: string | undefined): Promise<GitBranch | undefined> {
 		if (repoPath == null) return undefined;
 
-		const [branch] = await this.getBranches(repoPath, { filter: b => b.current });
+		let [branch] = await this.getBranches(repoPath, { filter: b => b.current });
+		if (branch != null) return branch;
+
+		const data = await Git.rev_parse__currentBranch(repoPath);
+		if (data == null) return undefined;
+
+		const [name, tracking] = data[0].split('\n');
+		if (GitBranch.isDetached(name)) {
+			const committerDate = await Git.log__recent_committerdate(repoPath);
+
+			branch = new GitBranch(
+				repoPath,
+				name,
+				false,
+				true,
+				committerDate == null ? undefined : new Date(Number(committerDate) * 1000),
+				data[1],
+				tracking,
+			);
+		}
+
 		return branch;
 	}
 
