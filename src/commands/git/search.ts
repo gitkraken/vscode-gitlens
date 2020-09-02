@@ -130,7 +130,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			if (state.counter < 3 || state.pattern == null) {
+			if (state.counter < 2 || state.pattern == null) {
 				const result = yield* this.pickSearchOperatorStep(state as SearchStepState, context);
 				if (result === StepResult.Break) {
 					// If we skipped the previous step, make sure we back up past it
@@ -172,7 +172,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 				break;
 			}
 
-			if (state.counter < 4 || context.commit == null) {
+			if (state.counter < 3 || context.commit == null) {
 				const repoPath = state.repo.path;
 				const result = yield* pickCommitStep(state as SearchStepState, context, {
 					ignoreFocusOut: true,
@@ -203,7 +203,10 @@ export class SearchGitCommand extends QuickCommand<State> {
 							),
 					},
 				});
-				if (result === StepResult.Break) continue;
+				if (result === StepResult.Break) {
+					state.counter--;
+					continue;
+				}
 
 				context.commit = result;
 			}
