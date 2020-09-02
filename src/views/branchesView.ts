@@ -118,9 +118,6 @@ export class BranchesRepositoryNode extends SubscribeableViewNode<BranchesView> 
 			e.changed(RepositoryChange.Remotes)
 		) {
 			void this.triggerChange(true);
-			// if (this.root) {
-			// 	void this.parent?.triggerChange(true);
-			// }
 		}
 	}
 }

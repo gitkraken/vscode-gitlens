@@ -99,9 +99,6 @@ export class TagsRepositoryNode extends SubscribeableViewNode<TagsView> {
 
 		if (e.changed(RepositoryChange.Config) || e.changed(RepositoryChange.Tags)) {
 			void this.triggerChange(true);
-			// if (this.root) {
-			// 	void this.parent?.triggerChange(true);
-			// }
 		}
 	}
 }
