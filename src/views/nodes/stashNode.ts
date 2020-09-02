@@ -1,15 +1,12 @@
 'use strict';
 import * as paths from 'path';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ViewFilesLayout } from '../../config';
 import { Container } from '../../container';
 import { CommitFormatter, GitStashCommit, GitStashReference } from '../../git/git';
-import { Arrays, Iterables, Strings } from '../../system';
+import { ContextValues, FileNode, FolderNode, RepositoryNode, StashFileNode, ViewNode, ViewRefNode } from '../nodes';
+import { Arrays, Strings } from '../../system';
 import { ViewsWithFiles } from '../viewBase';
-import { StashFileNode } from './stashFileNode';
-import { ContextValues, ViewNode, ViewRefNode } from './viewNode';
-import { RepositoryNode } from './repositoryNode';
-import { FileNode, FolderNode } from '../nodes';
-import { ViewFilesLayout } from '../../config';
 
 export class StashNode extends ViewRefNode<ViewsWithFiles, GitStashReference> {
 	static key = ':stash';
@@ -34,25 +31,12 @@ export class StashNode extends ViewRefNode<ViewsWithFiles, GitStashReference> {
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		let files = this.commit.files;
+		// Ensure we have checked for untracked files
+		await this.commit.checkForUntrackedFiles();
 
-		// Check for any untracked files -- since git doesn't return them via `git stash list` :(
-		// See https://stackoverflow.com/questions/12681529/
-		const log = await Container.git.getLog(this.commit.repoPath, {
-			limit: 1,
-			ref: `${this.commit.stashName}^3`,
-		});
-		if (log != null) {
-			const commit = Iterables.first(log.commits.values());
-			if (commit != null && commit.files.length !== 0) {
-				// Since these files are untracked -- make them look that way
-				commit.files.forEach(s => (s.status = '?'));
-
-				files = { ...files, ...commit.files };
-			}
-		}
-
-		let children: FileNode[] = files.map(s => new StashFileNode(this.view, this, s, this.commit.toFileCommit(s)!));
+		let children: FileNode[] = this.commit.files.map(
+			s => new StashFileNode(this.view, this, s, this.commit.toFileCommit(s)!),
+		);
 
 		if (this.view.config.files.layout !== ViewFilesLayout.List) {
 			const hierarchy = Arrays.makeHierarchical(

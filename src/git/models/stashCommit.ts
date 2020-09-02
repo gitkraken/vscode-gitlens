@@ -1,9 +1,10 @@
 'use strict';
 import { GitCommitType } from './commit';
+import { Container } from '../../container';
 import { GitFile } from './file';
 import { GitLogCommit } from './logCommit';
 import { GitReference } from './models';
-import { memoize } from '../../system';
+import { gate, memoize } from '../../system';
 
 const stashNumberRegex = /stash@{(\d+)}/;
 
@@ -47,6 +48,24 @@ export class GitStashCommit extends GitLogCommit {
 
 	get shortSha() {
 		return this.stashName;
+	}
+
+	private _untrackedFilesChecked = false;
+	@gate()
+	async checkForUntrackedFiles() {
+		if (!this._untrackedFilesChecked) {
+			this._untrackedFilesChecked = true;
+
+			// Check for any untracked files -- since git doesn't return them via `git stash list` :(
+			// See https://stackoverflow.com/questions/12681529/
+			const commit = await Container.git.getCommit(this.repoPath, `${this.stashName}^3`);
+			if (commit != null && commit.files.length !== 0) {
+				// Since these files are untracked -- make them look that way
+				commit.files.forEach(s => (s.status = '?'));
+
+				this.files.push(...commit.files);
+			}
+		}
 	}
 
 	with(changes: {

@@ -175,7 +175,7 @@ export class GitLogCommit extends GitCommit {
 	toFileCommit(file: string | GitFile): GitLogCommit | undefined {
 		const fileName = typeof file === 'string' ? GitUri.relativeTo(file, this.repoPath) : file.fileName;
 		const foundFile = this.files.find(f => f.fileName === fileName);
-		if (foundFile === undefined) return undefined;
+		if (foundFile == null) return undefined;
 
 		let sha;
 		// If this is a stash commit with an untracked file
