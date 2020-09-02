@@ -10,6 +10,7 @@ import {
 	isCommandViewContextWithRepo,
 	isCommandViewContextWithRepoPath,
 } from './common';
+import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 
 const enum ResourceGroupType {
@@ -31,7 +32,7 @@ export class StashSaveCommand extends Command {
 		super([Commands.StashSave, Commands.StashSaveFiles]);
 	}
 
-	protected preExecute(context: CommandContext, args?: StashSaveCommandArgs) {
+	protected async preExecute(context: CommandContext, args?: StashSaveCommandArgs) {
 		if (isCommandViewContextWithFile(context)) {
 			args = { ...args };
 			args.repoPath = context.node.file.repoPath ?? context.node.repoPath;
@@ -44,23 +45,29 @@ export class StashSaveCommand extends Command {
 			args.repoPath = context.node.repoPath;
 		} else if (context.type === 'scm-states') {
 			args = { ...args };
-
-			if (!context.scmResourceStates.some(s => (s as any).resourceGroupType === ResourceGroupType.Index)) {
-				args.keepStaged = true;
-			}
-
 			args.uris = context.scmResourceStates.map(s => s.resourceUri);
+			args.repoPath = await Container.git.getRepoPath(args.uris[0].fsPath);
+
+			const status = await Container.git.getStatusForRepo(args.repoPath);
+			if (status?.computeWorkingTreeStatus().staged) {
+				if (!context.scmResourceStates.some(s => (s as any).resourceGroupType === ResourceGroupType.Index)) {
+					args.keepStaged = true;
+				}
+			}
 		} else if (context.type === 'scm-groups') {
 			args = { ...args };
-
-			if (!context.scmResourceGroups.some(g => g.id === 'index')) {
-				args.keepStaged = true;
-			}
-
 			args.uris = context.scmResourceGroups.reduce<Uri[]>(
 				(a, b) => a.concat(b.resourceStates.map(s => s.resourceUri)),
 				[],
 			);
+			args.repoPath = await Container.git.getRepoPath(args.uris[0].fsPath);
+
+			const status = await Container.git.getStatusForRepo(args.repoPath);
+			if (status?.computeWorkingTreeStatus().staged) {
+				if (!context.scmResourceGroups.some(g => g.id === 'index')) {
+					args.keepStaged = true;
+				}
+			}
 		}
 
 		return this.execute(args);
