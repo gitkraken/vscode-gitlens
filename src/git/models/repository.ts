@@ -589,8 +589,8 @@ export class Repository implements Disposable {
 
 	@gate(() => '')
 	@log()
-	async stashDelete(stashName: string) {
-		void (await Container.git.stashDelete(this.path, stashName));
+	async stashDelete(stashName: string, ref?: string) {
+		void (await Container.git.stashDelete(this.path, stashName, ref));
 		if (!this.supportsChangeEvents) {
 			this.fireChange(RepositoryChange.Stash);
 		}

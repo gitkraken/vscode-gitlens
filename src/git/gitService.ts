@@ -3286,8 +3286,8 @@ export class GitService implements Disposable {
 	}
 
 	@log()
-	stashDelete(repoPath: string, stashName: string) {
-		return Git.stash__delete(repoPath, stashName);
+	stashDelete(repoPath: string, stashName: string, ref?: string) {
+		return Git.stash__delete(repoPath, stashName, ref);
 	}
 
 	@log()

@@ -1144,8 +1144,22 @@ export namespace Git {
 		return git<string>({ cwd: repoPath }, 'stash', deleteAfter ? 'pop' : 'apply', stashName);
 	}
 
-	export function stash__delete(repoPath: string, stashName: string) {
+	export async function stash__delete(repoPath: string, stashName: string, ref?: string) {
 		if (!stashName) return undefined;
+
+		if (ref) {
+			const stashRef = await git<string>(
+				{ cwd: repoPath, errors: GitErrorHandling.Ignore },
+				'show',
+				'--format=%H',
+				'--no-patch',
+				stashName,
+			);
+			if (stashRef?.trim() !== ref) {
+				throw new Error('Unable to delete stash; mismatch with stash number');
+			}
+		}
+
 		return git<string>({ cwd: repoPath }, 'stash', 'drop', stashName);
 	}
 

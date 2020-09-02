@@ -386,7 +386,7 @@ export class StashGitCommand extends QuickCommand<State> {
 			QuickCommand.endSteps(state);
 			try {
 				// drop can only take a stash index, e.g. `stash@{1}`
-				void (await state.repo.stashDelete(`stash@{${state.reference.number}}`));
+				void (await state.repo.stashDelete(`stash@{${state.reference.number}}`, state.reference.ref));
 			} catch (ex) {
 				Logger.error(ex, context.title);
 
