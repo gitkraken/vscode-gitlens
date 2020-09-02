@@ -52,15 +52,12 @@ export class SetViewsLayoutCommand extends Command {
 					// Because of https://github.com/microsoft/vscode/issues/105774, run the command twice which seems to fix things
 					let count = 0;
 					while (count++ < 2) {
-						void (await commands.executeCommand(
-							'vscode.moveViews',
-							{
-								viewIds: viewsConfigKeys.map(view => `${extensionId}.views.${view}`),
-								destinationId: `workbench.view.extension.${extensionId}`,
-							},
-						));
+						void (await commands.executeCommand('vscode.moveViews', {
+							viewIds: viewsConfigKeys.map(view => `${extensionId}.views.${view}`),
+							destinationId: `workbench.view.extension.${extensionId}`,
+						}));
 					}
-				} catch { }
+				} catch {}
 
 				break;
 			case ViewsLayout.SourceControl:
@@ -68,13 +65,10 @@ export class SetViewsLayoutCommand extends Command {
 					// Because of https://github.com/microsoft/vscode/issues/105774, run the command twice which seems to fix things
 					let count = 0;
 					while (count++ < 2) {
-						void (await commands.executeCommand(
-							'vscode.moveViews',
-							{
-								viewIds: viewsConfigKeys.map(view => `${extensionId}.views.${view}`),
-								destinationId: 'workbench.view.scm'
-							},
-						));
+						void (await commands.executeCommand('vscode.moveViews', {
+							viewIds: viewsConfigKeys.map(view => `${extensionId}.views.${view}`),
+							destinationId: 'workbench.view.scm',
+						}));
 					}
 				} catch {
 					for (const view of viewsConfigKeys) {
