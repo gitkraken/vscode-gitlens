@@ -3339,12 +3339,10 @@ export class GitService implements Disposable {
 
 		const normalizedPath = Strings.normalizePath(repoPath, { stripTrailingSlash: true }).toLowerCase();
 
-		const repo = gitApi.repositories.find(r => {
-			const normalized = Strings.normalizePath(r.rootUri.fsPath, {
-				stripTrailingSlash: true,
-			}).toLowerCase();
-			return normalized === normalizedPath;
-		});
+		const repo = gitApi.repositories.find(
+			r => Strings.normalizePath(r.rootUri.fsPath, { stripTrailingSlash: true }).toLowerCase() === normalizedPath,
+		);
+
 		return repo;
 	}
 

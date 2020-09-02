@@ -959,9 +959,7 @@ export async function* pickContributorsStep<
 	State extends PartialStepState & { repo: Repository },
 	Context extends { repos: Repository[]; title: string }
 >(state: State, context: Context, placeholder: string = 'Choose contributors'): StepResultGenerator<GitContributor[]> {
-	const message = (await GitService.getBuiltInGitApi())?.repositories.find(
-		r => Strings.normalizePath(r.rootUri.fsPath) === state.repo.path,
-	)?.inputBox.value;
+	const message = (await GitService.getBuiltInGitRepository(state.repo.path))?.inputBox.value;
 
 	const step = QuickCommand.createPickStep<ContributorQuickPickItem>({
 		title: appendReposToTitle(context.title, state, context),

@@ -60,9 +60,7 @@ export class CoAuthorsGitCommand extends QuickCommand<State> {
 	}
 
 	async execute(state: CoAuthorStepState) {
-		const repo = (await GitService.getBuiltInGitApi())?.repositories.find(
-			r => Strings.normalizePath(r.rootUri.fsPath) === state.repo.path,
-		);
+		const repo = await GitService.getBuiltInGitRepository(state.repo.path);
 		if (repo == null) return;
 
 		let message = repo.inputBox.value;
