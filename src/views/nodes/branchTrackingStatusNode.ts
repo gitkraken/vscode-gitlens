@@ -130,7 +130,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 			case 'ahead':
 				label = `${Strings.pluralize('commit', this.status.state.ahead)} ahead`;
 				if (!this.isReposView) {
-					label = `${this.root ? `${this.branch.name} is ` : ''}${label} ${this.status.upstream}`;
+					label = `${this.root ? `${this.branch.name} is ` : ''}${label} of ${this.status.upstream}`;
 				}
 				tooltip = `${label} of ${this.status.upstream}`;
 
