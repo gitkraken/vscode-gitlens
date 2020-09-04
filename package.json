@@ -1550,12 +1550,6 @@
 					"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Branches_ view. Only applies when `#gitlens.views.branches.files.layout#` is set to `auto`",
 					"scope": "window"
 				},
-				"gitlens.views.branches.showTrackingBranch": {
-					"type": "boolean",
-					"default": true,
-					"markdownDescription": "Specifies whether to show the tracking branch when displaying local branches in the _Branches_ view",
-					"scope": "window"
-				},
 				"gitlens.views.commits.avatars": {
 					"type": "boolean",
 					"default": true,
@@ -1611,12 +1605,6 @@
 					],
 					"default": "working",
 					"markdownDescription": "Specifies whether to show a comparison of a user-selected reference (branch, tag. etc) to the current branch or the working tree in the _Commits_ view",
-					"scope": "window"
-				},
-				"gitlens.views.commits.showTrackingBranch": {
-					"type": "boolean",
-					"default": true,
-					"markdownDescription": "Specifies whether to show the tracking branch when displaying local branches in the _Commits_ view",
 					"scope": "window"
 				},
 				"gitlens.views.compare.avatars": {
@@ -1777,12 +1765,6 @@
 					"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Remotes_ view. Only applies when `#gitlens.views.remotes.files.layout#` is set to `auto`",
 					"scope": "window"
 				},
-				"gitlens.views.remotes.showTrackingBranch": {
-					"type": "boolean",
-					"default": true,
-					"markdownDescription": "Specifies whether to show the tracking branch when displaying local branches in the _Remotes_ view",
-					"scope": "window"
-				},
 				"gitlens.views.repositories.autoRefresh": {
 					"type": "boolean",
 					"default": true,
@@ -1882,12 +1864,6 @@
 					],
 					"default": "working",
 					"markdownDescription": "Specifies whether to show a comparison of a user-selected reference (branch, tag. etc) to the current branch or the working tree in the _Repositories_ view",
-					"scope": "window"
-				},
-				"gitlens.views.repositories.showTrackingBranch": {
-					"type": "boolean",
-					"default": true,
-					"markdownDescription": "Specifies whether to show the tracking branch when displaying local branches in the _Repositories_ view",
 					"scope": "window"
 				},
 				"gitlens.views.search.avatars": {

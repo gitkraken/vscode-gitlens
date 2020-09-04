@@ -460,7 +460,6 @@ export interface BranchesViewConfig {
 		layout: ViewBranchesLayout;
 	};
 	files: ViewsFilesConfig;
-	showTrackingBranch: boolean;
 }
 
 export interface CommitsViewConfig {
@@ -468,7 +467,6 @@ export interface CommitsViewConfig {
 	branches: undefined;
 	files: ViewsFilesConfig;
 	showBranchComparison: false | ViewShowBranchComparison;
-	showTrackingBranch: boolean;
 }
 
 export interface CompareViewConfig {
@@ -498,7 +496,6 @@ export interface RemotesViewConfig {
 		layout: ViewBranchesLayout;
 	};
 	files: ViewsFilesConfig;
-	showTrackingBranch: boolean;
 }
 
 export interface RepositoriesViewConfig {
@@ -513,7 +510,6 @@ export interface RepositoriesViewConfig {
 	files: ViewsFilesConfig;
 	includeWorkingTree: boolean;
 	showBranchComparison: false | ViewShowBranchComparison;
-	showTrackingBranch: boolean;
 }
 
 export interface SearchViewConfig {

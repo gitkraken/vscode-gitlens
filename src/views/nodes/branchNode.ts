@@ -169,39 +169,38 @@ export class BranchNode
 		}
 
 		let description;
-		if (!this.branch.remote && this.branch.tracking !== undefined) {
-			if (this.view.config.showTrackingBranch) {
-				let arrows = GlyphChars.Dash;
+		if (!this.branch.remote && this.branch.tracking != null) {
+			let arrows = GlyphChars.Dash;
 
-				const remote = await this.branch.getRemote();
-				if (remote !== undefined) {
-					let left;
-					let right;
-					for (const { type } of remote.types) {
-						if (type === GitRemoteType.Fetch) {
-							left = true;
+			const remote = await this.branch.getRemote();
+			if (remote != null) {
+				let left;
+				let right;
+				for (const { type } of remote.types) {
+					if (type === GitRemoteType.Fetch) {
+						left = true;
 
-							if (right) break;
-						} else if (type === GitRemoteType.Push) {
-							right = true;
+						if (right) break;
+					} else if (type === GitRemoteType.Push) {
+						right = true;
 
-							if (left) break;
-						}
-					}
-
-					if (left && right) {
-						arrows = GlyphChars.ArrowsRightLeft;
-					} else if (right) {
-						arrows = GlyphChars.ArrowRight;
-					} else if (left) {
-						arrows = GlyphChars.ArrowLeft;
+						if (left) break;
 					}
 				}
 
-				description = `${this.branch.getTrackingStatus({ suffix: `${GlyphChars.Space} ` })}${arrows}${
-					GlyphChars.Space
-				} ${this.branch.tracking}`;
+				if (left && right) {
+					arrows = GlyphChars.ArrowsRightLeft;
+				} else if (right) {
+					arrows = GlyphChars.ArrowRight;
+				} else if (left) {
+					arrows = GlyphChars.ArrowLeft;
+				}
 			}
+
+			description = `${this.branch.getTrackingStatus({ suffix: `${GlyphChars.Space} ` })}${arrows}${
+				GlyphChars.Space
+			} ${this.branch.tracking}`;
+
 			tooltip += ` is tracking ${this.branch.tracking}\n${this.branch.getTrackingStatus({
 				empty: 'up-to-date',
 				expand: true,
