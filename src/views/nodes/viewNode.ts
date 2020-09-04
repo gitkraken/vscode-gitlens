@@ -48,6 +48,8 @@ export enum ContextValues {
 	StatusFiles = 'gitlens:status:files',
 	StatusAheadOfUpstream = 'gitlens:status:upstream:ahead',
 	StatusBehindUpstream = 'gitlens:status:upstream:behind',
+	StatusNoUpstream = 'gitlens:status:upstream:none',
+	StatusSameAsUpstream = 'gitlens:status:upstream:same',
 	Tag = 'gitlens:tag',
 	Tags = 'gitlens:tags',
 }

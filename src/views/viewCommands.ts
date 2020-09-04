@@ -288,9 +288,10 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private fetch(node: RemoteNode | RepositoryNode) {
+	private fetch(node: RemoteNode | RepositoryNode | BranchTrackingStatusNode) {
 		if (node instanceof RepositoryNode) return GitActions.fetch(node.repo);
 		if (node instanceof RemoteNode) return GitActions.Remote.fetch(node.remote.repoPath, node.remote.name);
+		if (node instanceof BranchTrackingStatusNode) return GitActions.fetch(node.repoPath);
 
 		return Promise.resolve();
 	}

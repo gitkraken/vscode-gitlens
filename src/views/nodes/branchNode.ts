@@ -100,7 +100,7 @@ export class BranchNode
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children == null) {
 			const children = [];
-			if (this.options.showTracking && this.branch.tracking) {
+			if (this.options.showTracking) {
 				const status = {
 					ref: this.branch.ref,
 					repoPath: this.branch.repoPath,
@@ -108,15 +108,27 @@ export class BranchNode
 					upstream: this.branch.tracking,
 				};
 
-				if (this.branch.state.behind) {
-					children.push(
-						new BranchTrackingStatusNode(this.view, this, this.branch, status, 'behind', this.root),
-					);
-				}
+				if (this.branch.tracking) {
+					if (this.root && !status.state.behind && !status.state.ahead) {
+						children.push(
+							new BranchTrackingStatusNode(this.view, this, this.branch, status, 'same', this.root),
+						);
+					}
 
-				if (this.branch.state.ahead) {
+					if (status.state.ahead) {
+						children.push(
+							new BranchTrackingStatusNode(this.view, this, this.branch, status, 'ahead', this.root),
+						);
+					}
+
+					if (status.state.behind) {
+						children.push(
+							new BranchTrackingStatusNode(this.view, this, this.branch, status, 'behind', this.root),
+						);
+					}
+				} else if (this.root) {
 					children.push(
-						new BranchTrackingStatusNode(this.view, this, this.branch, status, 'ahead', this.root),
+						new BranchTrackingStatusNode(this.view, this, this.branch, status, 'none', this.root),
 					);
 				}
 			}
