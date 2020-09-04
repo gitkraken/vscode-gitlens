@@ -131,6 +131,8 @@ export class TagGitCommand extends QuickCommand<State> {
 			title: this.title,
 		};
 
+		let skippedStepTwo = false;
+
 		while (this.canStepsContinue(state)) {
 			context.title = this.title;
 
@@ -147,8 +149,10 @@ export class TagGitCommand extends QuickCommand<State> {
 			this.subcommand = state.subcommand;
 
 			if (state.counter < 2 || state.repo == null || typeof state.repo === 'string') {
+				skippedStepTwo = false;
 				if (context.repos.length === 1) {
 					if (state.repo == null) {
+						skippedStepTwo = true;
 						state.counter++;
 					}
 					state.repo = context.repos[0];
@@ -178,7 +182,8 @@ export class TagGitCommand extends QuickCommand<State> {
 			}
 
 			// If we skipped the previous step, make sure we back up past it
-			if (context.repos.length === 1) {
+			if (skippedStepTwo) {
+				skippedStepTwo = false;
 				state.counter--;
 			}
 		}

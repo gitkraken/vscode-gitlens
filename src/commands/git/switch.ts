@@ -92,6 +92,8 @@ export class SwitchGitCommand extends QuickCommand<State> {
 			state.repos = [state.repos] as string[] | Repository[];
 		}
 
+		let skippedStepOne = false;
+
 		while (this.canStepsContinue(state)) {
 			context.title = this.title;
 
@@ -101,8 +103,10 @@ export class SwitchGitCommand extends QuickCommand<State> {
 				state.repos.length === 0 ||
 				Arrays.isStringArray(state.repos)
 			) {
+				skippedStepOne = false;
 				if (context.repos.length === 1) {
 					if (state.repos == null) {
+						skippedStepOne = true;
 						state.counter++;
 					}
 					state.repos = [context.repos[0]];
@@ -125,7 +129,8 @@ export class SwitchGitCommand extends QuickCommand<State> {
 				});
 				if (result === StepResult.Break) {
 					// If we skipped the previous step, make sure we back up past it
-					if (context.repos.length === 1) {
+					if (skippedStepOne) {
+						skippedStepOne = false;
 						state.counter--;
 					}
 

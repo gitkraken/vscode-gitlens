@@ -80,6 +80,8 @@ export class ShowGitCommand extends QuickCommand<State> {
 			title: this.title,
 		};
 
+		let skippedStepOne = false;
+
 		while (this.canStepsContinue(state)) {
 			context.title = this.title;
 
@@ -89,8 +91,10 @@ export class ShowGitCommand extends QuickCommand<State> {
 				typeof state.repo === 'string' ||
 				!context.repos.includes(state.repo)
 			) {
+				skippedStepOne = false;
 				if (context.repos.length === 1) {
 					if (state.repo == null) {
+						skippedStepOne = true;
 						state.counter++;
 					}
 					state.repo = context.repos[0];
@@ -125,7 +129,8 @@ export class ShowGitCommand extends QuickCommand<State> {
 					});
 					if (result === StepResult.Break) {
 						// If we skipped the previous step, make sure we back up past it
-						if (context.repos.length === 1) {
+						if (skippedStepOne) {
+							skippedStepOne = false;
 							state.counter--;
 						}
 
