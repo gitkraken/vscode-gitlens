@@ -97,7 +97,11 @@ export class TagsRepositoryNode extends SubscribeableViewNode<TagsView> {
 			return;
 		}
 
-		if (e.changed(RepositoryChange.Config) || e.changed(RepositoryChange.Tags)) {
+		if (
+			e.changed(RepositoryChange.Config) ||
+			e.changed(RepositoryChange.Tags) ||
+			e.changed(RepositoryChange.Unknown)
+		) {
 			void this.triggerChange(true);
 		}
 	}

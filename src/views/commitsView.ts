@@ -146,7 +146,8 @@ export class CommitsRepositoryNode extends SubscribeableViewNode<CommitsView> {
 			e.changed(RepositoryChange.Config) ||
 			e.changed(RepositoryChange.Index) ||
 			e.changed(RepositoryChange.Heads) ||
-			e.changed(RepositoryChange.Remotes)
+			e.changed(RepositoryChange.Remotes) ||
+			e.changed(RepositoryChange.Unknown)
 		) {
 			void this.triggerChange(true);
 		}
