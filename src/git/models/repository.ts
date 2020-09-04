@@ -484,7 +484,9 @@ export class Repository implements Disposable {
 			force?: boolean;
 			progress?: boolean;
 			reference?: GitReference;
-			setUpstream?: { branch: string; remote: string };
+			publish?: {
+				remote: string;
+			};
 		} = {},
 	) {
 		const { progress, ...opts } = { progress: true, ...options };
@@ -493,7 +495,9 @@ export class Repository implements Disposable {
 		return void (await window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Pushing ${this.formattedName}...`,
+				title: GitReference.isBranch(options.reference)
+					? `${options.publish ? 'Publishing ' : 'Pushing '}${options.reference.name}...`
+					: `Pushing ${this.formattedName}...`,
 			},
 			() => this.pushCore(opts),
 		));
@@ -503,27 +507,33 @@ export class Repository implements Disposable {
 		options: {
 			force?: boolean;
 			reference?: GitReference;
-			setUpstream?: { branch: string; remote: string };
+			publish?: {
+				remote: string;
+			};
 		} = {},
 	) {
 		try {
-			if (options.setUpstream != null) {
+			if (GitReference.isBranch(options.reference)) {
 				const repo = await GitService.getBuiltInGitRepository(this.path);
 				if (repo == null) return;
 
-				await repo?.push(options.setUpstream.remote, options.setUpstream.branch, true);
+				if (options.publish != null) {
+					await repo?.push(options.publish.remote, options.reference.name, true);
+				} else {
+					const name = options.reference.name;
+					const [branch] = await this.getBranches({ filter: b => b.name === name && !b.remote });
+					if (branch == null) return;
+
+					await repo?.push(branch.getRemoteName(), name);
+				}
 			} else if (options.reference != null) {
+				const repo = await GitService.getBuiltInGitRepository(this.path);
+				if (repo == null) return;
+
 				const branch = await this.getBranch();
 				if (branch == null) return;
 
-				const repo = await GitService.getBuiltInGitRepository(this.path);
-				if (repo == null) return;
-
-				await repo?.push(
-					branch.getRemoteName(),
-					`${options.reference.ref}:${branch.getNameWithoutRemote()}`,
-					undefined,
-				);
+				await repo?.push(branch.getRemoteName(), `${options.reference.ref}:${branch.getNameWithoutRemote()}`);
 			} else {
 				void (await commands.executeCommand(options.force ? 'git.pushForce' : 'git.push', this.path));
 			}

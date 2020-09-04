@@ -46,7 +46,7 @@ export class GitBranch implements GitBranchReference {
 						(opts.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
 						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
-						(a.date === undefined ? -1 : a.date.getTime()) - (b.date === undefined ? -1 : b.date.getTime()),
+						(a.date == null ? -1 : a.date.getTime()) - (b.date == null ? -1 : b.date.getTime()),
 				);
 			case BranchSorting.DateDesc:
 				return branches.sort(
@@ -54,7 +54,7 @@ export class GitBranch implements GitBranchReference {
 						(opts.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
 						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
-						(b.date === undefined ? -1 : b.date.getTime()) - (a.date === undefined ? -1 : a.date.getTime()),
+						(b.date == null ? -1 : b.date.getTime()) - (a.date == null ? -1 : a.date.getTime()),
 				);
 			case BranchSorting.NameAsc:
 				return branches.sort(
@@ -125,20 +125,20 @@ export class GitBranch implements GitBranchReference {
 
 	@memoize()
 	private get dateFormatter(): Dates.DateFormatter | undefined {
-		return this.date === undefined ? undefined : Dates.getFormatter(this.date);
+		return this.date == null ? undefined : Dates.getFormatter(this.date);
 	}
 
 	@memoize<GitBranch['formatDate']>(format => (format == null ? 'MMMM Do, YYYY h:mma' : format))
-	formatDate(format?: string | null) {
+	formatDate(format?: string | null): string {
 		if (format == null) {
 			format = 'MMMM Do, YYYY h:mma';
 		}
 
-		return this.dateFormatter === undefined ? '' : this.dateFormatter.format(format);
+		return this.dateFormatter?.format(format) ?? '';
 	}
 
-	formatDateFromNow() {
-		return this.dateFormatter === undefined ? '' : this.dateFormatter.fromNow();
+	formatDateFromNow(): string {
+		return this.dateFormatter?.fromNow() ?? '';
 	}
 
 	@memoize()
@@ -156,7 +156,7 @@ export class GitBranch implements GitBranchReference {
 	@memoize()
 	async getRemote(): Promise<GitRemote | undefined> {
 		const remoteName = this.getRemoteName();
-		if (remoteName === undefined) return undefined;
+		if (remoteName == null) return undefined;
 
 		const remotes = await Container.git.getRemotes(this.repoPath);
 		if (remotes.length === 0) return undefined;
@@ -167,7 +167,7 @@ export class GitBranch implements GitBranchReference {
 	@memoize()
 	getRemoteName(): string | undefined {
 		if (this.remote) return GitBranch.getRemote(this.name);
-		if (this.tracking !== undefined) return GitBranch.getRemote(this.tracking);
+		if (this.tracking != null) return GitBranch.getRemote(this.tracking);
 
 		return undefined;
 	}

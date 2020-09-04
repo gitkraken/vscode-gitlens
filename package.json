@@ -2939,6 +2939,12 @@
 				"icon": "$(sync)"
 			},
 			{
+				"command": "gitlens.views.publishBranch",
+				"title": "Publish Branch",
+				"category": "GitLens",
+				"icon": "$(cloud-upload)"
+			},
+			{
 				"command": "gitlens.views.pull",
 				"title": "Pull",
 				"category": "GitLens",
@@ -4319,6 +4325,10 @@
 				},
 				{
 					"command": "gitlens.views.fetch",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.publishBranch",
 					"when": "false"
 				},
 				{
@@ -5853,10 +5863,14 @@
 					"group": "1_gitlens@1"
 				},
 				{
+					"command": "gitlens.views.publishBranch",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+tracking\\b)/",
+					"group": "inline@8"
+				},
+				{
 					"command": "gitlens.views.push",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+ahead\\b)/",
-					"group": "inline@8",
-					"alt": "gitlens.views.pushWithForce"
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+ahead\\b)(?!.*?\\b\\+behind\\b)/",
+					"group": "inline@8"
 				},
 				{
 					"command": "gitlens.views.pull",
@@ -6483,6 +6497,11 @@
 					"command": "gitlens.views.closeRepository",
 					"when": "viewItem =~ /gitlens:repository\\b/",
 					"group": "8_gitlens_actions_@2"
+				},
+				{
+					"command": "gitlens.views.publishBranch",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem == gitlens:status:upstream:none",
+					"group": "inline@1"
 				},
 				{
 					"command": "gitlens.views.push",

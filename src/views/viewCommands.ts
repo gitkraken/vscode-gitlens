@@ -94,6 +94,7 @@ export class ViewCommands {
 		commands.registerCommand('gitlens.views.showAllChildren', (node: PagerNode) => node.showAll(), this);
 
 		commands.registerCommand('gitlens.views.fetch', this.fetch, this);
+		commands.registerCommand('gitlens.views.publishBranch', this.publishBranch, this);
 		commands.registerCommand('gitlens.views.pull', this.pull, this);
 		commands.registerCommand('gitlens.views.push', this.push, this);
 		commands.registerCommand('gitlens.views.pushWithForce', n => this.push(n, true), this);
@@ -363,6 +364,14 @@ export class ViewCommands {
 	}
 
 	@debug()
+	private publishBranch(node: BranchNode | BranchTrackingStatusNode) {
+		if (node instanceof BranchNode || node instanceof BranchTrackingStatusNode) {
+			return GitActions.push(node.repoPath, undefined, node.branch);
+		}
+		return Promise.resolve();
+	}
+
+	@debug()
 	private pull(node: RepositoryNode | BranchNode | BranchTrackingStatusNode) {
 		if (node instanceof RepositoryNode) return GitActions.pull(node.repo);
 		if (node instanceof BranchNode || node instanceof BranchTrackingStatusNode) {
@@ -376,8 +385,9 @@ export class ViewCommands {
 	private push(node: RepositoryNode | BranchNode | BranchTrackingStatusNode, force?: boolean) {
 		if (node instanceof RepositoryNode) return GitActions.push(node.repo, force);
 		if (node instanceof BranchNode || node instanceof BranchTrackingStatusNode) {
-			return GitActions.push(node.repoPath, force);
+			return GitActions.push(node.repoPath, undefined, node.branch);
 		}
+
 		return Promise.resolve();
 	}
 

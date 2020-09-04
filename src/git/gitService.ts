@@ -624,7 +624,13 @@ export class GitService implements Disposable {
 	})
 	async pushAll(
 		repositories?: Repository[],
-		options: { force?: boolean; reference?: GitReference; setUpstream?: { branch: string; remote: string } } = {},
+		options: {
+			force?: boolean;
+			reference?: GitReference;
+			publish?: {
+				remote: string;
+			};
+		} = {},
 	) {
 		if (repositories == null) {
 			repositories = await this.getOrderedRepositories();
