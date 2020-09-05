@@ -375,7 +375,7 @@ export class ViewCommands {
 	private pull(node: RepositoryNode | BranchNode | BranchTrackingStatusNode) {
 		if (node instanceof RepositoryNode) return GitActions.pull(node.repo);
 		if (node instanceof BranchNode || node instanceof BranchTrackingStatusNode) {
-			return GitActions.pull(node.repoPath);
+			return GitActions.pull(node.repoPath, node.branch);
 		}
 
 		return Promise.resolve();

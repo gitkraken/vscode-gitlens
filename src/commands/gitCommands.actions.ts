@@ -59,8 +59,8 @@ export namespace GitActions {
 		return executeGitCommand({ command: 'merge', state: { repo: repo, reference: ref } });
 	}
 
-	export function pull(repos?: string | string[] | Repository | Repository[]) {
-		return executeGitCommand({ command: 'pull', state: { repos: repos } });
+	export function pull(repos?: string | string[] | Repository | Repository[], ref?: GitBranchReference) {
+		return executeGitCommand({ command: 'pull', state: { repos: repos, reference: ref } });
 	}
 
 	export function push(repos?: string | string[] | Repository | Repository[], force?: boolean, ref?: GitReference) {

@@ -316,20 +316,32 @@ export class Repository implements Disposable {
 
 	@gate()
 	@log()
-	async fetch(options: { all?: boolean; progress?: boolean; prune?: boolean; remote?: string } = {}) {
+	async fetch(
+		options: {
+			all?: boolean;
+			branch?: GitBranchReference;
+			progress?: boolean;
+			prune?: boolean;
+			remote?: string;
+		} = {},
+	) {
 		const { progress, ...opts } = { progress: true, ...options };
 		if (!progress) return this.fetchCore(opts);
 
 		return void (await window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: `Fetching ${opts.remote ? `${opts.remote} of ` : ''}${this.formattedName}...`,
+				title: opts.branch
+					? `Pulling ${opts.branch.name}...`
+					: `Fetching ${opts.remote ? `${opts.remote} of ` : ''}${this.formattedName}...`,
 			},
 			() => this.fetchCore(opts),
 		));
 	}
 
-	private async fetchCore(options: { all?: boolean; prune?: boolean; remote?: string } = {}) {
+	private async fetchCore(
+		options: { all?: boolean; branch?: GitBranchReference; prune?: boolean; remote?: string } = {},
+	) {
 		try {
 			void (await Container.git.fetch(this.path, options));
 
@@ -340,7 +352,12 @@ export class Repository implements Disposable {
 		}
 	}
 
-	getBranch(): Promise<GitBranch | undefined> {
+	async getBranch(name?: string): Promise<GitBranch | undefined> {
+		if (name) {
+			const [branch] = await this.getBranches({ filter: b => b.name === name });
+			return branch;
+		}
+
 		if (this._branch == null || !this.supportsChangeEvents) {
 			this._branch = Container.git.getBranch(this.path);
 		}
@@ -495,8 +512,8 @@ export class Repository implements Disposable {
 		return void (await window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: GitReference.isBranch(options.reference)
-					? `${options.publish ? 'Publishing ' : 'Pushing '}${options.reference.name}...`
+				title: GitReference.isBranch(opts.reference)
+					? `${opts.publish ? 'Publishing ' : 'Pushing '}${opts.reference.name}...`
 					: `Pushing ${this.formattedName}...`,
 			},
 			() => this.pushCore(opts),
@@ -520,11 +537,10 @@ export class Repository implements Disposable {
 				if (options.publish != null) {
 					await repo?.push(options.publish.remote, options.reference.name, true);
 				} else {
-					const name = options.reference.name;
-					const [branch] = await this.getBranches({ filter: b => b.name === name && !b.remote });
+					const branch = await this.getBranch(options.reference.name);
 					if (branch == null) return;
 
-					await repo?.push(branch.getRemoteName(), name);
+					await repo?.push(branch.getRemoteName(), branch.name);
 				}
 			} else if (options.reference != null) {
 				const repo = await GitService.getBuiltInGitRepository(this.path);

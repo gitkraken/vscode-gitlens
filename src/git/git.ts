@@ -2,6 +2,7 @@
 'use strict';
 import * as paths from 'path';
 import * as iconv from 'iconv-lite';
+import { window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
@@ -29,6 +30,7 @@ const rootSha = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 
 export const GitErrors = {
 	badRevision: /bad revision '(.*?)'/i,
+	noFastForward: /\(non-fast-forward\)/i,
 	notAValidObjectName: /Not a valid object name/i,
 	invalidLineCount: /file .+? has only \d+ lines/i,
 };
@@ -639,8 +641,33 @@ export namespace Git {
 		return git<string>({ cwd: repoPath }, ...params);
 	}
 
-	export function fetch(repoPath: string, options: { all?: boolean; prune?: boolean; remote?: string } = {}) {
+	export async function fetch(
+		repoPath: string,
+		options:
+			| { all?: boolean; branch?: undefined; prune?: boolean; remote?: string }
+			| { all?: undefined; branch: string; prune?: undefined; remote: string; upstream: string } = {},
+	): Promise<void> {
 		const params = ['fetch'];
+		if (options.branch) {
+			params.push('-u', options.remote, `${options.upstream}:${options.branch}`);
+
+			try {
+				void (await git<string>({ cwd: repoPath }, ...params));
+				return;
+			} catch (ex) {
+				const msg: string = ex?.toString() ?? '';
+				if (GitErrors.noFastForward.test(msg)) {
+					void window.showErrorMessage(
+						`Unable to pull the '${options.branch}' branch, as it can't be fast-forwarded.`,
+					);
+
+					return;
+				}
+
+				throw ex;
+			}
+		}
+
 		if (options.prune) {
 			params.push('--prune');
 		}
@@ -651,7 +678,7 @@ export namespace Git {
 			params.push('--all');
 		}
 
-		return git<string>({ cwd: repoPath }, ...params);
+		void (await git<string>({ cwd: repoPath }, ...params));
 	}
 
 	export function for_each_ref__branch(repoPath: string, options: { all: boolean } = { all: false }) {

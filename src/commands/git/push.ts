@@ -183,10 +183,9 @@ export class PushGitCommand extends QuickCommand<State> {
 						}),
 					);
 				} else {
-					const name = state.reference.name;
-					const [branch] = await repo.getBranches({ filter: b => b.name === name });
+					const branch = await repo.getBranch(state.reference.name);
 
-					if (branch?.tracking == null) {
+					if (branch != null && branch?.tracking == null) {
 						for (const remote of await repo.getRemotes()) {
 							items.push(
 								FlagsQuickPickItem.create<Flags>(state.flags, ['--set-upstream', remote.name], {
@@ -202,7 +201,7 @@ export class PushGitCommand extends QuickCommand<State> {
 							undefined,
 							{ placeholder: 'Confirm Publish' },
 						);
-					} else if (branch?.state.behind > 0) {
+					} else if (branch != null && branch?.state.behind > 0) {
 						step = this.createConfirmStep(
 							appendReposToTitle(`Confirm ${context.title}`, state, context),
 							[],
@@ -214,7 +213,7 @@ export class PushGitCommand extends QuickCommand<State> {
 								)}`,
 							}),
 						);
-					} else if (branch?.state.ahead > 0) {
+					} else if (branch != null && branch?.state.ahead > 0) {
 						step = this.createConfirmStep(appendReposToTitle(`Confirm ${context.title}`, state, context), [
 							FlagsQuickPickItem.create<Flags>(state.flags, [branch.getRemoteName()!], {
 								label: this.title,

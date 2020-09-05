@@ -51,6 +51,7 @@ import {
 	GitBlameParser,
 	GitBranch,
 	GitBranchParser,
+	GitBranchReference,
 	GitCommitType,
 	GitContributor,
 	GitDiff,
@@ -554,8 +555,24 @@ export class GitService implements Disposable {
 
 	@gate()
 	@log()
-	fetch(repoPath: string, options: { all?: boolean; prune?: boolean; remote?: string } = {}) {
-		return Git.fetch(repoPath, options);
+	async fetch(
+		repoPath: string,
+		options: { all?: boolean; branch?: GitBranchReference; prune?: boolean; remote?: string } = {},
+	): Promise<void> {
+		const { branch: branchRef, ...opts } = options;
+		if (GitReference.isBranch(branchRef)) {
+			const repo = await this.getRepository(repoPath);
+			const branch = await repo?.getBranch(branchRef?.name);
+			if (branch?.tracking == null) return undefined;
+
+			return Git.fetch(repoPath, {
+				branch: branch.name,
+				remote: branch.getRemoteName()!,
+				upstream: branch.getTrackingWithoutRemote()!,
+			});
+		}
+
+		return Git.fetch(repoPath, opts);
 	}
 
 	@gate<GitService['fetchAll']>(

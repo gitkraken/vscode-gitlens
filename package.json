@@ -5874,7 +5874,7 @@
 				},
 				{
 					"command": "gitlens.views.pull",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+behind\\b)/",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+tracking\\b)/",
 					"group": "inline@9"
 				},
 				{

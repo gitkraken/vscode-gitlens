@@ -1,6 +1,6 @@
 'use strict';
 import { Container } from '../../container';
-import { Repository } from '../../git/git';
+import { GitBranchReference, GitReference, Repository } from '../../git/git';
 import {
 	appendReposToTitle,
 	PartialStepState,
@@ -14,7 +14,7 @@ import {
 	StepSelection,
 	StepState,
 } from '../quickCommand';
-import { FlagsQuickPickItem } from '../../quickpicks';
+import { Directive, DirectiveQuickPickItem, FlagsQuickPickItem } from '../../quickpicks';
 import { Arrays, Dates, Strings } from '../../system';
 import { GlyphChars } from '../../constants';
 
@@ -27,6 +27,7 @@ type Flags = '--rebase';
 
 interface State {
 	repos: string | string[] | Repository | Repository[];
+	reference?: GitBranchReference;
 	flags: Flags[];
 }
 
@@ -57,6 +58,10 @@ export class PullGitCommand extends QuickCommand<State> {
 	}
 
 	execute(state: PullStepState) {
+		if (GitReference.isBranch(state.reference)) {
+			return state.repos[0].fetch({ branch: state.reference });
+		}
+
 		return Container.git.pullAll(state.repos, { rebase: state.flags.includes('--rebase') });
 	}
 
@@ -129,6 +134,7 @@ export class PullGitCommand extends QuickCommand<State> {
 
 	private async *confirmStep(state: PullStepState, context: Context): StepResultGenerator<Flags[]> {
 		let step: QuickPickStep<FlagsQuickPickItem<Flags>>;
+
 		if (state.repos.length > 1) {
 			step = this.createConfirmStep(appendReposToTitle(`Confirm ${context.title}`, state, context), [
 				FlagsQuickPickItem.create<Flags>(state.flags, [], {
@@ -141,6 +147,45 @@ export class PullGitCommand extends QuickCommand<State> {
 					detail: `Will pull ${state.repos.length} repositories by rebasing`,
 				}),
 			]);
+		} else if (GitReference.isBranch(state.reference)) {
+			if (state.reference.remote) {
+				step = this.createConfirmStep(
+					appendReposToTitle(`Confirm ${context.title}`, state, context),
+					[],
+					DirectiveQuickPickItem.create(Directive.Cancel, true, {
+						label: `Cancel ${this.title}`,
+						detail: 'Cannot pull a remote branch',
+					}),
+				);
+			} else {
+				const [repo] = state.repos;
+				const branch = await repo.getBranch(state.reference.name);
+
+				if (branch?.tracking == null) {
+					step = this.createConfirmStep(
+						appendReposToTitle(`Confirm ${context.title}`, state, context),
+						[],
+						DirectiveQuickPickItem.create(Directive.Cancel, true, {
+							label: `Cancel ${this.title}`,
+							detail: 'Cannot pull a branch until it has been published',
+						}),
+					);
+				} else {
+					step = this.createConfirmStep(appendReposToTitle(`Confirm ${context.title}`, state, context), [
+						FlagsQuickPickItem.create<Flags>(state.flags, [], {
+							label: this.title,
+							detail: `Will pull${
+								branch.state.behind
+									? ` ${Strings.pluralize(
+											'commit',
+											branch.state.behind,
+									  )} into ${GitReference.toString(branch)}`
+									: ` into ${GitReference.toString(branch)}`
+							}`,
+						}),
+					]);
+				}
+			}
 		} else {
 			const [repo] = state.repos;
 			const [status, lastFetched] = await Promise.all([repo.getStatus(), repo.getLastFetched()]);

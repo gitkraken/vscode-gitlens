@@ -154,6 +154,11 @@ export class GitBranch implements GitBranchReference {
 	}
 
 	@memoize()
+	getTrackingWithoutRemote(): string | undefined {
+		return this.tracking?.substring(this.tracking.indexOf('/') + 1);
+	}
+
+	@memoize()
 	async getRemote(): Promise<GitRemote | undefined> {
 		const remoteName = this.getRemoteName();
 		if (remoteName == null) return undefined;
