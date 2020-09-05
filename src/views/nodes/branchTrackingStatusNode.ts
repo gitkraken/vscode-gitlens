@@ -129,10 +129,10 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 		switch (this.upstreamType) {
 			case 'ahead':
 				label = `${Strings.pluralize('commit', this.status.state.ahead)} ahead`;
+				tooltip = `${this.branch.name} is ${label} of ${this.status.upstream}`;
 				if (!this.isReposView) {
 					label = `${this.root ? `${this.branch.name} is ` : ''}${label} of ${this.status.upstream}`;
 				}
-				tooltip = `${label} of ${this.status.upstream}`;
 
 				collapsibleState = !this.isReposView
 					? TreeItemCollapsibleState.Expanded
@@ -146,10 +146,10 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 
 			case 'behind':
 				label = `${Strings.pluralize('commit', this.status.state.behind)} behind`;
+				tooltip = `${this.branch.name} is ${label} ${this.status.upstream}`;
 				if (!this.isReposView) {
 					label = `${this.root ? `${this.branch.name} is ` : ''}${label} ${this.status.upstream}`;
 				}
-				tooltip = `${label} ${this.status.upstream}`;
 
 				collapsibleState = TreeItemCollapsibleState.Collapsed;
 				contextValue = this.root
@@ -161,10 +161,10 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 
 			case 'same':
 				label = `${this.branch.name} is up to date`;
+				tooltip = `${label} with ${this.status.upstream}`;
 				if (!this.isReposView) {
 					label += ` with ${this.status.upstream}`;
 				}
-				tooltip = `${label} with ${this.status.upstream}`;
 
 				collapsibleState = TreeItemCollapsibleState.None;
 				contextValue = this.root ? ContextValues.StatusSameAsUpstream : undefined;
@@ -185,9 +185,10 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 		const item = new TreeItem(label, collapsibleState);
 		item.id = this.id;
 		item.contextValue = contextValue;
-		item.description = lastFetched
-			? `Last fetched ${Dates.getFormatter(new Date(lastFetched)).fromNow()}`
-			: undefined;
+		if (lastFetched) {
+			item.description = `Last fetched ${Dates.getFormatter(new Date(lastFetched)).fromNow()}`;
+			tooltip += `\n${item.description}`;
+		}
 		item.iconPath = new ThemeIcon(icon);
 		item.tooltip = tooltip;
 

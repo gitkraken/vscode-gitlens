@@ -213,10 +213,11 @@ export class BranchNode
 				GlyphChars.Space
 			} ${this.branch.tracking}`;
 
-			tooltip += ` is tracking ${this.branch.tracking}\n${this.branch.getTrackingStatus({
-				empty: 'up-to-date',
+			tooltip += ` is ${this.branch.getTrackingStatus({
+				empty: `up to date with ${this.branch.tracking}`,
 				expand: true,
-				separator: '\n',
+				separator: ', ',
+				suffix: ` ${this.branch.tracking}`,
 			})}`;
 
 			if (this.branch.state.ahead || this.branch.state.behind) {

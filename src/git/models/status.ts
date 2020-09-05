@@ -199,9 +199,9 @@ export class GitStatus {
 		state: { ahead: number; behind: number },
 		options: { empty?: string; expand?: boolean; prefix?: string; separator?: string; suffix?: string } = {},
 	): string {
+		const { expand = false, prefix = '', separator = ' ', suffix = '' } = options;
 		if (upstream == null || (state.behind === 0 && state.ahead === 0)) return options.empty ?? '';
 
-		const { expand, prefix = '', separator = ' ', suffix = '' } = options;
 		if (expand) {
 			let status = '';
 			if (state.behind) {
@@ -209,6 +209,9 @@ export class GitStatus {
 			}
 			if (state.ahead) {
 				status += `${status.length === 0 ? '' : separator}${Strings.pluralize('commit', state.ahead)} ahead`;
+				if (suffix.endsWith(upstream)) {
+					status += ' of';
+				}
 			}
 			return `${prefix}${status}${suffix}`;
 		}
