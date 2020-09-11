@@ -3,7 +3,7 @@ import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { BranchNode } from './branchNode';
 import { BranchTrackingStatusFilesNode } from './branchTrackingStatusFilesNode';
 import { CommitNode } from './commitNode';
-import { ShowMoreNode } from './common';
+import { LoadMoreNode } from './common';
 import { Container } from '../../container';
 import { GitBranch, GitLog, GitRevision, GitTrackingState } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
@@ -94,7 +94,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 		}
 
 		if (log.hasMore) {
-			children.push(new ShowMoreNode(this.view, this, children[children.length - 1]));
+			children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
 		}
 
 		if (!this.isReposView && this.status.upstream && this.upstreamType === 'ahead' && this.status.state.ahead > 0) {
@@ -232,7 +232,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 	}
 
 	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
-	async showMore(limit?: number | { until?: any }) {
+	async loadMore(limit?: number | { until?: any }) {
 		let log = await this.getLog();
 		if (log == null || !log.hasMore) return;
 

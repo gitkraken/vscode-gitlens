@@ -407,7 +407,7 @@ export abstract class ViewBase<
 					while (true) {
 						if (token?.isCancellationRequested) return undefined;
 
-						await this.showMoreNodeChildren(node, defaultPageSize);
+						await this.loadMoreNodeChildren(node, defaultPageSize);
 
 						pagedChildren = await Promises.cancellable(
 							Promise.resolve(node.getChildren()),
@@ -530,18 +530,13 @@ export abstract class ViewBase<
 		return this._lastKnownLimits.get(node.id);
 	}
 
-	@debug({ args: { 0: (n: ViewNode) => n.toString() }, singleLine: true })
-	resetNodeLastKnownLimit(node: PageableViewNode) {
-		this._lastKnownLimits.delete(node.id);
-	}
-
 	@debug({
 		args: {
 			0: (n: ViewNode & PageableViewNode) => n.toString(),
 			3: (n?: ViewNode) => (n == null ? '' : n.toString()),
 		},
 	})
-	async showMoreNodeChildren(
+	async loadMoreNodeChildren(
 		node: ViewNode & PageableViewNode,
 		limit: number | { until: any } | undefined,
 		previousNode?: ViewNode,
@@ -550,8 +545,13 @@ export abstract class ViewBase<
 			void (await this.reveal(previousNode, { select: true }));
 		}
 
-		await node.showMore(limit);
+		await node.loadMore(limit);
 		this._lastKnownLimits.set(node.id, node.limit);
+	}
+
+	@debug({ args: { 0: (n: ViewNode) => n.toString() }, singleLine: true })
+	resetNodeLastKnownLimit(node: PageableViewNode) {
+		this._lastKnownLimits.delete(node.id);
 	}
 
 	@debug({

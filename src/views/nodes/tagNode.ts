@@ -1,19 +1,19 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { CommitNode } from './commitNode';
+import { LoadMoreNode, MessageNode } from './common';
 import { ViewBranchesLayout } from '../../configuration';
+import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
+import { emojify } from '../../emojis';
 import { GitLog, GitRevision, GitTag, GitTagReference, TagDateFormatting } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { debug, gate, Iterables, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
-import { CommitNode } from './commitNode';
-import { MessageNode, ShowMoreNode } from './common';
 import { insertDateMarkers } from './helpers';
-import { ContextValues, PageableViewNode, ViewNode, ViewRefNode } from './viewNode';
-import { emojify } from '../../emojis';
 import { RepositoryNode } from './repositoryNode';
-import { GlyphChars } from '../../constants';
+import { debug, gate, Iterables, Strings } from '../../system';
 import { TagsView } from '../tagsView';
+import { ContextValues, PageableViewNode, ViewNode, ViewRefNode } from './viewNode';
 
 export class TagNode extends ViewRefNode<TagsView | RepositoriesView, GitTagReference> implements PageableViewNode {
 	static key = ':tag';
@@ -57,7 +57,7 @@ export class TagNode extends ViewRefNode<TagsView | RepositoriesView, GitTagRefe
 		];
 
 		if (log.hasMore) {
-			children.push(new ShowMoreNode(this.view, this, children[children.length - 1]));
+			children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
 		}
 		return children;
 	}
@@ -109,7 +109,7 @@ export class TagNode extends ViewRefNode<TagsView | RepositoriesView, GitTagRefe
 	}
 
 	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
-	async showMore(limit?: number | { until?: any }) {
+	async loadMore(limit?: number | { until?: any }) {
 		let log = await this.getLog();
 		if (log == null || !log.hasMore) return;
 

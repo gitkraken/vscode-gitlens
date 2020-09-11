@@ -1,13 +1,13 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { CommitNode } from './commitNode';
+import { LoadMoreNode } from './common';
 import { Container } from '../../container';
 import { GitLog } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { insertDateMarkers } from './helpers';
 import { debug, gate, Iterables, Promises } from '../../system';
 import { ViewsWithFiles } from '../viewBase';
-import { CommitNode } from './commitNode';
-import { ShowMoreNode } from './common';
-import { insertDateMarkers } from './helpers';
 import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
 
 export interface CommitsQueryResults {
@@ -59,7 +59,7 @@ export class ResultsCommitsNode extends ViewNode<ViewsWithFiles> implements Page
 		];
 
 		if (log.hasMore) {
-			children.push(new ShowMoreNode(this.view, this, children[children.length - 1]));
+			children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
 		}
 
 		return children;
@@ -128,7 +128,7 @@ export class ResultsCommitsNode extends ViewNode<ViewsWithFiles> implements Page
 	}
 
 	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
-	async showMore(limit?: number) {
+	async loadMore(limit?: number) {
 		const results = await this.getCommitsQueryResults();
 		if (results === undefined || !results.hasMore) return;
 

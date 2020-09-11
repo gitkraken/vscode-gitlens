@@ -1,15 +1,15 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { CommitNode } from './commitNode';
+import { LoadMoreNode, MessageNode } from './common';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitLog, GitReflogRecord } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { RepositoryNode } from './repositoryNode';
 import { debug, gate, Iterables } from '../../system';
 import { ViewsWithFiles } from '../viewBase';
-import { CommitNode } from './commitNode';
-import { MessageNode, ShowMoreNode } from './common';
 import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
-import { RepositoryNode } from './repositoryNode';
 
 export class ReflogRecordNode extends ViewNode<ViewsWithFiles> implements PageableViewNode {
 	static key = ':reflog-record';
@@ -45,12 +45,12 @@ export class ReflogRecordNode extends ViewNode<ViewsWithFiles> implements Pageab
 		const log = await this.getLog();
 		if (log === undefined) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
-		const children: (CommitNode | ShowMoreNode)[] = [
+		const children: (CommitNode | LoadMoreNode)[] = [
 			...Iterables.map(log.commits.values(), c => new CommitNode(this.view, this, c)),
 		];
 
 		if (log.hasMore) {
-			children.push(new ShowMoreNode(this.view, this, children[children.length - 1]));
+			children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
 		}
 		return children;
 	}
@@ -104,7 +104,7 @@ export class ReflogRecordNode extends ViewNode<ViewsWithFiles> implements Pageab
 	}
 
 	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
-	async showMore(limit?: number | { until?: any }) {
+	async loadMore(limit?: number | { until?: any }) {
 		let log = await this.getLog();
 		if (log === undefined || !log.hasMore) return;
 

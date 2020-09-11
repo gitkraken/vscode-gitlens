@@ -307,7 +307,7 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 					if (node instanceof CommitsRepositoryNode) {
 						node = await node.getSplattedChild?.();
 						if (node instanceof BranchNode) {
-							await node.showMore({ until: commit.ref });
+							await node.loadMore({ until: commit.ref });
 						}
 					}
 
@@ -318,7 +318,7 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 					if (n.id.startsWith(repoNodeId)) {
 						const node = await n.getSplattedChild?.();
 						if (node instanceof BranchNode) {
-							await node.showMore({ until: commit.ref });
+							await node.loadMore({ until: commit.ref });
 							return true;
 						}
 					}

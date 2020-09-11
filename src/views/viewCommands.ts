@@ -90,8 +90,8 @@ export class ViewCommands {
 			this,
 		);
 		commands.registerCommand('gitlens.views.executeNodeCallback', (fn: <R>() => Promise<R>) => fn(), this);
-		commands.registerCommand('gitlens.views.showMoreChildren', (node: PagerNode) => node.showMore(), this);
-		commands.registerCommand('gitlens.views.showAllChildren', (node: PagerNode) => node.showAll(), this);
+		commands.registerCommand('gitlens.views.loadMoreChildren', (node: PagerNode) => node.loadMore(), this);
+		commands.registerCommand('gitlens.views.loadAllChildren', (node: PagerNode) => node.loadAll(), this);
 
 		commands.registerCommand('gitlens.views.fetch', this.fetch, this);
 		commands.registerCommand('gitlens.views.publishBranch', this.publishBranch, this);

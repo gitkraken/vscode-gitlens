@@ -1,7 +1,7 @@
 'use strict';
 import { Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { CommitFileNode } from './commitFileNode';
-import { MessageNode, ShowMoreNode } from './common';
+import { LoadMoreNode, MessageNode } from './common';
 import { Container } from '../../container';
 import { FileHistoryTrackerNode } from './fileHistoryTrackerNode';
 import {
@@ -82,7 +82,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 			);
 
 			if (log.hasMore) {
-				children.push(new ShowMoreNode(this.view, this, children[children.length - 1]));
+				children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
 			}
 		}
 
@@ -174,7 +174,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 	}
 
 	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
-	async showMore(limit?: number | { until?: any }) {
+	async loadMore(limit?: number | { until?: any }) {
 		let log = await this.getLog();
 		if (log == null || !log.hasMore) return;
 

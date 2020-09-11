@@ -1,7 +1,7 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { CommitNode } from './commitNode';
-import { MessageNode, ShowMoreNode } from './common';
+import { LoadMoreNode, MessageNode } from './common';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { ContributorsView } from '../contributorsView';
@@ -54,7 +54,7 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 		];
 
 		if (log.hasMore) {
-			children.push(new ShowMoreNode(this.view, this, children[children.length - 1]));
+			children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
 		}
 		return children;
 	}
@@ -111,7 +111,7 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 	}
 
 	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
-	async showMore(limit?: number | { until?: any }) {
+	async loadMore(limit?: number | { until?: any }) {
 		let log = await this.getLog();
 		if (log == null || !log.hasMore) return;
 

@@ -144,12 +144,12 @@ export interface PageableViewNode {
 	readonly id: string;
 	limit?: number;
 	readonly hasMore: boolean;
-	showMore(limit?: number | { until?: any }): Promise<void>;
+	loadMore(limit?: number | { until?: any }): Promise<void>;
 }
 
 export namespace PageableViewNode {
 	export function is(node: ViewNode): node is ViewNode & PageableViewNode {
-		return Functions.is<ViewNode & PageableViewNode>(node, 'showMore');
+		return Functions.is<ViewNode & PageableViewNode>(node, 'loadMore');
 	}
 }
 

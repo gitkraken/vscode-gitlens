@@ -140,22 +140,22 @@ export abstract class PagerNode extends ViewNode {
 		view: View,
 		parent: ViewNode & PageableViewNode,
 		protected readonly message: string,
-		private readonly _previousNode?: ViewNode,
-		private readonly _pageSize: number = Container.config.views.pageItemLimit,
+		protected readonly previousNode?: ViewNode,
+		protected readonly pageSize: number = Container.config.views.pageItemLimit,
 	) {
 		super(unknownGitUri, view, parent);
 	}
 
-	showMore() {
-		return this.view.showMoreNodeChildren(
-			this.parent! as ViewNode & PageableViewNode,
-			this._pageSize,
-			this._previousNode,
-		);
+	loadAll() {
+		return this.view.loadMoreNodeChildren(this.parent! as ViewNode & PageableViewNode, 0, this.previousNode);
 	}
 
-	showAll() {
-		return this.view.showMoreNodeChildren(this.parent! as ViewNode & PageableViewNode, 0, this._previousNode);
+	loadMore() {
+		return this.view.loadMoreNodeChildren(
+			this.parent! as ViewNode & PageableViewNode,
+			this.pageSize,
+			this.previousNode,
+		);
 	}
 
 	getChildren(): ViewNode[] | Promise<ViewNode[]> {
@@ -172,13 +172,13 @@ export abstract class PagerNode extends ViewNode {
 	getCommand(): Command | undefined {
 		return {
 			title: 'Load more',
-			command: 'gitlens.views.showMoreChildren',
+			command: 'gitlens.views.loadMoreChildren',
 			arguments: [this],
 		};
 	}
 }
 
-export class ShowMoreNode extends PagerNode {
+export class LoadMoreNode extends PagerNode {
 	constructor(view: View, parent: ViewNode & PageableViewNode, previousNode: ViewNode, pageSize?: number) {
 		super(
 			view,

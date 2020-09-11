@@ -4,7 +4,7 @@ import { BranchesView } from '../branchesView';
 import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
 import { CommitNode } from './commitNode';
 import { CommitsView } from '../commitsView';
-import { MessageNode, ShowMoreNode } from './common';
+import { LoadMoreNode, MessageNode } from './common';
 import { ViewBranchesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
@@ -151,7 +151,7 @@ export class BranchNode
 			);
 
 			if (log.hasMore) {
-				children.push(new ShowMoreNode(this.view, this, children[children.length - 1]));
+				children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
 			}
 
 			this._children = children;
@@ -297,7 +297,7 @@ export class BranchNode
 	}
 
 	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
-	async showMore(limit?: number | { until?: any }) {
+	async loadMore(limit?: number | { until?: any }) {
 		let log = await this.getLog();
 		if (log == null || !log.hasMore) return;
 

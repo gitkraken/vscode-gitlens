@@ -283,7 +283,7 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 				}
 
 				if (n instanceof BranchNode && branches.includes(n.branch.name)) {
-					await n.showMore({ until: commit.ref });
+					await n.loadMore({ until: commit.ref });
 					return true;
 				}
 

@@ -194,7 +194,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 
 					if (n instanceof BranchNode) {
 						if (n.id.startsWith(repoNodeId) && branches.includes(n.branch.name)) {
-							await n.showMore({ until: commit.ref });
+							await n.loadMore({ until: commit.ref });
 							return true;
 						}
 					}
