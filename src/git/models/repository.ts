@@ -294,7 +294,9 @@ export class Repository implements Disposable {
 			for (const branch of remoteBranches) {
 				this.runTerminalCommand(
 					'push',
-					`${GitBranch.getRemote(branch.name)} :${GitReference.getNameWithoutRemote(branch)}`,
+					'-d',
+					GitBranch.getRemote(branch.name),
+					GitReference.getNameWithoutRemote(branch),
 				);
 			}
 		}
