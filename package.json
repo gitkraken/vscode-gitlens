@@ -2561,7 +2561,7 @@
 			},
 			{
 				"command": "gitlens.revealCommitInView",
-				"title": "Reveal Commit in Side BSar",
+				"title": "Reveal Commit in Side Bar",
 				"category": "GitLens"
 			},
 			{
