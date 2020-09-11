@@ -1,17 +1,8 @@
 'use strict';
 import { Disposable, InputBox, QuickInputButton, QuickInputButtons, QuickPick, QuickPickItem, window } from 'vscode';
 import { command, Command, Commands } from './common';
-import { log } from '../system';
-import {
-	isQuickInputStep,
-	isQuickPickStep,
-	QuickCommand,
-	QuickInputStep,
-	QuickPickStep,
-	StepGenerator,
-	StepSelection,
-} from './quickCommand';
-import { Directive, DirectiveQuickPickItem } from '../quickpicks';
+import { configuration } from '../configuration';
+import { Container } from '../container';
 import { BranchGitCommand, BranchGitCommandArgs } from './git/branch';
 import { CherryPickGitCommand, CherryPickGitCommandArgs } from './git/cherry-pick';
 import { CoAuthorsGitCommand, CoAuthorsGitCommandArgs } from './git/coauthors';
@@ -29,15 +20,24 @@ import { StashGitCommand, StashGitCommandArgs } from './git/stash';
 import { StatusGitCommand, StatusGitCommandArgs } from './git/status';
 import { SwitchGitCommand, SwitchGitCommandArgs } from './git/switch';
 import { TagGitCommand, TagGitCommandArgs } from './git/tag';
-import { Container } from '../container';
-import { configuration } from '../configuration';
 import { KeyMapping } from '../keyboard';
+import {
+	isQuickInputStep,
+	isQuickPickStep,
+	QuickCommand,
+	QuickInputStep,
+	QuickPickStep,
+	StepGenerator,
+	StepSelection,
+} from './quickCommand';
 import { QuickCommandButtons, ToggleQuickInputButton } from './quickCommand.buttons';
-import { Promises } from '../system/promise';
+import { Directive, DirectiveQuickPickItem } from '../quickpicks';
+import { log, Promises } from '../system';
 
 export * from './gitCommands.actions';
 
 const sanitizeLabel = /\$\(.+?\)|\s/g;
+const showLoadingSymbol = Symbol('ShowLoading');
 
 export type GitCommandsCommandArgs =
 	| BranchGitCommandArgs
@@ -89,7 +89,13 @@ export class GitCommandsCommand extends Command {
 
 		let ignoreFocusOut;
 
-		let step = command == null ? commandsStep : await this.getCommandStep(command, commandsStep);
+		let step;
+		if (command == null) {
+			step = commandsStep;
+		} else {
+			step = await this.showLoadingIfNeeded(command, this.getCommandStep(command, commandsStep));
+		}
+
 		// If this is the first step, don't honor the step's setting
 		if (step?.ignoreFocusOut === true) {
 			step.ignoreFocusOut = undefined;
@@ -125,6 +131,46 @@ export class GitCommandsCommand extends Command {
 			}
 
 			break;
+		}
+	}
+
+	private async showLoadingIfNeeded(
+		command: QuickCommand<any>,
+		stepPromise: Promise<QuickPickStep<QuickPickItem> | QuickInputStep | undefined>,
+	): Promise<QuickPickStep<QuickPickItem> | QuickInputStep | undefined> {
+		const stepOrTimeout = await Promise.race<
+			Promise<QuickPickStep<QuickPickItem> | QuickInputStep | undefined | typeof showLoadingSymbol>
+		>([stepPromise, new Promise(resolve => setTimeout(() => resolve(showLoadingSymbol), 250))]);
+
+		if (stepOrTimeout !== showLoadingSymbol) {
+			return stepOrTimeout;
+		}
+
+		const quickpick = window.createQuickPick();
+		quickpick.ignoreFocusOut = false;
+
+		const disposables: Disposable[] = [];
+
+		let step: QuickPickStep<QuickPickItem> | QuickInputStep | undefined;
+		try {
+			// eslint-disable-next-line no-async-promise-executor
+			return await new Promise<QuickPickStep<QuickPickItem> | QuickInputStep | undefined>(async resolve => {
+				disposables.push(quickpick.onDidHide(() => resolve(step)));
+
+				quickpick.title = command.title;
+				quickpick.placeholder = 'Loading...';
+				quickpick.busy = true;
+				quickpick.enabled = false;
+
+				quickpick.show();
+
+				step = await stepPromise;
+
+				quickpick.hide();
+			});
+		} finally {
+			quickpick.dispose();
+			disposables.forEach(d => d.dispose());
 		}
 	}
 
