@@ -368,7 +368,6 @@ export interface ModeConfig {
 	currentLine?: boolean;
 	hovers?: boolean;
 	statusBar?: boolean;
-	views?: boolean;
 }
 
 export interface RemotesConfig {
@@ -471,7 +470,6 @@ export interface CommitsViewConfig {
 
 export interface CompareViewConfig {
 	avatars: boolean;
-	enabled: boolean;
 	files: ViewsFilesConfig;
 }
 
@@ -482,7 +480,6 @@ export interface ContributorsViewConfig {
 
 export interface FileHistoryViewConfig {
 	avatars: boolean;
-	enabled: boolean;
 }
 
 export interface LineHistoryViewConfig {
@@ -514,12 +511,10 @@ export interface RepositoriesViewConfig {
 
 export interface SearchViewConfig {
 	avatars: boolean;
-	enabled: boolean;
 	files: ViewsFilesConfig;
 }
 
 export interface StashesViewConfig {
-	// avatars: boolean;
 	files: ViewsFilesConfig;
 }
 

@@ -92,13 +92,11 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 		return true;
 	}
 
-	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
-		if (configuration.changed(e, 'views', this.configKey, 'enabled')) {
-			void setCommandContext(CommandContext.ViewsFileHistoryEditorFollowing, this._followEditor);
-			void setCommandContext(CommandContext.ViewsFileHistoryCursorFollowing, this._followCursor);
-		}
+	protected initialize(options: { showCollapseAll?: boolean } = {}) {
+		super.initialize(options);
 
-		super.onConfigurationChanged(e);
+		void setCommandContext(CommandContext.ViewsFileHistoryEditorFollowing, this._followEditor);
+		void setCommandContext(CommandContext.ViewsFileHistoryCursorFollowing, this._followCursor);
 	}
 
 	async showHistoryForUri(uri: GitUri, baseRef?: string) {

@@ -1,8 +1,7 @@
 <section id="file-history-view" class="section--settings section--collapsible">
 	<div class="section__header">
-		<div class="setting__input setting__input--big">
-			<input id="views.fileHistory.enabled" name="views.fileHistory.enabled" type="checkbox" data-setting />
-			<label for="views.fileHistory.enabled">File History view</label>
+		<h2>
+			File History view
 			<a
 				class="link__learn-more"
 				title="Learn more"
@@ -10,7 +9,7 @@
 			>
 				<i class="icon icon__info"></i>
 			</a>
-		</div>
+		</h2>
 
 		<p class="section__header-hint">
 			Adds a File History view to visualize, navigate, and explore the revision history of the current file
@@ -21,14 +20,13 @@
 		<div class="section__group">
 			<div class="section__content">
 				<div class="settings settings--fixed ml-1">
-					<div class="setting" data-enablement="views.fileHistory.enabled">
+					<div class="setting">
 						<div class="setting__input">
 							<input
 								id="views.fileHistory.avatars"
 								name="views.fileHistory.avatars"
 								type="checkbox"
 								data-setting
-								disabled
 							/>
 							<label for="views.fileHistory.avatars">Use author avatars</label>
 						</div>
@@ -36,16 +34,12 @@
 				</div>
 			</div>
 
-			<div class="section__preview" data-visibility="views.fileHistory.enabled">
-				<img
-					class="image__preview hidden"
-					src="#{root}/images/settings/view-file-history.png"
-					data-visibility="views.fileHistory.enabled"
-				/>
+			<div class="section__preview">
+				<img class="image__preview" src="#{root}/images/settings/view-file-history.png" />
 				<img
 					class="image__preview--overlay hidden"
 					src="#{root}/images/settings/view-file-history-avatars.png"
-					data-visibility="views.fileHistory.enabled &amp; views.fileHistory.avatars"
+					data-visibility="views.fileHistory.avatars"
 				/>
 			</div>
 		</div>

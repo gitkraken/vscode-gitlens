@@ -1112,10 +1112,6 @@
 								"statusBar": {
 									"type": "boolean",
 									"description": "Specifies whether to show blame information in the status bar when this user-defined mode is active"
-								},
-								"views": {
-									"type": "boolean",
-									"description": "Specifies whether to show any GitLens views when this user-defined mode is active"
 								}
 							}
 						},
@@ -1149,10 +1145,6 @@
 								"statusBar": {
 									"type": "boolean",
 									"description": "Specifies whether to show blame information in the status bar when this user-defined mode is active"
-								},
-								"views": {
-									"type": "boolean",
-									"description": "Specifies whether to show any GitLens views when this user-defined mode is active"
 								}
 							}
 						}
@@ -1204,10 +1196,6 @@
 							"statusBar": {
 								"type": "boolean",
 								"description": "Specifies whether to show blame information in the status bar when this user-defined mode is active"
-							},
-							"views": {
-								"type": "boolean",
-								"description": "Specifies whether to show any GitLens views when this user-defined mode is active"
 							}
 						}
 					},
@@ -1613,12 +1601,6 @@
 					"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Compare_ view",
 					"scope": "window"
 				},
-				"gitlens.views.compare.enabled": {
-					"type": "boolean",
-					"default": true,
-					"markdownDescription": "Specifies whether to show the _Compare_ view",
-					"scope": "window"
-				},
 				"gitlens.views.compare.files.compact": {
 					"type": "boolean",
 					"default": true,
@@ -1697,12 +1679,6 @@
 					"type": "boolean",
 					"default": true,
 					"markdownDescription": "Specifies whether to show avatar images instead of status icons in the _File History_ view",
-					"scope": "window"
-				},
-				"gitlens.views.fileHistory.enabled": {
-					"type": "boolean",
-					"default": true,
-					"markdownDescription": "Specifies whether to show the _File History_ view",
 					"scope": "window"
 				},
 				"gitlens.views.lineHistory.avatars": {
@@ -1870,12 +1846,6 @@
 					"type": "boolean",
 					"default": true,
 					"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Search Commits_ view",
-					"scope": "window"
-				},
-				"gitlens.views.search.enabled": {
-					"type": "boolean",
-					"default": true,
-					"markdownDescription": "Specifies whether to show the _Search Commits_ view",
 					"scope": "window"
 				},
 				"gitlens.views.search.files.compact": {
@@ -7105,7 +7075,7 @@
 				{
 					"id": "gitlens.views.fileHistory",
 					"name": "File History",
-					"when": "gitlens:enabled && config.gitlens.views.fileHistory.enabled",
+					"when": "gitlens:enabled",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/history.svg"
 				},
@@ -7154,7 +7124,7 @@
 				{
 					"id": "gitlens.views.search",
 					"name": "Search Commits",
-					"when": "gitlens:enabled && config.gitlens.views.search.enabled",
+					"when": "gitlens:enabled",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/search.svg",
 					"visibility": "collapsed"
@@ -7162,7 +7132,7 @@
 				{
 					"id": "gitlens.views.compare",
 					"name": "Compare Commits",
-					"when": "gitlens:enabled && config.gitlens.views.compare.enabled",
+					"when": "gitlens:enabled",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/compare.svg",
 					"visibility": "collapsed"

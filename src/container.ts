@@ -61,34 +61,15 @@ export class Container {
 		context.subscriptions.push((this._settingsWebview = new SettingsWebview()));
 		context.subscriptions.push((this._welcomeWebview = new WelcomeWebview()));
 
-		context.subscriptions.push((this._branchesView = new BranchesView()));
 		context.subscriptions.push((this._commitsView = new CommitsView()));
-		context.subscriptions.push((this._contributorsView = new ContributorsView()));
+		context.subscriptions.push((this._fileHistoryView = new FileHistoryView()));
+		context.subscriptions.push((this._branchesView = new BranchesView()));
 		context.subscriptions.push((this._remotesView = new RemotesView()));
 		context.subscriptions.push((this._stashesView = new StashesView()));
 		context.subscriptions.push((this._tagsView = new TagsView()));
-
-		if (config.views.compare.enabled) {
-			context.subscriptions.push((this._compareView = new CompareView()));
-		} else {
-			const disposable = configuration.onDidChange(e => {
-				if (configuration.changed(e, 'views', 'compare', 'enabled')) {
-					disposable.dispose();
-					context.subscriptions.push((this._compareView = new CompareView()));
-				}
-			});
-		}
-
-		if (config.views.fileHistory.enabled) {
-			context.subscriptions.push((this._fileHistoryView = new FileHistoryView()));
-		} else {
-			const disposable = configuration.onDidChange(e => {
-				if (configuration.changed(e, 'views', 'fileHistory', 'enabled')) {
-					disposable.dispose();
-					context.subscriptions.push((this._fileHistoryView = new FileHistoryView()));
-				}
-			});
-		}
+		context.subscriptions.push((this._contributorsView = new ContributorsView()));
+		context.subscriptions.push((this._searchView = new SearchView()));
+		context.subscriptions.push((this._compareView = new CompareView()));
 
 		if (config.views.lineHistory.enabled) {
 			context.subscriptions.push((this._lineHistoryView = new LineHistoryView()));
@@ -108,17 +89,6 @@ export class Container {
 				if (configuration.changed(e, 'views', 'repositories', 'enabled')) {
 					disposable.dispose();
 					context.subscriptions.push((this._repositoriesView = new RepositoriesView()));
-				}
-			});
-		}
-
-		if (config.views.search.enabled) {
-			context.subscriptions.push((this._searchView = new SearchView()));
-		} else {
-			const disposable = configuration.onDidChange(e => {
-				if (configuration.changed(e, 'views', 'search', 'enabled')) {
-					disposable.dispose();
-					context.subscriptions.push((this._searchView = new SearchView()));
 				}
 			});
 		}
@@ -404,22 +374,6 @@ export class Container {
 			config.statusBar.enabled = mode.statusBar;
 		}
 
-		if (mode.views != null) {
-			config.views.compare.enabled = mode.views;
-		}
-		if (mode.views != null) {
-			config.views.fileHistory.enabled = mode.views;
-		}
-		if (mode.views != null) {
-			config.views.lineHistory.enabled = mode.views;
-		}
-		if (mode.views != null) {
-			config.views.repositories.enabled = mode.views;
-		}
-		if (mode.views != null) {
-			config.views.search.enabled = mode.views;
-		}
-
 		return config;
 	}
 
@@ -435,11 +389,6 @@ export class Container {
 				`gitlens.${configuration.name('heatmap', 'toggleMode')}`,
 				`gitlens.${configuration.name('hovers')}`,
 				`gitlens.${configuration.name('statusBar')}`,
-				`gitlens.${configuration.name('views', 'compare')}`,
-				`gitlens.${configuration.name('views', 'fileHistory')}`,
-				`gitlens.${configuration.name('views', 'lineHistory')}`,
-				`gitlens.${configuration.name('views', 'repositories')}`,
-				`gitlens.${configuration.name('views', 'search')}`,
 			];
 		}
 
