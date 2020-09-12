@@ -101,8 +101,13 @@ export class ShowGitCommand extends QuickCommand<State> {
 				}
 			}
 
-			if (state.counter < 2 || state.reference == null || !GitLogCommit.is(state.reference)) {
-				if (state.reference != null && !GitLogCommit.is(state.reference)) {
+			if (
+				state.counter < 2 ||
+				state.reference == null ||
+				!GitLogCommit.is(state.reference) ||
+				state.reference.isFile
+			) {
+				if (state.reference != null && (!GitLogCommit.is(state.reference) || state.reference.isFile)) {
 					state.reference = await Container.git.getCommit(state.reference.repoPath, state.reference.ref);
 				}
 
