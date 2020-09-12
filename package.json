@@ -2714,7 +2714,7 @@
 			},
 			{
 				"command": "gitlens.openFileFromRemote",
-				"title": "Open File From Remote",
+				"title": "Open File from Remote",
 				"category": "GitLens"
 			},
 			{
