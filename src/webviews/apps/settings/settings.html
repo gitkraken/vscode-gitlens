@@ -180,9 +180,21 @@
 				<!-- prettier-ignore -->
 				<%= require('html-loader!./partials/views.repositories.html') %>
 				<!-- prettier-ignore -->
+				<%= require('html-loader!./partials/views.commits.html') %>
+				<!-- prettier-ignore -->
 				<%= require('html-loader!./partials/views.file-history.html') %>
 				<!-- prettier-ignore -->
 				<%= require('html-loader!./partials/views.line-history.html') %>
+				<!-- prettier-ignore -->
+				<%= require('html-loader!./partials/views.branches.html') %>
+				<!-- prettier-ignore -->
+				<%= require('html-loader!./partials/views.remotes.html') %>
+				<!-- prettier-ignore -->
+				<%= require('html-loader!./partials/views.stashes.html') %>
+				<!-- prettier-ignore -->
+				<%= require('html-loader!./partials/views.tags.html') %>
+				<!-- prettier-ignore -->
+				<%= require('html-loader!./partials/views.contributors.html') %>
 				<!-- prettier-ignore -->
 				<%= require('html-loader!./partials/views.search.html') %>
 				<!-- prettier-ignore -->
@@ -266,6 +278,15 @@
 							<a
 								class="sidebar__jump-link"
 								data-action="jump"
+								href="#commits-view"
+								title="Jump to Commits view settings"
+								>Commits view</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
 								href="#file-history-view"
 								title="Jump to File History view settings"
 								>File History view</a
@@ -278,6 +299,51 @@
 								href="#line-history-view"
 								title="Jump to Line History view settings"
 								>Line History view</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#branches-view"
+								title="Jump to Branches view settings"
+								>Branches view</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#remotes-view"
+								title="Jump to Remotes view settings"
+								>Remotes view</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#stashes-view"
+								title="Jump to Stashes view settings"
+								>Stashes view</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#tags-view"
+								title="Jump to Tags view settings"
+								>Tags view</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#contributors-view"
+								title="Jump to Contributors view settings"
+								>Contributors view</a
 							>
 						</li>
 						<li>

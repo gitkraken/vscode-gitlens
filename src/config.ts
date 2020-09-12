@@ -519,7 +519,7 @@ export interface SearchViewConfig {
 }
 
 export interface StashesViewConfig {
-	avatars: boolean;
+	// avatars: boolean;
 	files: ViewsFilesConfig;
 }
 

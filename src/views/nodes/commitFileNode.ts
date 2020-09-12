@@ -6,6 +6,7 @@ import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { CommitFormatter, GitFile, GitLogCommit, GitRevisionReference, StatusFileFormatter } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
+import { StashesView } from '../stashesView';
 import { View } from '../viewBase';
 import { ContextValues, ViewNode, ViewRefFileNode } from './viewNode';
 
@@ -62,7 +63,7 @@ export class CommitFileNode extends ViewRefFileNode {
 		item.description = this.description;
 		item.tooltip = this.tooltip;
 
-		if (this._options.displayAsCommit && this.view.config.avatars) {
+		if (this._options.displayAsCommit && !(this.view instanceof StashesView) && this.view.config.avatars) {
 			item.iconPath = this.commit.getAvatarUri(Container.config.defaultGravatarsStyle);
 		} else {
 			const icon = GitFile.getStatusIcon(this.file.status);

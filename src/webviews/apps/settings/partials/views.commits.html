@@ -1,0 +1,125 @@
+<section id="commits-view" class="section--settings section--collapsible">
+	<div class="section__header">
+		<h2>
+			Commits view
+			<a
+				class="link__learn-more"
+				title="Learn more"
+				href="https://github.com/eamodio/vscode-gitlens/tree/master/#commits-view-"
+			>
+				<i class="icon icon__info"></i>
+			</a>
+		</h2>
+
+		<p class="section__header-hint">Adds a Commits view to visualize, navigate, and explore Git commits</p>
+	</div>
+
+	<div class="section__collapsible">
+		<div class="section__group">
+			<div class="section__content">
+				<div class="settings settings--fixed ml-1">
+					<div class="setting">
+						<div class="setting__input">
+							<input
+								id="views.commits.showBranchComparison"
+								name="views.commits.showBranchComparison"
+								type="checkbox"
+								value="working"
+								data-setting
+							/>
+							<label for="views.commits.showBranchComparison"
+								>Show a comparison of a user-selected reference (branch, tag, etc) to the
+								<div class="select-container">
+									<select
+										id="views.commits.showBranchComparison"
+										name="views.commits.showBranchComparison"
+										data-setting
+										data-enablement="views.commits.showBranchComparison !false"
+									>
+										<option value="branch">current branch</option>
+										<option value="working">working tree</option>
+									</select>
+								</div>
+							</label>
+						</div>
+					</div>
+
+					<div class="setting">
+						<div class="setting__input">
+							<label for="views.commits.files.layout">Layout files</label>
+							<div class="select-container">
+								<select id="views.commits.files.layout" name="views.commits.files.layout" data-setting>
+									<option value="auto">automatically</option>
+									<option value="list">as a list</option>
+									<option value="tree">as a tree</option>
+								</select>
+							</div>
+						</div>
+						<p class="setting__hint" data-visibility="views.commits.files.layout =auto">
+							Chooses the best layout based on the number of files at each nesting level
+						</p>
+					</div>
+
+					<div class="setting">
+						<div class="setting__input">
+							<input
+								id="views.commits.files.compact"
+								name="views.commits.files.compact"
+								type="checkbox"
+								data-setting
+							/>
+							<label for="views.commits.files.compact">Use compact file layout</label>
+						</div>
+						<p class="setting__hint">Compacts (flattens) unnecessary nesting when using a tree layouts</p>
+					</div>
+
+					<div class="setting">
+						<div class="setting__input">
+							<input
+								id="views.commits.avatars"
+								name="views.commits.avatars"
+								type="checkbox"
+								data-setting
+							/>
+							<label for="views.commits.avatars">Use author avatars</label>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="section__preview">
+				<img
+					class="image__preview hidden"
+					src="#{root}/images/settings/view-commits.png"
+					data-visibility="views.commits.files.layout !tree"
+				/>
+				<img
+					class="image__preview hidden"
+					src="#{root}/images/settings/view-commits-tree-compact.png"
+					data-visibility="views.commits.files.layout =tree &amp; views.commits.files.compact"
+				/>
+				<img
+					class="image__preview hidden"
+					src="#{root}/images/settings/view-commits-tree.png"
+					data-visibility="views.commits.files.layout =tree &amp; views.commits.files.compact =false"
+				/>
+				<img
+					class="image__preview--overlay hidden"
+					src="#{root}/images/settings/view-commits-avatars.png"
+					data-visibility="views.commits.avatars"
+				/>
+			</div>
+		</div>
+
+		<div class="section__group">
+			<p class="section__hint">
+				<i class="icon icon__info"></i> For more options, open
+				<a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings"
+					>User Settings</a
+				>
+				and search for <b><i>gitlens.views.commits</i></b> or
+				<b><i>gitlens.views</i></b>
+			</p>
+		</div>
+	</div>
+</section>

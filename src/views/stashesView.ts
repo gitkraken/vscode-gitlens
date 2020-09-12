@@ -194,8 +194,6 @@ export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 			() => this.setFilesLayout(ViewFilesLayout.Tree),
 			this,
 		);
-		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this);
-		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this);
 	}
 
 	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
@@ -259,9 +257,5 @@ export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 
 	private setFilesLayout(layout: ViewFilesLayout) {
 		return configuration.updateEffective('views', this.configKey, 'files', 'layout', layout);
-	}
-
-	private setShowAvatars(enabled: boolean) {
-		return configuration.updateEffective('views', this.configKey, 'avatars', enabled);
 	}
 }

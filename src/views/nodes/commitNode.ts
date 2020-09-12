@@ -2,14 +2,15 @@
 import * as paths from 'path';
 import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
+import { CommitFileNode } from './commitFileNode';
 import { ViewFilesLayout } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
+import { FileNode, FolderNode } from './folderNode';
 import { CommitFormatter, GitBranch, GitLogCommit, GitRevisionReference } from '../../git/git';
+import { StashesView } from '../stashesView';
 import { Arrays, Strings } from '../../system';
 import { ViewsWithFiles } from '../viewBase';
-import { CommitFileNode } from './commitFileNode';
-import { FileNode, FolderNode } from './folderNode';
 import { ContextValues, ViewNode, ViewRefNode } from './viewNode';
 
 export class CommitNode extends ViewRefNode<ViewsWithFiles, GitRevisionReference> {
@@ -76,9 +77,10 @@ export class CommitNode extends ViewRefNode<ViewsWithFiles, GitRevisionReference
 			truncateMessageAtNewLine: true,
 			dateFormat: Container.config.defaultDateFormat,
 		});
-		item.iconPath = this.view.config.avatars
-			? this.commit.getAvatarUri(Container.config.defaultGravatarsStyle)
-			: new ThemeIcon('git-commit');
+		item.iconPath =
+			!(this.view instanceof StashesView) && this.view.config.avatars
+				? this.commit.getAvatarUri(Container.config.defaultGravatarsStyle)
+				: new ThemeIcon('git-commit');
 		item.tooltip = CommitFormatter.fromTemplate(
 			this.commit.isUncommitted
 				? `\${author} ${GlyphChars.Dash} \${id}\n\${ago} (\${date})`
