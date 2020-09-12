@@ -3169,7 +3169,7 @@
 			},
 			{
 				"command": "gitlens.views.setComparisonToTwoDot",
-				"title": "Switch to Two-dot Comparison",
+				"title": "Toggle Comparison Type (Two-dot)",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-compare-twodot.svg",
@@ -3178,7 +3178,7 @@
 			},
 			{
 				"command": "gitlens.views.setComparisonToThreeDot",
-				"title": "Switch to Three-dot Comparison",
+				"title": "Toggle Comparison Type (Three-dot)",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-compare-threedot.svg",
@@ -3262,7 +3262,7 @@
 			},
 			{
 				"command": "gitlens.views.setBranchComparisonToWorking",
-				"title": "Switch to Working Tree Comparison",
+				"title": "Toggle Comparison Source (Working Tree)",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-compare-ref-working.svg",
@@ -3271,9 +3271,15 @@
 			},
 			{
 				"command": "gitlens.views.setBranchComparisonToBranch",
-				"title": "Switch to Branch Comparison",
+				"title": "Toggle Comparison Source (Branch)",
 				"category": "GitLens",
 				"icon": "$(compare-changes)"
+			},
+			{
+				"command": "gitlens.views.clearNode",
+				"title": "Clear",
+				"category": "GitLens",
+				"icon": "$(close)"
 			},
 			{
 				"command": "gitlens.views.dismissNode",
@@ -3412,6 +3418,16 @@
 			{
 				"command": "gitlens.views.commits.setShowAvatarsOff",
 				"title": "Hide Avatars",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.commits.setShowBranchComparisonOn",
+				"title": "Show Branch Comparison",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.commits.setShowBranchComparisonOff",
+				"title": "Hide Branch Comparison",
 				"category": "GitLens"
 			},
 			{
@@ -4552,6 +4568,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.clearNode",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.dismissNode",
 					"when": "false"
 				},
@@ -4641,6 +4661,14 @@
 				},
 				{
 					"command": "gitlens.views.commits.setShowAvatarsOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.commits.setShowBranchComparisonOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.commits.setShowBranchComparisonOff",
 					"when": "false"
 				},
 				{
@@ -5701,6 +5729,16 @@
 					"group": "1_gitlens@0"
 				},
 				{
+					"command": "gitlens.views.commits.setShowBranchComparisonOn",
+					"when": "view =~ /^gitlens\\.views\\.commits/ && !config.gitlens.views.commits.showBranchComparison",
+					"group": "1_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.commits.setShowBranchComparisonOff",
+					"when": "view =~ /^gitlens\\.views\\.commits/ && config.gitlens.views.commits.showBranchComparison",
+					"group": "1_gitlens@1"
+				},
+				{
 					"command": "gitlens.views.contributors.setFilesLayoutToList",
 					"when": "view =~ /^gitlens\\.views\\.contributors/ && config.gitlens.views.contributors.files.layout == auto",
 					"group": "navigation@13"
@@ -6555,6 +6593,11 @@
 					"group": "inline@1"
 				},
 				{
+					"command": "gitlens.views.clearNode",
+					"when": "viewItem =~ /gitlens:compare:branch\\b(?=.*?\\b\\+comparing\\b)/",
+					"group": "inline@99"
+				},
+				{
 					"command": "gitlens.views.setBranchComparisonToWorking",
 					"when": "viewItem =~ /gitlens:compare:branch\\b(?=.*?\\b\\+comparing\\b)(?=.*?\\b\\+branch\\b)/",
 					"group": "inline@2"
@@ -6583,6 +6626,16 @@
 					"command": "gitlens.views.setBranchComparisonToBranch",
 					"when": "viewItem =~ /gitlens:compare:branch\\b(?=.*?\\b\\+comparing\\b)(?=.*?\\b\\+working\\b)/",
 					"group": "1_gitlens@2"
+				},
+				{
+					"command": "gitlens.views.commits.setShowBranchComparisonOff",
+					"when": "viewItem =~ /gitlens:compare:branch\\b/",
+					"group": "8_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.clearNode",
+					"when": "viewItem =~ /gitlens:compare:branch\\b(?=.*?\\b\\+comparing\\b)/",
+					"group": "9_gitlens@1"
 				},
 				{
 					"command": "gitlens.views.setComparisonToTwoDot",

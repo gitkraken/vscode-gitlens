@@ -5,7 +5,8 @@ import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
 import { CommitNode } from './commitNode';
 import { CommitsView } from '../commitsView';
 import { LoadMoreNode, MessageNode } from './common';
-import { ViewBranchesLayout } from '../../configuration';
+import { CompareBranchNode } from './compareBranchNode';
+import { ViewBranchesLayout, ViewShowBranchComparison } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { BranchDateFormatting, GitBranch, GitBranchReference, GitLog, GitRemoteType } from '../../git/git';
@@ -28,6 +29,7 @@ export class BranchNode
 	private _children: ViewNode[] | undefined;
 	private readonly options: {
 		expanded: boolean;
+		showComparison: false | ViewShowBranchComparison;
 		showCurrent: boolean;
 		showTracking: boolean;
 		authors?: string[];
@@ -44,6 +46,7 @@ export class BranchNode
 
 		options?: {
 			expanded?: boolean;
+			showComparison?: false | ViewShowBranchComparison;
 			showCurrent?: boolean;
 			showTracking?: boolean;
 			authors?: string[];
@@ -53,6 +56,7 @@ export class BranchNode
 
 		this.options = {
 			expanded: false,
+			showComparison: false,
 			// Hide the current branch checkmark when the node is displayed as a root under the repository node
 			showCurrent: !this.root,
 			// Don't show tracking info the node is displayed as a root under the repository node
@@ -130,6 +134,10 @@ export class BranchNode
 					children.push(
 						new BranchTrackingStatusNode(this.view, this, this.branch, status, 'none', this.root),
 					);
+				}
+
+				if (this.options.showComparison !== false && this.view instanceof CommitsView) {
+					children.push(new CompareBranchNode(this.uri, this.view, this, this.branch));
 				}
 			}
 

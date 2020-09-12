@@ -28,6 +28,7 @@ import {
 	FileHistoryNode,
 	FolderNode,
 	LineHistoryNode,
+	nodeSupportsClearing,
 	PageableViewNode,
 	PagerNode,
 	RemoteNode,
@@ -82,6 +83,11 @@ export class ViewCommands {
 		commands.registerCommand(
 			'gitlens.views.expandNode',
 			(node: ViewNode) => node.view.reveal(node, { select: false, focus: false, expand: 3 }),
+			this,
+		);
+		commands.registerCommand(
+			'gitlens.views.clearNode',
+			(node: ViewNode) => nodeSupportsClearing(node) && node.clear(),
 			this,
 		);
 		commands.registerCommand(

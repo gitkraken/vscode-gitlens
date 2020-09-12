@@ -136,6 +136,10 @@ export abstract class ViewRefFileNode<TView extends View = View> extends ViewRef
 	}
 }
 
+export function nodeSupportsClearing(node: ViewNode): node is ViewNode & { clear(): void | Promise<void> } {
+	return typeof (node as ViewNode & { clear(): void | Promise<void> }).clear === 'function';
+}
+
 export function nodeSupportsConditionalDismissal(node: ViewNode): node is ViewNode & { canDismiss(): boolean } {
 	return typeof (node as ViewNode & { canDismiss(): boolean }).canDismiss === 'function';
 }

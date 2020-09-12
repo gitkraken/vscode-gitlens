@@ -134,6 +134,17 @@ export class CompareBranchNode extends ViewNode<CommitsView | RepositoriesView> 
 	}
 
 	@log()
+	async clear() {
+		if (this._compareWith == null) return;
+
+		this._compareWith = undefined;
+		await this.updateCompareWith(undefined);
+
+		this._children = undefined;
+		this.view.triggerNodeChange(this);
+	}
+
+	@log()
 	async setComparisonNotation(comparisonNotation: '...' | '..') {
 		if (this._compareWith !== undefined) {
 			await this.updateCompareWith({ ...this._compareWith, notation: comparisonNotation });

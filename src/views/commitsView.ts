@@ -8,7 +8,7 @@ import {
 	TreeItemCollapsibleState,
 	window,
 } from 'vscode';
-import { CommitsViewConfig, configuration, ViewFilesLayout } from '../configuration';
+import { CommitsViewConfig, configuration, ViewFilesLayout, ViewShowBranchComparison } from '../configuration';
 import { CommandContext, GlyphChars, setCommandContext } from '../constants';
 import { Container } from '../container';
 import {
@@ -22,6 +22,7 @@ import {
 import { GitUri } from '../git/gitUri';
 import {
 	BranchNode,
+	BranchTrackingStatusNode,
 	CompareBranchNode,
 	ContextValues,
 	MessageNode,
@@ -32,7 +33,6 @@ import {
 } from './nodes';
 import { debug, gate } from '../system';
 import { ViewBase } from './viewBase';
-import { BranchTrackingStatusNode } from './nodes/branchTrackingStatusNode';
 
 export class CommitsRepositoryNode extends SubscribeableViewNode<CommitsView> {
 	protected splatted = true;
@@ -66,15 +66,12 @@ export class CommitsRepositoryNode extends SubscribeableViewNode<CommitsView> {
 			this.children = [
 				new BranchNode(this.uri, this.view, this, branch, true, {
 					expanded: true,
+					showComparison: this.view.config.showBranchComparison,
 					showCurrent: false,
 					showTracking: true,
 					authors: authors,
 				}),
 			];
-
-			if (this.view.config.showBranchComparison !== false) {
-				this.children.push(new CompareBranchNode(this.uri, this.view, this, branch));
-			}
 		}
 
 		const [branch, ...rest] = this.children;
@@ -271,6 +268,16 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 		);
 		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this);
 		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this);
+		commands.registerCommand(
+			this.getQualifiedCommand('setShowBranchComparisonOn'),
+			() => this.setShowBranchComparison(true),
+			this,
+		);
+		commands.registerCommand(
+			this.getQualifiedCommand('setShowBranchComparisonOff'),
+			() => this.setShowBranchComparison(false),
+			this,
+		);
 	}
 
 	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
@@ -365,6 +372,15 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 
 	private setShowAvatars(enabled: boolean) {
 		return configuration.updateEffective('views', this.configKey, 'avatars', enabled);
+	}
+
+	private setShowBranchComparison(enabled: boolean) {
+		return configuration.updateEffective(
+			'views',
+			this.configKey,
+			'showBranchComparison',
+			enabled ? ViewShowBranchComparison.Working : false,
+		);
 	}
 
 	private setMyCommitsOnly(enabled: boolean) {
