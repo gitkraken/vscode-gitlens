@@ -85,18 +85,12 @@ export class ShowGitCommand extends QuickCommand<State> {
 		while (this.canStepsContinue(state)) {
 			context.title = this.title;
 
-			if (
-				state.counter < 1 ||
-				state.repo == null ||
-				typeof state.repo === 'string' ||
-				!context.repos.includes(state.repo)
-			) {
+			if (state.counter < 1 || state.repo == null || typeof state.repo === 'string') {
 				skippedStepOne = false;
 				if (context.repos.length === 1) {
-					if (state.repo == null) {
-						skippedStepOne = true;
-						state.counter++;
-					}
+					skippedStepOne = true;
+					state.counter++;
+
 					state.repo = context.repos[0];
 				} else {
 					const result = yield* pickRepositoryStep(state, context);
@@ -130,7 +124,6 @@ export class ShowGitCommand extends QuickCommand<State> {
 					if (result === StepResult.Break) {
 						// If we skipped the previous step, make sure we back up past it
 						if (skippedStepOne) {
-							skippedStepOne = false;
 							state.counter--;
 						}
 

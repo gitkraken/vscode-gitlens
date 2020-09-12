@@ -92,10 +92,9 @@ export class PullGitCommand extends QuickCommand<State> {
 			) {
 				skippedStepOne = false;
 				if (context.repos.length === 1) {
-					if (state.repos == null) {
-						skippedStepOne = true;
-						state.counter++;
-					}
+					skippedStepOne = true;
+					state.counter++;
+
 					state.repos = [context.repos[0]];
 				} else {
 					const result = yield* pickRepositoriesStep(
@@ -115,7 +114,6 @@ export class PullGitCommand extends QuickCommand<State> {
 				if (result === StepResult.Break) {
 					// If we skipped the previous step, make sure we back up past it
 					if (skippedStepOne) {
-						skippedStepOne = false;
 						state.counter--;
 					}
 

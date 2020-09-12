@@ -169,10 +169,9 @@ export class StashGitCommand extends QuickCommand<State> {
 			if (state.counter < 2 || state.repo == null || typeof state.repo === 'string') {
 				skippedStepTwo = false;
 				if (context.repos.length === 1) {
-					if (state.repo == null) {
-						skippedStepTwo = true;
-						state.counter++;
-					}
+					skippedStepTwo = true;
+					state.counter++;
+
 					state.repo = context.repos[0];
 				} else {
 					const result = yield* pickRepositoryStep(state, context);
@@ -203,7 +202,6 @@ export class StashGitCommand extends QuickCommand<State> {
 
 			// If we skipped the previous step, make sure we back up past it
 			if (skippedStepTwo) {
-				skippedStepTwo = false;
 				state.counter--;
 			}
 		}
