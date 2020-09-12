@@ -294,9 +294,8 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 		const branch = await Container.git.getBranch(commit.repoPath);
 		if (branch == null) return undefined;
 
-		// Get all the branches the commit is on
-		const branches = await Container.git.getCommitBranches(commit.repoPath, commit.ref);
-		if (branches.length === 0 || !branches.includes(branch.name)) return undefined;
+		// Check if the commit exists on the current branch
+		if (!(await Container.git.branchContainsCommit(commit.repoPath, branch.name, commit.ref))) return undefined;
 
 		return this.findNode((n: any) => n.commit?.ref === commit.ref, {
 			allowPaging: true,
