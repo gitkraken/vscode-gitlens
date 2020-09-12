@@ -140,6 +140,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 					// If we skipped the previous step, make sure we back up past it
 					if (skippedStepOne) {
 						skippedStepOne = false;
+						state.counter--;
 					}
 
 					state.pattern = undefined;
@@ -341,7 +342,11 @@ export class SearchGitCommand extends QuickCommand<State> {
 			},
 		});
 		const selection: StepSelection<typeof step> = yield step;
-		if (!QuickCommand.canPickStepContinue(step, state, selection)) return StepResult.Break;
+		if (!QuickCommand.canPickStepContinue(step, state, selection)) {
+			// Since we simulated a step above, we need to remove it here
+			state.counter--;
+			return StepResult.Break;
+		}
 
 		// Since we simulated a step above, we need to remove it here
 		state.counter--;
