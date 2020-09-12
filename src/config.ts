@@ -46,7 +46,7 @@ export interface Config {
 			matchAll: boolean;
 			matchCase: boolean;
 			matchRegex: boolean;
-			showResultsInView: boolean;
+			showResultsInSideBar: boolean;
 		};
 		skipConfirmations: string[];
 	};

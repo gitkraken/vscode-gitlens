@@ -97,27 +97,27 @@ export namespace QuickCommandButtons {
 		}
 	};
 
-	export const RevealInView: QuickInputButton = {
+	export const RevealInSideBar: QuickInputButton = {
 		iconPath: new ThemeIcon('eye'),
 		tooltip: 'Reveal in Side Bar',
 	};
 
-	export const ShowInView: QuickInputButton = {
+	export const SearchInSideBar: QuickInputButton = {
 		iconPath: new ThemeIcon('search'),
-		tooltip: 'Show in Search Commits View',
+		tooltip: 'Search in Side Bar',
 	};
 
-	export const ShowResultsInView: QuickInputButton = {
+	export const ShowResultsInSideBar: QuickInputButton = {
 		iconPath: new ThemeIcon('search'),
-		tooltip: 'Show Results in Search Commits View',
+		tooltip: 'Show Results in Side Bar',
 	};
 
-	export const ShowResultsInViewToggle = class extends ToggleQuickInputButton {
+	export const ShowResultsToggle = class extends ToggleQuickInputButton {
 		constructor(on = false, onDidClick?: (quickInput: QuickInput) => void) {
 			super(
 				() => ({
 					on: {
-						tooltip: 'Show Results in Search Commits View',
+						tooltip: 'Show Results in Side Bar',
 						icon: {
 							dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-window.svg')),
 							light: Uri.file(Container.context.asAbsolutePath('images/light/icon-window.svg')),

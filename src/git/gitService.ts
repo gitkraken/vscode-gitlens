@@ -516,6 +516,13 @@ export class GitService implements Disposable {
 	}
 
 	@log()
+	async branchContainsCommit(repoPath: string, name: string, ref: string): Promise<boolean> {
+		let data = await Git.branch__contains(repoPath, ref, { name: name });
+		data = data?.trim();
+		return Boolean(data);
+	}
+
+	@log()
 	async checkout(repoPath: string, ref: string, options: { createBranch?: string } | { fileName?: string } = {}) {
 		const cc = Logger.getCorrelationContext();
 

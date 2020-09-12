@@ -2,6 +2,7 @@
 import * as paths from 'path';
 import { QuickPickItem, window } from 'vscode';
 import { Commands, GitActions, OpenChangedFilesCommandArgs } from '../commands';
+import { Container } from '../container';
 import { CommitFormatter, GitFile, GitLogCommit, GitStatusFile } from '../git/git';
 import { Keys } from '../keyboard';
 import { CommandQuickPickItem } from './quickPicksItems';
@@ -62,6 +63,40 @@ export class CommitFileQuickPickItem extends CommandQuickPickItem {
 		// 	showOptions: options,
 		// };
 		// void (await commands.executeCommand(Commands.DiffWithPrevious, fileCommit.toGitUri(), commandArgs));
+	}
+}
+
+export class CommitBrowseRepositoryFromHereCommandQuickPickItem extends CommandQuickPickItem {
+	constructor(
+		private readonly commit: GitLogCommit,
+		private readonly openInNewWindow: boolean,
+		item?: QuickPickItem,
+	) {
+		super(item ?? `$(folder-opened) Browse Repository from Here${openInNewWindow ? ' in New Window' : ''}`);
+	}
+
+	execute(_options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
+		return GitActions.browseAtRevision(this.commit.toGitUri(), { openInNewWindow: this.openInNewWindow });
+	}
+}
+
+export class CommitCompareWithHEADCommandQuickPickItem extends CommandQuickPickItem {
+	constructor(private readonly commit: GitLogCommit, item?: QuickPickItem) {
+		super(item ?? '$(compare-changes) Compare with HEAD');
+	}
+
+	execute(_options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
+		return Container.compareView.compare(this.commit.repoPath, this.commit.ref, 'HEAD');
+	}
+}
+
+export class CommitCompareWithWorkingCommandQuickPickItem extends CommandQuickPickItem {
+	constructor(private readonly commit: GitLogCommit, item?: QuickPickItem) {
+		super(item ?? '$(compare-changes) Compare with Working Tree');
+	}
+
+	execute(_options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
+		return Container.compareView.compare(this.commit.repoPath, this.commit.ref, '');
 	}
 }
 

@@ -264,8 +264,8 @@
 							"enumDescriptions": [
 								"Toggles file blame annotations",
 								"Compares the current committed file with the previous commit",
-								"Reveals the commit in the side bar",
-								"Shows the commits within the range in the Search Commits view",
+								"Reveals the commit in the Side Bar",
+								"Searches for commits within the range in the Side Bar",
 								"Shows a commit details quick pick",
 								"Shows a commit file details quick pick",
 								"Shows a file history quick pick",
@@ -317,8 +317,8 @@
 							"enumDescriptions": [
 								"Toggles file blame annotations",
 								"Compares the current committed file with the previous commit",
-								"Reveals the commit in the side bar",
-								"Shows the commit in the Search Commits view",
+								"Reveals the commit in the Side Bar",
+								"Searches for the commit in the Side Bar",
 								"Shows a commit details quick pick",
 								"Shows a commit file details quick pick",
 								"Shows a file history quick pick",
@@ -558,10 +558,10 @@
 					"markdownDescription": "Specifies whether to match commit search patterns using regular expressions",
 					"scope": "window"
 				},
-				"gitlens.gitCommands.search.showResultsInView": {
+				"gitlens.gitCommands.search.showResultsInSideBar": {
 					"type": "boolean",
 					"default": false,
-					"markdownDescription": "Specifies whether to show the commit search results in the _Search Commits_ view or directly within the quick pick menu",
+					"markdownDescription": "Specifies whether to show the commit search results in the Side Bar or within the quick pick menu",
 					"scope": "window"
 				},
 				"gitlens.gitCommands.skipConfirmations": {
@@ -1423,8 +1423,8 @@
 						"Compares the current line commit with the previous",
 						"Compares the current line commit with the working tree",
 						"Toggles Git code lens",
-						"Reveals the commit in the side bar",
-						"Shows the commit in the Search Commits view",
+						"Reveals the commit in the Side Bar",
+						"Searches for the commit in the Side Bar",
 						"Shows a commit details quick pick",
 						"Shows a commit file details quick pick",
 						"Shows a file history quick pick",
@@ -2566,12 +2566,12 @@
 			},
 			{
 				"command": "gitlens.showCommitInView",
-				"title": "Show Commit in Search Commits View",
+				"title": "Search for Commit in Side Bar",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.showCommitsInView",
-				"title": "Show Commits within Selection in Search Commits View",
+				"title": "Search for Commits within Selection",
 				"category": "GitLens"
 			},
 			{

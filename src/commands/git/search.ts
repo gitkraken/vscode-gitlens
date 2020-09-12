@@ -29,7 +29,7 @@ interface Context {
 
 interface State extends Required<SearchPattern> {
 	repo: string | Repository;
-	showResultsInView: boolean;
+	showResultsInSideBar: boolean;
 }
 
 export interface SearchGitCommandArgs {
@@ -103,8 +103,8 @@ export class SearchGitCommand extends QuickCommand<State> {
 		if (state.matchRegex == null) {
 			state.matchRegex = cfg.matchRegex;
 		}
-		if (state.showResultsInView == null) {
-			state.showResultsInView = cfg.showResultsInView;
+		if (state.showResultsInSideBar == null) {
+			state.showResultsInSideBar = cfg.showResultsInSideBar;
 		}
 
 		let skippedStepOne = false;
@@ -163,7 +163,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 				context.resultsKey = searchKey;
 			}
 
-			if (state.showResultsInView) {
+			if (state.showResultsInSideBar) {
 				void Container.searchView.search(
 					state.repo.path,
 					search,
@@ -189,8 +189,8 @@ export class SearchGitCommand extends QuickCommand<State> {
 									number: log.hasMore ? `${log.count}+` : undefined,
 							  })} for ${state.pattern}`,
 					picked: context.commit?.ref,
-					showInViewButton: {
-						button: QuickCommandButtons.ShowResultsInView,
+					showInSideBarButton: {
+						button: QuickCommandButtons.ShowResultsInSideBar,
 						onDidClick: () =>
 							void Container.searchView.search(
 								repoPath,
@@ -266,9 +266,9 @@ export class SearchGitCommand extends QuickCommand<State> {
 		const matchCaseButton = new QuickCommandButtons.MatchCaseToggle(state.matchCase);
 		const matchAllButton = new QuickCommandButtons.MatchAllToggle(state.matchAll);
 		const matchRegexButton = new QuickCommandButtons.MatchRegexToggle(state.matchRegex);
-		const showResultsInViewButton = new QuickCommandButtons.ShowResultsInViewToggle(state.showResultsInView, () => {
-			state.showResultsInView = !state.showResultsInView;
-			showResultsInViewButton.on = state.showResultsInView;
+		const showResultsToggleButton = new QuickCommandButtons.ShowResultsToggle(state.showResultsInSideBar, () => {
+			state.showResultsInSideBar = !state.showResultsInSideBar;
+			showResultsToggleButton.on = state.showResultsInSideBar;
 		});
 
 		const step = QuickCommand.createPickStep<QuickPickItemOfT<SearchOperators>>({
@@ -276,7 +276,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 			placeholder: 'e.g. "Updates dependencies" author:eamodio',
 			matchOnDescription: true,
 			matchOnDetail: true,
-			additionalButtons: [matchCaseButton, matchAllButton, matchRegexButton, showResultsInViewButton],
+			additionalButtons: [matchCaseButton, matchAllButton, matchRegexButton, showResultsToggleButton],
 			items: items,
 			value: state.pattern,
 			onDidAccept: (quickpick): boolean => {

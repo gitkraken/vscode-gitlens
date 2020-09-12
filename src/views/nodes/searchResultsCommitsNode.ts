@@ -50,7 +50,7 @@ export class SearchResultsCommitsNode extends ResultsCommitsNode {
 			const args: SearchCommitsCommandArgs = {
 				search: this.search,
 				prefillOnly: true,
-				showInView: true,
+				showResultsInSideBar: true,
 			};
 			item.command = {
 				title: 'Search Commits',

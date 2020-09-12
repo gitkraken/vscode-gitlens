@@ -12,7 +12,7 @@ export interface ShowQuickFileHistoryCommandArgs {
 	log?: GitLog;
 	limit?: number;
 	range?: Range;
-	showInView?: boolean;
+	showInSideBar?: boolean;
 
 	goBackCommand?: CommandQuickPickItem;
 	nextPageCommand?: CommandQuickPickItem;
@@ -27,7 +27,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 	protected preExecute(context: CommandContext, args?: ShowQuickFileHistoryCommandArgs) {
 		if (context.command === Commands.ShowFileHistoryInView) {
 			args = { ...args };
-			args.showInView = true;
+			args.showInSideBar = true;
 		}
 
 		return this.execute(context.editor, context.uri, args);
@@ -39,7 +39,7 @@ export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 
 		const gitUri = await GitUri.fromUri(uri);
 
-		if (args?.showInView) {
+		if (args?.showInSideBar) {
 			await Container.fileHistoryView.showHistoryForUri(gitUri);
 
 			return;

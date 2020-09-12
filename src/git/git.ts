@@ -373,14 +373,21 @@ export namespace Git {
 		);
 	}
 
-	export function branch__contains(repoPath: string, ref: string, { remotes = false }: { remotes?: boolean } = {}) {
+	export function branch__contains(
+		repoPath: string,
+		ref: string,
+		{ name = undefined, remotes = false }: { name?: string; remotes?: boolean } = {},
+	) {
 		const params = ['branch'];
 		if (remotes) {
 			params.push('-r');
 		}
-		params.push('--contains');
+		params.push('--contains', ref);
+		if (name != null) {
+			params.push(name);
+		}
 
-		return git<string>({ cwd: repoPath, configs: ['-c', 'color.branch=false'] }, ...params, ref);
+		return git<string>({ cwd: repoPath, configs: ['-c', 'color.branch=false'] }, ...params);
 	}
 
 	export function check_ignore(repoPath: string, ...files: string[]) {

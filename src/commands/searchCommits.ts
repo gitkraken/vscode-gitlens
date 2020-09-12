@@ -10,7 +10,7 @@ export interface SearchCommitsCommandArgs {
 
 	prefillOnly?: boolean;
 
-	showInView?: boolean;
+	showResultsInSideBar?: boolean;
 }
 
 @command()
@@ -22,7 +22,7 @@ export class SearchCommitsCommand extends Command {
 	protected preExecute(context: CommandContext, args?: SearchCommitsCommandArgs) {
 		if (context.type === 'viewItem') {
 			args = { ...args };
-			args.showInView = true;
+			args.showResultsInSideBar = true;
 
 			if (context.node instanceof SearchResultsCommitsNode) {
 				args.repoPath = context.node.repoPath;
@@ -35,7 +35,7 @@ export class SearchCommitsCommand extends Command {
 			}
 		} else if (context.command === Commands.SearchCommitsInView) {
 			args = { ...args };
-			args.showInView = true;
+			args.showResultsInSideBar = true;
 		}
 
 		return this.execute(args);
@@ -48,7 +48,7 @@ export class SearchCommitsCommand extends Command {
 			state: {
 				repo: args?.repoPath,
 				...args?.search,
-				showResultsInView: args?.showInView,
+				showResultsInSideBar: args?.showResultsInSideBar,
 			},
 		}));
 	}

@@ -170,12 +170,39 @@ function hasFlags<T>(flags: T[], has?: T | T[]): boolean {
 	return has.length === 0 ? flags.length === 0 : has.every(f => flags.includes(f));
 }
 
-export class OpenInSearchCommitsViewQuickPickItem extends CommandQuickPickItem {
+export class RevealInSideBarQuickPickItem extends CommandQuickPickItem {
 	constructor(
 		private readonly reference: GitRevisionReference,
 		item: QuickPickItem = {
-			label: '$(search) Show Commit',
-			description: 'in Search Commits view',
+			label: `$(eye) Reveal ${GitReference.isStash(reference) ? 'Stash' : 'Commit'} in Side Bar`,
+			description: GitReference.isStash(reference) ? '' : 'can take a while',
+		},
+	) {
+		super(item, undefined, undefined);
+	}
+
+	async execute(options?: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
+		if (GitStashCommit.is(this.reference)) {
+			void (await GitActions.Stash.reveal(this.reference, {
+				select: true,
+				focus: !(options?.preserveFocus ?? false),
+				expand: true,
+			}));
+		} else {
+			void (await GitActions.Commit.reveal(this.reference, {
+				select: true,
+				focus: !(options?.preserveFocus ?? false),
+				expand: true,
+			}));
+		}
+	}
+}
+
+export class SearchForCommitQuickPickItem extends CommandQuickPickItem {
+	constructor(
+		private readonly reference: GitRevisionReference,
+		item: QuickPickItem = {
+			label: '$(search) Search for Commit in Side Bar',
 		},
 	) {
 		super(item, undefined, undefined);
@@ -198,33 +225,5 @@ export class OpenInSearchCommitsViewQuickPickItem extends CommandQuickPickItem {
 				},
 			},
 		));
-	}
-}
-
-export class RevealInRepositoriesViewQuickPickItem extends CommandQuickPickItem {
-	constructor(
-		private readonly reference: GitRevisionReference,
-		item: QuickPickItem = {
-			label: `$(eye) Reveal ${GitReference.isStash(reference) ? 'Stash' : 'Commit'}`,
-			description: GitReference.isStash(reference) ? '' : 'can take a while',
-		},
-	) {
-		super(item, undefined, undefined);
-	}
-
-	async execute(options?: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
-		if (GitStashCommit.is(this.reference)) {
-			void (await GitActions.Stash.reveal(this.reference, {
-				select: true,
-				focus: !(options?.preserveFocus ?? false),
-				expand: true,
-			}));
-		} else {
-			void (await GitActions.Commit.reveal(this.reference, {
-				select: true,
-				focus: !(options?.preserveFocus ?? false),
-				expand: true,
-			}));
-		}
 	}
 }
