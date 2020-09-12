@@ -2888,7 +2888,7 @@
 			},
 			{
 				"command": "gitlens.views.switchToAnotherBranch",
-				"title": "Switch to Another Branch",
+				"title": "Switch to Another Branch...",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-checkout.svg",
@@ -2897,7 +2897,7 @@
 			},
 			{
 				"command": "gitlens.views.switchToBranch",
-				"title": "Switch to Branch",
+				"title": "Switch to Branch...",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-checkout.svg",
@@ -2906,7 +2906,7 @@
 			},
 			{
 				"command": "gitlens.views.switchToCommit",
-				"title": "Switch to Commit",
+				"title": "Switch to Commit...",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-checkout.svg",
@@ -2915,7 +2915,7 @@
 			},
 			{
 				"command": "gitlens.views.switchToTag",
-				"title": "Switch to Tag",
+				"title": "Switch to Tag...",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-checkout.svg",
