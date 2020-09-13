@@ -2273,7 +2273,25 @@
 				"icon": "$(gear)"
 			},
 			{
-				"command": "gitlens.showSettingsPage#repositories-view",
+				"command": "gitlens.showSettingsPage#branches-view",
+				"title": "Open Settings",
+				"category": "GitLens",
+				"icon": "$(gear)"
+			},
+			{
+				"command": "gitlens.showSettingsPage#commits-view",
+				"title": "Open Settings",
+				"category": "GitLens",
+				"icon": "$(gear)"
+			},
+			{
+				"command": "gitlens.showSettingsPage#compare-view",
+				"title": "Open Settings",
+				"category": "GitLens",
+				"icon": "$(gear)"
+			},
+			{
+				"command": "gitlens.showSettingsPage#contributors-view",
 				"title": "Open Settings",
 				"category": "GitLens",
 				"icon": "$(gear)"
@@ -2291,13 +2309,31 @@
 				"icon": "$(gear)"
 			},
 			{
+				"command": "gitlens.showSettingsPage#remotes-view",
+				"title": "Open Settings",
+				"category": "GitLens",
+				"icon": "$(gear)"
+			},
+			{
+				"command": "gitlens.showSettingsPage#repositories-view",
+				"title": "Open Settings",
+				"category": "GitLens",
+				"icon": "$(gear)"
+			},
+			{
 				"command": "gitlens.showSettingsPage#search-commits-view",
 				"title": "Open Settings",
 				"category": "GitLens",
 				"icon": "$(gear)"
 			},
 			{
-				"command": "gitlens.showSettingsPage#compare-view",
+				"command": "gitlens.showSettingsPage#stashes-view",
+				"title": "Open Settings",
+				"category": "GitLens",
+				"icon": "$(gear)"
+			},
+			{
+				"command": "gitlens.showSettingsPage#tags-view",
 				"title": "Open Settings",
 				"category": "GitLens",
 				"icon": "$(gear)"
@@ -3157,7 +3193,8 @@
 			{
 				"command": "gitlens.views.createBranch",
 				"title": "Create Branch...",
-				"category": "GitLens"
+				"category": "GitLens",
+				"icon": "$(add)"
 			},
 			{
 				"command": "gitlens.views.deleteBranch",
@@ -3172,7 +3209,8 @@
 			{
 				"command": "gitlens.views.createTag",
 				"title": "Create Tag...",
-				"category": "GitLens"
+				"category": "GitLens",
+				"icon": "$(add)"
 			},
 			{
 				"command": "gitlens.views.deleteTag",
@@ -5302,62 +5340,207 @@
 				{
 					"command": "gitlens.pushRepositories",
 					"when": "gitlens:hasRemotes && !gitlens:readonly && view =~ /^gitlens\\.views\\.(repositories|commits)/",
-					"group": "navigation@10"
+					"group": "navigation@1"
 				},
 				{
 					"command": "gitlens.pullRepositories",
 					"when": "gitlens:hasRemotes && !gitlens:readonly && view =~ /^gitlens\\.views\\.(repositories|commits)/",
-					"group": "navigation@11"
+					"group": "navigation@2"
 				},
 				{
 					"command": "gitlens.fetchRepositories",
 					"when": "gitlens:hasRemotes && !gitlens:readonly && view =~ /^gitlens\\.views\\.(repositories|commits)/",
-					"group": "navigation@12"
+					"group": "navigation@3"
+				},
+				{
+					"command": "gitlens.views.switchToAnotherBranch",
+					"when": "!gitlens:readonly && view =~ /^gitlens\\.views\\.branches/",
+					"group": "navigation@10"
+				},
+				{
+					"command": "gitlens.views.createBranch",
+					"when": "!gitlens:readonly && view =~ /gitlens\\.views\\.branches\\b/",
+					"group": "navigation@11"
+				},
+				{
+					"command": "gitlens.views.branches.setLayoutToList",
+					"when": "view =~ /gitlens\\.views\\.branches/ && config.gitlens.views.branches.branches.layout == tree",
+					"group": "navigation@50"
+				},
+				{
+					"command": "gitlens.views.branches.setLayoutToTree",
+					"when": "view =~ /gitlens\\.views\\.branches/ && config.gitlens.views.branches.branches.layout == list",
+					"group": "navigation@50"
+				},
+				{
+					"command": "gitlens.views.branches.setFilesLayoutToList",
+					"when": "view =~ /^gitlens\\.views\\.branches/ && config.gitlens.views.branches.files.layout == auto",
+					"group": "navigation@51"
+				},
+				{
+					"command": "gitlens.views.branches.setFilesLayoutToTree",
+					"when": "view =~ /^gitlens\\.views\\.branches/ && config.gitlens.views.branches.files.layout == list",
+					"group": "navigation@51"
+				},
+				{
+					"command": "gitlens.views.branches.setFilesLayoutToAuto",
+					"when": "view =~ /^gitlens\\.views\\.branches/ && config.gitlens.views.branches.files.layout == tree",
+					"group": "navigation@51"
+				},
+				{
+					"command": "gitlens.views.branches.refresh",
+					"when": "view =~ /^gitlens\\.views\\.branches/",
+					"group": "navigation@99"
+				},
+				{
+					"command": "gitlens.views.branches.setShowAvatarsOn",
+					"when": "view =~ /^gitlens\\.views\\.branches/ && !config.gitlens.views.branches.avatars",
+					"group": "1_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.branches.setShowAvatarsOff",
+					"when": "view =~ /^gitlens\\.views\\.branches/ && config.gitlens.views.branches.avatars",
+					"group": "1_gitlens@0"
 				},
 				{
 					"command": "gitlens.views.switchToAnotherBranch",
 					"when": "!gitlens:readonly && view =~ /^gitlens\\.views\\.commits/",
-					"group": "navigation@13"
+					"group": "navigation@10"
 				},
 				{
-					"command": "gitlens.views.repositories.setFilesLayoutToList",
-					"when": "view =~ /^gitlens\\.views\\.repositories/ && config.gitlens.views.repositories.files.layout == auto",
-					"group": "navigation@14"
+					"command": "gitlens.views.commits.setMyCommitsOnlyOn",
+					"when": "view =~ /^gitlens\\.views\\.commits/ && !gitlens:views:commits:myCommitsOnly",
+					"group": "navigation@50"
 				},
 				{
-					"command": "gitlens.views.repositories.setFilesLayoutToTree",
-					"when": "view =~ /^gitlens\\.views\\.repositories/ && config.gitlens.views.repositories.files.layout == list",
-					"group": "navigation@14"
+					"command": "gitlens.views.commits.setMyCommitsOnlyOff",
+					"when": "view =~ /^gitlens\\.views\\.commits/ && gitlens:views:commits:myCommitsOnly",
+					"group": "navigation@50"
 				},
 				{
-					"command": "gitlens.views.repositories.setFilesLayoutToAuto",
-					"when": "view =~ /^gitlens\\.views\\.repositories/ && config.gitlens.views.repositories.files.layout == tree",
-					"group": "navigation@14"
+					"command": "gitlens.views.commits.setFilesLayoutToList",
+					"when": "view =~ /^gitlens\\.views\\.commits/ && config.gitlens.views.commits.files.layout == auto",
+					"group": "navigation@51"
 				},
 				{
-					"command": "gitlens.views.repositories.refresh",
-					"when": "view =~ /^gitlens\\.views\\.repositories/",
+					"command": "gitlens.views.commits.setFilesLayoutToTree",
+					"when": "view =~ /^gitlens\\.views\\.commits/ && config.gitlens.views.commits.files.layout == list",
+					"group": "navigation@51"
+				},
+				{
+					"command": "gitlens.views.commits.setFilesLayoutToAuto",
+					"when": "view =~ /^gitlens\\.views\\.commits/ && config.gitlens.views.commits.files.layout == tree",
+					"group": "navigation@51"
+				},
+				{
+					"command": "gitlens.views.commits.refresh",
+					"when": "view =~ /^gitlens\\.views\\.commits/",
 					"group": "navigation@99"
 				},
 				{
-					"command": "gitlens.views.repositories.setShowAvatarsOn",
-					"when": "view =~ /^gitlens\\.views\\.repositories/ && !config.gitlens.views.repositories.avatars",
+					"command": "gitlens.views.commits.setShowAvatarsOn",
+					"when": "view =~ /^gitlens\\.views\\.commits/ && !config.gitlens.views.commits.avatars",
 					"group": "1_gitlens@0"
 				},
 				{
-					"command": "gitlens.views.repositories.setShowAvatarsOff",
-					"when": "view =~ /^gitlens\\.views\\.repositories/ && config.gitlens.views.repositories.avatars",
+					"command": "gitlens.views.commits.setShowAvatarsOff",
+					"when": "view =~ /^gitlens\\.views\\.commits/ && config.gitlens.views.commits.avatars",
 					"group": "1_gitlens@0"
 				},
 				{
-					"command": "gitlens.views.repositories.setAutoRefreshToOn",
-					"when": "view =~ /^gitlens\\.views\\.repositories/ && config.gitlens.views.repositories.autoRefresh && !gitlens:views:repositories:autoRefresh",
-					"group": "2_gitlens@0"
+					"command": "gitlens.views.commits.setShowBranchComparisonOn",
+					"when": "view =~ /^gitlens\\.views\\.commits/ && !config.gitlens.views.commits.showBranchComparison",
+					"group": "1_gitlens@1"
 				},
 				{
-					"command": "gitlens.views.repositories.setAutoRefreshToOff",
-					"when": "view =~ /^gitlens\\.views\\.repositories/ && config.gitlens.views.repositories.autoRefresh && gitlens:views:repositories:autoRefresh",
-					"group": "2_gitlens@0"
+					"command": "gitlens.views.commits.setShowBranchComparisonOff",
+					"when": "view =~ /^gitlens\\.views\\.commits/ && config.gitlens.views.commits.showBranchComparison",
+					"group": "1_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.compare.selectForCompare",
+					"when": "view =~ /^gitlens\\.views\\.compare/",
+					"group": "navigation@10"
+				},
+				{
+					"command": "gitlens.views.compare.setKeepResultsToOn",
+					"when": "view =~ /^gitlens\\.views\\.compare/ && !gitlens:views:compare:keepResults",
+					"group": "navigation@11"
+				},
+				{
+					"command": "gitlens.views.compare.setKeepResultsToOff",
+					"when": "view =~ /^gitlens\\.views\\.compare/ && gitlens:views:compare:keepResults",
+					"group": "navigation@11"
+				},
+				{
+					"command": "gitlens.views.compare.setFilesLayoutToList",
+					"when": "view =~ /^gitlens\\.views\\.compare/ && config.gitlens.views.compare.files.layout == auto",
+					"group": "navigation@50"
+				},
+				{
+					"command": "gitlens.views.compare.setFilesLayoutToTree",
+					"when": "view =~ /^gitlens\\.views\\.compare/ && config.gitlens.views.compare.files.layout == list",
+					"group": "navigation@50"
+				},
+				{
+					"command": "gitlens.views.compare.setFilesLayoutToAuto",
+					"when": "view =~ /^gitlens\\.views\\.compare/ && config.gitlens.views.compare.files.layout == tree",
+					"group": "navigation@50"
+				},
+				{
+					"command": "gitlens.views.compare.clear",
+					"when": "view =~ /^gitlens\\.views\\.compare/",
+					"group": "navigation@98"
+				},
+				{
+					"command": "gitlens.views.compare.refresh",
+					"when": "view =~ /^gitlens\\.views\\.compare/",
+					"group": "navigation@99"
+				},
+				{
+					"command": "gitlens.views.compare.setShowAvatarsOn",
+					"when": "view =~ /^gitlens\\.views\\.compare/ && !config.gitlens.views.compare.avatars",
+					"group": "1_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.compare.setShowAvatarsOff",
+					"when": "view =~ /^gitlens\\.views\\.compare/ && config.gitlens.views.compare.avatars",
+					"group": "1_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.addAuthors",
+					"when": "view =~ /^gitlens\\.views\\.contributors/",
+					"group": "navigation@10"
+				},
+				{
+					"command": "gitlens.views.contributors.setFilesLayoutToList",
+					"when": "view =~ /^gitlens\\.views\\.contributors/ && config.gitlens.views.contributors.files.layout == auto",
+					"group": "navigation@50"
+				},
+				{
+					"command": "gitlens.views.contributors.setFilesLayoutToTree",
+					"when": "view =~ /^gitlens\\.views\\.contributors/ && config.gitlens.views.contributors.files.layout == list",
+					"group": "navigation@50"
+				},
+				{
+					"command": "gitlens.views.contributors.setFilesLayoutToAuto",
+					"when": "view =~ /^gitlens\\.views\\.contributors/ && config.gitlens.views.contributors.files.layout == tree",
+					"group": "navigation@50"
+				},
+				{
+					"command": "gitlens.views.contributors.refresh",
+					"when": "view =~ /^gitlens\\.views\\.contributors/",
+					"group": "navigation@99"
+				},
+				{
+					"command": "gitlens.views.contributors.setShowAvatarsOn",
+					"when": "view =~ /^gitlens\\.views\\.contributors/ && !config.gitlens.views.contributors.avatars",
+					"group": "1_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.contributors.setShowAvatarsOff",
+					"when": "view =~ /^gitlens\\.views\\.contributors/ && config.gitlens.views.contributors.avatars",
+					"group": "1_gitlens@0"
 				},
 				{
 					"command": "gitlens.views.fileHistory.setEditorFollowingOn",
@@ -5465,54 +5648,84 @@
 					"group": "2_gitlens@0"
 				},
 				{
-					"command": "gitlens.views.compare.selectForCompare",
-					"when": "view =~ /^gitlens\\.views\\.compare/",
-					"group": "navigation@10"
+					"command": "gitlens.views.remotes.setLayoutToList",
+					"when": "view =~ /gitlens\\.views\\.remotes/ && config.gitlens.views.remotes.branches.layout == tree",
+					"group": "navigation@50"
 				},
 				{
-					"command": "gitlens.views.compare.setKeepResultsToOn",
-					"when": "view =~ /^gitlens\\.views\\.compare/ && !gitlens:views:compare:keepResults",
-					"group": "navigation@11"
+					"command": "gitlens.views.remotes.setLayoutToTree",
+					"when": "view =~ /gitlens\\.views\\.remotes/ && config.gitlens.views.remotes.branches.layout == list",
+					"group": "navigation@50"
 				},
 				{
-					"command": "gitlens.views.compare.setKeepResultsToOff",
-					"when": "view =~ /^gitlens\\.views\\.compare/ && gitlens:views:compare:keepResults",
-					"group": "navigation@11"
+					"command": "gitlens.views.remotes.setFilesLayoutToList",
+					"when": "view =~ /^gitlens\\.views\\.remotes/ && config.gitlens.views.remotes.files.layout == auto",
+					"group": "navigation@51"
 				},
 				{
-					"command": "gitlens.views.compare.setFilesLayoutToList",
-					"when": "view =~ /^gitlens\\.views\\.compare/ && config.gitlens.views.compare.files.layout == auto",
-					"group": "navigation@12"
+					"command": "gitlens.views.remotes.setFilesLayoutToTree",
+					"when": "view =~ /^gitlens\\.views\\.remotes/ && config.gitlens.views.remotes.files.layout == list",
+					"group": "navigation@51"
 				},
 				{
-					"command": "gitlens.views.compare.setFilesLayoutToTree",
-					"when": "view =~ /^gitlens\\.views\\.compare/ && config.gitlens.views.compare.files.layout == list",
-					"group": "navigation@12"
+					"command": "gitlens.views.remotes.setFilesLayoutToAuto",
+					"when": "view =~ /^gitlens\\.views\\.remotes/ && config.gitlens.views.remotes.files.layout == tree",
+					"group": "navigation@51"
 				},
 				{
-					"command": "gitlens.views.compare.setFilesLayoutToAuto",
-					"when": "view =~ /^gitlens\\.views\\.compare/ && config.gitlens.views.compare.files.layout == tree",
-					"group": "navigation@12"
-				},
-				{
-					"command": "gitlens.views.compare.clear",
-					"when": "view =~ /^gitlens\\.views\\.compare/",
-					"group": "navigation@98"
-				},
-				{
-					"command": "gitlens.views.compare.refresh",
-					"when": "view =~ /^gitlens\\.views\\.compare/",
+					"command": "gitlens.views.remotes.refresh",
+					"when": "view =~ /^gitlens\\.views\\.remotes/",
 					"group": "navigation@99"
 				},
 				{
-					"command": "gitlens.views.compare.setShowAvatarsOn",
-					"when": "view =~ /^gitlens\\.views\\.compare/ && !config.gitlens.views.compare.avatars",
+					"command": "gitlens.views.remotes.setShowAvatarsOn",
+					"when": "view =~ /^gitlens\\.views\\.remotes/ && !config.gitlens.views.remotes.avatars",
 					"group": "1_gitlens@0"
 				},
 				{
-					"command": "gitlens.views.compare.setShowAvatarsOff",
-					"when": "view =~ /^gitlens\\.views\\.compare/ && config.gitlens.views.compare.avatars",
+					"command": "gitlens.views.remotes.setShowAvatarsOff",
+					"when": "view =~ /^gitlens\\.views\\.remotes/ && config.gitlens.views.remotes.avatars",
 					"group": "1_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.repositories.setFilesLayoutToList",
+					"when": "view =~ /^gitlens\\.views\\.repositories/ && config.gitlens.views.repositories.files.layout == auto",
+					"group": "navigation@50"
+				},
+				{
+					"command": "gitlens.views.repositories.setFilesLayoutToTree",
+					"when": "view =~ /^gitlens\\.views\\.repositories/ && config.gitlens.views.repositories.files.layout == list",
+					"group": "navigation@50"
+				},
+				{
+					"command": "gitlens.views.repositories.setFilesLayoutToAuto",
+					"when": "view =~ /^gitlens\\.views\\.repositories/ && config.gitlens.views.repositories.files.layout == tree",
+					"group": "navigation@50"
+				},
+				{
+					"command": "gitlens.views.repositories.refresh",
+					"when": "view =~ /^gitlens\\.views\\.repositories/",
+					"group": "navigation@99"
+				},
+				{
+					"command": "gitlens.views.repositories.setShowAvatarsOn",
+					"when": "view =~ /^gitlens\\.views\\.repositories/ && !config.gitlens.views.repositories.avatars",
+					"group": "1_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.repositories.setShowAvatarsOff",
+					"when": "view =~ /^gitlens\\.views\\.repositories/ && config.gitlens.views.repositories.avatars",
+					"group": "1_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.repositories.setAutoRefreshToOn",
+					"when": "view =~ /^gitlens\\.views\\.repositories/ && config.gitlens.views.repositories.autoRefresh && !gitlens:views:repositories:autoRefresh",
+					"group": "2_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.repositories.setAutoRefreshToOff",
+					"when": "view =~ /^gitlens\\.views\\.repositories/ && config.gitlens.views.repositories.autoRefresh && gitlens:views:repositories:autoRefresh",
+					"group": "2_gitlens@0"
 				},
 				{
 					"command": "gitlens.views.search.searchCommits",
@@ -5532,17 +5745,17 @@
 				{
 					"command": "gitlens.views.search.setFilesLayoutToList",
 					"when": "view =~ /^gitlens\\.views\\.search/ && config.gitlens.views.search.files.layout == auto",
-					"group": "navigation@12"
+					"group": "navigation@50"
 				},
 				{
 					"command": "gitlens.views.search.setFilesLayoutToTree",
 					"when": "view =~ /^gitlens\\.views\\.search/ && config.gitlens.views.search.files.layout == list",
-					"group": "navigation@12"
+					"group": "navigation@50"
 				},
 				{
 					"command": "gitlens.views.search.setFilesLayoutToAuto",
 					"when": "view =~ /^gitlens\\.views\\.search/ && config.gitlens.views.search.files.layout == tree",
-					"group": "navigation@12"
+					"group": "navigation@50"
 				},
 				{
 					"command": "gitlens.views.search.clear",
@@ -5565,209 +5778,29 @@
 					"group": "1_gitlens@0"
 				},
 				{
-					"command": "gitlens.showSettingsPage#repositories-view",
-					"when": "view =~ /^gitlens\\.views\\.repositories/",
-					"group": "9_gitlens@1"
+					"command": "gitlens.stashSave",
+					"when": "!gitlens:readonly && view =~ /^gitlens\\.views\\.stashes/",
+					"group": "navigation@10"
 				},
 				{
-					"command": "gitlens.showSettingsPage#file-history-view",
-					"when": "view =~ /^gitlens\\.views\\.fileHistory/",
-					"group": "9_gitlens@1"
-				},
-				{
-					"command": "gitlens.showSettingsPage#line-history-view",
-					"when": "view =~ /^gitlens\\.views\\.lineHistory/",
-					"group": "9_gitlens@1"
-				},
-				{
-					"command": "gitlens.showSettingsPage#search-commits-view",
-					"when": "view =~ /^gitlens\\.views\\.search/",
-					"group": "9_gitlens@1"
-				},
-				{
-					"command": "gitlens.showSettingsPage",
-					"when": "view =~ /^gitlens\\.views\\.compare/",
-					"group": "9_gitlens@1"
-				},
-				{
-					"command": "gitlens.supportGitLens",
-					"when": "view =~ /^gitlens\\.views\\..*/",
-					"group": "9_gitlens@-1"
-				},
-				{
-					"command": "gitlens.views.branches.setLayoutToList",
-					"when": "view =~ /gitlens\\.views\\.branches/ && config.gitlens.views.branches.branches.layout == tree",
-					"group": "navigation@1"
-				},
-				{
-					"command": "gitlens.views.branches.setLayoutToTree",
-					"when": "view =~ /gitlens\\.views\\.branches/ && config.gitlens.views.branches.branches.layout == list",
-					"group": "navigation@1"
-				},
-				{
-					"command": "gitlens.views.branches.setFilesLayoutToList",
-					"when": "view =~ /^gitlens\\.views\\.branches/ && config.gitlens.views.branches.files.layout == auto",
-					"group": "navigation@13"
-				},
-				{
-					"command": "gitlens.views.branches.setFilesLayoutToTree",
-					"when": "view =~ /^gitlens\\.views\\.branches/ && config.gitlens.views.branches.files.layout == list",
-					"group": "navigation@13"
-				},
-				{
-					"command": "gitlens.views.branches.setFilesLayoutToAuto",
-					"when": "view =~ /^gitlens\\.views\\.branches/ && config.gitlens.views.branches.files.layout == tree",
-					"group": "navigation@13"
-				},
-				{
-					"command": "gitlens.views.branches.refresh",
-					"when": "view =~ /^gitlens\\.views\\.branches/",
-					"group": "navigation@99"
-				},
-				{
-					"command": "gitlens.views.branches.setShowAvatarsOn",
-					"when": "view =~ /^gitlens\\.views\\.branches/ && !config.gitlens.views.branches.avatars",
-					"group": "1_gitlens@0"
-				},
-				{
-					"command": "gitlens.views.branches.setShowAvatarsOff",
-					"when": "view =~ /^gitlens\\.views\\.branches/ && config.gitlens.views.branches.avatars",
-					"group": "1_gitlens@0"
-				},
-				{
-					"command": "gitlens.views.commits.setFilesLayoutToList",
-					"when": "view =~ /^gitlens\\.views\\.commits/ && config.gitlens.views.commits.files.layout == auto",
-					"group": "navigation@13"
-				},
-				{
-					"command": "gitlens.views.commits.setFilesLayoutToTree",
-					"when": "view =~ /^gitlens\\.views\\.commits/ && config.gitlens.views.commits.files.layout == list",
-					"group": "navigation@13"
-				},
-				{
-					"command": "gitlens.views.commits.setFilesLayoutToAuto",
-					"when": "view =~ /^gitlens\\.views\\.commits/ && config.gitlens.views.commits.files.layout == tree",
-					"group": "navigation@13"
-				},
-				{
-					"command": "gitlens.views.commits.setMyCommitsOnlyOn",
-					"when": "view =~ /^gitlens\\.views\\.commits/ && !gitlens:views:commits:myCommitsOnly",
-					"group": "navigation@14"
-				},
-				{
-					"command": "gitlens.views.commits.setMyCommitsOnlyOff",
-					"when": "view =~ /^gitlens\\.views\\.commits/ && gitlens:views:commits:myCommitsOnly",
-					"group": "navigation@14"
-				},
-				{
-					"command": "gitlens.views.commits.refresh",
-					"when": "view =~ /^gitlens\\.views\\.commits/",
-					"group": "navigation@99"
-				},
-				{
-					"command": "gitlens.views.commits.setShowAvatarsOn",
-					"when": "view =~ /^gitlens\\.views\\.commits/ && !config.gitlens.views.commits.avatars",
-					"group": "1_gitlens@0"
-				},
-				{
-					"command": "gitlens.views.commits.setShowAvatarsOff",
-					"when": "view =~ /^gitlens\\.views\\.commits/ && config.gitlens.views.commits.avatars",
-					"group": "1_gitlens@0"
-				},
-				{
-					"command": "gitlens.views.commits.setShowBranchComparisonOn",
-					"when": "view =~ /^gitlens\\.views\\.commits/ && !config.gitlens.views.commits.showBranchComparison",
-					"group": "1_gitlens@1"
-				},
-				{
-					"command": "gitlens.views.commits.setShowBranchComparisonOff",
-					"when": "view =~ /^gitlens\\.views\\.commits/ && config.gitlens.views.commits.showBranchComparison",
-					"group": "1_gitlens@1"
-				},
-				{
-					"command": "gitlens.views.contributors.setFilesLayoutToList",
-					"when": "view =~ /^gitlens\\.views\\.contributors/ && config.gitlens.views.contributors.files.layout == auto",
-					"group": "navigation@13"
-				},
-				{
-					"command": "gitlens.views.contributors.setFilesLayoutToTree",
-					"when": "view =~ /^gitlens\\.views\\.contributors/ && config.gitlens.views.contributors.files.layout == list",
-					"group": "navigation@13"
-				},
-				{
-					"command": "gitlens.views.contributors.setFilesLayoutToAuto",
-					"when": "view =~ /^gitlens\\.views\\.contributors/ && config.gitlens.views.contributors.files.layout == tree",
-					"group": "navigation@13"
-				},
-				{
-					"command": "gitlens.views.contributors.refresh",
-					"when": "view =~ /^gitlens\\.views\\.contributors/",
-					"group": "navigation@99"
-				},
-				{
-					"command": "gitlens.views.contributors.setShowAvatarsOn",
-					"when": "view =~ /^gitlens\\.views\\.contributors/ && !config.gitlens.views.contributors.avatars",
-					"group": "1_gitlens@0"
-				},
-				{
-					"command": "gitlens.views.contributors.setShowAvatarsOff",
-					"when": "view =~ /^gitlens\\.views\\.contributors/ && config.gitlens.views.contributors.avatars",
-					"group": "1_gitlens@0"
-				},
-				{
-					"command": "gitlens.views.remotes.setLayoutToList",
-					"when": "view =~ /gitlens\\.views\\.remotes/ && config.gitlens.views.remotes.branches.layout == tree",
-					"group": "navigation@1"
-				},
-				{
-					"command": "gitlens.views.remotes.setLayoutToTree",
-					"when": "view =~ /gitlens\\.views\\.remotes/ && config.gitlens.views.remotes.branches.layout == list",
-					"group": "navigation@1"
-				},
-				{
-					"command": "gitlens.views.remotes.setFilesLayoutToList",
-					"when": "view =~ /^gitlens\\.views\\.remotes/ && config.gitlens.views.remotes.files.layout == auto",
-					"group": "navigation@13"
-				},
-				{
-					"command": "gitlens.views.remotes.setFilesLayoutToTree",
-					"when": "view =~ /^gitlens\\.views\\.remotes/ && config.gitlens.views.remotes.files.layout == list",
-					"group": "navigation@13"
-				},
-				{
-					"command": "gitlens.views.remotes.setFilesLayoutToAuto",
-					"when": "view =~ /^gitlens\\.views\\.remotes/ && config.gitlens.views.remotes.files.layout == tree",
-					"group": "navigation@13"
-				},
-				{
-					"command": "gitlens.views.remotes.refresh",
-					"when": "view =~ /^gitlens\\.views\\.remotes/",
-					"group": "navigation@99"
-				},
-				{
-					"command": "gitlens.views.remotes.setShowAvatarsOn",
-					"when": "view =~ /^gitlens\\.views\\.remotes/ && !config.gitlens.views.remotes.avatars",
-					"group": "1_gitlens@0"
-				},
-				{
-					"command": "gitlens.views.remotes.setShowAvatarsOff",
-					"when": "view =~ /^gitlens\\.views\\.remotes/ && config.gitlens.views.remotes.avatars",
-					"group": "1_gitlens@0"
+					"command": "gitlens.stashApply",
+					"when": "!gitlens:readonly && view =~ /^gitlens\\.views\\.stashes/",
+					"group": "navigation@11"
 				},
 				{
 					"command": "gitlens.views.stashes.setFilesLayoutToList",
 					"when": "view =~ /^gitlens\\.views\\.stashes/ && config.gitlens.views.stashes.files.layout == auto",
-					"group": "navigation@13"
+					"group": "navigation@50"
 				},
 				{
 					"command": "gitlens.views.stashes.setFilesLayoutToTree",
 					"when": "view =~ /^gitlens\\.views\\.stashes/ && config.gitlens.views.stashes.files.layout == list",
-					"group": "navigation@13"
+					"group": "navigation@50"
 				},
 				{
 					"command": "gitlens.views.stashes.setFilesLayoutToAuto",
 					"when": "view =~ /^gitlens\\.views\\.stashes/ && config.gitlens.views.stashes.files.layout == tree",
-					"group": "navigation@13"
+					"group": "navigation@50"
 				},
 				{
 					"command": "gitlens.views.stashes.refresh",
@@ -5775,29 +5808,34 @@
 					"group": "navigation@99"
 				},
 				{
+					"command": "gitlens.views.createTag",
+					"when": "!gitlens:readonly && view =~ /gitlens\\.views\\.tags\\b/",
+					"group": "navigation@10"
+				},
+				{
 					"command": "gitlens.views.tags.setLayoutToList",
 					"when": "view =~ /gitlens\\.views\\.tags/ && config.gitlens.views.tags.branches.layout == tree",
-					"group": "navigation@1"
+					"group": "navigation@50"
 				},
 				{
 					"command": "gitlens.views.tags.setLayoutToTree",
 					"when": "view =~ /gitlens\\.views\\.tags/ && config.gitlens.views.tags.branches.layout == list",
-					"group": "navigation@1"
+					"group": "navigation@50"
 				},
 				{
 					"command": "gitlens.views.tags.setFilesLayoutToList",
 					"when": "view =~ /^gitlens\\.views\\.tags/ && config.gitlens.views.tags.files.layout == auto",
-					"group": "navigation@13"
+					"group": "navigation@51"
 				},
 				{
 					"command": "gitlens.views.tags.setFilesLayoutToTree",
 					"when": "view =~ /^gitlens\\.views\\.tags/ && config.gitlens.views.tags.files.layout == list",
-					"group": "navigation@13"
+					"group": "navigation@51"
 				},
 				{
 					"command": "gitlens.views.tags.setFilesLayoutToAuto",
 					"when": "view =~ /^gitlens\\.views\\.tags/ && config.gitlens.views.tags.files.layout == tree",
-					"group": "navigation@13"
+					"group": "navigation@51"
 				},
 				{
 					"command": "gitlens.views.tags.refresh",
@@ -5813,6 +5851,66 @@
 					"command": "gitlens.views.tags.setShowAvatarsOff",
 					"when": "view =~ /^gitlens\\.views\\.tags/ && config.gitlens.views.tags.avatars",
 					"group": "1_gitlens@0"
+				},
+				{
+					"command": "gitlens.showSettingsPage#branches-view",
+					"when": "view =~ /^gitlens\\.views\\.branches/",
+					"group": "9_gitlens@1"
+				},
+				{
+					"command": "gitlens.showSettingsPage#commits-view",
+					"when": "view =~ /^gitlens\\.views\\.commits/",
+					"group": "9_gitlens@1"
+				},
+				{
+					"command": "gitlens.showSettingsPage#compare-view",
+					"when": "view =~ /^gitlens\\.views\\.compare/",
+					"group": "9_gitlens@1"
+				},
+				{
+					"command": "gitlens.showSettingsPage#contributors-view",
+					"when": "view =~ /^gitlens\\.views\\.contributors/",
+					"group": "9_gitlens@1"
+				},
+				{
+					"command": "gitlens.showSettingsPage#file-history-view",
+					"when": "view =~ /^gitlens\\.views\\.fileHistory/",
+					"group": "9_gitlens@1"
+				},
+				{
+					"command": "gitlens.showSettingsPage#line-history-view",
+					"when": "view =~ /^gitlens\\.views\\.lineHistory/",
+					"group": "9_gitlens@1"
+				},
+				{
+					"command": "gitlens.showSettingsPage#remotes-view",
+					"when": "view =~ /^gitlens\\.views\\.remotes/",
+					"group": "9_gitlens@1"
+				},
+				{
+					"command": "gitlens.showSettingsPage#repositories-view",
+					"when": "view =~ /^gitlens\\.views\\.repositories/",
+					"group": "9_gitlens@1"
+				},
+				{
+					"command": "gitlens.showSettingsPage#search-commits-view",
+					"when": "view =~ /^gitlens\\.views\\.search/",
+					"group": "9_gitlens@1"
+				},
+				{
+					"command": "gitlens.showSettingsPage#stashes-view",
+					"when": "view =~ /^gitlens\\.views\\.stashes/",
+					"group": "9_gitlens@1"
+				},
+				{
+					"command": "gitlens.showSettingsPage#tags-view",
+					"when": "view =~ /^gitlens\\.views\\.tags/",
+					"group": "9_gitlens@1"
+				},
+				{
+					"command": "gitlens.supportGitLens",
+					"when": "view =~ /^gitlens\\.views\\..*/",
+					"group": "9_gitlens@-1"
 				}
 			],
 			"view/item/context": [
@@ -5837,6 +5935,16 @@
 					"group": "1_gitlens@1"
 				},
 				{
+					"command": "gitlens.views.switchToBranch",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
+					"group": "inline@7"
+				},
+				{
+					"command": "gitlens.views.switchToAnotherBranch",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)/",
+					"group": "inline@7"
+				},
+				{
 					"command": "gitlens.views.publishBranch",
 					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+tracking\\b)/",
 					"group": "inline@8"
@@ -5852,39 +5960,29 @@
 					"group": "inline@9"
 				},
 				{
-					"command": "gitlens.views.switchToAnotherBranch",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)/",
-					"group": "inline@10"
-				},
-				{
-					"command": "gitlens.views.switchToBranch",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
-					"group": "inline@10"
-				},
-				{
-					"command": "gitlens.views.compareWithUpstream",
-					"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+tracking\\b)/",
-					"group": "inline@97"
-				},
-				{
 					"command": "gitlens.views.compareWithHead",
 					"when": "viewItem =~ /gitlens:(branch\\b(?!.*?\\b\\+current\\b)|commit\\b|stash\\b|tag\\b)/",
-					"group": "inline@98",
+					"group": "inline@97",
 					"alt": "gitlens.views.compareWithWorking"
 				},
 				{
 					"command": "gitlens.views.compareWithWorking",
 					"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+current\\b)/",
-					"group": "inline@98"
+					"group": "inline@97"
 				},
 				{
 					"command": "gitlens.views.star",
 					"when": "viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+starred\\b)/",
-					"group": "inline@99"
+					"group": "inline@98"
 				},
 				{
 					"command": "gitlens.views.unstar",
 					"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+starred\\b)/",
+					"group": "inline@98"
+				},
+				{
+					"command": "gitlens.openBranchInRemote",
+					"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(tracking|remote)\\b)/",
 					"group": "inline@99"
 				},
 				{
@@ -6671,7 +6769,7 @@
 				{
 					"command": "gitlens.stashApply",
 					"when": "!gitlens:readonly && viewItem == gitlens:stash",
-					"group": "inline@98"
+					"group": "inline@1"
 				},
 				{
 					"command": "gitlens.views.deleteStash",

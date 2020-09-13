@@ -22,11 +22,17 @@ export class SettingsWebview extends WebviewBase {
 		this.disposable = Disposable.from(
 			this.disposable,
 			...[
+				Commands.ShowSettingsPageAndJumpToBranchesView,
+				Commands.ShowSettingsPageAndJumpToCommitsView,
 				Commands.ShowSettingsPageAndJumpToCompareView,
+				Commands.ShowSettingsPageAndJumpToContributorsView,
 				Commands.ShowSettingsPageAndJumpToFileHistoryView,
 				Commands.ShowSettingsPageAndJumpToLineHistoryView,
+				Commands.ShowSettingsPageAndJumpToRemotesView,
 				Commands.ShowSettingsPageAndJumpToRepositoriesView,
 				Commands.ShowSettingsPageAndJumpToSearchCommitsView,
+				Commands.ShowSettingsPageAndJumpToStashesView,
+				Commands.ShowSettingsPageAndJumpToTagsView,
 			].map(c => {
 				// The show and jump commands are structured to have a # separating the base command from the anchor
 				let anchor: string | undefined;

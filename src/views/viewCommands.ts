@@ -198,11 +198,13 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private addAuthors(node: ContributorNode | ContributorsNode) {
-		if (!(node instanceof ContributorNode) && !(node instanceof ContributorsNode)) return Promise.resolve();
+	private addAuthors(node?: ContributorNode | ContributorsNode) {
+		if (node != null && !(node instanceof ContributorNode) && !(node instanceof ContributorsNode)) {
+			return Promise.resolve();
+		}
 
 		return GitActions.Contributor.addAuthors(
-			node.uri.repoPath,
+			node?.uri.repoPath,
 			node instanceof ContributorNode ? node.contributor : undefined,
 		);
 	}
@@ -253,17 +255,17 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private createBranch(node: ViewRefNode) {
-		if (!(node instanceof ViewRefNode)) return Promise.resolve();
+	private createBranch(node?: ViewRefNode) {
+		if (node != null && !(node instanceof ViewRefNode)) return Promise.resolve();
 
-		return GitActions.Branch.create(node.repoPath, node.ref);
+		return GitActions.Branch.create(node?.repoPath, node?.ref);
 	}
 
 	@debug()
-	private createTag(node: ViewRefNode) {
-		if (!(node instanceof ViewRefNode)) return Promise.resolve();
+	private createTag(node?: ViewRefNode) {
+		if (node != null && !(node instanceof ViewRefNode)) return Promise.resolve();
 
-		return GitActions.Tag.create(node.repoPath, node.ref);
+		return GitActions.Tag.create(node?.repoPath, node?.ref);
 	}
 
 	@debug()
