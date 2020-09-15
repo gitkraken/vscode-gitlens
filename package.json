@@ -7192,7 +7192,8 @@
 					"id": "gitlens.views.commits",
 					"name": "Commits",
 					"when": "gitlens:enabled",
-					"contextualTitle": "GitLens"
+					"contextualTitle": "GitLens",
+					"icon": "images/gitlens-activitybar.svg"
 				},
 				{
 					"id": "gitlens.views.fileHistory",
@@ -7213,13 +7214,15 @@
 					"id": "gitlens.views.branches",
 					"name": "Branches",
 					"when": "gitlens:enabled",
-					"contextualTitle": "GitLens"
+					"contextualTitle": "GitLens",
+					"icon": "images/gitlens-activitybar.svg"
 				},
 				{
 					"id": "gitlens.views.remotes",
 					"name": "Remotes",
 					"when": "gitlens:enabled",
 					"contextualTitle": "GitLens",
+					"icon": "images/gitlens-activitybar.svg",
 					"visibility": "collapsed"
 				},
 				{
@@ -7227,6 +7230,7 @@
 					"name": "Stashes",
 					"when": "gitlens:enabled",
 					"contextualTitle": "GitLens",
+					"icon": "images/gitlens-activitybar.svg",
 					"visibility": "collapsed"
 				},
 				{
@@ -7234,6 +7238,7 @@
 					"name": "Tags",
 					"when": "gitlens:enabled",
 					"contextualTitle": "GitLens",
+					"icon": "images/gitlens-activitybar.svg",
 					"visibility": "collapsed"
 				},
 				{
@@ -7241,6 +7246,7 @@
 					"name": "Contributors",
 					"when": "gitlens:enabled",
 					"contextualTitle": "GitLens",
+					"icon": "images/gitlens-activitybar.svg",
 					"visibility": "collapsed"
 				},
 				{
