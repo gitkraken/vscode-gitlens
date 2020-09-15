@@ -3960,7 +3960,19 @@
 		"menus": {
 			"commandPalette": [
 				{
-					"command": "gitlens.showSettingsPage#repositories-view",
+					"command": "gitlens.showSettingsPage#branches-view",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.showSettingsPage#commits-view",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.showSettingsPage#compare-view",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.showSettingsPage#contributors-view",
 					"when": "false"
 				},
 				{
@@ -3972,11 +3984,23 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.showSettingsPage#remotes-view",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.showSettingsPage#repositories-view",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.showSettingsPage#search-commits-view",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.showSettingsPage#compare-view",
+					"command": "gitlens.showSettingsPage#stashes-view",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.showSettingsPage#tags-view",
 					"when": "false"
 				},
 				{
