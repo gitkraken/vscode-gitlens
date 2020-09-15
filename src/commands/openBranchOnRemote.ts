@@ -18,20 +18,27 @@ import { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenBranchOnRemoteCommandArgs {
 	branch?: string;
+	clipboard?: boolean;
 	remote?: string;
 }
 
 @command()
 export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 	constructor() {
-		super(Commands.OpenBranchInRemote);
+		super([Commands.OpenBranchInRemote, Commands.CopyRemoteBranchUrl]);
 	}
 
 	protected preExecute(context: CommandContext, args?: OpenBranchOnRemoteCommandArgs) {
 		if (isCommandViewContextWithBranch(context)) {
-			args = { ...args };
-			args.branch = context.node.branch.name;
-			args.remote = context.node.branch.getRemoteName();
+			args = {
+				...args,
+				branch: context.node.branch.name,
+				remote: context.node.branch.getRemoteName(),
+			};
+		}
+
+		if (context.command === Commands.CopyRemoteBranchUrl) {
+			args = { ...args, clipboard: true };
 		}
 
 		return this.execute(context.editor, context.uri, args);
@@ -42,19 +49,28 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 
 		const gitUri = uri && (await GitUri.fromUri(uri));
 
-		const repoPath = await getRepoPathOrActiveOrPrompt(gitUri, editor, 'Open Branch On Remote');
+		const repoPath = await getRepoPathOrActiveOrPrompt(
+			gitUri,
+			editor,
+			args?.clipboard ? 'Copy Remote Branch Url' : 'Open Branch On Remote',
+		);
 		if (!repoPath) return;
 
 		args = { ...args };
 
 		try {
 			if (args.branch == null) {
-				const pick = await ReferencePicker.show(repoPath, 'Open Branch On Remote', 'Choose a branch to open', {
-					autoPick: true,
-					// checkmarks: false,
-					filterBranches: b => b.tracking != null,
-					include: ReferencesQuickPickIncludes.Branches,
-				});
+				const pick = await ReferencePicker.show(
+					repoPath,
+					args.clipboard ? 'Copy Remote Branch Url' : 'Open Branch On Remote',
+					args.clipboard ? 'Choose a branch to copy the url from' : 'Choose a branch to open',
+					{
+						autoPick: true,
+						// checkmarks: false,
+						filterBranches: b => b.tracking != null,
+						include: ReferencesQuickPickIncludes.Branches,
+					},
+				);
 				if (pick == null || pick instanceof CommandQuickPickItem) return;
 
 				args.branch = pick.ref;
@@ -67,6 +83,7 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 				},
 				repoPath: repoPath,
 				remote: args.remote,
+				clipboard: args.clipboard,
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenBranchOnRemoteCommand');

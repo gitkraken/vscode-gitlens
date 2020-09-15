@@ -5,8 +5,6 @@ export * from './commands/browseRepoAtRevision';
 export * from './commands/closeUnchangedFiles';
 export * from './commands/common';
 export * from './commands/copyMessageToClipboard';
-export * from './commands/copyRemoteCommitUrlToClipboard';
-export * from './commands/copyRemoteFileUrlToClipboard';
 export * from './commands/copyShaToClipboard';
 export * from './commands/diffBranchWith';
 export * from './commands/openDirectoryCompare';

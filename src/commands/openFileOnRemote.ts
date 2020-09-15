@@ -19,6 +19,7 @@ import { Logger } from '../logger';
 import { ReferencePicker, ReferencesQuickPickIncludes } from '../quickpicks';
 import { OpenOnRemoteCommandArgs } from './openOnRemote';
 import { Strings } from '../system';
+import { StatusFileNode } from '../views/nodes';
 
 export interface OpenFileOnRemoteCommandArgs {
 	branch?: string;
@@ -30,24 +31,55 @@ export interface OpenFileOnRemoteCommandArgs {
 @command()
 export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 	constructor() {
-		super(Commands.OpenFileInRemote);
+		super([Commands.OpenFileInRemote, Commands.CopyRemoteFileUrl]);
 	}
 
-	protected preExecute(context: CommandContext, args?: OpenFileOnRemoteCommandArgs) {
-		if (isCommandViewContextWithCommit(context)) {
+	protected async preExecute(context: CommandContext, args?: OpenFileOnRemoteCommandArgs) {
+		let uri = context.uri;
+
+		if (context.type === 'uris' || context.type === 'scm-states') {
 			args = { ...args, range: false };
-			if (isCommandViewContextWithBranch(context)) {
-				args.branch = context.node.branch !== undefined ? context.node.branch.name : undefined;
+		} else if (isCommandViewContextWithCommit(context)) {
+			args = { ...args, range: false };
+
+			if (context.command === Commands.CopyRemoteFileUrl) {
+				// If it is a StatusFileNode then don't include the sha, since it hasn't been pushed yet
+				args.sha = context.node instanceof StatusFileNode ? undefined : context.node.commit.sha;
+			} else if (isCommandViewContextWithBranch(context)) {
+				args.branch = context.node.branch?.name;
 			}
 
-			return this.execute(
-				context.editor,
-				context.node.commit.isFile ? context.node.commit.uri : context.node.uri,
-				args,
-			);
+			uri = context.node.commit.isFile ? context.node.commit.uri : context.node.uri;
+		} else if (context.type === 'viewItem') {
+			args = { ...args, range: false };
+
+			uri = context.node.uri ?? context.uri;
 		}
 
-		return this.execute(context.editor, context.uri, args);
+		if (context.command === Commands.CopyRemoteFileUrl) {
+			args = { ...args, clipboard: true };
+			if (args.sha == null) {
+				const uri = getCommandUri(context.uri, context.editor);
+				if (uri != null) {
+					const gitUri = await GitUri.fromUri(uri);
+					if (gitUri.repoPath) {
+						if (gitUri.sha == null) {
+							const commit = await Container.git.getCommitForFile(gitUri.repoPath, gitUri.fsPath, {
+								firstIfNotFound: true,
+							});
+
+							if (commit != null) {
+								args.sha = commit.sha;
+							}
+						} else {
+							args.sha = gitUri.sha;
+						}
+					}
+				}
+			}
+		}
+
+		return this.execute(context.editor, uri, args);
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: OpenFileOnRemoteCommandArgs) {

@@ -2658,7 +2658,7 @@
 				}
 			},
 			{
-				"command": "gitlens.copyRemoteCommitUrlToClipboard",
+				"command": "gitlens.copyRemoteCommitUrl",
 				"title": "Copy Remote Commit Url",
 				"category": "GitLens",
 				"icon": {
@@ -2701,10 +2701,28 @@
 				"icon": "$(globe)"
 			},
 			{
+				"command": "gitlens.copyRemoteBranchesUrl",
+				"title": "Copy Remote Branches Url",
+				"category": "GitLens",
+				"icon": {
+					"dark": "images/dark/icon-copy-link.svg",
+					"light": "images/light/icon-copy-link.svg"
+				}
+			},
+			{
 				"command": "gitlens.openBranchInRemote",
 				"title": "Open Branch on Remote",
 				"category": "GitLens",
 				"icon": "$(globe)"
+			},
+			{
+				"command": "gitlens.copyRemoteBranchUrl",
+				"title": "Copy Remote Branch Url",
+				"category": "GitLens",
+				"icon": {
+					"dark": "images/dark/icon-copy-link.svg",
+					"light": "images/light/icon-copy-link.svg"
+				}
 			},
 			{
 				"command": "gitlens.openCommitInRemote",
@@ -2746,6 +2764,15 @@
 				"title": "Open Repository on Remote",
 				"category": "GitLens",
 				"icon": "$(globe)"
+			},
+			{
+				"command": "gitlens.copyRemoteRepositoryUrl",
+				"title": "Copy Remote Repository Url",
+				"category": "GitLens",
+				"icon": {
+					"dark": "images/dark/icon-copy-link.svg",
+					"light": "images/light/icon-copy-link.svg"
+				}
 			},
 			{
 				"command": "gitlens.openRevisionFile",
@@ -4208,7 +4235,7 @@
 					"when": "gitlens:activeFileStatus =~ /blameable/"
 				},
 				{
-					"command": "gitlens.copyRemoteCommitUrlToClipboard",
+					"command": "gitlens.copyRemoteCommitUrl",
 					"when": "gitlens:activeFileStatus =~ /tracked/ && gitlens:activeFileStatus =~ /remotes/"
 				},
 				{
@@ -4232,8 +4259,16 @@
 					"when": "gitlens:hasRemotes"
 				},
 				{
+					"command": "gitlens.copyRemoteBranchesUrl",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.openBranchInRemote",
 					"when": "gitlens:hasRemotes"
+				},
+				{
+					"command": "gitlens.copyRemoteBranchUrl",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.openCommitInRemote",
@@ -4254,6 +4289,10 @@
 				{
 					"command": "gitlens.openRepoInRemote",
 					"when": "gitlens:hasRemotes"
+				},
+				{
+					"command": "gitlens.copyRemoteRepositoryUrl",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.openRevisionFile",
@@ -5054,12 +5093,14 @@
 				{
 					"command": "gitlens.openFileInRemote",
 					"when": "editorTextFocus && gitlens:activeFileStatus =~ /remotes/ && config.gitlens.menus.editor.remote",
-					"group": "2_gitlens_remote@1"
+					"group": "2_gitlens_remote@1",
+					"alt": "gitlens.copyRemoteFileUrlToClipboard"
 				},
 				{
 					"command": "gitlens.openCommitInRemote",
 					"when": "editorTextFocus && gitlens:activeFileStatus =~ /remotes/ && config.gitlens.menus.editor.remote",
-					"group": "2_gitlens_remote@2"
+					"group": "2_gitlens_remote@2",
+					"alt": "gitlens.copyRemoteCommitUrl"
 				},
 				{
 					"command": "gitlens.diffLineWithPrevious",
@@ -5092,7 +5133,7 @@
 					"group": "9_cutcopypaste_gitlens@2"
 				},
 				{
-					"command": "gitlens.copyRemoteCommitUrlToClipboard",
+					"command": "gitlens.copyRemoteCommitUrl",
 					"when": "editorTextFocus && gitlens:activeFileStatus =~ /remotes/ && config.gitlens.menus.editor.clipboard",
 					"group": "9_cutcopypaste_gitlens@3"
 				},
@@ -5202,7 +5243,8 @@
 				{
 					"command": "gitlens.openFileInRemote",
 					"when": "gitlens:enabled && gitlens:hasRemotes && config.gitlens.menus.editorTab.remote",
-					"group": "1_co_gitlens@3"
+					"group": "1_co_gitlens@3",
+					"alt": "gitlens.copyRemoteFileUrlToClipboard"
 				},
 				{
 					"command": "gitlens.diffWithPrevious",
@@ -5239,7 +5281,8 @@
 				{
 					"command": "gitlens.openFileInRemote",
 					"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && gitlens:hasRemotes && config.gitlens.menus.explorer.remote",
-					"group": "1_gitlens@100"
+					"group": "1_gitlens@100",
+					"alt": "gitlens.copyRemoteFileUrlToClipboard"
 				},
 				{
 					"command": "gitlens.diffWithPrevious",
@@ -5322,7 +5365,8 @@
 				{
 					"command": "gitlens.openFileInRemote",
 					"when": "gitlens:enabled && gitlens:hasRemotes && config.gitlens.menus.scmItem.remote",
-					"group": "navigation"
+					"group": "navigation",
+					"alt": "gitlens.copyRemoteFileUrlToClipboard"
 				},
 				{
 					"command": "gitlens.externalDiff",
@@ -5951,12 +5995,14 @@
 				{
 					"command": "gitlens.openBranchesInRemote",
 					"when": "viewItem =~ /gitlens:branches\\b(?=.*?\\b\\+remotes\\b)/",
-					"group": "inline@98"
+					"group": "inline@98",
+					"alt": "gitlens.copyRemoteBranchesUrl"
 				},
 				{
 					"command": "gitlens.openBranchesInRemote",
 					"when": "viewItem =~ /gitlens:branches\\b(?=.*?\\b\\+remotes\\b)/",
-					"group": "1_gitlens@1"
+					"group": "1_gitlens@1",
+					"alt": "gitlens.copyRemoteBranchesUrl"
 				},
 				{
 					"command": "gitlens.views.switchToBranch",
@@ -6007,7 +6053,8 @@
 				{
 					"command": "gitlens.openBranchInRemote",
 					"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(tracking|remote)\\b)/",
-					"group": "inline@99"
+					"group": "inline@99",
+					"alt": "gitlens.copyRemoteBranchUrl"
 				},
 				{
 					"command": "gitlens.views.switchToAnotherBranch",
@@ -6057,7 +6104,8 @@
 				{
 					"command": "gitlens.openBranchInRemote",
 					"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(tracking|remote)\\b)/",
-					"group": "2_gitlens_quickopen@1"
+					"group": "2_gitlens_quickopen@1",
+					"alt": "gitlens.copyRemoteBranchUrl"
 				},
 				{
 					"command": "gitlens.views.openDirectoryDiffWithWorking",
@@ -6163,7 +6211,8 @@
 				{
 					"command": "gitlens.openCommitInRemote",
 					"when": "viewItem =~ /gitlens:commit\\b/ && gitlens:hasRemotes",
-					"group": "inline@99"
+					"group": "inline@99",
+					"alt": "gitlens.copyRemoteCommitUrl"
 				},
 				{
 					"command": "gitlens.views.cherryPick",
@@ -6234,7 +6283,7 @@
 					"command": "gitlens.openCommitInRemote",
 					"when": "viewItem =~ /gitlens:commit\\b/ && gitlens:hasRemotes",
 					"group": "2_gitlens_quickopen_2@1",
-					"alt": "gitlens.copyRemoteCommitUrlToClipboard"
+					"alt": "gitlens.copyRemoteCommitUrl"
 				},
 				{
 					"command": "gitlens.revealCommitInView",
@@ -6355,7 +6404,7 @@
 					"command": "gitlens.openCommitInRemote",
 					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && gitlens:hasRemotes",
 					"group": "2_gitlens_quickopen_2@3",
-					"alt": "gitlens.copyRemoteCommitUrlToClipboard"
+					"alt": "gitlens.copyRemoteCommitUrl"
 				},
 				{
 					"command": "gitlens.views.highlightChanges",
@@ -6383,7 +6432,7 @@
 					"group": "3_gitlens_explore@4"
 				},
 				{
-					"command": "gitlens.copyRemoteCommitUrlToClipboard",
+					"command": "gitlens.copyRemoteCommitUrl",
 					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && gitlens:hasRemotes",
 					"group": "7_gitlens_cutcopypaste@3"
 				},
@@ -6446,7 +6495,8 @@
 				{
 					"command": "gitlens.openRepoInRemote",
 					"when": "viewItem =~ /gitlens:remote\\b/",
-					"group": "inline@99"
+					"group": "inline@99",
+					"alt": "gitlens.copyRemoteRepositoryUrl"
 				},
 				{
 					"command": "gitlens.views.fetch",
@@ -6461,12 +6511,14 @@
 				{
 					"command": "gitlens.openRepoInRemote",
 					"when": "viewItem =~ /gitlens:remote\\b/",
-					"group": "5_gitlens_open@1"
+					"group": "5_gitlens_open@1",
+					"alt": "gitlens.copyRemoteRepositoryUrl"
 				},
 				{
 					"command": "gitlens.openBranchesInRemote",
 					"when": "viewItem =~ /gitlens:remote\\b/",
-					"group": "5_gitlens_open@2"
+					"group": "5_gitlens_open@2",
+					"alt": "gitlens.copyRemoteBranchesUrl"
 				},
 				{
 					"command": "gitlens.views.terminalRemoveRemote",
@@ -6562,7 +6614,8 @@
 				{
 					"command": "gitlens.openRepoInRemote",
 					"when": "viewItem =~ /gitlens:repository\\b/ && gitlens:hasRemotes",
-					"group": "2_gitlens_quickopen@2"
+					"group": "2_gitlens_quickopen@2",
+					"alt": "gitlens.copyRemoteRepositoryUrl"
 				},
 				{
 					"command": "gitlens.showCommitSearch",

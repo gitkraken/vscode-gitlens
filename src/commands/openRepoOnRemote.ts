@@ -16,19 +16,23 @@ import { Logger } from '../logger';
 import { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenRepoOnRemoteCommandArgs {
+	clipboard?: boolean;
 	remote?: string;
 }
 
 @command()
 export class OpenRepoOnRemoteCommand extends ActiveEditorCommand {
 	constructor() {
-		super(Commands.OpenRepoInRemote);
+		super([Commands.OpenRepoInRemote, Commands.CopyRemoteRepositoryUrl]);
 	}
 
 	protected preExecute(context: CommandContext, args?: OpenRepoOnRemoteCommandArgs) {
 		if (isCommandViewContextWithRemote(context)) {
-			args = { ...args };
-			args.remote = context.node.remote.name;
+			args = { ...args, remote: context.node.remote.name };
+		}
+
+		if (context.command === Commands.CopyRemoteRepositoryUrl) {
+			args = { ...args, clipboard: true };
 		}
 
 		return this.execute(context.editor, context.uri, args);
@@ -39,7 +43,13 @@ export class OpenRepoOnRemoteCommand extends ActiveEditorCommand {
 
 		const gitUri = uri && (await GitUri.fromUri(uri));
 
-		const repoPath = await getRepoPathOrActiveOrPrompt(gitUri, editor, 'Choose which repository to open on remote');
+		const repoPath = await getRepoPathOrActiveOrPrompt(
+			gitUri,
+			editor,
+			args?.clipboard
+				? 'Choose which repository to copy the url from'
+				: 'Choose which repository to open on remote',
+		);
 		if (!repoPath) return;
 
 		try {
@@ -49,6 +59,7 @@ export class OpenRepoOnRemoteCommand extends ActiveEditorCommand {
 				},
 				repoPath: repoPath,
 				remote: args?.remote,
+				clipboard: args?.clipboard,
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenRepoOnRemoteCommand');

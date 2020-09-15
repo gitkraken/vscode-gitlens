@@ -31,17 +31,24 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 	}
 
 	constructor() {
-		super(Commands.OpenCommitInRemote);
+		super([Commands.OpenCommitInRemote, Commands.CopyRemoteCommitUrl]);
 	}
 
 	protected preExecute(context: CommandContext, args?: OpenCommitOnRemoteCommandArgs) {
+		let uri = context.uri;
+
 		if (isCommandViewContextWithCommit(context)) {
-			args = { ...args };
-			args.sha = context.node.commit.sha;
-			return this.execute(context.editor, context.node.commit.uri, args);
+			if (context.node.commit.isUncommitted) return Promise.resolve(undefined);
+
+			args = { ...args, sha: context.node.commit.sha };
+			uri = context.node.commit.isFile ? context.node.commit.uri : context.node.uri;
 		}
 
-		return this.execute(context.editor, context.uri, args);
+		if (context.command === Commands.CopyRemoteCommitUrl) {
+			args = { ...args, clipboard: true };
+		}
+
+		return this.execute(context.editor, uri, args);
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: OpenCommitOnRemoteCommandArgs) {

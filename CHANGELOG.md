@@ -29,7 +29,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Shows a changes hover with the full set of changes (diff hunk) and even with unsaved changes
 - Adds a new _Follow the Cursor_ command to the _File History_ view &mdash; which will ultimately replace the _Line History_ view, although, for now, it will just be disabled by default
 - Adds a new _Open File from Remote_ (`gitlens.openFileFromRemote`) command &mdash; opens the local file from a remote file url
-- Adds a new _Copy Remote Commit Url_ (`gitlens.copyRemoteCommitUrlToClipboard`) command &mdash; copies the remote url of the current line commit to the clipboard
+- Adds a new _Copy Remote Commit Url_ (`gitlens.copyRemoteCommitUrl`) command &mdash; copies the remote url of the current line commit to the clipboard
 - Adds much improved co-author support
   - Provides an updatable quick pick of co-authors
   - Adds the _Add Co-authors_ (`gitlens.addAuthors`) command to the Source Control toolbar

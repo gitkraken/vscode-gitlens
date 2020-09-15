@@ -16,19 +16,23 @@ import {
 import { OpenOnRemoteCommandArgs } from './openOnRemote';
 
 export interface OpenBranchesOnRemoteCommandArgs {
+	clipboard?: boolean;
 	remote?: string;
 }
 
 @command()
 export class OpenBranchesOnRemoteCommand extends ActiveEditorCommand {
 	constructor() {
-		super(Commands.OpenBranchesInRemote);
+		super([Commands.OpenBranchesInRemote, Commands.CopyRemoteBranchesUrl]);
 	}
 
 	protected preExecute(context: CommandContext, args?: OpenBranchesOnRemoteCommandArgs) {
 		if (isCommandViewContextWithRemote(context)) {
-			args = { ...args };
-			args.remote = context.node.remote.name;
+			args = { ...args, remote: context.node.remote.name };
+		}
+
+		if (context.command === Commands.CopyRemoteBranchesUrl) {
+			args = { ...args, clipboard: true };
 		}
 
 		return this.execute(context.editor, context.uri, args);
@@ -39,7 +43,11 @@ export class OpenBranchesOnRemoteCommand extends ActiveEditorCommand {
 
 		const gitUri = uri && (await GitUri.fromUri(uri));
 
-		const repoPath = await getRepoPathOrActiveOrPrompt(gitUri, editor, 'Open Branches on Remote');
+		const repoPath = await getRepoPathOrActiveOrPrompt(
+			gitUri,
+			editor,
+			args?.clipboard ? 'Copy Remote Branches Url' : 'Open Branches on Remote',
+		);
 		if (!repoPath) return;
 
 		try {
@@ -49,6 +57,7 @@ export class OpenBranchesOnRemoteCommand extends ActiveEditorCommand {
 				},
 				repoPath: repoPath,
 				remote: args?.remote,
+				clipboard: args?.clipboard,
 			}));
 		} catch (ex) {
 			Logger.error(ex, 'OpenBranchesOnRemoteCommand');
