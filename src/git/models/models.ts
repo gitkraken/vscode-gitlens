@@ -1,5 +1,5 @@
 'use strict';
-
+import { GitBranch } from './branch';
 import { Container } from '../../container';
 import { GlyphChars } from '../../constants';
 
@@ -97,6 +97,7 @@ export interface GitBranchReference {
 	name: string;
 	ref: string;
 	readonly remote: boolean;
+	readonly tracking?: string;
 	repoPath: string;
 }
 
@@ -133,7 +134,7 @@ export namespace GitReference {
 	export function create(
 		ref: string,
 		repoPath: string,
-		options: { refType: 'branch'; name: string; remote: boolean },
+		options: { refType: 'branch'; name: string; remote: boolean; tracking?: string },
 	): GitBranchReference;
 	export function create(
 		ref: string,
@@ -194,7 +195,7 @@ export namespace GitReference {
 
 	export function getNameWithoutRemote(ref: GitReference) {
 		if (ref.refType === 'branch') {
-			return ref.remote ? ref.name.substring(ref.name.indexOf('/') + 1) : ref.name;
+			return ref.remote ? GitBranch.getNameWithoutRemote(ref.name) : ref.name;
 		}
 		return ref.name;
 	}

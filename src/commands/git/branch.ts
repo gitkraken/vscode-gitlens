@@ -37,7 +37,7 @@ interface CreateState {
 	flags: CreateFlags[];
 }
 
-type DeleteFlags = '--force';
+type DeleteFlags = '--force' | '--remotes';
 
 interface DeleteState {
 	subcommand: 'delete';
@@ -363,7 +363,10 @@ export class BranchGitCommand extends QuickCommand<State> {
 			state.flags = result;
 
 			QuickCommand.endSteps(state);
-			void state.repo.branchDelete(state.references, { force: state.flags.includes('--force') });
+			void state.repo.branchDelete(state.references, {
+				force: state.flags.includes('--force'),
+				remote: state.flags.includes('--remotes'),
+			});
 		}
 	}
 
@@ -371,24 +374,48 @@ export class BranchGitCommand extends QuickCommand<State> {
 		state: DeleteStepState<ExcludeSome<DeleteState, 'references', GitBranchReference>>,
 		context: Context,
 	): StepResultGenerator<DeleteFlags[]> {
+		const confirmations: FlagsQuickPickItem<DeleteFlags>[] = [
+			FlagsQuickPickItem.create<DeleteFlags>(state.flags, [], {
+				label: context.title,
+				detail: `Will delete ${GitReference.toString(state.references)}`,
+			}),
+		];
+		if (!state.references.every(b => b.remote)) {
+			confirmations.push(
+				FlagsQuickPickItem.create<DeleteFlags>(state.flags, ['--force'], {
+					label: `Force ${context.title}`,
+					description: '--force',
+					detail: `Will forcably delete ${GitReference.toString(state.references)}`,
+				}),
+			);
+
+			if (state.references.some(b => b.tracking != null)) {
+				confirmations.push(
+					FlagsQuickPickItem.create<DeleteFlags>(state.flags, ['--remotes'], {
+						label: `${context.title} & Remote${
+							state.references.filter(b => !b.remote).length > 1 ? 's' : ''
+						}`,
+						description: '--remotes',
+						detail: `Will delete ${GitReference.toString(
+							state.references,
+						)} and any remote tracking branches`,
+					}),
+					FlagsQuickPickItem.create<DeleteFlags>(state.flags, ['--force', '--remotes'], {
+						label: `Force ${context.title} & Remote${
+							state.references.filter(b => !b.remote).length > 1 ? 's' : ''
+						}`,
+						description: '--force --remotes',
+						detail: `Will forcably delete ${GitReference.toString(
+							state.references,
+						)} and any remote tracking branches`,
+					}),
+				);
+			}
+		}
+
 		const step: QuickPickStep<FlagsQuickPickItem<DeleteFlags>> = QuickCommand.createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
-			[
-				FlagsQuickPickItem.create<DeleteFlags>(state.flags, [], {
-					label: context.title,
-					detail: `Will delete ${GitReference.toString(state.references)}`,
-				}),
-				// Don't allow force if there are remote branches
-				...(!state.references.some(r => r.remote)
-					? [
-							FlagsQuickPickItem.create<DeleteFlags>(state.flags, ['--force'], {
-								label: `Force ${context.title}`,
-								description: '--force',
-								detail: `Will forcably delete ${GitReference.toString(state.references)}`,
-							}),
-					  ]
-					: []),
-			],
+			confirmations,
 			context,
 		);
 		const selection: StepSelection<typeof step> = yield step;

@@ -16,15 +16,15 @@ import {
 import { configuration } from '../../configuration';
 import { StarredRepositories, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
-import { Functions, gate, Iterables, log, logName } from '../../system';
 import { GitBranch, GitContributor, GitDiffShortStat, GitRemote, GitStash, GitStatus, GitTag } from '../git';
 import { GitService } from '../gitService';
 import { GitUri } from '../gitUri';
-import { RemoteProviderFactory, RemoteProviders, RemoteProviderWithApi } from '../remotes/factory';
-import { Messages } from '../../messages';
 import { Logger } from '../../logger';
-import { runGitCommandInTerminal } from '../../terminal';
+import { Messages } from '../../messages';
 import { GitBranchReference, GitReference, GitTagReference } from './models';
+import { RemoteProviderFactory, RemoteProviders, RemoteProviderWithApi } from '../remotes/factory';
+import { Arrays, Functions, gate, Iterables, log, logName } from '../../system';
+import { runGitCommandInTerminal } from '../../terminal';
 
 const ignoreGitRegex = /\.git(?:\/|\\|$)/;
 const refsRegex = /\.git\/refs\/(heads|remotes|tags)/;
@@ -275,7 +275,10 @@ export class Repository implements Disposable {
 
 	@gate()
 	@log()
-	branchDelete(branches: GitBranchReference | GitBranchReference[], { force }: { force?: boolean } = {}) {
+	branchDelete(
+		branches: GitBranchReference | GitBranchReference[],
+		{ force, remote }: { force?: boolean; remote?: boolean } = {},
+	) {
 		if (!Array.isArray(branches)) {
 			branches = [branches];
 		}
@@ -287,16 +290,34 @@ export class Repository implements Disposable {
 				args.push('--force');
 			}
 			this.runTerminalCommand('branch', ...args, ...branches.map(b => b.ref));
+
+			if (remote) {
+				const trackingBranches = localBranches.filter(b => b.tracking != null);
+				if (trackingBranches.length !== 0) {
+					const branchesByOrigin = Arrays.groupByMap(trackingBranches, b => GitBranch.getRemote(b.tracking!));
+
+					for (const [remote, branches] of branchesByOrigin.entries()) {
+						this.runTerminalCommand(
+							'push',
+							'-d',
+							remote,
+							...branches.map(b => GitBranch.getNameWithoutRemote(b.tracking!)),
+						);
+					}
+				}
+			}
 		}
 
 		const remoteBranches = branches.filter(b => b.remote);
 		if (remoteBranches.length !== 0) {
-			for (const branch of remoteBranches) {
+			const branchesByOrigin = Arrays.groupByMap(remoteBranches, b => GitBranch.getRemote(b.name));
+
+			for (const [remote, branches] of branchesByOrigin.entries()) {
 				this.runTerminalCommand(
 					'push',
 					'-d',
-					GitBranch.getRemote(branch.name),
-					GitReference.getNameWithoutRemote(branch),
+					remote,
+					...branches.map(b => GitReference.getNameWithoutRemote(b)),
 				);
 			}
 		}

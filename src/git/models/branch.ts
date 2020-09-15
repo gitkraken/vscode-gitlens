@@ -219,6 +219,10 @@ export class GitBranch implements GitBranchReference {
 		return `(${GitRevision.shorten(sha)}...)`;
 	}
 
+	static getNameWithoutRemote(name: string): string {
+		return name.substring(name.indexOf('/') + 1);
+	}
+
 	static getRemote(name: string): string {
 		return name.substring(0, name.indexOf('/'));
 	}
