@@ -2586,7 +2586,7 @@
 			},
 			{
 				"command": "gitlens.showQuickCommitFileDetails",
-				"title": "Show Commit",
+				"title": "Show Commit (file)",
 				"category": "GitLens"
 			},
 			{
