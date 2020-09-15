@@ -192,15 +192,15 @@ export class GitBranch implements GitBranchReference {
 		return starred !== undefined && starred[this.id] === true;
 	}
 
-	star() {
-		return this.updateStarred(true);
+	star(updateViews: boolean = true) {
+		return this.updateStarred(true, updateViews);
 	}
 
-	unstar() {
-		return this.updateStarred(false);
+	unstar(updateViews: boolean = true) {
+		return this.updateStarred(false, updateViews);
 	}
 
-	private async updateStarred(star: boolean) {
+	private async updateStarred(star: boolean, updateViews: boolean = true) {
 		let starred = Container.context.workspaceState.get<StarredBranches>(WorkspaceState.StarredBranches);
 		if (starred === undefined) {
 			starred = Object.create(null) as StarredBranches;
@@ -213,6 +213,13 @@ export class GitBranch implements GitBranchReference {
 			starred = rest;
 		}
 		await Container.context.workspaceState.update(WorkspaceState.StarredBranches, starred);
+
+		// TODO@eamodio this is UGLY
+		if (updateViews) {
+			void (await Container.branchesView.refresh());
+			void (await Container.remotesView.refresh());
+			void (await Container.repositoriesView.refresh());
+		}
 	}
 
 	static formatDetached(sha: string): string {

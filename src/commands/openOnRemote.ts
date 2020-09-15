@@ -5,7 +5,11 @@ import { Container } from '../container';
 import { GitRemote, GitRevision, RemoteProvider, RemoteResource, RemoteResourceType } from '../git/git';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { CopyOrOpenRemoteCommandQuickPickItem, RemoteProviderPicker } from '../quickpicks';
+import {
+	CopyOrOpenRemoteCommandQuickPickItem,
+	RemoteProviderPicker,
+	SetADefaultRemoteCommandQuickPickItem,
+} from '../quickpicks';
 import { Strings } from '../system';
 
 export type OpenOnRemoteCommandArgs =
@@ -125,8 +129,24 @@ export class OpenOnRemoteCommand extends Command {
 				`Choose which remote to ${args.clipboard ? 'copy the url from' : 'open on'}`,
 				args.resource,
 				remotes,
-				args.clipboard,
+				{
+					clipboard: args.clipboard,
+				},
 			);
+
+			if (pick instanceof SetADefaultRemoteCommandQuickPickItem) {
+				const remote = await pick.execute();
+				if (remote != null) {
+					void (await new CopyOrOpenRemoteCommandQuickPickItem(
+						remote,
+						args.resource,
+						args.clipboard,
+					).execute());
+				}
+
+				return;
+			}
+
 			void (await pick?.execute());
 		} catch (ex) {
 			Logger.error(ex, 'OpenOnRemoteCommand');
