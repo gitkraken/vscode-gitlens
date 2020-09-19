@@ -239,7 +239,47 @@
 								data-setting-type="object"
 								disabled
 							/>
-							<label for="menus.editorGroup.blame">Add blame commands</label>
+							<label for="menus.editorGroup.blame">Add file annotation command</label>
+						</div>
+					</div>
+
+					<div class="settings ml-4">
+						<div class="setting" data-enablement="menus.editorGroup.blame">
+							<div class="setting__input">
+								<label for="fileAnnotations.command">File annotation command toggle</label>
+								<div class="select-container">
+									<select
+										id="fileAnnotations.command"
+										name="fileAnnotations.command"
+										data-setting
+										disabled
+									>
+										<option value="blame+heatmap">Blame, Heatmap (alt)</option>
+										<option value="blame+changes">Blame, Changes (alt)</option>
+										<option value="changes+blame">Changes, Blame (alt)</option>
+										<option value="changes+heatmap">Changes, Heatmap (alt)</option>
+										<option value="heatmap+blame">Heatmap, Blame (alt)</option>
+										<option value="heatmap+changes">Heatmap, Changes (alt)</option>
+									</select>
+								</div>
+							</div>
+						</div>
+
+						<div class="setting" data-enablement="menus.editorGroup.blame">
+							<div class="setting__input">
+								<label for="fileAnnotations.diffCommand">File (diff) annotation command toggle</label>
+								<div class="select-container">
+									<select
+										id="fileAnnotations.diffCommand"
+										name="fileAnnotations.diffCommand"
+										data-setting
+										disabled
+									>
+										<option value="blame+heatmap">Blame, Heatmap (alt)</option>
+										<option value="heatmap+blame">Heatmap, Blame (alt)</option>
+									</select>
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>

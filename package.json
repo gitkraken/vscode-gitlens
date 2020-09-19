@@ -534,6 +534,42 @@
 					"markdownDescription": "Specifies the style of the gravatar default (fallback) images",
 					"scope": "window"
 				},
+				"gitlens.fileAnnotations.command": {
+					"type": "string",
+					"default": "blame+heatmap",
+					"enum": [
+						"blame+heatmap",
+						"blame+changes",
+						"changes+blame",
+						"changes+heatmap",
+						"heatmap+blame",
+						"heatmap+changes"
+					],
+					"enumDescriptions": [
+						"Toggles Gutter Blame annotations, and toggles Gutter Heatmap annotations when holding `alt`",
+						"Toggles Gutter Blame annotations, and toggles Gutter Changes annotations when holding `alt`",
+						"Toggles Gutter Changes annotations, and toggles Gutter Blame annotations when holding `alt`",
+						"Toggles Gutter Changes annotations, and toggles Gutter Heatmap annotations when holding `alt`",
+						"Toggles Gutter Heatmap annotations, and toggles Gutter Blame annotations when holding `alt`",
+						"Toggles Gutter Heatmap annotations, and toggles Gutter Changes annotations when holding `alt`"
+					],
+					"markdownDescription": "Specifies the file annotation types to be toggled by the editor toolbar command and alternate command",
+					"scope": "window"
+				},
+				"gitlens.fileAnnotations.diffCommand": {
+					"type": "string",
+					"default": "blame",
+					"enum": [
+						"blame+heatmap",
+						"heatmap+blame"
+					],
+					"enumDescriptions": [
+						"Toggles Gutter Blame annotations, and toggles Gutter Heatmap annotations when holding `alt`",
+						"Toggles Gutter Heatmap annotations, and toggles Gutter Blame annotations when holding `alt`"
+					],
+					"markdownDescription": "Specifies the file annotation types to be toggled by the editor toolbar command and alternate command when in a diff editor",
+					"scope": "window"
+				},
 				"gitlens.gitCommands.closeOnFocusOut": {
 					"type": "boolean",
 					"default": true,
@@ -5400,19 +5436,61 @@
 				{
 					"command": "gitlens.toggleFileBlame",
 					"alt": "gitlens.toggleFileHeatmap",
-					"when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame && !isInDiffEditor",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == blame+heatmap && !isInDiffEditor",
+					"group": "navigation@100"
+				},
+				{
+					"command": "gitlens.toggleFileBlame",
+					"alt": "gitlens.toggleFileChanges",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == blame+changes && !isInDiffEditor",
 					"group": "navigation@100"
 				},
 				{
 					"command": "gitlens.toggleFileBlameInDiffLeft",
 					"alt": "gitlens.toggleFileHeatmapInDiffLeft",
-					"when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame && isInDiffEditor && !isInDiffRightEditor",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.diffCommand == blame+heatmap && isInDiffEditor && !isInDiffRightEditor",
 					"group": "navigation@100"
 				},
 				{
 					"command": "gitlens.toggleFileBlameInDiffRight",
 					"alt": "gitlens.toggleFileHeatmapInDiffRight",
-					"when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame && isInDiffRightEditor",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.diffCommand == blame+heatmap && isInDiffRightEditor",
+					"group": "navigation@100"
+				},
+				{
+					"command": "gitlens.toggleFileChanges",
+					"alt": "gitlens.toggleFileBlame",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == changes+blame && !isInDiffEditor",
+					"group": "navigation@100"
+				},
+				{
+					"command": "gitlens.toggleFileChanges",
+					"alt": "gitlens.toggleFileHeatmap",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == changes+heatmap && !isInDiffEditor",
+					"group": "navigation@100"
+				},
+				{
+					"command": "gitlens.toggleFileHeatmap",
+					"alt": "gitlens.toggleFileBlame",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == heatmap+blame && !isInDiffEditor",
+					"group": "navigation@100"
+				},
+				{
+					"command": "gitlens.toggleFileHeatmap",
+					"alt": "gitlens.toggleFileChanges",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == heatmap+changes && !isInDiffEditor",
+					"group": "navigation@100"
+				},
+				{
+					"command": "gitlens.toggleFileHeatmapInDiffLeft",
+					"alt": "gitlens.toggleFileBlameInDiffLeft",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.diffCommand == heatmap+blame && isInDiffEditor && !isInDiffRightEditor",
+					"group": "navigation@100"
+				},
+				{
+					"command": "gitlens.toggleFileHeatmapInDiffRight",
+					"alt": "gitlens.toggleFileBlameInDiffRight",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.diffCommand == heatmap+blame && isInDiffRightEditor",
 					"group": "navigation@100"
 				},
 				{
