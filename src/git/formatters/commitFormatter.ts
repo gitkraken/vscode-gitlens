@@ -284,7 +284,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		if (this._options.remotes != null && this._options.remotes.length !== 0) {
 			const providers = GitRemote.getHighlanderProviders(this._options.remotes);
 
-			commands += `[$(link-external)](${OpenCommitOnRemoteCommand.getMarkdownCommandArgs(
+			commands += `[$(globe)](${OpenCommitOnRemoteCommand.getMarkdownCommandArgs(
 				this._item.sha,
 			)} "Open Commit on ${providers?.length ? providers[0].name : 'Remote'}")${separator}`;
 		}
