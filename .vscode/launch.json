@@ -4,12 +4,16 @@
 	"configurations": [
 		{
 			"name": "Run GitLens",
-			"type": "extensionHost",
+			"type": "pwa-extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
 			"args": ["--extensionDevelopmentPath=${workspaceFolder}"],
 			"cwd": "${workspaceFolder}",
-			"debugWebviews": { "urlFilter": "*eamodio.gitlens*" },
+			"debugWebviews": true,
+			"rendererDebugOptions": {
+				"urlFilter": "*eamodio.gitlens*",
+				"webRoot": "${workspaceFolder}/src/webviews/apps"
+			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
 			"presentation": {
 				"group": "2_run",
@@ -22,12 +26,16 @@
 		},
 		{
 			"name": "Run GitLens (Sandboxed)",
-			"type": "extensionHost",
+			"type": "pwa-extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
 			"args": ["--disable-extensions", "--extensionDevelopmentPath=${workspaceFolder}"],
 			"cwd": "${workspaceFolder}",
-			"debugWebviews": { "urlFilter": "*eamodio.gitlens*" },
+			"debugWebviews": true,
+			"rendererDebugOptions": {
+				"urlFilter": "*eamodio.gitlens*",
+				"webRoot": "${workspaceFolder}/src/webviews/apps"
+			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
 			"presentation": {
 				"group": "2_run",
@@ -45,7 +53,8 @@
 			"runtimeExecutable": "${execPath}",
 			"args": ["--extensionDevelopmentPath=${workspaceFolder}"],
 			"cwd": "${workspaceFolder}",
-			"debugWebviews": {
+			"debugWebviews": true,
+			"rendererDebugOptions": {
 				"urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
@@ -62,12 +71,16 @@
 		},
 		{
 			"name": "Watch & Launch GitLens (Sandboxed)",
-			"type": "extensionHost",
+			"type": "pwa-extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
 			"args": ["--disable-extensions", "--extensionDevelopmentPath=${workspaceFolder}"],
 			"cwd": "${workspaceFolder}",
-			"debugWebviews": { "urlFilter": "*eamodio.gitlens*" },
+			"debugWebviews": true,
+			"rendererDebugOptions": {
+				"urlFilter": "*eamodio.gitlens*",
+				"webRoot": "${workspaceFolder}/src/webviews/apps"
+			},
 			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
 			"preLaunchTask": "npm: watch",
 			"presentation": {
