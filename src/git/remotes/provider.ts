@@ -1,9 +1,18 @@
 'use strict';
-import { env, Event, EventEmitter, Range, Uri, window } from 'vscode';
+import {
+	authentication,
+	AuthenticationSession,
+	AuthenticationSessionsChangeEvent,
+	env,
+	Event,
+	EventEmitter,
+	Range,
+	Uri,
+	window,
+} from 'vscode';
 import { DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference } from '../../config';
 import { Container } from '../../container';
-import { CredentialChangeEvent, CredentialManager } from '../../credentials';
 import { Logger } from '../../logger';
 import { Messages } from '../../messages';
 import { IssueOrPullRequest } from '../models/issue';
@@ -12,11 +21,11 @@ import { PullRequest } from '../models/pullRequest';
 import { Repository } from '../models/repository';
 import { debug, gate, Promises } from '../../system';
 
-export class CredentialError extends Error {
+export class AuthenticationError extends Error {
 	constructor(private original: Error) {
 		super(original.message);
 
-		Error.captureStackTrace(this, CredentialError);
+		Error.captureStackTrace(this, AuthenticationError);
 	}
 }
 
@@ -202,7 +211,7 @@ export abstract class RemoteProvider {
 	}
 }
 
-export abstract class RemoteProviderWithApi<T extends object = any> extends RemoteProvider {
+export abstract class RemoteProviderWithApi extends RemoteProvider {
 	static is(provider: RemoteProvider | undefined): provider is RemoteProviderWithApi {
 		return provider instanceof RemoteProviderWithApi;
 	}
@@ -212,46 +221,39 @@ export abstract class RemoteProviderWithApi<T extends object = any> extends Remo
 		return this._onDidChange.event;
 	}
 
-	private badCredentialsCount = 0;
+	private invalidAuthenticationCount = 0;
 
 	constructor(domain: string, path: string, protocol?: string, name?: string, custom?: boolean) {
 		super(domain, path, protocol, name, custom);
 
-		Container.context.subscriptions.push(CredentialManager.onDidChange(this.onCredentialsChanged, this));
+		Container.context.subscriptions.push(
+			authentication.onDidChangeSessions(this.onAuthenticationSessionsChanged, this),
+		);
 	}
 
-	private onCredentialsChanged(e: CredentialChangeEvent) {
-		if (e.reason === 'invalid' && e.key === this.credentialsKey) {
-			this._credentials = null;
-			this._onDidChange.fire();
-
-			return;
-		}
-
-		if (e.reason === 'save' && e.key === this.credentialsKey) {
-			if (this._credentials === null) {
-				this._credentials = undefined;
-			}
-			this._onDidChange.fire();
-
-			return;
-		}
-
-		if (e.reason === 'clear' && (e.key === undefined || e.key === this.credentialsKey)) {
-			this._credentials = undefined;
-			this._prsByCommit.clear();
-
+	private onAuthenticationSessionsChanged(e: AuthenticationSessionsChangeEvent) {
+		if (e.provider.id === this.authProvider.id) {
+			this._session = null;
 			this._onDidChange.fire();
 		}
 	}
 
 	abstract get apiBaseUrl(): string;
 
-	abstract async connect(): Promise<boolean>;
+	async connect(): Promise<boolean> {
+		try {
+			const session = await this.ensureSession(true);
+			return Boolean(session);
+		} catch (ex) {
+			return false;
+		}
+	}
 
-	disconnect(): Promise<void> {
+	disconnect(): void {
 		this._prsByCommit.clear();
-		return this.clearCredentials();
+		this.invalidAuthenticationCount = 0;
+		this._session = null;
+		this._onDidChange.fire();
 	}
 
 	@gate()
@@ -259,13 +261,13 @@ export abstract class RemoteProviderWithApi<T extends object = any> extends Remo
 		exit: connected => `returned ${connected}`,
 	})
 	async isConnected(): Promise<boolean> {
-		return (await this.credentials()) != null;
+		return (await this.session()) != null;
 	}
 
 	get maybeConnected(): boolean | undefined {
-		if (this._credentials === undefined) return undefined;
+		if (this._session === undefined) return undefined;
 
-		return this._credentials !== null;
+		return this._session !== null;
 	}
 
 	@gate()
@@ -277,14 +279,14 @@ export abstract class RemoteProviderWithApi<T extends object = any> extends Remo
 		if (!connected) return undefined;
 
 		try {
-			const issueOrPullRequest = await this.onGetIssueOrPullRequest(this._credentials!, id);
-			this.badCredentialsCount = 0;
+			const issueOrPullRequest = await this.onGetIssueOrPullRequest(this._session!, id);
+			this.invalidAuthenticationCount = 0;
 			return issueOrPullRequest;
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex instanceof CredentialError) {
-				this.handleBadCredentials();
+			if (ex instanceof AuthenticationError) {
+				this.handleAuthenticationException();
 			}
 			return undefined;
 		}
@@ -305,42 +307,45 @@ export abstract class RemoteProviderWithApi<T extends object = any> extends Remo
 		return pr.then(pr => pr ?? undefined);
 	}
 
-	protected abstract onGetIssueOrPullRequest(credentials: T, id: string): Promise<IssueOrPullRequest | undefined>;
-	protected abstract onGetPullRequestForCommit(credentials: T, ref: string): Promise<PullRequest | undefined>;
+	protected abstract get authProvider(): { id: string; scopes: string[] };
 
-	protected _credentials: T | null | undefined;
-	protected credentials() {
-		if (this._credentials === undefined) {
-			return CredentialManager.getAs<T>(this.credentialsKey).then(c => {
-				this.badCredentialsCount = 0;
-				this._credentials = c ?? null;
-				return c ?? undefined;
-			});
+	protected abstract onGetIssueOrPullRequest(
+		session: AuthenticationSession,
+		id: string,
+	): Promise<IssueOrPullRequest | undefined>;
+	protected abstract onGetPullRequestForCommit(
+		session: AuthenticationSession,
+		ref: string,
+	): Promise<PullRequest | undefined>;
+
+	protected _session: AuthenticationSession | null | undefined;
+	protected session() {
+		if (this._session === undefined) {
+			return this.ensureSession(false);
 		}
-		return this._credentials ?? undefined;
+		return this._session ?? undefined;
 	}
 
-	protected async clearCredentials() {
-		this.badCredentialsCount = 0;
-		this._credentials = undefined;
-		await CredentialManager.clear(this.credentialsKey);
-		this._credentials = undefined;
-	}
+	private async ensureSession(createIfNone: boolean) {
+		if (this._session != null) return this._session;
 
-	protected invalidateCredentials() {
-		this.badCredentialsCount = 0;
-		this._credentials = null;
-		CredentialManager.invalidate(this.credentialsKey);
-	}
+		let session;
+		try {
+			session = await authentication.getSession(this.authProvider.id, this.authProvider.scopes, {
+				createIfNone: createIfNone,
+			});
+		} catch (ex) {
+			// TODO@eamodio	save that the user rejected auth?
+		}
 
-	protected saveCredentials(credentials: T) {
-		this.badCredentialsCount = 0;
-		this._credentials = credentials;
-		return CredentialManager.addOrUpdate(this.credentialsKey, credentials);
-	}
+		this._session = session ?? null;
+		this.invalidAuthenticationCount = 0;
 
-	private get credentialsKey() {
-		return this.custom ? `${this.name}:${this.domain}` : this.name;
+		if (session != null) {
+			this._onDidChange.fire();
+		}
+
+		return session ?? undefined;
 	}
 
 	@gate()
@@ -352,27 +357,27 @@ export abstract class RemoteProviderWithApi<T extends object = any> extends Remo
 		if (!connected) return null;
 
 		try {
-			const pr = (await this.onGetPullRequestForCommit(this._credentials!, ref)) ?? null;
+			const pr = (await this.onGetPullRequestForCommit(this._session!, ref)) ?? null;
 			this._prsByCommit.set(ref, pr);
-			this.badCredentialsCount = 0;
+			this.invalidAuthenticationCount = 0;
 			return pr;
 		} catch (ex) {
 			Logger.error(ex, cc);
 
 			this._prsByCommit.delete(ref);
 
-			if (ex instanceof CredentialError) {
-				this.handleBadCredentials();
+			if (ex instanceof AuthenticationError) {
+				this.handleAuthenticationException();
 			}
 			return null;
 		}
 	}
 
-	private handleBadCredentials() {
-		this.badCredentialsCount++;
+	private handleAuthenticationException() {
+		this.invalidAuthenticationCount++;
 
-		if (this.badCredentialsCount >= 5) {
-			this.invalidateCredentials();
+		if (this.invalidAuthenticationCount >= 5) {
+			this.disconnect();
 		}
 	}
 }

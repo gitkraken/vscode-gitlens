@@ -1,5 +1,5 @@
 'use strict';
-import { Disposable, env, QuickInputButton, Range, ThemeIcon, Uri, window } from 'vscode';
+import { AuthenticationSession, Range, Uri } from 'vscode';
 import { DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference } from '../../config';
 import { Container } from '../../container';
@@ -13,18 +13,12 @@ const issueEnricher3rdParyRegex = /\b(\w+\\?-?\w+(?!\\?-)\/\w+\\?-?\w+(?!\\?-))\
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/blob(.+)$/i;
 const rangeRegex = /^L(\d+)(?:-L(\d+))?$/;
 
-export class GitHubRemote extends RemoteProviderWithApi<{ token: string }> {
-	private readonly Buttons = class {
-		// static readonly Help: QuickInputButton = {
-		// 	iconPath: new ThemeIcon('question'),
-		// 	tooltip: 'Help',
-		// };
+const authProvider = Object.freeze({ id: 'github', scopes: ['repo'] });
 
-		static readonly OpenPATs: QuickInputButton = {
-			iconPath: new ThemeIcon('globe'),
-			tooltip: 'Open Personal Access Tokens on GitHub',
-		};
-	};
+export class GitHubRemote extends RemoteProviderWithApi {
+	protected get authProvider() {
+		return authProvider;
+	}
 
 	constructor(domain: string, path: string, protocol?: string, name?: string, custom: boolean = false) {
 		super(domain, path, protocol, name, custom);
@@ -67,56 +61,6 @@ export class GitHubRemote extends RemoteProviderWithApi<{ token: string }> {
 
 	get name() {
 		return this.formatName('GitHub');
-	}
-
-	async connect() {
-		const input = window.createInputBox();
-		input.ignoreFocusOut = true;
-
-		let disposable: Disposable | undefined;
-		let token: string | undefined;
-
-		try {
-			token = await new Promise<string | undefined>(resolve => {
-				disposable = Disposable.from(
-					input.onDidHide(() => resolve(undefined)),
-					input.onDidTriggerButton(e => {
-						if (e === this.Buttons.OpenPATs) {
-							void env.openExternal(Uri.parse('https://github.com/settings/tokens'));
-						}
-
-						// if (e === this.Buttons.Help) {
-						// 	// TODO@eamodio link to proper wiki
-						// 	void env.openExternal(Uri.parse('https://github.com/eamodio/vscode-gitlens/wiki'));
-						// }
-					}),
-					input.onDidChangeValue(
-						e =>
-							(input.validationMessage =
-								e == null || e.length === 0
-									? 'Must be a valid GitHub personal access token'
-									: undefined),
-					),
-					input.onDidAccept(() => resolve(input.value)),
-				);
-
-				// TODO@eamodio add this button once we have a valid help link above
-				input.buttons = [this.Buttons.OpenPATs]; // [this.Buttons.Help];
-				input.title = `Connect to ${this.name}`;
-				input.prompt = 'Enter a GitHub personal access token';
-				input.placeholder = 'Generate a personal access token (with repo access) from github.com (required)';
-
-				input.show();
-			});
-		} finally {
-			input.dispose();
-			disposable?.dispose();
-		}
-
-		if (token == null || token.length === 0) return false;
-
-		await this.saveCredentials({ token: token });
-		return true;
 	}
 
 	async getLocalInfoFromRemoteUri(
@@ -211,21 +155,21 @@ export class GitHubRemote extends RemoteProviderWithApi<{ token: string }> {
 	}
 
 	protected async onGetIssueOrPullRequest(
-		{ token }: { token: string },
+		{ accessToken }: AuthenticationSession,
 		id: string,
 	): Promise<IssueOrPullRequest | undefined> {
 		const [owner, repo] = this.splitPath();
-		return (await Container.github)?.getIssueOrPullRequest(this.name, token, owner, repo, Number(id), {
+		return (await Container.github)?.getIssueOrPullRequest(this.name, accessToken, owner, repo, Number(id), {
 			baseUrl: this.apiBaseUrl,
 		});
 	}
 
 	protected async onGetPullRequestForCommit(
-		{ token }: { token: string },
+		{ accessToken }: AuthenticationSession,
 		ref: string,
 	): Promise<PullRequest | undefined> {
 		const [owner, repo] = this.splitPath();
-		return (await Container.github)?.getPullRequestForCommit(this.name, token, owner, repo, ref, {
+		return (await Container.github)?.getPullRequestForCommit(this.name, accessToken, owner, repo, ref, {
 			baseUrl: this.apiBaseUrl,
 		});
 	}

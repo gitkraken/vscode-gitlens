@@ -2,7 +2,7 @@
 import { graphql } from '@octokit/graphql';
 import { Logger } from '../logger';
 import { debug } from '../system';
-import { CredentialError, IssueOrPullRequest, PullRequest, PullRequestState } from '../git/git';
+import { AuthenticationError, IssueOrPullRequest, PullRequest, PullRequestState } from '../git/git';
 
 export class GitHubApi {
 	@debug({
@@ -48,9 +48,6 @@ export class GitHubApi {
 	}
 }`;
 
-			const variables = { owner: owner, repo: repo, sha: ref };
-			// Logger.debug(cc, `variables: ${JSON.stringify(variables)}`);
-
 			const rsp = await graphql<{
 				repository?: {
 					object?: {
@@ -60,7 +57,9 @@ export class GitHubApi {
 					};
 				};
 			}>(query, {
-				...variables,
+				owner: owner,
+				repo: repo,
+				sha: ref,
 				headers: { authorization: `Bearer ${token}` },
 				...options,
 			});
@@ -88,7 +87,7 @@ export class GitHubApi {
 			Logger.error(ex, cc);
 
 			if (ex.code === 401) {
-				throw new CredentialError(ex);
+				throw new AuthenticationError(ex);
 			}
 			throw ex;
 		}
@@ -132,11 +131,10 @@ export class GitHubApi {
 	}
 }`;
 
-			const variables = { owner: owner, repo: repo, number: number };
-			// Logger.debug(cc, `variables: ${JSON.stringify(variables)}`);
-
 			const rsp = await graphql<{ repository?: { issueOrPullRequest?: GitHubIssueOrPullRequest } }>(query, {
-				...variables,
+				owner: owner,
+				repo: repo,
+				number: number,
 				headers: { authorization: `Bearer ${token}` },
 				...options,
 			});
@@ -157,7 +155,7 @@ export class GitHubApi {
 			Logger.error(ex, cc);
 
 			if (ex.code === 401) {
-				throw new CredentialError(ex);
+				throw new AuthenticationError(ex);
 			}
 			throw ex;
 		}
