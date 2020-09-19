@@ -28,17 +28,12 @@ export interface DiffWithPreviousCommandArgs {
 @command()
 export class DiffWithPreviousCommand extends ActiveEditorCommand {
 	constructor() {
-		super([Commands.DiffWithPrevious, Commands.DiffWithPreviousInDiffRight]);
+		super([Commands.DiffWithPrevious, Commands.DiffWithPreviousInDiffLeft, Commands.DiffWithPreviousInDiffRight]);
 	}
 
 	protected preExecute(context: CommandContext, args?: DiffWithPreviousCommandArgs) {
 		if (context.command === Commands.DiffWithPreviousInDiffRight) {
-			args = { ...args };
-
-			// Ensure we are on the right side -- context.uri is always the right-side uri, so ensure the editor matches, otherwise we are on the left
-			if (context.editor == null || context.editor?.document.uri.toString() === context.uri?.toString()) {
-				args.inDiffRightEditor = true;
-			}
+			args = { ...args, inDiffRightEditor: true };
 		}
 
 		return this.execute(context.editor, context.uri, args);

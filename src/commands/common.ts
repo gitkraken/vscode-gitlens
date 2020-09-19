@@ -45,12 +45,15 @@ export enum Commands {
 	DiffWith = 'gitlens.diffWith',
 	DiffWithNext = 'gitlens.diffWithNext',
 	DiffWithNextInDiffLeft = 'gitlens.diffWithNextInDiffLeft',
+	DiffWithNextInDiffRight = 'gitlens.diffWithNextInDiffRight',
 	DiffWithPrevious = 'gitlens.diffWithPrevious',
+	DiffWithPreviousInDiffLeft = 'gitlens.diffWithPreviousInDiffLeft',
 	DiffWithPreviousInDiffRight = 'gitlens.diffWithPreviousInDiffRight',
 	DiffLineWithPrevious = 'gitlens.diffLineWithPrevious',
 	DiffWithRevision = 'gitlens.diffWithRevision',
 	DiffWithRevisionFrom = 'gitlens.diffWithRevisionFrom',
 	DiffWithWorking = 'gitlens.diffWithWorking',
+	DiffWithWorkingInDiffLeft = 'gitlens.diffWithWorkingInDiffLeft',
 	DiffWithWorkingInDiffRight = 'gitlens.diffWithWorkingInDiffRight',
 	DiffLineWithWorking = 'gitlens.diffLineWithWorking',
 	DisconnectRemoteProvider = 'gitlens.disconnectRemoteProvider',
@@ -69,7 +72,11 @@ export enum Commands {
 	OpenInRemote = 'gitlens.openInRemote',
 	OpenRepoInRemote = 'gitlens.openRepoInRemote',
 	OpenRevisionFile = 'gitlens.openRevisionFile',
+	OpenRevisionFileInDiffLeft = 'gitlens.openRevisionFileInDiffLeft',
+	OpenRevisionFileInDiffRight = 'gitlens.openRevisionFileInDiffRight',
 	OpenWorkingFile = 'gitlens.openWorkingFile',
+	OpenWorkingFileInDiffLeft = 'gitlens.openWorkingFileInDiffLeft',
+	OpenWorkingFileInDiffRight = 'gitlens.openWorkingFileInDiffRight',
 	PullRepositories = 'gitlens.pullRepositories',
 	PushRepositories = 'gitlens.pushRepositories',
 	GitCommands = 'gitlens.gitCommands',
@@ -92,6 +99,8 @@ export enum Commands {
 	ShowQuickFileHistory = 'gitlens.showQuickFileHistory',
 	ShowQuickRepoStatus = 'gitlens.showQuickRepoStatus',
 	ShowQuickCommitRevision = 'gitlens.showQuickRevisionDetails',
+	ShowQuickCommitRevisionInDiffLeft = 'gitlens.showQuickRevisionDetailsInDiffLeft',
+	ShowQuickCommitRevisionInDiffRight = 'gitlens.showQuickRevisionDetailsInDiffRight',
 	ShowQuickStashList = 'gitlens.showQuickStashList',
 	ShowRepositoriesView = 'gitlens.showRepositoriesView',
 	ShowSearchView = 'gitlens.showSearchView',
@@ -116,8 +125,12 @@ export enum Commands {
 	SwitchMode = 'gitlens.switchMode',
 	ToggleCodeLens = 'gitlens.toggleCodeLens',
 	ToggleFileBlame = 'gitlens.toggleFileBlame',
+	ToggleFileBlameInDiffLeft = 'gitlens.toggleFileBlameInDiffLeft',
+	ToggleFileBlameInDiffRight = 'gitlens.toggleFileBlameInDiffRight',
 	ToggleFileChanges = 'gitlens.toggleFileChanges',
 	ToggleFileHeatmap = 'gitlens.toggleFileHeatmap',
+	ToggleFileHeatmapInDiffLeft = 'gitlens.toggleFileHeatmapInDiffLeft',
+	ToggleFileHeatmapInDiffRight = 'gitlens.toggleFileHeatmapInDiffRight',
 	ToggleLineBlame = 'gitlens.toggleLineBlame',
 	ToggleReviewMode = 'gitlens.toggleReviewMode',
 	ToggleZenMode = 'gitlens.toggleZenMode',
@@ -399,8 +412,12 @@ export abstract class Command implements Disposable {
 			if (args.length > 0 && (firstArg == null || firstArg instanceof Uri)) {
 				const [uri, ...rest] = args as [Uri, any];
 				if (uri != null) {
-					// If the uri matches the active editor, then pass the active editor
-					if (editor == null && uri.toString() === window.activeTextEditor?.document.uri.toString()) {
+					// If the uri matches the active editor (or we are in a left-hand side of a diff), then pass the active editor
+					if (
+						editor == null &&
+						(uri.toString() === window.activeTextEditor?.document.uri.toString() ||
+							command.endsWith('InDiffLeft'))
+					) {
 						editor = window.activeTextEditor;
 					}
 

@@ -20,13 +20,12 @@ export interface DiffWithNextCommandArgs {
 @command()
 export class DiffWithNextCommand extends ActiveEditorCommand {
 	constructor() {
-		super([Commands.DiffWithNext, Commands.DiffWithNextInDiffLeft]);
+		super([Commands.DiffWithNext, Commands.DiffWithNextInDiffLeft, Commands.DiffWithNextInDiffRight]);
 	}
 
 	protected preExecute(context: CommandContext, args?: DiffWithNextCommandArgs) {
 		if (context.command === Commands.DiffWithNextInDiffLeft) {
-			args = { ...args };
-			args.inDiffLeftEditor = true;
+			args = { ...args, inDiffLeftEditor: true };
 		}
 
 		return this.execute(context.editor, context.uri, args);

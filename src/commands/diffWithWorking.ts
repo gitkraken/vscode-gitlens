@@ -1,6 +1,6 @@
 'use strict';
 import { TextDocumentShowOptions, TextEditor, Uri, window } from 'vscode';
-import { ActiveEditorCommand, command, CommandContext, Commands, executeCommand, getCommandUri } from './common';
+import { ActiveEditorCommand, command, Commands, executeCommand, getCommandUri } from './common';
 import { Container } from '../container';
 import { DiffWithCommandArgs } from './diffWith';
 import { GitRevision } from '../git/git';
@@ -18,20 +18,7 @@ export interface DiffWithWorkingCommandArgs {
 @command()
 export class DiffWithWorkingCommand extends ActiveEditorCommand {
 	constructor() {
-		super([Commands.DiffWithWorking, Commands.DiffWithWorkingInDiffRight]);
-	}
-
-	protected preExecute(context: CommandContext, args?: DiffWithWorkingCommandArgs) {
-		if (context.command === Commands.DiffWithWorkingInDiffRight) {
-			args = { ...args };
-
-			// Ensure we are on the right side -- context.uri is always the right-side uri, so ensure the editor matches, otherwise we are on the left
-			if (context.editor == null || context.editor?.document.uri.toString() === context.uri?.toString()) {
-				args.inDiffRightEditor = true;
-			}
-		}
-
-		return this.execute(context.editor, context.uri, args);
+		super([Commands.DiffWithWorking, Commands.DiffWithWorkingInDiffLeft, Commands.DiffWithWorkingInDiffRight]);
 	}
 
 	async execute(editor?: TextEditor, uri?: Uri, args?: DiffWithWorkingCommandArgs): Promise<any> {

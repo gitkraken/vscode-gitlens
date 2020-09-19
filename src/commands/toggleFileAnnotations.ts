@@ -43,7 +43,7 @@ export interface ToggleFileAnnotationCommandArgs {
 @command()
 export class ToggleFileBlameCommand extends ActiveEditorCommand {
 	constructor() {
-		super(Commands.ToggleFileBlame);
+		super([Commands.ToggleFileBlame, Commands.ToggleFileBlameInDiffLeft, Commands.ToggleFileBlameInDiffRight]);
 	}
 
 	execute(editor: TextEditor, uri?: Uri, args?: ToggleFileAnnotationCommandArgs): Promise<void> {
@@ -71,7 +71,11 @@ export class ToggleFileChangesCommand extends ActiveEditorCommand {
 @command()
 export class ToggleFileHeatmapCommand extends ActiveEditorCommand {
 	constructor() {
-		super(Commands.ToggleFileHeatmap);
+		super([
+			Commands.ToggleFileHeatmap,
+			Commands.ToggleFileHeatmapInDiffLeft,
+			Commands.ToggleFileHeatmapInDiffRight,
+		]);
 	}
 
 	execute(editor: TextEditor, uri?: Uri, args?: ToggleFileAnnotationCommandArgs): Promise<void> {

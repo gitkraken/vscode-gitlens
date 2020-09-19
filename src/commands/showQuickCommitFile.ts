@@ -29,11 +29,16 @@ export class ShowQuickCommitFileCommand extends ActiveEditorCachedCommand {
 	}
 
 	constructor() {
-		super([Commands.ShowQuickCommitFile, Commands.ShowQuickCommitRevision]);
+		super([
+			Commands.ShowQuickCommitFile,
+			Commands.ShowQuickCommitRevision,
+			Commands.ShowQuickCommitRevisionInDiffLeft,
+			Commands.ShowQuickCommitRevisionInDiffRight,
+		]);
 	}
 
 	protected async preExecute(context: CommandContext, args?: ShowQuickCommitFileCommandArgs) {
-		if (context.command === Commands.ShowQuickCommitRevision && context.editor !== undefined) {
+		if (context.editor != null && context.command.startsWith(Commands.ShowQuickCommitRevision)) {
 			args = { ...args };
 
 			const gitUri = await GitUri.fromUri(context.editor.document.uri);
