@@ -21,6 +21,14 @@ import { PullRequest } from '../models/pullRequest';
 import { Repository } from '../models/repository';
 import { debug, gate, Promises } from '../../system';
 
+const _onDidChangeAuthentication = new EventEmitter<void>();
+
+export class Authentication {
+	static get onDidChange(): Event<void> {
+		return _onDidChangeAuthentication.event;
+	}
+}
+
 export class AuthenticationError extends Error {
 	constructor(private original: Error) {
 		super(original.message);
@@ -233,8 +241,7 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 
 	private onAuthenticationSessionsChanged(e: AuthenticationSessionsChangeEvent) {
 		if (e.provider.id === this.authProvider.id) {
-			this._session = null;
-			this._onDidChange.fire();
+			this.disconnect();
 		}
 	}
 
@@ -254,6 +261,7 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 		this.invalidAuthenticationCount = 0;
 		this._session = null;
 		this._onDidChange.fire();
+		_onDidChangeAuthentication.fire();
 	}
 
 	@gate()
@@ -343,6 +351,7 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 
 		if (session != null) {
 			this._onDidChange.fire();
+			_onDidChangeAuthentication.fire();
 		}
 
 		return session ?? undefined;

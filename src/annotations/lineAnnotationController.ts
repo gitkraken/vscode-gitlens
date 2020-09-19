@@ -13,7 +13,7 @@ import { Annotations } from './annotations';
 import { configuration } from '../configuration';
 import { GlyphChars, isTextEditor } from '../constants';
 import { Container } from '../container';
-import { CommitFormatter, GitBlameCommit, PullRequest } from '../git/git';
+import { Authentication, CommitFormatter, GitBlameCommit, PullRequest } from '../git/git';
 import { LogCorrelationContext, Logger } from '../logger';
 import { debug, Iterables, log, Promises } from '../system';
 import { LinesChangeEvent, LineSelection } from '../trackers/gitLineTracker';
@@ -35,6 +35,7 @@ export class LineAnnotationController implements Disposable {
 		this._disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
 			Container.fileAnnotations.onDidToggleAnnotations(this.onFileAnnotationsToggled, this),
+			Authentication.onDidChange(() => void this.refresh(window.activeTextEditor)),
 		);
 		this.onConfigurationChanged(configuration.initializingChangeEvent);
 	}
