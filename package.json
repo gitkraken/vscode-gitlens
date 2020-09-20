@@ -2030,6 +2030,12 @@
 					"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Tags_ view. Only applies when `#gitlens.views.tags.files.layout#` is set to `auto`",
 					"scope": "window"
 				},
+				"gitlens.views.welcome.enabled": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to show the _Welcome_ view",
+					"scope": "window"
+				},
 				"gitlens.advanced.abbreviatedShaLength": {
 					"type": "number",
 					"default": "7",
@@ -7507,7 +7513,34 @@
 				}
 			]
 		},
+		"viewsWelcome": [
+			{
+				"view": "gitlens.views.welcome",
+				"contents": "GitLens is powerful and feature rich, while also highly customizable. You can use the GitLens Welcome experience to quickly customize GitLens to meet your needs. And for many more options, use the GitLens Interactive Settings.\n\n[Welcome (Quick Setup)](command:gitlens.showWelcomePage \"Opens GitLens Quick Setup\")\n\n[Open Settings](command:gitlens.showSettingsPage \"Opens GitLens Interactive Settings\")"
+			},
+			{
+				"view": "gitlens.views.welcome",
+				"contents": "You can also quickly switch between different side bar layouts for GitLens views to best match your workflow.\n\n[Change View Layout](command:gitlens.setViewsLayout \"Change GitLens Views Layout\")"
+			},
+			{
+				"view": "gitlens.views.welcome",
+				"contents": "While GitLens is generously offered to everyone free of charge, if you find it useful, please consider sponsoring it.\n\n[Sponsor GitLens ❤](command:gitlens.supportGitLens \"Sponsor GitLens\")"
+			},
+			{
+				"view": "gitlens.views.welcome",
+				"contents": "Once you are satisfied, feel free to close this view.\n\n[Close Welcome View](command:gitlens.closeWelcomeView \"Close View\")"
+			}
+		],
 		"views": {
+			"gitlens": [
+				{
+					"id": "gitlens.views.welcome",
+					"name": "Welcome",
+					"when": "config.gitlens.views.welcome.enabled",
+					"contextualTitle": "GitLens",
+					"icon": "images/gitlens-activitybar.svg"
+				}
+			],
 			"scm": [
 				{
 					"id": "gitlens.views.repositories",
