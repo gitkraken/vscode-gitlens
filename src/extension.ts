@@ -176,12 +176,12 @@ async function showWelcomeOrWhatsNew(version: string, previousVersion: string | 
 		return;
 	}
 
-	// Show the Welcome for v10 since its all new
-	if (major !== prevMajor && major === 10) {
-		await commands.executeCommand(Commands.ShowWelcomePage);
-	}
-
 	if (Container.config.showWhatsNewAfterUpgrades && major !== prevMajor) {
 		await Messages.showWhatsNewMessage(version);
+	}
+
+	// Show a views upgrade notification
+	if (major !== prevMajor && major === 11) {
+		await Messages.showViewsUpgradeMessage();
 	}
 }

@@ -1,5 +1,6 @@
 'use strict';
-import { ConfigurationTarget, env, MessageItem, Uri, window } from 'vscode';
+import { commands, ConfigurationTarget, env, MessageItem, Uri, window } from 'vscode';
+import { Commands } from './commands';
 import { configuration } from './configuration';
 import { GitCommit } from './git/git';
 import { Logger } from './logger';
@@ -92,6 +93,22 @@ export class Messages {
 			`${message}. No repository could be found.`,
 			SuppressedMessages.NoRepositoryWarning,
 		);
+	}
+
+	static async showViewsUpgradeMessage() {
+		const openSettings: MessageItem = { title: 'Open Settings' };
+
+		const result = await Messages.showMessage(
+			'info',
+			'GitLens 11 has replaced the Repositories view with many new views, and integrated the Line History view into the File History view. To re-enable either of these views, open the GitLens Interactive Settings.',
+			undefined,
+			null,
+			openSettings,
+		);
+
+		if (result === openSettings) {
+			await commands.executeCommand(Commands.ShowSettingsPageAndJumpToRepositoriesView);
+		}
 	}
 
 	static async showWhatsNewMessage(version: string) {
