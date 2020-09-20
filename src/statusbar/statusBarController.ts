@@ -155,7 +155,7 @@ export class StatusBarController implements Disposable {
 				this._blameStatusBarItem.tooltip = 'Reveal Commit in the Side Bar';
 				break;
 			case StatusBarCommand.ShowCommitsInView:
-				this._blameStatusBarItem.tooltip = 'Search for Commit in the Side Bar';
+				this._blameStatusBarItem.tooltip = 'Search for Commit';
 				break;
 			case StatusBarCommand.ShowQuickCommitDetails:
 				this._blameStatusBarItem.tooltip = 'Show Commit';
