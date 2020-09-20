@@ -30,7 +30,7 @@ export class SettingsApp extends AppWithConfig<SettingsState> {
 				scopes.appendChild(option);
 			}
 
-			scopes.parentElement!.classList.remove('hidden');
+			scopes.parentElement!.parentElement!.classList.remove('hidden');
 			this._scopes = scopes;
 		}
 
