@@ -40,16 +40,20 @@ header {
 
 .container {
 	display: grid;
-	grid-template-areas: 'header header' 'hero hero' 'content sidebar';
+	grid-template-areas: 'header header' 'cta cta' 'hero sidebar' 'content sidebar';
 	grid-template-columns: repeat(1, 1fr min-content);
-	margin: 1em auto;
 	grid-gap: 1em 3em;
+	margin: 1em auto;
 	max-width: 1200px;
 	min-width: 450px;
 
 	@media all and (max-width: 768px) {
 		grid-gap: 1em 0;
 	}
+}
+
+.cta {
+	grid-area: cta;
 }
 
 .content__area {
@@ -595,6 +599,14 @@ section {
 
 	.button {
 		margin: 0;
+	}
+}
+
+.is-sidebar-hidden {
+	display: none;
+
+	@media all and (max-width: 768px) {
+		display: initial;
 	}
 }
 
