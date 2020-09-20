@@ -25,16 +25,16 @@ export class SetViewsLayoutCommand extends Command {
 			const pick = await window.showQuickPick(
 				[
 					{
-						label: 'GitLens Layout',
-						description: '(default)',
-						detail: 'Shows all the views together on the GitLens side bar',
-						layout: ViewsLayout.GitLens,
-					},
-					{
 						label: 'Source Control Layout',
-						description: '',
+						description: '(default)',
 						detail: 'Shows all the views together on the Source Control side bar',
 						layout: ViewsLayout.SourceControl,
+					},
+					{
+						label: 'GitLens Layout',
+						description: '',
+						detail: 'Shows all the views together on the GitLens side bar',
+						layout: ViewsLayout.GitLens,
 					},
 				],
 				{
