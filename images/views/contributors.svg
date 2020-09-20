@@ -1,0 +1,4 @@
+<svg width="24" height="24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path fill="#fff" fill-rule="evenodd" clip-rule="evenodd"
+        d="M18 8.25a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5zm3 2.25h-3L16.5 9H21l1.5 1.5v3L21 15v4.5L19.5 21h-3v-1.5h3V15l1.5-1.5v-3zM6 8.25a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5zM3 10.5h3L7.5 9H3l-1.5 1.5v3L3 15v4.5L4.5 21h3v-1.5h-3V15L3 13.5v-3zM14 4.5a2 2 0 11-4 0 2 2 0 014 0zm1 0a3 3 0 11-6 0 3 3 0 016 0zM9 15v-4.5h6V15l-1.5 1.5V21h-3v-4.5L9 15zm6 1.5V21l-1.5 1.5h-3L9 21v-4.5L7.5 15v-4.5L9 9h6l1.5 1.5V15L15 16.5z" />
+</svg>
