@@ -8,6 +8,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds all-new views to replace the _Repositories_ view
+  - _Welcome_ view &mdash; quickly setup GitLens to meet your needs
+  - _Commits_ view &mdash; visualize, explore, and manage Git commits
+    - Adds a quick filter toggle to switch between only your commits or everyone's via the _Toggle Authors_ command in the view's toolbar
+  - _Branches_ view &mdash; visualize, explore, and manage Git branches
+  - _Remotes_ view &mdash; visualize, explore, and manage Git remotes and remote branches
+  - _Stashes_ view &mdash; visualize, explore, and manage Git stashes
+  - _Tags_ view &mdash; visualize, explore, and manage Git tags
+  - _Contributors_ view &mdash; visualize, navigate, and explore contributors
+  - The _Repositories_ view can be re-enabled by setting `"gitlens.views.repositories.enabled": true` or via the GitLens Interactive Settings
 - Adds an all-new custom editor for rebasing (TODO: more details & image)
   ![Rebase Editor](https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/rebase-editor.gif)
   - Includes drag & drop support
@@ -27,9 +37,30 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Provides indicators of local changes, if any, or recent commit changes, and distinguishes between added, changed, and removed lines
   - Similar to the built-in Git gutter changes for un-staged changes, but shows all local (un-pushed) changes
   - Shows a changes hover with the full set of changes (diff hunk) and even with unsaved changes
-- Adds a new _Follow the Cursor_ command to the _File History_ view &mdash; which will ultimately replace the _Line History_ view, although, for now, it will just be disabled by default
+- Adds new _Git Commands_
+  - Adds a new _history_ (log) command to show the commit history of a branch or tag
+    - Adds a _Reveal in Side Bar_ button to the quick pick menu toolbar
+    - Adds keyboard navigation
+      - `right arrow` &mdash; reveals the selected branch in the _Branches_ or _Remotes_ view (or _Repositories_ view, if enabled), if there is no text in the quick pick menu
+      - `alt+right arrow`, `ctrl+right arrow`, `cmd+right arrow` (macOS) &mdash; reveals the selected branch in the _Branches_ or _Remotes_ view
+  - Adds a new _show_ command to show the details of a commit
+    - Adds a _Reveal in Side Bar_ button to the quick pick menu toolbar
+    - Adds keyboard navigation
+      - `right arrow` &mdash; searches for the selected commit and shows the results in the _Search Commits_ view, if there is no text in the quick pick menu
+      - `alt+right arrow` &mdash; searches for the selected commit and shows the results in the _Search Commits_ view
+      - `ctrl+right arrow`, `cmd+right arrow` (macOS) &mdash; reveals the selected commit in the _Commits_ view (or _Repositories_ view, if enabled)
+  - Adds a new _status_ command to show the current respository status
+  - Adds a new _Delete Branch & Remote_ & _Force Delete Branch & Remote_ options to the _branch delete_ command &mdash; to more easily delete branches with tracking branches
+  - Adds ability pull (fetch) a specific branch(es) to the _pull_ command &mdash; closes [#873](https://github.com/eamodio/vscode-gitlens/issues/873)
+  - Adds a new _Publish Branch_ option to the _push_ command
+  - Adds ability to push a single branch to the _push_ command
+  - Adds a new _Soft Reset_ (`--soft`) option to the _reset_ command
+- Adds a new _Toggle File/Line History_ command to the _File History_ view &mdash; which integrates line history into the _File History_ view
+- Adds staged changes to the _File History_ and _Line History_ views
 - Adds a new _Open File from Remote_ (`gitlens.openFileFromRemote`) command &mdash; opens the local file from a remote file url
 - Adds a new _Copy Remote Commit Url_ (`gitlens.copyRemoteCommitUrl`) command &mdash; copies the remote url of the current line commit to the clipboard
+- Adds new `alt` commands for many of the _Open \* on Remote_ commands to alternatively copy the url to the clipboard
+- Adds new ability to set the default remote from any of the _Open \* on Remote_ command quick pick menus
 - Adds much improved co-author support
   - Provides an updatable quick pick of co-authors
   - Adds the _Add Co-authors_ (`gitlens.addAuthors`) command to the Source Control toolbar
@@ -38,18 +69,27 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a new default click action on changed files nodes in GitLens views to open all changes
 - Adds a new `gitlens.hovers.avatarSize` setting to customize the size of avatars shown in hovers
   - Increases the default avatar size in hovers from 16px to 32px
+- Adds new `gitlens.fileAnnotations.command` & `gitlens.fileAnnotations.diffCommand` settings to control the behavior of the toggling of file annotations from the editor toolbar
+  - Choose both the default click behavior as well as the `alt`+click behavior
+  - Can also be configured via the GitLens Interactive Settings in the _Menus & Toolbars_ section
 - Adds new _Welcome_ and _Open Settings_ menu options to the GitLens context/gear menu in the _Extensions_ sidebar &mdash; closes [#952](https://github.com/eamodio/vscode-gitlens/issues/952) & [#953](https://github.com/eamodio/vscode-gitlens/issues/953) thanks to [PR #992](https://github.com/eamodio/vscode-gitlens/pull/992) by Zeeshan Adnan ([@zeeshanadnan](https://github.com/zeeshanadnan))
 - Adds a new _Set Views Layout_ (`gitlens.setViewsLayout`) command &mdash; quickly switch between showing GitLens views in _GitLens_ sidebar (default) and the _Source Control_ sidebar
-- Adds staged changes to the _File History_ and _Line History_ views
+- Adds a _Clear_ command to branch comparison nodes in the _Commits_ and _Repositories_ views
+- Adds a _Hide Branch Comparison_ command to branch comparison nodes in the _Commits_ view
+- Adds a _Hide/Show Branch Comparison_ toggle command to the _Commits_ views
 - Adds HEAD option to compare quick pick menu &mdash; closes [#927](https://github.com/eamodio/vscode-gitlens/issues/927)
 - Adds per-language customizations to the `gitlens.codeLens.scopes` and `gitlens.codeLens.symbolScopes` settings &mdash; closes [#977](https://github.com/eamodio/vscode-gitlens/issues/977)
 - Adds support for showing history across all branches in the _File History_ view via the _Show Commits from All Branches_ menu option &mdash; closes [#974](https://github.com/eamodio/vscode-gitlens/issues/974)
 - Adds support for `.gitattributes` text conversion filters &mdash; closes [#866](https://github.com/eamodio/vscode-gitlens/issues/866) thanks to [PR #1052](https://github.com/eamodio/vscode-gitlens/pull/1052) by Martin Campbell ([@martin-css](https://github.com/martin-css))
-- Adds a _Soft Reset_ (`--soft`) option to the _Git Commands' reset_ command
+- Adds a _Switch to Another Branch_ (`gitlens.views.switchToAnotherBranch`) command &mdash; to quickly switch the current branch
 - Adds a menu option to GitLens views to show or hide avatars
 
 ### Changed
 
+- Changes all GitLens views to be on the Source Control side bar by default, but you can still move them all to the GitLens side bar via the _Set Views Layout_ (`gitlens.setViewsLayout`) command or individually via drag and drop
+- Integrates the _Line History_ view into the _File History_ view, although the old _Line History_ view can be re-enabled by setting `"gitlens.views.lineHistory.enabled": true` or via the GitLens Interactive Settings
+  - File vs Line History can be toggled via the _Toggle File/Line History_ command in the view's toolbar
+  - Renames _Pause/Resume File Tracking_ toggle to be _Pin/Unpin the Current File History_
 - Overhauls the _Git Commands_ (`gitlens.gitCommands`) quick pick menus
   - Adds many more options
   - Adds improved titles for better clarity, context, and flow
@@ -68,6 +108,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Changes the default blame annotation format to show 50 characters (instead of 40)
 - Changes the comparision icons in GitLens views
 - Renames _Show Commit Details_ command to _Show Commit_
+- Renames _Show More_ command in views to _Load more_
+- Aligns many commit quick pick menu commands and commit context menu commands
 - Replaces _Push to Commit (via Terminal)_ command with a new _Push to Commit_ command
 - Swaps the order of _Open Revision_ and _Open File_ on file revisions
 - Optimizes file system watcher for repository changes (ignores .gitignored files)
@@ -77,9 +119,17 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Marks the current user with a `(you)` suffix and moves it to the top of the _Contributors_ node in the _Repositories_ view
 - Deprecates the `gitlens.codeLens.scopesByLanguage` setting. Use per-language `gitlens.codeLens.scopes`and`gitlens.codeLens.symbolScopes` settings instead
 - Removes the heart icon from all GitLens views and simplifies the sponsor command
+- Removes many view visibility (enablement) settings as the control over a views visibility is more easily controlled directly by unchecking the view itself
+- Removes the `gitlens.views.repositories.showTrackingBranch` setting as it is now always enabled
 
 ### Fixed
 
+- Fixes delete of remote branches on the _Git Commands' branch_ command
+- Fixes _Git Commands_ back tracking in certain cases
+- Fixes issue to ensure that dropping a stash drops the correct item even if the view is out of date
+- Fixes the _Push Stash & Keep Staged_ option on the _Git Commands' stash_ command
+- Fixes issues with stashes and untracked files
+- Fixes the wrong icon on the _Unstage All Changes_ command
 - Fixes issue where a selection change wouldn't always trigger a Line History refresh
 - Fixes issues where GitLens' files would not re-open properly on reload
 - Fixes _Incomplete string escaping or encoding_ code scan warning &mdash; https://github.com/eamodio/vscode-gitlens/security/code-scanning/1
@@ -197,13 +247,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds a new _branch_ command with sub-commands for _create_, _rename_, and _delete_
     - Adds a _Reveal Branch in Repositories View_ button to the quick pick menu toolbar
     - Adds keyboard navigation
-    - `right arrow` &mdash; reveals the selected branch in the _Repositories_ view, if there is no text in the quick pick menu
-    - `alt+left right`, `ctrl+left right`, `cmd+left right` (macOS) &mdash; reveals the selected branch in the _Repositories_ view
+      - `right arrow` &mdash; reveals the selected branch in the _Repositories_ view, if there is no text in the quick pick menu
+      - `alt+right arrow`, `ctrl+right arrow`, `cmd+right arrow` (macOS) &mdash; reveals the selected branch in the _Repositories_ view
   - Adds a new _tag_ command with sub-commands for _create_, and _delete_
     - Adds a _Reveal Branch in Repositories View_ or _Reveal Tag in Repositories View_ button to the quick pick menu toolbar
     - Adds keyboard navigation
-    - `right arrow` &mdash; reveals the selected branch or tag in the _Repositories_ view, if there is no text in the quick pick menu
-    - `alt+left right`, `ctrl+left right`, `cmd+left right` (macOS) &mdash; reveals the selected branch or tag in the _Repositories_ view
+      - `right arrow` &mdash; reveals the selected branch or tag in the _Repositories_ view, if there is no text in the quick pick menu
+      - `alt+right arrow`, `ctrl+right arrow`, `cmd+right arrow` (macOS) &mdash; reveals the selected branch or tag in the _Repositories_ view
 - Adds better co-author support &mdash; closes [#373](https://github.com/eamodio/vscode-gitlens/issues/373)
   - Adds a new _co-author_ command to the _Git Commands_ quick pick menu to add a co-author to a commit message
   - Adds a new _Add Co-authors_ command to the inline toolbar and context menu for the _Contributors_ node in the _Repositories_ view
@@ -269,7 +319,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
     - Adds a _Reveal Stash in Repositories View_ button to the quick pick menu toolbar
     - Adds keyboard navigation
     - `right arrow` &mdash; reveals the selected stash in the _Repositories_ view, if there is no text in the quick pick menu
-    - `alt+left right`, `ctrl+left right`, `cmd+left right` (macOS) &mdash; reveals the selected stash in the _Repositories_ view
+    - `alt+right arrow`, `ctrl+right arrow`, `cmd+right arrow` (macOS) &mdash; reveals the selected stash in the _Repositories_ view
   - Adds a new _reset_ command to reset current HEAD to a specified commit
   - Adds a new _revert_ command to revert specific commits
   - Improves and enhances the _fetch_ command
@@ -303,8 +353,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds a _Show Commit in Search Commits View_ button to the quick pick menu toolbar
   - Adds keyboard navigation
     - `right arrow` &mdash; shows the selected commit in the _Search Commits_ view, if there is no text in the quick pick menu
-    - `alt+left right` &mdash; shows the selected commit in the _Search Commits_ view
-    - `ctrl+left right`, `cmd+left right` (macOS) &mdash; reveals the selected commit in the _Repositories_ view
+    - `alt+right arrow` &mdash; shows the selected commit in the _Search Commits_ view
+    - `ctrl+right arrow`, `cmd+right arrow` (macOS) &mdash; reveals the selected commit in the _Repositories_ view
 - Adds a _Reveal Commit in Repositories View_ (`gitlens.revealCommitInView`) command to reveal the current commit in the _Repositories_ view &mdash; this can take a while, so it will show a progress notification with the ability to cancel the operation
   - Adds _Reveal Commit in Repositories View_ command to the commit context menu in the views
   - Adds _Reveal Commit in Repositories View_ command in commit quick pick menu
