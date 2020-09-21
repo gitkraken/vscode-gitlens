@@ -1782,9 +1782,11 @@ function getShowRepositoryStatusStepItems<
 	} else {
 		workingTreeStatus = `$(files) ${
 			computed.staged ? `${Strings.pluralize('staged file', computed.staged)} (${computed.stagedStatus})` : ''
-		}, ${
+		}${
 			computed.unstaged
-				? `${Strings.pluralize('unstaged file', computed.unstaged)} (${computed.unstagedStatus})`
+				? `${computed.staged ? ', ' : ''}${Strings.pluralize('unstaged file', computed.unstaged)} (${
+						computed.unstagedStatus
+				  })`
 				: ''
 		}`;
 	}
