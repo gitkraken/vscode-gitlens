@@ -44,6 +44,7 @@ export async function activate(context: ExtensionContext) {
 	if (!enabled) {
 		Logger.log(`GitLens (v${gitlensVersion}) was NOT activated -- "git.enabled": false`);
 		void setCommandContext(CommandContext.Enabled, false);
+		void setCommandContext(CommandContext.Disabled, true);
 
 		void Messages.showGitDisabledErrorMessage();
 

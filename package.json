@@ -7545,21 +7545,21 @@
 				{
 					"id": "gitlens.views.repositories",
 					"name": "Repositories",
-					"when": "gitlens:enabled && config.gitlens.views.repositories.enabled",
+					"when": "!gitlens:disabled && config.gitlens.views.repositories.enabled",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/repositories.svg"
 				},
 				{
 					"id": "gitlens.views.commits",
 					"name": "Commits",
-					"when": "gitlens:enabled",
+					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/commits.svg"
 				},
 				{
 					"id": "gitlens.views.fileHistory",
 					"name": "File History",
-					"when": "gitlens:enabled",
+					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/history.svg"
 				},
@@ -7574,14 +7574,14 @@
 				{
 					"id": "gitlens.views.branches",
 					"name": "Branches",
-					"when": "gitlens:enabled",
+					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/branches.svg"
 				},
 				{
 					"id": "gitlens.views.remotes",
 					"name": "Remotes",
-					"when": "gitlens:enabled",
+					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/remotes.svg",
 					"visibility": "collapsed"
@@ -7589,7 +7589,7 @@
 				{
 					"id": "gitlens.views.stashes",
 					"name": "Stashes",
-					"when": "gitlens:enabled",
+					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/stashes.svg",
 					"visibility": "collapsed"
@@ -7597,7 +7597,7 @@
 				{
 					"id": "gitlens.views.tags",
 					"name": "Tags",
-					"when": "gitlens:enabled",
+					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/tags.svg",
 					"visibility": "collapsed"
@@ -7605,7 +7605,7 @@
 				{
 					"id": "gitlens.views.contributors",
 					"name": "Contributors",
-					"when": "gitlens:enabled",
+					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/contributors.svg",
 					"visibility": "collapsed"
@@ -7613,7 +7613,7 @@
 				{
 					"id": "gitlens.views.search",
 					"name": "Search Commits",
-					"when": "gitlens:enabled",
+					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/search.svg",
 					"visibility": "collapsed"
@@ -7621,7 +7621,7 @@
 				{
 					"id": "gitlens.views.compare",
 					"name": "Compare Commits",
-					"when": "gitlens:enabled",
+					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/compare.svg",
 					"visibility": "collapsed"
