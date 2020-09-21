@@ -7021,7 +7021,7 @@
 				},
 				{
 					"command": "gitlens.views.commits.setShowBranchComparisonOff",
-					"when": "viewItem =~ /gitlens:compare:branch\\b/",
+					"when": "view =~ /gitlens\\.views\\.commits\\b/ && viewItem =~ /gitlens:compare:branch\\b/",
 					"group": "8_gitlens@1"
 				},
 				{
