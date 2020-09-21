@@ -1,9 +1,9 @@
 'use strict';
 /*global*/
 import { bb, Chart, ChartOptions, DataItem } from 'billboard.js';
-import * as dayjs from 'dayjs';
-import * as advancedFormat from 'dayjs/plugin/advancedFormat';
-import * as relativeTime from 'dayjs/plugin/relativeTime';
+import dayjs from 'dayjs';
+import advancedFormat from 'dayjs/plugin/advancedFormat';
+import relativeTime from 'dayjs/plugin/relativeTime';
 import { TimelineData, TimelineDatum } from '../../protocol';
 import { Emitter, Event } from '../shared/events';
 import { DOM } from '../shared/dom';
@@ -37,92 +37,91 @@ export class TimelineChart {
 				// selection: {
 				//     enabled: true
 				// },
-				onclick: this.onChartDataClick.bind(this)
+				onclick: this.onChartDataClick.bind(this),
 			},
 			axis: {
 				x: {
 					type: 'timeseries',
 					tick: {
 						show: false,
-						fit: false
-					}
+						fit: false,
+					},
 				},
 				y: {
 					max: 0,
 					padding: {
 						top: 50,
-						bottom: 100
+						bottom: 100,
 					},
 					show: true,
 					tick: {
 						culling: false,
 						format: (y: number) =>
 							this._authorsByIndex === undefined ? '' : this._authorsByIndex[y] || '',
-						outer: false
-					}
+						outer: false,
+					},
 				},
 				y2: {
 					show: true,
 					label: {
 						text: 'Changed Lines',
-						position: 'outer-middle'
+						position: 'outer-middle',
 					},
 					tick: {
-						outer: false
-					}
-				}
+						outer: false,
+					},
+				},
 			},
 			bar: {
-				width: 2
+				width: 2,
 				// sensitivity: 25 //Number.MAX_SAFE_INTEGER
 			},
 			grid: {
 				front: false,
 				lines: {
-					front: false
+					front: false,
 				},
 				x: {
-					show: true
+					show: true,
 				},
 				y: {
-					show: true
-				}
+					show: true,
+				},
 			},
 			legend: {
 				show: true,
 				// equally: true,
-				padding: 10
+				padding: 10,
 			},
 			padding: {
 				top: 10,
 				right: 60,
-				bottom: 10
+				bottom: 10,
 			},
 			point: {
 				r: 6,
 				focus: {
 					expand: {
-						r: 9
-					}
-				}
+						r: 9,
+					},
+				},
 				// sensitivity: 25 //Number.MAX_SAFE_INTEGER
 			},
 			subchart: {
-				show: false
+				show: false,
 			},
 			tooltip: {
 				grouped: true,
 				format: {
 					title: this.onChartTooltipTitle.bind(this),
 					name: this.onChartTooltipName.bind(this),
-					value: this.onChartTooltipValue.bind(this)
-				}
+					value: this.onChartTooltipValue.bind(this),
+				},
 			},
 			zoom: {
-				enabled: {
-					type: 'drag'
-				},
-				rescale: true
+				enabled: true,
+				type: 'drag',
+				rescale: true,
 				// onzoomstart: function(...args: any[]) {
 				//     console.log('onzoomstart', args);
 				// },
@@ -132,26 +131,26 @@ export class TimelineChart {
 				// onzoomend: function(...args: any[]) {
 				//     console.log('onzoomend', args);
 				// }
-			}
+			},
 		};
 
 		this._chart = bb.generate(config as any);
 
 		// eslint-disable-next-line @typescript-eslint/no-this-alias
 		const me = this;
-		DOM.listenAll(selector, 'keydown', function(this: HTMLDivElement, e: DOM.Event) {
-			return me.onChartKeyDown(this, e as KeyboardEvent);
+		DOM.on(selector, 'keydown', function (this: HTMLDivElement, e: KeyboardEvent) {
+			return me.onChartKeyDown(this, e);
 		});
 	}
 
-	private onChartDataClick(d: DataItem, element: any) {
+	private onChartDataClick(d: DataItem, _element: SVGElement) {
 		const commit = this._commitsByDate!.get(d.x as any);
 		if (commit === undefined) return;
 
 		this._onDidClick.fire({
 			data: {
-				id: commit.commit
-			}
+				id: commit.commit,
+			},
 		});
 	}
 
@@ -315,17 +314,21 @@ export class TimelineChart {
 		}
 
 		this._chart!.config('title.text', data.title, false);
-		this._chart!.config('axis.y.tick.values', Object.keys(this._authorsByIndex).map(i => Number(i)), false);
+		this._chart!.config(
+			'axis.y.tick.values',
+			Object.keys(this._authorsByIndex).map(i => Number(i)),
+			false,
+		);
 		this._chart!.config('axis.y.min', index - 2, false);
 		this._chart!.groups(groups);
 		this._chart!.load({
-			json: series,
+			json: [series],
 			xs: xs,
 			axes: axes,
 			names: names,
 			colors: colors,
 			types: types,
-			unload: true
+			unload: true,
 		});
 	}
 }

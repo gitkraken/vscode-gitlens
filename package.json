@@ -8211,7 +8211,7 @@
 	},
 	"dependencies": {
 		"@octokit/graphql": "4.5.8",
-		"billboard.js": "1.10.2",
+		"billboard.js": "2.0.3",
 		"chroma-js": "2.1.0",
 		"dayjs": "1.9.6",
 		"iconv-lite": "0.6.2",
