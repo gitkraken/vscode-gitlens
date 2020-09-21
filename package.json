@@ -7524,7 +7524,7 @@
 			},
 			{
 				"view": "gitlens.views.welcome",
-				"contents": "While GitLens is generously offered to everyone free of charge, if you find it useful, please consider sponsoring it.\n\n[Sponsor GitLens ❤](command:gitlens.supportGitLens \"Sponsor GitLens\")"
+				"contents": "And if you find GitLens useful, please consider sponsoring it.\n\n[Sponsor GitLens ❤](command:gitlens.supportGitLens \"Sponsor GitLens\")"
 			},
 			{
 				"view": "gitlens.views.welcome",
