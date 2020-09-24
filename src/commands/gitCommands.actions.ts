@@ -142,7 +142,11 @@ export namespace GitActions {
 				expand?: boolean | number;
 			},
 		) {
-			if (configuration.get('views', 'repositories', 'enabled')) {
+			if (
+				configuration.get('views', 'repositories', 'enabled') &&
+				(Container.repositoriesView.visible ||
+					(branch.remote ? !Container.remotesView.visible : !Container.branchesView.visible))
+			) {
 				return Container.repositoriesView.revealBranch(branch, options);
 			}
 
@@ -673,7 +677,10 @@ export namespace GitActions {
 				expand?: boolean | number;
 			},
 		) {
-			if (configuration.get('views', 'repositories', 'enabled')) {
+			if (
+				configuration.get('views', 'repositories', 'enabled') &&
+				(Container.repositoriesView.visible || !Container.commitsView.visible)
+			) {
 				return Container.repositoriesView.revealCommit(commit, options);
 			}
 
@@ -737,7 +744,10 @@ export namespace GitActions {
 				expand?: boolean | number;
 			},
 		) {
-			if (configuration.get('views', 'repositories', 'enabled')) {
+			if (
+				configuration.get('views', 'repositories', 'enabled') &&
+				(Container.repositoriesView.visible || !Container.tagsView.visible)
+			) {
 				return Container.repositoriesView.revealTag(tag, options);
 			}
 
@@ -794,7 +804,10 @@ export namespace GitActions {
 				expand?: boolean | number;
 			},
 		) {
-			// if (configuration.get('views', 'repositories', 'enabled')) {
+			// if (
+			// 	configuration.get('views', 'repositories', 'enabled') &&
+			// 	(Container.repositoriesView.visible || !Container.remotesView.visible)
+			// ) {
 			// 	return Container.repositoriesView.revealRemote(remote, options);
 			// }
 
@@ -846,7 +859,10 @@ export namespace GitActions {
 				expand?: boolean | number;
 			},
 		) {
-			if (configuration.get('views', 'repositories', 'enabled')) {
+			if (
+				configuration.get('views', 'repositories', 'enabled') &&
+				(Container.repositoriesView.visible || !Container.stashesView.visible)
+			) {
 				return Container.repositoriesView.revealStash(stash, options);
 			}
 
