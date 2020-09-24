@@ -40,16 +40,6 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistor
 			() => this.setEditorFollowing(false),
 			this,
 		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setRenameFollowingOn'),
-			() => this.setRenameFollowing(true),
-			this,
-		);
-		commands.registerCommand(
-			this.getQualifiedCommand('setRenameFollowingOff'),
-			() => this.setRenameFollowing(false),
-			this,
-		);
 		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this);
 		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this);
 	}
@@ -61,8 +51,7 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistor
 			!configuration.changed(e, 'defaultDateFormat') &&
 			!configuration.changed(e, 'defaultDateSource') &&
 			!configuration.changed(e, 'defaultDateStyle') &&
-			!configuration.changed(e, 'defaultGravatarsStyle') &&
-			!configuration.changed(e, 'advanced', 'fileHistoryFollowsRenames')
+			!configuration.changed(e, 'defaultGravatarsStyle')
 		) {
 			return false;
 		}
@@ -96,10 +85,6 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistor
 		} else if (!enabled) {
 			this.titleDescription += pinnedSuffix;
 		}
-	}
-
-	private setRenameFollowing(enabled: boolean) {
-		return configuration.updateEffective('advanced', 'fileHistoryFollowsRenames', enabled);
 	}
 
 	private setShowAvatars(enabled: boolean) {

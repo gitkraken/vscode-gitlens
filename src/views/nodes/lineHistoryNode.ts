@@ -292,6 +292,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 				limit: this.limit ?? this.view.config.defaultItemLimit,
 				ref: this.uri.sha,
 				range: selection ?? this.selection,
+				renames: false,
 			});
 		}
 

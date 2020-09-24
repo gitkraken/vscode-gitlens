@@ -2082,7 +2082,7 @@
 				},
 				"gitlens.advanced.fileHistoryFollowsRenames": {
 					"type": "boolean",
-					"default": true,
+					"default": false,
 					"markdownDescription": "Specifies whether file histories will follow renames — will affect how merge commits are shown in histories",
 					"scope": "window"
 				},
@@ -3860,16 +3860,6 @@
 				"icon": "$(pin)"
 			},
 			{
-				"command": "gitlens.views.lineHistory.setRenameFollowingOn",
-				"title": "Follow Renames",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.views.lineHistory.setRenameFollowingOff",
-				"title": "Don't Follow Renames",
-				"category": "GitLens"
-			},
-			{
 				"command": "gitlens.views.lineHistory.setShowAvatarsOn",
 				"title": "Show Avatars",
 				"category": "GitLens"
@@ -5093,14 +5083,6 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.lineHistory.setRenameFollowingOn",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.lineHistory.setRenameFollowingOff",
-					"when": "false"
-				},
-				{
 					"command": "gitlens.views.lineHistory.setShowAvatarsOn",
 					"when": "false"
 				},
@@ -5941,17 +5923,17 @@
 				},
 				{
 					"command": "gitlens.views.fileHistory.setRenameFollowingOn",
-					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && !config.gitlens.advanced.fileHistoryFollowsRenames && !config.gitlens.advanced.fileHistoryShowAllBranches",
+					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && !gitlens:views:fileHistory:cursorFollowing && !config.gitlens.advanced.fileHistoryFollowsRenames && !config.gitlens.advanced.fileHistoryShowAllBranches",
 					"group": "2_gitlens@0"
 				},
 				{
 					"command": "gitlens.views.fileHistory.setRenameFollowingOn",
-					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && config.gitlens.advanced.fileHistoryShowAllBranches",
+					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && !gitlens:views:fileHistory:cursorFollowing && config.gitlens.advanced.fileHistoryShowAllBranches",
 					"group": "2_gitlens@0"
 				},
 				{
 					"command": "gitlens.views.fileHistory.setRenameFollowingOff",
-					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && config.gitlens.advanced.fileHistoryFollowsRenames && !config.gitlens.advanced.fileHistoryShowAllBranches",
+					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && !gitlens:views:fileHistory:cursorFollowing && config.gitlens.advanced.fileHistoryFollowsRenames && !config.gitlens.advanced.fileHistoryShowAllBranches",
 					"group": "2_gitlens@0"
 				},
 				{
@@ -5993,16 +5975,6 @@
 					"command": "gitlens.views.lineHistory.setShowAvatarsOff",
 					"when": "view =~ /^gitlens\\.views\\.lineHistory/ && config.gitlens.views.lineHistory.avatars",
 					"group": "1_gitlens@0"
-				},
-				{
-					"command": "gitlens.views.lineHistory.setRenameFollowingOn",
-					"when": "view =~ /^gitlens\\.views\\.lineHistory/ && !config.gitlens.advanced.fileHistoryFollowsRenames",
-					"group": "2_gitlens@0"
-				},
-				{
-					"command": "gitlens.views.lineHistory.setRenameFollowingOff",
-					"when": "view =~ /^gitlens\\.views\\.lineHistory/ && config.gitlens.advanced.fileHistoryFollowsRenames",
-					"group": "2_gitlens@0"
 				},
 				{
 					"command": "gitlens.views.remotes.setLayoutToList",
