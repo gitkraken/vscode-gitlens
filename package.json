@@ -594,6 +594,14 @@
 					"markdownDescription": "Specifies whether to match commit search patterns using regular expressions",
 					"scope": "window"
 				},
+				"gitlens.gitCommands.search.showResultsInView": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to show the commit search results in the _Search Commits_ view or directly within the quick pick menu",
+					"scope": "window",
+					"deprecationMessage": "Depreciated: This setting has been renamed to gitlens.gitCommands.search.showResultsInSideBar",
+					"markdownDeprecationMessage": "Depreciated: This setting has been renamed to `#gitlens.gitCommands.search.showResultsInSideBar#`"
+				},
 				"gitlens.gitCommands.search.showResultsInSideBar": {
 					"type": "boolean",
 					"default": false,
