@@ -10,6 +10,7 @@ export interface FormatOptions {
 
 type Constructor<T = Record<string, unknown>> = new (...args: any[]) => T;
 
+const hasTokenRegexMap = new Map<string, RegExp>();
 const spaceReplacementRegex = / /g;
 
 declare type RequiredTokenOptions<TOptions extends FormatOptions> = TOptions & Required<Pick<TOptions, 'tokenOptions'>>;
@@ -137,5 +138,23 @@ export abstract class Formatter<TItem = any, TOptions extends FormatOptions = Fo
 		}
 
 		return Strings.interpolate(template, this._formatter);
+	}
+
+	static has<TOptions extends FormatOptions>(
+		template: string,
+		...tokens: (keyof NonNullable<TOptions['tokenOptions']>)[]
+	): boolean {
+		const token =
+			tokens.length === 1
+				? (tokens[0] as string)
+				: ((`(${tokens.join('|')})` as keyof NonNullable<TOptions['tokenOptions']>) as string);
+
+		let regex = hasTokenRegexMap.get(token);
+		if (regex == null) {
+			regex = new RegExp(`\\b${token}\\b`);
+			hasTokenRegexMap.set(token, regex);
+		}
+
+		return regex.test(template);
 	}
 }

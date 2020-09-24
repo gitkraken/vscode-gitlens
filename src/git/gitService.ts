@@ -419,14 +419,23 @@ export class GitService implements Disposable {
 		await setCommandContext(CommandContext.Enabled, hasRepository);
 
 		let hasRemotes = false;
+		let hasConnectedRemotes = false;
 		if (hasRepository) {
 			for (const repo of repositoryTree.values()) {
-				hasRemotes = await repo.hasRemotes();
-				if (hasRemotes) break;
+				if (!hasConnectedRemotes) {
+					hasConnectedRemotes = await repo.hasConnectedRemotes();
+				}
+
+				if (!hasRemotes) {
+					hasRemotes = hasConnectedRemotes || (await repo.hasRemotes());
+				}
+
+				if (hasRemotes && hasConnectedRemotes) break;
 			}
 		}
 
 		await setCommandContext(CommandContext.HasRemotes, hasRemotes);
+		await setCommandContext(CommandContext.HasConnectedRemotes, hasConnectedRemotes);
 
 		// If we have no repositories setup a watcher in case one is initialized
 		if (!hasRepository) {
@@ -2621,6 +2630,39 @@ export class GitService implements Disposable {
 
 			return mergedLog;
 		};
+	}
+
+	async getRemoteWithApiProvider(
+		repoPath: string | undefined,
+		options?: { includeDisconnected?: boolean },
+	): Promise<GitRemote<RemoteProviderWithApi> | undefined>;
+	async getRemoteWithApiProvider(
+		remotes: GitRemote[],
+		options?: { includeDisconnected?: boolean },
+	): Promise<GitRemote<RemoteProviderWithApi> | undefined>;
+	@log()
+	async getRemoteWithApiProvider(
+		remotesOrRepoPath: GitRemote[] | string | undefined,
+		{ includeDisconnected }: { includeDisconnected?: boolean } = {},
+	): Promise<GitRemote<RemoteProviderWithApi> | undefined> {
+		if (remotesOrRepoPath == null) return undefined;
+
+		const remotes = (typeof remotesOrRepoPath === 'string'
+			? await this.getRemotes(remotesOrRepoPath)
+			: remotesOrRepoPath
+		).filter(r => r.provider != null);
+
+		const remote =
+			remotes.length === 1 ? remotes[0] : remotes.find(r => r.default) ?? remotes.find(r => r.name === 'origin');
+		if (!remote?.provider?.hasApi()) return undefined;
+
+		const { provider } = remote;
+		if (!includeDisconnected) {
+			const connected = provider.maybeConnected ?? (await provider.isConnected());
+			if (!connected) return undefined;
+		}
+
+		return remote as GitRemote<RemoteProviderWithApi>;
 	}
 
 	@log()

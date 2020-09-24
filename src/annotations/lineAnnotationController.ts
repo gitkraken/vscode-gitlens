@@ -148,13 +148,8 @@ export class LineAnnotationController implements Disposable {
 	) {
 		if (lines.length === 0) return undefined;
 
-		const remotes = await Container.git.getRemotes(repoPath);
-		const remote = remotes.find(r => r.default);
-		if (!remote?.provider?.hasApi()) return undefined;
-
-		const { provider } = remote;
-		const connected = provider.maybeConnected ?? (await provider.isConnected());
-		if (!connected) return undefined;
+		const remote = await Container.git.getRemoteWithApiProvider(repoPath);
+		if (remote?.provider == null) return undefined;
 
 		const refs = new Set<string>();
 
@@ -164,6 +159,7 @@ export class LineAnnotationController implements Disposable {
 
 		if (refs.size === 0) return undefined;
 
+		const { provider } = remote;
 		const prs = await Promises.raceAll(
 			refs.values(),
 			ref => Container.git.getPullRequestForCommit(ref, provider),

@@ -6600,7 +6600,7 @@
 				},
 				{
 					"command": "gitlens.copyShaToClipboard",
-					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)\\b/",
+					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
 					"group": "inline@98",
 					"alt": "gitlens.copyMessageToClipboard"
 				},

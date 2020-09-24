@@ -9,16 +9,14 @@ import { GlyphChars } from '../constants';
 
 const numRegex = /<num>/g;
 
-const superscripts = ['\u00B9', '\u00B2', '\u00B3', '\u2074', '\u2075', '\u2076', '\u2077', '\u2078', '\u2079'];
-
 export interface CacheableAutolinkReference extends AutolinkReference {
-	linkify?: ((text: string, markdown: boolean) => string) | null;
+	linkify?: ((text: string, markdown: boolean, footnotes?: Map<number, string>) => string) | null;
 	messageMarkdownRegex?: RegExp;
 	messageRegex?: RegExp;
 }
 
 export interface DynamicAutolinkReference {
-	linkify: (text: string, markdown: boolean) => string;
+	linkify: (text: string, markdown: boolean, footnotes?: Map<number, string>) => string;
 }
 
 function isDynamic(ref: AutolinkReference | DynamicAutolinkReference): ref is DynamicAutolinkReference {
@@ -115,11 +113,12 @@ export class Autolinks implements Disposable {
 		markdown: boolean,
 		remotes?: GitRemote[],
 		issuesOrPullRequests?: Map<string, IssueOrPullRequest | Promises.CancellationError | undefined>,
+		footnotes?: Map<number, string>,
 	) {
 		for (const ref of this._references) {
 			if (this.ensureAutolinkCached(ref, issuesOrPullRequests)) {
 				if (ref.linkify != null) {
-					text = ref.linkify(text, markdown);
+					text = ref.linkify(text, markdown, footnotes);
 				}
 			}
 		}
@@ -131,7 +130,7 @@ export class Autolinks implements Disposable {
 				for (const ref of r.provider.autolinks) {
 					if (this.ensureAutolinkCached(ref, issuesOrPullRequests)) {
 						if (ref.linkify != null) {
-							text = ref.linkify(text, markdown);
+							text = ref.linkify(text, markdown, footnotes);
 						}
 					}
 				}
@@ -162,12 +161,12 @@ export class Autolinks implements Disposable {
 					ref.title ? ` "${ref.title.replace(numRegex, '$2')}"` : ''
 				})`;
 				ref.linkify = (text: string, markdown: boolean) =>
-					!markdown ? text : text.replace(ref.messageMarkdownRegex!, replacement);
+					markdown ? text.replace(ref.messageMarkdownRegex!, replacement) : text;
 
 				return true;
 			}
 
-			ref.linkify = (text: string, markdown: boolean) => {
+			ref.linkify = (text: string, markdown: boolean, footnotes?: Map<number, string>) => {
 				if (markdown) {
 					return text.replace(ref.messageMarkdownRegex!, (_substring, linkText, num) => {
 						const issue = issuesOrPullRequests?.get(num);
@@ -195,19 +194,21 @@ export class Autolinks implements Disposable {
 					});
 				}
 
-				let footnotes: string[] | undefined;
-				let superscript;
+				const includeFootnotes = footnotes == null;
+				let index;
 
 				text = text.replace(ref.messageRegex!, (_substring, linkText, num) => {
 					const issue = issuesOrPullRequests?.get(num);
 					if (issue == null) return linkText;
 
 					if (footnotes === undefined) {
-						footnotes = [];
+						footnotes = new Map<number, string>();
 					}
-					superscript = superscripts[footnotes.length];
-					footnotes.push(
-						`${superscript} ${
+
+					index = footnotes.size + 1;
+					footnotes.set(
+						footnotes.size + 1,
+						`${linkText}: ${
 							issue instanceof Promises.CancellationError
 								? 'Details timed out'
 								: `${issue.title}  ${GlyphChars.Dot}  ${
@@ -215,10 +216,15 @@ export class Autolinks implements Disposable {
 								  }, ${Dates.getFormatter(issue.closedDate ?? issue.date).fromNow()}`
 						}`,
 					);
-					return `${linkText}${superscript}`;
+					return `${linkText}${Strings.getSuperscript(index)}`;
 				});
 
-				return footnotes == null || footnotes.length === 0 ? text : `${text}\n\n${footnotes.join('\n')}`;
+				return includeFootnotes && footnotes != null && footnotes.size !== 0
+					? `${text}\n${GlyphChars.Dash.repeat(2)}\n${Iterables.join(
+							Iterables.map(footnotes, ([i, footnote]) => `${Strings.getSuperscript(i)} ${footnote}`),
+							'\n',
+					  )}`
+					: text;
 			};
 		} catch (ex) {
 			Logger.error(

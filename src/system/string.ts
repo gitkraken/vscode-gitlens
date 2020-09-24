@@ -63,6 +63,12 @@ export namespace Strings {
 		return secs * 1000 + Math.floor(nanosecs / 1000000);
 	}
 
+	const superscripts = ['\u00B9', '\u00B2', '\u00B3', '\u2074', '\u2075', '\u2076', '\u2077', '\u2078', '\u2079'];
+
+	export function getSuperscript(num: number) {
+		return superscripts[num - 1] ?? '';
+	}
+
 	const driveLetterNormalizeRegex = /(?<=^\/?)([A-Z])(?=:\/)/;
 	const pathNormalizeRegex = /\\/g;
 	const pathStripTrailingSlashRegex = /\/$/g;

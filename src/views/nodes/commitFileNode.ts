@@ -59,7 +59,7 @@ export class CommitFileNode extends ViewRefFileNode {
 		}
 
 		const item = new TreeItem(this.label, TreeItemCollapsibleState.None);
-		item.contextValue = this.contextValye;
+		item.contextValue = this.contextValue;
 		item.description = this.description;
 		item.tooltip = this.tooltip;
 
@@ -75,15 +75,13 @@ export class CommitFileNode extends ViewRefFileNode {
 
 		item.command = this.getCommand();
 
-		// Only cache the label/description/tooltip for a single refresh
+		// Only cache the label for a single refresh (its only cached because it is used externally for sorting)
 		this._label = undefined;
-		this._description = undefined;
-		this._tooltip = undefined;
 
 		return item;
 	}
 
-	protected get contextValye(): string {
+	protected get contextValue(): string {
 		if (!this.commit.isUncommitted) {
 			return `${ContextValues.File}+committed${this._options.inFileHistory ? '+history' : ''}`;
 		}
@@ -91,19 +89,15 @@ export class CommitFileNode extends ViewRefFileNode {
 		return this.commit.isUncommittedStaged ? `${ContextValues.File}+staged` : `${ContextValues.File}+unstaged`;
 	}
 
-	private _description: string | undefined;
-	get description() {
-		if (this._description === undefined) {
-			this._description = this._options.displayAsCommit
-				? CommitFormatter.fromTemplate(this.getCommitDescriptionTemplate(), this.commit, {
-						truncateMessageAtNewLine: true,
-						dateFormat: Container.config.defaultDateFormat,
-				  })
-				: StatusFileFormatter.fromTemplate(this.getCommitFileDescriptionTemplate(), this.file, {
-						relativePath: this.relativePath,
-				  });
-		}
-		return this._description;
+	private get description() {
+		return this._options.displayAsCommit
+			? CommitFormatter.fromTemplate(this.getCommitDescriptionTemplate(), this.commit, {
+					messageTruncateAtNewLine: true,
+					dateFormat: Container.config.defaultDateFormat,
+			  })
+			: StatusFileFormatter.fromTemplate(this.getCommitFileDescriptionTemplate(), this.file, {
+					relativePath: this.relativePath,
+			  });
 	}
 
 	private _folderName: string | undefined;
@@ -119,7 +113,7 @@ export class CommitFileNode extends ViewRefFileNode {
 		if (this._label === undefined) {
 			this._label = this._options.displayAsCommit
 				? CommitFormatter.fromTemplate(this.getCommitTemplate(), this.commit, {
-						truncateMessageAtNewLine: true,
+						messageTruncateAtNewLine: true,
 						dateFormat: Container.config.defaultDateFormat,
 				  })
 				: StatusFileFormatter.fromTemplate(this.getCommitFileTemplate(), this.file, {
@@ -136,39 +130,36 @@ export class CommitFileNode extends ViewRefFileNode {
 	set relativePath(value: string | undefined) {
 		this._relativePath = value;
 		this._label = undefined;
-		this._tooltip = undefined;
 	}
 
-	private _tooltip: string | undefined;
-	get tooltip() {
-		if (this._tooltip === undefined) {
-			if (this._options.displayAsCommit) {
-				// eslint-disable-next-line no-template-curly-in-string
-				const status = StatusFileFormatter.fromTemplate('${status}${ (originalPath)}', this.file); // lgtm [js/template-syntax-in-string-literal]
-				this._tooltip = CommitFormatter.fromTemplate(
-					this.commit.isUncommitted
-						? `\${author} ${GlyphChars.Dash} \${id}\n${status}\n\${ago} (\${date})`
-						: `\${author} ${
-								GlyphChars.Dash
-						  } \${id}\n${status}\n\${ago} (\${date})\n\n\${message}${this.commit.getFormattedDiffStatus({
-								expand: true,
-								prefix: '\n\n',
-								separator: '\n',
-						  })}`,
-					this.commit,
-					{
-						dateFormat: Container.config.defaultDateFormat,
-					},
-				);
-			} else {
-				this._tooltip = StatusFileFormatter.fromTemplate(
-					// eslint-disable-next-line no-template-curly-in-string
-					'${file}\n${directory}/\n\n${status}${ (originalPath)}',
-					this.file,
-				);
-			}
+	private get tooltip() {
+		if (this._options.displayAsCommit) {
+			// eslint-disable-next-line no-template-curly-in-string
+			const status = StatusFileFormatter.fromTemplate('${status}${ (originalPath)}', this.file); // lgtm [js/template-syntax-in-string-literal]
+			return CommitFormatter.fromTemplate(
+				this.commit.isUncommitted
+					? `\${author} ${GlyphChars.Dash} \${id}\n${status}\n\${ago} (\${date})`
+					: `\${author}\${ (email)}\${" via "pullRequest} ${
+							GlyphChars.Dash
+					  } \${id}\n${status}\n\${ago} (\${date})\${\n\nmessage}${this.commit.getFormattedDiffStatus({
+							expand: true,
+							prefix: '\n\n',
+							separator: '\n',
+					  })}\${\n\n${GlyphChars.Dash.repeat(2)}\nfootnotes}`,
+				this.commit,
+				{
+					dateFormat: Container.config.defaultDateFormat,
+					messageAutolinks: true,
+					messageIndent: 4,
+				},
+			);
 		}
-		return this._tooltip;
+
+		return StatusFileFormatter.fromTemplate(
+			// eslint-disable-next-line no-template-curly-in-string
+			'${file}\n${directory}/\n\n${status}${ (originalPath)}',
+			this.file,
+		);
 	}
 
 	protected getCommitTemplate() {

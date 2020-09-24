@@ -33,6 +33,27 @@ export class CommitNode extends ViewRefNode<ViewsWithFiles, GitRevisionReference
 		return this.commit;
 	}
 
+	private get tooltip() {
+		return CommitFormatter.fromTemplate(
+			this.commit.isUncommitted
+				? `\${author} ${GlyphChars.Dash} \${id}\n\${ago} (\${date})`
+				: `\${author}\${ (email)}\${" via "pullRequest} ${
+						GlyphChars.Dash
+				  } \${id}\${ (tips)}\n\${ago} (\${date})\${\n\nmessage}${this.commit.getFormattedDiffStatus({
+						expand: true,
+						prefix: '\n\n',
+						separator: '\n',
+				  })}\${\n\n${GlyphChars.Dash.repeat(2)}\nfootnotes}`,
+			this.commit,
+			{
+				dateFormat: Container.config.defaultDateFormat,
+				getBranchAndTagTips: this.getBranchAndTagTips,
+				messageAutolinks: true,
+				messageIndent: 4,
+			},
+		);
+	}
+
 	getChildren(): ViewNode[] {
 		const commit = this.commit;
 
@@ -62,43 +83,25 @@ export class CommitNode extends ViewRefNode<ViewsWithFiles, GitRevisionReference
 		const label = CommitFormatter.fromTemplate(this.view.config.commitFormat, this.commit, {
 			dateFormat: Container.config.defaultDateFormat,
 			getBranchAndTagTips: this.getBranchAndTagTips,
-			truncateMessageAtNewLine: true,
+			messageTruncateAtNewLine: true,
 		});
 
 		const item = new TreeItem(
 			label,
 			this._options.expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
 		);
-		item.contextValue = ContextValues.Commit;
-		if (this.branch?.current) {
-			item.contextValue += '+current';
-		}
+
+		item.contextValue = `${ContextValues.Commit}${this.branch?.current ? '+current' : ''}`;
+
 		item.description = CommitFormatter.fromTemplate(this.view.config.commitDescriptionFormat, this.commit, {
-			truncateMessageAtNewLine: true,
+			messageTruncateAtNewLine: true,
 			dateFormat: Container.config.defaultDateFormat,
 		});
 		item.iconPath =
 			!(this.view instanceof StashesView) && this.view.config.avatars
 				? this.commit.getAvatarUri(Container.config.defaultGravatarsStyle)
 				: new ThemeIcon('git-commit');
-		item.tooltip = CommitFormatter.fromTemplate(
-			this.commit.isUncommitted
-				? `\${author} ${GlyphChars.Dash} \${id}\n\${ago} (\${date})`
-				: `\${author} \${(email) }${GlyphChars.Dash} \${id}\${ (tips)}\n\${ago} (\${date})\n\n\${message}`,
-			this.commit,
-			{
-				dateFormat: Container.config.defaultDateFormat,
-				getBranchAndTagTips: this.getBranchAndTagTips,
-			},
-		);
-
-		if (!this.commit.isUncommitted) {
-			item.tooltip += this.commit.getFormattedDiffStatus({
-				expand: true,
-				prefix: '\n\n',
-				separator: '\n',
-			});
-		}
+		item.tooltip = this.tooltip;
 
 		return item;
 	}

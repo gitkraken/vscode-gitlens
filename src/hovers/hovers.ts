@@ -201,6 +201,7 @@ export namespace Hovers {
 			dateFormat: dateFormat,
 			line: editorLine,
 			markdown: true,
+			messageAutolinks: Container.config.hovers.autolinks.enabled,
 			pullRequestOrRemote: pr,
 			presence: presence,
 			previousLineDiffUris: previousLineDiffUris,
@@ -242,8 +243,8 @@ export namespace Hovers {
 			return undefined;
 		}
 
-		const remote = remotes.find(r => r.default && r.provider != null);
-		if (remote == null) {
+		const remote = await Container.git.getRemoteWithApiProvider(remotes);
+		if (remote?.provider == null) {
 			Logger.debug(cc, `completed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
 
 			return undefined;
@@ -321,8 +322,8 @@ export namespace Hovers {
 			return undefined;
 		}
 
-		const remote = remotes.find(r => r.default && r.provider != null);
-		if (!remote?.provider?.hasApi()) {
+		const remote = await Container.git.getRemoteWithApiProvider(remotes, { includeDisconnected: true });
+		if (remote?.provider == null) {
 			Logger.debug(cc, `completed ${GlyphChars.Dot} ${Strings.getDurationMilliseconds(start)} ms`);
 
 			return undefined;

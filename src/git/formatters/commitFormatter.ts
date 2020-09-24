@@ -1,4 +1,5 @@
 'use strict';
+import { getPresenceDataUri } from '../../avatars';
 import {
 	ConnectRemoteProviderCommand,
 	DiffWithCommand,
@@ -11,6 +12,8 @@ import {
 import { DateStyle, FileAnnotationType } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
+import { emojify } from '../../emojis';
+import { FormatOptions, Formatter } from './formatter';
 import {
 	GitCommit,
 	GitLogCommit,
@@ -21,27 +24,25 @@ import {
 	RemoteProvider,
 } from '../git';
 import { GitUri } from '../gitUri';
-import { Promises, Strings } from '../../system';
-import { FormatOptions, Formatter } from './formatter';
+import { Iterables, Promises, Strings } from '../../system';
 import { ContactPresence } from '../../vsls/vsls';
-import { getPresenceDataUri } from '../../avatars';
-import { emojify } from '../../emojis';
 
 const emptyStr = '';
-
-const hasTokenRegexMap = new Map<string, RegExp>();
 
 export interface CommitFormatOptions extends FormatOptions {
 	autolinkedIssuesOrPullRequests?: Map<string, IssueOrPullRequest | Promises.CancellationError | undefined>;
 	dateStyle?: DateStyle;
+	footnotes?: Map<number, string>;
 	getBranchAndTagTips?: (sha: string) => string | undefined;
 	line?: number;
 	markdown?: boolean;
+	messageAutolinks?: boolean;
+	messageIndent?: number;
+	messageTruncateAtNewLine?: boolean;
 	pullRequestOrRemote?: PullRequest | Promises.CancellationError | GitRemote;
 	presence?: ContactPresence;
 	previousLineDiffUris?: { current: GitUri; previous: GitUri | undefined };
 	remotes?: GitRemote<RemoteProvider>[];
-	truncateMessageAtNewLine?: boolean;
 
 	tokenOptions?: {
 		ago?: Strings.TokenOptions;
@@ -57,6 +58,7 @@ export interface CommitFormatOptions extends FormatOptions {
 		committerDate?: Strings.TokenOptions;
 		date?: Strings.TokenOptions;
 		email?: Strings.TokenOptions;
+		footnotes?: Strings.TokenOptions;
 		id?: Strings.TokenOptions;
 		message?: Strings.TokenOptions;
 		pullRequest?: Strings.TokenOptions;
@@ -325,6 +327,18 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		return this._padOrTruncate(this._item.email ?? emptyStr, this._options.tokenOptions.email);
 	}
 
+	get footnotes() {
+		if (this._options.footnotes == null || this._options.footnotes.size === 0) return '';
+
+		return this._padOrTruncate(
+			Iterables.join(
+				Iterables.map(this._options.footnotes, ([i, footnote]) => `${Strings.getSuperscript(i)} ${footnote}`),
+				'\n',
+			),
+			this._options.tokenOptions.footnotes,
+		);
+	}
+
 	get id() {
 		return this._padOrTruncate(this._item.shortSha ?? emptyStr, this._options.tokenOptions.id);
 	}
@@ -332,7 +346,8 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	get message() {
 		if (this._item.isUncommitted) {
 			const staged =
-				this._item.isUncommittedStaged || this._options.previousLineDiffUris?.current?.isUncommittedStaged;
+				this._item.isUncommittedStaged ||
+				(this._options.previousLineDiffUris?.current?.isUncommittedStaged ?? false);
 
 			return this._padOrTruncate(
 				`${this._options.markdown ? '\n> ' : ''}${staged ? 'Staged' : 'Uncommitted'} changes`,
@@ -341,7 +356,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		}
 
 		let message = this._item.message;
-		if (this._options.truncateMessageAtNewLine) {
+		if (this._options.messageTruncateAtNewLine) {
 			const index = message.indexOf('\n');
 			if (index !== -1) {
 				message = `${message.substring(0, index)}${GlyphChars.Space}${GlyphChars.Ellipsis}`;
@@ -351,13 +366,18 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		message = emojify(message);
 		message = this._padOrTruncate(message, this._options.tokenOptions.message);
 
-		if (Container.config.hovers.autolinks.enabled) {
+		if (this._options.messageAutolinks) {
 			message = Container.autolinks.linkify(
 				this._options.markdown ? Strings.escapeMarkdown(message, { quoted: true }) : message,
 				this._options.markdown ?? false,
 				this._options.remotes,
 				this._options.autolinkedIssuesOrPullRequests,
+				this._options.footnotes,
 			);
+		}
+
+		if (this._options.messageIndent != null && !this._options.markdown) {
+			message = message.replace(/^/gm, GlyphChars.Space.repeat(this._options.messageIndent));
 		}
 
 		return this._options.markdown ? `\n> ${message}` : message;
@@ -369,11 +389,21 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 		let text;
 		if (PullRequest.is(pr)) {
-			text = this._options.markdown
-				? `[PR #${pr.number}](${pr.url} "Open Pull Request \\#${pr.number} on ${
-						pr.provider
-				  }\n${GlyphChars.Dash.repeat(2)}\n${pr.title}\n${pr.state}, ${pr.formatDateFromNow()}")`
-				: `PR #${pr.number}`;
+			if (this._options.markdown) {
+				text = `[PR #${pr.number}](${pr.url} "Open Pull Request \\#${pr.number} on ${
+					pr.provider
+				}\n${GlyphChars.Dash.repeat(2)}\n${pr.title}\n${pr.state}, ${pr.formatDateFromNow()}")`;
+			} else if (this._options.footnotes != null) {
+				const index = this._options.footnotes.size + 1;
+				this._options.footnotes.set(
+					index,
+					`PR #${pr.number}: ${pr.title}  ${GlyphChars.Dot}  ${pr.state}, ${pr.formatDateFromNow()}`,
+				);
+
+				text = `PR #${pr.number}${Strings.getSuperscript(index)}`;
+			} else {
+				text = `PR #${pr.number}`;
+			}
 		} else if (pr instanceof Promises.CancellationError) {
 			text = this._options.markdown
 				? `[PR ${GlyphChars.Ellipsis}](# "Searching for a Pull Request (if any) that introduced this commit...")`
@@ -427,21 +457,23 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		commit: GitCommit,
 		dateFormatOrOptions?: string | null | CommitFormatOptions,
 	): string {
+		if (CommitFormatter.has(template, 'footnotes')) {
+			if (dateFormatOrOptions == null || typeof dateFormatOrOptions === 'string') {
+				// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+				dateFormatOrOptions = {
+					dateFormat: dateFormatOrOptions,
+				} as CommitFormatOptions;
+			}
+
+			if (dateFormatOrOptions.footnotes == null) {
+				dateFormatOrOptions.footnotes = new Map<number, string>();
+			}
+		}
+
 		return super.fromTemplateCore(this, template, commit, dateFormatOrOptions);
 	}
 
-	static has(format: string, ...tokens: (keyof NonNullable<CommitFormatOptions['tokenOptions']>)[]) {
-		const token =
-			tokens.length === 1
-				? tokens[0]
-				: (`(${tokens.join('|')})` as keyof NonNullable<CommitFormatOptions['tokenOptions']>);
-
-		let regex = hasTokenRegexMap.get(token);
-		if (regex == null) {
-			regex = new RegExp(`\\b${token}\\b`);
-			hasTokenRegexMap.set(token, regex);
-		}
-
-		return regex.test(format);
+	static has(template: string, ...tokens: (keyof NonNullable<CommitFormatOptions['tokenOptions']>)[]): boolean {
+		return super.has<CommitFormatOptions>(template, ...tokens);
 	}
 }
