@@ -7433,10 +7433,28 @@
 				"when": "config.gitlens.keymap == chorded && gitlens:enabled"
 			},
 			{
-				"command": "gitlens.views.repositories.copy",
+				"command": "gitlens.views.branches.copy",
 				"key": "ctrl+c",
 				"mac": "cmd+c",
-				"when": "gitlens:enabled && focusedView =~ /^gitlens\\.views\\.repositories/"
+				"when": "gitlens:enabled && focusedView =~ /^gitlens\\.views\\.branches/"
+			},
+			{
+				"command": "gitlens.views.commits.copy",
+				"key": "ctrl+c",
+				"mac": "cmd+c",
+				"when": "gitlens:enabled && focusedView =~ /^gitlens\\.views\\.commits/"
+			},
+			{
+				"command": "gitlens.views.compare.copy",
+				"key": "ctrl+c",
+				"mac": "cmd+c",
+				"when": "gitlens:enabled && focusedView =~ /^gitlens\\.views\\.compare/"
+			},
+			{
+				"command": "gitlens.views.contributors.copy",
+				"key": "ctrl+c",
+				"mac": "cmd+c",
+				"when": "gitlens:enabled && focusedView =~ /^gitlens\\.views\\.contributors/"
 			},
 			{
 				"command": "gitlens.views.fileHistory.copy",
@@ -7451,16 +7469,34 @@
 				"when": "gitlens:enabled && focusedView =~ /^gitlens\\.views\\.lineHistory/"
 			},
 			{
-				"command": "gitlens.views.compare.copy",
+				"command": "gitlens.views.remotes.copy",
 				"key": "ctrl+c",
 				"mac": "cmd+c",
-				"when": "gitlens:enabled && focusedView =~ /^gitlens\\.views\\.compare/"
+				"when": "gitlens:enabled && focusedView =~ /^gitlens\\.views\\.remotes/"
+			},
+			{
+				"command": "gitlens.views.repositories.copy",
+				"key": "ctrl+c",
+				"mac": "cmd+c",
+				"when": "gitlens:enabled && focusedView =~ /^gitlens\\.views\\.repositories/"
+			},
+			{
+				"command": "gitlens.views.stashes.copy",
+				"key": "ctrl+c",
+				"mac": "cmd+c",
+				"when": "gitlens:enabled && focusedView =~ /^gitlens\\.views\\.stashes/"
 			},
 			{
 				"command": "gitlens.views.search.copy",
 				"key": "ctrl+c",
 				"mac": "cmd+c",
 				"when": "gitlens:enabled && focusedView =~ /^gitlens\\.views\\.search/"
+			},
+			{
+				"command": "gitlens.views.tags.copy",
+				"key": "ctrl+c",
+				"mac": "cmd+c",
+				"when": "gitlens:enabled && focusedView =~ /^gitlens\\.views\\.tags/"
 			}
 		],
 		"customEditors": [
