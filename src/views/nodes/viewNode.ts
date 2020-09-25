@@ -159,8 +159,10 @@ export namespace PageableViewNode {
 }
 
 export abstract class SubscribeableViewNode<TView extends View = View> extends ViewNode<TView> {
-	protected _disposable: Disposable;
-	protected _subscription: Promise<Disposable | undefined> | undefined;
+	protected disposable: Disposable;
+	protected subscription: Promise<Disposable | undefined> | undefined;
+
+	private _loaded: boolean = false;
 
 	constructor(uri: GitUri, view: TView, parent?: ViewNode) {
 		super(uri, view, parent);
@@ -174,16 +176,38 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
 			disposables.push(this.view.onDidChangeAutoRefresh(this.onAutoRefreshChanged, this));
 		}
 
-		this._disposable = Disposable.from(...disposables);
+		const getTreeItem = this.getTreeItem;
+		this.getTreeItem = function (this: SubscribeableViewNode<TView>) {
+			this._loaded = true;
+			// TODO@eamodio: Rework, so we can do this here
+			// void this.ensureSubscription();
+			return getTreeItem.apply(this);
+		};
+
+		const getChildren = this.getChildren;
+		this.getChildren = function (this: SubscribeableViewNode<TView>) {
+			this._loaded = true;
+			// TODO@eamodio: Rework, so we can do this here
+			// void this.ensureSubscription();
+			return getChildren.apply(this);
+		};
+
+		this.disposable = Disposable.from(...disposables);
 	}
 
 	@debug()
 	dispose() {
 		void this.unsubscribe();
 
-		if (this._disposable !== undefined) {
-			this._disposable.dispose();
-		}
+		this.disposable?.dispose();
+	}
+
+	@gate()
+	@debug()
+	async triggerChange(reset: boolean = false, force: boolean = false): Promise<void> {
+		if (!this._loaded) return;
+
+		await super.triggerChange(reset, force);
 	}
 
 	private _canSubscribe: boolean = true;
@@ -205,14 +229,11 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
 
 	@debug()
 	protected async unsubscribe(): Promise<void> {
-		if (this._subscription !== undefined) {
-			const subscriptionPromise = this._subscription;
-			this._subscription = undefined;
+		if (this.subscription != null) {
+			const subscriptionPromise = this.subscription;
+			this.subscription = undefined;
 
-			const subscription = await subscriptionPromise;
-			if (subscription !== undefined) {
-				subscription.dispose();
-			}
+			(await subscriptionPromise)?.dispose();
 		}
 	}
 
@@ -262,10 +283,10 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
 		}
 
 		// If we already have a subscription, just kick out
-		if (this._subscription !== undefined) return;
+		if (this.subscription != null) return;
 
-		this._subscription = Promise.resolve(this.subscribe());
-		await this._subscription;
+		this.subscription = Promise.resolve(this.subscribe());
+		await this.subscription;
 	}
 }
 

@@ -117,9 +117,9 @@ export abstract class ViewBase<
 
 	constructor(public readonly id: string, public readonly name: string) {
 		if (Logger.isDebugging) {
-			const fn = this.getTreeItem;
+			const getTreeItem = this.getTreeItem;
 			this.getTreeItem = async function (this: ViewBase<RootNode, ViewConfig>, node: ViewNode) {
-				const item = await fn.apply(this, [node]);
+				const item = await getTreeItem.apply(this, [node]);
 
 				const parent = node.getParent();
 				if (parent != null) {
