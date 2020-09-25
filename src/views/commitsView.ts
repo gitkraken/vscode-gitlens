@@ -48,8 +48,6 @@ export class CommitsRepositoryNode extends SubscribeableViewNode<CommitsView> {
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		void this.ensureSubscription();
-
 		if (this.child == null) {
 			const branch = await this.repo.getBranch();
 			if (branch == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
@@ -76,7 +74,6 @@ export class CommitsRepositoryNode extends SubscribeableViewNode<CommitsView> {
 
 	async getTreeItem(): Promise<TreeItem> {
 		this.splatted = false;
-		void this.ensureSubscription();
 
 		const branch = await this.repo.getBranch();
 

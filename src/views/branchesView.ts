@@ -55,8 +55,6 @@ export class BranchesRepositoryNode extends SubscribeableViewNode<BranchesView> 
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		void this.ensureSubscription();
-
 		if (this.child == null) {
 			this.child = new BranchesNode(this.uri, this.view, this, this.repo);
 		}
@@ -66,7 +64,6 @@ export class BranchesRepositoryNode extends SubscribeableViewNode<BranchesView> 
 
 	getTreeItem(): TreeItem {
 		this.splatted = false;
-		void this.ensureSubscription();
 
 		const item = new TreeItem(
 			this.repo.formattedName ?? this.uri.repoPath ?? '',

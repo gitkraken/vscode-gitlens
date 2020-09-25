@@ -65,8 +65,6 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		const item = new TreeItem('File History', TreeItemCollapsibleState.Expanded);
 		item.contextValue = ContextValues.ActiveFileHistory;
 
-		void this.ensureSubscription();
-
 		return item;
 	}
 

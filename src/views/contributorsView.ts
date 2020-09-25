@@ -37,8 +37,6 @@ export class ContributorsRepositoryNode extends SubscribeableViewNode<Contributo
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		void this.ensureSubscription();
-
 		if (this.child == null) {
 			this.child = new ContributorsNode(this.uri, this.view, this, this.repo);
 		}
@@ -47,8 +45,6 @@ export class ContributorsRepositoryNode extends SubscribeableViewNode<Contributo
 	}
 
 	getTreeItem(): TreeItem {
-		void this.ensureSubscription();
-
 		const item = new TreeItem(
 			this.repo.formattedName ?? this.uri.repoPath ?? '',
 			TreeItemCollapsibleState.Expanded,

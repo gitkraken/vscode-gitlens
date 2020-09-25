@@ -4,7 +4,7 @@ import { GitFile, GitReference, GitRevisionReference } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { Logger } from '../../logger';
 import { debug, Functions, gate, logName } from '../../system';
-import { TreeViewNodeStateChangeEvent, View } from '../viewBase';
+import { TreeViewNodeCollapsibleStateChangeEvent, View } from '../viewBase';
 
 export enum ContextValues {
 	ActiveFileHistory = 'gitlens:history:active:file',
@@ -169,7 +169,7 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
 
 		const disposables = [
 			this.view.onDidChangeVisibility(this.onVisibilityChanged, this),
-			this.view.onDidChangeNodeState(this.onNodeStateChanged, this),
+			this.view.onDidChangeNodeCollapsibleState(this.onNodeCollapsibleStateChanged, this),
 		];
 
 		if (viewSupportsAutoRefresh(this.view)) {
@@ -179,16 +179,14 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
 		const getTreeItem = this.getTreeItem;
 		this.getTreeItem = function (this: SubscribeableViewNode<TView>) {
 			this._loaded = true;
-			// TODO@eamodio: Rework, so we can do this here
-			// void this.ensureSubscription();
+			void this.ensureSubscription();
 			return getTreeItem.apply(this);
 		};
 
 		const getChildren = this.getChildren;
 		this.getChildren = function (this: SubscribeableViewNode<TView>) {
 			this._loaded = true;
-			// TODO@eamodio: Rework, so we can do this here
-			// void this.ensureSubscription();
+			void this.ensureSubscription();
 			return getChildren.apply(this);
 		};
 
@@ -242,19 +240,19 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
 		this.onVisibilityChanged({ visible: this.view.visible });
 	}
 
-	protected onParentStateChanged?(state: TreeItemCollapsibleState): void;
-	protected onStateChanged?(state: TreeItemCollapsibleState): void;
+	protected onParentCollapsibleStateChanged?(state: TreeItemCollapsibleState): void;
+	protected onCollapsibleStateChanged?(state: TreeItemCollapsibleState): void;
 
-	protected _state: TreeItemCollapsibleState | undefined;
-	protected onNodeStateChanged(e: TreeViewNodeStateChangeEvent<ViewNode>) {
+	protected collapsibleState: TreeItemCollapsibleState | undefined;
+	protected onNodeCollapsibleStateChanged(e: TreeViewNodeCollapsibleStateChangeEvent<ViewNode>) {
 		if (e.element === this) {
-			this._state = e.state;
-			if (this.onStateChanged !== undefined) {
-				this.onStateChanged(e.state);
+			this.collapsibleState = e.state;
+			if (this.onCollapsibleStateChanged !== undefined) {
+				this.onCollapsibleStateChanged(e.state);
 			}
 		} else if (e.element === this.parent) {
-			if (this.onParentStateChanged !== undefined) {
-				this.onParentStateChanged(e.state);
+			if (this.onParentCollapsibleStateChanged !== undefined) {
+				this.onParentCollapsibleStateChanged(e.state);
 			}
 		}
 	}

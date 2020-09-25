@@ -1,5 +1,5 @@
 'use strict';
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { NamedRef } from '../../constants';
 import { Container } from '../../container';
 import { GitRevision } from '../../git/git';
@@ -8,18 +8,20 @@ import { debug, gate, log, Strings } from '../../system';
 import { CompareView } from '../compareView';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
 import { FilesQueryResults, ResultsFilesNode } from './resultsFilesNode';
-import { ContextValues, SubscribeableViewNode, ViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 import { RepositoryNode } from './repositoryNode';
+import { TreeViewNodeCollapsibleStateChangeEvent } from '../viewBase';
 
 let instanceId = 0;
 
-export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
+export class CompareResultsNode extends ViewNode<CompareView> implements Disposable {
 	static key = ':compare-results';
 	static getId(repoPath: string, ref1: string, ref2: string, instanceId: number): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${ref1}|${ref2}):${instanceId}`;
 	}
 
 	private _children: ViewNode[] | undefined;
+	private _disposable: Disposable;
 	private _instanceId: number;
 
 	constructor(
@@ -32,6 +34,19 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
 	) {
 		super(GitUri.fromRepoPath(repoPath), view);
 		this._instanceId = instanceId++;
+
+		this._disposable = this.view.onDidChangeNodeCollapsibleState(this.onCollapsibleStateChanged, this);
+	}
+
+	dispose() {
+		this._disposable.dispose();
+	}
+
+	private _collapsibleState: TreeItemCollapsibleState | undefined;
+	private onCollapsibleStateChanged(e: TreeViewNodeCollapsibleStateChangeEvent<ViewNode>) {
+		if (e.element !== this) return;
+
+		this._collapsibleState = e.state;
 	}
 
 	get id(): string {
@@ -78,7 +93,7 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
 				this._compareWith.label ??
 				GitRevision.shorten(this._compareWith.ref, { strings: { working: 'Working Tree' } })
 			}`,
-			this._state ?? TreeItemCollapsibleState.Collapsed,
+			this._collapsibleState ?? TreeItemCollapsibleState.Collapsed,
 		);
 		item.contextValue = `${ContextValues.CompareResults}+${
 			this.comparisonNotation === '..' ? 'twodot' : 'threedot'
@@ -188,10 +203,6 @@ export class CompareResultsNode extends SubscribeableViewNode<CompareView> {
 
 		this._pinned = false;
 		void this.triggerChange();
-	}
-
-	protected subscribe() {
-		return undefined;
 	}
 
 	private get comparisonNotation() {

@@ -52,8 +52,6 @@ export class RemotesRepositoryNode extends SubscribeableViewNode<RemotesView> {
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		void this.ensureSubscription();
-
 		if (this.child == null) {
 			this.child = new RemotesNode(this.uri, this.view, this, this.repo);
 		}
@@ -63,7 +61,6 @@ export class RemotesRepositoryNode extends SubscribeableViewNode<RemotesView> {
 
 	getTreeItem(): TreeItem {
 		this.splatted = false;
-		void this.ensureSubscription();
 
 		const item = new TreeItem(
 			this.repo.formattedName ?? this.uri.repoPath ?? '',

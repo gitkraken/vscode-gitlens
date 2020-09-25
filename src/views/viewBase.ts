@@ -74,7 +74,7 @@ export type ViewsWithFiles =
 	| StashesView
 	| TagsView;
 
-export interface TreeViewNodeStateChangeEvent<T> extends TreeViewExpansionEvent<T> {
+export interface TreeViewNodeCollapsibleStateChangeEvent<T> extends TreeViewExpansionEvent<T> {
 	state: TreeItemCollapsibleState;
 }
 
@@ -103,9 +103,9 @@ export abstract class ViewBase<
 		return this._onDidChangeVisibility.event;
 	}
 
-	private _onDidChangeNodeState = new EventEmitter<TreeViewNodeStateChangeEvent<ViewNode>>();
-	get onDidChangeNodeState(): Event<TreeViewNodeStateChangeEvent<ViewNode>> {
-		return this._onDidChangeNodeState.event;
+	private _onDidChangeNodeCollapsibleState = new EventEmitter<TreeViewNodeCollapsibleStateChangeEvent<ViewNode>>();
+	get onDidChangeNodeCollapsibleState(): Event<TreeViewNodeCollapsibleStateChangeEvent<ViewNode>> {
+		return this._onDidChangeNodeCollapsibleState.event;
 	}
 
 	protected disposable: Disposable | undefined;
@@ -261,11 +261,11 @@ export abstract class ViewBase<
 	}
 
 	protected onElementCollapsed(e: TreeViewExpansionEvent<ViewNode>) {
-		this._onDidChangeNodeState.fire({ ...e, state: TreeItemCollapsibleState.Collapsed });
+		this._onDidChangeNodeCollapsibleState.fire({ ...e, state: TreeItemCollapsibleState.Collapsed });
 	}
 
 	protected onElementExpanded(e: TreeViewExpansionEvent<ViewNode>) {
-		this._onDidChangeNodeState.fire({ ...e, state: TreeItemCollapsibleState.Expanded });
+		this._onDidChangeNodeCollapsibleState.fire({ ...e, state: TreeItemCollapsibleState.Expanded });
 	}
 
 	protected onVisibilityChanged(e: TreeViewVisibilityChangeEvent) {

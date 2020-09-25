@@ -40,8 +40,6 @@ export class TagsRepositoryNode extends SubscribeableViewNode<TagsView> {
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		void this.ensureSubscription();
-
 		if (this.child == null) {
 			this.child = new TagsNode(this.uri, this.view, this, this.repo);
 		}
@@ -51,7 +49,6 @@ export class TagsRepositoryNode extends SubscribeableViewNode<TagsView> {
 
 	getTreeItem(): TreeItem {
 		this.splatted = false;
-		void this.ensureSubscription();
 
 		const item = new TreeItem(
 			this.repo.formattedName ?? this.uri.repoPath ?? '',

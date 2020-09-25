@@ -40,8 +40,6 @@ export class StashesRepositoryNode extends SubscribeableViewNode<StashesView> {
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		void this.ensureSubscription();
-
 		if (this.child == null) {
 			this.child = new StashesNode(this.uri, this.view, this, this.repo);
 		}
@@ -51,7 +49,6 @@ export class StashesRepositoryNode extends SubscribeableViewNode<StashesView> {
 
 	getTreeItem(): TreeItem {
 		this.splatted = false;
-		void this.ensureSubscription();
 
 		const item = new TreeItem(
 			this.repo.formattedName ?? this.uri.repoPath ?? '',

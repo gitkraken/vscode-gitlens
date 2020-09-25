@@ -197,8 +197,6 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		item.id = this.id;
 		item.tooltip = tooltip;
 
-		void this.ensureSubscription();
-
 		return item;
 	}
 

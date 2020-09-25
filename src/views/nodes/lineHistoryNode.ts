@@ -51,8 +51,6 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		void this.ensureSubscription();
-
 		this.view.titleDescription = `${this.label}${
 			this.parent instanceof LineHistoryTrackerNode && !this.parent.followingEditor ? ' (pinned)' : ''
 		}`;
@@ -213,7 +211,6 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 
 	getTreeItem(): TreeItem {
 		this.splatted = false;
-		void this.ensureSubscription();
 
 		const label = this.label;
 		const item = new TreeItem(label, TreeItemCollapsibleState.Expanded);

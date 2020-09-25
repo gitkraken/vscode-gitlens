@@ -49,8 +49,6 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 		const item = new TreeItem('Repositories', TreeItemCollapsibleState.Expanded);
 		item.contextValue = ContextValues.Repositories;
 
-		void this.ensureSubscription();
-
 		return item;
 	}
 
