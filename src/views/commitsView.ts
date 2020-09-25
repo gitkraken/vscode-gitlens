@@ -23,7 +23,6 @@ import { GitUri } from '../git/gitUri';
 import {
 	BranchNode,
 	BranchTrackingStatusNode,
-	CompareBranchNode,
 	ContextValues,
 	MessageNode,
 	RepositoryNode,
@@ -36,7 +35,7 @@ import { ViewBase } from './viewBase';
 
 export class CommitsRepositoryNode extends SubscribeableViewNode<CommitsView> {
 	protected splatted = true;
-	private children: (BranchNode | CompareBranchNode)[] | undefined;
+	private child: BranchNode | undefined;
 
 	constructor(uri: GitUri, view: CommitsView, parent: ViewNode, public readonly repo: Repository, splatted: boolean) {
 		super(uri, view, parent);
@@ -51,7 +50,7 @@ export class CommitsRepositoryNode extends SubscribeableViewNode<CommitsView> {
 	async getChildren(): Promise<ViewNode[]> {
 		void this.ensureSubscription();
 
-		if (this.children == null) {
+		if (this.child == null) {
 			const branch = await this.repo.getBranch();
 			if (branch == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
@@ -63,19 +62,16 @@ export class CommitsRepositoryNode extends SubscribeableViewNode<CommitsView> {
 				}
 			}
 
-			this.children = [
-				new BranchNode(this.uri, this.view, this, branch, true, {
-					expanded: true,
-					showComparison: this.view.config.showBranchComparison,
-					showCurrent: false,
-					showTracking: true,
-					authors: authors,
-				}),
-			];
+			this.child = new BranchNode(this.uri, this.view, this, branch, true, {
+				expanded: true,
+				showComparison: this.view.config.showBranchComparison,
+				showCurrent: false,
+				showTracking: true,
+				authors: authors,
+			});
 		}
 
-		const [branch, ...rest] = this.children;
-		return [...(await branch.getChildren()), ...rest];
+		return this.child.getChildren();
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
@@ -101,18 +97,18 @@ export class CommitsRepositoryNode extends SubscribeableViewNode<CommitsView> {
 	}
 
 	async getSplattedChild() {
-		if (this.children == null) {
+		if (this.child == null) {
 			await this.getChildren();
 		}
 
-		return this.children?.[0];
+		return this.child;
 	}
 
 	@gate()
 	@debug()
 	async refresh(reset: boolean = false) {
 		if (reset) {
-			this.children = undefined;
+			this.child = undefined;
 		} else {
 			void this.parent?.triggerChange(false);
 		}
