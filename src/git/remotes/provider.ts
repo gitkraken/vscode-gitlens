@@ -17,7 +17,7 @@ import { Logger } from '../../logger';
 import { Messages } from '../../messages';
 import { IssueOrPullRequest } from '../models/issue';
 import { GitLogCommit } from '../models/logCommit';
-import { PullRequest } from '../models/pullRequest';
+import { PullRequest, PullRequestState } from '../models/pullRequest';
 import { Repository } from '../models/repository';
 import { debug, gate, Promises } from '../../system';
 
@@ -300,6 +300,35 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 		}
 	}
 
+	@gate()
+	@debug()
+	async getPullRequestForBranch(
+		branch: string,
+		options?: {
+			avatarSize?: number;
+			include?: PullRequestState[];
+			limit?: number;
+		},
+	): Promise<PullRequest | undefined> {
+		const cc = Logger.getCorrelationContext();
+
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected) return undefined;
+
+		try {
+			const pr = await this.onGetPullRequestForBranch(this._session!, branch, options);
+			this.invalidAuthenticationCount = 0;
+			return pr;
+		} catch (ex) {
+			Logger.error(ex, cc);
+
+			if (ex instanceof AuthenticationError) {
+				this.handleAuthenticationException();
+			}
+			return undefined;
+		}
+	}
+
 	private _prsByCommit = new Map<string, Promise<PullRequest | null> | PullRequest | null>();
 
 	@gate()
@@ -321,6 +350,17 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 		session: AuthenticationSession,
 		id: string,
 	): Promise<IssueOrPullRequest | undefined>;
+
+	protected abstract onGetPullRequestForBranch(
+		session: AuthenticationSession,
+		branch: string,
+		options?: {
+			avatarSize?: number;
+			include?: PullRequestState[];
+			limit?: number;
+		},
+	): Promise<PullRequest | undefined>;
+
 	protected abstract onGetPullRequestForCommit(
 		session: AuthenticationSession,
 		ref: string,

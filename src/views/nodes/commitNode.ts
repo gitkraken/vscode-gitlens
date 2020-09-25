@@ -8,10 +8,12 @@ import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { FileNode, FolderNode } from './folderNode';
 import { CommitFormatter, GitBranch, GitLogCommit, GitRevisionReference } from '../../git/git';
+import { PullRequestNode } from './pullRequestNode';
 import { StashesView } from '../stashesView';
 import { Arrays, Strings } from '../../system';
 import { ViewsWithFiles } from '../viewBase';
 import { ContextValues, ViewNode, ViewRefNode } from './viewNode';
+import { TagsView } from '../tagsView';
 
 export class CommitNode extends ViewRefNode<ViewsWithFiles, GitRevisionReference> {
 	constructor(
@@ -54,16 +56,16 @@ export class CommitNode extends ViewRefNode<ViewsWithFiles, GitRevisionReference
 		);
 	}
 
-	getChildren(): ViewNode[] {
+	async getChildren(): Promise<ViewNode[]> {
 		const commit = this.commit;
 
-		let children: FileNode[] = commit.files.map(
+		let children: (PullRequestNode | FileNode)[] = commit.files.map(
 			s => new CommitFileNode(this.view, this, s, commit.toFileCommit(s)!),
 		);
 
 		if (this.view.config.files.layout !== ViewFilesLayout.List) {
 			const hierarchy = Arrays.makeHierarchical(
-				children,
+				children as FileNode[],
 				n => n.uri.relativePath.split('/'),
 				(...parts: string[]) => Strings.normalizePath(paths.join(...parts)),
 				this.view.config.files.compact,
@@ -72,10 +74,20 @@ export class CommitNode extends ViewRefNode<ViewsWithFiles, GitRevisionReference
 			const root = new FolderNode(this.view, this, this.repoPath, '', hierarchy);
 			children = root.getChildren() as FileNode[];
 		} else {
-			children.sort((a, b) =>
+			(children as FileNode[]).sort((a, b) =>
 				a.label!.localeCompare(b.label!, undefined, { numeric: true, sensitivity: 'base' }),
 			);
 		}
+
+		if (!(this.view instanceof StashesView) && !(this.view instanceof TagsView)) {
+			if (this.view.config.pullRequests.enabled && this.view.config.pullRequests.showForCommits) {
+				const pr = await commit.getAssociatedPullRequest();
+				if (pr != null) {
+					children.splice(0, 0, new PullRequestNode(this.view, this, pr, commit));
+				}
+			}
+		}
+
 		return children;
 	}
 

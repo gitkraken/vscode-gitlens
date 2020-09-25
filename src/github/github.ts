@@ -10,25 +10,33 @@ export class GitHubApi {
 			1: _ => '<token>',
 		},
 	})
-	async getPullRequestForCommit(
+	async getPullRequestForBranch(
 		provider: string,
 		token: string,
 		owner: string,
 		repo: string,
-		ref: string,
+		branch: string,
 		options?: {
 			baseUrl?: string;
+			avatarSize?: number;
+			include?: GitHubPullRequestState[];
+			limit?: number;
 		},
 	): Promise<PullRequest | undefined> {
 		const cc = Logger.getCorrelationContext();
 
 		try {
-			const query = `query pr($owner: String!, $repo: String!, $sha: String!) {
+			const query = `query pr($owner: String!, $repo: String!, $branch: String!, $limit: Int!, $states: [PullRequestState!], $avatarSize: Int) {
 	repository(name: $repo, owner: $owner) {
-		object(expression: $sha) {
-			... on Commit {
-				associatedPullRequests(first: 1, orderBy: {field: UPDATED_AT, direction: DESC}) {
+		refs(query: $branch, refPrefix: "refs/heads/", first: 1) {
+			nodes {
+				associatedPullRequests(first: $limit, orderBy: {field: UPDATED_AT, direction: DESC}, states: $states) {
 					nodes {
+						author {
+							login
+							avatarUrl(size: $avatarSize)
+							url
+						}
 						permalink
 						number
 						title
@@ -49,17 +57,106 @@ export class GitHubApi {
 }`;
 
 			const rsp = await graphql<{
-				repository?: {
-					object?: {
-						associatedPullRequests?: {
-							nodes?: GitHubPullRequest[];
-						};
-					};
-				};
+				repository:
+					| {
+							refs: {
+								nodes: {
+									associatedPullRequests?: {
+										nodes?: GitHubPullRequest[];
+									};
+								}[];
+							};
+					  }
+					| null
+					| undefined;
 			}>(query, {
 				owner: owner,
 				repo: repo,
-				sha: ref,
+				branch: branch,
+				headers: { authorization: `Bearer ${token}` },
+				...options,
+				limit: options?.limit ?? 1,
+			});
+
+			const pr = rsp?.repository?.refs.nodes[0]?.associatedPullRequests?.nodes?.[0];
+			if (pr == null) return undefined;
+			// GitHub seems to sometimes return PRs for forks
+			if (pr.repository.owner.login !== owner) return undefined;
+
+			return GitHubPullRequest.from(pr, provider);
+		} catch (ex) {
+			Logger.error(ex, cc);
+
+			if (ex.code === 401) {
+				throw new AuthenticationError(ex);
+			}
+			throw ex;
+		}
+	}
+
+	@debug({
+		args: {
+			1: _ => '<token>',
+		},
+	})
+	async getPullRequestForCommit(
+		provider: string,
+		token: string,
+		owner: string,
+		repo: string,
+		ref: string,
+		options?: {
+			baseUrl?: string;
+		},
+	): Promise<PullRequest | undefined> {
+		const cc = Logger.getCorrelationContext();
+
+		try {
+			const query = `query pr($owner: String!, $repo: String!, $ref: GitObjectID!, $avatarSize: Int) {
+	repository(name: $repo, owner: $owner) {
+		object(oid: $ref) {
+			... on Commit {
+				associatedPullRequests(first: 1, orderBy: {field: UPDATED_AT, direction: DESC}) {
+					nodes {
+						author {
+							login
+							avatarUrl(size: $avatarSize)
+							url
+						}
+						permalink
+						number
+						title
+						state
+						updatedAt
+						closedAt
+						mergedAt
+						repository {
+							owner {
+								login
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}`;
+
+			const rsp = await graphql<{
+				repository:
+					| {
+							object?: {
+								associatedPullRequests?: {
+									nodes?: GitHubPullRequest[];
+								};
+							};
+					  }
+					| null
+					| undefined;
+			}>(query, {
+				owner: owner,
+				repo: repo,
+				ref: ref,
 				headers: { authorization: `Bearer ${token}` },
 				...options,
 			});
@@ -69,20 +166,7 @@ export class GitHubApi {
 			// GitHub seems to sometimes return PRs for forks
 			if (pr.repository.owner.login !== owner) return undefined;
 
-			return new PullRequest(
-				provider,
-				pr.number,
-				pr.title,
-				pr.permalink,
-				pr.state === 'MERGED'
-					? PullRequestState.Merged
-					: pr.state === 'CLOSED'
-					? PullRequestState.Closed
-					: PullRequestState.Open,
-				new Date(pr.updatedAt),
-				pr.closedAt == null ? undefined : new Date(pr.closedAt),
-				pr.mergedAt == null ? undefined : new Date(pr.mergedAt),
-			);
+			return GitHubPullRequest.from(pr, provider);
 		} catch (ex) {
 			Logger.error(ex, cc);
 
@@ -171,11 +255,18 @@ interface GitHubIssueOrPullRequest {
 	title: string;
 }
 
+type GitHubPullRequestState = 'OPEN' | 'CLOSED' | 'MERGED';
+
 interface GitHubPullRequest {
+	author: {
+		login: string;
+		avatarUrl: string;
+		url: string;
+	};
 	permalink: string;
 	number: number;
 	title: string;
-	state: 'OPEN' | 'CLOSED' | 'MERGED';
+	state: GitHubPullRequestState;
 	updatedAt: string;
 	closedAt: string | null;
 	mergedAt: string | null;
@@ -184,4 +275,36 @@ interface GitHubPullRequest {
 			login: string;
 		};
 	};
+}
+
+export namespace GitHubPullRequest {
+	export function from(pr: GitHubPullRequest, provider: string): PullRequest {
+		return new PullRequest(
+			provider,
+			{
+				name: pr.author.login,
+				avatarUrl: pr.author.avatarUrl,
+				url: pr.author.url,
+			},
+			pr.number,
+			pr.title,
+			pr.permalink,
+			fromState(pr.state),
+			new Date(pr.updatedAt),
+			pr.closedAt == null ? undefined : new Date(pr.closedAt),
+			pr.mergedAt == null ? undefined : new Date(pr.mergedAt),
+		);
+	}
+
+	export function fromState(state: GitHubPullRequestState): PullRequestState {
+		return state === 'MERGED'
+			? PullRequestState.Merged
+			: state === 'CLOSED'
+			? PullRequestState.Closed
+			: PullRequestState.Open;
+	}
+
+	export function toState(state: PullRequestState): GitHubPullRequestState {
+		return state === PullRequestState.Merged ? 'MERGED' : state === PullRequestState.Closed ? 'CLOSED' : 'OPEN';
+	}
 }

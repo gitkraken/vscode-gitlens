@@ -133,7 +133,7 @@ export class StatusBarController implements Disposable {
 
 		this._blameStatusBarItem.text = `$(git-commit) ${CommitFormatter.fromTemplate(cfg.format, commit, {
 			messageTruncateAtNewLine: true,
-			dateFormat: cfg.dateFormat === null ? Container.config.defaultDateFormat : cfg.dateFormat
+			dateFormat: cfg.dateFormat === null ? Container.config.defaultDateFormat : cfg.dateFormat,
 		})}`;
 
 		switch (cfg.command) {

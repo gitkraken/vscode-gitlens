@@ -460,23 +460,41 @@ export interface BranchesViewConfig {
 		layout: ViewBranchesLayout;
 	};
 	files: ViewsFilesConfig;
+	pullRequests: {
+		enabled: boolean;
+		showForBranches: boolean;
+		showForCommits: boolean;
+	};
 }
 
 export interface CommitsViewConfig {
 	avatars: boolean;
 	branches: undefined;
 	files: ViewsFilesConfig;
+	pullRequests: {
+		enabled: boolean;
+		showForBranches: boolean;
+		showForCommits: boolean;
+	};
 	showBranchComparison: false | ViewShowBranchComparison;
 }
 
 export interface CompareViewConfig {
 	avatars: boolean;
 	files: ViewsFilesConfig;
+	pullRequests: {
+		enabled: boolean;
+		showForCommits: boolean;
+	};
 }
 
 export interface ContributorsViewConfig {
 	avatars: boolean;
 	files: ViewsFilesConfig;
+	pullRequests: {
+		enabled: boolean;
+		showForCommits: boolean;
+	};
 }
 
 export interface FileHistoryViewConfig {
@@ -494,6 +512,11 @@ export interface RemotesViewConfig {
 		layout: ViewBranchesLayout;
 	};
 	files: ViewsFilesConfig;
+	pullRequests: {
+		enabled: boolean;
+		showForBranches: boolean;
+		showForCommits: boolean;
+	};
 }
 
 export interface RepositoriesViewConfig {
@@ -507,12 +530,21 @@ export interface RepositoriesViewConfig {
 	enabled: boolean;
 	files: ViewsFilesConfig;
 	includeWorkingTree: boolean;
+	pullRequests: {
+		enabled: boolean;
+		showForBranches: boolean;
+		showForCommits: boolean;
+	};
 	showBranchComparison: false | ViewShowBranchComparison;
 }
 
 export interface SearchViewConfig {
 	avatars: boolean;
 	files: ViewsFilesConfig;
+	pullRequests: {
+		enabled: boolean;
+		showForCommits: boolean;
+	};
 }
 
 export interface StashesViewConfig {

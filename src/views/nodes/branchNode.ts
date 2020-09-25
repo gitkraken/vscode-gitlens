@@ -9,9 +9,17 @@ import { CompareBranchNode } from './compareBranchNode';
 import { ViewBranchesLayout, ViewShowBranchComparison } from '../../configuration';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { BranchDateFormatting, GitBranch, GitBranchReference, GitLog, GitRemoteType } from '../../git/git';
+import {
+	BranchDateFormatting,
+	GitBranch,
+	GitBranchReference,
+	GitLog,
+	GitRemoteType,
+	PullRequestState,
+} from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { insertDateMarkers } from './helpers';
+import { PullRequestNode } from './pullRequestNode';
 import { RemotesView } from '../remotesView';
 import { RepositoriesView } from '../repositoriesView';
 import { RepositoryNode } from './repositoryNode';
@@ -104,6 +112,17 @@ export class BranchNode
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children == null) {
 			const children = [];
+
+			const [log, pr] = await Promise.all([
+				this.getLog(),
+				this.view.config.pullRequests.enabled &&
+				this.view.config.pullRequests.showForBranches &&
+				(this.branch.tracking || this.branch.remote)
+					? this.branch.getAssociatedPullRequest(this.root ? { include: [PullRequestState.Open] } : undefined)
+					: undefined,
+			]);
+			if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
+
 			if (this.options.showTracking) {
 				const status = {
 					ref: this.branch.ref,
@@ -136,13 +155,16 @@ export class BranchNode
 					);
 				}
 
+				if (pr != null) {
+					children.push(new PullRequestNode(this.view, this, pr, this.branch));
+				}
+
 				if (this.options.showComparison !== false && this.view instanceof CommitsView) {
 					children.push(new CompareBranchNode(this.uri, this.view, this, this.branch));
 				}
+			} else if (pr != null) {
+				children.push(new PullRequestNode(this.view, this, pr, this.branch));
 			}
-
-			const log = await this.getLog();
-			if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
 			const getBranchAndTagTips = await Container.git.getBranchesAndTagsTipsFn(
 				this.uri.repoPath,

@@ -6,7 +6,7 @@ import { Dates, memoize } from '../../system';
 import { CommitFormatter } from '../formatters/formatters';
 import { GitUri } from '../gitUri';
 import { getAvatarUri } from '../../avatars';
-import { GitReference, GitRevision, GitRevisionReference } from './models';
+import { GitReference, GitRevision, GitRevisionReference, PullRequest } from './models';
 
 export interface GitAuthor {
 	name: string;
@@ -140,6 +140,14 @@ export abstract class GitCommit implements GitRevisionReference {
 	@memoize()
 	get uri(): Uri {
 		return GitUri.resolveToUri(this.fileName, this.repoPath);
+	}
+
+	@memoize()
+	async getAssociatedPullRequest(): Promise<PullRequest | undefined> {
+		const remote = await Container.git.getRemoteWithApiProvider(this.repoPath);
+		if (remote?.provider == null) return undefined;
+
+		return Container.git.getPullRequestForCommit(this.ref, remote);
 	}
 
 	@memoize<GitCommit['getPreviousLineDiffUris']>(

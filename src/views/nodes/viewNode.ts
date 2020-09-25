@@ -29,6 +29,7 @@ export enum ContextValues {
 	LineHistory = 'gitlens:history:line',
 	Message = 'gitlens:message',
 	Pager = 'gitlens:pager',
+	PullRequest = 'gitlens:pullrequest',
 	Reflog = 'gitlens:reflog',
 	ReflogRecord = 'gitlens:reflog-record',
 	Remote = 'gitlens:remote',

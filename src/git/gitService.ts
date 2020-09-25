@@ -80,6 +80,7 @@ import {
 	GitTreeParser,
 	PullRequest,
 	PullRequestDateFormatting,
+	PullRequestState,
 	Repository,
 	RepositoryChange,
 	RepositoryChangeEvent,
@@ -2529,6 +2530,58 @@ export class GitService implements Disposable {
 		return GitUri.fromFile(file ?? fileName, repoPath, previousRef ?? GitRevision.deletedOrMissing);
 	}
 
+	async getPullRequestForBranch(
+		branch: string,
+		remote: GitRemote,
+		options?: { avatarSize?: number; include?: PullRequestState[]; limit?: number; timeout?: number },
+	): Promise<PullRequest | undefined>;
+	async getPullRequestForBranch(
+		branch: string,
+		provider: RemoteProviderWithApi,
+		options?: { avatarSize?: number; include?: PullRequestState[]; limit?: number; timeout?: number },
+	): Promise<PullRequest | undefined>;
+	@gate()
+	@debug<GitService['getPullRequestForBranch']>({
+		args: {
+			1: (remoteOrProvider: GitRemote | RemoteProviderWithApi) => remoteOrProvider.name,
+		},
+	})
+	async getPullRequestForBranch(
+		branch: string,
+		remoteOrProvider: GitRemote | RemoteProviderWithApi,
+		{
+			timeout,
+			...options
+		}: { avatarSize?: number; include?: PullRequestState[]; limit?: number; timeout?: number } = {},
+	): Promise<PullRequest | undefined> {
+		let provider;
+		if (GitRemote.is(remoteOrProvider)) {
+			({ provider } = remoteOrProvider);
+			if (!provider?.hasApi()) return undefined;
+		} else {
+			provider = remoteOrProvider;
+		}
+
+		let promiseOrPR = provider.getPullRequestForBranch(branch, options);
+		if (promiseOrPR == null || !Promises.is(promiseOrPR)) {
+			return promiseOrPR;
+		}
+
+		if (timeout != null && timeout > 0) {
+			promiseOrPR = Promises.cancellable(promiseOrPR, timeout);
+		}
+
+		try {
+			return await promiseOrPR;
+		} catch (ex) {
+			if (ex instanceof Promises.CancellationError) {
+				throw ex;
+			}
+
+			return undefined;
+		}
+	}
+
 	async getPullRequestForCommit(
 		ref: string,
 		remote: GitRemote,
@@ -2540,7 +2593,11 @@ export class GitService implements Disposable {
 		options?: { timeout?: number },
 	): Promise<PullRequest | undefined>;
 	@gate()
-	@debug({ args: { 1: () => false } })
+	@debug({
+		args: {
+			1: (remoteOrProvider: GitRemote | RemoteProviderWithApi) => remoteOrProvider.name,
+		},
+	})
 	async getPullRequestForCommit(
 		ref: string,
 		remoteOrProvider: GitRemote | RemoteProviderWithApi,
@@ -2640,7 +2697,7 @@ export class GitService implements Disposable {
 		remotes: GitRemote[],
 		options?: { includeDisconnected?: boolean },
 	): Promise<GitRemote<RemoteProviderWithApi> | undefined>;
-	@log()
+	@log({ args: { 0: () => false } })
 	async getRemoteWithApiProvider(
 		remotesOrRepoPath: GitRemote[] | string | undefined,
 		{ includeDisconnected }: { includeDisconnected?: boolean } = {},

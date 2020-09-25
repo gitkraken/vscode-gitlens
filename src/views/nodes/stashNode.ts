@@ -60,20 +60,20 @@ export class StashNode extends ViewRefNode<ViewsWithFiles, GitStashReference> {
 		const item = new TreeItem(
 			CommitFormatter.fromTemplate(this.view.config.stashFormat, this.commit, {
 				messageTruncateAtNewLine: true,
-				dateFormat: Container.config.defaultDateFormat
+				dateFormat: Container.config.defaultDateFormat,
 			}),
 			TreeItemCollapsibleState.Collapsed,
 		);
 		item.id = this.id;
 		item.description = CommitFormatter.fromTemplate(this.view.config.stashDescriptionFormat, this.commit, {
 			messageTruncateAtNewLine: true,
-			dateFormat: Container.config.defaultDateFormat
+			dateFormat: Container.config.defaultDateFormat,
 		});
 		item.contextValue = ContextValues.Stash;
 		// eslint-disable-next-line no-template-curly-in-string
 		item.tooltip = CommitFormatter.fromTemplate('${ago} (${date})\n\n${message}', this.commit, {
 			dateFormat: Container.config.defaultDateFormat,
-			messageAutolinks: true
+			messageAutolinks: true,
 		});
 
 		return item;

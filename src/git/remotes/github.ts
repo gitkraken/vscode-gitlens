@@ -3,9 +3,10 @@ import { AuthenticationSession, Range, Uri } from 'vscode';
 import { DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference } from '../../config';
 import { Container } from '../../container';
+import { GitHubPullRequest } from '../../github/github';
 import { IssueOrPullRequest } from '../models/issue';
 import { GitRevision } from '../models/models';
-import { PullRequest } from '../models/pullRequest';
+import { PullRequest, PullRequestState } from '../models/pullRequest';
 import { Repository } from '../models/repository';
 import { RemoteProviderWithApi } from './provider';
 
@@ -160,6 +161,25 @@ export class GitHubRemote extends RemoteProviderWithApi {
 	): Promise<IssueOrPullRequest | undefined> {
 		const [owner, repo] = this.splitPath();
 		return (await Container.github)?.getIssueOrPullRequest(this.name, accessToken, owner, repo, Number(id), {
+			baseUrl: this.apiBaseUrl,
+		});
+	}
+
+	protected async onGetPullRequestForBranch(
+		{ accessToken }: AuthenticationSession,
+		branch: string,
+		options?: {
+			avatarSize?: number;
+			include?: PullRequestState[];
+			limit?: number;
+		},
+	): Promise<PullRequest | undefined> {
+		const [owner, repo] = this.splitPath();
+		const { include, ...opts } = options ?? {};
+
+		return (await Container.github)?.getPullRequestForBranch(this.name, accessToken, owner, repo, branch, {
+			...opts,
+			include: include?.map(s => GitHubPullRequest.toState(s)),
 			baseUrl: this.apiBaseUrl,
 		});
 	}

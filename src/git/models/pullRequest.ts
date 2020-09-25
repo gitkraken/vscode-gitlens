@@ -25,6 +25,11 @@ export class PullRequest {
 
 	constructor(
 		public readonly provider: string,
+		public readonly author: {
+			readonly name: string;
+			readonly avatarUrl: string;
+			readonly url: string;
+		},
 		public readonly number: number,
 		public readonly title: string,
 		public readonly url: string,

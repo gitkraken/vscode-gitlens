@@ -1510,30 +1510,6 @@
 					"markdownDescription": "Specifies the string to be shown in place of the _authors_ code lens when there are unsaved changes",
 					"scope": "window"
 				},
-				"gitlens.views.commitFileFormat": {
-					"type": "string",
-					"default": "${file}",
-					"markdownDescription": "Specifies the format of a committed file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
-					"scope": "window"
-				},
-				"gitlens.views.commitFileDescriptionFormat": {
-					"type": "string",
-					"default": "${directory}${  ←  originalPath}",
-					"markdownDescription": "Specifies the description format of a committed file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
-					"scope": "window"
-				},
-				"gitlens.views.commitFormat": {
-					"type": "string",
-					"default": "${❰ tips ❱➤  }${message}",
-					"markdownDescription": "Specifies the format of committed changes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
-					"scope": "window"
-				},
-				"gitlens.views.commitDescriptionFormat": {
-					"type": "string",
-					"default": "${changes  •  }${author}, ${agoOrDate}",
-					"markdownDescription": "Specifies the description format of committed changes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
-					"scope": "window"
-				},
 				"gitlens.views.branches.avatars": {
 					"type": "boolean",
 					"default": true,
@@ -1582,6 +1558,48 @@
 					"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Branches_ view. Only applies when `#gitlens.views.branches.files.layout#` is set to `auto`",
 					"scope": "window"
 				},
+				"gitlens.views.branches.pullRequests.enabled": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to query for pull requests associated with branches and commits in the _Branches_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+					"scope": "window"
+				},
+				"gitlens.views.branches.pullRequests.showForBranches": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to show pull requests (if any) associated with branches in the _Branches_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+					"scope": "window"
+				},
+				"gitlens.views.branches.pullRequests.showForCommits": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Branches_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+					"scope": "window"
+				},
+				"gitlens.views.commitFileFormat": {
+					"type": "string",
+					"default": "${file}",
+					"markdownDescription": "Specifies the format of a committed file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
+					"scope": "window"
+				},
+				"gitlens.views.commitFileDescriptionFormat": {
+					"type": "string",
+					"default": "${directory}${  ←  originalPath}",
+					"markdownDescription": "Specifies the description format of a committed file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
+					"scope": "window"
+				},
+				"gitlens.views.commitFormat": {
+					"type": "string",
+					"default": "${❰ tips ❱➤  }${message}",
+					"markdownDescription": "Specifies the format of committed changes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+					"scope": "window"
+				},
+				"gitlens.views.commitDescriptionFormat": {
+					"type": "string",
+					"default": "${changes  •  }${author}, ${agoOrDate}",
+					"markdownDescription": "Specifies the description format of committed changes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+					"scope": "window"
+				},
 				"gitlens.views.commits.avatars": {
 					"type": "boolean",
 					"default": true,
@@ -1616,6 +1634,24 @@
 					"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Commits_ view. Only applies when `#gitlens.views.commits.files.layout#` is set to `auto`",
 					"scope": "window"
 				},
+				"gitlens.views.commits.pullRequests.enabled": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to query for pull requests associated with the current branch and commits in the _Commits_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+					"scope": "window"
+				},
+				"gitlens.views.commits.pullRequests.showForBranches": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to show pull requests (if any) associated with the current branch in the _Commits_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+					"scope": "window"
+				},
+				"gitlens.views.commits.pullRequests.showForCommits": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Commits_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+					"scope": "window"
+				},
 				"gitlens.views.commits.showBranchComparison": {
 					"anyOf": [
 						{
@@ -1642,13 +1678,13 @@
 				"gitlens.views.compare.avatars": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Compare_ view",
+					"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Compare Commits_ view",
 					"scope": "window"
 				},
 				"gitlens.views.compare.files.compact": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Compare_ view. Only applies when `#gitlens.views.compare.files.layout#` is set to `tree` or `auto`",
+					"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Compare Commits_ view. Only applies when `#gitlens.views.compare.files.layout#` is set to `tree` or `auto`",
 					"scope": "window"
 				},
 				"gitlens.views.compare.files.layout": {
@@ -1664,13 +1700,25 @@
 						"Displays files as a list",
 						"Displays files as a tree"
 					],
-					"markdownDescription": "Specifies how the _Compare_ view will display files",
+					"markdownDescription": "Specifies how the _Compare Commits_ view will display files",
 					"scope": "window"
 				},
 				"gitlens.views.compare.files.threshold": {
 					"type": "number",
 					"default": 5,
-					"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Compare_ view. Only applies when `#gitlens.views.compare.files.layout#` is set to `auto`",
+					"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Compare Commits_ view. Only applies when `#gitlens.views.compare.files.layout#` is set to `auto`",
+					"scope": "window"
+				},
+				"gitlens.views.compare.pullRequests.enabled": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to query for pull requests associated with branches and commits in the _Compare Commits_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+					"scope": "window"
+				},
+				"gitlens.views.compare.pullRequests.showForCommits": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Compare Commits_ view. Requires a connection to a supported remote service (e.g. GitHub)",
 					"scope": "window"
 				},
 				"gitlens.views.contributors.avatars": {
@@ -1705,6 +1753,18 @@
 					"type": "number",
 					"default": 5,
 					"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Contributors_ view. Only applies when `#gitlens.views.contributors.files.layout#` is set to `auto`",
+					"scope": "window"
+				},
+				"gitlens.views.contributors.pullRequests.enabled": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to query for pull requests associated with branches and commits in the _Contributors_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+					"scope": "window"
+				},
+				"gitlens.views.contributors.pullRequests.showForCommits": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Contributors_ view. Requires a connection to a supported remote service (e.g. GitHub)",
 					"scope": "window"
 				},
 				"gitlens.views.defaultItemLimit": {
@@ -1785,6 +1845,24 @@
 					"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Remotes_ view. Only applies when `#gitlens.views.remotes.files.layout#` is set to `auto`",
 					"scope": "window"
 				},
+				"gitlens.views.remotes.pullRequests.enabled": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to query for pull requests associated with branches and commits in the _Remotes_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+					"scope": "window"
+				},
+				"gitlens.views.remotes.pullRequests.showForBranches": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to show pull requests (if any) associated with branches in the _Remotes_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+					"scope": "window"
+				},
+				"gitlens.views.remotes.pullRequests.showForCommits": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Remotes_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+					"scope": "window"
+				},
 				"gitlens.views.repositories.autoRefresh": {
 					"type": "boolean",
 					"default": true,
@@ -1863,6 +1941,24 @@
 					"markdownDescription": "Specifies whether to include working tree file status for each repository in the _Repositories_ view",
 					"scope": "window"
 				},
+				"gitlens.views.repositories.pullRequests.enabled": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to query for pull requests associated with branches and commits in the _Repositories_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+					"scope": "window"
+				},
+				"gitlens.views.repositories.pullRequests.showForBranches": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to show pull requests (if any) associated with branches in the _Repositories_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+					"scope": "window"
+				},
+				"gitlens.views.repositories.pullRequests.showForCommits": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Repositories_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+					"scope": "window"
+				},
 				"gitlens.views.repositories.showBranchComparison": {
 					"anyOf": [
 						{
@@ -1918,6 +2014,18 @@
 					"type": "number",
 					"default": 5,
 					"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Search Commits_ view. Only applies when `#gitlens.views.search.files.layout#` is set to `auto`",
+					"scope": "window"
+				},
+				"gitlens.views.search.pullRequests.enabled": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to query for pull requests associated with commits in the _Search Commits_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+					"scope": "window"
+				},
+				"gitlens.views.search.pullRequests.showForCommits": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Search Commits_ view. Requires a connection to a supported remote service (e.g. GitHub)",
 					"scope": "window"
 				},
 				"gitlens.views.showRelativeDateMarkers": {
@@ -2892,6 +3000,18 @@
 					"light": "images/light/icon-open-revision.svg"
 				},
 				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.openPullRequestOnRemote",
+				"title": "Open Pull Request",
+				"category": "GitLens",
+				"icon": "$(globe)"
+			},
+			{
+				"command": "gitlens.openAssociatedPullRequestOnRemote",
+				"title": "Open Associated Pull Request",
+				"category": "GitLens",
+				"icon": "$(git-pull-request)"
 			},
 			{
 				"command": "gitlens.openRepoInRemote",
@@ -4456,6 +4576,14 @@
 				},
 				{
 					"command": "gitlens.openCommitInRemote",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && gitlens:activeFileStatus =~ /remotes/"
+				},
+				{
+					"command": "gitlens.openPullRequestOnRemote",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.openAssociatedPullRequestOnRemote",
 					"when": "gitlens:activeFileStatus =~ /blameable/ && gitlens:activeFileStatus =~ /remotes/"
 				},
 				{
@@ -6727,6 +6855,11 @@
 					"command": "gitlens.views.restore",
 					"when": "!gitlens:readonly && viewItem == gitlens:file:stash",
 					"group": "1_gitlens_actions@2"
+				},
+				{
+					"command": "gitlens.openPullRequestOnRemote",
+					"when": "viewItem =~ /gitlens:pullrequest\\b/",
+					"group": "inline@99"
 				},
 				{
 					"command": "gitlens.views.addRemote",

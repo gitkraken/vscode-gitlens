@@ -4,7 +4,7 @@ import { Container } from '../../container';
 import { GitRemote, GitRevision } from '../git';
 import { GitStatus } from './status';
 import { Dates, memoize } from '../../system';
-import { GitBranchReference, GitReference } from './models';
+import { GitBranchReference, GitReference, PullRequest, PullRequestState } from './models';
 import { BranchSorting, configuration, DateStyle } from '../../configuration';
 
 const whitespaceRegex = /\s/;
@@ -139,6 +139,18 @@ export class GitBranch implements GitBranchReference {
 
 	formatDateFromNow(): string {
 		return this.dateFormatter?.fromNow() ?? '';
+	}
+
+	async getAssociatedPullRequest(options?: {
+		avatarSize?: number;
+		include?: PullRequestState[];
+		limit?: number;
+		timeout?: number;
+	}): Promise<PullRequest | undefined> {
+		const remote = await this.getRemote();
+		if (remote == null) return undefined;
+
+		return Container.git.getPullRequestForBranch(this.getNameWithoutRemote(), remote, options);
 	}
 
 	@memoize()
