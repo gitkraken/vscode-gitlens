@@ -7063,6 +7063,12 @@
 					"group": "inline@2"
 				},
 				{
+					"command": "gitlens.openBranchInRemote",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:status:upstream:(?!none)/",
+					"group": "inline@99",
+					"alt": "gitlens.copyRemoteBranchUrl"
+				},
+				{
 					"command": "gitlens.views.push",
 					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem == gitlens:status:upstream:ahead",
 					"group": "1_gitlens_actions@1"

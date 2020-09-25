@@ -29,7 +29,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 		upstream: string | undefined,
 		upstreamType: string,
 	): string {
-		return `${BranchNode.getId(repoPath, name, root)}${this.key}(${upstream ?? ''}|${upstreamType})`;
+		return `${BranchNode.getId(repoPath, name, root)}${this.key}(${upstream ?? ''}):${upstreamType}`;
 	}
 
 	constructor(
