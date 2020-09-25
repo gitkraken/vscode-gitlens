@@ -19,12 +19,12 @@ import { IssueOrPullRequest } from '../models/issue';
 import { GitLogCommit } from '../models/logCommit';
 import { PullRequest, PullRequestState } from '../models/pullRequest';
 import { Repository } from '../models/repository';
-import { debug, gate, Promises } from '../../system';
+import { debug, gate, log, Promises } from '../../system';
 
-const _onDidChangeAuthentication = new EventEmitter<void>();
+const _onDidChangeAuthentication = new EventEmitter<{ reason: 'connected' | 'disconnected'; key: string }>();
 
 export class Authentication {
-	static get onDidChange(): Event<void> {
+	static get onDidChange(): Event<{ reason: 'connected' | 'disconnected'; key: string }> {
 		return _onDidChangeAuthentication.event;
 	}
 }
@@ -219,6 +219,8 @@ export abstract class RemoteProvider {
 	}
 }
 
+// TODO@eamodio revisit how once authed, all remotes are always connected, even after a restart
+
 export abstract class RemoteProviderWithApi extends RemoteProvider {
 	static is(provider: RemoteProvider | undefined): provider is RemoteProviderWithApi {
 		return provider instanceof RemoteProviderWithApi;
@@ -235,8 +237,22 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 		super(domain, path, protocol, name, custom);
 
 		Container.context.subscriptions.push(
+			// TODO@eamodio revisit how connections are linked or not
+			Authentication.onDidChange(e => {
+				if (e.key !== this.key) return;
+
+				if (e.reason === 'disconnected') {
+					this.disconnect(true);
+				} else if (e.reason === 'connected') {
+					void this.ensureSession(false);
+				}
+			}),
 			authentication.onDidChangeSessions(this.onAuthenticationSessionsChanged, this),
 		);
+	}
+
+	private get key() {
+		return this.custom ? `${this.name}:${this.domain}` : this.name;
 	}
 
 	private onAuthenticationSessionsChanged(e: AuthenticationSessionsChangeEvent) {
@@ -247,6 +263,7 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 
 	abstract get apiBaseUrl(): string;
 
+	@log()
 	async connect(): Promise<boolean> {
 		try {
 			const session = await this.ensureSession(true);
@@ -256,12 +273,20 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 		}
 	}
 
-	disconnect(): void {
-		this._prsByCommit.clear();
+	@log()
+	disconnect(silent: boolean = false): void {
+		const disconnected = this._session != null;
+
 		this.invalidAuthenticationCount = 0;
+		this._prsByCommit.clear();
 		this._session = null;
-		this._onDidChange.fire();
-		_onDidChangeAuthentication.fire();
+
+		if (disconnected) {
+			this._onDidChange.fire();
+			if (!silent) {
+				_onDidChangeAuthentication.fire({ reason: 'disconnected', key: this.key });
+			}
+		}
 	}
 
 	@gate()
@@ -389,9 +414,9 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 		this._session = session ?? null;
 		this.invalidAuthenticationCount = 0;
 
-		if (session != null) {
+		if (session != null && createIfNone) {
 			this._onDidChange.fire();
-			_onDidChangeAuthentication.fire();
+			_onDidChangeAuthentication.fire({ reason: 'connected', key: this.key });
 		}
 
 		return session ?? undefined;
@@ -422,6 +447,7 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 		}
 	}
 
+	@debug()
 	private handleAuthenticationException() {
 		this.invalidAuthenticationCount++;
 
