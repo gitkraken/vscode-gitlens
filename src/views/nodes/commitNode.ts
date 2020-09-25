@@ -50,7 +50,7 @@ export class CommitNode extends ViewRefNode<ViewsWithFiles, GitRevisionReference
 			{
 				dateFormat: Container.config.defaultDateFormat,
 				getBranchAndTagTips: this.getBranchAndTagTips,
-				messageAutolinks: true,
+				// messageAutolinks: true,
 				messageIndent: 4,
 			},
 		);

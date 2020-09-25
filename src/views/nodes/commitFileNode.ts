@@ -149,7 +149,7 @@ export class CommitFileNode extends ViewRefFileNode {
 				this.commit,
 				{
 					dateFormat: Container.config.defaultDateFormat,
-					messageAutolinks: true,
+					// messageAutolinks: true,
 					messageIndent: 4,
 				},
 			);
