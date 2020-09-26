@@ -1,5 +1,6 @@
 'use strict';
 import { ProgressLocation, QuickPickItem, window } from 'vscode';
+import { BranchSorting } from '../../config';
 import { Container } from '../../container';
 import { GitReference, Repository } from '../../git/git';
 import {
@@ -143,6 +144,7 @@ export class SwitchGitCommand extends QuickCommand<State> {
 
 				const branches = await Container.git.getBranches(state.reference.repoPath, {
 					filter: b => b.tracking === state.reference!.name,
+					sort: { orderBy: BranchSorting.DateDesc },
 				});
 
 				if (branches.length === 0) {

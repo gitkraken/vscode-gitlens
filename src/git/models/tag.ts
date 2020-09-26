@@ -22,10 +22,10 @@ export class GitTag implements GitTagReference {
 		return tag?.refType === 'tag';
 	}
 
-	static sort(tags: GitTag[]) {
-		const order = configuration.get('sortTagsBy');
+	static sort(tags: GitTag[], options?: { orderBy?: TagSorting }) {
+		options = { orderBy: configuration.get('sortTagsBy'), ...options };
 
-		switch (order) {
+		switch (options.orderBy) {
 			case TagSorting.DateAsc:
 				return tags.sort((a, b) => a.date.getTime() - b.date.getTime());
 			case TagSorting.DateDesc:

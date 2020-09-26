@@ -131,7 +131,7 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 					state as CherryPickStepState,
 					context,
 					{
-						filterBranches: b => b.id !== context.destination.id,
+						filter: { branches: b => b.id !== context.destination.id },
 						placeholder: context =>
 							`Choose a branch${context.showTags ? ' or tag' : ''} to cherry-pick from`,
 						picked: context.selectedBranchOrTag?.ref,

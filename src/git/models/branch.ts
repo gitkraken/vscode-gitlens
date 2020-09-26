@@ -34,16 +34,14 @@ export class GitBranch implements GitBranchReference {
 		return branch?.refType === 'branch';
 	}
 
-	static sort(branches: GitBranch[], options?: { current: boolean }) {
-		const order = configuration.get('sortBranchesBy');
+	static sort(branches: GitBranch[], options?: { current?: boolean; orderBy?: BranchSorting }) {
+		options = { current: true, orderBy: configuration.get('sortBranchesBy'), ...options };
 
-		const opts = { current: true, ...options };
-
-		switch (order) {
+		switch (options.orderBy) {
 			case BranchSorting.DateAsc:
 				return branches.sort(
 					(a, b) =>
-						(opts.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
+						(options!.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
 						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
 						(a.date == null ? -1 : a.date.getTime()) - (b.date == null ? -1 : b.date.getTime()),
@@ -51,7 +49,7 @@ export class GitBranch implements GitBranchReference {
 			case BranchSorting.DateDesc:
 				return branches.sort(
 					(a, b) =>
-						(opts.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
+						(options!.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
 						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
 						(b.date == null ? -1 : b.date.getTime()) - (a.date == null ? -1 : a.date.getTime()),
@@ -59,7 +57,7 @@ export class GitBranch implements GitBranchReference {
 			case BranchSorting.NameAsc:
 				return branches.sort(
 					(a, b) =>
-						(opts.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
+						(options!.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
 						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 						(a.name === 'main' ? -1 : 1) - (b.name === 'main' ? -1 : 1) ||
 						(a.name === 'master' ? -1 : 1) - (b.name === 'master' ? -1 : 1) ||
@@ -70,7 +68,7 @@ export class GitBranch implements GitBranchReference {
 			default:
 				return branches.sort(
 					(a, b) =>
-						(opts.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
+						(options!.current ? (a.current ? -1 : 1) - (b.current ? -1 : 1) : 0) ||
 						(a.starred ? -1 : 1) - (b.starred ? -1 : 1) ||
 						(a.name === 'main' ? -1 : 1) - (b.name === 'main' ? -1 : 1) ||
 						(a.name === 'master' ? -1 : 1) - (b.name === 'master' ? -1 : 1) ||

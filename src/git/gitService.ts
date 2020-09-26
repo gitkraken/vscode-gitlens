@@ -19,7 +19,7 @@ import {
 	WorkspaceFoldersChangeEvent,
 } from 'vscode';
 import { API as BuiltInGitApi, Repository as BuiltInGitRepository, GitExtension } from '../@types/git';
-import { configuration } from '../configuration';
+import { BranchSorting, configuration, TagSorting } from '../configuration';
 import { CommandContext, DocumentSchemes, setCommandContext } from '../constants';
 import { Container } from '../container';
 import { LogCorrelationContext, Logger } from '../logger';
@@ -1103,7 +1103,10 @@ export class GitService implements Disposable {
 	@log()
 	async getBranches(
 		repoPath: string | undefined,
-		options: { filter?: (b: GitBranch) => boolean; sort?: boolean | { current: boolean } } = {},
+		options: {
+			filter?: (b: GitBranch) => boolean;
+			sort?: boolean | { current?: boolean; orderBy?: BranchSorting };
+		} = {},
 	): Promise<GitBranch[]> {
 		if (repoPath == null) return [];
 
@@ -1159,31 +1162,31 @@ export class GitService implements Disposable {
 	async getBranchesAndOrTags(
 		repoPath: string | undefined,
 		{
-			filterBranches,
-			filterTags,
+			filter,
 			include,
 			sort,
 			...options
 		}: {
-			filterBranches?: (b: GitBranch) => boolean;
-			filterTags?: (t: GitTag) => boolean;
+			filter?: { branches?: (b: GitBranch) => boolean; tags?: (t: GitTag) => boolean };
 			include?: 'all' | 'branches' | 'tags';
-			sort?: boolean | { current: boolean };
+			sort?:
+				| boolean
+				| { branches?: { current?: boolean; orderBy?: BranchSorting }; tags?: { orderBy?: TagSorting } };
 		} = {},
 	) {
 		const [branches, tags] = await Promise.all<GitBranch[] | undefined, GitTag[] | undefined>([
 			include === 'all' || include === 'branches'
 				? this.getBranches(repoPath, {
 						...options,
-						filter: filterBranches,
-						sort: sort,
+						filter: filter?.branches,
+						sort: typeof sort === 'boolean' ? undefined : sort?.branches,
 				  })
 				: undefined,
 			include === 'all' || include === 'tags'
 				? this.getTags(repoPath, {
 						...options,
-						filter: filterTags,
-						sort: Boolean(sort),
+						filter: filter?.tags,
+						sort: typeof sort === 'boolean' ? undefined : sort?.tags,
 				  })
 				: undefined,
 		]);
@@ -3063,7 +3066,7 @@ export class GitService implements Disposable {
 	@log()
 	async getTags(
 		repoPath: string | undefined,
-		options: { filter?: (t: GitTag) => boolean; sort?: boolean } = {},
+		options: { filter?: (t: GitTag) => boolean; sort?: boolean | { orderBy?: TagSorting } } = {},
 	): Promise<GitTag[]> {
 		if (repoPath == null) return [];
 
@@ -3082,8 +3085,9 @@ export class GitService implements Disposable {
 			tags = tags.filter(options.filter);
 		}
 
+		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 		if (options.sort) {
-			GitTag.sort(tags);
+			GitTag.sort(tags, typeof options.sort === 'boolean' ? undefined : options.sort);
 		}
 
 		return tags;

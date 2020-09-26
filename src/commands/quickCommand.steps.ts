@@ -1,7 +1,7 @@
 'use strict';
 import { QuickInputButton, QuickPick } from 'vscode';
 import { Commands } from './common';
-import { configuration } from '../configuration';
+import { BranchSorting, configuration, TagSorting } from '../configuration';
 import { Container } from '../container';
 import { GlyphChars, quickPickTitleMaxChars } from '../constants';
 import {
@@ -122,13 +122,13 @@ export async function getBranchesAndOrTags(
 	repos: Repository | Repository[],
 	include: ('tags' | 'branches')[],
 	{
-		filterBranches,
-		filterTags,
+		filter,
 		picked,
+		sort,
 	}: {
-		filterBranches?: (b: GitBranch) => boolean;
-		filterTags?: (t: GitTag) => boolean;
+		filter?: { branches?: (b: GitBranch) => boolean; tags?: (t: GitTag) => boolean };
 		picked?: string | string[];
+		sort?: boolean | { branches?: { current?: boolean; orderBy?: BranchSorting }; tags?: { orderBy?: TagSorting } };
 	} = {},
 ): Promise<(BranchQuickPickItem | TagQuickPickItem)[]> {
 	let branches: GitBranch[] | undefined;
@@ -140,16 +140,32 @@ export async function getBranchesAndOrTags(
 		const repo = repos instanceof Repository ? repos : repos[0];
 
 		[branches, tags] = await Promise.all<GitBranch[] | undefined, GitTag[] | undefined>([
-			include.includes('branches') ? repo.getBranches({ filter: filterBranches, sort: true }) : undefined,
-			include.includes('tags') ? repo.getTags({ filter: filterTags, sort: true }) : undefined,
+			include.includes('branches')
+				? repo.getBranches({
+						filter: filter?.branches,
+						sort: typeof sort === 'boolean' ? sort : sort?.branches,
+				  })
+				: undefined,
+			include.includes('tags') ? repo.getTags({ filter: filter?.tags, sort: true }) : undefined,
 		]);
 	} else {
 		const [branchesByRepo, tagsByRepo] = await Promise.all<GitBranch[][] | undefined, GitTag[][] | undefined>([
 			include.includes('branches')
-				? Promise.all(repos.map(r => r.getBranches({ filter: filterBranches, sort: true })))
+				? Promise.all(
+						repos.map(r =>
+							r.getBranches({
+								filter: filter?.branches,
+								sort: typeof sort === 'boolean' ? sort : sort?.branches,
+							}),
+						),
+				  )
 				: undefined,
 			include.includes('tags')
-				? Promise.all(repos.map(r => r.getTags({ filter: filterTags, sort: true })))
+				? Promise.all(
+						repos.map(r =>
+							r.getTags({ filter: filter?.tags, sort: typeof sort === 'boolean' ? sort : sort?.tags }),
+						),
+				  )
 				: undefined,
 		]);
 
@@ -479,16 +495,14 @@ export async function* pickBranchOrTagStep<
 	state: State,
 	context: Context,
 	{
-		filterBranches,
-		filterTags,
+		filter,
 		picked,
 		placeholder,
 		titleContext,
 		value,
 		additionalButtons,
 	}: {
-		filterBranches?: (b: GitBranch) => boolean;
-		filterTags?: (t: GitTag) => boolean;
+		filter?: { branches?: (b: GitBranch) => boolean; tags?: (t: GitTag) => boolean };
 		picked: string | string[] | undefined;
 		placeholder: string | ((context: Context) => string);
 		titleContext?: string;
@@ -502,9 +516,9 @@ export async function* pickBranchOrTagStep<
 
 	const getBranchesAndOrTagsFn = async () => {
 		return getBranchesAndOrTags(state.repo, context.showTags ? ['branches', 'tags'] : ['branches'], {
-			filterBranches: filterBranches,
-			filterTags: filterTags,
+			filter: filter,
 			picked: picked,
+			sort: { branches: { orderBy: BranchSorting.DateDesc }, tags: { orderBy: TagSorting.DateDesc } },
 		});
 	};
 	const branchesAndOrTags = await getBranchesAndOrTagsFn();
@@ -596,15 +610,13 @@ export async function* pickBranchOrTagStepMultiRepo<
 	state: State,
 	context: Context,
 	{
-		filterBranches,
-		filterTags,
+		filter,
 		picked,
 		placeholder,
 		titleContext,
 		value,
 	}: {
-		filterBranches?: (b: GitBranch) => boolean;
-		filterTags?: (t: GitTag) => boolean;
+		filter?: { branches?: (b: GitBranch) => boolean; tags?: (t: GitTag) => boolean };
 		picked?: string | string[];
 		placeholder: string | ((context: Context) => string);
 		titleContext?: string;
@@ -618,9 +630,9 @@ export async function* pickBranchOrTagStepMultiRepo<
 	const getBranchesAndOrTagsFn = () => {
 		return getBranchesAndOrTags(state.repos, context.showTags ? ['branches', 'tags'] : ['branches'], {
 			// Filter out remote branches if we are going to affect multiple repos
-			filterBranches: filterBranches ?? (state.repos.length === 1 ? undefined : b => !b.remote),
-			filterTags: filterTags,
+			filter: { branches: state.repos.length === 1 ? undefined : b => !b.remote, ...filter },
 			picked: picked ?? state.reference?.ref,
+			sort: { branches: { orderBy: BranchSorting.DateDesc }, tags: { orderBy: TagSorting.DateDesc } },
 		});
 	};
 	const branchesAndOrTags = await getBranchesAndOrTagsFn();

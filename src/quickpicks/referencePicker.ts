@@ -150,8 +150,7 @@ export namespace ReferencePicker {
 				? ['tags']
 				: [],
 			{
-				filterBranches: filterBranches,
-				filterTags: filterTags,
+				filter: { branches: filterBranches, tags: filterTags },
 				picked: picked,
 			},
 		);

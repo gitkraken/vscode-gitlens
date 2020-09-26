@@ -13,7 +13,7 @@ import {
 	workspace,
 	WorkspaceFolder,
 } from 'vscode';
-import { configuration } from '../../configuration';
+import { BranchSorting, configuration, TagSorting } from '../../configuration';
 import { StarredRepositories, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
 import { GitBranch, GitContributor, GitDiffShortStat, GitRemote, GitStash, GitStatus, GitTag } from '../git';
@@ -388,17 +388,21 @@ export class Repository implements Disposable {
 	}
 
 	getBranches(
-		options: { filter?: (b: GitBranch) => boolean; sort?: boolean | { current: boolean } } = {},
+		options: {
+			filter?: (b: GitBranch) => boolean;
+			sort?: boolean | { current?: boolean; orderBy?: BranchSorting };
+		} = {},
 	): Promise<GitBranch[]> {
 		return Container.git.getBranches(this.path, options);
 	}
 
 	getBranchesAndOrTags(
 		options: {
-			filterBranches?: (b: GitBranch) => boolean;
-			filterTags?: (t: GitTag) => boolean;
+			filter?: { branches?: (b: GitBranch) => boolean; tags?: (t: GitTag) => boolean };
 			include?: 'all' | 'branches' | 'tags';
-			sort?: boolean | { current: boolean };
+			sort?:
+				| boolean
+				| { branches?: { current?: boolean; orderBy?: BranchSorting }; tags?: { orderBy?: TagSorting } };
 		} = {},
 	) {
 		return Container.git.getBranchesAndOrTags(this.path, options);
@@ -466,7 +470,10 @@ export class Repository implements Disposable {
 		return Container.git.getStatusForRepo(this.path);
 	}
 
-	getTags(options?: { filter?: (t: GitTag) => boolean; sort?: boolean }): Promise<GitTag[]> {
+	getTags(options?: {
+		filter?: (t: GitTag) => boolean;
+		sort?: boolean | { orderBy?: TagSorting };
+	}): Promise<GitTag[]> {
 		return Container.git.getTags(this.path, options);
 	}
 
