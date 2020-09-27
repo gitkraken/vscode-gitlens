@@ -150,8 +150,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 		return state.counter < 0 ? StepResult.Break : undefined;
 	}
 
-	// eslint-disable-next-line @typescript-eslint/require-await
-	private async *confirmStep(
+	private *confirmStep(
 		state: RevertStepState<State<GitRevisionReference[]>>,
 		context: Context,
 	): StepResultGenerator<void> {

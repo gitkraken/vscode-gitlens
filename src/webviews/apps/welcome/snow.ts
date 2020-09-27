@@ -57,7 +57,7 @@ export class Snow {
 		this._ctx = this._canvas.getContext('2d');
 
 		const trigger = document.querySelector('.snow__trigger');
-		if (trigger) {
+		if (trigger != null) {
 			trigger.addEventListener('click', () => this.onToggle());
 		}
 

@@ -45,7 +45,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 				if (!repoPath) return;
 
 				const log = await Container.git.getLog(repoPath, { limit: 1 });
-				if (!log) return;
+				if (log == null) return;
 
 				args.sha = Iterables.first(log.commits.values()).sha;
 			} else if (args.sha == null) {

@@ -222,7 +222,6 @@ export class Logger {
 		}
 	}
 
-	// eslint-disable-next-line @typescript-eslint/ban-types
 	static toLoggableName(instance: Function | object) {
 		let name: string;
 		if (typeof instance === 'function') {

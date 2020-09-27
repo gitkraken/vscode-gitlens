@@ -308,7 +308,7 @@ export class Configuration {
 		if (inspection.globalValue !== undefined) {
 			await this.update(
 				to as any,
-				options.migrationFn ? options.migrationFn(inspection.globalValue) : inspection.globalValue,
+				options.migrationFn != null ? options.migrationFn(inspection.globalValue) : inspection.globalValue,
 				ConfigurationTarget.Global,
 			);
 			migrated = true;
@@ -324,7 +324,9 @@ export class Configuration {
 		if (inspection.workspaceValue !== undefined) {
 			await this.update(
 				to as any,
-				options.migrationFn ? options.migrationFn(inspection.workspaceValue) : inspection.workspaceValue,
+				options.migrationFn != null
+					? options.migrationFn(inspection.workspaceValue)
+					: inspection.workspaceValue,
 				ConfigurationTarget.Workspace,
 			);
 			migrated = true;
@@ -340,7 +342,7 @@ export class Configuration {
 		if (inspection.workspaceFolderValue !== undefined) {
 			await this.update(
 				to as any,
-				options.migrationFn
+				options.migrationFn != null
 					? options.migrationFn(inspection.workspaceFolderValue)
 					: inspection.workspaceFolderValue,
 				ConfigurationTarget.WorkspaceFolder,
@@ -427,7 +429,9 @@ export class Configuration {
 			if (toInspection === undefined || toInspection.globalValue === undefined) {
 				await this.update(
 					to as any,
-					options.migrationFn ? options.migrationFn(fromInspection.globalValue) : fromInspection.globalValue,
+					options.migrationFn != null
+						? options.migrationFn(fromInspection.globalValue)
+						: fromInspection.globalValue,
 					ConfigurationTarget.Global,
 				);
 				// Can't delete the old setting currently because it errors with `Unable to write to User Settings because <setting name> is not a registered configuration`
@@ -444,7 +448,7 @@ export class Configuration {
 			if (toInspection === undefined || toInspection.workspaceValue === undefined) {
 				await this.update(
 					to as any,
-					options.migrationFn
+					options.migrationFn != null
 						? options.migrationFn(fromInspection.workspaceValue)
 						: fromInspection.workspaceValue,
 					ConfigurationTarget.Workspace,
@@ -463,7 +467,7 @@ export class Configuration {
 			if (toInspection === undefined || toInspection.workspaceFolderValue === undefined) {
 				await this.update(
 					to as any,
-					options.migrationFn
+					options.migrationFn != null
 						? options.migrationFn(fromInspection.workspaceFolderValue)
 						: fromInspection.workspaceFolderValue,
 					ConfigurationTarget.WorkspaceFolder,

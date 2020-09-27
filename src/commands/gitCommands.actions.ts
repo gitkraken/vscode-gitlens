@@ -576,12 +576,11 @@ export namespace GitActions {
 				);
 			}
 
-			// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-			const { annotationType, line, ...opts } = {
+			const { annotationType, line, ...opts }: Exclude<typeof options, undefined> = {
 				preserveFocus: true,
 				preview: false,
 				...options,
-			} as Exclude<typeof options, undefined>;
+			};
 
 			if (line != null && line !== 0) {
 				opts.selection = new Range(line, 0, line, 0);

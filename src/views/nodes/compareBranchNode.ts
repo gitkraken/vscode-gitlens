@@ -268,7 +268,7 @@ export class CompareBranchNode extends ViewNode<CommitsView | RepositoriesView> 
 			comparisons = Object.create(null) as BranchComparisons;
 		}
 
-		if (compareWith) {
+		if (compareWith != null) {
 			comparisons[this.branch.id] = { ...compareWith };
 		} else {
 			const { [this.branch.id]: _, ...rest } = comparisons;

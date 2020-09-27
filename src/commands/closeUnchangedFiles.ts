@@ -133,7 +133,7 @@ export class CloseUnchangedFilesCommand extends Command {
 			let timer: NodeJS.Timer | undefined;
 
 			this._onEditorChangedFn = (editor: TextEditor | undefined) => {
-				if (timer) {
+				if (timer != null) {
 					clearTimeout(timer);
 					timer = undefined;
 

@@ -13,24 +13,24 @@ type Constructor<T = Record<string, unknown>> = new (...args: any[]) => T;
 const hasTokenRegexMap = new Map<string, RegExp>();
 const spaceReplacementRegex = / /g;
 
-declare type RequiredTokenOptions<TOptions extends FormatOptions> = TOptions & Required<Pick<TOptions, 'tokenOptions'>>;
+declare type RequiredTokenOptions<Options extends FormatOptions> = Options & Required<Pick<Options, 'tokenOptions'>>;
 
-export abstract class Formatter<TItem = any, TOptions extends FormatOptions = FormatOptions> {
-	protected _item!: TItem;
-	protected _options!: RequiredTokenOptions<TOptions>;
+export abstract class Formatter<Item = any, Options extends FormatOptions = FormatOptions> {
+	protected _item!: Item;
+	protected _options!: RequiredTokenOptions<Options>;
 
-	constructor(item: TItem, options?: TOptions) {
+	constructor(item: Item, options?: Options) {
 		this.reset(item, options);
 	}
 
-	reset(item: TItem, options?: TOptions) {
+	reset(item: Item, options?: Options) {
 		this._item = item;
 
-		if (options === undefined && this._options !== undefined) return;
+		if (options == null && this._options != null) return;
 
-		if (options === undefined) {
+		if (options == null) {
 			// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-			options = {} as TOptions;
+			options = {} as Options;
 		}
 
 		if (options.dateFormat == null) {
@@ -41,7 +41,7 @@ export abstract class Formatter<TItem = any, TOptions extends FormatOptions = Fo
 			options.tokenOptions = {};
 		}
 
-		this._options = options as RequiredTokenOptions<TOptions>;
+		this._options = options as RequiredTokenOptions<Options>;
 	}
 
 	private collapsableWhitespace: number = 0;
@@ -96,26 +96,22 @@ export abstract class Formatter<TItem = any, TOptions extends FormatOptions = Fo
 
 	private static _formatter: Formatter | undefined = undefined;
 
-	protected static fromTemplateCore<
-		TFormatter extends Formatter<TItem, TOptions>,
-		TItem,
-		TOptions extends FormatOptions
-	>(
+	protected static fromTemplateCore<TFormatter extends Formatter<Item, Options>, Item, Options extends FormatOptions>(
 		formatter: TFormatter | Constructor<TFormatter>,
 		template: string,
-		item: TItem,
-		dateFormatOrOptions?: string | null | TOptions,
+		item: Item,
+		dateFormatOrOptions?: string | null | Options,
 	): string {
 		// Preserve spaces
 		template = template.replace(spaceReplacementRegex, '\u00a0');
 		if (formatter instanceof Formatter) return Strings.interpolate(template, formatter);
 
-		let options: TOptions | undefined = undefined;
+		let options: Options | undefined = undefined;
 		if (dateFormatOrOptions == null || typeof dateFormatOrOptions === 'string') {
 			// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
 			options = {
 				dateFormat: dateFormatOrOptions,
-			} as TOptions;
+			} as Options;
 		} else {
 			options = dateFormatOrOptions;
 		}

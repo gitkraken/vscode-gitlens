@@ -134,9 +134,9 @@
 						"message": "Use symbol instead",
 						"fixWith": "symbol"
 					},
-					"Function": {
-						"message": "The `Function` type accepts any function-like value.\nIt provides no type safety when calling the function, which can be a common source of bugs.\nIt also accepts things like class declarations, which will throw at runtime as they will not be called with `new`.\nIf you are expecting the function to accept certain arguments, you should explicitly define the function shape."
-					},
+					// "Function": {
+					// 	"message": "The `Function` type accepts any function-like value.\nIt provides no type safety when calling the function, which can be a common source of bugs.\nIt also accepts things like class declarations, which will throw at runtime as they will not be called with `new`.\nIf you are expecting the function to accept certain arguments, you should explicitly define the function shape."
+					// },
 					"Object": {
 						"message": "The `Object` type actually means \"any non-nullish value\", so it is marginally better than `unknown`.\n- If you want a type meaning \"any object\", you probably want `Record<string, unknown>` instead.\n- If you want a type meaning \"any value\", you probably want `unknown` instead."
 					},
@@ -239,7 +239,15 @@
 		],
 		"@typescript-eslint/strict-boolean-expressions": [
 			"warn",
-			{ "allowNullableBoolean": true, "allowNullableNumber": true, "allowNullableString": true }
+			{
+				"allowString": true,
+				"allowNumber": true,
+				"allowNullableObject": false,
+				"allowNullableBoolean": true,
+				"allowNullableNumber": true,
+				"allowNullableString": true,
+				"allowAny": false
+			}
 		],
 		"@typescript-eslint/unbound-method": "off" // Too many bugs right now: https://github.com/typescript-eslint/typescript-eslint/issues?utf8=%E2%9C%93&q=is%3Aissue+is%3Aopen+unbound-method
 	}

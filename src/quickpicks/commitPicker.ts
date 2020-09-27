@@ -3,7 +3,7 @@ import { Disposable, QuickPick, window } from 'vscode';
 import { configuration } from '../configuration';
 import { Container } from '../container';
 import { GitLog, GitLogCommit } from '../git/git';
-import { KeyboardScope, KeyCommand, Keys } from '../keyboard';
+import { KeyboardScope, Keys } from '../keyboard';
 import { CommitQuickPickItem, Directive, DirectiveQuickPickItem, getQuickPickIgnoreFocusOut } from '../quickpicks';
 import { Iterables, Promises } from '../system';
 
@@ -99,14 +99,13 @@ export namespace CommitPicker {
 				Object.fromEntries(
 					options.keys.map(key => [
 						key,
-						// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
 						{
 							onDidPressKey: key => {
 								if (quickpick.activeItems.length !== 0) {
 									void options.onDidPressKey!(key, quickpick);
 								}
 							},
-						} as KeyCommand,
+						},
 					]),
 				),
 			);

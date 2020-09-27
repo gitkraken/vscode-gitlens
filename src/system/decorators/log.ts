@@ -44,7 +44,6 @@ export interface LogContext {
 export const LogInstanceNameFn = Symbol('logInstanceNameFn');
 
 export function logName<T>(fn: (c: T, name: string) => string) {
-	// eslint-disable-next-line @typescript-eslint/ban-types
 	return (target: Function) => {
 		(target as any)[LogInstanceNameFn] = fn;
 	};
@@ -89,7 +88,6 @@ export function log<T extends (...arg: any) => any>(
 		| typeof Logger.log;
 
 	return (target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>) => {
-		// eslint-disable-next-line @typescript-eslint/ban-types
 		let fn: Function | undefined;
 		let fnKey: string | undefined;
 		if (typeof descriptor.value === 'function') {

@@ -58,8 +58,9 @@ export type GitCommandsCommandArgs =
 	| SwitchGitCommandArgs
 	| TagGitCommandArgs;
 
-// eslint-disable-next-line @typescript-eslint/no-empty-function
-function* nullSteps(): StepGenerator {}
+function* nullSteps(): StepGenerator {
+	/* noop */
+}
 
 @command()
 export class GitCommandsCommand extends Command {

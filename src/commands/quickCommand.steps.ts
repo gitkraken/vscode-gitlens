@@ -1052,7 +1052,7 @@ export async function* pickRepositoriesStep<
 	options = { placeholder: 'Choose repositories', skipIfPossible: false, ...options };
 
 	let actives: Repository[];
-	if (state.repos) {
+	if (state.repos != null) {
 		if (Arrays.isStringArray(state.repos)) {
 			actives = Arrays.filterMap(state.repos, path => context.repos.find(r => r.path === path));
 			if (options.skipIfPossible && actives.length !== 0 && state.repos.length === actives.length) {
@@ -1063,7 +1063,7 @@ export async function* pickRepositoriesStep<
 		}
 	} else {
 		const active = await Container.git.getActiveRepository();
-		actives = active ? [active] : [];
+		actives = active != null ? [active] : [];
 	}
 
 	const step = QuickCommand.createPickStep<RepositoryQuickPickItem>({
@@ -1516,8 +1516,7 @@ async function getShowCommitOrStashStepItems<
 	return items;
 }
 
-// eslint-disable-next-line @typescript-eslint/require-await
-export async function* showCommitOrStashFilesStep<
+export function* showCommitOrStashFilesStep<
 	State extends PartialStepState & {
 		repo: Repository;
 		reference: GitLogCommit | GitStashCommit;

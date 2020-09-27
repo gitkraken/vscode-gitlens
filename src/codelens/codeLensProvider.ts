@@ -205,7 +205,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 			!languageScope.symbolScopes.includes('!file')
 		) {
 			// Check if we have a lens for the whole document -- if not add one
-			if (!lenses.find(l => l.range.start.line === 0 && l.range.end.line === 0)) {
+			if (lenses.find(l => l.range.start.line === 0 && l.range.end.line === 0) == null) {
 				const blameRange = documentRangeFn();
 
 				let blameForRangeFn: (() => GitBlameLines | undefined) | undefined = undefined;

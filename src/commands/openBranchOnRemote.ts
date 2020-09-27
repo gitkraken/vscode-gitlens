@@ -47,7 +47,7 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 	async execute(editor?: TextEditor, uri?: Uri, args?: OpenBranchOnRemoteCommandArgs) {
 		uri = getCommandUri(uri, editor);
 
-		const gitUri = uri && (await GitUri.fromUri(uri));
+		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
 		const repoPath = await getRepoPathOrActiveOrPrompt(
 			gitUri,

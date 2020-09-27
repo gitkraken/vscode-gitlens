@@ -8,7 +8,7 @@ import { Container } from '../container';
 import { Logger } from '../logger';
 import { Objects, Strings } from '../system';
 import { findGitPath, GitLocation } from './locator';
-import { fsExists, run, RunOptions } from './shell';
+import { fsExists, run, RunError, RunOptions } from './shell';
 import { GitBranchParser, GitLogParser, GitReflogParser, GitStashParser, GitTagParser } from './parsers/parsers';
 import { GitFileStatus, GitRevision } from './models/models';
 
@@ -17,6 +17,7 @@ export * from './parsers/parsers';
 export * from './formatters/formatters';
 export * from './remotes/provider';
 export * from './search';
+export { RunError } from './shell';
 
 export type GitDiffFilter = Exclude<GitFileStatus, '!' | '?'>;
 
@@ -566,8 +567,7 @@ export namespace Git {
 				'-',
 			);
 		} catch (ex) {
-			// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-			if (ex.stdout) {
+			if (ex instanceof RunError && ex.stdout) {
 				return ex.stdout;
 			}
 
@@ -730,7 +730,7 @@ export namespace Git {
 			params.push('--first-parent');
 		}
 
-		if (authors) {
+		if (authors != null && authors.length !== 0) {
 			params.push('--use-mailmap', ...authors.map(a => `--author=${a}`));
 		}
 

@@ -83,7 +83,7 @@ export class StashesRepositoryNode extends SubscribeableViewNode<StashesView> {
 	@debug({
 		args: {
 			0: (e: RepositoryChangeEvent) =>
-				`{ repository: ${e.repository ? e.repository.name : ''}, changes: ${e.changes.join()} }`,
+				`{ repository: ${e.repository?.name ?? ''}, changes: ${e.changes.join()} }`,
 		},
 	})
 	private onRepositoryChanged(e: RepositoryChangeEvent) {

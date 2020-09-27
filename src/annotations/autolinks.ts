@@ -175,7 +175,7 @@ export class Autolinks implements Disposable {
 						if (ref.title) {
 							title = ` "${ref.title.replace(numRegex, num)}`;
 
-							if (issue) {
+							if (issue != null) {
 								if (issue instanceof Promises.CancellationError) {
 									title += `\n${GlyphChars.Dash.repeat(2)}\nDetails timed out`;
 								} else {

@@ -13,7 +13,6 @@ export function timeout(timeoutOrTimeoutFromLastArg: number | boolean, defaultTi
 	}
 
 	return (target: any, key: string, descriptor: PropertyDescriptor) => {
-		// eslint-disable-next-line @typescript-eslint/ban-types
 		let fn: Function | undefined;
 		if (typeof descriptor.value === 'function') {
 			fn = descriptor.value;

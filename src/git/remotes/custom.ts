@@ -42,7 +42,7 @@ export class CustomRemote extends RemoteProvider {
 
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
 		let line;
-		if (range) {
+		if (range != null) {
 			if (range.start.line === range.end.line) {
 				line = Strings.interpolate(this.urls.fileLine, { line: range.start.line });
 			} else {

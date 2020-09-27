@@ -47,7 +47,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 				if (!repoPath) return;
 
 				const log = await Container.git.getLog(repoPath, { limit: 1 });
-				if (!log) return;
+				if (log == null) return;
 
 				args.message = Iterables.first(log.commits.values()).message;
 			} else if (args.message == null) {

@@ -150,8 +150,7 @@ export class ResetGitCommand extends QuickCommand<State> {
 		return state.counter < 0 ? StepResult.Break : undefined;
 	}
 
-	// eslint-disable-next-line @typescript-eslint/require-await
-	private async *confirmStep(state: ResetStepState, context: Context): StepResultGenerator<Flags[]> {
+	private *confirmStep(state: ResetStepState, context: Context): StepResultGenerator<Flags[]> {
 		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[

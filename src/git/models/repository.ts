@@ -354,9 +354,10 @@ export class Repository implements Disposable {
 		return void (await window.withProgress(
 			{
 				location: ProgressLocation.Notification,
-				title: opts.branch
-					? `Pulling ${opts.branch.name}...`
-					: `Fetching ${opts.remote ? `${opts.remote} of ` : ''}${this.formattedName}...`,
+				title:
+					opts.branch != null
+						? `Pulling ${opts.branch.name}...`
+						: `Fetching ${opts.remote ? `${opts.remote} of ` : ''}${this.formattedName}...`,
 			},
 			() => this.fetchCore(opts),
 		));
@@ -549,7 +550,7 @@ export class Repository implements Disposable {
 			{
 				location: ProgressLocation.Notification,
 				title: GitReference.isBranch(opts.reference)
-					? `${opts.publish ? 'Publishing ' : 'Pushing '}${opts.reference.name}...`
+					? `${opts.publish != null ? 'Publishing ' : 'Pushing '}${opts.reference.name}...`
 					: `Pushing ${this.formattedName}...`,
 			},
 			() => this.pushCore(opts),

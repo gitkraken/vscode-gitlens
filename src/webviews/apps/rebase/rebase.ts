@@ -288,7 +288,7 @@ class RebaseEditor extends App<RebaseState> {
 		}
 
 		const commit = state.commits.find(c => c.ref.startsWith(state.onto));
-		if (commit) {
+		if (commit != null) {
 			const [$el] = this.createEntry(
 				{
 					action: undefined!,
@@ -352,7 +352,7 @@ class RebaseEditor extends App<RebaseState> {
 		$entry.appendChild($message);
 
 		const commit = state.commits.find(c => c.ref.startsWith(entry.ref));
-		if (commit) {
+		if (commit != null) {
 			$message.title = commit.message ?? '';
 
 			if (commit.author) {

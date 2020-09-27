@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/ban-types */
 'use strict';
 
 // Taken from github.com/microsoft/vscode/src/vs/base/common/event.ts
@@ -22,8 +21,9 @@ export interface EmitterOptions {
 }
 
 export class Emitter<T> {
-	// eslint-disable-next-line @typescript-eslint/no-empty-function
-	private static readonly _noop = function () {};
+	private static readonly _noop = function () {
+		/* noop */
+	};
 
 	private readonly _options?: EmitterOptions;
 	private _disposed: boolean = false;
@@ -40,35 +40,33 @@ export class Emitter<T> {
 	 * to events from this Emitter
 	 */
 	get event(): Event<T> {
-		if (!this._event) {
+		if (this._event == null) {
 			this._event = (listener: (e: T) => any, thisArgs?: any, disposables?: Disposable[]) => {
-				if (!this._listeners) {
+				if (this._listeners == null) {
 					this._listeners = new LinkedList();
 				}
 
 				const firstListener = this._listeners.isEmpty();
 
-				if (firstListener && this._options && this._options.onFirstListenerAdd) {
-					this._options.onFirstListenerAdd(this);
+				if (firstListener) {
+					this._options?.onFirstListenerAdd?.(this);
 				}
 
 				const remove = this._listeners.push(thisArgs != null ? listener : [listener, thisArgs]);
 
-				if (firstListener && this._options && this._options.onFirstListenerDidAdd) {
-					this._options.onFirstListenerDidAdd(this);
+				if (firstListener) {
+					this._options?.onFirstListenerDidAdd?.(this);
 				}
 
-				if (this._options?.onListenerDidAdd) {
-					this._options.onListenerDidAdd(this, listener, thisArgs);
-				}
+				this._options?.onListenerDidAdd?.(this, listener, thisArgs);
 
 				const result = {
 					dispose: () => {
 						result.dispose = Emitter._noop;
 						if (!this._disposed) {
 							remove();
-							if (this._options?.onLastListenerRemove) {
-								const hasListeners = this._listeners && !this._listeners.isEmpty();
+							if (this._options?.onLastListenerRemove != null) {
+								const hasListeners = !(this._listeners?.isEmpty() ?? true);
 								if (!hasListeners) {
 									this._options.onLastListenerRemove(this);
 								}
@@ -91,12 +89,12 @@ export class Emitter<T> {
 	 * subscribers
 	 */
 	fire(event: T): void {
-		if (this._listeners) {
+		if (this._listeners != null) {
 			// put all [listener,event]-pairs into delivery queue
 			// then emit all event. an inner/nested event might be
 			// the driver of this
 
-			if (!this._deliveryQueue) {
+			if (this._deliveryQueue == null) {
 				this._deliveryQueue = new LinkedList();
 			}
 
@@ -108,8 +106,7 @@ export class Emitter<T> {
 				const [listener, event] = this._deliveryQueue.shift()!;
 				try {
 					if (typeof listener === 'function') {
-						// eslint-disable-next-line no-useless-call
-						listener.call(undefined, event);
+						listener(event);
 					} else {
 						listener[0].call(listener[1], event);
 					}
@@ -122,12 +119,8 @@ export class Emitter<T> {
 	}
 
 	dispose() {
-		if (this._listeners) {
-			this._listeners.clear();
-		}
-		if (this._deliveryQueue) {
-			this._deliveryQueue.clear();
-		}
+		this._listeners?.clear();
+		this._deliveryQueue?.clear();
 		this._disposed = true;
 	}
 }

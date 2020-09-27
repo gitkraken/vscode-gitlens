@@ -112,7 +112,6 @@ export namespace Strings {
 		return tokens;
 	}
 
-	// eslint-disable-next-line @typescript-eslint/ban-types
 	const interpolationMap = new Map<string, Function>();
 
 	export function interpolate(template: string, context: object | undefined): string {

@@ -178,7 +178,7 @@ export class LineAnnotationController implements Disposable {
 
 		const selections = Container.lineTracker.selections;
 		if (editor == null || selections == null || !isTextEditor(editor)) {
-			if (cc) {
+			if (cc != null) {
 				cc.exitDetails = ` ${GlyphChars.Dot} Skipped because there is no valid editor or no valid selections`;
 			}
 
@@ -195,7 +195,7 @@ export class LineAnnotationController implements Disposable {
 
 		const cfg = Container.config.currentLine;
 		if (this.suspended) {
-			if (cc) {
+			if (cc != null) {
 				cc.exitDetails = ` ${GlyphChars.Dot} Skipped because the controller is suspended`;
 			}
 
@@ -205,7 +205,7 @@ export class LineAnnotationController implements Disposable {
 
 		const trackedDocument = await Container.tracker.getOrAdd(editor.document);
 		if (!trackedDocument.isBlameable && this.suspended) {
-			if (cc) {
+			if (cc != null) {
 				cc.exitDetails = ` ${GlyphChars.Dot} Skipped because the ${
 					this.suspended
 						? 'controller is suspended'
@@ -219,7 +219,7 @@ export class LineAnnotationController implements Disposable {
 
 		// Make sure the editor hasn't died since the await above and that we are still on the same line(s)
 		if (editor.document == null || !Container.lineTracker.includes(selections)) {
-			if (cc) {
+			if (cc != null) {
 				cc.exitDetails = ` ${GlyphChars.Dot} Skipped because the ${
 					editor.document == null
 						? 'editor is gone'
@@ -231,7 +231,7 @@ export class LineAnnotationController implements Disposable {
 			return;
 		}
 
-		if (cc) {
+		if (cc != null) {
 			cc.exitDetails = ` ${GlyphChars.Dot} selection(s)=${selections
 				.map(s => `[${s.anchor}-${s.active}]`)
 				.join()}`;

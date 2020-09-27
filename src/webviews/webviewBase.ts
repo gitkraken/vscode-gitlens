@@ -201,15 +201,15 @@ export abstract class WebviewBase implements Disposable {
 			.replace(/#{cspSource}/g, webview.cspSource)
 			.replace(/#{root}/g, webview.asWebviewUri(Container.context.extensionUri).toString());
 
-		if (this.renderHead) {
+		if (this.renderHead != null) {
 			html = html.replace(/#{head}/i, await this.renderHead());
 		}
 
-		if (this.renderBody) {
+		if (this.renderBody != null) {
 			html = html.replace(/#{body}/i, await this.renderBody());
 		}
 
-		if (this.renderEndOfBody) {
+		if (this.renderEndOfBody != null) {
 			html = html.replace(/#{endOfBody}/i, await this.renderEndOfBody());
 		}
 

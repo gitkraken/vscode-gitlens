@@ -459,10 +459,9 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	): string {
 		if (CommitFormatter.has(template, 'footnotes')) {
 			if (dateFormatOrOptions == null || typeof dateFormatOrOptions === 'string') {
-				// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
 				dateFormatOrOptions = {
 					dateFormat: dateFormatOrOptions,
-				} as CommitFormatOptions;
+				};
 			}
 
 			if (dateFormatOrOptions.footnotes == null) {

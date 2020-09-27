@@ -50,7 +50,7 @@ export class KeyboardScope implements Disposable {
 		const index = mappings.indexOf(this._mapping);
 
 		const cc = Logger.getCorrelationContext();
-		if (cc) {
+		if (cc != null) {
 			cc.exitDetails = ` \u2022 index=${index}`;
 		}
 
@@ -75,8 +75,8 @@ export class KeyboardScope implements Disposable {
 		const cc = Logger.getCorrelationContext();
 
 		const mapping = mappings[mappings.length - 1];
-		if (mapping !== this._mapping || !mapping[key]) {
-			if (cc) {
+		if (mapping !== this._mapping || mapping[key] == null) {
+			if (cc != null) {
 				cc.exitDetails = ' \u2022 skipped';
 			}
 
@@ -127,7 +127,7 @@ export class KeyboardScope implements Disposable {
 
 		const mapping = mappings[mappings.length - 1];
 		if (mapping !== this._mapping) {
-			if (cc) {
+			if (cc != null) {
 				cc.exitDetails = ' \u2022 skipped';
 			}
 
@@ -186,7 +186,7 @@ export class Keyboard implements Disposable {
 		const cc = Logger.getCorrelationContext();
 
 		if (!mappings.length) {
-			if (cc) {
+			if (cc != null) {
 				cc.exitDetails = ' \u2022 skipped, no mappings';
 			}
 
@@ -201,7 +201,7 @@ export class Keyboard implements Disposable {
 				command = await command();
 			}
 			if (typeof command?.onDidPressKey !== 'function') {
-				if (cc) {
+				if (cc != null) {
 					cc.exitDetails = ' \u2022 skipped, no callback';
 				}
 

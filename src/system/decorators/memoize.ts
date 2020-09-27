@@ -19,7 +19,6 @@ function defaultResolver(...args: any[]): string {
 
 export function memoize<T extends (...arg: any) => any>(resolver?: (...args: Parameters<T>) => string) {
 	return (target: any, key: string, descriptor: PropertyDescriptor & Record<string, any>) => {
-		// eslint-disable-next-line @typescript-eslint/ban-types
 		let fn: Function | undefined;
 		let fnKey: string | undefined;
 

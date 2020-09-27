@@ -265,7 +265,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 	@debug({
 		args: {
 			0: (e: RepositoryFileSystemChangeEvent) =>
-				`{ repository: ${e.repository ? e.repository.name : ''}, uris(${e.uris.length}): [${e.uris
+				`{ repository: ${e.repository?.name ?? ''}, uris(${e.uris.length}): [${e.uris
 					.slice(0, 1)
 					.map(u => u.fsPath)
 					.join(', ')}${e.uris.length > 1 ? ', ...' : ''}] }`,
@@ -302,7 +302,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 	@debug({
 		args: {
 			0: (e: RepositoryChangeEvent) =>
-				`{ repository: ${e.repository ? e.repository.name : ''}, changes: ${e.changes.join()} }`,
+				`{ repository: ${e.repository?.name ?? ''}, changes: ${e.changes.join()} }`,
 		},
 	})
 	private onRepositoryChanged(e: RepositoryChangeEvent) {

@@ -181,7 +181,7 @@ export class Messages {
 
 		Logger.log(
 			`ShowMessage(${type}, '${message}', ${suppressionKey}, ${JSON.stringify(dontShowAgain)}) returned ${
-				result ? result.title : result
+				result != null ? result.title : result
 			}`,
 		);
 		return result;

@@ -3,7 +3,7 @@ import { CancellationTokenSource, Disposable, QuickPick, window } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitBranch, GitReference, GitTag } from '../git/git';
-import { KeyboardScope, KeyCommand, Keys } from '../keyboard';
+import { KeyboardScope, Keys } from '../keyboard';
 import { BranchQuickPickItem, getQuickPickIgnoreFocusOut, RefQuickPickItem, TagQuickPickItem } from '../quickpicks';
 import { getBranchesAndOrTags, getValidateGitReferenceFn } from '../commands/quickCommand';
 
@@ -53,14 +53,13 @@ export namespace ReferencePicker {
 				Object.fromEntries(
 					options.keys.map(key => [
 						key,
-						// eslint-disable-next-line @typescript-eslint/consistent-type-assertions
 						{
 							onDidPressKey: key => {
 								if (quickpick.activeItems.length !== 0) {
 									void options.onDidPressKey!(key, quickpick);
 								}
 							},
-						} as KeyCommand,
+						},
 					]),
 				),
 			);

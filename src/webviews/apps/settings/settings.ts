@@ -220,7 +220,7 @@ export class SettingsApp extends AppWithConfig<SettingsState> {
 
 	private toggleJumpLink(anchor: string, active: boolean) {
 		const el = document.querySelector(`a.sidebar__jump-link[href="#${anchor}"]`);
-		if (el) {
+		if (el != null) {
 			el.classList.toggle('active', active);
 		}
 	}

@@ -512,6 +512,7 @@ export class GitService implements Disposable {
 				if (result.title === 'Yes') {
 					try {
 						void (await Git.apply(uri.repoPath, patch, { allowConflicts: true }));
+
 						return;
 					} catch (e) {
 						// eslint-disable-next-line no-ex-assign

@@ -81,7 +81,7 @@ export class GitLogCommit extends GitCommit {
 	}
 
 	get isMerge() {
-		return this.parentShas && this.parentShas.length > 1;
+		return this.parentShas != null && this.parentShas.length > 1;
 	}
 
 	get nextUri(): Uri {

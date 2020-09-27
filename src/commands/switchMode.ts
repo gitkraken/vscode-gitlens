@@ -20,7 +20,7 @@ export class SwitchModeCommand extends Command {
 		const pick = await ModePicker.show();
 		if (pick === undefined) return;
 
-		if (cc) {
+		if (cc != null) {
 			cc.exitDetails = ` \u2014 mode=${pick.key ?? ''}`;
 		}
 

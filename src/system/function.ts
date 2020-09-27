@@ -103,7 +103,6 @@ export namespace Functions {
 	const fnBodyStripCommentsRegex = /(\/\*([\s\S]*?)\*\/|([^:]|^)\/\/(.*)$)/gm;
 	const fnBodyStripParamDefaultValueRegex = /\s?=.*$/;
 
-	// eslint-disable-next-line @typescript-eslint/ban-types
 	export function getParameters(fn: Function): string[] {
 		if (typeof fn !== 'function') throw new Error('Not supported');
 

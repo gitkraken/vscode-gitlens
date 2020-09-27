@@ -2,7 +2,7 @@
 import { QuickInputButtons, QuickPickItem, Uri, window } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { GitReference, GitStashCommit, GitStashReference, Repository } from '../../git/git';
+import { GitReference, GitStashCommit, GitStashReference, Repository, RunError } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { GitActions, GitCommandsCommand } from '../gitCommands';
 import {
@@ -287,32 +287,33 @@ export class StashGitCommand extends QuickCommand<State> {
 			} catch (ex) {
 				Logger.error(ex, context.title);
 
-				const msg: string = ex?.message ?? '';
-				if (msg.includes('Your local changes to the following files would be overwritten by merge')) {
-					void window.showWarningMessage(
-						'Unable to apply stash. Your working tree changes would be overwritten. Please commit or stash your changes before trying again',
+				if (ex instanceof Error) {
+					const msg: string = ex.message ?? '';
+					if (msg.includes('Your local changes to the following files would be overwritten by merge')) {
+						void window.showWarningMessage(
+							'Unable to apply stash. Your working tree changes would be overwritten. Please commit or stash your changes before trying again',
+						);
+
+						return;
+					}
+
+					if (
+						(msg.includes('Auto-merging') && msg.includes('CONFLICT')) ||
+						(ex instanceof RunError &&
+							((ex.stdout.includes('Auto-merging') && ex.stdout.includes('CONFLICT')) ||
+								ex.stdout.includes('needs merge')))
+					) {
+						void window.showInformationMessage('Stash applied with conflicts');
+
+						return;
+					}
+
+					void Messages.showGenericErrorMessage(
+						`Unable to apply stash \u2014 ${msg.trim().replace(/\n+?/g, '; ')}`,
 					);
 
 					return;
 				}
-
-				if (
-					(msg.includes('Auto-merging') && msg.includes('CONFLICT')) ||
-					// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-					(ex?.stdout?.includes('Auto-merging') && ex?.stdout?.includes('CONFLICT')) ||
-					// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-					ex?.stdout?.includes('needs merge')
-				) {
-					void window.showInformationMessage('Stash applied with conflicts');
-
-					return;
-				}
-
-				void Messages.showGenericErrorMessage(
-					`Unable to apply stash \u2014 ${msg.trim().replace(/\n+?/g, '; ')}`,
-				);
-
-				return;
 			}
 		}
 	}

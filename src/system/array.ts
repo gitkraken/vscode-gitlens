@@ -194,7 +194,7 @@ export namespace Arrays {
 			if (uniqueValues[value]) return false;
 
 			uniqueValues[value] = accessor;
-			return predicate ? predicate(item) : true;
+			return predicate?.(item) ?? true;
 		});
 	}
 }

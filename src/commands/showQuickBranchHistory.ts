@@ -29,7 +29,7 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
 	async execute(editor?: TextEditor, uri?: Uri, args?: ShowQuickBranchHistoryCommandArgs) {
 		uri = getCommandUri(uri, editor);
 
-		const gitUri = uri && (await GitUri.fromUri(uri));
+		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
 		const repoPath = args?.repoPath ?? gitUri?.repoPath;
 

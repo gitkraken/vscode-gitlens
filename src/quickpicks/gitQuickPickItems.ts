@@ -304,11 +304,11 @@ export namespace RepositoryQuickPickItem {
 		}
 
 		let description = '';
-		if (options.branch && repoStatus) {
+		if (options.branch && repoStatus != null) {
 			description = repoStatus.branch;
 		}
 
-		if (options.status && repoStatus) {
+		if (options.status && repoStatus != null) {
 			let workingStatus = '';
 			if (repoStatus.files.length !== 0) {
 				workingStatus = repoStatus.getFormattedDiffStatus({
