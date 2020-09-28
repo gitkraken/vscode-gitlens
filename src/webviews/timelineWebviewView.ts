@@ -1,5 +1,15 @@
 'use strict';
-import { commands, Disposable, TextEditor, ViewColumn, window } from 'vscode';
+import {
+	CancellationToken,
+	commands,
+	Disposable,
+	TextEditor,
+	ViewColumn,
+	WebviewView,
+	WebviewViewProvider,
+	WebviewViewResolveContext,
+	window,
+} from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../commands';
 import { hasVisibleTextEditor, isTextEditor } from '../constants';
 import { Container } from '../container';
@@ -13,23 +23,26 @@ import {
 	TimelineDidChangeDataNotificationType,
 } from './protocol';
 import { debug, Functions } from '../system';
-import { WebviewBase } from './webviewBase';
 
-export class TimelineWebview extends WebviewBase {
+export class TimelineWebviewView implements WebviewViewProvider, Disposable {
+	private readonly disposable: Disposable;
 	private _editor: TextEditor | undefined;
+	private _view: WebviewView | undefined;
 
 	constructor() {
-		super(Commands.ShowTimelinePage, ViewColumn.Beside);
-
 		const editor = window.activeTextEditor;
 		if (editor !== undefined && isTextEditor(editor)) {
 			this._editor = editor;
 		}
 
 		this.disposable = Disposable.from(
-			this.disposable,
 			window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveEditorChanged, 500), this),
+			window.registerWebviewViewProvider('gitlens.views.timeline', this),
 		);
+	}
+
+	async resolveWebviewView(webviewView: WebviewView, context: WebviewViewResolveContext, token: CancellationToken) {
+		this._view = webviewView;
 	}
 
 	@debug({ args: false })

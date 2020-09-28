@@ -298,7 +298,7 @@ function getWebviewsConfig(mode, _env) {
 					: false,
 		}),
 		new HtmlPlugin({
-			template: 'timeline/index.html',
+			template: 'timeline/timeline.html',
 			chunks: ['timeline'],
 			filename: path.resolve(__dirname, 'dist/webviews/timeline.html'),
 			inject: true,
@@ -402,7 +402,7 @@ function getWebviewsConfig(mode, _env) {
 		entry: {
 			rebase: './rebase/rebase.ts',
 			settings: './settings/settings.ts',
-			timeline: './timeline/index.ts',
+			timeline: './timeline/timeline.ts',
 			welcome: './welcome/welcome.ts',
 		},
 		mode: mode,
