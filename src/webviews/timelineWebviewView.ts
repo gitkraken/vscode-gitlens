@@ -1,14 +1,18 @@
 'use strict';
+import { TextDecoder } from 'util';
 import {
 	CancellationToken,
 	commands,
 	Disposable,
 	TextEditor,
+	Uri,
 	ViewColumn,
+	Webview,
 	WebviewView,
 	WebviewViewProvider,
 	WebviewViewResolveContext,
 	window,
+	workspace,
 } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../commands';
 import { hasVisibleTextEditor, isTextEditor } from '../constants';
@@ -16,6 +20,8 @@ import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import {
 	IpcMessage,
+	IpcNotificationParamsOf,
+	IpcNotificationType,
 	onIpcCommand,
 	ReadyCommandType,
 	TimelineClickCommandType,
@@ -24,8 +30,21 @@ import {
 } from './protocol';
 import { debug, Functions } from '../system';
 
+let ipcSequence = 0;
+function nextIpcId() {
+	if (ipcSequence === Number.MAX_SAFE_INTEGER) {
+		ipcSequence = 1;
+	} else {
+		ipcSequence++;
+	}
+
+	return `host:${ipcSequence}`;
+}
+
 export class TimelineWebviewView implements WebviewViewProvider, Disposable {
 	private readonly disposable: Disposable;
+	private _disposableView: Disposable | undefined;
+
 	private _editor: TextEditor | undefined;
 	private _view: WebviewView | undefined;
 
@@ -37,12 +56,62 @@ export class TimelineWebviewView implements WebviewViewProvider, Disposable {
 
 		this.disposable = Disposable.from(
 			window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveEditorChanged, 500), this),
-			window.registerWebviewViewProvider('gitlens.views.timeline', this),
+			window.registerWebviewViewProvider(this.id, this),
 		);
 	}
 
-	async resolveWebviewView(webviewView: WebviewView, context: WebviewViewResolveContext, token: CancellationToken) {
+	dispose() {
+		this.disposable.dispose();
+		this._disposableView?.dispose();
+	}
+
+	async resolveWebviewView(
+		webviewView: WebviewView,
+		_context: WebviewViewResolveContext,
+		_token: CancellationToken,
+	): Promise<void> {
 		this._view = webviewView;
+
+		webviewView.webview.options = {
+			enableCommandUris: true,
+			enableScripts: true,
+		};
+
+		// webviewView.iconPath = Uri.file(Container.context.asAbsolutePath('images/gitlens-icon.png'));
+		webviewView.title = this.title;
+
+		this._disposableView = Disposable.from(
+			// this._view,
+			this._view.onDidDispose(this.onViewDisposed, this),
+			this._view.onDidChangeVisibility(this.onViewVisibilityChanged, this),
+			this._view.webview.onDidReceiveMessage(this.onMessageReceived, this),
+			// ...this.registerCommands(),
+		);
+
+		webviewView.webview.html = await this.getHtml(webviewView.webview);
+	}
+
+	private async getHtml(webview: Webview): Promise<string> {
+		const uri = Uri.joinPath(Container.context.extensionUri, 'dist', 'webviews', this.filename);
+		const content = new TextDecoder('utf8').decode(await workspace.fs.readFile(uri));
+
+		const html = content
+			.replace(/#{cspSource}/g, webview.cspSource)
+			.replace(/#{root}/g, webview.asWebviewUri(Container.context.extensionUri).toString());
+
+		// if (this.renderHead != null) {
+		// 	html = html.replace(/#{head}/i, await this.renderHead());
+		// }
+
+		// if (this.renderBody != null) {
+		// 	html = html.replace(/#{body}/i, await this.renderBody());
+		// }
+
+		// if (this.renderEndOfBody != null) {
+		// 	html = html.replace(/#{endOfBody}/i, await this.renderEndOfBody());
+		// }
+
+		return html;
 	}
 
 	@debug({ args: false })
@@ -54,7 +123,21 @@ export class TimelineWebviewView implements WebviewViewProvider, Disposable {
 		void this.notifyDidChangeData(editor);
 	}
 
-	protected onMessageReceived(e: IpcMessage) {
+	private onViewDisposed() {
+		this._disposableView?.dispose();
+		this._view = undefined;
+	}
+
+	private onViewVisibilityChanged() {
+		// // Anytime the webview becomes active, make sure it has the most up-to-date config
+		// if (this._view?.visible) {
+		// 	void this.notifyDidChangeConfiguration();
+		// }
+	}
+
+	protected onMessageReceived(e?: IpcMessage) {
+		if (e == null) return;
+
 		switch (e.method) {
 			case ReadyCommandType.method:
 				onIpcCommand(ReadyCommandType, e, () => {
@@ -88,7 +171,7 @@ export class TimelineWebviewView implements WebviewViewProvider, Disposable {
 				break;
 
 			default:
-				super.onMessageReceived(e);
+				// super.onMessageReceived(e);
 
 				break;
 		}
@@ -99,11 +182,17 @@ export class TimelineWebviewView implements WebviewViewProvider, Disposable {
 	}
 
 	get id(): string {
-		return 'gitlens.timeline';
+		return 'gitlens.views.timeline';
 	}
 
 	get title(): string {
 		return 'GitLens Timeline';
+	}
+
+	setTitle(title: string) {
+		if (this._view == null) return;
+
+		this._view.title = title;
 	}
 
 	private async getData(editor: TextEditor | undefined): Promise<TimelineData | undefined> {
@@ -167,5 +256,15 @@ export class TimelineWebviewView implements WebviewViewProvider, Disposable {
 		return this.notify(TimelineDidChangeDataNotificationType, {
 			data: await this.getData(editor),
 		});
+	}
+
+	protected notify<NT extends IpcNotificationType>(type: NT, params: IpcNotificationParamsOf<NT>): Thenable<boolean> {
+		return this.postMessage({ id: nextIpcId(), method: type.method, params: params });
+	}
+
+	private postMessage(message: IpcMessage) {
+		if (this._view == null) return Promise.resolve(false);
+
+		return this._view.webview.postMessage(message);
 	}
 }
