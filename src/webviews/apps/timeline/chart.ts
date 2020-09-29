@@ -177,7 +177,7 @@ export class TimelineChart {
 
 		const x = (this._chart!.data(id) as any)[0].values[index].x;
 		const commit = this._commitsByDate.get(x);
-		return commit ? commit.commit.substr(0, 8) : '00000000';
+		return commit?.commit.substr(0, 8) ?? '00000000';
 	}
 
 	private onChartTooltipValue(value: any, ratio: number, id: string, index: number) {
@@ -189,7 +189,7 @@ export class TimelineChart {
 
 		const x = (this._chart!.data(id) as any)[0].values[index].x;
 		const commit = this._commitsByDate.get(x);
-		return commit ? commit.message : '???';
+		return commit?.message ?? '???';
 	}
 
 	updateChart(data: TimelineData | undefined) {
