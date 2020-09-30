@@ -305,10 +305,10 @@ function getWebviewsConfig(mode, _env) {
 			inlineSource: mode === 'production' ? '.css$' : undefined,
 			cspPlugin: {
 				enabled: true,
-				policy: cspPolicy,
+				policy: { ...cspPolicy, 'style-src': [...cspPolicy['style-src'], "'unsafe-inline'"] },
 				nonceEnabled: {
 					'script-src': true,
-					'style-src': true,
+					'style-src': false,
 				},
 			},
 			minify:

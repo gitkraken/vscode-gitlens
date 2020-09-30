@@ -104,18 +104,18 @@ body {
 	}
 }
 
-// .bb-xgrid-focus {
-//     line {
-//         opacity: 0.5 !important;
+.bb-xgrid-focus {
+	line {
+		opacity: 1 !important;
 
-//         .vscode-dark & {
-//             stroke: var(--color-background--lighten-30);
-//         }
-//         .vscode-light & {
-//             stroke: var(--color-background--darken-30);
-//         }
-//     }
-// }
+		.vscode-dark & {
+			stroke: var(--color-background--lighten-30);
+		}
+		.vscode-light & {
+			stroke: var(--color-background--darken-30);
+		}
+	}
+}
 
 /*-- Text on Chart --*/
 .bb-text.bb-empty {
@@ -124,8 +124,8 @@ body {
 
 /*-- Bar --*/
 .bb-bar {
+	opacity: 0.8 !important;
 	stroke-width: 0;
-	opacity: 0.6 !important;
 	fill-opacity: 0.6;
 
 	&._expanded_ {
@@ -149,6 +149,16 @@ body {
 		fill-opacity: 1;
 		stroke-width: 3px;
 		stroke-opacity: 0.6;
+	}
+}
+
+.bb-circles {
+	&.bb-focused {
+		opacity: 1;
+	}
+
+	&.bb-defocused {
+		opacity: 0.3 !important;
 	}
 }
 
@@ -288,6 +298,7 @@ use.bb-circle {
 	td.name {
 		vertical-align: top;
 		white-space: nowrap;
+		width: 1px;
 	}
 
 	td.value {
