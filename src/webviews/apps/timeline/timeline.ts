@@ -23,7 +23,7 @@ export class TimelineApp extends App {
 	}
 
 	private onChartClicked(e: ClickedEvent) {
-		// this.sendCommand(TimelineClickCommandType, e);
+		this.sendCommand(TimelineClickCommandType, e);
 	}
 
 	protected onMessageReceived(e: MessageEvent) {

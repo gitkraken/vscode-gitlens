@@ -1,6 +1,6 @@
 'use strict';
 import { commands, Disposable, TextEditor, ViewColumn, window } from 'vscode';
-import { Commands, DiffWithPreviousCommandArgs } from '../commands';
+import { Commands, ShowQuickCommitCommandArgs } from '../commands';
 import { hasVisibleTextEditor, isTextEditor } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -54,22 +54,29 @@ export class TimelineWebview extends WebviewBase {
 				onIpcCommand(TimelineClickCommandType, e, async params => {
 					if (params.data === undefined || this._editor === undefined) return;
 
-					const commandArgs: DiffWithPreviousCommandArgs = {
-						line: 0,
-						showOptions: {
-							preserveFocus: true,
-							preview: true,
-							viewColumn: ViewColumn.Beside,
-						},
-					};
-
 					const gitUri = await GitUri.fromUri(this._editor.document.uri);
 
-					void commands.executeCommand(
-						Commands.DiffWithPrevious,
-						new GitUri(gitUri, { repoPath: gitUri.repoPath!, sha: params.data.id }),
-						commandArgs,
-					);
+					const commandArgs: ShowQuickCommitCommandArgs = {
+						repoPath: gitUri.repoPath!,
+						sha: params.data.id,
+					};
+
+					void commands.executeCommand(Commands.ShowQuickCommit, commandArgs);
+
+					// const commandArgs: DiffWithPreviousCommandArgs = {
+					// 	line: 0,
+					// 	showOptions: {
+					// 		preserveFocus: true,
+					// 		preview: true,
+					// 		viewColumn: ViewColumn.Beside,
+					// 	},
+					// };
+
+					// void commands.executeCommand(
+					// 	Commands.DiffWithPrevious,
+					// 	new GitUri(gitUri, { repoPath: gitUri.repoPath!, sha: params.data.id }),
+					// 	commandArgs,
+					// );
 				});
 
 				break;

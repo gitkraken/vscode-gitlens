@@ -39,7 +39,7 @@ export class TimelineChart {
 					enabled: selection(),
 					draggable: false,
 					grouped: true,
-					multiple: true,
+					multiple: false,
 				},
 				onclick: this.onChartDataClick.bind(this),
 			},
@@ -49,7 +49,7 @@ export class TimelineChart {
 					tick: {
 						show: false,
 						fit: false,
-						format: '%Y-%m-%d',
+						format: '%-m/%-d/%Y',
 					},
 				},
 				y: {
