@@ -12,28 +12,15 @@ export interface Event<T> {
 
 type Listener<T> = [(e: T) => void, any] | ((e: T) => void);
 
-export interface EmitterOptions {
-	onFirstListenerAdd?: Function;
-	onFirstListenerDidAdd?: Function;
-	onListenerDidAdd?: Function;
-	onLastListenerRemove?: Function;
-	leakWarningThreshold?: number;
-}
-
 export class Emitter<T> {
 	private static readonly _noop = function () {
 		/* noop */
 	};
 
-	private readonly _options?: EmitterOptions;
 	private _disposed: boolean = false;
 	private _event?: Event<T>;
 	private _deliveryQueue?: LinkedList<[Listener<T>, T]>;
-	protected _listeners?: LinkedList<Listener<T>>;
-
-	constructor(options?: EmitterOptions) {
-		this._options = options;
-	}
+	protected listeners?: LinkedList<Listener<T>>;
 
 	/**
 	 * For the public to allow to subscribe
@@ -42,35 +29,17 @@ export class Emitter<T> {
 	get event(): Event<T> {
 		if (this._event == null) {
 			this._event = (listener: (e: T) => any, thisArgs?: any, disposables?: Disposable[]) => {
-				if (this._listeners == null) {
-					this._listeners = new LinkedList();
+				if (this.listeners == null) {
+					this.listeners = new LinkedList();
 				}
 
-				const firstListener = this._listeners.isEmpty();
-
-				if (firstListener) {
-					this._options?.onFirstListenerAdd?.(this);
-				}
-
-				const remove = this._listeners.push(thisArgs != null ? listener : [listener, thisArgs]);
-
-				if (firstListener) {
-					this._options?.onFirstListenerDidAdd?.(this);
-				}
-
-				this._options?.onListenerDidAdd?.(this, listener, thisArgs);
+				const remove = this.listeners.push(thisArgs == null ? listener : [listener, thisArgs]);
 
 				const result = {
 					dispose: () => {
 						result.dispose = Emitter._noop;
 						if (!this._disposed) {
 							remove();
-							if (this._options?.onLastListenerRemove != null) {
-								const hasListeners = !(this._listeners?.isEmpty() ?? true);
-								if (!hasListeners) {
-									this._options.onLastListenerRemove(this);
-								}
-							}
 						}
 					},
 				};
@@ -89,7 +58,7 @@ export class Emitter<T> {
 	 * subscribers
 	 */
 	fire(event: T): void {
-		if (this._listeners != null) {
+		if (this.listeners != null) {
 			// put all [listener,event]-pairs into delivery queue
 			// then emit all event. an inner/nested event might be
 			// the driver of this
@@ -98,7 +67,7 @@ export class Emitter<T> {
 				this._deliveryQueue = new LinkedList();
 			}
 
-			for (let iter = this._listeners.iterator(), e = iter.next(); !e.done; e = iter.next()) {
+			for (let iter = this.listeners.iterator(), e = iter.next(); !e.done; e = iter.next()) {
 				this._deliveryQueue.push([e.value, event]);
 			}
 
@@ -119,7 +88,7 @@ export class Emitter<T> {
 	}
 
 	dispose() {
-		this._listeners?.clear();
+		this.listeners?.clear();
 		this._deliveryQueue?.clear();
 		this._disposed = true;
 	}
