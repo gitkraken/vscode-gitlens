@@ -1,10 +1,16 @@
 'use strict';
-import { Disposable, QuickPick, window } from 'vscode';
+import { Disposable, window } from 'vscode';
 import { configuration } from '../configuration';
 import { Container } from '../container';
 import { GitLog, GitLogCommit } from '../git/git';
 import { KeyboardScope, Keys } from '../keyboard';
-import { CommitQuickPickItem, Directive, DirectiveQuickPickItem, getQuickPickIgnoreFocusOut } from '../quickpicks';
+import {
+	CommandQuickPickItem,
+	CommitQuickPickItem,
+	Directive,
+	DirectiveQuickPickItem,
+	getQuickPickIgnoreFocusOut,
+} from '../quickpicks';
 import { Iterables, Promises } from '../system';
 
 export namespace CommitPicker {
@@ -15,13 +21,11 @@ export namespace CommitPicker {
 		options?: {
 			picked?: string;
 			keys?: Keys[];
-			onDidPressKey?(
-				key: Keys,
-				quickpick: QuickPick<CommitQuickPickItem | DirectiveQuickPickItem>,
-			): void | Promise<void>;
+			onDidPressKey?(key: Keys, item: CommitQuickPickItem): void | Promise<void>;
+			showOtherReferences?: CommandQuickPickItem;
 		},
 	): Promise<GitLogCommit | undefined> {
-		const quickpick = window.createQuickPick<CommitQuickPickItem | DirectiveQuickPickItem>();
+		const quickpick = window.createQuickPick<CommandQuickPickItem | CommitQuickPickItem | DirectiveQuickPickItem>();
 		quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
 
 		quickpick.title = title;
@@ -44,13 +48,14 @@ export namespace CommitPicker {
 		quickpick.items = getItems(log);
 
 		if (options?.picked) {
-			quickpick.activeItems = quickpick.items.filter(i => i.picked);
+			quickpick.activeItems = quickpick.items.filter(i => (CommandQuickPickItem.is(i) ? false : i.picked));
 		}
 
 		function getItems(log: GitLog | undefined) {
 			return log == null
 				? [DirectiveQuickPickItem.create(Directive.Cancel)]
 				: [
+						...(options?.showOtherReferences != null ? [options?.showOtherReferences] : []),
 						...Iterables.map(log.commits.values(), commit =>
 							CommitQuickPickItem.create(commit, options?.picked === commit.ref, {
 								compact: true,
@@ -102,7 +107,14 @@ export namespace CommitPicker {
 						{
 							onDidPressKey: key => {
 								if (quickpick.activeItems.length !== 0) {
-									void options.onDidPressKey!(key, quickpick);
+									const [item] = quickpick.activeItems;
+									if (
+										item != null &&
+										!DirectiveQuickPickItem.is(item) &&
+										!CommandQuickPickItem.is(item)
+									) {
+										void options.onDidPressKey!(key, item);
+									}
 								}
 							},
 						},
@@ -114,7 +126,9 @@ export namespace CommitPicker {
 		}
 
 		try {
-			const pick = await new Promise<CommitQuickPickItem | DirectiveQuickPickItem | undefined>(resolve => {
+			const pick = await new Promise<
+				CommandQuickPickItem | CommitQuickPickItem | DirectiveQuickPickItem | undefined
+			>(resolve => {
 				disposables.push(
 					quickpick.onDidHide(() => resolve()),
 					quickpick.onDidAccept(() => {
@@ -153,6 +167,12 @@ export namespace CommitPicker {
 				quickpick.show();
 			});
 			if (pick == null || DirectiveQuickPickItem.is(pick)) return undefined;
+
+			if (pick instanceof CommandQuickPickItem) {
+				void (await pick.execute());
+
+				return undefined;
+			}
 
 			return pick.item;
 		} finally {

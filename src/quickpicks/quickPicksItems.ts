@@ -75,14 +75,18 @@ export namespace DirectiveQuickPickItem {
 }
 
 export class CommandQuickPickItem<Arguments extends any[] = any[]> implements QuickPickItem {
-	static fromCommand<T>(label: string, command: Commands, args: T): CommandQuickPickItem;
-	static fromCommand<T>(item: QuickPickItem, command: Commands, args: T): CommandQuickPickItem;
-	static fromCommand<T>(labelOrItem: string | QuickPickItem, command: Commands, args: T): CommandQuickPickItem {
+	static fromCommand<T>(label: string, command: Commands, args?: T): CommandQuickPickItem;
+	static fromCommand<T>(item: QuickPickItem, command: Commands, args?: T): CommandQuickPickItem;
+	static fromCommand<T>(labelOrItem: string | QuickPickItem, command: Commands, args?: T): CommandQuickPickItem {
 		return new CommandQuickPickItem(
 			typeof labelOrItem === 'string' ? { label: labelOrItem } : labelOrItem,
 			command,
-			[args],
+			args == null ? [] : [args],
 		);
+	}
+
+	static is(item: QuickPickItem): item is CommandQuickPickItem {
+		return item instanceof CommandQuickPickItem;
 	}
 
 	label!: string;

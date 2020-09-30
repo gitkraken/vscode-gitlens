@@ -1176,14 +1176,14 @@ export class GitService implements Disposable {
 		} = {},
 	) {
 		const [branches, tags] = await Promise.all<GitBranch[] | undefined, GitTag[] | undefined>([
-			include === 'all' || include === 'branches'
+			include == null || include === 'all' || include === 'branches'
 				? this.getBranches(repoPath, {
 						...options,
 						filter: filter?.branches,
 						sort: typeof sort === 'boolean' ? undefined : sort?.branches,
 				  })
 				: undefined,
-			include === 'all' || include === 'tags'
+			include == null || include === 'all' || include === 'tags'
 				? this.getTags(repoPath, {
 						...options,
 						filter: filter?.tags,

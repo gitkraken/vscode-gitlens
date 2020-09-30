@@ -11,6 +11,7 @@ import {
 	isCommandViewContextWithCommit,
 } from './common';
 import { UriComparer } from '../comparers';
+import { BranchSorting } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitRevision, RemoteResourceType } from '../git/git';
@@ -124,8 +125,11 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 						{
 							autoPick: true,
 							// checkmarks: false,
-							filterBranches: b => b.tracking != null,
+							filter: { branches: b => b.tracking != null },
 							include: ReferencesQuickPickIncludes.Branches,
+							sort: {
+								branches: { current: true, orderBy: BranchSorting.DateDesc },
+							},
 						},
 					);
 					if (pick == null) return;

@@ -1,6 +1,7 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { getRepoPathOrPrompt } from '../../commands';
+import { BranchSorting, TagSorting } from '../../configuration';
 import { CommandContext, NamedRef, setCommandContext } from '../../constants';
 import { GitRevision } from '../../git/git';
 import { ReferencePicker, ReferencesQuickPickIncludes } from '../../quickpicks';
@@ -150,6 +151,10 @@ export class CompareNode extends ViewNode<CompareView> {
 						ReferencesQuickPickIncludes.BranchesAndTags |
 						ReferencesQuickPickIncludes.HEAD |
 						ReferencesQuickPickIncludes.WorkingTree,
+					sort: {
+						branches: { current: true, orderBy: BranchSorting.DateDesc },
+						tags: { orderBy: TagSorting.DateDesc },
+					},
 				},
 			);
 			if (pick === undefined) {
@@ -190,6 +195,10 @@ export class CompareNode extends ViewNode<CompareView> {
 					ReferencesQuickPickIncludes.BranchesAndTags |
 					ReferencesQuickPickIncludes.HEAD |
 					ReferencesQuickPickIncludes.WorkingTree,
+				sort: {
+					branches: { current: true, orderBy: BranchSorting.DateDesc },
+					tags: { orderBy: TagSorting.DateDesc },
+				},
 			});
 			if (pick == null) {
 				await this.view.show();

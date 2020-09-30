@@ -2,7 +2,7 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { CommitsView } from '../commitsView';
 import { BranchComparison, BranchComparisons, GlyphChars, WorkspaceState } from '../../constants';
-import { ViewShowBranchComparison } from '../../config';
+import { BranchSorting, TagSorting, ViewShowBranchComparison } from '../../configuration';
 import { Container } from '../../container';
 import { GitBranch, GitRevision } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
@@ -189,7 +189,15 @@ export class CompareBranchNode extends ViewNode<CommitsView | RepositoriesView> 
 			this.branch.repoPath,
 			`Compare ${this.branch.name}${this.compareWithWorkingTree ? ' (working)' : ''} with`,
 			'Choose a reference to compare with',
-			{ allowEnteringRefs: true, picked: this.branch.ref /*checkmarks: true*/ },
+			{
+				allowEnteringRefs: true,
+				picked: this.branch.ref,
+				// checkmarks: true,
+				sort: {
+					branches: { current: true, orderBy: BranchSorting.DateDesc },
+					tags: { orderBy: TagSorting.DateDesc },
+				},
+			},
 		);
 		if (pick === undefined || pick instanceof CommandQuickPickItem) return;
 

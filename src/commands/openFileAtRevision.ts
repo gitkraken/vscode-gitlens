@@ -9,7 +9,7 @@ import { GitUri } from '../git/gitUri';
 import { GitActions } from './gitCommands';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { CommitPicker, DirectiveQuickPickItem } from '../quickpicks';
+import { CommandQuickPickItem, CommitPicker } from '../quickpicks';
 import { Strings } from '../system';
 
 export interface OpenFileAtRevisionCommandArgs {
@@ -83,17 +83,18 @@ export class OpenFileAtRevisionCommand extends ActiveEditorCommand {
 					{
 						picked: gitUri.sha,
 						keys: ['right', 'alt+right', 'ctrl+right'],
-						onDidPressKey: async (key, quickpick) => {
-							const [item] = quickpick.activeItems;
-							if (item != null && !DirectiveQuickPickItem.is(item)) {
-								void (await GitActions.Commit.openFileAtRevision(item.item.uri.fsPath, item.item, {
-									annotationType: args!.annotationType,
-									line: args!.line,
-									preserveFocus: true,
-									preview: false,
-								}));
-							}
+						onDidPressKey: async (key, item) => {
+							void (await GitActions.Commit.openFileAtRevision(item.item.uri.fsPath, item.item, {
+								annotationType: args!.annotationType,
+								line: args!.line,
+								preserveFocus: true,
+								preview: false,
+							}));
 						},
+						showOtherReferences: CommandQuickPickItem.fromCommand(
+							'Choose a branch or tag...',
+							Commands.OpenFileAtRevisionFrom,
+						),
 					},
 				);
 				if (pick == null) return;

@@ -1,9 +1,5 @@
 'use strict';
 import { TextEditor, Uri, window } from 'vscode';
-import { RemoteResourceType } from '../git/git';
-import { GitUri } from '../git/gitUri';
-import { Logger } from '../logger';
-import { CommandQuickPickItem, ReferencePicker, ReferencesQuickPickIncludes } from '../quickpicks';
 import {
 	ActiveEditorCommand,
 	command,
@@ -14,7 +10,12 @@ import {
 	getRepoPathOrActiveOrPrompt,
 	isCommandViewContextWithBranch,
 } from './common';
+import { BranchSorting } from '../configuration';
+import { RemoteResourceType } from '../git/git';
+import { GitUri } from '../git/gitUri';
+import { Logger } from '../logger';
 import { OpenOnRemoteCommandArgs } from './openOnRemote';
+import { CommandQuickPickItem, ReferencePicker, ReferencesQuickPickIncludes } from '../quickpicks';
 
 export interface OpenBranchOnRemoteCommandArgs {
 	branch?: string;
@@ -67,8 +68,11 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 					{
 						autoPick: true,
 						// checkmarks: false,
-						filterBranches: b => b.tracking != null,
+						filter: { branches: b => b.tracking != null },
 						include: ReferencesQuickPickIncludes.Branches,
+						sort: {
+							branches: { current: true, orderBy: BranchSorting.DateDesc },
+						},
 					},
 				);
 				if (pick == null || pick instanceof CommandQuickPickItem) return;

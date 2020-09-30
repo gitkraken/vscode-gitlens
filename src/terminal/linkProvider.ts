@@ -32,7 +32,7 @@ export class GitTerminalLinkProvider implements Disposable, TerminalLinkProvider
 
 		const links: GitTerminalLink[] = [];
 
-		const branchesAndTags = await Container.git.getBranchesAndOrTags(repoPath, { include: 'all' });
+		const branchesAndTags = await Container.git.getBranchesAndOrTags(repoPath);
 
 		// Don't use the shared regex instance directly, because we can be called reentrantly (because of the awaits below)
 		const regex = new RegExp(refRegex, 'gi');

@@ -6,6 +6,7 @@ import { GitBranch, GitReference, GitTag } from '../git/git';
 import { KeyboardScope, Keys } from '../keyboard';
 import { BranchQuickPickItem, getQuickPickIgnoreFocusOut, RefQuickPickItem, TagQuickPickItem } from '../quickpicks';
 import { getBranchesAndOrTags, getValidateGitReferenceFn } from '../commands/quickCommand';
+import { BranchSorting, TagSorting } from '../configuration';
 
 export type ReferencesQuickPickItem = BranchQuickPickItem | TagQuickPickItem | RefQuickPickItem;
 
@@ -22,11 +23,11 @@ export interface ReferencesQuickPickOptions {
 	allowEnteringRefs?: boolean;
 	autoPick?: boolean;
 	picked?: string;
-	filterBranches?(branch: GitBranch): boolean;
-	filterTags?(tag: GitTag): boolean;
+	filter?: { branches?(b: GitBranch): boolean; tags?(t: GitTag): boolean };
 	include?: ReferencesQuickPickIncludes;
 	keys?: Keys[];
 	onDidPressKey?(key: Keys, quickpick: QuickPick<ReferencesQuickPickItem>): void | Promise<void>;
+	sort?: boolean | { branches?: { current?: boolean; orderBy?: BranchSorting }; tags?: { orderBy?: TagSorting } };
 }
 
 export namespace ReferencePicker {
@@ -135,7 +136,7 @@ export namespace ReferencePicker {
 
 	async function getItems(
 		repoPath: string,
-		{ picked, filterBranches, filterTags, include }: ReferencesQuickPickOptions,
+		{ picked, filter, include, sort }: ReferencesQuickPickOptions,
 	): Promise<ReferencesQuickPickItem[]> {
 		include = include ?? ReferencesQuickPickIncludes.BranchesAndTags;
 
@@ -149,8 +150,12 @@ export namespace ReferencePicker {
 				? ['tags']
 				: [],
 			{
-				filter: { branches: filterBranches, tags: filterTags },
+				filter: filter,
 				picked: picked,
+				sort: sort ?? {
+					branches: { current: false, orderBy: BranchSorting.DateDesc },
+					tags: { orderBy: TagSorting.DateDesc },
+				},
 			},
 		);
 

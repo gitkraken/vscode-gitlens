@@ -8,7 +8,7 @@ import { GitRevision } from '../git/git';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { CommitPicker, DirectiveQuickPickItem } from '../quickpicks';
+import { CommandQuickPickItem, CommitPicker } from '../quickpicks';
 import { Strings } from '../system';
 
 export interface DiffWithRevisionCommandArgs {
@@ -55,24 +55,25 @@ export class DiffWithRevisionCommand extends ActiveEditorCommand {
 				{
 					picked: gitUri.sha,
 					keys: ['right', 'alt+right', 'ctrl+right'],
-					onDidPressKey: async (key, quickpick) => {
-						const [item] = quickpick.activeItems;
-						if (item != null && !DirectiveQuickPickItem.is(item)) {
-							void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
-								repoPath: gitUri.repoPath,
-								lhs: {
-									sha: item.item.ref,
-									uri: gitUri,
-								},
-								rhs: {
-									sha: '',
-									uri: gitUri,
-								},
-								line: args!.line,
-								showOptions: args!.showOptions,
-							}));
-						}
+					onDidPressKey: async (key, item) => {
+						void (await executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
+							repoPath: gitUri.repoPath,
+							lhs: {
+								sha: item.item.ref,
+								uri: gitUri,
+							},
+							rhs: {
+								sha: '',
+								uri: gitUri,
+							},
+							line: args!.line,
+							showOptions: args!.showOptions,
+						}));
 					},
+					showOtherReferences: CommandQuickPickItem.fromCommand(
+						'Choose a branch or tag...',
+						Commands.DiffWithRevisionFrom,
+					),
 				},
 			);
 			if (pick == null) return;
