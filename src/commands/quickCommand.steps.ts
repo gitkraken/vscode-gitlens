@@ -283,6 +283,16 @@ export function getValidateGitReferenceFn(repos: Repository | Repository[]) {
 			return false;
 		}
 
+		if (!inRefMode) {
+			if (
+				await Container.git.hasBranchesAndOrTags(repos.path, {
+					filter: { branches: b => b.name.includes(value), tags: t => t.name.includes(value) },
+				})
+			) {
+				return false;
+			}
+		}
+
 		const commit = await Container.git.getCommit(repos.path, value);
 		quickpick.items = [CommitQuickPickItem.create(commit!, true, { alwaysShow: true, compact: true, icon: true })];
 		return true;
@@ -308,7 +318,7 @@ export async function* inputBranchNameStep<
 			value = value.trim();
 			if (value.length === 0) return [false, 'Please enter a valid branch name'];
 
-			const valid = Boolean(await Container.git.validateBranchOrTagName(value));
+			const valid = await Container.git.validateBranchOrTagName(value);
 			return [valid, valid ? undefined : `'${value}' isn't a valid branch name`];
 		},
 	});
@@ -343,7 +353,7 @@ export async function* inputTagNameStep<
 			value = value.trim();
 			if (value.length === 0) return [false, 'Please enter a valid tag name'];
 
-			const valid = Boolean(await Container.git.validateBranchOrTagName(value));
+			const valid = await Container.git.validateBranchOrTagName(value);
 			return [valid, valid ? undefined : `'${value}' isn't a valid tag name`];
 		},
 	});

@@ -2151,26 +2151,6 @@ export class GitService implements Disposable {
 	}
 
 	@log()
-	async hasRemotes(repoPath: string | undefined): Promise<boolean> {
-		if (repoPath == null) return false;
-
-		const repository = await this.getRepository(repoPath);
-		if (repository == null) return false;
-
-		return repository.hasRemotes();
-	}
-
-	@log()
-	async hasTrackingBranch(repoPath: string | undefined): Promise<boolean> {
-		if (repoPath == null) return false;
-
-		const repository = await this.getRepository(repoPath);
-		if (repository == null) return false;
-
-		return repository.hasTrackingBranch();
-	}
-
-	@log()
 	async getMergeBase(repoPath: string, ref1: string, ref2: string, options: { forkPoint?: boolean } = {}) {
 		const cc = Logger.getCorrelationContext();
 
@@ -3186,6 +3166,49 @@ export class GitService implements Disposable {
 		return (await fsExists(uri.fsPath)) ? uri : undefined;
 	}
 
+	@log()
+	async hasBranchesAndOrTags(
+		repoPath: string | undefined,
+		{
+			filter,
+		}: {
+			filter?: { branches?: (b: GitBranch) => boolean; tags?: (t: GitTag) => boolean };
+		} = {},
+	) {
+		const [branches, tags] = await Promise.all<GitBranch[] | undefined, GitTag[] | undefined>([
+			this.getBranches(repoPath, {
+				filter: filter?.branches,
+				sort: false,
+			}),
+			this.getTags(repoPath, {
+				filter: filter?.tags,
+				sort: false,
+			}),
+		]);
+
+		return (branches != null && branches.length !== 0) || (tags != null && tags.length !== 0);
+	}
+
+	@log()
+	async hasRemotes(repoPath: string | undefined): Promise<boolean> {
+		if (repoPath == null) return false;
+
+		const repository = await this.getRepository(repoPath);
+		if (repository == null) return false;
+
+		return repository.hasRemotes();
+	}
+
+	@log()
+	async hasTrackingBranch(repoPath: string | undefined): Promise<boolean> {
+		if (repoPath == null) return false;
+
+		const repository = await this.getRepository(repoPath);
+		if (repository == null) return false;
+
+		return repository.hasTrackingBranch();
+	}
+
 	isTrackable(scheme: string): boolean;
 	isTrackable(uri: Uri): boolean;
 	isTrackable(schemeOruri: string | Uri): boolean {
@@ -3362,7 +3385,7 @@ export class GitService implements Disposable {
 	}
 
 	@log()
-	validateBranchOrTagName(ref: string, repoPath?: string) {
+	validateBranchOrTagName(ref: string, repoPath?: string): Promise<boolean> {
 		return Git.check_ref_format(ref, repoPath);
 	}
 

@@ -422,7 +422,7 @@ export namespace Git {
 				...params,
 				ref,
 			);
-			return data.trim();
+			return Boolean(data.trim());
 		} catch {
 			return false;
 		}
