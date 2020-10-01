@@ -26,11 +26,11 @@ export class GitHubApi {
 		const cc = Logger.getCorrelationContext();
 
 		try {
-			const query = `query pr($owner: String!, $repo: String!, $branch: String!, $limit: Int!, $states: [PullRequestState!], $avatarSize: Int) {
+			const query = `query pr($owner: String!, $repo: String!, $branch: String!, $limit: Int!, $include: [PullRequestState!], $avatarSize: Int) {
 	repository(name: $repo, owner: $owner) {
 		refs(query: $branch, refPrefix: "refs/heads/", first: 1) {
 			nodes {
-				associatedPullRequests(first: $limit, orderBy: {field: UPDATED_AT, direction: DESC}, states: $states) {
+				associatedPullRequests(first: $limit, orderBy: {field: UPDATED_AT, direction: DESC}, states: $include) {
 					nodes {
 						author {
 							login
@@ -56,6 +56,8 @@ export class GitHubApi {
 	}
 }`;
 
+			options = { limit: 1, ...options };
+
 			const rsp = await graphql<{
 				repository:
 					| {
@@ -75,7 +77,6 @@ export class GitHubApi {
 				branch: branch,
 				headers: { authorization: `Bearer ${token}` },
 				...options,
-				limit: options?.limit ?? 1,
 			});
 
 			const pr = rsp?.repository?.refs.nodes[0]?.associatedPullRequests?.nodes?.[0];
