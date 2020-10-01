@@ -106,12 +106,13 @@ export interface TimelineDidChangeDataNotificationParams {
 	data?: TimelineData;
 }
 export const TimelineDidChangeDataNotificationType = new IpcNotificationType<TimelineDidChangeDataNotificationParams>(
-	'timeline/data/didChange'
+	'timeline/data/didChange',
 );
 
 export interface TimelineClickCommandParams {
 	data?: {
 		id: string;
+		selected: boolean;
 	};
 }
 export const TimelineClickCommandType = new IpcCommandType<TimelineClickCommandParams>('timeline/click');

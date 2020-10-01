@@ -1,6 +1,6 @@
 'use strict';
 /*global*/
-import { bar, bb, Chart, ChartOptions, DataItem, scatter, selection, zoom } from 'billboard.js';
+import { areaSpline, bb, Chart, ChartOptions, DataItem, scatter, selection, zoom } from 'billboard.js';
 import dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -14,6 +14,7 @@ dayjs.extend(relativeTime);
 export interface ClickedEvent {
 	data: {
 		id: string;
+		selected: boolean;
 	};
 }
 
@@ -33,7 +34,7 @@ export class TimelineChart {
 			bindto: selector,
 			data: {
 				columns: [],
-				types: { time: scatter(), adds: bar(), changes: bar(), deletes: bar() },
+				types: { time: scatter(), adds: areaSpline(), changes: areaSpline(), deletes: areaSpline() },
 				xFormat: '%m-%d-%Y %H:%M:%S',
 				selection: {
 					enabled: selection(),
@@ -42,6 +43,9 @@ export class TimelineChart {
 					multiple: false,
 				},
 				onclick: this.onChartDataClick.bind(this),
+			},
+			area: {
+				front: true,
 			},
 			axis: {
 				x: {
@@ -117,6 +121,11 @@ export class TimelineChart {
 					r: 12,
 				},
 			},
+			spline: {
+				interpolation: {
+					type: 'basis',
+				},
+			},
 			subchart: {
 				show: false, //subchart(),
 				// 	axis: {
@@ -165,7 +174,7 @@ export class TimelineChart {
 
 		// eslint-disable-next-line @typescript-eslint/no-this-alias
 		const me = this;
-		DOM.on(selector, 'keydown', function (this: HTMLDivElement, e: KeyboardEvent) {
+		DOM.on(document, 'keydown', function (this: HTMLDivElement, e: KeyboardEvent) {
 			return me.onChartKeyDown(this, e);
 		});
 	}
@@ -174,17 +183,19 @@ export class TimelineChart {
 		const commit = this._commitsByDate!.get(d.x as any);
 		if (commit == null) return;
 
+		const selected = (this._chart.selected(d.id) as any) as DataItem[];
 		this._onDidClick.fire({
 			data: {
 				id: commit.commit,
+				selected: selected?.[0]?.id === d.id,
 			},
 		});
 	}
 
 	private onChartKeyDown(element: HTMLDivElement, e: KeyboardEvent) {
 		if (e.key === 'Escape' || e.key === 'Esc') {
-			this._chart.unzoom();
 			this._chart.unselect();
+			this._chart.unzoom();
 		}
 	}
 
@@ -286,9 +297,9 @@ export class TimelineChart {
 					colors['changes'] = '#0496FF';
 					colors['deletes'] = 'rgba(195, 32, 45, 1)';
 
-					types['adds'] = bar();
-					types['changes'] = bar();
-					types['deletes'] = bar();
+					types['adds'] = areaSpline();
+					types['changes'] = areaSpline();
+					types['deletes'] = areaSpline();
 
 					groups.push(['adds', 'changes', 'deletes']);
 				} else {
@@ -307,8 +318,8 @@ export class TimelineChart {
 					colors['adds'] = 'rgba(73, 190, 71, 1)';
 					colors['deletes'] = 'rgba(195, 32, 45, 1)';
 
-					types['adds'] = bar();
-					types['deletes'] = bar();
+					types['adds'] = areaSpline();
+					types['deletes'] = areaSpline();
 
 					groups.push(['adds', 'deletes']);
 				}
@@ -341,7 +352,7 @@ export class TimelineChart {
 			this._commitsByDate.set(date, datum);
 		}
 
-		this._chart.config('title.text', data.title, true);
+		this._chart.config('title.text', data.title, false);
 		this._chart.config(
 			'axis.y.tick.values',
 			Object.keys(this._authorsByIndex).map(i => Number(i)),

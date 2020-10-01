@@ -45,6 +45,7 @@ export class TimelineWebviewView implements WebviewViewProvider, Disposable {
 	private _disposableView: Disposable | undefined;
 
 	private _editor: TextEditor | undefined;
+	private _isReady: boolean = false;
 	private _view: WebviewView | undefined;
 
 	constructor() {
@@ -53,10 +54,7 @@ export class TimelineWebviewView implements WebviewViewProvider, Disposable {
 			this._editor = editor;
 		}
 
-		this.disposable = Disposable.from(
-			window.onDidChangeActiveTextEditor(Functions.debounce(this.onActiveEditorChanged, 500), this),
-			window.registerWebviewViewProvider(this.id, this),
-		);
+		this.disposable = Disposable.from(window.registerWebviewViewProvider(this.id, this));
 	}
 
 	dispose() {
@@ -76,11 +74,9 @@ export class TimelineWebviewView implements WebviewViewProvider, Disposable {
 			enableScripts: true,
 		};
 
-		// webviewView.iconPath = Uri.file(Container.context.asAbsolutePath('images/gitlens-icon.png'));
 		webviewView.title = this.title;
 
 		this._disposableView = Disposable.from(
-			// this._view,
 			this._view.onDidDispose(this.onViewDisposed, this),
 			this._view.onDidChangeVisibility(this.onViewVisibilityChanged, this),
 			this._view.webview.onDidReceiveMessage(this.onMessageReceived, this),
@@ -88,6 +84,8 @@ export class TimelineWebviewView implements WebviewViewProvider, Disposable {
 		);
 
 		webviewView.webview.html = await this.getHtml(webviewView.webview);
+
+		this.onViewVisibilityChanged();
 	}
 
 	private async getHtml(webview: Webview): Promise<string> {
@@ -97,18 +95,6 @@ export class TimelineWebviewView implements WebviewViewProvider, Disposable {
 		const html = content
 			.replace(/#{cspSource}/g, webview.cspSource)
 			.replace(/#{root}/g, webview.asWebviewUri(Container.context.extensionUri).toString());
-
-		// if (this.renderHead != null) {
-		// 	html = html.replace(/#{head}/i, await this.renderHead());
-		// }
-
-		// if (this.renderBody != null) {
-		// 	html = html.replace(/#{body}/i, await this.renderBody());
-		// }
-
-		// if (this.renderEndOfBody != null) {
-		// 	html = html.replace(/#{endOfBody}/i, await this.renderEndOfBody());
-		// }
 
 		return html;
 	}
@@ -124,14 +110,31 @@ export class TimelineWebviewView implements WebviewViewProvider, Disposable {
 
 	private onViewDisposed() {
 		this._disposableView?.dispose();
+		this._disposableView = undefined;
+		this._disposableVisibility?.dispose();
+		this._disposableVisibility = undefined;
+		this._isReady = false;
 		this._view = undefined;
 	}
 
+	private _disposableVisibility: Disposable | undefined;
 	private onViewVisibilityChanged() {
-		// // Anytime the webview becomes active, make sure it has the most up-to-date config
-		// if (this._view?.visible) {
-		// 	void this.notifyDidChangeConfiguration();
-		// }
+		this._isReady = false;
+		if (this._view?.visible) {
+			console.log('became visible');
+			if (this._disposableVisibility == null) {
+				this._disposableVisibility = window.onDidChangeActiveTextEditor(
+					Functions.debounce(this.onActiveEditorChanged, 500),
+					this,
+				);
+				this.onActiveEditorChanged(window.activeTextEditor);
+			}
+		} else {
+			console.log('became hidden');
+			this._disposableVisibility?.dispose();
+			this._disposableVisibility = undefined;
+			// this.setTitle(this.title);
+		}
 	}
 
 	protected onMessageReceived(e?: IpcMessage) {
@@ -140,6 +143,7 @@ export class TimelineWebviewView implements WebviewViewProvider, Disposable {
 		switch (e.method) {
 			case ReadyCommandType.method:
 				onIpcCommand(ReadyCommandType, e, () => {
+					this._isReady = true;
 					void this.notifyDidChangeData(this._editor);
 				});
 
@@ -147,7 +151,7 @@ export class TimelineWebviewView implements WebviewViewProvider, Disposable {
 
 			case TimelineClickCommandType.method:
 				onIpcCommand(TimelineClickCommandType, e, async params => {
-					if (params.data === undefined || this._editor === undefined) return;
+					if (params.data == null || this._editor == null || !params.data.selected) return;
 
 					const gitUri = await GitUri.fromUri(this._editor.document.uri);
 
@@ -175,11 +179,6 @@ export class TimelineWebviewView implements WebviewViewProvider, Disposable {
 				});
 
 				break;
-
-			default:
-				// super.onMessageReceived(e);
-
-				break;
 		}
 	}
 
@@ -192,13 +191,22 @@ export class TimelineWebviewView implements WebviewViewProvider, Disposable {
 	}
 
 	get title(): string {
-		return 'GitLens Timeline';
+		return 'Timeline';
 	}
 
 	setTitle(title: string) {
 		if (this._view == null) return;
 
 		this._view.title = title;
+	}
+
+	get description() {
+		return this._view?.description;
+	}
+	set description(description: string | undefined) {
+		if (this._view == null) return;
+
+		this._view.description = description;
 	}
 
 	private async getData(editor: TextEditor | undefined): Promise<TimelineData | undefined> {
@@ -208,12 +216,13 @@ export class TimelineWebviewView implements WebviewViewProvider, Disposable {
 		let title;
 		let repoPath;
 		let uri;
-		if (editor == undefined) {
+		if (editor == null) {
 			const repo = [...(await Container.git.getRepositories())][0]!;
 			repoPath = repo.path;
 			title = repo.name;
 
-			this.setTitle(`Timeline of ${repo.name}`);
+			// this.setTitle(`${this.title} \u2022 ${repo.name}`);
+			this.description = repo.name;
 
 			[currentUser, log] = await Promise.all([
 				Container.git.getCurrentUser(repoPath),
@@ -225,7 +234,8 @@ export class TimelineWebviewView implements WebviewViewProvider, Disposable {
 			repoPath = gitUri.repoPath!;
 			title = gitUri.relativePath;
 
-			this.setTitle(`Timeline of ${gitUri.fileName}`);
+			// this.setTitle(`${this.title} \u2022 ${gitUri.fileName}`);
+			this.description = gitUri.fileName;
 
 			[currentUser, log] = await Promise.all([
 				Container.git.getCurrentUser(repoPath),
@@ -235,7 +245,7 @@ export class TimelineWebviewView implements WebviewViewProvider, Disposable {
 			]);
 		}
 
-		if (log === undefined) return undefined;
+		if (log == null) return undefined;
 
 		const name = currentUser?.name ? `${currentUser.name} (you)` : 'You';
 
@@ -259,6 +269,8 @@ export class TimelineWebviewView implements WebviewViewProvider, Disposable {
 	}
 
 	private async notifyDidChangeData(editor: TextEditor | undefined) {
+		if (!this._isReady) return false;
+
 		return this.notify(TimelineDidChangeDataNotificationType, {
 			data: await this.getData(editor),
 		});
