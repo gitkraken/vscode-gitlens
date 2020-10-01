@@ -706,12 +706,14 @@ export namespace Git {
 			merges,
 			reverse,
 			similarityThreshold,
+			since,
 		}: {
 			authors?: string[];
 			limit?: number;
 			merges?: boolean;
 			reverse?: boolean;
 			similarityThreshold?: number | null;
+			since?: string;
 		},
 	) {
 		const params = [
@@ -724,6 +726,10 @@ export namespace Git {
 		];
 		if (limit && !reverse) {
 			params.push(`-n${limit + 1}`);
+		}
+
+		if (since) {
+			params.push(`--since="${since}"`);
 		}
 
 		if (!merges) {
@@ -761,6 +767,7 @@ export namespace Git {
 			firstParent = false,
 			renames = true,
 			reverse = false,
+			since,
 			skip,
 			format = 'default',
 			startLine,
@@ -772,6 +779,7 @@ export namespace Git {
 			firstParent?: boolean;
 			renames?: boolean;
 			reverse?: boolean;
+			since?: string;
 			skip?: number;
 			format?: 'refs' | 'simple' | 'default';
 			startLine?: number;
@@ -791,6 +799,10 @@ export namespace Git {
 
 		if (skip) {
 			params.push(`--skip=${skip}`);
+		}
+
+		if (since) {
+			params.push(`--since="${since}"`);
 		}
 
 		if (all) {

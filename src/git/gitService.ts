@@ -1613,7 +1613,14 @@ export class GitService implements Disposable {
 		{
 			ref,
 			...options
-		}: { authors?: string[]; limit?: number; merges?: boolean; ref?: string; reverse?: boolean } = {},
+		}: {
+			authors?: string[];
+			limit?: number;
+			merges?: boolean;
+			ref?: string;
+			reverse?: boolean;
+			since?: string;
+		} = {},
 	): Promise<GitLog | undefined> {
 		const limit = options.limit ?? Container.config.advanced.maxListItems ?? 0;
 
@@ -1624,6 +1631,7 @@ export class GitService implements Disposable {
 				merges: options.merges == null ? true : options.merges,
 				reverse: options.reverse,
 				similarityThreshold: Container.config.advanced.similarityThreshold,
+				since: options.since,
 			});
 			const log = GitLogParser.parse(
 				data,
@@ -1883,6 +1891,7 @@ export class GitService implements Disposable {
 			ref?: string;
 			renames?: boolean;
 			reverse?: boolean;
+			since?: string;
 			skip?: number;
 		} = {},
 	): Promise<GitLog | undefined> {
@@ -1921,6 +1930,10 @@ export class GitService implements Disposable {
 
 		if (options.reverse) {
 			key += ':reverse';
+		}
+
+		if (options.since) {
+			key += `:since=${options.since}`;
 		}
 
 		if (options.skip) {
@@ -2028,6 +2041,7 @@ export class GitService implements Disposable {
 			ref?: string;
 			renames?: boolean;
 			reverse?: boolean;
+			since?: string;
 			skip?: number;
 		},
 		document: TrackedDocument<GitDocumentState>,
