@@ -97,6 +97,7 @@ export interface TimelineDatum {
 
 export interface TimelineData {
 	dataset: TimelineDatum[];
+	period: string;
 	repoPath: string;
 	title: string;
 	uri?: string;
@@ -109,13 +110,24 @@ export const TimelineDidChangeDataNotificationType = new IpcNotificationType<Tim
 	'timeline/data/didChange',
 );
 
-export interface TimelineClickCommandParams {
+export interface TimelineDataPointClickCommandParams {
 	data?: {
 		id: string;
 		selected: boolean;
 	};
 }
-export const TimelineClickCommandType = new IpcCommandType<TimelineClickCommandParams>('timeline/click');
+export const TimelineDataPointClickCommandType = new IpcCommandType<TimelineDataPointClickCommandParams>(
+	'timeline/point/click',
+);
+
+export interface TimelinePeriodUpdateCommandParams {
+	data?: {
+		period: string;
+	};
+}
+export const TimelinePeriodUpdateCommandType = new IpcCommandType<TimelinePeriodUpdateCommandParams>(
+	'timeline/period/update',
+);
 
 export interface AppStateWithConfig {
 	config: Config;

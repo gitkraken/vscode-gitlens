@@ -1,17 +1,16 @@
 'use strict';
 /*global*/
-import { areaSpline, bb, Chart, ChartOptions, DataItem, scatter, selection, zoom } from 'billboard.js';
+import { bar, bb, Chart, ChartOptions, DataItem, scatter, selection, zoom } from 'billboard.js';
 import dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { TimelineData, TimelineDatum } from '../../protocol';
 import { Emitter, Event } from '../shared/events';
-import { DOM } from '../shared/dom';
 
 dayjs.extend(advancedFormat);
 dayjs.extend(relativeTime);
 
-export interface ClickedEvent {
+export interface DataPointClickEvent {
 	data: {
 		id: string;
 		selected: boolean;
@@ -19,9 +18,9 @@ export interface ClickedEvent {
 }
 
 export class TimelineChart {
-	private _onDidClick = new Emitter<ClickedEvent>();
-	get onDidClick(): Event<ClickedEvent> {
-		return this._onDidClick.event;
+	private _onDidClickDataPoint = new Emitter<DataPointClickEvent>();
+	get onDidClickDataPoint(): Event<DataPointClickEvent> {
+		return this._onDidClickDataPoint.event;
 	}
 
 	private readonly _chart: Chart;
@@ -34,7 +33,7 @@ export class TimelineChart {
 			bindto: selector,
 			data: {
 				columns: [],
-				types: { time: scatter(), adds: areaSpline(), changes: areaSpline(), deletes: areaSpline() },
+				types: { time: scatter(), adds: bar(), changes: bar(), deletes: bar() },
 				xFormat: '%m-%d-%Y %H:%M:%S',
 				selection: {
 					enabled: selection(),
@@ -42,7 +41,7 @@ export class TimelineChart {
 					grouped: true,
 					multiple: false,
 				},
-				onclick: this.onChartDataClick.bind(this),
+				onclick: this.onDataPointClicked.bind(this),
 			},
 			area: {
 				front: true,
@@ -51,6 +50,7 @@ export class TimelineChart {
 				x: {
 					type: 'timeseries',
 					tick: {
+						// culling: true,
 						show: false,
 						fit: false,
 						format: '%-m/%-d/%Y',
@@ -147,9 +147,9 @@ export class TimelineChart {
 				grouped: true,
 				linked: true,
 				format: {
-					title: this.onChartTooltipTitle.bind(this),
-					name: this.onChartTooltipName.bind(this),
-					value: this.onChartTooltipValue.bind(this),
+					title: this.getTooltipTitle.bind(this),
+					name: this.getTooltipName.bind(this),
+					value: this.getTooltipValue.bind(this),
 				},
 			},
 			zoom: {
@@ -171,20 +171,14 @@ export class TimelineChart {
 		};
 
 		this._chart = bb.generate(config);
-
-		// eslint-disable-next-line @typescript-eslint/no-this-alias
-		const me = this;
-		DOM.on(document, 'keydown', function (this: HTMLDivElement, e: KeyboardEvent) {
-			return me.onChartKeyDown(this, e);
-		});
 	}
 
-	private onChartDataClick(d: DataItem, _element: SVGElement) {
+	private onDataPointClicked(d: DataItem, _element: SVGElement) {
 		const commit = this._commitsByDate!.get(d.x as any);
 		if (commit == null) return;
 
 		const selected = (this._chart.selected(d.id) as any) as DataItem[];
-		this._onDidClick.fire({
+		this._onDidClickDataPoint.fire({
 			data: {
 				id: commit.commit,
 				selected: selected?.[0]?.id === d.id,
@@ -192,43 +186,9 @@ export class TimelineChart {
 		});
 	}
 
-	private onChartKeyDown(element: HTMLDivElement, e: KeyboardEvent) {
-		if (e.key === 'Escape' || e.key === 'Esc') {
-			this._chart.unselect();
-			this._chart.unzoom();
-		}
-	}
-
-	private onChartTooltipTitle(x: Date) {
-		if (this._commitsByDate == null) return undefined!;
-
-		const formattedDate = `${dayjs(x).fromNow()}   (${dayjs(x).format('MMMM Do, YYYY h:mma')})`;
-
-		const commit = this._commitsByDate.get(x);
-		if (commit == null) return formattedDate;
-		return `${commit.author}, ${formattedDate}`;
-	}
-
-	private onChartTooltipName(name: string, ratio: number, id: string, index: number) {
-		if (this._commitsByDate == null) return undefined!;
-
-		if (id === 'adds' || id === 'changes' || id === 'deletes') return name;
-
-		const x = (this._chart.data(id) as any)[0].values[index].x;
-		const commit = this._commitsByDate.get(x);
-		return commit?.commit.substr(0, 8) ?? '00000000';
-	}
-
-	private onChartTooltipValue(value: any, ratio: number, id: string, index: number) {
-		if (this._commitsByDate == null) return undefined!;
-
-		if (id === 'adds' || id === 'changes' || id === 'deletes') {
-			return value === 0 ? undefined! : value;
-		}
-
-		const x = (this._chart.data(id) as any)[0].values[index].x;
-		const commit = this._commitsByDate.get(x);
-		return commit?.message ?? '???';
+	reset() {
+		this._chart.unselect();
+		this._chart.unzoom();
 	}
 
 	updateChart(data: TimelineData | undefined) {
@@ -297,9 +257,9 @@ export class TimelineChart {
 					colors['changes'] = '#0496FF';
 					colors['deletes'] = 'rgba(195, 32, 45, 1)';
 
-					types['adds'] = areaSpline();
-					types['changes'] = areaSpline();
-					types['deletes'] = areaSpline();
+					types['adds'] = bar();
+					types['changes'] = bar();
+					types['deletes'] = bar();
 
 					groups.push(['adds', 'changes', 'deletes']);
 				} else {
@@ -318,8 +278,8 @@ export class TimelineChart {
 					colors['adds'] = 'rgba(73, 190, 71, 1)';
 					colors['deletes'] = 'rgba(195, 32, 45, 1)';
 
-					types['adds'] = areaSpline();
-					types['deletes'] = areaSpline();
+					types['adds'] = bar();
+					types['deletes'] = bar();
 
 					groups.push(['adds', 'deletes']);
 				}
@@ -372,5 +332,37 @@ export class TimelineChart {
 			types: types,
 			unload: true,
 		});
+	}
+
+	private getTooltipName(name: string, ratio: number, id: string, index: number) {
+		if (this._commitsByDate == null) return undefined!;
+
+		if (id === 'adds' || id === 'changes' || id === 'deletes') return name;
+
+		const x = (this._chart.data(id) as any)[0].values[index].x;
+		const commit = this._commitsByDate.get(x);
+		return commit?.commit.substr(0, 8) ?? '00000000';
+	}
+
+	private getTooltipTitle(x: Date) {
+		if (this._commitsByDate == null) return undefined!;
+
+		const formattedDate = `${dayjs(x).fromNow()}   (${dayjs(x).format('MMMM Do, YYYY h:mma')})`;
+
+		const commit = this._commitsByDate.get(x);
+		if (commit == null) return formattedDate;
+		return `${commit.author}, ${formattedDate}`;
+	}
+
+	private getTooltipValue(value: any, ratio: number, id: string, index: number) {
+		if (this._commitsByDate == null) return undefined!;
+
+		if (id === 'adds' || id === 'changes' || id === 'deletes') {
+			return value === 0 ? undefined! : value;
+		}
+
+		const x = (this._chart.data(id) as any)[0].values[index].x;
+		const commit = this._commitsByDate.get(x);
+		return commit?.message ?? '???';
 	}
 }

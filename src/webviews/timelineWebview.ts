@@ -8,8 +8,8 @@ import {
 	IpcMessage,
 	onIpcCommand,
 	ReadyCommandType,
-	TimelineClickCommandType,
 	TimelineData,
+	TimelineDataPointClickCommandType,
 	TimelineDidChangeDataNotificationType,
 } from './protocol';
 import { debug, Functions } from '../system';
@@ -50,8 +50,8 @@ export class TimelineWebview extends WebviewBase {
 
 				break;
 
-			case TimelineClickCommandType.method:
-				onIpcCommand(TimelineClickCommandType, e, async params => {
+			case TimelineDataPointClickCommandType.method:
+				onIpcCommand(TimelineDataPointClickCommandType, e, async params => {
 					if (params.data === undefined || this._editor === undefined) return;
 
 					const gitUri = await GitUri.fromUri(this._editor.document.uri);

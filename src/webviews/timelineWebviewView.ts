@@ -23,9 +23,10 @@ import {
 	IpcNotificationType,
 	onIpcCommand,
 	ReadyCommandType,
-	TimelineClickCommandType,
 	TimelineData,
+	TimelineDataPointClickCommandType,
 	TimelineDidChangeDataNotificationType,
+	TimelinePeriodUpdateCommandType,
 } from './protocol';
 import { debug, Functions } from '../system';
 
@@ -46,6 +47,7 @@ export class TimelineWebviewView implements WebviewViewProvider, Disposable {
 
 	private _editor: TextEditor | undefined;
 	private _isReady: boolean = false;
+	private _period: string = '3 months ago';
 	private _view: WebviewView | undefined;
 
 	constructor() {
@@ -149,8 +151,8 @@ export class TimelineWebviewView implements WebviewViewProvider, Disposable {
 
 				break;
 
-			case TimelineClickCommandType.method:
-				onIpcCommand(TimelineClickCommandType, e, async params => {
+			case TimelineDataPointClickCommandType.method:
+				onIpcCommand(TimelineDataPointClickCommandType, e, async params => {
 					if (params.data == null || this._editor == null || !params.data.selected) return;
 
 					const gitUri = await GitUri.fromUri(this._editor.document.uri);
@@ -176,6 +178,16 @@ export class TimelineWebviewView implements WebviewViewProvider, Disposable {
 					// 	new GitUri(gitUri, { repoPath: gitUri.repoPath!, sha: params.data.id }),
 					// 	commandArgs,
 					// );
+				});
+
+				break;
+
+			case TimelinePeriodUpdateCommandType.method:
+				onIpcCommand(TimelinePeriodUpdateCommandType, e, params => {
+					if (params.data == null) return;
+
+					this._period = params.data?.period;
+					void this.notifyDidChangeData(this._editor);
 				});
 
 				break;
@@ -226,7 +238,7 @@ export class TimelineWebviewView implements WebviewViewProvider, Disposable {
 
 			[currentUser, log] = await Promise.all([
 				Container.git.getCurrentUser(repoPath),
-				Container.git.getLog(repoPath),
+				Container.git.getLog(repoPath, { limit: 0, since: this._period }),
 			]);
 		} else {
 			const gitUri = await GitUri.fromUri(editor.document.uri);
@@ -240,7 +252,9 @@ export class TimelineWebviewView implements WebviewViewProvider, Disposable {
 			[currentUser, log] = await Promise.all([
 				Container.git.getCurrentUser(repoPath),
 				Container.git.getLogForFile(repoPath, gitUri.fsPath, {
+					limit: 0,
 					ref: gitUri.sha,
+					since: this._period,
 				}),
 			]);
 		}
@@ -265,7 +279,7 @@ export class TimelineWebviewView implements WebviewViewProvider, Disposable {
 
 		dataset.sort((a, b) => a.date.getTime() - b.date.getTime());
 
-		return { dataset: dataset, repoPath: repoPath, title: title, uri: uri };
+		return { dataset: dataset, period: this._period, repoPath: repoPath, title: title, uri: uri };
 	}
 
 	private async notifyDidChangeData(editor: TextEditor | undefined) {
