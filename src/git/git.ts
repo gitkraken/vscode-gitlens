@@ -217,7 +217,7 @@ export namespace Git {
 		return gitInfo.version;
 	}
 
-	export async function setOrFindGitPath(gitPath?: string): Promise<void> {
+	export async function setOrFindGitPath(gitPath?: string | string[]): Promise<void> {
 		const start = process.hrtime();
 
 		gitInfo = await findGitPath(gitPath);

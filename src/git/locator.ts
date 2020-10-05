@@ -63,10 +63,20 @@ function findGitWin32(): Promise<GitLocation> {
 		.then(null, () => findSpecificGit('git'));
 }
 
-export async function findGitPath(path?: string): Promise<GitLocation> {
+export async function findGitPath(paths?: string | string[]): Promise<GitLocation> {
 	try {
-		return await findSpecificGit(path ?? 'git');
-	} catch (ex) {
+		if (paths == null || typeof paths === 'string') {
+			return await findSpecificGit(paths ?? 'git');
+		}
+
+		for (const path of paths) {
+			try {
+				return await findSpecificGit(path);
+			} catch {}
+		}
+
+		throw new Error('Unable to find git');
+	} catch {
 		try {
 			switch (process.platform) {
 				case 'darwin':
@@ -76,7 +86,7 @@ export async function findGitPath(path?: string): Promise<GitLocation> {
 				default:
 					return Promise.reject('Unable to find git');
 			}
-		} catch (ex) {
+		} catch {
 			return Promise.reject(new Error('Unable to find git'));
 		}
 	}

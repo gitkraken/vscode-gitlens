@@ -154,7 +154,7 @@ export class GitService implements Disposable {
 			gitPath = gitApi.git.path;
 		}
 
-		await Git.setOrFindGitPath(gitPath ?? configuration.getAny<string>('git.path'));
+		await Git.setOrFindGitPath(gitPath ?? configuration.getAny<string | string[]>('git.path'));
 	}
 
 	get readonly() {
