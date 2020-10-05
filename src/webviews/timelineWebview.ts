@@ -154,7 +154,7 @@ export class TimelineWebview extends WebviewBase {
 
 		dataset.sort((a, b) => a.date.getTime() - b.date.getTime());
 
-		return { dataset: dataset, repoPath: repoPath, title: title, uri: uri };
+		return { dataset: dataset, period: '3 months ago', repoPath: repoPath, title: title, uri: uri };
 	}
 
 	private async notifyDidChangeData(editor: TextEditor | undefined) {
