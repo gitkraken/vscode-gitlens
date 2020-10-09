@@ -23,9 +23,9 @@ test/**
 CODE_OF_CONDUCT.md
 CONTRIBUTING.md
 generateEmojiShortcodeMap.js
-tsconfig.tsbuildinfo
 tsconfig.eslint.json
 tsconfig.json
 tsconfig.webviews.json
+tsconfig.tsbuildinfo
 webpack.config.js
 yarn.lock
