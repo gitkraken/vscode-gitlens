@@ -7804,7 +7804,7 @@
 		"watch:webviews": "webpack --watch --mode development --config-name webviews --info-verbosity verbose",
 		"update-dts": "pushd \"src/@types\" && npx vscode-dts dev && popd",
 		"update-dts:master": "pushd \"src/@types\" && npx vscode-dts master && popd",
-		"update-emoji": "pushd emoji && node ./shortcodeToEmoji.js && popd",
+		"update-emoji": "node ./generateEmojiShortcodeMap.js",
 		"vscode:prepublish": "yarn run bundle"
 	},
 	"dependencies": {

@@ -5,35 +5,42 @@ const path = require('path');
 
 async function generate() {
 	/**
-	 * @type {Record<string, string>}
+	 * @type {Map<string, string>}
 	 */
-	let map = Object.create(null);
+	const shortcodeMap = new Map();
 
 	// Get emoji data from https://github.com/milesj/emojibase
-	// https://github.com/milesj/emojibase/blob/master/packages/data/en/raw.json
-	await download('https://raw.githubusercontent.com/milesj/emojibase/master/packages/data/en/raw.json', 'raw.json');
+	// https://github.com/milesj/emojibase/
 
-	/**
-	 * @type {({ emoji: string; shortcodes: string[] })[]}
-	 */
-	// eslint-disable-next-line import/no-dynamic-require
-	const emojis = require(path.join(process.cwd(), 'raw.json'));
-	for (const emoji of emojis) {
-		if (emoji.shortcodes == null || emoji.shortcodes.length === 0) continue;
+	const files = ['github.raw.json', 'emojibase.raw.json']; //, 'iamcal.raw.json', 'joypixels.raw.json'];
 
-		for (let code of emoji.shortcodes) {
-			if (code.startsWith(':') && code.endsWith(':')) {
-				code = code.substring(1, code.length - 2);
+	for (const file of files) {
+		await download(
+			`https://raw.githubusercontent.com/milesj/emojibase/master/packages/data/en/shortcodes/${file}`,
+			file,
+		);
+
+		/**
+		 * @type {Record<string, string | string[]>}}
+		 */
+		// eslint-disable-next-line import/no-dynamic-require
+		const data = require(path.join(process.cwd(), file));
+		for (const [emojis, codes] of Object.entries(data)) {
+			const emoji = emojis
+				.split('-')
+				.map(c => String.fromCodePoint(parseInt(c, 16)))
+				.join('');
+			for (const code of Array.isArray(codes) ? codes : [codes]) {
+				if (shortcodeMap.has(code)) {
+					// console.warn(`${file}: ${code}`);
+					continue;
+				}
+				shortcodeMap.set(code, emoji);
 			}
-
-			if (map[code] !== undefined) {
-				console.warn(code);
-			}
-			map[code] = emoji.emoji;
 		}
-	}
 
-	fs.unlink('raw.json', () => {});
+		fs.unlink(file, () => {});
+	}
 
 	// Get gitmoji data from https://github.com/carloscuesta/gitmoji
 	// https://github.com/carloscuesta/gitmoji/blob/master/src/data/gitmojis.json
@@ -52,23 +59,20 @@ async function generate() {
 			emoji.code = emoji.code.substring(1, emoji.code.length - 2);
 		}
 
-		if (map[emoji.code] !== undefined) {
-			console.warn(emoji.code);
+		if (shortcodeMap.has(emoji.code)) {
+			// console.warn(`GitHub: ${emoji.code}`);
 			continue;
 		}
-		map[emoji.code] = emoji.emoji;
+		shortcodeMap.set(emoji.code, emoji.emoji);
 	}
 
 	fs.unlink('gitmojis.json', () => {});
 
 	// Sort the emojis for easier diff checking
-	/**
-	 * @type { [string, string][] }}
-	 */
-	const list = Object.entries(map);
+	const list = [...shortcodeMap.entries()];
 	list.sort();
 
-	map = list.reduce((m, [key, value]) => {
+	const map = list.reduce((m, [key, value]) => {
 		m[key] = value;
 		return m;
 	}, Object.create(null));
