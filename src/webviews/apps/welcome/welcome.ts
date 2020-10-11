@@ -1,5 +1,6 @@
 'use strict';
 /*global window*/
+import '../scss/welcome.scss';
 import { WelcomeState } from '../../protocol';
 // import { Snow } from './snow';
 import { AppWithConfig } from '../shared/appWithConfigBase';

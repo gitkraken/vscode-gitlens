@@ -1,5 +1,6 @@
 'use strict';
 /*global document*/
+import '../scss/rebase.scss';
 import Sortable from 'sortablejs';
 import {
 	onIpcNotification,

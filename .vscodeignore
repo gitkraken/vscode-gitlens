@@ -1,7 +1,7 @@
 .github/**
 .vscode/**
 .yarn/**
-dist/webviews/*-styles.js
+dist/webviews/*.css
 emoji/**
 images/docs/**
 images/**/*.pdn
