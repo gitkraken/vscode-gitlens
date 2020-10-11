@@ -159,9 +159,8 @@ function getExtensionConfig(mode, env) {
 			],
 			splitChunks: {
 				cacheGroups: {
-					vendors: false,
+					defaultVendors: false,
 				},
-				chunks: 'async',
 			},
 		},
 		externals: {
@@ -191,15 +190,15 @@ function getExtensionConfig(mode, env) {
 			symlinks: false,
 		},
 		plugins: plugins,
-		stats: {
-			all: false,
-			assets: true,
-			builtAt: true,
-			env: true,
-			errors: true,
-			timings: true,
-			warnings: true,
-		},
+		// stats: {
+		// 	all: false,
+		// 	assets: true,
+		// 	builtAt: true,
+		// 	env: true,
+		// 	errors: true,
+		// 	timings: true,
+		// 	warnings: true,
+		// },
 	};
 }
 
@@ -415,14 +414,14 @@ function getWebviewsConfig(mode, env) {
 			symlinks: false,
 		},
 		plugins: plugins,
-		stats: {
-			all: false,
-			assets: true,
-			builtAt: true,
-			env: true,
-			errors: true,
-			timings: true,
-			warnings: true,
-		},
+		// stats: {
+		// 	all: false,
+		// 	assets: true,
+		// 	builtAt: true,
+		// 	env: true,
+		// 	errors: true,
+		// 	timings: true,
+		// 	warnings: true,
+		// },
 	};
 }
