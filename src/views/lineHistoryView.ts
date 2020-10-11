@@ -75,15 +75,12 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistor
 		void setCommandContext(CommandContext.ViewsLineHistoryEditorFollowing, enabled);
 		this.root?.setEditorFollowing(enabled);
 
-		if (this.titleDescription?.endsWith(pinnedSuffix)) {
+		if (this.description?.endsWith(pinnedSuffix)) {
 			if (enabled) {
-				this.titleDescription = this.titleDescription.substr(
-					0,
-					this.titleDescription.length - pinnedSuffix.length,
-				);
+				this.description = this.description.substr(0, this.description.length - pinnedSuffix.length);
 			}
 		} else if (!enabled) {
-			this.titleDescription += pinnedSuffix;
+			this.description += pinnedSuffix;
 		}
 	}
 

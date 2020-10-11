@@ -43,7 +43,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 	getChildren(): ViewNode[] | Promise<ViewNode[]> {
 		if (this._child == null) {
 			if (this.uri === unknownGitUri) {
-				this.view.titleDescription = undefined;
+				this.view.description = undefined;
 
 				return [
 					new MessageNode(

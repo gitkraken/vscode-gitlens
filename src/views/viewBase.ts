@@ -49,7 +49,6 @@ import { SearchView } from './searchView';
 import { StashesView } from './stashesView';
 import { debug, Functions, log, Promises, Strings } from '../system';
 import { TagsView } from './tagsView';
-import { GlyphChars } from '../constants';
 
 export type View =
 	| BranchesView
@@ -172,37 +171,19 @@ export abstract class ViewBase<
 	}
 	set title(value: string | undefined) {
 		this._title = value;
-		this.updateTitle();
-	}
-
-	private _titleDescription: string | undefined;
-	get titleDescription(): string | undefined {
-		return this._titleDescription;
-	}
-	set titleDescription(value: string | undefined) {
-		this._titleDescription = value;
-		this.updateTitle();
-	}
-
-	private _updateTitleDebounced: (() => void) | undefined = undefined;
-	private updateTitle() {
-		if (this.tree == null) return;
-
-		if (this._updateTitleDebounced === undefined) {
-			this._updateTitleDebounced = Functions.debounce(this.updateTitleCore.bind(this), 100);
+		if (this.tree != null) {
+			this.tree.title = value;
 		}
-
-		this._updateTitleDebounced();
 	}
 
-	private updateTitleCore() {
-		if (this.tree == null) return;
-		if (this.tree.visible) {
-			this.tree.title = `${this.title}${
-				this.titleDescription ? ` ${GlyphChars.Dot} ${this.titleDescription}` : ''
-			}`;
-		} else {
-			this.tree.title = this.title;
+	private _description: string | undefined;
+	get description(): string | undefined {
+		return this._description;
+	}
+	set description(value: string | undefined) {
+		this._description = value;
+		if (this.tree != null) {
+			this.tree.description = value;
 		}
 	}
 
@@ -269,9 +250,6 @@ export abstract class ViewBase<
 	}
 
 	protected onVisibilityChanged(e: TreeViewVisibilityChangeEvent) {
-		if (this.titleDescription) {
-			this.updateTitleCore();
-		}
 		this._onDidChangeVisibility.fire(e);
 	}
 

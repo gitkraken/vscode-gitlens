@@ -40,7 +40,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		this.view.titleDescription = `${this.label}${
+		this.view.description = `${this.label}${
 			this.parent instanceof FileHistoryTrackerNode && !this.parent.followingEditor ? ' (pinned)' : ''
 		}`;
 
@@ -99,7 +99,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 			this.uri.sha == null ? '' : `\n\n${this.uri.sha}`
 		}`;
 
-		this.view.titleDescription = `${label}${
+		this.view.description = `${label}${
 			this.parent instanceof FileHistoryTrackerNode && !this.parent.followingEditor ? ' (pinned)' : ''
 		}`;
 

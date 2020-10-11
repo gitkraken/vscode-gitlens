@@ -18,7 +18,7 @@
 		"url": "https://github.com/eamodio/vscode-gitlens.git"
 	},
 	"engines": {
-		"vscode": "^1.49.0"
+		"vscode": "^1.50.0"
 	},
 	"main": "./dist/gitlens",
 	"icon": "images/gitlens-icon.png",
@@ -7822,9 +7822,9 @@
 		"@types/lodash-es": "4.17.3",
 		"@types/node": "12.12.62",
 		"@types/sortablejs": "1.10.6",
-		"@types/vscode": "1.49.0",
-		"@typescript-eslint/eslint-plugin": "4.3.0",
-		"@typescript-eslint/parser": "4.3.0",
+		"@types/vscode": "1.50.0",
+		"@typescript-eslint/eslint-plugin": "4.4.0",
+		"@typescript-eslint/parser": "4.4.0",
 		"circular-dependency-plugin": "5.2.0",
 		"clean-webpack-plugin": "3.0.0",
 		"csp-html-webpack-plugin": "4.0.0",
@@ -7838,14 +7838,14 @@
 		"html-webpack-plugin": "4.5.0",
 		"html-webpack-skip-assets-plugin": "0.0.2",
 		"imagemin-webpack-plugin": "2.4.2",
-		"mini-css-extract-plugin": "0.11.2",
+		"mini-css-extract-plugin": "1.0.0",
 		"node-sass": "4.14.1",
 		"prettier": "2.1.2",
-		"sass-loader": "10.0.2",
-		"terser-webpack-plugin": "4.2.2",
+		"sass-loader": "10.0.3",
+		"terser-webpack-plugin": "4.2.3",
 		"ts-loader": "8.0.4",
 		"typescript": "4.0.3",
-		"vsce": "1.80.0",
+		"vsce": "1.81.1",
 		"webpack": "4.44.2",
 		"webpack-bundle-analyzer": "3.9.0",
 		"webpack-cli": "3.3.12"
