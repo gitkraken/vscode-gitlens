@@ -18,16 +18,16 @@ declare global {
 	export type NarrowRepos<T extends { repos?: unknown }> = ExcludeSome<T, 'repos', string | string[] | undefined>;
 }
 
-export * from './system/array';
-export * from './system/date';
+export * as Arrays from './system/array';
+export * as Dates from './system/date';
 export * from './system/decorators/gate';
 export * from './system/decorators/log';
 export * from './system/decorators/memoize';
 export * from './system/decorators/timeout';
-export * from './system/function';
-export * from './system/iterable';
-export * from './system/object';
-export * from './system/promise';
+export * as Functions from './system/function';
+export * as Iterables from './system/iterable';
+export * as Objects from './system/object';
+export * as Promises from './system/promise';
 export * from './system/searchTree';
-export * from './system/string';
-export * from './system/version';
+export * as Strings from './system/string';
+export * as Versions from './system/version';

@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/prefer-nullish-coalescing */
 /* eslint-disable @typescript-eslint/strict-boolean-expressions */
 'use strict';
-import { Iterables } from './iterable';
-import { Strings } from './string';
+import { count, map, some } from './iterable';
+import { CharCode } from './string';
 
 // Code stolen from https://github.com/Microsoft/vscode/blob/b3e6d5bb039a4a9362b52a2c8726267ca68cf64e/src/vs/base/common/map.ts#L352
 
@@ -70,7 +70,7 @@ export class PathIterator implements IKeyIterator {
 		let justSeps = true;
 		for (; this._to < this._value.length; this._to++) {
 			const ch = this._value.charCodeAt(this._to);
-			if (ch === Strings.CharCode.Slash || ch === Strings.CharCode.Backslash) {
+			if (ch === CharCode.Slash || ch === CharCode.Backslash) {
 				if (justSeps) {
 					this._from++;
 				} else {
@@ -374,7 +374,7 @@ export class TernarySearchTree<E> {
 	count(predicate?: (entry: E) => boolean): number {
 		if (this._root === undefined || this._root.isEmpty()) return 0;
 
-		return Iterables.count(this.entries(), predicate === undefined ? undefined : ([e]) => predicate(e));
+		return count(this.entries(), predicate === undefined ? undefined : ([e]) => predicate(e));
 	}
 
 	entries(): Iterable<[E, string]> {
@@ -382,7 +382,7 @@ export class TernarySearchTree<E> {
 	}
 
 	values(): Iterable<E> {
-		return Iterables.map(this.entries(), ([e]) => e);
+		return map(this.entries(), ([e]) => e);
 	}
 
 	highlander(): [E, string] | undefined {
@@ -410,7 +410,7 @@ export class TernarySearchTree<E> {
 	some(predicate: (entry: E) => boolean): boolean {
 		if (this._root === undefined || this._root.isEmpty()) return false;
 
-		return Iterables.some(this.entries(), ([e]) => predicate(e));
+		return some(this.entries(), ([e]) => predicate(e));
 	}
 
 	private *_iterator(node: TernarySearchTreeNode<E> | undefined): IterableIterator<[E, string]> {

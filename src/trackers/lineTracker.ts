@@ -1,7 +1,7 @@
 'use strict';
 import { Disposable, Event, EventEmitter, Selection, TextEditor, TextEditorSelectionChangeEvent, window } from 'vscode';
 import { isTextEditor } from '../constants';
-import { debug, Deferrable, Functions } from '../system';
+import { debug, Functions } from '../system';
 
 export interface LinesChangeEvent {
 	readonly editor: TextEditor | undefined;
@@ -199,7 +199,7 @@ export class LineTracker<T> implements Disposable {
 		this.onLinesChanged({ editor: this._editor, selections: this.selections, reason: reason });
 	}
 
-	private _linesChangedDebounced: Deferrable<(e: LinesChangeEvent) => void> | undefined;
+	private _linesChangedDebounced: Functions.Deferrable<(e: LinesChangeEvent) => void> | undefined;
 
 	private onLinesChanged(e: LinesChangeEvent) {
 		if (e.selections === undefined) {

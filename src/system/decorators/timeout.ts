@@ -1,5 +1,5 @@
 'use strict';
-import { Promises } from '../promise';
+import { CancellationError, is as isPromise } from '../promise';
 
 export function timeout(timeout: number): any;
 export function timeout(timeoutFromLastArg: true, defaultTimeout?: number): any;
@@ -30,7 +30,7 @@ export function timeout(timeoutOrTimeoutFromLastArg: number | boolean, defaultTi
 			}
 
 			const result = fn?.apply(this, args);
-			if (timeout == null || timeout < 1 || !Promises.is(result)) return result;
+			if (timeout == null || timeout < 1 || !isPromise(result)) return result;
 
 			// const cc = Logger.getCorrelationContext();
 
@@ -48,7 +48,7 @@ export function timeout(timeoutOrTimeoutFromLastArg: number | boolean, defaultTi
 				new Promise((_, reject) => {
 					const id = setTimeout(() => {
 						clearTimeout(id);
-						reject(new Promises.CancellationError(result, `Timed out after ${timeout} ms`));
+						reject(new CancellationError(result, `Timed out after ${timeout} ms`));
 					}, timeout!);
 				}),
 			]);

@@ -1,9 +1,9 @@
 'use strict';
+import { filterMap } from '../array';
 import { LogCorrelationContext, Logger, TraceLevel } from '../../logger';
-import { Functions } from '../function';
-import { Promises } from '../promise';
-import { Strings } from '../string';
-import { Arrays } from '../array';
+import { getParameters } from '../function';
+import { is as isPromise } from '../promise';
+import { getDurationMilliseconds } from '../string';
 
 const emptyStr = '';
 
@@ -99,7 +99,7 @@ export function log<T extends (...arg: any) => any>(
 		}
 		if (fn == null || fnKey == null) throw new Error('Not supported');
 
-		const parameters = Functions.getParameters(fn);
+		const parameters = getParameters(fn);
 
 		descriptor[fnKey] = function (this: any, ...args: Parameters<T>) {
 			const correlationId = getNextCorrelationId();
@@ -165,7 +165,7 @@ export function log<T extends (...arg: any) => any>(
 				const argFns = typeof options.args === 'object' ? options.args : undefined;
 				let argFn;
 				let loggable;
-				loggableParams = Arrays.filterMap(args, (v: any, index: number) => {
+				loggableParams = filterMap(args, (v: any, index: number) => {
 					const p = parameters[index];
 
 					argFn = argFns !== undefined ? argFns[index] : undefined;
@@ -192,8 +192,7 @@ export function log<T extends (...arg: any) => any>(
 				const start = options.timed ? process.hrtime() : undefined;
 
 				const logError = (ex: Error) => {
-					const timing =
-						start !== undefined ? ` \u2022 ${Strings.getDurationMilliseconds(start)} ms` : emptyStr;
+					const timing = start !== undefined ? ` \u2022 ${getDurationMilliseconds(start)} ms` : emptyStr;
 					if (options.singleLine) {
 						Logger.error(
 							ex,
@@ -227,8 +226,7 @@ export function log<T extends (...arg: any) => any>(
 				}
 
 				const logResult = (r: any) => {
-					const timing =
-						start !== undefined ? ` \u2022 ${Strings.getDurationMilliseconds(start)} ms` : emptyStr;
+					const timing = start !== undefined ? ` \u2022 ${getDurationMilliseconds(start)} ms` : emptyStr;
 					let exit;
 					if (options.exit != null) {
 						try {
@@ -269,7 +267,7 @@ export function log<T extends (...arg: any) => any>(
 					}
 				};
 
-				if (result != null && Promises.is(result)) {
+				if (result != null && isPromise(result)) {
 					const promise = result.then(logResult);
 					promise.catch(logError);
 				} else {

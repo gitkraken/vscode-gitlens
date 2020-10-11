@@ -1,5 +1,5 @@
 'use strict';
-import { Promises } from '../promise';
+import { is as isPromise } from '../promise';
 
 const emptyStr = '';
 
@@ -48,7 +48,7 @@ export function gate<T extends (...arg: any) => any>(resolver?: (...args: Parame
 				let result;
 				try {
 					result = fn!.apply(this, args);
-					if (result == null || !Promises.is(result)) {
+					if (result == null || !isPromise(result)) {
 						return result;
 					}
 

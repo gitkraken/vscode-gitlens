@@ -19,7 +19,7 @@ import {
 import { configuration } from '../configuration';
 import { CommandContext, DocumentSchemes, isActiveDocument, isTextEditor, setCommandContext } from '../constants';
 import { GitUri } from '../git/gitUri';
-import { Deferrable, Functions } from '../system';
+import { Functions } from '../system';
 import { DocumentBlameStateChangeEvent, TrackedDocument } from './trackedDocument';
 
 export * from './trackedDocument';
@@ -315,8 +315,12 @@ export class DocumentTracker<T> implements Disposable {
 		return doc;
 	}
 
-	private _dirtyIdleTriggeredDebounced: Deferrable<(e: DocumentDirtyIdleTriggerEvent<T>) => void> | undefined;
-	private _dirtyStateChangedDebounced: Deferrable<(e: DocumentDirtyStateChangeEvent<T>) => void> | undefined;
+	private _dirtyIdleTriggeredDebounced:
+		| Functions.Deferrable<(e: DocumentDirtyIdleTriggerEvent<T>) => void>
+		| undefined;
+	private _dirtyStateChangedDebounced:
+		| Functions.Deferrable<(e: DocumentDirtyStateChangeEvent<T>) => void>
+		| undefined;
 	private fireDocumentDirtyStateChanged(e: DocumentDirtyStateChangeEvent<T>) {
 		if (e.dirty) {
 			setImmediate(async () => {
