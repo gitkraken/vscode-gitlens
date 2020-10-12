@@ -3557,7 +3557,7 @@
 			},
 			{
 				"command": "gitlens.views.resetCommit",
-				"title": "Reset Commit...",
+				"title": "Reset Current Branch to Previous Commit...",
 				"category": "GitLens"
 			},
 			{
@@ -6614,12 +6614,12 @@
 					"group": "1_gitlens_actions@2"
 				},
 				{
-					"command": "gitlens.views.resetCommit",
+					"command": "gitlens.views.resetToCommit",
 					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)/",
 					"group": "1_gitlens_actions@3"
 				},
 				{
-					"command": "gitlens.views.resetToCommit",
+					"command": "gitlens.views.resetCommit",
 					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)/",
 					"group": "1_gitlens_actions@4"
 				},
