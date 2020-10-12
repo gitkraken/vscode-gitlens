@@ -44,6 +44,8 @@ export class GitBranchParser {
 			if (name.startsWith('refs/remotes/')) {
 				// Strip off refs/remotes/
 				name = name.substr(13);
+				if (name.endsWith('/HEAD')) continue;
+
 				remote = true;
 			} else {
 				// Strip off refs/heads/
