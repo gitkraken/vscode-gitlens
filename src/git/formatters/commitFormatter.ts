@@ -79,9 +79,8 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		return this._item.formatAuthorDateFromNow();
 	}
 
-	private get _authorDateOrAgo() {
-		const dateStyle = this._options.dateStyle != null ? this._options.dateStyle : Container.config.defaultDateStyle;
-		return dateStyle === DateStyle.Absolute ? this._authorDate : this._authorDateAgo;
+	private get _authorDateAgoShort() {
+		return this._item.formatCommitterDateFromNow('en-short');
 	}
 
 	private get _committerDate() {
@@ -92,9 +91,8 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		return this._item.formatCommitterDateFromNow();
 	}
 
-	private get _committerDateOrAgo() {
-		const dateStyle = this._options.dateStyle != null ? this._options.dateStyle : Container.config.defaultDateStyle;
-		return dateStyle === DateStyle.Absolute ? this._committerDate : this._committerDateAgo;
+	private get _committerDateAgoShort() {
+		return this._item.formatCommitterDateFromNow('en-short');
 	}
 
 	private get _date() {
@@ -105,9 +103,8 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		return this._item.formatDateFromNow();
 	}
 
-	private get _dateOrAgo() {
-		const dateStyle = this._options.dateStyle != null ? this._options.dateStyle : Container.config.defaultDateStyle;
-		return dateStyle === DateStyle.Absolute ? this._date : this._dateAgo;
+	private get _dateAgoShort() {
+		return this._item.formatDateFromNow('en-short');
 	}
 
 	private get _pullRequestDate() {
@@ -134,7 +131,19 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get agoOrDate() {
-		return this._padOrTruncate(this._dateOrAgo, this._options.tokenOptions.agoOrDate);
+		const dateStyle = this._options.dateStyle != null ? this._options.dateStyle : Container.config.defaultDateStyle;
+		return this._padOrTruncate(
+			dateStyle === DateStyle.Absolute ? this._date : this._dateAgo,
+			this._options.tokenOptions.agoOrDate,
+		);
+	}
+
+	get agoOrDateShort() {
+		const dateStyle = this._options.dateStyle != null ? this._options.dateStyle : Container.config.defaultDateStyle;
+		return this._padOrTruncate(
+			dateStyle === DateStyle.Absolute ? this._date : this._dateAgoShort,
+			this._options.tokenOptions.agoOrDate,
+		);
 	}
 
 	get author() {
@@ -151,7 +160,19 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get authorAgoOrDate() {
-		return this._padOrTruncate(this._authorDateOrAgo, this._options.tokenOptions.authorAgoOrDate);
+		const dateStyle = this._options.dateStyle != null ? this._options.dateStyle : Container.config.defaultDateStyle;
+		return this._padOrTruncate(
+			dateStyle === DateStyle.Absolute ? this._authorDate : this._authorDateAgo,
+			this._options.tokenOptions.authorAgoOrDate,
+		);
+	}
+
+	get authorAgoOrDateShort() {
+		const dateStyle = this._options.dateStyle != null ? this._options.dateStyle : Container.config.defaultDateStyle;
+		return this._padOrTruncate(
+			dateStyle === DateStyle.Absolute ? this._authorDate : this._authorDateAgoShort,
+			this._options.tokenOptions.authorAgoOrDate,
+		);
 	}
 
 	get authorDate() {
@@ -312,7 +333,19 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get committerAgoOrDate() {
-		return this._padOrTruncate(this._committerDateOrAgo, this._options.tokenOptions.committerAgoOrDate);
+		const dateStyle = this._options.dateStyle != null ? this._options.dateStyle : Container.config.defaultDateStyle;
+		return this._padOrTruncate(
+			dateStyle === DateStyle.Absolute ? this._committerDate : this._committerDateAgo,
+			this._options.tokenOptions.committerAgoOrDate,
+		);
+	}
+
+	get committerAgoOrDateShort() {
+		const dateStyle = this._options.dateStyle != null ? this._options.dateStyle : Container.config.defaultDateStyle;
+		return this._padOrTruncate(
+			dateStyle === DateStyle.Absolute ? this._committerDate : this._committerDateAgoShort,
+			this._options.tokenOptions.committerAgoOrDate,
+		);
 	}
 
 	get committerDate() {
