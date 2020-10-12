@@ -30,7 +30,7 @@ import {
 	unknownGitUri,
 	ViewNode,
 } from './nodes';
-import { debug, gate } from '../system';
+import { Dates, debug, gate } from '../system';
 import { ViewBase } from './viewBase';
 
 export class CommitsRepositoryNode extends SubscribeableViewNode<CommitsView> {
@@ -86,8 +86,14 @@ export class CommitsRepositoryNode extends SubscribeableViewNode<CommitsView> {
 		item.contextValue = ContextValues.RepositoryFolder;
 
 		if (branch != null) {
+			const lastFetched = (await this.repo?.getLastFetched()) ?? 0;
+
 			const status = branch?.getTrackingStatus();
-			item.description = `${branch.name}${status ? ` ${GlyphChars.Dot} ${status}` : ''}`;
+			item.description = `${status ? `${status} ${GlyphChars.Dot} ` : ''}${branch.name}${
+				lastFetched
+					? ` ${GlyphChars.Dot} Last fetched ${Dates.getFormatter(new Date(lastFetched)).fromNow()}`
+					: ''
+			}`;
 		}
 
 		return item;
@@ -168,8 +174,14 @@ export class CommitsViewNode extends ViewNode<CommitsView> {
 
 			const branch = await child.repo.getBranch();
 			if (branch != null) {
+				const lastFetched = (await child.repo?.getLastFetched()) ?? 0;
+
 				const status = branch.getTrackingStatus();
-				this.view.description = `${status ? `${status} ${GlyphChars.Dot} ` : ''}${branch.name}`;
+				this.view.description = `${status ? `${status} ${GlyphChars.Dot} ` : ''}${branch.name}${
+					lastFetched
+						? ` ${GlyphChars.Dot} Last fetched ${Dates.getFormatter(new Date(lastFetched)).fromNow()}`
+						: ''
+				}`;
 			} else {
 				this.view.description = undefined;
 			}
