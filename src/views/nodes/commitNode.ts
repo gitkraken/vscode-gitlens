@@ -113,7 +113,7 @@ export class CommitNode extends ViewRefNode<ViewsWithFiles, GitRevisionReference
 			messageTruncateAtNewLine: true,
 		});
 		item.iconPath = this.unpublished
-			? new ThemeIcon('cloud-upload')
+			? new ThemeIcon('arrow-up')
 			: !(this.view instanceof StashesView) && this.view.config.avatars
 			? this.commit.getAvatarUri(Container.config.defaultGravatarsStyle)
 			: new ThemeIcon('git-commit');
