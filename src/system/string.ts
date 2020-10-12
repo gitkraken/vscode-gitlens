@@ -74,7 +74,7 @@ const pathStripTrailingSlashRegex = /\/$/g;
 const tokenRegex = /\$\{(".*?"|\W*)?([^|]*?)(?:\|(\d+)(-|\?)?)?(".*?"|\W*)?\}/g;
 const tokenSanitizeRegex = /\$\{(?:".*?"|\W*)?(\w*?)(?:".*?"|[\W\d]*)\}/g;
 // eslint-disable-next-line no-template-curly-in-string
-const tokenSanitizeReplacement = '$${this.$1}';
+const tokenSanitizeReplacement = "$${this.$1 ?? ''}";
 
 export interface TokenOptions {
 	collapseWhitespace: boolean;
