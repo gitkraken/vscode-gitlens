@@ -81,7 +81,10 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 
 		const children = [
 			...insertDateMarkers(
-				Iterables.map(commits, c => new CommitNode(this.view, this, c, this.branch)),
+				Iterables.map(
+					commits,
+					c => new CommitNode(this.view, this, c, this.upstreamType === 'ahead', this.branch),
+				),
 				this,
 				1,
 			),

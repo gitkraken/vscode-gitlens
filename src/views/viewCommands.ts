@@ -193,6 +193,7 @@ export class ViewCommands {
 		commands.registerCommand('gitlens.views.resetCommit', this.resetCommit, this);
 		commands.registerCommand('gitlens.views.resetToCommit', this.resetToCommit, this);
 		commands.registerCommand('gitlens.views.revert', this.revert, this);
+		commands.registerCommand('gitlens.views.undoCommit', this.undoCommit, this);
 
 		commands.registerCommand('gitlens.views.terminalRemoveRemote', this.terminalRemoveRemote, this);
 	}
@@ -522,6 +523,21 @@ export class ViewCommands {
 		return GitActions.switchTo(
 			node.repoPath,
 			node instanceof BranchNode && node.branch.current ? undefined : node.ref,
+		);
+	}
+
+	@debug()
+	private undoCommit(node: CommitNode) {
+		if (!(node instanceof CommitNode)) return Promise.resolve();
+
+		return GitActions.reset(
+			node.repoPath,
+			GitReference.create(`${node.ref.ref}^`, node.ref.repoPath, {
+				refType: 'revision',
+				name: `${node.ref.name}^`,
+				message: node.ref.message,
+			}),
+			['--soft'],
 		);
 	}
 

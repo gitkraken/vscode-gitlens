@@ -50,7 +50,7 @@ export class TagNode extends ViewRefNode<TagsView | RepositoriesView, GitTagRefe
 			...insertDateMarkers(
 				Iterables.map(
 					log.commits.values(),
-					c => new CommitNode(this.view, this, c, undefined, getBranchAndTagTips),
+					c => new CommitNode(this.view, this, c, undefined, undefined, getBranchAndTagTips),
 				),
 				this,
 			),

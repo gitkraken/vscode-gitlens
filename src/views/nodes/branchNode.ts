@@ -15,6 +15,7 @@ import {
 	GitBranchReference,
 	GitLog,
 	GitRemoteType,
+	GitRevision,
 	PullRequestState,
 } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
@@ -160,8 +161,14 @@ export class BranchNode
 						new BranchTrackingStatusNode(this.view, this, this.branch, status, 'none', this.root),
 					);
 				}
-			} else if (pr != null) {
-				children.push(new PullRequestNode(this.view, this, pr, this.branch));
+			}
+
+			let unpublished: GitLog | undefined;
+			if (this.branch.tracking && this.branch.state.ahead) {
+				unpublished = await Container.git.getLog(this.uri.repoPath!, {
+					limit: 0,
+					ref: GitRevision.createRange(this.branch.tracking, 'HEAD'),
+				});
 			}
 
 			const getBranchAndTagTips = await Container.git.getBranchesAndTagsTipsFn(
@@ -172,7 +179,15 @@ export class BranchNode
 				...insertDateMarkers(
 					Iterables.map(
 						log.commits.values(),
-						c => new CommitNode(this.view, this, c, this.branch, getBranchAndTagTips),
+						c =>
+							new CommitNode(
+								this.view,
+								this,
+								c,
+								unpublished?.commits.has(c.ref),
+								this.branch,
+								getBranchAndTagTips,
+							),
 					),
 					this,
 				),

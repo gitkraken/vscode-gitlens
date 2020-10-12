@@ -20,6 +20,7 @@ export class CommitNode extends ViewRefNode<ViewsWithFiles, GitRevisionReference
 		view: ViewsWithFiles,
 		parent: ViewNode,
 		public readonly commit: GitLogCommit,
+		private readonly unpublished?: boolean,
 		public readonly branch?: GitBranch,
 		private readonly getBranchAndTagTips?: (sha: string) => string | undefined,
 		private readonly _options: { expand?: boolean } = {},
@@ -39,9 +40,9 @@ export class CommitNode extends ViewRefNode<ViewsWithFiles, GitRevisionReference
 		return CommitFormatter.fromTemplate(
 			this.commit.isUncommitted
 				? `\${author} ${GlyphChars.Dash} \${id}\n\${ago} (\${date})`
-				: `\${author}\${ (email)}\${" via "pullRequest} ${
-						GlyphChars.Dash
-				  } \${id}\${ (tips)}\n\${ago} (\${date})\${\n\nmessage}${this.commit.getFormattedDiffStatus({
+				: `\${author}\${ (email)}\${" via "pullRequest} ${GlyphChars.Dash} \${id}${
+						this.unpublished ? ' (unpublished)' : ''
+				  }\${ (tips)}\n\${ago} (\${date})\${\n\nmessage}${this.commit.getFormattedDiffStatus({
 						expand: true,
 						prefix: '\n\n',
 						separator: '\n',
@@ -103,16 +104,19 @@ export class CommitNode extends ViewRefNode<ViewsWithFiles, GitRevisionReference
 			this._options.expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
 		);
 
-		item.contextValue = `${ContextValues.Commit}${this.branch?.current ? '+current' : ''}`;
+		item.contextValue = `${ContextValues.Commit}${this.branch?.current ? '+current' : ''}${
+			this.branch?.current && this.branch.sha === this.commit.ref ? '+HEAD' : ''
+		}${this.unpublished ? '+unpublished' : ''}`;
 
 		item.description = CommitFormatter.fromTemplate(this.view.config.commitDescriptionFormat, this.commit, {
-			messageTruncateAtNewLine: true,
 			dateFormat: Container.config.defaultDateFormat,
+			messageTruncateAtNewLine: true,
 		});
-		item.iconPath =
-			!(this.view instanceof StashesView) && this.view.config.avatars
-				? this.commit.getAvatarUri(Container.config.defaultGravatarsStyle)
-				: new ThemeIcon('git-commit');
+		item.iconPath = this.unpublished
+			? new ThemeIcon('cloud-upload')
+			: !(this.view instanceof StashesView) && this.view.config.avatars
+			? this.commit.getAvatarUri(Container.config.defaultGravatarsStyle)
+			: new ThemeIcon('git-commit');
 		item.tooltip = this.tooltip;
 
 		return item;

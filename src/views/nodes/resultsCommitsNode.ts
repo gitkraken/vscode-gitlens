@@ -50,7 +50,7 @@ export class ResultsCommitsNode extends ViewNode<ViewsWithFiles> implements Page
 			...insertDateMarkers(
 				Iterables.map(
 					log.commits.values(),
-					c => new CommitNode(this.view, this, c, undefined, getBranchAndTagTips, options),
+					c => new CommitNode(this.view, this, c, undefined, undefined, getBranchAndTagTips, options),
 				),
 				this,
 				undefined,

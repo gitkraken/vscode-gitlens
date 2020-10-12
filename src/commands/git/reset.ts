@@ -33,6 +33,7 @@ interface State {
 
 export interface ResetGitCommandArgs {
 	readonly command: 'reset';
+	confirm?: boolean;
 	state?: Partial<State>;
 }
 
@@ -53,13 +54,15 @@ export class ResetGitCommand extends QuickCommand<State> {
 
 		this.initialState = {
 			counter: counter,
-			confirm: true,
+			confirm: args?.confirm ?? true,
 			...args?.state,
 		};
+		this._canSkipConfirm = !this.initialState.confirm;
 	}
 
+	private _canSkipConfirm: boolean = false;
 	get canSkipConfirm(): boolean {
-		return false;
+		return this._canSkipConfirm;
 	}
 
 	execute(state: ResetStepState) {
@@ -138,10 +141,12 @@ export class ResetGitCommand extends QuickCommand<State> {
 				state.reference = result;
 			}
 
-			const result = yield* this.confirmStep(state as ResetStepState, context);
-			if (result === StepResult.Break) continue;
+			if (this.confirm(state.confirm)) {
+				const result = yield* this.confirmStep(state as ResetStepState, context);
+				if (result === StepResult.Break) continue;
 
-			state.flags = result;
+				state.flags = result;
+			}
 
 			QuickCommand.endSteps(state);
 			this.execute(state as ResetStepState);

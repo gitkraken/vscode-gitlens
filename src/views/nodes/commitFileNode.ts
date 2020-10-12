@@ -92,8 +92,8 @@ export class CommitFileNode extends ViewRefFileNode {
 	private get description() {
 		return this._options.displayAsCommit
 			? CommitFormatter.fromTemplate(this.getCommitDescriptionTemplate(), this.commit, {
-					messageTruncateAtNewLine: true,
 					dateFormat: Container.config.defaultDateFormat,
+					messageTruncateAtNewLine: true,
 			  })
 			: StatusFileFormatter.fromTemplate(this.getCommitFileDescriptionTemplate(), this.file, {
 					relativePath: this.relativePath,
@@ -113,8 +113,8 @@ export class CommitFileNode extends ViewRefFileNode {
 		if (this._label === undefined) {
 			this._label = this._options.displayAsCommit
 				? CommitFormatter.fromTemplate(this.getCommitTemplate(), this.commit, {
-						messageTruncateAtNewLine: true,
 						dateFormat: Container.config.defaultDateFormat,
+						messageTruncateAtNewLine: true,
 				  })
 				: StatusFileFormatter.fromTemplate(this.getCommitFileTemplate(), this.file, {
 						relativePath: this.relativePath,

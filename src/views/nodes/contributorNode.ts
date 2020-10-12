@@ -47,7 +47,7 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 			...insertDateMarkers(
 				Iterables.map(
 					log.commits.values(),
-					c => new CommitNode(this.view, this, c, undefined, getBranchAndTagTips),
+					c => new CommitNode(this.view, this, c, undefined, undefined, getBranchAndTagTips),
 				),
 				this,
 			),

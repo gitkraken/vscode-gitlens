@@ -27,6 +27,7 @@ import {
 	Repository,
 } from '../git/git';
 import { GitUri } from '../git/gitUri';
+import { ResetGitCommandArgs } from './git/reset';
 
 export async function executeGitCommand(args: GitCommandsCommandArgs): Promise<void> {
 	void (await executeCommand<GitCommandsCommandArgs>(Commands.GitCommands, args));
@@ -77,10 +78,15 @@ export namespace GitActions {
 		});
 	}
 
-	export function reset(repo?: string | Repository, ref?: GitRevisionReference) {
+	export function reset(
+		repo?: string | Repository,
+		ref?: GitRevisionReference,
+		flags?: NonNullable<ResetGitCommandArgs['state']>['flags'],
+	) {
 		return executeGitCommand({
 			command: 'reset',
-			state: { repo: repo, reference: ref },
+			confirm: flags == null || flags.includes('--hard'),
+			state: { repo: repo, reference: ref, flags: flags },
 		});
 	}
 

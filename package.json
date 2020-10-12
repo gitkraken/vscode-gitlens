@@ -3571,6 +3571,12 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.views.undoCommit",
+				"title": "Undo Commit",
+				"category": "GitLens",
+				"icon": "$(discard)"
+			},
+			{
 				"command": "gitlens.views.terminalRemoveRemote",
 				"title": "Remove Remote (via Terminal)",
 				"category": "GitLens"
@@ -4928,6 +4934,10 @@
 				},
 				{
 					"command": "gitlens.views.revert",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.undoCommit",
 					"when": "false"
 				},
 				{
@@ -6419,6 +6429,11 @@
 					"group": "inline@9"
 				},
 				{
+					"command": "gitlens.views.undoCommit",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+HEAD\\b)(?=.*?\\b\\+unpublished\\b)/",
+					"group": "inline@96"
+				},
+				{
 					"command": "gitlens.views.compareWithHead",
 					"when": "viewItem =~ /gitlens:(branch\\b(?!.*?\\b\\+current\\b)|commit\\b|stash\\b|tag\\b)/",
 					"group": "inline@97",
@@ -6606,6 +6621,11 @@
 				{
 					"command": "gitlens.views.cherryPick",
 					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b(?!.*?\\b\\+current\\b)/",
+					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.views.undoCommit",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+HEAD\\b)(?=.*?\\b\\+unpublished\\b)/",
 					"group": "1_gitlens_actions@1"
 				},
 				{
