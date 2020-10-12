@@ -114,12 +114,18 @@ export class BranchNode
 		if (this._children == null) {
 			const children = [];
 
-			const [log, pr] = await Promise.all([
+			const [log, pr, unpublished] = await Promise.all([
 				this.getLog(),
 				this.view.config.pullRequests.enabled &&
 				this.view.config.pullRequests.showForBranches &&
 				(this.branch.tracking || this.branch.remote)
 					? this.branch.getAssociatedPullRequest(this.root ? { include: [PullRequestState.Open] } : undefined)
+					: undefined,
+				this.branch.state.ahead > 0
+					? Container.git.getLog(this.uri.repoPath!, {
+							limit: 0,
+							ref: GitRevision.createRange(this.branch.tracking, this.branch.ref),
+					  })
 					: undefined,
 			]);
 			if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
@@ -169,14 +175,6 @@ export class BranchNode
 
 			if (children.length !== 0) {
 				children.push(new MessageNode(this.view, this, '', GlyphChars.Dash.repeat(2), ''));
-			}
-
-			let unpublished: GitLog | undefined;
-			if (this.branch.state.ahead > 0) {
-				unpublished = await Container.git.getLog(this.uri.repoPath!, {
-					limit: 0,
-					ref: GitRevision.createRange(this.branch.tracking, 'HEAD'),
-				});
 			}
 
 			const getBranchAndTagTips = await Container.git.getBranchesAndTagsTipsFn(
