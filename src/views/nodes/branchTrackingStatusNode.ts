@@ -79,21 +79,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 			commits = log.commits.values();
 		}
 
-		const children = [
-			...insertDateMarkers(
-				Iterables.map(
-					commits,
-					c => new CommitNode(this.view, this, c, this.upstreamType === 'ahead', this.branch),
-				),
-				this,
-				1,
-			),
-		];
-
-		if (log.hasMore) {
-			children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
-		}
-
+		const children = [];
 		if (!this.isReposView && this.status.upstream && this.upstreamType === 'ahead' && this.status.state.ahead > 0) {
 			children.push(
 				new BranchTrackingStatusFilesNode(
@@ -105,6 +91,21 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 					this.root,
 				),
 			);
+		}
+
+		children.push(
+			...insertDateMarkers(
+				Iterables.map(
+					commits,
+					c => new CommitNode(this.view, this, c, this.upstreamType === 'ahead', this.branch),
+				),
+				this,
+				1,
+			),
+		);
+
+		if (log.hasMore) {
+			children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
 		}
 
 		return children;
