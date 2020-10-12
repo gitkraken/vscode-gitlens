@@ -114,8 +114,9 @@ export class BranchNode
 		if (this._children == null) {
 			const children = [];
 
-			const [log, pr, unpublished] = await Promise.all([
+			const [log, getBranchAndTagTips, pr, unpublished] = await Promise.all([
 				this.getLog(),
+				Container.git.getBranchesAndTagsTipsFn(this.uri.repoPath, this.branch.name),
 				this.view.config.pullRequests.enabled &&
 				this.view.config.pullRequests.showForBranches &&
 				(this.branch.tracking || this.branch.remote)
@@ -177,10 +178,6 @@ export class BranchNode
 				children.push(new MessageNode(this.view, this, '', GlyphChars.Dash.repeat(2), ''));
 			}
 
-			const getBranchAndTagTips = await Container.git.getBranchesAndTagsTipsFn(
-				this.uri.repoPath,
-				this.branch.name,
-			);
 			children.push(
 				...insertDateMarkers(
 					Iterables.map(
