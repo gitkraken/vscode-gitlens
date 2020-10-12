@@ -145,10 +145,12 @@ export class BranchNode
 						children.push(
 							new BranchTrackingStatusNode(this.view, this, this.branch, status, 'same', this.root),
 						);
-					} else if (status.state.ahead) {
-						children.push(
-							new BranchTrackingStatusNode(this.view, this, this.branch, status, 'ahead', this.root),
-						);
+					} else {
+						if (status.state.ahead) {
+							children.push(
+								new BranchTrackingStatusNode(this.view, this, this.branch, status, 'ahead', this.root),
+							);
+						}
 
 						if (status.state.behind) {
 							children.push(
