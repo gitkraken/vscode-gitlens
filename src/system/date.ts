@@ -29,7 +29,7 @@ dayjs.updateLocale('en', {
 	relativeTime: {
 		future: 'in %s',
 		past: '%s ago',
-		s: 'just now',
+		s: 'seconds',
 		m: 'a minute',
 		mm: '%d minutes',
 		h: 'an hour',
