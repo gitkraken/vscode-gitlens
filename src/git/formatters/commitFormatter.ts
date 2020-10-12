@@ -155,6 +155,10 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		return `[${author}](mailto:${this._item.email} "Email ${this._item.author} (${this._item.email})")`;
 	}
 
+	get authorNotYou() {
+		return this._item.author !== 'You' ? this.author : emptyStr;
+	}
+
 	get authorAgo() {
 		return this._padOrTruncate(this._authorDateAgo, this._options.tokenOptions.authorAgo);
 	}
