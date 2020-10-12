@@ -163,6 +163,10 @@ export class BranchNode
 				}
 			}
 
+			if (children.length !== 0) {
+				children.push(new MessageNode(this.view, this, '', GlyphChars.Dash.repeat(2), ''));
+			}
+
 			let unpublished: GitLog | undefined;
 			if (this.branch.tracking && this.branch.state.ahead) {
 				unpublished = await Container.git.getLog(this.uri.repoPath!, {
