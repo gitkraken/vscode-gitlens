@@ -48,9 +48,9 @@ export function* insertDateMarkers<T extends ViewNode & { commit: GitLogCommit }
 					[, marker] = markers[index];
 				}
 
-				// Don't show the last marker as the first entry -- since it could be wildly far off
-				if (!first || index < markers.length - 1) {
-					yield new MessageNode(parent.view, parent, marker);
+				// Don't show the marker if it is the first node
+				if (!first) {
+					yield new MessageNode(parent.view, parent, '', marker);
 				}
 
 				index++;
