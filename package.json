@@ -1596,7 +1596,7 @@
 				},
 				"gitlens.views.commitDescriptionFormat": {
 					"type": "string",
-					"default": "${changes  •  }${author}, ${agoOrDate}",
+					"default": "${author, }${agoOrDate}",
 					"markdownDescription": "Specifies the description format of committed changes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 					"scope": "window"
 				},
