@@ -12,7 +12,6 @@ import { RepositoriesView } from '../repositoriesView';
 import { Dates, debug, gate, Iterables, memoize, Strings } from '../../system';
 import { ViewsWithFiles } from '../viewBase';
 import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
-import { GlyphChars } from '../../constants';
 
 export interface BranchTrackingStatus {
 	ref: string;
@@ -82,6 +81,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 
 		const children = [];
 		if (!this.isReposView && this.status.upstream && this.upstreamType === 'ahead' && this.status.state.ahead > 0) {
+			// TODO@eamodio fix this
 			children.push(
 				...(await new BranchTrackingStatusFilesNode(
 					this.view,
@@ -128,14 +128,11 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 		let tooltip;
 		switch (this.upstreamType) {
 			case 'ahead':
-				label = 'Unpublished Changes';
-				description = `in ${Strings.pluralize('commit', this.status.state.ahead)}`;
+				label = `Changes to push to ${GitBranch.getRemote(this.status.upstream!)}`;
+				description = Strings.pluralize('commit', this.status.state.ahead);
 				tooltip = `${this.branch.name} is ${Strings.pluralize('commit', this.status.state.ahead)} ahead of ${
 					this.status.upstream
 				}`;
-				// if (!this.isReposView) {
-				// 	label = `${this.root ? `${this.branch.name} is ` : ''}${label} of ${this.status.upstream}`;
-				// }
 
 				// collapsibleState = !this.isReposView
 				// 	? TreeItemCollapsibleState.Expanded
@@ -149,13 +146,11 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 				break;
 
 			case 'behind':
-				label = `${Strings.pluralize('commit', this.status.state.behind)} behind`;
+				label = `Changes to pull from ${GitBranch.getRemote(this.status.upstream!)}`;
+				description = Strings.pluralize('commit', this.status.state.behind);
 				tooltip = `${this.branch.name} is ${Strings.pluralize('commit', this.status.state.behind)} behind ${
 					this.status.upstream
 				}`;
-				// if (!this.isReposView) {
-				// 	label = `${this.root ? `${this.branch.name} is ` : ''}${label} ${this.status.upstream}`;
-				// }
 
 				collapsibleState = TreeItemCollapsibleState.Collapsed;
 				contextValue = this.root
@@ -166,17 +161,16 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 				break;
 
 			case 'same':
-				label = `${this.branch.name} is up to date`;
+				label = `Up to date with ${GitBranch.getRemote(this.status.upstream!)}`;
+				description = `Last fetched ${Dates.getFormatter(new Date(lastFetched)).fromNow()}`;
 				tooltip = `${this.branch.name} is up to date with ${this.status.upstream}`;
-				// if (!this.isReposView) {
-				// 	label += ` with ${this.status.upstream}`;
-				// }
 
 				collapsibleState = TreeItemCollapsibleState.None;
 				contextValue = this.root ? ContextValues.StatusSameAsUpstream : undefined;
 				icon = 'cloud';
 
 				break;
+
 			case 'none':
 				label = `${this.branch.name} hasn't yet been published`;
 				tooltip = label;
@@ -193,9 +187,6 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 		item.contextValue = contextValue;
 		item.description = description;
 		if (lastFetched) {
-			// item.description = `${
-			// 	description ? `${description} ${GlyphChars.Dot} ` : ''
-			// }Last fetched ${Dates.getFormatter(new Date(lastFetched)).fromNow()}`;
 			tooltip += `\nLast fetched ${Dates.getFormatter(new Date(lastFetched)).fromNow()}`;
 		}
 		item.iconPath = new ThemeIcon(icon);
