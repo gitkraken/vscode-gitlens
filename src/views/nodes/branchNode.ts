@@ -123,7 +123,15 @@ export class BranchNode
 			]);
 			if (log == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
 
+			if (pr != null) {
+				children.push(new PullRequestNode(this.view, this, pr, this.branch));
+			}
+
 			if (this.options.showTracking) {
+				if (this.options.showComparison !== false && this.view instanceof CommitsView) {
+					children.push(new CompareBranchNode(this.uri, this.view, this, this.branch));
+				}
+
 				const status = {
 					ref: this.branch.ref,
 					repoPath: this.branch.repoPath,
@@ -136,31 +144,21 @@ export class BranchNode
 						children.push(
 							new BranchTrackingStatusNode(this.view, this, this.branch, status, 'same', this.root),
 						);
-					}
-
-					if (status.state.ahead) {
+					} else if (status.state.ahead) {
 						children.push(
 							new BranchTrackingStatusNode(this.view, this, this.branch, status, 'ahead', this.root),
 						);
-					}
 
-					if (status.state.behind) {
-						children.push(
-							new BranchTrackingStatusNode(this.view, this, this.branch, status, 'behind', this.root),
-						);
+						if (status.state.behind) {
+							children.push(
+								new BranchTrackingStatusNode(this.view, this, this.branch, status, 'behind', this.root),
+							);
+						}
 					}
 				} else if (this.root) {
 					children.push(
 						new BranchTrackingStatusNode(this.view, this, this.branch, status, 'none', this.root),
 					);
-				}
-
-				if (pr != null) {
-					children.push(new PullRequestNode(this.view, this, pr, this.branch));
-				}
-
-				if (this.options.showComparison !== false && this.view instanceof CommitsView) {
-					children.push(new CompareBranchNode(this.uri, this.view, this, this.branch));
 				}
 			} else if (pr != null) {
 				children.push(new PullRequestNode(this.view, this, pr, this.branch));

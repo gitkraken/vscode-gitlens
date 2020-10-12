@@ -93,15 +93,10 @@ export class CompareBranchNode extends ViewNode<CommitsView | RepositoriesView> 
 			} with <branch, tag, or ref>`;
 			state = TreeItemCollapsibleState.None;
 		} else {
-			label = `${this.branch.name}${this.compareWithWorkingTree ? ' (working)' : ''}`;
-			description = `${GlyphChars.ArrowLeftRightLong}${GlyphChars.Space} ${GitRevision.shorten(
-				this._compareWith.ref,
-				{
-					strings: {
-						working: 'Working Tree',
-					},
-				},
-			)}`;
+			label = `Compare ${this.branch.name}${this.compareWithWorkingTree ? ' (working)' : ''}`;
+			description = `with ${GitRevision.shorten(this._compareWith.ref, {
+				strings: { working: 'Working Tree' },
+			})}`;
 			state = TreeItemCollapsibleState.Collapsed;
 		}
 
