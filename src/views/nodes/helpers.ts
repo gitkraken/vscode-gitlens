@@ -6,8 +6,8 @@ import { ViewNode } from './viewNode';
 const markers: [number, string][] = [
 	[0, 'Less than a week ago'],
 	[7, 'Over a week ago'],
-	[30, 'Over a month ago'],
-	[90, 'Over 3 months ago'],
+	[25, 'Over a month ago'],
+	[77, 'Over 3 months ago'],
 ];
 
 export function* insertDateMarkers<T extends ViewNode & { commit: GitLogCommit }>(
