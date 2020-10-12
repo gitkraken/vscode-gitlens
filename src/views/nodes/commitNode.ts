@@ -22,7 +22,7 @@ export class CommitNode extends ViewRefNode<ViewsWithFiles, GitRevisionReference
 		public readonly commit: GitLogCommit,
 		private readonly unpublished?: boolean,
 		public readonly branch?: GitBranch,
-		private readonly getBranchAndTagTips?: (sha: string) => string | undefined,
+		private readonly getBranchAndTagTips?: (sha: string, compact?: boolean) => string | undefined,
 		private readonly _options: { expand?: boolean } = {},
 	) {
 		super(commit.toGitUri(), view, parent);
@@ -95,7 +95,7 @@ export class CommitNode extends ViewRefNode<ViewsWithFiles, GitRevisionReference
 	getTreeItem(): TreeItem {
 		const label = CommitFormatter.fromTemplate(this.view.config.commitFormat, this.commit, {
 			dateFormat: Container.config.defaultDateFormat,
-			getBranchAndTagTips: this.getBranchAndTagTips,
+			getBranchAndTagTips: (sha: string) => this.getBranchAndTagTips?.(sha, true),
 			messageTruncateAtNewLine: true,
 		});
 

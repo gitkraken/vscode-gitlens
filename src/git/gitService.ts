@@ -20,7 +20,7 @@ import {
 } from 'vscode';
 import { API as BuiltInGitApi, Repository as BuiltInGitRepository, GitExtension } from '../@types/git';
 import { BranchSorting, configuration, TagSorting } from '../configuration';
-import { CommandContext, DocumentSchemes, setCommandContext } from '../constants';
+import { CommandContext, DocumentSchemes, GlyphChars, setCommandContext } from '../constants';
 import { Container } from '../container';
 import { LogCorrelationContext, Logger } from '../logger';
 import { Messages } from '../messages';
@@ -1204,15 +1204,33 @@ export class GitService implements Disposable {
 		const [branches, tags] = await Promise.all([this.getBranches(repoPath), this.getTags(repoPath)]);
 
 		const branchesAndTagsBySha = Arrays.groupByFilterMap(
-			(branches as { name: string; sha: string }[]).concat(tags as { name: string; sha: string }[]),
+			(branches as (GitBranch | GitTag)[]).concat(tags as (GitBranch | GitTag)[]),
 			bt => bt.sha,
-			bt => (bt.name === currentName ? undefined : bt.name),
+			bt => {
+				if (currentName) {
+					if (bt.name === currentName) return undefined;
+					if (bt.refType === 'branch' && bt.getNameWithoutRemote() === currentName) {
+						return { name: bt.name, compactName: bt.getRemoteName() };
+					}
+				}
+
+				return { name: bt.name };
+			},
 		);
 
-		return (sha: string) => {
+		return (sha: string, compact?: boolean): string | undefined => {
 			const branchesAndTags = branchesAndTagsBySha.get(sha);
 			if (branchesAndTags == null || branchesAndTags.length === 0) return undefined;
-			return branchesAndTags.join(', ');
+
+			if (!compact) return branchesAndTags.map(bt => bt.name).join(', ');
+
+			if (branchesAndTags.length > 1) {
+				return [branchesAndTags[0], { name: GlyphChars.Ellipsis }]
+					.map(bt => bt.compactName ?? bt.name)
+					.join(', ');
+			}
+
+			return branchesAndTags.map(bt => bt.compactName ?? bt.name).join(', ');
 		};
 	}
 
