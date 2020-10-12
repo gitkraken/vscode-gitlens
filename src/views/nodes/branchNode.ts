@@ -168,7 +168,7 @@ export class BranchNode
 			}
 
 			let unpublished: GitLog | undefined;
-			if (this.branch.tracking && this.branch.state.ahead) {
+			if (this.branch.state.ahead > 0) {
 				unpublished = await Container.git.getLog(this.uri.repoPath!, {
 					limit: 0,
 					ref: GitRevision.createRange(this.branch.tracking, 'HEAD'),
@@ -329,8 +329,14 @@ export class BranchNode
 	private _log: GitLog | undefined;
 	private async getLog() {
 		if (this._log == null) {
+			// Ensure we always show all unpublished commits (and the upstream tip)
+			let limit = this.limit ?? this.view.config.defaultItemLimit;
+			if (limit !== 0 && this.branch.state.ahead > limit) {
+				limit = this.branch.state.ahead + 1;
+			}
+
 			this._log = await Container.git.getLog(this.uri.repoPath!, {
-				limit: this.limit ?? this.view.config.defaultItemLimit,
+				limit: limit,
 				ref: this.ref.ref,
 				authors: this.options?.authors,
 			});
