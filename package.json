@@ -7386,7 +7386,7 @@
 				},
 				{
 					"command": "gitlens.views.refreshNode",
-					"when": "viewItem =~ /gitlens:(?!file\\b)/",
+					"when": "viewItem =~ /gitlens:(?!(file|message|date-marker)\\b)/",
 					"group": "9_gitlens@99"
 				},
 				{
