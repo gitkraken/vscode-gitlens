@@ -1,5 +1,6 @@
 'use strict';
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { BranchesView } from '../branchesView';
 import { CommitsView } from '../commitsView';
 import { BranchComparison, BranchComparisons, GlyphChars, WorkspaceState } from '../../constants';
 import { BranchSorting, TagSorting, ViewShowBranchComparison } from '../../configuration';
@@ -14,7 +15,7 @@ import { FilesQueryResults, ResultsFilesNode } from './resultsFilesNode';
 import { debug, gate, log, Strings } from '../../system';
 import { ContextValues, ViewNode } from './viewNode';
 
-export class CompareBranchNode extends ViewNode<CommitsView | RepositoriesView> {
+export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | RepositoriesView> {
 	static key = ':compare-branch';
 	static getId(repoPath: string, name: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${name})`;
@@ -25,7 +26,7 @@ export class CompareBranchNode extends ViewNode<CommitsView | RepositoriesView> 
 
 	constructor(
 		uri: GitUri,
-		view: CommitsView | RepositoriesView,
+		view: BranchesView | CommitsView | RepositoriesView,
 		parent: ViewNode,
 		public readonly branch: GitBranch,
 	) {
@@ -108,9 +109,9 @@ export class CompareBranchNode extends ViewNode<CommitsView | RepositoriesView> 
 			command: 'gitlens.views.executeNodeCallback',
 			arguments: [() => this.compareWith()],
 		};
-		item.contextValue = `${ContextValues.CompareBranch}${this._compareWith === undefined ? '' : '+comparing'}+${
-			this.comparisonNotation === '..' ? 'twodot' : 'threedot'
-		}+${this.comparisonType}`;
+		item.contextValue = `${ContextValues.CompareBranch}${this.branch.current ? '+current' : ''}${
+			this._compareWith === undefined ? '' : '+comparing'
+		}+${this.comparisonNotation === '..' ? 'twodot' : 'threedot'}+${this.comparisonType}`;
 		item.description = description;
 		if (this.compareWithWorkingTree) {
 			item.iconPath = {

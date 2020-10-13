@@ -8,7 +8,13 @@ import {
 	TreeItemCollapsibleState,
 	window,
 } from 'vscode';
-import { BranchesViewConfig, configuration, ViewBranchesLayout, ViewFilesLayout } from '../configuration';
+import {
+	BranchesViewConfig,
+	configuration,
+	ViewBranchesLayout,
+	ViewFilesLayout,
+	ViewShowBranchComparison,
+} from '../configuration';
 import { Container } from '../container';
 import {
 	GitBranchReference,
@@ -223,6 +229,16 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 		);
 		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this);
 		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this);
+		commands.registerCommand(
+			this.getQualifiedCommand('setShowBranchComparisonOn'),
+			() => this.setShowBranchComparison(true),
+			this,
+		);
+		commands.registerCommand(
+			this.getQualifiedCommand('setShowBranchComparisonOff'),
+			() => this.setShowBranchComparison(false),
+			this,
+		);
 	}
 
 	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
@@ -352,5 +368,14 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 
 	private setShowAvatars(enabled: boolean) {
 		return configuration.updateEffective('views', this.configKey, 'avatars', enabled);
+	}
+
+	private setShowBranchComparison(enabled: boolean) {
+		return configuration.updateEffective(
+			'views',
+			this.configKey,
+			'showBranchComparison',
+			enabled ? ViewShowBranchComparison.Working : false,
+		);
 	}
 }

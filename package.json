@@ -1576,6 +1576,27 @@
 					"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Branches_ view. Requires a connection to a supported remote service (e.g. GitHub)",
 					"scope": "window"
 				},
+				"gitlens.views.branches.showBranchComparison": {
+					"anyOf": [
+						{
+							"enum": [
+								false
+							]
+						},
+						{
+							"type": "string",
+							"enum": [
+								"branch"
+							],
+							"enumDescriptions": [
+								"Compares the branch with a user-selected reference"
+							]
+						}
+					],
+					"default": "branch",
+					"markdownDescription": "Specifies whether to show a comparison of the branch with a user-selected reference (branch, tag. etc) in the _Branches_ view",
+					"scope": "window"
+				},
 				"gitlens.views.commitFileFormat": {
 					"type": "string",
 					"default": "${file}",
@@ -1666,13 +1687,13 @@
 								"working"
 							],
 							"enumDescriptions": [
-								"Compares the current branch to the user-selected reference",
-								"Compares the working tree to the user-selected reference"
+								"Compares the current branch with a user-selected reference",
+								"Compares the working tree with a user-selected reference"
 							]
 						}
 					],
 					"default": "working",
-					"markdownDescription": "Specifies whether to show a comparison of a user-selected reference (branch, tag. etc) to the current branch or the working tree in the _Commits_ view",
+					"markdownDescription": "Specifies whether to show a comparison of the current branch or the working tree with a user-selected reference (branch, tag. etc) in the _Commits_ view",
 					"scope": "window"
 				},
 				"gitlens.views.compare.avatars": {
@@ -1973,13 +1994,13 @@
 								"working"
 							],
 							"enumDescriptions": [
-								"Compares the current branch to the user-selected reference",
-								"Compares the working tree to the user-selected reference"
+								"Compares the current branch with a user-selected reference",
+								"Compares the working tree with a user-selected reference"
 							]
 						}
 					],
 					"default": "working",
-					"markdownDescription": "Specifies whether to show a comparison of a user-selected reference (branch, tag. etc) to the current branch or the working tree in the _Repositories_ view",
+					"markdownDescription": "Specifies whether to show a comparison of the current branch or the working tree with a user-selected reference (branch, tag. etc) in the _Repositories_ view",
 					"scope": "window"
 				},
 				"gitlens.views.search.avatars": {
@@ -3688,6 +3709,16 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.views.branches.setShowBranchComparisonOn",
+				"title": "Show Branch Comparison",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.branches.setShowBranchComparisonOff",
+				"title": "Hide Branch Comparison",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.commits.copy",
 				"title": "Copy",
 				"category": "GitLens"
@@ -5021,6 +5052,14 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.branches.setShowBranchComparisonOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.branches.setShowBranchComparisonOff",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.commits.copy",
 					"when": "false"
 				},
@@ -5878,6 +5917,16 @@
 					"command": "gitlens.views.branches.setShowAvatarsOff",
 					"when": "view =~ /^gitlens\\.views\\.branches/ && config.gitlens.views.branches.avatars",
 					"group": "1_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.branches.setShowBranchComparisonOn",
+					"when": "view =~ /^gitlens\\.views\\.branches/ && !config.gitlens.views.branches.showBranchComparison",
+					"group": "1_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.branches.setShowBranchComparisonOff",
+					"when": "view =~ /^gitlens\\.views\\.branches/ && config.gitlens.views.branches.showBranchComparison",
+					"group": "1_gitlens@1"
 				},
 				{
 					"command": "gitlens.views.switchToAnotherBranch",
@@ -7130,12 +7179,12 @@
 				},
 				{
 					"command": "gitlens.views.setBranchComparisonToWorking",
-					"when": "viewItem =~ /gitlens:compare:branch\\b(?=.*?\\b\\+comparing\\b)(?=.*?\\b\\+branch\\b)/",
+					"when": "viewItem =~ /gitlens:compare:branch\\b(?=.*?\\b\\+comparing\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+branch\\b)/",
 					"group": "inline@2"
 				},
 				{
 					"command": "gitlens.views.setBranchComparisonToBranch",
-					"when": "viewItem =~ /gitlens:compare:branch\\b(?=.*?\\b\\+comparing\\b)(?=.*?\\b\\+working\\b)/",
+					"when": "viewItem =~ /gitlens:compare:branch\\b(?=.*?\\b\\+comparing\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+working\\b)/",
 					"group": "inline@2"
 				},
 				{
@@ -7150,13 +7199,18 @@
 				},
 				{
 					"command": "gitlens.views.setBranchComparisonToWorking",
-					"when": "viewItem =~ /gitlens:compare:branch\\b(?=.*?\\b\\+comparing\\b)(?=.*?\\b\\+branch\\b)/",
+					"when": "viewItem =~ /gitlens:compare:branch\\b(?=.*?\\b\\+comparing\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+branch\\b)/",
 					"group": "1_gitlens@2"
 				},
 				{
 					"command": "gitlens.views.setBranchComparisonToBranch",
-					"when": "viewItem =~ /gitlens:compare:branch\\b(?=.*?\\b\\+comparing\\b)(?=.*?\\b\\+working\\b)/",
+					"when": "viewItem =~ /gitlens:compare:branch\\b(?=.*?\\b\\+comparing\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+working\\b)/",
 					"group": "1_gitlens@2"
+				},
+				{
+					"command": "gitlens.views.branches.setShowBranchComparisonOff",
+					"when": "view =~ /gitlens\\.views\\.branches\\b/ && viewItem =~ /gitlens:compare:branch\\b/",
+					"group": "8_gitlens@1"
 				},
 				{
 					"command": "gitlens.views.commits.setShowBranchComparisonOff",

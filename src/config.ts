@@ -465,6 +465,7 @@ export interface BranchesViewConfig {
 		showForBranches: boolean;
 		showForCommits: boolean;
 	};
+	showBranchComparison: false | ViewShowBranchComparison;
 }
 
 export interface CommitsViewConfig {
