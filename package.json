@@ -1405,7 +1405,7 @@
 				},
 				"gitlens.sortTagsBy": {
 					"type": "string",
-					"default": "name:desc",
+					"default": "date:desc",
 					"enum": [
 						"name:desc",
 						"name:asc",
