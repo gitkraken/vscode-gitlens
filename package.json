@@ -3502,24 +3502,6 @@
 				}
 			},
 			{
-				"command": "gitlens.views.setComparisonToTwoDot",
-				"title": "Toggle Comparison Type (Two-dot)",
-				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-compare-twodot.svg",
-					"light": "images/light/icon-compare-twodot.svg"
-				}
-			},
-			{
-				"command": "gitlens.views.setComparisonToThreeDot",
-				"title": "Toggle Comparison Type (Three-dot)",
-				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-compare-threedot.svg",
-					"light": "images/light/icon-compare-threedot.svg"
-				}
-			},
-			{
 				"command": "gitlens.views.cherryPick",
 				"title": "Cherry Pick Commit...",
 				"category": "GitLens"
@@ -4916,14 +4898,6 @@
 				},
 				{
 					"command": "gitlens.views.copyContributorToClipboard",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.setComparisonToTwoDot",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.setComparisonToThreeDot",
 					"when": "false"
 				},
 				{
@@ -7188,16 +7162,6 @@
 					"group": "inline@99"
 				},
 				{
-					"command": "gitlens.views.setComparisonToTwoDot",
-					"when": "viewItem =~ /gitlens:compare:branch\\b(?=.*?\\b\\+comparing\\b)(?=.*?\\b\\+threedot\\b)/",
-					"group": "inline@1"
-				},
-				{
-					"command": "gitlens.views.setComparisonToThreeDot",
-					"when": "viewItem =~ /gitlens:compare:branch\\b(?=.*?\\b\\+comparing\\b)(?=.*?\\b\\+twodot\\b)/",
-					"group": "inline@1"
-				},
-				{
 					"command": "gitlens.views.clearNode",
 					"when": "viewItem =~ /gitlens:compare:branch\\b(?=.*?\\b\\+comparing\\b)/",
 					"group": "inline@99"
@@ -7211,16 +7175,6 @@
 					"command": "gitlens.views.setBranchComparisonToBranch",
 					"when": "viewItem =~ /gitlens:compare:branch\\b(?=.*?\\b\\+comparing\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+working\\b)/",
 					"group": "inline@2"
-				},
-				{
-					"command": "gitlens.views.setComparisonToTwoDot",
-					"when": "viewItem =~ /gitlens:compare:branch\\b(?=.*?\\b\\+comparing\\b)(?=.*?\\b\\+threedot\\b)/",
-					"group": "1_gitlens@1"
-				},
-				{
-					"command": "gitlens.views.setComparisonToThreeDot",
-					"when": "viewItem =~ /gitlens:compare:branch\\b(?=.*?\\b\\+comparing\\b)(?=.*?\\b\\+twodot\\b)/",
-					"group": "1_gitlens@1"
 				},
 				{
 					"command": "gitlens.views.setBranchComparisonToWorking",
@@ -7248,16 +7202,6 @@
 					"group": "9_gitlens@1"
 				},
 				{
-					"command": "gitlens.views.setComparisonToTwoDot",
-					"when": "viewItem =~ /gitlens:compare:results\\b(?=.*?\\b\\+threedot\\b)/",
-					"group": "inline@2"
-				},
-				{
-					"command": "gitlens.views.setComparisonToThreeDot",
-					"when": "viewItem =~ /gitlens:compare:results\\b(?=.*?\\b\\+twodot\\b)/",
-					"group": "inline@2"
-				},
-				{
 					"command": "gitlens.views.compare.swapComparison",
 					"when": "viewItem =~ /gitlens:compare:results\\b/",
 					"group": "inline@3"
@@ -7281,16 +7225,6 @@
 					"command": "gitlens.views.openDirectoryDiff",
 					"when": "viewItem =~ /gitlens:compare:results\\b/",
 					"group": "2_gitlens_quickopen@1"
-				},
-				{
-					"command": "gitlens.views.setComparisonToTwoDot",
-					"when": "viewItem =~ /gitlens:compare:results\\b(?=.*?\\b\\+threedot\\b)/",
-					"group": "1_gitlens_actions@1"
-				},
-				{
-					"command": "gitlens.views.setComparisonToThreeDot",
-					"when": "viewItem =~ /gitlens:compare:results\\b(?=.*?\\b\\+twodot\\b)/",
-					"group": "1_gitlens_actions@1"
 				},
 				{
 					"command": "gitlens.views.compare.swapComparison",

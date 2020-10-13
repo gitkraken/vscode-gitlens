@@ -149,7 +149,7 @@ export const ImageMimetypes: Record<string, string> = {
 
 export interface BranchComparison {
 	ref: string;
-	notation: '...' | '..' | undefined;
+	notation: '..' | '...' | undefined;
 	type: Exclude<ViewShowBranchComparison, false> | undefined;
 }
 
@@ -166,7 +166,7 @@ export interface PinnedComparison {
 	path: string;
 	ref1: NamedRef;
 	ref2: NamedRef;
-	notation: '...' | '..' | undefined;
+	notation: '..' | '...' | undefined;
 }
 
 export interface PinnedComparisons {

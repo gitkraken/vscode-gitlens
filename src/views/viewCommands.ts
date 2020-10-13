@@ -22,7 +22,6 @@ import {
 	CommitFileNode,
 	CommitNode,
 	CompareBranchNode,
-	CompareResultsNode,
 	ContributorNode,
 	ContributorsNode,
 	FileHistoryNode,
@@ -169,12 +168,6 @@ export class ViewCommands {
 		commands.registerCommand('gitlens.views.selectFileForCompare', this.selectFileForCompare, this);
 		commands.registerCommand('gitlens.views.compareWithWorking', this.compareWithWorking, this);
 
-		commands.registerCommand('gitlens.views.setComparisonToTwoDot', n => this.setComparisonNotation(n, '..'), this);
-		commands.registerCommand(
-			'gitlens.views.setComparisonToThreeDot',
-			n => this.setComparisonNotation(n, '...'),
-			this,
-		);
 		commands.registerCommand(
 			'gitlens.views.setBranchComparisonToWorking',
 			n => this.setBranchComparison(n, ViewShowBranchComparison.Working),
@@ -491,13 +484,6 @@ export class ViewCommands {
 		if (!(node instanceof CompareBranchNode)) return undefined;
 
 		return node.setComparisonType(comparisonType);
-	}
-
-	@debug()
-	private setComparisonNotation(node: ViewNode, comparisonNotation: '...' | '..') {
-		if (!(node instanceof CompareResultsNode)) return Promise.resolve();
-
-		return node.setComparisonNotation(comparisonNotation);
 	}
 
 	@debug()

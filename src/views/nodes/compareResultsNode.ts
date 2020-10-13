@@ -7,7 +7,7 @@ import { GitUri } from '../../git/gitUri';
 import { debug, gate, log, Strings } from '../../system';
 import { CompareView } from '../compareView';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
-import { FilesQueryResults, ResultsFilesNode } from './resultsFilesNode';
+import { FilesQueryResults } from './resultsFilesNode';
 import { ContextValues, ViewNode } from './viewNode';
 import { RepositoryNode } from './repositoryNode';
 import { TreeViewNodeCollapsibleStateChangeEvent } from '../viewBase';
@@ -30,7 +30,6 @@ export class CompareResultsNode extends ViewNode<CompareView> implements Disposa
 		private _ref: NamedRef,
 		private _compareWith: NamedRef,
 		private _pinned: boolean = false,
-		private _comparisonNotation?: '...' | '..',
 	) {
 		super(GitUri.fromRepoPath(repoPath), view);
 		this._instanceId = instanceId++;
@@ -58,22 +57,52 @@ export class CompareResultsNode extends ViewNode<CompareView> implements Disposa
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		if (this._children === undefined) {
-			const [ref1, ref2] = await this.getDiffRefs();
+		if (this._children == null) {
+			const aheadBehind = await Container.git.getAheadBehindCommitCount(this.repoPath, [
+				GitRevision.createRange(this._ref.ref || 'HEAD', this._compareWith.ref || 'HEAD', '...'),
+			]);
 
 			this._children = [
 				new ResultsCommitsNode(
 					this.view,
 					this,
 					this.uri.repoPath!,
-					'commits',
-					this.getCommitsQuery.bind(this),
+					'Behind',
+					this.getCommitsQuery(
+						GitRevision.createRange(this._ref.ref, this._compareWith?.ref ?? 'HEAD', '..'),
+					),
 					{
+						id: 'behind',
+						description: Strings.pluralize('commit', aheadBehind?.behind ?? 0),
 						expand: false,
 						includeRepoName: true,
+						files: {
+							ref1: this._ref.ref,
+							ref2: this._compareWith.ref || 'HEAD',
+							query: this.getBehindFilesQuery.bind(this),
+						},
 					},
 				),
-				new ResultsFilesNode(this.view, this, this.uri.repoPath!, ref1, ref2, this.getFilesQuery.bind(this)),
+				new ResultsCommitsNode(
+					this.view,
+					this,
+					this.uri.repoPath!,
+					'Ahead',
+					this.getCommitsQuery(
+						GitRevision.createRange(this._compareWith?.ref ?? 'HEAD', this._ref.ref, '..'),
+					),
+					{
+						id: 'ahead',
+						description: Strings.pluralize('commit', aheadBehind?.ahead ?? 0),
+						expand: false,
+						includeRepoName: true,
+						files: {
+							ref1: this._compareWith.ref || 'HEAD',
+							ref2: this._ref.ref,
+							query: this.getAheadFilesQuery.bind(this),
+						},
+					},
+				),
 			];
 		}
 		return this._children;
@@ -95,13 +124,7 @@ export class CompareResultsNode extends ViewNode<CompareView> implements Disposa
 			}`,
 			this._collapsibleState ?? TreeItemCollapsibleState.Collapsed,
 		);
-		item.contextValue = `${ContextValues.CompareResults}+${
-			this.comparisonNotation === '..' ? 'twodot' : 'threedot'
-		}`;
-		if (this._pinned) {
-			item.contextValue += '+pinned';
-		}
-
+		item.contextValue = `${ContextValues.CompareResults}${this._pinned ? '+pinned' : ''}`;
 		item.description = description;
 		if (this._pinned) {
 			item.iconPath = {
@@ -117,16 +140,17 @@ export class CompareResultsNode extends ViewNode<CompareView> implements Disposa
 		return !this._pinned;
 	}
 
+	// eslint-disable-next-line @typescript-eslint/require-await
 	@gate()
 	@debug()
 	async getDiffRefs(): Promise<[string, string]> {
-		if (this.comparisonNotation === '..') {
-			return [
-				(await Container.git.getMergeBase(this.repoPath, this._compareWith.ref, this._ref.ref)) ??
-					this._compareWith.ref,
-				this._ref.ref,
-			];
-		}
+		// if (this.comparisonNotation === '..') {
+		// 	return [
+		// 		(await Container.git.getMergeBase(this.repoPath, this._compareWith.ref, this._ref.ref)) ??
+		// 			this._compareWith.ref,
+		// 		this._ref.ref,
+		// 	];
+		// }
 
 		return [this._compareWith.ref, this._ref.ref];
 	}
@@ -139,7 +163,7 @@ export class CompareResultsNode extends ViewNode<CompareView> implements Disposa
 			path: this.repoPath,
 			ref1: this._ref,
 			ref2: this._compareWith,
-			notation: this._comparisonNotation,
+			notation: undefined,
 		});
 
 		this._pinned = true;
@@ -152,23 +176,6 @@ export class CompareResultsNode extends ViewNode<CompareView> implements Disposa
 		if (!reset) return;
 
 		this._children = undefined;
-	}
-
-	@log()
-	async setComparisonNotation(comparisonNotation: '...' | '..') {
-		this._comparisonNotation = comparisonNotation;
-
-		if (this._pinned) {
-			await this.view.updatePinnedComparison(this.getPinnableId(), {
-				path: this.repoPath,
-				ref1: this._ref,
-				ref2: this._compareWith,
-				notation: this._comparisonNotation,
-			});
-		}
-
-		this._children = undefined;
-		this.view.triggerNodeChange(this);
 	}
 
 	@log()
@@ -187,7 +194,7 @@ export class CompareResultsNode extends ViewNode<CompareView> implements Disposa
 				path: this.repoPath,
 				ref1: this._ref,
 				ref2: this._compareWith,
-				notation: this._comparisonNotation,
+				notation: undefined,
 			});
 		}
 
@@ -205,63 +212,86 @@ export class CompareResultsNode extends ViewNode<CompareView> implements Disposa
 		void this.triggerChange();
 	}
 
-	private get comparisonNotation() {
-		return this._comparisonNotation ?? (Container.config.advanced.useSymmetricDifferenceNotation ? '...' : '..');
-	}
+	private async getAheadFilesQuery(): Promise<FilesQueryResults> {
+		let files = await Container.git.getDiffStatus(
+			this.repoPath,
+			GitRevision.createRange(this._compareWith?.ref || 'HEAD', this._ref.ref || 'HEAD', '...'),
+		);
 
-	private get diffComparisonNotation() {
-		// In git diff the range syntax doesn't mean the same thing as with git log -- since git diff is about comparing endpoints not ranges
-		// see https://git-scm.com/docs/git-diff#Documentation/git-diff.txt-emgitdiffemltoptionsgtltcommitgtltcommitgt--ltpathgt82308203
-		// So inverting the range syntax should be about equivalent for the behavior we want
-		return this.comparisonNotation === '...' ? '..' : '...';
-	}
-
-	private async getCommitsQuery(limit: number | undefined): Promise<CommitsQueryResults> {
-		const log = await Container.git.getLog(this.uri.repoPath!, {
-			limit: limit,
-			ref: `${this._compareWith.ref || 'HEAD'}${this.comparisonNotation}${this._ref.ref || 'HEAD'}`,
-		});
-
-		const count = log?.count ?? 0;
-		const results: Mutable<Partial<CommitsQueryResults>> = {
-			label: Strings.pluralize('commit', count, {
-				number: log?.hasMore ?? false ? `${count}+` : undefined,
-				zero: 'No',
-			}),
-			log: log,
-			hasMore: log?.hasMore ?? true,
-		};
-		if (results.hasMore) {
-			results.more = async (limit: number | undefined) => {
-				results.log = (await results.log?.more?.(limit)) ?? results.log;
-
-				const count = results.log?.count ?? 0;
-				results.label = Strings.pluralize('commit', count, {
-					number: results.log?.hasMore ?? false ? `${count}+` : undefined,
-					zero: 'No',
-				});
-				results.hasMore = results.log?.hasMore ?? true;
-			};
+		if (this._ref.ref === '') {
+			const workingFiles = await Container.git.getDiffStatus(this.repoPath, 'HEAD');
+			if (workingFiles != null) {
+				if (files != null) {
+					for (const wf of workingFiles) {
+						const index = files.findIndex(f => f.fileName === wf.fileName);
+						if (index !== -1) {
+							files.splice(index, 1, wf);
+						} else {
+							files.push(wf);
+						}
+					}
+				} else {
+					files = workingFiles;
+				}
+			}
 		}
-
-		return results as CommitsQueryResults;
-	}
-
-	private async getFilesQuery(): Promise<FilesQueryResults> {
-		let comparison;
-		if (this._compareWith.ref === '') {
-			comparison = this._ref.ref;
-		} else if (this._ref.ref === '') {
-			comparison = this._compareWith.ref;
-		} else {
-			comparison = `${this._compareWith.ref}${this.diffComparisonNotation}${this._ref.ref}`;
-		}
-
-		const files = await Container.git.getDiffStatus(this.uri.repoPath!, comparison);
 
 		return {
-			label: `${Strings.pluralize('file', files !== undefined ? files.length : 0, { zero: 'No' })} changed`,
+			label: `${Strings.pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,
 			files: files,
+		};
+	}
+
+	private async getBehindFilesQuery(): Promise<FilesQueryResults> {
+		let files = await Container.git.getDiffStatus(
+			this.repoPath,
+			GitRevision.createRange(this._ref.ref || 'HEAD', this._compareWith.ref || 'HEAD', '...'),
+		);
+
+		if (this._compareWith.ref === '') {
+			const workingFiles = await Container.git.getDiffStatus(this.repoPath, 'HEAD');
+			if (workingFiles != null) {
+				if (files != null) {
+					for (const wf of workingFiles) {
+						const index = files.findIndex(f => f.fileName === wf.fileName);
+						if (index !== -1) {
+							files.splice(index, 1, wf);
+						} else {
+							files.push(wf);
+						}
+					}
+				} else {
+					files = workingFiles;
+				}
+			}
+		}
+
+		return {
+			label: `${Strings.pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,
+			files: files,
+		};
+	}
+
+	private getCommitsQuery(range: string): (limit: number | undefined) => Promise<CommitsQueryResults> {
+		const repoPath = this.repoPath;
+		return async (limit: number | undefined) => {
+			const log = await Container.git.getLog(repoPath, {
+				limit: limit,
+				ref: range,
+			});
+
+			const results: Mutable<Partial<CommitsQueryResults>> = {
+				log: log,
+				hasMore: log?.hasMore ?? true,
+			};
+			if (results.hasMore) {
+				results.more = async (limit: number | undefined) => {
+					results.log = (await results.log?.more?.(limit)) ?? results.log;
+					results.hasMore = results.log?.hasMore ?? true;
+				};
+			}
+
+			return results as CommitsQueryResults;
 		};
 	}
 

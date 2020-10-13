@@ -121,7 +121,7 @@ export class CompareView extends ViewBase<CompareNode, CompareViewConfig> {
 		const pinned = Container.context.workspaceState.get<PinnedComparisons>(WorkspaceState.PinnedComparisons);
 		if (pinned == null) return [];
 
-		return Object.values(pinned).map(p => new CompareResultsNode(this, p.path, p.ref1, p.ref2, true, p.notation));
+		return Object.values(pinned).map(p => new CompareResultsNode(this, p.path, p.ref1, p.ref2, true));
 	}
 
 	async updatePinnedComparison(id: string, pin?: PinnedComparison) {

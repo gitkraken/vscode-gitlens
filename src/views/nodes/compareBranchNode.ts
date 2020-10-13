@@ -55,7 +55,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 
 		if (this._children == null) {
 			const aheadBehind = await Container.git.getAheadBehindCommitCount(this.branch.repoPath, [
-				GitRevision.createRange(this.branch.ref || 'HEAD', this._compareWith.ref || 'HEAD', '...'),
+				GitRevision.createRange(this.branch.ref, this._compareWith.ref || 'HEAD', '...'),
 			]);
 
 			this._children = [
@@ -63,9 +63,9 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 					this.view,
 					this,
 					this.uri.repoPath!,
-					'Behind', //`Behind (${aheadBehind?.behind})`,
+					'Behind',
 					this.getCommitsQuery(
-						GitRevision.createRange(this.branch.ref, this._compareWith?.ref ?? 'HEAD', '..'),
+						GitRevision.createRange(this.branch.ref, this._compareWith.ref || 'HEAD', '..'),
 					),
 					{
 						id: 'behind',
@@ -83,10 +83,10 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 					this.view,
 					this,
 					this.uri.repoPath!,
-					'Ahead', //`Ahead (${aheadBehind?.ahead})`,
+					'Ahead',
 					this.getCommitsQuery(
 						GitRevision.createRange(
-							this._compareWith?.ref ?? 'HEAD',
+							this._compareWith.ref || 'HEAD',
 							this.compareWithWorkingTree ? '' : this.branch.ref,
 							'..',
 						),
@@ -209,45 +209,11 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 		this.view.triggerNodeChange(this);
 	}
 
-	private getCommitsQuery(range: string): (limit: number | undefined) => Promise<CommitsQueryResults> {
-		const repoPath = this.uri.repoPath!;
-		return async (limit: number | undefined) => {
-			const log = await Container.git.getLog(repoPath, {
-				limit: limit,
-				ref: range,
-			});
-
-			const results: Mutable<Partial<CommitsQueryResults>> = {
-				log: log,
-				hasMore: log?.hasMore ?? true,
-			};
-			if (results.hasMore) {
-				results.more = async (limit: number | undefined) => {
-					results.log = (await results.log?.more?.(limit)) ?? results.log;
-					results.hasMore = results.log?.hasMore ?? true;
-				};
-			}
-
-			return results as CommitsQueryResults;
-		};
-	}
-
-	private async getBehindFilesQuery(): Promise<FilesQueryResults> {
-		const diff = await Container.git.getDiffStatus(
-			this.uri.repoPath!,
-			GitRevision.createRange(this.branch.ref, this._compareWith?.ref ?? 'HEAD', '...'),
-		);
-
-		return {
-			label: `${Strings.pluralize('file', diff !== undefined ? diff.length : 0, { zero: 'No' })} changed`,
-			files: diff,
-		};
-	}
-
 	private async getAheadFilesQuery(): Promise<FilesQueryResults> {
 		let files = await Container.git.getDiffStatus(
 			this.uri.repoPath!,
-			GitRevision.createRange(this._compareWith?.ref ?? 'HEAD', this.branch.ref, '...'),
+			// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+			GitRevision.createRange(this._compareWith?.ref || 'HEAD', this.branch.ref, '...'),
 		);
 
 		if (this.compareWithWorkingTree) {
@@ -271,6 +237,42 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 		return {
 			label: `${Strings.pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,
 			files: files,
+		};
+	}
+
+	private async getBehindFilesQuery(): Promise<FilesQueryResults> {
+		const files = await Container.git.getDiffStatus(
+			this.uri.repoPath!,
+			// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+			GitRevision.createRange(this.branch.ref, this._compareWith?.ref || 'HEAD', '...'),
+		);
+
+		return {
+			label: `${Strings.pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,
+			files: files,
+		};
+	}
+
+	private getCommitsQuery(range: string): (limit: number | undefined) => Promise<CommitsQueryResults> {
+		const repoPath = this.uri.repoPath!;
+		return async (limit: number | undefined) => {
+			const log = await Container.git.getLog(repoPath, {
+				limit: limit,
+				ref: range,
+			});
+
+			const results: Mutable<Partial<CommitsQueryResults>> = {
+				log: log,
+				hasMore: log?.hasMore ?? true,
+			};
+			if (results.hasMore) {
+				results.more = async (limit: number | undefined) => {
+					results.log = (await results.log?.more?.(limit)) ?? results.log;
+					results.hasMore = results.log?.hasMore ?? true;
+				};
+			}
+
+			return results as CommitsQueryResults;
 		};
 	}
 
