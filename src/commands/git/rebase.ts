@@ -194,10 +194,10 @@ export class RebaseGitCommand extends QuickCommand<State> {
 	}
 
 	private async *confirmStep(state: RebaseStepState, context: Context): StepResultGenerator<Flags[]> {
-		const count =
-			(await Container.git.getCommitCount(state.repo.path, [
-				GitRevision.createRange(state.reference.ref, context.destination.ref),
-			])) ?? 0;
+		const aheadBehind = await Container.git.getAheadBehindCommitCount(state.repo.path, [
+			GitRevision.createRange(context.destination.name, state.reference.name),
+		]);
+		const count = aheadBehind != null ? aheadBehind.ahead + aheadBehind.behind : 0;
 		if (count === 0) {
 			const step: QuickPickStep<DirectiveQuickPickItem> = this.createConfirmStep(
 				appendReposToTitle(`Confirm ${context.title}`, state, context),

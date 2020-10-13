@@ -12,7 +12,7 @@ import { ContextValues, ViewNode } from './viewNode';
 
 export interface FilesQueryResults {
 	label: string;
-	diff: GitFile[] | undefined;
+	files: GitFile[] | undefined;
 }
 
 export class ResultsFilesNode extends ViewNode<ViewsWithFiles> {
@@ -23,8 +23,13 @@ export class ResultsFilesNode extends ViewNode<ViewsWithFiles> {
 		public readonly ref1: string,
 		public readonly ref2: string,
 		private readonly _filesQuery: () => Promise<FilesQueryResults>,
+		private readonly _options: {
+			expand?: boolean;
+		} = {},
 	) {
 		super(GitUri.fromRepoPath(repoPath), view, parent);
+
+		this._options = { expand: true, ..._options };
 	}
 
 	get id(): string {
@@ -32,11 +37,11 @@ export class ResultsFilesNode extends ViewNode<ViewsWithFiles> {
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		const { diff } = await this.getFilesQueryResults();
-		if (diff === undefined) return [];
+		const { files } = await this.getFilesQueryResults();
+		if (files == null) return [];
 
 		let children: FileNode[] = [
-			...Iterables.map(diff, s => new ResultsFileNode(this.view, this, this.repoPath, s, this.ref1, this.ref2)),
+			...Iterables.map(files, s => new ResultsFileNode(this.view, this, this.repoPath, s, this.ref1, this.ref2)),
 		];
 
 		if (this.view.config.files.layout !== ViewFilesLayout.List) {
@@ -62,13 +67,17 @@ export class ResultsFilesNode extends ViewNode<ViewsWithFiles> {
 
 	async getTreeItem(): Promise<TreeItem> {
 		let label;
-		let diff;
+		let files;
 		let state;
 
 		try {
-			({ label, diff } = await Promises.cancellable(this.getFilesQueryResults(), 100));
+			({ label, files } = await Promises.cancellable(this.getFilesQueryResults(), 100));
 			state =
-				diff == null || diff.length === 0 ? TreeItemCollapsibleState.None : TreeItemCollapsibleState.Expanded;
+				files == null || files.length === 0
+					? TreeItemCollapsibleState.None
+					: this._options.expand
+					? TreeItemCollapsibleState.Expanded
+					: TreeItemCollapsibleState.Collapsed;
 		} catch (ex) {
 			if (ex instanceof Promises.CancellationError) {
 				ex.promise.then(() => this.triggerChange(false));

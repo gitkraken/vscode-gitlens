@@ -3604,18 +3604,15 @@
 			},
 			{
 				"command": "gitlens.views.setBranchComparisonToWorking",
-				"title": "Toggle Comparison Source (Working Tree)",
+				"title": "Toggle Source (Branch)",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-compare-ref-working.svg",
-					"light": "images/light/icon-compare-ref-working.svg"
-				}
+				"icon": "$(git-branch)"
 			},
 			{
 				"command": "gitlens.views.setBranchComparisonToBranch",
-				"title": "Toggle Comparison Source (Branch)",
+				"title": "Toggle Source (Working Tree)",
 				"category": "GitLens",
-				"icon": "$(compare-changes)"
+				"icon": "$(list-tree)"
 			},
 			{
 				"command": "gitlens.views.clearNode",

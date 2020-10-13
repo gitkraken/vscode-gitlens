@@ -70,7 +70,7 @@ export class CompareResultsNode extends ViewNode<CompareView> implements Disposa
 					this.getCommitsQuery.bind(this),
 					{
 						expand: false,
-						includeDescription: true,
+						includeRepoName: true,
 					},
 				),
 				new ResultsFilesNode(this.view, this, this.uri.repoPath!, ref1, ref2, this.getFilesQuery.bind(this)),
@@ -257,11 +257,11 @@ export class CompareResultsNode extends ViewNode<CompareView> implements Disposa
 			comparison = `${this._compareWith.ref}${this.diffComparisonNotation}${this._ref.ref}`;
 		}
 
-		const diff = await Container.git.getDiffStatus(this.uri.repoPath!, comparison);
+		const files = await Container.git.getDiffStatus(this.uri.repoPath!, comparison);
 
 		return {
-			label: `${Strings.pluralize('file', diff !== undefined ? diff.length : 0, { zero: 'No' })} changed`,
-			diff: diff,
+			label: `${Strings.pluralize('file', files !== undefined ? files.length : 0, { zero: 'No' })} changed`,
+			files: files,
 		};
 	}
 

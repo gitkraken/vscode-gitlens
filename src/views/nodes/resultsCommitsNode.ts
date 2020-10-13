@@ -2,10 +2,12 @@
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode } from './common';
+import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitLog } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { insertDateMarkers } from './helpers';
+import { FilesQueryResults, ResultsFilesNode } from './resultsFilesNode';
 import { debug, gate, Iterables, Promises } from '../../system';
 import { ViewsWithFiles } from '../viewBase';
 import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
@@ -24,15 +26,25 @@ export class ResultsCommitsNode extends ViewNode<ViewsWithFiles> implements Page
 		public readonly repoPath: string,
 		private _label: string,
 		private readonly _commitsQuery: (limit: number | undefined) => Promise<CommitsQueryResults>,
-		private readonly _options: { expand?: boolean; includeDescription?: boolean } = {},
+		private readonly _options: {
+			id?: string;
+			description?: string;
+			expand?: boolean;
+			includeRepoName?: boolean;
+			files?: {
+				ref1: string;
+				ref2: string;
+				query: () => Promise<FilesQueryResults>;
+			};
+		} = {},
 	) {
 		super(GitUri.fromRepoPath(repoPath), view, parent);
 
-		this._options = { expand: true, includeDescription: true, ..._options };
+		this._options = { expand: true, includeRepoName: true, ..._options };
 	}
 
 	get id(): string {
-		return `${this.parent!.id}:results:commits`;
+		return `${this.parent!.id}:results:commits${this._options.id ? `:${this._options.id}` : ''}`;
 	}
 
 	get type(): ContextValues {
@@ -41,12 +53,23 @@ export class ResultsCommitsNode extends ViewNode<ViewsWithFiles> implements Page
 
 	async getChildren(): Promise<ViewNode[]> {
 		const { log } = await this.getCommitsQueryResults();
-		if (log === undefined) return [];
+		if (log == null) return [];
 
 		const options = { expand: this._options.expand && log.count === 1 };
 
 		const getBranchAndTagTips = await Container.git.getBranchesAndTagsTipsFn(this.uri.repoPath);
-		const children = [
+		const children = [];
+
+		const { files } = this._options;
+		if (files != null) {
+			children.push(
+				new ResultsFilesNode(this.view, this, this.uri.repoPath!, files.ref1, files.ref2, files.query, {
+					expand: false,
+				}),
+			);
+		}
+
+		children.push(
 			...insertDateMarkers(
 				Iterables.map(
 					log.commits.values(),
@@ -56,7 +79,7 @@ export class ResultsCommitsNode extends ViewNode<ViewsWithFiles> implements Page
 				undefined,
 				{ show: log.count > 1 },
 			),
-		];
+		);
 
 		if (log.hasMore) {
 			children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
@@ -88,10 +111,12 @@ export class ResultsCommitsNode extends ViewNode<ViewsWithFiles> implements Page
 			state = TreeItemCollapsibleState.Collapsed;
 		}
 
-		let description;
-		if (this._options.includeDescription && (await Container.git.getRepositoryCount()) > 1) {
+		let description = this._options.description;
+		if (this._options.includeRepoName && (await Container.git.getRepositoryCount()) > 1) {
 			const repo = await Container.git.getRepository(this.repoPath);
-			description = repo?.formattedName ?? this.repoPath;
+			description = `${description ? `${description} ${GlyphChars.Dot} ` : ''}${
+				repo?.formattedName ?? this.repoPath
+			}`;
 		}
 
 		const item = new TreeItem(label ?? this._label, state);
@@ -113,7 +138,7 @@ export class ResultsCommitsNode extends ViewNode<ViewsWithFiles> implements Page
 
 	private _commitsQueryResults: Promise<CommitsQueryResults> | undefined;
 	private async getCommitsQueryResults() {
-		if (this._commitsQueryResults === undefined) {
+		if (this._commitsQueryResults == null) {
 			this._commitsQueryResults = this._commitsQuery(this.limit ?? Container.config.advanced.maxSearchItems);
 			const results = await this._commitsQueryResults;
 			this._hasMore = results.hasMore;
@@ -130,11 +155,12 @@ export class ResultsCommitsNode extends ViewNode<ViewsWithFiles> implements Page
 	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
 	async loadMore(limit?: number) {
 		const results = await this.getCommitsQueryResults();
-		if (results === undefined || !results.hasMore) return;
+		if (results == null || !results.hasMore) return;
 
 		await results.more?.(limit ?? this.view.config.pageItemLimit);
 
 		this.limit = results.log?.count;
+
 		void this.triggerChange(false);
 	}
 }

@@ -1260,8 +1260,11 @@ export class GitService implements Disposable {
 	}
 
 	@log()
-	getCommitCount(repoPath: string, refs: string[]) {
-		return Git.rev_list(repoPath, refs, { count: true });
+	getAheadBehindCommitCount(
+		repoPath: string,
+		refs: string[],
+	): Promise<{ ahead: number; behind: number } | undefined> {
+		return Git.rev_list(repoPath, refs);
 	}
 
 	@log()

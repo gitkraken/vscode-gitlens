@@ -11,7 +11,7 @@ import { CommandQuickPickItem, ReferencePicker } from '../../quickpicks';
 import { RepositoriesView } from '../repositoriesView';
 import { RepositoryNode } from './repositoryNode';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
-import { FilesQueryResults, ResultsFilesNode } from './resultsFilesNode';
+import { FilesQueryResults } from './resultsFilesNode';
 import { debug, gate, log, Strings } from '../../system';
 import { ContextValues, ViewNode } from './viewNode';
 
@@ -37,7 +37,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 		if (compareWith !== undefined && typeof compareWith === 'string') {
 			this._compareWith = {
 				ref: compareWith,
-				notation: Container.config.advanced.useSymmetricDifferenceNotation ? '...' : '..',
+				notation: undefined,
 				// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 				type: this.view.config.showBranchComparison || ViewShowBranchComparison.Working,
 			};
@@ -51,33 +51,57 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
-		if (this._compareWith === undefined) return [];
+		if (this._compareWith == null) return [];
 
-		if (this._children === undefined) {
-			let ref1 = this._compareWith.ref || 'HEAD';
-			if (this.comparisonNotation === '..') {
-				ref1 = (await Container.git.getMergeBase(this.branch.repoPath, ref1, this.branch.ref)) ?? ref1;
-			}
+		if (this._children == null) {
+			const aheadBehind = await Container.git.getAheadBehindCommitCount(this.branch.repoPath, [
+				GitRevision.createRange(this.branch.ref || 'HEAD', this._compareWith.ref || 'HEAD', '...'),
+			]);
 
 			this._children = [
 				new ResultsCommitsNode(
 					this.view,
 					this,
 					this.uri.repoPath!,
-					'commits',
-					this.getCommitsQuery.bind(this),
+					'Behind', //`Behind (${aheadBehind?.behind})`,
+					this.getCommitsQuery(
+						GitRevision.createRange(this.branch.ref, this._compareWith?.ref ?? 'HEAD', '..'),
+					),
 					{
+						id: 'behind',
+						description: Strings.pluralize('commit', aheadBehind?.behind ?? 0),
 						expand: false,
-						includeDescription: false,
+						includeRepoName: true,
+						files: {
+							ref1: this.branch.ref,
+							ref2: this._compareWith.ref || 'HEAD',
+							query: this.getBehindFilesQuery.bind(this),
+						},
 					},
 				),
-				new ResultsFilesNode(
+				new ResultsCommitsNode(
 					this.view,
 					this,
 					this.uri.repoPath!,
-					ref1,
-					this.compareWithWorkingTree ? '' : this.branch.ref,
-					this.getFilesQuery.bind(this),
+					'Ahead', //`Ahead (${aheadBehind?.ahead})`,
+					this.getCommitsQuery(
+						GitRevision.createRange(
+							this._compareWith?.ref ?? 'HEAD',
+							this.compareWithWorkingTree ? '' : this.branch.ref,
+							'..',
+						),
+					),
+					{
+						id: 'ahead',
+						description: Strings.pluralize('commit', aheadBehind?.ahead ?? 0),
+						expand: false,
+						includeRepoName: true,
+						files: {
+							ref1: this._compareWith.ref || 'HEAD',
+							ref2: this.compareWithWorkingTree ? '' : this.branch.ref,
+							query: this.getAheadFilesQuery.bind(this),
+						},
+					},
 				),
 			];
 		}
@@ -109,18 +133,11 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 			command: 'gitlens.views.executeNodeCallback',
 			arguments: [() => this.compareWith()],
 		};
-		item.contextValue = `${ContextValues.CompareBranch}${this.branch.current ? '+current' : ''}${
-			this._compareWith === undefined ? '' : '+comparing'
-		}+${this.comparisonNotation === '..' ? 'twodot' : 'threedot'}+${this.comparisonType}`;
+		item.contextValue = `${ContextValues.CompareBranch}${this.branch.current ? '+current' : ''}+${
+			this.comparisonType
+		}${this._compareWith == null ? '' : '+comparing'}`;
 		item.description = description;
-		if (this.compareWithWorkingTree) {
-			item.iconPath = {
-				dark: Container.context.asAbsolutePath('images/dark/icon-compare-ref-working.svg'),
-				light: Container.context.asAbsolutePath('images/light/icon-compare-ref-working.svg'),
-			};
-		} else {
-			item.iconPath = new ThemeIcon('git-compare');
-		}
+		item.iconPath = new ThemeIcon('git-compare');
 		item.id = this.id;
 		item.tooltip = `Click to compare ${this.branch.name}${this.compareWithWorkingTree ? ' (working)' : ''} with${
 			GlyphChars.Ellipsis
@@ -140,14 +157,10 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 		this.view.triggerNodeChange(this);
 	}
 
-	@log()
-	async setComparisonNotation(comparisonNotation: '...' | '..') {
-		if (this._compareWith !== undefined) {
-			await this.updateCompareWith({ ...this._compareWith, notation: comparisonNotation });
-		}
-
+	@gate()
+	@debug()
+	refresh() {
 		this._children = undefined;
-		this.view.triggerNodeChange(this);
 	}
 
 	@log()
@@ -158,17 +171,6 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 
 		this._children = undefined;
 		this.view.triggerNodeChange(this);
-	}
-
-	private get comparisonNotation(): '..' | '...' {
-		return this._compareWith?.notation ?? (Container.config.advanced.useSymmetricDifferenceNotation ? '...' : '..');
-	}
-
-	private get diffComparisonNotation(): '..' | '...' {
-		// In git diff the range syntax doesn't mean the same thing as with git log -- since git diff is about comparing endpoints not ranges
-		// see https://git-scm.com/docs/git-diff#Documentation/git-diff.txt-emgitdiffemltoptionsgtltcommitgtltcommitgt--ltpathgt82308203
-		// So inverting the range syntax should be about equivalent for the behavior we want
-		return this.comparisonNotation === '...' ? '..' : '...';
 	}
 
 	private get comparisonType() {
@@ -199,7 +201,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 
 		await this.updateCompareWith({
 			ref: pick.ref,
-			notation: this.comparisonNotation,
+			notation: undefined,
 			type: this.comparisonType,
 		});
 
@@ -207,60 +209,68 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 		this.view.triggerNodeChange(this);
 	}
 
-	private async getCommitsQuery(limit: number | undefined): Promise<CommitsQueryResults> {
-		const log = await Container.git.getLog(this.uri.repoPath!, {
-			limit: limit,
-			ref: GitRevision.createRange(
-				this._compareWith?.ref ?? 'HEAD',
-				this.compareWithWorkingTree ? '' : this.branch.ref,
-				this.comparisonNotation,
-			),
-		});
+	private getCommitsQuery(range: string): (limit: number | undefined) => Promise<CommitsQueryResults> {
+		const repoPath = this.uri.repoPath!;
+		return async (limit: number | undefined) => {
+			const log = await Container.git.getLog(repoPath, {
+				limit: limit,
+				ref: range,
+			});
 
-		const count = log?.count ?? 0;
-		const results: Mutable<Partial<CommitsQueryResults>> = {
-			label: Strings.pluralize('commit', count, {
-				number: log?.hasMore ?? false ? `${count}+` : undefined,
-				zero: 'No',
-			}),
-			log: log,
-			hasMore: log?.hasMore ?? true,
-		};
-		if (results.hasMore) {
-			results.more = async (limit: number | undefined) => {
-				results.log = (await results.log?.more?.(limit)) ?? results.log;
-
-				const count = results.log?.count ?? 0;
-				results.label = Strings.pluralize('commit', count, {
-					number: results.log?.hasMore ?? false ? `${count}+` : undefined,
-					zero: 'No',
-				});
-				results.hasMore = results.log?.hasMore ?? true;
+			const results: Mutable<Partial<CommitsQueryResults>> = {
+				log: log,
+				hasMore: log?.hasMore ?? true,
 			};
-		}
+			if (results.hasMore) {
+				results.more = async (limit: number | undefined) => {
+					results.log = (await results.log?.more?.(limit)) ?? results.log;
+					results.hasMore = results.log?.hasMore ?? true;
+				};
+			}
 
-		return results as CommitsQueryResults;
+			return results as CommitsQueryResults;
+		};
 	}
 
-	@gate()
-	@debug()
-	refresh() {
-		this._children = undefined;
-	}
-
-	private async getFilesQuery(): Promise<FilesQueryResults> {
+	private async getBehindFilesQuery(): Promise<FilesQueryResults> {
 		const diff = await Container.git.getDiffStatus(
 			this.uri.repoPath!,
-			GitRevision.createRange(
-				this._compareWith?.ref ?? 'HEAD',
-				this.compareWithWorkingTree ? '' : this.branch.ref,
-				this.diffComparisonNotation,
-			),
+			GitRevision.createRange(this.branch.ref, this._compareWith?.ref ?? 'HEAD', '...'),
 		);
 
 		return {
 			label: `${Strings.pluralize('file', diff !== undefined ? diff.length : 0, { zero: 'No' })} changed`,
-			diff: diff,
+			files: diff,
+		};
+	}
+
+	private async getAheadFilesQuery(): Promise<FilesQueryResults> {
+		let files = await Container.git.getDiffStatus(
+			this.uri.repoPath!,
+			GitRevision.createRange(this._compareWith?.ref ?? 'HEAD', this.branch.ref, '...'),
+		);
+
+		if (this.compareWithWorkingTree) {
+			const workingFiles = await Container.git.getDiffStatus(this.uri.repoPath!, 'HEAD');
+			if (workingFiles != null) {
+				if (files != null) {
+					for (const wf of workingFiles) {
+						const index = files.findIndex(f => f.fileName === wf.fileName);
+						if (index !== -1) {
+							files.splice(index, 1, wf);
+						} else {
+							files.push(wf);
+						}
+					}
+				} else {
+					files = workingFiles;
+				}
+			}
+		}
+
+		return {
+			label: `${Strings.pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,
+			files: files,
 		};
 	}
 
@@ -272,10 +282,12 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 			comparisons = Object.create(null) as BranchComparisons;
 		}
 
+		const id = `${this.branch.id}${this.branch.current ? '+current' : ''}`;
+
 		if (compareWith != null) {
-			comparisons[this.branch.id] = { ...compareWith };
+			comparisons[id] = { ...compareWith };
 		} else {
-			const { [this.branch.id]: _, ...rest } = comparisons;
+			const { [id]: _, ...rest } = comparisons;
 			comparisons = rest;
 		}
 		await Container.context.workspaceState.update(WorkspaceState.BranchComparisons, comparisons);

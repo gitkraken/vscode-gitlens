@@ -193,10 +193,10 @@ export class MergeGitCommand extends QuickCommand<State> {
 	}
 
 	private async *confirmStep(state: MergeStepState, context: Context): StepResultGenerator<Flags[]> {
-		const count =
-			(await Container.git.getCommitCount(state.repo.path, [
-				GitRevision.createRange(context.destination.name, state.reference.name),
-			])) ?? 0;
+		const aheadBehind = await Container.git.getAheadBehindCommitCount(state.repo.path, [
+			GitRevision.createRange(context.destination.name, state.reference.name),
+		]);
+		const count = aheadBehind != null ? aheadBehind.ahead + aheadBehind.behind : 0;
 		if (count === 0) {
 			const step: QuickPickStep<DirectiveQuickPickItem> = this.createConfirmStep(
 				appendReposToTitle(`Confirm ${context.title}`, state, context),

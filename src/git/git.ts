@@ -1017,16 +1017,29 @@ export namespace Git {
 	export async function rev_list(
 		repoPath: string,
 		refs: string[],
-		options: { count?: boolean } = {},
-	): Promise<number | undefined> {
-		const params = [];
-		if (options.count) {
-			params.push('--count');
-		}
-		params.push(...refs);
+	): Promise<{ ahead: number; behind: number } | undefined> {
+		const data = await git<string>(
+			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
+			'rev-list',
+			'--left-right',
+			'--count',
+			...refs,
+			'--',
+		);
+		if (data.length === 0) return undefined;
 
-		const data = await git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, 'rev-list', ...params, '--');
-		return data.length === 0 ? undefined : Number(data.trim()) || undefined;
+		const parts = data.split('\t');
+		if (parts.length !== 2) return undefined;
+
+		const [ahead, behind] = parts;
+		const result = {
+			ahead: parseInt(ahead, 10),
+			behind: parseInt(behind, 10),
+		};
+
+		if (isNaN(result.ahead) || isNaN(result.behind)) return undefined;
+
+		return result;
 	}
 
 	export async function rev_parse__currentBranch(

@@ -29,7 +29,7 @@ export class SearchResultsCommitsNode extends ResultsCommitsNode {
 	) {
 		super(view, parent, repoPath, label, commitsQuery, {
 			expand: true,
-			includeDescription: true,
+			includeRepoName: true,
 		});
 
 		this._instanceId = instanceId++;

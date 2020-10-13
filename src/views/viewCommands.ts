@@ -484,7 +484,7 @@ export class ViewCommands {
 
 	@debug()
 	private setComparisonNotation(node: ViewNode, comparisonNotation: '...' | '..') {
-		if (!(node instanceof CompareResultsNode) && !(node instanceof CompareBranchNode)) return Promise.resolve();
+		if (!(node instanceof CompareResultsNode)) return Promise.resolve();
 
 		return node.setComparisonNotation(comparisonNotation);
 	}
@@ -674,7 +674,7 @@ export class ViewCommands {
 		}
 
 		if (node instanceof ResultsFilesNode) {
-			const { diff } = await node.getFilesQueryResults();
+			const { files: diff } = await node.getFilesQueryResults();
 			if (diff == null || diff.length === 0) return undefined;
 
 			return GitActions.Commit.openAllChanges(
@@ -732,7 +732,7 @@ export class ViewCommands {
 		}
 
 		if (node instanceof ResultsFilesNode) {
-			const { diff } = await node.getFilesQueryResults();
+			const { files: diff } = await node.getFilesQueryResults();
 			if (diff == null || diff.length === 0) return undefined;
 
 			return GitActions.Commit.openAllChangesWithWorking(
@@ -828,7 +828,7 @@ export class ViewCommands {
 		}
 
 		if (node instanceof ResultsFilesNode) {
-			const { diff } = await node.getFilesQueryResults();
+			const { files: diff } = await node.getFilesQueryResults();
 			if (diff == null || diff.length === 0) return undefined;
 
 			return GitActions.Commit.openFiles(diff, node.repoPath, node.ref1 || node.ref2);
@@ -882,7 +882,7 @@ export class ViewCommands {
 		}
 
 		if (node instanceof ResultsFilesNode) {
-			const { diff } = await node.getFilesQueryResults();
+			const { files: diff } = await node.getFilesQueryResults();
 			if (diff == null || diff.length === 0) return undefined;
 
 			return GitActions.Commit.openFilesAtRevision(diff, node.repoPath, node.ref1, node.ref2);
