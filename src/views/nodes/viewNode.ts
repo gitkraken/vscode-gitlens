@@ -23,6 +23,7 @@ export enum ContextValues {
 	CompareResults = 'gitlens:compare:results',
 	Contributor = 'gitlens:contributor',
 	Contributors = 'gitlens:contributors',
+	DateMarker = 'gitlens:date-marker',
 	File = 'gitlens:file',
 	FileHistory = 'gitlens:history:file',
 	Folder = 'gitlens:folder',

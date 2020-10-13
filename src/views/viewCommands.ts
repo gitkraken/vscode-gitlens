@@ -11,7 +11,7 @@ import {
 	OpenFileAtRevisionCommandArgs,
 	OpenFileOnRemoteCommandArgs,
 } from '../commands';
-import { FileAnnotationType, ViewShowBranchComparison } from '../config';
+import { configuration, FileAnnotationType, ViewShowBranchComparison } from '../configuration';
 import { BuiltInCommands, CommandContext, setCommandContext } from '../constants';
 import { Container } from '../container';
 import { GitReference, GitRevision } from '../git/git';
@@ -98,6 +98,17 @@ export class ViewCommands {
 		commands.registerCommand('gitlens.views.executeNodeCallback', (fn: <R>() => Promise<R>) => fn(), this);
 		commands.registerCommand('gitlens.views.loadMoreChildren', (node: PagerNode) => node.loadMore(), this);
 		commands.registerCommand('gitlens.views.loadAllChildren', (node: PagerNode) => node.loadAll(), this);
+
+		commands.registerCommand(
+			'gitlens.views.setShowRelativeDateMarkersOn',
+			() => this.setShowRelativeDateMarkers(true),
+			this,
+		);
+		commands.registerCommand(
+			'gitlens.views.setShowRelativeDateMarkersOff',
+			() => this.setShowRelativeDateMarkers(false),
+			this,
+		);
 
 		commands.registerCommand('gitlens.views.fetch', this.fetch, this);
 		commands.registerCommand('gitlens.views.publishBranch', this.publishBranch, this);
@@ -487,6 +498,11 @@ export class ViewCommands {
 		if (!(node instanceof CompareResultsNode)) return Promise.resolve();
 
 		return node.setComparisonNotation(comparisonNotation);
+	}
+
+	@debug()
+	private setShowRelativeDateMarkers(enabled: boolean) {
+		return configuration.updateEffective('views', 'showRelativeDateMarkers', enabled);
 	}
 
 	@debug()

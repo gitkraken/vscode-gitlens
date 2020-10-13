@@ -1,7 +1,7 @@
 'use strict';
 import { GitLogCommit } from '../../git/git';
 import { MessageNode } from './common';
-import { ViewNode } from './viewNode';
+import { ContextValues, ViewNode } from './viewNode';
 
 const markers: [number, string][] = [
 	[0, 'Less than a week ago'],
@@ -50,7 +50,15 @@ export function* insertDateMarkers<T extends ViewNode & { commit: GitLogCommit }
 
 				// Don't show the marker if it is the first node
 				if (!first) {
-					yield new MessageNode(parent.view, parent, '', marker);
+					yield new MessageNode(
+						parent.view,
+						parent,
+						'',
+						marker,
+						undefined,
+						undefined,
+						ContextValues.DateMarker,
+					);
 				}
 
 				index++;

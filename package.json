@@ -3652,6 +3652,16 @@
 				}
 			},
 			{
+				"command": "gitlens.views.setShowRelativeDateMarkersOn",
+				"title": "Show Date Markers",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.setShowRelativeDateMarkersOff",
+				"title": "Hide Date Markers",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.branches.copy",
 				"title": "Copy",
 				"category": "GitLens"
@@ -5013,6 +5023,14 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.setShowRelativeDateMarkersOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.setShowRelativeDateMarkersOff",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.branches.copy",
 					"when": "false"
 				},
@@ -6366,6 +6384,16 @@
 					"group": "1_gitlens@0"
 				},
 				{
+					"command": "gitlens.views.setShowRelativeDateMarkersOn",
+					"when": "view =~ /^gitlens\\.views\\.(repositories|commits|fileHistory|branches|remotes|tags)/ && !config.gitlens.views.showRelativeDateMarkers",
+					"group": "1_gitlens@2"
+				},
+				{
+					"command": "gitlens.views.setShowRelativeDateMarkersOff",
+					"when": "view =~ /^gitlens\\.views\\.(repositories|commits|fileHistory|branches|remotes|tags)/ && config.gitlens.views.showRelativeDateMarkers",
+					"group": "1_gitlens@2"
+				},
+				{
 					"command": "gitlens.showSettingsPage#branches-view",
 					"when": "view =~ /^gitlens\\.views\\.branches/",
 					"group": "9_gitlens@1"
@@ -7398,6 +7426,11 @@
 					"command": "gitlens.views.loadAllChildren",
 					"when": "viewItem =~ /gitlens:pager\\b/",
 					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.views.setShowRelativeDateMarkersOff",
+					"when": "viewItem == gitlens:date-marker && config.gitlens.views.showRelativeDateMarkers",
+					"group": "1_gitlens@0"
 				}
 			]
 		},

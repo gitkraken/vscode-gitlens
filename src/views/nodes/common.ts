@@ -19,6 +19,7 @@ export class MessageNode extends ViewNode {
 					dark: string | Uri;
 			  }
 			| ThemeIcon,
+		private readonly _contextValue?: string,
 	) {
 		super(unknownGitUri, view, parent);
 	}
@@ -29,7 +30,7 @@ export class MessageNode extends ViewNode {
 
 	getTreeItem(): TreeItem | Promise<TreeItem> {
 		const item = new TreeItem(this._message, TreeItemCollapsibleState.None);
-		item.contextValue = ContextValues.Message;
+		item.contextValue = this._contextValue ?? ContextValues.Message;
 		item.description = this._description;
 		item.tooltip = this._tooltip;
 		item.iconPath = this._iconPath;
