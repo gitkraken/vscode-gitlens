@@ -98,7 +98,7 @@ export class CommitNode extends ViewRefNode<ViewsWithFiles, GitRevisionReference
 		return children;
 	}
 
-	getTreeItem(): TreeItem {
+	async getTreeItem(): Promise<TreeItem> {
 		const label = CommitFormatter.fromTemplate(this.view.config.commitFormat, this.commit, {
 			dateFormat: Container.config.defaultDateFormat,
 			getBranchAndTagTips: (sha: string) => this.getBranchAndTagTips?.(sha, true),
@@ -121,7 +121,7 @@ export class CommitNode extends ViewRefNode<ViewsWithFiles, GitRevisionReference
 		item.iconPath = this.unpublished
 			? new ThemeIcon('arrow-up')
 			: !(this.view instanceof StashesView) && this.view.config.avatars
-			? this.commit.getAvatarUri(Container.config.defaultGravatarsStyle)
+			? await this.commit.getAvatarUri(true, { fallback: Container.config.defaultGravatarsStyle })
 			: new ThemeIcon('git-commit');
 		item.tooltip = this.tooltip;
 

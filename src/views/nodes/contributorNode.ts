@@ -59,7 +59,7 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 		return children;
 	}
 
-	getTreeItem(): TreeItem {
+	async getTreeItem(): Promise<TreeItem> {
 		const presence = this._presenceMap?.get(this.contributor.email);
 
 		const item = new TreeItem(
@@ -80,7 +80,9 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 		}\n${Strings.pluralize('commit', this.contributor.count)}`;
 
 		if (this.view.config.avatars) {
-			item.iconPath = this.contributor.getAvatarUri(Container.config.defaultGravatarsStyle);
+			item.iconPath = await this.contributor.getAvatarUri(true, {
+				fallback: Container.config.defaultGravatarsStyle,
+			});
 		}
 
 		return item;

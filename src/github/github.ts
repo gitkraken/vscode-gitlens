@@ -3,8 +3,225 @@ import { graphql } from '@octokit/graphql';
 import { Logger } from '../logger';
 import { debug } from '../system';
 import { AuthenticationError, IssueOrPullRequest, PullRequest, PullRequestState } from '../git/git';
+import { Account } from '../git/models/author';
 
 export class GitHubApi {
+	@debug({
+		args: {
+			1: _ => '<token>',
+		},
+	})
+	async getAccountForCommit(
+		provider: string,
+		token: string,
+		owner: string,
+		repo: string,
+		ref: string,
+		options?: {
+			baseUrl?: string;
+			avatarSize?: number;
+		},
+	): Promise<Account | undefined> {
+		const cc = Logger.getCorrelationContext();
+
+		try {
+			const query = `query ($owner: String!, $repo: String!, $ref: GitObjectID!, $avatarSize: Int) {
+	repository(name: $repo, owner: $owner) {
+		object(oid: $ref) {
+			... on Commit {
+				author {
+					name
+					email
+					avatarUrl(size: $avatarSize)
+				}
+			}
+		}
+	}
+}`;
+
+			const rsp = await graphql<{
+				repository:
+					| {
+							object:
+								| {
+										author?: {
+											name: string | null;
+											email: string | null;
+											avatarUrl: string;
+										};
+								  }
+								| null
+								| undefined;
+					  }
+					| null
+					| undefined;
+			}>(query, {
+				owner: owner,
+				repo: repo,
+				ref: ref,
+				headers: { authorization: `Bearer ${token}` },
+				...options,
+			});
+
+			const author = rsp?.repository?.object?.author;
+			if (author == null) return undefined;
+
+			return {
+				provider: provider,
+				name: author.name ?? undefined,
+				email: author.email ?? undefined,
+				avatarUrl: author.avatarUrl,
+			};
+		} catch (ex) {
+			Logger.error(ex, cc);
+
+			if (ex.code === 401) {
+				throw new AuthenticationError(ex);
+			}
+			throw ex;
+		}
+	}
+
+	@debug({
+		args: {
+			1: _ => '<token>',
+		},
+	})
+	async getAccountForEmail(
+		provider: string,
+		token: string,
+		owner: string,
+		repo: string,
+		email: string,
+		options?: {
+			baseUrl?: string;
+			avatarSize?: number;
+		},
+	): Promise<Account | undefined> {
+		const cc = Logger.getCorrelationContext();
+
+		try {
+			const query = `query ($emailQuery: String!, $avatarSize: Int) {
+	search(type: USER, query: $emailQuery, first: 1) {
+		nodes {
+			... on User {
+				name
+				email
+				avatarUrl(size: $avatarSize)
+			}
+		}
+	}
+}`;
+
+			const rsp = await graphql<{
+				search:
+					| {
+							nodes:
+								| {
+										name: string | null;
+										email: string | null;
+										avatarUrl: string;
+								  }[]
+								| null
+								| undefined;
+					  }
+					| null
+					| undefined;
+			}>(query, {
+				owner: owner,
+				repo: repo,
+				emailQuery: `in:email ${email}`,
+				headers: { authorization: `Bearer ${token}` },
+				...options,
+			});
+
+			const author = rsp?.search?.nodes?.[0];
+			if (author == null) return undefined;
+
+			return {
+				provider: provider,
+				name: author.name ?? undefined,
+				email: author.email ?? undefined,
+				avatarUrl: author.avatarUrl,
+			};
+		} catch (ex) {
+			Logger.error(ex, cc);
+
+			if (ex.code === 401) {
+				throw new AuthenticationError(ex);
+			}
+			throw ex;
+		}
+	}
+
+	@debug({
+		args: {
+			1: _ => '<token>',
+		},
+	})
+	async getIssueOrPullRequest(
+		provider: string,
+		token: string,
+		owner: string,
+		repo: string,
+		number: number,
+		options?: {
+			baseUrl?: string;
+		},
+	): Promise<IssueOrPullRequest | undefined> {
+		const cc = Logger.getCorrelationContext();
+
+		try {
+			const query = `query pr($owner: String!, $repo: String!, $number: Int!) {
+	repository(name: $repo, owner: $owner) {
+		issueOrPullRequest(number: $number) {
+			__typename
+			... on Issue {
+				createdAt
+				closed
+				closedAt
+				title
+			}
+			... on PullRequest {
+				createdAt
+				closed
+				closedAt
+				title
+			}
+		}
+	}
+}`;
+
+			const rsp = await graphql<{ repository?: { issueOrPullRequest?: GitHubIssueOrPullRequest } }>(query, {
+				owner: owner,
+				repo: repo,
+				number: number,
+				headers: { authorization: `Bearer ${token}` },
+				...options,
+			});
+
+			const issue = rsp?.repository?.issueOrPullRequest;
+			if (issue == null) return undefined;
+
+			return {
+				provider: provider,
+				type: issue.type,
+				id: number,
+				date: new Date(issue.createdAt),
+				title: issue.title,
+				closed: issue.closed,
+				closedDate: issue.closedAt == null ? undefined : new Date(issue.closedAt),
+			};
+		} catch (ex) {
+			Logger.error(ex, cc);
+
+			if (ex.code === 401) {
+				throw new AuthenticationError(ex);
+			}
+			throw ex;
+		}
+	}
+
 	@debug({
 		args: {
 			1: _ => '<token>',
@@ -168,74 +385,6 @@ export class GitHubApi {
 			if (pr.repository.owner.login !== owner) return undefined;
 
 			return GitHubPullRequest.from(pr, provider);
-		} catch (ex) {
-			Logger.error(ex, cc);
-
-			if (ex.code === 401) {
-				throw new AuthenticationError(ex);
-			}
-			throw ex;
-		}
-	}
-
-	@debug({
-		args: {
-			1: _ => '<token>',
-		},
-	})
-	async getIssueOrPullRequest(
-		provider: string,
-		token: string,
-		owner: string,
-		repo: string,
-		number: number,
-		options?: {
-			baseUrl?: string;
-		},
-	): Promise<IssueOrPullRequest | undefined> {
-		const cc = Logger.getCorrelationContext();
-
-		try {
-			const query = `query pr($owner: String!, $repo: String!, $number: Int!) {
-	repository(name: $repo, owner: $owner) {
-		issueOrPullRequest(number: $number) {
-			__typename
-			... on Issue {
-				createdAt
-				closed
-				closedAt
-				title
-			}
-			... on PullRequest {
-				createdAt
-				closed
-				closedAt
-				title
-			}
-		}
-	}
-}`;
-
-			const rsp = await graphql<{ repository?: { issueOrPullRequest?: GitHubIssueOrPullRequest } }>(query, {
-				owner: owner,
-				repo: repo,
-				number: number,
-				headers: { authorization: `Bearer ${token}` },
-				...options,
-			});
-
-			const issue = rsp?.repository?.issueOrPullRequest;
-			if (issue == null) return undefined;
-
-			return {
-				provider: provider,
-				type: issue.type,
-				id: number,
-				date: new Date(issue.createdAt),
-				title: issue.title,
-				closed: issue.closed,
-				closedDate: issue.closedAt == null ? undefined : new Date(issue.closedAt),
-			};
 		} catch (ex) {
 			Logger.error(ex, cc);
 

@@ -1,20 +1,75 @@
 'use strict';
 import * as fs from 'fs';
-import { Uri } from 'vscode';
+import { EventEmitter, Uri } from 'vscode';
 import { GravatarDefaultStyle } from './config';
-import { Strings } from './system';
-import { ContactPresenceStatus } from './vsls/vsls';
+import { WorkspaceState } from './constants';
 import { Container } from './container';
+import { GitRevisionReference } from './git/git';
+import { Functions, Strings } from './system';
+import { ContactPresenceStatus } from './vsls/vsls';
 
-const avatarCache = new Map<string, Uri>();
+// TODO@eamodio Use timestamp
+// TODO@eamodio Clear avatar cache on remote / provider connection change
+
+interface Avatar<T = Uri> {
+	uri?: T | null;
+	fallback: T;
+	timestamp: number;
+	// TODO@eamodio Add a fail count, to avoid failing on a single failure
+}
+
+type SerializedAvatar = Avatar<string>;
+
+let avatarCache: Map<string, Avatar> | undefined;
+const avatarQueue = new Map<string, Promise<Uri | undefined> | null>();
+
 const missingGravatarHash = '00000000000000000000000000000000';
 
 const presenceCache = new Map<ContactPresenceStatus, string>();
 
 const gitHubNoReplyAddressRegex = /^(?:(?<userId>\d+)\+)?(?<userName>[a-zA-Z\d-]{1,39})@users\.noreply\.github\.com$/;
 
+const _onDidFetchAvatar = new EventEmitter<{ email: string }>();
+export const onDidFetchAvatar = _onDidFetchAvatar.event;
+
+onDidFetchAvatar(
+	Functions.debounce(() => {
+		void Container.context.workspaceState.update(
+			WorkspaceState.Avatars,
+			avatarCache == null
+				? undefined
+				: [...avatarCache.entries()].map<[string, SerializedAvatar]>(([key, value]) => [
+						key,
+						{
+							uri: value.uri != null ? value.uri.toString() : value.uri,
+							fallback: value.fallback.toString(),
+							timestamp: value.timestamp,
+						},
+				  ]),
+		);
+	}, 5000),
+);
+
 export function clearAvatarCache() {
-	avatarCache.clear();
+	avatarCache?.clear();
+	avatarQueue.clear();
+	void Container.context.workspaceState.update(WorkspaceState.Avatars, undefined);
+}
+
+function ensureAvatarCache(cache: Map<string, Avatar> | undefined): asserts cache is Map<string, Avatar> {
+	if (cache == null) {
+		const avatars: [string, Avatar][] | undefined = Container.context.workspaceState
+			.get<[string, SerializedAvatar][]>(WorkspaceState.Avatars)
+			?.map<[string, Avatar]>(([key, value]) => [
+				key,
+				{
+					uri: value.uri != null ? Uri.parse(value.uri) : value.uri,
+					fallback: Uri.parse(value.fallback),
+					timestamp: value.timestamp,
+				},
+			]);
+		avatarCache = new Map<string, Avatar>(avatars);
+	}
 }
 
 function getAvatarUriFromGitHubNoReplyAddress(email: string | undefined, size: number = 16): Uri | undefined {
@@ -27,25 +82,154 @@ function getAvatarUriFromGitHubNoReplyAddress(email: string | undefined, size: n
 	return Uri.parse(`https://avatars.githubusercontent.com/${userId ? `u/${userId}` : userName}?size=${size}`);
 }
 
-export function getAvatarUri(email: string | undefined, fallback: GravatarDefaultStyle, size: number = 16): Uri {
-	const hash =
-		email != null && email.length !== 0 ? Strings.md5(email.trim().toLowerCase(), 'hex') : missingGravatarHash;
+export function getAvatarUri(
+	email: string | undefined,
+	repoPathOrCommit: string | GitRevisionReference | undefined,
+	wait: false,
+	options?: { fallback?: GravatarDefaultStyle; listener?: () => void; size?: number },
+): Uri;
+export function getAvatarUri(
+	email: string | undefined,
+	repoPathOrCommit: string | GitRevisionReference | undefined,
+	wait: true,
+	options?: { fallback?: GravatarDefaultStyle; listener?: () => void; size?: number },
+): Promise<Uri>;
+export function getAvatarUri(
+	email: string | undefined,
+	repoPathOrCommit: string | GitRevisionReference | undefined,
+	wait: boolean,
+	options?: { fallback?: GravatarDefaultStyle; listener?: () => void; size?: number },
+): Uri | Promise<Uri>;
+export function getAvatarUri(
+	email: string | undefined,
+	repoPathOrCommit: string | GitRevisionReference | undefined,
+	wait: boolean,
+	{ fallback, listener, size = 16 }: { fallback?: GravatarDefaultStyle; listener?: () => void; size?: number } = {},
+): Uri | Promise<Uri> {
+	ensureAvatarCache(avatarCache);
 
+	if (email == null || email.length === 0) {
+		const key = `${missingGravatarHash}:${size}`;
+
+		let avatar = avatarCache.get(key);
+		if (avatar == null) {
+			avatar = {
+				fallback: Uri.parse(
+					`https://www.gravatar.com/avatar/${missingGravatarHash}.jpg?s=${size}&d=${fallback}`,
+				),
+				timestamp: Date.now(),
+			};
+			avatarCache.set(key, avatar);
+		}
+
+		return avatar.uri ?? avatar.fallback;
+	}
+
+	const hash = Strings.md5(email.trim().toLowerCase(), 'hex');
 	const key = `${hash}:${size}`;
+
 	let avatar = avatarCache.get(key);
-	if (avatar !== undefined) return avatar;
+	if (avatar == null) {
+		avatar = {
+			fallback:
+				getAvatarUriFromGitHubNoReplyAddress(email, size) ??
+				Uri.parse(`https://www.gravatar.com/avatar/${hash}.jpg?s=${size}&d=${fallback}`),
+			timestamp: Date.now(),
+		};
+		avatarCache.set(key, avatar);
+	}
 
-	avatar =
-		getAvatarUriFromGitHubNoReplyAddress(email, size) ??
-		Uri.parse(`https://www.gravatar.com/avatar/${hash}.jpg?s=${size}&d=${fallback}`);
-	avatarCache.set(key, avatar);
+	let query = avatarQueue.get(key);
+	if (query == null && avatar.uri === undefined && repoPathOrCommit != null) {
+		query = getRemoteProviderAvatarUri(key, email, repoPathOrCommit, avatar.fallback, { size: size });
+		avatarQueue.set(key, query);
 
-	return avatar;
+		void signalOnAvatarQueryComplete(email, query, listener, true);
+	} else if (query != null) {
+		void signalOnAvatarQueryComplete(email, query, listener, false);
+	}
+
+	if (wait && query != null) {
+		return query.then(value => value ?? avatar!.uri ?? avatar!.fallback);
+	}
+
+	return avatar.uri ?? avatar.fallback;
+}
+
+async function getRemoteProviderAvatarUri(
+	key: string,
+	email: string,
+	repoPathOrCommit: string | GitRevisionReference,
+	fallback: Uri,
+	{ size = 16 }: { size?: number } = {},
+) {
+	ensureAvatarCache(avatarCache);
+
+	try {
+		let account;
+		// if (typeof repoPathOrCommit === 'string') {
+		// 	const remote = await Container.git.getRemoteWithApiProvider(repoPathOrCommit);
+		// 	account = await remote?.provider.getAccountForEmail(email, { avatarSize: size });
+		// } else {
+		if (typeof repoPathOrCommit !== 'string') {
+			const remote = await Container.git.getRemoteWithApiProvider(repoPathOrCommit.repoPath);
+			account = await remote?.provider.getAccountForCommit(repoPathOrCommit.ref, { avatarSize: size });
+		}
+		if (account == null) {
+			avatarCache.set(key, { uri: null, fallback: fallback, timestamp: Date.now() });
+
+			return undefined;
+		}
+
+		const uri = Uri.parse(account.avatarUrl);
+		avatarCache.set(key, { uri: uri, fallback: fallback, timestamp: Date.now() });
+		if (account.email != null && Strings.equalsIgnoreCase(email, account.email)) {
+			avatarCache.set(`${Strings.md5(account.email.trim().toLowerCase(), 'hex')}:${size}`, {
+				uri: uri,
+				fallback: fallback,
+				timestamp: Date.now(),
+			});
+		}
+
+		return uri;
+	} catch {
+		avatarCache.set(key, { uri: null, fallback: fallback, timestamp: Date.now() });
+
+		return undefined;
+	} finally {
+		avatarQueue.delete(key);
+	}
+}
+
+async function signalOnAvatarQueryComplete(
+	email: string,
+	query: Promise<Uri | undefined>,
+	listener: (() => void) | undefined,
+	fire: boolean,
+) {
+	if (listener == null) {
+		if (fire) {
+			_onDidFetchAvatar.fire({ email: email });
+		}
+
+		return;
+	}
+
+	const disposable = onDidFetchAvatar(listener);
+	try {
+		await query;
+
+		if (fire) {
+			_onDidFetchAvatar.fire({ email: email });
+		}
+	} finally {
+		disposable.dispose();
+	}
 }
 
 export function getPresenceDataUri(status: ContactPresenceStatus) {
 	let dataUri = presenceCache.get(status);
-	if (dataUri === undefined) {
+	if (dataUri == null) {
 		const contents = fs
 			.readFileSync(Container.context.asAbsolutePath(`images/dark/icon-presence-${status}.svg`))
 			.toString('base64');

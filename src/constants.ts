@@ -182,6 +182,7 @@ export interface StarredRepositories {
 }
 
 export enum WorkspaceState {
+	Avatars = 'gitlens:avatars',
 	BranchComparisons = 'gitlens:branch:comparisons',
 	DefaultRemote = 'gitlens:remote:default',
 	PinnedComparisons = 'gitlens:pinned:comparisons',

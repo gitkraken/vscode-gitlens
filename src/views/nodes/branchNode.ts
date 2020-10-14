@@ -15,7 +15,6 @@ import {
 	GitBranchReference,
 	GitLog,
 	GitRemoteType,
-	GitRevision,
 	PullRequestState,
 } from '../../git/git';
 import { GitUri } from '../../git/gitUri';

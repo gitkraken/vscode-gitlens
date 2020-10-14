@@ -309,6 +309,7 @@ export namespace GitReference {
 	}
 }
 
+export * from './author';
 export * from './blame';
 export * from './blameCommit';
 export * from './branch';

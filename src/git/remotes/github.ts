@@ -5,7 +5,7 @@ import { AutolinkReference } from '../../config';
 import { Container } from '../../container';
 import { GitHubPullRequest } from '../../github/github';
 import { IssueOrPullRequest } from '../models/issue';
-import { GitRevision } from '../models/models';
+import { Account, GitRevision } from '../models/models';
 import { PullRequest, PullRequestState } from '../models/pullRequest';
 import { Repository } from '../models/repository';
 import { RemoteProviderWithApi } from './provider';
@@ -153,6 +153,34 @@ export class GitHubRemote extends RemoteProviderWithApi {
 		if (sha) return `${this.baseUrl}/blob/${sha}/${fileName}${line}`;
 		if (branch) return `${this.baseUrl}/blob/${branch}/${fileName}${line}`;
 		return `${this.baseUrl}?path=${fileName}${line}`;
+	}
+
+	protected async onGetAccountForCommit(
+		{ accessToken }: AuthenticationSession,
+		ref: string,
+		options?: {
+			avatarSize?: number;
+		},
+	): Promise<Account | undefined> {
+		const [owner, repo] = this.splitPath();
+		return (await Container.github)?.getAccountForCommit(this.name, accessToken, owner, repo, ref, {
+			...options,
+			baseUrl: this.apiBaseUrl,
+		});
+	}
+
+	protected async onGetAccountForEmail(
+		{ accessToken }: AuthenticationSession,
+		email: string,
+		options?: {
+			avatarSize?: number;
+		},
+	): Promise<Account | undefined> {
+		const [owner, repo] = this.splitPath();
+		return (await Container.github)?.getAccountForEmail(this.name, accessToken, owner, repo, email, {
+			...options,
+			baseUrl: this.apiBaseUrl,
+		});
 	}
 
 	protected async onGetIssueOrPullRequest(

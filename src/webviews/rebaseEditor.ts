@@ -155,7 +155,9 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 			if (!authors.has(commit.author)) {
 				authors.set(commit.author, {
 					author: commit.author,
-					avatarUrl: commit.getAvatarUri(Container.config.defaultGravatarsStyle).toString(true),
+					avatarUrl: (
+						await commit.getAvatarUri(true, { fallback: Container.config.defaultGravatarsStyle })
+					).toString(true),
 					email: commit.email,
 				});
 			}
@@ -180,7 +182,9 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 			if (!authors.has(commit.author)) {
 				authors.set(commit.author, {
 					author: commit.author,
-					avatarUrl: commit.getAvatarUri(Container.config.defaultGravatarsStyle).toString(true),
+					avatarUrl: (
+						await commit.getAvatarUri(true, { fallback: Container.config.defaultGravatarsStyle })
+					).toString(true),
 					email: commit.email,
 				});
 			}

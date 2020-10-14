@@ -17,6 +17,8 @@ export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesVi
 		return `${RepositoryNode.getId(repoPath)}${this.key}`;
 	}
 
+	protected splatted = true;
+
 	private _children: ViewNode[] | undefined;
 
 	constructor(
@@ -47,6 +49,8 @@ export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesVi
 	}
 
 	getTreeItem(): TreeItem {
+		this.splatted = false;
+
 		const item = new TreeItem('Contributors', TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ContextValues.Contributors;

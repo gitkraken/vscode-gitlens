@@ -15,10 +15,7 @@ import { AutolinkReference } from '../../config';
 import { Container } from '../../container';
 import { Logger } from '../../logger';
 import { Messages } from '../../messages';
-import { IssueOrPullRequest } from '../models/issue';
-import { GitLogCommit } from '../models/logCommit';
-import { PullRequest, PullRequestState } from '../models/pullRequest';
-import { Repository } from '../models/repository';
+import { Account, GitLogCommit, IssueOrPullRequest, PullRequest, PullRequestState, Repository } from '../models/models';
 import { debug, gate, log, Promises } from '../../system';
 
 const _onDidChangeAuthentication = new EventEmitter<{ reason: 'connected' | 'disconnected'; key: string }>();
@@ -305,6 +302,60 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 
 	@gate()
 	@debug()
+	async getAccountForCommit(
+		ref: string,
+		options?: {
+			avatarSize?: number;
+		},
+	): Promise<Account | undefined> {
+		const cc = Logger.getCorrelationContext();
+
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected) return undefined;
+
+		try {
+			const author = await this.onGetAccountForCommit(this._session!, ref, options);
+			this.invalidAuthenticationCount = 0;
+			return author;
+		} catch (ex) {
+			Logger.error(ex, cc);
+
+			if (ex instanceof AuthenticationError) {
+				this.handleAuthenticationException();
+			}
+			return undefined;
+		}
+	}
+
+	@gate()
+	@debug()
+	async getAccountForEmail(
+		email: string,
+		options?: {
+			avatarSize?: number;
+		},
+	): Promise<Account | undefined> {
+		const cc = Logger.getCorrelationContext();
+
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected) return undefined;
+
+		try {
+			const author = await this.onGetAccountForEmail(this._session!, email, options);
+			this.invalidAuthenticationCount = 0;
+			return author;
+		} catch (ex) {
+			Logger.error(ex, cc);
+
+			if (ex instanceof AuthenticationError) {
+				this.handleAuthenticationException();
+			}
+			return undefined;
+		}
+	}
+
+	@gate()
+	@debug()
 	async getIssueOrPullRequest(id: string): Promise<IssueOrPullRequest | undefined> {
 		const cc = Logger.getCorrelationContext();
 
@@ -370,6 +421,22 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 	}
 
 	protected abstract get authProvider(): { id: string; scopes: string[] };
+
+	protected abstract onGetAccountForCommit(
+		session: AuthenticationSession,
+		ref: string,
+		options?: {
+			avatarSize?: number;
+		},
+	): Promise<Account | undefined>;
+
+	protected abstract onGetAccountForEmail(
+		session: AuthenticationSession,
+		email: string,
+		options?: {
+			avatarSize?: number;
+		},
+	): Promise<Account | undefined>;
 
 	protected abstract onGetIssueOrPullRequest(
 		session: AuthenticationSession,

@@ -2799,6 +2799,8 @@ export class GitService implements Disposable {
 	): Promise<GitRemote<RemoteProviderWithApi> | undefined> {
 		if (remotesOrRepoPath == null) return undefined;
 
+		// TODO@eamodio Add caching to avoid constant lookups
+
 		const remotes = (typeof remotesOrRepoPath === 'string'
 			? await this.getRemotes(remotesOrRepoPath)
 			: remotesOrRepoPath

@@ -144,7 +144,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 			decorationOptions.push(gutter);
 
 			if (avatars && commit.email != null) {
-				this.applyAvatarDecoration(commit, gutter, gravatarDefault, avatarDecorationsMap!);
+				await this.applyAvatarDecoration(commit, gutter, gravatarDefault, avatarDecorationsMap!);
 			}
 
 			decorationsMap.set(l.sha, gutter);
@@ -202,7 +202,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		this.editor.setDecorations(Decorations.gutterBlameHighlight, highlightDecorationRanges);
 	}
 
-	private applyAvatarDecoration(
+	private async applyAvatarDecoration(
 		commit: GitBlameCommit,
 		gutter: DecorationOptions,
 		gravatarDefault: GravatarDefaultStyle,
@@ -211,10 +211,12 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 		let avatarDecoration = map.get(commit.email!);
 		if (avatarDecoration == null) {
 			avatarDecoration = {
-				contentIconPath: commit.getAvatarUri(gravatarDefault),
+				contentText: '',
 				height: '16px',
 				width: '16px',
-				textDecoration: 'none;position:absolute;top:1px;left:5px',
+				textDecoration: `none;position:absolute;top:1px;left:5px;background:url(${(
+					await commit.getAvatarUri(true, { fallback: gravatarDefault })
+				).toString()});background-size:16px 16px`,
 			};
 			map.set(commit.email!, avatarDecoration);
 		}

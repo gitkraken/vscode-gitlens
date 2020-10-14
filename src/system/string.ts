@@ -38,6 +38,10 @@ export function escapeMarkdown(s: string, options: { quoted?: boolean } = {}): s
 	return s.replace(markdownQuotedRegex, '\t\n>  ');
 }
 
+export function equalsIgnoreCase(a: string, b: string): boolean {
+	return a.localeCompare(b, undefined, { sensitivity: 'accent' }) === 0;
+}
+
 export function escapeRegex(s: string) {
 	return s.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
 }
