@@ -40,6 +40,7 @@ import {
 import { CachedBlame, CachedDiff, CachedLog, GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 import { vslsUriPrefixRegex } from '../vsls/vsls';
 import {
+	Authentication,
 	BranchDateFormatting,
 	CommitDateFormatting,
 	Git,
@@ -127,6 +128,7 @@ export class GitService implements Disposable {
 	private _suspended: boolean = false;
 
 	private readonly _branchesCache = new Map<string, GitBranch[]>();
+	private readonly _remotesWithApiProviderCache = new Map<string, GitRemote<RemoteProviderWithApi> | null>();
 	private readonly _tagsCache = new Map<string, GitTag[]>();
 	private readonly _trackedCache = new Map<string, boolean | Promise<boolean>>();
 	private readonly _userMapCache = new Map<string, { name?: string; email?: string } | null>();
@@ -138,6 +140,7 @@ export class GitService implements Disposable {
 			window.onDidChangeWindowState(this.onWindowStateChanged, this),
 			workspace.onDidChangeWorkspaceFolders(this.onWorkspaceFoldersChanged, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
+			Authentication.onDidChange(() => this._remotesWithApiProviderCache.clear()),
 		);
 		this.onConfigurationChanged(configuration.initializingChangeEvent);
 
@@ -147,6 +150,7 @@ export class GitService implements Disposable {
 	dispose() {
 		this._repositoryTree.forEach(r => r.dispose());
 		this._branchesCache.clear();
+		this._remotesWithApiProviderCache.clear();
 		this._tagsCache.clear();
 		this._trackedCache.clear();
 		this._userMapCache.clear();
@@ -178,6 +182,9 @@ export class GitService implements Disposable {
 		if (e.changed(RepositoryChange.Stash, true)) return;
 
 		this._branchesCache.delete(repo.path);
+		if (e.changed(RepositoryChange.Remotes)) {
+			this._remotesWithApiProviderCache.clear();
+		}
 		this._tagsCache.delete(repo.path);
 		this._trackedCache.clear();
 
@@ -2792,6 +2799,12 @@ export class GitService implements Disposable {
 		remotes: GitRemote[],
 		options?: { includeDisconnected?: boolean },
 	): Promise<GitRemote<RemoteProviderWithApi> | undefined>;
+	@gate<GitService['getRemoteWithApiProvider']>(
+		(remotesOrRepoPath, options) =>
+			`${typeof remotesOrRepoPath === 'string' ? remotesOrRepoPath : remotesOrRepoPath[0]?.repoPath}:${
+				options?.includeDisconnected ?? false
+			}`,
+	)
 	@log({ args: { 0: () => false } })
 	async getRemoteWithApiProvider(
 		remotesOrRepoPath: GitRemote[] | string | undefined,
@@ -2799,23 +2812,57 @@ export class GitService implements Disposable {
 	): Promise<GitRemote<RemoteProviderWithApi> | undefined> {
 		if (remotesOrRepoPath == null) return undefined;
 
-		// TODO@eamodio Add caching to avoid constant lookups
+		const repoPath = typeof remotesOrRepoPath === 'string' ? remotesOrRepoPath : remotesOrRepoPath[0]?.repoPath;
+		if (repoPath != null) {
+			const remote = this._remotesWithApiProviderCache.get(repoPath);
+			if (remote !== undefined) return remote ?? undefined;
+		}
 
 		const remotes = (typeof remotesOrRepoPath === 'string'
 			? await this.getRemotes(remotesOrRepoPath)
 			: remotesOrRepoPath
 		).filter(r => r.provider != null);
 
-		const remote =
-			remotes.length === 1 ? remotes[0] : remotes.find(r => r.default) ?? remotes.find(r => r.name === 'origin');
-		if (!remote?.provider?.hasApi()) return undefined;
+		let remote;
+		if (remotes.length === 1) {
+			remote = remotes[0];
+		} else {
+			let originRemote;
+			for (const r of remotes) {
+				if (r.default) {
+					remote = r;
+					break;
+				}
+
+				if (r.name === 'origin') {
+					originRemote = r;
+				}
+			}
+
+			remote = remote ?? originRemote ?? null;
+		}
+
+		if (!remote?.provider?.hasApi()) {
+			if (repoPath != null) {
+				this._remotesWithApiProviderCache.set(repoPath, null);
+			}
+			return undefined;
+		}
 
 		const { provider } = remote;
 		if (!includeDisconnected) {
 			const connected = provider.maybeConnected ?? (await provider.isConnected());
-			if (!connected) return undefined;
+			if (!connected) {
+				if (repoPath != null) {
+					this._remotesWithApiProviderCache.set(repoPath, null);
+				}
+				return undefined;
+			}
 		}
 
+		if (repoPath != null) {
+			this._remotesWithApiProviderCache.set(repoPath, remote as GitRemote<RemoteProviderWithApi>);
+		}
 		return remote as GitRemote<RemoteProviderWithApi>;
 	}
 
