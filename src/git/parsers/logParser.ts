@@ -25,7 +25,7 @@ const fileStatusAndSummaryRegex = /^(\d+?|-)\s+?(\d+?|-)\s+?(.*)(?:\n\s(delete|r
 const fileStatusAndSummaryRenamedFileRegex = /(.+)\s=>\s(.+)/;
 const fileStatusAndSummaryRenamedFilePathRegex = /(.*?){(.+?)\s=>\s(.*?)}(.*)/;
 
-const logFileRefsRegex = /^<r> (.*)/gm;
+const logRefsRegex = /^<r> (.*)/gm;
 const logFileSimpleRegex = /^<r> (.*)\s*(?:(?:diff --git a\/(.*) b\/(.*))|(?:(\S)\S*\t([^\t\n]+)(?:\t(.+))?))/gm;
 const logFileSimpleRenamedRegex = /^<r> (\S+)\s*(.*)$/s;
 const logFileSimpleRenamedFilesRegex = /^(\S)\S*\t([^\t\n]+)(?:\t(.+)?)?$/gm;
@@ -475,14 +475,14 @@ export class GitLogParser {
 		let ref;
 		let match;
 		do {
-			match = logFileRefsRegex.exec(data);
+			match = logRefsRegex.exec(data);
 			if (match == null) break;
 
 			[, ref] = match;
 		} while (true);
 
 		// Ensure the regex state is reset
-		logFileRefsRegex.lastIndex = 0;
+		logRefsRegex.lastIndex = 0;
 
 		return ref;
 	}
@@ -494,19 +494,19 @@ export class GitLogParser {
 		let ref;
 		let match;
 		do {
-			match = logFileRefsRegex.exec(data);
+			match = logRefsRegex.exec(data);
 			if (match == null) break;
 
 			[, ref] = match;
 
-			if (ref == null || ref.length === 0) {
-				// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-				refs.push(` ${ref}`.substr(1));
-			}
+			if (ref == null || ref.length === 0) continue;
+
+			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+			refs.push(` ${ref}`.substr(1));
 		} while (true);
 
 		// Ensure the regex state is reset
-		logFileRefsRegex.lastIndex = 0;
+		logRefsRegex.lastIndex = 0;
 
 		return refs;
 	}

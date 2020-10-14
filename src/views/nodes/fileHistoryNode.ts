@@ -5,6 +5,7 @@ import { LoadMoreNode, MessageNode } from './common';
 import { Container } from '../../container';
 import { FileHistoryTrackerNode } from './fileHistoryTrackerNode';
 import {
+	GitBranch,
 	GitLog,
 	GitRevision,
 	RepositoryChange,
@@ -27,7 +28,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 
 	protected splatted = true;
 
-	constructor(uri: GitUri, view: View, parent: ViewNode) {
+	constructor(uri: GitUri, view: View, parent: ViewNode, private readonly branch: GitBranch | undefined) {
 		super(uri, view, parent);
 	}
 
@@ -46,9 +47,19 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 
 		const children: ViewNode[] = [];
 
-		if (this.uri.sha == null) {
-			const status = await Container.git.getStatusForFile(this.uri.repoPath!, this.uri.fsPath);
+		const range = this.branch != null ? await Container.git.getBranchAheadRange(this.branch) : undefined;
+		const [log, status, unpublishedCommits] = await Promise.all([
+			this.getLog(),
+			this.uri.sha == null ? Container.git.getStatusForFile(this.uri.repoPath!, this.uri.fsPath) : undefined,
+			range
+				? Container.git.getLogRefsOnly(this.uri.repoPath!, {
+						limit: 0,
+						ref: range,
+				  })
+				: undefined,
+		]);
 
+		if (this.uri.sha == null) {
 			const commits = await status?.toPsuedoCommits();
 			if (commits?.length) {
 				children.push(
@@ -63,7 +74,6 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 			}
 		}
 
-		const log = await this.getLog();
 		if (log != null) {
 			children.push(
 				...insertDateMarkers(
@@ -71,8 +81,10 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 						log.commits.values(),
 						c =>
 							new CommitFileNode(this.view, this, c.files[0], c, {
+								branch: this.branch,
 								displayAsCommit: true,
 								inFileHistory: true,
+								unpublished: unpublishedCommits?.has(c.ref),
 							}),
 					),
 					this,

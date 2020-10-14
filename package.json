@@ -6754,6 +6754,11 @@
 					"group": "inline@1"
 				},
 				{
+					"command": "gitlens.views.undoCommit",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+HEAD\\b)(?=.*?\\b\\+unpublished\\b)/",
+					"group": "inline@-1"
+				},
+				{
 					"command": "gitlens.views.openFile",
 					"when": "viewItem =~ /gitlens:file\\b(?!.*?\\b\\+history\\b)/",
 					"group": "inline@1",

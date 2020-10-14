@@ -6,7 +6,7 @@ import { BranchSorting, TagSorting } from '../../configuration';
 import { Container } from '../../container';
 import { FileHistoryView } from '../fileHistoryView';
 import { FileHistoryNode } from './fileHistoryNode';
-import { GitReference } from '../../git/git';
+import { GitReference, GitRevision } from '../../git/git';
 import { GitCommitish, GitUri } from '../../git/gitUri';
 import { Logger } from '../../logger';
 import { ReferencePicker } from '../../quickpicks';
@@ -37,7 +37,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 		this._child = undefined;
 	}
 
-	getChildren(): ViewNode[] | Promise<ViewNode[]> {
+	async getChildren(): Promise<ViewNode[]> {
 		if (this._child == null) {
 			if (this._fileUri == null && this.uri === unknownGitUri) {
 				this.view.description = undefined;
@@ -54,7 +54,14 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 			const uri = this._fileUri ?? this.uri;
 			const commitish: GitCommitish = { ...uri, repoPath: uri.repoPath!, sha: this._base ?? uri.sha };
 			const fileUri = new GitUri(uri, commitish);
-			this._child = new FileHistoryNode(fileUri, this.view, this);
+
+			let branch;
+			if (!commitish.sha || commitish.sha === 'HEAD') {
+				branch = await Container.git.getBranch(uri.repoPath);
+			} else if (!GitRevision.isSha(commitish.sha)) {
+				[branch] = await Container.git.getBranches(uri.repoPath, { filter: b => b.name === commitish.sha });
+			}
+			this._child = new FileHistoryNode(fileUri, this.view, this, branch);
 		}
 
 		return this._child.getChildren();

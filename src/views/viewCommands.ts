@@ -522,8 +522,8 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private undoCommit(node: CommitNode) {
-		if (!(node instanceof CommitNode)) return Promise.resolve();
+	private undoCommit(node: CommitNode | CommitFileNode) {
+		if (!(node instanceof CommitNode) && !(node instanceof CommitFileNode)) return Promise.resolve();
 
 		return GitActions.reset(
 			node.repoPath,

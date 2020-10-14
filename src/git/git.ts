@@ -702,6 +702,7 @@ export namespace Git {
 		ref: string | undefined,
 		{
 			authors,
+			format = 'default',
 			limit,
 			merges,
 			reverse,
@@ -709,6 +710,7 @@ export namespace Git {
 			since,
 		}: {
 			authors?: string[];
+			format?: 'refs' | 'default';
 			limit?: number;
 			merges?: boolean;
 			reverse?: boolean;
@@ -718,12 +720,16 @@ export namespace Git {
 	) {
 		const params = [
 			'log',
-			'--name-status',
-			`--format=${GitLogParser.defaultFormat}`,
+			`--format=${format === 'refs' ? GitLogParser.simpleRefs : GitLogParser.defaultFormat}`,
 			'--full-history',
 			`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
 			'-m',
 		];
+
+		if (format !== 'refs') {
+			params.push('--name-status');
+		}
+
 		if (limit && !reverse) {
 			params.push(`-n${limit + 1}`);
 		}
@@ -763,25 +769,25 @@ export namespace Git {
 		{
 			all,
 			filters,
-			limit,
 			firstParent = false,
+			format = 'default',
+			limit,
 			renames = true,
 			reverse = false,
 			since,
 			skip,
-			format = 'default',
 			startLine,
 			endLine,
 		}: {
 			all?: boolean;
 			filters?: GitDiffFilter[];
-			limit?: number;
 			firstParent?: boolean;
+			format?: 'refs' | 'simple' | 'default';
+			limit?: number;
 			renames?: boolean;
 			reverse?: boolean;
 			since?: string;
 			skip?: number;
-			format?: 'refs' | 'simple' | 'default';
 			startLine?: number;
 			endLine?: number;
 		} = {},

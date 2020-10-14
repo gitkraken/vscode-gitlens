@@ -4,6 +4,7 @@ import { CommitFileNode } from './commitFileNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { Container } from '../../container';
 import {
+	GitBranch,
 	GitCommitType,
 	GitFile,
 	GitLog,
@@ -36,8 +37,9 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 		uri: GitUri,
 		view: View,
 		parent: ViewNode,
+		private readonly branch: GitBranch | undefined,
 		public readonly selection: Selection,
-		private readonly _editorContents: string | undefined,
+		private readonly editorContents: string | undefined,
 	) {
 		super(uri, view, parent);
 	}
@@ -59,11 +61,24 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 
 		let selection = this.selection;
 
+		const range = this.branch != null ? await Container.git.getBranchAheadRange(this.branch) : undefined;
+		const [log, blame, unpublishedCommits] = await Promise.all([
+			this.getLog(selection),
+			this.uri.sha == null
+				? this.editorContents
+					? await Container.git.getBlameForRangeContents(this.uri, selection, this.editorContents)
+					: await Container.git.getBlameForRange(this.uri, selection)
+				: undefined,
+			range
+				? Container.git.getLogRefsOnly(this.uri.repoPath!, {
+						limit: 0,
+						ref: range,
+				  })
+				: undefined,
+		]);
+
 		if (this.uri.sha == null) {
 			// Check for any uncommitted changes in the range
-			const blame = this._editorContents
-				? await Container.git.getBlameForRangeContents(this.uri, selection, this._editorContents)
-				: await Container.git.getBlameForRange(this.uri, selection);
 			if (blame != null) {
 				for (const commit of blame.commits.values()) {
 					if (!commit.isUncommitted) continue;
@@ -183,7 +198,6 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 			}
 		}
 
-		const log = await this.getLog(selection);
 		if (log != null) {
 			children.push(
 				...insertDateMarkers(
@@ -191,9 +205,11 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 						log.commits.values(),
 						c =>
 							new CommitFileNode(this.view, this, c.files[0], c, {
+								branch: this.branch,
 								displayAsCommit: true,
 								inFileHistory: true,
 								selection: selection,
+								unpublished: unpublishedCommits?.has(c.ref),
 							}),
 					),
 					this,

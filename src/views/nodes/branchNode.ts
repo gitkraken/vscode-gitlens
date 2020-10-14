@@ -114,7 +114,8 @@ export class BranchNode
 		if (this._children == null) {
 			const children = [];
 
-			const [log, getBranchAndTagTips, pr, unpublished] = await Promise.all([
+			const range = await Container.git.getBranchAheadRange(this.branch);
+			const [log, getBranchAndTagTips, pr, unpublishedCommits] = await Promise.all([
 				this.getLog(),
 				Container.git.getBranchesAndTagsTipsFn(this.uri.repoPath, this.branch.name),
 				this.view.config.pullRequests.enabled &&
@@ -122,10 +123,10 @@ export class BranchNode
 				(this.branch.tracking || this.branch.remote)
 					? this.branch.getAssociatedPullRequest(this.root ? { include: [PullRequestState.Open] } : undefined)
 					: undefined,
-				this.branch.state.ahead > 0
-					? Container.git.getLog(this.uri.repoPath!, {
+				range
+					? Container.git.getLogRefsOnly(this.uri.repoPath!, {
 							limit: 0,
-							ref: GitRevision.createRange(this.branch.tracking, this.branch.ref),
+							ref: range,
 					  })
 					: undefined,
 			]);
@@ -188,7 +189,7 @@ export class BranchNode
 								this.view,
 								this,
 								c,
-								unpublished?.commits.has(c.ref),
+								unpublishedCommits?.has(c.ref),
 								this.branch,
 								getBranchAndTagTips,
 							),

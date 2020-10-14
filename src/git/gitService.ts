@@ -106,6 +106,15 @@ const mappedAuthorRegex = /(.+)\s<(.+)>/;
 const emptyPromise: Promise<GitBlame | GitDiff | GitLog | undefined> = Promise.resolve(undefined);
 const reflogCommands = ['merge', 'pull'];
 
+const maxDefaultBranchWeight = 100;
+const weightedDefaultBranches = new Map<string, number>([
+	['master', maxDefaultBranchWeight],
+	['main', 15],
+	['default', 10],
+	['develop', 5],
+	['development', 1],
+]);
+
 export class GitService implements Disposable {
 	private _onDidChangeRepositories = new EventEmitter<void>();
 	get onDidChangeRepositories(): Event<void> {
@@ -1101,6 +1110,39 @@ export class GitService implements Disposable {
 		return branch;
 	}
 
+	@log({
+		args: {
+			0: b => b.name,
+		},
+	})
+	async getBranchAheadRange(branch: GitBranch) {
+		if (branch.state.ahead > 0) {
+			return GitRevision.createRange(branch.tracking, branch.ref);
+		}
+
+		if (!branch.tracking) {
+			// If we have no tracking branch, try to find a best guess branch to use as the "base"
+			const branches = await this.getBranches(branch.repoPath, {
+				filter: b => weightedDefaultBranches.has(b.name),
+			});
+			if (branches.length > 0) {
+				let weightedBranch: { weight: number; branch: GitBranch } | undefined;
+				for (const branch of branches) {
+					const weight = weightedDefaultBranches.get(branch.name)!;
+					if (weightedBranch == null || weightedBranch.weight < weight) {
+						weightedBranch = { weight: weight, branch: branch };
+					}
+
+					if (weightedBranch.weight === maxDefaultBranchWeight) break;
+				}
+
+				return GitRevision.createRange(weightedBranch!.branch.ref, branch.ref);
+			}
+		}
+
+		return undefined;
+	}
+
 	@log()
 	async getBranches(
 		repoPath: string | undefined,
@@ -1675,6 +1717,40 @@ export class GitService implements Disposable {
 			}
 
 			return log;
+		} catch (ex) {
+			return undefined;
+		}
+	}
+
+	@log()
+	async getLogRefsOnly(
+		repoPath: string,
+		{
+			ref,
+			...options
+		}: {
+			authors?: string[];
+			limit?: number;
+			merges?: boolean;
+			ref?: string;
+			reverse?: boolean;
+			since?: string;
+		} = {},
+	): Promise<Set<string> | undefined> {
+		const limit = options.limit ?? Container.config.advanced.maxListItems ?? 0;
+
+		try {
+			const data = await Git.log(repoPath, ref, {
+				authors: options.authors,
+				format: 'refs',
+				limit: limit,
+				merges: options.merges == null ? true : options.merges,
+				reverse: options.reverse,
+				similarityThreshold: Container.config.advanced.similarityThreshold,
+				since: options.since,
+			});
+			const commits = GitLogParser.parseRefsOnly(data);
+			return new Set(commits);
 		} catch (ex) {
 			return undefined;
 		}

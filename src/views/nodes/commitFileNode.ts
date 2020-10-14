@@ -1,10 +1,17 @@
 'use strict';
 import * as paths from 'path';
-import { Command, Selection, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Command, Selection, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { CommitFormatter, GitFile, GitLogCommit, GitRevisionReference, StatusFileFormatter } from '../../git/git';
+import {
+	CommitFormatter,
+	GitBranch,
+	GitFile,
+	GitLogCommit,
+	GitRevisionReference,
+	StatusFileFormatter,
+} from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { StashesView } from '../stashesView';
 import { View } from '../viewBase';
@@ -16,7 +23,13 @@ export class CommitFileNode extends ViewRefFileNode {
 		parent: ViewNode,
 		public readonly file: GitFile,
 		public commit: GitLogCommit,
-		private readonly _options: { displayAsCommit?: boolean; inFileHistory?: boolean; selection?: Selection } = {},
+		private readonly _options: {
+			branch?: GitBranch;
+			displayAsCommit?: boolean;
+			inFileHistory?: boolean;
+			selection?: Selection;
+			unpublished?: boolean;
+		} = {},
 	) {
 		super(GitUri.fromFile(file, commit.repoPath, commit.sha), view, parent);
 	}
@@ -73,9 +86,15 @@ export class CommitFileNode extends ViewRefFileNode {
 		item.description = this.description;
 		item.tooltip = this.tooltip;
 
-		if (this._options.displayAsCommit && !(this.view instanceof StashesView) && this.view.config.avatars) {
-			item.iconPath = this.commit.getAvatarUri(Container.config.defaultGravatarsStyle);
-		} else {
+		if (this._options.displayAsCommit) {
+			if (!this.commit.isUncommitted && !(this.view instanceof StashesView) && this.view.config.avatars) {
+				item.iconPath = this._options.unpublished
+					? new ThemeIcon('arrow-up')
+					: this.commit.getAvatarUri(Container.config.defaultGravatarsStyle);
+			}
+		}
+
+		if (item.iconPath == null) {
 			const icon = GitFile.getStatusIcon(this.file.status);
 			item.iconPath = {
 				dark: Container.context.asAbsolutePath(paths.join('images', 'dark', icon)),
@@ -93,7 +112,9 @@ export class CommitFileNode extends ViewRefFileNode {
 
 	protected get contextValue(): string {
 		if (!this.commit.isUncommitted) {
-			return `${ContextValues.File}+committed${this._options.inFileHistory ? '+history' : ''}`;
+			return `${ContextValues.File}+committed${
+				this._options.branch?.current && this._options.branch.sha === this.commit.ref ? '+HEAD' : ''
+			}${this._options.unpublished ? '+unpublished' : ''}${this._options.inFileHistory ? '+history' : ''}`;
 		}
 
 		return this.commit.isUncommittedStaged ? `${ContextValues.File}+staged` : `${ContextValues.File}+unstaged`;
