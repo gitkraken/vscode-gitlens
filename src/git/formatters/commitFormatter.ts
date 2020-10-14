@@ -47,14 +47,18 @@ export interface CommitFormatOptions extends FormatOptions {
 	tokenOptions?: {
 		ago?: Strings.TokenOptions;
 		agoOrDate?: Strings.TokenOptions;
+		agoOrDateShort?: Strings.TokenOptions;
 		author?: Strings.TokenOptions;
 		authorAgo?: Strings.TokenOptions;
 		authorAgoOrDate?: Strings.TokenOptions;
+		authorAgoOrDateShort?: Strings.TokenOptions;
 		authorDate?: Strings.TokenOptions;
+		authorNotYou?: Strings.TokenOptions;
 		changes?: Strings.TokenOptions;
 		changesShort?: Strings.TokenOptions;
 		committerAgo?: Strings.TokenOptions;
 		committerAgoOrDate?: Strings.TokenOptions;
+		committerAgoOrDateShort?: Strings.TokenOptions;
 		committerDate?: Strings.TokenOptions;
 		date?: Strings.TokenOptions;
 		email?: Strings.TokenOptions;
@@ -142,7 +146,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		const dateStyle = this._options.dateStyle != null ? this._options.dateStyle : Container.config.defaultDateStyle;
 		return this._padOrTruncate(
 			dateStyle === DateStyle.Absolute ? this._date : this._dateAgoShort,
-			this._options.tokenOptions.agoOrDate,
+			this._options.tokenOptions.agoOrDateShort,
 		);
 	}
 
@@ -156,7 +160,14 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get authorNotYou() {
-		return this._item.author !== 'You' ? this.author : emptyStr;
+		if (this._item.author === 'You') return emptyStr;
+
+		const author = this._padOrTruncate(this._item.author, this._options.tokenOptions.authorNotYou);
+		if (!this._options.markdown) {
+			return author;
+		}
+
+		return `[${author}](mailto:${this._item.email} "Email ${this._item.author} (${this._item.email})")`;
 	}
 
 	get authorAgo() {
@@ -175,7 +186,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		const dateStyle = this._options.dateStyle != null ? this._options.dateStyle : Container.config.defaultDateStyle;
 		return this._padOrTruncate(
 			dateStyle === DateStyle.Absolute ? this._authorDate : this._authorDateAgoShort,
-			this._options.tokenOptions.authorAgoOrDate,
+			this._options.tokenOptions.authorAgoOrDateShort,
 		);
 	}
 
@@ -348,7 +359,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		const dateStyle = this._options.dateStyle != null ? this._options.dateStyle : Container.config.defaultDateStyle;
 		return this._padOrTruncate(
 			dateStyle === DateStyle.Absolute ? this._committerDate : this._committerDateAgoShort,
-			this._options.tokenOptions.committerAgoOrDate,
+			this._options.tokenOptions.committerAgoOrDateShort,
 		);
 	}
 
