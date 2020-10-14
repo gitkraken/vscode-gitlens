@@ -1,7 +1,7 @@
 {
 	"name": "gitlens",
 	"displayName": "GitLens — Git supercharged",
-	"description": "Supercharge the Git capabilities built into Visual Studio Code — Visualize code authorship at a glance via Git blame annotations and code lens, seamlessly navigate and explore Git repositories, gain valuable insights via powerful comparison commands, and so much more",
+	"description": "%description%",
 	"version": "10.2.2",
 	"author": {
 		"name": "Eric Amodio",
@@ -51,7 +51,7 @@
 	"contributes": {
 		"configuration": {
 			"type": "object",
-			"title": "GitLens — Use 'GitLens: Open Settings' for a richer, interactive experience",
+			"title": "%configuration.title%",
 			"properties": {
 				"gitlens.autolinks": {
 					"type": [
@@ -68,11 +68,11 @@
 						"properties": {
 							"prefix": {
 								"type": "string",
-								"description": "Specifies the short prefix to use to generate autolinks for the external resource"
+								"description": "%gitlens.autolinks.items.properties.prefix.description%"
 							},
 							"ignoreCase": {
 								"type": "boolean",
-								"description": "Specifies whether case should be ignored when matching the prefix",
+								"description": "%gitlens.autolinks.items.properties.ignoreCase.description%",
 								"default": false
 							},
 							"title": {
@@ -81,28 +81,28 @@
 									"null"
 								],
 								"default": null,
-								"description": "Specifies an optional title for the generated autolink. Use `<num>` as the variable for the reference number"
+								"description": "%gitlens.autolinks.items.properties.title.description%"
 							},
 							"url": {
 								"type": "string",
-								"description": "Specifies the url of the external resource you want to link to. Use `<num>` as the variable for the reference number"
+								"description": "%gitlens.autolinks.items.properties.url.description%"
 							}
 						}
 					},
 					"uniqueItems": true,
-					"markdownDescription": "Specifies autolinks to external resources in commit messages. Use `<num>` as the variable for the reference number",
+					"markdownDescription": "%gitlens.autolinks.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.blame.avatars": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to show avatar images in the gutter blame annotations",
+					"markdownDescription": "%gitlens.blame.avatars.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.blame.compact": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to compact (deduplicate) matching adjacent gutter blame annotations",
+					"markdownDescription": "%gitlens.blame.compact.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.blame.dateFormat": {
@@ -111,19 +111,19 @@
 						"null"
 					],
 					"default": null,
-					"markdownDescription": "Specifies how to format absolute dates (e.g. using the `${date}` token) in gutter blame annotations. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats",
+					"markdownDescription": "%gitlens.blame.dateFormat.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.blame.format": {
 					"type": "string",
 					"default": "${message|40?} ${agoOrDate|14-}",
-					"markdownDescription": "Specifies the format of the gutter blame annotations. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.blame.dateFormat#` setting",
+					"markdownDescription": "%gitlens.blame.format.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.blame.heatmap.enabled": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to provide a heatmap indicator in the gutter blame annotations",
+					"markdownDescription": "%gitlens.blame.heatmap.enabled.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.blame.heatmap.location": {
@@ -134,16 +134,16 @@
 						"right"
 					],
 					"enumDescriptions": [
-						"Adds a heatmap indicator on the left edge of the gutter blame annotations",
-						"Adds a heatmap indicator on the right edge of the gutter blame annotations"
+						"%gitlens.blame.heatmap.location.enumDescriptions.left%",
+						"%gitlens.blame.heatmap.location.enumDescriptions.right%"
 					],
-					"markdownDescription": "Specifies where the heatmap indicators will be shown in the gutter blame annotations",
+					"markdownDescription": "%gitlens.blame.heatmap.location.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.blame.highlight.enabled": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to highlight lines associated with the current line",
+					"markdownDescription": "%gitlens.blame.highlight.enabled.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.blame.highlight.locations": {
@@ -161,27 +161,27 @@
 							"overview"
 						],
 						"enumDescriptions": [
-							"Adds a gutter glyph",
-							"Adds a full-line highlight background color",
-							"Adds a decoration to the overview ruler (scroll bar)"
+							"%gitlens.blame.highlight.locations.items.enumDescriptions.gutter%",
+							"%gitlens.blame.highlight.locations.items.enumDescriptions.line%",
+							"%gitlens.blame.highlight.locations.items.enumDescriptions.overview%"
 						]
 					},
 					"minItems": 1,
 					"maxItems": 3,
 					"uniqueItems": true,
-					"markdownDescription": "Specifies where the associated line highlights will be shown",
+					"markdownDescription": "%gitlens.blame.highlight.locations.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.blame.ignoreWhitespace": {
 					"type": "boolean",
 					"default": false,
-					"markdownDescription": "Specifies whether to ignore whitespace when comparing revisions during blame operations",
+					"markdownDescription": "%gitlens.blame.ignoreWhitespace.markdownDescription%",
 					"scope": "resource"
 				},
 				"gitlens.blame.separateLines": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether gutter blame annotations will be separated by a small gap",
+					"markdownDescription": "%gitlens.blame.separateLines.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.blame.toggleMode": {
@@ -192,10 +192,10 @@
 						"window"
 					],
 					"enumDescriptions": [
-						"Toggles each file individually",
-						"Toggles the window, i.e. all files at once"
+						"%gitlens.blame.toggleMode.enumDescriptions.file%",
+						"%gitlens.blame.toggleMode.enumDescriptions.window%"
 					],
-					"markdownDescription": "Specifies how the gutter blame annotations will be toggled",
+					"markdownDescription": "%gitlens.blame.toggleMode.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.codeLens.authors.command": {
@@ -212,34 +212,34 @@
 						"gitlens.showQuickRepoHistory"
 					],
 					"enumDescriptions": [
-						"Toggles file blame annotations",
-						"Compares the current committed file with the previous commit",
-						"Reveals the commit in the Repositories view",
-						"Shows the commits within the range in the Search Commits view",
-						"Shows a commit details quick pick",
-						"Shows a commit file details quick pick",
-						"Shows a file history quick pick",
-						"Shows a branch history quick pick"
+						"%gitlens.codeLens.authors.command.enumDescriptions.gitlens.toggleFileBlame%",
+						"%gitlens.codeLens.authors.command.enumDescriptions.gitlens.diffWithPrevious%",
+						"%gitlens.codeLens.authors.command.enumDescriptions.gitlens.revealCommitInView%",
+						"%gitlens.codeLens.authors.command.enumDescriptions.gitlens.showCommitsInView%",
+						"%gitlens.codeLens.authors.command.enumDescriptions.gitlens.showQuickCommitDetails%",
+						"%gitlens.codeLens.authors.command.enumDescriptions.gitlens.showQuickCommitFileDetails%",
+						"%gitlens.codeLens.authors.command.enumDescriptions.gitlens.showQuickFileHistory%",
+						"%gitlens.codeLens.authors.command.enumDescriptions.gitlens.showQuickRepoHistory%"
 					],
-					"markdownDescription": "Specifies the command to be executed when an _authors_ code lens is clicked",
+					"markdownDescription": "%gitlens.codeLens.authors.command.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.codeLens.authors.enabled": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to provide an _authors_ code lens, showing number of authors of the file or code block and the most prominent author (if there is more than one)",
+					"markdownDescription": "%gitlens.codeLens.authors.enabled.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.codeLens.enabled": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to provide any Git code lens, by default. Use the `Toggle Git Code Lens` command (`gitlens.toggleCodeLens`) to toggle the Git code lens on and off for the current window",
+					"markdownDescription": "%gitlens.codeLens.enabled.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.codeLens.includeSingleLineSymbols": {
 					"type": "boolean",
 					"default": false,
-					"markdownDescription": "Specifies whether to provide any Git code lens on symbols that span only a single line",
+					"markdownDescription": "%gitlens.codeLens.includeSingleLineSymbols.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.codeLens.recentChange.command": {
@@ -256,22 +256,22 @@
 						"gitlens.showQuickRepoHistory"
 					],
 					"enumDescriptions": [
-						"Toggles file blame annotations",
-						"Compares the current committed file with the previous commit",
-						"Reveals the commit in the Repositories view",
-						"Shows the commit in the Search Commits view",
-						"Shows a commit details quick pick",
-						"Shows a commit file details quick pick",
-						"Shows a file history quick pick",
-						"Shows a branch history quick pick"
+						"%gitlens.codeLens.recentChange.command.enumDescriptions.gitlens.toggleFileBlame%",
+						"%gitlens.codeLens.recentChange.command.enumDescriptions.gitlens.diffWithPrevious%",
+						"%gitlens.codeLens.recentChange.command.enumDescriptions.gitlens.revealCommitInView%",
+						"%gitlens.codeLens.recentChange.command.enumDescriptions.gitlens.showCommitsInView%",
+						"%gitlens.codeLens.recentChange.command.enumDescriptions.gitlens.showQuickCommitDetails%",
+						"%gitlens.codeLens.recentChange.command.enumDescriptions.gitlens.showQuickCommitFileDetails%",
+						"%gitlens.codeLens.recentChange.command.enumDescriptions.gitlens.showQuickFileHistory%",
+						"%gitlens.codeLens.recentChange.command.enumDescriptions.gitlens.showQuickRepoHistory%"
 					],
-					"markdownDescription": "Specifies the command to be executed when a _recent change_ code lens is clicked",
+					"markdownDescription": "%gitlens.codeLens.recentChange.command.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.codeLens.recentChange.enabled": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to provide a _recent change_ code lens, showing the author and date of the most recent commit for the file or code block",
+					"markdownDescription": "%gitlens.codeLens.recentChange.enabled.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.codeLens.scopes": {
@@ -288,15 +288,15 @@
 							"blocks"
 						],
 						"enumDescriptions": [
-							"Adds code lens at the top of the document",
-							"Adds code lens at the start of container-like symbols (modules, classes, interfaces, etc)",
-							"Adds code lens at the start of block-like symbols (functions, methods, etc) lines"
+							"%gitlens.codeLens.scopes.items.enumDescriptions.document%",
+							"%gitlens.codeLens.scopes.items.enumDescriptions.containers%",
+							"%gitlens.codeLens.scopes.items.enumDescriptions.blocks%"
 						]
 					},
 					"minItems": 1,
 					"maxItems": 4,
 					"uniqueItems": true,
-					"markdownDescription": "Specifies where Git code lens will be shown in the document",
+					"markdownDescription": "%gitlens.codeLens.scopes.markdownDescription%",
 					"scope": "resource"
 				},
 				"gitlens.codeLens.scopesByLanguage": {
@@ -389,7 +389,7 @@
 						"properties": {
 							"language": {
 								"type": "string",
-								"description": "Specifies the language to which this code lens override applies"
+								"description": "%gitlens.codeLens.scopesByLanguage.items.properties.language.description%"
 							},
 							"scopes": {
 								"type": "array",
@@ -406,16 +406,16 @@
 										"custom"
 									],
 									"enumDescriptions": [
-										"Adds code lens at the top of the document",
-										"Adds code lens at the start of container-like symbols (modules, classes, interfaces, etc)",
-										"Adds code lens at the start of block-like symbols (functions, methods, properties, etc) lines",
-										"Adds code lens at the start of symbols contained in `symbolScopes`"
+										"%gitlens.codeLens.scopesByLanguage.items.properties.scopes.items.enumDescriptions.document%",
+										"%gitlens.codeLens.scopesByLanguage.items.properties.scopes.items.enumDescriptions.containers%",
+										"%gitlens.codeLens.scopesByLanguage.items.properties.scopes.items.enumDescriptions.blocks%",
+										"%gitlens.codeLens.scopesByLanguage.items.properties.scopes.items.enumDescriptions.custom%"
 									]
 								},
 								"minItems": 1,
 								"maxItems": 4,
 								"uniqueItems": true,
-								"description": "Specifies where Git code lens will be shown in the document for the specified language"
+								"description": "%gitlens.codeLens.scopesByLanguage.items.properties.scopes.description%"
 							},
 							"symbolScopes": {
 								"type": "array",
@@ -423,12 +423,12 @@
 									"type": "string"
 								},
 								"uniqueItems": true,
-								"description": "Specifies the set of document symbols where Git code lens will be shown in the document for the specified language. Must be a member of `SymbolKind`"
+								"description": "%gitlens.codeLens.scopesByLanguage.items.properties.symbolScopes.description%"
 							}
 						}
 					},
 					"uniqueItems": true,
-					"markdownDescription": "Specifies where Git code lens will be shown in the document for the specified languages",
+					"markdownDescription": "%gitlens.codeLens.scopesByLanguage.markdownDescription%",
 					"scope": "resource"
 				},
 				"gitlens.codeLens.symbolScopes": {
@@ -437,7 +437,7 @@
 						"type": "string"
 					},
 					"uniqueItems": true,
-					"markdownDescription": "Specifies a set of document symbols where Git code lens will or will not be shown in the document. Prefix with `!` to avoid providing a Git code lens for the symbol. Must be a member of `SymbolKind`",
+					"markdownDescription": "%gitlens.codeLens.symbolScopes.markdownDescription%",
 					"scope": "resource"
 				},
 				"gitlens.currentLine.dateFormat": {
@@ -446,31 +446,31 @@
 						"null"
 					],
 					"default": null,
-					"markdownDescription": "Specifies how to format absolute dates (e.g. using the `${date}` token) for the current line blame annotation. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats",
+					"markdownDescription": "%gitlens.currentLine.dateFormat.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.currentLine.enabled": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to provide a blame annotation for the current line, by default. Use the `Toggle Line Blame Annotations` command (`gitlens.toggleLineBlame`) to toggle the annotations on and off for the current window",
+					"markdownDescription": "%gitlens.currentLine.enabled.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.currentLine.format": {
 					"type": "string",
 					"default": "${author}, ${agoOrDate} • ${message}",
-					"markdownDescription": "Specifies the format of the current line blame annotation. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.currentLine.dateFormat#` setting",
+					"markdownDescription": "%gitlens.currentLine.format.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.currentLine.scrollable": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether the current line blame annotation can be scrolled into view when it is outside the viewport",
+					"markdownDescription": "%gitlens.currentLine.scrollable.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.debug": {
 					"type": "boolean",
 					"default": false,
-					"markdownDescription": "Specifies debug mode",
+					"markdownDescription": "%gitlens.debug.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.defaultDateFormat": {
@@ -479,7 +479,7 @@
 						"null"
 					],
 					"default": null,
-					"markdownDescription": "Specifies how absolute dates will be formatted by default. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats",
+					"markdownDescription": "%gitlens.defaultDateFormat.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.defaultDateShortFormat": {
@@ -488,7 +488,7 @@
 						"null"
 					],
 					"default": null,
-					"markdownDescription": "Specifies how short absolute dates will be formatted by default. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats",
+					"markdownDescription": "%gitlens.defaultDateShortFormat.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.defaultDateSource": {
@@ -499,10 +499,10 @@
 						"committed"
 					],
 					"enumDescriptions": [
-						"Uses the date when the changes were authored (i.e. originally written)",
-						"Uses the date when the changes were committed"
+						"%gitlens.defaultDateSource.enumDescriptions.authored%",
+						"%gitlens.defaultDateSource.enumDescriptions.committed%"
 					],
-					"markdownDescription": "Specifies whether commit dates should use the authored or committed date",
+					"markdownDescription": "%gitlens.defaultDateSource.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.defaultDateStyle": {
@@ -513,10 +513,10 @@
 						"absolute"
 					],
 					"enumDescriptions": [
-						"e.g. 1 day ago",
-						"e.g. July 25th, 2018 7:18pm"
+						"%gitlens.defaultDateStyle.enumDescriptions.relative%",
+						"%gitlens.defaultDateStyle.enumDescriptions.absolute%"
 					],
-					"markdownDescription": "Specifies how dates will be displayed by default",
+					"markdownDescription": "%gitlens.defaultDateStyle.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.defaultGravatarsStyle": {
@@ -531,44 +531,44 @@
 						"wavatar"
 					],
 					"enumDescriptions": [
-						"A geometric pattern",
-						"A simple, cartoon-style silhouetted outline of a person (does not vary by email hash)",
-						"A monster with different colors, faces, etc",
-						"8-bit arcade-style pixelated faces",
-						"A robot with different colors, faces, etc",
-						"A face with differing features and backgrounds"
+						"%gitlens.defaultGravatarsStyle.enumDescriptions.identicon%",
+						"%gitlens.defaultGravatarsStyle.enumDescriptions.mp%",
+						"%gitlens.defaultGravatarsStyle.enumDescriptions.monsterid%",
+						"%gitlens.defaultGravatarsStyle.enumDescriptions.retro%",
+						"%gitlens.defaultGravatarsStyle.enumDescriptions.robohash%",
+						"%gitlens.defaultGravatarsStyle.enumDescriptions.wavatar%"
 					],
-					"markdownDescription": "Specifies the style of the gravatar default (fallback) images",
+					"markdownDescription": "%gitlens.defaultGravatarsStyle.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.gitCommands.closeOnFocusOut": {
 					"type": "boolean",
 					"default": false,
-					"markdownDescription": "Specifies whether to dismiss the Git Commands menu when focus is lost (if not, press `ESC` to dismiss)",
+					"markdownDescription": "%gitlens.gitCommands.closeOnFocusOut.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.gitCommands.search.matchAll": {
 					"type": "boolean",
 					"default": false,
-					"markdownDescription": "Specifies whether to match all or any commit message search patterns",
+					"markdownDescription": "%gitlens.gitCommands.search.matchAll.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.gitCommands.search.matchCase": {
 					"type": "boolean",
 					"default": false,
-					"markdownDescription": "Specifies whether to match commit search patterns with or without regard to casing",
+					"markdownDescription": "%gitlens.gitCommands.search.matchCase.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.gitCommands.search.matchRegex": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to match commit search patterns using regular expressions",
+					"markdownDescription": "%gitlens.gitCommands.search.matchRegex.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.gitCommands.search.showResultsInView": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to show the commit search results in the _Search Commits_ view or directly within the quick pick menu",
+					"markdownDescription": "%gitlens.gitCommands.search.showResultsInView.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.gitCommands.skipConfirmations": {
@@ -603,50 +603,50 @@
 							"tag-create:menu"
 						],
 						"enumDescriptions": [
-							"Skips branch create confirmations when run from a command, e.g. a view action",
-							"Skips branch create confirmations when run from the `Git Commands` menu",
-							"Skips co-author confirmations when run from a command, e.g. a view action",
-							"Skips co-author confirmations when run from the `Git Commands` menu",
-							"Skips fetch confirmations when run from a command, e.g. a view action",
-							"Skips fetch confirmations when run from the `Git Commands` menu",
-							"Skips pull confirmations when run from a command, e.g. a view action",
-							"Skips pull confirmations when run from the `Git Commands` menu",
-							"Skips push confirmations when run from a command, e.g. a view action",
-							"Skips push confirmations when run from the `Git Commands` menu",
-							"Skips stash apply confirmations when run from a command, e.g. a view action",
-							"Skips stash apply confirmations when run from the `Git Commands` menu",
-							"Skips stash pop confirmations when run from a command, e.g. a view action",
-							"Skips stash pop confirmations when run from the `Git Commands` menu",
-							"Skips stash push confirmations when run from a command, e.g. a view action",
-							"Skips stash push confirmations when run from the `Git Commands` menu",
-							"Skips switch confirmations when run from a command, e.g. a view action",
-							"Skips switch confirmations when run from the `Git Commands` menu",
-							"Skips tag create confirmations when run from a command, e.g. a view action",
-							"Skips tag create confirmations when run from the `Git Commands` menu"
+							"%gitlens.gitCommands.skipConfirmations.items.enumDescriptions.branch-create:command%",
+							"%gitlens.gitCommands.skipConfirmations.items.enumDescriptions.branch-create:menu%",
+							"%gitlens.gitCommands.skipConfirmations.items.enumDescriptions.co-authors:command%",
+							"%gitlens.gitCommands.skipConfirmations.items.enumDescriptions.co-authors:menu%",
+							"%gitlens.gitCommands.skipConfirmations.items.enumDescriptions.fetch:command%",
+							"%gitlens.gitCommands.skipConfirmations.items.enumDescriptions.fetch:menu%",
+							"%gitlens.gitCommands.skipConfirmations.items.enumDescriptions.pull:command%",
+							"%gitlens.gitCommands.skipConfirmations.items.enumDescriptions.pull:menu%",
+							"%gitlens.gitCommands.skipConfirmations.items.enumDescriptions.push:command%",
+							"%gitlens.gitCommands.skipConfirmations.items.enumDescriptions.push:menu%",
+							"%gitlens.gitCommands.skipConfirmations.items.enumDescriptions.stash-apply:command%",
+							"%gitlens.gitCommands.skipConfirmations.items.enumDescriptions.stash-apply:menu%",
+							"%gitlens.gitCommands.skipConfirmations.items.enumDescriptions.stash-pop:command%",
+							"%gitlens.gitCommands.skipConfirmations.items.enumDescriptions.stash-pop:menu%",
+							"%gitlens.gitCommands.skipConfirmations.items.enumDescriptions.stash-push:command%",
+							"%gitlens.gitCommands.skipConfirmations.items.enumDescriptions.stash-push:menu%",
+							"%gitlens.gitCommands.skipConfirmations.items.enumDescriptions.switch:command%",
+							"%gitlens.gitCommands.skipConfirmations.items.enumDescriptions.switch:menu%",
+							"%gitlens.gitCommands.skipConfirmations.items.enumDescriptions.tag-create:command%",
+							"%gitlens.gitCommands.skipConfirmations.items.enumDescriptions.tag-create:menu%"
 						]
 					},
 					"minItems": 0,
 					"maxItems": 14,
 					"uniqueItems": true,
-					"markdownDescription": "Specifies which (and when) Git commands will skip the confirmation step, using the format: `git-command-name:(menu|command)`",
+					"markdownDescription": "%gitlens.gitCommands.skipConfirmations.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.heatmap.ageThreshold": {
 					"type": "string",
 					"default": "90",
-					"markdownDescription": "Specifies the age of the most recent change (in days) after which the gutter heatmap annotations will be cold rather than hot (i.e. will use `#gitlens.heatmap.coldColor#` instead of `#gitlens.heatmap.hotColor#`)",
+					"markdownDescription": "%gitlens.heatmap.ageThreshold.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.heatmap.coldColor": {
 					"type": "string",
 					"default": "#0a60f6",
-					"markdownDescription": "Specifies the base color of the gutter heatmap annotations when the most recent change is older (cold) than the `#gitlens.heatmap.ageThreshold#` value",
+					"markdownDescription": "%gitlens.heatmap.coldColor.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.heatmap.hotColor": {
 					"type": "string",
 					"default": "#f66a0a",
-					"markdownDescription": "Specifies the base color of the gutter heatmap annotations when the most recent change is newer (hot) than the `#gitlens.heatmap.ageThreshold#` value",
+					"markdownDescription": "%gitlens.heatmap.hotColor.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.heatmap.toggleMode": {
@@ -657,28 +657,28 @@
 						"window"
 					],
 					"enumDescriptions": [
-						"Toggles each file individually",
-						"Toggles the window, i.e. all files at once"
+						"%gitlens.heatmap.toggleMode.enumDescriptions.file%",
+						"%gitlens.heatmap.toggleMode.enumDescriptions.window%"
 					],
-					"markdownDescription": "Specifies how the gutter heatmap annotations will be toggled",
+					"markdownDescription": "%gitlens.heatmap.toggleMode.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.hovers.annotations.changes": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to provide a _changes (diff)_ hover for all lines when showing blame annotations",
+					"markdownDescription": "%gitlens.hovers.annotations.changes.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.hovers.annotations.details": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to provide a _commit details_ hover for all lines when showing blame annotations",
+					"markdownDescription": "%gitlens.hovers.annotations.details.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.hovers.annotations.enabled": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to provide any hovers when showing blame annotations",
+					"markdownDescription": "%gitlens.hovers.annotations.enabled.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.hovers.annotations.over": {
@@ -689,28 +689,28 @@
 						"line"
 					],
 					"enumDescriptions": [
-						"Only shown when hovering over the line annotation",
-						"Shown when hovering anywhere over the line"
+						"%gitlens.hovers.annotations.over.enumDescriptions.annotation%",
+						"%gitlens.hovers.annotations.over.enumDescriptions.line%"
 					],
-					"markdownDescription": "Specifies when to trigger hovers when showing blame annotations",
+					"markdownDescription": "%gitlens.hovers.annotations.over.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.hovers.currentLine.changes": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to provide a _changes (diff)_ hover for the current line",
+					"markdownDescription": "%gitlens.hovers.currentLine.changes.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.hovers.currentLine.details": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to provide a _commit details_ hover for the current line",
+					"markdownDescription": "%gitlens.hovers.currentLine.details.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.hovers.currentLine.enabled": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to provide any hovers for the current line",
+					"markdownDescription": "%gitlens.hovers.currentLine.enabled.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.hovers.currentLine.over": {
@@ -721,16 +721,16 @@
 						"line"
 					],
 					"enumDescriptions": [
-						"Only shown when hovering over the line annotation",
-						"Shown when hovering anywhere over the line"
+						"%gitlens.hovers.currentLine.over.enumDescriptions.annotation%",
+						"%gitlens.hovers.currentLine.over.enumDescriptions.line%"
 					],
-					"markdownDescription": "Specifies when to trigger hovers for the current line",
+					"markdownDescription": "%gitlens.hovers.currentLine.over.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.hovers.avatars": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to show avatar images in hovers",
+					"markdownDescription": "%gitlens.hovers.avatars.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.hovers.changesDiff": {
@@ -741,28 +741,28 @@
 						"hunk"
 					],
 					"enumDescriptions": [
-						"Shows only the changes to the line",
-						"Shows the set of related changes"
+						"%gitlens.hovers.changesDiff.enumDescriptions.line%",
+						"%gitlens.hovers.changesDiff.enumDescriptions.hunk%"
 					],
-					"markdownDescription": "Specifies whether to show just the changes to the line or the set of related changes in the _changes (diff)_ hover",
+					"markdownDescription": "%gitlens.hovers.changesDiff.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.hovers.detailsMarkdownFormat": {
 					"type": "string",
 					"default": "${avatar} &nbsp;__${author}__, ${ago} &nbsp; _(${date})_ \n\n${message}\n\n${commands}",
-					"markdownDescription": "Specifies the format (in markdown) of the _commit details_ hover. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+					"markdownDescription": "%gitlens.hovers.detailsMarkdownFormat.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.hovers.enabled": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to provide any hovers",
+					"markdownDescription": "%gitlens.hovers.enabled.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.insiders": {
 					"type": "boolean",
 					"default": false,
-					"markdownDescription": "Specifies whether to enable experimental features",
+					"markdownDescription": "%gitlens.insiders.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.keymap": {
@@ -774,17 +774,17 @@
 						"none"
 					],
 					"enumDescriptions": [
-						"Adds an alternate set of shortcut keys that start with `Alt` (⌥ on macOS)",
-						"Adds a chorded set of shortcut keys that start with `Ctrl+Alt+G` (`⌥⌘G` on macOS)",
-						"No shortcut keys will be added"
+						"%gitlens.keymap.enumDescriptions.alternate%",
+						"%gitlens.keymap.enumDescriptions.chorded%",
+						"%gitlens.keymap.enumDescriptions.none%"
 					],
-					"markdownDescription": "Specifies the keymap to use for GitLens shortcut keys",
+					"markdownDescription": "%gitlens.keymap.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.liveshare.allowGuestAccess": {
 					"type": "boolean",
 					"default": true,
-					"description": "Specifies whether to allow guest access to GitLens features when using Visual Studio Live Share",
+					"description": "%gitlens.liveshare.allowGuestAccess.description%",
 					"scope": "window"
 				},
 				"gitlens.menus": {
@@ -998,18 +998,18 @@
 							"stash": true
 						}
 					},
-					"markdownDescription": "Specifies which commands will be added to which menus",
+					"markdownDescription": "%gitlens.menus.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.mode.active": {
 					"type": "string",
-					"markdownDescription": "Specifies the active GitLens mode, if any",
+					"markdownDescription": "%gitlens.mode.active.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.mode.statusBar.enabled": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to provide the active GitLens mode in the status bar",
+					"markdownDescription": "%gitlens.mode.statusBar.enabled.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.mode.statusBar.alignment": {
@@ -1020,10 +1020,10 @@
 						"right"
 					],
 					"enumDescriptions": [
-						"Aligns to the left",
-						"Aligns to the right"
+						"%gitlens.mode.statusBar.alignment.enumDescriptions.left%",
+						"%gitlens.mode.statusBar.alignment.enumDescriptions.right%"
 					],
-					"markdownDescription": "Specifies the active GitLens mode alignment in the status bar",
+					"markdownDescription": "%gitlens.mode.statusBar.alignment.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.modes": {
@@ -1034,35 +1034,35 @@
 							"properties": {
 								"name": {
 									"type": "string",
-									"description": "Specifies the friendly name of this user-defined mode"
+									"description": "%gitlens.modes.properties.zen.properties.name.description%"
 								},
 								"statusBarItemName": {
 									"type": "string",
-									"description": "Specifies the name shown in the status bar when this user-defined mode is active"
+									"description": "%gitlens.modes.properties.zen.properties.statusBarItemName.description%"
 								},
 								"description": {
 									"type": "string",
-									"description": "Specifies the description of this user-defined mode"
+									"description": "%gitlens.modes.properties.zen.properties.description.description%"
 								},
 								"codeLens": {
 									"type": "boolean",
-									"description": "Specifies whether to show any Git code lens when this user-defined mode is active"
+									"description": "%gitlens.modes.properties.zen.properties.codeLens.description%"
 								},
 								"currentLine": {
 									"type": "boolean",
-									"description": "Specifies whether to show a blame annotation for the current line when this user-defined mode is active"
+									"description": "%gitlens.modes.properties.zen.properties.currentLine.description%"
 								},
 								"hovers": {
 									"type": "boolean",
-									"description": "Specifies whether to show any hovers when this user-defined mode is active"
+									"description": "%gitlens.modes.properties.zen.properties.hovers.description%"
 								},
 								"statusBar": {
 									"type": "boolean",
-									"description": "Specifies whether to show blame information in the status bar when this user-defined mode is active"
+									"description": "%gitlens.modes.properties.zen.properties.statusBar.description%"
 								},
 								"views": {
 									"type": "boolean",
-									"description": "Specifies whether to show any GitLens views when this user-defined mode is active"
+									"description": "%gitlens.modes.properties.zen.properties.views.description%"
 								}
 							}
 						},
@@ -1071,35 +1071,35 @@
 							"properties": {
 								"name": {
 									"type": "string",
-									"description": "Specifies the friendly name of this user-defined mode"
+									"description": "%gitlens.modes.properties.review.properties.name.description%"
 								},
 								"statusBarItemName": {
 									"type": "string",
-									"description": "Specifies the name shown in the status bar when this user-defined mode is active"
+									"description": "%gitlens.modes.properties.review.properties.statusBarItemName.description%"
 								},
 								"description": {
 									"type": "string",
-									"description": "Specifies the description of this user-defined mode"
+									"description": "%gitlens.modes.properties.review.properties.description.description%"
 								},
 								"codeLens": {
 									"type": "boolean",
-									"description": "Specifies whether to show any Git code lens when this user-defined mode is active"
+									"description": "%gitlens.modes.properties.review.properties.codeLens.description%"
 								},
 								"currentLine": {
 									"type": "boolean",
-									"description": "Specifies whether to show a blame annotation for the current line when this user-defined mode is active"
+									"description": "%gitlens.modes.properties.review.properties.currentLine.description%"
 								},
 								"hovers": {
 									"type": "boolean",
-									"description": "Specifies whether to show any hovers when this user-defined mode is active"
+									"description": "%gitlens.modes.properties.review.properties.hovers.description%"
 								},
 								"statusBar": {
 									"type": "boolean",
-									"description": "Specifies whether to show blame information in the status bar when this user-defined mode is active"
+									"description": "%gitlens.modes.properties.review.properties.statusBar.description%"
 								},
 								"views": {
 									"type": "boolean",
-									"description": "Specifies whether to show any GitLens views when this user-defined mode is active"
+									"description": "%gitlens.modes.properties.review.properties.views.description%"
 								}
 							}
 						}
@@ -1112,15 +1112,15 @@
 						"properties": {
 							"name": {
 								"type": "string",
-								"description": "Specifies the friendly name of this user-defined mode"
+								"description": "%gitlens.modes.additionalProperties.properties.name.description%"
 							},
 							"statusBarItemName": {
 								"type": "string",
-								"description": "Specifies the name shown in the status bar when this user-defined mode is active"
+								"description": "%gitlens.modes.additionalProperties.properties.statusBarItemName.description%"
 							},
 							"description": {
 								"type": "string",
-								"description": "Specifies the description of this user-defined mode"
+								"description": "%gitlens.modes.additionalProperties.properties.description.description%"
 							},
 							"annotations": {
 								"type": "string",
@@ -1130,31 +1130,31 @@
 									"recentChanges"
 								],
 								"enumDescriptions": [
-									"Shows the gutter blame annotations",
-									"Shows the gutter heatmap annotations",
-									"Shows the recently changed lines annotations"
+									"%gitlens.modes.additionalProperties.properties.annotations.enumDescriptions.blame%",
+									"%gitlens.modes.additionalProperties.properties.annotations.enumDescriptions.heatmap%",
+									"%gitlens.modes.additionalProperties.properties.annotations.enumDescriptions.recentChanges%"
 								],
-								"description": "Specifies which (if any) file annotations will be shown when this user-defined mode is active"
+								"description": "%gitlens.modes.additionalProperties.properties.annotations.description%"
 							},
 							"codeLens": {
 								"type": "boolean",
-								"description": "Specifies whether to show any Git code lens when this user-defined mode is active"
+								"description": "%gitlens.modes.additionalProperties.properties.codeLens.description%"
 							},
 							"currentLine": {
 								"type": "boolean",
-								"description": "Specifies whether to show a blame annotation for the current line when this user-defined mode is active"
+								"description": "%gitlens.modes.additionalProperties.properties.currentLine.description%"
 							},
 							"hovers": {
 								"type": "boolean",
-								"description": "Specifies whether to show any hovers when this user-defined mode is active"
+								"description": "%gitlens.modes.additionalProperties.properties.hovers.description%"
 							},
 							"statusBar": {
 								"type": "boolean",
-								"description": "Specifies whether to show blame information in the status bar when this user-defined mode is active"
+								"description": "%gitlens.modes.additionalProperties.properties.statusBar.description%"
 							},
 							"views": {
 								"type": "boolean",
-								"description": "Specifies whether to show any GitLens views when this user-defined mode is active"
+								"description": "%gitlens.modes.additionalProperties.properties.views.description%"
 							}
 						}
 					},
@@ -1162,7 +1162,7 @@
 						"zen": {
 							"name": "Zen",
 							"statusBarItemName": "Zen",
-							"description": "for a zen-like experience, disables many visual features",
+							"description": "%gitlens.modes.default.zen.description%",
 							"codeLens": false,
 							"currentLine": false,
 							"hovers": false,
@@ -1171,13 +1171,13 @@
 						"review": {
 							"name": "Review",
 							"statusBarItemName": "Reviewing",
-							"description": "for reviewing code, enables many visual features",
+							"description": "%gitlens.modes.default.review.description%",
 							"codeLens": true,
 							"currentLine": true,
 							"hovers": true
 						}
 					},
-					"markdownDescription": "Specifies the user-defined GitLens modes",
+					"markdownDescription": "%gitlens.modes.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.outputLevel": {
@@ -1190,12 +1190,12 @@
 						"debug"
 					],
 					"enumDescriptions": [
-						"Logs nothing",
-						"Logs only errors",
-						"Logs all errors, warnings, and messages",
-						"Logs all errors, warnings, and messages with extra context useful for debugging"
+						"%gitlens.outputLevel.enumDescriptions.silent%",
+						"%gitlens.outputLevel.enumDescriptions.errors%",
+						"%gitlens.outputLevel.enumDescriptions.verbose%",
+						"%gitlens.outputLevel.enumDescriptions.debug%"
 					],
-					"markdownDescription": "Specifies how much (if any) output will be sent to the GitLens output channel",
+					"markdownDescription": "%gitlens.outputLevel.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.recentChanges.highlight.locations": {
@@ -1213,15 +1213,15 @@
 							"overview"
 						],
 						"enumDescriptions": [
-							"Adds a gutter glyph",
-							"Adds a full-line highlight background color",
-							"Adds a decoration to the overview ruler (scroll bar)"
+							"%gitlens.recentChanges.highlight.locations.items.enumDescriptions.gutter%",
+							"%gitlens.recentChanges.highlight.locations.items.enumDescriptions.line%",
+							"%gitlens.recentChanges.highlight.locations.items.enumDescriptions.overview%"
 						]
 					},
 					"minItems": 1,
 					"maxItems": 3,
 					"uniqueItems": true,
-					"markdownDescription": "Specifies where the highlights of the recently changed lines will be shown",
+					"markdownDescription": "%gitlens.recentChanges.highlight.locations.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.recentChanges.toggleMode": {
@@ -1232,10 +1232,10 @@
 						"window"
 					],
 					"enumDescriptions": [
-						"Toggles each file individually",
-						"Toggles the window, i.e. all files at once"
+						"%gitlens.recentChanges.toggleMode.enumDescriptions.file%",
+						"%gitlens.recentChanges.toggleMode.enumDescriptions.window%"
 					],
-					"markdownDescription": "Specifies how the recently changed lines annotations will be toggled",
+					"markdownDescription": "%gitlens.recentChanges.toggleMode.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.remotes": {
@@ -1260,20 +1260,20 @@
 									"GitHub",
 									"GitLab"
 								],
-								"description": "Specifies the type of the custom remote service"
+								"description": "%gitlens.remotes.items.properties.type.description%"
 							},
 							"domain": {
 								"type": "string",
-								"description": "Specifies the domain name of the custom remote service"
+								"description": "%gitlens.remotes.items.properties.domain.description%"
 							},
 							"name": {
 								"type": "string",
-								"description": "Specifies an optional friendly name for the custom remote service"
+								"description": "%gitlens.remotes.items.properties.name.description%"
 							},
 							"protocol": {
 								"type": "string",
 								"default": "https",
-								"description": "Specifies an optional url protocol for the custom remote service"
+								"description": "%gitlens.remotes.items.properties.protocol.description%"
 							},
 							"urls": {
 								"type": "object",
@@ -1291,53 +1291,53 @@
 								"properties": {
 									"repository": {
 										"type": "string",
-										"description": "Specifies the format of a respository url for the custom remote service\nAvailable tokens\n ${repo}` &mdash; repository path"
+										"description": "%gitlens.remotes.items.properties.urls.properties.repository.description%"
 									},
 									"branches": {
 										"type": "string",
-										"description": "Specifies the format of a branches url for the custom remote service\nAvailable tokens\n ${repo}` &mdash; repository path\n ${branch}` &mdash; branch"
+										"description": "%gitlens.remotes.items.properties.urls.properties.branches.description%"
 									},
 									"branch": {
 										"type": "string",
-										"description": "Specifies the format of a branch url for the custom remote service\nAvailable tokens\n ${repo}` &mdash; repository path\n ${branch}` &mdash; branch"
+										"description": "%gitlens.remotes.items.properties.urls.properties.branch.description%"
 									},
 									"commit": {
 										"type": "string",
-										"description": "Specifies the format of a commit url for the custom remote service\nAvailable tokens\n ${repo}` &mdash; repository path\n ${id}` &mdash; commit id"
+										"description": "%gitlens.remotes.items.properties.urls.properties.commit.description%"
 									},
 									"file": {
 										"type": "string",
-										"description": "Specifies the format of a file url for the custom remote service\nAvailable tokens\n ${repo}` &mdash; repository path\n ${file}` &mdash; file name\n ${line}` &mdash; formatted line information"
+										"description": "%gitlens.remotes.items.properties.urls.properties.file.description%"
 									},
 									"fileInBranch": {
 										"type": "string",
-										"description": "Specifies the format of a branch file url for the custom remote service\nAvailable tokens\n ${repo}` &mdash; repository path\n ${file}` &mdash; file name\n ${branch}` &mdash; branch\n ${line}` &mdash; formatted line information"
+										"description": "%gitlens.remotes.items.properties.urls.properties.fileInBranch.description%"
 									},
 									"fileInCommit": {
 										"type": "string",
-										"description": "Specifies the format of a commit file url for the custom remote service\nAvailable tokens\n ${repo}` &mdash; repository path\n ${file}` &mdash; file name\n ${id}` &mdash; commit id\n ${line}` &mdash; formatted line information"
+										"description": "%gitlens.remotes.items.properties.urls.properties.fileInCommit.description%"
 									},
 									"fileLine": {
 										"type": "string",
-										"description": "Specifies the format of a line in a file url for the custom remote service\nAvailable tokens\n ${line}` &mdash; line"
+										"description": "%gitlens.remotes.items.properties.urls.properties.fileLine.description%"
 									},
 									"fileRange": {
 										"type": "string",
-										"description": "Specifies the format of a range in a file url for the custom remote service\nAvailable tokens\n ${start}` &mdash; starting line\n ${end}` &mdash; ending line"
+										"description": "%gitlens.remotes.items.properties.urls.properties.fileRange.description%"
 									}
 								}
 							},
-							"description": "Specifies the url formats of the custom remote service"
+							"description": "%gitlens.remotes.items.properties.description%"
 						}
 					},
 					"uniqueItems": true,
-					"markdownDescription": "Specifies user-defined remote (code-hosting) services or custom domains for built-in remote services",
+					"markdownDescription": "%gitlens.remotes.markdownDescription%",
 					"scope": "resource"
 				},
 				"gitlens.showWhatsNewAfterUpgrades": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to show What's New after upgrading to new feature releases",
+					"markdownDescription": "%gitlens.showWhatsNewAfterUpgrades.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.sortBranchesBy": {
@@ -1350,12 +1350,12 @@
 						"date:asc"
 					],
 					"enumDescriptions": [
-						"Sorts branches by name in descending order",
-						"Sorts branches by name in ascending order",
-						"Sorts branches by the most recent commit date in descending order",
-						"Sorts branches by the most recent commit date in ascending order"
+						"%gitlens.sortBranchesBy.enumDescriptions.name:desc%",
+						"%gitlens.sortBranchesBy.enumDescriptions.name:asc%",
+						"%gitlens.sortBranchesBy.enumDescriptions.date:desc%",
+						"%gitlens.sortBranchesBy.enumDescriptions.date:asc%"
 					],
-					"markdownDescription": "Specifies how branches are sorted in quick pick menus and views",
+					"markdownDescription": "%gitlens.sortBranchesBy.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.sortTagsBy": {
@@ -1368,12 +1368,12 @@
 						"date:asc"
 					],
 					"enumDescriptions": [
-						"Sorts tags by name in descending order",
-						"Sorts tags by name in ascending order",
-						"Sorts tags by date in descending order",
-						"Sorts tags by date in ascending order"
+						"%gitlens.sortTagsBy.enumDescriptions.name:desc%",
+						"%gitlens.sortTagsBy.enumDescriptions.name:asc%",
+						"%gitlens.sortTagsBy.enumDescriptions.date:desc%",
+						"%gitlens.sortTagsBy.enumDescriptions.date:asc%"
 					],
-					"markdownDescription": "Specifies how tags are sorted in quick pick menus and views",
+					"markdownDescription": "%gitlens.sortTagsBy.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.statusBar.alignment": {
@@ -1384,10 +1384,10 @@
 						"right"
 					],
 					"enumDescriptions": [
-						"Aligns to the left",
-						"Aligns to the right"
+						"%gitlens.statusBar.alignment.enumDescriptions.left%",
+						"%gitlens.statusBar.alignment.enumDescriptions.right%"
 					],
-					"markdownDescription": "Specifies the blame alignment in the status bar",
+					"markdownDescription": "%gitlens.statusBar.alignment.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.statusBar.command": {
@@ -1406,18 +1406,18 @@
 						"gitlens.showQuickRepoHistory"
 					],
 					"enumDescriptions": [
-						"Toggles file blame annotations",
-						"Compares the current line commit with the previous",
-						"Compares the current line commit with the working tree",
-						"Toggles Git code lens",
-						"Reveals the commit in the Repositories view",
-						"Shows the commit in the Search Commits view",
-						"Shows a commit details quick pick",
-						"Shows a commit file details quick pick",
-						"Shows a file history quick pick",
-						"Shows a branch history quick pick"
+						"%gitlens.statusBar.command.enumDescriptions.gitlens.toggleFileBlame%",
+						"%gitlens.statusBar.command.enumDescriptions.gitlens.diffWithPrevious%",
+						"%gitlens.statusBar.command.enumDescriptions.gitlens.diffWithWorking%",
+						"%gitlens.statusBar.command.enumDescriptions.gitlens.toggleCodeLens%",
+						"%gitlens.statusBar.command.enumDescriptions.gitlens.revealCommitInView%",
+						"%gitlens.statusBar.command.enumDescriptions.gitlens.showCommitsInView%",
+						"%gitlens.statusBar.command.enumDescriptions.gitlens.showQuickCommitDetails%",
+						"%gitlens.statusBar.command.enumDescriptions.gitlens.showQuickCommitFileDetails%",
+						"%gitlens.statusBar.command.enumDescriptions.gitlens.showQuickFileHistory%",
+						"%gitlens.statusBar.command.enumDescriptions.gitlens.showQuickRepoHistory%"
 					],
-					"markdownDescription": "Specifies the command to be executed when the blame status bar item is clicked",
+					"markdownDescription": "%gitlens.statusBar.command.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.statusBar.dateFormat": {
@@ -1426,85 +1426,85 @@
 						"null"
 					],
 					"default": null,
-					"markdownDescription": "Specifies how to format absolute dates (e.g. using the `${date}` token) in the blame information in the status bar. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats",
+					"markdownDescription": "%gitlens.statusBar.dateFormat.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.statusBar.enabled": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to provide blame information in the status bar",
+					"markdownDescription": "%gitlens.statusBar.enabled.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.statusBar.format": {
 					"type": "string",
 					"default": "${author}, ${agoOrDate}",
-					"markdownDescription": "Specifies the format of the blame information in the status bar. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.statusBar.dateFormat#` setting",
+					"markdownDescription": "%gitlens.statusBar.format.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.statusBar.reduceFlicker": {
 					"type": "boolean",
 					"default": false,
-					"markdownDescription": "Specifies whether to avoid clearing the previous blame information when changing lines to reduce status bar \"flashing\"",
+					"markdownDescription": "%gitlens.statusBar.reduceFlicker.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.strings.codeLens.unsavedChanges.recentChangeAndAuthors": {
 					"type": "string",
 					"default": "Unsaved changes (cannot determine recent change or authors)",
-					"markdownDescription": "Specifies the string to be shown in place of both the _recent change_ and _authors_ code lens when there are unsaved changes",
+					"markdownDescription": "%gitlens.strings.codeLens.unsavedChanges.recentChangeAndAuthors.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.strings.codeLens.unsavedChanges.recentChangeOnly": {
 					"type": "string",
 					"default": "Unsaved changes (cannot determine recent change)",
-					"markdownDescription": "Specifies the string to be shown in place of the _recent change_ code lens when there are unsaved changes",
+					"markdownDescription": "%gitlens.strings.codeLens.unsavedChanges.recentChangeOnly.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.strings.codeLens.unsavedChanges.authorsOnly": {
 					"type": "string",
 					"default": "Unsaved changes (cannot determine authors)",
-					"markdownDescription": "Specifies the string to be shown in place of the _authors_ code lens when there are unsaved changes",
+					"markdownDescription": "%gitlens.strings.codeLens.unsavedChanges.authorsOnly.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.commitFileFormat": {
 					"type": "string",
 					"default": "${file}",
-					"markdownDescription": "Specifies the format of a committed file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
+					"markdownDescription": "%gitlens.views.commitFileFormat.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.commitFileDescriptionFormat": {
 					"type": "string",
 					"default": "${directory}${  ←  originalPath}",
-					"markdownDescription": "Specifies the description format of a committed file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
+					"markdownDescription": "%gitlens.views.commitFileDescriptionFormat.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.commitFormat": {
 					"type": "string",
 					"default": "${❰ tips ❱➤  }${message}",
-					"markdownDescription": "Specifies the format of committed changes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+					"markdownDescription": "%gitlens.views.commitFormat.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.commitDescriptionFormat": {
 					"type": "string",
 					"default": "${changes  •  }${author}, ${agoOrDate}",
-					"markdownDescription": "Specifies the description format of committed changes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+					"markdownDescription": "%gitlens.views.commitDescriptionFormat.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.compare.avatars": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Compare_ view",
+					"markdownDescription": "%gitlens.views.compare.avatars.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.compare.enabled": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to show the _Compare_ view",
+					"markdownDescription": "%gitlens.views.compare.enabled.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.compare.files.compact": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Compare_ view. Only applies when `#gitlens.views.compare.files.layout#` is set to `tree` or `auto`",
+					"markdownDescription": "%gitlens.views.compare.files.compact.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.compare.files.layout": {
@@ -1516,17 +1516,17 @@
 						"tree"
 					],
 					"enumDescriptions": [
-						"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.compare.files.threshold#` value and the number of files at each nesting level",
-						"Displays files as a list",
-						"Displays files as a tree"
+						"%gitlens.views.compare.files.layout.enumDescriptions.auto%",
+						"%gitlens.views.compare.files.layout.enumDescriptions.list%",
+						"%gitlens.views.compare.files.layout.enumDescriptions.tree%"
 					],
-					"markdownDescription": "Specifies how the _Compare_ view will display files",
+					"markdownDescription": "%gitlens.views.compare.files.layout.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.compare.files.threshold": {
 					"type": "number",
 					"default": 5,
-					"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Compare_ view. Only applies when `#gitlens.views.compare.files.layout#` is set to `auto`",
+					"markdownDescription": "%gitlens.views.compare.files.threshold.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.compare.location": {
@@ -1538,35 +1538,35 @@
 						"scm"
 					],
 					"enumDescriptions": [
-						"Adds to the GitLens side bar",
-						"Adds to the Explorer side bar",
-						"Adds to the Source Control side bar"
+						"%gitlens.views.compare.location.enumDescriptions.gitlens%",
+						"%gitlens.views.compare.location.enumDescriptions.explorer%",
+						"%gitlens.views.compare.location.enumDescriptions.scm%"
 					],
-					"markdownDescription": "Specifies where to show the _Compare_ view",
+					"markdownDescription": "%gitlens.views.compare.location.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.defaultItemLimit": {
 					"type": "number",
 					"default": 10,
-					"markdownDescription": "Specifies the default number of items to show in a view list. Use 0 to specify no limit",
+					"markdownDescription": "%gitlens.views.defaultItemLimit.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.pageItemLimit": {
 					"type": "number",
 					"default": 20,
-					"markdownDescription": "Specifies the number of items to show in a each page when paginating a view list. Use 0 to specify no limit",
+					"markdownDescription": "%gitlens.views.pageItemLimit.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.fileHistory.avatars": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to show avatar images instead of status icons in the _File History_ view",
+					"markdownDescription": "%gitlens.views.fileHistory.avatars.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.fileHistory.enabled": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to show the _File History_ view",
+					"markdownDescription": "%gitlens.views.fileHistory.enabled.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.fileHistory.location": {
@@ -1578,23 +1578,23 @@
 						"scm"
 					],
 					"enumDescriptions": [
-						"Adds to the GitLens side bar",
-						"Adds to the Explorer side bar",
-						"Adds to the Source Control side bar"
+						"%gitlens.views.fileHistory.location.enumDescriptions.gitlens%",
+						"%gitlens.views.fileHistory.location.enumDescriptions.explorer%",
+						"%gitlens.views.fileHistory.location.enumDescriptions.scm%"
 					],
-					"markdownDescription": "Specifies where to show the _File History_ view",
+					"markdownDescription": "%gitlens.views.fileHistory.location.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.lineHistory.avatars": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to show avatar images instead of status icons in the _Line History_ view",
+					"markdownDescription": "%gitlens.views.lineHistory.avatars.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.lineHistory.enabled": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to show the _Line History_ view",
+					"markdownDescription": "%gitlens.views.lineHistory.enabled.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.lineHistory.location": {
@@ -1606,29 +1606,29 @@
 						"scm"
 					],
 					"enumDescriptions": [
-						"Adds to the GitLens side bar",
-						"Adds to the Explorer side bar",
-						"Adds to the Source Control side bar"
+						"%gitlens.views.lineHistory.location.enumDescriptions.gitlens%",
+						"%gitlens.views.lineHistory.location.enumDescriptions.explorer%",
+						"%gitlens.views.lineHistory.location.enumDescriptions.scm%"
 					],
-					"markdownDescription": "Specifies where to show the _Line History_ view",
+					"markdownDescription": "%gitlens.views.lineHistory.location.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.repositories.autoRefresh": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to automatically refresh the _Repositories_ view when the repository or the file system changes",
+					"markdownDescription": "%gitlens.views.repositories.autoRefresh.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.repositories.autoReveal": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to automatically reveal repositories in the _Repositories_ view when opening files",
+					"markdownDescription": "%gitlens.views.repositories.autoReveal.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.repositories.avatars": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Repositories_ view",
+					"markdownDescription": "%gitlens.views.repositories.avatars.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.repositories.branches.layout": {
@@ -1639,28 +1639,28 @@
 						"tree"
 					],
 					"enumDescriptions": [
-						"Displays branches as a list",
-						"Displays branches as a tree when branch names contain slashes `/`"
+						"%gitlens.views.repositories.branches.layout.enumDescriptions.list%",
+						"%gitlens.views.repositories.branches.layout.enumDescriptions.tree%"
 					],
-					"markdownDescription": "Specifies how the _Repositories_ view will display branches",
+					"markdownDescription": "%gitlens.views.repositories.branches.layout.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.repositories.compact": {
 					"type": "boolean",
 					"default": false,
-					"markdownDescription": "Specifies whether to show the _Repositories_ view in a compact display density",
+					"markdownDescription": "%gitlens.views.repositories.compact.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.repositories.enabled": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to show the _Repositories_ view",
+					"markdownDescription": "%gitlens.views.repositories.enabled.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.repositories.files.compact": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Repositories_ view. Only applies when `#gitlens.views.repositories.files.layout#` is set to `tree` or `auto`",
+					"markdownDescription": "%gitlens.views.repositories.files.compact.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.repositories.files.layout": {
@@ -1672,23 +1672,23 @@
 						"tree"
 					],
 					"enumDescriptions": [
-						"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.repositories.files.threshold#` value and the number of files at each nesting level",
-						"Displays files as a list",
-						"Displays files as a tree"
+						"%gitlens.views.repositories.files.layout.enumDescriptions.auto%",
+						"%gitlens.views.repositories.files.layout.enumDescriptions.list%",
+						"%gitlens.views.repositories.files.layout.enumDescriptions.tree%"
 					],
-					"markdownDescription": "Specifies how the _Repositories_ view will display files",
+					"markdownDescription": "%gitlens.views.repositories.files.layout.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.repositories.files.threshold": {
 					"type": "number",
 					"default": 5,
-					"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Repositories_ view. Only applies when `#gitlens.views.repositories.files.layout#` is set to `auto`",
+					"markdownDescription": "%gitlens.views.repositories.files.threshold.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.repositories.includeWorkingTree": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to include working tree file status for each repository in the _Repositories_ view",
+					"markdownDescription": "%gitlens.views.repositories.includeWorkingTree.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.repositories.location": {
@@ -1700,11 +1700,11 @@
 						"scm"
 					],
 					"enumDescriptions": [
-						"Adds to the GitLens side bar",
-						"Adds to the Explorer side bar",
-						"Adds to the Source Control side bar"
+						"%gitlens.views.repositories.location.enumDescriptions.gitlens%",
+						"%gitlens.views.repositories.location.enumDescriptions.explorer%",
+						"%gitlens.views.repositories.location.enumDescriptions.scm%"
 					],
-					"markdownDescription": "Specifies where to show the _Repositories_ view",
+					"markdownDescription": "%gitlens.views.repositories.location.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.repositories.showBranchComparison": {
@@ -1727,31 +1727,31 @@
 						}
 					],
 					"default": "working",
-					"markdownDescription": "Specifies whether to show a comparison of a user-selected reference (branch, tag. etc) to the current branch or the working tree in the _Repositories_ view",
+					"markdownDescription": "%gitlens.views.repositories.showBranchComparison.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.repositories.showTrackingBranch": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to show the tracking branch when displaying local branches in the _Repositories_ view",
+					"markdownDescription": "%gitlens.views.repositories.showTrackingBranch.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.search.avatars": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Search Commits_ view",
+					"markdownDescription": "%gitlens.views.search.avatars.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.search.enabled": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to show the _Search Commits_ view",
+					"markdownDescription": "%gitlens.views.search.enabled.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.search.files.compact": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Search Commits_ view. Only applies when `#gitlens.views.search.files.layout#` is set to `tree` or `auto`",
+					"markdownDescription": "%gitlens.views.search.files.compact.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.search.files.layout": {
@@ -1763,17 +1763,17 @@
 						"tree"
 					],
 					"enumDescriptions": [
-						"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.search.files.threshold#` value and the number of files at each nesting level",
-						"Displays files as a list",
-						"Displays files as a tree"
+						"%gitlens.views.search.files.layout.enumDescriptions.auto%",
+						"%gitlens.views.search.files.layout.enumDescriptions.list%",
+						"%gitlens.views.search.files.layout.enumDescriptions.tree%"
 					],
-					"markdownDescription": "Specifies how the _Search Commits_ view will display files",
+					"markdownDescription": "%gitlens.views.search.files.layout.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.search.files.threshold": {
 					"type": "number",
 					"default": 5,
-					"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Search Commits_ view. Only applies when `#gitlens.views.search.files.layout#` is set to `auto`",
+					"markdownDescription": "%gitlens.views.search.files.threshold.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.search.location": {
@@ -1785,59 +1785,59 @@
 						"scm"
 					],
 					"enumDescriptions": [
-						"Adds to the GitLens side bar",
-						"Adds to the Explorer side bar",
-						"Adds to the Source Control side bar"
+						"%gitlens.views.search.location.enumDescriptions.gitlens%",
+						"%gitlens.views.search.location.enumDescriptions.explorer%",
+						"%gitlens.views.search.location.enumDescriptions.scm%"
 					],
-					"markdownDescription": "Specifies where to show the _Search Commits_ view",
+					"markdownDescription": "%gitlens.views.search.location.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.showRelativeDateMarkers": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to show relative date markers (_Less than a week ago_, _Over a week ago_, _Over a month ago_, etc) on revision (commit) histories in the views",
+					"markdownDescription": "%gitlens.views.showRelativeDateMarkers.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.stashFileFormat": {
 					"type": "string",
 					"default": "${file}",
-					"markdownDescription": "Specifies the format of a stashed file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
+					"markdownDescription": "%gitlens.views.stashFileFormat.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.stashFileDescriptionFormat": {
 					"type": "string",
 					"default": "${directory}${  ←  originalPath}",
-					"markdownDescription": "Specifies the description format of a stashed file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
+					"markdownDescription": "%gitlens.views.stashFileDescriptionFormat.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.stashFormat": {
 					"type": "string",
 					"default": "${message}",
-					"markdownDescription": "Specifies the format of stashes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+					"markdownDescription": "%gitlens.views.stashFormat.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.stashDescriptionFormat": {
 					"type": "string",
 					"default": "${changes  •  }${agoOrDate}",
-					"markdownDescription": "Specifies the description format of stashes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+					"markdownDescription": "%gitlens.views.stashDescriptionFormat.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.statusFileFormat": {
 					"type": "string",
 					"default": "${working  }${file}",
-					"markdownDescription": "Specifies the format of the status of a working or committed file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
+					"markdownDescription": "%gitlens.views.statusFileFormat.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.views.statusFileDescriptionFormat": {
 					"type": "string",
 					"default": "${directory}${  ←  originalPath}",
-					"markdownDescription": "Specifies the description format of the status of a working or committed file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
+					"markdownDescription": "%gitlens.views.statusFileDescriptionFormat.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.advanced.abbreviatedShaLength": {
 					"type": "number",
 					"default": "7",
-					"markdownDescription": "Specifies the length of abbreviated commit ids (shas)",
+					"markdownDescription": "%gitlens.advanced.abbreviatedShaLength.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.advanced.blame.customArguments": {
@@ -1849,43 +1849,43 @@
 					"items": {
 						"type": "string"
 					},
-					"markdownDescription": "Specifies additional arguments to pass to the `git blame` command",
+					"markdownDescription": "%gitlens.advanced.blame.customArguments.markdownDescription%",
 					"scope": "resource"
 				},
 				"gitlens.advanced.blame.delayAfterEdit": {
 					"type": "number",
 					"default": 5000,
-					"markdownDescription": "Specifies the time (in milliseconds) to wait before re-blaming an unsaved document after an edit. Use 0 to specify an infinite wait",
+					"markdownDescription": "%gitlens.advanced.blame.delayAfterEdit.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.advanced.blame.sizeThresholdAfterEdit": {
 					"type": "number",
 					"default": 5000,
-					"markdownDescription": "Specifies the maximum document size (in lines) allowed to be re-blamed after an edit while still unsaved. Use 0 to specify no maximum",
+					"markdownDescription": "%gitlens.advanced.blame.sizeThresholdAfterEdit.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.advanced.caching.enabled": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether git output will be cached — changing the default is not recommended",
+					"markdownDescription": "%gitlens.advanced.caching.enabled.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.advanced.fileHistoryFollowsRenames": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether file histories will follow renames — will affect how merge commits are shown in histories",
+					"markdownDescription": "%gitlens.advanced.fileHistoryFollowsRenames.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.advanced.maxListItems": {
 					"type": "number",
 					"default": 200,
-					"markdownDescription": "Specifies the maximum number of items to show in a list. Use 0 to specify no maximum",
+					"markdownDescription": "%gitlens.advanced.maxListItems.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.advanced.maxSearchItems": {
 					"type": "number",
 					"default": 200,
-					"markdownDescription": "Specifies the maximum number of items to show in a search. Use 0 to specify no maximum",
+					"markdownDescription": "%gitlens.advanced.maxSearchItems.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.advanced.messages": {
@@ -1934,19 +1934,19 @@
 							"default": false
 						}
 					},
-					"markdownDescription": "Specifies which messages should be suppressed",
+					"markdownDescription": "%gitlens.advanced.messages.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.advanced.quickPick.closeOnFocusOut": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to dismiss quick pick menus when focus is lost (if not, press `ESC` to dismiss)",
+					"markdownDescription": "%gitlens.advanced.quickPick.closeOnFocusOut.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.advanced.repositorySearchDepth": {
 					"type": "number",
 					"default": 1,
-					"markdownDescription": "Specifies how many folders deep to search for repositories",
+					"markdownDescription": "%gitlens.advanced.repositorySearchDepth.markdownDescription%",
 					"scope": "resource"
 				},
 				"gitlens.advanced.similarityThreshold": {
@@ -1955,19 +1955,19 @@
 						"null"
 					],
 					"default": null,
-					"markdownDescription": "Specifies the amount (percent) of similarity a deleted and added file pair must have to be considered a rename",
+					"markdownDescription": "%gitlens.advanced.similarityThreshold.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.advanced.telemetry.enabled": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to enable GitLens telemetry (even if enabled still abides by the overall `#telemetry.enableTelemetry#` setting",
+					"markdownDescription": "%gitlens.advanced.telemetry.enabled.markdownDescription%",
 					"scope": "window"
 				},
 				"gitlens.advanced.useSymmetricDifferenceNotation": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to use the symmetric difference (three-dot) notation or the range (two-dot) notation for comparisons. See the [Git docs](https://git-scm.com/docs/gitrevisions#_dotted_range_notations)",
+					"markdownDescription": "%gitlens.advanced.useSymmetricDifferenceNotation.markdownDescription%",
 					"scope": "window"
 				}
 			}
@@ -1975,7 +1975,7 @@
 		"colors": [
 			{
 				"id": "gitlens.gutterBackgroundColor",
-				"description": "Specifies the background color of the gutter blame annotations",
+				"description": "%gitlens.gutterBackgroundColor.description%",
 				"defaults": {
 					"dark": "#FFFFFF13",
 					"light": "#0000000C",
@@ -1984,7 +1984,7 @@
 			},
 			{
 				"id": "gitlens.gutterForegroundColor",
-				"description": "Specifies the foreground color of the gutter blame annotations",
+				"description": "%gitlens.gutterForegroundColor.description%",
 				"defaults": {
 					"dark": "#BEBEBE",
 					"light": "#747474",
@@ -1993,7 +1993,7 @@
 			},
 			{
 				"id": "gitlens.gutterUncommittedForegroundColor",
-				"description": "Specifies the foreground color of an uncommitted line in the gutter blame annotations",
+				"description": "%gitlens.gutterUncommittedForegroundColor.description%",
 				"defaults": {
 					"dark": "#00BCF299",
 					"light": "#00BCF299",
@@ -2002,7 +2002,7 @@
 			},
 			{
 				"id": "gitlens.trailingLineBackgroundColor",
-				"description": "Specifies the background color of the blame annotation for the current line",
+				"description": "%gitlens.trailingLineBackgroundColor.description%",
 				"defaults": {
 					"dark": "#00000000",
 					"light": "#00000000",
@@ -2011,7 +2011,7 @@
 			},
 			{
 				"id": "gitlens.trailingLineForegroundColor",
-				"description": "Specifies the foreground color of the blame annotation for the current line",
+				"description": "%gitlens.trailingLineForegroundColor.description%",
 				"defaults": {
 					"dark": "#99999959",
 					"light": "#99999959",
@@ -2020,7 +2020,7 @@
 			},
 			{
 				"id": "gitlens.lineHighlightBackgroundColor",
-				"description": "Specifies the background color of the associated line highlights in blame annotations",
+				"description": "%gitlens.lineHighlightBackgroundColor.description%",
 				"defaults": {
 					"dark": "#00BCF233",
 					"light": "#00BCF233",
@@ -2029,7 +2029,7 @@
 			},
 			{
 				"id": "gitlens.lineHighlightOverviewRulerColor",
-				"description": "Specifies the overview ruler color of the associated line highlights in blame annotations",
+				"description": "%gitlens.lineHighlightOverviewRulerColor.description%",
 				"defaults": {
 					"dark": "#00BCF299",
 					"light": "#00BCF299",
@@ -2037,10 +2037,10 @@
 				}
 			}
 		],
-		"commands": [
+		"commands":[
 			{
 				"command": "gitlens.supportGitLens",
-				"title": "Support GitLens ❤",
+				"title": "%gitlens.supportGitLens.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-heart.svg",
@@ -2049,7 +2049,7 @@
 			},
 			{
 				"command": "gitlens.showSettingsPage",
-				"title": "Open Settings",
+				"title": "%gitlens.showSettingsPage.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-gear.svg",
@@ -2058,7 +2058,7 @@
 			},
 			{
 				"command": "gitlens.showSettingsPage#repositories-view",
-				"title": "Open Settings",
+				"title": "%gitlens.showSettingsPage#repositories-view.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-gear.svg",
@@ -2067,7 +2067,7 @@
 			},
 			{
 				"command": "gitlens.showSettingsPage#file-history-view",
-				"title": "Open Settings",
+				"title": "%gitlens.showSettingsPage#file-history-view.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-gear.svg",
@@ -2076,7 +2076,7 @@
 			},
 			{
 				"command": "gitlens.showSettingsPage#line-history-view",
-				"title": "Open Settings",
+				"title": "%gitlens.showSettingsPage#line-history-view.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-gear.svg",
@@ -2085,7 +2085,7 @@
 			},
 			{
 				"command": "gitlens.showSettingsPage#search-commits-view",
-				"title": "Open Settings",
+				"title": "%gitlens.showSettingsPage#search-commits-view.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-gear.svg",
@@ -2094,7 +2094,7 @@
 			},
 			{
 				"command": "gitlens.showSettingsPage#compare-view",
-				"title": "Open Settings",
+				"title": "%gitlens.showSettingsPage#compare-view.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-gear.svg",
@@ -2103,62 +2103,62 @@
 			},
 			{
 				"command": "gitlens.showWelcomePage",
-				"title": "Welcome",
+				"title": "%gitlens.showWelcomePage.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.showCompareView",
-				"title": "Show Compare View",
+				"title": "%gitlens.showCompareView.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.showFileHistoryView",
-				"title": "Show File History View",
+				"title": "%gitlens.showFileHistoryView.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.showLineHistoryView",
-				"title": "Show Line History View",
+				"title": "%gitlens.showLineHistoryView.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.showRepositoriesView",
-				"title": "Show Repositories View",
+				"title": "%gitlens.showRepositoriesView.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.showSearchView",
-				"title": "Show Search Commits View",
+				"title": "%gitlens.showSearchView.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.diffDirectory",
-				"title": "Directory Compare Working Tree with...",
+				"title": "%gitlens.diffDirectory.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.diffDirectoryWithHead",
-				"title": "Directory Compare All Changes",
+				"title": "%gitlens.diffDirectoryWithHead.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.diffHeadWith",
-				"title": "Compare HEAD with...",
+				"title": "%gitlens.diffHeadWith.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.diffWorkingWith",
-				"title": "Compare Working Tree with...",
+				"title": "%gitlens.diffWorkingWith.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.diffWithRef",
-				"title": "Open Changes with...",
+				"title": "%gitlens.diffWithRef.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.diffWithNext",
-				"title": "Open Changes with Next Revision",
+				"title": "%gitlens.diffWithNext.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-next-commit.svg",
@@ -2168,7 +2168,7 @@
 			},
 			{
 				"command": "gitlens.diffWithNextInDiffLeft",
-				"title": "Open Changes with Next Revision",
+				"title": "%gitlens.diffWithNextInDiffLeft.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-next-commit.svg",
@@ -2178,7 +2178,7 @@
 			},
 			{
 				"command": "gitlens.diffWithPrevious",
-				"title": "Open Changes with Previous Revision",
+				"title": "%gitlens.diffWithPrevious.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-prev-commit.svg",
@@ -2187,7 +2187,7 @@
 			},
 			{
 				"command": "gitlens.diffWithPreviousInDiffRight",
-				"title": "Open Changes with Previous Revision",
+				"title": "%gitlens.diffWithPreviousInDiffRight.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-prev-commit.svg",
@@ -2196,12 +2196,12 @@
 			},
 			{
 				"command": "gitlens.diffLineWithPrevious",
-				"title": "Open Line Changes with Previous Revision",
+				"title": "%gitlens.diffLineWithPrevious.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.diffWithRevision",
-				"title": "Open Changes with Revision...",
+				"title": "%gitlens.diffWithRevision.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-prev-commit-menu.svg",
@@ -2210,7 +2210,7 @@
 			},
 			{
 				"command": "gitlens.diffWithWorking",
-				"title": "Open Changes with Working File",
+				"title": "%gitlens.diffWithWorking.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-compare-ref-working.svg",
@@ -2219,12 +2219,12 @@
 			},
 			{
 				"command": "gitlens.diffLineWithWorking",
-				"title": "Open Line Changes with Working File",
+				"title": "%gitlens.diffLineWithWorking.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.toggleFileBlame",
-				"title": "Toggle File Blame Annotations",
+				"title": "%gitlens.toggleFileBlame.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-git.svg",
@@ -2233,7 +2233,7 @@
 			},
 			{
 				"command": "gitlens.clearFileAnnotations",
-				"title": "Clear File Annotations",
+				"title": "%gitlens.clearFileAnnotations.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-git-orange.svg",
@@ -2242,7 +2242,7 @@
 			},
 			{
 				"command": "gitlens.computingFileAnnotations",
-				"title": "Computing File Annotations...",
+				"title": "%gitlens.computingFileAnnotations.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-git-progress.svg",
@@ -2251,7 +2251,7 @@
 			},
 			{
 				"command": "gitlens.toggleFileHeatmap",
-				"title": "Toggle File Heatmap Annotations",
+				"title": "%gitlens.toggleFileHeatmap.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-git.svg",
@@ -2260,7 +2260,7 @@
 			},
 			{
 				"command": "gitlens.toggleFileRecentChanges",
-				"title": "Toggle Recent File Changes Annotations",
+				"title": "%gitlens.toggleFileRecentChanges.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-git.svg",
@@ -2269,37 +2269,37 @@
 			},
 			{
 				"command": "gitlens.toggleLineBlame",
-				"title": "Toggle Line Blame Annotations",
+				"title": "%gitlens.toggleLineBlame.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.toggleCodeLens",
-				"title": "Toggle Git Code Lens",
+				"title": "%gitlens.toggleCodeLens.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.gitCommands",
-				"title": "Git Commands",
+				"title": "%gitlens.gitCommands.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.switchMode",
-				"title": "Switch Mode",
+				"title": "%gitlens.switchMode.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.toggleReviewMode",
-				"title": "Toggle Review Mode",
+				"title": "%gitlens.toggleReviewMode.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.toggleZenMode",
-				"title": "Toggle Zen Mode",
+				"title": "%gitlens.toggleZenMode.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.showCommitSearch",
-				"title": "Search Commits",
+				"title": "%gitlens.showCommitSearch.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-search.svg",
@@ -2308,42 +2308,42 @@
 			},
 			{
 				"command": "gitlens.showLastQuickPick",
-				"title": "Show Last Opened Quick Pick",
+				"title": "%gitlens.showLastQuickPick.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.revealCommitInView",
-				"title": "Reveal Commit in Repositories View",
+				"title": "%gitlens.revealCommitInView.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.showCommitInView",
-				"title": "Show Commit in Search Commits View",
+				"title": "%gitlens.showCommitInView.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.showCommitsInView",
-				"title": "Show Commits within Selection in Search Commits View",
+				"title": "%gitlens.showCommitsInView.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.showFileHistoryInView",
-				"title": "Show in File History View",
+				"title": "%gitlens.showFileHistoryInView.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.showQuickCommitDetails",
-				"title": "Show Commit Details",
+				"title": "%gitlens.showQuickCommitDetails.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.showQuickCommitFileDetails",
-				"title": "Show Commit Details",
+				"title": "%gitlens.showQuickCommitFileDetails.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.showQuickRevisionDetails",
-				"title": "Show Revision Details",
+				"title": "%gitlens.showQuickRevisionDetails.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-commit-horizontal.svg",
@@ -2353,32 +2353,32 @@
 			},
 			{
 				"command": "gitlens.showQuickFileHistory",
-				"title": "Show File History",
+				"title": "%gitlens.showQuickFileHistory.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.showQuickBranchHistory",
-				"title": "Show Branch History",
+				"title": "%gitlens.showQuickBranchHistory.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.showQuickRepoHistory",
-				"title": "Show Current Branch History",
+				"title": "%gitlens.showQuickRepoHistory.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.showQuickRepoStatus",
-				"title": "Show Repository Status",
+				"title": "%gitlens.showQuickRepoStatus.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.showQuickStashList",
-				"title": "Show Stashes",
+				"title": "%gitlens.showQuickStashList.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.copyMessageToClipboard",
-				"title": "Copy Commit Message",
+				"title": "%gitlens.copyMessageToClipboard.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-copy-message.svg",
@@ -2387,7 +2387,7 @@
 			},
 			{
 				"command": "gitlens.copyRemoteFileUrlToClipboard",
-				"title": "Copy Remote Url",
+				"title": "%gitlens.copyRemoteFileUrlToClipboard.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-copy-link.svg",
@@ -2396,7 +2396,7 @@
 			},
 			{
 				"command": "gitlens.copyShaToClipboard",
-				"title": "Copy Commit ID",
+				"title": "%gitlens.copyShaToClipboard.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-copy.svg",
@@ -2405,17 +2405,17 @@
 			},
 			{
 				"command": "gitlens.closeUnchangedFiles",
-				"title": "Close Unchanged Files",
+				"title": "%gitlens.closeUnchangedFiles.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.openChangedFiles",
-				"title": "Open Changed Files",
+				"title": "%gitlens.openChangedFiles.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.openBranchesInRemote",
-				"title": "Open Branches on Remote",
+				"title": "%gitlens.openBranchesInRemote.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-link.svg",
@@ -2424,7 +2424,7 @@
 			},
 			{
 				"command": "gitlens.openBranchInRemote",
-				"title": "Open Branch on Remote",
+				"title": "%gitlens.openBranchInRemote.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-link.svg",
@@ -2433,7 +2433,7 @@
 			},
 			{
 				"command": "gitlens.openCommitInRemote",
-				"title": "Open Commit on Remote",
+				"title": "%gitlens.openCommitInRemote.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-link.svg",
@@ -2442,7 +2442,7 @@
 			},
 			{
 				"command": "gitlens.openFileInRemote",
-				"title": "Open File on Remote",
+				"title": "%gitlens.openFileInRemote.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-link.svg",
@@ -2451,17 +2451,17 @@
 			},
 			{
 				"command": "gitlens.openFileRevision",
-				"title": "Open Revision...",
+				"title": "%gitlens.openFileRevision.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.openFileRevisionFrom",
-				"title": "Open Revision from...",
+				"title": "%gitlens.openFileRevisionFrom.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.openRepoInRemote",
-				"title": "Open Repository on Remote",
+				"title": "%gitlens.openRepoInRemote.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-link.svg",
@@ -2470,7 +2470,7 @@
 			},
 			{
 				"command": "gitlens.openRevisionFile",
-				"title": "Open Revision",
+				"title": "%gitlens.openRevisionFile.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-open-revision.svg",
@@ -2480,7 +2480,7 @@
 			},
 			{
 				"command": "gitlens.openWorkingFile",
-				"title": "Open File",
+				"title": "%gitlens.openWorkingFile.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-open-working-file.svg",
@@ -2489,7 +2489,7 @@
 			},
 			{
 				"command": "gitlens.stashApply",
-				"title": "Apply Stash",
+				"title": "%gitlens.stashApply.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-stash-pop.svg",
@@ -2498,7 +2498,7 @@
 			},
 			{
 				"command": "gitlens.stashDelete",
-				"title": "Delete Stash...",
+				"title": "%gitlens.stashDelete.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-delete.svg",
@@ -2507,7 +2507,7 @@
 			},
 			{
 				"command": "gitlens.stashSave",
-				"title": "Stash All Changes",
+				"title": "%gitlens.stashSave.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-stash-save.svg",
@@ -2516,7 +2516,7 @@
 			},
 			{
 				"command": "gitlens.stashSaveFiles",
-				"title": "Stash Changes",
+				"title": "%gitlens.stashSaveFiles.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-stash-save.svg",
@@ -2525,22 +2525,22 @@
 			},
 			{
 				"command": "gitlens.externalDiff",
-				"title": "Open Changes (with difftool)",
+				"title": "%gitlens.externalDiff.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.externalDiffAll",
-				"title": "Open All Changes (with difftool)",
+				"title": "%gitlens.externalDiffAll.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.resetSuppressedWarnings",
-				"title": "Reset Suppressed Warnings",
+				"title": "%gitlens.resetSuppressedWarnings.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.inviteToLiveShare",
-				"title": "Invite to Live Share",
+				"title": "%gitlens.inviteToLiveShare.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-link-color.svg",
@@ -2549,7 +2549,7 @@
 			},
 			{
 				"command": "gitlens.exploreRepoAtRevision",
-				"title": "Explore Repository from Revision",
+				"title": "%gitlens.exploreRepoAtRevision.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-open-folder.svg",
@@ -2559,7 +2559,7 @@
 			},
 			{
 				"command": "gitlens.views.exploreRepoAtRevision",
-				"title": "Explore Repository from Revision",
+				"title": "%gitlens.views.exploreRepoAtRevision.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-open-folder.svg",
@@ -2568,7 +2568,7 @@
 			},
 			{
 				"command": "gitlens.fetchRepositories",
-				"title": "Fetch Repositories",
+				"title": "%gitlens.fetchRepositories.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-sync.svg",
@@ -2577,7 +2577,7 @@
 			},
 			{
 				"command": "gitlens.pullRepositories",
-				"title": "Pull Repositories",
+				"title": "%gitlens.pullRepositories.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-pull.svg",
@@ -2586,7 +2586,7 @@
 			},
 			{
 				"command": "gitlens.pushRepositories",
-				"title": "Push Repositories",
+				"title": "%gitlens.pushRepositories.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-push.svg",
@@ -2595,7 +2595,7 @@
 			},
 			{
 				"command": "gitlens.views.addRemote",
-				"title": "Add Remote",
+				"title": "%gitlens.views.addRemote.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-add.svg",
@@ -2604,17 +2604,17 @@
 			},
 			{
 				"command": "gitlens.views.highlightChanges",
-				"title": "Highlight Changes",
+				"title": "%gitlens.views.highlightChanges.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.highlightRevisionChanges",
-				"title": "Highlight Revision Changes",
+				"title": "%gitlens.views.highlightRevisionChanges.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.restore",
-				"title": "Restore",
+				"title": "%gitlens.views.restore.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-checkout.svg",
@@ -2623,7 +2623,7 @@
 			},
 			{
 				"command": "gitlens.views.switchToBranch",
-				"title": "Switch to Branch",
+				"title": "%gitlens.views.switchToBranch.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-checkout.svg",
@@ -2632,7 +2632,7 @@
 			},
 			{
 				"command": "gitlens.views.switchToCommit",
-				"title": "Switch to Commit",
+				"title": "%gitlens.views.switchToCommit.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-checkout.svg",
@@ -2641,7 +2641,7 @@
 			},
 			{
 				"command": "gitlens.views.switchToTag",
-				"title": "Switch to Tag",
+				"title": "%gitlens.views.switchToTag.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-checkout.svg",
@@ -2650,42 +2650,42 @@
 			},
 			{
 				"command": "gitlens.views.copy",
-				"title": "Copy",
+				"title": "%gitlens.views.copy.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.repositories.copy",
-				"title": "Copy",
+				"title": "%gitlens.views.repositories.copy.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.fileHistory.copy",
-				"title": "Copy",
+				"title": "%gitlens.views.fileHistory.copy.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.lineHistory.copy",
-				"title": "Copy",
+				"title": "%gitlens.views.lineHistory.copy.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.compare.copy",
-				"title": "Copy",
+				"title": "%gitlens.views.compare.copy.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.search.copy",
-				"title": "Copy",
+				"title": "%gitlens.views.search.copy.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.pruneRemote",
-				"title": "Prune",
+				"title": "%gitlens.views.pruneRemote.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.fetch",
-				"title": "Fetch",
+				"title": "%gitlens.views.fetch.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-sync.svg",
@@ -2694,7 +2694,7 @@
 			},
 			{
 				"command": "gitlens.views.pull",
-				"title": "Pull",
+				"title": "%gitlens.views.pull.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-pull.svg",
@@ -2703,7 +2703,7 @@
 			},
 			{
 				"command": "gitlens.views.push",
-				"title": "Push",
+				"title": "%gitlens.views.push.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-push.svg",
@@ -2712,7 +2712,7 @@
 			},
 			{
 				"command": "gitlens.views.pushWithForce",
-				"title": "Push (force)",
+				"title": "%gitlens.views.pushWithForce.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-push-force.svg",
@@ -2721,22 +2721,22 @@
 			},
 			{
 				"command": "gitlens.views.openInTerminal",
-				"title": "Open in Terminal",
+				"title": "%gitlens.views.openInTerminal.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.setAsDefault",
-				"title": "Set as Default",
+				"title": "%gitlens.views.setAsDefault.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.unsetAsDefault",
-				"title": "Unset as Default",
+				"title": "%gitlens.views.unsetAsDefault.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.stageDirectory",
-				"title": "Stage All Changes",
+				"title": "%gitlens.views.stageDirectory.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-add.svg",
@@ -2745,7 +2745,7 @@
 			},
 			{
 				"command": "gitlens.views.stageFile",
-				"title": "Stage Changes",
+				"title": "%gitlens.views.stageFile.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-add.svg",
@@ -2754,7 +2754,7 @@
 			},
 			{
 				"command": "gitlens.views.unstageDirectory",
-				"title": "Unstage All Changes",
+				"title": "%gitlens.views.unstageDirectory.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-minus.svg",
@@ -2763,7 +2763,7 @@
 			},
 			{
 				"command": "gitlens.views.unstageFile",
-				"title": "Unstage Changes",
+				"title": "%gitlens.views.unstageFile.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-minus.svg",
@@ -2772,7 +2772,7 @@
 			},
 			{
 				"command": "gitlens.views.star",
-				"title": "Add to Favorites",
+				"title": "%gitlens.views.star.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-star.svg",
@@ -2781,7 +2781,7 @@
 			},
 			{
 				"command": "gitlens.views.unstar",
-				"title": "Remove from Favorites",
+				"title": "%gitlens.views.unstar.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-star-filled.svg",
@@ -2790,22 +2790,22 @@
 			},
 			{
 				"command": "gitlens.views.openDirectoryDiff",
-				"title": "Open Directory Compare",
+				"title": "%gitlens.views.openDirectoryDiff.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.openDirectoryDiffWithWorking",
-				"title": "Open Directory Compare with Working Tree",
+				"title": "%gitlens.views.openDirectoryDiffWithWorking.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.openChanges",
-				"title": "Open Changes",
+				"title": "%gitlens.views.openChanges.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.openChangesWithWorking",
-				"title": "Open Changes with Working File",
+				"title": "%gitlens.views.openChangesWithWorking.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-compare-ref-working.svg",
@@ -2814,7 +2814,7 @@
 			},
 			{
 				"command": "gitlens.views.openFile",
-				"title": "Open File",
+				"title": "%gitlens.views.openFile.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-open-file.svg",
@@ -2823,7 +2823,7 @@
 			},
 			{
 				"command": "gitlens.views.openFileRevision",
-				"title": "Open Revision",
+				"title": "%gitlens.views.openFileRevision.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-open-file.svg",
@@ -2832,7 +2832,7 @@
 			},
 			{
 				"command": "gitlens.views.openFileRevisionInRemote",
-				"title": "Open Revision on Remote",
+				"title": "%gitlens.views.openFileRevisionInRemote.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-link.svg",
@@ -2841,42 +2841,42 @@
 			},
 			{
 				"command": "gitlens.views.openChangedFiles",
-				"title": "Open Files",
+				"title": "%gitlens.views.openChangedFiles.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.openChangedFileDiffs",
-				"title": "Open All Changes",
+				"title": "%gitlens.views.openChangedFileDiffs.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.openChangedFileDiffsWithWorking",
-				"title": "Open All Changes with Working Tree",
+				"title": "%gitlens.views.openChangedFileDiffsWithWorking.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.openChangedFileRevisions",
-				"title": "Open Revisions",
+				"title": "%gitlens.views.openChangedFileRevisions.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.applyChanges",
-				"title": "Apply Changes",
+				"title": "%gitlens.views.applyChanges.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.closeRepository",
-				"title": "Close Repository",
+				"title": "%gitlens.views.closeRepository.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.compareAncestryWithWorking",
-				"title": "Compare Ancestry with Working Tree",
+				"title": "%gitlens.views.compareAncestryWithWorking.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.compareWithHead",
-				"title": "Compare with HEAD",
+				"title": "%gitlens.views.compareWithHead.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-compare-refs.svg",
@@ -2885,7 +2885,7 @@
 			},
 			{
 				"command": "gitlens.views.compareWithRemote",
-				"title": "Compare with Remote",
+				"title": "%gitlens.views.compareWithRemote.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-compare-ref-remote.svg",
@@ -2894,27 +2894,27 @@
 			},
 			{
 				"command": "gitlens.views.compareWithSelected",
-				"title": "Compare with Selected",
+				"title": "%gitlens.views.compareWithSelected.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.selectForCompare",
-				"title": "Select for Compare",
+				"title": "%gitlens.views.selectForCompare.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.compareFileWithSelected",
-				"title": "Compare with Selected",
+				"title": "%gitlens.views.compareFileWithSelected.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.selectFileForCompare",
-				"title": "Select for Compare",
+				"title": "%gitlens.views.selectFileForCompare.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.compareWithWorking",
-				"title": "Compare with Working Tree",
+				"title": "%gitlens.views.compareWithWorking.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-compare-ref-working.svg",
@@ -2923,7 +2923,7 @@
 			},
 			{
 				"command": "gitlens.views.contributors.addAuthors",
-				"title": "Add Co-authors",
+				"title": "%gitlens.views.contributors.addAuthors.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-person-add.svg",
@@ -2932,7 +2932,7 @@
 			},
 			{
 				"command": "gitlens.views.contributor.addAuthor",
-				"title": "Add as Co-author",
+				"title": "%gitlens.views.contributor.addAuthor.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-person-add.svg",
@@ -2941,7 +2941,7 @@
 			},
 			{
 				"command": "gitlens.views.contributor.copyToClipboard",
-				"title": "Copy",
+				"title": "%gitlens.views.contributor.copyToClipboard.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-copy.svg",
@@ -2950,7 +2950,7 @@
 			},
 			{
 				"command": "gitlens.views.setComparisonToTwoDot",
-				"title": "Switch to Two-dot Comparison",
+				"title": "%gitlens.views.setComparisonToTwoDot.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-compare-twodot.svg",
@@ -2959,7 +2959,7 @@
 			},
 			{
 				"command": "gitlens.views.setComparisonToThreeDot",
-				"title": "Switch to Three-dot Comparison",
+				"title": "%gitlens.views.setComparisonToThreeDot.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-compare-threedot.svg",
@@ -2968,77 +2968,77 @@
 			},
 			{
 				"command": "gitlens.views.cherryPick",
-				"title": "Cherry Pick Commit...",
+				"title": "%gitlens.views.cherryPick.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.createBranch",
-				"title": "Create Branch...",
+				"title": "%gitlens.views.createBranch.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.deleteBranch",
-				"title": "Delete Branch...",
+				"title": "%gitlens.views.deleteBranch.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.renameBranch",
-				"title": "Rename Branch...",
+				"title": "%gitlens.views.renameBranch.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.createTag",
-				"title": "Create Tag...",
+				"title": "%gitlens.views.createTag.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.deleteTag",
-				"title": "Delete Tag...",
+				"title": "%gitlens.views.deleteTag.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.mergeBranchInto",
-				"title": "Merge Branch into Current...",
+				"title": "%gitlens.views.mergeBranchInto.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.rebaseOntoBranch",
-				"title": "Rebase Current onto Branch...",
+				"title": "%gitlens.views.rebaseOntoBranch.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.rebaseOntoCommit",
-				"title": "Rebase Current onto Commit...",
+				"title": "%gitlens.views.rebaseOntoCommit.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.rebaseOntoUpstream",
-				"title": "Rebase Current onto Upstream...",
+				"title": "%gitlens.views.rebaseOntoUpstream.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.reset",
-				"title": "Reset to Commit...",
+				"title": "%gitlens.views.reset.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.revert",
-				"title": "Revert Commit...",
+				"title": "%gitlens.views.revert.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.terminalPushCommit",
-				"title": "Push to Commit (via Terminal)",
+				"title": "%gitlens.views.terminalPushCommit.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.terminalRemoveRemote",
-				"title": "Remove Remote (via Terminal)",
+				"title": "%gitlens.views.terminalRemoveRemote.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.repositories.refresh",
-				"title": "Refresh",
+				"title": "%gitlens.views.repositories.refresh.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-refresh.svg",
@@ -3047,7 +3047,7 @@
 			},
 			{
 				"command": "gitlens.views.repositories.setBranchComparisonToWorking",
-				"title": "Switch to Working Tree Comparison",
+				"title": "%gitlens.views.repositories.setBranchComparisonToWorking.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-compare-ref-working.svg",
@@ -3056,7 +3056,7 @@
 			},
 			{
 				"command": "gitlens.views.repositories.setBranchComparisonToBranch",
-				"title": "Switch to Branch Comparison",
+				"title": "%gitlens.views.repositories.setBranchComparisonToBranch.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-compare-refs.svg",
@@ -3065,7 +3065,7 @@
 			},
 			{
 				"command": "gitlens.views.repositories.setBranchesLayoutToList",
-				"title": "Toggle Branch Layout (Tree)",
+				"title": "%gitlens.views.repositories.setBranchesLayoutToList.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-view-tree.svg",
@@ -3074,7 +3074,7 @@
 			},
 			{
 				"command": "gitlens.views.repositories.setBranchesLayoutToTree",
-				"title": "Toggle Branch Layout (List)",
+				"title": "%gitlens.views.repositories.setBranchesLayoutToTree.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-view-list.svg",
@@ -3083,7 +3083,7 @@
 			},
 			{
 				"command": "gitlens.views.repositories.setFilesLayoutToAuto",
-				"title": "Toggle File Layout (Tree)",
+				"title": "%gitlens.views.repositories.setFilesLayoutToAuto.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-view-tree.svg",
@@ -3092,7 +3092,7 @@
 			},
 			{
 				"command": "gitlens.views.repositories.setFilesLayoutToList",
-				"title": "Toggle File Layout (Auto)",
+				"title": "%gitlens.views.repositories.setFilesLayoutToList.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-view-auto.svg",
@@ -3101,7 +3101,7 @@
 			},
 			{
 				"command": "gitlens.views.repositories.setFilesLayoutToTree",
-				"title": "Toggle File Layout (List)",
+				"title": "%gitlens.views.repositories.setFilesLayoutToTree.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-view-list.svg",
@@ -3110,17 +3110,17 @@
 			},
 			{
 				"command": "gitlens.views.repositories.setAutoRefreshToOn",
-				"title": "Enable Automatic Refresh",
+				"title": "%gitlens.views.repositories.setAutoRefreshToOn.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.repositories.setAutoRefreshToOff",
-				"title": "Disable Automatic Refresh",
+				"title": "%gitlens.views.repositories.setAutoRefreshToOff.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.fileHistory.refresh",
-				"title": "Refresh",
+				"title": "%gitlens.views.fileHistory.refresh.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-refresh.svg",
@@ -3129,7 +3129,7 @@
 			},
 			{
 				"command": "gitlens.views.fileHistory.changeBase",
-				"title": "Change Base...",
+				"title": "%gitlens.views.fileHistory.changeBase.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-history.svg",
@@ -3138,7 +3138,7 @@
 			},
 			{
 				"command": "gitlens.views.fileHistory.setEditorFollowingOn",
-				"title": "Resume File Tracking",
+				"title": "%gitlens.views.fileHistory.setEditorFollowingOn.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-location.svg",
@@ -3147,7 +3147,7 @@
 			},
 			{
 				"command": "gitlens.views.fileHistory.setEditorFollowingOff",
-				"title": "Pause File Tracking",
+				"title": "%gitlens.views.fileHistory.setEditorFollowingOff.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-location-filled.svg",
@@ -3156,17 +3156,17 @@
 			},
 			{
 				"command": "gitlens.views.fileHistory.setRenameFollowingOn",
-				"title": "Follow Renames",
+				"title": "%gitlens.views.fileHistory.setRenameFollowingOn.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.fileHistory.setRenameFollowingOff",
-				"title": "Don't Follow Renames",
+				"title": "%gitlens.views.fileHistory.setRenameFollowingOff.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.lineHistory.refresh",
-				"title": "Refresh",
+				"title": "%gitlens.views.lineHistory.refresh.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-refresh.svg",
@@ -3175,7 +3175,7 @@
 			},
 			{
 				"command": "gitlens.views.lineHistory.changeBase",
-				"title": "Change Base...",
+				"title": "%gitlens.views.lineHistory.changeBase.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-history.svg",
@@ -3184,7 +3184,7 @@
 			},
 			{
 				"command": "gitlens.views.lineHistory.setEditorFollowingOn",
-				"title": "Resume Line Tracking",
+				"title": "%gitlens.views.lineHistory.setEditorFollowingOn.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-location.svg",
@@ -3193,7 +3193,7 @@
 			},
 			{
 				"command": "gitlens.views.lineHistory.setEditorFollowingOff",
-				"title": "Pause Line Tracking",
+				"title": "%gitlens.views.lineHistory.setEditorFollowingOff.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-location-filled.svg",
@@ -3202,17 +3202,17 @@
 			},
 			{
 				"command": "gitlens.views.lineHistory.setRenameFollowingOn",
-				"title": "Follow Renames",
+				"title": "%gitlens.views.lineHistory.setRenameFollowingOn.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.lineHistory.setRenameFollowingOff",
-				"title": "Don't Follow Renames",
+				"title": "%gitlens.views.lineHistory.setRenameFollowingOff.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.compare.selectForCompare",
-				"title": "Compare References...",
+				"title": "%gitlens.views.compare.selectForCompare.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-compare-refs.svg",
@@ -3221,7 +3221,7 @@
 			},
 			{
 				"command": "gitlens.views.compare.clear",
-				"title": "Clear Results",
+				"title": "%gitlens.views.compare.clear.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-clear.svg",
@@ -3230,7 +3230,7 @@
 			},
 			{
 				"command": "gitlens.views.compare.refresh",
-				"title": "Refresh",
+				"title": "%gitlens.views.compare.refresh.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-refresh.svg",
@@ -3239,7 +3239,7 @@
 			},
 			{
 				"command": "gitlens.views.compare.setFilesLayoutToAuto",
-				"title": "Automatic Layout",
+				"title": "%gitlens.views.compare.setFilesLayoutToAuto.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-view-tree.svg",
@@ -3248,7 +3248,7 @@
 			},
 			{
 				"command": "gitlens.views.compare.setFilesLayoutToList",
-				"title": "List Layout",
+				"title": "%gitlens.views.compare.setFilesLayoutToList.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-view-auto.svg",
@@ -3257,7 +3257,7 @@
 			},
 			{
 				"command": "gitlens.views.compare.setFilesLayoutToTree",
-				"title": "Tree Layout",
+				"title": "%gitlens.views.compare.setFilesLayoutToTree.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-view-list.svg",
@@ -3266,7 +3266,7 @@
 			},
 			{
 				"command": "gitlens.views.compare.setKeepResultsToOn",
-				"title": "Keep Results",
+				"title": "%gitlens.views.compare.setKeepResultsToOn.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-lock.svg",
@@ -3275,7 +3275,7 @@
 			},
 			{
 				"command": "gitlens.views.compare.setKeepResultsToOff",
-				"title": "Keep Results",
+				"title": "%gitlens.views.compare.setKeepResultsToOff.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-locked.svg",
@@ -3284,7 +3284,7 @@
 			},
 			{
 				"command": "gitlens.views.compare.pinComparison",
-				"title": "Pin Comparison",
+				"title": "%gitlens.views.compare.pinComparison.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-pin.svg",
@@ -3293,7 +3293,7 @@
 			},
 			{
 				"command": "gitlens.views.compare.unpinComparison",
-				"title": "Unpin Comparison",
+				"title": "%gitlens.views.compare.unpinComparison.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-unpin.svg",
@@ -3302,7 +3302,7 @@
 			},
 			{
 				"command": "gitlens.views.compare.swapComparison",
-				"title": "Swap Comparison",
+				"title": "%gitlens.views.compare.swapComparison.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-swap.svg",
@@ -3311,7 +3311,7 @@
 			},
 			{
 				"command": "gitlens.views.search.searchCommits",
-				"title": "Search Commits",
+				"title": "%gitlens.views.search.searchCommits.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-search.svg",
@@ -3320,7 +3320,7 @@
 			},
 			{
 				"command": "gitlens.views.search.clear",
-				"title": "Clear Results",
+				"title": "%gitlens.views.search.clear.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-clear.svg",
@@ -3329,7 +3329,7 @@
 			},
 			{
 				"command": "gitlens.views.search.refresh",
-				"title": "Refresh",
+				"title": "%gitlens.views.search.refresh.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-refresh.svg",
@@ -3338,7 +3338,7 @@
 			},
 			{
 				"command": "gitlens.views.search.setFilesLayoutToAuto",
-				"title": "Automatic Layout",
+				"title": "%gitlens.views.search.setFilesLayoutToAuto.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-view-tree.svg",
@@ -3347,7 +3347,7 @@
 			},
 			{
 				"command": "gitlens.views.search.setFilesLayoutToList",
-				"title": "List Layout",
+				"title": "%gitlens.views.search.setFilesLayoutToList.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-view-auto.svg",
@@ -3356,7 +3356,7 @@
 			},
 			{
 				"command": "gitlens.views.search.setFilesLayoutToTree",
-				"title": "Tree Layout",
+				"title": "%gitlens.views.search.setFilesLayoutToTree.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-view-list.svg",
@@ -3365,7 +3365,7 @@
 			},
 			{
 				"command": "gitlens.views.search.setKeepResultsToOn",
-				"title": "Keep Results",
+				"title": "%gitlens.views.search.setKeepResultsToOn.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-lock.svg",
@@ -3374,7 +3374,7 @@
 			},
 			{
 				"command": "gitlens.views.search.setKeepResultsToOff",
-				"title": "Keep Results",
+				"title": "%gitlens.views.search.setKeepResultsToOff.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-locked.svg",
@@ -3383,7 +3383,7 @@
 			},
 			{
 				"command": "gitlens.views.dismissNode",
-				"title": "Dismiss",
+				"title": "%gitlens.views.dismissNode.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-close.svg",
@@ -3392,12 +3392,12 @@
 			},
 			{
 				"command": "gitlens.views.expandNode",
-				"title": "Expand",
+				"title": "%gitlens.views.expandNode.title%",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.refreshNode",
-				"title": "Refresh",
+				"title": "%gitlens.views.refreshNode.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-refresh.svg",
@@ -3406,7 +3406,7 @@
 			},
 			{
 				"command": "gitlens.views.showMoreChildren",
-				"title": "Show More",
+				"title": "%gitlens.views.showMoreChildren.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-unfold.svg",
@@ -3415,7 +3415,7 @@
 			},
 			{
 				"command": "gitlens.views.showAllChildren",
-				"title": "Show All",
+				"title": "%gitlens.views.showAllChildren.title%",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-unfold.svg",
@@ -5842,35 +5842,35 @@
 			"gitlens": [
 				{
 					"id": "gitlens.views.repositories:gitlens",
-					"name": "Repositories",
+					"name": "%gitlens.views.repositories:gitlens.name%",
 					"when": "config.gitlens.views.repositories.enabled && config.gitlens.views.repositories.location == gitlens",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/repositories.svg"
 				},
 				{
 					"id": "gitlens.views.fileHistory:gitlens",
-					"name": "File History",
+					"name": "%gitlens.views.fileHistory:gitlens.name%",
 					"when": "config.gitlens.views.fileHistory.enabled && config.gitlens.views.fileHistory.location == gitlens",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/history.svg"
 				},
 				{
 					"id": "gitlens.views.lineHistory:gitlens",
-					"name": "Line History",
+					"name": "%gitlens.views.lineHistory:gitlens.name%",
 					"when": "config.gitlens.views.lineHistory.enabled && config.gitlens.views.lineHistory.location == gitlens",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/history.svg"
 				},
 				{
 					"id": "gitlens.views.compare:gitlens",
-					"name": "Compare Commits",
+					"name": "%gitlens.views.compare:gitlens.name%",
 					"when": "config.gitlens.views.compare.enabled && config.gitlens.views.compare.location == gitlens",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/compare.svg"
 				},
 				{
 					"id": "gitlens.views.search:gitlens",
-					"name": "Search Commits",
+					"name": "%gitlens.views.search:gitlens.name%",
 					"when": "config.gitlens.views.search.enabled && config.gitlens.views.search.location == gitlens",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/search.svg"
@@ -5879,35 +5879,35 @@
 			"explorer": [
 				{
 					"id": "gitlens.views.repositories:explorer",
-					"name": "Repositories",
+					"name": "%gitlens.views.repositories:explorer.name%",
 					"when": "gitlens:enabled && config.gitlens.views.repositories.enabled && config.gitlens.views.repositories.location == explorer",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/repositories.svg"
 				},
 				{
 					"id": "gitlens.views.fileHistory:explorer",
-					"name": "File History",
+					"name": "%gitlens.views.fileHistory:explorer.name%",
 					"when": "gitlens:enabled && config.gitlens.views.fileHistory.enabled && config.gitlens.views.fileHistory.location == explorer",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/history.svg"
 				},
 				{
 					"id": "gitlens.views.lineHistory:explorer",
-					"name": "Line History",
+					"name": "%gitlens.views.lineHistory:explorer.name%",
 					"when": "gitlens:enabled && config.gitlens.views.lineHistory.enabled && config.gitlens.views.lineHistory.location == explorer",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/history.svg"
 				},
 				{
 					"id": "gitlens.views.compare:explorer",
-					"name": "Compare Commits",
+					"name": "%gitlens.views.compare:explorer.name%",
 					"when": "gitlens:enabled && config.gitlens.views.compare.enabled && config.gitlens.views.compare.location == explorer",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/compare.svg"
 				},
 				{
 					"id": "gitlens.views.search:explorer",
-					"name": "Search Commits",
+					"name": "%gitlens.views.search:explorer.name%",
 					"when": "gitlens:enabled && config.gitlens.views.search.enabled && config.gitlens.views.search.location == explorer",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/search.svg"
@@ -5916,35 +5916,35 @@
 			"scm": [
 				{
 					"id": "gitlens.views.repositories:scm",
-					"name": "Repositories",
+					"name": "%gitlens.views.repositories:scm.name%",
 					"when": "gitlens:enabled && config.gitlens.views.repositories.enabled && config.gitlens.views.repositories.location == scm",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/repositories.svg"
 				},
 				{
 					"id": "gitlens.views.fileHistory:scm",
-					"name": "File History",
+					"name": "%gitlens.views.fileHistory:scm.name%",
 					"when": "gitlens:enabled && config.gitlens.views.fileHistory.enabled && config.gitlens.views.fileHistory.location == scm",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/history.svg"
 				},
 				{
 					"id": "gitlens.views.lineHistory:scm",
-					"name": "Line History",
+					"name": "%gitlens.views.lineHistory:scm.name%",
 					"when": "gitlens:enabled && config.gitlens.views.lineHistory.enabled && config.gitlens.views.lineHistory.location == scm",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/history.svg"
 				},
 				{
 					"id": "gitlens.views.compare:scm",
-					"name": "Compare Commits",
+					"name": "%gitlens.views.compare:scm.name%",
 					"when": "gitlens:enabled && config.gitlens.views.compare.enabled && config.gitlens.views.compare.location == scm",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/compare.svg"
 				},
 				{
 					"id": "gitlens.views.search:scm",
-					"name": "Search Commits",
+					"name": "%gitlens.views.search:scm.name%",
 					"when": "gitlens:enabled && config.gitlens.views.search.enabled && config.gitlens.views.search.location == scm",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/search.svg"
