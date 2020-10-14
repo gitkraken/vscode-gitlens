@@ -29,7 +29,13 @@ export class CommitNode extends ViewRefNode<ViewsWithFiles, GitRevisionReference
 	}
 
 	toClipboard(): string {
-		return this.commit.sha;
+		let message = this.commit.message;
+		const index = message.indexOf('\n');
+		if (index !== -1) {
+			message = `${message.substring(0, index)}${GlyphChars.Space}${GlyphChars.Ellipsis}`;
+		}
+
+		return `${this.commit.shortSha}: ${message}`;
 	}
 
 	get ref(): GitRevisionReference {

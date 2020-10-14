@@ -711,10 +711,6 @@ export namespace GitActions {
 				state: { repo: repo, contributors: contributors },
 			});
 		}
-
-		export async function copyToClipboard(contributor: GitContributor) {
-			await env.clipboard.writeText(`${contributor.name}${contributor.email ? ` <${contributor.email}>` : ''}`);
-		}
 	}
 
 	export namespace Tag {

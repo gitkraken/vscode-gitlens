@@ -22,7 +22,17 @@ export class CommitFileNode extends ViewRefFileNode {
 	}
 
 	toClipboard(): string {
-		return this._options.displayAsCommit ? this.commit.sha : this.fileName;
+		if (this._options.displayAsCommit) {
+			let message = this.commit.message;
+			const index = message.indexOf('\n');
+			if (index !== -1) {
+				message = `${message.substring(0, index)}${GlyphChars.Space}${GlyphChars.Ellipsis}`;
+			}
+
+			return `${this.commit.shortSha}: ${message}`;
+		}
+
+		return this.fileName;
 	}
 
 	get fileName(): string {

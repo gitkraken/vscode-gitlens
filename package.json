@@ -2913,7 +2913,7 @@
 			},
 			{
 				"command": "gitlens.copyMessageToClipboard",
-				"title": "Copy Commit Message",
+				"title": "Copy Message",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-copy-message.svg",
@@ -2940,7 +2940,7 @@
 			},
 			{
 				"command": "gitlens.copyShaToClipboard",
-				"title": "Copy Commit ID",
+				"title": "Copy SHA",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-copy.svg",
@@ -3259,7 +3259,11 @@
 			{
 				"command": "gitlens.views.copy",
 				"title": "Copy",
-				"category": "GitLens"
+				"category": "GitLens",
+				"icon": {
+					"dark": "images/dark/icon-copy.svg",
+					"light": "images/light/icon-copy.svg"
+				}
 			},
 			{
 				"command": "gitlens.views.pruneRemote",
@@ -3490,15 +3494,6 @@
 				"icon": {
 					"dark": "images/dark/icon-person-add.svg",
 					"light": "images/light/icon-person-add.svg"
-				}
-			},
-			{
-				"command": "gitlens.views.copyContributorToClipboard",
-				"title": "Copy",
-				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-copy.svg",
-					"light": "images/light/icon-copy.svg"
 				}
 			},
 			{
@@ -4894,10 +4889,6 @@
 				},
 				{
 					"command": "gitlens.views.addAuthor",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.copyContributorToClipboard",
 					"when": "false"
 				},
 				{
@@ -6635,7 +6626,7 @@
 					"group": "inline@2"
 				},
 				{
-					"command": "gitlens.views.copyContributorToClipboard",
+					"command": "gitlens.views.copy",
 					"when": "viewItem =~ /gitlens:contributor\\b/",
 					"group": "inline@98"
 				},
@@ -6648,11 +6639,6 @@
 					"command": "gitlens.views.addAuthor",
 					"when": "viewItem =~ /gitlens:contributor\\b(?!.*?\\b\\+current\\b)/",
 					"group": "1_gitlens_actions@2"
-				},
-				{
-					"command": "gitlens.views.copyContributorToClipboard",
-					"when": "viewItem =~ /gitlens:contributor\\b/",
-					"group": "7_gitlens_cutcopypaste@1"
 				},
 				{
 					"command": "gitlens.copyShaToClipboard",
@@ -6755,12 +6741,12 @@
 				{
 					"command": "gitlens.copyShaToClipboard",
 					"when": "viewItem =~ /gitlens:(commit|file\\b(?=.*?\\b\\+committed\\b))\\b/",
-					"group": "7_gitlens_cutcopypaste@1"
+					"group": "7_gitlens_cutcopypaste@2"
 				},
 				{
 					"command": "gitlens.copyMessageToClipboard",
 					"when": "viewItem =~ /gitlens:(commit|stash|file\\b(?=.*?\\b\\+committed\\b))\\b/",
-					"group": "7_gitlens_cutcopypaste@2"
+					"group": "7_gitlens_cutcopypaste@3"
 				},
 				{
 					"command": "gitlens.views.openFile",
@@ -7335,6 +7321,16 @@
 					"command": "gitlens.views.unstageDirectory",
 					"when": "viewItem =~ /gitlens:folder\\b(?=.*?\\b\\+working\\b)/",
 					"group": "1_gitlens_actions@2"
+				},
+				{
+					"command": "gitlens.views.copy",
+					"when": "viewItem =~ /gitlens:(?=(branch|commit|contributor|folder|history:line|pullrequest|remote|repository|stash|tag)\\b)/",
+					"group": "7_gitlens_cutcopypaste@1"
+				},
+				{
+					"command": "gitlens.views.copy",
+					"when": "viewItem =~ /gitlens:file(?!.*?\\b\\+(staged|unstaged))\\b/",
+					"group": "7_gitlens_cutcopypaste@1"
 				},
 				{
 					"command": "gitlens.views.dismissNode",

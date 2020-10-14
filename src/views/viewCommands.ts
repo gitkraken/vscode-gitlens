@@ -56,12 +56,13 @@ export class ViewCommands {
 	constructor() {
 		commands.registerCommand(
 			'gitlens.views.copy',
-			async (selection: ViewNode[]) => {
+			async (selection: ViewNode | ViewNode[]) => {
+				selection = Array.isArray(selection) ? selection : [selection];
 				if (selection.length === 0) return;
 
 				const data = selection
-					.filter(n => n.toClipboard != null)
-					.map(n => n.toClipboard!())
+					.map(n => n.toClipboard?.())
+					.filter(s => s != null && s.length > 0)
 					.join(',');
 				await env.clipboard.writeText(data);
 			},
@@ -132,7 +133,6 @@ export class ViewCommands {
 
 		commands.registerCommand('gitlens.views.addAuthors', this.addAuthors, this);
 		commands.registerCommand('gitlens.views.addAuthor', this.addAuthors, this);
-		commands.registerCommand('gitlens.views.copyContributorToClipboard', this.copyContributorToClipboard, this);
 
 		commands.registerCommand('gitlens.views.openChanges', this.openChanges, this);
 		commands.registerCommand('gitlens.views.openChangesWithWorking', this.openChangesWithWorking, this);
@@ -250,13 +250,6 @@ export class ViewCommands {
 		if (!(node instanceof RepositoryNode)) return;
 
 		node.repo.closed = true;
-	}
-
-	@debug()
-	private copyContributorToClipboard(node: ContributorNode) {
-		if (!(node instanceof ContributorNode)) return Promise.resolve();
-
-		return GitActions.Contributor.copyToClipboard(node.contributor);
 	}
 
 	@debug()

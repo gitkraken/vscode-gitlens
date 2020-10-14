@@ -31,7 +31,7 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 	}
 
 	toClipboard(): string {
-		return this.contributor.name;
+		return `${this.contributor.name}${this.contributor.email ? ` <${this.contributor.email}>` : ''}`;
 	}
 
 	get id(): string {
