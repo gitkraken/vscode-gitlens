@@ -80,9 +80,7 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 		}\n${Strings.pluralize('commit', this.contributor.count)}`;
 
 		if (this.view.config.avatars) {
-			item.iconPath = await this.contributor.getAvatarUri(true, {
-				fallback: Container.config.defaultGravatarsStyle,
-			});
+			item.iconPath = await this.contributor.getAvatarUri({ fallback: Container.config.defaultGravatarsStyle });
 		}
 
 		return item;

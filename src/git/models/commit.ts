@@ -225,16 +225,8 @@ export abstract class GitCommit implements GitRevisionReference {
 		return GitUri.getFormattedPath(this.fileName, options);
 	}
 
-	getAvatarUri(wait: false, options?: { fallback?: GravatarDefaultStyle; listener?: () => void; size?: number }): Uri;
-	getAvatarUri(
-		wait: true,
-		options?: { fallback?: GravatarDefaultStyle; listener?: () => void; size?: number },
-	): Promise<Uri>;
-	getAvatarUri(
-		wait: boolean,
-		options?: { fallback?: GravatarDefaultStyle; listener?: () => void; size?: number },
-	): Uri | Promise<Uri> {
-		return getAvatarUri(this.email, this, wait, options);
+	getAvatarUri(options?: { fallback?: GravatarDefaultStyle; size?: number }): Uri | Promise<Uri> {
+		return getAvatarUri(this.email, this, options);
 	}
 
 	@memoize()

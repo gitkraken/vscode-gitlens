@@ -54,8 +54,10 @@ export interface CommitFormatOptions extends FormatOptions {
 		authorAgoOrDateShort?: Strings.TokenOptions;
 		authorDate?: Strings.TokenOptions;
 		authorNotYou?: Strings.TokenOptions;
+		avatar?: Strings.TokenOptions;
 		changes?: Strings.TokenOptions;
 		changesShort?: Strings.TokenOptions;
+		commands?: Strings.TokenOptions;
 		committerAgo?: Strings.TokenOptions;
 		committerAgoOrDate?: Strings.TokenOptions;
 		committerAgoOrDateShort?: Strings.TokenOptions;
@@ -70,6 +72,7 @@ export interface CommitFormatOptions extends FormatOptions {
 		pullRequestAgoOrDate?: Strings.TokenOptions;
 		pullRequestDate?: Strings.TokenOptions;
 		pullRequestState?: Strings.TokenOptions;
+		sha?: Strings.TokenOptions;
 		tips?: Strings.TokenOptions;
 	};
 }
@@ -130,11 +133,11 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		return dateStyle === DateStyle.Absolute ? this._pullRequestDate : this._pullRequestDateAgo;
 	}
 
-	get ago() {
+	get ago(): string {
 		return this._padOrTruncate(this._dateAgo, this._options.tokenOptions.ago);
 	}
 
-	get agoOrDate() {
+	get agoOrDate(): string {
 		const dateStyle = this._options.dateStyle != null ? this._options.dateStyle : Container.config.defaultDateStyle;
 		return this._padOrTruncate(
 			dateStyle === DateStyle.Absolute ? this._date : this._dateAgo,
@@ -142,7 +145,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		);
 	}
 
-	get agoOrDateShort() {
+	get agoOrDateShort(): string {
 		const dateStyle = this._options.dateStyle != null ? this._options.dateStyle : Container.config.defaultDateStyle;
 		return this._padOrTruncate(
 			dateStyle === DateStyle.Absolute ? this._date : this._dateAgoShort,
@@ -150,7 +153,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		);
 	}
 
-	get author() {
+	get author(): string {
 		const author = this._padOrTruncate(this._item.author, this._options.tokenOptions.author);
 		if (!this._options.markdown) {
 			return author;
@@ -159,7 +162,31 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		return `[${author}](mailto:${this._item.email} "Email ${this._item.author} (${this._item.email})")`;
 	}
 
-	get authorNotYou() {
+	get authorAgo(): string {
+		return this._padOrTruncate(this._authorDateAgo, this._options.tokenOptions.authorAgo);
+	}
+
+	get authorAgoOrDate(): string {
+		const dateStyle = this._options.dateStyle != null ? this._options.dateStyle : Container.config.defaultDateStyle;
+		return this._padOrTruncate(
+			dateStyle === DateStyle.Absolute ? this._authorDate : this._authorDateAgo,
+			this._options.tokenOptions.authorAgoOrDate,
+		);
+	}
+
+	get authorAgoOrDateShort(): string {
+		const dateStyle = this._options.dateStyle != null ? this._options.dateStyle : Container.config.defaultDateStyle;
+		return this._padOrTruncate(
+			dateStyle === DateStyle.Absolute ? this._authorDate : this._authorDateAgoShort,
+			this._options.tokenOptions.authorAgoOrDateShort,
+		);
+	}
+
+	get authorDate(): string {
+		return this._padOrTruncate(this._authorDate, this._options.tokenOptions.authorDate);
+	}
+
+	get authorNotYou(): string {
 		if (this._item.author === 'You') return emptyStr;
 
 		const author = this._padOrTruncate(this._item.author, this._options.tokenOptions.authorNotYou);
@@ -170,33 +197,9 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		return `[${author}](mailto:${this._item.email} "Email ${this._item.author} (${this._item.email})")`;
 	}
 
-	get authorAgo() {
-		return this._padOrTruncate(this._authorDateAgo, this._options.tokenOptions.authorAgo);
-	}
-
-	get authorAgoOrDate() {
-		const dateStyle = this._options.dateStyle != null ? this._options.dateStyle : Container.config.defaultDateStyle;
-		return this._padOrTruncate(
-			dateStyle === DateStyle.Absolute ? this._authorDate : this._authorDateAgo,
-			this._options.tokenOptions.authorAgoOrDate,
-		);
-	}
-
-	get authorAgoOrDateShort() {
-		const dateStyle = this._options.dateStyle != null ? this._options.dateStyle : Container.config.defaultDateStyle;
-		return this._padOrTruncate(
-			dateStyle === DateStyle.Absolute ? this._authorDate : this._authorDateAgoShort,
-			this._options.tokenOptions.authorAgoOrDateShort,
-		);
-	}
-
-	get authorDate() {
-		return this._padOrTruncate(this._authorDate, this._options.tokenOptions.authorDate);
-	}
-
-	get avatar() {
+	get avatar(): string | Promise<string> {
 		if (!this._options.markdown || !Container.config.hovers.avatars) {
-			return emptyStr;
+			return this._padOrTruncate(emptyStr, this._options.tokenOptions.avatar);
 		}
 
 		const presence = this._options.presence;
@@ -205,31 +208,42 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				presence.status === 'dnd' ? 'in ' : emptyStr
 			}${presence.statusText.toLocaleLowerCase()}`;
 
-			return `${this._getAvatarMarkdown(title)}${this._getPresenceMarkdown(presence, title)}`;
+			const avatarMarkdownPromise = this._getAvatarMarkdown(title);
+			return avatarMarkdownPromise.then(md =>
+				this._padOrTruncate(
+					`${md}${this._getPresenceMarkdown(presence, title)}`,
+					this._options.tokenOptions.avatar,
+				),
+			);
 		}
 
 		return this._getAvatarMarkdown(this._item.author);
 	}
 
-	private _getAvatarMarkdown(title: string) {
+	private async _getAvatarMarkdown(title: string) {
 		const size = Container.config.hovers.avatarSize;
-		return `![${title}](${this._item
-			.getAvatarUri(false, { fallback: Container.config.defaultGravatarsStyle, size: size })
-			.toString(true)}|width=${size},height=${size} "${title}")`;
+		const avatarPromise = this._item.getAvatarUri({
+			fallback: Container.config.defaultGravatarsStyle,
+			size: size,
+		});
+		return this._padOrTruncate(
+			`![${title}](${(await avatarPromise).toString(true)}|width=${size},height=${size} "${title}")`,
+			this._options.tokenOptions.avatar,
+		);
 	}
 
 	private _getPresenceMarkdown(presence: ContactPresence, title: string) {
 		return `![${title}](${getPresenceDataUri(presence.status)} "${title}")`;
 	}
 
-	get changes() {
+	get changes(): string {
 		return this._padOrTruncate(
 			GitLogCommit.is(this._item) ? this._item.getFormattedDiffStatus() : emptyStr,
 			this._options.tokenOptions.changes,
 		);
 	}
 
-	get changesShort() {
+	get changesShort(): string {
 		return this._padOrTruncate(
 			GitLogCommit.is(this._item)
 				? this._item.getFormattedDiffStatus({ compact: true, separator: emptyStr })
@@ -238,8 +252,8 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		);
 	}
 
-	get commands() {
-		if (!this._options.markdown) return emptyStr;
+	get commands(): string {
+		if (!this._options.markdown) return this._padOrTruncate(emptyStr, this._options.tokenOptions.commands);
 
 		let commands;
 		if (this._item.isUncommitted) {
@@ -251,7 +265,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 							? diffUris.current.sha
 							: GitRevision.uncommitted,
 					)!,
-					this._options.tokenOptions.id,
+					this._options.tokenOptions.commands,
 				)}\``;
 
 				commands += `&nbsp; **[\`${GlyphChars.MuchLessThan}\`](${DiffWithCommand.getMarkdownCommandArgs({
@@ -271,7 +285,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					GitRevision.shorten(
 						this._item.isUncommittedStaged ? GitRevision.uncommittedStaged : GitRevision.uncommitted,
 					)!,
-					this._options.tokenOptions.id,
+					this._options.tokenOptions.commands,
 				)}\``;
 			}
 
@@ -340,14 +354,14 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			revisionUri: GitUri.toRevisionUri(this._item.toGitUri()).toString(true),
 		})} "Show More Actions")`;
 
-		return commands;
+		return this._padOrTruncate(commands, this._options.tokenOptions.commands);
 	}
 
-	get committerAgo() {
+	get committerAgo(): string {
 		return this._padOrTruncate(this._committerDateAgo, this._options.tokenOptions.committerAgo);
 	}
 
-	get committerAgoOrDate() {
+	get committerAgoOrDate(): string {
 		const dateStyle = this._options.dateStyle != null ? this._options.dateStyle : Container.config.defaultDateStyle;
 		return this._padOrTruncate(
 			dateStyle === DateStyle.Absolute ? this._committerDate : this._committerDateAgo,
@@ -355,7 +369,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		);
 	}
 
-	get committerAgoOrDateShort() {
+	get committerAgoOrDateShort(): string {
 		const dateStyle = this._options.dateStyle != null ? this._options.dateStyle : Container.config.defaultDateStyle;
 		return this._padOrTruncate(
 			dateStyle === DateStyle.Absolute ? this._committerDate : this._committerDateAgoShort,
@@ -363,35 +377,38 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		);
 	}
 
-	get committerDate() {
+	get committerDate(): string {
 		return this._padOrTruncate(this._committerDate, this._options.tokenOptions.committerDate);
 	}
 
-	get date() {
+	get date(): string {
 		return this._padOrTruncate(this._date, this._options.tokenOptions.date);
 	}
 
-	get email() {
+	get email(): string {
 		return this._padOrTruncate(this._item.email ?? emptyStr, this._options.tokenOptions.email);
 	}
 
-	get footnotes() {
-		if (this._options.footnotes == null || this._options.footnotes.size === 0) return '';
-
+	get footnotes(): string {
 		return this._padOrTruncate(
-			Iterables.join(
-				Iterables.map(this._options.footnotes, ([i, footnote]) => `${Strings.getSuperscript(i)} ${footnote}`),
-				'\n',
-			),
+			this._options.footnotes == null || this._options.footnotes.size === 0
+				? emptyStr
+				: Iterables.join(
+						Iterables.map(
+							this._options.footnotes,
+							([i, footnote]) => `${Strings.getSuperscript(i)} ${footnote}`,
+						),
+						'\n',
+				  ),
 			this._options.tokenOptions.footnotes,
 		);
 	}
 
-	get id() {
+	get id(): string {
 		return this._padOrTruncate(this._item.shortSha ?? emptyStr, this._options.tokenOptions.id);
 	}
 
-	get message() {
+	get message(): string {
 		if (this._item.isUncommitted) {
 			const staged =
 				this._item.isUncommittedStaged ||
@@ -431,9 +448,9 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		return this._options.markdown ? `\n> ${message}` : message;
 	}
 
-	get pullRequest() {
+	get pullRequest(): string {
 		const { pullRequestOrRemote: pr } = this._options;
-		if (pr == null) return emptyStr;
+		if (pr == null) return this._padOrTruncate(emptyStr, this._options.tokenOptions.pullRequest);
 
 		let text;
 		if (PullRequest.is(pr)) {
@@ -463,34 +480,33 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		return this._padOrTruncate(text, this._options.tokenOptions.pullRequest);
 	}
 
-	get pullRequestAgo() {
+	get pullRequestAgo(): string {
 		return this._padOrTruncate(this._pullRequestDateAgo, this._options.tokenOptions.pullRequestAgo);
 	}
 
-	get pullRequestAgoOrDate() {
+	get pullRequestAgoOrDate(): string {
 		return this._padOrTruncate(this._pullRequestDateOrAgo, this._options.tokenOptions.pullRequestAgoOrDate);
 	}
 
-	get pullRequestDate() {
+	get pullRequestDate(): string {
 		return this._padOrTruncate(this._pullRequestDate, this._options.tokenOptions.pullRequestDate);
 	}
 
-	get pullRequestState() {
+	get pullRequestState(): string {
 		const { pullRequestOrRemote: pr } = this._options;
-		if (pr == null || !PullRequest.is(pr)) return emptyStr;
-
-		return this._padOrTruncate(pr.state ?? emptyStr, this._options.tokenOptions.pullRequestState);
+		return this._padOrTruncate(
+			pr == null || !PullRequest.is(pr) ? emptyStr : pr.state ?? emptyStr,
+			this._options.tokenOptions.pullRequestState,
+		);
 	}
 
-	get sha() {
-		return this.id;
+	get sha(): string {
+		return this._padOrTruncate(this._item.shortSha ?? emptyStr, this._options.tokenOptions.sha);
 	}
 
-	get tips() {
+	get tips(): string {
 		const branchAndTagTips = this._options.getBranchAndTagTips?.(this._item.sha);
-		if (branchAndTagTips == null) return emptyStr;
-
-		return this._padOrTruncate(branchAndTagTips, this._options.tokenOptions.tips);
+		return this._padOrTruncate(branchAndTagTips ?? emptyStr, this._options.tokenOptions.tips);
 	}
 
 	static fromTemplate(template: string, commit: GitCommit, dateFormat: string | null): string;
@@ -505,6 +521,39 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		commit: GitCommit,
 		dateFormatOrOptions?: string | null | CommitFormatOptions,
 	): string {
+		if (dateFormatOrOptions == null || typeof dateFormatOrOptions === 'string') {
+			dateFormatOrOptions = {
+				dateFormat: dateFormatOrOptions,
+			};
+		}
+
+		if (CommitFormatter.has(template, 'footnotes')) {
+			if (dateFormatOrOptions.footnotes == null) {
+				dateFormatOrOptions.footnotes = new Map<number, string>();
+			}
+		}
+
+		if (CommitFormatter.has(template, 'avatar') && dateFormatOrOptions?.markdown) {
+			// eslint-disable-next-line no-debugger
+			debugger;
+			throw new Error("Invalid template token 'avatar' used in non-async call");
+		}
+
+		return super.fromTemplateCore(this, template, commit, dateFormatOrOptions);
+	}
+
+	static fromTemplateAsync(template: string, commit: GitCommit, dateFormat: string | null): Promise<string>;
+	static fromTemplateAsync(template: string, commit: GitCommit, options?: CommitFormatOptions): Promise<string>;
+	static fromTemplateAsync(
+		template: string,
+		commit: GitCommit,
+		dateFormatOrOptions?: string | null | CommitFormatOptions,
+	): Promise<string>;
+	static fromTemplateAsync(
+		template: string,
+		commit: GitCommit,
+		dateFormatOrOptions?: string | null | CommitFormatOptions,
+	): Promise<string> {
 		if (CommitFormatter.has(template, 'footnotes')) {
 			if (dateFormatOrOptions == null || typeof dateFormatOrOptions === 'string') {
 				dateFormatOrOptions = {
@@ -517,7 +566,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			}
 		}
 
-		return super.fromTemplateCore(this, template, commit, dateFormatOrOptions);
+		return super.fromTemplateCoreAsync(this, template, commit, dateFormatOrOptions);
 	}
 
 	static has(template: string, ...tokens: (keyof NonNullable<CommitFormatOptions['tokenOptions']>)[]): boolean {

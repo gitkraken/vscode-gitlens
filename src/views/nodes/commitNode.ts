@@ -121,7 +121,7 @@ export class CommitNode extends ViewRefNode<ViewsWithFiles, GitRevisionReference
 		item.iconPath = this.unpublished
 			? new ThemeIcon('arrow-up')
 			: !(this.view instanceof StashesView) && this.view.config.avatars
-			? await this.commit.getAvatarUri(true, { fallback: Container.config.defaultGravatarsStyle })
+			? await this.commit.getAvatarUri({ fallback: Container.config.defaultGravatarsStyle })
 			: new ThemeIcon('git-commit');
 		item.tooltip = this.tooltip;
 

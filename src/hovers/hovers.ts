@@ -196,7 +196,7 @@ export namespace Hovers {
 			Container.vsls.maybeGetPresence(commit.email).catch(() => undefined),
 		]);
 
-		const details = CommitFormatter.fromTemplate(Container.config.hovers.detailsMarkdownFormat, commit, {
+		const details = await CommitFormatter.fromTemplateAsync(Container.config.hovers.detailsMarkdownFormat, commit, {
 			autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,
 			dateFormat: dateFormat,
 			line: editorLine,

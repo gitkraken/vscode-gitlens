@@ -77,8 +77,6 @@ const pathNormalizeRegex = /\\/g;
 const pathStripTrailingSlashRegex = /\/$/g;
 const tokenRegex = /\$\{(".*?"|\W*)?([^|]*?)(?:\|(\d+)(-|\?)?)?(".*?"|\W*)?\}/g;
 const tokenSanitizeRegex = /\$\{(?:".*?"|\W*)?(\w*?)(?:".*?"|[\W\d]*)\}/g;
-// eslint-disable-next-line no-template-curly-in-string
-const tokenSanitizeReplacement = "$${this.$1 ?? ''}";
 
 export interface TokenOptions {
 	collapseWhitespace: boolean;
@@ -115,6 +113,8 @@ export function getTokensFromTemplate(template: string) {
 	return tokens;
 }
 
+// eslint-disable-next-line no-template-curly-in-string
+const tokenSanitizeReplacement = "$${this.$1 ?? ''}";
 const interpolationMap = new Map<string, Function>();
 
 export function interpolate(template: string, context: object | undefined): string {
@@ -129,6 +129,33 @@ export function interpolate(template: string, context: object | undefined): stri
 	}
 
 	return fn.call(context);
+}
+
+// eslint-disable-next-line prefer-arrow-callback
+const AsyncFunction = Object.getPrototypeOf(async function () {
+	/* noop */
+}).constructor;
+
+const tokenSanitizeReplacementAsync =
+	// eslint-disable-next-line no-template-curly-in-string
+	"$${$1=this.$1,($1 != null && typeof $1.then === 'function' ? await $1 : $1) ?? ''}";
+
+const interpolationAsyncMap = new Map<string, typeof AsyncFunction>();
+
+export async function interpolateAsync(template: string, context: object | undefined): Promise<string> {
+	if (template == null || template.length === 0) return template;
+	if (context == null) return template.replace(tokenSanitizeRegex, emptyStr);
+
+	let fn = interpolationAsyncMap.get(template);
+	if (fn == null) {
+		// // eslint-disable-next-line @typescript-eslint/no-implied-eval
+		const body = `return \`${template.replace(tokenSanitizeRegex, tokenSanitizeReplacementAsync)}\`;`;
+		fn = new AsyncFunction(body);
+		interpolationAsyncMap.set(template, fn);
+	}
+
+	const value = await fn.call(context);
+	return value;
 }
 
 export function* lines(s: string): IterableIterator<string> {

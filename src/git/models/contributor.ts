@@ -20,16 +20,8 @@ export class GitContributor {
 		public readonly current: boolean = false,
 	) {}
 
-	getAvatarUri(wait: false, options?: { fallback?: GravatarDefaultStyle; listener?: () => void; size?: number }): Uri;
-	getAvatarUri(
-		wait: true,
-		options?: { fallback?: GravatarDefaultStyle; listener?: () => void; size?: number },
-	): Promise<Uri>;
-	getAvatarUri(
-		wait: boolean,
-		options?: { fallback?: GravatarDefaultStyle; listener?: () => void; size?: number },
-	): Uri | Promise<Uri> {
-		return getAvatarUri(this.email, undefined /*this.repoPath*/, wait, options);
+	getAvatarUri(options?: { fallback?: GravatarDefaultStyle; size?: number }): Uri | Promise<Uri> {
+		return getAvatarUri(this.email, undefined /*this.repoPath*/, options);
 	}
 
 	toCoauthor(): string {

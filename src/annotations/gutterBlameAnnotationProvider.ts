@@ -215,7 +215,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 				height: '16px',
 				width: '16px',
 				textDecoration: `none;position:absolute;top:1px;left:5px;background:url(${(
-					await commit.getAvatarUri(true, { fallback: gravatarDefault })
+					await commit.getAvatarUri({ fallback: gravatarDefault })
 				).toString()});background-size:16px 16px`,
 			};
 			map.set(commit.email!, avatarDecoration);
