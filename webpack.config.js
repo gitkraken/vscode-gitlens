@@ -146,9 +146,7 @@ function getExtensionConfig(mode, env) {
 		optimization: {
 			minimizer: [
 				new TerserPlugin({
-					cache: true,
 					parallel: true,
-					sourceMap: true,
 					terserOptions: {
 						ecma: 8,
 						// Keep the class names otherwise @log won't provide a useful name
