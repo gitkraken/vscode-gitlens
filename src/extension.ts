@@ -55,7 +55,7 @@ export async function activate(context: ExtensionContext) {
 
 	const cfg = configuration.get();
 
-	const previousVersion = context.globalState.get<string>(GlobalState.GitLensVersion);
+	const previousVersion = context.globalState.get<string>(GlobalState.Version);
 	await migrateSettings(context, previousVersion);
 
 	try {
@@ -83,7 +83,7 @@ export async function activate(context: ExtensionContext) {
 	notifyOnUnsupportedGitVersion(gitVersion);
 	void showWelcomeOrWhatsNew(gitlensVersion, previousVersion);
 
-	void context.globalState.update(GlobalState.GitLensVersion, gitlensVersion);
+	void context.globalState.update(GlobalState.Version, gitlensVersion);
 
 	Logger.log(
 		`GitLens (v${gitlensVersion}${cfg.mode.active ? `, mode: ${cfg.mode.active}` : ''}) activated ${

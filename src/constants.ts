@@ -132,7 +132,8 @@ export enum GlyphChars {
 }
 
 export enum GlobalState {
-	GitLensVersion = 'gitlensVersion',
+	Avatars = 'gitlens:avatars',
+	Version = 'gitlensVersion',
 }
 
 export const ImageMimetypes: Record<string, string> = {
@@ -182,7 +183,6 @@ export interface StarredRepositories {
 }
 
 export enum WorkspaceState {
-	Avatars = 'gitlens:avatars',
 	BranchComparisons = 'gitlens:branch:comparisons',
 	DefaultRemote = 'gitlens:remote:default',
 	PinnedComparisons = 'gitlens:pinned:comparisons',

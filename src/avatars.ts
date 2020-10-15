@@ -2,23 +2,51 @@
 import * as fs from 'fs';
 import { EventEmitter, Uri } from 'vscode';
 import { GravatarDefaultStyle } from './config';
-import { WorkspaceState } from './constants';
+import { GlobalState } from './constants';
 import { Container } from './container';
 import { GitRevisionReference } from './git/git';
-import { Functions, Strings } from './system';
+import { Functions, Iterables, Strings } from './system';
+import { MillisecondsPerDay, MillisecondsPerHour, MillisecondsPerMinute } from './system/date';
 import { ContactPresenceStatus } from './vsls/vsls';
 
-// TODO@eamodio Use timestamp
-// TODO@eamodio Clear avatar cache on remote / provider connection change
+const _onDidFetchAvatar = new EventEmitter<{ email: string }>();
+_onDidFetchAvatar.event(
+	Functions.debounce(() => {
+		const avatars =
+			avatarCache != null
+				? [
+						...Iterables.filterMap(avatarCache, ([key, avatar]) =>
+							avatar.uri != null
+								? [
+										key,
+										{
+											uri: avatar.uri.toString(),
+											timestamp: avatar.timestamp,
+										},
+								  ]
+								: undefined,
+						),
+				  ]
+				: undefined;
+		void Container.context.globalState.update(GlobalState.Avatars, avatars);
+	}, 1000),
+);
 
-interface Avatar<T = Uri> {
-	uri?: T | null;
-	fallback: T;
-	timestamp: number;
-	// TODO@eamodio Add a fail count, to avoid failing on a single failure
+export namespace Avatars {
+	export const onDidFetch = _onDidFetchAvatar.event;
 }
 
-type SerializedAvatar = Avatar<string>;
+interface Avatar {
+	uri?: Uri;
+	fallback?: Uri;
+	timestamp: number;
+	retries: number;
+}
+
+interface SerializedAvatar {
+	uri: string;
+	timestamp: number;
+}
 
 let avatarCache: Map<string, Avatar> | undefined;
 const avatarQueue = new Map<string, Promise<Uri>>();
@@ -29,99 +57,107 @@ const presenceCache = new Map<ContactPresenceStatus, string>();
 
 const gitHubNoReplyAddressRegex = /^(?:(?<userId>\d+)\+)?(?<userName>[a-zA-Z\d-]{1,39})@users\.noreply\.github\.com$/;
 
-const _onDidFetchAvatar = new EventEmitter<{ email: string }>();
-export const onDidFetchAvatar = _onDidFetchAvatar.event;
-
-onDidFetchAvatar(
-	Functions.debounce(() => {
-		void Container.context.workspaceState.update(
-			WorkspaceState.Avatars,
-			avatarCache == null
-				? undefined
-				: [...avatarCache.entries()].map<[string, SerializedAvatar]>(([key, value]) => [
-						key,
-						{
-							uri: value.uri != null ? value.uri.toString() : value.uri,
-							fallback: value.fallback.toString(),
-							timestamp: value.timestamp,
-						},
-				  ]),
-		);
-	}, 1000),
-);
-
-export function clearAvatarCache() {
-	avatarCache?.clear();
-	avatarQueue.clear();
-	void Container.context.workspaceState.update(WorkspaceState.Avatars, undefined);
-}
-
-function ensureAvatarCache(cache: Map<string, Avatar> | undefined): asserts cache is Map<string, Avatar> {
-	if (cache == null) {
-		const avatars: [string, Avatar][] | undefined = Container.context.workspaceState
-			.get<[string, SerializedAvatar][]>(WorkspaceState.Avatars)
-			?.map<[string, Avatar]>(([key, value]) => [
-				key,
-				{
-					uri: value.uri != null ? Uri.parse(value.uri) : value.uri,
-					fallback: Uri.parse(value.fallback),
-					timestamp: value.timestamp,
-				},
-			]);
-		avatarCache = new Map<string, Avatar>(avatars);
-	}
-}
+const retryDecay = [
+	MillisecondsPerDay * 7, // First item is cache expiration (since retries will be 0)
+	MillisecondsPerMinute,
+	MillisecondsPerMinute * 5,
+	MillisecondsPerMinute * 10,
+	MillisecondsPerHour,
+	MillisecondsPerDay,
+	MillisecondsPerDay * 7,
+];
 
 export function getAvatarUri(
 	email: string | undefined,
 	repoPathOrCommit: string | GitRevisionReference | undefined,
-	{ fallback, size = 16 }: { fallback?: GravatarDefaultStyle; size?: number } = {},
+	{ defaultStyle, size = 16 }: { defaultStyle?: GravatarDefaultStyle; size?: number } = {},
 ): Uri | Promise<Uri> {
 	ensureAvatarCache(avatarCache);
 
 	if (email == null || email.length === 0) {
-		const key = `${missingGravatarHash}:${size}`;
-
-		let avatar = avatarCache.get(key);
-		if (avatar == null) {
-			avatar = {
-				fallback: Uri.parse(
-					`https://www.gravatar.com/avatar/${missingGravatarHash}.jpg?s=${size}&d=${fallback}`,
-				),
-				timestamp: Date.now(),
-			};
-			avatarCache.set(key, avatar);
-		}
-
-		return avatar.uri ?? avatar.fallback;
+		const avatar = createOrUpdateAvatar(
+			`${missingGravatarHash}:${size}`,
+			undefined,
+			missingGravatarHash,
+			size,
+			defaultStyle,
+		);
+		return avatar.uri ?? avatar.fallback!;
 	}
 
 	const hash = Strings.md5(email.trim().toLowerCase(), 'hex');
 	const key = `${hash}:${size}`;
 
-	let avatar = avatarCache.get(key);
-	if (avatar == null) {
-		avatar = {
-			uri: getAvatarUriFromGitHubNoReplyAddress(email, size),
-			fallback: Uri.parse(`https://www.gravatar.com/avatar/${hash}.jpg?s=${size}&d=${fallback}`),
-			timestamp: Date.now(),
-		};
-		avatarCache.set(key, avatar);
-	}
-
+	const avatar = createOrUpdateAvatar(
+		key,
+		getAvatarUriFromGitHubNoReplyAddress(email, size),
+		hash,
+		size,
+		defaultStyle,
+	);
 	if (avatar.uri != null) return avatar.uri;
 
 	let query = avatarQueue.get(key);
-	if (query == null && avatar.uri === undefined && repoPathOrCommit != null) {
-		query = getAvatarUriFromRemoteProvider(key, email, repoPathOrCommit, avatar.fallback, { size: size }).then(
-			uri => uri ?? avatar!.uri ?? avatar!.fallback,
+	if (query == null && repoPathOrCommit != null && hasAvatarExpired(avatar)) {
+		query = getAvatarUriFromRemoteProvider(avatar, key, email, repoPathOrCommit, { size: size }).then(
+			uri => uri ?? avatar.uri ?? avatar.fallback!,
 		);
 		avatarQueue.set(key, query);
 	}
 
 	if (query != null) return query;
 
-	return avatar.uri ?? avatar.fallback;
+	return avatar.uri ?? avatar.fallback!;
+}
+
+function createOrUpdateAvatar(
+	key: string,
+	uri: Uri | undefined,
+	hash: string,
+	size: number,
+	defaultStyle?: GravatarDefaultStyle,
+): Avatar {
+	let avatar = avatarCache!.get(key);
+	if (avatar == null) {
+		avatar = {
+			uri: uri,
+			fallback: getAvatarUriFromGravatar(hash, size, defaultStyle),
+			timestamp: 0,
+			retries: 0,
+		};
+		avatarCache!.set(key, avatar);
+	} else if (avatar.fallback == null) {
+		avatar.fallback = getAvatarUriFromGravatar(hash, size, defaultStyle);
+	}
+	return avatar;
+}
+
+function ensureAvatarCache(cache: Map<string, Avatar> | undefined): asserts cache is Map<string, Avatar> {
+	if (cache == null) {
+		const avatars: [string, Avatar][] | undefined = Container.context.globalState
+			.get<[string, SerializedAvatar][]>(GlobalState.Avatars)
+			?.map<[string, Avatar]>(([key, avatar]) => [
+				key,
+				{
+					uri: Uri.parse(avatar.uri),
+					timestamp: avatar.timestamp,
+					retries: 0,
+				},
+			]);
+		avatarCache = new Map<string, Avatar>(avatars);
+	}
+}
+
+function hasAvatarExpired(avatar: Avatar) {
+	return Date.now() >= avatar.timestamp + retryDecay[Math.min(avatar.retries, retryDecay.length - 1)];
+}
+
+function getAvatarUriFromGravatar(
+	hash: string,
+	size: number,
+	defaultStyle: GravatarDefaultStyle = GravatarDefaultStyle.Robot,
+): Uri {
+	return Uri.parse(`https://www.gravatar.com/avatar/${hash}.jpg?s=${size}&d=${defaultStyle}`);
 }
 
 function getAvatarUriFromGitHubNoReplyAddress(email: string, size: number = 16): Uri | undefined {
@@ -133,10 +169,10 @@ function getAvatarUriFromGitHubNoReplyAddress(email: string, size: number = 16):
 }
 
 async function getAvatarUriFromRemoteProvider(
+	avatar: Avatar,
 	key: string,
 	email: string,
 	repoPathOrCommit: string | GitRevisionReference,
-	fallback: Uri,
 	{ size = 16 }: { size?: number } = {},
 ) {
 	ensureAvatarCache(avatarCache);
@@ -152,26 +188,29 @@ async function getAvatarUriFromRemoteProvider(
 			account = await remote?.provider.getAccountForCommit(repoPathOrCommit.ref, { avatarSize: size });
 		}
 		if (account == null) {
-			avatarCache.set(key, { uri: null, fallback: fallback, timestamp: Date.now() });
+			// If we have no account assume that won't change (without a reset), so set the timestamp to "never expire"
+			avatar.uri = undefined;
+			avatar.timestamp = Number.MAX_SAFE_INTEGER;
+			avatar.retries = 0;
 
 			return undefined;
 		}
 
-		const uri = Uri.parse(account.avatarUrl);
-		avatarCache.set(key, { uri: uri, fallback: fallback, timestamp: Date.now() });
+		avatar.uri = Uri.parse(account.avatarUrl);
+		avatar.timestamp = Date.now();
+		avatar.retries = 0;
+
 		if (account.email != null && Strings.equalsIgnoreCase(email, account.email)) {
-			avatarCache.set(`${Strings.md5(account.email.trim().toLowerCase(), 'hex')}:${size}`, {
-				uri: uri,
-				fallback: fallback,
-				timestamp: Date.now(),
-			});
+			avatarCache.set(`${Strings.md5(account.email.trim().toLowerCase(), 'hex')}:${size}`, { ...avatar });
 		}
 
 		_onDidFetchAvatar.fire({ email: email });
 
-		return uri;
+		return avatar.uri;
 	} catch {
-		avatarCache.set(key, { uri: null, fallback: fallback, timestamp: Date.now() });
+		avatar.uri = undefined;
+		avatar.timestamp = Date.now();
+		avatar.retries++;
 
 		return undefined;
 	} finally {
@@ -191,4 +230,30 @@ export function getPresenceDataUri(status: ContactPresenceStatus) {
 	}
 
 	return dataUri;
+}
+
+export function resetAvatarCache(reset: 'all' | 'failed' | 'fallback') {
+	switch (reset) {
+		case 'all':
+			void Container.context.globalState.update(GlobalState.Avatars, undefined);
+			avatarCache?.clear();
+			avatarQueue.clear();
+			break;
+
+		case 'failed':
+			for (const avatar of avatarCache?.values() ?? []) {
+				// Reset failed requests
+				if (avatar.uri == null) {
+					avatar.timestamp = 0;
+					avatar.retries = 0;
+				}
+			}
+			break;
+
+		case 'fallback':
+			for (const avatar of avatarCache?.values() ?? []) {
+				avatar.fallback = undefined;
+			}
+			break;
+	}
 }

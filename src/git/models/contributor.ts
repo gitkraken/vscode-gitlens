@@ -20,7 +20,7 @@ export class GitContributor {
 		public readonly current: boolean = false,
 	) {}
 
-	getAvatarUri(options?: { fallback?: GravatarDefaultStyle; size?: number }): Uri | Promise<Uri> {
+	getAvatarUri(options?: { defaultStyle?: GravatarDefaultStyle; size?: number }): Uri | Promise<Uri> {
 		return getAvatarUri(this.email, undefined /*this.repoPath*/, options);
 	}
 

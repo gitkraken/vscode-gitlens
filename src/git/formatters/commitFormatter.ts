@@ -223,7 +223,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	private async _getAvatarMarkdown(title: string) {
 		const size = Container.config.hovers.avatarSize;
 		const avatarPromise = this._item.getAvatarUri({
-			fallback: Container.config.defaultGravatarsStyle,
+			defaultStyle: Container.config.defaultGravatarsStyle,
 			size: size,
 		});
 		return this._padOrTruncate(

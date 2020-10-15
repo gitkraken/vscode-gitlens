@@ -156,7 +156,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 				authors.set(commit.author, {
 					author: commit.author,
 					avatarUrl: (
-						await commit.getAvatarUri({ fallback: Container.config.defaultGravatarsStyle })
+						await commit.getAvatarUri({ defaultStyle: Container.config.defaultGravatarsStyle })
 					).toString(true),
 					email: commit.email,
 				});
@@ -183,7 +183,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 				authors.set(commit.author, {
 					author: commit.author,
 					avatarUrl: (
-						await commit.getAvatarUri({ fallback: Container.config.defaultGravatarsStyle })
+						await commit.getAvatarUri({ defaultStyle: Container.config.defaultGravatarsStyle })
 					).toString(true),
 					email: commit.email,
 				});

@@ -90,7 +90,7 @@ export class CommitFileNode extends ViewRefFileNode {
 			if (!this.commit.isUncommitted && !(this.view instanceof StashesView) && this.view.config.avatars) {
 				item.iconPath = this._options.unpublished
 					? new ThemeIcon('arrow-up')
-					: await this.commit.getAvatarUri({ fallback: Container.config.defaultGravatarsStyle });
+					: await this.commit.getAvatarUri({ defaultStyle: Container.config.defaultGravatarsStyle });
 			}
 		}
 

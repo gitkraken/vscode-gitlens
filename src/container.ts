@@ -3,7 +3,7 @@ import { commands, ConfigurationChangeEvent, ConfigurationScope, ExtensionContex
 import { Autolinks } from './annotations/autolinks';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { LineAnnotationController } from './annotations/lineAnnotationController';
-import { clearAvatarCache } from './avatars';
+import { resetAvatarCache } from './avatars';
 import { GitCodeLensController } from './codelens/codeLensController';
 import { Commands, ToggleFileAnnotationCommandArgs } from './commands';
 import { AnnotationsToggleMode, Config, configuration, ConfigurationWillChangeEvent } from './configuration';
@@ -108,7 +108,7 @@ export class Container {
 		}
 
 		if (configuration.changed(e.change, 'defaultGravatarsStyle')) {
-			clearAvatarCache();
+			resetAvatarCache('fallback');
 		}
 
 		if (configuration.changed(e.change, 'mode') || configuration.changed(e.change, 'modes')) {

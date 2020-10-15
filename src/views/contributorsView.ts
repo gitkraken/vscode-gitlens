@@ -1,5 +1,6 @@
 'use strict';
 import { commands, ConfigurationChangeEvent, Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Avatars } from '../avatars';
 import { configuration, ContributorsViewConfig, ViewFilesLayout } from '../configuration';
 import { Container } from '../container';
 import { Repository, RepositoryChange, RepositoryChangeEvent } from '../git/git';
@@ -13,9 +14,8 @@ import {
 	unknownGitUri,
 	ViewNode,
 } from './nodes';
-import { debug, Functions, gate } from '../system';
+import { debug, gate } from '../system';
 import { ViewBase } from './viewBase';
-import { onDidFetchAvatar } from '../avatars';
 
 export class ContributorsRepositoryNode extends SubscribeableViewNode<ContributorsView> {
 	protected splatted = true;
@@ -75,7 +75,7 @@ export class ContributorsRepositoryNode extends SubscribeableViewNode<Contributo
 	protected subscribe() {
 		return Disposable.from(
 			this.repo.onDidChange(this.onRepositoryChanged, this),
-			onDidFetchAvatar(Functions.debounce(() => this.refresh(), 500)),
+			Avatars.onDidFetch(e => this.child?.updateAvatar(e.email)),
 		);
 	}
 

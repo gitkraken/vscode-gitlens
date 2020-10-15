@@ -225,7 +225,7 @@ export abstract class GitCommit implements GitRevisionReference {
 		return GitUri.getFormattedPath(this.fileName, options);
 	}
 
-	getAvatarUri(options?: { fallback?: GravatarDefaultStyle; size?: number }): Uri | Promise<Uri> {
+	getAvatarUri(options?: { defaultStyle?: GravatarDefaultStyle; size?: number }): Uri | Promise<Uri> {
 		return getAvatarUri(this.email, this, options);
 	}
 

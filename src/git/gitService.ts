@@ -19,6 +19,7 @@ import {
 	WorkspaceFoldersChangeEvent,
 } from 'vscode';
 import { API as BuiltInGitApi, Repository as BuiltInGitRepository, GitExtension } from '../@types/git';
+import { resetAvatarCache } from '../avatars';
 import { BranchSorting, configuration, TagSorting } from '../configuration';
 import { CommandContext, DocumentSchemes, GlyphChars, setCommandContext } from '../constants';
 import { Container } from '../container';
@@ -140,7 +141,12 @@ export class GitService implements Disposable {
 			window.onDidChangeWindowState(this.onWindowStateChanged, this),
 			workspace.onDidChangeWorkspaceFolders(this.onWorkspaceFoldersChanged, this),
 			configuration.onDidChange(this.onConfigurationChanged, this),
-			Authentication.onDidChange(() => this._remotesWithApiProviderCache.clear()),
+			Authentication.onDidChange(e => {
+				if (e.reason === 'connected') {
+					resetAvatarCache('failed');
+				}
+				this._remotesWithApiProviderCache.clear();
+			}),
 		);
 		this.onConfigurationChanged(configuration.initializingChangeEvent);
 

@@ -19,7 +19,7 @@ export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesVi
 
 	protected splatted = true;
 
-	private _children: ViewNode[] | undefined;
+	private _children: ContributorNode[] | undefined;
 
 	constructor(
 		uri: GitUri,
@@ -56,6 +56,16 @@ export class ContributorsNode extends ViewNode<ContributorsView | RepositoriesVi
 		item.contextValue = ContextValues.Contributors;
 		item.iconPath = new ThemeIcon('organization');
 		return item;
+	}
+
+	updateAvatar(email: string) {
+		if (this._children == null) return;
+
+		for (const child of this._children) {
+			if (child.contributor.email === email) {
+				void child.triggerChange();
+			}
+		}
 	}
 
 	@gate()
