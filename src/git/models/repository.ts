@@ -95,7 +95,8 @@ export class Repository implements Disposable {
 	private _fireFileSystemChangeDebounced: ((e: RepositoryFileSystemChangeEvent) => void) | undefined = undefined;
 	private _fsWatchCounter = 0;
 	private _fsWatcherDisposable: Disposable | undefined;
-	private _pendingChanges: { repo?: RepositoryChangeEvent; fs?: RepositoryFileSystemChangeEvent } = {};
+	private _pendingFileSystemChange?: RepositoryFileSystemChangeEvent;
+	private _pendingRepoChange?: RepositoryChangeEvent;
 	private _providers: RemoteProviders | undefined;
 	private _remotes: Promise<GitRemote[]> | undefined;
 	private _remotesDisposable: Disposable | undefined;
@@ -617,12 +618,12 @@ export class Repository implements Disposable {
 
 		// If we've come back into focus and we are dirty, fire the change events
 
-		if (this._pendingChanges.repo != null) {
-			this._fireChangeDebounced!(this._pendingChanges.repo);
+		if (this._pendingRepoChange != null) {
+			this._fireChangeDebounced!(this._pendingRepoChange);
 		}
 
-		if (this._pendingChanges.fs != null) {
-			this._fireFileSystemChangeDebounced!(this._pendingChanges.fs);
+		if (this._pendingFileSystemChange != null) {
+			this._fireFileSystemChangeDebounced!(this._pendingFileSystemChange);
 		}
 	}
 
@@ -770,11 +771,11 @@ export class Repository implements Disposable {
 			this._fireChangeDebounced = Functions.debounce(this.fireChangeCore.bind(this), 250);
 		}
 
-		if (this._pendingChanges.repo == null) {
-			this._pendingChanges.repo = new RepositoryChangeEvent(this);
+		if (this._pendingRepoChange == null) {
+			this._pendingRepoChange = new RepositoryChangeEvent(this);
 		}
 
-		const e = this._pendingChanges.repo;
+		const e = this._pendingRepoChange;
 
 		for (const reason of changes) {
 			if (!e.changes.includes(reason)) {
@@ -788,7 +789,7 @@ export class Repository implements Disposable {
 	}
 
 	private fireChangeCore(e: RepositoryChangeEvent) {
-		this._pendingChanges.repo = undefined;
+		this._pendingRepoChange = undefined;
 
 		this._onDidChange.fire(e);
 	}
@@ -798,11 +799,11 @@ export class Repository implements Disposable {
 			this._fireFileSystemChangeDebounced = Functions.debounce(this.fireFileSystemChangeCore.bind(this), 2500);
 		}
 
-		if (this._pendingChanges.fs == null) {
-			this._pendingChanges.fs = { repository: this, uris: [] };
+		if (this._pendingFileSystemChange == null) {
+			this._pendingFileSystemChange = { repository: this, uris: [] };
 		}
 
-		const e = this._pendingChanges.fs;
+		const e = this._pendingFileSystemChange;
 		e.uris.push(uri);
 
 		if (this._suspended) return;
@@ -811,7 +812,7 @@ export class Repository implements Disposable {
 	}
 
 	private async fireFileSystemChangeCore(e: RepositoryFileSystemChangeEvent) {
-		this._pendingChanges.fs = undefined;
+		this._pendingFileSystemChange = undefined;
 
 		const uris = await Container.git.excludeIgnoredUris(this.path, e.uris);
 		if (uris.length === 0) return;

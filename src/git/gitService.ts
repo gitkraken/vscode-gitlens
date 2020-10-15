@@ -220,14 +220,15 @@ export class GitService implements Disposable {
 		}
 	}
 
+	@debug()
 	private onWindowStateChanged(e: WindowState) {
+		this._suspended = !e.focused;
+
 		if (e.focused) {
 			this._repositoryTree.forEach(r => r.resume());
 		} else {
 			this._repositoryTree.forEach(r => r.suspend());
 		}
-
-		this._suspended = !e.focused;
 	}
 
 	private async onWorkspaceFoldersChanged(e?: WorkspaceFoldersChangeEvent) {
