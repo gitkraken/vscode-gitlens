@@ -169,7 +169,10 @@ export class BranchGitCommand extends QuickCommand<State> {
 
 			this.subcommand = state.subcommand;
 
-			context.title = getTitle(state.subcommand === 'delete' ? 'Branches' : this.title, state.subcommand);
+			context.title = getTitle(
+				state.subcommand === 'create' ? 'Branch from' : state.subcommand === 'delete' ? 'Branches' : this.title,
+				state.subcommand,
+			);
 
 			if (state.counter < 2 || state.repo == null || typeof state.repo === 'string') {
 				skippedStepTwo = false;
@@ -266,7 +269,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 			if (state.counter < 4 || state.name == null) {
 				const result = yield* inputBranchNameStep(state, context, {
 					placeholder: 'Please provide a name for the new branch',
-					titleContext: ` from ${GitReference.toString(state.reference, { icon: false })}`,
+					titleContext: ` ${GitReference.toString(state.reference, { capitalize: true, icon: false })}`,
 					value: state.name ?? GitReference.getNameWithoutRemote(state.reference),
 				});
 				if (result === StepResult.Break) continue;
