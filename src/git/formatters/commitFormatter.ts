@@ -1,6 +1,7 @@
 'use strict';
 import { getPresenceDataUri } from '../../avatars';
 import {
+	Commands,
 	ConnectRemoteProviderCommand,
 	DiffWithCommand,
 	InviteToLiveShareCommand,
@@ -305,7 +306,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					pr.provider
 				}\n${GlyphChars.Dash.repeat(2)}\n${pr.title}\n${pr.state}, ${pr.formatDateFromNow()}")${separator}`;
 			} else if (pr instanceof Promises.CancellationError) {
-				commands += `[$(git-pull-request) PR (${GlyphChars.Ellipsis})](# "Searching for a Pull Request (if any) that introduced this commit...")${separator}`;
+				commands += `[$(git-pull-request) PR (${GlyphChars.Ellipsis})](command:${Commands.RefreshHover} "Searching for a Pull Request (if any) that introduced this commit...")${separator}`;
 			} else if (pr.provider != null) {
 				commands += `[$(plug) Connect to ${pr.provider.name}${
 					GlyphChars.Ellipsis
@@ -471,10 +472,10 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			}
 		} else if (pr instanceof Promises.CancellationError) {
 			text = this._options.markdown
-				? `[PR ${GlyphChars.Ellipsis}](# "Searching for a Pull Request (if any) that introduced this commit...")`
+				? `[PR ${GlyphChars.Ellipsis}](command:${Commands.RefreshHover} "Searching for a Pull Request (if any) that introduced this commit...")`
 				: `PR ${GlyphChars.Ellipsis}`;
 		} else {
-			return emptyStr;
+			return this._padOrTruncate(emptyStr, this._options.tokenOptions.pullRequest);
 		}
 
 		return this._padOrTruncate(text, this._options.tokenOptions.pullRequest);
