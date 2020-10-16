@@ -20,6 +20,61 @@
 		<div class="section__group">
 			<div class="section__content">
 				<div class="settings settings--fixed ml-1">
+					<div class="section__group">
+						<div class="section__content">
+							<div class="settings settings--fixed">
+								<div class="setting">
+									<div class="setting__input">
+										<input
+											id="views.remotes.pullRequests.enabled"
+											name="views.remotes.pullRequests.enabled"
+											type="checkbox"
+											data-setting
+										/>
+										<label for="views.remotes.pullRequests.enabled"
+											>Show associated Pull Requests</label
+										>
+									</div>
+									<p class="setting__hint">
+										Requires a connection to a supported remote service (e.g. GitHub)
+									</p>
+								</div>
+
+								<div class="settings settings--fixed ml-2">
+									<div class="setting" data-enablement="views.remotes.pullRequests.enabled">
+										<div class="setting__input">
+											<input
+												id="views.remotes.pullRequests.showForBranches"
+												name="views.remotes.pullRequests.showForBranches"
+												type="checkbox"
+												data-setting
+												disabled
+											/>
+											<label for="views.remotes.pullRequests.showForBranches"
+												>Show the PR associated with each branch</label
+											>
+										</div>
+									</div>
+
+									<div class="setting" data-enablement="views.remotes.pullRequests.enabled">
+										<div class="setting__input">
+											<input
+												id="views.remotes.pullRequests.showForCommits"
+												name="views.remotes.pullRequests.showForCommits"
+												type="checkbox"
+												data-setting
+												disabled
+											/>
+											<label for="views.remotes.pullRequests.showForCommits"
+												>Show the PR that introduced each commit</label
+											>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
 					<div class="setting">
 						<div class="setting__input">
 							<label for="views.remotes.branches.layout">Layout branches</label>
@@ -120,8 +175,11 @@
 		<div class="section__group">
 			<p class="section__hint">
 				<i class="icon icon__info"></i> For more options, open
-				<a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings"
-					>User Settings</a
+				<a
+					class="command"
+					title="Open Settings"
+					href="command:workbench.action.openSettings?%22gitlens.views.remotes%22"
+					>Settings</a
 				>
 				and search for <b><i>gitlens.views.remotes</i></b> or
 				<b><i>gitlens.views</i></b>

@@ -38,6 +38,26 @@
 			<div class="section__content">
 				<div class="settings settings--fixed ml-1">
 					<div class="setting" data-enablement="currentLine.enabled">
+						<div class="setting__input">
+							<input
+								id="currentLine.pullRequests.enabled"
+								name="currentLine.pullRequests.enabled"
+								type="checkbox"
+								data-setting
+								disabled
+							/>
+							<label for="currentLine.pullRequests.enabled"
+								>Show the Pull Request (if any) that introduced the commit</label
+							>
+						</div>
+
+						<p class="setting__hint hidden" data-visibility="currentLine.pullRequests.enabled">
+							<i class="icon icon__info"></i>Requires a connection to a supported remote service (e.g.
+							GitHub)
+						</p>
+					</div>
+
+					<div class="setting" data-enablement="currentLine.enabled">
 						<div class="setting__input setting__input--format">
 							<label for="currentLine.format">Annotation&nbsp;format</label>
 							<input
@@ -95,8 +115,11 @@
 		<div class="section__group">
 			<p class="section__hint">
 				<i class="icon icon__info"></i> For more options, open
-				<a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings"
-					>User Settings</a
+				<a
+					class="command"
+					title="Open Settings"
+					href="command:workbench.action.openSettings?%22gitlens.currentLine%22"
+					>Settings</a
 				>
 				and search for <b><i>gitlens.currentLine</i></b>
 			</p>

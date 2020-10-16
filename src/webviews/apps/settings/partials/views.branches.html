@@ -33,6 +33,61 @@
 						</div>
 					</div>
 
+					<div class="section__group">
+						<div class="section__content">
+							<div class="settings settings--fixed">
+								<div class="setting">
+									<div class="setting__input">
+										<input
+											id="views.branches.pullRequests.enabled"
+											name="views.branches.pullRequests.enabled"
+											type="checkbox"
+											data-setting
+										/>
+										<label for="views.branches.pullRequests.enabled"
+											>Show associated Pull Requests</label
+										>
+									</div>
+									<p class="setting__hint">
+										Requires a connection to a supported remote service (e.g. GitHub)
+									</p>
+								</div>
+
+								<div class="settings settings--fixed ml-2">
+									<div class="setting" data-enablement="views.branches.pullRequests.enabled">
+										<div class="setting__input">
+											<input
+												id="views.branches.pullRequests.showForBranches"
+												name="views.branches.pullRequests.showForBranches"
+												type="checkbox"
+												data-setting
+												disabled
+											/>
+											<label for="views.branches.pullRequests.showForBranches"
+												>Show the PR associated with each branch</label
+											>
+										</div>
+									</div>
+
+									<div class="setting" data-enablement="views.branches.pullRequests.enabled">
+										<div class="setting__input">
+											<input
+												id="views.branches.pullRequests.showForCommits"
+												name="views.branches.pullRequests.showForCommits"
+												type="checkbox"
+												data-setting
+												disabled
+											/>
+											<label for="views.branches.pullRequests.showForCommits"
+												>Show the PR that introduced each commit</label
+											>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
 					<div class="setting">
 						<div class="setting__input">
 							<label for="views.branches.branches.layout">Layout branches</label>
@@ -137,8 +192,11 @@
 		<div class="section__group">
 			<p class="section__hint">
 				<i class="icon icon__info"></i> For more options, open
-				<a class="command" title="Open User Settings" href="command:workbench.action.openGlobalSettings"
-					>User Settings</a
+				<a
+					class="command"
+					title="Open Settings"
+					href="command:workbench.action.openSettings?%22gitlens.views.branches%22"
+					>Settings</a
 				>
 				and search for <b><i>gitlens.views.branches</i></b> or
 				<b><i>gitlens.views</i></b>

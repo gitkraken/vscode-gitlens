@@ -21,6 +21,26 @@
 				<div class="settings settings--fixed ml-1">
 					<div class="setting" data-enablement="hovers.enabled">
 						<div class="setting__input">
+							<input
+								id="hovers.pullRequests.enabled"
+								name="hovers.pullRequests.enabled"
+								type="checkbox"
+								data-setting
+								disabled
+							/>
+							<label for="hovers.pullRequests.enabled"
+								>Show the Pull Request (if any) that introduced the commit</label
+							>
+						</div>
+
+						<p class="setting__hint hidden" data-visibility="hovers.pullRequests.enabled">
+							<i class="icon icon__info"></i>Requires a connection to a supported remote service (e.g.
+							GitHub)
+						</p>
+					</div>
+
+					<div class="setting" data-enablement="hovers.enabled">
+						<div class="setting__input">
 							<input id="hovers.avatars" name="hovers.avatars" type="checkbox" data-setting disabled />
 							<label for="hovers.avatars">Use author avatars</label>
 						</div>
@@ -342,6 +362,19 @@
 					data-visibility="blame.heatmap.enabled &amp; blame.heatmap.location =right"
 				/>
 			</div>
+		</div>
+
+		<div class="section__group">
+			<p class="section__hint">
+				<i class="icon icon__info"></i> For more options, open
+				<a
+					class="command"
+					title="Open Settings"
+					href="command:workbench.action.openSettings?%22gitlens.hovers%22"
+					>Settings</a
+				>
+				and search for <b><i>gitlens.hovers</i></b>
+			</p>
 		</div>
 	</div>
 </section>
