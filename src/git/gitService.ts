@@ -2819,9 +2819,11 @@ export class GitService implements Disposable {
 	): Promise<GitRemote<RemoteProviderWithApi> | undefined> {
 		if (remotesOrRepoPath == null) return undefined;
 
-		const repoPath = typeof remotesOrRepoPath === 'string' ? remotesOrRepoPath : remotesOrRepoPath[0]?.repoPath;
-		if (repoPath != null) {
-			const remote = this._remotesWithApiProviderCache.get(repoPath);
+		const cacheKey = `${includeDisconnected ? 'disconnected|' : ''}${
+			typeof remotesOrRepoPath === 'string' ? remotesOrRepoPath : remotesOrRepoPath[0]?.repoPath
+		}`;
+		if (cacheKey != null) {
+			const remote = this._remotesWithApiProviderCache.get(cacheKey);
 			if (remote !== undefined) return remote ?? undefined;
 		}
 
@@ -2850,8 +2852,8 @@ export class GitService implements Disposable {
 		}
 
 		if (!remote?.provider?.hasApi()) {
-			if (repoPath != null) {
-				this._remotesWithApiProviderCache.set(repoPath, null);
+			if (cacheKey != null) {
+				this._remotesWithApiProviderCache.set(cacheKey, null);
 			}
 			return undefined;
 		}
@@ -2860,15 +2862,15 @@ export class GitService implements Disposable {
 		if (!includeDisconnected) {
 			const connected = provider.maybeConnected ?? (await provider.isConnected());
 			if (!connected) {
-				if (repoPath != null) {
-					this._remotesWithApiProviderCache.set(repoPath, null);
+				if (cacheKey != null) {
+					this._remotesWithApiProviderCache.set(cacheKey, null);
 				}
 				return undefined;
 			}
 		}
 
-		if (repoPath != null) {
-			this._remotesWithApiProviderCache.set(repoPath, remote as GitRemote<RemoteProviderWithApi>);
+		if (cacheKey != null) {
+			this._remotesWithApiProviderCache.set(cacheKey, remote as GitRemote<RemoteProviderWithApi>);
 		}
 		return remote as GitRemote<RemoteProviderWithApi>;
 	}
