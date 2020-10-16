@@ -431,13 +431,12 @@ export const viewsCommonConfigKeys: (keyof ViewsCommonConfig)[] = [
 interface ViewsConfigs {
 	branches: BranchesViewConfig;
 	commits: CommitsViewConfig;
-	compare: CompareViewConfig;
 	contributors: ContributorsViewConfig;
 	fileHistory: FileHistoryViewConfig;
 	lineHistory: LineHistoryViewConfig;
 	remotes: RemotesViewConfig;
 	repositories: RepositoriesViewConfig;
-	search: SearchViewConfig;
+	searchAndCompare: SearchAndCompareViewConfig;
 	stashes: StashesViewConfig;
 	tags: TagsViewConfig;
 	welcome: WelcomeViewConfig;
@@ -454,8 +453,7 @@ export const viewsConfigKeys: ViewsConfigKeys[] = [
 	'stashes',
 	'tags',
 	'contributors',
-	'search',
-	'compare',
+	'searchAndCompare',
 ];
 
 export type ViewsConfig = ViewsCommonConfig & ViewsConfigs;
@@ -484,15 +482,6 @@ export interface CommitsViewConfig {
 		showForCommits: boolean;
 	};
 	showBranchComparison: false | ViewShowBranchComparison;
-}
-
-export interface CompareViewConfig {
-	avatars: boolean;
-	files: ViewsFilesConfig;
-	pullRequests: {
-		enabled: boolean;
-		showForCommits: boolean;
-	};
 }
 
 export interface ContributorsViewConfig {
@@ -545,7 +534,7 @@ export interface RepositoriesViewConfig {
 	showBranchComparison: false | ViewShowBranchComparison;
 }
 
-export interface SearchViewConfig {
+export interface SearchAndCompareViewConfig {
 	avatars: boolean;
 	files: ViewsFilesConfig;
 	pullRequests: {

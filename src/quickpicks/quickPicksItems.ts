@@ -213,7 +213,7 @@ export class SearchForCommitQuickPickItem extends CommandQuickPickItem {
 	}
 
 	async execute(options?: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
-		void (await Container.searchView.search(
+		void (await Container.searchAndCompareView.search(
 			this.reference.repoPath,
 			{
 				pattern: SearchPattern.fromCommit(this.reference),

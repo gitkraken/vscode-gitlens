@@ -2,7 +2,7 @@
 import { executeGitCommand } from '../commands';
 import { Command, command, CommandContext, Commands, isCommandViewContextWithRepo } from './common';
 import { SearchPattern } from '../git/git';
-import { SearchResultsCommitsNode } from '../views/nodes';
+import { SearchResultsNode } from '../views/nodes';
 
 export interface SearchCommitsCommandArgs {
 	search?: Partial<SearchPattern>;
@@ -24,7 +24,7 @@ export class SearchCommitsCommand extends Command {
 			args = { ...args };
 			args.showResultsInSideBar = true;
 
-			if (context.node instanceof SearchResultsCommitsNode) {
+			if (context.node instanceof SearchResultsNode) {
 				args.repoPath = context.node.repoPath;
 				args.search = context.node.search;
 				args.prefillOnly = true;

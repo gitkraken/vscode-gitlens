@@ -3,6 +3,7 @@ import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitLog, GitLogCommit, Repository, SearchOperators, searchOperators, SearchPattern } from '../../git/git';
 import { GitCommandsCommand } from '../gitCommands';
+import { SearchResultsNode } from '../../views/nodes';
 import {
 	appendReposToTitle,
 	PartialStepState,
@@ -29,7 +30,7 @@ interface Context {
 
 interface State extends Required<SearchPattern> {
 	repo: string | Repository;
-	showResultsInSideBar: boolean;
+	showResultsInSideBar: boolean | SearchResultsNode;
 }
 
 export interface SearchGitCommandArgs {
@@ -159,14 +160,16 @@ export class SearchGitCommand extends QuickCommand<State> {
 				context.resultsKey = searchKey;
 			}
 
+			// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 			if (state.showResultsInSideBar) {
-				void Container.searchView.search(
+				void Container.searchAndCompareView.search(
 					state.repo.path,
 					search,
 					{
 						label: { label: `for ${state.pattern}` },
 					},
 					context.resultsPromise,
+					state.showResultsInSideBar instanceof SearchResultsNode ? state.showResultsInSideBar : undefined,
 				);
 
 				break;
@@ -188,7 +191,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 					showInSideBarButton: {
 						button: QuickCommandButtons.ShowResultsInSideBar,
 						onDidClick: () =>
-							void Container.searchView.search(
+							void Container.searchAndCompareView.search(
 								repoPath,
 								search,
 								{
@@ -262,17 +265,27 @@ export class SearchGitCommand extends QuickCommand<State> {
 		const matchCaseButton = new QuickCommandButtons.MatchCaseToggle(state.matchCase);
 		const matchAllButton = new QuickCommandButtons.MatchAllToggle(state.matchAll);
 		const matchRegexButton = new QuickCommandButtons.MatchRegexToggle(state.matchRegex);
-		const showResultsToggleButton = new QuickCommandButtons.ShowResultsToggle(state.showResultsInSideBar, () => {
-			state.showResultsInSideBar = !state.showResultsInSideBar;
-			showResultsToggleButton.on = state.showResultsInSideBar;
-		});
+
+		const additionalButtons = [matchCaseButton, matchAllButton, matchRegexButton];
+		if (!SearchResultsNode.is(state.showResultsInSideBar)) {
+			const showResultsToggleButton = new QuickCommandButtons.ShowResultsToggle(
+				state.showResultsInSideBar,
+				() => {
+					// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+					state.showResultsInSideBar = !state.showResultsInSideBar;
+					showResultsToggleButton.on = state.showResultsInSideBar;
+				},
+			);
+
+			additionalButtons.push(showResultsToggleButton);
+		}
 
 		const step = QuickCommand.createPickStep<QuickPickItemOfT<SearchOperators>>({
 			title: appendReposToTitle(context.title, state, context),
 			placeholder: 'e.g. "Updates dependencies" author:eamodio',
 			matchOnDescription: true,
 			matchOnDetail: true,
-			additionalButtons: [matchCaseButton, matchAllButton, matchRegexButton, showResultsToggleButton],
+			additionalButtons: additionalButtons,
 			items: items,
 			value: state.pattern,
 			onDidAccept: (quickpick): boolean => {

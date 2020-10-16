@@ -24,13 +24,12 @@ export class SettingsWebview extends WebviewBase {
 			...[
 				Commands.ShowSettingsPageAndJumpToBranchesView,
 				Commands.ShowSettingsPageAndJumpToCommitsView,
-				Commands.ShowSettingsPageAndJumpToCompareView,
 				Commands.ShowSettingsPageAndJumpToContributorsView,
 				Commands.ShowSettingsPageAndJumpToFileHistoryView,
 				Commands.ShowSettingsPageAndJumpToLineHistoryView,
 				Commands.ShowSettingsPageAndJumpToRemotesView,
 				Commands.ShowSettingsPageAndJumpToRepositoriesView,
-				Commands.ShowSettingsPageAndJumpToSearchCommitsView,
+				Commands.ShowSettingsPageAndJumpToSearchAndCompareView,
 				Commands.ShowSettingsPageAndJumpToStashesView,
 				Commands.ShowSettingsPageAndJumpToTagsView,
 			].map(c => {

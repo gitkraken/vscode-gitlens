@@ -64,19 +64,20 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 					this,
 					this.uri.repoPath!,
 					'Behind',
-					this.getCommitsQuery(
-						GitRevision.createRange(this.branch.ref, this._compareWith.ref || 'HEAD', '..'),
-					),
 					{
-						id: 'behind',
-						description: Strings.pluralize('commit', aheadBehind?.behind ?? 0),
-						expand: false,
-						includeRepoName: true,
+						query: this.getCommitsQuery(
+							GitRevision.createRange(this.branch.ref, this._compareWith.ref || 'HEAD', '..'),
+						),
 						files: {
 							ref1: this.compareWithWorkingTree ? '' : this.branch.ref,
 							ref2: this._compareWith.ref || 'HEAD',
 							query: this.getBehindFilesQuery.bind(this),
 						},
+					},
+					{
+						id: 'behind',
+						description: Strings.pluralize('commit', aheadBehind?.behind ?? 0),
+						expand: false,
 					},
 				),
 				new ResultsCommitsNode(
@@ -84,23 +85,24 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 					this,
 					this.uri.repoPath!,
 					'Ahead',
-					this.getCommitsQuery(
-						GitRevision.createRange(
-							this._compareWith.ref || 'HEAD',
-							this.compareWithWorkingTree ? '' : this.branch.ref,
-							'..',
-						),
-					),
 					{
-						id: 'ahead',
-						description: Strings.pluralize('commit', aheadBehind?.ahead ?? 0),
-						expand: false,
-						includeRepoName: true,
+						query: this.getCommitsQuery(
+							GitRevision.createRange(
+								this._compareWith.ref || 'HEAD',
+								this.compareWithWorkingTree ? '' : this.branch.ref,
+								'..',
+							),
+						),
 						files: {
 							ref1: this._compareWith.ref || 'HEAD',
 							ref2: this.compareWithWorkingTree ? '' : this.branch.ref,
 							query: this.getAheadFilesQuery.bind(this),
 						},
+					},
+					{
+						id: 'ahead',
+						description: Strings.pluralize('commit', aheadBehind?.ahead ?? 0),
+						expand: false,
 					},
 				),
 			];

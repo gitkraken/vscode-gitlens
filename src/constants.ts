@@ -1,6 +1,7 @@
 'use strict';
 import { commands, TextDocument, TextEditor, window } from 'vscode';
 import { ViewShowBranchComparison } from './config';
+import { SearchPattern } from './git/git';
 
 export const applicationInsightsKey = 'a9c302f8-6483-4d01-b92c-c159c799c679';
 export const extensionId = 'gitlens';
@@ -43,12 +44,11 @@ export enum CommandContext {
 	ViewsCanCompare = 'gitlens:views:canCompare',
 	ViewsCanCompareFile = 'gitlens:views:canCompare:file',
 	ViewsCommitsMyCommitsOnly = 'gitlens:views:commits:myCommitsOnly',
-	ViewsCompareKeepResults = 'gitlens:views:compare:keepResults',
 	ViewsFileHistoryCursorFollowing = 'gitlens:views:fileHistory:cursorFollowing',
 	ViewsFileHistoryEditorFollowing = 'gitlens:views:fileHistory:editorFollowing',
 	ViewsLineHistoryEditorFollowing = 'gitlens:views:lineHistory:editorFollowing',
 	ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',
-	ViewsSearchKeepResults = 'gitlens:views:search:keepResults',
+	ViewsSearchAndCompareKeepResults = 'gitlens:views:searchAndCompare:keepResults',
 	Vsls = 'gitlens:vsls',
 }
 
@@ -165,14 +165,34 @@ export interface NamedRef {
 }
 
 export interface PinnedComparison {
+	type: 'comparison';
+	timestamp: number;
 	path: string;
 	ref1: NamedRef;
 	ref2: NamedRef;
-	notation: '..' | '...' | undefined;
+	notation?: '..' | '...';
 }
 
-export interface PinnedComparisons {
-	[id: string]: PinnedComparison;
+export interface PinnedSearch {
+	type: 'search';
+	timestamp: number;
+	path: string;
+	labels: {
+		label: string;
+		queryLabel:
+			| string
+			| {
+					label: string;
+					resultsType?: { singular: string; plural: string };
+			  };
+	};
+	search: SearchPattern;
+}
+
+export type PinnedItem = PinnedComparison | PinnedSearch;
+
+export interface PinnedItems {
+	[id: string]: PinnedItem;
 }
 
 export interface StarredBranches {
@@ -186,10 +206,10 @@ export interface StarredRepositories {
 export enum WorkspaceState {
 	BranchComparisons = 'gitlens:branch:comparisons',
 	DefaultRemote = 'gitlens:remote:default',
-	PinnedComparisons = 'gitlens:pinned:comparisons',
+	DeprecatedPinnedComparisons = 'gitlens:pinned:comparisons',
 	StarredBranches = 'gitlens:starred:branches',
 	StarredRepositories = 'gitlens:starred:repositories',
-	ViewsCompareKeepResults = 'gitlens:views:compare:keepResults',
 	ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',
-	ViewsSearchKeepResults = 'gitlens:views:search:keepResults',
+	ViewsSearchAndCompareKeepResults = 'gitlens:views:searchAndCompare:keepResults',
+	ViewsSearchAndComparePinnedItems = 'gitlens:views:searchAndCompare:pinned',
 }

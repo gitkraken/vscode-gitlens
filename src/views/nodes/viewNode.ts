@@ -41,7 +41,7 @@ export enum ContextValues {
 	ResultsCommits = 'gitlens:results:commits',
 	ResultsFile = 'gitlens:file:results',
 	ResultsFiles = 'gitlens:results:files',
-	Search = 'gitlens:search',
+	SearchAndCompare = 'gitlens:searchAndCompare',
 	SearchResults = 'gitlens:search:results',
 	Stash = 'gitlens:stash',
 	StashFile = 'gitlens:file:stash',
@@ -140,10 +140,6 @@ export abstract class ViewRefFileNode<TView extends View = View> extends ViewRef
 
 export function nodeSupportsClearing(node: ViewNode): node is ViewNode & { clear(): void | Promise<void> } {
 	return typeof (node as ViewNode & { clear(): void | Promise<void> }).clear === 'function';
-}
-
-export function nodeSupportsConditionalDismissal(node: ViewNode): node is ViewNode & { canDismiss(): boolean } {
-	return typeof (node as ViewNode & { canDismiss(): boolean }).canDismiss === 'function';
 }
 
 export interface PageableViewNode {

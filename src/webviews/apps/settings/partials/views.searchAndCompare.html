@@ -1,18 +1,19 @@
-<section id="compare-view" class="section--settings section--collapsible">
+<section id="search-compare-view" class="section--settings section--collapsible">
 	<div class="section__header">
 		<h2>
-			Compare view
+			Search &amp; Compare view
 			<a
 				class="link__learn-more"
 				title="Learn more"
-				href="https://github.com/eamodio/vscode-gitlens/tree/master/#compare-view-"
+				href="https://github.com/eamodio/vscode-gitlens/tree/master/#search-commits-view-"
 			>
 				<i class="icon icon__info"></i>
 			</a>
 		</h2>
 
 		<p class="section__header-hint">
-			Adds a Compare view to visualize comparisons between branches, tags, commits, and more
+			Adds a Search &amp; Compare view to search and explore commit histories by message, author, files, id, etc,
+			or visualize comparisons between branches, tags, commits, and more
 		</p>
 	</div>
 
@@ -26,12 +27,12 @@
 								<div class="setting">
 									<div class="setting__input">
 										<input
-											id="views.compare.pullRequests.enabled"
-											name="views.compare.pullRequests.enabled"
+											id="views.searchAndCompare.pullRequests.enabled"
+											name="views.searchAndCompare.pullRequests.enabled"
 											type="checkbox"
 											data-setting
 										/>
-										<label for="views.compare.pullRequests.enabled"
+										<label for="views.searchAndCompare.pullRequests.enabled"
 											>Show associated Pull Requests</label
 										>
 									</div>
@@ -41,16 +42,16 @@
 								</div>
 
 								<div class="settings settings--fixed ml-2">
-									<div class="setting" data-enablement="views.compare.pullRequests.enabled">
+									<div class="setting" data-enablement="views.searchAndCompare.pullRequests.enabled">
 										<div class="setting__input">
 											<input
-												id="views.compare.pullRequests.showForCommits"
-												name="views.compare.pullRequests.showForCommits"
+												id="views.searchAndCompare.pullRequests.showForCommits"
+												name="views.searchAndCompare.pullRequests.showForCommits"
 												type="checkbox"
 												data-setting
 												disabled
 											/>
-											<label for="views.compare.pullRequests.showForCommits"
+											<label for="views.searchAndCompare.pullRequests.showForCommits"
 												>Show the PR that introduced each commit</label
 											>
 										</div>
@@ -62,9 +63,13 @@
 
 					<div class="setting">
 						<div class="setting__input">
-							<label for="views.compare.files.layout">Layout files</label>
+							<label for="views.searchAndCompare.files.layout">Layout files</label>
 							<div class="select-container">
-								<select id="views.compare.files.layout" name="views.compare.files.layout" data-setting>
+								<select
+									id="views.searchAndCompare.files.layout"
+									name="views.searchAndCompare.files.layout"
+									data-setting
+								>
 									<option value="auto">automatically</option>
 									<option value="list">as a list</option>
 									<option value="tree">as a tree</option>
@@ -76,12 +81,12 @@
 					<div class="setting">
 						<div class="setting__input">
 							<input
-								id="views.compare.files.compact"
-								name="views.compare.files.compact"
+								id="views.searchAndCompare.files.compact"
+								name="views.searchAndCompare.files.compact"
 								type="checkbox"
 								data-setting
 							/>
-							<label for="views.compare.files.compact">Use compact file layout</label>
+							<label for="views.searchAndCompare.files.compact">Use compact file layout</label>
 						</div>
 						<p class="setting__hint">Compacts (flattens) unnecessary nesting when using a tree layouts</p>
 					</div>
@@ -89,18 +94,41 @@
 					<div class="setting">
 						<div class="setting__input">
 							<input
-								id="views.compare.avatars"
-								name="views.compare.avatars"
+								id="views.searchAndCompare.avatars"
+								name="views.searchAndCompare.avatars"
 								type="checkbox"
 								data-setting
 							/>
-							<label for="views.compare.avatars">Use author avatars</label>
+							<label for="views.searchAndCompare.avatars">Use author avatars</label>
 						</div>
 					</div>
 				</div>
 			</div>
 
 			<div class="section__preview">
+				<img
+					class="image__preview hidden"
+					src="#{root}/images/settings/view-search.png"
+					data-visibility="views.searchAndCompare.files.layout !tree"
+				/>
+				<img
+					class="image__preview hidden"
+					src="#{root}/images/settings/view-search-tree-compact.png"
+					data-visibility="views.searchAndCompare.files.layout =tree &amp; views.searchAndCompare.files.compact"
+				/>
+				<img
+					class="image__preview hidden"
+					src="#{root}/images/settings/view-search-tree.png"
+					data-visibility="views.searchAndCompare.files.layout =tree &amp; views.searchAndCompare.files.compact =false"
+				/>
+				<img
+					class="image__preview--overlay hidden"
+					src="#{root}/images/settings/view-search-avatars.png"
+					data-visibility="views.searchAndCompare.avatars"
+				/>
+			</div>
+
+			<!-- <div class="section__preview">
 				<img
 					class="image__preview hidden"
 					src="#{root}/images/settings/view-compare.png"
@@ -121,7 +149,7 @@
 					src="#{root}/images/settings/view-compare-avatars.png"
 					data-visibility="views.compare.avatars"
 				/>
-			</div>
+			</div> -->
 		</div>
 
 		<div class="section__group">
@@ -130,10 +158,10 @@
 				<a
 					class="command"
 					title="Open Settings"
-					href="command:workbench.action.openSettings?%22gitlens.views.compare%22"
+					href="command:workbench.action.openSettings?%22gitlens.views.searchAndCompare%22"
 					>Settings</a
 				>
-				and search for <b><i>gitlens.views.compare</i></b> or <b><i>gitlens.views</i></b>
+				and search for <b><i>gitlens.views.searchAndCompare</i></b> or <b><i>gitlens.views</i></b>
 			</p>
 		</div>
 	</div>

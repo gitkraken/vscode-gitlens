@@ -2,18 +2,17 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { BranchesView } from '../branchesView';
 import { CommitsView } from '../commitsView';
-import { CompareView } from '../compareView';
 import { ContributorsView } from '../contributorsView';
 import { GitBranch, GitCommit, PullRequest, PullRequestState } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { RemotesView } from '../remotesView';
 import { RepositoriesView } from '../repositoriesView';
 import { RepositoryNode } from './repositoryNode';
-import { SearchView } from '../searchView';
+import { SearchAndCompareView } from '../searchAndCompareView';
 import { ContextValues, ViewNode } from './viewNode';
 
 export class PullRequestNode extends ViewNode<
-	BranchesView | CommitsView | CompareView | ContributorsView | RemotesView | RepositoriesView | SearchView
+	BranchesView | CommitsView | ContributorsView | RemotesView | RepositoriesView | SearchAndCompareView
 > {
 	static key = ':pullrequest';
 	static getId(repoPath: string, number: number, ref: string): string {
@@ -21,7 +20,7 @@ export class PullRequestNode extends ViewNode<
 	}
 
 	constructor(
-		view: BranchesView | CommitsView | CompareView | ContributorsView | RemotesView | RepositoriesView | SearchView,
+		view: BranchesView | CommitsView | ContributorsView | RemotesView | RepositoriesView | SearchAndCompareView,
 		parent: ViewNode,
 		public readonly pullRequest: PullRequest,
 		public readonly branchOrCommit: GitBranch | GitCommit,

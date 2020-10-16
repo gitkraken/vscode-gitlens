@@ -1,59 +1,58 @@
 'use strict';
-import { Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { NamedRef } from '../../constants';
 import { Container } from '../../container';
 import { GitRevision } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { debug, gate, log, Strings } from '../../system';
-import { CompareView } from '../compareView';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
 import { FilesQueryResults } from './resultsFilesNode';
 import { ContextValues, ViewNode } from './viewNode';
 import { RepositoryNode } from './repositoryNode';
-import { TreeViewNodeCollapsibleStateChangeEvent } from '../viewBase';
+import { SearchAndCompareView } from '../searchAndCompareView';
 
 let instanceId = 0;
 
-export class CompareResultsNode extends ViewNode<CompareView> implements Disposable {
+export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 	static key = ':compare-results';
 	static getId(repoPath: string, ref1: string, ref2: string, instanceId: number): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${ref1}|${ref2}):${instanceId}`;
 	}
 
+	static getPinnableId(repoPath: string, ref1: string, ref2: string) {
+		return Strings.sha1(`${repoPath}|${ref1}|${ref2}`);
+	}
+
 	private _children: ViewNode[] | undefined;
-	private _disposable: Disposable;
 	private _instanceId: number;
 
 	constructor(
-		view: CompareView,
+		view: SearchAndCompareView,
+		parent: ViewNode,
 		public readonly repoPath: string,
 		private _ref: NamedRef,
 		private _compareWith: NamedRef,
-		private _pinned: boolean = false,
+		private _pinned: number = 0,
 	) {
-		super(GitUri.fromRepoPath(repoPath), view);
+		super(GitUri.fromRepoPath(repoPath), view, parent);
 		this._instanceId = instanceId++;
-
-		this._disposable = this.view.onDidChangeNodeCollapsibleState(this.onCollapsibleStateChanged, this);
-	}
-
-	dispose() {
-		this._disposable.dispose();
-	}
-
-	private _collapsibleState: TreeItemCollapsibleState | undefined;
-	private onCollapsibleStateChanged(e: TreeViewNodeCollapsibleStateChangeEvent<ViewNode>) {
-		if (e.element !== this) return;
-
-		this._collapsibleState = e.state;
 	}
 
 	get id(): string {
 		return CompareResultsNode.getId(this.repoPath, this._ref.ref, this._compareWith.ref, this._instanceId);
 	}
 
+	get canDismiss(): boolean {
+		return !this.pinned;
+	}
+
+	private readonly _order: number = Date.now();
+	get order(): number {
+		return this._pinned || this._order;
+	}
+
 	get pinned(): boolean {
-		return this._pinned;
+		return this._pinned !== 0;
 	}
 
 	async getChildren(): Promise<ViewNode[]> {
@@ -68,19 +67,20 @@ export class CompareResultsNode extends ViewNode<CompareView> implements Disposa
 					this,
 					this.uri.repoPath!,
 					'Behind',
-					this.getCommitsQuery(
-						GitRevision.createRange(this._ref.ref, this._compareWith?.ref ?? 'HEAD', '..'),
-					),
 					{
-						id: 'behind',
-						description: Strings.pluralize('commit', aheadBehind?.behind ?? 0),
-						expand: false,
-						includeRepoName: true,
+						query: this.getCommitsQuery(
+							GitRevision.createRange(this._ref.ref, this._compareWith?.ref ?? 'HEAD', '..'),
+						),
 						files: {
 							ref1: this._ref.ref,
 							ref2: this._compareWith.ref || 'HEAD',
 							query: this.getBehindFilesQuery.bind(this),
 						},
+					},
+					{
+						id: 'behind',
+						description: Strings.pluralize('commit', aheadBehind?.behind ?? 0),
+						expand: false,
 					},
 				),
 				new ResultsCommitsNode(
@@ -88,19 +88,20 @@ export class CompareResultsNode extends ViewNode<CompareView> implements Disposa
 					this,
 					this.uri.repoPath!,
 					'Ahead',
-					this.getCommitsQuery(
-						GitRevision.createRange(this._compareWith?.ref ?? 'HEAD', this._ref.ref, '..'),
-					),
 					{
-						id: 'ahead',
-						description: Strings.pluralize('commit', aheadBehind?.ahead ?? 0),
-						expand: false,
-						includeRepoName: true,
+						query: this.getCommitsQuery(
+							GitRevision.createRange(this._compareWith?.ref ?? 'HEAD', this._ref.ref, '..'),
+						),
 						files: {
 							ref1: this._compareWith.ref || 'HEAD',
 							ref2: this._ref.ref,
 							query: this.getAheadFilesQuery.bind(this),
 						},
+					},
+					{
+						id: 'ahead',
+						description: Strings.pluralize('commit', aheadBehind?.ahead ?? 0),
+						expand: false,
 					},
 				),
 			];
@@ -122,52 +123,36 @@ export class CompareResultsNode extends ViewNode<CompareView> implements Disposa
 				this._compareWith.label ??
 				GitRevision.shorten(this._compareWith.ref, { strings: { working: 'Working Tree' } })
 			}`,
-			this._collapsibleState ?? TreeItemCollapsibleState.Collapsed,
+			TreeItemCollapsibleState.Collapsed,
 		);
 		item.contextValue = `${ContextValues.CompareResults}${this._pinned ? '+pinned' : ''}`;
 		item.description = description;
 		if (this._pinned) {
-			item.iconPath = {
-				dark: Container.context.asAbsolutePath('images/dark/icon-pin-small.svg'),
-				light: Container.context.asAbsolutePath('images/light/icon-pin-small.svg'),
-			};
+			item.iconPath = new ThemeIcon('pinned');
 		}
 
 		return item;
 	}
 
-	canDismiss(): boolean {
-		return !this._pinned;
-	}
-
-	// eslint-disable-next-line @typescript-eslint/require-await
 	@gate()
 	@debug()
 	async getDiffRefs(): Promise<[string, string]> {
-		// if (this.comparisonNotation === '..') {
-		// 	return [
-		// 		(await Container.git.getMergeBase(this.repoPath, this._compareWith.ref, this._ref.ref)) ??
-		// 			this._compareWith.ref,
-		// 		this._ref.ref,
-		// 	];
-		// }
-
-		return [this._compareWith.ref, this._ref.ref];
+		return Promise.resolve([this._compareWith.ref, this._ref.ref]);
 	}
 
 	@log()
 	async pin() {
-		if (this._pinned) return;
+		if (this.pinned) return;
 
-		await this.view.updatePinnedComparison(this.getPinnableId(), {
+		this._pinned = Date.now();
+		await this.view.updatePinned(this.getPinnableId(), {
+			type: 'comparison',
+			timestamp: this._pinned,
 			path: this.repoPath,
 			ref1: this._ref,
 			ref2: this._compareWith,
-			notation: undefined,
 		});
-
-		this._pinned = true;
-		void this.triggerChange();
+		setImmediate(() => this.view.reveal(this, { focus: true, select: true }));
 	}
 
 	@gate()
@@ -188,28 +173,33 @@ export class CompareResultsNode extends ViewNode<CompareView> implements Disposa
 		this._compareWith = ref1;
 
 		// If we were pinned, remove the existing pin and save a new one
-		if (this._pinned) {
-			await this.view.updatePinnedComparison(currentId);
-			await this.view.updatePinnedComparison(this.getPinnableId(), {
+		if (this.pinned) {
+			await this.view.updatePinned(currentId);
+			await this.view.updatePinned(this.getPinnableId(), {
+				type: 'comparison',
+				timestamp: this._pinned,
 				path: this.repoPath,
 				ref1: this._ref,
 				ref2: this._compareWith,
-				notation: undefined,
 			});
 		}
 
 		this._children = undefined;
-		this.view.triggerNodeChange(this);
+		this.view.triggerNodeChange(this.parent);
+		setImmediate(() => this.view.reveal(this, { expand: true, focus: true, select: true }));
 	}
 
 	@log()
 	async unpin() {
-		if (!this._pinned) return;
+		if (!this.pinned) return;
 
-		await this.view.updatePinnedComparison(this.getPinnableId());
+		this._pinned = 0;
+		await this.view.updatePinned(this.getPinnableId());
+		setImmediate(() => this.view.reveal(this, { focus: true, select: true }));
+	}
 
-		this._pinned = false;
-		void this.triggerChange();
+	private getPinnableId() {
+		return CompareResultsNode.getPinnableId(this.repoPath, this._ref.ref, this._compareWith.ref);
 	}
 
 	private async getAheadFilesQuery(): Promise<FilesQueryResults> {
@@ -293,9 +283,5 @@ export class CompareResultsNode extends ViewNode<CompareView> implements Disposa
 
 			return results as CommitsQueryResults;
 		};
-	}
-
-	private getPinnableId() {
-		return Strings.sha1(`${this.repoPath}|${this._ref.ref}|${this._compareWith.ref}`);
 	}
 }

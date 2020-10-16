@@ -18,13 +18,12 @@ import { GitDocumentTracker } from './trackers/gitDocumentTracker';
 import { GitLineTracker } from './trackers/gitLineTracker';
 import { BranchesView } from './views/branchesView';
 import { CommitsView } from './views/commitsView';
-import { CompareView } from './views/compareView';
 import { ContributorsView } from './views/contributorsView';
 import { FileHistoryView } from './views/fileHistoryView';
 import { LineHistoryView } from './views/lineHistoryView';
 import { RemotesView } from './views/remotesView';
 import { RepositoriesView } from './views/repositoriesView';
-import { SearchView } from './views/searchView';
+import { SearchAndCompareView } from './views/searchAndCompareView';
 import { StashesView } from './views/stashesView';
 import { TagsView } from './views/tagsView';
 import { ViewCommands } from './views/viewCommands';
@@ -68,8 +67,7 @@ export class Container {
 		context.subscriptions.push((this._stashesView = new StashesView()));
 		context.subscriptions.push((this._tagsView = new TagsView()));
 		context.subscriptions.push((this._contributorsView = new ContributorsView()));
-		context.subscriptions.push((this._searchView = new SearchView()));
-		context.subscriptions.push((this._compareView = new CompareView()));
+		context.subscriptions.push((this._searchAndCompareView = new SearchAndCompareView()));
 
 		if (config.views.lineHistory.enabled) {
 			context.subscriptions.push((this._lineHistoryView = new LineHistoryView()));
@@ -149,15 +147,6 @@ export class Container {
 		}
 
 		return this._commitsView;
-	}
-
-	private static _compareView: CompareView | undefined;
-	static get compareView() {
-		if (this._compareView === undefined) {
-			this._context.subscriptions.push((this._compareView = new CompareView()));
-		}
-
-		return this._compareView;
 	}
 
 	private static _config: Config | undefined;
@@ -266,13 +255,13 @@ export class Container {
 		return this._repositoriesView;
 	}
 
-	private static _searchView: SearchView | undefined;
-	static get searchView() {
-		if (this._searchView === undefined) {
-			this._context.subscriptions.push((this._searchView = new SearchView()));
+	private static _searchAndCompareView: SearchAndCompareView | undefined;
+	static get searchAndCompareView() {
+		if (this._searchAndCompareView === undefined) {
+			this._context.subscriptions.push((this._searchAndCompareView = new SearchAndCompareView()));
 		}
 
-		return this._searchView;
+		return this._searchAndCompareView;
 	}
 
 	private static _settingsWebview: SettingsWebview;

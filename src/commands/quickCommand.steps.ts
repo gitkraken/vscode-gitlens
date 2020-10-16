@@ -814,7 +814,7 @@ export function* pickCommitStep<
 			}
 
 			if (button === QuickCommandButtons.SearchInSideBar) {
-				void Container.searchView.search(
+				void Container.searchAndCompareView.search(
 					state.repo.path,
 					{ pattern: SearchPattern.fromCommit(quickpick.activeItems[0].item.ref) },
 					{
@@ -842,7 +842,7 @@ export function* pickCommitStep<
 				});
 			} else {
 				const commit = quickpick.activeItems[0].item;
-				await Container.searchView.search(
+				await Container.searchAndCompareView.search(
 					commit.repoPath,
 					{ pattern: SearchPattern.fromCommit(commit) },
 					{
@@ -933,7 +933,7 @@ export function* pickCommitsStep<
 			}
 
 			if (button === QuickCommandButtons.SearchInSideBar) {
-				void Container.searchView.search(
+				void Container.searchAndCompareView.search(
 					state.repo.path,
 					{ pattern: SearchPattern.fromCommit(quickpick.activeItems[0].item.ref) },
 					{
@@ -961,7 +961,7 @@ export function* pickCommitsStep<
 				});
 			} else {
 				const commit = quickpick.activeItems[0].item;
-				await Container.searchView.search(
+				await Container.searchAndCompareView.search(
 					commit.repoPath,
 					{ pattern: SearchPattern.fromCommit(commit) },
 					{
@@ -1183,7 +1183,7 @@ export function* pickStashStep<
 			if (button === QuickCommandButtons.SearchInSideBar) {
 				if (quickpick.activeItems.length === 0) return;
 
-				void Container.searchView.search(
+				void Container.searchAndCompareView.search(
 					state.repo.path,
 					{ pattern: SearchPattern.fromCommit(quickpick.activeItems[0].item.stashName) },
 					{
@@ -1305,7 +1305,7 @@ export async function* showCommitOrStashStep<
 			: [QuickCommandButtons.RevealInSideBar, QuickCommandButtons.SearchInSideBar],
 		onDidClickButton: (quickpick, button) => {
 			if (button === QuickCommandButtons.SearchInSideBar) {
-				void Container.searchView.search(
+				void Container.searchAndCompareView.search(
 					state.repo.path,
 					{ pattern: SearchPattern.fromCommit(state.reference.ref) },
 					{
@@ -1559,7 +1559,7 @@ export function* showCommitOrStashFilesStep<
 		additionalButtons: [QuickCommandButtons.RevealInSideBar, QuickCommandButtons.SearchInSideBar],
 		onDidClickButton: (quickpick, button) => {
 			if (button === QuickCommandButtons.SearchInSideBar) {
-				void Container.searchView.search(
+				void Container.searchAndCompareView.search(
 					state.repo.path,
 					{ pattern: SearchPattern.fromCommit(state.reference.ref) },
 					{
@@ -1631,7 +1631,7 @@ export async function* showCommitOrStashFileStep<
 		additionalButtons: [QuickCommandButtons.RevealInSideBar, QuickCommandButtons.SearchInSideBar],
 		onDidClickButton: (quickpick, button) => {
 			if (button === QuickCommandButtons.SearchInSideBar) {
-				void Container.searchView.search(
+				void Container.searchAndCompareView.search(
 					state.repo.path,
 					{ pattern: SearchPattern.fromCommit(state.reference.ref) },
 					{

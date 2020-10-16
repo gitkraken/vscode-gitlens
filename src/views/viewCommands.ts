@@ -570,7 +570,7 @@ export class ViewCommands {
 	private compareWithHead(node: ViewRefNode) {
 		if (!(node instanceof ViewRefNode)) return Promise.resolve();
 
-		return Container.compareView.compare(node.repoPath, node.ref, 'HEAD');
+		return Container.searchAndCompareView.compare(node.repoPath, node.ref, 'HEAD');
 	}
 
 	@debug()
@@ -578,14 +578,14 @@ export class ViewCommands {
 		if (!(node instanceof BranchNode)) return Promise.resolve();
 		if (!node.branch.tracking) return Promise.resolve();
 
-		return Container.compareView.compare(node.repoPath, node.branch.tracking, node.ref);
+		return Container.searchAndCompareView.compare(node.repoPath, node.branch.tracking, node.ref);
 	}
 
 	@debug()
 	private compareWithWorking(node: ViewRefNode) {
 		if (!(node instanceof ViewRefNode)) return Promise.resolve();
 
-		return Container.compareView.compare(node.repoPath, node.ref, '');
+		return Container.searchAndCompareView.compare(node.repoPath, node.ref, '');
 	}
 
 	@debug()
@@ -598,7 +598,7 @@ export class ViewCommands {
 		const commonAncestor = await Container.git.getMergeBase(node.repoPath, branch.ref, node.ref.ref);
 		if (commonAncestor == null) return undefined;
 
-		return Container.compareView.compare(
+		return Container.searchAndCompareView.compare(
 			node.repoPath,
 			{ ref: commonAncestor, label: `ancestry with ${node.ref.ref} (${GitRevision.shorten(commonAncestor)})` },
 			'',
@@ -609,14 +609,14 @@ export class ViewCommands {
 	private compareWithSelected(node: ViewRefNode) {
 		if (!(node instanceof ViewRefNode)) return;
 
-		Container.compareView.compareWithSelected(node.repoPath, node.ref);
+		Container.searchAndCompareView.compareWithSelected(node.repoPath, node.ref);
 	}
 
 	@debug()
 	private selectForCompare(node: ViewRefNode) {
 		if (!(node instanceof ViewRefNode)) return;
 
-		Container.compareView.selectForCompare(node.repoPath, node.ref);
+		Container.searchAndCompareView.selectForCompare(node.repoPath, node.ref);
 	}
 
 	@debug()

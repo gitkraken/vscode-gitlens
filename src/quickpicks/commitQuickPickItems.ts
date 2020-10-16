@@ -86,7 +86,7 @@ export class CommitCompareWithHEADCommandQuickPickItem extends CommandQuickPickI
 	}
 
 	execute(_options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
-		return Container.compareView.compare(this.commit.repoPath, this.commit.ref, 'HEAD');
+		return Container.searchAndCompareView.compare(this.commit.repoPath, this.commit.ref, 'HEAD');
 	}
 }
 
@@ -96,7 +96,7 @@ export class CommitCompareWithWorkingCommandQuickPickItem extends CommandQuickPi
 	}
 
 	execute(_options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
-		return Container.compareView.compare(this.commit.repoPath, this.commit.ref, '');
+		return Container.searchAndCompareView.compare(this.commit.repoPath, this.commit.ref, '');
 	}
 }
 

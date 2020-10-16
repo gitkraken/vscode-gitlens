@@ -18,18 +18,16 @@ import {
 } from 'vscode';
 import { BranchesView } from './branchesView';
 import { CommitsView } from './commitsView';
-import { CompareView } from './compareView';
 import {
 	BranchesViewConfig,
 	CommitsViewConfig,
-	CompareViewConfig,
 	configuration,
 	ContributorsViewConfig,
 	FileHistoryViewConfig,
 	LineHistoryViewConfig,
 	RemotesViewConfig,
 	RepositoriesViewConfig,
-	SearchViewConfig,
+	SearchAndCompareViewConfig,
 	StashesViewConfig,
 	TagsViewConfig,
 	ViewsCommonConfig,
@@ -45,31 +43,29 @@ import { Logger } from '../logger';
 import { PageableViewNode, ViewNode } from './nodes';
 import { RemotesView } from './remotesView';
 import { RepositoriesView } from './repositoriesView';
-import { SearchView } from './searchView';
+import { SearchAndCompareView } from './searchAndCompareView';
 import { StashesView } from './stashesView';
 import { debug, Functions, log, Promises, Strings } from '../system';
 import { TagsView } from './tagsView';
 
 export type View =
 	| BranchesView
-	| CompareView
 	| ContributorsView
 	| FileHistoryView
 	| CommitsView
 	| LineHistoryView
 	| RemotesView
 	| RepositoriesView
-	| SearchView
+	| SearchAndCompareView
 	| StashesView
 	| TagsView;
 export type ViewsWithFiles =
 	| BranchesView
-	| CompareView
 	| ContributorsView
 	| CommitsView
 	| RemotesView
 	| RepositoriesView
-	| SearchView
+	| SearchAndCompareView
 	| StashesView
 	| TagsView;
 
@@ -81,14 +77,13 @@ export abstract class ViewBase<
 	RootNode extends ViewNode<View>,
 	ViewConfig extends
 		| BranchesViewConfig
-		| CompareViewConfig
 		| ContributorsViewConfig
 		| FileHistoryViewConfig
 		| CommitsViewConfig
 		| LineHistoryViewConfig
 		| RemotesViewConfig
 		| RepositoriesViewConfig
-		| SearchViewConfig
+		| SearchAndCompareViewConfig
 		| StashesViewConfig
 		| TagsViewConfig
 > implements TreeDataProvider<ViewNode>, Disposable {

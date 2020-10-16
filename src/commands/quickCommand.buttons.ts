@@ -108,7 +108,7 @@ export namespace QuickCommandButtons {
 	};
 
 	export const ShowResultsInSideBar: QuickInputButton = {
-		iconPath: new ThemeIcon('search'),
+		iconPath: new ThemeIcon('link-external'),
 		tooltip: 'Show Results in Side Bar',
 	};
 

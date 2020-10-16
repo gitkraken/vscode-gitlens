@@ -207,9 +207,7 @@
 				<!-- prettier-ignore -->
 				<%= require('html-loader!./partials/views.contributors.html') %>
 				<!-- prettier-ignore -->
-				<%= require('html-loader!./partials/views.search.html') %>
-				<!-- prettier-ignore -->
-				<%= require('html-loader!./partials/views.compare.html') %>
+				<%= require('html-loader!./partials/views.searchAndCompare.html') %>
 				<!-- prettier-ignore -->
 				<%= require('html-loader!./partials/blame.html') %>
 				<!-- prettier-ignore -->
@@ -369,18 +367,9 @@
 							<a
 								class="sidebar__jump-link"
 								data-action="jump"
-								href="#search-commits-view"
-								title="Jump to Search Commits view settings"
-								>Search Commits view</a
-							>
-						</li>
-						<li>
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#compare-view"
-								title="Jump to Compare view settings"
-								>Compare view</a
+								href="#search-compare-view"
+								title="Jump to Search &amp; Compare view settings"
+								>Search &amp; Compare view</a
 							>
 						</li>
 

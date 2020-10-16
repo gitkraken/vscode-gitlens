@@ -1,14 +1,26 @@
 'use strict';
 import { TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { GlyphChars } from '../../constants';
+import { GlyphChars, NamedRef } from '../../constants';
 import { Container } from '../../container';
-import { CompareView } from '../compareView';
-import { CompareNode } from './compareNode';
+import { SearchAndCompareView, SearchAndCompareViewNode } from '../searchAndCompareView';
 import { ContextValues, unknownGitUri, ViewNode } from './viewNode';
 
-export class ComparePickerNode extends ViewNode<CompareView> {
-	constructor(view: CompareView, protected readonly parent: CompareNode) {
+interface RepoRef {
+	label: string;
+	repoPath: string;
+	ref: string | NamedRef;
+}
+
+export class ComparePickerNode extends ViewNode<SearchAndCompareView> {
+	readonly order: number = Date.now();
+	readonly pinned: boolean = false;
+
+	constructor(view: SearchAndCompareView, parent: SearchAndCompareViewNode, public readonly selectedRef: RepoRef) {
 		super(unknownGitUri, view, parent);
+	}
+
+	get canDismiss(): boolean {
+		return true;
 	}
 
 	getChildren(): ViewNode[] {
@@ -16,8 +28,8 @@ export class ComparePickerNode extends ViewNode<CompareView> {
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		const selectedRef = this.parent.selectedRef;
-		const repoPath = selectedRef !== undefined ? selectedRef.repoPath : undefined;
+		const selectedRef = this.selectedRef;
+		const repoPath = selectedRef?.repoPath;
 
 		let description;
 		if (repoPath !== undefined) {
@@ -28,7 +40,7 @@ export class ComparePickerNode extends ViewNode<CompareView> {
 		}
 
 		let item;
-		if (selectedRef === undefined) {
+		if (selectedRef == null) {
 			item = new TreeItem(
 				'Compare <branch, tag, or ref> with <branch, tag, or ref>',
 				TreeItemCollapsibleState.None,

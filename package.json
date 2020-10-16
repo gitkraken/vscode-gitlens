@@ -595,10 +595,6 @@
 					"scope": "window"
 				},
 				"gitlens.gitCommands.search.showResultsInView": {
-					"type": "boolean",
-					"default": true,
-					"markdownDescription": "Specifies whether to show the commit search results in the _Search Commits_ view or directly within the quick pick menu",
-					"scope": "window",
 					"deprecationMessage": "Depreciated: This setting has been renamed to gitlens.gitCommands.search.showResultsInSideBar",
 					"markdownDeprecationMessage": "Depreciated: This setting has been renamed to `#gitlens.gitCommands.search.showResultsInSideBar#`"
 				},
@@ -1696,52 +1692,6 @@
 					"markdownDescription": "Specifies whether to show a comparison of the current branch or the working tree with a user-selected reference (branch, tag. etc) in the _Commits_ view",
 					"scope": "window"
 				},
-				"gitlens.views.compare.avatars": {
-					"type": "boolean",
-					"default": true,
-					"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Compare Commits_ view",
-					"scope": "window"
-				},
-				"gitlens.views.compare.files.compact": {
-					"type": "boolean",
-					"default": true,
-					"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Compare Commits_ view. Only applies when `#gitlens.views.compare.files.layout#` is set to `tree` or `auto`",
-					"scope": "window"
-				},
-				"gitlens.views.compare.files.layout": {
-					"type": "string",
-					"default": "auto",
-					"enum": [
-						"auto",
-						"list",
-						"tree"
-					],
-					"enumDescriptions": [
-						"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.compare.files.threshold#` value and the number of files at each nesting level",
-						"Displays files as a list",
-						"Displays files as a tree"
-					],
-					"markdownDescription": "Specifies how the _Compare Commits_ view will display files",
-					"scope": "window"
-				},
-				"gitlens.views.compare.files.threshold": {
-					"type": "number",
-					"default": 5,
-					"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Compare Commits_ view. Only applies when `#gitlens.views.compare.files.layout#` is set to `auto`",
-					"scope": "window"
-				},
-				"gitlens.views.compare.pullRequests.enabled": {
-					"type": "boolean",
-					"default": true,
-					"markdownDescription": "Specifies whether to query for pull requests associated with branches and commits in the _Compare Commits_ view. Requires a connection to a supported remote service (e.g. GitHub)",
-					"scope": "window"
-				},
-				"gitlens.views.compare.pullRequests.showForCommits": {
-					"type": "boolean",
-					"default": true,
-					"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Compare Commits_ view. Requires a connection to a supported remote service (e.g. GitHub)",
-					"scope": "window"
-				},
 				"gitlens.views.contributors.avatars": {
 					"type": "boolean",
 					"default": true,
@@ -2003,19 +1953,19 @@
 					"markdownDescription": "Specifies whether to show a comparison of the current branch or the working tree with a user-selected reference (branch, tag. etc) in the _Repositories_ view",
 					"scope": "window"
 				},
-				"gitlens.views.search.avatars": {
+				"gitlens.views.searchAndCompare.avatars": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Search Commits_ view",
+					"markdownDescription": "Specifies whether to show avatar images instead of commit (or status) icons in the _Search & Compare_ view",
 					"scope": "window"
 				},
-				"gitlens.views.search.files.compact": {
+				"gitlens.views.searchAndCompare.files.compact": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Search Commits_ view. Only applies when `#gitlens.views.search.files.layout#` is set to `tree` or `auto`",
+					"markdownDescription": "Specifies whether to compact (flatten) unnecessary file nesting in the _Search & Compare_ view. Only applies when `#gitlens.views.searchAndCompare.files.layout#` is set to `tree` or `auto`",
 					"scope": "window"
 				},
-				"gitlens.views.search.files.layout": {
+				"gitlens.views.searchAndCompare.files.layout": {
 					"type": "string",
 					"default": "auto",
 					"enum": [
@@ -2024,29 +1974,29 @@
 						"tree"
 					],
 					"enumDescriptions": [
-						"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.search.files.threshold#` value and the number of files at each nesting level",
+						"Automatically switches between displaying files as a `tree` or `list` based on the `#gitlens.views.searchAndCompare.files.threshold#` value and the number of files at each nesting level",
 						"Displays files as a list",
 						"Displays files as a tree"
 					],
-					"markdownDescription": "Specifies how the _Search Commits_ view will display files",
+					"markdownDescription": "Specifies how the _Search & Compare_ view will display files",
 					"scope": "window"
 				},
-				"gitlens.views.search.files.threshold": {
+				"gitlens.views.searchAndCompare.files.threshold": {
 					"type": "number",
 					"default": 5,
-					"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Search Commits_ view. Only applies when `#gitlens.views.search.files.layout#` is set to `auto`",
+					"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Search & Compare_ view. Only applies when `#gitlens.views.searchAndCompare.files.layout#` is set to `auto`",
 					"scope": "window"
 				},
-				"gitlens.views.search.pullRequests.enabled": {
+				"gitlens.views.searchAndCompare.pullRequests.enabled": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to query for pull requests associated with commits in the _Search Commits_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+					"markdownDescription": "Specifies whether to query for pull requests associated with commits in the _Search & Compare_ view. Requires a connection to a supported remote service (e.g. GitHub)",
 					"scope": "window"
 				},
-				"gitlens.views.search.pullRequests.showForCommits": {
+				"gitlens.views.searchAndCompare.pullRequests.showForCommits": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Search Commits_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+					"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Search & Compare_ view. Requires a connection to a supported remote service (e.g. GitHub)",
 					"scope": "window"
 				},
 				"gitlens.views.showRelativeDateMarkers": {
@@ -2464,12 +2414,6 @@
 				"icon": "$(gear)"
 			},
 			{
-				"command": "gitlens.showSettingsPage#compare-view",
-				"title": "Open Settings",
-				"category": "GitLens",
-				"icon": "$(gear)"
-			},
-			{
 				"command": "gitlens.showSettingsPage#contributors-view",
 				"title": "Open Settings",
 				"category": "GitLens",
@@ -2500,7 +2444,7 @@
 				"icon": "$(gear)"
 			},
 			{
-				"command": "gitlens.showSettingsPage#search-commits-view",
+				"command": "gitlens.showSettingsPage#search-compare-view",
 				"title": "Open Settings",
 				"category": "GitLens",
 				"icon": "$(gear)"
@@ -2523,11 +2467,6 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.showCompareView",
-				"title": "Show Compare View",
-				"category": "GitLens"
-			},
-			{
 				"command": "gitlens.showFileHistoryView",
 				"title": "Show File History View",
 				"category": "GitLens"
@@ -2543,8 +2482,8 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.showSearchView",
-				"title": "Show Search Commits View",
+				"command": "gitlens.showSearchAndCompareView",
+				"title": "Show Search And Compare Commits View",
 				"category": "GitLens"
 			},
 			{
@@ -3767,96 +3706,6 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.views.compare.clear",
-				"title": "Clear Results",
-				"category": "GitLens",
-				"icon": "$(clear-all)"
-			},
-			{
-				"command": "gitlens.views.compare.copy",
-				"title": "Copy",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.views.compare.pinComparison",
-				"title": "Pin Comparison",
-				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-pin.svg",
-					"light": "images/light/icon-pin.svg"
-				}
-			},
-			{
-				"command": "gitlens.views.compare.unpinComparison",
-				"title": "Unpin Comparison",
-				"category": "GitLens",
-				"icon": "$(pin)"
-			},
-			{
-				"command": "gitlens.views.compare.refresh",
-				"title": "Refresh",
-				"category": "GitLens",
-				"icon": "$(refresh)"
-			},
-			{
-				"command": "gitlens.views.compare.selectForCompare",
-				"title": "Compare References...",
-				"category": "GitLens",
-				"icon": "$(compare-changes)"
-			},
-			{
-				"command": "gitlens.views.compare.setFilesLayoutToAuto",
-				"title": "Automatic Layout",
-				"category": "GitLens",
-				"icon": "$(list-tree)"
-			},
-			{
-				"command": "gitlens.views.compare.setFilesLayoutToList",
-				"title": "List Layout",
-				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-view-auto.svg",
-					"light": "images/light/icon-view-auto.svg"
-				}
-			},
-			{
-				"command": "gitlens.views.compare.setFilesLayoutToTree",
-				"title": "Tree Layout",
-				"category": "GitLens",
-				"icon": "$(list-flat)"
-			},
-			{
-				"command": "gitlens.views.compare.setKeepResultsToOn",
-				"title": "Keep Results",
-				"category": "GitLens",
-				"icon": "$(unlock)"
-			},
-			{
-				"command": "gitlens.views.compare.setKeepResultsToOff",
-				"title": "Keep Results",
-				"category": "GitLens",
-				"icon": "$(lock)"
-			},
-			{
-				"command": "gitlens.views.compare.setShowAvatarsOn",
-				"title": "Show Avatars",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.views.compare.setShowAvatarsOff",
-				"title": "Hide Avatars",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.views.compare.swapComparison",
-				"title": "Swap Comparison",
-				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-swap.svg",
-					"light": "images/light/icon-swap.svg"
-				}
-			},
-			{
 				"command": "gitlens.views.contributors.copy",
 				"title": "Copy",
 				"category": "GitLens"
@@ -4129,36 +3978,60 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.views.search.clear",
+				"command": "gitlens.views.searchAndCompare.clear",
 				"title": "Clear Results",
 				"category": "GitLens",
 				"icon": "$(clear-all)"
 			},
 			{
-				"command": "gitlens.views.search.copy",
+				"command": "gitlens.views.searchAndCompare.copy",
 				"title": "Copy",
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.views.search.refresh",
+				"command": "gitlens.views.searchAndCompare.pin",
+				"title": "Pin",
+				"category": "GitLens",
+				"icon": "$(pin)"
+			},
+			{
+				"command": "gitlens.views.searchAndCompare.unpin",
+				"title": "Unpin",
+				"category": "GitLens",
+				"icon": "$(pinned)"
+			},
+			{
+				"command": "gitlens.views.searchAndCompare.refresh",
 				"title": "Refresh",
 				"category": "GitLens",
 				"icon": "$(refresh)"
 			},
 			{
-				"command": "gitlens.views.search.searchCommits",
+				"command": "gitlens.views.searchAndCompare.searchCommits",
 				"title": "Search Commits",
 				"category": "GitLens",
 				"icon": "$(search)"
 			},
 			{
-				"command": "gitlens.views.search.setFilesLayoutToAuto",
+				"command": "gitlens.views.searchAndCompare.edit",
+				"title": "Edit",
+				"category": "GitLens",
+				"icon": "$(edit)"
+			},
+			{
+				"command": "gitlens.views.searchAndCompare.selectForCompare",
+				"title": "Compare References...",
+				"category": "GitLens",
+				"icon": "$(compare-changes)"
+			},
+			{
+				"command": "gitlens.views.searchAndCompare.setFilesLayoutToAuto",
 				"title": "Automatic Layout",
 				"category": "GitLens",
 				"icon": "$(list-tree)"
 			},
 			{
-				"command": "gitlens.views.search.setFilesLayoutToList",
+				"command": "gitlens.views.searchAndCompare.setFilesLayoutToList",
 				"title": "List Layout",
 				"category": "GitLens",
 				"icon": {
@@ -4167,32 +4040,41 @@
 				}
 			},
 			{
-				"command": "gitlens.views.search.setFilesLayoutToTree",
+				"command": "gitlens.views.searchAndCompare.setFilesLayoutToTree",
 				"title": "Tree Layout",
 				"category": "GitLens",
 				"icon": "$(list-flat)"
 			},
 			{
-				"command": "gitlens.views.search.setKeepResultsToOn",
+				"command": "gitlens.views.searchAndCompare.setKeepResultsToOn",
 				"title": "Keep Results",
 				"category": "GitLens",
 				"icon": "$(unlock)"
 			},
 			{
-				"command": "gitlens.views.search.setKeepResultsToOff",
+				"command": "gitlens.views.searchAndCompare.setKeepResultsToOff",
 				"title": "Keep Results",
 				"category": "GitLens",
 				"icon": "$(lock)"
 			},
 			{
-				"command": "gitlens.views.search.setShowAvatarsOn",
+				"command": "gitlens.views.searchAndCompare.setShowAvatarsOn",
 				"title": "Show Avatars",
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.views.search.setShowAvatarsOff",
+				"command": "gitlens.views.searchAndCompare.setShowAvatarsOff",
 				"title": "Hide Avatars",
 				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.searchAndCompare.swapComparison",
+				"title": "Swap Comparison",
+				"category": "GitLens",
+				"icon": {
+					"dark": "images/dark/icon-swap.svg",
+					"light": "images/light/icon-swap.svg"
+				}
 			},
 			{
 				"command": "gitlens.views.stashes.copy",
@@ -4292,10 +4174,6 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.showSettingsPage#compare-view",
-					"when": "false"
-				},
-				{
 					"command": "gitlens.showSettingsPage#contributors-view",
 					"when": "false"
 				},
@@ -4316,7 +4194,7 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.showSettingsPage#search-commits-view",
+					"command": "gitlens.showSettingsPage#search-compare-view",
 					"when": "false"
 				},
 				{
@@ -4326,10 +4204,6 @@
 				{
 					"command": "gitlens.showSettingsPage#tags-view",
 					"when": "false"
-				},
-				{
-					"command": "gitlens.showCompareView",
-					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.showFileHistoryView",
@@ -4344,7 +4218,7 @@
 					"when": "gitlens:enabled"
 				},
 				{
-					"command": "gitlens.showSearchView",
+					"command": "gitlens.showSearchAndCompareView",
 					"when": "gitlens:enabled"
 				},
 				{
@@ -5084,62 +4958,6 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.compare.clear",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.compare.copy",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.compare.pinComparison",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.compare.unpinComparison",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.compare.refresh",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.compare.selectForCompare",
-					"when": "gitlens:enabled && config.gitlens.views.compare.enabled"
-				},
-				{
-					"command": "gitlens.views.compare.setFilesLayoutToAuto",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.compare.setFilesLayoutToList",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.compare.setFilesLayoutToTree",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.compare.setKeepResultsToOn",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.compare.setKeepResultsToOff",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.compare.setShowAvatarsOn",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.compare.setShowAvatarsOff",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.compare.swapComparison",
-					"when": "false"
-				},
-				{
 					"command": "gitlens.views.contributors.copy",
 					"when": "false"
 				},
@@ -5328,47 +5146,67 @@
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.search.clear",
+					"command": "gitlens.views.searchAndCompare.clear",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.search.copy",
+					"command": "gitlens.views.searchAndCompare.copy",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.search.refresh",
+					"command": "gitlens.views.searchAndCompare.pin",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.search.searchCommits",
+					"command": "gitlens.views.searchAndCompare.unpin",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.search.setFilesLayoutToAuto",
+					"command": "gitlens.views.searchAndCompare.refresh",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.search.setFilesLayoutToList",
+					"command": "gitlens.views.searchAndCompare.searchCommits",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.search.setFilesLayoutToTree",
+					"command": "gitlens.views.searchAndCompare.edit",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.search.setKeepResultsToOn",
+					"command": "gitlens.views.searchAndCompare.selectForCompare",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.search.setKeepResultsToOff",
+					"command": "gitlens.views.searchAndCompare.setFilesLayoutToAuto",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.search.setShowAvatarsOn",
+					"command": "gitlens.views.searchAndCompare.setFilesLayoutToList",
 					"when": "false"
 				},
 				{
-					"command": "gitlens.views.search.setShowAvatarsOff",
+					"command": "gitlens.views.searchAndCompare.setFilesLayoutToTree",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.setKeepResultsToOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.setKeepResultsToOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.setShowAvatarsOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.setShowAvatarsOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.swapComparison",
 					"when": "false"
 				},
 				{
@@ -5964,56 +5802,6 @@
 					"group": "1_gitlens@1"
 				},
 				{
-					"command": "gitlens.views.compare.selectForCompare",
-					"when": "view =~ /^gitlens\\.views\\.compare/",
-					"group": "navigation@10"
-				},
-				{
-					"command": "gitlens.views.compare.setKeepResultsToOn",
-					"when": "view =~ /^gitlens\\.views\\.compare/ && !gitlens:views:compare:keepResults",
-					"group": "navigation@11"
-				},
-				{
-					"command": "gitlens.views.compare.setKeepResultsToOff",
-					"when": "view =~ /^gitlens\\.views\\.compare/ && gitlens:views:compare:keepResults",
-					"group": "navigation@11"
-				},
-				{
-					"command": "gitlens.views.compare.setFilesLayoutToList",
-					"when": "view =~ /^gitlens\\.views\\.compare/ && config.gitlens.views.compare.files.layout == auto",
-					"group": "navigation@50"
-				},
-				{
-					"command": "gitlens.views.compare.setFilesLayoutToTree",
-					"when": "view =~ /^gitlens\\.views\\.compare/ && config.gitlens.views.compare.files.layout == list",
-					"group": "navigation@50"
-				},
-				{
-					"command": "gitlens.views.compare.setFilesLayoutToAuto",
-					"when": "view =~ /^gitlens\\.views\\.compare/ && config.gitlens.views.compare.files.layout == tree",
-					"group": "navigation@50"
-				},
-				{
-					"command": "gitlens.views.compare.clear",
-					"when": "view =~ /^gitlens\\.views\\.compare/",
-					"group": "navigation@98"
-				},
-				{
-					"command": "gitlens.views.compare.refresh",
-					"when": "view =~ /^gitlens\\.views\\.compare/",
-					"group": "navigation@99"
-				},
-				{
-					"command": "gitlens.views.compare.setShowAvatarsOn",
-					"when": "view =~ /^gitlens\\.views\\.compare/ && !config.gitlens.views.compare.avatars",
-					"group": "1_gitlens@0"
-				},
-				{
-					"command": "gitlens.views.compare.setShowAvatarsOff",
-					"when": "view =~ /^gitlens\\.views\\.compare/ && config.gitlens.views.compare.avatars",
-					"group": "1_gitlens@0"
-				},
-				{
 					"command": "gitlens.views.addAuthors",
 					"when": "view =~ /^gitlens\\.views\\.contributors/",
 					"group": "navigation@10"
@@ -6224,54 +6012,75 @@
 					"group": "2_gitlens@0"
 				},
 				{
-					"command": "gitlens.views.search.searchCommits",
-					"when": "view =~ /^gitlens\\.views\\.search/",
+					"command": "gitlens.views.searchAndCompare.searchCommits",
+					"when": "view =~ /^gitlens\\.views\\.searchAndCompare\\b/",
 					"group": "navigation@10"
 				},
 				{
-					"command": "gitlens.views.search.setKeepResultsToOn",
-					"when": "view =~ /^gitlens\\.views\\.search/ && !gitlens:views:search:keepResults",
+					"command": "gitlens.views.searchAndCompare.selectForCompare",
+					"when": "view =~ /^gitlens\\.views\\.searchAndCompare\\b/",
 					"group": "navigation@11"
 				},
 				{
-					"command": "gitlens.views.search.setKeepResultsToOff",
-					"when": "view =~ /^gitlens\\.views\\.search/ && gitlens:views:search:keepResults",
-					"group": "navigation@11"
+					"command": "gitlens.views.searchAndCompare.setKeepResultsToOn",
+					"when": "view =~ /^gitlens\\.views\\.searchAndCompare\\b/ && !gitlens:views:searchAndCompare:keepResults",
+					"group": "navigation@12"
 				},
 				{
-					"command": "gitlens.views.search.setFilesLayoutToList",
-					"when": "view =~ /^gitlens\\.views\\.search/ && config.gitlens.views.search.files.layout == auto",
+					"command": "gitlens.views.searchAndCompare.setKeepResultsToOff",
+					"when": "view =~ /^gitlens\\.views\\.searchAndCompare\\b/ && gitlens:views:searchAndCompare:keepResults",
+					"group": "navigation@13"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.setFilesLayoutToAuto",
+					"when": "view =~ /^gitlens\\.views\\.searchAndCompare\\b/ && config.gitlens.views.searchAndCompare.files.layout == tree",
 					"group": "navigation@50"
 				},
 				{
-					"command": "gitlens.views.search.setFilesLayoutToTree",
-					"when": "view =~ /^gitlens\\.views\\.search/ && config.gitlens.views.search.files.layout == list",
+					"command": "gitlens.views.searchAndCompare.setFilesLayoutToList",
+					"when": "view =~ /^gitlens\\.views\\.searchAndCompare\\b/ && config.gitlens.views.searchAndCompare.files.layout == auto",
 					"group": "navigation@50"
 				},
 				{
-					"command": "gitlens.views.search.setFilesLayoutToAuto",
-					"when": "view =~ /^gitlens\\.views\\.search/ && config.gitlens.views.search.files.layout == tree",
+					"command": "gitlens.views.searchAndCompare.setFilesLayoutToTree",
+					"when": "view =~ /^gitlens\\.views\\.searchAndCompare\\b/ && config.gitlens.views.searchAndCompare.files.layout == list",
 					"group": "navigation@50"
 				},
 				{
-					"command": "gitlens.views.search.clear",
-					"when": "view =~ /^gitlens\\.views\\.search/",
+					"command": "gitlens.views.searchAndCompare.clear",
+					"when": "view =~ /^gitlens\\.views\\.searchAndCompare\\b/",
 					"group": "navigation@98"
 				},
 				{
-					"command": "gitlens.views.search.refresh",
-					"when": "view =~ /^gitlens\\.views\\.search/",
+					"command": "gitlens.views.searchAndCompare.refresh",
+					"when": "view =~ /^gitlens\\.views\\.searchAndCompare\\b/",
 					"group": "navigation@99"
 				},
 				{
-					"command": "gitlens.views.search.setShowAvatarsOn",
-					"when": "view =~ /^gitlens\\.views\\.search/ && !config.gitlens.views.search.avatars",
+					"command": "gitlens.views.searchAndCompare.setShowAvatarsOn",
+					"when": "view =~ /^gitlens\\.views\\.searchAndCompare\\b/ && !config.gitlens.views.searchAndCompare.avatars",
 					"group": "1_gitlens@0"
 				},
 				{
-					"command": "gitlens.views.search.setShowAvatarsOff",
-					"when": "view =~ /^gitlens\\.views\\.search/ && config.gitlens.views.search.avatars",
+					"command": "gitlens.views.searchAndCompare.setShowAvatarsOff",
+					"when": "view =~ /^gitlens\\.views\\.searchAndCompare\\b/ && config.gitlens.views.searchAndCompare.avatars",
 					"group": "1_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.copy",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.pin",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.unpin",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.swapComparison",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.stashSave",
@@ -6369,11 +6178,6 @@
 					"group": "9_gitlens@1"
 				},
 				{
-					"command": "gitlens.showSettingsPage#compare-view",
-					"when": "view =~ /^gitlens\\.views\\.compare/",
-					"group": "9_gitlens@1"
-				},
-				{
 					"command": "gitlens.showSettingsPage#contributors-view",
 					"when": "view =~ /^gitlens\\.views\\.contributors/",
 					"group": "9_gitlens@1"
@@ -6399,8 +6203,8 @@
 					"group": "9_gitlens@1"
 				},
 				{
-					"command": "gitlens.showSettingsPage#search-commits-view",
-					"when": "view =~ /^gitlens\\.views\\.search/",
+					"command": "gitlens.showSettingsPage#search-compare-view",
+					"when": "view =~ /^gitlens\\.views\\.searchAndCompare\\b/",
 					"group": "9_gitlens@1"
 				},
 				{
@@ -7149,7 +6953,7 @@
 				},
 				{
 					"command": "gitlens.views.dismissNode",
-					"when": "viewItem =~ /gitlens:(compare:picker:ref|compare:results\\b(?!.*?\\b\\+pinned\\b)|search)\\b(?!:(commits|files))/",
+					"when": "viewItem =~ /gitlens:(compare:picker|(compare|search):results\\b(?!.*?\\b\\+pinned\\b))\\b(?!:(commits|files))/",
 					"group": "inline@99"
 				},
 				{
@@ -7193,24 +6997,34 @@
 					"group": "9_gitlens@1"
 				},
 				{
-					"command": "gitlens.views.compare.swapComparison",
+					"command": "gitlens.views.searchAndCompare.swapComparison",
 					"when": "viewItem =~ /gitlens:compare:results\\b/",
-					"group": "inline@3"
+					"group": "inline@1"
 				},
 				{
 					"command": "gitlens.views.refreshNode",
 					"when": "viewItem =~ /gitlens:compare:(branch(?=.*?\\b\\+comparing\\b)|results)\\b/",
-					"group": "inline@4"
+					"group": "inline@97"
 				},
 				{
-					"command": "gitlens.views.compare.pinComparison",
-					"when": "viewItem =~ /gitlens:compare:results\\b(?!.*?\\b\\+pinned\\b)/",
+					"command": "gitlens.views.refreshNode",
+					"when": "viewItem =~ /gitlens:search:results\\b/",
+					"group": "inline@97"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.pin",
+					"when": "viewItem =~ /gitlens:(compare|search):results\\b(?!.*?\\b\\+pinned\\b)/",
 					"group": "inline@98"
 				},
 				{
-					"command": "gitlens.views.compare.unpinComparison",
-					"when": "viewItem =~ /gitlens:compare:results\\b(?=.*?\\b\\+pinned\\b)/",
+					"command": "gitlens.views.searchAndCompare.unpin",
+					"when": "viewItem =~ /gitlens:(compare|search):results\\b(?=.*?\\b\\+pinned\\b)/",
 					"group": "inline@98"
+				},
+				{
+					"command": "gitlens.views.searchAndCompare.swapComparison",
+					"when": "viewItem =~ /gitlens:compare:results\\b/",
+					"group": "1_gitlens_actions@2"
 				},
 				{
 					"command": "gitlens.views.openDirectoryDiff",
@@ -7218,32 +7032,22 @@
 					"group": "2_gitlens_quickopen@1"
 				},
 				{
-					"command": "gitlens.views.compare.swapComparison",
-					"when": "viewItem =~ /gitlens:compare:results\\b/",
-					"group": "1_gitlens_actions@2"
-				},
-				{
-					"command": "gitlens.views.compare.pinComparison",
-					"when": "viewItem =~ /gitlens:compare:results\\b(?!.*?\\b\\+pinned\\b)/",
+					"command": "gitlens.views.searchAndCompare.pin",
+					"when": "viewItem =~ /gitlens:(compare|search):results\\b(?!.*?\\b\\+pinned\\b)/",
 					"group": "8_gitlens_actions@1"
 				},
 				{
-					"command": "gitlens.views.compare.unpinComparison",
-					"when": "viewItem =~ /gitlens:compare:results\\b(?=.*?\\b\\+pinned\\b)/",
+					"command": "gitlens.views.searchAndCompare.unpin",
+					"when": "viewItem =~ /gitlens:(compare|search):results\\b(?=.*?\\b\\+pinned\\b)/",
 					"group": "8_gitlens_actions@1"
 				},
 				{
-					"command": "gitlens.views.search.searchCommits",
+					"command": "gitlens.views.searchAndCompare.edit",
 					"when": "viewItem == gitlens:search:results",
 					"group": "inline@1"
 				},
 				{
-					"command": "gitlens.views.refreshNode",
-					"when": "viewItem == gitlens:search:results",
-					"group": "inline@2"
-				},
-				{
-					"command": "gitlens.views.search.searchCommits",
+					"command": "gitlens.views.searchAndCompare.edit",
 					"when": "viewItem == gitlens:search:results",
 					"group": "1_gitlens_actions@1"
 				},
@@ -7339,7 +7143,7 @@
 				},
 				{
 					"command": "gitlens.views.dismissNode",
-					"when": "viewItem =~ /gitlens:(compare:picker:ref|compare:results\\b(?!.*?\\b\\+pinned\\b)|search)\\b(?!:(commits|files))/",
+					"when": "viewItem =~ /gitlens:(compare:picker:ref|(compare|search):results\\b(?!.*?\\b\\+pinned\\b))\\b(?!:(commits|files))/",
 					"group": "8_gitlens_actions@98"
 				},
 				{
@@ -7623,12 +7427,6 @@
 				"when": "gitlens:enabled && focusedView =~ /^gitlens\\.views\\.commits/"
 			},
 			{
-				"command": "gitlens.views.compare.copy",
-				"key": "ctrl+c",
-				"mac": "cmd+c",
-				"when": "gitlens:enabled && focusedView =~ /^gitlens\\.views\\.compare/"
-			},
-			{
 				"command": "gitlens.views.contributors.copy",
 				"key": "ctrl+c",
 				"mac": "cmd+c",
@@ -7665,10 +7463,10 @@
 				"when": "gitlens:enabled && focusedView =~ /^gitlens\\.views\\.stashes/"
 			},
 			{
-				"command": "gitlens.views.search.copy",
+				"command": "gitlens.views.searchAndCompare.copy",
 				"key": "ctrl+c",
 				"mac": "cmd+c",
-				"when": "gitlens:enabled && focusedView =~ /^gitlens\\.views\\.search/"
+				"when": "gitlens:enabled && focusedView =~ /^gitlens\\.views\\.searchAndCompare\\b/"
 			},
 			{
 				"command": "gitlens.views.tags.copy",
@@ -7805,19 +7603,11 @@
 					"visibility": "collapsed"
 				},
 				{
-					"id": "gitlens.views.search",
-					"name": "Search Commits",
+					"id": "gitlens.views.searchAndCompare",
+					"name": "Search & Compare",
 					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/search.svg",
-					"visibility": "collapsed"
-				},
-				{
-					"id": "gitlens.views.compare",
-					"name": "Compare Commits",
-					"when": "!gitlens:disabled",
-					"contextualTitle": "GitLens",
-					"icon": "images/views/compare.svg",
 					"visibility": "collapsed"
 				}
 			]
