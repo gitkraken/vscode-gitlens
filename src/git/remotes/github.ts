@@ -4,10 +4,7 @@ import { DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference } from '../../config';
 import { Container } from '../../container';
 import { GitHubPullRequest } from '../../github/github';
-import { IssueOrPullRequest } from '../models/issue';
-import { Account, GitRevision } from '../models/models';
-import { PullRequest, PullRequestState } from '../models/pullRequest';
-import { Repository } from '../models/repository';
+import { Account, GitRevision, IssueOrPullRequest, PullRequest, PullRequestState, Repository } from '../models/models';
 import { RemoteProviderWithApi } from './provider';
 
 const issueEnricher3rdParyRegex = /\b(\w+\\?-?\w+(?!\\?-)\/\w+\\?-?\w+(?!\\?-))\\?#([0-9]+)\b/g;
@@ -155,7 +152,7 @@ export class GitHubRemote extends RemoteProviderWithApi {
 		return `${this.baseUrl}?path=${fileName}${line}`;
 	}
 
-	protected async onGetAccountForCommit(
+	protected async getProviderAccountForCommit(
 		{ accessToken }: AuthenticationSession,
 		ref: string,
 		options?: {
@@ -169,7 +166,7 @@ export class GitHubRemote extends RemoteProviderWithApi {
 		});
 	}
 
-	protected async onGetAccountForEmail(
+	protected async getProviderAccountForEmail(
 		{ accessToken }: AuthenticationSession,
 		email: string,
 		options?: {
@@ -183,7 +180,7 @@ export class GitHubRemote extends RemoteProviderWithApi {
 		});
 	}
 
-	protected async onGetIssueOrPullRequest(
+	protected async getProviderIssueOrPullRequest(
 		{ accessToken }: AuthenticationSession,
 		id: string,
 	): Promise<IssueOrPullRequest | undefined> {
@@ -193,7 +190,7 @@ export class GitHubRemote extends RemoteProviderWithApi {
 		});
 	}
 
-	protected async onGetPullRequestForBranch(
+	protected async getProviderPullRequestForBranch(
 		{ accessToken }: AuthenticationSession,
 		branch: string,
 		options?: {
@@ -212,7 +209,7 @@ export class GitHubRemote extends RemoteProviderWithApi {
 		});
 	}
 
-	protected async onGetPullRequestForCommit(
+	protected async getProviderPullRequestForCommit(
 		{ accessToken }: AuthenticationSession,
 		ref: string,
 	): Promise<PullRequest | undefined> {

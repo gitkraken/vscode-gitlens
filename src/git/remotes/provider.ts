@@ -6,33 +6,19 @@ import {
 	env,
 	Event,
 	EventEmitter,
+	MessageItem,
 	Range,
 	Uri,
 	window,
 } from 'vscode';
 import { DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference } from '../../config';
+import { GlobalState } from '../../constants';
 import { Container } from '../../container';
 import { Logger } from '../../logger';
 import { Messages } from '../../messages';
 import { Account, GitLogCommit, IssueOrPullRequest, PullRequest, PullRequestState, Repository } from '../models/models';
 import { debug, gate, log, Promises } from '../../system';
-
-const _onDidChangeAuthentication = new EventEmitter<{ reason: 'connected' | 'disconnected'; key: string }>();
-
-export class Authentication {
-	static get onDidChange(): Event<{ reason: 'connected' | 'disconnected'; key: string }> {
-		return _onDidChangeAuthentication.event;
-	}
-}
-
-export class AuthenticationError extends Error {
-	constructor(private original: Error) {
-		super(original.message);
-
-		Error.captureStackTrace(this, AuthenticationError);
-	}
-}
 
 export enum RemoteResourceType {
 	Branch = 'branch',
@@ -216,7 +202,23 @@ export abstract class RemoteProvider {
 	}
 }
 
-// TODO@eamodio revisit how once authed, all remotes are always connected, even after a restart
+const _onDidChangeAuthentication = new EventEmitter<{ reason: 'connected' | 'disconnected'; key: string }>();
+
+export class Authentication {
+	static get onDidChange(): Event<{ reason: 'connected' | 'disconnected'; key: string }> {
+		return _onDidChangeAuthentication.event;
+	}
+}
+
+export class AuthenticationError extends Error {
+	constructor(private original: Error) {
+		super(original.message);
+
+		Error.captureStackTrace(this, AuthenticationError);
+	}
+}
+
+// TODO@eamodio revisit how once authenticated, all remotes are always connected, even after a restart
 
 export abstract class RemoteProviderWithApi extends RemoteProvider {
 	static is(provider: RemoteProvider | undefined): provider is RemoteProviderWithApi {
@@ -248,8 +250,29 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 		);
 	}
 
+	abstract get apiBaseUrl(): string;
+	protected abstract get authProvider(): { id: string; scopes: string[] };
+
 	private get key() {
 		return this.custom ? `${this.name}:${this.domain}` : this.name;
+	}
+
+	private get disallowConnectionKey() {
+		return `${GlobalState.DisallowConnectionPrefix}${this.key}`;
+	}
+
+	get maybeConnected(): boolean | undefined {
+		if (this._session === undefined) return undefined;
+
+		return this._session !== null;
+	}
+
+	protected _session: AuthenticationSession | null | undefined;
+	protected session() {
+		if (this._session === undefined) {
+			return this.ensureSession(false);
+		}
+		return this._session ?? undefined;
 	}
 
 	private onAuthenticationSessionsChanged(e: AuthenticationSessionsChangeEvent) {
@@ -257,8 +280,6 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 			this.disconnect();
 		}
 	}
-
-	abstract get apiBaseUrl(): string;
 
 	@log()
 	async connect(): Promise<boolean> {
@@ -279,6 +300,8 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 		this._session = null;
 
 		if (disconnected) {
+			void Container.context.globalState.update(this.disallowConnectionKey, true);
+
 			this._onDidChange.fire();
 			if (!silent) {
 				_onDidChangeAuthentication.fire({ reason: 'disconnected', key: this.key });
@@ -292,12 +315,6 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 	})
 	async isConnected(): Promise<boolean> {
 		return (await this.session()) != null;
-	}
-
-	get maybeConnected(): boolean | undefined {
-		if (this._session === undefined) return undefined;
-
-		return this._session !== null;
 	}
 
 	@gate()
@@ -314,7 +331,7 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 		if (!connected) return undefined;
 
 		try {
-			const author = await this.onGetAccountForCommit(this._session!, ref, options);
+			const author = await this.getProviderAccountForCommit(this._session!, ref, options);
 			this.invalidAuthenticationCount = 0;
 			return author;
 		} catch (ex) {
@@ -326,6 +343,14 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 			return undefined;
 		}
 	}
+
+	protected abstract getProviderAccountForCommit(
+		session: AuthenticationSession,
+		ref: string,
+		options?: {
+			avatarSize?: number;
+		},
+	): Promise<Account | undefined>;
 
 	@gate()
 	@debug()
@@ -341,7 +366,7 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 		if (!connected) return undefined;
 
 		try {
-			const author = await this.onGetAccountForEmail(this._session!, email, options);
+			const author = await this.getProviderAccountForEmail(this._session!, email, options);
 			this.invalidAuthenticationCount = 0;
 			return author;
 		} catch (ex) {
@@ -354,6 +379,14 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 		}
 	}
 
+	protected abstract getProviderAccountForEmail(
+		session: AuthenticationSession,
+		email: string,
+		options?: {
+			avatarSize?: number;
+		},
+	): Promise<Account | undefined>;
+
 	@gate()
 	@debug()
 	async getIssueOrPullRequest(id: string): Promise<IssueOrPullRequest | undefined> {
@@ -363,7 +396,7 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 		if (!connected) return undefined;
 
 		try {
-			const issueOrPullRequest = await this.onGetIssueOrPullRequest(this._session!, id);
+			const issueOrPullRequest = await this.getProviderIssueOrPullRequest(this._session!, id);
 			this.invalidAuthenticationCount = 0;
 			return issueOrPullRequest;
 		} catch (ex) {
@@ -375,6 +408,11 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 			return undefined;
 		}
 	}
+
+	protected abstract getProviderIssueOrPullRequest(
+		session: AuthenticationSession,
+		id: string,
+	): Promise<IssueOrPullRequest | undefined>;
 
 	@gate()
 	@debug()
@@ -392,7 +430,7 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 		if (!connected) return undefined;
 
 		try {
-			const pr = await this.onGetPullRequestForBranch(this._session!, branch, options);
+			const pr = await this.getProviderPullRequestForBranch(this._session!, branch, options);
 			this.invalidAuthenticationCount = 0;
 			return pr;
 		} catch (ex) {
@@ -404,6 +442,15 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 			return undefined;
 		}
 	}
+	protected abstract getProviderPullRequestForBranch(
+		session: AuthenticationSession,
+		branch: string,
+		options?: {
+			avatarSize?: number;
+			include?: PullRequestState[];
+			limit?: number;
+		},
+	): Promise<PullRequest | undefined>;
 
 	private _prsByCommit = new Map<string, Promise<PullRequest | null> | PullRequest | null>();
 
@@ -420,76 +467,6 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 		return pr.then(pr => pr ?? undefined);
 	}
 
-	protected abstract get authProvider(): { id: string; scopes: string[] };
-
-	protected abstract onGetAccountForCommit(
-		session: AuthenticationSession,
-		ref: string,
-		options?: {
-			avatarSize?: number;
-		},
-	): Promise<Account | undefined>;
-
-	protected abstract onGetAccountForEmail(
-		session: AuthenticationSession,
-		email: string,
-		options?: {
-			avatarSize?: number;
-		},
-	): Promise<Account | undefined>;
-
-	protected abstract onGetIssueOrPullRequest(
-		session: AuthenticationSession,
-		id: string,
-	): Promise<IssueOrPullRequest | undefined>;
-
-	protected abstract onGetPullRequestForBranch(
-		session: AuthenticationSession,
-		branch: string,
-		options?: {
-			avatarSize?: number;
-			include?: PullRequestState[];
-			limit?: number;
-		},
-	): Promise<PullRequest | undefined>;
-
-	protected abstract onGetPullRequestForCommit(
-		session: AuthenticationSession,
-		ref: string,
-	): Promise<PullRequest | undefined>;
-
-	protected _session: AuthenticationSession | null | undefined;
-	protected session() {
-		if (this._session === undefined) {
-			return this.ensureSession(false);
-		}
-		return this._session ?? undefined;
-	}
-
-	private async ensureSession(createIfNone: boolean) {
-		if (this._session != null) return this._session;
-
-		let session;
-		try {
-			session = await authentication.getSession(this.authProvider.id, this.authProvider.scopes, {
-				createIfNone: createIfNone,
-			});
-		} catch (ex) {
-			// TODO@eamodio	save that the user rejected auth?
-		}
-
-		this._session = session ?? null;
-		this.invalidAuthenticationCount = 0;
-
-		if (session != null && createIfNone) {
-			this._onDidChange.fire();
-			_onDidChangeAuthentication.fire({ reason: 'connected', key: this.key });
-		}
-
-		return session ?? undefined;
-	}
-
-	@gate()
 	@debug()
 	private async getPullRequestForCommitCore(ref: string) {
 		const cc = Logger.getCorrelationContext();
@@ -498,7 +475,7 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 		if (!connected) return null;
 
 		try {
-			const pr = (await this.onGetPullRequestForCommit(this._session!, ref)) ?? null;
+			const pr = (await this.getProviderPullRequestForCommit(this._session!, ref)) ?? null;
 			this._prsByCommit.set(ref, pr);
 			this.invalidAuthenticationCount = 0;
 			return pr;
@@ -511,6 +488,92 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 				this.handleAuthenticationException();
 			}
 			return null;
+		}
+	}
+
+	protected abstract getProviderPullRequestForCommit(
+		session: AuthenticationSession,
+		ref: string,
+	): Promise<PullRequest | undefined>;
+
+	@gate()
+	private async ensureSession(createIfNone: boolean): Promise<AuthenticationSession | undefined> {
+		if (this._session != null) return this._session;
+
+		if (createIfNone) {
+			await Container.context.globalState.update(this.disallowConnectionKey, undefined);
+		} else if (Container.context.globalState.get<boolean>(this.disallowConnectionKey)) {
+			return undefined;
+		}
+
+		let session;
+		try {
+			session = await authentication.getSession(this.authProvider.id, this.authProvider.scopes, {
+				createIfNone: createIfNone,
+			});
+		} catch (ex) {
+			await Container.context.globalState.update(this.disallowConnectionKey, true);
+
+			if (ex instanceof Error && ex.message.includes('User did not consent')) {
+				if (!createIfNone) {
+					void this.promptToRetyConnection();
+				}
+				return undefined;
+			}
+
+			session = null;
+		}
+
+		if (session === undefined && !createIfNone) {
+			await Container.context.globalState.update(this.disallowConnectionKey, true);
+
+			void this.promptToConnect();
+		}
+
+		this._session = session ?? null;
+		this.invalidAuthenticationCount = 0;
+
+		if (session != null) {
+			await Container.context.globalState.update(this.disallowConnectionKey, undefined);
+
+			if (createIfNone) {
+				this._onDidChange.fire();
+				_onDidChangeAuthentication.fire({ reason: 'connected', key: this.key });
+			}
+		}
+
+		return session ?? undefined;
+	}
+
+	@gate()
+	private async promptToConnect() {
+		const connect: MessageItem = { title: `Connect to ${this.name}` };
+		const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+
+		const result = await window.showInformationMessage(
+			`GitLens would like to connect to ${this.name} to provide a rich integration with pull requests, issues, avatars, and more. If you choose to connect, you will be prompted to authenticate with ${this.name}.`,
+			connect,
+			cancel,
+		);
+
+		if (result === connect) {
+			void this.connect();
+		}
+	}
+
+	@gate()
+	private async promptToRetyConnection() {
+		const connect: MessageItem = { title: `Connect to ${this.name}` };
+		const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+
+		const result = await window.showErrorMessage(
+			`GitLens wants to connect to ${this.name} to provide a rich integration with pull requests, issues, avatars, and more. If you choose to connect, you will be prompted again to allow authentication with ${this.name}.`,
+			connect,
+			cancel,
+		);
+
+		if (result === connect) {
+			void this.connect();
 		}
 	}
 

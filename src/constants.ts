@@ -133,6 +133,7 @@ export enum GlyphChars {
 
 export enum GlobalState {
 	Avatars = 'gitlens:avatars',
+	DisallowConnectionPrefix = 'gitlens:disallow:connection:',
 	Version = 'gitlensVersion',
 }
 
