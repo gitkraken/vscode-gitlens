@@ -1,5 +1,5 @@
 'use strict';
-import { GitCommandOptions } from '../git/git';
+import type { GitCommandOptions } from '../git/git';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export class RequestType<Request, Response> {

@@ -1,18 +1,13 @@
 'use strict';
 import { ExtensionContext, ExtensionMode, OutputChannel, Uri, window } from 'vscode';
+import { TraceLevel } from './configuration';
 import { extensionOutputChannelName } from './constants';
 import { getCorrelationContext, getNextCorrelationId } from './system';
 
 const emptyStr = '';
-
-export enum TraceLevel {
-	Silent = 'silent',
-	Errors = 'errors',
-	Verbose = 'verbose',
-	Debug = 'debug',
-}
-
 const ConsolePrefix = `[${extensionOutputChannelName}]`;
+
+export { TraceLevel } from './configuration';
 
 export interface LogCorrelationContext {
 	readonly correlationId?: number;

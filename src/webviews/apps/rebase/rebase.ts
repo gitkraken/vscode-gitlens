@@ -89,7 +89,7 @@ class RebaseEditor extends App<RebaseState> {
 				}
 
 				const ref = e.item.dataset.ref;
-				if (ref) {
+				if (ref != null) {
 					console.log(ref, e.newIndex, e.oldIndex);
 					this.moveEntry(ref, e.newIndex, false);
 

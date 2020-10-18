@@ -1,5 +1,11 @@
 'use strict';
-import { TraceLevel } from './logger';
+
+export enum TraceLevel {
+	Silent = 'silent',
+	Errors = 'errors',
+	Verbose = 'verbose',
+	Debug = 'debug',
+}
 
 export interface Config {
 	autolinks: AutolinkReference[] | null;
