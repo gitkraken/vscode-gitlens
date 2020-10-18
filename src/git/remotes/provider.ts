@@ -107,7 +107,7 @@ export abstract class RemoteProvider {
 
 	async copy(resource: RemoteResource): Promise<void> {
 		const url = this.url(resource);
-		if (url === undefined) return;
+		if (url == null) return;
 
 		try {
 			void (await env.clipboard.writeText(url));
@@ -150,8 +150,8 @@ export abstract class RemoteProvider {
 				return this.getUrlForCommit(encodeURIComponent(resource.sha));
 			case RemoteResourceType.File:
 				return this.getUrlForFile(
-					resource.fileName,
-					resource.branch !== undefined ? encodeURIComponent(resource.branch) : undefined,
+					encodeURIComponent(resource.fileName),
+					resource.branch != null ? encodeURIComponent(resource.branch) : undefined,
 					undefined,
 					resource.range,
 				);
@@ -159,9 +159,9 @@ export abstract class RemoteProvider {
 				return this.getUrlForRepository();
 			case RemoteResourceType.Revision:
 				return this.getUrlForFile(
-					resource.fileName,
-					resource.branch !== undefined ? encodeURIComponent(resource.branch) : undefined,
-					resource.sha !== undefined ? encodeURIComponent(resource.sha) : undefined,
+					encodeURIComponent(resource.fileName),
+					resource.branch != null ? encodeURIComponent(resource.branch) : undefined,
+					resource.sha != null ? encodeURIComponent(resource.sha) : undefined,
 					resource.range,
 				);
 			default:
