@@ -73,7 +73,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 						expand: false,
 						includeRepoName: true,
 						files: {
-							ref1: this.branch.ref,
+							ref1: this.compareWithWorkingTree ? '' : this.branch.ref,
 							ref2: this._compareWith.ref || 'HEAD',
 							query: this.getBehindFilesQuery.bind(this),
 						},
@@ -243,8 +243,11 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 	private async getBehindFilesQuery(): Promise<FilesQueryResults> {
 		const files = await Container.git.getDiffStatus(
 			this.uri.repoPath!,
-			// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-			GitRevision.createRange(this.branch.ref, this._compareWith?.ref || 'HEAD', '...'),
+			this.compareWithWorkingTree
+				? // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+				  this._compareWith?.ref || 'HEAD'
+				: // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+				  GitRevision.createRange(this.branch.ref, this._compareWith?.ref || 'HEAD', '...'),
 		);
 
 		return {
