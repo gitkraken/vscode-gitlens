@@ -99,7 +99,9 @@ export class RebaseGitCommand extends QuickCommand<State> {
 				skippedStepOne = false;
 				if (context.repos.length === 1) {
 					skippedStepOne = true;
-					state.counter++;
+					if (state.repo == null) {
+						state.counter++;
+					}
 
 					state.repo = context.repos[0];
 				} else {
