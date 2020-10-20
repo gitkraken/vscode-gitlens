@@ -17,7 +17,7 @@ import {
 } from 'vscode';
 import { BuiltInCommands, DocumentSchemes, ImageMimetypes } from '../constants';
 import { Container } from '../container';
-import { GitBranch, GitCommit, GitContributor, GitFile, GitRemote, Repository } from '../git/git';
+import { GitBranch, GitCommit, GitContributor, GitFile, GitRemote, GitTag, Repository } from '../git/git';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, RepositoryPicker } from '../quickpicks';
@@ -331,6 +331,14 @@ export function isCommandViewContextWithRepoPath(
 	if (context.type !== 'viewItem') return false;
 
 	return typeof (context.node as ViewNode & { repoPath?: string }).repoPath === 'string';
+}
+
+export function isCommandViewContextWithTag(
+	context: CommandContext,
+): context is CommandViewItemContext & { node: ViewNode & { tag: GitTag } } {
+	if (context.type !== 'viewItem') return false;
+
+	return GitTag.is((context.node as ViewNode & { tag: GitTag }).tag);
 }
 
 export type CommandContext =

@@ -6611,6 +6611,16 @@
 					"group": "7_gitlens_cutcopypaste@2"
 				},
 				{
+					"command": "gitlens.copyShaToClipboard",
+					"when": "viewItem =~ /gitlens:branch\\b/",
+					"group": "7_gitlens_cutcopypaste@2"
+				},
+				{
+					"command": "gitlens.copyShaToClipboard",
+					"when": "viewItem =~ /gitlens:tag\\b/",
+					"group": "7_gitlens_cutcopypaste@2"
+				},
+				{
 					"command": "gitlens.copyMessageToClipboard",
 					"when": "viewItem =~ /gitlens:(commit|stash|file\\b(?=.*?\\b\\+committed\\b))\\b/",
 					"group": "7_gitlens_cutcopypaste@3"
