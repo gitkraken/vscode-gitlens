@@ -126,7 +126,6 @@ export class GitService implements Disposable {
 	private readonly _disposable: Disposable;
 	private readonly _repositoryTree: TernarySearchTree<Repository>;
 	private _repositoriesLoadingPromise: Promise<void> | undefined;
-	private _suspended: boolean = false;
 
 	private readonly _branchesCache = new Map<string, GitBranch[]>();
 	private readonly _remotesWithApiProviderCache = new Map<string, GitRemote<RemoteProviderWithApi> | null>();
@@ -222,8 +221,6 @@ export class GitService implements Disposable {
 
 	@debug()
 	private onWindowStateChanged(e: WindowState) {
-		this._suspended = !e.focused;
-
 		if (e.focused) {
 			this._repositoryTree.forEach(r => r.resume());
 		} else {
@@ -333,7 +330,7 @@ export class GitService implements Disposable {
 		const rootPath = await this.getRepoPathCore(uri.fsPath, true);
 		if (rootPath != null) {
 			Logger.log(cc, `found root repository in '${rootPath}'`);
-			repositories.push(new Repository(folder, rootPath, true, anyRepoChangedFn, this._suspended));
+			repositories.push(new Repository(folder, rootPath, true, anyRepoChangedFn, !window.state.focused));
 		}
 
 		if (depth <= 0) return repositories;
@@ -382,7 +379,7 @@ export class GitService implements Disposable {
 			if (rp == null) continue;
 
 			Logger.log(cc, `found repository in '${rp}'`);
-			repositories.push(new Repository(folder, rp, false, anyRepoChangedFn, this._suspended));
+			repositories.push(new Repository(folder, rp, false, anyRepoChangedFn, !window.state.focused));
 		}
 
 		return repositories;
@@ -2966,7 +2963,7 @@ export class GitService implements Disposable {
 		}
 
 		Logger.log(cc, `Repository found in '${rp}'`);
-		repo = new Repository(folder, rp, false, this.onAnyRepositoryChanged.bind(this), this._suspended);
+		repo = new Repository(folder, rp, false, this.onAnyRepositoryChanged.bind(this), !window.state.focused);
 		this._repositoryTree.set(rp, repo);
 
 		// Send a notification that the repositories changed

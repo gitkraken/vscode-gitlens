@@ -23,7 +23,7 @@ import { Logger } from '../../logger';
 import { Messages } from '../../messages';
 import { GitBranchReference, GitReference, GitTagReference } from './models';
 import { RemoteProviderFactory, RemoteProviders, RemoteProviderWithApi } from '../remotes/factory';
-import { Arrays, Functions, gate, Iterables, log, logName } from '../../system';
+import { Arrays, debug, Functions, gate, Iterables, log, logName } from '../../system';
 import { runGitCommandInTerminal } from '../../terminal';
 
 const ignoreGitRegex = /\.git(?:\/|\\|$)/;
@@ -91,8 +91,8 @@ export class Repository implements Disposable {
 
 	private _branch: Promise<GitBranch | undefined> | undefined;
 	private readonly _disposable: Disposable;
-	private _fireChangeDebounced: ((e: RepositoryChangeEvent) => void) | undefined = undefined;
-	private _fireFileSystemChangeDebounced: ((e: RepositoryFileSystemChangeEvent) => void) | undefined = undefined;
+	private _fireChangeDebounced: (() => void) | undefined = undefined;
+	private _fireFileSystemChangeDebounced: (() => void) | undefined = undefined;
 	private _fsWatchCounter = 0;
 	private _fsWatcherDisposable: Disposable | undefined;
 	private _pendingFileSystemChange?: RepositoryFileSystemChangeEvent;
@@ -192,6 +192,7 @@ export class Repository implements Disposable {
 		this.fireFileSystemChange(uri);
 	}
 
+	@debug()
 	private onRepositoryChanged(uri: Uri | undefined) {
 		if (uri == null) {
 			this.fireChange(RepositoryChange.Unknown);
@@ -619,11 +620,11 @@ export class Repository implements Disposable {
 		// If we've come back into focus and we are dirty, fire the change events
 
 		if (this._pendingRepoChange != null) {
-			this._fireChangeDebounced!(this._pendingRepoChange);
+			this._fireChangeDebounced!();
 		}
 
 		if (this._pendingFileSystemChange != null) {
-			this._fireFileSystemChangeDebounced!(this._pendingFileSystemChange);
+			this._fireFileSystemChangeDebounced!();
 		}
 	}
 
@@ -764,9 +765,8 @@ export class Repository implements Disposable {
 		this.runTerminalCommand('tag', ...args, ...tags.map(t => t.ref));
 	}
 
+	@debug()
 	private fireChange(...changes: RepositoryChange[]) {
-		this.onAnyRepositoryChanged(this, new RepositoryChangeEvent(this, changes));
-
 		if (this._fireChangeDebounced == null) {
 			this._fireChangeDebounced = Functions.debounce(this.fireChangeCore.bind(this), 250);
 		}
@@ -783,17 +783,28 @@ export class Repository implements Disposable {
 			}
 		}
 
-		if (this._suspended) return;
+		this.onAnyRepositoryChanged(this, new RepositoryChangeEvent(this, changes));
 
-		this._fireChangeDebounced(e);
+		if (this._suspended) {
+			Logger.debug(`Repository[${this.name}(${this.id})] queueing suspended changes=${e.changes.join(', ')}`);
+
+			return;
+		}
+
+		this._fireChangeDebounced();
 	}
 
-	private fireChangeCore(e: RepositoryChangeEvent) {
+	private fireChangeCore() {
+		const e = this._pendingRepoChange;
+		if (e == null) return;
+
 		this._pendingRepoChange = undefined;
 
+		Logger.debug(`Repository[${this.name}(${this.id})] firing changes=${e.changes.join(', ')}`);
 		this._onDidChange.fire(e);
 	}
 
+	@debug()
 	private fireFileSystemChange(uri: Uri) {
 		if (this._fireFileSystemChangeDebounced == null) {
 			this._fireFileSystemChangeDebounced = Functions.debounce(this.fireFileSystemChangeCore.bind(this), 2500);
@@ -806,12 +817,22 @@ export class Repository implements Disposable {
 		const e = this._pendingFileSystemChange;
 		e.uris.push(uri);
 
-		if (this._suspended) return;
+		if (this._suspended) {
+			Logger.debug(
+				`Repository[${this.name}(${this.id})] queueing suspended fs changes=${e.uris
+					.map(u => u.fsPath)
+					.join(', ')}`,
+			);
+			return;
+		}
 
-		this._fireFileSystemChangeDebounced(e);
+		this._fireFileSystemChangeDebounced();
 	}
 
-	private async fireFileSystemChangeCore(e: RepositoryFileSystemChangeEvent) {
+	private async fireFileSystemChangeCore() {
+		let e = this._pendingFileSystemChange;
+		if (e == null) return;
+
 		this._pendingFileSystemChange = undefined;
 
 		const uris = await Container.git.excludeIgnoredUris(this.path, e.uris);
@@ -820,6 +841,8 @@ export class Repository implements Disposable {
 		if (uris.length !== e.uris.length) {
 			e = { ...e, uris: uris };
 		}
+
+		Logger.debug(`Repository[${this.name}(${this.id})] firing fs changes=${e.uris.map(u => u.fsPath).join(', ')}`);
 
 		this._onDidChangeFileSystem.fire(e);
 	}

@@ -68,7 +68,8 @@ export class VslsGuestService implements Disposable {
 		});
 
 		return response.repositories.map(
-			(r: RepositoryProxy) => new Repository(folder, r.path, r.root, onAnyRepositoryChanged, false, r.closed),
+			(r: RepositoryProxy) =>
+				new Repository(folder, r.path, r.root, onAnyRepositoryChanged, !window.state.focused, r.closed),
 		);
 	}
 
