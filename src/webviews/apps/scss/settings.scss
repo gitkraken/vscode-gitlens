@@ -38,6 +38,18 @@ header {
 	padding: 1px 3px;
 }
 
+.command--show-view {
+	&:before {
+		content: '\eb14';
+		font-family: codicon;
+		font-size: 14px;
+		font-weight: 400;
+		position: relative;
+		top: 3px;
+		left: -1px;
+	}
+}
+
 .container {
 	display: grid;
 	grid-template-areas: 'header header' 'cta cta' 'hero sidebar' 'content sidebar';
