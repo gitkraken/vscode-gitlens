@@ -239,6 +239,16 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 			() => this.setShowBranchComparison(false),
 			this,
 		);
+		commands.registerCommand(
+			this.getQualifiedCommand('setShowBranchPullRequestOn'),
+			() => this.setShowBranchPullRequest(true),
+			this,
+		);
+		commands.registerCommand(
+			this.getQualifiedCommand('setShowBranchPullRequestOff'),
+			() => this.setShowBranchPullRequest(false),
+			this,
+		);
 	}
 
 	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
@@ -377,5 +387,10 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 			'showBranchComparison',
 			enabled ? ViewShowBranchComparison.Working : false,
 		);
+	}
+
+	private async setShowBranchPullRequest(enabled: boolean) {
+		await configuration.updateEffective('views', this.configKey, 'pullRequests', 'showForBranches', enabled);
+		await configuration.updateEffective('views', this.configKey, 'pullRequests', 'enabled', enabled);
 	}
 }

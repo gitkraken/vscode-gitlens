@@ -3677,6 +3677,16 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.views.branches.setShowBranchPullRequestOn",
+				"title": "Show Branch Pull Requests",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.branches.setShowBranchPullRequestOff",
+				"title": "Hide Branch Pull Requests",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.commits.copy",
 				"title": "Copy",
 				"category": "GitLens"
@@ -3738,6 +3748,16 @@
 			{
 				"command": "gitlens.views.commits.setShowBranchComparisonOff",
 				"title": "Hide Branch Comparison",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.commits.setShowBranchPullRequestOn",
+				"title": "Show Current Branch Pull Request",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.commits.setShowBranchPullRequestOff",
+				"title": "Hide Current Branch Pull Request",
 				"category": "GitLens"
 			},
 			{
@@ -3946,6 +3966,16 @@
 			{
 				"command": "gitlens.views.remotes.setShowAvatarsOff",
 				"title": "Hide Avatars",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.remotes.setShowBranchPullRequestOn",
+				"title": "Show Branch Pull Requests",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.remotes.setShowBranchPullRequestOff",
+				"title": "Hide Branch Pull Requests",
 				"category": "GitLens"
 			},
 			{
@@ -4977,6 +5007,14 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.branches.setShowBranchPullRequestOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.branches.setShowBranchPullRequestOff",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.commits.copy",
 					"when": "false"
 				},
@@ -5018,6 +5056,14 @@
 				},
 				{
 					"command": "gitlens.views.commits.setShowBranchComparisonOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.commits.setShowBranchPullRequestOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.commits.setShowBranchPullRequestOff",
 					"when": "false"
 				},
 				{
@@ -5162,6 +5208,14 @@
 				},
 				{
 					"command": "gitlens.views.remotes.setShowAvatarsOff",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.remotes.setShowBranchPullRequestOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.remotes.setShowBranchPullRequestOff",
 					"when": "false"
 				},
 				{
@@ -5810,6 +5864,16 @@
 					"group": "1_gitlens@1"
 				},
 				{
+					"command": "gitlens.views.branches.setShowBranchPullRequestOn",
+					"when": "view =~ /^gitlens\\.views\\.branches/ && !config.gitlens.views.branches.pullRequests.enabled && !config.gitlens.views.branches.pullRequests.showForBranches",
+					"group": "1_gitlens@2"
+				},
+				{
+					"command": "gitlens.views.branches.setShowBranchPullRequestOff",
+					"when": "view =~ /^gitlens\\.views\\.branches/ && config.gitlens.views.branches.pullRequests.enabled && config.gitlens.views.branches.pullRequests.showForBranches",
+					"group": "1_gitlens@2"
+				},
+				{
 					"command": "gitlens.views.switchToAnotherBranch",
 					"when": "!gitlens:readonly && view =~ /^gitlens\\.views\\.commits/",
 					"group": "navigation@10"
@@ -5863,6 +5927,16 @@
 					"command": "gitlens.views.commits.setShowBranchComparisonOff",
 					"when": "view =~ /^gitlens\\.views\\.commits/ && config.gitlens.views.commits.showBranchComparison",
 					"group": "1_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.commits.setShowBranchPullRequestOn",
+					"when": "view =~ /^gitlens\\.views\\.commits/ && !config.gitlens.views.commits.pullRequests.enabled && !config.gitlens.views.commits.pullRequests.showForBranches",
+					"group": "1_gitlens@2"
+				},
+				{
+					"command": "gitlens.views.commits.setShowBranchPullRequestOff",
+					"when": "view =~ /^gitlens\\.views\\.commits/ && config.gitlens.views.commits.pullRequests.enabled && config.gitlens.views.commits.pullRequests.showForBranches",
+					"group": "1_gitlens@2"
 				},
 				{
 					"command": "gitlens.views.addAuthors",
@@ -6033,6 +6107,16 @@
 					"command": "gitlens.views.remotes.setShowAvatarsOff",
 					"when": "view =~ /^gitlens\\.views\\.remotes/ && config.gitlens.views.remotes.avatars",
 					"group": "1_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.remotes.setShowBranchPullRequestOn",
+					"when": "view =~ /^gitlens\\.views\\.remotes/ && !config.gitlens.views.remotes.pullRequests.enabled && !config.gitlens.views.remotes.pullRequests.showForBranches",
+					"group": "1_gitlens@2"
+				},
+				{
+					"command": "gitlens.views.remotes.setShowBranchPullRequestOff",
+					"when": "view =~ /^gitlens\\.views\\.remotes/ && config.gitlens.views.remotes.pullRequests.enabled && config.gitlens.views.remotes.pullRequests.showForBranches",
+					"group": "1_gitlens@2"
 				},
 				{
 					"command": "gitlens.views.repositories.setFilesLayoutToList",
@@ -6223,12 +6307,12 @@
 				{
 					"command": "gitlens.views.setShowRelativeDateMarkersOn",
 					"when": "view =~ /^gitlens\\.views\\.(repositories|commits|fileHistory|branches|remotes|tags)/ && !config.gitlens.views.showRelativeDateMarkers",
-					"group": "1_gitlens@2"
+					"group": "1_gitlens@3"
 				},
 				{
 					"command": "gitlens.views.setShowRelativeDateMarkersOff",
 					"when": "view =~ /^gitlens\\.views\\.(repositories|commits|fileHistory|branches|remotes|tags)/ && config.gitlens.views.showRelativeDateMarkers",
-					"group": "1_gitlens@2"
+					"group": "1_gitlens@3"
 				},
 				{
 					"command": "gitlens.showSettingsPage#branches-view",

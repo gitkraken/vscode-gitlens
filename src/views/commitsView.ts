@@ -283,6 +283,16 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 			() => this.setShowBranchComparison(false),
 			this,
 		);
+		commands.registerCommand(
+			this.getQualifiedCommand('setShowBranchPullRequestOn'),
+			() => this.setShowBranchPullRequest(true),
+			this,
+		);
+		commands.registerCommand(
+			this.getQualifiedCommand('setShowBranchPullRequestOff'),
+			() => this.setShowBranchPullRequest(false),
+			this,
+		);
 	}
 
 	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
@@ -375,6 +385,12 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 		return configuration.updateEffective('views', this.configKey, 'files', 'layout', layout);
 	}
 
+	private setMyCommitsOnly(enabled: boolean) {
+		void setCommandContext(CommandContext.ViewsCommitsMyCommitsOnly, enabled);
+		this.state.myCommitsOnly = enabled;
+		void this.refresh(true);
+	}
+
 	private setShowAvatars(enabled: boolean) {
 		return configuration.updateEffective('views', this.configKey, 'avatars', enabled);
 	}
@@ -388,9 +404,8 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 		);
 	}
 
-	private setMyCommitsOnly(enabled: boolean) {
-		void setCommandContext(CommandContext.ViewsCommitsMyCommitsOnly, enabled);
-		this.state.myCommitsOnly = enabled;
-		void this.refresh(true);
+	private async setShowBranchPullRequest(enabled: boolean) {
+		await configuration.updateEffective('views', this.configKey, 'pullRequests', 'showForBranches', enabled);
+		await configuration.updateEffective('views', this.configKey, 'pullRequests', 'enabled', enabled);
 	}
 }
