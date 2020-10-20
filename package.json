@@ -2467,6 +2467,21 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.showBranchesView",
+				"title": "Show Branches View",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.showCommitsView",
+				"title": "Show Commits View",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.showContributorsView",
+				"title": "Show Contributors View",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.showFileHistoryView",
 				"title": "Show File History View",
 				"category": "GitLens"
@@ -2477,6 +2492,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.showRemotesView",
+				"title": "Show Remotes View",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.showRepositoriesView",
 				"title": "Show Repositories View",
 				"category": "GitLens"
@@ -2484,6 +2504,21 @@
 			{
 				"command": "gitlens.showSearchAndCompareView",
 				"title": "Show Search And Compare Commits View",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.showStashesView",
+				"title": "Show Stashes View",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.showTagsView",
+				"title": "Show Tags View",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.showWelcomeView",
+				"title": "Show Welcome View",
 				"category": "GitLens"
 			},
 			{
@@ -4206,6 +4241,18 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.showBranchesView",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.showCommitsView",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.showContributorsView",
+					"when": "gitlens:enabled"
+				},
+				{
 					"command": "gitlens.showFileHistoryView",
 					"when": "gitlens:enabled"
 				},
@@ -4214,11 +4261,27 @@
 					"when": "gitlens:enabled"
 				},
 				{
+					"command": "gitlens.showRemotesView",
+					"when": "gitlens:enabled"
+				},
+				{
 					"command": "gitlens.showRepositoriesView",
 					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.showSearchAndCompareView",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.showStashesView",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.showTagsView",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.showWelcomeView",
 					"when": "gitlens:enabled"
 				},
 				{
