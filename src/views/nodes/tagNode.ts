@@ -66,11 +66,7 @@ export class TagNode extends ViewRefNode<TagsView | RepositoriesView, GitTagRefe
 		const item = new TreeItem(this.label, TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ContextValues.Tag;
-		item.description = `${GitRevision.shorten(this.tag.sha, { force: true })}${Strings.pad(
-			GlyphChars.Dot,
-			2,
-			2,
-		)}${emojify(this.tag.message)}`;
+		item.description = emojify(this.tag.message);
 		item.tooltip = `${this.tag.name}${Strings.pad(GlyphChars.Dash, 2, 2)}${GitRevision.shorten(this.tag.sha, {
 			force: true,
 		})}\n${this.tag.formatDateFromNow()} (${this.tag.formatDate(TagDateFormatting.dateFormat)})\n\n${emojify(
