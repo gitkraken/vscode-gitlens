@@ -7757,7 +7757,7 @@
 					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/contributors.svg",
-					"visibility": "collapsed"
+					"visibility": "hidden"
 				},
 				{
 					"id": "gitlens.views.searchAndCompare",
@@ -7765,7 +7765,7 @@
 					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/search.svg",
-					"visibility": "collapsed"
+					"visibility": "hidden"
 				}
 			]
 		}
