@@ -107,7 +107,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Changes to allow autolinks inside parentheses and square brackets
 - Changes the default current line format to show the message before the author
 - Changes the default blame annotation format to show 50 characters (instead of 40)
-- Changes the comparision icons in GitLens views
+- Changes the comparison icons in GitLens views
 - Renames _Show Commit Details_ command to _Show Commit_
 - Renames _Show More_ command in views to _Load more_
 - Aligns many commit quick pick menu commands and commit context menu commands
@@ -148,7 +148,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes issues with folders that end with a space
 - Fixes typo in contributing search tag link &mdash; thanks to [PR #981](https://github.com/eamodio/vscode-gitlens/pull/981) by Guillem ([@guillemglez](https://github.com/guillemglez))
 - Fixes [#970](https://github.com/eamodio/vscode-gitlens/issues/970) - Stashes doesn't honor files layout
-- Fixes _Load more_ in GitLens views with range notation comparisions
+- Fixes _Load more_ in GitLens views with range notation comparisons
 - Fixes `ignoreCase` flag on autolinks
 - Fixes [#951](https://github.com/eamodio/vscode-gitlens/issues/951) - Starring branch updates repository view properly &mdash; thanks to [PR #963](https://github.com/eamodio/vscode-gitlens/pull/963) by Zeeshan Adnan ([@zeeshanadnan](https://github.com/zeeshanadnan))
 - Fixes issues with switch branch command error handling
