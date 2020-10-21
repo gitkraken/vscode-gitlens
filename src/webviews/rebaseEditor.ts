@@ -2,7 +2,6 @@
 import { TextDecoder } from 'util';
 import {
 	CancellationToken,
-	commands,
 	CustomTextEditorProvider,
 	Disposable,
 	Position,
@@ -18,6 +17,7 @@ import {
 import { ShowQuickCommitCommand } from '../commands';
 import { Container } from '../container';
 import { Logger } from '../logger';
+import { debug } from '../system';
 import {
 	Author,
 	Commit,
@@ -79,16 +79,20 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		this._disposable.dispose();
 	}
 
+	@debug<RebaseEditorProvider['resolveCustomTextEditor']>({
+		args: {
+			0: (document: TextDocument) =>
+				`TextDocument(${document.uri.fsPath}), version=${document.version}, content=${document.getText()}`,
+			1: _ => false,
+			2: _ => false,
+		},
+	})
 	async resolveCustomTextEditor(document: TextDocument, panel: WebviewPanel, _token: CancellationToken) {
-		const disposables: Disposable[] = [];
-
-		disposables.push(panel.onDidDispose(() => disposables.forEach(d => d.dispose())));
-
-		panel.webview.options = { enableCommandUris: true, enableScripts: true };
-
-		disposables.push(panel.webview.onDidReceiveMessage(e => this.onMessageReceived(document, panel, e)));
-
-		disposables.push(
+		const disposable = Disposable.from(
+			panel.onDidDispose(() => disposable.dispose()),
+			panel.webview.onDidReceiveMessage(e =>
+				this.onMessageReceived({ document: document, panel: panel, disposable: disposable }, e),
+			),
 			workspace.onDidChangeTextDocument(e => {
 				if (e.contentChanges.length === 0 || e.document.uri.toString() !== document.uri.toString()) return;
 
@@ -96,11 +100,22 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 			}),
 		);
 
+		panel.webview.options = { enableCommandUris: true, enableScripts: true };
 		panel.webview.html = await this.getHtml(panel.webview, document);
 	}
 
 	private parseEntries(contents: string): RebaseEntry[];
 	private parseEntries(document: TextDocument): RebaseEntry[];
+	@debug<RebaseEditorProvider['parseEntries']>({
+		args: {
+			0: (contentsOrDocument: string | TextDocument) =>
+				typeof contentsOrDocument === 'string'
+					? `contents=${contentsOrDocument}`
+					: `TextDocument(${contentsOrDocument.uri.fsPath}), version=${
+							contentsOrDocument.version
+					  }, contents=${contentsOrDocument.getText()}`,
+		},
+	})
 	private parseEntries(contentsOrDocument: string | TextDocument): RebaseEntry[] {
 		const contents = typeof contentsOrDocument === 'string' ? contentsOrDocument : contentsOrDocument.getText();
 
@@ -225,7 +240,10 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		}
 	}
 
-	private onMessageReceived(document: TextDocument, panel: WebviewPanel, e: IpcMessage) {
+	private onMessageReceived(
+		{ document, panel, disposable }: { document: TextDocument; panel: WebviewPanel; disposable: Disposable },
+		e: IpcMessage,
+	) {
 		switch (e.method) {
 			// case ReadyCommandType.method:
 			// 	onIpcCommand(ReadyCommandType, e, params => {
@@ -236,20 +254,26 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 			case RebaseDidStartCommandType.method:
 				onIpcCommand(RebaseDidStartCommandType, e, async _params => {
+					// Avoid triggering events by disposing them first
+					disposable.dispose();
+
 					await document.save();
-					await commands.executeCommand('workbench.action.closeActiveEditor');
+					panel.dispose();
 				});
 
 				break;
 
 			case RebaseDidAbortCommandType.method:
 				onIpcCommand(RebaseDidAbortCommandType, e, async _params => {
+					// Avoid triggering events by disposing them first
+					disposable.dispose();
+
 					// Delete the contents to abort the rebase
 					const edit = new WorkspaceEdit();
 					edit.replace(document.uri, new Range(0, 0, document.lineCount, 0), '');
 					await workspace.applyEdit(edit);
 					await document.save();
-					await commands.executeCommand('workbench.action.closeActiveEditor');
+					panel.dispose();
 				});
 
 				break;
@@ -395,20 +419,9 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		}
 	}
 
-	private _html: string | undefined;
 	private async getHtml(webview: Webview, document: TextDocument): Promise<string> {
 		const uri = Uri.joinPath(Container.context.extensionUri, 'dist', 'webviews', 'rebase.html');
-
-		let content;
-		// When we are debugging avoid any caching so that we can change the html and have it update without reloading
-		if (Logger.isDebugging) {
-			content = new TextDecoder('utf8').decode(await workspace.fs.readFile(uri));
-		} else {
-			if (this._html !== undefined) return this._html;
-
-			const doc = await workspace.openTextDocument(uri);
-			content = doc.getText();
-		}
+		const content = new TextDecoder('utf8').decode(await workspace.fs.readFile(uri));
 
 		let html = content
 			.replace(/#{cspSource}/g, webview.cspSource)
@@ -426,7 +439,6 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 			)};</script>`,
 		);
 
-		this._html = html;
 		return html;
 	}
 }
