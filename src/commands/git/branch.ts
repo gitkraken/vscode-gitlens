@@ -169,10 +169,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 
 			this.subcommand = state.subcommand;
 
-			context.title = getTitle(
-				state.subcommand === 'create' ? 'Branch from' : state.subcommand === 'delete' ? 'Branches' : this.title,
-				state.subcommand,
-			);
+			context.title = getTitle(state.subcommand === 'delete' ? 'Branches' : this.title, state.subcommand);
 
 			if (state.counter < 2 || state.repo == null || typeof state.repo === 'string') {
 				skippedStepTwo = false;
