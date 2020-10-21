@@ -6394,7 +6394,7 @@
 				},
 				{
 					"command": "gitlens.supportGitLens",
-					"when": "view =~ /^gitlens\\.views\\..*/",
+					"when": "view =~ /^gitlens\\.views\\.(?!welcome)/",
 					"group": "9_gitlens@-1"
 				}
 			],
@@ -7693,19 +7693,19 @@
 		"viewsWelcome": [
 			{
 				"view": "gitlens.views.welcome",
-				"contents": "GitLens is powerful and feature rich, while also highly customizable. You can use the GitLens Welcome experience to quickly customize GitLens to meet your needs. And for many more options, use the GitLens Interactive Settings.\n\n[Welcome (Quick Setup)](command:gitlens.showWelcomePage \"Opens GitLens Quick Setup\")\n\n[Open Settings](command:gitlens.showSettingsPage \"Opens GitLens Interactive Settings\")"
+				"contents": "GitLens 11 is powerful, feature rich, and highly customizable to meet your needs. You can use the GitLens Welcome experience to get setup quickly.\n\n[Welcome (Quick Setup)](command:gitlens.showWelcomePage \"Opens the GitLens Welcome (Quick Setup)\")\n\nFor more options, use the [GitLens: Open Settings](command:gitlens.showSettingsPage \"Opens the GitLens Interactive Settings\") command from the Command Palette, to open the interactive GitLens settings editor."
 			},
 			{
 				"view": "gitlens.views.welcome",
-				"contents": "You can also quickly switch between different side bar layouts for GitLens views to best match your workflow.\n\n[Change View Layout](command:gitlens.setViewsLayout \"Change GitLens Views Layout\")"
+				"contents": "You can also quickly switch between different side bar layouts for GitLens views to best match your workflow, via the [GitLens: Set Views Layout](command:gitlens.setViewsLayout \"Changes the GitLens Views Layout\") command from the Command Palette."
 			},
 			{
 				"view": "gitlens.views.welcome",
-				"contents": "And if you find GitLens useful, please consider sponsoring it.\n\n[Sponsor GitLens ❤](command:gitlens.supportGitLens \"Sponsor GitLens\")"
+				"contents": "And if you find GitLens useful, please consider sponsoring it.\n\n[Sponsor GitLens ❤](command:gitlens.supportGitLens)"
 			},
 			{
 				"view": "gitlens.views.welcome",
-				"contents": "Once you are satisfied, feel free to close this view.\n\n[Close Welcome View](command:gitlens.closeWelcomeView \"Close View\")"
+				"contents": "Once you are satisfied, feel free to [close this view](command:gitlens.closeWelcomeView \"Closes the Welcome view\")."
 			}
 		],
 		"views": {
