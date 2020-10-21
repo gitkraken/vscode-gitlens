@@ -112,32 +112,6 @@ export namespace QuickCommandButtons {
 		tooltip: 'Show Results in Side Bar',
 	};
 
-	export const ShowResultsToggle = class extends ToggleQuickInputButton {
-		constructor(on = false, onDidClick?: (quickInput: QuickInput) => void) {
-			super(
-				() => ({
-					on: {
-						tooltip: 'Show Results in Side Bar',
-						icon: {
-							dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-window.svg')),
-							light: Uri.file(Container.context.asAbsolutePath('images/light/icon-window.svg')),
-						},
-					},
-					off: {
-						tooltip: 'Show Results Here',
-						icon: {
-							dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-window-disabled.svg')),
-							light: Uri.file(Container.context.asAbsolutePath('images/light/icon-window-disabled.svg')),
-						},
-					},
-				}),
-				on,
-			);
-
-			this.onDidClick = onDidClick;
-		}
-	};
-
 	export const ShowTagsToggle = class extends SelectableQuickInputButton {
 		constructor(on = false) {
 			super('Show Tags', 'tag', on);
@@ -146,10 +120,6 @@ export namespace QuickCommandButtons {
 
 	export const WillConfirmForced: QuickInputButton = {
 		iconPath: new ThemeIcon('check'),
-		// iconPath: {
-		// 	dark: Uri.file(Container.context.asAbsolutePath('images/dark/icon-check.svg')),
-		// 	light: Uri.file(Container.context.asAbsolutePath('images/light/icon-check.svg')),
-		// },
 		tooltip: 'Will always confirm',
 	};
 

@@ -728,7 +728,7 @@ export async function* pickBranchOrTagStepMultiRepo<
 	return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
 }
 
-export function* pickCommitStep<
+export async function* pickCommitStep<
 	State extends PartialStepState & { repo: Repository },
 	Context extends { repos: Repository[]; title: string }
 >(
@@ -740,6 +740,7 @@ export function* pickCommitStep<
 		onDidLoadMore,
 		picked,
 		placeholder,
+		showInSideBarCommand,
 		showInSideBarButton: showInSideBar,
 		titleContext,
 	}: {
@@ -748,6 +749,7 @@ export function* pickCommitStep<
 		onDidLoadMore?: (log: GitLog | undefined) => void;
 		picked?: string | string[] | undefined;
 		placeholder: string | ((context: Context, log: GitLog | undefined) => string);
+		showInSideBarCommand?: CommandQuickPickItem;
 		showInSideBarButton?: {
 			button: QuickInputButton;
 			onDidClick: (items: Readonly<CommitQuickPickItem<GitLogCommit>[]>) => void;
@@ -771,14 +773,14 @@ export function* pickCommitStep<
 			  ];
 	}
 
-	const step = QuickCommand.createPickStep<CommitQuickPickItem>({
+	const step = QuickCommand.createPickStep<CommandQuickPickItem | CommitQuickPickItem>({
 		title: appendReposToTitle(`${context.title}${titleContext ?? ''}`, state, context),
 		placeholder: typeof placeholder === 'string' ? placeholder : placeholder(context, log),
 		ignoreFocusOut: ignoreFocusOut,
 		matchOnDescription: true,
 		matchOnDetail: true,
 		value: typeof picked === 'string' && log?.count === 0 ? picked : undefined,
-		items: getItems(log),
+		items: showInSideBarCommand != null ? [showInSideBarCommand, ...getItems(log)] : getItems(log),
 		onDidLoadMore: async quickpick => {
 			log = await log?.more?.(configuration.get('advanced', 'maxListItems'));
 			onDidLoadMore?.(log);
@@ -795,16 +797,20 @@ export function* pickCommitStep<
 		onDidClickButton: (quickpick, button) => {
 			if (log == null) return;
 
+			const items = quickpick.activeItems.filter<CommitQuickPickItem<GitLogCommit>>(
+				(i): i is CommitQuickPickItem<GitLogCommit> => !CommandQuickPickItem.is(i),
+			);
+
 			if (button === showInSideBar?.button) {
-				showInSideBar.onDidClick(quickpick.activeItems);
+				showInSideBar.onDidClick(items);
 
 				return;
 			}
 
-			if (quickpick.activeItems.length === 0 || log == null) return;
+			if (items.length === 0 || log == null) return;
 
 			if (button === QuickCommandButtons.RevealInSideBar) {
-				void GitActions.Commit.reveal(quickpick.activeItems[0].item, {
+				void GitActions.Commit.reveal(items[0].item, {
 					select: true,
 					focus: false,
 					expand: true,
@@ -816,10 +822,10 @@ export function* pickCommitStep<
 			if (button === QuickCommandButtons.SearchInSideBar) {
 				void Container.searchAndCompareView.search(
 					state.repo.path,
-					{ pattern: SearchPattern.fromCommit(quickpick.activeItems[0].item.ref) },
+					{ pattern: SearchPattern.fromCommit(items[0].item.ref) },
 					{
 						label: {
-							label: `for ${GitReference.toString(quickpick.activeItems[0].item, { icon: false })}`,
+							label: `for ${GitReference.toString(items[0].item, { icon: false })}`,
 						},
 						reveal: {
 							select: true,
@@ -834,14 +840,18 @@ export function* pickCommitStep<
 		onDidPressKey: async (quickpick, key) => {
 			if (quickpick.activeItems.length === 0) return;
 
+			const items = quickpick.activeItems.filter<CommitQuickPickItem<GitLogCommit>>(
+				(i): i is CommitQuickPickItem<GitLogCommit> => !CommandQuickPickItem.is(i),
+			);
+
 			if (key === 'ctrl+right') {
-				await GitActions.Commit.reveal(quickpick.activeItems[0].item, {
+				await GitActions.Commit.reveal(items[0].item, {
 					select: true,
 					focus: false,
 					expand: true,
 				});
 			} else {
-				const commit = quickpick.activeItems[0].item;
+				const commit = items[0].item;
 				await Container.searchAndCompareView.search(
 					commit.repoPath,
 					{ pattern: SearchPattern.fromCommit(commit) },
@@ -859,7 +869,16 @@ export function* pickCommitStep<
 		onValidateValue: getValidateGitReferenceFn(state.repo),
 	});
 	const selection: StepSelection<typeof step> = yield step;
-	return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
+	if (!QuickCommand.canPickStepContinue(step, state, selection)) return StepResult.Break;
+
+	if (CommandQuickPickItem.is(selection[0])) {
+		QuickCommand.endSteps(state);
+
+		await selection[0].execute();
+		return StepResult.Break;
+	}
+
+	return selection[0].item;
 }
 
 export function* pickCommitsStep<

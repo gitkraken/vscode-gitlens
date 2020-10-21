@@ -17,7 +17,7 @@ import {
 	StepSelection,
 	StepState,
 } from '../quickCommand';
-import { QuickPickItemOfT } from '../../quickpicks';
+import { ActionQuickPickItem, QuickPickItemOfT } from '../../quickpicks';
 import { Strings } from '../../system';
 
 interface Context {
@@ -105,7 +105,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 			state.matchRegex = cfg.matchRegex;
 		}
 		if (state.showResultsInSideBar == null) {
-			state.showResultsInSideBar = cfg.showResultsInSideBar;
+			state.showResultsInSideBar = cfg.showResultsInSideBar ?? undefined;
 		}
 
 		let skippedStepOne = false;
@@ -188,6 +188,23 @@ export class SearchGitCommand extends QuickCommand<State> {
 									number: log.hasMore ? `${log.count}+` : undefined,
 							  })} for ${state.pattern}`,
 					picked: context.commit?.ref,
+					showInSideBarCommand: new ActionQuickPickItem(
+						'$(link-external)  Show Results in Side Bar',
+						() =>
+							void Container.searchAndCompareView.search(
+								repoPath,
+								search,
+								{
+									label: { label: `for ${state.pattern}` },
+									reveal: {
+										select: true,
+										focus: false,
+										expand: true,
+									},
+								},
+								context.resultsPromise,
+							),
+					),
 					showInSideBarButton: {
 						button: QuickCommandButtons.ShowResultsInSideBar,
 						onDidClick: () =>
@@ -266,26 +283,12 @@ export class SearchGitCommand extends QuickCommand<State> {
 		const matchAllButton = new QuickCommandButtons.MatchAllToggle(state.matchAll);
 		const matchRegexButton = new QuickCommandButtons.MatchRegexToggle(state.matchRegex);
 
-		const additionalButtons = [matchCaseButton, matchAllButton, matchRegexButton];
-		if (!SearchResultsNode.is(state.showResultsInSideBar)) {
-			const showResultsToggleButton = new QuickCommandButtons.ShowResultsToggle(
-				state.showResultsInSideBar,
-				() => {
-					// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-					state.showResultsInSideBar = !state.showResultsInSideBar;
-					showResultsToggleButton.on = state.showResultsInSideBar;
-				},
-			);
-
-			additionalButtons.push(showResultsToggleButton);
-		}
-
 		const step = QuickCommand.createPickStep<QuickPickItemOfT<SearchOperators>>({
 			title: appendReposToTitle(context.title, state, context),
 			placeholder: 'e.g. "Updates dependencies" author:eamodio',
 			matchOnDescription: true,
 			matchOnDetail: true,
-			additionalButtons: additionalButtons,
+			additionalButtons: [matchCaseButton, matchAllButton, matchRegexButton],
 			items: items,
 			value: state.pattern,
 			onDidAccept: (quickpick): boolean => {

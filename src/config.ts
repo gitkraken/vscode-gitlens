@@ -52,7 +52,7 @@ export interface Config {
 			matchAll: boolean;
 			matchCase: boolean;
 			matchRegex: boolean;
-			showResultsInSideBar: boolean;
+			showResultsInSideBar: boolean | null;
 		};
 		skipConfirmations: string[];
 	};

@@ -145,13 +145,8 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 		if (this.pinned) return;
 
 		this._pinned = Date.now();
-		await this.view.updatePinned(this.getPinnableId(), {
-			type: 'comparison',
-			timestamp: this._pinned,
-			path: this.repoPath,
-			ref1: this._ref,
-			ref2: this._compareWith,
-		});
+		await this.updatePinned();
+
 		setImmediate(() => this.view.reveal(this, { focus: true, select: true }));
 	}
 
@@ -175,13 +170,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 		// If we were pinned, remove the existing pin and save a new one
 		if (this.pinned) {
 			await this.view.updatePinned(currentId);
-			await this.view.updatePinned(this.getPinnableId(), {
-				type: 'comparison',
-				timestamp: this._pinned,
-				path: this.repoPath,
-				ref1: this._ref,
-				ref2: this._compareWith,
-			});
+			await this.updatePinned();
 		}
 
 		this._children = undefined;
@@ -195,6 +184,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 
 		this._pinned = 0;
 		await this.view.updatePinned(this.getPinnableId());
+
 		setImmediate(() => this.view.reveal(this, { focus: true, select: true }));
 	}
 
@@ -283,5 +273,15 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 
 			return results as CommitsQueryResults;
 		};
+	}
+
+	private updatePinned() {
+		return this.view.updatePinned(this.getPinnableId(), {
+			type: 'comparison',
+			timestamp: this._pinned,
+			path: this.repoPath,
+			ref1: this._ref,
+			ref2: this._compareWith,
+		});
 	}
 }

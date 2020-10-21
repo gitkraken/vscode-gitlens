@@ -139,19 +139,6 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 			item.iconPath = new ThemeIcon('pinned');
 		}
 
-		// if (item.collapsibleState === TreeItemCollapsibleState.None) {
-		// 	const args: SearchCommitsCommandArgs = {
-		// 		search: this.search,
-		// 		prefillOnly: true,
-		// 		showResultsInSideBar: true,
-		// 	};
-		// 	item.command = {
-		// 		title: 'Search Commits',
-		// 		command: Commands.SearchCommitsInView,
-		// 		arguments: [args],
-		// 	};
-		// }
-
 		return item;
 	}
 
@@ -191,12 +178,22 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 			return;
 		}
 
+		// Save the current id so we can update it later
+		const currentId = this.getPinnableId();
+
 		this._search = search.pattern;
 		this._labels = search.labels;
 		this._searchQueryOrLog = search.log;
 		this._resultsNode = undefined;
 
+		// If we were pinned, remove the existing pin and save a new one
+		if (this.pinned) {
+			await this.view.updatePinned(currentId);
+			await this.updatePinned();
+		}
+
 		void this.triggerChange(false);
+		setImmediate(() => this.view.reveal(this, { expand: true, focus: true, select: true }));
 	}
 
 	@gate()
@@ -210,13 +207,8 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 		if (this.pinned) return;
 
 		this._pinned = Date.now();
-		await this.view.updatePinned(this.getPinnableId(), {
-			type: 'search',
-			timestamp: this._pinned,
-			path: this.repoPath,
-			labels: this._labels,
-			search: this.search,
-		});
+		await this.updatePinned();
+
 		setImmediate(() => this.view.reveal(this, { focus: true, select: true }));
 	}
 
@@ -226,6 +218,7 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 
 		this._pinned = 0;
 		await this.view.updatePinned(this.getPinnableId());
+
 		setImmediate(() => this.view.reveal(this, { focus: true, select: true }));
 	}
 
@@ -293,5 +286,15 @@ export class SearchResultsNode extends ViewNode<SearchAndCompareView> implements
 
 			return results;
 		};
+	}
+
+	private updatePinned() {
+		return this.view.updatePinned(this.getPinnableId(), {
+			type: 'search',
+			timestamp: this._pinned,
+			path: this.repoPath,
+			labels: this._labels,
+			search: this.search,
+		});
 	}
 }

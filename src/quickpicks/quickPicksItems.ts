@@ -160,6 +160,19 @@ export class CommandQuickPickItem<Arguments extends any[] = any[]> implements Qu
 	}
 }
 
+export class ActionQuickPickItem extends CommandQuickPickItem {
+	constructor(
+		labelOrItem: string | QuickPickItem,
+		private readonly action: (options?: { preserveFocus?: boolean; preview?: boolean }) => void | Promise<void>,
+	) {
+		super(labelOrItem, undefined, undefined);
+	}
+
+	async execute(options?: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
+		return this.action(options);
+	}
+}
+
 export type FlagsQuickPickItem<T> = QuickPickItemOfT<T[]>;
 export namespace FlagsQuickPickItem {
 	export function create<T>(flags: T[], item: T[], options: QuickPickItem) {

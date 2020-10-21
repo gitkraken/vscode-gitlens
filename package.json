@@ -599,9 +599,12 @@
 					"markdownDeprecationMessage": "Depreciated: This setting has been renamed to `#gitlens.gitCommands.search.showResultsInSideBar#`"
 				},
 				"gitlens.gitCommands.search.showResultsInSideBar": {
-					"type": "boolean",
-					"default": false,
-					"markdownDescription": "Specifies whether to show the commit search results in the Side Bar or within the quick pick menu",
+					"type": [
+						"boolean",
+						"null"
+					],
+					"default": null,
+					"markdownDescription": "Specifies whether to show the commit search results directly in the quick pick menu, in the Side Bar, or will be based on the context",
 					"scope": "window"
 				},
 				"gitlens.gitCommands.skipConfirmations": {
@@ -7200,12 +7203,12 @@
 				},
 				{
 					"command": "gitlens.views.searchAndCompare.edit",
-					"when": "viewItem == gitlens:search:results",
+					"when": "viewItem =~ /gitlens:search:results\\b/",
 					"group": "inline@1"
 				},
 				{
 					"command": "gitlens.views.searchAndCompare.edit",
-					"when": "viewItem == gitlens:search:results",
+					"when": "viewItem =~ /gitlens:search:results\\b/",
 					"group": "1_gitlens_actions@1"
 				},
 				{
