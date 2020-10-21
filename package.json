@@ -573,7 +573,7 @@
 				"gitlens.gitCommands.closeOnFocusOut": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to dismiss the Git Commands menu when focus is lost (if not, press `ESC` to dismiss)",
+					"markdownDescription": "Specifies whether to dismiss the _Git Command Palette_ when focus is lost (if not, press `ESC` to dismiss)",
 					"scope": "window"
 				},
 				"gitlens.gitCommands.search.matchAll": {
@@ -640,25 +640,25 @@
 						],
 						"enumDescriptions": [
 							"Skips branch create confirmations when run from a command, e.g. a view action",
-							"Skips branch create confirmations when run from the `Git Commands` menu",
+							"Skips branch create confirmations when run from the Git Command Palette",
 							"Skips co-author confirmations when run from a command, e.g. a view action",
-							"Skips co-author confirmations when run from the `Git Commands` menu",
+							"Skips co-author confirmations when run from the Git Command Palette",
 							"Skips fetch confirmations when run from a command, e.g. a view action",
-							"Skips fetch confirmations when run from the `Git Commands` menu",
+							"Skips fetch confirmations when run from the Git Command Palette",
 							"Skips pull confirmations when run from a command, e.g. a view action",
-							"Skips pull confirmations when run from the `Git Commands` menu",
+							"Skips pull confirmations when run from the Git Command Palette",
 							"Skips push confirmations when run from a command, e.g. a view action",
-							"Skips push confirmations when run from the `Git Commands` menu",
+							"Skips push confirmations when run from the Git Command Palette",
 							"Skips stash apply confirmations when run from a command, e.g. a view action",
-							"Skips stash apply confirmations when run from the `Git Commands` menu",
+							"Skips stash apply confirmations when run from the Git Command Palette",
 							"Skips stash pop confirmations when run from a command, e.g. a view action",
-							"Skips stash pop confirmations when run from the `Git Commands` menu",
+							"Skips stash pop confirmations when run from the Git Command Palette",
 							"Skips stash push confirmations when run from a command, e.g. a view action",
-							"Skips stash push confirmations when run from the `Git Commands` menu",
+							"Skips stash push confirmations when run from the Git Command Palette",
 							"Skips switch confirmations when run from a command, e.g. a view action",
-							"Skips switch confirmations when run from the `Git Commands` menu",
+							"Skips switch confirmations when run from the Git Command Palette",
 							"Skips tag create confirmations when run from a command, e.g. a view action",
-							"Skips tag create confirmations when run from the `Git Commands` menu"
+							"Skips tag create confirmations when run from the Git Command Palette"
 						]
 					},
 					"minItems": 0,
@@ -2745,7 +2745,7 @@
 			},
 			{
 				"command": "gitlens.gitCommands",
-				"title": "Git Commands",
+				"title": "Git Command Palette",
 				"category": "GitLens"
 			},
 			{

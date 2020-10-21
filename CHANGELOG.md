@@ -38,7 +38,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Provides indicators of local changes, if any, or recent commit changes, and distinguishes between added, changed, and removed lines
   - Similar to the built-in Git gutter changes for un-staged changes, but shows all local (un-pushed) changes
   - Shows a changes hover with the full set of changes (diff hunk) and even with unsaved changes
-- Adds new _Git Commands_
+- Adds new commands to the _Git Command Palette_
   - Adds a new _history_ (log) command to show the commit history of a branch or tag
     - Adds a _Reveal in Side Bar_ button to the quick pick menu toolbar
     - Adds keyboard navigation
@@ -91,12 +91,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Integrates the _Line History_ view into the _File History_ view, although the old _Line History_ view can be re-enabled by setting `"gitlens.views.lineHistory.enabled": true` or via the GitLens Interactive Settings
   - File vs Line History can be toggled via the _Toggle File/Line History_ command in the view's toolbar
   - Renames _Pause/Resume File Tracking_ toggle to be _Pin/Unpin the Current File History_
-- Overhauls the _Git Commands_ (`gitlens.gitCommands`) quick pick menus
+- Overhauls the newly renamed _Git Command Palette_ (`gitlens.gitCommands`) quick pick menus
   - Adds many more options
   - Adds improved titles for better clarity, context, and flow
   - Removes the _Keep Open_ toggle button to the quick pick menu toolbar &mdash; the behavior is now automatically determined (unless overridden by the `gitlens.gitCommands.closeOnFocusOut` setting)
 - Changes avatars in the blame file annotations to new be displayed as part of the annotations rather than in the gutter
-- Changes the _Git Commands' push_ command to honor and reflect the `git.useForcePushWithLease` setting
+- Changes the _Git Command Palette_'s _push_ command to honor and reflect the `git.useForcePushWithLease` setting
 - Changes to use VS Code's built-in icons (codicons) where possible &mdash; closes [#985](https://github.com/eamodio/vscode-gitlens/issues/985)
 - Changes all _Open \* on Remote_ command icons to use the _globe_ codicon
 - Changes to use codicons in hovers &mdash; closes [#954](https://github.com/eamodio/vscode-gitlens/issues/954)
@@ -125,10 +125,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
-- Fixes delete of remote branches on the _Git Commands' branch_ command
-- Fixes _Git Commands_ back tracking in certain cases
+- Fixes delete of remote branches on the _Git Command Palette_'s _branch_ command
+- Fixes _Git Command Palette_'s back tracking in certain cases
 - Fixes issue to ensure that dropping a stash drops the correct item even if the view is out of date
-- Fixes the _Push Stash & Keep Staged_ option on the _Git Commands' stash_ command
+- Fixes the _Push Stash & Keep Staged_ option on the _Git Command Palette_'s _stash_ command
 - Fixes issues with stashes and untracked files
 - Fixes the wrong icon on the _Unstage All Changes_ command
 - Fixes issue where a selection change wouldn't always trigger a Line History refresh
@@ -136,7 +136,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes _Incomplete string escaping or encoding_ code scan warning &mdash; https://github.com/eamodio/vscode-gitlens/security/code-scanning/1
 - Fixes _Inefficient regular expression_ code scan warning &mdash; https://github.com/eamodio/vscode-gitlens/security/code-scanning/2
 - Fixes [#1072](https://github.com/eamodio/vscode-gitlens/issues/1072) - Add whitespace to tree item tooltip &mdash; thanks to [PR #1073](https://github.com/eamodio/vscode-gitlens/pull/1073) by Alex ([@deadmeu](https://github.com/deadmeu))
-- Fixes _Git Commands' stash drop_ command not working
+- Fixes _Git Command Palette_'s _stash drop_ command not working
 - Fixes [#1033](https://github.com/eamodio/vscode-gitlens/issues/1033) - Adopt VS Code's 'asWebviewUri' API
 - Fixes issues with _Open Changes with Previous Revision_ and diff editors
 - Fixes issues with _Open Changes with Working File_ and diff editors
