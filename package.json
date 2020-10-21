@@ -5754,32 +5754,32 @@
 			"scm/resourceGroup/context": [
 				{
 					"command": "gitlens.stashSave",
-					"when": "gitlens:enabled && !gitlens:readonly && config.gitlens.menus.scmGroupInline.stash",
+					"when": "gitlens:enabled && !gitlens:readonly && config.gitlens.menus.scmGroupInline.stash && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/",
 					"group": "inline@-1"
 				},
 				{
 					"command": "gitlens.stashSave",
-					"when": "gitlens:enabled && !gitlens:readonly && config.gitlens.menus.scmGroup.stash",
+					"when": "gitlens:enabled && !gitlens:readonly && config.gitlens.menus.scmGroup.stash && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/",
 					"group": "1_modification@100"
 				},
 				{
 					"command": "gitlens.openChangedFiles",
-					"when": "gitlens:enabled && config.gitlens.menus.scmGroup.openClose",
+					"when": "gitlens:enabled && config.gitlens.menus.scmGroup.openClose && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/",
 					"group": "2_gitlens@1"
 				},
 				{
 					"command": "gitlens.closeUnchangedFiles",
-					"when": "gitlens:enabled && config.gitlens.menus.scmGroup.openClose",
+					"when": "gitlens:enabled && config.gitlens.menus.scmGroup.openClose && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/",
 					"group": "2_gitlens@2"
 				},
 				{
 					"command": "gitlens.externalDiffAll",
-					"when": "gitlens:enabled && config.gitlens.menus.scmGroup.compare",
+					"when": "gitlens:enabled && config.gitlens.menus.scmGroup.compare && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/",
 					"group": "3_gitlens@3"
 				},
 				{
 					"command": "gitlens.diffDirectoryWithHead",
-					"when": "gitlens:enabled && config.gitlens.menus.scmGroup.compare",
+					"when": "gitlens:enabled && config.gitlens.menus.scmGroup.compare && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/",
 					"group": "3_gitlens@4"
 				}
 			],
