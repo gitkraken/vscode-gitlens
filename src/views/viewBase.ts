@@ -182,6 +182,17 @@ export abstract class ViewBase<
 		}
 	}
 
+	private _message: string | undefined;
+	get message(): string | undefined {
+		return this._message;
+	}
+	set message(value: string | undefined) {
+		this._message = value;
+		if (this.tree != null) {
+			this.tree.message = value;
+		}
+	}
+
 	getQualifiedCommand(command: string) {
 		return `${this.id}.${command}`;
 	}

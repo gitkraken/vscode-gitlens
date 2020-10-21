@@ -14,7 +14,6 @@ import { GitReference, GitStashReference, Repository, RepositoryChange, Reposito
 import { GitUri } from '../git/gitUri';
 import {
 	ContextValues,
-	MessageNode,
 	RepositoryNode,
 	StashesNode,
 	StashNode,
@@ -111,7 +110,13 @@ export class StashesViewNode extends ViewNode<StashesView> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
 			const repositories = await Container.git.getOrderedRepositories();
-			if (repositories.length === 0) return [new MessageNode(this.view, this, 'No stashes could be found.')];
+			if (repositories.length === 0) {
+				this.view.message = 'No stashes could be found.';
+
+				return [];
+			}
+
+			this.view.message = undefined;
 
 			const splat = repositories.length === 1;
 			this.children = repositories.map(

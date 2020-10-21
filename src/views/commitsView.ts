@@ -24,7 +24,6 @@ import {
 	BranchNode,
 	BranchTrackingStatusNode,
 	ContextValues,
-	MessageNode,
 	RepositoryNode,
 	SubscribeableViewNode,
 	unknownGitUri,
@@ -50,7 +49,13 @@ export class CommitsRepositoryNode extends SubscribeableViewNode<CommitsView> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.child == null) {
 			const branch = await this.repo.getBranch();
-			if (branch == null) return [new MessageNode(this.view, this, 'No commits could be found.')];
+			if (branch == null) {
+				this.view.message = 'No commits could be found.';
+
+				return [];
+			}
+
+			this.view.message = undefined;
 
 			let authors;
 			if (this.view.state.myCommitsOnly) {
@@ -161,7 +166,13 @@ export class CommitsViewNode extends ViewNode<CommitsView> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
 			const repositories = await Container.git.getOrderedRepositories();
-			if (repositories.length === 0) return [new MessageNode(this.view, this, 'No commits could be found.')];
+			if (repositories.length === 0) {
+				this.view.message = 'No commits could be found.';
+
+				return [];
+			}
+
+			this.view.message = undefined;
 
 			const splat = repositories.length === 1;
 			this.children = repositories.map(

@@ -26,7 +26,6 @@ import {
 	BranchNode,
 	BranchOrTagFolderNode,
 	ContextValues,
-	MessageNode,
 	RemoteNode,
 	RemotesNode,
 	RepositoryNode,
@@ -127,7 +126,13 @@ export class RemotesViewNode extends ViewNode<RemotesView> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
 			const repositories = await Container.git.getOrderedRepositories();
-			if (repositories.length === 0) return [new MessageNode(this.view, this, 'No remotes could be found.')];
+			if (repositories.length === 0) {
+				this.view.message = 'No remotes could be found.';
+
+				return [];
+			}
+
+			this.view.message = undefined;
 
 			const splat = repositories.length === 1;
 			this.children = repositories.map(

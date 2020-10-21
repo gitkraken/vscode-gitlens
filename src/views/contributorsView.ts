@@ -8,7 +8,6 @@ import { GitUri } from '../git/gitUri';
 import {
 	ContextValues,
 	ContributorsNode,
-	MessageNode,
 	RepositoryNode,
 	SubscribeableViewNode,
 	unknownGitUri,
@@ -110,7 +109,13 @@ export class ContributorsViewNode extends ViewNode<ContributorsView> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
 			const repositories = await Container.git.getOrderedRepositories();
-			if (repositories.length === 0) return [new MessageNode(this.view, this, 'No contributors could be found.')];
+			if (repositories.length === 0) {
+				this.view.message = 'No contributors could be found.';
+
+				return [];
+			}
+
+			this.view.message = undefined;
 
 			const splat = repositories.length === 1;
 			this.children = repositories.map(

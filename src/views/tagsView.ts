@@ -12,15 +12,7 @@ import { configuration, TagsViewConfig, ViewBranchesLayout, ViewFilesLayout } fr
 import { Container } from '../container';
 import { GitReference, GitTagReference, Repository, RepositoryChange, RepositoryChangeEvent } from '../git/git';
 import { GitUri } from '../git/gitUri';
-import {
-	ContextValues,
-	MessageNode,
-	RepositoryNode,
-	SubscribeableViewNode,
-	TagsNode,
-	unknownGitUri,
-	ViewNode,
-} from './nodes';
+import { ContextValues, RepositoryNode, SubscribeableViewNode, TagsNode, unknownGitUri, ViewNode } from './nodes';
 import { debug, gate } from '../system';
 import { ViewBase } from './viewBase';
 import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
@@ -115,7 +107,13 @@ export class TagsViewNode extends ViewNode<TagsView> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.children == null) {
 			const repositories = await Container.git.getOrderedRepositories();
-			if (repositories.length === 0) return [new MessageNode(this.view, this, 'No tags could be found.')];
+			if (repositories.length === 0) {
+				this.view.message = 'No tags could be found.';
+
+				return [];
+			}
+
+			this.view.message = undefined;
 
 			const splat = repositories.length === 1;
 			this.children = repositories.map(

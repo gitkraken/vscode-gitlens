@@ -52,6 +52,14 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 	}
 
 	getChildren(): ViewNode[] {
+		if (this.children.length === 0) {
+			this.view.message = 'No search or comparison results could be found.';
+
+			return [];
+		}
+
+		this.view.message = undefined;
+
 		return this.children.sort((a, b) => (a.pinned ? -1 : 1) - (b.pinned ? -1 : 1) || b.order - a.order);
 	}
 
