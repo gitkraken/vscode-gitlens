@@ -32,6 +32,7 @@ export class SettingsWebview extends WebviewBase {
 				Commands.ShowSettingsPageAndJumpToSearchAndCompareView,
 				Commands.ShowSettingsPageAndJumpToStashesView,
 				Commands.ShowSettingsPageAndJumpToTagsView,
+				Commands.ShowSettingsPageAndJumpToViews,
 			].map(c => {
 				// The show and jump commands are structured to have a # separating the base command from the anchor
 				let anchor: string | undefined;

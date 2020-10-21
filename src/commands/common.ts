@@ -122,6 +122,7 @@ export enum Commands {
 	ShowSettingsPageAndJumpToSearchAndCompareView = 'gitlens.showSettingsPage#search-compare-view',
 	ShowSettingsPageAndJumpToStashesView = 'gitlens.showSettingsPage#stashes-view',
 	ShowSettingsPageAndJumpToTagsView = 'gitlens.showSettingsPage#tags-view',
+	ShowSettingsPageAndJumpToViews = 'gitlens.showSettingsPage#views',
 	ShowStashesView = 'gitlens.showStashesView',
 	ShowTagsView = 'gitlens.showTagsView',
 	ShowWelcomePage = 'gitlens.showWelcomePage',

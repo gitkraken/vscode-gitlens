@@ -2405,6 +2405,12 @@
 				"icon": "$(gear)"
 			},
 			{
+				"command": "gitlens.showSettingsPage#views",
+				"title": "Open Settings",
+				"category": "GitLens",
+				"icon": "$(gear)"
+			},
+			{
 				"command": "gitlens.showSettingsPage#branches-view",
 				"title": "Open Settings",
 				"category": "GitLens",
@@ -4233,6 +4239,10 @@
 		],
 		"menus": {
 			"commandPalette": [
+				{
+					"command": "gitlens.showSettingsPage#views",
+					"when": "false"
+				},
 				{
 					"command": "gitlens.showSettingsPage#branches-view",
 					"when": "false"
