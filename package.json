@@ -2086,10 +2086,10 @@
 						"tree"
 					],
 					"enumDescriptions": [
-						"Displays branches as a list",
-						"Displays branches as a tree when branch names contain slashes `/`"
+						"Displays tags as a list",
+						"Displays tags as a tree when tags names contain slashes `/`"
 					],
-					"markdownDescription": "Specifies how the _Tags_ view will display branches",
+					"markdownDescription": "Specifies how the _Tags_ view will display tags",
 					"scope": "window"
 				},
 				"gitlens.views.tags.files.compact": {
