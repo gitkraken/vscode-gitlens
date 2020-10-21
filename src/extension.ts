@@ -177,12 +177,18 @@ async function showWelcomeOrWhatsNew(version: string, previousVersion: string | 
 		return;
 	}
 
-	if (Container.config.showWhatsNewAfterUpgrades && major !== prevMajor) {
-		await Messages.showWhatsNewMessage(version);
-	}
+	if (major !== prevMajor) {
+		if (Container.config.showWhatsNewAfterUpgrades && Container.config.views.welcome.enabled) {
+			await commands.executeCommand(Commands.ShowWelcomeView);
+		}
 
-	// Show a views upgrade notification
-	if (major !== prevMajor && major === 11) {
-		await Messages.showViewsUpgradeMessage();
+		// if (Container.config.showWhatsNewAfterUpgrades) {
+		// 	await Messages.showWhatsNewMessage(version);
+		// }
+
+		// // Show a views upgrade notification
+		// if (major === 11) {
+		// 	await Messages.showViewsUpgradeMessage();
+		// }
 	}
 }

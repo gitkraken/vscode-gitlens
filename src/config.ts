@@ -439,6 +439,7 @@ interface ViewsConfigs {
 	searchAndCompare: SearchAndCompareViewConfig;
 	stashes: StashesViewConfig;
 	tags: TagsViewConfig;
+	updates: UpdatesViewConfig;
 	welcome: WelcomeViewConfig;
 }
 
@@ -553,6 +554,10 @@ export interface TagsViewConfig {
 		layout: ViewBranchesLayout;
 	};
 	files: ViewsFilesConfig;
+}
+
+export interface UpdatesViewConfig {
+	enabled: boolean;
 }
 
 export interface WelcomeViewConfig {

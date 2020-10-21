@@ -2120,6 +2120,12 @@
 					"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Tags_ view. Only applies when `#gitlens.views.tags.files.layout#` is set to `auto`",
 					"scope": "window"
 				},
+				"gitlens.views.updates.enabled": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to show the _Updates_ view",
+					"scope": "window"
+				},
 				"gitlens.views.welcome.enabled": {
 					"type": "boolean",
 					"default": true,
@@ -2529,6 +2535,12 @@
 				"command": "gitlens.showWelcomeView",
 				"title": "Show Welcome View",
 				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.closeUpdatesView",
+				"title": "Close",
+				"category": "GitLens",
+				"icon": "$(close)"
 			},
 			{
 				"command": "gitlens.closeWelcomeView",
@@ -4334,6 +4346,10 @@
 					"when": "gitlens:enabled"
 				},
 				{
+					"command": "gitlens.closeUpdatesView",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.closeWelcomeView",
 					"when": "false"
 				},
@@ -5812,6 +5828,11 @@
 			],
 			"view/title": [
 				{
+					"command": "gitlens.closeUpdatesView",
+					"when": "view == gitlens.views.updates",
+					"group": "navigation@1"
+				},
+				{
 					"command": "gitlens.closeWelcomeView",
 					"when": "view == gitlens.views.welcome",
 					"group": "navigation@1"
@@ -6394,7 +6415,7 @@
 				},
 				{
 					"command": "gitlens.supportGitLens",
-					"when": "view =~ /^gitlens\\.views\\.(?!welcome)/",
+					"when": "view =~ /^gitlens\\.views\\.(?!(welcome|updates))/",
 					"group": "9_gitlens@-1"
 				}
 			],
@@ -7706,10 +7727,41 @@
 			{
 				"view": "gitlens.views.welcome",
 				"contents": "Once you are satisfied, feel free to [close this view](command:gitlens.closeWelcomeView \"Closes the Welcome view\")."
+			},
+			{
+				"view": "gitlens.views.updates",
+				"contents": "[What's New in GitLens 11](https://gitlens.amod.io/#whats-new \"Opens the What's New page on the GitLens website\")\n\n[Sponsor GitLens ❤](command:gitlens.supportGitLens)\n\nSee the [release notes](https://github.com/eamodio/vscode-gitlens/blob/master/CHANGELOG.md \"Opens the Release Notes\") for the full set of changes."
+			},
+			{
+				"view": "gitlens.views.updates",
+				"contents": "VIEW CHANGES  (🧀 has been moved)"
+			},
+			{
+				"view": "gitlens.views.updates",
+				"contents": "All [GitLens views](command:gitlens.showSettingsPage%23views) have been moved to the Source Control side bar, by default. You can easily switch between different side bar layouts for GitLens views to best match your workflow, via the [GitLens: Set Views Layout](command:gitlens.setViewsLayout \"Changes the GitLens Views Layout\") command from the Command Palette."
+			},
+			{
+				"view": "gitlens.views.updates",
+				"contents": "The [Repositories](command:gitlens.showSettingsPage%23repositories-view) view has been superseded by many new views: [Commits](command:gitlens.showSettingsPage%23commits-view), [Branches](command:gitlens.showSettingsPage%23branches-view), [Remotes](command:gitlens.showSettingsPage%23remotes-view), [Stashes](command:gitlens.showSettingsPage%23stashes-view), [Tags](command:gitlens.showSettingsPage%23tags-view), and [Contributors](command:gitlens.showSettingsPage%23contributors-view). Although, if you want to continue using the Repositories view, you can [click here](command:gitlens.showRepositoriesView) to re-enable it."
+			},
+			{
+				"view": "gitlens.views.updates",
+				"contents": "The Line History view has been integrated directly into the [File History](command:gitlens.showSettingsPage%23file-history-view) view."
+			},
+			{
+				"view": "gitlens.views.updates",
+				"contents": "The Search Commits and Compare Commits views have been combined into a more powerful and user-friendly [Search & Compare](command:gitlens.showSettingsPage%23search-compare-view) view."
 			}
 		],
 		"views": {
 			"gitlens": [
+				{
+					"id": "gitlens.views.updates",
+					"name": "What's New in GitLens 11",
+					"when": "config.gitlens.views.updates.enabled",
+					"contextualTitle": "GitLens",
+					"icon": "images/gitlens-activitybar.svg"
+				},
 				{
 					"id": "gitlens.views.welcome",
 					"name": "Welcome",
