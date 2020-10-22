@@ -1,6 +1,6 @@
 'use strict';
 import { commands, Disposable } from 'vscode';
-import { CommandContext, extensionId, setCommandContext } from './constants';
+import { ContextKeys, extensionId, setContext } from './constants';
 import { Logger } from './logger';
 import { log } from './system';
 
@@ -84,7 +84,7 @@ export class KeyboardScope implements Disposable {
 		}
 
 		mapping[key] = undefined;
-		await setCommandContext(`${CommandContext.Key}:${key}`, false);
+		await setContext(`${ContextKeys.Key}:${key}`, false);
 	}
 
 	@log({
@@ -138,12 +138,12 @@ export class KeyboardScope implements Disposable {
 
 		mapping[key] = command;
 		if (!set) {
-			await setCommandContext(`${CommandContext.Key}:${key}`, true);
+			await setContext(`${ContextKeys.Key}:${key}`, true);
 		}
 	}
 
 	private async updateKeyCommandsContext(mapping: KeyMapping) {
-		await Promise.all(keys.map(key => setCommandContext(`${CommandContext.Key}:${key}`, Boolean(mapping?.[key]))));
+		await Promise.all(keys.map(key => setContext(`${ContextKeys.Key}:${key}`, Boolean(mapping?.[key]))));
 	}
 }
 

@@ -439,8 +439,6 @@ interface ViewsConfigs {
 	searchAndCompare: SearchAndCompareViewConfig;
 	stashes: StashesViewConfig;
 	tags: TagsViewConfig;
-	updates: UpdatesViewConfig;
-	welcome: WelcomeViewConfig;
 }
 
 export type ViewsConfigKeys = keyof ViewsConfigs;
@@ -554,14 +552,6 @@ export interface TagsViewConfig {
 		layout: ViewBranchesLayout;
 	};
 	files: ViewsFilesConfig;
-}
-
-export interface UpdatesViewConfig {
-	enabled: boolean;
-}
-
-export interface WelcomeViewConfig {
-	enabled: boolean;
 }
 
 export interface ViewsFilesConfig {

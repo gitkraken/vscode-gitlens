@@ -21,7 +21,7 @@ import {
 import { API as BuiltInGitApi, Repository as BuiltInGitRepository, GitExtension } from '../@types/git';
 import { resetAvatarCache } from '../avatars';
 import { BranchSorting, configuration, TagSorting } from '../configuration';
-import { CommandContext, DocumentSchemes, GlyphChars, setCommandContext } from '../constants';
+import { ContextKeys, DocumentSchemes, GlyphChars, setContext } from '../constants';
 import { Container } from '../container';
 import { LogCorrelationContext, Logger } from '../logger';
 import { Messages } from '../messages';
@@ -437,7 +437,7 @@ export class GitService implements Disposable {
 
 	private async updateContext(repositoryTree: TernarySearchTree<Repository>) {
 		const hasRepository = repositoryTree.any();
-		await setCommandContext(CommandContext.Enabled, hasRepository);
+		await setContext(ContextKeys.Enabled, hasRepository);
 
 		let hasRemotes = false;
 		let hasConnectedRemotes = false;
@@ -455,8 +455,8 @@ export class GitService implements Disposable {
 			}
 		}
 
-		await setCommandContext(CommandContext.HasRemotes, hasRemotes);
-		await setCommandContext(CommandContext.HasConnectedRemotes, hasConnectedRemotes);
+		await setContext(ContextKeys.HasRemotes, hasRemotes);
+		await setContext(ContextKeys.HasConnectedRemotes, hasConnectedRemotes);
 
 		// If we have no repositories setup a watcher in case one is initialized
 		if (!hasRepository) {

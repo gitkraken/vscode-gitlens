@@ -7,7 +7,7 @@ import {
 	TagSorting,
 	ViewFilesLayout,
 } from '../configuration';
-import { CommandContext, NamedRef, PinnedItem, PinnedItems, setCommandContext, WorkspaceState } from '../constants';
+import { ContextKeys, NamedRef, PinnedItem, PinnedItems, setContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
 import { GitLog, GitRevision, SearchPattern } from '../git/git';
 import { CompareResultsNode, ContextValues, SearchResultsNode, unknownGitUri, ViewNode } from './nodes';
@@ -219,7 +219,7 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 			ref: ref,
 		});
 		this.children.splice(0, 0, this.comparePicker);
-		void setCommandContext(CommandContext.ViewsCanCompare, true);
+		void setContext(ContextKeys.ViewsCanCompare, true);
 
 		await this.triggerChange();
 
@@ -237,7 +237,7 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 	}
 
 	private removeComparePicker(silent: boolean = false) {
-		void setCommandContext(CommandContext.ViewsCanCompare, false);
+		void setContext(ContextKeys.ViewsCanCompare, false);
 		if (this.comparePicker != null) {
 			const index = this.children.indexOf(this.comparePicker);
 			if (index !== -1) {
@@ -257,7 +257,7 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 	constructor() {
 		super('gitlens.views.searchAndCompare', 'Search & Compare');
 
-		void setCommandContext(CommandContext.ViewsSearchAndCompareKeepResults, this.keepResults);
+		void setContext(ContextKeys.ViewsSearchAndCompareKeepResults, this.keepResults);
 	}
 
 	getRoot() {
@@ -483,7 +483,7 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 
 	private setKeepResults(enabled: boolean) {
 		void Container.context.workspaceState.update(WorkspaceState.ViewsSearchAndCompareKeepResults, enabled);
-		void setCommandContext(CommandContext.ViewsSearchAndCompareKeepResults, enabled);
+		void setContext(ContextKeys.ViewsSearchAndCompareKeepResults, enabled);
 	}
 
 	private setShowAvatars(enabled: boolean) {

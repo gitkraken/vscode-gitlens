@@ -17,7 +17,7 @@ import {
 	workspace,
 } from 'vscode';
 import { configuration } from '../configuration';
-import { CommandContext, DocumentSchemes, isActiveDocument, isTextEditor, setCommandContext } from '../constants';
+import { ContextKeys, DocumentSchemes, isActiveDocument, isTextEditor, setContext } from '../constants';
 import { GitUri } from '../git/gitUri';
 import { Functions } from '../system';
 import { DocumentBlameStateChangeEvent, TrackedDocument } from './trackedDocument';
@@ -120,7 +120,7 @@ export class DocumentTracker<T> implements Disposable {
 			this._timer = setTimeout(() => {
 				this._timer = undefined;
 
-				void setCommandContext(CommandContext.ActiveFileStatus, undefined);
+				void setContext(ContextKeys.ActiveFileStatus, undefined);
 			}, 250);
 
 			return;

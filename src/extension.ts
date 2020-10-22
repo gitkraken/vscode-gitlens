@@ -3,7 +3,7 @@ import { commands, ExtensionContext, extensions, window, workspace } from 'vscod
 import { Commands, registerCommands } from './commands';
 import { ViewShowBranchComparison } from './config';
 import { configuration, Configuration } from './configuration';
-import { CommandContext, extensionQualifiedId, GlobalState, GlyphChars, setCommandContext } from './constants';
+import { ContextKeys, extensionQualifiedId, GlobalState, GlyphChars, setContext } from './constants';
 import { Container } from './container';
 import { Git, GitCommit } from './git/git';
 import { GitService } from './git/gitService';
@@ -17,7 +17,24 @@ export async function activate(context: ExtensionContext) {
 	const start = process.hrtime();
 
 	// Pretend we are enabled (until we know otherwise) and set the view contexts to reduce flashing on load
-	void setCommandContext(CommandContext.Enabled, true);
+	void setContext(ContextKeys.Enabled, true);
+
+	const previousVersion = context.globalState.get<string>(GlobalState.Version);
+
+	if (previousVersion == null) {
+		void context.globalState.update(GlobalState.WelcomeViewVisible, true);
+		void setContext(ContextKeys.ViewsWelcomeVisible, true);
+		void setContext(ContextKeys.ViewsUpdatesVisible, false);
+	} else {
+		void setContext(
+			ContextKeys.ViewsWelcomeVisible,
+			context.globalState.get(GlobalState.WelcomeViewVisible) ?? false,
+		);
+		void setContext(
+			ContextKeys.ViewsUpdatesVisible,
+			context.globalState.get(GlobalState.UpdatesViewVisible) !== false,
+		);
+	}
 
 	Logger.configure(context, configuration.get('outputLevel'), o => {
 		if (GitUri.is(o)) {
@@ -43,8 +60,8 @@ export async function activate(context: ExtensionContext) {
 	const enabled = workspace.getConfiguration('git', null).get<boolean>('enabled', true);
 	if (!enabled) {
 		Logger.log(`GitLens (v${gitlensVersion}) was NOT activated -- "git.enabled": false`);
-		void setCommandContext(CommandContext.Enabled, false);
-		void setCommandContext(CommandContext.Disabled, true);
+		void setContext(ContextKeys.Enabled, false);
+		void setContext(ContextKeys.Disabled, true);
 
 		void Messages.showGitDisabledErrorMessage();
 
@@ -55,14 +72,13 @@ export async function activate(context: ExtensionContext) {
 
 	const cfg = configuration.get();
 
-	const previousVersion = context.globalState.get<string>(GlobalState.Version);
 	await migrateSettings(context, previousVersion);
 
 	try {
 		await GitService.initialize();
 	} catch (ex) {
 		Logger.error(ex, `GitLens (v${gitlensVersion}) activate`);
-		void setCommandContext(CommandContext.Enabled, false);
+		void setContext(ContextKeys.Enabled, false);
 
 		const msg: string = ex?.message ?? '';
 		if (msg.includes('Unable to find git')) {
@@ -155,7 +171,7 @@ function notifyOnUnsupportedGitVersion(version: string) {
 }
 
 async function showWelcomeOrWhatsNew(version: string, previousVersion: string | undefined) {
-	if (previousVersion === undefined) {
+	if (previousVersion == null) {
 		Logger.log('GitLens first-time install');
 		await commands.executeCommand(Commands.ShowWelcomePage);
 
@@ -177,18 +193,7 @@ async function showWelcomeOrWhatsNew(version: string, previousVersion: string | 
 		return;
 	}
 
-	if (major !== prevMajor) {
-		if (Container.config.showWhatsNewAfterUpgrades && Container.config.views.welcome.enabled) {
-			await commands.executeCommand(Commands.ShowWelcomeView);
-		}
-
-		// if (Container.config.showWhatsNewAfterUpgrades) {
-		// 	await Messages.showWhatsNewMessage(version);
-		// }
-
-		// // Show a views upgrade notification
-		// if (major === 11) {
-		// 	await Messages.showViewsUpgradeMessage();
-		// }
+	if (major !== prevMajor && Container.config.showWhatsNewAfterUpgrades) {
+		await Messages.showWhatsNewMessage(version);
 	}
 }

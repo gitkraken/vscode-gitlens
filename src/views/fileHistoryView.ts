@@ -1,7 +1,7 @@
 'use strict';
 import { commands, ConfigurationChangeEvent } from 'vscode';
 import { configuration, FileHistoryViewConfig } from '../configuration';
-import { CommandContext, setCommandContext } from '../constants';
+import { ContextKeys, setContext } from '../constants';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
 import { FileHistoryTrackerNode, LineHistoryTrackerNode } from './nodes';
@@ -95,8 +95,8 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 	protected initialize(options: { showCollapseAll?: boolean } = {}) {
 		super.initialize(options);
 
-		void setCommandContext(CommandContext.ViewsFileHistoryEditorFollowing, this._followEditor);
-		void setCommandContext(CommandContext.ViewsFileHistoryCursorFollowing, this._followCursor);
+		void setContext(ContextKeys.ViewsFileHistoryEditorFollowing, this._followEditor);
+		void setContext(ContextKeys.ViewsFileHistoryCursorFollowing, this._followCursor);
 	}
 
 	async showHistoryForUri(uri: GitUri, baseRef?: string) {
@@ -117,7 +117,7 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 	private _followCursor: boolean = false;
 	private setCursorFollowing(enabled: boolean) {
 		this._followCursor = enabled;
-		void setCommandContext(CommandContext.ViewsFileHistoryCursorFollowing, enabled);
+		void setContext(ContextKeys.ViewsFileHistoryCursorFollowing, enabled);
 
 		this.title = this._followCursor ? 'Line History' : 'File History';
 
@@ -130,7 +130,7 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 	private _followEditor: boolean = true;
 	private setEditorFollowing(enabled: boolean) {
 		this._followEditor = enabled;
-		void setCommandContext(CommandContext.ViewsFileHistoryEditorFollowing, enabled);
+		void setContext(ContextKeys.ViewsFileHistoryEditorFollowing, enabled);
 		this.root?.setEditorFollowing(enabled);
 
 		if (this.description?.endsWith(pinnedSuffix)) {

@@ -26,7 +26,7 @@ import {
 	configuration,
 	FileAnnotationType,
 } from '../configuration';
-import { CommandContext, isTextEditor, setCommandContext } from '../constants';
+import { ContextKeys, isTextEditor, setContext } from '../constants';
 import { Container } from '../container';
 import { GutterBlameAnnotationProvider } from './gutterBlameAnnotationProvider';
 import { GutterChangesAnnotationProvider } from './gutterChangesAnnotationProvider';
@@ -238,10 +238,10 @@ export class FileAnnotationController implements Disposable {
 
 		const provider = this.getProvider(editor);
 		if (provider == null) {
-			void setCommandContext(CommandContext.AnnotationStatus, undefined);
+			void setContext(ContextKeys.AnnotationStatus, undefined);
 			void this.detachKeyboardHook();
 		} else {
-			void setCommandContext(CommandContext.AnnotationStatus, provider.status);
+			void setContext(ContextKeys.AnnotationStatus, provider.status);
 			void this.attachKeyboardHook();
 		}
 	}
@@ -385,7 +385,7 @@ export class FileAnnotationController implements Disposable {
 		const provider = await window.withProgress(
 			{ location: ProgressLocation.Window },
 			async (progress: Progress<{ message: string }>) => {
-				await setCommandContext(CommandContext.AnnotationStatus, AnnotationStatus.Computing);
+				await setContext(ContextKeys.AnnotationStatus, AnnotationStatus.Computing);
 
 				const computingAnnotations = this.showAnnotationsCore(
 					currentProvider,
@@ -397,7 +397,7 @@ export class FileAnnotationController implements Disposable {
 				const provider = await computingAnnotations;
 
 				if (editor === this._editor) {
-					await setCommandContext(CommandContext.AnnotationStatus, provider?.status);
+					await setContext(ContextKeys.AnnotationStatus, provider?.status);
 				}
 
 				return computingAnnotations;
@@ -465,7 +465,7 @@ export class FileAnnotationController implements Disposable {
 		provider.dispose();
 
 		if (this._annotationProviders.size === 0 || key === AnnotationProviderBase.getCorrelationKey(this._editor)) {
-			await setCommandContext(CommandContext.AnnotationStatus, undefined);
+			await setContext(ContextKeys.AnnotationStatus, undefined);
 			await this.detachKeyboardHook();
 		}
 

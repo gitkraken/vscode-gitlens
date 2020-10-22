@@ -1,6 +1,7 @@
 'use strict';
-import { configuration } from '../configuration';
 import { command, Command, CommandContext, Commands } from './common';
+import { ContextKeys, GlobalState, setContext } from '../constants';
+import { Container } from '../container';
 
 @command()
 export class CloseViewCommand extends Command {
@@ -15,10 +16,12 @@ export class CloseViewCommand extends Command {
 	async execute(command: Commands) {
 		switch (command) {
 			case Commands.CloseWelcomeView:
-				void (await configuration.updateEffective('views', 'welcome', 'enabled', false));
+				await Container.context.globalState.update(GlobalState.WelcomeViewVisible, false);
+				await setContext(ContextKeys.ViewsWelcomeVisible, false);
 				break;
 			case Commands.CloseUpdatesView:
-				void (await configuration.updateEffective('views', 'updates', 'enabled', false));
+				await Container.context.globalState.update(GlobalState.UpdatesViewVisible, false);
+				await setContext(ContextKeys.ViewsUpdatesVisible, false);
 				break;
 		}
 	}

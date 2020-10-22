@@ -1,6 +1,5 @@
 'use strict';
-import { commands, ConfigurationTarget, env, MessageItem, Uri, window } from 'vscode';
-import { Commands } from './commands';
+import { ConfigurationTarget, env, MessageItem, Uri, window } from 'vscode';
 import { configuration } from './configuration';
 import { GitCommit } from './git/git';
 import { Logger } from './logger';
@@ -95,21 +94,21 @@ export class Messages {
 		);
 	}
 
-	static async showViewsUpgradeMessage() {
-		const openSettings: MessageItem = { title: 'Open Settings' };
+	// static async showViewsUpgradeMessage() {
+	// 	const openSettings: MessageItem = { title: 'Open Settings' };
 
-		const result = await Messages.showMessage(
-			'info',
-			'GitLens 11 has replaced the Repositories view with many new views, and integrated the Line History view into the File History view. To re-enable either of these views, open the GitLens Interactive Settings.',
-			undefined,
-			null,
-			openSettings,
-		);
+	// 	const result = await Messages.showMessage(
+	// 		'info',
+	// 		'GitLens 11 has replaced the Repositories view with many new views, and integrated the Line History view into the File History view. To re-enable either of these views, open the GitLens Interactive Settings.',
+	// 		undefined,
+	// 		null,
+	// 		openSettings,
+	// 	);
 
-		if (result === openSettings) {
-			await commands.executeCommand(Commands.ShowSettingsPageAndJumpToRepositoriesView);
-		}
-	}
+	// 	if (result === openSettings) {
+	// 		await commands.executeCommand(Commands.ShowSettingsPageAndJumpToRepositoriesView);
+	// 	}
+	// }
 
 	static async showWhatsNewMessage(version: string) {
 		const actions: MessageItem[] = [{ title: "What's New" }, { title: 'Release Notes' }, { title: '❤' }];

@@ -1,6 +1,6 @@
 'use strict';
 import { Disposable, Event, EventEmitter, TextDocument, TextEditor, Uri } from 'vscode';
-import { CommandContext, getEditorIfActive, isActiveDocument, setCommandContext } from '../constants';
+import { ContextKeys, getEditorIfActive, isActiveDocument, setContext } from '../constants';
 import { Container } from '../container';
 import { GitRevision, Repository, RepositoryChange, RepositoryChangeEvent } from '../git/git';
 import { GitUri } from '../git/gitUri';
@@ -126,7 +126,7 @@ export class TrackedDocument<T> implements Disposable {
 	}
 
 	activate() {
-		void setCommandContext(CommandContext.ActiveFileStatus, this.getStatus());
+		void setContext(ContextKeys.ActiveFileStatus, this.getStatus());
 	}
 
 	async ensureInitialized() {
@@ -203,7 +203,7 @@ export class TrackedDocument<T> implements Disposable {
 		if (active !== undefined) {
 			const blameable = this.isBlameable;
 
-			void setCommandContext(CommandContext.ActiveFileStatus, this.getStatus());
+			void setContext(ContextKeys.ActiveFileStatus, this.getStatus());
 
 			if (!options.initializing && wasBlameable !== blameable) {
 				const e: DocumentBlameStateChangeEvent<T> = { editor: active, document: this, blameable: blameable };

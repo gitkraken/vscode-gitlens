@@ -9,7 +9,7 @@ import {
 	window,
 } from 'vscode';
 import { CommitsViewConfig, configuration, ViewFilesLayout, ViewShowBranchComparison } from '../configuration';
-import { CommandContext, GlyphChars, setCommandContext } from '../constants';
+import { ContextKeys, GlyphChars, setContext } from '../constants';
 import { Container } from '../container';
 import {
 	GitLogCommit,
@@ -397,7 +397,7 @@ export class CommitsView extends ViewBase<CommitsViewNode, CommitsViewConfig> {
 	}
 
 	private setMyCommitsOnly(enabled: boolean) {
-		void setCommandContext(CommandContext.ViewsCommitsMyCommitsOnly, enabled);
+		void setContext(ContextKeys.ViewsCommitsMyCommitsOnly, enabled);
 		this.state.myCommitsOnly = enabled;
 		void this.refresh(true);
 	}

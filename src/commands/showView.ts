@@ -1,8 +1,9 @@
 'use strict';
 import { commands } from 'vscode';
-import { configuration } from '../configuration';
-import { Container } from '../container';
 import { command, Command, CommandContext, Commands } from './common';
+import { configuration } from '../configuration';
+import { ContextKeys, GlobalState, setContext } from '../constants';
+import { Container } from '../container';
 
 @command()
 export class ShowViewCommand extends Command {
@@ -55,9 +56,8 @@ export class ShowViewCommand extends Command {
 			case Commands.ShowTagsView:
 				return Container.tagsView.show();
 			case Commands.ShowWelcomeView:
-				if (!Container.config.views.welcome.enabled) {
-					await configuration.updateEffective('views', 'welcome', 'enabled', true);
-				}
+				await setContext(ContextKeys.ViewsWelcomeVisible, true);
+				void Container.context.globalState.update(GlobalState.WelcomeViewVisible, true);
 				void (await commands.executeCommand('gitlens.views.welcome.focus'));
 		}
 

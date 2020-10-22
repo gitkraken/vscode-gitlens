@@ -2120,18 +2120,6 @@
 					"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Tags_ view. Only applies when `#gitlens.views.tags.files.layout#` is set to `auto`",
 					"scope": "window"
 				},
-				"gitlens.views.updates.enabled": {
-					"type": "boolean",
-					"default": true,
-					"markdownDescription": "Specifies whether to show the _Updates_ view",
-					"scope": "window"
-				},
-				"gitlens.views.welcome.enabled": {
-					"type": "boolean",
-					"default": true,
-					"markdownDescription": "Specifies whether to show the _Welcome_ view",
-					"scope": "window"
-				},
 				"gitlens.advanced.abbreviatedShaLength": {
 					"type": "number",
 					"default": "7",
@@ -7714,58 +7702,54 @@
 		"viewsWelcome": [
 			{
 				"view": "gitlens.views.welcome",
-				"contents": "GitLens 11 is powerful, feature rich, and highly customizable to meet your needs. You can use the GitLens Welcome experience to get setup quickly.\n\n[Welcome (Quick Setup)](command:gitlens.showWelcomePage \"Opens the GitLens Welcome (Quick Setup)\")\n\nFor more options, use the [GitLens: Open Settings](command:gitlens.showSettingsPage \"Opens the GitLens Interactive Settings\") command from the Command Palette, to open the interactive GitLens settings editor."
+				"contents": "GitLens 11 is powerful, feature rich, and highly customizable to meet your needs. You can use the GitLens Welcome experience to get setup quickly.\n\n[Welcome (Quick Setup)](command:gitlens.showWelcomePage \"Opens the GitLens Welcome (Quick Setup)\")\n\nFor more options, run [GitLens: Open Settings](command:gitlens.showSettingsPage \"Opens the GitLens Interactive Settings\") from the Command Palette to open the interactive GitLens settings editor."
 			},
 			{
 				"view": "gitlens.views.welcome",
-				"contents": "You can also quickly switch between different side bar layouts for GitLens views to best match your workflow, via the [GitLens: Set Views Layout](command:gitlens.setViewsLayout \"Changes the GitLens Views Layout\") command from the Command Palette."
+				"contents": "[GitLens views](command:gitlens.showSettingsPage%23views) are shown on the Source Control side bar, by default. Run [GitLens: Set Views Layout](command:gitlens.setViewsLayout \"Changes the GitLens Views Layout\") from the Command Palette to switch to an alternate side bar layout, or drag & drop them."
 			},
 			{
 				"view": "gitlens.views.welcome",
-				"contents": "And if you find GitLens useful, please consider sponsoring it.\n\n[Sponsor GitLens ❤](command:gitlens.supportGitLens)"
+				"contents": "[Sponsor GitLens ❤](command:gitlens.supportGitLens)\n\nIf you find GitLens useful, please consider sponsoring it."
 			},
 			{
 				"view": "gitlens.views.welcome",
-				"contents": "Once you are satisfied, feel free to [close this view](command:gitlens.closeWelcomeView \"Closes the Welcome view\")."
+				"contents": "[Close](command:gitlens.closeWelcomeView \"Closes the Welcome view\")"
 			},
 			{
 				"view": "gitlens.views.updates",
-				"contents": "[What's New in GitLens 11](https://gitlens.amod.io/#whats-new \"Opens the What's New page on the GitLens website\")\n\n[Sponsor GitLens ❤](command:gitlens.supportGitLens)\n\nSee the [release notes](https://github.com/eamodio/vscode-gitlens/blob/master/CHANGELOG.md \"Opens the Release Notes\") for the full set of changes."
+				"contents": "[GitLens views](command:gitlens.showSettingsPage%23views) have moved to the Source Control side bar.\nRun [GitLens: Set Views Layout](command:gitlens.setViewsLayout \"Changes the GitLens Views Layout\") from the Command Palette to switch to an alternate side bar layout, or drag & drop them."
 			},
 			{
 				"view": "gitlens.views.updates",
-				"contents": "VIEW CHANGES  (🧀 has been moved)"
+				"contents": "★ [Repositories](command:gitlens.showSettingsPage%23repositories-view) — replaced by [Commits](command:gitlens.showSettingsPage%23commits-view), [Branches](command:gitlens.showSettingsPage%23branches-view), [Remotes](command:gitlens.showSettingsPage%23remotes-view), [Stashes](command:gitlens.showSettingsPage%23stashes-view), [Tags](command:gitlens.showSettingsPage%23tags-view), and [Contributors](command:gitlens.showSettingsPage%23contributors-view) views. If you want it back, [click here](command:gitlens.showRepositoriesView)."
 			},
 			{
 				"view": "gitlens.views.updates",
-				"contents": "All [GitLens views](command:gitlens.showSettingsPage%23views) have been moved to the Source Control side bar, by default. You can easily switch between different side bar layouts for GitLens views to best match your workflow, via the [GitLens: Set Views Layout](command:gitlens.setViewsLayout \"Changes the GitLens Views Layout\") command from the Command Palette."
+				"contents": "★ [File History](command:gitlens.showSettingsPage%23file-history-view) — combines file and line history into a single view"
 			},
 			{
 				"view": "gitlens.views.updates",
-				"contents": "The [Repositories](command:gitlens.showSettingsPage%23repositories-view) view has been superseded by many new views: [Commits](command:gitlens.showSettingsPage%23commits-view), [Branches](command:gitlens.showSettingsPage%23branches-view), [Remotes](command:gitlens.showSettingsPage%23remotes-view), [Stashes](command:gitlens.showSettingsPage%23stashes-view), [Tags](command:gitlens.showSettingsPage%23tags-view), and [Contributors](command:gitlens.showSettingsPage%23contributors-view). Although, if you want to continue using the Repositories view, you can [click here](command:gitlens.showRepositoriesView) to re-enable it."
+				"contents": "★ [Search & Compare](command:gitlens.showSettingsPage%23search-compare-view) — combines Search Commits and Compare Commits into a single view"
 			},
 			{
 				"view": "gitlens.views.updates",
-				"contents": "The Line History view has been integrated directly into the [File History](command:gitlens.showSettingsPage%23file-history-view) view."
-			},
-			{
-				"view": "gitlens.views.updates",
-				"contents": "The Search Commits and Compare Commits views have been combined into a more powerful and user-friendly [Search & Compare](command:gitlens.showSettingsPage%23search-compare-view) view."
+				"contents": "[Close](command:gitlens.closeUpdatesView)"
 			}
 		],
 		"views": {
 			"gitlens": [
 				{
 					"id": "gitlens.views.updates",
-					"name": "What's New in GitLens 11",
-					"when": "config.gitlens.views.updates.enabled",
+					"name": "Where did my views go?",
+					"when": "gitlens:views:updates:visible != false",
 					"contextualTitle": "GitLens",
 					"icon": "images/gitlens-activitybar.svg"
 				},
 				{
 					"id": "gitlens.views.welcome",
 					"name": "Welcome",
-					"when": "config.gitlens.views.welcome.enabled",
+					"when": "gitlens:views:welcome:visible != false",
 					"contextualTitle": "GitLens",
 					"icon": "images/gitlens-activitybar.svg"
 				}

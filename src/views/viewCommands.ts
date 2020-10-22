@@ -12,7 +12,7 @@ import {
 	OpenFileOnRemoteCommandArgs,
 } from '../commands';
 import { configuration, FileAnnotationType, ViewShowBranchComparison } from '../configuration';
-import { BuiltInCommands, CommandContext, setCommandContext } from '../constants';
+import { BuiltInCommands, ContextKeys, setContext } from '../constants';
 import { Container } from '../container';
 import { GitReference, GitRevision } from '../git/git';
 import { GitUri } from '../git/gitUri';
@@ -633,7 +633,7 @@ export class ViewCommands {
 		const selected = this._selectedFile;
 
 		this._selectedFile = undefined;
-		void setCommandContext(CommandContext.ViewsCanCompareFile, false);
+		void setContext(ContextKeys.ViewsCanCompareFile, false);
 
 		return executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
 			repoPath: selected.repoPath,
@@ -659,7 +659,7 @@ export class ViewCommands {
 			repoPath: node.repoPath,
 			uri: node.uri,
 		};
-		void setCommandContext(CommandContext.ViewsCanCompareFile, true);
+		void setContext(ContextKeys.ViewsCanCompareFile, true);
 	}
 
 	@debug()

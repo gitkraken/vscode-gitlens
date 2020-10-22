@@ -1,7 +1,7 @@
 'use strict';
 import { Disposable, workspace } from 'vscode';
 import { getApi, LiveShare, Role, SessionChangeEvent } from 'vsls';
-import { CommandContext, DocumentSchemes, setCommandContext } from '../constants';
+import { ContextKeys, DocumentSchemes, setContext } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { VslsGuestService } from './guest';
@@ -63,7 +63,7 @@ export class VslsController implements Disposable {
 			this._api = getApi();
 			const api = await this._api;
 			if (api == null) {
-				void setCommandContext(CommandContext.Vsls, false);
+				void setContext(ContextKeys.Vsls, false);
 				// Tear it down if we can't talk to live share
 				if (this._onReady !== undefined) {
 					this._onReady();
@@ -73,7 +73,7 @@ export class VslsController implements Disposable {
 				return;
 			}
 
-			void setCommandContext(CommandContext.Vsls, true);
+			void setContext(ContextKeys.Vsls, true);
 
 			this._disposable = Disposable.from(
 				api.onDidChangeSession(e => this.onLiveShareSessionChanged(api, e), this),
@@ -93,7 +93,7 @@ export class VslsController implements Disposable {
 	}
 	private setReadonly(value: boolean) {
 		this._readonly = value;
-		void setCommandContext(CommandContext.Readonly, value ? true : undefined);
+		void setContext(ContextKeys.Readonly, value ? true : undefined);
 	}
 
 	@debug()
@@ -189,20 +189,20 @@ export class VslsController implements Disposable {
 		switch (e.session.role) {
 			case Role.Host:
 				this.setReadonly(false);
-				void setCommandContext(CommandContext.Vsls, 'host');
+				void setContext(ContextKeys.Vsls, 'host');
 				if (Container.config.liveshare.allowGuestAccess) {
 					this._host = await VslsHostService.share(api);
 				}
 				break;
 			case Role.Guest:
 				this.setReadonly(true);
-				void setCommandContext(CommandContext.Vsls, 'guest');
+				void setContext(ContextKeys.Vsls, 'guest');
 				this._guest = await VslsGuestService.connect(api);
 				break;
 
 			default:
 				this.setReadonly(false);
-				void setCommandContext(CommandContext.Vsls, true);
+				void setContext(ContextKeys.Vsls, true);
 				break;
 		}
 

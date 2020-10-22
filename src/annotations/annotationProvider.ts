@@ -11,7 +11,7 @@ import {
 	window,
 } from 'vscode';
 import { FileAnnotationType } from '../configuration';
-import { CommandContext, setCommandContext } from '../constants';
+import { ContextKeys, setContext } from '../constants';
 import { Logger } from '../logger';
 import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 
@@ -90,7 +90,7 @@ export abstract class AnnotationProviderBase implements Disposable {
 
 		this.status = AnnotationStatus.Computing;
 		if (editor === window.activeTextEditor) {
-			await setCommandContext(CommandContext.AnnotationStatus, this.status);
+			await setContext(ContextKeys.AnnotationStatus, this.status);
 		}
 
 		this.editor = editor;
@@ -105,7 +105,7 @@ export abstract class AnnotationProviderBase implements Disposable {
 
 		this.status = AnnotationStatus.Computed;
 		if (editor === window.activeTextEditor) {
-			await setCommandContext(CommandContext.AnnotationStatus, this.status);
+			await setContext(ContextKeys.AnnotationStatus, this.status);
 		}
 	}
 

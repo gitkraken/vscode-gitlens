@@ -31,7 +31,7 @@ export enum BuiltInCommands {
 	ShowReferences = 'editor.action.showReferences',
 }
 
-export enum CommandContext {
+export enum ContextKeys {
 	ActiveFileStatus = 'gitlens:activeFileStatus',
 	AnnotationStatus = 'gitlens:annotationStatus',
 	CanToggleCodeLens = 'gitlens:canToggleCodeLens',
@@ -49,10 +49,12 @@ export enum CommandContext {
 	ViewsLineHistoryEditorFollowing = 'gitlens:views:lineHistory:editorFollowing',
 	ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',
 	ViewsSearchAndCompareKeepResults = 'gitlens:views:searchAndCompare:keepResults',
+	ViewsUpdatesVisible = 'gitlens:views:updates:visible',
+	ViewsWelcomeVisible = 'gitlens:views:welcome:visible',
 	Vsls = 'gitlens:vsls',
 }
 
-export function setCommandContext(key: CommandContext | string, value: any) {
+export function setContext(key: ContextKeys | string, value: any) {
 	return commands.executeCommand(BuiltInCommands.SetContext, key, value);
 }
 
@@ -135,6 +137,8 @@ export enum GlobalState {
 	Avatars = 'gitlens:avatars',
 	DisallowConnectionPrefix = 'gitlens:disallow:connection:',
 	Version = 'gitlensVersion',
+	UpdatesViewVisible = 'gitlens:views:updates:visible',
+	WelcomeViewVisible = 'gitlens:views:welcome:visible',
 }
 
 export const ImageMimetypes: Record<string, string> = {

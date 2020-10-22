@@ -9,7 +9,7 @@ import {
 	window,
 } from 'vscode';
 import { configuration, RepositoriesViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../configuration';
-import { CommandContext, setCommandContext, WorkspaceState } from '../constants';
+import { ContextKeys, setContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
 import {
 	GitBranch,
@@ -530,7 +530,7 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 			}
 		}
 
-		void setCommandContext(CommandContext.ViewsRepositoriesAutoRefresh, enabled && workspaceEnabled);
+		void setContext(ContextKeys.ViewsRepositoriesAutoRefresh, enabled && workspaceEnabled);
 
 		this._onDidChangeAutoRefresh.fire();
 	}

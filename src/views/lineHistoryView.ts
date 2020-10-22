@@ -1,7 +1,7 @@
 'use strict';
 import { commands, ConfigurationChangeEvent } from 'vscode';
 import { configuration, LineHistoryViewConfig } from '../configuration';
-import { CommandContext, setCommandContext } from '../constants';
+import { ContextKeys, setContext } from '../constants';
 import { Container } from '../container';
 import { LineHistoryTrackerNode } from './nodes';
 import { ViewBase } from './viewBase';
@@ -61,7 +61,7 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistor
 
 	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (configuration.changed(e, 'views', this.configKey, 'enabled')) {
-			void setCommandContext(CommandContext.ViewsLineHistoryEditorFollowing, true);
+			void setContext(ContextKeys.ViewsLineHistoryEditorFollowing, true);
 		}
 
 		super.onConfigurationChanged(e);
@@ -72,7 +72,7 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistor
 	}
 
 	private setEditorFollowing(enabled: boolean) {
-		void setCommandContext(CommandContext.ViewsLineHistoryEditorFollowing, enabled);
+		void setContext(ContextKeys.ViewsLineHistoryEditorFollowing, enabled);
 		this.root?.setEditorFollowing(enabled);
 
 		if (this.description?.endsWith(pinnedSuffix)) {

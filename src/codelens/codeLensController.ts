@@ -1,7 +1,7 @@
 'use strict';
 import { ConfigurationChangeEvent, Disposable, languages } from 'vscode';
 import { configuration } from '../configuration';
-import { CommandContext, setCommandContext } from '../constants';
+import { ContextKeys, setContext } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import {
@@ -47,7 +47,7 @@ export class GitCodeLensController implements Disposable {
 			}
 
 			this._canToggle = cfg.recentChange.enabled || cfg.authors.enabled;
-			void setCommandContext(CommandContext.CanToggleCodeLens, this._canToggle);
+			void setContext(ContextKeys.CanToggleCodeLens, this._canToggle);
 		}
 	}
 
