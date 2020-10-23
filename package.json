@@ -5742,75 +5742,75 @@
 			"scm/resourceGroup/context": [
 				{
 					"command": "gitlens.stashSave",
-					"when": "gitlens:enabled && !gitlens:readonly && config.gitlens.menus.scmGroupInline.stash && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/",
+					"when": "gitlens:enabled && !gitlens:readonly && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmGroupInline.stash",
 					"group": "inline@-1"
 				},
 				{
 					"command": "gitlens.stashSave",
-					"when": "gitlens:enabled && !gitlens:readonly && config.gitlens.menus.scmGroup.stash && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/",
+					"when": "gitlens:enabled && !gitlens:readonly && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmGroup.stash",
 					"group": "1_modification@100"
 				},
 				{
 					"command": "gitlens.openChangedFiles",
-					"when": "gitlens:enabled && config.gitlens.menus.scmGroup.openClose && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/",
+					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmGroup.openClose",
 					"group": "2_gitlens@1"
 				},
 				{
 					"command": "gitlens.closeUnchangedFiles",
-					"when": "gitlens:enabled && config.gitlens.menus.scmGroup.openClose && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/",
+					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmGroup.openClose",
 					"group": "2_gitlens@2"
 				},
 				{
 					"command": "gitlens.externalDiffAll",
-					"when": "gitlens:enabled && config.gitlens.menus.scmGroup.compare && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/",
+					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmGroup.compare",
 					"group": "3_gitlens@3"
 				},
 				{
 					"command": "gitlens.diffDirectoryWithHead",
-					"when": "gitlens:enabled && config.gitlens.menus.scmGroup.compare && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/",
+					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmGroup.compare",
 					"group": "3_gitlens@4"
 				}
 			],
 			"scm/resourceState/context": [
 				{
 					"command": "gitlens.openFileInRemote",
-					"when": "gitlens:enabled && gitlens:hasRemotes && config.gitlens.menus.scmItem.remote",
+					"when": "gitlens:enabled && gitlens:hasRemotes && scmProvider == git && scmResourceGroup =~ /^(workingTree|index|merge)$/ && config.gitlens.menus.scmItem.remote",
 					"group": "navigation",
 					"alt": "gitlens.copyRemoteFileUrlToClipboard"
 				},
 				{
 					"command": "gitlens.externalDiff",
-					"when": "gitlens:enabled && config.gitlens.menus.scmItem.compare",
+					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index|merge)$/ && config.gitlens.menus.scmItem.compare",
 					"group": "navigation"
 				},
 				{
 					"command": "gitlens.diffWithRevision",
-					"when": "gitlens:enabled && config.gitlens.menus.scmItem.compare",
+					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index|merge)$/ && config.gitlens.menus.scmItem.compare",
 					"group": "1_gitlens@1"
 				},
 				{
 					"command": "gitlens.diffWithRevisionFrom",
-					"when": "gitlens:enabled && config.gitlens.menus.scmItem.compare",
+					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index|merge)$/ && config.gitlens.menus.scmItem.compare",
 					"group": "1_gitlens@2"
 				},
 				{
 					"command": "gitlens.showQuickFileHistory",
-					"when": "gitlens:enabled && config.gitlens.menus.scmItem.history",
+					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index|merge)$/ && config.gitlens.menus.scmItem.history",
 					"group": "1_gitlens_1@1"
 				},
 				{
 					"command": "gitlens.showFileHistoryInView",
-					"when": "gitlens:enabled && config.gitlens.menus.scmItem.history",
+					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index|merge)$/ && config.gitlens.menus.scmItem.history",
 					"group": "1_gitlens_1@2"
 				},
 				{
 					"command": "gitlens.stashSaveFiles",
-					"when": "gitlens:enabled && !gitlens:readonly && config.gitlens.menus.scmItem.stash",
+					"when": "gitlens:enabled && !gitlens:readonly && scmProvider == git && scmResourceGroup =~ /^(workingTree|index)$/ && config.gitlens.menus.scmItem.stash",
 					"group": "1_modification@-1"
 				},
 				{
 					"command": "gitlens.copyRemoteFileUrlToClipboard",
-					"when": "gitlens:enabled && gitlens:hasRemotes && config.gitlens.menus.scmItem.clipboard",
+					"when": "gitlens:enabled && gitlens:hasRemotes && scmProvider == git && scmResourceGroup =~ /^(workingTree|index|merge)$/ && config.gitlens.menus.scmItem.clipboard",
 					"group": "9_gitlens@1"
 				}
 			],
