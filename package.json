@@ -5814,6 +5814,14 @@
 					"group": "9_gitlens@1"
 				}
 			],
+			"timeline/item/context": [
+				{
+					"command": "gitlens.openCommitInRemote",
+					"when": "gitlens:enabled && gitlens:hasRemotes && timelineItem =~ /git:file:commit\\b/",
+					"group": "inline@99",
+					"alt": "gitlens.copyRemoteCommitUrl"
+				}
+			],
 			"view/title": [
 				{
 					"command": "gitlens.closeUpdatesView",

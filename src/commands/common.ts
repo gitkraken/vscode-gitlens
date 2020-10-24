@@ -4,12 +4,13 @@ import {
 	commands,
 	Disposable,
 	ExtensionContext,
-	SourceControl,
+	GitTimelineItem,
 	SourceControlResourceGroup,
 	SourceControlResourceState,
 	TextDocumentShowOptions,
 	TextEditor,
 	TextEditorEdit,
+	TimelineItem,
 	Uri,
 	ViewColumn,
 	window,
@@ -215,6 +216,12 @@ export interface CommandBaseContext {
 	uri?: Uri;
 }
 
+export interface CommandGitTimelineItemContext extends CommandBaseContext {
+	readonly type: 'timeline-item:git';
+	readonly item: GitTimelineItem;
+	readonly uri: Uri;
+}
+
 export interface CommandScmGroupsContext extends CommandBaseContext {
 	readonly type: 'scm-groups';
 	readonly scmResourceGroups: SourceControlResourceGroup[];
@@ -245,6 +252,10 @@ export interface CommandUrisContext extends CommandBaseContext {
 export interface CommandViewNodeContext extends CommandBaseContext {
 	readonly type: 'viewItem';
 	readonly node: ViewNode;
+}
+
+export function isCommandContextGitTimelineItem(context: CommandContext): context is CommandGitTimelineItemContext {
+	return context.type === 'timeline-item:git';
 }
 
 export function isCommandContextViewNodeHasBranch(
@@ -344,6 +355,7 @@ export function isCommandContextViewNodeHasTag(
 }
 
 export type CommandContext =
+	| CommandGitTimelineItemContext
 	| CommandScmGroupsContext
 	| CommandScmStatesContext
 	| CommandUnknownContext
@@ -367,6 +379,23 @@ function isScmResourceState(resource: any): resource is SourceControlResourceSta
 	if (resource == null) return false;
 
 	return (resource as SourceControlResourceState).resourceUri != null;
+}
+
+function isTimelineItem(item: any): item is TimelineItem {
+	if (item == null) return false;
+
+	return (item as TimelineItem).timestamp != null && (item as TimelineItem).label != null;
+}
+
+function isGitTimelineItem(item: any): item is GitTimelineItem {
+	if (item == null) return false;
+
+	return (
+		isTimelineItem(item) &&
+		(item as GitTimelineItem).ref != null &&
+		(item as GitTimelineItem).previousRef != null &&
+		(item as GitTimelineItem).message != null
+	);
 }
 
 export abstract class Command implements Disposable {
@@ -487,6 +516,11 @@ export abstract class Command implements Disposable {
 			}
 
 			return [{ command: command, type: 'scm-groups', scmResourceGroups: groups }, args.slice(count)];
+		}
+
+		if (isGitTimelineItem(firstArg)) {
+			const [item, uri, ...rest] = args as [GitTimelineItem, Uri, any];
+			return [{ command: command, type: 'timeline-item:git', item: item, uri: uri }, rest];
 		}
 
 		return [{ command: command, type: 'unknown', editor: editor, uri: editor?.document.uri }, args];

@@ -7,6 +7,7 @@ import {
 	Commands,
 	executeCommand,
 	getCommandUri,
+	isCommandContextGitTimelineItem,
 	isCommandContextViewNodeHasCommit,
 } from './common';
 import { Container } from '../container';
@@ -42,6 +43,11 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 
 			args = { ...args, sha: context.node.commit.sha };
 			uri = context.node.commit.isFile ? context.node.commit.uri : context.node.uri;
+		}
+
+		if (isCommandContextGitTimelineItem(context)) {
+			args = { sha: context.item.ref };
+			uri = context.uri;
 		}
 
 		if (context.command === Commands.CopyRemoteCommitUrl) {
