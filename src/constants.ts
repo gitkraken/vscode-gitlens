@@ -44,6 +44,7 @@ export enum ContextKeys {
 	ViewsCanCompare = 'gitlens:views:canCompare',
 	ViewsCanCompareFile = 'gitlens:views:canCompare:file',
 	ViewsCommitsMyCommitsOnly = 'gitlens:views:commits:myCommitsOnly',
+	ViewsFileHistoryCanPin = 'gitlens:views:fileHistory:canPin',
 	ViewsFileHistoryCursorFollowing = 'gitlens:views:fileHistory:cursorFollowing',
 	ViewsFileHistoryEditorFollowing = 'gitlens:views:fileHistory:editorFollowing',
 	ViewsLineHistoryEditorFollowing = 'gitlens:views:lineHistory:editorFollowing',

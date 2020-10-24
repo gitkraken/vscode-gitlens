@@ -101,14 +101,17 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 		return true;
 	}
 
-	async showHistoryForUri(uri: GitUri, baseRef?: string) {
+	async showHistoryForUri(uri: GitUri) {
 		this.setCursorFollowing(false);
-		this.setEditorFollowing(false);
 
 		const root = this.ensureRoot(true);
+
 		if (root instanceof FileHistoryTrackerNode) {
-			await root.showHistoryForUri(uri, baseRef);
+			await root.showHistoryForUri(uri);
+
+			this.setEditorFollowing(false);
 		}
+
 		return this.show();
 	}
 
@@ -129,17 +132,19 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 	}
 
 	private setEditorFollowing(enabled: boolean) {
+		const root = this.ensureRoot();
+		if (!root.hasUri) return;
+
 		this._followEditor = enabled;
 		void setContext(ContextKeys.ViewsFileHistoryEditorFollowing, enabled);
 
-		const root = this.ensureRoot(true);
 		root.setEditorFollowing(enabled);
 
 		if (this.description?.endsWith(pinnedSuffix)) {
 			if (enabled) {
 				this.description = this.description.substr(0, this.description.length - pinnedSuffix.length);
 			}
-		} else if (!enabled) {
+		} else if (!enabled && this.description != null) {
 			this.description += pinnedSuffix;
 		}
 

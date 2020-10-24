@@ -1,6 +1,5 @@
 'use strict';
 import { Selection, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import { MessageNode } from './common';
 import { UriComparer } from '../../comparers';
 import { BranchSorting, TagSorting } from '../../configuration';
 import { Container } from '../../container';
@@ -14,6 +13,7 @@ import { ReferencePicker } from '../../quickpicks';
 import { debug, Functions, gate, log } from '../../system';
 import { LinesChangeEvent } from '../../trackers/gitLineTracker';
 import { ContextValues, SubscribeableViewNode, unknownGitUri, ViewNode } from './viewNode';
+import { ContextKeys, setContext } from '../../constants';
 
 export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryView | FileHistoryView> {
 	private _base: string | undefined;
@@ -42,17 +42,14 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._child == null) {
-			if (this.uri === unknownGitUri) {
+			if (!this.hasUri) {
 				this.view.description = undefined;
 
-				return [
-					new MessageNode(
-						this.view,
-						this,
-						'There are no editors open that can provide line history information.',
-					),
-				];
+				this.view.message = 'There are no editors open that can provide line history information.';
+				return [];
 			}
+
+			this.view.message = undefined;
 
 			const commitish: GitCommitish = {
 				...this.uri,
@@ -90,6 +87,10 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 		return this.canSubscribe;
 	}
 
+	get hasUri(): boolean {
+		return this._uri != unknownGitUri;
+	}
+
 	@gate()
 	@log()
 	async changeBase() {
@@ -117,7 +118,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 		}
 		if (this._child == null) return;
 
-		this._uri = unknownGitUri;
+		this.setUri();
 		await this.triggerChange();
 	}
 
@@ -129,7 +130,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 		const cc = Logger.getCorrelationContext();
 
 		if (reset) {
-			this._uri = unknownGitUri;
+			this.setUri();
 			this._editorContents = undefined;
 			this._selection = undefined;
 			this.resetChild();
@@ -138,19 +139,19 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 		const editor = window.activeTextEditor;
 		if (editor == null || !Container.git.isTrackable(editor.document.uri)) {
 			if (
-				this.uri === unknownGitUri ||
+				!this.hasUri ||
 				(Container.git.isTrackable(this.uri) &&
 					window.visibleTextEditors.some(e => e.document?.uri.path === this.uri.path))
 			) {
 				return true;
 			}
 
-			this._uri = unknownGitUri;
+			this.setUri();
 			this._editorContents = undefined;
 			this._selection = undefined;
 			this.resetChild();
 
-			if (cc !== undefined) {
+			if (cc != null) {
 				cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
 			}
 			return false;
@@ -158,10 +159,10 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 
 		if (
 			editor.document.uri.path === this.uri.path &&
-			this._selection !== undefined &&
+			this._selection != null &&
 			editor.selection.isEqual(this._selection)
 		) {
-			if (cc !== undefined) {
+			if (cc != null) {
 				cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
 			}
 			return true;
@@ -170,20 +171,20 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 		const gitUri = await GitUri.fromUri(editor.document.uri);
 
 		if (
-			this.uri !== unknownGitUri &&
+			this.hasUri &&
 			UriComparer.equals(gitUri, this.uri) &&
-			this._selection !== undefined &&
+			this._selection != null &&
 			editor.selection.isEqual(this._selection)
 		) {
 			return true;
 		}
 
-		this._uri = gitUri;
+		this.setUri(gitUri);
 		this._editorContents = editor.document.isDirty ? editor.document.getText() : undefined;
 		this._selection = editor.selection;
 		this.resetChild();
 
-		if (cc !== undefined) {
+		if (cc != null) {
 			cc.exitDetails = `, uri=${Logger.toLoggable(this._uri)}`;
 		}
 		return false;
@@ -220,5 +221,10 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 	})
 	private onActiveLinesChanged(_e: LinesChangeEvent) {
 		void this.triggerChange();
+	}
+
+	private setUri(uri?: GitUri) {
+		this._uri = uri ?? unknownGitUri;
+		void setContext(ContextKeys.ViewsFileHistoryCanPin, this.hasUri);
 	}
 }

@@ -5971,12 +5971,12 @@
 				},
 				{
 					"command": "gitlens.views.fileHistory.setEditorFollowingOn",
-					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && !gitlens:views:fileHistory:editorFollowing",
+					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && gitlens:views:fileHistory:canPin && !gitlens:views:fileHistory:editorFollowing",
 					"group": "navigation@10"
 				},
 				{
 					"command": "gitlens.views.fileHistory.setEditorFollowingOff",
-					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && gitlens:views:fileHistory:editorFollowing",
+					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && gitlens:views:fileHistory:canPin && gitlens:views:fileHistory:editorFollowing",
 					"group": "navigation@10"
 				},
 				{
