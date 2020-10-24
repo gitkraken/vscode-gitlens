@@ -139,6 +139,7 @@ function getExtensionConfig(mode, env) {
 		},
 		devtool: 'source-map',
 		output: {
+			path: path.join(__dirname, 'dist'),
 			libraryTarget: 'commonjs2',
 			filename: 'gitlens.js',
 			chunkFilename: 'feature-[name].js',
@@ -188,15 +189,15 @@ function getExtensionConfig(mode, env) {
 			symlinks: false,
 		},
 		plugins: plugins,
-		// stats: {
-		// 	all: false,
-		// 	assets: true,
-		// 	builtAt: true,
-		// 	env: true,
-		// 	errors: true,
-		// 	timings: true,
-		// 	warnings: true,
-		// },
+		stats: {
+			preset: 'errors-warnings',
+			assets: true,
+			colors: true,
+			env: true,
+			errorsCount: true,
+			warningsCount: true,
+			timings: true,
+		},
 	};
 }
 
@@ -412,14 +413,14 @@ function getWebviewsConfig(mode, env) {
 			symlinks: false,
 		},
 		plugins: plugins,
-		// stats: {
-		// 	all: false,
-		// 	assets: true,
-		// 	builtAt: true,
-		// 	env: true,
-		// 	errors: true,
-		// 	timings: true,
-		// 	warnings: true,
-		// },
+		stats: {
+			preset: 'errors-warnings',
+			assets: true,
+			colors: true,
+			env: true,
+			errorsCount: true,
+			warningsCount: true,
+			timings: true,
+		},
 	};
 }
