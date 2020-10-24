@@ -5,8 +5,8 @@ import {
 	command,
 	CommandContext,
 	Commands,
-	isCommandViewContextWithCommit,
-	isCommandViewContextWithFileCommit,
+	isCommandContextViewNodeHasCommit,
+	isCommandContextViewNodeHasFileCommit,
 } from './common';
 import { Container } from '../container';
 import { PullRequestNode } from '../views/nodes/pullRequestNode';
@@ -31,7 +31,7 @@ export class OpenPullRequestOnRemoteCommand extends Command {
 					pr: { url: context.node.pullRequest.url },
 				};
 			}
-		} else if (isCommandViewContextWithCommit(context) || isCommandViewContextWithFileCommit(context)) {
+		} else if (isCommandContextViewNodeHasCommit(context) || isCommandContextViewNodeHasFileCommit(context)) {
 			args = { ...args, ref: context.node.commit.sha, repoPath: context.node.commit.repoPath };
 		}
 

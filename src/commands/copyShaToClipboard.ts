@@ -11,9 +11,9 @@ import {
 	CommandContext,
 	Commands,
 	getCommandUri,
-	isCommandViewContextWithBranch,
-	isCommandViewContextWithCommit,
-	isCommandViewContextWithTag,
+	isCommandContextViewNodeHasBranch,
+	isCommandContextViewNodeHasCommit,
+	isCommandContextViewNodeHasTag,
 } from './common';
 
 export interface CopyShaToClipboardCommandArgs {
@@ -27,15 +27,15 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 	}
 
 	protected preExecute(context: CommandContext, args?: CopyShaToClipboardCommandArgs) {
-		if (isCommandViewContextWithCommit(context)) {
+		if (isCommandContextViewNodeHasCommit(context)) {
 			args = { ...args };
 			args.sha = context.node.commit.sha;
 			return this.execute(context.editor, context.node.commit.uri, args);
-		} else if (isCommandViewContextWithBranch(context)) {
+		} else if (isCommandContextViewNodeHasBranch(context)) {
 			args = { ...args };
 			args.sha = context.node.branch.sha;
 			return this.execute(context.editor, context.node.uri, args);
-		} else if (isCommandViewContextWithTag(context)) {
+		} else if (isCommandContextViewNodeHasTag(context)) {
 			args = { ...args };
 			args.sha = context.node.tag.sha;
 			return this.execute(context.editor, context.node.uri, args);

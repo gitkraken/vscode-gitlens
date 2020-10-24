@@ -2,13 +2,13 @@
 import { Uri } from 'vscode';
 import { GitActions } from '../commands';
 import {
-	command,
 	Command,
+	command,
 	CommandContext,
 	Commands,
-	isCommandViewContextWithFile,
-	isCommandViewContextWithRepo,
-	isCommandViewContextWithRepoPath,
+	isCommandContextViewNodeHasFile,
+	isCommandContextViewNodeHasRepoPath,
+	isCommandContextViewNodeHasRepository,
 } from './common';
 import { Container } from '../container';
 import { GitUri } from '../git/gitUri';
@@ -33,14 +33,14 @@ export class StashSaveCommand extends Command {
 	}
 
 	protected async preExecute(context: CommandContext, args?: StashSaveCommandArgs) {
-		if (isCommandViewContextWithFile(context)) {
+		if (isCommandContextViewNodeHasFile(context)) {
 			args = { ...args };
 			args.repoPath = context.node.file.repoPath ?? context.node.repoPath;
 			args.uris = [GitUri.fromFile(context.node.file, args.repoPath)];
-		} else if (isCommandViewContextWithRepo(context)) {
+		} else if (isCommandContextViewNodeHasRepository(context)) {
 			args = { ...args };
 			args.repoPath = context.node.repo.path;
-		} else if (isCommandViewContextWithRepoPath(context)) {
+		} else if (isCommandContextViewNodeHasRepoPath(context)) {
 			args = { ...args };
 			args.repoPath = context.node.repoPath;
 		} else if (context.type === 'scm-states') {

@@ -1,6 +1,6 @@
 'use strict';
 import { GitCommit, GitRemote } from '../git/git';
-import { command, Command, CommandContext, Commands, isCommandViewContextWithRemote } from './common';
+import { command, Command, CommandContext, Commands, isCommandContextViewNodeHasRemote } from './common';
 import { Container } from '../container';
 
 export interface ConnectRemoteProviderCommandArgs {
@@ -31,7 +31,7 @@ export class ConnectRemoteProviderCommand extends Command {
 	}
 
 	protected preExecute(context: CommandContext, args?: ConnectRemoteProviderCommandArgs) {
-		if (isCommandViewContextWithRemote(context)) {
+		if (isCommandContextViewNodeHasRemote(context)) {
 			args = { ...args, remote: context.node.remote.id, repoPath: context.node.remote.repoPath };
 		}
 
@@ -84,7 +84,7 @@ export class DisconnectRemoteProviderCommand extends Command {
 	}
 
 	protected preExecute(context: CommandContext, args?: ConnectRemoteProviderCommandArgs) {
-		if (isCommandViewContextWithRemote(context)) {
+		if (isCommandContextViewNodeHasRemote(context)) {
 			args = { ...args, remote: context.node.remote.id, repoPath: context.node.remote.repoPath };
 		}
 

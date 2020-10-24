@@ -8,7 +8,7 @@ import {
 	executeCommand,
 	getCommandUri,
 	getRepoPathOrActiveOrPrompt,
-	isCommandViewContextWithRemote,
+	isCommandContextViewNodeHasRemote,
 } from './common';
 import { RemoteResourceType } from '../git/git';
 import { GitUri } from '../git/gitUri';
@@ -27,7 +27,7 @@ export class OpenRepoOnRemoteCommand extends ActiveEditorCommand {
 	}
 
 	protected preExecute(context: CommandContext, args?: OpenRepoOnRemoteCommandArgs) {
-		if (isCommandViewContextWithRemote(context)) {
+		if (isCommandContextViewNodeHasRemote(context)) {
 			args = { ...args, remote: context.node.remote.name };
 		}
 

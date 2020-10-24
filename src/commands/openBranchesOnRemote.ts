@@ -11,7 +11,7 @@ import {
 	executeCommand,
 	getCommandUri,
 	getRepoPathOrActiveOrPrompt,
-	isCommandViewContextWithRemote,
+	isCommandContextViewNodeHasRemote,
 } from './common';
 import { OpenOnRemoteCommandArgs } from './openOnRemote';
 
@@ -27,7 +27,7 @@ export class OpenBranchesOnRemoteCommand extends ActiveEditorCommand {
 	}
 
 	protected preExecute(context: CommandContext, args?: OpenBranchesOnRemoteCommandArgs) {
-		if (isCommandViewContextWithRemote(context)) {
+		if (isCommandContextViewNodeHasRemote(context)) {
 			args = { ...args, remote: context.node.remote.name };
 		}
 

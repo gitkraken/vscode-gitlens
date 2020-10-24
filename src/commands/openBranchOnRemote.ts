@@ -8,7 +8,7 @@ import {
 	executeCommand,
 	getCommandUri,
 	getRepoPathOrActiveOrPrompt,
-	isCommandViewContextWithBranch,
+	isCommandContextViewNodeHasBranch,
 } from './common';
 import { BranchSorting } from '../configuration';
 import { RemoteResourceType } from '../git/git';
@@ -30,7 +30,7 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 	}
 
 	protected preExecute(context: CommandContext, args?: OpenBranchOnRemoteCommandArgs) {
-		if (isCommandViewContextWithBranch(context)) {
+		if (isCommandContextViewNodeHasBranch(context)) {
 			args = {
 				...args,
 				branch: context.node.branch.name,

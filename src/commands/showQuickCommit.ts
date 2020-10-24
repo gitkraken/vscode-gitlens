@@ -6,7 +6,7 @@ import {
 	CommandContext,
 	Commands,
 	getCommandUri,
-	isCommandViewContextWithCommit,
+	isCommandContextViewNodeHasCommit,
 } from './common';
 import { Container } from '../container';
 import { GitCommit, GitLog, GitLogCommit } from '../git/git';
@@ -46,7 +46,7 @@ export class ShowQuickCommitCommand extends ActiveEditorCachedCommand {
 			args = { ...args };
 			args.sha = context.node.uri.sha;
 
-			if (isCommandViewContextWithCommit(context)) {
+			if (isCommandContextViewNodeHasCommit(context)) {
 				args.commit = context.node.commit;
 			}
 		}

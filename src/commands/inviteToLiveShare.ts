@@ -1,5 +1,5 @@
 'use strict';
-import { command, Command, CommandContext, Commands, isCommandViewContextWithContributor } from './common';
+import { command, Command, CommandContext, Commands, isCommandContextViewNodeHasContributor } from './common';
 import { Container } from '../container';
 
 export interface InviteToLiveShareCommandArgs {
@@ -21,7 +21,7 @@ export class InviteToLiveShareCommand extends Command {
 	}
 
 	protected preExecute(context: CommandContext, args?: InviteToLiveShareCommandArgs) {
-		if (isCommandViewContextWithContributor(context)) {
+		if (isCommandContextViewNodeHasContributor(context)) {
 			args = { ...args };
 			args.email = context.node.contributor.email;
 			return this.execute(args);

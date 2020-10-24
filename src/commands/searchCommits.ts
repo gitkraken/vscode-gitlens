@@ -1,6 +1,6 @@
 'use strict';
 import { executeGitCommand } from '../commands';
-import { Command, command, CommandContext, Commands, isCommandViewContextWithRepo } from './common';
+import { Command, command, CommandContext, Commands, isCommandContextViewNodeHasRepository } from './common';
 import { Container } from '../container';
 import { SearchPattern } from '../git/git';
 import { SearchResultsNode } from '../views/nodes';
@@ -31,7 +31,7 @@ export class SearchCommitsCommand extends Command {
 				args.prefillOnly = true;
 			}
 
-			if (isCommandViewContextWithRepo(context)) {
+			if (isCommandContextViewNodeHasRepository(context)) {
 				args.repoPath = context.node.repo.path;
 			}
 		} else if (context.command === Commands.SearchCommitsInView) {

@@ -7,7 +7,7 @@ import {
 	Commands,
 	executeCommand,
 	getCommandUri,
-	isCommandViewContextWithCommit,
+	isCommandContextViewNodeHasCommit,
 } from './common';
 import { Container } from '../container';
 import { RemoteResourceType } from '../git/git';
@@ -37,7 +37,7 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 	protected preExecute(context: CommandContext, args?: OpenCommitOnRemoteCommandArgs) {
 		let uri = context.uri;
 
-		if (isCommandViewContextWithCommit(context)) {
+		if (isCommandContextViewNodeHasCommit(context)) {
 			if (context.node.commit.isUncommitted) return Promise.resolve(undefined);
 
 			args = { ...args, sha: context.node.commit.sha };

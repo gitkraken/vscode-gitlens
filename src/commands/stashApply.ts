@@ -5,8 +5,8 @@ import {
 	Command,
 	CommandContext,
 	Commands,
-	isCommandViewContextWithCommit,
-	isCommandViewContextWithRepo,
+	isCommandContextViewNodeHasCommit,
+	isCommandContextViewNodeHasRepository,
 } from './common';
 import { GitStashCommit, GitStashReference } from '../git/git';
 import { CommandQuickPickItem } from '../quickpicks';
@@ -26,9 +26,9 @@ export class StashApplyCommand extends Command {
 	}
 
 	protected preExecute(context: CommandContext, args?: StashApplyCommandArgs) {
-		if (isCommandViewContextWithCommit<GitStashCommit>(context)) {
+		if (isCommandContextViewNodeHasCommit<GitStashCommit>(context)) {
 			args = { ...args, stashItem: context.node.commit };
-		} else if (isCommandViewContextWithRepo(context)) {
+		} else if (isCommandContextViewNodeHasRepository(context)) {
 			args = { ...args, repoPath: context.node.repo.path };
 		}
 

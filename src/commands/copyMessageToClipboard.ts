@@ -11,7 +11,7 @@ import {
 	CommandContext,
 	Commands,
 	getCommandUri,
-	isCommandViewContextWithCommit,
+	isCommandContextViewNodeHasCommit,
 } from './common';
 
 export interface CopyMessageToClipboardCommandArgs {
@@ -26,7 +26,7 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 	}
 
 	protected preExecute(context: CommandContext, args?: CopyMessageToClipboardCommandArgs) {
-		if (isCommandViewContextWithCommit(context)) {
+		if (isCommandContextViewNodeHasCommit(context)) {
 			args = { ...args };
 			args.sha = context.node.commit.sha;
 			return this.execute(context.editor, context.node.commit.uri, args);

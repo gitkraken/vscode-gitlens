@@ -6,8 +6,8 @@ import {
 	CommandContext,
 	Commands,
 	getRepoPathOrPrompt,
-	isCommandViewContextWithFileCommit,
-	isCommandViewContextWithFileRefs,
+	isCommandContextViewNodeHasFileCommit,
+	isCommandContextViewNodeHasFileRefs,
 } from './common';
 import { Container } from '../container';
 import { GitRevision } from '../git/git';
@@ -68,7 +68,7 @@ export class ExternalDiffCommand extends Command {
 	protected async preExecute(context: CommandContext, args?: ExternalDiffCommandArgs) {
 		args = { ...args };
 
-		if (isCommandViewContextWithFileCommit(context)) {
+		if (isCommandContextViewNodeHasFileCommit(context)) {
 			const ref1 = GitRevision.isUncommitted(context.node.commit.previousFileSha)
 				? ''
 				: context.node.commit.previousFileSha;
@@ -86,7 +86,7 @@ export class ExternalDiffCommand extends Command {
 			return this.execute(args);
 		}
 
-		if (isCommandViewContextWithFileRefs(context)) {
+		if (isCommandContextViewNodeHasFileRefs(context)) {
 			args.files = [
 				{
 					uri: GitUri.fromFile(context.node.file, context.node.file.repoPath ?? context.node.repoPath),

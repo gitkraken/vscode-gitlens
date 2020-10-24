@@ -216,82 +216,82 @@ export interface CommandBaseContext {
 }
 
 export interface CommandScmGroupsContext extends CommandBaseContext {
-	type: 'scm-groups';
-	scmResourceGroups: SourceControlResourceGroup[];
+	readonly type: 'scm-groups';
+	readonly scmResourceGroups: SourceControlResourceGroup[];
 }
 
 export interface CommandScmStatesContext extends CommandBaseContext {
-	type: 'scm-states';
-	scmResourceStates: SourceControlResourceState[];
+	readonly type: 'scm-states';
+	readonly scmResourceStates: SourceControlResourceState[];
 }
 
 export interface CommandUnknownContext extends CommandBaseContext {
-	type: 'unknown';
+	readonly type: 'unknown';
 }
 
 export interface CommandUriContext extends CommandBaseContext {
-	type: 'uri';
+	readonly type: 'uri';
 }
 
 export interface CommandUrisContext extends CommandBaseContext {
-	type: 'uris';
-	uris: Uri[];
+	readonly type: 'uris';
+	readonly uris: Uri[];
 }
 
 // export interface CommandViewContext extends CommandBaseContext {
-//     type: 'view';
+//     readonly type: 'view';
 // }
 
-export interface CommandViewItemContext extends CommandBaseContext {
-	type: 'viewItem';
-	node: ViewNode;
+export interface CommandViewNodeContext extends CommandBaseContext {
+	readonly type: 'viewItem';
+	readonly node: ViewNode;
 }
 
-export function isCommandViewContextWithBranch(
+export function isCommandContextViewNodeHasBranch(
 	context: CommandContext,
-): context is CommandViewItemContext & { node: ViewNode & { branch: GitBranch } } {
+): context is CommandViewNodeContext & { node: ViewNode & { branch: GitBranch } } {
 	if (context.type !== 'viewItem') return false;
 
 	return GitBranch.is((context.node as ViewNode & { branch: GitBranch }).branch);
 }
 
-export function isCommandViewContextWithCommit<T extends GitCommit>(
+export function isCommandContextViewNodeHasCommit<T extends GitCommit>(
 	context: CommandContext,
-): context is CommandViewItemContext & { node: ViewNode & { commit: T } } {
+): context is CommandViewNodeContext & { node: ViewNode & { commit: T } } {
 	if (context.type !== 'viewItem') return false;
 
 	return GitCommit.is((context.node as ViewNode & { commit: GitCommit }).commit);
 }
 
-export function isCommandViewContextWithContributor(
+export function isCommandContextViewNodeHasContributor(
 	context: CommandContext,
-): context is CommandViewItemContext & { node: ViewNode & { contributor: GitContributor } } {
+): context is CommandViewNodeContext & { node: ViewNode & { contributor: GitContributor } } {
 	if (context.type !== 'viewItem') return false;
 
 	return GitContributor.is((context.node as ViewNode & { contributor: GitContributor }).contributor);
 }
 
-export function isCommandViewContextWithFile(
+export function isCommandContextViewNodeHasFile(
 	context: CommandContext,
-): context is CommandViewItemContext & { node: ViewNode & { file: GitFile; repoPath: string } } {
+): context is CommandViewNodeContext & { node: ViewNode & { file: GitFile; repoPath: string } } {
 	if (context.type !== 'viewItem') return false;
 
 	const node = context.node as ViewNode & { file: GitFile; repoPath: string };
 	return node.file != null && (node.file.repoPath != null || node.repoPath != null);
 }
 
-export function isCommandViewContextWithFileCommit(
+export function isCommandContextViewNodeHasFileCommit(
 	context: CommandContext,
-): context is CommandViewItemContext & { node: ViewNode & { commit: GitCommit; file: GitFile; repoPath: string } } {
+): context is CommandViewNodeContext & { node: ViewNode & { commit: GitCommit; file: GitFile; repoPath: string } } {
 	if (context.type !== 'viewItem') return false;
 
 	const node = context.node as ViewNode & { commit: GitCommit; file: GitFile; repoPath: string };
 	return node.file != null && GitCommit.is(node.commit) && (node.file.repoPath != null || node.repoPath != null);
 }
 
-export function isCommandViewContextWithFileRefs(
+export function isCommandContextViewNodeHasFileRefs(
 	context: CommandContext,
-): context is CommandViewItemContext & {
+): context is CommandViewNodeContext & {
 	node: ViewNode & { file: GitFile; ref1: string; ref2: string; repoPath: string };
 } {
 	if (context.type !== 'viewItem') return false;
@@ -305,39 +305,39 @@ export function isCommandViewContextWithFileRefs(
 	);
 }
 
-export function isCommandViewContextWithRef(
+export function isCommandContextViewNodeHasRef(
 	context: CommandContext,
-): context is CommandViewItemContext & { node: ViewNode & { ref: string } } {
+): context is CommandViewNodeContext & { node: ViewNode & { ref: string } } {
 	return context.type === 'viewItem' && context.node instanceof ViewRefNode;
 }
 
-export function isCommandViewContextWithRemote(
+export function isCommandContextViewNodeHasRemote(
 	context: CommandContext,
-): context is CommandViewItemContext & { node: ViewNode & { remote: GitRemote } } {
+): context is CommandViewNodeContext & { node: ViewNode & { remote: GitRemote } } {
 	if (context.type !== 'viewItem') return false;
 
 	return GitRemote.is((context.node as ViewNode & { remote: GitRemote }).remote);
 }
 
-export function isCommandViewContextWithRepo(
+export function isCommandContextViewNodeHasRepository(
 	context: CommandContext,
-): context is CommandViewItemContext & { node: ViewNode & { repo: Repository } } {
+): context is CommandViewNodeContext & { node: ViewNode & { repo: Repository } } {
 	if (context.type !== 'viewItem') return false;
 
 	return (context.node as ViewNode & { repo?: Repository }).repo instanceof Repository;
 }
 
-export function isCommandViewContextWithRepoPath(
+export function isCommandContextViewNodeHasRepoPath(
 	context: CommandContext,
-): context is CommandViewItemContext & { node: ViewNode & { repoPath: string } } {
+): context is CommandViewNodeContext & { node: ViewNode & { repoPath: string } } {
 	if (context.type !== 'viewItem') return false;
 
 	return typeof (context.node as ViewNode & { repoPath?: string }).repoPath === 'string';
 }
 
-export function isCommandViewContextWithTag(
+export function isCommandContextViewNodeHasTag(
 	context: CommandContext,
-): context is CommandViewItemContext & { node: ViewNode & { tag: GitTag } } {
+): context is CommandViewNodeContext & { node: ViewNode & { tag: GitTag } } {
 	if (context.type !== 'viewItem') return false;
 
 	return GitTag.is((context.node as ViewNode & { tag: GitTag }).tag);
@@ -350,24 +350,23 @@ export type CommandContext =
 	| CommandUriContext
 	| CommandUrisContext
 	// | CommandViewContext
-	| CommandViewItemContext;
+	| CommandViewNodeContext;
 
 function isScmResourceGroup(group: any): group is SourceControlResourceGroup {
 	if (group == null) return false;
 
 	return (
-		(group as SourceControl).inputBox == null &&
 		(group as SourceControlResourceGroup).id != null &&
-		(group.handle != null ||
-			(group as SourceControlResourceGroup).label != null ||
-			(group as SourceControlResourceGroup).resourceStates != null)
+		(group as SourceControlResourceGroup).label != null &&
+		(group as SourceControlResourceGroup).resourceStates != null &&
+		Array.isArray((group as SourceControlResourceGroup).resourceStates)
 	);
 }
 
-function isScmResourceState(state: any): state is SourceControlResourceState {
-	if (state == null) return false;
+function isScmResourceState(resource: any): resource is SourceControlResourceState {
+	if (resource == null) return false;
 
-	return (state as SourceControlResourceState).resourceUri != null;
+	return (resource as SourceControlResourceState).resourceUri != null;
 }
 
 export abstract class Command implements Disposable {

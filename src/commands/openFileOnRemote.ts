@@ -7,8 +7,8 @@ import {
 	Commands,
 	executeCommand,
 	getCommandUri,
-	isCommandViewContextWithBranch,
-	isCommandViewContextWithCommit,
+	isCommandContextViewNodeHasBranch,
+	isCommandContextViewNodeHasCommit,
 } from './common';
 import { UriComparer } from '../comparers';
 import { BranchSorting } from '../configuration';
@@ -40,13 +40,13 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 
 		if (context.type === 'uris' || context.type === 'scm-states') {
 			args = { ...args, range: false };
-		} else if (isCommandViewContextWithCommit(context)) {
+		} else if (isCommandContextViewNodeHasCommit(context)) {
 			args = { ...args, range: false };
 
 			if (context.command === Commands.CopyRemoteFileUrl) {
 				// If it is a StatusFileNode then don't include the sha, since it hasn't been pushed yet
 				args.sha = context.node instanceof StatusFileNode ? undefined : context.node.commit.sha;
-			} else if (isCommandViewContextWithBranch(context)) {
+			} else if (isCommandContextViewNodeHasBranch(context)) {
 				args.branch = context.node.branch?.name;
 			}
 

@@ -7,7 +7,7 @@ import {
 	Commands,
 	getCommandUri,
 	getRepoPathOrActiveOrPrompt,
-	isCommandViewContextWithRef,
+	isCommandContextViewNodeHasRef,
 } from './common';
 import { Container } from '../container';
 import { Logger } from '../logger';
@@ -47,7 +47,7 @@ export class OpenDirectoryCompareCommand extends ActiveEditorCommand {
 				break;
 
 			case Commands.ViewsOpenDirectoryDiffWithWorking:
-				if (isCommandViewContextWithRef(context)) {
+				if (isCommandContextViewNodeHasRef(context)) {
 					args = { ...args };
 					args.ref1 = context.node.ref;
 					args.ref2 = undefined;
