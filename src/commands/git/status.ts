@@ -107,8 +107,11 @@ export class StatusGitCommand extends QuickCommand<State> {
 			}
 
 			if (result instanceof GitCommandQuickPickItem) {
-				yield* result.executeSteps(this.pickedVia);
+				const r = yield* result.executeSteps(this.pickedVia);
 				state.counter--;
+				if (r === StepResult.Break) {
+					QuickCommand.endSteps(state);
+				}
 
 				continue;
 			}
