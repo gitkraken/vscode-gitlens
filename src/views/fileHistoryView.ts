@@ -12,8 +12,14 @@ const pinnedSuffix = ' (pinned)';
 export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHistoryTrackerNode, FileHistoryViewConfig> {
 	protected readonly configKey = 'fileHistory';
 
+	private _followCursor: boolean = false;
+	private _followEditor: boolean = true;
+
 	constructor() {
 		super('gitlens.views.fileHistory', 'File History');
+
+		void setContext(ContextKeys.ViewsFileHistoryCursorFollowing, this._followCursor);
+		void setContext(ContextKeys.ViewsFileHistoryEditorFollowing, this._followEditor);
 	}
 
 	protected get showCollapseAll(): boolean {
@@ -95,13 +101,6 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 		return true;
 	}
 
-	protected initialize(options: { showCollapseAll?: boolean } = {}) {
-		super.initialize(options);
-
-		void setContext(ContextKeys.ViewsFileHistoryEditorFollowing, this._followEditor);
-		void setContext(ContextKeys.ViewsFileHistoryCursorFollowing, this._followCursor);
-	}
-
 	async showHistoryForUri(uri: GitUri, baseRef?: string) {
 		this.setCursorFollowing(false);
 		this.setEditorFollowing(false);
@@ -117,7 +116,6 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 		void this.root?.changeBase();
 	}
 
-	private _followCursor: boolean = false;
 	private setCursorFollowing(enabled: boolean) {
 		this._followCursor = enabled;
 		void setContext(ContextKeys.ViewsFileHistoryCursorFollowing, enabled);
@@ -130,11 +128,12 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 		void this.refresh(true);
 	}
 
-	private _followEditor: boolean = true;
 	private setEditorFollowing(enabled: boolean) {
 		this._followEditor = enabled;
 		void setContext(ContextKeys.ViewsFileHistoryEditorFollowing, enabled);
-		this.root?.setEditorFollowing(enabled);
+
+		const root = this.ensureRoot(true);
+		root.setEditorFollowing(enabled);
 
 		if (this.description?.endsWith(pinnedSuffix)) {
 			if (enabled) {
@@ -142,6 +141,11 @@ export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHisto
 			}
 		} else if (!enabled) {
 			this.description += pinnedSuffix;
+		}
+
+		if (enabled) {
+			void root.ensureSubscription();
+			void this.refresh(true);
 		}
 	}
 
