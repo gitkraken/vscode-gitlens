@@ -64,7 +64,7 @@ export class DocumentTracker<T> implements Disposable {
 
 	private _dirtyIdleTriggerDelay!: number;
 	private readonly _disposable: Disposable | undefined;
-	private readonly _documentMap = new Map<TextDocument | string, TrackedDocument<T>>();
+	private readonly _documentMap = new Map<TextDocument | string, Promise<TrackedDocument<T>>>();
 
 	constructor() {
 		this._disposable = Disposable.from(
@@ -76,20 +76,20 @@ export class DocumentTracker<T> implements Disposable {
 			workspace.onDidSaveTextDocument(this.onTextDocumentSaved, this),
 		);
 
-		this.onConfigurationChanged(configuration.initializingChangeEvent);
+		void this.onConfigurationChanged(configuration.initializingChangeEvent);
 	}
 
 	dispose() {
 		this._disposable?.dispose();
 
-		this.clear();
+		void this.clear();
 	}
 
 	initialize() {
-		this.onActiveTextEditorChanged(window.activeTextEditor);
+		void this.onActiveTextEditorChanged(window.activeTextEditor);
 	}
 
-	private onConfigurationChanged(e: ConfigurationChangeEvent) {
+	private async onConfigurationChanged(e: ConfigurationChangeEvent) {
 		// Only rest the cached state if we aren't initializing
 		if (
 			!configuration.initializing(e) &&
@@ -97,7 +97,7 @@ export class DocumentTracker<T> implements Disposable {
 				configuration.changed(e, 'advanced', 'caching', 'enabled'))
 		) {
 			for (const d of this._documentMap.values()) {
-				d.reset('config');
+				(await d).reset('config');
 			}
 		}
 
@@ -108,15 +108,15 @@ export class DocumentTracker<T> implements Disposable {
 	}
 
 	private _timer: NodeJS.Timer | undefined;
-	private onActiveTextEditorChanged(editor: TextEditor | undefined) {
-		if (editor !== undefined && !isTextEditor(editor)) return;
+	private async onActiveTextEditorChanged(editor: TextEditor | undefined) {
+		if (editor != null && !isTextEditor(editor)) return;
 
-		if (this._timer !== undefined) {
+		if (this._timer != null) {
 			clearTimeout(this._timer);
 			this._timer = undefined;
 		}
 
-		if (editor === undefined) {
+		if (editor == null) {
 			this._timer = setTimeout(() => {
 				this._timer = undefined;
 
@@ -127,34 +127,30 @@ export class DocumentTracker<T> implements Disposable {
 		}
 
 		const doc = this._documentMap.get(editor.document);
-		if (doc !== undefined) {
-			doc.activate();
+		if (doc != null) {
+			(await doc).activate();
 
 			return;
 		}
 
 		// No need to activate this, as it is implicit in initialization if currently active
-		this.addCore(editor.document);
+		void this.addCore(editor.document);
 	}
 
-	private onTextDocumentChanged(e: TextDocumentChangeEvent) {
+	private async onTextDocumentChanged(e: TextDocumentChangeEvent) {
 		const { scheme } = e.document.uri;
 		if (scheme !== DocumentSchemes.File && scheme !== DocumentSchemes.Git && scheme !== DocumentSchemes.Vsls) {
 			return;
 		}
 
-		let doc = this._documentMap.get(e.document);
-		if (doc === undefined) {
-			doc = this.addCore(e.document);
-		}
-
+		const doc = await (this._documentMap.get(e.document) ?? this.addCore(e.document));
 		doc.reset('document');
 
 		const dirty = e.document.isDirty;
 		const editor = window.activeTextEditor;
 
 		// If we have an idle tracker, either reset or cancel it
-		if (this._dirtyIdleTriggeredDebounced !== undefined) {
+		if (this._dirtyIdleTriggeredDebounced != null) {
 			if (dirty) {
 				this._dirtyIdleTriggeredDebounced({ editor: editor!, document: doc });
 			} else {
@@ -163,7 +159,7 @@ export class DocumentTracker<T> implements Disposable {
 		}
 
 		// Only fire change events for the active document
-		if (editor !== undefined && editor.document === e.document) {
+		if (editor?.document === e.document) {
 			this._onDidChangeContent.fire({ editor: editor, document: doc, contentChanges: e.contentChanges });
 		}
 
@@ -173,24 +169,25 @@ export class DocumentTracker<T> implements Disposable {
 		doc.dirty = dirty;
 
 		// Only fire state change events for the active document
-		if (editor === undefined || editor.document !== e.document) return;
+		if (editor == null || editor.document !== e.document) return;
 
 		this.fireDocumentDirtyStateChanged({ editor: editor, document: doc, dirty: doc.dirty });
 	}
 
-	private onTextDocumentClosed(document: TextDocument) {
+	private async onTextDocumentClosed(document: TextDocument) {
 		const doc = this._documentMap.get(document);
-		if (doc === undefined) return;
+		if (doc == null) return;
 
-		doc.dispose();
 		this._documentMap.delete(document);
-		this._documentMap.delete(doc.key);
+		this._documentMap.delete(GitUri.toKey(document.uri));
+
+		(await doc).dispose();
 	}
 
-	private onTextDocumentSaved(document: TextDocument) {
+	private async onTextDocumentSaved(document: TextDocument) {
 		const doc = this._documentMap.get(document);
-		if (doc !== undefined) {
-			void doc.update({ forceBlameChange: true });
+		if (doc != null) {
+			void (await doc).update({ forceBlameChange: true });
 
 			return;
 		}
@@ -213,31 +210,30 @@ export class DocumentTracker<T> implements Disposable {
 	add(document: TextDocument): Promise<TrackedDocument<T>>;
 	add(uri: Uri): Promise<TrackedDocument<T>>;
 	add(documentOrId: TextDocument | Uri): Promise<TrackedDocument<T>> {
-		return this._add(documentOrId);
+		const doc = this._add(documentOrId);
+		return doc;
 	}
 
-	clear() {
+	async clear() {
 		for (const d of this._documentMap.values()) {
-			d.dispose();
+			(await d).dispose();
 		}
 
 		this._documentMap.clear();
 	}
 
-	get(fileName: string): Promise<TrackedDocument<T> | undefined>;
-	get(document: TextDocument): Promise<TrackedDocument<T> | undefined>;
-	get(uri: Uri): Promise<TrackedDocument<T> | undefined>;
-	get(documentOrId: string | TextDocument | Uri): Promise<TrackedDocument<T> | undefined> {
-		return this._get(documentOrId);
+	get(fileName: string): Promise<TrackedDocument<T>> | undefined;
+	get(document: TextDocument): Promise<TrackedDocument<T>> | undefined;
+	get(uri: Uri): Promise<TrackedDocument<T>> | undefined;
+	get(documentOrId: string | TextDocument | Uri): Promise<TrackedDocument<T>> | undefined {
+		const doc = this._get(documentOrId);
+		return doc;
 	}
 
 	async getOrAdd(document: TextDocument): Promise<TrackedDocument<T>>;
 	async getOrAdd(uri: Uri): Promise<TrackedDocument<T>>;
 	async getOrAdd(documentOrId: TextDocument | Uri): Promise<TrackedDocument<T>> {
-		let doc = await this._get(documentOrId);
-		if (doc === undefined) {
-			doc = await this._add(documentOrId);
-		}
+		const doc = this._get(documentOrId) ?? this._add(documentOrId);
 		return doc;
 	}
 
@@ -269,7 +265,7 @@ export class DocumentTracker<T> implements Disposable {
 					document = new MissingRevisionTextDocument(documentOrId);
 
 					// const [fileName, repoPath] = await Container.git.findWorkingFileName(documentOrId, undefined, ref);
-					// if (fileName === undefined) throw new Error(`Failed to add tracking for document: ${documentOrId}`);
+					// if (fileName == null) throw new Error(`Failed to add tracking for document: ${documentOrId}`);
 
 					// documentOrId = await workspace.openTextDocument(path.resolve(repoPath!, fileName));
 				} else {
@@ -283,12 +279,10 @@ export class DocumentTracker<T> implements Disposable {
 		}
 
 		const doc = this.addCore(document);
-		await doc.ensureInitialized();
-
 		return doc;
 	}
 
-	private async _get(documentOrId: string | TextDocument | Uri) {
+	private _get(documentOrId: string | TextDocument | Uri) {
 		if (GitUri.is(documentOrId)) {
 			documentOrId = GitUri.toKey(documentOrId.documentUri({ useVersionedPath: true }));
 		} else if (typeof documentOrId === 'string' || documentOrId instanceof Uri) {
@@ -296,19 +290,17 @@ export class DocumentTracker<T> implements Disposable {
 		}
 
 		const doc = this._documentMap.get(documentOrId);
-		if (doc === undefined) return undefined;
-
-		await doc.ensureInitialized();
 		return doc;
 	}
 
-	private addCore(document: TextDocument): TrackedDocument<T> {
+	private async addCore(document: TextDocument): Promise<TrackedDocument<T>> {
 		const key = GitUri.toKey(document.uri);
 
 		// Always start out false, so we will fire the event if needed
-		const doc = new TrackedDocument<T>(document, key, false, {
+		const doc = TrackedDocument.create<T>(document, key, false, {
 			onDidBlameStateChange: (e: DocumentBlameStateChangeEvent<T>) => this._onDidChangeBlameState.fire(e),
 		});
+
 		this._documentMap.set(document, doc);
 		this._documentMap.set(key, doc);
 
@@ -323,29 +315,18 @@ export class DocumentTracker<T> implements Disposable {
 		| undefined;
 	private fireDocumentDirtyStateChanged(e: DocumentDirtyStateChangeEvent<T>) {
 		if (e.dirty) {
-			setImmediate(async () => {
-				if (this._dirtyStateChangedDebounced !== undefined) {
-					this._dirtyStateChangedDebounced.cancel();
-				}
-
+			setImmediate(() => {
+				this._dirtyStateChangedDebounced?.cancel();
 				if (window.activeTextEditor !== e.editor) return;
 
-				await e.document.ensureInitialized();
 				this._onDidChangeDirtyState.fire(e);
 			});
 
 			if (this._dirtyIdleTriggerDelay > 0) {
-				if (this._dirtyIdleTriggeredDebounced === undefined) {
+				if (this._dirtyIdleTriggeredDebounced == null) {
 					this._dirtyIdleTriggeredDebounced = Functions.debounce(
-						async (e: DocumentDirtyIdleTriggerEvent<T>) => {
-							if (
-								this._dirtyIdleTriggeredDebounced !== undefined &&
-								this._dirtyIdleTriggeredDebounced.pending!()
-							) {
-								return;
-							}
-
-							await e.document.ensureInitialized();
+						(e: DocumentDirtyIdleTriggerEvent<T>) => {
+							if (this._dirtyIdleTriggeredDebounced?.pending!()) return;
 
 							e.document.isDirtyIdle = true;
 							this._onDidTriggerDirtyIdle.fire(e);
@@ -361,11 +342,10 @@ export class DocumentTracker<T> implements Disposable {
 			return;
 		}
 
-		if (this._dirtyStateChangedDebounced === undefined) {
-			this._dirtyStateChangedDebounced = Functions.debounce(async (e: DocumentDirtyStateChangeEvent<T>) => {
+		if (this._dirtyStateChangedDebounced == null) {
+			this._dirtyStateChangedDebounced = Functions.debounce((e: DocumentDirtyStateChangeEvent<T>) => {
 				if (window.activeTextEditor !== e.editor) return;
 
-				await e.document.ensureInitialized();
 				this._onDidChangeDirtyState.fire(e);
 			}, 250);
 		}
