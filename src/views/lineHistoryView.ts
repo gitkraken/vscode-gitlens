@@ -10,10 +10,13 @@ const pinnedSuffix = ' (pinned)';
 
 export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistoryViewConfig> {
 	protected readonly configKey = 'lineHistory';
-	protected readonly showCollapseAll = false;
 
 	constructor() {
 		super('gitlens.views.lineHistory', 'Line History');
+	}
+
+	protected get showCollapseAll(): boolean {
+		return false;
 	}
 
 	getRoot() {

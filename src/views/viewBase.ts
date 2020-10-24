@@ -105,7 +105,6 @@ export abstract class ViewBase<
 	protected disposable: Disposable | undefined;
 	protected root: RootNode | undefined;
 	protected tree: TreeView<ViewNode> | undefined;
-	protected readonly showCollapseAll: boolean = true;
 
 	private readonly _lastKnownLimits = new Map<string, number | undefined>();
 
@@ -143,6 +142,10 @@ export abstract class ViewBase<
 		this.initialize({ showCollapseAll: this.showCollapseAll });
 
 		setImmediate(() => this.onConfigurationChanged(configuration.initializingChangeEvent));
+	}
+
+	protected get showCollapseAll(): boolean {
+		return true;
 	}
 
 	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {

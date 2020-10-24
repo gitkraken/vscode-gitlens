@@ -11,10 +11,13 @@ const pinnedSuffix = ' (pinned)';
 
 export class FileHistoryView extends ViewBase<FileHistoryTrackerNode | LineHistoryTrackerNode, FileHistoryViewConfig> {
 	protected readonly configKey = 'fileHistory';
-	protected readonly showCollapseAll = false;
 
 	constructor() {
 		super('gitlens.views.fileHistory', 'File History');
+	}
+
+	protected get showCollapseAll(): boolean {
+		return false;
 	}
 
 	getRoot(): LineHistoryTrackerNode | FileHistoryTrackerNode {
