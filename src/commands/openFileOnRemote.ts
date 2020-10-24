@@ -50,7 +50,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 				args.branch = context.node.branch?.name;
 			}
 
-			uri = context.node.commit.isFile ? context.node.commit.uri : context.node.uri;
+			uri = context.node.uri;
 		} else if (context.type === 'viewItem') {
 			args = { ...args, range: false };
 

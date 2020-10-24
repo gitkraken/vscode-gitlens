@@ -42,7 +42,7 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 			if (context.node.commit.isUncommitted) return Promise.resolve(undefined);
 
 			args = { ...args, sha: context.node.commit.sha };
-			uri = context.node.commit.isFile ? context.node.commit.uri : context.node.uri;
+			uri = context.node.uri;
 		}
 
 		if (isCommandContextGitTimelineItem(context)) {
