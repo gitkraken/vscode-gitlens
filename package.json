@@ -2666,7 +2666,7 @@
 			},
 			{
 				"command": "gitlens.toggleFileBlame",
-				"title": "Toggle File Blame Annotations",
+				"title": "Toggle File Blame",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-git.svg",
@@ -2675,7 +2675,7 @@
 			},
 			{
 				"command": "gitlens.toggleFileBlameInDiffLeft",
-				"title": "Toggle File Blame Annotations",
+				"title": "Toggle File Blame",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-git.svg",
@@ -2684,7 +2684,7 @@
 			},
 			{
 				"command": "gitlens.toggleFileBlameInDiffRight",
-				"title": "Toggle File Blame Annotations",
+				"title": "Toggle File Blame",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-git.svg",
@@ -2711,7 +2711,7 @@
 			},
 			{
 				"command": "gitlens.toggleFileHeatmap",
-				"title": "Toggle File Heatmap Annotations",
+				"title": "Toggle File Heatmap",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-git.svg",
@@ -2720,7 +2720,7 @@
 			},
 			{
 				"command": "gitlens.toggleFileHeatmapInDiffLeft",
-				"title": "Toggle File Heatmap Annotations",
+				"title": "Toggle File Heatmap",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-git.svg",
@@ -2729,7 +2729,7 @@
 			},
 			{
 				"command": "gitlens.toggleFileHeatmapInDiffRight",
-				"title": "Toggle File Heatmap Annotations",
+				"title": "Toggle File Heatmap",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-git.svg",
@@ -2738,16 +2738,17 @@
 			},
 			{
 				"command": "gitlens.toggleFileChanges",
-				"title": "Toggle File Changes Annotations",
+				"title": "Toggle File Changes",
 				"category": "GitLens",
 				"icon": {
 					"dark": "images/dark/icon-git.svg",
 					"light": "images/light/icon-git.svg"
-				}
+				},
+				"enablement": "!isInDiffEditor"
 			},
 			{
 				"command": "gitlens.toggleLineBlame",
-				"title": "Toggle Line Blame Annotations",
+				"title": "Toggle Line Blame",
 				"category": "GitLens"
 			},
 			{
@@ -5417,7 +5418,7 @@
 					"group": "2_gitlens@1"
 				},
 				{
-					"command": "gitlens.toggleFileBlame",
+					"submenu": "gitlens/editor/annotations",
 					"when": "editorTextFocus && gitlens:activeFileStatus =~ /blameable/ && config.gitlens.menus.editor.blame",
 					"group": "2_gitlens@2"
 				},
@@ -5569,63 +5570,8 @@
 					"group": "navigation@99"
 				},
 				{
-					"command": "gitlens.toggleFileBlame",
-					"alt": "gitlens.toggleFileHeatmap",
-					"when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == blame+heatmap && !isInDiffEditor",
-					"group": "navigation@100"
-				},
-				{
-					"command": "gitlens.toggleFileBlame",
-					"alt": "gitlens.toggleFileChanges",
-					"when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == blame+changes && !isInDiffEditor",
-					"group": "navigation@100"
-				},
-				{
-					"command": "gitlens.toggleFileBlameInDiffLeft",
-					"alt": "gitlens.toggleFileHeatmapInDiffLeft",
-					"when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.diffCommand == blame+heatmap && isInDiffEditor && !isInDiffRightEditor",
-					"group": "navigation@100"
-				},
-				{
-					"command": "gitlens.toggleFileBlameInDiffRight",
-					"alt": "gitlens.toggleFileHeatmapInDiffRight",
-					"when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.diffCommand == blame+heatmap && isInDiffRightEditor",
-					"group": "navigation@100"
-				},
-				{
-					"command": "gitlens.toggleFileChanges",
-					"alt": "gitlens.toggleFileBlame",
-					"when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == changes+blame && !isInDiffEditor",
-					"group": "navigation@100"
-				},
-				{
-					"command": "gitlens.toggleFileChanges",
-					"alt": "gitlens.toggleFileHeatmap",
-					"when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == changes+heatmap && !isInDiffEditor",
-					"group": "navigation@100"
-				},
-				{
-					"command": "gitlens.toggleFileHeatmap",
-					"alt": "gitlens.toggleFileBlame",
-					"when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == heatmap+blame && !isInDiffEditor",
-					"group": "navigation@100"
-				},
-				{
-					"command": "gitlens.toggleFileHeatmap",
-					"alt": "gitlens.toggleFileChanges",
-					"when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.command == heatmap+changes && !isInDiffEditor",
-					"group": "navigation@100"
-				},
-				{
-					"command": "gitlens.toggleFileHeatmapInDiffLeft",
-					"alt": "gitlens.toggleFileBlameInDiffLeft",
-					"when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.diffCommand == heatmap+blame && isInDiffEditor && !isInDiffRightEditor",
-					"group": "navigation@100"
-				},
-				{
-					"command": "gitlens.toggleFileHeatmapInDiffRight",
-					"alt": "gitlens.toggleFileBlameInDiffRight",
-					"when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame && config.gitlens.fileAnnotations.diffCommand == heatmap+blame && isInDiffRightEditor",
+					"submenu": "gitlens/editor/annotations",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame",
 					"group": "navigation@100"
 				},
 				{
@@ -5634,7 +5580,7 @@
 					"group": "navigation@100"
 				},
 				{
-					"command": "gitlens.clearFileAnnotations",
+					"submenu": "gitlens/editor/annotationsOn",
 					"when": "gitlens:activeFileStatus =~ /blameable/ && gitlens:annotationStatus == computed && config.gitlens.menus.editorGroup.blame",
 					"group": "navigation@100"
 				}
@@ -7384,9 +7330,109 @@
 					"when": "view =~ /^gitlens\\.views\\.searchAndCompare\\b/",
 					"group": "navigation@11"
 				}
+			],
+			"gitlens/editor/annotations": [
+				{
+					"command": "gitlens.clearFileAnnotations",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && gitlens:annotationStatus",
+					"group": "1_gitlens@0"
+				},
+				{
+					"command": "gitlens.toggleFileBlame",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && !isInDiffEditor",
+					"group": "2_gitlens@1"
+				},
+				{
+					"command": "gitlens.toggleFileBlameInDiffLeft",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && isInDiffEditor && !isInDiffRightEditor",
+					"group": "2_gitlens@1"
+				},
+				{
+					"command": "gitlens.toggleFileBlameInDiffRight",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && isInDiffRightEditor",
+					"group": "2_gitlens@1"
+				},
+				{
+					"command": "gitlens.toggleFileHeatmap",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && !isInDiffEditor",
+					"group": "2_gitlens@2"
+				},
+				{
+					"command": "gitlens.toggleFileHeatmapInDiffLeft",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && isInDiffEditor && !isInDiffRightEditor",
+					"group": "2_gitlens@2"
+				},
+				{
+					"command": "gitlens.toggleFileHeatmapInDiffRight",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && isInDiffRightEditor",
+					"group": "2_gitlens@2"
+				},
+				{
+					"command": "gitlens.toggleFileChanges",
+					"when": "gitlens:activeFileStatus =~ /blameable/",
+					"group": "2_gitlens@3"
+				}
+			],
+			"gitlens/editor/annotationsOn": [
+				{
+					"command": "gitlens.clearFileAnnotations",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && gitlens:annotationStatus",
+					"group": "1_gitlens@0"
+				},
+				{
+					"command": "gitlens.toggleFileBlame",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && !isInDiffEditor",
+					"group": "2_gitlens@1"
+				},
+				{
+					"command": "gitlens.toggleFileBlameInDiffLeft",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && isInDiffEditor && !isInDiffRightEditor",
+					"group": "2_gitlens@1"
+				},
+				{
+					"command": "gitlens.toggleFileBlameInDiffRight",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && isInDiffRightEditor",
+					"group": "2_gitlens@1"
+				},
+				{
+					"command": "gitlens.toggleFileHeatmap",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && !isInDiffEditor",
+					"group": "2_gitlens@2"
+				},
+				{
+					"command": "gitlens.toggleFileHeatmapInDiffLeft",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && isInDiffEditor && !isInDiffRightEditor",
+					"group": "2_gitlens@2"
+				},
+				{
+					"command": "gitlens.toggleFileHeatmapInDiffRight",
+					"when": "gitlens:activeFileStatus =~ /blameable/ && isInDiffRightEditor",
+					"group": "2_gitlens@2"
+				},
+				{
+					"command": "gitlens.toggleFileChanges",
+					"when": "gitlens:activeFileStatus =~ /blameable/",
+					"group": "2_gitlens@3"
+				}
 			]
 		},
 		"submenus": [
+			{
+				"id": "gitlens/editor/annotations",
+				"label": "File Annotations",
+				"icon": {
+					"dark": "images/dark/icon-git.svg",
+					"light": "images/light/icon-git.svg"
+				}
+			},
+			{
+				"id": "gitlens/editor/annotationsOn",
+				"label": "File Annotations",
+				"icon": {
+					"dark": "images/dark/icon-git-orange.svg",
+					"light": "images/light/icon-git-orange.svg"
+				}
+			},
 			{
 				"id": "gitlens/view/searchAndCompare/new",
 				"label": "New Search or Compare",
