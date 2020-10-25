@@ -158,7 +158,7 @@ export abstract class WebviewBase implements Disposable {
 		this._panel.title = title;
 	}
 
-	async show(column: ViewColumn = ViewColumn.Active): Promise<void> {
+	async show(column: ViewColumn = ViewColumn.Beside): Promise<void> {
 		if (this._panel == null) {
 			this._panel = window.createWebviewPanel(
 				this.id,
