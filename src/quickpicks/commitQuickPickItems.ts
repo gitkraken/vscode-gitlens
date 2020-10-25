@@ -2,6 +2,7 @@
 import * as paths from 'path';
 import { QuickPickItem, window } from 'vscode';
 import { Commands, GitActions, OpenChangedFilesCommandArgs } from '../commands';
+import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { CommitFormatter, GitFile, GitLogCommit, GitStatusFile } from '../git/git';
 import { Keys } from '../keyboard';
@@ -9,13 +10,15 @@ import { CommandQuickPickItem } from './quickPicksItems';
 import { Strings } from '../system';
 
 export class CommitFilesQuickPickItem extends CommandQuickPickItem {
-	constructor(readonly commit: GitLogCommit, picked: boolean = true) {
+	constructor(readonly commit: GitLogCommit, picked: boolean = true, fileName?: string) {
 		super(
 			{
 				label: commit.getShortMessage(),
 				// eslint-disable-next-line no-template-curly-in-string
 				description: CommitFormatter.fromTemplate('${author}, ${ago}  $(git-commit)  ${id}', commit),
-				detail: `$(files) ${commit.getFormattedDiffStatus({ expand: true, separator: ', ' })}`,
+				detail: `$(files) ${commit.getFormattedDiffStatus({ expand: true, separator: ', ' })}${
+					fileName ? `${Strings.pad(GlyphChars.Dot, 2, 2)}${fileName}` : ''
+				}`,
 				picked: picked,
 			},
 			undefined,

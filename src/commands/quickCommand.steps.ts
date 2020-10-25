@@ -1703,7 +1703,9 @@ async function getShowCommitOrStashFileStepItems<
 	const file = state.reference.files.find(f => f.fileName === state.fileName);
 	if (file == null) return [];
 
-	const items: CommandQuickPickItem[] = [new CommitFilesQuickPickItem(state.reference)];
+	const items: CommandQuickPickItem[] = [
+		new CommitFilesQuickPickItem(state.reference, undefined, GitUri.getFormattedFilename(state.fileName)),
+	];
 
 	let remotes: GitRemote<RemoteProvider>[] | undefined;
 
