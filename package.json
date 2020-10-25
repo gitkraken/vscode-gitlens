@@ -48,6 +48,17 @@
 	"activationEvents": [
 		"onCustomEditor:gitlens.rebase",
 		"onFileSystem:gitlens",
+		"onView:gitlens.views.updates",
+		"onView:gitlens.views.repositories",
+		"onView:gitlens.views.commits",
+		"onView:gitlens.views.fileHistory",
+		"onView:gitlens.views.lineHistory",
+		"onView:gitlens.views.branches",
+		"onView:gitlens.views.remotes",
+		"onView:gitlens.views.stashes",
+		"onView:gitlens.views.tags",
+		"onView:gitlens.views.contributors",
+		"onView:gitlens.views.searchAndCompare",
 		"*"
 	],
 	"contributes": {
