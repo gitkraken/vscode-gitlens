@@ -9,7 +9,6 @@ import {
 	executeEditorCommand,
 	GitActions,
 	OpenFileAtRevisionCommandArgs,
-	OpenFileOnRemoteCommandArgs,
 } from '../commands';
 import { configuration, FileAnnotationType, ViewShowBranchComparison } from '../configuration';
 import { BuiltInCommands, ContextKeys, setContext } from '../constants';

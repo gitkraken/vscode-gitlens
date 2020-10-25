@@ -11,7 +11,9 @@ import {
 	CommandContext,
 	Commands,
 	getCommandUri,
+	isCommandContextViewNodeHasBranch,
 	isCommandContextViewNodeHasCommit,
+	isCommandContextViewNodeHasTag,
 } from './common';
 
 export interface CopyMessageToClipboardCommandArgs {
@@ -30,6 +32,14 @@ export class CopyMessageToClipboardCommand extends ActiveEditorCommand {
 			args = { ...args };
 			args.sha = context.node.commit.sha;
 			return this.execute(context.editor, context.node.commit.uri, args);
+		} else if (isCommandContextViewNodeHasBranch(context)) {
+			args = { ...args };
+			args.sha = context.node.branch.sha;
+			return this.execute(context.editor, context.node.uri, args);
+		} else if (isCommandContextViewNodeHasTag(context)) {
+			args = { ...args };
+			args.sha = context.node.tag.sha;
+			return this.execute(context.editor, context.node.uri, args);
 		}
 
 		return this.execute(context.editor, context.uri, args);
