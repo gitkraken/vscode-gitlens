@@ -120,8 +120,8 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase {
 			if (ref2 != null) {
 				ref2 = commit.ref;
 			} else {
-				ref1 = commit.ref;
-				ref2 = `${commit.ref}^`;
+				ref1 = `${commit.ref}^`;
+				ref2 = commit.ref;
 			}
 		}
 
