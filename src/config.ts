@@ -311,15 +311,14 @@ export interface MenuConfig {
 				blame: boolean;
 				clipboard: boolean;
 				compare: boolean;
-				details: boolean;
 				history: boolean;
 				remote: boolean;
 		  };
 	editorGroup:
 		| false
 		| {
+				blame: boolean;
 				compare: boolean;
-				history: boolean;
 		  };
 	editorTab:
 		| false

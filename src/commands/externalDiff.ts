@@ -119,7 +119,7 @@ export class ExternalDiffCommand extends Command {
 
 		if (context.command === Commands.ExternalDiffAll) {
 			if (args.files == null) {
-				const repoPath = await getRepoPathOrPrompt('Open All Changes (with difftool)');
+				const repoPath = await getRepoPathOrPrompt('Open All Changes (difftool)');
 				if (!repoPath) return undefined;
 
 				const status = await Container.git.getStatusForRepo(repoPath);

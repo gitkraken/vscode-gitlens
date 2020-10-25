@@ -144,7 +144,7 @@ export class CommitOpenAllChangesCommandQuickPickItem extends CommandQuickPickIt
 
 export class CommitOpenAllChangesWithDiffToolCommandQuickPickItem extends CommandQuickPickItem {
 	constructor(private readonly commit: GitLogCommit, item?: QuickPickItem) {
-		super(item ?? '$(git-compare) Open All Changes (with difftool)');
+		super(item ?? '$(git-compare) Open All Changes (difftool)');
 	}
 
 	execute(): Promise<void> {
@@ -174,7 +174,7 @@ export class CommitOpenChangesCommandQuickPickItem extends CommandQuickPickItem 
 
 export class CommitOpenChangesWithDiffToolCommandQuickPickItem extends CommandQuickPickItem {
 	constructor(private readonly commit: GitLogCommit, private readonly file: string | GitFile, item?: QuickPickItem) {
-		super(item ?? '$(git-compare) Open Changes (with difftool)');
+		super(item ?? '$(git-compare) Open Changes (difftool)');
 	}
 
 	execute(): Promise<void> {

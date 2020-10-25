@@ -34,7 +34,7 @@
 							data-setting-type="object"
 							disabled
 						/>
-						<label for="menus.editor">Add commands to the editor context menu</label>
+						<label for="menus.editor">Add to the editor context menu</label>
 					</div>
 				</div>
 
@@ -49,7 +49,7 @@
 								data-setting-type="object"
 								disabled
 							/>
-							<label for="menus.editor.compare">Add comparison commands</label>
+							<label for="menus.editor.compare">Add <i>Open Changes</i> submenu</label>
 						</div>
 					</div>
 
@@ -63,21 +63,7 @@
 								data-setting-type="object"
 								disabled
 							/>
-							<label for="menus.editor.remote">Add open on remote commands</label>
-						</div>
-					</div>
-
-					<div class="setting" data-enablement="menus.editor">
-						<div class="setting__input">
-							<input
-								id="menus.editor.details"
-								name="menus.editor.details"
-								type="checkbox"
-								data-setting
-								data-setting-type="object"
-								disabled
-							/>
-							<label for="menus.editor.details">Add commit details commands</label>
+							<label for="menus.editor.remote">Add <i>Open * on Remote</i> commands</label>
 						</div>
 					</div>
 
@@ -91,7 +77,7 @@
 								data-setting-type="object"
 								disabled
 							/>
-							<label for="menus.editor.history">Add file history commands</label>
+							<label for="menus.editor.history">Add <i>Open File History</i> command</label>
 						</div>
 					</div>
 
@@ -105,7 +91,7 @@
 								data-setting-type="object"
 								disabled
 							/>
-							<label for="menus.editor.blame">Add blame commands</label>
+							<label for="menus.editor.blame">Add <i>File Annotations</i> submenu</label>
 						</div>
 					</div>
 
@@ -119,7 +105,7 @@
 								data-setting-type="object"
 								disabled
 							/>
-							<label for="menus.editor.clipboard">Add copy to clipboard commands</label>
+							<label for="menus.editor.clipboard">Add <i>Copy</i> submenu</label>
 						</div>
 					</div>
 				</div>
@@ -136,7 +122,7 @@
 							data-setting-type="object"
 							disabled
 						/>
-						<label for="menus.editorTab">Add commands to the editor tab context menu</label>
+						<label for="menus.editorTab">Add to the editor tab context menu</label>
 					</div>
 				</div>
 
@@ -144,14 +130,14 @@
 					<div class="setting" data-enablement="menus.editorTab">
 						<div class="setting__input">
 							<input
-								id="menus.editorTab.remote"
-								name="menus.editorTab.remote"
+								id="menus.editorTab.clipboard"
+								name="menus.editorTab.clipboard"
 								type="checkbox"
 								data-setting
 								data-setting-type="object"
 								disabled
 							/>
-							<label for="menus.editorTab.remote">Add open on remote commands</label>
+							<label for="menus.editorTab.clipboard">Add <i>Copy Remote File Url</i> command</label>
 						</div>
 					</div>
 
@@ -165,7 +151,21 @@
 								data-setting-type="object"
 								disabled
 							/>
-							<label for="menus.editorTab.compare">Add comparison commands</label>
+							<label for="menus.editorTab.compare">Add <i>Open Changes</i> submenu</label>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="menus.editorTab">
+						<div class="setting__input">
+							<input
+								id="menus.editorTab.remote"
+								name="menus.editorTab.remote"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.editorTab.remote">Add <i>Open File on Remote</i> command</label>
 						</div>
 					</div>
 
@@ -179,21 +179,7 @@
 								data-setting-type="object"
 								disabled
 							/>
-							<label for="menus.editorTab.history">Add file history commands</label>
-						</div>
-					</div>
-
-					<div class="setting" data-enablement="menus.editorTab">
-						<div class="setting__input">
-							<input
-								id="menus.editorTab.clipboard"
-								name="menus.editorTab.clipboard"
-								type="checkbox"
-								data-setting
-								data-setting-type="object"
-								disabled
-							/>
-							<label for="menus.editorTab.clipboard">Add copy to clipboard commands</label>
+							<label for="menus.editorTab.history">Add <i>Open File History</i> command</label>
 						</div>
 					</div>
 				</div>
@@ -210,7 +196,7 @@
 							data-setting-type="object"
 							disabled
 						/>
-						<label for="menus.editorGroup">Add commands to the editor group toolbar</label>
+						<label for="menus.editorGroup">Add to the editor group toolbar</label>
 					</div>
 				</div>
 
@@ -225,7 +211,9 @@
 								data-setting-type="object"
 								disabled
 							/>
-							<label for="menus.editorGroup.compare">Add comparison commands</label>
+							<label for="menus.editorGroup.compare"
+								>Add <i>Open Changes with *</i> and <i>Show Revision Commit</i> commands</label
+							>
 						</div>
 					</div>
 
@@ -239,11 +227,11 @@
 								data-setting-type="object"
 								disabled
 							/>
-							<label for="menus.editorGroup.blame">Add file annotation command</label>
+							<label for="menus.editorGroup.blame">Add <i>File Annotations</i> submenu</label>
 						</div>
 					</div>
 
-					<div class="settings ml-4">
+					<!-- <div class="settings ml-4">
 						<div class="setting" data-enablement="menus.editorGroup.blame">
 							<div class="setting__input">
 								<label for="fileAnnotations.command">File annotation command toggle</label>
@@ -281,7 +269,7 @@
 								</div>
 							</div>
 						</div>
-					</div>
+					</div> -->
 				</div>
 
 				<div class="setting setting--expandable" data-enablement="menus">
@@ -296,25 +284,11 @@
 							data-setting-type="object"
 							disabled
 						/>
-						<label for="menus.explorer">Add commands to the Explorer items context menu</label>
+						<label for="menus.explorer">Add to the Explorer items context menu</label>
 					</div>
 				</div>
 
 				<div class="settings ml-4">
-					<div class="setting" data-enablement="menus.explorer">
-						<div class="setting__input">
-							<input
-								id="menus.explorer.remote"
-								name="menus.explorer.remote"
-								type="checkbox"
-								data-setting
-								data-setting-type="object"
-								disabled
-							/>
-							<label for="menus.explorer.remote">Add open on remote commands</label>
-						</div>
-					</div>
-
 					<div class="setting" data-enablement="menus.explorer">
 						<div class="setting__input">
 							<input
@@ -325,7 +299,21 @@
 								data-setting-type="object"
 								disabled
 							/>
-							<label for="menus.explorer.compare">Add comparison commands</label>
+							<label for="menus.explorer.compare">Add <i>Open Changes</i> submenu</label>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="menus.explorer">
+						<div class="setting__input">
+							<input
+								id="menus.explorer.remote"
+								name="menus.explorer.remote"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.explorer.remote">Add <i>Open File on Remote</i> command</label>
 						</div>
 					</div>
 
@@ -339,7 +327,7 @@
 								data-setting-type="object"
 								disabled
 							/>
-							<label for="menus.explorer.history">Add file history commands</label>
+							<label for="menus.explorer.history">Add <i>Open File History</i> command</label>
 						</div>
 					</div>
 
@@ -353,7 +341,7 @@
 								data-setting-type="object"
 								disabled
 							/>
-							<label for="menus.explorer.clipboard">Add copy to clipboard commands</label>
+							<label for="menus.explorer.clipboard">Add <i>Copy Remote File Url</i> command</label>
 						</div>
 					</div>
 				</div>
@@ -370,7 +358,7 @@
 							data-setting-type="object"
 							disabled
 						/>
-						<label for="menus.scm">Add commands to the Source Control toolbar</label>
+						<label for="menus.scm">Add to the Source Control toolbar</label>
 					</div>
 				</div>
 
@@ -385,7 +373,7 @@
 								data-setting-type="object"
 								disabled
 							/>
-							<label for="menus.scm.authors">Add co-authors command</label>
+							<label for="menus.scm.authors">Add <i>Add Co-authors</i> command</label>
 						</div>
 					</div>
 				</div>
@@ -402,7 +390,7 @@
 							data-setting-type="object"
 							disabled
 						/>
-						<label for="menus.scmGroupInline">Add commands to the Source Control groups toolbar</label>
+						<label for="menus.scmGroupInline">Add to the Source Control groups toolbar</label>
 					</div>
 				</div>
 
@@ -417,7 +405,7 @@
 								data-setting-type="object"
 								disabled
 							/>
-							<label for="menus.scmGroupInline.stash">Add stash changes command</label>
+							<label for="menus.scmGroupInline.stash">Add <i>Stash All Changes</i> command</label>
 						</div>
 					</div>
 				</div>
@@ -434,7 +422,7 @@
 							data-setting-type="object"
 							disabled
 						/>
-						<label for="menus.scmGroup">Add commands to the Source Control groups context menu</label>
+						<label for="menus.scmGroup">Add to the Source Control groups context menu</label>
 					</div>
 				</div>
 
@@ -442,14 +430,14 @@
 					<div class="setting" data-enablement="menus.scmGroup">
 						<div class="setting__input">
 							<input
-								id="menus.scmGroup.openClose"
-								name="menus.scmGroup.openClose"
+								id="menus.scmGroup.stash"
+								name="menus.scmGroup.stash"
 								type="checkbox"
 								data-setting
 								data-setting-type="object"
 								disabled
 							/>
-							<label for="menus.scmGroup.openClose">Add open & close changed files commands</label>
+							<label for="menus.scmGroup.stash">Add <i>Stash All Changes</i> command</label>
 						</div>
 					</div>
 
@@ -463,21 +451,23 @@
 								data-setting-type="object"
 								disabled
 							/>
-							<label for="menus.scmGroup.compare">Add comparison commands</label>
+							<label for="menus.scmGroup.compare">Add <i>Open Changes</i> submenu</label>
 						</div>
 					</div>
 
 					<div class="setting" data-enablement="menus.scmGroup">
 						<div class="setting__input">
 							<input
-								id="menus.scmGroup.stash"
-								name="menus.scmGroup.stash"
+								id="menus.scmGroup.openClose"
+								name="menus.scmGroup.openClose"
 								type="checkbox"
 								data-setting
 								data-setting-type="object"
 								disabled
 							/>
-							<label for="menus.scmGroup.stash">Add stash changes command</label>
+							<label for="menus.scmGroup.openClose"
+								>Add <i>Open Changed Files</i> and <i>Close Unchanged Files</i> commands</label
+							>
 						</div>
 					</div>
 				</div>
@@ -494,25 +484,11 @@
 							data-setting-type="object"
 							disabled
 						/>
-						<label for="menus.scmItem">Add commands to the Source Control items context menu</label>
+						<label for="menus.scmItem">Add to the Source Control items context menu</label>
 					</div>
 				</div>
 
 				<div class="settings ml-4">
-					<div class="setting" data-enablement="menus.scmItem">
-						<div class="setting__input">
-							<input
-								id="menus.scmItem.remote"
-								name="menus.scmItem.remote"
-								type="checkbox"
-								data-setting
-								data-setting-type="object"
-								disabled
-							/>
-							<label for="menus.scmItem.remote">Add open on remote commands</label>
-						</div>
-					</div>
-
 					<div class="setting" data-enablement="menus.scmItem">
 						<div class="setting__input">
 							<input
@@ -523,7 +499,21 @@
 								data-setting-type="object"
 								disabled
 							/>
-							<label for="menus.scmItem.compare">Add comparison commands</label>
+							<label for="menus.scmItem.compare">Add <i>Open Changes</i> submenu</label>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="menus.scmItem">
+						<div class="setting__input">
+							<input
+								id="menus.scmItem.remote"
+								name="menus.scmItem.remote"
+								type="checkbox"
+								data-setting
+								data-setting-type="object"
+								disabled
+							/>
+							<label for="menus.scmItem.remote">Add <i>Open File on Remote</i> command</label>
 						</div>
 					</div>
 
@@ -537,7 +527,7 @@
 								data-setting-type="object"
 								disabled
 							/>
-							<label for="menus.scmItem.history">Add file history command</label>
+							<label for="menus.scmItem.history">Add <i>Open File History</i> command</label>
 						</div>
 					</div>
 
@@ -551,7 +541,7 @@
 								data-setting-type="object"
 								disabled
 							/>
-							<label for="menus.scmItem.stash">Add stash changes command</label>
+							<label for="menus.scmItem.stash">Add <i>Stash Changes</i> command</label>
 						</div>
 					</div>
 
@@ -565,7 +555,7 @@
 								data-setting-type="object"
 								disabled
 							/>
-							<label for="menus.scmItem.clipboard">Add copy to clipboard commands</label>
+							<label for="menus.scmItem.clipboard">Add <i>Copy Remote File Url</i> command</label>
 						</div>
 					</div>
 				</div>
