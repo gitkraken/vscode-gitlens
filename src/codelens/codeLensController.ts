@@ -47,7 +47,7 @@ export class GitCodeLensController implements Disposable {
 			}
 
 			this._canToggle = cfg.recentChange.enabled || cfg.authors.enabled;
-			void setContext(ContextKeys.CanToggleCodeLens, this._canToggle);
+			void setContext(ContextKeys.DisabledToggleCodeLens, !this._canToggle);
 		}
 	}
 

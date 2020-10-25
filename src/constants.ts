@@ -34,7 +34,7 @@ export enum BuiltInCommands {
 export enum ContextKeys {
 	ActiveFileStatus = 'gitlens:activeFileStatus',
 	AnnotationStatus = 'gitlens:annotationStatus',
-	CanToggleCodeLens = 'gitlens:canToggleCodeLens',
+	DisabledToggleCodeLens = 'gitlens:disabledToggleCodeLens',
 	Disabled = 'gitlens:disabled',
 	Enabled = 'gitlens:enabled',
 	HasRemotes = 'gitlens:hasRemotes',
