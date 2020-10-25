@@ -3391,12 +3391,6 @@
 				}
 			},
 			{
-				"command": "gitlens.views.openFileRevisionInRemote",
-				"title": "Open File at Revision on Remote",
-				"category": "GitLens",
-				"icon": "$(globe)"
-			},
-			{
 				"command": "gitlens.views.openChangedFiles",
 				"title": "Open Files",
 				"category": "GitLens"
@@ -4823,10 +4817,6 @@
 				},
 				{
 					"command": "gitlens.views.openFileRevision",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.openFileRevisionInRemote",
 					"when": "false"
 				},
 				{
@@ -6720,11 +6710,6 @@
 					"when": "viewItem =~ /gitlens:file\\b/ && gitlens:hasRemotes",
 					"group": "2_gitlens_quickopen_2@1",
 					"alt": "gitlens.copyRemoteFileUrlToClipboard"
-				},
-				{
-					"command": "gitlens.views.openFileRevisionInRemote",
-					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && gitlens:hasRemotes",
-					"group": "2_gitlens_quickopen_2@2"
 				},
 				{
 					"command": "gitlens.openCommitInRemote",

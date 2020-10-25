@@ -138,7 +138,6 @@ export class ViewCommands {
 		commands.registerCommand('gitlens.views.openChangesWithWorking', this.openChangesWithWorking, this);
 		commands.registerCommand('gitlens.views.openFile', this.openFile, this);
 		commands.registerCommand('gitlens.views.openFileRevision', this.openRevision, this);
-		commands.registerCommand('gitlens.views.openFileRevisionInRemote', this.openRevisionOnRemote, this);
 		commands.registerCommand('gitlens.views.openChangedFiles', this.openFiles, this);
 		commands.registerCommand('gitlens.views.openChangedFileDiffs', this.openAllChanges, this);
 		commands.registerCommand('gitlens.views.openChangedFileDiffsWithWorking', this.openAllChangesWithWorking, this);
@@ -884,19 +883,6 @@ export class ViewCommands {
 		}
 
 		return GitActions.Commit.openFilesAtRevision(node.commit);
-	}
-
-	@debug()
-	private openRevisionOnRemote(node: CommitFileNode) {
-		if (!(node instanceof CommitFileNode) || node instanceof StashFileNode) return Promise.resolve();
-
-		return executeEditorCommand<OpenFileOnRemoteCommandArgs>(
-			Commands.OpenFileInRemote,
-			node.commit.toGitUri(node.commit.status === 'D'),
-			{
-				range: false,
-			},
-		);
 	}
 
 	private terminalRemoveRemote(node: RemoteNode) {
