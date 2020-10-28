@@ -67,7 +67,6 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 						commit =>
 							new CommitFileNode(this.view, this, status!, commit, {
 								displayAsCommit: true,
-								inFileHistory: true,
 							}),
 					),
 				);
@@ -83,7 +82,6 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 							new CommitFileNode(this.view, this, c.files[0], c, {
 								branch: this.branch,
 								displayAsCommit: true,
-								inFileHistory: true,
 								unpublished: unpublishedCommits?.has(c.ref),
 							}),
 					),

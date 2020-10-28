@@ -26,7 +26,6 @@ export class CommitFileNode extends ViewRefFileNode {
 		private readonly _options: {
 			branch?: GitBranch;
 			displayAsCommit?: boolean;
-			inFileHistory?: boolean;
 			selection?: Selection;
 			unpublished?: boolean;
 		} = {},
@@ -114,7 +113,7 @@ export class CommitFileNode extends ViewRefFileNode {
 		if (!this.commit.isUncommitted) {
 			return `${ContextValues.File}+committed${
 				this._options.branch?.current && this._options.branch.sha === this.commit.ref ? '+HEAD' : ''
-			}${this._options.unpublished ? '+unpublished' : ''}${this._options.inFileHistory ? '+history' : ''}`;
+			}${this._options.unpublished ? '+unpublished' : ''}`;
 		}
 
 		return this.commit.isUncommittedStaged ? `${ContextValues.File}+staged` : `${ContextValues.File}+unstaged`;

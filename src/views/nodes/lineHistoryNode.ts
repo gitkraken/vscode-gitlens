@@ -129,7 +129,6 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 							0,
 							new CommitFileNode(this.view, this, file, uncommitted, {
 								displayAsCommit: true,
-								inFileHistory: true,
 								selection: selection,
 							}),
 						);
@@ -156,7 +155,6 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 							0,
 							new CommitFileNode(this.view, this, file, uncommitted, {
 								displayAsCommit: true,
-								inFileHistory: true,
 								selection: selection,
 							}),
 						);
@@ -187,7 +185,6 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 							0,
 							new CommitFileNode(this.view, this, file, uncommitted, {
 								displayAsCommit: true,
-								inFileHistory: true,
 								selection: selection,
 							}),
 						);
@@ -207,7 +204,6 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 							new CommitFileNode(this.view, this, c.files[0], c, {
 								branch: this.branch,
 								displayAsCommit: true,
-								inFileHistory: true,
 								selection: selection,
 								unpublished: unpublishedCommits?.has(c.ref),
 							}),

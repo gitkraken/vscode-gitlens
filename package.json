@@ -6694,7 +6694,7 @@
 				},
 				{
 					"command": "gitlens.revealCommitInView",
-					"when": "viewItem =~ /gitlens:commit\\b/",
+					"when": "view =~ /gitlens\\.views\\.(?!commits|branches\\b)/ && viewItem =~ /gitlens:commit\\b/",
 					"group": "3_gitlens_explore@3"
 				},
 				{
@@ -6714,19 +6714,19 @@
 				},
 				{
 					"command": "gitlens.views.openFile",
-					"when": "viewItem =~ /gitlens:file\\b(?!.*?\\b\\+history\\b)/",
+					"when": "view =~ /gitlens\\.views\\.(?!(fileHistory|lineHistory)\\b)/ && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
 					"group": "inline@1",
 					"alt": "gitlens.views.openFileRevision"
 				},
 				{
 					"command": "gitlens.views.openFileRevision",
-					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+history\\b)/",
+					"when": "view =~ /gitlens\\.views\\.(fileHistory|lineHistory)\\b/ && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
 					"group": "inline@1",
 					"alt": "gitlens.views.openFile"
 				},
 				{
 					"command": "gitlens.views.openChangesWithWorking",
-					"when": "viewItem =~ /gitlens:file\\b/",
+					"when": "viewItem =~ /gitlens:file\\b(?!.*?\\b\\+unstaged\\b)/",
 					"group": "inline@96"
 				},
 				{
@@ -6741,7 +6741,7 @@
 				},
 				{
 					"command": "gitlens.copyShaToClipboard",
-					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
+					"when": "view =~ /gitlens\\.views\\.(fileHistory|lineHistory)\\b/ && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
 					"group": "inline@98",
 					"alt": "gitlens.copyMessageToClipboard"
 				},
