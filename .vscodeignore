@@ -8,8 +8,7 @@ images/**/*.pdn
 node_modules/**
 src/**
 test/**
-*.fig
-*.map
+**/*.fig
 .eslintcache
 .eslintignore
 .eslintrc.json

@@ -99,7 +99,7 @@ module.exports =
  */
 function getExtensionConfig(mode, env) {
 	/**
-	 * @type WebpackConfig['plugins']
+	 * @type WebpackConfig['plugins'] | any
 	 */
 	const plugins = [
 		new CleanPlugin({ cleanOnceBeforeBuildPatterns: ['**/*', '!**/webviews/**'] }),
@@ -146,10 +146,12 @@ function getExtensionConfig(mode, env) {
 		},
 		optimization: {
 			minimizer: [
+				// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+				// @ts-ignore
 				new TerserPlugin({
 					parallel: true,
 					terserOptions: {
-						ecma: 8,
+						ecma: 2019,
 						// Keep the class names otherwise @log won't provide a useful name
 						keep_classnames: true,
 						module: true,
@@ -227,7 +229,7 @@ function getWebviewsConfig(mode, env) {
 	}
 
 	/**
-	 * @type WebpackConfig['plugins']
+	 * @type WebpackConfig['plugins'] | any
 	 */
 	const plugins = [
 		new CleanPlugin({ cleanOnceBeforeBuildPatterns: clean, cleanStaleWebpackAssets: false }),
@@ -362,7 +364,7 @@ function getWebviewsConfig(mode, env) {
 		},
 		mode: mode,
 		target: 'web',
-		devtool: mode === 'production' ? undefined : 'eval-source-map',
+		devtool: 'source-map',
 		output: {
 			filename: '[name].js',
 			path: path.join(__dirname, 'dist/webviews'),

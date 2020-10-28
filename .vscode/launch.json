@@ -11,6 +11,7 @@
 			"cwd": "${workspaceFolder}",
 			"debugWebviews": true,
 			"rendererDebugOptions": {
+				"sourceMaps": true,
 				"urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
@@ -33,6 +34,7 @@
 			"cwd": "${workspaceFolder}",
 			"debugWebviews": true,
 			"rendererDebugOptions": {
+				"sourceMaps": true,
 				"urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
@@ -55,6 +57,7 @@
 			"cwd": "${workspaceFolder}",
 			"debugWebviews": true,
 			"rendererDebugOptions": {
+				"sourceMaps": true,
 				"urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
@@ -78,6 +81,7 @@
 			"cwd": "${workspaceFolder}",
 			"debugWebviews": true,
 			"rendererDebugOptions": {
+				"sourceMaps": true,
 				"urlFilter": "*eamodio.gitlens*",
 				"webRoot": "${workspaceFolder}/src/webviews/apps"
 			},
