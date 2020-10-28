@@ -8040,14 +8040,16 @@
 					"name": "Commits",
 					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
-					"icon": "images/views/commits.svg"
+					"icon": "images/views/commits.svg",
+					"visibility": "visible"
 				},
 				{
 					"id": "gitlens.views.fileHistory",
 					"name": "File History",
 					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
-					"icon": "images/views/history.svg"
+					"icon": "images/views/history.svg",
+					"visibility": "visible"
 				},
 				{
 					"id": "gitlens.views.lineHistory",
@@ -8062,7 +8064,8 @@
 					"name": "Branches",
 					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
-					"icon": "images/views/branches.svg"
+					"icon": "images/views/branches.svg",
+					"visibility": "collapsed"
 				},
 				{
 					"id": "gitlens.views.remotes",
