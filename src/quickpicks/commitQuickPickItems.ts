@@ -75,7 +75,7 @@ export class CommitBrowseRepositoryFromHereCommandQuickPickItem extends CommandQ
 		private readonly openInNewWindow: boolean,
 		item?: QuickPickItem,
 	) {
-		super(item ?? `$(folder-opened) Browse Repository from Here${openInNewWindow ? ' in New Window' : ''}`);
+		super(item ?? `$(folder-opened) Browse from Here${openInNewWindow ? ' in New Window' : ''}`);
 	}
 
 	execute(_options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
@@ -105,7 +105,7 @@ export class CommitCompareWithWorkingCommandQuickPickItem extends CommandQuickPi
 
 export class CommitCopyIdQuickPickItem extends CommandQuickPickItem {
 	constructor(private readonly commit: GitLogCommit, item?: QuickPickItem) {
-		super(item ?? '$(clippy) Copy Commit ID');
+		super(item ?? '$(clippy) Copy SHA');
 	}
 
 	execute(): Promise<void> {
@@ -114,7 +114,7 @@ export class CommitCopyIdQuickPickItem extends CommandQuickPickItem {
 
 	async onDidPressKey(key: Keys): Promise<void> {
 		await super.onDidPressKey(key);
-		void window.showInformationMessage('Commit ID copied to the clipboard');
+		void window.showInformationMessage('Commit SHA copied to the clipboard');
 	}
 }
 

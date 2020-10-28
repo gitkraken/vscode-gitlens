@@ -1379,6 +1379,8 @@ async function getShowCommitOrStashStepItems<
 	if (GitStashCommit.is(state.reference)) {
 		isStash = true;
 
+		items.push(new RevealInSideBarQuickPickItem(state.reference));
+
 		items.push(
 			new GitCommandQuickPickItem('Apply Stash...', {
 				command: 'stash',
@@ -1397,10 +1399,14 @@ async function getShowCommitOrStashStepItems<
 					reference: state.reference,
 				},
 			}),
-			new RevealInSideBarQuickPickItem(state.reference),
 		);
 	} else {
 		remotes = await Container.git.getRemotes(state.repo.path, { sort: true });
+
+		items.push(
+			new RevealInSideBarQuickPickItem(state.reference),
+			new SearchForCommitQuickPickItem(state.reference),
+		);
 
 		if (
 			branch != null &&
@@ -1507,8 +1513,6 @@ async function getShowCommitOrStashStepItems<
 		);
 	}
 
-	items.push(new RevealInSideBarQuickPickItem(state.reference));
-
 	if (isStash) {
 		items.push(
 			new CommitBrowseRepositoryFromHereCommandQuickPickItem(state.reference, false),
@@ -1519,8 +1523,6 @@ async function getShowCommitOrStashStepItems<
 		);
 	} else {
 		items.push(
-			new SearchForCommitQuickPickItem(state.reference),
-
 			new CommitBrowseRepositoryFromHereCommandQuickPickItem(state.reference, false),
 			new CommitBrowseRepositoryFromHereCommandQuickPickItem(state.reference, true),
 
@@ -1712,10 +1714,15 @@ async function getShowCommitOrStashFileStepItems<
 	let isStash = false;
 	if (GitStashCommit.is(state.reference)) {
 		isStash = true;
+
+		items.push(new RevealInSideBarQuickPickItem(state.reference));
 	} else {
 		remotes = await Container.git.getRemotes(state.repo.path, { sort: true });
 
 		items.push(
+			new RevealInSideBarQuickPickItem(state.reference),
+			new SearchForCommitQuickPickItem(state.reference),
+
 			new CommitApplyFileChangesCommandQuickPickItem(state.reference, file),
 			new CommitRestoreFileChangesCommandQuickPickItem(state.reference, file),
 		);
@@ -1746,8 +1753,6 @@ async function getShowCommitOrStashFileStepItems<
 		);
 	}
 
-	items.push(new RevealInSideBarQuickPickItem(state.reference));
-
 	if (isStash) {
 		items.push(
 			new CommitBrowseRepositoryFromHereCommandQuickPickItem(state.reference, false),
@@ -1758,8 +1763,6 @@ async function getShowCommitOrStashFileStepItems<
 		);
 	} else {
 		items.push(
-			new SearchForCommitQuickPickItem(state.reference),
-
 			new CommitBrowseRepositoryFromHereCommandQuickPickItem(state.reference, false),
 			new CommitBrowseRepositoryFromHereCommandQuickPickItem(state.reference, true),
 
