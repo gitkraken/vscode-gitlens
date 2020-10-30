@@ -60,8 +60,7 @@ export async function activate(context: ExtensionContext) {
 	const enabled = workspace.getConfiguration('git', null).get<boolean>('enabled', true);
 	if (!enabled) {
 		Logger.log(`GitLens (v${gitlensVersion}) was NOT activated -- "git.enabled": false`);
-		void setContext(ContextKeys.Enabled, false);
-		void setContext(ContextKeys.Disabled, true);
+		void setEnabled(false);
 
 		void Messages.showGitDisabledErrorMessage();
 
@@ -78,7 +77,7 @@ export async function activate(context: ExtensionContext) {
 		await GitService.initialize();
 	} catch (ex) {
 		Logger.error(ex, `GitLens (v${gitlensVersion}) activate`);
-		void setContext(ContextKeys.Enabled, false);
+		void setEnabled(false);
 
 		const msg: string = ex?.message ?? '';
 		if (msg.includes('Unable to find git')) {
@@ -110,6 +109,10 @@ export async function activate(context: ExtensionContext) {
 
 export function deactivate() {
 	// nothing to do
+}
+
+export async function setEnabled(enabled: boolean): Promise<void> {
+	await Promise.all([setContext(ContextKeys.Enabled, enabled), setContext(ContextKeys.Disabled, !enabled)]);
 }
 
 async function migrateSettings(context: ExtensionContext, previousVersion: string | undefined) {

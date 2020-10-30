@@ -23,23 +23,7 @@ import { resetAvatarCache } from '../avatars';
 import { BranchSorting, configuration, TagSorting } from '../configuration';
 import { ContextKeys, DocumentSchemes, GlyphChars, setContext } from '../constants';
 import { Container } from '../container';
-import { LogCorrelationContext, Logger } from '../logger';
-import { Messages } from '../messages';
-import {
-	Arrays,
-	debug,
-	Functions,
-	gate,
-	Iterables,
-	log,
-	Objects,
-	Promises,
-	Strings,
-	TernarySearchTree,
-	Versions,
-} from '../system';
-import { CachedBlame, CachedDiff, CachedLog, GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
-import { vslsUriPrefixRegex } from '../vsls/vsls';
+import { setEnabled } from '../extension';
 import {
 	Authentication,
 	BranchDateFormatting,
@@ -89,9 +73,26 @@ import {
 	SearchPattern,
 } from './git';
 import { GitUri } from './gitUri';
-import { RemoteProvider, RemoteProviderFactory, RemoteProviders, RemoteProviderWithApi } from './remotes/factory';
+import { LogCorrelationContext, Logger } from '../logger';
+import { Messages } from '../messages';
 import { GitReflogParser, GitShortLogParser } from './parsers/parsers';
+import { RemoteProvider, RemoteProviderFactory, RemoteProviders, RemoteProviderWithApi } from './remotes/factory';
 import { fsExists, isWindows } from './shell';
+import {
+	Arrays,
+	debug,
+	Functions,
+	gate,
+	Iterables,
+	log,
+	Objects,
+	Promises,
+	Strings,
+	TernarySearchTree,
+	Versions,
+} from '../system';
+import { CachedBlame, CachedDiff, CachedLog, GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
+import { vslsUriPrefixRegex } from '../vsls/vsls';
 
 const emptyStr = '';
 const slash = '/';
@@ -437,7 +438,7 @@ export class GitService implements Disposable {
 
 	private async updateContext(repositoryTree: TernarySearchTree<Repository>) {
 		const hasRepository = repositoryTree.any();
-		await setContext(ContextKeys.Enabled, hasRepository);
+		await setEnabled(hasRepository);
 
 		let hasRemotes = false;
 		let hasConnectedRemotes = false;

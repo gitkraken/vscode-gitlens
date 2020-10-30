@@ -1,7 +1,7 @@
 'use strict';
 import { CancellationToken, Disposable, window, WorkspaceFolder } from 'vscode';
 import { LiveShare, SharedServiceProxy } from 'vsls';
-import { ContextKeys, setContext } from '../constants';
+import { setEnabled } from '../extension';
 import { GitCommandOptions, Repository, RepositoryChangeEvent } from '../git/git';
 import { Logger } from '../logger';
 import { debug, log } from '../system';
@@ -38,11 +38,12 @@ export class VslsGuestService implements Disposable {
 	@log()
 	private onAvailabilityChanged(available: boolean) {
 		if (available) {
-			void setContext(ContextKeys.Enabled, true);
+			void setEnabled(true);
+
 			return;
 		}
 
-		void setContext(ContextKeys.Enabled, false);
+		void setEnabled(false);
 		void window.showWarningMessage(
 			'GitLens features will be unavailable. Unable to connect to the host GitLens service. The host may have disabled GitLens guest access or may not have GitLens installed.',
 		);
