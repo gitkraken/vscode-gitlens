@@ -26,7 +26,7 @@ export interface OpenBranchOnRemoteCommandArgs {
 @command()
 export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 	constructor() {
-		super([Commands.OpenBranchInRemote, Commands.CopyRemoteBranchUrl]);
+		super([Commands.OpenBranchOnRemote, Commands.Deprecated_OpenBranchInRemote, Commands.CopyRemoteBranchUrl]);
 	}
 
 	protected preExecute(context: CommandContext, args?: OpenBranchOnRemoteCommandArgs) {
@@ -80,7 +80,7 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 				args.branch = pick.ref;
 			}
 
-			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenInRemote, {
+			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
 				resource: {
 					type: RemoteResourceType.Branch,
 					branch: args.branch || 'HEAD',

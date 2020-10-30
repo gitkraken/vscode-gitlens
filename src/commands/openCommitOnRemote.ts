@@ -28,11 +28,11 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 	static getMarkdownCommandArgs(args: OpenCommitOnRemoteCommandArgs): string;
 	static getMarkdownCommandArgs(argsOrSha: OpenCommitOnRemoteCommandArgs | string): string {
 		const args: OpenCommitOnRemoteCommandArgs = typeof argsOrSha === 'string' ? { sha: argsOrSha } : argsOrSha;
-		return super.getMarkdownCommandArgsCore<OpenCommitOnRemoteCommandArgs>(Commands.OpenCommitInRemote, args);
+		return super.getMarkdownCommandArgsCore<OpenCommitOnRemoteCommandArgs>(Commands.OpenCommitOnRemote, args);
 	}
 
 	constructor() {
-		super([Commands.OpenCommitInRemote, Commands.CopyRemoteCommitUrl]);
+		super([Commands.OpenCommitOnRemote, Commands.Deprecated_OpenCommitInRemote, Commands.CopyRemoteCommitUrl]);
 	}
 
 	protected preExecute(context: CommandContext, args?: OpenCommitOnRemoteCommandArgs) {
@@ -96,7 +96,7 @@ export class OpenCommitOnRemoteCommand extends ActiveEditorCommand {
 				args.sha = commit.sha;
 			}
 
-			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenInRemote, {
+			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
 				resource: {
 					type: RemoteResourceType.Commit,
 					sha: args.sha,

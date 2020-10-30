@@ -23,7 +23,11 @@ export interface OpenBranchesOnRemoteCommandArgs {
 @command()
 export class OpenBranchesOnRemoteCommand extends ActiveEditorCommand {
 	constructor() {
-		super([Commands.OpenBranchesInRemote, Commands.CopyRemoteBranchesUrl]);
+		super([
+			Commands.OpenBranchesOnRemote,
+			Commands.Deprecated_OpenBranchesInRemote,
+			Commands.CopyRemoteBranchesUrl,
+		]);
 	}
 
 	protected preExecute(context: CommandContext, args?: OpenBranchesOnRemoteCommandArgs) {
@@ -51,7 +55,7 @@ export class OpenBranchesOnRemoteCommand extends ActiveEditorCommand {
 		if (!repoPath) return;
 
 		try {
-			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenInRemote, {
+			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
 				resource: {
 					type: RemoteResourceType.Branches,
 				},

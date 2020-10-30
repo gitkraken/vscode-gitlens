@@ -32,7 +32,7 @@ export interface OpenFileOnRemoteCommandArgs {
 @command()
 export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 	constructor() {
-		super([Commands.OpenFileInRemote, Commands.CopyRemoteFileUrl]);
+		super([Commands.OpenFileOnRemote, Commands.Deprecated_OpenFileInRemote, Commands.CopyRemoteFileUrl]);
 	}
 
 	protected async preExecute(context: CommandContext, args?: OpenFileOnRemoteCommandArgs) {
@@ -140,7 +140,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 				}
 			}
 
-			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenInRemote, {
+			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
 				resource: {
 					type: sha == null ? RemoteResourceType.File : RemoteResourceType.Revision,
 					branch: args.branch ?? 'HEAD',

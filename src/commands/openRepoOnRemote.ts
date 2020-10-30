@@ -23,7 +23,7 @@ export interface OpenRepoOnRemoteCommandArgs {
 @command()
 export class OpenRepoOnRemoteCommand extends ActiveEditorCommand {
 	constructor() {
-		super([Commands.OpenRepoInRemote, Commands.CopyRemoteRepositoryUrl]);
+		super([Commands.OpenRepoOnRemote, Commands.Deprecated_OpenRepoInRemote, Commands.CopyRemoteRepositoryUrl]);
 	}
 
 	protected preExecute(context: CommandContext, args?: OpenRepoOnRemoteCommandArgs) {
@@ -53,7 +53,7 @@ export class OpenRepoOnRemoteCommand extends ActiveEditorCommand {
 		if (!repoPath) return;
 
 		try {
-			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenInRemote, {
+			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
 				resource: {
 					type: RemoteResourceType.Repo,
 				},

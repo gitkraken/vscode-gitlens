@@ -31,7 +31,7 @@ export type OpenOnRemoteCommandArgs =
 @command()
 export class OpenOnRemoteCommand extends Command {
 	constructor() {
-		super(Commands.OpenInRemote);
+		super([Commands.OpenOnRemote, Commands.Deprecated_OpenInRemote]);
 	}
 
 	async execute(args?: OpenOnRemoteCommandArgs) {
@@ -100,6 +100,14 @@ export class OpenOnRemoteCommand extends Command {
 						2,
 						2,
 					)}${GitRevision.shorten(args.resource.sha)}`;
+					break;
+
+				case RemoteResourceType.Comparison:
+					title = `${args.clipboard ? 'Copy Comparison Url' : 'Open Comparison'}${Strings.pad(
+						GlyphChars.Dot,
+						2,
+						2,
+					)}${GitRevision.createRange(args.resource.ref1, args.resource.ref2, '...')}`;
 					break;
 
 				case RemoteResourceType.File:

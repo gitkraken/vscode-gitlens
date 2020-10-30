@@ -553,11 +553,11 @@ The repositories view provides the following features,
 
 - Adds commands to Open files, commits, branches, and the repository on the supported remote services, **Bitbucket, GitHub, GitLab, and Azure DevOps** or a [**user-defined** remote services](#custom-remotes-settings 'Jump to Custom Remotes settings') &mdash; only available if a Git upstream service is configured in the repository
   - Also supports [remote services with custom domains](#custom-remotes-settings 'Jump to Custom Remotes settings'), such as **Bitbucket, Bitbucket Server (previously called Stash), GitHub, GitHub Enterprise, GitLab**
-  - _Open Branches on Remote_ command (`gitlens.openBranchesInRemote`) &mdash; opens the branches on the supported remote service
-  - _Open Branch on Remote_ command (`gitlens.openBranchInRemote`) &mdash; opens the current branch commits on the supported remote service
-  - _Open Commit on Remote_ command (`gitlens.openCommitInRemote`) &mdash; opens the commit revision of the current line on the supported remote service
-  - _Open File on Remote_ command (`gitlens.openFileInRemote`) &mdash; opens the current file/revision on the supported remote service
-  - _Open Repository on Remote_ command (`gitlens.openRepoInRemote`) &mdash; opens the repository on the supported remote service
+  - _Open Branches on Remote_ command (`gitlens.openBranchesOnRemote`) &mdash; opens the branches on the supported remote service
+  - _Open Branch on Remote_ command (`gitlens.openBranchOnRemote`) &mdash; opens the current branch commits on the supported remote service
+  - _Open Commit on Remote_ command (`gitlens.openCommitOnRemote`) &mdash; opens the commit revision of the current line on the supported remote service
+  - _Open File on Remote_ command (`gitlens.openFileOnRemote`) &mdash; opens the current file/revision on the supported remote service
+  - _Open Repository on Remote_ command (`gitlens.openRepoOnRemote`) &mdash; opens the repository on the supported remote service
 
 ### Branch History
 
