@@ -154,6 +154,7 @@
 		"onCommand:gitlens.openFileRevision",
 		"onCommand:gitlens.openFileRevisionFrom",
 		"onCommand:gitlens.openPullRequestOnRemote",
+		"onCommand:gitlens.copyRemotePullRequestUrl",
 		"onCommand:gitlens.openAssociatedPullRequestOnRemote",
 		"onCommand:gitlens.openRepoOnRemote",
 		"onCommand:gitlens.copyRemoteRepositoryUrl",
@@ -3142,6 +3143,15 @@
 				"icon": "$(globe)"
 			},
 			{
+				"command": "gitlens.copyRemotePullRequestUrl",
+				"title": "Copy Pull Request Url",
+				"category": "GitLens",
+				"icon": {
+					"dark": "images/dark/icon-copy-link.svg",
+					"light": "images/light/icon-copy-link.svg"
+				}
+			},
+			{
 				"command": "gitlens.openAssociatedPullRequestOnRemote",
 				"title": "Open Associated Pull Request",
 				"category": "GitLens",
@@ -4709,6 +4719,10 @@
 				},
 				{
 					"command": "gitlens.openPullRequestOnRemote",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.copyRemotePullRequestUrl",
 					"when": "false"
 				},
 				{
@@ -6842,7 +6856,8 @@
 				{
 					"command": "gitlens.openPullRequestOnRemote",
 					"when": "viewItem =~ /gitlens:pullrequest\\b/",
-					"group": "inline@99"
+					"group": "inline@99",
+					"alt": "gitlens.copyRemotePullRequestUrl"
 				},
 				{
 					"command": "gitlens.views.addRemote",
