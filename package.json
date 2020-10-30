@@ -5663,7 +5663,7 @@
 					"group": "navigation@100"
 				},
 				{
-					"submenu": "gitlens/editor/annotationsOn",
+					"command": "gitlens.clearFileAnnotations",
 					"when": "gitlens:activeFileStatus =~ /blameable/ && gitlens:annotationStatus == computed && config.gitlens.menus.editorGroup.blame",
 					"group": "navigation@100"
 				}
@@ -7410,48 +7410,6 @@
 					"group": "2_gitlens@3"
 				}
 			],
-			"gitlens/editor/annotationsOn": [
-				{
-					"command": "gitlens.clearFileAnnotations",
-					"when": "gitlens:activeFileStatus =~ /blameable/ && gitlens:annotationStatus",
-					"group": "1_gitlens@1"
-				},
-				{
-					"command": "gitlens.toggleFileBlame",
-					"when": "gitlens:activeFileStatus =~ /blameable/ && !isInDiffEditor",
-					"group": "2_gitlens@1"
-				},
-				{
-					"command": "gitlens.toggleFileBlameInDiffLeft",
-					"when": "gitlens:activeFileStatus =~ /blameable/ && isInDiffEditor && !isInDiffRightEditor",
-					"group": "2_gitlens@1"
-				},
-				{
-					"command": "gitlens.toggleFileBlameInDiffRight",
-					"when": "gitlens:activeFileStatus =~ /blameable/ && isInDiffRightEditor",
-					"group": "2_gitlens@1"
-				},
-				{
-					"command": "gitlens.toggleFileHeatmap",
-					"when": "gitlens:activeFileStatus =~ /blameable/ && !isInDiffEditor",
-					"group": "2_gitlens@2"
-				},
-				{
-					"command": "gitlens.toggleFileHeatmapInDiffLeft",
-					"when": "gitlens:activeFileStatus =~ /blameable/ && isInDiffEditor && !isInDiffRightEditor",
-					"group": "2_gitlens@2"
-				},
-				{
-					"command": "gitlens.toggleFileHeatmapInDiffRight",
-					"when": "gitlens:activeFileStatus =~ /blameable/ && isInDiffRightEditor",
-					"group": "2_gitlens@2"
-				},
-				{
-					"command": "gitlens.toggleFileChanges",
-					"when": "gitlens:activeFileStatus =~ /blameable/",
-					"group": "2_gitlens@3"
-				}
-			],
 			"gitlens/editor/context/copy": [
 				{
 					"command": "gitlens.copyShaToClipboard",
@@ -7622,14 +7580,6 @@
 				"icon": {
 					"dark": "images/dark/icon-git.svg",
 					"light": "images/light/icon-git.svg"
-				}
-			},
-			{
-				"id": "gitlens/editor/annotationsOn",
-				"label": "File Annotations",
-				"icon": {
-					"dark": "images/dark/icon-git-orange.svg",
-					"light": "images/light/icon-git-orange.svg"
 				}
 			},
 			{
