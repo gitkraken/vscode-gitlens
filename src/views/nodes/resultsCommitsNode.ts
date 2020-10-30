@@ -28,6 +28,7 @@ export class ResultsCommitsNode<View extends ViewsWithFiles = ViewsWithFiles>
 		private _label: string,
 		private readonly _results: {
 			query: (limit: number | undefined) => Promise<CommitsQueryResults>;
+			comparison?: { ref1: string; ref2: string };
 			deferred?: boolean;
 			files?: {
 				ref1: string;
@@ -48,6 +49,14 @@ export class ResultsCommitsNode<View extends ViewsWithFiles = ViewsWithFiles>
 			this.splatted = splatted;
 		}
 		this._options = { expand: true, ..._options };
+	}
+
+	get ref1(): string | undefined {
+		return this._results.comparison?.ref1;
+	}
+
+	get ref2(): string | undefined {
+		return this._results.comparison?.ref2;
 	}
 
 	get id(): string {
@@ -120,7 +129,8 @@ export class ResultsCommitsNode<View extends ViewsWithFiles = ViewsWithFiles>
 		}
 
 		const item = new TreeItem(label ?? this._label, state);
-		item.contextValue = ContextValues.ResultsCommits;
+		item.contextValue =
+			this._results.comparison != null ? ContextValues.CompareResultsCommits : ContextValues.SearchResultsCommits;
 		item.description = this._options.description;
 		item.id = this.id;
 

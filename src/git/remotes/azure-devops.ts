@@ -115,6 +115,10 @@ export class AzureDevOpsRemote extends RemoteProvider {
 		return `${this.baseUrl}/commit/${sha}`;
 	}
 
+	protected getUrlForComparison(ref1: string, ref2: string, _notation: '..' | '...'): string {
+		return `${this.baseUrl}/branchCompare?baseVersion=GB${ref1}&targetVersion=GB${ref2}`;
+	}
+
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
 		let line;
 		if (range != null) {

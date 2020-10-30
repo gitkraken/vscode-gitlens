@@ -135,6 +135,10 @@ export class GitHubRemote extends RemoteProviderWithApi {
 		return `${this.baseUrl}/commit/${sha}`;
 	}
 
+	protected getUrlForComparison(ref1: string, ref2: string, notation: '..' | '...'): string {
+		return `${this.baseUrl}/compare/${ref1}${notation}${ref2}`;
+	}
+
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
 		let line;
 		if (range != null) {

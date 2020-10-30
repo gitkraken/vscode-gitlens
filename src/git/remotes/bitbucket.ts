@@ -115,6 +115,10 @@ export class BitbucketRemote extends RemoteProvider {
 		return `${this.baseUrl}/commits/${sha}`;
 	}
 
+	protected getUrlForComparison(ref1: string, ref2: string, _notation: '..' | '...'): string {
+		return `${this.baseUrl}/branches/compare/${ref1}%0D${ref2}`;
+	}
+
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
 		let line;
 		if (range != null) {

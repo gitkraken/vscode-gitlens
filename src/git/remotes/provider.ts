@@ -24,6 +24,7 @@ export enum RemoteResourceType {
 	Branch = 'branch',
 	Branches = 'branches',
 	Commit = 'commit',
+	Comparison = 'comparison',
 	File = 'file',
 	Repo = 'repo',
 	Revision = 'revision',
@@ -40,6 +41,12 @@ export type RemoteResource =
 	| {
 			type: RemoteResourceType.Commit;
 			sha: string;
+	  }
+	| {
+			type: RemoteResourceType.Comparison;
+			ref1: string;
+			ref2: string;
+			notation?: '..' | '...';
 	  }
 	| {
 			type: RemoteResourceType.File;
@@ -67,6 +74,8 @@ export function getNameFromRemoteResource(resource: RemoteResource) {
 			return 'Branches';
 		case RemoteResourceType.Commit:
 			return 'Commit';
+		case RemoteResourceType.Comparison:
+			return 'Comparison';
 		case RemoteResourceType.File:
 			return 'File';
 		case RemoteResourceType.Repo:
@@ -121,7 +130,7 @@ export abstract class RemoteProvider {
 				return;
 			}
 
-			Logger.error(ex, 'CopyRemoteUrlToClipboardCommand');
+			Logger.error(ex, 'CopyRemoteUrlCommand');
 			void Messages.showGenericErrorMessage('Unable to copy remote url');
 		}
 	}
@@ -148,6 +157,12 @@ export abstract class RemoteProvider {
 				return this.getUrlForBranches();
 			case RemoteResourceType.Commit:
 				return this.getUrlForCommit(encodeURIComponent(resource.sha));
+			case RemoteResourceType.Comparison:
+				return this.getUrlForComparison?.(
+					encodeURIComponent(resource.ref1),
+					encodeURIComponent(resource.ref2),
+					resource.notation ?? '...',
+				);
 			case RemoteResourceType.File:
 				return this.getUrlForFile(
 					encodeURIComponent(resource.fileName),
@@ -188,6 +203,8 @@ export abstract class RemoteProvider {
 	protected abstract getUrlForBranches(): string;
 
 	protected abstract getUrlForCommit(sha: string): string;
+
+	protected getUrlForComparison?(ref1: string, ref2: string, notation: '..' | '...'): string | undefined;
 
 	protected abstract getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string;
 

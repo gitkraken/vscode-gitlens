@@ -40,6 +40,15 @@ export class CustomRemote extends RemoteProvider {
 		return Strings.interpolate(this.urls.commit, this.getContext({ id: sha }));
 	}
 
+	protected getUrlForComparison(ref1: string, ref2: string, notation: '..' | '...'): string | undefined {
+		if (this.urls.comparison == null) return undefined;
+
+		return Strings.interpolate(
+			this.urls.comparison,
+			this.getContext({ ref1: ref1, ref2: ref2, notation: notation }),
+		);
+	}
+
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
 		let line;
 		if (range != null) {

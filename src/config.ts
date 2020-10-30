@@ -388,6 +388,7 @@ export interface RemotesUrlsConfig {
 	branches: string;
 	branch: string;
 	commit: string;
+	comparison?: string;
 	file: string;
 	fileInBranch: string;
 	fileInCommit: string;

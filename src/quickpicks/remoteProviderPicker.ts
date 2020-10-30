@@ -2,7 +2,14 @@
 import { Disposable, window } from 'vscode';
 import { Commands, OpenOnRemoteCommandArgs } from '../commands';
 import { GlyphChars } from '../constants';
-import { getNameFromRemoteResource, GitRemote, RemoteProvider, RemoteResource } from '../git/git';
+import {
+	getNameFromRemoteResource,
+	GitBranch,
+	GitRemote,
+	RemoteProvider,
+	RemoteResource,
+	RemoteResourceType,
+} from '../git/git';
 import { Keys } from '../keyboard';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from '../quickpicks';
 
@@ -19,9 +26,18 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 	}
 
 	async execute(): Promise<void> {
-		void (await (this.clipboard
-			? this.remote.provider.copy(this.resource)
-			: this.remote.provider.open(this.resource)));
+		let resource = this.resource;
+		if (resource.type === RemoteResourceType.Comparison) {
+			if (GitBranch.getRemote(resource.ref1) === this.remote.name) {
+				resource = { ...resource, ref1: GitBranch.getNameWithoutRemote(resource.ref1) };
+			}
+
+			if (GitBranch.getRemote(resource.ref2) === this.remote.name) {
+				resource = { ...resource, ref2: GitBranch.getNameWithoutRemote(resource.ref2) };
+			}
+		}
+
+		void (await (this.clipboard ? this.remote.provider.copy(resource) : this.remote.provider.open(resource)));
 	}
 }
 
@@ -37,7 +53,7 @@ export class CopyRemoteResourceCommandQuickPickItem extends CommandQuickPickItem
 			`$(clippy) Copy ${providers?.length ? providers[0].name : 'Remote'} ${getNameFromRemoteResource(
 				resource,
 			)} Url${providers?.length === 1 ? '' : GlyphChars.Ellipsis}`,
-			Commands.OpenInRemote,
+			Commands.OpenOnRemote,
 			[commandArgs],
 		);
 	}
@@ -62,7 +78,7 @@ export class OpenRemoteResourceCommandQuickPickItem extends CommandQuickPickItem
 					? providers[0].name
 					: `${providers?.length ? providers[0].name : 'Remote'}${GlyphChars.Ellipsis}`
 			}`,
-			Commands.OpenInRemote,
+			Commands.OpenOnRemote,
 			[commandArgs],
 		);
 	}

@@ -38,6 +38,20 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 		this._instanceId = instanceId++;
 	}
 
+	get ahead(): { readonly ref1: string; readonly ref2: string } {
+		return {
+			ref1: this._compareWith.ref || 'HEAD',
+			ref2: this._ref.ref,
+		};
+	}
+
+	get behind(): { readonly ref1: string; readonly ref2: string } {
+		return {
+			ref1: this._ref.ref,
+			ref2: this._compareWith.ref || 'HEAD',
+		};
+	}
+
 	get id(): string {
 		return CompareResultsNode.getId(this.repoPath, this._ref.ref, this._compareWith.ref, this._instanceId);
 	}
@@ -57,8 +71,11 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children == null) {
-			const aheadBehind = await Container.git.getAheadBehindCommitCount(this.repoPath, [
-				GitRevision.createRange(this._ref.ref || 'HEAD', this._compareWith.ref || 'HEAD', '...'),
+			const ahead = this.ahead;
+			const behind = this.behind;
+
+			const aheadBehindCounts = await Container.git.getAheadBehindCommitCount(this.repoPath, [
+				GitRevision.createRange(behind.ref1 || 'HEAD', behind.ref2, '...'),
 			]);
 
 			this._children = [
@@ -68,18 +85,17 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 					this.uri.repoPath!,
 					'Behind',
 					{
-						query: this.getCommitsQuery(
-							GitRevision.createRange(this._ref.ref, this._compareWith?.ref ?? 'HEAD', '..'),
-						),
+						query: this.getCommitsQuery(GitRevision.createRange(behind.ref1, behind.ref2, '..')),
+						comparison: behind,
 						files: {
-							ref1: this._ref.ref,
-							ref2: this._compareWith.ref || 'HEAD',
+							ref1: behind.ref1,
+							ref2: behind.ref2,
 							query: this.getBehindFilesQuery.bind(this),
 						},
 					},
 					{
 						id: 'behind',
-						description: Strings.pluralize('commit', aheadBehind?.behind ?? 0),
+						description: Strings.pluralize('commit', aheadBehindCounts?.behind ?? 0),
 						expand: false,
 					},
 				),
@@ -89,18 +105,17 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 					this.uri.repoPath!,
 					'Ahead',
 					{
-						query: this.getCommitsQuery(
-							GitRevision.createRange(this._compareWith?.ref ?? 'HEAD', this._ref.ref, '..'),
-						),
+						query: this.getCommitsQuery(GitRevision.createRange(ahead.ref1, ahead.ref2, '..')),
+						comparison: ahead,
 						files: {
-							ref1: this._compareWith.ref || 'HEAD',
-							ref2: this._ref.ref,
+							ref1: ahead.ref1,
+							ref2: ahead.ref2,
 							query: this.getAheadFilesQuery.bind(this),
 						},
 					},
 					{
 						id: 'ahead',
-						description: Strings.pluralize('commit', aheadBehind?.ahead ?? 0),
+						description: Strings.pluralize('commit', aheadBehindCounts?.ahead ?? 0),
 						expand: false,
 					},
 				),

@@ -24,6 +24,7 @@ export * from './commands/openBranchesOnRemote';
 export * from './commands/openBranchOnRemote';
 export * from './commands/openChangedFiles';
 export * from './commands/openCommitOnRemote';
+export * from './commands/openComparisonOnRemote';
 export * from './commands/openFileFromRemote';
 export * from './commands/openFileOnRemote';
 export * from './commands/openFileAtRevision';
