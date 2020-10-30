@@ -222,8 +222,8 @@ export namespace Hovers {
 			return getDiffFromHunk(hunkLine.hunk);
 		}
 
-		return `\`\`\`diff${hunkLine.previous == null ? '' : `\n-${hunkLine.previous.line.trim()}`}${
-			hunkLine.current == null ? '' : `\n+${hunkLine.current.line.trim()}`
+		return `\`\`\`diff${hunkLine.previous == null ? '' : `\n- ${hunkLine.previous.line.trim()}`}${
+			hunkLine.current == null ? '' : `\n+ ${hunkLine.current.line.trim()}`
 		}\n\`\`\``;
 	}
 
