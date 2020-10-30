@@ -32,18 +32,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 	) {
 		super(uri, view, parent);
 
-		const comparisons = Container.context.workspaceState.get<BranchComparisons>(WorkspaceState.BranchComparisons);
-		const compareWith = comparisons?.[branch.id];
-		if (compareWith !== undefined && typeof compareWith === 'string') {
-			this._compareWith = {
-				ref: compareWith,
-				notation: undefined,
-				// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-				type: this.view.config.showBranchComparison || ViewShowBranchComparison.Working,
-			};
-		} else {
-			this._compareWith = compareWith;
-		}
+		this.loadCompareWith();
 	}
 
 	get ahead(): { readonly ref1: string; readonly ref2: string } {
@@ -133,7 +122,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 		let state: TreeItemCollapsibleState;
 		let label;
 		let description;
-		if (this._compareWith === undefined) {
+		if (this._compareWith == null) {
 			label = `Compare ${this.branch.name}${
 				this.compareWithWorkingTree ? ' (working)' : ''
 			} with <branch, tag, or ref>`;
@@ -182,11 +171,12 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 	@debug()
 	refresh() {
 		this._children = undefined;
+		this.loadCompareWith();
 	}
 
 	@log()
 	async setComparisonType(comparisonType: Exclude<ViewShowBranchComparison, false>) {
-		if (this._compareWith !== undefined) {
+		if (this._compareWith != null) {
 			await this.updateCompareWith({ ...this._compareWith, type: comparisonType });
 		}
 
@@ -218,7 +208,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 				},
 			},
 		);
-		if (pick === undefined || pick instanceof CommandQuickPickItem) return;
+		if (pick == null || pick instanceof CommandQuickPickItem) return;
 
 		await this.updateCompareWith({
 			ref: pick.ref,
@@ -300,11 +290,28 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 		};
 	}
 
+	private loadCompareWith() {
+		const comparisons = Container.context.workspaceState.get<BranchComparisons>(WorkspaceState.BranchComparisons);
+
+		const id = `${this.branch.id}${this.branch.current ? '+current' : ''}`;
+		const compareWith = comparisons?.[id];
+		if (compareWith != null && typeof compareWith === 'string') {
+			this._compareWith = {
+				ref: compareWith,
+				notation: undefined,
+				// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+				type: this.view.config.showBranchComparison || ViewShowBranchComparison.Working,
+			};
+		} else {
+			this._compareWith = compareWith;
+		}
+	}
+
 	private async updateCompareWith(compareWith: BranchComparison | undefined) {
 		this._compareWith = compareWith;
 
 		let comparisons = Container.context.workspaceState.get<BranchComparisons>(WorkspaceState.BranchComparisons);
-		if (comparisons === undefined) {
+		if (comparisons == null) {
 			comparisons = Object.create(null) as BranchComparisons;
 		}
 
