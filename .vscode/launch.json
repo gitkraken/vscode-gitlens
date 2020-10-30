@@ -73,7 +73,7 @@
 			"trace": true
 		},
 		{
-			"name": "Watch & Launch GitLens (Sandboxed)",
+			"name": "Watch & Launch GitLens (sandboxed)",
 			"type": "pwa-extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
@@ -90,6 +90,34 @@
 			"presentation": {
 				"group": "1_watch",
 				"order": 2
+			},
+			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
+			"smartStep": true,
+			"sourceMaps": true,
+			"trace": true
+		},
+		{
+			"name": "Watch & Launch GitLens (cleanroom)",
+			"type": "pwa-extensionHost",
+			"request": "launch",
+			"runtimeExecutable": "${execPath}",
+			"args": [
+				"--user-data-dir=${workspaceFolder}/.vscode-clean",
+				"--extensions-dir=${workspaceFolder}/.vscode-clean/extensions",
+				"--extensionDevelopmentPath=${workspaceFolder}"
+			],
+			"cwd": "${workspaceFolder}",
+			"debugWebviews": true,
+			"rendererDebugOptions": {
+				"sourceMaps": true,
+				"urlFilter": "*eamodio.gitlens*",
+				"webRoot": "${workspaceFolder}/src/webviews/apps"
+			},
+			"outFiles": ["${workspaceFolder}/dist/**/*.js"],
+			"preLaunchTask": "${defaultBuildTask}",
+			"presentation": {
+				"group": "1_watch",
+				"order": 1
 			},
 			"skipFiles": ["<node_internals>/**", "**/node_modules/**", "**/resources/app/out/vs/**"],
 			"smartStep": true,
