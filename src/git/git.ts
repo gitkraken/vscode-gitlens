@@ -1065,7 +1065,12 @@ export namespace Git {
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? '';
 			if (GitErrors.badRevision.test(msg) || GitWarnings.noUpstream.test(msg)) {
-				return [ex.stdout, undefined];
+				if (ex.stdout != null && ex.stdout.length !== 0) {
+					return [ex.stdout, undefined];
+				}
+
+				const defaultBranch = await config__get('init.defaultBranch', repoPath, { local: true });
+				return [defaultBranch ?? 'main', undefined];
 			}
 
 			if (GitWarnings.headNotABranch.test(msg)) {
