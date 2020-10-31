@@ -140,12 +140,16 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 		return subscription;
 	}
 
+	protected get requiresResetOnVisible(): boolean {
+		return true;
+	}
+
 	private onRepoChanged(e: RepositoryChangeEvent) {
 		if (!e.changed(RepositoryChange.Heads)) return;
 
 		Logger.debug(`FileHistoryNode.onRepoChanged(${e.changes.join()}); triggering node refresh`);
 
-		void this.triggerChange();
+		void this.triggerChange(true);
 	}
 
 	private onRepoFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
@@ -153,7 +157,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 
 		Logger.debug(`FileHistoryNode.onRepoFileSystemChanged(${this.uri.toString(true)}); triggering node refresh`);
 
-		void this.triggerChange();
+		void this.triggerChange(true);
 	}
 
 	@gate()

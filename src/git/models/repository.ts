@@ -174,6 +174,11 @@ export class Repository implements Disposable {
 		this._disposable?.dispose();
 	}
 
+	private _updatedAt: number = 0;
+	get updatedAt(): number {
+		return this._updatedAt;
+	}
+
 	private onConfigurationChanged(e: ConfigurationChangeEvent) {
 		if (configuration.changed(e, 'remotes', this.folder.uri)) {
 			this._providers = RemoteProviderFactory.loadProviders(configuration.get('remotes', this.folder.uri));
@@ -767,6 +772,8 @@ export class Repository implements Disposable {
 
 	@debug()
 	private fireChange(...changes: RepositoryChange[]) {
+		this._updatedAt = Date.now();
+
 		if (this._fireChangeDebounced == null) {
 			this._fireChangeDebounced = Functions.debounce(this.fireChangeCore.bind(this), 250);
 		}
@@ -806,6 +813,8 @@ export class Repository implements Disposable {
 
 	@debug()
 	private fireFileSystemChange(uri: Uri) {
+		this._updatedAt = Date.now();
+
 		if (this._fireFileSystemChangeDebounced == null) {
 			this._fireFileSystemChangeDebounced = Functions.debounce(this.fireFileSystemChangeCore.bind(this), 2500);
 		}

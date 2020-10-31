@@ -262,6 +262,12 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		return this.view.config.includeWorkingTree;
 	}
 
+	protected get requiresResetOnVisible(): boolean {
+		return this._repoUpdatedAt !== this.repo.updatedAt;
+	}
+
+	private _repoUpdatedAt: number = this.repo.updatedAt;
+
 	@debug({
 		args: {
 			0: (e: RepositoryFileSystemChangeEvent) =>
@@ -272,6 +278,8 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		},
 	})
 	private async onFileSystemChanged(_e: RepositoryFileSystemChangeEvent) {
+		this._repoUpdatedAt = this.repo.updatedAt;
+
 		this._status = this.repo.getStatus();
 
 		if (this._children !== undefined) {
@@ -306,6 +314,8 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		},
 	})
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
+		this._repoUpdatedAt = this.repo.updatedAt;
+
 		if (e.changed(RepositoryChange.Closed)) {
 			this.dispose();
 

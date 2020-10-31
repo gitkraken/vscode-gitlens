@@ -221,6 +221,10 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
 		}
 	}
 
+	protected get requiresResetOnVisible(): boolean {
+		return false;
+	}
+
 	protected abstract subscribe(): Disposable | undefined | Promise<Disposable | undefined>;
 
 	@debug()
@@ -260,7 +264,7 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
 		void this.ensureSubscription();
 
 		if (e.visible) {
-			void this.triggerChange();
+			void this.triggerChange(this.requiresResetOnVisible);
 		}
 	}
 

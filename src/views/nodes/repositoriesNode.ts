@@ -109,6 +109,10 @@ export class RepositoriesNode extends SubscribeableViewNode<RepositoriesView> {
 		return Disposable.from(...subscriptions);
 	}
 
+	protected get requiresResetOnVisible(): boolean {
+		return true;
+	}
+
 	@debug({ args: false })
 	private onActiveEditorChanged(editor: TextEditor | undefined) {
 		if (editor == null || this._children === undefined || this._children.length === 1) {

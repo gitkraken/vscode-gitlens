@@ -72,6 +72,12 @@ export class TagsRepositoryNode extends SubscribeableViewNode<TagsView> {
 		return this.repo.onDidChange(this.onRepositoryChanged, this);
 	}
 
+	protected get requiresResetOnVisible(): boolean {
+		return this._repoUpdatedAt !== this.repo.updatedAt;
+	}
+
+	private _repoUpdatedAt: number = this.repo.updatedAt;
+
 	@debug({
 		args: {
 			0: (e: RepositoryChangeEvent) =>
@@ -79,6 +85,8 @@ export class TagsRepositoryNode extends SubscribeableViewNode<TagsView> {
 		},
 	})
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
+		this._repoUpdatedAt = this.repo.updatedAt;
+
 		if (e.changed(RepositoryChange.Closed)) {
 			this.dispose();
 			void this.parent?.triggerChange(true);
