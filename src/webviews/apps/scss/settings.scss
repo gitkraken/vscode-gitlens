@@ -357,6 +357,15 @@ section {
 	& + .section__group {
 		margin-top: 1em;
 	}
+
+	&.section__group--rev {
+		flex-flow: wrap;
+
+		.section__collapsible & .section__preview {
+			margin-top: 1em;
+			margin-bottom: 0;
+		}
+	}
 }
 
 .section__header {
