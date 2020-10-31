@@ -189,16 +189,23 @@ export class GitLogParser {
 					// 'f': // files
 					// Skip the blank line git adds before the files
 					next = lines.next();
+
+					let hasFiles = true;
 					if (next.done || next.value === '</f>') {
-						// If there are no files returned, we end up skipping the commit, so reduce our truncationCount to ensure accurate truncation detection
-						if (truncationCount) {
-							truncationCount--;
+						// If this is a merge commit and there are no files returned, skip the commit and reduce our truncationCount to ensure accurate truncation detection
+						if ((entry.parentShas?.length ?? 0) > 1) {
+							if (truncationCount) {
+								truncationCount--;
+							}
+
+							break;
 						}
 
-						break;
+						hasFiles = false;
 					}
 
-					while (true) {
+					// eslint-disable-next-line no-unmodified-loop-condition
+					while (hasFiles) {
 						next = lines.next();
 						if (next.done) break;
 
