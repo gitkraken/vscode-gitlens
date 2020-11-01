@@ -1,5 +1,5 @@
 'use strict';
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { BranchesView } from '../branchesView';
 import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
 import { CommitNode } from './commitNode';
@@ -198,7 +198,11 @@ export class BranchNode
 			);
 
 			if (log.hasMore) {
-				children.push(new LoadMoreNode(this.view, this, children[children.length - 1]));
+				children.push(
+					new LoadMoreNode(this.view, this, children[children.length - 1], undefined, () =>
+						Container.git.getCommitCount(this.branch.repoPath, this.branch.name),
+					),
+				);
 			}
 
 			this._children = children;
@@ -350,8 +354,14 @@ export class BranchNode
 	}
 
 	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
+	@gate()
 	async loadMore(limit?: number | { until?: any }) {
-		let log = await this.getLog();
+		let log = await window.withProgress(
+			{
+				location: { viewId: this.view.id },
+			},
+			() => this.getLog(),
+		);
 		if (log == null || !log.hasMore) return;
 
 		log = await log.more?.(limit ?? this.view.config.pageItemLimit);

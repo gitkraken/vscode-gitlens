@@ -1,5 +1,5 @@
 'use strict';
-import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { BranchNode } from './branchNode';
 import { BranchTrackingStatusFilesNode } from './branchTrackingStatusFilesNode';
 import { CommitNode } from './commitNode';
@@ -232,8 +232,14 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 	}
 
 	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
+	@gate()
 	async loadMore(limit?: number | { until?: any }) {
-		let log = await this.getLog();
+		let log = await window.withProgress(
+			{
+				location: { viewId: this.view.id },
+			},
+			() => this.getLog(),
+		);
 		if (log == null || !log.hasMore) return;
 
 		log = await log.more?.(limit ?? this.view.config.pageItemLimit);

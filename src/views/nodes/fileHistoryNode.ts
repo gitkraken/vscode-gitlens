@@ -1,5 +1,5 @@
 'use strict';
-import { Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { CommitFileNode } from './commitFileNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { Container } from '../../container';
@@ -185,8 +185,14 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 	}
 
 	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
+	@gate()
 	async loadMore(limit?: number | { until?: any }) {
-		let log = await this.getLog();
+		let log = await window.withProgress(
+			{
+				location: { viewId: this.view.id },
+			},
+			() => this.getLog(),
+		);
 		if (log == null || !log.hasMore) return;
 
 		log = await log.more?.(limit ?? this.view.config.pageItemLimit);

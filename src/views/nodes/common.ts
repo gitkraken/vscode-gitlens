@@ -143,12 +143,18 @@ export abstract class PagerNode extends ViewNode {
 		protected readonly message: string,
 		protected readonly previousNode?: ViewNode,
 		protected readonly pageSize: number = Container.config.views.pageItemLimit,
+		protected readonly countFn?: () => Promise<number | undefined>,
 	) {
 		super(unknownGitUri, view, parent);
 	}
 
-	loadAll() {
-		return this.view.loadMoreNodeChildren(this.parent! as ViewNode & PageableViewNode, 0, this.previousNode);
+	async loadAll() {
+		const count = (await this.countFn?.()) ?? 0;
+		return this.view.loadMoreNodeChildren(
+			this.parent! as ViewNode & PageableViewNode,
+			count > 5000 ? 5000 : 0,
+			this.previousNode,
+		);
 	}
 
 	loadMore() {
@@ -180,7 +186,13 @@ export abstract class PagerNode extends ViewNode {
 }
 
 export class LoadMoreNode extends PagerNode {
-	constructor(view: View, parent: ViewNode & PageableViewNode, previousNode: ViewNode, pageSize?: number) {
+	constructor(
+		view: View,
+		parent: ViewNode & PageableViewNode,
+		previousNode: ViewNode,
+		pageSize?: number,
+		countFn?: () => Promise<number | undefined>,
+	) {
 		super(
 			view,
 			parent,
@@ -189,6 +201,7 @@ export class LoadMoreNode extends PagerNode {
 				: 'Load more',
 			previousNode,
 			pageSize,
+			countFn,
 		);
 	}
 }

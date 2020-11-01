@@ -1020,7 +1020,22 @@ export namespace Git {
 		return git<string>({ cwd: repoPath }, 'reset', '-q', '--', fileName);
 	}
 
-	export async function rev_list(
+	export async function rev_list__count(repoPath: string, ref: string): Promise<number | undefined> {
+		let data = await git<string>(
+			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
+			'rev-list',
+			'--count',
+			ref,
+			'--',
+		);
+		data = data.trim();
+		if (data.length === 0) return undefined;
+
+		const result = parseInt(data, 10);
+		return isNaN(result) ? undefined : result;
+	}
+
+	export async function rev_list__left_right(
 		repoPath: string,
 		refs: string[],
 	): Promise<{ ahead: number; behind: number } | undefined> {

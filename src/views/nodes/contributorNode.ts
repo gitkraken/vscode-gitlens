@@ -1,5 +1,5 @@
 'use strict';
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { GlyphChars } from '../../constants';
@@ -113,8 +113,14 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 	}
 
 	limit: number | undefined = this.view.getNodeLastKnownLimit(this);
+	@gate()
 	async loadMore(limit?: number | { until?: any }) {
-		let log = await this.getLog();
+		let log = await window.withProgress(
+			{
+				location: { viewId: this.view.id },
+			},
+			() => this.getLog(),
+		);
 		if (log == null || !log.hasMore) return;
 
 		log = await log.more?.(limit ?? this.view.config.pageItemLimit);
