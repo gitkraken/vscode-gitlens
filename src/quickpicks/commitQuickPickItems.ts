@@ -16,9 +16,11 @@ export class CommitFilesQuickPickItem extends CommandQuickPickItem {
 				label: commit.getShortMessage(),
 				// eslint-disable-next-line no-template-curly-in-string
 				description: CommitFormatter.fromTemplate('${author}, ${ago}  $(git-commit)  ${id}', commit),
-				detail: `$(files) ${commit.getFormattedDiffStatus({ expand: true, separator: ', ' })}${
-					fileName ? `${Strings.pad(GlyphChars.Dot, 2, 2)}${fileName}` : ''
-				}`,
+				detail: `$(files) ${commit.getFormattedDiffStatus({
+					expand: true,
+					separator: ', ',
+					empty: 'No files changed',
+				})}${fileName ? `${Strings.pad(GlyphChars.Dot, 2, 2)}${fileName}` : ''}`,
 				picked: picked,
 			},
 			undefined,
