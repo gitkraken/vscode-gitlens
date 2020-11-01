@@ -44,7 +44,7 @@ function nextIpcId() {
 	return `host:${ipcSequence}`;
 }
 
-const rebaseRegex = /^\s?#\s?Rebase\s([0-9a-f]+?)..([0-9a-f]+?)\sonto\s([0-9a-f]+?)\s.*$/im;
+const rebaseRegex = /^\s?#\s?Rebase\s([0-9a-f]+)(?:..([0-9a-f]+))?\sonto\s([0-9a-f]+)\s.*$/im;
 const rebaseCommandsRegex = /^\s?(p|pick|r|reword|e|edit|s|squash|f|fixup|d|drop)\s([0-9a-f]+?)\s(.*)$/gm;
 
 const rebaseActionsMap = new Map<string, RebaseEntryAction>([
@@ -160,7 +160,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 		const contents = document.getText();
 		const entries = this.parseEntries(contents);
-		const [, onto] = rebaseRegex.exec(contents) ?? ['', '', ''];
+		const [, , , onto] = rebaseRegex.exec(contents) ?? ['', '', ''];
 
 		const authors = new Map<string, Author>();
 		const commits: Commit[] = [];
@@ -182,11 +182,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 				author: commit.author,
 				date: commit.formatDate(Container.config.defaultDateFormat),
 				dateFromNow: commit.formatDateFromNow(),
-				message: commit.message,
-				// command: `command:${Commands.ShowQuickCommitDetails}`,
-				// command: ShowQuickCommitDetailsCommand.getMarkdownCommandArgs({
-				// 	sha: commit.ref,
-				// }),
+				message: commit.message || 'root',
 			});
 		}
 
@@ -210,10 +206,6 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 				date: commit.formatDate(Container.config.defaultDateFormat),
 				dateFromNow: commit.formatDateFromNow(),
 				message: commit.message,
-				// command: `command:${Commands.ShowQuickCommitDetails}`,
-				// command: ShowQuickCommitDetailsCommand.getMarkdownCommandArgs({
-				// 	sha: commit.ref,
-				// }),
 			});
 		}
 
