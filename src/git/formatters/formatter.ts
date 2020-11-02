@@ -25,6 +25,7 @@ export abstract class Formatter<Item = any, Options extends FormatOptions = Form
 
 	reset(item: Item, options?: Options) {
 		this._item = item;
+		this.collapsableWhitespace = 0;
 
 		if (options == null && this._options != null) return;
 
@@ -50,7 +51,7 @@ export abstract class Formatter<Item = any, Options extends FormatOptions = Form
 		if (s == null || s.length === 0) return s;
 
 		// NOTE: the collapsable whitespace logic relies on the javascript template evaluation to be left to right
-		if (options === undefined) {
+		if (options == null) {
 			options = {
 				collapseWhitespace: false,
 				padDirection: 'left',
@@ -61,7 +62,7 @@ export abstract class Formatter<Item = any, Options extends FormatOptions = Form
 		}
 
 		let max = options.truncateTo;
-		if (max === undefined) {
+		if (max == null) {
 			this.collapsableWhitespace = 0;
 		} else {
 			max += this.collapsableWhitespace;
@@ -127,7 +128,7 @@ export abstract class Formatter<Item = any, Options extends FormatOptions = Form
 			options.tokenOptions = tokenOptions;
 		}
 
-		if (this._formatter === undefined) {
+		if (this._formatter == null) {
 			this._formatter = new formatter(item, options);
 		} else {
 			this._formatter.reset(item, options);
@@ -171,7 +172,7 @@ export abstract class Formatter<Item = any, Options extends FormatOptions = Form
 			options.tokenOptions = tokenOptions;
 		}
 
-		if (this._formatter === undefined) {
+		if (this._formatter == null) {
 			this._formatter = new formatter(item, options);
 		} else {
 			this._formatter.reset(item, options);
