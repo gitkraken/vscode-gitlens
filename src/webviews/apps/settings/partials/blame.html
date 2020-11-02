@@ -58,6 +58,7 @@
 							type="text"
 							placeholder="${message|50?} ${agoOrDate|14-}"
 							data-setting
+							data-setting-preview
 							data-default-value="${message|50?} ${agoOrDate|14-}"
 							data-popup-trigger
 						/>
@@ -66,6 +67,14 @@
 						</label>
 					</div>
 					<div id="blame.format.popup" class="popup hidden"></div>
+					<span class="setting__hint"
+						>Example:
+						<span
+							data-setting-preview="blame.format.format"
+							data-setting-preview-type="commit"
+							data-setting-preview-default="${message|50?} ${agoOrDate|14-}"
+						></span>
+					</span>
 				</div>
 
 				<div class="setting">

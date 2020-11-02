@@ -48,6 +48,7 @@
 								type="text"
 								placeholder="${author}, ${agoOrDate}${' via 'pullRequest}"
 								data-setting
+								data-setting-preview
 								data-default-value="${author}, ${agoOrDate}${' via 'pullRequest}"
 								data-popup-trigger
 								disabled
@@ -57,6 +58,14 @@
 							</label>
 						</div>
 						<div id="statusBar.format.popup" class="popup hidden"></div>
+						<span class="setting__hint"
+							>Example:
+							<span
+								data-setting-preview="statusBar.format"
+								data-setting-preview-type="commit"
+								data-setting-preview-default="${author}, ${agoOrDate}${' via 'pullRequest}"
+							></span>
+						</span>
 					</div>
 
 					<div class="setting" data-enablement="statusBar.enabled">

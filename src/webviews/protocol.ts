@@ -56,6 +56,27 @@ export const UpdateConfigurationCommandType = new IpcCommandType<UpdateConfigura
 	'configuration/update',
 );
 
+export interface CommitPreviewConfigurationCommandParams {
+	key: string;
+	id: string;
+	type: 'commit';
+
+	format: string;
+}
+
+type PreviewConfigurationCommandParams = CommitPreviewConfigurationCommandParams;
+export const PreviewConfigurationCommandType = new IpcCommandType<PreviewConfigurationCommandParams>(
+	'configuration/preview',
+);
+
+export interface DidPreviewConfigurationNotificationParams {
+	id: string;
+	preview: string;
+}
+export const DidPreviewConfigurationNotificationType = new IpcNotificationType<
+	DidPreviewConfigurationNotificationParams
+>('configuration/didPreview');
+
 export interface SettingsDidRequestJumpToNotificationParams {
 	anchor: string;
 }

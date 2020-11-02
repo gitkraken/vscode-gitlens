@@ -3,8 +3,10 @@
 import {
 	AppStateWithConfig,
 	DidChangeConfigurationNotificationType,
+	DidPreviewConfigurationNotificationType,
 	IpcMessage,
 	onIpcNotification,
+	PreviewConfigurationCommandType,
 	UpdateConfigurationCommandType,
 } from '../../protocol';
 import { App } from './appBase';
@@ -12,6 +14,17 @@ import { DOM } from './dom';
 import { getDateFormatter } from '../shared/date';
 
 const dateFormatter = getDateFormatter(new Date('Wed Jul 25 2018 19:18:00 GMT-0400'));
+
+let ipcSequence = 0;
+function nextIpcId() {
+	if (ipcSequence === Number.MAX_SAFE_INTEGER) {
+		ipcSequence = 1;
+	} else {
+		ipcSequence++;
+	}
+
+	return `${ipcSequence}`;
+}
 
 export abstract class AppWithConfig<TState extends AppStateWithConfig> extends App<TState> {
 	private _changes = Object.create(null) as Record<string, any>;
@@ -213,8 +226,6 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 	}
 
 	protected onPopupMouseDown(element: HTMLElement, e: MouseEvent) {
-		// e.stopPropagation();
-		// e.stopImmediatePropagation();
 		e.preventDefault();
 
 		const el = e.target as HTMLElement;
@@ -234,7 +245,25 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 		const input = setting.querySelector<HTMLInputElement>('input[type=text], input:not([type])');
 		if (input == null) return;
 
-		input.value += `\${${element.dataset.token}}`;
+		const token = `\${${element.dataset.token}}`;
+		let selectionStart = input.selectionStart;
+		if (selectionStart != null) {
+			input.value = `${input.value.substring(0, selectionStart)}${token}${input.value.substr(
+				input.selectionEnd ?? selectionStart,
+			)}`;
+
+			selectionStart += token.length;
+		} else {
+			selectionStart = input.value.length;
+		}
+
+		input.focus();
+		input.setSelectionRange(selectionStart, selectionStart);
+		if (selectionStart === input.value.length) {
+			input.scrollLeft = input.scrollWidth;
+		}
+
+		setTimeout(() => input.focus(), 250);
 
 		e.stopPropagation();
 		e.stopImmediatePropagation();
@@ -363,7 +392,7 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 
 	private updatePreview(el: HTMLSpanElement, value?: string) {
 		switch (el.dataset.settingPreviewType) {
-			case 'date':
+			case 'date': {
 				if (value === undefined) {
 					value = this.getSettingValue<string>(el.dataset.settingPreview!);
 				}
@@ -374,7 +403,43 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 
 				el.innerText = value == null ? '' : dateFormatter.format(value);
 				break;
+			}
+			case 'commit': {
+				if (value === undefined) {
+					value = this.getSettingValue<string>(el.dataset.settingPreview!);
+				}
 
+				if (value == null || value.length === 0) {
+					value = el.dataset.settingPreviewDefault;
+				}
+
+				if (value == null) {
+					el.innerText = '';
+
+					return;
+				}
+
+				const id = nextIpcId();
+				const disposable = DOM.on(window, 'message', (e: MessageEvent) => {
+					const msg = e.data as IpcMessage;
+
+					if (msg.method === DidPreviewConfigurationNotificationType.method && msg.params.id === id) {
+						disposable.dispose();
+						onIpcNotification(DidPreviewConfigurationNotificationType, msg, params => {
+							el.innerText = params.preview ?? '';
+						});
+					}
+				});
+
+				this.sendCommand(PreviewConfigurationCommandType, {
+					key: el.dataset.settingPreview!,
+					type: 'commit',
+					id: id,
+					format: value,
+				});
+
+				break;
+			}
 			default:
 				break;
 		}

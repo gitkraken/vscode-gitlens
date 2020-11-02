@@ -10,12 +10,16 @@
 			<table class="token-popup__table">
 				<tbody>
 					<tr>
-						<td>Commit Id</td>
+						<td>Commit SHA</td>
 						<td><span class="token" data-token="id">id</span></td>
 					</tr>
 					<tr>
 						<td>Commit Author</td>
 						<td><span class="token" data-token="author">author</span></td>
+					</tr>
+					<tr>
+						<td>Commit Author (except you)</td>
+						<td><span class="token" data-token="authorNotYou">authorNotYou</span></td>
 					</tr>
 					<tr>
 						<td>Commit Author E-mail</td>
@@ -51,6 +55,15 @@
 						<td><span class="token" data-token="agoOrDate">agoOrDate</span></td>
 					</tr>
 					<tr>
+						<td>
+							Commit or Authored Date (Short)<br /><i
+								>Short relative or absolute based on date setting<br />Committed vs Authored based on
+								setting</i
+							>
+						</td>
+						<td><span class="token" data-token="agoOrDateShort">agoOrDateShort</span></td>
+					</tr>
+					<tr>
 						<td>Authored Date<br /><i>Relative date</i></td>
 						<td><span class="token" data-token="authorAgo">authorAgo</span></td>
 					</tr>
@@ -63,6 +76,10 @@
 						<td><span class="token" data-token="authorAgoOrDate">authorAgoOrDate</span></td>
 					</tr>
 					<tr>
+						<td>Authored Date (Short)<br /><i>Short relative or absolute date based on date setting</i></td>
+						<td><span class="token" data-token="authorAgoOrDateShort">authorAgoOrDateShort</span></td>
+					</tr>
+					<tr>
 						<td>Commit Date<br /><i>Relative date</i></td>
 						<td><span class="token" data-token="committerAgo">committerAgo</span></td>
 					</tr>
@@ -73,6 +90,22 @@
 					<tr>
 						<td>Commit Date<br /><i>Relative or absolute date based on date setting</i></td>
 						<td><span class="token" data-token="committerAgoOrDate">committerAgoOrDate</span></td>
+					</tr>
+					<tr>
+						<td>Commit Date (Short)<br /><i>Short relative or absolute date based on date setting</i></td>
+						<td><span class="token" data-token="committerAgoOrDateShort">committerAgoOrDateShort</span></td>
+					</tr>
+					<tr>
+						<td>Pull Request<br /><i>Pull request (if any) that introduced the commit</i></td>
+						<td><span class="token" data-token="pullRequest">pullRequest</span></td>
+					</tr>
+					<tr>
+						<td>
+							Pull Request State<br /><i
+								>State (open, merged, closed) of the pull request (if any) that introduced the commit</i
+							>
+						</td>
+						<td><span class="token" data-token="pullRequestState">pullRequestState</span></td>
 					</tr>
 					<tr>
 						<td>Branch & Tag Tips<br /><i>Indicates if the commit is a tip of any branches or tags</i></td>

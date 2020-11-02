@@ -19,10 +19,16 @@ export namespace DOM {
 		listener: (this: T, ev: DocumentEventMap[K]) => any,
 		options?: boolean | AddEventListenerOptions,
 	): Disposable;
-	export function on<K extends keyof DocumentEventMap, T extends Element>(
-		selectorOrElement: string | Document | Element,
+	export function on<K extends keyof WindowEventMap, T extends Element>(
+		el: Window,
 		name: K,
-		listener: (this: T, ev: DocumentEventMap[K]) => any,
+		listener: (this: T, ev: WindowEventMap[K]) => any,
+		options?: boolean | AddEventListenerOptions,
+	): Disposable;
+	export function on<K extends keyof (DocumentEventMap | WindowEventMap), T extends Element>(
+		selectorOrElement: string | Window | Document | Element,
+		name: K,
+		listener: (this: T, ev: (DocumentEventMap | WindowEventMap)[K]) => any,
 		options?: boolean | AddEventListenerOptions,
 		el?: Element,
 	): Disposable {

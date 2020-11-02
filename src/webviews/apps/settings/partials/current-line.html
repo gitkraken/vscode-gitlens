@@ -66,6 +66,7 @@
 								type="text"
 								placeholder="${author, }${agoOrDate}${' via 'pullRequest}${ • message|50?}"
 								data-setting
+								data-setting-preview
 								data-default-value="${author, }${agoOrDate}${' via 'pullRequest}${ • message|50?}"
 								data-popup-trigger
 								disabled
@@ -75,6 +76,14 @@
 							</label>
 						</div>
 						<div id="currentLine.format.popup" class="popup hidden"></div>
+						<span class="setting__hint"
+							>Example:
+							<span
+								data-setting-preview="currentLine.format"
+								data-setting-preview-type="commit"
+								data-setting-preview-default="${author, }${agoOrDate}${' via 'pullRequest}${ • message|50?}"
+							></span>
+						</span>
 					</div>
 
 					<div class="setting" data-enablement="currentLine.enabled">
@@ -103,6 +112,11 @@
 					class="image__preview--overlay hidden"
 					src="#{root}/images/settings/current-line-blame-on.png"
 					data-visibility="currentLine.enabled"
+				/>
+				<img
+					class="image__preview--overlay hidden"
+					src="#{root}/images/settings/current-line-blame-on+pr.png"
+					data-visibility="currentLine.enabled &amp; currentLine.pullRequests.enabled"
 				/>
 				<img
 					class="image__preview--overlay hidden"

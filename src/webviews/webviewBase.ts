@@ -13,18 +13,21 @@ import {
 	window,
 	workspace,
 } from 'vscode';
+import { Commands } from '../commands';
 import { configuration } from '../configuration';
 import { Container } from '../container';
+import { CommitFormatter, GitBlameCommit, PullRequest, PullRequestState } from '../git/git';
 import { Logger } from '../logger';
 import {
 	DidChangeConfigurationNotificationType,
+	DidPreviewConfigurationNotificationType,
 	IpcMessage,
 	IpcNotificationParamsOf,
 	IpcNotificationType,
 	onIpcCommand,
+	PreviewConfigurationCommandType,
 	UpdateConfigurationCommandType,
 } from './protocol';
-import { Commands } from '../commands';
 
 let ipcSequence = 0;
 function nextIpcId() {
@@ -131,6 +134,75 @@ export abstract class WebviewBase implements Disposable {
 				});
 
 				break;
+
+			case PreviewConfigurationCommandType.method:
+				onIpcCommand(PreviewConfigurationCommandType, e, async params => {
+					switch (params.type) {
+						case 'commit': {
+							const commit = new GitBlameCommit(
+								'~/code/eamodio/vscode-gitlens-demo',
+								'fe26af408293cba5b4bfd77306e1ac9ff7ccaef8',
+								'You',
+								'eamodio@gmail.com',
+								new Date('2016-11-12T20:41:00.000Z'),
+								new Date('2020-11-01T06:57:21.000Z'),
+								'Supercharged',
+								'code.ts',
+								undefined,
+								'3ac1d3f51d7cf5f438cc69f25f6740536ad80fef',
+								'code.ts',
+								[],
+							);
+
+							let includePullRequest = false;
+							switch (params.key) {
+								case configuration.name('currentLine', 'format'):
+									includePullRequest = Container.config.currentLine.pullRequests.enabled;
+									break;
+								case configuration.name('statusBar', 'format'):
+									includePullRequest = Container.config.statusBar.pullRequests.enabled;
+									break;
+							}
+
+							let pr: PullRequest | undefined;
+							if (includePullRequest) {
+								pr = new PullRequest(
+									'GitHub',
+									{
+										name: 'Eric Amodio',
+										avatarUrl: 'https://avatars1.githubusercontent.com/u/641685?s=32&v=4',
+										url: 'https://github.com/eamodio',
+									},
+									1,
+									'Supercharged',
+									'https://github.com/eamodio/vscode-gitlens/pulls/1',
+									PullRequestState.Merged,
+									new Date('Sat, 12 Nov 2016 19:41:00 GMT'),
+									undefined,
+									new Date('Sat, 12 Nov 2016 20:41:00 GMT'),
+								);
+							}
+
+							let preview;
+							try {
+								preview = CommitFormatter.fromTemplate(params.format, commit, {
+									dateFormat: Container.config.defaultDateFormat,
+									pullRequestOrRemote: pr,
+									messageTruncateAtNewLine: true,
+								});
+							} catch {
+								preview = 'Invalid format';
+							}
+
+							await this.notify(DidPreviewConfigurationNotificationType, {
+								id: params.id,
+								preview: preview,
+							});
+						}
+					}
+				});
+				break;
+
 			default:
 				break;
 		}
