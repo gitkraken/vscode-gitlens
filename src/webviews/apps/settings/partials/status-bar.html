@@ -133,13 +133,23 @@
 				<img class="image__preview" src="#{root}/images/settings/status-bar.png" />
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/status-bar-left.png"
-					data-visibility="statusBar.enabled &amp; statusBar.alignment =left"
+					src="#{root}/images/settings/status-bar-right+pr.png"
+					data-visibility="statusBar.enabled &amp; statusBar.alignment =right &amp; statusBar.pullRequests.enabled"
 				/>
 				<img
 					class="image__preview--overlay hidden"
 					src="#{root}/images/settings/status-bar-right.png"
-					data-visibility="statusBar.enabled &amp; statusBar.alignment =right"
+					data-visibility="statusBar.enabled &amp; statusBar.alignment =right &amp; statusBar.pullRequests.enabled =false"
+				/>
+				<img
+					class="image__preview--overlay hidden"
+					src="#{root}/images/settings/status-bar-left+pr.png"
+					data-visibility="statusBar.enabled &amp; statusBar.alignment =left &amp; statusBar.pullRequests.enabled"
+				/>
+				<img
+					class="image__preview--overlay hidden"
+					src="#{root}/images/settings/status-bar-left.png"
+					data-visibility="statusBar.enabled &amp; statusBar.alignment =left &amp; statusBar.pullRequests.enabled =false"
 				/>
 			</div>
 		</div>
