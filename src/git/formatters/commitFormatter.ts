@@ -188,7 +188,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 	}
 
 	get authorNotYou(): string {
-		if (this._item.author === 'You') return emptyStr;
+		if (this._item.author === 'You') return this._padOrTruncate(emptyStr, this._options.tokenOptions.authorNotYou);
 
 		const author = this._padOrTruncate(this._item.author, this._options.tokenOptions.authorNotYou);
 		if (!this._options.markdown) {
