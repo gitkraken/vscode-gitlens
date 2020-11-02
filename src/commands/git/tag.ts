@@ -312,7 +312,7 @@ export class TagGitCommand extends QuickCommand<State> {
 					{
 						label: `Force ${context.title}`,
 						description: `--force${state.message.length !== 0 ? ' -m' : ''}`,
-						detail: `Will forcably create a new tag named ${state.name} at ${GitReference.toString(
+						detail: `Will forcibly create a new tag named ${state.name} at ${GitReference.toString(
 							state.reference,
 						)}`,
 					},
