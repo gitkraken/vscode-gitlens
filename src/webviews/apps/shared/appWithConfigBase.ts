@@ -263,6 +263,7 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 			input.scrollLeft = input.scrollWidth;
 		}
 
+		setTimeout(() => this.onInputChanged(input), 0);
 		setTimeout(() => input.focus(), 250);
 
 		e.stopPropagation();
