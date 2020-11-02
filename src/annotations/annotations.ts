@@ -213,9 +213,9 @@ export class Annotations {
 			fontStyle: 'normal',
 			height: '100%',
 			margin: '0 26px -1px 0',
-			textDecoration: separateLines
-				? `overline solid rgba(0, 0, 0, .2);box-sizing:border-box${avatars ? ';padding: 0 0 0 18px' : ''}`
-				: `none;box-sizing:border-box${avatars ? ';padding: 0 0 0 18px' : ''}`,
+			textDecoration: `${separateLines ? 'overline solid rgba(0, 0, 0, .2)' : 'none'};box-sizing: border-box${
+				avatars ? ';padding: 0 0 0 18px' : ''
+			}`,
 			width: width,
 			uncommittedColor: new ThemeColor('gitlens.gutterUncommittedForegroundColor'),
 		};

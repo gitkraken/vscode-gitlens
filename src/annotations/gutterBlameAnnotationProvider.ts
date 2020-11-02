@@ -100,7 +100,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 					};
 
 					if (separateLines) {
-						gutter.renderOptions.before!.textDecoration = `none;box-sizing:border-box${
+						gutter.renderOptions.before!.textDecoration = `none;box-sizing: border-box${
 							avatars ? ';padding: 0 0 0 18px' : ''
 						}`;
 					}
@@ -216,7 +216,7 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 				width: '16px',
 				textDecoration: `none;position:absolute;top:1px;left:5px;background:url(${(
 					await commit.getAvatarUri({ defaultStyle: gravatarDefault })
-				).toString()});background-size:16px 16px`,
+				).toString()});background-size:16px 16px;margin-left: 0 !important`,
 			};
 			map.set(commit.email!, avatarDecoration);
 		}
