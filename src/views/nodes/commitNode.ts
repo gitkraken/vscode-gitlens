@@ -46,7 +46,7 @@ export class CommitNode extends ViewRefNode<ViewsWithFiles, GitRevisionReference
 		return CommitFormatter.fromTemplate(
 			this.commit.isUncommitted
 				? `\${author} ${GlyphChars.Dash} \${id}\n\${ago} (\${date})`
-				: `\${author}\${ (email)}\${" via "pullRequest} ${GlyphChars.Dash} \${id}${
+				: `\${author}\${ (email)} ${GlyphChars.Dash} \${id}${
 						this.unpublished ? ' (unpublished)' : ''
 				  }\${ (tips)}\n\${ago} (\${date})\${\n\nmessage}${this.commit.getFormattedDiffStatus({
 						expand: true,

@@ -169,9 +169,9 @@ export class CommitFileNode extends ViewRefFileNode {
 			return CommitFormatter.fromTemplate(
 				this.commit.isUncommitted
 					? `\${author} ${GlyphChars.Dash} \${id}\n${status}\n\${ago} (\${date})`
-					: `\${author}\${ (email)}\${" via "pullRequest} ${
-							GlyphChars.Dash
-					  } \${id}\n${status}\n\${ago} (\${date})\${\n\nmessage}${this.commit.getFormattedDiffStatus({
+					: `\${author}\${ (email)} ${GlyphChars.Dash} \${id}${
+							this._options.unpublished ? ' (unpublished)' : ''
+					  }\n${status}\n\${ago} (\${date})\${\n\nmessage}${this.commit.getFormattedDiffStatus({
 							expand: true,
 							prefix: '\n\n',
 							separator: '\n',

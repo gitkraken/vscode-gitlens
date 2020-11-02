@@ -574,7 +574,7 @@
 				},
 				"gitlens.currentLine.format": {
 					"type": "string",
-					"default": "${message|50? • }${author}${\" via \"pullRequest}, ${agoOrDate}",
+					"default": "${author, }${agoOrDate}${' via 'pullRequest}${ • message|50?}",
 					"markdownDescription": "Specifies the format of the current line blame annotation. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.currentLine.dateFormat#` setting",
 					"scope": "window"
 				},
@@ -921,7 +921,7 @@
 				},
 				"gitlens.hovers.detailsMarkdownFormat": {
 					"type": "string",
-					"default": "${avatar} &nbsp;__${author}__${\" via \"pullRequest}, ${ago} &nbsp; _(${date})_ \n\n${message}\n\n${commands}",
+					"default": "${avatar} &nbsp;__${author}__, ${ago}${' via 'pullRequest} &nbsp; _(${date})_ \n\n${message}\n\n${commands}",
 					"markdownDescription": "Specifies the format (in markdown) of the _commit details_ hover. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 					"scope": "window"
 				},

@@ -75,8 +75,11 @@ export function getSuperscript(num: number) {
 const driveLetterNormalizeRegex = /(?<=^\/?)([A-Z])(?=:\/)/;
 const pathNormalizeRegex = /\\/g;
 const pathStripTrailingSlashRegex = /\/$/g;
-const tokenRegex = /\$\{(".*?"|\W*)?([^|]*?)(?:\|(\d+)(-|\?)?)?(".*?"|\W*)?\}/g;
-const tokenSanitizeRegex = /\$\{(?:".*?"|\W*)?(\w*?)(?:".*?"|[\W\d]*)\}/g;
+const tokenRegex = /\$\{('.*?[^\\]'|\W*)?([^|]*?)(?:\|(\d+)(-|\?)?)?('.*?[^\\]'|\W*)?\}/g;
+const tokenSanitizeRegex = /\$\{(?:'.*?[^\\]'|\W*)?(\w*?)(?:'.*?[^\\]'|[\W\d]*)\}/g;
+const tokenGroupCharacter = "'";
+const tokenGroupCharacterEscapedRegex = /(\\')/g;
+const tokenGroupRegex = /^'?(.*?)'?$/;
 
 export interface TokenOptions {
 	collapseWhitespace: boolean;
@@ -94,17 +97,33 @@ export function getTokensFromTemplate(template: string) {
 		match = tokenRegex.exec(template);
 		if (match == null) break;
 
-		const [, prefix, key, truncateTo, option, suffix] = match;
+		// eslint-disable-next-line prefer-const
+		let [, prefix, key, truncateTo, option, suffix] = match;
+		// Check for a prefix group
+		if (prefix != null) {
+			match = tokenGroupRegex.exec(prefix);
+			if (match != null) {
+				[, prefix] = match;
+				prefix = prefix.replace(tokenGroupCharacterEscapedRegex, tokenGroupCharacter);
+			}
+		}
+
+		// Check for a suffix group
+		if (suffix != null) {
+			match = tokenGroupRegex.exec(suffix);
+			if (match != null) {
+				[, suffix] = match;
+				suffix = suffix.replace(tokenGroupCharacterEscapedRegex, tokenGroupCharacter);
+			}
+		}
+
 		tokens.push({
 			key: key,
 			options: {
 				collapseWhitespace: option === '?',
 				padDirection: option === '-' ? 'left' : 'right',
-				prefix:
-					prefix?.length > 1 && prefix?.startsWith('"') && prefix?.endsWith('"')
-						? prefix.substr(1, prefix.length - 2)
-						: prefix,
-				suffix: suffix,
+				prefix: prefix || undefined,
+				suffix: suffix || undefined,
 				truncateTo: truncateTo == null ? undefined : parseInt(truncateTo, 10),
 			},
 		});
