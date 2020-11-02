@@ -385,7 +385,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 				FlagsQuickPickItem.create<DeleteFlags>(state.flags, ['--force'], {
 					label: `Force ${context.title}`,
 					description: '--force',
-					detail: `Will forcably delete ${GitReference.toString(state.references)}`,
+					detail: `Will forcibly delete ${GitReference.toString(state.references)}`,
 				}),
 			);
 
@@ -405,7 +405,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 							state.references.filter(b => !b.remote).length > 1 ? 's' : ''
 						}`,
 						description: '--force --remotes',
-						detail: `Will forcably delete ${GitReference.toString(
+						detail: `Will forcibly delete ${GitReference.toString(
 							state.references,
 						)} and any remote tracking branches`,
 					}),
