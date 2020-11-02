@@ -1,5 +1,7 @@
 'use strict';
 import {
+	CancellationToken,
+	CancellationTokenSource,
 	ConfigurationChangeEvent,
 	DecorationOptions,
 	DecorationRangeBehavior,
@@ -27,6 +29,7 @@ const annotationDecoration: TextEditorDecorationType = window.createTextEditorDe
 });
 
 export class LineAnnotationController implements Disposable {
+	private _cancellation: CancellationTokenSource | undefined;
 	private readonly _disposable: Disposable;
 	private _editor: TextEditor | undefined;
 	private _enabled: boolean = false;
@@ -116,7 +119,8 @@ export class LineAnnotationController implements Disposable {
 
 	@debug({ args: false, singleLine: true })
 	clear(editor: TextEditor | undefined) {
-		if (this._editor !== editor && this._editor !== undefined) {
+		this._cancellation?.cancel();
+		if (this._editor !== editor && this._editor != null) {
 			this.clearAnnotations(this._editor);
 		}
 		this.clearAnnotations(editor);
@@ -256,9 +260,9 @@ export class LineAnnotationController implements Disposable {
 		const [getBranchAndTagTips, prs] = await Promise.all([
 			CommitFormatter.has(cfg.format, 'tips') ? Container.git.getBranchesAndTagsTipsFn(repoPath) : undefined,
 			repoPath != null &&
-			Container.config.currentLine.pullRequests.enabled &&
+			cfg.pullRequests.enabled &&
 			CommitFormatter.has(
-				Container.config.currentLine.format,
+				cfg.format,
 				'pullRequest',
 				'pullRequestAgo',
 				'pullRequestAgoOrDate',
@@ -275,7 +279,9 @@ export class LineAnnotationController implements Disposable {
 		]);
 
 		if (prs != null) {
-			void this.waitForAnyPendingPullRequests(editor, prs, timeout, cc);
+			this._cancellation?.cancel();
+			this._cancellation = new CancellationTokenSource();
+			void this.waitForAnyPendingPullRequests(editor, prs, this._cancellation.token, timeout, cc);
 		}
 
 		const decorations = [];
@@ -324,21 +330,22 @@ export class LineAnnotationController implements Disposable {
 			string,
 			PullRequest | Promises.CancellationErrorWithId<string, Promise<PullRequest | undefined>> | undefined
 		>,
+		cancellationToken: CancellationToken,
 		timeout: number,
 		cc: LogCorrelationContext | undefined,
 	) {
 		// If there are any PRs that timed out, refresh the annotation(s) once they complete
 		const count = Iterables.count(prs.values(), pr => pr instanceof Promises.CancellationError);
-		Logger.debug(cc, `${GlyphChars.Dot} ${count} pull request queries took too long (over ${timeout} ms)`);
+		if (cancellationToken.isCancellationRequested || count === 0) return;
 
-		if (count === 0) return;
+		Logger.debug(cc, `${GlyphChars.Dot} ${count} pull request queries took too long (over ${timeout} ms)`);
 
 		const resolved = new Map<string, PullRequest | undefined>();
 		for (const [key, value] of prs) {
 			resolved.set(key, value instanceof Promises.CancellationError ? await value.promise : value);
 		}
 
-		if (editor !== this._editor) return;
+		if (cancellationToken.isCancellationRequested || editor !== this._editor) return;
 
 		Logger.debug(cc, `${GlyphChars.Dot} ${count} pull request queries completed; refreshing...`);
 
