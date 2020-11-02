@@ -20,23 +20,43 @@
 			<div class="section__content">
 				<div class="settings settings--fixed ml-1">
 					<div class="setting" data-enablement="statusBar.enabled">
+						<div class="setting__input">
+							<input
+								id="statusBar.pullRequests.enabled"
+								name="statusBar.pullRequests.enabled"
+								type="checkbox"
+								data-setting
+								disabled
+							/>
+							<label for="statusBar.pullRequests.enabled"
+								>Show the Pull Request (if any) that introduced the commit</label
+							>
+						</div>
+
+						<p class="setting__hint hidden" data-visibility="statusBar.pullRequests.enabled">
+							<i class="icon icon__info"></i>Requires a connection to a supported remote service (e.g.
+							GitHub)
+						</p>
+					</div>
+
+					<div class="setting" data-enablement="statusBar.enabled">
 						<div class="setting__input setting__input--format">
 							<label for="statusBar.format">Annotation&nbsp;format</label>
 							<input
 								id="statusBar.format"
 								name="statusBar.format"
 								type="text"
-								placeholder="&#36;&#123;authorAgoOrDate&#125;"
+								placeholder="${author}, ${agoOrDate}${' via 'pullRequest}"
 								data-setting
-								data-default-value="&#36;&#123;authorAgoOrDate&#125;"
+								data-default-value="${author}, ${agoOrDate}${' via 'pullRequest}"
 								data-popup-trigger
 								disabled
 							/>
 							<label for="statusBar.format" title="See available tokens">
 								<i class="icon icon__chevron-down"></i>
 							</label>
-							<div id="statusBar.format.popup" class="popup hidden"></div>
 						</div>
+						<div id="statusBar.format.popup" class="popup hidden"></div>
 					</div>
 
 					<div class="setting" data-enablement="statusBar.enabled">

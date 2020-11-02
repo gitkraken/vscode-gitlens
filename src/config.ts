@@ -114,6 +114,9 @@ export interface Config {
 		enabled: boolean;
 		format: string;
 		reduceFlicker: boolean;
+		pullRequests: {
+			enabled: boolean;
+		};
 	};
 	strings: {
 		codeLens: {

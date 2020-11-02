@@ -15,13 +15,15 @@ export class CancellationErrorWithId<T, TPromise = any> extends CancellationErro
 }
 
 export function cancellable<T>(
-	promise: Thenable<T>,
-	timeoutOrToken: number | CancellationToken,
+	promise: Promise<T>,
+	timeoutOrToken?: number | CancellationToken,
 	options: {
 		cancelMessage?: string;
 		onDidCancel?(resolve: (value?: T | PromiseLike<T> | undefined) => void, reject: (reason?: any) => void): void;
 	} = {},
 ): Promise<T> {
+	if (timeoutOrToken == null) return promise;
+
 	return new Promise((resolve, reject) => {
 		let fulfilled = false;
 		let timer: NodeJS.Timer | undefined;

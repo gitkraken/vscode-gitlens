@@ -1571,8 +1571,14 @@
 				},
 				"gitlens.statusBar.format": {
 					"type": "string",
-					"default": "${author}, ${agoOrDate}",
+					"default": "${author}, ${agoOrDate}${' via 'pullRequest}",
 					"markdownDescription": "Specifies the format of the blame information in the status bar. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `#gitlens.statusBar.dateFormat#` setting",
+					"scope": "window"
+				},
+				"gitlens.statusBar.pullRequests.enabled": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to provide information about the Pull Request (if any) that introduced the commit in the status bar. Requires a connection to a supported remote service (e.g. GitHub)",
 					"scope": "window"
 				},
 				"gitlens.statusBar.reduceFlicker": {
