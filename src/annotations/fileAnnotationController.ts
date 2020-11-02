@@ -378,6 +378,7 @@ export class FileAnnotationController implements Disposable {
 
 		const currentProvider = this.getProvider(editor);
 		if (currentProvider?.annotationType === type) {
+			await currentProvider.provideAnnotation(shaOrLine);
 			await currentProvider.selection(shaOrLine);
 			return true;
 		}
