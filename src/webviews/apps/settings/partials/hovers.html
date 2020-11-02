@@ -156,101 +156,41 @@
 			</div>
 
 			<div class="section__preview" data-visibility="hovers.enabled">
+				<img class="image__preview" src="#{root}/images/settings/hovers-currentLine.png" />
 				<img
-					class="image__preview hidden"
-					src="#{root}/images/settings/hovers-currentLine-line.png"
-					data-visibility="hovers.currentLine.over =line"
-				/>
-				<img
-					class="image__preview hidden"
-					src="#{root}/images/settings/hovers-currentLine-line.png"
-					data-visibility="currentLine.enabled =false &amp; hovers.currentLine.over =annotation"
+					class="image__preview--overlay hidden"
+					src="#{root}/images/settings/hovers-currentLine-on.png"
+					data-visibility="currentLine.enabled &amp; currentLine.pullRequests.enabled =false"
 				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/hovers-currentLine-line-blame.png"
-					data-visibility="currentLine.enabled &amp; hovers.currentLine.over =line"
+					src="#{root}/images/settings/hovers-currentLine-on+pr.png"
+					data-visibility="currentLine.enabled &amp; currentLine.pullRequests.enabled"
 				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/hovers-currentLine-line-details+changes-avatars.png"
-					data-visibility="hovers.currentLine.over =line &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes &amp; hovers.avatars"
+					src="#{root}/images/settings/hovers-currentLine-details+pr+changes.png"
+					data-visibility="currentLine.enabled &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes &amp; hovers.pullRequests.enabled"
 				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/hovers-currentLine-line-details+changes-avatars.png"
-					data-visibility="currentLine.enabled =false &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes &amp; hovers.avatars"
+					src="#{root}/images/settings/hovers-currentLine-details+changes.png"
+					data-visibility="currentLine.enabled &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes &amp; hovers.pullRequests.enabled =false"
 				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/hovers-currentLine-line-details+changes.png"
-					data-visibility="hovers.currentLine.over =line &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes &amp; hovers.avatars =false"
+					src="#{root}/images/settings/hovers-currentLine-details+pr.png"
+					data-visibility="currentLine.enabled &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false &amp; hovers.pullRequests.enabled"
 				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/hovers-currentLine-line-details+changes.png"
-					data-visibility="currentLine.enabled =false &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes &amp; hovers.avatars =false"
+					src="#{root}/images/settings/hovers-currentLine-details.png"
+					data-visibility="currentLine.enabled &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false &amp; hovers.pullRequests.enabled =false"
 				/>
 				<img
 					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/hovers-currentLine-line-details-avatars.png"
-					data-visibility="hovers.currentLine.over =line &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false &amp; hovers.avatars"
-				/>
-				<img
-					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/hovers-currentLine-line-details-avatars.png"
-					data-visibility="currentLine.enabled =false &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false &amp; hovers.avatars"
-				/>
-				<img
-					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/hovers-currentLine-line-details.png"
-					data-visibility="hovers.currentLine.over =line &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false &amp; hovers.avatars =false"
-				/>
-				<img
-					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/hovers-currentLine-line-details.png"
-					data-visibility="currentLine.enabled =false &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false &amp; hovers.avatars =false"
-				/>
-				<img
-					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/hovers-currentLine-line-changes.png"
-					data-visibility="hovers.currentLine.over =line &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details =false &amp; hovers.currentLine.changes"
-				/>
-				<img
-					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/hovers-currentLine-line-changes.png"
-					data-visibility="currentLine.enabled =false &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details =false &amp; hovers.currentLine.changes"
-				/>
-
-				<img
-					class="image__preview hidden"
-					src="#{root}/images/settings/hovers-currentLine-annotation.png"
-					data-visibility="currentLine.enabled &amp; hovers.currentLine.over =annotation"
-				/>
-				<img
-					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/hovers-currentLine-annotation-details+changes-avatars.png"
-					data-visibility="currentLine.enabled &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes &amp; hovers.avatars"
-				/>
-				<img
-					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/hovers-currentLine-annotation-details+changes.png"
-					data-visibility="currentLine.enabled &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes &amp; hovers.avatars =false"
-				/>
-				<img
-					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/hovers-currentLine-annotation-details-avatars.png"
-					data-visibility="currentLine.enabled &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false &amp; hovers.avatars"
-				/>
-				<img
-					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/hovers-currentLine-annotation-details.png"
-					data-visibility="currentLine.enabled &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details &amp; hovers.currentLine.changes =false &amp; hovers.avatars =false"
-				/>
-				<img
-					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/hovers-currentLine-annotation-changes.png"
-					data-visibility="currentLine.enabled &amp; hovers.currentLine.over =annotation &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details =false &amp; hovers.currentLine.changes"
+					src="#{root}/images/settings/hovers-currentLine-changes.png"
+					data-visibility="currentLine.enabled &amp; hovers.enabled &amp; hovers.currentLine.enabled &amp; hovers.currentLine.details =false &amp; hovers.currentLine.changes"
 				/>
 			</div>
 		</div>
