@@ -70,9 +70,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a new default click action on changed files nodes in GitLens views to open all changes
 - Adds a new `gitlens.hovers.avatarSize` setting to customize the size of avatars shown in hovers
   - Increases the default avatar size in hovers from 16px to 32px
-- Adds new `gitlens.fileAnnotations.command` & `gitlens.fileAnnotations.diffCommand` settings to control the behavior of the toggling of file annotations from the editor toolbar
-  - Choose both the default click behavior as well as the `alt`+click behavior
-  - Can also be configured via the GitLens Interactive Settings in the _Menus & Toolbars_ section
 - Adds new _Welcome_ and _Open Settings_ menu options to the GitLens context/gear menu in the _Extensions_ sidebar &mdash; closes [#952](https://github.com/eamodio/vscode-gitlens/issues/952) & [#953](https://github.com/eamodio/vscode-gitlens/issues/953) thanks to [PR #992](https://github.com/eamodio/vscode-gitlens/pull/992) by Zeeshan Adnan ([@zeeshanadnan](https://github.com/zeeshanadnan))
 - Adds a new _Set Views Layout_ (`gitlens.setViewsLayout`) command &mdash; quickly switch between showing GitLens views in _GitLens_ sidebar (default) and the _Source Control_ sidebar
 - Adds a _Clear_ command to branch comparison nodes in the _Commits_ and _Repositories_ views

@@ -581,7 +581,7 @@
 				"gitlens.currentLine.pullRequests.enabled": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to provide information about the Pull Request (if any) that introduced a commit in the current line blame annotation. Requires a connection to a supported remote service (e.g. GitHub)",
+					"markdownDescription": "Specifies whether to provide information about the Pull Request (if any) that introduced the commit in the current line blame annotation. Requires a connection to a supported remote service (e.g. GitHub)",
 					"scope": "window"
 				},
 				"gitlens.currentLine.scrollable": {
@@ -662,42 +662,6 @@
 						"A face with differing features and backgrounds"
 					],
 					"markdownDescription": "Specifies the style of the gravatar default (fallback) images",
-					"scope": "window"
-				},
-				"gitlens.fileAnnotations.command": {
-					"type": "string",
-					"default": "blame+heatmap",
-					"enum": [
-						"blame+heatmap",
-						"blame+changes",
-						"changes+blame",
-						"changes+heatmap",
-						"heatmap+blame",
-						"heatmap+changes"
-					],
-					"enumDescriptions": [
-						"Toggles Gutter Blame annotations, and toggles Gutter Heatmap annotations when holding `alt`",
-						"Toggles Gutter Blame annotations, and toggles Gutter Changes annotations when holding `alt`",
-						"Toggles Gutter Changes annotations, and toggles Gutter Blame annotations when holding `alt`",
-						"Toggles Gutter Changes annotations, and toggles Gutter Heatmap annotations when holding `alt`",
-						"Toggles Gutter Heatmap annotations, and toggles Gutter Blame annotations when holding `alt`",
-						"Toggles Gutter Heatmap annotations, and toggles Gutter Changes annotations when holding `alt`"
-					],
-					"markdownDescription": "Specifies the file annotation types to be toggled by the editor toolbar command and alternate command",
-					"scope": "window"
-				},
-				"gitlens.fileAnnotations.diffCommand": {
-					"type": "string",
-					"default": "blame",
-					"enum": [
-						"blame+heatmap",
-						"heatmap+blame"
-					],
-					"enumDescriptions": [
-						"Toggles Gutter Blame annotations, and toggles Gutter Heatmap annotations when holding `alt`",
-						"Toggles Gutter Heatmap annotations, and toggles Gutter Blame annotations when holding `alt`"
-					],
-					"markdownDescription": "Specifies the file annotation types to be toggled by the editor toolbar command and alternate command when in a diff editor",
 					"scope": "window"
 				},
 				"gitlens.gitCommands.closeOnFocusOut": {
@@ -861,6 +825,32 @@
 					"markdownDescription": "Specifies when to trigger hovers when showing blame annotations",
 					"scope": "window"
 				},
+				"gitlens.hovers.avatars": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to show avatar images in hovers",
+					"scope": "window"
+				},
+				"gitlens.hovers.avatarSize": {
+					"type": "number",
+					"default": 32,
+					"markdownDescription": "Specifies the size of the avatar images in hovers",
+					"scope": "window"
+				},
+				"gitlens.hovers.changesDiff": {
+					"type": "string",
+					"default": "line",
+					"enum": [
+						"line",
+						"hunk"
+					],
+					"enumDescriptions": [
+						"Shows only the changes to the line",
+						"Shows the set of related changes"
+					],
+					"markdownDescription": "Specifies whether to show just the changes to the line or the set of related changes in the _changes (diff)_ hover",
+					"scope": "window"
+				},
 				"gitlens.hovers.currentLine.changes": {
 					"type": "boolean",
 					"default": true,
@@ -893,32 +883,6 @@
 					"markdownDescription": "Specifies when to trigger hovers for the current line",
 					"scope": "window"
 				},
-				"gitlens.hovers.avatars": {
-					"type": "boolean",
-					"default": true,
-					"markdownDescription": "Specifies whether to show avatar images in hovers",
-					"scope": "window"
-				},
-				"gitlens.hovers.avatarSize": {
-					"type": "number",
-					"default": 32,
-					"markdownDescription": "Specifies the size of the avatar images in hovers",
-					"scope": "window"
-				},
-				"gitlens.hovers.changesDiff": {
-					"type": "string",
-					"default": "line",
-					"enum": [
-						"line",
-						"hunk"
-					],
-					"enumDescriptions": [
-						"Shows only the changes to the line",
-						"Shows the set of related changes"
-					],
-					"markdownDescription": "Specifies whether to show just the changes to the line or the set of related changes in the _changes (diff)_ hover",
-					"scope": "window"
-				},
 				"gitlens.hovers.detailsMarkdownFormat": {
 					"type": "string",
 					"default": "${avatar} &nbsp;__${author}__, ${ago}${' via 'pullRequest} &nbsp; _(${date})_ \n\n${message}\n\n${commands}",
@@ -946,7 +910,7 @@
 				"gitlens.hovers.pullRequests.enabled": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to provide information about the Pull Request (if any) that introduced a commit in the hovers. Requires a connection to a supported remote service (e.g. GitHub)",
+					"markdownDescription": "Specifies whether to provide information about the Pull Request (if any) that introduced the commit in the hovers. Requires a connection to a supported remote service (e.g. GitHub)",
 					"scope": "window"
 				},
 				"gitlens.insiders": {
