@@ -1,5 +1,5 @@
 .eslintcache
-.vscode-clean
+.vscode-clean/**
 dist
 node_modules
 images/settings

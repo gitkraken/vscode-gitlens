@@ -1,14 +1,15 @@
 .github/**
 .vscode/**
+.vscode-clean/**
 .yarn/**
 dist/webviews/*.css
 emoji/**
 images/docs/**
-images/**/*.pdn
 node_modules/**
 src/**
 test/**
 **/*.fig
+**/*.pdn
 .eslintcache
 .eslintignore
 .eslintrc.json
