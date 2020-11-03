@@ -815,7 +815,7 @@ export namespace Git {
 			params.push('--all');
 		}
 
-		params.push(all !== true && renames ? '--follow' : '-m');
+		params.push(renames && startLine == null && all !== true ? '--follow' : '-m');
 
 		if (filters != null && filters.length !== 0) {
 			params.push(`--diff-filter=${filters.join(emptyStr)}`);
@@ -847,8 +847,8 @@ export namespace Git {
 			}
 		}
 
-		if (startLine == null || renames) {
-			// Don't specify a file spec when using a line number (so say the git docs), unless it is a follow
+		// Don't specify a file spec when using a line number (so say the git docs)
+		if (startLine == null) {
 			params.push('--', file);
 		}
 
