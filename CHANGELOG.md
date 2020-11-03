@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [10.2.3] - 2020-11-03
+
+### Fixed
+
+- Fixes [#1139](https://github.com/eamodio/vscode-gitlens/issues/1139) - Git crash with v2.29.x
+
 ## [10.2.2] - 2020-06-10
 
 ### Added
