@@ -29,7 +29,7 @@ const rootSha = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 export const GitErrors = {
 	badRevision: /bad revision '(.*?)'/i,
 	notAValidObjectName: /Not a valid object name/i,
-	invalidLineCount: /file .+? has only \d+ lines/i
+	invalidLineCount: /file .+? has only \d+ lines/i,
 };
 
 const GitWarnings = {
@@ -46,12 +46,12 @@ const GitWarnings = {
 	patchWithConflicts: /Applied patch to '.*?' with conflicts/i,
 	noRemoteRepositorySpecified: /No remote repository specified\./i,
 	remoteConnectionError: /Could not read from remote repository/i,
-	notAGitCommand: /'.+' is not a git command/i
+	notAGitCommand: /'.+' is not a git command/i,
 };
 
 export enum GitErrorHandling {
 	Ignore = 'ignore',
-	Throw = 'throw'
+	Throw = 'throw',
 }
 
 export interface GitCommandOptions extends RunOptions {
@@ -93,8 +93,8 @@ export async function git<TOut extends string | Buffer>(options: GitCommandOptio
 			...(options.env || emptyObj),
 			GCM_INTERACTIVE: 'NEVER',
 			GCM_PRESERVE_CREDS: 'TRUE',
-			LC_ALL: 'C'
-		}
+			LC_ALL: 'C',
+		},
 	};
 
 	const gitCommand = `[${runOpts.cwd}] git ${args.join(' ')}`;
@@ -255,7 +255,7 @@ export namespace Git {
 		ref: string | undefined,
 		{
 			force,
-			strings = {}
+			strings = {},
 		}: {
 			force?: boolean;
 			strings?: { uncommitted?: string; uncommittedStaged?: string; working?: string };
@@ -367,8 +367,8 @@ export namespace Git {
 					} else {
 						// Ensure the specified --ignore-revs-file exists, otherwise the blame will fail
 						try {
-							supported = await new Promise(resolve =>
-								fs.exists(ignoreRevsFile, exists => resolve(exists))
+							supported = await new Promise((resolve) =>
+								fs.exists(ignoreRevsFile, (exists) => resolve(exists))
 							);
 						} catch {
 							supported = false;
@@ -560,7 +560,7 @@ export namespace Git {
 			`-M${options.similarityThreshold == null ? '' : `${options.similarityThreshold}%`}`,
 			'--no-ext-diff',
 			'-U0',
-			'--minimal'
+			'--minimal',
 		];
 		if (options.filter) {
 			params.push(`--diff-filter=${options.filter}`);
@@ -611,7 +611,7 @@ export namespace Git {
 			'diff',
 			'--name-status',
 			`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
-			'--no-ext-diff'
+			'--no-ext-diff',
 		];
 		if (filter) {
 			params.push(`--diff-filter=${filter}`);
@@ -696,7 +696,7 @@ export namespace Git {
 			limit,
 			merges,
 			reverse,
-			similarityThreshold
+			similarityThreshold,
 		}: {
 			authors?: string[];
 			limit?: number;
@@ -710,7 +710,7 @@ export namespace Git {
 			'--name-status',
 			`--format=${GitLogParser.defaultFormat}`,
 			'--full-history',
-			`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`
+			`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
 		];
 		if (limit && !reverse) {
 			params.push(`-n${limit}`);
@@ -721,7 +721,7 @@ export namespace Git {
 		}
 
 		if (authors) {
-			params.push('--use-mailmap', ...authors.map(a => `--author=${a}`));
+			params.push('--use-mailmap', ...authors.map((a) => `--author=${a}`));
 		}
 
 		if (ref && !Git.isUncommittedStaged(ref)) {
@@ -752,7 +752,7 @@ export namespace Git {
 			reverse = false,
 			simple = false,
 			startLine,
-			endLine
+			endLine,
 		}: {
 			filters?: GitLogDiffFilter[];
 			limit?: number;
@@ -771,7 +771,7 @@ export namespace Git {
 		if (limit && !reverse) {
 			params.push(`-n${limit}`);
 		}
-		params.push(renames ? '--follow' : '-m');
+		params.push(startLine == null && renames ? '--follow' : '-m');
 
 		if (filters != null && filters.length !== 0) {
 			params.push(`--diff-filter=${filters.join(emptyStr)}`);
@@ -801,8 +801,8 @@ export namespace Git {
 			}
 		}
 
-		if (startLine == null || renames) {
-			// Don't specify a file spec when using a line number (so say the git docs), unless it is a follow
+		if (startLine == null) {
+			// Don't specify a file spec when using a line number (so say the git docs)
 			params.push('--', file);
 		}
 
@@ -818,7 +818,7 @@ export namespace Git {
 			'log',
 			`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`,
 			'-n1',
-			'--format=%H'
+			'--format=%H',
 		];
 
 		if (ref) {
@@ -860,7 +860,7 @@ export namespace Git {
 			useShow ? 'show' : 'log',
 			'--name-status',
 			`--format=${GitLogParser.defaultFormat}`,
-			'--use-mailmap'
+			'--use-mailmap',
 		];
 		if (limit && !useShow) {
 			params.push(`-n${limit}`);
@@ -1045,7 +1045,7 @@ export namespace Git {
 			configs: ['-c', 'log.showSignature=false'],
 			cwd: root,
 			encoding: options.encoding || 'utf8',
-			errors: GitErrorHandling.Throw
+			errors: GitErrorHandling.Throw,
 		};
 		const args = ref.endsWith(':') ? `${ref}./${file}` : `${ref}:./${file}`;
 
@@ -1085,7 +1085,7 @@ export namespace Git {
 			'-U0',
 			ref,
 			'--',
-			fileName
+			fileName,
 		];
 		if (originalFileName != null && originalFileName.length !== 0) {
 			params.push(originalFileName);
@@ -1116,7 +1116,7 @@ export namespace Git {
 		repoPath: string,
 		{
 			format = GitStashParser.defaultFormat,
-			similarityThreshold
+			similarityThreshold,
 		}: { format?: string; similarityThreshold?: number | null } = {}
 	) {
 		return git<string>(
@@ -1135,7 +1135,7 @@ export namespace Git {
 		{
 			includeUntracked,
 			keepIndex,
-			pathspecs
+			pathspecs,
 		}: { includeUntracked?: boolean; keepIndex?: boolean; pathspecs?: string[] } = {}
 	) {
 		const params = ['stash', 'push'];
@@ -1169,7 +1169,7 @@ export namespace Git {
 			'status',
 			porcelainVersion >= 2 ? `--porcelain=v${porcelainVersion}` : '--porcelain',
 			'--branch',
-			'-u'
+			'-u',
 		];
 		if (Git.validateVersion(2, 18)) {
 			params.push(`--find-renames${similarityThreshold == null ? '' : `=${similarityThreshold}%`}`);
