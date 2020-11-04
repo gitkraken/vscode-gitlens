@@ -19,7 +19,7 @@ export function cancellable<T>(
 	timeoutOrToken?: number | CancellationToken,
 	options: {
 		cancelMessage?: string;
-		onDidCancel?(resolve: (value?: T | PromiseLike<T> | undefined) => void, reject: (reason?: any) => void): void;
+		onDidCancel?(resolve: (value: T | PromiseLike<T>) => void, reject: (reason?: any) => void): void;
 	} = {},
 ): Promise<T> {
 	if (timeoutOrToken == null) return promise;

@@ -130,7 +130,7 @@ export namespace CommitPicker {
 				CommandQuickPickItem | CommitQuickPickItem | DirectiveQuickPickItem | undefined
 			>(resolve => {
 				disposables.push(
-					quickpick.onDidHide(() => resolve()),
+					quickpick.onDidHide(() => resolve(undefined)),
 					quickpick.onDidAccept(() => {
 						if (quickpick.activeItems.length !== 0) {
 							const [item] = quickpick.activeItems;
@@ -141,7 +141,7 @@ export namespace CommitPicker {
 										return;
 
 									default:
-										resolve();
+										resolve(undefined);
 										return;
 								}
 							}

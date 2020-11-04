@@ -137,7 +137,7 @@ export namespace RemoteProviderPicker {
 				CopyOrOpenRemoteCommandQuickPickItem | SetADefaultRemoteCommandQuickPickItem | undefined
 			>(resolve => {
 				disposables.push(
-					quickpick.onDidHide(() => resolve()),
+					quickpick.onDidHide(() => resolve(undefined)),
 					quickpick.onDidAccept(() => {
 						if (quickpick.activeItems.length !== 0) {
 							resolve(quickpick.activeItems[0]);
@@ -174,7 +174,7 @@ export namespace RemoteProviderPicker {
 		try {
 			const pick = await new Promise<SetRemoteAsDefaultCommandQuickPickItem | undefined>(resolve => {
 				disposables.push(
-					quickpick.onDidHide(() => resolve()),
+					quickpick.onDidHide(() => resolve(undefined)),
 					quickpick.onDidAccept(() => {
 						if (quickpick.activeItems.length !== 0) {
 							resolve(quickpick.activeItems[0]);

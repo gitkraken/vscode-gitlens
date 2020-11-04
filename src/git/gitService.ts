@@ -3004,7 +3004,7 @@ export class GitService implements Disposable {
 						const [, letter] = match;
 
 						try {
-							const networkPath = await new Promise<string>(resolve =>
+							const networkPath = await new Promise<string | undefined>(resolve =>
 								fs.realpath.native(`${letter}:`, { encoding: 'utf8' }, (err, resolvedPath) =>
 									resolve(err != null ? undefined : resolvedPath),
 								),
@@ -3028,7 +3028,7 @@ export class GitService implements Disposable {
 
 			// If we are not on Windows (symlinks don't seem to have the same issue on Windows), check if we are a symlink and if so, use the symlink path (not its resolved path)
 			// This is because VS Code will provide document Uris using the symlinked path
-			return await new Promise<string>(resolve => {
+			return await new Promise<string | undefined>(resolve => {
 				fs.realpath(path, { encoding: 'utf8' }, (err, resolvedPath) => {
 					if (err != null) {
 						Logger.debug(cc, `fs.realpath failed; repoPath=${repoPath}`);

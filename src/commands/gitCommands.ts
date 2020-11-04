@@ -274,7 +274,7 @@ export class GitCommandsCommand extends Command {
 
 				disposables.push(
 					scope,
-					input.onDidHide(() => resolve()),
+					input.onDidHide(() => resolve(undefined)),
 					input.onDidTriggerButton(async e => {
 						if (e === QuickInputButtons.Back) {
 							void goBack();
@@ -425,7 +425,7 @@ export class GitCommandsCommand extends Command {
 
 				disposables.push(
 					scope,
-					quickpick.onDidHide(() => resolve()),
+					quickpick.onDidHide(() => resolve(undefined)),
 
 					quickpick.onDidTriggerButton(async e => {
 						if (e === QuickInputButtons.Back) {
@@ -614,7 +614,7 @@ export class GitCommandsCommand extends Command {
 							if (DirectiveQuickPickItem.is(item)) {
 								switch (item.directive) {
 									case Directive.Cancel:
-										resolve();
+										resolve(undefined);
 										return;
 
 									case Directive.Back:

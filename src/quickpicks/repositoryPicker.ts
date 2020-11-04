@@ -23,7 +23,7 @@ export namespace RepositoryPicker {
 		try {
 			const pick = await new Promise<RepositoryQuickPickItem | undefined>(resolve => {
 				disposables.push(
-					quickpick.onDidHide(() => resolve()),
+					quickpick.onDidHide(() => resolve(undefined)),
 					quickpick.onDidAccept(() => {
 						if (quickpick.activeItems.length !== 0) {
 							resolve(quickpick.activeItems[0]);
