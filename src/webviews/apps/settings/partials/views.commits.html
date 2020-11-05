@@ -156,23 +156,104 @@
 			<div class="section__preview">
 				<img
 					class="image__preview hidden"
-					src="#{root}/images/settings/view-commits.png"
-					data-visibility="views.commits.files.layout !tree"
+					src="#{root}/images/settings/commits-view-auto-compare+pr+commit-pr.png"
+					data-visibility="views.commits.files.layout !tree &amp; views.commits.showBranchComparison !false &amp; views.commits.pullRequests.enabled &amp; views.commits.pullRequests.showForBranches &amp; views.commits.pullRequests.showForCommits"
 				/>
 				<img
 					class="image__preview hidden"
-					src="#{root}/images/settings/view-commits-tree-compact.png"
-					data-visibility="views.commits.files.layout =tree &amp; views.commits.files.compact"
+					src="#{root}/images/settings/commits-view-auto-compare+pr.png"
+					data-visibility="views.commits.files.layout !tree &amp; views.commits.showBranchComparison !false &amp; views.commits.pullRequests.enabled &amp; views.commits.pullRequests.showForBranches &amp; views.commits.pullRequests.showForCommits =false"
 				/>
 				<img
 					class="image__preview hidden"
-					src="#{root}/images/settings/view-commits-tree.png"
-					data-visibility="views.commits.files.layout =tree &amp; views.commits.files.compact =false"
+					src="#{root}/images/settings/commits-view-auto-compare+commit-pr.png"
+					data-visibility="views.commits.files.layout !tree &amp; views.commits.showBranchComparison !false &amp; views.commits.pullRequests.enabled &amp; views.commits.pullRequests.showForBranches =false &amp; views.commits.pullRequests.showForCommits"
 				/>
 				<img
-					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/view-commits-avatars.png"
-					data-visibility="views.commits.avatars"
+					class="image__preview hidden"
+					src="#{root}/images/settings/commits-view-auto-compare.png"
+					data-visibility="views.commits.files.layout !tree &amp; views.commits.showBranchComparison !false &amp; views.commits.pullRequests.enabled =false"
+				/>
+				<img
+					class="image__preview hidden"
+					src="#{root}/images/settings/commits-view-auto-compare.png"
+					data-visibility="views.commits.files.layout !tree &amp; views.commits.showBranchComparison !false &amp; views.commits.pullRequests.enabled &amp; views.commits.pullRequests.showForBranches =false &amp; views.commits.pullRequests.showForCommits =false"
+				/>
+				<img
+					class="image__preview hidden"
+					src="#{root}/images/settings/commits-view-auto-pr+commit-pr.png"
+					data-visibility="views.commits.files.layout !tree &amp; views.commits.showBranchComparison =false &amp; views.commits.pullRequests.enabled &amp; views.commits.pullRequests.showForBranches &amp; views.commits.pullRequests.showForCommits"
+				/>
+				<img
+					class="image__preview hidden"
+					src="#{root}/images/settings/commits-view-auto-pr.png"
+					data-visibility="views.commits.files.layout !tree &amp; views.commits.showBranchComparison =false &amp; views.commits.pullRequests.enabled &amp; views.commits.pullRequests.showForBranches &amp; views.commits.pullRequests.showForCommits =false"
+				/>
+				<img
+					class="image__preview hidden"
+					src="#{root}/images/settings/commits-view-auto-commit-pr.png"
+					data-visibility="views.commits.files.layout !tree &amp; views.commits.showBranchComparison =false &amp; views.commits.pullRequests.enabled &amp; views.commits.pullRequests.showForBranches =false &amp; views.commits.pullRequests.showForCommits"
+				/>
+				<img
+					class="image__preview hidden"
+					src="#{root}/images/settings/commits-view-auto.png"
+					data-visibility="views.commits.files.layout !tree &amp; views.commits.showBranchComparison =false &amp; views.commits.pullRequests.enabled =false"
+				/>
+				<img
+					class="image__preview hidden"
+					src="#{root}/images/settings/commits-view-auto.png"
+					data-visibility="views.commits.files.layout !tree &amp; views.commits.showBranchComparison =false &amp; views.commits.pullRequests.enabled &amp; views.commits.pullRequests.showForBranches =false &amp; views.commits.pullRequests.showForCommits =false"
+				/>
+
+				<img
+					class="image__preview hidden"
+					src="#{root}/images/settings/commits-view-tree-compare+pr+commit-pr.png"
+					data-visibility="views.commits.files.layout =tree &amp; views.commits.showBranchComparison !false &amp; views.commits.pullRequests.enabled &amp; views.commits.pullRequests.showForBranches &amp; views.commits.pullRequests.showForCommits"
+				/>
+				<img
+					class="image__preview hidden"
+					src="#{root}/images/settings/commits-view-tree-compare+pr.png"
+					data-visibility="views.commits.files.layout =tree &amp; views.commits.showBranchComparison !false &amp; views.commits.pullRequests.enabled &amp; views.commits.pullRequests.showForBranches &amp; views.commits.pullRequests.showForCommits = false"
+				/>
+				<img
+					class="image__preview hidden"
+					src="#{root}/images/settings/commits-view-tree-compare+commit-pr.png"
+					data-visibility="views.commits.files.layout =tree &amp; views.commits.showBranchComparison !false &amp; views.commits.pullRequests.enabled &amp; views.commits.pullRequests.showForBranches =false &amp; views.commits.pullRequests.showForCommits"
+				/>
+				<img
+					class="image__preview hidden"
+					src="#{root}/images/settings/commits-view-tree-compare.png"
+					data-visibility="views.commits.files.layout =tree &amp; views.commits.showBranchComparison !false &amp; views.commits.pullRequests.enabled =false"
+				/>
+				<img
+					class="image__preview hidden"
+					src="#{root}/images/settings/commits-view-tree-compare.png"
+					data-visibility="views.commits.files.layout =tree &amp; views.commits.showBranchComparison !false &amp; views.commits.pullRequests.enabled &amp; views.commits.pullRequests.showForBranches =false &amp; views.commits.pullRequests.showForCommits =false "
+				/>
+				<img
+					class="image__preview hidden"
+					src="#{root}/images/settings/commits-view-tree-pr+commit-pr.png"
+					data-visibility="views.commits.files.layout =tree &amp; views.commits.showBranchComparison =false &amp; views.commits.pullRequests.enabled &amp; views.commits.pullRequests.showForBranches &amp; views.commits.pullRequests.showForCommits"
+				/>
+				<img
+					class="image__preview hidden"
+					src="#{root}/images/settings/commits-view-tree-pr.png"
+					data-visibility="views.commits.files.layout =tree &amp; views.commits.showBranchComparison =false &amp; views.commits.pullRequests.enabled &amp; views.commits.pullRequests.showForBranches &amp; views.commits.pullRequests.showForCommits =false"
+				/>
+				<img
+					class="image__preview hidden"
+					src="#{root}/images/settings/commits-view-tree-commit-pr.png"
+					data-visibility="views.commits.files.layout =tree &amp; views.commits.showBranchComparison =false &amp; views.commits.pullRequests.enabled &amp; views.commits.pullRequests.showForBranches =false &amp; views.commits.pullRequests.showForCommits"
+				/>
+				<img
+					class="image__preview hidden"
+					src="#{root}/images/settings/commits-view-tree.png"
+					data-visibility="views.commits.files.layout =tree &amp; views.commits.showBranchComparison =false &amp; views.commits.pullRequests.enabled =false"
+				/>
+				<img
+					class="image__preview hidden"
+					src="#{root}/images/settings/commits-view-tree.png"
+					data-visibility="views.commits.files.layout =tree &amp; views.commits.showBranchComparison =false &amp; views.commits.pullRequests.enabled &amp; views.commits.pullRequests.showForBranches =false &amp; views.commits.pullRequests.showForCommits =false"
 				/>
 			</div>
 		</div>
