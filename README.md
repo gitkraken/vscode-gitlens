@@ -205,7 +205,7 @@ The _Commits_ view lists all of the commits on the current branch, and additiona
   - **Ahead** &mdash; lists the commits that the current branch has (i.e. ahead) but are missing in the selected reference
     - **# files changed** &mdash; lists all of the files changed between the compared references
 - the current branch status &mdash; shows the upstream status of the current branch
-  - **&lt;current branch&gt; hasn't yet been published** &mdash; shown when the current branch has not been published to a remote
+  - **Publish &lt;current branch&gt; to remote** &mdash; shown when the current branch has not been published to a remote
   - **Up to date with &lt;remote&gt;** &mdash; shown when the current branch is up to date with the upstream remote
   - **Changes to push to &lt;remote&gt;** &mdash; lists of all the files changed in the unpublished commits when the current branch has (unpublished) commits that waiting to be pushed to the upstream remote
   - **Changes to pull from &lt;remote&gt;** &mdash; lists all of the commits waiting to be pulled when the current branch has commits that are waiting to be pulled from the upstream remote
@@ -700,7 +700,7 @@ GitLens is highly customizable and provides many configuration settings to allow
 | `gitlens.currentLine.dateFormat`           | Specifies how to format absolute dates (e.g. using the `${date}` token) for the current line blame annotations. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats                                                          |
 | `gitlens.currentLine.enabled`              | Specifies whether to provide a blame annotation for the current line, by default. Use the _Toggle Line Blame Annotations_ command (`gitlens.toggleLineBlame`) to toggle the annotations on and off for the current window                                           |
 | `gitlens.currentLine.format`               | Specifies the format of the current line blame annotation. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs. Date formatting is controlled by the `gitlens.currentLine.dateFormat` setting |
-| `gitlens.currentLine.pullRequests.enabled` | Specifies whether to provide information about the Pull Request (if any) that introduced the commit in the current line blame annotation. Requires a connection to a supported remote service (e.g. GitHub) |
+| `gitlens.currentLine.pullRequests.enabled` | Specifies whether to provide information about the Pull Request (if any) that introduced the commit in the current line blame annotation. Requires a connection to a supported remote service (e.g. GitHub)                                                         |
 | `gitlens.currentLine.scrollable`           | Specifies whether the current line blame annotation can be scrolled into view when it is outside the viewport                                                                                                                                                       |
 
 ## Git Code Lens Settings [#](#git-code-lens-settings- 'Git Code Lens Settings')

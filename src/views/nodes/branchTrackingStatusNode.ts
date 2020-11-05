@@ -5,7 +5,7 @@ import { BranchTrackingStatusFilesNode } from './branchTrackingStatusFilesNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode } from './common';
 import { Container } from '../../container';
-import { GitBranch, GitLog, GitRevision, GitTrackingState } from '../../git/git';
+import { GitBranch, GitLog, GitRemote, GitRevision, GitTrackingState } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { insertDateMarkers } from './helpers';
 import { RepositoriesView } from '../repositoriesView';
@@ -120,6 +120,9 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 			lastFetched = (await repo?.getLastFetched()) ?? 0;
 		}
 
+		const providers = GitRemote.getHighlanderProviders(await Container.git.getRemotes(this.branch.repoPath));
+		const providerName = providers?.length ? providers[0].name : undefined;
+
 		let label;
 		let description;
 		let collapsibleState;
@@ -128,11 +131,14 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 		let tooltip;
 		switch (this.upstreamType) {
 			case 'ahead':
-				label = `Changes to push to ${GitBranch.getRemote(this.status.upstream!)}`;
-				description = Strings.pluralize('commit', this.status.state.ahead);
-				tooltip = `${this.branch.name} is ${Strings.pluralize('commit', this.status.state.ahead)} ahead of ${
-					this.status.upstream
+				label = `Changes to push to ${GitBranch.getRemote(this.status.upstream!)}${
+					providerName ? ` on ${providerName}` : ''
 				}`;
+				description = Strings.pluralize('commit', this.status.state.ahead);
+				tooltip = `Branch ${this.branch.name} is ${Strings.pluralize(
+					'commit',
+					this.status.state.ahead,
+				)} ahead of ${this.status.upstream}`;
 
 				// collapsibleState = !this.isReposView
 				// 	? TreeItemCollapsibleState.Expanded
@@ -146,11 +152,14 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 				break;
 
 			case 'behind':
-				label = `Changes to pull from ${GitBranch.getRemote(this.status.upstream!)}`;
-				description = Strings.pluralize('commit', this.status.state.behind);
-				tooltip = `${this.branch.name} is ${Strings.pluralize('commit', this.status.state.behind)} behind ${
-					this.status.upstream
+				label = `Changes to pull from ${GitBranch.getRemote(this.status.upstream!)}${
+					providerName ? ` on ${providerName}` : ''
 				}`;
+				description = Strings.pluralize('commit', this.status.state.behind);
+				tooltip = `Branch ${this.branch.name} is ${Strings.pluralize(
+					'commit',
+					this.status.state.behind,
+				)} behind ${this.status.upstream}`;
 
 				collapsibleState = TreeItemCollapsibleState.Collapsed;
 				contextValue = this.root
@@ -161,9 +170,11 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 				break;
 
 			case 'same':
-				label = `Up to date with ${GitBranch.getRemote(this.status.upstream!)}`;
+				label = `Up to date with ${GitBranch.getRemote(this.status.upstream!)}${
+					providerName ? ` on ${providerName}` : ''
+				}`;
 				description = `Last fetched ${Dates.getFormatter(new Date(lastFetched)).fromNow()}`;
-				tooltip = `${this.branch.name} is up to date with ${this.status.upstream}`;
+				tooltip = `Branch ${this.branch.name} is up to date with ${this.status.upstream}`;
 
 				collapsibleState = TreeItemCollapsibleState.None;
 				contextValue = this.root ? ContextValues.StatusSameAsUpstream : undefined;
@@ -171,15 +182,16 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 
 				break;
 
-			case 'none':
-				label = `${this.branch.name} hasn't yet been published`;
-				tooltip = label;
+			case 'none': {
+				label = `Publish ${this.branch.name} to ${providerName ?? 'remote'}`;
+				tooltip = `Branch ${this.branch.name} hasn't yet been published to ${providerName ?? 'remote'}`;
 
 				collapsibleState = TreeItemCollapsibleState.None;
 				contextValue = this.root ? ContextValues.StatusNoUpstream : undefined;
 				icon = new ThemeIcon('cloud-upload', new ThemeColor('gitlens.viewChangesToPushIconColor'));
 
 				break;
+			}
 		}
 
 		const item = new TreeItem(label, collapsibleState);
