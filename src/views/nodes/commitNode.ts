@@ -1,6 +1,6 @@
 'use strict';
 import * as paths from 'path';
-import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Command, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { CommitFileNode } from './commitFileNode';
 import { ViewFilesLayout } from '../../configuration';
@@ -119,7 +119,7 @@ export class CommitNode extends ViewRefNode<ViewsWithFiles, GitRevisionReference
 			messageTruncateAtNewLine: true,
 		});
 		item.iconPath = this.unpublished
-			? new ThemeIcon('arrow-up')
+			? new ThemeIcon('arrow-up', new ThemeColor('gitlens.viewCommitToPushIconColor'))
 			: !(this.view instanceof StashesView) && this.view.config.avatars
 			? await this.commit.getAvatarUri({ defaultStyle: Container.config.defaultGravatarsStyle })
 			: new ThemeIcon('git-commit');

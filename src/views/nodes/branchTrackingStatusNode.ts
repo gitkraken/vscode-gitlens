@@ -1,5 +1,5 @@
 'use strict';
-import { ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { BranchNode } from './branchNode';
 import { BranchTrackingStatusFilesNode } from './branchTrackingStatusFilesNode';
 import { CommitNode } from './commitNode';
@@ -141,7 +141,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 				contextValue = this.root
 					? ContextValues.StatusAheadOfUpstream
 					: ContextValues.BranchStatusAheadOfUpstream;
-				icon = 'cloud-upload';
+				icon = new ThemeIcon('cloud-upload', new ThemeColor('gitlens.viewChangesToPushIconColor'));
 
 				break;
 
@@ -156,7 +156,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 				contextValue = this.root
 					? ContextValues.StatusBehindUpstream
 					: ContextValues.BranchStatusBehindUpstream;
-				icon = 'cloud-download';
+				icon = new ThemeIcon('cloud-download', new ThemeColor('gitlens.viewChangesToPullIconColor'));
 
 				break;
 
@@ -167,7 +167,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 
 				collapsibleState = TreeItemCollapsibleState.None;
 				contextValue = this.root ? ContextValues.StatusSameAsUpstream : undefined;
-				icon = 'cloud';
+				icon = new ThemeIcon('cloud');
 
 				break;
 
@@ -177,7 +177,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 
 				collapsibleState = TreeItemCollapsibleState.None;
 				contextValue = this.root ? ContextValues.StatusNoUpstream : undefined;
-				icon = 'cloud-upload';
+				icon = new ThemeIcon('cloud-upload', new ThemeColor('gitlens.viewChangesToPushIconColor'));
 
 				break;
 		}
@@ -189,7 +189,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 		if (lastFetched) {
 			tooltip += `\nLast fetched ${Dates.getFormatter(new Date(lastFetched)).fromNow()}`;
 		}
-		item.iconPath = new ThemeIcon(icon);
+		item.iconPath = icon;
 		item.tooltip = tooltip;
 
 		return item;

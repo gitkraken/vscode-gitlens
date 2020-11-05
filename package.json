@@ -18,7 +18,7 @@
 		"url": "https://github.com/eamodio/vscode-gitlens.git"
 	},
 	"engines": {
-		"vscode": "^1.50.0"
+		"vscode": "^1.51.0"
 	},
 	"main": "./dist/gitlens",
 	"icon": "images/gitlens-icon.png",
@@ -2478,6 +2478,33 @@
 					"dark": "#00BCF299",
 					"light": "#00BCF299",
 					"highContrast": "#00BCF299"
+				}
+			},
+			{
+				"id": "gitlens.viewCommitToPushIconColor",
+				"description": "Specifies the icon color of un-pushed commits in the GitLens views",
+				"defaults": {
+					"dark": "#35B15E",
+					"light": "#35B15E",
+					"highContrast": "#35B15E"
+				}
+			},
+			{
+				"id": "gitlens.viewChangesToPushIconColor",
+				"description": "Specifies the icon color of the _Changes to push_ node in the GitLens views",
+				"defaults": {
+					"dark": "#35B15E",
+					"light": "#35B15E",
+					"highContrast": "#35B15E"
+				}
+			},
+			{
+				"id": "gitlens.viewChangesToPullIconColor",
+				"description": "Specifies the icon color of the _Changes to pull_ node in the GitLens views",
+				"defaults": {
+					"dark": "#B15E35",
+					"light": "#B15E35",
+					"highContrast": "#B15E35"
 				}
 			}
 		],
@@ -8119,7 +8146,6 @@
 		"@types/lodash-es": "4.17.3",
 		"@types/node": "12.12.70",
 		"@types/sortablejs": "1.10.6",
-		"@types/vscode": "1.50.0",
 		"@typescript-eslint/eslint-plugin": "4.6.1",
 		"@typescript-eslint/parser": "4.6.1",
 		"circular-dependency-plugin": "5.2.2",
