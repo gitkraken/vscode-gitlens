@@ -56,9 +56,9 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 		const repoPath = this.repoPath;
 
 		let log: GitLog | undefined;
-		if (this.range !== undefined) {
+		if (this.range != null) {
 			log = await Container.git.getLog(repoPath, { limit: 0, ref: this.range });
-			if (log !== undefined) {
+			if (log != null) {
 				files = [
 					...Iterables.flatMap(log.commits.values(), c =>
 						c.files.map(s => {
@@ -75,7 +75,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 				0,
 				0,
 				...Iterables.flatMap(this.status.files, s => {
-					if (s.workingTreeStatus !== undefined && s.indexStatus !== undefined) {
+					if (s.workingTreeStatus != null && s.indexStatus != null) {
 						// Decrements the date to guarantee this entry will be sorted after the previous entry (most recent first)
 						const older = new Date();
 						older.setMilliseconds(older.getMilliseconds() - 1);
@@ -84,7 +84,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 							this.toStatusFile(s, GitRevision.uncommitted, GitRevision.uncommittedStaged),
 							this.toStatusFile(s, GitRevision.uncommittedStaged, 'HEAD', older),
 						];
-					} else if (s.indexStatus !== undefined) {
+					} else if (s.indexStatus != null) {
 						return [this.toStatusFile(s, GitRevision.uncommittedStaged, 'HEAD')];
 					}
 
@@ -139,7 +139,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 			if (files > 0) {
 				const aheadFiles = await Container.git.getDiffStatus(this.repoPath, `${this.status.upstream}...`);
 
-				if (aheadFiles !== undefined) {
+				if (aheadFiles != null) {
 					const uniques = new Set();
 					for (const f of this.status.files) {
 						uniques.add(f.fileName);
@@ -152,13 +152,15 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 				}
 			} else {
 				const stats = await Container.git.getChangedFilesCount(this.repoPath, `${this.status.upstream}...`);
-				if (stats !== undefined) {
+				if (stats != null) {
 					files += stats.files;
+				} else {
+					files = -1;
 				}
 			}
 		}
 
-		const label = `${Strings.pluralize('file', files)} changed`;
+		const label = files === -1 ? '?? files changed' : `${Strings.pluralize('file', files)} changed`;
 		const item = new TreeItem(label, TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ContextValues.StatusFiles;

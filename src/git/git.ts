@@ -32,6 +32,7 @@ const rootSha = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 export const GitErrors = {
 	badRevision: /bad revision '(.*?)'/i,
 	noFastForward: /\(non-fast-forward\)/i,
+	noMergeBase: /no merge base/i,
 	notAValidObjectName: /Not a valid object name/i,
 	invalidLineCount: /file .+? has only \d+ lines/i,
 };
@@ -610,13 +611,22 @@ export namespace Git {
 		return git<string>({ cwd: repoPath, configs: ['-c', 'color.diff=false'] }, ...params, '--');
 	}
 
-	export function diff__shortstat(repoPath: string, ref?: string) {
+	export async function diff__shortstat(repoPath: string, ref?: string) {
 		const params = ['diff', '--shortstat', '--no-ext-diff'];
 		if (ref) {
 			params.push(ref);
 		}
 
-		return git<string>({ cwd: repoPath, configs: ['-c', 'color.diff=false'] }, ...params, '--');
+		try {
+			return await git<string>({ cwd: repoPath, configs: ['-c', 'color.diff=false'] }, ...params, '--');
+		} catch (ex) {
+			const msg: string = ex?.toString() ?? '';
+			if (GitErrors.noMergeBase.test(msg)) {
+				return undefined;
+			}
+
+			throw ex;
+		}
 	}
 
 	export function difftool(

@@ -1291,6 +1291,8 @@ export class GitService implements Disposable {
 	@log()
 	async getChangedFilesCount(repoPath: string, ref?: string): Promise<GitDiffShortStat | undefined> {
 		const data = await Git.diff__shortstat(repoPath, ref);
+		if (!data) return undefined;
+
 		return GitDiffParser.parseShortStat(data);
 	}
 
