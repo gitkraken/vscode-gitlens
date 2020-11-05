@@ -1148,7 +1148,10 @@ export class GitService implements Disposable {
 					if (weightedBranch.weight === maxDefaultBranchWeight) break;
 				}
 
-				return GitRevision.createRange(weightedBranch!.branch.ref, branch.ref);
+				return GitRevision.createRange(
+					weightedBranch!.branch.tracking ?? weightedBranch!.branch.ref,
+					branch.ref,
+				);
 			}
 		}
 
