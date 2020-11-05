@@ -1,6 +1,6 @@
 'use strict';
 /*global window document*/
-import { Disposable } from 'vscode';
+import { Disposable } from './events';
 import { IpcCommandParamsOf, IpcCommandType, IpcMessage, ReadyCommandType } from '../../protocol';
 import { initializeAndWatchThemeColors } from './theme';
 
