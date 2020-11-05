@@ -438,7 +438,6 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 		options?: {
 			avatarSize?: number;
 			include?: PullRequestState[];
-			limit?: number;
 		},
 	): Promise<PullRequest | undefined> {
 		const cc = Logger.getCorrelationContext();
@@ -465,7 +464,6 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 		options?: {
 			avatarSize?: number;
 			include?: PullRequestState[];
-			limit?: number;
 		},
 	): Promise<PullRequest | undefined>;
 

@@ -237,7 +237,6 @@ export class GitHubApi {
 			baseUrl?: string;
 			avatarSize?: number;
 			include?: GitHubPullRequestState[];
-			limit?: number;
 		},
 	): Promise<PullRequest | undefined> {
 		const cc = Logger.getCorrelationContext();
@@ -273,8 +272,6 @@ export class GitHubApi {
 	}
 }`;
 
-			options = { limit: 1, ...options };
-
 			const rsp = await graphql<{
 				repository:
 					| {
@@ -292,16 +289,27 @@ export class GitHubApi {
 				owner: owner,
 				repo: repo,
 				branch: branch,
+				// Since GitHub sort doesn't seem to really work, look for a max of 10 PRs and then sort them ourselves
+				limit: 10,
 				headers: { authorization: `Bearer ${token}` },
 				...options,
 			});
 
-			const pr = rsp?.repository?.refs.nodes[0]?.associatedPullRequests?.nodes?.[0];
-			if (pr == null) return undefined;
-			// GitHub seems to sometimes return PRs for forks
-			if (pr.repository.owner.login !== owner) return undefined;
+			// Filter to ensure we only get the owner we expect, as GitHub seems to sometimes return PRs for forks
+			const prs = rsp?.repository?.refs.nodes[0]?.associatedPullRequests?.nodes?.filter(
+				pr => pr.repository.owner.login === owner,
+			);
+			if (prs == null || prs.length === 0) return undefined;
 
-			return GitHubPullRequest.from(pr, provider);
+			if (prs.length > 1) {
+				prs.sort(
+					(a, b) =>
+						(a.state === 'OPEN' ? -1 : 1) - (b.state === 'OPEN' ? -1 : 1) ||
+						new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+				);
+			}
+
+			return GitHubPullRequest.from(prs[0], provider);
 		} catch (ex) {
 			Logger.error(ex, cc);
 
@@ -354,7 +362,7 @@ export class GitHubApi {
 	repository(name: $repo, owner: $owner) {
 		object(oid: $ref) {
 			... on Commit {
-				associatedPullRequests(first: 1, orderBy: {field: UPDATED_AT, direction: DESC}) {
+				associatedPullRequests(first: 2, orderBy: {field: UPDATED_AT, direction: DESC}) {
 					nodes {
 						author {
 							login
@@ -399,12 +407,21 @@ export class GitHubApi {
 				...options,
 			});
 
-			const pr = rsp?.repository?.object?.associatedPullRequests?.nodes?.[0];
-			if (pr == null) return undefined;
-			// GitHub seems to sometimes return PRs for forks
-			if (pr.repository.owner.login !== owner) return undefined;
+			// Filter to ensure we only get the owner we expect, as GitHub seems to sometimes return PRs for forks
+			const prs = rsp?.repository?.object?.associatedPullRequests?.nodes?.filter(
+				pr => pr.repository.owner.login === owner,
+			);
+			if (prs == null || prs.length === 0) return undefined;
 
-			return GitHubPullRequest.from(pr, provider);
+			if (prs.length > 1) {
+				prs.sort(
+					(a, b) =>
+						(a.state === 'OPEN' ? -1 : 1) - (b.state === 'OPEN' ? -1 : 1) ||
+						new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+				);
+			}
+
+			return GitHubPullRequest.from(prs[0], provider);
 		} catch (ex) {
 			Logger.error(ex, cc);
 

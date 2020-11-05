@@ -200,7 +200,6 @@ export class GitHubRemote extends RemoteProviderWithApi {
 		options?: {
 			avatarSize?: number;
 			include?: PullRequestState[];
-			limit?: number;
 		},
 	): Promise<PullRequest | undefined> {
 		const [owner, repo] = this.splitPath();
