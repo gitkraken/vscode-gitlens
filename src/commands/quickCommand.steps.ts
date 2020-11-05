@@ -30,7 +30,6 @@ import {
 	QuickCommand,
 	QuickCommandButtons,
 	QuickPickStep,
-	SelectableQuickInputButton,
 	StepResult,
 	StepResultGenerator,
 	StepSelection,
@@ -635,7 +634,7 @@ export async function* pickBranchOrTagStepMultiRepo<
 ): StepResultGenerator<GitReference> {
 	context.showTags = state.repos.length === 1;
 
-	const showTagsButton = new SelectableQuickInputButton('Show Tags', 'tag', context.showTags);
+	const showTagsButton = new QuickCommandButtons.ShowTagsToggle(context.showTags);
 
 	const getBranchesAndOrTagsFn = () => {
 		return getBranchesAndOrTags(state.repos, context.showTags ? ['branches', 'tags'] : ['branches'], {
