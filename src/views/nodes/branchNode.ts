@@ -14,6 +14,7 @@ import {
 	GitBranch,
 	GitBranchReference,
 	GitLog,
+	GitRemote,
 	GitRemoteType,
 	PullRequestState,
 } from '../../git/git';
@@ -214,7 +215,7 @@ export class BranchNode
 		this.splatted = false;
 
 		const name = this.label;
-		let tooltip = `${this.branch.getNameWithoutRemote()}${this.current ? ' (current)' : ''}`;
+		let tooltip = `Branch ${this.branch.getNameWithoutRemote()}${this.current ? ' (current)' : ''}`;
 		let iconSuffix = '';
 
 		let contextValue: string = ContextValues.Branch;
@@ -232,54 +233,65 @@ export class BranchNode
 		}
 
 		let description;
-		if (!this.branch.remote && this.branch.tracking != null) {
-			let arrows = GlyphChars.Dash;
+		if (!this.branch.remote) {
+			if (this.branch.tracking != null) {
+				let arrows = GlyphChars.Dash;
 
-			const remote = await this.branch.getRemote();
-			if (remote != null) {
-				let left;
-				let right;
-				for (const { type } of remote.types) {
-					if (type === GitRemoteType.Fetch) {
-						left = true;
+				const remote = await this.branch.getRemote();
+				if (remote != null) {
+					let left;
+					let right;
+					for (const { type } of remote.types) {
+						if (type === GitRemoteType.Fetch) {
+							left = true;
 
-						if (right) break;
-					} else if (type === GitRemoteType.Push) {
-						right = true;
+							if (right) break;
+						} else if (type === GitRemoteType.Push) {
+							right = true;
 
-						if (left) break;
+							if (left) break;
+						}
+					}
+
+					if (left && right) {
+						arrows = GlyphChars.ArrowsRightLeft;
+					} else if (right) {
+						arrows = GlyphChars.ArrowRight;
+					} else if (left) {
+						arrows = GlyphChars.ArrowLeft;
 					}
 				}
 
-				if (left && right) {
-					arrows = GlyphChars.ArrowsRightLeft;
-				} else if (right) {
-					arrows = GlyphChars.ArrowRight;
-				} else if (left) {
-					arrows = GlyphChars.ArrowLeft;
-				}
-			}
+				description = `${this.branch.getTrackingStatus({ suffix: `${GlyphChars.Space} ` })}${arrows}${
+					GlyphChars.Space
+				} ${this.branch.tracking}`;
 
-			description = `${this.branch.getTrackingStatus({ suffix: `${GlyphChars.Space} ` })}${arrows}${
-				GlyphChars.Space
-			} ${this.branch.tracking}`;
+				tooltip += ` is ${this.branch.getTrackingStatus({
+					empty: `up to date with ${this.branch.tracking}${
+						remote?.provider?.name ? ` on ${remote.provider.name}` : ''
+					}`,
+					expand: true,
+					separator: ', ',
+					suffix: ` ${this.branch.tracking}${remote?.provider?.name ? ` on ${remote.provider.name}` : ''}`,
+				})}`;
 
-			tooltip += ` is ${this.branch.getTrackingStatus({
-				empty: `up to date with ${this.branch.tracking}`,
-				expand: true,
-				separator: ', ',
-				suffix: ` ${this.branch.tracking}`,
-			})}`;
+				if (this.branch.state.ahead || this.branch.state.behind) {
+					if (this.branch.state.behind) {
+						contextValue += '+behind';
+						iconSuffix = '-red';
+					}
+					if (this.branch.state.ahead) {
+						contextValue += '+ahead';
+						iconSuffix = this.branch.state.behind ? '-yellow' : '-green';
+					}
+				}
+			} else {
+				const providers = GitRemote.getHighlanderProviders(
+					await Container.git.getRemotes(this.branch.repoPath),
+				);
+				const providerName = providers?.length ? providers[0].name : undefined;
 
-			if (this.branch.state.ahead || this.branch.state.behind) {
-				if (this.branch.state.behind) {
-					contextValue += '+behind';
-					iconSuffix = '-red';
-				}
-				if (this.branch.state.ahead) {
-					contextValue += '+ahead';
-					iconSuffix = this.branch.state.behind ? '-yellow' : '-green';
-				}
+				tooltip += ` hasn't been published to ${providerName ?? 'a remote'}`;
 			}
 		}
 

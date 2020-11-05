@@ -120,9 +120,6 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 			lastFetched = (await repo?.getLastFetched()) ?? 0;
 		}
 
-		const providers = GitRemote.getHighlanderProviders(await Container.git.getRemotes(this.branch.repoPath));
-		const providerName = providers?.length ? providers[0].name : undefined;
-
 		let label;
 		let description;
 		let collapsibleState;
@@ -130,15 +127,17 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 		let icon;
 		let tooltip;
 		switch (this.upstreamType) {
-			case 'ahead':
-				label = `Changes to push to ${GitBranch.getRemote(this.status.upstream!)}${
-					providerName ? ` on ${providerName}` : ''
+			case 'ahead': {
+				const remote = await this.branch.getRemote();
+
+				label = `Changes to push to ${remote?.name ?? GitBranch.getRemote(this.status.upstream!)}${
+					remote?.provider?.name ? ` on ${remote?.provider.name}` : ''
 				}`;
 				description = Strings.pluralize('commit', this.status.state.ahead);
 				tooltip = `Branch ${this.branch.name} is ${Strings.pluralize(
 					'commit',
 					this.status.state.ahead,
-				)} ahead of ${this.status.upstream}`;
+				)} ahead of ${this.status.upstream}${remote?.provider?.name ? ` on ${remote.provider.name}` : ''}`;
 
 				// collapsibleState = !this.isReposView
 				// 	? TreeItemCollapsibleState.Expanded
@@ -150,16 +149,18 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 				icon = new ThemeIcon('cloud-upload', new ThemeColor('gitlens.viewChangesToPushIconColor'));
 
 				break;
+			}
+			case 'behind': {
+				const remote = await this.branch.getRemote();
 
-			case 'behind':
-				label = `Changes to pull from ${GitBranch.getRemote(this.status.upstream!)}${
-					providerName ? ` on ${providerName}` : ''
+				label = `Changes to pull from ${remote?.name ?? GitBranch.getRemote(this.status.upstream!)}${
+					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
 				}`;
 				description = Strings.pluralize('commit', this.status.state.behind);
 				tooltip = `Branch ${this.branch.name} is ${Strings.pluralize(
 					'commit',
 					this.status.state.behind,
-				)} behind ${this.status.upstream}`;
+				)} behind ${this.status.upstream}${remote?.provider?.name ? ` on ${remote.provider.name}` : ''}`;
 
 				collapsibleState = TreeItemCollapsibleState.Collapsed;
 				contextValue = this.root
@@ -168,23 +169,32 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 				icon = new ThemeIcon('cloud-download', new ThemeColor('gitlens.viewChangesToPullIconColor'));
 
 				break;
+			}
+			case 'same': {
+				const remote = await this.branch.getRemote();
 
-			case 'same':
-				label = `Up to date with ${GitBranch.getRemote(this.status.upstream!)}${
-					providerName ? ` on ${providerName}` : ''
+				label = `Up to date with ${remote?.name ?? GitBranch.getRemote(this.status.upstream!)}${
+					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
 				}`;
 				description = `Last fetched ${Dates.getFormatter(new Date(lastFetched)).fromNow()}`;
-				tooltip = `Branch ${this.branch.name} is up to date with ${this.status.upstream}`;
+				tooltip = `Branch ${this.branch.name} is up to date with ${this.status.upstream}${
+					remote?.provider?.name ? ` on ${remote.provider.name}` : ''
+				}`;
 
 				collapsibleState = TreeItemCollapsibleState.None;
 				contextValue = this.root ? ContextValues.StatusSameAsUpstream : undefined;
 				icon = new ThemeIcon('cloud');
 
 				break;
-
+			}
 			case 'none': {
-				label = `Publish ${this.branch.name} to ${providerName ?? 'remote'}`;
-				tooltip = `Branch ${this.branch.name} hasn't yet been published to ${providerName ?? 'remote'}`;
+				const providers = GitRemote.getHighlanderProviders(
+					await Container.git.getRemotes(this.branch.repoPath),
+				);
+				const providerName = providers?.length ? providers[0].name : undefined;
+
+				label = `Publish ${this.branch.name} to ${providerName ?? 'a remote'}`;
+				tooltip = `Branch ${this.branch.name} hasn't been published to ${providerName ?? 'a remote'}`;
 
 				collapsibleState = TreeItemCollapsibleState.None;
 				contextValue = this.root ? ContextValues.StatusNoUpstream : undefined;

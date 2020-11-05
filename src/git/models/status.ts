@@ -209,7 +209,7 @@ export class GitStatus {
 			}
 			if (state.ahead) {
 				status += `${status.length === 0 ? '' : separator}${Strings.pluralize('commit', state.ahead)} ahead`;
-				if (suffix.endsWith(upstream)) {
+				if (suffix.startsWith(` ${upstream.split('/')[0]}`)) {
 					status += ' of';
 				}
 			}
