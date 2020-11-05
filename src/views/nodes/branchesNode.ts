@@ -1,11 +1,10 @@
 'use strict';
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { BranchesView } from '../branchesView';
 import { BranchNode } from './branchNode';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { MessageNode } from './common';
 import { ViewBranchesLayout } from '../../configuration';
-import { Container } from '../../container';
 import { Repository } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { RepositoriesView } from '../repositoriesView';
@@ -84,10 +83,7 @@ export class BranchesNode extends ViewNode<BranchesView | RepositoriesView> {
 		if (await this.repo.hasRemotes()) {
 			item.contextValue += '+remotes';
 		}
-		item.iconPath = {
-			dark: Container.context.asAbsolutePath('images/dark/icon-branch.svg'),
-			light: Container.context.asAbsolutePath('images/light/icon-branch.svg'),
-		};
+		item.iconPath = new ThemeIcon('git-branch');
 		item.id = this.id;
 
 		return item;

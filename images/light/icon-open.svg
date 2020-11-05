@@ -1,4 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 16 16">
-    <path stroke="#424242" stroke-linejoin="bevel" d="M2 8.5h5.5m0 0V14m0-5.5l-5.75 5.75"/>
-    <path fill="#424242" fill-rule="evenodd" d="M2.5 2l-.5.5V6h1V3h10v10h-3v1h3.5l.5-.5v-11l-.5-.5h-11z" clip-rule="evenodd"/>
-</svg>
