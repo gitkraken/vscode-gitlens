@@ -223,29 +223,14 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 	}
 
 	private async getAheadFilesQuery(): Promise<FilesQueryResults> {
-		let files = await Container.git.getDiffStatus(
+		const files = await Container.git.getDiffStatus(
 			this.uri.repoPath!,
-			// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-			GitRevision.createRange(this._compareWith?.ref || 'HEAD', this.branch.ref, '...'),
+			this.compareWithWorkingTree
+				? // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+				  this._compareWith?.ref || 'HEAD'
+				: // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+				  GitRevision.createRange(this._compareWith?.ref || 'HEAD', this.branch.ref, '...'),
 		);
-
-		if (this.compareWithWorkingTree) {
-			const workingFiles = await Container.git.getDiffStatus(this.uri.repoPath!, 'HEAD');
-			if (workingFiles != null) {
-				if (files != null) {
-					for (const wf of workingFiles) {
-						const index = files.findIndex(f => f.fileName === wf.fileName);
-						if (index !== -1) {
-							files.splice(index, 1, wf);
-						} else {
-							files.push(wf);
-						}
-					}
-				} else {
-					files = workingFiles;
-				}
-			}
-		}
 
 		return {
 			label: `${Strings.pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,
@@ -256,11 +241,8 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 	private async getBehindFilesQuery(): Promise<FilesQueryResults> {
 		const files = await Container.git.getDiffStatus(
 			this.uri.repoPath!,
-			this.compareWithWorkingTree
-				? // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-				  this._compareWith?.ref || 'HEAD'
-				: // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
-				  GitRevision.createRange(this.branch.ref, this._compareWith?.ref || 'HEAD', '...'),
+			// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+			GitRevision.createRange(this.branch.ref, this._compareWith?.ref || 'HEAD', '...'),
 		);
 
 		return {
