@@ -176,23 +176,33 @@
 			<div class="section__preview">
 				<img
 					class="image__preview hidden"
-					src="#{root}/images/settings/view-branches.png"
-					data-visibility="views.branches.files.layout !tree"
+					src="#{root}/images/settings/branches-view-compare+pr.png"
+					data-visibility="views.branches.showBranchComparison !false &amp; views.branches.pullRequests.enabled &amp; views.branches.pullRequests.showForBranches"
 				/>
 				<img
 					class="image__preview hidden"
-					src="#{root}/images/settings/view-branches-tree-compact.png"
-					data-visibility="views.branches.files.layout =tree &amp; views.branches.files.compact"
+					src="#{root}/images/settings/branches-view-compare.png"
+					data-visibility="views.branches.showBranchComparison !false &amp; views.branches.pullRequests.enabled =false"
 				/>
 				<img
 					class="image__preview hidden"
-					src="#{root}/images/settings/view-branches-tree.png"
-					data-visibility="views.branches.files.layout =tree &amp; views.branches.files.compact =false"
+					src="#{root}/images/settings/branches-view-compare.png"
+					data-visibility="views.branches.showBranchComparison !false &amp; views.branches.pullRequests.enabled &amp; views.branches.pullRequests.showForBranches =false"
 				/>
 				<img
-					class="image__preview--overlay hidden"
-					src="#{root}/images/settings/view-branches-avatars.png"
-					data-visibility="views.branches.avatars"
+					class="image__preview hidden"
+					src="#{root}/images/settings/branches-view-pr.png"
+					data-visibility="views.branches.showBranchComparison =false &amp; views.branches.pullRequests.enabled &amp; views.branches.pullRequests.showForBranches"
+				/>
+				<img
+					class="image__preview hidden"
+					src="#{root}/images/settings/branches-view.png"
+					data-visibility="views.branches.showBranchComparison =false &amp; views.branches.pullRequests.enabled =false"
+				/>
+				<img
+					class="image__preview hidden"
+					src="#{root}/images/settings/branches-view.png"
+					data-visibility="views.branches.showBranchComparison =false &amp; views.branches.pullRequests.enabled &amp; views.branches.pullRequests.showForBranches =false"
 				/>
 			</div>
 		</div>
