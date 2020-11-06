@@ -123,7 +123,7 @@ export class BranchNode
 				(this.branch.tracking || this.branch.remote)
 					? this.branch.getAssociatedPullRequest(this.root ? { include: [PullRequestState.Open] } : undefined)
 					: undefined,
-				range
+				range && !this.branch.remote
 					? Container.git.getLogRefsOnly(this.uri.repoPath!, {
 							limit: 0,
 							ref: range,
