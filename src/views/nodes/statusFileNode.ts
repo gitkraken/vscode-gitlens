@@ -135,7 +135,7 @@ export class StatusFileNode extends ViewNode {
 
 	private _description: string | undefined;
 	get description() {
-		if (this._description === undefined) {
+		if (this._description == null) {
 			this._description = StatusFileFormatter.fromTemplate(
 				this.view.config.statusFileDescriptionFormat,
 				{
@@ -152,7 +152,7 @@ export class StatusFileNode extends ViewNode {
 
 	private _folderName: string | undefined;
 	get folderName() {
-		if (this._folderName === undefined) {
+		if (this._folderName == null) {
 			this._folderName = paths.dirname(this.uri.relativePath);
 		}
 		return this._folderName;
@@ -160,7 +160,7 @@ export class StatusFileNode extends ViewNode {
 
 	private _label: string | undefined;
 	get label() {
-		if (this._label === undefined) {
+		if (this._label == null) {
 			this._label = StatusFileFormatter.fromTemplate(
 				this.view.config.statusFileFormat,
 				{

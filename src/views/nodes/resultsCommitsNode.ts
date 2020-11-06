@@ -30,6 +30,7 @@ export class ResultsCommitsNode<View extends ViewsWithFiles = ViewsWithFiles>
 			query: (limit: number | undefined) => Promise<CommitsQueryResults>;
 			comparison?: { ref1: string; ref2: string };
 			deferred?: boolean;
+			direction?: 'ahead' | 'behind';
 			files?: {
 				ref1: string;
 				ref2: string;
@@ -73,9 +74,18 @@ export class ResultsCommitsNode<View extends ViewsWithFiles = ViewsWithFiles>
 		const { files } = this._results;
 		if (files != null) {
 			children.push(
-				new ResultsFilesNode(this.view, this, this.uri.repoPath!, files.ref1, files.ref2, files.query, {
-					expand: false,
-				}),
+				new ResultsFilesNode(
+					this.view,
+					this,
+					this.uri.repoPath!,
+					files.ref1,
+					files.ref2,
+					files.query,
+					this._results.direction,
+					{
+						expand: false,
+					},
+				),
 			);
 		}
 

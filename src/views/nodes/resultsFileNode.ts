@@ -16,6 +16,7 @@ export class ResultsFileNode extends ViewRefFileNode {
 		public readonly file: GitFile,
 		public readonly ref1: string,
 		public readonly ref2: string,
+		private readonly direction: 'ahead' | 'behind' | undefined,
 	) {
 		super(GitUri.fromFile(file, repoPath, ref1 || ref2), view, parent);
 	}
@@ -107,12 +108,15 @@ export class ResultsFileNode extends ViewRefFileNode {
 		const commandArgs: DiffWithCommandArgs = {
 			lhs: {
 				sha: this.ref1,
-				uri: this.uri,
+				uri:
+					(this.file.status === 'R' || this.file.status === 'C') && this.direction === 'behind'
+						? GitUri.fromFile(this.file, this.uri.repoPath!, this.ref2, true)
+						: this.uri,
 			},
 			rhs: {
 				sha: this.ref2,
 				uri:
-					this.file.status === 'R' || this.file.status === 'C'
+					(this.file.status === 'R' || this.file.status === 'C') && this.direction !== 'behind'
 						? GitUri.fromFile(this.file, this.uri.repoPath!, this.ref2, true)
 						: this.uri,
 			},

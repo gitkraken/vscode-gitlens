@@ -79,6 +79,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 					{
 						query: this.getCommitsQuery(GitRevision.createRange(behind.ref1, behind.ref2, '..')),
 						comparison: behind,
+						direction: 'behind',
 						files: {
 							ref1: this.compareWithWorkingTree ? '' : behind.ref1,
 							ref2: behind.ref2,
@@ -101,6 +102,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 							GitRevision.createRange(ahead.ref1, this.compareWithWorkingTree ? '' : ahead.ref2, '..'),
 						),
 						comparison: ahead,
+						direction: 'ahead',
 						files: {
 							ref1: ahead.ref1,
 							ref2: this.compareWithWorkingTree ? '' : ahead.ref2,

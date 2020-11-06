@@ -23,6 +23,7 @@ export class ResultsFilesNode extends ViewNode<ViewsWithFiles> {
 		public readonly ref1: string,
 		public readonly ref2: string,
 		private readonly _filesQuery: () => Promise<FilesQueryResults>,
+		private readonly direction: 'ahead' | 'behind' | undefined,
 		private readonly _options: {
 			expand?: boolean;
 		} = {},
@@ -41,7 +42,10 @@ export class ResultsFilesNode extends ViewNode<ViewsWithFiles> {
 		if (files == null) return [];
 
 		let children: FileNode[] = [
-			...Iterables.map(files, s => new ResultsFileNode(this.view, this, this.repoPath, s, this.ref1, this.ref2)),
+			...Iterables.map(
+				files,
+				s => new ResultsFileNode(this.view, this, this.repoPath, s, this.ref1, this.ref2, this.direction),
+			),
 		];
 
 		if (this.view.config.files.layout !== ViewFilesLayout.List) {

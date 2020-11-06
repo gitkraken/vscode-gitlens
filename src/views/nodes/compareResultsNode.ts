@@ -87,6 +87,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 					{
 						query: this.getCommitsQuery(GitRevision.createRange(behind.ref1, behind.ref2, '..')),
 						comparison: behind,
+						direction: 'behind',
 						files: {
 							ref1: behind.ref1,
 							ref2: behind.ref2,
@@ -107,6 +108,7 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 					{
 						query: this.getCommitsQuery(GitRevision.createRange(ahead.ref1, ahead.ref2, '..')),
 						comparison: ahead,
+						direction: 'ahead',
 						files: {
 							ref1: ahead.ref1,
 							ref2: ahead.ref2,
