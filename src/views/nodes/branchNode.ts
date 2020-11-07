@@ -346,7 +346,9 @@ export class BranchNode
 	private async getLog() {
 		if (this._log == null) {
 			// Ensure we always show all unpublished commits (and the upstream tip)
-			let limit = this.limit ?? this.view.config.defaultItemLimit;
+			let limit =
+				this.limit ??
+				(this.view instanceof CommitsView ? this.view.config.pageItemLimit : this.view.config.defaultItemLimit);
 			if (limit !== 0 && this.branch.state.ahead > limit) {
 				limit = this.branch.state.ahead + 1;
 			}

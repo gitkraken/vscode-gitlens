@@ -302,7 +302,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 	private async getLog(selection?: Selection) {
 		if (this._log == null) {
 			this._log = await Container.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, {
-				limit: this.limit ?? this.view.config.defaultItemLimit,
+				limit: this.limit ?? this.view.config.pageItemLimit,
 				ref: this.uri.sha,
 				range: selection ?? this.selection,
 				renames: false,

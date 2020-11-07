@@ -172,7 +172,7 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 	private async getLog() {
 		if (this._log == null) {
 			this._log = await Container.git.getLogForFile(this.uri.repoPath, this.uri.fsPath, {
-				limit: this.limit ?? this.view.config.defaultItemLimit,
+				limit: this.limit ?? this.view.config.pageItemLimit,
 				ref: this.uri.sha,
 			});
 		}

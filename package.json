@@ -1838,7 +1838,7 @@
 				},
 				"gitlens.views.pageItemLimit": {
 					"type": "number",
-					"default": 20,
+					"default": 40,
 					"markdownDescription": "Specifies the number of items to show in a each page when paginating a view list. Use 0 to specify no limit",
 					"scope": "window"
 				},
