@@ -493,60 +493,7 @@
 				},
 				"gitlens.codeLens.scopesByLanguage": {
 					"deprecationMessage": "Deprecated. Use per-language `gitlens.codeLens.scopes` and `gitlens.codeLens.symbolScopes` settings instead",
-					"type": [
-						"array",
-						"null"
-					],
-					"default": null,
-					"items": {
-						"type": "object",
-						"required": [
-							"language"
-						],
-						"properties": {
-							"language": {
-								"type": "string",
-								"description": "Specifies the language to which this code lens override applies"
-							},
-							"scopes": {
-								"type": "array",
-								"default": [
-									"document",
-									"containers"
-								],
-								"items": {
-									"type": "string",
-									"enum": [
-										"document",
-										"containers",
-										"blocks",
-										"custom"
-									],
-									"enumDescriptions": [
-										"Adds code lens at the top of the document",
-										"Adds code lens at the start of container-like symbols (modules, classes, interfaces, etc)",
-										"Adds code lens at the start of block-like symbols (functions, methods, properties, etc) lines",
-										"Adds code lens at the start of symbols contained in `symbolScopes`"
-									]
-								},
-								"minItems": 1,
-								"maxItems": 4,
-								"uniqueItems": true,
-								"description": "Specifies where Git code lens will be shown in the document for the specified language"
-							},
-							"symbolScopes": {
-								"type": "array",
-								"items": {
-									"type": "string"
-								},
-								"uniqueItems": true,
-								"description": "Specifies the set of document symbols where Git code lens will be shown in the document for the specified language. Must be a member of `SymbolKind`"
-							}
-						}
-					},
-					"uniqueItems": true,
-					"markdownDescription": "Specifies where Git code lens will be shown in the document for the specified languages",
-					"scope": "resource"
+					"markdownDeprecationMessage": "Depreciated: Use the per-language `#gitlens.codeLens.scopes#` and `#gitlens.codeLens.symbolScopes#` settings instead"
 				},
 				"gitlens.codeLens.symbolScopes": {
 					"type": "array",
