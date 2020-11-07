@@ -1,5 +1,5 @@
 'use strict';
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { BranchNode } from './branchNode';
 import { BranchOrTagFolderNode } from './branchOrTagFolderNode';
 import { MessageNode } from './common';
@@ -134,10 +134,7 @@ export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 					: ''
 			}${this.remote.path}`;
 			item.contextValue = ContextValues.Remote;
-			item.iconPath = {
-				dark: Container.context.asAbsolutePath('images/dark/icon-remote.svg'),
-				light: Container.context.asAbsolutePath('images/light/icon-remote.svg'),
-			};
+			item.iconPath = new ThemeIcon('cloud');
 			item.tooltip = `${this.remote.name} (${this.remote.domain})\n${this.remote.path}\n`;
 		}
 

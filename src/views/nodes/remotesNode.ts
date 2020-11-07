@@ -1,7 +1,6 @@
 'use strict';
-import { TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { MessageNode } from './common';
-import { Container } from '../../container';
 import { Repository } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { RemoteNode } from './remoteNode';
@@ -44,11 +43,7 @@ export class RemotesNode extends ViewNode<RemotesView | RepositoriesView> {
 		const item = new TreeItem('Remotes', TreeItemCollapsibleState.Collapsed);
 		item.id = this.id;
 		item.contextValue = ContextValues.Remotes;
-
-		item.iconPath = {
-			dark: Container.context.asAbsolutePath('images/dark/icon-remote.svg'),
-			light: Container.context.asAbsolutePath('images/light/icon-remote.svg'),
-		};
+		item.iconPath = new ThemeIcon('cloud');
 
 		return item;
 	}
