@@ -150,6 +150,62 @@
 							<label for="views.commits.avatars">Use author avatars</label>
 						</div>
 					</div>
+
+					<div class="setting">
+						<div class="setting__input setting__input--format">
+							<label for="views.formats.commits.label">Commit&nbsp;label&nbsp;format</label>
+							<input
+								id="views.formats.commits.label"
+								name="views.formats.commits.label"
+								type="text"
+								placeholder="${❰ tips ❱➤  }${message}"
+								data-setting
+								data-setting-preview
+								data-default-value="${❰ tips ❱➤  }${message}"
+								data-popup-trigger
+							/>
+							<label for="views.formats.commits.label" title="See available tokens">
+								<i class="icon icon__chevron-down"></i>
+							</label>
+						</div>
+						<div id="views.formats.commits.label.popup" class="popup hidden"></div>
+						<span class="setting__hint"
+							>Example:
+							<span
+								data-setting-preview="views.formats.commits.label"
+								data-setting-preview-type="commit"
+								data-setting-preview-default="${❰ tips ❱➤  }${message}"
+							></span>
+						</span>
+					</div>
+
+					<div class="setting">
+						<div class="setting__input setting__input--format">
+							<label for="views.formats.commits.description">Commit&nbsp;description&nbsp;format</label>
+							<input
+								id="views.formats.commits.description"
+								name="views.formats.commits.description"
+								type="text"
+								placeholder="${author, }${agoOrDate}"
+								data-setting
+								data-setting-preview
+								data-default-value="${author, }${agoOrDate}"
+								data-popup-trigger
+							/>
+							<label for="views.formats.commits.description" title="See available tokens">
+								<i class="icon icon__chevron-down"></i>
+							</label>
+						</div>
+						<div id="views.formats.commits.description.popup" class="popup hidden"></div>
+						<span class="setting__hint"
+							>Example:
+							<span
+								data-setting-preview="views.formats.commits.description"
+								data-setting-preview-type="commit"
+								data-setting-preview-default="${author, }${agoOrDate}"
+							></span>
+						</span>
+					</div>
 				</div>
 			</div>
 
