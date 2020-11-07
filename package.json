@@ -6713,13 +6713,13 @@
 				},
 				{
 					"command": "gitlens.views.openFile",
-					"when": "view =~ /gitlens\\.views\\.(?!(fileHistory|lineHistory)\\b)/ && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
+					"when": "view =~ /gitlens\\.views\\.(?!(fileHistory|lineHistory)\\b)/ && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed)\\b)/",
 					"group": "inline@1",
 					"alt": "gitlens.views.openFileRevision"
 				},
 				{
 					"command": "gitlens.views.openFileRevision",
-					"when": "view =~ /gitlens\\.views\\.(fileHistory|lineHistory)\\b/ && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
+					"when": "view =~ /gitlens\\.views\\.(fileHistory|lineHistory)\\b/ && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+(committed|stashed)\\b)/",
 					"group": "inline@1",
 					"alt": "gitlens.views.openFile"
 				},
@@ -6746,7 +6746,7 @@
 				},
 				{
 					"command": "gitlens.openFileOnRemote",
-					"when": "viewItem =~ /gitlens:(file\\b(?!.*?\\b\\+(un)?staged\\b)|history:(file|line))\\b/ && gitlens:hasRemotes",
+					"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results)/ && gitlens:hasRemotes",
 					"group": "inline@99",
 					"alt": "gitlens.copyRemoteFileUrlToClipboard"
 				},
@@ -6782,12 +6782,12 @@
 				},
 				{
 					"command": "gitlens.views.openFileRevision",
-					"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results)/",
+					"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+(committed|stashed)\\b)|:results)/",
 					"group": "2_gitlens_quickopen@4"
 				},
 				{
 					"command": "gitlens.openFileOnRemote",
-					"when": "viewItem =~ /gitlens:file\\b/ && gitlens:hasRemotes",
+					"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results)/ && gitlens:hasRemotes",
 					"group": "2_gitlens_quickopen@5",
 					"alt": "gitlens.copyRemoteFileUrlToClipboard"
 				},
@@ -6804,22 +6804,32 @@
 				},
 				{
 					"command": "gitlens.showCommitInView",
-					"when": "viewItem =~ /gitlens:file\\b(?!(:stash|:status))/",
+					"when": "viewItem =~ /gitlens:file\\b(?!(+stashed|:status))/",
 					"group": "3_gitlens_explore@3"
 				},
 				{
 					"command": "gitlens.revealCommitInView",
-					"when": "viewItem =~ /gitlens:file\\b(?!(:stash|:status))/",
+					"when": "viewItem =~ /gitlens:file\\b(?!(+stashed|:status))/",
 					"group": "3_gitlens_explore@4"
 				},
 				{
 					"command": "gitlens.views.applyChanges",
-					"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results\\b)/",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+stashed\\b)/",
+					"group": "1_gitlens_actions@1"
+				},
+				{
+					"command": "gitlens.views.restore",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+stashed\\b)/",
+					"group": "1_gitlens_actions@2"
+				},
+				{
+					"command": "gitlens.views.applyChanges",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results\\b)/",
 					"group": "8_gitlens_actions@1"
 				},
 				{
 					"command": "gitlens.views.restore",
-					"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results\\b)/",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results\\b)/",
 					"group": "8_gitlens_actions@2"
 				},
 				{
@@ -6827,16 +6837,6 @@
 					"when": "viewItem =~ /gitlens:(history:(file|line)|status:file)\\b/ && gitlens:hasRemotes",
 					"group": "5_gitlens_open@2",
 					"alt": "gitlens.copyRemoteFileUrlToClipboard"
-				},
-				{
-					"command": "gitlens.views.applyChanges",
-					"when": "!gitlens:readonly && viewItem == gitlens:file:stash",
-					"group": "1_gitlens_actions@1"
-				},
-				{
-					"command": "gitlens.views.restore",
-					"when": "!gitlens:readonly && viewItem == gitlens:file:stash",
-					"group": "1_gitlens_actions@2"
 				},
 				{
 					"command": "gitlens.openPullRequestOnRemote",
@@ -7371,7 +7371,7 @@
 				},
 				{
 					"command": "gitlens.views.highlightChanges",
-					"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+committed\\b)|:results)/",
+					"when": "viewItem =~ /gitlens:file\\b((?=.*?\\b\\+(committed|stashed)\\b)|:results)/",
 					"group": "3_gitlens@1"
 				},
 				{

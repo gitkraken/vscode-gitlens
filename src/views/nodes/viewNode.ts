@@ -45,7 +45,6 @@ export enum ContextValues {
 	SearchResults = 'gitlens:search:results',
 	SearchResultsCommits = 'gitlens:search:results:commits',
 	Stash = 'gitlens:stash',
-	StashFile = 'gitlens:file:stash',
 	Stashes = 'gitlens:stashes',
 	StatusFileCommits = 'gitlens:status:file:commits',
 	StatusFiles = 'gitlens:status:files',

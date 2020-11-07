@@ -9,8 +9,8 @@ export class StashFileNode extends CommitFileNode {
 		super(view, parent, file, commit);
 	}
 
-	protected get contextValue(): ContextValues {
-		return ContextValues.StashFile;
+	protected get contextValue(): string {
+		return `${ContextValues.File}+stashed`;
 	}
 
 	protected getLabelFormat() {
