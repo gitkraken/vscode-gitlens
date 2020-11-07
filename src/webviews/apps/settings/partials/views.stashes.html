@@ -54,6 +54,62 @@
 						</div>
 						<p class="setting__hint">Compacts (flattens) unnecessary nesting when using a tree layouts</p>
 					</div>
+
+					<div class="setting">
+						<div class="setting__input setting__input--format">
+							<label for="views.formats.stashes.label">Stash&nbsp;label&nbsp;format</label>
+							<input
+								id="views.formats.stashes.label"
+								name="views.formats.stashes.label"
+								type="text"
+								placeholder="${message}"
+								data-setting
+								data-setting-preview
+								data-default-value="${message}"
+								data-popup-trigger
+							/>
+							<label for="views.formats.stashes.label" title="See available tokens">
+								<i class="icon icon__chevron-down"></i>
+							</label>
+						</div>
+						<div id="views.formats.stashes.label.popup" class="popup hidden"></div>
+						<span class="setting__hint"
+							>Example:
+							<span
+								data-setting-preview="views.formats.stashes.label"
+								data-setting-preview-type="commit"
+								data-setting-preview-default="${message}"
+							></span>
+						</span>
+					</div>
+
+					<div class="setting">
+						<div class="setting__input setting__input--format">
+							<label for="views.formats.stashes.description">Stash&nbsp;description&nbsp;format</label>
+							<input
+								id="views.formats.stashes.description"
+								name="views.formats.stashes.description"
+								type="text"
+								placeholder="${agoOrDate}"
+								data-setting
+								data-setting-preview
+								data-default-value="${agoOrDate}"
+								data-popup-trigger
+							/>
+							<label for="views.formats.stashes.description" title="See available tokens">
+								<i class="icon icon__chevron-down"></i>
+							</label>
+						</div>
+						<div id="views.formats.stashes.description.popup" class="popup hidden"></div>
+						<span class="setting__hint"
+							>Example:
+							<span
+								data-setting-preview="views.formats.stashes.description"
+								data-setting-preview-type="commit"
+								data-setting-preview-default="${agoOrDate}"
+							></span>
+						</span>
+					</div>
 				</div>
 			</div>
 
