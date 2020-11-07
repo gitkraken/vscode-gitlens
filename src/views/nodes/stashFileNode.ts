@@ -9,23 +9,15 @@ export class StashFileNode extends CommitFileNode {
 		super(view, parent, file, commit);
 	}
 
-	protected get contextValye(): ContextValues {
+	protected get contextValue(): ContextValues {
 		return ContextValues.StashFile;
 	}
 
-	protected getCommitTemplate() {
-		return this.view.config.stashFormat;
+	protected getLabelFormat() {
+		return this.view.config.formats.stashes.label;
 	}
 
-	protected getCommitDescriptionTemplate() {
-		return this.view.config.stashDescriptionFormat;
-	}
-
-	protected getCommitFileTemplate() {
-		return this.view.config.stashFileFormat;
-	}
-
-	protected getCommitFileDescriptionTemplate() {
-		return this.view.config.stashFileDescriptionFormat;
+	protected getDescriptionFormat() {
+		return this.view.config.formats.stashes.description;
 	}
 }

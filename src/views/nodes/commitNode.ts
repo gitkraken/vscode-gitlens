@@ -99,7 +99,7 @@ export class CommitNode extends ViewRefNode<ViewsWithFiles, GitRevisionReference
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		const label = CommitFormatter.fromTemplate(this.view.config.commitFormat, this.commit, {
+		const label = CommitFormatter.fromTemplate(this.view.config.formats.commits.label, this.commit, {
 			dateFormat: Container.config.defaultDateFormat,
 			getBranchAndTagTips: (sha: string) => this.getBranchAndTagTips?.(sha, true),
 			messageTruncateAtNewLine: true,
@@ -114,7 +114,7 @@ export class CommitNode extends ViewRefNode<ViewsWithFiles, GitRevisionReference
 			this.branch?.current && this.branch.sha === this.commit.ref ? '+HEAD' : ''
 		}${this.unpublished ? '+unpublished' : ''}`;
 
-		item.description = CommitFormatter.fromTemplate(this.view.config.commitDescriptionFormat, this.commit, {
+		item.description = CommitFormatter.fromTemplate(this.view.config.formats.commits.description, this.commit, {
 			dateFormat: Container.config.defaultDateFormat,
 			messageTruncateAtNewLine: true,
 		});

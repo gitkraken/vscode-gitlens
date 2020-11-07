@@ -58,14 +58,14 @@ export class StashNode extends ViewRefNode<ViewsWithFiles, GitStashReference> {
 
 	getTreeItem(): TreeItem {
 		const item = new TreeItem(
-			CommitFormatter.fromTemplate(this.view.config.stashFormat, this.commit, {
+			CommitFormatter.fromTemplate(this.view.config.formats.stashes.label, this.commit, {
 				messageTruncateAtNewLine: true,
 				dateFormat: Container.config.defaultDateFormat,
 			}),
 			TreeItemCollapsibleState.Collapsed,
 		);
 		item.id = this.id;
-		item.description = CommitFormatter.fromTemplate(this.view.config.stashDescriptionFormat, this.commit, {
+		item.description = CommitFormatter.fromTemplate(this.view.config.formats.stashes.description, this.commit, {
 			messageTruncateAtNewLine: true,
 			dateFormat: Container.config.defaultDateFormat,
 		});

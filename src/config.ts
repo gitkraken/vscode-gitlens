@@ -400,35 +400,30 @@ export interface RemotesUrlsConfig {
 }
 
 export interface ViewsCommonConfig {
-	commitFileDescriptionFormat: string;
-	commitFileFormat: string;
-	commitDescriptionFormat: string;
-	commitFormat: string;
 	defaultItemLimit: number;
+	formats: {
+		commits: {
+			label: string;
+			description: string;
+		};
+		files: {
+			label: string;
+			description: string;
+		};
+		stashes: {
+			label: string;
+			description: string;
+		};
+	};
 	pageItemLimit: number;
 	showRelativeDateMarkers: boolean;
-	stashFileDescriptionFormat: string;
-	stashFileFormat: string;
-	stashDescriptionFormat: string;
-	stashFormat: string;
-	statusFileDescriptionFormat: string;
-	statusFileFormat: string;
 }
 
 export const viewsCommonConfigKeys: (keyof ViewsCommonConfig)[] = [
-	'commitFileDescriptionFormat',
-	'commitFileFormat',
-	'commitDescriptionFormat',
-	'commitFormat',
 	'defaultItemLimit',
+	'formats',
 	'pageItemLimit',
 	'showRelativeDateMarkers',
-	'stashFileDescriptionFormat',
-	'stashFileFormat',
-	'stashDescriptionFormat',
-	'stashFormat',
-	'statusFileDescriptionFormat',
-	'statusFileFormat',
 ];
 
 interface ViewsConfigs {

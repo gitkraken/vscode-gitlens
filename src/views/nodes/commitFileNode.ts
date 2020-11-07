@@ -121,11 +121,11 @@ export class CommitFileNode extends ViewRefFileNode {
 
 	private get description() {
 		return this._options.displayAsCommit
-			? CommitFormatter.fromTemplate(this.getCommitDescriptionTemplate(), this.commit, {
+			? CommitFormatter.fromTemplate(this.getDescriptionFormat(), this.commit, {
 					dateFormat: Container.config.defaultDateFormat,
 					messageTruncateAtNewLine: true,
 			  })
-			: StatusFileFormatter.fromTemplate(this.getCommitFileDescriptionTemplate(), this.file, {
+			: StatusFileFormatter.fromTemplate(this.view.config.formats.files.description, this.file, {
 					relativePath: this.relativePath,
 			  });
 	}
@@ -142,11 +142,11 @@ export class CommitFileNode extends ViewRefFileNode {
 	get label() {
 		if (this._label === undefined) {
 			this._label = this._options.displayAsCommit
-				? CommitFormatter.fromTemplate(this.getCommitTemplate(), this.commit, {
+				? CommitFormatter.fromTemplate(this.getLabelFormat(), this.commit, {
 						dateFormat: Container.config.defaultDateFormat,
 						messageTruncateAtNewLine: true,
 				  })
-				: StatusFileFormatter.fromTemplate(this.getCommitFileTemplate(), this.file, {
+				: StatusFileFormatter.fromTemplate(this.view.config.formats.files.label, this.file, {
 						relativePath: this.relativePath,
 				  });
 		}
@@ -192,22 +192,6 @@ export class CommitFileNode extends ViewRefFileNode {
 		);
 	}
 
-	protected getCommitTemplate() {
-		return this.view.config.commitFormat;
-	}
-
-	protected getCommitDescriptionTemplate() {
-		return this.view.config.commitDescriptionFormat;
-	}
-
-	protected getCommitFileTemplate() {
-		return this.view.config.commitFileFormat;
-	}
-
-	protected getCommitFileDescriptionTemplate() {
-		return this.view.config.commitFileDescriptionFormat;
-	}
-
 	getCommand(): Command | undefined {
 		let line;
 		if (this.commit.line !== undefined) {
@@ -230,5 +214,13 @@ export class CommitFileNode extends ViewRefFileNode {
 			command: Commands.DiffWithPrevious,
 			arguments: [undefined, commandArgs],
 		};
+	}
+
+	protected getLabelFormat() {
+		return this.view.config.formats.commits.label;
+	}
+
+	protected getDescriptionFormat() {
+		return this.view.config.formats.commits.description;
 	}
 }

@@ -61,7 +61,7 @@ export class ResultsFileNode extends ViewRefFileNode {
 	get description() {
 		if (this._description === undefined) {
 			this._description = StatusFileFormatter.fromTemplate(
-				this.view.config.commitFileDescriptionFormat,
+				this.view.config.formats.files.description,
 				this.file,
 				{
 					relativePath: this.relativePath,
@@ -82,8 +82,7 @@ export class ResultsFileNode extends ViewRefFileNode {
 	private _label: string | undefined;
 	get label() {
 		if (this._label === undefined) {
-			// eslint-disable-next-line no-template-curly-in-string
-			this._label = StatusFileFormatter.fromTemplate('${file}', this.file, {
+			this._label = StatusFileFormatter.fromTemplate(this.view.config.formats.files.label, this.file, {
 				relativePath: this.relativePath,
 			});
 		}

@@ -1,7 +1,6 @@
 'use strict';
 import { commands, ExtensionContext, extensions, window, workspace } from 'vscode';
 import { Commands, registerCommands } from './commands';
-import { ViewShowBranchComparison } from './config';
 import { configuration, Configuration } from './configuration';
 import { ContextKeys, extensionQualifiedId, GlobalState, GlyphChars, setContext } from './constants';
 import { Container } from './container';
@@ -10,7 +9,7 @@ import { GitService } from './git/gitService';
 import { GitUri } from './git/gitUri';
 import { Logger } from './logger';
 import { Messages } from './messages';
-import { Strings, Versions } from './system';
+import { Strings } from './system';
 import { ViewNode } from './views/nodes';
 
 export async function activate(context: ExtensionContext) {
@@ -71,7 +70,7 @@ export async function activate(context: ExtensionContext) {
 
 	const cfg = configuration.get();
 
-	await migrateSettings(context, previousVersion);
+	// await migrateSettings(context, previousVersion);
 
 	try {
 		await GitService.initialize();
@@ -115,56 +114,18 @@ export async function setEnabled(enabled: boolean): Promise<void> {
 	await Promise.all([setContext(ContextKeys.Enabled, enabled), setContext(ContextKeys.Disabled, !enabled)]);
 }
 
-async function migrateSettings(context: ExtensionContext, previousVersion: string | undefined) {
-	if (previousVersion === undefined) return;
+// async function migrateSettings(context: ExtensionContext, previousVersion: string | undefined) {
+// 	if (previousVersion === undefined) return;
 
-	const previous = Versions.fromString(previousVersion);
+// 	const previous = Versions.fromString(previousVersion);
 
-	try {
-		if (Versions.compare(previous, Versions.from(9, 8, 5)) !== 1) {
-			const value = configuration.get('views', 'commitFormat');
-			if (!/\btips\b/.test(value)) {
-				await configuration.updateEffective('views', 'commitFormat', `\${❰ tips ❱➤  }${value}`);
-			}
-		} else if (Versions.compare(previous, Versions.from(9, 8, 2)) !== 1) {
-			const name = configuration.name('views', 'repositories', 'showBranchComparison');
-			await configuration.migrate(name, 'views', 'repositories', 'showBranchComparison', {
-				migrationFn: (v: boolean) => (v === false ? false : ViewShowBranchComparison.Working),
-			});
-		} else if (Versions.compare(previous, Versions.from(9, 6, 3)) !== 1) {
-			const formatMigrationFn = (v: string) => {
-				if (v == null || v.length === 0) return v;
-
-				return (
-					v
-						// eslint-disable-next-line no-template-curly-in-string
-						.replace(/\$\{authorAgo\}/g, '${author}, ${ago}')
-						// eslint-disable-next-line no-template-curly-in-string
-						.replace(/\$\{authorAgoOrDate\}/g, '${author}, ${agoOrDate}')
-				);
-			};
-
-			await Promise.all(
-				[
-					configuration.name('blame', 'format'),
-					configuration.name('currentLine', 'format'),
-					configuration.name('hovers', 'detailsMarkdownFormat'),
-					configuration.name('statusBar', 'format'),
-					configuration.name('views', 'commitFormat'),
-					configuration.name('views', 'commitDescriptionFormat'),
-					configuration.name('views', 'stashFormat'),
-					configuration.name('views', 'stashDescriptionFormat'),
-				].map(s =>
-					configuration.migrate(s, s as any, {
-						migrationFn: formatMigrationFn,
-					}),
-				),
-			);
-		}
-	} catch (ex) {
-		Logger.error(ex, 'migrateSettings');
-	}
-}
+// 	try {
+// 		if (Versions.compare(previous, Versions.from(11, 0, 0)) !== 1) {
+// 		}
+// 	} catch (ex) {
+// 		Logger.error(ex, 'migrateSettings');
+// 	}
+// }
 
 function notifyOnUnsupportedGitVersion(version: string) {
 	if (GitService.compareGitVersion('2.7.2') !== -1) return;

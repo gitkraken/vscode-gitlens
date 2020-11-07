@@ -137,7 +137,7 @@ export class StatusFileNode extends ViewNode {
 	get description() {
 		if (this._description == null) {
 			this._description = StatusFileFormatter.fromTemplate(
-				this.view.config.statusFileDescriptionFormat,
+				this.view.config.formats.files.description,
 				{
 					...this.file,
 					commit: this.commit,
@@ -162,7 +162,7 @@ export class StatusFileNode extends ViewNode {
 	get label() {
 		if (this._label == null) {
 			this._label = StatusFileFormatter.fromTemplate(
-				this.view.config.statusFileFormat,
+				this.view.config.formats.files.label,
 				{
 					...this.file,
 					commit: this.commit,

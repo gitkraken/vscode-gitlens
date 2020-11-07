@@ -1640,28 +1640,20 @@
 					"scope": "window"
 				},
 				"gitlens.views.commitFileFormat": {
-					"type": "string",
-					"default": "${file}",
-					"markdownDescription": "Specifies the format of a committed file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
-					"scope": "window"
+					"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.label` instead",
+					"markdownDeprecationMessage": "Depreciated: Use `#gitlens.views.formats.files.label#` instead"
 				},
 				"gitlens.views.commitFileDescriptionFormat": {
-					"type": "string",
-					"default": "${directory}${  ←  originalPath}",
-					"markdownDescription": "Specifies the description format of a committed file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
-					"scope": "window"
+					"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.description` instead",
+					"markdownDeprecationMessage": "Depreciated: Use `#gitlens.views.formats.files.description#` instead"
 				},
 				"gitlens.views.commitFormat": {
-					"type": "string",
-					"default": "${❰ tips ❱➤  }${message}",
-					"markdownDescription": "Specifies the format of committed changes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
-					"scope": "window"
+					"deprecationMessage": "Deprecated. Use `gitlens.views.formats.commits.label` instead",
+					"markdownDeprecationMessage": "Depreciated: Use `#gitlens.views.commits.files.label#` instead"
 				},
 				"gitlens.views.commitDescriptionFormat": {
-					"type": "string",
-					"default": "${author, }${agoOrDate}",
-					"markdownDescription": "Specifies the description format of committed changes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
-					"scope": "window"
+					"deprecationMessage": "Deprecated. Use `gitlens.views.formats.commits.description` instead",
+					"markdownDeprecationMessage": "Depreciated: Use `#gitlens.views.formats.commits.description#` instead"
 				},
 				"gitlens.views.commits.avatars": {
 					"type": "boolean",
@@ -1790,10 +1782,40 @@
 					"markdownDescription": "Specifies the default number of items to show in a view list. Use 0 to specify no limit",
 					"scope": "window"
 				},
-				"gitlens.views.pageItemLimit": {
-					"type": "number",
-					"default": 20,
-					"markdownDescription": "Specifies the number of items to show in a each page when paginating a view list. Use 0 to specify no limit",
+				"gitlens.views.formats.commits.label": {
+					"type": "string",
+					"default": "${❰ tips ❱➤  }${message}",
+					"markdownDescription": "Specifies the format of commits in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+					"scope": "window"
+				},
+				"gitlens.views.formats.commits.description": {
+					"type": "string",
+					"default": "${author, }${agoOrDate}",
+					"markdownDescription": "Specifies the description format of commits in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+					"scope": "window"
+				},
+				"gitlens.views.formats.files.label": {
+					"type": "string",
+					"default": "${working  }${file}",
+					"markdownDescription": "Specifies the format of a file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
+					"scope": "window"
+				},
+				"gitlens.views.formats.files.description": {
+					"type": "string",
+					"default": "${directory}${  ←  originalPath}",
+					"markdownDescription": "Specifies the description format of a file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
+					"scope": "window"
+				},
+				"gitlens.views.formats.stashes.label": {
+					"type": "string",
+					"default": "${message}",
+					"markdownDescription": "Specifies the format of stashes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
+					"scope": "window"
+				},
+				"gitlens.views.formats.stashes.description": {
+					"type": "string",
+					"default": "${agoOrDate}",
+					"markdownDescription": "Specifies the description format of stashes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
 					"scope": "window"
 				},
 				"gitlens.views.fileHistory.avatars": {
@@ -1812,6 +1834,12 @@
 					"type": "boolean",
 					"default": false,
 					"markdownDescription": "Specifies whether to show the _Line History_ view",
+					"scope": "window"
+				},
+				"gitlens.views.pageItemLimit": {
+					"type": "number",
+					"default": 20,
+					"markdownDescription": "Specifies the number of items to show in a each page when paginating a view list. Use 0 to specify no limit",
 					"scope": "window"
 				},
 				"gitlens.views.remotes.avatars": {
@@ -2052,28 +2080,20 @@
 					"scope": "window"
 				},
 				"gitlens.views.stashFileFormat": {
-					"type": "string",
-					"default": "${file}",
-					"markdownDescription": "Specifies the format of a stashed file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
-					"scope": "window"
+					"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.label` instead",
+					"markdownDeprecationMessage": "Depreciated: Use `#gitlens.views.formats.files.label#` instead"
 				},
 				"gitlens.views.stashFileDescriptionFormat": {
-					"type": "string",
-					"default": "${directory}${  ←  originalPath}",
-					"markdownDescription": "Specifies the description format of a stashed file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
-					"scope": "window"
+					"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.description` instead",
+					"markdownDeprecationMessage": "Depreciated: Use `#gitlens.views.formats.files.description#` instead"
 				},
 				"gitlens.views.stashFormat": {
-					"type": "string",
-					"default": "${message}",
-					"markdownDescription": "Specifies the format of stashes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
-					"scope": "window"
+					"deprecationMessage": "Deprecated. Use `gitlens.views.formats.stashes.label` instead",
+					"markdownDeprecationMessage": "Depreciated: Use `#gitlens.views.stashes.files.label#` instead"
 				},
 				"gitlens.views.stashDescriptionFormat": {
-					"type": "string",
-					"default": "${changes  •  }${agoOrDate}",
-					"markdownDescription": "Specifies the description format of stashes in the views. See [_Commit Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#commit-tokens) in the GitLens docs",
-					"scope": "window"
+					"deprecationMessage": "Deprecated. Use `gitlens.views.formats.stashes.description` instead",
+					"markdownDeprecationMessage": "Depreciated: Use `#gitlens.views.formats.stashes.description#` instead"
 				},
 				"gitlens.views.stashes.files.compact": {
 					"type": "boolean",
@@ -2104,16 +2124,12 @@
 					"scope": "window"
 				},
 				"gitlens.views.statusFileFormat": {
-					"type": "string",
-					"default": "${working  }${file}",
-					"markdownDescription": "Specifies the format of the status of a working or committed file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
-					"scope": "window"
+					"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.label` instead",
+					"markdownDeprecationMessage": "Depreciated: Use `#gitlens.views.formats.files.label#` instead"
 				},
 				"gitlens.views.statusFileDescriptionFormat": {
-					"type": "string",
-					"default": "${directory}${  ←  originalPath}",
-					"markdownDescription": "Specifies the description format of the status of a working or committed file in the views. See [_File Tokens_](https://github.com/eamodio/vscode-gitlens/wiki/Custom-Formatting#file-tokens) in the GitLens docs",
-					"scope": "window"
+					"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.description` instead",
+					"markdownDeprecationMessage": "Depreciated: Use `#gitlens.views.formats.files.description#` instead"
 				},
 				"gitlens.views.tags.avatars": {
 					"type": "boolean",
