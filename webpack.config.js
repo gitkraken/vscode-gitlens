@@ -6,17 +6,16 @@
 /* eslint-disable @typescript-eslint/strict-boolean-expressions */
 /* eslint-disable @typescript-eslint/prefer-optional-chain */
 'use strict';
-const fs = require('fs');
 const path = require('path');
-const glob = require('glob');
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 const { CleanWebpackPlugin: CleanPlugin } = require('clean-webpack-plugin');
 const CircularDependencyPlugin = require('circular-dependency-plugin');
+const CopyPlugin = require('copy-webpack-plugin');
 const CspHtmlPlugin = require('csp-html-webpack-plugin');
 const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const HtmlPlugin = require('html-webpack-plugin');
 const HtmlSkipAssetsPlugin = require('html-webpack-skip-assets-plugin').HtmlWebpackSkipAssetsPlugin;
-const ImageminPlugin = require('imagemin-webpack-plugin').default;
+const ImageMinimizerPlugin = require('image-minimizer-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const TerserPlugin = require('terser-webpack-plugin');
 
@@ -69,7 +68,7 @@ class InlineChunkHtmlPlugin {
 
 module.exports =
 	/**
-	 * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; optimizeImages?: boolean; } | undefined } env
+	 * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; } | undefined } env
 	 * @param {{ mode: 'production' | 'development' | 'none' | undefined; }} argv
 	 * @returns { WebpackConfig[] }
 	 */
@@ -79,22 +78,15 @@ module.exports =
 		env = {
 			analyzeBundle: false,
 			analyzeDeps: false,
-			optimizeImages: mode === 'production',
 			...env,
 		};
-
-		if (env.analyzeBundle || env.analyzeDeps) {
-			env.optimizeImages = false;
-		} else if (!env.optimizeImages && !fs.existsSync(path.join(__dirname, 'images/settings'))) {
-			env.optimizeImages = true;
-		}
 
 		return [getExtensionConfig(mode, env), getWebviewsConfig(mode, env)];
 	};
 
 /**
  * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; optimizeImages?: boolean; }} env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; }} env
  * @returns { WebpackConfig }
  */
 function getExtensionConfig(mode, env) {
@@ -205,17 +197,11 @@ function getExtensionConfig(mode, env) {
 
 /**
  * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; optimizeImages?: boolean; }} env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; }} _env
  * @returns { WebpackConfig }
  */
-function getWebviewsConfig(mode, env) {
+function getWebviewsConfig(mode, _env) {
 	const basePath = path.join(__dirname, 'src/webviews/apps');
-
-	const clean = ['**/*'];
-	if (env.optimizeImages) {
-		console.log('Optimizing images (src/webviews/apps/images/settings/*.png)...');
-		clean.push(path.join(__dirname, 'images/settings/*'));
-	}
 
 	const cspPolicy = {
 		'default-src': "'none'",
@@ -232,7 +218,10 @@ function getWebviewsConfig(mode, env) {
 	 * @type WebpackConfig['plugins'] | any
 	 */
 	const plugins = [
-		new CleanPlugin({ cleanOnceBeforeBuildPatterns: clean, cleanStaleWebpackAssets: false }),
+		new CleanPlugin({
+			cleanOnceBeforeBuildPatterns: ['**/*', path.join(__dirname, 'images/settings/*')],
+			cleanStaleWebpackAssets: false,
+		}),
 		new ForkTsCheckerPlugin({
 			async: false,
 			eslint: {
@@ -334,24 +323,35 @@ function getWebviewsConfig(mode, env) {
 		}),
 		new HtmlSkipAssetsPlugin({}),
 		new CspHtmlPlugin(),
-		new ImageminPlugin({
-			disable: !env.optimizeImages,
-			externalImages: {
-				context: path.join(basePath, 'images'),
-				sources: glob.sync(path.join(basePath, 'images/settings/*.png')),
-				destination: path.join(__dirname, 'images'),
-			},
-			cacheFolder: path.join(__dirname, 'node_modules', '.cache', 'imagemin-webpack-plugin'),
-			gifsicle: null,
-			jpegtran: null,
-			optipng: null,
-			pngquant: {
-				quality: '85-100',
-				speed: mode === 'production' ? 1 : 10,
-			},
-			svgo: null,
-		}),
 		new InlineChunkHtmlPlugin(HtmlPlugin, mode === 'production' ? ['\\.css$'] : []),
+		new CopyPlugin({
+			patterns: [
+				{
+					from: path.posix.join(basePath.replace(/\\/g, '/'), 'images', 'settings', '*.png'),
+					to: __dirname.replace(/\\/g, '/'),
+				},
+			],
+		}),
+		new ImageMinimizerPlugin({
+			test: /\.(png)$/i,
+			filename: '[path][name].webp',
+			cache: true,
+			loader: false,
+			deleteOriginalAssets: true,
+			minimizerOptions: {
+				plugins: [
+					[
+						'imagemin-webp',
+						{
+							lossless: true,
+							nearLossless: mode === 'production' ? 0 : 100,
+							quality: 100,
+							method: mode === 'production' ? 6 : 0,
+						},
+					],
+				],
+			},
+		}),
 	];
 
 	return {
