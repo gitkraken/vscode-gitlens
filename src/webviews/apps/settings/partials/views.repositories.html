@@ -28,7 +28,7 @@
 			<div class="section__content">
 				<div class="settings settings--fixed ml-1">
 					<div class="setting" data-enablement="views.repositories.enabled">
-						<div class="setting__input">
+						<div class="setting__input setting__input--inner-select">
 							<input
 								id="views.repositories.showBranchComparison"
 								name="views.repositories.showBranchComparison"
@@ -37,21 +37,19 @@
 								data-setting
 								disabled
 							/>
-							<label for="views.repositories.showBranchComparison"
-								>Show a comparison of the
-								<div class="select-container">
-									<select
-										id="views.repositories.showBranchComparison"
-										name="views.repositories.showBranchComparison"
-										data-setting
-										data-enablement="views.repositories.enabled &amp; views.repositories.showBranchComparison !false"
-										disabled
-									>
-										<option value="branch">current branch</option>
-										<option value="working">working tree</option>
-									</select>
-								</div>
-							</label>
+							<label for="views.repositories.showBranchComparison">Show a comparison of the </label>
+							<div class="select-container">
+								<select
+									id="views.repositories.showBranchComparison"
+									name="views.repositories.showBranchComparison"
+									data-setting
+									data-enablement="views.repositories.enabled &amp; views.repositories.showBranchComparison !false"
+									disabled
+								>
+									<option value="branch">current branch</option>
+									<option value="working">working tree</option>
+								</select>
+							</div>
 							<label for="views.repositories.showBranchComparison"
 								>with a user-selected reference (branch, tag, etc)
 							</label>

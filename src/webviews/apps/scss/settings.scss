@@ -577,6 +577,18 @@ section {
 	}
 }
 
+.setting__input--inner-select {
+	& label:nth-of-type(1) {
+		flex-shrink: 0;
+	}
+
+	& label:nth-of-type(2) {
+		text-overflow: ellipsis;
+		overflow: hidden;
+		white-space: nowrap;
+	}
+}
+
 .setting__hint {
 	color: var(--color-foreground--75);
 	display: block;
