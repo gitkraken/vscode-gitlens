@@ -2,14 +2,14 @@
 import { commands, ExtensionContext, extensions, window, workspace } from 'vscode';
 import { Commands, registerCommands } from './commands';
 import { configuration, Configuration } from './configuration';
-import { ContextKeys, extensionQualifiedId, GlobalState, GlyphChars, setContext } from './constants';
+import { ContextKeys, extensionQualifiedId, GlobalState, GlyphChars, setContext, SyncedState } from './constants';
 import { Container } from './container';
 import { Git, GitCommit } from './git/git';
 import { GitService } from './git/gitService';
 import { GitUri } from './git/gitUri';
 import { Logger } from './logger';
 import { Messages } from './messages';
-import { Strings } from './system';
+import { Strings, Versions } from './system';
 import { ViewNode } from './views/nodes';
 
 export async function activate(context: ExtensionContext) {
@@ -18,20 +18,24 @@ export async function activate(context: ExtensionContext) {
 	// Pretend we are enabled (until we know otherwise) and set the view contexts to reduce flashing on load
 	void setContext(ContextKeys.Enabled, true);
 
-	const previousVersion = context.globalState.get<string>(GlobalState.Version);
+	const syncedVersion = context.globalState.get<string>(SyncedState.Version);
+	const previousVersion =
+		context.globalState.get<string>(GlobalState.Version) ??
+		context.globalState.get<string>(GlobalState.DeprecatedVersion) ??
+		syncedVersion;
 
 	if (previousVersion == null) {
-		void context.globalState.update(GlobalState.WelcomeViewVisible, true);
+		void context.globalState.update(SyncedState.WelcomeViewVisible, true);
 		void setContext(ContextKeys.ViewsWelcomeVisible, true);
 		void setContext(ContextKeys.ViewsUpdatesVisible, false);
 	} else {
 		void setContext(
 			ContextKeys.ViewsWelcomeVisible,
-			context.globalState.get(GlobalState.WelcomeViewVisible) ?? false,
+			context.globalState.get(SyncedState.WelcomeViewVisible) ?? false,
 		);
 		void setContext(
 			ContextKeys.ViewsUpdatesVisible,
-			context.globalState.get(GlobalState.UpdatesViewVisible) !== false,
+			context.globalState.get(SyncedState.UpdatesViewVisible) !== false,
 		);
 	}
 
@@ -97,7 +101,18 @@ export async function activate(context: ExtensionContext) {
 	notifyOnUnsupportedGitVersion(gitVersion);
 	void showWelcomeOrWhatsNew(gitlensVersion, previousVersion);
 
+	context.globalState.setKeysForSync([
+		SyncedState.Version,
+		SyncedState.UpdatesViewVisible,
+		SyncedState.WelcomeViewVisible,
+	]);
+
 	void context.globalState.update(GlobalState.Version, gitlensVersion);
+
+	// Only update our synced version if the new version is greater
+	if (syncedVersion == null || Versions.compare(gitlensVersion, syncedVersion) === 1) {
+		void context.globalState.update(SyncedState.Version, gitlensVersion);
+	}
 
 	Logger.log(
 		`GitLens (v${gitlensVersion}${cfg.mode.active ? `, mode: ${cfg.mode.active}` : ''}) activated ${

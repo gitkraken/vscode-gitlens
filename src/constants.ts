@@ -134,12 +134,17 @@ export enum GlyphChars {
 	ZeroWidthSpace = '\u200b',
 }
 
-export enum GlobalState {
-	Avatars = 'gitlens:avatars',
-	DisallowConnectionPrefix = 'gitlens:disallow:connection:',
-	Version = 'gitlensVersion',
+export enum SyncedState {
+	Version = 'gitlens:synced:version',
 	UpdatesViewVisible = 'gitlens:views:updates:visible',
 	WelcomeViewVisible = 'gitlens:views:welcome:visible',
+}
+
+export enum GlobalState {
+	DeprecatedVersion = 'gitlensVersion',
+	Avatars = 'gitlens:avatars',
+	DisallowConnectionPrefix = 'gitlens:disallow:connection:',
+	Version = 'gitlens:version',
 }
 
 export const ImageMimetypes: Record<string, string> = {

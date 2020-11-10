@@ -2,7 +2,7 @@
 import { commands } from 'vscode';
 import { command, Command, CommandContext, Commands } from './common';
 import { configuration } from '../configuration';
-import { ContextKeys, GlobalState, setContext } from '../constants';
+import { ContextKeys, setContext, SyncedState } from '../constants';
 import { Container } from '../container';
 
 @command()
@@ -57,7 +57,7 @@ export class ShowViewCommand extends Command {
 				return Container.tagsView.show();
 			case Commands.ShowWelcomeView:
 				await setContext(ContextKeys.ViewsWelcomeVisible, true);
-				void Container.context.globalState.update(GlobalState.WelcomeViewVisible, true);
+				void Container.context.globalState.update(SyncedState.WelcomeViewVisible, true);
 				void (await commands.executeCommand('gitlens.views.welcome.focus'));
 		}
 
