@@ -94,7 +94,7 @@ function getExtensionConfig(mode, env) {
 	 * @type WebpackConfig['plugins'] | any
 	 */
 	const plugins = [
-		new CleanPlugin({ cleanOnceBeforeBuildPatterns: ['**/*', '!**/webviews/**'] }),
+		new CleanPlugin(),
 		new ForkTsCheckerPlugin({
 			async: false,
 			eslint: { enabled: true, files: 'src/**/*.ts', options: { cache: true } },
@@ -218,10 +218,7 @@ function getWebviewsConfig(mode, _env) {
 	 * @type WebpackConfig['plugins'] | any
 	 */
 	const plugins = [
-		new CleanPlugin({
-			cleanOnceBeforeBuildPatterns: ['**/*', path.join(__dirname, 'images/settings/*')],
-			cleanStaleWebpackAssets: false,
-		}),
+		new CleanPlugin(),
 		new ForkTsCheckerPlugin({
 			async: false,
 			eslint: {
