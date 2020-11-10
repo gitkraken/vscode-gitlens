@@ -5,7 +5,6 @@
 		"dbaeumer.vscode-eslint",
 		"eamodio.tsl-problem-matcher",
 		"esbenp.prettier-vscode",
-		"msjsdiag.debugger-for-chrome",
 		"ms-vscode.typescript-javascript-grammar"
 	]
 }
