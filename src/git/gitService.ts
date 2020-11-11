@@ -1335,11 +1335,12 @@ export class GitService implements Disposable {
 	async getCommitForFile(
 		repoPath: string | undefined,
 		fileName: string,
-		options: { ref?: string; firstIfNotFound?: boolean; reverse?: boolean } = {},
+		options: { ref?: string; firstIfNotFound?: boolean; range?: Range; reverse?: boolean } = {},
 	): Promise<GitLogCommit | undefined> {
 		const log = await this.getLogForFile(repoPath, fileName, {
 			limit: 2,
 			ref: options.ref,
+			range: options.range,
 			reverse: options.reverse,
 		});
 		if (log == null) return undefined;

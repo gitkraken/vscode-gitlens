@@ -34,7 +34,7 @@ import {
 } from '../configuration';
 import { BuiltInCommands, DocumentSchemes } from '../constants';
 import { Container } from '../container';
-import { GitBlame, GitBlameCommit, GitBlameLines } from '../git/git';
+import { GitBlame, GitBlameLines, GitCommit } from '../git/git';
 import { GitService } from '../git/gitService';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
@@ -478,7 +478,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		}
 	}
 
-	resolveCodeLens(lens: CodeLens, token: CancellationToken): CodeLens | Thenable<CodeLens> {
+	resolveCodeLens(lens: CodeLens, token: CancellationToken): CodeLens | Promise<CodeLens> {
 		if (lens instanceof GitRecentChangeCodeLens) return this.resolveGitRecentChangeCodeLens(lens, token);
 		if (lens instanceof GitAuthorsCodeLens) return this.resolveGitAuthorsCodeLens(lens, token);
 		return Promise.reject<CodeLens>(undefined);
@@ -488,7 +488,20 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		const blame = lens.getBlame();
 		if (blame === undefined) return lens;
 
-		const recentCommit = Iterables.first(blame.commits.values());
+		const recentCommit: GitCommit = Iterables.first(blame.commits.values());
+		// TODO@eamodio This is FAR too expensive, but this accounts for commits that delete lines -- is there another way?
+		// if (lens.uri != null) {
+		// 	const commit = await this._git.getCommitForFile(lens.uri.repoPath, lens.uri.fsPath, {
+		// 		range: lens.blameRange,
+		// 	});
+		// 	if (
+		// 		commit != null &&
+		// 		commit.sha !== recentCommit.sha &&
+		// 		commit.date.getTime() > recentCommit.date.getTime()
+		// 	) {
+		// 		recentCommit = commit;
+		// 	}
+		// }
 
 		let title = `${recentCommit.author}, ${recentCommit.formattedDate}`;
 		if (Container.config.debug) {
@@ -583,7 +596,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 	private applyDiffWithPreviousCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(
 		title: string,
 		lens: T,
-		commit: GitBlameCommit | undefined,
+		commit: GitCommit | undefined,
 	): T {
 		const commandArgs: DiffWithPreviousCommandArgs = {
 			commit: commit,
@@ -600,7 +613,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 	private applyRevealCommitInViewCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(
 		title: string,
 		lens: T,
-		commit: GitBlameCommit | undefined,
+		commit: GitCommit | undefined,
 	): T {
 		const commandArgs: ShowQuickCommitCommandArgs = {
 			commit: commit,
@@ -618,7 +631,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		title: string,
 		lens: T,
 		blame: GitBlameLines,
-		commit?: GitBlameCommit,
+		commit?: GitCommit,
 	): T {
 		let refs;
 		if (commit === undefined) {
@@ -642,7 +655,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 	private applyShowQuickCommitDetailsCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(
 		title: string,
 		lens: T,
-		commit: GitBlameCommit | undefined,
+		commit: GitCommit | undefined,
 	): T {
 		const commandArgs: ShowQuickCommitCommandArgs = {
 			commit: commit,
@@ -659,7 +672,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 	private applyShowQuickCommitFileDetailsCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(
 		title: string,
 		lens: T,
-		commit: GitBlameCommit | undefined,
+		commit: GitCommit | undefined,
 	): T {
 		const commandArgs: ShowQuickCommitFileCommandArgs = {
 			commit: commit,
