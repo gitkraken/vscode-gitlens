@@ -132,10 +132,8 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 		const subscription = Disposable.from(
 			repo.onDidChange(this.onRepoChanged, this),
 			repo.onDidChangeFileSystem(this.onRepoFileSystemChanged, this),
-			{ dispose: () => repo.stopWatchingFileSystem() },
+			repo.startWatchingFileSystem(),
 		);
-
-		repo.startWatchingFileSystem();
 
 		return subscription;
 	}

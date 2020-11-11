@@ -248,11 +248,10 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		// }
 
 		if (this.includeWorkingTree) {
-			disposables.push(this.repo.onDidChangeFileSystem(this.onFileSystemChanged, this), {
-				dispose: () => this.repo.stopWatchingFileSystem(),
-			});
-
-			this.repo.startWatchingFileSystem();
+			disposables.push(
+				this.repo.onDidChangeFileSystem(this.onFileSystemChanged, this),
+				this.repo.startWatchingFileSystem(),
+			);
 		}
 
 		return Disposable.from(...disposables);

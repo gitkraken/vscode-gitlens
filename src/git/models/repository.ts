@@ -726,19 +726,21 @@ export class Repository implements Disposable {
 		await Container.context.workspaceState.update(WorkspaceState.StarredRepositories, starred);
 	}
 
-	startWatchingFileSystem() {
+	startWatchingFileSystem(): Disposable {
 		this._fsWatchCounter++;
-		if (this._fsWatcherDisposable != null) return;
+		if (this._fsWatcherDisposable == null) {
+			// TODO: createFileSystemWatcher doesn't work unless the folder is part of the workspaceFolders
+			// https://github.com/Microsoft/vscode/issues/3025
+			const watcher = workspace.createFileSystemWatcher(new RelativePattern(this.folder, '**'));
+			this._fsWatcherDisposable = Disposable.from(
+				watcher,
+				watcher.onDidChange(this.onFileSystemChanged, this),
+				watcher.onDidCreate(this.onFileSystemChanged, this),
+				watcher.onDidDelete(this.onFileSystemChanged, this),
+			);
+		}
 
-		// TODO: createFileSystemWatcher doesn't work unless the folder is part of the workspaceFolders
-		// https://github.com/Microsoft/vscode/issues/3025
-		const watcher = workspace.createFileSystemWatcher(new RelativePattern(this.folder, '**'));
-		this._fsWatcherDisposable = Disposable.from(
-			watcher,
-			watcher.onDidChange(this.onFileSystemChanged, this),
-			watcher.onDidCreate(this.onFileSystemChanged, this),
-			watcher.onDidDelete(this.onFileSystemChanged, this),
-		);
+		return { dispose: () => this.stopWatchingFileSystem() };
 	}
 
 	stopWatchingFileSystem() {
