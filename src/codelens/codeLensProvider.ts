@@ -95,7 +95,7 @@ export class GitCodeLensProvider implements CodeLensProvider {
 	];
 
 	constructor(
-		context: ExtensionContext,
+		_context: ExtensionContext,
 		private readonly _git: GitService,
 		private readonly _tracker: DocumentTracker<GitDocumentState>,
 	) {}
@@ -334,6 +334,19 @@ export class GitCodeLensProvider implements CodeLensProvider {
 				if (
 					languageScope.scopes.includes(CodeLensScopes.Blocks) ||
 					languageScope.symbolScopes.includes(symbolName)
+				) {
+					range = getRangeFromSymbol(symbol);
+					valid =
+						!languageScope.symbolScopes.includes(`!${symbolName}`) &&
+						(includeSingleLineSymbols || !range.isSingleLine);
+				}
+				break;
+
+			case SymbolKind.String:
+				if (
+					languageScope.symbolScopes.includes(symbolName) ||
+					// A special case for markdown files, SymbolKind.String seems to be returned for headers, so consider those containers
+					(languageScope.language === 'markdown' && languageScope.scopes.includes(CodeLensScopes.Containers))
 				) {
 					range = getRangeFromSymbol(symbol);
 					valid =
