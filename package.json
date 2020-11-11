@@ -5730,11 +5730,11 @@
 					"group": "9_gitlens@2"
 				}
 			],
-			"scm/title": [
+			"git.commit": [
 				{
 					"command": "gitlens.addAuthors",
 					"when": "gitlens:enabled && !gitlens:readonly && config.gitlens.menus.scm.authors",
-					"group": "navigation@-99"
+					"group": "4_gitlens@1"
 				}
 			],
 			"scm/resourceGroup/context": [
