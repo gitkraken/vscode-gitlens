@@ -178,7 +178,7 @@
 		"onCommand:gitlens.fetchRepositories",
 		"onCommand:gitlens.pullRepositories",
 		"onCommand:gitlens.pushRepositories",
-		"*"
+		"onStartupFinished"
 	],
 	"contributes": {
 		"configuration": {
