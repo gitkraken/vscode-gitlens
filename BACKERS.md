@@ -8,11 +8,11 @@
   <a title="Try CodeStream &mdash; Pull Requests and Code Reviews in your IDE" href="https://sponsorlink.codestream.com/?utm_source=vscmarket&utm_medium=banner&utm_campaign=gitlens"><img src="https://alt-images.codestream.com/codestream_logo_gitlens_vscmarket.png" alt="CodeStream Logo &mdash; Pull Requests and Code Reviews in your IDE"/></a>
 
 <p align="center" style="margin: 1em 10%">
-  <a title="Visit Embark Studios" href="https://embark-studios.com"><img src="images/docs/sponsors/embark-studios_dark.png" alt="Embark Studios Logo"/></a>
+  <a title="Visit Embark Studios" href="https://embark-studios.com"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/embark-studios_dark.png" alt="Embark Studios Logo"/></a>
 </p>
 
 <p align="center" style="margin: 1em 10%">
-  <a title="Visit Crésus" href="https://cresus.ch"><img src="images/docs/sponsors/cresus.png" alt="Crésus Logo"/></a>
+  <a title="Visit Crésus" href="https://cresus.ch"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/cresus.png" alt="Crésus Logo"/></a>
 </p>
 
 ## User Sponsors

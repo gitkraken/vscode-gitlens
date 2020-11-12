@@ -6,14 +6,14 @@
 
 <p align="center">
   <br />
-  <a title="Learn more about GitLens" href="https://gitlens.amod.io"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/gitlens-logo.png" alt="GitLens Logo" /></a>
+  <a title="Learn more about GitLens" href="https://gitlens.amod.io"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/gitlens-logo.png" alt="GitLens Logo" /></a>
 </p>
 
 > GitLens **supercharges** the Git capabilities built into Visual Studio Code. It helps you to **visualize code authorship** at a glance via Git blame annotations and code lens, **seamlessly navigate and explore** Git repositories, **gain valuable insights** via powerful comparison commands, and so much more.
 
 <p align="center">
   <br />
-  <a title="What's New in GitLens 11" href="https://gitlens.amod.io/#whats-new"><img src="images/docs/whats-new-button.png" alt="What's New in GitLens 11 Button" /></a>
+  <a title="What's New in GitLens 11" href="https://gitlens.amod.io/#whats-new"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/whats-new-button.png" alt="What's New in GitLens 11 Button" /></a>
 </p>
 
 ## Sponsor GitLens
@@ -23,7 +23,7 @@
   <a title="Try CodeStream &mdash; Pull Requests and Code Reviews in your IDE" href="https://sponsorlink.codestream.com/?utm_source=vscmarket&utm_medium=banner&utm_campaign=gitlens"><img src="https://alt-images.codestream.com/codestream_logo_gitlens_vscmarket.png" alt="CodeStream Logo &mdash; Pull Requests and Code Reviews in your IDE" /></a>
 </p>
 <p align="center" style="margin:8px 0 8px 0;">
-  <a title="Visit Embark Studios" href="https://embark-studios.com"><img src="images/docs/sponsors/embark-studios_dark.png" alt="Embark Studios Logo"/></a>
+  <a title="Visit Embark Studios" href="https://embark-studios.com"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/embark-studios_dark.png" alt="Embark Studios Logo"/></a>
 </p>
 
 If you find GitLens useful, please consider [**sponsoring**](https://gitlens.amod.io/#sponsor) it. Also please [write a review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details 'Write a review'), [star me on GitHub](https://github.com/eamodio/vscode-gitlens 'Star me on GitHub'), and [follow me on Twitter](https://twitter.com/eamodio 'Follow me on Twitter')
@@ -63,7 +63,7 @@ Here are just some of the **features** that GitLens provides,
 
 <p align="center">
   <br />
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/gitlens-preview.gif" alt="GitLens Preview" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/gitlens-preview.gif" alt="GitLens Preview" />
   <br />
 </p>
 
@@ -72,7 +72,7 @@ Here are just some of the **features** that GitLens provides,
 ## Current Line Blame [#](#current-line-blame- 'Current Line Blame')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/current-line-blame.png" alt="Current Line Blame" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/current-line-blame.png" alt="Current Line Blame" />
 </p>
 
 - Adds an unobtrusive, [customizable](#current-line-blame-settings- 'Jump to the Current Line Blame settings'), and [themable](#themable-colors- 'Jump to the Themable Colors'), **blame annotation** at the end of the current line
@@ -82,7 +82,7 @@ Here are just some of the **features** that GitLens provides,
 ## Git Code Lens [#](#git-code-lens- 'Git Code Lens')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/code-lens.png" alt="Git Code Lens" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/code-lens.png" alt="Git Code Lens" />
 </p>
 
 - Adds Git authorship **code lens** to the top of the file and on code blocks ([optional](#git-code-lens-settings- 'Jump to the Git Code Lens settings'), on by default)
@@ -107,7 +107,7 @@ Here are just some of the **features** that GitLens provides,
 ## Status Bar Blame [#](#status-bar-blame- 'Status Bar Blame')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/status-bar.png" alt="Status Bar Blame" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/status-bar.png" alt="Status Bar Blame" />
 </p>
 
 - Adds a [customizable](#status-bar-settings- 'Jump to the Status Bar Blame settings') **Git blame annotation** about the current line to the **status bar** ([optional](#status-bar-settings- 'Jump to the Status Bar Blame settings'), on by default)
@@ -130,7 +130,7 @@ Here are just some of the **features** that GitLens provides,
 ### Current Line Hovers
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/hovers-current-line.png" alt="Current Line Hovers" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/hovers-current-line.png" alt="Current Line Hovers" />
 </p>
 
 - Adds [customizable](#hover-settings- 'Jump to the Hover settings') Git blame hovers accessible over the current line
@@ -138,7 +138,7 @@ Here are just some of the **features** that GitLens provides,
 #### Details Hover
 
   <p align="center">
-    <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/hovers-current-line-details.png" alt="Current Line Details Hover" />
+    <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/hovers-current-line-details.png" alt="Current Line Details Hover" />
   </p>
 
 - Adds a **details hover** annotation to the current line to show more commit details ([optional](#hover-settings- 'Jump to the Hover settings'), on by default)
@@ -149,7 +149,7 @@ Here are just some of the **features** that GitLens provides,
 #### Changes (diff) Hover
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/hovers-current-line-changes.png" alt="Current Line Changes (diff) Hover" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/hovers-current-line-changes.png" alt="Current Line Changes (diff) Hover" />
 </p>
 
 - Adds a **changes (diff) hover** annotation to the current line to show the line's previous version ([optional](#hover-settings- 'Jump to the Hover settings'), on by default)
@@ -159,7 +159,7 @@ Here are just some of the **features** that GitLens provides,
 ### Annotation Hovers
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/hovers-annotations.png" alt="Annotation Hovers" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/hovers-annotations.png" alt="Annotation Hovers" />
 </p>
 
 - Adds [customizable](#hover-settings- 'Jump to the Hover settings') Git blame hovers accessible when annotating
@@ -167,7 +167,7 @@ Here are just some of the **features** that GitLens provides,
 ### Details Hover
 
   <p align="center">
-    <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/hovers-annotations-details.png" alt="Annotations Details Hover" />
+    <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/hovers-annotations-details.png" alt="Annotations Details Hover" />
   </p>
 
 - Adds a **details hover** annotation to each line while annotating to show more commit details ([optional](#hover-settings- 'Jump to the Hover settings'), on by default)
@@ -178,7 +178,7 @@ Here are just some of the **features** that GitLens provides,
 ### Changes (diff) Hover
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/hovers-annotations-changes.png" alt="Annotations Changes (diff) Hover" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/hovers-annotations-changes.png" alt="Annotations Changes (diff) Hover" />
 </p>
 
 - Adds a **changes (diff) hover** annotation to each line while annotating to show the line's previous version ([optional](#hover-settings- 'Jump to the Hover settings'), on by default)
@@ -190,7 +190,7 @@ Here are just some of the **features** that GitLens provides,
 ### Commits view [#](#commits-view- 'Commits view')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/commits-view.png" alt="Commits view" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/commits-view.png" alt="Commits view" />
 </p>
 
 A [customizable](#commits-view-settings- 'Jump to the Commits view settings') view to visualize, explore, and manage Git commits
@@ -216,7 +216,7 @@ The _Commits_ view lists all of the commits on the current branch, and additiona
 ### File History view [#](#file-history-view- 'File History view')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/file-history-view.png" alt="File History view" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/file-history-view.png" alt="File History view" />
 </p>
 
 A [customizable](#file-history-view-settings- 'Jump to the File History view settings') view to visualize, navigate, and explore the revision history of the current file or just the selected lines of the current file
@@ -234,7 +234,7 @@ The file history view lists all of the commits that changed the current file on 
 ### Branches view [#](#branches-view- 'Branches view')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/branches-view.png" alt="Branches view" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/branches-view.png" alt="Branches view" />
 </p>
 
 A [customizable](#branches-view-settings- 'Jump to the Branches view settings') view to visualize, explore, and manage Git branches
@@ -264,7 +264,7 @@ The _Branches_ view lists all of the local branches, and additionally provides,
 ### Remotes view [#](#remotes-view- 'Remotes view')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/remotes-view.png" alt="Remotes view" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/remotes-view.png" alt="Remotes view" />
 </p>
 
 A [customizable](#remotes-view-settings- 'Jump to the Remotes view settings') view to visualize, explore, and manage Git remotes and remote branches
@@ -280,7 +280,7 @@ The _Remotes_ view lists all of the remotes and their remote branches, and addit
 ### Stashes view [#](#stashes-view- 'Stashes view')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/stashes-view.png" alt="Stashes view" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/stashes-view.png" alt="Stashes view" />
 </p>
 
 A [customizable](#stashes-view-settings- 'Jump to the Stashes view settings') view to visualize, explore, and manage Git stashes
@@ -294,7 +294,7 @@ The _Stashes_ view lists all of the stashes, and additionally provides,
 ### Tags view [#](#tags-view- 'Tags view')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/tags-view.png" alt="Tags view" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/tags-view.png" alt="Tags view" />
 </p>
 
 A [customizable](#tags-view-settings- 'Jump to the Tags view settings') view to visualize, explore, and manage Git tags
@@ -309,7 +309,7 @@ The _Tags_ view lists all of the tags, and additionally provides,
 ### Contributors view [#](#contributors-view- 'Contributors view')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/contributors-view.png" alt="Contributors view" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/contributors-view.png" alt="Contributors view" />
 </p>
 
 A [customizable](#contributors-view-settings- 'Jump to the Contributors view settings'), but hidden by default, view to visualize, navigate, and explore contributors
@@ -323,7 +323,7 @@ The _Contributors_ view lists all of the contributors, and additionally provides
 ### Search & Compare view [#](#search-&-compare-view- 'Search & Compare view')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/search-and-compare-view.png" alt="Search & Compare view" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/search-and-compare-view.png" alt="Search & Compare view" />
 </p>
 
 A [customizable](#search-&-compare-view-settings- 'Jump to the Search & Compare view settings'), hidden by default, view to search and explore commit histories by message, author, files, id, etc, or visualize comparisons between
@@ -360,7 +360,7 @@ The _Search & Compare_ view lists pinnable (saved) results for searching commit 
 ### Repositories view [#](#repositories-view- 'Repositories view')
 
 <p align="center">
-  <img src="images/docs/repositories-view.png" alt="Repositories view" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/repositories-view.png" alt="Repositories view" />
 </p>
 
 A [customizable](#repositories-view-settings- 'Jump to the Repositories view settings'), hidden by default (as it has been superseded by the new views), view to visualize, navigate, and explore Git repositories
@@ -396,7 +396,7 @@ The Repositories view lists opened Git repositories, and additionally provides,
 ## Gutter Blame [#](#gutter-blame- 'Gutter Blame')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/gutter-blame.png" alt="Gutter Blame">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/gutter-blame.png" alt="Gutter Blame">
 </p>
 
 - Adds on-demand, [customizable](#gutter-blame-settings- 'Jump to the Gutter Blame settings'), and [themable](#themable-colors- 'Jump to the Themable Colors'), **gutter blame annotations** for the whole file
@@ -409,7 +409,7 @@ The Repositories view lists opened Git repositories, and additionally provides,
 ## Gutter Changes [#](#changes- 'Gutter Changes')
 
 <p align="center">
-  <img src="images/docs/changes.png" alt="Gutter Changes" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/changes.png" alt="Gutter Changes" />
 </p>
 
 - Adds an on-demand, [customizable](#gutter-changes-settings- 'Jump to the Gutter Changes settings') and [themable](#themable-colors- 'Jump to the Themable Colors'), **gutter changes annotation** to highlight any local (unpublished) changes or lines changed by the most recent commit
@@ -419,7 +419,7 @@ The Repositories view lists opened Git repositories, and additionally provides,
 ## Gutter Heatmap [#](#gutter-heatmap- 'Gutter Heatmap')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/heatmap.png" alt="Gutter Heatmap" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/heatmap.png" alt="Gutter Heatmap" />
 </p>
 
 - Adds an on-demand **heatmap** to the edge of the gutter to show how recently lines were changed
@@ -431,7 +431,7 @@ The Repositories view lists opened Git repositories, and additionally provides,
 ## Git Command Palette [#](#git-command-palette- 'Git Command Palette')
 
 <p align="center">
-  <img src="images/docs/git-command-palette.png" alt="Git Command Palette" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/git-command-palette.png" alt="Git Command Palette" />
 </p>
 
 - Adds a [customizable](#git-command-palette-settings- 'Jump to the Git Command Palette settings') _Git Command Palette_ command (`gitlens.gitCommands`) to provide guided (step-by-step) access to many common Git commands
@@ -440,7 +440,7 @@ The Repositories view lists opened Git repositories, and additionally provides,
 ## Interactive Rebase Editor [#](#interactive-rebase-editor- 'Interactive Rebase Editor')
 
 <p align="center">
-  <img src="images/docs/rebase.gif" alt="Interactive Rebase Editor" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/rebase.gif" alt="Interactive Rebase Editor" />
 </p>
 
 - Adds a custom, user-friendly interactive rebase editor to more easily configure an interactive rebase session
@@ -477,7 +477,7 @@ The Repositories view lists opened Git repositories, and additionally provides,
 ### Branch History
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/menu-branch-history.png" alt="Branch History Quick Pick Menu" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/menu-branch-history.png" alt="Branch History Quick Pick Menu" />
 </p>
 
 - Adds a _Show Current Branch History_ command (`gitlens.showQuickRepoHistory`) with a shortcut of `shift+alt+h` to show a paged **branch history quick pick menu** of the current branch for exploring its commit history
@@ -490,7 +490,7 @@ The Repositories view lists opened Git repositories, and additionally provides,
 ### File History
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/menu-file-history.png" alt="File History Quick Pick Menu" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/menu-file-history.png" alt="File History Quick Pick Menu" />
 </p>
 
 - Adds a _Show File History_ command (`gitlens.showQuickFileHistory`) to show a paged **file history quick pick menu** of the current file for exploring its commit history
@@ -501,7 +501,7 @@ The Repositories view lists opened Git repositories, and additionally provides,
 ### Commit Details
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/menu-commit-details.png" alt="Commit Details Quick Pick Menu" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/menu-commit-details.png" alt="Commit Details Quick Pick Menu" />
 </p>
 
 - Adds a _Show Commit_ command (`gitlens.showQuickCommitDetails`) to show a **commit details quick pick menu** of the most recent commit of the current file
@@ -512,7 +512,7 @@ The Repositories view lists opened Git repositories, and additionally provides,
   - Use the `alt+right arrow` shortcut on a file entry in the `Changed Files` section to preview the comparison of the current revision with the previous one
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/menu-commit-file-details.png" alt="Commit File Details Quick Pick Menu" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/menu-commit-file-details.png" alt="Commit File Details Quick Pick Menu" />
 </p>
 
 - Adds a _Show Commit File Details_ command (`gitlens.showQuickCommitFileDetails`) with a shortcut of `alt+c` to show a **file commit details quick pick menu** of the most recent commit of the current file
@@ -523,7 +523,7 @@ The Repositories view lists opened Git repositories, and additionally provides,
 ### Repository Status
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/menu-repo-status.png" alt="Repository Status Quick Pick Menu" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/menu-repo-status.png" alt="Repository Status Quick Pick Menu" />
 </p>
 
 - Adds a _Show Repository Status_ command (`gitlens.showQuickRepoStatus`) with a shortcut of `alt+s` to show a **repository status quick pick menu** for visualizing the current repository status
@@ -538,7 +538,7 @@ The Repositories view lists opened Git repositories, and additionally provides,
 ### Stashes
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/menu-stash-list.png" alt="Stashes Quick Pick Menu" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/menu-stash-list.png" alt="Stashes Quick Pick Menu" />
 </p>
 
 - Adds a _Show Stashes_ command (`gitlens.showQuickStashList`) to show a **stashes quick pick menu** for exploring your repository stash history
@@ -550,7 +550,7 @@ The Repositories view lists opened Git repositories, and additionally provides,
 #### Stash Details
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/menu-stash-details.png" alt="Stash Details Quick Pick Menu" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/menu-stash-details.png" alt="Stash Details Quick Pick Menu" />
 </p>
 
 - Stashes show a **stash details quick pick menu** which is very similar to the **commit details quick pick menu** above
@@ -597,7 +597,7 @@ The Repositories view lists opened Git repositories, and additionally provides,
 # Configuration
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/settings.png" alt="GitLens Interactive Settings" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/settings.png" alt="GitLens Interactive Settings" />
 </p>
 
 GitLens has a built-in **interactive settings editor** which provides an easy-to-use interface to configure many of GitLens' powerful features. It can be accessed via the _GitLens: Open Settings_ (`gitlens.showSettingsPage`) command from the [_Command Palette_](https://code.visualstudio.com/docs/getstarted/userinterface#_command-palette).

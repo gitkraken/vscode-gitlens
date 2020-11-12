@@ -109,7 +109,7 @@ export class Messages {
 			if (result === actions[0]) {
 				await env.openExternal(Uri.parse('https://gitlens.amod.io/#whats-new'));
 			} else if (result === actions[1]) {
-				await env.openExternal(Uri.parse('https://github.com/eamodio/vscode-gitlens/blob/master/CHANGELOG.md'));
+				await env.openExternal(Uri.parse('https://github.com/eamodio/vscode-gitlens/blob/main/CHANGELOG.md'));
 			} else if (result === actions[2]) {
 				await env.openExternal(Uri.parse('https://gitlens.amod.io/#sponsor'));
 			}
