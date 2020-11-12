@@ -71,14 +71,21 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 					status.state.behind,
 					status.detached,
 				);
-				children.push(new BranchNode(this.uri, this.view, this, branch, true));
 
-				if (status.state.behind) {
-					children.push(new BranchTrackingStatusNode(this.view, this, branch, status, 'behind', true));
+				if (this.view.config.showBranchComparison !== false) {
+					children.push(new CompareBranchNode(this.uri, this.view, this, branch));
 				}
 
-				if (status.state.ahead) {
-					children.push(new BranchTrackingStatusNode(this.view, this, branch, status, 'ahead', true));
+				if (status.upstream) {
+					if (status.state.behind) {
+						children.push(new BranchTrackingStatusNode(this.view, this, branch, status, 'behind', true));
+					}
+
+					if (status.state.ahead) {
+						children.push(new BranchTrackingStatusNode(this.view, this, branch, status, 'ahead', true));
+					}
+				} else {
+					children.push(new BranchTrackingStatusNode(this.view, this, branch, status, 'none', true));
 				}
 
 				if (status.state.ahead || (status.files.length !== 0 && this.includeWorkingTree)) {
@@ -86,9 +93,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 					children.push(new StatusFilesNode(this.view, this, status, range));
 				}
 
-				if (this.view.config.showBranchComparison !== false) {
-					children.push(new CompareBranchNode(this.uri, this.view, this, branch));
-				}
+				children.push(new BranchNode(this.uri, this.view, this, branch, true));
 
 				if (!this.view.config.compact) {
 					children.push(new MessageNode(this.view, this, '', GlyphChars.Dash.repeat(2), ''));
