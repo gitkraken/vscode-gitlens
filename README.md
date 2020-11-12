@@ -440,7 +440,7 @@ The Repositories view lists opened Git repositories, and additionally provides,
 ## Interactive Rebase Editor [#](#interactive-rebase-editor- 'Interactive Rebase Editor')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/rebase-editor.gif" alt="Interactive Rebase Editor" />
+  <img src="images/docs/rebase.gif" alt="Interactive Rebase Editor" />
 </p>
 
 - Adds a custom, user-friendly interactive rebase editor to more easily configure an interactive rebase session
