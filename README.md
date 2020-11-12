@@ -19,8 +19,11 @@
 ## Sponsor GitLens
 
 <p align="center">Sponsored by</p>
-<p align="center" style="font-size:10px;font-weight:400;margin:8px 0 8px 0;">
-  <a title="Try CodeStream &mdash; The World's Best Code Discussion Tool" href="https://codestream.com/?utm_source=vscmarket&utm_medium=banner&utm_campaign=gitlens"><img src="https://alt-images.codestream.com/codestream_logo_gitlens_vscmarket.png" alt="CodeStream &mdash; The World's Best Code Discussion Tool" /></a>
+<p align="center" style="margin:8px 0 8px 0;">
+  <a title="Try CodeStream &mdash; Pull Requests and Code Reviews in your IDE" href="https://sponsorlink.codestream.com/?utm_source=vscmarket&utm_medium=banner&utm_campaign=gitlens"><img src="https://alt-images.codestream.com/codestream_logo_gitlens_vscmarket.png" alt="CodeStream Logo &mdash; Pull Requests and Code Reviews in your IDE" /></a>
+</p>
+<p align="center" style="margin:8px 0 8px 0;">
+  <a title="Visit Embark Studios" href="https://embark-studios.com"><img src="images/docs/sponsors/embark-studios_dark.png" alt="Embark Studios Logo"/></a>
 </p>
 
 If you find GitLens useful, please consider [**sponsoring**](https://gitlens.amod.io/#sponsor) it. Also please [write a review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details 'Write a review'), [star me on GitHub](https://github.com/eamodio/vscode-gitlens 'Star me on GitHub'), and [follow me on Twitter](https://twitter.com/eamodio 'Follow me on Twitter')

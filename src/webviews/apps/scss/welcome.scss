@@ -482,6 +482,18 @@ section {
 	}
 }
 
+.sidebar__group--sponsors {
+	display: flex;
+	flex-direction: column;
+	flex-wrap: wrap;
+	align-items: center;
+
+	h2 {
+		align-self: flex-start;
+		margin: 0;
+	}
+}
+
 .sidebar__jump-link {
 	&.active {
 		font-weight: 700;
@@ -504,8 +516,8 @@ section {
 .sponsor__image {
 	opacity: 0.8;
 	transition: opacity 250ms;
-	transform: scale(0.6);
-	margin: -2.5em 0;
+	width: 118px;
+	margin: 0;
 
 	&:hover {
 		opacity: 1;

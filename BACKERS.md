@@ -1,34 +1,30 @@
-<h1 align="center">Sponsors &amp; Backers</h1>
+# Sponsors
 
 &#x1f496; To my incredible sponsors &mdash; thank you so much for your contributions. I am truly humbled by your generosity and support. If you'd like to join in sponsoring GitLens, please [click here](https://gitlens.amod.io/#sponsor).
 
-<h2 align="center">Gold Sponsors ($100+)</h2>
+## Corporate Sponsors
 
-<p align="center" style="margin: 0 10%">
-  <a title="Try CodeStream &mdash; The World's Best Code Discussion Tool" href="https://codestream.com/?utm_source=vscmarket&utm_medium=banner&utm_campaign=gitlens"><img src="https://alt-images.codestream.com/codestream_logo_gitlens_vscmarket.png" alt="CodeStream &mdash; The World's Best Code Discussion Tool"/></a>
+<p align="center" style="margin: 1em 10%">
+  <a title="Try CodeStream &mdash; Pull Requests and Code Reviews in your IDE" href="https://sponsorlink.codestream.com/?utm_source=vscmarket&utm_medium=banner&utm_campaign=gitlens"><img src="https://alt-images.codestream.com/codestream_logo_gitlens_vscmarket.png" alt="CodeStream Logo &mdash; Pull Requests and Code Reviews in your IDE"/></a>
+
+<p align="center" style="margin: 1em 10%">
+  <a title="Visit Embark Studios" href="https://embark-studios.com"><img src="images/docs/sponsors/embark-studios_dark.png" alt="Embark Studios Logo"/></a>
 </p>
 
-<h2 align="center">Silver Sponsors ($50+)</h2>
+<p align="center" style="margin: 1em 10%">
+  <a title="Visit Crésus" href="https://cresus.ch"><img src="images/docs/sponsors/cresus.png" alt="Crésus Logo"/></a>
+</p>
 
-None currently &mdash; could be you or your company here!
-
-<h2 align="center">Bronze Sponsors ($25+)</h2>
-
-None currently &mdash; could be you or your company here!
-
-<h2 align="center">Generous Backers ($10+)</h2>
+## User Sponsors
 
 - Borek Bernard
 - Jack
 - Ken Howard
-- Michael Duffy (former Silver Sponsor)
+- Michael Duffy
 - Michael Scott-Nelson
 - MrG0lden
 - Sergey Cheperis
 - Xananax
-
-<h2 align="center">Backers</h2>
-
 - Andreas Fertsch-Röver
 - Bill
 - Brandon Burroughs
