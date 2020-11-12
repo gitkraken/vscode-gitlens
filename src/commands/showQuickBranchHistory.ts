@@ -4,6 +4,7 @@ import { ActiveEditorCachedCommand, command, CommandContext, Commands, getComman
 import { GitReference } from '../git/git';
 import { executeGitCommand } from './gitCommands';
 import { GitUri } from '../git/gitUri';
+import { Container } from '../container';
 
 export interface ShowQuickBranchHistoryCommandArgs {
 	repoPath?: string;
@@ -31,8 +32,7 @@ export class ShowQuickBranchHistoryCommand extends ActiveEditorCachedCommand {
 
 		const gitUri = uri != null ? await GitUri.fromUri(uri) : undefined;
 
-		const repoPath = args?.repoPath ?? gitUri?.repoPath;
-
+		const repoPath = args?.repoPath ?? gitUri?.repoPath ?? Container.git.getHighlanderRepoPath();
 		let ref: GitReference | 'HEAD' | undefined;
 		if (repoPath != null) {
 			if (args?.branch != null) {
