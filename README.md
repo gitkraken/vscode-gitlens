@@ -236,7 +236,7 @@ The file history view lists all of the commits that changed the current file on 
 
 A [customizable](#branches-view-settings- 'Jump to the Branches view settings') view to visualize, explore, and manage Git branches
 
-The _Branches_ view lists all of the branches, and additionally provides,
+The _Branches_ view lists all of the local branches, and additionally provides,
 
 - a toggle to change the branch layout: list or tree
 - a toggle to change the file layout: list, tree, auto
@@ -266,7 +266,7 @@ The _Branches_ view lists all of the branches, and additionally provides,
 
 A [customizable](#remotes-view-settings- 'Jump to the Remotes view settings') view to visualize, explore, and manage Git remotes and remote branches
 
-The _Remotes_ view lists all of the remotes and its remote branches, and additionally provides,
+The _Remotes_ view lists all of the remotes and their remote branches, and additionally provides,
 
 - a toggle to change the branch layout: list or tree
 - a toggle to change the file layout: list, tree, auto
@@ -323,7 +323,7 @@ The _Contributors_ view lists all of the contributors, and additionally provides
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/search-and-compare-view.png" alt="Search & Compare view" />
 </p>
 
-A [customizable](#search-&-compare-view-settings- 'Jump to the Search & Compare view settings'), but hidden by default, view to search and explore commit histories by message, author, files, id, etc, or visualize comparisons between
+A [customizable](#search-&-compare-view-settings- 'Jump to the Search & Compare view settings'), hidden by default, view to search and explore commit histories by message, author, files, id, etc, or visualize comparisons between
 branches, tags, commits, and more
 
 The _Search & Compare_ view lists pinnable (saved) results for searching commit histories or for comparison operations, and additionally provides,
