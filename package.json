@@ -1982,7 +1982,7 @@
 				},
 				"gitlens.views.repositories.includeWorkingTree": {
 					"type": "boolean",
-					"default": true,
+					"default": false,
 					"markdownDescription": "Specifies whether to include working tree file status for each repository in the _Repositories_ view",
 					"scope": "window"
 				},

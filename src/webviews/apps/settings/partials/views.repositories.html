@@ -28,6 +28,49 @@
 			<div class="section__content">
 				<div class="settings settings--fixed ml-1">
 					<div class="setting" data-enablement="views.repositories.enabled">
+						<div class="setting__input">
+							<input
+								id="views.repositories.autoRefresh"
+								name="views.repositories.autoRefresh"
+								type="checkbox"
+								data-setting
+								disabled
+							/>
+							<label for="views.repositories.autoRefresh"
+								>Automatically refresh when a repository or the file system changes</label
+							>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="views.repositories.enabled">
+						<div class="setting__input">
+							<input
+								id="views.repositories.autoReveal"
+								name="views.repositories.autoReveal"
+								type="checkbox"
+								data-setting
+								disabled
+							/>
+							<label for="views.repositories.autoReveal"
+								>Automatically reveal repository when opening files</label
+							>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="views.repositories.enabled">
+						<div class="setting__input">
+							<input
+								id="views.repositories.includeWorkingTree"
+								name="views.repositories.includeWorkingTree"
+								type="checkbox"
+								data-setting
+								disabled
+							/>
+							<label for="views.repositories.includeWorkingTree">Show working tree file changes</label>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="views.repositories.enabled">
 						<div class="setting__input setting__input--inner-select">
 							<input
 								id="views.repositories.showBranchComparison"
@@ -37,7 +80,7 @@
 								data-setting
 								disabled
 							/>
-							<label for="views.repositories.showBranchComparison">Show a comparison of the </label>
+							<label for="views.repositories.showBranchComparison">Show a comparison of the</label>
 							<div class="select-container">
 								<select
 									id="views.repositories.showBranchComparison"
@@ -208,36 +251,6 @@
 								disabled
 							/>
 							<label for="views.repositories.avatars">Use author avatars</label>
-						</div>
-					</div>
-
-					<div class="setting" data-enablement="views.repositories.enabled">
-						<div class="setting__input">
-							<input
-								id="views.repositories.autoRefresh"
-								name="views.repositories.autoRefresh"
-								type="checkbox"
-								data-setting
-								disabled
-							/>
-							<label for="views.repositories.autoRefresh">
-								Automatically refreshes when the file system or any repository changes
-							</label>
-						</div>
-					</div>
-
-					<div class="setting" data-enablement="views.repositories.enabled">
-						<div class="setting__input">
-							<input
-								id="views.repositories.autoReveal"
-								name="views.repositories.autoReveal"
-								type="checkbox"
-								data-setting
-								disabled
-							/>
-							<label for="views.repositories.autoReveal">
-								Automatically reveal repositories when opening files
-							</label>
 						</div>
 					</div>
 				</div>
