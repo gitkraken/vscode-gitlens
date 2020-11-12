@@ -359,124 +359,39 @@ The _Search & Compare_ view lists pinnable (saved) results for searching commit 
 
 ### Repositories view [#](#repositories-view- 'Repositories view')
 
-#### TODO@eamodio Needs updating
-
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/repositories-view.png" alt="Repositories view" />
+  <img src="images/docs/repositories-view.png" alt="Repositories view" />
 </p>
 
-A [customizable](#repositories-view-settings- 'Jump to the Repositories view settings') view to visualize, navigate, and explore Git repositories
+A [customizable](#repositories-view-settings- 'Jump to the Repositories view settings'), hidden by default (as it has been superseded by the new views), view to visualize, navigate, and explore Git repositories
 
-- A toolbar provides quick access to the _Push Repositories_, _Pull Repositories_, _Fetch Repositories_, and _Refresh_ commands
-  - A context menu provides _Automatic Layout_, _List Layout_, _Tree Layout_, _Enable Automatic Refresh_ or _Disable Automatic Refresh_, _Open Settings_ commands
+The Repositories view lists opened Git repositories, and additionally provides,
 
-The repositories view provides the following features,
-
-- **Repositories** &mdash; lists the opened repositories
-
-  - Provides the name of each repository, the name of its current branch, [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') its working tree status, and when it was last fetched
-    - Indicator dots on each repository icon denote the following:
-      - _None_ &mdash; no upstream or up-to-date with the upstream
-      - _Green_ &mdash; ahead of the upstream
-      - _Red_ &mdash; behind the upstream
-      - _Yellow_ &mdash; both ahead of and behind the upstream
-    - An inline toolbar provides quick access to the _Add to Favorites_ (when applicable), _Remove from Favorites_ (when applicable), _Search Commits_, _Push_ (`alt-click` for _Push (force)_), _Pull_, and _Fetch_ commands
-    - A context menu provides access to more common repository commands
-    - **Current Branch** &mdash; lists the revision (commit) history of the current branch and [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') shows its remote tracking branch and status (if available)
-      - An inline toolbar provides quick access to the _Compare with Remote_ (if available), _Compare with Working Tree_, and _Open Branch on Remote_ (if available) commands
-      - A context menu provides access to more common branch commands
-    - **\* Commits Behind** &mdash; quickly see and explore the specific commits behind the upstream (i.e. commits that haven't been pulled)
-      - Only provided if the current branch is tracking a remote branch and is behind it
-      - An inline toolbar provides quick access to the _Pull_ command
-    - **\* Commits Ahead** &mdash; quickly see and explore the specific commits ahead of the upstream (i.e. commits that haven't been pushed)
-      - Only provided if the current branch is tracking a remote branch and is ahead of it
-      - An inline toolbar provides quick access to the _Push_ (`alt-click` for _Push (force)_) command
-    - **\* Files Changed** &mdash; lists all the "working" changes
-      - Expands to a file-based view of all changed files in the working tree ([optionally](#repositories-view-settings- 'Jump to the Repositories view settings')) and/or all files in all commits ahead of the upstream
-      - An inline toolbar provides quick access to the _Stash All Changes_ command
-    - **Compare Current Branch with &lt;branch, tag, or ref&gt;** &mdash; [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') shows a comparison of the current branch to a user-selected reference
-      - **\* Commits** &mdash; lists the commits between the compared revisions
-        - Expands to provide the message, author, date, and change indicator of each revision (commit) &mdash; fully [customizable](#view-settings- 'Jump to the View settings')
-          - Each revision (commit) expands to list its set of changed files, complete with status indicators for adds, changes, renames, and deletes
-            - An inline toolbar provides quick access to the _Open File_, _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open File on Remote_ (if available) commands
-            - A context menu provides access to more common file revision commands
-      - **\* Files Changed** &mdash; lists all of the files changed between the compared revisions
-      - An inline toolbar provides quick access to the _Switch to Two-dot Comparison_ (when applicable), _Switch to Three-dot Comparison_ (when applicable), _Switch to Working Tree Comparison_ (when applicable), _Switch to Branch Comparison_ (when applicable), and _Refresh_ commands
-
-- **Branches** &mdash; lists the local branches in the repository
-
-  - An inline toolbar provides quick access to the _Open Branches on Remote_ (if available) command
-  - Provides the name of each branch, an indicator (check-mark) if the branch is the current one, and [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') shows its remote tracking branch and status (if available)
-    - Indicator dots on each branch icon denote the following:
-      - _None_ &mdash; no upstream or up-to-date with the upstream
-      - _Green_ &mdash; ahead of the upstream
-      - _Red_ &mdash; behind the upstream
-      - _Yellow_ &mdash; both ahead of and behind the upstream
-    - An inline toolbar provides quick access to the _Add to Favorites_ (when applicable), _Remove from Favorites_ (when applicable), _Checkout_, _Compare with Remote_ (if available), _Compare with HEAD_ (`alt-click` for _Compare with Working Tree_), and _Open Branch on Remote_ (if available) commands
-    - A context menu provides access to more common branch commands
-    - Each branch expands to list its revision (commit) history
-      - **\* Commits Behind** &mdash; quickly see and explore the specific commits behind the upstream (i.e. commits that haven't been pulled)
-        - Only provided if the current branch is tracking a remote branch and is behind it
-      - **\* Commits Ahead** &mdash; quickly see and explore the specific commits ahead of the upstream (i.e. commits that haven't been pushed)
-        - Only provided if the current branch is tracking a remote branch and is ahead of it
-      - An inline toolbar provides quick access to the _Compare with HEAD_ (`alt-click` for _Compare with Working Tree_), _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open Commit on Remote_ (if available) commands
-      - A context menu provides access to more common revision (commit) commands
-      - Each revision (commit) expands to list its set of changed files, complete with status indicators for adds, changes, renames, and deletes
-        - An inline toolbar provides quick access to the _Open File_, _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open File on Remote_ (if available) commands
-        - A context menu provides access to more common file revision commands
-
-- **Contributors** &mdash; lists the contributors in the repository, sorted by contributed commits
-
-  - Provides the avatar (if enabled), name, and email address of each contributor
-    - An inline toolbar provides quick access to the _Copy to Clipboard_ command
-    - A context menu provides access to the _Copy to Clipboard_, _Add as Co-author_, and _Refresh_ commands
-    - Each contributor expands to list the repository's revision (commit) history filtered by the contributor
-      - An inline toolbar provides quick access to the _Compare with HEAD_ (`alt-click` for _Compare with Working Tree_), _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open Commit on Remote_ (if available) commands
-      - A context menu provides access to more common revision (commit) commands
-      - Each revision (commit) expands to list its set of changed files, complete with status indicators for adds, changes, renames, and deletes
-        - An inline toolbar provides quick access to the _Open File_, _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open File on Remote_ (if available) commands
-        - A context menu provides access to more common file revision commands
-
-- **Incoming Activity** &mdash; lists the recent incoming activity (merges and pulls) to your local repository (experimental, enabled via `"gitlens.insiders": true`)
-
-  - Provides the command, branch (if available), and date of each activity
-    - A context menu provides access to the _Refresh_ command
-    - Each activity expands to list the commits added by the command
-      - An inline toolbar provides quick access to the _Compare with HEAD_ (`alt-click` for _Compare with Working Tree_), _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open Commit on Remote_ (if available) commands
-      - A context menu provides access to more common revision (commit) commands
-      - Each revision (commit) expands to list its set of changed files, complete with status indicators for adds, changes, renames, and deletes
-        - An inline toolbar provides quick access to the _Open File_, _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open File on Remote_ (if available) commands
-        - A context menu provides access to more common file revision commands
-
-- **Remotes** &mdash; lists the remotes in the repository
-
-  - Provides the name of each remote, an indicator of the remote's direction (fetch, push, both), remote service (if applicable), and repository path
-    - An inline toolbar provides quick access to the _Fetch_, and _Open Repository on Remote_ (if available) commands
-    - A context menu provides access to more common repository and remote commands
-    - Each remote expands to list its remote branches
-      - See the **Branches** above for additional details
-
-- **Stashes** &mdash; lists the stashed changes in the repository
-
-  - An inline toolbar provides quick access to the _Stash All Changes_, and _Apply Stash Changes_ commands
-  - Provides the name of each stash, the date, and an indicator (+x ~x -x) of the changes
-    - An inline toolbar provides quick access to the _Compare with HEAD_ (`alt-click` for _Compare with Working Tree_), _Apply Stash_, and _Delete Stash_ commands
-    - A context menu provides access to more common stash commands
-    - Each stash expands to list the set of stashed files, complete with status indicators for adds, changes, renames, and deletes
-      - An inline toolbar provides quick access to the _Open File_, and _Open File on Remote_ (if available) commands
-      - A context menu provides access to more common file revision commands
-
-- **Tags** &mdash; lists the tags in the repository
-
-  - Provides the name of each tag
-    - An inline toolbar provides quick access to the _Checkout, and \_Compare with HEAD_ (`alt-click` for _Compare with Working Tree_) commands
-    - A context menu provides access to more common tag commands
-    - Each tags expands to list its revision (commit) history
-      - An inline toolbar provides quick access to the _Compare with HEAD_ (`alt-click` for _Compare with Working Tree_), _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open Commit on Remote_ (if available) commands
-      - A context menu provides access to more common revision (commit) commands
-      - Each revision (commit) expands to list its set of changed files, complete with status indicators for adds, changes, renames, and deletes
-        - An inline toolbar provides quick access to the _Open File_, _Copy Commit ID to Clipboard_ (`alt-click` for _Copy Commit Message to Clipboard_), and _Open File on Remote_ (if available) commands
-        - A context menu provides access to more common file revision commands
+- a toggle to automatically refresh the repository on changes
+- a toggle to change the file layout: list, tree, auto
+- an icon indicator to show the current branch's upstream status (if available)
+  - _No dot_ &mdash; unpushlished or up to date with the upstream remote
+  - _Green dot_ &mdash; has changes unpublished (ahead)
+  - _Red dot_ &mdash; has changes un-pulled (behind)
+  - _Yellow dot_ &mdash; both unpublished and un-pulled changes
+- a branch comparison tool (**Compare &lt;current branch&gt; with &lt;branch, tag, or ref&gt;**) &mdash; [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') shows a comparison of the current branch (or working tree) to a user-selected reference
+- the current branch status &mdash; shows the upstream status of the current branch (if not up to date)
+  - **Publish &lt;current branch&gt; to remote** &mdash; shown when the current branch has not been published to a remote
+  - **Changes to push to &lt;remote&gt;** &mdash; lists of all the files changed in the unpublished commits when the current branch has (unpublished) commits that waiting to be pushed to the upstream remote
+  - **Changes to pull from &lt;remote&gt;** &mdash; lists all of the commits waiting to be pulled when the current branch has commits that are waiting to be pulled from the upstream remote
+- any associated pull request &mdash; shows any opened pull request associated with the current branch
+  - **Behind** &mdash; lists the commits that are missing from the current branch (i.e. behind) but exist in the selected reference
+    - **# files changed** &mdash; lists all of the files changed between the compared references
+  - **Ahead** &mdash; lists the commits that the current branch has (i.e. ahead) but are missing in the selected reference
+    - **# files changed** &mdash; lists all of the files changed between the compared references
+- the changed files &mdash; lists all of the files changed by the unpublished (unpushed) commits and [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') any working tree changes
+- the current branch commits &mdash; similar to the [Commits view](#commits-view- 'Commits view')
+- the local branches &mdash; similar to the [Branches view](#branches-view- 'Branches view')
+- the contributors &mdash; similar to the [Contributors view](#contributors-view- 'Contributors view')
+- any incoming activity (experimental) &mdash; lists the command, branch (if available), and date of recent incoming activity (merges and pulls) to your local repository
+- the remotes and remote branches &mdash; similar to the [Remotes view](#remotes-view- 'Remotes view')
+- the stashes &mdash; similar to the [Stashes view](#stashes-view- 'Stashes view')
+- the tags &mdash; similar to the [Tags view](#tags-view- 'Tags view')
 
 ## Gutter Blame [#](#gutter-blame- 'Gutter Blame')
 
