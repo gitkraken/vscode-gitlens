@@ -26,7 +26,7 @@
   <a title="Visit Embark Studios" href="https://embark-studios.com"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/embark-studios_dark.png" alt="Embark Studios Logo"/></a>
 </p>
 
-If you find GitLens useful, please consider [**sponsoring**](https://gitlens.amod.io/#sponsor) it. Also please [write a review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details 'Write a review'), [star it on GitHub](https://github.com/eamodio/vscode-gitlens 'Star it on GitHub'), and [follow me on Twitter](https://twitter.com/eamodio 'Follow me on Twitter')
+If you find GitLens useful, please consider [**sponsoring**](https://gitlens.amod.io/#sponsor) it. And if you use GitLens for work, please encourage your employer to [**sponsor**](https://gitlens.amod.io/#sponsor) it. Also please [write a review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details 'Write a review'), [star it on GitHub](https://github.com/eamodio/vscode-gitlens 'Star it on GitHub'), and [follow me on Twitter](https://twitter.com/eamodio 'Follow me on Twitter')
 
 # GitLens
 
@@ -575,7 +575,7 @@ Additionally, these integrations provide commands to copy the url of or open, fi
     - Adds _Toggle Review Mode_ command (`gitlens.toggleReviewMode`) to toggle Review mode
   - Adds the active mode to the **status bar** ([optional](#modes-settings- 'Jump to the Modes settings'), on by default)
 
-# Configuration
+# Configuration [#](#configuration- 'Configuration')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/settings.png" alt="GitLens Interactive Settings" />
