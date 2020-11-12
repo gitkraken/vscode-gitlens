@@ -56,7 +56,7 @@ Here are just some of the **features** that GitLens provides,
 - on-demand [**gutter changes**](#gutter-changes- 'Jump to the Gutter Changes') annotations to highlight any local (unpublished) changes or lines changed by the most recent commit
 - on-demand [**gutter heatmap**](#gutter-heatmap- 'Jump to the Gutter Heatmap') annotations to show how recently lines were changed, relative to all the other changes in the file and to now (hot vs. cold)
 - a custom, user-friendly [**interactive rebase editor**](#interactive-rebase-editor- 'Jump to the Interactive Rebase Editor') to more easily configure an interactive rebase session
-- a [**Git Command Palette**](#git-command-palette- 'Jump to the Git Command Palette') to provide guided (step-by-step) access to many common Git commands and their flags
+- a [**Git Command Palette**](#git-command-palette- 'Jump to the Git Command Palette') to provide guided (step-by-step) access to many common Git commands
 - many [**powerful commands**](#navigate-and-explore- 'Jump to the Navigate and Explorer') for exploring commits and histories, comparing and navigating revisions, stash access, repository status, etc
 - user-defined [**modes**](#modes- 'Jump to the Modes') for quickly toggling between sets of settings
 - and so much [**more**](#and-more- 'Jump to More')
@@ -431,10 +431,10 @@ The Repositories view lists opened Git repositories, and additionally provides,
 ## Git Command Palette [#](#git-command-palette- 'Git Command Palette')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/menu-git-commands.png" alt="Git Command Palette" />
+  <img src="images/docs/git-command-palette.png" alt="Git Command Palette" />
 </p>
 
-- Adds a [customizable](#git-command-palette-settings- 'Jump to the Git Command Palette settings') _Git Command Palette_ command (`gitlens.gitCommands`) to provide guided (step-by-step) access to many common Git commands and their flags
+- Adds a [customizable](#git-command-palette-settings- 'Jump to the Git Command Palette settings') _Git Command Palette_ command (`gitlens.gitCommands`) to provide guided (step-by-step) access to many common Git commands
   - Quickly navigate and execute Git commands through easy-to-use menus where each command can require an explicit confirmation step before executing
 
 ## Interactive Rebase Editor [#](#interactive-rebase-editor- 'Interactive Rebase Editor')
