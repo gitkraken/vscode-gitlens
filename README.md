@@ -409,7 +409,7 @@ The Repositories view lists opened Git repositories, and additionally provides,
 ## Gutter Changes [#](#changes- 'Gutter Changes')
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/develop/images/docs/changes.png" alt="Gutter Changes" />
+  <img src="images/docs/changes.png" alt="Gutter Changes" />
 </p>
 
 - Adds an on-demand, [customizable](#gutter-changes-settings- 'Jump to the Gutter Changes settings') and [themable](#themable-colors- 'Jump to the Themable Colors'), **gutter changes annotation** to highlight any local (unpublished) changes or lines changed by the most recent commit
