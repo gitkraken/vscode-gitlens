@@ -12,13 +12,9 @@ body {
 	grid-template-areas: 'header' 'entries' 'shortcuts' 'actions';
 	grid-template-columns: repeat(1, 1fr min-content);
 	margin: 1em auto;
-	grid-gap: 0.5em 3em;
+	grid-gap: 0.5em 0;
 	max-width: 1200px;
 	min-width: 450px;
-
-	@media all and (max-width: 768px) {
-		grid-gap: 0.5em 0;
-	}
 }
 
 header {
