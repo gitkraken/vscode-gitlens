@@ -11,6 +11,11 @@
 
 > GitLens **supercharges** the Git capabilities built into Visual Studio Code. It helps you to **visualize code authorship** at a glance via Git blame annotations and code lens, **seamlessly navigate and explore** Git repositories, **gain valuable insights** via powerful comparison commands, and so much more.
 
+<p align="center">
+  <br />
+  <a title="What's New in GitLens 11" href="https://gitlens.amod.io/#whats-new"><img src="images/docs/whats-new-button.png" alt="What's New in GitLens 11 Button" /></a>
+</p>
+
 ## Sponsor GitLens
 
 <p align="center">Sponsored by</p>
@@ -19,14 +24,6 @@
 </p>
 
 If you find GitLens useful, please consider [**sponsoring**](https://gitlens.amod.io/#sponsor) it. Also please [write a review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details 'Write a review'), [star me on GitHub](https://github.com/eamodio/vscode-gitlens 'Star me on GitHub'), and [follow me on Twitter](https://twitter.com/eamodio 'Follow me on Twitter')
-
-# What's new in GitLens 11
-
-TBD
-
-- And much more
-
-See the [release notes](https://github.com/eamodio/vscode-gitlens/blob/master/CHANGELOG.md 'Open Release Notes') for the full set of changes
 
 # GitLens
 
