@@ -169,7 +169,7 @@ export class BranchNode
 							);
 						}
 					}
-				} else if (this.root) {
+				} else {
 					children.push(
 						new BranchTrackingStatusNode(this.view, this, this.branch, status, 'none', this.root),
 					);
