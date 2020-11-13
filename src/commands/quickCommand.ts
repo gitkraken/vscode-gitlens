@@ -142,7 +142,11 @@ export abstract class QuickCommand<State = any> implements QuickPickItem {
 			: !Container.config.gitCommands.skipConfirmations.includes(this.skipConfirmKey);
 	}
 
-	isMatch(name: string) {
+	isMatch(key: string) {
+		return this.key === key;
+	}
+
+	isFuzzyMatch(name: string) {
 		return this.label === name;
 	}
 

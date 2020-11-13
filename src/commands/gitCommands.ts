@@ -715,11 +715,11 @@ class PickCommandStep implements QuickPickStep {
 			new RebaseGitCommand(args?.command === 'rebase' ? args : undefined),
 			new ResetGitCommand(args?.command === 'reset' ? args : undefined),
 			new RevertGitCommand(args?.command === 'revert' ? args : undefined),
-			new SearchGitCommand(args?.command === 'search' ? args : undefined),
+			new SearchGitCommand(args?.command === 'search' || args?.command === 'grep' ? args : undefined),
 			new ShowGitCommand(args?.command === 'show' ? args : undefined),
 			new StashGitCommand(args?.command === 'stash' ? args : undefined),
 			new StatusGitCommand(args?.command === 'status' ? args : undefined),
-			new SwitchGitCommand(args?.command === 'switch' ? args : undefined),
+			new SwitchGitCommand(args?.command === 'switch' || args?.command === 'checkout' ? args : undefined),
 			new TagGitCommand(args?.command === 'tag' ? args : undefined),
 		];
 
@@ -734,10 +734,10 @@ class PickCommandStep implements QuickPickStep {
 	find(commandName: string, fuzzy: boolean = false) {
 		if (fuzzy) {
 			const cmd = commandName.toLowerCase();
-			return this.items.find(c => c.isMatch(cmd)) ?? this.hiddenItems.find(c => c.isMatch(cmd));
+			return this.items.find(c => c.isFuzzyMatch(cmd)) ?? this.hiddenItems.find(c => c.isFuzzyMatch(cmd));
 		}
 
-		return this.items.find(c => c.key === commandName) ?? this.hiddenItems.find(c => c.key === commandName);
+		return this.items.find(c => c.isMatch(commandName)) ?? this.hiddenItems.find(c => c.isMatch(commandName));
 	}
 
 	setCommand(command: QuickCommand | undefined, via: 'menu' | 'command'): void {

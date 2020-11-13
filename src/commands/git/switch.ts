@@ -34,7 +34,7 @@ interface State {
 type SwitchStepState<T extends State = State> = ExcludeSome<StepState<T>, 'repos', string | string[] | Repository>;
 
 export interface SwitchGitCommandArgs {
-	readonly command: 'switch';
+	readonly command: 'switch' | 'checkout';
 	confirm?: boolean;
 	state?: Partial<State>;
 }
@@ -78,8 +78,12 @@ export class SwitchGitCommand extends QuickCommand<State> {
 		));
 	}
 
-	isMatch(name: string) {
-		return super.isMatch(name) || name === 'checkout';
+	isMatch(key: string) {
+		return super.isMatch(key) || key === 'checkout';
+	}
+
+	isFuzzyMatch(name: string) {
+		return super.isFuzzyMatch(name) || name === 'checkout';
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {

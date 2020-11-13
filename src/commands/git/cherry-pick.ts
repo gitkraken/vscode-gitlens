@@ -74,8 +74,8 @@ export class CherryPickGitCommand extends QuickCommand<State> {
 		state.repo.cherryPick(...state.flags, ...state.references.map(c => c.ref).reverse());
 	}
 
-	isMatch(name: string) {
-		return super.isMatch(name) || name === 'cherry';
+	isFuzzyMatch(name: string) {
+		return super.isFuzzyMatch(name) || name === 'cherry';
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {

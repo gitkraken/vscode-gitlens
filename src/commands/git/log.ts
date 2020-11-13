@@ -70,8 +70,8 @@ export class LogGitCommand extends QuickCommand<State> {
 		return false;
 	}
 
-	isMatch(name: string) {
-		return super.isMatch(name) || name === 'history';
+	isFuzzyMatch(name: string) {
+		return super.isFuzzyMatch(name) || name === 'log';
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {

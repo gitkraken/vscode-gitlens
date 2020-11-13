@@ -34,7 +34,7 @@ interface State extends Required<SearchPattern> {
 }
 
 export interface SearchGitCommandArgs {
-	readonly command: 'search';
+	readonly command: 'search' | 'grep';
 	prefillOnly?: boolean;
 	state?: Partial<State>;
 }
@@ -81,8 +81,12 @@ export class SearchGitCommand extends QuickCommand<State> {
 		return false;
 	}
 
-	isMatch(name: string) {
-		return super.isMatch(name) || name === 'grep';
+	isMatch(key: string) {
+		return super.isMatch(key) || key === 'grep';
+	}
+
+	isFuzzyMatch(name: string) {
+		return super.isFuzzyMatch(name) || name === 'grep';
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
