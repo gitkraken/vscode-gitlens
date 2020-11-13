@@ -936,7 +936,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
-- Fixes an issue where gravatar icons would sometimes not show up &mdash; thanks to [PR #579](https://github.com/eamodio/vscode-gitlens/pull/579) by sgtwilko ([@sgtwilko](https://github.com/sgtwilko))
+- Fixes an issue where gravatar icons would sometimes not show up &mdash; thanks to [PR #579](https://github.com/eamodio/vscode-gitlens/pull/579) by Ian Wilkinson ([@sgtwilko](https://github.com/sgtwilko))
 - Fixes [#33](https://github.com/eamodio/vscode-gitlens/issues/33) &mdash; Commit messages can causes markdown formatting in hovers
 - Fixes [#501](https://github.com/eamodio/vscode-gitlens/issues/501) &mdash; Azure DevOps ssh remotes aren't handled properly
 - Fixes [#523](https://github.com/eamodio/vscode-gitlens/issues/523) &mdash; File History doesn't show all commits on file
