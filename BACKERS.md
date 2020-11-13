@@ -49,3 +49,9 @@
 - Sunny Gupta
 - Vance Dubberly
 - Øyvind de Freitas Sørensen
+- Kori Roys
+- Michael Lang
+- Ian Maclean
+- Sergey Cheperis
+- Asem Hasna
+- gb
