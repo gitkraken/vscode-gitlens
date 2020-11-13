@@ -493,7 +493,7 @@
 				},
 				"gitlens.codeLens.scopesByLanguage": {
 					"deprecationMessage": "Deprecated. Use per-language `gitlens.codeLens.scopes` and `gitlens.codeLens.symbolScopes` settings instead",
-					"markdownDeprecationMessage": "Depreciated: Use the per-language `#gitlens.codeLens.scopes#` and `#gitlens.codeLens.symbolScopes#` settings instead"
+					"markdownDeprecationMessage": "Deprecated: Use the per-language `#gitlens.codeLens.scopes#` and `#gitlens.codeLens.symbolScopes#` settings instead"
 				},
 				"gitlens.codeLens.symbolScopes": {
 					"type": "array",
@@ -636,8 +636,8 @@
 					"scope": "window"
 				},
 				"gitlens.gitCommands.search.showResultsInView": {
-					"deprecationMessage": "Depreciated: This setting has been renamed to gitlens.gitCommands.search.showResultsInSideBar",
-					"markdownDeprecationMessage": "Depreciated: This setting has been renamed to `#gitlens.gitCommands.search.showResultsInSideBar#`"
+					"deprecationMessage": "Deprecated: This setting has been renamed to gitlens.gitCommands.search.showResultsInSideBar",
+					"markdownDeprecationMessage": "Deprecated: This setting has been renamed to `#gitlens.gitCommands.search.showResultsInSideBar#`"
 				},
 				"gitlens.gitCommands.search.showResultsInSideBar": {
 					"type": [
@@ -1641,19 +1641,19 @@
 				},
 				"gitlens.views.commitFileFormat": {
 					"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.label` instead",
-					"markdownDeprecationMessage": "Depreciated: Use `#gitlens.views.formats.files.label#` instead"
+					"markdownDeprecationMessage": "Deprecated: Use `#gitlens.views.formats.files.label#` instead"
 				},
 				"gitlens.views.commitFileDescriptionFormat": {
 					"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.description` instead",
-					"markdownDeprecationMessage": "Depreciated: Use `#gitlens.views.formats.files.description#` instead"
+					"markdownDeprecationMessage": "Deprecated: Use `#gitlens.views.formats.files.description#` instead"
 				},
 				"gitlens.views.commitFormat": {
 					"deprecationMessage": "Deprecated. Use `gitlens.views.formats.commits.label` instead",
-					"markdownDeprecationMessage": "Depreciated: Use `#gitlens.views.commits.files.label#` instead"
+					"markdownDeprecationMessage": "Deprecated: Use `#gitlens.views.commits.files.label#` instead"
 				},
 				"gitlens.views.commitDescriptionFormat": {
 					"deprecationMessage": "Deprecated. Use `gitlens.views.formats.commits.description` instead",
-					"markdownDeprecationMessage": "Depreciated: Use `#gitlens.views.formats.commits.description#` instead"
+					"markdownDeprecationMessage": "Deprecated: Use `#gitlens.views.formats.commits.description#` instead"
 				},
 				"gitlens.views.commits.avatars": {
 					"type": "boolean",
@@ -2081,19 +2081,19 @@
 				},
 				"gitlens.views.stashFileFormat": {
 					"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.label` instead",
-					"markdownDeprecationMessage": "Depreciated: Use `#gitlens.views.formats.files.label#` instead"
+					"markdownDeprecationMessage": "Deprecated: Use `#gitlens.views.formats.files.label#` instead"
 				},
 				"gitlens.views.stashFileDescriptionFormat": {
 					"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.description` instead",
-					"markdownDeprecationMessage": "Depreciated: Use `#gitlens.views.formats.files.description#` instead"
+					"markdownDeprecationMessage": "Deprecated: Use `#gitlens.views.formats.files.description#` instead"
 				},
 				"gitlens.views.stashFormat": {
 					"deprecationMessage": "Deprecated. Use `gitlens.views.formats.stashes.label` instead",
-					"markdownDeprecationMessage": "Depreciated: Use `#gitlens.views.stashes.files.label#` instead"
+					"markdownDeprecationMessage": "Deprecated: Use `#gitlens.views.stashes.files.label#` instead"
 				},
 				"gitlens.views.stashDescriptionFormat": {
 					"deprecationMessage": "Deprecated. Use `gitlens.views.formats.stashes.description` instead",
-					"markdownDeprecationMessage": "Depreciated: Use `#gitlens.views.formats.stashes.description#` instead"
+					"markdownDeprecationMessage": "Deprecated: Use `#gitlens.views.formats.stashes.description#` instead"
 				},
 				"gitlens.views.stashes.files.compact": {
 					"type": "boolean",
@@ -2125,11 +2125,11 @@
 				},
 				"gitlens.views.statusFileFormat": {
 					"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.label` instead",
-					"markdownDeprecationMessage": "Depreciated: Use `#gitlens.views.formats.files.label#` instead"
+					"markdownDeprecationMessage": "Deprecated: Use `#gitlens.views.formats.files.label#` instead"
 				},
 				"gitlens.views.statusFileDescriptionFormat": {
 					"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.description` instead",
-					"markdownDeprecationMessage": "Depreciated: Use `#gitlens.views.formats.files.description#` instead"
+					"markdownDeprecationMessage": "Deprecated: Use `#gitlens.views.formats.files.description#` instead"
 				},
 				"gitlens.views.tags.avatars": {
 					"type": "boolean",
