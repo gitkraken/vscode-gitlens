@@ -120,7 +120,6 @@
 		"onCommand:gitlens.toggleZenMode",
 		"onCommand:gitlens.setViewsLayout",
 		"onCommand:gitlens.showCommitSearch",
-		"onCommand:gitlens.showLastQuickPick",
 		"onCommand:gitlens.revealCommitInView",
 		"onCommand:gitlens.showCommitInView",
 		"onCommand:gitlens.showCommitsInView",
