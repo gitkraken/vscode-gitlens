@@ -59,8 +59,8 @@ Here are just some of the **features** that GitLens provides,
   - [commits](#quick-commit-access- 'Jump to Quick Commit Access') &mdash; history and search
   - [stashes](#quick-stash-access- 'Jump to Quick Stash Access')
   - [status](#quick-status-access- 'Jump to Quick Status Access') &mdash; current branch and working tree status
-- a user-friendly [**interactive rebase editor**](#interactive-rebase-editor- 'Jump to the Interactive Rebase Editor') to more easily configure an interactive rebase session
-- [**terminal links**](#terminal-links- 'Jump to Terminal Links') &mdash; ctrl + click on auto-links in the integrated terminal to quickly jump to more details for commits, branches, tags, and more
+- a user-friendly [**interactive rebase editor**](#interactive-rebase-editor- 'Jump to the Interactive Rebase Editor') to easily configure an interactive rebase session
+- [**terminal links**](#terminal-links- 'Jump to Terminal Links') &mdash; `ctrl+click` on autolinks in the integrated terminal to quickly jump to more details for commits, branches, tags, and more
 - rich [**remote provider integrations**](#remote-provider-integrations- 'Jump to Remote Provider Integrations') &mdash; GitHub, GitLab, Bitbucket, Azure DevOps
   - issue and pull request auto-linking
   - rich hover information provided for linked issues and pull requests (GitHub only)
@@ -214,7 +214,7 @@ Here are just some of the **features** that GitLens provides,
   - Adds a _Toggle File Blame Annotations_ command (`gitlens.toggleFileBlame`) with a shortcut of `alt+b` to toggle the blame annotations on and off
   - Press `Escape` to turn off the annotations
 
-## Gutter Changes [#](#changes- 'Gutter Changes')
+## Gutter Changes [#](#gutter-changes- 'Gutter Changes')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/gutter-changes.png" alt="Gutter Changes" />
@@ -256,7 +256,7 @@ The _Commits_ view lists all of the commits on the current branch, and additiona
   - **Ahead** &mdash; lists the commits that the current branch has (i.e. ahead) but are missing in the selected reference
     - **# files changed** &mdash; lists all of the files changed between the compared references
 - the current branch status &mdash; shows the upstream status of the current branch
-  - **Publish &lt;current branch&gt; to remote** &mdash; shown when the current branch has not been published to a remote
+  - **Publish &lt;current branch&gt; to &lt;remote&gt;** &mdash; shown when the current branch has not been published to a remote
   - **Up to date with &lt;remote&gt;** &mdash; shown when the current branch is up to date with the upstream remote
   - **Changes to push to &lt;remote&gt;** &mdash; lists of all the files changed in the unpublished commits when the current branch has (unpublished) commits that waiting to be pushed to the upstream remote
   - **Changes to pull from &lt;remote&gt;** &mdash; lists all of the commits waiting to be pulled when the current branch has commits that are waiting to be pulled from the upstream remote
@@ -306,6 +306,7 @@ The _Branches_ view lists all of the local branches, and additionally provides,
   - **Ahead** &mdash; lists the commits that the branch has (i.e. ahead) but are missing in the selected reference
     - **# files changed** &mdash; lists all of the files changed between the compared references
 - the branch status &mdash; shows the upstream status of the branch
+  - **Publish &lt;branch&gt; to &lt;remote&gt;** &mdash; shown when the current branch has not been published to a remote
   - **Changes to push to &lt;remote&gt;** &mdash; lists of all the files changed in the unpublished commits when the branch has (unpublished) commits that waiting to be pushed to the upstream remote
   - **Changes to pull from &lt;remote&gt;** &mdash; lists all of the commits waiting to be pulled when the branch has commits that are waiting to be pulled from the upstream remote
 - any associated pull request &mdash; shows any pull request associated with the branch
@@ -377,8 +378,7 @@ The _Contributors_ view lists all of the contributors, and additionally provides
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/search-and-compare-view.png" alt="Search & Compare view" />
 </p>
 
-A [customizable](#search-&-compare-view-settings- 'Jump to the Search & Compare view settings'), hidden by default, view to search and explore commit histories by message, author, files, id, etc, or visualize comparisons between
-branches, tags, commits, and more
+A [customizable](#search-&-compare-view-settings- 'Jump to the Search & Compare view settings'), hidden by default, view to search and explore commit histories by message, author, files, id, etc, or visualize comparisons between branches, tags, commits, and more
 
 The _Search & Compare_ view lists pinnable (saved) results for searching commit histories or for comparison operations, and additionally provides,
 
@@ -414,7 +414,7 @@ The _Search & Compare_ view lists pinnable (saved) results for searching commit 
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/repositories-view.png" alt="Repositories view" />
 </p>
 
-A [customizable](#repositories-view-settings- 'Jump to the Repositories view settings'), hidden by default (as it has been superseded by the new views), view to visualize, navigate, and explore Git repositories
+A [customizable](#repositories-view-settings- 'Jump to the Repositories view settings'), hidden by default as it has been superseded by the new views, view to visualize, navigate, and explore Git repositories
 
 The Repositories view lists opened Git repositories, and additionally provides,
 
@@ -527,14 +527,14 @@ The Repositories view lists opened Git repositories, and additionally provides,
   <img src="images/docs/terminal-links.gif" alt="Terminal Links" />
 </p>
 
-- Adds auto-links for branches, tags, and commit ranges in the integrated terminal to quickly explore their commit history
-- Adds auto-links for commits in the integrated terminal to quickly explore the commit and take action upon it
+- Adds autolinks for branches, tags, and commit ranges in the integrated terminal to quickly explore their commit history
+- Adds autolinks for commits in the integrated terminal to quickly explore the commit and take action upon it
 
 ## Remote Provider Integrations [#](#remote-provider-integrations- 'Remote Provider Integrations')
 
 GitLens provides rich integrations with many remote providers, including GitHub, GitHub Enterprise, GitLab, Bitbucket, Bitbucket Server, Azure DevOps. You can also define [custom remote providers](#custom-remotes-settings 'Jump to the Custom Remotes settings') or [remote providers with custom domains](#custom-remotes-settings 'Jump to the Custom Remotes settings') as well.
 
-Basic integrations provide issue and pull request auto-linking, while richer integrations (e.g. GitHub) can provide rich hover information provided for auto-linked issues and pull requests, and associate pull requests with branches and commits.
+Basic integrations provide issue and pull request auto-linking, while richer integrations (e.g. GitHub) can provide rich hover information provided for auto-linked issues and pull requests, associate pull requests with branches and commits, and provide avatars.
 
 Additionally, these integrations provide commands to copy the url of or open, files, commits, branches, and the repository on the remote provider.
 
@@ -560,6 +560,8 @@ Additionally, these integrations provide commands to copy the url of or open, fi
 
 - Adds a _Copy SHA_ command (`gitlens.copyShaToClipboard`) to copy the commit id (sha) of the current line to the clipboard or from the most recent commit to the current branch, if there is no current editor
 - Adds a _Copy Message_ command (`gitlens.copyMessageToClipboard`) to copy the commit message of the current line to the clipboard or from the most recent commit to the current branch, if there is no current editor
+
+- Adds a _Switch to Another Branch_ (`gitlens.views.switchToAnotherBranch`) command &mdash; to quickly switch the current branch
 
 - Adds a _Compare HEAD with..._ command (`gitlens.diffHeadWith`) to compare the index (HEAD) with the selected reference
 - Adds a _Compare Working Tree with..._ command (`gitlens.diffWorkingWith`) to compare the working tree with the selected reference
