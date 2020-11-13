@@ -7571,7 +7571,7 @@
 			},
 			{
 				"id": "gitlens/commit/copy",
-				"label": "Copy"
+				"label": "Copy as"
 			},
 			{
 				"id": "gitlens/commit/openChanges",
@@ -7579,7 +7579,7 @@
 			},
 			{
 				"id": "gitlens/commit/file/copy",
-				"label": "Copy"
+				"label": "Copy as"
 			},
 			{
 				"id": "gitlens/commit/file/openChanges",
@@ -7595,7 +7595,7 @@
 			},
 			{
 				"id": "gitlens/editor/context/copy",
-				"label": "Copy"
+				"label": "Copy as"
 			},
 			{
 				"id": "gitlens/editor/context/openChanges",
