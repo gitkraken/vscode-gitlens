@@ -82,7 +82,7 @@ Here are just some of the **features** that GitLens provides,
 - Adds an _Open Line Changes with Previous Revision_ command (`gitlens.diffLineWithPrevious`) to compare the current file or revision with the previous line commit revision
 - Adds an _Open Changes with Working File_ command (`gitlens.diffWithWorking`) to compare the current revision or most recent commit revision of the current file with the working tree
 - Adds an _Open Line Changes with Working File_ command (`gitlens.diffLineWithWorking`) to compare the commit revision of the current line with the working tree
-- Adds an _Open Changes with Branch or Tag..._ command (`gitlens.diffWithRef`) to compare the current file or revision with another revision of the same file on the selected reference
+- Adds an _Open Changes with Branch or Tag..._ command (`gitlens.diffWithRevisionFrom`) to compare the current file or revision with another revision of the same file on the selected reference
 - Adds an _Open Changes with Revision..._ command (`gitlens.diffWithRevision`) to compare the current file or revision with another revision of the same file
 
 ## Current Line Blame [#](#current-line-blame- 'Current Line Blame')
@@ -556,22 +556,24 @@ Additionally, these integrations provide commands to copy the url of or open, fi
 
 ## Powerful Commands [#](#powerful-commands- 'Powerful Commands')
 
-### TODO@eamodio Needs updating
+- Adds an _Add Co-authors_ command (`gitlens.addAuthors`) to add a co-author to the commit message input box
+
+- Adds a _Copy SHA_ command (`gitlens.copyShaToClipboard`) to copy the commit id (sha) of the current line to the clipboard or from the most recent commit to the current branch, if there is no current editor
+- Adds a _Copy Message_ command (`gitlens.copyMessageToClipboard`) to copy the commit message of the current line to the clipboard or from the most recent commit to the current branch, if there is no current editor
 
 - Adds a _Compare HEAD with..._ command (`gitlens.diffHeadWith`) to compare the index (HEAD) with the selected reference
 - Adds a _Compare Working Tree with..._ command (`gitlens.diffWorkingWith`) to compare the working tree with the selected reference
-- Adds a _Directory Compare Working Tree with..._ command (`gitlens.diffDirectory`) to open the configured Git difftool to compare the working tree with the selected reference
-- Adds a _Copy SHA_ command (`gitlens.copyShaToClipboard`) to copy the commit id (sha) of the current line to the clipboard or from the most recent commit to the current branch, if there is no current editor
-- Adds a _Copy Message_ command (`gitlens.copyMessageToClipboard`) to copy the commit message of the current line to the clipboard or from the most recent commit to the current branch, if there is no current editor
-- Adds a _Copy Remote Commit Url_ command (`gitlens.copyRemoteCommitUrl`) to copy the remote url of the commit of the current line to the clipboard
-- Adds a _Copy Remote File Url_ command (`gitlens.copyRemoteFileUrlToClipboard`) to copy the remote url of the current file and line to the clipboard
-- Adds an _Open Working File"_ command (`gitlens.openWorkingFile`) to open the working file for the current file revision
+
+- Adds an _Open Changes (difftool)_ command (`gitlens.externalDiff`) to open the changes of a file or set of files with the configured git difftool
+- Adds an _Open All Changes (difftool)_ command (`gitlens.externalDiffAll`) to open all working changes with the configured git difftool
+
+- Adds an _Open Directory Compare (difftool)_ command (`gitlens.diffDirectoryWithHead`) to compare the working tree with HEAD with the configured Git difftool
+- Adds an _Open Directory Compare (difftool) with..._ command (`gitlens.diffDirectory`) to compare the working tree with the selected reference with the configured Git difftool
+
+- Adds an _Open File_ command (`gitlens.openWorkingFile`) to open the working file for the current file revision
 - Adds an _Open Revision..._ command (`gitlens.openFileRevision`) to open the selected revision for the current file
 - Adds an _Open Revision from..._ command (`gitlens.openFileRevisionFrom`) to open the revision of the current file from the selected reference
-- Adds an _Open Changes (with difftool)_ command (`gitlens.externalDiff`) to the source control group and source control resource context menus to open the changes of a file or set of files with the configured git difftool
-- Adds an _Open All Changes (with difftool)_ command (`gitlens.externalDiffAll`) to open all working changes with the configured git difftool
-  - Also adds the command to the Source Control group context menu
-- Adds an _Directory Compare All Changes_ command (`gitlens.diffDirectoryWithHead`) to the source control groups to open the configured Git difftool to compare the working tree with HEAD
+
 - Adds a _Open Changed Files_ command (`gitlens.openChangedFiles`) to open any files with working tree changes
 - Adds a _Close Unchanged Files_ command (`gitlens.closeUnchangedFiles`) to close any files without working tree changes
 
