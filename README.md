@@ -524,7 +524,7 @@ The Repositories view lists opened Git repositories, and additionally provides,
 ## Terminal Links [#](#terminal-links- 'Terminal Links')
 
 <p align="center">
-  <img src="images/docs/terminal-links.gif" alt="Terminal Links" />
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/terminal-links.gif" alt="Terminal Links" />
 </p>
 
 - Adds autolinks for branches, tags, and commit ranges in the integrated terminal to quickly explore their commit history
