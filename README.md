@@ -34,18 +34,18 @@ If you find GitLens useful, please consider [**sponsoring**](https://gitlens.amo
 
 GitLens simply helps you **better understand code**. Quickly glimpse into whom, why, and when a line or code block was changed. Jump back through history to **gain further insights** as to how and why the code evolved. Effortlessly explore the history and evolution of a codebase.
 
-GitLens is **powerful**, **feature rich**, and [highly customizable](#gitlens-settings- 'Jump to the GitLens settings docs') to meet your needs. Do you find code lens intrusive or the current line blame annotation distracting &mdash; no problem, quickly turn them off or change how they behave via the interactive [_GitLens Settings_ editor](#configuration 'Jump to Configuration'). For advanced customizations, refer to the [GitLens docs](#gitlens-settings- 'Jump to the GitLens settings') and edit your [user settings](https://code.visualstudio.com/docs/getstarted/settings 'Open User settings').
+GitLens is **powerful**, **feature rich**, and [highly customizable](#gitlens-settings- 'Jump to the GitLens settings docs') to meet your needs. Do you find code lens intrusive or the current line blame annotation distracting &mdash; no problem, quickly turn them off or change how they behave via the interactive [_GitLens Settings_ editor](#configuration 'Jump to Configuration'). For advanced customizations, refer to the [GitLens docs](#gitlens-settings- 'Jump to GitLens settings') and edit your [user settings](https://code.visualstudio.com/docs/getstarted/settings 'Open User settings').
 
 Here are just some of the **features** that GitLens provides,
 
-- effortless [**revision navigation**](#revision-navigation- 'Jump to the Revision Navigation') (backwards and forwards) through the history of a file
-- an unobtrusive [**current line blame**](#current-line-blame- 'Jump to the Current Line Blame') annotation at the end of the line showing the commit and author who last modified the line, with more detailed blame information accessible on [**hover**](#hovers- 'Jump to Hovers')
-- [**authorship code lens**](#git-code-lens- 'Jump to the Git Code Lens') showing the most recent commit and # of authors to the top of files and/or on code blocks
-- a [**status bar blame**](#status-bar-blame- 'Jump to the Status Bar Blame') annotation showing the commit and author who last modified the current line
+- effortless [**revision navigation**](#revision-navigation- 'Jump to Revision Navigation') (backwards and forwards) through the history of a file
+- an unobtrusive [**current line blame**](#current-line-blame- 'Jump to Current Line Blame') annotation at the end of the line showing the commit and author who last modified the line, with more detailed blame information accessible on [**hover**](#hovers- 'Jump to Hovers')
+- [**authorship code lens**](#git-code-lens- 'Jump to Git Code Lens') showing the most recent commit and # of authors to the top of files and/or on code blocks
+- a [**status bar blame**](#status-bar-blame- 'Jump to Status Bar Blame') annotation showing the commit and author who last modified the current line
 - on-demand **file annotations** in the editor gutter, including
-  - [**blame**](#gutter-blame- 'Jump to the Gutter Blame') &mdash; shows the commit and author who last modified each line of a file
-  - [**changes**](#gutter-changes- 'Jump to the Gutter Changes') &mdash; highlights any local (unpublished) changes or lines changed by the most recent commit
-  - [**heatmap**](#gutter-heatmap- 'Jump to the Gutter Heatmap') &mdash; shows how recently lines were changed, relative to all the other changes in the file and to now (hot vs. cold)
+  - [**blame**](#gutter-blame- 'Jump to Gutter Blame') &mdash; shows the commit and author who last modified each line of a file
+  - [**changes**](#gutter-changes- 'Jump to Gutter Changes') &mdash; highlights any local (unpublished) changes or lines changed by the most recent commit
+  - [**heatmap**](#gutter-heatmap- 'Jump to Gutter Heatmap') &mdash; shows how recently lines were changed, relative to all the other changes in the file and to now (hot vs. cold)
 - many rich **Side Bar views**
   - a [**_Commits_ view**](#commits-view- 'Jump to the Commits view') to visualize, explore, and manage Git commits
   - a [**_File History_ view**](#file-history-view- 'Jump to the File History view') to visualize, navigate, and explore the revision history of the current file or just the selected lines of the current file and explore the revision history of the selected lines of current file
@@ -56,16 +56,17 @@ Here are just some of the **features** that GitLens provides,
   - a [**_Contributors_ view**](#contributors-view- 'Jump to the Contributors view') to visualize, navigate, and explore contributors
   - a [**_Search & Compare_ view**](#search-&-compare-view- 'Jump to the Search & Compare view') to search and explore commit histories by message, author, files, id, etc, or visualize comparisons between branches, tags, commits, and more
 - a [**Git Command Palette**](#git-command-palette- 'Jump to the Git Command Palette') to provide guided (step-by-step) access to many common Git commands, as well as quick access to
-  - [commits](#quick-commit-access- 'Jump to the Quick Commit Access') &mdash; history and search
-  - [stashes](#quick-stash-access- 'Jump to the Quick Stash Access')
-  - [status](#quick-status-access- 'Jump to the Quick Status Access') &mdash; current branch and working tree status
+  - [commits](#quick-commit-access- 'Jump to Quick Commit Access') &mdash; history and search
+  - [stashes](#quick-stash-access- 'Jump to Quick Stash Access')
+  - [status](#quick-status-access- 'Jump to Quick Status Access') &mdash; current branch and working tree status
 - a user-friendly [**interactive rebase editor**](#interactive-rebase-editor- 'Jump to the Interactive Rebase Editor') to more easily configure an interactive rebase session
-- rich [**remote provider integrations**](#remote-provider-integrations- 'Remote Provider Integrations') &mdash; GitHub, GitLab, Bitbucket, Azure DevOps
+- [**terminal links**](#terminal-links- 'Jump to Terminal Links') &mdash; ctrl + click on auto-links in the integrated terminal to quickly jump to more details for commits, branches, tags, and more
+- rich [**remote provider integrations**](#remote-provider-integrations- 'Jump to Remote Provider Integrations') &mdash; GitHub, GitLab, Bitbucket, Azure DevOps
   - issue and pull request auto-linking
   - rich hover information provided for linked issues and pull requests (GitHub only)
   - associates pull requests with branches and commits (GitHub only)
-- many [**powerful commands**](#powerful-commands- 'Jump to the Powerful Commands') for navigating and comparing revisions, and more
-- user-defined [**modes**](#modes- 'Jump to the Modes') for quickly toggling between sets of settings
+- many [**powerful commands**](#powerful-commands- 'Jump to Powerful Commands') for navigating and comparing revisions, and more
+- user-defined [**modes**](#modes- 'Jump to Modes') for quickly toggling between sets of settings
 - and so much more 😁
 
 # Features
@@ -206,10 +207,10 @@ Here are just some of the **features** that GitLens provides,
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/gutter-blame.png" alt="Gutter Blame">
 </p>
 
-- Adds on-demand, [customizable](#gutter-blame-settings- 'Jump to the Gutter Blame settings'), and [themable](#themable-colors- 'Jump to the Themable Colors'), **gutter blame annotations** to show the commit and author who last modified each line of a file
+- Adds on-demand, [customizable](#gutter-blame-settings- 'Jump to the Gutter Blame settings'), and [themable](#themable-colors- 'Jump to Themable Colors'), **gutter blame annotations** to show the commit and author who last modified each line of a file
   - Contains the commit message and date, by [default](#gutter-blame-settings- 'Jump to the Gutter Blame settings')
   - Adds a **heatmap** (age) indicator on right edge (by [default](#gutter-blame-settings- 'Jump to the Gutter Blame settings')) of the gutter to provide an easy, at-a-glance way to tell how recently lines were changed ([optional](#gutter-blame-settings- 'Jump to the Gutter Blame settings'), on by default)
-    - See the [gutter heatmap](#gutter-Heatmap- 'Jump to the Gutter Heatmap') section below for more details
+    - See the [gutter heatmap](#gutter-Heatmap- 'Jump to Gutter Heatmap') section below for more details
   - Adds a _Toggle File Blame Annotations_ command (`gitlens.toggleFileBlame`) with a shortcut of `alt+b` to toggle the blame annotations on and off
   - Press `Escape` to turn off the annotations
 
@@ -219,7 +220,7 @@ Here are just some of the **features** that GitLens provides,
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/gutter-changes.png" alt="Gutter Changes" />
 </p>
 
-- Adds an on-demand, [customizable](#gutter-changes-settings- 'Jump to the Gutter Changes settings') and [themable](#themable-colors- 'Jump to the Themable Colors'), **gutter changes annotation** to highlight any local (unpublished) changes or lines changed by the most recent commit
+- Adds an on-demand, [customizable](#gutter-changes-settings- 'Jump to the Gutter Changes settings') and [themable](#themable-colors- 'Jump to Themable Colors'), **gutter changes annotation** to highlight any local (unpublished) changes or lines changed by the most recent commit
   - Adds _Toggle File Changes Annotations_ command (`gitlens.toggleFileChanges`) to toggle the changes annotations on and off
   - Press `Escape` to turn off the annotations
 
@@ -443,30 +444,6 @@ The Repositories view lists opened Git repositories, and additionally provides,
 - the stashes &mdash; similar to the [Stashes view](#stashes-view- 'Stashes view')
 - the tags &mdash; similar to the [Tags view](#tags-view- 'Tags view')
 
-## Remote Provider Integrations [#](#remote-provider-integrations- 'Remote Provider Integrations')
-
-GitLens provides rich integrations with many remote providers, including GitHub, GitHub Enterprise, GitLab, Bitbucket, Bitbucket Server, Azure DevOps. You can also define [custom remote providers](#custom-remotes-settings 'Jump to Custom Remotes settings') or [remote providers with custom domains](#custom-remotes-settings 'Jump to Custom Remotes settings') as well.
-
-Basic integrations provide issue and pull request auto-linking, while richer integrations (e.g. GitHub) can provide rich hover information provided for auto-linked issues and pull requests, and associate pull requests with branches and commits.
-
-Additionally, these integrations provide commands to copy the url of or open, files, commits, branches, and the repository on the remote provider.
-
-- _Open File from Remote_ command (`gitlens.openFileFromRemote`) &mdash; opens the local file from a url of a file on a remote provider
-- _Open File on Remote_ command (`gitlens.openFileOnRemote`) &mdash; opens a file or revision on the remote provider
-- _Copy Remote File Url_ command (`gitlens.copyRemoteFileUrlToClipboard`) &mdash; copies the url of a file or revision on the remote provider
-- _Open Commit on Remote_ command (`gitlens.openCommitOnRemote`) &mdash; opens a commit on the remote provider
-- _Copy Remote Commit Url_ command (`gitlens.copyRemoteCommitUrl`) &mdash; copies the url of a commit on the remote provider
-- _Open Branch on Remote_ command (`gitlens.openBranchOnRemote`) &mdash; opens the branch on the remote provider
-- _Copy Remote Branch Url_ command (`gitlens.copyRemoteBranchUrl`) &mdash; copies the url of a branch on the remote provider
-- _Open Branches on Remote_ command (`gitlens.openBranchesOnRemote`) &mdash; opens the branches on the remote provider
-- _Copy Remote Branches Url_ command (`gitlens.copyRemoteBranchesUrl`) &mdash; copies the url of the branches on the remote provider
-- _Open Comparison on Remote_ command (`gitlens.openComparisonOnRemote`) &mdash; opens the comparison on the remote provider
-- _Copy Remote Comparison Url_ command (`gitlens.copyRemoteComparisonUrl`) &mdash; copies the url of the comparison on the remote provider
-- _Open Pull Request_ command (`gitlens.openPullRequestOnRemote`) &mdash; opens the pull request on the remote provider
-- _Copy Pull Request Url_ command (`gitlens.copyRemotePullRequestUrl`) &mdash; copies the url of the pull request on the remote provider
-- _Open Repository on Remote_ command (`gitlens.openRepoOnRemote`) &mdash; opens the repository on the remote provider
-- _Copy Remote Repository Url_ command (`gitlens.copyRemoteRepositoryUrl`) &mdash; copies the url of the repository on the remote provider
-
 ## Git Command Palette [#](#git-command-palette- 'Git Command Palette')
 
 <p align="center">
@@ -543,6 +520,39 @@ Additionally, these integrations provide commands to copy the url of or open, fi
 - Adds a user-friendly interactive rebase editor to more easily configure an interactive rebase session
   - Quickly re-order, edit, squash, and drop commits
   - Includes drag & drop support!
+
+## Terminal Links [#](#terminal-links- 'Terminal Links')
+
+<p align="center">
+  <img src="images/docs/terminal-links.gif" alt="Terminal Links" />
+</p>
+
+- Adds auto-links for branches, tags, and commit ranges in the integrated terminal to quickly explore their commit history
+- Adds auto-links for commits in the integrated terminal to quickly explore the commit and take action upon it
+
+## Remote Provider Integrations [#](#remote-provider-integrations- 'Remote Provider Integrations')
+
+GitLens provides rich integrations with many remote providers, including GitHub, GitHub Enterprise, GitLab, Bitbucket, Bitbucket Server, Azure DevOps. You can also define [custom remote providers](#custom-remotes-settings 'Jump to the Custom Remotes settings') or [remote providers with custom domains](#custom-remotes-settings 'Jump to the Custom Remotes settings') as well.
+
+Basic integrations provide issue and pull request auto-linking, while richer integrations (e.g. GitHub) can provide rich hover information provided for auto-linked issues and pull requests, and associate pull requests with branches and commits.
+
+Additionally, these integrations provide commands to copy the url of or open, files, commits, branches, and the repository on the remote provider.
+
+- _Open File from Remote_ command (`gitlens.openFileFromRemote`) &mdash; opens the local file from a url of a file on a remote provider
+- _Open File on Remote_ command (`gitlens.openFileOnRemote`) &mdash; opens a file or revision on the remote provider
+- _Copy Remote File Url_ command (`gitlens.copyRemoteFileUrlToClipboard`) &mdash; copies the url of a file or revision on the remote provider
+- _Open Commit on Remote_ command (`gitlens.openCommitOnRemote`) &mdash; opens a commit on the remote provider
+- _Copy Remote Commit Url_ command (`gitlens.copyRemoteCommitUrl`) &mdash; copies the url of a commit on the remote provider
+- _Open Branch on Remote_ command (`gitlens.openBranchOnRemote`) &mdash; opens the branch on the remote provider
+- _Copy Remote Branch Url_ command (`gitlens.copyRemoteBranchUrl`) &mdash; copies the url of a branch on the remote provider
+- _Open Branches on Remote_ command (`gitlens.openBranchesOnRemote`) &mdash; opens the branches on the remote provider
+- _Copy Remote Branches Url_ command (`gitlens.copyRemoteBranchesUrl`) &mdash; copies the url of the branches on the remote provider
+- _Open Comparison on Remote_ command (`gitlens.openComparisonOnRemote`) &mdash; opens the comparison on the remote provider
+- _Copy Remote Comparison Url_ command (`gitlens.copyRemoteComparisonUrl`) &mdash; copies the url of the comparison on the remote provider
+- _Open Pull Request_ command (`gitlens.openPullRequestOnRemote`) &mdash; opens the pull request on the remote provider
+- _Copy Pull Request Url_ command (`gitlens.copyRemotePullRequestUrl`) &mdash; copies the url of the pull request on the remote provider
+- _Open Repository on Remote_ command (`gitlens.openRepoOnRemote`) &mdash; opens the repository on the remote provider
+- _Copy Remote Repository Url_ command (`gitlens.copyRemoteRepositoryUrl`) &mdash; copies the url of the repository on the remote provider
 
 ## Powerful Commands [#](#powerful-commands- 'Powerful Commands')
 
