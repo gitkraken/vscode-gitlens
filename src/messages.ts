@@ -95,7 +95,7 @@ export class Messages {
 	}
 
 	static async showWhatsNewMessage(version: string) {
-		const actions: MessageItem[] = [{ title: "What's New" }, { title: 'Release Notes' }, { title: '❤' }];
+		const actions: MessageItem[] = [{ title: "What's New" }, { title: '❤ Sponsor' }];
 
 		const result = await Messages.showMessage(
 			'info',
@@ -109,8 +109,6 @@ export class Messages {
 			if (result === actions[0]) {
 				await env.openExternal(Uri.parse('https://gitlens.amod.io/#whats-new'));
 			} else if (result === actions[1]) {
-				await env.openExternal(Uri.parse('https://github.com/eamodio/vscode-gitlens/blob/main/CHANGELOG.md'));
-			} else if (result === actions[2]) {
 				await env.openExternal(Uri.parse('https://gitlens.amod.io/#sponsor'));
 			}
 		}
