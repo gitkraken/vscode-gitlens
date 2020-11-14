@@ -54,7 +54,7 @@ Here are just some of the **features** that GitLens provides,
   - a [**_Stashes_ view**](#stashes-view- 'Jump to the Stashes view') to visualize, explore, and manage Git stashes
   - a [**_Tags_ view**](#tags-view- 'Jump to the Tags view') to visualize, explore, and manage Git tags
   - a [**_Contributors_ view**](#contributors-view- 'Jump to the Contributors view') to visualize, navigate, and explore contributors
-  - a [**_Search & Compare_ view**](#search-&-compare-view- 'Jump to the Search & Compare view') to search and explore commit histories by message, author, files, id, etc, or visualize comparisons between branches, tags, commits, and more
+  - a [**_Search & Compare_ view**](#search--compare-view- 'Jump to the Search & Compare view') to search and explore commit histories by message, author, files, id, etc, or visualize comparisons between branches, tags, commits, and more
 - a [**Git Command Palette**](#git-command-palette- 'Jump to the Git Command Palette') to provide guided (step-by-step) access to many common Git commands, as well as quick access to
   - [commits](#quick-commit-access- 'Jump to Quick Commit Access') &mdash; history and search
   - [stashes](#quick-stash-access- 'Jump to Quick Stash Access')
@@ -372,13 +372,13 @@ The _Contributors_ view lists all of the contributors, and additionally provides
 
 ---
 
-### Search & Compare view [#](#search-&-compare-view- 'Search & Compare view')
+### Search & Compare view [#](#search--compare-view- 'Search & Compare view')
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/search-and-compare-view.png" alt="Search & Compare view" />
 </p>
 
-A [customizable](#search-&-compare-view-settings- 'Jump to the Search & Compare view settings'), hidden by default, view to search and explore commit histories by message, author, files, id, etc, or visualize comparisons between branches, tags, commits, and more
+A [customizable](#search--compare-view-settings- 'Jump to the Search & Compare view settings'), hidden by default, view to search and explore commit histories by message, author, files, id, etc, or visualize comparisons between branches, tags, commits, and more
 
 The _Search & Compare_ view lists pinnable (saved) results for searching commit histories or for comparison operations, and additionally provides,
 
