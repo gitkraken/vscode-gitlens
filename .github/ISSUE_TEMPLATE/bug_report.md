@@ -11,8 +11,9 @@ assignees: ''
 -->
 
 - GitLens Version:
-  <!-- Use Help > Report Issue to prefill these. -->
-- VSCode Version:
+- Git Version: `run git --version`
+<!-- Use Help > Report Issue to prefill these. -->
+- VSCode Version: `run code --version`
 - OS Version:
 
 Steps to Reproduce:
