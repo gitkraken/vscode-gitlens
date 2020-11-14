@@ -40,7 +40,7 @@ Here are just some of the **features** that GitLens provides,
 
 - effortless [**revision navigation**](#revision-navigation- 'Jump to Revision Navigation') (backwards and forwards) through the history of a file
 - an unobtrusive [**current line blame**](#current-line-blame- 'Jump to Current Line Blame') annotation at the end of the line showing the commit and author who last modified the line, with more detailed blame information accessible on [**hover**](#hovers- 'Jump to Hovers')
-- [**authorship code lens**](#git-code-lens- 'Jump to Git Code Lens') showing the most recent commit and # of authors to the top of files and/or on code blocks
+- [**authorship code lens**](#git-code-lens- 'Jump to Git Code Lens') showing the most recent commit and number of authors at the top of files and/or on code blocks
 - a [**status bar blame**](#status-bar-blame- 'Jump to Status Bar Blame') annotation showing the commit and author who last modified the current line
 - on-demand **file annotations** in the editor gutter, including
   - [**blame**](#gutter-blame- 'Jump to Gutter Blame') &mdash; shows the commit and author who last modified each line of a file
