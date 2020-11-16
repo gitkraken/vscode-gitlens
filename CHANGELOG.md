@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- Fixes [#1150](https://github.com/eamodio/vscode-gitlens/issues/1150) - Cannot read property 'provider' of undefined
+
 ## [11.0.0] - 2020-11-14
 
 ### Added

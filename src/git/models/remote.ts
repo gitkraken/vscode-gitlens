@@ -12,6 +12,8 @@ export class GitRemote<
 	TProvider extends RemoteProvider | undefined = RemoteProvider | RemoteProviderWithApi | undefined
 > {
 	static getHighlanderProviders(remotes: GitRemote<RemoteProvider>[]) {
+		if (remotes.length === 0) return undefined;
+
 		const remote = remotes.length === 1 ? remotes[0] : remotes.find(r => r.default);
 		if (remote != null) return [remote.provider];
 
@@ -22,6 +24,8 @@ export class GitRemote<
 	}
 
 	static getHighlanderProviderName(remotes: GitRemote<RemoteProvider>[]) {
+		if (remotes.length === 0) return undefined;
+
 		const remote = remotes.length === 1 ? remotes[0] : remotes.find(r => r.default);
 		if (remote != null) return remote.provider.name;
 
