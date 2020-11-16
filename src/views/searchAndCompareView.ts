@@ -180,7 +180,7 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 		void (await this.view.compare(repoPath, selectedRef.ref, ref));
 	}
 
-	async selectForCompare(repoPath?: string, ref?: string | NamedRef) {
+	async selectForCompare(repoPath?: string, ref?: string | NamedRef, options?: { prompt?: boolean }) {
 		if (repoPath == null) {
 			repoPath = await getRepoPathOrPrompt('Compare');
 		}
@@ -188,7 +188,7 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 
 		this.removeComparePicker(true);
 
-		let autoCompare = false;
+		let prompt = options?.prompt ?? false;
 		if (ref == null) {
 			const pick = await ReferencePicker.show(repoPath, 'Compare', 'Choose a reference to compare', {
 				allowEnteringRefs: true,
@@ -210,7 +210,7 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 
 			ref = pick.ref;
 
-			autoCompare = true;
+			prompt = true;
 		}
 
 		this.comparePicker = new ComparePickerNode(this.view, this, {
@@ -225,7 +225,7 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 
 		await this.view.reveal(this.comparePicker, { focus: false, select: true });
 
-		if (autoCompare) {
+		if (prompt) {
 			await this.compareWithSelected();
 		}
 	}
@@ -359,8 +359,8 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 		void this.ensureRoot().compareWithSelected(repoPath, ref);
 	}
 
-	selectForCompare(repoPath?: string, ref?: string | NamedRef) {
-		void this.ensureRoot().selectForCompare(repoPath, ref);
+	selectForCompare(repoPath?: string, ref?: string | NamedRef, options?: { prompt?: boolean }) {
+		void this.ensureRoot().selectForCompare(repoPath, ref, options);
 	}
 
 	async search(
