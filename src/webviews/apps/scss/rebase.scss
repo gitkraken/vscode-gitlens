@@ -280,6 +280,8 @@ h4 {
 .entry-avatar {
 	flex: auto 0 0;
 	margin: 0 -5px 0 0;
+	max-height: 16px;
+	max-width: 16px;
 
 	.entry--squash &,
 	.entry--fixup &,

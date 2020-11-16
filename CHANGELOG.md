@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- Fixes [#1166](https://github.com/eamodio/vscode-gitlens/issues/1166) - Enormous avatars in interactive rebase view
+
 ## [11.0.1] - 2020-11-16
 
 ### Added
