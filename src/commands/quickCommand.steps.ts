@@ -68,6 +68,7 @@ import {
 	OpenChangedFilesCommandQuickPickItem,
 	OpenRemoteResourceCommandQuickPickItem,
 	ReferencesQuickPickItem,
+	RefQuickPickItem,
 	RepositoryQuickPickItem,
 	RevealInSideBarQuickPickItem,
 	SearchForCommitQuickPickItem,
@@ -255,7 +256,7 @@ export async function getBranchesAndOrTags(
 	]);
 }
 
-export function getValidateGitReferenceFn(repos: Repository | Repository[]) {
+export function getValidateGitReferenceFn(repos: Repository | Repository[], options?: { ranges?: boolean }) {
 	return async (quickpick: QuickPick<any>, value: string) => {
 		let inRefMode = false;
 		if (value.startsWith('#')) {
@@ -267,6 +268,13 @@ export function getValidateGitReferenceFn(repos: Repository | Repository[]) {
 			if (repos.length !== 1) return false;
 
 			repos = repos[0];
+		}
+
+		if (inRefMode && options?.ranges && GitRevision.isRange(value)) {
+			quickpick.items = [
+				RefQuickPickItem.create(value, repos.path, true, { alwaysShow: true, ref: false, icon: false }),
+			];
+			return true;
 		}
 
 		if (!(await Container.git.validateReference(repos.path, value))) {
@@ -510,6 +518,7 @@ export async function* pickBranchOrTagStep<
 		titleContext,
 		value,
 		additionalButtons,
+		ranges,
 	}: {
 		filter?: { branches?: (b: GitBranch) => boolean; tags?: (t: GitTag) => boolean };
 		picked: string | string[] | undefined;
@@ -517,6 +526,7 @@ export async function* pickBranchOrTagStep<
 		titleContext?: string;
 		value: string | undefined;
 		additionalButtons?: QuickInputButton[];
+		ranges?: boolean;
 	},
 ): StepResultGenerator<GitReference> {
 	context.showTags = true;
@@ -606,7 +616,7 @@ export async function* pickBranchOrTagStep<
 				void GitActions.Commit.reveal(item, { select: true, focus: false, expand: true });
 			}
 		},
-		onValidateValue: getValidateGitReferenceFn(state.repo),
+		onValidateValue: getValidateGitReferenceFn(state.repo, { ranges: ranges }),
 	});
 	const selection: StepSelection<typeof step> = yield step;
 	return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;

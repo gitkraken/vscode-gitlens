@@ -115,6 +115,7 @@ export class LogGitCommand extends QuickCommand<State> {
 					placeholder: 'Choose a branch or tag to show its commit history',
 					picked: context.selectedBranchOrTag?.ref,
 					value: context.selectedBranchOrTag == null ? state.reference?.ref : undefined,
+					ranges: true,
 				});
 				if (result === StepResult.Break) {
 					// If we skipped the previous step, make sure we back up past it

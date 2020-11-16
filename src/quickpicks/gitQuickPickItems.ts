@@ -273,6 +273,19 @@ export namespace RefQuickPickItem {
 
 		const gitRef = GitReference.create(ref, repoPath);
 
+		if (GitRevision.isRange(ref)) {
+			return {
+				label: `Range ${gitRef.name}`,
+				description: '',
+				alwaysShow: options.alwaysShow,
+				picked: picked,
+				item: gitRef,
+				current: false,
+				ref: ref,
+				remote: false,
+			};
+		}
+
 		const item: RefQuickPickItem = {
 			label: `Commit ${gitRef.name}`,
 			description: options.ref ? `$(git-commit) ${ref}` : '',

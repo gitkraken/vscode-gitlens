@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds ability to enter reference ranges (e.g. `main...release/1.0`) to the _Git Command Palette_'s _history_ command
+
 ### Fixed
 
 - Fixes [#1148](https://github.com/eamodio/vscode-gitlens/issues/1148) - Follow renames on File History cannot load more history
