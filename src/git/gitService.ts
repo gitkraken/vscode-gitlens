@@ -2278,6 +2278,17 @@ export class GitService implements Disposable {
 				query: (limit: number | undefined) =>
 					this.getLogForFile(log.repoPath, fileName, { ...options, limit: limit }),
 			};
+
+			if (options.renames) {
+				const renamed = Iterables.find(
+					moreLog.commits.values(),
+					c => Boolean(c.originalFileName) && c.originalFileName !== fileName,
+				);
+				if (renamed != null) {
+					fileName = renamed.originalFileName!;
+				}
+			}
+
 			mergedLog.more = this.getLogForFileMoreFn(mergedLog, fileName, options);
 
 			return mergedLog;

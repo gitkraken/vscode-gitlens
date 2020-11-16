@@ -8,8 +8,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
-- Fixes [#1150](https://github.com/eamodio/vscode-gitlens/issues/1150) - Cannot read property 'provider' of undefined
+- Fixes [#1148](https://github.com/eamodio/vscode-gitlens/issues/1148) - Follow renames on File History cannot load more history
 - Fixes [#1157](https://github.com/eamodio/vscode-gitlens/issues/1157) - GitLens report `X files changed` when comparing working tree with a branch having identical files
+- Fixes [#1150](https://github.com/eamodio/vscode-gitlens/issues/1150) - Cannot read property 'provider' of undefined
 
 ## [11.0.0] - 2020-11-14
 

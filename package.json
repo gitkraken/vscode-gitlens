@@ -3964,13 +3964,13 @@
 			},
 			{
 				"command": "gitlens.views.fileHistory.setRenameFollowingOn",
-				"title": "Toggle Renames: Don't Follow",
+				"title": "Toggle Renames: Not Following",
 				"category": "GitLens",
 				"enablement": "!config.gitlens.advanced.fileHistoryShowAllBranches"
 			},
 			{
 				"command": "gitlens.views.fileHistory.setRenameFollowingOff",
-				"title": "Toggle Renames: Follow",
+				"title": "Toggle Renames: Following",
 				"category": "GitLens",
 				"enablement": "!config.gitlens.advanced.fileHistoryShowAllBranches"
 			},
@@ -6032,17 +6032,17 @@
 				},
 				{
 					"command": "gitlens.views.fileHistory.setRenameFollowingOn",
-					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && !gitlens:views:fileHistory:cursorFollowing && !config.gitlens.advanced.fileHistoryFollowsRenames && !config.gitlens.advanced.fileHistoryShowAllBranches",
-					"group": "3_gitlens@1"
-				},
-				{
-					"command": "gitlens.views.fileHistory.setRenameFollowingOn",
 					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && !gitlens:views:fileHistory:cursorFollowing && config.gitlens.advanced.fileHistoryShowAllBranches",
 					"group": "3_gitlens@1"
 				},
 				{
+					"command": "gitlens.views.fileHistory.setRenameFollowingOn",
+					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && !gitlens:views:fileHistory:cursorFollowing && !config.gitlens.advanced.fileHistoryShowAllBranches && !config.gitlens.advanced.fileHistoryFollowsRenames",
+					"group": "3_gitlens@1"
+				},
+				{
 					"command": "gitlens.views.fileHistory.setRenameFollowingOff",
-					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && !gitlens:views:fileHistory:cursorFollowing && config.gitlens.advanced.fileHistoryFollowsRenames && !config.gitlens.advanced.fileHistoryShowAllBranches",
+					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && !gitlens:views:fileHistory:cursorFollowing && !config.gitlens.advanced.fileHistoryShowAllBranches && config.gitlens.advanced.fileHistoryFollowsRenames",
 					"group": "3_gitlens@1"
 				},
 				{
