@@ -177,7 +177,13 @@ function getExtensionConfig(mode, env) {
 		},
 		resolve: {
 			alias: {
-				'universal-user-agent': path.join(__dirname, 'node_modules/universal-user-agent/dist-node/index.js'),
+				'universal-user-agent': path.join(
+					__dirname,
+					'node_modules',
+					'universal-user-agent',
+					'dist-node',
+					'index.js',
+				),
 			},
 			extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
 			symlinks: false,
@@ -201,13 +207,14 @@ function getExtensionConfig(mode, env) {
  * @returns { WebpackConfig }
  */
 function getWebviewsConfig(mode, _env) {
-	const basePath = path.join(__dirname, 'src/webviews/apps');
+	const basePath = path.join(__dirname, 'src', 'webviews', 'apps');
 
 	const cspPolicy = {
 		'default-src': "'none'",
 		'img-src': ['#{cspSource}', 'https:', 'data:'],
 		'script-src': ['#{cspSource}', "'nonce-Z2l0bGVucy1ib290c3RyYXA='"],
-		'style-src': ['#{cspSource}'],
+		'style-src': ['#{cspSource}', "'nonce-Z2l0bGVucy1ib290c3RyYXA='"],
+		'font-src': ['#{cspSource}'],
 	};
 
 	if (mode !== 'production') {
@@ -223,7 +230,7 @@ function getWebviewsConfig(mode, _env) {
 			async: false,
 			eslint: {
 				enabled: true,
-				files: path.join(basePath, '**/*.ts'),
+				files: path.join(basePath, '**', '*.ts'),
 				options: { cache: true },
 			},
 			formatter: 'basic',
@@ -237,7 +244,7 @@ function getWebviewsConfig(mode, _env) {
 		new HtmlPlugin({
 			template: 'rebase/rebase.html',
 			chunks: ['rebase'],
-			filename: path.join(__dirname, 'dist/webviews/rebase.html'),
+			filename: path.join(__dirname, 'dist', 'webviews', 'rebase.html'),
 			inject: true,
 			inlineSource: mode === 'production' ? '.css$' : undefined,
 			cspPlugin: {
@@ -265,7 +272,7 @@ function getWebviewsConfig(mode, _env) {
 		new HtmlPlugin({
 			template: 'settings/settings.html',
 			chunks: ['settings'],
-			filename: path.join(__dirname, 'dist/webviews/settings.html'),
+			filename: path.join(__dirname, 'dist', 'webviews', 'settings.html'),
 			inject: true,
 			inlineSource: mode === 'production' ? '.css$' : undefined,
 			cspPlugin: {
@@ -293,7 +300,7 @@ function getWebviewsConfig(mode, _env) {
 		new HtmlPlugin({
 			template: 'welcome/welcome.html',
 			chunks: ['welcome'],
-			filename: path.join(__dirname, 'dist/webviews/welcome.html'),
+			filename: path.join(__dirname, 'dist', 'webviews', 'welcome.html'),
 			inject: true,
 			inlineSource: mode === 'production' ? '.css$' : undefined,
 			cspPlugin: {
@@ -326,6 +333,16 @@ function getWebviewsConfig(mode, _env) {
 				{
 					from: path.posix.join(basePath.replace(/\\/g, '/'), 'images', 'settings', '*.png'),
 					to: __dirname.replace(/\\/g, '/'),
+				},
+				{
+					from: path.posix.join(
+						__dirname.replace(/\\/g, '/'),
+						'node_modules',
+						'vscode-codicons',
+						'dist',
+						'codicon.ttf',
+					),
+					to: path.posix.join(__dirname.replace(/\\/g, '/'), 'dist', 'webviews'),
 				},
 			],
 		}),
@@ -364,7 +381,7 @@ function getWebviewsConfig(mode, _env) {
 		devtool: 'source-map',
 		output: {
 			filename: '[name].js',
-			path: path.join(__dirname, 'dist/webviews'),
+			path: path.join(__dirname, 'dist', 'webviews'),
 			publicPath: '#{root}/dist/webviews/',
 		},
 		module: {

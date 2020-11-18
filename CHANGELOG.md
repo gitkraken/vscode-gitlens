@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#1151](https://github.com/eamodio/vscode-gitlens/issues/1151) - Icons not showing in interactive rebase
 - Fixes [#1166](https://github.com/eamodio/vscode-gitlens/issues/1166) - Enormous avatars in interactive rebase view
 
 ## [11.0.1] - 2020-11-16

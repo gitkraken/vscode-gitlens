@@ -417,10 +417,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 		let html = content
 			.replace(/#{cspSource}/g, webview.cspSource)
-			.replace(
-				/#{root}/g,
-				Uri.file(Container.context.asAbsolutePath('.')).with({ scheme: 'vscode-resource' }).toString(),
-			);
+			.replace(/#{root}/g, webview.asWebviewUri(Container.context.extensionUri).toString());
 
 		const bootstrap = await this.parseState(document);
 
