@@ -62,12 +62,14 @@ h4 {
 	margin: 10px;
 }
 
+$entry-padding: 5px;
+
 .entry {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	margin: 0 10px;
-	padding: 10px 0;
+	padding: $entry-padding 0;
 	border: 2px solid transparent;
 	border-radius: 3px;
 
@@ -144,7 +146,7 @@ h4 {
 			content: ' ';
 			background-color: var(--color-background);
 			border-left: 2px solid rgba(0, 153, 0, 1);
-			height: 48px;
+			height: #{28px + ($entry-padding * 2)};
 			width: 2px;
 			margin-left: -18px;
 			position: absolute;
@@ -163,7 +165,7 @@ h4 {
 			content: ' ';
 			background-color: var(--color-background);
 			border-left: 2px solid rgba(212, 153, 0, 1);
-			height: 64px;
+			height: #{44px + ($entry-padding * 2)};
 			width: 2px;
 			margin-left: -18px;
 			margin-top: 6px;
@@ -182,7 +184,7 @@ h4 {
 			content: ' ';
 			background-color: var(--color-background);
 			border-left: 2px solid rgba(153, 0, 0, 1);
-			height: 48px;
+			height: #{28px + ($entry-padding * 2)};
 			width: 2px;
 			margin-left: -18px;
 			position: absolute;
