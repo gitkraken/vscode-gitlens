@@ -844,7 +844,7 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 | `gitlens.gitCommands.search.matchCase`            | Specifies whether to match commit search patterns with or without regard to casing                                                    |
 | `gitlens.gitCommands.search.matchRegex`           | Specifies whether to match commit search patterns using regular expressions                                                           |
 | `gitlens.gitCommands.search.showResultsInSideBar` | Specifies whether to show the commit search results directly in the quick pick menu, in the Side Bar, or will be based on the context |
-| `gitlens.gitCommands.skipConfirmations`           | Specifies which (and when) Git commands will skip the confirmation step, using the format: `git-command-name:(menu                    | command)` |
+| `gitlens.gitCommands.skipConfirmations`           | Specifies which (and when) Git commands will skip the confirmation step, using the format: `git-command-name:(menu/command)`          |
 
 ## Date & Time Settings [#](#date--time-settings- 'Date & Time Settings')
 
