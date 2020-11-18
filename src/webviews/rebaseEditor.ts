@@ -79,14 +79,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		this._disposable.dispose();
 	}
 
-	@debug<RebaseEditorProvider['resolveCustomTextEditor']>({
-		args: {
-			0: (document: TextDocument) =>
-				`TextDocument(${document.uri.fsPath}), version=${document.version}, content=${document.getText()}`,
-			1: _ => false,
-			2: _ => false,
-		},
-	})
+	@debug<RebaseEditorProvider['resolveCustomTextEditor']>({ args: false })
 	async resolveCustomTextEditor(document: TextDocument, panel: WebviewPanel, _token: CancellationToken) {
 		const disposable = Disposable.from(
 			panel.onDidDispose(() => disposable.dispose()),
@@ -106,16 +99,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 	private parseEntries(contents: string): RebaseEntry[];
 	private parseEntries(document: TextDocument): RebaseEntry[];
-	@debug<RebaseEditorProvider['parseEntries']>({
-		args: {
-			0: (contentsOrDocument: string | TextDocument) =>
-				typeof contentsOrDocument === 'string'
-					? `contents=${contentsOrDocument}`
-					: `TextDocument(${contentsOrDocument.uri.fsPath}), version=${
-							contentsOrDocument.version
-					  }, contents=${contentsOrDocument.getText()}`,
-		},
-	})
+	@debug<RebaseEditorProvider['parseEntries']>({ args: false })
 	private parseEntries(contentsOrDocument: string | TextDocument): RebaseEntry[] {
 		const contents = typeof contentsOrDocument === 'string' ? contentsOrDocument : contentsOrDocument.getText();
 
