@@ -860,9 +860,11 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 
 ## Menu & Toolbar Settings [#](#menu--toolbar-settings- 'Menu & Toolbar Settings')
 
-| Name            | Description                                           |
-| --------------- | ----------------------------------------------------- |
-| `gitlens.menus` | Specifies which commands will be added to which menus |
+| Name                                   | Description                                                                                                          |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `gitlens.menus`                        | Specifies which commands will be added to which menus                                                                |
+| `gitlens.menus.annotations.behaviour`  | Specifies whether the file annotations button in the editor title acts as a menu (default) or a toggle button        |
+| `gitlens.menus.annotations.toggleType` | Specifies whether the file annotations button toggles file blame, heatmap or changes (if behaviour is set to toggle) |
 
 ## Keyboard Shortcut Settings [#](#keyboard-shortcut-settings- 'Keyboard Shortcut Settings')
 
