@@ -1,5 +1,5 @@
 'use strict';
-/*global document*/
+/*global document window*/
 import '../scss/rebase.scss';
 import Sortable from 'sortablejs';
 import {
@@ -90,7 +90,6 @@ class RebaseEditor extends App<RebaseState> {
 
 				const ref = e.item.dataset.ref;
 				if (ref != null) {
-					console.log(ref, e.newIndex, e.oldIndex);
 					this.moveEntry(ref, e.newIndex, false);
 
 					document.querySelectorAll<HTMLLIElement>(`li[data-ref="${ref}"]`)[0]?.focus();
@@ -99,7 +98,30 @@ class RebaseEditor extends App<RebaseState> {
 			onMove: e => !e.related.classList.contains('entry--base'),
 		});
 
+		if (window.navigator.platform.startsWith('Mac')) {
+			let $shortcut = document.querySelector<HTMLSpanElement>('[data-action="start"] .shortcut')!;
+			$shortcut.textContent = 'Cmd+Enter';
+
+			$shortcut = document.querySelector<HTMLSpanElement>('[data-action="abort"] .shortcut')!;
+			$shortcut.textContent = 'Cmd+A';
+		}
+
 		disposables.push(
+			DOM.on(window, 'keydown', (e: KeyboardEvent) => {
+				if (e.ctrlKey || e.metaKey) {
+					if (e.key === 'Enter' || e.key === 'r') {
+						e.preventDefault();
+						e.stopPropagation();
+
+						this.onStartClicked();
+					} else if (e.key === 'a') {
+						e.preventDefault();
+						e.stopPropagation();
+
+						this.onAbortClicked();
+					}
+				}
+			}),
 			DOM.on('[data-action="start"]', 'click', () => this.onStartClicked()),
 			DOM.on('[data-action="abort"]', 'click', () => this.onAbortClicked()),
 			DOM.on('li[data-ref]', 'keydown', function (this: Element, e: KeyboardEvent) {

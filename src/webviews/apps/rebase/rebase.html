@@ -13,7 +13,7 @@
 	<body class="preload">
 		<div class="container">
 			<header>
-				<h2>Interactive Rebase</h2>
+				<h2>GitLens Interactive Rebase</h2>
 				<h4 id="subhead"></h4>
 			</header>
 			<ul id="entries" class="entries"></ul>
@@ -27,8 +27,12 @@
 				<span class="shortcut"><kbd>alt ↓</kbd><span>Move Down</span></span>
 			</div>
 			<div class="actions">
-				<button name="start" class="button button--flat-primary" data-action="start">Start Rebase</button>
-				<button name="abort" class="button button--flat" data-action="abort">Abort</button>
+				<button name="start" class="button button--flat-primary" data-action="start">
+					Start Rebase <span class="shortcut">Ctrl+Enter</span>
+				</button>
+				<button name="abort" class="button button--flat" data-action="abort">
+					Abort <span class="shortcut">Ctrl+A</span>
+				</button>
 			</div>
 		</div>
 		#{endOfBody}
