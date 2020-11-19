@@ -87,6 +87,7 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 			case DidChangeConfigurationNotificationType.method:
 				onIpcNotification(DidChangeConfigurationNotificationType, msg, params => {
 					this.state.config = params.config;
+					this.state.customSettings = params.customSettings;
 
 					this.updateState();
 				});
@@ -181,6 +182,11 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 					}
 					this._changes[element.name] = setting;
 				}
+
+				break;
+			}
+			case 'custom': {
+				this._changes[element.name] = element.checked;
 
 				break;
 			}
@@ -311,7 +317,14 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 		return state;
 	}
 
+	private getCustomSettingValue(path: string): boolean | undefined {
+		return this.state.customSettings?.[path];
+	}
+
 	private getSettingValue<T>(path: string): T | undefined {
+		const customSetting = this.getCustomSettingValue(path);
+		if (customSetting != null) return customSetting as any;
+
 		return get<T>(this.state.config, path);
 	}
 
@@ -320,7 +333,9 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 
 		try {
 			for (const el of document.querySelectorAll<HTMLInputElement>('input[type=checkbox][data-setting]')) {
-				if (el.dataset.settingType === 'array') {
+				if (el.dataset.settingType === 'custom') {
+					el.checked = this.getCustomSettingValue(el.name) ?? false;
+				} else if (el.dataset.settingType === 'array') {
 					el.checked = (this.getSettingValue<string[]>(el.name) ?? []).includes(el.value);
 				} else if (el.dataset.valueOff != null) {
 					const value = this.getSettingValue<string>(el.name);

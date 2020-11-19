@@ -7,6 +7,7 @@ import {
 	RebaseDidAbortCommandType,
 	RebaseDidChangeEntryCommandType,
 	RebaseDidChangeNotificationType,
+	RebaseDidDisableCommandType,
 	RebaseDidMoveEntryCommandType,
 	RebaseDidStartCommandType,
 	RebaseEntry,
@@ -124,6 +125,7 @@ class RebaseEditor extends App<RebaseState> {
 			}),
 			DOM.on('[data-action="start"]', 'click', () => this.onStartClicked()),
 			DOM.on('[data-action="abort"]', 'click', () => this.onAbortClicked()),
+			DOM.on('[data-action="disable"]', 'click', () => this.onDisableClicked()),
 			DOM.on('li[data-ref]', 'keydown', function (this: Element, e: KeyboardEvent) {
 				if ((e.target as HTMLElement).matches('select[data-ref]')) {
 					if (e.key === 'Escape') {
@@ -134,6 +136,10 @@ class RebaseEditor extends App<RebaseState> {
 				}
 
 				if (e.key === 'Enter' || e.key === ' ') {
+					if (e.key === 'Enter' && (e.target as HTMLElement).matches('a.entry-ref')) {
+						return;
+					}
+
 					const $select = (this as HTMLLIElement).querySelectorAll<HTMLSelectElement>('select[data-ref]')[0];
 					if ($select != null) {
 						$select.focus();
@@ -222,6 +228,10 @@ class RebaseEditor extends App<RebaseState> {
 
 	private onAbortClicked() {
 		this.sendCommand(RebaseDidAbortCommandType, {});
+	}
+
+	private onDisableClicked() {
+		this.sendCommand(RebaseDidDisableCommandType, {});
 	}
 
 	private onSelectChanged($el: HTMLSelectElement) {
@@ -367,6 +377,8 @@ class RebaseEditor extends App<RebaseState> {
 				$select.appendChild(option);
 			}
 			$selectContainer.appendChild($select);
+		} else {
+			$entry.tabIndex = -1;
 		}
 
 		const $message = document.createElement('span');

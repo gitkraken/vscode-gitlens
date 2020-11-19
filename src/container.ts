@@ -91,7 +91,7 @@ export class Container {
 			});
 		}
 
-		context.subscriptions.push(new RebaseEditorProvider());
+		context.subscriptions.push((this._rebaseEditor = new RebaseEditorProvider()));
 		context.subscriptions.push(new GitTerminalLinkProvider());
 		context.subscriptions.push(new GitFileSystemProvider());
 
@@ -235,6 +235,15 @@ export class Container {
 	private static _lineTracker: GitLineTracker;
 	static get lineTracker() {
 		return this._lineTracker;
+	}
+
+	private static _rebaseEditor: RebaseEditorProvider | undefined;
+	static get rebaseEditor() {
+		if (this._rebaseEditor === undefined) {
+			this._context.subscriptions.push((this._rebaseEditor = new RebaseEditorProvider()));
+		}
+
+		return this._rebaseEditor;
 	}
 
 	private static _remotesView: RemotesView | undefined;

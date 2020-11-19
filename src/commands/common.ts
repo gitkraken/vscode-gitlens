@@ -63,6 +63,8 @@ export enum Commands {
 	DiffWithWorkingInDiffRight = 'gitlens.diffWithWorkingInDiffRight',
 	DiffLineWithWorking = 'gitlens.diffLineWithWorking',
 	DisconnectRemoteProvider = 'gitlens.disconnectRemoteProvider',
+	DisableRebaseEditor = 'gitlens.disableRebaseEditor',
+	EnableRebaseEditor = 'gitlens.enableRebaseEditor',
 	ExternalDiff = 'gitlens.externalDiff',
 	ExternalDiffAll = 'gitlens.externalDiffAll',
 	FetchRepositories = 'gitlens.fetchRepositories',

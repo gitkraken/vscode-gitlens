@@ -116,3 +116,64 @@
 		transition-duration: 0s !important;
 	}
 }
+
+.button--flat-secondary {
+	background-color: var(--color-button-secondary-background);
+	border: 1px solid var(--color-button-secondary-background);
+	color: var(--color-button-foreground);
+	font-weight: 600;
+	transition: background-color 250ms, border-color 250ms, color 250ms;
+
+	&:not([disabled]):hover,
+	&:not([disabled]):focus {
+		.vscode-dark & {
+			background-color: white;
+			border-color: white;
+			color: black;
+		}
+
+		.vscode-light & {
+			background-color: var(--color-button-secondary-background--darken-30);
+			border-color: var(--color-button-secondary-background--darken-30);
+			color: white;
+		}
+	}
+
+	.preload & {
+		transition-duration: 0s !important;
+	}
+}
+
+.button--flat-subtle {
+	.vscode-light & {
+		border: 1px solid rgba(0, 0, 0, 0.2);
+		color: rgba(0, 0, 0, 0.6);
+	}
+	.vscode-dark & {
+		border: 1px solid rgba(255, 255, 255, 0.2);
+		color: rgba(255, 255, 255, 0.6);
+	}
+	transition: background-color 250ms, border-color 250ms, color 250ms;
+
+	&:not([disabled]):hover,
+	&:not([disabled]):focus {
+		.vscode-light & {
+			background-color: var(--color-button-secondary-background--darken-30);
+			border-color: var(--color-button-secondary-background--darken-30);
+			color: white;
+		}
+		.vscode-dark & {
+			background-color: white;
+			border-color: white;
+			color: black;
+		}
+	}
+
+	.preload & {
+		transition-duration: 0s !important;
+	}
+}
+
+.button--right {
+	margin-left: auto;
+}

@@ -104,6 +104,8 @@
 		"onCommand:gitlens.diffWithWorkingInDiffLeft",
 		"onCommand:gitlens.diffWithWorkingInDiffRight",
 		"onCommand:gitlens.diffLineWithWorking",
+		"onCommand:gitlens.disableRebaseEditor",
+		"onCommand:gitlens.enableRebaseEditor",
 		"onCommand:gitlens.toggleFileBlame",
 		"onCommand:gitlens.toggleFileBlameInDiffLeft",
 		"onCommand:gitlens.toggleFileBlameInDiffRight",
@@ -2759,6 +2761,16 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.disableRebaseEditor",
+				"title": "Disable Interactive Rebase Editor",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.enableRebaseEditor",
+				"title": "Enable Interactive Rebase Editor",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.toggleFileBlame",
 				"title": "Toggle File Blame",
 				"category": "GitLens",
@@ -4525,6 +4537,14 @@
 				{
 					"command": "gitlens.diffLineWithWorking",
 					"when": "gitlens:activeFileStatus =~ /blameable/"
+				},
+				{
+					"command": "gitlens.disableRebaseEditor",
+					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.enableRebaseEditor",
+					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.externalDiff",
@@ -7919,7 +7939,7 @@
 		"customEditors": [
 			{
 				"viewType": "gitlens.rebase",
-				"displayName": "Interactive Rebase Editor",
+				"displayName": "GitLens Interactive Rebase Editor",
 				"selector": [
 					{
 						"filenamePattern": "git-rebase-todo"

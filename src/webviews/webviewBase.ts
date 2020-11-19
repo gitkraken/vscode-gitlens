@@ -56,6 +56,7 @@ export abstract class WebviewBase implements Disposable {
 	constructor(showCommand: Commands, private readonly _column?: ViewColumn) {
 		this.disposable = Disposable.from(
 			configuration.onDidChange(this.onConfigurationChanged, this),
+			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
 			commands.registerCommand(showCommand, this.onShowCommand, this),
 		);
 	}
@@ -77,8 +78,55 @@ export abstract class WebviewBase implements Disposable {
 		this._disposablePanel?.dispose();
 	}
 
+	private _customSettings:
+		| Map<
+				string,
+				{
+					name: string;
+					enabled: () => boolean;
+					update: (enabled: boolean) => Promise<void>;
+				}
+		  >
+		| undefined;
+	private get customSettings() {
+		if (this._customSettings == null) {
+			this._customSettings = new Map<
+				string,
+				{
+					name: string;
+					enabled: () => boolean;
+					update: (enabled: boolean) => Promise<void>;
+				}
+			>([
+				[
+					'rebaseEditor.enabled',
+					{
+						name: 'workbench.editorAssociations',
+						enabled: () => Container.rebaseEditor.enabled,
+						update: Container.rebaseEditor.setEnabled,
+					},
+				],
+			]);
+		}
+		return this._customSettings;
+	}
+
 	protected onShowCommand() {
 		void this.show(this._column);
+	}
+
+	private onAnyConfigurationChanged(e: ConfigurationChangeEvent) {
+		let notify = false;
+		for (const setting of this.customSettings.values()) {
+			if (e.affectsConfiguration(setting.name)) {
+				notify = true;
+				break;
+			}
+		}
+
+		if (!notify) return;
+
+		void this.notifyDidChangeConfiguration();
 	}
 
 	private onConfigurationChanged(_e: ConfigurationChangeEvent) {
@@ -110,9 +158,17 @@ export abstract class WebviewBase implements Disposable {
 						params.scope === 'workspace' ? ConfigurationTarget.Workspace : ConfigurationTarget.Global;
 
 					for (const key in params.changes) {
+						let value = params.changes[key];
+
+						const customSetting = this.customSettings.get(key);
+						if (customSetting != null) {
+							await customSetting.update(value);
+
+							continue;
+						}
+
 						const inspect = configuration.inspect(key as any)!;
 
-						let value = params.changes[key];
 						if (value != null) {
 							if (params.scope === 'workspace') {
 								if (value === inspect.workspaceValue) continue;
@@ -292,9 +348,20 @@ export abstract class WebviewBase implements Disposable {
 		return this.postMessage({ id: nextIpcId(), method: type.method, params: params });
 	}
 
+	protected getCustomSettings(): Record<string, boolean> {
+		const customSettings = Object.create(null);
+		for (const [key, setting] of this.customSettings) {
+			customSettings[key] = setting.enabled();
+		}
+		return customSettings;
+	}
+
 	private notifyDidChangeConfiguration() {
 		// Make sure to get the raw config, not from the container which has the modes mixed in
-		return this.notify(DidChangeConfigurationNotificationType, { config: configuration.get() });
+		return this.notify(DidChangeConfigurationNotificationType, {
+			config: configuration.get(),
+			customSettings: this.getCustomSettings(),
+		});
 	}
 
 	private postMessage(message: IpcMessage) {

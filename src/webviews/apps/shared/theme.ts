@@ -43,6 +43,10 @@ export function initializeAndWatchThemeColors() {
 		bodyStyle.setProperty('--color-button-background', color);
 		bodyStyle.setProperty('--color-button-background--darken-30', darken(color, 30));
 
+		color = computedStyle.getPropertyValue('--vscode-button-secondaryBackground').trim();
+		bodyStyle.setProperty('--color-button-secondary-background', color);
+		bodyStyle.setProperty('--color-button-secondary-background--darken-30', darken(color, 30));
+
 		color = computedStyle.getPropertyValue('--vscode-button-background').trim();
 		bodyStyle.setProperty('--color-highlight', color);
 		bodyStyle.setProperty('--color-highlight--75', opacity(color, 75));

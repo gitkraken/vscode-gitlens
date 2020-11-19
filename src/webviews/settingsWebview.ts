@@ -95,6 +95,7 @@ export class SettingsWebview extends WebviewBase {
 		const bootstrap: SettingsState = {
 			// Make sure to get the raw config, not from the container which has the modes mixed in
 			config: configuration.get(),
+			customSettings: this.getCustomSettings(),
 			scope: 'user',
 			scopes: scopes,
 		};

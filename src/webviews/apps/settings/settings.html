@@ -254,6 +254,8 @@
 				<!-- prettier-ignore -->
 				<%= require('html-loader!./partials/heatmap.html') %>
 				<!-- prettier-ignore -->
+				<%= require('html-loader!./partials/rebase-editor.html') %>
+				<!-- prettier-ignore -->
 				<%= require('html-loader!./partials/dates.html') %>
 				<!-- prettier-ignore -->
 				<%= require('html-loader!./partials/menus.html') %>
@@ -437,6 +439,16 @@
 								href="#heatmap"
 								title="Jump to Gutter Heatmap settings"
 								>Gutter Heatmap</a
+							>
+						</li>
+
+						<li class="mt-1">
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
+								href="#rebase-editor"
+								title="Jump to Interactive Rebase Editor settings"
+								>Interactive Rebase Editor</a
 							>
 						</li>
 

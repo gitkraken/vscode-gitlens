@@ -37,6 +37,7 @@ export function onIpcNotification<NT extends IpcNotificationType>(
 
 export interface DidChangeConfigurationNotificationParams {
 	config: Config;
+	customSettings: Record<string, boolean>;
 }
 export const DidChangeConfigurationNotificationType = new IpcNotificationType<DidChangeConfigurationNotificationParams>(
 	'configuration/didChange',
@@ -73,19 +74,20 @@ export interface DidPreviewConfigurationNotificationParams {
 	id: string;
 	preview: string;
 }
-export const DidPreviewConfigurationNotificationType = new IpcNotificationType<
-	DidPreviewConfigurationNotificationParams
->('configuration/didPreview');
+export const DidPreviewConfigurationNotificationType = new IpcNotificationType<DidPreviewConfigurationNotificationParams>(
+	'configuration/didPreview',
+);
 
 export interface SettingsDidRequestJumpToNotificationParams {
 	anchor: string;
 }
-export const SettingsDidRequestJumpToNotificationType = new IpcNotificationType<
-	SettingsDidRequestJumpToNotificationParams
->('settings/jumpTo');
+export const SettingsDidRequestJumpToNotificationType = new IpcNotificationType<SettingsDidRequestJumpToNotificationParams>(
+	'settings/jumpTo',
+);
 
 export interface AppStateWithConfig {
 	config: Config;
+	customSettings?: Record<string, boolean>;
 }
 
 export interface SettingsState extends AppStateWithConfig {
@@ -131,6 +133,8 @@ export const RebaseDidChangeNotificationType = new IpcNotificationType<RebaseDid
 export const RebaseDidStartCommandType = new IpcCommandType('rebase/start');
 
 export const RebaseDidAbortCommandType = new IpcCommandType('rebase/abort');
+
+export const RebaseDidDisableCommandType = new IpcCommandType('rebase/disable');
 
 export interface RebaseDidChangeEntryCommandParams {
 	ref: string;

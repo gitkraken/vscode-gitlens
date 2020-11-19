@@ -2,6 +2,7 @@
 import { TextDecoder } from 'util';
 import {
 	CancellationToken,
+	ConfigurationTarget,
 	CustomTextEditorProvider,
 	Disposable,
 	Position,
@@ -15,6 +16,7 @@ import {
 	WorkspaceEdit,
 } from 'vscode';
 import { ShowQuickCommitCommand } from '../commands';
+import { configuration } from '../configuration';
 import { Container } from '../container';
 import { Logger } from '../logger';
 import { debug } from '../system';
@@ -26,6 +28,7 @@ import {
 	RebaseDidAbortCommandType,
 	RebaseDidChangeEntryCommandType,
 	RebaseDidChangeNotificationType,
+	RebaseDidDisableCommandType,
 	RebaseDidMoveEntryCommandType,
 	RebaseDidStartCommandType,
 	RebaseEntry,
@@ -79,6 +82,64 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 		this._disposable.dispose();
 	}
 
+	get enabled(): boolean {
+		const associations = configuration.inspectAny<{ viewType: string; filenamePattern: string }[]>(
+			'workbench.editorAssociations',
+		)?.globalValue;
+		if (associations == null || associations.length === 0) return true;
+
+		const association = associations.find(a => a.filenamePattern === 'git-rebase-todo');
+		return association != null ? association.viewType === 'gitlens.rebase' : true;
+	}
+
+	private _disableAfterNextUse: boolean = false;
+	async enableForNextUse() {
+		if (!this.enabled) {
+			await this.setEnabled(true);
+			this._disableAfterNextUse = true;
+		}
+	}
+
+	async setEnabled(enabled: boolean): Promise<void> {
+		this._disableAfterNextUse = false;
+
+		const inspection = configuration.inspectAny<{ viewType: string; filenamePattern: string }[]>(
+			'workbench.editorAssociations',
+		);
+
+		let associations = inspection?.globalValue;
+		if (associations == null || associations.length === 0) {
+			if (enabled) return;
+
+			associations = [
+				{
+					viewType: 'default',
+					filenamePattern: 'git-rebase-todo',
+				},
+			];
+		} else {
+			const index = associations.findIndex(a => a.filenamePattern === 'git-rebase-todo');
+			if (index !== -1) {
+				if (enabled) {
+					if (associations.length === 1) {
+						associations = undefined;
+					} else {
+						associations.splice(index, 1);
+					}
+				} else {
+					associations[index].viewType = 'default';
+				}
+			} else if (!enabled) {
+				associations.push({
+					viewType: 'default',
+					filenamePattern: 'git-rebase-todo',
+				});
+			}
+		}
+
+		await configuration.updateAny('workbench.editorAssociations', associations, ConfigurationTarget.Global);
+	}
+
 	@debug<RebaseEditorProvider['resolveCustomTextEditor']>({ args: false })
 	async resolveCustomTextEditor(document: TextDocument, panel: WebviewPanel, _token: CancellationToken) {
 		const disposable = Disposable.from(
@@ -95,6 +156,11 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 		panel.webview.options = { enableCommandUris: true, enableScripts: true };
 		panel.webview.html = await this.getHtml(panel.webview, document);
+
+		if (this._disableAfterNextUse) {
+			this._disableAfterNextUse = false;
+			void this.setEnabled(false);
+		}
 	}
 
 	private parseEntries(contents: string): RebaseEntry[];
@@ -228,28 +294,24 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 			// 	break;
 
-			case RebaseDidStartCommandType.method:
-				onIpcCommand(RebaseDidStartCommandType, e, async _params => {
-					// Avoid triggering events by disposing them first
-					disposable.dispose();
+			case RebaseDidDisableCommandType.method:
+				onIpcCommand(RebaseDidDisableCommandType, e, async () => {
+					await this.abort(document, panel, disposable);
+					await this.setEnabled(false);
+				});
 
-					await document.save();
-					panel.dispose();
+				break;
+
+			case RebaseDidStartCommandType.method:
+				onIpcCommand(RebaseDidStartCommandType, e, async () => {
+					await this.rebase(document, panel, disposable);
 				});
 
 				break;
 
 			case RebaseDidAbortCommandType.method:
-				onIpcCommand(RebaseDidAbortCommandType, e, async _params => {
-					// Avoid triggering events by disposing them first
-					disposable.dispose();
-
-					// Delete the contents to abort the rebase
-					const edit = new WorkspaceEdit();
-					edit.replace(document.uri, new Range(0, 0, document.lineCount, 0), '');
-					await workspace.applyEdit(edit);
-					await document.save();
-					panel.dispose();
+				onIpcCommand(RebaseDidAbortCommandType, e, async () => {
+					await this.abort(document, panel, disposable);
 				});
 
 				break;
@@ -393,6 +455,26 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 				break;
 		}
+	}
+
+	private async abort(document: TextDocument, panel: WebviewPanel, disposable: Disposable) {
+		// Avoid triggering events by disposing them first
+		disposable.dispose();
+
+		// Delete the contents to abort the rebase
+		const edit = new WorkspaceEdit();
+		edit.replace(document.uri, new Range(0, 0, document.lineCount, 0), '');
+		await workspace.applyEdit(edit);
+		await document.save();
+		panel.dispose();
+	}
+
+	private async rebase(document: TextDocument, panel: WebviewPanel, disposable: Disposable) {
+		// Avoid triggering events by disposing them first
+		disposable.dispose();
+
+		await document.save();
+		panel.dispose();
 	}
 
 	private async getHtml(webview: Webview, document: TextDocument): Promise<string> {
