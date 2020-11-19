@@ -5,6 +5,7 @@ import { GlyphChars } from '../../constants';
 
 const emptyStr = '';
 
+const rangeRegex = /^(\S*?)(\.\.\.?)(\S*)\s*$/;
 const shaLikeRegex = /(^[0-9a-f]{40}([\^@~:]\S*)?$)|(^[0]{40}(:|-)$)/;
 const shaRegex = /(^[0-9a-f]{40}$)|(^[0]{40}(:|-)$)/;
 const shaParentRegex = /(^[0-9a-f]{40})\^[0-3]?$/;
@@ -89,6 +90,18 @@ export namespace GitRevision {
 		}
 
 		return ref.substr(0, len);
+	}
+
+	export function splitRange(ref: string): { ref1: string; ref2: string; notation: '..' | '...' } | undefined {
+		const match = rangeRegex.exec(ref);
+		if (match == null) return undefined;
+
+		const [, ref1, notation, ref2] = match;
+		return {
+			ref1: ref1,
+			notation: notation as '..' | '...',
+			ref2: ref2,
+		};
 	}
 }
 

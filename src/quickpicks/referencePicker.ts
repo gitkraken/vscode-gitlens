@@ -20,7 +20,7 @@ export enum ReferencesQuickPickIncludes {
 }
 
 export interface ReferencesQuickPickOptions {
-	allowEnteringRefs?: boolean;
+	allowEnteringRefs?: boolean | { ranges?: boolean };
 	autoPick?: boolean;
 	picked?: string;
 	filter?: { branches?(b: GitBranch): boolean; tags?(t: GitTag): boolean };
@@ -41,9 +41,10 @@ export namespace ReferencePicker {
 		quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
 
 		quickpick.title = title;
-		quickpick.placeholder = options.allowEnteringRefs
-			? `${placeHolder}${GlyphChars.Space.repeat(3)}(or enter a reference using #)`
-			: placeHolder;
+		quickpick.placeholder =
+			options.allowEnteringRefs != null
+				? `${placeHolder}${GlyphChars.Space.repeat(3)}(or enter a reference using #)`
+				: placeHolder;
 		quickpick.matchOnDescription = true;
 
 		const disposables: Disposable[] = [];
@@ -87,7 +88,13 @@ export namespace ReferencePicker {
 
 		quickpick.show();
 
-		const getValidateGitReference = getValidateGitReferenceFn((await Container.git.getRepository(repoPath))!);
+		const getValidateGitReference = getValidateGitReferenceFn((await Container.git.getRepository(repoPath))!, {
+			ranges:
+				// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+				options?.allowEnteringRefs && typeof options.allowEnteringRefs !== 'boolean'
+					? options.allowEnteringRefs.ranges
+					: undefined,
+		});
 
 		quickpick.items = await items;
 
@@ -105,6 +112,7 @@ export namespace ReferencePicker {
 						resolve(quickpick.activeItems[0]);
 					}),
 					quickpick.onDidChangeValue(async e => {
+						// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
 						if (options.allowEnteringRefs) {
 							if (!(await getValidateGitReference(quickpick, e))) {
 								quickpick.items = await items;

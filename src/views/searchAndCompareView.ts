@@ -189,9 +189,10 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 		this.removeComparePicker(true);
 
 		let prompt = options?.prompt ?? false;
+		let ref2;
 		if (ref == null) {
 			const pick = await ReferencePicker.show(repoPath, 'Compare', 'Choose a reference to compare', {
-				allowEnteringRefs: true,
+				allowEnteringRefs: { ranges: true },
 				// checkmarks: false,
 				include:
 					ReferencesQuickPickIncludes.BranchesAndTags |
@@ -210,6 +211,14 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 
 			ref = pick.ref;
 
+			if (GitRevision.isRange(ref)) {
+				const range = GitRevision.splitRange(ref);
+				if (range != null) {
+					ref = range.ref1 || 'HEAD';
+					ref2 = range.ref2 || 'HEAD';
+				}
+			}
+
 			prompt = true;
 		}
 
@@ -226,7 +235,7 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 		await this.view.reveal(this.comparePicker, { focus: false, select: true });
 
 		if (prompt) {
-			await this.compareWithSelected();
+			await this.compareWithSelected(repoPath, ref2);
 		}
 	}
 
