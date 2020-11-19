@@ -6816,12 +6816,12 @@
 				},
 				{
 					"command": "gitlens.showCommitInView",
-					"when": "viewItem =~ /gitlens:file\\b(?!(+stashed|:status))/",
+					"when": "viewItem =~ /gitlens:file\\b(?!(\\+stashed|:status))/",
 					"group": "3_gitlens_explore@3"
 				},
 				{
 					"command": "gitlens.revealCommitInView",
-					"when": "viewItem =~ /gitlens:file\\b(?!(+stashed|:status))/",
+					"when": "viewItem =~ /gitlens:file\\b(?!(\\+stashed|:status))/",
 					"group": "3_gitlens_explore@4"
 				},
 				{
