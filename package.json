@@ -4420,7 +4420,7 @@
 				},
 				{
 					"command": "gitlens.showLineHistoryView",
-					"when": "gitlens:enabled"
+					"when": "gitlens:enabled && config.gitlens.views.lineHistory.enabled"
 				},
 				{
 					"command": "gitlens.showRemotesView",
