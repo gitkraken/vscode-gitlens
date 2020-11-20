@@ -4,10 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [11.0.2] - 2020-11-20
+
+### Added
+
+- Adds a quick-access button to the _Interactive Rebase Editor_ to disable it &mdash; closes [#1153](https://github.com/eamodio/vscode-gitlens/issues/1153)
+- Adds shortcut keys to start and abort a rebase in the _Interactive Rebase Editor_
+- Adds a _Disable Interactive Rebase Editor_ command (`gitlens.disableRebaseEditor`) to disable the interactive rebase editor
+- Adds an _Enable Interactive Rebase Editor_ command (`gitlens.enableRebaseEditor`) to enable the interactive rebase editor
+- Adds an _Interactive Rebase Editor_ section to the GitLens Interactive Settings
+
+### Changes
+
+- Changes the layout spacing of the _Interactive Rebase Editor_ to allow for more commits to be shown at once
 
 ### Fixed
 
+- Fixes [#1187](https://github.com/eamodio/vscode-gitlens/issues/1187) - Warning about incorrect regexp in DevTools console &mdash; thanks to [PR #1188](https://github.com/eamodio/vscode-gitlens/pull/1188) by Andrii Dieiev ([@IllusionMH](https://github.com/IllusionMH))
 - Fixes [#1151](https://github.com/eamodio/vscode-gitlens/issues/1151) - Icons not showing in interactive rebase
 - Fixes [#1166](https://github.com/eamodio/vscode-gitlens/issues/1166) - Enormous avatars in interactive rebase view
 
