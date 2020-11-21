@@ -65,7 +65,7 @@ export class GitUri extends ((Uri as any) as UriEx) {
 			super({
 				scheme: uri.scheme,
 				authority: uri.authority,
-				path: uri.path,
+				path: data.path,
 				query: JSON.stringify(data),
 				fragment: uri.fragment,
 			});
