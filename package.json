@@ -487,8 +487,8 @@
 							"Adds code lens at the start of block-like symbols (functions, methods, etc) lines"
 						]
 					},
-					"minItems": 1,
-					"maxItems": 4,
+					"minItems": 0,
+					"maxItems": 3,
 					"uniqueItems": true,
 					"markdownDescription": "Specifies where Git code lens will be shown in the document",
 					"scope": "language-overridable"
