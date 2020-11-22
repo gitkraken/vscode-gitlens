@@ -94,7 +94,7 @@ function getExtensionConfig(mode, env) {
 	 * @type WebpackConfig['plugins'] | any
 	 */
 	const plugins = [
-		new CleanPlugin(),
+		new CleanPlugin({ cleanOnceBeforeBuildPatterns: ['!webviews/**'] }),
 		new ForkTsCheckerPlugin({
 			async: false,
 			eslint: { enabled: true, files: 'src/**/*.ts', options: { cache: true } },
