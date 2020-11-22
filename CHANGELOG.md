@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [11.0.3] - 2020-11-22
+
+### Fixed
+
+- Fixes [#1163](https://github.com/eamodio/vscode-gitlens/issues/1163) - Use Interactive Rebase Editor when run from GitLens command (regardless of Git config)
+- Fixes [#1197](https://github.com/eamodio/vscode-gitlens/issues/1197) - Can't squash commit in interactive rebase editor
+- Fixes the `gitlens.codeLens.scopes` setting json schema
+
 ## [11.0.2] - 2020-11-20
 
 ### Added
