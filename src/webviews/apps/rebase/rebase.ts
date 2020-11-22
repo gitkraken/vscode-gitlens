@@ -333,6 +333,7 @@ class RebaseEditor extends App<RebaseState> {
 				++tabIndex,
 			);
 			$container.appendChild($el);
+			$container.classList.add('entries--base');
 		}
 
 		document

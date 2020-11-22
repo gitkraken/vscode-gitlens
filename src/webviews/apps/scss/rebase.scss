@@ -204,7 +204,8 @@ $entry-padding: 5px;
 		}
 	}
 
-	&:nth-last-child(2) {
+	.entries--base &:nth-last-of-type(2),
+	:not(.entries--base) &:nth-last-of-type(1) {
 		& select {
 			& > option[value='squash'],
 			& > option[value='fixup'] {
