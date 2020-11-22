@@ -1,4 +1,5 @@
 'use strict';
+import { env } from 'vscode';
 import { Container } from '../../container';
 import { GitBranch, GitLog, GitReference, GitRevision, Repository } from '../../git/git';
 import {
@@ -71,8 +72,38 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		return false;
 	}
 
-	execute(state: RebaseStepState) {
-		return state.repo.rebase(...state.flags, state.reference.ref);
+	async execute(state: RebaseStepState) {
+		let configs: string[] | undefined;
+		if (state.flags.includes('--interactive')) {
+			await Container.rebaseEditor.enableForNextUse();
+
+			let editor;
+			if (env.remoteName) {
+				switch (env.appName) {
+					case 'Visual Studio Code - Insiders':
+						editor = 'code-insiders --wait --reuse-window';
+						break;
+					case 'Visual Studio Code - Exploration':
+						editor = 'code-exploration --wait --reuse-window';
+						break;
+					default:
+						editor = 'code --wait --reuse-window';
+						break;
+				}
+			} else {
+				let execPath = process.execPath.replace(/\\/g, '/');
+				if (process.platform === 'darwin') {
+					const index = execPath.indexOf('.app/Contents/');
+					if (index !== -1) {
+						execPath = `${execPath.substring(0, index)}.app/Contents/MacOS/Electron`;
+					}
+				}
+				editor = `'${execPath}' --wait --reuse-window`;
+			}
+
+			configs = ['-c', `sequence.editor="${editor}"`];
+		}
+		return state.repo.rebase(configs, ...state.flags, state.reference.ref);
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
@@ -189,7 +220,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 			state.flags = result;
 
 			QuickCommand.endSteps(state);
-			this.execute(state as RebaseStepState);
+			void this.execute(state as RebaseStepState);
 		}
 
 		return state.counter < 0 ? StepResult.Break : undefined;

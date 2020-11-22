@@ -607,8 +607,11 @@ export class Repository implements Disposable {
 
 	@gate(() => '')
 	@log()
-	rebase(...args: string[]) {
-		this.runTerminalCommand('rebase', ...args);
+	rebase(configs: string[] | undefined, ...args: string[]) {
+		this.runTerminalCommand(
+			configs != null && configs.length !== 0 ? `${configs.join(' ')} rebase` : 'rebase',
+			...args,
+		);
 	}
 
 	@gate(() => '')
