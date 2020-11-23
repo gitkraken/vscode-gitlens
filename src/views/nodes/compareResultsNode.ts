@@ -125,8 +125,8 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 					this.view,
 					this,
 					this.uri.repoPath!,
-					this._ref.ref,
 					this._compareWith.ref,
+					this._ref.ref,
 					this.getFilesQuery.bind(this),
 					undefined,
 					{

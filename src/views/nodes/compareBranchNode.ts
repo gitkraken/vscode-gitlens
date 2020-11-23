@@ -119,8 +119,8 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 					this.view,
 					this,
 					this.uri.repoPath!,
-					this.branch.ref,
-					this.compareWithWorkingTree ? '' : this._compareWith.ref || 'HEAD',
+					this._compareWith.ref || 'HEAD',
+					this.compareWithWorkingTree ? '' : this.branch.ref,
 					this.getFilesQuery.bind(this),
 					undefined,
 					{

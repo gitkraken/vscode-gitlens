@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- Fixes [#1204](https://github.com/eamodio/vscode-gitlens/issues/1204) - Compare file changes: "new" and "old" sides of the compare are backwards
+
 ## [11.0.4] - 2020-11-22
 
 ### Fixed
