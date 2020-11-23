@@ -1,0 +1,77 @@
+name: Publish Insiders
+
+on:
+    schedule:
+        - cron: '0 6 * * *' # every day at 6am
+    repository_dispatch:
+        types: [trigger-insiders-publish]
+
+jobs:
+    check:
+        name: Check for updates
+        runs-on: ubuntu-latest
+        outputs:
+            status: ${{ steps.earlyexit.outputs.status }}
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v2
+              with:
+                  fetch-depth: 0
+            - id: earlyexit
+              run: |
+                  git config user.name github-actions
+                  git config user.email github-actions@github.com
+                  if git rev-parse origin/insiders >/dev/null 2>&1; then
+                    insidersRef=$(git show-ref -s origin/insiders)
+                    headRef=$(git show-ref --head -s head)
+                    echo "origin/insiders"
+                    echo $insidersRef
+                    echo "HEAD"
+                    echo $headRef
+                    if [ "$insidersRef" = "$headRef" ]; then
+                      echo "No changes since last insiders build. Exiting."
+                      echo "::set-output name=status::unchanged"
+                      exit 0
+                    else
+                      echo "Updating insiders"
+                      git push origin --delete insiders
+                      git checkout -b insiders
+                      git push origin insiders
+                    fi
+                  else
+                    echo "No insiders branch. Creating."
+                    git checkout -b insiders
+                    git push origin insiders
+                  fi
+                  echo "::set-output name=status::changed"
+
+    publish:
+        name: Publish insiders
+        needs: check
+        runs-on: ubuntu-latest
+        if: needs.check.outputs.status == 'changed'
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v2
+            - name: Setup node
+              uses: actions/setup-node@v1
+              with:
+                  node-version: '12.x'
+            - name: Install
+              run: yarn
+            - name: Patch README.md
+              run: node -e "var insert = fs.readFileSync('./README.insiders.md'); var d = fs.readFileSync('./README.md'); fs.writeFileSync('./README.md', insert + '\n' + d);"
+            - name: Patch package.json
+              run: |
+                  node -e "var d = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })); var p = require('./package.json'); p = JSON.stringify({...p, name: p.name + '-insiders', displayName: p.displayName + ' (Insiders)', version: '' + d.getFullYear() + '.' + (d.getMonth() + 1) + '.' + d.getDate() + String(d.getHours()).padStart(2, '0') }); fs.writeFileSync('./package.json', p);"
+            - name: Setup Environment
+              run: node -e "console.log('PACKAGE_VERSION=' + require('./package.json').version + '\nPACKAGE_NAME=' + require('./package.json').name + '-' + require('./package.json').version)" >> $GITHUB_ENV
+            - name: Package extension
+              run: yarn run pack
+            - name: Publish extension
+              run: yarn vsce publish --yarn --packagePath ./${{ env.PACKAGE_NAME }}.vsix -p ${{ secrets.MARKETPLACE_PAT }}
+            - name: Publish artifact
+              uses: actions/upload-artifact@v2
+              with:
+                  name: ${{ env.PACKAGE_NAME }}.vsix
+                  path: ./${{ env.PACKAGE_NAME }}.vsix
