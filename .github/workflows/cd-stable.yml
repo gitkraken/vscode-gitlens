@@ -30,7 +30,6 @@ jobs:
               id: changelog
               uses: mindsers/changelog-reader-action@v2
               with:
-                  validation_depth: 10
                   version: ${{ env.PACKAGE_VERSION }}
                   path: ./CHANGELOG.md
             - name: Create GitHub release
@@ -42,7 +41,7 @@ jobs:
                   tag_name: ${{ github.ref }}
                   release_name: v${{ env.PACKAGE_VERSION }}
                   body: ${{ steps.changelog.outputs.changes }}
-                  draft: true
+                  draft: false
                   prerelease: false
             - name: Upload GitHub release
               id: upload-release-asset
