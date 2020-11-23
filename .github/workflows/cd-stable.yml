@@ -1,0 +1,56 @@
+on:
+    push:
+        tags:
+            - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+
+name: Publish Stable
+
+jobs:
+    build:
+        name: Publish Stable
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v2
+            - name: Setup node
+              uses: actions/setup-node@v1
+              with:
+                  node-version: '12.x'
+            - name: Setup Environment
+              run: node -e "console.log(`PACKAGE_VERSION=${require('./package.json').version}\nPACKAGE_NAME=${require('./package.json').name}-v${require('./package.json').version}`)" >> $GITHUB_ENV
+            - name: Verify versions
+              run: node -e "if ('refs/tags/v' + ${{ env.PACKAGE_VERSION }} !== '${{ github.ref }}') { console.log('::error' + 'Version Mismatch. refs/tags/v' + ${{ env.PACKAGE_VERSION }}, '${{ github.ref }}'); throw Error('Version Mismatch')} "
+            - name: Install
+              run: yarn
+            - name: Package extension
+              run: yarn run pack
+            # - name: Publish Extension
+            #   run: npx vsce publish --packagePath ./${{ env.PACKAGE_NAME }}.vsix -p ${{ secrets.MARKETPLACE_PAT }}
+            - name: Generate Changelog
+              id: changelog
+              uses: mindsers/changelog-reader-action@v2
+              with:
+                  validation_depth: 10
+                  version: ${{ env.PACKAGE_VERSION }}
+                  path: ./CHANGELOG.md
+            - name: Create GitHub release
+              id: create_release
+              uses: actions/create-release@v1
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              with:
+                  tag_name: ${{ github.ref }}
+                  release_name: v${{ env.PACKAGE_VERSION }}
+                  body: ${{ steps.changelog.outputs.changes }}
+                  draft: true
+                  prerelease: false
+            - name: Upload GitHub release
+              id: upload-release-asset
+              uses: actions/upload-release-asset@v1
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              with:
+                  upload_url: ${{ steps.create_release.outputs.upload_url }}
+                  asset_path: ./${{ env.PACKAGE_NAME }}.vsix
+                  asset_name: ${{ env.PACKAGE_NAME }}.vsix
+                  asset_content_type: application/zip
