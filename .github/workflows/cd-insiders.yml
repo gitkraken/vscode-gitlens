@@ -3,8 +3,7 @@ name: Publish Insiders
 on:
     schedule:
         - cron: '0 6 * * *' # every day at 6am
-    repository_dispatch:
-        types: [trigger-insiders-publish]
+    workflow_dispatch:
 
 jobs:
     check:
