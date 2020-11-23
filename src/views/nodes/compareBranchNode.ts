@@ -11,7 +11,7 @@ import { CommandQuickPickItem, ReferencePicker } from '../../quickpicks';
 import { RepositoriesView } from '../repositoriesView';
 import { RepositoryNode } from './repositoryNode';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
-import { FilesQueryResults } from './resultsFilesNode';
+import { FilesQueryResults, ResultsFilesNode } from './resultsFilesNode';
 import { debug, gate, log, Strings } from '../../system';
 import { ContextValues, ViewNode } from './viewNode';
 
@@ -112,6 +112,18 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 					{
 						id: 'ahead',
 						description: Strings.pluralize('commit', aheadBehindCounts?.ahead ?? 0),
+						expand: false,
+					},
+				),
+				new ResultsFilesNode(
+					this.view,
+					this,
+					this.uri.repoPath!,
+					this.branch.ref,
+					this.compareWithWorkingTree ? '' : this._compareWith.ref || 'HEAD',
+					this.getFilesQuery.bind(this),
+					undefined,
+					{
 						expand: false,
 					},
 				),
@@ -286,6 +298,24 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 			}
 
 			return results as CommitsQueryResults;
+		};
+	}
+
+	private async getFilesQuery(): Promise<FilesQueryResults> {
+		let comparison;
+		if (this._compareWith!.ref === '') {
+			comparison = this.branch.ref;
+		} else if (this.compareWithWorkingTree) {
+			comparison = this._compareWith!.ref;
+		} else {
+			comparison = `${this._compareWith!.ref}..${this.branch.ref}`;
+		}
+
+		const files = await Container.git.getDiffStatus(this.uri.repoPath!, comparison);
+
+		return {
+			label: `${Strings.pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,
+			files: files,
 		};
 	}
 

@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- Fixes [#1161](https://github.com/eamodio/vscode-gitlens/issues/1161) - Compare file differences between branches
+- Fixes [#1157](https://github.com/eamodio/vscode-gitlens/issues/1157) - GitLens report `X files changed` when comparing working tree with a branch having identical files
+
 ## [11.0.3] - 2020-11-22
 
 ### Fixed

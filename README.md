@@ -252,9 +252,10 @@ The _Commits_ view lists all of the commits on the current branch, and additiona
 - a toggle to change the file layout: list, tree, auto
 - a branch comparison tool (**Compare &lt;current branch&gt; with &lt;branch, tag, or ref&gt;**) &mdash; [optionally](#commits-view-settings- 'Jump to the Commits view settings') shows a comparison of the current branch (or working tree) to a user-selected reference
   - **Behind** &mdash; lists the commits that are missing from the current branch (i.e. behind) but exist in the selected reference
-    - **# files changed** &mdash; lists all of the files changed between the compared references
+    - **# files changed** &mdash; lists all of the files changed in the behind commits
   - **Ahead** &mdash; lists the commits that the current branch has (i.e. ahead) but are missing in the selected reference
-    - **# files changed** &mdash; lists all of the files changed between the compared references
+    - **# files changed** &mdash; lists all of the files changed in the ahead commits
+  - **# files changed** &mdash; lists all of the files changed between the compared references
 - the current branch status &mdash; shows the upstream status of the current branch
   - **Publish &lt;current branch&gt; to &lt;remote&gt;** &mdash; shown when the current branch has not been published to a remote
   - **Up to date with &lt;remote&gt;** &mdash; shown when the current branch is up to date with the upstream remote
@@ -302,9 +303,10 @@ The _Branches_ view lists all of the local branches, and additionally provides,
   - _Yellow dot_ &mdash; both unpublished and un-pulled changes
 - a branch comparison tool (**Compare &lt;branch&gt; with &lt;branch, tag, or ref&gt;**) &mdash; [optionally](#branches-view-settings- 'Jump to the Branches view settings') shows a comparison of the branch to a user-selected reference
   - **Behind** &mdash; lists the commits that are missing from the branch (i.e. behind) but exist in the selected reference
-    - **# files changed** &mdash; lists all of the files changed between the compared references
+    - **# files changed** &mdash; lists all of the files changed in the behind commits
   - **Ahead** &mdash; lists the commits that the branch has (i.e. ahead) but are missing in the selected reference
-    - **# files changed** &mdash; lists all of the files changed between the compared references
+    - **# files changed** &mdash; lists all of the files changed in the ahead commits
+  - **# files changed** &mdash; lists all of the files changed between the compared references
 - the branch status &mdash; shows the upstream status of the branch
   - **Publish &lt;branch&gt; to &lt;remote&gt;** &mdash; shown when the current branch has not been published to a remote
   - **Changes to push to &lt;remote&gt;** &mdash; lists of all the files changed in the unpublished commits when the branch has (unpublished) commits that waiting to be pushed to the upstream remote
@@ -396,9 +398,10 @@ The _Search & Compare_ view lists pinnable (saved) results for searching commit 
     - _Show Commit_ command (`gitlens.showQuickCommitDetails`)
 - pinnable comparison &mdash; shows a comparison of the two user-selected references
   - **Behind** &mdash; lists the commits that are missing from the branch (i.e. behind) but exist in the selected reference
-    - **# files changed** &mdash; lists all of the files changed between the compared references
+    - **# files changed** &mdash; lists all of the files changed in the behind commits
   - **Ahead** &mdash; lists the commits that the branch has (i.e. ahead) but are missing in the selected reference
-    - **# files changed** &mdash; lists all of the files changed between the compared references
+    - **# files changed** &mdash; lists all of the files changed in the ahead commits
+  - **# files changed** &mdash; lists all of the files changed between the compared references
   - Comparision results can be provided by the following commands
     - _Compare with Upstream_ command (`gitlens.views.compareWithUpstream`)
     - _Compare with Working Tree_ command (`gitlens.views.compareWithWorking`)

@@ -6,7 +6,7 @@ import { GitRevision } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { debug, gate, log, Strings } from '../../system';
 import { CommitsQueryResults, ResultsCommitsNode } from './resultsCommitsNode';
-import { FilesQueryResults } from './resultsFilesNode';
+import { FilesQueryResults, ResultsFilesNode } from './resultsFilesNode';
 import { ContextValues, ViewNode } from './viewNode';
 import { RepositoryNode } from './repositoryNode';
 import { SearchAndCompareView } from '../searchAndCompareView';
@@ -118,6 +118,18 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 					{
 						id: 'ahead',
 						description: Strings.pluralize('commit', aheadBehindCounts?.ahead ?? 0),
+						expand: false,
+					},
+				),
+				new ResultsFilesNode(
+					this.view,
+					this,
+					this.uri.repoPath!,
+					this._ref.ref,
+					this._compareWith.ref,
+					this.getFilesQuery.bind(this),
+					undefined,
+					{
 						expand: false,
 					},
 				),
@@ -289,6 +301,24 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 			}
 
 			return results as CommitsQueryResults;
+		};
+	}
+
+	private async getFilesQuery(): Promise<FilesQueryResults> {
+		let comparison;
+		if (this._compareWith.ref === '') {
+			comparison = this._ref.ref;
+		} else if (this._ref.ref === '') {
+			comparison = this._compareWith.ref;
+		} else {
+			comparison = `${this._compareWith.ref}..${this._ref.ref}`;
+		}
+
+		const files = await Container.git.getDiffStatus(this.uri.repoPath!, comparison);
+
+		return {
+			label: `${Strings.pluralize('file', files?.length ?? 0, { zero: 'No' })} changed`,
+			files: files,
 		};
 	}
 
