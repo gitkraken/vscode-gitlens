@@ -1,10 +1,10 @@
 'use strict';
 import { ExtensionContext, ExtensionMode, OutputChannel, Uri, window } from 'vscode';
 import { TraceLevel } from './configuration';
-import { extensionOutputChannelName } from './constants';
 import { getCorrelationContext, getNextCorrelationId } from './system';
 
 const emptyStr = '';
+const extensionOutputChannelName = 'GitLens';
 const ConsolePrefix = `[${extensionOutputChannelName}]`;
 
 export { TraceLevel } from './configuration';

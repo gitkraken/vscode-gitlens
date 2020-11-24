@@ -1,6 +1,6 @@
 'use strict';
 import { commands, Disposable } from 'vscode';
-import { ContextKeys, extensionId, setContext } from './constants';
+import { ContextKeys, setContext } from './constants';
 import { Logger } from './logger';
 import { log } from './system';
 
@@ -152,7 +152,7 @@ export class Keyboard implements Disposable {
 
 	constructor() {
 		const subscriptions = keys.map(key =>
-			commands.registerCommand(`${extensionId}.key.${key}`, () => this.execute(key), this),
+			commands.registerCommand(`gitlens.key.${key}`, () => this.execute(key), this),
 		);
 		this._disposable = Disposable.from(...subscriptions);
 	}

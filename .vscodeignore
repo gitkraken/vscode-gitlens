@@ -6,6 +6,7 @@ dist/webviews/*.css
 emoji/**
 images/docs/**
 node_modules/**
+scripts/**
 src/**
 test/**
 **/*.fig

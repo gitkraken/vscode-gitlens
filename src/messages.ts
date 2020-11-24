@@ -65,7 +65,7 @@ export class Messages {
 	static showGitDisabledErrorMessage() {
 		return Messages.showMessage(
 			'error',
-			'GitLens requires Git to be enabled. Please re-enable Git \u2014 set `git.enabled` to true and reload',
+			'GitLens requires Git to be enabled. Please re-enable Git \u2014 set `git.enabled` to true and reload.',
 			SuppressedMessages.GitDisabledWarning,
 		);
 	}
@@ -75,6 +75,14 @@ export class Messages {
 			'error',
 			`GitLens requires a newer version of Git (>= ${required}) than is currently installed (${version}). Please install a more recent version of Git.`,
 			SuppressedMessages.GitVersionWarning,
+		);
+	}
+
+	static showInsidersErrorMessage() {
+		return Messages.showMessage(
+			'error',
+			'GitLens (Insiders) cannot be used while GitLens is also installed. Please ensure that only one version of GitLens is installed.',
+			SuppressedMessages.GitDisabledWarning,
 		);
 	}
 

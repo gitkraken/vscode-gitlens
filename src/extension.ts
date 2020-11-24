@@ -1,8 +1,9 @@
 'use strict';
+import * as paths from 'path';
 import { commands, ExtensionContext, extensions, window, workspace } from 'vscode';
 import { Commands, registerCommands } from './commands';
 import { configuration, Configuration } from './configuration';
-import { ContextKeys, extensionQualifiedId, GlobalState, GlyphChars, setContext, SyncedState } from './constants';
+import { ContextKeys, GlobalState, GlyphChars, setContext, SyncedState } from './constants';
 import { Container } from './container';
 import { Git, GitCommit } from './git/git';
 import { GitService } from './git/gitService';
@@ -14,6 +15,21 @@ import { ViewNode } from './views/nodes';
 
 export async function activate(context: ExtensionContext) {
 	const start = process.hrtime();
+
+	let extensionId = 'eamodio.gitlens';
+	if (paths.basename(context.globalStorageUri.fsPath) === 'eamodio.gitlens-insiders') {
+		extensionId = 'eamodio.gitlens-insiders';
+
+		// Ensure that stable isn't also installed
+		const stable = extensions.getExtension('eamodio.gitlens');
+		if (stable != null) {
+			Logger.log('GitLens (Insiders) was NOT activated because GitLens is also installed');
+
+			void Messages.showInsidersErrorMessage();
+
+			return;
+		}
+	}
 
 	// Pretend we are enabled (until we know otherwise) and set the view contexts to reduce flashing on load
 	void setContext(ContextKeys.Enabled, true);
@@ -42,7 +58,7 @@ export async function activate(context: ExtensionContext) {
 		return undefined;
 	});
 
-	const gitlens = extensions.getExtension(extensionQualifiedId)!;
+	const gitlens = extensions.getExtension(extensionId)!;
 	const gitlensVersion = gitlens.packageJSON.version;
 
 	const syncedVersion = context.globalState.get<string>(SyncedState.Version);
@@ -108,7 +124,7 @@ export async function activate(context: ExtensionContext) {
 		return;
 	}
 
-	Container.initialize(context, cfg);
+	Container.initialize(extensionId, context, cfg);
 
 	registerCommands(context);
 

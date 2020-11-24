@@ -8115,6 +8115,7 @@
 		"lint": "eslint src/**/*.ts --fix --cache",
 		"optimize:webviews": "webpack --config-name webviews --env.optimizeImages",
 		"pack": "vsce package --yarn",
+		"patch-insiders": "node ./scripts/applyPatchForInsiders.js",
 		"pretty": "prettier --config .prettierrc --loglevel warn --write .",
 		"pub": "vsce publish --yarn",
 		"rebuild": "yarn run reset && yarn run build",
@@ -8124,7 +8125,7 @@
 		"watch:webviews": "webpack --watch --mode development --config-name webviews",
 		"update-dts": "pushd \"src/@types\" && npx vscode-dts dev && popd",
 		"update-dts:master": "pushd \"src/@types\" && npx vscode-dts master && popd",
-		"update-emoji": "node ./generateEmojiShortcodeMap.js",
+		"update-emoji": "node ./scripts/generateEmojiShortcodeMap.js",
 		"vscode:prepublish": "yarn run bundle"
 	},
 	"dependencies": {

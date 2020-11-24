@@ -1,7 +1,6 @@
 'use strict';
 import { commands, window } from 'vscode';
 import { viewsConfigKeys } from '../configuration';
-import { extensionId } from '../constants';
 import { command, Command, Commands } from './common';
 
 enum ViewsLayout {
@@ -53,8 +52,8 @@ export class SetViewsLayoutCommand extends Command {
 					let count = 0;
 					while (count++ < 2) {
 						void (await commands.executeCommand('vscode.moveViews', {
-							viewIds: viewsConfigKeys.map(view => `${extensionId}.views.${view}`),
-							destinationId: `workbench.view.extension.${extensionId}`,
+							viewIds: viewsConfigKeys.map(view => `gitlens.views.${view}`),
+							destinationId: 'workbench.view.extension.gitlens',
 						}));
 					}
 				} catch {}
@@ -66,13 +65,13 @@ export class SetViewsLayoutCommand extends Command {
 					let count = 0;
 					while (count++ < 2) {
 						void (await commands.executeCommand('vscode.moveViews', {
-							viewIds: viewsConfigKeys.map(view => `${extensionId}.views.${view}`),
+							viewIds: viewsConfigKeys.map(view => `gitlens.views.${view}`),
 							destinationId: 'workbench.view.scm',
 						}));
 					}
 				} catch {
 					for (const view of viewsConfigKeys) {
-						void (await commands.executeCommand(`${extensionId}.views.${view}.resetViewLocation`));
+						void (await commands.executeCommand(`gitlens.views.${view}.resetViewLocation`));
 					}
 				}
 

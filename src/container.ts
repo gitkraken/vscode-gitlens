@@ -38,7 +38,8 @@ export class Container {
 		| ((e: ConfigurationChangeEvent) => ConfigurationChangeEvent)
 		| undefined;
 
-	static initialize(context: ExtensionContext, config: Config) {
+	static initialize(extensionId: string, context: ExtensionContext, config: Config) {
+		this._extensionId = extensionId;
 		this._context = context;
 		this._config = Container.applyMode(config);
 
@@ -171,6 +172,11 @@ export class Container {
 		return this._contributorsView;
 	}
 
+	private static _extensionId: string;
+	static get extensionId() {
+		return this._extensionId;
+	}
+
 	private static _fileAnnotationController: FileAnnotationController;
 	static get fileAnnotations() {
 		return this._fileAnnotationController;
@@ -206,6 +212,10 @@ export class Container {
 			Logger.error(ex);
 			return undefined;
 		}
+	}
+
+	static get insiders() {
+		return this._extensionId.endsWith('-insiders');
 	}
 
 	private static _keyboard: Keyboard;

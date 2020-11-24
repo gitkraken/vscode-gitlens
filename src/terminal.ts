@@ -1,11 +1,12 @@
 'use strict';
 import { Disposable, Terminal, window } from 'vscode';
-import { extensionTerminalName } from './constants';
 import { Container } from './container';
 
 let _terminal: Terminal | undefined;
 let _terminalCwd: string | undefined;
 let _disposable: Disposable | undefined;
+
+const extensionTerminalName = 'GitLens';
 
 function ensureTerminal(cwd: string): Terminal {
 	if (_terminal === undefined) {

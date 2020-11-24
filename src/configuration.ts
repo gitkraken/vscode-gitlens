@@ -12,8 +12,9 @@ import {
 	workspace,
 } from 'vscode';
 import { Config } from './config';
-import { extensionId } from './constants';
 import { Objects } from './system';
+
+const extensionId = 'gitlens';
 
 type ConfigInspection<T> = {
 	key: string;

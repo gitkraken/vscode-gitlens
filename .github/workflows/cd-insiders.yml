@@ -58,11 +58,8 @@ jobs:
                   node-version: '12.x'
             - name: Install
               run: yarn
-            - name: Patch README.md
-              run: node -e "var insert = fs.readFileSync('./README.insiders.md'); var d = fs.readFileSync('./README.md'); fs.writeFileSync('./README.md', insert + '\n' + d);"
-            - name: Patch package.json
-              run: |
-                  node -e "var d = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })); var p = require('./package.json'); p = JSON.stringify({...p, name: p.name + '-insiders', displayName: p.displayName + ' (Insiders)', version: '' + d.getFullYear() + '.' + (d.getMonth() + 1) + '.' + d.getDate() + String(d.getHours()).padStart(2, '0') }); fs.writeFileSync('./package.json', p);"
+            - name: Apply insiders patch
+              run: yarn run patch-insiders
             - name: Setup Environment
               run: node -e "console.log('PACKAGE_VERSION=' + require('./package.json').version + '\nPACKAGE_NAME=' + require('./package.json').name + '-' + require('./package.json').version)" >> $GITHUB_ENV
             - name: Package extension
