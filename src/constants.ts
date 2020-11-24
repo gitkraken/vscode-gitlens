@@ -143,7 +143,6 @@ export enum SyncedState {
 export enum GlobalState {
 	DeprecatedVersion = 'gitlensVersion',
 	Avatars = 'gitlens:avatars',
-	DisallowConnectionPrefix = 'gitlens:disallow:connection:',
 	Version = 'gitlens:version',
 }
 
@@ -216,6 +215,7 @@ export interface StarredRepositories {
 export enum WorkspaceState {
 	BranchComparisons = 'gitlens:branch:comparisons',
 	DefaultRemote = 'gitlens:remote:default',
+	DisallowConnectionPrefix = 'gitlens:disallow:connection:',
 	StarredBranches = 'gitlens:starred:branches',
 	StarredRepositories = 'gitlens:starred:repositories',
 	ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',

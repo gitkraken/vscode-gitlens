@@ -13,7 +13,7 @@ import {
 } from 'vscode';
 import { DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference } from '../../config';
-import { GlobalState } from '../../constants';
+import { WorkspaceState } from '../../constants';
 import { Container } from '../../container';
 import { Logger } from '../../logger';
 import { Messages } from '../../messages';
@@ -275,7 +275,7 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 	}
 
 	private get disallowConnectionKey() {
-		return `${GlobalState.DisallowConnectionPrefix}${this.key}`;
+		return `${WorkspaceState.DisallowConnectionPrefix}${this.key}`;
 	}
 
 	get maybeConnected(): boolean | undefined {
@@ -317,7 +317,7 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 		this._session = null;
 
 		if (disconnected) {
-			void Container.context.globalState.update(this.disallowConnectionKey, true);
+			void Container.context.workspaceState.update(this.disallowConnectionKey, true);
 
 			this._onDidChange.fire();
 			if (!silent) {
@@ -516,8 +516,8 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 		if (this._session != null) return this._session;
 
 		if (createIfNone) {
-			await Container.context.globalState.update(this.disallowConnectionKey, undefined);
-		} else if (Container.context.globalState.get<boolean>(this.disallowConnectionKey)) {
+			await Container.context.workspaceState.update(this.disallowConnectionKey, undefined);
+		} else if (Container.context.workspaceState.get<boolean>(this.disallowConnectionKey)) {
 			return undefined;
 		}
 
@@ -527,7 +527,7 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 				createIfNone: createIfNone,
 			});
 		} catch (ex) {
-			await Container.context.globalState.update(this.disallowConnectionKey, true);
+			await Container.context.workspaceState.update(this.disallowConnectionKey, true);
 
 			if (ex instanceof Error && ex.message.includes('User did not consent')) {
 				if (!createIfNone) {
@@ -540,7 +540,7 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 		}
 
 		if (session === undefined && !createIfNone) {
-			await Container.context.globalState.update(this.disallowConnectionKey, true);
+			await Container.context.workspaceState.update(this.disallowConnectionKey, true);
 
 			void this.promptToConnect();
 		}
@@ -549,7 +549,7 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 		this.invalidAuthenticationCount = 0;
 
 		if (session != null) {
-			await Container.context.globalState.update(this.disallowConnectionKey, undefined);
+			await Container.context.workspaceState.update(this.disallowConnectionKey, undefined);
 
 			if (createIfNone) {
 				this._onDidChange.fire();
