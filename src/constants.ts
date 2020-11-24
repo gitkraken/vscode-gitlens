@@ -216,10 +216,11 @@ export interface StarredRepositories {
 export enum WorkspaceState {
 	BranchComparisons = 'gitlens:branch:comparisons',
 	DefaultRemote = 'gitlens:remote:default',
-	DeprecatedPinnedComparisons = 'gitlens:pinned:comparisons',
 	StarredBranches = 'gitlens:starred:branches',
 	StarredRepositories = 'gitlens:starred:repositories',
 	ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',
 	ViewsSearchAndCompareKeepResults = 'gitlens:views:searchAndCompare:keepResults',
 	ViewsSearchAndComparePinnedItems = 'gitlens:views:searchAndCompare:pinned',
+
+	Deprecated_PinnedComparisons = 'gitlens:pinned:comparisons',
 }

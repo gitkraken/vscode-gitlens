@@ -415,7 +415,7 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 		if (savedPins == null) {
 			// Migrate any deprecated pinned items
 			const deprecatedPins = Container.context.workspaceState.get<DeprecatedPinnedComparisons>(
-				WorkspaceState.DeprecatedPinnedComparisons,
+				WorkspaceState.Deprecated_PinnedComparisons,
 			);
 			if (deprecatedPins == null) return [];
 
@@ -431,7 +431,7 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 			}
 
 			void Container.context.workspaceState.update(WorkspaceState.ViewsSearchAndComparePinnedItems, savedPins);
-			void Container.context.workspaceState.update(WorkspaceState.DeprecatedPinnedComparisons, undefined);
+			void Container.context.workspaceState.update(WorkspaceState.Deprecated_PinnedComparisons, undefined);
 		}
 
 		const root = this.ensureRoot();
