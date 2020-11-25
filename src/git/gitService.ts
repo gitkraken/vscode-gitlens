@@ -1394,6 +1394,7 @@ export class GitService implements Disposable {
 	}
 
 	@log()
+	@gate()
 	async getCurrentUser(repoPath: string) {
 		let user = this._userMapCache.get(repoPath);
 		if (user != null) return user;
