@@ -7,7 +7,7 @@
 			"type": "pwa-extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
-			"args": ["--extensionDevelopmentPath=${workspaceFolder}"],
+			"args": ["--disable-extension=eamodio.gitlens-insiders", "--extensionDevelopmentPath=${workspaceFolder}"],
 			"cwd": "${workspaceFolder}",
 			"debugWebviews": true,
 			"rendererDebugOptions": {
@@ -53,7 +53,7 @@
 			"type": "pwa-extensionHost",
 			"request": "launch",
 			"runtimeExecutable": "${execPath}",
-			"args": ["--extensionDevelopmentPath=${workspaceFolder}"],
+			"args": ["--disable-extension=eamodio.gitlens-insiders", "--extensionDevelopmentPath=${workspaceFolder}"],
 			"cwd": "${workspaceFolder}",
 			"debugWebviews": true,
 			"rendererDebugOptions": {
