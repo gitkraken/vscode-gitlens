@@ -12,7 +12,7 @@ jobs:
             - uses: actions/stale@v3
               with:
                   repo-token: ${{ secrets.GITHUB_TOKEN }}
-                  days-before-close: 7
-                  days-before-stale: 0
+                  days-before-close: 1
+                  days-before-stale: 6
                   only-labels: 'status: needs more info'
                   close-issue-message: 'Closing this issue because it needs more information and has not had recent activity. Please re-open this issue when more details can be provided.\n\nThanks!'
