@@ -1,11 +1,11 @@
 'use strict';
+import { BranchSorting, configuration, DateStyle } from '../../configuration';
 import { StarredBranches, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
 import { GitRemote, GitRevision } from '../git';
-import { GitStatus } from './status';
-import { Dates, memoize } from '../../system';
 import { GitBranchReference, GitReference, PullRequest, PullRequestState } from './models';
-import { BranchSorting, configuration, DateStyle } from '../../configuration';
+import { GitStatus } from './status';
+import { Dates, debug, memoize } from '../../system';
 
 const whitespaceRegex = /\s/;
 const detachedHEADRegex = /^(?=.*\bHEAD\b)(?=.*\bdetached\b).*$/;
@@ -139,6 +139,7 @@ export class GitBranch implements GitBranchReference {
 		return this.dateFormatter?.fromNow() ?? '';
 	}
 
+	@debug()
 	async getAssociatedPullRequest(options?: {
 		avatarSize?: number;
 		include?: PullRequestState[];
