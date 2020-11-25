@@ -8115,6 +8115,7 @@
 		"lint": "eslint src/**/*.ts --fix --cache",
 		"optimize:webviews": "webpack --config-name webviews --env.optimizeImages",
 		"pack": "vsce package --yarn",
+		"pack-insiders": "yarn run patch-insiders && yarn run pack",
 		"patch-insiders": "node ./scripts/applyPatchForInsiders.js",
 		"pretty": "prettier --config .prettierrc --loglevel warn --write .",
 		"pub": "vsce publish --yarn",
