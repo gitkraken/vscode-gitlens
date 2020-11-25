@@ -132,6 +132,7 @@ export async function git<TOut extends string | Buffer>(options: GitCommandOptio
 		pendingCommands.set(command, promise);
 	} else {
 		waiting = true;
+		Logger.debug(`${gitCommand} ${GlyphChars.Dot} waiting...`);
 	}
 
 	let exception: Error | undefined;
@@ -157,7 +158,7 @@ export async function git<TOut extends string | Buffer>(options: GitCommandOptio
 	} finally {
 		pendingCommands.delete(command);
 
-		const duration = `${Strings.getDurationMilliseconds(start)} ms ${waiting ? '(await) ' : emptyStr}`;
+		const duration = `${Strings.getDurationMilliseconds(start)} ms ${waiting ? '(waited) ' : emptyStr}`;
 		if (exception !== undefined) {
 			Logger.warn(
 				`[${runOpts.cwd}] Git ${(exception.message || exception.toString() || emptyStr)
