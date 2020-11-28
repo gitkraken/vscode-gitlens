@@ -4,6 +4,7 @@
 		"experimentalDecorators": true,
 		"forceConsistentCasingInFileNames": true,
 		"incremental": true,
+		"isolatedModules": true,
 		"lib": ["es2019"],
 		"module": "esnext",
 		"moduleResolution": "node",
