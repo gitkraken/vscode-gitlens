@@ -5,7 +5,7 @@ import { AutolinkReference } from '../../config';
 import { Container } from '../../container';
 import { GitHubPullRequest } from '../../github/github';
 import { Account, GitRevision, IssueOrPullRequest, PullRequest, PullRequestState, Repository } from '../models/models';
-import { RemoteProviderWithApi } from './provider';
+import { RichRemoteProvider } from './provider';
 
 const issueEnricher3rdParyRegex = /\b(\w+\\?-?\w+(?!\\?-)\/\w+\\?-?\w+(?!\\?-))\\?#([0-9]+)\b/g;
 const fileRegex = /^\/([^/]+)\/([^/]+?)\/blob(.+)$/i;
@@ -13,7 +13,7 @@ const rangeRegex = /^L(\d+)(?:-L(\d+))?$/;
 
 const authProvider = Object.freeze({ id: 'github', scopes: ['repo'] });
 
-export class GitHubRemote extends RemoteProviderWithApi {
+export class GitHubRemote extends RichRemoteProvider {
 	protected get authProvider() {
 		return authProvider;
 	}

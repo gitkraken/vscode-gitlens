@@ -22,7 +22,7 @@ import { GitUri } from '../gitUri';
 import { Logger } from '../../logger';
 import { Messages } from '../../messages';
 import { GitBranchReference, GitReference, GitTagReference } from './models';
-import { RemoteProviderFactory, RemoteProviders, RemoteProviderWithApi } from '../remotes/factory';
+import { RemoteProviderFactory, RemoteProviders, RichRemoteProvider } from '../remotes/factory';
 import { Arrays, debug, Functions, gate, Iterables, log, logName } from '../../system';
 import { runGitCommandInTerminal } from '../../terminal';
 
@@ -463,7 +463,7 @@ export class Repository implements Disposable {
 
 		this._remotesDisposable = Disposable.from(
 			...Iterables.filterMap(await remotes, r => {
-				if (!(r.provider instanceof RemoteProviderWithApi)) return undefined;
+				if (!RichRemoteProvider.is(r.provider)) return undefined;
 
 				return r.provider.onDidChange(() => this.fireChange(RepositoryChange.Remotes));
 			}),
@@ -492,7 +492,7 @@ export class Repository implements Disposable {
 
 	async hasConnectedRemotes(): Promise<boolean> {
 		const remotes = await this.getRemotes();
-		const remote = await Container.git.getRemoteWithApiProvider(remotes);
+		const remote = await Container.git.getRichRemoteProvider(remotes);
 		return remote?.provider != null;
 	}
 

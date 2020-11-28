@@ -88,6 +88,7 @@ export function getNameFromRemoteResource(resource: RemoteResource) {
 }
 
 export abstract class RemoteProvider {
+	readonly type: 'simple' | 'rich' = 'simple';
 	protected _name: string | undefined;
 
 	constructor(
@@ -135,8 +136,8 @@ export abstract class RemoteProvider {
 		}
 	}
 
-	hasApi(): this is RemoteProviderWithApi {
-		return RemoteProviderWithApi.is(this);
+	hasApi(): this is RichRemoteProvider {
+		return RichRemoteProvider.is(this);
 	}
 
 	abstract getLocalInfoFromRemoteUri(
@@ -247,9 +248,11 @@ export class ClientError extends Error {
 
 // TODO@eamodio revisit how once authenticated, all remotes are always connected, even after a restart
 
-export abstract class RemoteProviderWithApi extends RemoteProvider {
-	static is(provider: RemoteProvider | undefined): provider is RemoteProviderWithApi {
-		return provider instanceof RemoteProviderWithApi;
+export abstract class RichRemoteProvider extends RemoteProvider {
+	readonly type: 'simple' | 'rich' = 'rich';
+
+	static is(provider: RemoteProvider | undefined): provider is RichRemoteProvider {
+		return provider?.type === 'rich';
 	}
 
 	private readonly _onDidChange = new EventEmitter<void>();
@@ -337,7 +340,7 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 	}
 
 	@gate()
-	@debug<RemoteProviderWithApi['isConnected']>({
+	@debug<RichRemoteProvider['isConnected']>({
 		exit: connected => `returned ${connected}`,
 	})
 	async isConnected(): Promise<boolean> {

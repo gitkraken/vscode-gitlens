@@ -7,9 +7,9 @@ import { CustomRemote } from './custom';
 import { GitHubRemote } from './github';
 import { GitLabRemote } from './gitlab';
 import { Logger } from '../../logger';
-import { RemoteProvider, RemoteProviderWithApi } from './provider';
+import { RemoteProvider, RichRemoteProvider } from './provider';
 
-export { RemoteProvider, RemoteProviderWithApi };
+export { RemoteProvider, RichRemoteProvider };
 export type RemoteProviders = [string | RegExp, (domain: string, path: string) => RemoteProvider][];
 
 const defaultProviders: RemoteProviders = [

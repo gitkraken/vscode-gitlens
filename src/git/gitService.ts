@@ -76,7 +76,7 @@ import { GitUri } from './gitUri';
 import { LogCorrelationContext, Logger } from '../logger';
 import { Messages } from '../messages';
 import { GitReflogParser, GitShortLogParser } from './parsers/parsers';
-import { RemoteProvider, RemoteProviderFactory, RemoteProviders, RemoteProviderWithApi } from './remotes/factory';
+import { RemoteProvider, RemoteProviderFactory, RemoteProviders, RichRemoteProvider } from './remotes/factory';
 import { fsExists, isWindows } from './shell';
 import {
 	Arrays,
@@ -129,7 +129,7 @@ export class GitService implements Disposable {
 	private _repositoriesLoadingPromise: Promise<void> | undefined;
 
 	private readonly _branchesCache = new Map<string, GitBranch[]>();
-	private readonly _remotesWithApiProviderCache = new Map<string, GitRemote<RemoteProviderWithApi> | null>();
+	private readonly _remotesWithApiProviderCache = new Map<string, GitRemote<RichRemoteProvider> | null>();
 	private readonly _tagsCache = new Map<string, GitTag[]>();
 	private readonly _trackedCache = new Map<string, boolean | Promise<boolean>>();
 	private readonly _userMapCache = new Map<string, { name?: string; email?: string } | null>();
@@ -2667,18 +2667,18 @@ export class GitService implements Disposable {
 	): Promise<PullRequest | undefined>;
 	async getPullRequestForBranch(
 		branch: string,
-		provider: RemoteProviderWithApi,
+		provider: RichRemoteProvider,
 		options?: { avatarSize?: number; include?: PullRequestState[]; limit?: number; timeout?: number },
 	): Promise<PullRequest | undefined>;
 	@gate()
 	@debug<GitService['getPullRequestForBranch']>({
 		args: {
-			1: (remoteOrProvider: GitRemote | RemoteProviderWithApi) => remoteOrProvider.name,
+			1: (remoteOrProvider: GitRemote | RichRemoteProvider) => remoteOrProvider.name,
 		},
 	})
 	async getPullRequestForBranch(
 		branch: string,
-		remoteOrProvider: GitRemote | RemoteProviderWithApi,
+		remoteOrProvider: GitRemote | RichRemoteProvider,
 		{
 			timeout,
 			...options
@@ -2719,18 +2719,18 @@ export class GitService implements Disposable {
 	): Promise<PullRequest | undefined>;
 	async getPullRequestForCommit(
 		ref: string,
-		provider: RemoteProviderWithApi,
+		provider: RichRemoteProvider,
 		options?: { timeout?: number },
 	): Promise<PullRequest | undefined>;
 	@gate()
 	@debug({
 		args: {
-			1: (remoteOrProvider: GitRemote | RemoteProviderWithApi) => remoteOrProvider.name,
+			1: (remoteOrProvider: GitRemote | RichRemoteProvider) => remoteOrProvider.name,
 		},
 	})
 	async getPullRequestForCommit(
 		ref: string,
-		remoteOrProvider: GitRemote | RemoteProviderWithApi,
+		remoteOrProvider: GitRemote | RichRemoteProvider,
 		{ timeout }: { timeout?: number } = {},
 	): Promise<PullRequest | undefined> {
 		if (GitRevision.isUncommitted(ref)) return undefined;
@@ -2819,25 +2819,25 @@ export class GitService implements Disposable {
 		};
 	}
 
-	async getRemoteWithApiProvider(
+	async getRichRemoteProvider(
 		repoPath: string | undefined,
 		options?: { includeDisconnected?: boolean },
-	): Promise<GitRemote<RemoteProviderWithApi> | undefined>;
-	async getRemoteWithApiProvider(
+	): Promise<GitRemote<RichRemoteProvider> | undefined>;
+	async getRichRemoteProvider(
 		remotes: GitRemote[],
 		options?: { includeDisconnected?: boolean },
-	): Promise<GitRemote<RemoteProviderWithApi> | undefined>;
-	@gate<GitService['getRemoteWithApiProvider']>(
+	): Promise<GitRemote<RichRemoteProvider> | undefined>;
+	@gate<GitService['getRichRemoteProvider']>(
 		(remotesOrRepoPath, options) =>
 			`${typeof remotesOrRepoPath === 'string' ? remotesOrRepoPath : remotesOrRepoPath[0]?.repoPath}:${
 				options?.includeDisconnected ?? false
 			}`,
 	)
 	@log({ args: { 0: () => false } })
-	async getRemoteWithApiProvider(
+	async getRichRemoteProvider(
 		remotesOrRepoPath: GitRemote[] | string | undefined,
 		{ includeDisconnected }: { includeDisconnected?: boolean } = {},
-	): Promise<GitRemote<RemoteProviderWithApi> | undefined> {
+	): Promise<GitRemote<RichRemoteProvider> | undefined> {
 		if (remotesOrRepoPath == null) return undefined;
 
 		const cacheKey = `${includeDisconnected ? 'disconnected|' : ''}${
@@ -2891,9 +2891,9 @@ export class GitService implements Disposable {
 		}
 
 		if (cacheKey != null) {
-			this._remotesWithApiProviderCache.set(cacheKey, remote as GitRemote<RemoteProviderWithApi>);
+			this._remotesWithApiProviderCache.set(cacheKey, remote as GitRemote<RichRemoteProvider>);
 		}
-		return remote as GitRemote<RemoteProviderWithApi>;
+		return remote as GitRemote<RichRemoteProvider>;
 	}
 
 	@log()

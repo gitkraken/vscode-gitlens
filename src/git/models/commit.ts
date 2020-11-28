@@ -144,7 +144,7 @@ export abstract class GitCommit implements GitRevisionReference {
 
 	@memoize()
 	async getAssociatedPullRequest(): Promise<PullRequest | undefined> {
-		const remote = await Container.git.getRemoteWithApiProvider(this.repoPath);
+		const remote = await Container.git.getRichRemoteProvider(this.repoPath);
 		if (remote?.provider == null) return undefined;
 
 		return Container.git.getPullRequestForCommit(this.ref, remote);

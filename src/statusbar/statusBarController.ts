@@ -217,7 +217,7 @@ export class StatusBarController implements Disposable {
 	}
 
 	private async getPullRequest(commit: GitBlameCommit, { timeout }: { timeout?: number } = {}) {
-		const remote = await Container.git.getRemoteWithApiProvider(commit.repoPath);
+		const remote = await Container.git.getRichRemoteProvider(commit.repoPath);
 		if (remote?.provider == null) return undefined;
 
 		const { provider } = remote;
