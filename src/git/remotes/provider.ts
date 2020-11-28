@@ -237,6 +237,14 @@ export class AuthenticationError extends Error {
 	}
 }
 
+export class ClientError extends Error {
+	constructor(private original: Error) {
+		super(original.message);
+
+		Error.captureStackTrace(this, ClientError);
+	}
+}
+
 // TODO@eamodio revisit how once authenticated, all remotes are always connected, even after a restart
 
 export abstract class RemoteProviderWithApi extends RemoteProvider {
@@ -249,7 +257,7 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 		return this._onDidChange.event;
 	}
 
-	private invalidAuthenticationCount = 0;
+	private invalidClientExceptionCount = 0;
 
 	constructor(domain: string, path: string, protocol?: string, name?: string, custom?: boolean) {
 		super(domain, path, protocol, name, custom);
@@ -314,7 +322,7 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 	disconnect(silent: boolean = false): void {
 		const disconnected = this._session != null;
 
-		this.invalidAuthenticationCount = 0;
+		this.invalidClientExceptionCount = 0;
 		this._prsByCommit.clear();
 		this._session = null;
 
@@ -351,13 +359,13 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 
 		try {
 			const author = await this.getProviderAccountForCommit(this._session!, ref, options);
-			this.invalidAuthenticationCount = 0;
+			this.invalidClientExceptionCount = 0;
 			return author;
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex instanceof AuthenticationError) {
-				this.handleAuthenticationException();
+			if (ex instanceof ClientError || ex instanceof AuthenticationError) {
+				this.handleClientException();
 			}
 			return undefined;
 		}
@@ -386,13 +394,13 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 
 		try {
 			const author = await this.getProviderAccountForEmail(this._session!, email, options);
-			this.invalidAuthenticationCount = 0;
+			this.invalidClientExceptionCount = 0;
 			return author;
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex instanceof AuthenticationError) {
-				this.handleAuthenticationException();
+			if (ex instanceof ClientError || ex instanceof AuthenticationError) {
+				this.handleClientException();
 			}
 			return undefined;
 		}
@@ -416,13 +424,13 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 
 		try {
 			const issueOrPullRequest = await this.getProviderIssueOrPullRequest(this._session!, id);
-			this.invalidAuthenticationCount = 0;
+			this.invalidClientExceptionCount = 0;
 			return issueOrPullRequest;
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex instanceof AuthenticationError) {
-				this.handleAuthenticationException();
+			if (ex instanceof ClientError || ex instanceof AuthenticationError) {
+				this.handleClientException();
 			}
 			return undefined;
 		}
@@ -449,13 +457,13 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 
 		try {
 			const pr = await this.getProviderPullRequestForBranch(this._session!, branch, options);
-			this.invalidAuthenticationCount = 0;
+			this.invalidClientExceptionCount = 0;
 			return pr;
 		} catch (ex) {
 			Logger.error(ex, cc);
 
-			if (ex instanceof AuthenticationError) {
-				this.handleAuthenticationException();
+			if (ex instanceof ClientError || ex instanceof AuthenticationError) {
+				this.handleClientException();
 			}
 			return undefined;
 		}
@@ -494,15 +502,15 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 		try {
 			const pr = (await this.getProviderPullRequestForCommit(this._session!, ref)) ?? null;
 			this._prsByCommit.set(ref, pr);
-			this.invalidAuthenticationCount = 0;
+			this.invalidClientExceptionCount = 0;
 			return pr;
 		} catch (ex) {
 			Logger.error(ex, cc);
 
 			this._prsByCommit.delete(ref);
 
-			if (ex instanceof AuthenticationError) {
-				this.handleAuthenticationException();
+			if (ex instanceof ClientError || ex instanceof AuthenticationError) {
+				this.handleClientException();
 			}
 			return null;
 		}
@@ -548,7 +556,7 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 		}
 
 		this._session = session ?? null;
-		this.invalidAuthenticationCount = 0;
+		this.invalidClientExceptionCount = 0;
 
 		if (session != null) {
 			await Container.context.workspaceState.update(this.disallowConnectionKey, undefined);
@@ -595,10 +603,10 @@ export abstract class RemoteProviderWithApi extends RemoteProvider {
 	}
 
 	@debug()
-	private handleAuthenticationException() {
-		this.invalidAuthenticationCount++;
+	private handleClientException() {
+		this.invalidClientExceptionCount++;
 
-		if (this.invalidAuthenticationCount >= 5) {
+		if (this.invalidClientExceptionCount >= 5) {
 			this.disconnect();
 		}
 	}
