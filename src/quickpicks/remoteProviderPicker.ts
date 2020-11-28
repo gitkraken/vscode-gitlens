@@ -1,5 +1,5 @@
 'use strict';
-import { Disposable, window } from 'vscode';
+import { Disposable, env, Uri, window } from 'vscode';
 import { Commands, OpenOnRemoteCommandArgs } from '../commands';
 import { GlyphChars } from '../constants';
 import {
@@ -12,6 +12,16 @@ import {
 } from '../git/git';
 import { Keys } from '../keyboard';
 import { CommandQuickPickItem, getQuickPickIgnoreFocusOut } from '../quickpicks';
+
+export class ConfigureCustomRemoteProviderCommandQuickPickItem extends CommandQuickPickItem {
+	constructor() {
+		super({ label: 'See how to configure a custom remote provider...' });
+	}
+
+	async execute(): Promise<void> {
+		await env.openExternal(Uri.parse('https://github.com/eamodio/vscode-gitlens#custom-remotes-settings'));
+	}
+}
 
 export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 	constructor(
@@ -115,18 +125,34 @@ export namespace RemoteProviderPicker {
 		resource: RemoteResource,
 		remotes: GitRemote<RemoteProvider>[],
 		options?: { clipboard?: boolean; setDefault?: boolean },
-	): Promise<CopyOrOpenRemoteCommandQuickPickItem | SetADefaultRemoteCommandQuickPickItem | undefined> {
+	): Promise<
+		| ConfigureCustomRemoteProviderCommandQuickPickItem
+		| CopyOrOpenRemoteCommandQuickPickItem
+		| SetADefaultRemoteCommandQuickPickItem
+		| undefined
+	> {
 		const { clipboard, setDefault } = { clipboard: false, setDefault: true, ...options };
 
-		const items: (CopyOrOpenRemoteCommandQuickPickItem | SetADefaultRemoteCommandQuickPickItem)[] = remotes.map(
-			r => new CopyOrOpenRemoteCommandQuickPickItem(r, resource, clipboard),
-		);
-		if (setDefault) {
-			items.push(new SetADefaultRemoteCommandQuickPickItem(remotes));
+		let items: (
+			| ConfigureCustomRemoteProviderCommandQuickPickItem
+			| CopyOrOpenRemoteCommandQuickPickItem
+			| SetADefaultRemoteCommandQuickPickItem
+		)[];
+		if (remotes.length === 0) {
+			items = [new ConfigureCustomRemoteProviderCommandQuickPickItem()];
+			//
+			placeHolder = 'No auto-detected or configured remote providers found';
+		} else {
+			items = remotes.map(r => new CopyOrOpenRemoteCommandQuickPickItem(r, resource, clipboard));
+			if (setDefault) {
+				items.push(new SetADefaultRemoteCommandQuickPickItem(remotes));
+			}
 		}
 
 		const quickpick = window.createQuickPick<
-			CopyOrOpenRemoteCommandQuickPickItem | SetADefaultRemoteCommandQuickPickItem
+			| ConfigureCustomRemoteProviderCommandQuickPickItem
+			| CopyOrOpenRemoteCommandQuickPickItem
+			| SetADefaultRemoteCommandQuickPickItem
 		>();
 		quickpick.ignoreFocusOut = getQuickPickIgnoreFocusOut();
 
@@ -134,7 +160,10 @@ export namespace RemoteProviderPicker {
 
 		try {
 			const pick = await new Promise<
-				CopyOrOpenRemoteCommandQuickPickItem | SetADefaultRemoteCommandQuickPickItem | undefined
+				| ConfigureCustomRemoteProviderCommandQuickPickItem
+				| CopyOrOpenRemoteCommandQuickPickItem
+				| SetADefaultRemoteCommandQuickPickItem
+				| undefined
 			>(resolve => {
 				disposables.push(
 					quickpick.onDidHide(() => resolve(undefined)),
