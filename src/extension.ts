@@ -80,8 +80,14 @@ export async function activate(context: ExtensionContext) {
 	if (previousVersion == null) {
 		void context.globalState.update(SyncedState.WelcomeViewVisible, true);
 		void setContext(ContextKeys.ViewsWelcomeVisible, true);
+		void context.globalState.update(SyncedState.UpdatesViewVisible, false);
 		void setContext(ContextKeys.ViewsUpdatesVisible, false);
 	} else {
+		// Force Updates welcome view, since for some reason it never showed for many users
+		if (Versions.compare(previousVersion, Versions.from(11, 0, 5)) !== 1) {
+			await context.globalState.update(SyncedState.UpdatesViewVisible, true);
+		}
+
 		void setContext(
 			ContextKeys.ViewsWelcomeVisible,
 			context.globalState.get<boolean>(SyncedState.WelcomeViewVisible) ?? false,

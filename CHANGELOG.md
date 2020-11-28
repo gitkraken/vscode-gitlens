@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Changes the _Where did my views go?_ view to show on this next upgrade, since somehow (still not sure how) it was never shown to many (most?) users
+- Changes GitHub connection rejection to be per-workspace (rather than global)
+
 ### Fixed
 
 - Fixes invalid branch status showing up for remote branches

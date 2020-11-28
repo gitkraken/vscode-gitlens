@@ -8011,14 +8011,16 @@
 					"name": "Where did my views go?",
 					"when": "gitlens:views:updates:visible != false",
 					"contextualTitle": "GitLens",
-					"icon": "images/gitlens-activitybar.svg"
+					"icon": "images/gitlens-activitybar.svg",
+					"visibility": "visible"
 				},
 				{
 					"id": "gitlens.views.welcome",
 					"name": "Welcome",
 					"when": "gitlens:views:welcome:visible != false",
 					"contextualTitle": "GitLens",
-					"icon": "images/gitlens-activitybar.svg"
+					"icon": "images/gitlens-activitybar.svg",
+					"visibility": "visible"
 				}
 			],
 			"scm": [
