@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#1205](https://github.com/eamodio/vscode-gitlens/issues/1205) - Setting heatmap's `coldColor` and `hotColor` breaks file blame & related functionality
 - Fixes invalid branch status showing up for remote branches
 
 ## [11.0.5] - 2020-11-23

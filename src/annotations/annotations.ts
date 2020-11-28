@@ -71,7 +71,7 @@ export async function getHeatmapColors() {
 		) {
 			colors = defaultHeatmapColors;
 		} else {
-			const chroma = await import(/* webpackChunkName: "heatmap-chroma" */ 'chroma-js');
+			const chroma = (await import(/* webpackChunkName: "heatmap-chroma" */ 'chroma-js')).default;
 			colors = chroma
 				.scale([Container.config.heatmap.hotColor, Container.config.heatmap.coldColor])
 				.mode('lrgb')

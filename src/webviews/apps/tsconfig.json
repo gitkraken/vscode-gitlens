@@ -2,7 +2,6 @@
 	"extends": "../../../tsconfig.json",
 	"compilerOptions": {
 		"allowSyntheticDefaultImports": true,
-		"esModuleInterop": true,
 		"lib": ["dom", "dom.iterable", "es2019"],
 		"outDir": "../../"
 	},

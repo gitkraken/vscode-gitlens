@@ -4,9 +4,9 @@ import * as advancedFormat from 'dayjs/plugin/advancedFormat';
 import * as relativeTime from 'dayjs/plugin/relativeTime';
 import * as updateLocale from 'dayjs/plugin/updateLocale';
 
-dayjs.extend(advancedFormat);
-dayjs.extend(relativeTime);
-dayjs.extend(relativeTime, {
+dayjs.extend(advancedFormat.default);
+dayjs.extend(relativeTime.default);
+dayjs.extend(relativeTime.default, {
 	thresholds: [
 		{ l: 's', r: 44, d: 'second' },
 		{ l: 'm', r: 89 },
@@ -23,7 +23,7 @@ dayjs.extend(relativeTime, {
 		{ l: 'yy', d: 'year' },
 	],
 });
-dayjs.extend(updateLocale);
+dayjs.extend(updateLocale.default);
 
 dayjs.updateLocale('en', {
 	relativeTime: {
@@ -114,7 +114,7 @@ export interface DateFormatter {
 }
 
 export function getFormatter(date: Date): DateFormatter {
-	const formatter = dayjs(date);
+	const formatter = dayjs.default(date);
 	return {
 		fromNow: function (locale?: string) {
 			return (locale ? formatter.locale(locale) : formatter).fromNow();
