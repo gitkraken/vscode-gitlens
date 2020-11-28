@@ -152,32 +152,34 @@ export abstract class RemoteProvider {
 	url(resource: RemoteResource): string | undefined {
 		switch (resource.type) {
 			case RemoteResourceType.Branch:
-				return this.getUrlForBranch(encodeURIComponent(resource.branch));
+				return encodeURI(this.getUrlForBranch(resource.branch));
 			case RemoteResourceType.Branches:
-				return this.getUrlForBranches();
+				return encodeURI(this.getUrlForBranches());
 			case RemoteResourceType.Commit:
-				return this.getUrlForCommit(encodeURIComponent(resource.sha));
-			case RemoteResourceType.Comparison:
-				return this.getUrlForComparison?.(
-					encodeURIComponent(resource.ref1),
-					encodeURIComponent(resource.ref2),
-					resource.notation ?? '...',
-				);
+				return encodeURI(this.getUrlForCommit(resource.sha));
+			case RemoteResourceType.Comparison: {
+				const url = this.getUrlForComparison?.(resource.ref1, resource.ref2, resource.notation ?? '...');
+				return url != null ? encodeURI(url) : undefined;
+			}
 			case RemoteResourceType.File:
-				return this.getUrlForFile(
-					encodeURIComponent(resource.fileName),
-					resource.branch != null ? encodeURIComponent(resource.branch) : undefined,
-					undefined,
-					resource.range,
+				return encodeURI(
+					this.getUrlForFile(
+						resource.fileName,
+						resource.branch != null ? resource.branch : undefined,
+						undefined,
+						resource.range,
+					),
 				);
 			case RemoteResourceType.Repo:
-				return this.getUrlForRepository();
+				return encodeURI(this.getUrlForRepository());
 			case RemoteResourceType.Revision:
-				return this.getUrlForFile(
-					encodeURIComponent(resource.fileName),
-					resource.branch != null ? encodeURIComponent(resource.branch) : undefined,
-					resource.sha != null ? encodeURIComponent(resource.sha) : undefined,
-					resource.range,
+				return encodeURI(
+					this.getUrlForFile(
+						resource.fileName,
+						resource.branch != null ? resource.branch : undefined,
+						resource.sha != null ? resource.sha : undefined,
+						resource.range,
+					),
 				);
 			default:
 				return undefined;
