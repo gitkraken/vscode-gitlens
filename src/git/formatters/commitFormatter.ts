@@ -302,7 +302,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		const { pullRequestOrRemote: pr } = this._options;
 		if (pr != null) {
 			if (PullRequest.is(pr)) {
-				commands += `[$(git-pull-request) PR #${pr.number}](${pr.url} "Open Pull Request \\#${pr.number} on ${
+				commands += `[$(git-pull-request) PR #${pr.id}](${pr.url} "Open Pull Request \\#${pr.id} on ${
 					pr.provider
 				}\n${GlyphChars.Dash.repeat(2)}\n${pr.title}\n${pr.state}, ${pr.formatDateFromNow()}")${separator}`;
 			} else if (pr instanceof Promises.CancellationError) {
@@ -456,19 +456,19 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		let text;
 		if (PullRequest.is(pr)) {
 			if (this._options.markdown) {
-				text = `[PR #${pr.number}](${pr.url} "Open Pull Request \\#${pr.number} on ${
+				text = `[PR #${pr.id}](${pr.url} "Open Pull Request \\#${pr.id} on ${
 					pr.provider
 				}\n${GlyphChars.Dash.repeat(2)}\n${pr.title}\n${pr.state}, ${pr.formatDateFromNow()}")`;
 			} else if (this._options.footnotes != null) {
 				const index = this._options.footnotes.size + 1;
 				this._options.footnotes.set(
 					index,
-					`PR #${pr.number}: ${pr.title}  ${GlyphChars.Dot}  ${pr.state}, ${pr.formatDateFromNow()}`,
+					`PR #${pr.id}: ${pr.title}  ${GlyphChars.Dot}  ${pr.state}, ${pr.formatDateFromNow()}`,
 				);
 
-				text = `PR #${pr.number}${Strings.getSuperscript(index)}`;
+				text = `PR #${pr.id}${Strings.getSuperscript(index)}`;
 			} else {
-				text = `PR #${pr.number}`;
+				text = `PR #${pr.id}`;
 			}
 		} else if (pr instanceof Promises.CancellationError) {
 			text = this._options.markdown

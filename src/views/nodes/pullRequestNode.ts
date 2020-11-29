@@ -15,8 +15,8 @@ export class PullRequestNode extends ViewNode<
 	BranchesView | CommitsView | ContributorsView | RemotesView | RepositoriesView | SearchAndCompareView
 > {
 	static key = ':pullrequest';
-	static getId(repoPath: string, number: number, ref: string): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}(${number}):${ref}`;
+	static getId(repoPath: string, id: string, ref: string): string {
+		return `${RepositoryNode.getId(repoPath)}${this.key}(${id}):${ref}`;
 	}
 
 	constructor(
@@ -33,7 +33,7 @@ export class PullRequestNode extends ViewNode<
 	}
 
 	get id(): string {
-		return PullRequestNode.getId(this.branchOrCommit.repoPath, this.pullRequest.number, this.branchOrCommit.ref);
+		return PullRequestNode.getId(this.branchOrCommit.repoPath, this.pullRequest.id, this.branchOrCommit.ref);
 	}
 
 	getChildren(): ViewNode[] {
@@ -41,20 +41,17 @@ export class PullRequestNode extends ViewNode<
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem(
-			`#${this.pullRequest.number}: ${this.pullRequest.title}`,
-			TreeItemCollapsibleState.None,
-		);
+		const item = new TreeItem(`#${this.pullRequest.id}: ${this.pullRequest.title}`, TreeItemCollapsibleState.None);
 		item.contextValue = ContextValues.PullRequest;
 		item.description = `${this.pullRequest.state}, ${this.pullRequest.formatDateFromNow()}`;
 		item.iconPath = new ThemeIcon('git-pull-request');
 		item.id = this.id;
-		item.tooltip = `${this.pullRequest.title}\n#${this.pullRequest.number} by ${this.pullRequest.author.name} was ${
+		item.tooltip = `${this.pullRequest.title}\n#${this.pullRequest.id} by ${this.pullRequest.author.name} was ${
 			this.pullRequest.state === PullRequestState.Open ? 'opened' : this.pullRequest.state.toLowerCase()
 		} ${this.pullRequest.formatDateFromNow()}`;
 
 		if (this.branchOrCommit instanceof GitCommit) {
-			item.tooltip = `Commit ${this.branchOrCommit.shortSha} was introduced by PR #${this.pullRequest.number}\n${item.tooltip}`;
+			item.tooltip = `Commit ${this.branchOrCommit.shortSha} was introduced by PR #${this.pullRequest.id}\n${item.tooltip}`;
 		}
 
 		// item.tooltip = `Open Pull Request #${this.pullRequest.number} on ${this.pullRequest.provider}`;

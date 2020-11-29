@@ -30,7 +30,7 @@ export class PullRequest {
 			readonly avatarUrl: string;
 			readonly url: string;
 		},
-		public readonly number: number,
+		public readonly id: string,
 		public readonly title: string,
 		public readonly url: string,
 		public readonly state: PullRequestState,

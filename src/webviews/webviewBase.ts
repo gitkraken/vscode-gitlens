@@ -229,7 +229,7 @@ export abstract class WebviewBase implements Disposable {
 										avatarUrl: 'https://avatars1.githubusercontent.com/u/641685?s=32&v=4',
 										url: 'https://github.com/eamodio',
 									},
-									1,
+									'1',
 									'Supercharged',
 									'https://github.com/eamodio/vscode-gitlens/pulls/1',
 									PullRequestState.Merged,

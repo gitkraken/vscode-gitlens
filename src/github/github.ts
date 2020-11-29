@@ -1,7 +1,7 @@
 'use strict';
 import { graphql } from '@octokit/graphql';
 import { Logger } from '../logger';
-import { debug, Functions } from '../system';
+import { debug } from '../system';
 import { AuthenticationError, ClientError, IssueOrPullRequest, PullRequest, PullRequestState } from '../git/git';
 import { Account } from '../git/models/author';
 
@@ -340,25 +340,6 @@ export class GitHubApi {
 			avatarSize?: number;
 		},
 	): Promise<PullRequest | undefined> {
-		if (ref === 'b44296e7c45a9e83530feb976f9f293a78457161') {
-			await Functions.wait(5000);
-			return new PullRequest(
-				provider,
-				{
-					name: 'Eric Amodio',
-					avatarUrl: `https://avatars1.githubusercontent.com/u/641685?s=${options?.avatarSize ?? 32}&v=4`,
-					url: 'https://github.com/eamodio',
-				},
-				1,
-				'Supercharged',
-				'https://github.com/eamodio/vscode-gitlens/pulls/1',
-				PullRequestState.Merged,
-				new Date('Sat, 12 Nov 2016 19:41:00 GMT'),
-				undefined,
-				new Date('Sat, 12 Nov 2016 20:41:00 GMT'),
-			);
-		}
-
 		const cc = Logger.getCorrelationContext();
 
 		try {
@@ -478,7 +459,7 @@ export namespace GitHubPullRequest {
 				avatarUrl: pr.author.avatarUrl,
 				url: pr.author.url,
 			},
-			pr.number,
+			String(pr.number),
 			pr.title,
 			pr.permalink,
 			fromState(pr.state),
