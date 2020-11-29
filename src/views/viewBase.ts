@@ -109,7 +109,7 @@ export abstract class ViewBase<
 	private readonly _lastKnownLimits = new Map<string, number | undefined>();
 
 	constructor(public readonly id: string, public readonly name: string) {
-		if (Logger.isDebugging) {
+		if (Logger.isDebugging || Container.config.debug) {
 			const getTreeItem = this.getTreeItem;
 			this.getTreeItem = async function (this: ViewBase<RootNode, ViewConfig>, node: ViewNode) {
 				const item = await getTreeItem.apply(this, [node]);
