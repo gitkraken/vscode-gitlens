@@ -55,3 +55,5 @@
 - Sergey Cheperis
 - Asem Hasna
 - gb
+- John Sweeney
+- ember arlynx
