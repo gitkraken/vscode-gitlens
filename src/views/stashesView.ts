@@ -101,7 +101,11 @@ export class StashesRepositoryNode extends SubscribeableViewNode<StashesView> {
 			return;
 		}
 
-		if (e.changed(RepositoryChange.Config) || e.changed(RepositoryChange.Stash)) {
+		if (
+			e.changed(RepositoryChange.Config) ||
+			e.changed(RepositoryChange.Stash) ||
+			e.changed(RepositoryChange.Unknown)
+		) {
 			void this.triggerChange(true);
 		}
 	}

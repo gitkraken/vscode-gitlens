@@ -2,15 +2,15 @@
 /* eslint-disable @typescript-eslint/strict-boolean-expressions */
 'use strict';
 import { count, map, some } from './iterable';
-import { CharCode } from './string';
+import { CharCode, compareSubstring, compareSubstringIgnoreCase } from './string';
 
 // Code stolen from https://github.com/Microsoft/vscode/blob/b3e6d5bb039a4a9362b52a2c8726267ca68cf64e/src/vs/base/common/map.ts#L352
 
 const FIN = { done: true, value: undefined };
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
-export interface IKeyIterator {
-	reset(key: string): this;
+export interface IKeyIterator<K> {
+	reset(key: K): this;
 	next(): this;
 
 	hasNext(): boolean;
@@ -18,7 +18,7 @@ export interface IKeyIterator {
 	value(): string;
 }
 
-export class StringIterator implements IKeyIterator {
+export class StringIterator implements IKeyIterator<string> {
 	private _value: string = '';
 	private _pos: number = 0;
 
@@ -48,10 +48,12 @@ export class StringIterator implements IKeyIterator {
 	}
 }
 
-export class PathIterator implements IKeyIterator {
+export class PathIterator implements IKeyIterator<string> {
 	private _value!: string;
 	private _from!: number;
 	private _to!: number;
+
+	constructor(private readonly _splitOnBackslash: boolean = true, private readonly _caseSensitive: boolean = true) {}
 
 	reset(key: string): this {
 		this._value = key.replace(/\\$|\/$/, '');
@@ -70,7 +72,7 @@ export class PathIterator implements IKeyIterator {
 		let justSeps = true;
 		for (; this._to < this._value.length; this._to++) {
 			const ch = this._value.charCodeAt(this._to);
-			if (ch === CharCode.Slash || ch === CharCode.Backslash) {
+			if (ch === CharCode.Slash || (this._splitOnBackslash && ch === CharCode.Backslash)) {
 				if (justSeps) {
 					this._from++;
 				} else {
@@ -84,29 +86,9 @@ export class PathIterator implements IKeyIterator {
 	}
 
 	cmp(a: string): number {
-		let aPos = 0;
-		const aLen = a.length;
-		let thisPos = this._from;
-
-		while (aPos < aLen && thisPos < this._to) {
-			const cmp = a.charCodeAt(aPos) - this._value.charCodeAt(thisPos);
-			if (cmp !== 0) {
-				return cmp;
-			}
-
-			aPos += 1;
-			thisPos += 1;
-		}
-
-		if (aLen === this._to - this._from) {
-			return 0;
-		}
-
-		if (aPos < aLen) {
-			return -1;
-		}
-
-		return 1;
+		return this._caseSensitive
+			? compareSubstring(a, this._value, 0, a.length, this._from, this._to)
+			: compareSubstringIgnoreCase(a, this._value, 0, a.length, this._from, this._to);
 	}
 
 	value(): string {
@@ -114,32 +96,32 @@ export class PathIterator implements IKeyIterator {
 	}
 }
 
-class TernarySearchTreeNode<E> {
+class TernarySearchTreeNode<K, V> {
 	segment!: string;
-	value: E | undefined;
-	key!: string;
-	left: TernarySearchTreeNode<E> | undefined;
-	mid: TernarySearchTreeNode<E> | undefined;
-	right: TernarySearchTreeNode<E> | undefined;
+	value: V | undefined;
+	key!: K;
+	left: TernarySearchTreeNode<K, V> | undefined;
+	mid: TernarySearchTreeNode<K, V> | undefined;
+	right: TernarySearchTreeNode<K, V> | undefined;
 
 	isEmpty(): boolean {
 		return !this.left && !this.mid && !this.right && !this.value;
 	}
 }
 
-export class TernarySearchTree<E> {
-	static forPaths<E>(): TernarySearchTree<E> {
-		return new TernarySearchTree<E>(new PathIterator());
+export class TernarySearchTree<K, V> {
+	static forPaths<E>(): TernarySearchTree<string, E> {
+		return new TernarySearchTree<string, E>(new PathIterator());
 	}
 
-	static forStrings<E>(): TernarySearchTree<E> {
-		return new TernarySearchTree<E>(new StringIterator());
+	static forStrings<E>(): TernarySearchTree<string, E> {
+		return new TernarySearchTree<string, E>(new StringIterator());
 	}
 
-	private _iter: IKeyIterator;
-	private _root: TernarySearchTreeNode<E> | undefined;
+	private _iter: IKeyIterator<K>;
+	private _root: TernarySearchTreeNode<K, V> | undefined;
 
-	constructor(segments: IKeyIterator) {
+	constructor(segments: IKeyIterator<K>) {
 		this._iter = segments;
 	}
 
@@ -147,12 +129,12 @@ export class TernarySearchTree<E> {
 		this._root = undefined;
 	}
 
-	set(key: string, element: E): E | undefined {
+	set(key: K, element: V): V | undefined {
 		const iter = this._iter.reset(key);
-		let node: TernarySearchTreeNode<E>;
+		let node: TernarySearchTreeNode<K, V>;
 
 		if (!this._root) {
-			this._root = new TernarySearchTreeNode<E>();
+			this._root = new TernarySearchTreeNode<K, V>();
 			this._root.segment = iter.value();
 		}
 
@@ -162,14 +144,14 @@ export class TernarySearchTree<E> {
 			if (val > 0) {
 				// left
 				if (!node.left) {
-					node.left = new TernarySearchTreeNode<E>();
+					node.left = new TernarySearchTreeNode<K, V>();
 					node.left.segment = iter.value();
 				}
 				node = node.left;
 			} else if (val < 0) {
 				// right
 				if (!node.right) {
-					node.right = new TernarySearchTreeNode<E>();
+					node.right = new TernarySearchTreeNode<K, V>();
 					node.right.segment = iter.value();
 				}
 				node = node.right;
@@ -177,7 +159,7 @@ export class TernarySearchTree<E> {
 				// mid
 				iter.next();
 				if (!node.mid) {
-					node.mid = new TernarySearchTreeNode<E>();
+					node.mid = new TernarySearchTreeNode<K, V>();
 					node.mid.segment = iter.value();
 				}
 				node = node.mid;
@@ -191,7 +173,11 @@ export class TernarySearchTree<E> {
 		return oldElement;
 	}
 
-	get(key: string): E | undefined {
+	get(key: K): V | undefined {
+		return this._getNode(key)?.value;
+	}
+
+	private _getNode(key: K) {
 		const iter = this._iter.reset(key);
 		let node = this._root;
 		while (node) {
@@ -210,12 +196,24 @@ export class TernarySearchTree<E> {
 				break;
 			}
 		}
-		return node ? node.value : undefined;
+		return node;
 	}
 
-	delete(key: string): void {
+	has(key: K): boolean {
+		return Boolean(this._getNode(key));
+	}
+
+	delete(key: K): void {
+		return this._delete(key, false);
+	}
+
+	deleteSuperstr(key: K): void {
+		return this._delete(key, true);
+	}
+
+	private _delete(key: K, superStr: boolean): void {
 		const iter = this._iter.reset(key);
-		const stack: [-1 | 0 | 1, TernarySearchTreeNode<E>][] = [];
+		const stack: [-1 | 0 | 1, TernarySearchTreeNode<K, V>][] = [];
 		let node = this._root;
 
 		// find and unset node
@@ -235,8 +233,15 @@ export class TernarySearchTree<E> {
 				stack.push([0, node]);
 				node = node.mid;
 			} else {
-				// remove element
-				node.value = undefined;
+				if (superStr) {
+					// remove children
+					node.left = undefined;
+					node.mid = undefined;
+					node.right = undefined;
+				} else {
+					// remove element
+					node.value = undefined;
+				}
 
 				// clean up empty nodes
 				while (stack.length > 0 && node.isEmpty()) {
@@ -259,10 +264,10 @@ export class TernarySearchTree<E> {
 		}
 	}
 
-	findSubstr(key: string): E | undefined {
+	findSubstr(key: K): V | undefined {
 		const iter = this._iter.reset(key);
 		let node = this._root;
-		let candidate: E | undefined;
+		let candidate: V | undefined;
 		while (node) {
 			const val = iter.cmp(node.segment);
 			if (val > 0) {
@@ -283,7 +288,7 @@ export class TernarySearchTree<E> {
 		return node?.value || candidate;
 	}
 
-	findSuperstr(key: string, limit: boolean = false): Iterable<E> | undefined {
+	findSuperstr(key: K, limit: boolean = false): Iterable<V> | undefined {
 		const iter = this._iter.reset(key);
 		let node = this._root;
 		while (node) {
@@ -314,11 +319,11 @@ export class TernarySearchTree<E> {
 		return undefined;
 	}
 
-	private _nodeIterator(node: TernarySearchTreeNode<E>, limit: boolean = false): Iterator<E> {
-		let res: { done: false; value: E };
+	private _nodeIterator(node: TernarySearchTreeNode<K, V>, limit: boolean = false): Iterator<V> {
+		let res: { done: false; value: V };
 		let idx: number;
-		let data: E[];
-		const next = (): IteratorResult<E> => {
+		let data: V[];
+		const next = (): IteratorResult<V> => {
 			if (!data) {
 				// lazy till first invocation
 				data = [];
@@ -326,7 +331,7 @@ export class TernarySearchTree<E> {
 				this._forEach(node, value => data.push(value), limit);
 			}
 			if (idx >= data.length) {
-				return (FIN as unknown) as IteratorResult<E>;
+				return (FIN as unknown) as IteratorResult<V>;
 			}
 
 			if (!res) {
@@ -339,13 +344,13 @@ export class TernarySearchTree<E> {
 		return { next: next };
 	}
 
-	forEach(callback: (value: E, index: string) => any) {
+	forEach(callback: (value: V, index: K) => any) {
 		this._forEach(this._root, callback);
 	}
 
 	private _forEach(
-		node: TernarySearchTreeNode<E> | undefined,
-		callback: (value: E, index: string) => any,
+		node: TernarySearchTreeNode<K, V> | undefined,
+		callback: (value: V, index: K) => any,
 		limit: boolean = false,
 	) {
 		if (node === undefined) return;
@@ -371,28 +376,28 @@ export class TernarySearchTree<E> {
 		return this._root !== undefined && !this._root.isEmpty();
 	}
 
-	count(predicate?: (entry: E) => boolean): number {
+	count(predicate?: (entry: V) => boolean): number {
 		if (this._root === undefined || this._root.isEmpty()) return 0;
 
-		return count(this.entries(), predicate === undefined ? undefined : ([e]) => predicate(e));
+		return count(this.entries(), predicate === undefined ? undefined : ([, e]) => predicate(e));
 	}
 
-	entries(): Iterable<[E, string]> {
+	entries(): Iterable<[K, V]> {
 		return this._iterator(this._root);
 	}
 
-	values(): Iterable<E> {
-		return map(this.entries(), ([e]) => e);
+	values(): Iterable<V> {
+		return map(this.entries(), ([, e]) => e);
 	}
 
-	highlander(): [E, string] | undefined {
+	highlander(): [K, V] | undefined {
 		if (this._root === undefined || this._root.isEmpty()) return undefined;
 
-		const entries = this.entries() as IterableIterator<[E, string]>;
+		const entries = this.entries() as IterableIterator<[K, V]>;
 
 		let count = 0;
-		let next: IteratorResult<[E, string]>;
-		let value: [E, string] | undefined;
+		let next: IteratorResult<[K, V]>;
+		let value: [K, V] | undefined;
 
 		while (true) {
 			next = entries.next();
@@ -407,20 +412,24 @@ export class TernarySearchTree<E> {
 		return value;
 	}
 
-	some(predicate: (entry: E) => boolean): boolean {
+	some(predicate: (entry: V) => boolean): boolean {
 		if (this._root === undefined || this._root.isEmpty()) return false;
 
-		return some(this.entries(), ([e]) => predicate(e));
+		return some(this.entries(), ([, e]) => predicate(e));
 	}
 
-	private *_iterator(node: TernarySearchTreeNode<E> | undefined): IterableIterator<[E, string]> {
-		if (node !== undefined) {
+	*[Symbol.iterator](): IterableIterator<[K, V]> {
+		yield* this._iterator(this._root);
+	}
+
+	private *_iterator(node: TernarySearchTreeNode<K, V> | undefined): IterableIterator<[K, V]> {
+		if (node) {
 			// left
 			yield* this._iterator(node.left);
 
 			// node
 			if (node.value) {
-				yield [node.value, node.key];
+				yield [node.key, node.value];
 			}
 
 			// mid

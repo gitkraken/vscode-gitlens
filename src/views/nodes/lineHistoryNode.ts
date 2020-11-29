@@ -260,8 +260,8 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 		if (repo == null) return undefined;
 
 		const subscription = Disposable.from(
-			repo.onDidChange(this.onRepoChanged, this),
-			repo.onDidChangeFileSystem(this.onRepoFileSystemChanged, this),
+			repo.onDidChange(this.onRepositoryChanged, this),
+			repo.onDidChangeFileSystem(this.onFileSystemChanged, this),
 			repo.startWatchingFileSystem(),
 		);
 
@@ -272,18 +272,25 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 		return true;
 	}
 
-	private onRepoChanged(e: RepositoryChangeEvent) {
-		if (!e.changed(RepositoryChange.Heads)) return;
+	private onRepositoryChanged(e: RepositoryChangeEvent) {
+		if (
+			!e.changed(RepositoryChange.Index) &&
+			!e.changed(RepositoryChange.Heads) &&
+			!e.changed(RepositoryChange.Remotes) &&
+			!e.changed(RepositoryChange.Unknown)
+		) {
+			return;
+		}
 
-		Logger.debug(`LineHistoryNode.onRepoChanged(${e.changes.join()}); triggering node refresh`);
+		Logger.debug(`LineHistoryNode.onRepositoryChanged(${e.changes.join()}); triggering node refresh`);
 
 		void this.triggerChange(true);
 	}
 
-	private onRepoFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
+	private onFileSystemChanged(e: RepositoryFileSystemChangeEvent) {
 		if (!e.uris.some(uri => uri.toString() === this.uri.toString())) return;
 
-		Logger.debug(`LineHistoryNode.onRepoFileSystemChanged(${this.uri.toString(true)}); triggering node refresh`);
+		Logger.debug(`LineHistoryNode.onFileSystemChanged(${this.uri.toString(true)}); triggering node refresh`);
 
 		void this.triggerChange(true);
 	}

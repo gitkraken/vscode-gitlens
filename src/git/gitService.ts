@@ -125,7 +125,7 @@ export class GitService implements Disposable {
 	}
 
 	private readonly _disposable: Disposable;
-	private readonly _repositoryTree: TernarySearchTree<Repository>;
+	private readonly _repositoryTree: TernarySearchTree<string, Repository>;
 	private _repositoriesLoadingPromise: Promise<void> | undefined;
 
 	private readonly _branchesCache = new Map<string, GitBranch[]>();
@@ -254,7 +254,9 @@ export class GitService implements Disposable {
 							this.onAnyRepositoryChanged.bind(this),
 						);
 						for (const r of repositories) {
-							this._repositoryTree.set(r.path, r);
+							if (!this._repositoryTree.has(r.path)) {
+								this._repositoryTree.set(r.path, r);
+							}
 						}
 					}
 				}
@@ -262,7 +264,9 @@ export class GitService implements Disposable {
 				// Search for and add all repositories (nested and/or submodules)
 				const repositories = await this.repositorySearch(f);
 				for (const r of repositories) {
-					this._repositoryTree.set(r.path, r);
+					if (!this._repositoryTree.has(r.path)) {
+						this._repositoryTree.set(r.path, r);
+					}
 				}
 			}
 		}
@@ -436,7 +440,7 @@ export class GitService implements Disposable {
 		});
 	}
 
-	private async updateContext(repositoryTree: TernarySearchTree<Repository>) {
+	private async updateContext(repositoryTree: TernarySearchTree<string, Repository>) {
 		const hasRepository = repositoryTree.any();
 		await setEnabled(hasRepository);
 
@@ -475,7 +479,9 @@ export class GitService implements Disposable {
 					disposable.dispose();
 
 					for (const r of repositories) {
-						this._repositoryTree.set(r.path, r);
+						if (!this._repositoryTree.has(r.path)) {
+							this._repositoryTree.set(r.path, r);
+						}
 					}
 
 					await this.updateContext(this._repositoryTree);
@@ -748,7 +754,7 @@ export class GitService implements Disposable {
 		const entry = this._repositoryTree.highlander();
 		if (entry == null) return undefined;
 
-		const [repo] = entry;
+		const [, repo] = entry;
 		return repo.path;
 	}
 
@@ -3099,7 +3105,7 @@ export class GitService implements Disposable {
 		return Repository.sort(repositories.filter(r => !r.closed));
 	}
 
-	private async getRepositoryTree(): Promise<TernarySearchTree<Repository>> {
+	private async getRepositoryTree(): Promise<TernarySearchTree<string, Repository>> {
 		if (this._repositoriesLoadingPromise != null) {
 			await this._repositoriesLoadingPromise;
 			this._repositoriesLoadingPromise = undefined;
@@ -3162,7 +3168,7 @@ export class GitService implements Disposable {
 	}
 
 	private findRepositoryForPath(
-		repositoryTree: TernarySearchTree<Repository>,
+		repositoryTree: TernarySearchTree<string, Repository>,
 		path: string,
 		isVslsScheme: boolean | undefined,
 	): Repository | undefined {

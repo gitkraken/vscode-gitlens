@@ -31,7 +31,7 @@ export function toGitLensFSUri(ref: string, repoPath: string): Uri {
 
 export class GitFileSystemProvider implements FileSystemProvider, Disposable {
 	private readonly _disposable: Disposable;
-	private readonly _searchTreeMap = new Map<string, Promise<TernarySearchTree<GitTree>>>();
+	private readonly _searchTreeMap = new Map<string, Promise<TernarySearchTree<string, GitTree>>>();
 
 	constructor() {
 		this._disposable = Disposable.from(

@@ -100,7 +100,12 @@ export class ContributorsRepositoryNode extends SubscribeableViewNode<Contributo
 			return;
 		}
 
-		if (e.changed(RepositoryChange.Config) || e.changed(RepositoryChange.Heads)) {
+		if (
+			e.changed(RepositoryChange.Config) ||
+			e.changed(RepositoryChange.Heads) ||
+			e.changed(RepositoryChange.Remotes) ||
+			e.changed(RepositoryChange.Unknown)
+		) {
 			void this.triggerChange(true);
 		}
 	}

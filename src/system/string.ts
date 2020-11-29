@@ -13,11 +13,87 @@ export const enum CharCode {
 	 * The `\` character.
 	 */
 	Backslash = 92,
+	A = 65,
+	Z = 90,
+	a = 97,
+	z = 122,
 }
 
 export function base64(s: string): string {
 	const buffer = Buffer.from(s);
 	return buffer.toString('base64');
+}
+
+export function compareSubstring(
+	a: string,
+	b: string,
+	aStart: number = 0,
+	aEnd: number = a.length,
+	bStart: number = 0,
+	bEnd: number = b.length,
+): number {
+	for (; aStart < aEnd && bStart < bEnd; aStart++, bStart++) {
+		const codeA = a.charCodeAt(aStart);
+		const codeB = b.charCodeAt(bStart);
+		if (codeA < codeB) {
+			return -1;
+		} else if (codeA > codeB) {
+			return 1;
+		}
+	}
+	const aLen = aEnd - aStart;
+	const bLen = bEnd - bStart;
+	if (aLen < bLen) {
+		return -1;
+	} else if (aLen > bLen) {
+		return 1;
+	}
+	return 0;
+}
+
+export function compareSubstringIgnoreCase(
+	a: string,
+	b: string,
+	aStart: number = 0,
+	aEnd: number = a.length,
+	bStart: number = 0,
+	bEnd: number = b.length,
+): number {
+	for (; aStart < aEnd && bStart < bEnd; aStart++, bStart++) {
+		const codeA = a.charCodeAt(aStart);
+		const codeB = b.charCodeAt(bStart);
+
+		if (codeA === codeB) {
+			// equal
+			continue;
+		}
+
+		const diff = codeA - codeB;
+		if (diff === 32 && isUpperAsciiLetter(codeB)) {
+			//codeB =[65-90] && codeA =[97-122]
+			continue;
+		} else if (diff === -32 && isUpperAsciiLetter(codeA)) {
+			//codeB =[97-122] && codeA =[65-90]
+			continue;
+		}
+
+		if (isLowerAsciiLetter(codeA) && isLowerAsciiLetter(codeB)) {
+			//
+			return diff;
+		}
+		return compareSubstring(a.toLowerCase(), b.toLowerCase(), aStart, aEnd, bStart, bEnd);
+	}
+
+	const aLen = aEnd - aStart;
+	const bLen = bEnd - bStart;
+
+	if (aLen < bLen) {
+		return -1;
+	} else if (aLen > bLen) {
+		return 1;
+	}
+
+	return 0;
 }
 
 const escapeMarkdownRegex = /[\\`*_{}[\]()#+\-.!]/g;
@@ -175,6 +251,14 @@ export async function interpolateAsync(template: string, context: object | undef
 
 	const value = await fn.call(context);
 	return value;
+}
+
+export function isLowerAsciiLetter(code: number): boolean {
+	return code >= CharCode.a && code <= CharCode.z;
+}
+
+export function isUpperAsciiLetter(code: number): boolean {
+	return code >= CharCode.A && code <= CharCode.Z;
 }
 
 export function* lines(s: string): IterableIterator<string> {

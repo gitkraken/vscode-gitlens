@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#1212](https://github.com/eamodio/vscode-gitlens/issues/1212) - Stashes list doesn't refresh on deletion
+- Fixes [#1191](https://github.com/eamodio/vscode-gitlens/issues/1191) - "Gitlens › Views › Repositories: Auto Refresh" not working
 - Fixes [#1202](https://github.com/eamodio/vscode-gitlens/issues/1202) - "Copy Remote File Url" url-encodes the URL
 
 ## [11.0.6] - 2020-11.28
