@@ -56,10 +56,15 @@ export class GitUri extends ((Uri as any) as UriEx) {
 		if (uri.scheme === DocumentSchemes.GitLens) {
 			const data = JSON.parse(uri.query) as UriRevisionData;
 
-			// When Uri's come from the FileSystemProvider, the uri.query only contains the root repo info (not the actual file path), so fix that here
-			const index = uri.path.indexOf(data.path);
-			if (index + data.path.length < uri.path.length) {
-				data.path = index === 0 ? uri.path : uri.path.substr(index);
+			// Fixes issues with uri.query:
+			// When Uri's come from the FileSystemProvider, the uri.query only contains the root repo info (not the actual file path)
+			// When Uri's come from breadcrumbs (via the FileSystemProvider), the uri.query contains the wrong file path
+			if (data.path !== uri.path) {
+				if (data.path.startsWith('//') && !uri.path.startsWith('//')) {
+					data.path = `/${uri.path}`;
+				} else {
+					data.path = uri.path;
+				}
 			}
 
 			super({
