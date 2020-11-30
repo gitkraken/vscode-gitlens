@@ -834,14 +834,18 @@ export namespace Git {
 			params.push('--all');
 		}
 
-		params.push(renames && startLine == null && all !== true ? '--follow' : '-m');
+		// Can't allow rename detection (`--follow`) if `all` or a `startLine` is specified
+		if (renames && (all || startLine != null)) {
+			renames = false;
+		}
+
+		params.push(renames ? '--follow' : '-m');
+		if (/*renames ||*/ firstParent) {
+			params.push('--first-parent');
+		}
 
 		if (filters != null && filters.length !== 0) {
 			params.push(`--diff-filter=${filters.join(emptyStr)}`);
-		}
-
-		if ((all !== true && renames) || firstParent) {
-			params.push('--first-parent');
 		}
 
 		if (format !== 'refs') {
