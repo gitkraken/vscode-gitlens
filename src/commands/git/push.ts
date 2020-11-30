@@ -302,7 +302,7 @@ export class PushGitCommand extends QuickCommand<State> {
 							undefined,
 							{ placeholder: 'Confirm Publish' },
 						);
-					} else {
+					} else if (status.upstream == null) {
 						step = this.createConfirmStep(
 							appendReposToTitle('Confirm Publish', state, context),
 							[],
@@ -311,6 +311,15 @@ export class PushGitCommand extends QuickCommand<State> {
 								detail: 'Cannot publish; No remotes found',
 							}),
 							{ placeholder: 'Confirm Publish' },
+						);
+					} else {
+						step = this.createConfirmStep(
+							appendReposToTitle('Confirm Push', state, context),
+							[],
+							DirectiveQuickPickItem.create(Directive.Cancel, true, {
+								label: `Cancel ${this.title}`,
+								detail: `Cannot push; No commits ahead of ${GitBranch.getRemote(status.upstream)}`,
+							}),
 						);
 					}
 				} else {
