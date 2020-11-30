@@ -2,7 +2,7 @@ name: Publish Insiders
 
 on:
     schedule:
-        - cron: '0 6 * * *' # every day at 6am
+        - cron: '0 9 * * *' # every day at 4am EST
     workflow_dispatch:
 
 jobs:
