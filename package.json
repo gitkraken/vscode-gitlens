@@ -5753,12 +5753,12 @@
 			"extension/context": [
 				{
 					"command": "gitlens.showWelcomePage",
-					"when": "extension == eamodio.gitlens && extensionStatus == installed",
+					"when": "extension =~ /^eamodio.gitlens(-insiders)?$/ && extensionStatus == installed",
 					"group": "9_gitlens@1"
 				},
 				{
 					"command": "gitlens.showSettingsPage",
-					"when": "extension == eamodio.gitlens && extensionStatus == installed",
+					"when": "extension =~ /^eamodio.gitlens(-insiders)?$/ && extensionStatus == installed",
 					"group": "9_gitlens@2"
 				}
 			],
