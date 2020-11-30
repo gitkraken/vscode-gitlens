@@ -521,9 +521,7 @@ export class GitService implements Disposable {
 
 		let patch;
 		try {
-			patch = await Git.diff(uri.repoPath, uri.fsPath, ref1, ref2, {
-				similarityThreshold: Container.config.advanced.similarityThreshold,
-			});
+			patch = await Git.diff(uri.repoPath, uri.fsPath, ref1, ref2);
 			void (await Git.apply(uri.repoPath, patch));
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? emptyStr;
@@ -1524,6 +1522,8 @@ export class GitService implements Disposable {
 			const data = await Git.diff(root, file, ref1, ref2, {
 				...options,
 				filters: ['M'],
+				linesOfContext: 0,
+				renames: true,
 				similarityThreshold: Container.config.advanced.similarityThreshold,
 			});
 			// }

@@ -476,15 +476,23 @@ export namespace Git {
 		fileName: string,
 		ref1?: string,
 		ref2?: string,
-		options: { encoding?: string; filters?: GitDiffFilter[]; similarityThreshold?: number | null } = {},
+		options: {
+			encoding?: string;
+			filters?: GitDiffFilter[];
+			linesOfContext?: number;
+			renames?: boolean;
+			similarityThreshold?: number | null;
+		} = {},
 	): Promise<string> {
-		const params = [
-			'diff',
-			`-M${options.similarityThreshold == null ? '' : `${options.similarityThreshold}%`}`,
-			'--no-ext-diff',
-			'-U0',
-			'--minimal',
-		];
+		const params = ['diff', '--no-ext-diff', '--minimal'];
+
+		if (options.linesOfContext != null) {
+			params.push(`-U${options.linesOfContext}`);
+		}
+
+		if (options.renames) {
+			params.push(`-M${options.similarityThreshold == null ? '' : `${options.similarityThreshold}%`}`);
+		}
 
 		if (options.filters != null && options.filters.length !== 0) {
 			params.push(`--diff-filter=${options.filters.join(emptyStr)}`);
