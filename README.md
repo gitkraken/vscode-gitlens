@@ -838,6 +838,12 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 | `gitlens.heatmap.hotColor`     | Specifies the base color of the gutter heatmap annotations when the most recent change is newer (hot) than the `gitlens.heatmap.ageThreshold` value                                                             |
 | `gitlens.heatmap.toggleMode`   | Specifies how the gutter heatmap annotations will be toggled<br /><br />`file` - toggles each file individually<br />`window` - toggles the window, i.e. all files at once                                      |
 
+## File Annotations Settings [#](#file-annotation-settings- 'File Changes Settings')
+
+| Name                           | Description                                                                                                                                                                                                     |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `gitlens.fileAnnotations.command` | Specifies whether the file annotations button in the editor title toggles blame, heatmap, or change annotations. Setting this to `null` (default) makes the button act as a menu |
+
 ## Git Command Palette Settings [#](#git-command-palette-settings- 'Git Command Palette Settings')
 
 | Name                                              | Description                                                                                                                           |
@@ -860,11 +866,9 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 
 ## Menu & Toolbar Settings [#](#menu--toolbar-settings- 'Menu & Toolbar Settings')
 
-| Name                                   | Description                                                                                                          |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `gitlens.menus`                        | Specifies which commands will be added to which menus                                                                |
-| `gitlens.menus.annotations.behaviour`  | Specifies whether the file annotations button in the editor title acts as a menu (default) or a toggle button        |
-| `gitlens.menus.annotations.toggleType` | Specifies whether the file annotations button toggles file blame, heatmap or changes (if behaviour is set to toggle) |
+| Name            | Description                                           |
+| --------------- | ----------------------------------------------------- |
+| `gitlens.menus` | Specifies which commands will be added to which menus |
 
 ## Keyboard Shortcut Settings [#](#keyboard-shortcut-settings- 'Keyboard Shortcut Settings')
 
