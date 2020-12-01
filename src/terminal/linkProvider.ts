@@ -10,7 +10,8 @@ import { Container } from '../container';
 import { GitReference } from '../git/git';
 
 const commandsRegexShared = /\b(g(?:it)?\b\s*)\b(branch|checkout|cherry-pick|fetch|grep|log|merge|pull|push|rebase|reset|revert|show|stash|status|tag)\b/gi;
-const refRegexShared = /\b((?!\/)(?!\S*\/\/)(?!\S*@\{)(?!@$)(?!\S*\\)[^\000-\037\177 ~^:?*[]+(?<!\.lock)(?<!\/)(?<!\.))\b/gi;
+// Since negative lookbehind isn't supported in all browsers, leave out the negative lookbehind condition `(?<!\.lock)` to ensure the branch name doesn't end with `.lock`
+const refRegexShared = /\b((?!\/)(?!\S*\/\/)(?!\S*@\{)(?!@$)(?!\S*\\)[^\000-\037\177 ~^:?*[]+(?<!\/)(?<!\.))\b/gi;
 const rangeRegex = /^[0-9a-f]{7,40}\.\.\.?[0-9a-f]{7,40}$/;
 const shaRegex = /^[0-9a-f]{7,40}$/;
 
