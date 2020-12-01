@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#1225](https://github.com/eamodio/vscode-gitlens/issues/1225) - Changes hover is wrong if the original/new line number doesn't match
 - Fixes [#1045](https://github.com/eamodio/vscode-gitlens/issues/1045) - View File History not working - absolute path used &mdash; thanks to [PR #1209](https://github.com/eamodio/vscode-gitlens/pull/1209) by Mike Surcouf ([@mikes-gh](https://github.com/mikes-gh))
 - Fixes [#1087](https://github.com/eamodio/vscode-gitlens/issues/1087) - Error retrieving line history from UNC path &mdash; thanks to [PR #1209](https://github.com/eamodio/vscode-gitlens/pull/1209) by Mike Surcouf ([@mikes-gh](https://github.com/mikes-gh))
 - Fixes [#1176](https://github.com/eamodio/vscode-gitlens/issues/1176) - Can't selectively apply stash

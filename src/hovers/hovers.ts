@@ -47,7 +47,7 @@ export namespace Hovers {
 				}
 			}
 
-			editorLine = commitLine.originalLine - 1;
+			editorLine = commitLine.line - 1;
 			// TODO: Doesn't work with dirty files -- pass in editor? or contents?
 			hunkLine = await Container.git.getDiffForLine(uri, editorLine, ref, documentRef, originalFileName);
 
