@@ -2,6 +2,7 @@
 import { Disposable, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { CommitFileNode } from './commitFileNode';
 import { LoadMoreNode, MessageNode } from './common';
+import { configuration } from '../../configuration';
 import { Container } from '../../container';
 import { FileHistoryTrackerNode } from './fileHistoryTrackerNode';
 import {
@@ -133,6 +134,11 @@ export class FileHistoryNode extends SubscribeableViewNode implements PageableVi
 			repo.onDidChange(this.onRepositoryChanged, this),
 			repo.onDidChangeFileSystem(this.onFileSystemChanged, this),
 			repo.startWatchingFileSystem(),
+			configuration.onDidChange(e => {
+				if (configuration.changed(e, 'advanced', 'fileHistoryFollowsRenames')) {
+					this.view.resetNodeLastKnownLimit(this);
+				}
+			}),
 		);
 
 		return subscription;
