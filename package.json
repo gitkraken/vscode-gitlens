@@ -710,6 +710,25 @@
 					"markdownDescription": "Specifies which (and when) Git commands will skip the confirmation step, using the format: `git-command-name:(menu|command)`",
 					"scope": "window"
 				},
+				"gitlens.fileAnnotations.command": {
+					"type": [
+						"string",
+						"null"
+					],
+					"default": null,
+					"enum": [
+						"blame",
+						"heatmap",
+						"changes"
+					],
+					"enumDescriptions": [
+						"Toggles file blame annotations",
+						"Toggles file heatmap annotations",
+						"Toggles file changes annotations"
+					],
+					"markdownDescription": "Specifies what the file annotations button in the editor title toggles. Setting this to null makes the button act as a menu",
+					"scope": "window"
+				},
 				"gitlens.heatmap.ageThreshold": {
 					"type": "number",
 					"default": 90,
@@ -1134,36 +1153,6 @@
 						}
 					},
 					"markdownDescription": "Specifies which commands will be added to which menus",
-					"scope": "window"
-				},
-				"gitlens.menus.annotations.behaviour": {
-					"type": "string",
-					"default": "menu",
-					"enum": [
-						"menu",
-						"toggle"
-					],
-					"enumDescriptions": [
-						"Clicking the button opens up a menu with toggle options",
-						"Clicking the button toggles blame (default), heatmap or changes"
-					],
-					"markdownDescription": "Specifies whether the file annotations button in the editor title acts as a menu (default) or a toggle button",
-					"scope": "window"
-				},
-				"gitlens.menus.annotations.toggleType": {
-					"type": "string",
-					"default": "blame",
-					"enum": [
-						"blame",
-						"heatmap",
-						"changes"
-					],
-					"enumDescriptions": [
-						"Toggles file blame annotations",
-						"Toggles file heatmap annotations",
-						"Toggles file changes annotations"
-					],
-					"markdownDescription": "Specifies whether the file annotations button toggles file blame, heatmap or changes (if behaviour is set to toggle)",
 					"scope": "window"
 				},
 				"gitlens.mode.active": {
@@ -5715,22 +5704,22 @@
 				},
 				{
 					"command": "gitlens.toggleFileBlame",
-					"when": "config.gitlens.menus.annotations.behaviour == toggle && config.gitlens.menus.annotations.toggleType == blame && gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame",
+					"when": "config.gitlens.fileAnnotations.command == blame && gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame",
 					"group": "navigation@100"
 				},
 				{
 					"command": "gitlens.toggleFileHeatmap",
-					"when": "config.gitlens.menus.annotations.behaviour == toggle && config.gitlens.menus.annotations.toggleType == heatmap && gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame",
+					"when": "config.gitlens.fileAnnotations.command == heatmap && gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame",
 					"group": "navigation@100"
 				},
 				{
 					"command": "gitlens.toggleFileChanges",
-					"when": "config.gitlens.menus.annotations.behaviour == toggle && config.gitlens.menus.annotations.toggleType == changes && gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame",
+					"when": "config.gitlens.fileAnnotations.command == changes && gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame",
 					"group": "navigation@100"
 				},
 				{
 					"submenu": "gitlens/editor/annotations",
-					"when": "config.gitlens.menus.annotations.behaviour == menu && gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame",
+					"when": "!config.gitlens.fileAnnotations.command && gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame",
 					"group": "navigation@100"
 				},
 				{

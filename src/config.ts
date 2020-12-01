@@ -56,6 +56,9 @@ export interface Config {
 		};
 		skipConfirmations: string[];
 	};
+	fileAnnotations: {
+		command: string | null;
+	};
 	heatmap: {
 		ageThreshold: number;
 		coldColor: string;
