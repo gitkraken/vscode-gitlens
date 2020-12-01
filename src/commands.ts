@@ -20,6 +20,7 @@ export * from './commands/diffWithWorking';
 export * from './commands/externalDiff';
 export * from './commands/gitCommands';
 export * from './commands/inviteToLiveShare';
+export * from './commands/openAssociatedPullRequestOnRemote';
 export * from './commands/openBranchesOnRemote';
 export * from './commands/openBranchOnRemote';
 export * from './commands/openChangedFiles';
