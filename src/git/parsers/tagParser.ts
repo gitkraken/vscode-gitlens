@@ -11,7 +11,7 @@ const rb = '%3e'; // `%${'>'.charCodeAt(0).toString(16)}`;
 export class GitTagParser {
 	static defaultFormat = [
 		`${lb}n${rb}%(refname)`, // tag name
-		`${lb}r${rb}%(objectname)`, // ref
+		`${lb}r${rb}%(if)%(*objectname)%(then)%(*objectname)%(else)%(objectname)%(end)`, // ref
 		`${lb}d${rb}%(creatordate:iso8601)`, // created date
 		`${lb}ad${rb}%(authordate:iso8601)`, // author date
 		`${lb}s${rb}%(subject)`, // message
