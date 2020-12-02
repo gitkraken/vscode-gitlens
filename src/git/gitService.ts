@@ -1405,7 +1405,7 @@ export class GitService implements Disposable {
 		// If we found the repo, but no user data was found just return
 		if (user === null) return undefined;
 
-		const data = await Git.config__get_regex('user.(name|email)', repoPath, { local: true });
+		const data = await Git.config__get_regex('^user\\.', repoPath, { local: true });
 		if (!data) {
 			// If we found no user data, mark it so we won't bother trying again
 			this._userMapCache.set(repoPath, null);
