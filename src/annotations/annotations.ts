@@ -2,6 +2,7 @@
 import {
 	DecorationInstanceRenderOptions,
 	DecorationOptions,
+	OverviewRulerLane,
 	Range,
 	TextEditorDecorationType,
 	ThemableDecorationAttachmentRenderOptions,
@@ -10,7 +11,8 @@ import {
 	Uri,
 	window,
 } from 'vscode';
-import { configuration } from '../configuration';
+import { HeatmapLocations } from '../config';
+import { Config, configuration } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { CommitFormatOptions, CommitFormatter, GitCommit } from '../git/git';
@@ -21,11 +23,6 @@ export interface ComputedHeatmap {
 	coldThresholdTimestamp: number;
 	colors: { hot: string[]; cold: string[] };
 	computeRelativeAge(date: Date): number;
-}
-
-interface HeatmapConfig {
-	enabled: boolean;
-	location?: 'left' | 'right';
 }
 
 interface RenderOptions
@@ -113,17 +110,25 @@ export class Annotations {
 	) {
 		const [r, g, b, a] = this.getHeatmapColor(date, heatmap);
 
+		const { locations } = Container.config.heatmap;
+		const gutter = locations.includes(HeatmapLocations.Gutter);
+		const overview = locations.includes(HeatmapLocations.Overview);
+
 		const key = `${r},${g},${b},${a}`;
 		let colorDecoration = map.get(key);
 		if (colorDecoration == null) {
 			colorDecoration = {
 				decorationType: window.createTextEditorDecorationType({
-					gutterIconPath: Uri.parse(
-						`data:image/svg+xml,${encodeURIComponent(
-							`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><rect fill='rgb(${r},${g},${b})' fill-opacity='${a}' x='7' y='0' width='2' height='18'/></svg>`,
-						)}`,
-					),
-					gutterIconSize: 'contain',
+					gutterIconPath: gutter
+						? Uri.parse(
+								`data:image/svg+xml,${encodeURIComponent(
+									`<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 18 18'><rect fill='rgb(${r},${g},${b})' fill-opacity='${a}' x='7' y='0' width='2' height='18'/></svg>`,
+								)}`,
+						  )
+						: undefined,
+					gutterIconSize: gutter ? 'contain' : undefined,
+					overviewRulerLane: overview ? OverviewRulerLane.Center : undefined,
+					overviewRulerColor: overview ? `rgba(${r},${g},${b},${a})` : undefined,
 				}),
 				rangesOrOptions: [range],
 			};
@@ -159,7 +164,7 @@ export class Annotations {
 
 	static gutterRenderOptions(
 		separateLines: boolean,
-		heatmap: HeatmapConfig,
+		heatmap: Config['blame']['heatmap'],
 		avatars: boolean,
 		format: string,
 		options: CommitFormatOptions,

@@ -58,6 +58,36 @@
 					</div>
 				</div>
 
+				<div class="settings">
+					<div class="setting">
+						<div class="setting__input">
+							<input
+								id="heatmap.locations"
+								name="heatmap.locations"
+								type="checkbox"
+								value="gutter"
+								data-setting
+								data-setting-type="array"
+							/>
+							<label for="heatmap.locations">Add gutter indicator</label>
+						</div>
+					</div>
+
+					<div class="setting">
+						<div class="setting__input">
+							<input
+								id="heatmap.locations-1"
+								name="heatmap.locations"
+								type="checkbox"
+								value="overview"
+								data-setting
+								data-setting-type="array"
+							/>
+							<label for="heatmap.locations-1">Add scroll bar indicator</label>
+						</div>
+					</div>
+				</div>
+
 				<div class="setting">
 					<div class="setting__input">
 						<label for="heatmap.ageThreshold">Hot/cold threshold </label>
@@ -76,6 +106,16 @@
 
 			<div class="section__preview">
 				<img class="image__preview" src="#{root}/images/settings/heatmap.webp" />
+				<img
+					class="image__preview--overlay hidden"
+					src="#{root}/images/settings/heatmap-gutter.webp"
+					data-visibility="heatmap.locations +gutter"
+				/>
+				<img
+					class="image__preview--overlay hidden"
+					src="#{root}/images/settings/heatmap-scrollbar.webp"
+					data-visibility="heatmap.locations +overview"
+				/>
 			</div>
 		</div>
 

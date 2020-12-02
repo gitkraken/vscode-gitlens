@@ -63,6 +63,7 @@ export interface Config {
 		ageThreshold: number;
 		coldColor: string;
 		hotColor: string;
+		locations: HeatmapLocations[];
 		toggleMode: AnnotationsToggleMode;
 	};
 	hovers: {
@@ -213,6 +214,11 @@ export enum GravatarDefaultStyle {
 	MysteryPerson = 'mp',
 	Retro = 'retro',
 	Robot = 'robohash',
+}
+
+export enum HeatmapLocations {
+	Gutter = 'gutter',
+	Overview = 'overview',
 }
 
 export enum KeyMap {

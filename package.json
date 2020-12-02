@@ -355,7 +355,7 @@
 						]
 					},
 					"minItems": 1,
-					"maxItems": 3,
+					"maxItems": 2,
 					"uniqueItems": true,
 					"markdownDescription": "Specifies where the indicators of the gutter changes annotations will be shown",
 					"scope": "window"
@@ -747,6 +747,29 @@
 					"type": "string",
 					"default": "#f66a0a",
 					"markdownDescription": "Specifies the base color of the gutter heatmap annotations when the most recent change is newer (hot) than the `#gitlens.heatmap.ageThreshold#` value",
+					"scope": "window"
+				},
+				"gitlens.heatmap.locations": {
+					"type": "array",
+					"default": [
+						"gutter",
+						"overview"
+					],
+					"items": {
+						"type": "string",
+						"enum": [
+							"gutter",
+							"overview"
+						],
+						"enumDescriptions": [
+							"Adds a gutter indicator",
+							"Adds a decoration to the overview ruler (scroll bar)"
+						]
+					},
+					"minItems": 1,
+					"maxItems": 2,
+					"uniqueItems": true,
+					"markdownDescription": "Specifies where the indicators of the gutter heatmap annotations will be shown",
 					"scope": "window"
 				},
 				"gitlens.heatmap.toggleMode": {
