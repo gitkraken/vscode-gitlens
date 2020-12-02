@@ -46,6 +46,9 @@ export interface Config {
 	defaultDateSource: DateSource;
 	defaultDateStyle: DateStyle;
 	defaultGravatarsStyle: GravatarDefaultStyle;
+	fileAnnotations: {
+		command: string | null;
+	};
 	gitCommands: {
 		closeOnFocusOut: boolean;
 		search: {
@@ -55,9 +58,6 @@ export interface Config {
 			showResultsInSideBar: boolean | null;
 		};
 		skipConfirmations: string[];
-	};
-	fileAnnotations: {
-		command: string | null;
 	};
 	heatmap: {
 		ageThreshold: number;

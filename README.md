@@ -838,12 +838,6 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 | `gitlens.heatmap.hotColor`     | Specifies the base color of the gutter heatmap annotations when the most recent change is newer (hot) than the `gitlens.heatmap.ageThreshold` value                                                             |
 | `gitlens.heatmap.toggleMode`   | Specifies how the gutter heatmap annotations will be toggled<br /><br />`file` - toggles each file individually<br />`window` - toggles the window, i.e. all files at once                                      |
 
-## File Annotations Settings [#](#file-annotation-settings- 'File Changes Settings')
-
-| Name                           | Description                                                                                                                                                                                                     |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `gitlens.fileAnnotations.command` | Specifies whether the file annotations button in the editor title toggles blame, heatmap, or change annotations. Setting this to `null` (default) makes the button act as a menu |
-
 ## Git Command Palette Settings [#](#git-command-palette-settings- 'Git Command Palette Settings')
 
 | Name                                              | Description                                                                                                                           |
@@ -866,9 +860,10 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 
 ## Menu & Toolbar Settings [#](#menu--toolbar-settings- 'Menu & Toolbar Settings')
 
-| Name            | Description                                           |
-| --------------- | ----------------------------------------------------- |
-| `gitlens.menus` | Specifies which commands will be added to which menus |
+| Name                              | Description                                                                                                                                                                                                                                                                                                                                                                  |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gitlens.menus`                   | Specifies which commands will be added to which menus                                                                                                                                                                                                                                                                                                                        |
+| `gitlens.fileAnnotations.command` | Specifies whether the file annotations button in the editor title shows a menu or immediately toggles the specified file annotations<br />`null` (default) - shows a menu to choose which file annotations to toggle<br />`blame` - toggles gutter blame annotations<br />`heatmap` - toggles gutter heatmap annotations<br />`changes` - toggles gutter changes annotations |
 
 ## Keyboard Shortcut Settings [#](#keyboard-shortcut-settings- 'Keyboard Shortcut Settings')
 
@@ -982,6 +977,7 @@ A big thanks to the people that have contributed to this project:
 - Cédric Malard ([@cmalard](https://github.com/cmalard)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=cmalard)
 - Nguyen Long Nhat ([@torn4dom4n](https://github.com/torn4dom4n)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=torn4dom4n)
 - Aurelio Ogliari ([@nobitagit](https://github.com/nobitagit)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=nobitagit)
+- Raaj Patil ([@arrpee](https://github.com/arrpee)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=arrpee)
 - Connor Peet ([@connor4312](https://github.com/connor4312)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=connor4312)
 - Maxim Pekurin ([@pmaxim25](https://github.com/pmaxim25)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=pmaxim25)
 - Arunprasad Rajkumar ([@arajkumar](https://github.com/arajkumar)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=arajkumar)

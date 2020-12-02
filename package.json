@@ -613,6 +613,27 @@
 					"markdownDescription": "Specifies the style of the gravatar default (fallback) images",
 					"scope": "window"
 				},
+				"gitlens.fileAnnotations.command": {
+					"type": [
+						"string",
+						"null"
+					],
+					"default": null,
+					"enum": [
+						null,
+						"blame",
+						"heatmap",
+						"changes"
+					],
+					"enumDescriptions": [
+						"Shows a menu to choose which file annotations to toggle",
+						"Toggles gutter blame annotations",
+						"Toggles gutter heatmap annotations",
+						"Toggles gutter changes annotations"
+					],
+					"markdownDescription": "Specifies whether the file annotations button in the editor title shows a menu or immediately toggles the specified file annotations",
+					"scope": "window"
+				},
 				"gitlens.gitCommands.closeOnFocusOut": {
 					"type": "boolean",
 					"default": true,
@@ -708,25 +729,6 @@
 					"maxItems": 14,
 					"uniqueItems": true,
 					"markdownDescription": "Specifies which (and when) Git commands will skip the confirmation step, using the format: `git-command-name:(menu|command)`",
-					"scope": "window"
-				},
-				"gitlens.fileAnnotations.command": {
-					"type": [
-						"string",
-						"null"
-					],
-					"default": null,
-					"enum": [
-						"blame",
-						"heatmap",
-						"changes"
-					],
-					"enumDescriptions": [
-						"Toggles file blame annotations",
-						"Toggles file heatmap annotations",
-						"Toggles file changes annotations"
-					],
-					"markdownDescription": "Specifies what the file annotations button in the editor title toggles. Setting this to null makes the button act as a menu",
 					"scope": "window"
 				},
 				"gitlens.heatmap.ageThreshold": {
@@ -2868,8 +2870,7 @@
 				"icon": {
 					"dark": "images/dark/icon-git.svg",
 					"light": "images/light/icon-git.svg"
-				},
-				"enablement": "!isInDiffEditor"
+				}
 			},
 			{
 				"command": "gitlens.toggleLineBlame",
@@ -4607,7 +4608,7 @@
 				},
 				{
 					"command": "gitlens.toggleFileChanges",
-					"when": "gitlens:activeFileStatus =~ /blameable/ && !isInDiffEditor"
+					"when": "gitlens:activeFileStatus =~ /blameable/"
 				},
 				{
 					"command": "gitlens.toggleLineBlame",
@@ -5705,17 +5706,20 @@
 				{
 					"command": "gitlens.toggleFileBlame",
 					"when": "config.gitlens.fileAnnotations.command == blame && gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame",
-					"group": "navigation@100"
+					"group": "navigation@100",
+					"alt": "gitlens.toggleFileHeatmap"
 				},
 				{
 					"command": "gitlens.toggleFileHeatmap",
 					"when": "config.gitlens.fileAnnotations.command == heatmap && gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame",
-					"group": "navigation@100"
+					"group": "navigation@100",
+					"alt": "gitlens.toggleFileBlame"
 				},
 				{
 					"command": "gitlens.toggleFileChanges",
 					"when": "config.gitlens.fileAnnotations.command == changes && gitlens:activeFileStatus =~ /blameable/ && !gitlens:annotationStatus && config.gitlens.menus.editorGroup.blame",
-					"group": "navigation@100"
+					"group": "navigation@100",
+					"alt": "gitlens.toggleFileBlame"
 				},
 				{
 					"submenu": "gitlens/editor/annotations",

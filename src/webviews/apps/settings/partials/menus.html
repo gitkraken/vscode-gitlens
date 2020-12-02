@@ -227,7 +227,21 @@
 								data-setting-type="object"
 								disabled
 							/>
-							<label for="menus.editorGroup.blame">Add <i>File Annotations</i> submenu</label>
+							<label for="menus.editorGroup.blame">Add </label>
+							<div class="select-container">
+								<select
+									id="fileAnnotations.command"
+									name="fileAnnotations.command"
+									data-setting
+									data-enablement="menus.editorGroup.blame"
+									disabled
+								>
+									<option value="null">File Annotations submenu</option>
+									<option value="blame"><i>Toggle File Blame</i> command</option>
+									<option value="heatmap"><i>Toggle File Heatmap</i> command</option>
+									<option value="changes"><i>Toggle File Changes</i> command</option>
+								</select>
+							</div>
 						</div>
 					</div>
 				</div>

@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds a `gitlens.fileAnnotations.command` setting to specify whether the file annotations button in the editor title shows a menu or immediately toggles the specified file annotations &mdash; closes [#1165](https://github.com/eamodio/vscode-gitlens/issues/1165) thanks to [PR #1171](https://github.com/eamodio/vscode-gitlens/pull/1171) by Raaj Patil ([@arrpee](https://github.com/arrpee))
+  - Adds this new option to the _Menus & Toolbars_ section of the GitLens Interactive Settings
+
 ### Fixed
 
 - Fixes [#1222](https://github.com/eamodio/vscode-gitlens/issues/1222) - GitLens: Open Associated Pull Request doesn't work

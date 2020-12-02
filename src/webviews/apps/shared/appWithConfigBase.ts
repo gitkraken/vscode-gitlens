@@ -226,7 +226,7 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 
 		this.log(`${this.appName}.onInputSelected: name=${element.name}, value=${value}`);
 
-		this._changes[element.name] = ensureIfBoolean(value);
+		this._changes[element.name] = ensureIfBooleanOrNull(value);
 
 		this.applyChanges();
 	}
@@ -462,9 +462,10 @@ export abstract class AppWithConfig<TState extends AppStateWithConfig> extends A
 	}
 }
 
-function ensureIfBoolean(value: string | boolean): string | boolean {
+function ensureIfBooleanOrNull(value: string | boolean): string | boolean | null {
 	if (value === 'true') return true;
 	if (value === 'false') return false;
+	if (value === 'null') return null;
 	return value;
 }
 
@@ -496,11 +497,11 @@ function set(o: Record<string, any>, path: string, value: any): Record<string, a
 	return o;
 }
 
-function parseAdditionalSettingsExpression(expression: string): [string, string | boolean][] {
+function parseAdditionalSettingsExpression(expression: string): [string, string | boolean | null][] {
 	const settingsExpression = expression.trim().split(',');
-	return settingsExpression.map<[string, string | boolean]>(s => {
+	return settingsExpression.map<[string, string | boolean | null]>(s => {
 		const [setting, value] = s.split('=');
-		return [setting, ensureIfBoolean(value)];
+		return [setting, ensureIfBooleanOrNull(value)];
 	});
 }
 
