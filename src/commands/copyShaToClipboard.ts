@@ -72,7 +72,7 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 					args.sha = blame.commit.sha;
 				} catch (ex) {
 					Logger.error(ex, 'CopyShaToClipboardCommand', `getBlameForLine(${blameline})`);
-					void Messages.showGenericErrorMessage('Unable to copy commit id');
+					void Messages.showGenericErrorMessage('Unable to copy commit SHA');
 
 					return;
 				}
@@ -83,14 +83,14 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 			const msg: string = ex?.message ?? '';
 			if (msg.includes("Couldn't find the required `xsel` binary")) {
 				void window.showErrorMessage(
-					'Unable to copy commit id, xsel is not installed. Please install it via your package manager, e.g. `sudo apt install xsel`',
+					'Unable to copy commit SHA, xsel is not installed. Please install it via your package manager, e.g. `sudo apt install xsel`',
 				);
 
 				return;
 			}
 
 			Logger.error(ex, 'CopyShaToClipboardCommand');
-			void Messages.showGenericErrorMessage('Unable to copy commit id');
+			void Messages.showGenericErrorMessage('Unable to copy commit SHA');
 		}
 	}
 }

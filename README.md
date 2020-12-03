@@ -160,7 +160,7 @@ Here are just some of the **features** that GitLens provides,
 - Adds a **details hover** annotation to the current line to show more commit details ([optional](#hover-settings- 'Jump to the Hover settings'), on by default)
   - Provides **automatic issue linking** to Bitbucket, GitHub, GitLab, and Azure DevOps in commit messages
   - Provides a **quick-access command bar** with _Open Changes_, _Blame Previous Revision_, _Open on Remote_, _Invite to Live Share_ (if available), and _Show More Actions_ command buttons
-  - Click the commit id to execute the _Show Commit_ command
+  - Click the commit SHA to execute the _Show Commit_ command
 
 #### Changes (diff) Hover
 
@@ -170,7 +170,7 @@ Here are just some of the **features** that GitLens provides,
 
 - Adds a **changes (diff) hover** annotation to the current line to show the line's previous version ([optional](#hover-settings- 'Jump to the Hover settings'), on by default)
   - Click the **Changes** to execute the _Open Changes_ command
-  - Click the current and previous commit ids to execute the _Show Commit_ command
+  - Click the current and previous commit SHAs to execute the _Show Commit_ command
 
 ### Annotation Hovers
 
@@ -189,7 +189,7 @@ Here are just some of the **features** that GitLens provides,
 - Adds a **details hover** annotation to each line while annotating to show more commit details ([optional](#hover-settings- 'Jump to the Hover settings'), on by default)
   - Provides **automatic issue linking** to Bitbucket, GitHub, GitLab, and Azure DevOps in commit messages
   - Provides a **quick-access command bar** with _Open Changes_, _Blame Previous Revision_, _Open on Remote_, _Invite to Live Share_ (if available), and _Show More Actions_ command buttons
-  - Click the commit id to execute the _Show Commit_ command
+  - Click the commit SHA to execute the _Show Commit_ command
 
 ### Changes (diff) Hover
 
@@ -199,7 +199,7 @@ Here are just some of the **features** that GitLens provides,
 
 - Adds a **changes (diff) hover** annotation to each line while annotating to show the line's previous version ([optional](#hover-settings- 'Jump to the Hover settings'), on by default)
   - Click the **Changes** to execute the _Open Changes_ command
-  - Click the current and previous commit ids to execute the _Show Commit_ command
+  - Click the current and previous commit SHAs to execute the _Show Commit_ command
 
 ## Gutter Blame [#](#gutter-blame- 'Gutter Blame')
 
@@ -391,7 +391,7 @@ The _Search & Compare_ view lists pinnable (saved) results for searching commit 
     - _Search Commits_ command (`gitlens.showCommitSearch`) can search
       - by message &mdash; use `<message>` to find commits with messages that match `<message>` &mdash; See [Git docs](https://git-scm.com/docs/git-log#Documentation/git-log.txt---grepltpatterngt 'Open Git docs')
       - or, by author &mdash; use `@<pattern>` to find commits with authors that match `<pattern>` &mdash; See [Git docs](https://git-scm.com/docs/git-log#Documentation/git-log.txt---authorltpatterngt 'Open Git docs')
-      - or, by commit id &mdash; use `#<sha>` to find a commit with id of `<sha>` &mdash; See [Git docs](https://git-scm.com/docs/git-log#Documentation/git-log.txt-ltrevisionrangegt 'Open Git docs')
+      - or, by commit SHA &mdash; use `#<sha>` to find a commit with SHA of `<sha>` &mdash; See [Git docs](https://git-scm.com/docs/git-log#Documentation/git-log.txt-ltrevisionrangegt 'Open Git docs')
       - or, by files &mdash; use `:<path/glob>` to find commits with file names that match `<path/glob>` &mdash; See [Git docs](https://git-scm.com/docs/git-log#Documentation/git-log.txt---ltpathgt82308203 'Open Git docs')
       - or, by changes &mdash; use `~<pattern>` to find commits with differences whose patch text contains added/removed lines that match `<pattern>` &mdash; See [Git docs](https://git-scm.com/docs/git-log#Documentation/git-log.txt--Gltregexgt 'Open Git docs')
     - _Show File History_ command (`gitlens.showQuickFileHistory`)
@@ -475,7 +475,7 @@ The Repositories view lists opened Git repositories, and additionally provides,
 - Adds a _Search Commits_ command (`gitlens.showCommitSearch`) to show quick pick menu to search for commits
   - by message &mdash; use `<message>` to find commits with messages that match `<message>` &mdash; See [Git docs](https://git-scm.com/docs/git-log#Documentation/git-log.txt---grepltpatterngt 'Open Git docs')
   - or, by author &mdash; use `@<pattern>` to find commits with authors that match `<pattern>` &mdash; See [Git docs](https://git-scm.com/docs/git-log#Documentation/git-log.txt---authorltpatterngt 'Open Git docs')
-  - or, by commit id &mdash; use `#<sha>` to find a commit with id of `<sha>` &mdash; See [Git docs](https://git-scm.com/docs/git-log#Documentation/git-log.txt-ltrevisionrangegt 'Open Git docs')
+  - or, by commit SHA &mdash; use `#<sha>` to find a commit with id of `<sha>` &mdash; See [Git docs](https://git-scm.com/docs/git-log#Documentation/git-log.txt-ltrevisionrangegt 'Open Git docs')
   - or, by files &mdash; use `:<path/glob>` to find commits with file names that match `<path/glob>` &mdash; See [Git docs](https://git-scm.com/docs/git-log#Documentation/git-log.txt---ltpathgt82308203 'Open Git docs')
   - or, by changes &mdash; use `~<pattern>` to find commits with differences whose patch text contains added/removed lines that match `<pattern>` &mdash; See [Git docs](https://git-scm.com/docs/git-log#Documentation/git-log.txt--Gltregexgt 'Open Git docs')
 
@@ -561,7 +561,7 @@ Additionally, these integrations provide commands to copy the url of or open, fi
 
 - Adds an _Add Co-authors_ command (`gitlens.addAuthors`) to add a co-author to the commit message input box
 
-- Adds a _Copy SHA_ command (`gitlens.copyShaToClipboard`) to copy the commit id (sha) of the current line to the clipboard or from the most recent commit to the current branch, if there is no current editor
+- Adds a _Copy SHA_ command (`gitlens.copyShaToClipboard`) to copy the commit SHA of the current line to the clipboard or from the most recent commit to the current branch, if there is no current editor
 - Adds a _Copy Message_ command (`gitlens.copyMessageToClipboard`) to copy the commit message of the current line to the clipboard or from the most recent commit to the current branch, if there is no current editor
 
 - Adds a _Switch to Another Branch_ (`gitlens.views.switchToAnotherBranch`) command &mdash; to quickly switch the current branch
@@ -902,7 +902,7 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 | `gitlens.liveshare.allowGuestAccess`                             | Specifies whether to allow guest access to GitLens features when using Visual Studio Live Share                                                                                                                                                                                                                                                                                                                                                           |
 | `gitlens.outputLevel`                                            | Specifies how much (if any) output will be sent to the GitLens output channel                                                                                                                                                                                                                                                                                                                                                                             |
 | `gitlens.showWhatsNewAfterUpgrades`                              | Specifies whether to show What's New after upgrading to new feature releases                                                                                                                                                                                                                                                                                                                                                                              |
-| `gitlens.advanced.abbreviatedShaLength`                          | Specifies the length of abbreviated commit ids (shas)                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `gitlens.advanced.abbreviatedShaLength`                          | Specifies the length of abbreviated commit SHAs (shas)                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `gitlens.advanced.blame.customArguments`                         | Specifies additional arguments to pass to the `git blame` command                                                                                                                                                                                                                                                                                                                                                                                         |
 | `gitlens.advanced.blame.delayAfterEdit`                          | Specifies the time (in milliseconds) to wait before re-blaming an unsaved document after an edit. Use 0 to specify an infinite wait                                                                                                                                                                                                                                                                                                                       |
 | `gitlens.advanced.blame.sizeThresholdAfterEdit`                  | Specifies the maximum document size (in lines) allowed to be re-blamed after an edit while still unsaved. Use 0 to specify no maximum                                                                                                                                                                                                                                                                                                                     |

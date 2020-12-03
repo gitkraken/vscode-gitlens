@@ -281,7 +281,7 @@ export function getValidateGitReferenceFn(repos: Repository | Repository[], opti
 			if (inRefMode) {
 				quickpick.items = [
 					DirectiveQuickPickItem.create(Directive.Back, true, {
-						label: 'Enter a reference or commit id',
+						label: 'Enter a reference or commit SHA',
 					}),
 				];
 				return true;

@@ -125,7 +125,7 @@ export class ShowGitCommand extends QuickCommand<State> {
 							limit: undefined,
 							hasMore: false,
 						},
-						placeholder: 'Enter a reference or commit id ',
+						placeholder: 'Enter a reference or commit SHA',
 						picked: state.reference?.ref,
 					});
 					if (result === StepResult.Break) {

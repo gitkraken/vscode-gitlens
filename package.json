@@ -1430,7 +1430,7 @@
 									},
 									"commit": {
 										"type": "string",
-										"description": "Specifies the format of a commit url for the custom remote service\nAvailable tokens\n ${repo}` &mdash; repository path\n ${id}` &mdash; commit id"
+										"description": "Specifies the format of a commit url for the custom remote service\nAvailable tokens\n ${repo}` &mdash; repository path\n ${id}` &mdash; commit SHA"
 									},
 									"file": {
 										"type": "string",
@@ -1442,7 +1442,7 @@
 									},
 									"fileInCommit": {
 										"type": "string",
-										"description": "Specifies the format of a commit file url for the custom remote service\nAvailable tokens\n ${repo}` &mdash; repository path\n ${file}` &mdash; file name\n ${id}` &mdash; commit id\n ${line}` &mdash; formatted line information"
+										"description": "Specifies the format of a commit file url for the custom remote service\nAvailable tokens\n ${repo}` &mdash; repository path\n ${file}` &mdash; file name\n ${id}` &mdash; commit SHA\n ${line}` &mdash; formatted line information"
 									},
 									"fileLine": {
 										"type": "string",
@@ -2228,7 +2228,7 @@
 				"gitlens.advanced.abbreviatedShaLength": {
 					"type": "number",
 					"default": "7",
-					"markdownDescription": "Specifies the length of abbreviated commit ids (shas)",
+					"markdownDescription": "Specifies the length of abbreviated commit SHAs",
 					"scope": "window"
 				},
 				"gitlens.advanced.blame.customArguments": {
