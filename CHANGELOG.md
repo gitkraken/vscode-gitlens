@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#1202](https://github.com/eamodio/vscode-gitlens/issues/1202) - "Copy Remote File Url" url-encodes the URL
 - Fixes an issue where _GitLens: Show Repositories View_ command wouldn't work unless the view was enabled first
 - Fixes an issue where _GitLens: Show Line History View_ command wasn't showing up unless the view was enabled first
+- Fixes an issue where trying to force push the current branch would fail
 
 ## [11.0.6] - 2020-11.28
 

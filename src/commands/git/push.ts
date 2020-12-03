@@ -218,23 +218,34 @@ export class PushGitCommand extends QuickCommand<State> {
 							);
 						}
 					} else if (branch != null && branch?.state.behind > 0) {
+						const currentBranch = await repo.getBranch();
+
 						step = this.createConfirmStep(
 							appendReposToTitle(`Confirm ${context.title}`, state, context),
-							[
-								FlagsQuickPickItem.create<Flags>(state.flags, ['--force'], {
-									label: `Force ${this.title}${useForceWithLease ? ' (with lease)' : ''}`,
-									description: `--force${useForceWithLease ? '-with-lease' : ''}`,
-									detail: `Will force push${useForceWithLease ? ' (with lease)' : ''} ${
-										branch?.state.ahead ? ` ${Strings.pluralize('commit', branch.state.ahead)}` : ''
-									}${branch.getRemoteName() ? ` to ${branch.getRemoteName()}` : ''}${
-										branch != null && branch.state.behind > 0
-											? `, overwriting ${Strings.pluralize('commit', branch.state.behind)}${
-													branch?.getRemoteName() ? ` on ${branch.getRemoteName()}` : ''
-											  }`
-											: ''
-									}`,
-								}),
-							],
+							branch.id === currentBranch?.id
+								? [
+										FlagsQuickPickItem.create<Flags>(state.flags, ['--force'], {
+											label: `Force ${this.title}${useForceWithLease ? ' (with lease)' : ''}`,
+											description: `--force${useForceWithLease ? '-with-lease' : ''}`,
+											detail: `Will force push${useForceWithLease ? ' (with lease)' : ''} ${
+												branch?.state.ahead
+													? ` ${Strings.pluralize('commit', branch.state.ahead)}`
+													: ''
+											}${branch.getRemoteName() ? ` to ${branch.getRemoteName()}` : ''}${
+												branch != null && branch.state.behind > 0
+													? `, overwriting ${Strings.pluralize(
+															'commit',
+															branch.state.behind,
+													  )}${
+															branch?.getRemoteName()
+																? ` on ${branch.getRemoteName()}`
+																: ''
+													  }`
+													: ''
+											}`,
+										}),
+								  ]
+								: [],
 							DirectiveQuickPickItem.create(Directive.Cancel, true, {
 								label: `Cancel ${this.title}`,
 								detail: `Cannot push; ${GitReference.toString(

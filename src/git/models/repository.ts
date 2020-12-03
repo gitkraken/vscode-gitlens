@@ -584,7 +584,12 @@ export class Repository implements Disposable {
 					const branch = await this.getBranch(options.reference.name);
 					if (branch == null) return;
 
-					await repo?.push(branch.getRemoteName(), branch.name);
+					const currentBranch = await this.getBranch();
+					if (branch.id === currentBranch?.id) {
+						void (await commands.executeCommand(options.force ? 'git.pushForce' : 'git.push', this.path));
+					} else {
+						await repo?.push(branch.getRemoteName(), branch.name);
+					}
 				}
 			} else if (options.reference != null) {
 				const repo = await GitService.getBuiltInGitRepository(this.path);
