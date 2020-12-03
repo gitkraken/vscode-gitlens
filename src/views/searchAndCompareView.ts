@@ -52,11 +52,7 @@ export class SearchAndCompareViewNode extends ViewNode<SearchAndCompareView> {
 	}
 
 	getChildren(): ViewNode[] {
-		if (this.children.length === 0) {
-			this.view.message = 'No search or comparison results could be found.';
-
-			return [];
-		}
+		if (this.children.length === 0) return [];
 
 		this.view.message = undefined;
 

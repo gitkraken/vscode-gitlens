@@ -8063,6 +8063,14 @@
 			{
 				"view": "gitlens.views.updates",
 				"contents": "[Close](command:gitlens.closeUpdatesView)"
+			},
+			{
+				"view": "gitlens.views.searchAndCompare",
+				"contents": "Search for commits by [message](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22pattern%22%3A%22message%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), [author](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22pattern%22%3A%22author%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), [SHA](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22pattern%22%3A%22commit%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), [file](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22pattern%22%3A%22file%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D), or [changes](command:gitlens.views.searchAndCompare.searchCommits?%7B%22search%22%3A%7B%22pattern%22%3A%22change%3A%22%7D%2C%22prefillOnly%22%3Atrue%7D)\n\n[Search Commits...](command:gitlens.views.searchAndCompare.searchCommits)"
+			},
+			{
+				"view": "gitlens.views.searchAndCompare",
+				"contents": "Compare a <branch, tag, or ref> with another <branch, tag, or ref>\n\n[Compare References...](command:gitlens.views.searchAndCompare.selectForCompare)"
 			}
 		],
 		"views": {
