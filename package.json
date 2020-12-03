@@ -4475,7 +4475,7 @@
 				},
 				{
 					"command": "gitlens.showLineHistoryView",
-					"when": "gitlens:enabled && config.gitlens.views.lineHistory.enabled"
+					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.showRemotesView",
