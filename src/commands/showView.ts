@@ -45,7 +45,7 @@ export class ShowViewCommand extends Command {
 			case Commands.ShowRemotesView:
 				return Container.remotesView.show();
 			case Commands.ShowRepositoriesView:
-				if (!Container.config.views.lineHistory.enabled) {
+				if (!Container.config.views.repositories.enabled) {
 					await configuration.updateEffective('views', 'repositories', 'enabled', true);
 				}
 				return Container.repositoriesView.show();
