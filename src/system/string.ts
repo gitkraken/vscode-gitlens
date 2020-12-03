@@ -114,7 +114,9 @@ export function escapeMarkdown(s: string, options: { quoted?: boolean } = {}): s
 	return s.replace(markdownQuotedRegex, '\t\n>  ');
 }
 
-export function equalsIgnoreCase(a: string, b: string): boolean {
+export function equalsIgnoreCase(a: string | null | undefined, b: string | null | undefined): boolean {
+	if (a == null && b == null) return true;
+	if (a == null || b == null) return false;
 	return a.localeCompare(b, undefined, { sensitivity: 'accent' }) === 0;
 }
 
