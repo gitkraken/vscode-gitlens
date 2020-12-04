@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#1208](https://github.com/eamodio/vscode-gitlens/issues/1208) - Connect to Github notification is noisy
 - Fixes [#526](https://github.com/eamodio/vscode-gitlens/issues/526) - FAILED in gitlens.outputLevel=verbose; likely due to regex not in quotes
 - Fixes [#1222](https://github.com/eamodio/vscode-gitlens/issues/1222) - GitLens: Open Associated Pull Request doesn't work
 - Fixes [#1223](https://github.com/eamodio/vscode-gitlens/issues/1223) - commit pane, ${tips} does not show tags

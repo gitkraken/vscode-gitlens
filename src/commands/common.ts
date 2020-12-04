@@ -92,6 +92,7 @@ export enum Commands {
 	PushRepositories = 'gitlens.pushRepositories',
 	GitCommands = 'gitlens.gitCommands',
 	RefreshHover = 'gitlens.refreshHover',
+	ResetRemoteConnectionAuthorization = 'gitlens.resetRemoteConnectionAuthorization',
 	ResetSuppressedWarnings = 'gitlens.resetSuppressedWarnings',
 	RevealCommitInView = 'gitlens.revealCommitInView',
 	SearchCommits = 'gitlens.showCommitSearch',

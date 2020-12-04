@@ -485,14 +485,20 @@ export class Repository implements Disposable {
 		return Container.git.getTags(this.path, options);
 	}
 
+	async hasConnectedRemote(): Promise<boolean> {
+		const remote = await Container.git.getRichRemoteProvider(await this.getRemotes());
+		return remote?.provider != null;
+	}
+
 	async hasRemotes(): Promise<boolean> {
 		const remotes = await this.getRemotes();
 		return remotes?.length > 0;
 	}
 
-	async hasConnectedRemotes(): Promise<boolean> {
-		const remotes = await this.getRemotes();
-		const remote = await Container.git.getRichRemoteProvider(remotes);
+	async hasRichRemote(): Promise<boolean> {
+		const remote = await Container.git.getRichRemoteProvider(await this.getRemotes(), {
+			includeDisconnected: true,
+		});
 		return remote?.provider != null;
 	}
 

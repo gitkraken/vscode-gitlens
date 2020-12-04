@@ -4409,6 +4409,11 @@
 				"command": "gitlens.views.tags.setShowAvatarsOff",
 				"title": "Hide Avatars",
 				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.resetRemoteConnectionAuthorization",
+				"title": "Reset Remote Connection Authorization",
+				"category": "GitLens"
 			}
 		],
 		"menus": {
@@ -5596,6 +5601,10 @@
 				{
 					"command": "gitlens.views.tags.setShowAvatarsOff",
 					"when": "false"
+				},
+				{
+					"command": "gitlens.resetRemoteConnectionAuthorization",
+					"when": "gitlens:hasRichRemotes"
 				}
 			],
 			"editor/context": [

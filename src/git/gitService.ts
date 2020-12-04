@@ -445,23 +445,36 @@ export class GitService implements Disposable {
 		await setEnabled(hasRepository);
 
 		let hasRemotes = false;
+		let hasRichRemotes = false;
 		let hasConnectedRemotes = false;
 		if (hasRepository) {
 			for (const repo of repositoryTree.values()) {
 				if (!hasConnectedRemotes) {
-					hasConnectedRemotes = await repo.hasConnectedRemotes();
+					hasConnectedRemotes = await repo.hasConnectedRemote();
+
+					if (hasConnectedRemotes) {
+						hasRichRemotes = true;
+						hasRemotes = true;
+					}
+				}
+
+				if (!hasRichRemotes) {
+					hasRichRemotes = await repo.hasRichRemote();
 				}
 
 				if (!hasRemotes) {
-					hasRemotes = hasConnectedRemotes || (await repo.hasRemotes());
+					hasRemotes = await repo.hasRemotes();
 				}
 
-				if (hasRemotes && hasConnectedRemotes) break;
+				if (hasRemotes && hasRichRemotes && hasConnectedRemotes) break;
 			}
 		}
 
-		await setContext(ContextKeys.HasRemotes, hasRemotes);
-		await setContext(ContextKeys.HasConnectedRemotes, hasConnectedRemotes);
+		await Promise.all([
+			setContext(ContextKeys.HasRemotes, hasRemotes),
+			setContext(ContextKeys.HasRichRemotes, hasRichRemotes),
+			setContext(ContextKeys.HasConnectedRemotes, hasConnectedRemotes),
+		]);
 
 		// If we have no repositories setup a watcher in case one is initialized
 		if (!hasRepository) {

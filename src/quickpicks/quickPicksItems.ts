@@ -6,6 +6,7 @@ import { GitReference, GitRevisionReference, GitStashCommit, SearchPattern } fro
 import { Keys } from '../keyboard';
 
 declare module 'vscode' {
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	interface QuickPickItem {
 		onDidSelect?(): void;
 		onDidPressKey?(key: Keys): Promise<void>;

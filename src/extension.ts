@@ -13,8 +13,12 @@ import { Messages } from './messages';
 import { Strings, Versions } from './system';
 import { ViewNode } from './views/nodes';
 
+let _context: ExtensionContext | undefined;
+
 export async function activate(context: ExtensionContext) {
 	const start = process.hrtime();
+
+	_context = context;
 
 	let extensionId = 'eamodio.gitlens';
 	if (paths.basename(context.globalStorageUri.fsPath) === 'eamodio.gitlens-insiders') {
@@ -34,11 +38,7 @@ export async function activate(context: ExtensionContext) {
 	// Pretend we are enabled (until we know otherwise) and set the view contexts to reduce flashing on load
 	void setContext(ContextKeys.Enabled, true);
 
-	context.globalState.setKeysForSync([
-		SyncedState.Version,
-		SyncedState.UpdatesViewVisible,
-		SyncedState.WelcomeViewVisible,
-	]);
+	setKeysForSync();
 
 	Logger.configure(context, configuration.get('outputLevel'), o => {
 		if (GitUri.is(o)) {
@@ -64,7 +64,7 @@ export async function activate(context: ExtensionContext) {
 	const syncedVersion = context.globalState.get<string>(SyncedState.Version);
 	const previousVersion =
 		context.globalState.get<string>(GlobalState.Version) ??
-		context.globalState.get<string>(GlobalState.DeprecatedVersion) ??
+		context.globalState.get<string>(GlobalState.Deprecated_Version) ??
 		syncedVersion;
 
 	if (Logger.level === TraceLevel.Debug || Logger.isDebugging) {
@@ -157,10 +157,6 @@ export function deactivate() {
 	// nothing to do
 }
 
-export async function setEnabled(enabled: boolean): Promise<void> {
-	await Promise.all([setContext(ContextKeys.Enabled, enabled), setContext(ContextKeys.Disabled, !enabled)]);
-}
-
 // async function migrateSettings(context: ExtensionContext, previousVersion: string | undefined) {
 // 	if (previousVersion === undefined) return;
 
@@ -174,7 +170,20 @@ export async function setEnabled(enabled: boolean): Promise<void> {
 // 	}
 // }
 
-function notifyOnUnsupportedGitVersion(version: string) {
+export async function setEnabled(enabled: boolean): Promise<void> {
+	await Promise.all([setContext(ContextKeys.Enabled, enabled), setContext(ContextKeys.Disabled, !enabled)]);
+}
+
+export function setKeysForSync(...keys: (SyncedState | string)[]) {
+	return _context?.globalState.setKeysForSync([
+		...keys,
+		SyncedState.UpdatesViewVisible,
+		SyncedState.Version,
+		SyncedState.WelcomeViewVisible,
+	]);
+}
+
+export function notifyOnUnsupportedGitVersion(version: string) {
 	if (GitService.compareGitVersion('2.7.2') !== -1) return;
 
 	// If git is less than v2.7.2

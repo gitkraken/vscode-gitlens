@@ -13,8 +13,9 @@ import {
 } from 'vscode';
 import { DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference } from '../../config';
-import { WorkspaceState } from '../../constants';
+import { SyncedState, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
+import { setKeysForSync } from '../../extension';
 import { Logger } from '../../logger';
 import { Messages } from '../../messages';
 import { Account, GitLogCommit, IssueOrPullRequest, PullRequest, PullRequestState, Repository } from '../models/models';
@@ -287,7 +288,15 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		return this.custom ? `${this.name}:${this.domain}` : this.name;
 	}
 
-	private get disallowConnectionKey() {
+	private get connectedKey() {
+		return `${WorkspaceState.ConnectedPrefix}${this.key}`;
+	}
+
+	private get disallowSyncedGlobalConnectionKey() {
+		return `${SyncedState.DisallowConnectionPrefix}${this.key}`;
+	}
+
+	private get disallowWorkspaceConnectionKey() {
 		return `${WorkspaceState.DisallowConnectionPrefix}${this.key}`;
 	}
 
@@ -330,13 +339,23 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		this._session = null;
 
 		if (disconnected) {
-			void Container.context.workspaceState.update(this.disallowConnectionKey, true);
+			void Container.context.workspaceState.update(this.connectedKey, undefined);
+			void Container.context.workspaceState.update(this.disallowWorkspaceConnectionKey, true);
 
 			this._onDidChange.fire();
 			if (!silent) {
 				_onDidChangeAuthentication.fire({ reason: 'disconnected', key: this.key });
 			}
 		}
+	}
+
+	@log()
+	async resetRemoteConnectionAuthorization() {
+		await Promise.all([
+			Container.context.workspaceState.update(this.connectedKey, undefined),
+			Container.context.workspaceState.update(this.disallowWorkspaceConnectionKey, undefined),
+			Container.context.globalState.update(this.disallowSyncedGlobalConnectionKey, undefined),
+		]);
 	}
 
 	@gate()
@@ -525,26 +544,36 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 	): Promise<PullRequest | undefined>;
 
 	@gate()
-	private async ensureSession(createIfNone: boolean): Promise<AuthenticationSession | undefined> {
+	private async ensureSession(createIfNeeded: boolean): Promise<AuthenticationSession | undefined> {
 		if (this._session != null) return this._session;
 
-		if (createIfNone) {
-			await Container.context.workspaceState.update(this.disallowConnectionKey, undefined);
-		} else if (Container.context.workspaceState.get<boolean>(this.disallowConnectionKey)) {
+		if (createIfNeeded) {
+			await Promise.all([
+				Container.context.workspaceState.update(this.connectedKey, undefined),
+				Container.context.workspaceState.update(this.disallowWorkspaceConnectionKey, undefined),
+			]);
+		} else if (
+			!Container.context.workspaceState.get<boolean>(this.connectedKey) &&
+			(Container.context.globalState.get<boolean>(this.disallowSyncedGlobalConnectionKey) ||
+				Container.context.workspaceState.get<boolean>(this.disallowWorkspaceConnectionKey))
+		) {
 			return undefined;
 		}
 
 		let session;
 		try {
 			session = await authentication.getSession(this.authProvider.id, this.authProvider.scopes, {
-				createIfNone: createIfNone,
+				createIfNone: createIfNeeded,
 			});
 		} catch (ex) {
-			await Container.context.workspaceState.update(this.disallowConnectionKey, true);
+			await Promise.all([
+				Container.context.workspaceState.update(this.connectedKey, undefined),
+				Container.context.workspaceState.update(this.disallowWorkspaceConnectionKey, true),
+			]);
 
 			if (ex instanceof Error && ex.message.includes('User did not consent')) {
-				if (!createIfNone) {
-					void this.promptToRetyConnection();
+				if (!createIfNeeded) {
+					void this.promptToAllow(true);
 				}
 				return undefined;
 			}
@@ -552,19 +581,25 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 			session = null;
 		}
 
-		if (session === undefined && !createIfNone) {
-			await Container.context.workspaceState.update(this.disallowConnectionKey, true);
+		if (session === undefined && !createIfNeeded) {
+			await Promise.all([
+				Container.context.workspaceState.update(this.connectedKey, undefined),
+				Container.context.workspaceState.update(this.disallowWorkspaceConnectionKey, true),
+			]);
 
-			void this.promptToConnect();
+			void this.promptToAllow();
 		}
 
 		this._session = session ?? null;
 		this.invalidClientExceptionCount = 0;
 
 		if (session != null) {
-			await Container.context.workspaceState.update(this.disallowConnectionKey, undefined);
+			await Promise.all([
+				Container.context.workspaceState.update(this.connectedKey, true),
+				Container.context.workspaceState.update(this.disallowWorkspaceConnectionKey, undefined),
+			]);
 
-			if (createIfNone) {
+			if (createIfNeeded) {
 				this._onDidChange.fire();
 				_onDidChangeAuthentication.fire({ reason: 'connected', key: this.key });
 			}
@@ -574,34 +609,25 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 	}
 
 	@gate()
-	private async promptToConnect() {
-		const connect: MessageItem = { title: `Connect to ${this.name}` };
-		const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
+	private async promptToAllow(retry: boolean = false) {
+		const allow: MessageItem = { title: 'Allow' };
+		const deny: MessageItem = { title: 'Deny' };
+		const denyEverywhere: MessageItem = { title: 'Deny Everywhere' };
 
 		const result = await window.showInformationMessage(
-			`GitLens would like to connect to ${this.name} to provide a rich integration with pull requests, issues, avatars, and more. If you choose to connect, you will be prompted to authenticate with ${this.name}.`,
-			connect,
-			cancel,
+			retry
+				? `By allowing GitLens to connect to ${this.name}, it can provide a rich integration with pull requests, issues, avatars, and more.\n\nIf you choose 'Allow', you will again be prompted to authenticate with ${this.name}.`
+				: `Allow GitLens to connect to ${this.name} to provide a rich integration with pull requests, issues, avatars, and more.\n\nIf you choose 'Allow', you will be prompted to authenticate with ${this.name}.`,
+			allow,
+			deny,
+			denyEverywhere,
 		);
 
-		if (result === connect) {
+		if (result === allow) {
 			void this.connect();
-		}
-	}
-
-	@gate()
-	private async promptToRetyConnection() {
-		const connect: MessageItem = { title: `Connect to ${this.name}` };
-		const cancel: MessageItem = { title: 'Cancel', isCloseAffordance: true };
-
-		const result = await window.showErrorMessage(
-			`GitLens wants to connect to ${this.name} to provide a rich integration with pull requests, issues, avatars, and more. If you choose to connect, you will be prompted again to allow authentication with ${this.name}.`,
-			connect,
-			cancel,
-		);
-
-		if (result === connect) {
-			void this.connect();
+		} else if (result === denyEverywhere) {
+			setKeysForSync(this.disallowSyncedGlobalConnectionKey);
+			await Container.context.globalState.update(this.disallowSyncedGlobalConnectionKey, true);
 		}
 	}
 

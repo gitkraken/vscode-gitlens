@@ -31,8 +31,9 @@ export enum ContextKeys {
 	DisabledToggleCodeLens = 'gitlens:disabledToggleCodeLens',
 	Disabled = 'gitlens:disabled',
 	Enabled = 'gitlens:enabled',
-	HasRemotes = 'gitlens:hasRemotes',
 	HasConnectedRemotes = 'gitlens:hasConnectedRemotes',
+	HasRemotes = 'gitlens:hasRemotes',
+	HasRichRemotes = 'gitlens:hasRichRemotes',
 	Key = 'gitlens:key',
 	Readonly = 'gitlens:readonly',
 	ViewsCanCompare = 'gitlens:views:canCompare',
@@ -129,15 +130,17 @@ export enum GlyphChars {
 }
 
 export enum SyncedState {
-	Version = 'gitlens:synced:version',
+	DisallowConnectionPrefix = 'gitlens:disallow:connection:',
 	UpdatesViewVisible = 'gitlens:views:updates:visible',
+	Version = 'gitlens:synced:version',
 	WelcomeViewVisible = 'gitlens:views:welcome:visible',
 }
 
 export enum GlobalState {
-	DeprecatedVersion = 'gitlensVersion',
 	Avatars = 'gitlens:avatars',
 	Version = 'gitlens:version',
+
+	Deprecated_Version = 'gitlensVersion',
 }
 
 export const ImageMimetypes: Record<string, string> = {
@@ -208,6 +211,7 @@ export interface StarredRepositories {
 
 export enum WorkspaceState {
 	BranchComparisons = 'gitlens:branch:comparisons',
+	ConnectedPrefix = 'gitlens:connected:',
 	DefaultRemote = 'gitlens:remote:default',
 	DisallowConnectionPrefix = 'gitlens:disallow:connection:',
 	StarredBranches = 'gitlens:starred:branches',

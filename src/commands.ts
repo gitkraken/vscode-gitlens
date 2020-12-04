@@ -39,6 +39,7 @@ export * from './commands/rebaseEditor';
 export * from './commands/refreshHover';
 export * from './commands/remoteProviders';
 export * from './commands/repositories';
+export * from './commands/resetRemoteConnectionAuthorization';
 export * from './commands/resetSuppressedWarnings';
 export * from './commands/setViewsLayout';
 export * from './commands/searchCommits';
