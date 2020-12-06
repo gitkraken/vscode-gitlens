@@ -11,28 +11,35 @@ import {
 	isCommandContextViewNodeHasCommit,
 } from './common';
 import { UriComparer } from '../comparers';
-import { BranchSorting } from '../configuration';
+import { BranchSorting, TagSorting } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitRevision, RemoteResourceType } from '../git/git';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
-import { ReferencePicker, ReferencesQuickPickIncludes } from '../quickpicks';
+import { ReferencePicker } from '../quickpicks';
 import { OpenOnRemoteCommandArgs } from './openOnRemote';
 import { Strings } from '../system';
 import { StatusFileNode } from '../views/nodes';
 
 export interface OpenFileOnRemoteCommandArgs {
-	branch?: string;
+	branchOrTag?: string;
 	clipboard?: boolean;
 	range?: boolean;
 	sha?: string;
+	pickBranchOrTag?: boolean;
 }
 
 @command()
 export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 	constructor() {
-		super([Commands.OpenFileOnRemote, Commands.Deprecated_OpenFileInRemote, Commands.CopyRemoteFileUrl]);
+		super([
+			Commands.OpenFileOnRemote,
+			Commands.Deprecated_OpenFileInRemote,
+			Commands.CopyRemoteFileUrl,
+			Commands.OpenFileOnRemoteFrom,
+			Commands.CopyRemoteFileUrlFrom,
+		]);
 	}
 
 	protected async preExecute(context: CommandContext, args?: OpenFileOnRemoteCommandArgs) {
@@ -43,11 +50,11 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 		} else if (isCommandContextViewNodeHasCommit(context)) {
 			args = { ...args, range: false };
 
-			if (context.command === Commands.CopyRemoteFileUrl) {
+			if (context.command === Commands.CopyRemoteFileUrl || context.command === Commands.CopyRemoteFileUrlFrom) {
 				// If it is a StatusFileNode then don't include the sha, since it hasn't been pushed yet
 				args.sha = context.node instanceof StatusFileNode ? undefined : context.node.commit.sha;
 			} else if (isCommandContextViewNodeHasBranch(context)) {
-				args.branch = context.node.branch?.name;
+				args.branchOrTag = context.node.branch?.name;
 			}
 
 			uri = context.node.uri;
@@ -57,7 +64,7 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 			uri = context.node.uri ?? context.uri;
 		}
 
-		if (context.command === Commands.CopyRemoteFileUrl) {
+		if (context.command === Commands.CopyRemoteFileUrl || context.command === Commands.CopyRemoteFileUrlFrom) {
 			args = { ...args, clipboard: true };
 			if (args.sha == null) {
 				const uri = getCommandUri(context.uri, context.editor);
@@ -78,6 +85,10 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 					}
 				}
 			}
+		}
+
+		if (context.command === Commands.OpenFileOnRemoteFrom || context.command === Commands.CopyRemoteFileUrlFrom) {
+			args = { ...args, pickBranchOrTag: true, range: false };
 		}
 
 		return this.execute(context.editor, uri, args);
@@ -105,45 +116,57 @@ export class OpenFileOnRemoteCommand extends ActiveEditorCommand {
 					: undefined;
 			let sha = args.sha ?? gitUri.sha;
 
-			if (args.branch == null && sha != null && !GitRevision.isSha(sha) && remotes.length !== 0) {
+			if (args.branchOrTag == null && sha != null && !GitRevision.isSha(sha) && remotes.length !== 0) {
 				const [remoteName, branchName] = Strings.splitSingle(sha, '/');
 				if (branchName != null && remotes.some(r => r.name === remoteName)) {
-					args.branch = branchName;
+					args.branchOrTag = branchName;
 					sha = undefined;
 				}
 			}
 
-			if (args.branch == null && args.sha == null) {
-				const branch = await Container.git.getBranch(gitUri.repoPath);
-				if (branch == null || branch.tracking == null) {
+			if ((args.sha == null && args.branchOrTag == null) || args.pickBranchOrTag) {
+				let branch;
+				if (!args.pickBranchOrTag) {
+					branch = await Container.git.getBranch(gitUri.repoPath);
+				}
+
+				if (branch?.tracking == null) {
 					const pick = await ReferencePicker.show(
 						gitUri.repoPath,
 						args.clipboard
 							? `Copy Remote File Url From${Strings.pad(GlyphChars.Dot, 2, 2)}${gitUri.relativePath}`
 							: `Open File on Remote From${Strings.pad(GlyphChars.Dot, 2, 2)}${gitUri.relativePath}`,
-						`Choose a branch to ${args.clipboard ? 'copy' : 'open'} the file revision from`,
+						`Choose a branch or tag to ${args.clipboard ? 'copy' : 'open'} the file revision from`,
 						{
+							allowEnteringRefs: true,
 							autoPick: true,
 							// checkmarks: false,
 							filter: { branches: b => b.tracking != null },
-							include: ReferencesQuickPickIncludes.Branches,
+							picked: args.branchOrTag,
 							sort: {
 								branches: { current: true, orderBy: BranchSorting.DateDesc },
+								tags: { orderBy: TagSorting.DateDesc },
 							},
 						},
 					);
 					if (pick == null) return;
 
-					args.branch = pick.ref;
+					if (pick.refType === 'branch' || pick.refType === 'tag') {
+						args.branchOrTag = pick.ref;
+						sha = undefined;
+					} else {
+						args.branchOrTag = undefined;
+						sha = pick.ref;
+					}
 				} else {
-					args.branch = branch.name;
+					args.branchOrTag = branch.name;
 				}
 			}
 
 			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
 				resource: {
 					type: sha == null ? RemoteResourceType.File : RemoteResourceType.Revision,
-					branch: args.branch ?? 'HEAD',
+					branchOrTag: args.branchOrTag ?? 'HEAD',
 					fileName: gitUri.relativePath,
 					range: range,
 					sha: sha ?? undefined,

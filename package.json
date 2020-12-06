@@ -155,6 +155,8 @@
 		"onCommand:gitlens.openFileFromRemote",
 		"onCommand:gitlens.openFileOnRemote",
 		"onCommand:gitlens.copyRemoteFileUrlToClipboard",
+		"onCommand:gitlens.openFileOnRemoteFrom",
+		"onCommand:gitlens.copyRemoteFileUrlFrom",
 		"onCommand:gitlens.openFileRevision",
 		"onCommand:gitlens.openFileRevisionFrom",
 		"onCommand:gitlens.openPullRequestOnRemote",
@@ -3159,6 +3161,21 @@
 				}
 			},
 			{
+				"command": "gitlens.openFileOnRemoteFrom",
+				"title": "Open File on Remote From...",
+				"category": "GitLens",
+				"icon": "$(globe)"
+			},
+			{
+				"command": "gitlens.copyRemoteFileUrlFrom",
+				"title": "Copy Remote File Url From...",
+				"category": "GitLens",
+				"icon": {
+					"dark": "images/dark/icon-copy-link.svg",
+					"light": "images/light/icon-copy-link.svg"
+				}
+			},
+			{
 				"command": "gitlens.openFileRevision",
 				"title": "Open File at Revision...",
 				"icon": {
@@ -4803,6 +4820,14 @@
 					"when": "gitlens:activeFileStatus =~ /tracked/ && gitlens:activeFileStatus =~ /remotes/"
 				},
 				{
+					"command": "gitlens.openFileOnRemoteFrom",
+					"when": "gitlens:activeFileStatus =~ /tracked/ && gitlens:activeFileStatus =~ /remotes/"
+				},
+				{
+					"command": "gitlens.copyRemoteFileUrlFrom",
+					"when": "gitlens:activeFileStatus =~ /tracked/ && gitlens:activeFileStatus =~ /remotes/"
+				},
+				{
 					"command": "gitlens.openFileRevision",
 					"when": "gitlens:activeFileStatus =~ /tracked/"
 				},
@@ -5626,9 +5651,15 @@
 					"alt": "gitlens.copyRemoteFileUrlToClipboard"
 				},
 				{
+					"command": "gitlens.openFileOnRemoteFrom",
+					"when": "editorTextFocus && gitlens:activeFileStatus =~ /remotes/ && config.gitlens.menus.editor.remote",
+					"group": "2_gitlens@4",
+					"alt": "gitlens.copyRemoteFileUrlFrom"
+				},
+				{
 					"command": "gitlens.showFileHistoryInView",
 					"when": "gitlens:activeFileStatus =~ /tracked/ && config.gitlens.menus.editor.history",
-					"group": "2_gitlens@4"
+					"group": "2_gitlens@5"
 				},
 				{
 					"submenu": "gitlens/editor/annotations",
@@ -5792,9 +5823,15 @@
 					"alt": "gitlens.copyRemoteFileUrlToClipboard"
 				},
 				{
+					"command": "gitlens.openFileOnRemoteFrom",
+					"when": "gitlens:enabled && gitlens:hasRemotes && config.gitlens.menus.editorTab.remote",
+					"group": "2_gitlens@3",
+					"alt": "gitlens.copyRemoteFileUrlFrom"
+				},
+				{
 					"command": "gitlens.showFileHistoryInView",
 					"when": "gitlens:enabled && config.gitlens.menus.editorTab.history",
-					"group": "2_gitlens@3"
+					"group": "2_gitlens@4"
 				}
 			],
 			"explorer/context": [
@@ -5810,9 +5847,15 @@
 					"alt": "gitlens.copyRemoteFileUrlToClipboard"
 				},
 				{
+					"command": "gitlens.openFileOnRemoteFrom",
+					"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && gitlens:hasRemotes && config.gitlens.menus.explorer.remote",
+					"group": "4_gitlens@2",
+					"alt": "gitlens.copyRemoteFileUrlFrom"
+				},
+				{
 					"command": "gitlens.showFileHistoryInView",
 					"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && config.gitlens.menus.explorer.history",
-					"group": "4_gitlens@2"
+					"group": "4_gitlens@3"
 				},
 				{
 					"command": "gitlens.copyRemoteFileUrlToClipboard",
@@ -5875,8 +5918,14 @@
 				{
 					"command": "gitlens.openFileOnRemote",
 					"when": "gitlens:enabled && gitlens:hasRemotes && scmProvider == git && scmResourceGroup =~ /^(workingTree|index|merge)$/ && config.gitlens.menus.scmItem.remote",
-					"group": "navigation@98",
+					"group": "navigation@97",
 					"alt": "gitlens.copyRemoteFileUrlToClipboard"
+				},
+				{
+					"command": "gitlens.openFileOnRemoteFrom",
+					"when": "gitlens:enabled && gitlens:hasRemotes && scmProvider == git && scmResourceGroup =~ /^(workingTree|index|merge)$/ && config.gitlens.menus.scmItem.remote",
+					"group": "navigation@98",
+					"alt": "gitlens.copyRemoteFileUrlFrom"
 				},
 				{
 					"command": "gitlens.showFileHistoryInView",
@@ -7540,6 +7589,10 @@
 				{
 					"command": "gitlens.copyRemoteFileUrlToClipboard",
 					"group": "2_gitlens@4"
+				},
+				{
+					"command": "gitlens.copyRemoteFileUrlFrom",
+					"group": "2_gitlens@5"
 				}
 			],
 			"gitlens/editor/context/openChanges": [

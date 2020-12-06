@@ -51,7 +51,7 @@ export type RemoteResource =
 	  }
 	| {
 			type: RemoteResourceType.File;
-			branch?: string;
+			branchOrTag?: string;
 			fileName: string;
 			range?: Range;
 	  }
@@ -60,7 +60,7 @@ export type RemoteResource =
 	  }
 	| {
 			type: RemoteResourceType.Revision;
-			branch?: string;
+			branchOrTag?: string;
 			commit?: GitLogCommit;
 			fileName: string;
 			range?: Range;
@@ -167,7 +167,7 @@ export abstract class RemoteProvider {
 				return encodeURI(
 					this.getUrlForFile(
 						resource.fileName,
-						resource.branch != null ? resource.branch : undefined,
+						resource.branchOrTag != null ? resource.branchOrTag : undefined,
 						undefined,
 						resource.range,
 					),
@@ -178,7 +178,7 @@ export abstract class RemoteProvider {
 				return encodeURI(
 					this.getUrlForFile(
 						resource.fileName,
-						resource.branch != null ? resource.branch : undefined,
+						resource.branchOrTag != null ? resource.branchOrTag : undefined,
 						resource.sha != null ? resource.sha : undefined,
 						resource.range,
 					),
