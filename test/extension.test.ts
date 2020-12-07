@@ -19,3 +19,26 @@ suite('Extension Tests', () => {
 		assert.equal(-1, [1, 2, 3].indexOf(0));
 	});
 });
+
+// import { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../src/api/gitlens';
+
+// api.registerActionRunner('openPullRequest', {
+// 	label: 'Test Runner',
+// 	run: function (context: OpenPullRequestActionContext) {
+// 		console.log(context);
+// 	},
+// });
+
+// api.registerActionRunner('createPullRequest', {
+// 	label: 'Test Runner 1',
+// 	run: function (context: CreatePullRequestActionContext) {
+// 		console.log('Test Runner 1', context);
+// 	},
+// });
+
+// api.registerActionRunner('createPullRequest', {
+// 	label: 'Test Runner 2',
+// 	run: function (context: CreatePullRequestActionContext) {
+// 		console.log('Test Runner 2', context);
+// 	},
+// });

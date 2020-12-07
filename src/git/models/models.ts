@@ -206,6 +206,22 @@ export namespace GitReference {
 		}
 	}
 
+	export function fromBranch(branch: GitBranchReference) {
+		return create(branch.ref, branch.repoPath, {
+			refType: branch.refType,
+			name: branch.name,
+			remote: branch.remote,
+			tracking: branch.tracking,
+		});
+	}
+
+	export function fromTag(tag: GitTagReference) {
+		return create(tag.ref, tag.repoPath, {
+			refType: tag.refType,
+			name: tag.name,
+		});
+	}
+
 	export function getNameWithoutRemote(ref: GitReference) {
 		if (ref.refType === 'branch') {
 			return ref.remote ? GitBranch.getNameWithoutRemote(ref.name) : ref.name;

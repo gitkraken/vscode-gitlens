@@ -63,6 +63,21 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		return this.id === defaultRemote;
 	}
 
+	get url(): string | undefined {
+		let url;
+		for (const remoteUrl of this.urls) {
+			if (remoteUrl.type === GitRemoteType.Push) {
+				return remoteUrl.url;
+			}
+
+			if (url == null) {
+				url = remoteUrl.url;
+			}
+		}
+
+		return url;
+	}
+
 	async setAsDefault(state: boolean = true, updateViews: boolean = true) {
 		void (await Container.context.workspaceState.update(WorkspaceState.DefaultRemote, state ? this.id : undefined));
 

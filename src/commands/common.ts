@@ -16,6 +16,7 @@ import {
 	window,
 	workspace,
 } from 'vscode';
+import { Action, ActionContext } from '../api/gitlens';
 import { BuiltInCommands, DocumentSchemes, ImageMimetypes } from '../constants';
 import { Container } from '../container';
 import { GitBranch, GitCommit, GitContributor, GitFile, GitRemote, GitTag, Repository } from '../git/git';
@@ -25,6 +26,7 @@ import { CommandQuickPickItem, RepositoryPicker } from '../quickpicks';
 import { ViewNode, ViewRefNode } from '../views/nodes';
 
 export enum Commands {
+	ActionPrefix = 'gitlens.action.',
 	AddAuthors = 'gitlens.addAuthors',
 	BrowseRepoAtRevision = 'gitlens.browseRepoAtRevision',
 	BrowseRepoAtRevisionInNewWindow = 'gitlens.browseRepoAtRevisionInNewWindow',
@@ -165,6 +167,10 @@ export enum Commands {
 	Deprecated_OpenFileInRemote = 'gitlens.openFileInRemote',
 	Deprecated_OpenInRemote = 'gitlens.openInRemote',
 	Deprecated_OpenRepoInRemote = 'gitlens.openRepoInRemote',
+}
+
+export function executeActionCommand<T extends ActionContext>(action: Action<T>, args: Omit<T, 'type'>) {
+	return commands.executeCommand(`${Commands.ActionPrefix}${action}`, { ...args, type: action });
 }
 
 export function executeCommand<T>(command: Commands, args: T) {

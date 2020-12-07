@@ -15,6 +15,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds an _Open File on Remote From..._ command (`gitlens.openFileOnRemoteFrom`) to open a file or revision on a specific branch or tag on the remote provider &mdash; closes [#1071](https://github.com/eamodio/vscode-gitlens/issues/1071)
 - Adds a _Copy Remote File Url From..._ command (`gitlens.copyRemoteFileUrlFrom`) to copy the url of a file or revision on a specific branch or tag the remote provider &mdash; closes [#1071](https://github.com/eamodio/vscode-gitlens/issues/1071)
 - Adds a welcome, i.e. richer empty state, to the _Search & Compare_ view
+- Adds preview extensibility APIs
+  - Adds a preview _action runner_ extensibility point to provide a runner (handler) for a new _createPullRequest_ and _openPullRequest_ actions &mdash; see `gitlens.d.ts` for API definitions
+  - Preview APIs are only available in the Insiders edition
 
 ### Changed
 

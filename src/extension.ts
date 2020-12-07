@@ -1,6 +1,8 @@
 'use strict';
 import * as paths from 'path';
 import { commands, ExtensionContext, extensions, window, workspace } from 'vscode';
+import { Api } from './api/api';
+import { GitLensApi } from './api/gitlens';
 import { Commands, registerCommands } from './commands';
 import { configuration, Configuration } from './configuration';
 import { ContextKeys, GlobalState, GlyphChars, setContext, SyncedState } from './constants';
@@ -15,7 +17,7 @@ import { ViewNode } from './views/nodes';
 
 let _context: ExtensionContext | undefined;
 
-export async function activate(context: ExtensionContext) {
+export async function activate(context: ExtensionContext): Promise<GitLensApi | undefined> {
 	const start = process.hrtime();
 
 	_context = context;
@@ -31,7 +33,7 @@ export async function activate(context: ExtensionContext) {
 
 			void Messages.showInsidersErrorMessage();
 
-			return;
+			return undefined;
 		}
 	}
 
@@ -105,7 +107,7 @@ export async function activate(context: ExtensionContext) {
 
 		void Messages.showGitDisabledErrorMessage();
 
-		return;
+		return undefined;
 	}
 
 	Configuration.configure(context);
@@ -127,7 +129,7 @@ export async function activate(context: ExtensionContext) {
 			);
 		}
 
-		return;
+		return undefined;
 	}
 
 	Container.initialize(extensionId, context, cfg);
@@ -151,6 +153,9 @@ export async function activate(context: ExtensionContext) {
 			GlyphChars.Dot
 		} ${Strings.getDurationMilliseconds(start)} ms`,
 	);
+
+	const api = new Api();
+	return api;
 }
 
 export function deactivate() {

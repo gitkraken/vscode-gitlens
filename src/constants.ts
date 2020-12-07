@@ -26,6 +26,7 @@ export enum BuiltInCommands {
 }
 
 export enum ContextKeys {
+	ActionPrefix = 'gitlens:action:',
 	ActiveFileStatus = 'gitlens:activeFileStatus',
 	AnnotationStatus = 'gitlens:annotationStatus',
 	DisabledToggleCodeLens = 'gitlens:disabledToggleCodeLens',

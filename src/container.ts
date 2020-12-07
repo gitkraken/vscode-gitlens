@@ -3,6 +3,7 @@ import { commands, ConfigurationChangeEvent, ConfigurationScope, ExtensionContex
 import { Autolinks } from './annotations/autolinks';
 import { FileAnnotationController } from './annotations/fileAnnotationController';
 import { LineAnnotationController } from './annotations/lineAnnotationController';
+import { ActionRunners } from './api/actionRunners';
 import { resetAvatarCache } from './avatars';
 import { GitCodeLensController } from './codelens/codeLensController';
 import { Commands, ToggleFileAnnotationCommandArgs } from './commands';
@@ -13,6 +14,7 @@ import { LineHoverController } from './hovers/lineHoverController';
 import { Keyboard } from './keyboard';
 import { Logger } from './logger';
 import { StatusBarController } from './statusbar/statusBarController';
+import { memoize } from './system/decorators/memoize';
 import { GitTerminalLinkProvider } from './terminal/linkProvider';
 import { GitDocumentTracker } from './trackers/gitDocumentTracker';
 import { GitLineTracker } from './trackers/gitLineTracker';
@@ -43,6 +45,7 @@ export class Container {
 		this._context = context;
 		this._config = Container.applyMode(config);
 
+		context.subscriptions.push((this._actionRunners = new ActionRunners()));
 		context.subscriptions.push((this._lineTracker = new GitLineTracker()));
 		context.subscriptions.push((this._tracker = new GitDocumentTracker()));
 		context.subscriptions.push((this._vsls = new VslsController()));
@@ -111,16 +114,25 @@ export class Container {
 		}
 
 		if (configuration.changed(e.change, 'mode') || configuration.changed(e.change, 'modes')) {
-			if (this._applyModeConfigurationTransformBound === undefined) {
+			if (this._applyModeConfigurationTransformBound == null) {
 				this._applyModeConfigurationTransformBound = this.applyModeConfigurationTransform.bind(this);
 			}
 			e.transform = this._applyModeConfigurationTransformBound;
 		}
 	}
 
+	private static _actionRunners: ActionRunners;
+	static get actionRunners() {
+		if (this._actionRunners == null) {
+			this._context.subscriptions.push((this._actionRunners = new ActionRunners()));
+		}
+
+		return this._actionRunners;
+	}
+
 	private static _autolinks: Autolinks;
 	static get autolinks() {
-		if (this._autolinks === undefined) {
+		if (this._autolinks == null) {
 			this._context.subscriptions.push((this._autolinks = new Autolinks()));
 		}
 
@@ -134,7 +146,7 @@ export class Container {
 
 	private static _branchesView: BranchesView | undefined;
 	static get branchesView() {
-		if (this._branchesView === undefined) {
+		if (this._branchesView == null) {
 			this._context.subscriptions.push((this._branchesView = new BranchesView()));
 		}
 
@@ -143,7 +155,7 @@ export class Container {
 
 	private static _commitsView: CommitsView | undefined;
 	static get commitsView() {
-		if (this._commitsView === undefined) {
+		if (this._commitsView == null) {
 			this._context.subscriptions.push((this._commitsView = new CommitsView()));
 		}
 
@@ -152,7 +164,7 @@ export class Container {
 
 	private static _config: Config | undefined;
 	static get config() {
-		if (this._config === undefined) {
+		if (this._config == null) {
 			this._config = Container.applyMode(configuration.get());
 		}
 		return this._config;
@@ -165,7 +177,7 @@ export class Container {
 
 	private static _contributorsView: ContributorsView | undefined;
 	static get contributorsView() {
-		if (this._contributorsView === undefined) {
+		if (this._contributorsView == null) {
 			this._context.subscriptions.push((this._contributorsView = new ContributorsView()));
 		}
 
@@ -184,7 +196,7 @@ export class Container {
 
 	private static _fileHistoryView: FileHistoryView | undefined;
 	static get fileHistoryView() {
-		if (this._fileHistoryView === undefined) {
+		if (this._fileHistoryView == null) {
 			this._context.subscriptions.push((this._fileHistoryView = new FileHistoryView()));
 		}
 
@@ -198,7 +210,7 @@ export class Container {
 
 	private static _github: Promise<import('./github/github').GitHubApi | undefined> | undefined;
 	static get github() {
-		if (this._github === undefined) {
+		if (this._github == null) {
 			this._github = this._loadGitHubApi();
 		}
 
@@ -214,6 +226,7 @@ export class Container {
 		}
 	}
 
+	@memoize()
 	static get insiders() {
 		return this._extensionId.endsWith('-insiders');
 	}
@@ -230,7 +243,7 @@ export class Container {
 
 	private static _lineHistoryView: LineHistoryView | undefined;
 	static get lineHistoryView() {
-		if (this._lineHistoryView === undefined) {
+		if (this._lineHistoryView == null) {
 			this._context.subscriptions.push((this._lineHistoryView = new LineHistoryView()));
 		}
 
@@ -249,7 +262,7 @@ export class Container {
 
 	private static _rebaseEditor: RebaseEditorProvider | undefined;
 	static get rebaseEditor() {
-		if (this._rebaseEditor === undefined) {
+		if (this._rebaseEditor == null) {
 			this._context.subscriptions.push((this._rebaseEditor = new RebaseEditorProvider()));
 		}
 
@@ -258,7 +271,7 @@ export class Container {
 
 	private static _remotesView: RemotesView | undefined;
 	static get remotesView() {
-		if (this._remotesView === undefined) {
+		if (this._remotesView == null) {
 			this._context.subscriptions.push((this._remotesView = new RemotesView()));
 		}
 
@@ -267,7 +280,7 @@ export class Container {
 
 	private static _repositoriesView: RepositoriesView | undefined;
 	static get repositoriesView(): RepositoriesView {
-		if (this._repositoriesView === undefined) {
+		if (this._repositoriesView == null) {
 			this._context.subscriptions.push((this._repositoriesView = new RepositoriesView()));
 		}
 
@@ -276,7 +289,7 @@ export class Container {
 
 	private static _searchAndCompareView: SearchAndCompareView | undefined;
 	static get searchAndCompareView() {
-		if (this._searchAndCompareView === undefined) {
+		if (this._searchAndCompareView == null) {
 			this._context.subscriptions.push((this._searchAndCompareView = new SearchAndCompareView()));
 		}
 
@@ -290,7 +303,7 @@ export class Container {
 
 	private static _stashesView: StashesView | undefined;
 	static get stashesView() {
-		if (this._stashesView === undefined) {
+		if (this._stashesView == null) {
 			this._context.subscriptions.push((this._stashesView = new StashesView()));
 		}
 
@@ -304,7 +317,7 @@ export class Container {
 
 	private static _tagsView: TagsView | undefined;
 	static get tagsView() {
-		if (this._tagsView === undefined) {
+		if (this._tagsView == null) {
 			this._context.subscriptions.push((this._tagsView = new TagsView()));
 		}
 
@@ -318,7 +331,7 @@ export class Container {
 
 	private static _viewCommands: ViewCommands | undefined;
 	static get viewCommands() {
-		if (this._viewCommands === undefined) {
+		if (this._viewCommands == null) {
 			this._viewCommands = new ViewCommands();
 		}
 		return this._viewCommands;
@@ -386,7 +399,7 @@ export class Container {
 	}
 
 	private static applyModeConfigurationTransform(e: ConfigurationChangeEvent): ConfigurationChangeEvent {
-		if (this._configsAffectedByMode === undefined) {
+		if (this._configsAffectedByMode == null) {
 			this._configsAffectedByMode = [
 				`gitlens.${configuration.name('mode')}`,
 				`gitlens.${configuration.name('modes')}`,

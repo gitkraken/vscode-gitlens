@@ -1,10 +1,12 @@
 'use strict';
 import { commands, env, TextDocumentShowOptions, Uri, window } from 'vscode';
+import { CreatePullRequestActionContext, OpenPullRequestActionContext } from '../api/gitlens';
 import {
 	Commands,
 	DiffWithCommandArgs,
 	DiffWithPreviousCommandArgs,
 	DiffWithWorkingCommandArgs,
+	executeActionCommand,
 	executeCommand,
 	executeEditorCommand,
 	GitActions,
@@ -29,6 +31,7 @@ import {
 	nodeSupportsClearing,
 	PageableViewNode,
 	PagerNode,
+	PullRequestNode,
 	RemoteNode,
 	RepositoryNode,
 	ResultsFileNode,
@@ -198,6 +201,9 @@ export class ViewCommands {
 		commands.registerCommand('gitlens.views.undoCommit', this.undoCommit, this);
 
 		commands.registerCommand('gitlens.views.terminalRemoveRemote', this.terminalRemoveRemote, this);
+
+		commands.registerCommand('gitlens.views.createPullRequest', this.createPullRequest, this);
+		commands.registerCommand('gitlens.views.openPullRequest', this.openPullRequest, this);
 	}
 
 	@debug()
@@ -255,6 +261,30 @@ export class ViewCommands {
 		if (node != null && !(node instanceof ViewRefNode)) return Promise.resolve();
 
 		return GitActions.Branch.create(node?.repoPath, node?.ref);
+	}
+
+	@debug()
+	private async createPullRequest(node: BranchNode | BranchTrackingStatusNode) {
+		if (!(node instanceof BranchNode) && !(node instanceof BranchTrackingStatusNode)) {
+			return Promise.resolve();
+		}
+
+		const remote = await node.branch.getRemote();
+
+		return executeActionCommand<CreatePullRequestActionContext>('createPullRequest', {
+			branch: {
+				name: node.branch.name,
+				remote:
+					remote != null
+						? {
+								name: remote.name,
+								provider: remote.provider?.name,
+								url: remote.url,
+						  }
+						: undefined,
+				repoPath: node.repoPath,
+			},
+		});
 	}
 
 	@debug()
@@ -351,6 +381,20 @@ export class ViewCommands {
 		if (!(node instanceof CommitNode)) return Promise.resolve();
 
 		return GitActions.push(node.repoPath, false, node.commit);
+	}
+
+	@debug()
+	private openPullRequest(node: PullRequestNode) {
+		if (!(node instanceof PullRequestNode)) return Promise.resolve();
+
+		return executeActionCommand<OpenPullRequestActionContext>('openPullRequest', {
+			pullRequest: {
+				id: node.pullRequest.id,
+				provider: node.pullRequest.provider,
+				repoPath: node.uri.repoPath!,
+				url: node.pullRequest.url,
+			},
+		});
 	}
 
 	@debug()
