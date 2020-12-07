@@ -83,7 +83,7 @@ export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 		let arrows;
 		let left;
 		let right;
-		for (const { type } of this.remote.types) {
+		for (const { type } of this.remote.urls) {
 			if (type === GitRemoteType.Fetch) {
 				left = true;
 
@@ -147,8 +147,8 @@ export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 
 		item.id = this.id;
 
-		for (const type of this.remote.types) {
-			item.tooltip += `\n${type.url} (${type.type})`;
+		for (const { type, url } of this.remote.urls) {
+			item.tooltip += `\n${url} (${type})`;
 		}
 
 		return item;

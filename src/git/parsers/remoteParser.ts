@@ -103,7 +103,7 @@ export class GitRemoteParser {
 				groups[uniqueness] = remote;
 			} else {
 				// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-				remote.types.push({ url: url, type: ` ${type}`.substr(1) as GitRemoteType });
+				remote.urls.push({ url: url, type: ` ${type}`.substr(1) as GitRemoteType });
 			}
 		} while (true);
 

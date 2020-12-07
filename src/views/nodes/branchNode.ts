@@ -241,7 +241,7 @@ export class BranchNode
 				if (remote != null) {
 					let left;
 					let right;
-					for (const { type } of remote.types) {
+					for (const { type } of remote.urls) {
 						if (type === GitRemoteType.Fetch) {
 							left = true;
 
