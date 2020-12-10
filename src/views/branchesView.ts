@@ -21,7 +21,6 @@ import {
 	GitLogCommit,
 	GitReference,
 	GitRevisionReference,
-	Repository,
 	RepositoryChange,
 	RepositoryChangeEvent,
 } from '../git/git';
@@ -30,35 +29,15 @@ import {
 	BranchesNode,
 	BranchNode,
 	BranchOrTagFolderNode,
-	ContextValues,
+	RepositoryFolderNode,
 	RepositoryNode,
-	SubscribeableViewNode,
 	unknownGitUri,
 	ViewNode,
 } from './nodes';
 import { debug, gate } from '../system';
 import { ViewBase } from './viewBase';
 
-export class BranchesRepositoryNode extends SubscribeableViewNode<BranchesView> {
-	protected splatted = true;
-	private child: BranchesNode | undefined;
-
-	constructor(
-		uri: GitUri,
-		view: BranchesView,
-		parent: ViewNode,
-		public readonly repo: Repository,
-		splatted: boolean,
-	) {
-		super(uri, view, parent);
-
-		this.splatted = splatted;
-	}
-
-	get id(): string {
-		return RepositoryNode.getId(this.repo.path);
-	}
-
+export class BranchesRepositoryNode extends RepositoryFolderNode<BranchesView, BranchesNode> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.child == null) {
 			this.child = new BranchesNode(this.uri, this.view, this, this.repo);
@@ -67,69 +46,13 @@ export class BranchesRepositoryNode extends SubscribeableViewNode<BranchesView> 
 		return this.child.getChildren();
 	}
 
-	getTreeItem(): TreeItem {
-		this.splatted = false;
-
-		const item = new TreeItem(
-			this.repo.formattedName ?? this.uri.repoPath ?? '',
-			TreeItemCollapsibleState.Expanded,
-		);
-		item.contextValue = ContextValues.RepositoryFolder;
-
-		return item;
-	}
-
-	async getSplattedChild() {
-		if (this.child == null) {
-			await this.getChildren();
-		}
-
-		return this.child;
-	}
-
-	@gate()
-	@debug()
-	async refresh(reset: boolean = false) {
-		await this.child?.triggerChange(reset);
-
-		await this.ensureSubscription();
-	}
-
-	@debug()
-	protected subscribe() {
-		return this.repo.onDidChange(this.onRepositoryChanged, this);
-	}
-
-	protected get requiresResetOnVisible(): boolean {
-		return this._repoUpdatedAt !== this.repo.updatedAt;
-	}
-
-	private _repoUpdatedAt: number = this.repo.updatedAt;
-
-	@debug({
-		args: {
-			0: (e: RepositoryChangeEvent) =>
-				`{ repository: ${e.repository?.name ?? ''}, changes: ${e.changes.join()} }`,
-		},
-	})
-	private onRepositoryChanged(e: RepositoryChangeEvent) {
-		this._repoUpdatedAt = this.repo.updatedAt;
-
-		if (e.changed(RepositoryChange.Closed)) {
-			this.dispose();
-			void this.parent?.triggerChange(true);
-
-			return;
-		}
-
-		if (
+	protected changed(e: RepositoryChangeEvent) {
+		return (
 			e.changed(RepositoryChange.Config) ||
 			e.changed(RepositoryChange.Heads) ||
 			e.changed(RepositoryChange.Remotes) ||
 			e.changed(RepositoryChange.Unknown)
-		) {
-			void this.triggerChange(true);
-		}
+		);
 	}
 }
 

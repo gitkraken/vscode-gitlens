@@ -14,7 +14,7 @@ import {
 	WorkspaceFolder,
 } from 'vscode';
 import { BranchSorting, configuration, TagSorting } from '../../configuration';
-import { StarredRepositories, WorkspaceState } from '../../constants';
+import { Starred, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
 import { GitBranch, GitContributor, GitDiffShortStat, GitRemote, GitStash, GitStatus, GitTag } from '../git';
 import { GitService } from '../gitService';
@@ -33,6 +33,7 @@ export enum RepositoryChange {
 	Config = 'config',
 	Closed = 'closed',
 	// FileSystem = 'file-system',
+	Starred = 'starred',
 	Heads = 'heads',
 	Index = 'index',
 	Ignores = 'ignores',
@@ -654,12 +655,12 @@ export class Repository implements Disposable {
 	}
 
 	get starred() {
-		const starred = Container.context.workspaceState.get<StarredRepositories>(WorkspaceState.StarredRepositories);
+		const starred = Container.context.workspaceState.get<Starred>(WorkspaceState.StarredRepositories);
 		return starred != null && starred[this.id] === true;
 	}
 
-	star() {
-		return this.updateStarred(true);
+	star(branch?: GitBranch) {
+		return this.updateStarred(true, branch);
 	}
 
 	@gate(() => '')
@@ -721,23 +722,35 @@ export class Repository implements Disposable {
 		return !(options?.validate ?? true) || this.containsUri(uri) ? uri : undefined;
 	}
 
-	unstar() {
-		return this.updateStarred(false);
+	unstar(branch?: GitBranch) {
+		return this.updateStarred(false, branch);
 	}
 
-	private async updateStarred(star: boolean) {
-		let starred = Container.context.workspaceState.get<StarredRepositories>(WorkspaceState.StarredRepositories);
-		if (starred == null) {
-			starred = Object.create(null) as StarredRepositories;
+	private async updateStarred(star: boolean, branch?: GitBranch) {
+		if (branch != null) {
+			await this.updateStarredCore(WorkspaceState.StarredBranches, branch.id, star);
+		} else {
+			await this.updateStarredCore(WorkspaceState.StarredRepositories, this.id, star);
+		}
+
+		this.fireChange(RepositoryChange.Starred);
+	}
+
+	private async updateStarredCore(key: WorkspaceState, id: string, star: boolean) {
+		let starred = Container.context.workspaceState.get<Starred>(key);
+		if (starred === undefined) {
+			starred = Object.create(null) as Starred;
 		}
 
 		if (star) {
-			starred[this.id] = true;
+			starred[id] = true;
 		} else {
-			const { [this.id]: _, ...rest } = starred;
+			const { [id]: _, ...rest } = starred;
 			starred = rest;
 		}
-		await Container.context.workspaceState.update(WorkspaceState.StarredRepositories, starred);
+		await Container.context.workspaceState.update(key, starred);
+
+		this.fireChange(RepositoryChange.Starred);
 	}
 
 	startWatchingFileSystem(): Disposable {

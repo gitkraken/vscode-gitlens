@@ -1,6 +1,6 @@
 'use strict';
 import { BranchSorting, configuration, DateStyle } from '../../configuration';
-import { StarredBranches, WorkspaceState } from '../../constants';
+import { Starred, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
 import { GitRemote, GitRevision } from '../git';
 import { GitBranchReference, GitReference, PullRequest, PullRequestState } from './models';
@@ -195,42 +195,20 @@ export class GitBranch implements GitBranchReference {
 		separator?: string;
 		suffix?: string;
 	}): string {
-		return GitStatus.getUpstreamStatus(this.tracking, this.state, options);
+		return GitStatus.getUpstreamStatus(this.tracking, { ahead: 4, behind: 10 } /*this.state*/, options);
 	}
 
 	get starred() {
-		const starred = Container.context.workspaceState.get<StarredBranches>(WorkspaceState.StarredBranches);
+		const starred = Container.context.workspaceState.get<Starred>(WorkspaceState.StarredBranches);
 		return starred !== undefined && starred[this.id] === true;
 	}
 
-	star(updateViews: boolean = true) {
-		return this.updateStarred(true, updateViews);
+	async star() {
+		await (await Container.git.getRepository(this.repoPath))?.star(this);
 	}
 
-	unstar(updateViews: boolean = true) {
-		return this.updateStarred(false, updateViews);
-	}
-
-	private async updateStarred(star: boolean, updateViews: boolean = true) {
-		let starred = Container.context.workspaceState.get<StarredBranches>(WorkspaceState.StarredBranches);
-		if (starred === undefined) {
-			starred = Object.create(null) as StarredBranches;
-		}
-
-		if (star) {
-			starred[this.id] = true;
-		} else {
-			const { [this.id]: _, ...rest } = starred;
-			starred = rest;
-		}
-		await Container.context.workspaceState.update(WorkspaceState.StarredBranches, starred);
-
-		// TODO@eamodio this is UGLY
-		if (updateViews) {
-			void (await Container.branchesView.refresh());
-			void (await Container.remotesView.refresh());
-			void (await Container.repositoriesView.refresh());
-		}
+	async unstar() {
+		await (await Container.git.getRepository(this.repoPath))?.unstar(this);
 	}
 
 	static formatDetached(sha: string): string {

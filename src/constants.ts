@@ -202,11 +202,7 @@ export interface PinnedItems {
 	[id: string]: PinnedItem;
 }
 
-export interface StarredBranches {
-	[id: string]: boolean;
-}
-
-export interface StarredRepositories {
+export interface Starred {
 	[id: string]: boolean;
 }
 

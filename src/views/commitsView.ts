@@ -14,8 +14,8 @@ import { Container } from '../container';
 import {
 	GitLogCommit,
 	GitReference,
+	GitRemote,
 	GitRevisionReference,
-	Repository,
 	RepositoryChange,
 	RepositoryChangeEvent,
 } from '../git/git';
@@ -24,28 +24,15 @@ import {
 	BranchNode,
 	BranchTrackingStatusNode,
 	ContextValues,
+	RepositoryFolderNode,
 	RepositoryNode,
-	SubscribeableViewNode,
 	unknownGitUri,
 	ViewNode,
 } from './nodes';
-import { Dates, debug, gate } from '../system';
+import { Dates, debug, gate, Strings } from '../system';
 import { ViewBase } from './viewBase';
 
-export class CommitsRepositoryNode extends SubscribeableViewNode<CommitsView> {
-	protected splatted = true;
-	private child: BranchNode | undefined;
-
-	constructor(uri: GitUri, view: CommitsView, parent: ViewNode, public readonly repo: Repository, splatted: boolean) {
-		super(uri, view, parent);
-
-		this.splatted = splatted;
-	}
-
-	get id(): string {
-		return RepositoryNode.getId(this.repo.path);
-	}
-
+export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, BranchNode> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.child == null) {
 			const branch = await this.repo.getBranch();
@@ -88,7 +75,7 @@ export class CommitsRepositoryNode extends SubscribeableViewNode<CommitsView> {
 				? TreeItemCollapsibleState.Expanded
 				: TreeItemCollapsibleState.Collapsed,
 		);
-		item.contextValue = ContextValues.RepositoryFolder;
+		item.contextValue = `${ContextValues.RepositoryFolder}${this.repo.starred ? '+starred' : ''}`;
 
 		if (branch != null) {
 			const lastFetched = (await this.repo?.getLastFetched()) ?? 0;
@@ -99,17 +86,35 @@ export class CommitsRepositoryNode extends SubscribeableViewNode<CommitsView> {
 					? ` ${GlyphChars.Dot} Last fetched ${Dates.getFormatter(new Date(lastFetched)).fromNow()}`
 					: ''
 			}`;
+
+			let providerName;
+			if (branch.tracking != null) {
+				const providers = GitRemote.getHighlanderProviders(await Container.git.getRemotes(branch.repoPath));
+				providerName = providers?.length ? providers[0].name : undefined;
+			} else {
+				const remote = await branch.getRemote();
+				providerName = remote?.provider?.name;
+			}
+
+			item.tooltip = `${this.repo.formattedName ?? this.uri.repoPath ?? ''}${Strings.pad(
+				GlyphChars.Dash,
+				2,
+				2,
+			)}Last fetched on ${Dates.getFormatter(new Date(lastFetched)).format(
+				Container.config.defaultDateFormat ?? 'h:mma, dddd MMMM Do, YYYY',
+			)}${this.repo.formattedName ? `\n${this.uri.repoPath}` : ''}\n\nBranch ${branch.name}${
+				branch.tracking
+					? ` is ${branch.getTrackingStatus({
+							empty: `up to date with ${branch.tracking}${providerName ? ` on ${providerName}` : ''}`,
+							expand: true,
+							separator: ', ',
+							suffix: ` ${branch.tracking}${providerName ? ` on ${providerName}` : ''}\n`,
+					  })}`
+					: `hasn't been published to ${providerName ?? 'a remote'}`
+			}`;
 		}
 
 		return item;
-	}
-
-	async getSplattedChild() {
-		if (this.child == null) {
-			await this.getChildren();
-		}
-
-		return this.child;
 	}
 
 	@gate()
@@ -124,42 +129,14 @@ export class CommitsRepositoryNode extends SubscribeableViewNode<CommitsView> {
 		await this.ensureSubscription();
 	}
 
-	@debug()
-	protected subscribe() {
-		return this.repo.onDidChange(this.onRepositoryChanged, this);
-	}
-
-	protected get requiresResetOnVisible(): boolean {
-		return this._repoUpdatedAt !== this.repo.updatedAt;
-	}
-
-	private _repoUpdatedAt: number = this.repo.updatedAt;
-
-	@debug({
-		args: {
-			0: (e: RepositoryChangeEvent) =>
-				`{ repository: ${e.repository?.name ?? ''}, changes: ${e.changes.join()} }`,
-		},
-	})
-	private onRepositoryChanged(e: RepositoryChangeEvent) {
-		this._repoUpdatedAt = this.repo.updatedAt;
-
-		if (e.changed(RepositoryChange.Closed)) {
-			this.dispose();
-			void this.parent?.triggerChange(true);
-
-			return;
-		}
-
-		if (
+	protected changed(e: RepositoryChangeEvent) {
+		return (
 			e.changed(RepositoryChange.Config) ||
 			e.changed(RepositoryChange.Index) ||
 			e.changed(RepositoryChange.Heads) ||
 			e.changed(RepositoryChange.Remotes) ||
 			e.changed(RepositoryChange.Unknown)
-		) {
-			void this.triggerChange(true);
-		}
+		);
 	}
 }
 

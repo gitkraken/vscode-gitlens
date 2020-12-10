@@ -7201,6 +7201,42 @@
 					"group": "8_gitlens_actions_@2"
 				},
 				{
+					"command": "gitlens.views.star",
+					"when": "viewItem =~ /gitlens:repo-folder\\b(?!.*?\\b\\+starred\\b)/",
+					"group": "inline@99"
+				},
+				{
+					"command": "gitlens.views.unstar",
+					"when": "viewItem =~ /gitlens:repo-folder\\b(?=.*?\\b\\+starred\\b)/",
+					"group": "inline@99"
+				},
+				{
+					"command": "gitlens.views.openInTerminal",
+					"when": "viewItem =~ /gitlens:repo-folder\\b/",
+					"group": "2_gitlens_quickopen@1"
+				},
+				{
+					"command": "gitlens.openRepoOnRemote",
+					"when": "viewItem =~ /gitlens:repo-folder\\b/ && gitlens:hasRemotes",
+					"group": "2_gitlens_quickopen@2",
+					"alt": "gitlens.copyRemoteRepositoryUrl"
+				},
+				{
+					"command": "gitlens.views.star",
+					"when": "viewItem =~ /gitlens:repo-folder\\b(?!.*?\\b\\+starred\\b)/",
+					"group": "8_gitlens_actions_@1"
+				},
+				{
+					"command": "gitlens.views.unstar",
+					"when": "viewItem =~ /gitlens:repo-folder\\b(?=.*?\\b\\+starred\\b)/",
+					"group": "8_gitlens_actions_@1"
+				},
+				{
+					"command": "gitlens.views.closeRepository",
+					"when": "viewItem =~ /gitlens:repo-folder\\b/",
+					"group": "8_gitlens_actions_@2"
+				},
+				{
 					"command": "gitlens.views.publishBranch",
 					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem == gitlens:status:upstream:none",
 					"group": "inline@1"
@@ -7451,7 +7487,7 @@
 				},
 				{
 					"command": "gitlens.views.copy",
-					"when": "viewItem =~ /gitlens:(?=(branch|commit|contributor|folder|history:line|pullrequest|remote|repository|stash|tag)\\b)/",
+					"when": "viewItem =~ /gitlens:(?=(branch|commit|contributor|folder|history:line|pullrequest|remote|repository|repo-folder|stash|tag)\\b)/",
 					"group": "7_gitlens_cutcopypaste@1"
 				},
 				{

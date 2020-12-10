@@ -10,27 +10,14 @@ import {
 } from 'vscode';
 import { configuration, TagsViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../configuration';
 import { Container } from '../container';
-import { GitReference, GitTagReference, Repository, RepositoryChange, RepositoryChangeEvent } from '../git/git';
+import { GitReference, GitTagReference, RepositoryChange, RepositoryChangeEvent } from '../git/git';
 import { GitUri } from '../git/gitUri';
-import { ContextValues, RepositoryNode, SubscribeableViewNode, TagsNode, unknownGitUri, ViewNode } from './nodes';
+import { RepositoryFolderNode, RepositoryNode, TagsNode, unknownGitUri, ViewNode } from './nodes';
 import { debug, gate } from '../system';
 import { ViewBase } from './viewBase';
 import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
 
-export class TagsRepositoryNode extends SubscribeableViewNode<TagsView> {
-	protected splatted = true;
-	private child: TagsNode | undefined;
-
-	constructor(uri: GitUri, view: TagsView, parent: ViewNode, public readonly repo: Repository, splatted: boolean) {
-		super(uri, view, parent);
-
-		this.splatted = splatted;
-	}
-
-	get id(): string {
-		return RepositoryNode.getId(this.repo.path);
-	}
-
+export class TagsRepositoryNode extends RepositoryFolderNode<TagsView, TagsNode> {
 	async getChildren(): Promise<ViewNode[]> {
 		if (this.child == null) {
 			this.child = new TagsNode(this.uri, this.view, this, this.repo);
@@ -39,68 +26,12 @@ export class TagsRepositoryNode extends SubscribeableViewNode<TagsView> {
 		return this.child.getChildren();
 	}
 
-	getTreeItem(): TreeItem {
-		this.splatted = false;
-
-		const item = new TreeItem(
-			this.repo.formattedName ?? this.uri.repoPath ?? '',
-			TreeItemCollapsibleState.Expanded,
-		);
-		item.contextValue = ContextValues.RepositoryFolder;
-
-		return item;
-	}
-
-	async getSplattedChild() {
-		if (this.child == null) {
-			await this.getChildren();
-		}
-
-		return this.child;
-	}
-
-	@gate()
-	@debug()
-	async refresh(reset: boolean = false) {
-		await this.child?.triggerChange(reset);
-
-		await this.ensureSubscription();
-	}
-
-	@debug()
-	protected subscribe() {
-		return this.repo.onDidChange(this.onRepositoryChanged, this);
-	}
-
-	protected get requiresResetOnVisible(): boolean {
-		return this._repoUpdatedAt !== this.repo.updatedAt;
-	}
-
-	private _repoUpdatedAt: number = this.repo.updatedAt;
-
-	@debug({
-		args: {
-			0: (e: RepositoryChangeEvent) =>
-				`{ repository: ${e.repository?.name ?? ''}, changes: ${e.changes.join()} }`,
-		},
-	})
-	private onRepositoryChanged(e: RepositoryChangeEvent) {
-		this._repoUpdatedAt = this.repo.updatedAt;
-
-		if (e.changed(RepositoryChange.Closed)) {
-			this.dispose();
-			void this.parent?.triggerChange(true);
-
-			return;
-		}
-
-		if (
+	protected changed(e: RepositoryChangeEvent) {
+		return (
 			e.changed(RepositoryChange.Config) ||
 			e.changed(RepositoryChange.Tags) ||
 			e.changed(RepositoryChange.Unknown)
-		) {
-			void this.triggerChange(true);
-		}
+		);
 	}
 }
 

@@ -1,9 +1,16 @@
 'use strict';
 import { Command, Disposable, Event, TreeItem, TreeItemCollapsibleState, TreeViewVisibilityChangeEvent } from 'vscode';
-import { GitFile, GitReference, GitRevisionReference } from '../../git/git';
+import {
+	GitFile,
+	GitReference,
+	GitRevisionReference,
+	Repository,
+	RepositoryChange,
+	RepositoryChangeEvent,
+} from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { Logger } from '../../logger';
-import { debug, Functions, gate, logName } from '../../system';
+import { debug, Functions, gate, log, logName } from '../../system';
 import { TreeViewNodeCollapsibleStateChangeEvent, View } from '../viewBase';
 
 export enum ContextValues {
@@ -286,6 +293,116 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
 
 		this.subscription = Promise.resolve(this.subscribe());
 		await this.subscription;
+	}
+}
+
+export abstract class RepositoryFolderNode<
+	TView extends View = View,
+	TChild extends ViewNode = ViewNode
+> extends SubscribeableViewNode<TView> {
+	static key = ':repository';
+	static getId(repoPath: string): string {
+		return `gitlens${this.key}(${repoPath})`;
+	}
+
+	protected splatted = true;
+	protected child: TChild | undefined;
+
+	constructor(uri: GitUri, view: TView, parent: ViewNode, public readonly repo: Repository, splatted: boolean) {
+		super(uri, view, parent);
+
+		this.splatted = splatted;
+	}
+
+	toClipboard(): string {
+		return this.repo.path;
+	}
+
+	get id(): string {
+		return RepositoryFolderNode.getId(this.repo.path);
+	}
+
+	getTreeItem(): TreeItem | Promise<TreeItem> {
+		this.splatted = false;
+
+		const item = new TreeItem(
+			this.repo.formattedName ?? this.uri.repoPath ?? '',
+			TreeItemCollapsibleState.Expanded,
+		);
+		item.contextValue = `${ContextValues.RepositoryFolder}${this.repo.starred ? '+starred' : ''}`;
+		item.tooltip = `${
+			this.repo.formattedName ? `${this.repo.formattedName}\n${this.uri.repoPath}` : this.uri.repoPath ?? ''
+		}`;
+
+		return item;
+	}
+
+	async getSplattedChild() {
+		if (this.child == null) {
+			await this.getChildren();
+		}
+
+		return this.child;
+	}
+
+	@gate()
+	@debug()
+	async refresh(reset: boolean = false) {
+		await this.child?.triggerChange(reset);
+
+		await this.ensureSubscription();
+	}
+
+	@log()
+	async star() {
+		await this.repo.star();
+		// void this.parent!.triggerChange();
+	}
+
+	@log()
+	async unstar() {
+		await this.repo.unstar();
+		// void this.parent!.triggerChange();
+	}
+
+	@debug()
+	protected subscribe() {
+		return this.repo.onDidChange(this.onRepositoryChanged, this);
+	}
+
+	protected get requiresResetOnVisible(): boolean {
+		return this._repoUpdatedAt !== this.repo.updatedAt;
+	}
+
+	private _repoUpdatedAt: number = this.repo.updatedAt;
+
+	protected abstract changed(e: RepositoryChangeEvent): boolean;
+
+	@debug({
+		args: {
+			0: (e: RepositoryChangeEvent) =>
+				`{ repository: ${e.repository?.name ?? ''}, changes: ${e.changes.join()} }`,
+		},
+	})
+	private onRepositoryChanged(e: RepositoryChangeEvent) {
+		this._repoUpdatedAt = this.repo.updatedAt;
+
+		if (e.changed(RepositoryChange.Closed)) {
+			this.dispose();
+			void this.parent?.triggerChange(true);
+
+			return;
+		}
+
+		if (e.changed(RepositoryChange.Starred)) {
+			void this.parent?.triggerChange(true);
+
+			return;
+		}
+
+		if (this.changed(e)) {
+			void this.triggerChange(true);
+		}
 	}
 }
 

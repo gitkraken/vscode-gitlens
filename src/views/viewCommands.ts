@@ -33,6 +33,7 @@ import {
 	PagerNode,
 	PullRequestNode,
 	RemoteNode,
+	RepositoryFolderNode,
 	RepositoryNode,
 	ResultsFileNode,
 	ResultsFilesNode,
@@ -250,8 +251,8 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private closeRepository(node: RepositoryNode) {
-		if (!(node instanceof RepositoryNode)) return;
+	private closeRepository(node: RepositoryNode | RepositoryFolderNode) {
+		if (!(node instanceof RepositoryNode) && !(node instanceof RepositoryFolderNode)) return;
 
 		node.repo.closed = true;
 	}
@@ -398,8 +399,8 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private openInTerminal(node: RepositoryNode) {
-		if (!(node instanceof RepositoryNode)) return Promise.resolve();
+	private openInTerminal(node: RepositoryNode | RepositoryFolderNode) {
+		if (!(node instanceof RepositoryNode) && !(node instanceof RepositoryFolderNode)) return Promise.resolve();
 
 		return commands.executeCommand(BuiltInCommands.OpenInTerminal, Uri.file(node.repo.path));
 	}
@@ -543,8 +544,14 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private star(node: BranchNode | RepositoryNode) {
-		if (!(node instanceof BranchNode) && !(node instanceof RepositoryNode)) return Promise.resolve();
+	private star(node: BranchNode | RepositoryNode | RepositoryFolderNode) {
+		if (
+			!(node instanceof BranchNode) &&
+			!(node instanceof RepositoryNode) &&
+			!(node instanceof RepositoryFolderNode)
+		) {
+			return Promise.resolve();
+		}
 
 		return node.star();
 	}
@@ -602,8 +609,14 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private unstar(node: BranchNode | RepositoryNode) {
-		if (!(node instanceof BranchNode) && !(node instanceof RepositoryNode)) return Promise.resolve();
+	private unstar(node: BranchNode | RepositoryNode | RepositoryFolderNode) {
+		if (
+			!(node instanceof BranchNode) &&
+			!(node instanceof RepositoryNode) &&
+			!(node instanceof RepositoryFolderNode)
+		) {
+			return Promise.resolve();
+		}
 
 		return node.unstar();
 	}
