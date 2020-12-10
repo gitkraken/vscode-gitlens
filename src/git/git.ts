@@ -1168,7 +1168,7 @@ export namespace Git {
 	}
 
 	export function shortlog(repoPath: string) {
-		return git<string>({ cwd: repoPath }, 'shortlog', '-sne', '--all', '--no-merges');
+		return git<string>({ cwd: repoPath }, 'shortlog', '-sne', '--all', '--no-merges', 'HEAD');
 	}
 
 	export async function show<TOut extends string | Buffer>(
