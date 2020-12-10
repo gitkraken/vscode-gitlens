@@ -196,6 +196,10 @@ export function notifyOnUnsupportedGitVersion(version: string) {
 }
 
 async function showWelcomeOrWhatsNew(version: string, previousVersion: string | undefined) {
+	if (!Container.config.showWelcomeScreen) {
+		return;
+	}
+
 	if (previousVersion == null) {
 		Logger.log('GitLens first-time install');
 		await commands.executeCommand(Commands.ShowWelcomePage);
