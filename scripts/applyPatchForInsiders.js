@@ -15,7 +15,7 @@ let json = require('../package.json');
 json = JSON.stringify({
 	...json,
 	name: `${json.name}-insiders`,
-	displayName: `${json.displayName} (Insiders)`,
+	displayName: 'GitLens (Insiders)',
 	version: `${String(date.getFullYear())}.${date.getMonth() + 1}.${date.getDate()}${String(date.getHours()).padStart(
 		2,
 		'0',
