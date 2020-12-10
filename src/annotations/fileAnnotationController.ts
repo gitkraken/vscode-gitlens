@@ -213,7 +213,11 @@ export class FileAnnotationController implements Disposable {
 			configuration.changed(e, 'blame') ||
 			configuration.changed(e, 'changes') ||
 			configuration.changed(e, 'heatmap') ||
-			configuration.changed(e, 'hovers')
+			configuration.changed(e, 'hovers') ||
+			configuration.changed(e, 'defaultDateFormat') ||
+			configuration.changed(e, 'defaultDateSource') ||
+			configuration.changed(e, 'defaultDateStyle') ||
+			configuration.changed(e, 'defaultGravatarsStyle')
 		) {
 			// Since the configuration has changed -- reset any visible annotations
 			for (const provider of this._annotationProviders.values()) {
