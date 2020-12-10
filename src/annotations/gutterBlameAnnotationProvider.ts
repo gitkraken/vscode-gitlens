@@ -210,13 +210,14 @@ export class GutterBlameAnnotationProvider extends BlameAnnotationProviderBase {
 	) {
 		let avatarDecoration = map.get(commit.email!);
 		if (avatarDecoration == null) {
+			const url = (await commit.getAvatarUri({ defaultStyle: gravatarDefault, size: 16 })).toString(true);
 			avatarDecoration = {
 				contentText: '',
 				height: '16px',
 				width: '16px',
-				textDecoration: `none;position:absolute;top:1px;left:5px;background:url(${(
-					await commit.getAvatarUri({ defaultStyle: gravatarDefault })
-				).toString()});background-size:16px 16px;margin-left: 0 !important`,
+				textDecoration: `none;position:absolute;top:1px;left:5px;background:url(${encodeURI(
+					url,
+				)});background-size:16px 16px;margin-left: 0 !important`,
 			};
 			map.set(commit.email!, avatarDecoration);
 		}
