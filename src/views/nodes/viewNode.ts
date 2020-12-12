@@ -108,11 +108,14 @@ export abstract class ViewNode<TView extends View = View> {
 
 	refresh?(reset?: boolean): boolean | void | Promise<void> | Promise<boolean>;
 
-	@gate()
+	@gate<RepositoryFolderNode['triggerChange']>(
+		(reset: boolean = false, force: boolean = false, avoidSelf?: ViewNode) =>
+			JSON.stringify([reset, force, avoidSelf?.toString()]),
+	)
 	@debug()
-	triggerChange(reset: boolean = false, force: boolean = false): Promise<void> {
+	triggerChange(reset: boolean = false, force: boolean = false, avoidSelf?: ViewNode): Promise<void> {
 		// If this node has been splatted (e.g. not shown itself, but its children are), then delegate the change to its parent
-		if (this.splatted && this.parent != null) {
+		if (this.splatted && this.parent != null && this.parent !== avoidSelf) {
 			return this.parent.triggerChange(reset, force);
 		}
 
@@ -354,7 +357,7 @@ export abstract class RepositoryFolderNode<
 	@gate()
 	@debug()
 	async refresh(reset: boolean = false) {
-		await this.child?.triggerChange(reset);
+		await this.child?.triggerChange(reset, false, this);
 
 		await this.ensureSubscription();
 	}
