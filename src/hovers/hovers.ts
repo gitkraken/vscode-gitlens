@@ -14,7 +14,7 @@ import {
 	GitRevision,
 } from '../git/git';
 import { GitUri } from '../git/gitUri';
-import { Logger, TraceLevel } from '../logger';
+import { Logger } from '../logger';
 import { Iterables, Promises, Strings } from '../system';
 
 export namespace Hovers {
@@ -258,7 +258,7 @@ export namespace Hovers {
 				timeout: timeout,
 			});
 
-			if (autolinks != null && (Logger.level === TraceLevel.Debug || Logger.isDebugging)) {
+			if (autolinks != null && Logger.willLog('debug')) {
 				// If there are any issues/PRs that timed out, log it
 				const count = Iterables.count(autolinks.values(), pr => pr instanceof Promises.CancellationError);
 				if (count !== 0) {

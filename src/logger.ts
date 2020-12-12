@@ -196,6 +196,20 @@ export class Logger {
 		}
 	}
 
+	static willLog(type: 'debug' | 'error' | 'log' | 'warn'): boolean {
+		switch (type) {
+			case 'debug':
+				return this.level === TraceLevel.Debug || Logger.isDebugging;
+			case 'error':
+			case 'warn':
+				return this.level !== TraceLevel.Silent || Logger.isDebugging;
+			case 'log':
+				return this.level === TraceLevel.Verbose || this.level === TraceLevel.Debug || Logger.isDebugging;
+			default:
+				return false;
+		}
+	}
+
 	static showOutputChannel() {
 		if (this.output == null) return;
 

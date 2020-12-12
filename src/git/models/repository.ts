@@ -47,18 +47,37 @@ export class RepositoryChangeEvent {
 	constructor(public readonly repository?: Repository, public readonly changes: RepositoryChange[] = []) {}
 
 	changed(change: RepositoryChange, only: boolean = false) {
-		if (only) return this.changes.length === 1 && this.changes[0] === change;
+		if (only) {
+			if (this.changes.length !== 1) return false;
+			if (this.changes[0] === change) return true;
 
-		return this.changes.includes(change);
+			if (this.repository?.supportsChangeEvents === false && this.changes[0] === RepositoryChange.Unknown) {
+				switch (change) {
+					case RepositoryChange.Closed:
+					case RepositoryChange.Starred:
+						return false;
+					default:
+						return true;
+				}
+			}
 
-		// const changed = this.changes.includes(change);
-		// if (changed) return true;
+			return false;
+		}
 
-		// if (change === RepositoryChange.Repository) {
-		//     return this.changes.includes(RepositoryChange.Stashes);
-		// }
+		if (this.changes.includes(change)) return true;
 
-		// return false;
+		if (this.repository?.supportsChangeEvents === false && this.changes.includes(RepositoryChange.Unknown)) {
+			switch (change) {
+				case RepositoryChange.Closed:
+				case RepositoryChange.Ignores:
+				case RepositoryChange.Starred:
+					return false;
+				default:
+					return true;
+			}
+		}
+
+		return false;
 	}
 }
 
@@ -159,6 +178,16 @@ export class Repository implements Disposable {
 			configuration.onDidChange(this.onConfigurationChanged, this),
 		);
 		this.onConfigurationChanged(configuration.initializingChangeEvent);
+
+		if (!this.supportsChangeEvents && Logger.willLog('debug')) {
+			Logger.debug(
+				`Repository[${this.name}(${
+					this.id
+				})] doesn't support file watching; path=${path}, workspaceFolders=${workspace.workspaceFolders
+					?.map(wf => wf.uri.fsPath)
+					.join('; ')}`,
+			);
+		}
 	}
 
 	dispose() {

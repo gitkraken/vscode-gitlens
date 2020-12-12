@@ -10,7 +10,7 @@ import { Container } from './container';
 import { Git, GitCommit } from './git/git';
 import { GitService } from './git/gitService';
 import { GitUri } from './git/gitUri';
-import { Logger, TraceLevel } from './logger';
+import { Logger } from './logger';
 import { Messages } from './messages';
 import { Strings, Versions } from './system';
 import { ViewNode } from './views/nodes';
@@ -69,7 +69,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 		context.globalState.get<string>(GlobalState.Deprecated_Version) ??
 		syncedVersion;
 
-	if (Logger.level === TraceLevel.Debug || Logger.isDebugging) {
+	if (Logger.willLog('debug')) {
 		Logger.debug(
 			`GitLens (v${gitlensVersion}): syncedVersion=${syncedVersion}, previousVersion=${previousVersion}, ${
 				SyncedState.WelcomeViewVisible
