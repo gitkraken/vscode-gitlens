@@ -195,7 +195,7 @@ export class GitBranch implements GitBranchReference {
 		separator?: string;
 		suffix?: string;
 	}): string {
-		return GitStatus.getUpstreamStatus(this.tracking, { ahead: 4, behind: 10 } /*this.state*/, options);
+		return GitStatus.getUpstreamStatus(this.tracking, this.state, options);
 	}
 
 	get starred() {
