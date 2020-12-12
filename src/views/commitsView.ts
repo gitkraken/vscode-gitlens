@@ -67,13 +67,18 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 	async getTreeItem(): Promise<TreeItem> {
 		this.splatted = false;
 
-		const branch = await this.repo.getBranch();
+		let expand = this.repo.starred;
+		const [active, branch] = await Promise.all([
+			expand ? undefined : Container.git.isActiveRepoPath(this.uri.repoPath),
+			this.repo.getBranch(),
+		]);
+		if (!expand && (active || (branch?.state.ahead ?? 0) > 0 || (branch?.state.behind ?? 0) > 0)) {
+			expand = true;
+		}
 
 		const item = new TreeItem(
 			this.repo.formattedName ?? this.uri.repoPath ?? '',
-			(branch?.state.ahead ?? 0) > 0 || (branch?.state.behind ?? 0) > 0
-				? TreeItemCollapsibleState.Expanded
-				: TreeItemCollapsibleState.Collapsed,
+			expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
 		);
 		item.contextValue = `${ContextValues.RepositoryFolder}${this.repo.starred ? '+starred' : ''}`;
 

@@ -3427,6 +3427,22 @@ export class GitService implements Disposable {
 		return repository.hasTrackingBranch();
 	}
 
+	@log({
+		args: {
+			1: (editor: TextEditor) =>
+				editor != null ? `TextEditor(${Logger.toLoggable(editor.document.uri)})` : 'undefined',
+		},
+	})
+	async isActiveRepoPath(repoPath: string | undefined, editor?: TextEditor): Promise<boolean> {
+		if (repoPath == null) return false;
+
+		editor = editor ?? window.activeTextEditor;
+		if (editor == null) return false;
+
+		const doc = await Container.tracker.getOrAdd(editor.document.uri);
+		return repoPath === doc?.uri.repoPath;
+	}
+
 	isTrackable(scheme: string): boolean;
 	isTrackable(uri: Uri): boolean;
 	isTrackable(schemeOruri: string | Uri): boolean {

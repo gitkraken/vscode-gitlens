@@ -1,5 +1,6 @@
 'use strict';
 import { Command, Disposable, Event, TreeItem, TreeItemCollapsibleState, TreeViewVisibilityChangeEvent } from 'vscode';
+import { Container } from '../../container';
 import {
 	GitFile,
 	GitReference,
@@ -322,12 +323,17 @@ export abstract class RepositoryFolderNode<
 		return RepositoryFolderNode.getId(this.repo.path);
 	}
 
-	getTreeItem(): TreeItem | Promise<TreeItem> {
+	async getTreeItem(): Promise<TreeItem> {
 		this.splatted = false;
+
+		let expand = this.repo.starred;
+		if (!expand) {
+			expand = await Container.git.isActiveRepoPath(this.uri.repoPath);
+		}
 
 		const item = new TreeItem(
 			this.repo.formattedName ?? this.uri.repoPath ?? '',
-			TreeItemCollapsibleState.Expanded,
+			expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
 		);
 		item.contextValue = `${ContextValues.RepositoryFolder}${this.repo.starred ? '+starred' : ''}`;
 		item.tooltip = `${
