@@ -198,6 +198,8 @@ export function notifyOnUnsupportedGitVersion(version: string) {
 async function showWelcomeOrWhatsNew(version: string, previousVersion: string | undefined) {
 	if (previousVersion == null) {
 		Logger.log('GitLens first-time install');
+		if (!Container.config.showWelcomeOrWhatsNew) return;
+
 		await commands.executeCommand(Commands.ShowWelcomePage);
 
 		return;
@@ -206,6 +208,8 @@ async function showWelcomeOrWhatsNew(version: string, previousVersion: string | 
 	if (previousVersion !== version) {
 		Logger.log(`GitLens upgraded from v${previousVersion} to v${version}`);
 	}
+
+	if (!Container.config.showWelcomeOrWhatsNew) return;
 
 	const [major, minor] = version.split('.').map(v => parseInt(v, 10));
 	const [prevMajor, prevMinor] = previousVersion.split('.').map(v => parseInt(v, 10));

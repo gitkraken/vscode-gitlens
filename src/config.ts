@@ -108,6 +108,7 @@ export interface Config {
 	modes: Record<string, ModeConfig>;
 	outputLevel: TraceLevel;
 	remotes: RemotesConfig[] | null;
+	showWelcomeOrWhatsNew: boolean;
 	showWhatsNewAfterUpgrades: boolean;
 	sortBranchesBy: BranchSorting;
 	sortTagsBy: TagSorting;
