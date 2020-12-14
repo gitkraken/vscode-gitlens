@@ -17,7 +17,6 @@ import { SyncedState, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
 import { setKeysForSync } from '../../extension';
 import { Logger } from '../../logger';
-import { Messages } from '../../messages';
 import { Account, GitLogCommit, IssueOrPullRequest, PullRequest, PullRequestState, Repository } from '../models/models';
 import { debug, gate, log, Promises } from '../../system';
 
@@ -120,21 +119,7 @@ export abstract class RemoteProvider {
 		const url = this.url(resource);
 		if (url == null) return;
 
-		try {
-			void (await env.clipboard.writeText(url));
-		} catch (ex) {
-			const msg: string = ex?.toString() ?? '';
-			if (msg.includes("Couldn't find the required `xsel` binary")) {
-				void window.showErrorMessage(
-					'Unable to copy remote url, xsel is not installed. Please install it via your package manager, e.g. `sudo apt install xsel`',
-				);
-
-				return;
-			}
-
-			Logger.error(ex, 'CopyRemoteUrlCommand');
-			void Messages.showGenericErrorMessage('Unable to copy remote url');
-		}
+		void (await env.clipboard.writeText(url));
 	}
 
 	hasApi(): this is RichRemoteProvider {

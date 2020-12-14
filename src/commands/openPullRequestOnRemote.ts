@@ -1,10 +1,8 @@
 'use strict';
-import { env, Uri, window } from 'vscode';
+import { env, Uri } from 'vscode';
 import { Command, command, CommandContext, Commands } from './common';
 import { Container } from '../container';
 import { PullRequestNode } from '../views/nodes';
-import { Logger } from '../logger';
-import { Messages } from '../messages';
 
 export interface OpenPullRequestOnRemoteCommandArgs {
 	clipboard?: boolean;
@@ -46,21 +44,7 @@ export class OpenPullRequestOnRemoteCommand extends Command {
 		}
 
 		if (args.clipboard) {
-			try {
-				void (await env.clipboard.writeText(args.pr.url));
-			} catch (ex) {
-				const msg: string = ex?.toString() ?? '';
-				if (msg.includes("Couldn't find the required `xsel` binary")) {
-					void window.showErrorMessage(
-						'Unable to copy remote url, xsel is not installed. Please install it via your package manager, e.g. `sudo apt install xsel`',
-					);
-
-					return;
-				}
-
-				Logger.error(ex, 'CopyRemotePullRequestCommand');
-				void Messages.showGenericErrorMessage('Unable to copy pull request url');
-			}
+			void (await env.clipboard.writeText(args.pr.url));
 		} else {
 			void env.openExternal(Uri.parse(args.pr.url));
 		}
