@@ -7,6 +7,7 @@ import {
 	Disposable,
 	Event,
 	EventEmitter,
+	MarkdownString,
 	MessageItem,
 	TreeDataProvider,
 	TreeItem,
@@ -115,15 +116,22 @@ export abstract class ViewBase<
 				const item = await getTreeItem.apply(this, [node]);
 
 				const parent = node.getParent();
-				if (parent != null) {
-					item.tooltip = `${
-						item.tooltip ?? item.label
-					}\n\nDBG:\nnode: ${node.toString()}\nparent: ${parent.toString()}\ncontext: ${item.contextValue}`;
-				} else {
-					item.tooltip = `${item.tooltip ?? item.label}\n\nDBG:\nnode: ${node.toString()}\ncontext: ${
-						item.contextValue
-					}`;
+				let tooltip = item.tooltip;
+
+				if (tooltip == null) {
+					item.tooltip = tooltip = new MarkdownString(
+						item.label != null && typeof item.label !== 'string' ? item.label.label : item.label ?? '',
+					);
+				} else if (typeof tooltip === 'string') {
+					item.tooltip = tooltip = new MarkdownString(tooltip);
 				}
+
+				tooltip.appendMarkdown(
+					`\n\n---\n\ncontext: \`${item.contextValue}\`\n\nnode: \`${node.toString()}\`${
+						parent != null ? `\n\nparent: \`${parent.toString()}\`` : ''
+					}`,
+				);
+
 				return item;
 			};
 		}

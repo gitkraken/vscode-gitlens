@@ -173,6 +173,13 @@ export function executeActionCommand<T extends ActionContext>(action: Action<T>,
 	return commands.executeCommand(`${Commands.ActionPrefix}${action}`, { ...args, type: action });
 }
 
+export function getMarkdownActionCommand<T extends ActionContext>(action: Action<T>, args: Omit<T, 'type'>): string {
+	return Command.getMarkdownCommandArgsCore(`${Commands.ActionPrefix}${action}` as Commands, {
+		...args,
+		type: action,
+	});
+}
+
 export function executeCommand<T>(command: Commands, args: T) {
 	return commands.executeCommand(command, args);
 }

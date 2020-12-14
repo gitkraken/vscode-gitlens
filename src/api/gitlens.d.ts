@@ -30,6 +30,7 @@ export type ActionContext = CreatePullRequestActionContext | OpenPullRequestActi
 export type Action<T extends ActionContext> = T['type'];
 
 export interface ActionRunner {
+	readonly name: string;
 	readonly label: string;
 
 	run(context: ActionContext): void | Promise<void>;

@@ -4,6 +4,7 @@ import {
 	Commands,
 	ConnectRemoteProviderCommand,
 	DiffWithCommand,
+	getMarkdownActionCommand,
 	InviteToLiveShareCommand,
 	OpenCommitOnRemoteCommand,
 	OpenFileAtRevisionCommand,
@@ -302,8 +303,10 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		const { pullRequestOrRemote: pr } = this._options;
 		if (pr != null) {
 			if (PullRequest.is(pr)) {
-				commands += `[$(git-pull-request) PR #${pr.id}](${pr.url} "Open Pull Request \\#${pr.id} on ${
-					pr.provider
+				commands += `[$(git-pull-request) PR #${pr.id}](${getMarkdownActionCommand('openPullRequest', {
+					pullRequest: { id: pr.id, provider: pr.provider, repoPath: this._item.repoPath, url: pr.url },
+				})} "Open Pull Request \\#${pr.id}${
+					Container.actionRunners.count('openPullRequest') == 1 ? ` on ${pr.provider}` : ''
 				}\n${GlyphChars.Dash.repeat(2)}\n${pr.title}\n${pr.state}, ${pr.formatDateFromNow()}")${separator}`;
 			} else if (pr instanceof Promises.CancellationError) {
 				commands += `[$(git-pull-request) PR $(sync~spin)](command:${Commands.RefreshHover} "Searching for a Pull Request (if any) that introduced this commit...")${separator}`;
@@ -456,8 +459,10 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		let text;
 		if (PullRequest.is(pr)) {
 			if (this._options.markdown) {
-				text = `[PR #${pr.id}](${pr.url} "Open Pull Request \\#${pr.id} on ${
-					pr.provider
+				text = `[PR #${pr.id}](${getMarkdownActionCommand('openPullRequest', {
+					pullRequest: { id: pr.id, provider: pr.provider, repoPath: this._item.repoPath, url: pr.url },
+				})} "Open Pull Request \\#${pr.id}${
+					Container.actionRunners.count('openPullRequest') == 1 ? ` on ${pr.provider}` : ''
 				}\n${GlyphChars.Dash.repeat(2)}\n${pr.title}\n${pr.state}, ${pr.formatDateFromNow()}")`;
 			} else if (this._options.footnotes != null) {
 				const index = this._options.footnotes.size + 1;

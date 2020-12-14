@@ -1,5 +1,6 @@
 'use strict';
 import { commands, Disposable, QuickPickItem, window } from 'vscode';
+import { Commands } from '../commands/common';
 import { ContextKeys, setContext } from '../constants';
 import { getQuickPickIgnoreFocusOut } from '../quickpicks';
 import { Action, ActionContext, ActionRunner } from './gitlens';
@@ -7,11 +8,17 @@ import { Action, ActionContext, ActionRunner } from './gitlens';
 type Actions = ActionContext['type'];
 const actions: Actions[] = ['createPullRequest', 'openPullRequest'];
 
+export const defaultActionRunnerName = 'Built In';
+
 export class ActionRunnerQuickPickItem implements QuickPickItem {
-	constructor(public readonly runner: ActionRunner) {}
+	constructor(public readonly runner: RegisteredActionRunner) {}
 
 	get label(): string {
 		return this.runner.label;
+	}
+
+	get detail(): string | undefined {
+		return this.runner.name;
 	}
 }
 
@@ -20,6 +27,10 @@ class RegisteredActionRunner implements ActionRunner, Disposable {
 
 	dispose() {
 		this.unregister();
+	}
+
+	get name(): string {
+		return this.runner.name;
 	}
 
 	get label(): string {
@@ -39,7 +50,9 @@ export class ActionRunners implements Disposable {
 
 		for (const action of actions) {
 			subscriptions.push(
-				commands.registerCommand(`gitlens.action.${action}`, (context: ActionContext) => this.run(context)),
+				commands.registerCommand(`${Commands.ActionPrefix}${action}`, (context: ActionContext) =>
+					this.run(context),
+				),
 			);
 		}
 
@@ -57,8 +70,12 @@ export class ActionRunners implements Disposable {
 		this._actionRunners.clear();
 	}
 
+	count(action: Actions): number {
+		return this._actionRunners.get(action)?.length ?? 0;
+	}
+
 	has(action: Actions): boolean {
-		return (this._actionRunners.get(action)?.length ?? 0) > 0;
+		return this.count(action) > 0;
 	}
 
 	register<T extends ActionContext>(action: Action<T>, runner: ActionRunner): Disposable {
@@ -88,6 +105,10 @@ export class ActionRunners implements Disposable {
 		return {
 			dispose: () => registeredRunner.dispose(),
 		};
+	}
+
+	registerDefault<T extends ActionContext>(action: Action<T>, runner: Omit<ActionRunner, 'name'>): Disposable {
+		return this.register(action, { ...runner, name: defaultActionRunnerName });
 	}
 
 	async run<T extends ActionContext>(context: T) {
@@ -120,11 +141,11 @@ export class ActionRunners implements Disposable {
 					switch (context.type) {
 						case 'createPullRequest':
 							title = 'Create Pull Request';
-							placeholder = 'Choose which provider to use to create a pull request';
+							placeholder = 'Choose how to create a pull request';
 							break;
 						case 'openPullRequest':
 							title = 'Open Pull Request';
-							placeholder = 'Choose which provider to use to open the pull request';
+							placeholder = 'Choose how to open the pull request';
 							break;
 					}
 
@@ -150,6 +171,6 @@ export class ActionRunners implements Disposable {
 	}
 
 	private async _updateContextKeys(action: Actions) {
-		await setContext(`${ContextKeys.ActionPrefix}${action}`, this.has(action));
+		await setContext(`${ContextKeys.ActionPrefix}${action}`, this.count(action));
 	}
 }

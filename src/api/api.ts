@@ -2,6 +2,7 @@
 import { Disposable } from 'vscode';
 import { Container } from '../container';
 import { Logger } from '../logger';
+import { defaultActionRunnerName } from './actionRunners';
 import { Action, ActionContext, ActionRunner, GitLensApi } from './gitlens';
 
 const emptyDisposable = Object.freeze({
@@ -12,6 +13,9 @@ const emptyDisposable = Object.freeze({
 export class Api implements GitLensApi {
 	@preview()
 	registerActionRunner<T extends ActionContext>(action: Action<T>, runner: ActionRunner): Disposable {
+		if (runner.name === defaultActionRunnerName) {
+			throw new Error(`Cannot use the reserved name '${defaultActionRunnerName}'`);
+		}
 		return Container.actionRunners.register(action, runner);
 	}
 
