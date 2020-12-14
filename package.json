@@ -1463,16 +1463,16 @@
 					"markdownDescription": "Specifies user-defined remote (code-hosting) services or custom domains for built-in remote services",
 					"scope": "resource"
 				},
-				"gitlens.showWelcomeScreen": {
+				"gitlens.showWelcomeOrWhatsNew": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies to show any splash screens (including the the welcome and What's New screens)",
+					"markdownDescription": "Specifies whether to show the Welcome (Quick Setup) experience on first install, or the What's New notification after upgrading to new feature releases",
 					"scope": "window"
 				},
 				"gitlens.showWhatsNewAfterUpgrades": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to show What's New after upgrading to new feature releases",
+					"markdownDescription": "Specifies whether to show the What's New notification after upgrading to new feature releases",
 					"scope": "window"
 				},
 				"gitlens.sortBranchesBy": {
@@ -2606,7 +2606,7 @@
 			},
 			{
 				"command": "gitlens.showWelcomePage",
-				"title": "Welcome",
+				"title": "Welcome (Quick Setup)",
 				"category": "GitLens"
 			},
 			{
