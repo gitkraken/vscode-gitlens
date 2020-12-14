@@ -1463,10 +1463,10 @@
 					"markdownDescription": "Specifies user-defined remote (code-hosting) services or custom domains for built-in remote services",
 					"scope": "resource"
 				},
-				"gitlens.showWelcomeOrWhatsNew": {
+				"gitlens.showWelcomeOnInstall": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether to show the Welcome (Quick Setup) experience on first install, or the What's New notification after upgrading to new feature releases",
+					"markdownDescription": "Specifies whether to show the Welcome (Quick Setup) experience on first install",
 					"scope": "window"
 				},
 				"gitlens.showWhatsNewAfterUpgrades": {
