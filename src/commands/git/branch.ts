@@ -266,7 +266,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 			if (state.counter < 4 || state.name == null) {
 				const result = yield* inputBranchNameStep(state, context, {
 					placeholder: 'Please provide a name for the new branch',
-					titleContext: ` ${GitReference.toString(state.reference, { capitalize: true, icon: false })}`,
+					titleContext: ` from ${GitReference.toString(state.reference, { capitalize: true, icon: false })}`,
 					value: state.name ?? GitReference.getNameWithoutRemote(state.reference),
 				});
 				if (result === StepResult.Break) continue;

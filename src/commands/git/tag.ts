@@ -235,7 +235,7 @@ export class TagGitCommand extends QuickCommand<State> {
 			if (state.counter < 4 || state.name == null) {
 				const result = yield* inputTagNameStep(state, context, {
 					placeholder: 'Please provide a name for the new tag',
-					titleContext: ` at ${GitReference.toString(state.reference, { icon: false })}`,
+					titleContext: ` at ${GitReference.toString(state.reference, { capitalize: true, icon: false })}`,
 					value: state.name ?? GitReference.getNameWithoutRemote(state.reference),
 				});
 				if (result === StepResult.Break) continue;
@@ -273,7 +273,7 @@ export class TagGitCommand extends QuickCommand<State> {
 	): StepResultGenerator<string> {
 		const step = QuickCommand.createInputStep({
 			title: appendReposToTitle(
-				`${context.title} at ${GitReference.toString(state.reference, { icon: false })}`,
+				`${context.title} at ${GitReference.toString(state.reference, { capitalize: true, icon: false })}`,
 				state,
 				context,
 			),
