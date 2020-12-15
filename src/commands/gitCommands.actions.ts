@@ -52,8 +52,8 @@ export namespace GitActions {
 		});
 	}
 
-	export function fetch(repos?: string | string[] | Repository | Repository[]) {
-		return executeGitCommand({ command: 'fetch', state: { repos: repos } });
+	export function fetch(repos?: string | string[] | Repository | Repository[], ref?: GitBranchReference) {
+		return executeGitCommand({ command: 'fetch', state: { repos: repos, reference: ref } });
 	}
 
 	export function merge(repo?: string | Repository, ref?: GitReference) {

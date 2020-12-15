@@ -324,10 +324,12 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private fetch(node: RemoteNode | RepositoryNode | BranchTrackingStatusNode) {
+	private fetch(node: RemoteNode | RepositoryNode | BranchNode | BranchTrackingStatusNode) {
 		if (node instanceof RepositoryNode) return GitActions.fetch(node.repo);
 		if (node instanceof RemoteNode) return GitActions.Remote.fetch(node.remote.repoPath, node.remote.name);
-		if (node instanceof BranchTrackingStatusNode) return GitActions.fetch(node.repoPath);
+		if (node instanceof BranchNode || node instanceof BranchTrackingStatusNode) {
+			return GitActions.fetch(node.repoPath, node.root ? undefined : node.branch);
+		}
 
 		return Promise.resolve();
 	}
@@ -424,7 +426,7 @@ export class ViewCommands {
 	private pull(node: RepositoryNode | BranchNode | BranchTrackingStatusNode) {
 		if (node instanceof RepositoryNode) return GitActions.pull(node.repo);
 		if (node instanceof BranchNode || node instanceof BranchTrackingStatusNode) {
-			return GitActions.pull(node.repoPath, node.branch);
+			return GitActions.pull(node.repoPath, node.root ? undefined : node.branch);
 		}
 
 		return Promise.resolve();
@@ -434,7 +436,7 @@ export class ViewCommands {
 	private push(node: RepositoryNode | BranchNode | BranchTrackingStatusNode, force?: boolean) {
 		if (node instanceof RepositoryNode) return GitActions.push(node.repo, force);
 		if (node instanceof BranchNode || node instanceof BranchTrackingStatusNode) {
-			return GitActions.push(node.repoPath, undefined, node.branch);
+			return GitActions.push(node.repoPath, undefined, node.root ? undefined : node.branch);
 		}
 
 		return Promise.resolve();

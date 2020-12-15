@@ -50,8 +50,8 @@ export class BranchNode
 		view: BranchesView | CommitsView | RemotesView | RepositoriesView,
 		parent: ViewNode,
 		public readonly branch: GitBranch,
-		// Specifies that the node is shown as a root under the repository node
-		private readonly root: boolean,
+		// Specifies that the node is shown as a root and not nested under the branches node
+		public readonly root: boolean,
 
 		options?: {
 			expanded?: boolean;

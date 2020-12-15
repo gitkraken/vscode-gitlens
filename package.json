@@ -6616,8 +6616,13 @@
 				},
 				{
 					"command": "gitlens.views.pull",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+tracking\\b)/",
-					"group": "inline@9"
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+behind\\b)/",
+					"group": "inline@8"
+				},
+				{
+					"command": "gitlens.views.fetch",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+ahead\\b)(?!.*?\\b\\+behind\\b)/",
+					"group": "inline@8"
 				},
 				{
 					"command": "gitlens.views.undoCommit",

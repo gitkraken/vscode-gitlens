@@ -1,7 +1,7 @@
 'use strict';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import { Repository } from '../../git/git';
+import { GitBranchReference, GitReference, Repository } from '../../git/git';
 import {
 	appendReposToTitle,
 	PartialStepState,
@@ -26,6 +26,7 @@ type Flags = '--all' | '--prune';
 
 interface State {
 	repos: string | string[] | Repository | Repository[];
+	reference?: GitBranchReference;
 	flags: Flags[];
 }
 
@@ -54,6 +55,10 @@ export class FetchGitCommand extends QuickCommand<State> {
 	}
 
 	execute(state: FetchStepState) {
+		if (GitReference.isBranch(state.reference)) {
+			return state.repos[0].fetch({ branch: state.reference });
+		}
+
 		return Container.git.fetchAll(state.repos, {
 			all: state.flags.includes('--all'),
 			prune: state.flags.includes('--prune'),
@@ -136,34 +141,51 @@ export class FetchGitCommand extends QuickCommand<State> {
 			}
 		}
 
-		const reposToFetch =
-			state.repos.length === 1 ? `$(repo) ${state.repos[0].formattedName}` : `${state.repos.length} repositories`;
+		let step: QuickPickStep<FlagsQuickPickItem<Flags>>;
 
-		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = QuickCommand.createConfirmStep(
-			appendReposToTitle(`Confirm ${this.title}`, state, context, lastFetchedOn),
-			[
-				FlagsQuickPickItem.create<Flags>(state.flags, [], {
-					label: this.title,
-					detail: `Will fetch ${reposToFetch}`,
-				}),
-				FlagsQuickPickItem.create<Flags>(state.flags, ['--prune'], {
-					label: `${this.title} & Prune`,
-					description: '--prune',
-					detail: `Will fetch and prune ${reposToFetch}`,
-				}),
-				FlagsQuickPickItem.create<Flags>(state.flags, ['--all'], {
-					label: `${this.title} All`,
-					description: '--all',
-					detail: `Will fetch all remotes of ${reposToFetch}`,
-				}),
-				FlagsQuickPickItem.create<Flags>(state.flags, ['--all', '--prune'], {
-					label: `${this.title} All & Prune`,
-					description: '--all --prune',
-					detail: `Will fetch and prune all remotes of ${reposToFetch}`,
-				}),
-			],
-			context,
-		);
+		if (state.repos.length === 1 && GitReference.isBranch(state.reference)) {
+			step = this.createConfirmStep(
+				appendReposToTitle(`Confirm ${context.title}`, state, context, lastFetchedOn),
+				[
+					FlagsQuickPickItem.create<Flags>(state.flags, [], {
+						label: this.title,
+						detail: `Will fetch ${GitReference.toString(state.reference)}`,
+					}),
+				],
+			);
+		} else {
+			const reposToFetch =
+				state.repos.length === 1
+					? `$(repo) ${state.repos[0].formattedName}`
+					: `${state.repos.length} repositories`;
+
+			step = QuickCommand.createConfirmStep(
+				appendReposToTitle(`Confirm ${this.title}`, state, context, lastFetchedOn),
+				[
+					FlagsQuickPickItem.create<Flags>(state.flags, [], {
+						label: this.title,
+						detail: `Will fetch ${reposToFetch}`,
+					}),
+					FlagsQuickPickItem.create<Flags>(state.flags, ['--prune'], {
+						label: `${this.title} & Prune`,
+						description: '--prune',
+						detail: `Will fetch and prune ${reposToFetch}`,
+					}),
+					FlagsQuickPickItem.create<Flags>(state.flags, ['--all'], {
+						label: `${this.title} All`,
+						description: '--all',
+						detail: `Will fetch all remotes of ${reposToFetch}`,
+					}),
+					FlagsQuickPickItem.create<Flags>(state.flags, ['--all', '--prune'], {
+						label: `${this.title} All & Prune`,
+						description: '--all --prune',
+						detail: `Will fetch and prune all remotes of ${reposToFetch}`,
+					}),
+				],
+				context,
+			);
+		}
+
 		const selection: StepSelection<typeof step> = yield step;
 		return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
 	}
