@@ -2,7 +2,7 @@
 name: Feature request
 about: Suggest an idea for GitLens
 title: ''
-labels: 'type: feature'
+labels: 'feature'
 assignees: ''
 ---
 

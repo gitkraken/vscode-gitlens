@@ -2,7 +2,7 @@
 name: Question
 about: Ask a question about GitLens
 title: ''
-labels: 'type: question'
+labels: 'question'
 assignees: ''
 ---
 

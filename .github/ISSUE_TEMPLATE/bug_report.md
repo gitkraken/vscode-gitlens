@@ -2,7 +2,7 @@
 name: Bug report
 about: Create a report to help GitLens improve
 title: ''
-labels: 'type: potential bug'
+labels: 'potential-bug'
 assignees: ''
 ---
 

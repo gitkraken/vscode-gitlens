@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+    - name: GitLens Discussions
+      url: https://github.com/eamodio/vscode-gitlens/discussions?discussions_q=category%3AQ%26A
+      about: Please ask and answer GitLens questions here
