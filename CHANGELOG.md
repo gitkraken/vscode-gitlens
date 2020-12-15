@@ -46,6 +46,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes an issue where _GitLens: Show Repositories View_ command wouldn't work unless the view was enabled first
 - Fixes an issue where _GitLens: Show Line History View_ command wasn't showing up unless the view was enabled first
 - Fixes an issue where trying to force push the current branch would fail
+- Fixes an issue where _Push to Commit..._ would incorrectly show a repository picker
 
 ## [11.0.6] - 2020-11.28
 

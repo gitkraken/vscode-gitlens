@@ -109,7 +109,10 @@ export class PushGitCommand extends QuickCommand<State> {
 
 					state.repos = [context.repos[0]];
 				} else if (state.reference != null) {
-					const result = yield* pickRepositoryStep(state, context);
+					const result = yield* pickRepositoryStep(
+						{ ...state, repos: undefined, repo: state.reference.repoPath },
+						context,
+					);
 					// Always break on the first step (so we will go back)
 					if (result === StepResult.Break) break;
 
@@ -347,7 +350,9 @@ export class PushGitCommand extends QuickCommand<State> {
 					if (state.reference != null) {
 						pushDetails = `${
 							status?.state.ahead
-								? ` commits up to ${GitReference.toString(state.reference, { label: false })}`
+								? ` commits up to and including ${GitReference.toString(state.reference, {
+										label: false,
+								  })}`
 								: ''
 						}${status?.upstream ? ` to ${GitBranch.getRemote(status.upstream)}` : ''}`;
 					} else {
