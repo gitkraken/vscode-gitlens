@@ -6991,7 +6991,7 @@
 				},
 				{
 					"submenu": "gitlens/commit/file/commit",
-					"when": "!gitlens:readonly && view =~ /^gitlens\\.views\\.(file|line)History/ && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
+					"when": "!gitlens:readonly && view =~ /^gitlens\\.views\\.(fileHistory|lineHistory)/ && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
 					"group": "3_gitlens_explore@0"
 				},
 				{
