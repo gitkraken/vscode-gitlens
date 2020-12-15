@@ -278,8 +278,8 @@ The file history view lists all of the commits that changed the current file on 
 - a toggle to pin (pause) the automatic tracking of the current editor
 - a toggle to switch between file and line history, i.e. show all commits of the current file, or just the selected lines of the current file
 - the ability to change the current base branch (reference) for the file or line history
-- a toggle to follow renames across the current file
-- a toggle to show commits from all branches rather than just from the current base branch (reference)
+- (file history only) a toggle to follow renames across the current file
+- (file history only) a toggle to show commits from all branches rather than just from the current base branch or reference
 
 ---
 
