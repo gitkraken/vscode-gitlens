@@ -230,7 +230,11 @@
 				<!-- prettier-ignore -->
 				<%= require('html-loader!./partials/views.commits.html') %>
 				<!-- prettier-ignore -->
+				<%= require('html-loader!./partials/views.repositories.html') %>
+				<!-- prettier-ignore -->
 				<%= require('html-loader!./partials/views.file-history.html') %>
+				<!-- prettier-ignore -->
+				<%= require('html-loader!./partials/views.line-history.html') %>
 				<!-- prettier-ignore -->
 				<%= require('html-loader!./partials/views.branches.html') %>
 				<!-- prettier-ignore -->
@@ -243,10 +247,6 @@
 				<%= require('html-loader!./partials/views.contributors.html') %>
 				<!-- prettier-ignore -->
 				<%= require('html-loader!./partials/views.searchAndCompare.html') %>
-				<!-- prettier-ignore -->
-				<%= require('html-loader!./partials/views.repositories.html') %>
-				<!-- prettier-ignore -->
-				<!-- <%= require('html-loader!./partials/views.line-history.html') %> -->
 				<!-- prettier-ignore -->
 				<%= require('html-loader!./partials/blame.html') %>
 				<!-- prettier-ignore -->
@@ -336,12 +336,21 @@
 							<a
 								class="sidebar__jump-link"
 								data-action="jump"
+								href="#repositories-view"
+								title="Jump to Repositories view settings"
+								>Repositories view</a
+							>
+						</li>
+						<li>
+							<a
+								class="sidebar__jump-link"
+								data-action="jump"
 								href="#file-history-view"
 								title="Jump to File History view settings"
 								>File History view</a
 							>
 						</li>
-						<!-- <li>
+						<li>
 							<a
 								class="sidebar__jump-link"
 								data-action="jump"
@@ -349,7 +358,7 @@
 								title="Jump to Line History view settings"
 								>Line History view</a
 							>
-						</li> -->
+						</li>
 						<li>
 							<a
 								class="sidebar__jump-link"
@@ -402,15 +411,6 @@
 								href="#search-compare-view"
 								title="Jump to Search &amp; Compare view settings"
 								>Search &amp; Compare view</a
-							>
-						</li>
-						<li>
-							<a
-								class="sidebar__jump-link"
-								data-action="jump"
-								href="#repositories-view"
-								title="Jump to Repositories view settings"
-								>Repositories view</a
 							>
 						</li>
 

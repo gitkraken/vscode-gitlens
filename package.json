@@ -6507,12 +6507,12 @@
 				},
 				{
 					"command": "gitlens.views.setShowRelativeDateMarkersOn",
-					"when": "view =~ /^gitlens\\.views\\.(repositories|commits|fileHistory|branches|remotes|tags)/ && !config.gitlens.views.showRelativeDateMarkers",
+					"when": "view =~ /^gitlens\\.views\\.(branches|commits|fileHistory|lineHistory|remotes|repositories|tags)/ && !config.gitlens.views.showRelativeDateMarkers",
 					"group": "5_gitlens@3"
 				},
 				{
 					"command": "gitlens.views.setShowRelativeDateMarkersOff",
-					"when": "view =~ /^gitlens\\.views\\.(repositories|commits|fileHistory|branches|remotes|tags)/ && config.gitlens.views.showRelativeDateMarkers",
+					"when": "view =~ /^gitlens\\.views\\.(branches|commits|fileHistory|lineHistory|remotes|repositories|tags)/ && config.gitlens.views.showRelativeDateMarkers",
 					"group": "5_gitlens@3"
 				},
 				{

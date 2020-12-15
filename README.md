@@ -48,7 +48,9 @@ Here are just some of the **features** that GitLens provides,
   - [**heatmap**](#gutter-heatmap- 'Jump to Gutter Heatmap') &mdash; shows how recently lines were changed, relative to all the other changes in the file and to now (hot vs. cold)
 - many rich **Side Bar views**
   - a [**_Commits_ view**](#commits-view- 'Jump to the Commits view') to visualize, explore, and manage Git commits
-  - a [**_File History_ view**](#file-history-view- 'Jump to the File History view') to visualize, navigate, and explore the revision history of the current file or just the selected lines of the current file and explore the revision history of the selected lines of current file
+  - a [**_Repositories_ view**](#repositories-view- 'Jump to the Repositories view') to visualize, explore, and manage Git repositories
+  - a [**_File History_ view**](#file-history-view- 'Jump to the File History view') to visualize, navigate, and explore the revision history of the current file or just the selected lines of the current file
+  - a [**_Line History_ view**](#line-history-view- 'Jump to the Line History view') to visualize, navigate, and explore the revision history of the selected lines of the current file
   - a [**_Branches_ view**](#branches-view- 'Jump to the Branches view') to visualize, explore, and manage Git branches
   - a [**_Remotes_ view**](#remotes-view- 'Jump to the Remotes view') to visualize, explore, and manage Git remotes and remote branches
   - a [**_Stashes_ view**](#stashes-view- 'Jump to the Stashes view') to visualize, explore, and manage Git stashes
@@ -265,6 +267,44 @@ The _Commits_ view lists all of the commits on the current branch, and additiona
 
 ---
 
+### Repositories view [#](#repositories-view- 'Repositories view')
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/repositories-view.png" alt="Repositories view" />
+</p>
+
+A hidden by default, [customizable](#repositories-view-settings- 'Jump to the Repositories view settings') view to visualize, explore, and manage Git repositories
+
+The Repositories view lists opened Git repositories, and additionally provides,
+
+- a toggle to automatically refresh the repository on changes
+- a toggle to change the file layout: list, tree, auto
+- an icon indicator to show the current branch's upstream status (if available)
+  - _No dot_ &mdash; unpushlished or up to date with the upstream remote
+  - _Green dot_ &mdash; has changes unpublished (ahead)
+  - _Red dot_ &mdash; has changes un-pulled (behind)
+  - _Yellow dot_ &mdash; both unpublished and un-pulled changes
+- a branch comparison tool (**Compare &lt;current branch&gt; with &lt;branch, tag, or ref&gt;**) &mdash; [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') shows a comparison of the current branch (or working tree) to a user-selected reference
+- the current branch status &mdash; shows the upstream status of the current branch (if not up to date)
+  - **Publish &lt;current branch&gt; to remote** &mdash; shown when the current branch has not been published to a remote
+  - **Changes to push to &lt;remote&gt;** &mdash; lists of all the files changed in the unpublished commits when the current branch has (unpublished) commits that waiting to be pushed to the upstream remote
+  - **Changes to pull from &lt;remote&gt;** &mdash; lists all of the commits waiting to be pulled when the current branch has commits that are waiting to be pulled from the upstream remote
+- any associated pull request &mdash; shows any opened pull request associated with the current branch
+  - **Behind** &mdash; lists the commits that are missing from the current branch (i.e. behind) but exist in the selected reference
+    - **# files changed** &mdash; lists all of the files changed between the compared references
+  - **Ahead** &mdash; lists the commits that the current branch has (i.e. ahead) but are missing in the selected reference
+    - **# files changed** &mdash; lists all of the files changed between the compared references
+- the changed files &mdash; lists all of the files changed by the unpublished (unpushed) commits and [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') any working tree changes
+- the current branch commits &mdash; similar to the [Commits view](#commits-view- 'Commits view')
+- the local branches &mdash; similar to the [Branches view](#branches-view- 'Branches view')
+- the contributors &mdash; similar to the [Contributors view](#contributors-view- 'Contributors view')
+- any incoming activity (experimental) &mdash; lists the command, branch (if available), and date of recent incoming activity (merges and pulls) to your local repository
+- the remotes and remote branches &mdash; similar to the [Remotes view](#remotes-view- 'Remotes view')
+- the stashes &mdash; similar to the [Stashes view](#stashes-view- 'Stashes view')
+- the tags &mdash; similar to the [Tags view](#tags-view- 'Tags view')
+
+---
+
 ### File History view [#](#file-history-view- 'File History view')
 
 <p align="center">
@@ -277,9 +317,24 @@ The file history view lists all of the commits that changed the current file on 
 
 - a toggle to pin (pause) the automatic tracking of the current editor
 - a toggle to switch between file and line history, i.e. show all commits of the current file, or just the selected lines of the current file
-- the ability to change the current base branch (reference) for the file or line history
+- the ability to change the current base branch or reference when computing the file or line history
 - (file history only) a toggle to follow renames across the current file
 - (file history only) a toggle to show commits from all branches rather than just from the current base branch or reference
+
+---
+
+### Line History view [#](#line-history-view- 'Line History view')
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/line-history-view.png" alt="Line History view" />
+</p>
+
+A hidden by default, [customizable](#line-history-view-settings- 'Jump to the Line History view settings') view to visualize, navigate, and explore the revision history of the selected lines of the current file
+
+The line history view lists all of the commits that changed the selected lines of the current file on the current branch, and additionally provides,
+
+- a toggle to pin (pause) the automatic tracking of the current editor
+- the ability to change the current base branch or reference when computing the line history
 
 ---
 
@@ -366,7 +421,7 @@ The _Tags_ view lists all of the tags, and additionally provides,
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/contributors-view.png" alt="Contributors view" />
 </p>
 
-A [customizable](#contributors-view-settings- 'Jump to the Contributors view settings'), but hidden by default, view to visualize, navigate, and explore contributors
+A hidden by default, [customizable](#contributors-view-settings- 'Jump to the Contributors view settings') view to visualize, navigate, and explore contributors
 
 The _Contributors_ view lists all of the contributors, and additionally provides,
 
@@ -380,7 +435,7 @@ The _Contributors_ view lists all of the contributors, and additionally provides
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/search-and-compare-view.png" alt="Search & Compare view" />
 </p>
 
-A [customizable](#search--compare-view-settings- 'Jump to the Search & Compare view settings'), hidden by default, view to search and explore commit histories by message, author, files, id, etc, or visualize comparisons between branches, tags, commits, and more
+A hidden by default, [customizable](#search--compare-view-settings- 'Jump to the Search & Compare view settings') view to search and explore commit histories by message, author, files, id, etc, or visualize comparisons between branches, tags, commits, and more
 
 The _Search & Compare_ view lists pinnable (saved) results for searching commit histories or for comparison operations, and additionally provides,
 
@@ -408,44 +463,6 @@ The _Search & Compare_ view lists pinnable (saved) results for searching commit 
     - _Compare with HEAD_ command (`gitlens.views.compareWithHead`)
     - _Compare with Selected_ command (`gitlens.views.compareWithSelected`)
     - _Compare Ancestry with Working Tree_ command (`gitlens.views.compareAncestryWithWorking`)
-
----
-
-### Repositories view [#](#repositories-view- 'Repositories view')
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/repositories-view.png" alt="Repositories view" />
-</p>
-
-A [customizable](#repositories-view-settings- 'Jump to the Repositories view settings'), hidden by default as it has been superseded by the new views, view to visualize, navigate, and explore Git repositories
-
-The Repositories view lists opened Git repositories, and additionally provides,
-
-- a toggle to automatically refresh the repository on changes
-- a toggle to change the file layout: list, tree, auto
-- an icon indicator to show the current branch's upstream status (if available)
-  - _No dot_ &mdash; unpushlished or up to date with the upstream remote
-  - _Green dot_ &mdash; has changes unpublished (ahead)
-  - _Red dot_ &mdash; has changes un-pulled (behind)
-  - _Yellow dot_ &mdash; both unpublished and un-pulled changes
-- a branch comparison tool (**Compare &lt;current branch&gt; with &lt;branch, tag, or ref&gt;**) &mdash; [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') shows a comparison of the current branch (or working tree) to a user-selected reference
-- the current branch status &mdash; shows the upstream status of the current branch (if not up to date)
-  - **Publish &lt;current branch&gt; to remote** &mdash; shown when the current branch has not been published to a remote
-  - **Changes to push to &lt;remote&gt;** &mdash; lists of all the files changed in the unpublished commits when the current branch has (unpublished) commits that waiting to be pushed to the upstream remote
-  - **Changes to pull from &lt;remote&gt;** &mdash; lists all of the commits waiting to be pulled when the current branch has commits that are waiting to be pulled from the upstream remote
-- any associated pull request &mdash; shows any opened pull request associated with the current branch
-  - **Behind** &mdash; lists the commits that are missing from the current branch (i.e. behind) but exist in the selected reference
-    - **# files changed** &mdash; lists all of the files changed between the compared references
-  - **Ahead** &mdash; lists the commits that the current branch has (i.e. ahead) but are missing in the selected reference
-    - **# files changed** &mdash; lists all of the files changed between the compared references
-- the changed files &mdash; lists all of the files changed by the unpublished (unpushed) commits and [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') any working tree changes
-- the current branch commits &mdash; similar to the [Commits view](#commits-view- 'Commits view')
-- the local branches &mdash; similar to the [Branches view](#branches-view- 'Branches view')
-- the contributors &mdash; similar to the [Contributors view](#contributors-view- 'Contributors view')
-- any incoming activity (experimental) &mdash; lists the command, branch (if available), and date of recent incoming activity (merges and pulls) to your local repository
-- the remotes and remote branches &mdash; similar to the [Remotes view](#remotes-view- 'Remotes view')
-- the stashes &mdash; similar to the [Stashes view](#stashes-view- 'Stashes view')
-- the tags &mdash; similar to the [Tags view](#tags-view- 'Tags view')
 
 ## Git Command Palette [#](#git-command-palette- 'Git Command Palette')
 
@@ -694,6 +711,24 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 | `gitlens.views.commits.pullRequests.showForCommits`  | Specifies whether to show pull requests (if any) associated with the current branch in the _Commits_ view. Requires a connection to a supported remote service (e.g. GitHub)                                                                                                                                                                                   |
 | `gitlens.views.commits.showBranchComparison`         | Specifies whether to show a comparison of the current branch or the working tree with a user-selected reference (branch, tag. etc) in the _Commits_ view<br /><br />`false` - hides the branch comparison<br />`branch` - compares the current branch with a user-selected reference<br />`working` - compares the working tree with a user-selected reference |
 
+## Repositories View Settings [#](#repositories-view-settings- 'Repositories View Settings')
+
+See also [View Settings](#view-settings- 'Jump to the View settings')
+
+| Name                                              | Description                                                                                                                                                                                                                                                                                                                                    |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gitlens.views.repositories.avatars`              | Specifies whether to show avatar images instead of commit (or status) icons in the _Repositories_ view                                                                                                                                                                                                                                         |
+| `gitlens.views.repositories.autoRefresh`          | Specifies whether to automatically refresh the _Repositories_ view when the repository or the file system changes                                                                                                                                                                                                                              |
+| `gitlens.views.repositories.autoReveal`           | Specifies whether to automatically reveal repositories in the _Repositories_ view when opening files                                                                                                                                                                                                                                           |
+| `gitlens.views.repositories.branches.layout`      | Specifies how the _Repositories_ view will display branches<br /><br />`list` - displays branches as a list<br />`tree` - displays branches as a tree when branch names contain slashes `/`                                                                                                                                                    |
+| `gitlens.views.repositories.compact`              | Specifies whether to show the _Repositories_ view in a compact display density                                                                                                                                                                                                                                                                 |
+| `gitlens.views.repositories.enabled`              | Specifies whether to show the _Repositories_ view                                                                                                                                                                                                                                                                                              |
+| `gitlens.views.repositories.files.compact`        | Specifies whether to compact (flatten) unnecessary file nesting in the _Repositories_ view. Only applies when `gitlens.views.repositories.files.layout` is set to `tree` or `auto`                                                                                                                                                             |
+| `gitlens.views.repositories.files.layout`         | Specifies how the _Repositories_ view will display files<br /><br />`auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.views.repositories.files.threshold` value and the number of files at each nesting level<br />`list` - displays files as a list<br />`tree` - displays files as a tree |
+| `gitlens.views.repositories.files.threshold`      | Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Repositories_ view. Only applies when `gitlens.views.repositories.files.layout` is set to `auto`                                                                                                               |
+| `gitlens.views.repositories.includeWorkingTree`   | Specifies whether to include working tree file status for each repository in the _Repositories_ view                                                                                                                                                                                                                                           |
+| `gitlens.views.repositories.showBranchComparison` | Specifies whether to show a comparison of a user-selected reference (branch, tag. etc) to the current branch or the working tree in the _Repositories_ view                                                                                                                                                                                    |
+
 ## File History View Settings [#](#file-history-view-settings- 'File History View Settings')
 
 See also [View Settings](#view-settings- 'Jump to the View settings')
@@ -701,6 +736,15 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 | Name                                | Description                                                                                |
 | ----------------------------------- | ------------------------------------------------------------------------------------------ |
 | `gitlens.views.fileHistory.avatars` | Specifies whether to show avatar images instead of status icons in the _File History_ view |
+
+## Line History View Settings [#](#line-history-view-settings- 'Line History View Settings')
+
+See also [View Settings](#view-settings- 'Jump to the View settings')
+
+| Name                                | Description                                                                                |
+| ----------------------------------- | ------------------------------------------------------------------------------------------ |
+| `gitlens.views.lineHistory.avatars` | Specifies whether to show avatar images instead of status icons in the _Line History_ view |
+| `gitlens.views.lineHistory.enabled` | Specifies whether to show the _Line History_ view                                          |
 
 ## Branches View Settings [#](#branches-view-settings- 'Branches View Settings')
 
@@ -788,24 +832,6 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 | `gitlens.views.compare.files.compact`   | Specifies whether to compact (flatten) unnecessary file nesting in the _Compare_ view. Only applies when `gitlens.views.compare.files.layout` is set to `tree` or `auto`                                                                                                                                                             |
 | `gitlens.views.compare.files.layout`    | Specifies how the _Compare_ view will display files<br /><br />`auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.views.compare.files.threshold` value and the number of files at each nesting level<br />`list` - displays files as a list<br />`tree` - displays files as a tree |
 | `gitlens.views.compare.files.threshold` | Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Compare_ view. Only applies when `gitlens.views.compare.files.layout` is set to `auto`                                                                                                               |
-
-## Repositories View Settings [#](#repositories-view-settings- 'Repositories View Settings')
-
-See also [View Settings](#view-settings- 'Jump to the View settings')
-
-| Name                                              | Description                                                                                                                                                                                                                                                                                                                                    |
-| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `gitlens.views.repositories.avatars`              | Specifies whether to show avatar images instead of commit (or status) icons in the _Repositories_ view                                                                                                                                                                                                                                         |
-| `gitlens.views.repositories.autoRefresh`          | Specifies whether to automatically refresh the _Repositories_ view when the repository or the file system changes                                                                                                                                                                                                                              |
-| `gitlens.views.repositories.autoReveal`           | Specifies whether to automatically reveal repositories in the _Repositories_ view when opening files                                                                                                                                                                                                                                           |
-| `gitlens.views.repositories.branches.layout`      | Specifies how the _Repositories_ view will display branches<br /><br />`list` - displays branches as a list<br />`tree` - displays branches as a tree when branch names contain slashes `/`                                                                                                                                                    |
-| `gitlens.views.repositories.compact`              | Specifies whether to show the _Repositories_ view in a compact display density                                                                                                                                                                                                                                                                 |
-| `gitlens.views.repositories.enabled`              | Specifies whether to show the _Repositories_ view                                                                                                                                                                                                                                                                                              |
-| `gitlens.views.repositories.files.compact`        | Specifies whether to compact (flatten) unnecessary file nesting in the _Repositories_ view. Only applies when `gitlens.views.repositories.files.layout` is set to `tree` or `auto`                                                                                                                                                             |
-| `gitlens.views.repositories.files.layout`         | Specifies how the _Repositories_ view will display files<br /><br />`auto` - automatically switches between displaying files as a `tree` or `list` based on the `gitlens.views.repositories.files.threshold` value and the number of files at each nesting level<br />`list` - displays files as a list<br />`tree` - displays files as a tree |
-| `gitlens.views.repositories.files.threshold`      | Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Repositories_ view. Only applies when `gitlens.views.repositories.files.layout` is set to `auto`                                                                                                               |
-| `gitlens.views.repositories.includeWorkingTree`   | Specifies whether to include working tree file status for each repository in the _Repositories_ view                                                                                                                                                                                                                                           |
-| `gitlens.views.repositories.showBranchComparison` | Specifies whether to show a comparison of a user-selected reference (branch, tag. etc) to the current branch or the working tree in the _Repositories_ view                                                                                                                                                                                    |
 
 ## Gutter Blame Settings [#](#gutter-blame-settings- 'Gutter Blame Settings')
 
