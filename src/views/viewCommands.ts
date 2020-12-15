@@ -378,8 +378,8 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private pushToCommit(node: CommitNode) {
-		if (!(node instanceof CommitNode)) return Promise.resolve();
+	private pushToCommit(node: CommitNode | CommitFileNode) {
+		if (!(node instanceof CommitNode) && !(node instanceof CommitFileNode)) return Promise.resolve();
 
 		return GitActions.push(node.repoPath, false, node.commit);
 	}

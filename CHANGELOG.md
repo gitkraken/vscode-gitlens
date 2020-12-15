@@ -14,7 +14,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds this new option to the _Menus & Toolbars_ section of the GitLens Interactive Settings
 - Adds an _Open File on Remote From..._ command (`gitlens.openFileOnRemoteFrom`) to open a file or revision on a specific branch or tag on the remote provider &mdash; closes [#1071](https://github.com/eamodio/vscode-gitlens/issues/1071)
 - Adds a _Copy Remote File Url From..._ command (`gitlens.copyRemoteFileUrlFrom`) to copy the url of a file or revision on a specific branch or tag the remote provider &mdash; closes [#1071](https://github.com/eamodio/vscode-gitlens/issues/1071)
-- Adds _Commit_ submenu to files in the _File History_ and _Line History_ views &mdash; closes [#1044](https://github.com/eamodio/vscode-gitlens/issues/1044)
+- Adds a _Commit_ submenu to files in the _File History_ and _Line History_ views &mdash; closes [#1044](https://github.com/eamodio/vscode-gitlens/issues/1044)
+- Adds a _Push to Commit..._ command to unpublished commits in the _Commits_, _Branches_, and _Repositories_ views, and to to unpublished files in the _File History_ and _Line History_ views
 - Adds a welcome, i.e. richer empty state, to the _Search & Compare_ view
 - Adds preview extensibility APIs
   - Adds a preview _action runner_ extensibility point to provide a runner (handler) for a new _createPullRequest_ and _openPullRequest_ actions &mdash; see `gitlens.d.ts` for API definitions
