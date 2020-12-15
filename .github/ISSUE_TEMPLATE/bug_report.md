@@ -2,8 +2,9 @@
 name: Bug report
 about: Create a report to help GitLens improve
 title: ''
-labels: 'potential-bug'
+labels: potential-bug, triage
 assignees: ''
+
 ---
 
 <!-- Please search existing issues to avoid creating duplicates. -->
