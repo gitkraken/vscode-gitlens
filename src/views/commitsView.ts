@@ -3,6 +3,7 @@ import {
 	CancellationToken,
 	commands,
 	ConfigurationChangeEvent,
+	Disposable,
 	ProgressLocation,
 	TreeItem,
 	TreeItemCollapsibleState,
@@ -16,6 +17,7 @@ import {
 	GitReference,
 	GitRemote,
 	GitRevisionReference,
+	Repository,
 	RepositoryChange,
 	RepositoryChangeEvent,
 } from '../git/git';
@@ -29,7 +31,7 @@ import {
 	unknownGitUri,
 	ViewNode,
 } from './nodes';
-import { Dates, debug, gate, Strings } from '../system';
+import { Dates, debug, Functions, gate, Strings } from '../system';
 import { ViewBase } from './viewBase';
 
 export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, BranchNode> {
@@ -87,9 +89,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 
 			const status = branch?.getTrackingStatus();
 			item.description = `${status ? `${status} ${GlyphChars.Dot} ` : ''}${branch.name}${
-				lastFetched
-					? ` ${GlyphChars.Dot} Last fetched ${Dates.getFormatter(new Date(lastFetched)).fromNow()}`
-					: ''
+				lastFetched ? ` ${GlyphChars.Dot} Last fetched ${Repository.formatLastFetched(lastFetched)}` : ''
 			}`;
 
 			let providerName;
@@ -132,6 +132,27 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 		}
 
 		await this.ensureSubscription();
+	}
+
+	@debug()
+	protected async subscribe() {
+		const lastFetched = (await this.repo?.getLastFetched()) ?? 0;
+
+		const interval = Repository.getLastFetchedUpdateInterval(lastFetched);
+		if (lastFetched !== 0 && interval > 0) {
+			return Disposable.from(
+				await super.subscribe(),
+				Functions.interval(() => {
+					// Check if the interval should change, and if so, reset it
+					if (interval !== Repository.getLastFetchedUpdateInterval(lastFetched)) {
+						void this.resetSubscription();
+					}
+					void this.view.triggerNodeChange(this);
+				}, interval),
+			);
+		}
+
+		return super.subscribe();
 	}
 
 	protected changed(e: RepositoryChangeEvent) {
@@ -179,9 +200,7 @@ export class CommitsViewNode extends ViewNode<CommitsView> {
 
 				const status = branch.getTrackingStatus();
 				this.view.description = `${status ? `${status} ${GlyphChars.Dot} ` : ''}${branch.name}${
-					lastFetched
-						? ` ${GlyphChars.Dot} Last fetched ${Dates.getFormatter(new Date(lastFetched)).fromNow()}`
-						: ''
+					lastFetched ? ` ${GlyphChars.Dot} Last fetched ${Repository.formatLastFetched(lastFetched)}` : ''
 				}`;
 			} else {
 				this.view.description = undefined;

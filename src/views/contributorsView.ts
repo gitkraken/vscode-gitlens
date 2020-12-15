@@ -19,9 +19,9 @@ export class ContributorsRepositoryNode extends RepositoryFolderNode<Contributor
 	}
 
 	@debug()
-	protected subscribe() {
+	protected async subscribe() {
 		return Disposable.from(
-			super.subscribe(),
+			await super.subscribe(),
 			Avatars.onDidFetch(e => this.child?.updateAvatar(e.email)),
 		);
 	}

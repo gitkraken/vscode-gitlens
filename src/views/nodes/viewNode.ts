@@ -298,6 +298,13 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
 		this.subscription = Promise.resolve(this.subscribe());
 		await this.subscription;
 	}
+
+	@gate()
+	@debug()
+	async resetSubscription() {
+		await this.unsubscribe();
+		await this.ensureSubscription();
+	}
 }
 
 export abstract class RepositoryFolderNode<
@@ -375,7 +382,7 @@ export abstract class RepositoryFolderNode<
 	}
 
 	@debug()
-	protected subscribe() {
+	protected subscribe(): Disposable | Promise<Disposable> {
 		return this.repo.onDidChange(this.onRepositoryChanged, this);
 	}
 

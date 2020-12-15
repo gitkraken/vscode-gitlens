@@ -23,7 +23,7 @@ import { Logger } from '../../logger';
 import { Messages } from '../../messages';
 import { GitBranchReference, GitReference, GitTagReference } from './models';
 import { RemoteProviderFactory, RemoteProviders, RichRemoteProvider } from '../remotes/factory';
-import { Arrays, debug, Functions, gate, Iterables, log, logName } from '../../system';
+import { Arrays, Dates, debug, Functions, gate, Iterables, log, logName } from '../../system';
 import { runGitCommandInTerminal } from '../../terminal';
 
 const ignoreGitRegex = /\.git(?:\/|\\|$)/;
@@ -88,6 +88,21 @@ export interface RepositoryFileSystemChangeEvent {
 
 @logName<Repository>((r, name) => `${name}(${r.id})`)
 export class Repository implements Disposable {
+	static formatLastFetched(lastFetched: number): string {
+		return Date.now() - lastFetched < Dates.MillisecondsPerDay
+			? Dates.getFormatter(new Date(lastFetched)).fromNow()
+			: Dates.getFormatter(new Date(lastFetched)).format(
+					Container.config.defaultDateShortFormat ?? 'MMM D, YYYY',
+			  );
+	}
+
+	static getLastFetchedUpdateInterval(lastFetched: number): number {
+		const timeDiff = Date.now() - lastFetched;
+		return timeDiff < Dates.MillisecondsPerDay
+			? (timeDiff < Dates.MillisecondsPerHour ? Dates.MillisecondsPerMinute : Dates.MillisecondsPerHour) / 2
+			: 0;
+	}
+
 	static sort(repositories: Repository[]) {
 		return repositories.sort((a, b) => (a.starred ? -1 : 1) - (b.starred ? -1 : 1) || a.index - b.index);
 	}
@@ -229,6 +244,8 @@ export class Repository implements Disposable {
 
 	@debug()
 	private onRepositoryChanged(uri: Uri | undefined) {
+		this._lastFetched = undefined;
+
 		if (uri == null) {
 			this.fireChange(RepositoryChange.Unknown);
 
@@ -454,16 +471,25 @@ export class Repository implements Disposable {
 		return Container.git.getContributors(this.path);
 	}
 
+	private _lastFetched: number | undefined;
+	@gate()
 	async getLastFetched(): Promise<number> {
-		const hasRemotes = await this.hasRemotes();
-		if (!hasRemotes || Container.vsls.isMaybeGuest) return 0;
+		if (this._lastFetched == null) {
+			const hasRemotes = await this.hasRemotes();
+			if (!hasRemotes || Container.vsls.isMaybeGuest) return 0;
+		}
 
 		try {
 			const stat = await workspace.fs.stat(Uri.file(paths.join(this.path, '.git/FETCH_HEAD')));
-			return stat.mtime;
+			// If the file is empty, assume the fetch failed, and don't update the timestamp
+			if (stat.size > 0) {
+				this._lastFetched = stat.mtime;
+			}
 		} catch {
-			return 0;
+			this._lastFetched = undefined;
 		}
+
+		return this._lastFetched ?? 0;
 	}
 
 	getRemotes(_options: { sort?: boolean } = {}): Promise<GitRemote[]> {
