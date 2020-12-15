@@ -441,8 +441,13 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private rebase(node: BranchNode | CommitNode | TagNode) {
-		if (!(node instanceof BranchNode) && !(node instanceof CommitNode) && !(node instanceof TagNode)) {
+	private rebase(node: BranchNode | CommitNode | CommitFileNode | TagNode) {
+		if (
+			!(node instanceof BranchNode) &&
+			!(node instanceof CommitNode) &&
+			!(node instanceof CommitFileNode) &&
+			!(node instanceof TagNode)
+		) {
 			return Promise.resolve();
 		}
 
@@ -474,8 +479,8 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private resetCommit(node: CommitNode) {
-		if (!(node instanceof CommitNode)) return Promise.resolve();
+	private resetCommit(node: CommitNode | CommitFileNode) {
+		if (!(node instanceof CommitNode) && !(node instanceof CommitFileNode)) return Promise.resolve();
 
 		return GitActions.reset(
 			node.repoPath,
@@ -488,8 +493,8 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private resetToCommit(node: CommitNode) {
-		if (!(node instanceof CommitNode)) return Promise.resolve();
+	private resetToCommit(node: CommitNode | CommitFileNode) {
+		if (!(node instanceof CommitNode) && !(node instanceof CommitFileNode)) return Promise.resolve();
 
 		return GitActions.reset(node.repoPath, node.ref);
 	}
@@ -502,8 +507,8 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private revert(node: CommitNode) {
-		if (!(node instanceof CommitNode)) return Promise.resolve();
+	private revert(node: CommitNode | CommitFileNode) {
+		if (!(node instanceof CommitNode) && !(node instanceof CommitFileNode)) return Promise.resolve();
 
 		return GitActions.revert(node.repoPath, node.ref);
 	}

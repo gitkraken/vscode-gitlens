@@ -6979,20 +6979,9 @@
 					"group": "2_gitlens_quickopen@6"
 				},
 				{
-					"command": "gitlens.openCommitOnRemote",
-					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && gitlens:hasRemotes",
-					"group": "3_gitlens_explore@0",
-					"alt": "gitlens.copyRemoteCommitUrl"
-				},
-				{
-					"command": "gitlens.showCommitInView",
-					"when": "viewItem =~ /gitlens:file\\b(?!.*?\\b(\\+stashed|:status)\\b)/",
-					"group": "3_gitlens_explore@3"
-				},
-				{
-					"command": "gitlens.revealCommitInView",
-					"when": "viewItem =~ /gitlens:file\\b(?!.*?\\b(\\+stashed|:status)\\b)/",
-					"group": "3_gitlens_explore@4"
+					"submenu": "gitlens/commit/file/commit",
+					"when": "!gitlens:readonly && view =~ /^gitlens\\.views\\.(file|line)History/ && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
+					"group": "3_gitlens_explore@0"
 				},
 				{
 					"command": "gitlens.views.applyChanges",
@@ -7111,7 +7100,7 @@
 				},
 				{
 					"submenu": "gitlens/commit/browse",
-					"when": "viewItem =~ /gitlens:(branch|commit|file\\b((?=.*?\\b\\+committed\\b)|:results)|stash|tag)\\b/",
+					"when": "viewItem =~ /gitlens:(branch|commit|stash|tag)\\b/",
 					"group": "3_gitlens_explore@1"
 				},
 				{
@@ -7585,6 +7574,64 @@
 					"group": "2_gitlens_quickopen_1@2"
 				}
 			],
+			"gitlens/commit/file/commit": [
+				{
+					"command": "gitlens.views.revert",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)/",
+					"group": "1_gitlens_actions@3"
+				},
+				{
+					"command": "gitlens.views.resetToCommit",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)/",
+					"group": "1_gitlens_actions@4"
+				},
+				{
+					"command": "gitlens.views.resetCommit",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)/",
+					"group": "1_gitlens_actions@5"
+				},
+				{
+					"command": "gitlens.views.rebaseOntoCommit",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)/",
+					"group": "1_gitlens_actions@6"
+				},
+				{
+					"command": "gitlens.views.switchToCommit",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
+					"group": "1_gitlens_actions@7"
+				},
+				{
+					"command": "gitlens.views.createBranch",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
+					"group": "1_gitlens_actions_1@1"
+				},
+				{
+					"command": "gitlens.views.createTag",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
+					"group": "1_gitlens_actions_1@2"
+				},
+				{
+					"command": "gitlens.openCommitOnRemote",
+					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/ && gitlens:hasRemotes",
+					"group": "3_gitlens_explore@0",
+					"alt": "gitlens.copyRemoteCommitUrl"
+				},
+				{
+					"submenu": "gitlens/commit/browse",
+					"when": "viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
+					"group": "3_gitlens_explore@1"
+				},
+				{
+					"command": "gitlens.showCommitInView",
+					"when": "view =~ /gitlens\\.views\\.(fileHistory|lineHistory\\b)/ && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
+					"group": "3_gitlens_explore@3"
+				},
+				{
+					"command": "gitlens.revealCommitInView",
+					"when": "view =~ /gitlens\\.views\\.(fileHistory|lineHistory\\b)/ && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)/",
+					"group": "3_gitlens_explore@4"
+				}
+			],
 			"gitlens/commit/file/openChanges": [
 				{
 					"command": "gitlens.externalDiff",
@@ -7818,6 +7865,10 @@
 			{
 				"id": "gitlens/commit/file/copy",
 				"label": "Copy as"
+			},
+			{
+				"id": "gitlens/commit/file/commit",
+				"label": "Commit"
 			},
 			{
 				"id": "gitlens/commit/file/openChanges",

@@ -111,7 +111,7 @@ export class CommitFileNode extends ViewRefFileNode {
 
 	protected get contextValue(): string {
 		if (!this.commit.isUncommitted) {
-			return `${ContextValues.File}+committed${
+			return `${ContextValues.File}+committed${this._options.branch?.current ? '+current' : ''}${
 				this._options.branch?.current && this._options.branch.sha === this.commit.ref ? '+HEAD' : ''
 			}${this._options.unpublished ? '+unpublished' : ''}`;
 		}
