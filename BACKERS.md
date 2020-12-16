@@ -12,6 +12,10 @@
 </p>
 
 <p align="center" style="margin: 1em 10%">
+  <a title="Visit Localize" href="https://localizejs.com"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/localize_dark.png" alt="Localize Logo"/></a>
+</p>
+
+<p align="center" style="margin: 1em 10%">
   <a title="Visit Crésus" href="https://cresus.ch"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/cresus.png" alt="Crésus Logo"/></a>
 </p>
 
