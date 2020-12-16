@@ -544,6 +544,20 @@ The _Search & Compare_ view lists pinnable (saved) results for searching commit 
 - Adds a user-friendly interactive rebase editor to more easily configure an interactive rebase session
   - Quickly re-order, edit, squash, and drop commits
   - Includes drag & drop support!
+- To use this feature:
+  - set VS Code as your default git editor
+    - `git config --global core.editor "code --wait"`
+  - open your global git config
+    - `git config --global -e`
+  - set VS Code as your `difftool`
+    - add or replace these entries:
+      ~~~
+      [diff]
+        tool = vscode
+      [difftool "vscode"]
+        cmd = code --wait --diff $LOCAL $REMOTE
+      ~~~
+    - to use VS Code Insider's, replace `code` & `vscode` in the above with `code-insiders`
 
 ## Terminal Links [#](#terminal-links- 'Terminal Links')
 
