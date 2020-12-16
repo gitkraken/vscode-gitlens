@@ -1,5 +1,4 @@
 'use strict';
-import { QuickPickItem } from 'vscode';
 import { Container } from '../../container';
 import { GitBranch, GitLog, GitReference, GitRevisionReference, Repository } from '../../git/git';
 import {
@@ -15,6 +14,7 @@ import {
 	StepSelection,
 	StepState,
 } from '../quickCommand';
+import { FlagsQuickPickItem } from '../../quickpicks';
 
 interface Context {
 	repos: Repository[];
@@ -23,9 +23,12 @@ interface Context {
 	title: string;
 }
 
+type Flags = '--edit' | '--no-edit';
+
 interface State<Refs = GitRevisionReference | GitRevisionReference[]> {
 	repo: string | Repository;
 	references: Refs;
+	flags: Flags[];
 }
 
 export interface RevertGitCommandArgs {
@@ -65,7 +68,7 @@ export class RevertGitCommand extends QuickCommand<State> {
 	}
 
 	execute(state: RevertStepState<State<GitRevisionReference[]>>) {
-		return state.repo.revert(...state.references.map(c => c.ref).reverse());
+		return state.repo.revert(...state.flags, ...state.references.map(c => c.ref).reverse());
 	}
 
 	protected async *steps(state: PartialStepState<State>): StepGenerator {
@@ -75,6 +78,10 @@ export class RevertGitCommand extends QuickCommand<State> {
 			destination: undefined!,
 			title: this.title,
 		};
+
+		if (state.flags == null) {
+			state.flags = [];
+		}
 
 		if (state.references != null && !Array.isArray(state.references)) {
 			state.references = [state.references];
@@ -142,8 +149,10 @@ export class RevertGitCommand extends QuickCommand<State> {
 				state.references = result;
 			}
 
-			const result = yield* this.confirmStep(state as RevertStepState<State<GitRevisionReference[]>>, context);
+			const result = yield* this.confirmStep(state as RevertStepState, context);
 			if (result === StepResult.Break) continue;
+
+			state.flags = result;
 
 			QuickCommand.endSteps(state);
 			this.execute(state as RevertStepState<State<GitRevisionReference[]>>);
@@ -152,20 +161,23 @@ export class RevertGitCommand extends QuickCommand<State> {
 		return state.counter < 0 ? StepResult.Break : undefined;
 	}
 
-	private *confirmStep(
-		state: RevertStepState<State<GitRevisionReference[]>>,
-		context: Context,
-	): StepResultGenerator<void> {
-		const step: QuickPickStep<QuickPickItem> = this.createConfirmStep(
+	private *confirmStep(state: RevertStepState, context: Context): StepResultGenerator<Flags[]> {
+		const step: QuickPickStep<FlagsQuickPickItem<Flags>> = this.createConfirmStep(
 			appendReposToTitle(`Confirm ${context.title}`, state, context),
 			[
-				{
+				FlagsQuickPickItem.create<Flags>(state.flags, ['--no-edit'], {
 					label: this.title,
+					description: '--no-edit',
 					detail: `Will revert ${GitReference.toString(state.references)}`,
-				},
+				}),
+				FlagsQuickPickItem.create<Flags>(state.flags, ['--edit'], {
+					label: `${this.title} & Edit`,
+					description: '--edit',
+					detail: `Will revert and edit ${GitReference.toString(state.references)}`,
+				}),
 			],
 		);
 		const selection: StepSelection<typeof step> = yield step;
-		return QuickCommand.canPickStepContinue(step, state, selection) ? undefined : StepResult.Break;
+		return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
 	}
 }

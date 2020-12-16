@@ -24,7 +24,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
-- Increases the thickness (boldness) of a handful of icons to better match VS Code codicons
+- Changes the options on the _Git Command Palette_'s _revert_ command to now be _Revert_ (`--no-edit`) and _Revert & Edit_ (`--edit`) &mdash; closes [#1269](https://github.com/eamodio/vscode-gitlens/issues/1269)
+- Changes the thickness (boldness) of a handful of icons to better match VS Code codicons
 
 ### Fixed
 
