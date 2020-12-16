@@ -210,35 +210,41 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 		const contents = document.getText();
 		const entries = this.parseEntries(contents);
-		const [, , , onto] = rebaseRegex.exec(contents) ?? ['', '', ''];
+		let [, , , onto] = rebaseRegex.exec(contents) ?? ['', '', ''];
 
 		const authors = new Map<string, Author>();
 		const commits: Commit[] = [];
 
-		let commit = await Container.git.getCommit(repoPath!, onto);
-		if (commit != null) {
-			if (!authors.has(commit.author)) {
-				authors.set(commit.author, {
-					author: commit.author,
+		const ontoCommit = await Container.git.getCommit(repoPath!, onto);
+		if (ontoCommit != null) {
+			if (!authors.has(ontoCommit.author)) {
+				authors.set(ontoCommit.author, {
+					author: ontoCommit.author,
 					avatarUrl: (
-						await commit.getAvatarUri({ defaultStyle: Container.config.defaultGravatarsStyle })
+						await ontoCommit.getAvatarUri({ defaultStyle: Container.config.defaultGravatarsStyle })
 					).toString(true),
-					email: commit.email,
+					email: ontoCommit.email,
 				});
 			}
 
 			commits.push({
-				ref: commit.ref,
-				author: commit.author,
-				date: commit.formatDate(Container.config.defaultDateFormat),
-				dateFromNow: commit.formatDateFromNow(),
-				message: commit.message || 'root',
+				ref: ontoCommit.ref,
+				author: ontoCommit.author,
+				date: ontoCommit.formatDate(Container.config.defaultDateFormat),
+				dateFromNow: ontoCommit.formatDateFromNow(),
+				message: ontoCommit.message || 'root',
 			});
 		}
 
 		for (const entry of entries) {
-			commit = await Container.git.getCommit(repoPath!, entry.ref);
+			const commit = await Container.git.getCommit(repoPath!, entry.ref);
 			if (commit == null) continue;
+
+			// If the onto commit is contained in the list of commits, remove it and clear the 'onto' value — See #1201
+			if (commit.ref === ontoCommit?.ref) {
+				commits.splice(0, 1);
+				onto = '';
+			}
 
 			if (!authors.has(commit.author)) {
 				authors.set(commit.author, {
@@ -261,7 +267,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 		return {
 			branch: branch?.name ?? '',
-			onto: onto ?? '',
+			onto: onto,
 			entries: entries,
 			authors: [...authors.values()],
 			commits: commits,

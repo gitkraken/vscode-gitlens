@@ -265,7 +265,9 @@ class RebaseEditor extends App<RebaseState> {
 		const $subhead = document.getElementById('subhead')! as HTMLHeadingElement;
 		$subhead.innerHTML = `<span class="branch ml-1 mr-1">${state.branch}</span><span>Rebasing ${
 			state.entries.length
-		} commit${state.entries.length !== 1 ? 's' : ''} onto <span class="commit">${state.onto}</span>`;
+		} commit${state.entries.length !== 1 ? 's' : ''}${
+			state.onto ? ` onto <span class="commit">${state.onto}</span>` : ''
+		}</span>`;
 
 		const $container = document.getElementById('entries')!;
 
@@ -320,20 +322,22 @@ class RebaseEditor extends App<RebaseState> {
 			$container.appendChild($el);
 		}
 
-		const commit = state.commits.find(c => c.ref.startsWith(state.onto));
-		if (commit != null) {
-			const [$el] = this.createEntry(
-				{
-					action: undefined!,
-					index: 0,
-					message: commit.message.split('\n')[0],
-					ref: state.onto,
-				},
-				state,
-				++tabIndex,
-			);
-			$container.appendChild($el);
-			$container.classList.add('entries--base');
+		if (state.onto) {
+			const commit = state.commits.find(c => c.ref.startsWith(state.onto));
+			if (commit != null) {
+				const [$el] = this.createEntry(
+					{
+						action: undefined!,
+						index: 0,
+						message: commit.message.split('\n')[0],
+						ref: state.onto,
+					},
+					state,
+					++tabIndex,
+				);
+				$container.appendChild($el);
+				$container.classList.add('entries--base');
+			}
 		}
 
 		document
