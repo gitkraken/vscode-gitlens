@@ -38,8 +38,6 @@ class Snowflake {
 }
 
 export class Snow {
-	snowing = false;
-
 	private readonly _canvas: any;
 	private readonly _ctx: any;
 	private _height: number = 0;
@@ -49,7 +47,7 @@ export class Snow {
 	private readonly _clearBound: any;
 	private readonly _updateBound: any;
 
-	constructor() {
+	constructor(public snowing: boolean = true) {
 		this._clearBound = this.clear.bind(this);
 		this._updateBound = this.update.bind(this);
 
@@ -58,17 +56,19 @@ export class Snow {
 
 		const trigger = document.querySelector('.snow__trigger');
 		if (trigger != null) {
-			trigger.addEventListener('click', () => this.onToggle());
+			trigger.addEventListener('click', () => this.onToggle(!this.snowing));
 		}
 
 		window.addEventListener('resize', () => this.onResize());
 		this.onResize();
 
-		this.onToggle();
+		this.onToggle(snowing);
 	}
 
-	onToggle() {
-		this.snowing = !this.snowing;
+	onToggle(snowing: boolean) {
+		this.snowing = snowing;
+		document.body.classList.toggle('snowing', this.snowing);
+
 		if (this.snowing) {
 			this.createSnowflakes();
 			requestAnimationFrame(this._updateBound);

@@ -16,6 +16,7 @@ import {
 } from '../../protocol';
 import { App } from '../shared/appBase';
 import { DOM } from '../shared/dom';
+import { Snow } from '../shared/snow';
 
 const rebaseActions = ['pick', 'reword', 'edit', 'squash', 'fixup', 'drop'];
 const rebaseActionsMap = new Map<string, RebaseEntryAction>([
@@ -432,3 +433,4 @@ class RebaseEditor extends App<RebaseState> {
 }
 
 new RebaseEditor();
+requestAnimationFrame(() => new Snow(false));

@@ -1,0 +1,43 @@
+canvas.snow {
+	max-width: calc(100% - 20px);
+	pointer-events: none;
+	position: fixed;
+	z-index: 2147483646;
+}
+
+.snow__trigger {
+	cursor: pointer;
+	position: fixed;
+	left: 7px;
+	top: 7px;
+	transform: rotate(-7deg);
+	width: 36px;
+	z-index: 2147483647;
+	opacity: 0.6;
+	transition: filter 250ms, opacity 250ms, transform 250ms;
+
+	body:not(.snowing) & {
+		filter: grayscale(100%);
+		opacity: 0.5;
+	}
+
+	&:hover {
+		filter: unset !important;
+		opacity: 0.9 !important;
+		transform: rotate(-4deg) scale(1.1);
+	}
+}
+
+.snow__trigger--right {
+	right: 15px;
+	left: unset;
+	top: 3px;
+
+	transform: rotate(4deg) scaleX(-1);
+
+	&:hover {
+		filter: unset !important;
+		opacity: 0.9 !important;
+		transform: rotate(1deg) scaleX(-1) scale(1.1);
+	}
+}
