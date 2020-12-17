@@ -7,13 +7,9 @@ canvas.snow {
 
 .snow__trigger {
 	cursor: pointer;
-	position: fixed;
-	left: 7px;
-	top: 7px;
-	transform: rotate(-7deg);
-	width: 36px;
-	z-index: 2147483647;
+	width: 28px; //36px;
 	opacity: 0.6;
+	transform: rotate(-7deg);
 	transition: filter 250ms, opacity 250ms, transform 250ms;
 
 	body:not(.snowing) & {
@@ -28,16 +24,46 @@ canvas.snow {
 	}
 }
 
-.snow__trigger--right {
-	right: 15px;
-	left: unset;
-	top: 3px;
-
+.snow__trigger--flipped {
 	transform: rotate(4deg) scaleX(-1);
 
 	&:hover {
-		filter: unset !important;
-		opacity: 0.9 !important;
 		transform: rotate(1deg) scaleX(-1) scale(1.1);
 	}
+}
+
+.snow__trigger--centered {
+	position: relative;
+	top: 50%;
+	transform: translateY(-50%) rotate(-7deg);
+
+	&:hover {
+		transform: translateY(-50%) rotate(-4deg) scale(1.1);
+	}
+
+	&.snow__trigger--flipped {
+		transform: translateY(-50%) rotate(4deg) scaleX(-1);
+
+		&:hover {
+			transform: translateY(-50%) rotate(1deg) scaleX(-1) scale(1.1);
+		}
+	}
+}
+
+.snow__trigger--fixed-left {
+	position: fixed;
+	left: 3px;
+	top: 3px;
+	z-index: 2147483647;
+}
+
+.snow__trigger--fixed-right {
+	position: fixed;
+	right: 3px;
+	top: 3px;
+	z-index: 2147483647;
+}
+
+.snow__trigger-container {
+	margin: 0 0.5em;
 }

@@ -516,11 +516,23 @@ section {
 .sponsor__image {
 	opacity: 0.8;
 	transition: opacity 250ms;
-	width: 118px;
+	height: 32px;
 	margin: 0;
 
 	&:hover {
 		opacity: 1;
+	}
+}
+
+.sponsor__image-link {
+	margin: 5px;
+
+	&:first-of-type {
+		margin-top: 10px;
+	}
+
+	&:last-of-type {
+		margin-bottom: -5px;
 	}
 }
 
@@ -552,3 +564,7 @@ section {
 
 @import 'utils';
 @import 'snow';
+
+.sidebar {
+	margin-right: 14px;
+}
