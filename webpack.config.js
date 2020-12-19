@@ -349,7 +349,6 @@ function getWebviewsConfig(mode, _env) {
 		new ImageMinimizerPlugin({
 			test: /\.(png)$/i,
 			filename: '[path][name].webp',
-			cache: true,
 			loader: false,
 			deleteOriginalAssets: true,
 			minimizerOptions: {
