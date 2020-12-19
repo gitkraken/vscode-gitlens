@@ -532,6 +532,8 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 	private async ensureSession(createIfNeeded: boolean): Promise<AuthenticationSession | undefined> {
 		if (this._session != null) return this._session;
 
+		if (!Container.config.integrations.enabled) return undefined;
+
 		if (createIfNeeded) {
 			await Promise.all([
 				Container.context.workspaceState.update(this.connectedKey, undefined),

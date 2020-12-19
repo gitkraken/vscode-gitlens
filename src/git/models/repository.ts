@@ -507,6 +507,10 @@ export class Repository implements Disposable {
 		return this._remotes;
 	}
 
+	async getRichRemote(connectedOnly: boolean = false): Promise<GitRemote<RichRemoteProvider> | undefined> {
+		return Container.git.getRichRemoteProvider(await this.getRemotes(), { includeDisconnected: !connectedOnly });
+	}
+
 	private resetRemotesCache() {
 		this._remotes = undefined;
 		this._remotesDisposable?.dispose();
@@ -541,20 +545,13 @@ export class Repository implements Disposable {
 		return Container.git.getTags(this.path, options);
 	}
 
-	async hasConnectedRemote(): Promise<boolean> {
-		const remote = await Container.git.getRichRemoteProvider(await this.getRemotes());
-		return remote?.provider != null;
-	}
-
 	async hasRemotes(): Promise<boolean> {
 		const remotes = await this.getRemotes();
 		return remotes?.length > 0;
 	}
 
-	async hasRichRemote(): Promise<boolean> {
-		const remote = await Container.git.getRichRemoteProvider(await this.getRemotes(), {
-			includeDisconnected: true,
-		});
+	async hasRichRemote(connectedOnly: boolean = false): Promise<boolean> {
+		const remote = await this.getRichRemote(connectedOnly);
 		return remote?.provider != null;
 	}
 

@@ -92,7 +92,9 @@ export interface Config {
 			enabled: boolean;
 		};
 	};
-	insiders: boolean;
+	integrations: {
+		enabled: boolean;
+	};
 	keymap: KeyMap;
 	liveshare: {
 		allowGuestAccess: boolean;

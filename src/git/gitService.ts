@@ -146,6 +146,7 @@ export class GitService implements Disposable {
 					resetAvatarCache('failed');
 				}
 				this._remotesWithApiProviderCache.clear();
+				void this.updateContext(this._repositoryTree);
 			}),
 		);
 		this.onConfigurationChanged(configuration.initializingChangeEvent);
@@ -450,7 +451,7 @@ export class GitService implements Disposable {
 		if (hasRepository) {
 			for (const repo of repositoryTree.values()) {
 				if (!hasConnectedRemotes) {
-					hasConnectedRemotes = await repo.hasConnectedRemote();
+					hasConnectedRemotes = await repo.hasRichRemote(true);
 
 					if (hasConnectedRemotes) {
 						hasRichRemotes = true;

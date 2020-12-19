@@ -102,7 +102,10 @@ export function getAvatarUri(
 		query = getAvatarUriFromRemoteProvider(avatar, key, email, repoPathOrCommit, { size: size }).then(
 			uri => uri ?? avatar.uri ?? avatar.fallback!,
 		);
-		avatarQueue.set(key, query);
+		avatarQueue.set(
+			key,
+			query.finally(() => avatarQueue.delete(key)),
+		);
 	}
 
 	if (query != null) return query;
@@ -179,13 +182,15 @@ async function getAvatarUriFromRemoteProvider(
 
 	try {
 		let account;
-		// if (typeof repoPathOrCommit === 'string') {
-		// 	const remote = await Container.git.getRichRemoteProvider(repoPathOrCommit);
-		// 	account = await remote?.provider.getAccountForEmail(email, { avatarSize: size });
-		// } else {
-		if (typeof repoPathOrCommit !== 'string') {
-			const remote = await Container.git.getRichRemoteProvider(repoPathOrCommit.repoPath);
-			account = await remote?.provider.getAccountForCommit(repoPathOrCommit.ref, { avatarSize: size });
+		if (Container.config.integrations.enabled) {
+			// if (typeof repoPathOrCommit === 'string') {
+			// 	const remote = await Container.git.getRichRemoteProvider(repoPathOrCommit);
+			// 	account = await remote?.provider.getAccountForEmail(email, { avatarSize: size });
+			// } else {
+			if (typeof repoPathOrCommit !== 'string') {
+				const remote = await Container.git.getRichRemoteProvider(repoPathOrCommit.repoPath);
+				account = await remote?.provider.getAccountForCommit(repoPathOrCommit.ref, { avatarSize: size });
+			}
 		}
 		if (account == null) {
 			// If we have no account assume that won't change (without a reset), so set the timestamp to "never expire"
@@ -213,8 +218,6 @@ async function getAvatarUriFromRemoteProvider(
 		avatar.retries++;
 
 		return undefined;
-	} finally {
-		avatarQueue.delete(key);
 	}
 }
 

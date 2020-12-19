@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds preview extensibility APIs
   - Adds a preview _action runner_ extensibility point to provide a runner (handler) for a new _createPullRequest_ and _openPullRequest_ actions &mdash; see `gitlens.d.ts` for API definitions
   - Preview APIs are only available in the Insiders edition
+- Adds a `gitlens.integrations.enabled` setting to specify whether to enable rich integrations with any supported remote services &mdash; see [#1208](https://github.com/eamodio/vscode-gitlens/issues/1208)
 - Adds a `gitlens.showWelcomeOnInstall` setting to specify whether to show the Welcome (Quick Setup) experience on first install &mdash; closes [#1049](https://github.com/eamodio/vscode-gitlens/issues/1049) thanks to [PR #1258](https://github.com/eamodio/vscode-gitlens/pull/1258) by Rickard ([@rickardp](https://github.com/rickardp))
 
 ### Changed

@@ -909,9 +909,13 @@
 					"scope": "window"
 				},
 				"gitlens.insiders": {
+					"deprecationMessage": "Deprecated. Use the Insiders edition of GitLens instead",
+					"markdownDeprecationMessage": "Deprecated. Use the [Insiders edition](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens-insiders) of GitLens instead"
+				},
+				"gitlens.integrations.enabled": {
 					"type": "boolean",
-					"default": false,
-					"markdownDescription": "Specifies whether to enable experimental features",
+					"default": true,
+					"markdownDescription": "Specifies whether to enable rich integrations with any supported remote services",
 					"scope": "window"
 				},
 				"gitlens.keymap": {
@@ -3060,6 +3064,11 @@
 				}
 			},
 			{
+				"command": "gitlens.resetRemoteConnectionAuthorization",
+				"title": "Reset Remote Connection Authorization",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.copyMessageToClipboard",
 				"title": "Copy Message",
 				"category": "GitLens",
@@ -4446,11 +4455,6 @@
 				"command": "gitlens.views.tags.setShowAvatarsOff",
 				"title": "Hide Avatars",
 				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.resetRemoteConnectionAuthorization",
-				"title": "Reset Remote Connection Authorization",
-				"category": "GitLens"
 			}
 		],
 		"menus": {
@@ -4765,11 +4769,15 @@
 				},
 				{
 					"command": "gitlens.connectRemoteProvider",
-					"when": "false"
+					"when": "config.gitlens.integrations.enabled && gitlens:hasRichRemotes && !gitlens:hasConnectedRemotes"
 				},
 				{
 					"command": "gitlens.disconnectRemoteProvider",
-					"when": "false"
+					"when": "config.gitlens.integrations.enabled && gitlens:hasRichRemotes && gitlens:hasConnectedRemotes"
+				},
+				{
+					"command": "gitlens.resetRemoteConnectionAuthorization",
+					"when": "config.gitlens.integrations.enabled && gitlens:hasRichRemotes"
 				},
 				{
 					"command": "gitlens.copyMessageToClipboard",
@@ -5654,10 +5662,6 @@
 				{
 					"command": "gitlens.views.tags.setShowAvatarsOff",
 					"when": "false"
-				},
-				{
-					"command": "gitlens.resetRemoteConnectionAuthorization",
-					"when": "gitlens:hasRichRemotes"
 				}
 			],
 			"editor/context": [
@@ -7054,12 +7058,12 @@
 				},
 				{
 					"command": "gitlens.connectRemoteProvider",
-					"when": "viewItem =~ /gitlens:remote\\b(?=.*?\\b\\+disconnected\\b)/",
+					"when": "config.gitlens.integrations.enabled && viewItem =~ /gitlens:remote\\b(?=.*?\\b\\+disconnected\\b)/",
 					"group": "inline@98"
 				},
 				{
 					"command": "gitlens.disconnectRemoteProvider",
-					"when": "viewItem =~ /gitlens:remote\\b(?=.*?\\b\\+connected\\b)/",
+					"when": "config.gitlens.integrations.enabled && viewItem =~ /gitlens:remote\\b(?=.*?\\b\\+connected\\b)/",
 					"group": "inline@98"
 				},
 				{
@@ -7107,12 +7111,12 @@
 				},
 				{
 					"command": "gitlens.connectRemoteProvider",
-					"when": "viewItem =~ /gitlens:remote\\b(?=.*?\\b\\+disconnected\\b)/",
+					"when": "config.gitlens.integrations.enabled && viewItem =~ /gitlens:remote\\b(?=.*?\\b\\+disconnected\\b)/",
 					"group": "8_gitlens_actions@2"
 				},
 				{
 					"command": "gitlens.disconnectRemoteProvider",
-					"when": "viewItem =~ /gitlens:remote\\b(?=.*?\\b\\+connected\\b)/",
+					"when": "config.gitlens.integrations.enabled && viewItem =~ /gitlens:remote\\b(?=.*?\\b\\+connected\\b)/",
 					"group": "8_gitlens_actions@2"
 				},
 				{

@@ -1,7 +1,9 @@
 'use strict';
-import { GitCommit, GitRemote } from '../git/git';
+import { GitCommit, GitRemote, Repository, RichRemoteProvider } from '../git/git';
 import { command, Command, CommandContext, Commands, isCommandContextViewNodeHasRemote } from './common';
 import { Container } from '../container';
+import { RepositoryPicker } from '../quickpicks/repositoryPicker';
+import { Iterables } from '../system';
 
 export interface ConnectRemoteProviderCommandArgs {
 	remote: string;
@@ -39,14 +41,46 @@ export class ConnectRemoteProviderCommand extends Command {
 	}
 
 	async execute(args?: ConnectRemoteProviderCommandArgs): Promise<any> {
-		if (args?.repoPath == null || args?.remote == null) return false;
+		let remote: GitRemote<RichRemoteProvider> | undefined;
+		let remotes: GitRemote[] | undefined;
+		let repoPath;
+		if (args?.repoPath == null) {
+			const repos = new Map<Repository, GitRemote<RichRemoteProvider>>();
 
-		const remotes = await Container.git.getRemotes(args.repoPath);
-		const remote = remotes.find(r => r.id === args.remote);
-		if (!remote?.provider.hasApi()) return false;
+			for (const repo of await Container.git.getOrderedRepositories()) {
+				const remote = await repo.getRichRemote();
+				if (remote?.provider != null && !(await remote.provider.isConnected())) {
+					repos.set(repo, remote);
+				}
+			}
+
+			if (repos.size === 0) return false;
+			if (repos.size === 1) {
+				let repo;
+				[repo, remote] = Iterables.first(repos);
+				repoPath = repo.path;
+			} else {
+				const pick = await RepositoryPicker.show('', '', [...repos.keys()]);
+				if (pick?.item == null) return undefined;
+
+				repoPath = pick.repoPath;
+				remote = repos.get(pick.item)!;
+			}
+		} else if (args?.remote == null) {
+			repoPath = args.repoPath;
+
+			remote = await Container.git.getRichRemoteProvider(repoPath, { includeDisconnected: true });
+			if (remote == null) return false;
+		} else {
+			repoPath = args.repoPath;
+
+			remotes = await Container.git.getRemotes(repoPath);
+			remote = remotes.find(r => r.id === args.remote) as GitRemote<RichRemoteProvider> | undefined;
+			if (!remote?.provider.hasApi()) return false;
+		}
 
 		const connected = await remote.provider.connect();
-		if (connected && !remotes.some(r => r.default)) {
+		if (connected && !(remotes ?? (await Container.git.getRemotes(repoPath))).some(r => r.default)) {
 			await remote.setAsDefault(true);
 		}
 		return connected;
@@ -92,10 +126,47 @@ export class DisconnectRemoteProviderCommand extends Command {
 	}
 
 	async execute(args?: DisconnectRemoteProviderCommandArgs): Promise<any> {
-		if (args?.repoPath == null || args?.remote == null) return undefined;
+		let remote: GitRemote<RichRemoteProvider> | undefined;
+		let repoPath;
+		if (args?.repoPath == null) {
+			const repos = new Map<Repository, GitRemote<RichRemoteProvider>>();
 
-		const remote = (await Container.git.getRemotes(args.repoPath)).find(r => r.id === args.remote);
-		if (!remote?.provider.hasApi()) return undefined;
+			for (const repo of await Container.git.getOrderedRepositories()) {
+				const remote = await repo.getRichRemote(true);
+				if (remote != null) {
+					repos.set(repo, remote);
+				}
+			}
+
+			if (repos.size === 0) return undefined;
+			if (repos.size === 1) {
+				let repo;
+				[repo, remote] = Iterables.first(repos);
+				repoPath = repo.path;
+			} else {
+				const pick = await RepositoryPicker.show(
+					'Choose which repository to disconnect the remote on',
+					undefined,
+					[...repos.keys()],
+				);
+				if (pick?.item == null) return undefined;
+
+				repoPath = pick.repoPath;
+				remote = repos.get(pick.item)!;
+			}
+		} else if (args?.remote == null) {
+			repoPath = args.repoPath;
+
+			remote = await Container.git.getRichRemoteProvider(repoPath, { includeDisconnected: false });
+			if (remote == null) return undefined;
+		} else {
+			repoPath = args.repoPath;
+
+			remote = (await Container.git.getRemotes(repoPath)).find(r => r.id === args.remote) as
+				| GitRemote<RichRemoteProvider>
+				| undefined;
+			if (!remote?.provider.hasApi()) return undefined;
+		}
 
 		return remote.provider.disconnect();
 	}
