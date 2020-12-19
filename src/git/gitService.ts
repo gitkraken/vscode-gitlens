@@ -380,6 +380,7 @@ export class GitService implements Disposable {
 			if (Strings.normalizePath(p) === rootPath) continue;
 
 			Logger.log(cc, `searching in '${p}'...`);
+			Logger.debug(cc, `normalizedRepoPath=${Strings.normalizePath(p)}, rootPath=${rootPath}`);
 
 			const rp = await this.getRepoPathCore(p, true);
 			if (rp == null) continue;
@@ -3190,6 +3191,11 @@ export class GitService implements Disposable {
 		return repo;
 	}
 
+	@debug({
+		args: {
+			0: (repositoryTree: TernarySearchTree<string, Repository>) => `count=${repositoryTree.count()}`,
+		},
+	})
 	private findRepositoryForPath(
 		repositoryTree: TernarySearchTree<string, Repository>,
 		path: string,
