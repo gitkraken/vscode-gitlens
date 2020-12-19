@@ -147,7 +147,12 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 					if (interval !== Repository.getLastFetchedUpdateInterval(lastFetched)) {
 						void this.resetSubscription();
 					}
-					void this.view.triggerNodeChange(this);
+
+					if (this.splatted) {
+						void this.view.triggerNodeChange(this.parent ?? this);
+					} else {
+						void this.view.triggerNodeChange(this);
+					}
 				}, interval),
 			);
 		}
