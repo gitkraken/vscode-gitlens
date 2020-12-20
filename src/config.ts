@@ -58,6 +58,7 @@ export interface Config {
 			showResultsInSideBar: boolean | null;
 		};
 		skipConfirmations: string[];
+		sortBy: GitCommandSorting;
 	};
 	heatmap: {
 		ageThreshold: number;
@@ -208,6 +209,11 @@ export enum FileAnnotationType {
 	Blame = 'blame',
 	Changes = 'changes',
 	Heatmap = 'heatmap',
+}
+
+export enum GitCommandSorting {
+	Name = 'name',
+	Usage = 'usage',
 }
 
 export enum GravatarDefaultStyle {

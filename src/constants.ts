@@ -206,11 +206,16 @@ export interface Starred {
 	[id: string]: boolean;
 }
 
+export interface Usage {
+	[id: string]: number;
+}
+
 export enum WorkspaceState {
 	BranchComparisons = 'gitlens:branch:comparisons',
 	ConnectedPrefix = 'gitlens:connected:',
 	DefaultRemote = 'gitlens:remote:default',
 	DisallowConnectionPrefix = 'gitlens:disallow:connection:',
+	GitCommandPaletteUsage = 'gitlens:gitComandPalette:usage',
 	StarredBranches = 'gitlens:starred:branches',
 	StarredRepositories = 'gitlens:starred:repositories',
 	ViewsRepositoriesAutoRefresh = 'gitlens:views:repositories:autoRefresh',

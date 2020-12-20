@@ -733,6 +733,20 @@
 					"markdownDescription": "Specifies which (and when) Git commands will skip the confirmation step, using the format: `git-command-name:(menu|command)`",
 					"scope": "window"
 				},
+				"gitlens.gitCommands.sortBy": {
+					"type": "string",
+					"default": "usage",
+					"enum": [
+						"name",
+						"usage"
+					],
+					"enumDescriptions": [
+						"Sorts commands by name",
+						"Sorts commands by last used date"
+					],
+					"markdownDescription": "Specifies how Git commands are sorted in the _Git Command Palette_",
+					"scope": "window"
+				},
 				"gitlens.heatmap.ageThreshold": {
 					"type": "number",
 					"default": 90,

@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds usage-based sorting (on by default) to the _Git Command Palette_
+  - Adds a `gitlens.gitCommands.sortBy` setting to specify how Git commands are sorted in the _Git Command Palette_
 - Adds ability to show gutter heatmap in the gutter and/or on the scroll bar &mdash; closes [#297](https://github.com/eamodio/vscode-gitlens/issues/297)
   - Adds a `gitlens.heatmap.locations` setting to specify where the indicators of the gutter heatmap annotations will be shown
 - Adds a `gitlens.fileAnnotations.command` setting to specify whether the file annotations button in the editor title shows a menu or immediately toggles the specified file annotations &mdash; closes [#1165](https://github.com/eamodio/vscode-gitlens/issues/1165) thanks to [PR #1171](https://github.com/eamodio/vscode-gitlens/pull/1171) by Raaj Patil ([@arrpee](https://github.com/arrpee))

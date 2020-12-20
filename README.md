@@ -875,14 +875,15 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 
 ## Git Command Palette Settings [#](#git-command-palette-settings- 'Git Command Palette Settings')
 
-| Name                                              | Description                                                                                                                           |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `gitlens.gitCommands.closeOnFocusOut`             | Specifies whether to dismiss the _Git Commands Palette_ when focus is lost (if not, press `ESC` to dismiss)                           |
-| `gitlens.gitCommands.search.matchAll`             | Specifies whether to match all or any commit message search patterns                                                                  |
-| `gitlens.gitCommands.search.matchCase`            | Specifies whether to match commit search patterns with or without regard to casing                                                    |
-| `gitlens.gitCommands.search.matchRegex`           | Specifies whether to match commit search patterns using regular expressions                                                           |
-| `gitlens.gitCommands.search.showResultsInSideBar` | Specifies whether to show the commit search results directly in the quick pick menu, in the Side Bar, or will be based on the context |
-| `gitlens.gitCommands.skipConfirmations`           | Specifies which (and when) Git commands will skip the confirmation step, using the format: `git-command-name:(menu/command)`          |
+| Name                                              | Description                                                                                                                                                   |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gitlens.gitCommands.closeOnFocusOut`             | Specifies whether to dismiss the _Git Commands Palette_ when focus is lost (if not, press `ESC` to dismiss)                                                   |
+| `gitlens.gitCommands.search.matchAll`             | Specifies whether to match all or any commit message search patterns                                                                                          |
+| `gitlens.gitCommands.search.matchCase`            | Specifies whether to match commit search patterns with or without regard to casing                                                                            |
+| `gitlens.gitCommands.search.matchRegex`           | Specifies whether to match commit search patterns using regular expressions                                                                                   |
+| `gitlens.gitCommands.search.showResultsInSideBar` | Specifies whether to show the commit search results directly in the quick pick menu, in the Side Bar, or will be based on the context                         |
+| `gitlens.gitCommands.skipConfirmations`           | Specifies which (and when) Git commands will skip the confirmation step, using the format: `git-command-name:(menu/command)`                                  |
+| `gitlens.gitCommands.sortBy`                      | Specifies how Git commands are sorted in the _Git Command Palette_<br /><br />`name` - sorts commands by name<br />`usage` - sorts commands by last used date |
 
 ## Remote Provider Integration Settings [#](#remote-provider-integration-settings- 'Remote Provider Integration Settings')
 
