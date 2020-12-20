@@ -32,6 +32,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#1218](https://github.com/eamodio/vscode-gitlens/issues/1218) - Opening Ahead/Behind files isn't showing the desire diff (e.g. diff with the merge base)
 - Fixes [#1255](https://github.com/eamodio/vscode-gitlens/issues/1255) - Repository folders are missing repository actions (e.g. favorites, close repo, etc)
 - Fixes [#1246](https://github.com/eamodio/vscode-gitlens/issues/1246) - Gutter Blame avatar does not use Gravatar fallback style
 - Fixes [#1208](https://github.com/eamodio/vscode-gitlens/issues/1208) - Connect to Github notification is noisy
