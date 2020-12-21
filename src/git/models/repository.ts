@@ -88,12 +88,23 @@ export interface RepositoryFileSystemChangeEvent {
 
 @logName<Repository>((r, name) => `${name}(${r.id})`)
 export class Repository implements Disposable {
-	static formatLastFetched(lastFetched: number): string {
-		return Date.now() - lastFetched < Dates.MillisecondsPerDay
-			? Dates.getFormatter(new Date(lastFetched)).fromNow()
-			: Dates.getFormatter(new Date(lastFetched)).format(
-					Container.config.defaultDateShortFormat ?? 'MMM D, YYYY',
-			  );
+	static formatLastFetched(lastFetched: number, short: boolean = true): string {
+		const formatter = Dates.getFormatter(new Date(lastFetched));
+		if (Date.now() - lastFetched < Dates.MillisecondsPerDay) {
+			return formatter.fromNow();
+		}
+
+		if (short) {
+			return formatter.format(Container.config.defaultDateShortFormat ?? 'MMM D, YYYY');
+		}
+
+		let format =
+			Container.config.defaultDateFormat ??
+			`dddd, MMMM Do, YYYY [at] ${Container.config.defaultTimeFormat ?? 'h:mma'}`;
+		if (!/[hHm]/.test(format)) {
+			format += ` [at] ${Container.config.defaultTimeFormat ?? 'h:mma'}`;
+		}
+		return formatter.format(format);
 	}
 
 	static getLastFetchedUpdateInterval(lastFetched: number): number {

@@ -31,7 +31,7 @@ import {
 	unknownGitUri,
 	ViewNode,
 } from './nodes';
-import { Dates, debug, Functions, gate, Strings } from '../system';
+import { debug, Functions, gate, Strings } from '../system';
 import { ViewBase } from './viewBase';
 
 export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, BranchNode> {
@@ -89,7 +89,9 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 
 			const status = branch?.getTrackingStatus();
 			item.description = `${status ? `${status} ${GlyphChars.Dot} ` : ''}${branch.name}${
-				lastFetched ? ` ${GlyphChars.Dot} Last fetched ${Repository.formatLastFetched(lastFetched)}` : ''
+				lastFetched
+					? `${Strings.pad(GlyphChars.Dot, 2, 2)}Last fetched ${Repository.formatLastFetched(lastFetched)}`
+					: ''
 			}`;
 
 			let providerName;
@@ -101,13 +103,14 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 				providerName = remote?.provider?.name;
 			}
 
-			item.tooltip = `${this.repo.formattedName ?? this.uri.repoPath ?? ''}${Strings.pad(
-				GlyphChars.Dash,
-				2,
-				2,
-			)}Last fetched on ${Dates.getFormatter(new Date(lastFetched)).format(
-				Container.config.defaultDateFormat ?? 'h:mma, dddd MMMM Do, YYYY',
-			)}${this.repo.formattedName ? `\n${this.uri.repoPath}` : ''}\n\nBranch ${branch.name}${
+			item.tooltip = `${this.repo.formattedName ?? this.uri.repoPath ?? ''}${
+				lastFetched
+					? `${Strings.pad(GlyphChars.Dash, 2, 2)}Last fetched ${Repository.formatLastFetched(
+							lastFetched,
+							false,
+					  )}`
+					: ''
+			}${this.repo.formattedName ? `\n${this.uri.repoPath}` : ''}\n\nBranch ${branch.name}${
 				branch.tracking
 					? ` is ${branch.getTrackingStatus({
 							empty: `up to date with ${branch.tracking}${providerName ? ` on ${providerName}` : ''}`,

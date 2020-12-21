@@ -12,7 +12,7 @@ import {
 	RepositoryFileSystemChangeEvent,
 } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { Arrays, Dates, debug, gate, log, Strings } from '../../system';
+import { Arrays, debug, Functions, gate, log, Strings } from '../../system';
 import { RepositoriesView } from '../repositoriesView';
 import { CompareBranchNode } from './compareBranchNode';
 import { BranchesNode } from './branchesNode';
@@ -27,8 +27,6 @@ import { StatusFilesNode } from './statusFilesNode';
 import { TagsNode } from './tagsNode';
 import { ContextValues, SubscribeableViewNode, ViewNode } from './viewNode';
 
-const hasTimeRegex = /[hHm]/;
-
 export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 	static key = ':repository';
 	static getId(repoPath: string): string {
@@ -36,7 +34,6 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 	}
 
 	private _children: ViewNode[] | undefined;
-	private _lastFetched: number = 0;
 	private _status: Promise<GitStatus | undefined>;
 
 	constructor(uri: GitUri, view: RepositoriesView, parent: ViewNode, public readonly repo: Repository) {
@@ -58,7 +55,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 			const children = [];
 
 			const status = await this._status;
-			if (status !== undefined) {
+			if (status != null) {
 				const branch = new GitBranch(
 					status.repoPath,
 					status.branch,
@@ -120,18 +117,17 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 	async getTreeItem(): Promise<TreeItem> {
 		const label = this.repo.formattedName ?? this.uri.repoPath ?? '';
 
-		this._lastFetched = await this.repo.getLastFetched();
-
-		const lastFetchedTooltip = this.formatLastFetched({
-			prefix: `${Strings.pad(GlyphChars.Dash, 2, 2)}Last fetched on `,
-			format: Container.config.defaultDateFormat ?? 'dddd MMMM Do, YYYY',
-			includeTime: true,
-		});
+		const lastFetched = (await this.repo?.getLastFetched()) ?? 0;
 
 		let description;
-		let tooltip = this.repo.formattedName
-			? `${this.repo.formattedName}${lastFetchedTooltip}\n${this.uri.repoPath}`
-			: `${this.uri.repoPath}${lastFetchedTooltip}`;
+		let tooltip = `${this.repo.formattedName ?? this.uri.repoPath ?? ''}${
+			lastFetched
+				? `${Strings.pad(GlyphChars.Dash, 2, 2)}Last fetched ${Repository.formatLastFetched(
+						lastFetched,
+						false,
+				  )}`
+				: ''
+		}${this.repo.formattedName ? `\n${this.uri.repoPath}` : ''}`;
 		let iconSuffix = '';
 		let workingStatus = '';
 
@@ -163,7 +159,6 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 					empty: 'No commits ahead or behind',
 					expand: true,
 					separator: '\n',
-					suffix: '\n',
 				})}`;
 
 				if (status.state.behind) {
@@ -192,9 +187,11 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 
 		const item = new TreeItem(label, TreeItemCollapsibleState.Expanded);
 		item.contextValue = contextValue;
-		item.description = `${description ?? ''}${this.formatLastFetched({
-			prefix: `${Strings.pad(GlyphChars.Dot, 2, 2)}Last fetched `,
-		})}`;
+		item.description = `${description ?? ''}${
+			lastFetched
+				? `${Strings.pad(GlyphChars.Dot, 2, 2)}Last fetched ${Repository.formatLastFetched(lastFetched)}`
+				: ''
+		}`;
 		item.iconPath = {
 			dark: Container.context.asAbsolutePath(`images/dark/icon-repo${iconSuffix}.svg`),
 			light: Container.context.asAbsolutePath(`images/light/icon-repo${iconSuffix}.svg`),
@@ -245,12 +242,28 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 	}
 
 	@debug()
-	protected subscribe() {
+	protected async subscribe() {
+		const lastFetched = (await this.repo?.getLastFetched()) ?? 0;
+
 		const disposables = [this.repo.onDidChange(this.onRepositoryChanged, this)];
 
-		// if (Container.config.defaultDateStyle === DateStyle.Relative) {
-		//     disposables.push(Functions.interval(() => void this.updateLastFetched(), 60000));
-		// }
+		const interval = Repository.getLastFetchedUpdateInterval(lastFetched);
+		if (lastFetched !== 0 && interval > 0) {
+			disposables.push(
+				Functions.interval(() => {
+					// Check if the interval should change, and if so, reset it
+					if (interval !== Repository.getLastFetchedUpdateInterval(lastFetched)) {
+						void this.resetSubscription();
+					}
+
+					if (this.splatted) {
+						void this.view.triggerNodeChange(this.parent ?? this);
+					} else {
+						void this.view.triggerNodeChange(this);
+					}
+				}, interval),
+			);
+		}
 
 		if (this.includeWorkingTree) {
 			disposables.push(
@@ -359,39 +372,4 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 			}
 		}
 	}
-
-	private formatLastFetched(options: { prefix?: string; format?: string; includeTime?: boolean } = {}) {
-		if (this._lastFetched === 0) return '';
-
-		// if (options.format === undefined && Container.config.defaultDateStyle === DateStyle.Relative) {
-		//     // If less than a day has passed show a relative date
-		//     if (Date.now() - this._lastFetched < Dates.MillisecondsPerDay) {
-		//         return `${options.prefix || ''}${Dates.toFormatter(new Date(this._lastFetched)).fromNow()}`;
-		//     }
-		// }
-
-		let format = options.format ?? Container.config.defaultDateShortFormat ?? 'MMM D, YYYY';
-		if (
-			(options.includeTime ||
-				// If less than a day has passed show the time too
-				(options.includeTime === undefined && Date.now() - this._lastFetched < Dates.MillisecondsPerDay)) &&
-			// If the time is already included don't do anything
-			!hasTimeRegex.test(format)
-		) {
-			format = `h:mma, ${format}`;
-		}
-
-		return `${options.prefix ?? ''}${Dates.getFormatter(new Date(this._lastFetched)).format(format)}`;
-	}
-
-	// @debug()
-	// private async updateLastFetched() {
-	//     const prevLastFetched = this._lastFetched;
-	//     this._lastFetched = await this.repo.getLastFetched();
-
-	//     // If the fetched date hasn't changed and it was over a day ago, kick out
-	//     if (this._lastFetched === prevLastFetched && Date.now() - this._lastFetched >= Dates.MillisecondsPerDay) return;
-
-	//     this.view.triggerNodeChange(this);
-	// }
 }
