@@ -116,7 +116,7 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 							empty: `up to date with ${branch.tracking}${providerName ? ` on ${providerName}` : ''}`,
 							expand: true,
 							separator: ', ',
-							suffix: ` ${branch.tracking}${providerName ? ` on ${providerName}` : ''}\n`,
+							suffix: ` ${branch.tracking}${providerName ? ` on ${providerName}` : ''}`,
 					  })}`
 					: `hasn't been published to ${providerName ?? 'a remote'}`
 			}`;
