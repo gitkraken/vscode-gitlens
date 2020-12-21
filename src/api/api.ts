@@ -11,7 +11,6 @@ const emptyDisposable = Object.freeze({
 });
 
 export class Api implements GitLensApi {
-	@preview()
 	registerActionRunner<T extends ActionContext>(action: Action<T>, runner: ActionRunner): Disposable {
 		if (runner.name === defaultActionRunnerName) {
 			throw new Error(`Cannot use the reserved name '${defaultActionRunnerName}'`);
