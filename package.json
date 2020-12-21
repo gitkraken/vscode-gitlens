@@ -7216,22 +7216,17 @@
 				{
 					"command": "gitlens.views.push",
 					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:repository\\b/",
-					"group": "inline@95",
+					"group": "inline@96",
 					"alt": "gitlens.views.pushWithForce"
 				},
 				{
 					"command": "gitlens.views.pull",
 					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:repository\\b/",
-					"group": "inline@96"
+					"group": "inline@97"
 				},
 				{
 					"command": "gitlens.views.fetch",
 					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:repository\\b/",
-					"group": "inline@97"
-				},
-				{
-					"command": "gitlens.showCommitSearch",
-					"when": "viewItem =~ /gitlens:repository\\b/",
 					"group": "inline@98"
 				},
 				{
