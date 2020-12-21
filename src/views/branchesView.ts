@@ -192,9 +192,11 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 		if (
 			!changed &&
 			!configuration.changed(e, 'defaultDateFormat') &&
+			!configuration.changed(e, 'defaultDateShortFormat') &&
 			!configuration.changed(e, 'defaultDateSource') &&
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
+			!configuration.changed(e, 'defaultTimeFormat') &&
 			!configuration.changed(e, 'sortBranchesBy')
 		) {
 			return false;

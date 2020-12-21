@@ -151,9 +151,11 @@ export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
 		if (
 			!changed &&
 			!configuration.changed(e, 'defaultDateFormat') &&
+			!configuration.changed(e, 'defaultDateShortFormat') &&
 			!configuration.changed(e, 'defaultDateSource') &&
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
+			!configuration.changed(e, 'defaultTimeFormat') &&
 			!configuration.changed(e, 'sortTagsBy')
 		) {
 			return false;

@@ -46,6 +46,7 @@ export interface Config {
 	defaultDateSource: DateSource;
 	defaultDateStyle: DateStyle;
 	defaultGravatarsStyle: GravatarDefaultStyle;
+	defaultTimeFormat: string | null;
 	fileAnnotations: {
 		command: string | null;
 	};

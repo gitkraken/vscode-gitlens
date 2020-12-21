@@ -615,6 +615,15 @@
 					"markdownDescription": "Specifies the style of the gravatar default (fallback) images",
 					"scope": "window"
 				},
+				"gitlens.defaultTimeFormat": {
+					"type": [
+						"string",
+						"null"
+					],
+					"default": null,
+					"markdownDescription": "Specifies how times will be formatted by default. See the [Moment.js docs](https://momentjs.com/docs/#/displaying/format/) for valid formats",
+					"scope": "window"
+				},
 				"gitlens.fileAnnotations.command": {
 					"type": [
 						"string",

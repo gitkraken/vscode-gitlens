@@ -178,9 +178,11 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 		if (
 			!changed &&
 			!configuration.changed(e, 'defaultDateFormat') &&
+			!configuration.changed(e, 'defaultDateShortFormat') &&
 			!configuration.changed(e, 'defaultDateSource') &&
 			!configuration.changed(e, 'defaultDateStyle') &&
 			!configuration.changed(e, 'defaultGravatarsStyle') &&
+			!configuration.changed(e, 'defaultTimeFormat') &&
 			!configuration.changed(e, 'integrations', 'enabled') &&
 			!configuration.changed(e, 'sortBranchesBy')
 		) {
