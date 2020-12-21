@@ -4305,6 +4305,16 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.views.repositories.setShowBranchComparisonOn",
+				"title": "Show Branch Comparison",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.views.repositories.setShowBranchComparisonOff",
+				"title": "Hide Branch Comparison",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.views.searchAndCompare.clear",
 				"title": "Clear Results",
 				"category": "GitLens",
@@ -5585,6 +5595,14 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.repositories.setShowBranchComparisonOn",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.repositories.setShowBranchComparisonOff",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.searchAndCompare.clear",
 					"when": "false"
 				},
@@ -6444,6 +6462,16 @@
 					"command": "gitlens.views.repositories.setShowAvatarsOff",
 					"when": "view =~ /^gitlens\\.views\\.repositories/ && config.gitlens.views.repositories.avatars",
 					"group": "5_gitlens@0"
+				},
+				{
+					"command": "gitlens.views.repositories.setShowBranchComparisonOn",
+					"when": "view =~ /^gitlens\\.views\\.repositories/ && !config.gitlens.views.repositories.showBranchComparison",
+					"group": "5_gitlens@1"
+				},
+				{
+					"command": "gitlens.views.repositories.setShowBranchComparisonOff",
+					"when": "view =~ /^gitlens\\.views\\.repositories/ && config.gitlens.views.repositories.showBranchComparison",
+					"group": "5_gitlens@1"
 				},
 				{
 					"submenu": "gitlens/view/searchAndCompare/new",

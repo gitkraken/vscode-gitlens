@@ -8,7 +8,13 @@ import {
 	ProgressLocation,
 	window,
 } from 'vscode';
-import { configuration, RepositoriesViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../configuration';
+import {
+	configuration,
+	RepositoriesViewConfig,
+	ViewBranchesLayout,
+	ViewFilesLayout,
+	ViewShowBranchComparison,
+} from '../configuration';
 import { ContextKeys, setContext, WorkspaceState } from '../constants';
 import { Container } from '../container';
 import {
@@ -97,6 +103,16 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		);
 		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOn'), () => this.setShowAvatars(true), this);
 		commands.registerCommand(this.getQualifiedCommand('setShowAvatarsOff'), () => this.setShowAvatars(false), this);
+		commands.registerCommand(
+			this.getQualifiedCommand('setShowBranchComparisonOn'),
+			() => this.setShowBranchComparison(true),
+			this,
+		);
+		commands.registerCommand(
+			this.getQualifiedCommand('setShowBranchComparisonOff'),
+			() => this.setShowBranchComparison(false),
+			this,
+		);
 	}
 
 	protected filterConfigurationChanged(e: ConfigurationChangeEvent) {
@@ -547,5 +563,14 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 
 	private setShowAvatars(enabled: boolean) {
 		return configuration.updateEffective('views', this.configKey, 'avatars', enabled);
+	}
+
+	private setShowBranchComparison(enabled: boolean) {
+		return configuration.updateEffective(
+			'views',
+			this.configKey,
+			'showBranchComparison',
+			enabled ? ViewShowBranchComparison.Working : false,
+		);
 	}
 }
