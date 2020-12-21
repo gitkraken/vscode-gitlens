@@ -2654,6 +2654,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.hideLineHistoryView",
+				"title": "Hide Line History View",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.showRemotesView",
 				"title": "Show Remotes View",
 				"category": "GitLens"
@@ -2661,6 +2666,11 @@
 			{
 				"command": "gitlens.showRepositoriesView",
 				"title": "Show Repositories View",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.hideRepositoriesView",
+				"title": "Hide Repositories View",
 				"category": "GitLens"
 			},
 			{
@@ -4538,12 +4548,20 @@
 					"when": "gitlens:enabled"
 				},
 				{
+					"command": "gitlens.hideLineHistoryView",
+					"when": "gitlens:enabled && config.gitlens.views.lineHistory.enabled"
+				},
+				{
 					"command": "gitlens.showRemotesView",
 					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.showRepositoriesView",
 					"when": "gitlens:enabled"
+				},
+				{
+					"command": "gitlens.hideRepositoriesView",
+					"when": "gitlens:enabled && config.gitlens.views.repositories.enabled"
 				},
 				{
 					"command": "gitlens.showSearchAndCompareView",
@@ -6164,6 +6182,16 @@
 					"group": "5_gitlens@2"
 				},
 				{
+					"command": "gitlens.showRepositoriesView",
+					"when": "view =~ /^gitlens\\.views\\.commits/ && !config.gitlens.views.repositories.enabled",
+					"group": "8_gitlens@0"
+				},
+				{
+					"command": "gitlens.hideRepositoriesView",
+					"when": "view =~ /^gitlens\\.views\\.commits/ && config.gitlens.views.repositories.enabled",
+					"group": "8_gitlens@0"
+				},
+				{
 					"command": "gitlens.views.addAuthors",
 					"when": "view =~ /^gitlens\\.views\\.contributors/",
 					"group": "navigation@10"
@@ -6262,6 +6290,16 @@
 					"command": "gitlens.views.fileHistory.setShowAvatarsOff",
 					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && config.gitlens.views.fileHistory.avatars",
 					"group": "5_gitlens@0"
+				},
+				{
+					"command": "gitlens.showLineHistoryView",
+					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && !config.gitlens.views.lineHistory.enabled",
+					"group": "8_gitlens@0"
+				},
+				{
+					"command": "gitlens.hideLineHistoryView",
+					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && config.gitlens.views.lineHistory.enabled",
+					"group": "8_gitlens@0"
 				},
 				{
 					"command": "gitlens.views.lineHistory.setEditorFollowingOn",
@@ -8329,19 +8367,19 @@
 			],
 			"scm": [
 				{
-					"id": "gitlens.views.repositories",
-					"name": "Repositories",
-					"when": "!gitlens:disabled && config.gitlens.views.repositories.enabled",
-					"contextualTitle": "GitLens",
-					"icon": "images/views/repositories.svg"
-				},
-				{
 					"id": "gitlens.views.commits",
 					"name": "Commits",
 					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/commits.svg",
 					"visibility": "visible"
+				},
+				{
+					"id": "gitlens.views.repositories",
+					"name": "Repositories",
+					"when": "!gitlens:disabled && config.gitlens.views.repositories.enabled",
+					"contextualTitle": "GitLens",
+					"icon": "images/views/repositories.svg"
 				},
 				{
 					"id": "gitlens.views.fileHistory",

@@ -71,6 +71,8 @@ export enum Commands {
 	ExternalDiff = 'gitlens.externalDiff',
 	ExternalDiffAll = 'gitlens.externalDiffAll',
 	FetchRepositories = 'gitlens.fetchRepositories',
+	HideLineHistoryView = 'gitlens.hideLineHistoryView',
+	HideRepositoriesView = 'gitlens.hideRepositoriesView',
 	InviteToLiveShare = 'gitlens.inviteToLiveShare',
 	OpenChangedFiles = 'gitlens.openChangedFiles',
 	OpenBranchesOnRemote = 'gitlens.openBranchesOnRemote',

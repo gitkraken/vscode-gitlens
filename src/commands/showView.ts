@@ -64,3 +64,31 @@ export class ShowViewCommand extends Command {
 		return Promise.resolve(undefined);
 	}
 }
+
+@command()
+export class HideViewCommand extends Command {
+	constructor() {
+		super([Commands.HideLineHistoryView, Commands.HideRepositoriesView]);
+	}
+
+	protected preExecute(context: CommandContext) {
+		return this.execute(context.command as Commands);
+	}
+
+	async execute(command: Commands) {
+		switch (command) {
+			case Commands.HideLineHistoryView:
+				if (Container.config.views.lineHistory.enabled) {
+					await configuration.updateEffective('views', 'lineHistory', 'enabled', false);
+				}
+				break;
+			case Commands.HideRepositoriesView:
+				if (Container.config.views.repositories.enabled) {
+					await configuration.updateEffective('views', 'repositories', 'enabled', false);
+				}
+				break;
+		}
+
+		return Promise.resolve(undefined);
+	}
+}
