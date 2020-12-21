@@ -116,21 +116,24 @@ export abstract class ViewBase<
 				const item = await getTreeItem.apply(this, [node]);
 
 				const parent = node.getParent();
-				let tooltip = item.tooltip;
 
-				if (tooltip == null) {
-					item.tooltip = tooltip = new MarkdownString(
+				if (item.tooltip == null) {
+					item.tooltip = new MarkdownString(
 						item.label != null && typeof item.label !== 'string' ? item.label.label : item.label ?? '',
 					);
-				} else if (typeof tooltip === 'string') {
-					item.tooltip = tooltip = new MarkdownString(tooltip);
 				}
 
-				tooltip.appendMarkdown(
-					`\n\n---\n\ncontext: \`${item.contextValue}\`\n\nnode: \`${node.toString()}\`${
-						parent != null ? `\n\nparent: \`${parent.toString()}\`` : ''
-					}`,
-				);
+				if (typeof item.tooltip === 'string') {
+					item.tooltip = `${item.tooltip}\n\n---\ncontext: ${item.contextValue}\nnode: ${node.toString()}${
+						parent != null ? `\nparent: ${parent.toString()}` : ''
+					}`;
+				} else {
+					item.tooltip.appendMarkdown(
+						`\n\n---\n\ncontext: \`${item.contextValue}\`\n\nnode: \`${node.toString()}\`${
+							parent != null ? `\n\nparent: \`${parent.toString()}\`` : ''
+						}`,
+					);
+				}
 
 				return item;
 			};
