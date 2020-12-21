@@ -4,6 +4,7 @@ import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import {
 	GitBranch,
+	GitRemote,
 	GitRevision,
 	GitStatus,
 	Repository,
@@ -137,8 +138,8 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		}
 
 		const status = await this._status;
-		if (status !== undefined) {
-			tooltip += `\n\nCurrent branch is ${status.branch}`;
+		if (status != null) {
+			tooltip += `\n\nBranch ${status.branch}`;
 
 			if (status.files.length !== 0 && this.includeWorkingTree) {
 				workingStatus = status.getFormattedDiffStatus({
@@ -153,12 +154,22 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 
 			description = `${status.branch}${upstreamStatus}${workingStatus}`;
 
+			let providerName;
+			if (status.upstream != null) {
+				const providers = GitRemote.getHighlanderProviders(await Container.git.getRemotes(status.repoPath));
+				providerName = providers?.length ? providers[0].name : undefined;
+			} else {
+				const remote = await status.getRemote();
+				providerName = remote?.provider?.name;
+			}
+
 			iconSuffix = workingStatus ? '-blue' : '';
-			if (status.upstream !== undefined) {
-				tooltip += ` and is tracking ${status.upstream}\n${status.getUpstreamStatus({
-					empty: 'No commits ahead or behind',
+			if (status.upstream != null) {
+				tooltip += ` is ${status.getUpstreamStatus({
+					empty: `up to date with ${status.upstream}${providerName ? ` on ${providerName}` : ''}`,
 					expand: true,
-					separator: '\n',
+					separator: ',',
+					suffix: ` ${status.upstream}${providerName ? ` on ${providerName}` : ''}`,
 				})}`;
 
 				if (status.state.behind) {

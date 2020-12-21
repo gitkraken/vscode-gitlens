@@ -5,7 +5,7 @@ import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { GitFile, GitFileStatus } from './file';
 import { GitUri } from '../gitUri';
-import { GitCommitType, GitLogCommit, GitRevision } from './models';
+import { GitCommitType, GitLogCommit, GitRemote, GitRevision } from './models';
 import { memoize, Strings } from '../../system';
 
 export interface ComputedWorkingTreeGitStatus {
@@ -182,6 +182,17 @@ export class GitStatus {
 		}
 
 		return `${prefix}${status}${suffix}`;
+	}
+
+	@memoize()
+	async getRemote(): Promise<GitRemote | undefined> {
+		if (this.upstream == null) return undefined;
+
+		const remotes = await Container.git.getRemotes(this.repoPath);
+		if (remotes.length === 0) return undefined;
+
+		const remoteName = GitBranch.getRemote(this.upstream);
+		return remotes.find(r => r.name === remoteName);
 	}
 
 	getUpstreamStatus(options: {
