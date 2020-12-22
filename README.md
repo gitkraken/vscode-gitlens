@@ -34,7 +34,7 @@ If you find GitLens useful, please consider [**sponsoring**](https://gitlens.amo
 
 # GitLens
 
-[GitLens](https://gitlens.amod.io 'Learn more about GitLens') is an [open-source](https://github.com/eamodio/vscode-gitlens 'Open GitLens on GitHub') extension for [Visual Studio Code](https://code.visualstudio.com) created by [Eric Amodio](https://www.amod.io 'Learn more about Eric').
+[GitLens](https://gitlens.amod.io 'Learn more about GitLens') is an [open-source](https://github.com/eamodio/vscode-gitlens 'Open GitLens on GitHub') extension for [Visual Studio Code](https://code.visualstudio.com) created, developed, and maintained by [Eric Amodio](https://www.amod.io 'Learn more about Eric').
 
 GitLens simply helps you **better understand code**. Quickly glimpse into whom, why, and when a line or code block was changed. Jump back through history to **gain further insights** as to how and why the code evolved. Effortlessly explore the history and evolution of a codebase.
 
