@@ -27,6 +27,7 @@ import {
 	Repository,
 } from '../git/git';
 import { GitUri } from '../git/gitUri';
+import { RepositoryPicker } from '../quickpicks';
 import { ResetGitCommandArgs } from './git/reset';
 
 export async function executeGitCommand(args: GitCommandsCommandArgs): Promise<void> {
@@ -758,7 +759,17 @@ export namespace GitActions {
 	}
 
 	export namespace Remote {
-		export async function add(repo: string | Repository) {
+		export async function add(repo?: string | Repository) {
+			if (repo == null) {
+				repo = Container.git.getHighlanderRepoPath();
+
+				if (repo == null) {
+					const pick = await RepositoryPicker.show(undefined, 'Choose a repository to add a remote to');
+					repo = pick?.item;
+					if (repo == null) return undefined;
+				}
+			}
+
 			const name = await window.showInputBox({
 				prompt: 'Please provide a name for the remote',
 				placeHolder: 'Remote name',

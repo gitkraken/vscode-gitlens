@@ -6359,6 +6359,11 @@
 					"group": "5_gitlens@0"
 				},
 				{
+					"command": "gitlens.views.addRemote",
+					"when": "!gitlens:readonly && view =~ /gitlens\\.views\\.remotes/",
+					"group": "navigation@1"
+				},
+				{
 					"command": "gitlens.views.remotes.setLayoutToList",
 					"when": "view =~ /gitlens\\.views\\.remotes/ && config.gitlens.views.remotes.branches.layout == tree",
 					"group": "navigation@50"

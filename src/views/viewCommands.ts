@@ -33,6 +33,7 @@ import {
 	PagerNode,
 	PullRequestNode,
 	RemoteNode,
+	RemotesNode,
 	RepositoryFolderNode,
 	RepositoryNode,
 	ResultsFileNode,
@@ -220,10 +221,8 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private addRemote(node: RemoteNode) {
-		if (!(node instanceof RemoteNode)) return Promise.resolve();
-
-		return GitActions.Remote.add(node.repo);
+	private addRemote(node?: RemotesNode) {
+		return GitActions.Remote.add(node?.repoPath);
 	}
 
 	@debug()
