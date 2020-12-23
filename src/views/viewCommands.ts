@@ -18,6 +18,7 @@ import { Container } from '../container';
 import { GitReference, GitRevision } from '../git/git';
 import { GitUri } from '../git/gitUri';
 import {
+	BranchesNode,
 	BranchNode,
 	BranchTrackingStatusNode,
 	CommitFileNode,
@@ -258,10 +259,8 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private createBranch(node?: ViewRefNode) {
-		if (node != null && !(node instanceof ViewRefNode)) return Promise.resolve();
-
-		return GitActions.Branch.create(node?.repoPath, node?.ref);
+	private createBranch(node?: ViewRefNode | BranchesNode) {
+		return GitActions.Branch.create(node?.repoPath, node instanceof ViewRefNode ? node?.ref : undefined);
 	}
 
 	@debug()
@@ -562,16 +561,16 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private switch(node?: ViewRefNode) {
+	private switch(node?: ViewRefNode | BranchesNode) {
 		if (node == null) {
 			return GitActions.switchTo(Container.git.getHighlanderRepoPath());
 		}
 
-		if (!(node instanceof ViewRefNode)) return Promise.resolve();
+		if (!(node instanceof ViewRefNode) && !(node instanceof BranchesNode)) return Promise.resolve();
 
 		return GitActions.switchTo(
 			node.repoPath,
-			node instanceof BranchNode && node.branch.current ? undefined : node.ref,
+			node instanceof BranchesNode || (node instanceof BranchNode && node.branch.current) ? undefined : node.ref,
 		);
 	}
 

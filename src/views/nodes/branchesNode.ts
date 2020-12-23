@@ -33,6 +33,10 @@ export class BranchesNode extends ViewNode<BranchesView | RepositoriesView> {
 		return BranchesNode.getId(this.repo.path);
 	}
 
+	get repoPath(): string {
+		return this.repo.path;
+	}
+
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children == null) {
 			const branches = await this.repo.getBranches({
