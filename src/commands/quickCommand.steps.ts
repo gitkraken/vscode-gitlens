@@ -108,14 +108,14 @@ export async function getBranches(
 	repos: Repository | Repository[],
 	options: { filterBranches?: (b: GitBranch) => boolean; picked?: string | string[] } = {},
 ): Promise<BranchQuickPickItem[]> {
-	return getBranchesAndOrTags(repos, ['branches'], options) as Promise<BranchQuickPickItem[]>;
+	return getBranchesAndOrTags(repos, ['branches'], { sort: true, ...options }) as Promise<BranchQuickPickItem[]>;
 }
 
 export async function getTags(
 	repos: Repository | Repository[],
 	options: { filterTags?: (t: GitTag) => boolean; picked?: string | string[] } = {},
 ): Promise<TagQuickPickItem[]> {
-	return getBranchesAndOrTags(repos, ['tags'], options) as Promise<TagQuickPickItem[]>;
+	return getBranchesAndOrTags(repos, ['tags'], { sort: true, ...options }) as Promise<TagQuickPickItem[]>;
 }
 
 export async function getBranchesAndOrTags(
@@ -537,7 +537,7 @@ export async function* pickBranchOrTagStep<
 		return getBranchesAndOrTags(state.repo, context.showTags ? ['branches', 'tags'] : ['branches'], {
 			filter: filter,
 			picked: picked,
-			sort: { branches: { orderBy: BranchSorting.DateDesc }, tags: { orderBy: TagSorting.DateDesc } },
+			sort: true,
 		});
 	};
 	const branchesAndOrTags = await getBranchesAndOrTagsFn();

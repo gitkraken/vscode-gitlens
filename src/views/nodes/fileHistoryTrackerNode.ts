@@ -1,7 +1,6 @@
 'use strict';
 import { Disposable, TextEditor, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { UriComparer } from '../../comparers';
-import { BranchSorting, TagSorting } from '../../configuration';
 import { Container } from '../../container';
 import { FileHistoryView } from '../fileHistoryView';
 import { FileHistoryNode } from './fileHistoryNode';
@@ -96,10 +95,7 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 				allowEnteringRefs: true,
 				picked: this._base,
 				// checkmarks: true,
-				sort: {
-					branches: { current: true, orderBy: BranchSorting.DateDesc },
-					tags: { orderBy: TagSorting.DateDesc },
-				},
+				sort: { branches: { current: true }, tags: {} },
 			},
 		);
 		if (pick == null) return;

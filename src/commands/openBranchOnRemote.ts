@@ -10,7 +10,6 @@ import {
 	getRepoPathOrActiveOrPrompt,
 	isCommandContextViewNodeHasBranch,
 } from './common';
-import { BranchSorting } from '../configuration';
 import { RemoteResourceType } from '../git/git';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
@@ -70,9 +69,7 @@ export class OpenBranchOnRemoteCommand extends ActiveEditorCommand {
 						// checkmarks: false,
 						filter: { branches: b => b.tracking != null },
 						include: ReferencesQuickPickIncludes.Branches,
-						sort: {
-							branches: { current: true, orderBy: BranchSorting.DateDesc },
-						},
+						sort: { branches: { current: true }, tags: {} },
 					},
 				);
 				if (pick == null || pick instanceof CommandQuickPickItem) return;

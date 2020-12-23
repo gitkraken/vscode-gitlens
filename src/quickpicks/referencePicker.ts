@@ -160,10 +160,7 @@ export namespace ReferencePicker {
 			{
 				filter: filter,
 				picked: picked,
-				sort: sort ?? {
-					branches: { current: false, orderBy: BranchSorting.DateDesc },
-					tags: { orderBy: TagSorting.DateDesc },
-				},
+				sort: sort ?? { branches: { current: false }, tags: {} },
 			},
 		);
 

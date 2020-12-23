@@ -1,7 +1,6 @@
 'use strict';
 import { Selection, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
 import { UriComparer } from '../../comparers';
-import { BranchSorting, TagSorting } from '../../configuration';
 import { Container } from '../../container';
 import { FileHistoryView } from '../fileHistoryView';
 import { GitReference, GitRevision } from '../../git/git';
@@ -102,10 +101,7 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<LineHistoryVie
 				allowEnteringRefs: true,
 				picked: this._base,
 				// checkmarks: true,
-				sort: {
-					branches: { current: true, orderBy: BranchSorting.DateDesc },
-					tags: { orderBy: TagSorting.DateDesc },
-				},
+				sort: { branches: { current: true }, tags: {} },
 			},
 		);
 		if (pick == null) return;
