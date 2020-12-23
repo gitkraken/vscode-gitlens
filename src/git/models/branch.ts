@@ -191,6 +191,7 @@ export class GitBranch implements GitBranchReference {
 	getTrackingStatus(options?: {
 		empty?: string;
 		expand?: boolean;
+		icons?: boolean;
 		prefix?: string;
 		separator?: string;
 		suffix?: string;

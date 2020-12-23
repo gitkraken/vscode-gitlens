@@ -198,6 +198,7 @@ export class GitStatus {
 	getUpstreamStatus(options: {
 		empty?: string;
 		expand?: boolean;
+		icons?: boolean;
 		prefix?: string;
 		separator?: string;
 		suffix?: string;
@@ -208,18 +209,29 @@ export class GitStatus {
 	static getUpstreamStatus(
 		upstream: string | undefined,
 		state: { ahead: number; behind: number },
-		options: { empty?: string; expand?: boolean; prefix?: string; separator?: string; suffix?: string } = {},
+		options: {
+			empty?: string;
+			expand?: boolean;
+			icons?: boolean;
+			prefix?: string;
+			separator?: string;
+			suffix?: string;
+		} = {},
 	): string {
-		const { expand = false, prefix = '', separator = ' ', suffix = '' } = options;
+		const { expand = false, icons = false, prefix = '', separator = ' ', suffix = '' } = options;
 		if (upstream == null || (state.behind === 0 && state.ahead === 0)) return options.empty ?? '';
 
 		if (expand) {
 			let status = '';
 			if (state.behind) {
-				status += `${Strings.pluralize('commit', state.behind)} behind`;
+				status += `${Strings.pluralize('commit', state.behind, {
+					infix: icons ? '$(arrow-down) ' : undefined,
+				})} behind`;
 			}
 			if (state.ahead) {
-				status += `${status.length === 0 ? '' : separator}${Strings.pluralize('commit', state.ahead)} ahead`;
+				status += `${status.length === 0 ? '' : separator}${Strings.pluralize('commit', state.ahead, {
+					infix: icons ? '$(arrow-up) ' : undefined,
+				})} ahead`;
 				if (suffix.startsWith(` ${upstream.split('/')[0]}`)) {
 					status += ' of';
 				}

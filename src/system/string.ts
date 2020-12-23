@@ -349,13 +349,13 @@ export function padRightOrTruncate(s: string, max: number, padding?: string, wid
 export function pluralize(
 	s: string,
 	count: number,
-	options?: { number?: string; plural?: string; suffix?: string; zero?: string },
+	options?: { infix?: string; number?: string; plural?: string; suffix?: string; zero?: string },
 ) {
 	if (options == null) return `${count} ${s}${count === 1 ? emptyStr : 's'}`;
 
 	return `${
 		count === 0 ? (options.zero != null ? options.zero : count) : options.number != null ? options.number : count
-	} ${count === 1 ? s : options.plural ?? `${s}${options.suffix ?? 's'}`}`;
+	}${options.infix ?? ' '}${count === 1 ? s : options.plural ?? `${s}${options.suffix ?? 's'}`}`;
 }
 
 // Removes \ / : * ? " < > | and C0 and C1 control codes
