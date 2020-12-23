@@ -129,8 +129,8 @@ export abstract class ViewBase<
 					}`;
 				} else {
 					item.tooltip.appendMarkdown(
-						`\n\n---\n\ncontext: \`${item.contextValue}\`\n\nnode: \`${node.toString()}\`${
-							parent != null ? `\n\nparent: \`${parent.toString()}\`` : ''
+						`\n\n---\n\ncontext: \`${item.contextValue}\`\\\nnode: \`${node.toString()}\`${
+							parent != null ? `\\\nparent: \`${parent.toString()}\`` : ''
 						}`,
 					);
 				}
