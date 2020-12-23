@@ -225,7 +225,7 @@ export class BranchNode
 	async getTreeItem(): Promise<TreeItem> {
 		this.splatted = false;
 
-		let tooltip = `${
+		let tooltip: string | MarkdownString = `${
 			this.current ? 'Current branch' : 'Branch'
 		} $(git-branch) ${this.branch.getNameWithoutRemote()}`;
 
@@ -330,6 +330,11 @@ export class BranchNode
 			)})`;
 		}
 
+		tooltip = new MarkdownString(tooltip, true);
+		if (this.branch.starred) {
+			tooltip.appendMarkdown('\\\n$(star-full) Favorited');
+		}
+
 		const item = new TreeItem(
 			`${this.options.showCurrent && this.current ? Strings.pad(GlyphChars.Check, 0, 2) : ''}${this.label}`,
 			this.options.expanded ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
@@ -343,7 +348,7 @@ export class BranchNode
 		item.contextValue = contextValue;
 		item.description = description;
 		item.id = this.id;
-		item.tooltip = new MarkdownString(tooltip, true);
+		item.tooltip = tooltip;
 
 		return item;
 	}
