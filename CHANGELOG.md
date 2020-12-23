@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [11.1.0] - 2020-12-23
 
 ### Added
 
@@ -30,10 +30,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - Adds a `gitlens.heatmap.locations` setting to specify where the indicators of the gutter heatmap annotations will be shown
 - Adds a `gitlens.fileAnnotations.command` setting to specify whether the file annotations button in the editor title shows a menu or immediately toggles the specified file annotations &mdash; closes [#1165](https://github.com/eamodio/vscode-gitlens/issues/1165) thanks to [PR #1171](https://github.com/eamodio/vscode-gitlens/pull/1171) by Raaj Patil ([@arrpee](https://github.com/arrpee))
   - Adds this new option to the _Menus & Toolbars_ section of the GitLens Interactive Settings
+- Adds a _Push to Commit..._ command to unpublished commits in the _Commits_, _Branches_, and _Repositories_ views, and to to unpublished files in the _File History_ and _Line History_ views
+- Adds a _Commit_ submenu to files in the _File History_ and _Line History_ views &mdash; closes [#1044](https://github.com/eamodio/vscode-gitlens/issues/1044)
 - Adds an _Open File on Remote From..._ command (`gitlens.openFileOnRemoteFrom`) to open a file or revision on a specific branch or tag on the remote provider &mdash; closes [#1071](https://github.com/eamodio/vscode-gitlens/issues/1071)
 - Adds a _Copy Remote File Url From..._ command (`gitlens.copyRemoteFileUrlFrom`) to copy the url of a file or revision on a specific branch or tag the remote provider &mdash; closes [#1071](https://github.com/eamodio/vscode-gitlens/issues/1071)
-- Adds a _Commit_ submenu to files in the _File History_ and _Line History_ views &mdash; closes [#1044](https://github.com/eamodio/vscode-gitlens/issues/1044)
-- Adds a _Push to Commit..._ command to unpublished commits in the _Commits_, _Branches_, and _Repositories_ views, and to to unpublished files in the _File History_ and _Line History_ views
 - Adds a welcome, i.e. richer empty state, to the _Search & Compare_ view
 - Adds dynamic updating of the last fetched date/time in the _Commits_ and _Repositories_ views
 - Adds a _Connect to Remote_ command (`gitlens.connectRemoteProvider`) to connect to a supported remote service to enable a rich integration
@@ -44,9 +44,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a `gitlens.showWelcomeOnInstall` setting to specify whether to show the Welcome (Quick Setup) experience on first install &mdash; closes [#1049](https://github.com/eamodio/vscode-gitlens/issues/1049) thanks to [PR #1258](https://github.com/eamodio/vscode-gitlens/pull/1258) by Rickard ([@rickardp](https://github.com/rickardp))
 - Adds a ⭐ star as a favorite indicator on branches in the quick pick menus
 - Adds ability to toggle the _Toggle Compare with: Working Tree / Branch_ command before a comparision is chosen
-- Adds extensibility APIs
+- Adds GitLens extensibility APIs
   - Adds an _action runner_ extensibility point to provide a runner (handler) for the new _createPullRequest_ and _openPullRequest_ actions &mdash; see [`gitlens.d.ts`](https://github.com/eamodio/vscode-gitlens/blob/main/src/api/gitlens.d.ts) for API definitions
-  - Preview APIs are only available in the Insiders edition
 
 ### Changed
 
