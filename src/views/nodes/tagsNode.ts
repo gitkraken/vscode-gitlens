@@ -28,6 +28,10 @@ export class TagsNode extends ViewNode<TagsView | RepositoriesView> {
 		return TagsNode.getId(this.repo.path);
 	}
 
+	get repoPath(): string {
+		return this.repo.path;
+	}
+
 	async getChildren(): Promise<ViewNode[]> {
 		if (this._children == null) {
 			const tags = await this.repo.getTags({ sort: true });

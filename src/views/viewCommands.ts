@@ -42,6 +42,7 @@ import {
 	StashNode,
 	StatusFileNode,
 	TagNode,
+	TagsNode,
 	ViewNode,
 	ViewRefFileNode,
 	ViewRefNode,
@@ -288,10 +289,8 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private createTag(node?: ViewRefNode) {
-		if (node != null && !(node instanceof ViewRefNode)) return Promise.resolve();
-
-		return GitActions.Tag.create(node?.repoPath, node?.ref);
+	private createTag(node?: ViewRefNode | TagsNode) {
+		return GitActions.Tag.create(node?.repoPath, node instanceof ViewRefNode ? node?.ref : undefined);
 	}
 
 	@debug()
