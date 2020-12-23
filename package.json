@@ -7673,22 +7673,22 @@
 				},
 				{
 					"command": "gitlens.views.setBranchComparisonToWorking",
-					"when": "viewItem =~ /gitlens:compare:branch\\b(?=.*?\\b\\+comparing\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+branch\\b)/",
+					"when": "viewItem =~ /gitlens:compare:branch\\b(?=.*?\\b\\+root\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+branch\\b)/",
 					"group": "inline@2"
 				},
 				{
 					"command": "gitlens.views.setBranchComparisonToBranch",
-					"when": "viewItem =~ /gitlens:compare:branch\\b(?=.*?\\b\\+comparing\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+working\\b)/",
+					"when": "viewItem =~ /gitlens:compare:branch\\b(?=.*?\\b\\+root\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+working\\b)/",
 					"group": "inline@2"
 				},
 				{
 					"command": "gitlens.views.setBranchComparisonToWorking",
-					"when": "viewItem =~ /gitlens:compare:branch\\b(?=.*?\\b\\+comparing\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+branch\\b)/",
+					"when": "viewItem =~ /gitlens:compare:branch\\b(?=.*?\\b\\+root\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+branch\\b)/",
 					"group": "1_gitlens@2"
 				},
 				{
 					"command": "gitlens.views.setBranchComparisonToBranch",
-					"when": "viewItem =~ /gitlens:compare:branch\\b(?=.*?\\b\\+comparing\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+working\\b)/",
+					"when": "viewItem =~ /gitlens:compare:branch\\b(?=.*?\\b\\+root\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+working\\b)/",
 					"group": "1_gitlens@2"
 				},
 				{

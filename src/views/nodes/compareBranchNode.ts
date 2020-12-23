@@ -29,7 +29,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 		view: BranchesView | CommitsView | RepositoriesView,
 		parent: ViewNode,
 		public readonly branch: GitBranch,
-		private readonly showComparison: ViewShowBranchComparison,
+		private showComparison: ViewShowBranchComparison,
 		// Specifies that the node is shown as a root
 		public readonly root: boolean = false,
 	) {
@@ -198,6 +198,8 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 	async setComparisonType(comparisonType: Exclude<ViewShowBranchComparison, false>) {
 		if (this._compareWith != null) {
 			await this.updateCompareWith({ ...this._compareWith, type: comparisonType });
+		} else {
+			this.showComparison = comparisonType;
 		}
 
 		this._children = undefined;
