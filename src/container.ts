@@ -40,6 +40,8 @@ export class Container {
 		| ((e: ConfigurationChangeEvent) => ConfigurationChangeEvent)
 		| undefined;
 
+	private static _terminalLinks: GitTerminalLinkProvider | undefined;
+
 	static initialize(extensionId: string, context: ExtensionContext, config: Config) {
 		this._extensionId = extensionId;
 		this._context = context;
@@ -96,7 +98,22 @@ export class Container {
 		}
 
 		context.subscriptions.push((this._rebaseEditor = new RebaseEditorProvider()));
-		context.subscriptions.push(new GitTerminalLinkProvider());
+
+		if (config.terminalLinks.enabled) {
+			context.subscriptions.push((this._terminalLinks = new GitTerminalLinkProvider()));
+		}
+
+		context.subscriptions.push(
+			configuration.onDidChange(e => {
+				if (!configuration.changed(e, 'terminalLinks', 'enabled')) return;
+
+				this._terminalLinks?.dispose();
+				if (Container.config.terminalLinks.enabled) {
+					context.subscriptions.push((this._terminalLinks = new GitTerminalLinkProvider()));
+				}
+			}),
+		);
+
 		context.subscriptions.push(new GitFileSystemProvider());
 
 		context.subscriptions.push(configuration.onWillChange(this.onConfigurationChanging, this));

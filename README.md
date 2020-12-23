@@ -560,8 +560,8 @@ The _Search & Compare_ view lists pinnable (saved) results for searching commit 
   <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/terminal-links.gif" alt="Terminal Links" />
 </p>
 
-- Adds autolinks for branches, tags, and commit ranges in the integrated terminal to quickly explore their commit history
-- Adds autolinks for commits in the integrated terminal to quickly explore the commit and take action upon it
+- [Optionally](##terminal-links-settings- 'Jump to the Terminal Links settings') adds autolinks for branches, tags, and commit ranges in the integrated terminal to quickly explore their commit history
+- [Optionally](##terminal-links-settings- 'Jump to the Terminal Links settings') adds autolinks for commits in the integrated terminal to quickly explore the commit and take action upon it
 
 ## Remote Provider Integrations [#](#remote-provider-integrations- 'Remote Provider Integrations')
 
@@ -894,6 +894,12 @@ See also [View Settings](#view-settings- 'Jump to the View settings')
 | `gitlens.gitCommands.search.showResultsInSideBar` | Specifies whether to show the commit search results directly in the quick pick menu, in the Side Bar, or will be based on the context                         |
 | `gitlens.gitCommands.skipConfirmations`           | Specifies which (and when) Git commands will skip the confirmation step, using the format: `git-command-name:(menu/command)`                                  |
 | `gitlens.gitCommands.sortBy`                      | Specifies how Git commands are sorted in the _Git Command Palette_<br /><br />`name` - sorts commands by name<br />`usage` - sorts commands by last used date |
+
+## Terminal Links Settings [#](#terminal-links-settings- 'Terminal Links Settings')
+
+| Name                            | Description                                                                                                                                                   |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gitlens.terminalLinks.enabled` | Specifies whether to enable terminal links &mdash; autolinks in the integrated terminal to quickly jump to more details for commits, branches, tags, and more |
 
 ## Remote Provider Integration Settings [#](#remote-provider-integration-settings- 'Remote Provider Integration Settings')
 

@@ -136,6 +136,9 @@ export interface Config {
 			};
 		};
 	};
+	terminalLinks: {
+		enabled: boolean;
+	};
 	views: ViewsConfig;
 	advanced: AdvancedConfig;
 }

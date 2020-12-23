@@ -1633,6 +1633,12 @@
 					"markdownDescription": "Specifies the string to be shown in place of the _authors_ code lens when there are unsaved changes",
 					"scope": "window"
 				},
+				"gitlens.terminalLinks.enabled": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to enable terminal links &mdash; autolinks in the integrated terminal to quickly jump to more details for commits, branches, tags, and more",
+					"scope": "window"
+				},
 				"gitlens.views.branches.avatars": {
 					"type": "boolean",
 					"default": true,
