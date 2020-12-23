@@ -60,7 +60,11 @@ export class ConnectRemoteProviderCommand extends Command {
 				[repo, remote] = Iterables.first(repos);
 				repoPath = repo.path;
 			} else {
-				const pick = await RepositoryPicker.show('', '', [...repos.keys()]);
+				const pick = await RepositoryPicker.show(
+					undefined,
+					'Choose which repository to connect to the remote provider',
+					[...repos.keys()],
+				);
 				if (pick?.item == null) return undefined;
 
 				repoPath = pick.repoPath;
@@ -145,8 +149,8 @@ export class DisconnectRemoteProviderCommand extends Command {
 				repoPath = repo.path;
 			} else {
 				const pick = await RepositoryPicker.show(
-					'Choose which repository to disconnect the remote on',
 					undefined,
+					'Choose which repository to disconnect from the remote provider',
 					[...repos.keys()],
 				);
 				if (pick?.item == null) return undefined;

@@ -7,7 +7,7 @@ import { Iterables } from '../system';
 
 export namespace RepositoryPicker {
 	export async function show(
-		title: string,
+		title: string | undefined,
 		placeholder: string = 'Choose a repository',
 		repositories?: Repository[],
 	): Promise<RepositoryQuickPickItem | undefined> {
