@@ -9,7 +9,17 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Refines the _Repositories_ view to better align its features with all the new views
-  - Adds toggles and settings to allow for far greater customization of the sections in the _Repositories_ view
+  - Adds menu toggles and the settings below to allow for far greater customization of the sections in the _Repositories_ view
+  - Adds a `gitlens.views.repositories.branches.showBranchComparison` setting to specify whether to show a comparison of the branch with a user-selected reference (branch, tag. etc) under under each branch in the _Repositories_ view
+  - Adds a `gitlens.views.repositories.showBranches` setting to specify whether to show the branches for each repository
+  - Adds a `gitlens.views.repositories.showCommits` setting to specify whether to show the commits on the current branch for each repository
+  - Adds a `gitlens.views.repositories.showContributors` setting to specify whether to show the contributors for each repository
+  - Adds a `gitlens.views.repositories.showIncomingActivity` setting to specify whether to show the experimental incoming activity for each repository
+  - Adds a `gitlens.views.repositories.showRemotes` setting to specify whether to show the remotes for each repository
+  - Adds a `gitlens.views.repositories.showStashes` setting to specify whether to show the stashes for each repository
+  - Adds a `gitlens.views.repositories.showTags` setting to specify whether to show the tags for each repository
+  - Adds a `gitlens.views.repositories.showUpstreamStatus` setting to specify whether to show the upstream status of the current branch for each repository
+  - Adds all of the settings above to the _Repositories_ view section in the GitLens Interactive Settings
 - Adds better visibility to the, hidden by default, _Repositories_ and _Line History_ views
   - Adds a _Repositories_ view toggle command to the _Commits_ view's context menu
   - Adds a _Line History_ view toggle command to the _File History_ view's context menu

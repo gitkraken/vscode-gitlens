@@ -2045,7 +2045,7 @@
 						}
 					],
 					"default": "branch",
-					"markdownDescription": "Specifies whether to show a comparison of the branch with a user-selected reference (branch, tag. etc) under _Branches_ in the _Repositories_ view",
+					"markdownDescription": "Specifies whether to show a comparison of the branch with a user-selected reference (branch, tag. etc) under each branch in the _Repositories_ view",
 					"scope": "window"
 				},
 				"gitlens.views.repositories.compact": {
