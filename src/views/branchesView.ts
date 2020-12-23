@@ -323,7 +323,7 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 			'views',
 			this.configKey,
 			'showBranchComparison',
-			enabled ? ViewShowBranchComparison.Working : false,
+			enabled ? ViewShowBranchComparison.Branch : false,
 		);
 	}
 

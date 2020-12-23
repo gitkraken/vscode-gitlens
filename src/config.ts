@@ -485,7 +485,7 @@ export interface BranchesViewConfig {
 		showForBranches: boolean;
 		showForCommits: boolean;
 	};
-	showBranchComparison: false | ViewShowBranchComparison;
+	showBranchComparison: false | ViewShowBranchComparison.Branch;
 }
 
 export interface CommitsViewConfig {
@@ -537,6 +537,7 @@ export interface RepositoriesViewConfig {
 	avatars: boolean;
 	branches: {
 		layout: ViewBranchesLayout;
+		showBranchComparison: false | ViewShowBranchComparison.Branch;
 	};
 	compact: boolean;
 	enabled: boolean;
@@ -548,6 +549,14 @@ export interface RepositoriesViewConfig {
 		showForCommits: boolean;
 	};
 	showBranchComparison: false | ViewShowBranchComparison;
+	showBranches: boolean;
+	showCommits: boolean;
+	showContributors: boolean;
+	showIncomingActivity: boolean;
+	showRemotes: boolean;
+	showStashes: boolean;
+	showTags: boolean;
+	showUpstreamStatus: boolean;
 }
 
 export interface SearchAndCompareViewConfig {

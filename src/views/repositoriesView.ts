@@ -30,6 +30,10 @@ import {
 	BranchesNode,
 	BranchNode,
 	BranchOrTagFolderNode,
+	BranchTrackingStatusNode,
+	CompareBranchNode,
+	ContributorsNode,
+	ReflogNode,
 	RemoteNode,
 	RemotesNode,
 	RepositoriesNode,
@@ -111,6 +115,110 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 		commands.registerCommand(
 			this.getQualifiedCommand('setShowBranchComparisonOff'),
 			() => this.setShowBranchComparison(false),
+			this,
+		);
+		commands.registerCommand(
+			this.getQualifiedCommand('setBranchesShowBranchComparisonOn'),
+			() => this.setBranchShowBranchComparison(true),
+			this,
+		);
+		commands.registerCommand(
+			this.getQualifiedCommand('setBranchesShowBranchComparisonOff'),
+			() => this.setBranchShowBranchComparison(false),
+			this,
+		);
+
+		commands.registerCommand(
+			this.getQualifiedCommand('setShowBranchesOn'),
+			() => this.toggleSection('showBranches', true),
+			this,
+		);
+		commands.registerCommand(
+			this.getQualifiedCommand('setShowBranchesOff'),
+			() => this.toggleSection('showBranches', false),
+			this,
+		);
+
+		commands.registerCommand(
+			this.getQualifiedCommand('setShowCommitsOn'),
+			() => this.toggleSection('showCommits', true),
+			this,
+		);
+		commands.registerCommand(
+			this.getQualifiedCommand('setShowCommitsOff'),
+			() => this.toggleSection('showCommits', false),
+			this,
+		);
+
+		commands.registerCommand(
+			this.getQualifiedCommand('setShowContributorsOn'),
+			() => this.toggleSection('showContributors', true),
+			this,
+		);
+		commands.registerCommand(
+			this.getQualifiedCommand('setShowContributorsOff'),
+			() => this.toggleSection('showContributors', false),
+			this,
+		);
+
+		commands.registerCommand(
+			this.getQualifiedCommand('setShowRemotesOn'),
+			() => this.toggleSection('showRemotes', true),
+			this,
+		);
+		commands.registerCommand(
+			this.getQualifiedCommand('setShowRemotesOff'),
+			() => this.toggleSection('showRemotes', false),
+			this,
+		);
+
+		commands.registerCommand(
+			this.getQualifiedCommand('setShowStashesOn'),
+			() => this.toggleSection('showStashes', true),
+			this,
+		);
+		commands.registerCommand(
+			this.getQualifiedCommand('setShowStashesOff'),
+			() => this.toggleSection('showStashes', false),
+			this,
+		);
+
+		commands.registerCommand(
+			this.getQualifiedCommand('setShowTagsOn'),
+			() => this.toggleSection('showTags', true),
+			this,
+		);
+		commands.registerCommand(
+			this.getQualifiedCommand('setShowTagsOff'),
+			() => this.toggleSection('showTags', false),
+			this,
+		);
+
+		commands.registerCommand(
+			this.getQualifiedCommand('setShowUpstreamStatusOn'),
+			() => this.toggleSection('showUpstreamStatus', true),
+			this,
+		);
+		commands.registerCommand(
+			this.getQualifiedCommand('setShowUpstreamStatusOff'),
+			() => this.toggleSection('showUpstreamStatus', false),
+			this,
+		);
+
+		commands.registerCommand(
+			this.getQualifiedCommand('setShowSectionOff'),
+			(
+				node:
+					| BranchesNode
+					| BranchNode
+					| BranchTrackingStatusNode
+					| CompareBranchNode
+					| ContributorsNode
+					| ReflogNode
+					| RemotesNode
+					| StashesNode
+					| TagsNode,
+			) => this.toggleSectionByNode(node, false),
 			this,
 		);
 	}
@@ -572,5 +680,82 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 			'showBranchComparison',
 			enabled ? ViewShowBranchComparison.Working : false,
 		);
+	}
+
+	private setBranchShowBranchComparison(enabled: boolean) {
+		return configuration.updateEffective(
+			'views',
+			this.configKey,
+			'branches',
+			'showBranchComparison',
+			enabled ? ViewShowBranchComparison.Branch : false,
+		);
+	}
+
+	toggleSection(
+		key:
+			| 'showBranches'
+			| 'showCommits'
+			| 'showContributors'
+			// | 'showIncomingActivity'
+			| 'showRemotes'
+			| 'showStashes'
+			| 'showTags'
+			| 'showUpstreamStatus',
+		enabled: boolean,
+	) {
+		return configuration.updateEffective('views', this.configKey, key, enabled);
+	}
+
+	toggleSectionByNode(
+		node:
+			| BranchesNode
+			| BranchNode
+			| BranchTrackingStatusNode
+			| CompareBranchNode
+			| ContributorsNode
+			| ReflogNode
+			| RemotesNode
+			| StashesNode
+			| TagsNode,
+		enabled: boolean,
+	) {
+		if (node instanceof BranchesNode) {
+			return configuration.updateEffective('views', this.configKey, 'showBranches', enabled);
+		}
+
+		if (node instanceof BranchNode) {
+			return configuration.updateEffective('views', this.configKey, 'showCommits', enabled);
+		}
+
+		if (node instanceof BranchTrackingStatusNode) {
+			return configuration.updateEffective('views', this.configKey, 'showUpstreamStatus', enabled);
+		}
+
+		if (node instanceof CompareBranchNode) {
+			return this.setShowBranchComparison(enabled);
+		}
+
+		if (node instanceof ContributorsNode) {
+			return configuration.updateEffective('views', this.configKey, 'showContributors', enabled);
+		}
+
+		if (node instanceof ReflogNode) {
+			return configuration.updateEffective('views', this.configKey, 'showIncomingActivity', enabled);
+		}
+
+		if (node instanceof RemotesNode) {
+			return configuration.updateEffective('views', this.configKey, 'showRemotes', enabled);
+		}
+
+		if (node instanceof StashesNode) {
+			return configuration.updateEffective('views', this.configKey, 'showStashes', enabled);
+		}
+
+		if (node instanceof TagsNode) {
+			return configuration.updateEffective('views', this.configKey, 'showTags', enabled);
+		}
+
+		return Promise.resolve();
 	}
 }

@@ -29,6 +29,224 @@
 				<div class="settings settings--fixed ml-1">
 					<div class="setting" data-enablement="views.repositories.enabled">
 						<div class="setting__input">
+							<label class="non-interactive">Show the following sections under each repository</label>
+						</div>
+					</div>
+
+					<div class="settings ml-2">
+						<div class="setting" data-enablement="views.repositories.enabled">
+							<div class="setting__input setting__input--inner-select">
+								<input
+									id="views.repositories.showBranchComparison"
+									name="views.repositories.showBranchComparison"
+									type="checkbox"
+									value="working"
+									data-setting
+									disabled
+								/>
+								<label for="views.repositories.showBranchComparison">Comparison of the</label>
+								<div class="select-container">
+									<select
+										id="views.repositories.showBranchComparison"
+										name="views.repositories.showBranchComparison"
+										data-setting
+										data-enablement="views.repositories.enabled &amp; views.repositories.showBranchComparison !false"
+										disabled
+									>
+										<option value="branch">current branch</option>
+										<option value="working">working tree</option>
+									</select>
+								</div>
+								<label for="views.repositories.showBranchComparison"
+									>with a user-selected reference (branch, tag, etc)
+								</label>
+							</div>
+						</div>
+
+						<div class="setting" data-enablement="views.repositories.enabled">
+							<div class="setting__input">
+								<input
+									id="views.repositories.showUpstreamStatus"
+									name="views.repositories.showUpstreamStatus"
+									type="checkbox"
+									data-setting
+									disabled
+								/>
+								<label for="views.repositories.showUpstreamStatus">Current branch status</label>
+							</div>
+						</div>
+
+						<div class="setting" data-enablement="views.repositories.enabled">
+							<div class="setting__input">
+								<input
+									id="views.repositories.includeWorkingTree"
+									name="views.repositories.includeWorkingTree"
+									type="checkbox"
+									data-setting
+									disabled
+								/>
+								<label for="views.repositories.includeWorkingTree">Working tree file changes</label>
+							</div>
+						</div>
+
+						<div class="section__group">
+							<div class="section__content">
+								<div class="settings settings--fixed">
+									<div class="setting" data-enablement="views.repositories.enabled">
+										<div class="setting__input">
+											<input
+												id="views.repositories.pullRequests.enabled"
+												name="views.repositories.pullRequests.enabled"
+												type="checkbox"
+												data-setting
+												disabled
+											/>
+											<label for="views.repositories.pullRequests.enabled"
+												>Associated pull requests</label
+											>
+										</div>
+										<p class="setting__hint">
+											Requires a connection to a supported remote service (e.g. GitHub)
+										</p>
+									</div>
+
+									<div class="settings settings--fixed ml-2">
+										<div
+											class="setting"
+											data-enablement="views.repositories.enabled &amp; views.repositories.pullRequests.enabled"
+										>
+											<div class="setting__input">
+												<input
+													id="views.repositories.pullRequests.showForBranches"
+													name="views.repositories.pullRequests.showForBranches"
+													type="checkbox"
+													data-setting
+													disabled
+												/>
+												<label for="views.repositories.pullRequests.showForBranches"
+													>Show the pull request associated with each branch</label
+												>
+											</div>
+										</div>
+
+										<div
+											class="setting"
+											data-enablement="views.repositories.enabled &amp; views.repositories.pullRequests.enabled"
+										>
+											<div class="setting__input">
+												<input
+													id="views.repositories.pullRequests.showForCommits"
+													name="views.repositories.pullRequests.showForCommits"
+													type="checkbox"
+													data-setting
+													disabled
+												/>
+												<label for="views.repositories.pullRequests.showForCommits"
+													>Show the pull request that introduced each commit</label
+												>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<div class="setting" data-enablement="views.repositories.enabled">
+							<div class="setting__input">
+								<input
+									id="views.repositories.showCommits"
+									name="views.repositories.showCommits"
+									type="checkbox"
+									data-setting
+									disabled
+								/>
+								<label for="views.repositories.showCommits">Commits</label>
+							</div>
+						</div>
+
+						<div class="setting" data-enablement="views.repositories.enabled">
+							<div class="setting__input">
+								<input
+									id="views.repositories.showBranches"
+									name="views.repositories.showBranches"
+									type="checkbox"
+									data-setting
+									disabled
+								/>
+								<label for="views.repositories.showBranches">Branches</label>
+							</div>
+						</div>
+
+						<div class="setting" data-enablement="views.repositories.enabled">
+							<div class="setting__input">
+								<input
+									id="views.repositories.showRemotes"
+									name="views.repositories.showRemotes"
+									type="checkbox"
+									data-setting
+									disabled
+								/>
+								<label for="views.repositories.showRemotes">Remotes</label>
+							</div>
+						</div>
+
+						<div class="setting" data-enablement="views.repositories.enabled">
+							<div class="setting__input">
+								<input
+									id="views.repositories.showStashes"
+									name="views.repositories.showStashes"
+									type="checkbox"
+									data-setting
+									disabled
+								/>
+								<label for="views.repositories.showStashes">Stashes</label>
+							</div>
+						</div>
+
+						<div class="setting" data-enablement="views.repositories.enabled">
+							<div class="setting__input">
+								<input
+									id="views.repositories.showTags"
+									name="views.repositories.showTags"
+									type="checkbox"
+									data-setting
+									disabled
+								/>
+								<label for="views.repositories.showTags">Tags</label>
+							</div>
+						</div>
+
+						<div class="setting" data-enablement="views.repositories.enabled">
+							<div class="setting__input">
+								<input
+									id="views.repositories.showContributors"
+									name="views.repositories.showContributors"
+									type="checkbox"
+									data-setting
+									disabled
+								/>
+								<label for="views.repositories.showContributors">Contributors</label>
+							</div>
+						</div>
+
+						<div class="setting" data-enablement="views.repositories.enabled">
+							<div class="setting__input">
+								<input
+									id="views.repositories.showIncomingActivity"
+									name="views.repositories.showIncomingActivity"
+									type="checkbox"
+									data-setting
+									disabled
+								/>
+								<label for="views.repositories.showIncomingActivity"
+									>Incoming Activity (experimental)</label
+								>
+							</div>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="views.repositories.enabled">
+						<div class="setting__input">
 							<input
 								id="views.repositories.autoRefresh"
 								name="views.repositories.autoRefresh"
@@ -60,104 +278,13 @@
 					<div class="setting" data-enablement="views.repositories.enabled">
 						<div class="setting__input">
 							<input
-								id="views.repositories.includeWorkingTree"
-								name="views.repositories.includeWorkingTree"
+								id="views.repositories.avatars"
+								name="views.repositories.avatars"
 								type="checkbox"
 								data-setting
 								disabled
 							/>
-							<label for="views.repositories.includeWorkingTree">Show working tree file changes</label>
-						</div>
-					</div>
-
-					<div class="setting" data-enablement="views.repositories.enabled">
-						<div class="setting__input setting__input--inner-select">
-							<input
-								id="views.repositories.showBranchComparison"
-								name="views.repositories.showBranchComparison"
-								type="checkbox"
-								value="working"
-								data-setting
-								disabled
-							/>
-							<label for="views.repositories.showBranchComparison">Show a comparison of the</label>
-							<div class="select-container">
-								<select
-									id="views.repositories.showBranchComparison"
-									name="views.repositories.showBranchComparison"
-									data-setting
-									data-enablement="views.repositories.enabled &amp; views.repositories.showBranchComparison !false"
-									disabled
-								>
-									<option value="branch">current branch</option>
-									<option value="working">working tree</option>
-								</select>
-							</div>
-							<label for="views.repositories.showBranchComparison"
-								>with a user-selected reference (branch, tag, etc)
-							</label>
-						</div>
-					</div>
-
-					<div class="section__group">
-						<div class="section__content">
-							<div class="settings settings--fixed">
-								<div class="setting" data-enablement="views.repositories.enabled">
-									<div class="setting__input">
-										<input
-											id="views.repositories.pullRequests.enabled"
-											name="views.repositories.pullRequests.enabled"
-											type="checkbox"
-											data-setting
-											disabled
-										/>
-										<label for="views.repositories.pullRequests.enabled"
-											>Show associated Pull Requests</label
-										>
-									</div>
-									<p class="setting__hint">
-										Requires a connection to a supported remote service (e.g. GitHub)
-									</p>
-								</div>
-
-								<div class="settings settings--fixed ml-2">
-									<div
-										class="setting"
-										data-enablement="views.repositories.enabled &amp; views.repositories.pullRequests.enabled"
-									>
-										<div class="setting__input">
-											<input
-												id="views.repositories.pullRequests.showForBranches"
-												name="views.repositories.pullRequests.showForBranches"
-												type="checkbox"
-												data-setting
-												disabled
-											/>
-											<label for="views.repositories.pullRequests.showForBranches"
-												>Show the PR associated with each branch</label
-											>
-										</div>
-									</div>
-
-									<div
-										class="setting"
-										data-enablement="views.repositories.enabled &amp; views.repositories.pullRequests.enabled"
-									>
-										<div class="setting__input">
-											<input
-												id="views.repositories.pullRequests.showForCommits"
-												name="views.repositories.pullRequests.showForCommits"
-												type="checkbox"
-												data-setting
-												disabled
-											/>
-											<label for="views.repositories.pullRequests.showForCommits"
-												>Show the PR that introduced each commit</label
-											>
-										</div>
-									</div>
-								</div>
-							</div>
+							<label for="views.repositories.avatars">Use author avatars</label>
 						</div>
 					</div>
 
@@ -173,34 +300,6 @@
 								>
 									<option value="list">as a list</option>
 									<option value="tree">as a tree</option>
-								</select>
-							</div>
-						</div>
-					</div>
-
-					<div class="setting" data-enablement="views.repositories.enabled">
-						<div class="setting__input">
-							<label for="sortBranchesBy">Sort branches</label>
-							<div class="select-container">
-								<select id="sortBranchesBy" name="sortBranchesBy" data-setting disabled>
-									<option value="name:desc">by name, descending</option>
-									<option value="name:asc">by name, ascending</option>
-									<option value="date:desc">by date, descending</option>
-									<option value="date:asc">by date, ascending</option>
-								</select>
-							</div>
-						</div>
-					</div>
-
-					<div class="setting" data-enablement="views.repositories.enabled">
-						<div class="setting__input">
-							<label for="sortTagsBy">Sort tags</label>
-							<div class="select-container">
-								<select id="sortTagsBy" name="sortTagsBy" data-setting disabled>
-									<option value="name:desc">by name, descending</option>
-									<option value="name:asc">by name, ascending</option>
-									<option value="date:desc">by date, descending</option>
-									<option value="date:asc">by date, ascending</option>
 								</select>
 							</div>
 						</div>
@@ -243,14 +342,29 @@
 
 					<div class="setting" data-enablement="views.repositories.enabled">
 						<div class="setting__input">
-							<input
-								id="views.repositories.avatars"
-								name="views.repositories.avatars"
-								type="checkbox"
-								data-setting
-								disabled
-							/>
-							<label for="views.repositories.avatars">Use author avatars</label>
+							<label for="sortBranchesBy">Sort branches</label>
+							<div class="select-container">
+								<select id="sortBranchesBy" name="sortBranchesBy" data-setting disabled>
+									<option value="name:desc">by name, descending</option>
+									<option value="name:asc">by name, ascending</option>
+									<option value="date:desc">by date, descending</option>
+									<option value="date:asc">by date, ascending</option>
+								</select>
+							</div>
+						</div>
+					</div>
+
+					<div class="setting" data-enablement="views.repositories.enabled">
+						<div class="setting__input">
+							<label for="sortTagsBy">Sort tags</label>
+							<div class="select-container">
+								<select id="sortTagsBy" name="sortTagsBy" data-setting disabled>
+									<option value="name:desc">by name, descending</option>
+									<option value="name:asc">by name, ascending</option>
+									<option value="date:desc">by date, descending</option>
+									<option value="date:asc">by date, ascending</option>
+								</select>
+							</div>
 						</div>
 					</div>
 				</div>

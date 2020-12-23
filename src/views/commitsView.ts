@@ -4,6 +4,7 @@ import {
 	commands,
 	ConfigurationChangeEvent,
 	Disposable,
+	MarkdownString,
 	ProgressLocation,
 	TreeItem,
 	TreeItemCollapsibleState,
@@ -88,9 +89,9 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 			const lastFetched = (await this.repo?.getLastFetched()) ?? 0;
 
 			const status = branch?.getTrackingStatus();
-			item.description = `${status ? `${status} ${GlyphChars.Dot} ` : ''}${branch.name}${
+			item.description = `${status ? `${status}${Strings.pad(GlyphChars.Dot, 1, 1)}` : ''}${branch.name}${
 				lastFetched
-					? `${Strings.pad(GlyphChars.Dot, 2, 2)}Last fetched ${Repository.formatLastFetched(lastFetched)}`
+					? `${Strings.pad(GlyphChars.Dot, 1, 1)}Last fetched ${Repository.formatLastFetched(lastFetched)}`
 					: ''
 			}`;
 
@@ -103,23 +104,31 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 				providerName = remote?.provider?.name;
 			}
 
-			item.tooltip = `${this.repo.formattedName ?? this.uri.repoPath ?? ''}${
-				lastFetched
-					? `${Strings.pad(GlyphChars.Dash, 2, 2)}Last fetched ${Repository.formatLastFetched(
-							lastFetched,
-							false,
-					  )}`
-					: ''
-			}${this.repo.formattedName ? `\n${this.uri.repoPath}` : ''}\n\nBranch ${branch.name}${
-				branch.tracking
-					? ` is ${branch.getTrackingStatus({
-							empty: `up to date with ${branch.tracking}${providerName ? ` on ${providerName}` : ''}`,
-							expand: true,
-							separator: ', ',
-							suffix: ` ${branch.tracking}${providerName ? ` on ${providerName}` : ''}`,
-					  })}`
-					: `hasn't been published to ${providerName ?? 'a remote'}`
-			}`;
+			item.tooltip = new MarkdownString(
+				`${this.repo.formattedName ?? this.uri.repoPath ?? ''}${
+					lastFetched
+						? `${Strings.pad(GlyphChars.Dash, 2, 2)}Last fetched ${Repository.formatLastFetched(
+								lastFetched,
+								false,
+						  )}`
+						: ''
+				}${this.repo.formattedName ? `\n${this.uri.repoPath}` : ''}\n\nCurrent branch $(git-branch) ${
+					branch.name
+				}${
+					branch.tracking
+						? ` is ${branch.getTrackingStatus({
+								empty: `up to date with $(git-branch) ${branch.tracking}${
+									providerName ? ` on ${providerName}` : ''
+								}`,
+								expand: true,
+								icons: true,
+								separator: ', ',
+								suffix: ` $(git-branch) ${branch.tracking}${providerName ? ` on ${providerName}` : ''}`,
+						  })}`
+						: `hasn't been published to ${providerName ?? 'a remote'}`
+				}`,
+				true,
+			);
 		}
 
 		return item;

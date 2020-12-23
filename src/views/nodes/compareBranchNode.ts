@@ -17,8 +17,8 @@ import { ContextValues, ViewNode } from './viewNode';
 
 export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | RepositoriesView> {
 	static key = ':compare-branch';
-	static getId(repoPath: string, name: string): string {
-		return `${RepositoryNode.getId(repoPath)}${this.key}(${name})`;
+	static getId(repoPath: string, name: string, root: boolean): string {
+		return `${RepositoryNode.getId(repoPath)}${this.key}(${name})${root ? ':root' : ''}`;
 	}
 
 	private _children: ViewNode[] | undefined;
@@ -29,6 +29,9 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 		view: BranchesView | CommitsView | RepositoriesView,
 		parent: ViewNode,
 		public readonly branch: GitBranch,
+		private readonly showComparison: ViewShowBranchComparison,
+		// Specifies that the node is shown as a root
+		public readonly root: boolean = false,
 	) {
 		super(uri, view, parent);
 
@@ -52,7 +55,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 	}
 
 	get id(): string {
-		return CompareBranchNode.getId(this.branch.repoPath, this.branch.name);
+		return CompareBranchNode.getId(this.branch.repoPath, this.branch.name, this.root);
 	}
 
 	get repoPath(): string {
@@ -162,7 +165,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 		};
 		item.contextValue = `${ContextValues.CompareBranch}${this.branch.current ? '+current' : ''}+${
 			this.comparisonType
-		}${this._compareWith == null ? '' : '+comparing'}`;
+		}${this._compareWith == null ? '' : '+comparing'}${this.root ? '+root' : ''}`;
 		item.description = description;
 		item.iconPath = new ThemeIcon('git-compare');
 		item.id = this.id;
@@ -202,8 +205,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 	}
 
 	private get comparisonType() {
-		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-		return this._compareWith?.type ?? (this.view.config.showBranchComparison || ViewShowBranchComparison.Working);
+		return this._compareWith?.type ?? this.showComparison;
 	}
 
 	private get compareWithWorkingTree() {
@@ -331,8 +333,7 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 			this._compareWith = {
 				ref: compareWith,
 				notation: undefined,
-				// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-				type: this.view.config.showBranchComparison || ViewShowBranchComparison.Working,
+				type: this.showComparison,
 			};
 		} else {
 			this._compareWith = compareWith;

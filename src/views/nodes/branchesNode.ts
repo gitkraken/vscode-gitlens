@@ -42,14 +42,17 @@ export class BranchesNode extends ViewNode<BranchesView | RepositoriesView> {
 			const branches = await this.repo.getBranches({
 				// only show local branches
 				filter: b => !b.remote,
-				sort: this.view instanceof RepositoriesView ? true : { current: false },
+				sort: { current: false },
 			});
 			if (branches.length === 0) return [new MessageNode(this.view, this, 'No branches could be found.')];
 
 			const branchNodes = branches.map(
 				b =>
 					new BranchNode(GitUri.fromRepoPath(this.uri.repoPath!, b.ref), this.view, this, b, false, {
-						showComparison: this.view.config.showBranchComparison,
+						showComparison:
+							this.view instanceof RepositoriesView
+								? this.view.config.branches.showBranchComparison
+								: this.view.config.showBranchComparison,
 					}),
 			);
 			if (this.view.config.branches.layout === ViewBranchesLayout.List) return branchNodes;

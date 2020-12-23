@@ -27,6 +27,7 @@ export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithFiles> {
 		public readonly branch: GitBranch,
 		public readonly status: Required<BranchTrackingStatus>,
 		public readonly direction: 'ahead' | 'behind',
+		// Specifies that the node is shown as a root
 		private readonly root: boolean = false,
 	) {
 		super(GitUri.fromRepoPath(status.repoPath), view, parent);

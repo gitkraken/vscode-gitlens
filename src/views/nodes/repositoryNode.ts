@@ -1,11 +1,10 @@
 'use strict';
-import { Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Disposable, MarkdownString, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import {
 	GitBranch,
 	GitRemote,
-	GitRevision,
 	GitStatus,
 	Repository,
 	RepositoryChange,
@@ -71,45 +70,87 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 				);
 
 				if (this.view.config.showBranchComparison !== false) {
-					children.push(new CompareBranchNode(this.uri, this.view, this, branch));
+					children.push(
+						new CompareBranchNode(
+							this.uri,
+							this.view,
+							this,
+							branch,
+							this.view.config.showBranchComparison,
+							true,
+						),
+					);
 				}
 
-				if (status.upstream) {
-					if (status.state.behind) {
-						children.push(new BranchTrackingStatusNode(this.view, this, branch, status, 'behind', true));
-					}
+				if (this.view.config.showUpstreamStatus) {
+					if (status.upstream) {
+						if (!status.state.behind && !status.state.ahead) {
+							children.push(new BranchTrackingStatusNode(this.view, this, branch, status, 'same', true));
+						} else {
+							if (status.state.behind) {
+								children.push(
+									new BranchTrackingStatusNode(this.view, this, branch, status, 'behind', true),
+								);
+							}
 
-					if (status.state.ahead) {
-						children.push(new BranchTrackingStatusNode(this.view, this, branch, status, 'ahead', true));
+							if (status.state.ahead) {
+								children.push(
+									new BranchTrackingStatusNode(this.view, this, branch, status, 'ahead', true, {
+										showAheadCommits: true,
+									}),
+								);
+							}
+						}
+					} else {
+						children.push(new BranchTrackingStatusNode(this.view, this, branch, status, 'none', true));
 					}
-				} else {
-					children.push(new BranchTrackingStatusNode(this.view, this, branch, status, 'none', true));
 				}
 
-				if (status.state.ahead || (status.files.length !== 0 && this.includeWorkingTree)) {
-					const range = status.upstream ? GitRevision.createRange(status.upstream, branch.ref) : undefined;
+				if (this.view.config.includeWorkingTree && status.files.length !== 0) {
+					const range = undefined; //status.upstream ? GitRevision.createRange(status.upstream, branch.ref) : undefined;
 					children.push(new StatusFilesNode(this.view, this, status, range));
 				}
 
-				children.push(new BranchNode(this.uri, this.view, this, branch, true));
-
-				if (!this.view.config.compact) {
+				if (children.length !== 0 && !this.view.config.compact) {
 					children.push(new MessageNode(this.view, this, '', GlyphChars.Dash.repeat(2), ''));
+				}
+
+				if (this.view.config.showCommits) {
+					children.push(
+						new BranchNode(this.uri, this.view, this, branch, true, {
+							showAsCommits: true,
+							showComparison: false,
+							showCurrent: false,
+							showTracking: false,
+						}),
+					);
 				}
 			}
 
-			children.push(
-				new BranchesNode(this.uri, this.view, this, this.repo),
-				new ContributorsNode(this.uri, this.view, this, this.repo),
-			);
+			if (this.view.config.showBranches) {
+				children.push(new BranchesNode(this.uri, this.view, this, this.repo));
+			}
 
-			children.push(new ReflogNode(this.uri, this.view, this, this.repo));
+			if (this.view.config.showRemotes) {
+				children.push(new RemotesNode(this.uri, this.view, this, this.repo));
+			}
 
-			children.push(
-				new RemotesNode(this.uri, this.view, this, this.repo),
-				new StashesNode(this.uri, this.view, this, this.repo),
-				new TagsNode(this.uri, this.view, this, this.repo),
-			);
+			if (this.view.config.showStashes) {
+				children.push(new StashesNode(this.uri, this.view, this, this.repo));
+			}
+
+			if (this.view.config.showTags) {
+				children.push(new TagsNode(this.uri, this.view, this, this.repo));
+			}
+
+			if (this.view.config.showContributors) {
+				children.push(new ContributorsNode(this.uri, this.view, this, this.repo));
+			}
+
+			if (this.view.config.showIncomingActivity) {
+				children.push(new ReflogNode(this.uri, this.view, this, this.repo));
+			}
+
 			this._children = children;
 		}
 		return this._children;
@@ -139,20 +180,20 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 
 		const status = await this._status;
 		if (status != null) {
-			tooltip += `\n\nBranch ${status.branch}`;
+			tooltip += `\n\nCurrent branch $(git-branch) ${status.branch}`;
 
-			if (status.files.length !== 0 && this.includeWorkingTree) {
+			if (this.view.config.includeWorkingTree && status.files.length !== 0) {
 				workingStatus = status.getFormattedDiffStatus({
 					compact: true,
-					prefix: Strings.pad(GlyphChars.Dot, 2, 2),
+					prefix: Strings.pad(GlyphChars.Dot, 1, 1),
 				});
 			}
 
 			const upstreamStatus = status.getUpstreamStatus({
-				prefix: `${GlyphChars.Space} `,
+				suffix: Strings.pad(GlyphChars.Dot, 1, 1),
 			});
 
-			description = `${status.branch}${upstreamStatus}${workingStatus}`;
+			description = `${upstreamStatus}${status.branch}${workingStatus}`;
 
 			let providerName;
 			if (status.upstream != null) {
@@ -166,10 +207,13 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 			iconSuffix = workingStatus ? '-blue' : '';
 			if (status.upstream != null) {
 				tooltip += ` is ${status.getUpstreamStatus({
-					empty: `up to date with ${status.upstream}${providerName ? ` on ${providerName}` : ''}`,
+					empty: `up to date with $(git-branch) ${status.upstream}${
+						providerName ? ` on ${providerName}` : ''
+					}`,
 					expand: true,
-					separator: ',',
-					suffix: ` ${status.upstream}${providerName ? ` on ${providerName}` : ''}`,
+					icons: true,
+					separator: ', ',
+					suffix: ` $(git-branch) ${status.upstream}${providerName ? ` on ${providerName}` : ''}`,
 				})}`;
 
 				if (status.state.behind) {
@@ -200,7 +244,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		item.contextValue = contextValue;
 		item.description = `${description ?? ''}${
 			lastFetched
-				? `${Strings.pad(GlyphChars.Dot, 2, 2)}Last fetched ${Repository.formatLastFetched(lastFetched)}`
+				? `${Strings.pad(GlyphChars.Dot, 1, 1)}Last fetched ${Repository.formatLastFetched(lastFetched)}`
 				: ''
 		}`;
 		item.iconPath = {
@@ -208,7 +252,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 			light: Container.context.asAbsolutePath(`images/light/icon-repo${iconSuffix}.svg`),
 		};
 		item.id = this.id;
-		item.tooltip = tooltip;
+		item.tooltip = new MarkdownString(tooltip, true);
 
 		return item;
 	}
@@ -276,7 +320,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 			);
 		}
 
-		if (this.includeWorkingTree) {
+		if (this.view.config.includeWorkingTree) {
 			disposables.push(
 				this.repo.onDidChangeFileSystem(this.onFileSystemChanged, this),
 				this.repo.startWatchingFileSystem(),
@@ -284,10 +328,6 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		}
 
 		return Disposable.from(...disposables);
-	}
-
-	private get includeWorkingTree(): boolean {
-		return this.view.config.includeWorkingTree;
 	}
 
 	protected get requiresResetOnVisible(): boolean {
@@ -325,7 +365,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 					index++;
 				}
 
-				const range = status.upstream ? GitRevision.createRange(status.upstream, status.sha) : undefined;
+				const range = undefined; //status.upstream ? GitRevision.createRange(status.upstream, status.sha) : undefined;
 				this._children.splice(index, deleteCount, new StatusFilesNode(this.view, this, status, range));
 			} else if (index !== -1) {
 				this._children.splice(index, 1);

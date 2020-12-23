@@ -70,7 +70,7 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 			}
 		}
 
-		if (this.status.files.length !== 0 && this.includeWorkingTree) {
+		if (this.view.config.includeWorkingTree && this.status.files.length !== 0) {
 			files.splice(
 				0,
 				0,
@@ -133,29 +133,31 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
-		let files = this.includeWorkingTree ? this.status.files.length : 0;
+		let files = this.view.config.includeWorkingTree ? this.status.files.length : 0;
 
-		if (this.status.upstream != null && this.status.state.ahead > 0) {
-			if (files > 0) {
-				const aheadFiles = await Container.git.getDiffStatus(this.repoPath, `${this.status.upstream}...`);
+		if (this.range != null) {
+			if (this.status.upstream != null && this.status.state.ahead > 0) {
+				if (files > 0) {
+					const aheadFiles = await Container.git.getDiffStatus(this.repoPath, `${this.status.upstream}...`);
 
-				if (aheadFiles != null) {
-					const uniques = new Set();
-					for (const f of this.status.files) {
-						uniques.add(f.fileName);
+					if (aheadFiles != null) {
+						const uniques = new Set();
+						for (const f of this.status.files) {
+							uniques.add(f.fileName);
+						}
+						for (const f of aheadFiles) {
+							uniques.add(f.fileName);
+						}
+
+						files = uniques.size;
 					}
-					for (const f of aheadFiles) {
-						uniques.add(f.fileName);
-					}
-
-					files = uniques.size;
-				}
-			} else {
-				const stats = await Container.git.getChangedFilesCount(this.repoPath, `${this.status.upstream}...`);
-				if (stats != null) {
-					files += stats.files;
 				} else {
-					files = -1;
+					const stats = await Container.git.getChangedFilesCount(this.repoPath, `${this.status.upstream}...`);
+					if (stats != null) {
+						files += stats.files;
+					} else {
+						files = -1;
+					}
 				}
 			}
 		}
@@ -170,10 +172,6 @@ export class StatusFilesNode extends ViewNode<RepositoriesView> {
 		};
 
 		return item;
-	}
-
-	private get includeWorkingTree(): boolean {
-		return this.view.config.includeWorkingTree;
 	}
 
 	private toStatusFile(file: GitStatusFile, ref: string, previousRef: string, date?: Date): GitFileWithCommit {

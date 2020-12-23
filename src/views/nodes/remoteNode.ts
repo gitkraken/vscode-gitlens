@@ -49,6 +49,7 @@ export class RemoteNode extends ViewNode<RemotesView | RepositoriesView> {
 		const branchNodes = branches.map(
 			b =>
 				new BranchNode(GitUri.fromRepoPath(this.uri.repoPath!, b.ref), this.view, this, b, false, {
+					showComparison: false,
 					showTracking: false,
 				}),
 		);
