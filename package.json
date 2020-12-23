@@ -2574,61 +2574,61 @@
 			},
 			{
 				"command": "gitlens.showSettingsPage#branches-view",
-				"title": "Open Settings",
+				"title": "Open View Settings",
 				"category": "GitLens",
 				"icon": "$(gear)"
 			},
 			{
 				"command": "gitlens.showSettingsPage#commits-view",
-				"title": "Open Settings",
+				"title": "Open View Settings",
 				"category": "GitLens",
 				"icon": "$(gear)"
 			},
 			{
 				"command": "gitlens.showSettingsPage#contributors-view",
-				"title": "Open Settings",
+				"title": "Open View Settings",
 				"category": "GitLens",
 				"icon": "$(gear)"
 			},
 			{
 				"command": "gitlens.showSettingsPage#file-history-view",
-				"title": "Open Settings",
+				"title": "Open View Settings",
 				"category": "GitLens",
 				"icon": "$(gear)"
 			},
 			{
 				"command": "gitlens.showSettingsPage#line-history-view",
-				"title": "Open Settings",
+				"title": "Open View Settings",
 				"category": "GitLens",
 				"icon": "$(gear)"
 			},
 			{
 				"command": "gitlens.showSettingsPage#remotes-view",
-				"title": "Open Settings",
+				"title": "Open View Settings",
 				"category": "GitLens",
 				"icon": "$(gear)"
 			},
 			{
 				"command": "gitlens.showSettingsPage#repositories-view",
-				"title": "Open Settings",
+				"title": "Open View Settings",
 				"category": "GitLens",
 				"icon": "$(gear)"
 			},
 			{
 				"command": "gitlens.showSettingsPage#search-compare-view",
-				"title": "Open Settings",
+				"title": "Open View Settings",
 				"category": "GitLens",
 				"icon": "$(gear)"
 			},
 			{
 				"command": "gitlens.showSettingsPage#stashes-view",
-				"title": "Open Settings",
+				"title": "Open View Settings",
 				"category": "GitLens",
 				"icon": "$(gear)"
 			},
 			{
 				"command": "gitlens.showSettingsPage#tags-view",
-				"title": "Open Settings",
+				"title": "Open View Settings",
 				"category": "GitLens",
 				"icon": "$(gear)"
 			},
