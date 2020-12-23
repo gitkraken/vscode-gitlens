@@ -8,6 +8,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Refines the _Repositories_ view to better align its features with all the new views
+  - Adds toggles and settings to allow for far greater customization of the sections in the _Repositories_ view
+- Adds better visibility to the, hidden by default, _Repositories_ and _Line History_ views
+  - Adds a _Repositories_ view toggle command to the _Commits_ view's context menu
+  - Adds a _Line History_ view toggle command to the _File History_ view's context menu
+  - Re-adds the _Line History_ view settings to the GitLens Interactive Settings
 - Adds usage-based sorting (on by default) to the _Git Command Palette_
   - Adds a `gitlens.gitCommands.sortBy` setting to specify how Git commands are sorted in the _Git Command Palette_
 - Adds ability to show gutter heatmap in the gutter and/or on the scroll bar &mdash; closes [#297](https://github.com/eamodio/vscode-gitlens/issues/297)
@@ -19,20 +25,28 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a _Commit_ submenu to files in the _File History_ and _Line History_ views &mdash; closes [#1044](https://github.com/eamodio/vscode-gitlens/issues/1044)
 - Adds a _Push to Commit..._ command to unpublished commits in the _Commits_, _Branches_, and _Repositories_ views, and to to unpublished files in the _File History_ and _Line History_ views
 - Adds a welcome, i.e. richer empty state, to the _Search & Compare_ view
+- Adds dynamic updating of the last fetched date/time in the _Commits_ and _Repositories_ views
+- Adds a _Connect to Remote_ command (`gitlens.connectRemoteProvider`) to connect to a supported remote service to enable a rich integration
+- Adds a _Disconnect from Remote_ command (`gitlens.disconnectRemoteProvider`) to disconnect from a connected remote service
 - Adds a `gitlens.integrations.enabled` setting to specify whether to enable rich integrations with any supported remote services &mdash; see [#1208](https://github.com/eamodio/vscode-gitlens/issues/1208)
 - Adds a `gitlens.terminalLinks.enabled` setting to specify whether to enable terminal links &mdash; autolinks in the integrated terminal to quickly jump to more details for commits, branches, tags, and more &mdash; closes [#1284](https://github.com/eamodio/vscode-gitlens/issues/1284)
+- Adds a `gitlens.defaultTimeFormat` setting to specify how times will be formatted by default
 - Adds a `gitlens.showWelcomeOnInstall` setting to specify whether to show the Welcome (Quick Setup) experience on first install &mdash; closes [#1049](https://github.com/eamodio/vscode-gitlens/issues/1049) thanks to [PR #1258](https://github.com/eamodio/vscode-gitlens/pull/1258) by Rickard ([@rickardp](https://github.com/rickardp))
+- Adds a ⭐ star as a favorite indicator on branches in the quick pick menus
+- Adds ability to toggle the _Toggle Compare with: Working Tree / Branch_ command before a comparision is chosen
 - Adds extensibility APIs
   - Adds an _action runner_ extensibility point to provide a runner (handler) for the new _createPullRequest_ and _openPullRequest_ actions &mdash; see [`gitlens.d.ts`](https://github.com/eamodio/vscode-gitlens/blob/main/src/api/gitlens.d.ts) for API definitions
   - Preview APIs are only available in the Insiders edition
 
 ### Changed
 
+- Changes the _Incoming Activity_ section of the _Repositories_ view to be hidden by default, as it is still experimental
 - Changes the options on the _Git Command Palette_'s _revert_ command to now be _Revert_ (`--no-edit`) and _Revert & Edit_ (`--edit`) &mdash; closes [#1269](https://github.com/eamodio/vscode-gitlens/issues/1269)
 - Changes the thickness (boldness) of a handful of icons to better match VS Code codicons
 
 ### Fixed
 
+- Fixes [#1016](https://github.com/eamodio/vscode-gitlens/issues/1016) - "Last fetched" message is also updated when fetch failed
 - Fixes [#1218](https://github.com/eamodio/vscode-gitlens/issues/1218) - Opening Ahead/Behind files isn't showing the desire diff (e.g. diff with the merge base)
 - Fixes [#1255](https://github.com/eamodio/vscode-gitlens/issues/1255) - Repository folders are missing repository actions (e.g. favorites, close repo, etc)
 - Fixes [#1246](https://github.com/eamodio/vscode-gitlens/issues/1246) - Gutter Blame avatar does not use Gravatar fallback style
@@ -53,6 +67,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes an issue where _GitLens: Show Line History View_ command wasn't showing up unless the view was enabled first
 - Fixes an issue where trying to force push the current branch would fail
 - Fixes an issue where _Push to Commit..._ would incorrectly show a repository picker
+- Fixes an issue where the _Add Remote_ command wasn't working
+- Fixes an issue where the `gitlens.sortBranchesBy` and `gitlens.sortTagsBy` settings where not honored in many quick pick menus
+- Fixes an issue where the _Toggle Compare with: Working Tree / Branch_ command was showing incorrectly on the branch comparisons
 
 ## [11.0.6] - 2020-11.28
 
