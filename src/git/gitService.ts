@@ -2334,7 +2334,7 @@ export class GitService implements Disposable {
 			const data = await Git.merge_base(repoPath, ref1, ref2, options);
 			if (data == null) return undefined;
 
-			return data.split('\n')[0];
+			return data.split('\n')[0].trim() || undefined;
 		} catch (ex) {
 			Logger.error(ex, cc);
 			return undefined;

@@ -77,9 +77,9 @@ export class CompareResultsNode extends ViewNode<SearchAndCompareView> {
 			const aheadBehindCounts = await Container.git.getAheadBehindCommitCount(this.repoPath, [
 				GitRevision.createRange(behind.ref1 || 'HEAD', behind.ref2, '...'),
 			]);
-			const mergeBase = await Container.git.getMergeBase(this.repoPath, behind.ref1, behind.ref2, {
-				forkPoint: true,
-			});
+			const mergeBase =
+				(await Container.git.getMergeBase(this.repoPath, behind.ref1, behind.ref2, { forkPoint: true })) ??
+				(await Container.git.getMergeBase(this.repoPath, behind.ref1, behind.ref2));
 
 			this._children = [
 				new ResultsCommitsNode(
