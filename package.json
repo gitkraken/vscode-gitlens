@@ -538,7 +538,7 @@
 				"gitlens.currentLine.scrollable": {
 					"type": "boolean",
 					"default": true,
-					"markdownDescription": "Specifies whether the current line blame annotation can be scrolled into view when it is outside the viewport",
+					"markdownDescription": "Specifies whether the current line blame annotation can be scrolled into view when it is outside the viewport. **NOTE**: Setting this to `false` will inhibit the hovers from showing over the annotation; Set `#gitlens.hovers.currentLine.over#` to `line` to enable the hovers to show anywhere over the line.",
 					"scope": "window"
 				},
 				"gitlens.debug": {
