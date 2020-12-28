@@ -2,7 +2,7 @@
 import { GitTag } from '../git';
 import { debug } from '../../system';
 
-const tagRegex = /^<n>(.+)<r>(.*)<d>(.*)<ad>(.*)<s>(.*)$/gm;
+const tagRegex = /^<n>(.+)<\*r>(.*)<r>(.*)<d>(.*)<ad>(.*)<s>(.*)$/gm;
 
 // Using %x00 codes because some shells seem to try to expand things if not
 const lb = '%3c'; // `%${'<'.charCodeAt(0).toString(16)}`;
@@ -11,7 +11,8 @@ const rb = '%3e'; // `%${'>'.charCodeAt(0).toString(16)}`;
 export class GitTagParser {
 	static defaultFormat = [
 		`${lb}n${rb}%(refname)`, // tag name
-		`${lb}r${rb}%(if)%(*objectname)%(then)%(*objectname)%(else)%(objectname)%(end)`, // ref
+		`${lb}*r${rb}%(*objectname)`, // ref
+		`${lb}r${rb}%(objectname)`, // ref
 		`${lb}d${rb}%(creatordate:iso8601)`, // created date
 		`${lb}ad${rb}%(authordate:iso8601)`, // author date
 		`${lb}s${rb}%(subject)`, // message
@@ -24,7 +25,8 @@ export class GitTagParser {
 		const tags: GitTag[] = [];
 
 		let name;
-		let ref;
+		let ref1;
+		let ref2;
 		let date;
 		let commitDate;
 		let message;
@@ -34,7 +36,7 @@ export class GitTagParser {
 			match = tagRegex.exec(data);
 			if (match == null) break;
 
-			[, name, ref, date, commitDate, message] = match;
+			[, name, ref1, ref2, date, commitDate, message] = match;
 
 			// Strip off refs/tags/
 			name = name.substr(10);
@@ -44,7 +46,7 @@ export class GitTagParser {
 					repoPath,
 					name,
 					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-					` ${ref}`.substr(1),
+					` ${ref1 || ref2}`.substr(1),
 					// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
 					` ${message}`.substr(1),
 					new Date(date),
