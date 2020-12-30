@@ -21,6 +21,7 @@ export * from './nodes/fileRevisionAsCommitNode';
 export * from './nodes/folderNode';
 export * from './nodes/lineHistoryNode';
 export * from './nodes/lineHistoryTrackerNode';
+export * from './nodes/mergeStatusNode';
 export * from './nodes/pullRequestNode';
 export * from './nodes/reflogNode';
 export * from './nodes/reflogRecordNode';

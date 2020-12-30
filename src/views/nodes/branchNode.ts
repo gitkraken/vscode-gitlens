@@ -20,6 +20,7 @@ import {
 } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { insertDateMarkers } from './helpers';
+import { MergeStatusNode } from './mergeStatusNode';
 import { PullRequestNode } from './pullRequestNode';
 import { RemotesView } from '../remotesView';
 import { RepositoriesView } from '../repositoriesView';
@@ -120,9 +121,12 @@ export class BranchNode
 			const children = [];
 
 			const range = await Container.git.getBranchAheadRange(this.branch);
-			const [log, getBranchAndTagTips, pr, unpublishedCommits] = await Promise.all([
+			const [log, getBranchAndTagTips, mergeStatus, pr, unpublishedCommits] = await Promise.all([
 				this.getLog(),
 				Container.git.getBranchesAndTagsTipsFn(this.uri.repoPath, this.branch.name),
+				this.options.showTracking && this.branch.current
+					? Container.git.getMergeStatus(this.uri.repoPath!)
+					: undefined,
 				this.view.config.pullRequests.enabled &&
 				this.view.config.pullRequests.showForBranches &&
 				(this.branch.tracking || this.branch.remote)
@@ -155,35 +159,53 @@ export class BranchNode
 			}
 
 			if (this.options.showTracking) {
-				const status = {
-					ref: this.branch.ref,
-					repoPath: this.branch.repoPath,
-					state: this.branch.state,
-					upstream: this.branch.tracking,
-				};
-
-				if (this.branch.tracking) {
-					if (this.root && !status.state.behind && !status.state.ahead) {
-						children.push(
-							new BranchTrackingStatusNode(this.view, this, this.branch, status, 'same', this.root),
-						);
-					} else {
-						if (status.state.behind) {
-							children.push(
-								new BranchTrackingStatusNode(this.view, this, this.branch, status, 'behind', this.root),
-							);
-						}
-
-						if (status.state.ahead) {
-							children.push(
-								new BranchTrackingStatusNode(this.view, this, this.branch, status, 'ahead', this.root),
-							);
-						}
-					}
+				if (mergeStatus != null) {
+					children.push(new MergeStatusNode(this.view, this, this.branch, mergeStatus));
 				} else {
-					children.push(
-						new BranchTrackingStatusNode(this.view, this, this.branch, status, 'none', this.root),
-					);
+					const status = {
+						ref: this.branch.ref,
+						repoPath: this.branch.repoPath,
+						state: this.branch.state,
+						upstream: this.branch.tracking,
+					};
+
+					if (this.branch.tracking) {
+						if (this.root && !status.state.behind && !status.state.ahead) {
+							children.push(
+								new BranchTrackingStatusNode(this.view, this, this.branch, status, 'same', this.root),
+							);
+						} else {
+							if (status.state.behind) {
+								children.push(
+									new BranchTrackingStatusNode(
+										this.view,
+										this,
+										this.branch,
+										status,
+										'behind',
+										this.root,
+									),
+								);
+							}
+
+							if (status.state.ahead) {
+								children.push(
+									new BranchTrackingStatusNode(
+										this.view,
+										this,
+										this.branch,
+										status,
+										'ahead',
+										this.root,
+									),
+								);
+							}
+						}
+					} else {
+						children.push(
+							new BranchTrackingStatusNode(this.view, this, this.branch, status, 'none', this.root),
+						);
+					}
 				}
 			}
 

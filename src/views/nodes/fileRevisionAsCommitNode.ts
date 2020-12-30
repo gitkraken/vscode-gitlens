@@ -1,6 +1,6 @@
 'use strict';
 import * as paths from 'path';
-import { Command, Selection, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Command, Selection, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
@@ -15,6 +15,7 @@ import {
 } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { LineHistoryView } from '../lineHistoryView';
+import { MergeConflictCurrentChangesNode, MergeConflictIncomingChangesNode } from './mergeStatusNode';
 import { ViewsWithCommits } from '../viewBase';
 import { ContextValues, ViewNode, ViewRefFileNode } from './viewNode';
 
@@ -51,8 +52,16 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 		return this.commit;
 	}
 
-	getChildren(): ViewNode[] {
-		return [];
+	async getChildren(): Promise<ViewNode[]> {
+		if (!this.commit.hasConflicts) return [];
+
+		const mergeStatus = await Container.git.getMergeStatus(this.commit.repoPath);
+		if (mergeStatus == null) return [];
+
+		return [
+			new MergeConflictCurrentChangesNode(this.view, this, mergeStatus, this.file),
+			new MergeConflictIncomingChangesNode(this.view, this, mergeStatus, this.file),
+		];
 	}
 
 	async getTreeItem(): Promise<TreeItem> {
@@ -77,7 +86,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 				dateFormat: Container.config.defaultDateFormat,
 				messageTruncateAtNewLine: true,
 			}),
-			TreeItemCollapsibleState.None,
+			this.commit.hasConflicts ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.None,
 		);
 
 		item.contextValue = this.contextValue;
@@ -148,6 +157,31 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 			line = this._options.selection !== undefined ? this._options.selection.active.line : 0;
 		}
 
+		if (this.commit.hasConflicts) {
+			return {
+				title: 'Open Changes',
+				command: Commands.DiffWith,
+				arguments: [
+					{
+						lhs: {
+							sha: 'MERGE_HEAD',
+							uri: GitUri.fromFile(this.file, this.repoPath, undefined, true),
+						},
+						rhs: {
+							sha: 'HEAD',
+							uri: GitUri.fromFile(this.file, this.repoPath),
+						},
+						repoPath: this.repoPath,
+						line: 0,
+						showOptions: {
+							preserveFocus: false,
+							preview: false,
+						},
+					},
+				],
+			};
+		}
+
 		const commandArgs: DiffWithPreviousCommandArgs = {
 			commit: this.commit,
 			uri: GitUri.fromFile(this.file, this.commit.repoPath),
@@ -162,5 +196,12 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 			command: Commands.DiffWithPrevious,
 			arguments: [undefined, commandArgs],
 		};
+	}
+
+	async getConflictBaseUri(): Promise<Uri | undefined> {
+		if (!this.commit.hasConflicts) return undefined;
+
+		const mergeBase = await Container.git.getMergeBase(this.repoPath, 'MERGE_HEAD', 'HEAD');
+		return GitUri.fromFile(this.file, this.repoPath, mergeBase ?? 'HEAD');
 	}
 }

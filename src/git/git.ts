@@ -376,21 +376,28 @@ export namespace Git {
 		);
 	}
 
-	export function branch__contains(
+	export function branch__containsOrPointsAt(
 		repoPath: string,
 		ref: string,
-		{ name = undefined, remotes = false }: { name?: string; remotes?: boolean } = {},
+		{
+			mode = 'contains',
+			name = undefined,
+			remotes = false,
+		}: { mode?: 'contains' | 'pointsAt'; name?: string; remotes?: boolean } = {},
 	) {
 		const params = ['branch'];
 		if (remotes) {
 			params.push('-r');
 		}
-		params.push('--contains', ref);
+		params.push(mode === 'pointsAt' ? `--points-at=${ref}` : `--contains=${ref}`, '--format=%(refname:short)');
 		if (name != null) {
 			params.push(name);
 		}
 
-		return git<string>({ cwd: repoPath, configs: ['-c', 'color.branch=false'] }, ...params);
+		return git<string>(
+			{ cwd: repoPath, configs: ['-c', 'color.branch=false'], errors: GitErrorHandling.Ignore },
+			...params,
+		);
 	}
 
 	export function check_ignore(repoPath: string, ...files: string[]) {

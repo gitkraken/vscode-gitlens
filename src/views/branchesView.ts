@@ -49,6 +49,7 @@ export class BranchesRepositoryNode extends RepositoryFolderNode<BranchesView, B
 	protected changed(e: RepositoryChangeEvent) {
 		return (
 			e.changed(RepositoryChange.Config) ||
+			e.changed(RepositoryChange.Index) ||
 			e.changed(RepositoryChange.Heads) ||
 			e.changed(RepositoryChange.Remotes) ||
 			e.changed(RepositoryChange.Unknown)

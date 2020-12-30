@@ -349,6 +349,7 @@ export * from './file';
 export * from './issue';
 export * from './log';
 export * from './logCommit';
+export * from './merge';
 export * from './pullRequest';
 export * from './reflog';
 export * from './remote';

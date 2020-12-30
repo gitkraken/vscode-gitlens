@@ -20,6 +20,7 @@ import { BranchNode } from './branchNode';
 import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
 import { MessageNode } from './common';
 import { ContributorsNode } from './contributorsNode';
+import { MergeStatusNode } from './mergeStatusNode';
 import { ReflogNode } from './reflogNode';
 import { RemotesNode } from './remotesNode';
 import { StashesNode } from './stashesNode';
@@ -82,7 +83,12 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 					);
 				}
 
-				if (this.view.config.showUpstreamStatus) {
+				if (status.hasConflicts) {
+					const mergeStatus = await Container.git.getMergeStatus(status);
+					if (mergeStatus != null) {
+						children.push(new MergeStatusNode(this.view, this, branch, mergeStatus));
+					}
+				} else if (this.view.config.showUpstreamStatus) {
 					if (status.upstream) {
 						if (!status.state.behind && !status.state.ahead) {
 							children.push(new BranchTrackingStatusNode(this.view, this, branch, status, 'same', true));
