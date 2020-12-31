@@ -129,7 +129,9 @@ export class GitService implements Disposable {
 	private _repositoriesLoadingPromise: Promise<void> | undefined;
 
 	private readonly _branchesCache = new Map<string, GitBranch[]>();
+	private readonly _contributorsCache = new Map<string, GitContributor[]>();
 	private readonly _remotesWithApiProviderCache = new Map<string, GitRemote<RichRemoteProvider> | null>();
+	private readonly _stashesCache = new Map<string, GitStash | null>();
 	private readonly _tagsCache = new Map<string, GitTag[]>();
 	private readonly _trackedCache = new Map<string, boolean | Promise<boolean>>();
 	private readonly _userMapCache = new Map<string, { name?: string; email?: string } | null>();
@@ -157,7 +159,9 @@ export class GitService implements Disposable {
 	dispose() {
 		this._repositoryTree.forEach(r => r.dispose());
 		this._branchesCache.clear();
+		this._contributorsCache.clear();
 		this._remotesWithApiProviderCache.clear();
+		this._stashesCache.clear();
 		this._tagsCache.clear();
 		this._trackedCache.clear();
 		this._userMapCache.clear();
@@ -186,11 +190,19 @@ export class GitService implements Disposable {
 	}
 
 	private onAnyRepositoryChanged(repo: Repository, e: RepositoryChangeEvent) {
-		if (e.changed(RepositoryChange.Stash, true)) return;
+		if (e.changed(RepositoryChange.Stash, true)) {
+			this._stashesCache.delete(repo.path);
+
+			return;
+		}
 
 		this._branchesCache.delete(repo.path);
+		this._contributorsCache.delete(repo.path);
 		if (e.changed(RepositoryChange.Remotes)) {
 			this._remotesWithApiProviderCache.clear();
+		}
+		if (e.changed(RepositoryChange.Stash)) {
+			this._stashesCache.delete(repo.path);
 		}
 		this._tagsCache.delete(repo.path);
 		this._trackedCache.clear();
@@ -1393,31 +1405,43 @@ export class GitService implements Disposable {
 	async getContributors(repoPath: string): Promise<GitContributor[]> {
 		if (repoPath == null) return [];
 
-		try {
-			const data = await Git.shortlog(repoPath);
-			const shortlog = GitShortLogParser.parse(data, repoPath);
-			if (shortlog == null) return [];
+		let contributors = this.useCaching ? this._contributorsCache.get(repoPath) : undefined;
+		if (contributors == null) {
+			try {
+				const data = await Git.shortlog(repoPath);
+				const shortlog = GitShortLogParser.parse(data, repoPath);
+				if (shortlog != null) {
+					// Mark the current user
+					const currentUser = await Container.git.getCurrentUser(repoPath);
+					if (currentUser != null) {
+						const index = shortlog.contributors.findIndex(
+							c => currentUser.email === c.email && currentUser.name === c.name,
+						);
+						if (index !== -1) {
+							const c = shortlog.contributors[index];
+							shortlog.contributors.splice(
+								index,
+								1,
+								new GitContributor(c.repoPath, c.name, c.email, c.count, true),
+							);
+						}
+					}
 
-			// Mark the current user
-			const currentUser = await Container.git.getCurrentUser(repoPath);
-			if (currentUser != null) {
-				const index = shortlog.contributors.findIndex(
-					c => currentUser.email === c.email && currentUser.name === c.name,
-				);
-				if (index !== -1) {
-					const c = shortlog.contributors[index];
-					shortlog.contributors.splice(
-						index,
-						1,
-						new GitContributor(c.repoPath, c.name, c.email, c.count, true),
-					);
+					contributors = shortlog.contributors;
+				} else {
+					contributors = [];
 				}
-			}
 
-			return shortlog.contributors;
-		} catch (ex) {
-			return [];
+				const repo = await this.getRepository(repoPath);
+				if (repo?.supportsChangeEvents) {
+					this._contributorsCache.set(repoPath, contributors);
+				}
+			} catch (ex) {
+				return [];
+			}
 		}
+
+		return contributors;
 	}
 
 	@log()
@@ -3236,11 +3260,20 @@ export class GitService implements Disposable {
 	async getStash(repoPath: string | undefined): Promise<GitStash | undefined> {
 		if (repoPath == null) return undefined;
 
-		const data = await Git.stash__list(repoPath, {
-			similarityThreshold: Container.config.advanced.similarityThreshold,
-		});
-		const stash = GitStashParser.parse(data, repoPath);
-		return stash;
+		let stash = this.useCaching ? this._stashesCache.get(repoPath) : undefined;
+		if (stash === undefined) {
+			const data = await Git.stash__list(repoPath, {
+				similarityThreshold: Container.config.advanced.similarityThreshold,
+			});
+			stash = GitStashParser.parse(data, repoPath);
+
+			const repo = await this.getRepository(repoPath);
+			if (repo?.supportsChangeEvents) {
+				this._stashesCache.set(repoPath, stash ?? null);
+			}
+		}
+
+		return stash ?? undefined;
 	}
 
 	@log()

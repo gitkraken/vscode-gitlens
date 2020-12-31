@@ -65,6 +65,13 @@ export class ContributorsViewNode extends ViewNode<ContributorsView> {
 			const [child] = this.children;
 
 			const contributors = await child.repo.getContributors();
+			if (contributors.length === 0) {
+				this.view.message = 'No contributors could be found.';
+
+				return [];
+			}
+
+			this.view.message = undefined;
 			this.view.title = `Contributors (${contributors.length})`;
 
 			return child.getChildren();

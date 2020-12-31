@@ -81,6 +81,13 @@ export class RemotesViewNode extends ViewNode<RemotesView> {
 			const [child] = this.children;
 
 			const remotes = await child.repo.getRemotes();
+			if (remotes.length === 0) {
+				this.view.message = 'No remotes could be found.';
+
+				return [];
+			}
+
+			this.view.message = undefined;
 			this.view.title = `Remotes (${remotes.length})`;
 
 			return child.getChildren();
