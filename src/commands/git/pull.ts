@@ -1,6 +1,6 @@
 'use strict';
 import { Container } from '../../container';
-import { GitBranchReference, GitReference, Repository } from '../../git/git';
+import { GitBranch, GitBranchReference, GitReference, Repository } from '../../git/git';
 import {
 	appendReposToTitle,
 	PartialStepState,
@@ -57,9 +57,15 @@ export class PullGitCommand extends QuickCommand<State> {
 		};
 	}
 
-	execute(state: PullStepState) {
+	async execute(state: PullStepState) {
 		if (GitReference.isBranch(state.reference)) {
-			return state.repos[0].fetch({ branch: state.reference });
+			// Only resort to a branch fetch if the branch isn't the current one
+			if (!GitBranch.is(state.reference) || !state.reference.current) {
+				const currentBranch = await state.repos[0].getBranch();
+				if (currentBranch?.name !== state.reference.name) {
+					return state.repos[0].fetch({ branch: state.reference });
+				}
+			}
 		}
 
 		return Container.git.pullAll(state.repos, { rebase: state.flags.includes('--rebase') });

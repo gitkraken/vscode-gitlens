@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#1285](https://github.com/eamodio/vscode-gitlens/issues/1285) - Uncommitted staged changes after pull
 - Fixes [#1294](https://github.com/eamodio/vscode-gitlens/issues/1294) - Error when open commits list
 
 ## [11.1.0] - 2020-12-23
