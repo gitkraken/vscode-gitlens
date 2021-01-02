@@ -217,8 +217,8 @@ export class CommitsViewNode extends ViewNode<CommitsView> {
 
 				const status = branch.getTrackingStatus();
 				this.view.description = `${status ? `${status} ${GlyphChars.Dot} ` : ''}${branch.name}${
-					lastFetched ? ` ${GlyphChars.Dot} Last fetched ${Repository.formatLastFetched(lastFetched)}` : ''
-				}`;
+					branch.rebasing ? ' (Rebasing)' : ''
+				}${lastFetched ? ` ${GlyphChars.Dot} Last fetched ${Repository.formatLastFetched(lastFetched)}` : ''}`;
 			} else {
 				this.view.description = undefined;
 			}

@@ -8,7 +8,7 @@ import { GitStatus } from './status';
 import { Dates, debug, memoize } from '../../system';
 
 const whitespaceRegex = /\s/;
-const detachedHEADRegex = /^(?=.*\bHEAD\b)(?=.*\bdetached\b).*$/;
+const detachedHEADRegex = /^(?=.*\bHEAD\b)?(?=.*\bdetached\b).*$/;
 
 export const BranchDateFormatting = {
 	dateFormat: undefined! as string | null,
@@ -96,6 +96,7 @@ export class GitBranch implements GitBranchReference {
 		ahead: number = 0,
 		behind: number = 0,
 		detached: boolean = false,
+		public readonly rebasing: boolean = false,
 	) {
 		this.id = `${repoPath}|${remote ? 'remotes/' : 'heads/'}${name}`;
 

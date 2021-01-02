@@ -351,6 +351,7 @@ export * from './log';
 export * from './logCommit';
 export * from './merge';
 export * from './pullRequest';
+export * from './rebase';
 export * from './reflog';
 export * from './remote';
 export * from './repository';

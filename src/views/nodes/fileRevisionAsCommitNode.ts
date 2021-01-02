@@ -15,7 +15,8 @@ import {
 } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { LineHistoryView } from '../lineHistoryView';
-import { MergeConflictCurrentChangesNode, MergeConflictIncomingChangesNode } from './mergeStatusNode';
+import { MergeConflictCurrentChangesNode } from './mergeConflictCurrentChangesNode';
+import { MergeConflictIncomingChangesNode } from './mergeConflictIncomingChangesNode';
 import { ViewsWithCommits } from '../viewBase';
 import { ContextValues, ViewNode, ViewRefFileNode } from './viewNode';
 
@@ -55,12 +56,15 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 	async getChildren(): Promise<ViewNode[]> {
 		if (!this.commit.hasConflicts) return [];
 
-		const mergeStatus = await Container.git.getMergeStatus(this.commit.repoPath);
-		if (mergeStatus == null) return [];
+		const [mergeStatus, rebaseStatus] = await Promise.all([
+			Container.git.getMergeStatus(this.commit.repoPath),
+			Container.git.getRebaseStatus(this.commit.repoPath),
+		]);
+		if (mergeStatus == null && rebaseStatus == null) return [];
 
 		return [
-			new MergeConflictCurrentChangesNode(this.view, this, mergeStatus, this.file),
-			new MergeConflictIncomingChangesNode(this.view, this, mergeStatus, this.file),
+			new MergeConflictCurrentChangesNode(this.view, this, (mergeStatus ?? rebaseStatus)!, this.file),
+			new MergeConflictIncomingChangesNode(this.view, this, (mergeStatus ?? rebaseStatus)!, this.file),
 		];
 	}
 

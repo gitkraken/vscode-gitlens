@@ -22,6 +22,7 @@ import { GitUri } from '../../git/gitUri';
 import { insertDateMarkers } from './helpers';
 import { MergeStatusNode } from './mergeStatusNode';
 import { PullRequestNode } from './pullRequestNode';
+import { RebaseStatusNode } from './rebaseStatusNode';
 import { RemotesView } from '../remotesView';
 import { RepositoriesView } from '../repositoriesView';
 import { RepositoryNode } from './repositoryNode';
@@ -42,6 +43,7 @@ export class BranchNode
 		showAsCommits: boolean;
 		showComparison: false | ViewShowBranchComparison;
 		showCurrent: boolean;
+		showStatus: boolean;
 		showTracking: boolean;
 		authors?: string[];
 	};
@@ -60,6 +62,7 @@ export class BranchNode
 			showAsCommits?: boolean;
 			showComparison?: false | ViewShowBranchComparison;
 			showCurrent?: boolean;
+			showStatus?: boolean;
 			showTracking?: boolean;
 			authors?: string[];
 		},
@@ -70,9 +73,11 @@ export class BranchNode
 			expanded: false,
 			showAsCommits: false,
 			showComparison: false,
-			// Hide the current branch checkmark when the node is displayed as a root under the repository node
+			// Hide the current branch checkmark when the node is displayed as a root
 			showCurrent: !this.root,
-			// Don't show tracking info the node is displayed as a root under the repository node
+			// Don't show merge/rebase status info the node is displayed as a root
+			showStatus: true, //!this.root,
+			// Don't show tracking info the node is displayed as a root
 			showTracking: !this.root,
 			...options,
 		};
@@ -96,14 +101,16 @@ export class BranchNode
 		if (this.options.showAsCommits) return 'Commits';
 
 		const branchName = this.branch.getNameWithoutRemote();
-		return this.view.config.branches?.layout !== ViewBranchesLayout.Tree ||
+		return `${
+			this.view.config.branches?.layout !== ViewBranchesLayout.Tree ||
 			this.compacted ||
 			this.root ||
 			this.current ||
 			this.branch.detached ||
 			this.branch.starred
-			? branchName
-			: this.branch.getBasename();
+				? branchName
+				: this.branch.getBasename()
+		}${this.branch.rebasing ? ' (Rebasing)' : ''}`;
 	}
 
 	get ref(): GitBranchReference {
@@ -121,12 +128,24 @@ export class BranchNode
 			const children = [];
 
 			const range = await Container.git.getBranchAheadRange(this.branch);
-			const [log, getBranchAndTagTips, mergeStatus, pr, unpublishedCommits] = await Promise.all([
+			const [
+				log,
+				getBranchAndTagTips,
+				status,
+				mergeStatus,
+				rebaseStatus,
+				pr,
+				unpublishedCommits,
+			] = await Promise.all([
 				this.getLog(),
 				Container.git.getBranchesAndTagsTipsFn(this.uri.repoPath, this.branch.name),
-				this.options.showTracking && this.branch.current
+				this.options.showStatus && this.branch.current
+					? Container.git.getStatusForRepo(this.uri.repoPath)
+					: undefined,
+				this.options.showStatus && this.branch.current
 					? Container.git.getMergeStatus(this.uri.repoPath!)
 					: undefined,
+				this.options.showStatus ? Container.git.getRebaseStatus(this.uri.repoPath!) : undefined,
 				this.view.config.pullRequests.enabled &&
 				this.view.config.pullRequests.showForBranches &&
 				(this.branch.tracking || this.branch.remote)
@@ -158,54 +177,62 @@ export class BranchNode
 				children.push(new PullRequestNode(this.view, this, pr, this.branch));
 			}
 
-			if (this.options.showTracking) {
-				if (mergeStatus != null) {
-					children.push(new MergeStatusNode(this.view, this, this.branch, mergeStatus));
-				} else {
-					const status = {
-						ref: this.branch.ref,
-						repoPath: this.branch.repoPath,
-						state: this.branch.state,
-						upstream: this.branch.tracking,
-					};
+			if (this.options.showStatus && mergeStatus != null) {
+				children.push(
+					new MergeStatusNode(
+						this.view,
+						this,
+						this.branch,
+						mergeStatus,
+						status ?? (await Container.git.getStatusForRepo(this.uri.repoPath)),
+						this.root,
+					),
+				);
+			} else if (
+				this.options.showStatus &&
+				rebaseStatus != null &&
+				(this.branch.current || this.branch.name === rebaseStatus.incoming.name)
+			) {
+				children.push(
+					new RebaseStatusNode(
+						this.view,
+						this,
+						this.branch,
+						rebaseStatus,
+						status ?? (await Container.git.getStatusForRepo(this.uri.repoPath)),
+						this.root,
+					),
+				);
+			} else if (this.options.showTracking) {
+				const status = {
+					ref: this.branch.ref,
+					repoPath: this.branch.repoPath,
+					state: this.branch.state,
+					upstream: this.branch.tracking,
+				};
 
-					if (this.branch.tracking) {
-						if (this.root && !status.state.behind && !status.state.ahead) {
-							children.push(
-								new BranchTrackingStatusNode(this.view, this, this.branch, status, 'same', this.root),
-							);
-						} else {
-							if (status.state.behind) {
-								children.push(
-									new BranchTrackingStatusNode(
-										this.view,
-										this,
-										this.branch,
-										status,
-										'behind',
-										this.root,
-									),
-								);
-							}
-
-							if (status.state.ahead) {
-								children.push(
-									new BranchTrackingStatusNode(
-										this.view,
-										this,
-										this.branch,
-										status,
-										'ahead',
-										this.root,
-									),
-								);
-							}
-						}
-					} else {
+				if (this.branch.tracking) {
+					if (this.root && !status.state.behind && !status.state.ahead) {
 						children.push(
-							new BranchTrackingStatusNode(this.view, this, this.branch, status, 'none', this.root),
+							new BranchTrackingStatusNode(this.view, this, this.branch, status, 'same', this.root),
 						);
+					} else {
+						if (status.state.behind) {
+							children.push(
+								new BranchTrackingStatusNode(this.view, this, this.branch, status, 'behind', this.root),
+							);
+						}
+
+						if (status.state.ahead) {
+							children.push(
+								new BranchTrackingStatusNode(this.view, this, this.branch, status, 'ahead', this.root),
+							);
+						}
 					}
+				} else {
+					children.push(
+						new BranchTrackingStatusNode(this.view, this, this.branch, status, 'none', this.root),
+					);
 				}
 			}
 
@@ -249,7 +276,7 @@ export class BranchNode
 
 		let tooltip: string | MarkdownString = `${
 			this.current ? 'Current branch' : 'Branch'
-		} $(git-branch) ${this.branch.getNameWithoutRemote()}`;
+		} $(git-branch) ${this.branch.getNameWithoutRemote()}${this.branch.rebasing ? ' (Rebasing)' : ''}`;
 
 		let contextValue: string = ContextValues.Branch;
 		if (this.current) {
@@ -303,7 +330,11 @@ export class BranchNode
 				description = this.options.showAsCommits
 					? `${this.branch.getTrackingStatus({
 							suffix: Strings.pad(GlyphChars.Dot, 1, 1),
-					  })}${this.branch.getNameWithoutRemote()}${Strings.pad(arrows, 2, 2)}${this.branch.tracking}`
+					  })}${this.branch.getNameWithoutRemote()}${this.branch.rebasing ? ' (Rebasing)' : ''}${Strings.pad(
+							arrows,
+							2,
+							2,
+					  )}${this.branch.tracking}`
 					: `${this.branch.getTrackingStatus({ suffix: `${GlyphChars.Space} ` })}${arrows}${
 							GlyphChars.Space
 					  } ${this.branch.tracking}`;

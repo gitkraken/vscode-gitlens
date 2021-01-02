@@ -32,6 +32,7 @@ export class GitStatus {
 		public readonly files: GitStatusFile[],
 		public readonly state: GitTrackingState,
 		public readonly upstream?: string,
+		public readonly rebasing: boolean = false,
 	) {
 		this.detached = GitBranch.isDetached(branch);
 		if (this.detached) {

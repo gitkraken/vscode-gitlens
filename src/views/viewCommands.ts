@@ -777,7 +777,7 @@ export class ViewCommands {
 		if (node instanceof MergeConflictFileNode) {
 			void executeCommand<DiffWithCommandArgs>(Commands.DiffWith, {
 				lhs: {
-					sha: 'MERGE_HEAD',
+					sha: node.status.HEAD.ref,
 					uri: GitUri.fromFile(node.file, node.repoPath, undefined, true),
 				},
 				rhs: {

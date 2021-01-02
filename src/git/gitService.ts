@@ -1,6 +1,7 @@
 'use strict';
 import * as fs from 'fs';
 import * as paths from 'path';
+import { TextDecoder } from 'util';
 import {
 	ConfigurationChangeEvent,
 	Disposable,
@@ -51,6 +52,7 @@ import {
 	GitLogCommit,
 	GitLogParser,
 	GitMergeStatus,
+	GitRebaseStatus,
 	GitReference,
 	GitReflog,
 	GitRemote,
@@ -118,6 +120,8 @@ const weightedDefaultBranches = new Map<string, number>([
 	['develop', 5],
 	['development', 1],
 ]);
+
+const textDecoder = new TextDecoder('utf8');
 
 export class GitService implements Disposable {
 	private _onDidChangeRepositories = new EventEmitter<void>();
@@ -1139,16 +1143,23 @@ export class GitService implements Disposable {
 
 		const [name, tracking] = data[0].split('\n');
 		if (GitBranch.isDetached(name)) {
-			const committerDate = await Git.log__recent_committerdate(repoPath);
+			const [rebaseStatus, committerDate] = await Promise.all([
+				this.getRebaseStatus(repoPath),
+				Git.log__recent_committerdate(repoPath),
+			]);
 
 			branch = new GitBranch(
 				repoPath,
-				name,
+				rebaseStatus?.incoming.name ?? name,
 				false,
 				true,
-				committerDate == null ? undefined : new Date(Number(committerDate) * 1000),
+				committerDate != null ? new Date(Number(committerDate) * 1000) : undefined,
 				data[1],
 				tracking,
+				undefined,
+				undefined,
+				undefined,
+				rebaseStatus != null,
 			);
 		}
 
@@ -1214,17 +1225,24 @@ export class GitService implements Disposable {
 
 				const data = await Git.rev_parse__currentBranch(repoPath);
 				if (data != null) {
-					const committerDate = await Git.log__recent_committerdate(repoPath);
-
 					const [name, tracking] = data[0].split('\n');
+					const [rebaseStatus, committerDate] = await Promise.all([
+						GitBranch.isDetached(name) ? this.getRebaseStatus(repoPath) : undefined,
+						Git.log__recent_committerdate(repoPath),
+					]);
+
 					current = new GitBranch(
 						repoPath,
-						name,
+						rebaseStatus?.incoming.name ?? name,
 						false,
 						true,
-						committerDate == null ? undefined : new Date(Number(committerDate) * 1000),
+						committerDate != null ? new Date(Number(committerDate) * 1000) : undefined,
 						data[1],
 						tracking,
+						undefined,
+						undefined,
+						undefined,
+						rebaseStatus != null,
 					);
 				}
 
@@ -1426,7 +1444,7 @@ export class GitService implements Disposable {
 				const shortlog = GitShortLogParser.parse(data, repoPath);
 				if (shortlog != null) {
 					// Mark the current user
-					const currentUser = await Container.git.getCurrentUser(repoPath);
+					const currentUser = await this.getCurrentUser(repoPath);
 					if (currentUser != null) {
 						const index = shortlog.contributors.findIndex(
 							c => currentUser.email === c.email && currentUser.name === c.name,
@@ -2379,28 +2397,92 @@ export class GitService implements Disposable {
 		}
 	}
 
-	async getMergeStatus(repoPath: string): Promise<GitMergeStatus | undefined>;
-	async getMergeStatus(status: GitStatus): Promise<GitMergeStatus | undefined>;
-	@log({ args: false })
-	async getMergeStatus(repoPathOrStatus: string | GitStatus): Promise<GitMergeStatus | undefined> {
-		let status;
-		if (typeof repoPathOrStatus === 'string') {
-			status = await this.getStatusForRepo(repoPathOrStatus);
-		} else {
-			status = repoPathOrStatus;
-		}
-		if (status?.hasConflicts !== true) return undefined;
+	@log()
+	async getMergeStatus(repoPath: string): Promise<GitMergeStatus | undefined> {
+		const merge = await Git.rev_parse__verify(repoPath, 'MERGE_HEAD');
+		if (merge == null) return undefined;
 
-		const [mergeBase, possibleSourceBranches] = await Promise.all([
-			Container.git.getMergeBase(status.repoPath, 'MERGE_HEAD', 'HEAD'),
-			Container.git.getCommitBranches(status.repoPath, 'MERGE_HEAD', { mode: 'pointsAt' }),
+		const [branch, mergeBase, possibleSourceBranches] = await Promise.all([
+			this.getBranch(repoPath),
+			this.getMergeBase(repoPath, 'MERGE_HEAD', 'HEAD'),
+			this.getCommitBranches(repoPath, 'MERGE_HEAD', { mode: 'pointsAt' }),
 		]);
+
 		return {
-			repoPath: status.repoPath,
+			type: 'merge',
+			repoPath: repoPath,
 			mergeBase: mergeBase,
-			conflicts: status.files.filter(f => f.conflicted),
-			into: status.branch,
-			incoming: possibleSourceBranches?.length === 1 ? possibleSourceBranches[0] : undefined,
+			HEAD: GitReference.create(merge, repoPath, { refType: 'revision' }),
+			current: GitReference.fromBranch(branch!),
+			incoming:
+				possibleSourceBranches?.length === 1
+					? GitReference.create(possibleSourceBranches[0], repoPath, {
+							refType: 'branch',
+							name: possibleSourceBranches[0],
+							remote: false,
+					  })
+					: undefined,
+		};
+	}
+
+	@log()
+	async getRebaseStatus(repoPath: string): Promise<GitRebaseStatus | undefined> {
+		const rebase = await Git.rev_parse__verify(repoPath, 'REBASE_HEAD');
+		if (rebase == null) return undefined;
+
+		const [mergeBase, headNameBytes, ontoBytes, stepBytes, stepMessageBytes, stepsBytes] = await Promise.all([
+			this.getMergeBase(repoPath, 'REBASE_HEAD', 'HEAD'),
+			workspace.fs.readFile(Uri.file(paths.join(repoPath, '.git', 'rebase-merge', 'head-name'))),
+			workspace.fs.readFile(Uri.file(paths.join(repoPath, '.git', 'rebase-merge', 'onto'))),
+			workspace.fs.readFile(Uri.file(paths.join(repoPath, '.git', 'rebase-merge', 'msgnum'))),
+			workspace.fs.readFile(Uri.file(paths.join(repoPath, '.git', 'rebase-merge', 'message'))),
+			workspace.fs.readFile(Uri.file(paths.join(repoPath, '.git', 'rebase-merge', 'end'))),
+		]);
+
+		let branch = textDecoder.decode(headNameBytes);
+		if (branch.startsWith('refs/heads/')) {
+			branch = branch.substr(11).trim();
+		}
+
+		const onto = textDecoder.decode(ontoBytes).trim();
+		const step = Number.parseInt(textDecoder.decode(stepBytes).trim(), 10);
+		const steps = Number.parseInt(textDecoder.decode(stepsBytes).trim(), 10);
+
+		const possibleSourceBranches = await this.getCommitBranches(repoPath, onto, { mode: 'pointsAt' });
+
+		let possibleSourceBranch: string | undefined;
+		for (const b of possibleSourceBranches) {
+			if (b.startsWith('(no branch, rebasing')) continue;
+
+			possibleSourceBranch = b;
+			break;
+		}
+
+		return {
+			type: 'rebase',
+			repoPath: repoPath,
+			mergeBase: mergeBase,
+			HEAD: GitReference.create(rebase, repoPath, { refType: 'revision' }),
+			current:
+				possibleSourceBranch != null
+					? GitReference.create(possibleSourceBranch, repoPath, {
+							refType: 'branch',
+							name: possibleSourceBranch,
+							remote: false,
+					  })
+					: undefined,
+
+			incoming: GitReference.create(branch, repoPath, {
+				refType: 'branch',
+				name: branch,
+				remote: false,
+			}),
+			step: step,
+			stepCurrent: GitReference.create(rebase, repoPath, {
+				refType: 'revision',
+				message: textDecoder.decode(stepMessageBytes).trim(),
+			}),
+			steps: steps,
 		};
 	}
 
@@ -3338,6 +3420,21 @@ export class GitService implements Disposable {
 			similarityThreshold: Container.config.advanced.similarityThreshold,
 		});
 		const status = GitStatusParser.parse(data, repoPath, porcelainVersion);
+
+		if (status?.detached) {
+			const rebaseStatus = await this.getRebaseStatus(repoPath);
+			if (rebaseStatus != null) {
+				return new GitStatus(
+					repoPath,
+					rebaseStatus.incoming.name,
+					status.sha,
+					status.files,
+					status.state,
+					status.upstream,
+					true,
+				);
+			}
+		}
 		return status;
 	}
 

@@ -21,6 +21,7 @@ import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
 import { MessageNode } from './common';
 import { ContributorsNode } from './contributorsNode';
 import { MergeStatusNode } from './mergeStatusNode';
+import { RebaseStatusNode } from './rebaseStatusNode';
 import { ReflogNode } from './reflogNode';
 import { RemotesNode } from './remotesNode';
 import { StashesNode } from './stashesNode';
@@ -68,6 +69,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 					status.state.ahead,
 					status.state.behind,
 					status.detached,
+					status.rebasing,
 				);
 
 				if (this.view.config.showBranchComparison !== false) {
@@ -83,11 +85,15 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 					);
 				}
 
-				if (status.hasConflicts) {
-					const mergeStatus = await Container.git.getMergeStatus(status);
-					if (mergeStatus != null) {
-						children.push(new MergeStatusNode(this.view, this, branch, mergeStatus));
-					}
+				const [mergeStatus, rebaseStatus] = await Promise.all([
+					Container.git.getMergeStatus(status.repoPath),
+					Container.git.getRebaseStatus(status.repoPath),
+				]);
+
+				if (mergeStatus != null) {
+					children.push(new MergeStatusNode(this.view, this, branch, mergeStatus, status, true));
+				} else if (rebaseStatus != null) {
+					children.push(new RebaseStatusNode(this.view, this, branch, rebaseStatus, status, true));
 				} else if (this.view.config.showUpstreamStatus) {
 					if (status.upstream) {
 						if (!status.state.behind && !status.state.ahead) {
@@ -127,6 +133,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 							showAsCommits: true,
 							showComparison: false,
 							showCurrent: false,
+							showStatus: false,
 							showTracking: false,
 						}),
 					);
@@ -186,7 +193,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 
 		const status = await this._status;
 		if (status != null) {
-			tooltip += `\n\nCurrent branch $(git-branch) ${status.branch}`;
+			tooltip += `\n\nCurrent branch $(git-branch) ${status.branch}${status.rebasing ? ' (Rebasing)' : ''}`;
 
 			if (this.view.config.includeWorkingTree && status.files.length !== 0) {
 				workingStatus = status.getFormattedDiffStatus({
@@ -199,7 +206,7 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 				suffix: Strings.pad(GlyphChars.Dot, 1, 1),
 			});
 
-			description = `${upstreamStatus}${status.branch}${workingStatus}`;
+			description = `${upstreamStatus}${status.branch}${status.rebasing ? ' (Rebasing)' : ''}${workingStatus}`;
 
 			let providerName;
 			if (status.upstream != null) {

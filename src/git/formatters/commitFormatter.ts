@@ -33,6 +33,7 @@ const emptyStr = '';
 
 export interface CommitFormatOptions extends FormatOptions {
 	autolinkedIssuesOrPullRequests?: Map<string, IssueOrPullRequest | Promises.CancellationError | undefined>;
+	avatarSize?: number;
 	dateStyle?: DateStyle;
 	footnotes?: Map<number, string>;
 	getBranchAndTagTips?: (sha: string) => string | undefined;
@@ -210,7 +211,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				presence.status === 'dnd' ? 'in ' : emptyStr
 			}${presence.statusText.toLocaleLowerCase()}`;
 
-			const avatarMarkdownPromise = this._getAvatarMarkdown(title);
+			const avatarMarkdownPromise = this._getAvatarMarkdown(title, this._options.avatarSize);
 			return avatarMarkdownPromise.then(md =>
 				this._padOrTruncate(
 					`${md}${this._getPresenceMarkdown(presence, title)}`,
@@ -219,11 +220,11 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			);
 		}
 
-		return this._getAvatarMarkdown(this._item.author);
+		return this._getAvatarMarkdown(this._item.author, this._options.avatarSize);
 	}
 
-	private async _getAvatarMarkdown(title: string) {
-		const size = Container.config.hovers.avatarSize;
+	private async _getAvatarMarkdown(title: string, size?: number) {
+		size = size ?? Container.config.hovers.avatarSize;
 		const avatarPromise = this._item.getAvatarUri({
 			defaultStyle: Container.config.defaultGravatarsStyle,
 			size: size,
