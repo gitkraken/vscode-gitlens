@@ -1023,6 +1023,7 @@ A big thanks to the people that have contributed to this project:
 - John Letey ([@johnletey](https://github.com/johnletey)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=johnletey)
 - Peng Lyu ([@rebornix](https://github.com/rebornix)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=rebornix)
 - Cédric Malard ([@cmalard](https://github.com/cmalard)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=cmalard)
+- Ahmadou Waly NDIAYE ([@sir-kain](https://github.com/sir-kain)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=sir-kain)
 - Nguyen Long Nhat ([@torn4dom4n](https://github.com/torn4dom4n)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=torn4dom4n)
 - Aurelio Ogliari ([@nobitagit](https://github.com/nobitagit)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=nobitagit)
 - Raaj Patil ([@arrpee](https://github.com/arrpee)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=arrpee)
