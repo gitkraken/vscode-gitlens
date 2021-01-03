@@ -139,6 +139,8 @@ export enum SyncedState {
 
 export enum GlobalState {
 	Avatars = 'gitlens:avatars',
+	PendingWelcomeOnFocus = 'gitlens:pendingWelcomeOnFocus',
+	PendingWhatsNewOnFocus = 'gitlens:pendingWhatsNewOnFocus',
 	Version = 'gitlens:version',
 
 	Deprecated_Version = 'gitlensVersion',
