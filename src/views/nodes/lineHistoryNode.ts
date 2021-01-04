@@ -1,8 +1,9 @@
 'use strict';
 import { Disposable, Selection, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
-import { CommitFileNode } from './commitFileNode';
 import { LoadMoreNode, MessageNode } from './common';
 import { Container } from '../../container';
+import { FileHistoryView } from '../fileHistoryView';
+import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
 import {
 	GitBranch,
 	GitCommitType,
@@ -18,12 +19,14 @@ import { GitUri } from '../../git/gitUri';
 import { insertDateMarkers } from './helpers';
 import { Logger } from '../../logger';
 import { LineHistoryTrackerNode } from './lineHistoryTrackerNode';
+import { LineHistoryView } from '../lineHistoryView';
 import { RepositoryNode } from './repositoryNode';
 import { debug, gate, Iterables, memoize } from '../../system';
-import { View } from '../viewBase';
 import { ContextValues, PageableViewNode, SubscribeableViewNode, ViewNode } from './viewNode';
 
-export class LineHistoryNode extends SubscribeableViewNode implements PageableViewNode {
+export class LineHistoryNode
+	extends SubscribeableViewNode<FileHistoryView | LineHistoryView>
+	implements PageableViewNode {
 	static key = ':history:line';
 	static getId(repoPath: string, uri: string, selection: Selection): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${uri}[${selection.start.line},${
@@ -35,7 +38,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 
 	constructor(
 		uri: GitUri,
-		view: View,
+		view: FileHistoryView | LineHistoryView,
 		parent: ViewNode,
 		private readonly branch: GitBranch | undefined,
 		public readonly selection: Selection,
@@ -127,8 +130,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 						children.splice(
 							0,
 							0,
-							new CommitFileNode(this.view, this, file, uncommitted, {
-								displayAsCommit: true,
+							new FileRevisionAsCommitNode(this.view, this, file, uncommitted, {
 								selection: selection,
 							}),
 						);
@@ -153,8 +155,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 						children.splice(
 							0,
 							0,
-							new CommitFileNode(this.view, this, file, uncommitted, {
-								displayAsCommit: true,
+							new FileRevisionAsCommitNode(this.view, this, file, uncommitted, {
 								selection: selection,
 							}),
 						);
@@ -183,8 +184,7 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 						children.splice(
 							0,
 							0,
-							new CommitFileNode(this.view, this, file, uncommitted, {
-								displayAsCommit: true,
+							new FileRevisionAsCommitNode(this.view, this, file, uncommitted, {
 								selection: selection,
 							}),
 						);
@@ -201,9 +201,8 @@ export class LineHistoryNode extends SubscribeableViewNode implements PageableVi
 					Iterables.filterMap(
 						log.commits.values(),
 						c =>
-							new CommitFileNode(this.view, this, c.files[0], c, {
+							new FileRevisionAsCommitNode(this.view, this, c.files[0], c, {
 								branch: this.branch,
-								displayAsCommit: true,
 								selection: selection,
 								unpublished: unpublishedCommits?.has(c.ref),
 							}),

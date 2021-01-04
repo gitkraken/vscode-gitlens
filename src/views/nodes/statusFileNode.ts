@@ -1,17 +1,17 @@
 'use strict';
 import * as paths from 'path';
 import { Command, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
-import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
+import { Commands, DiffWithCommandArgs, DiffWithPreviousCommandArgs } from '../../commands';
 import { Container } from '../../container';
+import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode';
+import { FileNode } from './folderNode';
 import { GitFile, GitLogCommit, StatusFileFormatter } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { Strings } from '../../system';
-import { View } from '../viewBase';
-import { CommitFileNode } from './commitFileNode';
+import { ViewsWithCommits } from '../viewBase';
 import { ContextValues, ViewNode } from './viewNode';
-import { DiffWithCommandArgs } from '../../commands/diffWith';
 
-export class StatusFileNode extends ViewNode {
+export class StatusFileNode extends ViewNode<ViewsWithCommits> implements FileNode {
 	public readonly commits: GitLogCommit[];
 	public readonly file: GitFile;
 	public readonly repoPath: string;
@@ -19,7 +19,7 @@ export class StatusFileNode extends ViewNode {
 	private readonly _hasStagedChanges: boolean;
 	private readonly _hasUnstagedChanges: boolean;
 
-	constructor(view: View, parent: ViewNode, repoPath: string, file: GitFile, commits: GitLogCommit[]) {
+	constructor(view: ViewsWithCommits, parent: ViewNode, repoPath: string, file: GitFile, commits: GitLogCommit[]) {
 		let hasStagedChanges = false;
 		let hasUnstagedChanges = false;
 		let ref = undefined;
@@ -63,7 +63,7 @@ export class StatusFileNode extends ViewNode {
 	}
 
 	getChildren(): ViewNode[] {
-		return this.commits.map(c => new CommitFileNode(this.view, this, this.file, c, { displayAsCommit: true }));
+		return this.commits.map(c => new FileRevisionAsCommitNode(this.view, this, this.file, c));
 	}
 
 	getTreeItem(): TreeItem {

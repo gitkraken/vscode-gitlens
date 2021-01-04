@@ -27,6 +27,7 @@ import {
 	ContributorNode,
 	ContributorsNode,
 	FileHistoryNode,
+	FileRevisionAsCommitNode,
 	FolderNode,
 	LineHistoryNode,
 	nodeSupportsClearing,
@@ -332,10 +333,11 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private async highlightChanges(node: CommitFileNode | ResultsFileNode | StashFileNode) {
+	private async highlightChanges(node: CommitFileNode | StashFileNode | FileRevisionAsCommitNode | ResultsFileNode) {
 		if (
 			!(node instanceof CommitFileNode) &&
 			!(node instanceof StashFileNode) &&
+			!(node instanceof FileRevisionAsCommitNode) &&
 			!(node instanceof ResultsFileNode)
 		) {
 			return;
@@ -351,10 +353,13 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private async highlightRevisionChanges(node: CommitFileNode | ResultsFileNode | StashFileNode) {
+	private async highlightRevisionChanges(
+		node: CommitFileNode | StashFileNode | FileRevisionAsCommitNode | ResultsFileNode,
+	) {
 		if (
 			!(node instanceof CommitFileNode) &&
 			!(node instanceof StashFileNode) &&
+			!(node instanceof FileRevisionAsCommitNode) &&
 			!(node instanceof ResultsFileNode)
 		) {
 			return;
@@ -377,8 +382,8 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private pushToCommit(node: CommitNode | CommitFileNode) {
-		if (!(node instanceof CommitNode) && !(node instanceof CommitFileNode)) return Promise.resolve();
+	private pushToCommit(node: CommitNode | FileRevisionAsCommitNode) {
+		if (!(node instanceof CommitNode) && !(node instanceof FileRevisionAsCommitNode)) return Promise.resolve();
 
 		return GitActions.push(node.repoPath, false, node.commit);
 	}
@@ -440,11 +445,11 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private rebase(node: BranchNode | CommitNode | CommitFileNode | TagNode) {
+	private rebase(node: BranchNode | CommitNode | FileRevisionAsCommitNode | TagNode) {
 		if (
 			!(node instanceof BranchNode) &&
 			!(node instanceof CommitNode) &&
-			!(node instanceof CommitFileNode) &&
+			!(node instanceof FileRevisionAsCommitNode) &&
 			!(node instanceof TagNode)
 		) {
 			return Promise.resolve();
@@ -478,8 +483,8 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private resetCommit(node: CommitNode | CommitFileNode) {
-		if (!(node instanceof CommitNode) && !(node instanceof CommitFileNode)) return Promise.resolve();
+	private resetCommit(node: CommitNode | FileRevisionAsCommitNode) {
+		if (!(node instanceof CommitNode) && !(node instanceof FileRevisionAsCommitNode)) return Promise.resolve();
 
 		return GitActions.reset(
 			node.repoPath,
@@ -492,8 +497,8 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private resetToCommit(node: CommitNode | CommitFileNode) {
-		if (!(node instanceof CommitNode) && !(node instanceof CommitFileNode)) return Promise.resolve();
+	private resetToCommit(node: CommitNode | FileRevisionAsCommitNode) {
+		if (!(node instanceof CommitNode) && !(node instanceof FileRevisionAsCommitNode)) return Promise.resolve();
 
 		return GitActions.reset(node.repoPath, node.ref);
 	}
@@ -506,8 +511,8 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private revert(node: CommitNode | CommitFileNode) {
-		if (!(node instanceof CommitNode) && !(node instanceof CommitFileNode)) return Promise.resolve();
+	private revert(node: CommitNode | FileRevisionAsCommitNode) {
+		if (!(node instanceof CommitNode) && !(node instanceof FileRevisionAsCommitNode)) return Promise.resolve();
 
 		return GitActions.revert(node.repoPath, node.ref);
 	}
@@ -532,8 +537,8 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private async stageFile(node: CommitFileNode | StatusFileNode) {
-		if (!(node instanceof CommitFileNode) && !(node instanceof StatusFileNode)) return;
+	private async stageFile(node: FileRevisionAsCommitNode | StatusFileNode) {
+		if (!(node instanceof FileRevisionAsCommitNode) && !(node instanceof StatusFileNode)) return;
 
 		void (await Container.git.stageFile(node.repoPath, node.file.fileName));
 		void node.triggerChange();
@@ -575,8 +580,8 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private undoCommit(node: CommitNode | CommitFileNode) {
-		if (!(node instanceof CommitNode) && !(node instanceof CommitFileNode)) return Promise.resolve();
+	private undoCommit(node: CommitNode | FileRevisionAsCommitNode) {
+		if (!(node instanceof CommitNode) && !(node instanceof FileRevisionAsCommitNode)) return Promise.resolve();
 
 		return GitActions.reset(
 			node.repoPath,
@@ -597,8 +602,8 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private async unstageFile(node: CommitFileNode | StatusFileNode) {
-		if (!(node instanceof CommitFileNode) && !(node instanceof StatusFileNode)) return;
+	private async unstageFile(node: FileRevisionAsCommitNode | StatusFileNode) {
+		if (!(node instanceof FileRevisionAsCommitNode) && !(node instanceof StatusFileNode)) return;
 
 		void (await Container.git.unStageFile(node.repoPath, node.file.fileName));
 		void node.triggerChange();
@@ -893,11 +898,13 @@ export class ViewCommands {
 
 	@debug()
 	private openRevision(
-		node: CommitFileNode | ResultsFileNode | StashFileNode | StatusFileNode,
+		node: CommitFileNode | FileRevisionAsCommitNode | ResultsFileNode | StashFileNode | StatusFileNode,
 		options?: OpenFileAtRevisionCommandArgs,
 	) {
 		if (
 			!(node instanceof CommitFileNode) &&
+			!(node instanceof FileRevisionAsCommitNode) &&
+			!(node instanceof ResultsFileNode) &&
 			!(node instanceof StashFileNode) &&
 			!(node instanceof ResultsFileNode) &&
 			!(node instanceof StatusFileNode)

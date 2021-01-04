@@ -10,10 +10,10 @@ import { GitBranch, GitFileWithCommit, GitRevision } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { StatusFileNode } from './statusFileNode';
 import { Arrays, Iterables, Objects, Strings } from '../../system';
-import { ViewsWithFiles } from '../viewBase';
+import { ViewsWithCommits } from '../viewBase';
 import { ContextValues, ViewNode } from './viewNode';
 
-export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithFiles> {
+export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithCommits> {
 	static key = ':status-branch:files';
 	static getId(repoPath: string, name: string, root: boolean, upstream: string, direction: string): string {
 		return `${BranchNode.getId(repoPath, name, root)}${this.key}(${upstream}|${direction})`;
@@ -22,7 +22,7 @@ export class BranchTrackingStatusFilesNode extends ViewNode<ViewsWithFiles> {
 	readonly repoPath: string;
 
 	constructor(
-		view: ViewsWithFiles,
+		view: ViewsWithCommits,
 		parent: ViewNode,
 		public readonly branch: GitBranch,
 		public readonly status: Required<BranchTrackingStatus>,

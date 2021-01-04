@@ -3,12 +3,13 @@ import * as paths from 'path';
 import { Command, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithCommandArgs } from '../../commands';
 import { Container } from '../../container';
+import { FileNode } from './folderNode';
 import { GitFile, GitReference, GitRevisionReference, StatusFileFormatter } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { View } from '../viewBase';
 import { ContextValues, ViewNode, ViewRefFileNode } from './viewNode';
 
-export class ResultsFileNode extends ViewRefFileNode {
+export class ResultsFileNode extends ViewRefFileNode implements FileNode {
 	constructor(
 		view: View,
 		parent: ViewNode,

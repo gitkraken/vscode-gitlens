@@ -9,15 +9,14 @@ import { Container } from '../../container';
 import { FileNode, FolderNode } from './folderNode';
 import { CommitFormatter, GitBranch, GitLogCommit, GitRevisionReference } from '../../git/git';
 import { PullRequestNode } from './pullRequestNode';
-import { StashesView } from '../stashesView';
 import { Arrays, Strings } from '../../system';
-import { ViewsWithFiles } from '../viewBase';
-import { ContextValues, ViewNode, ViewRefNode } from './viewNode';
 import { TagsView } from '../tagsView';
+import { ViewsWithCommits } from '../viewBase';
+import { ContextValues, ViewNode, ViewRefNode } from './viewNode';
 
-export class CommitNode extends ViewRefNode<ViewsWithFiles, GitRevisionReference> {
+export class CommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionReference> {
 	constructor(
-		view: ViewsWithFiles,
+		view: ViewsWithCommits,
 		parent: ViewNode,
 		public readonly commit: GitLogCommit,
 		private readonly unpublished?: boolean,
@@ -86,7 +85,7 @@ export class CommitNode extends ViewRefNode<ViewsWithFiles, GitRevisionReference
 			);
 		}
 
-		if (!(this.view instanceof StashesView) && !(this.view instanceof TagsView)) {
+		if (!(this.view instanceof TagsView)) {
 			if (this.view.config.pullRequests.enabled && this.view.config.pullRequests.showForCommits) {
 				const pr = await commit.getAssociatedPullRequest();
 				if (pr != null) {
@@ -120,7 +119,7 @@ export class CommitNode extends ViewRefNode<ViewsWithFiles, GitRevisionReference
 		});
 		item.iconPath = this.unpublished
 			? new ThemeIcon('arrow-up', new ThemeColor('gitlens.viewCommitToPushIconColor'))
-			: !(this.view instanceof StashesView) && this.view.config.avatars
+			: this.view.config.avatars
 			? await this.commit.getAvatarUri({ defaultStyle: Container.config.defaultGravatarsStyle })
 			: new ThemeIcon('git-commit');
 		item.tooltip = this.tooltip;

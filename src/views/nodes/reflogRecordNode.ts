@@ -8,10 +8,10 @@ import { GitLog, GitReflogRecord } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { RepositoryNode } from './repositoryNode';
 import { debug, gate, Iterables } from '../../system';
-import { ViewsWithFiles } from '../viewBase';
+import { ViewsWithCommits } from '../viewBase';
 import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
 
-export class ReflogRecordNode extends ViewNode<ViewsWithFiles> implements PageableViewNode {
+export class ReflogRecordNode extends ViewNode<ViewsWithCommits> implements PageableViewNode {
 	static key = ':reflog-record';
 	static getId(
 		repoPath: string,
@@ -26,7 +26,7 @@ export class ReflogRecordNode extends ViewNode<ViewsWithFiles> implements Pageab
 		}|${date.getTime()})`;
 	}
 
-	constructor(view: ViewsWithFiles, parent: ViewNode, public readonly record: GitReflogRecord) {
+	constructor(view: ViewsWithCommits, parent: ViewNode, public readonly record: GitReflogRecord) {
 		super(GitUri.fromRepoPath(record.repoPath), view, parent);
 	}
 

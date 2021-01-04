@@ -9,7 +9,7 @@ import { GitBranch, GitLog, GitRemote, GitRevision, GitTrackingState } from '../
 import { GitUri } from '../../git/gitUri';
 import { insertDateMarkers } from './helpers';
 import { Dates, debug, gate, Iterables, Strings } from '../../system';
-import { ViewsWithFiles } from '../viewBase';
+import { ViewsWithCommits } from '../viewBase';
 import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
 
 export interface BranchTrackingStatus {
@@ -19,7 +19,7 @@ export interface BranchTrackingStatus {
 	upstream?: string;
 }
 
-export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implements PageableViewNode {
+export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> implements PageableViewNode {
 	static key = ':status-branch:upstream';
 	static getId(
 		repoPath: string,
@@ -36,7 +36,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithFiles> implement
 	};
 
 	constructor(
-		view: ViewsWithFiles,
+		view: ViewsWithCommits,
 		parent: ViewNode,
 		public readonly branch: GitBranch,
 		public readonly status: BranchTrackingStatus,

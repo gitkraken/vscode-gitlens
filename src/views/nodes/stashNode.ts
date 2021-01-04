@@ -5,16 +5,17 @@ import { ViewFilesLayout } from '../../config';
 import { Container } from '../../container';
 import { CommitFormatter, GitStashCommit, GitStashReference } from '../../git/git';
 import { ContextValues, FileNode, FolderNode, RepositoryNode, StashFileNode, ViewNode, ViewRefNode } from '../nodes';
+import { RepositoriesView } from '../repositoriesView';
+import { StashesView } from '../stashesView';
 import { Arrays, Strings } from '../../system';
-import { ViewsWithFiles } from '../viewBase';
 
-export class StashNode extends ViewRefNode<ViewsWithFiles, GitStashReference> {
+export class StashNode extends ViewRefNode<StashesView | RepositoriesView, GitStashReference> {
 	static key = ':stash';
 	static getId(repoPath: string, ref: string): string {
 		return `${RepositoryNode.getId(repoPath)}${this.key}(${ref})`;
 	}
 
-	constructor(view: ViewsWithFiles, parent: ViewNode, public readonly commit: GitStashCommit) {
+	constructor(view: StashesView | RepositoriesView, parent: ViewNode, public readonly commit: GitStashCommit) {
 		super(commit.toGitUri(), view, parent);
 	}
 

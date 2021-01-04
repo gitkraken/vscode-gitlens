@@ -8,7 +8,7 @@ import { GitUri } from '../../git/gitUri';
 import { insertDateMarkers } from './helpers';
 import { FilesQueryResults, ResultsFilesNode } from './resultsFilesNode';
 import { debug, gate, Iterables, Promises } from '../../system';
-import { ViewsWithFiles } from '../viewBase';
+import { ViewsWithCommits } from '../viewBase';
 import { ContextValues, PageableViewNode, ViewNode } from './viewNode';
 
 export interface CommitsQueryResults {
@@ -18,7 +18,7 @@ export interface CommitsQueryResults {
 	more?(limit: number | undefined): Promise<void>;
 }
 
-export class ResultsCommitsNode<View extends ViewsWithFiles = ViewsWithFiles>
+export class ResultsCommitsNode<View extends ViewsWithCommits = ViewsWithCommits>
 	extends ViewNode<View>
 	implements PageableViewNode {
 	constructor(

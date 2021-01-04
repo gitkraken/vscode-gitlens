@@ -2,8 +2,9 @@
 import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { ViewFilesLayout, ViewsFilesConfig } from '../../configuration';
 import { GitUri } from '../../git/gitUri';
+import { StashesView } from '../stashesView';
 import { Arrays } from '../../system';
-import { ViewsWithFiles } from '../viewBase';
+import { ViewsWithCommits } from '../viewBase';
 import { ContextValues, ViewNode } from './viewNode';
 
 export interface FileNode extends ViewNode {
@@ -14,11 +15,11 @@ export interface FileNode extends ViewNode {
 	root?: Arrays.HierarchicalItem<FileNode>;
 }
 
-export class FolderNode extends ViewNode<ViewsWithFiles> {
+export class FolderNode extends ViewNode<ViewsWithCommits | StashesView> {
 	readonly priority: number = 1;
 
 	constructor(
-		view: ViewsWithFiles,
+		view: ViewsWithCommits | StashesView,
 		parent: ViewNode,
 		public readonly repoPath: string,
 		public readonly folderName: string,

@@ -1,31 +1,21 @@
 'use strict';
 import * as paths from 'path';
-import { Command, Selection, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { Command, Selection, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
-import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
-import {
-	CommitFormatter,
-	GitBranch,
-	GitFile,
-	GitLogCommit,
-	GitRevisionReference,
-	StatusFileFormatter,
-} from '../../git/git';
+import { GitBranch, GitFile, GitLogCommit, GitRevisionReference, StatusFileFormatter } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
-import { StashesView } from '../stashesView';
-import { View } from '../viewBase';
+import { View, ViewsWithCommits } from '../viewBase';
 import { ContextValues, ViewNode, ViewRefFileNode } from './viewNode';
 
-export class CommitFileNode extends ViewRefFileNode {
+export class CommitFileNode<TView extends View = ViewsWithCommits> extends ViewRefFileNode<TView> {
 	constructor(
-		view: View,
+		view: TView,
 		parent: ViewNode,
 		public readonly file: GitFile,
 		public commit: GitLogCommit,
 		private readonly _options: {
 			branch?: GitBranch;
-			displayAsCommit?: boolean;
 			selection?: Selection;
 			unpublished?: boolean;
 		} = {},
@@ -34,16 +24,6 @@ export class CommitFileNode extends ViewRefFileNode {
 	}
 
 	toClipboard(): string {
-		if (this._options.displayAsCommit) {
-			let message = this.commit.message;
-			const index = message.indexOf('\n');
-			if (index !== -1) {
-				message = `${message.substring(0, index)}${GlyphChars.Space}${GlyphChars.Ellipsis}`;
-			}
-
-			return `${this.commit.shortSha}: ${message}`;
-		}
-
 		return this.fileName;
 	}
 
@@ -67,12 +47,12 @@ export class CommitFileNode extends ViewRefFileNode {
 		if (!this.commit.isFile) {
 			// See if we can get the commit directly from the multi-file commit
 			const commit = this.commit.toFileCommit(this.file);
-			if (commit === undefined) {
+			if (commit == null) {
 				const log = await Container.git.getLogForFile(this.repoPath, this.file.fileName, {
 					limit: 2,
 					ref: this.commit.sha,
 				});
-				if (log !== undefined) {
+				if (log != null) {
 					this.commit = log.commits.get(this.commit.sha) ?? this.commit;
 				}
 			} else {
@@ -85,21 +65,11 @@ export class CommitFileNode extends ViewRefFileNode {
 		item.description = this.description;
 		item.tooltip = this.tooltip;
 
-		if (this._options.displayAsCommit) {
-			if (!this.commit.isUncommitted && !(this.view instanceof StashesView) && this.view.config.avatars) {
-				item.iconPath = this._options.unpublished
-					? new ThemeIcon('arrow-up', new ThemeColor('gitlens.viewCommitToPushIconColor'))
-					: await this.commit.getAvatarUri({ defaultStyle: Container.config.defaultGravatarsStyle });
-			}
-		}
-
-		if (item.iconPath == null) {
-			const icon = GitFile.getStatusIcon(this.file.status);
-			item.iconPath = {
-				dark: Container.context.asAbsolutePath(paths.join('images', 'dark', icon)),
-				light: Container.context.asAbsolutePath(paths.join('images', 'light', icon)),
-			};
-		}
+		const icon = GitFile.getStatusIcon(this.file.status);
+		item.iconPath = {
+			dark: Container.context.asAbsolutePath(paths.join('images', 'dark', icon)),
+			light: Container.context.asAbsolutePath(paths.join('images', 'light', icon)),
+		};
 
 		item.command = this.getCommand();
 
@@ -120,14 +90,9 @@ export class CommitFileNode extends ViewRefFileNode {
 	}
 
 	private get description() {
-		return this._options.displayAsCommit
-			? CommitFormatter.fromTemplate(this.getDescriptionFormat(), this.commit, {
-					dateFormat: Container.config.defaultDateFormat,
-					messageTruncateAtNewLine: true,
-			  })
-			: StatusFileFormatter.fromTemplate(this.view.config.formats.files.description, this.file, {
-					relativePath: this.relativePath,
-			  });
+		return StatusFileFormatter.fromTemplate(this.view.config.formats.files.description, this.file, {
+			relativePath: this.relativePath,
+		});
 	}
 
 	private _folderName: string | undefined;
@@ -141,14 +106,9 @@ export class CommitFileNode extends ViewRefFileNode {
 	private _label: string | undefined;
 	get label() {
 		if (this._label === undefined) {
-			this._label = this._options.displayAsCommit
-				? CommitFormatter.fromTemplate(this.getLabelFormat(), this.commit, {
-						dateFormat: Container.config.defaultDateFormat,
-						messageTruncateAtNewLine: true,
-				  })
-				: StatusFileFormatter.fromTemplate(this.view.config.formats.files.label, this.file, {
-						relativePath: this.relativePath,
-				  });
+			this._label = StatusFileFormatter.fromTemplate(this.view.config.formats.files.label, this.file, {
+				relativePath: this.relativePath,
+			});
 		}
 		return this._label;
 	}
@@ -163,28 +123,6 @@ export class CommitFileNode extends ViewRefFileNode {
 	}
 
 	private get tooltip() {
-		if (this._options.displayAsCommit) {
-			// eslint-disable-next-line no-template-curly-in-string
-			const status = StatusFileFormatter.fromTemplate('${status}${ (originalPath)}', this.file); // lgtm [js/template-syntax-in-string-literal]
-			return CommitFormatter.fromTemplate(
-				this.commit.isUncommitted
-					? `\${author} ${GlyphChars.Dash} \${id}\n${status}\n\${ago} (\${date})`
-					: `\${author}\${ (email)} ${GlyphChars.Dash} \${id}${
-							this._options.unpublished ? ' (unpublished)' : ''
-					  }\n${status}\n\${ago} (\${date})\${\n\nmessage}${this.commit.getFormattedDiffStatus({
-							expand: true,
-							prefix: '\n\n',
-							separator: '\n',
-					  })}\${\n\n${GlyphChars.Dash.repeat(2)}\nfootnotes}`,
-				this.commit,
-				{
-					dateFormat: Container.config.defaultDateFormat,
-					// messageAutolinks: true,
-					messageIndent: 4,
-				},
-			);
-		}
-
 		return StatusFileFormatter.fromTemplate(
 			// eslint-disable-next-line no-template-curly-in-string
 			'${file}\n${directory}/\n\n${status}${ (originalPath)}',
@@ -214,13 +152,5 @@ export class CommitFileNode extends ViewRefFileNode {
 			command: Commands.DiffWithPrevious,
 			arguments: [undefined, commandArgs],
 		};
-	}
-
-	protected getLabelFormat() {
-		return this.view.config.formats.commits.label;
-	}
-
-	protected getDescriptionFormat() {
-		return this.view.config.formats.commits.description;
 	}
 }

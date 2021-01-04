@@ -5,7 +5,7 @@ import { ViewFilesLayout } from '../../configuration';
 import { GitFile } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { Arrays, debug, gate, Iterables, Promises, Strings } from '../../system';
-import { ViewsWithFiles } from '../viewBase';
+import { ViewsWithCommits } from '../viewBase';
 import { FileNode, FolderNode } from './folderNode';
 import { ResultsFileNode } from './resultsFileNode';
 import { ContextValues, ViewNode } from './viewNode';
@@ -15,9 +15,9 @@ export interface FilesQueryResults {
 	files: GitFile[] | undefined;
 }
 
-export class ResultsFilesNode extends ViewNode<ViewsWithFiles> {
+export class ResultsFilesNode extends ViewNode<ViewsWithCommits> {
 	constructor(
-		view: ViewsWithFiles,
+		view: ViewsWithCommits,
 		parent: ViewNode,
 		public readonly repoPath: string,
 		public readonly ref1: string,

@@ -17,6 +17,7 @@ export * from './nodes/contributorNode';
 export * from './nodes/contributorsNode';
 export * from './nodes/fileHistoryNode';
 export * from './nodes/fileHistoryTrackerNode';
+export * from './nodes/fileRevisionAsCommitNode';
 export * from './nodes/folderNode';
 export * from './nodes/lineHistoryNode';
 export * from './nodes/lineHistoryTrackerNode';
