@@ -1,5 +1,5 @@
 'use strict';
-import * as dayjs from 'dayjs';
+import dayjs from 'dayjs';
 import * as advancedFormat from 'dayjs/plugin/advancedFormat';
 import * as relativeTime from 'dayjs/plugin/relativeTime';
 import * as updateLocale from 'dayjs/plugin/updateLocale';
@@ -114,7 +114,7 @@ export interface DateFormatter {
 }
 
 export function getFormatter(date: Date): DateFormatter {
-	const formatter = dayjs.default(date);
+	const formatter = dayjs(date);
 	return {
 		fromNow: function (locale?: string) {
 			return (locale ? formatter.locale(locale) : formatter).fromNow();
