@@ -4,13 +4,40 @@ import { Strings } from '../../system';
 import { GitUri } from '../gitUri';
 import { GitLogCommit } from './logCommit';
 
-export declare type GitFileStatus = '!' | '?' | 'A' | 'C' | 'D' | 'M' | 'R' | 'T' | 'U' | 'X' | 'B';
+export declare type GitFileStatus = GitFileConflictStatus | GitFileIndexStatus | GitFileWorkingTreeStatus;
+
+export enum GitFileConflictStatus {
+	AddedByBoth = 'AA',
+	AddedByUs = 'AU',
+	AddedByThem = 'UA',
+	DeletedByBoth = 'DD',
+	DeletedByUs = 'DU',
+	DeletedByThem = 'UD',
+	ModifiedByBoth = 'UU',
+}
+
+export enum GitFileIndexStatus {
+	Added = 'A',
+	Deleted = 'D',
+	Modified = 'M',
+	Renamed = 'R',
+	Copied = 'C',
+}
+
+export enum GitFileWorkingTreeStatus {
+	Added = 'A',
+	Deleted = 'D',
+	Modified = 'M',
+	Untracked = '?',
+	Ignored = '!',
+}
 
 export interface GitFile {
-	status: GitFileStatus;
+	status: GitFileConflictStatus | GitFileIndexStatus | GitFileWorkingTreeStatus;
 	readonly repoPath?: string;
-	readonly indexStatus?: GitFileStatus;
-	readonly workingTreeStatus?: GitFileStatus;
+	readonly conflictStatus?: GitFileConflictStatus;
+	readonly indexStatus?: GitFileIndexStatus;
+	readonly workingTreeStatus?: GitFileWorkingTreeStatus;
 	readonly fileName: string;
 	readonly originalFileName?: string;
 }
@@ -63,53 +90,65 @@ export namespace GitFile {
 		'!': 'icon-status-ignored.svg',
 		'?': 'icon-status-untracked.svg',
 		A: 'icon-status-added.svg',
-		C: 'icon-status-copied.svg',
 		D: 'icon-status-deleted.svg',
 		M: 'icon-status-modified.svg',
 		R: 'icon-status-renamed.svg',
+		C: 'icon-status-copied.svg',
+		AA: 'icon-status-conflict.svg',
+		AU: 'icon-status-conflict.svg',
+		UA: 'icon-status-conflict.svg',
+		DD: 'icon-status-conflict.svg',
+		DU: 'icon-status-conflict.svg',
+		UD: 'icon-status-conflict.svg',
+		UU: 'icon-status-conflict.svg',
 		T: 'icon-status-modified.svg',
-		U: 'icon-status-conflict.svg',
-		X: 'icon-status-unknown.svg',
-		B: 'icon-status-unknown.svg',
 	};
 
 	export function getStatusIcon(status: GitFileStatus): string {
-		return statusIconsMap[status] || statusIconsMap['X'];
+		return statusIconsMap[status] ?? 'icon-status-unknown.svg';
 	}
 
 	const statusCodiconsMap = {
 		'!': '$(diff-ignored)',
 		'?': '$(diff-added)',
 		A: '$(diff-added)',
-		C: '$(diff-added)',
 		D: '$(diff-removed)',
 		M: '$(diff-modified)',
 		R: '$(diff-renamed)',
+		C: '$(diff-added)',
+		AA: '$(warning)',
+		AU: '$(warning)',
+		UA: '$(warning)',
+		DD: '$(warning)',
+		DU: '$(warning)',
+		UD: '$(warning)',
+		UU: '$(warning)',
 		T: '$(diff-modified)',
-		U: '$(alert)',
-		X: '$(question)',
-		B: '$(question)',
 	};
 
 	export function getStatusCodicon(status: GitFileStatus, missing: string = GlyphChars.Space.repeat(4)): string {
-		return statusCodiconsMap[status] || missing;
+		return statusCodiconsMap[status] ?? missing;
 	}
 
 	const statusTextMap = {
 		'!': 'Ignored',
 		'?': 'Untracked',
 		A: 'Added',
-		C: 'Copied',
 		D: 'Deleted',
 		M: 'Modified',
 		R: 'Renamed',
+		C: 'Copied',
+		AA: 'Conflict',
+		AU: 'Conflict',
+		UA: 'Conflict',
+		DD: 'Conflict',
+		DU: 'Conflict',
+		UD: 'Conflict',
+		UU: 'Conflict',
 		T: 'Modified',
-		U: 'Conflict',
-		X: 'Unknown',
-		B: 'Unknown',
 	};
 
 	export function getStatusText(status: GitFileStatus): string {
-		return statusTextMap[status] || statusTextMap['X'];
+		return statusTextMap[status] ?? 'Unknown';
 	}
 }

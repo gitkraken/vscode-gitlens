@@ -1,6 +1,6 @@
 'use strict';
 import { debug, Strings } from '../../system';
-import { GitFileStatus, GitStatus, GitStatusFile } from '../git';
+import { GitStatus, GitStatusFile } from '../git';
 
 const emptyStr = '';
 
@@ -131,25 +131,19 @@ export class GitStatusParser {
 		fileName: string,
 		originalFileName?: string,
 	): GitStatusFile {
-		let indexStatus = !rawStatus.startsWith('.') ? rawStatus[0].trim() : undefined;
-		if (indexStatus == null || indexStatus.length === 0) {
-			indexStatus = undefined;
+		let x = !rawStatus.startsWith('.') ? rawStatus[0].trim() : undefined;
+		if (x == null || x.length === 0) {
+			x = undefined;
 		}
 
-		let workTreeStatus = undefined;
+		let y = undefined;
 		if (rawStatus.length > 1) {
-			workTreeStatus = rawStatus[1] !== '.' ? rawStatus[1].trim() : undefined;
-			if (workTreeStatus == null || workTreeStatus.length === 0) {
-				workTreeStatus = undefined;
+			y = rawStatus[1] !== '.' ? rawStatus[1].trim() : undefined;
+			if (y == null || y.length === 0) {
+				y = undefined;
 			}
 		}
 
-		return new GitStatusFile(
-			repoPath,
-			indexStatus as GitFileStatus | undefined,
-			workTreeStatus as GitFileStatus | undefined,
-			fileName,
-			originalFileName,
-		);
+		return new GitStatusFile(repoPath, x, y, fileName, originalFileName);
 	}
 }

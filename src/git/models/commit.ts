@@ -69,6 +69,10 @@ export abstract class GitCommit implements GitRevisionReference {
 		this._fileName = fileName || '';
 	}
 
+	get hasConflicts(): boolean {
+		return false;
+	}
+
 	get ref() {
 		return this.sha;
 	}

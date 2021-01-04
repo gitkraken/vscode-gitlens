@@ -1,7 +1,7 @@
 'use strict';
 import { GitCommitType } from './commit';
 import { Container } from '../../container';
-import { GitFile } from './file';
+import { GitFile, GitFileWorkingTreeStatus } from './file';
 import { GitLogCommit } from './logCommit';
 import { GitReference } from './models';
 import { gate, memoize } from '../../system';
@@ -61,9 +61,15 @@ export class GitStashCommit extends GitLogCommit {
 			const commit = await Container.git.getCommit(this.repoPath, `${this.stashName}^3`);
 			if (commit != null && commit.files.length !== 0) {
 				// Since these files are untracked -- make them look that way
-				commit.files.forEach(s => (s.status = '?'));
+				const files = commit.files.map(s => ({
+					...s,
+					status: GitFileWorkingTreeStatus.Untracked,
+					conflictStatus: undefined,
+					indexStatus: undefined,
+					workingTreeStatus: GitFileWorkingTreeStatus.Untracked,
+				}));
 
-				this.files.push(...commit.files);
+				this.files.push(...files);
 			}
 		}
 	}

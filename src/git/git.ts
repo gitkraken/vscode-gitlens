@@ -10,7 +10,7 @@ import { Objects, Strings } from '../system';
 import { findGitPath, GitLocation } from './locator';
 import { fsExists, run, RunError, RunOptions } from './shell';
 import { GitBranchParser, GitLogParser, GitReflogParser, GitStashParser, GitTagParser } from './parsers/parsers';
-import { GitFileStatus, GitRevision } from './models/models';
+import { GitRevision } from './models/models';
 
 export * from './models/models';
 export * from './parsers/parsers';
@@ -19,7 +19,7 @@ export * from './remotes/provider';
 export * from './search';
 export { RunError } from './shell';
 
-export type GitDiffFilter = Exclude<GitFileStatus, '!' | '?'>;
+export type GitDiffFilter = 'A' | 'C' | 'D' | 'M' | 'R' | 'T' | 'U' | 'X' | 'B' | '*';
 
 const emptyArray = (Object.freeze([]) as any) as any[];
 const emptyObj = Object.freeze({});

@@ -414,12 +414,15 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 	get message(): string {
 		if (this._item.isUncommitted) {
+			const confliced = this._item.hasConflicts;
 			const staged =
 				this._item.isUncommittedStaged ||
 				(this._options.previousLineDiffUris?.current?.isUncommittedStaged ?? false);
 
 			return this._padOrTruncate(
-				`${this._options.markdown ? '\n> ' : ''}${staged ? 'Staged' : 'Uncommitted'} changes`,
+				`${this._options.markdown ? '\n> ' : ''}${
+					confliced ? 'Merge' : staged ? 'Staged' : 'Uncommitted'
+				} changes`,
 				this._options.tokenOptions.message,
 			);
 		}

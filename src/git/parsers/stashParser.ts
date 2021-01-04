@@ -1,5 +1,5 @@
 'use strict';
-import { fileStatusRegex, GitCommitType, GitFile, GitFileStatus, GitStash, GitStashCommit } from '../git';
+import { fileStatusRegex, GitCommitType, GitFile, GitFileIndexStatus, GitStash, GitStashCommit } from '../git';
 import { Arrays, debug, Strings } from '../../system';
 // import { Logger } from './logger';
 
@@ -129,13 +129,13 @@ export class GitStashParser {
 								renamedFileName = match[3];
 								if (renamedFileName !== undefined) {
 									entry.files.push({
-										status: match[1] as GitFileStatus,
+										status: match[1] as GitFileIndexStatus,
 										fileName: renamedFileName,
 										originalFileName: match[2],
 									});
 								} else {
 									entry.files.push({
-										status: match[1] as GitFileStatus,
+										status: match[1] as GitFileIndexStatus,
 										fileName: match[2],
 									});
 								}

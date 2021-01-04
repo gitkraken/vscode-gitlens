@@ -8,6 +8,7 @@ import {
 	GitBranch,
 	GitCommitType,
 	GitFile,
+	GitFileIndexStatus,
 	GitLog,
 	GitLogCommit,
 	GitRevision,
@@ -101,12 +102,13 @@ export class LineHistoryNode
 					const status = await Container.git.getStatusForFile(this.uri.repoPath!, this.uri.fsPath);
 
 					const file: GitFile = {
+						conflictStatus: status?.conflictStatus,
 						fileName: commit.fileName,
-						indexStatus: status?.indexStatus ?? '?',
+						indexStatus: status?.indexStatus,
 						originalFileName: commit.originalFileName,
 						repoPath: this.uri.repoPath!,
-						status: 'M',
-						workingTreeStatus: status?.workingTreeStatus ?? '?',
+						status: status?.status ?? GitFileIndexStatus.Modified,
+						workingTreeStatus: status?.workingTreeStatus,
 					};
 
 					if (status?.workingTreeStatus != null && status?.indexStatus != null) {
@@ -121,7 +123,7 @@ export class LineHistoryNode
 							commit.message,
 							commit.fileName,
 							[file],
-							'M',
+							GitFileIndexStatus.Modified,
 							commit.originalFileName,
 							commit.previousSha,
 							commit.originalFileName ?? commit.fileName,
@@ -146,7 +148,7 @@ export class LineHistoryNode
 							commit.message,
 							commit.fileName,
 							[file],
-							'M',
+							GitFileIndexStatus.Modified,
 							commit.originalFileName,
 							GitRevision.uncommittedStaged,
 							commit.originalFileName ?? commit.fileName,
@@ -175,7 +177,7 @@ export class LineHistoryNode
 							commit.message,
 							commit.fileName,
 							[file],
-							'M',
+							GitFileIndexStatus.Modified,
 							commit.originalFileName,
 							commit.previousSha,
 							commit.originalFileName ?? commit.fileName,

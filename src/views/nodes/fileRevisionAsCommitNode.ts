@@ -133,7 +133,11 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 			}${this._options.unpublished ? '+unpublished' : ''}`;
 		}
 
-		return this.commit.isUncommittedStaged ? `${ContextValues.File}+staged` : `${ContextValues.File}+unstaged`;
+		return this.commit.hasConflicts
+			? `${ContextValues.File}+conflicted`
+			: this.commit.isUncommittedStaged
+			? `${ContextValues.File}+staged`
+			: `${ContextValues.File}+unstaged`;
 	}
 
 	getCommand(): Command | undefined {

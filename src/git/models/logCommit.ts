@@ -80,6 +80,11 @@ export class GitLogCommit extends GitCommit {
 		);
 	}
 
+	@memoize()
+	get hasConflicts() {
+		return this.files.some(f => f.conflictStatus != null);
+	}
+
 	get isMerge() {
 		return this.parentShas != null && this.parentShas.length > 1;
 	}

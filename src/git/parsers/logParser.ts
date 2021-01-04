@@ -5,7 +5,7 @@ import {
 	GitAuthor,
 	GitCommitType,
 	GitFile,
-	GitFileStatus,
+	GitFileIndexStatus,
 	GitLog,
 	GitLogCommit,
 	GitLogCommitLine,
@@ -50,7 +50,7 @@ interface LogEntry {
 	originalFileName?: string;
 	files?: GitFile[];
 
-	status?: GitFileStatus;
+	status?: GitFileIndexStatus;
 	fileStats?: {
 		insertions: number;
 		deletions: number;
@@ -224,13 +224,13 @@ export class GitLogParser {
 								renamedFileName = match[3];
 								if (renamedFileName !== undefined) {
 									entry.files.push({
-										status: match[1] as GitFileStatus,
+										status: match[1] as GitFileIndexStatus,
 										fileName: renamedFileName,
 										originalFileName: match[2],
 									});
 								} else {
 									entry.files.push({
-										status: match[1] as GitFileStatus,
+										status: match[1] as GitFileIndexStatus,
 										fileName: match[2],
 									});
 								}
@@ -241,9 +241,9 @@ export class GitLogParser {
 								[, entry.originalFileName, entry.fileName] = match;
 								if (entry.fileName === entry.originalFileName) {
 									entry.originalFileName = undefined;
-									entry.status = 'M';
+									entry.status = GitFileIndexStatus.Modified;
 								} else {
-									entry.status = 'R';
+									entry.status = GitFileIndexStatus.Renamed;
 								}
 
 								void lines.next();
@@ -280,12 +280,12 @@ export class GitLogParser {
 
 									switch (match[4]) {
 										case undefined:
-											entry.status = 'M' as GitFileStatus;
+											entry.status = 'M' as GitFileIndexStatus;
 											entry.fileName = match[3];
 											break;
 										case 'copy':
 										case 'rename':
-											entry.status = (match[4] === 'copy' ? 'C' : 'R') as GitFileStatus;
+											entry.status = (match[4] === 'copy' ? 'C' : 'R') as GitFileIndexStatus;
 
 											renamedFileName = match[3];
 											renamedMatch = fileStatusAndSummaryRenamedFilePathRegex.exec(
@@ -312,15 +312,15 @@ export class GitLogParser {
 
 											break;
 										case 'create':
-											entry.status = 'A' as GitFileStatus;
+											entry.status = 'A' as GitFileIndexStatus;
 											entry.fileName = match[3];
 											break;
 										case 'delete':
-											entry.status = 'D' as GitFileStatus;
+											entry.status = 'D' as GitFileIndexStatus;
 											entry.fileName = match[3];
 											break;
 										default:
-											entry.status = 'M' as GitFileStatus;
+											entry.status = 'M' as GitFileIndexStatus;
 											entry.fileName = match[3];
 											break;
 									}
@@ -523,7 +523,7 @@ export class GitLogParser {
 		data: string,
 		skip: number,
 		skipRef?: string,
-	): [string | undefined, string | undefined, GitFileStatus | undefined] {
+	): [string | undefined, string | undefined, GitFileIndexStatus | undefined] {
 		let ref;
 		let diffFile;
 		let diffRenamed;
@@ -554,7 +554,7 @@ export class GitLogParser {
 		return [
 			ref == null || ref.length === 0 ? undefined : ` ${ref}`.substr(1),
 			file,
-			status as GitFileStatus | undefined,
+			status as GitFileIndexStatus | undefined,
 		];
 	}
 
@@ -562,7 +562,7 @@ export class GitLogParser {
 	static parseSimpleRenamed(
 		data: string,
 		originalFileName: string,
-	): [string | undefined, string | undefined, GitFileStatus | undefined] {
+	): [string | undefined, string | undefined, GitFileIndexStatus | undefined] {
 		let match = logFileSimpleRenamedRegex.exec(data);
 		if (match == null) return [undefined, undefined, undefined];
 
@@ -600,7 +600,7 @@ export class GitLogParser {
 			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
 			ref == null || ref.length === 0 || file == null ? undefined : ` ${ref}`.substr(1),
 			file,
-			status as GitFileStatus | undefined,
+			status as GitFileIndexStatus | undefined,
 		];
 	}
 }

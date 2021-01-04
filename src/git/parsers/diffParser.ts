@@ -154,6 +154,7 @@ export class GitDiffParser {
 			files.push({
 				repoPath: repoPath,
 				status: (!status.startsWith('.') ? status[0].trim() : '?') as GitFileStatus,
+				conflictStatus: undefined,
 				indexStatus: undefined,
 				workingTreeStatus: undefined,
 				// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
