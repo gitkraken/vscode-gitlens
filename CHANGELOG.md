@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- Fixes [#1303](https://github.com/eamodio/vscode-gitlens/issues/1303) - Open on Remote is creating invalid URLs for Azure Devops &mdash; thanks to [PR #1304](https://github.com/eamodio/vscode-gitlens/pull/1304) by Travis Collins ([@TravisTX](https://github.com/TravisTX))
+
 ## [11.1.2] - 2021-01-03
 
 ### Fixed
