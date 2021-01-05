@@ -19,7 +19,9 @@ export class ConfigureCustomRemoteProviderCommandQuickPickItem extends CommandQu
 	}
 
 	async execute(): Promise<void> {
-		await env.openExternal(Uri.parse('https://github.com/eamodio/vscode-gitlens#remote-provider-integration-settings-'));
+		await env.openExternal(
+			Uri.parse('https://github.com/eamodio/vscode-gitlens#remote-provider-integration-settings-'),
+		);
 	}
 }
 
