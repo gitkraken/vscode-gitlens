@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 'use strict';
 import * as paths from 'path';
+import { TextDecoder } from 'util';
 import * as iconv from 'iconv-lite';
-import { window } from 'vscode';
+import { Uri, window, workspace } from 'vscode';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { Logger } from '../logger';
@@ -25,6 +26,8 @@ const emptyArray = (Object.freeze([]) as any) as any[];
 const emptyObj = Object.freeze({});
 const emptyStr = '';
 const slash = '/';
+
+const textDecoder = new TextDecoder('utf8');
 
 // This is a root sha of all git repo's if using sha1
 const rootSha = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
@@ -1381,5 +1384,38 @@ export namespace Git {
 
 	export function tag(repoPath: string) {
 		return git<string>({ cwd: repoPath }, 'tag', '-l', `--format=${GitTagParser.defaultFormat}`);
+	}
+
+	export async function readDotGitFile(
+		repoPath: string,
+		paths: string[],
+		options?: { numeric?: false; throw?: boolean; trim?: boolean },
+	): Promise<string | undefined>;
+	export async function readDotGitFile(
+		repoPath: string,
+		path: string[],
+		options?: { numeric: true; throw?: boolean; trim?: boolean },
+	): Promise<number | undefined>;
+	export async function readDotGitFile(
+		repoPath: string,
+		pathParts: string[],
+		options?: { numeric?: boolean; throw?: boolean; trim?: boolean },
+	): Promise<string | number | undefined> {
+		try {
+			const bytes = await workspace.fs.readFile(Uri.file(paths.join(...[repoPath, '.git', ...pathParts])));
+			let contents = textDecoder.decode(bytes);
+			contents = options?.trim ?? true ? contents.trim() : contents;
+
+			if (options?.numeric) {
+				const number = Number.parseInt(contents, 10);
+				return isNaN(number) ? undefined : number;
+			}
+
+			return contents;
+		} catch (ex) {
+			if (options?.throw) throw ex;
+
+			return undefined;
+		}
 	}
 }

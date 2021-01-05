@@ -9,7 +9,7 @@ export interface GitRebaseStatus {
 	current: GitBranchReference | undefined;
 	incoming: GitBranchReference;
 
-	step: number;
+	step: number | undefined;
 	stepCurrent: GitRevisionReference;
-	steps: number;
+	steps: number | undefined;
 }

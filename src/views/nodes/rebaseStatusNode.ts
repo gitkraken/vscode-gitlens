@@ -84,9 +84,13 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 		const item = new TreeItem(
 			`${this.status?.hasConflicts ? 'Resolve conflicts to continue rebasing' : 'Rebasing'} ${
 				this.rebaseStatus.incoming != null
-					? `${GitReference.toString(this.rebaseStatus.incoming, { expand: false, icon: false })} `
+					? `${GitReference.toString(this.rebaseStatus.incoming, { expand: false, icon: false })}`
 					: ''
-			}(${this.rebaseStatus.step}/${this.rebaseStatus.steps})`,
+			}${
+				this.rebaseStatus.step != null && this.rebaseStatus.steps != null
+					? ` (${this.rebaseStatus.step}/${this.rebaseStatus.steps})`
+					: ''
+			}`,
 			TreeItemCollapsibleState.Expanded,
 		);
 		item.id = this.id;
@@ -100,9 +104,11 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 		item.tooltip = new MarkdownString(
 			`${`Rebasing ${
 				this.rebaseStatus.incoming != null ? GitReference.toString(this.rebaseStatus.incoming) : ''
-			}onto ${GitReference.toString(this.rebaseStatus.current)}`}\n\nStep ${this.rebaseStatus.step} of ${
-				this.rebaseStatus.steps
-			}\\\nStopped at ${GitReference.toString(this.rebaseStatus.stepCurrent, { icon: true })}${
+			}onto ${GitReference.toString(this.rebaseStatus.current)}`}${
+				this.rebaseStatus.step != null && this.rebaseStatus.steps != null
+					? `\n\nStep ${this.rebaseStatus.step} of ${this.rebaseStatus.steps}\\\n`
+					: '\n\n'
+			}Stopped at ${GitReference.toString(this.rebaseStatus.stepCurrent, { icon: true })}${
 				this.status?.hasConflicts
 					? `\n\n${Strings.pluralize('conflicted file', this.status.conflicts.length)}`
 					: ''

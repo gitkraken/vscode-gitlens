@@ -1,7 +1,6 @@
 'use strict';
 import * as fs from 'fs';
 import * as paths from 'path';
-import { TextDecoder } from 'util';
 import {
 	ConfigurationChangeEvent,
 	Disposable,
@@ -121,8 +120,6 @@ const weightedDefaultBranches = new Map<string, number>([
 	['development', 1],
 ]);
 
-const textDecoder = new TextDecoder('utf8');
-
 export class GitService implements Disposable {
 	private _onDidChangeRepositories = new EventEmitter<void>();
 	get onDidChangeRepositories(): Event<void> {
@@ -135,6 +132,8 @@ export class GitService implements Disposable {
 
 	private readonly _branchesCache = new Map<string, GitBranch[]>();
 	private readonly _contributorsCache = new Map<string, GitContributor[]>();
+	private readonly _mergeStatusCache = new Map<string, GitMergeStatus | null>();
+	private readonly _rebaseStatusCache = new Map<string, GitRebaseStatus | null>();
 	private readonly _remotesWithApiProviderCache = new Map<string, GitRemote<RichRemoteProvider> | null>();
 	private readonly _stashesCache = new Map<string, GitStash | null>();
 	private readonly _tagsCache = new Map<string, GitTag[]>();
@@ -165,6 +164,8 @@ export class GitService implements Disposable {
 		this._repositoryTree.forEach(r => r.dispose());
 		this._branchesCache.clear();
 		this._contributorsCache.clear();
+		this._mergeStatusCache.clear();
+		this._rebaseStatusCache.clear();
 		this._remotesWithApiProviderCache.clear();
 		this._stashesCache.clear();
 		this._tagsCache.clear();
@@ -203,14 +204,18 @@ export class GitService implements Disposable {
 
 		this._branchesCache.delete(repo.path);
 		this._contributorsCache.delete(repo.path);
+		this._mergeStatusCache.delete(repo.path);
+		this._rebaseStatusCache.delete(repo.path);
+		this._tagsCache.delete(repo.path);
+		this._trackedCache.clear();
+
 		if (e.changed(RepositoryChange.Remotes)) {
 			this._remotesWithApiProviderCache.clear();
 		}
+
 		if (e.changed(RepositoryChange.Stash)) {
 			this._stashesCache.delete(repo.path);
 		}
-		this._tagsCache.delete(repo.path);
-		this._trackedCache.clear();
 
 		if (e.changed(RepositoryChange.Config)) {
 			this._userMapCache.delete(repo.path);
@@ -2397,93 +2402,115 @@ export class GitService implements Disposable {
 		}
 	}
 
+	@gate()
 	@log()
 	async getMergeStatus(repoPath: string): Promise<GitMergeStatus | undefined> {
-		const merge = await Git.rev_parse__verify(repoPath, 'MERGE_HEAD');
-		if (merge == null) return undefined;
+		let status = this.useCaching ? this._mergeStatusCache.get(repoPath) : undefined;
+		if (status === undefined) {
+			const merge = await Git.rev_parse__verify(repoPath, 'MERGE_HEAD');
+			if (merge != null) {
+				const [branch, mergeBase, possibleSourceBranches] = await Promise.all([
+					this.getBranch(repoPath),
+					this.getMergeBase(repoPath, 'MERGE_HEAD', 'HEAD'),
+					this.getCommitBranches(repoPath, 'MERGE_HEAD', { mode: 'pointsAt' }),
+				]);
 
-		const [branch, mergeBase, possibleSourceBranches] = await Promise.all([
-			this.getBranch(repoPath),
-			this.getMergeBase(repoPath, 'MERGE_HEAD', 'HEAD'),
-			this.getCommitBranches(repoPath, 'MERGE_HEAD', { mode: 'pointsAt' }),
-		]);
+				status = {
+					type: 'merge',
+					repoPath: repoPath,
+					mergeBase: mergeBase,
+					HEAD: GitReference.create(merge, repoPath, { refType: 'revision' }),
+					current: GitReference.fromBranch(branch!),
+					incoming:
+						possibleSourceBranches?.length === 1
+							? GitReference.create(possibleSourceBranches[0], repoPath, {
+									refType: 'branch',
+									name: possibleSourceBranches[0],
+									remote: false,
+							  })
+							: undefined,
+				};
+			}
 
-		return {
-			type: 'merge',
-			repoPath: repoPath,
-			mergeBase: mergeBase,
-			HEAD: GitReference.create(merge, repoPath, { refType: 'revision' }),
-			current: GitReference.fromBranch(branch!),
-			incoming:
-				possibleSourceBranches?.length === 1
-					? GitReference.create(possibleSourceBranches[0], repoPath, {
-							refType: 'branch',
-							name: possibleSourceBranches[0],
-							remote: false,
-					  })
-					: undefined,
-		};
+			const repo = await this.getRepository(repoPath);
+			if (repo?.supportsChangeEvents) {
+				this._mergeStatusCache.set(repoPath, status ?? null);
+			}
+		}
+
+		return status ?? undefined;
 	}
 
+	@gate()
 	@log()
 	async getRebaseStatus(repoPath: string): Promise<GitRebaseStatus | undefined> {
-		const rebase = await Git.rev_parse__verify(repoPath, 'REBASE_HEAD');
-		if (rebase == null) return undefined;
+		let status = this.useCaching ? this._rebaseStatusCache.get(repoPath) : undefined;
+		if (status === undefined) {
+			const rebase = await Git.rev_parse__verify(repoPath, 'REBASE_HEAD');
+			if (rebase != null) {
+				// eslint-disable-next-line prefer-const
+				let [mergeBase, branch, onto, step, stepMessage, steps] = await Promise.all([
+					this.getMergeBase(repoPath, 'REBASE_HEAD', 'HEAD'),
+					Git.readDotGitFile(repoPath, ['rebase-merge', 'head-name']),
+					Git.readDotGitFile(repoPath, ['rebase-merge', 'onto']),
+					Git.readDotGitFile(repoPath, ['rebase-merge', 'msgnum'], { numeric: true }),
+					Git.readDotGitFile(repoPath, ['rebase-merge', 'message'], { throw: true }).catch(() =>
+						Git.readDotGitFile(repoPath, ['rebase-merge', 'message-squashed']),
+					),
+					Git.readDotGitFile(repoPath, ['rebase-merge', 'end'], { numeric: true }),
+				]);
 
-		const [mergeBase, headNameBytes, ontoBytes, stepBytes, stepMessageBytes, stepsBytes] = await Promise.all([
-			this.getMergeBase(repoPath, 'REBASE_HEAD', 'HEAD'),
-			workspace.fs.readFile(Uri.file(paths.join(repoPath, '.git', 'rebase-merge', 'head-name'))),
-			workspace.fs.readFile(Uri.file(paths.join(repoPath, '.git', 'rebase-merge', 'onto'))),
-			workspace.fs.readFile(Uri.file(paths.join(repoPath, '.git', 'rebase-merge', 'msgnum'))),
-			workspace.fs.readFile(Uri.file(paths.join(repoPath, '.git', 'rebase-merge', 'message'))),
-			workspace.fs.readFile(Uri.file(paths.join(repoPath, '.git', 'rebase-merge', 'end'))),
-		]);
+				if (branch == null || onto == null) return undefined;
 
-		let branch = textDecoder.decode(headNameBytes);
-		if (branch.startsWith('refs/heads/')) {
-			branch = branch.substr(11).trim();
+				if (branch.startsWith('refs/heads/')) {
+					branch = branch.substr(11).trim();
+				}
+
+				const possibleSourceBranches = await this.getCommitBranches(repoPath, onto, { mode: 'pointsAt' });
+
+				let possibleSourceBranch: string | undefined;
+				for (const b of possibleSourceBranches) {
+					if (b.startsWith('(no branch, rebasing')) continue;
+
+					possibleSourceBranch = b;
+					break;
+				}
+
+				status = {
+					type: 'rebase',
+					repoPath: repoPath,
+					mergeBase: mergeBase,
+					HEAD: GitReference.create(rebase, repoPath, { refType: 'revision' }),
+					current:
+						possibleSourceBranch != null
+							? GitReference.create(possibleSourceBranch, repoPath, {
+									refType: 'branch',
+									name: possibleSourceBranch,
+									remote: false,
+							  })
+							: undefined,
+
+					incoming: GitReference.create(branch, repoPath, {
+						refType: 'branch',
+						name: branch,
+						remote: false,
+					}),
+					step: step,
+					stepCurrent: GitReference.create(rebase, repoPath, {
+						refType: 'revision',
+						message: stepMessage,
+					}),
+					steps: steps,
+				};
+			}
+
+			const repo = await this.getRepository(repoPath);
+			if (repo?.supportsChangeEvents) {
+				this._rebaseStatusCache.set(repoPath, status ?? null);
+			}
 		}
 
-		const onto = textDecoder.decode(ontoBytes).trim();
-		const step = Number.parseInt(textDecoder.decode(stepBytes).trim(), 10);
-		const steps = Number.parseInt(textDecoder.decode(stepsBytes).trim(), 10);
-
-		const possibleSourceBranches = await this.getCommitBranches(repoPath, onto, { mode: 'pointsAt' });
-
-		let possibleSourceBranch: string | undefined;
-		for (const b of possibleSourceBranches) {
-			if (b.startsWith('(no branch, rebasing')) continue;
-
-			possibleSourceBranch = b;
-			break;
-		}
-
-		return {
-			type: 'rebase',
-			repoPath: repoPath,
-			mergeBase: mergeBase,
-			HEAD: GitReference.create(rebase, repoPath, { refType: 'revision' }),
-			current:
-				possibleSourceBranch != null
-					? GitReference.create(possibleSourceBranch, repoPath, {
-							refType: 'branch',
-							name: possibleSourceBranch,
-							remote: false,
-					  })
-					: undefined,
-
-			incoming: GitReference.create(branch, repoPath, {
-				refType: 'branch',
-				name: branch,
-				remote: false,
-			}),
-			step: step,
-			stepCurrent: GitReference.create(rebase, repoPath, {
-				refType: 'revision',
-				message: textDecoder.decode(stepMessageBytes).trim(),
-			}),
-			steps: steps,
-		};
+		return status ?? undefined;
 	}
 
 	@log()
