@@ -308,7 +308,9 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					pullRequest: { id: pr.id, provider: pr.provider, repoPath: this._item.repoPath, url: pr.url },
 				})} "Open Pull Request \\#${pr.id}${
 					Container.actionRunners.count('openPullRequest') == 1 ? ` on ${pr.provider}` : ''
-				}\n${GlyphChars.Dash.repeat(2)}\n${pr.title}\n${pr.state}, ${pr.formatDateFromNow()}")${separator}`;
+				}\n${GlyphChars.Dash.repeat(2)}\n${Strings.escapeMarkdown(pr.title).replace(/"/g, '\\"')}\n${
+					pr.state
+				}, ${pr.formatDateFromNow()}")${separator}`;
 			} else if (pr instanceof Promises.CancellationError) {
 				commands += `[$(git-pull-request) PR $(sync~spin)](command:${Commands.RefreshHover} "Searching for a Pull Request (if any) that introduced this commit...")${separator}`;
 			} else if (pr.provider != null && Container.config.integrations.enabled) {
@@ -467,7 +469,9 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					pullRequest: { id: pr.id, provider: pr.provider, repoPath: this._item.repoPath, url: pr.url },
 				})} "Open Pull Request \\#${pr.id}${
 					Container.actionRunners.count('openPullRequest') == 1 ? ` on ${pr.provider}` : ''
-				}\n${GlyphChars.Dash.repeat(2)}\n${pr.title}\n${pr.state}, ${pr.formatDateFromNow()}")`;
+				}\n${GlyphChars.Dash.repeat(2)}\n${Strings.escapeMarkdown(pr.title).replace(/"/g, '\\"')}\n${
+					pr.state
+				}, ${pr.formatDateFromNow()}")`;
 			} else if (this._options.footnotes != null) {
 				const index = this._options.footnotes.size + 1;
 				this._options.footnotes.set(
