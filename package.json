@@ -185,6 +185,7 @@
 		"onCommand:gitlens.fetchRepositories",
 		"onCommand:gitlens.pullRepositories",
 		"onCommand:gitlens.pushRepositories",
+		"oncommand:gitlens.copyCurrentBranch",
 		"onStartupFinished"
 	],
 	"contributes": {
@@ -4692,6 +4693,11 @@
 			{
 				"command": "gitlens.views.tags.setShowAvatarsOff",
 				"title": "Hide Avatars",
+				"category": "GitLens"
+			},
+			{
+				"command": "gitlens.copyCurrentBranch",
+				"title": "Copy Current Branch",
 				"category": "GitLens"
 			}
 		],

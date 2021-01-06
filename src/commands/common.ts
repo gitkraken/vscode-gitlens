@@ -41,6 +41,7 @@ export enum Commands {
 	CompareWorkingWith = 'gitlens.compareWorkingWith',
 	ComputingFileAnnotations = 'gitlens.computingFileAnnotations',
 	ConnectRemoteProvider = 'gitlens.connectRemoteProvider',
+	CopyCurrentBranch = 'gitlens.copyCurrentBranch',
 	CopyMessageToClipboard = 'gitlens.copyMessageToClipboard',
 	CopyRemoteBranchesUrl = 'gitlens.copyRemoteBranchesUrl',
 	CopyRemoteBranchUrl = 'gitlens.copyRemoteBranchUrl',
