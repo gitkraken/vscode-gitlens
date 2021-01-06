@@ -671,34 +671,44 @@ export namespace Git {
 		repoPath: string,
 		options:
 			| { all?: boolean; branch?: undefined; prune?: boolean; remote?: string }
-			| { all?: undefined; branch: string; prune?: undefined; remote: string; upstream: string } = {},
+			| {
+					all?: undefined;
+					branch: string;
+					prune?: undefined;
+					pull?: boolean;
+					remote: string;
+					upstream: string;
+			  } = {},
 	): Promise<void> {
 		const params = ['fetch'];
-		if (options.branch) {
-			params.push('-u', options.remote, `${options.upstream}:${options.branch}`);
-
-			try {
-				void (await git<string>({ cwd: repoPath }, ...params));
-				return;
-			} catch (ex) {
-				const msg: string = ex?.toString() ?? '';
-				if (GitErrors.noFastForward.test(msg)) {
-					void window.showErrorMessage(
-						`Unable to pull the '${options.branch}' branch, as it can't be fast-forwarded.`,
-					);
-
-					return;
-				}
-
-				throw ex;
-			}
-		}
 
 		if (options.prune) {
 			params.push('--prune');
 		}
 
-		if (options.remote) {
+		if (options.branch && options.remote) {
+			if (options.upstream && options.pull) {
+				params.push('-u', options.remote, `${options.upstream}:${options.branch}`);
+
+				try {
+					void (await git<string>({ cwd: repoPath }, ...params));
+					return;
+				} catch (ex) {
+					const msg: string = ex?.toString() ?? '';
+					if (GitErrors.noFastForward.test(msg)) {
+						void window.showErrorMessage(
+							`Unable to pull the '${options.branch}' branch, as it can't be fast-forwarded.`,
+						);
+
+						return;
+					}
+
+					throw ex;
+				}
+			} else {
+				params.push(options.remote, options.branch);
+			}
+		} else if (options.remote) {
 			params.push(options.remote);
 		} else if (options.all) {
 			params.push('--all');

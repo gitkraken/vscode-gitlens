@@ -627,18 +627,19 @@ export class GitService implements Disposable {
 	@log()
 	async fetch(
 		repoPath: string,
-		options: { all?: boolean; branch?: GitBranchReference; prune?: boolean; remote?: string } = {},
+		options: { all?: boolean; branch?: GitBranchReference; prune?: boolean; pull?: boolean; remote?: string } = {},
 	): Promise<void> {
 		const { branch: branchRef, ...opts } = options;
 		if (GitReference.isBranch(branchRef)) {
 			const repo = await this.getRepository(repoPath);
 			const branch = await repo?.getBranch(branchRef?.name);
-			if (branch?.tracking == null) return undefined;
+			if (!branch?.remote && branch?.tracking == null) return undefined;
 
 			return Git.fetch(repoPath, {
-				branch: branch.name,
+				branch: branch.getNameWithoutRemote(),
 				remote: branch.getRemoteName()!,
 				upstream: branch.getTrackingWithoutRemote()!,
+				pull: options.pull,
 			});
 		}
 
@@ -1189,7 +1190,11 @@ export class GitService implements Disposable {
 		return undefined;
 	}
 
-	@log()
+	@log({
+		args: {
+			1: () => false,
+		},
+	})
 	async getBranches(
 		repoPath: string | undefined,
 		options: {
@@ -1247,7 +1252,11 @@ export class GitService implements Disposable {
 		return branches;
 	}
 
-	@log()
+	@log({
+		args: {
+			1: () => false,
+		},
+	})
 	async getBranchesAndOrTags(
 		repoPath: string | undefined,
 		{
@@ -3302,7 +3311,11 @@ export class GitService implements Disposable {
 		return status;
 	}
 
-	@log()
+	@log({
+		args: {
+			1: () => false,
+		},
+	})
 	async getTags(
 		repoPath: string | undefined,
 		options: { filter?: (t: GitTag) => boolean; sort?: boolean | { orderBy?: TagSorting } } = {},

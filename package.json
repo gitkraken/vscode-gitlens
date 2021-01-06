@@ -7046,7 +7046,7 @@
 				},
 				{
 					"command": "gitlens.views.fetch",
-					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+tracking\\b)(?!.*?\\b\\+ahead\\b)(?!.*?\\b\\+behind\\b)/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(remote|tracking)\\b)(?!.*?\\b\\+ahead\\b)(?!.*?\\b\\+behind\\b)/",
 					"group": "inline@8"
 				},
 				{

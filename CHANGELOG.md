@@ -20,6 +20,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Renames _Browse from Here_ to _Repository from Here_ on the _Browse_ submenu of commits in the views
 - Renames _Browse from Here in New Window_ to _Repository from Here in New Window_ on the _Browse_ submenu of commits in the views
 
+### Fixed
+
+- Fixes [#1309](https://github.com/eamodio/vscode-gitlens/issues/1309) - "Fetch" not working on remote branches
+
 ## [11.1.3] - 2021-01-05
 
 ### Fixed

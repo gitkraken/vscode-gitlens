@@ -63,7 +63,7 @@ export class PullGitCommand extends QuickCommand<State> {
 			if (!GitBranch.is(state.reference) || !state.reference.current) {
 				const currentBranch = await state.repos[0].getBranch();
 				if (currentBranch?.name !== state.reference.name) {
-					return state.repos[0].fetch({ branch: state.reference });
+					return state.repos[0].fetch({ branch: state.reference, pull: true });
 				}
 			}
 		}

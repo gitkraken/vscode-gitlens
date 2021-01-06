@@ -410,6 +410,7 @@ export class Repository implements Disposable {
 			branch?: GitBranchReference;
 			progress?: boolean;
 			prune?: boolean;
+			pull?: boolean;
 			remote?: string;
 		} = {},
 	) {
@@ -421,7 +422,7 @@ export class Repository implements Disposable {
 				location: ProgressLocation.Notification,
 				title:
 					opts.branch != null
-						? `Pulling ${opts.branch.name}...`
+						? `${opts.pull ? 'Pulling' : 'Fetching'} ${opts.branch.name}...`
 						: `Fetching ${opts.remote ? `${opts.remote} of ` : ''}${this.formattedName}...`,
 			},
 			() => this.fetchCore(opts),
@@ -429,7 +430,7 @@ export class Repository implements Disposable {
 	}
 
 	private async fetchCore(
-		options: { all?: boolean; branch?: GitBranchReference; prune?: boolean; remote?: string } = {},
+		options: { all?: boolean; branch?: GitBranchReference; prune?: boolean; pull?: boolean; remote?: string } = {},
 	) {
 		try {
 			void (await Container.git.fetch(this.path, options));
