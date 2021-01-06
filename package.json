@@ -6987,22 +6987,22 @@
 				},
 				{
 					"command": "gitlens.views.publishBranch",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+tracking\\b)/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+tracking\\b)/",
 					"group": "inline@8"
 				},
 				{
 					"command": "gitlens.views.push",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+ahead\\b)(?!.*?\\b\\+behind\\b)/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+ahead\\b)(?!.*?\\b\\+behind\\b)/",
 					"group": "inline@8"
 				},
 				{
 					"command": "gitlens.views.pull",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+behind\\b)/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+behind\\b)/",
 					"group": "inline@8"
 				},
 				{
 					"command": "gitlens.views.fetch",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+ahead\\b)(?!.*?\\b\\+behind\\b)/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+tracking\\b)(?!.*?\\b\\+ahead\\b)(?!.*?\\b\\+behind\\b)/",
 					"group": "inline@8"
 				},
 				{
@@ -7012,7 +7012,7 @@
 				},
 				{
 					"command": "gitlens.views.pushToCommit",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)/",
 					"group": "inline@96"
 				},
 				{
@@ -7651,24 +7651,29 @@
 					"group": "8_gitlens_actions_@2"
 				},
 				{
+					"command": "gitlens.views.addRemote",
+					"when": "!gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:status(\\-branch)?:upstream:none/",
+					"group": "inline@1"
+				},
+				{
 					"command": "gitlens.views.publishBranch",
-					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem == gitlens:status:upstream:none",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:status(\\-branch)?:upstream:none/",
 					"group": "inline@1"
 				},
 				{
 					"command": "gitlens.views.push",
-					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem == gitlens:status:upstream:ahead",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:status(\\-branch)?:upstream:ahead/",
 					"group": "inline@1",
 					"alt": "gitlens.views.pushWithForce"
 				},
 				{
 					"command": "gitlens.views.pull",
-					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem == gitlens:status:upstream:behind",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:status(\\-branch)?:upstream:behind/",
 					"group": "inline@1"
 				},
 				{
 					"command": "gitlens.views.fetch",
-					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:status:upstream:(?!none)/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:status(\\-branch)?:upstream:(?!none)/",
 					"group": "inline@2"
 				},
 				{

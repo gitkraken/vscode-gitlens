@@ -216,15 +216,16 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 				}${remote?.provider?.name ? ` on ${remote.provider.name}` : ''}`;
 
 				collapsibleState = TreeItemCollapsibleState.None;
-				contextValue = this.root ? ContextValues.StatusSameAsUpstream : undefined;
+				contextValue = this.root
+					? ContextValues.StatusSameAsUpstream
+					: ContextValues.BranchStatusSameAsUpstream;
 				icon = new ThemeIcon('cloud');
 
 				break;
 			}
 			case 'none': {
-				const providers = GitRemote.getHighlanderProviders(
-					await Container.git.getRemotes(this.branch.repoPath),
-				);
+				const remotes = await Container.git.getRemotes(this.branch.repoPath);
+				const providers = GitRemote.getHighlanderProviders(remotes);
 				const providerName = providers?.length ? providers[0].name : undefined;
 
 				label = `Publish ${this.branch.name} to ${providerName ?? 'a remote'}`;
@@ -233,8 +234,11 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 				}`;
 
 				collapsibleState = TreeItemCollapsibleState.None;
-				contextValue = this.root ? ContextValues.StatusNoUpstream : undefined;
-				icon = new ThemeIcon('cloud-upload', new ThemeColor('gitlens.viewChangesToPushIconColor'));
+				contextValue = this.root ? ContextValues.StatusNoUpstream : ContextValues.BranchStatusNoUpstream;
+				icon = new ThemeIcon(
+					'cloud-upload',
+					remotes.length ? new ThemeColor('gitlens.viewChangesToPushIconColor') : undefined,
+				);
 
 				break;
 			}

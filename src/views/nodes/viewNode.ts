@@ -21,6 +21,8 @@ export enum ContextValues {
 	Branches = 'gitlens:branches',
 	BranchStatusAheadOfUpstream = 'gitlens:status-branch:upstream:ahead',
 	BranchStatusBehindUpstream = 'gitlens:status-branch:upstream:behind',
+	BranchStatusNoUpstream = 'gitlens:status-branch:upstream:none',
+	BranchStatusSameAsUpstream = 'gitlens:status-branch:upstream:same',
 	BranchStatusFiles = 'gitlens:status-branch:files',
 	Commit = 'gitlens:commit',
 	Commits = 'gitlens:commits',
