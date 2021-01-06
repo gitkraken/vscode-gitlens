@@ -74,14 +74,25 @@ export class CommitFileQuickPickItem extends CommandQuickPickItem {
 export class CommitBrowseRepositoryFromHereCommandQuickPickItem extends CommandQuickPickItem {
 	constructor(
 		private readonly commit: GitLogCommit,
-		private readonly openInNewWindow: boolean,
+		private readonly executeOptions?: {
+			before?: boolean;
+			openInNewWindow: boolean;
+		},
 		item?: QuickPickItem,
 	) {
-		super(item ?? `$(folder-opened) Browse from Here${openInNewWindow ? ' in New Window' : ''}`);
+		super(
+			item ??
+				`$(folder-opened) Browse Repository from${executeOptions?.before ? ' Before' : ''} Here${
+					executeOptions?.openInNewWindow ? ' in New Window' : ''
+				}`,
+		);
 	}
 
 	execute(_options: { preserveFocus?: boolean; preview?: boolean }): Promise<void> {
-		return GitActions.browseAtRevision(this.commit.toGitUri(), { openInNewWindow: this.openInNewWindow });
+		return GitActions.browseAtRevision(this.commit.toGitUri(), {
+			before: this.executeOptions?.before,
+			openInNewWindow: this.executeOptions?.openInNewWindow,
+		});
 	}
 }
 

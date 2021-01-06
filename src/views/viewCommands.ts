@@ -134,7 +134,17 @@ export class ViewCommands {
 		commands.registerCommand('gitlens.views.browseRepoAtRevision', this.browseRepoAtRevision, this);
 		commands.registerCommand(
 			'gitlens.views.browseRepoAtRevisionInNewWindow',
-			n => this.browseRepoAtRevision(n, true),
+			n => this.browseRepoAtRevision(n, { openInNewWindow: true }),
+			this,
+		);
+		commands.registerCommand(
+			'gitlens.views.browseRepoBeforeRevision',
+			n => this.browseRepoAtRevision(n, { before: true }),
+			this,
+		);
+		commands.registerCommand(
+			'gitlens.views.browseRepoBeforeRevisionInNewWindow',
+			n => this.browseRepoAtRevision(n, { before: true, openInNewWindow: true }),
 			this,
 		);
 
@@ -315,10 +325,13 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private browseRepoAtRevision(node: ViewRefNode, openInNewWindow: boolean = false) {
+	private browseRepoAtRevision(node: ViewRefNode, options?: { before?: boolean; openInNewWindow?: boolean }) {
 		if (!(node instanceof ViewRefNode)) return Promise.resolve();
 
-		return GitActions.browseAtRevision(node.uri, { openInNewWindow: openInNewWindow });
+		return GitActions.browseAtRevision(node.uri, {
+			before: options?.before,
+			openInNewWindow: options?.openInNewWindow,
+		});
 	}
 
 	@debug()

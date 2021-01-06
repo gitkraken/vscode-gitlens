@@ -7,22 +7,37 @@ import { toGitLensFSUri } from '../git/fsProvider';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
+import { Container } from '../container';
 
 export interface BrowseRepoAtRevisionCommandArgs {
 	uri?: Uri;
 
+	before?: boolean;
 	openInNewWindow?: boolean;
 }
 
 @command()
 export class BrowseRepoAtRevisionCommand extends ActiveEditorCommand {
 	constructor() {
-		super([Commands.BrowseRepoAtRevision, Commands.BrowseRepoAtRevisionInNewWindow]);
+		super([
+			Commands.BrowseRepoAtRevision,
+			Commands.BrowseRepoAtRevisionInNewWindow,
+			Commands.BrowseRepoBeforeRevision,
+			Commands.BrowseRepoBeforeRevisionInNewWindow,
+		]);
 	}
 
 	protected preExecute(context: CommandContext, args?: BrowseRepoAtRevisionCommandArgs) {
-		if (context.command === Commands.BrowseRepoAtRevisionInNewWindow) {
-			args = { ...args, openInNewWindow: true };
+		switch (context.command) {
+			case Commands.BrowseRepoAtRevisionInNewWindow:
+				args = { ...args, before: false, openInNewWindow: true };
+				break;
+			case Commands.BrowseRepoBeforeRevision:
+				args = { ...args, before: true, openInNewWindow: false };
+				break;
+			case Commands.BrowseRepoBeforeRevisionInNewWindow:
+				args = { ...args, before: true, openInNewWindow: true };
+				break;
 		}
 
 		return this.execute(context.editor!, context.uri, args);
@@ -42,7 +57,10 @@ export class BrowseRepoAtRevisionCommand extends ActiveEditorCommand {
 			let gitUri = await GitUri.fromUri(uri);
 			if (gitUri.sha == null) return;
 
-			uri = toGitLensFSUri(gitUri.sha, gitUri.repoPath!);
+			const sha = args?.before
+				? await Container.git.resolveReference(gitUri.repoPath!, `${gitUri.sha}^`)
+				: gitUri.sha;
+			uri = toGitLensFSUri(sha, gitUri.repoPath!);
 			gitUri = GitUri.fromRevisionUri(uri);
 
 			openWorkspace(uri, `${paths.basename(gitUri.repoPath!)} @ ${gitUri.shortSha}`, {

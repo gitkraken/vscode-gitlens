@@ -1522,26 +1522,25 @@ async function getShowCommitOrStashStepItems<
 		);
 	}
 
-	if (isStash) {
-		items.push(
-			new CommitBrowseRepositoryFromHereCommandQuickPickItem(state.reference, false),
-			new CommitBrowseRepositoryFromHereCommandQuickPickItem(state.reference, true),
+	items.push(
+		new CommitBrowseRepositoryFromHereCommandQuickPickItem(state.reference, { openInNewWindow: false }),
+		new CommitBrowseRepositoryFromHereCommandQuickPickItem(state.reference, {
+			before: true,
+			openInNewWindow: false,
+		}),
+		new CommitBrowseRepositoryFromHereCommandQuickPickItem(state.reference, { openInNewWindow: true }),
+		new CommitBrowseRepositoryFromHereCommandQuickPickItem(state.reference, {
+			before: true,
+			openInNewWindow: true,
+		}),
 
-			new CommitCompareWithHEADCommandQuickPickItem(state.reference),
-			new CommitCompareWithWorkingCommandQuickPickItem(state.reference),
-		);
-	} else {
-		items.push(
-			new CommitBrowseRepositoryFromHereCommandQuickPickItem(state.reference, false),
-			new CommitBrowseRepositoryFromHereCommandQuickPickItem(state.reference, true),
+		new CommitCompareWithHEADCommandQuickPickItem(state.reference),
+		new CommitCompareWithWorkingCommandQuickPickItem(state.reference),
+	);
 
-			new CommitCompareWithHEADCommandQuickPickItem(state.reference),
-			new CommitCompareWithWorkingCommandQuickPickItem(state.reference),
-
-			new CommitCopyIdQuickPickItem(state.reference),
-		);
+	if (!isStash) {
+		items.push(new CommitCopyIdQuickPickItem(state.reference));
 	}
-
 	items.push(new CommitCopyMessageQuickPickItem(state.reference));
 
 	if (remotes?.length) {
@@ -1762,24 +1761,24 @@ async function getShowCommitOrStashFileStepItems<
 		);
 	}
 
-	if (isStash) {
-		items.push(
-			new CommitBrowseRepositoryFromHereCommandQuickPickItem(state.reference, false),
-			new CommitBrowseRepositoryFromHereCommandQuickPickItem(state.reference, true),
+	items.push(
+		new CommitBrowseRepositoryFromHereCommandQuickPickItem(state.reference, { openInNewWindow: false }),
+		new CommitBrowseRepositoryFromHereCommandQuickPickItem(state.reference, {
+			before: true,
+			openInNewWindow: false,
+		}),
+		new CommitBrowseRepositoryFromHereCommandQuickPickItem(state.reference, { openInNewWindow: true }),
+		new CommitBrowseRepositoryFromHereCommandQuickPickItem(state.reference, {
+			before: true,
+			openInNewWindow: true,
+		}),
 
-			new CommitCompareWithHEADCommandQuickPickItem(state.reference),
-			new CommitCompareWithWorkingCommandQuickPickItem(state.reference),
-		);
-	} else {
-		items.push(
-			new CommitBrowseRepositoryFromHereCommandQuickPickItem(state.reference, false),
-			new CommitBrowseRepositoryFromHereCommandQuickPickItem(state.reference, true),
+		new CommitCompareWithHEADCommandQuickPickItem(state.reference),
+		new CommitCompareWithWorkingCommandQuickPickItem(state.reference),
+	);
 
-			new CommitCompareWithHEADCommandQuickPickItem(state.reference),
-			new CommitCompareWithWorkingCommandQuickPickItem(state.reference),
-
-			new CommitCopyIdQuickPickItem(state.reference),
-		);
+	if (!isStash) {
+		items.push(new CommitCopyIdQuickPickItem(state.reference));
 	}
 	items.push(new CommitCopyMessageQuickPickItem(state.reference));
 

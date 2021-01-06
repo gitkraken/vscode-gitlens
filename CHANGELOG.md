@@ -9,7 +9,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds a new _Quick Open File History_ command to all places where _Open File History_ already exists &mdash; closes [#1156](https://github.com/eamodio/vscode-gitlens/issues/1156)
-- Adds _Add Remote_ command to the branch status in the _Branches_, _Commits_, and _Repositories_ views when there are no Git remotes configured
+- Adds the _Add Remote_ command to the branch status in the _Branches_, _Commits_, and _Repositories_ views when there are no Git remotes configured
+- Adds a new _Browse Repository from Before Here_ (`gitlens.browseRepoBeforeRevision`) and _Browse Repository from Before Here in New Window_ (`gitlens.browseRepoBeforeRevisionInNewWindow`) commands
+- Adds _Repository from Before Here_ and _Repository from Before Here in New Window_ to the _Browse_ submenu of commits in the views
+
+### Changed
+
+- Renames _Browse from Here_ command to _Browse Repository from Here_ in the command palette and quick pick menus
+- Renames _Browse from Here in New Window_ command to _Browse Repository from Here in New Window_ in the command palette and quick pick menus
+- Renames _Browse from Here_ to _Repository from Here_ on the _Browse_ submenu of commits in the views
+- Renames _Browse from Here in New Window_ to _Repository from Here in New Window_ on the _Browse_ submenu of commits in the views
 
 ## [11.1.3] - 2021-01-05
 

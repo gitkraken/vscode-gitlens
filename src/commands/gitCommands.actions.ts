@@ -39,9 +39,10 @@ async function ensureRepo(repo: string | Repository): Promise<Repository> {
 }
 
 export namespace GitActions {
-	export async function browseAtRevision(uri: Uri, options?: { openInNewWindow?: boolean }) {
+	export async function browseAtRevision(uri: Uri, options?: { before?: boolean; openInNewWindow?: boolean }) {
 		void (await executeEditorCommand<BrowseRepoAtRevisionCommandArgs>(Commands.BrowseRepoAtRevision, undefined, {
 			uri: uri,
+			before: options?.before,
 			openInNewWindow: options?.openInNewWindow,
 		}));
 	}

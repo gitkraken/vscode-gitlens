@@ -30,6 +30,8 @@ export enum Commands {
 	AddAuthors = 'gitlens.addAuthors',
 	BrowseRepoAtRevision = 'gitlens.browseRepoAtRevision',
 	BrowseRepoAtRevisionInNewWindow = 'gitlens.browseRepoAtRevisionInNewWindow',
+	BrowseRepoBeforeRevision = 'gitlens.browseRepoBeforeRevision',
+	BrowseRepoBeforeRevisionInNewWindow = 'gitlens.browseRepoBeforeRevisionInNewWindow',
 	ClearFileAnnotations = 'gitlens.clearFileAnnotations',
 	CloseUnchangedFiles = 'gitlens.closeUnchangedFiles',
 	CloseUpdatesView = 'gitlens.closeUpdatesView',

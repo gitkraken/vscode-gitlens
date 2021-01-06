@@ -180,6 +180,8 @@
 		"onCommand:gitlens.inviteToLiveShare",
 		"onCommand:gitlens.browseRepoAtRevision",
 		"onCommand:gitlens.browseRepoAtRevisionInNewWindow",
+		"onCommand:gitlens.browseRepoBeforeRevision",
+		"onCommand:gitlens.browseRepoBeforeRevisionInNewWindow",
 		"onCommand:gitlens.fetchRepositories",
 		"onCommand:gitlens.pullRepositories",
 		"onCommand:gitlens.pushRepositories",
@@ -3463,27 +3465,53 @@
 			},
 			{
 				"command": "gitlens.browseRepoAtRevision",
-				"title": "Browse from Revision",
+				"title": "Browse Repository from Revision",
 				"category": "GitLens",
 				"icon": "$(folder-opened)",
 				"enablement": "gitlens:activeFileStatus =~ /revision/ && resourceScheme != git"
 			},
 			{
 				"command": "gitlens.browseRepoAtRevisionInNewWindow",
-				"title": "Browse from Revision in New Window",
+				"title": "Browse Repository from Revision in New Window",
+				"category": "GitLens",
+				"icon": "$(folder-opened)",
+				"enablement": "gitlens:activeFileStatus =~ /revision/ && resourceScheme != git"
+			},
+			{
+				"command": "gitlens.browseRepoBeforeRevision",
+				"title": "Browse Repository from Before Revision",
+				"category": "GitLens",
+				"icon": "$(folder-opened)",
+				"enablement": "gitlens:activeFileStatus =~ /revision/ && resourceScheme != git"
+			},
+			{
+				"command": "gitlens.browseRepoBeforeRevisionInNewWindow",
+				"title": "Browse Repository from Before Revision in New Window",
 				"category": "GitLens",
 				"icon": "$(folder-opened)",
 				"enablement": "gitlens:activeFileStatus =~ /revision/ && resourceScheme != git"
 			},
 			{
 				"command": "gitlens.views.browseRepoAtRevision",
-				"title": "Browse from Here",
+				"title": "Repository from Here",
 				"category": "GitLens",
 				"icon": "$(folder-opened)"
 			},
 			{
 				"command": "gitlens.views.browseRepoAtRevisionInNewWindow",
-				"title": "Browse from Here in New Window",
+				"title": "Repository from Here in New Window",
+				"category": "GitLens",
+				"icon": "$(folder-opened)"
+			},
+			{
+				"command": "gitlens.views.browseRepoBeforeRevision",
+				"title": "Repository from Before Here",
+				"category": "GitLens",
+				"icon": "$(folder-opened)"
+			},
+			{
+				"command": "gitlens.views.browseRepoBeforeRevisionInNewWindow",
+				"title": "Repository from Before Here in New Window",
 				"category": "GitLens",
 				"icon": "$(folder-opened)"
 			},
@@ -5149,11 +5177,27 @@
 					"when": "gitlens:activeFileStatus =~ /revision/"
 				},
 				{
+					"command": "gitlens.browseRepoBeforeRevision",
+					"when": "gitlens:activeFileStatus =~ /revision/"
+				},
+				{
+					"command": "gitlens.browseRepoBeforeRevisionInNewWindow",
+					"when": "gitlens:activeFileStatus =~ /revision/"
+				},
+				{
 					"command": "gitlens.views.browseRepoAtRevision",
 					"when": "false"
 				},
 				{
 					"command": "gitlens.views.browseRepoAtRevisionInNewWindow",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.browseRepoBeforeRevision",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.browseRepoBeforeRevisionInNewWindow",
 					"when": "false"
 				},
 				{
@@ -7972,7 +8016,15 @@
 				},
 				{
 					"command": "gitlens.views.browseRepoAtRevisionInNewWindow",
+					"group": "1_gitlens@3"
+				},
+				{
+					"command": "gitlens.views.browseRepoBeforeRevision",
 					"group": "1_gitlens@2"
+				},
+				{
+					"command": "gitlens.views.browseRepoBeforeRevisionInNewWindow",
+					"group": "1_gitlens@4"
 				}
 			],
 			"gitlens/commit/copy": [
