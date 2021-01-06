@@ -133,6 +133,7 @@
 		"onCommand:gitlens.showQuickRevisionDetailsInDiffLeft",
 		"onCommand:gitlens.showQuickRevisionDetailsInDiffRight",
 		"onCommand:gitlens.showQuickFileHistory",
+		"onCommand:gitlens.quickOpenFileHistory",
 		"onCommand:gitlens.showQuickBranchHistory",
 		"onCommand:gitlens.showQuickRepoHistory",
 		"onCommand:gitlens.showQuickRepoStatus",
@@ -3128,6 +3129,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.quickOpenFileHistory",
+				"title": "Quick Open File History",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.showQuickBranchHistory",
 				"title": "Show Branch History",
 				"category": "GitLens"
@@ -4963,6 +4969,10 @@
 					"when": "gitlens:activeFileStatus =~ /tracked/"
 				},
 				{
+					"command": "gitlens.quickOpenFileHistory",
+					"when": "gitlens:activeFileStatus =~ /tracked/"
+				},
+				{
 					"command": "gitlens.showQuickBranchHistory",
 					"when": "gitlens:enabled"
 				},
@@ -5981,6 +5991,11 @@
 					"group": "2_gitlens@5"
 				},
 				{
+					"command": "gitlens.quickOpenFileHistory",
+					"when": "gitlens:activeFileStatus =~ /tracked/ && config.gitlens.menus.editor.history",
+					"group": "2_gitlens@6"
+				},
+				{
 					"submenu": "gitlens/editor/annotations",
 					"when": "editorTextFocus && gitlens:activeFileStatus =~ /blameable/ && config.gitlens.menus.editor.blame",
 					"group": "2_gitlens_1@5"
@@ -6151,6 +6166,11 @@
 					"command": "gitlens.showFileHistoryInView",
 					"when": "gitlens:enabled && config.gitlens.menus.editorTab.history",
 					"group": "2_gitlens@4"
+				},
+				{
+					"command": "gitlens.quickOpenFileHistory",
+					"when": "gitlens:enabled && config.gitlens.menus.editorTab.history",
+					"group": "2_gitlens@5"
 				}
 			],
 			"explorer/context": [
@@ -6174,7 +6194,12 @@
 				{
 					"command": "gitlens.showFileHistoryInView",
 					"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && config.gitlens.menus.explorer.history",
-					"group": "4_gitlens@3"
+					"group": "4_timeline@2"
+				},
+				{
+					"command": "gitlens.quickOpenFileHistory",
+					"when": "!explorerResourceIsRoot && !explorerResourceIsFolder && gitlens:enabled && config.gitlens.menus.explorer.history",
+					"group": "4_timeline@3"
 				},
 				{
 					"command": "gitlens.copyRemoteFileUrlToClipboard",
@@ -6237,19 +6262,14 @@
 				{
 					"command": "gitlens.openFileOnRemote",
 					"when": "gitlens:enabled && gitlens:hasRemotes && scmProvider == git && scmResourceGroup =~ /^(workingTree|index|merge)$/ && config.gitlens.menus.scmItem.remote",
-					"group": "navigation@97",
+					"group": "navigation@96",
 					"alt": "gitlens.copyRemoteFileUrlToClipboard"
 				},
 				{
 					"command": "gitlens.openFileOnRemoteFrom",
 					"when": "gitlens:enabled && gitlens:hasRemotes && scmProvider == git && scmResourceGroup =~ /^(workingTree|index|merge)$/ && config.gitlens.menus.scmItem.remote",
-					"group": "navigation@98",
+					"group": "navigation@97",
 					"alt": "gitlens.copyRemoteFileUrlFrom"
-				},
-				{
-					"command": "gitlens.showFileHistoryInView",
-					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index|merge)$/ && config.gitlens.menus.scmItem.history",
-					"group": "navigation@99"
 				},
 				{
 					"command": "gitlens.stashSaveFiles",
@@ -6260,6 +6280,16 @@
 					"command": "gitlens.copyRemoteFileUrlToClipboard",
 					"when": "gitlens:enabled && gitlens:hasRemotes && scmProvider == git && scmResourceGroup =~ /^(workingTree|index|merge)$/ && config.gitlens.menus.scmItem.clipboard",
 					"group": "2_gitlens@1"
+				},
+				{
+					"command": "gitlens.showFileHistoryInView",
+					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index|merge)$/ && config.gitlens.menus.scmItem.history",
+					"group": "4_timeline@2"
+				},
+				{
+					"command": "gitlens.quickOpenFileHistory",
+					"when": "gitlens:enabled && scmProvider == git && scmResourceGroup =~ /^(workingTree|index|merge)$/ && config.gitlens.menus.scmItem.history",
+					"group": "4_timeline@3"
 				}
 			],
 			"timeline/item/context": [

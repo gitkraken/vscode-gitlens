@@ -21,7 +21,7 @@ export interface ShowQuickFileHistoryCommandArgs {
 @command()
 export class ShowQuickFileHistoryCommand extends ActiveEditorCachedCommand {
 	constructor() {
-		super([Commands.ShowFileHistoryInView, Commands.ShowQuickFileHistory]);
+		super([Commands.ShowFileHistoryInView, Commands.ShowQuickFileHistory, Commands.QuickOpenFileHistory]);
 	}
 
 	protected preExecute(context: CommandContext, args?: ShowQuickFileHistoryCommandArgs) {

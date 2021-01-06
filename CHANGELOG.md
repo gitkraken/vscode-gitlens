@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Adds a new _Quick Open File History_ command to all places where _Open File History_ already exists &mdash; closes [#1156](https://github.com/eamodio/vscode-gitlens/issues/1156)
+
 ## [11.1.3] - 2021-01-05
 
 ### Fixed
