@@ -200,7 +200,8 @@ export class TernarySearchTree<K, V> {
 	}
 
 	has(key: K): boolean {
-		return Boolean(this._getNode(key));
+		const node = this._getNode(key);
+		return !(node?.value === undefined && node?.mid === undefined);
 	}
 
 	delete(key: K): void {
