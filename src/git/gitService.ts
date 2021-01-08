@@ -66,6 +66,7 @@ import {
 	GitTagParser,
 	GitTree,
 	GitTreeParser,
+	maxGitCliLength,
 	PullRequest,
 	PullRequestDateFormatting,
 	PullRequestState,
@@ -3897,21 +3898,39 @@ export class GitService implements Disposable {
 	) {
 		if (uris == null) return Git.stash__push(repoPath, message, options);
 
-		GitService.ensureGitVersion('2.13.2', 'Stashing individual files');
+		GitService.ensureGitVersion(
+			'2.13.2',
+			'Stashing individual files',
+			' Please retry by stashing everything or install a more recent version of Git.',
+		);
 
 		const pathspecs = uris.map(u => `./${Git.splitPath(u.fsPath, repoPath)[0]}`);
-		return Git.stash__push(repoPath, message, { ...options, pathspecs: pathspecs });
+
+		const stdinVersion = '2.30.0';
+		const stdin = GitService.compareGitVersion(stdinVersion) !== -1;
+		// If we don't support stdin, then error out if we are over the maximum allowed git cli length
+		if (!stdin && Arrays.countStringLength(pathspecs) > maxGitCliLength) {
+			GitService.ensureGitVersion(
+				stdinVersion,
+				`Stashing so many files (${pathspecs.length}) at once`,
+				' Please retry by stashing fewer files or install a more recent version of Git.',
+			);
+		}
+
+		return Git.stash__push(repoPath, message, {
+			...options,
+			pathspecs: pathspecs,
+			stdin: stdin,
+		});
 	}
 
 	static compareGitVersion(version: string) {
 		return Versions.compare(Versions.fromString(Git.getGitVersion()), Versions.fromString(version));
 	}
-
-	static ensureGitVersion(version: string, feature: string): void {
-		const gitVersion = Git.getGitVersion();
-		if (Versions.compare(Versions.fromString(gitVersion), Versions.fromString(version)) === -1) {
+	static ensureGitVersion(version: string, prefix: string, suffix: string): void {
+		if (GitService.compareGitVersion(version) === -1) {
 			throw new Error(
-				`${feature} requires a newer version of Git (>= ${version}) than is currently installed (${gitVersion}). Please install a more recent version of Git to use this GitLens feature.`,
+				`${prefix} requires a newer version of Git (>= ${version}) than is currently installed (${Git.getGitVersion()}).${suffix}`,
 			);
 		}
 	}

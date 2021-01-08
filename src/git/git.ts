@@ -25,6 +25,7 @@ export type GitDiffFilter = 'A' | 'C' | 'D' | 'M' | 'R' | 'T' | 'U' | 'X' | 'B' 
 const emptyArray = (Object.freeze([]) as any) as any[];
 const emptyObj = Object.freeze({});
 const emptyStr = '';
+export const maxGitCliLength = 30000;
 const slash = '/';
 
 const textDecoder = new TextDecoder('utf8');
@@ -1308,18 +1309,19 @@ export namespace Git {
 		);
 	}
 
-	export function stash__push(
+	export async function stash__push(
 		repoPath: string,
 		message?: string,
 		{
 			includeUntracked,
 			keepIndex,
 			pathspecs,
-		}: { includeUntracked?: boolean; keepIndex?: boolean; pathspecs?: string[] } = {},
-	) {
+			stdin,
+		}: { includeUntracked?: boolean; keepIndex?: boolean; pathspecs?: string[]; stdin?: boolean } = {},
+	): Promise<void> {
 		const params = ['stash', 'push'];
 
-		if (includeUntracked || (pathspecs !== undefined && pathspecs.length !== 0)) {
+		if (includeUntracked || (pathspecs != null && pathspecs.length !== 0)) {
 			params.push('-u');
 		}
 
@@ -1331,12 +1333,23 @@ export namespace Git {
 			params.push('-m', message);
 		}
 
+		if (stdin && pathspecs != null && pathspecs.length !== 0) {
+			void (await git<string>(
+				{ cwd: repoPath, stdin: pathspecs.join('\0') },
+				...params,
+				'--pathspec-from-file=-',
+				'--pathspec-file-nul',
+			));
+
+			return;
+		}
+
 		params.push('--');
-		if (pathspecs !== undefined && pathspecs.length !== 0) {
+		if (pathspecs != null && pathspecs.length !== 0) {
 			params.push(...pathspecs);
 		}
 
-		return git<string>({ cwd: repoPath }, ...params);
+		void (await git<string>({ cwd: repoPath }, ...params));
 	}
 
 	export function status(
