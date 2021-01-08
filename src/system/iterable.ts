@@ -1,5 +1,45 @@
 'use strict';
 
+export function* chunk<T>(source: T[], size: number): Iterable<T[]> {
+	let chunk: T[] = [];
+
+	for (const item of source) {
+		if (chunk.length < size) {
+			chunk.push(item);
+			continue;
+		}
+
+		yield chunk;
+		chunk = [];
+	}
+
+	if (chunk.length > 0) {
+		yield chunk;
+	}
+}
+
+export function* chunkByStringLength(source: string[], maxLength: number): Iterable<string[]> {
+	let chunk: string[] = [];
+
+	let chunkLength = 0;
+	for (const item of source) {
+		let length = chunkLength + item.length;
+		if (length > maxLength && chunk.length > 0) {
+			yield chunk;
+
+			chunk = [];
+			length = item.length;
+		}
+
+		chunk.push(item);
+		chunkLength = length;
+	}
+
+	if (chunk.length > 0) {
+		yield chunk;
+	}
+}
+
 export function count<T>(source: Iterable<T> | IterableIterator<T>, predicate?: (item: T) => boolean): number {
 	let count = 0;
 	let next: IteratorResult<T>;
