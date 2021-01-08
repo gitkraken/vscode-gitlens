@@ -141,6 +141,7 @@
 		"onCommand:gitlens.addAuthors",
 		"onCommand:gitlens.connectRemoteProvider",
 		"onCommand:gitlens.disconnectRemoteProvider",
+		"oncommand:gitlens.copyCurrentBranch",
 		"onCommand:gitlens.copyMessageToClipboard",
 		"onCommand:gitlens.copyShaToClipboard",
 		"onCommand:gitlens.closeUnchangedFiles",
@@ -185,7 +186,6 @@
 		"onCommand:gitlens.fetchRepositories",
 		"onCommand:gitlens.pullRepositories",
 		"onCommand:gitlens.pushRepositories",
-		"oncommand:gitlens.copyCurrentBranch",
 		"onStartupFinished"
 	],
 	"contributes": {
@@ -3186,6 +3186,15 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.copyCurrentBranch",
+				"title": "Copy Current Branch Name",
+				"category": "GitLens",
+				"icon": {
+					"dark": "images/dark/icon-copy.svg",
+					"light": "images/light/icon-copy.svg"
+				}
+			},
+			{
 				"command": "gitlens.copyMessageToClipboard",
 				"title": "Copy Message",
 				"category": "GitLens",
@@ -4694,11 +4703,6 @@
 				"command": "gitlens.views.tags.setShowAvatarsOff",
 				"title": "Hide Avatars",
 				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.copyCurrentBranch",
-				"title": "Copy Current Branch",
-				"category": "GitLens"
 			}
 		],
 		"menus": {
@@ -5034,6 +5038,10 @@
 				{
 					"command": "gitlens.resetRemoteConnectionAuthorization",
 					"when": "config.gitlens.integrations.enabled && gitlens:hasRichRemotes"
+				},
+				{
+					"command": "gitlens.copyCurrentBranch",
+					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.copyMessageToClipboard",
