@@ -66,6 +66,9 @@ export class TagsViewNode extends ViewNode<TagsView> {
 			const tags = await child.repo.getTags();
 			if (tags.length === 0) {
 				this.view.message = 'No tags could be found.';
+				this.view.title = 'Tags';
+
+				void child.ensureSubscription();
 
 				return [];
 			}

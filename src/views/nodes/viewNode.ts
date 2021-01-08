@@ -176,7 +176,7 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
 	protected disposable: Disposable;
 	protected subscription: Promise<Disposable | undefined> | undefined;
 
-	private _loaded: boolean = false;
+	protected loaded: boolean = false;
 
 	constructor(uri: GitUri, view: TView, parent?: ViewNode) {
 		super(uri, view, parent);
@@ -192,14 +192,14 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
 
 		const getTreeItem = this.getTreeItem;
 		this.getTreeItem = function (this: SubscribeableViewNode<TView>) {
-			this._loaded = true;
+			this.loaded = true;
 			void this.ensureSubscription();
 			return getTreeItem.apply(this);
 		};
 
 		const getChildren = this.getChildren;
 		this.getChildren = function (this: SubscribeableViewNode<TView>) {
-			this._loaded = true;
+			this.loaded = true;
 			void this.ensureSubscription();
 			return getChildren.apply(this);
 		};
@@ -217,7 +217,7 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
 	@gate()
 	@debug()
 	async triggerChange(reset: boolean = false, force: boolean = false): Promise<void> {
-		if (!this._loaded) return;
+		if (!this.loaded) return;
 
 		await super.triggerChange(reset, force);
 	}
@@ -423,7 +423,7 @@ export abstract class RepositoryFolderNode<
 		}
 
 		if (this.changed(e)) {
-			void this.triggerChange(true);
+			void (this.loaded ? this : this.parent ?? this).triggerChange(true);
 		}
 	}
 }

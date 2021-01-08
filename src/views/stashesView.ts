@@ -65,6 +65,9 @@ export class StashesViewNode extends ViewNode<StashesView> {
 			const stash = await child.repo.getStash();
 			if (stash == null) {
 				this.view.message = 'No stashes could be found.';
+				this.view.title = 'Stashes';
+
+				void child.ensureSubscription();
 
 				return [];
 			}
