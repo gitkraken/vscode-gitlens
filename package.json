@@ -2341,7 +2341,7 @@
 				},
 				"gitlens.advanced.abbreviatedShaLength": {
 					"type": "number",
-					"default": "7",
+					"default": 7,
 					"markdownDescription": "Specifies the length of abbreviated commit SHAs",
 					"scope": "window"
 				},
@@ -2462,6 +2462,12 @@
 					],
 					"default": null,
 					"markdownDescription": "Specifies the amount (percent) of similarity a deleted and added file pair must have to be considered a rename",
+					"scope": "window"
+				},
+				"gitlens.advanced.useAbbreviatedShaLengthForCopy": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "Specifies whether abbreviated commit SHAs should be copied instead of full-length SHAs. Respects `abbreviatedShaLength`.",
 					"scope": "window"
 				},
 				"gitlens.advanced.useSymmetricDifferenceNotation": {
