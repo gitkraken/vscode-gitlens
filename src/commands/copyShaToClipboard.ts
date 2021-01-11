@@ -29,7 +29,9 @@ export class CopyShaToClipboardCommand extends ActiveEditorCommand {
 	protected preExecute(context: CommandContext, args?: CopyShaToClipboardCommandArgs) {
 		if (isCommandContextViewNodeHasCommit(context)) {
 			args = { ...args };
-			args.sha = context.node.commit.sha;
+			args.sha = Container.config.advanced.useAbbreviatedShaLengthForCopy
+				? context.node.commit.shortSha
+				: context.node.commit.sha;
 			return this.execute(context.editor, context.node.commit.uri, args);
 		} else if (isCommandContextViewNodeHasBranch(context)) {
 			args = { ...args };

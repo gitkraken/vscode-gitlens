@@ -304,6 +304,7 @@ export interface AdvancedConfig {
 	};
 	repositorySearchDepth: number;
 	similarityThreshold: number | null;
+	useAbbreviatedShaLengthForCopy: boolean;
 	useSymmetricDifferenceNotation: boolean;
 }
 
