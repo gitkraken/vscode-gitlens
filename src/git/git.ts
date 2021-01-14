@@ -1128,8 +1128,26 @@ export namespace Git {
 					return [ex.stdout, undefined];
 				}
 
-				const defaultBranch = await config__get('init.defaultBranch', repoPath, { local: true });
-				return [defaultBranch ?? 'main', undefined];
+				const defaultBranch = (await config__get('init.defaultBranch', repoPath, { local: true })) ?? 'main';
+				const branchConfig = await config__get_regex(`branch\\.${defaultBranch}\\.+`, repoPath, {
+					local: true,
+				});
+
+				let remote;
+				let remoteBranch;
+
+				if (branchConfig) {
+					let match = /^branch\..+\.remote\s(.+)$/m.exec(branchConfig);
+					if (match != null) {
+						remote = match[1];
+					}
+
+					match = /^branch\..+\.merge\srefs\/heads\/(.+)$/m.exec(branchConfig);
+					if (match != null) {
+						remoteBranch = match[1];
+					}
+				}
+				return [`${defaultBranch}${remote && remoteBranch ? `\n${remote}/${remoteBranch}` : ''}`, undefined];
 			}
 
 			if (GitWarnings.headNotABranch.test(msg)) {
