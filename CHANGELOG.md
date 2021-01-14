@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Changes _Push to Commit..._ on the HEAD commit to be _Push_ instead as there is no need for a commit specific push in that case
 - Renames _Browse from Here_ command to _Browse Repository from Here_ in the command palette and quick pick menus
 - Renames _Browse from Here in New Window_ command to _Browse Repository from Here in New Window_ in the command palette and quick pick menus
 - Renames _Browse from Here_ to _Repository from Here_ on the _Browse_ submenu of commits in the views
