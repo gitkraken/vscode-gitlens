@@ -6,8 +6,9 @@ import { defaultActionRunnerName } from './actionRunners';
 import { Action, ActionContext, ActionRunner, GitLensApi } from './gitlens';
 
 const emptyDisposable = Object.freeze({
-	// eslint-disable-next-line @typescript-eslint/no-empty-function
-	dispose: () => {},
+	dispose: () => {
+		/* noop */
+	},
 });
 
 export class Api implements GitLensApi {
