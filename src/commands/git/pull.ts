@@ -3,6 +3,7 @@ import { Container } from '../../container';
 import { GitBranch, GitBranchReference, GitReference, Repository } from '../../git/git';
 import {
 	appendReposToTitle,
+	AsyncStepResultGenerator,
 	PartialStepState,
 	pickRepositoriesStep,
 	QuickCommand,
@@ -10,7 +11,6 @@ import {
 	QuickPickStep,
 	StepGenerator,
 	StepResult,
-	StepResultGenerator,
 	StepSelection,
 	StepState,
 } from '../quickCommand';
@@ -136,7 +136,7 @@ export class PullGitCommand extends QuickCommand<State> {
 		return state.counter < 0 ? StepResult.Break : undefined;
 	}
 
-	private async *confirmStep(state: PullStepState, context: Context): StepResultGenerator<Flags[]> {
+	private async *confirmStep(state: PullStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
 		let step: QuickPickStep<FlagsQuickPickItem<Flags>>;
 
 		if (state.repos.length > 1) {

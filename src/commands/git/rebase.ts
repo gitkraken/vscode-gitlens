@@ -4,6 +4,7 @@ import { Container } from '../../container';
 import { GitBranch, GitLog, GitReference, GitRevision, Repository } from '../../git/git';
 import {
 	appendReposToTitle,
+	AsyncStepResultGenerator,
 	PartialStepState,
 	pickBranchOrTagStep,
 	pickCommitStep,
@@ -13,7 +14,6 @@ import {
 	QuickPickStep,
 	StepGenerator,
 	StepResult,
-	StepResultGenerator,
 	StepSelection,
 	StepState,
 } from '../quickCommand';
@@ -226,7 +226,7 @@ export class RebaseGitCommand extends QuickCommand<State> {
 		return state.counter < 0 ? StepResult.Break : undefined;
 	}
 
-	private async *confirmStep(state: RebaseStepState, context: Context): StepResultGenerator<Flags[]> {
+	private async *confirmStep(state: RebaseStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
 		const aheadBehind = await Container.git.getAheadBehindCommitCount(state.repo.path, [
 			state.reference.refType === 'revision'
 				? GitRevision.createRange(state.reference.ref, context.destination.ref)

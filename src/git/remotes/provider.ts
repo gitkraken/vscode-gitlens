@@ -173,7 +173,7 @@ export abstract class RemoteProvider {
 		}
 	}
 
-	protected get baseUrl() {
+	protected get baseUrl(): string {
 		return `${this.protocol}://${this.domain}/${this.path}`;
 	}
 

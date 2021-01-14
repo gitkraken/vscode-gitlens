@@ -33,7 +33,7 @@ export class BitbucketServerRemote extends RemoteProvider {
 		return this._autolinks;
 	}
 
-	protected get baseUrl() {
+	protected get baseUrl(): string {
 		const [project, repo] = this.path.startsWith('scm/')
 			? this.path.replace('scm/', '').split('/')
 			: this.splitPath();

@@ -4,6 +4,7 @@ import { Container } from '../../container';
 import { GitBranchReference, GitReference, Repository } from '../../git/git';
 import {
 	appendReposToTitle,
+	AsyncStepResultGenerator,
 	inputBranchNameStep,
 	PartialStepState,
 	pickBranchesStep,
@@ -244,7 +245,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 		return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
 	}
 
-	private async *createCommandSteps(state: CreateStepState, context: Context): StepResultGenerator<void> {
+	private async *createCommandSteps(state: CreateStepState, context: Context): AsyncStepResultGenerator<void> {
 		if (state.flags == null) {
 			state.flags = [];
 		}
@@ -317,8 +318,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 		return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
 	}
 
-	// eslint-disable-next-line @typescript-eslint/require-await
-	private async *deleteCommandSteps(state: DeleteStepState, context: Context): StepResultGenerator<void> {
+	private async *deleteCommandSteps(state: DeleteStepState, context: Context): AsyncStepResultGenerator<void> {
 		if (state.flags == null) {
 			state.flags = [];
 		}
@@ -422,8 +422,7 @@ export class BranchGitCommand extends QuickCommand<State> {
 		return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
 	}
 
-	// eslint-disable-next-line @typescript-eslint/require-await
-	private async *renameCommandSteps(state: RenameStepState, context: Context): StepResultGenerator<void> {
+	private async *renameCommandSteps(state: RenameStepState, context: Context): AsyncStepResultGenerator<void> {
 		if (state.flags == null) {
 			state.flags = [];
 		}

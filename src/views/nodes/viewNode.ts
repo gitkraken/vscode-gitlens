@@ -90,7 +90,7 @@ export abstract class ViewNode<TView extends View = View> {
 
 	toClipboard?(): string;
 
-	toString() {
+	toString(): string {
 		return `${Logger.toLoggableName(this)}${this.id != null ? `(${this.id})` : ''}`;
 	}
 
@@ -141,7 +141,7 @@ export abstract class ViewRefNode<
 		return this.uri.repoPath!;
 	}
 
-	toString() {
+	toString(): string {
 		return `${super.toString()}:${GitReference.toString(this.ref, false)}`;
 	}
 }
@@ -150,7 +150,7 @@ export abstract class ViewRefFileNode<TView extends View = View> extends ViewRef
 	abstract get file(): GitFile;
 	abstract get fileName(): string;
 
-	toString() {
+	toString(): string {
 		return `${super.toString()}:${this.fileName}`;
 	}
 }

@@ -3,6 +3,7 @@ import { Container } from '../../container';
 import { GitBranch, GitLog, GitReference, GitRevision, Repository } from '../../git/git';
 import {
 	appendReposToTitle,
+	AsyncStepResultGenerator,
 	PartialStepState,
 	pickBranchOrTagStep,
 	pickCommitStep,
@@ -12,7 +13,6 @@ import {
 	QuickPickStep,
 	StepGenerator,
 	StepResult,
-	StepResultGenerator,
 	StepSelection,
 	StepState,
 } from '../quickCommand';
@@ -194,7 +194,7 @@ export class MergeGitCommand extends QuickCommand<State> {
 		return state.counter < 0 ? StepResult.Break : undefined;
 	}
 
-	private async *confirmStep(state: MergeStepState, context: Context): StepResultGenerator<Flags[]> {
+	private async *confirmStep(state: MergeStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
 		const aheadBehind = await Container.git.getAheadBehindCommitCount(state.repo.path, [
 			GitRevision.createRange(context.destination.name, state.reference.name),
 		]);

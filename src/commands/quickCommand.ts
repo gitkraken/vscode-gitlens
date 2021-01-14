@@ -66,9 +66,16 @@ export namespace StepResult {
 	export const Break = Symbol('BreakStep');
 }
 export type StepResult<T> = typeof StepResult.Break | T;
-export type StepResultGenerator<T> =
-	| Generator<QuickPickStep | QuickInputStep, StepResult<T>, any | undefined>
-	| AsyncGenerator<QuickPickStep | QuickInputStep, StepResult<T>, any | undefined>;
+export type StepResultGenerator<T> = Generator<QuickPickStep | QuickInputStep, StepResult<T>, any | undefined>;
+export type AsyncStepResultGenerator<T> = AsyncGenerator<
+	QuickPickStep | QuickInputStep,
+	StepResult<T>,
+	any | undefined
+>;
+// Can't use this union type because of https://github.com/microsoft/TypeScript/issues/41428
+// export type StepResultGenerator<T> =
+// 	| Generator<QuickPickStep | QuickInputStep, StepResult<T>, any | undefined>
+// 	| AsyncGenerator<QuickPickStep | QuickInputStep, StepResult<T>, any | undefined>;
 export type StepSelection<T> = T extends QuickPickStep<infer U>
 	? U[] | Directive
 	: T extends QuickInputStep

@@ -74,13 +74,12 @@ export class AzureDevOpsRemote extends RemoteProvider {
 		return this._displayPath;
 	}
 
-	// eslint-disable-next-line @typescript-eslint/require-await
 	async getLocalInfoFromRemoteUri(
 		repository: Repository,
 		uri: Uri,
 		options?: { validate?: boolean },
 	): Promise<{ uri: Uri; startLine?: number; endLine?: number } | undefined> {
-		if (uri.authority !== this.domain) return undefined;
+		if (uri.authority !== this.domain) return Promise.resolve(undefined);
 		// if ((options?.validate ?? true) && !uri.path.startsWith(`/${this.path}/`)) return undefined;
 
 		let startLine;
@@ -99,12 +98,14 @@ export class AzureDevOpsRemote extends RemoteProvider {
 		}
 
 		const match = fileRegex.exec(uri.query);
-		if (match == null) return undefined;
+		if (match == null) return Promise.resolve(undefined);
 
 		const [, path] = match;
 
 		const absoluteUri = repository.toAbsoluteUri(path, { validate: options?.validate });
-		return absoluteUri != null ? { uri: absoluteUri, startLine: startLine, endLine: endLine } : undefined;
+		return Promise.resolve(
+			absoluteUri != null ? { uri: absoluteUri, startLine: startLine, endLine: endLine } : undefined,
+		);
 	}
 
 	protected getUrlForBranches(): string {

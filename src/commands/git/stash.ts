@@ -7,6 +7,7 @@ import { GitUri } from '../../git/gitUri';
 import { GitActions, GitCommandsCommand } from '../gitCommands';
 import {
 	appendReposToTitle,
+	AsyncStepResultGenerator,
 	PartialStepState,
 	pickRepositoryStep,
 	pickStashStep,
@@ -510,7 +511,10 @@ export class StashGitCommand extends QuickCommand<State> {
 		}
 	}
 
-	private async *pushCommandInputMessageStep(state: PushStepState, context: Context): StepResultGenerator<string> {
+	private async *pushCommandInputMessageStep(
+		state: PushStepState,
+		context: Context,
+	): AsyncStepResultGenerator<string> {
 		const step = QuickCommand.createInputStep({
 			title: appendReposToTitle(
 				context.title,

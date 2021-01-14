@@ -5,6 +5,7 @@ import { Container } from '../../container';
 import { GitBranch, GitBranchReference, GitReference, Repository } from '../../git/git';
 import {
 	appendReposToTitle,
+	AsyncStepResultGenerator,
 	PartialStepState,
 	pickRepositoriesStep,
 	pickRepositoryStep,
@@ -13,7 +14,6 @@ import {
 	QuickPickStep,
 	StepGenerator,
 	StepResult,
-	StepResultGenerator,
 	StepSelection,
 	StepState,
 } from '../quickCommand';
@@ -151,7 +151,7 @@ export class PushGitCommand extends QuickCommand<State> {
 		return state.counter < 0 ? StepResult.Break : undefined;
 	}
 
-	private async *confirmStep(state: PushStepState, context: Context): StepResultGenerator<Flags[]> {
+	private async *confirmStep(state: PushStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
 		const useForceWithLease = configuration.getAny<boolean>('git.useForcePushWithLease') ?? false;
 
 		let step: QuickPickStep<FlagsQuickPickItem<Flags>>;

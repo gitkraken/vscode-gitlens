@@ -4,13 +4,13 @@ import { Container } from '../../container';
 import { GitBranchReference, GitReference, Repository } from '../../git/git';
 import {
 	appendReposToTitle,
+	AsyncStepResultGenerator,
 	PartialStepState,
 	pickRepositoriesStep,
 	QuickCommand,
 	QuickPickStep,
 	StepGenerator,
 	StepResult,
-	StepResultGenerator,
 	StepSelection,
 	StepState,
 } from '../quickCommand';
@@ -130,7 +130,7 @@ export class FetchGitCommand extends QuickCommand<State> {
 		return state.counter < 0 ? StepResult.Break : undefined;
 	}
 
-	private async *confirmStep(state: FetchStepState, context: Context): StepResultGenerator<Flags[]> {
+	private async *confirmStep(state: FetchStepState, context: Context): AsyncStepResultGenerator<Flags[]> {
 		let lastFetchedOn = '';
 		if (state.repos.length === 1) {
 			const lastFetched = await state.repos[0].getLastFetched();

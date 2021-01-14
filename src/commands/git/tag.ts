@@ -4,6 +4,7 @@ import { Container } from '../../container';
 import { GitReference, GitTagReference, Repository } from '../../git/git';
 import {
 	appendReposToTitle,
+	AsyncStepResultGenerator,
 	inputTagNameStep,
 	PartialStepState,
 	pickBranchOrTagStep,
@@ -213,7 +214,7 @@ export class TagGitCommand extends QuickCommand<State> {
 		return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
 	}
 
-	private async *createCommandSteps(state: CreateStepState, context: Context): StepResultGenerator<void> {
+	private async *createCommandSteps(state: CreateStepState, context: Context): AsyncStepResultGenerator<void> {
 		if (state.flags == null) {
 			state.flags = [];
 		}
@@ -270,7 +271,7 @@ export class TagGitCommand extends QuickCommand<State> {
 	private async *createCommandInputMessageStep(
 		state: CreateStepState,
 		context: Context,
-	): StepResultGenerator<string> {
+	): AsyncStepResultGenerator<string> {
 		const step = QuickCommand.createInputStep({
 			title: appendReposToTitle(
 				`${context.title} at ${GitReference.toString(state.reference, { capitalize: true, icon: false })}`,
@@ -324,7 +325,6 @@ export class TagGitCommand extends QuickCommand<State> {
 		return QuickCommand.canPickStepContinue(step, state, selection) ? selection[0].item : StepResult.Break;
 	}
 
-	// eslint-disable-next-line @typescript-eslint/require-await
 	private async *deleteCommandSteps(state: DeleteStepState, context: Context): StepGenerator {
 		while (this.canStepsContinue(state)) {
 			if (state.references != null && !Array.isArray(state.references)) {
