@@ -4,7 +4,7 @@ import '../scss/settings.scss';
 import { IpcMessage, onIpcNotification, SettingsDidRequestJumpToNotificationType, SettingsState } from '../../protocol';
 import { AppWithConfig } from '../shared/appWithConfigBase';
 import { DOM } from '../shared/dom';
-import { Snow } from '../shared/snow';
+// import { Snow } from '../shared/snow';
 
 export class SettingsApp extends AppWithConfig<SettingsState> {
 	private _scopes: HTMLSelectElement | null = null;
@@ -229,4 +229,4 @@ export class SettingsApp extends AppWithConfig<SettingsState> {
 }
 
 new SettingsApp();
-requestAnimationFrame(() => new Snow());
+// requestAnimationFrame(() => new Snow());

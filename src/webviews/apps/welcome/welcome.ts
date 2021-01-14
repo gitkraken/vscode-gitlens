@@ -3,7 +3,7 @@
 import '../scss/welcome.scss';
 import { WelcomeState } from '../../protocol';
 import { AppWithConfig } from '../shared/appWithConfigBase';
-import { Snow } from '../shared/snow';
+// import { Snow } from '../shared/snow';
 
 export class WelcomeApp extends AppWithConfig<WelcomeState> {
 	constructor() {
@@ -13,4 +13,4 @@ export class WelcomeApp extends AppWithConfig<WelcomeState> {
 }
 
 new WelcomeApp();
-requestAnimationFrame(() => new Snow());
+// requestAnimationFrame(() => new Snow());

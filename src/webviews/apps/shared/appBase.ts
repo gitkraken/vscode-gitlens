@@ -65,8 +65,8 @@ export abstract class App<State extends object> {
 		this.bindDisposables = this.onBind?.();
 	}
 
-	protected log(message: string) {
-		console.log(message);
+	protected log(_message: string) {
+		// console.log(message);
 	}
 
 	protected getState(): State {
