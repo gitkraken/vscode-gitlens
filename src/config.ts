@@ -278,6 +278,7 @@ export enum ViewShowBranchComparison {
 
 export interface AdvancedConfig {
 	abbreviatedShaLength: number;
+	abbreviateShaOnCopy: boolean;
 	blame: {
 		customArguments: string[] | null;
 		delayAfterEdit: number;
@@ -304,7 +305,6 @@ export interface AdvancedConfig {
 	};
 	repositorySearchDepth: number;
 	similarityThreshold: number | null;
-	useAbbreviatedShaLengthForCopy: boolean;
 	useSymmetricDifferenceNotation: boolean;
 }
 
