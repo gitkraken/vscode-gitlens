@@ -4209,13 +4209,13 @@
 			},
 			{
 				"command": "gitlens.views.fileHistory.setCursorFollowingOn",
-				"title": "Toggle History Mode: File",
+				"title": "Toggle History by: File",
 				"category": "GitLens",
 				"icon": "$(file)"
 			},
 			{
 				"command": "gitlens.views.fileHistory.setCursorFollowingOff",
-				"title": "Toggle History Mode: Selected Line(s)",
+				"title": "Toggle History by: Selected Line(s)",
 				"category": "GitLens",
 				"icon": "$(list-selection)"
 			},
