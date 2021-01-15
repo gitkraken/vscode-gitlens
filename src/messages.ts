@@ -12,6 +12,7 @@ export enum SuppressedMessages {
 	GitVersionWarning = 'suppressGitVersionWarning',
 	LineUncommittedWarning = 'suppressLineUncommittedWarning',
 	NoRepositoryWarning = 'suppressNoRepositoryWarning',
+	RebaseSwitchToTextWarning = 'suppressRebaseSwitchToTextWarning',
 }
 
 export class Messages {
@@ -99,6 +100,14 @@ export class Messages {
 			'warn',
 			`${message}. No repository could be found.`,
 			SuppressedMessages.NoRepositoryWarning,
+		);
+	}
+
+	static showRebaseSwitchToTextWarningMessage(): Promise<MessageItem | undefined> {
+		return Messages.showMessage(
+			'warn',
+			'Closing either the git-rebase-todo file or the Rebase Editor will start the rebase.',
+			SuppressedMessages.RebaseSwitchToTextWarning,
 		);
 	}
 

@@ -5,11 +5,13 @@ export interface GitRebaseStatus {
 	type: 'rebase';
 	repoPath: string;
 	HEAD: GitRevisionReference;
+	onto: GitRevisionReference;
 	mergeBase: string | undefined;
 	current: GitBranchReference | undefined;
 	incoming: GitBranchReference;
 
-	step: number | undefined;
-	stepCurrent: GitRevisionReference;
-	steps: number | undefined;
+	steps: {
+		current: { number: number; commit: GitRevisionReference };
+		total: number;
+	};
 }

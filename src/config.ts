@@ -299,6 +299,7 @@ export interface AdvancedConfig {
 		suppressGitVersionWarning: boolean;
 		suppressLineUncommittedWarning: boolean;
 		suppressNoRepositoryWarning: boolean;
+		suppressRebaseSwitchToTextWarning: boolean;
 	};
 	quickPick: {
 		closeOnFocusOut: boolean;

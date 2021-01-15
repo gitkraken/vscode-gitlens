@@ -160,7 +160,7 @@ export class SearchGitCommand extends QuickCommand<State> {
 			const searchKey = SearchPattern.toKey(search);
 
 			if (context.resultsPromise == null || context.resultsKey !== searchKey) {
-				context.resultsPromise = Container.git.getLogForSearch(state.repo.path, search);
+				context.resultsPromise = state.repo.searchForCommits(search);
 				context.resultsKey = searchKey;
 			}
 

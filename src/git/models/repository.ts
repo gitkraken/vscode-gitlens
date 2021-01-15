@@ -16,12 +16,29 @@ import {
 import { BranchSorting, configuration, TagSorting } from '../../configuration';
 import { Starred, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
-import { GitBranch, GitContributor, GitDiffShortStat, GitRemote, GitStash, GitStatus, GitTag } from '../git';
+import {
+	GitBranch,
+	GitContributor,
+	GitDiffShortStat,
+	GitRemote,
+	GitStash,
+	GitStatus,
+	GitTag,
+	SearchPattern,
+} from '../git';
 import { GitService } from '../gitService';
 import { GitUri } from '../gitUri';
 import { Logger } from '../../logger';
 import { Messages } from '../../messages';
-import { GitBranchReference, GitReference, GitTagReference } from './models';
+import {
+	GitBranchReference,
+	GitLog,
+	GitLogCommit,
+	GitMergeStatus,
+	GitRebaseStatus,
+	GitReference,
+	GitTagReference,
+} from './models';
 import { RemoteProviderFactory, RemoteProviders, RichRemoteProvider } from '../remotes/factory';
 import { Arrays, Dates, debug, Functions, gate, Iterables, log, logName } from '../../system';
 import { runGitCommandInTerminal } from '../../terminal';
@@ -479,6 +496,10 @@ export class Repository implements Disposable {
 		return Container.git.getChangedFilesCount(this.path, sha);
 	}
 
+	getCommit(ref: string): Promise<GitLogCommit | undefined> {
+		return Container.git.getCommit(this.path, ref);
+	}
+
 	getContributors(): Promise<GitContributor[]> {
 		return Container.git.getContributors(this.path);
 	}
@@ -502,6 +523,14 @@ export class Repository implements Disposable {
 		}
 
 		return this._lastFetched ?? 0;
+	}
+
+	getMergeStatus(): Promise<GitMergeStatus | undefined> {
+		return Container.git.getMergeStatus(this.path);
+	}
+
+	getRebaseStatus(): Promise<GitRebaseStatus | undefined> {
+		return Container.git.getRebaseStatus(this.path);
 	}
 
 	getRemotes(_options: { sort?: boolean } = {}): Promise<GitRemote[]> {
@@ -716,6 +745,13 @@ export class Repository implements Disposable {
 	@log()
 	revert(...args: string[]) {
 		this.runTerminalCommand('revert', ...args);
+	}
+
+	searchForCommits(
+		search: SearchPattern,
+		options: { limit?: number; skip?: number } = {},
+	): Promise<GitLog | undefined> {
+		return Container.git.getLogForSearch(this.path, search, options);
 	}
 
 	get starred() {

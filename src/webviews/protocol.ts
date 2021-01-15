@@ -124,17 +124,19 @@ export interface RebaseEntry {
 }
 
 export interface RebaseDidChangeNotificationParams {
-	entries: RebaseEntry[];
+	state: RebaseState;
 }
 export const RebaseDidChangeNotificationType = new IpcNotificationType<RebaseDidChangeNotificationParams>(
 	'rebase/change',
 );
 
-export const RebaseDidStartCommandType = new IpcCommandType('rebase/start');
-
 export const RebaseDidAbortCommandType = new IpcCommandType('rebase/abort');
 
 export const RebaseDidDisableCommandType = new IpcCommandType('rebase/disable');
+
+export const RebaseDidStartCommandType = new IpcCommandType('rebase/start');
+
+export const RebaseDidSwitchCommandType = new IpcCommandType('rebase/switch');
 
 export interface RebaseDidChangeEntryCommandParams {
 	ref: string;
@@ -151,7 +153,7 @@ export interface RebaseDidMoveEntryCommandParams {
 }
 export const RebaseDidMoveEntryCommandType = new IpcCommandType<RebaseDidMoveEntryCommandParams>('rebase/move/entry');
 
-export interface RebaseState extends RebaseDidChangeNotificationParams {
+export interface RebaseState {
 	branch: string;
 	onto: string;
 

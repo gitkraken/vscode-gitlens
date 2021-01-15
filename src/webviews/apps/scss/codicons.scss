@@ -1,0 +1,39 @@
+.icon--branch {
+	&::before {
+		content: '\ea68';
+		font-family: codicon;
+		position: relative;
+		top: 2px;
+		margin: 0 3px;
+	}
+}
+
+.icon--commit {
+	&::before {
+		content: '\eafc';
+		font-family: codicon;
+		position: relative;
+		top: 2px;
+		margin: 0 1px 0 3px;
+	}
+}
+
+.icon--paused {
+	&::before {
+		content: '\ead1';
+		font-family: codicon;
+		position: relative;
+		top: 2px;
+		margin: 0 3px;
+	}
+}
+
+.icon--warning {
+	&::before {
+		content: '\ea6c';
+		font-family: codicon;
+		position: relative;
+		top: 2px;
+		margin: 0 3px;
+	}
+}

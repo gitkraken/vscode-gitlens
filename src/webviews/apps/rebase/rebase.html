@@ -29,23 +29,32 @@
 				<span class="shortcut"><kbd>alt ↓</kbd><span>Move Down</span></span>
 			</div>
 			<div class="actions">
-				<button name="disable" class="button button--flat-subtle" data-action="disable" tabindex="-1">
-					Disable Rebase Editor<span class="shortcut">Will Abort Rebase</span>
-				</button>
-				<!-- <div class="snow__trigger-container">
-					<img
-						class="snow__trigger snow__trigger--centered"
-						title="Let it snow — Happy Holidays!"
-						alt="Let it snow — Happy Holidays!"
-						src="#{root}/images/snowman.png"
-					/>
-				</div> -->
-				<button name="start" class="button button--flat-primary button--right" data-action="start">
-					Start Rebase <span class="shortcut">Ctrl+Enter</span>
-				</button>
-				<button name="abort" class="button button--flat-secondary" data-action="abort">
-					Abort <span class="shortcut">Ctrl+A</span>
-				</button>
+				<div class="actions--left">
+					<button name="disable" class="button button--flat-subtle" data-action="disable" tabindex="-1">
+						Disable Rebase Editor<span class="shortcut">Will Abort Rebase</span>
+					</button>
+					<button name="switch" class="button button--flat-subtle" data-action="switch" tabindex="-1">
+						Switch to Text
+					</button>
+					<!--
+					<div class="snow__trigger-container">
+						<img
+							class="snow__trigger snow__trigger--centered"
+							title="Let it snow — Happy Holidays!"
+							alt="Let it snow — Happy Holidays!"
+							src="#{root}/images/snowman.png"
+						/>
+					</div>
+					-->
+				</div>
+				<div class="actions--right">
+					<button name="start" class="button button--flat-primary" data-action="start">
+						Start Rebase <span class="shortcut">Ctrl+Enter</span>
+					</button>
+					<button name="abort" class="button button--flat-secondary" data-action="abort">
+						Abort <span class="shortcut">Ctrl+A</span>
+					</button>
+				</div>
 			</div>
 		</div>
 		#{endOfBody}

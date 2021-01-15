@@ -1,8 +1,21 @@
 'use strict';
 import * as paths from 'path';
-import { Command, MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import {
+	Command,
+	commands,
+	MarkdownString,
+	ThemeColor,
+	ThemeIcon,
+	TreeItem,
+	TreeItemCollapsibleState,
+	Uri,
+} from 'vscode';
 import { BranchNode } from './branchNode';
+import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
+import { CommitFileNode } from './commitFileNode';
 import { ViewFilesLayout } from '../../configuration';
+import { BuiltInCommands, GlyphChars } from '../../constants';
+import { Container } from '../../container';
 import { FileNode, FolderNode } from './folderNode';
 import {
 	CommitFormatter,
@@ -18,10 +31,6 @@ import { MergeConflictFileNode } from './mergeConflictFileNode';
 import { Arrays, Strings } from '../../system';
 import { ViewsWithCommits } from '../viewBase';
 import { ContextValues, ViewNode, ViewRefNode } from './viewNode';
-import { Container } from '../../container';
-import { GlyphChars } from '../../constants';
-import { CommitFileNode } from './commitFileNode';
-import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 
 export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 	static key = ':rebase';
@@ -69,7 +78,10 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 			);
 		}
 
-		const commit = await Container.git.getCommit(this.rebaseStatus.repoPath, this.rebaseStatus.stepCurrent.ref);
+		const commit = await Container.git.getCommit(
+			this.rebaseStatus.repoPath,
+			this.rebaseStatus.steps.current.commit.ref,
+		);
 		if (commit != null) {
 			children.splice(0, 0, new RebaseCommitNode(this.view, this, commit) as any);
 		}
@@ -83,11 +95,7 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 				this.rebaseStatus.incoming != null
 					? `${GitReference.toString(this.rebaseStatus.incoming, { expand: false, icon: false })}`
 					: ''
-			}${
-				this.rebaseStatus.step != null && this.rebaseStatus.steps != null
-					? ` (${this.rebaseStatus.step}/${this.rebaseStatus.steps})`
-					: ''
-			}`,
+			} (${this.rebaseStatus.steps.current.number}/${this.rebaseStatus.steps.total})`,
 			TreeItemCollapsibleState.Expanded,
 		);
 		item.id = this.id;
@@ -101,11 +109,12 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 		item.tooltip = new MarkdownString(
 			`${`Rebasing ${
 				this.rebaseStatus.incoming != null ? GitReference.toString(this.rebaseStatus.incoming) : ''
-			}onto ${GitReference.toString(this.rebaseStatus.current)}`}${
-				this.rebaseStatus.step != null && this.rebaseStatus.steps != null
-					? `\n\nStep ${this.rebaseStatus.step} of ${this.rebaseStatus.steps}\\\n`
-					: '\n\n'
-			}Stopped at ${GitReference.toString(this.rebaseStatus.stepCurrent, { icon: true })}${
+			}onto ${GitReference.toString(this.rebaseStatus.current)}`}\n\nStep ${
+				this.rebaseStatus.steps.current.number
+			} of ${this.rebaseStatus.steps.total}\\\nPaused at ${GitReference.toString(
+				this.rebaseStatus.steps.current.commit,
+				{ icon: true },
+			)}${
 				this.status?.hasConflicts
 					? `\n\n${Strings.pluralize('conflicted file', this.status.conflicts.length)}`
 					: ''
@@ -114,6 +123,13 @@ export class RebaseStatusNode extends ViewNode<ViewsWithCommits> {
 		);
 
 		return item;
+	}
+
+	async openEditor() {
+		const rebaseTodoUri = Uri.joinPath(this.uri, '.git', 'rebase-merge', 'git-rebase-todo');
+		await commands.executeCommand(BuiltInCommands.OpenWith, rebaseTodoUri, 'gitlens.rebase', {
+			preview: false,
+		});
 	}
 }
 
@@ -180,7 +196,7 @@ export class RebaseCommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionR
 	}
 
 	getTreeItem(): TreeItem {
-		const item = new TreeItem(`Stopped at commit ${this.commit.shortSha}`, TreeItemCollapsibleState.Collapsed);
+		const item = new TreeItem(`Paused at commit ${this.commit.shortSha}`, TreeItemCollapsibleState.Collapsed);
 
 		// item.contextValue = ContextValues.RebaseCommit;
 

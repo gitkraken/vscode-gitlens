@@ -2414,7 +2414,8 @@
 						"suppressGitDisabledWarning": false,
 						"suppressGitVersionWarning": false,
 						"suppressLineUncommittedWarning": false,
-						"suppressNoRepositoryWarning": false
+						"suppressNoRepositoryWarning": false,
+						"suppressRebaseSwitchToTextWarning": false
 					},
 					"properties": {
 						"suppressCommitHasNoPreviousCommitWarning": {
@@ -2442,6 +2443,10 @@
 							"default": false
 						},
 						"suppressNoRepositoryWarning": {
+							"type": "boolean",
+							"default": false
+						},
+						"suppressRebaseSwitchToTextWarning": {
 							"type": "boolean",
 							"default": false
 						}

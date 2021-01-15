@@ -10,6 +10,7 @@ import {
 	RebaseDidDisableCommandType,
 	RebaseDidMoveEntryCommandType,
 	RebaseDidStartCommandType,
+	RebaseDidSwitchCommandType,
 	RebaseEntry,
 	RebaseEntryAction,
 	RebaseState,
@@ -127,6 +128,7 @@ class RebaseEditor extends App<RebaseState> {
 			DOM.on('[data-action="start"]', 'click', () => this.onStartClicked()),
 			DOM.on('[data-action="abort"]', 'click', () => this.onAbortClicked()),
 			DOM.on('[data-action="disable"]', 'click', () => this.onDisableClicked()),
+			DOM.on('[data-action="switch"]', 'click', () => this.onSwitchClicked()),
 			DOM.on('li[data-ref]', 'keydown', function (this: Element, e: KeyboardEvent) {
 				if ((e.target as HTMLElement).matches('select[data-ref]')) {
 					if (e.key === 'Escape') {
@@ -181,7 +183,7 @@ class RebaseEditor extends App<RebaseState> {
 						const $select = (this as HTMLLIElement).querySelectorAll<HTMLSelectElement>(
 							'select[data-ref]',
 						)[0];
-						if ($select != null) {
+						if ($select != null && !$select.disabled) {
 							$select.value = action;
 							me.onSelectChanged($select);
 						}
@@ -206,7 +208,7 @@ class RebaseEditor extends App<RebaseState> {
 
 	private moveEntry(ref: string, index: number, relative: boolean) {
 		const entry = this.getEntry(ref);
-		if (entry !== undefined) {
+		if (entry != null) {
 			this.sendCommand(RebaseDidMoveEntryCommandType, {
 				ref: entry.ref,
 				to: index,
@@ -217,7 +219,7 @@ class RebaseEditor extends App<RebaseState> {
 
 	private setEntryAction(ref: string, action: RebaseEntryAction) {
 		const entry = this.getEntry(ref);
-		if (entry !== undefined) {
+		if (entry != null) {
 			if (entry.action === action) return;
 
 			this.sendCommand(RebaseDidChangeEntryCommandType, {
@@ -246,13 +248,17 @@ class RebaseEditor extends App<RebaseState> {
 		this.sendCommand(RebaseDidStartCommandType, {});
 	}
 
+	private onSwitchClicked() {
+		this.sendCommand(RebaseDidSwitchCommandType, {});
+	}
+
 	protected onMessageReceived(e: MessageEvent) {
 		const msg = e.data;
 
 		switch (msg.method) {
 			case RebaseDidChangeNotificationType.method:
 				onIpcNotification(RebaseDidChangeNotificationType, msg, params => {
-					this.setState({ ...this.state, ...params });
+					this.setState({ ...this.state, ...params.state });
 					this.refresh(this.state);
 				});
 				break;
@@ -263,22 +269,37 @@ class RebaseEditor extends App<RebaseState> {
 	}
 
 	private refresh(state: RebaseState) {
-		const $subhead = document.getElementById('subhead')! as HTMLHeadingElement;
-		$subhead.innerHTML = `<span class="branch ml-1 mr-1">${state.branch}</span><span>Rebasing ${
-			state.entries.length
-		} commit${state.entries.length !== 1 ? 's' : ''}${
-			state.onto ? ` onto <span class="commit">${state.onto}</span>` : ''
-		}</span>`;
-
-		const $container = document.getElementById('entries')!;
-
 		const focusRef = document.activeElement?.closest<HTMLLIElement>('li[data-ref]')?.dataset.ref;
 		let focusSelect = false;
 		if (document.activeElement?.matches('select[data-ref]')) {
 			focusSelect = true;
 		}
 
+		const $subhead = document.getElementById('subhead')! as HTMLHeadingElement;
+		$subhead.innerHTML = '';
+
+		let $el: HTMLElement | Text = document.createElement('span');
+		$el.textContent = state.branch;
+		$el.classList.add('icon--branch', 'mr-1');
+		$subhead.appendChild($el);
+
+		$el = document.createTextNode(
+			`Rebasing ${state.entries.length} commit${state.entries.length !== 1 ? 's' : ''}${
+				state.onto ? ' onto' : ''
+			}`,
+		);
+		$subhead.appendChild($el);
+
+		if (state.onto) {
+			$el = document.createElement('span');
+			$el.textContent = state.onto;
+			$el.classList.add('icon--commit');
+			$subhead.appendChild($el);
+		}
+
+		const $container = document.getElementById('entries')!;
 		$container.innerHTML = '';
+
 		if (state.entries.length === 0) {
 			$container.classList.add('entries--empty');
 
@@ -290,7 +311,7 @@ class RebaseEditor extends App<RebaseState> {
 			const $entry = document.createElement('li');
 
 			const $el = document.createElement('h3');
-			$el.innerText = 'No commits to rebase';
+			$el.textContent = 'No commits to rebase';
 
 			$entry.appendChild($el);
 			$container.appendChild($entry);
@@ -314,12 +335,7 @@ class RebaseEditor extends App<RebaseState> {
 			}
 
 			let $el: HTMLLIElement;
-			[$el, tabIndex] = this.createEntry(entry, state, ++tabIndex);
-
-			if (squashToHere) {
-				$el.classList.add('entry--squash-to');
-			}
-
+			[$el, tabIndex] = this.createEntry(entry, state, ++tabIndex, squashToHere);
 			$container.appendChild($el);
 		}
 
@@ -335,6 +351,7 @@ class RebaseEditor extends App<RebaseState> {
 					},
 					state,
 					++tabIndex,
+					false,
 				);
 				$container.appendChild($el);
 				$container.classList.add('entries--base');
@@ -350,9 +367,15 @@ class RebaseEditor extends App<RebaseState> {
 		this.bind();
 	}
 
-	private createEntry(entry: RebaseEntry, state: RebaseState, tabIndex: number): [HTMLLIElement, number] {
+	private createEntry(
+		entry: RebaseEntry,
+		state: RebaseState,
+		tabIndex: number,
+		squashToHere: boolean,
+	): [HTMLLIElement, number] {
 		const $entry = document.createElement('li');
 		$entry.classList.add('entry', `entry--${entry.action ?? 'base'}`);
+		$entry.classList.toggle('entry--squash-to', squashToHere);
 		$entry.dataset.ref = entry.ref;
 
 		if (entry.action != null) {
@@ -372,24 +395,22 @@ class RebaseEditor extends App<RebaseState> {
 			$select.tabIndex = tabIndex++;
 
 			for (const action of rebaseActions) {
-				const option = document.createElement('option');
-				option.value = action;
-				option.text = action;
+				const $option = document.createElement('option');
+				$option.value = action;
+				$option.text = action;
 
 				if (entry.action === action) {
-					option.selected = true;
+					$option.selected = true;
 				}
 
-				$select.appendChild(option);
+				$select.appendChild($option);
 			}
 			$selectContainer.appendChild($select);
-		} else {
-			$entry.tabIndex = -1;
 		}
 
 		const $message = document.createElement('span');
 		$message.classList.add('entry-message');
-		$message.innerText = entry.message ?? '';
+		$message.textContent = entry.message ?? '';
 		$entry.appendChild($message);
 
 		const commit = state.commits.find(c => c.ref.startsWith(entry.ref));
@@ -407,7 +428,7 @@ class RebaseEditor extends App<RebaseState> {
 
 				const $author = document.createElement('span');
 				$author.classList.add('entry-author');
-				$author.innerText = commit.author;
+				$author.textContent = commit.author;
 				$entry.appendChild($author);
 			}
 
@@ -415,16 +436,16 @@ class RebaseEditor extends App<RebaseState> {
 				const $date = document.createElement('span');
 				$date.title = commit.date ?? '';
 				$date.classList.add('entry-date');
-				$date.innerText = commit.dateFromNow;
+				$date.textContent = commit.dateFromNow;
 				$entry.appendChild($date);
 			}
 		}
 
 		const $ref = document.createElement('a');
-		$ref.classList.add('entry-ref');
+		$ref.classList.add('entry-ref', 'icon--commit');
 		// $ref.dataset.prev = prev ? `${prev} \u2190 ` : '';
 		$ref.href = commit?.ref ? state.commands.commit.replace(this.commitTokenRegex, commit.ref) : '#';
-		$ref.innerText = entry.ref;
+		$ref.textContent = entry.ref.substr(0, 7);
 		$ref.tabIndex = tabIndex++;
 		$entry.appendChild($ref);
 

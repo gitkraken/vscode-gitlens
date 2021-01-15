@@ -27,14 +27,14 @@ export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits 
 	async getTreeItem(): Promise<TreeItem> {
 		const commit = await Container.git.getCommit(
 			this.status.repoPath,
-			this.status.type === 'rebase' ? this.status.stepCurrent.ref : this.status.HEAD.ref,
+			this.status.type === 'rebase' ? this.status.steps.current.commit.ref : this.status.HEAD.ref,
 		);
 
 		const item = new TreeItem('Incoming changes', TreeItemCollapsibleState.None);
 		item.contextValue = ContextValues.MergeConflictIncomingChanges;
 		item.description = `${GitReference.toString(this.status.incoming, { expand: false, icon: false })}${
 			this.status.type === 'rebase'
-				? ` (${GitReference.toString(this.status.stepCurrent, { expand: false, icon: false })})`
+				? ` (${GitReference.toString(this.status.steps.current.commit, { expand: false, icon: false })})`
 				: ` (${GitReference.toString(this.status.HEAD, { expand: false, icon: false })})`
 		}`;
 		item.iconPath = this.view.config.avatars
@@ -58,7 +58,7 @@ export class MergeConflictIncomingChangesNode extends ViewNode<ViewsWithCommits 
 										},
 								  )}`
 								: this.status.type === 'rebase'
-								? `\n\n${GitReference.toString(this.status.stepCurrent, {
+								? `\n\n${GitReference.toString(this.status.steps.current.commit, {
 										capitalize: true,
 										label: false,
 								  })}`

@@ -17,6 +17,7 @@ export enum BuiltInCommands {
 	Open = 'vscode.open',
 	OpenFolder = 'vscode.openFolder',
 	OpenInTerminal = 'openInTerminal',
+	OpenWith = 'vscode.openWith',
 	NextEditor = 'workbench.action.nextEditor',
 	PreviewHtml = 'vscode.previewHtml',
 	RevealLine = 'revealLine',

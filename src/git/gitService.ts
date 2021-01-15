@@ -2450,7 +2450,7 @@ export class GitService implements Disposable {
 			const rebase = await Git.rev_parse__verify(repoPath, 'REBASE_HEAD');
 			if (rebase != null) {
 				// eslint-disable-next-line prefer-const
-				let [mergeBase, branch, onto, step, stepMessage, steps] = await Promise.all([
+				let [mergeBase, branch, onto, stepsNumber, stepsMessage, stepsTotal] = await Promise.all([
 					this.getMergeBase(repoPath, 'REBASE_HEAD', 'HEAD'),
 					Git.readDotGitFile(repoPath, ['rebase-merge', 'head-name']),
 					Git.readDotGitFile(repoPath, ['rebase-merge', 'onto']),
@@ -2482,6 +2482,7 @@ export class GitService implements Disposable {
 					repoPath: repoPath,
 					mergeBase: mergeBase,
 					HEAD: GitReference.create(rebase, repoPath, { refType: 'revision' }),
+					onto: GitReference.create(onto, repoPath, { refType: 'revision' }),
 					current:
 						possibleSourceBranch != null
 							? GitReference.create(possibleSourceBranch, repoPath, {
@@ -2496,12 +2497,16 @@ export class GitService implements Disposable {
 						name: branch,
 						remote: false,
 					}),
-					step: step,
-					stepCurrent: GitReference.create(rebase, repoPath, {
-						refType: 'revision',
-						message: stepMessage,
-					}),
-					steps: steps,
+					steps: {
+						current: {
+							number: stepsNumber ?? 0,
+							commit: GitReference.create(rebase, repoPath, {
+								refType: 'revision',
+								message: stepsMessage,
+							}),
+						},
+						total: stepsTotal ?? 0,
+					},
 				};
 			}
 
