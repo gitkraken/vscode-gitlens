@@ -7362,8 +7362,13 @@
 					"group": "inline@-2"
 				},
 				{
+					"command": "gitlens.views.push",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)(?=.*?\\b\\+HEAD\\b)/",
+					"group": "inline@-1"
+				},
+				{
 					"command": "gitlens.views.pushToCommit",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)(?!.*?\\b\\+HEAD\\b)/",
 					"group": "inline@-1"
 				},
 				{
@@ -8113,8 +8118,13 @@
 			],
 			"gitlens/commit/file/commit": [
 				{
+					"command": "gitlens.views.push",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)(?=.*?\\b\\+HEAD\\b)/",
+					"group": "1_gitlens_actions@0"
+				},
+				{
 					"command": "gitlens.views.pushToCommit",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+unpublished\\b)(?!.*?\\b\\+HEAD\\b)/",
 					"group": "1_gitlens_actions@0"
 				},
 				{

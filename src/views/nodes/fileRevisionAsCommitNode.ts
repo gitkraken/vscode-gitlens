@@ -49,6 +49,10 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 		return this.file.fileName;
 	}
 
+	get isTip(): boolean {
+		return (this._options.branch?.current && this._options.branch.sha === this.commit.ref) ?? false;
+	}
+
 	get ref(): GitRevisionReference {
 		return this.commit;
 	}
@@ -142,7 +146,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 	protected get contextValue(): string {
 		if (!this.commit.isUncommitted) {
 			return `${ContextValues.File}+committed${this._options.branch?.current ? '+current' : ''}${
-				this._options.branch?.current && this._options.branch.sha === this.commit.ref ? '+HEAD' : ''
+				this.isTip ? '+HEAD' : ''
 			}${this._options.unpublished ? '+unpublished' : ''}`;
 		}
 

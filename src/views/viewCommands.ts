@@ -449,10 +449,20 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private push(node: RepositoryNode | BranchNode | BranchTrackingStatusNode, force?: boolean) {
+	private push(
+		node: RepositoryNode | BranchNode | BranchTrackingStatusNode | CommitNode | FileRevisionAsCommitNode,
+		force?: boolean,
+	) {
 		if (node instanceof RepositoryNode) return GitActions.push(node.repo, force);
 		if (node instanceof BranchNode || node instanceof BranchTrackingStatusNode) {
 			return GitActions.push(node.repoPath, undefined, node.root ? undefined : node.branch);
+		}
+		if (node instanceof CommitNode || node instanceof FileRevisionAsCommitNode) {
+			if (node.isTip) {
+				return GitActions.push(node.repoPath, force);
+			}
+
+			return this.pushToCommit(node);
 		}
 
 		return Promise.resolve();

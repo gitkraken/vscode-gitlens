@@ -37,6 +37,10 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionReferen
 		return `${this.commit.shortSha}: ${message}`;
 	}
 
+	get isTip(): boolean {
+		return (this.branch?.current && this.branch.sha === this.commit.ref) ?? false;
+	}
+
 	get ref(): GitRevisionReference {
 		return this.commit;
 	}
@@ -110,7 +114,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionReferen
 		);
 
 		item.contextValue = `${ContextValues.Commit}${this.branch?.current ? '+current' : ''}${
-			this.branch?.current && this.branch.sha === this.commit.ref ? '+HEAD' : ''
+			this.isTip ? '+HEAD' : ''
 		}${this.unpublished ? '+unpublished' : ''}`;
 
 		item.description = CommitFormatter.fromTemplate(this.view.config.formats.commits.description, this.commit, {
