@@ -13,7 +13,7 @@ import {
 } from 'vscode';
 import { HeatmapLocations } from '../config';
 import { Config, configuration } from '../configuration';
-import { GlyphChars } from '../constants';
+import { Colors, GlyphChars } from '../constants';
 import { Container } from '../container';
 import { CommitFormatOptions, CommitFormatter, GitCommit } from '../git/git';
 import { Objects, Strings } from '../system';
@@ -210,10 +210,10 @@ export class Annotations {
 		}
 
 		return {
-			backgroundColor: new ThemeColor('gitlens.gutterBackgroundColor'),
+			backgroundColor: new ThemeColor(Colors.GutterBackgroundColor),
 			borderStyle: borderStyle,
 			borderWidth: borderWidth,
-			color: new ThemeColor('gitlens.gutterForegroundColor'),
+			color: new ThemeColor(Colors.GutterForegroundColor),
 			fontWeight: 'normal',
 			fontStyle: 'normal',
 			height: '100%',
@@ -222,7 +222,7 @@ export class Annotations {
 				avatars ? ';padding: 0 0 0 18px' : ''
 			}`,
 			width: width,
-			uncommittedColor: new ThemeColor('gitlens.gutterUncommittedForegroundColor'),
+			uncommittedColor: new ThemeColor(Colors.GutterUncommittedForegroundColor),
 		};
 	}
 
@@ -249,8 +249,8 @@ export class Annotations {
 		return {
 			renderOptions: {
 				after: {
-					backgroundColor: new ThemeColor('gitlens.trailingLineBackgroundColor'),
-					color: new ThemeColor('gitlens.trailingLineForegroundColor'),
+					backgroundColor: new ThemeColor(Colors.TrailingLineBackgroundColor),
+					color: new ThemeColor(Colors.TrailingLineForegroundColor),
 					contentText: Strings.pad(message.replace(/ /g, GlyphChars.Space), 1, 1),
 					fontWeight: 'normal',
 					fontStyle: 'normal',

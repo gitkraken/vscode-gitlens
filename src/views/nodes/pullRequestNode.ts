@@ -1,7 +1,8 @@
 'use strict';
-import { ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
+import { ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { BranchesView } from '../branchesView';
 import { CommitsView } from '../commitsView';
+import { Colors } from '../../constants';
 import { ContributorsView } from '../contributorsView';
 import { GitBranch, GitCommit, PullRequest, PullRequestState } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
@@ -44,7 +45,16 @@ export class PullRequestNode extends ViewNode<
 		const item = new TreeItem(`#${this.pullRequest.id}: ${this.pullRequest.title}`, TreeItemCollapsibleState.None);
 		item.contextValue = ContextValues.PullRequest;
 		item.description = `${this.pullRequest.state}, ${this.pullRequest.formatDateFromNow()}`;
-		item.iconPath = new ThemeIcon('git-pull-request');
+		item.iconPath = new ThemeIcon(
+			'git-pull-request',
+			new ThemeColor(
+				this.pullRequest.state === PullRequestState.Closed
+					? Colors.ClosedPullRequestIconColor
+					: this.pullRequest.state === PullRequestState.Merged
+					? Colors.MergedPullRequestIconColor
+					: Colors.OpenPullRequestIconColor,
+			),
+		);
 		item.id = this.id;
 		item.tooltip = `${this.pullRequest.title}\n#${this.pullRequest.id} by ${this.pullRequest.author.name} was ${
 			this.pullRequest.state === PullRequestState.Open ? 'opened' : this.pullRequest.state.toLowerCase()

@@ -4,6 +4,7 @@ import { BranchNode } from './branchNode';
 import { BranchTrackingStatusFilesNode } from './branchTrackingStatusFilesNode';
 import { CommitNode } from './commitNode';
 import { LoadMoreNode } from './common';
+import { Colors } from '../../constants';
 import { Container } from '../../container';
 import { GitBranch, GitLog, GitRemote, GitRevision, GitTrackingState } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
@@ -177,7 +178,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 				contextValue = this.root
 					? ContextValues.StatusAheadOfUpstream
 					: ContextValues.BranchStatusAheadOfUpstream;
-				icon = new ThemeIcon('cloud-upload', new ThemeColor('gitlens.viewChangesToPushIconColor'));
+				icon = new ThemeIcon('cloud-upload', new ThemeColor(Colors.UnpushlishedChangesIconColor));
 
 				break;
 			}
@@ -200,7 +201,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 				contextValue = this.root
 					? ContextValues.StatusBehindUpstream
 					: ContextValues.BranchStatusBehindUpstream;
-				icon = new ThemeIcon('cloud-download', new ThemeColor('gitlens.viewChangesToPullIconColor'));
+				icon = new ThemeIcon('cloud-download', new ThemeColor(Colors.UnpulledChangesIconColor));
 
 				break;
 			}
@@ -237,7 +238,7 @@ export class BranchTrackingStatusNode extends ViewNode<ViewsWithCommits> impleme
 				contextValue = this.root ? ContextValues.StatusNoUpstream : ContextValues.BranchStatusNoUpstream;
 				icon = new ThemeIcon(
 					'cloud-upload',
-					remotes.length ? new ThemeColor('gitlens.viewChangesToPushIconColor') : undefined,
+					remotes.length ? new ThemeColor(Colors.UnpushlishedChangesIconColor) : undefined,
 				);
 
 				break;

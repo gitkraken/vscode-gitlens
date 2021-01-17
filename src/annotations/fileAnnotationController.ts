@@ -26,7 +26,7 @@ import {
 	configuration,
 	FileAnnotationType,
 } from '../configuration';
-import { ContextKeys, isTextEditor, setContext } from '../constants';
+import { Colors, ContextKeys, isTextEditor, setContext } from '../constants';
 import { Container } from '../container';
 import { GutterBlameAnnotationProvider } from './gutterBlameAnnotationProvider';
 import { GutterChangesAnnotationProvider } from './gutterChangesAnnotationProvider';
@@ -107,7 +107,7 @@ export class FileAnnotationController implements Disposable {
 				const { locations } = highlight;
 
 				// TODO@eamodio: Read from the theme color when the API exists
-				const gutterHighlightColor = '#00bcf2'; // new ThemeColor('gitlens.lineHighlightOverviewRulerColor')
+				const gutterHighlightColor = '#00bcf2'; // new ThemeColor(Colors.LineHighlightOverviewRulerColor)
 				const gutterHighlightUri = locations.includes(BlameHighlightLocations.Gutter)
 					? Uri.parse(
 							`data:image/svg+xml,${encodeURIComponent(
@@ -122,10 +122,10 @@ export class FileAnnotationController implements Disposable {
 					isWholeLine: true,
 					overviewRulerLane: OverviewRulerLane.Right,
 					backgroundColor: locations.includes(BlameHighlightLocations.Line)
-						? new ThemeColor('gitlens.lineHighlightBackgroundColor')
+						? new ThemeColor(Colors.LineHighlightBackgroundColor)
 						: undefined,
 					overviewRulerColor: locations.includes(BlameHighlightLocations.Overview)
-						? new ThemeColor('gitlens.lineHighlightOverviewRulerColor')
+						? new ThemeColor(Colors.LineHighlightOverviewRulerColor)
 						: undefined,
 				});
 			}

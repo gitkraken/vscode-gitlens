@@ -7,7 +7,7 @@ import { CommitsView } from '../commitsView';
 import { LoadMoreNode, MessageNode } from './common';
 import { CompareBranchNode } from './compareBranchNode';
 import { ViewBranchesLayout, ViewShowBranchComparison } from '../../configuration';
-import { GlyphChars } from '../../constants';
+import { Colors, GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import {
 	BranchDateFormatting,
@@ -354,12 +354,12 @@ export class BranchNode
 				if (this.branch.state.ahead || this.branch.state.behind) {
 					if (this.branch.state.ahead) {
 						contextValue += '+ahead';
-						color = new ThemeColor('gitlens.viewChangesToPushIconColor');
+						color = new ThemeColor(Colors.UnpushlishedChangesIconColor);
 						iconSuffix = '-green';
 					}
 					if (this.branch.state.behind) {
 						contextValue += '+behind';
-						color = new ThemeColor('gitlens.viewChangesToPullIconColor');
+						color = new ThemeColor(Colors.UnpulledChangesIconColor);
 						iconSuffix = this.branch.state.ahead ? '-yellow' : '-red';
 					}
 				}

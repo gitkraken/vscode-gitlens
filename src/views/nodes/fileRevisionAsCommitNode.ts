@@ -2,7 +2,7 @@
 import * as paths from 'path';
 import { Command, Selection, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri } from 'vscode';
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
-import { GlyphChars } from '../../constants';
+import { Colors, GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { FileHistoryView } from '../fileHistoryView';
 import {
@@ -126,7 +126,7 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 
 		if (!this.commit.isUncommitted && this.view.config.avatars) {
 			item.iconPath = this._options.unpublished
-				? new ThemeIcon('arrow-up', new ThemeColor('gitlens.viewCommitToPushIconColor'))
+				? new ThemeIcon('arrow-up', new ThemeColor(Colors.UnpublishedCommitIconColor))
 				: await this.commit.getAvatarUri({ defaultStyle: Container.config.defaultGravatarsStyle });
 		}
 

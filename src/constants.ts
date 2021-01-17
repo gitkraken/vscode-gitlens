@@ -56,6 +56,22 @@ export function setContext(key: ContextKeys | string, value: any) {
 	return commands.executeCommand(BuiltInCommands.SetContext, key, value);
 }
 
+export enum Colors {
+	GutterBackgroundColor = 'gitlens.gutterBackgroundColor',
+	GutterForegroundColor = 'gitlens.gutterForegroundColor',
+	GutterUncommittedForegroundColor = 'gitlens.gutterUncommittedForegroundColor',
+	TrailingLineBackgroundColor = 'gitlens.trailingLineBackgroundColor',
+	TrailingLineForegroundColor = 'gitlens.trailingLineForegroundColor',
+	LineHighlightBackgroundColor = 'gitlens.lineHighlightBackgroundColor',
+	LineHighlightOverviewRulerColor = 'gitlens.lineHighlightOverviewRulerColor',
+	ClosedPullRequestIconColor = 'gitlens.closedPullRequestIconColor',
+	OpenPullRequestIconColor = 'gitlens.openPullRequestIconColor',
+	MergedPullRequestIconColor = 'gitlens.mergedPullRequestIconColor',
+	UnpushlishedChangesIconColor = 'gitlens.unpushlishedChangesIconColor',
+	UnpublishedCommitIconColor = 'gitlens.unpublishedCommitIconColor',
+	UnpulledChangesIconColor = 'gitlens.unpulledChangesIconColor',
+}
+
 export enum DocumentSchemes {
 	DebugConsole = 'debug',
 	File = 'file',

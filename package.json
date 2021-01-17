@@ -2616,30 +2616,57 @@
 				}
 			},
 			{
-				"id": "gitlens.viewCommitToPushIconColor",
-				"description": "Specifies the icon color of un-pushed commits in the GitLens views",
+				"id": "gitlens.closedPullRequestIconColor",
+				"description": "Specifies the icon color of closed pull requests in the GitLens views",
 				"defaults": {
-					"dark": "#35B15E",
-					"light": "#35B15E",
-					"highContrast": "#35B15E"
+					"dark": "#f85149",
+					"light": "#f85149",
+					"highContrast": "#ff544b"
 				}
 			},
 			{
-				"id": "gitlens.viewChangesToPushIconColor",
-				"description": "Specifies the icon color of the _Changes to push_ node in the GitLens views",
+				"id": "gitlens.openPullRequestIconColor",
+				"description": "Specifies the icon color of open pull requests in the GitLens views",
 				"defaults": {
-					"dark": "#35B15E",
-					"light": "#35B15E",
-					"highContrast": "#35B15E"
+					"dark": "#56d364",
+					"light": "#56d364",
+					"highContrast": "#68ff79"
 				}
 			},
 			{
-				"id": "gitlens.viewChangesToPullIconColor",
-				"description": "Specifies the icon color of the _Changes to pull_ node in the GitLens views",
+				"id": "gitlens.mergedPullRequestIconColor",
+				"description": "Specifies the icon color of merged pull requests in the GitLens views",
 				"defaults": {
-					"dark": "#B15E35",
-					"light": "#B15E35",
-					"highContrast": "#B15E35"
+					"dark": "#995dff",
+					"light": "#995dff",
+					"highContrast": "#8945ff"
+				}
+			},
+			{
+				"id": "gitlens.unpushlishedChangesIconColor",
+				"description": "Specifies the icon color of unpublished changes in the GitLens views",
+				"defaults": {
+					"dark": "#35b15e",
+					"light": "#35b15e",
+					"highContrast": "#4dff88"
+				}
+			},
+			{
+				"id": "gitlens.unpublishedCommitIconColor",
+				"description": "Specifies the icon color of unpublished commits in the GitLens views",
+				"defaults": {
+					"dark": "#35b15e",
+					"light": "#35b15e",
+					"highContrast": "#4dff88"
+				}
+			},
+			{
+				"id": "gitlens.unpulledChangesIconColor",
+				"description": "Specifies the icon color of unpulled changes in the GitLens views",
+				"defaults": {
+					"dark": "#b15e35",
+					"light": "#b15e35",
+					"highContrast": "#ff874c"
 				}
 			}
 		],

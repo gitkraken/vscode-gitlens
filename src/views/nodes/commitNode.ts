@@ -4,7 +4,7 @@ import { Command, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState } fr
 import { Commands, DiffWithPreviousCommandArgs } from '../../commands';
 import { CommitFileNode } from './commitFileNode';
 import { ViewFilesLayout } from '../../configuration';
-import { GlyphChars } from '../../constants';
+import { Colors, GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import { FileNode, FolderNode } from './folderNode';
 import { CommitFormatter, GitBranch, GitLogCommit, GitRevisionReference } from '../../git/git';
@@ -122,7 +122,7 @@ export class CommitNode extends ViewRefNode<ViewsWithCommits, GitRevisionReferen
 			messageTruncateAtNewLine: true,
 		});
 		item.iconPath = this.unpublished
-			? new ThemeIcon('arrow-up', new ThemeColor('gitlens.viewCommitToPushIconColor'))
+			? new ThemeIcon('arrow-up', new ThemeColor(Colors.UnpublishedCommitIconColor))
 			: this.view.config.avatars
 			? await this.commit.getAvatarUri({ defaultStyle: Container.config.defaultGravatarsStyle })
 			: new ThemeIcon('git-commit');
