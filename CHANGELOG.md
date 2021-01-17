@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds status indicator colors to pull request icons in GitLens views
 - Adds a new _Quick Open File History_ command to all places where _Open File History_ already exists &mdash; closes [#1156](https://github.com/eamodio/vscode-gitlens/issues/1156)
 - Adds the _Add Remote_ command to the branch status in the _Branches_, _Commits_, and _Repositories_ views when there are no Git remotes configured
 - Adds a new _Browse Repository from Before Here_ (`gitlens.browseRepoBeforeRevision`) and _Browse Repository from Before Here in New Window_ (`gitlens.browseRepoBeforeRevisionInNewWindow`) commands
@@ -275,7 +276,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
     ![Pull requests on status bar](https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/status-bar.png)
 
-  - Adds associated pull requests to branches and commits in the GitLens views
+  - Adds associated pull requests to branches and commits in GitLens views
   - Adds autolinks for GitHub issues and pull requests, including titles, status, and authors
 
 - Adds a new and improved [**_Gutter Heatmap_**](https://github.com/eamodio/vscode-gitlens#gutter-heatmap-) file annotations, via the _Toggle File Heatmap Annotations_ command (`gitlens.toggleFileHeatmap`)
