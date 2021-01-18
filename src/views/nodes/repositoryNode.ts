@@ -249,8 +249,10 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 		}
 
 		if (!this.repo.supportsChangeEvents) {
-			description = `<!>${description ? ` ${GlyphChars.Space}${description}` : ''}`;
-			tooltip += '\n\n<!> Unable to automatically detect repository changes';
+			description = `${Strings.pad(GlyphChars.Warning, 1, 0)}${
+				description ? Strings.pad(description, 2, 0) : ''
+			}`;
+			tooltip += `\n\n${GlyphChars.Warning} Unable to automatically detect repository changes`;
 		}
 
 		const item = new TreeItem(label, TreeItemCollapsibleState.Expanded);

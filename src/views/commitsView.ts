@@ -86,10 +86,12 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 		item.contextValue = `${ContextValues.RepositoryFolder}${this.repo.starred ? '+starred' : ''}`;
 
 		if (branch != null) {
-			const lastFetched = (await this.repo?.getLastFetched()) ?? 0;
+			const lastFetched = (await this.repo.getLastFetched()) ?? 0;
 
 			const status = branch?.getTrackingStatus();
-			item.description = `${status ? `${status}${Strings.pad(GlyphChars.Dot, 1, 1)}` : ''}${branch.name}${
+			item.description = `${this.repo.supportsChangeEvents ? '' : Strings.pad(GlyphChars.Warning, 1, 2)}${
+				status ? `${status}${Strings.pad(GlyphChars.Dot, 1, 1)}` : ''
+			}${branch.name}${
 				lastFetched
 					? `${Strings.pad(GlyphChars.Dot, 1, 1)}Last fetched ${Repository.formatLastFetched(lastFetched)}`
 					: ''
@@ -126,6 +128,10 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 								suffix: ` $(git-branch) ${branch.tracking}${providerName ? ` on ${providerName}` : ''}`,
 						  })}`
 						: `hasn't been published to ${providerName ?? 'a remote'}`
+				}${
+					this.repo.supportsChangeEvents
+						? ''
+						: `\n\n${GlyphChars.Warning} Unable to automatically detect repository changes`
 				}`,
 				true,
 			);
@@ -213,14 +219,20 @@ export class CommitsViewNode extends ViewNode<CommitsView> {
 
 			const branch = await child.repo.getBranch();
 			if (branch != null) {
-				const lastFetched = (await child.repo?.getLastFetched()) ?? 0;
+				const lastFetched = (await child.repo.getLastFetched()) ?? 0;
 
 				const status = branch.getTrackingStatus();
 				this.view.description = `${status ? `${status} ${GlyphChars.Dot} ` : ''}${branch.name}${
 					branch.rebasing ? ' (Rebasing)' : ''
-				}${lastFetched ? ` ${GlyphChars.Dot} Last fetched ${Repository.formatLastFetched(lastFetched)}` : ''}`;
+				}${lastFetched ? ` ${GlyphChars.Dot} Last fetched ${Repository.formatLastFetched(lastFetched)}` : ''}${
+					child.repo.supportsChangeEvents
+						? ''
+						: `${Strings.pad(GlyphChars.Warning, 3, 2)}Auto-refresh unavailable`
+				}`;
 			} else {
-				this.view.description = undefined;
+				this.view.description = child.repo.supportsChangeEvents
+					? undefined
+					: `${Strings.pad(GlyphChars.Warning, 1, 2)}Auto-refresh unavailable`;
 			}
 
 			return child.getChildren();

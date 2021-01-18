@@ -144,6 +144,7 @@ export enum GlyphChars {
 	SpaceThinnest = '\u200A',
 	SquareWithBottomShadow = '\u274F',
 	SquareWithTopShadow = '\u2750',
+	Warning = '\u26a0',
 	ZeroWidthSpace = '\u200b',
 }
 

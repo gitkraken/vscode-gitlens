@@ -9,13 +9,20 @@ import {
 	window,
 } from 'vscode';
 import { configuration, TagsViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../configuration';
+import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { GitReference, GitTagReference, RepositoryChange, RepositoryChangeEvent } from '../git/git';
 import { GitUri } from '../git/gitUri';
-import { RepositoryFolderNode, RepositoryNode, TagsNode, unknownGitUri, ViewNode } from './nodes';
-import { debug, gate } from '../system';
+import {
+	BranchOrTagFolderNode,
+	RepositoryFolderNode,
+	RepositoryNode,
+	TagsNode,
+	unknownGitUri,
+	ViewNode,
+} from './nodes';
+import { debug, gate, Strings } from '../system';
 import { ViewBase } from './viewBase';
-import { BranchOrTagFolderNode } from './nodes/branchOrTagFolderNode';
 
 export class TagsRepositoryNode extends RepositoryFolderNode<TagsView, TagsNode> {
 	async getChildren(): Promise<ViewNode[]> {
@@ -62,6 +69,10 @@ export class TagsViewNode extends ViewNode<TagsView> {
 
 		if (this.children.length === 1) {
 			const [child] = this.children;
+
+			if (!child.repo.supportsChangeEvents) {
+				this.view.description = `${Strings.pad(GlyphChars.Warning, 0, 2)}Auto-refresh unavailable`;
+			}
 
 			const tags = await child.repo.getTags();
 			if (tags.length === 0) {

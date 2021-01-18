@@ -9,6 +9,7 @@ import {
 	window,
 } from 'vscode';
 import { configuration, RemotesViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../configuration';
+import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import {
 	GitBranch,
@@ -31,7 +32,7 @@ import {
 	unknownGitUri,
 	ViewNode,
 } from './nodes';
-import { debug, gate } from '../system';
+import { debug, gate, Strings } from '../system';
 import { ViewBase } from './viewBase';
 
 export class RemotesRepositoryNode extends RepositoryFolderNode<RemotesView, RemotesNode> {
@@ -79,6 +80,10 @@ export class RemotesViewNode extends ViewNode<RemotesView> {
 
 		if (this.children.length === 1) {
 			const [child] = this.children;
+
+			if (!child.repo.supportsChangeEvents) {
+				this.view.description = `${Strings.pad(GlyphChars.Warning, 0, 2)}Auto-refresh unavailable`;
+			}
 
 			const remotes = await child.repo.getRemotes();
 			if (remotes.length === 0) {

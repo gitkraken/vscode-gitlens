@@ -2,11 +2,12 @@
 import { commands, ConfigurationChangeEvent, Disposable, TreeItem, TreeItemCollapsibleState } from 'vscode';
 import { Avatars } from '../avatars';
 import { configuration, ContributorsViewConfig, ViewFilesLayout } from '../configuration';
+import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import { RepositoryChange, RepositoryChangeEvent } from '../git/git';
 import { GitUri } from '../git/gitUri';
 import { ContributorsNode, RepositoryFolderNode, unknownGitUri, ViewNode } from './nodes';
-import { debug, gate } from '../system';
+import { debug, gate, Strings } from '../system';
 import { ViewBase } from './viewBase';
 
 export class ContributorsRepositoryNode extends RepositoryFolderNode<ContributorsView, ContributorsNode> {
@@ -63,6 +64,10 @@ export class ContributorsViewNode extends ViewNode<ContributorsView> {
 
 		if (this.children.length === 1) {
 			const [child] = this.children;
+
+			if (!child.repo.supportsChangeEvents) {
+				this.view.description = `${Strings.pad(GlyphChars.Warning, 0, 2)}Auto-refresh unavailable`;
+			}
 
 			const contributors = await child.repo.getContributors();
 			if (contributors.length === 0) {

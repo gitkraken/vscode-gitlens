@@ -15,6 +15,7 @@ import {
 	ViewFilesLayout,
 	ViewShowBranchComparison,
 } from '../configuration';
+import { GlyphChars } from '../constants';
 import { Container } from '../container';
 import {
 	GitBranchReference,
@@ -34,7 +35,7 @@ import {
 	unknownGitUri,
 	ViewNode,
 } from './nodes';
-import { debug, gate } from '../system';
+import { debug, gate, Strings } from '../system';
 import { ViewBase } from './viewBase';
 
 export class BranchesRepositoryNode extends RepositoryFolderNode<BranchesView, BranchesNode> {
@@ -84,6 +85,10 @@ export class BranchesViewNode extends ViewNode<BranchesView> {
 
 		if (this.children.length === 1) {
 			const [child] = this.children;
+
+			if (!child.repo.supportsChangeEvents) {
+				this.view.description = `${Strings.pad(GlyphChars.Warning, 0, 2)}Auto-refresh unavailable`;
+			}
 
 			const branches = await child.repo.getBranches({ filter: b => !b.remote });
 			if (branches.length === 0) {

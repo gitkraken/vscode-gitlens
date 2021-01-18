@@ -1,5 +1,6 @@
 'use strict';
 import { Command, Disposable, Event, TreeItem, TreeItemCollapsibleState, TreeViewVisibilityChangeEvent } from 'vscode';
+import { GlyphChars } from '../../constants';
 import { Container } from '../../container';
 import {
 	GitFile,
@@ -11,7 +12,7 @@ import {
 } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
 import { Logger } from '../../logger';
-import { debug, Functions, gate, log, logName } from '../../system';
+import { debug, Functions, gate, log, logName, Strings } from '../../system';
 import { TreeViewNodeCollapsibleStateChangeEvent, View } from '../viewBase';
 
 export enum ContextValues {
@@ -352,8 +353,13 @@ export abstract class RepositoryFolderNode<
 			expand ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
 		);
 		item.contextValue = `${ContextValues.RepositoryFolder}${this.repo.starred ? '+starred' : ''}`;
+		item.description = this.repo.supportsChangeEvents ? undefined : Strings.pad(GlyphChars.Warning, 1, 0);
 		item.tooltip = `${
 			this.repo.formattedName ? `${this.repo.formattedName}\n${this.uri.repoPath}` : this.uri.repoPath ?? ''
+		}${
+			this.repo.supportsChangeEvents
+				? ''
+				: `\n\n${GlyphChars.Warning} Unable to automatically detect repository changes`
 		}`;
 
 		return item;
