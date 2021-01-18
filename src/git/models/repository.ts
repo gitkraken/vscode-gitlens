@@ -150,7 +150,6 @@ export class Repository implements Disposable {
 	readonly index: number;
 	readonly name: string;
 	readonly normalizedPath: string;
-	readonly supportsChangeEvents: boolean = true;
 
 	private _branch: Promise<GitBranch | undefined> | undefined;
 	private readonly _disposable: Disposable;
@@ -163,6 +162,7 @@ export class Repository implements Disposable {
 	private _providers: RemoteProviders | undefined;
 	private _remotes: Promise<GitRemote[]> | undefined;
 	private _remotesDisposable: Disposable | undefined;
+	private _repoWatcherDisposable: Disposable | undefined;
 	private _suspended: boolean;
 
 	constructor(
@@ -179,7 +179,7 @@ export class Repository implements Disposable {
 			const repoFolder = workspace.getWorkspaceFolder(GitUri.fromRepoPath(path));
 			if (repoFolder == null) {
 				// If it isn't within a workspace folder we can't get change events, see: https://github.com/Microsoft/vscode/issues/3025
-				this.supportsChangeEvents = false;
+				this._supportsChangeEvents = false;
 				this.formattedName = this.name = paths.basename(path);
 			} else {
 				this.formattedName = this.name = folder.name;
@@ -222,14 +222,18 @@ export class Repository implements Disposable {
 		);
 		this.onConfigurationChanged(configuration.initializingChangeEvent);
 
-		if (!this.supportsChangeEvents && Logger.willLog('debug')) {
-			Logger.debug(
-				`Repository[${this.name}(${
-					this.id
-				})] doesn't support file watching; path=${path}, workspaceFolders=${workspace.workspaceFolders
-					?.map(wf => wf.uri.fsPath)
-					.join('; ')}`,
-			);
+		if (!this.supportsChangeEvents) {
+			void this.tryWatchingForChangesViaBuiltInApi();
+
+			if (Logger.willLog('debug')) {
+				Logger.debug(
+					`Repository[${this.name}(${
+						this.id
+					})] doesn't support file watching; path=${path}, workspaceFolders=${workspace.workspaceFolders
+						?.map(wf => wf.uri.fsPath)
+						.join('; ')}`,
+				);
+			}
 		}
 	}
 
@@ -244,7 +248,13 @@ export class Repository implements Disposable {
 		// }
 
 		this._remotesDisposable?.dispose();
-		this._disposable?.dispose();
+		this._repoWatcherDisposable?.dispose();
+		this._disposable.dispose();
+	}
+
+	private _supportsChangeEvents: boolean = true;
+	get supportsChangeEvents(): boolean {
+		return this._supportsChangeEvents;
 	}
 
 	private _updatedAt: number = 0;
@@ -767,6 +777,7 @@ export class Repository implements Disposable {
 	@log()
 	async stashApply(stashName: string, options: { deleteAfter?: boolean } = {}) {
 		void (await Container.git.stashApply(this.path, stashName, options));
+
 		if (!this.supportsChangeEvents) {
 			this.fireChange(RepositoryChange.Stash);
 		}
@@ -776,6 +787,7 @@ export class Repository implements Disposable {
 	@log()
 	async stashDelete(stashName: string, ref?: string) {
 		void (await Container.git.stashDelete(this.path, stashName, ref));
+
 		if (!this.supportsChangeEvents) {
 			this.fireChange(RepositoryChange.Stash);
 		}
@@ -785,6 +797,7 @@ export class Repository implements Disposable {
 	@log()
 	async stashSave(message?: string, uris?: Uri[], options: { includeUntracked?: boolean; keepIndex?: boolean } = {}) {
 		void (await Container.git.stashSave(this.path, message, uris, options));
+
 		if (!this.supportsChangeEvents) {
 			this.fireChange(RepositoryChange.Stash);
 		}
@@ -870,10 +883,11 @@ export class Repository implements Disposable {
 		return { dispose: () => this.stopWatchingFileSystem() };
 	}
 
-	stopWatchingFileSystem() {
+	stopWatchingFileSystem(force: boolean = false) {
 		if (this._fsWatcherDisposable == null) return;
-		if (--this._fsWatchCounter > 0) return;
+		if (--this._fsWatchCounter > 0 && !force) return;
 
+		this._fsWatchCounter = 0;
 		this._fsWatcherDisposable.dispose();
 		this._fsWatcherDisposable = undefined;
 	}
@@ -988,8 +1002,28 @@ export class Repository implements Disposable {
 	private runTerminalCommand(command: string, ...args: string[]) {
 		const parsedArgs = args.map(arg => (arg.startsWith('#') ? `"${arg}"` : arg));
 		runGitCommandInTerminal(command, parsedArgs.join(' '), this.path, true);
+
 		if (!this.supportsChangeEvents) {
-			this.fireChange(RepositoryChange.Unknown);
+			setTimeout(() => this.fireChange(RepositoryChange.Unknown), 2500);
+		}
+	}
+
+	private async tryWatchingForChangesViaBuiltInApi() {
+		const repo = await GitService.getBuiltInGitRepository(this.path);
+		if (repo != null) {
+			const internalRepo = (repo as any)._repository;
+			if (internalRepo != null && 'onDidChangeRepository' in internalRepo) {
+				try {
+					this._repoWatcherDisposable = internalRepo.onDidChangeRepository((e: Uri | undefined) =>
+						this.onRepositoryChanged(e),
+					);
+					this._supportsChangeEvents = true;
+
+					if (Logger.willLog('debug')) {
+						Logger.debug(`Repository[${this.name}(${this.id})] is now using fallback file watching`);
+					}
+				} catch {}
+			}
 		}
 	}
 }
