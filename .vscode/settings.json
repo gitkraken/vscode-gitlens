@@ -7,6 +7,32 @@
 		".eslintrc.json": "jsonc"
 	},
 	"files.trimTrailingWhitespace": true,
+	"githubIssues.queries": [
+		{
+			"label": "Triage",
+			"query": "state:open repo:${owner}/${repository} label:triage sort:updated-desc"
+		},
+		{
+			"label": "Soon™",
+			"query": "state:open repo:${owner}/${repository} milestone:Soon™ sort:updated-desc"
+		},
+		{
+			"label": "Verify",
+			"query": "state:closed repo:${owner}/${repository} -milestone:Shipped label:pending-release label:needs-verification sort:updated-desc"
+		},
+		{
+			"label": "Pending Release",
+			"query": "state:closed repo:${owner}/${repository} label:pending-release sort:updated-desc"
+		},
+		{
+			"label": "Soonish™",
+			"query": "state:open repo:${owner}/${repository} milestone:Soonish™ sort:updated-desc"
+		},
+		{
+			"label": "All",
+			"query": "state:open repo:${owner}/${repository} sort:updated-desc"
+		}
+	],
 	"gitlens.advanced.blame.customArguments": ["--ignore-revs-file", ".gitignore-revs"],
 	"npm.packageManager": "yarn",
 	"prettier.requireConfig": true,
