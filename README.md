@@ -1008,6 +1008,7 @@ A big thanks to the people that have contributed to this project:
 - Travis Collins ([@TravisTX](https://github.com/TravisTX)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=TravisTX)
 - Matt Cooper ([@vtbassmatt](https://github.com/vtbassmatt)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=vtbassmatt)
 - Andrii Dieiev ([@IllusionMH](https://github.com/IllusionMH)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=IllusionMH)
+- egfx-notifications ([@egfx-notifications](https://github.com/egfx-notifications)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=egfx-notifications)
 - Segev Finer ([@segevfiner](https://github.com/segevfiner)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=segevfiner)
 - Cory Forsyth ([@bantic](https://github.com/bantic)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=bantic)
 - John Gee ([@shadowspawn](https://github.com/shadowspawn)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=shadowspawn)
