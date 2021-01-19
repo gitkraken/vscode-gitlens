@@ -3231,7 +3231,7 @@ export class GitService implements Disposable {
 
 						try {
 							const networkPath = await new Promise<string | undefined>(resolve =>
-								fs.realpath.native(`${letter}:`, { encoding: 'utf8' }, (err, resolvedPath) =>
+								fs.realpath.native(`${letter}:\\`, { encoding: 'utf8' }, (err, resolvedPath) =>
 									resolve(err != null ? undefined : resolvedPath),
 								),
 							);
