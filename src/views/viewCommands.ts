@@ -290,7 +290,14 @@ export class ViewCommands {
 					remote != null
 						? {
 								name: remote.name,
-								provider: remote.provider?.name,
+								provider:
+									remote.provider != null
+										? {
+												id: remote.provider.id,
+												name: remote.provider.name,
+												domain: remote.provider.domain,
+										  }
+										: undefined,
 								url: remote.url,
 						  }
 						: undefined,
@@ -409,7 +416,11 @@ export class ViewCommands {
 		return executeActionCommand<OpenPullRequestActionContext>('openPullRequest', {
 			pullRequest: {
 				id: node.pullRequest.id,
-				provider: node.pullRequest.provider.name,
+				provider: {
+					id: node.pullRequest.provider.id,
+					name: node.pullRequest.provider.name,
+					domain: node.pullRequest.provider.domain,
+				},
 				repoPath: node.uri.repoPath!,
 				url: node.pullRequest.url,
 			},
