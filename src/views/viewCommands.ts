@@ -409,7 +409,7 @@ export class ViewCommands {
 		return executeActionCommand<OpenPullRequestActionContext>('openPullRequest', {
 			pullRequest: {
 				id: node.pullRequest.id,
-				provider: node.pullRequest.provider,
+				provider: node.pullRequest.provider.name,
 				repoPath: node.uri.repoPath!,
 				url: node.pullRequest.url,
 			},

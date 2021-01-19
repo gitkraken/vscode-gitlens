@@ -305,9 +305,14 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		if (pr != null) {
 			if (PullRequest.is(pr)) {
 				commands += `[$(git-pull-request) PR #${pr.id}](${getMarkdownActionCommand('openPullRequest', {
-					pullRequest: { id: pr.id, provider: pr.provider, repoPath: this._item.repoPath, url: pr.url },
+					pullRequest: {
+						id: pr.id,
+						provider: { name: pr.provider.name, domain: pr.provider.domain },
+						repoPath: this._item.repoPath,
+						url: pr.url,
+					},
 				})} "Open Pull Request \\#${pr.id}${
-					Container.actionRunners.count('openPullRequest') == 1 ? ` on ${pr.provider}` : ''
+					Container.actionRunners.count('openPullRequest') == 1 ? ` on ${pr.provider.name}` : ''
 				}\n${GlyphChars.Dash.repeat(2)}\n${Strings.escapeMarkdown(pr.title).replace(/"/g, '\\"')}\n${
 					pr.state
 				}, ${pr.formatDateFromNow()}")${separator}`;
@@ -466,9 +471,14 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		if (PullRequest.is(pr)) {
 			if (this._options.markdown) {
 				text = `[PR #${pr.id}](${getMarkdownActionCommand('openPullRequest', {
-					pullRequest: { id: pr.id, provider: pr.provider, repoPath: this._item.repoPath, url: pr.url },
+					pullRequest: {
+						id: pr.id,
+						provider: { name: pr.provider.name, domain: pr.provider.domain },
+						repoPath: this._item.repoPath,
+						url: pr.url,
+					},
 				})} "Open Pull Request \\#${pr.id}${
-					Container.actionRunners.count('openPullRequest') == 1 ? ` on ${pr.provider}` : ''
+					Container.actionRunners.count('openPullRequest') == 1 ? ` on ${pr.provider.name}` : ''
 				}\n${GlyphChars.Dash.repeat(2)}\n${Strings.escapeMarkdown(pr.title).replace(/"/g, '\\"')}\n${
 					pr.state
 				}, ${pr.formatDateFromNow()}")`;

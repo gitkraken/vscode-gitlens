@@ -354,6 +354,7 @@ export * from './pullRequest';
 export * from './rebase';
 export * from './reflog';
 export * from './remote';
+export * from './remoteProvider';
 export * from './repository';
 export * from './shortlog';
 export * from './stash';

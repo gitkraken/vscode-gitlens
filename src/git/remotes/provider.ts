@@ -17,7 +17,15 @@ import { SyncedState, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
 import { setKeysForSync } from '../../extension';
 import { Logger } from '../../logger';
-import { Account, GitLogCommit, IssueOrPullRequest, PullRequest, PullRequestState, Repository } from '../models/models';
+import {
+	Account,
+	GitLogCommit,
+	IssueOrPullRequest,
+	PullRequest,
+	PullRequestState,
+	RemoteProviderReference,
+	Repository,
+} from '../models/models';
 import { debug, gate, log, Promises } from '../../system';
 
 export enum RemoteResourceType {
@@ -87,9 +95,9 @@ export function getNameFromRemoteResource(resource: RemoteResource) {
 	}
 }
 
-export abstract class RemoteProvider {
+export abstract class RemoteProvider implements RemoteProviderReference {
 	readonly type: 'simple' | 'rich' = 'simple';
-	protected _name: string | undefined;
+	protected readonly _name: string | undefined;
 
 	constructor(
 		public readonly domain: string,

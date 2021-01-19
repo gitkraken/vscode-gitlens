@@ -13,6 +13,10 @@ export class CustomRemote extends RemoteProvider {
 		this.urls = urls;
 	}
 
+	get id() {
+		return 'custom';
+	}
+
 	get name() {
 		return this.formatName('Custom');
 	}

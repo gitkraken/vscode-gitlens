@@ -164,7 +164,7 @@ export class GitHubRemote extends RichRemoteProvider {
 		},
 	): Promise<Account | undefined> {
 		const [owner, repo] = this.splitPath();
-		return (await Container.github)?.getAccountForCommit(this.name, accessToken, owner, repo, ref, {
+		return (await Container.github)?.getAccountForCommit(this, accessToken, owner, repo, ref, {
 			...options,
 			baseUrl: this.apiBaseUrl,
 		});
@@ -178,7 +178,7 @@ export class GitHubRemote extends RichRemoteProvider {
 		},
 	): Promise<Account | undefined> {
 		const [owner, repo] = this.splitPath();
-		return (await Container.github)?.getAccountForEmail(this.name, accessToken, owner, repo, email, {
+		return (await Container.github)?.getAccountForEmail(this, accessToken, owner, repo, email, {
 			...options,
 			baseUrl: this.apiBaseUrl,
 		});
@@ -189,7 +189,7 @@ export class GitHubRemote extends RichRemoteProvider {
 		id: string,
 	): Promise<IssueOrPullRequest | undefined> {
 		const [owner, repo] = this.splitPath();
-		return (await Container.github)?.getIssueOrPullRequest(this.name, accessToken, owner, repo, Number(id), {
+		return (await Container.github)?.getIssueOrPullRequest(this, accessToken, owner, repo, Number(id), {
 			baseUrl: this.apiBaseUrl,
 		});
 	}
@@ -205,7 +205,7 @@ export class GitHubRemote extends RichRemoteProvider {
 		const [owner, repo] = this.splitPath();
 		const { include, ...opts } = options ?? {};
 
-		return (await Container.github)?.getPullRequestForBranch(this.name, accessToken, owner, repo, branch, {
+		return (await Container.github)?.getPullRequestForBranch(this, accessToken, owner, repo, branch, {
 			...opts,
 			include: include?.map(s => GitHubPullRequest.toState(s)),
 			baseUrl: this.apiBaseUrl,
@@ -217,7 +217,7 @@ export class GitHubRemote extends RichRemoteProvider {
 		ref: string,
 	): Promise<PullRequest | undefined> {
 		const [owner, repo] = this.splitPath();
-		return (await Container.github)?.getPullRequestForCommit(this.name, accessToken, owner, repo, ref, {
+		return (await Container.github)?.getPullRequestForCommit(this, accessToken, owner, repo, ref, {
 			baseUrl: this.apiBaseUrl,
 		});
 	}

@@ -1,5 +1,6 @@
 'use strict';
 import { configuration, DateStyle } from '../../configuration';
+import { RemoteProviderReference } from './remoteProvider';
 import { Dates, memoize } from '../../system';
 
 export const PullRequestDateFormatting = {
@@ -24,7 +25,7 @@ export class PullRequest {
 	}
 
 	constructor(
-		public readonly provider: string,
+		public readonly provider: RemoteProviderReference,
 		public readonly author: {
 			readonly name: string;
 			readonly avatarUrl: string;

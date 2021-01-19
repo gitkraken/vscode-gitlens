@@ -1,6 +1,8 @@
 'use strict';
+import { RemoteProviderReference } from './remoteProvider';
+
 export interface Account {
-	provider: string;
+	provider: RemoteProviderReference;
 	name: string | undefined;
 	email: string | undefined;
 	avatarUrl: string;
