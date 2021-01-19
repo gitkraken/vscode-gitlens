@@ -1,4 +1,5 @@
 'use strict';
+import { OpenPullRequestActionContext } from '../../api/gitlens';
 import { getPresenceDataUri } from '../../avatars';
 import {
 	Commands,
@@ -304,12 +305,17 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		const { pullRequestOrRemote: pr } = this._options;
 		if (pr != null) {
 			if (PullRequest.is(pr)) {
-				commands += `[$(git-pull-request) PR #${pr.id}](${getMarkdownActionCommand('openPullRequest', {
+				commands += `[$(git-pull-request) PR #${
+					pr.id
+				}](${getMarkdownActionCommand<OpenPullRequestActionContext>('openPullRequest', {
+					repoPath: this._item.repoPath,
+					provider: { id: pr.provider.id, name: pr.provider.name, domain: pr.provider.domain },
 					pullRequest: {
 						id: pr.id,
+						url: pr.url,
+
 						provider: { id: pr.provider.id, name: pr.provider.name, domain: pr.provider.domain },
 						repoPath: this._item.repoPath,
-						url: pr.url,
 					},
 				})} "Open Pull Request \\#${pr.id}${
 					Container.actionRunners.count('openPullRequest') == 1 ? ` on ${pr.provider.name}` : ''
@@ -470,12 +476,15 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		let text;
 		if (PullRequest.is(pr)) {
 			if (this._options.markdown) {
-				text = `[PR #${pr.id}](${getMarkdownActionCommand('openPullRequest', {
+				text = `[PR #${pr.id}](${getMarkdownActionCommand<OpenPullRequestActionContext>('openPullRequest', {
+					repoPath: this._item.repoPath,
+					provider: { id: pr.provider.id, name: pr.provider.name, domain: pr.provider.domain },
 					pullRequest: {
 						id: pr.id,
-						provider: { id: pr.provider.id, name: pr.provider.name, domain: pr.provider.domain },
-						repoPath: this._item.repoPath,
 						url: pr.url,
+
+						repoPath: this._item.repoPath,
+						provider: { id: pr.provider.id, name: pr.provider.name, domain: pr.provider.domain },
 					},
 				})} "Open Pull Request \\#${pr.id}${
 					Container.actionRunners.count('openPullRequest') == 1 ? ` on ${pr.provider.name}` : ''

@@ -282,25 +282,31 @@ export class ViewCommands {
 		}
 
 		const remote = await node.branch.getRemote();
+		const remoteInfo =
+			remote != null
+				? {
+						name: remote.name,
+						provider:
+							remote.provider != null
+								? {
+										id: remote.provider.id,
+										name: remote.provider.name,
+										domain: remote.provider.domain,
+								  }
+								: undefined,
+						url: remote.url,
+				  }
+				: undefined;
 
 		return executeActionCommand<CreatePullRequestActionContext>('createPullRequest', {
+			repoPath: node.repoPath,
+			remote: remoteInfo,
 			branch: {
-				name: node.branch.name,
-				remote:
-					remote != null
-						? {
-								name: remote.name,
-								provider:
-									remote.provider != null
-										? {
-												id: remote.provider.id,
-												name: remote.provider.name,
-												domain: remote.provider.domain,
-										  }
-										: undefined,
-								url: remote.url,
-						  }
-						: undefined,
+				name: node.branch.getNameWithoutRemote(),
+				upstream: node.branch.getTrackingWithoutRemote(),
+				isRemote: node.branch.remote,
+
+				remote: remoteInfo,
 				repoPath: node.repoPath,
 			},
 		});
@@ -413,16 +419,25 @@ export class ViewCommands {
 	private openPullRequest(node: PullRequestNode) {
 		if (!(node instanceof PullRequestNode)) return Promise.resolve();
 
+		const provider = {
+			id: node.pullRequest.provider.id,
+			name: node.pullRequest.provider.name,
+			domain: node.pullRequest.provider.domain,
+		};
+
 		return executeActionCommand<OpenPullRequestActionContext>('openPullRequest', {
+			repoPath: node.uri.repoPath!,
+			provider: provider,
 			pullRequest: {
 				id: node.pullRequest.id,
+				url: node.pullRequest.url,
+
 				provider: {
 					id: node.pullRequest.provider.id,
 					name: node.pullRequest.provider.name,
 					domain: node.pullRequest.provider.domain,
 				},
 				repoPath: node.uri.repoPath!,
-				url: node.pullRequest.url,
 			},
 		});
 	}
