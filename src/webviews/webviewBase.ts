@@ -223,7 +223,7 @@ export abstract class WebviewBase implements Disposable {
 							let pr: PullRequest | undefined;
 							if (includePullRequest) {
 								pr = new PullRequest(
-									{ name: 'GitHub', domain: 'github.com' },
+									{ id: 'github', name: 'GitHub', domain: 'github.com' },
 									{
 										name: 'Eric Amodio',
 										avatarUrl: 'https://avatars1.githubusercontent.com/u/641685?s=32&v=4',

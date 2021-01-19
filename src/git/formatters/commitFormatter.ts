@@ -307,7 +307,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				commands += `[$(git-pull-request) PR #${pr.id}](${getMarkdownActionCommand('openPullRequest', {
 					pullRequest: {
 						id: pr.id,
-						provider: { name: pr.provider.name, domain: pr.provider.domain },
+						provider: { id: pr.provider.id, name: pr.provider.name, domain: pr.provider.domain },
 						repoPath: this._item.repoPath,
 						url: pr.url,
 					},
@@ -473,7 +473,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				text = `[PR #${pr.id}](${getMarkdownActionCommand('openPullRequest', {
 					pullRequest: {
 						id: pr.id,
-						provider: { name: pr.provider.name, domain: pr.provider.domain },
+						provider: { id: pr.provider.id, name: pr.provider.name, domain: pr.provider.domain },
 						repoPath: this._item.repoPath,
 						url: pr.url,
 					},

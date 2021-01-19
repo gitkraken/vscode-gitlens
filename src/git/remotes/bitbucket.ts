@@ -37,6 +37,10 @@ export class BitbucketRemote extends RemoteProvider {
 		return 'bitbucket';
 	}
 
+	get id() {
+		return 'bitbucket';
+	}
+
 	get name() {
 		return this.formatName('Bitbucket');
 	}

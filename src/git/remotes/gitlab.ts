@@ -32,6 +32,10 @@ export class GitLabRemote extends RemoteProvider {
 		return 'gitlab';
 	}
 
+	get id() {
+		return 'gitlab';
+	}
+
 	get name() {
 		return this.formatName('GitLab');
 	}

@@ -44,6 +44,10 @@ export class BitbucketServerRemote extends RemoteProvider {
 		return 'bitbucket';
 	}
 
+	get id() {
+		return 'bitbucket-server';
+	}
+
 	get name() {
 		return this.formatName('Bitbucket Server');
 	}

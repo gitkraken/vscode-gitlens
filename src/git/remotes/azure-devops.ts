@@ -62,6 +62,10 @@ export class AzureDevOpsRemote extends RemoteProvider {
 		return 'vsts';
 	}
 
+	get id() {
+		return 'azure-devops';
+	}
+
 	get name() {
 		return 'Azure DevOps';
 	}

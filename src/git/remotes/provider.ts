@@ -121,6 +121,7 @@ export abstract class RemoteProvider implements RemoteProviderReference {
 		return 'remote';
 	}
 
+	abstract get id(): string;
 	abstract get name(): string;
 
 	async copy(resource: RemoteResource): Promise<void> {

@@ -57,6 +57,10 @@ export class GitHubRemote extends RichRemoteProvider {
 		return 'github';
 	}
 
+	get id() {
+		return 'github';
+	}
+
 	get name() {
 		return this.formatName('GitHub');
 	}
