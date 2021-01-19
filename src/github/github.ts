@@ -15,6 +15,7 @@ import { Account } from '../git/models/author';
 export class GitHubApi {
 	@debug({
 		args: {
+			0: (p: RichRemoteProvider) => p.name,
 			1: _ => '<token>',
 		},
 	})
@@ -92,6 +93,7 @@ export class GitHubApi {
 
 	@debug({
 		args: {
+			0: (p: RichRemoteProvider) => p.name,
 			1: _ => '<token>',
 		},
 	})
@@ -165,6 +167,7 @@ export class GitHubApi {
 
 	@debug({
 		args: {
+			0: (p: RichRemoteProvider) => p.name,
 			1: _ => '<token>',
 		},
 	})
@@ -234,6 +237,7 @@ export class GitHubApi {
 
 	@debug({
 		args: {
+			0: (p: RichRemoteProvider) => p.name,
 			1: _ => '<token>',
 		},
 	})
@@ -333,6 +337,7 @@ export class GitHubApi {
 
 	@debug({
 		args: {
+			0: (p: RichRemoteProvider) => p.name,
 			1: _ => '<token>',
 		},
 	})
