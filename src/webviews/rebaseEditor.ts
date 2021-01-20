@@ -19,7 +19,7 @@ import { ShowQuickCommitCommand } from '../commands';
 import { configuration } from '../configuration';
 import { BuiltInCommands } from '../constants';
 import { Container } from '../container';
-import { Repository, RepositoryChange } from '../git/git';
+import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../git/git';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
 import { debug, gate, Iterables } from '../system';
@@ -211,16 +211,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 				void this.getStateAndNotify(context);
 			}),
 			repo.onDidChange(e => {
-				if (
-					e.changed(RepositoryChange.Closed, true) ||
-					e.changed(RepositoryChange.Ignores, true) ||
-					e.changed(RepositoryChange.Remotes, true) ||
-					e.changed(RepositoryChange.Starred, true) ||
-					e.changed(RepositoryChange.Stash, true) ||
-					e.changed(RepositoryChange.Tags, true)
-				) {
-					return;
-				}
+				if (!e.changed(RepositoryChange.Rebase, RepositoryChangeComparisonMode.Any)) return;
 
 				void this.getStateAndNotify(context);
 			}),

@@ -43,58 +43,98 @@ import { RemoteProviderFactory, RemoteProviders, RichRemoteProvider } from '../r
 import { Arrays, Dates, debug, Functions, gate, Iterables, log, logName } from '../../system';
 import { runGitCommandInTerminal } from '../../terminal';
 
-const ignoreGitRegex = /\.git(?:\/|\\|$)/;
-const refsRegex = /\.git\/refs\/(heads|remotes|tags)/;
+export const enum RepositoryChange {
+	// FileSystem = 'filesystem',
+	Unknown = 'unknown',
 
-export enum RepositoryChange {
-	Config = 'config',
+	// No file watching required
 	Closed = 'closed',
-	// FileSystem = 'file-system',
+	Ignores = 'ignores',
 	Starred = 'starred',
+
+	// File watching required
+	CherryPick = 'cherrypick',
+	Config = 'config',
 	Heads = 'heads',
 	Index = 'index',
-	Ignores = 'ignores',
+	Merge = 'merge',
+	Rebase = 'rebase',
 	Remotes = 'remotes',
 	Stash = 'stash',
+	/*
+	 * Union of Cherry, Merge, and Rebase
+	 */
+	Status = 'status',
 	Tags = 'tags',
-	Unknown = 'unknown',
+}
+
+export const enum RepositoryChangeComparisonMode {
+	Any,
+	All,
+	Exclusive,
 }
 
 export class RepositoryChangeEvent {
-	constructor(public readonly repository?: Repository, public readonly changes: RepositoryChange[] = []) {}
+	private readonly _changes: Set<RepositoryChange>;
 
-	changed(change: RepositoryChange, only: boolean = false) {
-		if (only) {
-			if (this.changes.length !== 1) return false;
-			if (this.changes[0] === change) return true;
+	constructor(public readonly repository: Repository, changes: RepositoryChange[]) {
+		this._changes = new Set(changes);
+	}
 
-			if (this.repository?.supportsChangeEvents === false && this.changes[0] === RepositoryChange.Unknown) {
-				switch (change) {
-					case RepositoryChange.Closed:
-					case RepositoryChange.Starred:
-						return false;
-					default:
-						return true;
+	toString(changesOnly: boolean = false): string {
+		return changesOnly
+			? `changes=${Iterables.join(this._changes, ', ')}`
+			: `{ repository: ${this.repository?.name ?? ''}, changes: ${Iterables.join(this._changes, ', ')} }`;
+	}
+
+	changed(...args: [...RepositoryChange[], RepositoryChangeComparisonMode]) {
+		let affected = args.slice(0, -1) as RepositoryChange[];
+		const mode = args[args.length - 1] as RepositoryChangeComparisonMode;
+
+		// If we don't support file watching, then treat Unknown as acceptable for any change other than Closed/Ignores/Starred, i.e. any changes that require file watching
+		if (!this.repository.supportsChangeEvents) {
+			if (this._changes.has(RepositoryChange.Unknown)) {
+				affected = affected.filter(
+					c =>
+						c === RepositoryChange.Closed ||
+						c === RepositoryChange.Ignores ||
+						c === RepositoryChange.Starred,
+				);
+				if (affected.length === 0) return true;
+			}
+		}
+
+		if (mode === RepositoryChangeComparisonMode.Any) {
+			return Iterables.some(this._changes, c => affected.includes(c));
+		}
+
+		let changes = this._changes;
+
+		if (mode === RepositoryChangeComparisonMode.Exclusive) {
+			if (
+				affected.includes(RepositoryChange.CherryPick) ||
+				affected.includes(RepositoryChange.Merge) ||
+				affected.includes(RepositoryChange.Rebase)
+			) {
+				if (!affected.includes(RepositoryChange.Status)) {
+					affected.push(RepositoryChange.Status);
 				}
-			}
-
-			return false;
-		}
-
-		if (this.changes.includes(change)) return true;
-
-		if (this.repository?.supportsChangeEvents === false && this.changes.includes(RepositoryChange.Unknown)) {
-			switch (change) {
-				case RepositoryChange.Closed:
-				case RepositoryChange.Ignores:
-				case RepositoryChange.Starred:
-					return false;
-				default:
-					return true;
+			} else if (affected.includes(RepositoryChange.Status)) {
+				changes = new Set(changes);
+				changes.delete(RepositoryChange.CherryPick);
+				changes.delete(RepositoryChange.Merge);
+				changes.delete(RepositoryChange.Rebase);
 			}
 		}
 
-		return false;
+		const intersection = [...Iterables.filter(changes, c => affected.includes(c))];
+		return mode === RepositoryChangeComparisonMode.Exclusive
+			? intersection.length === changes.size
+			: intersection.length === affected.length;
+	}
+
+	with(changes: RepositoryChange[]) {
+		return new RepositoryChangeEvent(this.repository, [...this._changes, ...changes]);
 	}
 }
 
@@ -205,10 +245,8 @@ export class Repository implements Disposable {
 **/.git/config,\
 **/.git/index,\
 **/.git/HEAD,\
-**/.git/refs/stash,\
-**/.git/refs/heads/**,\
-**/.git/refs/remotes/**,\
-**/.git/refs/tags/**,\
+**/.git/*_HEAD,\
+**/.git/refs/**,\
 **/.gitignore\
 }',
 			),
@@ -275,7 +313,7 @@ export class Repository implements Disposable {
 
 	private onFileSystemChanged(uri: Uri) {
 		// Ignore .git changes
-		if (ignoreGitRegex.test(uri.fsPath)) return;
+		if (/\.git(?:\/|\\|$)/.test(uri.fsPath)) return;
 
 		this.fireFileSystemChange(uri);
 	}
@@ -316,13 +354,31 @@ export class Repository implements Disposable {
 			return;
 		}
 
+		if (uri.path.endsWith('.git/CHERRY_PICK_HEAD')) {
+			this.fireChange(RepositoryChange.CherryPick, RepositoryChange.Status);
+
+			return;
+		}
+
+		if (uri.path.endsWith('.git/MERGE_HEAD')) {
+			this.fireChange(RepositoryChange.Merge, RepositoryChange.Status);
+
+			return;
+		}
+
+		if (uri.path.endsWith('.git/REBASE_HEAD') || /\.git\/rebase-merge/.test(uri.path)) {
+			this.fireChange(RepositoryChange.Rebase, RepositoryChange.Status);
+
+			return;
+		}
+
 		if (uri.path.endsWith('/.gitignore')) {
 			this.fireChange(RepositoryChange.Ignores);
 
 			return;
 		}
 
-		const match = refsRegex.exec(uri.path);
+		const match = /\.git\/refs\/(heads|remotes|tags)/.exec(uri.path);
 		if (match != null) {
 			switch (match[1]) {
 				case 'heads':
@@ -919,22 +975,14 @@ export class Repository implements Disposable {
 			this._fireChangeDebounced = Functions.debounce(this.fireChangeCore.bind(this), 250);
 		}
 
-		if (this._pendingRepoChange == null) {
-			this._pendingRepoChange = new RepositoryChangeEvent(this);
-		}
-
-		const e = this._pendingRepoChange;
-
-		for (const reason of changes) {
-			if (!e.changes.includes(reason)) {
-				e.changes.push(reason);
-			}
-		}
+		this._pendingRepoChange = this._pendingRepoChange?.with(changes) ?? new RepositoryChangeEvent(this, changes);
 
 		this.onAnyRepositoryChanged(this, new RepositoryChangeEvent(this, changes));
 
 		if (this._suspended) {
-			Logger.debug(`Repository[${this.name}(${this.id})] queueing suspended changes=${e.changes.join(', ')}`);
+			Logger.debug(
+				`Repository[${this.name}(${this.id})] queueing suspended ${this._pendingRepoChange.toString(true)}`,
+			);
 
 			return;
 		}
@@ -948,7 +996,7 @@ export class Repository implements Disposable {
 
 		this._pendingRepoChange = undefined;
 
-		Logger.debug(`Repository[${this.name}(${this.id})] firing changes=${e.changes.join(', ')}`);
+		Logger.debug(`Repository[${this.name}(${this.id})] firing ${e.toString(true)}`);
 		this._onDidChange.fire(e);
 	}
 

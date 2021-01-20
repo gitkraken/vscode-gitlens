@@ -8,6 +8,7 @@ import {
 	GitStatus,
 	Repository,
 	RepositoryChange,
+	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
 	RepositoryFileSystemChangeEvent,
 } from '../../git/git';
@@ -392,48 +393,51 @@ export class RepositoryNode extends SubscribeableViewNode<RepositoriesView> {
 
 	@debug({
 		args: {
-			0: (e: RepositoryChangeEvent) =>
-				`{ repository: ${e.repository?.name ?? ''}, changes: ${e.changes.join()} }`,
+			0: (e: RepositoryChangeEvent) => e.toString(),
 		},
 	})
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
 		this._repoUpdatedAt = this.repo.updatedAt;
 
-		if (e.changed(RepositoryChange.Closed)) {
+		if (e.changed(RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
 			this.dispose();
 
 			return;
 		}
 
 		if (
-			this._children === undefined ||
-			e.changed(RepositoryChange.Config) ||
-			e.changed(RepositoryChange.Index) ||
-			e.changed(RepositoryChange.Heads) ||
-			e.changed(RepositoryChange.Unknown)
+			this._children == null ||
+			e.changed(
+				RepositoryChange.Config,
+				RepositoryChange.Index,
+				RepositoryChange.Heads,
+				RepositoryChange.Status,
+				RepositoryChange.Unknown,
+				RepositoryChangeComparisonMode.Any,
+			)
 		) {
 			void this.triggerChange(true);
 
 			return;
 		}
 
-		if (e.changed(RepositoryChange.Remotes)) {
+		if (e.changed(RepositoryChange.Remotes, RepositoryChangeComparisonMode.Any)) {
 			const node = this._children.find(c => c instanceof RemotesNode);
-			if (node !== undefined) {
+			if (node != null) {
 				void this.view.triggerNodeChange(node);
 			}
 		}
 
-		if (e.changed(RepositoryChange.Stash)) {
+		if (e.changed(RepositoryChange.Stash, RepositoryChangeComparisonMode.Any)) {
 			const node = this._children.find(c => c instanceof StashesNode);
-			if (node !== undefined) {
+			if (node != null) {
 				void this.view.triggerNodeChange(node);
 			}
 		}
 
-		if (e.changed(RepositoryChange.Tags)) {
+		if (e.changed(RepositoryChange.Tags, RepositoryChangeComparisonMode.Any)) {
 			const node = this._children.find(c => c instanceof TagsNode);
-			if (node !== undefined) {
+			if (node != null) {
 				void this.view.triggerNodeChange(node);
 			}
 		}

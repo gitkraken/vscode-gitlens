@@ -2,7 +2,13 @@
 import { Disposable, Event, EventEmitter, TextDocument, TextEditor } from 'vscode';
 import { ContextKeys, getEditorIfActive, isActiveDocument, setContext } from '../constants';
 import { Container } from '../container';
-import { GitRevision, Repository, RepositoryChange, RepositoryChangeEvent } from '../git/git';
+import {
+	GitRevision,
+	Repository,
+	RepositoryChange,
+	RepositoryChangeComparisonMode,
+	RepositoryChangeEvent,
+} from '../git/git';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { Functions } from '../system';
@@ -85,9 +91,13 @@ export class TrackedDocument<T> implements Disposable {
 
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
 		if (
-			!e.changed(RepositoryChange.Index) &&
-			!e.changed(RepositoryChange.Heads) &&
-			!e.changed(RepositoryChange.Unknown)
+			!e.changed(
+				RepositoryChange.Index,
+				RepositoryChange.Heads,
+				RepositoryChange.Status,
+				RepositoryChange.Unknown,
+				RepositoryChangeComparisonMode.Any,
+			)
 		) {
 			return;
 		}

@@ -8,6 +8,7 @@ import {
 	GitRevisionReference,
 	Repository,
 	RepositoryChange,
+	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
 } from '../../git/git';
 import { GitUri } from '../../git/gitUri';
@@ -408,21 +409,20 @@ export abstract class RepositoryFolderNode<
 
 	@debug({
 		args: {
-			0: (e: RepositoryChangeEvent) =>
-				`{ repository: ${e.repository?.name ?? ''}, changes: ${e.changes.join()} }`,
+			0: (e: RepositoryChangeEvent) => e.toString(),
 		},
 	})
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
 		this._repoUpdatedAt = this.repo.updatedAt;
 
-		if (e.changed(RepositoryChange.Closed)) {
+		if (e.changed(RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
 			this.dispose();
 			void this.parent?.triggerChange(true);
 
 			return;
 		}
 
-		if (e.changed(RepositoryChange.Starred)) {
+		if (e.changed(RepositoryChange.Starred, RepositoryChangeComparisonMode.Any)) {
 			void this.parent?.triggerChange(true);
 
 			return;

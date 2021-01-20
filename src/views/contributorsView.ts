@@ -4,7 +4,7 @@ import { Avatars } from '../avatars';
 import { configuration, ContributorsViewConfig, ViewFilesLayout } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { RepositoryChange, RepositoryChangeEvent } from '../git/git';
+import { RepositoryChange, RepositoryChangeComparisonMode, RepositoryChangeEvent } from '../git/git';
 import { GitUri } from '../git/gitUri';
 import { ContributorsNode, RepositoryFolderNode, unknownGitUri, ViewNode } from './nodes';
 import { debug, gate, Strings } from '../system';
@@ -28,11 +28,12 @@ export class ContributorsRepositoryNode extends RepositoryFolderNode<Contributor
 	}
 
 	protected changed(e: RepositoryChangeEvent) {
-		return (
-			e.changed(RepositoryChange.Config) ||
-			e.changed(RepositoryChange.Heads) ||
-			e.changed(RepositoryChange.Remotes) ||
-			e.changed(RepositoryChange.Unknown)
+		return e.changed(
+			RepositoryChange.Config,
+			RepositoryChange.Heads,
+			RepositoryChange.Remotes,
+			RepositoryChange.Unknown,
+			RepositoryChangeComparisonMode.Any,
 		);
 	}
 }

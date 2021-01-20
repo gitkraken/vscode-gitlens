@@ -11,7 +11,13 @@ import {
 import { configuration, StashesViewConfig, ViewFilesLayout } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitReference, GitStashReference, RepositoryChange, RepositoryChangeEvent } from '../git/git';
+import {
+	GitReference,
+	GitStashReference,
+	RepositoryChange,
+	RepositoryChangeComparisonMode,
+	RepositoryChangeEvent,
+} from '../git/git';
 import { GitUri } from '../git/gitUri';
 import { RepositoryFolderNode, RepositoryNode, StashesNode, StashNode, unknownGitUri, ViewNode } from './nodes';
 import { debug, gate, Strings } from '../system';
@@ -27,11 +33,7 @@ export class StashesRepositoryNode extends RepositoryFolderNode<StashesView, Sta
 	}
 
 	protected changed(e: RepositoryChangeEvent) {
-		return (
-			e.changed(RepositoryChange.Config) ||
-			e.changed(RepositoryChange.Stash) ||
-			e.changed(RepositoryChange.Unknown)
-		);
+		return e.changed(RepositoryChange.Stash, RepositoryChange.Unknown, RepositoryChangeComparisonMode.Any);
 	}
 }
 

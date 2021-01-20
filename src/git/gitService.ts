@@ -72,6 +72,7 @@ import {
 	PullRequestState,
 	Repository,
 	RepositoryChange,
+	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
 	SearchPattern,
 } from './git';
@@ -188,32 +189,40 @@ export class GitService implements Disposable {
 	}
 
 	private onAnyRepositoryChanged(repo: Repository, e: RepositoryChangeEvent) {
-		if (e.changed(RepositoryChange.Stash, true)) {
-			this._stashesCache.delete(repo.path);
-
-			return;
-		}
-
-		this._branchesCache.delete(repo.path);
-		this._contributorsCache.delete(repo.path);
-		this._mergeStatusCache.delete(repo.path);
-		this._rebaseStatusCache.delete(repo.path);
-		this._tagsCache.delete(repo.path);
-		this._trackedCache.clear();
-
-		if (e.changed(RepositoryChange.Remotes)) {
-			this._remotesWithApiProviderCache.clear();
-		}
-
-		if (e.changed(RepositoryChange.Stash)) {
-			this._stashesCache.delete(repo.path);
-		}
-
-		if (e.changed(RepositoryChange.Config)) {
+		if (e.changed(RepositoryChange.Config, RepositoryChangeComparisonMode.Any)) {
 			this._userMapCache.delete(repo.path);
 		}
 
-		if (e.changed(RepositoryChange.Closed)) {
+		if (e.changed(RepositoryChange.Heads, RepositoryChange.Remotes, RepositoryChangeComparisonMode.Any)) {
+			this._branchesCache.delete(repo.path);
+			this._contributorsCache.delete(repo.path);
+
+			if (e.changed(RepositoryChange.Remotes, RepositoryChangeComparisonMode.Any)) {
+				this._remotesWithApiProviderCache.clear();
+			}
+		}
+
+		if (e.changed(RepositoryChange.Index, RepositoryChange.Unknown, RepositoryChangeComparisonMode.Any)) {
+			this._trackedCache.clear();
+		}
+
+		if (e.changed(RepositoryChange.Merge, RepositoryChangeComparisonMode.Any)) {
+			this._mergeStatusCache.delete(repo.path);
+		}
+
+		if (e.changed(RepositoryChange.Rebase, RepositoryChangeComparisonMode.Any)) {
+			this._rebaseStatusCache.delete(repo.path);
+		}
+
+		if (e.changed(RepositoryChange.Stash, RepositoryChangeComparisonMode.Any)) {
+			this._stashesCache.delete(repo.path);
+		}
+
+		if (e.changed(RepositoryChange.Tags, RepositoryChangeComparisonMode.Any)) {
+			this._tagsCache.delete(repo.path);
+		}
+
+		if (e.changed(RepositoryChange.Closed, RepositoryChangeComparisonMode.Any)) {
 			// Send a notification that the repositories changed
 			setImmediate(async () => {
 				await this.updateContext(this._repositoryTree);

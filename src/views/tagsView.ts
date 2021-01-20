@@ -11,7 +11,13 @@ import {
 import { configuration, TagsViewConfig, ViewBranchesLayout, ViewFilesLayout } from '../configuration';
 import { GlyphChars } from '../constants';
 import { Container } from '../container';
-import { GitReference, GitTagReference, RepositoryChange, RepositoryChangeEvent } from '../git/git';
+import {
+	GitReference,
+	GitTagReference,
+	RepositoryChange,
+	RepositoryChangeComparisonMode,
+	RepositoryChangeEvent,
+} from '../git/git';
 import { GitUri } from '../git/gitUri';
 import {
 	BranchOrTagFolderNode,
@@ -34,11 +40,7 @@ export class TagsRepositoryNode extends RepositoryFolderNode<TagsView, TagsNode>
 	}
 
 	protected changed(e: RepositoryChangeEvent) {
-		return (
-			e.changed(RepositoryChange.Config) ||
-			e.changed(RepositoryChange.Tags) ||
-			e.changed(RepositoryChange.Unknown)
-		);
+		return e.changed(RepositoryChange.Tags, RepositoryChange.Unknown, RepositoryChangeComparisonMode.Any);
 	}
 }
 

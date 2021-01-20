@@ -20,6 +20,7 @@ import {
 	GitRevisionReference,
 	Repository,
 	RepositoryChange,
+	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
 } from '../git/git';
 import { GitUri } from '../git/gitUri';
@@ -179,12 +180,14 @@ export class CommitsRepositoryNode extends RepositoryFolderNode<CommitsView, Bra
 	}
 
 	protected changed(e: RepositoryChangeEvent) {
-		return (
-			e.changed(RepositoryChange.Config) ||
-			e.changed(RepositoryChange.Index) ||
-			e.changed(RepositoryChange.Heads) ||
-			e.changed(RepositoryChange.Remotes) ||
-			e.changed(RepositoryChange.Unknown)
+		return e.changed(
+			RepositoryChange.Config,
+			RepositoryChange.Heads,
+			RepositoryChange.Index,
+			RepositoryChange.Remotes,
+			RepositoryChange.Status,
+			RepositoryChange.Unknown,
+			RepositoryChangeComparisonMode.Any,
 		);
 	}
 }

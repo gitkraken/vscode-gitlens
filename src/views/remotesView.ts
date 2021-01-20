@@ -19,6 +19,7 @@ import {
 	GitRemote,
 	GitRevisionReference,
 	RepositoryChange,
+	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
 } from '../git/git';
 import { GitUri } from '../git/gitUri';
@@ -45,10 +46,11 @@ export class RemotesRepositoryNode extends RepositoryFolderNode<RemotesView, Rem
 	}
 
 	protected changed(e: RepositoryChangeEvent) {
-		return (
-			e.changed(RepositoryChange.Config) ||
-			e.changed(RepositoryChange.Remotes) ||
-			e.changed(RepositoryChange.Unknown)
+		return e.changed(
+			RepositoryChange.Config,
+			RepositoryChange.Remotes,
+			RepositoryChange.Unknown,
+			RepositoryChangeComparisonMode.Any,
 		);
 	}
 }

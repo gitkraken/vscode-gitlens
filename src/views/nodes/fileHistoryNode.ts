@@ -11,6 +11,7 @@ import {
 	GitLog,
 	GitRevision,
 	RepositoryChange,
+	RepositoryChangeComparisonMode,
 	RepositoryChangeEvent,
 	RepositoryFileSystemChangeEvent,
 } from '../../git/git';
@@ -142,15 +143,19 @@ export class FileHistoryNode extends SubscribeableViewNode<FileHistoryView> impl
 
 	private onRepositoryChanged(e: RepositoryChangeEvent) {
 		if (
-			!e.changed(RepositoryChange.Index) &&
-			!e.changed(RepositoryChange.Heads) &&
-			!e.changed(RepositoryChange.Remotes) &&
-			!e.changed(RepositoryChange.Unknown)
+			!e.changed(
+				RepositoryChange.Index,
+				RepositoryChange.Heads,
+				RepositoryChange.Remotes,
+				RepositoryChange.Status,
+				RepositoryChange.Unknown,
+				RepositoryChangeComparisonMode.Any,
+			)
 		) {
 			return;
 		}
 
-		Logger.debug(`FileHistoryNode.onRepositoryChanged(${e.changes.join()}); triggering node refresh`);
+		Logger.debug(`FileHistoryNode.onRepositoryChanged(${e.toString()}); triggering node refresh`);
 
 		void this.triggerChange(true);
 	}
