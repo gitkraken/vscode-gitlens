@@ -153,7 +153,14 @@ export class BranchesView extends ViewBase<BranchesViewNode, BranchesViewConfig>
 			() => commands.executeCommand('gitlens.views.copy', this.selection),
 			this,
 		);
-		commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this);
+		commands.registerCommand(
+			this.getQualifiedCommand('refresh'),
+			async () => {
+				await Container.git.resetCaches('branches');
+				return this.refresh(true);
+			},
+			this,
+		);
 		commands.registerCommand(
 			this.getQualifiedCommand('setLayoutToList'),
 			() => this.setLayout(ViewBranchesLayout.List),

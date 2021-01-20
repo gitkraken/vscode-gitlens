@@ -148,7 +148,14 @@ export class RemotesView extends ViewBase<RemotesViewNode, RemotesViewConfig> {
 			() => commands.executeCommand('gitlens.views.copy', this.selection),
 			this,
 		);
-		commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this);
+		commands.registerCommand(
+			this.getQualifiedCommand('refresh'),
+			async () => {
+				await Container.git.resetCaches('branches', 'remotes');
+				return this.refresh(true);
+			},
+			this,
+		);
 		commands.registerCommand(
 			this.getQualifiedCommand('setLayoutToList'),
 			() => this.setLayout(ViewBranchesLayout.List),

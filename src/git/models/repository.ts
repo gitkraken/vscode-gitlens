@@ -267,7 +267,7 @@ export class Repository implements Disposable {
 			this._providers = RemoteProviderFactory.loadProviders(configuration.get('remotes', this.folder.uri));
 
 			if (!configuration.initializing(e)) {
-				this.resetRemotesCache();
+				this.resetCaches('remotes');
 				this.fireChange(RepositoryChange.Remotes);
 			}
 		}
@@ -291,8 +291,7 @@ export class Repository implements Disposable {
 		}
 
 		if (uri.path.endsWith('.git/config')) {
-			this._branch = undefined;
-			this.resetRemotesCache();
+			this.resetCaches();
 			this.fireChange(RepositoryChange.Config, RepositoryChange.Remotes);
 
 			return;
@@ -305,7 +304,7 @@ export class Repository implements Disposable {
 		}
 
 		if (uri.path.endsWith('.git/HEAD') || uri.path.endsWith('.git/ORIG_HEAD')) {
-			this._branch = undefined;
+			this.resetCaches('branch');
 			this.fireChange(RepositoryChange.Heads);
 
 			return;
@@ -327,13 +326,12 @@ export class Repository implements Disposable {
 		if (match != null) {
 			switch (match[1]) {
 				case 'heads':
-					this._branch = undefined;
+					this.resetCaches('branch');
 					this.fireChange(RepositoryChange.Heads);
 
 					return;
 				case 'remotes':
-					this._branch = undefined;
-					this.resetRemotesCache();
+					this.resetCaches();
 					this.fireChange(RepositoryChange.Remotes);
 
 					return;
@@ -562,12 +560,6 @@ export class Repository implements Disposable {
 		return Container.git.getRichRemoteProvider(await this.getRemotes(), { includeDisconnected: !connectedOnly });
 	}
 
-	private resetRemotesCache() {
-		this._remotes = undefined;
-		this._remotesDisposable?.dispose();
-		this._remotesDisposable = undefined;
-	}
-
 	private async subscribeToRemotes(remotes: Promise<GitRemote[]>) {
 		this._remotesDisposable?.dispose();
 		this._remotesDisposable = undefined;
@@ -735,6 +727,18 @@ export class Repository implements Disposable {
 		this.runTerminalCommand('reset', ...args);
 	}
 
+	resetCaches(...cache: ('branch' | 'remotes')[]) {
+		if (cache.length === 0 || cache.includes('branch')) {
+			this._branch = undefined;
+		}
+
+		if (cache.length === 0 || cache.includes('remotes')) {
+			this._remotes = undefined;
+			this._remotesDisposable?.dispose();
+			this._remotesDisposable = undefined;
+		}
+	}
+
 	resume() {
 		if (!this._suspended) return;
 
@@ -778,9 +782,7 @@ export class Repository implements Disposable {
 	async stashApply(stashName: string, options: { deleteAfter?: boolean } = {}) {
 		void (await Container.git.stashApply(this.path, stashName, options));
 
-		if (!this.supportsChangeEvents) {
-			this.fireChange(RepositoryChange.Stash);
-		}
+		this.fireChange(RepositoryChange.Stash);
 	}
 
 	@gate(() => '')
@@ -788,9 +790,7 @@ export class Repository implements Disposable {
 	async stashDelete(stashName: string, ref?: string) {
 		void (await Container.git.stashDelete(this.path, stashName, ref));
 
-		if (!this.supportsChangeEvents) {
-			this.fireChange(RepositoryChange.Stash);
-		}
+		this.fireChange(RepositoryChange.Stash);
 	}
 
 	@gate(() => '')
@@ -798,9 +798,7 @@ export class Repository implements Disposable {
 	async stashSave(message?: string, uris?: Uri[], options: { includeUntracked?: boolean; keepIndex?: boolean } = {}) {
 		void (await Container.git.stashSave(this.path, message, uris, options));
 
-		if (!this.supportsChangeEvents) {
-			this.fireChange(RepositoryChange.Stash);
-		}
+		this.fireChange(RepositoryChange.Stash);
 	}
 
 	@gate()
@@ -1003,9 +1001,7 @@ export class Repository implements Disposable {
 		const parsedArgs = args.map(arg => (arg.startsWith('#') ? `"${arg}"` : arg));
 		runGitCommandInTerminal(command, parsedArgs.join(' '), this.path, true);
 
-		if (!this.supportsChangeEvents) {
-			setTimeout(() => this.fireChange(RepositoryChange.Unknown), 2500);
-		}
+		setTimeout(() => this.fireChange(RepositoryChange.Unknown), 2500);
 	}
 
 	private async tryWatchingForChangesViaBuiltInApi() {

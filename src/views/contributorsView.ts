@@ -132,7 +132,14 @@ export class ContributorsView extends ViewBase<ContributorsViewNode, Contributor
 			() => commands.executeCommand('gitlens.views.copy', this.selection),
 			this,
 		);
-		commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this);
+		commands.registerCommand(
+			this.getQualifiedCommand('refresh'),
+			async () => {
+				await Container.git.resetCaches('contributors');
+				return this.refresh(true);
+			},
+			this,
+		);
 		commands.registerCommand(
 			this.getQualifiedCommand('setFilesLayoutToAuto'),
 			() => this.setFilesLayout(ViewFilesLayout.Auto),

@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#1332](https://github.com/eamodio/vscode-gitlens/issues/1332) - Stashes created with command line don't show up in the "Stashes" section
 - Fixes [#1045](https://github.com/eamodio/vscode-gitlens/issues/1045) - View File History not working - absolute path used &mdash; thanks to [PR #1334](https://github.com/eamodio/vscode-gitlens/pull/1334) by egfx-notifications ([@egfx-notifications](https://github.com/egfx-notifications))
 - Fixes [#1323](https://github.com/eamodio/vscode-gitlens/issues/1323) - Interactive rebase hangs
 - Fixes [#1183](https://github.com/eamodio/vscode-gitlens/issues/1183) - stash all changes has no effect when the number of files is large

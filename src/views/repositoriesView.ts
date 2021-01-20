@@ -69,7 +69,14 @@ export class RepositoriesView extends ViewBase<RepositoriesNode, RepositoriesVie
 			() => commands.executeCommand('gitlens.views.copy', this.selection),
 			this,
 		);
-		commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this);
+		commands.registerCommand(
+			this.getQualifiedCommand('refresh'),
+			async () => {
+				await Container.git.resetCaches('branches', 'contributors', 'remotes', 'stashes', 'status', 'tags');
+				return this.refresh(true);
+			},
+			this,
+		);
 		commands.registerCommand(
 			this.getQualifiedCommand('setBranchesLayoutToList'),
 			() => this.setBranchesLayout(ViewBranchesLayout.List),

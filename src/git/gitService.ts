@@ -163,16 +163,7 @@ export class GitService implements Disposable {
 
 	dispose() {
 		this._repositoryTree.forEach(r => r.dispose());
-		this._branchesCache.clear();
-		this._contributorsCache.clear();
-		this._mergeStatusCache.clear();
-		this._rebaseStatusCache.clear();
-		this._remotesWithApiProviderCache.clear();
-		this._stashesCache.clear();
-		this._tagsCache.clear();
-		this._trackedCache.clear();
-		this._userMapCache.clear();
-
+		void this.resetCaches();
 		this._disposable.dispose();
 	}
 
@@ -614,6 +605,57 @@ export class GitService implements Disposable {
 			Logger.error(ex, cc);
 			void void Messages.showGenericErrorMessage(`Unable to checkout '${ref}'`);
 			return undefined;
+		}
+	}
+
+	@log()
+	async resetCaches(
+		...cache: ('branches' | 'contributors' | 'providers' | 'remotes' | 'stashes' | 'status' | 'tags')[]
+	) {
+		if (cache.length === 0 || cache.includes('branches')) {
+			this._branchesCache.clear();
+
+			if (cache.length !== 0) {
+				for (const repo of await this.getRepositories()) {
+					repo.resetCaches('branch');
+				}
+			}
+		}
+
+		if (cache.length === 0 || cache.includes('contributors')) {
+			this._contributorsCache.clear();
+		}
+
+		if (cache.length === 0 || cache.includes('providers')) {
+			this._remotesWithApiProviderCache.clear();
+		}
+
+		if (cache.includes('remotes')) {
+			for (const repo of await this.getRepositories()) {
+				repo.resetCaches('remotes');
+			}
+		}
+
+		if (cache.length === 0 || cache.includes('stashes')) {
+			this._stashesCache.clear();
+		}
+
+		if (cache.length === 0 || cache.includes('status')) {
+			this._mergeStatusCache.clear();
+			this._rebaseStatusCache.clear();
+		}
+
+		if (cache.length === 0 || cache.includes('tags')) {
+			this._tagsCache.clear();
+		}
+
+		if (cache.length === 0) {
+			this._trackedCache.clear();
+			this._userMapCache.clear();
+
+			for (const repo of await this.getRepositories()) {
+				repo.resetCaches();
+			}
 		}
 	}
 

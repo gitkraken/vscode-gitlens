@@ -137,7 +137,14 @@ export class TagsView extends ViewBase<TagsViewNode, TagsViewConfig> {
 			() => commands.executeCommand('gitlens.views.copy', this.selection),
 			this,
 		);
-		commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this);
+		commands.registerCommand(
+			this.getQualifiedCommand('refresh'),
+			async () => {
+				await Container.git.resetCaches('tags');
+				return this.refresh(true);
+			},
+			this,
+		);
 		commands.registerCommand(
 			this.getQualifiedCommand('setLayoutToList'),
 			() => this.setLayout(ViewBranchesLayout.List),

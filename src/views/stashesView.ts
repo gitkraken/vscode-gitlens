@@ -130,7 +130,14 @@ export class StashesView extends ViewBase<StashesViewNode, StashesViewConfig> {
 			() => commands.executeCommand('gitlens.views.copy', this.selection),
 			this,
 		);
-		commands.registerCommand(this.getQualifiedCommand('refresh'), () => this.refresh(true), this);
+		commands.registerCommand(
+			this.getQualifiedCommand('refresh'),
+			async () => {
+				await Container.git.resetCaches('stashes');
+				return this.refresh(true);
+			},
+			this,
+		);
 		commands.registerCommand(
 			this.getQualifiedCommand('setFilesLayoutToAuto'),
 			() => this.setFilesLayout(ViewFilesLayout.Auto),
