@@ -7084,7 +7084,7 @@
 				},
 				{
 					"command": "gitlens.views.publishBranch",
-					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+tracking\\b)/",
+					"when": "gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+remote\\b)(?!.*?\\b\\+tracking\\b)/",
 					"group": "inline@8"
 				},
 				{

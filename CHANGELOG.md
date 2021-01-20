@@ -34,6 +34,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [#1308](https://github.com/eamodio/vscode-gitlens/issues/1308) - Escape quotes for PRs titles
 - Fixes [#1309](https://github.com/eamodio/vscode-gitlens/issues/1309) - "Fetch" not working on remote branches
 - Fixes an issue where many views wouldn't refresh properly when going from no items to some items
+- Fixes an issue where _Publish Branch_ was incorrectly showing up on remote branches
 
 ## [11.1.3] - 2021-01-05
 
