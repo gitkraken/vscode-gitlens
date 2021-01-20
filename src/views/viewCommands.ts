@@ -302,8 +302,8 @@ export class ViewCommands {
 			repoPath: node.repoPath,
 			remote: remoteInfo,
 			branch: {
-				name: node.branch.getNameWithoutRemote(),
-				upstream: node.branch.getTrackingWithoutRemote(),
+				name: node.branch.name,
+				upstream: node.branch.tracking,
 				isRemote: node.branch.remote,
 
 				remote: remoteInfo,
