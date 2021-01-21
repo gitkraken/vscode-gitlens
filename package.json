@@ -5066,6 +5066,10 @@
 					"when": "gitlens:enabled"
 				},
 				{
+					"command": "gitlens.addAuthors",
+					"when": "gitlens:enabled"
+				},
+				{
 					"command": "gitlens.connectRemoteProvider",
 					"when": "config.gitlens.integrations.enabled && gitlens:hasRichRemotes && !gitlens:hasConnectedRemotes"
 				},
@@ -5140,6 +5144,10 @@
 				{
 					"command": "gitlens.openAssociatedPullRequestOnRemote",
 					"when": "gitlens:activeFileStatus =~ /blameable/ && gitlens:activeFileStatus =~ /remotes/"
+				},
+				{
+					"command": "gitlens.openFileFromRemote",
+					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.openFileOnRemote",
