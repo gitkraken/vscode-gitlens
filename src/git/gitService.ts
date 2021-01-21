@@ -291,6 +291,8 @@ export class GitService implements Disposable {
 					if (!this._repositoryTree.has(r.path)) {
 						this._repositoryTree.set(r.path, r);
 					}
+
+					void GitService.openBuiltInGitRepository(r.path);
 				}
 			}
 		}
@@ -520,6 +522,8 @@ export class GitService implements Disposable {
 						if (!this._repositoryTree.has(r.path)) {
 							this._repositoryTree.set(r.path, r);
 						}
+
+						void GitService.openBuiltInGitRepository(r.path);
 					}
 
 					await this.updateContext(this._repositoryTree);
@@ -4006,17 +4010,19 @@ export class GitService implements Disposable {
 	}
 
 	@log()
-	static async getBuiltInGitRepository(repoPath: string): Promise<BuiltInGitRepository | undefined> {
+	static async getOrOpenBuiltInGitRepository(repoPath: string): Promise<BuiltInGitRepository | undefined> {
 		const gitApi = await GitService.getBuiltInGitApi();
-		if (gitApi == null) return undefined;
+		if (gitApi?.openRepository != null) {
+			return (await gitApi?.openRepository?.(Uri.file(repoPath))) ?? undefined;
+		}
 
-		const normalizedPath = Strings.normalizePath(repoPath, { stripTrailingSlash: true }).toLowerCase();
+		return gitApi?.getRepository(Uri.file(repoPath)) ?? undefined;
+	}
 
-		const repo = gitApi.repositories.find(
-			r => Strings.normalizePath(r.rootUri.fsPath, { stripTrailingSlash: true }).toLowerCase() === normalizedPath,
-		);
-
-		return repo;
+	@log()
+	static async openBuiltInGitRepository(repoPath: string): Promise<BuiltInGitRepository | undefined> {
+		const gitApi = await GitService.getBuiltInGitApi();
+		return (await gitApi?.openRepository?.(Uri.file(repoPath))) ?? undefined;
 	}
 
 	static getEncoding(repoPath: string, fileName: string): string;

@@ -733,7 +733,7 @@ export class Repository implements Disposable {
 	) {
 		try {
 			if (GitReference.isBranch(options.reference)) {
-				const repo = await GitService.getBuiltInGitRepository(this.path);
+				const repo = await GitService.getOrOpenBuiltInGitRepository(this.path);
 				if (repo == null) return;
 
 				if (options.publish != null) {
@@ -750,7 +750,7 @@ export class Repository implements Disposable {
 					}
 				}
 			} else if (options.reference != null) {
-				const repo = await GitService.getBuiltInGitRepository(this.path);
+				const repo = await GitService.getOrOpenBuiltInGitRepository(this.path);
 				if (repo == null) return;
 
 				const branch = await this.getBranch();
@@ -1053,7 +1053,7 @@ export class Repository implements Disposable {
 	}
 
 	private async tryWatchingForChangesViaBuiltInApi() {
-		const repo = await GitService.getBuiltInGitRepository(this.path);
+		const repo = await GitService.getOrOpenBuiltInGitRepository(this.path);
 		if (repo != null) {
 			const internalRepo = (repo as any)._repository;
 			if (internalRepo != null && 'onDidChangeRepository' in internalRepo) {

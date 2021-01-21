@@ -1017,7 +1017,7 @@ export async function* pickContributorsStep<
 	context: Context,
 	placeholder: string = 'Choose contributors',
 ): AsyncStepResultGenerator<GitContributor[]> {
-	const message = (await GitService.getBuiltInGitRepository(state.repo.path))?.inputBox.value;
+	const message = (await GitService.getOrOpenBuiltInGitRepository(state.repo.path))?.inputBox.value;
 
 	const step = QuickCommand.createPickStep<ContributorQuickPickItem>({
 		title: appendReposToTitle(context.title, state, context),
