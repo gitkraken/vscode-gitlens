@@ -214,7 +214,7 @@ export class CommitOpenDirectoryCompareCommandQuickPickItem extends CommandQuick
 	}
 
 	execute(): Promise<void> {
-		return GitActions.Commit.openDirectoryCompare(this.commit);
+		return GitActions.Commit.openDirectoryCompareWithPrevious(this.commit);
 	}
 }
 

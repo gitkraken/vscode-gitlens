@@ -4,6 +4,7 @@ import * as paths from 'path';
 import {
 	ConfigurationChangeEvent,
 	Disposable,
+	env,
 	Event,
 	EventEmitter,
 	Extension,
@@ -3818,32 +3819,74 @@ export class GitService implements Disposable {
 		repoPath: string,
 		uri: Uri,
 		options: { ref1?: string; ref2?: string; staged?: boolean; tool?: string } = {},
-	) {
-		if (!options.tool) {
-			const cc = Logger.getCorrelationContext();
+	): Promise<void> {
+		try {
+			if (!options.tool) {
+				const cc = Logger.getCorrelationContext();
 
-			options.tool = await this.getDiffTool(repoPath);
-			if (options.tool == null) throw new Error('No diff tool found');
+				options.tool = Container.config.advanced.externalDiffTool || (await this.getDiffTool(repoPath));
+				if (options.tool == null) throw new Error('No diff tool found');
 
-			Logger.log(cc, `Using tool=${options.tool}`);
+				Logger.log(cc, `Using tool=${options.tool}`);
+			}
+
+			const { tool, ...opts } = options;
+			await Git.difftool(repoPath, uri.fsPath, tool, opts);
+		} catch (ex) {
+			const msg: string = ex?.toString() ?? '';
+			if (msg === 'No diff tool found' || /Unknown .+? tool/.test(msg)) {
+				const viewDocs = 'View Git Docs';
+				const result = await window.showWarningMessage(
+					'Unable to open changes because the specified diff tool cannot be found or no Git diff tool is configured',
+					viewDocs,
+				);
+				if (result === viewDocs) {
+					void env.openExternal(
+						Uri.parse('https://git-scm.com/docs/git-config#Documentation/git-config.txt-difftool'),
+					);
+				}
+
+				return;
+			}
+
+			Logger.error(ex, 'openDiffTool');
+			void Messages.showGenericErrorMessage('Unable to open compare');
 		}
-
-		const { tool, ...opts } = options;
-		return Git.difftool(repoPath, uri.fsPath, tool, opts);
 	}
 
 	@log()
-	async openDirectoryCompare(repoPath: string, ref1: string, ref2?: string, tool?: string) {
-		if (!tool) {
-			const cc = Logger.getCorrelationContext();
+	async openDirectoryCompare(repoPath: string, ref1: string, ref2?: string, tool?: string): Promise<void> {
+		try {
+			if (!tool) {
+				const cc = Logger.getCorrelationContext();
 
-			tool = await this.getDiffTool(repoPath);
-			if (tool == null) throw new Error('No diff tool found');
+				tool = Container.config.advanced.externalDirectoryDiffTool || (await this.getDiffTool(repoPath));
+				if (tool == null) throw new Error('No diff tool found');
 
-			Logger.log(cc, `Using tool=${tool}`);
+				Logger.log(cc, `Using tool=${tool}`);
+			}
+
+			await Git.difftool__dir_diff(repoPath, tool, ref1, ref2);
+		} catch (ex) {
+			const msg: string = ex?.toString() ?? '';
+			if (msg === 'No diff tool found' || /Unknown .+? tool/.test(msg)) {
+				const viewDocs = 'View Git Docs';
+				const result = await window.showWarningMessage(
+					'Unable to open directory compare because the specified diff tool cannot be found or no Git diff tool is configured',
+					viewDocs,
+				);
+				if (result === viewDocs) {
+					void env.openExternal(
+						Uri.parse('https://git-scm.com/docs/git-config#Documentation/git-config.txt-difftool'),
+					);
+				}
+
+				return;
+			}
+
+			Logger.error(ex, 'openDirectoryCompare');
+			void Messages.showGenericErrorMessage('Unable to open directory compare');
 		}
-
-		return Git.difftool__dir_diff(repoPath, tool, ref1, ref2);
 	}
 
 	async resolveReference(

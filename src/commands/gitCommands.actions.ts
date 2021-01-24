@@ -27,8 +27,8 @@ import {
 	Repository,
 } from '../git/git';
 import { GitUri } from '../git/gitUri';
-import { RepositoryPicker } from '../quickpicks';
 import { ResetGitCommandArgs } from './git/reset';
+import { RepositoryPicker } from '../quickpicks';
 
 export async function executeGitCommand(args: GitCommandsCommandArgs): Promise<void> {
 	void (await executeCommand<GitCommandsCommandArgs>(Commands.GitCommands, args));
@@ -375,12 +375,12 @@ export namespace GitActions {
 			}));
 		}
 
-		export async function openChangesWithDiffTool(
+		export function openChangesWithDiffTool(
 			file: string | GitFile,
 			commit: GitLogCommit,
 			tool?: string,
 		): Promise<void>;
-		export async function openChangesWithDiffTool(
+		export function openChangesWithDiffTool(
 			file: GitFile,
 			ref: { repoPath: string; ref: string },
 			tool?: string,
@@ -399,24 +399,7 @@ export namespace GitActions {
 				file = f;
 			}
 
-			if (!tool) {
-				tool = await Container.git.getDiffTool(commitOrRef.repoPath);
-				if (tool == null) {
-					const result = await window.showWarningMessage(
-						'Unable to open changes in diff tool. No Git diff tool is configured',
-						'View Git Docs',
-					);
-					if (!result) return;
-
-					void env.openExternal(
-						Uri.parse('https://git-scm.com/docs/git-config#Documentation/git-config.txt-difftool'),
-					);
-
-					return;
-				}
-			}
-
-			void Container.git.openDiffTool(
+			return Container.git.openDiffTool(
 				commitOrRef.repoPath,
 				GitUri.fromFile(file, file.repoPath ?? commitOrRef.repoPath),
 				{
@@ -473,45 +456,24 @@ export namespace GitActions {
 		}
 
 		export async function openDirectoryCompare(
+			repoPath: string,
+			ref: string,
+			ref2: string | undefined,
+			tool?: string,
+		): Promise<void> {
+			return Container.git.openDirectoryCompare(repoPath, ref, ref2, tool);
+		}
+
+		export async function openDirectoryCompareWithPrevious(
 			ref: { repoPath: string; ref: string } | GitLogCommit,
 		): Promise<void> {
-			try {
-				void (await Container.git.openDirectoryCompare(ref.repoPath, ref.ref, `${ref.ref}^`));
-			} catch (ex) {
-				const msg: string = ex?.toString() ?? '';
-				if (msg === 'No diff tool found') {
-					const result = await window.showWarningMessage(
-						'Unable to open directory compare because there is no Git diff tool configured',
-						'View Git Docs',
-					);
-					if (!result) return;
-
-					void env.openExternal(
-						Uri.parse('https://git-scm.com/docs/git-config#Documentation/git-config.txt-difftool'),
-					);
-				}
-			}
+			return openDirectoryCompare(ref.repoPath, ref.ref, `${ref.ref}^`);
 		}
 
 		export async function openDirectoryCompareWithWorking(
 			ref: { repoPath: string; ref: string } | GitLogCommit,
 		): Promise<void> {
-			try {
-				void (await Container.git.openDirectoryCompare(ref.repoPath, ref.ref, undefined));
-			} catch (ex) {
-				const msg: string = ex?.toString() ?? '';
-				if (msg === 'No diff tool found') {
-					const result = await window.showWarningMessage(
-						'Unable to open directory compare because there is no Git diff tool configured',
-						'View Git Docs',
-					);
-					if (!result) return;
-
-					void env.openExternal(
-						Uri.parse('https://git-scm.com/docs/git-config#Documentation/git-config.txt-difftool'),
-					);
-				}
-			}
+			return openDirectoryCompare(ref.repoPath, ref.ref, undefined);
 		}
 
 		export async function openFile(uri: Uri, options?: TextDocumentShowOptions): Promise<void>;

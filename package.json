@@ -2381,6 +2381,24 @@
 					"markdownDescription": "Specifies whether git output will be cached — changing the default is not recommended",
 					"scope": "window"
 				},
+				"gitlens.advanced.externalDiffTool": {
+					"type": [
+						"string",
+						"null"
+					],
+					"default": null,
+					"markdownDescription": "Specifies an optional external diff tool to use when comparing files. Must be a configured [Git difftool](https://git-scm.com/docs/git-config#Documentation/git-config.txt-difftool).",
+					"scope": "window"
+				},
+				"gitlens.advanced.externalDirectoryDiffTool": {
+					"type": [
+						"string",
+						"null"
+					],
+					"default": null,
+					"markdownDescription": "Specifies an optional external diff tool to use when comparing directories. Must be a configured [Git difftool](https://git-scm.com/docs/git-config#Documentation/git-config.txt-difftool).",
+					"scope": "window"
+				},
 				"gitlens.advanced.fileHistoryFollowsRenames": {
 					"type": "boolean",
 					"default": false,

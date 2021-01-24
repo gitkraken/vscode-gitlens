@@ -182,17 +182,18 @@ export class ExternalDiffCommand extends Command {
 				if (!repoPath) return;
 			}
 
-			const tool = await Container.git.getDiffTool(repoPath);
-			if (tool == null) {
+			const tool = Container.config.advanced.externalDiffTool || (await Container.git.getDiffTool(repoPath));
+			if (!tool) {
+				const viewDocs = 'View Git Docs';
 				const result = await window.showWarningMessage(
-					'Unable to open changes in diff tool. No Git diff tool is configured',
-					'View Git Docs',
+					'Unable to open changes because no Git diff tool is configured',
+					viewDocs,
 				);
-				if (!result) return;
-
-				void env.openExternal(
-					Uri.parse('https://git-scm.com/docs/git-config#Documentation/git-config.txt-difftool'),
-				);
+				if (result === viewDocs) {
+					void env.openExternal(
+						Uri.parse('https://git-scm.com/docs/git-config#Documentation/git-config.txt-difftool'),
+					);
+				}
 
 				return;
 			}

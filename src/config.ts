@@ -287,6 +287,8 @@ export interface AdvancedConfig {
 	caching: {
 		enabled: boolean;
 	};
+	externalDiffTool: string | null;
+	externalDirectoryDiffTool: string | null;
 	fileHistoryFollowsRenames: boolean;
 	fileHistoryShowAllBranches: boolean;
 	maxListItems: number;

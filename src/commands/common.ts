@@ -19,7 +19,7 @@ import {
 import { Action, ActionContext } from '../api/gitlens';
 import { BuiltInCommands, DocumentSchemes, ImageMimetypes } from '../constants';
 import { Container } from '../container';
-import { GitBranch, GitCommit, GitContributor, GitFile, GitRemote, GitTag, Repository } from '../git/git';
+import { GitBranch, GitCommit, GitContributor, GitFile, GitReference, GitRemote, GitTag, Repository } from '../git/git';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
 import { CommandQuickPickItem, RepositoryPicker } from '../quickpicks';
@@ -355,7 +355,7 @@ export function isCommandContextViewNodeHasFileRefs(
 
 export function isCommandContextViewNodeHasRef(
 	context: CommandContext,
-): context is CommandViewNodeContext & { node: ViewNode & { ref: string } } {
+): context is CommandViewNodeContext & { node: ViewNode & { ref: GitReference } } {
 	return context.type === 'viewItem' && context.node instanceof ViewRefNode;
 }
 
