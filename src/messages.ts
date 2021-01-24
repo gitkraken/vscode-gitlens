@@ -7,6 +7,7 @@ import { Logger } from './logger';
 export enum SuppressedMessages {
 	CommitHasNoPreviousCommitWarning = 'suppressCommitHasNoPreviousCommitWarning',
 	CommitNotFoundWarning = 'suppressCommitNotFoundWarning',
+	CreatePullRequestPrompt = 'suppressCreatePullRequestPrompt',
 	FileNotUnderSourceControlWarning = 'suppressFileNotUnderSourceControlWarning',
 	GitDisabledWarning = 'suppressGitDisabledWarning',
 	GitVersionWarning = 'suppressGitVersionWarning',
@@ -37,6 +38,18 @@ export class Messages {
 			`${message}. The commit could not be found.`,
 			SuppressedMessages.CommitNotFoundWarning,
 		);
+	}
+
+	static async showCreatePullRequestPrompt(branch: string): Promise<boolean> {
+		const create = { title: 'Create Pull Request...' };
+		const result = await Messages.showMessage(
+			'info',
+			`Would you like to create a Pull Request for branch '${branch}'?`,
+			SuppressedMessages.CreatePullRequestPrompt,
+			{ title: "Don't Show Again" },
+			create,
+		);
+		return result === create;
 	}
 
 	static async showGenericErrorMessage(message: string): Promise<MessageItem | undefined> {

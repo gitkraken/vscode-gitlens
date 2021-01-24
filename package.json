@@ -2428,6 +2428,7 @@
 					"default": {
 						"suppressCommitHasNoPreviousCommitWarning": false,
 						"suppressCommitNotFoundWarning": false,
+						"suppressCreatePullRequestPrompt": false,
 						"suppressFileNotUnderSourceControlWarning": false,
 						"suppressGitDisabledWarning": false,
 						"suppressGitVersionWarning": false,
@@ -2441,6 +2442,10 @@
 							"default": false
 						},
 						"suppressCommitNotFoundWarning": {
+							"type": "boolean",
+							"default": false
+						},
+						"suppressCreatePullRequestPrompt": {
 							"type": "boolean",
 							"default": false
 						},

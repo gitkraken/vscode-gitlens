@@ -13,6 +13,8 @@ import {
 	workspace,
 	WorkspaceFolder,
 } from 'vscode';
+import { CreatePullRequestActionContext } from '../../api/gitlens';
+import { executeActionCommand } from '../../commands';
 import { BranchSorting, configuration, TagSorting } from '../../configuration';
 import { Starred, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
@@ -597,6 +599,10 @@ export class Repository implements Disposable {
 		return Container.git.getRebaseStatus(this.path);
 	}
 
+	async getRemote(remote: string): Promise<GitRemote | undefined> {
+		return (await this.getRemotes()).find(r => r.name === remote);
+	}
+
 	getRemotes(_options: { sort?: boolean } = {}): Promise<GitRemote[]> {
 		if (this._remotes == null || !this.supportsChangeEvents) {
 			if (this._providers == null) {
@@ -722,6 +728,41 @@ export class Repository implements Disposable {
 		));
 	}
 
+	private async showCreatePullRequestPrompt(remoteName: string, branch: GitBranchReference) {
+		if (!Container.actionRunners.count('createPullRequest')) return;
+		if (!(await Messages.showCreatePullRequestPrompt(branch.name))) return;
+
+		const remote = await this.getRemote(remoteName);
+		const remoteInfo =
+			remote != null
+				? {
+						name: remote.name,
+						provider:
+							remote.provider != null
+								? {
+										id: remote.provider.id,
+										name: remote.provider.name,
+										domain: remote.provider.domain,
+								  }
+								: undefined,
+						url: remote.url,
+				  }
+				: { name: remoteName };
+
+		void executeActionCommand<CreatePullRequestActionContext>('createPullRequest', {
+			repoPath: this.path,
+			remote: remoteInfo,
+			branch: {
+				name: branch.name,
+				isRemote: branch.remote,
+				upstream: branch.tracking,
+
+				remote: remoteInfo,
+				repoPath: this.path,
+			},
+		});
+	}
+
 	private async pushCore(
 		options: {
 			force?: boolean;
@@ -738,6 +779,7 @@ export class Repository implements Disposable {
 
 				if (options.publish != null) {
 					await repo?.push(options.publish.remote, options.reference.name, true);
+					void this.showCreatePullRequestPrompt(options.publish.remote, options.reference);
 				} else {
 					const branch = await this.getBranch(options.reference.name);
 					if (branch == null) return;

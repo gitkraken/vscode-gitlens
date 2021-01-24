@@ -296,6 +296,7 @@ export interface AdvancedConfig {
 	messages: {
 		suppressCommitHasNoPreviousCommitWarning: boolean;
 		suppressCommitNotFoundWarning: boolean;
+		suppressCreatePullRequestPrompt: boolean;
 		suppressFileNotUnderSourceControlWarning: boolean;
 		suppressGitDisabledWarning: boolean;
 		suppressGitVersionWarning: boolean;
