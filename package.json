@@ -1961,6 +1961,12 @@
 					"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Contributors_ view. Requires a connection to a supported remote service (e.g. GitHub)",
 					"scope": "window"
 				},
+				"gitlens.views.contributors.preferUpstream": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "Specifies whether to use the upstream remote for contributors details",
+					"scope": "window"
+				},
 				"gitlens.views.defaultItemLimit": {
 					"type": "number",
 					"default": 10,
