@@ -3993,9 +3993,12 @@
 			},
 			{
 				"command": "gitlens.views.createPullRequest",
-				"title": "Create Pull Request",
+				"title": "Create Pull Request...",
 				"category": "GitLens",
-				"icon": "$(git-pull-request)"
+				"icon": {
+					"dark": "images/dark/icon-create-pull-request.svg",
+					"light": "images/light/icon-create-pull-request.svg"
+				}
 			},
 			{
 				"command": "gitlens.views.openPullRequest",
@@ -7196,35 +7199,35 @@
 					"group": "1_gitlens_actions@4"
 				},
 				{
-					"command": "gitlens.views.deleteBranch",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
+					"command": "gitlens.views.renameBranch",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b/",
 					"group": "1_gitlens_actions@5"
 				},
 				{
-					"command": "gitlens.views.renameBranch",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b/",
+					"command": "gitlens.views.deleteBranch",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b(?!.*?\\b\\+current\\b)/",
 					"group": "1_gitlens_actions@6"
 				},
 				{
 					"command": "gitlens.views.createBranch",
 					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b/",
-					"group": "1_gitlens_actions@7"
+					"group": "1_gitlens_actions_@7"
 				},
 				{
 					"command": "gitlens.views.createTag",
 					"when": "!gitlens:readonly && viewItem =~ /gitlens:branch\\b/",
-					"group": "1_gitlens_actions@8"
+					"group": "1_gitlens_actions_@8"
+				},
+				{
+					"command": "gitlens.views.createPullRequest",
+					"when": "gitlens:action:createPullRequest && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(tracking|remote)\\b)/",
+					"group": "1_gitlens_actions_@9"
 				},
 				{
 					"command": "gitlens.openBranchOnRemote",
 					"when": "viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(tracking|remote)\\b)/",
 					"group": "2_gitlens_quickopen@1",
 					"alt": "gitlens.copyRemoteBranchUrl"
-				},
-				{
-					"command": "gitlens.views.createPullRequest",
-					"when": "gitlens:action:createPullRequest && viewItem =~ /gitlens:branch\\b(?=.*?\\b\\+(tracking|remote)\\b)/",
-					"group": "2_gitlens_quickopen@2"
 				},
 				{
 					"command": "gitlens.views.openDirectoryDiffWithWorking",
