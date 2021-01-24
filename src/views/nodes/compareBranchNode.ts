@@ -40,7 +40,6 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 
 	get ahead(): { readonly ref1: string; readonly ref2: string } {
 		return {
-			// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
 			ref1: this._compareWith?.ref || 'HEAD',
 			ref2: this.branch.ref,
 		};
@@ -49,7 +48,6 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 	get behind(): { readonly ref1: string; readonly ref2: string } {
 		return {
 			ref1: this.branch.ref,
-			// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
 			ref2: this._compareWith?.ref || 'HEAD',
 		};
 	}
@@ -241,7 +239,6 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 	private async getAheadFilesQuery(): Promise<FilesQueryResults> {
 		let files = await Container.git.getDiffStatus(
 			this.repoPath,
-			// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
 			GitRevision.createRange(this._compareWith?.ref || 'HEAD', this.branch.ref || 'HEAD', '...'),
 		);
 
@@ -272,7 +269,6 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 	private async getBehindFilesQuery(): Promise<FilesQueryResults> {
 		const files = await Container.git.getDiffStatus(
 			this.uri.repoPath!,
-			// eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
 			GitRevision.createRange(this.branch.ref, this._compareWith?.ref || 'HEAD', '...'),
 		);
 

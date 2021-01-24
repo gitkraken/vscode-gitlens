@@ -231,7 +231,7 @@
 			}
 		],
 		"@typescript-eslint/no-use-before-define": "off",
-		"@typescript-eslint/prefer-nullish-coalescing": "warn",
+		"@typescript-eslint/prefer-nullish-coalescing": "off",
 		"@typescript-eslint/prefer-optional-chain": "warn",
 		"@typescript-eslint/restrict-template-expressions": [
 			"error",
