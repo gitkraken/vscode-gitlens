@@ -1215,14 +1215,17 @@ export class GitService implements Disposable {
 		let [branch] = await this.getBranches(repoPath, { filter: b => b.current });
 		if (branch != null) return branch;
 
-		const data = await Git.rev_parse__currentBranch(repoPath);
+		const data = await Git.rev_parse__currentBranch(
+			repoPath,
+			Container.config.advanced.useTopologicalCommitOrdering,
+		);
 		if (data == null) return undefined;
 
 		const [name, tracking] = data[0].split('\n');
 		if (GitBranch.isDetached(name)) {
 			const [rebaseStatus, committerDate] = await Promise.all([
 				this.getRebaseStatus(repoPath),
-				Git.log__recent_committerdate(repoPath),
+				Git.log__recent_committerdate(repoPath, Container.config.advanced.useTopologicalCommitOrdering),
 			]);
 
 			branch = new GitBranch(
@@ -1300,12 +1303,15 @@ export class GitService implements Disposable {
 			if (data == null || data.length === 0) {
 				let current;
 
-				const data = await Git.rev_parse__currentBranch(repoPath);
+				const data = await Git.rev_parse__currentBranch(
+					repoPath,
+					Container.config.advanced.useTopologicalCommitOrdering,
+				);
 				if (data != null) {
 					const [name, tracking] = data[0].split('\n');
 					const [rebaseStatus, committerDate] = await Promise.all([
 						GitBranch.isDetached(name) ? this.getRebaseStatus(repoPath) : undefined,
-						Git.log__recent_committerdate(repoPath),
+						Git.log__recent_committerdate(repoPath, Container.config.advanced.useTopologicalCommitOrdering),
 					]);
 
 					current = new GitBranch(
@@ -1499,6 +1505,7 @@ export class GitService implements Disposable {
 		const data = await Git.log__file(repoPath, fileName, '@{push}..', {
 			format: 'refs',
 			renames: true,
+			topological: Container.config.advanced.useTopologicalCommitOrdering,
 		});
 		if (data == null || data.length === 0) return undefined;
 
@@ -1891,6 +1898,7 @@ export class GitService implements Disposable {
 				reverse: options.reverse,
 				similarityThreshold: Container.config.advanced.similarityThreshold,
 				since: options.since,
+				topological: Container.config.advanced.useTopologicalCommitOrdering,
 			});
 			const log = GitLogParser.parse(
 				data,
@@ -1944,6 +1952,7 @@ export class GitService implements Disposable {
 				reverse: options.reverse,
 				similarityThreshold: Container.config.advanced.similarityThreshold,
 				since: options.since,
+				topological: Container.config.advanced.useTopologicalCommitOrdering,
 			});
 			const commits = GitLogParser.parseRefsOnly(data);
 			return new Set(commits);
@@ -2098,7 +2107,12 @@ export class GitService implements Disposable {
 				args.push(...files);
 			}
 
-			const data = await Git.log__search(repoPath, args, { ...options, limit: limit, useShow: useShow });
+			const data = await Git.log__search(repoPath, args, {
+				...options,
+				limit: limit,
+				topo: Container.config.advanced.useTopologicalCommitOrdering,
+				useShow: useShow,
+			});
 			const log = GitLogParser.parse(
 				data,
 				GitCommitType.Log,
@@ -2358,6 +2372,7 @@ export class GitService implements Disposable {
 				firstParent: options.renames,
 				startLine: range == null ? undefined : range.start.line + 1,
 				endLine: range == null ? undefined : range.end.line + 1,
+				topological: Container.config.advanced.useTopologicalCommitOrdering,
 			});
 			const log = GitLogParser.parse(
 				data,
@@ -2673,6 +2688,7 @@ export class GitService implements Disposable {
 			// startLine: editorLine != null ? editorLine + 1 : undefined,
 			reverse: true,
 			format: 'simple',
+			topological: Container.config.advanced.useTopologicalCommitOrdering,
 		});
 		if (data == null || data.length === 0) return undefined;
 
@@ -2684,6 +2700,7 @@ export class GitService implements Disposable {
 				limit: 1,
 				// startLine: editorLine != null ? editorLine + 1 : undefined
 				format: 'simple',
+				topological: Container.config.advanced.useTopologicalCommitOrdering,
 			});
 			if (data == null || data.length === 0) {
 				return GitUri.fromFile(file ?? fileName, repoPath, nextRef);
@@ -2922,6 +2939,7 @@ export class GitService implements Disposable {
 				firstParent: firstParent,
 				format: 'simple',
 				startLine: editorLine != null ? editorLine + 1 : undefined,
+				topological: Container.config.advanced.useTopologicalCommitOrdering,
 			});
 		} catch (ex) {
 			const msg: string = ex?.toString() ?? emptyStr;
@@ -2934,7 +2952,11 @@ export class GitService implements Disposable {
 					}
 				}
 
-				ref = await Git.log__file_recent(repoPath, fileName);
+				ref = await Git.log__file_recent(
+					repoPath,
+					fileName,
+					Container.config.advanced.useTopologicalCommitOrdering,
+				);
 				return GitUri.fromFile(fileName, repoPath, ref ?? GitRevision.deletedOrMissing);
 			}
 
@@ -3063,7 +3085,11 @@ export class GitService implements Disposable {
 		limit = limit ?? Container.config.advanced.maxListItems ?? 0;
 		try {
 			// Pass a much larger limit to reflog, because we aggregate the data and we won't know how many lines we'll need
-			const data = await Git.reflog(repoPath, { ...options, limit: limit * 100 });
+			const data = await Git.reflog(repoPath, {
+				...options,
+				limit: limit * 100,
+				topo: Container.config.advanced.useTopologicalCommitOrdering,
+			});
 			if (data == null) return undefined;
 
 			const reflog = GitReflogParser.parse(data, repoPath, reflogCommands, limit, limit * 100);
@@ -3720,9 +3746,14 @@ export class GitService implements Disposable {
 
 			// TODO: Add caching
 			// Get the most recent commit for this file name
-			ref = await Git.log__file_recent(repoPath, fileName, {
-				similarityThreshold: Container.config.advanced.similarityThreshold,
-			});
+			ref = await Git.log__file_recent(
+				repoPath,
+				fileName,
+				Container.config.advanced.useTopologicalCommitOrdering,
+				{
+					similarityThreshold: Container.config.advanced.similarityThreshold,
+				},
+			);
 			if (ref == null) return undefined;
 
 			// Now check if that commit had any renames
@@ -3730,6 +3761,7 @@ export class GitService implements Disposable {
 				filters: ['R', 'C', 'D'],
 				limit: 1,
 				format: 'simple',
+				topological: Container.config.advanced.useTopologicalCommitOrdering,
 			});
 			if (data == null || data.length === 0) break;
 
@@ -4012,7 +4044,13 @@ export class GitService implements Disposable {
 		const blob = await Git.rev_parse__verify(repoPath, ref, fileName);
 		if (blob == null) return GitRevision.deletedOrMissing;
 
-		let promise: Promise<string | void | undefined> = Git.log__find_object(repoPath, blob, ref, fileName);
+		let promise: Promise<string | void | undefined> = Git.log__find_object(
+			repoPath,
+			blob,
+			ref,
+			Container.config.advanced.useTopologicalCommitOrdering,
+			fileName,
+		);
 		if (options?.timeout != null) {
 			promise = Promise.race([promise, Functions.wait(options.timeout)]);
 		}
