@@ -53,6 +53,7 @@ import {
 } from './nodes';
 import { debug } from '../system';
 import { runGitCommandInTerminal } from '../terminal';
+import { GitService } from '../git/gitService';
 
 interface CompareSelectedInfo {
 	ref: string;
@@ -630,18 +631,24 @@ export class ViewCommands {
 	}
 
 	@debug()
-	private undoCommit(node: CommitNode | FileRevisionAsCommitNode) {
-		if (!(node instanceof CommitNode) && !(node instanceof FileRevisionAsCommitNode)) return Promise.resolve();
+	private async undoCommit(node: CommitNode | FileRevisionAsCommitNode) {
+		if (!(node instanceof CommitNode) && !(node instanceof FileRevisionAsCommitNode)) return;
 
-		return GitActions.reset(
-			node.repoPath,
-			GitReference.create(`${node.ref.ref}^`, node.ref.repoPath, {
-				refType: 'revision',
-				name: `${node.ref.name}^`,
-				message: node.ref.message,
-			}),
-			['--soft'],
-		);
+		const repo = await GitService.getOrOpenBuiltInGitRepository(node.repoPath);
+		const commit = await repo?.getCommit('HEAD');
+
+		if (commit?.hash !== node.ref.ref) {
+			void window.showWarningMessage(
+				`Commit ${GitReference.toString(node.ref, {
+					capitalize: true,
+					icon: false,
+				})} cannot be undone, because it is no longer the most recent commit.`,
+			);
+
+			return;
+		}
+
+		await commands.executeCommand('git.undoCommit', node.repoPath);
 	}
 
 	@debug()
