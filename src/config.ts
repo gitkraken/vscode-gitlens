@@ -332,6 +332,7 @@ export interface AdvancedConfig {
 	};
 	repositorySearchDepth: number;
 	similarityThreshold: number | null;
+	useTopologicalCommitOrdering: boolean;
 }
 
 export interface CodeLensConfig {

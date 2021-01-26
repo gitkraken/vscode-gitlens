@@ -2650,7 +2650,14 @@
 				},
 				"gitlens.advanced.useSymmetricDifferenceNotation": {
 					"deprecationMessage": "Deprecated. This setting is no longer used",
-					"markdownDescription": "Deprecated. This setting is no longer used"
+					"markdownDescription": "Deprecated. This setting is no longer used",
+					"scope": "window"
+				},
+				"gitlens.advanced.useTopologicalCommitOrdering": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "Specifies whether to list commits in topological order (default is by date)",
+					"scope": "window"
 				}
 			}
 		},
