@@ -275,6 +275,7 @@ export class GitHubApi {
 						closedAt
 						mergedAt
 						repository {
+							isFork
 							owner {
 								login
 							}
@@ -309,15 +310,16 @@ export class GitHubApi {
 				...options,
 			});
 
-			// Filter to ensure we only get the owner we expect, as GitHub seems to sometimes return PRs for forks
+			// If the pr is not from a fork, keep it e.g. show root pr's on forks, otherwise, ensure the repo owners match
 			const prs = rsp?.repository?.refs.nodes[0]?.associatedPullRequests?.nodes?.filter(
-				pr => pr.repository.owner.login === owner,
+				pr => !pr.repository.isFork || pr.repository.owner.login === owner,
 			);
 			if (prs == null || prs.length === 0) return undefined;
 
 			if (prs.length > 1) {
 				prs.sort(
 					(a, b) =>
+						(a.repository.owner.login === owner ? -1 : 1) - (b.repository.owner.login === owner ? -1 : 1) ||
 						(a.state === 'OPEN' ? -1 : 1) - (b.state === 'OPEN' ? -1 : 1) ||
 						new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
 				);
@@ -374,6 +376,7 @@ export class GitHubApi {
 						closedAt
 						mergedAt
 						repository {
+							isFork
 							owner {
 								login
 							}
@@ -404,15 +407,16 @@ export class GitHubApi {
 				...options,
 			});
 
-			// Filter to ensure we only get the owner we expect, as GitHub seems to sometimes return PRs for forks
+			// If the pr is not from a fork, keep it e.g. show root pr's on forks, otherwise, ensure the repo owners match
 			const prs = rsp?.repository?.object?.associatedPullRequests?.nodes?.filter(
-				pr => pr.repository.owner.login === owner,
+				pr => !pr.repository.isFork || pr.repository.owner.login === owner,
 			);
 			if (prs == null || prs.length === 0) return undefined;
 
 			if (prs.length > 1) {
 				prs.sort(
 					(a, b) =>
+						(a.repository.owner.login === owner ? -1 : 1) - (b.repository.owner.login === owner ? -1 : 1) ||
 						(a.state === 'OPEN' ? -1 : 1) - (b.state === 'OPEN' ? -1 : 1) ||
 						new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
 				);
@@ -456,6 +460,7 @@ interface GitHubPullRequest {
 	closedAt: string | null;
 	mergedAt: string | null;
 	repository: {
+		isFork: boolean;
 		owner: {
 			login: string;
 		};
