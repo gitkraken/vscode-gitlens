@@ -107,7 +107,7 @@ export class GitLabRemote extends RemoteProvider {
 	}
 
 	protected getUrlForBranch(branch: string): string {
-		return `${this.baseUrl}/commits/${branch}`;
+		return `${this.baseUrl}/tree/${branch}`;
 	}
 
 	protected getUrlForCommit(sha: string): string {

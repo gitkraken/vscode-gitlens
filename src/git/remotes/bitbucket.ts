@@ -112,7 +112,7 @@ export class BitbucketRemote extends RemoteProvider {
 	}
 
 	protected getUrlForBranch(branch: string): string {
-		return `${this.baseUrl}/commits/branch/${branch}`;
+		return `${this.baseUrl}/branch/${branch}`;
 	}
 
 	protected getUrlForCommit(sha: string): string {
