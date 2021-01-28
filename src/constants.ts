@@ -14,6 +14,7 @@ export enum BuiltInCommands {
 	ExecuteDocumentSymbolProvider = 'vscode.executeDocumentSymbolProvider',
 	ExecuteCodeLensProvider = 'vscode.executeCodeLensProvider',
 	FocusFilesExplorer = 'workbench.files.action.focusFilesExplorer',
+	InstallExtension = 'workbench.extensions.installExtension',
 	Open = 'vscode.open',
 	OpenFolder = 'vscode.openFolder',
 	OpenInTerminal = 'openInTerminal',

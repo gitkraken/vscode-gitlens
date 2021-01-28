@@ -9111,6 +9111,7 @@
 		"dayjs": "1.10.4",
 		"iconv-lite": "0.6.2",
 		"lodash-es": "4.17.20",
+		"node-fetch": "3.0.0-beta.9",
 		"sortablejs": "1.13.0",
 		"vscode-codicons": "0.0.14",
 		"vsls": "1.0.3015"
