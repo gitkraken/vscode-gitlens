@@ -111,6 +111,13 @@ export interface Config {
 	};
 	modes: Record<string, ModeConfig>;
 	outputLevel: TraceLevel;
+	partners: Record<
+		string,
+		{
+			enabled: boolean;
+			[key: string]: any;
+		}
+	> | null;
 	remotes: RemotesConfig[] | null;
 	showWelcomeOnInstall: boolean;
 	showWhatsNewAfterUpgrades: boolean;

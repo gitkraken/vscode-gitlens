@@ -1,7 +1,7 @@
 'use strict';
 import * as paths from 'path';
 import { commands, ExtensionContext, extensions, window, workspace } from 'vscode';
-import { GitLensApi } from '../src/api/gitlens';
+import { GitLensApi, OpenPullRequestActionContext } from '../src/api/gitlens';
 import { Api } from './api/api';
 import { Commands, executeCommand, OpenPullRequestOnRemoteCommandArgs, registerCommands } from './commands';
 import { configuration, Configuration } from './configuration';
@@ -12,6 +12,7 @@ import { GitService } from './git/gitService';
 import { GitUri } from './git/gitUri';
 import { Logger } from './logger';
 import { Messages } from './messages';
+import { registerPartnerActionRunners } from './partners';
 import { Strings, Versions } from './system';
 import { ViewNode } from './views/nodes';
 
@@ -135,7 +136,8 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 	Container.initialize(extensionId, context, cfg);
 
 	registerCommands(context);
-	registerDefaultActionRunners(context);
+	registerBuiltInActionRunners(context);
+	registerPartnerActionRunners(context);
 
 	const gitVersion = Git.getGitVersion();
 
@@ -196,10 +198,10 @@ export function notifyOnUnsupportedGitVersion(version: string) {
 	void Messages.showGitVersionUnsupportedErrorMessage(version, '2.7.2');
 }
 
-function registerDefaultActionRunners(context: ExtensionContext): void {
+function registerBuiltInActionRunners(context: ExtensionContext): void {
 	context.subscriptions.push(
-		Container.actionRunners.registerDefault('openPullRequest', {
-			label: 'Open on Remote',
+		Container.actionRunners.registerBuiltIn<OpenPullRequestActionContext>('openPullRequest', {
+			label: ctx => `Open Pull Request on ${ctx.provider?.name ?? 'Remote'}`,
 			run: async ctx => {
 				if (ctx.type !== 'openPullRequest') return;
 

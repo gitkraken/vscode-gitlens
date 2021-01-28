@@ -733,32 +733,28 @@ export class Repository implements Disposable {
 		if (!(await Messages.showCreatePullRequestPrompt(branch.name))) return;
 
 		const remote = await this.getRemote(remoteName);
-		const remoteInfo =
-			remote != null
-				? {
-						name: remote.name,
-						provider:
-							remote.provider != null
-								? {
-										id: remote.provider.id,
-										name: remote.provider.name,
-										domain: remote.provider.domain,
-								  }
-								: undefined,
-						url: remote.url,
-				  }
-				: { name: remoteName };
 
 		void executeActionCommand<CreatePullRequestActionContext>('createPullRequest', {
 			repoPath: this.path,
-			remote: remoteInfo,
+			remote:
+				remote != null
+					? {
+							name: remote.name,
+							provider:
+								remote.provider != null
+									? {
+											id: remote.provider.id,
+											name: remote.provider.name,
+											domain: remote.provider.domain,
+									  }
+									: undefined,
+							url: remote.url,
+					  }
+					: { name: remoteName },
 			branch: {
 				name: branch.name,
 				isRemote: branch.remote,
 				upstream: branch.tracking,
-
-				remote: remoteInfo,
-				repoPath: this.path,
 			},
 		});
 	}

@@ -232,7 +232,8 @@
 								"description": "Specifies whether case should be ignored when matching the prefix",
 								"default": false
 							}
-						}
+						},
+						"additionalProperties": false
 					},
 					"uniqueItems": true,
 					"markdownDescription": "Specifies autolinks to external resources in commit messages. Use `<num>` as the variable for the reference number",
@@ -1164,7 +1165,8 @@
 										}
 									]
 								}
-							}
+							},
+							"additionalProperties": false
 						}
 					],
 					"default": {
@@ -1398,6 +1400,27 @@
 					"markdownDescription": "Specifies how much (if any) output will be sent to the GitLens output channel",
 					"scope": "window"
 				},
+				"gitlens.partners": {
+					"type": [
+						"object",
+						"null"
+					],
+					"additionalProperties": {
+						"type": "object",
+						"properties": {
+							"enabled": {
+								"type": "boolean",
+								"default": true,
+								"description": "Specifies whether the partner integration should be shown"
+							}
+						},
+						"additionalProperties": true,
+						"description": "Specifies the configuration of a partner integration"
+					},
+					"default": null,
+					"description": "Specifies the configuration of a partner integration",
+					"scope": "window"
+				},
 				"gitlens.remotes": {
 					"type": [
 						"array",
@@ -1488,7 +1511,8 @@
 								}
 							},
 							"description": "Specifies the url formats of the custom remote service"
-						}
+						},
+						"additionalProperties": false
 					},
 					"uniqueItems": true,
 					"markdownDescription": "Specifies user-defined remote (code-hosting) services or custom domains for built-in remote services",
@@ -2474,6 +2498,7 @@
 							"default": false
 						}
 					},
+					"additionalProperties": false,
 					"markdownDescription": "Specifies which messages should be suppressed",
 					"scope": "window"
 				},

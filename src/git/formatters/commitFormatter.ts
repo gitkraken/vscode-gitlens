@@ -1,12 +1,12 @@
 'use strict';
-import { OpenPullRequestActionContext } from '../../api/gitlens';
+import { Uri } from 'vscode';
+import { HoverCommandsActionContext, OpenPullRequestActionContext } from '../../api/gitlens';
 import { getPresenceDataUri } from '../../avatars';
 import {
 	Commands,
 	ConnectRemoteProviderCommand,
 	DiffWithCommand,
 	getMarkdownActionCommand,
-	InviteToLiveShareCommand,
 	OpenCommitOnRemoteCommand,
 	OpenFileAtRevisionCommand,
 	ShowQuickCommitCommand,
@@ -36,9 +36,9 @@ export interface CommitFormatOptions extends FormatOptions {
 	autolinkedIssuesOrPullRequests?: Map<string, IssueOrPullRequest | Promises.CancellationError | undefined>;
 	avatarSize?: number;
 	dateStyle?: DateStyle;
+	editor?: { line: number; uri: Uri };
 	footnotes?: Map<number, string>;
 	getBranchAndTagTips?: (sha: string) => string | undefined;
-	line?: number;
 	markdown?: boolean;
 	messageAutolinks?: boolean;
 	messageIndent?: number;
@@ -282,7 +282,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 						uri: diffUris.current.documentUri(),
 					},
 					repoPath: this._item.repoPath,
-					line: this._options.line,
+					line: this._options.editor?.line,
 				})} "Open Changes")** `;
 			} else {
 				commands = `\`${this._padOrTruncate(
@@ -310,15 +310,9 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				}](${getMarkdownActionCommand<OpenPullRequestActionContext>('openPullRequest', {
 					repoPath: this._item.repoPath,
 					provider: { id: pr.provider.id, name: pr.provider.name, domain: pr.provider.domain },
-					pullRequest: {
-						id: pr.id,
-						url: pr.url,
-
-						provider: { id: pr.provider.id, name: pr.provider.name, domain: pr.provider.domain },
-						repoPath: this._item.repoPath,
-					},
+					pullRequest: { id: pr.id, url: pr.url },
 				})} "Open Pull Request \\#${pr.id}${
-					Container.actionRunners.count('openPullRequest') == 1 ? ` on ${pr.provider.name}` : ''
+					Container.actionRunners.count('openPullRequest') == 1 ? ` on ${pr.provider.name}` : '...'
 				}\n${GlyphChars.Dash.repeat(2)}\n${Strings.escapeMarkdown(pr.title).replace(/"/g, '\\"')}\n${
 					pr.state
 				}, ${pr.formatDateFromNow()}")${separator}`;
@@ -335,7 +329,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 		commands += `[$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs(
 			this._item,
-			this._options.line,
+			this._options.editor?.line,
 		)} "Open Changes")${separator}`;
 
 		if (this._item.previousSha != null) {
@@ -347,7 +341,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			commands += `[$(history)](${OpenFileAtRevisionCommand.getMarkdownCommandArgs(
 				uri,
 				FileAnnotationType.Blame,
-				this._options.line,
+				this._options.editor?.line,
 			)} "Blame Previous Revision")${separator}`;
 		}
 
@@ -359,13 +353,27 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			)} "Open Commit on ${providers?.length ? providers[0].name : 'Remote'}")${separator}`;
 		}
 
-		if (this._item.author !== 'You') {
-			const presence = this._options.presence;
-			if (presence != null) {
-				commands += `[$(live-share)](${InviteToLiveShareCommand.getMarkdownCommandArgs(
-					this._item.email,
-				)} "Invite ${this._item.author} (${presence.statusText}) to a Live Share Session")${separator}`;
-			}
+		if (Container.actionRunners.count('hover.commands') > 0) {
+			commands += `[$(feedback) Discuss / Collab${
+				GlyphChars.Ellipsis
+			}](${getMarkdownActionCommand<HoverCommandsActionContext>('hover.commands', {
+				repoPath: this._item.repoPath,
+				commit: {
+					sha: this._item.sha,
+					author: {
+						name: this._item.author,
+						email: this._item.email,
+						presence: this._options.presence,
+					},
+				},
+				file:
+					this._options.editor != null
+						? {
+								uri: this._options.editor?.uri.toString(),
+								line: this._options.editor?.line,
+						  }
+						: undefined,
+			})} "Want to Discuss or Collaborate? Have Comments, Questions, or Need Help?")${separator}`;
 		}
 
 		commands += `[$(ellipsis)](${ShowQuickCommitFileCommand.getMarkdownCommandArgs({
@@ -479,15 +487,9 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 				text = `[PR #${pr.id}](${getMarkdownActionCommand<OpenPullRequestActionContext>('openPullRequest', {
 					repoPath: this._item.repoPath,
 					provider: { id: pr.provider.id, name: pr.provider.name, domain: pr.provider.domain },
-					pullRequest: {
-						id: pr.id,
-						url: pr.url,
-
-						repoPath: this._item.repoPath,
-						provider: { id: pr.provider.id, name: pr.provider.name, domain: pr.provider.domain },
-					},
+					pullRequest: { id: pr.id, url: pr.url },
 				})} "Open Pull Request \\#${pr.id}${
-					Container.actionRunners.count('openPullRequest') == 1 ? ` on ${pr.provider.name}` : ''
+					Container.actionRunners.count('openPullRequest') == 1 ? ` on ${pr.provider.name}` : '...'
 				}\n${GlyphChars.Dash.repeat(2)}\n${Strings.escapeMarkdown(pr.title).replace(/"/g, '\\"')}\n${
 					pr.state
 				}, ${pr.formatDateFromNow()}")`;

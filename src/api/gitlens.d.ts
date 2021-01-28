@@ -11,28 +11,12 @@ export interface RemoteProvider {
 
 export interface CreatePullRequestActionContext {
 	readonly type: 'createPullRequest';
-	readonly runnerId?: number;
 
 	readonly repoPath: string;
 	readonly branch: {
 		readonly name: string;
 		readonly upstream: string | undefined;
 		readonly isRemote: boolean;
-
-		/**
-		 * @deprecated Use the root [repoPath](#CreatePullRequestActionContext.repoPath) property instead
-		 */
-		readonly repoPath: string;
-		/**
-		 * @deprecated Use the root [remote](#CreatePullRequestActionContext.remote) property instead
-		 */
-		readonly remote:
-			| {
-					readonly name: string;
-					readonly provider?: RemoteProvider;
-					readonly url?: string;
-			  }
-			| undefined;
 	};
 	readonly remote:
 		| {
@@ -45,33 +29,56 @@ export interface CreatePullRequestActionContext {
 
 export interface OpenPullRequestActionContext {
 	readonly type: 'openPullRequest';
-	readonly runnerId?: number;
 
 	readonly repoPath: string;
 	readonly provider: RemoteProvider | undefined;
 	readonly pullRequest: {
 		readonly id: string;
 		readonly url: string;
-
-		/**
-		 * @deprecated Use the root [repoPath](#OpenPullRequestActionContext.repoPath) property instead
-		 */
-		readonly repoPath: string;
-		/**
-		 * @deprecated Use the root [provider](#OpenPullRequestActionContext.provider) property instead
-		 */
-		readonly provider: RemoteProvider | undefined;
 	};
 }
 
-export type ActionContext = CreatePullRequestActionContext | OpenPullRequestActionContext;
+export interface HoverCommandsActionContext {
+	readonly type: 'hover.commands';
+
+	readonly repoPath: string;
+	readonly commit: {
+		sha: string;
+		author: {
+			name: string;
+			email: string | undefined;
+			[key: string]: any;
+		};
+	};
+	readonly file:
+		| {
+				uri: string;
+				line: number | undefined;
+		  }
+		| undefined;
+}
+
+export type ActionContext = CreatePullRequestActionContext | OpenPullRequestActionContext | HoverCommandsActionContext;
 export type Action<T extends ActionContext> = T['type'];
 
-export interface ActionRunner {
-	readonly name: string;
-	readonly label: string;
+export interface ActionRunner<T extends ActionContext = ActionContext> {
+	/*
+	 * A unique key to identify the extension/product/company to which the runner belongs
+	 */
+	readonly partnerId: string;
 
-	run(context: ActionContext): void | Promise<void>;
+	/*
+	 * A user-friendly name to which the runner belongs, i.e. your extension/product/company name. Will be shown, less prominently, to the user when offering this action
+	 */
+	readonly name: string;
+
+	/*
+	 * A user-friendly string which describes the action that will be taken. Will be shown to the user when offering this action
+	 */
+	readonly label: string | ((context: T) => string);
+
+	run(context: T): void | Promise<void>;
+	// when?(context: T): boolean;
 }
 
 export interface GitLensApi {

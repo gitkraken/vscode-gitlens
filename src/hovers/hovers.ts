@@ -199,7 +199,10 @@ export namespace Hovers {
 		const details = await CommitFormatter.fromTemplateAsync(Container.config.hovers.detailsMarkdownFormat, commit, {
 			autolinkedIssuesOrPullRequests: autolinkedIssuesOrPullRequests,
 			dateFormat: dateFormat,
-			line: editorLine,
+			editor: {
+				line: editorLine,
+				uri: uri,
+			},
 			markdown: true,
 			messageAutolinks: Container.config.hovers.autolinks.enabled,
 			pullRequestOrRemote: pr,
