@@ -1,5 +1,6 @@
 'use strict';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as paths from 'path';
 import {
 	ConfigurationChangeEvent,
@@ -1546,33 +1547,43 @@ export class GitService implements Disposable {
 		// If we found the repo, but no user data was found just return
 		if (user === null) return undefined;
 
-		const data = await Git.config__get_regex('^user\\.', repoPath, { local: true });
-		if (!data) {
-			// If we found no user data, mark it so we won't bother trying again
-			this._userMapCache.set(repoPath, null);
-			return undefined;
-		}
-
 		user = { name: undefined, email: undefined };
 
-		let key: string;
-		let value: string;
+		const data = await Git.config__get_regex('^user\\.', repoPath, { local: true });
+		if (data) {
+			let key: string;
+			let value: string;
 
-		let match;
-		do {
-			match = userConfigRegex.exec(data);
-			if (match == null) break;
+			let match;
+			do {
+				match = userConfigRegex.exec(data);
+				if (match == null) break;
 
-			[, key, value] = match;
-			// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
-			user[key as 'name' | 'email'] = ` ${value}`.substr(1);
-		} while (true);
+				[, key, value] = match;
+				// Stops excessive memory usage -- https://bugs.chromium.org/p/v8/issues/detail?id=2869
+				user[key as 'name' | 'email'] = ` ${value}`.substr(1);
+			} while (true);
+		} else {
+			user.name =
+				process.env.GIT_AUTHOR_NAME || process.env.GIT_COMMITTER_NAME || os.userInfo()?.username || undefined;
+			if (!user.name) {
+				// If we found no user data, mark it so we won't bother trying again
+				this._userMapCache.set(repoPath, null);
+				return undefined;
+			}
+
+			user.email =
+				process.env.GIT_AUTHOR_EMAIL ||
+				process.env.GIT_COMMITTER_EMAIL ||
+				process.env.EMAIL ||
+				`${user.name}@${os.hostname()}`;
+		}
 
 		const author = `${user.name} <${user.email}>`;
 		// Check if there is a mailmap for the current user
 		const mappedAuthor = await Git.check_mailmap(repoPath, author);
 		if (mappedAuthor != null && mappedAuthor.length !== 0 && author !== mappedAuthor) {
-			match = mappedAuthorRegex.exec(mappedAuthor);
+			const match = mappedAuthorRegex.exec(mappedAuthor);
 			if (match != null) {
 				[, user.name, user.email] = match;
 			}
