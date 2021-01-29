@@ -10,19 +10,48 @@ import { Logger } from '../../logger';
 import { RemoteProvider, RichRemoteProvider } from './provider';
 
 export { RemoteProvider, RichRemoteProvider };
-export type RemoteProviders = [string | RegExp, (domain: string, path: string) => RemoteProvider][];
+export type RemoteProviders = {
+	custom: boolean;
+	matcher: string | RegExp;
+	creator: (domain: string, path: string) => RemoteProvider;
+}[];
 
-const defaultProviders: RemoteProviders = [
-	['bitbucket.org', (domain: string, path: string) => new BitbucketRemote(domain, path)],
-	['github.com', (domain: string, path: string) => new GitHubRemote(domain, path)],
-	['gitlab.com', (domain: string, path: string) => new GitLabRemote(domain, path)],
-	[/\bdev\.azure\.com$/i, (domain: string, path: string) => new AzureDevOpsRemote(domain, path)],
-	[/\bbitbucket\b/i, (domain: string, path: string) => new BitbucketServerRemote(domain, path)],
-	[/\bgitlab\b/i, (domain: string, path: string) => new GitLabRemote(domain, path)],
-	[
-		/\bvisualstudio\.com$/i,
-		(domain: string, path: string) => new AzureDevOpsRemote(domain, path, undefined, undefined, true),
-	],
+const builtInProviders: RemoteProviders = [
+	{
+		custom: false,
+		matcher: 'bitbucket.org',
+		creator: (domain: string, path: string) => new BitbucketRemote(domain, path),
+	},
+	{
+		custom: false,
+		matcher: 'github.com',
+		creator: (domain: string, path: string) => new GitHubRemote(domain, path),
+	},
+	{
+		custom: false,
+		matcher: 'gitlab.com',
+		creator: (domain: string, path: string) => new GitLabRemote(domain, path),
+	},
+	{
+		custom: false,
+		matcher: /\bdev\.azure\.com$/i,
+		creator: (domain: string, path: string) => new AzureDevOpsRemote(domain, path),
+	},
+	{
+		custom: false,
+		matcher: /\bbitbucket\b/i,
+		creator: (domain: string, path: string) => new BitbucketServerRemote(domain, path),
+	},
+	{
+		custom: false,
+		matcher: /\bgitlab\b/i,
+		creator: (domain: string, path: string) => new GitLabRemote(domain, path),
+	},
+	{
+		custom: false,
+		matcher: /\bvisualstudio\.com$/i,
+		creator: (domain: string, path: string) => new AzureDevOpsRemote(domain, path, undefined, undefined, true),
+	},
 ];
 
 export class RemoteProviderFactory {
@@ -33,12 +62,19 @@ export class RemoteProviderFactory {
 	static create(providers: RemoteProviders, domain: string, path: string): RemoteProvider | undefined {
 		try {
 			const key = domain.toLowerCase();
-			for (const [matcher, creator] of providers) {
-				if (
-					(typeof matcher === 'string' && matcher === key) ||
-					(typeof matcher !== 'string' && matcher.test(key))
-				) {
-					return creator(domain, path);
+			for (const { custom, matcher, creator } of providers) {
+				if (typeof matcher === 'string') {
+					if (matcher === key) return creator(domain, path);
+
+					continue;
+				}
+
+				if (matcher.test(key)) return creator(domain, path);
+				if (!custom) continue;
+
+				const match = matcher.exec(`${domain}/${path}`);
+				if (match != null) {
+					return creator(match[1], match[2]);
 				}
 			}
 
@@ -55,13 +91,25 @@ export class RemoteProviderFactory {
 		if (cfg != null && cfg.length > 0) {
 			for (const rc of cfg) {
 				const provider = this.getCustomProvider(rc);
-				if (provider === undefined) continue;
+				if (provider == null) continue;
 
-				providers.push([rc.domain.toLowerCase(), provider]);
+				let matcher: string | RegExp | undefined;
+				try {
+					matcher = rc.regex ? new RegExp(rc.regex, 'i') : rc.domain?.toLowerCase();
+					if (matcher == null) throw new Error('No matcher found');
+				} catch (ex) {
+					Logger.error(ex, `Loading remote provider '${rc.name ?? ''}' failed`);
+				}
+
+				providers.push({
+					custom: true,
+					matcher: matcher!,
+					creator: provider,
+				});
 			}
 		}
 
-		providers.push(...defaultProviders);
+		providers.push(...builtInProviders);
 
 		return providers;
 	}

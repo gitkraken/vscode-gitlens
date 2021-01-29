@@ -412,13 +412,23 @@ export interface ModeConfig {
 	statusBar?: boolean;
 }
 
-export interface RemotesConfig {
-	domain: string;
-	name?: string;
-	protocol?: string;
-	type: CustomRemoteType;
-	urls?: RemotesUrlsConfig;
-}
+export type RemotesConfig =
+	| {
+			domain: string;
+			regex: null;
+			name?: string;
+			protocol?: string;
+			type: CustomRemoteType;
+			urls?: RemotesUrlsConfig;
+	  }
+	| {
+			domain: null;
+			regex: string;
+			name?: string;
+			protocol?: string;
+			type: CustomRemoteType;
+			urls?: RemotesUrlsConfig;
+	  };
 
 export interface RemotesUrlsConfig {
 	repository: string;

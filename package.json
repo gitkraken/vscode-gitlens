@@ -1430,16 +1430,27 @@
 					"items": {
 						"type": "object",
 						"required": [
-							"type",
-							"domain"
+							"type"
+						],
+						"oneOf": [
+							{
+								"required": [
+									"domain"
+								]
+							},
+							{
+								"required": [
+									"regex"
+								]
+							}
 						],
 						"properties": {
 							"type": {
 								"type": "string",
 								"enum": [
+									"Custom",
 									"Bitbucket",
 									"BitbucketServer",
-									"Custom",
 									"GitHub",
 									"GitLab"
 								],
@@ -1448,6 +1459,10 @@
 							"domain": {
 								"type": "string",
 								"description": "Specifies the domain name of the custom remote service"
+							},
+							"regex": {
+								"type": "string",
+								"description": "Specifies a regular expression to capture the \"domain name\" and \"path\" of the custom remote service"
 							},
 							"name": {
 								"type": "string",
@@ -1474,45 +1489,44 @@
 								"properties": {
 									"repository": {
 										"type": "string",
-										"description": "Specifies the format of a respository url for the custom remote service\nAvailable tokens\n ${repo}` &mdash; repository path"
+										"markdownDescription": "Specifies the format of a respository url for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path"
 									},
 									"branches": {
 										"type": "string",
-										"description": "Specifies the format of a branches url for the custom remote service\nAvailable tokens\n ${repo}` &mdash; repository path\n ${branch}` &mdash; branch"
+										"markdownDescription": "Specifies the format of a branches url for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path\\\n`${branch}` &mdash; branch"
 									},
 									"branch": {
 										"type": "string",
-										"description": "Specifies the format of a branch url for the custom remote service\nAvailable tokens\n ${repo}` &mdash; repository path\n ${branch}` &mdash; branch"
+										"markdownDescription": "Specifies the format of a branch url for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path\\\n`${branch}` &mdash; branch"
 									},
 									"commit": {
 										"type": "string",
-										"description": "Specifies the format of a commit url for the custom remote service\nAvailable tokens\n ${repo}` &mdash; repository path\n ${id}` &mdash; commit SHA"
+										"markdownDescription": "Specifies the format of a commit url for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path\\\n`${id}` &mdash; commit SHA"
 									},
 									"file": {
 										"type": "string",
-										"description": "Specifies the format of a file url for the custom remote service\nAvailable tokens\n ${repo}` &mdash; repository path\n ${file}` &mdash; file name\n ${line}` &mdash; formatted line information"
+										"markdownDescription": "Specifies the format of a file url for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path\\\n`${file}` &mdash; file name\\\n`${line}` &mdash; formatted line information"
 									},
 									"fileInBranch": {
 										"type": "string",
-										"description": "Specifies the format of a branch file url for the custom remote service\nAvailable tokens\n ${repo}` &mdash; repository path\n ${file}` &mdash; file name\n ${branch}` &mdash; branch\n ${line}` &mdash; formatted line information"
+										"markdownDescription": "Specifies the format of a branch file url for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path\\\n`${file}` &mdash; file name\\\n`${branch}` &mdash; branch\\\n`${line}` &mdash; formatted line information"
 									},
 									"fileInCommit": {
 										"type": "string",
-										"description": "Specifies the format of a commit file url for the custom remote service\nAvailable tokens\n ${repo}` &mdash; repository path\n ${file}` &mdash; file name\n ${id}` &mdash; commit SHA\n ${line}` &mdash; formatted line information"
+										"markdownDescription": "Specifies the format of a commit file url for the custom remote service\n\nAvailable tokens\\\n`${repo}` &mdash; repository path\\\n`${file}` &mdash; file name\\\n`${id}` &mdash; commit SHA\\\n`${line}` &mdash; formatted line information"
 									},
 									"fileLine": {
 										"type": "string",
-										"description": "Specifies the format of a line in a file url for the custom remote service\nAvailable tokens\n ${line}` &mdash; line"
+										"markdownDescription": "Specifies the format of a line in a file url for the custom remote service\n\nAvailable tokens\\\n`${line}` &mdash; line"
 									},
 									"fileRange": {
 										"type": "string",
-										"description": "Specifies the format of a range in a file url for the custom remote service\nAvailable tokens\n ${start}` &mdash; starting line\n ${end}` &mdash; ending line"
+										"markdownDescription": "Specifies the format of a range in a file url for the custom remote service\n\nAvailable tokens\\\n`${start}` &mdash; starting line\\\n`${end}` &mdash; ending line"
 									}
-								}
-							},
-							"description": "Specifies the url formats of the custom remote service"
-						},
-						"additionalProperties": false
+								},
+								"additionalProperties": false
+							}
+						}
 					},
 					"uniqueItems": true,
 					"markdownDescription": "Specifies user-defined remote (code-hosting) services or custom domains for built-in remote services",
