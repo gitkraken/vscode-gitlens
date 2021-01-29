@@ -140,7 +140,7 @@ export class StatusBarController implements Disposable {
 	}
 
 	@debug({ args: false })
-	private async updateBlame(editor: TextEditor, commit: GitBlameCommit, options?: { pr?: PullRequest | undefined }) {
+	private async updateBlame(editor: TextEditor, commit: GitBlameCommit, options?: { pr?: PullRequest | null }) {
 		const cfg = Container.config.statusBar;
 		if (!cfg.enabled || this._statusBarBlame == null || !isTextEditor(editor)) return;
 
@@ -160,9 +160,10 @@ export class StatusBarController implements Disposable {
 				'pullRequestAgoOrDate',
 				'pullRequestDate',
 				'pullRequestState',
-			)
-				? options?.pr ?? this.getPullRequest(commit, { timeout: timeout })
-				: undefined,
+			) &&
+			options?.pr === undefined
+				? this.getPullRequest(commit, { timeout: timeout })
+				: options?.pr ?? undefined,
 		]);
 
 		if (pr != null) {
@@ -247,6 +248,6 @@ export class StatusBarController implements Disposable {
 
 		Logger.debug(cc, `${GlyphChars.Dot} pull request query completed; refreshing...`);
 
-		void this.updateBlame(editor, commit, { pr: pr });
+		void this.updateBlame(editor, commit, { pr: pr ?? null });
 	}
 }
