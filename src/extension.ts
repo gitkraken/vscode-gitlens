@@ -65,14 +65,22 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 	const gitlensVersion = gitlens.packageJSON.version;
 
 	const syncedVersion = context.globalState.get<string>(SyncedState.Version);
-	const previousVersion =
+	const localVersion =
 		context.globalState.get<string>(GlobalState.Version) ??
-		context.globalState.get<string>(GlobalState.Deprecated_Version) ??
-		syncedVersion;
+		context.globalState.get<string>(GlobalState.Deprecated_Version);
+
+	let previousVersion;
+	if (localVersion == null || syncedVersion == null) {
+		previousVersion = syncedVersion ?? localVersion;
+	} else if (Versions.compare(syncedVersion, localVersion) === 1) {
+		previousVersion = syncedVersion;
+	} else {
+		previousVersion = localVersion;
+	}
 
 	if (Logger.willLog('debug')) {
 		Logger.debug(
-			`GitLens (v${gitlensVersion}): syncedVersion=${syncedVersion}, previousVersion=${previousVersion}, ${
+			`GitLens (v${gitlensVersion}): syncedVersion=${syncedVersion}, localVersion=${localVersion}, previousVersion=${previousVersion}, ${
 				SyncedState.WelcomeViewVisible
 			}=${context.globalState.get<boolean>(SyncedState.WelcomeViewVisible)}, ${
 				SyncedState.UpdatesViewVisible
