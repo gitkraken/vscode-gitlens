@@ -229,9 +229,9 @@ export namespace GitActions {
 				refs = refsOrOptions as { repoPath: string; ref1: string; ref2: string };
 			}
 
-			if (files.length > 20) {
+			if (files.length > 10) {
 				const result = await window.showWarningMessage(
-					`Are your sure you want to open all ${files.length} changes?`,
+					`Are your sure you want to open the changes for all ${files.length} files?`,
 					{ title: 'Yes' },
 					{ title: 'No', isCloseAffordance: true },
 				);
@@ -265,9 +265,9 @@ export namespace GitActions {
 				files = commitOrFiles;
 			}
 
-			if (files.length > 20) {
+			if (files.length > 10) {
 				const result = await window.showWarningMessage(
-					`Are your sure you want to open all ${files.length} changes?`,
+					`Are your sure you want to open the changes for all ${files.length} files?`,
 					{ title: 'Yes' },
 					{ title: 'No', isCloseAffordance: true },
 				);
@@ -308,9 +308,9 @@ export namespace GitActions {
 				ref = refOrOptions as { repoPath: string; ref: string };
 			}
 
-			if (files.length > 20) {
+			if (files.length > 10) {
 				const result = await window.showWarningMessage(
-					`Are your sure you want to open all ${files.length} changes?`,
+					`Are your sure you want to open the changes for all ${files.length} files?`,
 					{ title: 'Yes' },
 					{ title: 'No', isCloseAffordance: true },
 				);
@@ -578,7 +578,7 @@ export namespace GitActions {
 				files = commitOrFiles;
 			}
 
-			if (files.length > 20) {
+			if (files.length > 10) {
 				const result = await window.showWarningMessage(
 					`Are your sure you want to open all ${files.length} files?`,
 					{ title: 'Yes' },
@@ -618,9 +618,9 @@ export namespace GitActions {
 				files = commitOrFiles;
 			}
 
-			if (files.length > 20) {
+			if (files.length > 10) {
 				const result = await window.showWarningMessage(
-					`Are your sure you want to open all ${files.length} revisions?`,
+					`Are your sure you want to open all ${files.length} file revisions?`,
 					{ title: 'Yes' },
 					{ title: 'No', isCloseAffordance: true },
 				);
