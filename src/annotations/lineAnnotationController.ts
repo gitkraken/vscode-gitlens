@@ -296,6 +296,7 @@ export class LineAnnotationController implements Disposable {
 					dateFormat: cfg.dateFormat === null ? Container.config.defaultDateFormat : cfg.dateFormat,
 					getBranchAndTagTips: getBranchAndTagTips,
 					pullRequestOrRemote: prs?.get(commit.ref),
+					pullRequestPendingMessage: `PR ${GlyphChars.Ellipsis}`,
 				},
 				cfg.scrollable,
 			) as DecorationOptions;

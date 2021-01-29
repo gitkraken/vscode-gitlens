@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
+- Changes `gitlens.statusBar.reduceFlicker` to be on by default and improves it's display &mdash; closes [#1353](https://github.com/eamodio/vscode-gitlens/issues/1353)
 - Changes the _Interactive Rebase Editor_ to abort the rebase if you just close it without choosing an action
 - Changes _Push to Commit..._ on the HEAD commit to be _Push_ instead as there is no need for a commit specific push in that case
 - Renames _Browse from Here_ command to _Browse Repository from Here_ in the command palette and quick pick menus

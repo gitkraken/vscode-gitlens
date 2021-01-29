@@ -44,6 +44,7 @@ export interface CommitFormatOptions extends FormatOptions {
 	messageIndent?: number;
 	messageTruncateAtNewLine?: boolean;
 	pullRequestOrRemote?: PullRequest | Promises.CancellationError | GitRemote;
+	pullRequestPendingMessage?: string;
 	presence?: ContactPresence;
 	previousLineDiffUris?: { current: GitUri; previous: GitUri | undefined };
 	remotes?: GitRemote<RemoteProvider>[];
@@ -507,7 +508,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 		} else if (pr instanceof Promises.CancellationError) {
 			text = this._options.markdown
 				? `[PR $(sync~spin)](command:${Commands.RefreshHover} "Searching for a Pull Request (if any) that introduced this commit...")`
-				: `PR ${GlyphChars.Ellipsis}`;
+				: this._options?.pullRequestPendingMessage ?? emptyStr;
 		} else {
 			return this._padOrTruncate(emptyStr, this._options.tokenOptions.pullRequest);
 		}

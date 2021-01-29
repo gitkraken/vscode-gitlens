@@ -1653,7 +1653,7 @@
 				},
 				"gitlens.statusBar.reduceFlicker": {
 					"type": "boolean",
-					"default": false,
+					"default": true,
 					"markdownDescription": "Specifies whether to avoid clearing the previous blame information when changing lines to reduce status bar \"flashing\"",
 					"scope": "window"
 				},
