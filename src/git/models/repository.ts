@@ -1084,7 +1084,7 @@ export class Repository implements Disposable {
 	}
 
 	private runTerminalCommand(command: string, ...args: string[]) {
-		const parsedArgs = args.map(arg => (arg.startsWith('#') ? `"${arg}"` : arg));
+		const parsedArgs = args.map(arg => (arg.startsWith('#') || arg.includes("'") ? `"${arg}"` : arg));
 		runGitCommandInTerminal(command, parsedArgs.join(' '), this.path, true);
 
 		setTimeout(() => this.fireChange(RepositoryChange.Unknown), 2500);
