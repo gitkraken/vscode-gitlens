@@ -443,6 +443,7 @@ export function truncateMiddle(s: string, truncateTo: number, ellipsis: string =
 const ansiRegex = /[\u001B\u009B][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[-a-zA-Z\d/#&.:=?%@~_]*)*)?\u0007)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-ntqry=><~]))/g;
 const containsNonAsciiRegex = /[^\x20-\x7F\u00a0\u2026]/;
 
+// Originally from https://github.com/sindresorhus/string-width
 export function getWidth(s: string): number {
 	if (s == null || s.length === 0) return 0;
 
@@ -506,6 +507,7 @@ export function getWidth(s: string): number {
 	return count;
 }
 
+// Originally from https://github.com/sindresorhus/is-fullwidth-code-point
 function isFullwidthCodePoint(cp: number) {
 	// code points are derived from:
 	// http://www.unix.org/Public/UNIDATA/EastAsianWidth.txt
