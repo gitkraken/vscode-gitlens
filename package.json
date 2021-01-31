@@ -7177,7 +7177,7 @@
 				},
 				{
 					"command": "gitlens.views.undoCommit",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+HEAD\\b)(?=.*?\\b\\+unpublished\\b)/",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+HEAD\\b)/",
 					"group": "inline@95"
 				},
 				{
@@ -7382,7 +7382,7 @@
 				},
 				{
 					"command": "gitlens.views.undoCommit",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+HEAD\\b)(?=.*?\\b\\+unpublished\\b)/",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:commit\\b(?=.*?\\b\\+HEAD\\b)/",
 					"group": "1_gitlens_actions@1"
 				},
 				{
@@ -7463,7 +7463,7 @@
 				},
 				{
 					"command": "gitlens.views.undoCommit",
-					"when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+HEAD\\b)(?=.*?\\b\\+unpublished\\b)/",
+					"when": "!gitlens:readonly && viewItem =~ /gitlens:file\\b(?=.*?\\b\\+committed\\b)(?=.*?\\b\\+HEAD\\b)/",
 					"group": "inline@-2"
 				},
 				{
