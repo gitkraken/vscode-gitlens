@@ -142,10 +142,15 @@ export interface RunOptions {
 const bufferExceededRegex = /stdout maxBuffer( length)? exceeded/;
 
 export class RunError extends Error {
-	constructor(private readonly original: ExecException, public readonly stdout: string) {
+	constructor(
+		private readonly original: ExecException,
+		public readonly stdout: string,
+		public readonly stderr: string,
+	) {
 		super(original.message);
 
 		stdout = stdout.trim();
+		stderr = stderr.trim();
 		Error.captureStackTrace(this, RunError);
 	}
 
@@ -187,6 +192,9 @@ export function run<TOut extends string | Buffer>(
 						encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer'
 							? stdout
 							: iconv.decode(Buffer.from(stdout, 'binary'), encoding),
+						encoding === 'utf8' || encoding === 'binary' || encoding === 'buffer'
+							? stderr
+							: iconv.decode(Buffer.from(stderr, 'binary'), encoding),
 					),
 				);
 
