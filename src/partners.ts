@@ -97,9 +97,7 @@ function registerCodeStream(context: ExtensionContext): void {
 			const runners = actionRunners.get(ctx.type);
 			if (runners == null || runners.length === 0) return;
 
-			const runner = runners.find(
-				r => r.type === ActionRunnerType.Partner && (r.partnerId === partnerId || r.name === 'CodeStream'),
-			);
+			const runner = runners.find(r => r.type === ActionRunnerType.Partner && r.partnerId === partnerId);
 			if (runner != null) {
 				rerunDisposable.dispose();
 
@@ -135,17 +133,17 @@ function registerCodeStream(context: ExtensionContext): void {
 
 	subscriptions.push(
 		Container.actionRunners.registerBuiltInPartnerInstaller(partnerId, 'createPullRequest', {
-			name: 'CodeStream',
+			name: 'CodeStream: GitHub, GitLab, Bitbucket PRs and Code Review',
 			label: 'Create Pull Request in VS Code',
 			run: runner,
 		}),
 		Container.actionRunners.registerBuiltInPartnerInstaller(partnerId, 'openPullRequest', {
-			name: 'CodeStream',
+			name: 'CodeStream: GitHub, GitLab, Bitbucket PRs and Code Review',
 			label: 'Open Pull Request in VS Code',
 			run: runner,
 		}),
 		Container.actionRunners.registerBuiltInPartnerInstaller(partnerId, 'hover.commands', {
-			name: 'CodeStream',
+			name: 'CodeStream: GitHub, GitLab, Bitbucket PRs and Code Review',
 			label: '$(comment) Leave a Comment',
 			run: runner,
 		}),
