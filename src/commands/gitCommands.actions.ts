@@ -151,18 +151,18 @@ export namespace GitActions {
 			},
 		) {
 			if (
-				configuration.get('views', 'repositories', 'enabled') &&
-				(Container.repositoriesView.visible ||
-					(branch.remote ? !Container.remotesView.visible : !Container.branchesView.visible))
+				!configuration.get('views', branch.remote ? 'remotes' : 'branches', 'reveal') ||
+				(Container.repositoriesView.visible &&
+					!(branch.remote ? Container.remotesView.visible : Container.branchesView.visible))
 			) {
 				return Container.repositoriesView.revealBranch(branch, options);
 			}
 
 			let node;
-			if (!branch.remote) {
-				node = await Container.branchesView.revealBranch(branch, options);
-			} else {
+			if (branch.remote) {
 				node = await Container.remotesView.revealBranch(branch, options);
+			} else {
+				node = await Container.branchesView.revealBranch(branch, options);
 			}
 
 			return node;
@@ -647,8 +647,8 @@ export namespace GitActions {
 			},
 		) {
 			if (
-				configuration.get('views', 'repositories', 'enabled') &&
-				(Container.repositoriesView.visible || !Container.commitsView.visible)
+				!configuration.get('views', 'commits', 'reveal') ||
+				(Container.repositoriesView.visible && !Container.commitsView.visible)
 			) {
 				return Container.repositoriesView.revealCommit(commit, options);
 			}
@@ -710,8 +710,8 @@ export namespace GitActions {
 			},
 		) {
 			if (
-				configuration.get('views', 'repositories', 'enabled') &&
-				(Container.repositoriesView.visible || !Container.tagsView.visible)
+				!configuration.get('views', 'tags', 'reveal') ||
+				(Container.repositoriesView.visible && !Container.tagsView.visible)
 			) {
 				return Container.repositoriesView.revealTag(tag, options);
 			}
@@ -835,8 +835,8 @@ export namespace GitActions {
 			},
 		) {
 			if (
-				configuration.get('views', 'repositories', 'enabled') &&
-				(Container.repositoriesView.visible || !Container.stashesView.visible)
+				!configuration.get('views', 'stashes', 'reveal') ||
+				(Container.repositoriesView.visible && !Container.stashesView.visible)
 			) {
 				return Container.repositoriesView.revealStash(stash, options);
 			}

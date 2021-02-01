@@ -1747,6 +1747,12 @@
 					"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Branches_ view. Requires a connection to a supported remote service (e.g. GitHub)",
 					"scope": "window"
 				},
+				"gitlens.views.branches.reveal": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to reveal branches in the _Branches_ view, otherwise they revealed in the _Repositories_ view",
+					"scope": "window"
+				},
 				"gitlens.views.branches.showBranchComparison": {
 					"anyOf": [
 						{
@@ -1834,6 +1840,12 @@
 					"type": "boolean",
 					"default": true,
 					"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Commits_ view. Requires a connection to a supported remote service (e.g. GitHub)",
+					"scope": "window"
+				},
+				"gitlens.views.commits.reveal": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to reveal commits in the _Commits_ view, otherwise they revealed in the _Repositories_ view",
 					"scope": "window"
 				},
 				"gitlens.views.commits.showBranchComparison": {
@@ -1960,10 +1972,8 @@
 					"scope": "window"
 				},
 				"gitlens.views.lineHistory.enabled": {
-					"type": "boolean",
-					"default": false,
-					"markdownDescription": "Specifies whether to show the _Line History_ view",
-					"scope": "window"
+					"deprecationMessage": "Deprecated. This setting is no longer used",
+					"markdownDeprecationMessage": "Deprecated. This setting is no longer used"
 				},
 				"gitlens.views.pageItemLimit": {
 					"type": "number",
@@ -2037,6 +2047,12 @@
 					"markdownDescription": "Specifies whether to show pull requests (if any) associated with commits in the _Remotes_ view. Requires a connection to a supported remote service (e.g. GitHub)",
 					"scope": "window"
 				},
+				"gitlens.views.remotes.reveal": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to reveal remotes in the _Remotes_ view, otherwise they revealed in the _Repositories_ view",
+					"scope": "window"
+				},
 				"gitlens.views.repositories.autoRefresh": {
 					"type": "boolean",
 					"default": true,
@@ -2097,10 +2113,8 @@
 					"scope": "window"
 				},
 				"gitlens.views.repositories.enabled": {
-					"type": "boolean",
-					"default": false,
-					"markdownDescription": "Specifies whether to show the _Repositories_ view",
-					"scope": "window"
+					"deprecationMessage": "Deprecated. This setting is no longer used",
+					"markdownDeprecationMessage": "Deprecated. This setting is no longer used"
 				},
 				"gitlens.views.repositories.files.compact": {
 					"type": "boolean",
@@ -2321,6 +2335,12 @@
 					"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Stashes_ view. Only applies when `#gitlens.views.stashes.files.layout#` is set to `auto`",
 					"scope": "window"
 				},
+				"gitlens.views.stashes.reveal": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to reveal stashes in the _Stashes_ view, otherwise they revealed in the _Repositories_ view",
+					"scope": "window"
+				},
 				"gitlens.views.statusFileFormat": {
 					"deprecationMessage": "Deprecated. Use `gitlens.views.formats.files.label` instead",
 					"markdownDeprecationMessage": "Deprecated. Use `#gitlens.views.formats.files.label#` instead"
@@ -2375,6 +2395,12 @@
 					"type": "number",
 					"default": 5,
 					"markdownDescription": "Specifies when to switch between displaying files as a `tree` or `list` based on the number of files in a nesting level in the _Tags_ view. Only applies when `#gitlens.views.tags.files.layout#` is set to `auto`",
+					"scope": "window"
+				},
+				"gitlens.views.tags.reveal": {
+					"type": "boolean",
+					"default": true,
+					"markdownDescription": "Specifies whether to reveal tags in the _Tags_ view, otherwise they revealed in the _Repositories_ view",
 					"scope": "window"
 				},
 				"gitlens.advanced.abbreviatedShaLength": {
@@ -2842,11 +2868,6 @@
 				"category": "GitLens"
 			},
 			{
-				"command": "gitlens.hideLineHistoryView",
-				"title": "Hide Line History View",
-				"category": "GitLens"
-			},
-			{
 				"command": "gitlens.showRemotesView",
 				"title": "Show Remotes View",
 				"category": "GitLens"
@@ -2854,11 +2875,6 @@
 			{
 				"command": "gitlens.showRepositoriesView",
 				"title": "Show Repositories View",
-				"category": "GitLens"
-			},
-			{
-				"command": "gitlens.hideRepositoriesView",
-				"title": "Hide Repositories View",
 				"category": "GitLens"
 			},
 			{
@@ -4875,20 +4891,12 @@
 					"when": "gitlens:enabled"
 				},
 				{
-					"command": "gitlens.hideLineHistoryView",
-					"when": "gitlens:enabled && config.gitlens.views.lineHistory.enabled"
-				},
-				{
 					"command": "gitlens.showRemotesView",
 					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.showRepositoriesView",
 					"when": "gitlens:enabled"
-				},
-				{
-					"command": "gitlens.hideRepositoriesView",
-					"when": "gitlens:enabled && config.gitlens.views.repositories.enabled"
 				},
 				{
 					"command": "gitlens.showSearchAndCompareView",
@@ -6638,12 +6646,7 @@
 				},
 				{
 					"command": "gitlens.showRepositoriesView",
-					"when": "view =~ /^gitlens\\.views\\.commits/ && !config.gitlens.views.repositories.enabled",
-					"group": "8_gitlens_toggles@0"
-				},
-				{
-					"command": "gitlens.hideRepositoriesView",
-					"when": "view =~ /^gitlens\\.views\\.commits/ && config.gitlens.views.repositories.enabled",
+					"when": "view =~ /^gitlens\\.views\\.commits/",
 					"group": "8_gitlens_toggles@0"
 				},
 				{
@@ -6748,12 +6751,7 @@
 				},
 				{
 					"command": "gitlens.showLineHistoryView",
-					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && !config.gitlens.views.lineHistory.enabled",
-					"group": "8_gitlens_toggles@0"
-				},
-				{
-					"command": "gitlens.hideLineHistoryView",
-					"when": "view =~ /^gitlens\\.views\\.fileHistory/ && config.gitlens.views.lineHistory.enabled",
+					"when": "view =~ /^gitlens\\.views\\.fileHistory/",
 					"group": "8_gitlens_toggles@0"
 				},
 				{
@@ -9023,9 +9021,10 @@
 				{
 					"id": "gitlens.views.repositories",
 					"name": "Repositories",
-					"when": "!gitlens:disabled && config.gitlens.views.repositories.enabled",
+					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
-					"icon": "images/views/repositories.svg"
+					"icon": "images/views/repositories.svg",
+					"visibility": "hidden"
 				},
 				{
 					"id": "gitlens.views.fileHistory",
@@ -9038,7 +9037,7 @@
 				{
 					"id": "gitlens.views.lineHistory",
 					"name": "Line History",
-					"when": "gitlens:enabled && config.gitlens.views.lineHistory.enabled",
+					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/history.svg",
 					"visibility": "hidden"
@@ -9089,7 +9088,7 @@
 					"when": "!gitlens:disabled",
 					"contextualTitle": "GitLens",
 					"icon": "images/views/search.svg",
-					"visibility": "hidden"
+					"visibility": "collapsed"
 				}
 			]
 		}

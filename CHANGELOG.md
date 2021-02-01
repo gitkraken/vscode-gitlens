@@ -16,6 +16,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a new _Copy Current Branch Name_ (`gitlens.copyCurrentBranch`) command to copy the current branch name to the clipboard &mdash; closes [#1306](https://github.com/eamodio/vscode-gitlens/issues/1306) &mdash; thanks to [PR #1307](https://github.com/eamodio/vscode-gitlens/pull/1307) by Ken Hom ([@kh0m](https://github.com/kh0m))
 - Adds a _Switch to Text_ button on the _Interactive Rebase Editor_ to open the text rebase todo file &mdash; note that closing either document will start the rebase
 - Adds a notification which asks if you want to create a pull request after publishing a new branch
+- Adds a `gitlens.views.branches.reveal` setting to specify whether to reveal branches in the _Branches_ view, otherwise they will be revealed in the _Repositories_ view
+- Adds a `gitlens.views.commits.reveal` setting to specify whether to reveal commits in the _Commits_ view, otherwise they will be revealed in the _Repositories_ view
+- Adds a `gitlens.views.remotes.reveal` setting to specify whether to reveal remotes in the _Remotes_ view, otherwise they will be revealed in the _Repositories_ view
+- Adds a `gitlens.views.stashes.reveal` setting to specify whether to reveal stashes in the _Stashes_ view, otherwise they will be revealed in the _Repositories_ view
+- Adds a `gitlens.views.tags.reveal` setting to specify whether to reveal tags in the _Tags_ view, otherwise they will be revealed in the _Repositories_ view
 - Adds a `gitlens.advanced.abbreviateShaOnCopy` setting to specify to whether to copy full or abbreviated commit SHAs to the clipboard. Abbreviates to the length of `gitlens.advanced.abbreviatedShaLength` &mdash; closes [#1062](https://github.com/eamodio/vscode-gitlens/issues/1062) &mdash; thanks to [PR #1316](https://github.com/eamodio/vscode-gitlens/pull/1316) by Brendon Smith ([@br3ndonland](https://github.com/br3ndonland))
 - Adds a `gitlens.advanced.externalDiffTool` setting to specify an optional external diff tool to use when comparing files. Must be a configured [Git difftool](https://git-scm.com/docs/git-config#Documentation/git-config.txt-difftool).
 - Adds a `gitlens.advanced.externalDirectoryDiffTool` setting to specify an optional external diff tool to use when comparing directories. Must be a configured [Git difftool](https://git-scm.com/docs/git-config#Documentation/git-config.txt-difftool).
@@ -44,6 +49,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes an issue where many views wouldn't refresh properly when going from no items to some items
 - Fixes an issue where _Publish Branch_ was incorrectly showing up on remote branches
 - Fixes an issue where the _Open Directory Compare \*_ commands failed to work
+
+### Removed
+
+- Removes the `gitlens.repositories.enabled` setting, since the view is toggleable as any other view now
+- Removes the `gitlens.lineHistory.enabled` setting, since the view is toggleable as any other view now
+- Removes the _Hide Repositories view_ command, since the view is toggleable as any other view now
+- Removes the _Hide Line History view_ command, since the view is toggleable as any other view now
 
 ## [11.1.3] - 2021-01-05
 

@@ -1,8 +1,7 @@
 <section id="repositories-view" class="section--settings section--collapsible">
 	<div class="section__header">
-		<div class="setting__input setting__input--big">
-			<input id="views.repositories.enabled" name="views.repositories.enabled" type="checkbox" data-setting />
-			<label for="views.repositories.enabled">Repositories view</label>
+		<h2>
+			Repositories view
 			<a
 				class="link__learn-more"
 				title="Learn more"
@@ -10,16 +9,16 @@
 			>
 				<i class="icon icon__info"></i>
 			</a>
-		</div>
+		</h2>
 
 		<p class="section__header-hint">
-			Adds a Repositories view
+			Adds a
 			<a
 				class="command command--show-view"
 				title="Show View in Side Bar"
 				href="command:gitlens.showRepositoriesView"
-			></a>
-			to visualize, explore, and manage Git repositories
+				>Repositories view</a
+			>, hidden by default, to visualize, explore, and manage Git repositories
 		</p>
 	</div>
 
@@ -27,14 +26,14 @@
 		<div class="section__group">
 			<div class="section__content">
 				<div class="settings settings--fixed ml-1">
-					<div class="setting" data-enablement="views.repositories.enabled">
+					<div class="setting">
 						<div class="setting__input">
 							<label class="non-interactive">Show the following sections under each repository</label>
 						</div>
 					</div>
 
 					<div class="settings ml-2">
-						<div class="setting" data-enablement="views.repositories.enabled">
+						<div class="setting">
 							<div class="setting__input setting__input--inner-select">
 								<input
 									id="views.repositories.showBranchComparison"
@@ -50,7 +49,7 @@
 										id="views.repositories.showBranchComparison"
 										name="views.repositories.showBranchComparison"
 										data-setting
-										data-enablement="views.repositories.enabled &amp; views.repositories.showBranchComparison !false"
+										data-enablement="views.repositories.showBranchComparison !false"
 										disabled
 									>
 										<option value="branch">current branch</option>
@@ -63,7 +62,7 @@
 							</div>
 						</div>
 
-						<div class="setting" data-enablement="views.repositories.enabled">
+						<div class="setting">
 							<div class="setting__input">
 								<input
 									id="views.repositories.showUpstreamStatus"
@@ -76,7 +75,7 @@
 							</div>
 						</div>
 
-						<div class="setting" data-enablement="views.repositories.enabled">
+						<div class="setting">
 							<div class="setting__input">
 								<input
 									id="views.repositories.includeWorkingTree"
@@ -92,7 +91,7 @@
 						<div class="section__group">
 							<div class="section__content">
 								<div class="settings settings--fixed">
-									<div class="setting" data-enablement="views.repositories.enabled">
+									<div class="setting">
 										<div class="setting__input">
 											<input
 												id="views.repositories.pullRequests.enabled"
@@ -111,10 +110,7 @@
 									</div>
 
 									<div class="settings settings--fixed ml-2">
-										<div
-											class="setting"
-											data-enablement="views.repositories.enabled &amp; views.repositories.pullRequests.enabled"
-										>
+										<div class="setting" data-enablement="views.repositories.pullRequests.enabled">
 											<div class="setting__input">
 												<input
 													id="views.repositories.pullRequests.showForBranches"
@@ -129,10 +125,7 @@
 											</div>
 										</div>
 
-										<div
-											class="setting"
-											data-enablement="views.repositories.enabled &amp; views.repositories.pullRequests.enabled"
-										>
+										<div class="setting" data-enablement="views.repositories.pullRequests.enabled">
 											<div class="setting__input">
 												<input
 													id="views.repositories.pullRequests.showForCommits"
@@ -151,7 +144,7 @@
 							</div>
 						</div>
 
-						<div class="setting" data-enablement="views.repositories.enabled">
+						<div class="setting">
 							<div class="setting__input">
 								<input
 									id="views.repositories.showCommits"
@@ -164,7 +157,7 @@
 							</div>
 						</div>
 
-						<div class="setting" data-enablement="views.repositories.enabled">
+						<div class="setting">
 							<div class="setting__input">
 								<input
 									id="views.repositories.showBranches"
@@ -177,7 +170,7 @@
 							</div>
 						</div>
 
-						<div class="setting" data-enablement="views.repositories.enabled">
+						<div class="setting">
 							<div class="setting__input">
 								<input
 									id="views.repositories.showRemotes"
@@ -190,7 +183,7 @@
 							</div>
 						</div>
 
-						<div class="setting" data-enablement="views.repositories.enabled">
+						<div class="setting">
 							<div class="setting__input">
 								<input
 									id="views.repositories.showStashes"
@@ -203,7 +196,7 @@
 							</div>
 						</div>
 
-						<div class="setting" data-enablement="views.repositories.enabled">
+						<div class="setting">
 							<div class="setting__input">
 								<input
 									id="views.repositories.showTags"
@@ -216,7 +209,7 @@
 							</div>
 						</div>
 
-						<div class="setting" data-enablement="views.repositories.enabled">
+						<div class="setting">
 							<div class="setting__input">
 								<input
 									id="views.repositories.showContributors"
@@ -229,7 +222,7 @@
 							</div>
 						</div>
 
-						<div class="setting" data-enablement="views.repositories.enabled">
+						<div class="setting">
 							<div class="setting__input">
 								<input
 									id="views.repositories.showIncomingActivity"
@@ -245,7 +238,7 @@
 						</div>
 					</div>
 
-					<div class="setting" data-enablement="views.repositories.enabled">
+					<div class="setting">
 						<div class="setting__input">
 							<input
 								id="views.repositories.autoRefresh"
@@ -260,7 +253,7 @@
 						</div>
 					</div>
 
-					<div class="setting" data-enablement="views.repositories.enabled">
+					<div class="setting">
 						<div class="setting__input">
 							<input
 								id="views.repositories.autoReveal"
@@ -275,7 +268,7 @@
 						</div>
 					</div>
 
-					<div class="setting" data-enablement="views.repositories.enabled">
+					<div class="setting">
 						<div class="setting__input">
 							<input
 								id="views.repositories.avatars"
@@ -288,7 +281,7 @@
 						</div>
 					</div>
 
-					<div class="setting" data-enablement="views.repositories.enabled">
+					<div class="setting">
 						<div class="setting__input">
 							<label for="views.repositories.branches.layout">Layout branches</label>
 							<div class="select-container">
@@ -305,7 +298,7 @@
 						</div>
 					</div>
 
-					<div class="setting" data-enablement="views.repositories.enabled">
+					<div class="setting">
 						<div class="setting__input">
 							<label for="views.repositories.files.layout">Layout files</label>
 							<div class="select-container">
@@ -326,7 +319,7 @@
 						</p>
 					</div>
 
-					<div class="setting" data-enablement="views.repositories.enabled">
+					<div class="setting">
 						<div class="setting__input">
 							<input
 								id="views.repositories.files.compact"
@@ -340,7 +333,7 @@
 						<p class="setting__hint">Compacts (flattens) unnecessary nesting when using a tree layouts</p>
 					</div>
 
-					<div class="setting" data-enablement="views.repositories.enabled">
+					<div class="setting">
 						<div class="setting__input">
 							<label for="sortBranchesBy">Sort branches</label>
 							<div class="select-container">
@@ -354,7 +347,7 @@
 						</div>
 					</div>
 
-					<div class="setting" data-enablement="views.repositories.enabled">
+					<div class="setting">
 						<div class="setting__input">
 							<label for="sortTagsBy">Sort tags</label>
 							<div class="select-container">
@@ -370,12 +363,8 @@
 				</div>
 			</div>
 
-			<div class="section__preview" data-visibility="views.repositories.enabled">
-				<img
-					class="image__preview hidden"
-					src="#{root}/images/settings/repositories-view.webp"
-					data-visibility="views.repositories.enabled"
-				/>
+			<div class="section__preview">
+				<img class="image__preview" src="#{root}/images/settings/repositories-view.webp" />
 			</div>
 		</div>
 

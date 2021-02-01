@@ -66,36 +66,16 @@ export class Container {
 		context.subscriptions.push((this._settingsWebview = new SettingsWebview()));
 		context.subscriptions.push((this._welcomeWebview = new WelcomeWebview()));
 
+		context.subscriptions.push((this._repositoriesView = new RepositoriesView()));
 		context.subscriptions.push((this._commitsView = new CommitsView()));
 		context.subscriptions.push((this._fileHistoryView = new FileHistoryView()));
+		context.subscriptions.push((this._lineHistoryView = new LineHistoryView()));
 		context.subscriptions.push((this._branchesView = new BranchesView()));
 		context.subscriptions.push((this._remotesView = new RemotesView()));
 		context.subscriptions.push((this._stashesView = new StashesView()));
 		context.subscriptions.push((this._tagsView = new TagsView()));
 		context.subscriptions.push((this._contributorsView = new ContributorsView()));
 		context.subscriptions.push((this._searchAndCompareView = new SearchAndCompareView()));
-
-		if (config.views.lineHistory.enabled) {
-			context.subscriptions.push((this._lineHistoryView = new LineHistoryView()));
-		} else {
-			const disposable = configuration.onDidChange(e => {
-				if (configuration.changed(e, 'views', 'lineHistory', 'enabled')) {
-					disposable.dispose();
-					context.subscriptions.push((this._lineHistoryView = new LineHistoryView()));
-				}
-			});
-		}
-
-		if (config.views.repositories.enabled) {
-			context.subscriptions.push((this._repositoriesView = new RepositoriesView()));
-		} else {
-			const disposable = configuration.onDidChange(e => {
-				if (configuration.changed(e, 'views', 'repositories', 'enabled')) {
-					disposable.dispose();
-					context.subscriptions.push((this._repositoriesView = new RepositoriesView()));
-				}
-			});
-		}
 
 		context.subscriptions.push((this._rebaseEditor = new RebaseEditorProvider()));
 

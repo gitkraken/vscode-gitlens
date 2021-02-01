@@ -64,14 +64,6 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistor
 		return true;
 	}
 
-	protected onConfigurationChanged(e: ConfigurationChangeEvent) {
-		if (configuration.changed(e, 'views', this.configKey, 'enabled')) {
-			void setContext(ContextKeys.ViewsLineHistoryEditorFollowing, true);
-		}
-
-		super.onConfigurationChanged(e);
-	}
-
 	private changeBase() {
 		void this.root?.changeBase();
 	}

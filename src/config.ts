@@ -510,6 +510,7 @@ export interface BranchesViewConfig {
 		showForBranches: boolean;
 		showForCommits: boolean;
 	};
+	reveal: boolean;
 	showBranchComparison: false | ViewShowBranchComparison.Branch;
 }
 
@@ -522,6 +523,7 @@ export interface CommitsViewConfig {
 		showForBranches: boolean;
 		showForCommits: boolean;
 	};
+	reveal: boolean;
 	showBranchComparison: false | ViewShowBranchComparison;
 }
 
@@ -540,7 +542,6 @@ export interface FileHistoryViewConfig {
 
 export interface LineHistoryViewConfig {
 	avatars: boolean;
-	enabled: boolean;
 }
 
 export interface RemotesViewConfig {
@@ -554,6 +555,7 @@ export interface RemotesViewConfig {
 		showForBranches: boolean;
 		showForCommits: boolean;
 	};
+	reveal: boolean;
 }
 
 export interface RepositoriesViewConfig {
@@ -565,7 +567,6 @@ export interface RepositoriesViewConfig {
 		showBranchComparison: false | ViewShowBranchComparison.Branch;
 	};
 	compact: boolean;
-	enabled: boolean;
 	files: ViewsFilesConfig;
 	includeWorkingTree: boolean;
 	pullRequests: {
@@ -595,6 +596,7 @@ export interface SearchAndCompareViewConfig {
 
 export interface StashesViewConfig {
 	files: ViewsFilesConfig;
+	reveal: boolean;
 }
 
 export interface TagsViewConfig {
@@ -603,6 +605,7 @@ export interface TagsViewConfig {
 		layout: ViewBranchesLayout;
 	};
 	files: ViewsFilesConfig;
+	reveal: boolean;
 }
 
 export interface ViewsFilesConfig {

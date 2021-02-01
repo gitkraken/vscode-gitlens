@@ -1,7 +1,6 @@
 'use strict';
 import { commands } from 'vscode';
 import { command, Command, CommandContext, Commands } from './common';
-import { configuration } from '../configuration';
 import { ContextKeys, setContext, SyncedState } from '../constants';
 import { Container } from '../container';
 
@@ -38,16 +37,10 @@ export class ShowViewCommand extends Command {
 			case Commands.ShowFileHistoryView:
 				return Container.fileHistoryView.show();
 			case Commands.ShowLineHistoryView:
-				if (!Container.config.views.lineHistory.enabled) {
-					await configuration.updateEffective('views', 'lineHistory', 'enabled', true);
-				}
 				return Container.lineHistoryView.show();
 			case Commands.ShowRemotesView:
 				return Container.remotesView.show();
 			case Commands.ShowRepositoriesView:
-				if (!Container.config.views.repositories.enabled) {
-					await configuration.updateEffective('views', 'repositories', 'enabled', true);
-				}
 				return Container.repositoriesView.show();
 			case Commands.ShowSearchAndCompareView:
 				return Container.searchAndCompareView.show();
@@ -59,34 +52,6 @@ export class ShowViewCommand extends Command {
 				await setContext(ContextKeys.ViewsWelcomeVisible, true);
 				void Container.context.globalState.update(SyncedState.WelcomeViewVisible, true);
 				void (await commands.executeCommand('gitlens.views.welcome.focus'));
-		}
-
-		return Promise.resolve(undefined);
-	}
-}
-
-@command()
-export class HideViewCommand extends Command {
-	constructor() {
-		super([Commands.HideLineHistoryView, Commands.HideRepositoriesView]);
-	}
-
-	protected preExecute(context: CommandContext) {
-		return this.execute(context.command as Commands);
-	}
-
-	async execute(command: Commands) {
-		switch (command) {
-			case Commands.HideLineHistoryView:
-				if (Container.config.views.lineHistory.enabled) {
-					await configuration.updateEffective('views', 'lineHistory', 'enabled', false);
-				}
-				break;
-			case Commands.HideRepositoriesView:
-				if (Container.config.views.repositories.enabled) {
-					await configuration.updateEffective('views', 'repositories', 'enabled', false);
-				}
-				break;
 		}
 
 		return Promise.resolve(undefined);
