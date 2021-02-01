@@ -63,7 +63,7 @@ export class GitBranch implements GitBranchReference {
 						(a.name === 'master' ? -1 : 1) - (b.name === 'master' ? -1 : 1) ||
 						(a.name === 'develop' ? -1 : 1) - (b.name === 'develop' ? -1 : 1) ||
 						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
-						b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' }),
+						a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }),
 				);
 			default:
 				return branches.sort(
@@ -74,7 +74,7 @@ export class GitBranch implements GitBranchReference {
 						(a.name === 'master' ? -1 : 1) - (b.name === 'master' ? -1 : 1) ||
 						(a.name === 'develop' ? -1 : 1) - (b.name === 'develop' ? -1 : 1) ||
 						(b.remote ? -1 : 1) - (a.remote ? -1 : 1) ||
-						a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }),
+						b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' }),
 				);
 		}
 	}
