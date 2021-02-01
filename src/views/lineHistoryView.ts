@@ -13,6 +13,8 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistor
 
 	constructor() {
 		super('gitlens.views.lineHistory', 'Line History');
+
+		void setContext(ContextKeys.ViewsLineHistoryEditorFollowing, true);
 	}
 
 	protected get showCollapseAll(): boolean {
@@ -69,15 +71,24 @@ export class LineHistoryView extends ViewBase<LineHistoryTrackerNode, LineHistor
 	}
 
 	private setEditorFollowing(enabled: boolean) {
+		const root = this.ensureRoot();
+		if (!root.hasUri) return;
+
 		void setContext(ContextKeys.ViewsLineHistoryEditorFollowing, enabled);
+
 		this.root?.setEditorFollowing(enabled);
 
 		if (this.description?.endsWith(pinnedSuffix)) {
 			if (enabled) {
 				this.description = this.description.substr(0, this.description.length - pinnedSuffix.length);
 			}
-		} else if (!enabled) {
+		} else if (!enabled && this.description != null) {
 			this.description += pinnedSuffix;
+		}
+
+		if (enabled) {
+			void root.ensureSubscription();
+			void this.refresh(true);
 		}
 	}
 

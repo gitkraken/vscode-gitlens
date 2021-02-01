@@ -49,6 +49,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes an issue where many views wouldn't refresh properly when going from no items to some items
 - Fixes an issue where _Publish Branch_ was incorrectly showing up on remote branches
 - Fixes an issue where the _Open Directory Compare \*_ commands failed to work
+- Fixes an issue where pinning a file/line to the _File History_ view or _Line History_ view would get lost if the view was collapsed and expanded
 
 ### Removed
 

@@ -125,6 +125,8 @@ export class LineHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	async refresh(reset: boolean = false) {
 		const cc = Logger.getCorrelationContext();
 
+		if (!this.canSubscribe) return false;
+
 		if (reset) {
 			this.setUri();
 			this._editorContents = undefined;

@@ -119,6 +119,8 @@ export class FileHistoryTrackerNode extends SubscribeableViewNode<FileHistoryVie
 	async refresh(reset: boolean = false) {
 		const cc = Logger.getCorrelationContext();
 
+		if (!this.canSubscribe) return false;
+
 		if (reset) {
 			this.setUri();
 			this.resetChild();
