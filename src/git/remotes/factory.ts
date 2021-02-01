@@ -38,8 +38,8 @@ const builtInProviders: RemoteProviders = [
 		creator: (domain: string, path: string) => new AzureDevOpsRemote(domain, path),
 	},
 	{
-		custom: false,
-		matcher: /\bbitbucket\b/i,
+		custom: true,
+		matcher: /^(.+\/(?:bitbucket|stash))\/scm\/(.+)$/i,
 		creator: (domain: string, path: string) => new BitbucketServerRemote(domain, path),
 	},
 	{
