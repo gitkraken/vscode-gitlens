@@ -19,15 +19,11 @@
 ## Sponsor GitLens
 
 <p align="center">Sponsored by</p>
-<p align="center" style="margin:8px 0 8px 0;">
-  <a title="Try CodeStream &mdash; Pull Requests and Code Reviews in your IDE" href="https://sponsorlink.codestream.com/?utm_source=vscmarket&utm_medium=banner&utm_campaign=gitlens"><img src="https://alt-images.codestream.com/codestream_logo_gitlens_vscmarket.png" alt="CodeStream Logo &mdash; Pull Requests and Code Reviews in your IDE" /></a>
-</p>
-<p align="center" style="margin:8px 0 8px 0;">
-  <a title="Visit Embark Studios" href="https://embark-studios.com"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/embark-studios_dark.png" alt="Embark Studios Logo"/></a>
-</p>
-
-<p align="center" style="margin:8px 0 8px 0;">
-  <a title="Visit Localize" href="https://localizejs.com"><img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/localize_dark.png" alt="Localize Logo"/></a>
+<p align="center" style="display:flex;flex-wrap:wrap;justify-content:center">
+  <a title="Try CodeStream &mdash; Pull Requests and Code Reviews in your IDE" href="https://sponsorlink.codestream.com/?utm_source=vscmarket&utm_medium=banner&utm_campaign=gitlens"><img style="margin:2px 1em;" src="https://alt-images.codestream.com/codestream_logo_gitlens_vscmarket.png" alt="CodeStream Logo &mdash; Pull Requests and Code Reviews in your IDE" /></a>
+  <a title="Visit Embark Studios" href="https://embark-studios.com"><img style="margin:2px 1em;" src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/embark-studios_dark.png" alt="Embark Studios Logo"/></a>
+  <a title="Visit Localize" href="https://localizejs.com"><img style="margin:2px 1em;" src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/localize_dark.png" alt="Localize Logo"/></a>
+  <a title="Try Tabnine Autocomplete" href="https://wd5a.2.vu/GitLens"><img style="margin:2px 1em;" src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/sponsors/tabnine.png" alt="Tabnine Logo"/></a>
 </p>
 
 If you find GitLens useful, please consider [**sponsoring**](https://gitlens.amod.io/#sponsor) it. And if you use GitLens for work, please encourage your employer to [**sponsor**](https://gitlens.amod.io/#sponsor) it. Also please [write a review](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens#review-details 'Write a review'), [star it on GitHub](https://github.com/eamodio/vscode-gitlens 'Star it on GitHub'), and [follow me on Twitter](https://twitter.com/eamodio 'Follow me on Twitter')
