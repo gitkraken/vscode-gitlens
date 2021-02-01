@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
+- Adds rebase and/or merge status when applicable to the _Commits_ and _Repositories_ views
+  - **Merging into &lt;branch&gt;** or **Resolve conflicts before merging into &lt;branch&gt;** &mdash; lists any conflicted files. Conflicted files show comparisons with the common base of the current and incoming changes to aid in resolving the conflict by making it easier to see where changes originated
+  - **Rebasing &lt;branch&gt;** or **Resolve conflicts to continue rebasing &lt;branch&gt;** &mdash; shows the number of rebase steps left, the commit the rebase is paused at, and lists any conflicted files. Conflicted files show comparisons with the common base of the current and incoming changes to aid in resolving the conflict by making it easier to see where changes originated
+- Adds rebase and/or merge conflict status when applicable to the _File History_ and _Line History_ views
+  - **Merge Changes** &mdash; show comparisons with the common base of the current and incoming changes to aid in resolving the conflict by making it easier to see where changes originated
 - Adds status indicator colors to pull request icons in GitLens views
 - Adds a new _Quick Open File History_ command to all places where _Open File History_ already exists &mdash; closes [#1156](https://github.com/eamodio/vscode-gitlens/issues/1156)
 - Adds the _Add Remote_ command to the branch status in the _Branches_, _Commits_, and _Repositories_ views when there are no Git remotes configured
@@ -16,6 +21,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Adds a new _Copy Current Branch Name_ (`gitlens.copyCurrentBranch`) command to copy the current branch name to the clipboard &mdash; closes [#1306](https://github.com/eamodio/vscode-gitlens/issues/1306) &mdash; thanks to [PR #1307](https://github.com/eamodio/vscode-gitlens/pull/1307) by Ken Hom ([@kh0m](https://github.com/kh0m))
 - Adds a _Switch to Text_ button on the _Interactive Rebase Editor_ to open the text rebase todo file &mdash; note that closing either document will start the rebase
 - Adds a notification which asks if you want to create a pull request after publishing a new branch
+- Adds CodeStream partnership
 - Adds a `gitlens.views.branches.reveal` setting to specify whether to reveal branches in the _Branches_ view, otherwise they will be revealed in the _Repositories_ view
 - Adds a `gitlens.views.commits.reveal` setting to specify whether to reveal commits in the _Commits_ view, otherwise they will be revealed in the _Repositories_ view
 - Adds a `gitlens.views.remotes.reveal` setting to specify whether to reveal remotes in the _Remotes_ view, otherwise they will be revealed in the _Repositories_ view

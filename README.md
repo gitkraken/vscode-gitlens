@@ -263,6 +263,8 @@ The _Commits_ view lists all of the commits on the current branch, and additiona
   - **Up to date with &lt;remote&gt;** &mdash; shown when the current branch is up to date with the upstream remote
   - **Changes to pull from &lt;remote&gt;** &mdash; lists all of the commits waiting to be pulled when the current branch has commits that are waiting to be pulled from the upstream remote
   - **Changes to push to &lt;remote&gt;** &mdash; lists of all the files changed in the unpublished commits when the current branch has (unpublished) commits that waiting to be pushed to the upstream remote
+  - **Merging into &lt;branch&gt;** or **Resolve conflicts before merging into &lt;branch&gt;** &mdash; lists any conflicted files. Conflicted files show comparisons with the common base of the current and incoming changes to aid in resolving the conflict by making it easier to see where changes originated
+  - **Rebasing &lt;branch&gt;** or **Resolve conflicts to continue rebasing &lt;branch&gt;** &mdash; shows the number of rebase steps left, the commit the rebase is paused at, and lists any conflicted files. Conflicted files show comparisons with the common base of the current and incoming changes to aid in resolving the conflict by making it easier to see where changes originated
 - any associated pull request &mdash; shows any opened pull request associated with the current branch
 
 ---
@@ -321,6 +323,8 @@ The file history view lists all of the commits that changed the current file on 
 - the ability to change the current base branch or reference when computing the file or line history
 - (file history only) a toggle to follow renames across the current file
 - (file history only) a toggle to show commits from all branches rather than just from the current base branch or reference
+- merge conflict status when applicable
+  - **Merge Changes** &mdash; show comparisons with the common base of the current and incoming changes to aid in resolving the conflict by making it easier to see where changes originated
 
 ---
 
@@ -336,6 +340,8 @@ The line history view lists all of the commits that changed the selected lines o
 
 - a toggle to pin (pause) the automatic tracking of the current editor
 - the ability to change the current base branch or reference when computing the line history
+- merge conflict status when applicable
+  - **Merge Changes** &mdash; show comparisons with the common base of the current and incoming changes to aid in resolving the conflict by making it easier to see where changes originated
 
 ---
 
