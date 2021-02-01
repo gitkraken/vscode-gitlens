@@ -2,6 +2,7 @@
 import { Disposable, env, Uri, window } from 'vscode';
 import { Commands, OpenOnRemoteCommandArgs } from '../commands';
 import { GlyphChars } from '../constants';
+import { Container } from '../container';
 import {
 	getNameFromRemoteResource,
 	GitBranch,
@@ -46,6 +47,26 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 
 			if (GitBranch.getRemote(resource.ref2) === this.remote.name) {
 				resource = { ...resource, ref2: GitBranch.getNameWithoutRemote(resource.ref2) };
+			}
+		} else if (
+			resource.type === RemoteResourceType.File &&
+			resource.branchOrTag != null &&
+			(this.remote.provider.id === 'bitbucket' || this.remote.provider.id === 'bitbucket-server')
+		) {
+			// HACK ALERT
+			// Since Bitbucket can't support branch names in the url (other than with the default branch),
+			// turn this into a `Revision` request
+			const { branchOrTag } = resource;
+			const branchesOrTags = await Container.git.getBranchesAndOrTags(this.remote.repoPath, {
+				filter: {
+					branches: b => b.name === branchOrTag,
+					tags: b => b.name === branchOrTag,
+				},
+			});
+
+			const sha = branchesOrTags?.[0].sha;
+			if (sha) {
+				resource = { ...resource, type: RemoteResourceType.Revision, sha: sha };
 			}
 		}
 
