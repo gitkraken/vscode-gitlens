@@ -32,11 +32,11 @@ export class GitTag implements GitTagReference {
 				return tags.sort((a, b) => b.date.getTime() - a.date.getTime());
 			case TagSorting.NameAsc:
 				return tags.sort((a, b) =>
-					b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' }),
+					a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }),
 				);
 			default:
 				return tags.sort((a, b) =>
-					a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }),
+					b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' }),
 				);
 		}
 	}
