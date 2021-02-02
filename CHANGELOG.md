@@ -10,9 +10,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Adds rebase and/or merge status when applicable to the _Commits_ and _Repositories_ views
   - **Merging into &lt;branch&gt;** or **Resolve conflicts before merging into &lt;branch&gt;** &mdash; lists any conflicted files. Conflicted files show comparisons with the common base of the current and incoming changes to aid in resolving the conflict by making it easier to see where changes originated
+    ![Merging](https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/commits-view-merge.png)
   - **Rebasing &lt;branch&gt;** or **Resolve conflicts to continue rebasing &lt;branch&gt;** &mdash; shows the number of rebase steps left, the commit the rebase is paused at, and lists any conflicted files. Conflicted files show comparisons with the common base of the current and incoming changes to aid in resolving the conflict by making it easier to see where changes originated
+    ![Merging](https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/commits-view-rebase.png)
 - Adds rebase and/or merge conflict status when applicable to the _File History_ and _Line History_ views
   - **Merge Changes** &mdash; show comparisons with the common base of the current and incoming changes to aid in resolving the conflict by making it easier to see where changes originated
+    ![Merging](https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/file-history-view-merge-conflict.png)
 - Adds status indicator colors to pull request icons in GitLens views
 - Adds a new _Quick Open File History_ command to all places where _Open File History_ already exists &mdash; closes [#1156](https://github.com/eamodio/vscode-gitlens/issues/1156)
 - Adds the _Add Remote_ command to the branch status in the _Branches_, _Commits_, and _Repositories_ views when there are no Git remotes configured
