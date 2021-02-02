@@ -2496,6 +2496,7 @@
 						"suppressFileNotUnderSourceControlWarning": false,
 						"suppressGitDisabledWarning": false,
 						"suppressGitVersionWarning": false,
+						"suppressImproperWorkspaceCasingWarning": false,
 						"suppressLineUncommittedWarning": false,
 						"suppressNoRepositoryWarning": false,
 						"suppressRebaseSwitchToTextWarning": false
@@ -2522,6 +2523,10 @@
 							"default": false
 						},
 						"suppressGitVersionWarning": {
+							"type": "boolean",
+							"default": false
+						},
+						"suppressImproperWorkspaceCasingWarning": {
 							"type": "boolean",
 							"default": false
 						},

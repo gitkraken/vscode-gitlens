@@ -11,6 +11,7 @@ export enum SuppressedMessages {
 	FileNotUnderSourceControlWarning = 'suppressFileNotUnderSourceControlWarning',
 	GitDisabledWarning = 'suppressGitDisabledWarning',
 	GitVersionWarning = 'suppressGitVersionWarning',
+	IncorrectWorkspaceCasingWarning = 'suppressImproperWorkspaceCasingWarning',
 	LineUncommittedWarning = 'suppressLineUncommittedWarning',
 	NoRepositoryWarning = 'suppressNoRepositoryWarning',
 	RebaseSwitchToTextWarning = 'suppressRebaseSwitchToTextWarning',
@@ -90,6 +91,14 @@ export class Messages {
 			`GitLens requires a newer version of Git (>= ${required}) than is currently installed (${version}). Please install a more recent version of Git.`,
 			SuppressedMessages.GitVersionWarning,
 		);
+	}
+
+	static async showIncorrectWorkspaceCasingWarningMessage(): Promise<void> {
+		void (await Messages.showMessage(
+			'warn',
+			'This workspace was opened with a different casing than what exists on disk. Please re-open this workspace with the exact casing as it exists on disk, otherwise you may experience issues with certain Git features, such as missing blame or history.',
+			SuppressedMessages.IncorrectWorkspaceCasingWarning,
+		));
 	}
 
 	static showInsidersErrorMessage() {

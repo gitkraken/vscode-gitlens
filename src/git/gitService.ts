@@ -3279,10 +3279,11 @@ export class GitService implements Disposable {
 	private async getRepoPathCore(filePath: string, isDirectory: boolean): Promise<string | undefined> {
 		const cc = Logger.getCorrelationContext();
 
+		let repoPath: string | undefined;
 		try {
 			const path = isDirectory ? filePath : paths.dirname(filePath);
 
-			let repoPath = await Git.rev_parse__show_toplevel(path);
+			repoPath = await Git.rev_parse__show_toplevel(path);
 			if (repoPath == null) return repoPath;
 
 			if (isWindows) {
@@ -3303,17 +3304,18 @@ export class GitService implements Disposable {
 								),
 							);
 							if (networkPath != null) {
-								return Strings.normalizePath(
+								repoPath = Strings.normalizePath(
 									repoUri.fsPath.replace(
 										networkPath,
 										`${letter.toLowerCase()}:${networkPath.endsWith('\\') ? '\\' : ''}`,
 									),
 								);
+								return repoPath;
 							}
 						} catch {}
 					}
 
-					return Strings.normalizePath(pathUri.fsPath);
+					repoPath = Strings.normalizePath(pathUri.fsPath);
 				}
 
 				return repoPath;
@@ -3321,7 +3323,7 @@ export class GitService implements Disposable {
 
 			// If we are not on Windows (symlinks don't seem to have the same issue on Windows), check if we are a symlink and if so, use the symlink path (not its resolved path)
 			// This is because VS Code will provide document Uris using the symlinked path
-			return await new Promise<string | undefined>(resolve => {
+			repoPath = await new Promise<string | undefined>(resolve => {
 				fs.realpath(path, { encoding: 'utf8' }, (err, resolvedPath) => {
 					if (err != null) {
 						Logger.debug(cc, `fs.realpath failed; repoPath=${repoPath}`);
@@ -3344,9 +3346,41 @@ export class GitService implements Disposable {
 					resolve(repoPath);
 				});
 			});
+
+			return repoPath;
 		} catch (ex) {
 			Logger.error(ex, cc);
-			return undefined;
+			repoPath = undefined;
+			return repoPath;
+		} finally {
+			if (repoPath) {
+				void this.ensureProperWorkspaceCasing(repoPath, filePath);
+			}
+		}
+	}
+
+	@gate(() => '')
+	private async ensureProperWorkspaceCasing(repoPath: string, filePath: string) {
+		if (Container.config.advanced.messages.suppressImproperWorkspaceCasingWarning) return;
+
+		filePath = filePath.replace(/\\/g, '/');
+
+		let regexPath;
+		let testPath;
+		if (filePath > repoPath) {
+			regexPath = filePath;
+			testPath = repoPath;
+		} else {
+			testPath = filePath;
+			regexPath = repoPath;
+		}
+
+		let pathRegex = new RegExp(`^${regexPath}`);
+		if (!pathRegex.test(testPath)) {
+			pathRegex = new RegExp(pathRegex, 'i');
+			if (pathRegex.test(testPath)) {
+				await Messages.showIncorrectWorkspaceCasingWarningMessage();
+			}
 		}
 	}
 

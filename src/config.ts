@@ -307,6 +307,7 @@ export interface AdvancedConfig {
 		suppressFileNotUnderSourceControlWarning: boolean;
 		suppressGitDisabledWarning: boolean;
 		suppressGitVersionWarning: boolean;
+		suppressImproperWorkspaceCasingWarning: boolean;
 		suppressLineUncommittedWarning: boolean;
 		suppressNoRepositoryWarning: boolean;
 		suppressRebaseSwitchToTextWarning: boolean;
