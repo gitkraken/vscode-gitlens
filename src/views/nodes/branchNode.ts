@@ -149,7 +149,9 @@ export class BranchNode
 				this.view.config.pullRequests.enabled &&
 				this.view.config.pullRequests.showForBranches &&
 				(this.branch.tracking || this.branch.remote)
-					? this.branch.getAssociatedPullRequest(this.root ? { include: [PullRequestState.Open] } : undefined)
+					? this.branch.getAssociatedPullRequest(
+							this.root ? { include: [PullRequestState.Open, PullRequestState.Merged] } : undefined,
+					  )
 					: undefined,
 				range && !this.branch.remote
 					? Container.git.getLogRefsOnly(this.uri.repoPath!, {
