@@ -316,7 +316,6 @@ export interface AdvancedConfig {
 	};
 	repositorySearchDepth: number;
 	similarityThreshold: number | null;
-	useSymmetricDifferenceNotation: boolean;
 }
 
 export interface CodeLensConfig {

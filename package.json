@@ -2564,11 +2564,8 @@
 					"scope": "window"
 				},
 				"gitlens.advanced.useSymmetricDifferenceNotation": {
-					"type": "boolean",
-					"default": true,
 					"deprecationMessage": "Deprecated. This setting is no longer used",
-					"markdownDescription": "Deprecated. This setting is no longer used",
-					"scope": "window"
+					"markdownDescription": "Deprecated. This setting is no longer used"
 				}
 			}
 		},
