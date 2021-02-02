@@ -318,7 +318,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					pr.state
 				}, ${pr.formatDateFromNow()}")${separator}`;
 			} else if (pr instanceof Promises.CancellationError) {
-				commands += `[$(git-pull-request) PR $(sync~spin)](command:${Commands.RefreshHover} "Searching for a Pull Request (if any) that introduced this commit...")${separator}`;
+				commands += `[$(git-pull-request) PR $(loading~spin)](command:${Commands.RefreshHover} "Searching for a Pull Request (if any) that introduced this commit...")${separator}`;
 			} else if (pr.provider != null && Container.config.integrations.enabled) {
 				commands += `[$(plug) Connect to ${pr.provider.name}${
 					GlyphChars.Ellipsis
@@ -507,7 +507,7 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 			}
 		} else if (pr instanceof Promises.CancellationError) {
 			text = this._options.markdown
-				? `[PR $(sync~spin)](command:${Commands.RefreshHover} "Searching for a Pull Request (if any) that introduced this commit...")`
+				? `[PR $(loading~spin)](command:${Commands.RefreshHover} "Searching for a Pull Request (if any) that introduced this commit...")`
 				: this._options?.pullRequestPendingMessage ?? emptyStr;
 		} else {
 			return this._padOrTruncate(emptyStr, this._options.tokenOptions.pullRequest);

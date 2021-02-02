@@ -132,7 +132,7 @@ export class StatusBarController implements Disposable {
 		if (clear) {
 			this.clearBlame();
 		} else if (this._statusBarBlame != null) {
-			this._statusBarBlame.text = this._statusBarBlame.text.replace('$(git-commit)', '$(sync~spin)');
+			this._statusBarBlame.text = this._statusBarBlame.text.replace('$(git-commit)', '$(loading~spin)');
 		}
 	}
 
@@ -179,7 +179,7 @@ export class StatusBarController implements Disposable {
 			getBranchAndTagTips: getBranchAndTagTips,
 			messageTruncateAtNewLine: true,
 			pullRequestOrRemote: pr,
-			pullRequestPendingMessage: 'PR $(sync~spin)',
+			pullRequestPendingMessage: 'PR $(loading~spin)',
 		})}`;
 
 		switch (cfg.command) {
