@@ -264,7 +264,9 @@ The _Commits_ view lists all of the commits on the current branch, and additiona
   - **Changes to pull from &lt;remote&gt;** &mdash; lists all of the commits waiting to be pulled when the current branch has commits that are waiting to be pulled from the upstream remote
   - **Changes to push to &lt;remote&gt;** &mdash; lists of all the files changed in the unpublished commits when the current branch has (unpublished) commits that waiting to be pushed to the upstream remote
   - **Merging into &lt;branch&gt;** or **Resolve conflicts before merging into &lt;branch&gt;** &mdash; lists any conflicted files. Conflicted files show comparisons with the common base of the current and incoming changes to aid in resolving the conflict by making it easier to see where changes originated
+    ![Merging](https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/commits-view-merge.png)
   - **Rebasing &lt;branch&gt;** or **Resolve conflicts to continue rebasing &lt;branch&gt;** &mdash; shows the number of rebase steps left, the commit the rebase is paused at, and lists any conflicted files. Conflicted files show comparisons with the common base of the current and incoming changes to aid in resolving the conflict by making it easier to see where changes originated
+    ![Rebasing](https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/commits-view-rebase.png)
 - any associated pull request &mdash; shows any opened pull request associated with the current branch
 
 ---
@@ -297,6 +299,8 @@ The Repositories view lists opened Git repositories, and additionally provides,
   - **Up to date with &lt;remote&gt;** &mdash; shown when the current branch is up to date with the upstream remote
   - **Changes to pull from &lt;remote&gt;** &mdash; lists all of the unpulled commits and all of the files changed in them, when the current branch has commits that are waiting to be pulled from the upstream remote
   - **Changes to push to &lt;remote&gt;** &mdash; lists of all the unpublished commits and all of the files changed in them, when the current branch has commits that waiting to be pushed to the upstream remote
+  - **Merging into &lt;branch&gt;** or **Resolve conflicts before merging into &lt;branch&gt;** &mdash; lists any conflicted files. Conflicted files show comparisons with the common base of the current and incoming changes to aid in resolving the conflict by making it easier to see where changes originated
+  - **Rebasing &lt;branch&gt;** or **Resolve conflicts to continue rebasing &lt;branch&gt;** &mdash; shows the number of rebase steps left, the commit the rebase is paused at, and lists any conflicted files. Conflicted files show comparisons with the common base of the current and incoming changes to aid in resolving the conflict by making it easier to see where changes originated
 - any associated pull request &mdash; [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') shows any opened pull request associated with the current branch
 - **Commits** &mdash; [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') shows the current branch commits, similar to the [Commits view](#commits-view- 'Commits view')
 - **Branches** &mdash; [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') shows the local branches, similar to the [Branches view](#branches-view- 'Branches view')
@@ -325,6 +329,7 @@ The file history view lists all of the commits that changed the current file on 
 - (file history only) a toggle to show commits from all branches rather than just from the current base branch or reference
 - merge conflict status when applicable
   - **Merge Changes** &mdash; show comparisons with the common base of the current and incoming changes to aid in resolving the conflict by making it easier to see where changes originated
+    ![Merge Conflicts](https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/file-history-view-merge-conflict.png)
 
 ---
 
