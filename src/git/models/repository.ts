@@ -267,9 +267,9 @@ export class Repository implements Disposable {
 
 			if (Logger.willLog('debug')) {
 				Logger.debug(
-					`Repository[${this.name}(${
+					`Repository(${
 						this.id
-					})] doesn't support file watching; path=${path}, workspaceFolders=${workspace.workspaceFolders
+					}) doesn't support file watching; path=${path}, workspaceFolders=${workspace.workspaceFolders
 						?.map(wf => wf.uri.fsPath)
 						.join('; ')}`,
 				);
@@ -1007,6 +1007,8 @@ export class Repository implements Disposable {
 
 	@debug()
 	private fireChange(...changes: RepositoryChange[]) {
+		const cc = Logger.getCorrelationContext();
+
 		this._updatedAt = Date.now();
 
 		if (this._fireChangeDebounced == null) {
@@ -1018,9 +1020,7 @@ export class Repository implements Disposable {
 		this.onAnyRepositoryChanged(this, new RepositoryChangeEvent(this, changes));
 
 		if (this._suspended) {
-			Logger.debug(
-				`Repository[${this.name}(${this.id})] queueing suspended ${this._pendingRepoChange.toString(true)}`,
-			);
+			Logger.debug(cc, `queueing suspended ${this._pendingRepoChange.toString(true)}`);
 
 			return;
 		}
@@ -1034,12 +1034,14 @@ export class Repository implements Disposable {
 
 		this._pendingRepoChange = undefined;
 
-		Logger.debug(`Repository[${this.name}(${this.id})] firing ${e.toString(true)}`);
+		Logger.debug(`Repository(${this.id}) firing ${e.toString(true)}`);
 		this._onDidChange.fire(e);
 	}
 
 	@debug()
 	private fireFileSystemChange(uri: Uri) {
+		const cc = Logger.getCorrelationContext();
+
 		this._updatedAt = Date.now();
 
 		if (this._fireFileSystemChangeDebounced == null) {
@@ -1054,11 +1056,7 @@ export class Repository implements Disposable {
 		e.uris.push(uri);
 
 		if (this._suspended) {
-			Logger.debug(
-				`Repository[${this.name}(${this.id})] queueing suspended fs changes=${e.uris
-					.map(u => u.fsPath)
-					.join(', ')}`,
-			);
+			Logger.debug(cc, `queueing suspended fs changes=${e.uris.map(u => u.fsPath).join(', ')}`);
 			return;
 		}
 
@@ -1078,7 +1076,7 @@ export class Repository implements Disposable {
 			e = { ...e, uris: uris };
 		}
 
-		Logger.debug(`Repository[${this.name}(${this.id})] firing fs changes=${e.uris.map(u => u.fsPath).join(', ')}`);
+		Logger.debug(`Repository(${this.id}) firing fs changes=${e.uris.map(u => u.fsPath).join(', ')}`);
 
 		this._onDidChangeFileSystem.fire(e);
 	}
@@ -1102,7 +1100,7 @@ export class Repository implements Disposable {
 					this._supportsChangeEvents = true;
 
 					if (Logger.willLog('debug')) {
-						Logger.debug(`Repository[${this.name}(${this.id})] is now using fallback file watching`);
+						Logger.debug(`Repository(${this.id}) is now using fallback file watching`);
 					}
 				} catch {}
 			}
