@@ -18,10 +18,6 @@ import { CommandQuickPickItem, QuickPickItemOfT } from './quickPicksItems';
 import { Dates, Strings } from '../system';
 
 export class GitCommandQuickPickItem extends CommandQuickPickItem<[GitCommandsCommandArgs]> {
-	label!: string;
-	description?: string;
-	detail?: string | undefined;
-
 	constructor(label: string, args: GitCommandsCommandArgs);
 	constructor(item: QuickPickItem, args: GitCommandsCommandArgs);
 	constructor(labelOrItem: string | QuickPickItem, args: GitCommandsCommandArgs) {
