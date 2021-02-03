@@ -1546,16 +1546,16 @@
 				},
 				"gitlens.sortBranchesBy": {
 					"type": "string",
-					"default": "name:desc",
+					"default": "name:asc",
 					"enum": [
-						"name:desc",
 						"name:asc",
+						"name:desc",
 						"date:desc",
 						"date:asc"
 					],
 					"enumDescriptions": [
-						"Sorts branches by name in descending order",
 						"Sorts branches by name in ascending order",
+						"Sorts branches by name in descending order",
 						"Sorts branches by the most recent commit date in descending order",
 						"Sorts branches by the most recent commit date in ascending order"
 					],
@@ -1566,14 +1566,14 @@
 					"type": "string",
 					"default": "date:desc",
 					"enum": [
-						"name:desc",
 						"name:asc",
+						"name:desc",
 						"date:desc",
 						"date:asc"
 					],
 					"enumDescriptions": [
-						"Sorts tags by name in descending order",
 						"Sorts tags by name in ascending order",
+						"Sorts tags by name in descending order",
 						"Sorts tags by date in descending order",
 						"Sorts tags by date in ascending order"
 					],
