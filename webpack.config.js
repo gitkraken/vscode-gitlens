@@ -356,9 +356,9 @@ function getWebviewsConfig(mode, _env) {
 						'imagemin-webp',
 						{
 							lossless: true,
-							nearLossless: mode === 'production' ? 0 : 100,
+							nearLossless: 0,
 							quality: 100,
-							method: mode === 'production' ? 6 : 0,
+							method: mode === 'production' ? 4 : 0,
 						},
 					],
 				],
