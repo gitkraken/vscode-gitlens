@@ -1,6 +1,7 @@
 //@ts-check
 /** @typedef {import('webpack').Configuration} WebpackConfig **/
 
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 /* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable @typescript-eslint/strict-boolean-expressions */
 /* eslint-disable @typescript-eslint/prefer-optional-chain */
@@ -11,6 +12,7 @@ const { CleanWebpackPlugin: CleanPlugin } = require('clean-webpack-plugin');
 const CircularDependencyPlugin = require('circular-dependency-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
 const CspHtmlPlugin = require('csp-html-webpack-plugin');
+const { ESBuildPlugin, ESBuildMinifyPlugin } = require('esbuild-loader');
 const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const HtmlPlugin = require('html-webpack-plugin');
 const HtmlSkipAssetsPlugin = require('html-webpack-skip-assets-plugin').HtmlWebpackSkipAssetsPlugin;
@@ -67,7 +69,7 @@ class InlineChunkHtmlPlugin {
 
 module.exports =
 	/**
-	 * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; } | undefined } env
+	 * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; } | undefined } env
 	 * @param {{ mode: 'production' | 'development' | 'none' | undefined; }} argv
 	 * @returns { WebpackConfig[] }
 	 */
@@ -85,7 +87,7 @@ module.exports =
 
 /**
  * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; }} env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; }} env
  * @returns { WebpackConfig }
  */
 function getExtensionConfig(mode, env) {
@@ -100,6 +102,10 @@ function getExtensionConfig(mode, env) {
 			formatter: 'basic',
 		}),
 	];
+
+	if (env.esbuild) {
+		plugins.push(new ESBuildPlugin());
+	}
 
 	if (env.analyzeDeps) {
 		plugins.push(
@@ -137,17 +143,25 @@ function getExtensionConfig(mode, env) {
 		},
 		optimization: {
 			minimizer: [
-				// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 				// @ts-ignore
-				new TerserPlugin({
-					parallel: true,
-					terserOptions: {
-						ecma: 2019,
-						// Keep the class names otherwise @log won't provide a useful name
-						keep_classnames: true,
-						module: true,
-					},
-				}),
+				env.esbuild
+					? new ESBuildMinifyPlugin({
+							format: 'cjs',
+							minify: true,
+							treeShaking: true,
+							// Keep the class names otherwise @log won't provide a useful name
+							keepNames: true,
+							target: 'es2019',
+					  })
+					: new TerserPlugin({
+							parallel: true,
+							terserOptions: {
+								ecma: 2019,
+								// Keep the class names otherwise @log won't provide a useful name
+								keep_classnames: true,
+								module: true,
+							},
+					  }),
 			],
 			splitChunks: {
 				cacheGroups: {
@@ -164,13 +178,22 @@ function getExtensionConfig(mode, env) {
 					exclude: /\.d\.ts$/,
 					include: path.join(__dirname, 'src'),
 					test: /\.tsx?$/,
-					use: {
-						loader: 'ts-loader',
-						options: {
-							experimentalWatchApi: true,
-							transpileOnly: true,
-						},
-					},
+					use: env.esbuild
+						? {
+								loader: 'esbuild-loader',
+								options: {
+									loader: 'ts',
+									target: 'es2019',
+									tsconfigRaw: require('./tsconfig.json'),
+								},
+						  }
+						: {
+								loader: 'ts-loader',
+								options: {
+									experimentalWatchApi: true,
+									transpileOnly: true,
+								},
+						  },
 				},
 			],
 		},
@@ -202,10 +225,10 @@ function getExtensionConfig(mode, env) {
 
 /**
  * @param { 'production' | 'development' | 'none' } mode
- * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; }} _env
+ * @param {{ analyzeBundle?: boolean; analyzeDeps?: boolean; esbuild?: boolean; }} env
  * @returns { WebpackConfig }
  */
-function getWebviewsConfig(mode, _env) {
+function getWebviewsConfig(mode, env) {
 	const basePath = path.join(__dirname, 'src', 'webviews', 'apps');
 
 	const cspPolicy = {
@@ -366,6 +389,10 @@ function getWebviewsConfig(mode, _env) {
 		}),
 	];
 
+	if (env.esbuild) {
+		plugins.push(new ESBuildPlugin());
+	}
+
 	return {
 		name: 'webviews',
 		context: basePath,
@@ -388,14 +415,24 @@ function getWebviewsConfig(mode, _env) {
 					exclude: /\.d\.ts$/,
 					include: path.join(__dirname, 'src'),
 					test: /\.tsx?$/,
-					use: {
-						loader: 'ts-loader',
-						options: {
-							configFile: path.join(basePath, 'tsconfig.json'),
-							experimentalWatchApi: true,
-							transpileOnly: true,
-						},
-					},
+					use: env.esbuild
+						? {
+								loader: 'esbuild-loader',
+								options: {
+									loader: 'ts',
+									target: 'es2019',
+									// eslint-disable-next-line import/no-dynamic-require
+									tsconfigRaw: require(path.join(basePath, 'tsconfig.json')),
+								},
+						  }
+						: {
+								loader: 'ts-loader',
+								options: {
+									configFile: path.join(basePath, 'tsconfig.json'),
+									experimentalWatchApi: true,
+									transpileOnly: true,
+								},
+						  },
 				},
 				{
 					test: /\.scss$/,

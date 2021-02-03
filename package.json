@@ -9096,12 +9096,13 @@
 		}
 	},
 	"scripts": {
-		"analyze:bundle": "webpack --env.analyzeBundle",
-		"analyze:deps": "webpack --env.analyzeDeps",
+		"analyze:bundle": "webpack --env analyzeBundle",
+		"analyze:deps": "webpack --env analyzeDeps",
 		"build": "webpack --mode development",
 		"build:extension": "webpack --mode development --config-name extension",
 		"build:webviews": "webpack --mode development --config-name webviews",
 		"bundle": "webpack --mode production",
+		"bundle:esbuild": "webpack --mode production --env esbuild",
 		"clean": "git clean -Xdf -e !node_modules -e !node_modules/**/*",
 		"lint": "eslint src/**/*.ts --fix --cache",
 		"pack": "vsce package --yarn",
@@ -9111,13 +9112,13 @@
 		"pub": "vsce publish --yarn",
 		"rebuild": "yarn run reset && yarn run build",
 		"reset": "yarn run clean && yarn --frozen-lockfile",
-		"watch": "webpack --watch --mode development",
+		"watch": "webpack --watch --mode development --env esbuild",
 		"watch:extension": "webpack --watch --mode development --config-name extension",
 		"watch:webviews": "webpack --watch --mode development --config-name webviews",
 		"update-dts": "pushd \"src/@types\" && npx vscode-dts dev && popd",
 		"update-dts:master": "pushd \"src/@types\" && npx vscode-dts master && popd",
 		"update-emoji": "node ./scripts/generateEmojiShortcodeMap.js",
-		"vscode:prepublish": "yarn run bundle"
+		"vscode:prepublish": "yarn run bundle:esbuild"
 	},
 	"dependencies": {
 		"@octokit/graphql": "4.5.9",
@@ -9143,6 +9144,7 @@
 		"copy-webpack-plugin": "7.0.0",
 		"csp-html-webpack-plugin": "5.1.0",
 		"css-loader": "5.0.1",
+		"esbuild-loader": "2.8.0",
 		"eslint": "7.19.0",
 		"eslint-cli": "1.1.1",
 		"eslint-config-prettier": "7.2.0",
