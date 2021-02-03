@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [#1361](https://github.com/eamodio/vscode-gitlens/issues/1361) - Interactive rebase editor fails when opened in a VS Code window that doesn't have the repository opened
 - Fixes [#1357](https://github.com/eamodio/vscode-gitlens/issues/1357) - Branch sorting may be reversed &mdash; thanks to [PR #1358](https://github.com/eamodio/vscode-gitlens/pull/1358) by sueka ([@sueka](https://github.com/sueka))
 
 ## [11.2.0] - 2021-02-02

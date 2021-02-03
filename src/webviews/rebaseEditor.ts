@@ -19,10 +19,10 @@ import { ShowQuickCommitCommand } from '../commands';
 import { configuration } from '../configuration';
 import { BuiltInCommands } from '../constants';
 import { Container } from '../container';
-import { Repository, RepositoryChange, RepositoryChangeComparisonMode } from '../git/git';
+import { RepositoryChange, RepositoryChangeComparisonMode } from '../git/git';
 import { Logger } from '../logger';
 import { Messages } from '../messages';
-import { debug, gate, Iterables } from '../system';
+import { debug, gate, Iterables, Strings } from '../system';
 import {
 	Author,
 	Commit,
@@ -86,7 +86,7 @@ interface RebaseEditorContext {
 	readonly id: number;
 	readonly document: TextDocument;
 	readonly panel: WebviewPanel;
-	readonly repo: Repository;
+	readonly repoPath: string;
 	readonly subscriptions: Disposable[];
 
 	abortOnClose: boolean;
@@ -172,7 +172,8 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 	@debug<RebaseEditorProvider['resolveCustomTextEditor']>({ args: false })
 	async resolveCustomTextEditor(document: TextDocument, panel: WebviewPanel, _token: CancellationToken) {
-		const repo = await this.getRepository(document);
+		const repoPath = Strings.normalizePath(Uri.joinPath(document.uri, '..', '..', '..').fsPath);
+		const repo = await Container.git.getRepository(repoPath);
 
 		const subscriptions: Disposable[] = [];
 		const context: RebaseEditorContext = {
@@ -182,7 +183,7 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 			subscriptions: subscriptions,
 			document: document,
 			panel: panel,
-			repo: repo,
+			repoPath: repo?.path ?? repoPath,
 			abortOnClose: true,
 		};
 
@@ -210,12 +211,17 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 				void this.getStateAndNotify(context);
 			}),
-			repo.onDidChange(e => {
-				if (!e.changed(RepositoryChange.Rebase, RepositoryChangeComparisonMode.Any)) return;
-
-				void this.getStateAndNotify(context);
-			}),
 		);
+
+		if (repo != null) {
+			subscriptions.push(
+				repo.onDidChange(e => {
+					if (!e.changed(RepositoryChange.Rebase, RepositoryChangeComparisonMode.Any)) return;
+
+					void this.getStateAndNotify(context);
+				}),
+			);
+		}
 
 		panel.webview.options = { enableCommandUris: true, enableScripts: true };
 		panel.webview.html = await this.getHtml(context);
@@ -243,8 +249,8 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 	}
 
 	private async parseState(context: RebaseEditorContext): Promise<RebaseState> {
-		const branch = await context.repo.getBranch();
-		const state = await parseRebaseTodo(context.document.getText(), context.repo, branch?.name);
+		const branch = await Container.git.getBranch(context.repoPath);
+		const state = await parseRebaseTodo(context.document.getText(), context.repoPath, branch?.name);
 		return state;
 	}
 
@@ -493,20 +499,11 @@ export class RebaseEditorProvider implements CustomTextEditorProvider, Disposabl
 
 		return html;
 	}
-
-	private async getRepository(document: TextDocument): Promise<Repository> {
-		const repo = await Container.git.getRepository(Uri.joinPath(document.uri, '..', '..', '..'));
-		if (repo == null) {
-			// eslint-disable-next-line no-debugger
-			debugger;
-		}
-		return repo!;
-	}
 }
 
 async function parseRebaseTodo(
 	contents: string | { entries: RebaseEntry[]; onto: string },
-	repo: Repository,
+	repoPath: string,
 	branch: string | undefined,
 ): Promise<Omit<RebaseState, 'rebasing'>> {
 	let onto: string;
@@ -521,7 +518,7 @@ async function parseRebaseTodo(
 	const authors = new Map<string, Author>();
 	const commits: Commit[] = [];
 
-	const log = await repo.searchForCommits({
+	const log = await Container.git.getLogForSearch(repoPath, {
 		pattern: `${onto ? `#:${onto} ` : ''}${Iterables.join(
 			Iterables.map(entries, e => `#:${e.ref}`),
 			' ',
@@ -587,7 +584,7 @@ async function parseRebaseTodo(
 		commits: commits,
 		commands: {
 			// eslint-disable-next-line no-template-curly-in-string
-			commit: ShowQuickCommitCommand.getMarkdownCommandArgs('${commit}', repo.path),
+			commit: ShowQuickCommitCommand.getMarkdownCommandArgs('${commit}', repoPath),
 		},
 	};
 }
