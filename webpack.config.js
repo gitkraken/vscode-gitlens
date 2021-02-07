@@ -15,7 +15,6 @@ const CspHtmlPlugin = require('csp-html-webpack-plugin');
 const { ESBuildPlugin, ESBuildMinifyPlugin } = require('esbuild-loader');
 const ForkTsCheckerPlugin = require('fork-ts-checker-webpack-plugin');
 const HtmlPlugin = require('html-webpack-plugin');
-const HtmlSkipAssetsPlugin = require('html-webpack-skip-assets-plugin').HtmlWebpackSkipAssetsPlugin;
 const ImageMinimizerPlugin = require('image-minimizer-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const TerserPlugin = require('terser-webpack-plugin');
@@ -247,7 +246,17 @@ function getWebviewsConfig(mode, env) {
 	 * @type WebpackConfig['plugins'] | any
 	 */
 	const plugins = [
-		new CleanPlugin(),
+		new CleanPlugin(
+			mode === 'production'
+				? {
+						cleanOnceBeforeBuildPatterns: [
+							path.posix.join(__dirname.replace(/\\/g, '/'), 'images', 'settings', '**'),
+						],
+						dangerouslyAllowCleanPatternsOutsideProject: true,
+						dry: false,
+				  }
+				: undefined,
+		),
 		new ForkTsCheckerPlugin({
 			async: false,
 			eslint: {
@@ -347,7 +356,6 @@ function getWebviewsConfig(mode, env) {
 					  }
 					: false,
 		}),
-		new HtmlSkipAssetsPlugin({}),
 		new CspHtmlPlugin(),
 		new InlineChunkHtmlPlugin(HtmlPlugin, mode === 'production' ? ['\\.css$'] : []),
 		new CopyPlugin({
