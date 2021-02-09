@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [1363](https://github.com/eamodio/vscode-gitlens/issues/1363) - Error 'Unable to open compare', when git setting log.showsignature is active
 - Fixes [1368](https://github.com/eamodio/vscode-gitlens/issues/1368) - Suppress message "GitLens was unable to find Git"
 
 ## [11.2.1] - 2021-02-02

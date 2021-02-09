@@ -915,7 +915,12 @@ export namespace Git {
 			params.push(ref);
 		}
 
-		const data = await git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...params, '--', fileName);
+		const data = await git<string>(
+			{ cwd: repoPath, configs: ['-c', 'log.showSignature=false'], errors: GitErrorHandling.Ignore },
+			...params,
+			'--',
+			fileName,
+		);
 		return data.length === 0 ? undefined : data.trim();
 	}
 
@@ -925,13 +930,16 @@ export namespace Git {
 			params.push('--', file);
 		}
 
-		const data = await git<string>({ cwd: repoPath, errors: GitErrorHandling.Ignore }, ...params);
+		const data = await git<string>(
+			{ cwd: repoPath, configs: ['-c', 'log.showSignature=false'], errors: GitErrorHandling.Ignore },
+			...params,
+		);
 		return data.length === 0 ? undefined : data.trim();
 	}
 
 	export async function log__recent(repoPath: string) {
 		const data = await git<string>(
-			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
+			{ cwd: repoPath, configs: ['-c', 'log.showSignature=false'], errors: GitErrorHandling.Ignore },
 			'log',
 			'-n1',
 			'--format=%H',
@@ -942,7 +950,7 @@ export namespace Git {
 
 	export async function log__recent_committerdate(repoPath: string) {
 		const data = await git<string>(
-			{ cwd: repoPath, errors: GitErrorHandling.Ignore },
+			{ cwd: repoPath, configs: ['-c', 'log.showSignature=false'], errors: GitErrorHandling.Ignore },
 			'log',
 			'-n1',
 			'--format=%ct',
@@ -969,7 +977,11 @@ export namespace Git {
 			params.push(`--skip=${skip}`);
 		}
 
-		return git<string>({ cwd: repoPath }, ...params, ...search);
+		return git<string>(
+			{ cwd: repoPath, configs: useShow ? undefined : ['-c', 'log.showSignature=false'] },
+			...params,
+			...search,
+		);
 	}
 
 	// export function log__shortstat(repoPath: string, options: { ref?: string }) {
@@ -977,7 +989,7 @@ export namespace Git {
 	//     if (options.ref && !GitRevision.isUncommittedStaged(options.ref)) {
 	//         params.push(options.ref);
 	//     }
-	//     return git<string>({ cwd: repoPath }, ...params, '--');
+	//     return git<string>({ cwd: repoPath, configs: ['-c', 'log.showSignature=false'] }, ...params, '--');
 	// }
 
 	export async function ls_files(
@@ -1041,7 +1053,7 @@ export namespace Git {
 			params.push(branch);
 		}
 
-		return git<string>({ cwd: repoPath }, ...params, '--');
+		return git<string>({ cwd: repoPath, configs: ['-c', 'log.showSignature=false'] }, ...params, '--');
 	}
 
 	export function remote(repoPath: string): Promise<string> {
