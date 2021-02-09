@@ -301,12 +301,38 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 
 		commands = `---\n\n[$(git-commit) ${this.id}](${ShowQuickCommitCommand.getMarkdownCommandArgs(
 			this._item.sha,
-		)} "Show Commit")${separator}`;
+		)} "Show Commit")`;
+
+		commands += ` &nbsp;&nbsp;[$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs(
+			this._item,
+			this._options.editor?.line,
+		)} "Open Changes")`;
+
+		if (this._item.previousSha != null) {
+			const uri = GitUri.toRevisionUri(
+				this._item.previousSha,
+				this._item.previousUri.fsPath,
+				this._item.repoPath,
+			);
+			commands += ` &nbsp;&nbsp;[$(versions)](${OpenFileAtRevisionCommand.getMarkdownCommandArgs(
+				uri,
+				FileAnnotationType.Blame,
+				this._options.editor?.line,
+			)} "Open Blame Prior to this Change")`;
+		}
+
+		if (this._options.remotes != null && this._options.remotes.length !== 0) {
+			const providers = GitRemote.getHighlanderProviders(this._options.remotes);
+
+			commands += ` &nbsp;&nbsp;[$(globe)](${OpenCommitOnRemoteCommand.getMarkdownCommandArgs(
+				this._item.sha,
+			)} "Open Commit on ${providers?.length ? providers[0].name : 'Remote'}")`;
+		}
 
 		const { pullRequestOrRemote: pr } = this._options;
 		if (pr != null) {
 			if (PullRequest.is(pr)) {
-				commands += `[$(git-pull-request) PR #${
+				commands += `${separator}[$(git-pull-request) PR #${
 					pr.id
 				}](${getMarkdownActionCommand<OpenPullRequestActionContext>('openPullRequest', {
 					repoPath: this._item.repoPath,
@@ -316,46 +342,20 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					Container.actionRunners.count('openPullRequest') == 1 ? ` on ${pr.provider.name}` : '...'
 				}\n${GlyphChars.Dash.repeat(2)}\n${Strings.escapeMarkdown(pr.title).replace(/"/g, '\\"')}\n${
 					pr.state
-				}, ${pr.formatDateFromNow()}")${separator}`;
+				}, ${pr.formatDateFromNow()}")`;
 			} else if (pr instanceof Promises.CancellationError) {
-				commands += `[$(git-pull-request) PR $(loading~spin)](command:${Commands.RefreshHover} "Searching for a Pull Request (if any) that introduced this commit...")${separator}`;
+				commands += `[$(git-pull-request) PR $(loading~spin)](command:${Commands.RefreshHover} "Searching for a Pull Request (if any) that introduced this commit...")`;
 			} else if (pr.provider != null && Container.config.integrations.enabled) {
 				commands += `[$(plug) Connect to ${pr.provider.name}${
 					GlyphChars.Ellipsis
 				}](${ConnectRemoteProviderCommand.getMarkdownCommandArgs(pr)} "Connect to ${
 					pr.provider.name
-				} to enable the display of the Pull Request (if any) that introduced this commit")${separator}`;
+				} to enable the display of the Pull Request (if any) that introduced this commit")`;
 			}
 		}
 
-		commands += `[$(compare-changes)](${DiffWithCommand.getMarkdownCommandArgs(
-			this._item,
-			this._options.editor?.line,
-		)} "Open Changes")${separator}`;
-
-		if (this._item.previousSha != null) {
-			const uri = GitUri.toRevisionUri(
-				this._item.previousSha,
-				this._item.previousUri.fsPath,
-				this._item.repoPath,
-			);
-			commands += `[$(history)](${OpenFileAtRevisionCommand.getMarkdownCommandArgs(
-				uri,
-				FileAnnotationType.Blame,
-				this._options.editor?.line,
-			)} "Blame Previous Revision")${separator}`;
-		}
-
-		if (this._options.remotes != null && this._options.remotes.length !== 0) {
-			const providers = GitRemote.getHighlanderProviders(this._options.remotes);
-
-			commands += `[$(globe)](${OpenCommitOnRemoteCommand.getMarkdownCommandArgs(
-				this._item.sha,
-			)} "Open Commit on ${providers?.length ? providers[0].name : 'Remote'}")${separator}`;
-		}
-
 		if (Container.actionRunners.count('hover.commands') > 0) {
-			commands += `[$(feedback) Discuss / Collab${
+			commands += `${separator}[$(feedback) Discuss / Collab${
 				GlyphChars.Ellipsis
 			}](${getMarkdownActionCommand<HoverCommandsActionContext>('hover.commands', {
 				repoPath: this._item.repoPath,
@@ -374,10 +374,10 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 								line: this._options.editor?.line,
 						  }
 						: undefined,
-			})} "Want to Discuss or Collaborate? Have Comments, Questions, or Need Help?")${separator}`;
+			})} "Want to Discuss or Collaborate? Have Comments, Questions, or Need Help?")`;
 		}
 
-		commands += `[$(ellipsis)](${ShowQuickCommitFileCommand.getMarkdownCommandArgs({
+		commands += `${separator}[$(ellipsis)](${ShowQuickCommitFileCommand.getMarkdownCommandArgs({
 			revisionUri: GitUri.toRevisionUri(this._item.toGitUri()).toString(true),
 		})} "Show More Actions")`;
 

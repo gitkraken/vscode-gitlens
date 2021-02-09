@@ -620,6 +620,7 @@ Additionally, these integrations provide commands to copy the url of or open, fi
 - Adds an _Open File_ command (`gitlens.openWorkingFile`) to open the working file for the current file revision
 - Adds an _Open Revision..._ command (`gitlens.openFileRevision`) to open the selected revision for the current file
 - Adds an _Open Revision from..._ command (`gitlens.openFileRevisionFrom`) to open the revision of the current file from the selected reference
+- Adds an _Open Blame Prior to Change_ command (`gitlens.openBlamePriorToChange`) to open the blame of prior revision of the selected line in the current file
 
 - Adds a _Open Changed Files_ command (`gitlens.openChangedFiles`) to open any files with working tree changes
 - Adds a _Close Unchanged Files_ command (`gitlens.closeUnchangedFiles`) to close any files without working tree changes

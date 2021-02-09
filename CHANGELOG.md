@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Adds a new _Open Blame Prior to Change_ command (`gitlens.openBlamePriorToChange`) to open the blame of prior revision of the selected line in the current file &mdash; closes [#1014](https://github.com/eamodio/vscode-gitlens/issues/1014)
+
+### Changed
+
+- Changes the _Blame Previous Revision_ command on the hover to _Open Blame Prior to this Change_
+- Changes the _Blame Previous Revision_ command icon on the hover to the `versions` codicon
+
 ## [11.2.1] - 2021-02-02
 
 ### Changed

@@ -159,6 +159,7 @@
 		"onCommand:gitlens.copyRemoteFileUrlToClipboard",
 		"onCommand:gitlens.openFileOnRemoteFrom",
 		"onCommand:gitlens.copyRemoteFileUrlFrom",
+		"onCommand:gitlens.openBlamePriorToChange",
 		"onCommand:gitlens.openFileRevision",
 		"onCommand:gitlens.openFileRevisionFrom",
 		"onCommand:gitlens.openPullRequestOnRemote",
@@ -3436,6 +3437,12 @@
 				}
 			},
 			{
+				"command": "gitlens.openBlamePriorToChange",
+				"title": "Open Blame Prior to Change",
+				"icon": "$(versions)",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.openFileRevision",
 				"title": "Open File at Revision...",
 				"icon": {
@@ -5239,6 +5246,10 @@
 				{
 					"command": "gitlens.copyRemoteFileUrlFrom",
 					"when": "gitlens:activeFileStatus =~ /tracked/ && gitlens:activeFileStatus =~ /remotes/"
+				},
+				{
+					"command": "gitlens.openBlamePriorToChange",
+					"when": "gitlens:activeFileStatus =~ /tracked/"
 				},
 				{
 					"command": "gitlens.openFileRevision",
