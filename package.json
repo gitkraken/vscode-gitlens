@@ -18,7 +18,7 @@
 		"url": "https://github.com/eamodio/vscode-gitlens.git"
 	},
 	"engines": {
-		"vscode": "^1.52.0"
+		"vscode": "^1.53.0"
 	},
 	"main": "./dist/gitlens",
 	"icon": "images/gitlens-icon.png",
