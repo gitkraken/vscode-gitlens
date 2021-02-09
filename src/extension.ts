@@ -133,9 +133,7 @@ export async function activate(context: ExtensionContext): Promise<GitLensApi | 
 
 		const msg: string = ex?.message ?? '';
 		if (msg.includes('Unable to find git')) {
-			await window.showErrorMessage(
-				"GitLens was unable to find Git. Please make sure Git is installed. Also ensure that Git is either in the PATH, or that 'git.path' is pointed to its installed location.",
-			);
+			void Messages.showGitMissingErrorMessage();
 		}
 
 		return undefined;

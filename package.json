@@ -2496,6 +2496,7 @@
 						"suppressCreatePullRequestPrompt": false,
 						"suppressFileNotUnderSourceControlWarning": false,
 						"suppressGitDisabledWarning": false,
+						"suppressGitMissingWarning": false,
 						"suppressGitVersionWarning": false,
 						"suppressImproperWorkspaceCasingWarning": false,
 						"suppressLineUncommittedWarning": false,
@@ -2520,6 +2521,10 @@
 							"default": false
 						},
 						"suppressGitDisabledWarning": {
+							"type": "boolean",
+							"default": false
+						},
+						"suppressGitMissingWarning": {
 							"type": "boolean",
 							"default": false
 						},

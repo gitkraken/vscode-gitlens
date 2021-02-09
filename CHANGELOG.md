@@ -15,6 +15,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Changes the _Blame Previous Revision_ command on the hover to _Open Blame Prior to this Change_
 - Changes the _Blame Previous Revision_ command icon on the hover to the `versions` codicon
 
+### Fixed
+
+- Fixes [1368](https://github.com/eamodio/vscode-gitlens/issues/1368) - Suppress message "GitLens was unable to find Git"
+
 ## [11.2.1] - 2021-02-02
 
 ### Changed

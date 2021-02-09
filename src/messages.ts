@@ -10,6 +10,7 @@ export enum SuppressedMessages {
 	CreatePullRequestPrompt = 'suppressCreatePullRequestPrompt',
 	FileNotUnderSourceControlWarning = 'suppressFileNotUnderSourceControlWarning',
 	GitDisabledWarning = 'suppressGitDisabledWarning',
+	GitMissingWarning = 'suppressGitMissingWarning',
 	GitVersionWarning = 'suppressGitVersionWarning',
 	IncorrectWorkspaceCasingWarning = 'suppressImproperWorkspaceCasingWarning',
 	LineUncommittedWarning = 'suppressLineUncommittedWarning',
@@ -82,6 +83,14 @@ export class Messages {
 			'error',
 			'GitLens requires Git to be enabled. Please re-enable Git \u2014 set `git.enabled` to true and reload.',
 			SuppressedMessages.GitDisabledWarning,
+		);
+	}
+
+	static showGitMissingErrorMessage() {
+		return Messages.showMessage(
+			'error',
+			"GitLens was unable to find Git. Please make sure Git is installed. Also ensure that Git is either in the PATH, or that 'git.path' is pointed to its installed location.",
+			SuppressedMessages.GitMissingWarning,
 		);
 	}
 

@@ -306,6 +306,7 @@ export interface AdvancedConfig {
 		suppressCreatePullRequestPrompt: boolean;
 		suppressFileNotUnderSourceControlWarning: boolean;
 		suppressGitDisabledWarning: boolean;
+		suppressGitMissingWarning: boolean;
 		suppressGitVersionWarning: boolean;
 		suppressImproperWorkspaceCasingWarning: boolean;
 		suppressLineUncommittedWarning: boolean;
