@@ -223,7 +223,7 @@ Here are just some of the **features** that GitLens provides,
 </p>
 
 - Adds an on-demand, [customizable](#gutter-changes-settings- 'Jump to the Gutter Changes settings') and [themable](#themable-colors- 'Jump to Themable Colors'), **gutter changes annotation** to highlight any local (unpublished) changes or lines changed by the most recent commit
-  - Adds _Toggle File Changes Annotations_ command (`gitlens.toggleFileChanges`) to toggle the changes annotations on and off
+  - Adds _Toggle File Changes_ command (`gitlens.toggleFileChanges`) to toggle the changes annotations on and off
   - Press `Escape` to turn off the annotations
 
 ## Gutter Heatmap [#](#gutter-heatmap- 'Gutter Heatmap')
