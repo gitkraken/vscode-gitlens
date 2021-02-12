@@ -5,7 +5,6 @@ import * as relativeTime from 'dayjs/plugin/relativeTime';
 import * as updateLocale from 'dayjs/plugin/updateLocale';
 
 dayjs.extend(advancedFormat.default);
-dayjs.extend(relativeTime.default);
 dayjs.extend(relativeTime.default, {
 	thresholds: [
 		{ l: 's', r: 44, d: 'second' },
