@@ -78,6 +78,7 @@ module.exports =
 		env = {
 			analyzeBundle: false,
 			analyzeDeps: false,
+			esbuild: false,
 			...env,
 		};
 
