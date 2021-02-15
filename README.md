@@ -1049,6 +1049,7 @@ A big thanks to the people that have contributed to this project:
 - Connor Peet ([@connor4312](https://github.com/connor4312)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=connor4312)
 - Maxim Pekurin ([@pmaxim25](https://github.com/pmaxim25)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=pmaxim25)
 - Arunprasad Rajkumar ([@arajkumar](https://github.com/arajkumar)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=arajkumar)
+- David Rees ([@studgeek](https://github.com/studgeek)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=studgeek)
 - Rickard ([@rickardp](https://github.com/rickardp)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=rickardp)
 - Johannes Rieken ([@jrieken](https://github.com/jrieken)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=jrieken)
 - Guillaume Rozan ([@rozangu1](https://github.com/rozangu1)) &mdash; [contributions](https://github.com/eamodio/vscode-gitlens/commits?author=rozangu1)
