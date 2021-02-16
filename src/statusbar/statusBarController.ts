@@ -183,8 +183,12 @@ export class StatusBarController implements Disposable {
 		})}`;
 
 		switch (cfg.command) {
-			case StatusBarCommand.ToggleFileBlame:
-				this._statusBarBlame.tooltip = 'Toggle File Blame Annotations';
+			case StatusBarCommand.CopyRemoteCommitUrl:
+				this._statusBarBlame.tooltip = 'Copy Remote Commit Url';
+				break;
+			case StatusBarCommand.CopyRemoteFileUrl:
+				this._statusBarBlame.command = Commands.CopyRemoteFileUrl;
+				this._statusBarBlame.tooltip = 'Copy Remote File Revision Url';
 				break;
 			case StatusBarCommand.DiffWithPrevious:
 				this._statusBarBlame.command = Commands.DiffLineWithPrevious;
@@ -194,8 +198,11 @@ export class StatusBarController implements Disposable {
 				this._statusBarBlame.command = Commands.DiffLineWithWorking;
 				this._statusBarBlame.tooltip = 'Open Line Changes with Working File';
 				break;
-			case StatusBarCommand.ToggleCodeLens:
-				this._statusBarBlame.tooltip = 'Toggle Git CodeLens';
+			case StatusBarCommand.OpenCommitOnRemote:
+				this._statusBarBlame.tooltip = 'Open Commit on Remote';
+				break;
+			case StatusBarCommand.OpenFileOnRemote:
+				this._statusBarBlame.tooltip = 'Open Revision on Remote';
 				break;
 			case StatusBarCommand.RevealCommitInView:
 				this._statusBarBlame.tooltip = 'Reveal Commit in the Side Bar';
@@ -209,11 +216,17 @@ export class StatusBarController implements Disposable {
 			case StatusBarCommand.ShowQuickCommitFileDetails:
 				this._statusBarBlame.tooltip = 'Show Commit (file)';
 				break;
+			case StatusBarCommand.ShowQuickCurrentBranchHistory:
+				this._statusBarBlame.tooltip = 'Show Branch History';
+				break;
 			case StatusBarCommand.ShowQuickFileHistory:
 				this._statusBarBlame.tooltip = 'Show File History';
 				break;
-			case StatusBarCommand.ShowQuickCurrentBranchHistory:
-				this._statusBarBlame.tooltip = 'Show Branch History';
+			case StatusBarCommand.ToggleCodeLens:
+				this._statusBarBlame.tooltip = 'Toggle Git CodeLens';
+				break;
+			case StatusBarCommand.ToggleFileBlame:
+				this._statusBarBlame.tooltip = 'Toggle File Blame';
 				break;
 		}
 

@@ -34,7 +34,7 @@ import {
 } from '../configuration';
 import { BuiltInCommands, DocumentSchemes } from '../constants';
 import { Container } from '../container';
-import { GitBlame, GitBlameLines, GitCommit } from '../git/git';
+import { GitBlame, GitBlameLines, GitCommit, RemoteResourceType } from '../git/git';
 import { GitService } from '../git/gitService';
 import { GitUri } from '../git/gitUri';
 import { Logger } from '../logger';
@@ -521,8 +521,26 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		}
 
 		switch (lens.desiredCommand) {
+			case CodeLensCommand.CopyRemoteCommitUrl:
+				return this.applyCopyOrOpenCommitOnRemoteCommand<GitRecentChangeCodeLens>(
+					title,
+					lens,
+					recentCommit,
+					true,
+				);
+			case CodeLensCommand.CopyRemoteFileUrl:
+				return this.applyCopyOrOpenFileOnRemoteCommand<GitRecentChangeCodeLens>(
+					title,
+					lens,
+					recentCommit,
+					true,
+				);
 			case CodeLensCommand.DiffWithPrevious:
 				return this.applyDiffWithPreviousCommand<GitRecentChangeCodeLens>(title, lens, recentCommit);
+			case CodeLensCommand.OpenCommitOnRemote:
+				return this.applyCopyOrOpenCommitOnRemoteCommand<GitRecentChangeCodeLens>(title, lens, recentCommit);
+			case CodeLensCommand.OpenFileOnRemote:
+				return this.applyCopyOrOpenFileOnRemoteCommand<GitRecentChangeCodeLens>(title, lens, recentCommit);
 			case CodeLensCommand.RevealCommitInView:
 				return this.applyRevealCommitInViewCommand<GitRecentChangeCodeLens>(title, lens, recentCommit);
 			case CodeLensCommand.ShowCommitsInView:
@@ -572,8 +590,16 @@ export class GitCodeLensProvider implements CodeLensProvider {
 			Iterables.find(blame.commits.values(), c => c.author === author) ?? Iterables.first(blame.commits.values());
 
 		switch (lens.desiredCommand) {
+			case CodeLensCommand.CopyRemoteCommitUrl:
+				return this.applyCopyOrOpenCommitOnRemoteCommand<GitAuthorsCodeLens>(title, lens, commit, true);
+			case CodeLensCommand.CopyRemoteFileUrl:
+				return this.applyCopyOrOpenFileOnRemoteCommand<GitAuthorsCodeLens>(title, lens, commit, true);
 			case CodeLensCommand.DiffWithPrevious:
 				return this.applyDiffWithPreviousCommand<GitAuthorsCodeLens>(title, lens, commit);
+			case CodeLensCommand.OpenCommitOnRemote:
+				return this.applyCopyOrOpenCommitOnRemoteCommand<GitAuthorsCodeLens>(title, lens, commit);
+			case CodeLensCommand.OpenFileOnRemote:
+				return this.applyCopyOrOpenFileOnRemoteCommand<GitAuthorsCodeLens>(title, lens, commit);
 			case CodeLensCommand.RevealCommitInView:
 				return this.applyRevealCommitInViewCommand<GitAuthorsCodeLens>(title, lens, commit);
 			case CodeLensCommand.ShowCommitsInView:
@@ -606,6 +632,51 @@ export class GitCodeLensProvider implements CodeLensProvider {
 			title: title,
 			command: Commands.DiffWithPrevious,
 			arguments: [undefined, commandArgs],
+		};
+		return lens;
+	}
+
+	private applyCopyOrOpenCommitOnRemoteCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(
+		title: string,
+		lens: T,
+		commit: GitCommit,
+		clipboard: boolean = false,
+	): T {
+		const commandArgs: OpenOnRemoteCommandArgs = {
+			resource: {
+				type: RemoteResourceType.Commit,
+				sha: commit.sha,
+			},
+			repoPath: commit.repoPath,
+			clipboard: clipboard,
+		};
+		lens.command = {
+			title: title,
+			command: Commands.OpenOnRemote,
+			arguments: [commandArgs],
+		};
+		return lens;
+	}
+
+	private applyCopyOrOpenFileOnRemoteCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(
+		title: string,
+		lens: T,
+		commit: GitCommit,
+		clipboard: boolean = false,
+	): T {
+		const commandArgs: OpenOnRemoteCommandArgs = {
+			resource: {
+				type: RemoteResourceType.Revision,
+				fileName: commit.fileName,
+				sha: commit.sha,
+			},
+			repoPath: commit.repoPath,
+			clipboard: clipboard,
+		};
+		lens.command = {
+			title: title,
+			command: Commands.OpenOnRemote,
+			arguments: [commandArgs],
 		};
 		return lens;
 	}

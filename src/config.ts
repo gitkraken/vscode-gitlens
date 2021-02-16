@@ -182,7 +182,11 @@ export enum ChangesLocations {
 }
 
 export enum CodeLensCommand {
+	CopyRemoteCommitUrl = 'gitlens.copyRemoteCommitUrl',
+	CopyRemoteFileUrl = 'gitlens.copyRemoteFileUrl',
 	DiffWithPrevious = 'gitlens.diffWithPrevious',
+	OpenCommitOnRemote = 'gitlens.openCommitOnRemote',
+	OpenFileOnRemote = 'gitlens.openFileOnRemote',
 	RevealCommitInView = 'gitlens.revealCommitInView',
 	ShowCommitsInView = 'gitlens.showCommitsInView',
 	ShowQuickCommitDetails = 'gitlens.showQuickCommitDetails',
@@ -248,8 +252,12 @@ export enum KeyMap {
 }
 
 export enum StatusBarCommand {
+	CopyRemoteCommitUrl = 'gitlens.copyRemoteCommitUrl',
+	CopyRemoteFileUrl = 'gitlens.copyRemoteFileUrl',
 	DiffWithPrevious = 'gitlens.diffWithPrevious',
 	DiffWithWorking = 'gitlens.diffWithWorking',
+	OpenCommitOnRemote = 'gitlens.openCommitOnRemote',
+	OpenFileOnRemote = 'gitlens.openFileOnRemote',
 	RevealCommitInView = 'gitlens.revealCommitInView',
 	ShowCommitsInView = 'gitlens.showCommitsInView',
 	ShowQuickCommitDetails = 'gitlens.showQuickCommitDetails',
