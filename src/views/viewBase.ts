@@ -224,7 +224,7 @@ export abstract class ViewBase<
 			this._onDidChangeTreeData = new EventEmitter<ViewNode>();
 		}
 
-		this.tree = window.createTreeView(this.id, {
+		this.tree = window.createTreeView<ViewNode<View>>(this.id, {
 			...options,
 			treeDataProvider: this,
 		});
