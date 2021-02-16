@@ -558,7 +558,7 @@ export namespace GitActions {
 
 			const editor = await findOrOpenEditor(uri, opts);
 			if (annotationType != null && editor != null) {
-				void (await Container.fileAnnotations.show(editor, annotationType, line));
+				void (await Container.fileAnnotations.show(editor, annotationType, { selection: { line: line } }));
 			}
 		}
 

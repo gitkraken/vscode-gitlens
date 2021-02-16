@@ -21,18 +21,12 @@ class TextEditorComparer extends Comparer<TextEditor> {
 	equals(
 		lhs: TextEditor | undefined,
 		rhs: TextEditor | undefined,
-		options: { useId: boolean; usePosition: boolean } = { useId: false, usePosition: false },
+		options: { usePosition: boolean } = { usePosition: false },
 	) {
 		if (lhs === rhs) return true;
 		if (lhs == null || rhs == null) return false;
 
 		if (options.usePosition && lhs.viewColumn !== rhs.viewColumn) return false;
-
-		if (options.useId && (lhs.document != null || rhs.document != null)) {
-			if ((lhs as any).id !== (rhs as any).id) return false;
-
-			return true;
-		}
 
 		return lhs.document === rhs.document;
 	}

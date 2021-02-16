@@ -18,7 +18,12 @@ import {
 	window,
 	workspace,
 } from 'vscode';
-import { AnnotationProviderBase, AnnotationStatus, TextEditorCorrelationKey } from './annotationProvider';
+import {
+	AnnotationContext,
+	AnnotationProviderBase,
+	AnnotationStatus,
+	TextEditorCorrelationKey,
+} from './annotationProvider';
 import {
 	AnnotationsToggleMode,
 	BlameHighlightLocations,
@@ -29,7 +34,7 @@ import {
 import { Colors, ContextKeys, isTextEditor, setContext } from '../constants';
 import { Container } from '../container';
 import { GutterBlameAnnotationProvider } from './gutterBlameAnnotationProvider';
-import { GutterChangesAnnotationProvider } from './gutterChangesAnnotationProvider';
+import { ChangesAnnotationContext, GutterChangesAnnotationProvider } from './gutterChangesAnnotationProvider';
 import { GutterHeatmapBlameAnnotationProvider } from './gutterHeatmapBlameAnnotationProvider';
 import { KeyboardScope } from '../keyboard';
 import { Logger } from '../logger';
@@ -72,7 +77,7 @@ export class FileAnnotationController implements Disposable {
 	private _editor: TextEditor | undefined;
 	private _keyboardScope: KeyboardScope | undefined = undefined;
 	private readonly _toggleModes: Map<FileAnnotationType, AnnotationsToggleMode>;
-	private _annotationType: FileAnnotationType | undefined = undefined;
+	private _windowAnnotationType?: FileAnnotationType | undefined = undefined;
 
 	constructor() {
 		this._disposable = Disposable.from(configuration.onDidChange(this.onConfigurationChanged, this));
@@ -235,7 +240,7 @@ export class FileAnnotationController implements Disposable {
 		// Logger.log('AnnotationController.onActiveTextEditorChanged', editor && editor.document.uri.fsPath);
 
 		if (this.isInWindowToggle()) {
-			await this.show(editor, this._annotationType!);
+			await this.show(editor, this._windowAnnotationType!);
 
 			return;
 		}
@@ -306,9 +311,8 @@ export class FileAnnotationController implements Disposable {
 			void provider.restore(e);
 		}
 	}
-
 	isInWindowToggle(): boolean {
-		return this.getToggleMode(this._annotationType) === AnnotationsToggleMode.Window;
+		return this.getToggleMode(this._windowAnnotationType) === AnnotationsToggleMode.Window;
 	}
 
 	private getToggleMode(annotationType: FileAnnotationType | undefined): AnnotationsToggleMode {
@@ -326,7 +330,7 @@ export class FileAnnotationController implements Disposable {
 	}
 
 	async clearAll() {
-		this._annotationType = undefined;
+		this._windowAnnotationType = undefined;
 		for (const [key] of this._annotationProviders) {
 			await this.clearCore(key, AnnotationClearReason.Disposing);
 		}
@@ -347,18 +351,22 @@ export class FileAnnotationController implements Disposable {
 		return this._annotationProviders.get(AnnotationProviderBase.getCorrelationKey(editor));
 	}
 
+	async show(editor: TextEditor | undefined, type: FileAnnotationType, context?: AnnotationContext): Promise<boolean>;
+	async show(
+		editor: TextEditor | undefined,
+		type: FileAnnotationType.Changes,
+		context?: ChangesAnnotationContext,
+	): Promise<boolean>;
 	async show(
 		editor: TextEditor | undefined,
 		type: FileAnnotationType,
-		shaOrLine?: string | number,
+		context?: AnnotationContext | ChangesAnnotationContext,
 	): Promise<boolean> {
 		if (this.getToggleMode(type) === AnnotationsToggleMode.Window) {
-			let first = this._annotationType == null;
-			const reset =
-				(!first && this._annotationType !== type) ||
-				(this._annotationType === FileAnnotationType.Changes && typeof shaOrLine === 'string');
+			let first = this._windowAnnotationType == null;
+			const reset = !first && this._windowAnnotationType !== type;
 
-			this._annotationType = type;
+			this._windowAnnotationType = type;
 
 			if (reset) {
 				await this.clearAll();
@@ -382,8 +390,8 @@ export class FileAnnotationController implements Disposable {
 
 		const currentProvider = this.getProvider(editor);
 		if (currentProvider?.annotationType === type) {
-			await currentProvider.provideAnnotation(shaOrLine);
-			await currentProvider.selection(shaOrLine);
+			await currentProvider.provideAnnotation(context);
+			await currentProvider.selection(context?.selection);
 			return true;
 		}
 
@@ -392,13 +400,7 @@ export class FileAnnotationController implements Disposable {
 			async (progress: Progress<{ message: string }>) => {
 				await setContext(ContextKeys.AnnotationStatus, AnnotationStatus.Computing);
 
-				const computingAnnotations = this.showAnnotationsCore(
-					currentProvider,
-					editor,
-					type,
-					shaOrLine,
-					progress,
-				);
+				const computingAnnotations = this.showAnnotationsCore(currentProvider, editor, type, context, progress);
 				const provider = await computingAnnotations;
 
 				if (editor === this._editor) {
@@ -415,7 +417,19 @@ export class FileAnnotationController implements Disposable {
 	async toggle(
 		editor: TextEditor | undefined,
 		type: FileAnnotationType,
-		shaOrLine?: string | number,
+		context?: AnnotationContext,
+		on?: boolean,
+	): Promise<boolean>;
+	async toggle(
+		editor: TextEditor | undefined,
+		type: FileAnnotationType.Changes,
+		context?: ChangesAnnotationContext,
+		on?: boolean,
+	): Promise<boolean>;
+	async toggle(
+		editor: TextEditor | undefined,
+		type: FileAnnotationType,
+		context?: AnnotationContext | ChangesAnnotationContext,
 		on?: boolean,
 	): Promise<boolean> {
 		if (editor != null) {
@@ -426,10 +440,9 @@ export class FileAnnotationController implements Disposable {
 		}
 
 		const provider = this.getProvider(editor);
-		if (provider == null) return this.show(editor, type, shaOrLine);
+		if (provider == null) return this.show(editor, type, context);
 
-		const reopen =
-			provider.annotationType !== type || (type === FileAnnotationType.Changes && typeof shaOrLine === 'string');
+		const reopen = provider.annotationType !== type || provider.mustReopen(context);
 		if (on === true && !reopen) return true;
 
 		if (this.isInWindowToggle()) {
@@ -440,7 +453,7 @@ export class FileAnnotationController implements Disposable {
 
 		if (!reopen) return false;
 
-		return this.show(editor, type, shaOrLine);
+		return this.show(editor, type, context);
 	}
 
 	private async attachKeyboardHook() {
@@ -495,7 +508,7 @@ export class FileAnnotationController implements Disposable {
 		currentProvider: AnnotationProviderBase | undefined,
 		editor: TextEditor,
 		type: FileAnnotationType,
-		shaOrLine?: string | number,
+		context?: AnnotationContext | ChangesAnnotationContext,
 		progress?: Progress<{ message: string }>,
 	): Promise<AnnotationProviderBase | undefined> {
 		if (progress != null) {
@@ -558,7 +571,7 @@ export class FileAnnotationController implements Disposable {
 		}
 
 		this._annotationProviders.set(provider.correlationKey, provider);
-		if (await provider.provideAnnotation(shaOrLine)) {
+		if (await provider.provideAnnotation(context)) {
 			this._onDidToggleAnnotations.fire();
 			return provider;
 		}

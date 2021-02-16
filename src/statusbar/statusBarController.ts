@@ -9,8 +9,8 @@ import {
 	TextEditor,
 	window,
 } from 'vscode';
-import { Commands } from '../commands';
-import { configuration, StatusBarCommand } from '../configuration';
+import { Commands, ToggleFileChangesAnnotationCommandArgs } from '../commands';
+import { configuration, FileAnnotationType, StatusBarCommand } from '../configuration';
 import { GlyphChars, isTextEditor } from '../constants';
 import { Container } from '../container';
 import { CommitFormatter, GitBlameCommit, PullRequest } from '../git/git';
@@ -227,6 +227,35 @@ export class StatusBarController implements Disposable {
 				break;
 			case StatusBarCommand.ToggleFileBlame:
 				this._statusBarBlame.tooltip = 'Toggle File Blame';
+				break;
+			case StatusBarCommand.ToggleFileChanges: {
+				const commandArgs: ToggleFileChangesAnnotationCommandArgs = {
+					type: FileAnnotationType.Changes,
+					context: { sha: commit.sha, only: false, selection: false },
+				};
+				this._statusBarBlame.command = {
+					title: 'Toggle File Changes',
+					command: Commands.ToggleFileChanges,
+					arguments: [commit.uri, commandArgs],
+				};
+				this._statusBarBlame.tooltip = 'Toggle File Changes';
+				break;
+			}
+			case StatusBarCommand.ToggleFileChangesOnly: {
+				const commandArgs: ToggleFileChangesAnnotationCommandArgs = {
+					type: FileAnnotationType.Changes,
+					context: { sha: commit.sha, only: true, selection: false },
+				};
+				this._statusBarBlame.command = {
+					title: 'Toggle File Changes',
+					command: Commands.ToggleFileChanges,
+					arguments: [commit.uri, commandArgs],
+				};
+				this._statusBarBlame.tooltip = 'Toggle File Changes';
+				break;
+			}
+			case StatusBarCommand.ToggleFileHeatmap:
+				this._statusBarBlame.tooltip = 'Toggle File Heatmap';
 				break;
 		}
 

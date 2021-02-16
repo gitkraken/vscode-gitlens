@@ -1,18 +1,25 @@
 'use strict';
-import { Range, TextEditorDecorationType } from 'vscode';
+import { Range, TextEditor, TextEditorDecorationType } from 'vscode';
 import { Annotations } from './annotations';
+import { AnnotationContext } from './annotationProvider';
 import { BlameAnnotationProviderBase } from './blameAnnotationProvider';
 import { FileAnnotationType } from '../configuration';
 import { GitBlameCommit } from '../git/git';
 import { Logger } from '../logger';
 import { log, Strings } from '../system';
+import { GitDocumentState } from '../trackers/gitDocumentTracker';
+import { TrackedDocument } from '../trackers/trackedDocument';
 
 export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProviderBase {
+	constructor(editor: TextEditor, trackedDocument: TrackedDocument<GitDocumentState>) {
+		super(FileAnnotationType.Heatmap, editor, trackedDocument);
+	}
+
 	@log()
-	async onProvideAnnotation(_shaOrLine?: string | number, _type?: FileAnnotationType): Promise<boolean> {
+	async onProvideAnnotation(context?: AnnotationContext, _type?: FileAnnotationType): Promise<boolean> {
 		const cc = Logger.getCorrelationContext();
 
-		this.annotationType = FileAnnotationType.Heatmap;
+		this.annotationContext = context;
 
 		const blame = await this.getBlame();
 		if (blame == null) return false;
@@ -55,7 +62,7 @@ export class GutterHeatmapBlameAnnotationProvider extends BlameAnnotationProvide
 		return true;
 	}
 
-	selection(_shaOrLine?: string | number): Promise<void> {
+	selection(_selection?: AnnotationContext['selection']): Promise<void> {
 		return Promise.resolve();
 	}
 }

@@ -367,11 +367,11 @@ export class ViewCommands {
 			return;
 		}
 
-		void (await this.openFile(node));
+		void (await this.openFile(node, { preserveFocus: true, preview: true }));
 		void (await Container.fileAnnotations.toggle(
 			window.activeTextEditor,
 			FileAnnotationType.Changes,
-			node.ref.ref,
+			{ sha: node.ref.ref },
 			true,
 		));
 	}
@@ -389,11 +389,11 @@ export class ViewCommands {
 			return;
 		}
 
-		void (await this.openRevision(node, { showOptions: { preserveFocus: true, preview: true } }));
+		void (await this.openFile(node, { preserveFocus: true, preview: true }));
 		void (await Container.fileAnnotations.toggle(
 			window.activeTextEditor,
 			FileAnnotationType.Changes,
-			node.ref.ref,
+			{ sha: node.ref.ref, only: true },
 			true,
 		));
 	}
@@ -962,6 +962,7 @@ export class ViewCommands {
 	@debug()
 	private openFile(
 		node: ViewRefFileNode | MergeConflictFileNode | StatusFileNode | FileHistoryNode | LineHistoryNode,
+		options?: TextDocumentShowOptions,
 	) {
 		if (
 			!(node instanceof ViewRefFileNode) &&
@@ -976,6 +977,7 @@ export class ViewCommands {
 		return GitActions.Commit.openFile(node.uri, {
 			preserveFocus: true,
 			preview: false,
+			...options,
 		});
 	}
 

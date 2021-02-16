@@ -194,6 +194,9 @@ export enum CodeLensCommand {
 	ShowQuickCurrentBranchHistory = 'gitlens.showQuickRepoHistory',
 	ShowQuickFileHistory = 'gitlens.showQuickFileHistory',
 	ToggleFileBlame = 'gitlens.toggleFileBlame',
+	ToggleFileChanges = 'gitlens.toggleFileChanges',
+	ToggleFileChangesOnly = 'gitlens.toggleFileChangesOnly',
+	ToggleFileHeatmap = 'gitlens.toggleFileHeatmap',
 }
 
 export enum CodeLensScopes {
@@ -266,6 +269,9 @@ export enum StatusBarCommand {
 	ShowQuickFileHistory = 'gitlens.showQuickFileHistory',
 	ToggleCodeLens = 'gitlens.toggleCodeLens',
 	ToggleFileBlame = 'gitlens.toggleFileBlame',
+	ToggleFileChanges = 'gitlens.toggleFileChanges',
+	ToggleFileChangesOnly = 'gitlens.toggleFileChangesOnly',
+	ToggleFileHeatmap = 'gitlens.toggleFileHeatmap',
 }
 
 export enum TagSorting {

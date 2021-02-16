@@ -20,14 +20,19 @@ export enum AnnotationStatus {
 	Computed = 'computed',
 }
 
+export interface AnnotationContext {
+	selection?: { sha?: string; line?: undefined } | { sha?: undefined; line?: number } | false;
+}
+
 export type TextEditorCorrelationKey = string;
 
-export abstract class AnnotationProviderBase implements Disposable {
+export abstract class AnnotationProviderBase<TContext extends AnnotationContext = AnnotationContext>
+	implements Disposable {
 	static getCorrelationKey(editor: TextEditor | undefined): TextEditorCorrelationKey {
-		return editor != null ? (editor as any).id : '';
+		return `${editor?.document.uri.toString()}|${editor?.viewColumn}`;
 	}
 
-	annotationType: FileAnnotationType | undefined;
+	annotationContext: TContext | undefined;
 	correlationKey: TextEditorCorrelationKey;
 	document: TextDocument;
 	status: AnnotationStatus | undefined;
@@ -37,7 +42,11 @@ export abstract class AnnotationProviderBase implements Disposable {
 		| undefined;
 	protected disposable: Disposable;
 
-	constructor(public editor: TextEditor, protected readonly trackedDocument: TrackedDocument<GitDocumentState>) {
+	constructor(
+		public readonly annotationType: FileAnnotationType,
+		public editor: TextEditor,
+		protected readonly trackedDocument: TrackedDocument<GitDocumentState>,
+	) {
 		this.correlationKey = AnnotationProviderBase.getCorrelationKey(this.editor);
 		this.document = this.editor.document;
 
@@ -55,20 +64,15 @@ export abstract class AnnotationProviderBase implements Disposable {
 	private onTextEditorSelectionChanged(e: TextEditorSelectionChangeEvent) {
 		if (this.document !== e.textEditor.document) return;
 
-		void this.selection(e.selections[0].active.line);
-	}
-
-	get editorId(): string {
-		if (this.editor?.document == null) return '';
-		return (this.editor as any).id;
+		void this.selection({ line: e.selections[0].active.line });
 	}
 
 	get editorUri(): Uri | undefined {
-		if (this.editor?.document == null) return undefined;
-		return this.editor.document.uri;
+		return this.editor?.document?.uri;
 	}
 
 	clear() {
+		this.annotationContext = undefined;
 		this.status = undefined;
 		if (this.editor == null) return;
 
@@ -81,6 +85,10 @@ export abstract class AnnotationProviderBase implements Disposable {
 
 			this.decorations = undefined;
 		}
+	}
+
+	mustReopen(_context?: TContext): boolean {
+		return false;
 	}
 
 	async restore(editor: TextEditor) {
@@ -109,10 +117,10 @@ export abstract class AnnotationProviderBase implements Disposable {
 		}
 	}
 
-	async provideAnnotation(shaOrLine?: string | number): Promise<boolean> {
+	async provideAnnotation(context?: TContext): Promise<boolean> {
 		this.status = AnnotationStatus.Computing;
 		try {
-			if (await this.onProvideAnnotation(shaOrLine)) {
+			if (await this.onProvideAnnotation(context)) {
 				this.status = AnnotationStatus.Computed;
 				return true;
 			}
@@ -124,9 +132,9 @@ export abstract class AnnotationProviderBase implements Disposable {
 		return false;
 	}
 
-	protected abstract onProvideAnnotation(shaOrLine?: string | number): Promise<boolean>;
+	protected abstract onProvideAnnotation(context?: TContext): Promise<boolean>;
 
-	abstract selection(shaOrLine?: string | number): Promise<void>;
+	abstract selection(selection?: TContext['selection']): Promise<void>;
 
 	protected setDecorations(
 		decorations: { decorationType: TextEditorDecorationType; rangesOrOptions: Range[] | DecorationOptions[] }[],

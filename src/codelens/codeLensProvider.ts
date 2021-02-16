@@ -20,10 +20,12 @@ import {
 import {
 	Commands,
 	DiffWithPreviousCommandArgs,
+	OpenOnRemoteCommandArgs,
 	ShowCommitsInViewCommandArgs,
 	ShowQuickCommitCommandArgs,
 	ShowQuickCommitFileCommandArgs,
 	ShowQuickFileHistoryCommandArgs,
+	ToggleFileChangesAnnotationCommandArgs,
 } from '../commands';
 import {
 	CodeLensCommand,
@@ -31,6 +33,7 @@ import {
 	CodeLensLanguageScope,
 	CodeLensScopes,
 	configuration,
+	FileAnnotationType,
 } from '../configuration';
 import { BuiltInCommands, DocumentSchemes } from '../constants';
 import { Container } from '../container';
@@ -555,6 +558,12 @@ export class GitCodeLensProvider implements CodeLensProvider {
 				return this.applyShowQuickFileHistoryCommand<GitRecentChangeCodeLens>(title, lens);
 			case CodeLensCommand.ToggleFileBlame:
 				return this.applyToggleFileBlameCommand<GitRecentChangeCodeLens>(title, lens);
+			case CodeLensCommand.ToggleFileChanges:
+				return this.applyToggleFileChangesCommand<GitRecentChangeCodeLens>(title, lens, recentCommit);
+			case CodeLensCommand.ToggleFileChangesOnly:
+				return this.applyToggleFileChangesCommand<GitRecentChangeCodeLens>(title, lens, recentCommit, true);
+			case CodeLensCommand.ToggleFileHeatmap:
+				return this.applyToggleFileHeatmapCommand<GitRecentChangeCodeLens>(title, lens);
 			default:
 				return lens;
 		}
@@ -614,6 +623,12 @@ export class GitCodeLensProvider implements CodeLensProvider {
 				return this.applyShowQuickFileHistoryCommand<GitAuthorsCodeLens>(title, lens);
 			case CodeLensCommand.ToggleFileBlame:
 				return this.applyToggleFileBlameCommand<GitAuthorsCodeLens>(title, lens);
+			case CodeLensCommand.ToggleFileChanges:
+				return this.applyToggleFileChangesCommand<GitAuthorsCodeLens>(title, lens, commit);
+			case CodeLensCommand.ToggleFileChangesOnly:
+				return this.applyToggleFileChangesCommand<GitAuthorsCodeLens>(title, lens, commit, true);
+			case CodeLensCommand.ToggleFileHeatmap:
+				return this.applyToggleFileHeatmapCommand<GitAuthorsCodeLens>(title, lens);
 			default:
 				return lens;
 		}
@@ -791,6 +806,36 @@ export class GitCodeLensProvider implements CodeLensProvider {
 		lens.command = {
 			title: title,
 			command: Commands.ToggleFileBlame,
+			arguments: [lens.uri!.toFileUri()],
+		};
+		return lens;
+	}
+
+	private applyToggleFileChangesCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(
+		title: string,
+		lens: T,
+		commit: GitCommit,
+		only?: boolean,
+	): T {
+		const commandArgs: ToggleFileChangesAnnotationCommandArgs = {
+			type: FileAnnotationType.Changes,
+			context: { sha: commit.sha, only: only, selection: false },
+		};
+		lens.command = {
+			title: title,
+			command: Commands.ToggleFileChanges,
+			arguments: [lens.uri!.toFileUri(), commandArgs],
+		};
+		return lens;
+	}
+
+	private applyToggleFileHeatmapCommand<T extends GitRecentChangeCodeLens | GitAuthorsCodeLens>(
+		title: string,
+		lens: T,
+	): T {
+		lens.command = {
+			title: title,
+			command: Commands.ToggleFileHeatmap,
 			arguments: [lens.uri!.toFileUri()],
 		};
 		return lens;

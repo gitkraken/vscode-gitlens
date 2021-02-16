@@ -115,6 +115,7 @@
 		"onCommand:gitlens.toggleFileHeatmapInDiffLeft",
 		"onCommand:gitlens.toggleFileHeatmapInDiffRight",
 		"onCommand:gitlens.toggleFileChanges",
+		"onCommand:gitlens.toggleFileChangesOnly",
 		"onCommand:gitlens.toggleLineBlame",
 		"onCommand:gitlens.toggleCodeLens",
 		"onCommand:gitlens.gitCommands",
@@ -393,6 +394,9 @@
 							"type": "string",
 							"enum": [
 								"gitlens.toggleFileBlame",
+								"gitlens.toggleFileHeatmap",
+								"gitlens.toggleFileChanges",
+								"gitlens.toggleFileChangesOnly",
 								"gitlens.diffWithPrevious",
 								"gitlens.revealCommitInView",
 								"gitlens.showCommitsInView",
@@ -407,6 +411,9 @@
 							],
 							"enumDescriptions": [
 								"Toggles file blame",
+								"Toggles file heatmap",
+								"Toggles file changes since before the commit",
+								"Toggles file changes from the commit",
 								"Compares the current committed file with the previous commit",
 								"Reveals the commit in the Side Bar",
 								"Searches for commits within the range",
@@ -454,23 +461,37 @@
 							"type": "string",
 							"enum": [
 								"gitlens.toggleFileBlame",
+								"gitlens.toggleFileHeatmap",
+								"gitlens.toggleFileChanges",
+								"gitlens.toggleFileChangesOnly",
 								"gitlens.diffWithPrevious",
 								"gitlens.revealCommitInView",
 								"gitlens.showCommitsInView",
 								"gitlens.showQuickCommitDetails",
 								"gitlens.showQuickCommitFileDetails",
 								"gitlens.showQuickFileHistory",
-								"gitlens.showQuickRepoHistory"
+								"gitlens.showQuickRepoHistory",
+								"gitlens.openCommitOnRemote",
+								"gitlens.copyRemoteCommitUrl",
+								"gitlens.openFileOnRemote",
+								"gitlens.copyRemoteFileUrl"
 							],
 							"enumDescriptions": [
 								"Toggles file blame",
+								"Toggles file heatmap",
+								"Toggles file changes since before the commit",
+								"Toggles file changes from the commit",
 								"Compares the current committed file with the previous commit",
 								"Reveals the commit in the Side Bar",
 								"Searches for the commit",
-								"Shows a commit details quick pick",
-								"Shows a commit file details quick pick",
-								"Shows a file history quick pick",
-								"Shows a branch history quick pick"
+								"Shows a commit details quick pick menu",
+								"Shows a commit file details quick pick menu",
+								"Shows a file history quick pick menu",
+								"Shows a branch history quick pick menu",
+								"Opens the commit on the remote service (when available)",
+								"Copies the remote commit url to the clipboard (when available)",
+								"Opens the file revision on the remote service (when available)",
+								"Copies the remote file url to the clipboard (when available)"
 							]
 						}
 					],
@@ -1608,6 +1629,9 @@
 					"default": "gitlens.showQuickCommitDetails",
 					"enum": [
 						"gitlens.toggleFileBlame",
+						"gitlens.toggleFileHeatmap",
+						"gitlens.toggleFileChanges",
+						"gitlens.toggleFileChangesOnly",
 						"gitlens.toggleCodeLens",
 						"gitlens.diffWithPrevious",
 						"gitlens.diffWithWorking",
@@ -1624,6 +1648,9 @@
 					],
 					"enumDescriptions": [
 						"Toggles file blame",
+						"Toggles file heatmap",
+						"Toggles file changes since before the commit",
+						"Toggles file changes from the commit",
 						"Toggles Git code lens",
 						"Compares the current line commit with the previous",
 						"Compares the current line commit with the working tree",
@@ -3161,6 +3188,15 @@
 				}
 			},
 			{
+				"command": "gitlens.toggleFileChangesOnly",
+				"title": "Toggle File Changes",
+				"category": "GitLens",
+				"icon": {
+					"dark": "images/dark/icon-git.svg",
+					"light": "images/light/icon-git.svg"
+				}
+			},
+			{
 				"command": "gitlens.toggleLineBlame",
 				"title": "Toggle Line Blame",
 				"category": "GitLens"
@@ -3697,12 +3733,12 @@
 			},
 			{
 				"command": "gitlens.views.highlightChanges",
-				"title": "Highlight Changes",
+				"title": "Highlight All Changes Since Before this Commit",
 				"category": "GitLens"
 			},
 			{
 				"command": "gitlens.views.highlightRevisionChanges",
-				"title": "Highlight Revision Changes",
+				"title": "Highlight Changes from this Commit",
 				"category": "GitLens"
 			},
 			{
@@ -5075,6 +5111,10 @@
 				{
 					"command": "gitlens.toggleFileChanges",
 					"when": "gitlens:activeFileStatus =~ /blameable/"
+				},
+				{
+					"command": "gitlens.toggleFileChangesOnly",
+					"when": "false"
 				},
 				{
 					"command": "gitlens.toggleLineBlame",

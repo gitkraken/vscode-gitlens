@@ -2,6 +2,7 @@
 import { CancellationToken, Disposable, Hover, languages, Position, Range, TextDocument, TextEditor } from 'vscode';
 import { AnnotationProviderBase } from './annotationProvider';
 import { ComputedHeatmap, getHeatmapColors } from './annotations';
+import { FileAnnotationType } from '../config';
 import { Container } from '../container';
 import { GitBlame, GitBlameCommit, GitCommit } from '../git/git';
 import { GitUri } from '../git/gitUri';
@@ -13,8 +14,12 @@ export abstract class BlameAnnotationProviderBase extends AnnotationProviderBase
 	protected blame: Promise<GitBlame | undefined>;
 	protected hoverProviderDisposable: Disposable | undefined;
 
-	constructor(editor: TextEditor, trackedDocument: TrackedDocument<GitDocumentState>) {
-		super(editor, trackedDocument);
+	constructor(
+		annotationType: FileAnnotationType,
+		editor: TextEditor,
+		trackedDocument: TrackedDocument<GitDocumentState>,
+	) {
+		super(annotationType, editor, trackedDocument);
 
 		this.blame = editor.document.isDirty
 			? Container.git.getBlameForFileContents(this.trackedDocument.uri, editor.document.getText())

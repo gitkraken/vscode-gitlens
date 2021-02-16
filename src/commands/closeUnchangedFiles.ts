@@ -59,7 +59,7 @@ export class CloseUnchangedFilesCommand extends Command {
 				if (editor != null) {
 					let found = false;
 					for (const e of editors) {
-						if (TextEditorComparer.equals(e, editor, { useId: true, usePosition: true })) {
+						if (TextEditorComparer.equals(e, editor, { usePosition: true })) {
 							found = true;
 							break;
 						}

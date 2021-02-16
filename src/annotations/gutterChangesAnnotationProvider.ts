@@ -13,7 +13,7 @@ import {
 	TextEditorDecorationType,
 	TextEditorRevealType,
 } from 'vscode';
-import { AnnotationProviderBase } from './annotationProvider';
+import { AnnotationContext, AnnotationProviderBase } from './annotationProvider';
 import { FileAnnotationType } from '../configuration';
 import { Container } from '../container';
 import { Decorations } from './fileAnnotationController';
@@ -23,12 +23,21 @@ import { Logger } from '../logger';
 import { log, Strings } from '../system';
 import { GitDocumentState, TrackedDocument } from '../trackers/gitDocumentTracker';
 
-export class GutterChangesAnnotationProvider extends AnnotationProviderBase {
+export interface ChangesAnnotationContext extends AnnotationContext {
+	sha?: string;
+	only?: boolean;
+}
+
+export class GutterChangesAnnotationProvider extends AnnotationProviderBase<ChangesAnnotationContext> {
 	private state: { commit: GitLogCommit | undefined; diffs: GitDiff[] } | undefined;
 	private hoverProviderDisposable: Disposable | undefined;
 
 	constructor(editor: TextEditor, trackedDocument: TrackedDocument<GitDocumentState>) {
-		super(editor, trackedDocument);
+		super(FileAnnotationType.Changes, editor, trackedDocument);
+	}
+
+	mustReopen(context?: ChangesAnnotationContext): boolean {
+		return this.annotationContext?.sha !== context?.sha || this.annotationContext?.only !== context?.only;
 	}
 
 	clear() {
@@ -40,7 +49,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase {
 		super.clear();
 	}
 
-	selection(_shaOrLine?: string | number): Promise<void> {
+	selection(_selection?: AnnotationContext['selection']): Promise<void> {
 		return Promise.resolve();
 	}
 
@@ -49,18 +58,17 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase {
 	}
 
 	@log()
-	async onProvideAnnotation(shaOrLine?: string | number): Promise<boolean> {
+	async onProvideAnnotation(context?: ChangesAnnotationContext): Promise<boolean> {
 		const cc = Logger.getCorrelationContext();
 
-		this.annotationType = FileAnnotationType.Changes;
+		if (this.mustReopen(context)) {
+			this.clear();
+		}
+
+		this.annotationContext = context;
 
 		let ref1 = this.trackedDocument.uri.sha;
-		let ref2;
-		if (typeof shaOrLine === 'string') {
-			if (shaOrLine !== this.trackedDocument.uri.sha) {
-				ref2 = `${shaOrLine}^`;
-			}
-		}
+		let ref2 = context?.sha != null && context.sha !== ref1 ? `${context.sha}^` : undefined;
 
 		let commit: GitLogCommit | undefined;
 
@@ -148,10 +156,37 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase {
 			{ decorationType: TextEditorDecorationType; rangesOrOptions: DecorationOptions[] }
 		>();
 
+		// If we want to only show changes from the specified sha, get the blame so we can compare with "visible" shas
+		const blame =
+			context?.sha != null && context?.only
+				? this.editor?.document.isDirty
+					? await Container.git.getBlameForFileContents(
+							this.trackedDocument.uri,
+							this.editor.document.getText(),
+					  )
+					: await Container.git.getBlameForFile(this.trackedDocument.uri)
+				: undefined;
+
 		let selection: Selection | undefined;
 
 		for (const diff of diffs) {
 			for (const hunk of diff.hunks) {
+				// Only show "visible" hunks
+				if (blame != null) {
+					let skip = true;
+
+					const sha = context!.sha;
+					for (let i = hunk.current.position.start - 1; i < hunk.current.position.end; i++) {
+						if (blame.lines[i].sha === sha) {
+							skip = false;
+						}
+					}
+
+					if (skip) {
+						continue;
+					}
+				}
+
 				// Subtract 2 because editor lines are 0-based and we will be adding 1 in the first iteration of the loop
 				let count = Math.max(hunk.current.position.start - 2, -1);
 				let index = -1;
@@ -160,6 +195,11 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase {
 					count++;
 
 					if (hunkLine.current?.state === 'unchanged') continue;
+
+					// Uncomment this if we want to only show "visible" lines, rather than just visible hunks
+					// if (blame != null && blame.lines[count].sha !== context!.sha) {
+					// 	continue;
+					// }
 
 					const range = this.editor.document.validateRange(
 						new Range(new Position(count, 0), new Position(count, Number.MAX_SAFE_INTEGER)),
@@ -225,7 +265,7 @@ export class GutterChangesAnnotationProvider extends AnnotationProviderBase {
 
 			Logger.log(cc, `${Strings.getDurationMilliseconds(start)} ms to apply recent changes annotations`);
 
-			if (selection != null) {
+			if (selection != null && context?.selection !== false) {
 				this.editor.selection = selection;
 				this.editor.revealRange(selection, TextEditorRevealType.InCenterIfOutsideViewport);
 			}

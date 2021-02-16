@@ -7,7 +7,13 @@ import { ActionRunners } from './api/actionRunners';
 import { resetAvatarCache } from './avatars';
 import { GitCodeLensController } from './codelens/codeLensController';
 import { Commands, ToggleFileAnnotationCommandArgs } from './commands';
-import { AnnotationsToggleMode, Config, configuration, ConfigurationWillChangeEvent } from './configuration';
+import {
+	AnnotationsToggleMode,
+	Config,
+	configuration,
+	ConfigurationWillChangeEvent,
+	FileAnnotationType,
+} from './configuration';
 import { GitFileSystemProvider } from './git/fsProvider';
 import { GitService } from './git/gitService';
 import { LineHoverController } from './hovers/lineHoverController';
@@ -369,6 +375,7 @@ export class Container {
 
 			if (command != null) {
 				const commandArgs: ToggleFileAnnotationCommandArgs = {
+					type: mode.annotations as FileAnnotationType,
 					on: true,
 				};
 				// Make sure to delay the execution by a bit so that the configuration changes get propegated first

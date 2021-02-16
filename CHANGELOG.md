@@ -9,8 +9,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Added
 
 - Adds a new _Open Blame Prior to Change_ command (`gitlens.openBlamePriorToChange`) to open the blame of prior revision of the selected line in the current file &mdash; closes [#1014](https://github.com/eamodio/vscode-gitlens/issues/1014)
-- Adds new Git code lens action options, _Opens the commit on the remote service (when available)_, _Copies the remote commit url to the clipboard (when available)_, _Opens the file revision on the remote service (when available)_, and _Copies the remote file revision url to the clipboard (when available)_
-- Adds new status bar blame action options, _Opens the commit on the remote service (when available)_, _Copies the remote commit url to the clipboard (when available)_, _Opens the file revision on the remote service (when available)_, and _Copies the remote file revision url to the clipboard (when available)_ &mdash; closes [#1378](https://github.com/eamodio/vscode-gitlens/issues/1378)
+- Adds new Git code lens action options
+  - _Opens the commit on the remote service (when available)_ and _Copies the remote commit url to the clipboard (when available)_
+  - _Opens the file revision on the remote service (when available)_ and _Copies the remote file revision url to the clipboard (when available)_
+  - _Toggles the file heatmap_
+  - _Toggles the file changes since before the commit_
+  - _Toggles the file changes from the commit_
+- Adds new status bar blame action options
+  - _Opens the commit on the remote service (when available)_ and _Copies the remote commit url to the clipboard (when available)_ &mdash; closes [#1378](https://github.com/eamodio/vscode-gitlens/issues/1378)
+  - _Opens the file revision on the remote service (when available)_ and _Copies the remote file revision url to the clipboard (when available)_
+  - _Toggles the file heatmap_
+  - _Toggles the file changes since before the commit_
+  - _Toggles the file changes from the commit_
 
 ### Changed
 

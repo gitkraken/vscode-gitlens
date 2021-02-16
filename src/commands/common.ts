@@ -155,6 +155,7 @@ export enum Commands {
 	ToggleFileBlameInDiffLeft = 'gitlens.toggleFileBlameInDiffLeft',
 	ToggleFileBlameInDiffRight = 'gitlens.toggleFileBlameInDiffRight',
 	ToggleFileChanges = 'gitlens.toggleFileChanges',
+	ToggleFileChangesOnly = 'gitlens.toggleFileChangesOnly',
 	ToggleFileHeatmap = 'gitlens.toggleFileHeatmap',
 	ToggleFileHeatmapInDiffLeft = 'gitlens.toggleFileHeatmapInDiffLeft',
 	ToggleFileHeatmapInDiffRight = 'gitlens.toggleFileHeatmapInDiffRight',
