@@ -4121,10 +4121,7 @@
 				"command": "gitlens.views.createPullRequest",
 				"title": "Create Pull Request...",
 				"category": "GitLens",
-				"icon": {
-					"dark": "images/dark/icon-create-pull-request.svg",
-					"light": "images/light/icon-create-pull-request.svg"
-				}
+				"icon": "$(git-pull-request-create)"
 			},
 			{
 				"command": "gitlens.views.openPullRequest",
