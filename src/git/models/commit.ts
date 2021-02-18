@@ -11,6 +11,7 @@ import { GitReference, GitRevision, GitRevisionReference, PullRequest } from './
 export interface GitAuthor {
 	name: string;
 	lineCount: number;
+	email?: string;
 }
 
 export interface GitCommitLine {

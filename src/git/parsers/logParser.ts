@@ -420,6 +420,7 @@ export class GitLogParser {
 					author = {
 						name: entry.author,
 						lineCount: 0,
+						email: entry.email
 					};
 					authors.set(entry.author, author);
 				}

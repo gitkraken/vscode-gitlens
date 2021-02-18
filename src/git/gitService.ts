@@ -1503,26 +1503,30 @@ export class GitService implements Disposable {
 		let contributors = this.useCaching ? this._contributorsCache.get(repoPath) : undefined;
 		if (contributors == null) {
 			try {
-				const data = await Git.shortlog(repoPath);
-				const shortlog = GitShortLogParser.parse(data, repoPath);
-				if (shortlog != null) {
+				const log = await this.getLog(repoPath, {all: true});
+				if (log != null) {
 					// Mark the current user
 					const currentUser = await this.getCurrentUser(repoPath);
-					if (currentUser != null) {
-						const index = shortlog.contributors.findIndex(
-							c => currentUser.email === c.email && currentUser.name === c.name,
-						);
-						if (index !== -1) {
-							const c = shortlog.contributors[index];
-							shortlog.contributors.splice(
-								index,
-								1,
-								new GitContributor(c.repoPath, c.name, c.email, c.count, true),
-							);
-						}
-					}
+					// if (currentUser != null) {
+					// 	const index = log.authors.has(
+					// 		c => currentUser.email === c.email && currentUser.name === c.name,
+					// 	);
+					// 	if (index !== -1) {
+					// 		const c = shortlog.contributors[index];
+					// 		shortlog.contributors.splice(
+					// 			index,
+					// 			1,
+					// 			new GitContributor(c.repoPath, c.name, c.email, c.count, true),
+					// 		);
+					// 	}
+					// }
+					const authorsList: GitContributor[] = [];
+					log.authors.forEach((v) => {
+						const isCurrentUser = currentUser?.email === v.email && currentUser?.name === v.name;
+						authorsList.push(new GitContributor(repoPath, v.name, v.email || '', v.lineCount, isCurrentUser));
+					});
 
-					contributors = shortlog.contributors;
+					contributors = authorsList;
 				} else {
 					contributors = [];
 				}
