@@ -748,6 +748,7 @@ export namespace Git {
 			reverse,
 			similarityThreshold,
 			since,
+			all
 		}: {
 			authors?: string[];
 			format?: 'refs' | 'default';
@@ -756,6 +757,7 @@ export namespace Git {
 			reverse?: boolean;
 			similarityThreshold?: number | null;
 			since?: string;
+			all?: boolean;
 		},
 	) {
 		const params = [
@@ -784,6 +786,10 @@ export namespace Git {
 
 		if (authors != null && authors.length !== 0) {
 			params.push('--use-mailmap', ...authors.map(a => `--author=${a}`));
+		}
+
+		if (all) {
+			params.push('--all');
 		}
 
 		if (ref && !GitRevision.isUncommittedStaged(ref)) {

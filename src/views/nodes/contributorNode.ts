@@ -102,6 +102,7 @@ export class ContributorNode extends ViewNode<ContributorsView | RepositoriesVie
 			this._log = await Container.git.getLog(this.uri.repoPath!, {
 				limit: this.limit ?? this.view.config.defaultItemLimit,
 				authors: [`^${this.contributor.name} <${this.contributor.email}>$`],
+				all: true
 			});
 		}
 

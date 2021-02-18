@@ -1865,6 +1865,7 @@ export class GitService implements Disposable {
 			ref?: string;
 			reverse?: boolean;
 			since?: string;
+			all?: boolean;
 		} = {},
 	): Promise<GitLog | undefined> {
 		const limit = options.limit ?? Container.config.advanced.maxListItems ?? 0;
@@ -1877,6 +1878,7 @@ export class GitService implements Disposable {
 				reverse: options.reverse,
 				similarityThreshold: Container.config.advanced.similarityThreshold,
 				since: options.since,
+				all: options.all
 			});
 			const log = GitLogParser.parse(
 				data,
