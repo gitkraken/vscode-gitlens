@@ -6,16 +6,13 @@ import {
 	env,
 	Event,
 	EventEmitter,
-	MessageItem,
 	Range,
 	Uri,
-	window,
 } from 'vscode';
 import { DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference } from '../../config';
-import { SyncedState, WorkspaceState } from '../../constants';
+import { WorkspaceState } from '../../constants';
 import { Container } from '../../container';
-import { setKeysForSync } from '../../extension';
 import { Logger } from '../../logger';
 import {
 	Account,
@@ -286,14 +283,6 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		return `${WorkspaceState.ConnectedPrefix}${this.key}`;
 	}
 
-	private get disallowSyncedGlobalConnectionKey() {
-		return `${SyncedState.DisallowConnectionPrefix}${this.key}`;
-	}
-
-	private get disallowWorkspaceConnectionKey() {
-		return `${WorkspaceState.DisallowConnectionPrefix}${this.key}`;
-	}
-
 	get maybeConnected(): boolean | undefined {
 		if (this._session === undefined) return undefined;
 
@@ -310,7 +299,7 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 
 	private onAuthenticationSessionsChanged(e: AuthenticationSessionsChangeEvent) {
 		if (e.provider.id === this.authProvider.id) {
-			this.disconnect();
+			void this.ensureSession(false);
 		}
 	}
 
@@ -333,23 +322,13 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		this._session = null;
 
 		if (disconnected) {
-			void Container.context.workspaceState.update(this.connectedKey, undefined);
-			void Container.context.workspaceState.update(this.disallowWorkspaceConnectionKey, true);
+			void Container.context.workspaceState.update(this.connectedKey, false);
 
 			this._onDidChange.fire();
 			if (!silent) {
 				_onDidChangeAuthentication.fire({ reason: 'disconnected', key: this.key });
 			}
 		}
-	}
-
-	@log()
-	async resetRemoteConnectionAuthorization() {
-		await Promise.all([
-			Container.context.workspaceState.update(this.connectedKey, undefined),
-			Container.context.workspaceState.update(this.disallowWorkspaceConnectionKey, undefined),
-			Container.context.globalState.update(this.disallowSyncedGlobalConnectionKey, undefined),
-		]);
 	}
 
 	@gate()
@@ -544,15 +523,8 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		if (!Container.config.integrations.enabled) return undefined;
 
 		if (createIfNeeded) {
-			await Promise.all([
-				Container.context.workspaceState.update(this.connectedKey, undefined),
-				Container.context.workspaceState.update(this.disallowWorkspaceConnectionKey, undefined),
-			]);
-		} else if (
-			!Container.context.workspaceState.get<boolean>(this.connectedKey) &&
-			(Container.context.globalState.get<boolean>(this.disallowSyncedGlobalConnectionKey) ||
-				Container.context.workspaceState.get<boolean>(this.disallowWorkspaceConnectionKey))
-		) {
+			await Container.context.workspaceState.update(this.connectedKey, undefined);
+		} else if (Container.context.workspaceState.get<boolean>(this.connectedKey) === false) {
 			return undefined;
 		}
 
@@ -562,15 +534,9 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 				createIfNone: createIfNeeded,
 			});
 		} catch (ex) {
-			await Promise.all([
-				Container.context.workspaceState.update(this.connectedKey, undefined),
-				Container.context.workspaceState.update(this.disallowWorkspaceConnectionKey, true),
-			]);
+			await Container.context.workspaceState.update(this.connectedKey, undefined);
 
 			if (ex instanceof Error && ex.message.includes('User did not consent')) {
-				if (!createIfNeeded) {
-					void this.promptToAllow(true);
-				}
 				return undefined;
 			}
 
@@ -578,53 +544,20 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 		}
 
 		if (session === undefined && !createIfNeeded) {
-			await Promise.all([
-				Container.context.workspaceState.update(this.connectedKey, undefined),
-				Container.context.workspaceState.update(this.disallowWorkspaceConnectionKey, true),
-			]);
-
-			void this.promptToAllow();
+			await Container.context.workspaceState.update(this.connectedKey, undefined);
 		}
 
 		this._session = session ?? null;
 		this.invalidClientExceptionCount = 0;
 
 		if (session != null) {
-			await Promise.all([
-				Container.context.workspaceState.update(this.connectedKey, true),
-				Container.context.workspaceState.update(this.disallowWorkspaceConnectionKey, undefined),
-			]);
+			await Container.context.workspaceState.update(this.connectedKey, true);
 
-			if (createIfNeeded) {
-				this._onDidChange.fire();
-				_onDidChangeAuthentication.fire({ reason: 'connected', key: this.key });
-			}
+			this._onDidChange.fire();
+			_onDidChangeAuthentication.fire({ reason: 'connected', key: this.key });
 		}
 
 		return session ?? undefined;
-	}
-
-	@gate()
-	private async promptToAllow(retry: boolean = false) {
-		const allow: MessageItem = { title: 'Allow' };
-		const deny: MessageItem = { title: 'Deny' };
-		const denyEverywhere: MessageItem = { title: 'Deny Everywhere' };
-
-		const result = await window.showInformationMessage(
-			retry
-				? `By allowing GitLens to connect to ${this.name}, it can provide a rich integration with pull requests, issues, avatars, and more.\n\nIf you choose 'Allow', you will again be prompted to authenticate with ${this.name}.`
-				: `Allow GitLens to connect to ${this.name} to provide a rich integration with pull requests, issues, avatars, and more.\n\nIf you choose 'Allow', you will be prompted to authenticate with ${this.name}.`,
-			allow,
-			deny,
-			denyEverywhere,
-		);
-
-		if (result === allow) {
-			void this.connect();
-		} else if (result === denyEverywhere) {
-			setKeysForSync(this.disallowSyncedGlobalConnectionKey);
-			await Container.context.globalState.update(this.disallowSyncedGlobalConnectionKey, true);
-		}
 	}
 
 	@debug()

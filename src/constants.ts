@@ -150,10 +150,11 @@ export enum GlyphChars {
 }
 
 export enum SyncedState {
-	DisallowConnectionPrefix = 'gitlens:disallow:connection:',
 	UpdatesViewVisible = 'gitlens:views:updates:visible',
 	Version = 'gitlens:synced:version',
 	WelcomeViewVisible = 'gitlens:views:welcome:visible',
+
+	Deprecated_DisallowConnectionPrefix = 'gitlens:disallow:connection:',
 }
 
 export enum GlobalState {
@@ -235,7 +236,6 @@ export enum WorkspaceState {
 	BranchComparisons = 'gitlens:branch:comparisons',
 	ConnectedPrefix = 'gitlens:connected:',
 	DefaultRemote = 'gitlens:remote:default',
-	DisallowConnectionPrefix = 'gitlens:disallow:connection:',
 	GitCommandPaletteUsage = 'gitlens:gitComandPalette:usage',
 	StarredBranches = 'gitlens:starred:branches',
 	StarredRepositories = 'gitlens:starred:repositories',
@@ -243,5 +243,6 @@ export enum WorkspaceState {
 	ViewsSearchAndCompareKeepResults = 'gitlens:views:searchAndCompare:keepResults',
 	ViewsSearchAndComparePinnedItems = 'gitlens:views:searchAndCompare:pinned',
 
+	Deprecated_DisallowConnectionPrefix = 'gitlens:disallow:connection:',
 	Deprecated_PinnedComparisons = 'gitlens:pinned:comparisons',
 }

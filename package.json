@@ -18,7 +18,7 @@
 		"url": "https://github.com/eamodio/vscode-gitlens.git"
 	},
 	"engines": {
-		"vscode": "^1.53.0"
+		"vscode": "^1.54.0-insiders"
 	},
 	"main": "./dist/gitlens",
 	"icon": "images/gitlens-icon.png",
@@ -3357,11 +3357,6 @@
 				}
 			},
 			{
-				"command": "gitlens.resetRemoteConnectionAuthorization",
-				"title": "Reset Remote Connection Authorization",
-				"category": "GitLens"
-			},
-			{
 				"command": "gitlens.copyCurrentBranch",
 				"title": "Copy Current Branch Name",
 				"category": "GitLens",
@@ -5216,10 +5211,6 @@
 				{
 					"command": "gitlens.disconnectRemoteProvider",
 					"when": "config.gitlens.integrations.enabled && gitlens:hasRichRemotes && gitlens:hasConnectedRemotes"
-				},
-				{
-					"command": "gitlens.resetRemoteConnectionAuthorization",
-					"when": "config.gitlens.integrations.enabled && gitlens:hasRichRemotes"
 				},
 				{
 					"command": "gitlens.copyCurrentBranch",

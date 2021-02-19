@@ -101,7 +101,6 @@ export enum Commands {
 	GitCommands = 'gitlens.gitCommands',
 	QuickOpenFileHistory = 'gitlens.quickOpenFileHistory',
 	RefreshHover = 'gitlens.refreshHover',
-	ResetRemoteConnectionAuthorization = 'gitlens.resetRemoteConnectionAuthorization',
 	ResetSuppressedWarnings = 'gitlens.resetSuppressedWarnings',
 	RevealCommitInView = 'gitlens.revealCommitInView',
 	SearchCommits = 'gitlens.showCommitSearch',
