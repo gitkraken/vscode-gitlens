@@ -344,9 +344,9 @@ export class CommitFormatter extends Formatter<GitCommit, CommitFormatOptions> {
 					pr.state
 				}, ${pr.formatDateFromNow()}")`;
 			} else if (pr instanceof Promises.CancellationError) {
-				commands += `[$(git-pull-request) PR $(loading~spin)](command:${Commands.RefreshHover} "Searching for a Pull Request (if any) that introduced this commit...")`;
+				commands += `${separator}[$(git-pull-request) PR $(loading~spin)](command:${Commands.RefreshHover} "Searching for a Pull Request (if any) that introduced this commit...")`;
 			} else if (pr.provider != null && Container.config.integrations.enabled) {
-				commands += `[$(plug) Connect to ${pr.provider.name}${
+				commands += `${separator}[$(plug) Connect to ${pr.provider.name}${
 					GlyphChars.Ellipsis
 				}](${ConnectRemoteProviderCommand.getMarkdownCommandArgs(pr)} "Connect to ${
 					pr.provider.name
