@@ -4,6 +4,7 @@ import { BitbucketRemote } from './bitbucket';
 import { BitbucketServerRemote } from './bitbucket-server';
 import { CustomRemoteType, RemotesConfig } from '../../configuration';
 import { CustomRemote } from './custom';
+import { GiteaRemote } from './gitea';
 import { GitHubRemote } from './github';
 import { GitLabRemote } from './gitlab';
 import { Logger } from '../../logger';
@@ -51,6 +52,11 @@ const builtInProviders: RemoteProviders = [
 		custom: false,
 		matcher: /\bvisualstudio\.com$/i,
 		creator: (domain: string, path: string) => new AzureDevOpsRemote(domain, path, undefined, undefined, true),
+	},
+	{
+		custom: false,
+		matcher: /\bgitea\b/i,
+		creator: (domain: string, path: string) => new GiteaRemote(domain, path),
 	},
 ];
 
@@ -125,6 +131,8 @@ export class RemoteProviderFactory {
 			case CustomRemoteType.Custom:
 				return (domain: string, path: string) =>
 					new CustomRemote(domain, path, cfg.urls!, cfg.protocol, cfg.name);
+			case CustomRemoteType.Gitea:
+				return (domain: string, path: string) => new GiteaRemote(domain, path, cfg.protocol, cfg.name, true);
 			case CustomRemoteType.GitHub:
 				return (domain: string, path: string) => new GitHubRemote(domain, path, cfg.protocol, cfg.name, true);
 			case CustomRemoteType.GitLab:

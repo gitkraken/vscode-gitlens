@@ -63,7 +63,7 @@ Here are just some of the **features** that GitLens provides,
   - [status](#quick-status-access- 'Jump to Quick Status Access') &mdash; current branch and working tree status
 - a user-friendly [**interactive rebase editor**](#interactive-rebase-editor- 'Jump to the Interactive Rebase Editor') to easily configure an interactive rebase session
 - [**terminal links**](#terminal-links- 'Jump to Terminal Links') &mdash; `ctrl+click` on autolinks in the integrated terminal to quickly jump to more details for commits, branches, tags, and more
-- rich [**remote provider integrations**](#remote-provider-integrations- 'Jump to Remote Provider Integrations') &mdash; GitHub, GitLab, Bitbucket, Azure DevOps
+- rich [**remote provider integrations**](#remote-provider-integrations- 'Jump to Remote Provider Integrations') &mdash; GitHub, GitLab, Gitea, Bitbucket, Azure DevOps
   - issue and pull request auto-linking
   - rich hover information provided for linked issues and pull requests (GitHub only)
   - associates pull requests with branches and commits (GitHub only)
@@ -160,7 +160,7 @@ Here are just some of the **features** that GitLens provides,
   </p>
 
 - Adds a **details hover** annotation to the current line to show more commit details ([optional](#hover-settings- 'Jump to the Hover settings'), on by default)
-  - Provides **automatic issue linking** to Bitbucket, GitHub, GitLab, and Azure DevOps in commit messages
+  - Provides **automatic issue linking** to Bitbucket, Gitea, GitHub, GitLab, and Azure DevOps in commit messages
   - Provides a **quick-access command bar** with _Open Changes_, _Blame Previous Revision_, _Open on Remote_, _Invite to Live Share_ (if available), and _Show More Actions_ command buttons
   - Click the commit SHA to execute the _Show Commit_ command
 
@@ -189,7 +189,7 @@ Here are just some of the **features** that GitLens provides,
   </p>
 
 - Adds a **details hover** annotation to each line while annotating to show more commit details ([optional](#hover-settings- 'Jump to the Hover settings'), on by default)
-  - Provides **automatic issue linking** to Bitbucket, GitHub, GitLab, and Azure DevOps in commit messages
+  - Provides **automatic issue linking** to Bitbucket, Gitea, GitHub, GitLab, and Azure DevOps in commit messages
   - Provides a **quick-access command bar** with _Open Changes_, _Blame Previous Revision_, _Open on Remote_, _Invite to Live Share_ (if available), and _Show More Actions_ command buttons
   - Click the commit SHA to execute the _Show Commit_ command
 
@@ -572,7 +572,7 @@ The _Search & Compare_ view lists pinnable (saved) results for searching commit 
 
 ## Remote Provider Integrations [#](#remote-provider-integrations- 'Remote Provider Integrations')
 
-GitLens provides rich integrations with many remote providers, including GitHub, GitHub Enterprise, GitLab, Bitbucket, Bitbucket Server, Azure DevOps. You can also define [custom remote providers](#remote-provider-integration-settings- 'Jump to the Remote Provider Integration settings') or [remote providers with custom domains](#remote-provider-integration-settings- 'Jump to the Remote Provider Integration settings') as well.
+GitLens provides rich integrations with many remote providers, including GitHub, GitHub Enterprise, GitLab, Gitea, Bitbucket, Bitbucket Server, Azure DevOps. You can also define [custom remote providers](#remote-provider-integration-settings- 'Jump to the Remote Provider Integration settings') or [remote providers with custom domains](#remote-provider-integration-settings- 'Jump to the Remote Provider Integration settings') as well.
 
 Basic integrations provide issue and pull request auto-linking, while richer integrations (e.g. GitHub) can provide rich hover information provided for auto-linked issues and pull requests, associate pull requests with branches and commits, and provide avatars.
 
