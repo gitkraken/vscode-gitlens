@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - _Toggles the file heatmap_
   - _Toggles the file changes since before the commit_
   - _Toggles the file changes from the commit_
+- Adds supported remote types in README &mdash; thanks to [PR #1371](https://github.com/eamodio/vscode-gitlens/pull/1371) by Vladislav Guleaev ([@vguleaev](https://github.com/vguleaev))
 
 ### Changed
 
