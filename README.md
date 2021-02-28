@@ -46,6 +46,9 @@ Here are just some of the **features** that GitLens provides,
   - [**blame**](#gutter-blame- 'Jump to Gutter Blame') &mdash; shows the commit and author who last modified each line of a file
   - [**changes**](#gutter-changes- 'Jump to Gutter Changes') &mdash; highlights any local (unpublished) changes or lines changed by the most recent commit
   - [**heatmap**](#gutter-heatmap- 'Jump to Gutter Heatmap') &mdash; shows how recently lines were changed, relative to all the other changes in the file and to now (hot vs. cold)
+- switching between layouts
+  - [**Source Control Layout**](#source-control-layout- 'Jump to the Source Control Layout')
+  - [**GitLens Layout**](#gitlens-layout- 'Jump to the GitLens Layout')
 - many rich **Side Bar views**
   - a [**_Commits_ view**](#commits-view- 'Jump to the Commits view') to visualize, explore, and manage Git commits
   - a [**_Repositories_ view**](#repositories-view- 'Jump to the Repositories view') to visualize, explore, and manage Git repositories
@@ -239,7 +242,41 @@ Here are just some of the **features** that GitLens provides,
   - Adds _Toggle File Heatmap Annotations_ command (`gitlens.toggleFileHeatmap`) to toggle the heatmap on and off
   - Press `Escape` to turn off the annotations
 
+## Switching Between Layouts [#](#switching-between-layouts- 'Switching Between Layouts')
+### Source Control Layout [#](#source-control-layout- 'Source Control Layout')
+- In the command-pallete search for `GitLens: Set Views Layout`. Hit return and choose `Source Control Layout`. This will display GitLens controls on the source control sidebar
+
+<p align="left">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/gItlens-setting" alt="GitLens Setting" />
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/gItlens-setting-source-control-layout.png" alt="GitLens:Source Control Layout" />
+</p>
+
+<p align="right">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/gitlens-source-control-layout.png" alt=" GitLens Source Control Layout" />
+</p>
+
+### GitLens Layout [#](#gitlens-layout- 'GitLens Layout')
+- In the command-pallete search for `GitLens: Set Views Layout`. Hit return and choose `GitLens Layout`. This will display GitLens on the VSCode Activity Bar and all GitLens controls are grouped together on the GitLens sidebar
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/gItlens-setting" alt="GitLens Setting" />
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/gItlens-setting-activity-bar-layout.png" alt="GitLens: GitLens Layout" />
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/eamodio/vscode-gitlens/main/images/docs/gitlens-activity-bar-layout.png" alt="GitLens Layout" />
+</p>
+
+
 ## Side Bar Views [#](#side-bar-views- 'Side Bar Views')
+
+
 
 ### Commits view [#](#commits-view- 'Commits view')
 
