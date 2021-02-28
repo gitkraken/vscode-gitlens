@@ -2809,21 +2809,66 @@
 				}
 			},
 			{
+				"id": "gitlens.decorations.addedForegroundColor",
+				"description": "Specifies the decoration foreground color of added files",
+				"defaults": {
+					"light": "gitDecoration.addedResourceForeground",
+					"dark": "gitDecoration.addedResourceForeground",
+					"highContrast": "gitDecoration.addedResourceForeground"
+				}
+			},
+			{
 				"id": "gitlens.decorations.copiedForegroundColor",
 				"description": "Specifies the decoration foreground color of copied files",
 				"defaults": {
-					"light": "#007100",
-					"dark": "#73C991",
-					"highContrast": "#73C991"
+					"light": "gitDecoration.renamedResourceForeground",
+					"dark": "gitDecoration.renamedResourceForeground",
+					"highContrast": "gitDecoration.renamedResourceForeground"
+				}
+			},
+			{
+				"id": "gitlens.decorations.deletedForegroundColor",
+				"description": "Specifies the decoration foreground color of deleted files",
+				"defaults": {
+					"light": "gitDecoration.deletedResourceForeground",
+					"dark": "gitDecoration.deletedResourceForeground",
+					"highContrast": "gitDecoration.deletedResourceForeground"
+				}
+			},
+			{
+				"id": "gitlens.decorations.ignoredForegroundColor",
+				"description": "Specifies the decoration foreground color of ignored files",
+				"defaults": {
+					"light": "gitDecoration.ignoredResourceForeground",
+					"dark": "gitDecoration.ignoredResourceForeground",
+					"highContrast": "gitDecoration.ignoredResourceForeground"
+				}
+			},
+			{
+				"id": "gitlens.decorations.modifiedForegroundColor",
+				"description": "Specifies the decoration foreground color of modified files",
+				"defaults": {
+					"light": "gitDecoration.modifiedResourceForeground",
+					"dark": "gitDecoration.modifiedResourceForeground",
+					"highContrast": "gitDecoration.modifiedResourceForeground"
+				}
+			},
+			{
+				"id": "gitlens.decorations.untrackedForegroundColor",
+				"description": "Specifies the decoration foreground color of untracked files",
+				"defaults": {
+					"light": "gitDecoration.untrackedResourceForeground",
+					"dark": "gitDecoration.untrackedResourceForeground",
+					"highContrast": "gitDecoration.untrackedResourceForeground"
 				}
 			},
 			{
 				"id": "gitlens.decorations.renamedForegroundColor",
 				"description": "Specifies the decoration foreground color of renamed files",
 				"defaults": {
-					"light": "#007100",
-					"dark": "#73C991",
-					"highContrast": "#73C991"
+					"light": "gitDecoration.renamedResourceForeground",
+					"dark": "gitDecoration.renamedResourceForeground",
+					"highContrast": "gitDecoration.renamedResourceForeground"
 				}
 			},
 			{

@@ -58,19 +58,19 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 			case '!':
 				return {
 					badge: 'I',
-					color: new ThemeColor('gitDecoration.ignoredResourceForeground'),
+					color: new ThemeColor('gitlens.decorations.ignoredForegroundColor'),
 					tooltip: 'Ignored',
 				};
 			case '?':
 				return {
 					badge: 'U',
-					color: new ThemeColor('gitDecoration.untrackedResourceForeground'),
+					color: new ThemeColor('gitlens.decorations.untrackedForegroundColor'),
 					tooltip: 'Untracked',
 				};
 			case 'A':
 				return {
 					badge: 'A',
-					color: new ThemeColor('gitDecoration.addedResourceForeground'),
+					color: new ThemeColor('gitlens.decorations.addedForegroundColor'),
 					tooltip: 'Added',
 				};
 			case 'C':
@@ -82,13 +82,13 @@ export class ViewFileDecorationProvider implements FileDecorationProvider, Dispo
 			case 'D':
 				return {
 					badge: 'D',
-					color: new ThemeColor('gitDecoration.deletedResourceForeground'),
+					color: new ThemeColor('gitlens.decorations.deletedForegroundColor'),
 					tooltip: 'Deleted',
 				};
 			case 'M':
 				return {
 					badge: 'M',
-					// color: new ThemeColor('gitDecoration.modifiedResourceForeground'),
+					// color: new ThemeColor('gitlens.decorations.modifiedForegroundColor'),
 					tooltip: 'Modified',
 				};
 			case 'R':
