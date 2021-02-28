@@ -31,6 +31,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Fixed
 
+- Fixes [1372](https://github.com/eamodio/vscode-gitlens/issues/1372) - Unexpected repository detection on editor startup after recent updates
 - Fixes [1394](https://github.com/eamodio/vscode-gitlens/issues/1394) - Repository view settings appear disabled
 - Fixes [1391](https://github.com/eamodio/vscode-gitlens/issues/1391) - Branch names are not properly escaped in git commands
 - Fixes [1336](https://github.com/eamodio/vscode-gitlens/issues/1336) - Need to allow GitLens to connect to GitHub in every Codespace (requires VS Code v1.54-insiders or later)

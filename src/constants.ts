@@ -37,6 +37,7 @@ export enum BuiltInGitCommands {
 }
 
 export enum BuiltInGitConfiguration {
+	AutoRepositoryDetection = 'git.autoRepositoryDetection',
 	FetchOnPull = 'git.fetchOnPull',
 	UseForcePushWithLease = 'git.useForcePushWithLease',
 }

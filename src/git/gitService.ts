@@ -23,7 +23,7 @@ import {
 import { API as BuiltInGitApi, Repository as BuiltInGitRepository, GitExtension } from '../@types/git';
 import { resetAvatarCache } from '../avatars';
 import { BranchSorting, configuration, TagSorting } from '../configuration';
-import { ContextKeys, DocumentSchemes, GlyphChars, setContext } from '../constants';
+import { BuiltInGitConfiguration, ContextKeys, DocumentSchemes, GlyphChars, setContext } from '../constants';
 import { Container } from '../container';
 import { setEnabled } from '../extension';
 import {
@@ -267,6 +267,12 @@ export class GitService implements Disposable {
 			Logger.log(`Starting repository search in ${e.added.length} folders`);
 		}
 
+		const autoRepositoryDetection =
+			configuration.getAny<boolean | 'subFolders' | 'openEditors'>(
+				BuiltInGitConfiguration.AutoRepositoryDetection,
+			) ?? true;
+		if (autoRepositoryDetection === false) return;
+
 		for (const f of e.added) {
 			const { scheme } = f.uri;
 			if (scheme !== DocumentSchemes.File && scheme !== DocumentSchemes.Vsls) continue;
@@ -294,7 +300,9 @@ export class GitService implements Disposable {
 						this._repositoryTree.set(r.path, r);
 					}
 
-					void GitService.openBuiltInGitRepository(r.path);
+					if (autoRepositoryDetection === true || autoRepositoryDetection === 'subFolders') {
+						void GitService.openBuiltInGitRepository(r.path);
+					}
 				}
 			}
 		}
