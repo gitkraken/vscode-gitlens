@@ -248,7 +248,10 @@ export class Repository implements Disposable {
 **/.git/index,\
 **/.git/HEAD,\
 **/.git/*_HEAD,\
+**/.git/MERGE_*,\
 **/.git/refs/**,\
+**/.git/rebase-merge/**,\
+**/.git/sequencer/**,\
 **/.gitignore\
 }',
 			),

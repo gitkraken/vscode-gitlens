@@ -37,6 +37,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes [1336](https://github.com/eamodio/vscode-gitlens/issues/1336) - Need to allow GitLens to connect to GitHub in every Codespace (requires VS Code v1.54-insiders or later)
 - Fixes [1363](https://github.com/eamodio/vscode-gitlens/issues/1363) - Error 'Unable to open compare', when git setting log.showsignature is active
 - Fixes [1368](https://github.com/eamodio/vscode-gitlens/issues/1368) - Suppress message "GitLens was unable to find Git"
+- Fixes an issue where the rebase status in the views could get "stuck" after a rebase completed
 - Fixes typo in README &mdash; thanks to [PR #1374](https://github.com/eamodio/vscode-gitlens/pull/1374) by David Rees ([@studgeek](https://github.com/studgeek))
 
 ## [11.2.1] - 2021-02-02
