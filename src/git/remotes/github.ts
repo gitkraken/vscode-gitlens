@@ -139,8 +139,8 @@ export class GitHubRemote extends RichRemoteProvider {
 		return `${this.baseUrl}/commit/${sha}`;
 	}
 
-	protected getUrlForComparison(ref1: string, ref2: string, notation: '..' | '...'): string {
-		return `${this.baseUrl}/compare/${ref1}${notation}${ref2}`;
+	protected getUrlForComparison(base: string, compare: string, notation: '..' | '...'): string {
+		return `${this.baseUrl}/compare/${base}${notation}${compare}`;
 	}
 
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {

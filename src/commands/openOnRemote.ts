@@ -107,7 +107,7 @@ export class OpenOnRemoteCommand extends Command {
 						GlyphChars.Dot,
 						2,
 						2,
-					)}${GitRevision.createRange(args.resource.ref1, args.resource.ref2, '...')}`;
+					)}${GitRevision.createRange(args.resource.base, args.resource.compare, '...')}`;
 					break;
 
 				case RemoteResourceType.File:

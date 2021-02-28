@@ -126,8 +126,8 @@ export class BitbucketServerRemote extends RemoteProvider {
 		return `${this.baseUrl}/commits/${sha}`;
 	}
 
-	protected getUrlForComparison(ref1: string, ref2: string, _notation: '..' | '...'): string {
-		return `${this.baseUrl}/branches/compare/${ref1}%0D${ref2}`;
+	protected getUrlForComparison(base: string, compare: string, _notation: '..' | '...'): string {
+		return `${this.baseUrl}/branches/compare/${base}%0D${compare}`;
 	}
 
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {

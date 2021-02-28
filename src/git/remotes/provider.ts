@@ -49,8 +49,8 @@ export type RemoteResource =
 	  }
 	| {
 			type: RemoteResourceType.Comparison;
-			ref1: string;
-			ref2: string;
+			base: string;
+			compare: string;
 			notation?: '..' | '...';
 	  }
 	| {
@@ -151,7 +151,7 @@ export abstract class RemoteProvider implements RemoteProviderReference {
 			case RemoteResourceType.Commit:
 				return encodeURI(this.getUrlForCommit(resource.sha));
 			case RemoteResourceType.Comparison: {
-				const url = this.getUrlForComparison?.(resource.ref1, resource.ref2, resource.notation ?? '...');
+				const url = this.getUrlForComparison?.(resource.base, resource.compare, resource.notation ?? '...');
 				return url != null ? encodeURI(url) : undefined;
 			}
 			case RemoteResourceType.File:
@@ -199,7 +199,7 @@ export abstract class RemoteProvider implements RemoteProviderReference {
 
 	protected abstract getUrlForCommit(sha: string): string;
 
-	protected getUrlForComparison?(ref1: string, ref2: string, notation: '..' | '...'): string | undefined;
+	protected getUrlForComparison?(base: string, compare: string, notation: '..' | '...'): string | undefined;
 
 	protected abstract getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string;
 

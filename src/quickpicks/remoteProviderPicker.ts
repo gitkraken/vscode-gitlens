@@ -41,12 +41,12 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 	async execute(): Promise<void> {
 		let resource = this.resource;
 		if (resource.type === RemoteResourceType.Comparison) {
-			if (GitBranch.getRemote(resource.ref1) === this.remote.name) {
-				resource = { ...resource, ref1: GitBranch.getNameWithoutRemote(resource.ref1) };
+			if (GitBranch.getRemote(resource.base) === this.remote.name) {
+				resource = { ...resource, base: GitBranch.getNameWithoutRemote(resource.base) };
 			}
 
-			if (GitBranch.getRemote(resource.ref2) === this.remote.name) {
-				resource = { ...resource, ref2: GitBranch.getNameWithoutRemote(resource.ref2) };
+			if (GitBranch.getRemote(resource.compare) === this.remote.name) {
+				resource = { ...resource, compare: GitBranch.getNameWithoutRemote(resource.compare) };
 			}
 		} else if (
 			resource.type === RemoteResourceType.File &&

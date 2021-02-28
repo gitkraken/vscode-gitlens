@@ -46,8 +46,8 @@ export class OpenComparisonOnRemoteCommand extends Command {
 			void (await executeCommand<OpenOnRemoteCommandArgs>(Commands.OpenOnRemote, {
 				resource: {
 					type: RemoteResourceType.Comparison,
-					ref1: args.ref1,
-					ref2: args.ref2,
+					base: args.ref1,
+					compare: args.ref2,
 					notation: args.notation,
 				},
 				repoPath: args.repoPath,
