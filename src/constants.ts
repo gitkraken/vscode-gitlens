@@ -27,6 +27,19 @@ export enum BuiltInCommands {
 	ShowReferences = 'editor.action.showReferences',
 }
 
+export enum BuiltInGitCommands {
+	Pull = 'git.pull',
+	PullRebase = 'git.pullRebase',
+	Push = 'git.push',
+	PushForce = 'git.pushForce',
+	UndoCommit = 'git.undoCommit',
+}
+
+export enum BuiltInGitConfiguration {
+	FetchOnPull = 'git.fetchOnPull',
+	UseForcePushWithLease = 'git.useForcePushWithLease',
+}
+
 export enum ContextKeys {
 	ActionPrefix = 'gitlens:action:',
 	ActiveFileStatus = 'gitlens:activeFileStatus',

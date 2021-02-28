@@ -13,7 +13,7 @@ import {
 	OpenFileAtRevisionCommandArgs,
 } from '../commands';
 import { configuration, FileAnnotationType, ViewShowBranchComparison } from '../configuration';
-import { BuiltInCommands, ContextKeys, setContext } from '../constants';
+import { BuiltInCommands, BuiltInGitCommands, ContextKeys, setContext } from '../constants';
 import { Container } from '../container';
 import { GitReference, GitRevision } from '../git/git';
 import { GitUri } from '../git/gitUri';
@@ -635,7 +635,7 @@ export class ViewCommands {
 			return;
 		}
 
-		await commands.executeCommand('git.undoCommit', node.repoPath);
+		await commands.executeCommand(BuiltInGitCommands.UndoCommit, node.repoPath);
 	}
 
 	@debug()

@@ -16,7 +16,7 @@ import {
 import { CreatePullRequestActionContext } from '../../api/gitlens';
 import { executeActionCommand } from '../../commands';
 import { BranchSorting, configuration, TagSorting } from '../../configuration';
-import { Starred, WorkspaceState } from '../../constants';
+import { BuiltInGitCommands, BuiltInGitConfiguration, Starred, WorkspaceState } from '../../constants';
 import { Container } from '../../container';
 import {
 	GitBranch,
@@ -690,8 +690,11 @@ export class Repository implements Disposable {
 		try {
 			const tracking = await this.hasTrackingBranch();
 			if (tracking) {
-				void (await commands.executeCommand(options.rebase ? 'git.pullRebase' : 'git.pull', this.path));
-			} else if (configuration.getAny<boolean>('git.fetchOnPull', Uri.file(this.path))) {
+				void (await commands.executeCommand(
+					options.rebase ? BuiltInGitCommands.PullRebase : BuiltInGitCommands.Pull,
+					this.path,
+				));
+			} else if (configuration.getAny<boolean>(BuiltInGitConfiguration.FetchOnPull, Uri.file(this.path))) {
 				void (await Container.git.fetch(this.path));
 			}
 
@@ -782,7 +785,10 @@ export class Repository implements Disposable {
 
 					const currentBranch = await this.getBranch();
 					if (branch.id === currentBranch?.id) {
-						void (await commands.executeCommand(options.force ? 'git.pushForce' : 'git.push', this.path));
+						void (await commands.executeCommand(
+							options.force ? BuiltInGitCommands.PushForce : BuiltInGitCommands.Push,
+							this.path,
+						));
 					} else {
 						await repo?.push(branch.getRemoteName(), branch.name);
 					}
@@ -796,7 +802,10 @@ export class Repository implements Disposable {
 
 				await repo?.push(branch.getRemoteName(), `${options.reference.ref}:${branch.getNameWithoutRemote()}`);
 			} else {
-				void (await commands.executeCommand(options.force ? 'git.pushForce' : 'git.push', this.path));
+				void (await commands.executeCommand(
+					options.force ? BuiltInGitCommands.PushForce : BuiltInGitCommands.Push,
+					this.path,
+				));
 			}
 
 			this.fireChange(RepositoryChange.Unknown);
