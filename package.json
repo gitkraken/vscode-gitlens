@@ -3808,6 +3808,12 @@
 				"icon": "$(cloud-upload)"
 			},
 			{
+				"command": "gitlens.views.publishRepository",
+				"title": "Publish Repository",
+				"category": "GitLens",
+				"icon": "$(cloud-upload)"
+			},
+			{
 				"command": "gitlens.views.pull",
 				"title": "Pull",
 				"category": "GitLens",
@@ -5454,6 +5460,10 @@
 				},
 				{
 					"command": "gitlens.views.publishBranch",
+					"when": "false"
+				},
+				{
+					"command": "gitlens.views.publishRepository",
 					"when": "false"
 				},
 				{
@@ -7906,9 +7916,14 @@
 					"group": "8_gitlens_actions_@2"
 				},
 				{
-					"command": "gitlens.views.addRemote",
+					"command": "gitlens.views.publishRepository",
 					"when": "!gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:status(\\-branch)?:upstream:none/",
 					"group": "inline@1"
+				},
+				{
+					"command": "gitlens.views.addRemote",
+					"when": "!gitlens:hasRemotes && !gitlens:readonly && viewItem =~ /gitlens:status(\\-branch)?:upstream:none/",
+					"group": "inline@2"
 				},
 				{
 					"command": "gitlens.views.publishBranch",

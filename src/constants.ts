@@ -28,6 +28,7 @@ export enum BuiltInCommands {
 }
 
 export enum BuiltInGitCommands {
+	Publish = 'git.publish',
 	Pull = 'git.pull',
 	PullRebase = 'git.pullRebase',
 	Push = 'git.push',
