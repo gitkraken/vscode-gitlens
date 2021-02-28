@@ -35,6 +35,7 @@ import { SearchAndCompareView } from './views/searchAndCompareView';
 import { StashesView } from './views/stashesView';
 import { TagsView } from './views/tagsView';
 import { ViewCommands } from './views/viewCommands';
+import { ViewFileDecorationProvider } from './views/viewDecorationProvider';
 import { VslsController } from './vsls/vsls';
 import { RebaseEditorProvider } from './webviews/rebaseEditor';
 import { SettingsWebview } from './webviews/settingsWebview';
@@ -59,6 +60,8 @@ export class Container {
 		context.subscriptions.push((this._vsls = new VslsController()));
 
 		context.subscriptions.push((this._git = new GitService()));
+
+		context.subscriptions.push(new ViewFileDecorationProvider());
 
 		// Since there is a bit of a chicken & egg problem with the DocumentTracker and the GitService, initialize the tracker once the GitService is loaded
 		this._tracker.initialize();

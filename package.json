@@ -2807,6 +2807,69 @@
 					"light": "#b15e35",
 					"highContrast": "#ff874c"
 				}
+			},
+			{
+				"id": "gitlens.decorations.copiedForegroundColor",
+				"description": "Specifies the decoration foreground color of copied files",
+				"defaults": {
+					"light": "#007100",
+					"dark": "#73C991",
+					"highContrast": "#73C991"
+				}
+			},
+			{
+				"id": "gitlens.decorations.renamedForegroundColor",
+				"description": "Specifies the decoration foreground color of renamed files",
+				"defaults": {
+					"light": "#007100",
+					"dark": "#73C991",
+					"highContrast": "#73C991"
+				}
+			},
+			{
+				"id": "gitlens.decorations.branchAheadForegroundColor",
+				"description": "Specifies the decoration foreground color of branches that are ahead of their upstream",
+				"defaults": {
+					"dark": "#35b15e",
+					"light": "#35b15e",
+					"highContrast": "#4dff88"
+				}
+			},
+			{
+				"id": "gitlens.decorations.branchBehindForegroundColor",
+				"description": "Specifies the decoration foreground color of branches that are behind their upstream",
+				"defaults": {
+					"dark": "#b15e35",
+					"light": "#b15e35",
+					"highContrast": "#ff874c"
+				}
+			},
+			{
+				"id": "gitlens.decorations.branchDivergedForegroundColor",
+				"description": "Specifies the decoration foreground color of branches that are both ahead and behind their upstream",
+				"defaults": {
+					"dark": "#D8AF1B",
+					"light": "#D8AF1B",
+					"highContrast": "#D8AF1B"
+				}
+			},
+			{
+				"id": "gitlens.decorations.branchUpToDateForegroundColor",
+				"description": "Specifies the decoration foreground color of branches that are up to date with their upstream",
+				"defaults": {
+					"dark": "sideBar.foreground",
+					"light": "sideBar.foreground",
+					"highContrast": "sideBar.foreground"
+				}
+			},
+			{
+				"id": "gitlens.decorations.branchUnpublishedForegroundColor",
+				"description": "Specifies the decoration foreground color of branches that are not yet published to an upstream",
+				"defaults": {
+					"dark": "#35b15e",
+					"light": "#35b15e",
+					"highContrast": "#4dff88"
+				}
 			}
 		],
 		"commands": [

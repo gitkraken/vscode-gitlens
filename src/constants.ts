@@ -119,11 +119,12 @@ export function hasVisibleTextEditor(): boolean {
 	return window.visibleTextEditors.some(e => isTextEditor(e));
 }
 
-export enum GlyphChars {
+export const enum GlyphChars {
 	AngleBracketLeftHeavy = '\u2770',
 	AngleBracketRightHeavy = '\u2771',
 	ArrowBack = '\u21a9',
 	ArrowDown = '\u2193',
+	ArrowDownUp = '\u21F5',
 	ArrowDropRight = '\u2937',
 	ArrowHeadRight = '\u27A4',
 	ArrowLeft = '\u2190',
@@ -136,13 +137,14 @@ export enum GlyphChars {
 	ArrowRightDouble = '\u21d2',
 	ArrowRightHollow = '\u21e8',
 	ArrowUp = '\u2191',
+	ArrowUpDown = '\u21C5',
 	ArrowUpRight = '\u2197',
 	ArrowsHalfLeftRight = '\u21cb',
 	ArrowsHalfRightLeft = '\u21cc',
 	ArrowsLeftRight = '\u21c6',
 	ArrowsRightLeft = '\u21c4',
 	Asterisk = '\u2217',
-	Check = '\u2713',
+	Check = '✔',
 	Dash = '\u2014',
 	Dot = '\u2022',
 	Ellipsis = '\u2026',

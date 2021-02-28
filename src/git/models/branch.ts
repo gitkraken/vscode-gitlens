@@ -25,6 +25,15 @@ export interface GitTrackingState {
 	behind: number;
 }
 
+export enum GitBranchStatus {
+	Ahead = 'ahead',
+	Behind = 'behind',
+	Diverged = 'diverged',
+	UpToDate = 'upToDate',
+	Unpublished = 'unpublished',
+	LocalOnly = 'localOnly',
+}
+
 export class GitBranch implements GitBranchReference {
 	static is(branch: any): branch is GitBranch {
 		return branch instanceof GitBranch;
@@ -189,7 +198,23 @@ export class GitBranch implements GitBranchReference {
 		return undefined;
 	}
 
+	@memoize()
+	async getStatus(): Promise<GitBranchStatus> {
+		if (this.tracking) {
+			if (this.state.ahead && this.state.behind) return GitBranchStatus.Diverged;
+			if (this.state.ahead) return GitBranchStatus.Ahead;
+			if (this.state.behind) return GitBranchStatus.Behind;
+			return GitBranchStatus.UpToDate;
+		}
+
+		const remotes = await Container.git.getRemotes(this.repoPath);
+		if (remotes.length > 0) return GitBranchStatus.Unpublished;
+
+		return GitBranchStatus.LocalOnly;
+	}
+
 	getTrackingStatus(options?: {
+		count?: boolean;
 		empty?: string;
 		expand?: boolean;
 		icons?: boolean;

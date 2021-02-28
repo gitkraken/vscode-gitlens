@@ -104,6 +104,8 @@ export class FileRevisionAsCommitNode extends ViewRefFileNode<ViewsWithCommits |
 			messageTruncateAtNewLine: true,
 		});
 
+		item.resourceUri = Uri.parse(`gitlens-view://commit-file/status/${this.file.status}`);
+
 		// eslint-disable-next-line no-template-curly-in-string
 		const status = StatusFileFormatter.fromTemplate('${status}${ (originalPath)}', this.file); // lgtm [js/template-syntax-in-string-literal]
 		item.tooltip = CommitFormatter.fromTemplate(

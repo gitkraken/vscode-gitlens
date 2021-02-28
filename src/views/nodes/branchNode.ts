@@ -1,5 +1,5 @@
 'use strict';
-import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, window } from 'vscode';
+import { MarkdownString, ThemeColor, ThemeIcon, TreeItem, TreeItemCollapsibleState, Uri, window } from 'vscode';
 import { BranchesView } from '../branchesView';
 import { BranchTrackingStatusNode } from './branchTrackingStatusNode';
 import { CommitNode } from './commitNode';
@@ -404,6 +404,11 @@ export class BranchNode
 		item.description = description;
 		item.id = this.id;
 		item.tooltip = tooltip;
+		item.resourceUri = Uri.parse(
+			`gitlens-view://branch/status/${await this.branch.getStatus()}${
+				this.options.showCurrent && this.current ? '/current' : ''
+			}`,
+		);
 
 		return item;
 	}
