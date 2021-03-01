@@ -29,9 +29,10 @@ export enum GitBranchStatus {
 	Ahead = 'ahead',
 	Behind = 'behind',
 	Diverged = 'diverged',
+	Local = 'local',
+	Remote = 'remote',
 	UpToDate = 'upToDate',
 	Unpublished = 'unpublished',
-	LocalOnly = 'localOnly',
 }
 
 export class GitBranch implements GitBranchReference {
@@ -200,6 +201,8 @@ export class GitBranch implements GitBranchReference {
 
 	@memoize()
 	async getStatus(): Promise<GitBranchStatus> {
+		if (this.remote) return GitBranchStatus.Remote;
+
 		if (this.tracking) {
 			if (this.state.ahead && this.state.behind) return GitBranchStatus.Diverged;
 			if (this.state.ahead) return GitBranchStatus.Ahead;
@@ -210,7 +213,7 @@ export class GitBranch implements GitBranchReference {
 		const remotes = await Container.git.getRemotes(this.repoPath);
 		if (remotes.length > 0) return GitBranchStatus.Unpublished;
 
-		return GitBranchStatus.LocalOnly;
+		return GitBranchStatus.Local;
 	}
 
 	getTrackingStatus(options?: {
