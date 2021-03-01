@@ -391,7 +391,7 @@ export class BranchNode
 		}
 
 		const item = new TreeItem(
-			`${this.options.showCurrent && this.current ? Strings.pad(GlyphChars.Check, 0, 2) : ''}${this.label}`,
+			this.label,
 			this.options.expanded ? TreeItemCollapsibleState.Expanded : TreeItemCollapsibleState.Collapsed,
 		);
 		item.iconPath = this.options.showAsCommits
