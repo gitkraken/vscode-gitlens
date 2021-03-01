@@ -179,6 +179,7 @@
 		"onCommand:gitlens.stashSaveFiles",
 		"onCommand:gitlens.externalDiff",
 		"onCommand:gitlens.externalDiffAll",
+		"onCommand:gitlens.resetAvatarCache",
 		"onCommand:gitlens.resetSuppressedWarnings",
 		"onCommand:gitlens.inviteToLiveShare",
 		"onCommand:gitlens.browseRepoAtRevision",
@@ -3748,6 +3749,11 @@
 				"category": "GitLens"
 			},
 			{
+				"command": "gitlens.resetAvatarCache",
+				"title": "Reset Avatar Cache",
+				"category": "GitLens"
+			},
+			{
 				"command": "gitlens.resetSuppressedWarnings",
 				"title": "Reset Suppressed Warnings",
 				"category": "GitLens"
@@ -5469,6 +5475,10 @@
 				{
 					"command": "gitlens.stashSaveFiles",
 					"when": "false"
+				},
+				{
+					"command": "gitlens.resetAvatarCache",
+					"when": "gitlens:enabled"
 				},
 				{
 					"command": "gitlens.resetSuppressedWarnings",

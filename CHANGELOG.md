@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - _Toggles the file changes from the commit_
 - Adds _Publish Repository_ command (`gitlens.publishRepository`) to publish the repository to a remote provider
 - Adds supported remote types in README &mdash; thanks to [PR #1371](https://github.com/eamodio/vscode-gitlens/pull/1371) by Vladislav Guleaev ([@vguleaev](https://github.com/vguleaev))
+- Adds a new _Reset Avatar Cache_ command (`gitlens.resetAvatarCache`) to clear the avatar cache
 
 ### Changed
 
