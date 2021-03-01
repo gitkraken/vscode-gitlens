@@ -283,11 +283,11 @@ The Repositories view lists opened Git repositories, and additionally provides,
 
 - a toggle to automatically refresh the repository on changes
 - a toggle to change the file layout: list, tree, auto
-- an icon indicator to show the current branch's upstream status (if available)
-  - _No dot_ &mdash; unpushlished or up to date with the upstream remote
-  - _Green dot_ &mdash; has changes unpublished (ahead)
-  - _Red dot_ &mdash; has changes un-pulled (behind)
-  - _Yellow dot_ &mdash; both unpublished and un-pulled changes
+- an icon overlay indicator to show the current branch's upstream status (if available)
+  - _No dot_ &mdash; no changes or the branch is unpushlished
+  - _Green dot_ &mdash; has changes unpushed (ahead)
+  - _Red dot_ &mdash; has changes unpulled (behind)
+  - _Yellow dot_ &mdash; both unpushed and unpulled changes
 - a branch comparison tool (**Compare &lt;current branch&gt; with &lt;branch, tag, or ref&gt;**) &mdash; [optionally](#repositories-view-settings- 'Jump to the Repositories view settings') shows a comparison of the current branch (or working tree) to a user-selected reference
   - **Behind** &mdash; lists the commits that are missing from the current branch (i.e. behind) but exist in the selected reference
     - **# files changed** &mdash; lists all of the files changed between the compared references
@@ -362,12 +362,17 @@ The _Branches_ view lists all of the local branches, and additionally provides,
 
 - a toggle to change the branch layout: list or tree
 - a toggle to change the file layout: list, tree, auto
-- an indicator (check-mark) if the branch is the current branch
-- an icon indicator to show the branch's upstream status (if available)
-  - _No dot_ &mdash; unpushlished or up to date with the upstream remote
-  - _Green dot_ &mdash; has changes unpublished (ahead)
-  - _Red dot_ &mdash; has changes un-pulled (behind)
-  - _Yellow dot_ &mdash; both unpublished and un-pulled changes
+- an icon overlay indicator to show the branch's upstream status (if available)
+  - _No dot_ &mdash; no changes or the branch is unpushlished
+  - _Green dot_ &mdash; has changes unpushed (ahead)
+  - _Red dot_ &mdash; has changes unpulled (behind)
+  - _Yellow dot_ &mdash; both unpushed and unpulled changes
+- status indicators (decorations), on the right, and themeable colorizations
+  - `✓` &mdash; indicates that the branch is the current branch
+  - `⮝` + green colorization &mdash; indicates that the branch has unpushed changes (ahead)
+  - `⮟` + red colorization &mdash; indicates that the branch has unpulled changes (behind)
+  - `⮟⮝` + yellow colorization &mdash; indicates that the branch has diverged from its upstream; meaning it has both unpulled and unpushed changes
+  - `⮙+` + green colorization &mdash; indicates that the branch hasn't yet been published to an upstream remote
 - a branch comparison tool (**Compare &lt;branch&gt; with &lt;branch, tag, or ref&gt;**) &mdash; [optionally](#branches-view-settings- 'Jump to the Branches view settings') shows a comparison of the branch to a user-selected reference
   - **Behind** &mdash; lists the commits that are missing from the branch (i.e. behind) but exist in the selected reference
     - **# files changed** &mdash; lists all of the files changed in the behind commits
