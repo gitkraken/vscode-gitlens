@@ -29,27 +29,29 @@ export class CustomRemote extends RemoteProvider {
 	}
 
 	protected getUrlForRepository(): string {
-		return Strings.interpolate(this.urls.repository, this.getContext());
+		return this.encodeUrl(Strings.interpolate(this.urls.repository, this.getContext()));
 	}
 
 	protected getUrlForBranches(): string {
-		return Strings.interpolate(this.urls.branches, this.getContext());
+		return this.encodeUrl(Strings.interpolate(this.urls.branches, this.getContext()));
 	}
 
 	protected getUrlForBranch(branch: string): string {
-		return Strings.interpolate(this.urls.branch, this.getContext({ branch: branch }));
+		return this.encodeUrl(Strings.interpolate(this.urls.branch, this.getContext({ branch: branch })));
 	}
 
 	protected getUrlForCommit(sha: string): string {
-		return Strings.interpolate(this.urls.commit, this.getContext({ id: sha }));
+		return this.encodeUrl(Strings.interpolate(this.urls.commit, this.getContext({ id: sha })));
 	}
 
 	protected getUrlForComparison(base: string, compare: string, notation: '..' | '...'): string | undefined {
 		if (this.urls.comparison == null) return undefined;
 
-		return Strings.interpolate(
-			this.urls.comparison,
-			this.getContext({ ref1: base, ref2: compare, notation: notation }),
+		return this.encodeUrl(
+			Strings.interpolate(
+				this.urls.comparison,
+				this.getContext({ ref1: base, ref2: compare, notation: notation }),
+			),
 		);
 	}
 
@@ -65,19 +67,26 @@ export class CustomRemote extends RemoteProvider {
 			line = '';
 		}
 
+		let url;
 		if (sha) {
-			return Strings.interpolate(
-				this.urls.fileInCommit,
-				this.getContext({ id: sha, file: fileName, line: line }),
-			);
-		}
-		if (branch) {
-			return Strings.interpolate(
+			url = Strings.interpolate(this.urls.fileInCommit, this.getContext({ id: sha, file: fileName, line: line }));
+		} else if (branch) {
+			url = Strings.interpolate(
 				this.urls.fileInBranch,
 				this.getContext({ branch: branch, file: fileName, line: line }),
 			);
+		} else {
+			url = Strings.interpolate(this.urls.file, this.getContext({ file: fileName, line: line }));
 		}
-		return Strings.interpolate(this.urls.file, this.getContext({ file: fileName, line: line }));
+
+		url = this.encodeUrl(url);
+		if (line.includes('#')) {
+			const index = url.lastIndexOf('%23');
+			if (index !== -1) {
+				url = `${url.substring(0, index)}#${url.substring(index + 3)}`;
+			}
+		}
+		return url;
 	}
 
 	private getContext(context?: Record<string, unknown>) {

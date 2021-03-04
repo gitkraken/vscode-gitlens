@@ -115,19 +115,19 @@ export class BitbucketServerRemote extends RemoteProvider {
 	}
 
 	protected getUrlForBranches(): string {
-		return `${this.baseUrl}/branches`;
+		return this.encodeUrl(`${this.baseUrl}/branches`);
 	}
 
 	protected getUrlForBranch(branch: string): string {
-		return `${this.baseUrl}/commits?until=${branch}`;
+		return this.encodeUrl(`${this.baseUrl}/commits?until=${branch}`);
 	}
 
 	protected getUrlForCommit(sha: string): string {
-		return `${this.baseUrl}/commits/${sha}`;
+		return this.encodeUrl(`${this.baseUrl}/commits/${sha}`);
 	}
 
 	protected getUrlForComparison(base: string, compare: string, _notation: '..' | '...'): string {
-		return `${this.baseUrl}/branches/compare/${base}%0D${compare}`;
+		return this.encodeUrl(`${this.baseUrl}/branches/compare/${base}%0D${compare}`).replace('%250D', '%0D');
 	}
 
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
@@ -141,8 +141,8 @@ export class BitbucketServerRemote extends RemoteProvider {
 		} else {
 			line = '';
 		}
-		if (sha) return `${this.baseUrl}/browse/${fileName}?at=${sha}${line}`;
-		if (branch) return `${this.baseUrl}/browse/${fileName}?at=${branch}${line}`;
-		return `${this.baseUrl}/browse/${fileName}${line}`;
+		if (sha) return `${this.encodeUrl(`${this.baseUrl}/browse/${fileName}?at=${sha}`)}${line}`;
+		if (branch) return `${this.encodeUrl(`${this.baseUrl}/browse/${fileName}?at=${branch}`)}${line}`;
+		return `${this.encodeUrl(`${this.baseUrl}/browse/${fileName}`)}${line}`;
 	}
 }

@@ -128,19 +128,19 @@ export class GitHubRemote extends RichRemoteProvider {
 	}
 
 	protected getUrlForBranches(): string {
-		return `${this.baseUrl}/branches`;
+		return this.encodeUrl(`${this.baseUrl}/branches`);
 	}
 
 	protected getUrlForBranch(branch: string): string {
-		return `${this.baseUrl}/tree/${branch}`;
+		return this.encodeUrl(`${this.baseUrl}/tree/${branch}`);
 	}
 
 	protected getUrlForCommit(sha: string): string {
-		return `${this.baseUrl}/commit/${sha}`;
+		return this.encodeUrl(`${this.baseUrl}/commit/${sha}`);
 	}
 
 	protected getUrlForComparison(base: string, compare: string, notation: '..' | '...'): string {
-		return `${this.baseUrl}/compare/${base}${notation}${compare}`;
+		return this.encodeUrl(`${this.baseUrl}/compare/${base}${notation}${compare}`);
 	}
 
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
@@ -155,9 +155,9 @@ export class GitHubRemote extends RichRemoteProvider {
 			line = '';
 		}
 
-		if (sha) return `${this.baseUrl}/blob/${sha}/${fileName}${line}`;
-		if (branch) return `${this.baseUrl}/blob/${branch}/${fileName}${line}`;
-		return `${this.baseUrl}?path=${fileName}${line}`;
+		if (sha) return `${this.encodeUrl(`${this.baseUrl}/blob/${sha}/${fileName}`)}${line}`;
+		if (branch) return `${this.encodeUrl(`${this.baseUrl}/blob/${branch}/${fileName}`)}${line}`;
+		return `${this.encodeUrl(`${this.baseUrl}?path=${fileName}`)}${line}`;
 	}
 
 	protected async getProviderAccountForCommit(

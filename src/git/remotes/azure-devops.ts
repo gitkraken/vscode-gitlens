@@ -113,19 +113,19 @@ export class AzureDevOpsRemote extends RemoteProvider {
 	}
 
 	protected getUrlForBranches(): string {
-		return `${this.baseUrl}/branches`;
+		return this.encodeUrl(`${this.baseUrl}/branches`);
 	}
 
 	protected getUrlForBranch(branch: string): string {
-		return `${this.baseUrl}/?version=GB${branch}&_a=history`;
+		return this.encodeUrl(`${this.baseUrl}/?version=GB${branch}&_a=history`);
 	}
 
 	protected getUrlForCommit(sha: string): string {
-		return `${this.baseUrl}/commit/${sha}`;
+		return this.encodeUrl(`${this.baseUrl}/commit/${sha}`);
 	}
 
 	protected getUrlForComparison(base: string, compare: string, _notation: '..' | '...'): string {
-		return `${this.baseUrl}/branchCompare?baseVersion=GB${base}&targetVersion=GB${compare}`;
+		return this.encodeUrl(`${this.baseUrl}/branchCompare?baseVersion=GB${base}&targetVersion=GB${compare}`);
 	}
 
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
@@ -140,8 +140,8 @@ export class AzureDevOpsRemote extends RemoteProvider {
 			line = '';
 		}
 
-		if (sha) return `${this.baseUrl}/commit/${sha}/?_a=contents&path=/${fileName}${line}`;
-		if (branch) return `${this.baseUrl}/?path=/${fileName}&version=GB${branch}&_a=contents${line}`;
-		return `${this.baseUrl}?path=/${fileName}${line}`;
+		if (sha) return this.encodeUrl(`${this.baseUrl}/commit/${sha}/?_a=contents&path=/${fileName}${line}`);
+		if (branch) return this.encodeUrl(`${this.baseUrl}/?path=/${fileName}&version=GB${branch}&_a=contents${line}`);
+		return this.encodeUrl(`${this.baseUrl}?path=/${fileName}${line}`);
 	}
 }

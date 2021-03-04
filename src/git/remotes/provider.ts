@@ -145,34 +145,29 @@ export abstract class RemoteProvider implements RemoteProviderReference {
 	url(resource: RemoteResource): string | undefined {
 		switch (resource.type) {
 			case RemoteResourceType.Branch:
-				return encodeURI(this.getUrlForBranch(resource.branch));
+				return this.getUrlForBranch(resource.branch);
 			case RemoteResourceType.Branches:
-				return encodeURI(this.getUrlForBranches());
+				return this.getUrlForBranches();
 			case RemoteResourceType.Commit:
-				return encodeURI(this.getUrlForCommit(resource.sha));
+				return this.getUrlForCommit(resource.sha);
 			case RemoteResourceType.Comparison: {
-				const url = this.getUrlForComparison?.(resource.base, resource.compare, resource.notation ?? '...');
-				return url != null ? encodeURI(url) : undefined;
+				return this.getUrlForComparison?.(resource.base, resource.compare, resource.notation ?? '...');
 			}
 			case RemoteResourceType.File:
-				return encodeURI(
-					this.getUrlForFile(
-						resource.fileName,
-						resource.branchOrTag != null ? resource.branchOrTag : undefined,
-						undefined,
-						resource.range,
-					),
+				return this.getUrlForFile(
+					resource.fileName,
+					resource.branchOrTag != null ? resource.branchOrTag : undefined,
+					undefined,
+					resource.range,
 				);
 			case RemoteResourceType.Repo:
-				return encodeURI(this.getUrlForRepository());
+				return this.getUrlForRepository();
 			case RemoteResourceType.Revision:
-				return encodeURI(
-					this.getUrlForFile(
-						resource.fileName,
-						resource.branchOrTag != null ? resource.branchOrTag : undefined,
-						resource.sha != null ? resource.sha : undefined,
-						resource.range,
-					),
+				return this.getUrlForFile(
+					resource.fileName,
+					resource.branchOrTag != null ? resource.branchOrTag : undefined,
+					resource.sha != null ? resource.sha : undefined,
+					resource.range,
 				);
 			default:
 				return undefined;
@@ -211,6 +206,12 @@ export abstract class RemoteProvider implements RemoteProviderReference {
 		if (url == null) return undefined;
 
 		return env.openExternal(Uri.parse(url));
+	}
+
+	protected encodeUrl(url: string): string;
+	protected encodeUrl(url: string | undefined): string | undefined;
+	protected encodeUrl(url: string | undefined): string | undefined {
+		return url != null ? encodeURI(url).replace(/#/g, '%23') : undefined;
 	}
 }
 
