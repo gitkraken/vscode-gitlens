@@ -1,13 +1,14 @@
 'use strict';
 import * as paths from 'path';
 import { commands, ExtensionContext, extensions, window, workspace } from 'vscode';
-import { GitLensApi, OpenPullRequestActionContext } from '../src/api/gitlens';
+import { CreatePullRequestActionContext, GitLensApi, OpenPullRequestActionContext } from '../src/api/gitlens';
 import { Api } from './api/api';
 import { Commands, executeCommand, OpenPullRequestOnRemoteCommandArgs, registerCommands } from './commands';
+import { CreatePullRequestOnRemoteCommandArgs } from './commands/createPullRequestOnRemote';
 import { configuration, Configuration } from './configuration';
 import { ContextKeys, GlobalState, GlyphChars, setContext, SyncedState } from './constants';
 import { Container } from './container';
-import { Git, GitCommit } from './git/git';
+import { Git, GitBranch, GitCommit } from './git/git';
 import { GitService } from './git/gitService';
 import { GitUri } from './git/gitUri';
 import { Logger } from './logger';
@@ -206,6 +207,23 @@ export function notifyOnUnsupportedGitVersion(version: string) {
 
 function registerBuiltInActionRunners(context: ExtensionContext): void {
 	context.subscriptions.push(
+		Container.actionRunners.registerBuiltIn<CreatePullRequestActionContext>('createPullRequest', {
+			label: ctx => `Create Pull Request on ${ctx.remote?.provider?.name ?? 'Remote'}`,
+			run: async ctx => {
+				if (ctx.type !== 'createPullRequest') return;
+
+				void (await executeCommand<CreatePullRequestOnRemoteCommandArgs>(Commands.CreatePullRequestOnRemote, {
+					base: undefined,
+					compare: ctx.branch.isRemote
+						? GitBranch.getNameWithoutRemote(ctx.branch.name)
+						: ctx.branch.upstream
+						? GitBranch.getNameWithoutRemote(ctx.branch.upstream)
+						: ctx.branch.name,
+					remote: ctx.remote?.name ?? '',
+					repoPath: ctx.repoPath,
+				}));
+			},
+		}),
 		Container.actionRunners.registerBuiltIn<OpenPullRequestActionContext>('openPullRequest', {
 			label: ctx => `Open Pull Request on ${ctx.provider?.name ?? 'Remote'}`,
 			run: async ctx => {

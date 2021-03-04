@@ -63,19 +63,19 @@ export class GitRemote<TProvider extends RemoteProvider | undefined = RemoteProv
 		return this.id === defaultRemote;
 	}
 
-	get url(): string | undefined {
-		let url;
+	get url(): string {
+		let bestUrl: string | undefined;
 		for (const remoteUrl of this.urls) {
 			if (remoteUrl.type === GitRemoteType.Push) {
 				return remoteUrl.url;
 			}
 
-			if (url == null) {
-				url = remoteUrl.url;
+			if (bestUrl == null) {
+				bestUrl = remoteUrl.url;
 			}
 		}
 
-		return url;
+		return bestUrl!;
 	}
 
 	async setAsDefault(state: boolean = true, updateViews: boolean = true) {

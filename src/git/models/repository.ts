@@ -606,7 +606,7 @@ export class Repository implements Disposable {
 		return (await this.getRemotes()).find(r => r.name === remote);
 	}
 
-	getRemotes(_options: { sort?: boolean } = {}): Promise<GitRemote[]> {
+	async getRemotes(options: { filter?: (remote: GitRemote) => boolean; sort?: boolean } = {}): Promise<GitRemote[]> {
 		if (this._remotes == null || !this.supportsChangeEvents) {
 			if (this._providers == null) {
 				const remotesCfg = configuration.get('remotes', this.folder.uri);
@@ -618,7 +618,7 @@ export class Repository implements Disposable {
 			void this.subscribeToRemotes(this._remotes);
 		}
 
-		return this._remotes;
+		return options.filter != null ? (await this._remotes).filter(options.filter) : this._remotes;
 	}
 
 	async getRichRemote(connectedOnly: boolean = false): Promise<GitRemote<RichRemoteProvider> | undefined> {

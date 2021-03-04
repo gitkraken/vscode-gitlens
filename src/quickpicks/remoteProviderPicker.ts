@@ -33,8 +33,8 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 		private readonly clipboard?: boolean,
 	) {
 		super({
-			label: clipboard ? `Copy ${remote.provider.name} Url` : `Open on ${remote.provider.name}`,
-			detail: `$(repo) ${remote.provider.path}`,
+			label: `$(repo) ${remote.provider.path}`,
+			description: remote.name,
 		});
 	}
 
@@ -48,6 +48,17 @@ export class CopyOrOpenRemoteCommandQuickPickItem extends CommandQuickPickItem {
 			if (GitBranch.getRemote(resource.compare) === this.remote.name) {
 				resource = { ...resource, compare: GitBranch.getNameWithoutRemote(resource.compare) };
 			}
+		} else if (resource.type === RemoteResourceType.CreatePullRequest) {
+			let branch = resource.base.branch;
+			if (branch == null && this.remote.provider.hasApi()) {
+				const defaultBranch = await this.remote.provider.getDefaultBranch?.();
+				branch = defaultBranch?.name;
+			}
+
+			resource = {
+				...resource,
+				base: { branch: branch, remote: { path: this.remote.path, url: this.remote.url } },
+			};
 		} else if (
 			resource.type === RemoteResourceType.File &&
 			resource.branchOrTag != null &&
@@ -147,14 +158,14 @@ export namespace RemoteProviderPicker {
 		placeHolder: string,
 		resource: RemoteResource,
 		remotes: GitRemote<RemoteProvider>[],
-		options?: { clipboard?: boolean; setDefault?: boolean },
+		options?: { autoPick?: 'default' | boolean; clipboard?: boolean; setDefault?: boolean },
 	): Promise<
 		| ConfigureCustomRemoteProviderCommandQuickPickItem
 		| CopyOrOpenRemoteCommandQuickPickItem
 		| SetADefaultRemoteCommandQuickPickItem
 		| undefined
 	> {
-		const { clipboard, setDefault } = { clipboard: false, setDefault: true, ...options };
+		const { autoPick, clipboard, setDefault } = { autoPick: false, clipboard: false, setDefault: true, ...options };
 
 		let items: (
 			| ConfigureCustomRemoteProviderCommandQuickPickItem
@@ -163,14 +174,24 @@ export namespace RemoteProviderPicker {
 		)[];
 		if (remotes.length === 0) {
 			items = [new ConfigureCustomRemoteProviderCommandQuickPickItem()];
-			//
 			placeHolder = 'No auto-detected or configured remote providers found';
 		} else {
+			if (autoPick === 'default') {
+				// If there is a default just execute it directly
+				const remote = remotes.find(r => r.default);
+				if (remote != null) {
+					remotes = [remote];
+				}
+			}
+
 			items = remotes.map(r => new CopyOrOpenRemoteCommandQuickPickItem(r, resource, clipboard));
 			if (setDefault) {
 				items.push(new SetADefaultRemoteCommandQuickPickItem(remotes));
 			}
 		}
+
+		// eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+		if (autoPick && remotes.length === 1) return items[0];
 
 		const quickpick = window.createQuickPick<
 			| ConfigureCustomRemoteProviderCommandQuickPickItem

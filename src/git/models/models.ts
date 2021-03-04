@@ -344,6 +344,7 @@ export * from './blameCommit';
 export * from './branch';
 export * from './commit';
 export * from './contributor';
+export * from './defaultBranch';
 export * from './diff';
 export * from './file';
 export * from './issue';

@@ -4,7 +4,15 @@ import { DynamicAutolinkReference } from '../../annotations/autolinks';
 import { AutolinkReference } from '../../config';
 import { Container } from '../../container';
 import { GitHubPullRequest } from '../../github/github';
-import { Account, GitRevision, IssueOrPullRequest, PullRequest, PullRequestState, Repository } from '../models/models';
+import {
+	Account,
+	DefaultBranch,
+	GitRevision,
+	IssueOrPullRequest,
+	PullRequest,
+	PullRequestState,
+	Repository,
+} from '../models/models';
 import { RichRemoteProvider } from './provider';
 
 const issueEnricher3rdParyRegex = /\b(\w+\\?-?\w+(?!\\?-)\/\w+\\?-?\w+(?!\\?-))\\?#([0-9]+)\b/g;
@@ -143,6 +151,18 @@ export class GitHubRemote extends RichRemoteProvider {
 		return this.encodeUrl(`${this.baseUrl}/compare/${base}${notation}${compare}`);
 	}
 
+	protected getUrlForCreatePullRequest(
+		base: { branch?: string; remote: { path: string; url: string } },
+		compare: { branch: string; remote: { path: string; url: string } },
+	): string | undefined {
+		if (base.remote.url === compare.remote.url) {
+			return this.encodeUrl(`${this.baseUrl}/pull/new/${base.branch ?? 'HEAD'}...${compare.branch}`);
+		}
+
+		const [owner] = compare.remote.path.split('/', 1);
+		return this.encodeUrl(`${this.baseUrl}/pull/new/${base.branch ?? 'HEAD'}...${owner}:${compare.branch}`);
+	}
+
 	protected getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string {
 		let line;
 		if (range != null) {
@@ -188,6 +208,14 @@ export class GitHubRemote extends RichRemoteProvider {
 		});
 	}
 
+	protected async getProviderDefaultBranch({
+		accessToken,
+	}: AuthenticationSession): Promise<DefaultBranch | undefined> {
+		const [owner, repo] = this.splitPath();
+		return (await Container.github)?.getDefaultBranch(this, accessToken, owner, repo, {
+			baseUrl: this.apiBaseUrl,
+		});
+	}
 	protected async getProviderIssueOrPullRequest(
 		{ accessToken }: AuthenticationSession,
 		id: string,

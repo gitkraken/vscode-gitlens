@@ -9,6 +9,7 @@ export * from './commands/compareWith';
 export * from './commands/copyCurrentBranch';
 export * from './commands/copyMessageToClipboard';
 export * from './commands/copyShaToClipboard';
+export * from './commands/createPullRequestOnRemote';
 export * from './commands/openDirectoryCompare';
 export * from './commands/diffLineWithPrevious';
 export * from './commands/diffLineWithWorking';

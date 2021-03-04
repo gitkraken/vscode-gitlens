@@ -5,6 +5,7 @@ import { debug } from '../system';
 import {
 	AuthenticationError,
 	ClientError,
+	DefaultBranch,
 	IssueOrPullRequest,
 	PullRequest,
 	PullRequestState,
@@ -153,6 +154,63 @@ export class GitHubApi {
 				name: author.name ?? undefined,
 				email: author.email ?? undefined,
 				avatarUrl: author.avatarUrl,
+			};
+		} catch (ex) {
+			Logger.error(ex, cc);
+
+			if (ex.code >= 400 && ex.code <= 500) {
+				if (ex.code === 401) throw new AuthenticationError(ex);
+				throw new ClientError(ex);
+			}
+			throw ex;
+		}
+	}
+
+	@debug({
+		args: {
+			0: (p: RichRemoteProvider) => p.name,
+			1: _ => '<token>',
+		},
+	})
+	async getDefaultBranch(
+		provider: RichRemoteProvider,
+		token: string,
+		owner: string,
+		repo: string,
+		options?: {
+			baseUrl?: string;
+		},
+	): Promise<DefaultBranch | undefined> {
+		const cc = Logger.getCorrelationContext();
+
+		try {
+			const query = `query defaultBranch($owner: String!, $repo: String!) {
+	repository(name: $repo, owner: $owner) {
+		defaultBranchRef {
+			name
+		}
+	}
+}`;
+
+			const rsp = await graphql<{
+				repository: {
+					defaultBranchRef: {
+						name: string;
+					} | null;
+				} | null;
+			}>(query, {
+				owner: owner,
+				repo: repo,
+				headers: { authorization: `Bearer ${token}` },
+				...options,
+			});
+
+			const defaultBranch = rsp?.repository?.defaultBranchRef?.name ?? undefined;
+			if (defaultBranch == null) return undefined;
+
+			return {
+				provider: provider,
+				name: defaultBranch,
 			};
 		} catch (ex) {
 			Logger.error(ex, cc);

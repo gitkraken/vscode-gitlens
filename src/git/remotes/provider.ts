@@ -16,6 +16,7 @@ import { Container } from '../../container';
 import { Logger } from '../../logger';
 import {
 	Account,
+	DefaultBranch,
 	GitLogCommit,
 	IssueOrPullRequest,
 	PullRequest,
@@ -30,6 +31,7 @@ export enum RemoteResourceType {
 	Branches = 'branches',
 	Commit = 'commit',
 	Comparison = 'comparison',
+	CreatePullRequest = 'createPullRequest',
 	File = 'file',
 	Repo = 'repo',
 	Revision = 'revision',
@@ -52,6 +54,17 @@ export type RemoteResource =
 			base: string;
 			compare: string;
 			notation?: '..' | '...';
+	  }
+	| {
+			type: RemoteResourceType.CreatePullRequest;
+			base: {
+				branch?: string;
+				remote: { path: string; url: string };
+			};
+			compare: {
+				branch: string;
+				remote: { path: string; url: string };
+			};
 	  }
 	| {
 			type: RemoteResourceType.File;
@@ -81,6 +94,8 @@ export function getNameFromRemoteResource(resource: RemoteResource) {
 			return 'Commit';
 		case RemoteResourceType.Comparison:
 			return 'Comparison';
+		case RemoteResourceType.CreatePullRequest:
+			return 'Create Pull Request';
 		case RemoteResourceType.File:
 			return 'File';
 		case RemoteResourceType.Repo:
@@ -153,6 +168,9 @@ export abstract class RemoteProvider implements RemoteProviderReference {
 			case RemoteResourceType.Comparison: {
 				return this.getUrlForComparison?.(resource.base, resource.compare, resource.notation ?? '...');
 			}
+			case RemoteResourceType.CreatePullRequest: {
+				return this.getUrlForCreatePullRequest?.(resource.base, resource.compare);
+			}
 			case RemoteResourceType.File:
 				return this.getUrlForFile(
 					resource.fileName,
@@ -195,6 +213,11 @@ export abstract class RemoteProvider implements RemoteProviderReference {
 	protected abstract getUrlForCommit(sha: string): string;
 
 	protected getUrlForComparison?(base: string, compare: string, notation: '..' | '...'): string | undefined;
+
+	protected getUrlForCreatePullRequest?(
+		base: { branch?: string; remote: { path: string; url: string } },
+		compare: { branch: string; remote: { path: string; url: string } },
+	): string | undefined;
 
 	protected abstract getUrlForFile(fileName: string, branch?: string, sha?: string, range?: Range): string;
 
@@ -409,6 +432,32 @@ export abstract class RichRemoteProvider extends RemoteProvider {
 			avatarSize?: number;
 		},
 	): Promise<Account | undefined>;
+
+	@gate()
+	@debug()
+	async getDefaultBranch(): Promise<DefaultBranch | undefined> {
+		const cc = Logger.getCorrelationContext();
+
+		const connected = this.maybeConnected ?? (await this.isConnected());
+		if (!connected) return undefined;
+
+		try {
+			const defaultBranch = await this.getProviderDefaultBranch(this._session!);
+			this.invalidClientExceptionCount = 0;
+			return defaultBranch;
+		} catch (ex) {
+			Logger.error(ex, cc);
+
+			if (ex instanceof ClientError || ex instanceof AuthenticationError) {
+				this.handleClientException();
+			}
+			return undefined;
+		}
+	}
+
+	protected abstract getProviderDefaultBranch({
+		accessToken,
+	}: AuthenticationSession): Promise<DefaultBranch | undefined>;
 
 	@gate()
 	@debug()
