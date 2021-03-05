@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
   - `C` + green colorization &mdash; indicates that the file is/was copied
   - `I` + grey colorization &mdash; indicates that the file is ignored
   - `U` + green colorization &mdash; indicates that the file is untracked
+- Adds a new built-in _Create Pull Request_ flow that starts opening a pull request on github.com
 - Adds a new _Open Blame Prior to Change_ command (`gitlens.openBlamePriorToChange`) to open the blame of prior revision of the selected line in the current file &mdash; closes [#1014](https://github.com/eamodio/vscode-gitlens/issues/1014)
 - Adds new Git code lens action options
   - _Opens the commit on the remote service (when available)_ and _Copies the remote commit url to the clipboard (when available)_
