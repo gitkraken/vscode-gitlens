@@ -7,9 +7,10 @@ import {
 	StatusBarAlignment,
 	StatusBarItem,
 	TextEditor,
+	Uri,
 	window,
 } from 'vscode';
-import { Commands, ToggleFileChangesAnnotationCommandArgs } from '../commands';
+import { command, Commands, ToggleFileChangesAnnotationCommandArgs } from '../commands';
 import { configuration, FileAnnotationType, StatusBarCommand } from '../configuration';
 import { GlyphChars, isTextEditor } from '../constants';
 import { Container } from '../container';
@@ -229,28 +230,32 @@ export class StatusBarController implements Disposable {
 				this._statusBarBlame.tooltip = 'Toggle File Blame';
 				break;
 			case StatusBarCommand.ToggleFileChanges: {
-				const commandArgs: ToggleFileChangesAnnotationCommandArgs = {
-					type: FileAnnotationType.Changes,
-					context: { sha: commit.sha, only: false, selection: false },
-				};
-				this._statusBarBlame.command = {
+				this._statusBarBlame.command = command<[Uri, ToggleFileChangesAnnotationCommandArgs]>({
 					title: 'Toggle File Changes',
 					command: Commands.ToggleFileChanges,
-					arguments: [commit.uri, commandArgs],
-				};
+					arguments: [
+						commit.uri,
+						{
+							type: FileAnnotationType.Changes,
+							context: { sha: commit.sha, only: false, selection: false },
+						},
+					],
+				});
 				this._statusBarBlame.tooltip = 'Toggle File Changes';
 				break;
 			}
 			case StatusBarCommand.ToggleFileChangesOnly: {
-				const commandArgs: ToggleFileChangesAnnotationCommandArgs = {
-					type: FileAnnotationType.Changes,
-					context: { sha: commit.sha, only: true, selection: false },
-				};
-				this._statusBarBlame.command = {
+				this._statusBarBlame.command = command<[Uri, ToggleFileChangesAnnotationCommandArgs]>({
 					title: 'Toggle File Changes',
 					command: Commands.ToggleFileChanges,
-					arguments: [commit.uri, commandArgs],
-				};
+					arguments: [
+						commit.uri,
+						{
+							type: FileAnnotationType.Changes,
+							context: { sha: commit.sha, only: true, selection: false },
+						},
+					],
+				});
 				this._statusBarBlame.tooltip = 'Toggle File Changes';
 				break;
 			}
