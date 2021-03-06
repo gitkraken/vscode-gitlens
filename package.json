@@ -9363,7 +9363,7 @@
 		"sass-loader": "11.0.1",
 		"terser-webpack-plugin": "5.1.1",
 		"ts-loader": "8.0.17",
-		"typescript": "4.2.2",
+		"typescript": "4.2.3",
 		"vsce": "1.85.1",
 		"webpack": "5.24.3",
 		"webpack-bundle-analyzer": "4.4.0",
