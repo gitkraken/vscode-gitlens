@@ -293,7 +293,6 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 
 		commands.registerCommand(this.getQualifiedCommand('pin'), this.pin, this);
 		commands.registerCommand(this.getQualifiedCommand('unpin'), this.unpin, this);
-		commands.registerCommand(this.getQualifiedCommand('edit'), this.edit, this);
 		commands.registerCommand(this.getQualifiedCommand('swapComparison'), this.swapComparison, this);
 		commands.registerCommand(this.getQualifiedCommand('selectForCompare'), this.selectForCompare, this);
 		commands.registerCommand(this.getQualifiedCommand('compareWithSelected'), this.compareWithSelected, this);
@@ -464,12 +463,6 @@ export class SearchAndCompareView extends ViewBase<SearchAndCompareViewNode, Sea
 		root.addOrReplace(results, !this.keepResults);
 
 		setImmediate(() => this.reveal(results, options));
-	}
-
-	private edit(node: SearchResultsNode) {
-		if (!(node instanceof SearchResultsNode)) return undefined;
-
-		return node.edit();
 	}
 
 	private setFilesLayout(layout: ViewFilesLayout) {

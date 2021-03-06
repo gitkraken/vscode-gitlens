@@ -154,13 +154,15 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 		}
 
 		const item = new TreeItem(label, state);
-		item.command = {
-			title: `Compare ${this.branch.name}${this.compareWithWorkingTree ? ' (working)' : ''} with${
-				GlyphChars.Ellipsis
-			}`,
-			command: 'gitlens.views.executeNodeCallback',
-			arguments: [() => this.compareWith()],
-		};
+		if (this._compareWith == null) {
+			item.command = {
+				title: `Compare ${this.branch.name}${this.compareWithWorkingTree ? ' (working)' : ''} with${
+					GlyphChars.Ellipsis
+				}`,
+				command: 'gitlens.views.editNode',
+				arguments: [this],
+			};
+		}
 		item.contextValue = `${ContextValues.CompareBranch}${this.branch.current ? '+current' : ''}+${
 			this.comparisonType
 		}${this._compareWith == null ? '' : '+comparing'}${this.root ? '+root' : ''}`;
@@ -183,6 +185,11 @@ export class CompareBranchNode extends ViewNode<BranchesView | CommitsView | Rep
 
 		this._children = undefined;
 		this.view.triggerNodeChange(this);
+	}
+
+	@log()
+	async edit() {
+		await this.compareWith();
 	}
 
 	@gate()

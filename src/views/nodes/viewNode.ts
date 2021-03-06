@@ -157,10 +157,6 @@ export abstract class ViewRefFileNode<TView extends View = View> extends ViewRef
 	}
 }
 
-export function nodeSupportsClearing(node: ViewNode): node is ViewNode & { clear(): void | Promise<void> } {
-	return typeof (node as ViewNode & { clear(): void | Promise<void> }).clear === 'function';
-}
-
 export interface PageableViewNode {
 	readonly id: string;
 	limit?: number;
@@ -188,7 +184,7 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
 			this.view.onDidChangeNodeCollapsibleState(this.onNodeCollapsibleStateChanged, this),
 		];
 
-		if (viewSupportsAutoRefresh(this.view)) {
+		if (canAutoRefreshView(this.view)) {
 			disposables.push(this.view.onDidChangeAutoRefresh(this.onAutoRefreshChanged, this));
 		}
 
@@ -290,11 +286,7 @@ export abstract class SubscribeableViewNode<TView extends View = View> extends V
 	@debug()
 	async ensureSubscription() {
 		// We only need to subscribe if we are visible and if auto-refresh enabled (when supported)
-		if (
-			!this.canSubscribe ||
-			!this.view.visible ||
-			(viewSupportsAutoRefresh(this.view) && !this.view.autoRefresh)
-		) {
+		if (!this.canSubscribe || !this.view.visible || (canAutoRefreshView(this.view) && !this.view.autoRefresh)) {
 			await this.unsubscribe();
 
 			return;
@@ -438,10 +430,19 @@ interface AutoRefreshableView {
 	autoRefresh: boolean;
 	onDidChangeAutoRefresh: Event<void>;
 }
-export function viewSupportsAutoRefresh(view: View): view is View & AutoRefreshableView {
+
+export function canAutoRefreshView(view: View): view is View & AutoRefreshableView {
 	return Functions.is<View & AutoRefreshableView>(view, 'onDidChangeAutoRefresh');
 }
 
-export function viewSupportsNodeDismissal(view: View): view is View & { dismissNode(node: ViewNode): void } {
+export function canClearNode(node: ViewNode): node is ViewNode & { clear(): void | Promise<void> } {
+	return typeof (node as ViewNode & { clear(): void | Promise<void> }).clear === 'function';
+}
+
+export function canEditNode(node: ViewNode): node is ViewNode & { edit(): void | Promise<void> } {
+	return typeof (node as ViewNode & { edit(): void | Promise<void> }).edit === 'function';
+}
+
+export function canViewDismissNode(view: View): view is View & { dismissNode(node: ViewNode): void } {
 	return typeof (view as View & { dismissNode(node: ViewNode): void }).dismissNode === 'function';
 }

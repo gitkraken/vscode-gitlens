@@ -21,6 +21,9 @@ import {
 	BranchesNode,
 	BranchNode,
 	BranchTrackingStatusNode,
+	canClearNode,
+	canEditNode,
+	canViewDismissNode,
 	CommitFileNode,
 	CommitNode,
 	CompareBranchNode,
@@ -31,7 +34,6 @@ import {
 	FolderNode,
 	LineHistoryNode,
 	MergeConflictFileNode,
-	nodeSupportsClearing,
 	PageableViewNode,
 	PagerNode,
 	PullRequestNode,
@@ -49,7 +51,6 @@ import {
 	ViewNode,
 	ViewRefFileNode,
 	ViewRefNode,
-	viewSupportsNodeDismissal,
 } from './nodes';
 import { debug } from '../system';
 import { runGitCommandInTerminal } from '../terminal';
@@ -63,6 +64,7 @@ interface CompareSelectedInfo {
 
 export class ViewCommands {
 	constructor() {
+		commands.registerCommand('gitlens.views.clearNode', (n: ViewNode) => canClearNode(n) && n.clear(), this);
 		commands.registerCommand(
 			'gitlens.views.copy',
 			async (selection: ViewNode | ViewNode[]) => {
@@ -78,35 +80,30 @@ export class ViewCommands {
 			this,
 		);
 		commands.registerCommand(
+			'gitlens.views.dismissNode',
+			(n: ViewNode) => canViewDismissNode(n.view) && n.view.dismissNode(n),
+			this,
+		);
+		commands.registerCommand('gitlens.views.editNode', (n: ViewNode) => canEditNode(n) && n.edit(), this);
+		commands.registerCommand(
+			'gitlens.views.expandNode',
+			(n: ViewNode) => n.view.reveal(n, { select: false, focus: false, expand: 3 }),
+			this,
+		);
+		commands.registerCommand('gitlens.views.loadMoreChildren', (n: PagerNode) => n.loadMore(), this);
+		commands.registerCommand('gitlens.views.loadAllChildren', (n: PagerNode) => n.loadAll(), this);
+		commands.registerCommand(
 			'gitlens.views.refreshNode',
-			(node: ViewNode, reset?: boolean) => {
-				if (reset == null && PageableViewNode.is(node)) {
-					node.limit = undefined;
-					node.view.resetNodeLastKnownLimit(node);
+			(n: ViewNode, reset?: boolean) => {
+				if (reset == null && PageableViewNode.is(n)) {
+					n.limit = undefined;
+					n.view.resetNodeLastKnownLimit(n);
 				}
 
-				return node.view.refreshNode(node, reset == null ? true : reset);
+				return n.view.refreshNode(n, reset == null ? true : reset);
 			},
 			this,
 		);
-		commands.registerCommand(
-			'gitlens.views.expandNode',
-			(node: ViewNode) => node.view.reveal(node, { select: false, focus: false, expand: 3 }),
-			this,
-		);
-		commands.registerCommand(
-			'gitlens.views.clearNode',
-			(node: ViewNode) => nodeSupportsClearing(node) && node.clear(),
-			this,
-		);
-		commands.registerCommand(
-			'gitlens.views.dismissNode',
-			(node: ViewNode) => viewSupportsNodeDismissal(node.view) && node.view.dismissNode(node),
-			this,
-		);
-		commands.registerCommand('gitlens.views.executeNodeCallback', (fn: <R>() => Promise<R>) => fn(), this);
-		commands.registerCommand('gitlens.views.loadMoreChildren', (node: PagerNode) => node.loadMore(), this);
-		commands.registerCommand('gitlens.views.loadAllChildren', (node: PagerNode) => node.loadAll(), this);
 
 		commands.registerCommand(
 			'gitlens.views.setShowRelativeDateMarkersOn',
@@ -259,6 +256,16 @@ export class ViewCommands {
 	}
 
 	@debug()
+	private browseRepoAtRevision(node: ViewRefNode, options?: { before?: boolean; openInNewWindow?: boolean }) {
+		if (!(node instanceof ViewRefNode)) return Promise.resolve();
+
+		return GitActions.browseAtRevision(node.uri, {
+			before: options?.before,
+			openInNewWindow: options?.openInNewWindow,
+		});
+	}
+
+	@debug()
 	private cherryPick(node: CommitNode) {
 		if (!(node instanceof CommitNode)) return Promise.resolve();
 
@@ -334,16 +341,6 @@ export class ViewCommands {
 		if (!(node instanceof TagNode)) return Promise.resolve();
 
 		return GitActions.Tag.remove(node.repoPath, node.tag);
-	}
-
-	@debug()
-	private browseRepoAtRevision(node: ViewRefNode, options?: { before?: boolean; openInNewWindow?: boolean }) {
-		if (!(node instanceof ViewRefNode)) return Promise.resolve();
-
-		return GitActions.browseAtRevision(node.uri, {
-			before: options?.before,
-			openInNewWindow: options?.openInNewWindow,
-		});
 	}
 
 	@debug()

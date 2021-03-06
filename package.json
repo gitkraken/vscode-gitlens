@@ -4257,6 +4257,12 @@
 				"icon": "$(close)"
 			},
 			{
+				"command": "gitlens.views.editNode",
+				"title": "Edit...",
+				"category": "GitLens",
+				"icon": "$(edit)"
+			},
+			{
 				"command": "gitlens.views.expandNode",
 				"title": "Expand",
 				"category": "GitLens"
@@ -4850,12 +4856,6 @@
 				"title": "Search Commits...",
 				"category": "GitLens",
 				"icon": "$(search)"
-			},
-			{
-				"command": "gitlens.views.searchAndCompare.edit",
-				"title": "Edit...",
-				"category": "GitLens",
-				"icon": "$(edit)"
 			},
 			{
 				"command": "gitlens.views.searchAndCompare.selectForCompare",
@@ -5809,6 +5809,10 @@
 					"when": "false"
 				},
 				{
+					"command": "gitlens.views.editNode",
+					"when": "false"
+				},
+				{
 					"command": "gitlens.views.expandNode",
 					"when": "false"
 				},
@@ -6230,10 +6234,6 @@
 				},
 				{
 					"command": "gitlens.views.searchAndCompare.searchCommits",
-					"when": "false"
-				},
-				{
-					"command": "gitlens.views.searchAndCompare.edit",
 					"when": "false"
 				},
 				{
@@ -8111,6 +8111,11 @@
 					"group": "inline@99"
 				},
 				{
+					"command": "gitlens.views.editNode",
+					"when": "viewItem =~ /gitlens:compare:branch\\b(?=.*?\\b\\+comparing\\b)/",
+					"group": "inline@98"
+				},
+				{
 					"command": "gitlens.views.setBranchComparisonToWorking",
 					"when": "viewItem =~ /gitlens:compare:branch\\b(?=.*?\\b\\+root\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+branch\\b)/",
 					"group": "inline@2"
@@ -8119,6 +8124,11 @@
 					"command": "gitlens.views.setBranchComparisonToBranch",
 					"when": "viewItem =~ /gitlens:compare:branch\\b(?=.*?\\b\\+root\\b)(?=.*?\\b\\+current\\b)(?=.*?\\b\\+working\\b)/",
 					"group": "inline@2"
+				},
+				{
+					"command": "gitlens.views.editNode",
+					"when": "viewItem =~ /gitlens:compare:branch\\b(?=.*?\\b\\+comparing\\b)/",
+					"group": "1_gitlens@1"
 				},
 				{
 					"command": "gitlens.views.setBranchComparisonToWorking",
@@ -8201,12 +8211,12 @@
 					"group": "8_gitlens_actions@1"
 				},
 				{
-					"command": "gitlens.views.searchAndCompare.edit",
+					"command": "gitlens.views.editNode",
 					"when": "viewItem =~ /gitlens:search:results(?!:)\\b/",
 					"group": "inline@1"
 				},
 				{
-					"command": "gitlens.views.searchAndCompare.edit",
+					"command": "gitlens.views.editNode",
 					"when": "viewItem =~ /gitlens:search:results(?!:)\\b/",
 					"group": "1_gitlens_actions@1"
 				},
